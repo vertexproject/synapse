@@ -43,10 +43,21 @@ class Linker(Dispatcher,StateMachine):
     def runLinkMain(self):
         '''
         Fire off the link managers to run and maintain links.
+
+        Example:
+
+            linker.runLinkMain()
+
+        Notes:
+
+            * One *must* call this API to begin link management
+
         '''
         self.linkrun = True
         for link in self.links.values():
             self.runLink(link)
+
+        self.synFire('linkrun')
 
     def getLinkModule(self, linktype):
         '''
