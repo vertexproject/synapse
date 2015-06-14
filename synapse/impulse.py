@@ -7,6 +7,12 @@ import synapse.dispatch as s_dispatch
 
 class Hub(s_socket.SocketPool):
     '''
+    An impulse Hub is a broadcast service which forwards all
+    provided events to all current listeners.
+
+    Notes:
+        * Any serializable objects may be rebroadcast.
+
     '''
     def __init__(self, statefd=None):
         s_socket.SocketPool.__init__(self,statefd=statefd)
