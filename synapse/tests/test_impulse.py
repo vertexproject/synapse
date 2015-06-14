@@ -6,9 +6,9 @@ import synapse.impulse as s_impulse
 
 class ImpulseTest(unittest.TestCase):
 
-    def test_impulse_hub(self):
+    def _impulse_hub(self):
 
-        link = ('tcpd',{'host':'127.0.0.1','port':62269})
+        link = ('tcp',{'host':'127.0.0.1','port':62269})
 
         hub = s_impulse.Hub()
         hub.runSockPool()
@@ -17,7 +17,7 @@ class ImpulseTest(unittest.TestCase):
         def letsrawk(sock):
             evt.set()
 
-        hub.synOn('linksock',letsrawk)
+        hub.synOn('sockinit',letsrawk)
         hub.runLink(link)
 
         evt.wait()

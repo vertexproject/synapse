@@ -1,4 +1,7 @@
 import socket
+
+from urllib.parse import urlparse, parse_qsl
+
 import synapse.link as s_link
 import synapse.socket as s_socket
 
@@ -30,3 +33,24 @@ def initLinkSock(link):
 
     sockaddr = (host,port)
     return s_socket.connect(sockaddr)
+
+def initLinkServSock(link):
+    host = link[1].get('host')
+    port = link[1].get('port')
+
+    sockaddr = (host,port)
+    return s_socket.listen(sockaddr)
+
+def initLinkFromUri(uri):
+    p = urlparse(uri)    
+
+    port = p.port
+    host = p.hostname
+
+    info = dict( parse_qsl( p.query ) )
+    info['host'] = host
+    info['port'] = port
+
+    link = ('tcp',info)
+    reqValidLink(link)
+    return link

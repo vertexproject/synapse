@@ -3,6 +3,7 @@ import queue
 import socket
 import msgpack
 import selectors
+import threading
 import traceback
 
 import synapse.link as s_link
@@ -19,9 +20,10 @@ class Socket(Dispatcher):
         self.sock = sock
         self.unpk = msgpack.Unpacker(use_list=0,encoding='utf8')
         self.ident = s_common.guid()
+        self.crypto = None
         self.sockinfo = info
 
-        self.synOn('fini', self._close)
+        self.synOn('fini', self._finiSocket)
 
     def getSockId(self):
         '''
@@ -77,13 +79,22 @@ class Socket(Dispatcher):
         byts = b''
         remain = size
         while remain:
-            x = self.sock.recv(remain)
+            x = self.recv(remain)
             if not x:
                 self.synFireFini()
                 return None
             byts += x
             remain -= len(x)
+
+        if self.crypto:
+            byts = self.crypto.decrypt(byts)
+
         return byts
+
+    def sendall(self, byts):
+        if self.crypto:
+            byts = self.crypto.encrypt(byts)
+        return self.sock.sendall(byts)
 
     def sendSockMesg(self, msg):
         '''
@@ -101,11 +112,16 @@ class Socket(Dispatcher):
 
         '''
         try:
-            self.sock.sendall( msgpack.dumps(msg, use_bin_type=True) )
+            self.sendall( msgpack.dumps(msg, use_bin_type=True) )
             return True
         except socket.error as e:
-            self.synFireFini()
+            self.close()
             return False
+
+    def sendSockErr(self, code, msg, **info):
+        info['msg'] = msg
+        info['code'] = code
+        return self.sendSockMesg( ('err',info) )
 
     def recvSockMesg(self):
         '''
@@ -113,6 +129,10 @@ class Socket(Dispatcher):
         '''
         while not self.isfini:
             byts = self.recv(102400)
+            if not byts:
+                self.close()
+                return None
+
             self.unpk.feed(byts)
             for obj in self.unpk:
                 return obj
@@ -135,6 +155,9 @@ class Socket(Dispatcher):
             yield obj
 
     def __iter__(self):
+        '''
+        Receive loop which yields messages until socket close.
+        '''
         while not self.isfini:
 
             byts = self.recv(1024000)
@@ -145,6 +168,13 @@ class Socket(Dispatcher):
             self.unpk.feed(byts)
             for obj in self.unpk:
                 yield obj
+
+    #def __enter__(self):
+        #self.lock.acquire()
+        #return self
+
+    #def __exit__(self, t, v, tb):
+        #self.close()
 
     def accept(self):
         conn,addr = self.sock.accept()
@@ -162,15 +192,22 @@ class Socket(Dispatcher):
         ( makes them look like a simple close )
         '''
         try:
-            return self.sock.recv(size)
+            byts = self.sock.recv(size)
+            if self.crypto:
+                byts = self.crypto.decrypt(byts)
+            return byts
         except socket.error as e:
             # synFireFini triggered above.
             return b''
 
+    def _setCryptoProv(self, prov):
+        prov.initSockCrypto(self)
+        self.crypto = prov
+
     def __getattr__(self, name):
         return getattr(self.sock, name)
 
-    def _close(self):
+    def _finiSocket(self):
         try:
             self.sock.close()
         except OSError as e:
@@ -206,7 +243,7 @@ class SocketPool(s_link.Linker):
         # Linker is also Dispatcher and StateMachine so
         # it must go after we've got our local data setup
         s_link.Linker.__init__(self, statefd=statefd)
-        self.synOn('linksock', self.addSockToPool )
+        self.synOn('sockinit', self.addSockToPool )
 
     def getPoolInfo(self, prop):
         '''
