@@ -165,12 +165,11 @@ class LinkerTest(unittest.TestCase):
             reply = client.txrxLinkMesg( ('woot',1) )
 
         self.assertEqual( reply, ('woot',2) )
+        self.assertEqual( data.get('count'), 2)
 
         serv.synFireFini()
         client.synFireFini()
 
-        # one extra for the shutdown wake
-        self.assertEqual( data.get('count'), 3)
 
     def test_link_fromuri_tcp(self):
 
