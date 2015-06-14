@@ -25,6 +25,9 @@ class Socket(Dispatcher):
 
         self.synOn('fini', self._finiSocket)
 
+    def __repr__(self):
+        return 'Socket: %r' % (self.sockinfo,)
+
     def getSockId(self):
         '''
         Get the GUID for this socket.
@@ -81,7 +84,6 @@ class Socket(Dispatcher):
         while remain:
             x = self.recv(remain)
             if not x:
-                self.synFireFini()
                 return None
             byts += x
             remain -= len(x)
@@ -130,7 +132,6 @@ class Socket(Dispatcher):
         while not self.isfini:
             byts = self.recv(102400)
             if not byts:
-                self.close()
                 return None
 
             self.unpk.feed(byts)
@@ -147,7 +148,6 @@ class Socket(Dispatcher):
 
         byts = self.recv(1024000)
         if not byts:
-            self.close()
             return
             
         self.unpk.feed(byts)
@@ -195,6 +195,10 @@ class Socket(Dispatcher):
             byts = self.sock.recv(size)
             if self.crypto:
                 byts = self.crypto.decrypt(byts)
+
+            if not byts:
+                self.close()
+
             return byts
         except socket.error as e:
             # synFireFini triggered above.
@@ -329,6 +333,7 @@ class SocketPool(s_link.Linker):
             self.seltor.unregister(sock)
 
         sock.synOn('fini',popsock)
+        self.synOn('fini', sock.close, weak=True)
         self.socks[ sid ] = sock
         self.seltor.register(sock,selectors.EVENT_READ)
 
@@ -416,8 +421,8 @@ class SocketPool(s_link.Linker):
                     continue
 
                 if sock.getSockInfo('listen'):
-                    conn,addr = sock.accept()
-                    self.addSockToPool( Socket(conn) )
+                    sock,addr = sock.accept()
+                    self.addSockToPool( sock )
                     continue
 
                 for msg in sock.recvMesgYield():
@@ -446,7 +451,7 @@ class SocketPool(s_link.Linker):
         self.iothr.join()
 
         for sock in self.getPoolSocks():
-            sock.synFireFini()
+            sock.close()
 
         for i in range(len(self.threads)):
             self.msgq.put(None)
