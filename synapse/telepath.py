@@ -4,55 +4,98 @@ An RMI framework for synapse.
 import traceback
 
 import synapse.link as s_link
-import synapse.common as s_common
+import synapse.service as s_service
 
-class Server(s_link.LinkServer):
+from synapse.common import *
+
+class Telepath(s_service.Service):
     '''
-    Telepath RMI Server
+    Telepath RMI Service
 
     Example:
 
-        import synapse.telepath as s_telepath
+        import synapse.daemon as s_daemon
 
         class Foo:
             def bar(self, x, y):
                 return x + y
 
-        link = ('tcp',{'host':'127.0.0.1','port':5656})
-        serv = s_telepath.Server(link)
+        daemon = s_daemon.initTcpServer('0.0.0.0',9999)
 
-        foo = Foo()
-        serv.addSharedObject('foo',foo)
-        serv.runLinkServer()
-
-    Dispatcher Hooks:
-
-        synFire('sockinit',sock)    # on new sock connection
-
-            Called for each newly connected socket.
-
-        synFire('tele:call:auth',sock,mesg) # 
-
-            Called for every client request to call an API.
-            May be used to enforce perms etc.  Any hook in the chain
-            returning False will cause the call request to be denied.
+        tele = daemon.loadSynService('telepath')
+        tele.addSharedObject('foo',Foo())
 
     '''
+    def initServiceLocals(self):
+        self.shared = {}
+        self.methods = {}
 
-    def __init__(self, link, linker=None, **info):
-        s_link.LinkServer.__init__(self, link, linker=linker)
-        self.synOn('sockmesg', self._onSockMesg )
+        self.setMesgMethod('tele:syn', self._onMesgTeleSyn )
+        self.setMesgMethod('tele:call', self._onMesgTeleCall )
 
-        self.shared = {}        # shared objects by name
-        self.methods = {}       # objname:[meth,...]
-        #self.teleinfo = info
+        self.teleconf = self.daemon.getPathTreeNode( ('services','telepath') )
 
-        self.handlers = {
-            'tele:syn':self._onMesgSyn,
-            'tele:call':self._onMesgCall,
-            #'open':self._onMesgOpen,
-        }
+        self.apikeys = self.daemon.getPathTreeNode( ('services','telepath','apikeys') )
+        self.apirules = self.daemon.getPathTreeNode( ('services','telepath','apirules') )
 
+        if self.teleconf.get('useapikeys') == None:
+            self.teleconf.set('useapikeys',False)
+
+    def addApiKey(self, apikey, enabled=True):
+        '''
+        Add a new API key to the built in telepath auth subsystem.
+
+        Example:
+
+            apikey = guid()
+            tele.addApiKey( apikey )
+
+        '''
+        if self.apikeys.get(apikey) != None:
+            raise DupApiKey()
+
+        path = ('services','telepath','apikeys',apikey,'enabled')
+        self.daemon.pathtree.set( path, enabled )
+
+    def addApiKeyAllow(self, apikey, objname, methname):
+        '''
+        Add an allow rule for an API key to call a telepath API.
+
+        Example:
+
+            # allow apikey to call foo.bar()
+            tele.addApiKeyAllow(apikey,'foo','bar')
+
+        '''
+        if self.apikeys.get(apikey) == None:
+            raise NoSuchApiKey()
+
+        path = ('services','telepath','apirules',apikey)
+        node = self.daemon.pathtree.node(path)
+
+        node.set( rule, True )
+
+    def delApiKeyAllow(self, apikey, objname, methname):
+        '''
+        Remove an allow rule for an API key to call a telepath API.
+        '''
+        rule = (objname,methname)
+        path = ('services','telepath','apirules',apikey)
+
+        node = self.daemon.pathtree.node(path)
+
+        node.pop(rule)
+
+    def isApiKeyAllow(self, apikey, objname, methname):
+        '''
+        Check if a given API key is allowed to call a telepath API.
+        '''
+        rules = self.apirules.get(apikey)
+        if rules == None:
+            return False
+
+        rule = (objname,methname)
+        return rules.get( rule )
 
     def addSharedObject(self, name, obj):
         '''
@@ -78,23 +121,7 @@ class Server(s_link.LinkServer):
         '''
         return self.shared.pop(name,None)
 
-    #@keepstate
-    #def setTeleInfo(self, prop, valu):
-        #self.synFire('tele:info',prop,valu)
-        #self.synFire('tele:info:%s' % prop, valu)
-        #self.teleinfo[prop] = valu
-
-    def _onSockMesg(self, sock, mesg):
-        meth = self.handlers.get(mesg[0])
-        if meth == None:
-            return
-
-        try:
-            meth(sock,mesg)
-        except Exception as e:
-            self.synFire('err',exc)
-
-    def _onMesgSyn(self, sock, mesg):
+    def _onMesgTeleSyn(self, sock, mesg):
         '''
         Handle an initial "syn" message from a newly connected client.
 
@@ -102,51 +129,54 @@ class Server(s_link.LinkServer):
         srv: ('syn',{'meths':[name1, name2, ...],})
 
         '''
-        #name = mesg[1].get('obj')
         sock.setSockInfo('tele:syn',True)
-        sock.sendSockMesg( ('tele:syn',{}) )
+        authinfo = mesg[1].get('authinfo')
 
-    def _onMesgCall(self, sock, mesg):
-        '''
-        cli: ('tele:call',{'obj':<name>,'meth':<name>,'args':<args>,'kwargs':<kwargs>})
-        srv: ('tele:call',{'ret':<ret>})  or  ('tele:call',{'exc':<str>})
-        '''
+        ident = self.daemon.getAuthIdent(authinfo)
+        sock.setSockInfo('tele:ident',ident)
+
+        return tufo('tele:syn')
+
+    def _onMesgTeleCall(self, sock, mesg):
 
         if not sock.getSockInfo('tele:syn'):
-            sock.sendSockErr('nosyn','no syn mesg received')
+            sock.senderr('nosyn','no syn mesg received')
             return
 
         _,msginfo = mesg
 
         # see if all 'tele:call:auth' listeners approve...
-        authres = self.synFire('tele:call:auth',sock,mesg)
-        if not all(authres):
-            sock.sendSockErr('noperm','permission denied')
+        #authres = self.synFire('tele:call:auth',sock=sock,mesg=mesg)
+        #if not all(authres):
+            #sock.senderr('noperm','permission denied')
+            #return
+
+        oname,mname,args,kwargs = mesg[1].get('teletask')
+
+        rule = 'tele.call.%s.%s' % (oname,mname)
+
+        ident = sock.getSockInfo('tele:ident')
+        if not self.daemon.getAuthAllow(ident,rule):
+            sock.senderr('noperm','permission denied')
             return
 
-        oname = msginfo.get('obj')
         obj = self.shared.get(oname)
         if obj == None:
-            sock.sendSockErr('noobj','no such object: %s' % (oname,))
-            return
+            return tufo('err',code='noobj')
 
-        mname = msginfo.get('meth')
         meth = getattr(obj,mname,None)
         if meth == None:
-            sock.sendSockErr('nometh','no such method: %s' % (mname,))
-            return
-
-        args = msginfo.get('args')
-        kwargs = msginfo.get('kwargs')
+            return tufo('err',code='nometh')
 
         try:
-            ret = meth(*args,**kwargs)
-            sock.sendSockMesg( ('tele:call',{'ret':ret}) )
+            return tufo('tele:call', ret=meth(*args,**kwargs) )
+
         except Exception as e:
             trace = traceback.format_exc()
-            sock.sendSockMesg( ('tele:call',{'exc':str(e),'trace':trace}) )
+            return tufo('tele:call',exc=str(e),trace=trace)
 
 class TeleProtoError(Exception):pass
+class TelePermDenied(Exception):pass
 class RemoteException(Exception):pass
 
 class ProxyMeth:
@@ -156,13 +186,9 @@ class ProxyMeth:
         self.proxy = proxy
 
     def __call__(self, *args, **kwargs):
-        mesg = ('tele:call',{
-                    'obj':self.proxy.objname,
-                    'meth':self.name,
-                    'args':args,
-                    'kwargs':kwargs})
+        task = (self.proxy.objname, self.name, args, kwargs)
+        reply = self.proxy.sendAndRecv('tele:call',teletask=task)
 
-        reply = self.proxy.txrxLinkMesg( mesg )
         if reply[0] == 'tele:call':
             exc = reply[1].get('exc')
             if exc != None:
@@ -170,17 +196,20 @@ class ProxyMeth:
 
             return reply[1].get('ret')
 
+        if reply[1].get('code') == 'noperm':
+            raise TelePermDenied()
+
         raise TeleProtoError( reply[1].get('msg') )
             
-
 class Proxy(s_link.LinkClient):
 
     # FIXME make these use links!
-    def __init__(self, objname, link, linker=None):
-        self.objname = objname
-        s_link.LinkClient.__init__(self, link, linker=linker)
+    def __init__(self, link):
+        self.objname = link[1].get('telepath')
+        s_link.LinkClient.__init__(self, link)
 
-        self.txrxLinkMesg( ('tele:syn',{}) )
+        authinfo = link[1].get('authinfo')
+        self.sendAndRecv('tele:syn',authinfo=authinfo)
 
     def __getattr__(self, name):
         meth = ProxyMeth(self, name)

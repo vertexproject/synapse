@@ -1,7 +1,10 @@
 import time
 import unittest
 
+import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
+
+from synapse.common import *
 
 class Foo:
 
@@ -18,41 +21,76 @@ class Foo:
 class TelePathTest(unittest.TestCase):
 
     def getFooServ(self):
-        link = ('tcp',{'host':'127.0.0.1','port':0})
+        link = ('tcpd',{'host':'127.0.0.1','port':0})
 
-        serv = s_telepath.Server(link)
-        serv.addSharedObject('foo',Foo())
-        sockaddr = serv.runLinkServer()
+        daemon = s_daemon.Daemon()
+        daemon.runLink(link)
 
-        link[1]['port'] = sockaddr[1]
+        tele = daemon.loadSynService('telepath')
+        tele.addSharedObject('foo',Foo())
 
-        return serv,link
+        return daemon,link
 
     def test_telepath_basics(self):
 
-        serv,link = self.getFooServ()
+        daemon,link = self.getFooServ()
 
-        foo = s_telepath.Proxy('foo',link)
+        port = link[1].get('port')
+
+        cli = ('tcp',{'host':'127.0.0.1','port':port,'telepath':'foo'})
+        foo = s_telepath.Proxy(cli)
 
         s = time.time()
         for i in range(1000):
             foo.speed()
         e = time.time()
 
-        # ensure perf is at *least* 5k/sec base case
-        self.assertTrue( (e - s) < 0.2 )
+        # ensure perf is still good...
+        self.assertTrue( (e - s) < 0.15 )
 
         self.assertEqual( foo.bar(10,20), 30 )
         self.assertRaises( s_telepath.TeleProtoError, foo.faz, 10, 20 )
         self.assertRaises( s_telepath.RemoteException, foo.baz, 10, 20 )
 
-        serv.synFireFini()
-        foo.synFireFini()
+        foo.synFini()
+        daemon.synFini()
 
+    def test_telepath_auth_apikey(self):
+
+        daemon,link = self.getFooServ()
+
+        authmod = s_daemon.ApiKeyAuth(daemon)
+
+        apikey = guid()
+
+        authmod.addAuthAllow(apikey,'tele.call.foo.bar')
+        daemon.setAuthModule(authmod)
+
+        port = link[1].get('port')
+
+        #cli = ('tcp',{'host':'127.0.0.1','port':port,'telepath':'foo','authinfo':authinfo})
+        cli = ('tcp',{'host':'127.0.0.1','port':port,'telepath':'foo'})
+        foo = s_telepath.Proxy(cli)
+
+        self.assertRaises( s_telepath.TelePermDenied, foo.bar, 20, 30)
+
+        foo.synFini()
+
+        cli[1]['authinfo'] = {'apikey':apikey}
+
+        foo = s_telepath.Proxy(cli)
+        self.assertEqual( foo.bar(20,30), 50 )
+
+        daemon.synFini()
+        foo.synFini()
+
+    '''
     def test_telepath_auth(self):
 
         data = {'allow':True}
-        def callauth(sock,mesg):
+        def callauth(event):
+            sock = event[1].get('sock')
+            mesg = event[1].get('mesg')
             return data.get('allow')
 
         serv,link = self.getFooServ()
@@ -65,3 +103,4 @@ class TelePathTest(unittest.TestCase):
         data['allow'] = False
 
         self.assertRaises( s_telepath.TeleProtoError, foo.bar, 10, 20)
+    '''

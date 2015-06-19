@@ -1,31 +1,34 @@
 import unittest
 
 import synapse.link as s_link
-import synapse.crypto as s_crypto
-import synapse.socket as s_socket
+import synapse.daemon as s_daemon
 
 class CryptoTest(unittest.TestCase):
 
     def test_crypto_rc4(self):
 
+        link = ('tcpd',{'host':'127.0.0.1','port':0,'rc4key':b'asdfasdf'})
+
         data = {}
-        def sockmesg(sock,mesg):
-            data['mesg'] = mesg
-            sock.sendSockMesg(('woot',2))
+        def wootmesg(sock,mesg):
+            data['foo'] = mesg[1].get('foo')
+            return ('woot2',{})
 
-        link = ('tcp',{'host':'127.0.0.1','port':0,'rc4key':b'asdfasdf'})
+        daemon = s_daemon.Daemon()
+        daemon.setMesgMethod('woot1',wootmesg)
 
-        serv = s_link.LinkServer(link)
-        serv.synOn('sockmesg',sockmesg)
-        addr = serv.runLinkServer()
+        daemon.runLink(link)
 
-        link[1]['port'] = addr[1]
+        port = link[1].get('port')
 
-        clin = s_link.LinkClient(link)
-        reply = clin.txrxLinkMesg( ('woot',1) )
+        link2 = ('tcp',{'host':'127.0.0.1','port':port,'rc4key':b'asdfasdf'})
 
-        self.assertEqual( reply, ('woot',2) )
-        self.assertEqual( data.get('mesg'), ('woot',1) )
 
-        serv.synFireFini()
-        clin.synFireFini()
+        client = s_link.LinkClient(link)
+        repl = client.sendAndRecv('woot1',foo=2)
+
+        self.assertEqual( repl[0], 'woot2' )
+        self.assertEqual( data.get('foo'), 2)
+
+        daemon.synFini()
+        client.synFini()

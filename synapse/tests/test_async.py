@@ -8,13 +8,16 @@ class AsyncTests(unittest.TestCase):
         boss = s_async.AsyncBoss()
 
         data = {}
-        def ondone(ret):
+        def ondone(event):
+            ret = event[1].get('ret')
             data['done'] = ret
 
-        def onerr(exc):
+        def onerr(event):
+            exc = event[1].get('exc')
             data['err'] = exc
 
-        def onshut(exc):
+        def onshut(event):
+            exc = event[1].get('exc')
             data['shut'] = exc
 
         job1 = boss.initAsyncJob()
@@ -48,7 +51,7 @@ class AsyncTests(unittest.TestCase):
         self.assertEqual( len(boss.getAsyncJobs()), 1)
         self.assertIsNotNone( boss.getAsyncJob(jid3) )
 
-        boss.synFireFini()
+        boss.synFini()
 
         self.assertTrue( isinstance(data.get('shut'),s_async.BossShutDown))
         self.assertIsNone( boss.getAsyncJob(jid3) )
@@ -67,13 +70,13 @@ class AsyncTests(unittest.TestCase):
         job.waitForJob()
 
         self.assertEqual( job.retval, 40 )
-        boss.synFireFini()
+        boss.synFini()
 
     def test_async_pool_nopool(self):
         boss = s_async.AsyncBoss()
         job = boss.initAsyncJob()
         self.assertRaises(s_async.BossHasNoPool, job.runInPool )
-        boss.synFireFini()
+        boss.synFini()
 
     def test_async_pool_basics(self):
 
@@ -88,10 +91,11 @@ class AsyncTests(unittest.TestCase):
         foo = Foo()
 
         data = {}
-        def ondone(x):
-            data['done'] = x
-        def onerr(y):
-            data['err'] = y
+        def ondone(event):
+            data['done'] = event[1].get('ret')
+
+        def onerr(event):
+            data['err'] = event[1].get('exc')
 
         job1 = boss.initAsyncJob()
         job1.synOn('done',ondone)

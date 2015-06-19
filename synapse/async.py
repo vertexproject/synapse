@@ -4,7 +4,7 @@ import threading
 
 import synapse.common as s_common
 import synapse.threads as s_threads
-import synapse.dispatch as s_dispatch
+import synapse.eventbus as s_eventbus
 
 class AsyncError(Exception):pass
 class JobTimedOut(AsyncError):pass
@@ -12,13 +12,12 @@ class JobHasNoTask(AsyncError):pass
 class BossShutDown(AsyncError):pass
 class BossHasNoPool(AsyncError):pass
 
-class AsyncJob(s_dispatch.Dispatcher):
+class AsyncJob(s_eventbus.EventBus):
     '''
     A single asynchronous job.
-    ( see AsyncBoss.initAsyncJob )
     '''
     def __init__(self, boss):
-        s_dispatch.Dispatcher.__init__(self)
+        s_eventbus.EventBus.__init__(self)
         self.boss = boss
         self.task = None    # (meth,args,kwargs)
         self.time = time.time()
@@ -135,8 +134,8 @@ class AsyncJob(s_dispatch.Dispatcher):
             if self.isfini:
                 return
             self.retexc = exc
-            self.synFire('err',exc)
-            self.synFireFini()
+            self.synFire('err',exc=exc)
+            self.synFini()
 
     def synFireDone(self, retval):
         '''
@@ -151,8 +150,8 @@ class AsyncJob(s_dispatch.Dispatcher):
             if self.isfini:
                 return
             self.retval = retval
-            self.synFire('done',retval)
-            self.synFireFini()
+            self.synFire('done',ret=retval)
+            self.synFini()
 
     def getJobId(self):
         '''
@@ -172,11 +171,11 @@ class AsyncJob(s_dispatch.Dispatcher):
             def onfini():
                 event.set()
 
-            self.synOn('fini',onfini,weak=True)
+            self.synOnFini(onfini,weak=True)
 
         return event.wait(timeout=timeout)
 
-class AsyncBoss(s_dispatch.Dispatcher):
+class AsyncBoss(s_eventbus.EventBus):
     '''
     An AsyncBoss manages AsyncJobs.
 
@@ -187,11 +186,11 @@ class AsyncBoss(s_dispatch.Dispatcher):
 
     '''
     def __init__(self, pool=0):
-        s_dispatch.Dispatcher.__init__(self)
+        s_eventbus.EventBus.__init__(self)
         self.jobs = {}
         self.pool = pool
-        self.synOn('fini', self._finiAllJobs)
-        self.synOn('fini', self._finiAllThreads)
+        self.synOnFini(self._finiAllJobs)
+        self.synOnFini(self._finiAllThreads)
 
         self.jobq = queue.Queue()
         self.threads = []
@@ -286,7 +285,7 @@ class AsyncBoss(s_dispatch.Dispatcher):
         def popjob():
             self.jobs.pop(jid,None)
 
-        job.synOn('fini',popjob)
+        job.synOnFini(popjob)
         return job
 
     def _initPoolThread(self):
@@ -335,7 +334,7 @@ class AsyncBoss(s_dispatch.Dispatcher):
 
 class AsyncProxy:
     '''
-    AsyncProxy allows simple syntax for AsyncJob method dispatch.
+    AsyncProxy allows simple syntax for AsyncJob methods.
     ( it acts as a transient syntax sugar helper )
     '''
     def __init__(self, job, item):

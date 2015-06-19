@@ -1,34 +1,87 @@
-import msgpack
+import weakref
 
-import synapse.common as s_common
-import synapse.socket as s_socket
-import synapse.threads as s_threads
-import synapse.dispatch as s_dispatch
+import synapse.link as s_link
 
-class Hub(s_socket.SocketPool):
+import synapse.service as s_service
+
+class Service(s_service.Service):
+
+    def initServiceLocals(self):
+        self.chanlock = threading.Lock()
+        self.chansocks = collections.defaultdict(set)
+
+    def _onMesgImpImp(self, sock, mesg):
+        chan = mesg[1].get('chan')
+        byts = msgpack.dumps(msg,use_bin_type=True)
+        for s in self.chansocks.get(chan,()):
+            s.sendall(byts)
+
+    def _onMesgImpJoin(self, sock, mesg):
+        chans = mesg[1].get('chans')
+        [ self._putChanSock(chan,sock) for chan in chans ]
+
+    def _onMesgImpLeave(self, sock, mesg):
+        chans = mesg[1].get('chans')
+        [ self._popChanSock(chan,sock) for chan in chans ]
+
+    def _putChanSock(self, chan, sock):
+
+        with self.chanlock:
+            socks = self.chansocks[chan]
+            size = len(socks)
+
+            socks.add(sock)
+
+            # inform our upstreams of the new chan
+            if size == 0:
+                [ up.sendLinkMesg(mesg) for up in self.uplinks ]
+
+    def _popChanSock(self, chan, sock):
+        with self.chanlock:
+            socks = self.chansocks[chan]
+            socks.remove(sock)
+            if len(socks) == 0:
+                [ up.sendLinkMesg(mesg) for up in self.uplinks ]
+                self.chansocks.pop(chan,None)
+
+def ImpulseChannel(EventBus):
+
+    def __init__(self, client, chan):
+        self.chan = chan
+        self.client = client
+
+    def synFire(self, name, **info):
+        '''
+        Fire an impulse event on this channel.
+        '''
+        ret = EventBus.synFire(name,**info)
+        imp = (name,info)
+        mesg = ('imp:imp',{'chan':self.chan,'imp':imp})
+        self.client.sendLinkMesg(mesg)
+
+class ImpulseClient(s_link.LinkClient):
     '''
-    An impulse Hub is a broadcast service which forwards all
-    provided events to all current listeners.
-
-    Notes:
-        * Any serializable objects may be rebroadcast.
+    ImpulseClient provides access to channelized event distribution.
 
     '''
-    def __init__(self, statefd=None):
-        s_socket.SocketPool.__init__(self,statefd=statefd)
-        self.synOn('sockmesg', self._impSockMesg )
+    def __init__(self, link, linker=None):
+        s_link.LinkClient.__init__(self, link, linker=linker)
+        self.implock = threading.Lock()
+        self.impchans = {}
 
-    def _impSockMesg(self, sock, mesg):
-        # FIXME maybe socks should get marked "normal"
-        # if they're not pump/listen ?
+    def getImpChan(self, name):
+        '''
+        Return a channel
+        '''
+        with self.implock:
+            chan = self.impchans.get(name)
+            if chan == None:
+                chan = ImpulseChannel(self,name)
+                self._sendImpJoin( name )
+                self.impchans[name] = chan
+            return chan
 
-        # optimize for multi-send by serializing once.
-        sid = sock.getSockId()
-        byts = msgpack.dumps(mesg, use_bin_type=True)
-        for sock in self.getPoolSocks():
-            if sock.getSockInfo('listen'):
-                continue
-            if sock.getSockId() == sid:
-                continue
+    def _sendImpJoin(self, chan):
+        self.sendLinkMesg( ('imp:join', {'chan':chan}) )
 
-            sock.sendall(byts)
+    #def _sendImpLeave(self, chan):

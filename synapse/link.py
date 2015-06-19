@@ -6,514 +6,198 @@ import synapse.common as s_common
 import synapse.crypto as s_crypto
 import synapse.threads as s_threads
 
-from synapse.dispatch import Dispatcher
-from synapse.statemach import StateMachine, keepstate
 
-linktypes = {
-    'tcp':'synapse.links.tcp',
-    'local':'synapse.links.local',
+import synapse.links.tcp as s_tcp
+import synapse.links.local as s_local
+
+from synapse.eventbus import EventBus
+from synapse.links.common import *
+
+linkprotos = {
+    'tcp':s_tcp.TcpProto(),
+    'tcpd':s_tcp.TcpdProto(),
+    #'local':s_local.LocalProto(),
 }
 
-class DupLink(Exception):pass
-class NoSuchLink(Exception):pass
-class NoSuchLinkType(Exception):pass
-
-class BadLinkInfo(Exception):pass
-class NoLinkProp(BadLinkInfo):pass
-class BadLinkProp(BadLinkInfo):pass
-
-class Linker(Dispatcher,StateMachine):
+def getLinkProto(name):
     '''
-    A Linker is a mixin object for managing both persistant
-    and non-persistant link configuration states.
+    Return a LinkProto for the given proto name.
 
-    A "link" is a tuple of (linktype,linkinfo).
+    Example:
+
+        proto = getLinkProto('tcp')
+        sock = proto.initLinkSock( link )
 
     '''
-    def __init__(self, statefd=None):
-        Dispatcher.__init__(self)
-        self.synOn('fini',self._finiLinker)
+    return linkprotos.get(name)
 
-        self.links = {}
-        self.linkmods = {}
-        self.linksocks = {}
-        self.linkrun = False
+def addLinkProto(name, proto):
+    '''
+    Add a custom LinkProto by name.
 
-        StateMachine.__init__(self, statefd=statefd)
+    Example:
 
-    def runLinkMain(self):
-        '''
-        Fire off the link managers to run and maintain links.
+        class MyProto(LinkProto):
+            # ...
 
-        Example:
+        addLinkProto('mine',MyProto())
 
-            linker.runLinkMain()
+    '''
+    linkprotos[name] = proto
 
-        Notes:
+def delLinkProto(name):
+    '''
+    Delete a LinkProto by name.
 
-            * One *must* call this API to begin link management
+    Example:
 
-        '''
-        self.linkrun = True
-        for link in self.links.values():
-            self.runLink(link)
+        delLinkProto('mine')
 
-        self.synFire('linkrun')
+    '''
+    linkprotos.pop(name,None)
 
-    def getLinkModule(self, linktype):
-        '''
-        Retrieve the link module to handle a given link type.
+def reqLinkProto(name):
+    '''
+    Return a LinkProto by name or raise.
+    '''
+    proto = linkprotos.get(name)
+    if proto == None:
+        raise NoSuchLinkProto(name)
+    return proto
 
-        Example:
+def initLinkRelay(link):
+    '''
+    Construct a new LinkRelay for the link.
 
-            mod = linker.getLinkModule('tcp')
-            if mod != None:
-                print('the linker knows how to speak tcp!')
+    Example:
 
-        '''
-        mod = self.linkmods.get(linktype)
-        if mod != None:
-            return mod
+        link = ('tcp',{'host':'1.2.3.4','port':80})
+        relay = initLinkRelay(link)
 
-        name = linktypes.get(linktype)
-        if name == None:
-            return None
+    '''
+    proto = reqLinkProto(link[0])
+    return proto.initLinkRelay(link)
 
-        mod = importlib.import_module(name)
-        self.linkmods[linktype] = mod
-        return mod
+def initLinkSock(link):
+    '''
+    Initialize a new client Socket() for the link.
 
-    def setLinkModule(self, linktype, mod):
-        '''
-        Override or add a link module type.
+    Example:
 
-        Example:
+        link = ('tcp',{'host':'1.2.3.4','port':80})
+        sock = initLinkSock(link)
 
-            class MyLinkMod:
+    '''
+    proto = reqLinkProto(link[0])
+    return proto.initLinkSock(link)
 
-                def reqValidLink(self, link):
-                    # do validation or raise
+def initLinkFromUri(uri):
+    '''
+    Parse a URI string and return a link tuple.
 
-                def initLinkSock(self, link):
-                    #return Socket() or None
+    Example:
 
-                def initLinkServSock(self, link):
-                    #return Socket( listen=True)
+        link = initLinkFromUri('tcp://1.2.3.4:9999/')
 
-            mod = MyLinkMod()
-            linker.setLinkModule('woot',mod)
+    '''
+    name = uri.split(':')[0]
+    proto = reqLinkProto(name)
+    return proto.initLinkFromUri(uri)
 
-        '''
-        self.linkmods[linktype] = mod
+def reqValidLink(link):
+    '''
+    Raise an exception if the link is not configured correctly.
+    '''
+    proto = reqLinkProto(link[0])
+    proto.reqValidLink(link)
 
-    def getLinkInfo(self, name, prop):
-        '''
-        Retrieve a property about a link by name.
-
-        Example:
-
-            port = linker.getLinkInfo('woot1','port')
-
-        '''
-        link = self.links.get(name)
-        if link == None:
-            raise NoSuchLink(name)
-
-        return link[1].get(prop)
-
-    @keepstate
-    def setLinkInfo(self, name, prop, valu):
-        '''
-        Set a property about a link by name.
-
-        Example:
-
-            linker.setLinkInfo('woot1','foo',30)
-
-        Notes:
-
-            * This info *will* persist via StateMachine.
-
-        '''
-        link = self.links.get(name)
-        if link == None:
-            raise NoSuchLink(name)
-
-        link[1][prop] = valu
-        return link
-
-    @keepstate
-    def addLink(self, name, link):
-        '''
-        Add a link descriptor to be managed by this linker.
-
-        Example:
-
-            link = ('tcp',{'host':'1.2.3.4','port':80})
-            linker.addLink('wootwoot',link)
-
-        Notes:
-
-            * If a StateMachine statefd is in use, this change will
-              persist across restarts.  Use firePoolLink() for
-              non-persistent link addition.
-
-        '''
-        if self.links.get(name) != None:
-            DupLink(name)
-
-        # a touch of magic to avoid these checks during load
-        if self.statefd != None:
-            self.checkLinkInfo(link)
-
-        self.links[name] = link
-
-        # If we're already running, run this one right away...
-        if self.linkrun:
-            self.runLink(link)
-
-    def initLinkSock(self, link):
-        '''
-        Construct a client Socket for the given link.
-
-        Example:
-
-            link = ('tcp',{'host':'1.2.3.4','port':80})
-            sock = linker.initLinkSock(link)
-
-        '''
-        mod = self._reqLinkModule(link[0])
-
-        sock = mod.initLinkSock(link)
-        if sock != None:
-            sock.setSockInfo('link',link)
-        return sock
-
-    def initLinkServSock(self, link):
-        '''
-        Construct a server Socket for the given link.
-
-        Example:
-
-            link = ('tcp',{'host':'1.2.3.4','port':80})
-            sock = linker.initLinkServSock(link)
-
-        '''
-        mod = self._reqLinkModule(link[0])
-
-        sock = mod.initLinkServSock(link)
-        if sock != None:
-            sock.setSockInfo('link',link)
-
-        return sock
-
-    def initLinkFromUri(self, uri):
-        '''
-        Create a link tuple from a uri.
-
-        Example:
-
-            link = linker.initLinkFromUri('tcp://1.2.3.4:99/')
-
-        '''
-        proto = uri.split(':',1)[0]
-        mod = self._reqLinkModule(proto)
-        return mod.initLinkFromUri(uri)
-
-    def _reqLinkModule(self, name):
-        mod = self.getLinkModule(name)
-        if mod == None:
-            raise NoSuchLinkType(name)
-        return mod
-
-    def checkLinkInfo(self, link):
-        '''
-        Validate the link configuration or raise.
-
-        Example:
-
-            linker.checkLinkInfo(link)
-
-        '''
-        mod = self._reqLinkModule(link[0])
-        mod.reqValidLink(link)
-
-    def runLink(self, link):
-        '''
-        Run and manage a new link.
-
-        Example:
-
-            link = ('tcp',{'host':'1.2.3.4','port':80})
-            linker.runLink(link)
-
-        Notes:
-
-            * This method does *not* update StateMachine.
-
-        '''
-        self.checkLinkInfo(link)
-        self._runLinkThread(link)
-
-    @s_threads.firethread
-    def _runLinkThread(self, link):
-        '''
-        A thread routine to attempt to establish a link sock.
-        Once established, the sock is dispatched with
-
-        synFire('sockinit',sock)
-
-        and configured to fire runLink again on close unless
-        the Linker is being shut down...
-        '''
-        mod = self.getLinkModule(link[0])
-
-        delay = 0
-        while not self.isfini:
-            sock = mod.initLinkSock(link)
-            if sock != None:
-                sid = sock.getSockId()
-                sock.setSockInfo('link',link)
-                self.linksocks[sid] = sock
-                def runagain():
-                    self.linksocks.pop(sid,None)
-                    if not self.isfini:
-                        self.runLink(link)
-
-                sock.synOn('fini',runagain)
-                self.synFire('sockinit',sock)
-                return
-
-            time.sleep(delay)
-
-            delayinc = link[1].get('delayinc',0.1)
-            delaymax = link[1].get('delaymax',1)
-            delay = min( delay + delayinc, delaymax )
-
-    def _finiLinker(self):
-        for sock in list(self.linksocks.values()):
-            sock.close()
-
-class LinkClient(Dispatcher):
+class LinkClient(EventBus):
     '''
     A synapse link client.
 
-    Dispatcher Hooks:
+    Notes:
 
-        synFire('sockinit',sock)    # on client reconnect
-
-        # with runClientThread() active...
-        synFire('sockmesg',sock,mesg)
+        Mostly a base class for senses.
 
     '''
-    def __init__(self, link, linker=None):
-        Dispatcher.__init__(self)
-        self.lock = threading.Lock()
-
-        # if they didn't specify, use the default linker.
-        if linker == None:
-            linker = Linker()
-
-        self.thr = None
-        self.sock = None
+    def __init__(self, link):
+        EventBus.__init__(self)
 
         self.link = link
-        self.linker = linker
+        self.lock = threading.Lock()
 
-        self.synOn('fini', self._finiClient )
         self.synOn('sockinit', self._onSockInit )
+        self.synOnFini(self._finiLinkClient)
 
-    def runClientThread(self):
-        '''
-        Fire a thread to consume messages and fire dispatches.
+        self.sock = initLinkSock(self.link)
 
-        Example:
+        if self.sock == None:
+            raise Exception('Initial Link Failed: %r' % (self.link,))
 
-            client.runClientThread()
+        if link[1].get('trans'):
+            self.sock.close()
 
-        Notes:
-
-            * The thread will reconnect the socket on close.
-
-        '''
-        if self.thr == None:
-            self.thr = self._runClientThread()
-
-    def sendLinkMesg(self, mesg):
-        '''
-        Send a message on the link.
-
-        Example:
-
-            client.sendLinkMesg( ('woot',{}) )
-
-        Notes:
-
-            * This API will reconnect as needed
-
-        '''
-        with self.lock:
-            self._sendLinkMesg(mesg)
-
-    def txrxLinkMesg(self, mesg):
+    def sendAndRecv(self, name, **info):
         '''
         Send a message and receive a message transactionally.
 
         Example:
 
-            resp = client.txrxLinkMesg( ('woot',{}) )
+            resp = client.sendAndRecv( ('woot',{}) )
 
         Notes:
 
             * This API will reconnect as needed
 
         '''
+        mesg = (name, info)
         with self.lock:
             while True:
                 self._sendLinkMesg(mesg)
-                ret = self.sock.recvSockMesg()
-                if ret != None:
-                    return ret
+                ret = self.sock.recvobj()
+                if ret == None:
+                    continue
 
-    def recvLinkMessage(self):
-        with self.lock:
-            mesg = self.sock.recvSockMesg()
-            while mesg == None:
-                self._runReConnect()
-                mesg = self.sock.recvSockMesg()
-        return mesg
+                # if our link has trans=True try to obey and be
+                # transactional ( disconnect every time )
+                if self.link[1].get('trans'):
+                    self.sock.close()
 
-    @s_threads.firethread
-    def _runClientThread(self):
-        self._runReConnect()
-        self.sock.synOn('fini', self._runReConnect)
-        while not self.isfini:
-            for mesg in self.sock:
-                self.synFire('sockmesg',self.sock,mesg)
+                return ret
 
-    def _finiClient(self):
-        self.sock.close()
-        if self.thr != None:
-            self.thr.join()
-
-    def __enter__(self):
-        self._runReConnect()
-        return self
-
-    def __exit__(self, t, v, tb):
+    def _finiLinkClient(self):
         self.sock.close()
 
     def _sendLinkMesg(self, mesg):
-
-        if self.sock == None:
-            self._runReConnect()
-
-        sent = self.sock.sendSockMesg(mesg)
+        sent = self.sock.sendobj(mesg)
         while not sent and not self.isfini:
             self._runReConnect()
-            sent = self.sock.sendSockMesg(mesg)
+            sent = self.sock.sendobj(mesg)
 
-    def _initClientSock(self):
-        return self.linker.initLinkSock( self.link )
-
-    def _onSockInit(self, sock):
+    def _onSockInit(self, event):
+        sock = event[1].get('sock')
         rc4key = self.link[1].get('rc4key')
         if rc4key != None:
             prov = s_crypto.RC4Crypto(self.link)
             sock._setCryptoProv( prov )
 
     def _runReConnect(self):
-        delay = 0
+
+        self.sock.close()
+
+        self.sock = initLinkSock(self.link)
         if self.sock != None:
-            self.sock.close()
+            self.synFire('sockinit',sock=self.sock)
+            return
 
-        self.sock = self._initClientSock()
-
+        delay = self.link[1].get('delay',0)
         while self.sock == None and not self.isfini:
             time.sleep(delay)
 
-            delay = min( delay + 0.2, 2 )
+            delaymax = self.link[1].get('delaymax',2)
+            delayinc = self.link[1].get('delayinc',0.2)
+            delay = min( delay + delayinc, delaymax )
 
-            self.sock = self._initClientSock()
+            self.sock = initLinkSock(self.link)
 
-        self.synFire('sockinit',self.sock)
-
-class LinkServer(Dispatcher):
-    '''
-    A threaded (thread per) link server.
-
-    ( for async/pool services use SocketPool )
-
-    Dispatcher Hooks:
-
-        synFire('sockinit',sock)        # on each new connection
-        synFire('sockmesg',sock,mesg)   # on each socket message
-
-    '''
-    def __init__(self, link, linker=None):
-        Dispatcher.__init__(self)
-
-        if linker == None:
-            linker = Linker()
-
-        self.lisn = None
-        self.sockets = {}
-
-        self.link = link
-        self.linker = linker
-
-        self.boss = s_threads.ThreadBoss()
-
-        self.synOn('fini', self._finiLinkServer )
-        self.synOn('sockinit', self._onSockInit )
-
-    def runLinkServer(self):
-        '''
-        Actually bind the port and begin serving clients.
-        '''
-        self.lisn = self.linker.initLinkServSock( self.link )
-        self.boss.worker( self._runLisnThread )
-        addr = self.lisn.getsockname()
-        return addr
-
-    def _runLisnThread(self):
-        while not self.isfini:
-            sock,addr = self.lisn.accept()
-            self.synOn('fini',sock.close,weak=True)
-            self.boss.worker( self._runSockThread, sock )
-
-    def _runSockThread(self, sock):
-        sid = sock.getSockId()
-
-        timeout = self.link[1].get('timeout')
-        if timeout != None:
-            sock.settimeout(timeout)
-
-        self.synFire('sockinit',sock)
-        for mesg in sock:
-            self.synFire('sockmesg',sock,mesg)
-
-    def _onSockInit(self, sock):
-        '''
-        Handle a few "server wide" link options.
-        '''
-        # handle our "cheap" rc4 static keying
-        rc4key = self.link[1].get('rc4key')
-        if rc4key != None:
-            prov = s_crypto.RC4Crypto(self.link)
-            sock._setCryptoProv( prov )
-
-    def _finiLinkServer(self):
-
-        # wake the sleeping listener
-        sock = self.linker.initLinkSock( self.link )
-        if sock != None:
-            sock.close()
-
-        self.lisn.close()
-
-        #for sock in list(self.sockets.values()):
-            #sock.close()
-
-        self.boss.synFireFini()
-
+        self.synFire('sockinit',sock=self.sock)

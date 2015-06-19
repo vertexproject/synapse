@@ -6,27 +6,23 @@ import selectors
 import threading
 import traceback
 
-import synapse.link as s_link
 import synapse.common as s_common
 import synapse.threads as s_threads
 
-from synapse.dispatch import Dispatcher
+from synapse.eventbus import EventBus
 from synapse.statemach import keepstate
 
-class Socket(Dispatcher):
+class Socket(EventBus):
 
     def __init__(self, sock, **info):
-        Dispatcher.__init__(self)
+        EventBus.__init__(self)
         self.sock = sock
         self.unpk = msgpack.Unpacker(use_list=0,encoding='utf8')
         self.ident = s_common.guid()
         self.crypto = None
         self.sockinfo = info
 
-        self.synOn('fini', self._finiSocket)
-
-    def __repr__(self):
-        return 'Socket: %r' % (self.sockinfo,)
+        self.synOnFini(self._finiSocket)
 
     def getSockId(self):
         '''
@@ -76,7 +72,7 @@ class Socket(Dispatcher):
             dostuff(byts)
 
         Notes:
-            * this API will trigger synFireFini() on close
+            * this API will trigger synFini() on close
 
         '''
         byts = b''
@@ -98,7 +94,10 @@ class Socket(Dispatcher):
             byts = self.crypto.encrypt(byts)
         return self.sock.sendall(byts)
 
-    def sendSockMesg(self, msg):
+    def fireobj(self, name, **info):
+        return self.sendobj( (name,info) )
+
+    def sendobj(self, msg):
         '''
         Serialize an object using msgpack and send on the socket.
         Returns True on success and False on socket error.
@@ -106,11 +105,11 @@ class Socket(Dispatcher):
         Example:
 
             tufo = ('woot',{'foo':'bar'})
-            sock.sendSockMesg(tufo)
+            sock.sendobj(tufo)
 
         Notes:
 
-            * This method will trigger synFireFini() on errors.
+            * This method will trigger synFini() on errors.
 
         '''
         try:
@@ -120,12 +119,12 @@ class Socket(Dispatcher):
             self.close()
             return False
 
-    def sendSockErr(self, code, msg, **info):
+    def senderr(self, code, msg, **info):
         info['msg'] = msg
         info['code'] = code
-        return self.sendSockMesg( ('err',info) )
+        return self.sendobj( ('err',info) )
 
-    def recvSockMesg(self):
+    def recvobj(self):
         '''
         Recieve one msgpack'd socket message.
         '''
@@ -134,25 +133,13 @@ class Socket(Dispatcher):
             if not byts:
                 return None
 
-            self.unpk.feed(byts)
-            for obj in self.unpk:
-                return obj
+            try:
+                self.unpk.feed(byts)
+                for obj in self.unpk:
+                    return obj
 
-    def recvMesgYield(self):
-        '''
-        Call recv once and yield any unpacked msgpack objects.
-        ( used by selectors to process read events )
-        '''
-        for obj in self.unpk:
-            yield obj
-
-        byts = self.recv(1024000)
-        if not byts:
-            return
-            
-        self.unpk.feed(byts)
-        for obj in self.unpk:
-            yield obj
+            except Exception as e:
+                self.close()
 
     def __iter__(self):
         '''
@@ -165,16 +152,13 @@ class Socket(Dispatcher):
                 self.close()
                 return
 
-            self.unpk.feed(byts)
-            for obj in self.unpk:
-                yield obj
+            try:
+                self.unpk.feed(byts)
+                for obj in self.unpk:
+                    yield obj
 
-    #def __enter__(self):
-        #self.lock.acquire()
-        #return self
-
-    #def __exit__(self, t, v, tb):
-        #self.close()
+            except Exception as e:
+                self.close()
 
     def accept(self):
         conn,addr = self.sock.accept()
@@ -182,9 +166,9 @@ class Socket(Dispatcher):
 
     def close(self):
         '''
-        Hook the socket close() function to trigger synFireFini()
+        Hook the socket close() function to trigger synFini()
         '''
-        self.synFireFini()
+        self.synFini()
 
     def recv(self, size):
         '''
@@ -201,7 +185,7 @@ class Socket(Dispatcher):
 
             return byts
         except socket.error as e:
-            # synFireFini triggered above.
+            # synFini triggered above.
             return b''
 
     def _setCryptoProv(self, prov):
@@ -216,250 +200,6 @@ class Socket(Dispatcher):
             self.sock.close()
         except OSError as e:
             pass
-
-class SocketPool(s_link.Linker):
-    '''
-    A SocketPool uses a single select thread and a pool of handler
-    threads to service messages on a group of sockets.
-
-    Additionally, a SocketPool is an instance of a Linker and may
-    be used to store and manage persistent link configs.
-
-    '''
-    def __init__(self, pool=1, statefd=None):
-        self.msgq = queue.Queue()
-        self.socks = {}
-        self.threads = []
-        self.poolinfo = {'pool':pool}
-
-        self.isrun = False
-
-        # these are so we can wake the sleeper
-        self.wake1, self.wake2 = socketpair()
-
-        self.wake1.setSockInfo('wake',True)
-        self.wake2.setSockInfo('wake',True)
-
-        self.iothr = None
-        self.seltor = selectors.DefaultSelector()
-        self.seltor.register(self.wake2, selectors.EVENT_READ)
-
-        # Linker is also Dispatcher and StateMachine so
-        # it must go after we've got our local data setup
-        s_link.Linker.__init__(self, statefd=statefd)
-        self.synOn('sockinit', self.addSockToPool )
-
-    def getPoolInfo(self, prop):
-        '''
-        Retrieve a SocketPool property by name.
-
-        Example:
-
-            woot = pool.getPoolInfo('woot')
-
-        '''
-        return self.poolinfo.get(prop)
-
-    @keepstate
-    def setPoolInfo(self, prop, valu):
-        '''
-        Set a SocketPool property by name.
-
-        Example:
-
-            pool.setPoolInfo('woot',30)
-
-        '''
-        self.poolinfo[prop] = valu
-
-    def runSockPool(self):
-        '''
-        Actually begin running the SocketPool.
-        '''
-        self.isrun = True
-        self.iothr = s_threads.worker( self._ioLoopThread )
-        pool = self.getPoolInfo('pool')
-        self.addPoolWorkers(pool)
-        self.runLinkMain()
-
-    @keepstate
-    def delPoolLink(self, name):
-        '''
-        Delete a link from the pool by name.
-
-        Example:
-
-            pool.delPoolLink('woot')
-
-        '''
-        return self.links.pop(name,None)
-
-    def getSockById(self, sid):
-        '''
-        Get a socket from the pool by ID.
-
-        Example:
-
-            sock = pool.getSockById(sid)
-
-        '''
-        return self.socks.get(sid)
-
-    def getPoolSocks(self):
-        '''
-        Get a list of the synapse Socket objects managed by the pool.
-
-        Example:
-
-            for sock in pool.getPoolSocks():
-                dostuff()
-
-        '''
-        return list(self.socks.values())
-
-    def addSockToPool(self, sock):
-        '''
-        Add a synapse Socket to the SocketPool to be managed.
-
-        Example:
-
-            pool.addSockToPool(sock)
-
-        '''
-        sid = sock.getSockId()
-
-        def popsock():
-            self.socks.pop(sid,None)
-            self.seltor.unregister(sock)
-
-        sock.synOn('fini',popsock)
-        self.synOn('fini', sock.close, weak=True)
-        self.socks[ sid ] = sock
-        self.seltor.register(sock,selectors.EVENT_READ)
-
-        # wake the sleeper
-        self._wakeIoThread()
-
-    def initSockPump(self, sock1, sock2):
-        '''
-        Use the SocketPool to pump data between two sockets.
-
-        Example:
-
-            pool.initSockPump(sock1,sock2)
-            # data recv on either is sent to the other
-
-        Notes:
-
-            * If either sock is not yet in the pool, it is
-              added.
-
-        '''
-        sock1.setSockInfo('pump',sock2)
-        sock2.setSockInfo('pump',sock1)
-        if self.socks.get( sock1.getSockId() ) == None:
-            self.addSockToPool(sock1)
-
-        if self.socks.get( sock2.getSockId() ) == None:
-            self.addSockToPool(sock2)
-
-    def addPoolWorkers(self, count):
-        '''
-        Increase the number of workers in the pool by count.
-
-        Example:
-
-            pool.addPoolWorkers(3)
-
-        Notes:
-
-            * This is considered a "runtime" adjustment and
-              does not modify the stored pool=<num> state.
-
-        '''
-        for i in range(count):
-            self.threads.append( s_threads.worker( self._sockPoolWorker ) )
-
-    def delPoolWorkers(self, count):
-        '''
-        Reduce the number of workers in the pool by count.
-
-        Example:
-
-            pool.delPoolWorkers(3)
-
-        Notes:
-
-            * This is considered a "runtime" adjustment and
-              does not modify the stored pool=<num> state.
-
-        '''
-        count = max(count,len(self.threads))
-        for i in range(count):
-            self.msgq.put(None)
-
-    def _wakeIoThread(self):
-        self.wake1.send(b'\x00')
-
-    def _ioLoopThread(self):
-        while not self.isfini:
-
-            for key,events in self.seltor.select(timeout=1):
-                if self.isfini:
-                    return
-
-                sock = key.fileobj
-
-                if sock.getSockInfo('wake'):
-                    sock.recv(1)
-                    continue
-
-                pump = sock.getSockInfo('pump')
-                if pump:
-                    byts = sock.recv(1024000)
-                    self.msgq.put((sock,byts))
-                    continue
-
-                if sock.getSockInfo('listen'):
-                    sock,addr = sock.accept()
-                    self.addSockToPool( sock )
-                    continue
-
-                for msg in sock.recvMesgYield():
-                    self.msgq.put((sock,msg))
-
-    def _sockPoolWorker(self):
-        while True:
-            todo = self.msgq.get()
-            if todo == None:
-                return
-
-            sock,msg = todo
-
-            pump = sock.getSockInfo('pump')
-            if pump != None:
-                pump.sendall(msg)
-                return
-
-            self.synFire('sockmesg',sock,msg)
-
-    def _finiSockPool(self):
-        self._wakeIoThread()
-        self.wake1.close()
-        self.wake2.close()
-
-        self.iothr.join()
-
-        for sock in self.getPoolSocks():
-            sock.close()
-
-        for i in range(len(self.threads)):
-            self.msgq.put(None)
-
-        for t in self.threads:
-            t.join()
-
-        self.seltor.close()
 
 def listen(sockaddr):
     '''

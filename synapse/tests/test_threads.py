@@ -10,10 +10,10 @@ class ThreadsTest(unittest.TestCase):
         evt = threading.Event()
 
         data = {}
-        def threadinit(thr):
+        def threadinit(event):
             data['init'] = True
 
-        def threadfini(thr):
+        def threadfini(event):
             data['fini'] = True
             evt.set()
 
@@ -27,8 +27,30 @@ class ThreadsTest(unittest.TestCase):
         boss.worker( woot, 20, 30 )
 
         evt.wait()
-        boss.synFireFini()
+        boss.synFini()
 
         self.assertTrue( data.get('init') )
         self.assertTrue( data.get('fini') )
         self.assertEqual( data.get('woot'), 50 )
+
+    def test_threads_sched(self):
+
+        evt = threading.Event()
+        data = {'woot':[]}
+        def woot1(x):
+            data['woot'].append(x)
+
+        def woot2(x):
+            data['woot'].append(x)
+            evt.set()
+
+        sched = s_threads.Sched()
+
+        sched.synIn( 0.02, woot2, 20 )
+        sched.synIn( 0.01, woot1, 10 )
+
+        evt.wait()
+
+        self.assertListEqual( data['woot'], [10,20] )
+
+        sched.synFini()
