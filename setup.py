@@ -2,17 +2,26 @@
 #from distutils.core import setup
 from setuptools import setup
 
-# For Testing
+# For Testing:
+#
 # python3.4 setup.py register -r https://testpypi.python.org/pypi
-# python3.4 setup.py upload -r https://testpypi.python.org/pypi
+# python3.4 setup.py bdist_wheel upload -r https://testpypi.python.org/pypi
+# python3.4 -m pip install -i https://testpypi.python.org/pypi
+#
+# For Realz:
+#
+# python3.4 setup.py register
+# python3.4 setup.py bdist_wheel upload
+# python3.4 -m pip install
 
 setup(
-    name='viv-synapse-py34',
-    version='0.0.1',
+    name='viv-synapse',
+    version='0.0.6',
     description='Synapse Distributed Computing Framework',
     author='Invisigoth Kenshoto',
     author_email='invisigoth.kenshoto@gmail.com',
     url='https://github.com/vivisect/synapse',
+    license='Apache License 2.0',
 
     packages=[
         'synapse',
@@ -22,13 +31,12 @@ setup(
     ],
 
     install_requires=[
-    #requires=[
-        #'python>=3.4',
         'pycrypto>=2.6.2',
         'msgpack-python>=0.4.2',
     ],
 
     classifiers=[
+        'License :: OSI Approved :: Apache Software License',
     ],
 
 )
