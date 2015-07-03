@@ -34,7 +34,7 @@ class LinkTest(unittest.TestCase):
             mesgs.append(mesg)
             return tufo('woot',foo=mesg[1].get('id'))
 
-        link = tufo('tcp',listen=('127.0.0.1',34343))
+        link = tufo('tcp',listen=('127.0.0.1',0))
 
         daemon = s_daemon.Daemon()
         daemon.synOn('link:sock:init',sockinit)
@@ -42,7 +42,9 @@ class LinkTest(unittest.TestCase):
 
         daemon.runLink(link)
 
-        link = tufo('tcp',connect=('127.0.0.1',34343),trans=True)
+        sockaddr = link[1].get('listen')
+
+        link = tufo('tcp',connect=sockaddr,trans=True)
         client = s_link.LinkClient(link)
 
         reply = client.sendAndRecv('woot',id=1)
