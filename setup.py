@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #from distutils.core import setup
-from setuptools import setup
+from setuptools import setup,find_packages
 
 # For Testing:
 #
@@ -23,12 +23,7 @@ setup(
     url='https://github.com/vivisect/synapse',
     license='Apache License 2.0',
 
-    packages=[
-        'synapse',
-        'synapse.links',
-        'synapse.tools',
-        'synapse.bridges',
-    ],
+    packages=find_packages(exclude=['*.tests','*.tests.*']),
 
     install_requires=[
         'pycrypto>=2.6.2',
