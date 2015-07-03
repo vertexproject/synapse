@@ -175,6 +175,26 @@ class AsyncJob(s_eventbus.EventBus):
 
         return event.wait(timeout=timeout)
 
+    def waitJobReturn(self, timeout=None):
+        '''
+        Wait for a job to complete and return or raise.
+
+        Note: 
+
+            * This API cancels the job on timeout
+
+        '''
+        done = self.waitForJob(timeout=timeout)
+        self.synFini()
+
+        if not done:
+            raise JobTimedOut()
+
+        if self.retexc != None:
+            raise self.retexc
+
+        return self.retval
+
 class AsyncBoss(s_eventbus.EventBus):
     '''
     An AsyncBoss manages AsyncJobs.
@@ -266,7 +286,7 @@ class AsyncBoss(s_eventbus.EventBus):
         '''
         return self.jobs.get(jid)
 
-    def initAsyncJob(self):
+    def initAsyncJob(self, ondone=None, onerr=None):
         '''
         Initialize and return a new AsyncJob.
 
@@ -274,13 +294,29 @@ class AsyncBoss(s_eventbus.EventBus):
 
             job = boss.initAsyncJob()
 
+        Notes:
+
+            * Optionally specify ondone/onerr callbacks.
+
         '''
         if self.isfini:
             raise BossShutDown()
 
         job = AsyncJob(self)
         jid = job.getJobId()
+
         self.jobs[jid] = job
+
+        if ondone != None:
+            def jobdone(event):
+                ondone( event[1].get('ret') )
+
+            job.synOn('done',jobdone)
+
+        if onerr != None:
+            def joberr(event):
+                onerr(event[1].get('exc'))
+            job.synOn('err',joberr)
 
         def popjob():
             self.jobs.pop(jid,None)

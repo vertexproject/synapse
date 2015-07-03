@@ -4,5 +4,5 @@ language: python
 python:
     - "3.4"
 install:
-    - pip install msgpack-python
+    - pip install msgpack-python pycrypto
 script: py.test

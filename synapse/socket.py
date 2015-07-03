@@ -161,7 +161,11 @@ class Socket(EventBus):
                 self.close()
 
     def accept(self):
-        conn,addr = self.sock.accept()
+        try:
+            conn,addr = self.sock.accept()
+        except ConnectionError as e:
+            self.close()
+            return None,None
         return Socket(conn),addr
 
     def close(self):
@@ -201,7 +205,7 @@ class Socket(EventBus):
         except OSError as e:
             pass
 
-def listen(sockaddr):
+def listen(sockaddr,**sockinfo):
     '''
     Simplified listening socket contructor.
     '''
@@ -209,19 +213,19 @@ def listen(sockaddr):
     try:
         sock.bind(sockaddr)
         sock.listen(120)
-        return Socket(sock,listen=True)
+        return Socket(sock,listen=True,**sockinfo)
     except socket.error as e:
         sock.close()
     return None
 
-def connect(sockaddr):
+def connect(sockaddr,**sockinfo):
     '''
     Simplified connected TCP socket constructor.
     '''
     sock = socket.socket()
     try:
         sock.connect(sockaddr)
-        return Socket(sock)
+        return Socket(sock,**sockinfo)
     except socket.error as e:
         sock.close()
     return None

@@ -13,8 +13,8 @@ class DaemonTest(unittest.TestCase):
         fd = io.BytesIO()
         daemon = s_daemon.Daemon(statefd=fd)
 
-        daemon.addLink('woot1',('tcp',{'host':'127.0.0.1','port':80}))
-        daemon.addLink('woot2',('tcp',{'host':'127.0.0.1','port':90}))
+        daemon.addLink('woot1',tufo('tcp',listen=('127.0.0.1',34380)))
+        daemon.addLink('woot2',tufo('tcp',listen=('127.0.0.1',34390)))
 
         daemon.synFini()
 
@@ -22,59 +22,31 @@ class DaemonTest(unittest.TestCase):
 
         daemon = s_daemon.Daemon(statefd=fd)
 
-        self.assertEqual( daemon.getLink('woot1')[1]['port'], 80 )
-        self.assertEqual( daemon.getLink('woot2')[1]['port'], 90 )
+        self.assertEqual( daemon.getLink('woot1')[1]['listen'], ('127.0.0.1',34380) )
+        self.assertEqual( daemon.getLink('woot2')[1]['listen'], ('127.0.0.1',34390) )
 
         daemon.synFini()
 
     def test_daemon_getlinks(self):
         daemon = s_daemon.Daemon()
-        daemon.addLink('woot1',('tcp',{'host':'127.0.0.1','port':80}))
-        daemon.addLink('woot2',('tcp',{'host':'127.0.0.1','port':90}))
+        daemon.addLink('woot1',tufo('tcp',listen=('127.0.0.1',34380)))
+        daemon.addLink('woot2',tufo('tcp',listen=('127.0.0.1',34390)))
         self.assertEqual( len(daemon.getLinks()), 2 )
-
-    def test_daemon_syn(self):
-
-        daemon = s_daemon.Daemon()
-
-        link = ('tcpd',{'host':'127.0.0.1','port':0})
-
-        daemon.runLink(link)
-
-        port = link[1].get('port')
-
-        sock = s_socket.connect( ('127.0.0.1',port) )
-        self.assertIsNotNone(sock)
-
-        sock.fireobj('dae:syn')
-        mesg = sock.recvobj()
-
-        self.assertEqual( mesg[0], 'dae:syn:ret')
-        self.assertIsNotNone( mesg[1].get('services') )
-
-        sock.close()
         daemon.synFini()
 
-    def test_daemon_service(self):
+    def test_daemon_extend(self):
 
-        class Woot1(s_service.Service):
-
-            def initServiceLocals(self):
-                self.setMesgMethod('woot', self._onMesgWoot )
-
-            def _onMesgWoot(self, sock, mesg):
-                sock.sendobj( ('woot',{'foo':'bar'}) )
-
+        def onwoot(sock,mesg):
+            sock.sendobj( ('woot',{'foo':'bar'}) )
 
         daemon = s_daemon.Daemon()
-        daemon.addSynService('woot',Woot1(daemon))
+        daemon.setMesgMethod('woot',onwoot)
 
-        link = ('tcpd',{'host':'127.0.0.1','port':0})
+        link = tufo('tcp',listen=('127.0.0.1',0))
         daemon.runLink(link)
 
-        port = link[1].get('port')
-
-        sock = s_socket.connect( ('127.0.0.1',port) )
+        sockaddr = link[1].get('listen')
+        sock = s_socket.connect( sockaddr )
         self.assertIsNotNone(sock)
 
         sock.sendobj( ('woot',{}) )
@@ -83,23 +55,29 @@ class DaemonTest(unittest.TestCase):
         self.assertEqual( mesg[0], 'woot' )
         self.assertEqual( mesg[1].get('foo'), 'bar' )
 
+        sock.synFini()
+        daemon.synFini()
+
     def test_daemon_timeout(self):
-        link = ('tcpd',{'host':'127.0.0.1','port':0,'timeout':0.1})
+        link = tufo('tcp',listen=('127.0.0.1',0),timeout=0.1)
 
         daemon = s_daemon.Daemon()
         daemon.runLink(link)
 
-        addr = ('127.0.0.1', link[1].get('port'))
-        sock = s_socket.connect(addr)
+        sockaddr = link[1].get('listen')
+        sock = s_socket.connect( sockaddr )
         self.assertEqual( sock.recvobj(),None)
 
+        sock.synFini()
         daemon.synFini()
 
     def test_daemon_auth_apikey(self):
 
-        fd = io.BytesIO()
-        daemon = s_daemon.Daemon(statefd=fd)
-        authapi = s_daemon.ApiKeyAuth(daemon)
+        dmonfd = io.BytesIO()
+        authfd = io.BytesIO()
+
+        daemon = s_daemon.Daemon(statefd=dmonfd)
+        authapi = s_daemon.ApiKeyAuth(statefd=authfd)
 
         apikey = guid()
         authinfo = {'apikey':apikey}
@@ -107,7 +85,7 @@ class DaemonTest(unittest.TestCase):
         ident = authapi.getAuthIdent( authinfo )
         self.assertEqual( ident, apikey )
 
-        authapi.addAuthAllow(ident,'foo.bar')
+        authapi.addAuthRule(ident,'foo.bar')
 
         self.assertTrue( authapi.getAuthAllow( ident, 'foo.bar') )
         self.assertFalse( authapi.getAuthAllow( ident, 'foo.gronk') )
@@ -117,9 +95,11 @@ class DaemonTest(unittest.TestCase):
 
         daemon.synFini()
 
-        fd.seek(0)
-        daemon = s_daemon.Daemon(statefd=fd)
-        authapi = s_daemon.ApiKeyAuth(daemon)
+        dmonfd.seek(0)
+        authfd.seek(0)
+
+        daemon = s_daemon.Daemon(statefd=dmonfd)
+        authapi = s_daemon.ApiKeyAuth(statefd=authfd)
 
         self.assertTrue( authapi.getAuthAllow( ident, 'foo.bar') )
         self.assertFalse( authapi.getAuthAllow( ident, 'foo.gronk') )
@@ -127,5 +107,7 @@ class DaemonTest(unittest.TestCase):
         self.assertFalse( authapi.getAuthAllow( guid(), 'foo.bar') )
         self.assertFalse( authapi.getAuthAllow( guid(), 'foo.gronk') )
 
-        authapi.delAuthAllow(ident, 'foo.bar')
+        authapi.delAuthRule(ident, 'foo.bar')
         self.assertFalse( authapi.getAuthAllow( ident, 'foo.bar') )
+
+        daemon.synFini()

@@ -6,7 +6,6 @@ import synapse.common as s_common
 import synapse.crypto as s_crypto
 import synapse.threads as s_threads
 
-
 import synapse.links.tcp as s_tcp
 import synapse.links.local as s_local
 
@@ -15,7 +14,6 @@ from synapse.links.common import *
 
 linkprotos = {
     'tcp':s_tcp.TcpProto(),
-    'tcpd':s_tcp.TcpdProto(),
     #'local':s_local.LocalProto(),
 }
 
@@ -84,7 +82,7 @@ def initLinkSock(link):
 
     Example:
 
-        link = ('tcp',{'host':'1.2.3.4','port':80})
+        link = ('tcp',{'connect':('1.2.3.4',80)})
         sock = initLinkSock(link)
 
     '''
@@ -100,7 +98,7 @@ def initLinkFromUri(uri):
         link = initLinkFromUri('tcp://1.2.3.4:9999/')
 
     '''
-    name = uri.split(':')[0]
+    name = uri.split(':',1)[0]
     proto = reqLinkProto(name)
     return proto.initLinkFromUri(uri)
 

@@ -1,14 +1,18 @@
 import weakref
 
 import synapse.link as s_link
+import synapse.daemon as s_daemon
 
-import synapse.service as s_service
+class Daemon(s_daemon.Daemon):
 
-class Service(s_service.Service):
-
-    def initServiceLocals(self):
+    def __init__(self, statefd=None):
         self.chanlock = threading.Lock()
         self.chansocks = collections.defaultdict(set)
+        s_daemon.Daemon.__init__(self, statefd=statefd)
+
+        self.setMesgMethod('imp:imp', self._onMesgImpImp)
+        self.setMesgMethod('imp:join', self._onMesgImpJoin)
+        self.setMesgMethod('imp:leave', self._onMesgImpLeave)
 
     def _onMesgImpImp(self, sock, mesg):
         chan = mesg[1].get('chan')
@@ -24,25 +28,28 @@ class Service(s_service.Service):
         chans = mesg[1].get('chans')
         [ self._popChanSock(chan,sock) for chan in chans ]
 
-    def _putChanSock(self, chan, sock):
+    #def _putChanQue(self, chan, queue):
+    #def _popChanQue(self, chan, queue):
 
-        with self.chanlock:
-            socks = self.chansocks[chan]
-            size = len(socks)
+    #def _putChanSock(self, chan, sock):
 
-            socks.add(sock)
+        #with self.chanlock:
+            #socks = self.chansocks[chan]
+            #size = len(socks)
+#
+            #socks.add(sock)
 
             # inform our upstreams of the new chan
-            if size == 0:
-                [ up.sendLinkMesg(mesg) for up in self.uplinks ]
+            #if size == 0:
+                #[ up.sendLinkMesg(mesg) for up in self.uplinks ]
 
-    def _popChanSock(self, chan, sock):
-        with self.chanlock:
-            socks = self.chansocks[chan]
-            socks.remove(sock)
-            if len(socks) == 0:
-                [ up.sendLinkMesg(mesg) for up in self.uplinks ]
-                self.chansocks.pop(chan,None)
+    #def _popChanSock(self, chan, sock):
+        #with self.chanlock:
+            #socks = self.chansocks[chan]
+            #socks.remove(sock)
+            #if len(socks) == 0:
+                #[ up.sendLinkMesg(mesg) for up in self.uplinks ]
+                #self.chansocks.pop(chan,None)
 
 def ImpulseChannel(EventBus):
 

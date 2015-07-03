@@ -5,6 +5,7 @@ from urllib.parse import urlparse, parse_qsl
 
 import synapse.socket as s_socket
 
+from synapse.common import *
 from synapse.links.common import *
 
 def reqValidHost(link):
@@ -27,41 +28,50 @@ def reqValidPort(link):
 
 class TcpProto(LinkProto):
     '''
-    Implements a TCP client synapse LinkProto.
+    Implements the TCP synapse LinkProto.
     '''
     proto = 'tcp'
 
     def _reqValidLink(self, link):
-        reqValidHost(link)
-        reqValidPort(link)
+        lisnaddr = link[1].get('listen')
+        connaddr = link[1].get('connect')
 
-    def _initLinkFromUri(self, uri):
-        p = urlparse(uri)    
+        if lisnaddr == None and connaddr == None:
+            raise NoLinkProp('listen or connect')
 
-        port = p.port
-        host = p.hostname
+    def _initLinkFromUriParsed(self, parsed, query):
+        sockaddr = (parsed.hostname,parsed.port)
+        link = tufo('tcp')
 
-        info = dict( parse_qsl( p.query ) )
-        info['host'] = host
-        info['port'] = port
+        if query.get('listen'):
+            link[1]['listen'] = sockaddr
+            return link
 
-        link = (p.scheme,info)
-        self.reqValidLink(link)
+        link[1]['connect'] = sockaddr
         return link
 
     def _initLinkSock(self, link):
-        host = link[1].get('host')
-        port = link[1].get('port')
-        return s_socket.connect( (host,port) )
+        sockaddr = link[1].get('connect')
+        if sockaddr == None:
+            raise NoLinkProp('connect')
+
+        return s_socket.connect( sockaddr, link=link )
 
     def _initLinkRelay(self, link):
-        return TcpRelay(link)
+        sockaddr = link[1].get('connect')
+        if sockaddr != None:
+            return TcpConnectRelay(link)
 
-class TcpRelay(LinkRelay):
+        sockaddr = link[1].get('listen')
+        if sockaddr != None:
+            return TcpListenRelay(link)
+
+        raise NoLinkProp()
+
+class TcpConnectRelay(LinkRelay):
     '''
     Implements a TCP client synapse LinkRelay.
     '''
-
     def _runLinkRelay(self):
         while not self.isfini:
             sock = self._runConnLoop()
@@ -75,18 +85,13 @@ class TcpRelay(LinkRelay):
 
             self.synFire('link:sock:fini',sock=sock)
 
-    def _getSockAddr(self):
-        host = self.link[1].get('host')
-        port = self.link[1].get('port')
-        return (host,port)
-
     def _runConnLoop(self):
         sock = None
         delay = self.link[1].get('delay',0)
 
         while not self.isfini and sock == None:
 
-            sockaddr = self._getSockAddr()
+            sockaddr = self.link[1].get('connect')
             sock = s_socket.connect(sockaddr)
 
             if sock == None:
@@ -97,35 +102,25 @@ class TcpRelay(LinkRelay):
 
         return sock
 
-class TcpdProto(TcpProto):
-    '''
-    Implements a TCP server synapse LinkProto.
-    '''
-    name = 'tcpd'
-
-    def _initLinkRelay(self, link):
-        return TcpdRelay(link)
-
-class TcpdRelay(TcpRelay):
+class TcpListenRelay(LinkRelay):
     '''
     Implements a TCP server synapse LinkRelay.
     '''
     def __init__(self, link):
-
         LinkRelay.__init__(self, link)
-        self.synOnFini(self._finiTcpdRelay)
+        self.synOnFini(self._finiTcpRelay)
 
     def runLinkRelay(self):
         # steal this method so we can fail synchronously
-        sockaddr = self._getSockAddr()
-        self.lisn = s_socket.listen(sockaddr)
+        sockaddr = self.link[1].get('listen')
+        self.lisn = s_socket.listen(sockaddr, link=self.link)
         if self.lisn == None:
             raise Exception('TcpRelay: bind failed: %r' % (sockaddr,))
 
         # dynamically update the link port ( non-persistent )
-        if self.link[1].get('port') == 0:
-            bindaddr = self.lisn.getsockname()
-            self.link[1]['port'] = bindaddr[1]
+        if sockaddr[1] == 0:
+            sockaddr = self.lisn.getsockname()
+            self.link[1]['listen'] = sockaddr
 
         return LinkRelay.runLinkRelay(self)
 
@@ -133,26 +128,14 @@ class TcpdRelay(TcpRelay):
 
         while not self.isfini:
             sock,addr = self.lisn.accept()
+            if sock == None:
+                break
 
             if self.isfini:
                 sock.close()
                 break
 
-            self.boss.worker( self._runSockThread, sock )
-
-    def _runSockThread(self, sock):
-
-        timeout = self.link[1].get('timeout')
-        if timeout != None:
-            sock.settimeout(timeout)
-
-        self.synOnFini(sock.close,weak=True)
-        self.synFire('link:sock:init',sock=sock)
-
-        for mesg in sock:
-            self.synFire('link:sock:mesg',sock=sock,mesg=mesg)
-
-        self.synFire('link:sock:fini',sock=sock)
+            self.boss.worker( self._runSockLoop, sock )
 
     def _wakeTheSleeper(self):
         sockaddr = self.lisn.getsockname()
@@ -160,7 +143,7 @@ class TcpdRelay(TcpRelay):
         if sock != None:
             sock.close()
 
-    def _finiTcpdRelay(self):
+    def _finiTcpRelay(self):
         self._wakeTheSleeper
         self.lisn.close()
         self.boss.synFini()

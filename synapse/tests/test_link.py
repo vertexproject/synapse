@@ -14,8 +14,14 @@ class LinkTest(unittest.TestCase):
         link = ('tcp',{})
         self.assertRaises( s_link.NoLinkProp, s_link.reqValidLink, link )
 
-        link = ('tcp',{'host':'_','port':80})
-        self.assertRaises( s_link.BadLinkProp, s_link.reqValidLink, link )
+    def test_link_fromuri(self):
+        uri = 'tcp://127.0.0.1:9999?rc4key=wootwoot&timeout=30'
+        link = s_link.initLinkFromUri(uri)
+
+        self.assertEqual(link[0],'tcp')
+        self.assertEqual(link[1].get('timeout'),30)
+        self.assertEqual(link[1].get('rc4key'),b'wootwoot')
+        self.assertEqual(link[1].get('connect'),('127.0.0.1',9999))
 
     def test_link_tcp_client(self):
 
@@ -28,17 +34,15 @@ class LinkTest(unittest.TestCase):
             mesgs.append(mesg)
             return tufo('woot',foo=mesg[1].get('id'))
 
-        link = ('tcpd',{'host':'127.0.0.1','port':0})
+        link = tufo('tcp',listen=('127.0.0.1',34343))
 
         daemon = s_daemon.Daemon()
-        daemon.synOn('sockinit',sockinit)
+        daemon.synOn('link:sock:init',sockinit)
         daemon.setMesgMethod('woot',wootmesg)
 
         daemon.runLink(link)
 
-        port = link[1].get('port')
-
-        link = ('tcp',{'host':'127.0.0.1','port':port,'trans':True})
+        link = tufo('tcp',connect=('127.0.0.1',34343),trans=True)
         client = s_link.LinkClient(link)
 
         reply = client.sendAndRecv('woot',id=1)
@@ -49,16 +53,5 @@ class LinkTest(unittest.TestCase):
 
         self.assertEqual( data.get('count'), 3)
 
-        daemon.synFini()
         client.synFini()
-
-    def test_link_fromuri_tcp(self):
-        link = s_link.initLinkFromUri('tcp://1.2.3.4:99')
-        self.assertEqual( link[1].get('host'), '1.2.3.4' )
-        self.assertEqual( link[1].get('port'), 99 )
-
-    def test_link_fromuri_params(self):
-        link = s_link.initLinkFromUri('tcp://1.2.3.4:99?gronk=wootwoot')
-        self.assertEqual( link[1].get('host'), '1.2.3.4' )
-        self.assertEqual( link[1].get('port'), 99 )
-        self.assertEqual( link[1].get('gronk'), 'wootwoot' )
+        daemon.synFini()

@@ -1,5 +1,6 @@
 import io
 import unittest
+import threading
 
 import synapse.daemon as s_daemon
 import synapse.neuron as s_neuron
@@ -7,10 +8,72 @@ import synapse.common as s_common
 
 class TestNeuron(unittest.TestCase):
 
+    def test_neuron_peering(self):
+        neu1 = s_neuron.Daemon()
+        neu2 = s_neuron.Daemon()
+        neu3 = s_neuron.Daemon()
+
+        cert1 = neu1.getNeuInfo('peercert')
+        cert2 = neu2.getNeuInfo('peercert')
+        cert3 = neu3.getNeuInfo('peercert')
+
+        neu1.addPeerCert(cert2)
+        neu1.addPeerCert(cert3)
+
+        neu2.addPeerCert(cert1)
+        neu2.addPeerCert(cert3)
+
+        neu3.addPeerCert(cert1)
+        neu3.addPeerCert(cert2)
+
+        link1 = s_common.tufo('tcp',listen=('0.0.0.0',0))
+        neu1.runLink(link1)
+
+        evt1 = threading.Event()
+        def peer1init(event):
+            evt1.set()
+
+        evt2 = threading.Event()
+        def peer2init(event):
+            evt2.set()
+
+        evt3 = threading.Event()
+        def peer3init(event):
+            evt3.set()
+
+        neu1.synOn('neu:peer:init',peer1init)
+        neu2.synOn('neu:peer:init',peer2init)
+        neu3.synOn('neu:peer:init',peer3init)
+
+        sockaddr = link1[1].get('listen')
+        link2 = s_common.tufo('tcp',connect=sockaddr,peersyn=True)
+
+        neu2.runLink(link2)
+
+        self.assertTrue( evt1.wait(3) )
+        self.assertTrue( evt2.wait(3) )
+
+        neu3.runLink(link2)
+        self.assertTrue( evt3.wait(3) )
+
+        rtt1 = neu1.syncPingPeer(neu2.ident)
+        rtt2 = neu2.syncPingPeer(neu1.ident)
+
+        # check that 3 can reach 2 via 1
+        rtt3 = neu3.syncPingPeer(neu2.ident)
+
+        self.assertIsNotNone(rtt1)
+        self.assertIsNotNone(rtt2)
+        self.assertIsNotNone(rtt3)
+
+        neu1.synFini()
+        neu2.synFini()
+        neu3.synFini()
+
     def test_neuron_keepstate(self):
         return
         fd = io.BytesIO()
-        neu = s_neuron.Neuron(statefd=fd)
+        neu = s_neuron.Daemon(statefd=fd)
 
         peer1 = s_common.guid()
         peer2 = s_common.guid()
@@ -43,28 +106,24 @@ class TestNeuron(unittest.TestCase):
 
     def test_neuron_route_basics(self):
 
-        #neu,peers = self.getNeuronMesh(3)
-
-        daemon = s_daemon.Daemon()
-
-        neuron = daemon.loadSynService('neuron')
+        neuron = s_neuron.Daemon()
 
         ident = neuron.ident
         peers = [ s_common.guid() for i in range(3) ]
 
-        neuron._addPeerLink( ident, peers[0] )
-        neuron._addPeerLink( peers[0], ident )
+        neuron.addPeerGraphEdge( ident, peers[0] )
+        neuron.addPeerGraphEdge( peers[0], ident )
 
-        neuron._addPeerLink( peers[0], peers[1] )
-        neuron._addPeerLink( peers[1], peers[0] )
+        neuron.addPeerGraphEdge( peers[0], peers[1] )
+        neuron.addPeerGraphEdge( peers[1], peers[0] )
 
-        neuron._addPeerLink( peers[1], peers[2] )
-        neuron._addPeerLink( peers[2], peers[1] )
+        neuron.addPeerGraphEdge( peers[1], peers[2] )
+        neuron.addPeerGraphEdge( peers[2], peers[1] )
 
         route = neuron._getPeerRoute( peers[2] )
 
         self.assertListEqual( route, [ ident, peers[0], peers[1], peers[2] ] )
-        daemon.synFini()
+        neuron.synFini()
 
     #def test_neuron_route_asymetric(self):
     #def test_neuron_route_teardown(self):

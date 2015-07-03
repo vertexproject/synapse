@@ -4,98 +4,41 @@ An RMI framework for synapse.
 import traceback
 
 import synapse.link as s_link
-import synapse.service as s_service
+import synapse.daemon as s_daemon
 
 from synapse.common import *
 
-class Telepath(s_service.Service):
+class Daemon(s_daemon.Daemon):
     '''
-    Telepath RMI Service
+    Telepath RMI Daemon
 
     Example:
 
-        import synapse.daemon as s_daemon
+        import synapse.telepath as s_telepath
+        from synapse.common import *
 
         class Foo:
             def bar(self, x, y):
                 return x + y
 
-        daemon = s_daemon.initTcpServer('0.0.0.0',9999)
 
-        tele = daemon.loadSynService('telepath')
-        tele.addSharedObject('foo',Foo())
+        link = tufo('tcp',listen=('0.0.0.0',9999))
+
+        daemon = s_telepath.Daemon()
+
+        daemon.runLink(link)
+        daemon.addSharedObject('foo',Foo())
 
     '''
-    def initServiceLocals(self):
+    def __init__(self, statefd=None):
+
         self.shared = {}
         self.methods = {}
 
+        s_daemon.Daemon.__init__(self, statefd=statefd)
+
         self.setMesgMethod('tele:syn', self._onMesgTeleSyn )
         self.setMesgMethod('tele:call', self._onMesgTeleCall )
-
-        self.teleconf = self.daemon.getPathTreeNode( ('services','telepath') )
-
-        self.apikeys = self.daemon.getPathTreeNode( ('services','telepath','apikeys') )
-        self.apirules = self.daemon.getPathTreeNode( ('services','telepath','apirules') )
-
-        if self.teleconf.get('useapikeys') == None:
-            self.teleconf.set('useapikeys',False)
-
-    def addApiKey(self, apikey, enabled=True):
-        '''
-        Add a new API key to the built in telepath auth subsystem.
-
-        Example:
-
-            apikey = guid()
-            tele.addApiKey( apikey )
-
-        '''
-        if self.apikeys.get(apikey) != None:
-            raise DupApiKey()
-
-        path = ('services','telepath','apikeys',apikey,'enabled')
-        self.daemon.pathtree.set( path, enabled )
-
-    def addApiKeyAllow(self, apikey, objname, methname):
-        '''
-        Add an allow rule for an API key to call a telepath API.
-
-        Example:
-
-            # allow apikey to call foo.bar()
-            tele.addApiKeyAllow(apikey,'foo','bar')
-
-        '''
-        if self.apikeys.get(apikey) == None:
-            raise NoSuchApiKey()
-
-        path = ('services','telepath','apirules',apikey)
-        node = self.daemon.pathtree.node(path)
-
-        node.set( rule, True )
-
-    def delApiKeyAllow(self, apikey, objname, methname):
-        '''
-        Remove an allow rule for an API key to call a telepath API.
-        '''
-        rule = (objname,methname)
-        path = ('services','telepath','apirules',apikey)
-
-        node = self.daemon.pathtree.node(path)
-
-        node.pop(rule)
-
-    def isApiKeyAllow(self, apikey, objname, methname):
-        '''
-        Check if a given API key is allowed to call a telepath API.
-        '''
-        rules = self.apirules.get(apikey)
-        if rules == None:
-            return False
-
-        rule = (objname,methname)
-        return rules.get( rule )
 
     def addSharedObject(self, name, obj):
         '''
@@ -132,7 +75,7 @@ class Telepath(s_service.Service):
         sock.setSockInfo('tele:syn',True)
         authinfo = mesg[1].get('authinfo')
 
-        ident = self.daemon.getAuthIdent(authinfo)
+        ident = self.getAuthIdent(authinfo)
         sock.setSockInfo('tele:ident',ident)
 
         return tufo('tele:syn')
@@ -145,18 +88,12 @@ class Telepath(s_service.Service):
 
         _,msginfo = mesg
 
-        # see if all 'tele:call:auth' listeners approve...
-        #authres = self.synFire('tele:call:auth',sock=sock,mesg=mesg)
-        #if not all(authres):
-            #sock.senderr('noperm','permission denied')
-            #return
-
         oname,mname,args,kwargs = mesg[1].get('teletask')
 
         rule = 'tele.call.%s.%s' % (oname,mname)
 
         ident = sock.getSockInfo('tele:ident')
-        if not self.daemon.getAuthAllow(ident,rule):
+        if not self.getAuthAllow(ident,rule):
             sock.senderr('noperm','permission denied')
             return
 

@@ -1,63 +1,26 @@
 import traceback
+import collections
 
 import synapse.link as s_link
-import synapse.pathtree as s_pathtree
-
-import synapse.neuron as s_neuron
-#import synapse.impulse as s_impulse
-import synapse.telepath as s_telepath
 
 from synapse.eventbus import EventBus
+from synapse.statemach import StateMachine, keepstate
 
 class DupLink(Exception):pass
-class DupSense(Exception):pass
-class DupSenseMeth(Exception):pass
-
-class NoSuchLink(Exception):pass
-class NoSuchService(Exception):pass
-
 class ImplementMe(Exception):pass
 
-synsvcs = {
-    'neuron':s_neuron.Neuron,
-    #'impulse':s_impulse.Service,
-    'telepath':s_telepath.Telepath,
-}
-
-def initTcpServer(host, port, **linkopts):
+class Daemon(StateMachine,EventBus):
     '''
-    Convenience function for making a TCP server Daemon.
-
-    Example:
-
-        daemon = initTcpServer('0.0.0.0',9999,timeout=5)
-
-    Notes:
-
-        * All standard link options may be specified
-
-    '''
-    daemon = Daemon()
-    linkopts['host'] = host
-    linkopts['port'] = port
-    daemon.addLink( ('tcpd',linkopts) )
-    return daemon
-
-class Daemon(EventBus):
-    '''
-    A Daemon provides synapse Services to LinkRelay sockets.
+    Base class for the various synapse daemons.
     '''
     def __init__(self, statefd=None):
         EventBus.__init__(self)
 
         self.authmod = None
-        self.services = {}    # name:Service()
+        self.links = {}
         self.mesgmeths = {}
 
-        self.pathtree = s_pathtree.PathTree(statefd=statefd)
-
-        # setup a couple sense methods for the daemon itself
-        self.setMesgMethod('dae:syn', self._onMesgDaeSyn)
+        StateMachine.__init__(self,statefd=statefd)
 
     def setAuthModule(self, authmod):
         '''
@@ -73,8 +36,13 @@ class Daemon(EventBus):
 
             daemon.setAuthModule(authmod)
 
+        Notes:
+
+            * Daemon will fini the auth module on daemon fini
+
         '''
         self.authmod = authmod
+        self.synOnFini( authmod.synFini )
 
     def getAuthAllow(self, ident, rule):
         '''
@@ -96,59 +64,22 @@ class Daemon(EventBus):
         return self.authmod.getAuthAllow(ident,rule)
 
     def getAuthIdent(self, authinfo):
-        if authinfo == None:
-            return None
+        '''
+        Translate arbitrary "authinfo" dictionary to a unique id.
 
+        Example:
+
+            ident = daemon.getAuthIdent( authinfo )
+
+        Notes:
+
+            * The ident can be used in calls to getAuthAllow()
+
+        '''
         if self.authmod == None:
             return None
 
         return self.authmod.getAuthIdent(authinfo)
-
-    def getPathTreeNode(self, path):
-        return self.pathtree.node(path)
-
-    def getSubPathTree(self, path):
-        '''
-        Retrieve an object from the PathTree for this Daemon.
-        '''
-        return self.pathtree.subtree(path)
-
-    def loadSynService(self, name):
-        '''
-        Load a pre-defined synapse service by name.
-
-        Example:
-
-            tele = daemon.loadSynService('telepath')
-
-        '''
-        svc = self.services.get(name)
-        if svc == None:
-            cls = synsvcs.get(name)
-            if cls == None:
-                raise NoSuchService(name)
-
-            svc = cls(self)
-            self.services[name] = svc
-
-            for name,meth in svc.getMesgMethods():
-                self.setMesgMethod(name,meth)
-
-        return svc
-
-    def addSynService(self, name, svcobj):
-        self.services[name] = svcobj
-
-        for name,meth in svcobj.getMesgMethods():
-            self.setMesgMethod(name,meth)
-
-    def _onMesgDaeSyn(self, sock, mesg):
-        '''
-        ( 'dae:syn', {} )
-        '''
-        services = list(self.services.keys())
-        # FIXME do we need this anymore?
-        sock.sendobj( ('dae:syn:ret',{'services':services}) )
 
     def setMesgMethod(self, name, meth):
         '''
@@ -162,13 +93,16 @@ class Daemon(EventBus):
         '''
         self.mesgmeths[name] = meth
 
+    @keepstate
     def addLink(self, name, link):
         '''
         Add a link tuple to the Daemon.
 
         Example:
 
-            link = ('tcp',{'host':'1.2.3.4','port':80})
+            from synapse.common import tufo
+
+            link = tufo('tcp',host='1.2.3.4',port=80)
             daemon.addLink('wootwoot',link)
 
         Notes:
@@ -177,13 +111,11 @@ class Daemon(EventBus):
               persist across restarts.
 
         '''
-        path = ('daemon','links',name)
+        if self.links.get(name) != None:
+            raise DupLink()
 
-        if self.pathtree.get(path) != None:
-            DupLink(name)
-
-        self.pathtree.set(path, link)
-
+        self.links[name] = link
+            
         self.runLink(link)
 
     def getLink(self, name):
@@ -196,12 +128,10 @@ class Daemon(EventBus):
 
         Notes:
 
-            * Do not make changes to the link info
-              ( you must delLink / addLink )
+            * Do not make changes directly to the link info
 
         '''
-        path = ('daemon','links',name)
-        return self.pathtree.get(path)
+        return self.links.get(name)
 
     def getLinks(self):
         '''
@@ -213,8 +143,7 @@ class Daemon(EventBus):
                 stuff()
 
         '''
-        path = ('daemon','links')
-        return self.pathtree.items(path)
+        return list(self.links.items())
 
     def addLinkUri(self, name, uri):
         '''
@@ -222,7 +151,7 @@ class Daemon(EventBus):
 
         Example:
 
-            daemon.addLinkUri('tcpd://0.0.0.0:9999')
+            daemon.addLinkUri('tcp://0.0.0.0:9999?listen=1')
 
         '''
         link = s_link.initLinkFromUri(uri)
@@ -234,7 +163,7 @@ class Daemon(EventBus):
 
         Example:
 
-            link = ('tcpd',{'host':'0.0.0.0','port':80})
+            link = tufo('tcp',listen=('0.0.0.0',80))
             daemon.runLink(link)
 
         Notes:
@@ -243,37 +172,15 @@ class Daemon(EventBus):
 
         '''
         relay = s_link.initLinkRelay( link )
-        relay.synOn('link:sock:mesg',self._onSockMesg)
-        relay.synOn('link:sock:init',self._fireSockInit)
-        relay.synOn('link:sock:fini',self._fireSockFini)
+        relay.synOn('link:sock:mesg',self._onDaeSockMesg)
+        relay.synOn('link:sock:init',self.synDist)
+        relay.synOn('link:sock:fini',self.synDist)
 
         self.synOnFini(relay.synFini)
 
         relay.runLinkRelay()
 
-    def runLinkUri(self, uri):
-        '''
-        A convenience function to run a link by uri.
-
-        Example:
-
-            daemon.runLinkUri('tcpd://0.0.0.0:9999')
-
-        '''
-        link = s_link.initLinkFromUri(uri)
-        return self.runLink(link)
-
-    # FIXME merge these out ( use only one sockinit event type )
-    def _fireSockInit(self, event):
-        sock = event[1].get('sock')
-        sock.setSockInfo('daemon',self)
-        self.synFire('sockinit',sock=sock)
-
-    def _fireSockFini(self, event):
-        sock = event[1].get('sock')
-        self.synFire('sockfini',sock=sock)
-
-    def _onSockMesg(self, event):
+    def _onDaeSockMesg(self, event):
         sock = event[1].get('sock')
         mesg = event[1].get('mesg')
 
@@ -292,7 +199,7 @@ class Daemon(EventBus):
         except Exception as e:
             traceback.print_exc()
 
-class AuthModule:
+class AuthModule(StateMachine,EventBus):
 
     '''
     Modular authentication/authorization for daemon services.
@@ -304,52 +211,127 @@ class AuthModule:
     2. Store and evaluate a set of allow rules for the unique identity
 
     '''
+    def __init__(self, statefd=None):
+        self.authinfo = {}
+        self.authrules = collections.defaultdict(dict)
 
-    def __init__(self):
-        pass
+        EventBus.__init__(self)
+        StateMachine.__init__(self, statefd=statefd)
+
+        if self.getAuthInfo('defauth') == None:
+            self.setAuthInfo('defauth', False)
+
+        self._loadAuthRules()
+
+    def getAuthInfo(self, prop):
+        '''
+        Retrieve a persistent property from the AuthModule.
+
+        Example:
+
+            auth.getAuthInfo('foo')
+
+        '''
+        return self.authinfo.get(prop)
+
+    @keepstate
+    def setAuthInfo(self, prop, valu):
+        '''
+        Set a persistent property in the AuthModule.
+
+        Example:
+
+            auth.setAuthInfo('foo','bar')
+
+        Notes:
+
+            * This API generates EventBus events:
+                ('auth:info',{'prop':<prop>,'valu':<valu>})
+                ('auth:info:<prop>',{'valu':<valu>})
+
+        '''
+        self.authinfo[prop] = valu
+        self.synFire('auth:info', prop=prop, valu=valu)
+        self.synFire('auth:info:%s' % prop, valu=valu)
 
     def getAuthIdent(self, authdata):
-        raise ImplementMe()
+        '''
+        Return an ident (used in subsequent getAuthAllow calls) from
+        the authdata dict provided by a connecting client.
+        '''
+        if authdata == None:
+            return None
+
+        return self._getAuthIdent(authdata)
 
     def getAuthAllow(self, ident, rule):
         '''
         Returns True if the given rule is allowed for the ident.
+
+        Example:
+
+            if not auth.getAuthAllow(ident,rule):
+                return
+
         '''
+        return self._getAuthAllow(ident,rule)
+
+    @keepstate
+    def addAuthRule(self, ident, rule, allow=True):
+        '''
+        Add an allow/deny rule to the AuthModule.
+
+        Example:
+
+            auth.addAuthRule('visi','do.thing', True)
+
+        '''
+        return self._addAuthRule(ident, rule, allow)
+
+    def delAuthRule(self, ident, rule):
+        '''
+        Remove an allow/deny rule from the AuthModule.
+
+        Example:
+
+            auth.delAuthRule('visi','do.thing')
+
+        '''
+        return self._delAuthRule(ident,rule)
+
+    def _getAuthIdent(self, authinfo):
         raise ImplementMe()
 
-    def addAuthAllow(self, ident, rule):
-        raise ImplementMe()
+    def _getAuthAllow(self, ident, rule):
+        rules = self.authrules.get(ident)
+        if rules == None:
+            return self.getAuthInfo('defauth')
 
-    def delAuthAllow(self, ident, rule):
-        raise ImplementMe()
+        allow = rules.get(rule)
+        if allow == None:
+            return self.getAuthInfo('defauth')
 
-class ApiKeyAuth:
+        return allow
+
+    def _addAuthRule(self, ident, rule, allow):
+        self.authrules[ident][rule] = allow
+
+    def _delAuthRule(self, ident, rule):
+        rules = self.authrules.get(ident)
+        if rules == None:
+            return
+
+        return rules.pop(rule,None)
+
+    def _loadAuthRules(self):
+        '''
+        A API for subclasses to load auth rules from outside.
+        '''
+        pass
+
+class ApiKeyAuth(AuthModule):
     '''
     A simple "apikey" based AuthModele which stores data in the daemon.
     '''
-
-    def __init__(self, daemon):
-        self.daemon = daemon
-        #self.apikeys = daemon.getPathTreeNode( ('daemon','apikeys') )
-        self.apirules = daemon.getPathTreeNode( ('daemon','apirules') )
-
-    def getAuthIdent(self, authinfo):
+    def _getAuthIdent(self, authinfo):
         return authinfo.get('apikey')
-
-    def addAuthAllow(self, apikey, rule):
-        self.apirules[apikey].set( rule, True )
-
-    def getAuthAllow(self, apikey, rule):
-        rules = self.apirules.get(apikey)
-        if rules == None:
-            return False
-
-        return rules.get(rule)
-
-    def delAuthAllow(self, apikey, rule):
-        rules = self.apirules.get(apikey)
-        if rules == None:
-            return False
-
-        return rules.pop(rule)
-

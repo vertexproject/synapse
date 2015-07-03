@@ -21,13 +21,12 @@ class Foo:
 class TelePathTest(unittest.TestCase):
 
     def getFooServ(self):
-        link = ('tcpd',{'host':'127.0.0.1','port':0})
+        link = tufo('tcp',listen=('127.0.0.1',0))
 
-        daemon = s_daemon.Daemon()
+        daemon = s_telepath.Daemon()
         daemon.runLink(link)
 
-        tele = daemon.loadSynService('telepath')
-        tele.addSharedObject('foo',Foo())
+        daemon.addSharedObject('foo',Foo())
 
         return daemon,link
 
@@ -35,9 +34,7 @@ class TelePathTest(unittest.TestCase):
 
         daemon,link = self.getFooServ()
 
-        port = link[1].get('port')
-
-        cli = ('tcp',{'host':'127.0.0.1','port':port,'telepath':'foo'})
+        cli = tufo('tcp',connect=link[1].get('listen'),telepath='foo')
         foo = s_telepath.Proxy(cli)
 
         s = time.time()
@@ -58,18 +55,16 @@ class TelePathTest(unittest.TestCase):
     def test_telepath_auth_apikey(self):
 
         daemon,link = self.getFooServ()
-
-        authmod = s_daemon.ApiKeyAuth(daemon)
+        authmod = s_daemon.ApiKeyAuth()
 
         apikey = guid()
 
-        authmod.addAuthAllow(apikey,'tele.call.foo.bar')
+        authmod.addAuthRule(apikey,'tele.call.foo.bar')
         daemon.setAuthModule(authmod)
 
-        port = link[1].get('port')
+        sockaddr = link[1].get('listen')
 
-        #cli = ('tcp',{'host':'127.0.0.1','port':port,'telepath':'foo','authinfo':authinfo})
-        cli = ('tcp',{'host':'127.0.0.1','port':port,'telepath':'foo'})
+        cli = tufo('tcp',connect=sockaddr,telepath='foo')
         foo = s_telepath.Proxy(cli)
 
         self.assertRaises( s_telepath.TelePermDenied, foo.bar, 20, 30)
@@ -83,24 +78,3 @@ class TelePathTest(unittest.TestCase):
 
         daemon.synFini()
         foo.synFini()
-
-    '''
-    def test_telepath_auth(self):
-
-        data = {'allow':True}
-        def callauth(event):
-            sock = event[1].get('sock')
-            mesg = event[1].get('mesg')
-            return data.get('allow')
-
-        serv,link = self.getFooServ()
-        serv.synOn('tele:call:auth',callauth)
-
-        foo = s_telepath.Proxy('foo',link)
-
-        foo.bar(10,20)
-
-        data['allow'] = False
-
-        self.assertRaises( s_telepath.TeleProtoError, foo.bar, 10, 20)
-    '''
