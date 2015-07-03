@@ -78,12 +78,12 @@ class TcpConnectRelay(LinkRelay):
             if sock == None:
                 break
 
-            self.synFire('link:sock:init',sock=sock)
+            self.fire('link:sock:init',sock=sock)
 
             for mesg in sock:
-                self.synFire('link:sock:mesg',sock=sock,mesg=mesg)
+                self.fire('link:sock:mesg',sock=sock,mesg=mesg)
 
-            self.synFire('link:sock:fini',sock=sock)
+            self.fire('link:sock:fini',sock=sock)
 
     def _runConnLoop(self):
         sock = None
@@ -108,7 +108,7 @@ class TcpListenRelay(LinkRelay):
     '''
     def __init__(self, link):
         LinkRelay.__init__(self, link)
-        self.synOnFini(self._finiTcpRelay)
+        self.onfini(self._finiTcpRelay)
 
     def runLinkRelay(self):
         # steal this method so we can fail synchronously
@@ -146,4 +146,4 @@ class TcpListenRelay(LinkRelay):
     def _finiTcpRelay(self):
         self._wakeTheSleeper()
         self.lisn.close()
-        self.boss.synFini()
+        self.boss.fini()

@@ -48,16 +48,16 @@ class Daemon(s_daemon.Daemon):
 
         s_daemon.Daemon.__init__(self,statefd=statefd)
 
-        self.synOnFini(self._onNeuFini)
+        self.onfini(self._onNeuFini)
 
-        self.synOn('link:sock:init',self._onNeuSockInit)
+        self.on('link:sock:init',self._onNeuSockInit)
 
-        self.synOn('neu:peer:init',self._onNeuPeerInit)
-        self.synOn('neu:peer:fini',self._onNeuPeerFini)
+        self.on('neu:peer:init',self._onNeuPeerInit)
+        self.on('neu:peer:fini',self._onNeuPeerFini)
 
         # application layer peer messages...
-        self.peerbus.synOn('ping',self._onPeerBusPing)
-        self.peerbus.synOn('pong',self._onPeerBusPong)
+        self.peerbus.on('ping',self._onPeerBusPing)
+        self.peerbus.on('pong',self._onPeerBusPong)
 
         self.setMesgMethod('neu:data',self._onMesgNeuData)
 
@@ -104,7 +104,7 @@ class Daemon(s_daemon.Daemon):
         if job == None:
             return
 
-        job.synFireDone(rtt)
+        job.jobDone(rtt)
 
     def getRsaCertCsr(self, **certinfo):
         '''
@@ -142,7 +142,7 @@ class Daemon(s_daemon.Daemon):
 
         '''
         self.neuinfo[prop] = valu
-        self.infobus.synFire('neu:info:%s' % prop, valu=valu)
+        self.infobus.fire('neu:info:%s' % prop, valu=valu)
 
     def getNeuInfo(self, prop):
         '''
@@ -279,7 +279,7 @@ class Daemon(s_daemon.Daemon):
 
         # yay! he's a peer
         sock.setSockInfo('neu:link:state','neu:link:peer')
-        self.synFire('neu:peer:init',sock=sock,ident=ident)
+        self.fire('neu:peer:init',sock=sock,ident=ident)
 
         chalhash = SHA256.new(challenge)
         chalresp = self.pkcs15.sign(chalhash)
@@ -319,11 +319,11 @@ class Daemon(s_daemon.Daemon):
             self.addPeerGraphEdge(p1,p2)
 
         sock.setSockInfo('neu:link:state','neu:link:peer')
-        self.synFire('neu:peer:init',sock=sock,ident=ident)
+        self.fire('neu:peer:init',sock=sock,ident=ident)
 
     def _onMesgNeuLinkErr(self, sock, mesg):
         sock.setSockState('neu:link:state','neu:link:err')
-        sock.synFini()
+        sock.fini()
 
     def addPeerCert(self, peercert):
         '''
@@ -537,7 +537,7 @@ class Daemon(s_daemon.Daemon):
         nexthop = route[hop]
         if nexthop == self.ident:
             peermesg = msgpack.loads(mesg[1]['mesg'],use_list=False,encoding='utf8')
-            self.peerbus.synDist(peermesg)
+            self.peerbus.dist(peermesg)
             return
 
         fwdsock = self.peersocks.get(nexthop)
@@ -659,5 +659,5 @@ class Daemon(s_daemon.Daemon):
                 todo.append( route + [n2] )
 
     def _onNeuFini(self):
-        self.boss.synFini()
-        self.async2sync.synFini()
+        self.boss.fini()
+        self.async2sync.fini()

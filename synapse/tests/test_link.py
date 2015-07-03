@@ -37,7 +37,7 @@ class LinkTest(unittest.TestCase):
         link = tufo('tcp',listen=('127.0.0.1',0))
 
         daemon = s_daemon.Daemon()
-        daemon.synOn('link:sock:init',sockinit)
+        daemon.on('link:sock:init',sockinit)
         daemon.setMesgMethod('woot',wootmesg)
 
         daemon.runLink(link)
@@ -55,5 +55,5 @@ class LinkTest(unittest.TestCase):
 
         self.assertEqual( data.get('count'), 3)
 
-        client.synFini()
-        daemon.synFini()
+        client.fini()
+        daemon.fini()

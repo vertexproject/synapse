@@ -57,11 +57,11 @@ def ImpulseChannel(EventBus):
         self.chan = chan
         self.client = client
 
-    def synFire(self, name, **info):
+    def fire(self, name, **info):
         '''
         Fire an impulse event on this channel.
         '''
-        ret = EventBus.synFire(name,**info)
+        ret = EventBus.fire(name,**info)
         imp = (name,info)
         mesg = ('imp:imp',{'chan':self.chan,'imp':imp})
         self.client.sendLinkMesg(mesg)

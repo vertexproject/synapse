@@ -22,7 +22,7 @@ class Socket(EventBus):
         self.crypto = None
         self.sockinfo = info
 
-        self.synOnFini(self._finiSocket)
+        self.onfini(self._finiSocket)
 
     def getSockId(self):
         '''
@@ -72,7 +72,7 @@ class Socket(EventBus):
             dostuff(byts)
 
         Notes:
-            * this API will trigger synFini() on close
+            * this API will trigger fini() on close
 
         '''
         byts = b''
@@ -109,7 +109,7 @@ class Socket(EventBus):
 
         Notes:
 
-            * This method will trigger synFini() on errors.
+            * This method will trigger fini() on errors.
 
         '''
         try:
@@ -170,9 +170,9 @@ class Socket(EventBus):
 
     def close(self):
         '''
-        Hook the socket close() function to trigger synFini()
+        Hook the socket close() function to trigger fini()
         '''
-        self.synFini()
+        self.fini()
 
     def recv(self, size):
         '''
@@ -189,7 +189,7 @@ class Socket(EventBus):
 
             return byts
         except socket.error as e:
-            # synFini triggered above.
+            # fini triggered above.
             return b''
 
     def _setCryptoProv(self, prov):

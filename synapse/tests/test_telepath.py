@@ -49,8 +49,8 @@ class TelePathTest(unittest.TestCase):
         self.assertRaises( s_telepath.TeleProtoError, foo.faz, 10, 20 )
         self.assertRaises( s_telepath.RemoteException, foo.baz, 10, 20 )
 
-        foo.synFini()
-        daemon.synFini()
+        foo.fini()
+        daemon.fini()
 
     def test_telepath_auth_apikey(self):
 
@@ -69,12 +69,12 @@ class TelePathTest(unittest.TestCase):
 
         self.assertRaises( s_telepath.TelePermDenied, foo.bar, 20, 30)
 
-        foo.synFini()
+        foo.fini()
 
         cli[1]['authinfo'] = {'apikey':apikey}
 
         foo = s_telepath.Proxy(cli)
         self.assertEqual( foo.bar(20,30), 50 )
 
-        daemon.synFini()
-        foo.synFini()
+        daemon.fini()
+        foo.fini()

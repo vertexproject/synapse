@@ -18,7 +18,7 @@ class EventBus:
         self._fini_meths = []
         self._fini_weaks = weakref.WeakSet()
 
-    def synOn(self, name, meth, weak=False):
+    def on(self, name, meth, weak=False):
         '''
         Add a callback method to the SynCallBacker.
 
@@ -29,13 +29,12 @@ class EventBus:
                 y = event[1].get('y')
                 return x + y
 
-            d.synOn('woot',baz)
+            d.on('woot',baz)
 
-            d.synFire('foo',10,20)
+            d.fire('foo',10,20)
 
         Notes:
 
-            * Callback convention is decided by synFire caller
             * Use weak=True to hold a weak reference to the method.
 
         '''
@@ -45,21 +44,21 @@ class EventBus:
 
         self._syn_meths[name].append(meth)
 
-    def synFire(self, name, **info):
+    def fire(self, name, **info):
         '''
         Fire each of the methods registered for an FIXME.
         Returns a list of the return values of each method.
 
         Example:
 
-            for ret in d.synFire('woot',foo='asdf'):
+            for ret in d.fire('woot',foo='asdf'):
                 print('got: %r' % (ret,))
 
         '''
         event = (name,info)
-        return self.synDist(event)
+        return self.dist(event)
 
-    def synDist(self, event):
+    def dist(self, event):
         '''
         Distribute an existing event tuple.
         '''
@@ -83,13 +82,13 @@ class EventBus:
 
         return ret
 
-    def synFini(self):
+    def fini(self):
         '''
         Fire the 'fini' handlers and set self.isfini.
 
         Example:
 
-            d.synFini()
+            d.fini()
 
         '''
         self.isfini = True
@@ -108,7 +107,7 @@ class EventBus:
 
         self.finievt.set()
 
-    def synOnFini(self, meth, weak=False):
+    def onfini(self, meth, weak=False):
         '''
         Register a handler to fire when this EventBus shuts down.
         '''
@@ -118,7 +117,7 @@ class EventBus:
 
     def synWait(self, timeout=None):
         '''
-        Wait for synFini() on the EventBus.
+        Wait for fini() on the EventBus.
 
         Example:
 

@@ -31,11 +31,11 @@ class AsyncJob(s_eventbus.EventBus):
         #self.status = 'new'
 
     #def synSetJobStatus(self, status):
-        #self.synFire('status',status)
+        #self.fire('status',status)
     #def synGetJobStatus(self):
 
     #def synSetJobProgress(self, prog):
-        #self.synFire('progress',prog)
+        #self.fire('progress',prog)
     #def synGetJobProgress(self):
 
     def getJobProxy(self, item):
@@ -108,17 +108,17 @@ class AsyncJob(s_eventbus.EventBus):
         '''
         if self.task == None:
             exc = JobHasNoTask()
-            self.synFireErr(exc)
+            self.jobErr(exc)
             raise exc
 
         # FIXME set current job as thread local for update methods?
         meth,args,kwargs = self.task
         try:
-            self.synFireDone( meth(*args,**kwargs) )
+            self.jobDone( meth(*args,**kwargs) )
         except Exception as e:
-            self.synFireErr(e)
+            self.jobErr(e)
 
-    def synFireErr(self, exc):
+    def jobErr(self, exc):
         '''
         Complete the AsyncJob as an error.
 
@@ -127,31 +127,31 @@ class AsyncJob(s_eventbus.EventBus):
             try:
                 doJobStuff()
             except Exception as e:
-                job.synFireErr(e)
+                job.jobErr(e)
 
         '''
         with self.lock:
             if self.isfini:
                 return
             self.retexc = exc
-            self.synFire('err',exc=exc)
-            self.synFini()
+            self.fire('err',exc=exc)
+            self.fini()
 
-    def synFireDone(self, retval):
+    def jobDone(self, retval):
         '''
         Complete the AsyncJob with return value.
 
         Example:
 
-            job.synFireDone(retval)
+            job.jobDone(retval)
 
         '''
         with self.lock:
             if self.isfini:
                 return
             self.retval = retval
-            self.synFire('done',ret=retval)
-            self.synFini()
+            self.fire('done',ret=retval)
+            self.fini()
 
     def getJobId(self):
         '''
@@ -171,7 +171,7 @@ class AsyncJob(s_eventbus.EventBus):
             def onfini():
                 event.set()
 
-            self.synOnFini(onfini,weak=True)
+            self.onfini(onfini,weak=True)
 
         return event.wait(timeout=timeout)
 
@@ -185,7 +185,7 @@ class AsyncJob(s_eventbus.EventBus):
 
         '''
         done = self.waitForJob(timeout=timeout)
-        self.synFini()
+        self.fini()
 
         if not done:
             raise JobTimedOut()
@@ -209,8 +209,8 @@ class AsyncBoss(s_eventbus.EventBus):
         s_eventbus.EventBus.__init__(self)
         self.jobs = {}
         self.pool = pool
-        self.synOnFini(self._finiAllJobs)
-        self.synOnFini(self._finiAllThreads)
+        self.onfini(self._finiAllJobs)
+        self.onfini(self._finiAllThreads)
 
         self.jobq = queue.Queue()
         self.threads = []
@@ -311,17 +311,17 @@ class AsyncBoss(s_eventbus.EventBus):
             def jobdone(event):
                 ondone( event[1].get('ret') )
 
-            job.synOn('done',jobdone)
+            job.on('done',jobdone)
 
         if onerr != None:
             def joberr(event):
                 onerr(event[1].get('exc'))
-            job.synOn('err',joberr)
+            job.on('err',joberr)
 
         def popjob():
             self.jobs.pop(jid,None)
 
-        job.synOnFini(popjob)
+        job.onfini(popjob)
         return job
 
     def _initPoolThread(self):
@@ -366,7 +366,7 @@ class AsyncBoss(s_eventbus.EventBus):
 
     def _finiAllJobs(self):
         for job in self.getAsyncJobs():
-            job.synFireErr(BossShutDown())
+            job.jobErr(BossShutDown())
 
 class AsyncProxy:
     '''

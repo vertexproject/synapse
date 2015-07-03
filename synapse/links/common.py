@@ -100,7 +100,7 @@ class LinkRelay(EventBus):
         link = ('tcpd',{'host':'0.0.0.0','port':'0.0.0.0'})
 
         relay = LinkRelay(link)
-        relay.synOn('link:sock:init',linksock)
+        relay.on('link:sock:init',linksock)
         relay.runLinkRelay()
 
     EventBus Events:
@@ -123,10 +123,10 @@ class LinkRelay(EventBus):
 
         # For now, these support threading...
         self.boss = s_threads.ThreadBoss()
-        self.synOnFini(self.boss.synFini)
+        self.onfini(self.boss.fini)
 
         # we get the sock first to fill in info
-        self.synOn('link:sock:init', self._onLinkSockInit)
+        self.on('link:sock:init', self._onLinkSockInit)
 
     def _prepRelaySock(self, sock):
         '''
@@ -153,11 +153,11 @@ class LinkRelay(EventBus):
         # apply universal link properties
         sock = self._prepRelaySock(sock)
 
-        self.synOnFini(sock.close,weak=True)
-        self.synFire('link:sock:init',sock=sock)
+        self.onfini(sock.close,weak=True)
+        self.fire('link:sock:init',sock=sock)
 
         for mesg in sock:
-            self.synFire('link:sock:mesg',sock=sock,mesg=mesg)
+            self.fire('link:sock:mesg',sock=sock,mesg=mesg)
 
-        self.synFire('link:sock:fini',sock=sock)
+        self.fire('link:sock:fini',sock=sock)
 

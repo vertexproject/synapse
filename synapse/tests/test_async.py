@@ -21,13 +21,13 @@ class AsyncTests(unittest.TestCase):
             data['shut'] = exc
 
         job1 = boss.initAsyncJob()
-        job1.synOn('done',ondone)
+        job1.on('done',ondone)
 
         job2 = boss.initAsyncJob()
-        job2.synOn('err',onerr)
+        job2.on('err',onerr)
 
         job3 = boss.initAsyncJob()
-        job3.synOn('err',onshut)
+        job3.on('err',onshut)
 
         jid1 = job1.getJobId()
         jid2 = job2.getJobId()
@@ -37,21 +37,21 @@ class AsyncTests(unittest.TestCase):
         self.assertIsNotNone( boss.getAsyncJob(jid1) )
         self.assertIsNotNone( boss.getAsyncJob(jid2) )
 
-        job1.synFireDone('foo')
+        job1.jobDone('foo')
 
         self.assertEqual( data.get('done'), 'foo' )
         self.assertIsNone( boss.getAsyncJob(jid1) )
         self.assertEqual( len(boss.getAsyncJobs()), 2)
         self.assertIsNotNone( boss.getAsyncJob(jid2) )
 
-        job2.synFireErr('bar')
+        job2.jobErr('bar')
 
         self.assertEqual( data.get('err'), 'bar' )
         self.assertIsNone( boss.getAsyncJob(jid2) )
         self.assertEqual( len(boss.getAsyncJobs()), 1)
         self.assertIsNotNone( boss.getAsyncJob(jid3) )
 
-        boss.synFini()
+        boss.fini()
 
         self.assertTrue( isinstance(data.get('shut'),s_async.BossShutDown))
         self.assertIsNone( boss.getAsyncJob(jid3) )
@@ -70,13 +70,13 @@ class AsyncTests(unittest.TestCase):
         job.waitForJob()
 
         self.assertEqual( job.retval, 40 )
-        boss.synFini()
+        boss.fini()
 
     def test_async_pool_nopool(self):
         boss = s_async.AsyncBoss()
         job = boss.initAsyncJob()
         self.assertRaises(s_async.BossHasNoPool, job.runInPool )
-        boss.synFini()
+        boss.fini()
 
     def test_async_pool_basics(self):
 
@@ -98,10 +98,10 @@ class AsyncTests(unittest.TestCase):
             data['err'] = event[1].get('exc')
 
         job1 = boss.initAsyncJob()
-        job1.synOn('done',ondone)
+        job1.on('done',ondone)
 
         job2 = boss.initAsyncJob()
-        job2.synOn('err',onerr)
+        job2.on('err',onerr)
 
         job1[foo].bar(10)
         job2[foo].baz(20)

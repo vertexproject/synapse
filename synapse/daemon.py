@@ -42,7 +42,7 @@ class Daemon(StateMachine,EventBus):
 
         '''
         self.authmod = authmod
-        self.synOnFini( authmod.synFini )
+        self.onfini( authmod.fini )
 
     def getAuthAllow(self, ident, rule):
         '''
@@ -172,11 +172,11 @@ class Daemon(StateMachine,EventBus):
 
         '''
         relay = s_link.initLinkRelay( link )
-        relay.synOn('link:sock:mesg',self._onDaeSockMesg)
-        relay.synOn('link:sock:init',self.synDist)
-        relay.synOn('link:sock:fini',self.synDist)
+        relay.on('link:sock:mesg',self._onDaeSockMesg)
+        relay.on('link:sock:init',self.dist)
+        relay.on('link:sock:fini',self.dist)
 
-        self.synOnFini(relay.synFini)
+        self.onfini(relay.fini)
 
         relay.runLinkRelay()
 
@@ -251,8 +251,8 @@ class AuthModule(StateMachine,EventBus):
 
         '''
         self.authinfo[prop] = valu
-        self.synFire('auth:info', prop=prop, valu=valu)
-        self.synFire('auth:info:%s' % prop, valu=valu)
+        self.fire('auth:info', prop=prop, valu=valu)
+        self.fire('auth:info:%s' % prop, valu=valu)
 
     def getAuthIdent(self, authdata):
         '''

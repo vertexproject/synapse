@@ -17,8 +17,8 @@ class EventBusTest(unittest.TestCase):
             y = event[1].get('y')
             return x * y
 
-        bus.synOn('woot',foo)
-        bus.synOn('woot',bar,weak=True)
+        bus.on('woot',foo)
+        bus.on('woot',bar,weak=True)
 
-        ret = bus.synFire('woot',x=3,y=5)
+        ret = bus.fire('woot',x=3,y=5)
         self.assertEqual( tuple(ret), (8,15) )

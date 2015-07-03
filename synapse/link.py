@@ -124,8 +124,8 @@ class LinkClient(EventBus):
         self.link = link
         self.lock = threading.Lock()
 
-        self.synOn('sockinit', self._onSockInit )
-        self.synOnFini(self._finiLinkClient)
+        self.on('sockinit', self._onSockInit )
+        self.onfini(self._finiLinkClient)
 
         self.sock = initLinkSock(self.link)
 
@@ -185,7 +185,7 @@ class LinkClient(EventBus):
 
         self.sock = initLinkSock(self.link)
         if self.sock != None:
-            self.synFire('sockinit',sock=self.sock)
+            self.fire('sockinit',sock=self.sock)
             return
 
         delay = self.link[1].get('delay',0)
@@ -198,4 +198,4 @@ class LinkClient(EventBus):
 
             self.sock = initLinkSock(self.link)
 
-        self.synFire('sockinit',sock=self.sock)
+        self.fire('sockinit',sock=self.sock)

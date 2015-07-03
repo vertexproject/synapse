@@ -35,9 +35,9 @@ class ThreadBoss(EventBus):
         EventBus.__init__(self)
         self.threads = {}
 
-        self.synOn('thread:init', self._initThread)
-        self.synOn('thread:fini', self._finiThread)
-        self.synOnFini(self._finiThreadBoss)
+        self.on('thread:init', self._initThread)
+        self.on('thread:fini', self._finiThread)
+        self.onfini(self._finiThreadBoss)
 
     def worker(self, meth, *args, **kwargs):
         '''
@@ -75,11 +75,11 @@ class ThreadBoss(EventBus):
     @firethread
     def _runWorkThread(self, meth, args, kwargs):
         thread = threading.currentThread()
-        self.synFire('thread:init',thread=thread)
+        self.fire('thread:init',thread=thread)
         try:
             return meth(*args,**kwargs)
         finally:
-            self.synFire('thread:fini',thread=thread)
+            self.fire('thread:fini',thread=thread)
 
 class Sched(EventBus):
     '''
@@ -90,7 +90,7 @@ class Sched(EventBus):
         self.sema = threading.Semaphore()
         self.sched = sched.scheduler()
         self.thr = self._runSchedMain()
-        self.synOnFini(self._finiSched)
+        self.onfini(self._finiSched)
 
     @firethread
     def _runSchedMain(self):

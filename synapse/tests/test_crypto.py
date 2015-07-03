@@ -30,5 +30,5 @@ class CryptoTest(unittest.TestCase):
         self.assertEqual( repl[0], 'woot2' )
         self.assertEqual( data.get('foo'), 2)
 
-        client.synFini()
-        daemon.synFini()
+        client.fini()
+        daemon.fini()

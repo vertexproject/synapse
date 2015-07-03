@@ -41,9 +41,9 @@ class TestNeuron(unittest.TestCase):
         def peer3init(event):
             evt3.set()
 
-        neu1.synOn('neu:peer:init',peer1init)
-        neu2.synOn('neu:peer:init',peer2init)
-        neu3.synOn('neu:peer:init',peer3init)
+        neu1.on('neu:peer:init',peer1init)
+        neu2.on('neu:peer:init',peer2init)
+        neu3.on('neu:peer:init',peer3init)
 
         sockaddr = link1[1].get('listen')
         link2 = s_common.tufo('tcp',connect=sockaddr,peersyn=True)
@@ -66,9 +66,9 @@ class TestNeuron(unittest.TestCase):
         self.assertIsNotNone(rtt2)
         self.assertIsNotNone(rtt3)
 
-        neu1.synFini()
-        neu2.synFini()
-        neu3.synFini()
+        neu1.fini()
+        neu2.fini()
+        neu3.fini()
 
     def test_neuron_keepstate(self):
         return
@@ -123,7 +123,7 @@ class TestNeuron(unittest.TestCase):
         route = neuron._getPeerRoute( peers[2] )
 
         self.assertListEqual( route, [ ident, peers[0], peers[1], peers[2] ] )
-        neuron.synFini()
+        neuron.fini()
 
     #def test_neuron_route_asymetric(self):
     #def test_neuron_route_teardown(self):

@@ -18,8 +18,8 @@ class ThreadsTest(unittest.TestCase):
             evt.set()
 
         boss = s_threads.ThreadBoss()
-        boss.synOn('thread:init',threadinit)
-        boss.synOn('thread:fini',threadfini)
+        boss.on('thread:init',threadinit)
+        boss.on('thread:fini',threadfini)
 
         def woot(x,y):
             data['woot'] = x + y
@@ -27,7 +27,7 @@ class ThreadsTest(unittest.TestCase):
         boss.worker( woot, 20, 30 )
 
         evt.wait()
-        boss.synFini()
+        boss.fini()
 
         self.assertTrue( data.get('init') )
         self.assertTrue( data.get('fini') )
@@ -53,4 +53,4 @@ class ThreadsTest(unittest.TestCase):
 
         self.assertListEqual( data['woot'], [10,20] )
 
-        sched.synFini()
+        sched.fini()

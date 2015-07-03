@@ -16,7 +16,7 @@ class DaemonTest(unittest.TestCase):
         daemon.addLink('woot1',tufo('tcp',listen=('127.0.0.1',0)))
         daemon.addLink('woot2',tufo('tcp',listen=('127.0.0.1',0)))
 
-        daemon.synFini()
+        daemon.fini()
 
         fd.seek(0)
 
@@ -25,14 +25,14 @@ class DaemonTest(unittest.TestCase):
         self.assertIsNotNone( daemon.getLink('woot1') )
         self.assertIsNotNone( daemon.getLink('woot2') )
 
-        daemon.synFini()
+        daemon.fini()
 
     def test_daemon_getlinks(self):
         daemon = s_daemon.Daemon()
         daemon.addLink('woot1',tufo('tcp',listen=('127.0.0.1',0)))
         daemon.addLink('woot2',tufo('tcp',listen=('127.0.0.1',0)))
         self.assertEqual( len(daemon.getLinks()), 2 )
-        daemon.synFini()
+        daemon.fini()
 
     def test_daemon_extend(self):
 
@@ -55,8 +55,8 @@ class DaemonTest(unittest.TestCase):
         self.assertEqual( mesg[0], 'woot' )
         self.assertEqual( mesg[1].get('foo'), 'bar' )
 
-        sock.synFini()
-        daemon.synFini()
+        sock.fini()
+        daemon.fini()
 
     def test_daemon_timeout(self):
         link = tufo('tcp',listen=('127.0.0.1',0),timeout=0.1)
@@ -68,8 +68,8 @@ class DaemonTest(unittest.TestCase):
         sock = s_socket.connect( sockaddr )
         self.assertEqual( sock.recvobj(),None)
 
-        sock.synFini()
-        daemon.synFini()
+        sock.fini()
+        daemon.fini()
 
     def test_daemon_auth_apikey(self):
 
@@ -93,7 +93,7 @@ class DaemonTest(unittest.TestCase):
         self.assertFalse( authapi.getAuthAllow( guid(), 'foo.bar') )
         self.assertFalse( authapi.getAuthAllow( guid(), 'foo.gronk') )
 
-        daemon.synFini()
+        daemon.fini()
 
         dmonfd.seek(0)
         authfd.seek(0)
@@ -110,4 +110,4 @@ class DaemonTest(unittest.TestCase):
         authapi.delAuthRule(ident, 'foo.bar')
         self.assertFalse( authapi.getAuthAllow( ident, 'foo.bar') )
 
-        daemon.synFini()
+        daemon.fini()
