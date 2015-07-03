@@ -144,6 +144,6 @@ class TcpListenRelay(LinkRelay):
             sock.close()
 
     def _finiTcpRelay(self):
-        self._wakeTheSleeper
+        self._wakeTheSleeper()
         self.lisn.close()
         self.boss.synFini()
