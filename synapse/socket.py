@@ -210,6 +210,7 @@ def listen(sockaddr,**sockinfo):
     Simplified listening socket contructor.
     '''
     sock = socket.socket()
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
         sock.bind(sockaddr)
         sock.listen(120)

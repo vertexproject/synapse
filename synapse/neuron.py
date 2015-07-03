@@ -48,7 +48,8 @@ class Daemon(s_daemon.Daemon):
 
         s_daemon.Daemon.__init__(self,statefd=statefd)
 
-        self.synOn('fini',self._onNeuFini)
+        self.synOnFini(self._onNeuFini)
+
         self.synOn('link:sock:init',self._onNeuSockInit)
 
         self.synOn('neu:peer:init',self._onNeuPeerInit)
