@@ -13,8 +13,8 @@ class DaemonTest(unittest.TestCase):
         fd = io.BytesIO()
         daemon = s_daemon.Daemon(statefd=fd)
 
-        daemon.addLink('woot1',tufo('tcp',listen=('127.0.0.1',34380)))
-        daemon.addLink('woot2',tufo('tcp',listen=('127.0.0.1',34390)))
+        daemon.addLink('woot1',tufo('tcp',listen=('127.0.0.1',0)))
+        daemon.addLink('woot2',tufo('tcp',listen=('127.0.0.1',0)))
 
         daemon.synFini()
 
@@ -22,15 +22,15 @@ class DaemonTest(unittest.TestCase):
 
         daemon = s_daemon.Daemon(statefd=fd)
 
-        self.assertEqual( daemon.getLink('woot1')[1]['listen'], ('127.0.0.1',34380) )
-        self.assertEqual( daemon.getLink('woot2')[1]['listen'], ('127.0.0.1',34390) )
+        self.assertIsNotNone( daemon.getLink('woot1') )
+        self.assertIsNotNone( daemon.getLink('woot2') )
 
         daemon.synFini()
 
     def test_daemon_getlinks(self):
         daemon = s_daemon.Daemon()
-        daemon.addLink('woot1',tufo('tcp',listen=('127.0.0.1',34380)))
-        daemon.addLink('woot2',tufo('tcp',listen=('127.0.0.1',34390)))
+        daemon.addLink('woot1',tufo('tcp',listen=('127.0.0.1',0)))
+        daemon.addLink('woot2',tufo('tcp',listen=('127.0.0.1',0)))
         self.assertEqual( len(daemon.getLinks()), 2 )
         daemon.synFini()
 
