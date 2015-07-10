@@ -1,3 +1,4 @@
+import threading
 from urllib.parse import urlparse, parse_qsl
 
 import synapse.crypto as s_crypto
@@ -12,55 +13,67 @@ class NoSuchLinkProto(Exception):pass
 
 class ImplementMe(Exception):pass
 
-class LinkProto:
+class LinkRelay:
 
     proto = None
 
-    def __init__(self):
-        pass
+    def __init__(self, link):
+        self.link = link
+        self._reqValidLink(link)
 
-    def reqValidLink(self, link):
+    def initLinkServer(self):
         '''
-        Check the link tuple for errors and raise.
+        Construct and return a new LinkServer for the link.
         '''
-        return self._reqValidLink(link)
+        return self._initLinkServer()
 
-    def initLinkRelay(self, link):
+    def initLinkClient(self):
         '''
-        Construct and return a new LinkRelay for the link.
+        Construct and return a new LinkClient for the link.
+
+        Example:
+
+            cli = relay.initLinkClient(link)
+
         '''
-        return self._initLinkRelay(link)
+        return self._initLinkClient()
 
-    def initLinkSock(self, link):
+    def initLinkPeer(self):
         '''
-        Construct and return a client sock for the link.
+        Construct and return a new LinkPeer for the link.
+
+        Example:
+
+            def sockmesg(event):
+                stuff()
+
+            peer = relay.initLinkPeer()
+            peer.on('link:sock:mesg',sockmesg)
+            peer.runLinkPeer()
+
         '''
-        sock = self._initLinkSock(link)
-        return _prepLinkSock(sock,link)
+        return self._initLinkPeer()
 
-    def initLinkFromUri(self, uri):
-        p = urlparse(uri)
-        q = dict(parse_qsl(p.query))
-        link = self._initLinkFromUriParsed(p,q)
+    def initServerSock(self):
+        return self._initServerSock()
 
-        # fill in props handled by all links
-        timeout = q.get('timeout')
-        if timeout != None:
-            link[1]['timeout'] = int(timeout,0)
+    def initClientSock(self):
+        sock = self._initClientSock()
+        return _prepLinkSock(sock,self.link)
 
-        rc4key = q.get('rc4key')
-        if rc4key != None:
-            link[1]['rc4key'] = rc4key.encode('utf8')
-
-        return link
-
-    def _initLinkFromUriParsed(self, parsed, query):
+    def _initClientSock(self):
         raise ImplementMe()
 
-    def _initLinkSock(self, link):
+    def _initServerSock(self):
         raise ImplementMe()
 
-    def _initLinkRelay(self, link):
+    def _initLinkServer(self):
+        raise ImplementMe()
+
+    def _initLinkClient(self):
+        raise ImplementMe()
+
+    def _initLinkPeer(self):
         raise ImplementMe()
 
     def _reqValidLink(self, link):
@@ -68,12 +81,20 @@ class LinkProto:
 
 def _prepLinkSock(sock,link):
     '''
-    Used by LinkProto and LinkRelay to handle universal link options.
+    Used by LinkClient and LinkServer to handle universal link options.
     '''
+    sock.setSockInfo('trans',link[1].get('trans'))
+
+    # must remain first!
+    zerosig = link[1].get('zerosig')
+    if zerosig != None:
+        xform = s_crypto.Rc4Xform(b'')
+        sock.addSockXform(xform)
+
     rc4key = link[1].get('rc4key')
     if rc4key != None:
-        prov = s_crypto.RC4Crypto(link)
-        sock._setCryptoProv( prov )
+        xform = s_crypto.Rc4Xform(rc4key)
+        sock.addSockXform(xform)
 
     timeout = link[1].get('timeout')
     if timeout != None:
@@ -82,11 +103,11 @@ def _prepLinkSock(sock,link):
     #FIXME support DH KEX
     return sock
 
-class LinkRelay(EventBus):
+class LinkServer(EventBus):
     '''
-    A synapse LinkRelay ( link runtime ).
+    A synapse LinkServer.
 
-    Each synapse LinkRelay is capable of producing newly
+    Each synapse LinkServer is capable of producing newly
     connected Socket() objects:
 
     Example:
@@ -97,11 +118,14 @@ class LinkRelay(EventBus):
         def linkmesg(sock,mesg):
             stuff()
 
-        link = ('tcpd',{'host':'0.0.0.0','port':'0.0.0.0'})
+        link = ('tcp',{'host':'0.0.0.0','port':'0.0.0.0'})
 
-        relay = LinkRelay(link)
-        relay.on('link:sock:init',linksock)
-        relay.runLinkRelay()
+        relay = initLinkRelay(link)
+
+        server = relay.initLinkServer()
+        server.on('link:sock:init',linksock)
+        server.on('link:sock:mesg',linkmesg)
+        server.runLinkServer()
 
     EventBus Events:
 
@@ -109,49 +133,44 @@ class LinkRelay(EventBus):
         ('link:sock:fini',{'sock':sock})
         ('link:sock:mesg',{'sock':sock, 'mesg':mesg})
 
-    Notes:
-
-        * Any Socket() from a link relay should have:
-
-            sock.getSockInfo('link')
-            sock.getSockInfo('relay')
-
     '''
-    def __init__(self, link):
+    def __init__(self, relay):
         EventBus.__init__(self)
-        self.link = link
+        self.relay = relay
 
-        # For now, these support threading...
         self.boss = s_threads.ThreadBoss()
         self.onfini(self.boss.fini)
 
         # we get the sock first to fill in info
         self.on('link:sock:init', self._onLinkSockInit)
 
-    def _prepRelaySock(self, sock):
+    def _prepLinkSock(self, sock):
         '''
-        Used by LinkRelay implementors to handle universal link options.
+        Used by LinkServer implementors to handle universal link options.
         '''
-        return _prepLinkSock(sock,self.link)
+        return _prepLinkSock(sock,self.relay.link)
 
     def _onLinkSockInit(self, event):
         sock = event[1].get('sock')
-        sock.setSockInfo('relay',self)
-        sock.setSockInfo('link',self.link)
+        sock.setSockInfo('server',self)
 
-    def runLinkRelay(self):
+    def runLinkServer(self):
         '''
-        Run a thread to handle this LinkRelay.
+        Run a thread to handle this LinkServer.
         '''
-        self.boss.worker( self._runLinkRelay )
+        self._initLinkServer()
+        self.boss.worker( self._runLinkServer )
 
-    def _runLinkRelay(self):
+    def _runLinkServer(self):
+        raise ImplementMe()
+
+    def _initLinkServer(self):
         raise ImplementMe()
 
     def _runSockLoop(self, sock):
 
         # apply universal link properties
-        sock = self._prepRelaySock(sock)
+        sock = self._prepLinkSock(sock)
 
         self.onfini(sock.close,weak=True)
         self.fire('link:sock:init',sock=sock)
@@ -160,4 +179,113 @@ class LinkRelay(EventBus):
             self.fire('link:sock:mesg',sock=sock,mesg=mesg)
 
         self.fire('link:sock:fini',sock=sock)
+
+class LinkPeer(EventBus):
+    '''
+    A LinkPeer is a persistent peer-to-peer client-like
+    object for long running "client" connections with
+    multiplexing.
+    '''
+    def __init__(self, relay):
+        EventBus.__init__(self)
+        self.relay = relay
+
+        self.boss = s_threads.ThreadBoss()
+        self.onfini(self.boss.fini)
+
+    def runLinkPeer(self):
+        self.boss.worker(self._runLinkPeer)
+
+    def _runLinkPeer(self):
+
+        while not self.isfini:
+
+            sock = self.relay.initClientSock()
+            if sock == None:
+                time.sleep(1)
+                continue
+
+            sock.setSockInfo('peer',True)
+            self.fire('link:sock:init',sock=sock)
+
+            for mesg in sock:
+                self.fire('link:sock:mesg',sock=sock,mesg=mesg)
+
+            self.fire('link:sock:fini',sock=sock)
+
+            sock.fini()
+
+class LinkClient(EventBus):
+    '''
+    A synapse link client.
+    '''
+    def __init__(self, relay):
+        EventBus.__init__(self)
+
+        self.lock = threading.Lock()
+
+        self.relay = relay
+        self.trans = relay.link[1].get('trans')
+
+        self.onfini(self._finiLinkClient)
+
+        self.sock = relay.initClientSock()
+
+        if self.sock == None:
+            raise Exception('Initial Link Failed: %r' % (self.link,))
+
+        if self.trans:
+            self.sock.fini()
+
+    def sendAndRecv(self, name, **info):
+        '''
+        Send a message and receive a message transactionally.
+
+        Example:
+
+            resp = client.sendAndRecv( ('woot',{}) )
+
+        Notes:
+
+            * This API will reconnect as needed
+
+        '''
+        mesg = (name, info)
+
+        # no need to lock or anything...
+        if self.trans:
+            sock = self.initSockLoop()
+            try:
+                sock.sendobj( mesg )
+                return sock.recvobj()
+            finally:
+                sock.fini()
+
+        with self.lock:
+            while True:
+                while not self.sock.sendobj( mesg ):
+                    self.sock.fini()
+                    self.sock = self.initSockLoop()
+                return self.sock.recvobj()
+
+    def _finiLinkClient(self):
+        self.sock.fini()
+
+    def initSockLoop(self):
+        sock = self.relay.initClientSock()
+        if sock != None:
+            return sock
+
+        delay = self.link[1].get('delay',0)
+        while sock == None and not self.isfini:
+
+            time.sleep(delay)
+
+            delaymax = self.link[1].get('delaymax',2)
+            delayinc = self.link[1].get('delayinc',0.2)
+            delay = min( delay + delayinc, delaymax )
+
+            sock = iself.relay.initClientSock()
+
+        return sock
 

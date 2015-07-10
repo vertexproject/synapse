@@ -115,13 +115,13 @@ class EventBus:
             return self._fini_weaks.add(meth)
         self._fini_meths.append(meth)
 
-    def synWait(self, timeout=None):
+    def wait(self, timeout=None):
         '''
         Wait for fini() on the EventBus.
 
         Example:
 
-            d.synWait()
+            d.wait()
 
         '''
         return self.finievt.wait(timeout=timeout)

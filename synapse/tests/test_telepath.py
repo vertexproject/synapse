@@ -1,6 +1,7 @@
 import time
 import unittest
 
+import synapse.link as s_link
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
@@ -21,10 +22,10 @@ class Foo:
 class TelePathTest(unittest.TestCase):
 
     def getFooServ(self):
-        link = tufo('tcp',listen=('127.0.0.1',0))
+        link = s_link.chopLinkUrl('tcp://127.0.0.1:0/foo')
 
         daemon = s_telepath.Daemon()
-        daemon.runLink(link)
+        daemon.runLinkServer(link)
 
         daemon.addSharedObject('foo',Foo())
 
@@ -34,8 +35,7 @@ class TelePathTest(unittest.TestCase):
 
         daemon,link = self.getFooServ()
 
-        cli = tufo('tcp',connect=link[1].get('listen'),telepath='foo')
-        foo = s_telepath.Proxy(cli)
+        foo = s_telepath.Proxy(link)
 
         s = time.time()
         for i in range(1000):
@@ -64,17 +64,29 @@ class TelePathTest(unittest.TestCase):
 
         sockaddr = link[1].get('listen')
 
-        cli = tufo('tcp',connect=sockaddr,telepath='foo')
-        foo = s_telepath.Proxy(cli)
+        foo = s_telepath.Proxy(link)
 
         self.assertRaises( s_telepath.TelePermDenied, foo.bar, 20, 30)
 
         foo.fini()
 
-        cli[1]['authinfo'] = {'apikey':apikey}
+        link[1]['authinfo'] = {'apikey':apikey}
 
-        foo = s_telepath.Proxy(cli)
+        foo = s_telepath.Proxy(link)
         self.assertEqual( foo.bar(20,30), 50 )
 
-        daemon.fini()
         foo.fini()
+        daemon.fini()
+
+    def test_telepath_chop(self):
+
+        daemon,link = self.getFooServ()
+
+        port = link[1].get('port')
+
+        foo = s_telepath.getProxy('tcp://localhost:%d/foo' % (port,))
+
+        self.assertEqual( foo.bar(10,20), 30 )
+
+        foo.fini()
+        daemon.fini()

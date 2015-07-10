@@ -6,22 +6,27 @@ import synapse.link as s_link
 import synapse.daemon as s_daemon
 
 from synapse.common import *
+from synapse.links.common import *
 
 class LinkTest(unittest.TestCase):
 
     def test_link_invalid(self):
-
         link = ('tcp',{})
-        self.assertRaises( s_link.NoLinkProp, s_link.reqValidLink, link )
+        self.assertRaises( NoLinkProp, s_link.initLinkRelay, link )
 
-    def test_link_fromuri(self):
-        uri = 'tcp://127.0.0.1:9999?rc4key=wootwoot&timeout=30'
-        link = s_link.initLinkFromUri(uri)
+    def test_link_fromurl(self):
+        url = 'tcp://visi:secret@127.0.0.1:9999/foo?rc4key=wootwoot&timeout=30'
+        link = s_link.chopLinkUrl(url)
 
         self.assertEqual(link[0],'tcp')
+        self.assertEqual(link[1].get('port'),9999)
+        self.assertEqual(link[1].get('path'),'/foo')
         self.assertEqual(link[1].get('timeout'),30)
+        self.assertEqual(link[1].get('host'),'127.0.0.1')
         self.assertEqual(link[1].get('rc4key'),b'wootwoot')
-        self.assertEqual(link[1].get('connect'),('127.0.0.1',9999))
+
+        self.assertEqual(link[1]['authinfo'].get('user'),'visi')
+        self.assertEqual(link[1]['authinfo'].get('passwd'),'secret')
 
     def test_link_tcp_client(self):
 
@@ -34,18 +39,19 @@ class LinkTest(unittest.TestCase):
             mesgs.append(mesg)
             return tufo('woot',foo=mesg[1].get('id'))
 
-        link = tufo('tcp',listen=('127.0.0.1',0))
+        link = s_link.chopLinkUrl('tcp://127.0.0.1:0/?zerosig=1')
+        #link = tufo('tcp',host='127.0.0.1',port=0)
 
         daemon = s_daemon.Daemon()
         daemon.on('link:sock:init',sockinit)
         daemon.setMesgMethod('woot',wootmesg)
 
-        daemon.runLink(link)
+        daemon.runLinkServer(link)
 
-        sockaddr = link[1].get('listen')
+        relay = s_link.initLinkRelay(link)
 
-        link = tufo('tcp',connect=sockaddr,trans=True)
-        client = s_link.LinkClient(link)
+        link[1]['trans'] = True
+        client = relay.initLinkClient()
 
         reply = client.sendAndRecv('woot',id=1)
         self.assertEqual( reply[1].get('foo'), 1 )

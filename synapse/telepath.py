@@ -7,6 +7,7 @@ import synapse.link as s_link
 import synapse.daemon as s_daemon
 
 from synapse.common import *
+from synapse.eventbus import EventBus
 
 class Daemon(s_daemon.Daemon):
     '''
@@ -22,11 +23,9 @@ class Daemon(s_daemon.Daemon):
                 return x + y
 
 
-        link = tufo('tcp',listen=('0.0.0.0',9999))
-
+        link = s_link.chopLinkUrl('tcp://0.0.0.0:9999')
         daemon = s_telepath.Daemon()
-
-        daemon.runLink(link)
+        daemon.runLinkServer(link)
         daemon.addSharedObject('foo',Foo())
 
     '''
@@ -74,10 +73,8 @@ class Daemon(s_daemon.Daemon):
         '''
         sock.setSockInfo('tele:syn',True)
         authinfo = mesg[1].get('authinfo')
-
         ident = self.getAuthIdent(authinfo)
         sock.setSockInfo('tele:ident',ident)
-
         return tufo('tele:syn')
 
     def _onMesgTeleCall(self, sock, mesg):
@@ -124,7 +121,7 @@ class ProxyMeth:
 
     def __call__(self, *args, **kwargs):
         task = (self.proxy.objname, self.name, args, kwargs)
-        reply = self.proxy.sendAndRecv('tele:call',teletask=task)
+        reply = self.proxy.client.sendAndRecv('tele:call',teletask=task)
 
         if reply[0] == 'tele:call':
             exc = reply[1].get('exc')
@@ -138,18 +135,36 @@ class ProxyMeth:
 
         raise TeleProtoError( reply[1].get('msg') )
             
-class Proxy(s_link.LinkClient):
+class Proxy(EventBus):
 
-    # FIXME make these use links!
     def __init__(self, link):
-        self.objname = link[1].get('telepath')
-        s_link.LinkClient.__init__(self, link)
+        EventBus.__init__(self)
+
+        self.link = link
+        self.relay = s_link.initLinkRelay(link)
+        self.client = self.relay.initLinkClient()
+
+        self.onfini( self.client.fini )
+
+        # objname is path minus leading "/"
+        self.objname = link[1].get('path')[1:]
 
         authinfo = link[1].get('authinfo')
-        self.sendAndRecv('tele:syn',authinfo=authinfo)
+        self.client.sendAndRecv('tele:syn',authinfo=authinfo)
 
     def __getattr__(self, name):
         meth = ProxyMeth(self, name)
         setattr(self,name,meth)
         return meth
 
+def getProxy(url):
+    '''
+    Construct a telepath proxy from a url.
+
+    Example:
+
+        foo = getProxy('tcp://1.2.3.4:90/foo')
+
+    '''
+    link = s_link.chopLinkUrl(url)
+    return Proxy(link)

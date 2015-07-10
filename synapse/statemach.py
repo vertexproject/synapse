@@ -21,9 +21,10 @@ class StateMachine:
     A class which can be used to save/replay API calls to allow
     saving the "state" of an object as a sequence of calls.
     '''
-    def __init__(self, statefd=None):
+    def __init__(self, statefd=None, load=True):
         self.statefd = None
-        self._loadStateFd(statefd)
+        if statefd != None and load:
+            self._loadStateFd(statefd)
         self.statefd = statefd
 
     def _loadStateFd(self, fd):

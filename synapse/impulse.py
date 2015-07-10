@@ -66,29 +66,28 @@ def ImpulseChannel(EventBus):
         mesg = ('imp:imp',{'chan':self.chan,'imp':imp})
         self.client.sendLinkMesg(mesg)
 
-class ImpulseClient(s_link.LinkClient):
-    '''
-    ImpulseClient provides access to channelized event distribution.
+#class ImpulseClient(s_link.LinkClient):
+    #'''
+    #ImpulseClient provides access to channelized event distribution.
+    #'''
+    #def __init__(self, link, linker=None):
+        #s_link.LinkClient.__init__(self, link, linker=linker)
+        #self.implock = threading.Lock()
+        #self.impchans = {}
+#
+    #def getImpChan(self, name):
+        #'''
+        #Return a channel
+        #'''
+        #with self.implock:
+            #chan = self.impchans.get(name)
+            #if chan == None:
+                #chan = ImpulseChannel(self,name)
+                #self._sendImpJoin( name )
+                #self.impchans[name] = chan
+            #return chan
 
-    '''
-    def __init__(self, link, linker=None):
-        s_link.LinkClient.__init__(self, link, linker=linker)
-        self.implock = threading.Lock()
-        self.impchans = {}
-
-    def getImpChan(self, name):
-        '''
-        Return a channel
-        '''
-        with self.implock:
-            chan = self.impchans.get(name)
-            if chan == None:
-                chan = ImpulseChannel(self,name)
-                self._sendImpJoin( name )
-                self.impchans[name] = chan
-            return chan
-
-    def _sendImpJoin(self, chan):
-        self.sendLinkMesg( ('imp:join', {'chan':chan}) )
+    #def _sendImpJoin(self, chan):
+        #self.sendLinkMesg( ('imp:join', {'chan':chan}) )
 
     #def _sendImpLeave(self, chan):

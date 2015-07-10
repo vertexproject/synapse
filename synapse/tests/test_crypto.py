@@ -9,7 +9,7 @@ class CryptoTest(unittest.TestCase):
 
     def test_crypto_rc4(self):
 
-        link1 = tufo('tcp',listen=('127.0.0.1',0),rc4key=b'asdfasdf')
+        link1 = s_link.chopLinkUrl('tcp://127.0.0.1:0?rc4key=asdfasdf')
 
         data = {}
         def wootmesg(sock,mesg):
@@ -19,12 +19,11 @@ class CryptoTest(unittest.TestCase):
         daemon = s_daemon.Daemon()
         daemon.setMesgMethod('woot1',wootmesg)
 
-        daemon.runLink(link1)
+        daemon.runLinkServer(link1)
 
-        sockaddr = link1[1].get('listen')
-        link2 = tufo('tcp',connect=sockaddr,rc4key=b'asdfasdf')
+        relay = s_link.initLinkRelay(link1)
+        client = relay.initLinkClient()
 
-        client = s_link.LinkClient(link2)
         repl = client.sendAndRecv('woot1',foo=2)
 
         self.assertEqual( repl[0], 'woot2' )

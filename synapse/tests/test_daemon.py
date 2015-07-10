@@ -1,9 +1,8 @@
 import io
 import unittest
 
+import synapse.link as s_link
 import synapse.daemon as s_daemon
-import synapse.socket as s_socket
-import synapse.service as s_service
 
 from synapse.common import *
 
@@ -13,8 +12,8 @@ class DaemonTest(unittest.TestCase):
         fd = io.BytesIO()
         daemon = s_daemon.Daemon(statefd=fd)
 
-        daemon.addLink('woot1',tufo('tcp',listen=('127.0.0.1',0)))
-        daemon.addLink('woot2',tufo('tcp',listen=('127.0.0.1',0)))
+        daemon.addLinkServer('woot1',tufo('tcp',host='127.0.0.1',port=0))
+        daemon.addLinkServer('woot2',tufo('tcp',host='127.0.0.1',port=0))
 
         daemon.fini()
 
@@ -29,8 +28,8 @@ class DaemonTest(unittest.TestCase):
 
     def test_daemon_getlinks(self):
         daemon = s_daemon.Daemon()
-        daemon.addLink('woot1',tufo('tcp',listen=('127.0.0.1',0)))
-        daemon.addLink('woot2',tufo('tcp',listen=('127.0.0.1',0)))
+        daemon.addLinkServer('woot1',tufo('tcp',host='127.0.0.1',port=0))
+        daemon.addLinkServer('woot2',tufo('tcp',host='127.0.0.1',port=0))
         self.assertEqual( len(daemon.getLinks()), 2 )
         daemon.fini()
 
@@ -42,11 +41,12 @@ class DaemonTest(unittest.TestCase):
         daemon = s_daemon.Daemon()
         daemon.setMesgMethod('woot',onwoot)
 
-        link = tufo('tcp',listen=('127.0.0.1',0))
-        daemon.runLink(link)
+        link = tufo('tcp',host='127.0.0.1',port=0)
+        daemon.runLinkServer(link)
 
-        sockaddr = link[1].get('listen')
-        sock = s_socket.connect( sockaddr )
+        relay = s_link.initLinkRelay(link)
+        sock = relay.initClientSock()
+
         self.assertIsNotNone(sock)
 
         sock.sendobj( ('woot',{}) )
@@ -59,13 +59,14 @@ class DaemonTest(unittest.TestCase):
         daemon.fini()
 
     def test_daemon_timeout(self):
-        link = tufo('tcp',listen=('127.0.0.1',0),timeout=0.1)
+        link = tufo('tcp',host='127.0.0.1',port=0,timeout=0.1)
 
         daemon = s_daemon.Daemon()
-        daemon.runLink(link)
+        daemon.runLinkServer(link)
 
-        sockaddr = link[1].get('listen')
-        sock = s_socket.connect( sockaddr )
+        relay = s_link.initLinkRelay(link)
+        sock = relay.initClientSock()
+
         self.assertEqual( sock.recvobj(),None)
 
         sock.fini()

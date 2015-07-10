@@ -2,6 +2,7 @@ import traceback
 import collections
 
 import synapse.link as s_link
+import synapse.threads as s_threads
 
 from synapse.eventbus import EventBus
 from synapse.statemach import StateMachine, keepstate
@@ -19,6 +20,9 @@ class Daemon(StateMachine,EventBus):
         self.authmod = None
         self.links = {}
         self.mesgmeths = {}
+
+        self.boss = s_threads.ThreadBoss()
+        self.onfini( self.boss.fini )
 
         StateMachine.__init__(self,statefd=statefd)
 
@@ -94,7 +98,7 @@ class Daemon(StateMachine,EventBus):
         self.mesgmeths[name] = meth
 
     @keepstate
-    def addLink(self, name, link):
+    def addLinkServer(self, name, link):
         '''
         Add a link tuple to the Daemon.
 
@@ -116,7 +120,7 @@ class Daemon(StateMachine,EventBus):
 
         self.links[name] = link
             
-        self.runLink(link)
+        self.runLinkServer(link)
 
     def getLink(self, name):
         '''
@@ -157,28 +161,38 @@ class Daemon(StateMachine,EventBus):
         link = s_link.initLinkFromUri(uri)
         return self.addLink(name,link)
 
-    def runLink(self, link):
+    def runLinkServer(self, link):
         '''
-        Run and manage a new link.
+        Run and manage a new LinkServer.
 
         Example:
 
-            link = tufo('tcp',listen=('0.0.0.0',80))
-            daemon.runLink(link)
-
-        Notes:
-
-            * This method does *not* update StateMachine.
-
+            link = tufo('tcp',host='0.0.0.0',port=80)
+            daemon.runLinkServer(link)
         '''
         relay = s_link.initLinkRelay( link )
-        relay.on('link:sock:mesg',self._onDaeSockMesg)
-        relay.on('link:sock:init',self.dist)
-        relay.on('link:sock:fini',self.dist)
+        server = relay.initLinkServer()
 
-        self.onfini(relay.fini)
+        server.on('link:sock:mesg',self._onDaeSockMesg)
+        server.on('link:sock:init',self.dist)
+        server.on('link:sock:fini',self.dist)
 
-        relay.runLinkRelay()
+        self.onfini(server.fini)
+        return server.runLinkServer()
+
+    def runLinkPeer(self, link):
+        '''
+        Run and manage a new LinkPeer.
+        '''
+        relay = s_link.initLinkRelay(link)
+        peer = relay.initLinkPeer()
+
+        peer.on('link:sock:mesg',self._onDaeSockMesg)
+        peer.on('link:sock:init',self.dist)
+        peer.on('link:sock:fini',self.dist)
+
+        self.onfini(peer.fini)
+        return peer.runLinkPeer()
 
     def _onDaeSockMesg(self, event):
         sock = event[1].get('sock')

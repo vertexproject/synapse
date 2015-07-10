@@ -12,6 +12,24 @@ import synapse.threads as s_threads
 from synapse.eventbus import EventBus
 from synapse.statemach import keepstate
 
+class SockXform:
+    '''
+    Base class for a socket bytes transform class.
+
+    Notes:
+
+        * for obj tx/rx, these are called once per.
+    '''
+    #TODO: maybe make this use bytebuffer and in-band xform
+    def init(self, sock):
+        pass
+
+    def send(self, byts):
+        return byts
+
+    def recv(self, byts):
+        return byts
+
 class Socket(EventBus):
 
     def __init__(self, sock, **info):
@@ -19,10 +37,23 @@ class Socket(EventBus):
         self.sock = sock
         self.unpk = msgpack.Unpacker(use_list=0,encoding='utf8')
         self.ident = s_common.guid()
+        self.xforms = []        # list of SockXform instances
         self.crypto = None
         self.sockinfo = info
 
         self.onfini(self._finiSocket)
+
+    def addSockXform(self, xform):
+        '''
+        Add a data transformation filter to the socket.
+
+        Example:
+
+            sock.addSockXform(xform)
+
+        '''
+        xform.init(self)
+        self.xforms.append(xform)
 
     def getSockId(self):
         '''
@@ -77,21 +108,28 @@ class Socket(EventBus):
         '''
         byts = b''
         remain = size
-        while remain:
-            x = self.recv(remain)
-            if not x:
-                return None
-            byts += x
-            remain -= len(x)
 
-        if self.crypto:
-            byts = self.crypto.decrypt(byts)
+        try:
+            while remain:
+                x = self.sock.recv(remain)
+                if not x:
+                    return None
+                byts += x
+                remain -= len(x)
+
+        except socket.error as e:
+            # fini triggered above.
+            return None
+
+        for xform in self.xforms:
+            byts = xform.recv(byts)
 
         return byts
 
+
     def sendall(self, byts):
-        if self.crypto:
-            byts = self.crypto.encrypt(byts)
+        for xform in self.xforms:
+            byts = xform.send(byts)
         return self.sock.sendall(byts)
 
     def fireobj(self, name, **info):
@@ -181,8 +219,8 @@ class Socket(EventBus):
         '''
         try:
             byts = self.sock.recv(size)
-            if self.crypto:
-                byts = self.crypto.decrypt(byts)
+            for xform in self.xforms:
+                byts = xform.recv(byts)
 
             if not byts:
                 self.close()
@@ -191,10 +229,6 @@ class Socket(EventBus):
         except socket.error as e:
             # fini triggered above.
             return b''
-
-    def _setCryptoProv(self, prov):
-        prov.initSockCrypto(self)
-        self.crypto = prov
 
     def __getattr__(self, name):
         return getattr(self.sock, name)

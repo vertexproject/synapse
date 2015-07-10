@@ -2,6 +2,7 @@ import io
 import unittest
 import threading
 
+import synapse.link as s_link
 import synapse.daemon as s_daemon
 import synapse.neuron as s_neuron
 import synapse.common as s_common
@@ -26,8 +27,10 @@ class TestNeuron(unittest.TestCase):
         neu3.addPeerCert(cert1)
         neu3.addPeerCert(cert2)
 
-        link1 = s_common.tufo('tcp',listen=('0.0.0.0',0))
-        neu1.runLink(link1)
+        link1 = s_link.chopLinkUrl('tcp://127.0.0.1:0')
+
+        #link1 = s_common.tufo('tcp',listen=('0.0.0.0',0))
+        neu1.runLinkServer(link1)
 
         evt1 = threading.Event()
         def peer1init(event):
@@ -45,15 +48,12 @@ class TestNeuron(unittest.TestCase):
         neu2.on('neu:peer:init',peer2init)
         neu3.on('neu:peer:init',peer3init)
 
-        sockaddr = link1[1].get('listen')
-        link2 = s_common.tufo('tcp',connect=sockaddr,peersyn=True)
-
-        neu2.runLink(link2)
+        neu2.runLinkPeer(link1)
 
         self.assertTrue( evt1.wait(3) )
         self.assertTrue( evt2.wait(3) )
 
-        neu3.runLink(link2)
+        neu3.runLinkPeer(link1)
         self.assertTrue( evt3.wait(3) )
 
         rtt1 = neu1.syncPingPeer(neu2.ident)
