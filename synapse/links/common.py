@@ -1,5 +1,4 @@
 import threading
-from urllib.parse import urlparse, parse_qsl
 
 import synapse.crypto as s_crypto
 import synapse.threads as s_threads
