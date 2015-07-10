@@ -1,8 +1,6 @@
 import time
 import socket
 
-from urllib.parse import urlparse, parse_qsl
-
 import synapse.socket as s_socket
 
 from synapse.common import *
