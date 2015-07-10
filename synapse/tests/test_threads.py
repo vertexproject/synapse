@@ -54,3 +54,17 @@ class ThreadsTest(unittest.TestCase):
         self.assertListEqual( data['woot'], [10,20] )
 
         sched.fini()
+
+    def test_threads_perthread(self):
+
+        data = dict(count=0)
+        def woot(x,y=None):
+            data['count'] += 1
+            return (x,y)
+
+        w1 = s_threads.getPerThread('woot',woot,10,y=20)
+        w2 = s_threads.getPerThread('woot',woot,10,y=30)
+
+        self.assertEqual( w1, (10,20) )
+        self.assertEqual( w2, (10,20) )
+        self.assertEqual( data['count'], 1 )
