@@ -21,6 +21,27 @@ def firethread(f):
         return thr
     return callmeth
 
+def getPerThread(name, ctor, *args, **kwargs):
+    '''
+    Return a "per thread" value by name.
+    If not yet initilized, call ctor(*args,**kwargs).
+
+    Example:
+
+        thrset = getPerThread('fooset',set)
+
+    '''
+    thr = threading.currentThread()
+    perthr = getattr(thr,'_per_thread',None)
+    if perthr == None:
+        perthr = thr._per_thread = {}
+
+    val = perthr.get(name)
+    if val == None:
+        perthr[name] = val = ctor(*args,**kwargs)
+
+    return val
+
 class ThreadBoss(EventBus):
     '''
     A thread manager for firing and cleaning up threads.
