@@ -1,9 +1,6 @@
 import os
-import queue
 import socket
 import msgpack
-import selectors
-import threading
 import traceback
 
 import synapse.common as s_common
