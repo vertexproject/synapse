@@ -40,7 +40,7 @@ class Cortex(common.Cortex):
             rows = self.rowsbyvalu.get( (prop,valu) )
 
         if rows == None:
-            return ()
+            return
 
         c = 0
         for row in rows:
