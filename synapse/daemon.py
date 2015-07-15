@@ -97,7 +97,6 @@ class Daemon(StateMachine,EventBus):
         '''
         self.mesgmeths[name] = meth
 
-    @keepstate
     def addLinkServer(self, name, link):
         '''
         Add a link tuple to the Daemon.
@@ -119,7 +118,6 @@ class Daemon(StateMachine,EventBus):
             raise DupLink()
 
         self.links[name] = link
-            
         self.runLinkServer(link)
 
     def getLink(self, name):

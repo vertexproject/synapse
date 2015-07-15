@@ -8,24 +8,6 @@ from synapse.common import *
 
 class DaemonTest(unittest.TestCase):
 
-    def test_daemon_saveload(self):
-        fd = io.BytesIO()
-        daemon = s_daemon.Daemon(statefd=fd)
-
-        daemon.addLinkServer('woot1',tufo('tcp',host='127.0.0.1',port=0))
-        daemon.addLinkServer('woot2',tufo('tcp',host='127.0.0.1',port=0))
-
-        daemon.fini()
-
-        fd.seek(0)
-
-        daemon = s_daemon.Daemon(statefd=fd)
-
-        self.assertIsNotNone( daemon.getLink('woot1') )
-        self.assertIsNotNone( daemon.getLink('woot2') )
-
-        daemon.fini()
-
     def test_daemon_getlinks(self):
         daemon = s_daemon.Daemon()
         daemon.addLinkServer('woot1',tufo('tcp',host='127.0.0.1',port=0))
