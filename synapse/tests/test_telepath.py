@@ -43,7 +43,7 @@ class TelePathTest(unittest.TestCase):
         e = time.time()
 
         # ensure perf is still good...
-        self.assertTrue( (e - s) < 0.17 )
+        self.assertTrue( (e - s) < 0.3 )
 
         self.assertEqual( foo.bar(10,20), 30 )
         self.assertRaises( s_telepath.TeleProtoError, foo.faz, 10, 20 )
