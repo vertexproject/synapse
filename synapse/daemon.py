@@ -106,7 +106,7 @@ class Daemon(StateMachine,EventBus):
             from synapse.common import tufo
 
             link = tufo('tcp',host='1.2.3.4',port=80)
-            daemon.addLink('wootwoot',link)
+            daemon.addLinkServer('wootwoot',link)
 
         Notes:
 
@@ -146,18 +146,6 @@ class Daemon(StateMachine,EventBus):
 
         '''
         return list(self.links.items())
-
-    def addLinkUri(self, name, uri):
-        '''
-        A convenience function to add a link by uri.
-
-        Example:
-
-            daemon.addLinkUri('tcp://0.0.0.0:9999?listen=1')
-
-        '''
-        link = s_link.initLinkFromUri(uri)
-        return self.addLink(name,link)
 
     def runLinkServer(self, link):
         '''
