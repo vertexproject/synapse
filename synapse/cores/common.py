@@ -7,6 +7,7 @@ import synapse.threads as s_threads
 from synapse.eventbus import EventBus
 
 class NoSuchGetBy(Exception):pass
+class DupCortexName(Exception):pass
 
 class Cortex(EventBus):
     '''
@@ -14,14 +15,14 @@ class Cortex(EventBus):
 
     ( use getCortex() to instantiate )
     '''
-    def __init__(self, **corinfo):
+    def __init__(self, link):
         EventBus.__init__(self)
+        self.link = link
 
         self.lock = threading.Lock()
 
-        self.corinfo = corinfo
+        self.sizebymeths = {}
         self.rowsbymeths = {}
-        self.liftbymeths = {}
 
         self._initCortex()
 
@@ -131,11 +132,24 @@ class Cortex(EventBus):
         '''
         return self._getSizeByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
 
-    def getRowsBy(self, name, prop, valu):
-        return self._getRowsBy(name,prop,valu)
+    def getRowsBy(self, name, prop, valu, limit=None):
+        '''
+        Retrieve rows by a specialized index within the cortex.
 
-    def getJoinBy(self, name, prop, valu):
-        return self._getJoinBy(name,prop,valu)
+        Example:
+
+            rows = core.getRowsBy('range','foo',(20,30))
+
+        Notes:
+            * most commonly used to facilitate range searches
+
+        '''
+        meth = self._reqRowsByMeth(name)
+        return meth(prop,valu,limit=limit)
+
+    def getSizeBy(self, name, prop, valu, limit=None):
+        meth = self._reqSizeByMeth(name)
+        return meth(prop,valu,limit=limit)
 
     def initRowsBy(self, name, meth):
         '''
@@ -151,19 +165,8 @@ class Cortex(EventBus):
         '''
         self.rowsbymeths[name] = meth
 
-    def initJoinBy(self, name, meth):
-        '''
-        Initialize a "lift by" handler for the Cortex.
-
-        Example:
-
-        Notes:
-
-            * Used by Cortex implementors to facilitate
-              getJoinBy(...)
-
-        '''
-        self.liftbymeths[name] = meth
+    def initSizeBy(self, name, meth):
+        self.sizebymeths[name] = meth
 
     def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         '''
@@ -185,8 +188,8 @@ class Cortex(EventBus):
             for jrow in self._getRowsById(irow[0]):
                 yield jrow
 
-    def _reqJoinByMeth(self, name):
-        meth = self.liftbymeths.get(name)
+    def _reqSizeByMeth(self, name):
+        meth = self.sizebymeths.get(name)
         if meth == None:
             raise NoSuchGetBy(name)
         return meth
@@ -215,4 +218,45 @@ class Cortex(EventBus):
 
     def _addAsyncTodo(self, meth, *args, **kwargs):
         self.asyncq.append( (meth,args,kwargs) )
+
+class Corplex:
+    '''
+    A corplex is a multi-plexor for multiple Cortex instances by name or type.
+
+    Example:
+
+        plex = Corplex()
+        plex.addCortex('foo','bar','
+
+    '''
+    def __init__(self):
+        self.byname = {}
+        self.bytype = collections.defaultdict(list)
+
+    def addCortex(self, name, type, url):
+        '''
+        Add a cortex URL to the corplex.
+
+        Example:
+
+            # two different cortex instances
+            url1 = 'sqlite:///:memory:'
+            url2 = 'tcp://1.2.3.4:443/foocore'
+
+            plex.addCortex('bar','baz',url1)
+            plex.addCortex('foo','baz',url2)
+
+        '''
+        core = self.byname.get(name)
+        if core != None:
+            raise DupCortexName(name)
+
+        # types may not collide with names!
+        core = self.byname.get(type)
+        if core != None:
+            raise DupCortexName(type)
+
+        core = cortex.open(url)
+        self.byname[name] = core
+        self.bytype[name].append(core)
 

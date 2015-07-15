@@ -21,3 +21,12 @@ class Cortex(s_c_sqlite.Cortex):
     def _initCorQueries(self):
         s_c_sqlite.Cortex._initCorQueries(self)
         self._q_istable = istable
+
+    def _initDbInfo(self, link):
+        return {
+            'host':link[1].get('host'),
+            'user':link[1].get('user'),
+            'passwd':link[1].get('passwd'),
+            'database':link[1].get('path')[1:],
+        }
+

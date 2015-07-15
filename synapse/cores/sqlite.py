@@ -28,7 +28,10 @@ init_intval_idx = 'CREATE INDEX %s_intval_idx ON %s (prop,intval,stamp)'
 addrows = 'INSERT INTO %s (id,prop,strval,intval,stamp) VALUES (?,?,?,?,?)'
 getrows_by_id = 'SELECT * FROM %s WHERE id=?'
 getrows_by_prop = 'SELECT * FROM %s WHERE prop=?'
+getrows_by_range = 'SELECT * FROM %s WHERE prop=? and intval >= ? AND intval < ?'
+
 getsize_by_prop = 'SELECT COUNT(*) FROM %s WHERE prop=?'
+getsize_by_range = 'SELECT COUNT(*) FROM %s WHERE prop=? and intval >= ? AND intval < ?'
 
 delrows_by_id = 'DELETE FROM %s WHERE id=?'
 
@@ -49,17 +52,42 @@ class Cortex(common.Cortex):
     def cursor(self):
         return WithCursor( self.db.cursor() )
 
+    def _initDbInfo(self, link):
+        return {'name':link[1].get('path')[1:]}
+
+    def _rowsByRange(self, prop, valu, limit=None):
+        x,y = valu.split(',')
+        q = self._q_getrows_by_range
+        args = [ prop, int(x), int(y) ]
+
+        if limit != None:
+            q += ' LIMIT %d' % limit
+
+        return self.select(q,args)
+
+    def _sizeByRange(self, prop, valu, limit=None):
+        x,y = valu.split(',')
+        q = self._q_getsize_by_range
+        args = [ prop, int(x), int(y) ]
+
+        if limit != None:
+            q += ' LIMIT %d' % limit
+
+        return self.select(q,args)[0][0]
+
     def _initCortex(self):
 
-        self.db = self.corinfo.get('db')
+        self.initSizeBy('range',self._sizeByRange)
+        self.initRowsBy('range',self._rowsByRange)
+
+        path = self.link[1].get('path')[1:]
+
+        self.db = self.link[1].get('db')
         if self.db == None:
-            dbinfo = self.corinfo.get('dbinfo')
+            dbinfo = self._initDbInfo(self.link)
             self.db = self._initDataBase(dbinfo)
 
-        self.tbname = self.corinfo.get('tablename','syncortex')
-
-        if not self.tbname.isalnum():
-            raise Exception('table name: %s ( must be alphanum! )' % (self.tbname,))
+        self.tbname = self.link[1].get('table','syncortex')
 
         self._initCorQueries()
         if not self._checkForTable( self.tbname ):
@@ -87,7 +115,10 @@ class Cortex(common.Cortex):
         self._q_addrows = self._prepQuery(addrows)
         self._q_getrows_by_id = self._prepQuery(getrows_by_id)
         self._q_getrows_by_prop = self._prepQuery(getrows_by_prop)
+        self._q_getrows_by_range = self._prepQuery(getrows_by_range)
+
         self._q_getsize_by_prop = self._prepQuery(getsize_by_prop)
+        self._q_getsize_by_range = self._prepQuery(getsize_by_range)
 
         self._q_delrows_by_id = self._prepQuery(delrows_by_id)
 

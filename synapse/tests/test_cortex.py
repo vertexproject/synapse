@@ -10,23 +10,23 @@ from synapse.common import *
 class CortexTest(unittest.TestCase):
 
     def test_cortex_ram(self):
-        self.runcore(cortex.getCortex('ram') )
+        self.runcore( cortex.open('ram://') )
 
     def test_cortex_sqlite3(self):
-        core = cortex.getCortex('sqlite',dbinfo={'name':':memory:'})
-        self.runcore(core)
+        core = cortex.open('sqlite:///:memory:?table=woot')
+        self.runcore( core )
+        self.runrange( core )
 
     def test_cortex_postgres(self):
         db = os.getenv('SYN_COR_PG_DB')
         if db == None:
             raise unittest.SkipTest('no SYN_COR_PG_DB')
 
-        dbinfo = {
-            'database':os.getenv('SYN_COR_PG_DB'),
-        }
+        link = ('postgres',{'path':'/%s' % db})
+        core = cortex.openlink(link)
 
-        core = cortex.getCortex('postgres',dbinfo=dbinfo)
-        self.runcore(core)
+        self.runcore( core )
+        self.runrange( core )
 
     def runcore(self, core):
 
@@ -75,3 +75,16 @@ class CortexTest(unittest.TestCase):
         self.assertEqual( len(core.getRowsById(id1)), 0 )
 
         core.fini()
+
+    def runrange(self, core):
+
+        rows = [
+            (guid(),'rg',10,99),
+            (guid(),'rg',30,99),
+        ]
+
+        core.addRows( rows )
+
+        self.assertEqual( core.getSizeBy('range','rg','0,20'), 1 )
+        self.assertEqual( len( core.getRowsBy('range','rg','0,20')), 1 )
+

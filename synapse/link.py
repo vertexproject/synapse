@@ -87,19 +87,19 @@ def chopLinkUrl(url):
         if p.password != None:
             link[1]['authinfo']['passwd'] = p.password
 
-    timeout = q.get('timeout')
+    timeout = q.pop('timeout',None)
     if timeout != None:
         link[1]['timeout'] = float(timeout)
 
-    rc4key = q.get('rc4key')
+    rc4key = q.pop('rc4key',None)
     if rc4key != None:
         link[1]['rc4key'] = rc4key.encode('utf8')
 
-    zerosig = q.get('zerosig')
+    zerosig = q.pop('zerosig',None)
     if zerosig != None:
         link[1]['zerosig'] = True
 
-    apikey = q.get('apikey')
+    apikey = q.pop('apikey',None)
     if apikey != None:
         authinfo = link[1].get('authinfo')
         if authinfo == None:
@@ -108,4 +108,5 @@ def chopLinkUrl(url):
 
         authinfo['apikey'] = apikey
 
+    link[1].update(q)
     return link
