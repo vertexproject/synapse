@@ -1,4 +1,5 @@
 import io
+import time
 import unittest
 import threading
 
@@ -63,3 +64,18 @@ class LinkTest(unittest.TestCase):
 
         client.fini()
         daemon.fini()
+
+    def test_link_client_retry(self):
+        link = s_link.chopLinkUrl('tcp://127.0.0.1:0/?retry=2')
+
+        daemon = s_daemon.Daemon()
+        daemon.runLinkServer(link)
+
+        relay = s_link.initLinkRelay(link)
+        client = relay.initLinkClient()
+
+        daemon.fini()
+
+        self.assertRaises( s_link.RetryExceeded, client.sendAndRecv, 'woot' )
+
+        client.fini()

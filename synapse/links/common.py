@@ -1,3 +1,4 @@
+import time
 import threading
 
 import synapse.crypto as s_crypto
@@ -9,6 +10,9 @@ class BadLinkInfo(Exception):pass
 class NoLinkProp(BadLinkInfo):pass
 class BadLinkProp(BadLinkInfo):pass
 class NoSuchLinkProto(Exception):pass
+
+class LinkFailure(Exception):pass
+class RetryExceeded(LinkFailure):pass
 
 class ImplementMe(Exception):pass
 
@@ -58,6 +62,8 @@ class LinkRelay:
 
     def initClientSock(self):
         sock = self._initClientSock()
+        if sock == None:
+            return None
         return _prepLinkSock(sock,self.link)
 
     def _initClientSock(self):
@@ -265,7 +271,13 @@ class LinkClient(EventBus):
                 while not self.sock.sendobj( mesg ):
                     self.sock.fini()
                     self.sock = self.initSockLoop()
-                return self.sock.recvobj()
+
+                resp = self.sock.recvobj()
+                if resp != None:
+                    return resp
+
+                self.sock.fini()
+                self.sock = self.initSockLoop()
 
     def _finiLinkClient(self):
         self.sock.fini()
@@ -275,16 +287,24 @@ class LinkClient(EventBus):
         if sock != None:
             return sock
 
-        delay = self.link[1].get('delay',0)
+        tries = 1
+        retry = self.relay.link[1].get('retry')
+        delay = self.relay.link[1].get('delay',0)
+
         while sock == None and not self.isfini:
+
+            if retry != None and tries > retry:
+                raise RetryExceeded()
 
             time.sleep(delay)
 
-            delaymax = self.link[1].get('delaymax',2)
-            delayinc = self.link[1].get('delayinc',0.2)
+            delaymax = self.relay.link[1].get('delaymax',2)
+            delayinc = self.relay.link[1].get('delayinc',0.2)
             delay = min( delay + delayinc, delaymax )
 
-            sock = iself.relay.initClientSock()
+            sock = self.relay.initClientSock()
+
+            tries += 1
 
         return sock
 
