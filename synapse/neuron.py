@@ -185,12 +185,7 @@ class Daemon(s_daemon.Daemon):
         Check if the new sock is from a "peersyn" link.
         '''
         sock = event[1].get('sock')
-        #link = sock.getSockInfo('link')
-        #if link == None:
-            #return
-
-        #print('NEU SOCK INIT %r' % (sock,))
-
+        # shall we start a peer handshake?
         if sock.getSockInfo('peer'):
             self._sendPeerSyn(sock)
 
