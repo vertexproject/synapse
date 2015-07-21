@@ -179,6 +179,11 @@ class Cortex(EventBus):
 
         Example:
 
+            def getbywoot(prop,valu,limit=None):
+                return stuff() # list of rows
+
+            core.initRowsBy('woot',getbywoot)
+
         Notes:
 
             * Used by Cortex implementors to facilitate
@@ -188,6 +193,17 @@ class Cortex(EventBus):
         self.rowsbymeths[name] = meth
 
     def initSizeBy(self, name, meth):
+        '''
+        Initialize a "size by" handler for the Cortex.
+
+        Example:
+
+            def sizebywoot(prop,valu,limit=None):
+                return stuff() # size of rows
+
+            core.initSizeBy('woot',meth)
+
+        '''
         self.sizebymeths[name] = meth
 
     def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, async=False):
