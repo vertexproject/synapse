@@ -7,7 +7,6 @@ class EventBus:
     '''
     A synapse EventBus provides an easy way manage callbacks.
     '''
-
     def __init__(self):
         self.isfini = False
         self.finievt = threading.Event()
@@ -121,7 +120,7 @@ class EventBus:
 
         Example:
 
-            d.wait()
+            d.wait(timeout=30)
 
         '''
         return self.finievt.wait(timeout=timeout)

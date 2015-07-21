@@ -8,6 +8,24 @@ class Cortex(common.Cortex):
         self.rowsbyprop = collections.defaultdict(set)
         self.rowsbyvalu = collections.defaultdict(set)
 
+        self.initSizeBy('range',self._sizeByRange)
+        self.initRowsBy('range',self._rowsByRange)
+
+    def _sizeByRange(self, prop, valu, limit=None):
+        # HACK: for speed
+        data = dict(size=0)
+        def inc():
+            data['size'] += 1
+        [ inc() for r in self.rowsbyprop.get(prop,()) if r[2] >= valu[0] and r[2] < valu[1] ]
+        return data['size']
+
+    def _rowsByRange(self, prop, valu, limit=None):
+        # HACK: for speed
+        ret = [ r for r in self.rowsbyprop.get(prop,()) if r[2] >= valu[0] and r[2] < valu[1] ]
+        if limit != None:
+            ret = ret[:limit]
+        return ret
+
     def _addRows(self, rows):
         for row in rows:
             self.rowsbyid[row[0]].add(row)
@@ -16,18 +34,24 @@ class Cortex(common.Cortex):
 
     def _delRowsById(self, ident):
         for row in self.rowsbyid.pop(ident,()):
-        
-            byprop = self.rowsbyprop[ row[1] ]
-            byprop.discard(row)
-            if not byprop:
-                self.rowsbyprop.pop(row[1],None)
+            self._delRawRow(row)
 
-            propvalu = (row[1],row[2])
+    def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
+        for row in self.getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime):
+            self._delRawRow(row)
 
-            byvalu = self.rowsbyvalu[propvalu]
-            byvalu.discard(row)
-            if not byvalu:
-                self.rowsbyvalu.pop(propvalu,None)
+    def _delRawRow(self, row):
+        byprop = self.rowsbyprop[ row[1] ]
+        byprop.discard(row)
+        if not byprop:
+            self.rowsbyprop.pop(row[1],None)
+
+        propvalu = (row[1],row[2])
+
+        byvalu = self.rowsbyvalu[propvalu]
+        byvalu.discard(row)
+        if not byvalu:
+            self.rowsbyvalu.pop(propvalu,None)
 
     def _getRowsById(self, ident):
         return self.rowsbyid.get(ident,())

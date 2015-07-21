@@ -2,7 +2,7 @@ import queue
 import threading
 import traceback
 
-import synapse.threads as s_threads
+import synapse.async as s_async
 
 from synapse.eventbus import EventBus
 
@@ -26,10 +26,25 @@ class Cortex(EventBus):
 
         self._initCortex()
 
-        self.asyncq = queue.Queue()
-        self.asyncthr = s_threads.worker( self._runAsyncQueue )
+        self.boss = s_async.AsyncBoss(pool=1)
+        self.async = s_async.AsyncApi(self.boss, self)
 
-        self.onfini( self._finiCortex )
+        self.onfini( self.boss.fini )
+
+    def waitForJob(self, jid, timeout=None):
+        '''
+        Wait for completion of a previous async call.
+
+        Example:
+
+            j1 = core.addRows( rows1 )
+            j2 = core.addRows( rows2 )
+            j3 = core.addRows( rows3 )
+
+            core.waitForJob( j3 )
+
+        '''
+        return self.boss.waitForJob(jid, timeout=timeout)
 
     def addRows(self, rows, async=False):
         '''
@@ -49,10 +64,9 @@ class Cortex(EventBus):
 
         '''
         if async:
-            return self._addAsyncTodo(self.addRows, rows)
+            return self.async.addRows(rows).jid
 
         self._addRows(rows)
-        self.fire('cortex:add:rows',rows=rows)
 
     def getRowsById(self, ident):
         '''
@@ -82,10 +96,9 @@ class Cortex(EventBus):
 
         '''
         if async:
-            return self._addAsyncTodo(self.delRowsById, ident)
+            return self.async.delRowsById(ident).jid
 
         self._delRowsById(ident)
-        self.fire('cortex:del:id',id=ident)
 
     def getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         '''
@@ -148,6 +161,15 @@ class Cortex(EventBus):
         return meth(prop,valu,limit=limit)
 
     def getSizeBy(self, name, prop, valu, limit=None):
+        '''
+        Retrieve row count by a specialized index within the cortex.
+
+        Example:
+
+            size = core.getSizeBy('range','foo',(20,30))
+            print('there are %d rows where 20 <= foo < 30 ' % (size,))
+
+        '''
         meth = self._reqSizeByMeth(name)
         return meth(prop,valu,limit=limit)
 
@@ -168,7 +190,7 @@ class Cortex(EventBus):
     def initSizeBy(self, name, meth):
         self.sizebymeths[name] = meth
 
-    def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
+    def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, async=False):
         '''
         Delete rows with a given prop[=valu].
 
@@ -176,17 +198,38 @@ class Cortex(EventBus):
 
             core.delRowsByProp('foo',valu=10)
         '''
+        if async:
+            return self.async.delRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime).jid
+
         return self._delRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime)
 
-    def delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
+    def delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, async=False):
         '''
+        Delete a group of rows by selecting for property and joining on ident.
+
+        Example:
+
         '''
+        if async:
+            return self.async.delJoinByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime).jid
+
         return self._delJoinByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime)
 
     def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         for irow in self._getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit):
             for jrow in self._getRowsById(irow[0]):
                 yield jrow
+
+    def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
+        rows = self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
+        done = set()
+        for row in rows:
+            ident = row[0]
+            if ident in done:
+                continue
+
+            self.delRowsById(ident)
+            done.add(ident)
 
     def _reqSizeByMeth(self, name):
         meth = self.sizebymeths.get(name)
@@ -199,25 +242,6 @@ class Cortex(EventBus):
         if meth == None:
             raise NoSuchGetBy(name)
         return meth
-
-    def _runAsyncQueue(self):
-        while True:
-            todo = self.asyncq.get()
-            if todo == None:
-                return
-
-            meth,args,kwargs = todo
-            try:
-                meth(*args,**kwargs)
-            except Exception as e:
-                traceback.print_exc()
-
-    def _finiCortex(self):
-        self.asyncq.put(None)
-        self.asyncthr.join()
-
-    def _addAsyncTodo(self, meth, *args, **kwargs):
-        self.asyncq.append( (meth,args,kwargs) )
 
 class Corplex:
     '''

@@ -2,7 +2,7 @@ import os
 import binascii
 import unittest
 
-import synapse.cortex as cortex
+import synapse.cortex as s_cortex
 
 from binascii import hexlify
 from synapse.common import *
@@ -10,10 +10,12 @@ from synapse.common import *
 class CortexTest(unittest.TestCase):
 
     def test_cortex_ram(self):
-        self.runcore( cortex.open('ram://') )
+        core = s_cortex.openurl('ram://')
+        self.runcore( core )
+        self.runrange( core )
 
     def test_cortex_sqlite3(self):
-        core = cortex.open('sqlite:///:memory:?table=woot')
+        core = s_cortex.openurl('sqlite:///:memory:?table=woot')
         self.runcore( core )
         self.runrange( core )
 
@@ -23,7 +25,7 @@ class CortexTest(unittest.TestCase):
             raise unittest.SkipTest('no SYN_COR_PG_DB')
 
         link = ('postgres',{'path':'/%s' % db})
-        core = cortex.openlink(link)
+        core = s_cortex.openlink(link)
 
         self.runcore( core )
         self.runrange( core )
@@ -32,6 +34,7 @@ class CortexTest(unittest.TestCase):
 
         id1 = hexlify(guid()).decode('utf8')
         id2 = hexlify(guid()).decode('utf8')
+        id3 = hexlify(guid()).decode('utf8')
 
         rows = [
             (id1,'foo','bar',30),
@@ -41,6 +44,10 @@ class CortexTest(unittest.TestCase):
             (id2,'foo','bar',99),
             (id2,'baz','faz2',99),
             (id2,'gronk',90,99),
+
+            (id3,'a','a',99),
+            (id3,'b','b',99),
+            (id3,'c',90,99),
         ]
 
         core.addRows( rows )
@@ -74,6 +81,14 @@ class CortexTest(unittest.TestCase):
 
         self.assertEqual( len(core.getRowsById(id1)), 0 )
 
+        self.assertEqual( len(core.getRowsByProp('b',valu='b')), 1 )
+        core.delRowsByProp('b',valu='b')
+        self.assertEqual( len(core.getRowsByProp('b',valu='b')), 0 )
+
+        self.assertEqual( len(core.getRowsByProp('a',valu='a')), 1 )
+        core.delJoinByProp('c',valu=90)
+        self.assertEqual( len(core.getRowsByProp('a',valu='a')), 0 )
+
         core.fini()
 
     def runrange(self, core):
@@ -85,6 +100,113 @@ class CortexTest(unittest.TestCase):
 
         core.addRows( rows )
 
-        self.assertEqual( core.getSizeBy('range','rg','0,20'), 1 )
-        self.assertEqual( len( core.getRowsBy('range','rg','0,20')), 1 )
+        self.assertEqual( core.getSizeBy('range','rg',(0,20)), 1 )
+        self.assertEqual( len( core.getRowsBy('range','rg',(0,20))), 1 )
 
+    def test_cortex_choptag(self):
+
+        t0 = tuple(s_cortex.choptag('foo'))
+        t1 = tuple(s_cortex.choptag('foo.bar'))
+        t2 = tuple(s_cortex.choptag('foo.bar.baz'))
+
+        self.assertEqual( t0, ('foo',))
+        self.assertEqual( t1, ('foo','foo.bar'))
+        self.assertEqual( t2, ('foo','foo.bar','foo.bar.baz'))
+
+    def test_cortex_meta(self):
+        meta = s_cortex.MetaCortex()
+
+        meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
+        meta.addCortex('foo.baz','ram:///',tags=('woot.hoho',))
+
+        self.assertIsNotNone( meta.getCortex('foo.bar') )
+        self.assertIsNotNone( meta.getCortex('foo.baz') )
+
+        self.assertEqual( len( meta.getCortexes('woot') ), 2 )
+        self.assertEqual( len( meta.getCortexes('woot.hoho') ), 1 )
+        self.assertEqual( len( meta.getCortexes('woot.hehe') ), 1 )
+
+    def test_cortex_meta_query(self):
+
+        meta = s_cortex.MetaCortex()
+
+        meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
+        meta.addCortex('foo.baz','ram:///',tags=('woot.hoho',))
+
+        core0 = meta.getCortex('foo.bar')
+        core1 = meta.getCortex('foo.baz')
+
+        id0 = hexlify(guid()).decode('utf8')
+        id1 = hexlify(guid()).decode('utf8')
+        id2 = hexlify(guid()).decode('utf8')
+        id3 = hexlify(guid()).decode('utf8')
+
+        rows0 = (
+            (id0,'a',10,99),
+            (id1,'x',10,80),
+            (id1,'ha','ho',80),
+        )
+        rows1 = (
+            (id2,'c',10,99),
+            (id3,'x',10,80),
+            (id3,'ha','ho',80),
+        )
+
+        j0 = core0.addRows(rows0, async=True)
+        j1 = core1.addRows(rows1, async=True)
+
+        self.assertTrue( core0.waitForJob(j0, timeout=3) )
+        self.assertTrue( core1.waitForJob(j1, timeout=3) )
+
+        res = meta.getRowsByQuery('foo.bar:ha="ho"')
+        self.assertEqual( len(res), 1 )
+
+        res = meta.getRowsByQuery('foo:ha')
+        self.assertEqual( len(res), 2 )
+
+        res = meta.getRowsByQuery('foo:x=10')
+        self.assertEqual( len(res), 2 )
+
+        res = meta.getRowsByQuery('foo.baz:x=10')
+        self.assertEqual( len(res), 1 )
+
+        res = meta.getRowsByQuery('foo:x*range=(8,40)')
+        size = meta.getSizeByQuery('foo:x*range=(8,40)')
+        self.assertEqual( size, 2 )
+        self.assertEqual( len(res), 2 )
+
+        res = meta.getJoinByQuery('foo:x=10')
+        self.assertEqual( len(res), 4 )
+
+    def test_cortex_meta_query_parser(self):
+        meta = s_cortex.MetaCortex()
+
+        qinfo = meta._parseQuery('foo:bar')
+
+        self.assertEqual( qinfo.get('tag'), 'foo' )
+        self.assertEqual( qinfo.get('prop'), 'bar' )
+
+        qinfo = meta._parseQuery('foo:bar=30')
+        self.assertEqual( qinfo.get('tag'), 'foo' )
+        self.assertEqual( qinfo.get('prop'), 'bar' )
+        self.assertEqual( qinfo.get('valu'), 30 )
+
+        qinfo = meta._parseQuery('foo:bar@2015,2016=30')
+        self.assertEqual( qinfo.get('tag'), 'foo' )
+        self.assertEqual( qinfo.get('prop'), 'bar' )
+        self.assertEqual( qinfo.get('valu'), 30 )
+        #self.assertEqual( qinfo.get('mintime'), 30 )
+        #self.assertEqual( qinfo.get('maxtime'), 30 )
+
+        qinfo = meta._parseQuery('foo:bar#100="hehe"')
+        self.assertEqual( qinfo.get('tag'), 'foo' )
+        self.assertEqual( qinfo.get('prop'), 'bar' )
+        self.assertEqual( qinfo.get('valu'), 'hehe' )
+        self.assertEqual( qinfo.get('limit'), 100 )
+
+        qinfo = meta._parseQuery('foo:bar#100*range=(10,30)')
+        self.assertEqual( qinfo.get('by'), 'range' )
+        self.assertEqual( qinfo.get('tag'), 'foo' )
+        self.assertEqual( qinfo.get('prop'), 'bar' )
+        self.assertEqual( qinfo.get('valu'), (10,30) )
+        self.assertEqual( qinfo.get('limit'), 100 )

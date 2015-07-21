@@ -34,6 +34,8 @@ getsize_by_prop = 'SELECT COUNT(*) FROM %s WHERE prop=?'
 getsize_by_range = 'SELECT COUNT(*) FROM %s WHERE prop=? and intval >= ? AND intval < ?'
 
 delrows_by_id = 'DELETE FROM %s WHERE id=?'
+delrows_by_prop = 'DELETE FROM %s WHERE prop=?'
+deljoin_by_prop = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? '
 
 class WithCursor:
 
@@ -43,7 +45,7 @@ class WithCursor:
     def __enter__(self):
         return self.cursor
 
-    def __exit__(self, exc, cls, trace):
+    def __exit__(self, exc, cls, tb):
         self.cursor.close()
 
 class Cortex(common.Cortex):
@@ -56,9 +58,8 @@ class Cortex(common.Cortex):
         return {'name':link[1].get('path')[1:]}
 
     def _rowsByRange(self, prop, valu, limit=None):
-        x,y = valu.split(',')
         q = self._q_getrows_by_range
-        args = [ prop, int(x), int(y) ]
+        args = [ prop, valu[0], valu[1] ]
 
         if limit != None:
             q += ' LIMIT %d' % limit
@@ -66,9 +67,8 @@ class Cortex(common.Cortex):
         return self.select(q,args)
 
     def _sizeByRange(self, prop, valu, limit=None):
-        x,y = valu.split(',')
         q = self._q_getsize_by_range
-        args = [ prop, int(x), int(y) ]
+        args = [ prop, valu[0], valu[1] ]
 
         if limit != None:
             q += ' LIMIT %d' % limit
@@ -121,6 +121,8 @@ class Cortex(common.Cortex):
         self._q_getsize_by_range = self._prepQuery(getsize_by_range)
 
         self._q_delrows_by_id = self._prepQuery(delrows_by_id)
+        self._q_delrows_by_prop = self._prepQuery(delrows_by_prop)
+        self._q_deljoin_by_prop = self._prepQuery(deljoin_by_prop)
 
     def _checkForTable(self, name):
         return len(self.select(self._q_istable,(name,)))
@@ -167,6 +169,7 @@ class Cortex(common.Cortex):
             return cur.fetchall()
 
     def delete(self, q, r):
+        #print('DELETE: %s %r' % (q,r))
         with self.cursor() as cur:
             cur.execute(q,r)
 
@@ -187,4 +190,17 @@ class Cortex(common.Cortex):
 
     def _delRowsById(self, ident):
         self.delete(self._q_delrows_by_id,(ident,))
+
+    def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
+        r = [ prop ]
+        q = self._q_deljoin_by_prop
+        q,r = self._addQueryParams(q,r,valu=valu,mintime=mintime,maxtime=maxtime)
+        q += ' )' # terminate subselect
+        self.delete(q,r)
+
+    def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
+        r = [ prop ]
+        q = self._q_delrows_by_prop
+        q,r = self._addQueryParams(q,r,valu=valu,mintime=mintime,maxtime=maxtime)
+        self.delete(q,r)
 

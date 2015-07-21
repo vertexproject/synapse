@@ -18,46 +18,14 @@ class AsyncJob(s_eventbus.EventBus):
     '''
     def __init__(self, boss):
         s_eventbus.EventBus.__init__(self)
+        self.jid = s_common.guid()
+
         self.boss = boss
+        self.took = None
         self.task = None    # (meth,args,kwargs)
-        self.time = time.time()
-        self.lock = threading.Lock()
-        self.ident = s_common.guid()
 
         self.retval = None
         self.retexc = None
-
-        #self.prog = 0
-        #self.status = 'new'
-
-    #def synSetJobStatus(self, status):
-        #self.fire('status',status)
-    #def synGetJobStatus(self):
-
-    #def synSetJobProgress(self, prog):
-        #self.fire('progress',prog)
-    #def synGetJobProgress(self):
-
-    def getJobProxy(self, item):
-        '''
-        Retrieve a AsyncProxy for this job which wraps item.
-
-        Example:
-
-            # item has method fooBarThing
-
-            p = job.getJobProxy(item)
-            p.fooBarThing(20)
-
-        Notes:
-
-            * AsyncProxy is mostly syntax sugar for:
-
-                job.setJobTodo( item.fooBarThing, 20 )
-                job.runInPool()
-
-        '''
-        return AsyncProxy(self, item)
 
     def runInPool(self):
         '''
@@ -77,7 +45,7 @@ class AsyncJob(s_eventbus.EventBus):
             job[item].fooBarThing(20)
 
         '''
-        return self.getJobProxy(item)
+        return AsyncMeth(self,item)
 
     def setJobTask(self, meth, *args, **kwargs):
         '''
@@ -93,13 +61,13 @@ class AsyncJob(s_eventbus.EventBus):
         '''
         self.task = (meth,args,kwargs)
 
-    def runJobTask(self):
+    def run(self):
         '''
         Uses the calling thread to execute the previously set task.
 
         Example:
 
-            job.runJobTask()
+            job.run()
 
         Notes:
 
@@ -107,18 +75,22 @@ class AsyncJob(s_eventbus.EventBus):
 
         '''
         if self.task == None:
-            exc = JobHasNoTask()
-            self.jobErr(exc)
-            raise exc
+            return self.err( JobHasNoTask() )
 
         # FIXME set current job as thread local for update methods?
         meth,args,kwargs = self.task
+        stime = time.time()
         try:
-            self.jobDone( meth(*args,**kwargs) )
-        except Exception as e:
-            self.jobErr(e)
+            ret = meth(*args,**kwargs)
 
-    def jobErr(self, exc):
+            self.took = time.time() - stime
+            self.done(ret)
+
+        except Exception as e:
+            self.took = time.time() - stime
+            self.err(e)
+
+    def err(self, exc):
         '''
         Complete the AsyncJob as an error.
 
@@ -127,68 +99,88 @@ class AsyncJob(s_eventbus.EventBus):
             try:
                 doJobStuff()
             except Exception as e:
-                job.jobErr(e)
+                job.err(e)
 
         '''
-        with self.lock:
-            if self.isfini:
-                return
-            self.retexc = exc
-            self.fire('err',exc=exc)
-            self.fini()
+        if self.isfini:
+            return
 
-    def jobDone(self, retval):
+        self.retexc = exc
+        self.fire('job:err',job=self,exc=exc)
+        self.fini()
+
+    def done(self, retval):
         '''
         Complete the AsyncJob with return value.
 
         Example:
 
-            job.jobDone(retval)
+            job.done(retval)
 
         '''
-        with self.lock:
-            if self.isfini:
-                return
-            self.retval = retval
-            self.fire('done',ret=retval)
-            self.fini()
+        if self.isfini:
+            return
 
-    def getJobId(self):
+        self.retval = retval
+        self.fire('job:done',job=self,ret=retval)
+        self.fini()
+
+    def ondone(self, meth):
         '''
-        Returns the GUID for this AsyncJob.
+        Set an ondone handler for this job.
+
+        Example:
+
+            def donemeth(ret):
+                stuff(ret)
+
+            job.ondone( donemeth )
+
         '''
-        return self.ident
+        def jobdone(event):
+            meth( event[1].get('ret') )
 
-    def waitForJob(self, timeout=None):
+        self.on('job:done',jobdone)
+
+    def onerr(self, meth):
         '''
-        Block waiting for job completion.
+        Add an onerr handler for this job.
+
+        Example:
+
+            def errmeth(exc):
+                stuff(exc)
+
+            job.onerr( errmeth )
+
         '''
-        with self.lock:
-            if self.isfini:
-                return
+        def joberr(event):
+            meth( event[1].get('exc') )
 
-            event = threading.Event()
-            def onfini():
-                event.set()
+        self.on('job:err',joberr)
 
-            self.onfini(onfini,weak=True)
-
-        return event.wait(timeout=timeout)
-
-    def waitJobReturn(self, timeout=None):
+    def sync(self, timeout=None):
         '''
         Wait for a job to complete and return or raise.
+
+        Example:
+
+
+            foo = Foo()
+            job = boss[foo].bar(20)
+
+            return job.sync()
 
         Note: 
 
             * This API cancels the job on timeout
 
         '''
-        done = self.waitForJob(timeout=timeout)
+        done = self.wait(timeout=timeout)
         self.fini()
 
         if not done:
-            raise JobTimedOut()
+            self.err( JobTimedOut() )
 
         if self.retexc != None:
             raise self.retexc
@@ -277,7 +269,7 @@ class AsyncBoss(s_eventbus.EventBus):
 
     def getAsyncJob(self, jid):
         '''
-        Return an AsyncJob by GUID.
+        Return an AsyncJob by ID.
 
         Example:
 
@@ -286,7 +278,7 @@ class AsyncBoss(s_eventbus.EventBus):
         '''
         return self.jobs.get(jid)
 
-    def initAsyncJob(self, ondone=None, onerr=None):
+    def initAsyncJob(self):
         '''
         Initialize and return a new AsyncJob.
 
@@ -294,35 +286,63 @@ class AsyncBoss(s_eventbus.EventBus):
 
             job = boss.initAsyncJob()
 
-        Notes:
-
-            * Optionally specify ondone/onerr callbacks.
-
         '''
         if self.isfini:
             raise BossShutDown()
 
         job = AsyncJob(self)
-        jid = job.getJobId()
+        self.jobs[job.jid] = job
 
-        self.jobs[jid] = job
-
-        if ondone != None:
-            def jobdone(event):
-                ondone( event[1].get('ret') )
-
-            job.on('done',jobdone)
-
-        if onerr != None:
-            def joberr(event):
-                onerr(event[1].get('exc'))
-            job.on('err',joberr)
+        job.on('job:err',self.dist)
+        job.on('job:done',self.dist)
+        job.on('job:status',self.dist)
 
         def popjob():
-            self.jobs.pop(jid,None)
+            self.jobs.pop(job.jid,None)
 
         job.onfini(popjob)
         return job
+
+    def setJobDone(self, jid, retval):
+        '''
+        Call the done(retval) routine for the given job id.
+
+        Example:
+
+            boss.setJobDone(jid,10)
+
+        '''
+        job = self.getAsyncJob(jid)
+        if job != None:
+            job.done(retval)
+
+    def setJobErr(self, jid, exc):
+        '''
+        Call the err(exc) routine for the given job id.
+
+        Example:
+
+            boss.setJobErr( jid, Exception('woot') )
+
+        '''
+        job = self.getAsyncJob(jid)
+        if job != None:
+            job.err(exc)
+
+    def waitForJob(self, jid, timeout=None):
+        '''
+        Wait for a job to complete by id.
+
+        Example:
+
+            boss.waitForJob( jid, timeout=10 )
+
+        '''
+        job = self.getAsyncJob(jid)
+        if job == None:
+            return True
+
+        return job.wait(timeout=timeout)
 
     def _initPoolThread(self):
         thr = s_threads.worker( self._poolWorker )
@@ -346,8 +366,7 @@ class AsyncBoss(s_eventbus.EventBus):
         if not len(self.threads):
             raise BossHasNoPool()
 
-        job = self.initAsyncJob()
-        return job.getJobProxy(item)
+        return AsyncApi(self, item)
 
     def _poolWorker(self):
 
@@ -359,32 +378,52 @@ class AsyncBoss(s_eventbus.EventBus):
                 if job == None:
                     return
 
-                job.runJobTask()
+                job.run()
 
             except Exception as e:
                 traceback.print_exc()
 
     def _finiAllJobs(self):
         for job in self.getAsyncJobs():
-            job.jobErr(BossShutDown())
+            job.err(BossShutDown())
 
-class AsyncProxy:
+class AsyncMeth:
     '''
-    AsyncProxy allows simple syntax for AsyncJob methods.
+    AsyncMeth allows simple syntax for AsyncJob methods.
     ( it acts as a transient syntax sugar helper )
     '''
-    def __init__(self, job, item):
+    def __init__(self, job, item, name=None):
         self.job = job
         self.item = item
-        self.methname = None
+        self.name = name
 
     def __getattr__(self, name):
-        self.methname = name
+        self.name = name
         return self
 
     def __call__(self, *args, **kwargs):
-        meth = getattr(self.item, self.methname)
+        meth = getattr(self.item, self.name)
         self.job.setJobTask( meth, *args, **kwargs )
         self.job.runInPool()
         return self.job
+
+class AsyncApi:
+    '''
+    Wrap an object to allow all API calls to be async.
+
+    Example:
+
+        foo = Foo()
+
+        async = AsyncApi(foo)
+        async.bar(20) # calls foo.bar(20) as a job
+
+    '''
+    def __init__(self, boss, item):
+        self.item = item
+        self.boss = boss
+
+    def __getattr__(self, name):
+        job = self.boss.initAsyncJob()
+        return AsyncMeth(job,self.item,name)
 
