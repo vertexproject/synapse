@@ -11,6 +11,8 @@ import synapse.daemon as s_daemon
 import synapse.threads as s_threads
 import synapse.eventbus as s_eventbus
 
+from synapse.statemach import keepstate
+
 from synapse.common import *
 
 class NeuError(Exception):pass
@@ -29,11 +31,10 @@ class Daemon(s_daemon.Daemon):
 
     def __init__(self, statefd=None):
 
-        self.sched = s_threads.Sched()
-        self.boss = s_threads.ThreadBoss()
+        self.boss       = s_threads.ThreadBoss()
+        self.sched      = s_threads.Sched()
         self.async2sync = s_async.AsyncBoss()
 
-        self.infobus = s_eventbus.EventBus()
         self.peerbus = s_eventbus.EventBus()
 
         self.peersocks = {}     # sockets directly connected to peers
@@ -46,9 +47,12 @@ class Daemon(s_daemon.Daemon):
         self.runinfo = collections.defaultdict(dict)
         self.peerinfo = collections.defaultdict(dict)
 
-        s_daemon.Daemon.__init__(self,statefd=statefd)
+        s_daemon.Daemon.__init__(self)
 
-        self.onfini(self._onNeuFini)
+        self.onfini( self.boss.fini )
+        self.onfini( self.sched.fini )
+        self.onfini( self.peerbus.fini )
+        self.onfini( self.async2sync.fini )
 
         self.on('link:sock:init',self._onNeuSockInit)
 
@@ -68,6 +72,17 @@ class Daemon(s_daemon.Daemon):
         self.setMesgMethod('neu:peer:link:up', self._onMesgNeuPeerLinkUp)
         self.setMesgMethod('neu:peer:link:down', self._onMesgNeuPeerLinkDown)
 
+        def setrsakey(event):
+            valu = event[1].get('valu')
+            self.rsakey = RSA.importKey( valu )
+            self.pubkey = self.rsakey.publickey()
+            self.pkcs15 = PKCS15.PKCS115_SigScheme( self.rsakey )
+
+        self.on('neu:info:rsakey', setrsakey)
+
+        if statefd:
+            self.loadStateFd(statefd)
+
         # check if we're brand new...
         if self.neuinfo.get('ident') == None:
             # making a shiney new neuron!
@@ -75,20 +90,23 @@ class Daemon(s_daemon.Daemon):
 
         self.ident = self.getNeuInfo('ident')
 
-        # make sure we have an RSA key
-        if self.neuinfo.get('rsakey') == None:
-            rsakey = RSA.generate(2048)
-            self.setNeuInfo('rsakey',rsakey.exportKey())
+    def genRsaKey(self, bits=2048):
+        '''
+        Generate a new RSA keypair for the Daemon.
+        '''
+        rsakey = RSA.generate(bits)
+        self.setNeuInfo('rsakey',rsakey.exportKey())
+        return rsakey
 
-        self.rsakey = RSA.importKey( self.getNeuInfo('rsakey') )
-        self.pubkey = self.rsakey.publickey()
-        self.pkcs15 = PKCS15.PKCS115_SigScheme( self.rsakey )
-
-        if self.neuinfo.get('peercert') == None:
-            csr = self.getRsaCertCsr()
-            peercert = (csr,())
-            peercert = self.signPeerCert(peercert)
-            self.setNeuInfo('peercert',peercert)
+    def genPeerCert(self,**certinfo):
+        '''
+        Generate a new peer cert for the Daemon.
+        '''
+        csr = self.getRsaCertCsr(**certinfo)
+        peercert = (csr,())
+        peercert = self.signPeerCert(peercert)
+        self.setNeuInfo('peercert',peercert)
+        return peercert
 
     def _onPeerBusPing(self, event):
         sent = event[1].get('time')
@@ -141,8 +159,14 @@ class Daemon(s_daemon.Daemon):
             neu.setNeuInfo('foo',30)
 
         '''
+        if self.neuinfo.get(prop) == valu:
+            return
+        self._setNeuInfo(prop, valu)
+
+    @keepstate
+    def _setNeuInfo(self, prop, valu):
         self.neuinfo[prop] = valu
-        self.infobus.fire('neu:info:%s' % prop, valu=valu)
+        self.fire('neu:info:%s' % prop, valu=valu)
 
     def getNeuInfo(self, prop):
         '''
@@ -222,7 +246,7 @@ class Daemon(s_daemon.Daemon):
 
         # possibly accept his cert and add him as a peer
         if hiscert != None:
-            self._nomPeerCert(hiscert)
+            self.loadPeerCert(hiscert)
 
         hiskey = self.getPeerInfo(ident,'rsakey')
         if hiskey == None:
@@ -253,7 +277,7 @@ class Daemon(s_daemon.Daemon):
             return tufo('neu:link:err',code='badstate')
 
         if hiscert != None:
-            self._nomPeerCert(hiscert)
+            self.loadPeerCert(hiscert)
 
         # do we have a key for him?
         hispkcs = self.getPeerPkcs(ident)
@@ -350,14 +374,20 @@ class Daemon(s_daemon.Daemon):
         certsign = (self.ident,sign)
         return (byts, peercert[1] + (certsign,))
 
-    def _nomPeerCert(self, peercert):
-
+    def loadPeerCert(self, peercert):
+        '''
+        Parse/Validate a peer cert and absorb its info if valid.
+        '''
         hisinfo,hissigs = peercert
 
         hishash = SHA256.new(hisinfo)
         verified = False
         for ident,sign in hissigs:
-            if not self.getPeerInfo(ident,'peersigner'):
+
+            if not self.isKnownPeer(ident):
+                continue
+
+            if not self.getPeerInfo(ident,'signer'):
                 continue
 
             pkcs = self.getPeerPkcs(ident)
@@ -399,6 +429,13 @@ class Daemon(s_daemon.Daemon):
             neu.setPeerInfo(peerid,'foo',30)
 
         '''
+        if self.peerinfo[peerid].get(prop) == valu:
+            return
+
+        self._setPeerInfo(peerid, prop, valu)
+
+    @keepstate
+    def _setPeerInfo(self, peerid, prop, valu):
         self.peerinfo[peerid][prop] = valu
 
     def getPeerInfo(self, peerid, prop):
@@ -415,6 +452,9 @@ class Daemon(s_daemon.Daemon):
         if info == None:
             raise NoSuchPeer(peerid)
         return info.get(prop)
+
+    def isKnownPeer(self, peerid):
+        return self.peerinfo.get(peerid) != None
 
     def _onNeuPeerInit(self, event):
         sock = event[1].get('sock')
@@ -654,7 +694,3 @@ class Daemon(s_daemon.Daemon):
                     continue
 
                 todo.append( route + [n2] )
-
-    def _onNeuFini(self):
-        self.boss.fini()
-        self.async2sync.fini()

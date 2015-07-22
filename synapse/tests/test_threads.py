@@ -46,12 +46,23 @@ class ThreadsTest(unittest.TestCase):
 
         sched = s_threads.Sched()
 
-        sched.synIn( 0.02, woot2, 20 )
-        sched.synIn( 0.01, woot1, 10 )
+        sched.insec( 0.02, woot2, 20 )
+        sched.insec( 0.01, woot1, 10 )
 
         evt.wait()
 
         self.assertListEqual( data['woot'], [10,20] )
+
+        sched.fini()
+
+    def test_threads_sched_cancel(self):
+        sched = s_threads.Sched()
+
+        def woot2(x):
+            pass
+
+        eid = sched.insec( 20, woot2, 20 )
+        sched.cancel(eid)
 
         sched.fini()
 

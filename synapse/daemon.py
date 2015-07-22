@@ -4,13 +4,18 @@ import collections
 import synapse.link as s_link
 import synapse.threads as s_threads
 
+import synapse.telepath as s_telepath
+
 from synapse.eventbus import EventBus
 from synapse.statemach import StateMachine, keepstate
 
 class DupLink(Exception):pass
 class ImplementMe(Exception):pass
 
-class Daemon(StateMachine,EventBus):
+class Daemon(StateMachine,
+        EventBus,
+        s_telepath.TeleMixin
+    ):
     '''
     Base class for the various synapse daemons.
     '''
@@ -23,6 +28,8 @@ class Daemon(StateMachine,EventBus):
 
         self.boss = s_threads.ThreadBoss()
         self.onfini( self.boss.fini )
+
+        s_telepath.TeleMixin.__init__(self)
 
         StateMachine.__init__(self,statefd=statefd)
 
@@ -159,7 +166,7 @@ class Daemon(StateMachine,EventBus):
         relay = s_link.initLinkRelay( link )
         server = relay.initLinkServer()
 
-        server.on('link:sock:mesg',self._onDaeSockMesg)
+        server.on('link:sock:mesg',self._onLinkSockMesg)
         server.on('link:sock:init',self.dist)
         server.on('link:sock:fini',self.dist)
 
@@ -173,14 +180,14 @@ class Daemon(StateMachine,EventBus):
         relay = s_link.initLinkRelay(link)
         peer = relay.initLinkPeer()
 
-        peer.on('link:sock:mesg',self._onDaeSockMesg)
+        peer.on('link:sock:mesg',self._onLinkSockMesg)
         peer.on('link:sock:init',self.dist)
         peer.on('link:sock:fini',self.dist)
 
         self.onfini(peer.fini)
         return peer.runLinkPeer()
 
-    def _onDaeSockMesg(self, event):
+    def _onLinkSockMesg(self, event):
         sock = event[1].get('sock')
         mesg = event[1].get('mesg')
 

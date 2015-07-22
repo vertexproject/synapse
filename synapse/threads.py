@@ -124,7 +124,7 @@ class Sched(EventBus):
             except Exception as e:
                 traceback.print_exc()
 
-    def synIn(self, delay, meth, *args, **kwargs):
+    def insec(self, delay, meth, *args, **kwargs):
         '''
         Schedule a callback to occur in delay seconds.
 
@@ -134,7 +134,7 @@ class Sched(EventBus):
                 stuff()
 
             sched = Sched()
-            e = sched.synIn(10, woot, 10, 20)
+            e = sched.insec(10, woot, 10, 20)
 
             # woot will be called in 10 seconds..
 
@@ -143,7 +143,7 @@ class Sched(EventBus):
         self.sema.release()
         return event
 
-    def synCancel(self, event):
+    def cancel(self, event):
         '''
         Cancel a previously scheduled call.
 
@@ -153,9 +153,9 @@ class Sched(EventBus):
                 stuff()
 
             sched = Sched()
-            e = sched.synIn(10, woot, 10, 20)
+            e = sched.insec(10, woot, 10, 20)
 
-            sched.synCancel(e)
+            sched.cancel(e)
 
         '''
         self.sched.cancel(event)

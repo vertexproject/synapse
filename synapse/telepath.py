@@ -4,37 +4,34 @@ An RMI framework for synapse.
 import traceback
 
 import synapse.link as s_link
-import synapse.daemon as s_daemon
 
 from synapse.common import *
 from synapse.eventbus import EventBus
 
-class Daemon(s_daemon.Daemon):
+class TeleMixin:
     '''
-    Telepath RMI Daemon
+    Telepath RMI Daemon Mixin
 
     Example:
 
-        import synapse.telepath as s_telepath
-        from synapse.common import *
+        import synapse.link as s_link
+        import synapse.daemon as s_daemon
+
+        daemon = s_daemon.Daemon()
 
         class Foo:
             def bar(self, x, y):
                 return x + y
 
-
         link = s_link.chopLinkUrl('tcp://0.0.0.0:9999')
-        daemon = s_telepath.Daemon()
+
         daemon.runLinkServer(link)
         daemon.addSharedObject('foo',Foo())
 
     '''
-    def __init__(self, statefd=None):
+    def __init__(self): #, statefd=None):
 
         self.shared = {}
-        self.methods = {}
-
-        s_daemon.Daemon.__init__(self, statefd=statefd)
 
         self.setMesgMethod('tele:syn', self._onMesgTeleSyn )
         self.setMesgMethod('tele:call', self._onMesgTeleCall )
@@ -87,12 +84,12 @@ class Daemon(s_daemon.Daemon):
 
         oname,mname,args,kwargs = mesg[1].get('teletask')
 
-        rule = 'tele.call.%s.%s' % (oname,mname)
-
-        ident = sock.getSockInfo('tele:ident')
-        if not self.getAuthAllow(ident,rule):
-            sock.senderr('noperm','permission denied')
-            return
+        if self.authmod != None:
+            rule = 'tele.call.%s.%s' % (oname,mname)
+            ident = sock.getSockInfo('tele:ident')
+            if not self.getAuthAllow(ident,rule):
+                sock.senderr('noperm','permission denied')
+                return
 
         obj = self.shared.get(oname)
         if obj == None:

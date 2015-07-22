@@ -24,7 +24,7 @@ class TelePathTest(unittest.TestCase):
     def getFooServ(self):
         link = s_link.chopLinkUrl('tcp://127.0.0.1:0/foo')
 
-        daemon = s_telepath.Daemon()
+        daemon = s_daemon.Daemon()
         daemon.runLinkServer(link)
 
         daemon.addSharedObject('foo',Foo())

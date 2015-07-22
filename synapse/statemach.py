@@ -27,6 +27,11 @@ class StateMachine:
             self._loadStateFd(statefd)
         self.statefd = statefd
 
+    def loadStateFd(self, fd):
+        self.statefd = None
+        self._loadStateFd(fd)
+        self.statefd = fd
+
     def _loadStateFd(self, fd):
         unpk = msgpack.Unpacker(fd,use_list=0,encoding='utf8')
         for name,args,kwargs in unpk:
