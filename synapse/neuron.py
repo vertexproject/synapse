@@ -7,7 +7,9 @@ import Crypto.PublicKey.RSA as RSA
 import Crypto.Signature.PKCS1_v1_5 as PKCS15
 
 import synapse.async as s_async
+import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
+import synapse.dyndeps as s_dyndeps
 import synapse.threads as s_threads
 import synapse.eventbus as s_eventbus
 
@@ -43,9 +45,13 @@ class Daemon(s_daemon.Daemon):
 
         # persistant data in these...
         self.neuinfo = {}
+        self.neucores = {}
+        self.neushares = {}
 
         self.runinfo = collections.defaultdict(dict)
         self.peerinfo = collections.defaultdict(dict)
+
+        self.metacore = s_cortex.MetaCortex()
 
         s_daemon.Daemon.__init__(self)
 
@@ -78,10 +84,26 @@ class Daemon(s_daemon.Daemon):
             self.pubkey = self.rsakey.publickey()
             self.pkcs15 = PKCS15.PKCS115_SigScheme( self.rsakey )
 
+        def setauthmod(event):
+            valu = event[1].get('valu')
+            if valu == None:
+                self.setAuthModule(None)
+                return
+
+            name,args,kwargs = valu
+
+            auth = s_dyndeps.getDynLocal(name)(*args,**kwargs)
+            self.setAuthModule( auth )
+
         self.on('neu:info:rsakey', setrsakey)
+        self.on('neu:info:authmod', setauthmod)
 
         if statefd:
             self.loadStateFd(statefd)
+
+        #self._loadNeuAuthModule()
+        self._loadNeuMetaCortex()
+        #self._loadNeuSharedObjects()
 
         # check if we're brand new...
         if self.neuinfo.get('ident') == None:
@@ -89,6 +111,92 @@ class Daemon(s_daemon.Daemon):
             self.setNeuInfo('ident', guid())
 
         self.ident = self.getNeuInfo('ident')
+
+    def addNeuCortex(self, name, url, tags=None):
+        '''
+        Add a "persistent" cortex to the neuron.
+
+        Example:
+
+            neu.addNeuCortex('woot.0','ram:///',tags='hehe,haha')
+
+        '''
+        core = self.metacore.addCortex(name, url, tags=tags)
+        self.addSharedObject('cortex/%s' % (name,), core)
+        self._addNeuCortex(name,url,tags=tags)
+
+    def delNeuCortex(self, name):
+        '''
+        Remove a persistent cortex from the neuron.
+
+        Example:
+
+            neu.delNeuCortex('woot.0')
+
+        Notes:
+
+            * FIXME this takes a restart to take effect
+
+        '''
+        self._delNeuCortex(name)
+
+    def addNeuShare(self, path, name, args, kwargs):
+        '''
+        Add a persistent shared object to the neuron.
+
+        Example:
+
+            neu.addNeuShare
+
+        '''
+        self._loadNeuShare(path,name,args,kwargs)
+        self._addNeuShare(path,name,args,kwargs)
+
+    def delNeuShare(self, path):
+        '''
+        Remove a persistent shared object from the neuron.
+
+        Example:
+
+            neu.delNeuShare('foo')
+
+        '''
+        self.delSharedObject(path)
+        return self._delNeuShare(path)
+
+    def _loadNeuMetaCortex(self):
+        for name,url,tags in self.neucores.values():
+            self.metacore.addCortex(name,url,tags=tags)
+
+    def _loadNeuShares(self):
+        for path,name,args,kwargs in self.neushares.values():
+            try:
+                self._loadNeuShare(path,name,args,kwargs)
+            except Exception as e:
+                print('warning (loading share %s): %s' % (path,e))
+
+    def _loadNeuShare(self, path, name, args, kwargs):
+        func = s_dyndeps.getDynLocal(name)
+        if func == None:
+            raise Exception('No Such Func: %s' % (name,))
+
+        self.addSharedObject( path, func(*args,**kwargs) )
+
+    @keepstate
+    def _addNeuCortex(self, name, url, tags=None):
+        self.neucores[name] = (name,url,tags)
+
+    @keepstate
+    def _delNeuCortex(self, name):
+        self.neucores.pop(name,None)
+
+    @keepstate
+    def _addNeuShare(self, path, name, args, kwargs):
+        self.neushares[path] = (path,name,args,kwargs)
+
+    @keepstate
+    def _delNeuShare(self, path):
+        self.neushares.pop(path,None)
 
     def genRsaKey(self, bits=2048):
         '''

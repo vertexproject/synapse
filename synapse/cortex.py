@@ -106,6 +106,8 @@ class MetaCortex:
         for tag in alltags:
             self.coresbytag[tag].append(core)
 
+        return core
+
     def delCortex(self, name):
         '''
         Remove a given cortex instance by name.

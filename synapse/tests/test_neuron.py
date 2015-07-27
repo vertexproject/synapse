@@ -15,6 +15,19 @@ rsa3 = b'-----BEGIN RSA PRIVATE KEY-----\nMIIEpQIBAAKCAQEAslA1xXQlrWffstn0a0Sers
 
 rsa4 = b'-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA1eR4zcoclHjTQyX3gyhzXPDs2FI+fid571NkVrVvNujdFckK\n+NsUWlFdMcizGlGMLoa0FWa6+b9BGniD3sWOlpo6nGtPuMH4A8qysej1MwMyiLJb\n/XNwrRj9QZ1DhKgXXFZdQhq9YfdKEGy/p5I9o9krhFuJiA4V6OF7+lGiF2fRlDpG\nLwXMQnJY/KkmiNbf8UIhweKrlfhAPc5x9Wa1iZjtFFyQASvWQZmLorYAviwb2hiN\nZCSDB6fs7nxETvXkqXapG+pZ0wm2AxRcZG7fUW7FBjfyYyKqNAiPNk1ixcQ8y+7M\nICDZQOX1kldU+9P3VNRD5cqIlKZmHhBFcW8IlwIDAQABAoIBAQC+7rI/0Xltt+Wu\nfUfTFtrUTmS+Pbx3VLnuP5zEIjXi6D/i4JIgzz/917+/Xw8yITVnmutKZ2fk5Ssy\ne/4LcIL2QTqswsZpgQzqJZkaY3/uR55mlAC14MTmX/ZDCiVpV7tyu82H4uLHfr3o\np4r2BP9tMcE855F/mENKnW3UZ+avyGSUL4VeaMw3OSuE8lSrA4BOCvhwzsmTKq94\nKQbE75mZ6ekc5tvKRroYQGwLKEnyLKUEktwn0gxkMYxE8RuFaK8KNSo8lxxMepxE\nyWAgl93HwYGsVwKQd6600A56JP1iwvQkBUS2Nf9/Dqy+TIVc1grzSvWLCILpDCFn\nmhmx/jlhAoGBANtpOCh+kq+EG9PRP30kJvTjs9pdTcV7FCjSBiR3Z3HQ2xYfTqsn\nwC8zLGNPeNbrIGM3FIaaGNYc/O+mFPoBU1bb47BHXl4pPT28WqnVDuoIZhnla+v+\nSahUBEhefNa+vejX/dzF4zCz3Hxbp572G9OkCIYEdSz7vkBpWNd2sboPAoGBAPmP\nqaeDdKrY1Ry9/TpliQ3jI4fVaeh8Wa2rOyhicdmZV5QmojDYZPAzLo3o2aH1dtRr\nJQAQmh6TYtiRFNrLORMmn4doUw6l1sI7YDS57SHlIn9lVp+1/l9eaEu8AytvOzqV\n92z2DjLOzmq+GRfn3FII1LwlupKzZyAvR4gcrfD5AoGAKKdLR32EUk8JFOstd1Nu\ngGt8VJZ7JX8TkiiwCKuzGAyZu3Sbj+zymAxESjZcbn3sZ1W6UOJWfb2rRAAi3NvI\nBE0D2BKxMoMznK+8oMEgXU6nFF9E6toX7b97d6lCOkvnRjBXEkP8P3bkAIq++R4i\ns8kt5x8GUwpmCus6EdolPhMCgYEA2jjIdkVZ0Ec42yA6/URp+u3CVPXF3VhXJqiT\nWzXyLf+LeG3r52BhqzRmIgsZuyikVwy11v+tdM0WYx9CKCwKZXehicsszaMwTrmS\n36gw9jGh39piS9fdbdFky8zEzMc/+HPIXswuEDmMgARoduH1Yvp742XuZndf1uHg\n3+GMLCkCgYBnEfH0vvRIeFTMXG/HiO92wSHy1Ubk5hZV5NopZM8DUas5F3ZLpxEx\ns64TdKkGMi0wIdE9PgZlqdqBFf3rcWH++FFnl6I3v2L21mWlHNG9m7drUnHsN4Xe\nF1/Ef7U7dsDdennWlvkj1G/pdaYfk08g/1Lza8s77qs4dP+BDrssSA==\n-----END RSA PRIVATE KEY-----'
 
+class FakeAuth(s_daemon.AuthModule):
+    pass
+
+class FooBar:
+    def __init__(self):
+        pass
+
+    def foo(self, x):
+        return x + 20
+
+    def bar(self, x):
+        raise Exception('hi')
+
 class TestNeuron(unittest.TestCase):
 
     def test_neuron_peering(self):
@@ -90,6 +103,9 @@ class TestNeuron(unittest.TestCase):
         ident = neu.getNeuInfo('ident')
 
         neu.setNeuInfo('rsakey',rsa1)
+        neu.addNeuCortex('woot.0','ram:///',tags='hehe,haha')
+        neu.addNeuCortex('woot.1','ram:///')
+        neu.delNeuCortex('woot.1')
 
         cert = neu.genPeerCert()
 
@@ -103,6 +119,9 @@ class TestNeuron(unittest.TestCase):
         self.assertEqual( neu.getNeuInfo('ident'), ident )
         self.assertEqual( neu.getNeuInfo('rsakey'), rsa1 )
         self.assertEqual( neu.getNeuInfo('peercert'), cert )
+
+        self.assertIsNone( neu.metacore.getCortex('woot.1') )
+        self.assertIsNotNone( neu.metacore.getCortex('woot.0') )
 
         neu.fini()
 
@@ -153,6 +172,20 @@ class TestNeuron(unittest.TestCase):
 
         self.assertTrue( neu2.loadPeerCert( cert3 ) )
         self.assertTrue( neu3.loadPeerCert( cert2 ) )
+
+    def test_neuron_authmod(self):
+        neu1 = s_neuron.Daemon()
+        self.assertTrue( neu1.getAuthAllow( 'hehe', 'haha' ) )
+
+        authdef = ('synapse.tests.test_neuron.FakeAuth',(),{})
+        neu1.setNeuInfo('authmod',authdef)
+
+        self.assertFalse( neu1.getAuthAllow( 'hehe', 'haha' ) )
+
+    def test_neuron_shares(self):
+        neu1 = s_neuron.Daemon()
+        foobar = 'synapse.tests.test_neuron.FooBar'
+        neu1.addNeuShare('foobar',foobar,(),{})
 
     #def test_neuron_route_asymetric(self):
     #def test_neuron_route_teardown(self):
