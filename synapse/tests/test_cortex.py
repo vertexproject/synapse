@@ -164,12 +164,18 @@ class CortexTest(unittest.TestCase):
         self.assertEqual( len(res), 1 )
 
         res = meta.getRowsByQuery('foo:ha')
+        size = meta.getSizeByQuery('foo:ha')
+        self.assertEqual( size, 2 )
         self.assertEqual( len(res), 2 )
 
         res = meta.getRowsByQuery('foo:x=10')
+        size = meta.getSizeByQuery('foo:x=10')
+        self.assertEqual( size, 2 )
         self.assertEqual( len(res), 2 )
 
         res = meta.getRowsByQuery('foo.baz:x=10')
+        size = meta.getSizeByQuery('foo.baz:x=10')
+        self.assertEqual( size, 1 )
         self.assertEqual( len(res), 1 )
 
         res = meta.getRowsByQuery('foo:x*range=(8,40)')
@@ -179,6 +185,15 @@ class CortexTest(unittest.TestCase):
 
         res = meta.getJoinByQuery('foo:x=10')
         self.assertEqual( len(res), 4 )
+
+        size = meta.getSizeByQuery('newp:newp=3')
+        self.assertEqual( size , 0 )
+
+        rows = meta.getRowsByQuery('newp:newp=3')
+        self.assertEqual( len(rows), 0 )
+
+        join = meta.getJoinByQuery('newp:newp=3')
+        self.assertEqual( len(join), 0 )
 
     def test_cortex_meta_query_parser(self):
         meta = s_cortex.MetaCortex()

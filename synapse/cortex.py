@@ -251,7 +251,7 @@ class MetaCortex:
 
         cores = self.coresbytag.get(tag)
         if cores == None:
-            return ()
+            return 0
 
         size = 0
         for core in cores:
@@ -263,6 +263,6 @@ class MetaCortex:
                 size += core.getSizeById(valu)
                 continue
 
-            size += core.getJoinByProp(prop,**qinfo)
+            size += core.getSizeByProp(prop,**qinfo)
 
         return size
