@@ -2,10 +2,12 @@ import os
 import binascii
 import unittest
 
+from binascii import hexlify
+
 import synapse.cortex as s_cortex
 
-from binascii import hexlify
 from synapse.common import *
+from synapse.cores.common import NoSuchJob
 
 class CortexTest(unittest.TestCase):
 
@@ -210,3 +212,25 @@ class CortexTest(unittest.TestCase):
         self.assertEqual( qinfo.get('prop'), 'bar' )
         self.assertEqual( qinfo.get('valu'), (10,30) )
         self.assertEqual( qinfo.get('limit'), 100 )
+
+    def test_cortex_async_nosuchjob(self):
+
+        id1 = hexlify(guid()).decode('utf8')
+        core = s_cortex.openurl('ram://')
+        self.assertRaises( NoSuchJob, core.getAsyncReturn, 'foo' )
+
+    def test_cortex_async_result(self):
+        id1 = hexlify(guid()).decode('utf8')
+        core = s_cortex.openurl('ram://')
+
+        rows = [
+            (id1,'foo','bar',30),
+            (id1,'baz','faz1',30),
+            (id1,'gronk',80,30),
+        ]
+        core.addRows( rows )
+        jid = core.callAsyncApi('getRowsById',id1)
+        rows = core.getAsyncReturn(jid)
+
+        self.assertEqual( len(rows), 3 )
+

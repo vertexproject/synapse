@@ -21,7 +21,8 @@ class AsyncJob(s_eventbus.EventBus):
         self.jid = s_common.guid()
 
         self.boss = boss
-        self.took = None
+        self.info = {}
+
         self.task = None    # (meth,args,kwargs)
 
         self.retval = None
@@ -83,11 +84,11 @@ class AsyncJob(s_eventbus.EventBus):
         try:
             ret = meth(*args,**kwargs)
 
-            self.took = time.time() - stime
+            self.info['took'] = time.time() - stime
             self.done(ret)
 
         except Exception as e:
-            self.took = time.time() - stime
+            self.info['took'] = time.time() - stime
             self.err(e)
 
     def err(self, exc):

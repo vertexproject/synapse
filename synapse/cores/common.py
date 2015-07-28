@@ -6,6 +6,7 @@ import synapse.async as s_async
 
 from synapse.eventbus import EventBus
 
+class NoSuchJob(Exception):pass
 class NoSuchGetBy(Exception):pass
 class DupCortexName(Exception):pass
 
@@ -14,15 +15,25 @@ class Cortex(EventBus):
     Top level Cortex key/valu storage object.
 
     ( use getCortex() to instantiate )
+
+    Link Options:
+
+        ropool=<num>    # how many async read threads?
+
     '''
     def __init__(self, link):
         EventBus.__init__(self)
         self.link = link
 
+        ropool = int( link[1].get('ropool', 3) )
+
         self.lock = threading.Lock()
 
         self.sizebymeths = {}
         self.rowsbymeths = {}
+
+        self.jobboss = s_async.AsyncBoss(pool=ropool)
+        self.jobcache = {}
 
         self._initCortex()
 
@@ -30,6 +41,29 @@ class Cortex(EventBus):
         self.async = s_async.AsyncApi(self.boss, self)
 
         self.onfini( self.boss.fini )
+
+    def getAsyncReturn(self, jid, timeout=None):
+        '''
+        Retrieve return value for a previous async read request.
+
+        Example:
+
+            jid = core.getRowsByProp('foo',10,async=True)
+
+            # do other stuff...
+
+            rows = core.getAsyncReturn(jid)
+
+        Notes:
+
+            * For use with all async gets (rows/joins/etc)
+
+        '''
+        job = self.jobcache.pop(jid,None)
+        if job == None:
+            raise NoSuchJob(jid)
+
+        return job.sync()
 
     def waitForJob(self, jid, timeout=None):
         '''
@@ -67,6 +101,32 @@ class Cortex(EventBus):
             return self.async.addRows(rows).jid
 
         self._addRows(rows)
+
+    def callAsyncApi(self, api, *args, **kwargs):
+        '''
+        Call a cortex API asynchronously to return for results later.
+
+        Example:
+
+            jid = core.callAsyncApi('getRowsByProp','foo',valu=10)
+            # do stuff....
+            res = core.getAsyncResult(jid)
+
+        Notes:
+
+            * callers are required to retrieve results using
+              getAsyncResult(), this API is *not* fire and
+              forget.
+
+        '''
+
+        job = self.jobboss.initAsyncJob()
+        job.setJobTask( getattr(self,api), *args, **kwargs)
+
+        self.jobcache[job.jid] = job
+        job.runInPool()
+
+        return job.jid
 
     def getRowsById(self, ident):
         '''
