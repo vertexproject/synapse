@@ -26,3 +26,7 @@ class MindMeldTests(unittest.TestCase):
 
         modinfo = meld.getMeldMod('synapse.tests.test_mindmeld')
         self.assertIsNotNone( modinfo )
+
+    def test_mindmeld_nosuch(self):
+        meld = s_mindmeld.MindMeld()
+        self.assertRaises( s_mindmeld.NoSuchPath, meld.addPyPath, '/newp')
