@@ -9,7 +9,6 @@ import collections
 The synapse mindmeld subsystem provides a mechanism for the
 serialization and synchronization of code between processes.
 '''
-
 class NoSuchPath(Exception):pass
 
 class MindMeld:
@@ -128,6 +127,7 @@ class MindMeld:
         return self.info
 
     # Implement the "loader" interface
+
     def find_module(self, name, path=None):
         #print('FIND: %r %r' % (name,path))
         if self.info['modules'].get(name) != None:
