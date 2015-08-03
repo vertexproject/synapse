@@ -1,3 +1,4 @@
+import io
 import os
 import imp
 import sys
@@ -23,8 +24,22 @@ class MindMeld:
         self.info.setdefault('salt',None)
         self.info.setdefault('crypto',None)
         self.info.setdefault('modules',{})
+        self.info.setdefault('datfiles',{})
 
-    def addPyPath(self, path, name=None):
+    def openDatFile(self, datpath):
+        '''
+        Open a datfile embedded with the python code.
+
+        Example:
+
+            fd = meld.openDatFile('foo.bar.baz/blah.dat')
+
+        '''
+        byts = self.info['datfiles'].get(datpath)
+        if byts != None:
+            return io.BytesIO(byts)
+
+    def addPyPath(self, path, name=None, datfiles=False):
         '''
         Add a path full of python code to the mind meld archive.
         If a directory is specififed, it is treated as a package.
@@ -33,6 +48,11 @@ class MindMeld:
 
             meld.addPyPath('/home/visi/foobar/')
             meld.addPyPath('/home/visi/grok.py')
+
+        Notes:
+
+            * specify datfiles=True to pick up all binary files
+              and allow access via synapse.datfile API.
 
         '''
         if os.path.isfile(path):
@@ -61,6 +81,9 @@ class MindMeld:
                     if subname in ('.','..','__init__.py','__pycache__'):
                         continue
 
+                    if subname.startswith('.'):
+                        continue
+
                     subpath = os.path.join(path,subname)
                     if os.path.isdir(subpath):
                         todo.append( (subpath,'%s.%s' % (pkgname,subname)) )
@@ -69,11 +92,25 @@ class MindMeld:
                     if not os.path.isfile(subpath):
                         continue
 
-                    if not subname.endswith('.py'):
+                    # handle basic python module first...
+                    if subname.endswith('.py'):
+                        modname = subname.rsplit('.',1)[0]
+                        modpath = '%s.%s' % (pkgname,modname)
+                        self.addPyPath(subpath, name=modpath)
                         continue
 
-                    modname = subname.rsplit('.',1)[0]
-                    self.addPyPath(subpath, name='%s.%s' % (pkgname,modname))
+                    # always skip pyc files for now...
+                    if subname.endswith('.pyc'):
+                        continue
+
+                    # should we allow datfiles?
+                    if not datfiles:
+                        continue
+
+                    # save up binary data into the meld info
+                    with open(subpath,'rb') as fd:
+                        datpath = '%s/%s' % (pkgname,subname)
+                        self.info['datfiles'][ datpath ] = fd.read()
 
             return
 
