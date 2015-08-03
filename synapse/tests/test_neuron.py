@@ -187,5 +187,10 @@ class TestNeuron(unittest.TestCase):
         foobar = 'synapse.tests.test_neuron.FooBar'
         neu1.addNeuShare('foobar',foobar,(),{})
 
+    def test_neuron_poolsize(self):
+        neu = s_neuron.Daemon()
+        neu.setNeuInfo('poolsize',4)
+        self.assertEqual( neu.asyncpool.pool, 4 )
+
     #def test_neuron_route_asymetric(self):
     #def test_neuron_route_teardown(self):

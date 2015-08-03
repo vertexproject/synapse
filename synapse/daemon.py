@@ -12,8 +12,9 @@ from synapse.statemach import StateMachine, keepstate
 class DupLink(Exception):pass
 class ImplementMe(Exception):pass
 
-class Daemon(StateMachine,
+class Daemon(
         EventBus,
+        StateMachine,
         s_telepath.TeleMixin
     ):
     '''
@@ -32,6 +33,7 @@ class Daemon(StateMachine,
         s_telepath.TeleMixin.__init__(self)
 
         StateMachine.__init__(self,statefd=statefd)
+        self.on('link:sock:mesg',self._onLinkSockMesg)
 
     def setAuthModule(self, authmod):
         '''
@@ -166,7 +168,7 @@ class Daemon(StateMachine,
         relay = s_link.initLinkRelay( link )
         server = relay.initLinkServer()
 
-        server.on('link:sock:mesg',self._onLinkSockMesg)
+        server.on('link:sock:mesg',self.dist)
         server.on('link:sock:init',self.dist)
         server.on('link:sock:fini',self.dist)
 
@@ -180,7 +182,7 @@ class Daemon(StateMachine,
         relay = s_link.initLinkRelay(link)
         peer = relay.initLinkPeer()
 
-        peer.on('link:sock:mesg',self._onLinkSockMesg)
+        peer.on('link:sock:mesg',self.dist)
         peer.on('link:sock:init',self.dist)
         peer.on('link:sock:fini',self.dist)
 

@@ -8,6 +8,7 @@ import Crypto.Signature.PKCS1_v1_5 as PKCS15
 
 import synapse.async as s_async
 import synapse.cortex as s_cortex
+import synapse.socket as s_socket
 import synapse.daemon as s_daemon
 import synapse.dyndeps as s_dyndeps
 import synapse.threads as s_threads
@@ -33,9 +34,8 @@ class Daemon(s_daemon.Daemon):
 
     def __init__(self, statefd=None):
 
-        self.boss       = s_threads.ThreadBoss()
         self.sched      = s_threads.Sched()
-        self.async2sync = s_async.AsyncBoss()
+        self.asyncpool = s_async.AsyncBoss()
 
         self.peerbus = s_eventbus.EventBus()
 
@@ -44,8 +44,11 @@ class Daemon(s_daemon.Daemon):
         self.routecache = {}
 
         # persistant data in these...
-        self.neuinfo = {}
+        self.neuinfo = {
+            'poolsize':10,  # default to 10 neuron threads
+        }
         self.neucores = {}
+        self.neusocks = {}  # <guid> : NeuSock()
         self.neushares = {}
 
         self.runinfo = collections.defaultdict(dict)
@@ -55,10 +58,9 @@ class Daemon(s_daemon.Daemon):
 
         s_daemon.Daemon.__init__(self)
 
-        self.onfini( self.boss.fini )
         self.onfini( self.sched.fini )
         self.onfini( self.peerbus.fini )
-        self.onfini( self.async2sync.fini )
+        self.onfini( self.asyncpool.fini )
 
         self.on('link:sock:init',self._onNeuSockInit)
 
@@ -95,8 +97,13 @@ class Daemon(s_daemon.Daemon):
             auth = s_dyndeps.getDynLocal(name)(*args,**kwargs)
             self.setAuthModule( auth )
 
+        def setpoolsize(event):
+            valu = event[1].get('valu')
+            self.asyncpool.setPoolSize(valu)
+
         self.on('neu:info:rsakey', setrsakey)
         self.on('neu:info:authmod', setauthmod)
+        self.on('neu:info:poolsize',setpoolsize)
 
         if statefd:
             self.loadStateFd(statefd)
@@ -111,6 +118,9 @@ class Daemon(s_daemon.Daemon):
             self.setNeuInfo('ident', guid())
 
         self.ident = self.getNeuInfo('ident')
+
+        poolsize = self.getNeuInfo('poolsize')
+        self.asyncpool.setPoolSize(poolsize)
 
     def addNeuCortex(self, name, url, tags=None):
         '''
@@ -226,7 +236,7 @@ class Daemon(s_daemon.Daemon):
         sent = event[1].get('time')
         rtt = time.time() - sent
 
-        job = self.async2sync.getAsyncJob(jobid)
+        job = self.asyncpool.getAsyncJob(jobid)
         if job == None:
             return
 
@@ -319,9 +329,9 @@ class Daemon(s_daemon.Daemon):
         sock = event[1].get('sock')
         # shall we start a peer handshake?
         if sock.getSockInfo('peer'):
-            self._sendPeerSyn(sock)
+            self._sendLinkSyn(sock)
 
-    def _sendPeerSyn(self, sock):
+    def _sendLinkSyn(self, sock):
         sock.setSockInfo('neu:link:state','neu:link:syn')
         syninfo = self._getSynInfo()
         sock.fireobj('neu:link:syn',**syninfo)
@@ -562,6 +572,15 @@ class Daemon(s_daemon.Daemon):
         return info.get(prop)
 
     def isKnownPeer(self, peerid):
+        '''
+        Check if we know of a peer with the given id.
+
+        Example:
+
+            if neu.isKnownPeer(peerid):
+                stuff()
+
+        '''
         return self.peerinfo.get(peerid) != None
 
     def _onNeuPeerInit(self, event):
@@ -637,6 +656,9 @@ class Daemon(s_daemon.Daemon):
         Route an neu message to a peer.
         '''
         byts = msgpack.dumps(mesg, use_bin_type=True)
+        self._sendPeerByts(peerid, byts)
+
+    def _sendPeerByts(self, peerid, byts, **msginfo):
 
         route = self._getPeerRoute(peerid)
         if route == None:
@@ -644,9 +666,12 @@ class Daemon(s_daemon.Daemon):
             # FIXME retrans
             return
 
-
         nexthop = route[1]
-        datamesg = ('neu:data',{'route':route,'hop':0,'mesg':byts})
+
+        msginfo['hop'] = 0
+        msginfo['mesg'] = byts
+        msginfo['route'] = route
+        datamesg = ('neu:data',msginfo)
 
         sock = self.peersocks.get(nexthop)
         if sock == None:
@@ -696,7 +721,7 @@ class Daemon(s_daemon.Daemon):
         '''
         Fire an async job wrapped peer message and return the job.
         '''
-        job = self.async2sync.initAsyncJob()
+        job = self.asyncpool.initAsyncJob()
 
         msginfo['peer:dst'] = peerid
         msginfo['peer:job'] = job.jid
