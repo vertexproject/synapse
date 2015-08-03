@@ -210,6 +210,26 @@ class AsyncBoss(s_eventbus.EventBus):
 
         self.addPoolWorkers(pool)
 
+    def setPoolSize(self, pool):
+        '''
+        Update the size of the thread worker pool.
+
+        Example:
+
+            boss.setPoolSize(10)
+
+        '''
+        delta = pool - self.pool
+        if delta == 0:
+            return
+
+        self.pool = pool
+        if delta < 0:
+            self.delPoolWorkers(abs(delta))
+            return
+
+        self.addPoolWorkers(delta)
+
     def addPoolWorkers(self, count):
         '''
         Spin up additional worker threads.
