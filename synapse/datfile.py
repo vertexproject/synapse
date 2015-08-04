@@ -23,7 +23,7 @@ def openDatFile(datpath):
 
     pkgmod = s_dyndeps.getDynMod(pkgname)
 
-    loader = pkgmod.__loader__
+    loader = getattr(pkgmod,'__loader__',None)
     if isinstance(loader, s_mindmeld.MindMeld):
         return loader.openDatFile(datpath)
 
