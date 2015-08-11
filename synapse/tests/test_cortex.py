@@ -128,6 +128,8 @@ class CortexTest(unittest.TestCase):
         self.assertEqual( len( meta.getCortexes('woot.hoho') ), 1 )
         self.assertEqual( len( meta.getCortexes('woot.hehe') ), 1 )
 
+        meta.fini()
+
     def test_cortex_meta_query(self):
 
         meta = s_cortex.MetaCortex()
@@ -195,6 +197,8 @@ class CortexTest(unittest.TestCase):
         join = meta.getJoinByQuery('newp:newp=3')
         self.assertEqual( len(join), 0 )
 
+        meta.fini()
+
     def test_cortex_meta_query_parser(self):
         meta = s_cortex.MetaCortex()
 
@@ -228,11 +232,14 @@ class CortexTest(unittest.TestCase):
         self.assertEqual( qinfo.get('valu'), (10,30) )
         self.assertEqual( qinfo.get('limit'), 100 )
 
+        meta.fini()
+
     def test_cortex_async_nosuchjob(self):
 
         id1 = hexlify(guid()).decode('utf8')
         core = s_cortex.openurl('ram://')
         self.assertRaises( NoSuchJob, core.getAsyncReturn, 'foo' )
+        core.fini()
 
     def test_cortex_async_result(self):
         id1 = hexlify(guid()).decode('utf8')
@@ -249,6 +256,8 @@ class CortexTest(unittest.TestCase):
 
         self.assertEqual( len(rows), 3 )
 
+        core.fini()
+
     def test_coretx_meta_getnames(self):
         meta = s_cortex.MetaCortex()
 
@@ -259,3 +268,5 @@ class CortexTest(unittest.TestCase):
         names.sort()
 
         self.assertEqual( ('foo.bar','foo.baz'), tuple(names) )
+
+        meta.fini()

@@ -21,6 +21,8 @@ import synapse.cores.ram
 import synapse.cores.sqlite
 import synapse.cores.postgres
 
+from synapse.eventbus import EventBus
+
 class NoSuchScheme(Exception):pass
 
 corclasses = {
@@ -70,13 +72,16 @@ def choptag(tag):
     parts = tag.split('.')
     return [ '.'.join(parts[:x+1]) for x in range(len(parts)) ]
 
-class MetaCortex:
+class MetaCortex(EventBus):
 
     def __init__(self):
+        EventBus.__init__(self)
         self.tagsbyname = {}
         self.coresbyname = {}
 
         self.coresbytag = collections.defaultdict(list)
+
+        self.onfini( self._onMetaFini )
 
     def addCortex(self, name, url, tags=None):
         '''
@@ -336,3 +341,12 @@ class MetaCortex:
                 traceback.print_exc()
 
         return size
+
+    def _onMetaFini(self):
+
+        for core in self.coresbyname.values():
+            if isinstance(core,s_telepath.Proxy):
+                continue
+
+            core.fini()
+
