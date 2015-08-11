@@ -283,8 +283,6 @@ class Cortex(EventBus):
         if not rows:
             return None
 
-        print("ROWS: %r" % (rows,))
-
         tufo = ( rows[0][0], {} )
         for ident,prop,valu,stamp in rows:
             tufo[1][prop] = valu
