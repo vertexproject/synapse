@@ -60,6 +60,9 @@ class CortexTest(unittest.TestCase):
         self.assertEqual( tufo[1].get('baz'), 'faz1')
         self.assertEqual( tufo[1].get('gronk'), 80 )
 
+        self.assertEqual( core.getSizeByProp('foo:newp'), 0 )
+        self.assertEqual( len(core.getRowsByProp('foo:newp')), 0 )
+
         self.assertEqual( core.getSizeByProp('foo'), 2 )
         self.assertEqual( core.getSizeByProp('baz',valu='faz1'), 1 )
         self.assertEqual( core.getSizeByProp('foo',mintime=80,maxtime=100), 1 )
@@ -264,7 +267,7 @@ class CortexTest(unittest.TestCase):
 
         core.fini()
 
-    def test_coretx_meta_getnames(self):
+    def test_cortex_meta_getnames(self):
         meta = s_cortex.MetaCortex()
 
         meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
@@ -276,3 +279,43 @@ class CortexTest(unittest.TestCase):
         self.assertEqual( ('foo.bar','foo.baz'), tuple(names) )
 
         meta.fini()
+
+    def test_cortex_meta_addmeta(self):
+        id1 = hexlify(guid()).decode('utf8')
+        meta = s_cortex.MetaCortex()
+
+        meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
+        meta.addCortex('foo.baz','ram:///',tags=('woot.hoho',))
+
+        rows = (
+            (id1,'woot',20,80),
+            (id1,'foo','bar',80),
+        )
+
+        meta.addMetaRows('foo.bar',rows)
+        self.assertEqual( meta.getSizeByQuery('foo:woot'), 1 )
+
+        meta.fini()
+
+    def test_cortex_meta_corapi(self):
+        id1 = hexlify(guid()).decode('utf8')
+        meta = s_cortex.MetaCortex()
+
+        meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
+        meta.addCortex('foo.baz','ram:///',tags=('woot.hoho',))
+
+        rows = (
+            (id1,'woot',20,80),
+            (id1,'foo','bar',80),
+        )
+
+        meta.addMetaRows('foo.bar',rows)
+        self.assertEqual( meta.callCorApi('foo.bar','getSizeByProp','woot'), 1 )
+
+        meta.fini()
+
+    def test_cortex_meta_noname(self):
+        meta = s_cortex.MetaCortex()
+        self.assertRaises( s_cortex.NoSuchName, meta.addMetaRows, 'hehe', [] )
+        meta.fini()
+

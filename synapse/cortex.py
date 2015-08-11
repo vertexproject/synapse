@@ -1,4 +1,5 @@
 import ast
+import traceback
 import collections
 
 '''
@@ -23,6 +24,7 @@ import synapse.cores.postgres
 
 from synapse.eventbus import EventBus
 
+class NoSuchName(Exception):pass
 class NoSuchScheme(Exception):pass
 
 corclasses = {
@@ -341,6 +343,37 @@ class MetaCortex(EventBus):
                 traceback.print_exc()
 
         return size
+
+    def addMetaRows(self, name, rows, async=False):
+        '''
+        Add the given rows to the specified cortex by name.
+
+        Example:
+
+            meta.addMetaRows('woot',rows)
+
+        '''
+        core = self.coresbyname.get(name)
+        if core == None:
+            raise NoSuchName(name)
+
+        return core.addRows( rows, async=async )
+
+    def callCorApi(self, name, api, *args, **kwargs):
+        '''
+        Use the MetaCortex to call an API on the named Cortex.
+
+        Example:
+
+            rows = meta.callCorApi('woot','getRowsByProp','hehe',valu=10)
+
+        '''
+        core = self.coresbyname.get(name)
+        if core == None:
+            raise NoSuchName(name)
+
+        # purposely blow up if getattr fails...
+        return getattr(core,api)(*args,**kwargs)
 
     def _onMetaFini(self):
 

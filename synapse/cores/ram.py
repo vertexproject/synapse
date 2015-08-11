@@ -86,6 +86,9 @@ class Cortex(common.Cortex):
         else:
             rows = self.rowsbyvalu.get( (prop,valu) )
 
+        if rows == None:
+            return 0
+
         if mintime != None:
             rows = [ row for row in rows if row[3] >= mintime ]
 

@@ -32,11 +32,13 @@ class Cortex(EventBus):
         self.sizebymeths = {}
         self.rowsbymeths = {}
 
+        # used to facilitate pooled async readers
         self.jobboss = s_async.AsyncBoss(pool=ropool)
         self.jobcache = {}
 
         self._initCortex()
 
+        # used exclusivly for single-thread inserts
         self.boss = s_async.AsyncBoss(pool=1)
         self.async = s_async.AsyncApi(self.boss, self)
 
