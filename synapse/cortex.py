@@ -140,6 +140,17 @@ class MetaCortex:
         '''
         return self.coresbyname.get(name)
 
+    def getCortexNames(self):
+        '''
+        Retrieve a list of cortex names within this metacortex.
+
+        Example:
+
+            names = meta.getCortexNames()
+
+        '''
+        return list(self.coresbyname.keys())
+
     def getCortexes(self, tag):
         '''
         Return a list of cortex instances by tag.
@@ -184,6 +195,14 @@ class MetaCortex:
         return ret
 
     def getRowsByQuery(self, query):
+        '''
+        Retrieve rows using a cortex query.
+
+        Example:
+
+            rows = meta.getRowsByQuery('foo:bar=10')
+
+        '''
         qinfo = self._parseQuery(query)
 
         by = qinfo.pop('by',None)
@@ -222,6 +241,14 @@ class MetaCortex:
         return rows
 
     def getJoinByQuery(self, query):
+        '''
+        Retrieve a set of rows by cortex query and subsequent join.
+
+        Example:
+
+            rows = meta.getJoinByQuery('foo:bar=10')
+
+        '''
         qinfo = self._parseQuery(query)
 
         by = qinfo.pop('by',None)
@@ -260,6 +287,14 @@ class MetaCortex:
         return rows
 
     def getSizeByQuery(self, query):
+        '''
+        Retrieve the number of rows which match a given cortex query.
+
+        Example:
+
+            count = meta.getSizeByQuery('foo:bar=10')
+
+        '''
         qinfo = self._parseQuery(query)
 
         by = qinfo.pop('by',None)

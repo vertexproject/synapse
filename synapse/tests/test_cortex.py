@@ -249,3 +249,13 @@ class CortexTest(unittest.TestCase):
 
         self.assertEqual( len(rows), 3 )
 
+    def test_coretx_meta_getnames(self):
+        meta = s_cortex.MetaCortex()
+
+        meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
+        meta.addCortex('foo.baz','ram:///',tags=('woot.hoho',))
+
+        names = meta.getCortexNames()
+        names.sort()
+
+        self.assertEqual( ('foo.bar','foo.baz'), tuple(names) )
