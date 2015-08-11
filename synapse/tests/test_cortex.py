@@ -54,6 +54,12 @@ class CortexTest(unittest.TestCase):
 
         core.addRows( rows )
 
+        tufo = core.getTufoByProp('baz','faz1')
+        self.assertEqual( tufo[0], id1 )
+        self.assertEqual( tufo[1].get('foo'), 'bar')
+        self.assertEqual( tufo[1].get('baz'), 'faz1')
+        self.assertEqual( tufo[1].get('gronk'), 80 )
+
         self.assertEqual( core.getSizeByProp('foo'), 2 )
         self.assertEqual( core.getSizeByProp('baz',valu='faz1'), 1 )
         self.assertEqual( core.getSizeByProp('foo',mintime=80,maxtime=100), 1 )

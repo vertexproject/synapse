@@ -266,6 +266,31 @@ class Cortex(EventBus):
         '''
         self.sizebymeths[name] = meth
 
+    def getTufoByProp(self, prop, valu=None):
+        '''
+        Return an (ident,info) tuple by joining rows based on a property.
+
+        Example:
+
+            tufo = core.getTufoByProp('fqdn','woot.com')
+
+        Notes:
+
+            * This must be used only for rows added with addTufoByProp!
+
+        '''
+        rows = self.getJoinByProp(prop, valu=valu, limit=1)
+        if not rows:
+            return None
+
+        print("ROWS: %r" % (rows,))
+
+        tufo = ( rows[0][0], {} )
+        for ident,prop,valu,stamp in rows:
+            tufo[1][prop] = valu
+
+        return tufo
+
     def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, async=False):
         '''
         Delete rows with a given prop[=valu].
@@ -318,45 +343,3 @@ class Cortex(EventBus):
         if meth == None:
             raise NoSuchGetBy(name)
         return meth
-
-class Corplex:
-    '''
-    A corplex is a multi-plexor for multiple Cortex instances by name or type.
-
-    Example:
-
-        plex = Corplex()
-        plex.addCortex('foo','bar','
-
-    '''
-    def __init__(self):
-        self.byname = {}
-        self.bytype = collections.defaultdict(list)
-
-    def addCortex(self, name, type, url):
-        '''
-        Add a cortex URL to the corplex.
-
-        Example:
-
-            # two different cortex instances
-            url1 = 'sqlite:///:memory:'
-            url2 = 'tcp://1.2.3.4:443/foocore'
-
-            plex.addCortex('bar','baz',url1)
-            plex.addCortex('foo','baz',url2)
-
-        '''
-        core = self.byname.get(name)
-        if core != None:
-            raise DupCortexName(name)
-
-        # types may not collide with names!
-        core = self.byname.get(type)
-        if core != None:
-            raise DupCortexName(type)
-
-        core = cortex.open(url)
-        self.byname[name] = core
-        self.bytype[name].append(core)
-

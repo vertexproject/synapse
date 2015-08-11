@@ -21,7 +21,8 @@ CREATE TABLE %s (
     stamp BIGINT
 );
 '''
-init_id_idx = 'CREATE INDEX %s_id_idx ON %s (id)'
+
+init_id_idx = 'CREATE INDEX %s_id_idx ON %s (id,prop)'
 init_strval_idx = 'CREATE INDEX %s_strval_idx ON %s (prop,strval,stamp)'
 init_intval_idx = 'CREATE INDEX %s_intval_idx ON %s (prop,intval,stamp)'
 
@@ -64,7 +65,8 @@ class Cortex(common.Cortex):
         if limit != None:
             q += ' LIMIT %d' % limit
 
-        return self.select(q,args)
+        rows = self.select(q,args)
+        return self._foldTypeCols(rows)
 
     def _sizeByRange(self, prop, valu, limit=None):
         q = self._q_getsize_by_range
@@ -173,8 +175,20 @@ class Cortex(common.Cortex):
         with self.cursor() as cur:
             cur.execute(q,r)
 
+    def _foldTypeCols(self, rows):
+        ret = []
+        for ident,prop,intval,strval,stamp in rows:
+
+            if intval != None:
+                ret.append( (ident,prop,intval,stamp) )
+            else:
+                ret.append( (ident,prop,strval,stamp) )
+                
+        return ret
+
     def _getRowsById(self, ident):
-        return self.select(self._q_getrows_by_id,(ident,))
+        rows = self.select(self._q_getrows_by_id,(ident,))
+        return self._foldTypeCols(rows)
 
     def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
         r = [ prop ]
@@ -186,7 +200,8 @@ class Cortex(common.Cortex):
         r = [ prop ]
         q = self._q_getrows_by_prop
         q,r = self._addQueryParams(q,r,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
-        return self.select(q,r)
+        rows = self.select(q,r)
+        return self._foldTypeCols(rows)
 
     def _delRowsById(self, ident):
         self.delete(self._q_delrows_by_id,(ident,))
