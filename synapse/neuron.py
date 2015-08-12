@@ -122,7 +122,7 @@ class Daemon(s_daemon.Daemon):
         poolsize = self.getNeuInfo('poolsize')
         self.asyncpool.setPoolSize(poolsize)
 
-    def addNeuCortex(self, name, url, tags=None):
+    def addNeuCortex(self, name, url, tags=()):
         '''
         Add a "persistent" cortex to the neuron.
 

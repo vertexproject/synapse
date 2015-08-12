@@ -55,6 +55,7 @@ class CortexTest(unittest.TestCase):
         core.addRows( rows )
 
         tufo = core.getTufoByProp('baz','faz1')
+
         self.assertEqual( tufo[0], id1 )
         self.assertEqual( tufo[1].get('foo'), 'bar')
         self.assertEqual( tufo[1].get('baz'), 'faz1')
@@ -99,6 +100,23 @@ class CortexTest(unittest.TestCase):
         self.assertEqual( len(core.getRowsByProp('a',valu='a')), 1 )
         core.delJoinByProp('c',valu=90)
         self.assertEqual( len(core.getRowsByProp('a',valu='a')), 0 )
+
+        def addtufo(event):
+            tufo = event[1].get('tufo')
+            core.addTufoProps(tufo, woot='woot')
+
+        def addfqdn(event):
+            t = event[1].get('tufo')
+            fqdn = t[1].get('fqdn')
+            core.addTufoProps(t,tld=fqdn.split('.')[-1])
+
+        core.on('cortex:tufo:add', addtufo)
+        core.on('cortex:tufo:add:fqdn', addfqdn)
+
+        tufo = core.formTufoByProp('fqdn','woot.com')
+
+        self.assertEqual( tufo[1].get('tld'), 'com')
+        self.assertEqual( tufo[1].get('woot'), 'woot')
 
         core.fini()
 
@@ -170,6 +188,13 @@ class CortexTest(unittest.TestCase):
 
         self.assertTrue( core0.waitForJob(j0, timeout=3) )
         self.assertTrue( core1.waitForJob(j1, timeout=3) )
+
+        tufos = meta.getTufosByQuery('foo:x=10')
+        self.assertEqual( len(tufos), 2 )
+
+        tfdict = dict(tufos)
+        self.assertEqual( tfdict.get(id1).get('ha'), 'ho')
+        self.assertEqual( tfdict.get(id3).get('ha'), 'ho')
 
         res = meta.getRowsByQuery('foo.bar:ha="ho"')
         self.assertEqual( len(res), 1 )

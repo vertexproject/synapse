@@ -1,14 +1,15 @@
+import time
 import queue
 import threading
 import traceback
 
 import synapse.async as s_async
 
+from synapse.common import *
 from synapse.eventbus import EventBus
 
 class NoSuchJob(Exception):pass
 class NoSuchGetBy(Exception):pass
-class DupCortexName(Exception):pass
 
 class Cortex(EventBus):
     '''
@@ -289,6 +290,60 @@ class Cortex(EventBus):
         for ident,prop,valu,stamp in rows:
             tufo[1][prop] = valu
 
+        return tufo
+
+    def formTufoByProp(self, prop, valu):
+        '''
+        Form an (ident,info) tuple by atomically deconflicting
+        the existance of prop=valu and creating it if not present.
+
+        Example:
+
+            tufo = core.formTufoByProp('fqdn','woot.com')
+
+        Notes:
+
+            * this will trigger an 'cortex:tufo:add' event if the
+              tufo does not yet exist and is being construted.
+
+        '''
+        with self.lock:
+            tufo = self.getTufoByProp(prop,valu=valu)
+            if tufo != None:
+                return tufo
+
+            ident = guidstr()
+            stamp = int(time.time())
+
+            self.addRows( [(ident,prop,valu,stamp)] )
+
+            tufo = (ident,{prop:valu})
+            self.fire('cortex:tufo:add', tufo=tufo, prop=prop, valu=valu, stamp=stamp)
+            self.fire('cortex:tufo:add:%s' % prop, tufo=tufo, prop=prop, valu=valu, stamp=stamp)
+            return tufo
+
+    def addTufoProps(self, tufo, **props):
+        '''
+        Add ( without checking for existance ) a set of tufo props.
+
+        Example:
+
+            core.addTufoProps(tufo, woot='hehe', blah=10)
+
+        Notes:
+
+            * Mostly for use with cortex:tufo:add:<prop> callbacks.
+
+        '''
+        ident = tufo[0]
+        stamp = int(time.time())
+
+        rows = []
+        for prop,valu in props.items():
+            tufo[1][prop] = valu
+            rows.append( (ident,prop,valu,stamp) )
+
+        self.addRows(rows)
         return tufo
 
     def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, async=False):

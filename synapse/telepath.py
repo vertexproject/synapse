@@ -60,6 +60,17 @@ class TeleMixin:
         '''
         return self.shared.pop(name,None)
 
+    def getSharedObject(self, name):
+        '''
+        Return a reference to a shared object by name.
+
+        Example:
+
+            foo = serv.getSharedObject('foo')
+
+        '''
+        return self.shared.get(name)
+
     def _onMesgTeleSyn(self, sock, mesg):
         '''
         Handle an initial "syn" message from a newly connected client.

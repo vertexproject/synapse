@@ -26,6 +26,7 @@ from synapse.eventbus import EventBus
 
 class NoSuchName(Exception):pass
 class NoSuchScheme(Exception):pass
+class DupCortexName(Exception):pass
 
 corclasses = {
     'tcp':s_telepath.Proxy,
@@ -85,7 +86,7 @@ class MetaCortex(EventBus):
 
         self.onfini( self._onMetaFini )
 
-    def addCortex(self, name, url, tags=None):
+    def addCortex(self, name, url, tags=()):
         '''
         Tell the MetaCortex about a Cortex instance.
 
@@ -95,7 +96,7 @@ class MetaCortex(EventBus):
 
         '''
         if self.coresbyname.get(name) != None:
-            raise Exception('Coretex Exists: %s' % (name,))
+            raise DupCortexName(name)
 
         core = openurl(url)
         self.coresbyname[name] = core
@@ -104,9 +105,8 @@ class MetaCortex(EventBus):
 
         [ alltags.add(t) for t in choptag(name) ]
 
-        if tags != None:
-            for tag in tags:
-                [ alltags.add(t) for t in choptag(tag) ]
+        for tag in tags:
+            [ alltags.add(t) for t in choptag(tag) ]
 
         self.tagsbyname[name] = alltags
 
@@ -126,12 +126,13 @@ class MetaCortex(EventBus):
         '''
         core = self.coresbyname.get(name)
         if core == None:
-            raise Exception('No Such Cortex: %s' % (name,))
+            raise NoSuchName(name)
 
         tags = self.tagsbyname.pop(name,())
         for tag in tags:
             self.coresbytag[tag].remove( core )
 
+        core.fini()
         return
 
     def getCortex(self, name):
@@ -343,6 +344,24 @@ class MetaCortex(EventBus):
                 traceback.print_exc()
 
         return size
+
+    def getTufosByQuery(self, query):
+        '''
+        Retrieve a folded set of (ident,info) tuples via join.
+
+        Example:
+
+            tufos = meta.getSizeByQuery('foo:bar=10')
+
+            for tufo in tufos:
+                print( tufo[1].get('baz') )
+
+        '''
+        rows = self.getJoinByQuery(query)
+
+        byid = collections.defaultdict(dict)
+        [ byid[r[0]].__setitem__( r[1], r[2] ) for r in rows ]
+        return list(byid.items())
 
     def addMetaRows(self, name, rows, async=False):
         '''
