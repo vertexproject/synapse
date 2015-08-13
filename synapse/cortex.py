@@ -221,6 +221,9 @@ class MetaCortex(EventBus):
         qinfo = self._parseQuery(query)
         self.fire('meta:query:rows',query=qinfo)
 
+        if not qinfo.get('allow'):
+            return ()
+
         by = qinfo.pop('by',None)
         tag = qinfo.pop('tag',None)
         prop = qinfo.pop('prop',None)
@@ -270,6 +273,9 @@ class MetaCortex(EventBus):
         qinfo = self._parseQuery(query)
         self.fire('meta:query:join',query=qinfo)
 
+        if not qinfo.get('allow'):
+            return ()
+
         by = qinfo.pop('by',None)
         tag = qinfo.pop('tag',None)
         prop = qinfo.pop('prop',None)
@@ -318,6 +324,9 @@ class MetaCortex(EventBus):
         '''
         qinfo = self._parseQuery(query)
         self.fire('meta:query:size',query=qinfo)
+
+        if not qinfo.get('allow'):
+            return 0
 
         by = qinfo.pop('by',None)
         tag = qinfo.pop('tag',None)

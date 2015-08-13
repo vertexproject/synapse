@@ -376,3 +376,32 @@ class CortexTest(unittest.TestCase):
 
         rows = meta.getJoinByQuery('foo:foo')
         self.assertEqual( len(rows), 0 )
+
+    def test_cortex_meta_query_perm(self):
+        meta = s_cortex.MetaCortex()
+        meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
+        meta.addCortex('foo.baz','ram:///',tags=('woot.hoho',))
+
+        def newp(event):
+            event[1]['query']['allow'] = False
+
+        meta.on('meta:query:rows',newp)
+        meta.on('meta:query:join',newp)
+
+        id1 = guidstr()
+        id2 = guidstr()
+        rows = [ 
+            (id1,'foo',10,10),
+            (id1,'haha',10,10),
+
+            (id2,'foo',20,20),
+            (id2,'haha',20,20),
+        ]
+        meta.addMetaRows('foo.bar',rows)
+
+        rows = meta.getRowsByQuery('foo:foo')
+        self.assertEqual( len(rows), 0 )
+
+        rows = meta.getJoinByQuery('foo:foo')
+        self.assertEqual( len(rows), 0 )
+
