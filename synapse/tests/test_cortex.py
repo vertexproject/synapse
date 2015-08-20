@@ -383,7 +383,7 @@ class CortexTest(unittest.TestCase):
         meta.addCortex('foo.baz','ram:///',tags=('woot.hoho',))
 
         def newp(event):
-            event[1]['query']['allow'] = False
+            event[1]['allow'] = False
 
         meta.on('meta:query:rows',newp)
         meta.on('meta:query:join',newp)
@@ -404,4 +404,52 @@ class CortexTest(unittest.TestCase):
 
         rows = meta.getJoinByQuery('foo:foo')
         self.assertEqual( len(rows), 0 )
+
+    def test_cortex_meta_del(self):
+        meta = s_cortex.MetaCortex()
+        meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
+
+        meta.delCortex('foo.bar')
+        self.assertIsNone( meta.getCortex('foo.bar') )
+        meta.fini()
+
+    def test_cortex_notok(self):
+        meta = s_cortex.MetaCortex()
+        meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
+        meta.addCortex('foo.baz','ram:///',tags=('woot.hehe',))
+
+        id1 = guidstr()
+        meta.addMetaRows('foo.bar',(
+            (id1,'foo',10,10),
+            (id1,'haha',10,10),
+        ))
+
+        id2 = guidstr()
+        meta.addMetaRows('foo.baz',(
+            (id2,'foo',20,20),
+            (id2,'haha',20,20),
+        ))
+
+        core = meta.getCortex('foo.bar')
+        oldmeth = core.getRowsByProp
+
+        def dorked(*args,**kwargs):
+            raise Exception('hi')
+
+        core.isok = False
+        core.getRowsByProp = dorked
+
+        rows = meta.getRowsByQuery('foo:foo')
+
+        self.assertEqual( len(rows), 1 )
+        self.assertFalse( meta.coreok.get('foo.bar') )
+
+        core.isok = True
+        core.getRowsByProp = oldmeth
+        meta._tryCoreOk('foo.bar')
+
+        self.assertTrue( meta.coreok.get('foo.bar') )
+
+        rows = meta.getRowsByQuery('foo:foo')
+        self.assertEqual( len(rows), 2 )
 

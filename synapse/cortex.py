@@ -16,6 +16,7 @@ insertion, and provide for atomic deconfliction if needed.
 '''
 
 import synapse.link as s_link
+import synapse.threads as s_threads
 import synapse.telepath as s_telepath
 
 import synapse.cores.ram
@@ -25,6 +26,7 @@ import synapse.cores.postgres
 from synapse.eventbus import EventBus
 
 class NoSuchName(Exception):pass
+class PermDenied(Exception):pass
 class NoSuchScheme(Exception):pass
 class DupCortexName(Exception):pass
 
@@ -84,12 +86,81 @@ class MetaCortex(EventBus):
 
     def __init__(self):
         EventBus.__init__(self)
+
+        self.coreok = {}
+        self.cordefs = {}
+        self.urlbyname = {}
         self.tagsbyname = {}
         self.coresbyname = {}
 
+        self.sched = s_threads.Sched()
         self.coresbytag = collections.defaultdict(list)
 
         self.onfini( self._onMetaFini )
+
+    def _corNotOk(self, name):
+        '''
+        Record that a core is not ok, and begin monitoring
+        for okness.
+        '''
+        self.coreok[name] = False
+        self.fire('meta:cortex:notok',name=name)
+        self.sched.insec(2, self._tryCoreOk, name)
+
+    def _tryCoreOk(self, name):
+        '''
+        Test if a currently "down" core is available again.
+
+        ( If the core has been removed, bail )
+        '''
+        if self.coreok.get(name):
+            return
+
+        core = self.coresbyname.get(name)
+        if core == None:
+            self.coreok[name] = False
+
+        else:
+
+            try:
+                self.coreok[name] = core.isOk()
+
+            except Exception as e:
+                self.coreok[name] = False
+
+        if not self.coreok.get(name):
+            self.sched.insec(2, self._tryCoreOk, name)
+        else:
+            self.fire('meta:cortex:ok',name=name)
+
+    def _tryAddCorUrl(self, name, url, tags=()):
+
+        try:
+
+            core = openurl(url)
+
+            self.coreok[name] = True
+            self.coresbyname[name] = core
+
+            alltags = set()
+
+            [ alltags.add(t) for t in choptag(name) ]
+
+            for tag in tags:
+                [ alltags.add(t) for t in choptag(tag) ]
+
+            self.urlbyname[name] = url
+            self.tagsbyname[name] = alltags
+
+            for tag in alltags:
+                self.coresbytag[tag].append((name,core))
+
+            self._tryCoreOk(name)
+            return core
+
+        except Exception as e:
+            self.fire('meta:cortex:exc', name=name, exc=e)
+            self.sched.insec(2, self._tryAddCorUrl, name, url, tags=tags)
 
     def addCortex(self, name, url, tags=()):
         '''
@@ -103,22 +174,12 @@ class MetaCortex(EventBus):
         if self.coresbyname.get(name) != None:
             raise DupCortexName(name)
 
-        core = openurl(url)
-        self.coresbyname[name] = core
+        event = self.fire('meta:cortex:add',name=name,url=url,tags=tags)
+        if not event[1].get('allow',True):
+            raise PermDenied()
 
-        alltags = set()
-
-        [ alltags.add(t) for t in choptag(name) ]
-
-        for tag in tags:
-            [ alltags.add(t) for t in choptag(tag) ]
-
-        self.tagsbyname[name] = alltags
-
-        for tag in alltags:
-            self.coresbytag[tag].append(core)
-
-        return core
+        self.cordefs[name] = (name,url,tags)
+        return self._tryAddCorUrl(name, url, tags=tags)
 
     def delCortex(self, name):
         '''
@@ -129,13 +190,14 @@ class MetaCortex(EventBus):
             meta.delCortex('woot0')
 
         '''
-        core = self.coresbyname.get(name)
+        core = self.coresbyname.pop(name,None)
         if core == None:
             raise NoSuchName(name)
 
+        url = self.urlbyname.pop(name,None)
         tags = self.tagsbyname.pop(name,())
         for tag in tags:
-            self.coresbytag[tag].remove( core )
+            self.coresbytag[tag].remove( (name,core) )
 
         core.fini()
         return
@@ -205,8 +267,6 @@ class MetaCortex(EventBus):
         ret['tag'] = tag.lower()
         ret['prop'] = prop.lower()
 
-        ret['allow'] = True     # hook eventbus to disallow
-
         return ret
 
     def getRowsByQuery(self, query):
@@ -219,9 +279,9 @@ class MetaCortex(EventBus):
 
         '''
         qinfo = self._parseQuery(query)
-        self.fire('meta:query:rows',query=qinfo)
+        event = self.fire('meta:query:rows',query=qinfo)
 
-        if not qinfo.get('allow'):
+        if not event[1].get('allow',True):
             return ()
 
         by = qinfo.pop('by',None)
@@ -238,26 +298,37 @@ class MetaCortex(EventBus):
             return ()
 
         jobs = []
-        for core in cores:
-            if by != None:
-                jid = core.callAsyncApi('getRowsBy',by,prop,valu,limit=limit)
-                jobs.append( (core,jid) )
+        for name,core in cores:
+
+            if not self.coreok.get(name):
                 continue
 
-            if prop == 'id':
-                jid = core.callAsyncApi('getRowsById',valu)
-                jobs.append( (core,jid) )
-                continue
+            try:
 
-            jid = core.callAsyncApi('getRowsByProp',prop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit)
-            jobs.append( (core,jid) )
+                if by != None:
+                    jid = core.callAsyncApi('getRowsBy',by,prop,valu,limit=limit)
+                    jobs.append( (name,core,jid) )
+                    continue
+
+                if prop == 'id':
+                    jid = core.callAsyncApi('getRowsById',valu)
+                    jobs.append( (name,core,jid) )
+                    continue
+
+                jid = core.callAsyncApi('getRowsByProp',prop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit)
+                jobs.append( (name,core,jid) )
+
+            except Exception as e:
+                self._corNotOk(name)
+                self.fire('meta:cortex:exc', name=name, exc=e)
 
         rows = []
-        for core,jid in jobs:
+        for name,core,jid in jobs:
             try:
                 rows.extend( core.getAsyncReturn(jid) )
             except Exception as e:
-                traceback.print_exc()
+                self._corNotOk(name)
+                self.fire('meta:cortex:exc', name=name, exc=e)
 
         return rows
 
@@ -271,9 +342,9 @@ class MetaCortex(EventBus):
 
         '''
         qinfo = self._parseQuery(query)
-        self.fire('meta:query:join',query=qinfo)
+        event = self.fire('meta:query:join',query=qinfo)
 
-        if not qinfo.get('allow'):
+        if not event[1].get('allow',True):
             return ()
 
         by = qinfo.pop('by',None)
@@ -287,29 +358,40 @@ class MetaCortex(EventBus):
 
         cores = self.coresbytag.get(tag)
         if cores == None:
-            return []
+            return ()
 
         jobs = []
-        for core in cores:
-            if by != None:
-                jid = core.callAsyncApi('getJoinBy',by,prop,valu,limit=limit)
-                jobs.append( (core,jid) )
+        for name,core in cores:
+
+            if not self.coreok.get(name):
                 continue
 
-            if prop == 'id':
-                jid = core.callAsyncApi('getJoinById',valu)
-                jobs.append( (core,jid) )
-                continue
+            try:
 
-            jid = core.callAsyncApi('getJoinByProp',prop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit)
-            jobs.append( (core,jid) )
+                if by != None:
+                    jid = core.callAsyncApi('getJoinBy',by,prop,valu,limit=limit)
+                    jobs.append( (name,core,jid) )
+                    continue
+
+                if prop == 'id':
+                    jid = core.callAsyncApi('getJoinById',valu)
+                    jobs.append( (name,core,jid) )
+                    continue
+
+                jid = core.callAsyncApi('getJoinByProp',prop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit)
+                jobs.append( (name,core,jid) )
+
+            except Exception as e:
+                self._corNotOk(name)
+                self.fire('meta:cortex:exc', name=name, exc=e)
 
         rows = []
-        for core,jid in jobs:
+        for name,core,jid in jobs:
             try:
                 rows.extend( core.getAsyncReturn(jid) )
             except Exception as e:
-                traceback.print_exc()
+                self._corNotOk(name)
+                self.fire('meta:cortex:exc', name=name, exc=e)
 
         return rows
 
@@ -323,9 +405,9 @@ class MetaCortex(EventBus):
 
         '''
         qinfo = self._parseQuery(query)
-        self.fire('meta:query:size',query=qinfo)
+        event = self.fire('meta:query:size',query=qinfo)
 
-        if not qinfo.get('allow'):
+        if not event[1].get('allow',True):
             return 0
 
         by = qinfo.pop('by',None)
@@ -342,31 +424,37 @@ class MetaCortex(EventBus):
             return 0
 
         jobs = []
-        for core in cores:
+        for name,core in cores:
+
+            if not self.coreok.get(name):
+                continue
+
             try:
+
                 if by != None:
                     jid = core.callAsyncApi('getSizeBy',by,prop,valu,limit=limit)
-                    jobs.append( (core,jid) )
+                    jobs.append( (name,core,jid) )
                     continue
 
                 if prop == 'id':
                     jid = core.callAsyncApi('getSizeById',valu)
-                    jobs.append( (core,jid) )
+                    jobs.append( (name,core,jid) )
                     continue
 
                 jid = core.callAsyncApi('getSizeByProp',prop,valu=valu,mintime=mintime,maxtime=maxtime)
-                jobs.append( (core,jid) )
+                jobs.append( (name,core,jid) )
 
             except Exception as e:
-                traceback.print_exc()
+                self._corNotOk(name)
+                self.fire('meta:cortex:exc', name=name, exc=e)
 
         size = 0
-        for core,jid in jobs:
+        for name,core,jid in jobs:
             try:
                 size += core.getAsyncReturn(jid)
             except Exception as e:
-                # FIXME self.fire('exc')
-                traceback.print_exc()
+                self._corNotOk(name)
+                self.fire('meta:cortex:exc', name=name, exc=e)
 
         return size
 
@@ -383,7 +471,6 @@ class MetaCortex(EventBus):
 
         '''
         rows = self.getJoinByQuery(query)
-
         return join2tufo(rows)
 
     def addMetaRows(self, name, rows, async=False):
@@ -395,6 +482,10 @@ class MetaCortex(EventBus):
             meta.addMetaRows('woot',rows)
 
         '''
+        event = self.fire('meta:rows:add',name=name,rows=rows)
+        if not event[1].get('allow',True):
+            raise PermDenied()
+
         core = self.coresbyname.get(name)
         if core == None:
             raise NoSuchName(name)
@@ -410,6 +501,10 @@ class MetaCortex(EventBus):
             rows = meta.callCorApi('woot','getRowsByProp','hehe',valu=10)
 
         '''
+        event = self.fire('meta:call',name=name,api=api,args=args,kwargs=kwargs)
+        if not event[1].get('allow',True):
+            raise PermDenied()
+
         core = self.coresbyname.get(name)
         if core == None:
             raise NoSuchName(name)

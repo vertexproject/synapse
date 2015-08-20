@@ -43,7 +43,14 @@ class Cortex(EventBus):
         self.boss = s_async.AsyncBoss(pool=1)
         self.async = s_async.AsyncApi(self.boss, self)
 
+        self.isok = True
         self.onfini( self.boss.fini )
+
+    def isOk(self):
+        '''
+        An API allowing MetaCortex to test for internal error states.
+        '''
+        return self.isok
 
     def getAsyncReturn(self, jid, timeout=None):
         '''

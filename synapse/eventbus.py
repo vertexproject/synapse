@@ -43,7 +43,7 @@ class EventBus:
 
         self._syn_meths[name].append(meth)
 
-    def fire(self, name, **info):
+    def fire(self, evtname, **info):
         '''
         Fire each of the methods registered for an FIXME.
         Returns a list of the return values of each method.
@@ -54,8 +54,9 @@ class EventBus:
                 print('got: %r' % (ret,))
 
         '''
-        event = (name,info)
-        return self.dist(event)
+        event = (evtname,info)
+        self.dist(event)
+        return event
 
     def dist(self, event):
         '''

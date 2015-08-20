@@ -10,15 +10,15 @@ class EventBusTest(unittest.TestCase):
         def foo(event):
             x = event[1].get('x')
             y = event[1].get('y')
-            return x + y
+            return event[1]['ret'].append( x + y )
 
         def bar(event):
             x = event[1].get('x')
             y = event[1].get('y')
-            return x * y
+            return event[1]['ret'].append( x * y )
 
         bus.on('woot',foo)
         bus.on('woot',bar,weak=True)
 
-        ret = bus.fire('woot',x=3,y=5)
-        self.assertEqual( tuple(ret), (8,15) )
+        event = bus.fire('woot',x=3,y=5,ret=[])
+        self.assertEqual( tuple(event[1]['ret']), (8,15) )
