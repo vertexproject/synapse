@@ -17,11 +17,13 @@ def main(argv):
 
     daemon = s_daemon.Daemon()
 
+    # possibly load/share a cortex or two
     for nameurl in opts.cortex:
         name,url = nameurl.split(',',1)
         core = s_cortex.openurl(url)
         daemon.addSharedObject(name,core)
 
+    # fire up requested link servers
     for url in opts.linkurl:
         link = s_link.chopLinkUrl(url)
         daemon.runLinkServer(link)
