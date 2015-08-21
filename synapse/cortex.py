@@ -293,15 +293,8 @@ class MetaCortex(EventBus):
         mintime = qinfo.get('mintime')
         maxtime = qinfo.get('maxtime')
 
-        cores = self.coresbytag.get(tag)
-        if cores == None:
-            return ()
-
         jobs = []
-        for name,core in cores:
-
-            if not self.coreok.get(name):
-                continue
+        for name,core in self._iterCoresByTag(tag):
 
             try:
 
@@ -356,15 +349,8 @@ class MetaCortex(EventBus):
         mintime = qinfo.get('mintime')
         maxtime = qinfo.get('maxtime')
 
-        cores = self.coresbytag.get(tag)
-        if cores == None:
-            return ()
-
         jobs = []
-        for name,core in cores:
-
-            if not self.coreok.get(name):
-                continue
+        for name,core in self._iterCoresByTag(tag):
 
             try:
 
@@ -395,6 +381,20 @@ class MetaCortex(EventBus):
 
         return rows
 
+    def _iterCoresByTag(self, tag):
+        '''
+        Iterate name,core tuples which are "ok".
+        '''
+        cores = self.coresbytag.get(tag)
+        if cores == None:
+            return
+
+        for namecore in cores:
+            if not self.coreok.get(namecore[0]):
+                continue
+
+            yield namecore
+
     def getSizeByQuery(self, query):
         '''
         Retrieve the number of rows which match a given cortex query.
@@ -419,15 +419,8 @@ class MetaCortex(EventBus):
         mintime = qinfo.get('mintime')
         maxtime = qinfo.get('maxtime')
 
-        cores = self.coresbytag.get(tag)
-        if cores == None:
-            return 0
-
         jobs = []
-        for name,core in cores:
-
-            if not self.coreok.get(name):
-                continue
+        for name,core in self._iterCoresByTag(tag):
 
             try:
 
