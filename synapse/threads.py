@@ -143,6 +143,34 @@ class Sched(EventBus):
         self.sema.release()
         return event
 
+    def persec(self, count, meth, *args, **kwargs):
+        '''
+        Scedule a callback to occur count times per second.
+
+        Example:
+
+            def tenpersec(x,y=None):
+                blah()
+
+            sched = Sched()
+            sched.persec(10, tenpersec, 10, y='woot')
+        '''
+        dt = float(1) / count
+        def cb():
+            try:
+
+                ret = meth(*args,**kwargs)
+                if ret == False:
+                    return
+
+            except Exception as e:
+                self.fire('err:exc', exc=e, msg='persec fail: %s' % (meth,))
+
+            if not self.isfini:
+                self.insec(dt,cb)
+
+        cb()
+
     def cancel(self, event):
         '''
         Cancel a previously scheduled call.

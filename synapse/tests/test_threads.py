@@ -1,3 +1,4 @@
+import time
 import unittest
 import threading
 
@@ -63,6 +64,34 @@ class ThreadsTest(unittest.TestCase):
 
         eid = sched.insec( 20, woot2, 20 )
         sched.cancel(eid)
+
+        sched.fini()
+
+    def test_threads_sched_persec(self):
+        sched = s_threads.Sched()
+
+        evt = threading.Event()
+
+        data = {'count':0}
+        def woot(x,y=None):
+            data['x'] = x
+            data['y'] = y
+            data['count'] += 1
+            if data['count'] >= 3:
+                evt.set()
+                return False
+
+        s = time.time()
+
+        sched.persec(10, woot, 10, y='hehe')
+        evt.wait(timeout=0.5)
+
+        elapsed = time.time() - s
+        self.assertTrue( elapsed > 0.2 and elapsed < 0.3 )
+
+        self.assertEqual( data['x'], 10 )
+        self.assertEqual( data['y'], 'hehe' )
+        self.assertEqual( data['count'], 3 )
 
         sched.fini()
 

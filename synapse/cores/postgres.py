@@ -26,6 +26,7 @@ class Cortex(s_c_sqlite.Cortex):
         return {
             'host':link[1].get('host'),
             'user':link[1].get('user'),
+            'port':link[1].get('port'),
             'passwd':link[1].get('passwd'),
             'database':link[1].get('path')[1:],
         }
