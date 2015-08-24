@@ -26,11 +26,17 @@ class CortexTest(unittest.TestCase):
         if db == None:
             raise unittest.SkipTest('no SYN_COR_PG_DB')
 
-        link = ('postgres',{'path':'/%s' % db})
+        table = 'syn_test_%s' % guidstr()
+
+        link = ('postgres',{'path':'/%s' % db, 'table':table})
         core = s_cortex.openlink(link)
 
-        self.runcore( core )
-        self.runrange( core )
+        try:
+            self.runcore( core )
+            self.runrange( core )
+        finally:
+            with core.cursor() as c:
+                c.execute('DROP TABLE %s' % (table,))
 
     def runcore(self, core):
 

@@ -1,3 +1,4 @@
+import queue
 import sqlite3
 import synapse.cores.common as common
 
@@ -40,7 +41,9 @@ deljoin_by_prop = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? '
 
 class WithCursor:
 
-    def __init__(self, cursor):
+    def __init__(self, pool, db, cursor):
+        self.db = db
+        self.pool = pool
         self.cursor = cursor
 
     def __enter__(self):
@@ -49,14 +52,45 @@ class WithCursor:
     def __exit__(self, exc, cls, tb):
         self.cursor.close()
 
+        self.db.commit()
+        self.pool.putdb( self.db )
+
+class DbPool:
+    '''
+    The DbPool allows generic db connection pooling using
+    a factory/ctor method and a python queue.
+    '''
+
+    def __init__(self, size, ctor):
+        # TODO: high/low water marks
+        self.size = size
+        self.ctor = ctor
+        self.dbque = queue.Queue()
+
+        for i in range(size):
+            db = ctor()
+            self.putdb( db )
+
+    def cursor(self):
+        db = self.dbque.get()
+        cur = db.cursor()
+        return WithCursor(self, db, cur)
+
+    def putdb(self, db):
+        '''
+        Add/Return a db connection to the pool.
+        '''
+        self.dbque.put(db)
+
 class Cortex(common.Cortex):
 
     dbvar = '?'
-    def cursor(self):
-        return WithCursor( self.db.cursor() )
 
-    def _initDbInfo(self, link):
-        return {'name':link[1].get('path')[1:]}
+    def cursor(self):
+        return self.dbpool.cursor()
+
+    def _initDbInfo(self):
+        return {'name':self.link[1].get('path')[1:]}
 
     def _rowsByRange(self, prop, valu, limit=None):
         q = self._q_getrows_by_range
@@ -77,27 +111,26 @@ class Cortex(common.Cortex):
 
         return self.select(q,args)[0][0]
 
+    def _initDbConn(self):
+        dbinfo = self._initDbInfo()
+        return sqlite3.connect(dbinfo.get('name'))
+
     def _initCortex(self):
 
         self.initSizeBy('range',self._sizeByRange)
         self.initRowsBy('range',self._rowsByRange)
 
         path = self.link[1].get('path')[1:]
+        pool = int( self.link[1].get('pool',1) )
 
-        self.db = self.link[1].get('db')
-        if self.db == None:
-            dbinfo = self._initDbInfo(self.link)
-            self.db = self._initDataBase(dbinfo)
+        self.dbpool = DbPool(pool, self._initDbConn)
 
         self.tbname = self.link[1].get('table','syncortex')
 
         self._initCorQueries()
+
         if not self._checkForTable( self.tbname ):
             self._initCorTable( self.tbname )
-
-    def _initDataBase(self, dbinfo):
-        # an existing connection?
-        return sqlite3.connect(dbinfo.get('name'))
 
     def _prepQuery(self, query):
         # prep query strings by replacing all %s with table name
@@ -130,7 +163,6 @@ class Cortex(common.Cortex):
         return len(self.select(self._q_istable,(name,)))
 
     def _initCorTable(self, name):
-        # *still* doesn't implement "with"
         with self.cursor() as c:
             c.execute(self._q_inittable)
             c.execute(self._q_init_id_idx)
