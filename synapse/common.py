@@ -11,3 +11,14 @@ def guidstr():
 def tufo(name,**kwargs):
     return (name,kwargs)
 
+def vertup(verstr):
+    '''
+    Convert a version string to a tuple.
+
+    Example:
+
+        ver = vertup('1.3.30')
+
+    '''
+    return tuple([ int(x) for x in verstr.split('.') ])
+

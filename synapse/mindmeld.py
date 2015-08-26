@@ -26,6 +26,28 @@ class MindMeld:
         self.info.setdefault('modules',{})
         self.info.setdefault('datfiles',{})
 
+    def setVersion(self, ver):
+        '''
+        Set the meld version tuple.
+
+        Example:
+
+            meld.setVersion( (1,2,30) )
+
+        '''
+        self.info['version'] = ver
+
+    def setName(self, name):
+        '''
+        Set the meld name.
+
+        Example:
+
+            meld.setName('foolib')
+
+        '''
+        self.info['name'] = name
+
     def openDatFile(self, datpath):
         '''
         Open a datfile embedded with the python code.
