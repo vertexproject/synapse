@@ -4,5 +4,5 @@ language: python
 python:
     - "3.4"
 install:
-    - pip install msgpack-python pycrypto
+    - pip install msgpack-python pycrypto tornado requests
 script: py.test
