@@ -142,7 +142,7 @@ class HttpApi(s_eventbus.EventBus):
             code,headers,retinfo = api.runHttpGet(path, hdrs, body)
 
         '''
-        pass
+        return self.runHttpPost(path, headers, body)
 
     def runHttpPost(self, path, headers, body):
         '''
@@ -163,9 +163,7 @@ class HttpApi(s_eventbus.EventBus):
             {"args":[arg0,arg1],"kwargs":{"foo":"bar"}}
 
         '''
-        # cheap/fast check for path being valid API target
         apikey = headers.get('apikey')
-
         try:
             jsreq = json.loads(body.decode('utf8'))
         except Exception as e:
