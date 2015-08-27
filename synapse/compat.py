@@ -3,6 +3,7 @@ A module to isolate python version compatibility filth.
 '''
 import sys
 import time
+import base64
 
 major = sys.version_info.major
 minor = sys.version_info.minor
@@ -28,8 +29,20 @@ if version < (3,0,0):
 
     from urlparse import urlparse, parse_qsl
 
+    def enbase64(s):
+        return s.encode('base64')
+
+    def debase64(s):
+        return s.decode('base64')
+
 else:
     import sched
     import queue
 
     from urllib.parse import urlparse, parse_qsl
+
+    def enbase64(b):
+        return base64.b64encode(b).decode('utf8')
+
+    def debase64(b):
+        return base64.b64decode( b.encode('utf8') )
