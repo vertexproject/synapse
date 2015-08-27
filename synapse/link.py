@@ -1,4 +1,4 @@
-from urllib.parse import urlparse, parse_qsl
+from synapse.compat import urlparse, parse_qsl
 
 import synapse.links.tcp as s_tcp
 import synapse.links.local as s_local

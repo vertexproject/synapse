@@ -2,8 +2,6 @@ import os
 import binascii
 import unittest
 
-from binascii import hexlify
-
 import synapse.cortex as s_cortex
 
 from synapse.common import *
@@ -40,9 +38,9 @@ class CortexTest(unittest.TestCase):
 
     def runcore(self, core):
 
-        id1 = hexlify(guid()).decode('utf8')
-        id2 = hexlify(guid()).decode('utf8')
-        id3 = hexlify(guid()).decode('utf8')
+        id1 = guidstr()
+        id2 = guidstr()
+        id3 = guidstr()
 
         rows = [
             (id1,'foo','bar',30),
@@ -129,8 +127,8 @@ class CortexTest(unittest.TestCase):
     def runrange(self, core):
 
         rows = [
-            (guid(),'rg',10,99),
-            (guid(),'rg',30,99),
+            (guidstr(),'rg',10,99),
+            (guidstr(),'rg',30,99),
         ]
 
         core.addRows( rows )
@@ -173,10 +171,10 @@ class CortexTest(unittest.TestCase):
         core0 = meta.getCortex('foo.bar')
         core1 = meta.getCortex('foo.baz')
 
-        id0 = hexlify(guid()).decode('utf8')
-        id1 = hexlify(guid()).decode('utf8')
-        id2 = hexlify(guid()).decode('utf8')
-        id3 = hexlify(guid()).decode('utf8')
+        id0 = guidstr()
+        id1 = guidstr()
+        id2 = guidstr()
+        id3 = guidstr()
 
         rows0 = (
             (id0,'a',10,99),
@@ -276,7 +274,7 @@ class CortexTest(unittest.TestCase):
 
     def test_cortex_async_nosuchjob(self):
 
-        id1 = hexlify(guid()).decode('utf8')
+        id1 = guidstr()
         core = s_cortex.openurl('ram://')
         self.assertRaises( NoSuchJob, core.getAsyncReturn, 'foo' )
         core.fini()
@@ -312,7 +310,7 @@ class CortexTest(unittest.TestCase):
         meta.fini()
 
     def test_cortex_meta_addmeta(self):
-        id1 = hexlify(guid()).decode('utf8')
+        id1 = guidstr()
         meta = s_cortex.MetaCortex()
 
         meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
@@ -329,7 +327,7 @@ class CortexTest(unittest.TestCase):
         meta.fini()
 
     def test_cortex_meta_corapi(self):
-        id1 = hexlify(guid()).decode('utf8')
+        id1 = guidstr()
         meta = s_cortex.MetaCortex()
 
         meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))

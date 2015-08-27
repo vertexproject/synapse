@@ -1,5 +1,7 @@
-import queue
 import sqlite3
+
+from synapse.compat import queue
+
 import synapse.cores.common as common
 
 istable = '''

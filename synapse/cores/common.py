@@ -1,7 +1,8 @@
 import time
-import queue
 import threading
 import traceback
+
+from synapse.compat import queue
 
 import synapse.async as s_async
 

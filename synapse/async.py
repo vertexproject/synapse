@@ -1,6 +1,7 @@
 import time
-import queue
 import threading
+
+from synapse.compat import queue
 
 import synapse.common as s_common
 import synapse.threads as s_threads

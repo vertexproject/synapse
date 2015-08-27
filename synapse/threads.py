@@ -1,10 +1,12 @@
 import os
 import time
-import queue
 import sched
 import functools
 import threading
 import traceback
+
+from synapse.compat import queue
+from synapse.compat import sched
 
 from synapse.eventbus import EventBus
 
