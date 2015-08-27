@@ -16,7 +16,7 @@ from setuptools import setup,find_packages
 
 setup(
     name='viv-synapse',
-    version='0.0.2',
+    version='0.0.3', # change synapse/__init__.py version
     description='Synapse Distributed Computing Framework',
     author='Invisigoth Kenshoto',
     author_email='invisigoth.kenshoto@gmail.com',
@@ -31,7 +31,7 @@ setup(
     ],
 
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 3 - Beta',
 
         'License :: OSI Approved :: Apache Software License',
 
