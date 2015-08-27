@@ -1,6 +1,7 @@
 import unittest
 
 import synapse.httpapi as s_httpapi
+import synapse.mindmeld as s_mindmeld
 
 class WootExc(Exception):pass
 
@@ -97,15 +98,40 @@ class HttpApiTest(unittest.TestCase):
         api.fini()
 
     def test_httpapi_nosuch(self):
-
         api = s_httpapi.HttpApi()
+
         self.assertRaises( s_httpapi.NoSuchApiKey, api.addApiKeyAllow, 'newp', 'newp' )
         self.assertRaises( s_httpapi.NoSuchApiObj, api.addApiPath, 'newp', 'newp', 'newp')
 
+        api.fini()
+
     def test_httpapi_dups(self):
         api = s_httpapi.HttpApi()
+
         api.addRole('testrole')
         api.addApiKey('testkey')
 
         self.assertRaises( s_httpapi.DupRole, api.addRole, 'testrole' )
         self.assertRaises( s_httpapi.DupApiKey, api.addApiKey, 'testkey' )
+
+        api.fini()
+
+    def test_httpapi_meld(self):
+        meld = s_mindmeld.MindMeld()
+        meld.setName('ziza')
+        meld.setVersion( (1,2,3) )
+        meld.addPySource('ziza','class ZiZa:pass')
+
+        b64 = meld.getMeldBase64()
+
+        api = s_httpapi.HttpApi()
+        api.loadMeldBase64(b64)
+
+        api.addApiObject('ziza','ziza.ZiZa')
+        melds = api.getMindMelds()
+
+        self.assertEqual( len(melds), 1 )
+        self.assertEqual( melds[0].get('name'), 'ziza')
+        self.assertEqual( melds[0].get('version'), (1,2,3))
+
+        api.fini()

@@ -1,5 +1,6 @@
 import json
 import time
+import base64
 import fnmatch
 import requests
 import threading
@@ -7,6 +8,7 @@ import collections
 
 import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
+import synapse.mindmeld as s_mindmeld
 
 from synapse.common import *
 
@@ -114,6 +116,7 @@ class HttpApi(s_eventbus.EventBus):
         self.jslock = threading.Lock()
 
         self.objs = {}
+        self.melds = []
         self.pathmeths = {}
         self.rulecache = {}      # (apikey,path):<allowinfo>
 
@@ -122,13 +125,27 @@ class HttpApi(s_eventbus.EventBus):
         self.jsinfo.setdefault('apipaths',{})
         self.jsinfo.setdefault('filepaths',{})
 
+        melddir = self.jsinfo.get('melddir')
+        if melddir != None:
+            if not os.path.isdir(melddir):
+                raise Exception('Invalid melddir: %s' % (melddir,))
+
+            for filename in os.listdir(melddir):
+                meldpath = os.path.join(melddir,filename)
+                if not os.path.isfile(meldpath):
+                    continue
+
+                with open(meldpath,'rb') as fd:
+                    b64 = fd.read().decode('utf8')
+                    self._loadMeldBase64(b64)
+
         for name,(ctor,args,kwargs) in self.jsinfo['objects'].items():
             self._loadApiObject(name,ctor,*args,**kwargs)
 
         for path,info in self.jsinfo['apipaths'].items():
             objname = info.get('obj')
             methname = info.get('meth')
-            self._loadApiPath(name,objname,methname)
+            self._loadApiPath(path,objname,methname)
 
         self.loadHttpPaths(self)
 
@@ -228,6 +245,43 @@ class HttpApi(s_eventbus.EventBus):
         js = json.dumps( self.jsinfo, indent=2, sort_keys=True)
         with open( self.jsfile, 'wb') as fd:
             fd.write( js.encode('utf8') )
+
+    @httppath('/./loadMeldBase64')
+    def loadMeldBase64(self, b64):
+        '''
+        Add a base64 encoded ( for json HTTP ) binary mind meld.
+        '''
+        meld = self._loadMeldBase64(b64)
+        melddir = self.jsinfo.get('melddir')
+        if melddir == None:
+            return
+
+        info = meld.getMeldDict()
+        name = info.get('name')
+        if name == None or not name.isalnum():
+            return
+
+        meldpath = os.path.join(melddir,'%s.meld.b64' % name)
+        with open(meldpath,'wb') as fd:
+            fd.write(b64.encode('utf8'))
+
+    @httppath('/./getMindMelds')
+    def getMindMelds(self):
+        '''
+        Return a list of (name,version) tuples for MindMelds.
+        '''
+        return self.melds
+
+    def _loadMeldBase64(self, b64):
+        meld = s_mindmeld.loadMeldBase64(b64)
+
+        info = meld.getMeldDict()
+
+        name = info.get('name')
+        vers = info.get('version')
+
+        self.melds.append( {'name':name,'version':vers} )
+        return meld
 
     @httppath('/./getApiKey')
     def getApiKey(self, apikey):
