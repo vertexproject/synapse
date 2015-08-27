@@ -1,6 +1,9 @@
 import os
+import msgpack
 
 from binascii import hexlify
+
+from synapse.compat import enbase64, debase64
 
 def guid():
     return os.urandom(16)
@@ -10,6 +13,12 @@ def guidstr():
 
 def tufo(name,**kwargs):
     return (name,kwargs)
+
+def msgenpack(obj):
+    return msgpack.dumps(obj, use_bin_type=True, encoding='utf8')
+
+def msgunpack(byts):
+    return msgpack.loads(byts, use_list=False, encoding='utf8')
 
 def vertup(vstr):
     '''
