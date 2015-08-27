@@ -6,6 +6,8 @@ import marshal
 import traceback
 import collections
 
+from synapse.common import *
+
 '''
 The synapse mindmeld subsystem provides a mechanism for the
 serialization and synchronization of code between processes.
@@ -185,6 +187,18 @@ class MindMeld:
         '''
         return self.info
 
+    def getMeldBytes(self):
+        '''
+        Return a msgpack packed copy of the MindMeld dictionary.
+        '''
+        return msgenpack(self.info)
+
+    def getMeldBase64(self):
+        '''
+        Return a base64 encoded msgpack packed MindMeld dictionary.
+        '''
+        return enbase64( self.getMeldBytes() )
+
     # Implement the "loader" interface
 
     def find_module(self, name, path=None):
@@ -233,7 +247,22 @@ def loadMindMeld(info):
 
     '''
     meld = MindMeld(**info)
-    return addMindMeld(meld)
+    addMindMeld(meld)
+    return meld
+
+def loadMeldBytes(byts):
+    '''
+    Load a MindMeld instance from msgpack bytes.
+    '''
+    info = msgunpack(byts)
+    return loadMindMeld(info)
+
+def loadMeldBase64(b64):
+    '''
+    Load a MindMeld instance from base64 encoded msgpack bytes.
+    '''
+    byts = debase64(b64)
+    return loadMeldBytes(byts)
 
 def addMindMeld(meld):
     '''

@@ -30,3 +30,12 @@ class MindMeldTests(unittest.TestCase):
     def test_mindmeld_nosuch(self):
         meld = s_mindmeld.MindMeld()
         self.assertRaises( s_mindmeld.NoSuchPath, meld.addPyPath, '/newp')
+
+    def test_mindmeld_base64(self):
+        meld = s_mindmeld.MindMeld()
+        meld.addPySource('hehehahaaaa','x = 40')
+
+        s_mindmeld.loadMeldBase64( meld.getMeldBase64() )
+
+        import hehehahaaaa
+        self.assertEqual( hehehahaaaa.x, 40 )
