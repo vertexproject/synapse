@@ -173,6 +173,8 @@ class MetaCortex(EventBus):
         '''
         if self.coresbyname.get(name) != None:
             raise DupCortexName(name)
+        if not isinstance(name, basestring):
+            raise NoSuchName("cortex name must be a string")
 
         event = self.fire('meta:cortex:add',name=name,url=url,tags=tags)
         if not event[1].get('allow',True):
