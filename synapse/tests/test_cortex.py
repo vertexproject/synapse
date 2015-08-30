@@ -457,3 +457,6 @@ class CortexTest(unittest.TestCase):
         rows = meta.getRowsByQuery('foo:foo')
         self.assertEqual( len(rows), 2 )
 
+    def test_cortex_meta_badname(self):
+        meta = s_cortex.MetaCortex()
+        self.assertRaises( s_cortex.InvalidParam, meta.addCortex, 30, 'ram:///' )

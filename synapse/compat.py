@@ -35,6 +35,9 @@ if version < (3,0,0):
     def debase64(s):
         return s.decode('base64')
 
+    def isstr(s):
+        return type(s) in (str,unicode)
+
 else:
     import sched
     import queue
@@ -46,3 +49,6 @@ else:
 
     def debase64(b):
         return base64.b64decode( b.encode('utf8') )
+
+    def isstr(s):
+        return isinstance(s,str)
