@@ -16,7 +16,7 @@ from setuptools import setup,find_packages
 
 setup(
     name='viv-synapse',
-    version='0.0.3', # change synapse/__init__.py version
+    version='0.0.4', # sync with synapse.__version__
     description='Synapse Distributed Computing Framework',
     author='Invisigoth Kenshoto',
     author_email='invisigoth.kenshoto@gmail.com',
@@ -26,7 +26,7 @@ setup(
     packages=find_packages(exclude=['*.tests','*.tests.*']),
 
     install_requires=[
-        'pycrypto>=2.6.2',
+        'pycrypto>=2.6.1',
         'msgpack-python>=0.4.2',
     ],
 

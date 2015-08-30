@@ -90,3 +90,22 @@ class TelePathTest(unittest.TestCase):
 
         foo.fini()
         daemon.fini()
+
+    def test_telepath_with(self):
+        daemon,link = self.getFooServ()
+        port = link[1].get('port')
+
+        foo = s_telepath.getProxy('tcp://localhost:%d/foo' % (port,))
+
+        data = {'sock':0}
+        def onsock(event):
+            data['sock'] += 1
+
+        daemon.on('link:sock:init', onsock)
+        with foo:
+            self.assertEqual( foo.bar(10,20), 30 )
+            self.assertEqual( foo.bar(10,20), 30 )
+            self.assertEqual( foo.bar(10,20), 30 )
+
+        self.assertEqual( data['sock'], 1 )
+
