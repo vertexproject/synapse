@@ -179,6 +179,8 @@ class MetaCortex(EventBus):
         '''
         if self.coresbyname.get(name) != None:
             raise DupCortexName(name)
+        if not isinstance(name, basestring):
+            raise NoSuchName("cortex name must be a string")
 
         if not s_compat.isstr(name):
             raise InvalidParam('name','must be a string!')
