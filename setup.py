@@ -33,7 +33,7 @@ setup(
     ],
 
     classifiers=[
-        'Development Status :: 3 - Beta',
+        'Development Status :: 4 - Beta',
 
         'License :: OSI Approved :: Apache Software License',
 
