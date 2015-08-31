@@ -70,10 +70,18 @@ def chopLinkUrl(url):
         * user:passwd@host syntax is used for authdata
 
     '''
-    p = urlparse(url)
+
+    # workaround for schemes not known to urlparse
+    scheme = ''
+    hturl = url
+    parts = url.split('://')
+    if len(parts) == 2:
+        scheme = parts[0]
+        hturl = 'http://' + parts[1]
+    p = urlparse(hturl)
     q = dict(parse_qsl(p.query))
 
-    link = (p.scheme,{})
+    link = (scheme,{})
     if p.hostname != None:
         link[1]['host'] = p.hostname
 
