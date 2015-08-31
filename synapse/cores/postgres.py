@@ -26,9 +26,9 @@ class Cortex(s_c_sqlite.Cortex):
     def _initDbInfo(self):
         return {
             'host':self.link[1].get('host'),
-            'user':self.link[1].get('user'),
+            'user':self.link[1].get('authinfo',{}).get('user'),
             'port':self.link[1].get('port'),
-            'passwd':self.link[1].get('passwd'),
+            'passwd':self.link[1].get('authinfo',{}).get('passwd'),
             'database':self.link[1].get('path')[1:],
         }
 
