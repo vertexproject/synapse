@@ -15,6 +15,36 @@ class LinkTest(unittest.TestCase):
         link = ('tcp',{})
         self.assertRaises( NoLinkProp, s_link.initLinkRelay, link )
 
+    def test_link_chopurl(self):
+
+        info = s_link.chopurl('foo://woot.com:99/foo/bar')
+        self.assertEqual(info.get('scheme'), 'foo')
+        self.assertEqual(info.get('port'), 99)
+        self.assertEqual(info.get('host'), 'woot.com')
+        self.assertEqual(info.get('path'), '/foo/bar')
+
+        info = s_link.chopurl('foo://visi:secret@woot.com')
+        self.assertEqual(info.get('user'), 'visi')
+        self.assertEqual(info.get('passwd'), 'secret')
+        self.assertEqual(info.get('scheme'), 'foo')
+        self.assertEqual(info.get('port'), None)
+        self.assertEqual(info.get('host'), 'woot.com')
+
+        info = s_link.chopurl('foo://[2607:f8b0:4004:806::1014]:99/foo/bar?baz=faz&gronk=woot')
+        self.assertEqual(info.get('scheme'), 'foo')
+        self.assertEqual(info.get('port'), 99)
+        self.assertEqual(info.get('host'), '2607:f8b0:4004:806::1014')
+        self.assertEqual(info.get('path'), '/foo/bar')
+        self.assertEqual(info.get('query').get('baz'), 'faz')
+        self.assertEqual(info.get('query').get('gronk'), 'woot')
+
+        info = s_link.chopurl('foo://2607:f8b0:4004:806::1014/foo/bar')
+        self.assertEqual(info.get('scheme'), 'foo')
+        self.assertEqual(info.get('host'), '2607:f8b0:4004:806::1014')
+        self.assertEqual(info.get('port'), None)
+        self.assertEqual(info.get('path'), '/foo/bar')
+        self.assertEqual(info.get('query'), None)
+
     def test_link_fromurl(self):
         url = 'tcp://visi:secret@127.0.0.1:9999/foo?rc4key=wootwoot&timeout=30'
         link = s_link.chopLinkUrl(url)

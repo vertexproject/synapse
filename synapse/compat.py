@@ -27,8 +27,6 @@ if version < (3,0,0):
 
     sched = FakeSchedMod()
 
-    from urlparse import urlparse, parse_qsl
-
     def enbase64(s):
         return s.encode('base64')
 
@@ -38,8 +36,6 @@ if version < (3,0,0):
 else:
     import sched
     import queue
-
-    from urllib.parse import urlparse, parse_qsl
 
     def enbase64(b):
         return base64.b64encode(b).decode('utf8')
