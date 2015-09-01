@@ -1,6 +1,7 @@
 '''
 An RMI framework for synapse.
 '''
+import threading
 import traceback
 
 import synapse.link as s_link
@@ -129,7 +130,9 @@ class ProxyMeth:
 
     def __call__(self, *args, **kwargs):
         task = (self.proxy.objname, self.name, args, kwargs)
-        reply = self.proxy.client.sendAndRecv('tele:call',teletask=task)
+
+        client = self.proxy._get_client()
+        reply = client.sendAndRecv('tele:call',teletask=task)
 
         if reply[0] == 'tele:call':
             exc = reply[1].get('exc')
@@ -150,15 +153,39 @@ class Proxy(EventBus):
 
         self.link = link
         self.relay = s_link.initLinkRelay(link)
-        self.client = self.relay.initLinkClient()
+        self.client = self._init_client()
 
-        self.onfini( self.client.fini )
+        self._tele_with = {}    # tid:client for with blocks
 
         # objname is path minus leading "/"
         self.objname = link[1].get('path')[1:]
 
-        authinfo = link[1].get('authinfo')
-        self.client.sendAndRecv('tele:syn',authinfo=authinfo)
+    def _init_client(self):
+        client = self.relay.initLinkClient()
+        authinfo = self.link[1].get('authinfo')
+        client.sendAndRecv('tele:syn', authinfo=authinfo)
+        self.onfini( client.fini, weak=True )
+        return client
+
+    def __enter__(self):
+        thrid = threading.currentThread().ident
+        client = self._init_client()
+        self._tele_with[thrid] = client
+
+    def __exit__(self, exc, cls, tb):
+        thrid = threading.currentThread().ident
+        client = self._tele_with.pop(thrid,None)
+        if client != None:
+            client.fini()
+
+    def _get_client(self):
+        # If the thread is managing a with block, give him his client
+        thrid = threading.currentThread().ident
+        client = self._tele_with.get(thrid)
+        if client != None:
+            return client
+
+        return self.client
 
     def __getattr__(self, name):
         meth = ProxyMeth(self, name)
@@ -172,6 +199,8 @@ def getProxy(url):
     Example:
 
         foo = getProxy('tcp://1.2.3.4:90/foo')
+
+        foo.dostuff(30) # call remote method
 
     '''
     link = s_link.chopLinkUrl(url)

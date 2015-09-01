@@ -145,9 +145,13 @@ class LinkServer(EventBus):
 
         self.boss = s_threads.ThreadBoss()
         self.onfini(self.boss.fini)
+        self.socks = {}
 
         # we get the sock first to fill in info
         self.on('link:sock:init', self._onLinkSockInit)
+        self.on('link:sock:fini', self._onLinkSockFini)
+
+        self.onfini( self._finiAllSocks )
 
     def _prepLinkSock(self, sock):
         '''
@@ -157,7 +161,20 @@ class LinkServer(EventBus):
 
     def _onLinkSockInit(self, event):
         sock = event[1].get('sock')
+        if self.isfini:
+            sock.fini()
+            return
+
         sock.setSockInfo('server',self)
+        self.socks[sock.ident] = sock
+
+    def _onLinkSockFini(self, event):
+        sock = event[1].get('sock')
+        self.socks.pop(sock.ident,None)
+
+    def _finiAllSocks(self):
+        socks = list( self.socks.values() )
+        [ sock.fini() for sock in socks ]
 
     def runLinkServer(self):
         '''

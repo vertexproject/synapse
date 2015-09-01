@@ -16,6 +16,7 @@ insertion, and provide for atomic deconfliction if needed.
 '''
 
 import synapse.link as s_link
+import synapse.compat as s_compat
 import synapse.threads as s_threads
 import synapse.telepath as s_telepath
 
@@ -29,6 +30,11 @@ class NoSuchName(Exception):pass
 class PermDenied(Exception):pass
 class NoSuchScheme(Exception):pass
 class DupCortexName(Exception):pass
+
+class InvalidParam(Exception):
+    def __init__(self, name, msg):
+        Exception.__init__(self, '%s invalid: %s' % (name,msg))
+        self.param = name
 
 corclasses = {
     'tcp':s_telepath.Proxy,
@@ -173,6 +179,9 @@ class MetaCortex(EventBus):
         '''
         if self.coresbyname.get(name) != None:
             raise DupCortexName(name)
+
+        if not s_compat.isstr(name):
+            raise InvalidParam('name','must be a string!')
 
         event = self.fire('meta:cortex:add',name=name,url=url,tags=tags)
         if not event[1].get('allow',True):
