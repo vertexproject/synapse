@@ -50,12 +50,12 @@ def openurl(url):
 
     Example:
 
-        core = getCortex('ram://')
+        core = openurl('ram://')
 
     Notes:
         * ram://
-        * sqlite3:///<db>[?table=<table>]
-        * postgres://[[<passwd>:]<user>@][<host>]/[<db>][?table=<table>]
+        * sqlite3:///<db>
+        * postgres://[[<passwd>:]<user>@][<host>]/[<db>][/<table>]
 
         * default table name: syncortex
 

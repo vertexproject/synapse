@@ -19,16 +19,49 @@ class Cortex(s_c_sqlite.Cortex):
         c.close()
         return db
 
-    def _initCorQueries(self):
-        s_c_sqlite.Cortex._initCorQueries(self)
+    def _initCorQueries(self, table):
+        s_c_sqlite.Cortex._initCorQueries(self, table)
         self._q_istable = istable
 
+    def _getTableName(self):
+        path = self.link[1].get('path')
+        if not path:
+            return 'syncortex'
+
+        parts = [ p for p in path.split('/') if p ]
+        if len(parts) <= 1:
+            return 'syncortex'
+
+        return parts[1]
+
     def _initDbInfo(self):
-        return {
-            'host':self.link[1].get('host'),
-            'user':self.link[1].get('user'),
-            'port':self.link[1].get('port'),
-            'passwd':self.link[1].get('passwd'),
-            'database':self.link[1].get('path')[1:],
-        }
+
+        dbinfo = {}
+
+        path = self.link[1].get('path')
+        if path:
+            parts = [ p for p in path.split('/') if p ]
+            if parts:
+                dbinfo['database'] = parts[0]
+
+        host = self.link[1].get('host')
+        if host != None:
+            dbinfo['host'] = host
+
+        port = self.link[1].get('port')
+        if port != None:
+            dbinfo['port'] = port
+
+        authinfo = self.link[1].get('authinfo')
+        if authinfo:
+
+            user = authinfo.get('user')
+            if user != None:
+                dbinfo['user'] = user
+
+            passwd = authinfo.get('passwd')
+            if passwd != None:
+                dbinfo['password'] = passwd
+
+        return dbinfo
 

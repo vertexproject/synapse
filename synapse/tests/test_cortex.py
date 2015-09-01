@@ -2,6 +2,7 @@ import os
 import binascii
 import unittest
 
+import synapse.link as s_link
 import synapse.cortex as s_cortex
 
 from synapse.common import *
@@ -15,7 +16,7 @@ class CortexTest(unittest.TestCase):
         self.runrange( core )
 
     def test_cortex_sqlite3(self):
-        core = s_cortex.openurl('sqlite:///:memory:?table=woot')
+        core = s_cortex.openurl('sqlite:///:memory:')
         self.runcore( core )
         self.runrange( core )
 
@@ -26,7 +27,7 @@ class CortexTest(unittest.TestCase):
 
         table = 'syn_test_%s' % guidstr()
 
-        link = ('postgres',{'path':'/%s' % db, 'table':table})
+        link = s_link.chopLinkUrl('postgres:///%s/%s' % (db,table))
         core = s_cortex.openlink(link)
 
         try:

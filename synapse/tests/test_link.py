@@ -45,6 +45,11 @@ class LinkTest(unittest.TestCase):
         self.assertEqual(info.get('path'), '/foo/bar')
         self.assertEqual(info.get('query'), None)
 
+        info = s_link.chopurl('foo://visi:c@t@woot.com')
+        self.assertEqual( info.get('user'), 'visi')
+        self.assertEqual( info.get('passwd'), 'c@t')
+        self.assertEqual( info.get('host'), 'woot.com')
+
     def test_link_fromurl(self):
         url = 'tcp://visi:secret@127.0.0.1:9999/foo?rc4key=wootwoot&timeout=30'
         link = s_link.chopLinkUrl(url)

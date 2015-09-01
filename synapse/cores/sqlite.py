@@ -117,49 +117,50 @@ class Cortex(common.Cortex):
         dbinfo = self._initDbInfo()
         return sqlite3.connect(dbinfo.get('name'))
 
+    def _getTableName(self):
+        return 'syncortex'
+
     def _initCortex(self):
 
         self.initSizeBy('range',self._sizeByRange)
         self.initRowsBy('range',self._rowsByRange)
 
-        path = self.link[1].get('path')[1:]
         pool = int( self.link[1].get('pool',1) )
 
         self.dbpool = DbPool(pool, self._initDbConn)
 
-        self.tbname = self.link[1].get('table','syncortex')
+        table = self._getTableName()
 
-        self._initCorQueries()
+        self._initCorQueries(table)
+        if not self._checkForTable( table ):
+            self._initCorTable( table )
 
-        if not self._checkForTable( self.tbname ):
-            self._initCorTable( self.tbname )
-
-    def _prepQuery(self, query):
+    def _prepQuery(self, query, table):
         # prep query strings by replacing all %s with table name
         # and all ? with db specific variable token
-        tabtup = (self.tbname,) * query.count('%s')
+        tabtup = (table,) * query.count('%s')
         query = query % tabtup
         query = query.replace('?',self.dbvar)
         return query
 
-    def _initCorQueries(self):
+    def _initCorQueries(self, table):
         self._q_istable = istable
-        self._q_inittable = self._prepQuery(inittable)
-        self._q_init_id_idx = self._prepQuery(init_id_idx)
-        self._q_init_strval_idx = self._prepQuery(init_strval_idx)
-        self._q_init_intval_idx = self._prepQuery(init_intval_idx)
+        self._q_inittable = self._prepQuery(inittable, table)
+        self._q_init_id_idx = self._prepQuery(init_id_idx, table)
+        self._q_init_strval_idx = self._prepQuery(init_strval_idx, table)
+        self._q_init_intval_idx = self._prepQuery(init_intval_idx, table)
 
-        self._q_addrows = self._prepQuery(addrows)
-        self._q_getrows_by_id = self._prepQuery(getrows_by_id)
-        self._q_getrows_by_prop = self._prepQuery(getrows_by_prop)
-        self._q_getrows_by_range = self._prepQuery(getrows_by_range)
+        self._q_addrows = self._prepQuery(addrows, table)
+        self._q_getrows_by_id = self._prepQuery(getrows_by_id, table)
+        self._q_getrows_by_prop = self._prepQuery(getrows_by_prop, table)
+        self._q_getrows_by_range = self._prepQuery(getrows_by_range, table)
 
-        self._q_getsize_by_prop = self._prepQuery(getsize_by_prop)
-        self._q_getsize_by_range = self._prepQuery(getsize_by_range)
+        self._q_getsize_by_prop = self._prepQuery(getsize_by_prop, table)
+        self._q_getsize_by_range = self._prepQuery(getsize_by_range, table)
 
-        self._q_delrows_by_id = self._prepQuery(delrows_by_id)
-        self._q_delrows_by_prop = self._prepQuery(delrows_by_prop)
-        self._q_deljoin_by_prop = self._prepQuery(deljoin_by_prop)
+        self._q_delrows_by_id = self._prepQuery(delrows_by_id, table)
+        self._q_delrows_by_prop = self._prepQuery(delrows_by_prop, table)
+        self._q_deljoin_by_prop = self._prepQuery(deljoin_by_prop, table)
 
     def _checkForTable(self, name):
         return len(self.select(self._q_istable,(name,)))

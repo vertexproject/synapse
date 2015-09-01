@@ -93,7 +93,7 @@ def chopurl(url):
 
     # detect user[:passwd]@netloc syntax
     if remain.find('@') != -1:
-        user, remain = remain.split('@',1)
+        user, remain = remain.rsplit('@',1)
         if user.find(':') != -1:
             user,passwd = user.split(':',1)
             ret['passwd'] = passwd
@@ -138,9 +138,6 @@ def chopLinkUrl(url):
         * user:passwd@host syntax is used for authdata
 
     '''
-    #p = urlparse(url)
-    #q = dict(parse_qsl(p.query))
-
     urlinfo = chopurl(url)
 
     scheme = urlinfo.get('scheme')
