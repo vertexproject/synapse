@@ -14,8 +14,30 @@ class EventBus:
         self._syn_meths = collections.defaultdict(list)
         self._syn_weaks = collections.defaultdict(weakref.WeakSet)
 
+        self._syn_links = []
+        self._syn_weak_links = weakref.WeakSet()
+
         self._fini_meths = []
         self._fini_weaks = weakref.WeakSet()
+
+    def link(self, meth, weak=False):
+        '''
+        Add a callback method to receive *all* events.
+
+        Example:
+
+            bus1 = EventBus()
+            bus2 = EventBus()
+
+            bus1.link( bus2.dist )
+
+            # all events on bus1 are also propigated on bus2
+
+        '''
+        if weak:
+            return self._syn_weak_links.add(meth)
+
+        self._syn_links.append(meth)
 
     def on(self, name, meth, weak=False):
         '''
@@ -79,6 +101,19 @@ class EventBus:
                     ret.append( meth( event ) )
                 except Exception as e:
                     traceback.print_exc()
+
+        for meth in self._syn_links:
+            try:
+                ret.append( meth(event) )
+            except Exception as e:
+                traceback.print_exc()
+
+        for meth in self._syn_weak_links:
+            print('WEAK LINK: %s' % (meth,))
+            try:
+                ret.append( meth(event) )
+            except Exception as e:
+                traceback.print_exc()
 
         return ret
 

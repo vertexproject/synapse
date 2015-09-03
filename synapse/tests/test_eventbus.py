@@ -22,3 +22,30 @@ class EventBusTest(unittest.TestCase):
 
         event = bus.fire('woot',x=3,y=5,ret=[])
         self.assertEqual( tuple(event[1]['ret']), (8,15) )
+
+    def test_eventbus_link(self):
+
+        bus1 = s_eventbus.EventBus()
+        bus2 = s_eventbus.EventBus()
+        bus3 = s_eventbus.EventBus()
+
+        # gotta hold a reference
+        bus3dist = bus3.dist
+
+        bus1.link(bus2.dist)
+        bus2.link(bus3dist, weak=True)
+
+        data = {}
+        def woot(event):
+            data['woot'] = True
+
+        def weakwoot(event):
+            data['weak'] = True
+
+        bus2.on('woot',woot)
+        bus3.on('woot',weakwoot)
+
+        bus1.fire('woot')
+
+        self.assertTrue( data.get('woot') )
+        self.assertTrue( data.get('weak') )
