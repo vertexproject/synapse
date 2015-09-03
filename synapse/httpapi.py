@@ -116,7 +116,8 @@ class HttpApi(s_eventbus.EventBus):
         self.jslock = threading.Lock()
 
         self.objs = {}
-        self.melds = []
+        self.melds = {}
+        self.objdefs = {}
         self.pathmeths = {}
         self.rulecache = {}      # (apikey,path):<allowinfo>
 
@@ -268,7 +269,7 @@ class HttpApi(s_eventbus.EventBus):
     @httppath('/./getMindMelds')
     def getMindMelds(self):
         '''
-        Return a list of (name,version) tuples for MindMelds.
+        Return a list of meldinfo dicts for MindMelds.
         '''
         return self.melds
 
@@ -280,8 +281,15 @@ class HttpApi(s_eventbus.EventBus):
         name = info.get('name')
         vers = info.get('version')
 
-        self.melds.append( {'name':name,'version':vers} )
+        self.melds[name] = {'name':name,'version':vers }
         return meld
+
+    @httppath('/./getMeldInfo')
+    def getMeldInfo(self, name):
+        '''
+        Return the info dict for a given MindMeld.
+        '''
+        return self.melds.get(name)
 
     @httppath('/./getApiKey')
     def getApiKey(self, apikey):
@@ -348,8 +356,11 @@ class HttpApi(s_eventbus.EventBus):
             if roleinfo != None:
                 raise DupRole(role)
 
-            self.jsinfo['roles'][role] = initrole(en=en)
+            roleinfo = initrole(en=en)
+            self.jsinfo['roles'][role] = roleinfo
             self._saveJsInfo()
+
+        return roleinfo
 
     @httppath('/./delRole')
     def delRole(self, role):
@@ -384,8 +395,11 @@ class HttpApi(s_eventbus.EventBus):
             if self.jsinfo['apikeys'].get(apikey) != None:
                 raise DupApiKey()
 
-            self.jsinfo['apikeys'][apikey] = initkey(en=en,name=name)
+            keyinfo = initkey(en=en,name=name)
+            self.jsinfo['apikeys'][apikey] = keyinfo
             self._saveJsInfo()
+
+        return keyinfo
 
     @httppath('/./delApiKey')
     def delApiKey(self, apikey):
@@ -529,6 +543,28 @@ class HttpApi(s_eventbus.EventBus):
             self.rulecache.clear()
             self._saveJsInfo()
 
+    @httppath('/./getApiObjDef')
+    def getApiObjDef(self, name):
+        '''
+        Returns a (ctor,args,kwargs) tuple for an API object.
+
+        Example:
+
+            objdef = api.getApiObjDef('foo')
+
+        '''
+
+    @httppath('/./getApiObjDefs')
+    def getApiObjDefs(self):
+        '''
+        Returns a list of ( name, (ctor,args,kwargs) ) tuples.
+
+        for name,objdef in api.getApiObjDefs():
+            dostuff()
+
+        '''
+        return list(self.objdefs.items())
+
     def _loadApiObject(self, name, ctor, *args, **kwargs):
         meth = s_dyndeps.getDynLocal(ctor)
         if meth == None:
@@ -536,6 +572,7 @@ class HttpApi(s_eventbus.EventBus):
 
         obj = meth(*args,**kwargs)
         self.objs[name] = obj
+        self.objdefs[name] = (ctor,args,kwargs)
 
         self.loadHttpPaths(obj)
 

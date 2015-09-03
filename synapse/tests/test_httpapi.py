@@ -131,7 +131,8 @@ class HttpApiTest(unittest.TestCase):
         melds = api.getMindMelds()
 
         self.assertEqual( len(melds), 1 )
-        self.assertEqual( melds[0].get('name'), 'ziza')
-        self.assertEqual( melds[0].get('version'), (1,2,3))
+        self.assertEqual( melds['ziza'].get('name'), 'ziza')
+        self.assertEqual( melds['ziza'].get('version'), (1,2,3))
 
         api.fini()
+
