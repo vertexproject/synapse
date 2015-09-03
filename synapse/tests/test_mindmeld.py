@@ -39,3 +39,8 @@ class MindMeldTests(unittest.TestCase):
 
         import hehehahaaaa
         self.assertEqual( hehehahaaaa.x, 40 )
+
+    def test_mindmeld_badsrc(self):
+        meld = s_mindmeld.MindMeld()
+        badsrc = 'some --<<== shit'
+        self.assertRaises( s_mindmeld.BadPySource, meld.addPySource, 'woot', badsrc)
