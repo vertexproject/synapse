@@ -1,9 +1,13 @@
 import os
+import time
 import msgpack
 
 from binascii import hexlify
 
 from synapse.compat import enbase64, debase64
+
+def now():
+    return int(time.time())
 
 def guid():
     return os.urandom(16)
