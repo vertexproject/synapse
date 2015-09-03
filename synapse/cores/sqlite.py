@@ -19,13 +19,14 @@ inittable = '''
 CREATE TABLE %s (
     id VARCHAR,
     prop VARCHAR,
-    strval VARCHAR,
+    strval TEXT,
     intval BIGINT,
     stamp BIGINT
 );
 '''
 
 init_id_idx = 'CREATE INDEX %s_id_idx ON %s (id,prop)'
+init_strval_idx = 'CREATE INDEX %s_prop_time_idx ON %s (prop,stamp)'
 init_strval_idx = 'CREATE INDEX %s_strval_idx ON %s (prop,strval,stamp)'
 init_intval_idx = 'CREATE INDEX %s_intval_idx ON %s (prop,intval,stamp)'
 
