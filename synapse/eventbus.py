@@ -109,7 +109,6 @@ class EventBus:
                 traceback.print_exc()
 
         for meth in self._syn_weak_links:
-            print('WEAK LINK: %s' % (meth,))
             try:
                 ret.append( meth(event) )
             except Exception as e:
