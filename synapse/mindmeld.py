@@ -13,6 +13,7 @@ The synapse mindmeld subsystem provides a mechanism for the
 serialization and synchronization of code between processes.
 '''
 class NoSuchPath(Exception):pass
+class BadPySource(Exception):pass
 
 class MindMeld:
     '''
@@ -149,7 +150,11 @@ class MindMeld:
             meld.addPySource('woot','x = 10')
 
         '''
-        code = compile(sorc,'','exec')
+        try:
+            code = compile(sorc,'','exec')
+        except Exception as e:
+            raise BadPySource('%s: %s' % (name,e))
+
         byts = marshal.dumps(code)
         self.addMeldMod(name,byts)
 
