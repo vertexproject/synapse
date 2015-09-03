@@ -154,6 +154,11 @@ class Cortex(EventBus):
     def getRowsByIds(self, idents):
         '''
         Return all the rows for a given list of idents.
+
+        Example:
+
+            rows = core.getRowsByIds( (id1, id2, id3) )
+
         '''
         return self._getRowsByIds(idents)
 
