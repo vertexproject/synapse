@@ -199,6 +199,8 @@ class LinkServer(EventBus):
 
         for mesg in sock:
             self.fire('link:sock:mesg',sock=sock,mesg=mesg)
+            if sock.getSockInfo('plex'):
+                return
 
         self.fire('link:sock:fini',sock=sock)
 
