@@ -3,6 +3,8 @@ import threading
 import traceback
 import collections
 
+finlock = threading.RLock()
+
 class EventBus:
     '''
     A synapse EventBus provides an easy way manage callbacks.
@@ -125,7 +127,12 @@ class EventBus:
             d.fini()
 
         '''
-        self.isfini = True
+        with finlock:
+
+            if self.isfini:
+                return
+
+            self.isfini = True
 
         for meth in self._fini_meths:
             try:
