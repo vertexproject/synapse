@@ -15,8 +15,8 @@ def guid():
 def guidstr():
     return hexlify(guid()).decode('utf8')
 
-def tufo(name,**kwargs):
-    return (name,kwargs)
+def tufo(typ,**kwargs):
+    return (typ,kwargs)
 
 def msgenpack(obj):
     return msgpack.dumps(obj, use_bin_type=True, encoding='utf8')
