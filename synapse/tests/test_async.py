@@ -27,11 +27,8 @@ class AsyncTests(unittest.TestCase):
         task1 = (jobmeth, (3,), {})
         task2 = (jobdork, (3,), {})
 
-        job1 = boss.initAsyncJob(jid1, task=task1, name='job1')
-        job2 = boss.initAsyncJob(jid2, task=task2, name='job2')
-
-        boss.onJobFini(jid1, jobfini)
-        boss.onJobFini(jid2, jobfini)
+        job1 = boss.initAsyncJob(jid1, task=task1, name='job1', onfini=jobfini)
+        job2 = boss.initAsyncJob(jid2, task=task2, name='job2', onfini=jobfini)
 
         self.assertEqual( job1[0], jid1 )
         self.assertIsNotNone( job1[1]['times'].get('init') )
@@ -78,11 +75,8 @@ class AsyncTests(unittest.TestCase):
         task1 = (jobmeth, (3,), {})
         task2 = (jobdork, (3,), {})
 
-        job1 = boss.initAsyncJob(jid1, task=task1, name='job1')
-        job2 = boss.initAsyncJob(jid2, task=task2, name='job2')
-
-        boss.onJobFini(jid1, jobfini)
-        boss.onJobFini(jid2, jobfini)
+        job1 = boss.initAsyncJob(jid1, task=task1, name='job1', onfini=jobfini)
+        job2 = boss.initAsyncJob(jid2, task=task2, name='job2', onfini=jobfini)
 
         self.assertEqual( job1[0], jid1 )
         self.assertIsNotNone( job1[1]['times'].get('init') )
