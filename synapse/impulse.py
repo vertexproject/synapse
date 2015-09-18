@@ -1,93 +1,167 @@
-import weakref
+import collections
 
 import synapse.link as s_link
-import synapse.daemon as s_daemon
+import synapse.queue as s_queue
+import synapse.socket as s_socket
+import synapse.threads as s_threads
 
-class Daemon(s_daemon.Daemon):
+from synapse.eventbus import EventBus
 
-    def __init__(self, statefd=None):
-        self.chanlock = threading.Lock()
-        self.chansocks = collections.defaultdict(set)
-        s_daemon.Daemon.__init__(self, statefd=statefd)
+class ImpMixin:
+    '''
+    The impulse subsystem allows multiple EventBus instances
+    to be asynchronously linked over a synapse link.
 
-        self.setMesgMethod('imp:imp', self._onMesgImpImp)
-        self.setMesgMethod('imp:join', self._onMesgImpJoin)
-        self.setMesgMethod('imp:leave', self._onMesgImpLeave)
+    '''
+    def __init__(self):
 
-    def _onMesgImpImp(self, sock, mesg):
+        self._imp_q = s_queue.BulkQueue()
+        self._imp_up = None # FIXME impulse uplinks
+        self._imp_thr = s_threads.worker( self._runImpLoop )
+
+        self.impsocks = collections.defaultdict(set)    # chan:<set-of-socks>
+
+        self.on('link:sock:fini', self._impLinkSockFini )
+
+        self.setMesgMeth('imp:join', self._onMesgImpJoin)
+        self.setMesgMeth('imp:leave', self._onMesgImpLeave)
+        self.setMesgMeth('imp:pulse', self._onMesgImpPulse)
+
+        self.onfini( self._onImpFini )
+
+    def _onImpFini(self):
+        self._imp_q.fini()
+        self._imp_thr.join()
+
+    def runImpDist(self, mesg, sock=None, up=False):
+        # distribute an imp:pulse message
         chan = mesg[1].get('chan')
-        byts = msgpack.dumps(msg,use_bin_type=True)
-        for s in self.chansocks.get(chan,()):
-            s.sendall(byts)
+
+        if self._imp_up and not up:
+            self._imp_up.dist(event)
+
+        for s in self.impsocks.get(chan,()):
+            if s == sock:
+                continue
+
+            s.sendobj(mesg)
+
+    def _runImpLoop(self):
+        for mesg,sock in self._imp_q:
+            self.runImpDist(mesg, sock=sock)
+
+    def distImpEvent(self, event, chan, sock=None):
+        '''
+        Explicitly distribute an event on a impulse channel.
+
+        Example:
+
+            event = ('woot',{'x':10})
+            dmon.distImpEvent(event, chan)
+
+        '''
+        mesg = ('imp:pulse',{'chan':chan,'event':event})
+        self._imp_q.put( (mesg,sock) )
+
+    def _popSockChan(self, sock, chan):
+        chans = sock.getSockInfo('impchans')
+        if chans != None:
+            chans.discard(chan)
+
+        d = self.impsocks.get(chan)
+        if d == None:
+            return
+
+        d.discard(sock)
+        if not d:
+            self.impsocks.pop(chan,None)
+
+    def _impLinkSockFini(self, event):
+        sock = event[1].get('sock')
+
+        chans = sock.getSockInfo('impchans')
+        if chans == None:
+            return
+
+        for chan in list(chans):
+            self._popSockChan(sock,chan)
 
     def _onMesgImpJoin(self, sock, mesg):
-        chans = mesg[1].get('chans')
-        [ self._putChanSock(chan,sock) for chan in chans ]
+        chan = mesg[1].get('chan')
+
+        # get the set of channels the socket has joined
+        chans = sock.getSockInfo('impchans')
+        if chans == None:
+            chans = set()
+            sock.setSockInfo('impchans',chans)
+
+        chans.add(chan)
+        self.impsocks[chan].add( sock )
+        sock.fireobj('imp:join:ack')
 
     def _onMesgImpLeave(self, sock, mesg):
-        chans = mesg[1].get('chans')
-        [ self._popChanSock(chan,sock) for chan in chans ]
+        chan = mesg[1].get('chan')
+        self._popSockChan(sock,chan)
+        sock.fireobj('imp:leave:ack')
 
-    #def _putChanQue(self, chan, queue):
-    #def _popChanQue(self, chan, queue):
+    def _onMesgImpPulse(self, sock, mesg):
+        self._imp_q.put( (mesg,sock) )
 
-    #def _putChanSock(self, chan, sock):
+class Pulser(EventBus):
 
-        #with self.chanlock:
-            #socks = self.chansocks[chan]
-            #size = len(socks)
-#
-            #socks.add(sock)
+    def __init__(self, link, chan):
+        EventBus.__init__(self)
 
-            # inform our upstreams of the new chan
-            #if size == 0:
-                #[ up.sendLinkMesg(mesg) for up in self.uplinks ]
+        self._imp_q = s_queue.BulkQueue()
 
-    #def _popChanSock(self, chan, sock):
-        #with self.chanlock:
-            #socks = self.chansocks[chan]
-            #socks.remove(sock)
-            #if len(socks) == 0:
-                #[ up.sendLinkMesg(mesg) for up in self.uplinks ]
-                #self.chansocks.pop(chan,None)
+        self._imp_sock = None
+        self._imp_chan = chan
+        self._imp_link = link
+        self._imp_plex = s_socket.getGlobPlex()
+        self._imp_relay = s_link.initLinkRelay(link)
 
-def ImpulseChannel(EventBus):
+        self._imp_thr = self._disImpEvents()
 
-    def __init__(self, client, chan):
-        self.chan = chan
-        self.client = client
+        self.onfini( self._onPulseFini )
 
-    def fire(self, name, **info):
+        self._initImpSock()
+
+    def _initImpSock(self):
+
+        if self.isfini:
+            return
+
+        self._imp_sock = self._imp_relay.initClientSock()
+        self._imp_sock.setMesgMeth('imp:pulse', self._impPulseMesg )
+
+        self._imp_sock.onfini( self._initImpSock )
+        self._imp_sock.fireobj('imp:join', chan=self._imp_chan)
+
+        joinack = self._imp_sock.recvobj()
+        if joinack[0] != 'imp:join:ack':
+            # FIXME normalized synapse exception for proto stuff
+            raise Exception('Invalid Protocol Response')
+
+        self._imp_plex.addPlexSock(self._imp_sock)
+
+    def _impPulseMesg(self, sock, mesg):
+        event = mesg[1].get('event')
+        self._imp_q.put( event )
+
+    def dist(self, event):
         '''
-        Fire an impulse event on this channel.
+        See EventBus.dist()
         '''
-        ret = EventBus.fire(name,**info)
-        imp = (name,info)
-        mesg = ('imp:imp',{'chan':self.chan,'imp':imp})
-        self.client.sendLinkMesg(mesg)
+        ret = EventBus.dist(self, event)
+        self._imp_sock.fireobj('imp:pulse', event=event, chan=self._imp_chan)
+        return ret
 
-#class ImpulseClient(s_link.LinkClient):
-    #'''
-    #ImpulseClient provides access to channelized event distribution.
-    #'''
-    #def __init__(self, link, linker=None):
-        #s_link.LinkClient.__init__(self, link, linker=linker)
-        #self.implock = threading.Lock()
-        #self.impchans = {}
-#
-    #def getImpChan(self, name):
-        #'''
-        #Return a channel
-        #'''
-        #with self.implock:
-            #chan = self.impchans.get(name)
-            #if chan == None:
-                #chan = ImpulseChannel(self,name)
-                #self._sendImpJoin( name )
-                #self.impchans[name] = chan
-            #return chan
+    def _onPulseFini(self):
+        self._imp_q.fini()
+        self._imp_thr.join()
+        self._imp_sock.fini()
 
-    #def _sendImpJoin(self, chan):
-        #self.sendLinkMesg( ('imp:join', {'chan':chan}) )
-
-    #def _sendImpLeave(self, chan):
+    @s_threads.firethread
+    def _disImpEvents(self):
+        # skip our dist() method to prevent sending
+        [ EventBus.dist(self,evt) for evt in self._imp_q ]

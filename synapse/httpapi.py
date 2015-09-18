@@ -28,7 +28,7 @@ def initconf():
     return {
         'port':8080,
         'host':'0.0.0.0',
-        'pool':16,
+        'threads':16,
 
         'sslkey':None,
         'sslcert':None,

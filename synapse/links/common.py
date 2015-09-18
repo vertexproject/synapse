@@ -58,12 +58,16 @@ class LinkRelay:
         return self._initLinkPeer()
 
     def initServerSock(self):
-        return self._initServerSock()
+        sock = self._initServerSock()
+        if sock != None:
+            sock.setSockInfo('relay',self)
+        return sock
 
     def initClientSock(self):
         sock = self._initClientSock()
         if sock == None:
             return None
+        sock.setSockInfo('relay',self)
         return _prepLinkSock(sock,self.link)
 
     def _initClientSock(self):
@@ -88,6 +92,7 @@ def _prepLinkSock(sock,link):
     '''
     Used by LinkClient and LinkServer to handle universal link options.
     '''
+    sock.setSockInfo('link',link)
     sock.setSockInfo('trans',link[1].get('trans'))
 
     # must remain first!

@@ -46,7 +46,7 @@ class TelePathTest(unittest.TestCase):
         self.assertTrue( (e - s) < 0.3 )
 
         self.assertEqual( foo.bar(10,20), 30 )
-        self.assertRaises( s_telepath.TeleProtoError, foo.faz, 10, 20 )
+        self.assertRaises( s_telepath.NoSuchMeth, foo.faz, 10, 20 )
         self.assertRaises( s_telepath.RemoteException, foo.baz, 10, 20 )
 
         foo.fini()
@@ -66,7 +66,7 @@ class TelePathTest(unittest.TestCase):
 
         foo = s_telepath.Proxy(link)
 
-        self.assertRaises( s_telepath.TelePermDenied, foo.bar, 20, 30)
+        self.assertRaises( s_telepath.PermDenied, foo.bar, 20, 30)
 
         foo.fini()
 
@@ -108,4 +108,11 @@ class TelePathTest(unittest.TestCase):
             self.assertEqual( foo.bar(10,20), 30 )
 
         self.assertEqual( data['sock'], 1 )
+
+    def test_telepath_nosuchobj(self):
+        daemon,link = self.getFooServ()
+        port = link[1].get('port')
+
+        newp = s_telepath.getProxy('tcp://localhost:%d/newp' % (port,))
+        self.assertRaises( s_telepath.NoSuchObj, newp.foo )
 

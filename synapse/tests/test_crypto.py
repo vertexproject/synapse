@@ -14,10 +14,10 @@ class CryptoTest(unittest.TestCase):
         data = {}
         def wootmesg(sock,mesg):
             data['foo'] = mesg[1].get('foo')
-            return ('woot2',{})
+            sock.fireobj('woot2')
 
         daemon = s_daemon.Daemon()
-        daemon.setMesgMethod('woot1',wootmesg)
+        daemon.setMesgMeth('woot1',wootmesg)
 
         daemon.runLinkServer(link1)
 

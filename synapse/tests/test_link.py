@@ -73,14 +73,13 @@ class LinkTest(unittest.TestCase):
         mesgs = []
         def wootmesg(sock,mesg):
             mesgs.append(mesg)
-            return tufo('woot',foo=mesg[1].get('id'))
+            sock.fireobj('woot',foo=mesg[1].get('id'))
 
         link = s_link.chopLinkUrl('tcp://127.0.0.1:0/?zerosig=1')
-        #link = tufo('tcp',host='127.0.0.1',port=0)
 
         daemon = s_daemon.Daemon()
         daemon.on('link:sock:init',sockinit)
-        daemon.setMesgMethod('woot',wootmesg)
+        daemon.setMesgMeth('woot',wootmesg)
 
         daemon.runLinkServer(link)
 

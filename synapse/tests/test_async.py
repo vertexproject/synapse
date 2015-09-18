@@ -1,150 +1,188 @@
+import time
 import unittest
+import threading
 
 import synapse.async as s_async
 
 class AsyncTests(unittest.TestCase):
 
     def test_async_basics(self):
+
         boss = s_async.AsyncBoss()
 
         data = {}
-        def ondone(event):
-            ret = event[1].get('ret')
-            data['done'] = ret
+        def jobmeth(x, y=20):
+            return x + y
 
-        def onerr(event):
-            exc = event[1].get('exc')
-            data['err'] = exc
+        def jobdork(x, y=20):
+            raise Exception('hi')
 
-        def onshut(event):
-            exc = event[1].get('exc')
-            data['shut'] = exc
+        def jobfini(job):
+            name = job[1].get('name')
+            data[name] = job
 
-        job1 = boss.initAsyncJob()
-        job1.on('job:done',ondone)
+        jid1 = s_async.jobid()
+        jid2 = s_async.jobid()
 
-        job2 = boss.initAsyncJob()
-        job2.on('job:err',onerr)
+        task1 = (jobmeth, (3,), {})
+        task2 = (jobdork, (3,), {})
 
-        job3 = boss.initAsyncJob()
-        job3.on('job:err',onshut)
+        job1 = boss.initAsyncJob(jid1, task=task1, name='job1')
+        job2 = boss.initAsyncJob(jid2, task=task2, name='job2')
 
-        jid1 = job1.jid
-        jid2 = job2.jid
-        jid3 = job3.jid
+        boss.onJobFini(jid1, jobfini)
+        boss.onJobFini(jid2, jobfini)
 
-        self.assertEqual( len(boss.getAsyncJobs()), 3)
-        self.assertIsNotNone( boss.getAsyncJob(jid1) )
-        self.assertIsNotNone( boss.getAsyncJob(jid2) )
+        self.assertEqual( job1[0], jid1 )
+        self.assertIsNotNone( job1[1]['times'].get('init') )
 
-        job1.done('foo')
+        self.assertEqual( len(boss.getAsyncJobs()), 2 )
 
-        self.assertEqual( data.get('done'), 'foo' )
-        self.assertIsNone( boss.getAsyncJob(jid1) )
-        self.assertEqual( len(boss.getAsyncJobs()), 2)
-        self.assertIsNotNone( boss.getAsyncJob(jid2) )
+        boss._runAsyncJob(job1)
+        self.assertEqual( len(boss.getAsyncJobs()), 1 )
 
-        job2.err('bar')
+        boss._runAsyncJob(job2)
+        self.assertEqual( len(boss.getAsyncJobs()), 0 )
 
-        self.assertEqual( data.get('err'), 'bar' )
-        self.assertIsNone( boss.getAsyncJob(jid2) )
-        self.assertEqual( len(boss.getAsyncJobs()), 1)
-        self.assertIsNotNone( boss.getAsyncJob(jid3) )
+        ret1 = data.get('job1')
 
-        boss.fini()
+        self.assertIsNotNone(ret1)
+        self.assertEqual( ret1[1]['ret'], 23 )
+        self.assertEqual( ret1[1]['status'], 'done' )
+        self.assertIsNotNone( ret1[1]['times'].get('fini') )
 
-        self.assertTrue( isinstance(data.get('shut'),s_async.BossShutDown))
-        self.assertIsNone( boss.getAsyncJob(jid3) )
-        self.assertEqual( len(boss.getAsyncJobs()), 0)
+        ret2 = data.get('job2')
+        self.assertIsNotNone(ret2)
+        self.assertEqual( ret2[1]['err'], 'Exception' )
+        self.assertEqual( ret2[1]['status'], 'err' )
 
-    def test_async_pool_terse(self):
-
-        boss = s_async.AsyncBoss(pool=3)
-        class Foo:
-            def bar(self, x):
-                return x + 20
-
-        foo = Foo()
-
-        job = boss[foo].bar(20)
-        self.assertTrue( job.wait() )
-
-        self.assertEqual( job.retval, 40 )
-        boss.fini()
-
-    def test_async_pool_nopool(self):
-        boss = s_async.AsyncBoss()
-        job = boss.initAsyncJob()
-        self.assertRaises(s_async.BossHasNoPool, job.runInPool )
         boss.fini()
 
     def test_async_pool_basics(self):
+        boss = s_async.AsyncBoss(size=3)
 
-        data = {'bossdone':0,'bosserr':0}
+        data = {}
+        def jobmeth(x, y=20):
+            return x + y
 
-        def bosserr(event):
-            data['bosserr'] += 1
+        def jobdork(x, y=20):
+            raise Exception('hi')
 
-        def bossdone(event):
-            data['bossdone'] += 1
+        def jobfini(job):
+            name = job[1].get('name')
+            data[name] = job
 
-        boss = s_async.AsyncBoss(pool=3)
-        boss.on('job:err',bosserr)
-        boss.on('job:done',bossdone)
+        jid1 = s_async.jobid()
+        jid2 = s_async.jobid()
 
-        excpt = Exception()
-        class Foo:
-            def bar(self, x):
-                return x + 20
-            def baz(self, y):
-                raise excpt
+        task1 = (jobmeth, (3,), {})
+        task2 = (jobdork, (3,), {})
 
-        foo = Foo()
+        job1 = boss.initAsyncJob(jid1, task=task1, name='job1')
+        job2 = boss.initAsyncJob(jid2, task=task2, name='job2')
 
-        def jobdone(ret):
-            data['ret'] = ret
+        boss.onJobFini(jid1, jobfini)
+        boss.onJobFini(jid2, jobfini)
 
-        def joberr(exc):
-            data['exc'] = exc
+        self.assertEqual( job1[0], jid1 )
+        self.assertIsNotNone( job1[1]['times'].get('init') )
 
-        job1 = boss.initAsyncJob()
-        job1.ondone( jobdone )
+        boss.queAsyncJob(jid1)
+        boss.queAsyncJob(jid2)
 
-        job2 = boss.initAsyncJob()
-        job2.onerr( joberr )
+        boss.waitAsyncJob(jid1, timeout=1)
+        boss.waitAsyncJob(jid2, timeout=1)
 
-        job1[foo].bar(10)
-        job2[foo].baz(20)
+        ret1 = data.get('job1')
 
-        self.assertTrue( job1.wait(timeout=2) )
-        self.assertTrue( job2.wait(timeout=2) )
+        self.assertIsNotNone(ret1)
+        self.assertEqual( ret1[1]['ret'], 23 )
+        self.assertEqual( ret1[1]['status'], 'done' )
+        self.assertIsNotNone( ret1[1]['times'].get('fini') )
 
-        self.assertEqual( data.get('ret'), 30 )
-        self.assertEqual( data.get('exc'), excpt)
+        ret2 = data.get('job2')
+        self.assertIsNotNone(ret2)
+        self.assertEqual( ret2[1]['err'], 'Exception' )
+        self.assertEqual( ret2[1]['status'], 'err' )
 
-        self.assertEqual( data.get('bosserr'), 1 )
-        self.assertEqual( data.get('bossdone'), 1 )
+        boss.fini()
 
-    def test_async_job_sync(self):
+    def test_async_timeout(self):
 
-        class Foo:
-            def bar(self, x):
-                return x + 20
+        boss = s_async.AsyncBoss(size=3)
 
-        foo = Foo()
-        boss = s_async.AsyncBoss(pool=3)
-        self.assertEqual( boss[foo].bar(40).sync(), 60 )
+        def myjob():
+            time.sleep(0.2)
+
+        jid = s_async.jobid()
+        job = boss.initAsyncJob(jid, task=(myjob,(),{}), timeout=0.01)
+
+        boss.waitAsyncJob(jid)
+
+        self.assertEqual( job[1]['status'], 'err' )
+        self.assertEqual( job[1]['err'], 'JobTimedOut' )
+
+        boss.fini()
+
+    def test_async_onfini(self):
+
+        boss = s_async.AsyncBoss(size=3)
+
+        data = {}
+        evt = threading.Event()
+
+        def onfini(job):
+            data['job'] = job
+            evt.set()
+
+        def woot():
+            return 10
+
+        jid = s_async.jobid()
+        task = s_async.newtask(woot)
+        boss.initAsyncJob(jid, task=task, onfini=onfini)
+
+        self.assertTrue( evt.wait(timeout=1) )
+        job = data.get('job')
+
+        self.assertEqual( job[1].get('ret'), 10 )
+        self.assertEqual( job[1].get('status'), 'done' )
+
+        boss.fini()
 
     def test_async_api(self):
+
         class Foo:
             def bar(self, x):
                 return x + 20
 
         foo = Foo()
 
-        boss = s_async.AsyncBoss(pool=1)
-        afoo = s_async.AsyncApi(boss,foo)
+        boss = s_async.AsyncBoss(1)
+        async = s_async.AsyncApi(boss, foo)
 
-        job = afoo.bar(20)
-        self.assertEqual( job.sync(), 40 )
+        job = async.bar(30)
 
+        boss.waitAsyncJob( job[0] )
+
+        self.assertEqual( s_async.jobret(job), 50 )
+
+        boss.fini()
+
+    def test_async_wait_timeout(self):
+
+        def longtime():
+            time.sleep(0.1)
+
+        boss = s_async.AsyncBoss(1)
+
+        jid = s_async.jobid()
+        task = s_async.newtask(longtime)
+
+        boss.initAsyncJob(jid, task=task)
+
+        self.assertFalse( boss.waitAsyncJob(jid,timeout=0.01) )
+
+        self.assertTrue( boss.waitAsyncJob(jid,timeout=1) )
+
+        boss.fini()

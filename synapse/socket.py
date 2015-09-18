@@ -5,6 +5,9 @@ import socket
 import msgpack
 import traceback
 
+from synapse.compat import selectors
+
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.threads as s_threads
 
@@ -29,10 +32,52 @@ class SockXform:
     def recv(self, byts):
         return byts
 
-class Socket(EventBus):
+class MesgRouter:
+    '''
+    The MesgRouter mixin allows registration of callback methods to
+    receive link:sock:mesg callbacks.
+
+    Example:
+
+        def myMesgCall(sock, mesg):
+            x = dostuff(mesg)
+            sock.sendobj(x)
+
+        sock.setMesgMeth('my:mesg', myMesgCall )
+
+    '''
+    def __init__(self):
+        self._mesg_en = False
+        self._mesg_meths = {}
+
+    def _xlateSockMesg(self, event):
+        sock = event[1].get('sock')
+        mesg = event[1].get('mesg')
+        self.runMesgMeth(sock,mesg)
+
+    def setMesgMeth(self, name, meth):
+        if not self._mesg_en:
+            self._mesg_en = True
+            self.on('link:sock:mesg', self._xlateSockMesg )
+
+        self._mesg_meths[name] = meth
+
+    def runMesgMeth(self, sock, mesg):
+        name = mesg[0]
+        meth = self._mesg_meths.get(name)
+        if meth == None:
+            return
+
+        try:
+            meth(sock,mesg)
+        except Exception as e:
+            traceback.print_exc()
+
+class Socket(EventBus,MesgRouter):
 
     def __init__(self, sock, **info):
         EventBus.__init__(self)
+        MesgRouter.__init__(self)
         self.sock = sock
         self.unpk = msgpack.Unpacker(use_list=0,encoding='utf8')
         self.ident = s_common.guid()
@@ -131,8 +176,8 @@ class Socket(EventBus):
             byts = xform.send(byts)
         return self.sock.sendall(byts)
 
-    def fireobj(self, name, **info):
-        return self.sendobj( (name,info) )
+    def fireobj(self, typ, **info):
+        return self.sendobj( (typ,info) )
 
     def sendobj(self, msg):
         '''
@@ -156,11 +201,6 @@ class Socket(EventBus):
             self.close()
             return False
 
-    def senderr(self, code, msg, **info):
-        info['msg'] = msg
-        info['code'] = code
-        return self.sendobj( ('err',info) )
-
     def recvobj(self):
         '''
         Recieve one msgpack'd socket message.
@@ -172,8 +212,9 @@ class Socket(EventBus):
 
             try:
                 self.unpk.feed(byts)
-                for obj in self.unpk:
-                    return obj
+                for mesg in self.unpk:
+                    self.fire('link:sock:mesg', sock=self, mesg=mesg)
+                    return mesg
 
             except Exception as e:
                 self.close()
@@ -191,8 +232,9 @@ class Socket(EventBus):
 
             try:
                 self.unpk.feed(byts)
-                for obj in self.unpk:
-                    yield obj
+                for mesg in self.unpk:
+                    self.fire('link:sock:mesg', sock=self, mesg=mesg)
+                    yield mesg
 
             except Exception as e:
                 self.close()
@@ -237,6 +279,103 @@ class Socket(EventBus):
             self.sock.close()
         except OSError as e:
             pass
+
+class Plex(EventBus):
+    '''
+    Manage multiple Sockets using a multi-plexor IO thread.
+    '''
+    def __init__(self):
+        EventBus.__init__(self)
+
+        self._plex_sel = selectors.DefaultSelector()
+        self._plex_socks = set()
+
+        self._plex_wake, self._plex_s2 = socketpair()
+
+        self._plex_thr = self._plexMainLoop()
+
+        self.onfini( self._onPlexFini )
+
+    def __len__(self):
+        return len(self._plex_socks)
+
+    def addPlexSock(self, sock):
+        sock.setSockInfo('plex',self)
+        self._plex_sel.register(sock, selectors.EVENT_READ)
+        self._plex_socks.add(sock)
+
+        sock.link( self.dist )
+
+        def finisock():
+            sock.setSockInfo('plex',None)
+            self._plex_socks.remove(sock)
+            #self._plex_sel.unregister(sock)
+            self._plexWake()
+            self.fire('link:sock:fini', sock=sock)
+
+        sock.onfini( finisock )
+        self._plexWake()
+
+    def _plexWake(self):
+        self._plex_wake.sendall(b'\x00')
+
+    @s_threads.firethread
+    def _plexMainLoop(self):
+
+        self._plex_sel.register( self._plex_s2, selectors.EVENT_READ )
+
+        while not self.isfini:
+
+            for key,events in self._plex_sel.select(timeout=1):
+
+                if self.isfini:
+                    break
+
+                sock = key.fileobj
+                if sock == self._plex_s2:
+                    sock.recv(1024)
+                    continue
+
+                if sock.getSockInfo('listen'):
+                    # his sock:conn event handles reg
+                    newsock = sock.accept()
+                    self.addPlexSock(newsock)
+                    continue
+
+                byts = sock.recv(102400)
+                if not byts:
+                    sock.fini()
+                    continue
+
+                sock.unpk.feed(byts)
+                for mesg in sock.unpk:
+                    sock.fire('link:sock:mesg', sock=sock, mesg=mesg)
+
+            if self.isfini:
+                break
+
+    def _onPlexFini(self):
+        self._plex_s2.fini()
+        self._plex_wake.fini()
+        self._plex_sel.close()
+
+        for sock in list(self._plex_socks):
+            sock.fini()
+
+def getGlobPlex():
+    '''
+    Get/Init a reference to a singular global Plex() multiplexor.
+
+    Example:
+
+        plex = getGlobPlex()
+
+    '''
+    with s_glob.lock:
+        if s_glob.plex == None:
+            s_glob.plex = Plex()
+
+        return s_glob.plex
 
 def listen(sockaddr,**sockinfo):
     '''

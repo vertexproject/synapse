@@ -102,9 +102,23 @@ class ThreadsTest(unittest.TestCase):
             data['count'] += 1
             return (x,y)
 
-        w1 = s_threads.getPerThread('woot',woot,10,y=20)
-        w2 = s_threads.getPerThread('woot',woot,10,y=30)
+        per = s_threads.PerThread()
+        per.setPerCtor('woot',woot,10,y=20)
+
+        def makeone():
+            data['make'] = per.woot
+
+        w1 = per.woot
+        w2 = per.woot
 
         self.assertEqual( w1, (10,20) )
-        self.assertEqual( w2, (10,20) )
+        self.assertEqual( id(w1), id(w2) )
         self.assertEqual( data['count'], 1 )
+
+        thr = threading.Thread(target=makeone)
+        thr.start()
+        thr.join()
+
+        w3 = data.get('make')
+        self.assertEqual( w3, (10,20) )
+        self.assertNotEqual( id(w1), id(w3) )

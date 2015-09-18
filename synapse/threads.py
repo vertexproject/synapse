@@ -23,26 +23,63 @@ def firethread(f):
         return thr
     return callmeth
 
-def getPerThread(name, ctor, *args, **kwargs):
+class PerThread:
     '''
-    Return a "per thread" value by name.
-    If not yet initilized, call ctor(*args,**kwargs).
+    A helper class for managing thread local variables.
+
+    A PerThread instance may be used to register ctors
+    which will fire when a thread attempts to retrieve
+    a given per-thread variable.
 
     Example:
 
-        thrset = getPerThread('fooset',set)
+        per = PerThread()
+        per.setPerCtor('woot', initwoot, 10, y=30)
+
+        # Each thread has a differnt "woot"
+        per.woot.doThing()
 
     '''
-    thr = threading.currentThread()
-    perthr = getattr(thr,'_per_thread',None)
-    if perthr == None:
-        perthr = thr._per_thread = {}
+    def __init__(self):
+        self.ctors = {}
+        self.thrloc = threading.local()
 
-    val = perthr.get(name)
-    if val == None:
-        perthr[name] = val = ctor(*args,**kwargs)
+    def setPerCtor(self, name, ctor, *args, **kwargs):
+        '''
+        Set a constructor for the give thread local variable.
 
-    return val
+        Example:
+
+            class Woot:
+                def dostuff(self, x, y):
+                    return x + y
+
+            per.setPerCtor('woot', Woot)
+
+            # later, other threads...
+            per.woot.dostuff(10,30)
+
+        Notes:
+
+        '''
+        self.ctors[name] = (ctor,args,kwargs)
+
+    def __getattr__(self, name):
+        try:
+            return getattr(self.thrloc,name)
+
+        except AttributeError as e:
+            ctor = self.ctors.get(name)
+            if ctor == None:
+                raise
+
+            meth,args,kwargs = ctor
+            valu = meth(*args,**kwargs)
+            setattr(self.thrloc,name,valu)
+            return valu
+
+# setup a default PerThread
+per = PerThread()
 
 class ThreadBoss(EventBus):
     '''
@@ -157,7 +194,7 @@ class Sched(EventBus):
             sched = Sched()
             sched.persec(10, tenpersec, 10, y='woot')
         '''
-        dt = float(1) / count
+        dt = 1.0 / count
         def cb():
             try:
 
@@ -191,6 +228,8 @@ class Sched(EventBus):
         self.sched.cancel(event)
 
     def _finiSched(self):
-        [ self.sched.cancel(e) for e in self.sched.queue ]
-        self.sema.release()
-        self.thr.join()
+        pass
+        # FIXME
+        #[ self.sched.cancel(e) for e in self.sched.queue ]
+        #self.sema.release()
+        #self.thr.join()

@@ -3,6 +3,7 @@ import binascii
 import unittest
 
 import synapse.link as s_link
+import synapse.async as s_async
 import synapse.cortex as s_cortex
 
 from synapse.common import *
@@ -188,11 +189,11 @@ class CortexTest(unittest.TestCase):
             (id3,'ha','ho',80),
         )
 
-        j0 = core0.addRows(rows0, async=True)
-        j1 = core1.addRows(rows1, async=True)
+        j0 = core0.fireBgCall('addRows', rows0)
+        j1 = core1.fireBgCall('addRows', rows1)
 
-        self.assertTrue( core0.waitForJob(j0, timeout=3) )
-        self.assertTrue( core1.waitForJob(j1, timeout=3) )
+        self.assertTrue( core0.waitBgCall(j0, timeout=3) )
+        self.assertTrue( core1.waitBgCall(j1, timeout=3) )
 
         tufos = meta.getTufosByQuery('foo:x=10')
         self.assertEqual( len(tufos), 2 )
@@ -273,13 +274,6 @@ class CortexTest(unittest.TestCase):
 
         meta.fini()
 
-    def test_cortex_async_nosuchjob(self):
-
-        id1 = guidstr()
-        core = s_cortex.openurl('ram://')
-        self.assertRaises( NoSuchJob, core.getAsyncReturn, 'foo' )
-        core.fini()
-
     def test_cortex_async_result(self):
         id1 = guidstr()
         core = s_cortex.openurl('ram://')
@@ -290,8 +284,9 @@ class CortexTest(unittest.TestCase):
             (id1,'gronk',80,30),
         ]
         core.addRows( rows )
-        jid = core.callAsyncApi('getRowsById',id1)
-        rows = core.getAsyncReturn(jid)
+        jid = core.fireAsyncCall('getRowsById',id1)
+        job = core.waitAsyncCall(jid)
+        rows = s_async.jobret(job)
 
         self.assertEqual( len(rows), 3 )
 

@@ -34,8 +34,8 @@ class Daemon(s_daemon.Daemon):
 
     def __init__(self, statefd=None):
 
-        self.sched      = s_threads.Sched()
-        self.asyncpool = s_async.AsyncBoss()
+        self.sched = s_threads.Sched()
+        self.neuboss = s_async.AsyncBoss()
 
         self.peerbus = s_eventbus.EventBus()
 
@@ -58,9 +58,9 @@ class Daemon(s_daemon.Daemon):
 
         s_daemon.Daemon.__init__(self)
 
+        self.onfini( self.neuboss.fini )
         self.onfini( self.sched.fini )
         self.onfini( self.peerbus.fini )
-        self.onfini( self.asyncpool.fini )
 
         self.on('link:sock:init',self._onNeuSockInit)
 
@@ -71,14 +71,14 @@ class Daemon(s_daemon.Daemon):
         self.peerbus.on('ping',self._onPeerBusPing)
         self.peerbus.on('pong',self._onPeerBusPong)
 
-        self.setMesgMethod('neu:data',self._onMesgNeuData)
+        self.setMesgMeth('neu:data',self._onMesgNeuData)
 
-        self.setMesgMethod('neu:link:syn',self._onMesgNeuLinkSyn)
-        self.setMesgMethod('neu:link:synack',self._onMesgNeuLinkSynAck)
-        self.setMesgMethod('neu:link:ack',self._onMesgNeuLinkAck)
+        self.setMesgMeth('neu:link:syn',self._onMesgNeuLinkSyn)
+        self.setMesgMeth('neu:link:synack',self._onMesgNeuLinkSynAck)
+        self.setMesgMeth('neu:link:ack',self._onMesgNeuLinkAck)
 
-        self.setMesgMethod('neu:peer:link:up', self._onMesgNeuPeerLinkUp)
-        self.setMesgMethod('neu:peer:link:down', self._onMesgNeuPeerLinkDown)
+        self.setMesgMeth('neu:peer:link:up', self._onMesgNeuPeerLinkUp)
+        self.setMesgMeth('neu:peer:link:down', self._onMesgNeuPeerLinkDown)
 
         def setrsakey(event):
             valu = event[1].get('valu')
@@ -99,7 +99,7 @@ class Daemon(s_daemon.Daemon):
 
         def setpoolsize(event):
             valu = event[1].get('valu')
-            self.asyncpool.setPoolSize(valu)
+            self.neuboss.setPoolSize(valu)
 
         self.on('neu:info:rsakey', setrsakey)
         self.on('neu:info:authmod', setauthmod)
@@ -120,7 +120,7 @@ class Daemon(s_daemon.Daemon):
         self.ident = self.getNeuInfo('ident')
 
         poolsize = self.getNeuInfo('poolsize')
-        self.asyncpool.setPoolSize(poolsize)
+        self.neuboss.setPoolSize(poolsize)
 
     def addNeuCortex(self, name, url, tags=()):
         '''
@@ -236,11 +236,7 @@ class Daemon(s_daemon.Daemon):
         sent = event[1].get('time')
         rtt = time.time() - sent
 
-        job = self.asyncpool.getAsyncJob(jobid)
-        if job == None:
-            return
-
-        job.done(rtt)
+        self.neuboss.setJobDone(jobid,rtt)
 
     def getRsaCertCsr(self, **certinfo):
         '''
@@ -317,7 +313,8 @@ class Daemon(s_daemon.Daemon):
 
         '''
         job = self.jobPingPeer(peerid,timeout=timeout)
-        return job.sync(timeout=timeout)
+        self.neuboss.waitAsyncJob(job[0], timeout=timeout)
+        return s_async.jobret(job)
 
     def jobPingPeer(self, peerid, timeout=6):
         return self.firePeerMesg(peerid,'ping',time=time.time())
@@ -721,10 +718,11 @@ class Daemon(s_daemon.Daemon):
         '''
         Fire an async job wrapped peer message and return the job.
         '''
-        job = self.asyncpool.initAsyncJob()
+        jid = s_async.jobid()
+        job = self.neuboss.initAsyncJob(jid)
 
+        msginfo['peer:job'] = jid
         msginfo['peer:dst'] = peerid
-        msginfo['peer:job'] = job.jid
         msginfo['peer:src'] = self.ident
 
         self._sendToPeer( peerid, (name,msginfo) )

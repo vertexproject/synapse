@@ -5,6 +5,7 @@ import traceback
 from synapse.compat import queue
 
 import synapse.async as s_async
+import synapse.threads as s_threads
 
 from synapse.common import *
 from synapse.eventbus import EventBus
@@ -27,7 +28,7 @@ class Cortex(EventBus):
         EventBus.__init__(self)
         self.link = link
 
-        ropool = int( link[1].get('ropool', 3) )
+        size = int( link[1].get('threads', 3) )
 
         self.lock = threading.Lock()
 
@@ -35,17 +36,16 @@ class Cortex(EventBus):
         self.rowsbymeths = {}
 
         # used to facilitate pooled async readers
-        self.jobboss = s_async.AsyncBoss(pool=ropool)
+        self.boss = s_async.AsyncBoss(size)
+        self.bgboss = s_async.AsyncBoss(1)      # for sync bg calls
+
         self.jobcache = {}
 
         self._initCortex()
 
-        # used exclusivly for single-thread inserts
-        self.boss = s_async.AsyncBoss(pool=1)
-        self.async = s_async.AsyncApi(self.boss, self)
-
         self.isok = True
         self.onfini( self.boss.fini )
+        self.onfini( self.bgboss.fini )
 
     def isOk(self):
         '''
@@ -53,45 +53,7 @@ class Cortex(EventBus):
         '''
         return self.isok
 
-    def getAsyncReturn(self, jid, timeout=None):
-        '''
-        Retrieve return value for a previous async read request.
-
-        Example:
-
-            jid = core.getRowsByProp('foo',10,async=True)
-
-            # do other stuff...
-
-            rows = core.getAsyncReturn(jid)
-
-        Notes:
-
-            * For use with all async gets (rows/joins/etc)
-
-        '''
-        job = self.jobcache.pop(jid,None)
-        if job == None:
-            raise NoSuchJob(jid)
-
-        return job.sync()
-
-    def waitForJob(self, jid, timeout=None):
-        '''
-        Wait for completion of a previous async call.
-
-        Example:
-
-            j1 = core.addRows( rows1 )
-            j2 = core.addRows( rows2 )
-            j3 = core.addRows( rows3 )
-
-            core.waitForJob( j3 )
-
-        '''
-        return self.boss.waitForJob(jid, timeout=timeout)
-
-    def addRows(self, rows, async=False):
+    def addRows(self, rows):
         '''
         Add (ident,prop,valu,time) rows to the Cortex.
 
@@ -108,20 +70,59 @@ class Cortex(EventBus):
             core.addRows(rows)
 
         '''
-        if async:
-            return self.async.addRows(rows).jid
-
         self._addRows(rows)
 
-    def callAsyncApi(self, api, *args, **kwargs):
+    def fireBgCall(self, api, *args, **kwargs):
+        '''
+        Call a cortex API in the "background" with no result.
+
+        All requested calls will be run *sequentually* by a single
+        pool thread, allowing "delete and check back" behavior.
+
+        Example:
+
+            jid = core.fireBgCall('delRowsByProp', 'foo', valu=10)
+
+        Notes:
+
+            The single-worker nature of this API allows stacking
+            up a bunch of "delete by id" and subsequent add-rows
+            APIs.
+
+        '''
+        meth = getattr(self,api)
+        task = (meth,args,kwargs)
+
+        jid = s_async.jobid()
+        self.bgboss.initAsyncJob(jid, task=task)
+        return jid
+
+    def waitBgCall(self, jid, timeout=None):
+        '''
+        Wait for completion of a previous call to fireBgCall().
+
+        Example:
+
+            jid = core.fireBgCall('delRowsById', ident)
+            # .. do other stuff ..
+
+            core.waitBgJob(jid)
+            # delRowsById is complete...
+
+        '''
+        return self.bgboss.waitAsyncJob(jid, timeout=timeout)
+
+    def fireAsyncCall(self, api, *args, **kwargs):
         '''
         Call a cortex API asynchronously to return for results later.
 
         Example:
 
-            jid = core.callAsyncApi('getRowsByProp','foo',valu=10)
+            jid = core.fireAsyncCall('getRowsByProp','foo',valu=10)
             # do stuff....
-            res = core.getAsyncResult(jid)
+            job = core.waitAsyncCall(jid)
+
+            ret = s_async.jobret(job)
 
         Notes:
 
@@ -131,13 +132,28 @@ class Cortex(EventBus):
 
         '''
 
-        job = self.jobboss.initAsyncJob()
-        job.setJobTask( getattr(self,api), *args, **kwargs)
+        jid = s_async.jobid()
 
-        self.jobcache[job.jid] = job
-        job.runInPool()
+        meth = getattr(self,api)
+        task = (meth,args,kwargs)
 
-        return job.jid
+        job = self.boss.initAsyncJob(jid, task=task)
+        self.jobcache[jid] = job
+
+        return jid
+
+    def waitAsyncCall(self, jid):
+        '''
+        Wait for a previous call to fireAsyncCall to complete.
+
+        Example:
+
+            job = core.waitAsyncJob(jid)
+
+        '''
+        job = self.jobcache.pop(jid,None)
+        self.boss.waitAsyncJob(jid)
+        return job
 
     def getRowsById(self, ident):
         '''
@@ -162,7 +178,7 @@ class Cortex(EventBus):
         '''
         return self._getRowsByIds(idents)
 
-    def delRowsById(self, ident, async=False):
+    def delRowsById(self, ident):
         '''
         Delete all the rows for a given ident.
 
@@ -171,9 +187,6 @@ class Cortex(EventBus):
             core.delRowsById(ident)
 
         '''
-        if async:
-            return self.async.delRowsById(ident).jid
-
         self._delRowsById(ident)
 
     def getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
@@ -359,29 +372,26 @@ class Cortex(EventBus):
         self.addRows(rows)
         return tufo
 
-    def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, async=False):
+    def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         '''
         Delete rows with a given prop[=valu].
 
         Example:
 
             core.delRowsByProp('foo',valu=10)
-        '''
-        if async:
-            return self.async.delRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime).jid
 
+        '''
         return self._delRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime)
 
-    def delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, async=False):
+    def delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
         '''
         Delete a group of rows by selecting for property and joining on ident.
 
         Example:
 
-        '''
-        if async:
-            return self.async.delJoinByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime).jid
+            core.delJoinByProp('foo',valu=10)
 
+        '''
         return self._delJoinByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime)
 
     def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):

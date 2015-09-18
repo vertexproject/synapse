@@ -49,3 +49,19 @@ class EventBusTest(unittest.TestCase):
 
         self.assertTrue( data.get('woot') )
         self.assertTrue( data.get('weak') )
+
+    def test_eventbus_finionce(self):
+
+        data = {'count':0}
+        def onfini():
+            data['count'] += 1
+
+        bus = s_eventbus.EventBus()
+        bus.onfini(onfini)
+
+        bus.fini()
+        bus.fini()
+
+        self.assertEqual( data['count'], 1 )
+
+

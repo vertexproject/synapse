@@ -21,7 +21,7 @@ class DaemonTest(unittest.TestCase):
             sock.sendobj( ('woot',{'foo':'bar'}) )
 
         daemon = s_daemon.Daemon()
-        daemon.setMesgMethod('woot',onwoot)
+        daemon.setMesgMeth('woot',onwoot)
 
         link = tufo('tcp',host='127.0.0.1',port=0)
         daemon.runLinkServer(link)

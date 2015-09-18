@@ -2,8 +2,10 @@ import traceback
 import collections
 
 import synapse.link as s_link
+import synapse.socket as s_socket
 import synapse.threads as s_threads
 
+import synapse.impulse as s_impulse
 import synapse.telepath as s_telepath
 
 from synapse.eventbus import EventBus
@@ -15,6 +17,8 @@ class ImplementMe(Exception):pass
 class Daemon(
         EventBus,
         StateMachine,
+        s_impulse.ImpMixin,
+        s_socket.MesgRouter,
         s_telepath.TeleMixin
     ):
     '''
@@ -22,18 +26,23 @@ class Daemon(
     '''
     def __init__(self, statefd=None):
         EventBus.__init__(self)
+        s_socket.MesgRouter.__init__(self)
 
         self.authmod = None
         self.links = {}
-        self.mesgmeths = {}
+
+        self.plex = s_socket.Plex()
+        self.plex.link( self.dist )
+
+        self.onfini( self.plex.fini )
 
         self.boss = s_threads.ThreadBoss()
         self.onfini( self.boss.fini )
 
+        s_impulse.ImpMixin.__init__(self)
         s_telepath.TeleMixin.__init__(self)
 
         StateMachine.__init__(self,statefd=statefd)
-        self.on('link:sock:mesg',self._onLinkSockMesg)
 
     def setAuthModule(self, authmod):
         '''
@@ -64,7 +73,7 @@ class Daemon(
         Example:
 
             if not daemon.getAuthAllow( ident, rule ):
-                return sock.senderr('noperm','permission denied')
+                return sock.sendobj('tele:err', code='noperm')
 
         Notes:
 
@@ -93,18 +102,6 @@ class Daemon(
             return None
 
         return self.authmod.getAuthIdent(authinfo)
-
-    def setMesgMethod(self, name, meth):
-        '''
-        Add a message method to the Daemon.
-
-            def wootmeth(sock,mesg):
-                stuff()
-
-            daemon.setMesgMethod('woot',wootmeth)
-
-        '''
-        self.mesgmeths[name] = meth
 
     def addLinkServer(self, name, link):
         '''
@@ -166,11 +163,9 @@ class Daemon(
             daemon.runLinkServer(link)
         '''
         relay = s_link.initLinkRelay( link )
-        server = relay.initLinkServer()
 
-        server.on('link:sock:mesg',self.dist)
-        server.on('link:sock:init',self.dist)
-        server.on('link:sock:fini',self.dist)
+        server = relay.initLinkServer()
+        server.link( self.dist )
 
         self.onfini(server.fini)
         return server.runLinkServer()
@@ -180,11 +175,9 @@ class Daemon(
         Run and manage a new LinkPeer.
         '''
         relay = s_link.initLinkRelay(link)
-        peer = relay.initLinkPeer()
 
-        peer.on('link:sock:mesg',self.dist)
-        peer.on('link:sock:init',self.dist)
-        peer.on('link:sock:fini',self.dist)
+        peer = relay.initLinkPeer()
+        peer.link( self.dist )
 
         self.onfini(peer.fini)
         return peer.runLinkPeer()
@@ -192,21 +185,7 @@ class Daemon(
     def _onLinkSockMesg(self, event):
         sock = event[1].get('sock')
         mesg = event[1].get('mesg')
-
-        meth = self.mesgmeths.get(mesg[0])
-        # ignore messages we dont understand
-        if meth == None:
-            return
-
-        try:
-
-            repl = meth(sock,mesg)
-            if repl != None:
-                repl[1]['reply'] = mesg[1].get('ident')
-                sock.sendobj(repl)
-            
-        except Exception as e:
-            traceback.print_exc()
+        self.runMesgMeth(sock,mesg)
 
 class AuthModule(StateMachine,EventBus):
 

@@ -34,8 +34,8 @@ class TeleMixin:
 
         self.shared = {}
 
-        self.setMesgMethod('tele:syn', self._onMesgTeleSyn )
-        self.setMesgMethod('tele:call', self._onMesgTeleCall )
+        self.setMesgMeth('tele:syn', self._onMesgTeleSyn )
+        self.setMesgMeth('tele:call', self._onMesgTeleCall )
 
     def addSharedObject(self, name, obj):
         '''
@@ -84,12 +84,12 @@ class TeleMixin:
         authinfo = mesg[1].get('authinfo')
         ident = self.getAuthIdent(authinfo)
         sock.setSockInfo('tele:ident',ident)
-        return tufo('tele:syn')
+        sock.fireobj('tele:syn')
 
     def _onMesgTeleCall(self, sock, mesg):
 
         if not sock.getSockInfo('tele:syn'):
-            sock.senderr('nosyn','no syn mesg received')
+            sock.fireobj('tele:err', code='nosyn')
             return
 
         _,msginfo = mesg
@@ -100,26 +100,38 @@ class TeleMixin:
             rule = 'tele.call.%s.%s' % (oname,mname)
             ident = sock.getSockInfo('tele:ident')
             if not self.getAuthAllow(ident,rule):
-                sock.senderr('noperm','permission denied')
+                sock.fireobj('tele:err', code='noperm')
                 return
 
         obj = self.shared.get(oname)
         if obj == None:
-            return tufo('err',code='noobj')
+            sock.fireobj('tele:err',code='noobj')
+            return
 
         meth = getattr(obj,mname,None)
         if meth == None:
-            return tufo('err',code='nometh')
+            sock.fireobj('tele:err',code='nometh',name=mname)
+            return
 
         try:
-            return tufo('tele:call', ret=meth(*args,**kwargs) )
+            sock.fireobj('tele:call', ret=meth(*args,**kwargs) )
 
         except Exception as e:
             trace = traceback.format_exc()
-            return tufo('tele:call',exc=str(e),trace=trace)
+            sock.fireobj('tele:call',exc=str(e),trace=trace)
 
-class TeleProtoError(Exception):pass
-class TelePermDenied(Exception):pass
+class TeleErr(Exception):pass
+
+# raised on invalid protocol response
+class ProtoErr(TeleErr):
+    def __init__(self, event):
+        mesg = '%s: %r' % event
+        TeleErr.__init__(self, mesg)
+
+class NoSuchObj(TeleErr):pass
+class NoSuchMeth(TeleErr):pass
+class PermDenied(TeleErr):pass
+
 class RemoteException(Exception):pass
 
 class ProxyMeth:
@@ -141,15 +153,25 @@ class ProxyMeth:
 
             return reply[1].get('ret')
 
-        if reply[1].get('code') == 'noperm':
-            raise TelePermDenied()
+        if reply[0] == 'tele:err':
 
-        raise TeleProtoError( reply[1].get('msg') )
+            code = reply[1].get('code')
+            if code == 'noperm':
+                raise PermDenied()
+
+            if code == 'nometh':
+                name = reply[1].get('name')
+                raise NoSuchMeth(name)
+
+            if code == 'noobj':
+                raise NoSuchObj(self.proxy.objname)
+
+        raise ProtoErr(reply)
             
-class Proxy(EventBus):
+class Proxy:
 
     def __init__(self, link):
-        EventBus.__init__(self)
+        self.bus = EventBus()
 
         self.link = link
         self.relay = s_link.initLinkRelay(link)
@@ -160,17 +182,22 @@ class Proxy(EventBus):
         # objname is path minus leading "/"
         self.objname = link[1].get('path')[1:]
 
+    def fini(self):
+        self.bus.fini()
+
     def _init_client(self):
         client = self.relay.initLinkClient()
         authinfo = self.link[1].get('authinfo')
         client.sendAndRecv('tele:syn', authinfo=authinfo)
-        self.onfini( client.fini, weak=True )
+        self.bus.onfini( client.fini, weak=True )
         return client
 
     def __enter__(self):
+        # FIXME PerThread
         thrid = threading.currentThread().ident
         client = self._init_client()
         self._tele_with[thrid] = client
+        return self
 
     def __exit__(self, exc, cls, tb):
         thrid = threading.currentThread().ident
@@ -191,6 +218,17 @@ class Proxy(EventBus):
         meth = ProxyMeth(self, name)
         setattr(self,name,meth)
         return meth
+
+    # some methods to avoid round trips...
+    def __nonzero__(self):
+        return True
+
+    def __eq__(self, obj):
+        return id(self) == id(obj)
+
+    def __ne__(self, obj):
+        return not self.__eq__(obj)
+
 
 def getProxy(url):
     '''

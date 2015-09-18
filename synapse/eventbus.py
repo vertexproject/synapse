@@ -11,6 +11,7 @@ class EventBus:
     '''
     def __init__(self):
         self.isfini = False
+        self.finlock = finlock
         self.finievt = threading.Event()
 
         self._syn_meths = collections.defaultdict(list)

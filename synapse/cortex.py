@@ -16,6 +16,7 @@ insertion, and provide for atomic deconfliction if needed.
 '''
 
 import synapse.link as s_link
+import synapse.async as s_async
 import synapse.compat as s_compat
 import synapse.threads as s_threads
 import synapse.telepath as s_telepath
@@ -308,16 +309,16 @@ class MetaCortex(EventBus):
             try:
 
                 if by != None:
-                    jid = core.callAsyncApi('getRowsBy',by,prop,valu,limit=limit)
+                    jid = core.fireAsyncCall('getRowsBy',by,prop,valu,limit=limit)
                     jobs.append( (name,core,jid) )
                     continue
 
                 if prop == 'id':
-                    jid = core.callAsyncApi('getRowsById',valu)
+                    jid = core.fireAsyncCall('getRowsById',valu)
                     jobs.append( (name,core,jid) )
                     continue
 
-                jid = core.callAsyncApi('getRowsByProp',prop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit)
+                jid = core.fireAsyncCall('getRowsByProp',prop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit)
                 jobs.append( (name,core,jid) )
 
             except Exception as e:
@@ -327,7 +328,8 @@ class MetaCortex(EventBus):
         rows = []
         for name,core,jid in jobs:
             try:
-                rows.extend( core.getAsyncReturn(jid) )
+                job = core.waitAsyncCall(jid)
+                rows.extend( s_async.jobret(job) )
             except Exception as e:
                 self._corNotOk(name)
                 self.fire('meta:cortex:exc', name=name, exc=e)
@@ -364,16 +366,16 @@ class MetaCortex(EventBus):
             try:
 
                 if by != None:
-                    jid = core.callAsyncApi('getJoinBy',by,prop,valu,limit=limit)
+                    jid = core.fireAsyncCall('getJoinBy',by,prop,valu,limit=limit)
                     jobs.append( (name,core,jid) )
                     continue
 
                 if prop == 'id':
-                    jid = core.callAsyncApi('getJoinById',valu)
+                    jid = core.fireAsyncCall('getJoinById',valu)
                     jobs.append( (name,core,jid) )
                     continue
 
-                jid = core.callAsyncApi('getJoinByProp',prop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit)
+                jid = core.fireAsyncCall('getJoinByProp',prop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit)
                 jobs.append( (name,core,jid) )
 
             except Exception as e:
@@ -383,7 +385,8 @@ class MetaCortex(EventBus):
         rows = []
         for name,core,jid in jobs:
             try:
-                rows.extend( core.getAsyncReturn(jid) )
+                job = core.waitAsyncCall(jid)
+                rows.extend( s_async.jobret(job) )
             except Exception as e:
                 self._corNotOk(name)
                 self.fire('meta:cortex:exc', name=name, exc=e)
@@ -434,16 +437,16 @@ class MetaCortex(EventBus):
             try:
 
                 if by != None:
-                    jid = core.callAsyncApi('getSizeBy',by,prop,valu,limit=limit)
+                    jid = core.fireAsyncCall('getSizeBy',by,prop,valu,limit=limit)
                     jobs.append( (name,core,jid) )
                     continue
 
                 if prop == 'id':
-                    jid = core.callAsyncApi('getSizeById',valu)
+                    jid = core.fireAsyncCall('getSizeById',valu)
                     jobs.append( (name,core,jid) )
                     continue
 
-                jid = core.callAsyncApi('getSizeByProp',prop,valu=valu,mintime=mintime,maxtime=maxtime)
+                jid = core.fireAsyncCall('getSizeByProp',prop,valu=valu,mintime=mintime,maxtime=maxtime)
                 jobs.append( (name,core,jid) )
 
             except Exception as e:
@@ -453,7 +456,8 @@ class MetaCortex(EventBus):
         size = 0
         for name,core,jid in jobs:
             try:
-                size += core.getAsyncReturn(jid)
+                job = core.waitAsyncCall(jid)
+                size += s_async.jobret(job)
             except Exception as e:
                 self._corNotOk(name)
                 self.fire('meta:cortex:exc', name=name, exc=e)
@@ -475,7 +479,7 @@ class MetaCortex(EventBus):
         rows = self.getJoinByQuery(query)
         return join2tufo(rows)
 
-    def addMetaRows(self, name, rows, async=False):
+    def addMetaRows(self, name, rows):
         '''
         Add the given rows to the specified cortex by name.
 
@@ -492,7 +496,7 @@ class MetaCortex(EventBus):
         if core == None:
             raise NoSuchName(name)
 
-        return core.addRows( rows, async=async )
+        return core.addRows(rows)
 
     def callCorApi(self, name, api, *args, **kwargs):
         '''

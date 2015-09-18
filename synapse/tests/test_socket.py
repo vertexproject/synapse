@@ -1,5 +1,6 @@
 from __future__ import absolute_import, unicode_literals
 import unittest
+import threading
 
 import synapse.compat as s_compat
 import synapse.socket as s_socket
@@ -37,3 +38,40 @@ class SocketTest(unittest.TestCase):
 
         sock1.sendall(b'woot')
         self.assertEqual( sock2.recvall(4), b'woot' )
+
+    def test_sock_plex(self):
+
+        def onmesg(event):
+            sock = event[1].get('sock')
+            mesg = event[1].get('mesg')
+            sock.fireobj('hi:got', mesg=mesg)
+
+        evt = threading.Event()
+        def onfini(event):
+            evt.set()
+
+        plex = s_socket.Plex()
+        plex.on('link:sock:mesg', onmesg)
+        plex.on('link:sock:fini', onfini)
+
+        s1,s2 = s_socket.socketpair()
+
+        plex.addPlexSock(s2)
+        self.assertEqual( len(plex), 1 )
+
+        s1.fireobj('hi:there', whee='whee')
+
+        ret = s1.recvobj()
+        mesg = ret[1].get('mesg')
+
+        self.assertEqual( ret[0], 'hi:got' )
+
+        s1.fini()
+
+        evt.wait(timeout=1)
+
+        self.assertTrue( evt.is_set() )
+        self.assertEqual( len(plex), 0 )
+
+        plex.fini()
+

@@ -35,8 +35,8 @@ def httpd(jsinfo, jsfile=None):
 
     api = s_httpapi.HttpApi(jsinfo, jsfile=jsfile)
 
-    pool = jsinfo.get('pool',16)
-    boss = s_async.AsyncBoss(pool=pool)
+    size = jsinfo.get('threads',16)
+    boss = s_async.AsyncBoss(size)
 
     port = jsinfo.get('port',8080)
     host = jsinfo.get('host','0.0.0.0')
@@ -66,10 +66,14 @@ def httpd(jsinfo, jsfile=None):
             hdrs = self.request.headers
             body = self.request.body
 
-            job = boss.initAsyncJob()
-            job.setJobTask( api.runHttpGet, path, hdrs, body )
-            job.ondone( self.sendHttpResp )
-            job.runInPool()
+            jid = s_async.jobid()
+            task = (api.runHttpGet, (path, hdrs, body), {})
+
+            def jobfini(job):
+                ret = job[1].get('ret')
+                self.sendHttpResp(ret)
+
+            boss.initAsyncJob(jid, task=task, onfini=jobfini)
 
         @tornado.web.asynchronous
         def post(self):
@@ -78,11 +82,14 @@ def httpd(jsinfo, jsfile=None):
             hdrs = self.request.headers
             body = self.request.body
 
-            job = boss.initAsyncJob()
-            job.setJobTask( api.runHttpPost, path, hdrs, body )
-            job.onerr( self.sendHttpErr )
-            job.ondone( self.sendHttpResp )
-            job.runInPool()
+            jid = s_async.jobid()
+            task = (api.runHttpPost, (path, hdrs, body), {})
+
+            def jobfini(job):
+                ret = job[1].get('ret')
+                self.sendHttpResp(ret)
+
+            boss.initAsyncJob(jid, task=task, onfini=jobfini)
 
         def sendHttpErr(self, exc):
             retinfo = {'err':exc.__class__.__name__, 'msg':str(exc)}
