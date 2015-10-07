@@ -55,7 +55,7 @@ class EventBus:
 
             d.on('woot',baz)
 
-            d.fire('foo',10,20)
+            d.fire('foo', x=10, y=20)
 
         Notes:
 
