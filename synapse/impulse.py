@@ -108,7 +108,18 @@ class ImpMixin:
         self._imp_q.put( (mesg,sock) )
 
 class Pulser(EventBus):
+    '''
+    A Pulser is an EventBus instance which also sends/recvs events
+    from a channel on an impulse server located at the specified URL.
 
+    Example:
+
+        impurl = 'tcp://1.2.3.4:1337/'
+        bus = Pulser(imprul, 'mychan')
+
+        bus.fire('woot',foo=10)
+
+    '''
     def __init__(self, link, chan):
         EventBus.__init__(self)
 
@@ -132,17 +143,24 @@ class Pulser(EventBus):
             return
 
         self._imp_sock = self._imp_relay.initClientSock()
+        if self._imp_sock == None:
+            return False
+
         self._imp_sock.setMesgMeth('imp:pulse', self._impPulseMesg )
 
         self._imp_sock.onfini( self._initImpSock )
         self._imp_sock.fireobj('imp:join', chan=self._imp_chan)
 
         joinack = self._imp_sock.recvobj()
+        if joinack == None:
+            return False
+
         if joinack[0] != 'imp:join:ack':
             # FIXME normalized synapse exception for proto stuff
             raise Exception('Invalid Protocol Response')
 
         self._imp_plex.addPlexSock(self._imp_sock)
+        return True
 
     def _impPulseMesg(self, sock, mesg):
         event = mesg[1].get('event')

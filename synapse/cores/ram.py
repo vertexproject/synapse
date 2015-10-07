@@ -36,6 +36,12 @@ class Cortex(common.Cortex):
         for row in self.rowsbyid.pop(ident,()):
             self._delRawRow(row)
 
+    def _delRowsByIdProp(self, ident, prop):
+        for row in self.rowsbyid.get(ident):
+            if row[1] != prop:
+                continue
+            self._delRawRow(row)
+
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         for row in self.getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime):
             self._delRawRow(row)

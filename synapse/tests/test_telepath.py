@@ -108,6 +108,7 @@ class TelePathTest(unittest.TestCase):
             self.assertEqual( foo.bar(10,20), 30 )
 
         self.assertEqual( data['sock'], 1 )
+        daemon.fini()
 
     def test_telepath_nosuchobj(self):
         daemon,link = self.getFooServ()
@@ -116,3 +117,22 @@ class TelePathTest(unittest.TestCase):
         newp = s_telepath.getProxy('tcp://localhost:%d/newp' % (port,))
         self.assertRaises( s_telepath.NoSuchObj, newp.foo )
 
+        daemon.fini()
+
+    def test_telepath_getitem(self):
+
+        class Bar:
+            def baz(self, x, y):
+                return x - y
+
+        daemon,link = self.getFooServ()
+        daemon.addSharedObject('bar',Bar())
+
+        foo = s_telepath.Proxy(link)
+        bar = foo['bar']
+
+        self.assertEqual( bar.baz(30,20), 10 )
+
+        foo.fini()
+        bar.fini()
+        daemon.fini()

@@ -1,6 +1,7 @@
 '''
 An RMI framework for synapse.
 '''
+import copy
 import threading
 import traceback
 
@@ -143,7 +144,7 @@ class ProxyMeth:
     def __call__(self, *args, **kwargs):
         task = (self.proxy.objname, self.name, args, kwargs)
 
-        client = self.proxy._get_client()
+        client = self.proxy._getLinkClient()
         reply = client.sendAndRecv('tele:call',teletask=task)
 
         if reply[0] == 'tele:call':
@@ -175,7 +176,7 @@ class Proxy:
 
         self.link = link
         self.relay = s_link.initLinkRelay(link)
-        self.client = self._init_client()
+        self.client = self._initLinkClient()
 
         self._tele_with = {}    # tid:client for with blocks
 
@@ -185,7 +186,7 @@ class Proxy:
     def fini(self):
         self.bus.fini()
 
-    def _init_client(self):
+    def _initLinkClient(self):
         client = self.relay.initLinkClient()
         authinfo = self.link[1].get('authinfo')
         client.sendAndRecv('tele:syn', authinfo=authinfo)
@@ -195,7 +196,7 @@ class Proxy:
     def __enter__(self):
         # FIXME PerThread
         thrid = threading.currentThread().ident
-        client = self._init_client()
+        client = self._initLinkClient()
         self._tele_with[thrid] = client
         return self
 
@@ -205,7 +206,7 @@ class Proxy:
         if client != None:
             client.fini()
 
-    def _get_client(self):
+    def _getLinkClient(self):
         # If the thread is managing a with block, give him his client
         thrid = threading.currentThread().ident
         client = self._tele_with.get(thrid)
@@ -218,6 +219,12 @@ class Proxy:
         meth = ProxyMeth(self, name)
         setattr(self,name,meth)
         return meth
+
+    def __getitem__(self, path):
+        # allows bar = foo['bar'] object switching
+        link = copy.deepcopy(self.link)
+        link[1]['path'] = '/%s' % path
+        return Proxy(link)
 
     # some methods to avoid round trips...
     def __nonzero__(self):

@@ -41,6 +41,10 @@ getsize_by_range = 'SELECT COUNT(*) FROM %s WHERE prop=? and intval >= ? AND int
 delrows_by_id = 'DELETE FROM %s WHERE id=?'
 delrows_by_prop = 'DELETE FROM %s WHERE prop=?'
 deljoin_by_prop = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? '
+delrows_by_id_prop = 'DELETE FROM %s WHERE id=? AND prop=?'
+
+uprows_by_id_prop_str = 'UPDATE %s SET strval=? WHERE id=? and prop=?'
+uprows_by_id_prop_int = 'UPDATE %s SET intval=? WHERE id=? and prop=?'
 
 class WithCursor:
 
@@ -162,6 +166,10 @@ class Cortex(common.Cortex):
         self._q_delrows_by_id = self._prepQuery(delrows_by_id, table)
         self._q_delrows_by_prop = self._prepQuery(delrows_by_prop, table)
         self._q_deljoin_by_prop = self._prepQuery(deljoin_by_prop, table)
+        self._q_delrows_by_id_prop = self._prepQuery(delrows_by_id_prop, table)
+
+        self._q_uprows_by_id_prop_str = self._prepQuery(uprows_by_id_prop_str, table)
+        self._q_uprows_by_id_prop_int = self._prepQuery(uprows_by_id_prop_int, table)
 
     def _checkForTable(self, name):
         return len(self.select(self._q_istable,(name,)))
@@ -201,6 +209,12 @@ class Cortex(common.Cortex):
 
         return q,r
 
+    def update(self, q, r, ret=False):
+        with self.cursor() as cur:
+            cur.execute(q,r)
+            if ret:
+                return cur.fetchall()
+
     def select(self, q, r):
         with self.cursor() as cur:
             cur.execute(q,r)
@@ -238,6 +252,15 @@ class Cortex(common.Cortex):
         q,r = self._addQueryParams(q,r,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
         rows = self.select(q,r)
         return self._foldTypeCols(rows)
+
+    def _delRowsByIdProp(self, ident, prop):
+        self.delete( self._q_delrows_by_id_prop, (ident,prop))
+
+    def _setRowsByIdProp(self, ident, prop, valu):
+        if type(valu) == int:
+            self.update( self._q_uprows_by_id_prop_int, (valu,ident,prop) )
+        else:
+            self.update( self._q_uprows_by_id_prop_str, (valu,ident,prop) )
 
     def _delRowsById(self, ident):
         self.delete(self._q_delrows_by_id,(ident,))

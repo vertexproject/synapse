@@ -1,6 +1,7 @@
 import time
 import threading
 import traceback
+import collections
 
 from synapse.compat import queue
 
@@ -24,7 +25,7 @@ class Cortex(EventBus):
         ropool=<num>    # how many async read threads?
 
     '''
-    def __init__(self, link):
+    def __init__(self, link, model=None):
         EventBus.__init__(self)
         self.link = link
 
@@ -32,6 +33,7 @@ class Cortex(EventBus):
 
         self.lock = threading.Lock()
 
+        self.model = model
         self.sizebymeths = {}
         self.rowsbymeths = {}
 
@@ -46,6 +48,17 @@ class Cortex(EventBus):
         self.isok = True
         self.onfini( self.boss.fini )
         self.onfini( self.bgboss.fini )
+
+    def setDataModel(self, model):
+        '''
+        Set a DataModel instance to enforce when using Tufo API.
+
+        Example:
+
+            core.setDataModel(model)
+
+        '''
+        self.model = model
 
     def isOk(self):
         '''
@@ -189,6 +202,28 @@ class Cortex(EventBus):
         '''
         self._delRowsById(ident)
 
+    def delRowsByIdProp(self, ident, prop):
+        '''
+        Delete rows with the givin combination of ident and prop[=valu].
+
+        Example:
+
+            core.delRowsByIdProp(id, 'foo')
+
+        '''
+        return self._delRowsByIdProp(ident, prop)
+
+    def setRowsByIdProp(self, ident, prop, valu):
+        '''
+        Update/insert the value of the row(s) with ident and prop to valu.
+
+        Example:
+
+            core.setRowsByIdProp(ident,'foo',10)
+
+        '''
+        self._setRowsByIdProp(ident, prop, valu)
+
     def getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         '''
         Return a tuple of (ident,prop,valu,time) rows by prop[=valu].
@@ -305,7 +340,7 @@ class Cortex(EventBus):
 
         Notes:
 
-            * This must be used only for rows added with addTufoByProp!
+            * This must be used only for rows added with formTufoByProp!
 
         '''
         rows = self.getJoinByProp(prop, valu=valu, limit=1)
@@ -318,7 +353,23 @@ class Cortex(EventBus):
 
         return tufo
 
-    def formTufoByProp(self, prop, valu):
+    def getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+        '''
+        Return a list of tufos by property.
+
+        Example:
+
+            for tufo in core.getTufosByProp('foo:bar', 10):
+                dostuff(tufo)
+
+        '''
+        rows = self.getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+
+        res = collections.defaultdict(dict)
+        [ res[i].__setitem__(p,v) for (i,p,v,t) in rows ]
+        return list(res.items())
+
+    def formTufoByProp(self, prop, valu, **props):
         '''
         Form an (ident,info) tuple by atomically deconflicting
         the existance of prop=valu and creating it if not present.
@@ -333,6 +384,10 @@ class Cortex(EventBus):
               tufo does not yet exist and is being construted.
 
         '''
+        if self.model != None:
+            valu = self.model.getPropNorm(prop,valu)
+
+        # FIXME lock per tufo prop to parallelize deconfliction
         with self.lock:
             tufo = self.getTufoByProp(prop,valu=valu)
             if tufo != None:
@@ -341,35 +396,69 @@ class Cortex(EventBus):
             ident = guidstr()
             stamp = int(time.time())
 
-            self.addRows( [(ident,prop,valu,stamp)] )
+            self.fire('tufo:form', prop=prop, valu=valu, props=props)
+            self.fire('tufo:form:%s' % prop, prop=prop, valu=valu, props=props)
 
-            tufo = (ident,{prop:valu})
+            props[prop] = valu
+            props['tufo:type'] = prop
+
+            # if we are using a data model, lets enforce it.
+            if self.model != None:
+                tdef = self.model.getTufoDef(prop)
+
+                for pname in tdef.get('props'):
+                    pvalu = props.get(pname)
+                    if pvalu == None:
+                        pvalu = self.model.getPropDefval(pname)
+                        if pvalu != None:
+                            props[pname] = pvalu
+
+            rows = [ (ident,p,v,stamp) for (p,v) in props.items() ]
+
+            # FIXME allow formation hooks to add rows or set props
+            self.addRows(rows)
+
+            tufo = (ident,{ p:v for (i,p,v,t) in rows })
             self.fire('cortex:tufo:add', tufo=tufo, prop=prop, valu=valu, stamp=stamp)
             self.fire('cortex:tufo:add:%s' % prop, tufo=tufo, prop=prop, valu=valu, stamp=stamp)
             return tufo
 
-    def addTufoProps(self, tufo, **props):
+    def setTufoProps(self, tufo, **props):
         '''
-        Add ( without checking for existance ) a set of tufo props.
+        Set ( with de-duplication ) the given tufo props.
 
         Example:
 
-            core.addTufoProps(tufo, woot='hehe', blah=10)
-
-        Notes:
-
-            * Mostly for use with cortex:tufo:add:<prop> callbacks.
+            tufo = core.setTufoProps(tufo, woot='hehe', blah=10)
 
         '''
-        ident = tufo[0]
-        stamp = int(time.time())
+        # normalize property values
+        if self.model != None:
+            props = { p:self.model.getPropNorm(p,v) for (p,v) in props.items() }
 
-        rows = []
-        for prop,valu in props.items():
-            tufo[1][prop] = valu
-            rows.append( (ident,prop,valu,stamp) )
+        tid = tufo[0]
+        props = { p:v for (p,v) in props.items() if tufo[1].get(p) != v }
 
-        self.addRows(rows)
+        for p,v in props.items():
+            self.setRowsByIdProp(tid,p,v)
+
+        tufo[1].update(props)
+        return tufo
+
+    def setTufoProp(self, tufo, prop, valu):
+        '''
+        Set a single tufo property.
+
+        Example:
+
+            core.setTufoProp(tufo, 'woot', 'hehe')
+
+        '''
+        if self.model != None:
+            valu = self.model.getPropNorm(prop,valu)
+
+        self.setRowsByIdProp( tufo[0], prop, valu)
+        tufo[1][prop] = valu
         return tufo
 
     def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
@@ -421,3 +510,9 @@ class Cortex(EventBus):
         if meth == None:
             raise NoSuchGetBy(name)
         return meth
+
+    def _setRowsByIdProp(self, ident, prop, valu):
+        # base case is delete and add
+        self._delRowsByIdProp(ident, prop)
+        rows = [ (ident, prop, valu, now()) ]
+        self.addRows(rows)

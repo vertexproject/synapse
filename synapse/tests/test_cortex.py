@@ -43,6 +43,7 @@ class CortexTest(unittest.TestCase):
         id1 = guidstr()
         id2 = guidstr()
         id3 = guidstr()
+        id4 = guidstr()
 
         rows = [
             (id1,'foo','bar',30),
@@ -56,6 +57,10 @@ class CortexTest(unittest.TestCase):
             (id3,'a','a',99),
             (id3,'b','b',99),
             (id3,'c',90,99),
+
+            (id4,'lolint',80,30),
+            (id4,'lolstr','hehe',30),
+
         ]
 
         core.addRows( rows )
@@ -95,6 +100,20 @@ class CortexTest(unittest.TestCase):
         self.assertEqual( len(core.getRowsByProp('baz',limit=1)), 1 )
         self.assertEqual( len(core.getJoinByProp('baz',limit=1)), 3 )
 
+        core.setRowsByIdProp(id4,'lolstr','haha')
+        self.assertEqual( len(core.getRowsByProp('lolstr','hehe')), 0 )
+        self.assertEqual( len(core.getRowsByProp('lolstr','haha')), 1 )
+
+        core.setRowsByIdProp(id4,'lolint', 99)
+        self.assertEqual( len(core.getRowsByProp('lolint', 80)), 0 )
+        self.assertEqual( len(core.getRowsByProp('lolint', 99)), 1 )
+
+        core.delRowsByIdProp(id4,'lolint')
+        core.delRowsByIdProp(id4,'lolstr')
+
+        self.assertEqual( len(core.getRowsByProp('lolint')), 0 )
+        self.assertEqual( len(core.getRowsByProp('lolstr')), 0 )
+
         core.delRowsById(id1)
 
         self.assertEqual( len(core.getRowsById(id1)), 0 )
@@ -107,17 +126,16 @@ class CortexTest(unittest.TestCase):
         core.delJoinByProp('c',valu=90)
         self.assertEqual( len(core.getRowsByProp('a',valu='a')), 0 )
 
-        def addtufo(event):
-            tufo = event[1].get('tufo')
-            core.addTufoProps(tufo, woot='woot')
+        def formtufo(event):
+            props = event[1].get('props')
+            props['woot'] = 'woot'
 
-        def addfqdn(event):
-            t = event[1].get('tufo')
-            fqdn = t[1].get('fqdn')
-            core.addTufoProps(t,tld=fqdn.split('.')[-1])
+        def formfqdn(event):
+            fqdn = event[1].get('valu')
+            event[1]['props']['tld'] = fqdn.split('.')[-1]
 
-        core.on('cortex:tufo:add', addtufo)
-        core.on('cortex:tufo:add:fqdn', addfqdn)
+        core.on('tufo:form', formtufo)
+        core.on('tufo:form:fqdn', formfqdn)
 
         tufo = core.formTufoByProp('fqdn','woot.com')
 
