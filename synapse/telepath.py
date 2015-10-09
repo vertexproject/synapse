@@ -170,6 +170,9 @@ class ProxyMeth:
         raise ProtoErr(reply)
             
 class Proxy:
+    '''
+    The telepath proxy provides "pythonic" access to remote objects.
+    '''
 
     def __init__(self, link):
         self.bus = EventBus()
