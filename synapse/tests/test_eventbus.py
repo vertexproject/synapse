@@ -1,4 +1,5 @@
 import unittest
+import threading
 
 import synapse.eventbus as s_eventbus
 
@@ -63,5 +64,4 @@ class EventBusTest(unittest.TestCase):
         bus.fini()
 
         self.assertEqual( data['count'], 1 )
-
 

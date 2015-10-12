@@ -5,6 +5,8 @@ import collections
 
 finlock = threading.RLock()
 
+from synapse.common import *
+
 class EventBus:
     '''
     A synapse EventBus provides an easy way manage callbacks.
@@ -19,6 +21,8 @@ class EventBus:
 
         self._syn_links = []
         self._syn_weak_links = weakref.WeakSet()
+
+        self._syn_queues = {}
 
         self._fini_meths = []
         self._fini_weaks = weakref.WeakSet()
@@ -167,3 +171,27 @@ class EventBus:
 
         '''
         return self.finievt.wait(timeout=timeout)
+
+    @firethread
+    def feed(self, func, *args, **kwargs):
+        '''
+        Feed the event bus by calling the given callback.
+
+        Example:
+
+            bus.feed( dist.poll, chan )
+
+        Notes:
+
+            If the callback returns None, the feeder thread will return.
+
+        '''
+        while not self.isfini:
+            events = func(*args,**kwargs)
+            if events == None:
+                return
+
+            [ self.dist(e) for e in events ]
+
+import synapse.threads as s_threads
+

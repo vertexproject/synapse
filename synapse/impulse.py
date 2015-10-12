@@ -1,6 +1,7 @@
 import collections
 
 import synapse.link as s_link
+import synapse.sched as s_sched
 import synapse.queue as s_queue
 import synapse.socket as s_socket
 import synapse.threads as s_threads
@@ -106,6 +107,71 @@ class ImpMixin:
 
     def _onMesgImpPulse(self, sock, mesg):
         self._imp_q.put( (mesg,sock) )
+
+class PulseRelay(EventBus):
+    '''
+    An PulseRelay supports channelized event distribution and async queues.
+
+    Specify abtime to modify the default "abandoned" time for queues.
+    '''
+    def __init__(self, abtime=8):
+        EventBus.__init__(self)
+        self.bychan = {}
+        self.abtime = abtime
+        self.sched = s_sched.getGlobSched()
+
+        self._reapDeadQueues()
+
+    def _reapDeadQueues(self):
+        if self.isfini:
+            return
+
+        try:
+            for q in list( self.bychan.values() ):
+                if q.abandoned( self.abtime ):
+                    q.fini()
+        finally:
+            self.sched.insec( 2, self._reapDeadQueues )
+
+    def _getChanQueue(self, chan):
+        q = self.bychan.get(chan)
+        if q == None:
+            q = s_queue.BulkQueue()
+            def qfini():
+                self.bychan.pop(chan,None)
+
+            q.onfini( qfini )
+            self.bychan[chan] = q
+        return q
+
+    def poll(self, chan, timeout=2):
+        '''
+        Retrieve the next list of events for the given channel.
+
+        Example:
+
+            for event in dist.poll(chan):
+                dostuff(event)
+
+        '''
+        q = self._getChanQueue(chan)
+        return q.get(timeout=timeout)
+
+    def relay(self, chan, evt, **evtinfo):
+        '''
+        Relay an event to the given channel.
+
+        Example:
+
+            dist.relay(chan, 'fooevent', bar=10 )
+
+        '''
+        q = self.bychan.get(chan)
+        if q == None:
+            q = s_queue.BulkQueue()
+            self.bychan[chan] = q
+        q.put( (evt,evtinfo) )
+
 
 class Pulser(EventBus):
     '''

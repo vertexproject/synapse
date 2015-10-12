@@ -7,11 +7,11 @@ import Crypto.PublicKey.RSA as RSA
 import Crypto.Signature.PKCS1_v1_5 as PKCS15
 
 import synapse.async as s_async
+import synapse.sched as s_sched
 import synapse.cortex as s_cortex
 import synapse.socket as s_socket
 import synapse.daemon as s_daemon
 import synapse.dyndeps as s_dyndeps
-import synapse.threads as s_threads
 import synapse.eventbus as s_eventbus
 
 from synapse.statemach import keepstate
@@ -34,7 +34,7 @@ class Daemon(s_daemon.Daemon):
 
     def __init__(self, statefd=None):
 
-        self.sched = s_threads.Sched()
+        self.sched = s_sched.Sched()
         self.neuboss = s_async.AsyncBoss()
 
         self.peerbus = s_eventbus.EventBus()

@@ -4,6 +4,7 @@ import threading
 import synapse.link as s_link
 import synapse.daemon as s_daemon
 import synapse.impulse as s_impulse
+import synapse.eventbus as s_eventbus
 
 class ImpulseTest(unittest.TestCase):
 
@@ -104,3 +105,24 @@ class ImpulseTest(unittest.TestCase):
 
         self.assertTrue( evt.is_set() )
         self.assertIsNotNone( d.get('hehe') )
+
+    def test_impulse_relay(self):
+
+        dist = s_impulse.PulseRelay()
+
+        bus0 = s_eventbus.EventBus()
+
+        bus0.feed( dist.poll, 'bus0' )
+
+        evt = threading.Event()
+        data = {}
+        def onfoo(event):
+            data['event'] = event
+            evt.set()
+
+        bus0.on('foo', onfoo)
+
+        dist.relay('bus0', 'foo', bar=10)
+
+        evt.wait(timeout=2)
+        self.assertEqual( data['event'][1].get('bar'), 10 )

@@ -17,8 +17,8 @@ insertion, and provide for atomic deconfliction if needed.
 
 import synapse.link as s_link
 import synapse.async as s_async
+import synapse.sched as s_sched
 import synapse.compat as s_compat
-import synapse.threads as s_threads
 import synapse.telepath as s_telepath
 
 import synapse.cores.ram
@@ -100,7 +100,7 @@ class MetaCortex(EventBus):
         self.tagsbyname = {}
         self.coresbyname = {}
 
-        self.sched = s_threads.Sched()
+        self.sched = s_sched.Sched()
         self.coresbytag = collections.defaultdict(list)
 
         self.onfini( self._onMetaFini )

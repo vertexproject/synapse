@@ -5,6 +5,7 @@ import collections
 
 from synapse.compat import queue
 
+import synapse.sched as s_sched
 import synapse.queue as s_queue
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
@@ -61,7 +62,7 @@ class AsyncBoss(s_eventbus.EventBus):
         self.size = size
         self.jobq = queue.Queue()
 
-        self.sched = s_threads.Sched()
+        self.sched = s_sched.Sched()
         self.threads = []
 
         self.joblock = threading.RLock()

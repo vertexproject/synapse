@@ -1,3 +1,4 @@
+from __future__ import absolute_import,unicode_literals
 '''
 A module to isolate python version compatibility filth.
 '''
