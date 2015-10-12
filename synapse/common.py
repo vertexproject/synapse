@@ -1,6 +1,8 @@
 import os
 import time
 import msgpack
+import functools
+import threading
 
 from binascii import hexlify
 
@@ -40,4 +42,20 @@ def verstr(vtup):
     Convert a version tuple to a string.
     '''
     return '.'.join([ str(v) for v in vtup ])
+
+def firethread(f):
+    '''
+    A decorator for making a function fire a thread.
+    '''
+    @functools.wraps(f)
+    def callmeth(*args,**kwargs):
+        thr = worker(f,*args,**kwargs)
+        return thr
+    return callmeth
+
+def worker(meth, *args, **kwargs):
+    thr = threading.Thread(target=meth,args=args,kwargs=kwargs)
+    thr.setDaemon(True)
+    thr.start()
+    return thr
 
