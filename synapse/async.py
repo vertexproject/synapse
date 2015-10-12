@@ -296,18 +296,30 @@ class AsyncBoss(s_eventbus.EventBus):
         '''
         task = self.jobtask.get(job[0])
         if task == None:
+
             dyntask = job[1].get('dyntask')
-            if dyntask == None:
-                self.setJobErr(job[0],'NoJobTask')
-                return 
+            if dyntask != None:
+                methname, args, kwargs = dyntask
+                meth = s_dyndeps.getDynLocal(methname)
+                if meth == None:
+                    self.setJobErr(job[0],'NoSuchMeth')
+                    return
 
-            methname, args, kwargs = dyntask
-            meth = s_dyndeps.getDynLocal(methname)
-            if meth == None:
-                self.setJobErr(job[0],'NoSuchMeth')
-                return
+                task = (meth,args,kwargs)
 
-            task = (meth,args,kwargs)
+            selftask = job[1].get('selftask')
+            if selftask != None:
+                methname, args, kwargs = selftask
+                meth = getattr(self, methname, None)
+                if meth == None:
+                    self.setJobErr(job[0],'NoSuchMeth')
+                    return
+
+                task = (meth,args,kwargs)
+
+        if task == None:
+            self.setJobErr(job[0],'NoJobTask')
+            return
 
         try:
 
