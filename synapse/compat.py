@@ -65,7 +65,12 @@ if version < (3,0,0):
                 if mask & FakeSelMod.EVENT_WRITE:
                     wlist.append(sock)
 
-            rlist,wlist,xlist = select.select(rlist,wlist,xlist,timeout)
+            try:
+
+                rlist,wlist,xlist = select.select(rlist,wlist,xlist,timeout)
+            except select.error as e:
+                # mask "bad file descriptor" race and go around again...
+                return []
 
             ret = collections.defaultdict(int)
             for sock in rlist:
