@@ -192,6 +192,3 @@ class EventBus:
                 return
 
             [ self.dist(e) for e in events ]
-
-import synapse.threads as s_threads
-
