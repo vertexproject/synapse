@@ -96,7 +96,6 @@ class MetaCortex(EventBus):
 
         self.coreok = {}
         self.cordefs = {}
-        self.urlbyname = {}
         self.tagsbyname = {}
         self.coresbyname = {}
 
@@ -145,29 +144,30 @@ class MetaCortex(EventBus):
         try:
 
             core = openurl(url)
-
-            self.coreok[name] = True
-            self.coresbyname[name] = core
-
-            alltags = set()
-
-            [ alltags.add(t) for t in choptag(name) ]
-
-            for tag in tags:
-                [ alltags.add(t) for t in choptag(tag) ]
-
-            self.urlbyname[name] = url
-            self.tagsbyname[name] = alltags
-
-            for tag in alltags:
-                self.coresbytag[tag].append((name,core))
-
-            self._tryCoreOk(name)
-            return core
+            self.addLocalCore(name, core, tags=tags)
 
         except Exception as e:
             self.fire('meta:cortex:exc', name=name, exc=e)
             self.sched.insec(2, self._tryAddCorUrl, name, url, tags=tags)
+
+    def addLocalCore(self, name, core, tags=()):
+        self.coreok[name] = True
+        self.coresbyname[name] = core
+
+        alltags = set()
+
+        [ alltags.add(t) for t in choptag(name) ]
+
+        for tag in tags:
+            [ alltags.add(t) for t in choptag(tag) ]
+
+        self.tagsbyname[name] = alltags
+
+        for tag in alltags:
+            self.coresbytag[tag].append((name,core))
+
+        self._tryCoreOk(name)
+        return core
 
     def addCortex(self, name, url, tags=()):
         '''
@@ -204,7 +204,6 @@ class MetaCortex(EventBus):
         if core == None:
             raise NoSuchName(name)
 
-        url = self.urlbyname.pop(name,None)
         tags = self.tagsbyname.pop(name,())
         for tag in tags:
             self.coresbytag[tag].remove( (name,core) )
