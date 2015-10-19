@@ -16,7 +16,7 @@ class EventBus:
         self.finlock = finlock
         self.finievt = threading.Event()
 
-        self._syn_meths = collections.defaultdict(list)
+        self._syn_funcs = collections.defaultdict(list)
         self._syn_weaks = collections.defaultdict(weakref.WeakSet)
 
         self._syn_links = []
@@ -24,12 +24,12 @@ class EventBus:
 
         self._syn_queues = {}
 
-        self._fini_meths = []
+        self._fini_funcs = []
         self._fini_weaks = weakref.WeakSet()
 
-    def link(self, meth, weak=False):
+    def link(self, func, weak=False):
         '''
-        Add a callback method to receive *all* events.
+        Add a callback function to receive *all* events.
 
         Example:
 
@@ -41,14 +41,17 @@ class EventBus:
             # all events on bus1 are also propigated on bus2
 
         '''
+        if not callable(func):
+            raise Exception('link() func not callable: %r' % (func,))
+
         if weak:
-            return self._syn_weak_links.add(meth)
+            return self._syn_weak_links.add(func)
 
-        self._syn_links.append(meth)
+        self._syn_links.append(func)
 
-    def on(self, name, meth, weak=False):
+    def on(self, name, func, weak=False):
         '''
-        Add a callback method to the SynCallBacker.
+        Add a callback func to the SynCallBacker.
 
         Example:
 
@@ -63,19 +66,22 @@ class EventBus:
 
         Notes:
 
-            * Use weak=True to hold a weak reference to the method.
+            * Use weak=True to hold a weak reference to the func.
 
         '''
+        if not callable(func):
+            raise Exception('on() func not callable: %r' % (func,))
+
         if weak:
-            self._syn_weaks[name].add(meth)
+            self._syn_weaks[name].add(func)
             return
 
-        self._syn_meths[name].append(meth)
+        self._syn_funcs[name].append(func)
 
     def fire(self, evtname, **info):
         '''
-        Fire each of the methods registered for an FIXME.
-        Returns a list of the return values of each method.
+        Fire the given event name on the EventBus.
+        Returns a list of the return values of each callback.
 
         Example:
 
@@ -93,31 +99,31 @@ class EventBus:
         '''
         ret = []
         name = event[0]
-        meths = self._syn_meths.get(name)
-        if meths != None:
-            for meth in meths:
+        funcs = self._syn_funcs.get(name)
+        if funcs != None:
+            for func in funcs:
                 try:
-                    ret.append( meth( event ) )
+                    ret.append( func( event ) )
                 except Exception as e:
                     traceback.print_exc()
 
         weaks = self._syn_weaks.get(name)
         if weaks != None:
-            for meth in weaks:
+            for func in weaks:
                 try:
-                    ret.append( meth( event ) )
+                    ret.append( func( event ) )
                 except Exception as e:
                     traceback.print_exc()
 
-        for meth in self._syn_links:
+        for func in self._syn_links:
             try:
-                ret.append( meth(event) )
+                ret.append( func(event) )
             except Exception as e:
                 traceback.print_exc()
 
-        for meth in self._syn_weak_links:
+        for func in self._syn_weak_links:
             try:
-                ret.append( meth(event) )
+                ret.append( func(event) )
             except Exception as e:
                 traceback.print_exc()
 
@@ -139,27 +145,27 @@ class EventBus:
 
             self.isfini = True
 
-        for meth in self._fini_meths:
+        for func in self._fini_funcs:
             try:
-                meth()
+                func()
             except Exception as e:
                 traceback.print_exc()
 
-        for meth in self._fini_weaks:
+        for func in self._fini_weaks:
             try:
-                meth()
+                func()
             except Exception as e:
                 traceback.print_exc()
 
         self.finievt.set()
 
-    def onfini(self, meth, weak=False):
+    def onfini(self, func, weak=False):
         '''
         Register a handler to fire when this EventBus shuts down.
         '''
         if weak:
-            return self._fini_weaks.add(meth)
-        self._fini_meths.append(meth)
+            return self._fini_weaks.add(func)
+        self._fini_funcs.append(func)
 
     def wait(self, timeout=None):
         '''
@@ -186,6 +192,9 @@ class EventBus:
             If the callback returns None, the feeder thread will return.
 
         '''
+        if not callable(func):
+            raise Exception('feed() func not callable: %r' % (func,))
+
         while not self.isfini:
             events = func(*args,**kwargs)
             if events == None:
