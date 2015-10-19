@@ -177,7 +177,13 @@ class EventBus:
 
         '''
         return self.finievt.wait(timeout=timeout)
-
+        
+    def distall(self, events):
+        '''
+        Distribute multiple events on the event bus.
+        '''
+        [self.dist(evt) for evt in events]
+    
     @firethread
     def feed(self, func, *args, **kwargs):
         '''
