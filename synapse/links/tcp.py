@@ -1,5 +1,6 @@
 import time
 import socket
+import threading
 
 import synapse.socket as s_socket
 
@@ -107,8 +108,10 @@ class TcpServer(LinkServer):
             raise Exception('TcpServer: bind failed: %r' % (self.relay.link,))
 
     def _runLinkServer(self):
+
         while not self.isfini:
             sock,addr = self.lisn.accept()
+
             if sock == None:
                 break
 
@@ -118,6 +121,8 @@ class TcpServer(LinkServer):
 
             self.boss.worker( self._runSockLoop, sock )
 
+        self.lisn.fini()
+
     def _wakeTheSleeper(self):
         sock = self.relay.initClientSock()
         if sock != None:
@@ -125,6 +130,6 @@ class TcpServer(LinkServer):
 
     def _finiTcpServer(self):
         self._wakeTheSleeper()
-        self.lisn.close()
+        self.lisn.wait()
         self.boss.fini()
 
