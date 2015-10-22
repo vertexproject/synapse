@@ -118,6 +118,8 @@ class PulseRelay(EventBus):
         EventBus.__init__(self)
         self.bychan = {}
         self.abtime = abtime
+        self.byname = collections.defaultdict(set)
+
         self.sched = s_sched.getGlobSched()
 
         self._reapDeadQueues()
@@ -139,9 +141,11 @@ class PulseRelay(EventBus):
             q = s_queue.BulkQueue()
             def qfini():
                 self.bychan.pop(chan,None)
+                self.fire('imp:relay:chan:fini', chan=chan)
 
             q.onfini( qfini )
             self.bychan[chan] = q
+            self.fire('imp:relay:chan:init', chan=chan)
         return q
 
     def poll(self, chan, timeout=2):
@@ -167,10 +171,60 @@ class PulseRelay(EventBus):
 
         '''
         q = self.bychan.get(chan)
-        if q == None:
-            q = s_queue.BulkQueue()
-            self.bychan[chan] = q
-        q.put( (evt,evtinfo) )
+        if q != None:
+            q.put( (evt,evtinfo) )
+            return True
+        return False
+
+    def join(self, chan, *names):
+        '''
+        Join the given channel to a list of named multicast groups.
+
+        Example:
+
+            # join the "foo" and the "bar" multicast groups
+            pr.join(chanid, 'foo', 'bar')
+
+        Notes:
+
+            * Use mcast() to fire an event to a named dist list.
+
+        '''
+        # possibly initialize the chan
+        q = self._getChanQueue(chan)
+
+        def onfini():
+            for name in names:
+                self.byname[name].discard(q)
+
+        for name in names:
+            self.byname[name].add(q)
+
+        q.onfini(onfini)
+
+    def mcast(self, name, evt, **evtinfo):
+        '''
+        Fire an event to a named multicast group.
+
+        Example:
+
+            pr.mcast('woot', 'foo', bar=10)
+
+        Notes:
+
+            * Event is sent to any chan which join()'d the group
+        '''
+        event = (evt,evtinfo)
+        for q in self.byname.get(name,()):
+            q.put(event)
+
+    def shut(self, chan):
+        '''
+        Inform the PulseRelay that a channel will no longer be polled.
+        '''
+        q = self.bychan.get(chan)
+        if q != None:
+            q.fini()
 
 class Pulser(EventBus):
     '''
