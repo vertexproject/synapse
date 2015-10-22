@@ -172,7 +172,6 @@ class PulseRelay(EventBus):
             self.bychan[chan] = q
         q.put( (evt,evtinfo) )
 
-
 class Pulser(EventBus):
     '''
     A Pulser is an EventBus instance which also sends/recvs events
