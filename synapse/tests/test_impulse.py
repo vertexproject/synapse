@@ -132,7 +132,7 @@ class ImpulseTest(unittest.TestCase):
         bus0.fini()
         dist.fini()
 
-    def test_impulse_relay(self):
+    def test_impulse_mcast(self):
 
         chan = guidstr()
 
@@ -158,3 +158,27 @@ class ImpulseTest(unittest.TestCase):
         bus0.fini()
         dist.fini()
 
+    def test_impulse_bcast(self):
+
+        chan = guidstr()
+
+        dist = s_impulse.PulseRelay()
+        dist.join(chan,'woot')
+
+        bus0 = s_eventbus.EventBus()
+        bus0.feed( dist.poll, chan )
+
+        evt = threading.Event()
+        data = {}
+        def onfoo(event):
+            data['event'] = event
+            evt.set()
+
+        bus0.on('foo', onfoo)
+        dist.bcast('foo',bar=10)
+
+        evt.wait(timeout=3)
+        self.assertEqual( data['event'][1].get('bar'), 10 )
+
+        bus0.fini()
+        dist.fini()

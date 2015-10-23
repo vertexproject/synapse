@@ -215,8 +215,19 @@ class PulseRelay(EventBus):
             * Event is sent to any chan which join()'d the group
         '''
         event = (evt,evtinfo)
-        for q in self.byname.get(name,()):
-            q.put(event)
+        [ q.put(event) for q in self.byname.get(name,()) ]
+
+    def bcast(self, evt, **evtinfo):
+        '''
+        Fire an event to *all* chanenels.
+
+        Example:
+
+            pr.bcast('foo',bar=10)
+
+        '''
+        event = (evt,evtinfo)
+        [ q.put(event) for q in self.bychan.values() ]
 
     def shut(self, chan):
         '''
