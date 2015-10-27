@@ -9,8 +9,8 @@ import synapse.sched as s_sched
 import synapse.queue as s_queue
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
+import synapse.impulse as s_impulse
 import synapse.threads as s_threads
-import synapse.eventbus as s_eventbus
 
 class AsyncError(Exception):pass
 class NoSuchJob(AsyncError):pass
@@ -45,7 +45,7 @@ def jobret(job):
 def newtask(meth,*args,**kwargs):
     return (meth,args,kwargs)
 
-class AsyncBoss(s_eventbus.EventBus):
+class AsyncBoss(s_impulse.PulseRelay):
     '''
     An AsyncBoss manages AsyncJobs.
 
@@ -56,7 +56,7 @@ class AsyncBoss(s_eventbus.EventBus):
 
     '''
     def __init__(self, size=None):
-        s_eventbus.EventBus.__init__(self)
+        s_impulse.PulseRelay.__init__(self)
 
         self.onfini(self._finiAllJobs)
         self.onfini(self._finiAllThreads)
