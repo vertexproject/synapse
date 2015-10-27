@@ -18,10 +18,11 @@ class JobTimedOut(AsyncError):pass
 class BossShutDown(AsyncError):pass
 
 class JobErr(Exception):
-    def __init__(self, err, trace=''):
+    def __init__(self, err, errmsg='', trace=''):
         self._job_err = err
         self._job_trace = trace
-        Exception.__init__(self, '%s\n(%s)' % (trace,err))
+        self._job_errmsg = errmsg
+        Exception.__init__(self, '%s\n(%s: %s)' % (trace,err,errmsg))
 
 def jobid():
     return s_common.guidstr()
@@ -37,7 +38,8 @@ def jobret(job):
     '''
     err = job[1].get('err')
     if err != None:
-        raise JobErr(err)
+        errmsg = job[1].get('errmsg')
+        raise JobErr(err,errmsg=errmsg)
     return job[1].get('ret')
 
 def newtask(meth,*args,**kwargs):
@@ -328,8 +330,8 @@ class AsyncBoss(s_eventbus.EventBus):
 
         except Exception as e:
             err = e.__class__.__name__
-            trace = traceback.format_exc()
-            self.setJobErr(job[0], err, trace=trace)
+            props = {'trace':traceback.format_exc(), 'errmsg':str(e)}
+            self.setJobErr(job[0], err, **props)
 
     def _runJobTask(self, job, task):
         meth,args,kwargs = task
