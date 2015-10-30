@@ -1,3 +1,4 @@
+import io
 import time
 import unittest
 
@@ -9,7 +10,7 @@ class QueueTest(unittest.TestCase):
     def test_queue_bulk(self):
 
         q = s_queue.BulkQueue()
-        q.append( 1 )
+        q.put( 1 )
         q.extend( (2,3) )
 
         res = tuple(q.get(timeout=3))
@@ -25,3 +26,19 @@ class QueueTest(unittest.TestCase):
         self.assertTrue( q.abandoned(0.01) )
 
         q.fini()
+
+    def test_queue_hybernate(self):
+        f = io.BytesIO()
+        q = s_queue.BulkQueue()
+
+        q.extend([ 'foo', 'bar' ])
+        q.hyber(f)
+
+        q.put('baz')
+        q.extend(['faz'])
+
+        rows = tuple(q.get())
+        self.assertEqual( rows, ('foo','bar','baz','faz') )
+
+        q.put('baz')
+        self.assertEqual( len(q.get()), 1 )
