@@ -197,7 +197,6 @@ class Proxy:
         return client
 
     def __enter__(self):
-        # FIXME PerThread
         thrid = threading.currentThread().ident
         client = self._initLinkClient()
         self._tele_with[thrid] = client
