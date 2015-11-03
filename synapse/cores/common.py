@@ -330,6 +330,21 @@ class Cortex(EventBus):
         '''
         self.sizebymeths[name] = meth
 
+    def getTufoById(self, iden):
+        '''
+        Retrieve a tufo by id.
+
+        Example:
+
+            tufo = core.getTufoById(iden)
+
+        '''
+        rows = self.getRowsById(iden)
+        if not rows:
+            return None
+
+        return (iden,{ p:v for (i,p,v,t) in rows })
+
     def getTufoByProp(self, prop, valu=None):
         '''
         Return an (ident,info) tuple by joining rows based on a property.
