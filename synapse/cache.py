@@ -31,6 +31,7 @@ class Cache(EventBus):
         EventBus.__init__(self)
 
         self.sched = s_sched.getGlobSched()
+        self.onmiss = None
 
         self.cache = {}
         self.lasthit = {}
@@ -43,6 +44,20 @@ class Cache(EventBus):
 
         if self.maxtime != None:
             self._checkCacheTimes()
+
+    def setOnMiss(self, onmiss):
+        '''
+        Set a callback function to use on cache miss.
+
+        Example:
+
+            def onmiss(key):
+                return stuff.get(key)
+
+            cache.setOnMiss( onmiss )
+
+        '''
+        self.onmiss = onmiss
 
     def _checkCacheTimes(self):
         mintime = time.time() - self.maxtime
@@ -70,27 +85,24 @@ class Cache(EventBus):
 
             val = cache.get(key)
 
-        Notes:
-
-            * Generates cache:miss event to facilitate filling.
-
         '''
         val = self.cache.get(key,miss)
         if val is not miss:
             self.lasthit[key] = time.time()
             return val
 
-        # now we grab the lock and check
+        if self.onmiss == None:
+            return None
+
         with self.cachelock:
             val = self.cache.get(key,miss)
             if val is miss:
-                self.fire('cache:miss', key=key)
-                val = self.cache.get(key)
-                self.cache[key] = val
-                self.lasthit[key] = time.time()
+                val = self.onmiss(key)
 
+            self.cache[key] = val
+            self.lasthit[key] = time.time()
             return val
-        
+
     def put(self, key, val):
         '''
         Put a key:val into the cache.
@@ -102,6 +114,7 @@ class Cache(EventBus):
         '''
         self.cache[key] = val
         self.lasthit[key] = time.time()
+        self.fire('cache:put', key=key, val=val)
 
     def pop(self, key):
         '''
@@ -117,6 +130,7 @@ class Cache(EventBus):
         self.lasthit.pop(key,None)
 
         self.fire('cache:flush', key=key, val=val)
+        self.fire('cache:pop', key=key, val=val)
         return val
 
     def flush(self, key):
@@ -147,9 +161,40 @@ class Cache(EventBus):
         '''
         return list(self.cache.keys())
 
+    def __len__(self):
+        return len(self.cache)
+
     def _onCacheFini(self):
         for key in self.keys():
             self.pop(key)
 
         if self.schevt != None:
             self.sched.cancel(self.schevt)
+
+class TufoCache(Cache):
+
+    def __init__(self, core, maxtime=None):
+        Cache.__init__(self, maxtime=maxtime)
+
+        self.core = core
+        self.setOnMiss( core.getTufoById )
+
+    def _onTufoFlush(self, event):
+        iden = event[1].get('key')
+        tufo0 = event[1].get('val')
+
+        tufo1 = self.core.getTufoById(iden)
+        if tufo1 == None:
+            return
+
+        self.core.setTufoProps(tufo1, **tufo0[1])
+
+class TufoPropCache(TufoCache):
+
+    def __init__(self, core, prop, maxtime=None):
+        TufoCache.__init__(self, core, maxtime=maxtime)
+        self.prop = prop
+        self.setOnMiss( self.getTufoByValu )
+
+    def getTufoByValu(self, valu):
+        return self.core.getTufoByProp(self.prop,valu)

@@ -2,6 +2,9 @@ import unittest
 import threading
 
 import synapse.cache as s_cache
+import synapse.cortex as s_cortex
+
+from synapse.common import *
 
 class CacheTest(unittest.TestCase):
 
@@ -22,9 +25,31 @@ class CacheTest(unittest.TestCase):
 
     def test_cache_miss(self):
         c = s_cache.Cache()
-        def onmiss(event):
-            key = event[1].get('key')
-            c.put(key,10)
+        def onmiss(key):
+            return 10
 
-        c.on('cache:miss', onmiss)
+        c.setOnMiss( onmiss )
         self.assertEqual( c.get('woot'), 10 )
+
+    def test_cache_tufo(self):
+        core = s_cortex.openurl('ram:///')
+        cache = s_cache.TufoCache(core)
+
+        tufo = core.formTufoByProp('woot','haha', lolol=10)
+
+        newfo = cache.get(tufo[0])
+
+        self.assertIsNotNone(newfo)
+        self.assertEqual(newfo[1].get('lolol'), 10)
+
+    def test_cache_tufo_prop(self):
+        core = s_cortex.openurl('ram:///')
+        cache = s_cache.TufoPropCache(core,'woot')
+
+        tufo = core.formTufoByProp('woot','haha', lolol=10)
+
+        newfo = cache.get('haha')
+
+        self.assertIsNotNone(newfo)
+        self.assertEqual(newfo[1].get('lolol'), 10)
+
