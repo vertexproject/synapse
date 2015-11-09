@@ -11,6 +11,7 @@ major = sys.version_info.major
 minor = sys.version_info.minor
 micro = sys.version_info.micro
 
+majmin = (major,minor)
 version = (major,minor,micro)
 
 if version < (3,0,0):
