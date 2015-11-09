@@ -8,6 +8,10 @@ import synapse.mindmeld as s_mindmeld
 
 syndir = os.path.dirname( synapse.__file__ )
 
+class Foo:
+    def bar(self, x, y):
+        return x + y
+
 class MindMeldTests(unittest.TestCase):
 
     def test_mindmeld_loader(self):
@@ -24,8 +28,8 @@ class MindMeldTests(unittest.TestCase):
         meld = s_mindmeld.MindMeld()
         meld.addPyPath(syndir)
 
-        modinfo = meld.getMeldMod('synapse.tests.test_mindmeld')
-        self.assertIsNotNone( modinfo )
+        moddef = meld.getMeldMod('synapse.tests.test_mindmeld')
+        self.assertIsNotNone( moddef )
 
     def test_mindmeld_nosuch(self):
         meld = s_mindmeld.MindMeld()
@@ -44,3 +48,11 @@ class MindMeldTests(unittest.TestCase):
         meld = s_mindmeld.MindMeld()
         badsrc = 'some --<<== shit'
         self.assertRaises( s_mindmeld.BadPySource, meld.addPySource, 'woot', badsrc)
+
+    def test_mindmeld_call(self):
+        foo = Foo()
+        meld = s_mindmeld.getCallMeld( foo.bar )
+        self.assertIsNone( meld.getMeldMod('newp') )
+        self.assertIsNone( meld.getMeldMod('binascii') )
+        self.assertIsNotNone( meld.getMeldMod('synapse') )
+        self.assertIsNotNone( meld.getMeldMod('synapse.mindmeld') )

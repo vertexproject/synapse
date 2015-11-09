@@ -6,14 +6,15 @@ import marshal
 import traceback
 import collections
 
+import synapse.lib.moddef as s_moddef
+
 from synapse.common import *
+from synapse.compat import majmin
 
 '''
 The synapse mindmeld subsystem provides a mechanism for the
 serialization and synchronization of code between processes.
 '''
-class NoSuchPath(Exception):pass
-class BadPySource(Exception):pass
 
 class MindMeld:
     '''
@@ -63,6 +64,82 @@ class MindMeld:
         byts = self.info['datfiles'].get(datpath)
         if byts != None:
             return io.BytesIO(byts)
+
+    def addModDef(self, moddef, dat=False, src=True):
+        '''
+        Add a moddef tufo to the meld.
+
+        Example:
+
+            moddef = synapse.lib.moddef.getModDef('foo')
+            meld.addModDef(moddef)
+
+        Notes:
+
+            * This will add pkg submodules automatically
+
+        '''
+        name = moddef[0]
+        mods = self.info.get('modules')
+        if mods.get(name):
+            return
+
+        self._addModDef(moddef, dat=dat, src=src)
+        if moddef[1].get('pkg'):
+            path = moddef[1].get('path')
+            submods = s_moddef.getModsByPath(path,modpath=[name])
+            for subname,subdef in submods.items():
+                self._addModDef(subdef, dat=dat, src=src)
+
+    def _addModDef(self, moddef, dat=False, src=True):
+        mods = self.info.get('modules')
+
+        if src and moddef[1].get('src') == None:
+            moddef[1]['src'] = s_moddef.getModDefSrc(moddef)
+
+        # if asked, gather up dat file bytes
+        if dat:
+            dats = moddef[1].get('dats')
+            for name,path in dats.items():
+                # FIXME: path sep
+                datpath = os.path.join( moddef[0], name )
+                datbyts = open(path,'rb').read()
+                self.info['datfiles'][datpath] = datbyts
+
+        mods[ moddef[0] ] = moddef
+
+        if not dat:
+            return
+
+    def addPyMod(self, name, dat=False):
+        '''
+        Add a python module/package to the meld.
+
+        Example:
+
+            meld.addPyMod('vivisect')
+
+        '''
+        moddef = s_moddef.getModDef(name)
+        if moddef == None:
+            raise NoSuchMod(name)
+
+        self.addModDef(moddef)
+
+    def addPyCall(self, func):
+        '''
+        A utility function which adds all non-stdlib dependances
+        which are needed to run the given function/method.
+
+        Example:
+
+            meld.addPyCall( getFooByBar )
+
+        '''
+        moddef = s_moddef.getCallModDef(func)
+        deps = s_moddef.getSiteDeps(moddef)
+        for moddef in deps.values():
+            self._addModDef(moddef)
 
     def addPyPath(self, path, name=None, datfiles=False):
         '''
@@ -161,10 +238,20 @@ class MindMeld:
     def addMeldMod(self, name, byts, **modinfo):
         '''
         Add a MindMeld module by name and bytes.
+
+            byts = marshal.dumps( compile( sorc ) )
+
+        Note:
+
+            This API is mostly for use by routines like
+            addPySource.
+
         '''
-        modinfo['name'] = name
+        modinfo['fmt'] = 'pyc'
         modinfo['bytes'] = byts
-        self.info['modules'][name] = modinfo
+        modinfo['pyver'] = majmin
+
+        self.info['modules'][name] = tufo(name, **modinfo)
 
     def getMeldMod(self, name):
         '''
@@ -172,7 +259,7 @@ class MindMeld:
 
         Example:
 
-            modinfo = meld.getMeldMod('foo.bar')
+            moddef = meld.getMeldMod('foo.bar')
 
         '''
         return self.info['modules'].get(name)
@@ -219,22 +306,35 @@ class MindMeld:
 
         try:
 
-            modinfo = self.info['modules'].get(fullname)
-            if modinfo == None:
+            moddef = self.info['modules'].get(fullname)
+            if moddef == None:
                 raise ImportError(fullname)
 
-            byts = modinfo.get('bytes')
-            if byts == None:
+            modcode = None
+
+            # try bytecode first ( save on compile cycles )
+            byts = moddef[1].get('bytes')
+            if byts and moddef[1].get('pyver') == majmin:
+                modcode = marshal.loads(byts)
+
+            modsrc = moddef[1].get('src')
+            # fall back on src if present
+            if modcode == None and modsrc:
+                modcode = compile(modsrc)
+
+            # still None? bail...
+            if modcode == None:
                 raise ImportError(fullname)
 
             mod = imp.new_module(fullname)
             sys.modules[fullname] = mod
 
-            code = marshal.loads(byts)
-            exec(code,mod.__dict__)
+            exec(modcode,mod.__dict__)
 
             # populate loader provided module locals
             mod.__path__ = fullname
+            mod.__file__ = moddef[1].get('path')
+
             mod.__loader__ = self
             return mod
 
@@ -279,3 +379,11 @@ def addMindMeld(meld):
 
     '''
     sys.meta_path.append(meld)
+
+def getCallMeld(func,**info):
+    '''
+    Return a "site meld" for the given callable function.
+    '''
+    meld = MindMeld(**info)
+    meld.addPyCall(func)
+    return meld
