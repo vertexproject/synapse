@@ -6,6 +6,7 @@ import threading
 
 from binascii import hexlify
 
+from synapse.exc import *
 from synapse.compat import enbase64, debase64
 
 def now():
@@ -42,6 +43,16 @@ def verstr(vtup):
     Convert a version tuple to a string.
     '''
     return '.'.join([ str(v) for v in vtup ])
+
+def excinfo(e):
+    '''
+    Populate err,errmsg,errtrace info from exc.
+    '''
+    return {
+        'err':e.__class__.__name__,
+        'errmsg':str(e),
+        'errtrace':traceback.format_exc(),
+    }
 
 def firethread(f):
     '''
