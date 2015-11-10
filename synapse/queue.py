@@ -110,12 +110,13 @@ class BulkQueue(EventBus):
         return len(self.items)
 
     def __iter__(self):
-        try:
-            while True:
-                for i in self.get(timeout=1):
-                    yield i
-        except QueueShutdown as e:
-            pass
+        while True:
+            items = self.get(timeout=1)
+            if items == None:
+                return
+
+            for i in items:
+                yield i
 
     def put(self, item):
         '''
@@ -142,7 +143,12 @@ class BulkQueue(EventBus):
 
         Example:
 
-            for item in q.get():
+            items = q.get()
+            if items == None:
+                # the queue is shutdown
+                return
+
+            for item in items:
                 dostuff(item)
 
         '''
@@ -167,19 +173,19 @@ class BulkQueue(EventBus):
                 return self._get_items()
 
             if self.isfini:
-                raise QueueShutdown()
+                return None
 
             # Clear the event so we can wait...
             self.event.clear()
 
         self.event.wait(timeout=timeout)
         if self.isfini:
-            raise QueueShutdown()
+            return None
 
         with self.lock:
             self.last = time.time()
             if not self.items and self.isfini:
-                raise QueueShutdown()
+                return None
             return self._get_items()
 
     def peek(self):
