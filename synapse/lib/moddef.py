@@ -7,6 +7,7 @@ import synapse.aspects as s_aspects
 import synapse.dyndeps as s_dyndeps
 
 from synapse.common import *
+from synapse.compat import iterbytes
 from os.path import isdir, isfile, abspath
 
 '''
@@ -98,6 +99,9 @@ def getModDef(name):
         return None
 
     modpath = abspath(mod.__file__)
+    if modpath.endswith('.pyc'):
+        modpath = modpath[:-1]
+
     modbase = os.path.basename(modpath)
     modinfo = _getModInfo(modbase)
 
@@ -107,12 +111,6 @@ def getModDef(name):
     # hrm...  what now smart guy?!?!
     if name in sys.builtin_module_names:
         return tufo(name, fmt='bin')
-
-    #relpath = os.path.sep.join(name.split('.'))
-    #for path in sys.path:
-        #for sfx,info in modtypes:
-            #fullpath = os.path.join(path,'%s%s' % (relpath,sfx))
-            #if isfile(fullpath):
 
 def getModDefSrc(moddef):
     '''
@@ -231,7 +229,8 @@ def getModDefImps(moddef):
     modcode = getModDefCode(moddef)
 
     i = 0
-    ops = modcode.co_code
+    ops = list( iterbytes( modcode.co_code ) )
+
     names = modcode.co_names
     lastname = None
 
@@ -306,43 +305,3 @@ def getSiteDeps(moddef):
             addtodo(depmod)
 
     return deps
-
-if __name__ == '__main__':
-    #mods = getModsByPath('.',dat=True)
-    pymods = getPyStdLib()
-    for name in sorted(pymods.keys()):
-        print('%s: %r' % (name,pymods.get(name)))
-
-    print('SYS: %r' % (pymods.get('sys'),))
-
-    mods = getModsByPath('fake')
-    for name in sorted(mods.keys()):
-        print('%s: %r' % (name,mods.get(name)))
-        imps = getModDefImps( mods.get(name) )
-        imps = [ i for i in imps if not isPyStdLib(i) ]
-        print( imps )
-
-    sys.path.append('fake')
-    import foo.bar as bar
-    bar.blah()
-    h = bar.hehe()
-    h.haha()
-
-    mod = getModDef('synapse.mindmeld')
-    src = getModDefSrc(mod)
-
-    print(mod)
-    print(len(src))
-
-    print( getModDefImps( getModDef('synapse.mindmeld') ) )
-
-    print(getCallModDef( bar.blah ) )
-    print(getCallModDef( h.haha ) )
-
-    deps = getSiteDeps( getCallModDef( h.haha ) )
-    for name in sorted(deps.keys()):
-        print('%s: %r' % (name,deps.get(name)[1].get('path')))
-
-    #print(getCallDeps( h.haha ))
-    
-    #print(repr(getModsByPath('.')))
