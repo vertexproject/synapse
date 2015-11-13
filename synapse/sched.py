@@ -4,34 +4,72 @@ import threading
 
 import synapse.glob as s_glob
 
-from synapse.compat import sched
 from synapse.eventbus import EventBus
 
 from synapse.common import *
 
 class Sched(EventBus):
-    '''
-    Wrap python's scheduler to support fire/forget and cleanup.
-    '''
+
     def __init__(self):
         EventBus.__init__(self)
-        self.sema = threading.Semaphore()
-        self.sched = sched.scheduler()
+
+        self.root = None
+        self.lock = threading.Lock()
+        self.wake = threading.Event()
+
         self.thr = self._runSchedMain()
-        self.onfini(self._finiSched)
+        self.onfini( self._onSchedFini )
 
-    @firethread
-    def _runSchedMain(self):
-        while not self.isfini:
-            try:
+    def _onSchedFini(self):
+        self.wake.set()
+        self.thr.join()
 
-                self.sema.acquire()
-                self.sched.run()
+    def at(self, ts, func, *args, **kwargs):
+        '''
+        Schedule a function to run at a specific time.
 
-            except Exception as e:
-                traceback.print_exc()
+        Example:
 
-    def insec(self, delay, meth, *args, **kwargs):
+            # call foo(bar,baz=10) at ts
+            sched.at(ts, foo, bar, baz=10)
+
+        '''
+        task = (func,args,kwargs)
+        mine = [ ts, task, None ]
+        with self.lock:
+
+            # if no root, we're it!
+            if self.root == None:
+                self.root = mine
+                self.wake.set()
+                return mine
+
+            # if we're sooner, push and wake!
+            if self.root[0] >= ts:
+                mine[2] = self.root
+                self.root = mine
+                self.wake.set()
+                return mine
+
+            # we know we're past this one
+            step = self.root
+            while True:
+
+                # if no next, we're it!
+                if step[2] == None:
+                    step[2] = mine
+                    return mine
+
+                # if we're sooner than next, insert!
+                if step[2][0] > ts:
+                    mine[2] = step[2]
+                    step[2] = mine
+                    return mine
+
+                # move along to next
+                step = step[2]
+
+    def insec(self, delay, func, *args, **kwargs):
         '''
         Schedule a callback to occur in delay seconds.
 
@@ -46,11 +84,9 @@ class Sched(EventBus):
             # woot will be called in 10 seconds..
 
         '''
-        event = self.sched.enter(delay, 1, meth, args, kwargs)
-        self.sema.release()
-        return event
+        return self.at( time.time() + delay, func, *args, **kwargs)
 
-    def persec(self, count, meth, *args, **kwargs):
+    def persec(self, count, func, *args, **kwargs):
         '''
         Scedule a callback to occur count times per second.
 
@@ -66,19 +102,19 @@ class Sched(EventBus):
         def cb():
             try:
 
-                ret = meth(*args,**kwargs)
+                ret = func(*args,**kwargs)
                 if ret == False:
                     return
 
             except Exception as e:
-                self.fire('err:exc', exc=e, msg='persec fail: %s' % (meth,))
+                self.fire('err:exc', exc=e, msg='persec fail: %s' % (func,))
 
             if not self.isfini:
                 self.insec(dt,cb)
 
         cb()
 
-    def cancel(self, event):
+    def cancel(self, item):
         '''
         Cancel a previously scheduled call.
 
@@ -88,19 +124,56 @@ class Sched(EventBus):
                 stuff()
 
             sched = Sched()
-            e = sched.insec(10, woot, 10, 20)
+            item = sched.insec(10, woot, 10, 20)
 
-            sched.cancel(e)
+            sched.cancel(item)
 
         '''
-        self.sched.cancel(event)
+        item[1] = None
 
-    def _finiSched(self):
-        pass
-        # FIXME
-        #[ self.sched.cancel(e) for e in self.sched.queue ]
-        #self.sema.release()
-        #self.thr.join()
+    @firethread
+    def _runSchedMain(self):
+        for task in self.yieldTimeTasks():
+            try:
+                func,args,kwargs = task
+                func(*args,**kwargs)
+            except Exception as e:
+                traceback.format_exc()
+
+    def _getNextWait(self):
+        timeout = None
+
+        if self.root:
+            timeout = self.root[0] - time.time()
+            if timeout <= 0:
+                timeout = 0
+
+        return timeout
+
+    def yieldTimeTasks(self):
+
+        # a blocking yield generator for sched tasks
+        while not self.isfini:
+
+            with self.lock:
+                timeout = self._getNextWait()
+                self.wake.clear()
+
+            if timeout != 0:
+                self.wake.wait(timeout=timeout)
+
+            if self.isfini:
+                return
+
+            item = None
+            with self.lock:
+                now = time.time()
+                if self.root and self.root[0] <= now:
+                    item = self.root[1]
+                    self.root = self.root[2]
+
+            if item != None:
+                yield item
 
 def getGlobSched():
     '''
