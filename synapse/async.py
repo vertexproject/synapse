@@ -29,8 +29,7 @@ def jobret(job):
     '''
     err = job[1].get('err')
     if err != None:
-        errmsg = job[1].get('errmsg')
-        raise JobErr(err,errmsg=errmsg)
+        raise CallError(job)
     return job[1].get('ret')
 
 def newtask(meth,*args,**kwargs):
