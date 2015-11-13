@@ -161,8 +161,14 @@ class Cache(EventBus):
         '''
         return list(self.cache.keys())
 
+    def values(self):
+        return list(self.cache.values())
+
     def __len__(self):
         return len(self.cache)
+
+    def __iter__(self):
+        return list( self.cache.items() )
 
     def _onCacheFini(self):
         for key in self.keys():
