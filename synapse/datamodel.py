@@ -250,6 +250,7 @@ class DataModel:
         if pdef == None:
             raise NoSuchForm(form)
 
+        propinfo['form'] = form
         fullprop = '%s:%s' % (form,prop)
 
         self.addPropDef(fullprop, **propinfo)
@@ -288,9 +289,17 @@ class DataModel:
                 continue
             self.subs[prop].append(pdef)
 
+    def addTufoGlob(self, form, glob, **propinfo):
+        '''
+        Add a property to the given tufo form.
+        '''
+        glob = '%s:%s' % (form,glob)
+        propinfo['form'] = form
+        return self.addPropGlob(glob, **propinfo)
+
     def addPropGlob(self, glob, **propinfo):
         '''
-        Add a property glob to the tufo.
+        Add a property glob to the data model.
         '''
         self.model['globs'][glob] = propinfo
 
