@@ -14,10 +14,10 @@ class CryptoTest(SynTest):
             data['foo'] = mesg[1].get('foo')
             return tufo('woot2')
 
-        daemon = s_daemon.Daemon()
-        daemon.rtor.act('woot1', wootmesg)
+        dmon = s_daemon.Daemon()
+        dmon.rtor.act('woot1', wootmesg)
 
-        link = daemon.listen('tcp://127.0.0.1:0?rc4key=asdfasdf')
+        link = dmon.listen('tcp://127.0.0.1:0?rc4key=asdfasdf')
 
         relay = s_link.getLinkRelay(link)
         sock = relay.connect()
@@ -29,4 +29,4 @@ class CryptoTest(SynTest):
         self.assertEqual( data.get('foo'), 2)
 
         sock.fini()
-        daemon.fini()
+        dmon.fini()
