@@ -280,5 +280,5 @@ class Pool(EventBus):
         [ self.workq.put(None) for i in range(len(threads)) ]
 
         [ t.fini() for t in threads ]
-        [ t.join() for t in threads ]
+        #[ t.join() for t in threads ]
 
