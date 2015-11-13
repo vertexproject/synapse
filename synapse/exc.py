@@ -42,4 +42,4 @@ class CallError(Exception):
         errfile = mesg[1].get('errfile')
         errline = mesg[1].get('errline')
 
-        Exception.__init__(self, '%s: %s (%s:%d)' % (err,errmsg,errfile,errline))
+        Exception.__init__(self, '%s: %s (%s:%s)' % (err,errmsg,errfile,errline))
