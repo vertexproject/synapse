@@ -1,5 +1,7 @@
 import time
+import logging
 import msgpack
+import traceback
 import collections
 
 import Crypto.Hash.SHA256 as SHA256
@@ -7,821 +9,541 @@ import Crypto.PublicKey.RSA as RSA
 import Crypto.Signature.PKCS1_v1_5 as PKCS15
 
 import synapse.async as s_async
+import synapse.cache as s_cache
 import synapse.sched as s_sched
 import synapse.cortex as s_cortex
 import synapse.socket as s_socket
 import synapse.daemon as s_daemon
 import synapse.dyndeps as s_dyndeps
+import synapse.reactor as s_reactor
+import synapse.session as s_session
+import synapse.threads as s_threads
 import synapse.eventbus as s_eventbus
 
-from synapse.statemach import keepstate
-
 from synapse.common import *
+from synapse.threads import firethread
 
-class NeuError(Exception):pass
-class NoSuchPeer(NeuError):pass
+import synapse.impulse as s_impulse
+from synapse.eventbus import EventBus
 
-#NOTE: this is still a work in progress, but will be the basis
-#      for the new cluster architecture.
+logger = logging.getLogger(__name__)
 
-class Daemon(s_daemon.Daemon):
-    '''
-    A Neuron facilitates distributed "mesh" computing through peer routing.
+class Neuron(s_impulse.PulseRelay):
 
-    Each Neuron in a mesh tracks routes and link status messages announced
-    by the other neurons and keeps a complete map of the links between each.
-    '''
+    def __init__(self, core=None):
+        s_impulse.PulseRelay.__init__(self)
 
-    def __init__(self, statefd=None):
+        # note: neuron cortex should be "dedicated" to this neuron
+        if core == None:
+            core = s_cortex.openurl('ram:///')
 
-        self.sched = s_sched.Sched()
-        self.neuboss = s_async.AsyncBoss()
+        self.core = core
+        self.rtor = s_reactor.Reactor()
 
-        self.peerbus = s_eventbus.EventBus()
+        self.neur = core.formTufoByProp('neuron', 'self')
 
-        self.peersocks = {}     # sockets directly connected to peers
-        self.peergraph = collections.defaultdict(set)
-        self.routecache = {}
+        self.iden = self.neur[0]
+        self.dest = (self.iden,None)
+        self.size = self.neur[1].get('neuron:size',4)
 
-        # persistant data in these...
-        self.neuinfo = {
-            'poolsize':10,  # default to 10 neuron threads
-        }
-        self.neucores = {}
-        self.neusocks = {}  # <guid> : NeuSock()
-        self.neushares = {}
+        self.pool = s_threads.Pool(size=self.size, maxsize=-1)
+        self.onfini( self.pool.fini )
 
-        self.runinfo = collections.defaultdict(dict)
-        self.peerinfo = collections.defaultdict(dict)
+        self.peers = {}
+        self.shares = {}
 
-        self.metacore = s_cortex.MetaCortex()
+        self.cura = s_session.Curator(core)
+        self.links = collections.defaultdict(set)
 
-        s_daemon.Daemon.__init__(self)
+        self.linkpaths = s_cache.Cache(maxtime=30)
+        self.linkpaths.setOnMiss( self._getLinkPath )
 
-        self.onfini( self.neuboss.fini )
-        self.onfini( self.sched.fini )
-        self.onfini( self.peerbus.fini )
+        # "router" layer events
+        self.on('neu:data', self._onNeuData)
+        self.on('neu:storm', self._onNeuStorm)
 
-        self.on('link:sock:init',self._onNeuSockInit)
+        # mesg handlers
+        self.rtor.act('neu:syn', self._actNeuSyn)
+        self.rtor.act('neu:call', self._actNeuCall)
+        self.rtor.act('neu:ping', self._actNeuPing)
 
-        self.on('neu:peer:init',self._onNeuPeerInit)
-        self.on('neu:peer:fini',self._onNeuPeerFini)
+        #self.on('neu:sess:init', self._onNeuSessInit)
 
-        # application layer peer messages...
-        self.peerbus.on('ping',self._onPeerBusPing)
-        self.peerbus.on('pong',self._onPeerBusPong)
+        self.on('neu:link:up', self._onNeuLinkUp)
+        self.on('neu:link:down', self._onNeuLinkDown)
 
-        self.setMesgMeth('neu:data',self._onMesgNeuData)
+        #self.onfini( self._onNeuFini )
 
-        self.setMesgMeth('neu:link:syn',self._onMesgNeuLinkSyn)
-        self.setMesgMeth('neu:link:synack',self._onMesgNeuLinkSynAck)
-        self.setMesgMeth('neu:link:ack',self._onMesgNeuLinkAck)
-
-        self.setMesgMeth('neu:peer:link:up', self._onMesgNeuPeerLinkUp)
-        self.setMesgMeth('neu:peer:link:down', self._onMesgNeuPeerLinkDown)
-
-        def setrsakey(event):
-            valu = event[1].get('valu')
-            self.rsakey = RSA.importKey( valu )
-            self.pubkey = self.rsakey.publickey()
-            self.pkcs15 = PKCS15.PKCS115_SigScheme( self.rsakey )
-
-        def setauthmod(event):
-            valu = event[1].get('valu')
-            if valu == None:
-                self.setAuthModule(None)
-                return
-
-            name,args,kwargs = valu
-
-            auth = s_dyndeps.getDynLocal(name)(*args,**kwargs)
-            self.setAuthModule( auth )
-
-        def setpoolsize(event):
-            valu = event[1].get('valu')
-            self.neuboss.setPoolSize(valu)
-
-        self.on('neu:info:rsakey', setrsakey)
-        self.on('neu:info:authmod', setauthmod)
-        self.on('neu:info:poolsize',setpoolsize)
-
-        if statefd:
-            self.loadStateFd(statefd)
-
-        #self._loadNeuAuthModule()
-        self._loadNeuMetaCortex()
-        #self._loadNeuSharedObjects()
-
-        # check if we're brand new...
-        if self.neuinfo.get('ident') == None:
-            # making a shiney new neuron!
-            self.setNeuInfo('ident', guid())
-
-        self.ident = self.getNeuInfo('ident')
-
-        poolsize = self.getNeuInfo('poolsize')
-        self.neuboss.setPoolSize(poolsize)
-
-    def addNeuCortex(self, name, url, tags=()):
+    def setNeuProp(self, prop, valu):
         '''
-        Add a "persistent" cortex to the neuron.
+        Set a persistant property for this neuron.
 
         Example:
 
-            neu.addNeuCortex('woot.0','ram:///',tags='hehe,haha')
+            neu.setNeuProp('foo',10)
 
         '''
-        core = self.metacore.addCortex(name, url, tags=tags)
-        self.addSharedObject('cortex/%s' % (name,), core)
-        self._addNeuCortex(name,url,tags=tags)
+        self.core.setTufoProp(tufo,prop,valu)
 
-    def delNeuCortex(self, name):
+    def getNeuProp(self, prop):
         '''
-        Remove a persistent cortex from the neuron.
+        Retrieve a persistant neuron property.
 
         Example:
 
-            neu.delNeuCortex('woot.0')
-
-        Notes:
-
-            * FIXME this takes a restart to take effect
+            foo = neu.getNeuProp('foo')
 
         '''
-        self._delNeuCortex(name)
+        return self.neur[1].get(prop)
 
-    def addNeuShare(self, path, name, args, kwargs):
+    def share(self, name, item):
         '''
-        Add a persistent shared object to the neuron.
-
-        Example:
-
-            neu.addNeuShare
-
+        Share an object to the neuron mesh.
         '''
-        self._loadNeuShare(path,name,args,kwargs)
-        self._addNeuShare(path,name,args,kwargs)
+        self.shares[name] = item
 
-    def delNeuShare(self, path):
+    def getPathTrees(self):
         '''
-        Remove a persistent shared object from the neuron.
-
-        Example:
-
-            neu.delNeuShare('foo')
-
+        Return a list of trees for shortest path broadcast.
         '''
-        self.delSharedObject(path)
-        return self._delNeuShare(path)
+        done = set()
+        trees = []
 
-    def _loadNeuMetaCortex(self):
-        for name,url,tags in self.neucores.values():
-            self.metacore.addCortex(name,url,tags=tags)
+        done = self.links[self.iden]
+        trees = [ (i,[]) for i in self.links[self.iden] ]
 
-    def _loadNeuShares(self):
-        for path,name,args,kwargs in self.neushares.values():
-            try:
-                self._loadNeuShare(path,name,args,kwargs)
-            except Exception as e:
-                print('warning (loading share %s): %s' % (path,e))
-
-    def _loadNeuShare(self, path, name, args, kwargs):
-        func = s_dyndeps.getDynLocal(name)
-        if func == None:
-            raise Exception('No Such Func: %s' % (name,))
-
-        self.addSharedObject( path, func(*args,**kwargs) )
-
-    @keepstate
-    def _addNeuCortex(self, name, url, tags=None):
-        self.neucores[name] = (name,url,tags)
-
-    @keepstate
-    def _delNeuCortex(self, name):
-        self.neucores.pop(name,None)
-
-    @keepstate
-    def _addNeuShare(self, path, name, args, kwargs):
-        self.neushares[path] = (path,name,args,kwargs)
-
-    @keepstate
-    def _delNeuShare(self, path):
-        self.neushares.pop(path,None)
-
-    def genRsaKey(self, bits=2048):
-        '''
-        Generate a new RSA keypair for the Daemon.
-        '''
-        rsakey = RSA.generate(bits)
-        self.setNeuInfo('rsakey',rsakey.exportKey())
-        return rsakey
-
-    def genPeerCert(self,**certinfo):
-        '''
-        Generate a new peer cert for the Daemon.
-        '''
-        csr = self.getRsaCertCsr(**certinfo)
-        peercert = (csr,())
-        peercert = self.signPeerCert(peercert)
-        self.setNeuInfo('peercert',peercert)
-        return peercert
-
-    def _onPeerBusPing(self, event):
-        sent = event[1].get('time')
-        self.firePeerResp(event,'pong',time=sent)
-
-    def _onPeerBusPong(self, event):
-        jobid = event[1].get('peer:job')
-
-        sent = event[1].get('time')
-        rtt = time.time() - sent
-
-        self.neuboss.setJobDone(jobid,rtt)
-
-    def getRsaCertCsr(self, **certinfo):
-        '''
-        Returns a byte buffer of serialized "cert info" to sign.
-        '''
-        certinfo['ident'] = self.ident
-        certinfo['rsakey'] = self.pubkey.exportKey('DER')
-        return msgpack.dumps(certinfo,use_bin_type=True)
-
-    def getPeerPkcs(self, peerid):
-        '''
-        Return a pkcs15 object for the given peer's cert.
-
-        Example:
-
-            pkcs = neu.getPeerPkcs(peerid)
-            if not pkcs.verify(byts,sign):
-                return
-        '''
-        pkcs = self.runinfo[peerid].get('pkcs15')
-        if pkcs == None:
-            key = self.getPeerInfo(peerid,'rsakey')
-            rsa = RSA.importKey( key )
-            pkcs = PKCS15.PKCS115_SigScheme(rsa)
-            self.runinfo[peerid]['pkcs15'] = pkcs
-        return pkcs
-
-    def setNeuInfo(self, prop, valu):
-        '''
-        Set a property of this Neuron.
-
-        Example:
-
-            neu.setNeuInfo('foo',30)
-
-        '''
-        if self.neuinfo.get(prop) == valu:
-            return
-        self._setNeuInfo(prop, valu)
-
-    @keepstate
-    def _setNeuInfo(self, prop, valu):
-        self.neuinfo[prop] = valu
-        self.fire('neu:info:%s' % prop, valu=valu)
-
-    def getNeuInfo(self, prop):
-        '''
-        Get a property of this Neuron.
-
-        Example:
-
-            neu.getNeuInfo('foo')
-
-        '''
-        return self.neuinfo.get(prop)
-
-    def signWithRsa(self, byts):
-        bytehash = SHA256.new(byts)
-        return self.pkcs15.sign(bytehash)
-
-    def veriWithRsa(self, byts, sign):
-        bytehash = SHA256.new(byts)
-        return self.pkcs15.verify(bytehash,sign)
-
-    def syncPingPeer(self, peerid, timeout=6):
-        '''
-        Synchronously ping a peer by id.
-
-        Example:
-
-            rtt = neu.syncPingPeer(peerid)
-            if rtt == None:
-                print('timeout!')
-
-        '''
-        job = self.jobPingPeer(peerid,timeout=timeout)
-        self.neuboss.waitAsyncJob(job[0], timeout=timeout)
-        return s_async.jobret(job)
-
-    def jobPingPeer(self, peerid, timeout=6):
-        return self.firePeerMesg(peerid,'ping',time=time.time())
-
-    def _onNeuSockInit(self, event):
-        '''
-        Check if the new sock is from a "peersyn" link.
-        '''
-        sock = event[1].get('sock')
-        # shall we start a peer handshake?
-        if sock.getSockInfo('peer'):
-            self._sendLinkSyn(sock)
-
-    def _sendLinkSyn(self, sock):
-        sock.setSockInfo('neu:link:state','neu:link:syn')
-        syninfo = self._getSynInfo()
-        sock.fireobj('neu:link:syn',**syninfo)
-        sock.setSockInfo('challenge',syninfo['challenge'])
-
-    def _onMesgNeuLinkSyn(self, sock, mesg):
-        '''
-        neu:link:state - 
-
-            # negotiation states
-            neu:link:syn        ( syn sent )
-            neu:link:synack     ( synack sent )
-            neu:link:ack        ( ack sent )
-
-            # error states
-            neu:link:err        ( proto error, must re connect )
-
-            # success states
-            neu:link:peer       ( the sock is connected to a peer )
-            neu:link:client 
-
-        '''
-        if sock.getSockInfo('neu:link:state') != None:
-            sock.setSockInfo('neu:link:state','neu:link:err')
-            return tufo('neu:link:err',code='badstate')
-
-        ident = mesg[1].get('ident')
-        hiscert = mesg[1].get('peercert')
-        hischal = mesg[1].get('challenge')
-
-        # possibly accept his cert and add him as a peer
-        if hiscert != None:
-            self.loadPeerCert(hiscert)
-
-        hiskey = self.getPeerInfo(ident,'rsakey')
-        if hiskey == None:
-            sock.setSockInfo('neu:link:state','neu:link:err')
-            return tufo('neu:link:err',code='nopeerkey')
-
-        chalhash = SHA256.new(hischal)
-        chalresp = self.pkcs15.sign(chalhash)
-
-        syninfo = self._getSynInfo()
-        syninfo['chalresp'] = chalresp
-        syninfo['peeredges'] = self._getPeerEdges()
-
-        # state machine entry point...
-        sock.setSockInfo('neu:link:state','neu:link:synack')
-        sock.setSockInfo('challenge', syninfo['challenge'] )
-
-        return tufo('neu:link:synack',**syninfo)
-
-    def _onMesgNeuLinkSynAck(self, sock, mesg):
-        ident = mesg[1].get('ident')
-        hiscert = mesg[1].get('peercert')
-        chalresp = mesg[1].get('chalresp')
-        challenge = mesg[1].get('challenge')
-
-        if sock.getSockInfo('neu:link:state') != 'neu:link:syn':
-            sock.setSockInfo('neu:link:state','neu:link:err')
-            return tufo('neu:link:err',code='badstate')
-
-        if hiscert != None:
-            self.loadPeerCert(hiscert)
-
-        # do we have a key for him?
-        hispkcs = self.getPeerPkcs(ident)
-        #hiskey = self.getPeerInfo(ident,'rsakey')
-        if hispkcs == None:
-            sock.setSockInfo('neu:link:state','neu:link:err')
-            return tufo('neu:link:err',code='nopeerkey')
-
-        # grab the challenge we sent him
-        sockchal = sock.getSockInfo('challenge')
-        if sockchal == None:
-            sock.setSockInfo('neu:link:state','neu:link:err')
-            return tufo('neu:link:err',code='nochal')
-
-        # verify his sig...
-        sockhash = SHA256.new(sockchal)
-        if not hispkcs.verify(sockhash,chalresp):
-            sock.setSockInfo('neu:link:state','neu:link:err')
-            return tufo('neu:link:err',code='badresp')
-
-        # yay! he's a peer
-        sock.setSockInfo('neu:link:state','neu:link:peer')
-        self.fire('neu:peer:init',sock=sock,ident=ident)
-
-        chalhash = SHA256.new(challenge)
-        chalresp = self.pkcs15.sign(chalhash)
-
-        peeredges = self._getPeerEdges()
-
-        for p1,p2 in mesg[1].get('peeredges',()):
-            self.addPeerGraphEdge(p1,p2)
-
-        return tufo('neu:link:ack',
-                    ident=self.ident,
-                    chalresp=chalresp,
-                    peeredges=peeredges)
-
-    def _onMesgNeuLinkAck(self, sock, mesg):
-
-        if sock.getSockInfo('neu:link:state') != 'neu:link:synack':
-            sock.setSockInfo('neu:link:state','neu:link:err')
-            return tufo('neu:link:err',code='badstate')
-
-        ident = mesg[1].get('ident')
-
-        sockchal = sock.getSockInfo('challenge')
-        if sockchal == None:
-            sock.setSockInfo('neu:link:state','neu:link:err')
-            return tufo('neu:link:err',code='nochal')
-
-        hispkcs = self.getPeerPkcs(ident)
-
-        chalresp = mesg[1].get('chalresp')
-        chalhash = SHA256.new(sockchal)
-        if not hispkcs.verify(chalhash,chalresp):
-            sock.setSockInfo('neu:link:state','neu:link:err')
-            return tufo('neu:link:err',code='badresp')
-
-        for p1,p2 in mesg[1].get('peeredges',()):
-            self.addPeerGraphEdge(p1,p2)
-
-        sock.setSockInfo('neu:link:state','neu:link:peer')
-        self.fire('neu:peer:init',sock=sock,ident=ident)
-
-    def _onMesgNeuLinkErr(self, sock, mesg):
-        sock.setSockState('neu:link:state','neu:link:err')
-        sock.fini()
-
-    def addPeerCert(self, peercert):
-        '''
-        Called *after* validation to absorb cert info.
-
-        Example:
-
-            neu.addPeerCert(peercert)
-
-        '''
-        hisinfo,hissigs = peercert
-        peerinfo = msgpack.loads(hisinfo,use_list=False,encoding='utf8')
-
-        # lets absorb his cert info!
-        ident = peerinfo.get('ident')
-        for prop,valu in peerinfo.items():
-            # FIXME make an API to check then set
-            if self.peerinfo[ident].get(prop) != valu:
-                self.setPeerInfo(ident,prop,valu)
-
-    def signPeerCert(self, peercert):
-        '''
-        Add our signature to a peer cert tuple.
-        '''
-        byts,signs = peercert
-        sign = self.signWithRsa(byts)
-        certsign = (self.ident,sign)
-        return (byts, peercert[1] + (certsign,))
-
-    def loadPeerCert(self, peercert):
-        '''
-        Parse/Validate a peer cert and absorb its info if valid.
-        '''
-        hisinfo,hissigs = peercert
-
-        hishash = SHA256.new(hisinfo)
-        verified = False
-        for ident,sign in hissigs:
-
-            if not self.isKnownPeer(ident):
-                continue
-
-            if not self.getPeerInfo(ident,'signer'):
-                continue
-
-            pkcs = self.getPeerPkcs(ident)
-            if pkcs == None:
-                continue
-
-            if not pkcs.verify(hishash,sign):
-                continue
-
-            verified = True
-            break
-
-        if not verified:
-            return False
-
-        self.addPeerCert(peercert)
-        return True
-
-    def _getPeerEdges(self):
-        ret = []
-        for peer,peers in self.peergraph.items():
-            ret.extend([ (peer,p) for p in peers ])
-        return ret
-
-    def _getSynInfo(self):
-        info = {
-            'ident':self.ident,
-            'peercert':self.getNeuInfo('peercert'),
-            'challenge':guid(),
-        }
-        return info
-
-    def setPeerInfo(self, peerid, prop, valu):
-        '''
-        Set a property about a peer.
-
-        Example:
-
-            neu.setPeerInfo(peerid,'foo',30)
-
-        '''
-        if self.peerinfo[peerid].get(prop) == valu:
-            return
-
-        self._setPeerInfo(peerid, prop, valu)
-
-    @keepstate
-    def _setPeerInfo(self, peerid, prop, valu):
-        self.peerinfo[peerid][prop] = valu
-
-    def getPeerInfo(self, peerid, prop):
-        '''
-        Return a property about a peer by id.
-
-        Example:
-
-            neu.getPeerInfo(peerid,'foo')
-
-        '''
-        # FIXME what do we do with invalid peerid?
-        info = self.peerinfo.get(peerid)
-        if info == None:
-            raise NoSuchPeer(peerid)
-        return info.get(prop)
-
-    def isKnownPeer(self, peerid):
-        '''
-        Check if we know of a peer with the given id.
-
-        Example:
-
-            if neu.isKnownPeer(peerid):
-                stuff()
-
-        '''
-        return self.peerinfo.get(peerid) != None
-
-    def _onNeuPeerInit(self, event):
-        sock = event[1].get('sock')
-        peerid = event[1].get('ident')
-
-        self.peersocks[peerid] = sock
-        self.addPeerGraphEdge(self.ident,peerid)
-
-        # Send out a peercast mesg for link up!
-        edge = (self.ident,peerid)
-        self.firePeerCast('neu:peer:link:up',edge=edge)
-
-    # FIXME implement triggering this
-    def _onNeuPeerFini(self, event):
-        sock = event[1].get('sock')
-        peerid = event[1].get('ident')
-
-        # FIXME remove all graph links with this peer
-        # FIXME remove all graph links only reachable via this peer?
-
-        if self.peersocks.get(peerid) == sock:
-            # sched an announce of link down
-            pass
-
-    def _onMesgNeuPeerLinkUp(self, sock, mesg):
-        if sock.getSockInfo('neu:link:state') != 'neu:link:peer':
-            return
-
-        edge = mesg[1].get('edge')
-        if edge == None:
-            return
-
-        peer1,peer2 = edge
-        self.addPeerGraphEdge(peer1,peer2)
-
-        # continue routing the message
-        self.routePeerCast(mesg)
-
-    def _onMesgNeuPeerLinkDown(self, sock, mesg):
-        pass
-
-    def addPeerGraphEdge(self, srcident, dstident):
-        '''
-        Add a new link between known peers in our peer graph.
-        '''
-        self.peergraph[srcident].add(dstident)
-
-    def delPeerGraphEdge(self, srcident, dstident):
-        '''
-        Remove a link between known peers in our peer graph.
-        '''
-        self.peergraph[srcident].discard(dstident)
-
-    def firePeerCast(self, name, **msginfo):
-        '''
-        Fire a message to all reachable peers.
-        '''
-
-        trees = self._getPeerCast()
-
-        mesg = (name,msginfo)
-        for node in trees:
-
-            msginfo['peer:route'] = node
-
-            sock = self.peersocks.get(node[0])
-            sock.sendobj(mesg)
-            # FIXME handle sock down re-broadcast
-
-    def _sendToPeer(self, peerid, mesg):
-        '''
-        Route an neu message to a peer.
-        '''
-        byts = msgpack.dumps(mesg, use_bin_type=True)
-        self._sendPeerByts(peerid, byts)
-
-    def _sendPeerByts(self, peerid, byts, **msginfo):
-
-        route = self._getPeerRoute(peerid)
-        if route == None:
-            print('no route: %s' % (peerid,))
-            # FIXME retrans
-            return
-
-        nexthop = route[1]
-
-        msginfo['hop'] = 0
-        msginfo['mesg'] = byts
-        msginfo['route'] = route
-        datamesg = ('neu:data',msginfo)
-
-        sock = self.peersocks.get(nexthop)
-        if sock == None:
-            # FIXME RETRANS
-            return
-
-        if not sock.sendobj( datamesg ):
-            # FIXME RETRANS
-            return
-
-    def _onMesgNeuData(self, sock, mesg):
-        '''
-        A Neuron "data" message which should be routed.
-
-        ('neu:data', {
-            'hop':<int>, # index into route
-            'route':[srcpeer, ... ,dstpeer] # neu:data is source routed
-            'mesg':<byts>,
-        })
-
-        '''
-        if sock.getSockInfo('neu:link:state') != 'neu:link:peer':
-            # FIXME logging
-            print('neu:data from nonpeer: %s' % (sock,))
-            return
-
-        hop = mesg[1].get('hop') + 1
-        route = mesg[1].get('route')
-
-        # update the hop index.
-        mesg[1]['hop'] = hop
-
-        nexthop = route[hop]
-        if nexthop == self.ident:
-            peermesg = msgpack.loads(mesg[1]['mesg'],use_list=False,encoding='utf8')
-            self.peerbus.dist(peermesg)
-            return
-
-        fwdsock = self.peersocks.get(nexthop)
-        if fwdsock == None:
-            return self._schedMesgRetrans(nexthop, mesg)
-
-        if not fwdsock.sendobj(mesg):
-            return self._schedMesgRetrans(nexthop, mesg)
-
-    def firePeerMesg(self, peerid, name, **msginfo):
-        '''
-        Fire an async job wrapped peer message and return the job.
-        '''
-        jid = s_async.jobid()
-        job = self.neuboss.initAsyncJob(jid)
-
-        msginfo['peer:job'] = jid
-        msginfo['peer:dst'] = peerid
-        msginfo['peer:src'] = self.ident
-
-        self._sendToPeer( peerid, (name,msginfo) )
-        return job
-
-    def firePeerResp(self, mesg, name, **msginfo):
-        '''
-        Fire a response "peerbus" message (via neu:data routing).
-        '''
-        peerid = mesg[1].get('peer:src')
-        if peerid == None:
-            return
-
-        msginfo['peer:dst'] = peerid
-        msginfo['peer:src'] = self.ident
-        msginfo['peer:job'] = mesg[1].get('peer:job')
-
-        self._sendToPeer( peerid, (name,msginfo) )
-
-    def routePeerCast(self, mesg):
-        '''
-        Continue routing a peercast message.
-
-        Notes:
-
-            * This API may modify mesg[1]['peer:route']
-
-        '''
-        node = mesg[1].get('peer:route')
-        if node == None:
-            return
-
-        for nextnode in node[1]:
-            mesg[1]['peer:route'] = nextnode
-            sock = self.peersocks.get(nextnode[0])
-            if sock == None:
-                # FIXME handle sock down re-broadcast
-                continue
-
-            sock.sendobj(mesg)
-
-    def _getPeerCast(self):
-        '''
-        Construct a list of "shortest path" trees to each reachable peer.
-        '''
-        links = self.peersocks.keys()
-
-        done = set(links)
-        done.add( self.ident )
-
-        trees = [ (link, []) for link in links ]
-        todo = collections.deque( trees )
-
+        todo = list(trees)
         while todo:
-            node = todo.popleft()
-
-            for n2 in self.peergraph[node[0]]:
-
-                if n2 in done:
+            node = todo.pop()
+            for iden in self.links[ node[0] ]:
+                if iden in done:
                     continue
 
-                done.add(n2)
-                nextnode = (n2,[])
+                done.add(iden)
 
-                todo.append( nextnode )
-                node[1].append( nextnode )
+                newn = (iden,[])
+                todo.append(newn)
+                node[1].append(newn)
 
         return trees
 
-    def _getPeerRoute(self, peerid):
+    def getPathLinks(self):
         '''
-        Calculate and return the shortest known path to peer.
+        Return a list of (id1,id2) tuples for each known link.
         '''
-        route = self.routecache.get(peerid)
-        if route != None:
-            return route
+        links = []
+        for iden,peers in self.links.items():
+            links.extend( [ (iden,p) for p in peers ] )
+        return links
+
+    def addPathLink(self, iden1, iden2):
+        '''
+        Add a link to the known paths cache.
+        '''
+        self.links[iden1].add(iden2)
+
+    def addPathLinks(self, links):
+        '''
+        Add multiple (id1,id2) link tuples.
+        '''
+        [ self.addPathLink(iden1,iden2) for (iden1,iden2) in links ]
+
+    def getLinkPath(self, iden1, iden2):
+        '''
+        Find the shortest path from iden1 to iden2
+        '''
+        #return self.linkpaths.get( (iden1,iden2) )
+        return self._getLinkPath( (iden1,iden2) )
+
+    def _getLinkPath(self, identup ):
+        iden1, iden2 = identup
+
+        todo = [ [iden1] ]
 
         done = set()
-        todo = collections.deque(( [self.ident,], ))
-
-        # breadth first search...
         while todo:
-
-            route = todo.popleft()
-            lasthop = route[-1]
-
-            if lasthop in done:
-                continue
-
-            done.add(lasthop)
-
-            for n2 in self.peergraph[lasthop]:
-
-                if n2 == peerid:
-                    route.append(n2)
-                    self.routecache[peerid] = route
-                    return route
-
-                if n2 in done:
+            path = todo.pop()
+            for iden in self.links[ path[-1] ]:
+                if iden in done:
                     continue
 
-                todo.append( route + [n2] )
+                done.add(iden)
+                if iden == iden2:
+                    path.append(iden)
+                    return path
+
+                todo.append( path + [ iden ] )
+
+    def getIden(self):
+        '''
+        Return the guid/iden for the Neuron.
+
+        Example:
+
+            iden = neu.getIden()
+
+        '''
+        return self.iden
+
+    def link(self, neu):
+        '''
+        Link ourself to another neuron.
+
+        Example:
+
+            neu1.link( neu2 )
+
+        '''
+        iden = neu.getIden()
+
+        self.peers[iden] = neu
+
+        self.addPathLink( self.iden, iden )
+        self.addPathLink( iden, self.iden )
+
+        mylinks = self.getPathLinks()
+        hislinks = list( neu.getPathLinks() )
+
+        # FIXME callback for link tear down!
+
+        neu.addPathLinks(mylinks)
+        self.addPathLinks(hislinks)
+
+        # ensure both chans are active
+        neu.openchan( self.iden )
+        self.openchan( iden )
+
+        self._runLinkRecv(neu)
+        self._runLinkSend(neu)
+
+        links = mylinks + hislinks
+        self.storm('neu:link:up', link=(self.iden,iden))
+
+    def storm(self, evt, **evtinfo):
+        '''
+        Send an event to all the boxes in the mesh.
+        '''
+        byts = msgenpack( (evt,evtinfo) )
+        for tree in self.getPathTrees():
+            self.relay(tree[0], tufo('neu:storm', tree=tree, byts=byts))
+
+    @firethread
+    def _runLinkRecv(self, neu):
+        with neu:
+            while not self.isfini:
+                evts = neu.poll(self.iden, timeout=4)
+                if evts:
+                    self.distall(evts)
+
+    @firethread
+    def _runLinkSend(self, neu):
+        iden = neu.getIden()
+        with neu:
+            while not self.isfini:
+                evts = self.poll(iden, timeout=1)
+                if evts:
+                    neu.distall(evts)
+
+    def reply(self, mesg, evt, **evtinfo):
+        '''
+        Send a response to a channel consumer on a given neuron.
+        '''
+        dest = mesg[1].get('from')
+
+        evtinfo['jid'] = mesg[1].get('jid')
+        mesg = (evt,evtinfo)
+        self.route( dest, mesg)
+
+    def route(self, dest, mesg):
+        '''
+        Route the given message to the dest neuron.
+        '''
+        iden,chan = dest
+        path = self.getLinkPath(self.iden, iden)
+        if path == None:
+            raise NoSuchPeer(iden)
+
+        byts = msgenpack( mesg )
+
+        nhop = path[1]
+        data = tufo('neu:data', path=path, off=1, byts=byts, chan=chan)
+
+        self.relay(nhop,data)
+
+    def _onNeuLinkUp(self, event):
+        iden0,iden1 = event[1].get('link')
+        self.addPathLink(iden0,iden1)
+        self.addPathLink(iden1,iden0)
+
+    def _onNeuLinkDown(self, event):
+        iden0,iden1 = event[1].get('link')
+        self.delPathLink(iden0,iden1)
+        self.delPathLink(iden1,iden0)
+
+    def _actNeuSyn(self, event):
+        sess = self.cura.getNewSess()
+        return sess.sid
+
+    def _actNeuPing(self, event):
+        return {'shared':list(self.shares.keys())}
+
+    def _onNeuData(self, event):
+        off = event[1].get('off') + 1
+        path = event[1].get('path')
+
+        # are we the final hop?
+        if len(path) == off:
+            chan = event[1].get('chan')
+            byts = event[1].get('byts')
+            mesg = msgunpack(byts)
+
+            # is it for one of our chans?
+            if chan != None:
+                self.relay(chan,mesg)
+                return
+
+            # our workers handle our messages
+            self.pool.call( self._runDataMesg, mesg )
+            return
+
+        # route it along...
+        dest = path[off]
+        event[1]['off'] = off
+        self.relay(dest, event)
+        # FIXME if the next hop is dead we could re-route
+
+    def _runDataMesg(self, mesg):
+        try:
+            ret = self.rtor.react(mesg)
+            self.reply(mesg, ret=ret)
+
+        except Exception as e:
+            self.reply(mesg, **excinfo(e))
+
+    def reply(self, mesg, **evtinfo):
+        jid = mesg[1].get('jid')
+        dest = mesg[1].get('from')
+        mesg = tufo('job:done', jid=jid, **evtinfo)
+        self.route(dest,mesg)
+
+    def _onNeuStorm(self, event):
+        tree = event[1].get('tree')
+        for newt in tree[1]:
+            self.relay(newt[0], event)
+
+        byts = event[1].get('byts')
+        event = msgunpack(byts)
+        self.dist(event)
+
+    def _actNeuCall(self, event):
+
+        name,api,args,kwargs = event[1].get('neutask')
+
+        item = self.shares.get(name)
+        if item == None:
+            raise NoSuchObj(name)
+
+        meth = getattr(item,api,None)
+        if meth == None:
+            raise NoSuchMeth(api)
+
+        sid = event[1].get('sid')
+        if sid == None:
+            raise SidNotFound()
+
+        sess = self.cura.getSessBySid(sid)
+        if sess == None:
+            raise NoSuchSess(sid)
+
+        with sess:
+            return meth(*args,**kwargs)
+
+    # fake these for local use
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc, cls, tb):
+        return
+
+class Meth:
+
+    def __init__(self, proxy, api):
+        self.api = api
+        self.proxy = proxy
+        self.dend = proxy.dend
+        self.iden = proxy.iden
+        self.name = proxy.name
+
+    def __call__(self, *args, **kwargs):
+        return self.dend.call( self.iden, self.name, self.api, *args, **kwargs)
+
+class Proxy:
+
+    def __init__(self, dend, iden, name):
+        self.iden = iden
+        self.name = name
+        self.dend = dend
+
+    def __getattr__(self, name):
+        meth = Meth(self, name)
+        setattr(self,name,meth)
+        return meth
+
+class Dendrite(EventBus):
+    '''
+    A Dendrite is a "Leaf" in the Neuron mesh.
+    '''
+
+    def __init__(self, neu, size=3):
+        EventBus.__init__(self)
+
+        self.boss = s_async.Boss()
+        self.pool = s_threads.Pool(size=size)
+
+        self.boss.setBossPool(self.pool)
+
+        self.on('job:done', self.boss.dist)
+
+        self.onfini( self.pool.fini )
+        self.onfini( self.boss.fini )
+
+        self.neu = neu
+        self.chan = guidstr()       # our chan on neu
+        self.iden = neu.getIden()   # our neuron's iden
+
+        self.dest = (self.iden,self.chan)
+
+        self.sidbydest = {}        # (iden,chan):sid
+
+        self._recv_thr = self._runRecvThread()
+
+    def getSidByDest(self, dest):
+        '''
+        Return a session id for the given neuron.
+
+        Example:
+
+            dest = (iden,chan)
+            sid = cli.getSidByDest(dest)
+
+        '''
+        sid = self.sidbydest.get(dest)
+        if sid == None:
+            # bypass trans() to avoid infinite loop
+            sid = self._fire_trans(dest,tufo('neu:syn'))
+            self.sidbydest[dest] = sid
+        return sid
+
+    @firethread
+    def _runRecvThread(self):
+        while not self.isfini:
+            try:
+
+                # get our own socket
+                with self.neu as neu:
+                    evts = neu.poll(self.chan, timeout=2)
+                    if evts:
+                        self.distall(evts)
+
+            except Exception as e:
+                traceback.print_exc()
+
+    def find(self, tag):
+        '''
+        Find objects with the given tag.
+        '''
+
+    #def search(self, tag):
+
+    def open(self, dest, name, authinfo=None):
+        '''
+        Open a Neuron proxy for the given object name.
+
+        Example:
+
+            foo = cli.open(dest,'foo')
+            foo.dostuff(10)
+
+        Notes:
+
+            The proxy class allows async calling by adding
+            onfini kwarg to the API call.
+
+        '''
+        # get a session to the neuron
+        self.getSidByDest(dest)
+        return Proxy(self, dest, name)
+
+    def call(self, iden, name, api, *args, **kwargs):
+        '''
+        Call an API shared within a remote Neuron.
+
+        Example:
+
+            ret = cli.call(iden, name, 'getFooByBar', bar)
+
+        Notes:
+
+            Syntax sugar is provided by the Proxy via open().
+
+        '''
+        onfini = kwargs.pop('onfini',None)
+        neutask = (name,api,args,kwargs)
+        mesg = tufo('neu:call', neutask=neutask)
+        dest = (iden,None)
+        return self.trans(dest,mesg,onfini=onfini)
+
+    def ping(self, dest):
+        '''
+        Ping the target neuron and return his basic info.
+
+        Example:
+
+            info = cli.ping(dest)
+
+        '''
+        return self.trans(dest,tufo('neu:ping'))
+
+    def trans(self, dest, mesg, onfini=None):
+        '''
+        Perform a "transaction" with the given neuron.
+        '''
+        mesg[1]['sid'] = self.getSidByDest(dest)
+        return self._fire_trans(dest, mesg, onfini=onfini)
+
+    #def route(self, dest, chan, evt, **evtinfo):
+        #'''
+        #Route a message to the given iden/chan in the mesh.
+        #'''
+        #return self.neu.route(dest,chan,evt,**evtinfo)
+
+    #def reply(self, mesg, evt, **evtinfo):
+        #'''
+        #'''
+        #dest = mesg[1].get('from')
+        #evtinfo['jid'] = mesg[1].get('jid')
+        #newm = (evt,**evtinfo)
+        #self._fire_mesg(dest,
+        #self.route(dest,chan,'job:done',**evtinfo)
+
+    def _fire_trans(self, dest, mesg, onfini=None):
+
+        jid = guidstr()
+        mesg[1]['jid'] = jid
+        job = self.boss.initJob(jid,onfini=onfini)
+
+        self._fire_mesg(dest,mesg)
+        self.boss.waitJob(jid)
+
+        return s_async.jobret(job)
+
+    def _fire_mesg(self, dest, mesg):
+        '''
+        Fire a message to a given neuron by iden.
+
+        Notes:
+            * this API adds our "chan" so responses may return
+
+        '''
+        mesg[1]['from'] = self.dest
+        self.neu.route(dest, mesg)

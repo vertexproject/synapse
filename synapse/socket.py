@@ -1,10 +1,12 @@
 from __future__ import absolute_import,unicode_literals
 
 import os
+import atexit
 import socket
 import msgpack
 import traceback
 
+from synapse.compat import queue
 from synapse.compat import selectors
 
 import synapse.glob as s_glob
@@ -43,7 +45,7 @@ class MesgRouter:
             x = dostuff(mesg)
             sock.sendobj(x)
 
-        sock.setMesgMeth('my:mesg', myMesgCall )
+        sock.setMesgFunc('my:mesg', myMesgCall )
 
     '''
     def __init__(self):
@@ -55,7 +57,7 @@ class MesgRouter:
         mesg = event[1].get('mesg')
         self.runMesgMeth(sock,mesg)
 
-    def setMesgMeth(self, name, meth):
+    def setMesgFunc(self, name, meth):
         if not self._mesg_en:
             self._mesg_en = True
             self.on('link:sock:mesg', self._xlateSockMesg )
@@ -80,7 +82,7 @@ class Socket(EventBus,MesgRouter):
         MesgRouter.__init__(self)
         self.sock = sock
         self.unpk = msgpack.Unpacker(use_list=0,encoding='utf8')
-        self.ident = s_common.guid()
+        self.iden = s_common.guid()
         self.xforms = []        # list of SockXform instances
         self.crypto = None
         self.sockinfo = info
@@ -99,38 +101,30 @@ class Socket(EventBus,MesgRouter):
         xform.init(self)
         self.xforms.append(xform)
 
-    def getSockId(self):
-        '''
-        Get the GUID for this socket.
-
-        Examples:
-
-            sid = sock.getSockId()
-
-        '''
-        return self.ident
-
-    def getSockInfo(self, prop):
+    def get(self, prop):
         '''
         Retrieve a property from the socket's info dict.
 
         Example:
 
-            if sock.getSockInfo('listen'):
+            if sock.get('listen'):
                 dostuff()
 
         '''
         return self.sockinfo.get(prop)
 
-    def setSockInfo(self, prop, valu):
+    def set(self, prop, valu):
         '''
         Set a property on the Socket by name.
 
         Example:
 
-            sock.setSockInfo('woot', 30)
+            sock.set('woot', 30)
 
         '''
+        self.sockinfo[prop] = valu
+
+    def __setitem__(self, prop, valu):
         self.sockinfo[prop] = valu
 
     def recvall(self, size):
@@ -300,14 +294,22 @@ class Plex(EventBus):
         return len(self._plex_socks)
 
     def addPlexSock(self, sock):
-        sock.setSockInfo('plex',self)
+        '''
+        Add a Socket to the Plex()
+
+        Example:
+
+            plex.addPlexSock(sock)
+
+        '''
+        sock['plex'] = self
         self._plex_sel.register(sock, selectors.EVENT_READ)
         self._plex_socks.add(sock)
 
         sock.link( self.dist )
 
         def finisock():
-            sock.setSockInfo('plex',None)
+            sock['plex'] = None
             self._plex_socks.remove(sock)
             #self._plex_sel.unregister(sock)
             self._plexWake()
@@ -336,7 +338,7 @@ class Plex(EventBus):
                     sock.recv(1024)
                     continue
 
-                if sock.getSockInfo('listen'):
+                if sock.get('listen'):
                     # his sock:conn event handles reg
                     newsock = sock.accept()
                     self.addPlexSock(newsock)
@@ -374,6 +376,8 @@ def getGlobPlex():
     with s_glob.lock:
         if s_glob.plex == None:
             s_glob.plex = Plex()
+
+            atexit.register(s_glob.plex.fini)
 
         return s_glob.plex
 

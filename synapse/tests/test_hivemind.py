@@ -9,6 +9,8 @@ import synapse.hivemind as s_hivemind
 import synapse.mindmeld as s_mindmeld
 import synapse.telepath as s_telepath
 
+from synapse.tests.common import *
+
 class FakeErr(Exception):pass
 
 def borked():
@@ -29,99 +31,95 @@ def hurrdurr(x,y=20):
 derpmeld = s_mindmeld.MindMeld()
 derpmeld.addPySource('derpderp',derpsrc)
 
-class HiveTest(unittest.TestCase):
+class HiveTest(SynTest):
+    pass
 
-    def test_hive_borked(self):
-        try:
-            task = s_async.newtask(borked)
-            s_hivemind.worker(task)
+    #def test_hive_borked(self):
+        #try:
+            #task = s_async.newtask(borked)
+            #s_hivemind.worker(task)
 
-            raise Exception('dont do like that')
+            #raise Exception('dont do like that')
 
-        except s_async.JobErr as e:
-            self.assertEqual( e._job_err, 'FakeErr' )
+        #except s_async.JobErr as e:
+            #self.assertEqual( e._job_err, 'FakeErr' )
 
-    def test_hive_worker(self):
-        task = s_async.newtask(doit,30)
-        self.assertEqual( s_hivemind.worker(task, timeout=0.2), 50 )
+    #def test_hive_worker(self):
+        #task = s_async.newtask(doit,30)
+        #self.assertEqual( s_hivemind.worker(task, timeout=0.2), 50 )
 
-    def test_hive_timeout(self):
-        task = s_async.newtask(zzzz,2)
-        self.assertRaises( s_async.JobTimedOut, s_hivemind.worker, task, timeout=0.1)
+    #def test_hive_timeout(self):
+        #task = s_async.newtask(zzzz,2)
+        #self.assertRaises( HitMaxTime, s_hivemind.worker, task, timeout=0.1)
 
-    def getUnitHive(self, melds=None):
-        dmon,link = self.getTeleServ()
-        queen = s_hivemind.Queen(dmon)
+    #def getUnitHive(self, melds=None):
+        #dmon,link = self.getTeleServ()
+        #queen = s_hivemind.Queen()
 
-        dmon.addSharedObject('queen',queen)
+        #dmon.share('queen',queen)
 
-        port = link[1].get('port')
+        #port = link[1].get('port')
+        #qproxy = s_telepath.openurl('tcp://127.0.0.1:%d/queen' % port)
 
-        link = s_link.chopLinkUrl('tcp://127.0.0.1:%d/queen' % (port,))
-        qproxy = s_telepath.Proxy(link)
+        #drone = s_hivemind.Drone(link, melds=melds)
+        #worker = s_hivemind.Worker(qproxy, size=1)
 
-        drone = s_hivemind.Drone(link, melds=melds)
-        worker = s_hivemind.Worker(qproxy, size=1)
+        #return dmon,queen,drone,worker
 
-        return dmon,queen,drone,worker
+    #def test_hive_queen(self):
+        #dmon,queen,drone,worker = self.getUnitHive()
 
-    def test_hive_queen(self):
-        dmon,queen,drone,worker = self.getUnitHive()
+        #data = {}
+        #evt = threading.Event()
+        #def onfini(job):
+            #data['job'] = job
+            #evt.set()
 
-        data = {}
-        evt = threading.Event()
-        def onfini(job):
-            data['job'] = job
-            evt.set()
+        #jid = s_async.jobid()
+        #dyntask = s_async.newtask('synapse.tests.test_hivemind.doit', 30)
 
-        jid = s_async.jobid()
-        dyntask = s_async.newtask('synapse.tests.test_hivemind.doit', 30)
+        #drone.initJob(jid, dyntask=dyntask, onfini=onfini)
 
-        drone.initAsyncJob(jid, dyntask=dyntask, onfini=onfini)
+        #evt.wait(timeout=2)
 
-        evt.wait(timeout=2)
+        #job = data.get('job')
+        #self.assertIsNotNone(job)
+        #self.assertEqual(job[0], jid)
 
-        job = data.get('job')
-        self.assertIsNotNone(job)
-        self.assertEqual(job[0], jid)
+        #drone.fini()
+        #worker.fini()
+        #queen.fini()
+        #dmon.fini()
 
-        drone.fini()
-        worker.fini()
-        queen.fini()
-        dmon.fini()
+    #def test_hive_melds(self):
+        #melds = [ derpmeld, ]
+        #dmon,queen,drone,worker = self.getUnitHive(melds=melds)
 
-    def test_hive_melds(self):
-        melds = [ derpmeld, ]
-        dmon,queen,drone,worker = self.getUnitHive(melds=melds)
+        #jid = s_async.jobid()
+        #dyntask = s_async.newtask('derpderp.hurrdurr', 10, y=70)
 
-        jid = s_async.jobid()
-        dyntask = s_async.newtask('derpderp.hurrdurr', 10, y=70)
+        #data = {}
+        #evt = threading.Event()
 
-        data = {}
-        evt = threading.Event()
+        #def onfini(job):
+            #data['job'] = job
+            #evt.set()
 
-        def onfini(job):
-            data['job'] = job
-            evt.set()
+        #drone.initJob(jid, dyntask=dyntask, onfini=onfini)
 
-        drone.initAsyncJob(jid, dyntask=dyntask, onfini=onfini)
+        #evt.wait(timeout=1)
 
-        evt.wait(timeout=1)
+        #job = data.get('job')
 
-        job = data.get('job')
+        #self.assertEqual( job[0], jid )
+        #self.assertEqual( s_async.jobret(job), 80 )
 
-        self.assertEqual( job[0], jid )
-        self.assertEqual( s_async.jobret(job), 80 )
+        #drone.fini()
+        #worker.fini()
+        #queen.fini()
+        #dmon.fini()
 
-        drone.fini()
-        worker.fini()
-        queen.fini()
-        dmon.fini()
-
-    def getTeleServ(self):
-        link = s_link.chopLinkUrl('tcp://127.0.0.1:0/')
-
-        daemon = s_daemon.Daemon()
-        daemon.runLinkServer(link)
-
-        return daemon,link
+    #def getTeleServ(self):
+        #dmon = s_daemon.Daemon()
+        #link = dmon.listen('tcp://127.0.0.1:0')
+        #return dmon,link

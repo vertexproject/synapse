@@ -36,7 +36,7 @@ def httpd(jsinfo, jsfile=None):
     api = s_httpapi.HttpApi(jsinfo, jsfile=jsfile)
 
     size = jsinfo.get('threads',16)
-    boss = s_async.AsyncBoss(size)
+    boss = s_async.Boss(size)
 
     port = jsinfo.get('port',8080)
     host = jsinfo.get('host','0.0.0.0')
@@ -73,7 +73,7 @@ def httpd(jsinfo, jsfile=None):
                 ret = job[1].get('ret')
                 self.sendHttpResp(ret)
 
-            boss.initAsyncJob(jid, task=task, onfini=jobfini)
+            boss.initJob(jid, task=task, onfini=jobfini)
 
         @tornado.web.asynchronous
         def post(self):
@@ -89,7 +89,7 @@ def httpd(jsinfo, jsfile=None):
                 ret = job[1].get('ret')
                 self.sendHttpResp(ret)
 
-            boss.initAsyncJob(jid, task=task, onfini=jobfini)
+            boss.initJob(jid, task=task, onfini=jobfini)
 
         def sendHttpErr(self, exc):
             retinfo = {'err':exc.__class__.__name__, 'msg':str(exc)}

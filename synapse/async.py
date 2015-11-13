@@ -10,26 +10,17 @@ import synapse.queue as s_queue
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.impulse as s_impulse
+import synapse.session as s_session
 import synapse.threads as s_threads
 
-class AsyncError(Exception):pass
-class NoSuchJob(AsyncError):pass
-class JobTimedOut(AsyncError):pass
-class BossShutDown(AsyncError):pass
-
-class JobErr(Exception):
-    def __init__(self, err, errmsg='', trace=''):
-        self._job_err = err
-        self._job_trace = trace
-        self._job_errmsg = errmsg
-        Exception.__init__(self, '%s\n(%s: %s)' % (trace,err,errmsg))
+from synapse.common import *
 
 def jobid():
     return s_common.guidstr()
 
 def jobret(job):
     '''
-    Use the job status to either return or raise.
+    Return job result or raise on error.
 
     Example:
 
@@ -45,164 +36,130 @@ def jobret(job):
 def newtask(meth,*args,**kwargs):
     return (meth,args,kwargs)
 
-class AsyncBoss(s_impulse.PulseRelay):
+class Boss(s_impulse.PulseRelay):
     '''
-    An AsyncBoss manages AsyncJobs.
+    A Boss manages asynchonous jobs.
 
-    An AsyncBoss has two main use cases:
+    ( If given a pool, he will execute them as well )
 
-    1. State Tracking Only ( size = None )
-    2. Acutally Doing Work ( size = <int> )
-
+    Additionally, if given a pool, the boss will assume
+    he is responsible for calling fini() on the pool when
+    he is notified of fini()
     '''
-    def __init__(self, size=None):
+    def __init__(self):
         s_impulse.PulseRelay.__init__(self)
 
-        self.onfini(self._finiAllJobs)
-        self.onfini(self._finiAllThreads)
+        self.onfini( self._onBossFini )
 
-        self.size = size
-        self.jobq = queue.Queue()
+        self.pool = None
+        self.sched = s_sched.getGlobSched()
 
-        self.sched = s_sched.Sched()
-        self.threads = []
-
-        self.joblock = threading.RLock()
+        self.joblock = threading.Lock()
 
         self.jobs = {}
-        self.jobfini = collections.defaultdict(list)
-        self.jobevt = {}
-        self.jobtask = {}   # jid:(meth,args,kwargs) "task tuple"
-        self.jobtimeo = {}  # jid:<event> ( for sched.cancel() )
+        self.joblocal = {}
 
-        self.on('job:fini', self._myOnJobFini )
+        self.on('job:done', self._onJobDone )  # trigger job done
+        self.on('job:fini', self._onJobFini )  # job is finished
 
-        if size != None:
-            self.addPoolWorkers(size)
-
-    def setPoolSize(self, size):
+    def setBossPool(self, pool):
         '''
-        Update the size of the thread worker pool.
+        Set a thread pool object for the boss.
 
         Example:
 
-            boss.setPoolSize(10)
+            pool = s_threads.Pool(size=3)
+            boss.setBossPool(pool)
 
         '''
-        with self.joblock:
+        self.pool = pool
+        self.onfini( self.pool.fini )
 
-            if self.size == None:
-                self.size = 0
-
-            delta = size - self.size
-            if delta == 0:
-                return
-
-            if delta < 0:
-                self.delPoolWorkers(abs(delta))
-                return
-
-            self.addPoolWorkers(delta)
-
-    def addPoolWorkers(self, count):
+    def runBossPool(self, size, maxsize=None):
         '''
-        Spin up additional worker threads.
+        Create and run a thread pool for this Boss()
 
         Example:
 
-            boss.addPoolWorkers(8)
+            boss.runBossPool(3)
 
         '''
-        for i in range(count):
-            self._initPoolThread()
+        pool = s_threads.Pool(size=size, maxsize=maxsize)
+        self.setBossPool(pool)
 
-    def delPoolWorkers(self, count):
-        '''
-        Spin down some worker threads.
+    def _onJobDone(self, event):
+        # used to *trigger* job done processing
+        jid = event[1].get('jid')
+        if jid == None:
+            return
 
-        Example:
+        job = self.jobs.get(jid)
+        if job == None:
+            return
 
-            boss.delPoolWorkers(2)
+        err = event[1].get('err')
+        if err != None:
+            errmsg = event[1].get('errmsg')
+            errtrace = event[1].get('errtrace')
 
-        '''
-        count = min(count,len(self.threads))
-        for i in range(count):
-            self.jobq.put(None)
+            job[1]['err'] = err
+            job[1]['errmsg'] = errmsg
+            job[1]['errtrace'] = errtrace
 
-    def getAsyncJobs(self):
+        else:
+            job[1]['ret'] = event[1].get('ret')
+
+        self.fire('job:fini', job=job)
+
+    def call(self, onfini, func, *args, **kwargs ):
+
+        jid = guidstr()
+        task = (func,args,kwargs)
+
+        job = self.initJob(jid, task=task, onfini=onfini)
+
+        return job
+
+    def getJobs(self):
         '''
         Return a list of job tuples.
 
         Example:
 
-            for job in boss.getAsyncJobs():
+            for job in boss.getJobs():
                 dostuff(job)
 
         '''
         return list(self.jobs.values())
 
-    def getAsyncJob(self, jid):
+    def __iter__(self):
+        return self.jobs.values()
+
+    def getJob(self, jid):
         '''
         Return a job tuple by ID.
 
         Example:
 
-            job = boss.getAsyncJob(jid)
+            job = boss.getJob(jid)
 
         '''
         return self.jobs.get(jid)
 
-    def setJobInfo(self, jid, prop, valu):
+    def initJob(self, jid, **info):
         '''
-        Set a property in the job info dictionary.
-
-        Example:
-
-            boss.setJobInfo(jid,'woot',10)
-
-        '''
-        with self.joblock:
-            job = self.jobs.get(jid)
-            if job == None:
-                return
-
-            old = job[1].get(prop)
-            job[1][prop] = valu
-
-        #self.fire('job:set', job=job, prop=prop, valu=valu, old=old)
-
-    def setJobTask(self, jid, meth, *args, **kwargs):
-        '''
-        Set the task tuple (meth, args, kwargs) for the job.
-
-        Example:
-
-            boss.setJobTask( jid, foo.bar, 10, y=30 )
-
-        '''
-        with self.joblock:
-            job = self.jobs.get(jid)
-            if job == None:
-                return
-
-            self.jobtask[jid] = (meth,args,kwargs)
-
-    def initAsyncJob(self, jid, **info):
-        '''
-        Initialize and return a new AsyncJob.
+        Initialize and return a new job tufo.
 
         Example:
 
             jid = jobid()
             task = (meth,args,kwargs)
 
-            job = boss.initAsyncJob(jid,task=task,timeout=60)
+            job = boss.initJob(jid,task=task,timeout=60)
 
         Notes:
             Info Conventions:
             * task=(meth,args,kwargs)
-            * dyntask=('mod.func',args,kwargs)
-            * autoque=True # init *and* queue job (default)
             * timeout=<sec> # max runtime
             * onfini=<meth> # def onfini(job):
 
@@ -210,225 +167,87 @@ class AsyncBoss(s_impulse.PulseRelay):
         if self.isfini:
             raise BossShutDown()
 
-        times = {'init':time.time()}
-
-        info['times'] = times
-        info['status'] = 'new'
+        info['times'] = []
 
         job = (jid,info)
-        return self.addAsyncJob(job)
-
-    def addAsyncJob(self, job):
-        '''
-        Add an existing async job tuple to this AsyncBoss.
-
-        Notes:
-
-            This API is mostly for use in synchronizing 
-            multiple AsyncBoss instances.
-
-        '''
-        jid,jinfo = job
-        jinfo.setdefault('autoque', True)
-
-        task = jinfo.pop('task',None)
-        if task != None:
-            self.jobtask[jid] = task
-
-        onfini = jinfo.pop('onfini',None)
-        if onfini != None:
-            self.jobfini[jid].append(onfini)
 
         self.jobs[jid] = job
 
+        # setup our per job local storage
+        # ( for non-serializables )
+        joblocal = {
+            'onfini':info.pop('onfini',None),
+        }
+        self.joblocal[jid] = joblocal
+
+        self._addJobTime(job,'init')
+
         self.fire('job:init',job=job)
 
-        if job[1].get('autoque'):
-            self._putJobQue(job)
+        if self.pool != None:
+            self.pool.call( self._runJob, job )
+
+        # if we have a timeout, setup a sched callback
+        timeout = job[1].get('timeout')
+        if timeout != None:
+
+            def hitmax():
+                joblocal.pop('schedevt',None)
+                self.fire('job:done', jid=jid, err='HitMaxTime')
+
+            joblocal['schedevt'] = self.sched.insec(timeout,hitmax)
 
         return job
 
-    def queAsyncJob(self, jid):
-        '''
-        Inform the boss that a job is ready to queue
-        for execution.
-
-        Example:
-
-            boss.queAsyncJob(jid)
-
-        '''
-        with self.joblock:
-            job = self.jobs.get(jid)
-            if job == None:
-                return
-
-            self._putJobQue(job)
-
-    def _putJobQue(self, job):
-        job[1]['status'] = 'queue'
-        job[1]['times']['putq'] = time.time()
-
-        self.jobq.put(job)
-
-    def _runPoolWork(self):
-        '''
-        Run the next job from the job queue.
-
-        Example:
-
-            while go:
-                boss._runNextJob()
-
-        Notes:
-
-            This API is used internally by the pool.
-
-        '''
-        while not self.isfini:
-            job = self.getNextJob()
-            if job == None:
-                return
-
-            self._runAsyncJob(job)
-
-    def _runAsyncJob(self, job):
+    def _runJob(self, job):
         '''
         Actually execute the given job with the caller thread.
         '''
-        task = self.jobtask.get(job[0])
-        if task == None:
-
-            dyntask = job[1].get('dyntask')
-            if dyntask != None:
-                methname, args, kwargs = dyntask
-                meth = s_dyndeps.getDynLocal(methname)
-                if meth == None:
-                    self.setJobErr(job[0],'NoSuchMeth')
-                    return
-
-                task = (meth,args,kwargs)
-
-            selftask = job[1].get('selftask')
-            if selftask != None:
-                methname, args, kwargs = selftask
-                meth = getattr(self, methname, None)
-                if meth == None:
-                    self.setJobErr(job[0],'NoSuchMeth')
-                    return
-
-                task = (meth,args,kwargs)
-
+        task = job[1].get('task')
         if task == None:
             self.setJobErr(job[0],'NoJobTask')
             return
 
         try:
 
-            ret = self._runJobTask(job,task)
-            self.setJobDone(job[0],ret)
+            func,args,kwargs = task
+            ret = func(*args,**kwargs)
+            self.fire('job:done', jid=job[0], ret=ret)
 
         except Exception as e:
-            err = e.__class__.__name__
-            props = {'trace':traceback.format_exc(), 'errmsg':str(e)}
-            self.setJobErr(job[0], err, **props)
+            self.fire('job:done', jid=job[0], **excinfo(e))
 
-    def _runJobTask(self, job, task):
-        meth,args,kwargs = task
-        return meth(*args,**kwargs)
-
-    def setJobDone(self, jid, ret, **info):
-        '''
-        Complete an async job with success!
-
-        Example:
-
-            boss.setJobDone(jid, retval)
-
-        '''
-        with self.joblock:
-            info['ret'] = ret
-            info['status'] = 'done'
-            return self._setJobFini(jid,**info)
-
-    def setJobErr(self, jid, err, **info):
-        '''
-        Complete an async job with an error name.
-
-        Example:
-
-            boss.setJobErr(jid,'FooFailure')
-
-        '''
-        info['err'] = err
-        info['status'] = 'err'
-        return self._setJobFini(jid,**info)
-
-    def _setJobFini(self, jid, **info):
-        with self.joblock:
-            job = self.jobs.get(jid)
-            if job == None:
-                return
-
-            job[1].update(info)
-            job[1]['times']['fini'] = time.time()
-
-            self.fire('job:fini', job=job)
-
-    def onJobFini(self, jid, meth):
-        '''
-        Register a fini handler for the given job.
-
-        Example:
-
-            def myfini(job):
-                dostuff(job)
-
-            boss.onJobFini( jid, myfini )
-
-        '''
-        with self.joblock:
-            job = self.jobs.get(jid)
-            if job == None:
-                raise NoSuchJob(jid)
-
-            self.jobfini[jid].append( meth )
-
-    def _myOnJobFini(self, event):
+    def _onJobFini(self, event):
 
         with self.joblock:
             job = event[1].get('job')
             jid = job[0]
 
-            sch = self.jobtimeo.pop(jid,None)
-            if sch is not None:
-                try:
-                    self.sched.cancel(sch)
-                except ValueError as e:
-                    # STUPID CANCEL API
-                    pass # NEVER EVER DO THIS
-
             self.jobs.pop(jid,None)
-            self.jobtask.pop(jid,None)
-            evt = self.jobevt.pop(jid,None)
-            jobfinis = self.jobfini.pop(jid,())
+            joblocal = self.joblocal.pop(jid,None)
 
+            schedevt = joblocal.get('schedevt')
+            if schedevt != None:
+                self.sched.cancel(schedevt)
+
+            evt = joblocal.get('waitevt')
             if evt != None:
                 evt.set()
 
-            for fini in jobfinis:
+            onfini = joblocal.get('onfini')
+            if onfini != None:
                 try:
-                    fini(job)
+                    onfini(job)
                 except Exception as e:
                     traceback.print_exc()
 
-    def waitAsyncJob(self, jid, timeout=None):
+    def waitJob(self, jid, timeout=None):
         '''
         Wait for a job to complete by id.
 
         Example:
 
-            boss.waitAsyncJob( jid, timeout=10 )
+            boss.waitJob( jid, timeout=10 )
 
         '''
         with self.joblock:
@@ -436,93 +255,89 @@ class AsyncBoss(s_impulse.PulseRelay):
             if job == None:
                 return True
 
-            evt = self.jobevt.get(jid)
+            joblocal = self.joblocal.get(jid)
+            evt = joblocal.get('waitevt')
             if evt == None:
                 evt = threading.Event()
-                self.jobevt[jid] = evt
+                joblocal['waitevt'] = evt
 
         evt.wait(timeout=timeout)
         return evt.is_set()
 
-    def _initPoolThread(self):
-        thr = s_threads.worker( self._runPoolWork )
-        self.threads.append( thr )
+    def _addJobTime(self, job, stage):
+        job[1]['times'].append( (stage,time.time()) )
 
-    def _finiAllThreads(self):
+    def _onBossFini(self):
+        for job in self.getJobs():
+            self.fire('job:done', jid=job[0], err='BossShutDown')
 
-        for i in range(len(self.threads)):
-            self.jobq.put(None)
+        if self.pool:
+            self.pool.fini()
 
-        for thr in self.threads:
-            thr.join()
-
-    def getNextJob(self):
-        '''
-        Retrieve the next queue'd job to run.
-        '''
-        while True:
-            job = self.jobq.get()
-            if job == None:
-                return
-
-            # if we get a job from the que that has
-            # already been canceled...
-            if job[1]['status'] != 'queue':
-                continue
-
-            job[1]['status'] = 'run'
-            job[1]['times']['getq'] = time.time()
-
-            timeout = job[1].get('timeout')
-            if timeout != None:
-                jid = job[0]
-                evt = self.sched.insec( timeout, self.setJobErr, jid, 'JobTimedOut' )
-                self.jobtimeo[job[0]] = evt
-
-            return job
-
-    def _finiAllJobs(self):
-        for job in self.getAsyncJobs():
-            self.setJobErr(job[0],'BossShutDown')
-
-class AsyncMeth:
+class Async:
     '''
-    AsyncMeth allows simple syntax for AsyncJob methods.
-    ( it acts as a transient syntax sugar helper )
-    '''
-    def __init__(self, boss, meth):
-        self.boss = boss
-        self.meth = meth
-
-    def __call__(self, *args, **kwargs):
-        jid = jobid()
-        task = (self.meth, args, kwargs)
-
-        job = self.boss.initAsyncJob(jid, task=task)
-        return job
-
-class AsyncApi:
-    '''
-    Wrap an object to allow all API calls to be async.
+    Mixin which allows remote async API calls.
 
     Example:
 
-        class Foo:
+        class Foo(Async):
             def bar(self, x):
                 return x + 20
 
         foo = Foo()
 
-        async = AsyncApi(foo)
-        async.bar(20) # calls foo.bar(20) as a job
+        jid = foo.async('bar',20)
+        ... do other stuff ...
+
+        foo.retsync(jid)
 
     '''
-    def __init__(self, boss, item):
-        self.item = item
-        self.boss = boss
+    def __init__(self, boss):
+        self._async_jobs = {}
+        self._async_boss = boss
 
-    def __getattr__(self, name):
-        meth = getattr(self.item, name)
-        return AsyncMeth(self.boss, meth)
+    def async(self, name, *args, **kwargs):
+        '''
+        Call the specified API as an async job.
 
+        Example:
 
+            # equiv: foo.bar(10,y=30)
+
+            jid = foo.async('bar', 10, y=30)
+
+        Notes:
+
+            This API *requires* callers to use resync()
+
+        '''
+        meth = getattr(self, name, None)
+        if meth == None:
+            raise NoSuchMeth(name)
+
+        task = (meth,args,kwargs)
+        onfini = kwargs.pop('onfini',None)
+
+        jid = jobid()
+        job = self._async_boss.initJob(jid, task=task, onfini=onfini)
+
+        self._async_jobs[jid] = job
+
+        return jid
+
+    def resync(self, jid, timeout=None):
+        '''
+        Wait for and return the result of a previous async() call.
+
+        Example:
+
+            job = async.resync(jid)
+
+            # this will raise if needed
+            if job != None:
+                ret = jobret(ret)
+
+        '''
+
+        self._async_boss.waitJob(jid, timeout=timeout)
+        return self._async_jobs.pop(jid,None)

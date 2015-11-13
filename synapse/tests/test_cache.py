@@ -40,7 +40,7 @@ class CacheTest(unittest.TestCase):
         newfo = cache.get(tufo[0])
 
         self.assertIsNotNone(newfo)
-        self.assertEqual(newfo[1].get('lolol'), 10)
+        self.assertEqual(newfo[1].get('woot:lolol'), 10)
 
     def test_cache_tufo_prop(self):
         core = s_cortex.openurl('ram:///')
@@ -51,5 +51,5 @@ class CacheTest(unittest.TestCase):
         newfo = cache.get('haha')
 
         self.assertIsNotNone(newfo)
-        self.assertEqual(newfo[1].get('lolol'), 10)
+        self.assertEqual(newfo[1].get('woot:lolol'), 10)
 

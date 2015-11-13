@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import msgpack
 import functools
@@ -63,7 +64,7 @@ def retmesg(mesg):
             raise cls(errmsg)
 
         errtb = mesg[1].get('errtb')
-        raise CallError(err,errmsg,errtb)
+        raise CallError(mesg)
 
     return mesg[1].get('ret')
 
@@ -71,10 +72,13 @@ def excinfo(e):
     '''
     Populate err,errmsg,errtrace info from exc.
     '''
+    tb = sys.exc_info()[2]
+    path,line,name,sorc = traceback.extract_tb(tb)[-1]
     return {
         'err':e.__class__.__name__,
         'errmsg':str(e),
-        'errtrace':traceback.format_exc(),
+        'errfile':path,
+        'errline':line,
     }
 
 def firethread(f):

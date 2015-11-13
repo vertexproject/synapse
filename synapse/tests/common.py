@@ -1,6 +1,8 @@
 import unittest
 import threading
 
+import synapse.session as s_session
+
 from synapse.common import *
 
 class TooFewEvents(Exception):pass
@@ -32,6 +34,10 @@ class TestWaiter:
         return self.events
 
 class SynTest(unittest.TestCase):
+
+    def getTestSess(self):
+        cura = s_session.Curator()
+        return cura.getNewSess()
 
     def eq(self, x, y):
         self.assertEqual(x,y)

@@ -5,321 +5,125 @@ import synapse.link as s_link
 import synapse.socket as s_socket
 import synapse.threads as s_threads
 
+import synapse.cortex as s_cortex
 import synapse.impulse as s_impulse
-import synapse.telepath as s_telepath
+import synapse.reactor as s_reactor
+import synapse.session as s_session
 
 from synapse.eventbus import EventBus
-from synapse.statemach import StateMachine, keepstate
 
-class DupLink(Exception):pass
-class ImplementMe(Exception):pass
+from synapse.common import *
 
-class Daemon(
-        EventBus,
-        StateMachine,
-        s_impulse.ImpMixin,
-        s_socket.MesgRouter,
-        s_telepath.TeleMixin
-    ):
-    '''
-    Base class for the various synapse daemons.
-    '''
-    def __init__(self, statefd=None):
+class Daemon(EventBus):
+
+    def __init__(self, core=None, boss=None):
         EventBus.__init__(self)
-        s_socket.MesgRouter.__init__(self)
 
-        self.authmod = None
-        self.links = {}
+        if core == None:
+            core = s_cortex.openurl('ram:///')
 
-        self.plex = s_socket.Plex()
-        self.plex.link( self.dist )
+        self.shared = {}
 
-        self.onfini( self.plex.fini )
+        self.rtor = s_reactor.Reactor()
+        self.pool = s_threads.Pool(maxsize=-1)
+        self.cura = s_session.Curator(core=core)
 
-        self.boss = s_threads.ThreadBoss()
-        self.onfini( self.boss.fini )
+        self.onfini( self.cura.fini )
+        self.onfini( self.pool.fini )
 
-        s_impulse.ImpMixin.__init__(self)
-        s_telepath.TeleMixin.__init__(self)
+        self.rtor.act('tele:syn', self._actTeleSyn )
+        self.rtor.act('tele:call', self._actTeleCall )
 
-        StateMachine.__init__(self,statefd=statefd)
+    def _runSockMesg(self, sock, mesg):
 
-    def setAuthModule(self, authmod):
+        try:
+            ret = self.rtor.react(mesg)
+            sock.fireobj(mesg[0] + ':ret', ret=ret)
+
+        except Exception as e:
+            sock.fireobj(mesg[0] + ':ret', **excinfo(e))
+
+    def _reqSessFromMesg(self, mesg):
+        sid = mesg[1].get('sid')
+        if sid == None:
+            return self.cura.getNewSess()
+
+        return self.cura.getSessBySid(sid)
+
+    def _actTeleSyn(self, mesg):
+        # are they giving us an existing sid?
+        with self._reqSessFromMesg(mesg) as sess:
+            return sess.sid
+
+    ###################################################
+
+    def _actTeleCall(self, mesg):
+
+        name,api,args,kwargs = mesg[1].get('call')
+
+        # FIXME sess allows?
+
+        obj = self.shared.get(name)
+        if obj == None:
+            raise NoSuchObj(name)
+
+        meth = getattr(obj,api,None)
+        if meth == None:
+            raise NoSuchMeth(api)
+
+        # FIXME rate limit?
+        # FIXME audit trail?
+
+        with self._reqSessFromMesg(mesg):
+            return meth(*args,**kwargs)
+
+    def listen(self, linkurl):
         '''
-        Enable auth/perm enforcement on the daemon using the given module.
+        Create and run a link server by url.
 
         Example:
 
-            class MyAuthModule(AuthModule):
-                ...
-
-            daemon = Daemon()
-            authmod = MyAuthModule()
-
-            daemon.setAuthModule(authmod)
+            link = dmon.listen('tcp://127.0.0.1:8888')
 
         Notes:
 
-            * Daemon will fini the auth module on daemon fini
+            * Returns the parsed link tufo
 
         '''
-        self.authmod = authmod
-        self.onfini( authmod.fini )
+        link = s_link.chopLinkUrl(linkurl)
+        relay = s_link.getLinkRelay(link)
 
-    def getAuthAllow(self, ident, rule):
+        sock = relay.listen()
+        self.pool.call(self._runServSock,sock)
+        return link
+
+    def share(self, name, obj):
         '''
-        If an auth module is present, check the given allow rule.
-
-        Example:
-
-            if not daemon.getAuthAllow( ident, rule ):
-                return sock.sendobj('tele:err', code='noperm')
-
-        Notes:
-
-            * If no AuthModule is set, default is to allow
-
+        Share an object via the telepath protocol.
         '''
-        if self.authmod == None:
-            return True
+        self.shared[name] = obj
 
-        return self.authmod.getAuthAllow(ident,rule)
+    def _runServSock(self, sock):
+        relay = sock.get('relay')
 
-    def getAuthIdent(self, authinfo):
-        '''
-        Translate arbitrary "authinfo" dictionary to a unique id.
+        sockblock = s_threads.cancelable(sock.fini)
+        while not self.isfini:
+            with sockblock:
+                news,addr = sock.accept()
+                if news == None:
+                    break
 
-        Example:
+                if relay != None:
+                    relay._prepLinkSock(news)
 
-            ident = daemon.getAuthIdent( authinfo )
+                self.pool.call( self._runServConn, news )
 
-        Notes:
+    def _runServConn(self, sock):
+        self.fire('link:sock:init', sock=sock)
 
-            * The ident can be used in calls to getAuthAllow()
+        with s_threads.cancelable(sock.fini):
+            for mesg in sock:
+                self._runSockMesg(sock,mesg)
 
-        '''
-        if self.authmod == None:
-            return None
+        self.fire('link:sock:fini', sock=sock)
 
-        return self.authmod.getAuthIdent(authinfo)
-
-    def addLinkServer(self, name, link):
-        '''
-        Add a link tuple to the Daemon.
-
-        Example:
-
-            from synapse.common import tufo
-
-            link = tufo('tcp',host='1.2.3.4',port=80)
-            daemon.addLinkServer('wootwoot',link)
-
-        Notes:
-
-            * If a StateMachine statefd is in use, this change will
-              persist across restarts.
-
-        '''
-        if self.links.get(name) != None:
-            raise DupLink()
-
-        self.links[name] = link
-        self.runLinkServer(link)
-
-    def getLink(self, name):
-        '''
-        Retrieve a link tuple by name.
-
-        Example:
-
-            link = daemon.getLink('woot')
-
-        Notes:
-
-            * Do not make changes directly to the link info
-
-        '''
-        return self.links.get(name)
-
-    def getLinks(self):
-        '''
-        Return a list of (name,link) tuples.
-
-        Example:
-
-            for name,link in daemon.getLinks():
-                stuff()
-
-        '''
-        return list(self.links.items())
-
-    def runLinkServer(self, link):
-        '''
-        Run and manage a new LinkServer.
-
-        Example:
-
-            link = tufo('tcp',host='0.0.0.0',port=80)
-            daemon.runLinkServer(link)
-        '''
-        relay = s_link.initLinkRelay( link )
-
-        server = relay.initLinkServer()
-        server.link( self.dist )
-
-        self.onfini(server.fini)
-        return server.runLinkServer()
-
-    def runLinkPeer(self, link):
-        '''
-        Run and manage a new LinkPeer.
-        '''
-        relay = s_link.initLinkRelay(link)
-
-        peer = relay.initLinkPeer()
-        peer.link( self.dist )
-
-        self.onfini(peer.fini)
-        return peer.runLinkPeer()
-
-    def _onLinkSockMesg(self, event):
-        sock = event[1].get('sock')
-        mesg = event[1].get('mesg')
-        self.runMesgMeth(sock,mesg)
-
-class AuthModule(StateMachine,EventBus):
-
-    '''
-    Modular authentication/authorization for daemon services.
-
-    An AuthModule implementation is primarily responsible for two
-    things:
-
-    1. Translate link specified authinfo into a unique identity
-    2. Store and evaluate a set of allow rules for the unique identity
-
-    '''
-    def __init__(self, statefd=None):
-        self.authinfo = {}
-        self.authrules = collections.defaultdict(dict)
-
-        EventBus.__init__(self)
-        StateMachine.__init__(self, statefd=statefd)
-
-        if self.getAuthInfo('defauth') == None:
-            self.setAuthInfo('defauth', False)
-
-        self._loadAuthRules()
-
-    def getAuthInfo(self, prop):
-        '''
-        Retrieve a persistent property from the AuthModule.
-
-        Example:
-
-            auth.getAuthInfo('foo')
-
-        '''
-        return self.authinfo.get(prop)
-
-    @keepstate
-    def setAuthInfo(self, prop, valu):
-        '''
-        Set a persistent property in the AuthModule.
-
-        Example:
-
-            auth.setAuthInfo('foo','bar')
-
-        Notes:
-
-            * This API generates EventBus events:
-                ('auth:info',{'prop':<prop>,'valu':<valu>})
-                ('auth:info:<prop>',{'valu':<valu>})
-
-        '''
-        self.authinfo[prop] = valu
-        self.fire('auth:info', prop=prop, valu=valu)
-        self.fire('auth:info:%s' % prop, valu=valu)
-
-    def getAuthIdent(self, authdata):
-        '''
-        Return an ident (used in subsequent getAuthAllow calls) from
-        the authdata dict provided by a connecting client.
-        '''
-        if authdata == None:
-            return None
-
-        return self._getAuthIdent(authdata)
-
-    def getAuthAllow(self, ident, rule):
-        '''
-        Returns True if the given rule is allowed for the ident.
-
-        Example:
-
-            if not auth.getAuthAllow(ident,rule):
-                return
-
-        '''
-        return self._getAuthAllow(ident,rule)
-
-    @keepstate
-    def addAuthRule(self, ident, rule, allow=True):
-        '''
-        Add an allow/deny rule to the AuthModule.
-
-        Example:
-
-            auth.addAuthRule('visi','do.thing', True)
-
-        '''
-        return self._addAuthRule(ident, rule, allow)
-
-    def delAuthRule(self, ident, rule):
-        '''
-        Remove an allow/deny rule from the AuthModule.
-
-        Example:
-
-            auth.delAuthRule('visi','do.thing')
-
-        '''
-        return self._delAuthRule(ident,rule)
-
-    def _getAuthIdent(self, authinfo):
-        raise ImplementMe()
-
-    def _getAuthAllow(self, ident, rule):
-        rules = self.authrules.get(ident)
-        if rules == None:
-            return self.getAuthInfo('defauth')
-
-        allow = rules.get(rule)
-        if allow == None:
-            return self.getAuthInfo('defauth')
-
-        return allow
-
-    def _addAuthRule(self, ident, rule, allow):
-        self.authrules[ident][rule] = allow
-
-    def _delAuthRule(self, ident, rule):
-        rules = self.authrules.get(ident)
-        if rules == None:
-            return
-
-        return rules.pop(rule,None)
-
-    def _loadAuthRules(self):
-        '''
-        A API for subclasses to load auth rules from outside.
-        '''
-        pass
-
-class ApiKeyAuth(AuthModule):
-    '''
-    A simple "apikey" based AuthModele which stores data in the daemon.
-    '''
-    def _getAuthIdent(self, authinfo):
-        return authinfo.get('apikey')

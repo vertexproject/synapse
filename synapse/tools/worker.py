@@ -14,7 +14,7 @@ def main(argv):
 
     args = p.parse_args(argv)
 
-    queen = s_telepath.getProxy(args.queenurl)
+    queen = s_telepath.openurl(args.queenurl)
     worker = s_hivemind.Worker(queen, size=args.size)
 
     try:

@@ -37,7 +37,6 @@ class Sess(EventBus):
         return self.sess[1].get(prop)
 
     def set(self, prop, valu):
-        prop = 'sess:%s' % prop
         self.boss.core.setTufoProp(self.sess,prop,valu)
 
     def __enter__(self):
@@ -114,25 +113,13 @@ class Curator(EventBus):
             sess = boss.getNewSess()
 
         '''
-        sid = guidstr()
         now = int(time.time())
-
-        props = {
-            'sess:root': 0,
-            'sess:init': now,
-        }
-
-        sess = (sid,props)
-        self.fire('sess:form',sess=sess)
-
-        rows = [ (sid,p,v,now) for (p,v) in props.items() ]
-
-        self.core.addRows(rows)
+        sess = self.core.addTufoEvent('sess',init=now,root=0)
 
         self.fire('sess:init', sess=sess)
 
         ret = Sess(self,sess)
-        self.sessions.put(sid,ret)
+        self.sessions.put(sess[0],ret)
 
         return ret
 

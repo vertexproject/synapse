@@ -18,17 +18,6 @@ if version < (3,0,0):
     import select
 
     import Queue as queue
-    import sched as sched27
-
-    class FakeSched(sched27.scheduler):
-        def enter(self, delay, prio, meth, args, kwargs):
-            def action():
-                return meth(*args,**kwargs)
-            return sched27.scheduler.enter(self, delay, prio, action, ())
-
-    class FakeSchedMod:
-        def scheduler(self):
-            return FakeSched(time.time,time.sleep)
 
     class FakeKey:
         def __init__(self, sock):
@@ -91,7 +80,6 @@ if version < (3,0,0):
         def DefaultSelector(self):
             return FakeSelector()
 
-    sched = FakeSchedMod()
     selectors = FakeSelMod()
 
     def enbase64(s):
@@ -103,8 +91,11 @@ if version < (3,0,0):
     def isstr(s):
         return type(s) in (str,unicode)
 
+    def iterbytes(byts):
+        for c in byts:
+            yield(ord(c))
+
 else:
-    import sched
     import queue
     import selectors
 
@@ -116,3 +107,6 @@ else:
 
     def isstr(s):
         return isinstance(s,str)
+
+    def iterbytes(byts):
+        return iter(byts)

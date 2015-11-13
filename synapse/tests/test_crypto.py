@@ -3,31 +3,30 @@ import unittest
 import synapse.link as s_link
 import synapse.daemon as s_daemon
 
-from synapse.common import *
+from synapse.tests.common import *
 
-class CryptoTest(unittest.TestCase):
+class CryptoTest(SynTest):
 
     def test_crypto_rc4(self):
 
-        link1 = s_link.chopLinkUrl('tcp://127.0.0.1:0?rc4key=asdfasdf')
-
         data = {}
-        def wootmesg(sock,mesg):
+        def wootmesg(mesg):
             data['foo'] = mesg[1].get('foo')
-            sock.fireobj('woot2')
+            return tufo('woot2')
 
         daemon = s_daemon.Daemon()
-        daemon.setMesgMeth('woot1',wootmesg)
+        daemon.rtor.act('woot1', wootmesg)
 
-        daemon.runLinkServer(link1)
+        link = daemon.listen('tcp://127.0.0.1:0?rc4key=asdfasdf')
 
-        relay = s_link.initLinkRelay(link1)
-        client = relay.initLinkClient()
+        relay = s_link.getLinkRelay(link)
+        sock = relay.connect()
 
-        repl = client.sendAndRecv('woot1',foo=2)
+        sock.fireobj('woot1',foo=2)
+        repl = sock.recvobj()
 
-        self.assertEqual( repl[0], 'woot2' )
+        self.assertEqual( repl[0], 'woot1:ret' )
         self.assertEqual( data.get('foo'), 2)
 
-        client.fini()
+        sock.fini()
         daemon.fini()

@@ -6,7 +6,9 @@ import collections
 from synapse.compat import queue
 
 import synapse.async as s_async
+import synapse.aspects as s_aspects
 import synapse.threads as s_threads
+import synapse.datamodel as s_datamodel
 
 from synapse.common import *
 from synapse.eventbus import EventBus
@@ -14,7 +16,7 @@ from synapse.eventbus import EventBus
 class NoSuchJob(Exception):pass
 class NoSuchGetBy(Exception):pass
 
-class Cortex(EventBus):
+class Cortex(EventBus,s_async.Async):
     '''
     Top level Cortex key/valu storage object.
 
@@ -37,9 +39,13 @@ class Cortex(EventBus):
         self.sizebymeths = {}
         self.rowsbymeths = {}
 
-        # used to facilitate pooled async readers
-        self.boss = s_async.AsyncBoss(size)
-        self.bgboss = s_async.AsyncBoss(1)      # for sync bg calls
+        self.boss = s_async.Boss()
+        self.boss.runBossPool(size)
+
+        s_async.Async.__init__(self, self.boss)
+
+        self.bgboss = s_async.Boss()
+        self.bgboss.runBossPool(1)
 
         self.jobcache = {}
 
@@ -48,6 +54,23 @@ class Cortex(EventBus):
         self.isok = True
         self.onfini( self.boss.fini )
         self.onfini( self.bgboss.fini )
+
+        self.mytufo = self.formTufoByProp('cortex','self')
+
+    def getCortexProp(self, prop):
+        return self.mytufo.get(prop)
+
+    def setCortexProp(self, prop, valu):
+        self.setTufoProp(self.mytufo,prop,valu)
+
+    def addCortexTag(self, tag):
+        self.addTufoTag(self.mytufo,tag)
+
+    def delCortexTag(self, tag):
+        self.delTufoTag(self.mytufo,tag)
+
+    def getCortexTags(self):
+        return s_aspects.getTufoTags(self.mytufo)
 
     def setDataModel(self, model):
         '''
@@ -66,9 +89,26 @@ class Cortex(EventBus):
         '''
         return self.isok
 
+    def delAddRows(self, iden, rows):
+        '''
+        Delete rows by iden and add rows as a single operation.
+
+        Example:
+
+            core.delAddRows( iden, rows )
+
+        Notes:
+
+            This API is oriented toward "reparse" cases where iden
+            will be the same for the new rows.
+
+        '''
+        self.delRowsById(iden)
+        self.addRows(rows)
+
     def addRows(self, rows):
         '''
-        Add (ident,prop,valu,time) rows to the Cortex.
+        Add (iden,prop,valu,time) rows to the Cortex.
 
         Example:
 
@@ -85,148 +125,79 @@ class Cortex(EventBus):
         '''
         self._addRows(rows)
 
-    def fireBgCall(self, api, *args, **kwargs):
+    def addListRows(self, prop, *vals):
         '''
-        Call a cortex API in the "background" with no result.
-
-        All requested calls will be run *sequentually* by a single
-        pool thread, allowing "delete and check back" behavior.
+        Add rows by making a guid for each and using now().
 
         Example:
 
-            jid = core.fireBgCall('delRowsByProp', 'foo', valu=10)
-
-        Notes:
-
-            The single-worker nature of this API allows stacking
-            up a bunch of "delete by id" and subsequent add-rows
-            APIs.
+            core.addListRows('foo:bar',[ 1, 2, 3, 4])
 
         '''
-        meth = getattr(self,api)
-        task = (meth,args,kwargs)
+        now = int(time.time())
+        rows = [ (guidstr(), prop, valu, now) for valu in vals ]
+        self.addRows(rows)
+        return rows
 
-        jid = s_async.jobid()
-        self.bgboss.initAsyncJob(jid, task=task)
-        return jid
-
-    def waitBgCall(self, jid, timeout=None):
+    def getRowsById(self, iden):
         '''
-        Wait for completion of a previous call to fireBgCall().
+        Return all the rows for a given iden.
 
         Example:
 
-            jid = core.fireBgCall('delRowsById', ident)
-            # .. do other stuff ..
-
-            core.waitBgJob(jid)
-            # delRowsById is complete...
-
-        '''
-        return self.bgboss.waitAsyncJob(jid, timeout=timeout)
-
-    def fireAsyncCall(self, api, *args, **kwargs):
-        '''
-        Call a cortex API asynchronously to return for results later.
-
-        Example:
-
-            jid = core.fireAsyncCall('getRowsByProp','foo',valu=10)
-            # do stuff....
-            job = core.waitAsyncCall(jid)
-
-            ret = s_async.jobret(job)
-
-        Notes:
-
-            * callers are required to retrieve results using
-              getAsyncResult(), this API is *not* fire and
-              forget.
-
-        '''
-
-        jid = s_async.jobid()
-
-        meth = getattr(self,api)
-        task = (meth,args,kwargs)
-
-        job = self.boss.initAsyncJob(jid, task=task)
-        self.jobcache[jid] = job
-
-        return jid
-
-    def waitAsyncCall(self, jid):
-        '''
-        Wait for a previous call to fireAsyncCall to complete.
-
-        Example:
-
-            job = core.waitAsyncJob(jid)
-
-        '''
-        job = self.jobcache.pop(jid,None)
-        self.boss.waitAsyncJob(jid)
-        return job
-
-    def getRowsById(self, ident):
-        '''
-        Return all the rows for a given ident.
-
-        Example:
-
-            for row in core.getRowsById(ident):
+            for row in core.getRowsById(iden):
                 stuff()
 
         '''
-        return self._getRowsById(ident)
+        return self._getRowsById(iden)
 
-    def getRowsByIds(self, idents):
+    def getRowsByIds(self, idens):
         '''
-        Return all the rows for a given list of idents.
+        Return all the rows for a given list of idens.
 
         Example:
 
             rows = core.getRowsByIds( (id1, id2, id3) )
 
         '''
-        return self._getRowsByIds(idents)
+        return self._getRowsByIds(idens)
 
-    def delRowsById(self, ident):
+    def delRowsById(self, iden):
         '''
-        Delete all the rows for a given ident.
+        Delete all the rows for a given iden.
 
         Example:
 
-            core.delRowsById(ident)
+            core.delRowsById(iden)
 
         '''
-        self._delRowsById(ident)
+        self._delRowsById(iden)
 
-    def delRowsByIdProp(self, ident, prop):
+    def delRowsByIdProp(self, iden, prop):
         '''
-        Delete rows with the givin combination of ident and prop[=valu].
+        Delete rows with the givin combination of iden and prop[=valu].
 
         Example:
 
             core.delRowsByIdProp(id, 'foo')
 
         '''
-        return self._delRowsByIdProp(ident, prop)
+        return self._delRowsByIdProp(iden, prop)
 
-    def setRowsByIdProp(self, ident, prop, valu):
+    def setRowsByIdProp(self, iden, prop, valu):
         '''
-        Update/insert the value of the row(s) with ident and prop to valu.
+        Update/insert the value of the row(s) with iden and prop to valu.
 
         Example:
 
-            core.setRowsByIdProp(ident,'foo',10)
+            core.setRowsByIdProp(iden,'foo',10)
 
         '''
-        self._setRowsByIdProp(ident, prop, valu)
+        self._setRowsByIdProp(iden, prop, valu)
 
     def getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         '''
-        Return a tuple of (ident,prop,valu,time) rows by prop[=valu].
+        Return a tuple of (iden,prop,valu,time) rows by prop[=valu].
 
         Example:
 
@@ -244,7 +215,7 @@ class Cortex(EventBus):
 
     def getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         '''
-        Similar to getRowsByProp but also lifts all other rows for ident.
+        Similar to getRowsByProp but also lifts all other rows for iden.
 
         Example:
 
@@ -347,7 +318,7 @@ class Cortex(EventBus):
 
     def getTufoByProp(self, prop, valu=None):
         '''
-        Return an (ident,info) tuple by joining rows based on a property.
+        Return an (iden,info) tuple by joining rows based on a property.
 
         Example:
 
@@ -363,7 +334,7 @@ class Cortex(EventBus):
             return None
 
         tufo = ( rows[0][0], {} )
-        for ident,prop,valu,stamp in rows:
+        for iden,prop,valu,stamp in rows:
             tufo[1][prop] = valu
 
         return tufo
@@ -384,9 +355,79 @@ class Cortex(EventBus):
         [ res[i].__setitem__(p,v) for (i,p,v,t) in rows ]
         return list(res.items())
 
-    def formTufoByProp(self, prop, valu, **props):
+    def addTufoTag(self, tufo, tag, valu=None):
         '''
-        Form an (ident,info) tuple by atomically deconflicting
+        Add an aspect tag to a tufo.
+
+        Example:
+
+            tufo = core.formTufoByProp('foo','bar')
+            core.addTufoTag(tufo,'baz.faz')
+
+        '''
+        rows = s_aspects.genTufoRows(tufo,tag,valu=valu)
+        self.addRows(rows)
+        tufo[1].update({ p:v for (i,p,v,t) in rows })
+        return tufo
+
+    def delTufoTag(self, tufo, tag):
+        '''
+        Delete an aspect tag from a tufo.
+
+        Example:
+
+            tufo = core.getTufosByTag('foo','baz.faz')
+            core.delTufoTag(tufo,'baz')
+
+        '''
+        iden = tufo[0]
+        props = s_aspects.getTufoSubs(tufo,tag)
+        [ self.delRowsByIdProp(iden,prop) for prop in props ]
+        [ tufo[1].pop(p) for p in props ]
+        return tufo
+
+    def getTufosByTag(self, form, tag):
+        '''
+        Retrieve a list of tufos by form and tag.
+
+        Example:
+
+            for tufo in core.getTufosByTag('woot','foo.bar'):
+                dostuff(tufo)
+
+        '''
+        prop = '%s:tag:%s' % (form,tag)
+        return self.getTufosByProp(prop)
+
+    def addTufoEvent(self, form, **props):
+        '''
+        Add a "non-deconflicted" tufo by generating a guid
+
+        Example:
+
+            tufo = core.addTufoEvent('foo',bar=baz)
+
+        '''
+        iden = guidstr()
+        stamp = int(time.time())
+
+        props = self._normTufoProps(form,props)
+        props[form] = iden
+
+        rows = [ (iden,p,v,stamp) for (p,v) in props.items() ]
+
+        self.addRows(rows)
+
+        tufo = (iden,props)
+
+        self.fire('tufo:add', tufo=tufo)
+        self.fire('tufo:add:%s' % form, tufo=tufo)
+
+        return tufo
+
+    def formTufoByProp(self, form, valu, **props):
+        '''
+        Form an (iden,info) tuple by atomically deconflicting
         the existance of prop=valu and creating it if not present.
 
         Example:
@@ -400,43 +441,53 @@ class Cortex(EventBus):
 
         '''
         if self.model != None:
-            valu = self.model.getPropNorm(prop,valu)
+            valu = self.model.getPropNorm(form,valu)
 
-        # FIXME lock per tufo prop to parallelize deconfliction
         with self.lock:
-            tufo = self.getTufoByProp(prop,valu=valu)
+            tufo = self.getTufoByProp(form,valu=valu)
             if tufo != None:
                 return tufo
 
-            ident = guidstr()
+            iden = guidstr()
             stamp = int(time.time())
 
-            self.fire('tufo:form', prop=prop, valu=valu, props=props)
-            self.fire('tufo:form:%s' % prop, prop=prop, valu=valu, props=props)
+            props = self._normTufoProps(form,props)
+            props[form] = valu
 
-            props[prop] = valu
-            props['tufo:type'] = prop
+            self.fire('tufo:form', form=form, valu=valu, props=props)
+            self.fire('tufo:form:%s' % form, form=form, valu=valu, props=props)
 
-            # if we are using a data model, lets enforce it.
-            if self.model != None:
-                tdef = self.model.getTufoDef(prop)
+            rows = [ (iden,p,v,stamp) for (p,v) in props.items() ]
 
-                for pname in tdef.get('props'):
-                    pvalu = props.get(pname)
-                    if pvalu == None:
-                        pvalu = self.model.getPropDefval(pname)
-                        if pvalu != None:
-                            props[pname] = pvalu
-
-            rows = [ (ident,p,v,stamp) for (p,v) in props.items() ]
-
-            # FIXME allow formation hooks to add rows or set props
             self.addRows(rows)
 
-            tufo = (ident,{ p:v for (i,p,v,t) in rows })
-            self.fire('cortex:tufo:add', tufo=tufo, prop=prop, valu=valu, stamp=stamp)
-            self.fire('cortex:tufo:add:%s' % prop, tufo=tufo, prop=prop, valu=valu, stamp=stamp)
+            tufo = (iden,props)
+
+            self.fire('tufo:add', tufo=tufo)
+            self.fire('tufo:add:%s' % form, tufo=tufo)
+
             return tufo
+
+    def _normTufoProps(self, form, props):
+        # add form prefix to tufo props
+        props = {'%s:%s' % (form,p):v for (p,v) in props.items() }
+
+        props['tufo:form'] = form
+
+        # if we are using a data model, lets enforce it.
+        if self.model != None:
+            # if we have a model *and* a prop def
+            # check to see if it should be a form
+            fdef = self.model.getPropDef(form)
+            if fdef != None and not fdef[1].get('form'):
+                raise s_datamodel.NoSuchForm(form)
+
+            props = self.model.getNormProps(props)
+            defprops = self.model.getSubPropDefs(form)
+            for p,v in defprops.items():
+                props.setdefault(p,v)
+
+        return props
 
     def setTufoProps(self, tufo, **props):
         '''
@@ -447,6 +498,10 @@ class Cortex(EventBus):
             tufo = core.setTufoProps(tufo, woot='hehe', blah=10)
 
         '''
+        # add tufo form prefix to props
+        form = tufo[1].get('tufo:form')
+        props = { '%s:%s' % (form,p):v for (p,v) in props.items() }
+
         # normalize property values
         if self.model != None:
             props = { p:self.model.getPropNorm(p,v) for (p,v) in props.items() }
@@ -469,6 +524,9 @@ class Cortex(EventBus):
             core.setTufoProp(tufo, 'woot', 'hehe')
 
         '''
+        form = tufo[1].get('tufo:form')
+        prop = '%s:%s' % (form,prop)
+
         if self.model != None:
             valu = self.model.getPropNorm(prop,valu)
 
@@ -489,7 +547,7 @@ class Cortex(EventBus):
 
     def delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
         '''
-        Delete a group of rows by selecting for property and joining on ident.
+        Delete a group of rows by selecting for property and joining on iden.
 
         Example:
 
@@ -507,12 +565,12 @@ class Cortex(EventBus):
         rows = self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
         done = set()
         for row in rows:
-            ident = row[0]
-            if ident in done:
+            iden = row[0]
+            if iden in done:
                 continue
 
-            self.delRowsById(ident)
-            done.add(ident)
+            self.delRowsById(iden)
+            done.add(iden)
 
     def _reqSizeByMeth(self, name):
         meth = self.sizebymeths.get(name)
@@ -526,8 +584,8 @@ class Cortex(EventBus):
             raise NoSuchGetBy(name)
         return meth
 
-    def _setRowsByIdProp(self, ident, prop, valu):
+    def _setRowsByIdProp(self, iden, prop, valu):
         # base case is delete and add
-        self._delRowsByIdProp(ident, prop)
-        rows = [ (ident, prop, valu, now()) ]
+        self._delRowsByIdProp(iden, prop)
+        rows = [ (iden, prop, valu, now()) ]
         self.addRows(rows)

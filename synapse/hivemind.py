@@ -24,7 +24,7 @@ cpus = mproc.cpu_count()
 
 class NoSuchSession(Exception):pass
 
-class Hive(s_async.AsyncBoss):
+class Hive(s_async.Boss):
     '''
     A class which implements the "drone session" awareness
     for both Queen and Worker.
@@ -32,7 +32,8 @@ class Hive(s_async.AsyncBoss):
     Note: this class expects to be a mixin to an EventBus.
     '''
     def __init__(self, size=None, queen=None):
-        s_async.AsyncBoss.__init__(self, size=size)
+        self.boss = s_async.Boss()
+        s_async.Boss.__init__(self, size=size)
         self._hive_sess = {}
         self._hive_queen = queen
         self._hive_lock = threading.Lock()
@@ -65,46 +66,55 @@ class Hive(s_async.AsyncBoss):
             sess = self._hive_sess.pop(sid,None)
             return sess
 
-class Queen(Hive):
+# auto meld building via function deps detection?
+
+class Queen:
     '''
-    The WorkUnit manager/distributor.
+    The work unit manager/distributor.
     '''
+    def __init__(self, core=None):
+        if core == None:
+            core = s_cortex.openurl('ram:///')
 
-    def __init__(self, dmon):
-        Hive.__init__(self)
-        self.dmon = dmon
+        self.core = core
+        self.cura = s_session.Curator(core=core)
 
-        self.on('job:fini', self._queenJobFini)
+    def getDroneSess(self):
+        '''
+        Get and return a new session id.
 
-        self._checkSessTimeout()
+        Example:
 
-    def _queenJobFini(self, event):
-        job = event[1].get('job')
-        chan = job[1].get('impchan')
-        if chan == None:
-            return
+            sid = queen.getDroneSess()
 
-        self.dmon.distImpEvent(event,chan)
+        '''
+        return self.cura.getNewSess().sid
 
-    def _checkSessTimeout(self):
-        try:
-            # FIXME CHECK SESS TIMES
-            pass
-        finally:
-            self.sched.insec(60, self._checkSessTimeout )
+    def setDroneMeld(self, sid, meld):
+        sess = self.cura.getSessBySid(sid)
 
-class Drone(s_async.AsyncBoss):
+    def getDroneMeld(self, sid):
+        pass
+
+    #def _queenJobFini(self, event):
+        #job = event[1].get('job')
+        #chan = job[1].get('chan')
+        #if chan == None:
+            #return
+
+        #self.relay(chan,event)
+
+class Drone(s_async.Boss):
     '''
     A Drone requests work to be done via the Queen.
     '''
     def __init__(self, link, melds=None):
-        s_async.AsyncBoss.__init__(self)
+        s_async.Boss.__init__(self)
 
-        self.queen = s_telepath.Proxy(link)
-        self.impchan = s_async.jobid()
+        self.chan = s_async.jobid()
+        self.queen = s_telepath.openlink(link)
 
-        self.pulsr = s_impulse.Pulser(link,self.impchan)
-        self.pulsr.link(self.dist)
+        self._runDroneRecv()
 
         self.on('job:init', self._droJobInit)
 
@@ -117,13 +127,25 @@ class Drone(s_async.AsyncBoss):
         # FIXME chan.vs.sid teardown!
         self.sid = self.queen.initDroneSess(melds=sessmelds)
 
+    @s_threads.firethread
+    def _runDroneRecv(self):
+        with self.queen as queen:
+            while not self.isfini:
+                try:
+                    evts = queen.poll(self.chan)
+                    if evts:
+                        self.distall(evts)
+
+                except Exception as e:
+                    traceback.print_exc()
+
     def _onDroneFini(self):
         self.queen.finiDroneSess( self.sid )
 
     def _droJobInit(self, event):
         job = event[1].get('job')
         job[1]['sid'] = self.sid
-        job[1]['impchan'] = self.impchan
+        job[1]['chan'] = self.chan
         self.queen.addAsyncJob(job)
 
 class Worker(Hive):
@@ -149,19 +171,24 @@ class Worker(Hive):
     def _getQueenJobs(self):
         while not self.isfini:
             with self._hive_queen as queen:
-                # FIXME Semaphore with timeout (in compat)
 
-                # block until it's kewl to get more work
-                self.sema.acquire()
-            
-                job = queen.getNextJob()
-                if job == None:
-                    self.sema.release()
-                    continue
+                try:
+                    # FIXME Semaphore with timeout (in compat)
 
-                job[1]['autoque'] = True
+                    # block until it's kewl to get more work
+                    self.sema.acquire()
 
-                self.addAsyncJob(job)
+                    job = queen.getNextJob()
+                    if job == None:
+                        self.sema.release()
+                        continue
+
+                    job[1]['autoque'] = True
+
+                    self.addAsyncJob(job)
+
+                except Exception as e:
+                    traceback.print_exc()
 
     def _runAsyncJob(self, job):
         try:
@@ -224,13 +251,12 @@ def worker(task, timeout=None):
     # did the process complete?
     if proc.exitcode == None:
         proc.terminate()
-        raise s_async.JobTimedOut()
+        raise s_async.HitMaxTime(timeout)
 
     # check proc.exitcode and possibly fail
     if proc.exitcode != 0:
         raise JobProcErr(proc.exitcode)
 
-    # raise s_async.JobTimedOut
     status,retinfo = que.get()
     if status == 'done':
         return retinfo.get('ret')

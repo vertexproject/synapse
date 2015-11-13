@@ -5,11 +5,11 @@ import unittest
 import synapse.link as s_link
 import synapse.async as s_async
 import synapse.cortex as s_cortex
+import synapse.session as s_session
 
-from synapse.common import *
-from synapse.cores.common import NoSuchJob
+from synapse.tests.common import *
 
-class CortexTest(unittest.TestCase):
+class CortexTest(SynTest):
 
     def test_cortex_ram(self):
         core = s_cortex.openurl('ram://')
@@ -207,13 +207,11 @@ class CortexTest(unittest.TestCase):
             (id3,'ha','ho',80),
         )
 
-        j0 = core0.fireBgCall('addRows', rows0)
-        j1 = core1.fireBgCall('addRows', rows1)
-
-        self.assertTrue( core0.waitBgCall(j0, timeout=3) )
-        self.assertTrue( core1.waitBgCall(j1, timeout=3) )
+        core0.addRows(rows0)
+        core1.addRows(rows1)
 
         tufos = meta.getTufosByQuery('foo:x=10')
+
         self.assertEqual( len(tufos), 2 )
 
         tfdict = dict(tufos)
@@ -274,8 +272,6 @@ class CortexTest(unittest.TestCase):
         self.assertEqual( qinfo.get('tag'), 'foo' )
         self.assertEqual( qinfo.get('prop'), 'bar' )
         self.assertEqual( qinfo.get('valu'), 30 )
-        #self.assertEqual( qinfo.get('mintime'), 30 )
-        #self.assertEqual( qinfo.get('maxtime'), 30 )
 
         qinfo = meta._parseQuery('foo:bar#100="hehe"')
         self.assertEqual( qinfo.get('tag'), 'foo' )
@@ -295,15 +291,19 @@ class CortexTest(unittest.TestCase):
     def test_cortex_async_result(self):
         id1 = guidstr()
         core = s_cortex.openurl('ram://')
+        cura = s_session.Curator()
 
         rows = [
             (id1,'foo','bar',30),
             (id1,'baz','faz1',30),
             (id1,'gronk',80,30),
         ]
+
         core.addRows( rows )
-        jid = core.fireAsyncCall('getRowsById',id1)
-        job = core.waitAsyncCall(jid)
+        with cura.getNewSess():
+            jid = core.async('getRowsById',id1)
+            job = core.resync(jid)
+
         rows = s_async.jobret(job)
 
         self.assertEqual( len(rows), 3 )
@@ -474,3 +474,40 @@ class CortexTest(unittest.TestCase):
     def test_cortex_meta_badname(self):
         meta = s_cortex.MetaCortex()
         self.assertRaises( s_cortex.InvalidParam, meta.addCortex, 30, 'ram:///' )
+
+    def test_cortex_tufo_tag(self):
+        core = s_cortex.openurl('ram://')
+        foob = core.formTufoByProp('foo','bar',baz='faz')
+        core.addTufoTag(foob,'zip.zap')
+
+        self.assertIsNotNone( foob[1].get('foo:tag:zip') )
+        self.assertIsNotNone( foob[1].get('foo:tag:zip.zap') )
+
+        self.assertEqual( len(core.getTufosByTag('foo','zip')), 1 )
+        self.assertEqual( len(core.getTufosByTag('foo','zip.zap')), 1 )
+
+        core.delTufoTag(foob,'zip')
+
+        self.assertIsNone( foob[1].get('foo:tag:zip') )
+        self.assertIsNone( foob[1].get('foo:tag:zip.zap') )
+
+        self.assertEqual( len(core.getTufosByTag('foo','zip')), 0 )
+        self.assertEqual( len(core.getTufosByTag('foo','zip.zap')), 0 )
+
+    def test_cortex_tufo_setprops(self):
+        core = s_cortex.openurl('ram://')
+        foob = core.formTufoByProp('foo','bar',baz='faz')
+        self.assertEqual( foob[1].get('foo:baz'), 'faz' )
+        core.setTufoProps(foob,baz='zap')
+
+        self.assertEqual( len(core.getTufosByProp('foo:baz',valu='zap')), 1 )
+
+    def test_cortex_tufo_setprop(self):
+        core = s_cortex.openurl('ram://')
+        foob = core.formTufoByProp('foo','bar',baz='faz')
+        self.assertEqual( foob[1].get('foo:baz'), 'faz' )
+
+        core.setTufoProp(foob,'baz','zap')
+
+        self.assertEqual( len(core.getTufosByProp('foo:baz',valu='zap')), 1 )
+

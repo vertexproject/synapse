@@ -1,19 +1,20 @@
 import synapse.links.tcp as s_tcp
 import synapse.links.local as s_local
+import synapse.lib.urlhelp as s_urlhelp
 
+from synapse.common import *
 from synapse.links.common import *
 from synapse.eventbus import EventBus
 
-class BadUrl(Exception):pass
-
-linkprotos = {
+protos = {
     'tcp':s_tcp.TcpRelay,
+    #'neu+tcp',s_neu.NeuRelay,
     #'local':s_local.LocalProto(),
 }
 
 def addLinkProto(name, ctor):
     '''
-    Add a custom LinkProto by name.
+    Add a custom LinkRelay by name.
 
     Example:
 
@@ -23,106 +24,22 @@ def addLinkProto(name, ctor):
         addLinkProto('mine',MyRelay())
 
     '''
-    linkprotos[name] = ctor
+    protos[name] = ctor
 
-def delLinkProto(name):
+def getLinkRelay(link):
     '''
-    Delete a LinkProto by name.
+    Get a LinkRelay for the given link tufo.
 
     Example:
 
-        delLinkProto('mine')
+        relay = getLinkRelay(link)
 
     '''
-    linkprotos.pop(name,None)
-
-def reqLinkProto(name):
-    '''
-    Return a LinkProto by name or raise.
-    '''
-    proto = linkprotos.get(name)
-    if proto == None:
-        raise NoSuchLinkProto(name)
-    return proto
-
-def initLinkRelay(link):
-    '''
-    Construct a LinkRelay for the given link tuple.
-
-    Example:
-        relay = initLinkRelay(link)
-
-    '''
-    ctor = reqLinkProto(link[0])
+    proto = link[0]
+    ctor = protos.get(proto)
+    if ctor == None:
+        raise NoSuchProto(proto)
     return ctor(link)
-
-def chopurl(url):
-    '''
-    A sane "stand alone" url parser.
-
-    Example:
-
-        info = chopurl(url)
-    '''
-    ret = {}
-    if url.find('://') == -1:
-        raise BadUrl(':// not found!')
-
-    scheme,remain = url.split('://', 1)
-    ret['scheme'] = scheme.lower()
-
-    # carve query params from the end
-    if remain.find('?') != -1:
-        query = {}
-        remain,queryrem = remain.split('?',1)
-
-        for qkey in queryrem.split('&'):
-            qval = None
-            if qkey.find('=') != -1:
-                qkey,qval = qkey.split('=',1)
-
-            query[qkey] = qval
-
-        ret['query'] = query
-
-    pathrem = ''
-    slashoff = remain.find('/')
-    if slashoff != -1:
-        pathrem = remain[slashoff:]
-        remain = remain[:slashoff]
-
-    # detect user[:passwd]@netloc syntax
-    if remain.find('@') != -1:
-        user, remain = remain.rsplit('@',1)
-        if user.find(':') != -1:
-            user,passwd = user.split(':',1)
-            ret['passwd'] = passwd
-
-        ret['user'] = user
-
-    # remain should be down to host[:port]
-
-    # detect ipv6 [addr]:port syntax
-    if remain.startswith('['):
-        hostrem,portstr = remain.rsplit(':',1)
-        ret['port'] = int( portstr )
-        ret['host'] = hostrem[1:-1]
-
-    # detect ipv6 without port syntax
-    elif remain.count(':') > 1:
-        ret['host'] = remain
-
-    # regular old host or host:port syntax
-    else:
-
-        if remain.find(':') != -1:
-            remain,portstr = remain.split(':',1)
-            ret['port'] = int(portstr)
-
-        ret['host'] = remain
-
-    ret['path'] = pathrem
-    return ret
 
 def chopLinkUrl(url):
     '''
@@ -138,7 +55,7 @@ def chopLinkUrl(url):
         * user:passwd@host syntax is used for authdata
 
     '''
-    urlinfo = chopurl(url)
+    urlinfo = s_urlhelp.chopurl(url)
 
     scheme = urlinfo.get('scheme')
 

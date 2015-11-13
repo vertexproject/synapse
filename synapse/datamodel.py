@@ -2,19 +2,24 @@
 An API to assist with the creation and enforcement of cortex data models.
 '''
 import fnmatch
+import collections
+
+import synapse.aspects as s_aspects
 
 class ModelError(Exception):pass
 class NoSuchProp(ModelError):pass
 class NoSuchType(ModelError):pass
-class NoSuchTufo(ModelError):pass
+class NoSuchForm(ModelError):pass
 
 class DupDataType(ModelError):pass
-class DupTufoName(ModelError):pass
-class DupTufoProp(ModelError):pass
+class DupPropName(ModelError):pass
 
 class BadEnumValu(ModelError):
     def __init__(self, enum, valu):
         ModelError.__init__(self, '%s: %s' % (enum, valu))
+
+def propdef(name, **info):
+    return (name,info)
 
 class DataType:
     '''
@@ -124,6 +129,9 @@ class DataModel:
         self.model.setdefault('props',{})
         self.model.setdefault('globs',{})
 
+        self.subs = collections.defaultdict(list)  # prop:subprops
+        self.cache = {} # for globs
+
         self.addDataType('int', IntType())
         self.addDataType('lwr', LwrType())
         self.addDataType('str', StrType())
@@ -133,6 +141,9 @@ class DataModel:
 
         for name,tags in self.model.get('enums').items():
             self._loadDataEnum(enum,tags)
+
+        props = self.model.get('props')
+        [ self._addSubRefs(pdef) for pdef in props.values() ]
 
     def getDataVer(self):
         return self.model.get('ver')
@@ -151,33 +162,18 @@ class DataModel:
     def _loadDataEnum(self, enum, tags):
         self.addDataType(enum, EnumType(enum,tags))
 
-    def addDataTufo(self, name, ptype='str'):
+    def addTufoForm(self, form, **propinfo):
         '''
-        Add a named tufo to the data model
+        Add a tufo form to the data model
 
         Example:
 
             # must add tufo before adding tufo props
-            model.addDataTufo('woot')
+            model.addTufoForm('woot')
 
         '''
-        tufos = self.model.get('tufos')
-        tdef = tufos.get(name)
-        if tdef != None:
-            raise DupTufoName(name)
-
-        tufos[name] = {'props':[]}
-
-        self.addTufoProp(name, name, ptype=ptype)
-
-    def getTufoDef(self, name):
-        '''
-        Return the tufo definition by name.
-        '''
-        tdef = self.model['tufos'].get(name)
-        if tdef == None:
-            raise NoSuchTufo(name)
-        return tdef
+        propinfo['form'] = True
+        self.addPropDef(form, **propinfo)
 
     def addDataEnum(self, enum, tags):
         '''
@@ -240,40 +236,89 @@ class DataModel:
         '''
         return dict(self.model)
 
-    def addTufoProp(self, name, prop, ptype='str', uniq=False, defval=None, **info):
+    def addTufoProp(self, form, prop, **propinfo):
         '''
         Add a property to the data model.
 
         Example:
 
             # all foo tufos must have a foo:bar property
-            model.addTufoProp('foo', 'foo:bar', ptype='int', defval=0)
+            model.addTufoProp('foo', 'bar', ptype='int', defval=0)
 
         '''
-        props = self.model.get('props')
-        if props.get(prop) != None:
-            raise DupTufoProp(prop)
+        pdef = self.getPropDef(form)
+        if pdef == None:
+            raise NoSuchForm(form)
 
-        tdef = self.getTufoDef(name)
-        dtype = self.getDataType(ptype)
+        fullprop = '%s:%s' % (form,prop)
 
-        tdef['props'].append(prop)
+        self.addPropDef(fullprop, **propinfo)
 
-        info = dict(tufo=name, ptype=ptype, uniq=uniq, defval=defval, **info)
+    def addPropDef(self, prop, **propinfo):
+        '''
+        Add a property definition to the DataModel.
 
-        pdef = (prop, info)
+        Example:
 
-        props[prop] = pdef
+            model.addPropDef('foo:bar', ptype='int', defval=30)
 
-        return pdef
+        '''
+        pdef = self.getPropDef(prop)
+        if pdef != None:
+            raise DupPropName(prop)
 
-    def addTufoGlob(self, name, glob, ptype):
+        propinfo.setdefault('doc',None)
+        propinfo.setdefault('uniq',False)
+        propinfo.setdefault('ptype',None)
+        propinfo.setdefault('title',None)
+        propinfo.setdefault('defval',None)
+
+        ptype = propinfo.get('ptype')
+        if ptype != None and self.getDataType(ptype) == None:
+            raise NoSuchType(ptype)
+
+        pdef = (prop,propinfo)
+        self.model.get('props')[ prop ] = pdef
+
+        self._addSubRefs(pdef)
+
+    def _addSubRefs(self, pdef):
+        for prop in s_aspects.iterTagUp(pdef[0],div=':'):
+            if pdef[0] == prop:
+                continue
+            self.subs[prop].append(pdef)
+
+    def addPropGlob(self, glob, **propinfo):
         '''
         Add a property glob to the tufo.
         '''
-        # to validate the existance of ptype
-        self.getDataType(ptype)
-        self.model['globs'][glob] = ptype
+        self.model['globs'][glob] = propinfo
+
+    def getSubProps(self, prop):
+        '''
+        Return a list of (name,info) prop defs for all sub props.
+
+        Example:
+
+            for pdef in model.getSubProps('foo:bar'):
+                dostuff(pdef)
+
+        '''
+        return self.subs.get(prop,())
+
+    def getSubPropDefs(self, prop):
+        '''
+        Return a dict of defvals for props under prop.
+        '''
+        ret = {}
+        for pdef in self.getSubProps(prop):
+            valu = pdef[1].get('defval')
+            if valu == None:
+                continue
+
+            ret[ pdef[0] ] = valu
+
+        return ret
 
     def getPropRepr(self, prop, valu):
         '''
@@ -284,9 +329,20 @@ class DataModel:
             x = model.getPropRepr(prop, valu)
 
         '''
-        ptype = self.getPropType(prop)
-        typeobj = self.getDataType(ptype)
+        typeobj = self._getPropTypeObj(prop)
+        if typeobj == None:
+            return repr(valu)
+
         return typeobj.repr(valu)
+
+    def _getPropTypeObj(self, prop):
+        ptype = self.getPropType(prop)
+        if ptype == None:
+            return None
+
+        typeobj = self.getDataType(ptype)
+        if typeobj != None:
+            return typeobj
 
     def getPropNorm(self, prop, valu):
         '''
@@ -297,11 +353,16 @@ class DataModel:
             valu = model.getPropNorm(prop,valu)
 
         '''
-        ptype = self.getPropType(prop)
-        typeobj = self.getDataType(ptype)
+        typeobj = self._getPropTypeObj(prop)
+        if typeobj == None:
+            return valu
+
         return typeobj.norm(valu)
 
-    def getPropParse(self, prop, text):
+    def getNormProps(self, props):
+        return { p:self.getPropNorm(p,v) for (p,v) in props.items() }
+
+    def getPropParse(self, prop, valu):
         '''
         Parse a humon input string into a system mode property value.
 
@@ -310,11 +371,16 @@ class DataModel:
             valu = model.getPropParse(prop, text)
 
         '''
-        ptype = self.getPropType(prop)
-        typeobj = self.getDataType(ptype)
-        return typeobj.parse(text)
+        typeobj = self._getPropTypeObj(prop)
+        if typeobj == None:
+            return valu
 
-    def getPropDef(self, prop):
+        return typeobj.parse(valu)
+
+    def getParseProps(self, props):
+        return { p:self.getPropParse(p,v) for (p,v) in props.items() }
+
+    def getPropDef(self, prop, glob=True):
         '''
         Return a property definition tufo by property name.
 
@@ -328,12 +394,20 @@ class DataModel:
         if pdef != None:
             return pdef
 
-        # no match, lets check the globs...
-        for glob,ptype in self.model.get('globs').items():
-            if fnmatch.fnmatch(prop,glob):
-                return (prop, dict(ptype=ptype, uniq=False, defval=None))
+        if not glob:
+            return None
 
-        raise NoSuchProp(prop)
+        # check the cache
+        pdef = self.cache.get(prop)
+        if pdef != None:
+            return pdef
+
+        # no match, lets check the globs...
+        for glob,pinfo in self.model.get('globs').items():
+            if fnmatch.fnmatch(prop,glob):
+                pdef = (prop,dict(pinfo))
+                self.cache[prop] = pdef
+                return pdef
 
     def getPropType(self, prop):
         '''
@@ -345,6 +419,9 @@ class DataModel:
 
         '''
         pdef = self.getPropDef(prop)
+        if pdef == None:
+            return None
+
         return pdef[1].get('ptype')
 
     def getPropDefval(self, prop):
