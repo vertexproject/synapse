@@ -111,6 +111,17 @@ class Boss(s_impulse.PulseRelay):
         self.fire('job:fini', job=job)
 
     def call(self, onfini, func, *args, **kwargs ):
+        '''
+        An async API for *local* use which allows onfini.
+
+        Example:
+
+            def onfini(job):
+                stuff(job)
+
+            boss.call( onfini, doFooThing, 10, y=20 )
+
+        '''
 
         jid = guidstr()
         task = (func,args,kwargs)
@@ -308,6 +319,7 @@ class Async:
         Notes:
 
             This API *requires* callers to use resync()
+            and is compatible for use over telepath RMI.
 
         '''
         meth = getattr(self, name, None)
