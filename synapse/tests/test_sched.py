@@ -22,7 +22,9 @@ class SchedTest(unittest.TestCase):
         sched.insec( 0.02, woot2, 20 )
         sched.insec( 0.01, woot1, 10 )
 
-        evt.wait()
+        evt.wait(timeout=2)
+
+        self.assertTrue( evt.is_set() )
 
         self.assertListEqual( data['woot'], [10,20] )
 
