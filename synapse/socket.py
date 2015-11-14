@@ -3,8 +3,11 @@ from __future__ import absolute_import,unicode_literals
 import os
 import atexit
 import socket
+import logging
 import msgpack
 import traceback
+
+logger = logging.getLogger(__name__)
 
 from synapse.compat import queue
 from synapse.compat import selectors
@@ -328,30 +331,40 @@ class Plex(EventBus):
 
         while not self.isfini:
 
-            for key,events in self._plex_sel.select(timeout=1):
+            try:
 
-                if self.isfini:
-                    break
+                for key,events in self._plex_sel.select(timeout=1):
 
-                sock = key.fileobj
-                if sock == self._plex_s2:
-                    sock.recv(1024)
-                    continue
+                    if self.isfini:
+                        break
 
-                if sock.get('listen'):
-                    # his sock:conn event handles reg
-                    newsock = sock.accept()
-                    self.addPlexSock(newsock)
-                    continue
+                    sock = key.fileobj
+                    if sock == self._plex_s2:
+                        sock.recv(1024)
+                        continue
 
-                byts = sock.recv(102400)
-                if not byts:
-                    sock.fini()
-                    continue
+                    if sock.get('listen'):
+                        # his sock:conn event handles reg
+                        newsock = sock.accept()
+                        self.addPlexSock(newsock)
+                        continue
 
-                sock.unpk.feed(byts)
-                for mesg in sock.unpk:
-                    sock.fire('link:sock:mesg', sock=sock, mesg=mesg)
+                    byts = sock.recv(102400)
+                    if not byts:
+                        sock.fini()
+                        continue
+
+                    sock.unpk.feed(byts)
+                    for mesg in sock.unpk:
+                        sock.fire('link:sock:mesg', sock=sock, mesg=mesg)
+
+            except OSError as e:
+                # just go around again... ( probably a close race )
+                continue
+
+            except Exception as e:
+                traceback.print_exc()
+                logger.error('plexMainLoop: %s' % e)
 
             if self.isfini:
                 break
