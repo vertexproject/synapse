@@ -16,7 +16,10 @@ class ImpulseTest(unittest.TestCase):
 
         bus0 = s_eventbus.EventBus()
 
-        bus0.feed( dist.poll, 'bus0' )
+        iden = guidstr()
+
+        dist.join(iden)
+        bus0.feed( dist.poll, iden)
 
         evt = threading.Event()
         data = {}
@@ -26,9 +29,10 @@ class ImpulseTest(unittest.TestCase):
 
         bus0.on('foo', onfoo)
 
-        dist.relay('bus0', tufo('foo', bar=10))
+        dist.relay(iden, tufo('foo', bar=10))
 
         evt.wait(timeout=2)
+        self.assertTrue( evt.is_set() )
         self.assertEqual( data['event'][1].get('bar'), 10 )
 
         bus0.fini()
