@@ -1,6 +1,7 @@
 from __future__ import absolute_import,unicode_literals
 
 import time
+import atexit
 import threading
 
 import synapse.glob as s_glob
@@ -186,5 +187,6 @@ def getGlobSched():
     with s_glob.lock:
         if s_glob.sched == None:
             s_glob.sched = Sched()
+            atexit.register( s_glob.sched.fini )
     
     return s_glob.sched
