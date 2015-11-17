@@ -1,9 +1,11 @@
 import weakref
+import logging
 import threading
 import traceback
 import collections
 
 finlock = threading.RLock()
+logger  = logging.getLogger(__name__)
 
 from synapse.common import *
 
@@ -132,7 +134,7 @@ class EventBus:
                 try:
                     ret.append( func( event ) )
                 except Exception as e:
-                    traceback.print_exc()
+                    logger.exception(e)
 
         weaks = self._syn_weaks.get(name)
         if weaks != None:
@@ -140,19 +142,19 @@ class EventBus:
                 try:
                     ret.append( func( event ) )
                 except Exception as e:
-                    traceback.print_exc()
+                    logger.exception(e)
 
         for func in self._syn_links:
             try:
                 ret.append( func(event) )
             except Exception as e:
-                traceback.print_exc()
+                logger.exception(e)
 
         for func in self._syn_weak_links:
             try:
                 ret.append( func(event) )
             except Exception as e:
-                traceback.print_exc()
+                logger.exception(e)
 
         return ret
 
