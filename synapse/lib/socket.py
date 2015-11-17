@@ -365,7 +365,12 @@ class Plex(EventBus):
 
                 byts = sock._tx_xform( msgenpack(mesg) )
 
-                sent = sock.send(byts)
+                try:
+                    sent = sock.send(byts)
+                except Exception as e:
+                    sock.fini()
+                    return
+
                 if sent == len(byts):
                     return
 
@@ -508,7 +513,6 @@ def connect(sockaddr,**sockinfo):
         return Socket(sock,**sockinfo)
     except socket.error as e:
         sock.close()
-        print('CONNECT: %r %r' % (e,dir(e)))
     return None
 
 def _sockpair():

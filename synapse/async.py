@@ -164,7 +164,7 @@ class Boss(EventBus):
 
         '''
         if self.isfini:
-            raise BossShutDown()
+            raise IsFini()
 
         if jid == None:
             jid = guidstr()
