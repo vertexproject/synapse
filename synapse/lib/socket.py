@@ -203,6 +203,13 @@ class Socket(EventBus):
                 dostuff(mesg)
 
         '''
+
+        # the "preread" state for a socket means it has IO todo
+        # which is part of it's initial negotiation ( not mesg )
+        if self.get('preread'):
+            self.fire('link:sock:preread', sock=self)
+            return
+
         byts = self.recv(102400)
         if not byts:
             self.fini()
@@ -229,20 +236,24 @@ class Socket(EventBus):
     def accept(self):
 
         try:
-            conn,addr = self._accept()
+            conn,addr = self.sock.accept()
+
         except Exception as e:
             return None,None
 
-        sock = Socket(conn)
+        sock = Socket(conn, accept=True)
 
         relay = self.get('relay')
         if relay != None:
             relay._prepLinkSock(sock)
 
-        return sock,addr
+        self.fire('link:sock:accept', sock=sock)
 
-    def _accept(self):
-        return self.sock.accept()
+        # check if the link:sock:accept callback fini()d the sock.
+        if sock.isfini:
+            return None,None
+
+        return sock,addr
 
     def close(self):
         '''
@@ -465,7 +476,7 @@ class Plex(EventBus):
                 [ sock.fini() for sock in xxlist ]
 
             except Exception as e:
-                logger.exception('plexMainLoop: %s', e)
+                logger.warning('plexMainLoop: %s', e)
 
     def _onPlexFini(self):
         #self._plex_s2.fini()
