@@ -44,7 +44,7 @@ class TcpRelay(LinkRelay):
     def _listen(self):
         host = self.link[1].get('host')
         port = self.link[1].get('port')
-        sock = s_socket.listen((host,port),relay=self)
+        sock = s_socket.listen((host,port))
         if sock != None:
             self.link[1]['port'] = sock.getsockname()[1]
         return sock
@@ -52,6 +52,6 @@ class TcpRelay(LinkRelay):
     def _connect(self):
         host = self.link[1].get('host')
         port = self.link[1].get('port')
-        sock = s_socket.connect((host,port),relay=self)
+        sock = s_socket.connect((host,port))
         return sock
 
