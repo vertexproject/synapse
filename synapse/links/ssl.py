@@ -82,8 +82,8 @@ class SslRelay(LinkRelay):
 
             wrap.connect( (host,port) )
 
-        except ssl.SSLError as e:
+        except Exception as e:
             sock.close()
-            raise
+            raise LinkErr( str(e) )
 
         return s_socket.Socket(wrap)
