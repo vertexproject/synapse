@@ -106,7 +106,6 @@ class LinkTest(unittest.TestCase):
         link = dmon.listen('ssl://127.0.0.1:0/?keyfile=%s&certfile=%s' % (keyfile,certfile))
 
         port = link[1].get('port')
-        print('LISTEN PORT: %d' % (port,))
 
         url = 'ssl://127.0.0.1/foobar?nocheck=1'
         foo = s_telepath.openurl(url, port=port)
