@@ -229,7 +229,7 @@ class Socket(EventBus):
     def accept(self):
 
         try:
-            conn,addr = self.sock.accept()
+            conn,addr = self._accept()
         except Exception as e:
             return None,None
 
@@ -240,6 +240,9 @@ class Socket(EventBus):
             relay._prepLinkSock(sock)
 
         return sock,addr
+
+    def _accept(self):
+        return self.sock.accept()
 
     def close(self):
         '''
