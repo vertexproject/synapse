@@ -46,6 +46,9 @@ class LinkRelay:
         '''
         sock = self._listen()
 
+        sock.set('relay',self)
+        sock.set('link',self.link)
+
         sock.set('listen',True)
         self._prepLinkSock(sock)
 
@@ -58,6 +61,9 @@ class LinkRelay:
         sock = self._connect()
         if sock == None:
             return None
+
+        sock.set('relay',self)
+        sock.set('link',self.link)
 
         sock.set('connect',True)
         self._prepLinkSock(sock)
