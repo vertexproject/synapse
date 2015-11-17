@@ -88,10 +88,10 @@ class LinkTest(unittest.TestCase):
         port = link[1].get('port')
 
         url = 'ssl://127.0.0.1:%d/foobar' % (port,)
-        self.assertRaises( ssl.SSLError, s_telepath.openurl, url )
+        self.assertRaises( LinkErr, s_telepath.openurl, url )
 
-        url = 'ssl://127.0.0.1:%d/foobar?cafile=%s' % (port,cafile)
-        foo = s_telepath.openurl(url)
+        url = 'ssl://127.0.0.1:%d/foobar?nocheck=1' % (port,)
+        foo = s_telepath.openurl(url, port=port)
 
         foo.fini()
         dmon.fini()
@@ -106,9 +106,10 @@ class LinkTest(unittest.TestCase):
         link = dmon.listen('ssl://127.0.0.1:0/?keyfile=%s&certfile=%s' % (keyfile,certfile))
 
         port = link[1].get('port')
+        print('LISTEN PORT: %d' % (port,))
 
-        url = 'ssl://127.0.0.1:%d/foobar?nocheck=1' % (port,)
-        foo = s_telepath.openurl(url)
+        url = 'ssl://127.0.0.1/foobar?nocheck=1'
+        foo = s_telepath.openurl(url, port=port)
 
         foo.fini()
         dmon.fini()
