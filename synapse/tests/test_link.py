@@ -73,42 +73,43 @@ class LinkTest(unittest.TestCase):
         self.assertEqual(link[1]['authinfo'].get('user'),'visi')
         self.assertEqual(link[1]['authinfo'].get('passwd'),'secret')
 
-
     def test_link_ssl_basic(self):
 
-        cafile = getTestPath('testca.crt')
-        keyfile = getTestPath('testserv.key')
-        certfile = getTestPath('testserv.crt')
+        cafile = getTestPath('ca.pem')
+        keyfile = getTestPath('server.key')
+        certfile = getTestPath('server.pem')
 
         dmon = s_daemon.Daemon()
         dmon.share('foobar', FooBar() )
 
-        link = dmon.listen('ssl://127.0.0.1:0/?keyfile=%s&certfile=%s' % (keyfile,certfile))
+        link = dmon.listen('ssl://localhost:0/', keyfile=keyfile, certfile=certfile)
 
         port = link[1].get('port')
 
-        url = 'ssl://127.0.0.1:%d/foobar' % (port,)
-        self.assertRaises( LinkErr, s_telepath.openurl, url )
+        url = 'ssl://localhost/foobar'
+        foo = s_telepath.openurl(url, port=port, cafile=cafile, nocheck=True)
 
-        url = 'ssl://127.0.0.1:%d/foobar?nocheck=1' % (port,)
-        foo = s_telepath.openurl(url, port=port)
+        self.assertEqual( foo.foo(), 'bar' )
 
         foo.fini()
         dmon.fini()
 
     def test_link_ssl_nocheck(self):
-        keyfile = getTestPath('testserv.key')
-        certfile = getTestPath('testserv.crt')
+
+        keyfile = getTestPath('server.key')
+        certfile = getTestPath('server.pem')
 
         dmon = s_daemon.Daemon()
         dmon.share('foobar', FooBar() )
 
-        link = dmon.listen('ssl://127.0.0.1:0/?keyfile=%s&certfile=%s' % (keyfile,certfile))
+        link = dmon.listen('ssl://localhost:0/', keyfile=keyfile, certfile=certfile)
 
         port = link[1].get('port')
 
-        url = 'ssl://127.0.0.1/foobar?nocheck=1'
-        foo = s_telepath.openurl(url, port=port)
+        url = 'ssl://localhost/foobar'
+        self.assertRaises( LinkErr, s_telepath.openurl, url, port=port )
+
+        foo = s_telepath.openurl(url, port=port, nocheck=True)
 
         foo.fini()
         dmon.fini()
@@ -116,8 +117,10 @@ class LinkTest(unittest.TestCase):
     def test_link_ssl_nofile(self):
         url = 'ssl://localhost:33333/foobar?cafile=/newpnewpnewp'
         self.assertRaises( NoSuchFile, s_telepath.openurl, url )
+
         url = 'ssl://localhost:33333/foobar?keyfile=/newpnewpnewp'
         self.assertRaises( NoSuchFile, s_telepath.openurl, url )
+
         url = 'ssl://localhost:33333/foobar?certfile=/newpnewpnewp'
         self.assertRaises( NoSuchFile, s_telepath.openurl, url )
 

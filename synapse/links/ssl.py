@@ -51,14 +51,18 @@ class SslRelay(LinkRelay):
         keyfile = self.link[1].get('keyfile')
         certfile = self.link[1].get('certfile')
 
-        sslopts = dict(server_side=True, keyfile=keyfile, certfile=certfile, ca_certs=cafile)
+        sslopts = dict(server_side=True,
+                       ca_certs=cafile,
+                       keyfile=keyfile,
+                       certfile=certfile,
+                       cert_reqs=ssl.CERT_NONE,
+                       ssl_version=ssl.PROTOCOL_TLSv1)
 
         # if they give a cafile to the server, require client certs
         if cafile != None:
             sslopts['cert_reqs'] = ssl.CERT_REQUIRED
 
         wrap = ssl.wrap_socket(sock, **sslopts)
-
         return s_socket.Socket(wrap)
 
     def _connect(self):
@@ -71,19 +75,28 @@ class SslRelay(LinkRelay):
         keyfile = self.link[1].get('keyfile')
         certfile = self.link[1].get('certfile')
 
-        sslopts = dict(keyfile=keyfile, certfile=certfile, ca_certs=cafile)
+        sslopts = dict(ca_certs=cafile,
+                       keyfile=keyfile,
+                       certfile=certfile,
+                       ssl_version=ssl.PROTOCOL_TLSv1)
 
         if not self.link[1].get('nocheck'):
             sslopts['cert_reqs'] = ssl.CERT_REQUIRED
 
-        wrap = ssl.wrap_socket(sock, **sslopts)
-
         try:
-
-            wrap.connect( (host,port) )
-
+            sock.connect( (host,port) )
+            wrap = ssl.wrap_socket(sock, **sslopts)
+            return s_socket.Socket(wrap)
         except Exception as e:
             sock.close()
             raise LinkErr( str(e) )
 
-        return s_socket.Socket(wrap)
+        #try:
+
+            #wrap.connect( (host,port) )
+
+        #except Exception as e:
+            #sock.close()
+            #raise LinkErr( str(e) )
+
+        #return s_socket.Socket(wrap)

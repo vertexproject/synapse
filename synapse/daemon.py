@@ -179,7 +179,7 @@ class Daemon(EventBus):
             except Exception as e:
                 sock.tx( tufo('job:done', jid=jid, **excinfo(e)) )
 
-    def listen(self, linkurl):
+    def listen(self, linkurl, **opts):
         '''
         Create and run a link server by url.
 
@@ -193,6 +193,8 @@ class Daemon(EventBus):
 
         '''
         link = s_link.chopLinkUrl(linkurl)
+        link[1].update(opts)
+
         relay = s_link.getLinkRelay(link)
 
         sock = relay.listen()
