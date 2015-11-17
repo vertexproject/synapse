@@ -393,7 +393,13 @@ class Plex(EventBus):
             # we managed it! any more msgs?
             if not sock.txque:
                 sock.txbuf = None
-                self._plex_txsocks.remove(sock)
+
+                # SPEED HACK: faster than if sock in txsocks:
+                try:
+                    self._plex_txsocks.remove(sock)
+                except ValueError as e:
+                    pass
+
                 return
 
             # more msgs! lets serialize the next!
@@ -451,7 +457,7 @@ class Plex(EventBus):
                 [ sock.fini() for sock in xxlist ]
 
             except Exception as e:
-                logger.error('plexMainLoop: %s', e)
+                logger.exception('plexMainLoop: %s', e)
 
     def _onPlexFini(self):
         #self._plex_s2.fini()
