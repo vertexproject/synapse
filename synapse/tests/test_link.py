@@ -87,7 +87,7 @@ class LinkTest(unittest.TestCase):
         port = link[1].get('port')
 
         url = 'ssl://localhost/foobar'
-        foo = s_telepath.openurl(url, port=port, cafile=cafile, nocheck=True)
+        foo = s_telepath.openurl(url, port=port, cafile=cafile)
 
         self.assertEqual( foo.foo(), 'bar' )
 
@@ -96,6 +96,7 @@ class LinkTest(unittest.TestCase):
 
     def test_link_ssl_nocheck(self):
 
+        cafile = getTestPath('ca.pem')
         keyfile = getTestPath('server.key')
         certfile = getTestPath('server.pem')
 
