@@ -1,10 +1,72 @@
 import time
 import threading
+import collections
 
 from synapse.common import *
 from synapse.eventbus import EventBus
 
 class QueueShutdown(Exception): pass
+
+class Queue(EventBus):
+    '''
+    A simple custom queue to address python Queue() issues.
+    '''
+    def __init__(self, items=()):
+        EventBus.__init__(self)
+        self.deq = collections.deque()
+        self.lock = threading.Lock()
+        self.event = threading.Event()
+
+        self.onfini( self._onQueFini )
+
+    def get(self, timeout=None):
+        '''
+        Get the next item from the queue.
+
+        This API will return None on timeout or fini()
+
+        Example:
+
+            item = q.get(timeout=30)
+
+        '''
+        while not self.isfini:
+
+            with self.lock:
+                if self.deq:
+                    return self.deq.popleft()
+
+                self.event.clear()
+
+            self.event.wait(timeout=timeout)
+            if not self.event.is_set():
+                return None
+
+    def put(self, item):
+        '''
+        Add an item to the queue and wake the sleeper.
+
+        Example:
+
+            q.put('woot')
+
+        '''
+        with self.lock:
+            self.deq.append(item)
+            self.event.set()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        ret =  self.get()
+        if ret == None:
+            raise StopIteration()
+
+        return ret
+
+    def _onQueFini(self):
+        self.event.set()
 
 class BulkQueue(EventBus):
     '''
