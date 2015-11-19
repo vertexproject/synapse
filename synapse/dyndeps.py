@@ -29,3 +29,16 @@ def getDynLocal(name):
     if mod == None:
         return None
     return getattr(mod,objname,None)
+
+def runDynTask(task):
+    '''
+    Run a dynamic task and return the result.
+
+    Example:
+
+        foo = runDynTask( ('baz.faz.Foo', (), {} ) )
+
+    '''
+    func = getDynLocal(task[0])
+    return func(*task[1],**task[2])
+    
