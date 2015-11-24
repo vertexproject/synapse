@@ -4,6 +4,7 @@ class BadMesgResp(Exception):pass
 class BadPropValu(Exception):pass
 class BadPySource(Exception):pass
 
+class DupOpt(Exception):pass
 class DupUser(Exception):pass
 class DupRole(Exception):pass
 
@@ -30,16 +31,16 @@ class PropNotFound(Exception):pass
 class HitMaxTime(Exception):pass
 class HitMaxRetry(Exception):pass
 
-class CallError(Exception):
+class JobErr(Exception):
     '''
     Used for remote exception propigation.
     '''
-    def __init__(self, mesg):
-        self.mesg = mesg
+    def __init__(self, job):
+        self.job = job
 
-        err = mesg[1].get('err')
-        errmsg = mesg[1].get('errmsg')
-        errfile = mesg[1].get('errfile')
-        errline = mesg[1].get('errline')
+        err = job[1].get('err')
+        errmsg = job[1].get('errmsg')
+        errfile = job[1].get('errfile')
+        errline = job[1].get('errline')
 
         Exception.__init__(self, '%s: %s (%s:%s)' % (err,errmsg,errfile,errline))
