@@ -1,3 +1,4 @@
+import os
 import unittest
 import threading
 
@@ -39,8 +40,15 @@ class SynTest(unittest.TestCase):
         cura = s_session.Curator()
         return cura.getNewSess()
 
+    def getTestWait(self, bus, size, *evts):
+        return TestWaiter(bus, size, *evts)
+
     def eq(self, x, y):
         self.assertEqual(x,y)
 
     def nn(self, x):
         self.assertIsNotNone(x)
+
+testdir = os.path.dirname(__file__)
+def getTestPath(*paths):
+    return os.path.join(testdir,*paths)
