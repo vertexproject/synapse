@@ -46,28 +46,6 @@ def verstr(vtup):
     '''
     return '.'.join([ str(v) for v in vtup ])
 
-retcls = {
-    'NoSuchObj':NoSuchObj,
-    'NoSuchMeth':NoSuchMeth,
-}
-
-def retmesg(mesg):
-    '''
-    Introspect the message for "return" convention
-    '''
-    err = mesg[1].get('err')
-    if err != None:
-        errmsg = mesg[1].get('errmsg')
-
-        cls = retcls.get(err)
-        if cls:
-            raise cls(errmsg)
-
-        errtb = mesg[1].get('errtb')
-        raise CallError(mesg)
-
-    return mesg[1].get('ret')
-
 def excinfo(e):
     '''
     Populate err,errmsg,errtrace info from exc.
@@ -96,4 +74,3 @@ def worker(meth, *args, **kwargs):
     thr.setDaemon(True)
     thr.start()
     return thr
-
