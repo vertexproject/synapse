@@ -167,17 +167,6 @@ class EventBus:
             return self._fini_weaks.add(func)
         self._fini_funcs.append(func)
 
-    def wait(self, timeout=None):
-        '''
-        Wait for fini() on the EventBus.
-
-        Example:
-
-            d.wait(timeout=30)
-
-        '''
-        return self.finievt.wait(timeout=timeout)
-        
     def distall(self, events):
         '''
         Distribute multiple events on the event bus.
@@ -185,25 +174,17 @@ class EventBus:
         [self.dist(evt) for evt in events]
     
     @firethread
-    def feed(self, func, *args, **kwargs):
+    def consume(self, gtor):
         '''
-        Feed the event bus by calling the given callback.
+        Feed the event bus from a generator.
 
         Example:
 
-            bus.feed( dist.poll, chan )
-
-        Notes:
-
-            If the callback returns None, the feeder thread will return.
+            bus.consume( getAllEvents() )
 
         '''
-        if not callable(func):
-            raise Exception('feed() func not callable: %r' % (func,))
+        for e in gtor:
+            if e == None:
+                break
 
-        while not self.isfini:
-            events = func(*args,**kwargs)
-            if events == None:
-                return
-
-            [ self.dist(e) for e in events ]
+            self.dist(e)
