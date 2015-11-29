@@ -7,6 +7,16 @@ import collections
 import synapse.aspects as s_aspects
 
 class ModelError(Exception):pass
+
+class BadTypeParse(ModelError):
+    def __init__(self, name, text):
+        self._type_name = name
+        self._type_text = text
+        mesg = '%s: %r' % (name,text)
+        ModelError.__init__(self, mesg)
+
+class BadTypeNorm(BadTypeParse):pass
+
 class NoSuchProp(ModelError):pass
 class NoSuchType(ModelError):pass
 class NoSuchForm(ModelError):pass
@@ -89,6 +99,25 @@ class GuidType(DataType):
         # FIXME check for valid hex
         return text
 
+class BoolType(DataType):
+
+    def repr(self, valu):
+        return str(bool(valu))
+
+    def norm(self, valu):
+        return int(valu)
+
+    def parse(self, text):
+
+        ltxt = text.lower()
+        if ltxt not in ('true','false','0','1'):
+            raise BadTypeParse('bool',text)
+
+        if text.lower() == 'true':
+            return 1
+
+        return 0
+
 class EnumType(DataType):
 
     def __init__(self, name, tags):
@@ -111,6 +140,7 @@ class EnumType(DataType):
 #class Ipv4StrType(DataType):
 #class CidrType(DataType):
 #class HexType(DataType): # __init__(self, size):
+#class HashMd5 / HashSha1 / HashSha256 / HashSha384 / HashSha512
 
 class DataModel:
 
@@ -136,6 +166,7 @@ class DataModel:
         self.addDataType('lwr', LwrType())
         self.addDataType('str', StrType())
         self.addDataType('tag', TagType())
+        self.addDataType('bool', BoolType())
 
         self.addDataType('guid', GuidType())
 
@@ -220,10 +251,7 @@ class DataModel:
             typeobj = model.getDataType('int')
 
         '''
-        typeobj = self.types.get(name)
-        if typeobj == None:
-            raise NoSuchType(name)
-        return typeobj
+        return self.types.get(name)
 
     def getModelDict(self):
         '''
