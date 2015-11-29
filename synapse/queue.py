@@ -56,14 +56,12 @@ class Queue(EventBus):
             self.event.set()
 
     def __iter__(self):
-        return self
+        while not self.isfini:
+            ret = self.get()
+            if ret == None:
+                return
 
-    def __next__(self):
-        ret =  self.get()
-        if ret == None:
-            raise StopIteration()
-
-        return ret
+            yield ret
 
     def _onQueFini(self):
         self.event.set()
