@@ -7,8 +7,7 @@ import threading
 import traceback
 
 import synapse.glob as s_glob
-
-from synapse.compat import queue
+import synapse.queue as s_queue
 
 from synapse.common import *
 from synapse.eventbus import EventBus
@@ -70,6 +69,7 @@ class PerThread:
 
 # setup a default PerThread
 per = PerThread()
+per.setPerCtor('monoq', s_queue.Queue)
 
 thrloc = threading.local()
 def get(key,defval=None):
@@ -138,7 +138,120 @@ class Thread(threading.Thread,EventBus):
     def _onThrFini(self):
         [ cancel() for cancel in self.cancels ]
 
+class MonoMeth:
+    '''
+    A "callable" used by the MonoThread object to proxy API calls.
+    '''
+
+    def __init__(self, mono, meth):
+        self.mono = mono
+        self.meth = meth
+
+    def __call__(self, *args, **kwargs):
+        q = per.monoq
+        task = ( self.meth, args, kwargs)
+        self.mono._mono_thrq.put( (task,q) )
+
+        ret,exc = q.get()
+        if exc != None:
+            raise exc
+
+        return ret
+
+class MonoThread:
+    '''
+    Some APIs such as sqlite and most OS debug APIs are not ok
+    with being called from more than one thread.  The MonoThread
+    class will wrap an object such that all methods are called from
+    only one thread.
+    '''
+    def __init__(self, item):
+        self._mono_item = item
+        self._mono_thrq = s_queue.Queue()
+        self._mono_thrd = worker( self._runMonoThread )
+
+        if isinstance(item, EventBus):
+            item.onfini( self._onMonoFini )
+
+    def _runMonoThread(self):
+
+        while not self._mono_item.isfini:
+
+            todo = self._mono_thrq.get()
+            if todo == None:
+                break
+
+            task,retq = todo
+            func,args,kwargs = task
+
+            try:
+                ret = func(*args,**kwargs)
+                retq.put( (ret,None) )
+
+            except Exception as e:
+                retq.put( (None,e) )
+
+    def _onMonoFini(self):
+        self._mono_thrq.put( None )
+        #self._mono_thrd.join()
+
+    def __getattr__(self, name):
+        meth = getattr(self._mono_item,name,None)
+        if meth == None:
+            raise AttributeError(name)
+
+        ret = MonoMeth(self,meth)
+        setattr(self,name,ret)
+        return ret
+
+class SafeMeth:
+    '''
+    A "callable" used by the ThreadSafe object to proxy API calls.
+    '''
+
+    def __init__(self, safe, meth):
+        self.safe = safe
+        self.meth = meth
+
+    def __call__(self, *args, **kwargs):
+        with self.safe._safe_lock:
+            return self.meth(*args,**kwargs)
+
+class ThreadSafe:
+    '''
+    The ThreadSafe class implements a mutual exclusion lock around method calls.
+
+
+    Example:
+
+        item = NotThreadSafeThing()
+
+        safe = ThreadSafe(item)
+
+        # from any thread....
+        safe.doFooByBar(10)
+
+        # no 2 threads will be in any NotThreadSafeThing method at one time
+
+    '''
+
+    def __init__(self, item):
+        self._safe_item = item
+        self._safe_lock = threading.Lock()
+
+    def __getattr__(self, name):
+        meth = getattr(self._safe_item,name,None)
+        if meth == None:
+            raise AttributeError(name)
+
+        ret = SafeMeth(self,meth)
+        setattr(self,name,ret)
+        return ret
+
 def worker(func,*args,**kwargs):
+    '''
+    Fire a worker thread to run the given func(*args,**kwargs)
+    '''
     thr = Thread(func,*args,**kwargs)
     thr.start()
     return thr
@@ -167,7 +280,7 @@ class Pool(EventBus):
     def __init__(self, size=3, maxsize=None):
         EventBus.__init__(self)
 
-        self.workq = queue.Queue()
+        self.workq = s_queue.Queue()
 
         self._pool_lock = threading.Lock()
         self._pool_avail = 0
@@ -175,7 +288,7 @@ class Pool(EventBus):
 
         self._pool_threads = {}
 
-        self.onfini( self._onBossFini )
+        self.onfini( self._onPoolFini )
 
         for i in range(size):
             self._fire_thread( self._run_work )
@@ -275,7 +388,7 @@ class Pool(EventBus):
 
             self.fire('pool:work:fini', work=work)
 
-    def _onBossFini(self):
+    def _onPoolFini(self):
         threads = list(self._pool_threads.values())
 
         [ self.workq.put(None) for i in range(len(threads)) ]
