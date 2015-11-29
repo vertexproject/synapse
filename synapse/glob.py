@@ -7,3 +7,6 @@ plex = None
 
 # A global Sched instance for maint routines
 sched = None
+
+# A host info dictionary for "thishost" API
+hostinfo = None
