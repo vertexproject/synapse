@@ -24,31 +24,21 @@ class LinkRelay:
 
     def _prepLinkSock(self, sock):
 
-        sock['relay'] = self
-
-        sock['link'] = self.link
+        sock.set('relay', self)
+        sock.set('link', self.link)
 
         timeout = self.link[1].get('timeout')
         if timeout != None:
             sock.settimeout(timeout)
 
-        # must remain first!
-        zerosig = self.link[1].get('zerosig')
-        if zerosig != None:
-            xform = s_crypto.Rc4Xform(b'')
-            sock.addSockXform(xform)
-
         if sock.get('listen'):
             return
 
-        rc4key = self.link[1].get('rc4key')
-        if rc4key != None:
+        rc4key = self.link[1].get('rc4key',b'')
+        zerosig = self.link[1].get('zerosig')
+        if rc4key or zerosig != None:
             xform = s_crypto.Rc4Xform(rc4key)
             sock.addSockXform(xform)
-
-        sock['trans'] = self.link[1].get('trans')
-
-        #FIXME support DH KEX
 
     def listen(self):
         '''
@@ -56,7 +46,7 @@ class LinkRelay:
         '''
         sock = self._listen()
 
-        sock['listen'] = True
+        sock.set('listen',True)
         self._prepLinkSock(sock)
 
         return sock
@@ -67,7 +57,7 @@ class LinkRelay:
         '''
         sock = self._connect()
 
-        sock['connect'] = True
+        sock.set('connect',True)
         self._prepLinkSock(sock)
 
         return sock
