@@ -7,13 +7,15 @@ import threading
 import traceback
 
 import synapse.link as s_link
+import synapse.async as s_async
+import synapse.queue as s_queue
 import synapse.socket as s_socket
 import synapse.eventbus as s_eventbus
 
 from synapse.common import *
 from synapse.compat import queue
 
-def openurl(url):
+def openurl(url,**opts):
     '''
     Construct a telepath proxy from a url.
 
@@ -25,6 +27,8 @@ def openurl(url):
 
     '''
     link = s_link.chopLinkUrl(url)
+    link[1].update(opts)
+
     relay = s_link.getLinkRelay(link)
     return Proxy(relay)
 
@@ -43,105 +47,172 @@ def openlink(link):
 
 class Method:
 
-    def __init__(self, proxy, api):
-        self.api = api
+    def __init__(self, proxy, meth):
+        self.meth = meth
         self.proxy = proxy
 
     def __call__(self, *args, **kwargs):
-        return self.proxy._tele_call( self.api, *args, **kwargs)
+        task = (self.meth,args,kwargs)
+        job = self.proxy._tx_call( task )
+        return self.proxy.sync(job)
 
-class Proxy:
+class Proxy(s_eventbus.EventBus):
     '''
     The telepath proxy provides "pythonic" access to remote objects.
 
     ( you most likely want openurl() or openlink() )
+
+    NOTE:
+
+        *all* locals in this class *must* have _tele_ prefixes to prevent
+        accidental deref of something with the same name in code using it
+        under the assumption it's something else....
+
     '''
-    def __init__(self, relay, sid=None):
-        self.bus = s_eventbus.EventBus()
+    def __init__(self, relay):
 
-        self._tele_lock = threading.Lock()
+        s_eventbus.EventBus.__init__(self)
+        self.onfini( self._onProxyFini )
 
-        self._tele_sid = sid
-        self._tele_with = {}        # tid:sock for with blocks
+        # NOTE: the _tele_ prefixes are designed to prevent accidental
+        #       derefs with overlapping names from working correctly
+
+        self._tele_sid = None
+
+        self._tele_q = s_queue.Queue()
+        self._tele_bus = s_eventbus.EventBus()
+
+        self._tele_boss = s_async.Boss()
+        self._tele_plex = s_socket.getGlobPlex()
+
+        self._tele_bus.on('job:done', self._tele_boss.dist )
+        self._tele_bus.on('imp:dist', self._onImpDist )
+
+        self._tele_bus.consume( self._tele_q )
+
         self._tele_sock = None
         self._tele_relay = relay    # LinkRelay()
 
         # obj name is path minus leading "/"
-        self._tele_obj = relay.link[1].get('path')[1:]
+        self._tele_name = relay.link[1].get('path')[1:]
 
-        self._init_main_sock()
+        self._initTeleSock()
 
-        if sid == None:
-            self._tele_sid = self._tele_syn()
+    def call(self, name, *args, **kwargs):
+        '''
+        Call a shared method as a job.
 
-    def _init_main_sock(self):
+        Example:
 
-        if self.bus.isfini:
+            job = proxy.call('getFooByBar',bar)
+
+            # ... do other stuff ...
+
+            ret = proxy.sync(job)
+
+        '''
+        ondone = kwargs.pop('ondone',None)
+
+        task = (name, args, kwargs)
+        return self._tx_call(task,ondone=ondone)
+
+    def _tx_call(self, task, ondone=None):
+        return self._txTeleJob('tele:call', name=self._tele_name, task=task, ondone=ondone)
+
+    def sync(self, job, timeout=None):
+        '''
+        Wait on a given job and return/raise it's result.
+
+        Example:
+
+            ret = proxy.sync(job)
+
+        '''
+        # wait for job and jobret()
+        if self._tele_boss.wait(job[0], timeout=timeout):
+            return s_async.jobret(job)
+
+        raise HitMaxTime()
+
+    def _onImpDist(self, event):
+        mesg = event[1].get('mesg')
+        self.dist(mesg)
+
+    def _initTeleSock(self):
+        if self._tele_bus.isfini:
             return False
 
         if self._tele_sock != None:
             self._tele_sock.fini()
 
-        waittime = 0
-        self._tele_sock = None
-        while self._tele_sock == None:
+        self._tele_sock = self._tele_relay.connect()
+        if self._tele_sock == None:
+            return False
 
-            self._tele_sock = self._tele_relay.connect()
-            if self._tele_sock == None:
-                time.sleep(waittime)
-                waittime = min( waittime + 0.2, 2 )
-                continue
+        # generated on the socket by the multiplexor ( and queued )
+        self._tele_sock.on('link:sock:mesg', self._onLinkSockMesg )
 
-    def _tele_call(self, api, *args, **kwargs):
-        call = ( self._tele_obj, api, args, kwargs )
-        mesg = self._tele_trans('tele:call', call=call)
-        if mesg[0] != 'tele:call:ret':
-            raise BadMesgResp(mesg[0])
+        self._tele_sock.onfini( self._onSockFini )
 
-        return retmesg(mesg)
+        self._tele_plex.addPlexSock( self._tele_sock )
 
-    def _tele_syn(self):
-        mesg = self._tele_trans('tele:syn')
-        return retmesg(mesg)
+        self._teleSynAck()
+        return True
 
-    def _tele_trans(self, evt, **evtinfo):
+    def _onLinkSockMesg(self, event):
+        # MULTIPLEXOR: DO NOT BLOCK
+        mesg = event[1].get('mesg')
+        self._tele_q.put( mesg )
 
-        # carry out one send/recv transaction
-        evtinfo['sid'] = self._tele_sid
+    def _onSockFini(self):
+        # If we still have outstanding jobs, reconnect immediately
+        if self._tele_bus.isfini:
+            return
 
-        sock = self._get_with_sock()
-        if sock != None:
-            sock.fireobj(evt,**evtinfo)
-            return sock.recvobj()
+        if len( self._tele_boss.jobs() ):
+            self._initTeleSock()
 
-        with self._tele_lock:
+    def _getTeleSock(self):
+        if self._tele_sock.isfini:
+            self._initTeleSock()
 
-            while not self._tele_sock.fireobj(evt,**evtinfo):
-                self._init_main_sock()
+        return self._tele_sock
 
-            return self._tele_sock.recvobj()
+    def _teleSynAck(self):
+        '''
+        Send a tele:syn to get a telepath session
+        '''
+        job = self._txTeleJob('tele:syn', sid=self._tele_sid )
+        self._tele_sid = self.sync( job )
 
-    def _get_with_sock(self):
-        thrid = threading.currentThread().ident
-        return self._tele_with.get(thrid)
+    def _txTeleJob(self, msg, **msginfo):
+        '''
+        Transmit a message as a job ( add jid to mesg ) and return job.
+        '''
+        ondone = msginfo.pop('ondone',None)
+        job = self._tele_boss.initJob(ondone=ondone)
 
-    def fini(self):
-        self.bus.fini()
+        msginfo['jid'] = job[0]
+        self._txTeleSock(msg,**msginfo)
+
+        return job
+
+    def _txTeleSock(self, msg, **msginfo):
+        '''
+        Send a mesg over the socket and include our session id.
+        '''
+        msginfo['sid'] = self._tele_sid
+        sock = self._getTeleSock()
+        sock.tx( (msg,msginfo) )
+
+    def _onProxyFini(self):
+
+        if not self._tele_sock.isfini:
+            self._tele_sock.tx( tufo('tele:fin', sid=self._tele_sid) )
+
+        self._tele_bus.fini()
+        self._tele_boss.fini()
         self._tele_sock.fini()
-        socks = list( self._tele_with.values() )
-        [ sock.fini() for sock in socks ]
-
-    def __enter__(self):
-        thrid = threading.currentThread().ident
-        sock = self._tele_relay.connect()
-        self._tele_with[thrid] = sock
-        return self
-
-    def __exit__(self, exc, cls, tb):
-        thrid = threading.currentThread().ident
-        sock = self._tele_with.pop(thrid,None)
-        if sock != None:
-            sock.fini()
 
     def __getattr__(self, name):
         meth = Method(self, name)

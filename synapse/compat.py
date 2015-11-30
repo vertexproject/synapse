@@ -19,69 +19,6 @@ if version < (3,0,0):
 
     import Queue as queue
 
-    class FakeKey:
-        def __init__(self, sock):
-            self.fileobj = sock
-
-    class FakeSelector:
-
-        def __init__(self):
-            self.socks = {}
-
-        def register(self, sock, mask):
-            self.socks[sock] = mask
-
-            def unreg():
-                self.unregister(sock)
-
-            sock.onfini( unreg )
-
-        def unregister(self, sock):
-            self.socks.pop(sock,None)
-
-        def select(self, timeout=None):
-            rlist = []
-            wlist = []
-            xlist = []
-
-            for sock,mask in self.socks.items():
-                if sock.isfini:
-                    continue
-
-                xlist.append(sock)
-                if mask & FakeSelMod.EVENT_READ:
-                    rlist.append(sock)
-
-                if mask & FakeSelMod.EVENT_WRITE:
-                    wlist.append(sock)
-
-            try:
-
-                rlist,wlist,xlist = select.select(rlist,wlist,xlist,timeout)
-            except select.error as e:
-                # mask "bad file descriptor" race and go around again...
-                return []
-
-            ret = collections.defaultdict(int)
-            for sock in rlist:
-                ret[sock] |= FakeSelMod.EVENT_READ
-
-            for sock in wlist:
-                ret[sock] |= FakeSelMod.EVENT_WRITE
-
-            return [ (FakeKey(sock),mask) for sock,mask in ret.items() ]
-
-        def close(self):
-            pass
-
-    class FakeSelMod:
-        EVENT_READ = 1
-        EVENT_WRITE = 2
-        def DefaultSelector(self):
-            return FakeSelector()
-
-    selectors = FakeSelMod()
-
     def enbase64(s):
         return s.encode('base64')
 
@@ -97,7 +34,6 @@ if version < (3,0,0):
 
 else:
     import queue
-    import selectors
 
     def enbase64(b):
         return base64.b64encode(b).decode('utf8')

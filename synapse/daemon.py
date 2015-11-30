@@ -1,5 +1,8 @@
+import logging
 import traceback
 import collections
+
+logger = logging.getLogger(__name__)
 
 import synapse.link as s_link
 import synapse.socket as s_socket
@@ -16,66 +19,114 @@ from synapse.common import *
 
 class Daemon(EventBus):
 
-    def __init__(self, core=None, boss=None):
+    def __init__(self, core=None, pool=None):
         EventBus.__init__(self)
 
         if core == None:
             core = s_cortex.openurl('ram:///')
 
+        self.socks = {}
         self.shared = {}
 
-        self.rtor = s_reactor.Reactor()
-        self.pool = s_threads.Pool(maxsize=-1)
+        if pool == None:
+            pool = s_threads.Pool(size=8, maxsize=-1)
+
+        self.pool = pool
+        self.core = core
+        self.plex = s_socket.Plex()
         self.cura = s_session.Curator(core=core)
 
+        self.onfini( self.plex.fini )
         self.onfini( self.cura.fini )
         self.onfini( self.pool.fini )
 
-        self.rtor.act('tele:syn', self._actTeleSyn )
-        self.rtor.act('tele:call', self._actTeleCall )
+        self.plex.on('link:sock:mesg', self._onLinkSockMesg )
 
-    def _runSockMesg(self, sock, mesg):
+        self.mesgfuncs = {}
+
+        self.setMesgFunc('tele:syn', self._onTeleSynMesg )
+        self.setMesgFunc('tele:fin', self._onTeleFinMesg )
+        self.setMesgFunc('tele:call', self._onTeleCallMesg )
+
+    def setMesgFunc(self, name, func):
+        self.mesgfuncs[name] = func
+
+    def _onLinkSockInit(self, event):
+
+        sock = event[1].get('sock')
+        sock.on('link:sock:mesg', self._onLinkSockMesg )
+
+        self.plex.addPlexSock(sock)
+
+    def _onLinkSockMesg(self, event):
+        # THIS MUST NOT BLOCK THE MULTIPLEXOR!
+        #print('ON LINK SOCK MESG: %r' % (event,))
+        self.pool.call( self._runLinkSockMesg, event )
+
+    def _runLinkSockMesg(self, event):
+        sock = event[1].get('sock')
+        mesg = event[1].get('mesg')
+
+        func = self.mesgfuncs.get(mesg[0])
+        if func == None:
+            return
 
         try:
-            ret = self.rtor.react(mesg)
-            sock.fireobj(mesg[0] + ':ret', ret=ret)
+
+            func(sock,mesg)
 
         except Exception as e:
-            sock.fireobj(mesg[0] + ':ret', **excinfo(e))
+            traceback.print_exc()
+            logger.error('_runLinkSockMesg: %s', e )
 
-    def _reqSessFromMesg(self, mesg):
+    def _onTeleFinMesg(self, sock, mesg):
+        # if the client is nice enough to notify us...
+        sid = mesg[1].get('sid')
+        sess = self.cura.getSessBySid(sid)
+        if sess == None:
+            return
+
+        sess.fini()
+
+    def _onTeleSynMesg(self, sock, mesg):
+
+        jid = mesg[1].get('jid')
         sid = mesg[1].get('sid')
         if sid == None:
-            return self.cura.getNewSess()
+            sid = self.cura.getNewSess().sid
 
-        return self.cura.getSessBySid(sid)
+        with self.cura.getSessBySid(sid) as sess:
+            sess.setSessSock(sock)
+            sess.relay( tufo('job:done', jid=jid, ret=sess.sid) )
 
-    def _actTeleSyn(self, mesg):
-        # are they giving us an existing sid?
-        with self._reqSessFromMesg(mesg) as sess:
-            return sess.sid
+    def _onTeleCallMesg(self, sock, mesg):
 
-    ###################################################
+        jid = mesg[1].get('jid')
+        sid = mesg[1].get('sid')
 
-    def _actTeleCall(self, mesg):
+        with self.cura.getSessBySid(sid) as sess:
 
-        name,api,args,kwargs = mesg[1].get('call')
+            try:
 
-        # FIXME sess allows?
+                name = mesg[1].get('name')
 
-        obj = self.shared.get(name)
-        if obj == None:
-            raise NoSuchObj(name)
+                item = self.shared.get(name)
+                if item == None:
+                    raise NoSuchObj(name)
 
-        meth = getattr(obj,api,None)
-        if meth == None:
-            raise NoSuchMeth(api)
+                task = mesg[1].get('task')
+                meth,args,kwargs = task
 
-        # FIXME rate limit?
-        # FIXME audit trail?
+                func = getattr(item,meth,None)
+                if func == None:
+                    raise NoSuchMeth(meth)
 
-        with self._reqSessFromMesg(mesg):
-            return meth(*args,**kwargs)
+                ret = func(*args,**kwargs)
+
+                sock.tx( tufo('job:done', jid=jid, ret=ret) )
+
+            except Exception as e:
+                sock.tx( tufo('job:done', jid=jid, **excinfo(e)) )
 
     def listen(self, linkurl):
         '''
@@ -94,7 +145,10 @@ class Daemon(EventBus):
         relay = s_link.getLinkRelay(link)
 
         sock = relay.listen()
-        self.pool.call(self._runServSock,sock)
+        sock.on('link:sock:init', self._onLinkSockInit )
+
+        self.plex.addPlexSock(sock)
+
         return link
 
     def share(self, name, obj):
@@ -102,28 +156,3 @@ class Daemon(EventBus):
         Share an object via the telepath protocol.
         '''
         self.shared[name] = obj
-
-    def _runServSock(self, sock):
-        relay = sock.get('relay')
-
-        sockblock = s_threads.cancelable(sock.fini)
-        while not self.isfini:
-            with sockblock:
-                news,addr = sock.accept()
-                if news == None:
-                    break
-
-                if relay != None:
-                    relay._prepLinkSock(news)
-
-                self.pool.call( self._runServConn, news )
-
-    def _runServConn(self, sock):
-        self.fire('link:sock:init', sock=sock)
-
-        with s_threads.cancelable(sock.fini):
-            for mesg in sock:
-                self._runSockMesg(sock,mesg)
-
-        self.fire('link:sock:fini', sock=sock)
-

@@ -56,6 +56,8 @@ class LinkRelay:
         Create, connect, and return a new client Socket()
         '''
         sock = self._connect()
+        if sock == None:
+            return None
 
         sock.set('connect',True)
         self._prepLinkSock(sock)

@@ -1,13 +1,114 @@
 import os
+import cmd
 import sys
+import shlex
+import pprint
 import argparse
 
 import synapse.neuron as s_neuron
+import synapse.eventbus as s_eventbus
+import synapse.datamodel as s_datamodel
 
-def statefd(path):
-    fd = open(path,'a+b')
-    fd.seek(0)
-    return fd
+class Cmd(cmd.Cmd,s_eventbus.EventBus):
+
+    def __init__(self, neu):
+        cmd.Cmd.__init__(self)
+        self.prompt = 'neu> '
+
+        s_eventbus.EventBus.__init__(self)
+
+        self.neu = neu
+
+        self._cmd_print = True
+
+        moddef = self.neu.getModelDict()
+        self.model = s_datamodel.DataModel(model=moddef)
+
+    def getArgParser(self):
+        return argparse.ArgumentParser()
+
+    def banner(self):
+        '''
+        Print the initial hello/banner from the neuron.
+        '''
+        peer = self.neu.getPeerTufo()
+        name = peer[1].get('neuron:name','<unnamed>')
+        self.vprint('Connected To: %s (%s)' % (name,peer[0]))
+
+    def vprint(self, msg):
+        if self._cmd_print:
+            print(msg)
+
+        self.fire('cmd:print', msg=msg)
+
+    def do_set(self, line):
+        '''
+        Set a property on the current neuron.
+
+        Usage:
+
+            neu> set [options] <prop> <valu>
+
+        Options:
+
+            --force     - Set an option which is *not* part of the data model
+
+        Example:
+
+            neu> set name "foo bar"
+
+        '''
+        pars = self.getArgParser()
+        pars.add_argument('--force', default=False, action='store_true', help='Set a non-datamodel property')
+        pars.add_argument('prop', help='property name')
+        pars.add_argument('valu', help='property value')
+
+        opts = pars.parse_args( shlex.split(line) )
+
+        fullprop = 'neuron:%s' % opts.prop
+
+        if self.model.getPropDef(fullprop) == None and not opts.force:
+            self.vprint('unknown neuron property: %s' % (opts.prop,))
+            return
+
+        try:
+            realvalu = self.model.getPropParse(fullprop,opts.valu)
+        except Exception as e:
+            self.vprint('Invalid Value: %s (%s)' % (opts.valu,e))
+
+        self.neu.setNeuProp(opts.prop,realvalu)
+        self.vprint('%s -> %s' % (opts.prop, opts.valu))
+
+    def do_mesh(self, line):
+        '''
+        Pretty print the entire neuron mesh dictionary.
+
+        Example:
+
+        '''
+        mesh = self.neu.getMeshDict()
+        outp = pprint.pformat(mesh)
+        self.vprint(outp)
+
+    def do_peers(self, line):
+        '''
+        List the known neuron peers.
+
+        Example:
+
+            neu> list
+
+        '''
+        mesh = self.neu.getMeshDict()
+        peers = list( mesh.get('peers',{}).values() )
+        if len(peers) == 0:
+            return self.vprint('no peers?!?!')
+
+        for peer in peers:
+            name = peer[1].get('neuron:name')
+            self.vprint('%s: %s' % (peer[0],name))
+
+    #def do_quit(self):
 
 def main(argv):
     '''
@@ -15,48 +116,18 @@ def main(argv):
     '''
     p = argparse.ArgumentParser(prog='neutool')
 
-    p.add_argument('--init-peer', default=False, action='store_true', help='Init a Peer Neuron')
-    p.add_argument('--init-master', default=False, action='store_true', help='Init a Master Neuron')
-    p.add_argument('--sign-with', metavar='<file>', default=None, help='Sign with another neuron.mpk')
-    p.add_argument('--show-info', default=False, action='store_true')
-
-    p.add_argument('--add-peer', default=[], action='append', help='Add a Peer URL')
-    p.add_argument('--add-server', default=[], action='append', help='Add a Server URL')
-
-    p.add_argument('filename')
+    p.add_argument('url', help='Neuron telepath URL')
 
     opts = p.parse_args(argv)
 
-    fd = statefd(opts.filename)
-    neu = s_neuron.Daemon(statefd=fd)
+    neu = s_neuron.openurl( opts.url )
 
-    if opts.init_peer:
-        neu.genRsaKey()
-        neu.genPeerCert()
+    cli = Cmd(neu)
 
-    elif opts.init_master:
-        neu.genRsaKey()
-        neu.genPeerCert(signer=True,master=True)
-
-    if opts.sign_with:
-        neu1 = s_neuron.Daemon(statefd=statefd( opts.sign_with ))
-
-        cert = neu.getNeuInfo('peercert')
-        cert = neu1.signPeerCert(cert)
-
-        neu.setNeuInfo('peercert',cert)
-        neu.addPeerCert( neu1.getNeuInfo('peercert') )
-
-    for servurl in opts.add_server:
-        neu.addServerUrl(servurl)
-
-    if opts.show_info:
-        keys = neu.neuinfo.keys()
-        for key in sorted(keys):
-            print('%s: %r' % (key,neu.getNeuInfo(key)))
+    cli.banner()
+    cli.cmdloop()
 
     neu.fini()
-    fd.close()
 
 if __name__ == '__main__':
     sys.exit( main( sys.argv[1:] ) )

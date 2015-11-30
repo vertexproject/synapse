@@ -5,86 +5,73 @@ import synapse.link as s_link
 import synapse.daemon as s_daemon
 import synapse.impulse as s_impulse
 import synapse.eventbus as s_eventbus
+import synapse.telepath as s_telepath
 
-from synapse.common import *
+from synapse.tests.common import *
 
-class ImpulseTest(unittest.TestCase):
+class ImpulseTest(SynTest):
 
     def test_impulse_relay(self):
 
-        dist = s_impulse.PulseRelay()
+        dmon = s_daemon.Daemon()
+        link = dmon.listen('tcp://127.0.0.1:0/pulser')
 
-        bus0 = s_eventbus.EventBus()
+        puls = s_impulse.PulseRelay()
+        dmon.share('pulser', puls)
 
-        iden = guidstr()
+        prox0 = s_telepath.openlink(link)
+        prox1 = s_telepath.openlink(link)
 
-        dist.join(iden)
-        bus0.feed( dist.poll, iden)
+        wait = self.getTestWait(prox0, 1, 'hehe')
 
-        evt = threading.Event()
-        data = {}
-        def onfoo(event):
-            data['event'] = event
-            evt.set()
+        sid0 = prox0.join('foo','bar','baz')
 
-        bus0.on('foo', onfoo)
+        self.assertTrue( prox1.relay(sid0, tufo('hehe',haha='haha') ) )
 
-        dist.relay(iden, tufo('foo', bar=10))
+        wait.wait()
 
-        evt.wait(timeout=2)
-        self.assertTrue( evt.is_set() )
-        self.assertEqual( data['event'][1].get('bar'), 10 )
+        prox0.fini()
+        prox1.fini()
 
-        bus0.fini()
-        dist.fini()
+        dmon.fini()
 
     def test_impulse_mcast(self):
 
-        chan = guidstr()
+        dmon = s_daemon.Daemon()
+        link = dmon.listen('tcp://127.0.0.1:0/pulser')
 
-        dist = s_impulse.PulseRelay()
-        dist.join(chan,'woot')
+        puls = s_impulse.PulseRelay()
+        dmon.share('pulser', puls)
 
-        bus0 = s_eventbus.EventBus()
-        bus0.feed( dist.poll, chan )
-        bus0.onfini( dist.shut, chan )
+        prox = s_telepath.openlink(link)
+        wait = self.getTestWait(prox, 1, 'hehe')
 
-        evt = threading.Event()
-        data = {}
-        def onfoo(event):
-            data['event'] = event
-            evt.set()
+        prox.join('foo','bar','baz')
 
-        bus0.on('foo', onfoo)
-        dist.mcast('woot', 'foo', bar=10)
+        prox.mcast('foo','hehe',haha='haha')
 
-        evt.wait(timeout=2)
-        self.assertEqual( data['event'][1].get('bar'), 10 )
+        wait.wait()
 
-        bus0.fini()
-        dist.fini()
+        prox.fini()
+        dmon.fini()
 
     def test_impulse_bcast(self):
 
-        chan = guidstr()
+        dmon = s_daemon.Daemon()
+        link = dmon.listen('tcp://127.0.0.1:0/pulser')
 
-        dist = s_impulse.PulseRelay()
-        dist.join(chan,'woot')
+        puls = s_impulse.PulseRelay()
+        dmon.share('pulser', puls)
 
-        bus0 = s_eventbus.EventBus()
-        bus0.feed( dist.poll, chan )
+        prox = s_telepath.openlink(link)
+        wait = self.getTestWait(prox, 1, 'hehe')
 
-        evt = threading.Event()
-        data = {}
-        def onfoo(event):
-            data['event'] = event
-            evt.set()
+        prox.join('foo','bar','baz')
 
-        bus0.on('foo', onfoo)
-        dist.bcast('foo',bar=10)
+        prox.bcast('hehe',haha='haha')
 
-        evt.wait(timeout=3)
-        self.assertEqual( data['event'][1].get('bar'), 10 )
+        wait.wait()
 
-        bus0.fini()
-        dist.fini()
+        prox.fini()
+        dmon.fini()
+

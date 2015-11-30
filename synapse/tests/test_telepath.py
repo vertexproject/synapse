@@ -51,11 +51,11 @@ class TelePathTest(unittest.TestCase):
         #print('TIME: %r' % ((e - s),))
 
         # ensure perf is still good...
-        self.assertTrue( (e - s) < 0.3 )
+        self.assertTrue( (e - s) < 0.5 )
 
         self.assertEqual( foo.bar(10,20), 30 )
-        self.assertRaises( s_telepath.NoSuchMeth, foo.faz, 10, 20 )
-        self.assertRaises( s_telepath.CallError, foo.baz, 10, 20 )
+        self.assertRaises( JobErr, foo.faz, 10, 20 )
+        self.assertRaises( JobErr, foo.baz, 10, 20 )
 
         foo.fini()
         dmon.fini()
@@ -73,33 +73,12 @@ class TelePathTest(unittest.TestCase):
         foo.fini()
         dmon.fini()
 
-    def test_telepath_with(self):
-        dmon,link = self.getFooServ()
-        port = link[1].get('port')
-
-        foo = s_telepath.openurl('tcp://localhost:%d/foo' % (port,))
-
-        data = {'sock':0}
-        def onsock(event):
-            data['sock'] += 1
-
-        dmon.on('link:sock:init', onsock)
-        with foo:
-            self.assertEqual( foo.bar(10,20), 30 )
-            self.assertEqual( foo.bar(10,20), 30 )
-            self.assertEqual( foo.bar(10,20), 30 )
-
-        self.assertEqual( data['sock'], 1 )
-
-        foo.fini()
-        dmon.fini()
-
     def test_telepath_nosuchobj(self):
         dmon,link = self.getFooServ()
         port = link[1].get('port')
 
         newp = s_telepath.openurl('tcp://localhost:%d/newp' % (port,))
-        self.assertRaises( s_telepath.NoSuchObj, newp.foo )
+        self.assertRaises( JobErr, newp.foo )
 
         dmon.fini()
 
@@ -114,6 +93,19 @@ class TelePathTest(unittest.TestCase):
         foo.set('woot',10)
 
         self.assertEqual( foo.get('woot'), 10 )
+
+        foo.fini()
+        dmon.fini()
+
+    def test_telepath_call(self):
+        dmon,link = self.getFooServ()
+
+        foo = s_telepath.openlink(link)
+
+        job = foo.call('bar', 10, 20)
+        self.assertIsNotNone( job )
+
+        self.assertEqual( foo.sync(job), 30 )
 
         foo.fini()
         dmon.fini()

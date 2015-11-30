@@ -2,15 +2,14 @@ from __future__ import absolute_import,unicode_literals
 
 import os
 import atexit
+import select
 import socket
 import logging
 import msgpack
 import traceback
+import collections
 
 logger = logging.getLogger(__name__)
-
-from synapse.compat import queue
-from synapse.compat import selectors
 
 import synapse.glob as s_glob
 import synapse.common as s_common
@@ -18,6 +17,8 @@ import synapse.threads as s_threads
 
 from synapse.eventbus import EventBus
 from synapse.statemach import keepstate
+
+from synapse.common import *
 
 class SockXform:
     '''
@@ -27,68 +28,31 @@ class SockXform:
 
         * for obj tx/rx, these are called once per.
     '''
-    #TODO: maybe make this use bytebuffer and in-band xform
     def init(self, sock):
         pass
 
-    def send(self, byts):
+    def txform(self, byts):
         return byts
 
-    def recv(self, byts):
+    def rxform(self, byts):
         return byts
 
-class MesgRouter:
-    '''
-    The MesgRouter mixin allows registration of callback methods to
-    receive link:sock:mesg callbacks.
 
-    Example:
-
-        def myMesgCall(sock, mesg):
-            x = dostuff(mesg)
-            sock.sendobj(x)
-
-        sock.setMesgFunc('my:mesg', myMesgCall )
-
-    '''
-    def __init__(self):
-        self._mesg_en = False
-        self._mesg_meths = {}
-
-    def _xlateSockMesg(self, event):
-        sock = event[1].get('sock')
-        mesg = event[1].get('mesg')
-        self.runMesgMeth(sock,mesg)
-
-    def setMesgFunc(self, name, meth):
-        if not self._mesg_en:
-            self._mesg_en = True
-            self.on('link:sock:mesg', self._xlateSockMesg )
-
-        self._mesg_meths[name] = meth
-
-    def runMesgMeth(self, sock, mesg):
-        name = mesg[0]
-        meth = self._mesg_meths.get(name)
-        if meth == None:
-            return
-
-        try:
-            meth(sock,mesg)
-        except Exception as e:
-            traceback.print_exc()
-
-class Socket(EventBus,MesgRouter):
+class Socket(EventBus):
 
     def __init__(self, sock, **info):
         EventBus.__init__(self)
-        MesgRouter.__init__(self)
+
         self.sock = sock
+        self.plex = None
         self.unpk = msgpack.Unpacker(use_list=0,encoding='utf8')
         self.iden = s_common.guid()
         self.xforms = []        # list of SockXform instances
-        self.crypto = None
-        self.sockinfo = info
+        self.info = info
+
+        # used by Plex() tx
+        self.txbuf = None
+        self.txque = collections.deque()
 
         self.onfini(self._finiSocket)
 
@@ -114,7 +78,7 @@ class Socket(EventBus,MesgRouter):
                 dostuff()
 
         '''
-        return self.sockinfo.get(prop)
+        return self.info.get(prop)
 
     def set(self, prop, valu):
         '''
@@ -125,10 +89,7 @@ class Socket(EventBus,MesgRouter):
             sock.set('woot', 30)
 
         '''
-        self.sockinfo[prop] = valu
-
-    def __setitem__(self, prop, valu):
-        self.sockinfo[prop] = valu
+        self.info[prop] = valu
 
     def recvall(self, size):
         '''
@@ -163,86 +124,123 @@ class Socket(EventBus,MesgRouter):
             return None
 
         for xform in self.xforms:
-            byts = xform.recv(byts)
+            byts = xform.rxform(byts)
 
         return byts
 
 
-    def sendall(self, byts):
+    def _tx_xform(self, byts):
+        '''
+        '''
         for xform in self.xforms:
-            byts = xform.send(byts)
+            byts = xform.txform(byts)
+
+        return byts
+
+    def _rx_xform(self, byts):
+        for xform in self.xforms:
+            byts = xform.rxform(byts)
+        return byts
+
+    def sendall(self, byts):
+        byts = self._tx_xform(byts)
         return self.sock.sendall(byts)
 
-    def fireobj(self, typ, **info):
-        return self.sendobj( (typ,info) )
+    def _raw_send(self, byts):
+        return self.sock.send(byts)
 
-    def sendobj(self, msg):
+    def _raw_sendall(self, byts):
+        return self.sock.sendall(byts)
+
+    def _raw_recvall(self, size):
+        byts = b''
+        remain = size
+
+        try:
+
+            while remain:
+                x = self.sock.recv(remain)
+                if not x:
+                    return None
+                byts += x
+                remain -= len(x)
+
+        except socket.error as e:
+            # fini triggered above.
+            return None
+
+        return byts
+
+    def recvobj(self):
+        for mesg in self:
+            return mesg
+
+    def fireobj(self, msg, **msginfo):
+        return self.tx( (msg,msginfo) )
+
+    def tx(self, mesg):
         '''
-        Serialize an object using msgpack and send on the socket.
-        Returns True on success and False on socket error.
+        Transmit a mesg tufo ( type, info ) via the socket using msgpack.
+        If present this API is safe for use with a socket in a Plex().
+        '''
+        if self.plex != None:
+            return self.plex._txSockMesg(self,mesg)
+
+        try:
+            self.sendall( msgenpack(mesg) )
+            return True
+
+        except socket.error as e:
+            self.fini()
+            return False
+
+    def rx(self):
+        '''
+        Yield any completed mesg tufos (type,info) in the recv buffer.
 
         Example:
 
-            tufo = ('woot',{'foo':'bar'})
-            sock.sendobj(tufo)
-
-        Notes:
-
-            * This method will trigger fini() on errors.
+            for mesg in sock.rx():
+                dostuff(mesg)
 
         '''
+        byts = self.recv(102400)
+        if not byts:
+            self.fini()
+            return
+
         try:
-            self.sendall( msgpack.dumps(msg, use_bin_type=True) )
-            return True
-        except socket.error as e:
-            self.close()
-            return False
 
-    def recvobj(self):
-        '''
-        Recieve one msgpack'd socket message.
-        '''
-        while not self.isfini:
-            byts = self.recv(102400)
-            if not byts:
-                return None
+            self.unpk.feed(byts)
+            for mesg in self.unpk:
+                yield mesg
 
-            try:
-                self.unpk.feed(byts)
-                for mesg in self.unpk:
-                    self.fire('link:sock:mesg', sock=self, mesg=mesg)
-                    return mesg
-
-            except Exception as e:
-                self.close()
+        except Exception as e:
+            self.fini()
+            return
 
     def __iter__(self):
         '''
         Receive loop which yields messages until socket close.
         '''
         while not self.isfini:
-
-            byts = self.recv(1024000)
-            if not byts:
-                self.close()
-                return
-
-            try:
-                self.unpk.feed(byts)
-                for mesg in self.unpk:
-                    self.fire('link:sock:mesg', sock=self, mesg=mesg)
-                    yield mesg
-
-            except Exception as e:
-                self.close()
+            for mesg in self.rx():
+                yield mesg
 
     def accept(self):
+
         try:
             conn,addr = self.sock.accept()
-        except ConnectionError as e:
-            self.close()
+        except Exception as e:
             return None,None
-        return Socket(conn),addr
+
+        sock = Socket(conn)
+
+        relay = self.get('relay')
+        if relay != None:
+            relay._prepLinkSock(sock)
+
+        return sock,addr
 
     def close(self):
         '''
@@ -256,19 +254,20 @@ class Socket(EventBus,MesgRouter):
         ( makes them look like a simple close )
         '''
         try:
+
             byts = self.sock.recv(size)
-            for xform in self.xforms:
-                byts = xform.recv(byts)
-
             if not byts:
-                self.close()
+                self.fini()
+                return byts
 
-            return byts
+            return self._rx_xform(byts)
+
         except socket.error as e:
-            # fini triggered above.
+            self.fini()
             return b''
 
     def __getattr__(self, name):
+        # allows us to be a thin wrapper
         return getattr(self.sock, name)
 
     def _finiSocket(self):
@@ -284,10 +283,20 @@ class Plex(EventBus):
     def __init__(self):
         EventBus.__init__(self)
 
-        self._plex_sel = selectors.DefaultSelector()
-        self._plex_socks = set()
+        #self._plex_sel = selectors.DefaultSelector()
+
+        self._plex_lock = threading.Lock()
+        self._plex_socks = {} # set()
+
+        # used for select()
+        self._plex_rxsocks = []
+        self._plex_txsocks = []
+        self._plex_xxsocks = []
 
         self._plex_wake, self._plex_s2 = socketpair()
+
+        self._plex_s2.set('wake',True)
+        self.addPlexSock( self._plex_s2 )
 
         self._plex_thr = self._plexMainLoop()
 
@@ -295,6 +304,29 @@ class Plex(EventBus):
 
     def __len__(self):
         return len(self._plex_socks)
+
+    def _popPlexSock(self, iden):
+        sock = self._plex_socks.pop(iden,None)
+        if sock == None:
+            return
+
+        # try/wrap these because list has no discard()
+        try:
+            self._plex_rxsocks.remove(sock)
+        except ValueError as e:
+            pass
+
+        try:
+            self._plex_txsocks.remove(sock)
+        except ValueError as e:
+            pass
+
+        try:
+            self._plex_xxsocks.remove(sock)
+        except ValueError as e:
+            pass
+
+        self._plexWake()
 
     def addPlexSock(self, sock):
         '''
@@ -305,77 +337,134 @@ class Plex(EventBus):
             plex.addPlexSock(sock)
 
         '''
-        sock['plex'] = self
-        self._plex_sel.register(sock, selectors.EVENT_READ)
-        self._plex_socks.add(sock)
+        sock.plex = self
+        sock.setblocking(0)
 
-        sock.link( self.dist )
+        iden = sock.iden
+
+        sock.plex = self
+
+        self._plex_socks[ sock.iden ] = sock
+
+        # we monitor all socks for rx and xx
+        self._plex_rxsocks.append(sock)
+        self._plex_xxsocks.append(sock)
 
         def finisock():
-            sock['plex'] = None
-            self._plex_socks.remove(sock)
-            #self._plex_sel.unregister(sock)
-            self._plexWake()
             self.fire('link:sock:fini', sock=sock)
+            self._popPlexSock(iden)
 
         sock.onfini( finisock )
         self._plexWake()
 
+    def _txSockMesg(self, sock, mesg):
+        # handle the need to send on a socket in the plex
+        with self._plex_lock:
+
+            # we have no backlog!
+            if sock.txbuf == None:
+
+                byts = sock._tx_xform( msgenpack(mesg) )
+
+                sent = sock.send(byts)
+                if sent == len(byts):
+                    return
+
+                # our send was a bit short...
+                sock.txbuf = byts[sent:]
+                self._plex_txsocks.append(sock)
+                self._plexWake()
+                return
+
+            # so... we have a backlog...
+            sock.txque.append(mesg)
+
+    def _runSockTx(self, sock):
+        # handle socket select() for tx
+        # ( this is *always* run by plexMainLoop() )
+        with self._plex_lock:
+
+            sent = sock.send( sock.txbuf )
+
+            # did we not even manage the whole txbuf?
+            if sent < len(sock.txbuf):
+                sock.txbuf = sock.txbuf[sent:]
+                return
+
+            # we managed it! any more msgs?
+            if not sock.txque:
+                sock.txbuf = None
+                self._plex_txsocks.remove(sock)
+                return
+
+            # more msgs! lets serialize the next!
+            mesg = sock.txque.popleft()
+            sock.txbuf = sock._tx_xform( msgenpack(mesg) )
+
+    def _isPlexThr(self):
+        return getattr(threading.currentThread(),'_thr_plex',None) == self
+
     def _plexWake(self):
-        self._plex_wake.sendall(b'\x00')
+        if self._isPlexThr():
+            return
+
+        try:
+            self._plex_wake.sendall(b'\x00')
+        except socket.error as e:
+            return
 
     @s_threads.firethread
     def _plexMainLoop(self):
 
-        self._plex_sel.register( self._plex_s2, selectors.EVENT_READ )
+        threading.currentThread()._thr_plex = self
 
         while not self.isfini:
 
             try:
+                rxlist,txlist,xxlist = select.select(self._plex_rxsocks,self._plex_txsocks,self._plex_xxsocks,0.2)
 
-                for key,events in self._plex_sel.select(timeout=1):
-
-                    if self.isfini:
-                        break
-
-                    sock = key.fileobj
-                    if sock == self._plex_s2:
-                        sock.recv(1024)
-                        continue
-
-                    if sock.get('listen'):
-                        # his sock:conn event handles reg
-                        newsock = sock.accept()
-                        self.addPlexSock(newsock)
-                        continue
-
-                    byts = sock.recv(102400)
-                    if not byts:
-                        sock.fini()
-                        continue
-
-                    sock.unpk.feed(byts)
-                    for mesg in sock.unpk:
-                        sock.fire('link:sock:mesg', sock=sock, mesg=mesg)
-
-            except OSError as e:
-                # just go around again... ( probably a close race )
+            # mask "bad file descriptor" race and go around again...
+            except (select.error,ValueError) as e:
                 continue
 
+            try:
+
+                for rxsock in rxlist:
+
+                    if rxsock.get('wake'):
+                        rxsock.recv(10240)
+                        continue
+
+                    # if he's a listen sock... accept()
+                    if rxsock.get('listen'):
+                        connsock,connaddr = rxsock.accept()
+                        if connsock != None:
+                            rxsock.fire('link:sock:init', sock=connsock)
+
+                        continue
+
+                    # yield any completed mesgs
+                    for mesg in rxsock.rx():
+                        rxsock.fire('link:sock:mesg', sock=rxsock, mesg=mesg)
+
+                for txsock in txlist:
+                    self._runSockTx(txsock)
+
+                [ sock.fini() for sock in xxlist ]
+
             except Exception as e:
-                traceback.print_exc()
-                logger.error('plexMainLoop: %s' % e)
+                logger.error('plexMainLoop: %s', e)
 
             if self.isfini:
                 break
 
     def _onPlexFini(self):
-        self._plex_s2.fini()
-        self._plex_wake.fini()
-        self._plex_sel.close()
+        #self._plex_s2.fini()
 
-        for sock in list(self._plex_socks):
-            sock.fini()
+        socks = list(self._plex_socks.values())
+        [ s.fini() for s in socks ]
+
+        self._plex_wake.fini()
 
 def getGlobPlex():
     '''
@@ -418,6 +507,7 @@ def connect(sockaddr,**sockinfo):
         return Socket(sock,**sockinfo)
     except socket.error as e:
         sock.close()
+        print('CONNECT: %r %r' % (e,dir(e)))
     return None
 
 def _sockpair():

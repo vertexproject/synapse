@@ -12,6 +12,13 @@ import synapse.telepath as s_telepath
 from synapse.common import *
 from synapse.tests.common import *
 
+# some syntax sugar
+class Net:
+    def __init__(self, info):
+        self.info = info
+    def __getattr__(self, name):
+        return self.info[name]
+
 class FooBar:
     def __init__(self):
         pass
@@ -30,7 +37,114 @@ class FooBar:
         sess = s_session.current()
         sess.set(prop,valu)
 
-#class TestNeuron(SynTest):
+class TestNeuron(SynTest):
+
+    def initNeuNet(self):
+        neu0 = s_neuron.Neuron()
+        neu1 = s_neuron.Neuron()
+        neu2 = s_neuron.Neuron()
+        neu3 = s_neuron.Neuron()
+
+        link0 = neu0.listen('tcp://127.0.0.1:0/neuron')
+        link1 = neu1.listen('tcp://127.0.0.1:0/neuron')
+        link2 = neu2.listen('tcp://127.0.0.1:0/neuron')
+        link3 = neu3.listen('tcp://127.0.0.1:0/neuron')
+
+        wait0 = self.getTestWait(neu0,1,'neu:peer:sock')
+        wait1 = self.getTestWait(neu1,1,'neu:peer:sock')
+
+        neu0.connect('tcp://127.0.0.1:0/', port=link1[1]['port'] )
+
+        wait0.wait()
+        wait1.wait()
+
+        wait0 = self.getTestWait(neu0,1,'neu:peer:sock')
+        wait1 = self.getTestWait(neu2,1,'neu:peer:sock')
+
+        neu0.connect('tcp://127.0.0.1:0/', port=link2[1]['port'] )
+
+        wait0.wait()
+        wait1.wait()
+
+        wait0 = self.getTestWait(neu2,1,'neu:peer:sock')
+        wait1 = self.getTestWait(neu3,1,'neu:peer:sock')
+
+        neu2.connect('tcp://127.0.0.1:0/', port=link3[1]['port'] )
+
+        wait0.wait()
+        wait1.wait()
+
+        #print('IDEN0: %r' % (neu0.iden,))
+        #print('IDEN1: %r' % (neu1.iden,))
+        #print('IDEN2: %r' % (neu2.iden,))
+        #print('IDEN3: %r' % (neu3.iden,))
+
+        #print('PEERS0: %r' % (neu0.peers.keys(),))
+        #print('PEERS1: %r' % (neu1.peers.keys(),))
+        #print('PEERS2: %r' % (neu2.peers.keys(),))
+        #print('PEERS3: %r' % (neu3.peers.keys(),))
+
+        return Net(locals())
+
+    def finiNeuNet(self, net):
+        net.neu0.fini()
+        net.neu1.fini()
+        net.neu2.fini()
+        net.neu3.fini()
+
+    def test_neuron_basics(self):
+
+        net = self.initNeuNet()
+
+        #path = net.neu1.getLinkPath( net.neu1.iden, net.neu2.iden )
+
+        #net.neu0.share('foo',FooBar())
+        net.neu3.share('foo',FooBar())
+
+        #net.link0[1]['path'] = '/foo'
+        #prox = s_telepath.openlink(net.link0)
+
+        #print(net.neu0.peers)
+        #print(net.neu1.peers)
+        #print(net.neu2.peers)
+
+        #print(prox.foo(30))
+        #path = net.neu0.getLinkPath( net.neu1.iden, net.neu2.iden )
+        #path = net.neu1.getLinkPath( net.neu1.iden, net.neu2.iden )
+        #path = net.neu2.getLinkPath( net.neu1.iden, net.neu2.iden )
+
+        dend = s_neuron.openlink(net.link0)
+
+        prox = dend.open( net.neu3.iden, 'foo' )
+
+        #prox = s_neuron.Proxy( dend, net.neu3.iden, 'foo' )
+
+        task = ('foo',(30,),{})
+
+        job = dend.call( net.neu3.iden, 'foo', task )
+
+        self.assertIsNotNone(job)
+
+        self.assertEqual( dend.sync(job), 50)
+
+        self.assertEqual( prox.foo(11), 31 )
+
+        self.finiNeuNet(net)
+
+    def test_neuron_ping(self):
+        net = self.initNeuNet()
+
+        dend = s_neuron.openlink(net.link0)
+
+        prox1 = dend.open( net.neu2.iden, 'neuron')
+
+        pong = prox1.ping()
+
+        self.assertIsNotNone(pong)
+        self.assertEqual( pong.get('iden'), net.neu2.iden )
+
+        self.finiNeuNet(net)
+
 class TempDisabled:
 
     def getNeuNet(self):

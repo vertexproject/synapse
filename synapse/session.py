@@ -19,25 +19,62 @@ def current():
 
 class Sess(EventBus):
 
-    def __init__(self, boss, sess):
+    def __init__(self, cura, sess):
         EventBus.__init__(self)
         self.sid = sess[0]
-        self.boss = boss
+        self.cura = cura
         self.sess = sess
         self.local = {}      # runtime only props
+
+        self.sock = None
+        self.sockq = []
+
+    def relay(self, mesg):
+        '''
+        Helper routine for "session" oriented responses which
+        *may* be sent to a socket or may be wrapped for neuron.
+
+        Example:
+
+            sess.relay( tufo('woot', hehe=10) )
+
+        '''
+        if self.sock == None:
+            self.sockq.append( mesg )
+            return False
+
+        self.sock.tx(mesg)
+        return True
+
+    def setSessSock(self, sock):
+        '''
+        Setting the session sock allows reply() API functionality.
+        '''
+        def onfini():
+            self.sock = None
+
+        sock.onfini( onfini )
+
+        self.sock = sock
+
+        # deliver any pending session messages
+        for mesg in self.sockq:
+            sock.tx(mesg)
+
+        self.sockq = []
 
     def getUserPerm(self, user, perm):
         if self.get('user') == None:
             return (None,None,False)
 
-        return self.boss.getUserPerm(user,perm)
+        return self.cura.getUserPerm(user,perm)
 
     def get(self, prop):
         prop = 'sess:%s' % prop
         return self.sess[1].get(prop)
 
     def set(self, prop, valu):
-        self.boss.core.setTufoProp(self.sess,prop,valu)
+        self.cura.core.setTufoProp(self.sess,prop,valu)
 
     def __enter__(self):
         sesslocal.sess = self
@@ -87,7 +124,7 @@ class Curator(EventBus):
 
     def getSessBySid(self, sid):
         '''
-        Return a session tufo by id.
+        Return a session tufo by id (or None to init).
 
         Example:
 

@@ -45,3 +45,7 @@ class JobErr(Exception):
         errline = job[1].get('errline')
 
         Exception.__init__(self, '%s: %s (%s:%s)' % (err,errmsg,errfile,errline))
+
+class LinkErr(Exception):pass
+class LinkRefused(LinkErr):pass
+class LinkNotAuth(LinkErr):pass

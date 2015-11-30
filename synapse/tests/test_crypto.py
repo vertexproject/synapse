@@ -1,32 +1,38 @@
 import unittest
 
-import synapse.link as s_link
 import synapse.daemon as s_daemon
+import synapse.telepath as s_telepath
 
 from synapse.tests.common import *
+
+class Foo:
+    def bar(self):
+        return 'baz'
 
 class CryptoTest(SynTest):
 
     def test_crypto_rc4(self):
 
-        data = {}
-        def wootmesg(mesg):
-            data['foo'] = mesg[1].get('foo')
-            return tufo('woot2')
+        dmon = s_daemon.Daemon()
+        dmon.share('foo',Foo())
+
+        link = dmon.listen('tcp://127.0.0.1:0/foo?rc4key=asdfasdf')
+        prox = s_telepath.openlink(link)
+
+        self.assertEqual( prox.bar(), 'baz' )
+
+        prox.fini()
+        dmon.fini()
+
+    def test_crypto_zerosig(self):
 
         dmon = s_daemon.Daemon()
-        dmon.rtor.act('woot1', wootmesg)
+        dmon.share('foo',Foo())
 
-        link = dmon.listen('tcp://127.0.0.1:0?rc4key=asdfasdf')
+        link = dmon.listen('tcp://127.0.0.1:0/foo?zerosig=1')
+        prox = s_telepath.openlink(link)
 
-        relay = s_link.getLinkRelay(link)
-        sock = relay.connect()
+        self.assertEqual( prox.bar(), 'baz' )
 
-        sock.fireobj('woot1',foo=2)
-        repl = sock.recvobj()
-
-        self.assertEqual( repl[0], 'woot1:ret' )
-        self.assertEqual( data.get('foo'), 2)
-
-        sock.fini()
+        prox.fini()
         dmon.fini()

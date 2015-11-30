@@ -4,6 +4,7 @@ import threading
 
 import synapse.socket as s_socket
 import synapse.threads as s_threads
+import synapse.eventbus as s_eventbus
 
 from synapse.tests.common import *
 
@@ -82,3 +83,37 @@ class ThreadsTest(unittest.TestCase):
 
         thr.fini()
         thr.join()
+
+        sock1.fini()
+        sock2.fini()
+
+    def test_threads_mono(self):
+
+        class Foo(s_eventbus.EventBus):
+
+            def __init__(self):
+                s_eventbus.EventBus.__init__(self)
+                self.last = None
+
+            def bar(self):
+                self.last = s_threads.current()
+                return 20
+
+        foo = Foo()
+        mono = s_threads.MonoThread(foo)
+
+        self.assertEqual( mono.bar(), 20 )
+        self.assertNotEqual( foo.last, s_threads.current() )
+
+        mono.fini()
+
+    def test_threads_safe(self):
+
+        class Foo:
+            def bar(self):
+                return 'baz'
+
+        item = Foo()
+        safe = s_threads.ThreadSafe(item)
+
+        self.assertEqual( safe.bar(), 'baz')

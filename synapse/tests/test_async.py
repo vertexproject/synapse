@@ -21,7 +21,7 @@ class AsyncTests(SynTest):
         def jobdork(x, y=20):
             raise Exception('hi')
 
-        def jobfini(job):
+        def jobdone(job):
             name = job[1].get('name')
             data[name] = job
 
@@ -31,18 +31,18 @@ class AsyncTests(SynTest):
         task1 = (jobmeth, (3,), {})
         task2 = (jobdork, (3,), {})
 
-        job1 = boss.initJob(jid1, task=task1, name='job1', onfini=jobfini)
-        job2 = boss.initJob(jid2, task=task2, name='job2', onfini=jobfini)
+        job1 = boss.initJob(jid1, task=task1, name='job1', ondone=jobdone)
+        job2 = boss.initJob(jid2, task=task2, name='job2', ondone=jobdone)
 
         self.assertEqual( job1[0], jid1 )
 
-        self.assertEqual( len(boss.getJobs()), 2 )
+        self.assertEqual( len(boss.jobs()), 2 )
 
         boss._runJob(job1)
-        self.assertEqual( len(boss.getJobs()), 1 )
+        self.assertEqual( len(boss.jobs()), 1 )
 
         boss._runJob(job2)
-        self.assertEqual( len(boss.getJobs()), 0 )
+        self.assertEqual( len(boss.jobs()), 0 )
 
         ret1 = data.get('job1')
 
@@ -66,7 +66,7 @@ class AsyncTests(SynTest):
         def jobdork(x, y=20):
             raise Exception('hi')
 
-        def jobfini(job):
+        def jobdone(job):
             name = job[1].get('name')
             data[name] = job
 
@@ -76,13 +76,13 @@ class AsyncTests(SynTest):
         task1 = (jobmeth, (3,), {})
         task2 = (jobdork, (3,), {})
 
-        job1 = boss.initJob(jid1, task=task1, name='job1', onfini=jobfini)
-        job2 = boss.initJob(jid2, task=task2, name='job2', onfini=jobfini)
+        job1 = boss.initJob(jid1, task=task1, name='job1', ondone=jobdone)
+        job2 = boss.initJob(jid2, task=task2, name='job2', ondone=jobdone)
 
         self.assertEqual( job1[0], jid1 )
 
-        boss.waitJob(jid1, timeout=1)
-        boss.waitJob(jid2, timeout=1)
+        boss.wait(jid1, timeout=1)
+        boss.wait(jid2, timeout=1)
 
         ret1 = data.get('job1')
 
@@ -105,13 +105,13 @@ class AsyncTests(SynTest):
         jid = s_async.jobid()
         job = boss.initJob(jid, task=(myjob,(),{}), timeout=0.01)
 
-        boss.waitJob(jid)
+        boss.wait(jid)
 
         self.assertEqual( job[1]['err'], 'HitMaxTime' )
 
         boss.fini()
 
-    def test_async_onfini(self):
+    def test_async_ondone(self):
 
         boss = s_async.Boss()
         boss.runBossPool(3)
@@ -119,7 +119,7 @@ class AsyncTests(SynTest):
         data = {}
         evt = threading.Event()
 
-        def onfini(job):
+        def ondone(job):
             data['job'] = job
             evt.set()
 
@@ -128,31 +128,12 @@ class AsyncTests(SynTest):
 
         jid = s_async.jobid()
         task = s_async.newtask(woot)
-        boss.initJob(jid, task=task, onfini=onfini)
+        boss.initJob(jid, task=task, ondone=ondone)
 
         self.assertTrue( evt.wait(timeout=1) )
         job = data.get('job')
 
         self.assertEqual( job[1].get('ret'), 10 )
-
-        boss.fini()
-
-    def test_async_async(self):
-
-        class Foo(s_async.Async):
-            def bar(self, x):
-                return x + 20
-
-        boss = s_async.Boss()
-        boss.runBossPool(3)
-
-        foo = Foo(boss)
-
-        jid = foo.async('bar',20)
-        job = foo.resync(jid)
-        ret = s_async.jobret(job)
-
-        self.assertEqual( ret, 40 )
 
         boss.fini()
 
@@ -169,8 +150,8 @@ class AsyncTests(SynTest):
 
         boss.initJob(jid, task=task)
 
-        self.assertFalse( boss.waitJob(jid,timeout=0.01) )
+        self.assertFalse( boss.wait(jid,timeout=0.01) )
 
-        self.assertTrue( boss.waitJob(jid,timeout=1) )
+        self.assertTrue( boss.wait(jid,timeout=1) )
 
         boss.fini()

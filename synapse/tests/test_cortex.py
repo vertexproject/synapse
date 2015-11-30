@@ -3,9 +3,10 @@ import binascii
 import unittest
 
 import synapse.link as s_link
-import synapse.async as s_async
 import synapse.cortex as s_cortex
+import synapse.daemon as s_daemon
 import synapse.session as s_session
+import synapse.telepath as s_telepath
 
 from synapse.tests.common import *
 
@@ -166,22 +167,32 @@ class CortexTest(SynTest):
         self.assertEqual( t1, ('foo','foo.bar'))
         self.assertEqual( t2, ('foo','foo.bar','foo.bar.baz'))
 
-    def test_cortex_meta(self):
-        meta = s_cortex.MetaCortex()
+    #def test_cortex_meta(self):
+        #meta = s_cortex.MetaCortex()
 
-        meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
-        meta.addCortex('foo.baz','ram:///',tags=('woot.hoho',))
+        #dmon = s_daemon.Daemon()
 
-        self.assertIsNotNone( meta.getCortex('foo.bar') )
-        self.assertIsNotNone( meta.getCortex('foo.baz') )
+        #link = dmon.listen('tcp://127.0.0.1:0/')
 
-        self.assertEqual( len( meta.getCortexes('woot') ), 2 )
-        self.assertEqual( len( meta.getCortexes('woot.hoho') ), 1 )
-        self.assertEqual( len( meta.getCortexes('woot.hehe') ), 1 )
+        #dmon.share('core0', s_cortex.openurl('ram:///') )
+        #dmon.share('core1', s_cortex.openurl('ram:///') )
 
-        meta.fini()
+        #core0 = s_telepath.openurl('tcp://127.0.0.1:%d/core0' % link[1]['port'] )
+        #core1 = s_telepath.openurl('tcp://127.0.0.1:%d/core1' % link[1]['port'] )
 
-    def test_cortex_meta_query(self):
+        #meta.addLocalCore('foo.bar',core0,tags=('woot.hehe',))
+        #meta.addLocalCore('foo.baz',core1,tags=('woot.hoho',))
+
+        #self.assertIsNotNone( meta.getCortex('foo.bar') )
+        #self.assertIsNotNone( meta.getCortex('foo.baz') )
+
+        #self.assertEqual( len( meta.getCortexes('woot') ), 2 )
+        #self.assertEqual( len( meta.getCortexes('woot.hoho') ), 1 )
+        #self.assertEqual( len( meta.getCortexes('woot.hehe') ), 1 )
+
+        #meta.fini()
+
+    def newp_cortex_meta_query(self):
 
         meta = s_cortex.MetaCortex()
 
@@ -255,7 +266,7 @@ class CortexTest(SynTest):
 
         meta.fini()
 
-    def test_cortex_meta_query_parser(self):
+    def newp_cortex_meta_query_parser(self):
         meta = s_cortex.MetaCortex()
 
         qinfo = meta._parseQuery('foo:bar')
@@ -288,29 +299,7 @@ class CortexTest(SynTest):
 
         meta.fini()
 
-    def test_cortex_async_result(self):
-        id1 = guidstr()
-        core = s_cortex.openurl('ram://')
-        cura = s_session.Curator()
-
-        rows = [
-            (id1,'foo','bar',30),
-            (id1,'baz','faz1',30),
-            (id1,'gronk',80,30),
-        ]
-
-        core.addRows( rows )
-        with cura.getNewSess():
-            jid = core.async('getRowsById',id1)
-            job = core.resync(jid)
-
-        rows = s_async.jobret(job)
-
-        self.assertEqual( len(rows), 3 )
-
-        core.fini()
-
-    def test_cortex_meta_getnames(self):
+    def newp_cortex_meta_getnames(self):
         meta = s_cortex.MetaCortex()
 
         meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
@@ -323,7 +312,7 @@ class CortexTest(SynTest):
 
         meta.fini()
 
-    def test_cortex_meta_addmeta(self):
+    def newp_cortex_meta_addmeta(self):
         id1 = guidstr()
         meta = s_cortex.MetaCortex()
 
@@ -340,7 +329,7 @@ class CortexTest(SynTest):
 
         meta.fini()
 
-    def test_cortex_meta_corapi(self):
+    def newp_cortex_meta_corapi(self):
         id1 = guidstr()
         meta = s_cortex.MetaCortex()
 
@@ -357,12 +346,12 @@ class CortexTest(SynTest):
 
         meta.fini()
 
-    def test_cortex_meta_noname(self):
+    def newp_cortex_meta_noname(self):
         meta = s_cortex.MetaCortex()
         self.assertRaises( s_cortex.NoSuchName, meta.addMetaRows, 'hehe', [] )
         meta.fini()
 
-    def test_cortex_meta_query_event(self):
+    def newp_cortex_meta_query_event(self):
         meta = s_cortex.MetaCortex()
         meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
         meta.addCortex('foo.baz','ram:///',tags=('woot.hoho',))
@@ -395,7 +384,7 @@ class CortexTest(SynTest):
         rows = meta.getJoinByQuery('foo:foo')
         self.assertEqual( len(rows), 0 )
 
-    def test_cortex_meta_query_perm(self):
+    def newp_cortex_meta_query_perm(self):
         meta = s_cortex.MetaCortex()
         meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
         meta.addCortex('foo.baz','ram:///',tags=('woot.hoho',))
@@ -423,7 +412,7 @@ class CortexTest(SynTest):
         rows = meta.getJoinByQuery('foo:foo')
         self.assertEqual( len(rows), 0 )
 
-    def test_cortex_meta_del(self):
+    def newp_cortex_meta_del(self):
         meta = s_cortex.MetaCortex()
         meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
 
@@ -431,7 +420,7 @@ class CortexTest(SynTest):
         self.assertIsNone( meta.getCortex('foo.bar') )
         meta.fini()
 
-    def test_cortex_notok(self):
+    def newp_cortex_meta_notok(self):
         meta = s_cortex.MetaCortex()
         meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
         meta.addCortex('foo.baz','ram:///',tags=('woot.hehe',))
@@ -471,7 +460,7 @@ class CortexTest(SynTest):
         rows = meta.getRowsByQuery('foo:foo')
         self.assertEqual( len(rows), 2 )
 
-    def test_cortex_meta_badname(self):
+    def newp_cortex_meta_badname(self):
         meta = s_cortex.MetaCortex()
         self.assertRaises( s_cortex.InvalidParam, meta.addCortex, 30, 'ram:///' )
 
@@ -499,8 +488,11 @@ class CortexTest(SynTest):
         foob = core.formTufoByProp('foo','bar',baz='faz')
         self.assertEqual( foob[1].get('foo:baz'), 'faz' )
         core.setTufoProps(foob,baz='zap')
+        core.setTufoProps(foob,faz='zap')
 
         self.assertEqual( len(core.getTufosByProp('foo:baz',valu='zap')), 1 )
+        self.assertEqual( len(core.getTufosByProp('foo:faz',valu='zap')), 1 )
+
 
     def test_cortex_tufo_setprop(self):
         core = s_cortex.openurl('ram://')
@@ -511,3 +503,18 @@ class CortexTest(SynTest):
 
         self.assertEqual( len(core.getTufosByProp('foo:baz',valu='zap')), 1 )
 
+    def test_cortex_tufo_list(self):
+
+        core = s_cortex.openurl('ram://')
+        foob = core.formTufoByProp('foo','bar',baz='faz')
+
+        core.addTufoList(foob,'hehe', 1, 2, 3)
+
+        self.assertIsNotNone( foob[1].get('tufo:list:hehe') )
+
+        vals = core.getTufoList(foob,'hehe')
+        vals.sort()
+
+        self.assertEqual( tuple(vals), (1,2,3) )
+
+        core.fini()

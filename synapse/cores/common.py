@@ -13,25 +13,16 @@ import synapse.datamodel as s_datamodel
 from synapse.common import *
 from synapse.eventbus import EventBus
 
-class NoSuchJob(Exception):pass
 class NoSuchGetBy(Exception):pass
 
-class Cortex(EventBus,s_async.Async):
+class Cortex(EventBus):
     '''
     Top level Cortex key/valu storage object.
-
-    ( use getCortex() to instantiate )
-
-    Link Options:
-
-        ropool=<num>    # how many async read threads?
-
     '''
     def __init__(self, link, model=None):
         EventBus.__init__(self)
-        self.link = link
 
-        size = int( link[1].get('threads', 3) )
+        self.link = link
 
         self.lock = threading.Lock()
 
@@ -39,21 +30,9 @@ class Cortex(EventBus,s_async.Async):
         self.sizebymeths = {}
         self.rowsbymeths = {}
 
-        self.boss = s_async.Boss()
-        self.boss.runBossPool(size)
-
-        s_async.Async.__init__(self, self.boss)
-
-        self.bgboss = s_async.Boss()
-        self.bgboss.runBossPool(1)
-
-        self.jobcache = {}
-
         self._initCortex()
 
         self.isok = True
-        self.onfini( self.boss.fini )
-        self.onfini( self.bgboss.fini )
 
         self.mytufo = self.formTufoByProp('cortex','self')
 
@@ -82,6 +61,36 @@ class Cortex(EventBus,s_async.Async):
 
         '''
         self.model = model
+
+    def getDataModel(self):
+        '''
+        Return the DataModel instance for this Cortex.
+
+        Example:
+
+            model = core.getDataModel()
+            if model != None:
+                dostuff(model)
+
+        '''
+        return self.model
+
+    def getDataModelDict(self):
+        '''
+        Return the DataModel dictionary for this Cortex.
+
+        Example:
+
+            moddef = core.getDataModelDict()
+            if moddef != None:
+                model = DataModel(model=moddef)
+                dostuff(model)
+
+        '''
+        if self.model == None:
+            return None
+
+        return self.model.getModelDict()
 
     def isOk(self):
         '''
@@ -138,6 +147,46 @@ class Cortex(EventBus,s_async.Async):
         rows = [ (guidstr(), prop, valu, now) for valu in vals ]
         self.addRows(rows)
         return rows
+
+    def getTufoList(self, tufo, name):
+        '''
+        Retrieve "list" values from a tufo.
+
+        Example:
+
+            for val in core.getTufoList(item,'foolist'):
+                dostuff(val)
+
+        '''
+        prop = '%s:list:%s' % (tufo[0],name)
+        return [ v for (i,p,v,t) in self.getRowsByProp(prop) ]
+
+    def addTufoList(self, tufo, name, *vals):
+        '''
+        Add "list" rows to a tufo.
+
+        Example:
+
+            core.addTufoList(tufo, 'counts', 99, 300, 1773)
+
+        Notes:
+
+            * this creates the tufo:list:<name> prop on the
+              tufo to indicate that the list is present.
+
+        '''
+        rows = []
+        now = int(time.time())
+        prop = '%s:list:%s' % (tufo[0],name)
+
+        haslist = 'tufo:list:%s' % name
+        if tufo[1].get(haslist) == None:
+            tufo[1][haslist] = 1
+            rows.append( ( tufo[0], haslist, 1, now) )
+
+        [ rows.append( (guidstr(),prop,v,now) ) for v in vals ]
+
+        self.addRows( rows )
 
     def getRowsById(self, iden):
         '''
@@ -507,6 +556,7 @@ class Cortex(EventBus,s_async.Async):
             props = { p:self.model.getPropNorm(p,v) for (p,v) in props.items() }
 
         tid = tufo[0]
+
         props = { p:v for (p,v) in props.items() if tufo[1].get(p) != v }
 
         for p,v in props.items():
@@ -524,14 +574,7 @@ class Cortex(EventBus,s_async.Async):
             core.setTufoProp(tufo, 'woot', 'hehe')
 
         '''
-        form = tufo[1].get('tufo:form')
-        prop = '%s:%s' % (form,prop)
-
-        if self.model != None:
-            valu = self.model.getPropNorm(prop,valu)
-
-        self.setRowsByIdProp( tufo[0], prop, valu)
-        tufo[1][prop] = valu
+        self.setTufoProps(tufo, **{prop:valu})
         return tufo
 
     def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):

@@ -29,7 +29,7 @@ def jobret(job):
     '''
     err = job[1].get('err')
     if err != None:
-        raise CallError(job)
+        raise JobErr(job)
     return job[1].get('ret')
 
 def newtask(meth,*args,**kwargs):
@@ -55,7 +55,7 @@ class Boss(s_impulse.PulseRelay):
 
         self.joblock = threading.Lock()
 
-        self.jobs = {}
+        self._boss_jobs = {}
         self.joblocal = {}
 
         self.on('job:done', self._onJobDone )  # trigger job done
@@ -92,71 +92,41 @@ class Boss(s_impulse.PulseRelay):
         if jid == None:
             return
 
-        job = self.jobs.get(jid)
+        job = self._boss_jobs.get(jid)
         if job == None:
             return
 
-        err = event[1].get('err')
-        if err != None:
-            errmsg = event[1].get('errmsg')
-            errtrace = event[1].get('errtrace')
-
-            job[1]['err'] = err
-            job[1]['errmsg'] = errmsg
-            job[1]['errtrace'] = errtrace
-
-        else:
-            job[1]['ret'] = event[1].get('ret')
+        job[1].update( event[1] )
 
         self.fire('job:fini', job=job)
 
-    def call(self, onfini, func, *args, **kwargs ):
-        '''
-        An async API for *local* use which allows onfini.
-
-        Example:
-
-            def onfini(job):
-                stuff(job)
-
-            boss.call( onfini, doFooThing, 10, y=20 )
-
-        '''
-
-        jid = guidstr()
-        task = (func,args,kwargs)
-
-        job = self.initJob(jid, task=task, onfini=onfini)
-
-        return job
-
-    def getJobs(self):
+    def jobs(self):
         '''
         Return a list of job tuples.
 
         Example:
 
-            for job in boss.getJobs():
+            for job in boss.jobs():
                 dostuff(job)
 
         '''
-        return list(self.jobs.values())
+        return list(self._boss_jobs.values())
 
     def __iter__(self):
-        return self.jobs.values()
+        return self.jobs()
 
-    def getJob(self, jid):
+    def job(self, jid):
         '''
         Return a job tuple by ID.
 
         Example:
 
-            job = boss.getJob(jid)
+            job = boss.job(jid)
 
         '''
-        return self.jobs.get(jid)
+        return self._boss_jobs.get(jid)
 
-    def initJob(self, jid, **info):
+    def initJob(self, jid=None, **info):
         '''
         Initialize and return a new job tufo.
 
@@ -171,28 +141,29 @@ class Boss(s_impulse.PulseRelay):
             Info Conventions:
             * task=(meth,args,kwargs)
             * timeout=<sec> # max runtime
-            * onfini=<meth> # def onfini(job):
+            * ondone=<meth> # def ondone(job):
 
         '''
         if self.isfini:
             raise BossShutDown()
 
+        if jid == None:
+            jid = guidstr()
+
         info['times'] = []
 
         job = (jid,info)
 
-        self.jobs[jid] = job
+        self._boss_jobs[jid] = job
 
         # setup our per job local storage
         # ( for non-serializables )
         joblocal = {
-            'onfini':info.pop('onfini',None),
+            'ondone':info.pop('ondone',None),
         }
         self.joblocal[jid] = joblocal
 
         self._addJobTime(job,'init')
-
-        self.fire('job:init',job=job)
 
         if self.pool != None:
             self.pool.call( self._runJob, job )
@@ -233,7 +204,7 @@ class Boss(s_impulse.PulseRelay):
             job = event[1].get('job')
             jid = job[0]
 
-            self.jobs.pop(jid,None)
+            self._boss_jobs.pop(jid,None)
             joblocal = self.joblocal.pop(jid,None)
 
             schedevt = joblocal.get('schedevt')
@@ -244,24 +215,24 @@ class Boss(s_impulse.PulseRelay):
             if evt != None:
                 evt.set()
 
-            onfini = joblocal.get('onfini')
-            if onfini != None:
+            ondone = joblocal.get('ondone')
+            if ondone != None:
                 try:
-                    onfini(job)
+                    ondone(job)
                 except Exception as e:
                     traceback.print_exc()
 
-    def waitJob(self, jid, timeout=None):
+    def wait(self, jid, timeout=None):
         '''
         Wait for a job to complete by id.
 
         Example:
 
-            boss.waitJob( jid, timeout=10 )
+            boss.wait( jid, timeout=10 )
 
         '''
         with self.joblock:
-            job = self.jobs.get(jid)
+            job = self._boss_jobs.get(jid)
             if job == None:
                 return True
 
@@ -278,77 +249,8 @@ class Boss(s_impulse.PulseRelay):
         job[1]['times'].append( (stage,time.time()) )
 
     def _onBossFini(self):
-        for job in self.getJobs():
+        for job in self.jobs():
             self.fire('job:done', jid=job[0], err='BossShutDown')
 
         if self.pool:
             self.pool.fini()
-
-class Async:
-    '''
-    Mixin which allows remote async API calls.
-
-    Example:
-
-        class Foo(Async):
-            def bar(self, x):
-                return x + 20
-
-        foo = Foo()
-
-        jid = foo.async('bar',20)
-        ... do other stuff ...
-
-        foo.retsync(jid)
-
-    '''
-    def __init__(self, boss):
-        self._async_jobs = {}
-        self._async_boss = boss
-
-    def async(self, name, *args, **kwargs):
-        '''
-        Call the specified API as an async job.
-
-        Example:
-
-            # equiv: foo.bar(10,y=30)
-
-            jid = foo.async('bar', 10, y=30)
-
-        Notes:
-
-            This API *requires* callers to use resync()
-            and is compatible for use over telepath RMI.
-
-        '''
-        meth = getattr(self, name, None)
-        if meth == None:
-            raise NoSuchMeth(name)
-
-        task = (meth,args,kwargs)
-        onfini = kwargs.pop('onfini',None)
-
-        jid = jobid()
-        job = self._async_boss.initJob(jid, task=task, onfini=onfini)
-
-        self._async_jobs[jid] = job
-
-        return jid
-
-    def resync(self, jid, timeout=None):
-        '''
-        Wait for and return the result of a previous async() call.
-
-        Example:
-
-            job = async.resync(jid)
-
-            # this will raise if needed
-            if job != None:
-                ret = jobret(ret)
-
-        '''
-
-        self._async_boss.waitJob(jid, timeout=timeout)
-        return self._async_jobs.pop(jid,None)

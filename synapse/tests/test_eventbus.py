@@ -3,7 +3,9 @@ import threading
 
 import synapse.eventbus as s_eventbus
 
-class EventBusTest(unittest.TestCase):
+from synapse.tests.common import *
+
+class EventBusTest(SynTest):
 
     def test_eventbus_basics(self):
         bus = s_eventbus.EventBus()
@@ -64,4 +66,15 @@ class EventBusTest(unittest.TestCase):
         bus.fini()
 
         self.assertEqual( data['count'], 1 )
+
+
+    def test_eventbus_consume(self):
+        bus = s_eventbus.EventBus()
+        wait = self.getTestWait(bus,2,'woot')
+
+        bus.consume( [ ('haha',{}), ('hehe',{}), ('woot',{}), ('woot',{}) ] )
+
+        wait.wait()
+
+        bus.fini()
 

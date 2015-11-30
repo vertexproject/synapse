@@ -1,109 +1,72 @@
+import weakref
 import collections
 
 import synapse.sched as s_sched
 import synapse.queue as s_queue
+import synapse.session as s_session
 
+from synapse.common import *
 from synapse.eventbus import EventBus
 
 class PulseRelay(EventBus):
     '''
-    An PulseRelay supports channelized event distribution using async queues.
-
-    Specify abtime to modify the default "abandoned" time for queues.
+    An PulseRelay supports session based event distribution.
     '''
-    def __init__(self, abtime=60):
+    def __init__(self):
         EventBus.__init__(self)
-        self.bychan = {}
-        self.abtime = abtime
-        self.byname = collections.defaultdict(set)
+        self.bysid = weakref.WeakValueDictionary()
+        self.byname = collections.defaultdict(weakref.WeakSet)
 
-        self.sched = s_sched.getGlobSched()
-
-        self._reapDeadQueues()
-
-    def _reapDeadQueues(self):
-        if self.isfini:
-            return
-
-        try:
-            for q in list( self.bychan.values() ):
-                if q.abandoned( self.abtime ):
-                    q.fini()
-        finally:
-            self.sched.insec( 10, self._reapDeadQueues )
-
-    def _getChanQueue(self, chan):
-        q = self.bychan.get(chan)
-        if q == None:
-            q = s_queue.BulkQueue()
-            def qfini():
-                self.bychan.pop(chan,None)
-                self.fire('imp:relay:chan:fini', chan=chan)
-
-            q.onfini( qfini )
-            self.bychan[chan] = q
-            self.fire('imp:relay:chan:init', chan=chan)
-        return q
-
-    def openchan(self, chan):
+    def relay(self, dest, mesg):
         '''
-        Ensure that a new chan is active.
-        '''
-        q = self._getChanQueue(chan)
-
-    def poll(self, chan, timeout=2):
-        '''
-        Retrieve the next list of events for the given channel.
+        Relay a tufo mesg to the given session.
 
         Example:
 
-            for event in dist.poll(chan):
-                dostuff(event)
+            mesg = tufo('woot',foo='bar')
+            puls.relay(sid, mesg)
 
         '''
-        q = self._getChanQueue(chan)
-        return q.get(timeout=timeout)
+        # FIXME sess perms ( app fwall )
+        sess = s_session.current()
 
-    def relay(self, chan, event):
+        mesg[1]['imp:from'] = sess.sid
+
+        targ = self.bysid.get(dest)
+        if targ == None:
+            return False
+
+        targ.relay( tufo('imp:dist', mesg=mesg) )
+        return True
+
+    def join(self, *names):
         '''
-        Relay an event to the given channel.
-
-        Example:
-
-            dist.relay(chan, 'fooevent', bar=10 )
-
-        '''
-        q = self.bychan.get(chan)
-        if q != None:
-            q.put(event)
-            return True
-        return False
-
-    def join(self, chan, *names):
-        '''
-        Join the given channel to a list of named multicast groups.
+        Join the current session to a list of named multicast groups.
 
         Example:
 
             # join the "foo" and the "bar" multicast groups
-            pr.join(chanid, 'foo', 'bar')
+            puls.join('foo','bar')
 
         Notes:
 
             * Use mcast() to fire an event to a named dist list.
 
         '''
-        # possibly initialize the chan
-        q = self._getChanQueue(chan)
+        sess = s_session.current()
 
-        def onfini():
-            for name in names:
-                self.byname[name].discard(q)
+        self.bysid[sess.sid] = sess
 
         for name in names:
-            self.byname[name].add(q)
+            self.byname[name].add( sess )
 
-        q.onfini(onfini)
+        def onfini():
+            self.bysid.pop( sess.sid, None )
+            for name in names:
+                self.byname[name].discard( sess )
+
+        sess.onfini(onfini)
+        return sess.sid
 
     def mcast(self, name, evt, **evtinfo):
         '''
@@ -115,10 +78,20 @@ class PulseRelay(EventBus):
 
         Notes:
 
-            * Event is sent to any chan which join()'d the group
+            * Event is sent to any sess which join()'d the group
         '''
-        event = (evt,evtinfo)
-        [ q.put(event) for q in self.byname.get(name,()) ]
+        sess = s_session.current()
+        if sess == None:
+            raise NoCurrSess()
+
+        # FIXME session auth/allow?
+
+        evtinfo['imp:cast'] = name
+        evtinfo['imp:from'] = sess.sid
+
+        mesg = (evt,evtinfo)
+        event = tufo('imp:dist',mesg=mesg)
+        [ sess.relay(event) for sess in self.byname.get(name,()) ]
 
     def bcast(self, evt, **evtinfo):
         '''
@@ -129,83 +102,16 @@ class PulseRelay(EventBus):
             pr.bcast('foo',bar=10)
 
         '''
-        event = (evt,evtinfo)
-        [ q.put(event) for q in self.bychan.values() ]
-
-    def shut(self, chan):
-        '''
-        Inform the PulseRelay that a channel will no longer be polled.
-        '''
-        q = self.bychan.get(chan)
-        if q != None:
-            q.fini()
-
-# FIXME: WORK IN PROGRESS...
-class PulseArchive(EventBus):
-    '''
-    A PulseArchive is a durable/restartable event stream.
-
-    It facilitates session oriented "resumable" events
-    via providing (off,event) tuples.
-    '''
-    def __init__(self, core, fd):
-        EventBus.__init__(self)
-        self.link( self._saveBusEvent )
-
-        fd.seek(0, os.SEEK_END)
-
-        self.size = fd.tell()
-        self.lock = threading.Lock()
-
-        self.core = core
-        self.cura = s_session.Curator(core)
-
-        self.synfd = SynFile(fd)
-
-    def open(self, off):
-        sess = self.cura.getNewSess()
-
-        with self.lock:
-            sess.local['queue'] = s_queue.BulkQueue()
-            if off == self.size:
-                return
-
-            self.fd.seek(off)
-            sess.local['off'] = off
-
-        return sess.sid
-
-    def next(self, sid):
-        '''
-        '''
-        sess = self.cura.getSessBySid(sid)
+        sess = s_session.current()
         if sess == None:
-            raise NoSuchSess(sess)
+            raise NoCurrSess()
 
-        #q = sess.local.get('queue')
-        #if q == None:
+        # FIXME session auth/allow?
 
-        off = sess.local.get('off')
+        evtinfo['imp:from'] = sess.sid
+        #evtinfo['imp:bcast'] = True
 
-        if off == None:
-            return q.get(timeout=8)
+        mesg = (evt,evtinfo)
+        event = tufo('imp:dist', mesg=mesg)
 
-    #def _loadQueChunk(self, q, off):
-
-    def _savePulse(self, event):
-        byts = msgenpack(event)
-        with self.lock:
-            self.fd.write(byts)
-            self.size += len(byts)
-
-            item = (self.size,event)
-
-            for sess in self.cura:
-                if sess.local.get('off') != None:
-                    continue
-
-                q = sess.local.get('queue')
-                if q == None:
-                    continue
-
-                q.put( item )
+        [ sess.relay(event) for sess in self.bysid.values() ]

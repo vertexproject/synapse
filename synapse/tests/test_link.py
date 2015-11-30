@@ -1,14 +1,22 @@
 import io
+import ssl
 import time
 import unittest
 import threading
 
 import synapse.link as s_link
 import synapse.daemon as s_daemon
+import synapse.telepath as s_telepath
 import synapse.lib.urlhelp as s_urlhelp
 
-#from synapse.links.common import *
+from synapse.common import *
 from synapse.tests.common import *
+
+class FooBar:
+
+    def foo(self):
+
+        return 'bar'
 
 class LinkTest(unittest.TestCase):
 
@@ -64,4 +72,52 @@ class LinkTest(unittest.TestCase):
 
         self.assertEqual(link[1]['authinfo'].get('user'),'visi')
         self.assertEqual(link[1]['authinfo'].get('passwd'),'secret')
+
+
+    def test_link_ssl_basic(self):
+
+        cafile = getTestPath('testca.crt')
+        keyfile = getTestPath('testserv.key')
+        certfile = getTestPath('testserv.crt')
+
+        dmon = s_daemon.Daemon()
+        dmon.share('foobar', FooBar() )
+
+        link = dmon.listen('ssl://127.0.0.1:0/?keyfile=%s&certfile=%s' % (keyfile,certfile))
+
+        port = link[1].get('port')
+
+        url = 'ssl://127.0.0.1:%d/foobar' % (port,)
+        self.assertRaises( ssl.SSLError, s_telepath.openurl, url )
+
+        url = 'ssl://127.0.0.1:%d/foobar?cafile=%s' % (port,cafile)
+        foo = s_telepath.openurl(url)
+
+        foo.fini()
+        dmon.fini()
+
+    def test_link_ssl_nocheck(self):
+        keyfile = getTestPath('testserv.key')
+        certfile = getTestPath('testserv.crt')
+
+        dmon = s_daemon.Daemon()
+        dmon.share('foobar', FooBar() )
+
+        link = dmon.listen('ssl://127.0.0.1:0/?keyfile=%s&certfile=%s' % (keyfile,certfile))
+
+        port = link[1].get('port')
+
+        url = 'ssl://127.0.0.1:%d/foobar?nocheck=1' % (port,)
+        foo = s_telepath.openurl(url)
+
+        foo.fini()
+        dmon.fini()
+
+    def test_link_ssl_nofile(self):
+        url = 'ssl://localhost:33333/foobar?cafile=/newpnewpnewp'
+        self.assertRaises( NoSuchFile, s_telepath.openurl, url )
+        url = 'ssl://localhost:33333/foobar?keyfile=/newpnewpnewp'
+        self.assertRaises( NoSuchFile, s_telepath.openurl, url )
+        url = 'ssl://localhost:33333/foobar?certfile=/newpnewpnewp'
+        self.assertRaises( NoSuchFile, s_telepath.openurl, url )
 

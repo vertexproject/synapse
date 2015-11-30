@@ -69,11 +69,11 @@ def httpd(jsinfo, jsfile=None):
             jid = s_async.jobid()
             task = (api.runHttpGet, (path, hdrs, body), {})
 
-            def jobfini(job):
+            def jobdone(job):
                 ret = job[1].get('ret')
                 self.sendHttpResp(ret)
 
-            boss.initJob(jid, task=task, onfini=jobfini)
+            boss.initJob(jid, task=task, ondone=jobdone)
 
         @tornado.web.asynchronous
         def post(self):
@@ -85,11 +85,11 @@ def httpd(jsinfo, jsfile=None):
             jid = s_async.jobid()
             task = (api.runHttpPost, (path, hdrs, body), {})
 
-            def jobfini(job):
+            def jobdone(job):
                 ret = job[1].get('ret')
                 self.sendHttpResp(ret)
 
-            boss.initJob(jid, task=task, onfini=jobfini)
+            boss.initJob(jid, task=task, ondone=jobdone)
 
         def sendHttpErr(self, exc):
             retinfo = {'err':exc.__class__.__name__, 'msg':str(exc)}

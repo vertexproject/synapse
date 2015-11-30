@@ -1,3 +1,4 @@
+import time
 import sqlite3
 
 from synapse.compat import queue
@@ -66,6 +67,17 @@ class DbPool:
     '''
     The DbPool allows generic db connection pooling using
     a factory/ctor method and a python queue.
+
+    Example:
+
+        def connectdb():
+            # do stuff
+            return db
+
+        pool = DbPool(3, connectdb)
+
+        with pool.cursor() as c:
+
     '''
 
     def __init__(self, size, ctor):
@@ -97,6 +109,10 @@ class Cortex(common.Cortex):
         return self.dbpool.cursor()
 
     def _initDbInfo(self):
+        name = self.link[1].get('path')[1:]
+        if not name:
+            raise Exception('No Path Specified!')
+
         return {'name':self.link[1].get('path')[1:]}
 
     def _rowsByRange(self, prop, valu, limit=None):
@@ -120,7 +136,7 @@ class Cortex(common.Cortex):
 
     def _initDbConn(self):
         dbinfo = self._initDbInfo()
-        return sqlite3.connect(dbinfo.get('name'))
+        return sqlite3.connect(dbinfo.get('name'), check_same_thread=False)
 
     def _getTableName(self):
         return 'syncortex'
@@ -215,6 +231,8 @@ class Cortex(common.Cortex):
             if ret:
                 return cur.fetchall()
 
+            return cur.rowcount
+
     def select(self, q, r):
         with self.cursor() as cur:
             cur.execute(q,r)
@@ -258,9 +276,13 @@ class Cortex(common.Cortex):
 
     def _setRowsByIdProp(self, ident, prop, valu):
         if type(valu) == int:
-            self.update( self._q_uprows_by_id_prop_int, (valu,ident,prop) )
+            count = self.update( self._q_uprows_by_id_prop_int, (valu,ident,prop) )
         else:
-            self.update( self._q_uprows_by_id_prop_str, (valu,ident,prop) )
+            count = self.update( self._q_uprows_by_id_prop_str, (valu,ident,prop) )
+
+        if count == 0:
+            rows = [ (ident,prop,valu,int(time.time())), ]
+            self._addRows(rows)
 
     def _delRowsById(self, ident):
         self.delete(self._q_delrows_by_id,(ident,))

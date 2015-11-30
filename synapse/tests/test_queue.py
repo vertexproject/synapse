@@ -7,6 +7,15 @@ import synapse.threads as s_threads
 
 class QueueTest(unittest.TestCase):
 
+    def test_queue_base(self):
+        q = s_queue.Queue()
+        q.put('woot')
+
+        self.assertEqual( q.get(), 'woot' )
+        self.assertIsNone( q.get(timeout=0.1) )
+
+        q.fini()
+
     def test_queue_bulk(self):
 
         q = s_queue.BulkQueue()
