@@ -3,7 +3,7 @@ import time
 import unittest
 
 import synapse.lib.queue as s_queue
-import synapse.threads as s_threads
+import synapse.lib.threads as s_threads
 
 class QueueTest(unittest.TestCase):
 

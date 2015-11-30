@@ -20,7 +20,7 @@ import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 from synapse.common import *
-from synapse.threads import firethread
+from synapse.lib.threads import firethread
 
 import synapse.impulse as s_impulse
 from synapse.eventbus import EventBus

@@ -7,7 +7,7 @@ from synapse.compat import queue
 
 import synapse.async as s_async
 import synapse.aspects as s_aspects
-import synapse.threads as s_threads
+import synapse.lib.threads as s_threads
 import synapse.datamodel as s_datamodel
 
 from synapse.common import *

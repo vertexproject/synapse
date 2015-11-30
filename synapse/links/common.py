@@ -2,7 +2,7 @@ import time
 import threading
 
 import synapse.crypto as s_crypto
-import synapse.threads as s_threads
+import synapse.lib.threads as s_threads
 
 from synapse.eventbus import EventBus
 

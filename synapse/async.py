@@ -11,7 +11,7 @@ import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.impulse as s_impulse
 import synapse.session as s_session
-import synapse.threads as s_threads
+import synapse.lib.threads as s_threads
 
 from synapse.common import *
 

@@ -9,7 +9,7 @@ import multiprocessing as mproc
 
 import synapse.async as s_async
 import synapse.compat as s_compat
-import synapse.threads as s_threads
+import synapse.lib.threads as s_threads
 import synapse.dyndeps as s_dyndeps
 import synapse.impulse as s_impulse
 import synapse.mindmeld as s_mindmeld

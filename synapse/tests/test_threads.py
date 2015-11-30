@@ -3,7 +3,7 @@ import unittest
 import threading
 
 import synapse.lib.socket as s_socket
-import synapse.threads as s_threads
+import synapse.lib.threads as s_threads
 import synapse.eventbus as s_eventbus
 
 from synapse.tests.common import *

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.threads as s_threads
+import synapse.lib.threads as s_threads
 
 from synapse.eventbus import EventBus
 from synapse.statemach import keepstate

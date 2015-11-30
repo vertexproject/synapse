@@ -4,7 +4,7 @@ import threading
 
 import synapse.async as s_async
 import synapse.session as s_session
-import synapse.threads as s_threads
+import synapse.lib.threads as s_threads
 
 from synapse.tests.common import *
 
