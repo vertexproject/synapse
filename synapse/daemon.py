@@ -10,7 +10,6 @@ import synapse.lib.socket as s_socket
 
 import synapse.cortex as s_cortex
 import synapse.impulse as s_impulse
-import synapse.reactor as s_reactor
 import synapse.session as s_session
 
 from synapse.eventbus import EventBus
