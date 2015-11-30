@@ -2,7 +2,7 @@ import time
 import unittest
 import threading
 
-import synapse.sched as s_sched
+import synapse.lib.sched as s_sched
 
 class SchedTest(unittest.TestCase):
 

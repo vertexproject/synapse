@@ -1,7 +1,7 @@
 import time
 import threading
 
-import synapse.sched as s_sched
+import synapse.lib.sched as s_sched
 
 from synapse.eventbus import EventBus
 
