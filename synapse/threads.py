@@ -7,7 +7,7 @@ import threading
 import traceback
 
 import synapse.glob as s_glob
-import synapse.queue as s_queue
+import synapse.lib.queue as s_queue
 
 from synapse.common import *
 from synapse.eventbus import EventBus

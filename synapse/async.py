@@ -6,7 +6,7 @@ import collections
 from synapse.compat import queue
 
 import synapse.sched as s_sched
-import synapse.queue as s_queue
+import synapse.lib.queue as s_queue
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.impulse as s_impulse

@@ -2,7 +2,7 @@ import weakref
 import collections
 
 import synapse.sched as s_sched
-import synapse.queue as s_queue
+import synapse.lib.queue as s_queue
 import synapse.session as s_session
 
 from synapse.common import *
