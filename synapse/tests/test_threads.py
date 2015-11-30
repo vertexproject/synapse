@@ -2,7 +2,7 @@ import time
 import unittest
 import threading
 
-import synapse.socket as s_socket
+import synapse.lib.socket as s_socket
 import synapse.threads as s_threads
 import synapse.eventbus as s_eventbus
 

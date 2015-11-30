@@ -9,7 +9,7 @@ import traceback
 import synapse.link as s_link
 import synapse.async as s_async
 import synapse.queue as s_queue
-import synapse.socket as s_socket
+import synapse.lib.socket as s_socket
 import synapse.eventbus as s_eventbus
 
 from synapse.common import *

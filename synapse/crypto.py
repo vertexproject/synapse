@@ -1,8 +1,8 @@
 import os
 import hashlib
 
-import synapse.socket as s_socket
 import synapse.common as s_common
+import synapse.lib.socket as s_socket
 
 class Rc4Xform(s_socket.SockXform):
 

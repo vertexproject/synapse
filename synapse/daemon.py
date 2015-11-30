@@ -5,8 +5,8 @@ import collections
 logger = logging.getLogger(__name__)
 
 import synapse.link as s_link
-import synapse.socket as s_socket
 import synapse.threads as s_threads
+import synapse.lib.socket as s_socket
 
 import synapse.cortex as s_cortex
 import synapse.impulse as s_impulse

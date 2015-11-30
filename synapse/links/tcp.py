@@ -2,7 +2,7 @@ import time
 import socket
 import threading
 
-import synapse.socket as s_socket
+import synapse.lib.socket as s_socket
 
 from synapse.common import *
 from synapse.links.common import *

@@ -3,7 +3,7 @@ import unittest
 import threading
 
 import synapse.compat as s_compat
-import synapse.socket as s_socket
+import synapse.lib.socket as s_socket
 
 from synapse.tests.common import *
 
