@@ -11,7 +11,7 @@ import collections
 
 import synapse.link as s_link
 import synapse.async as s_async
-import synapse.cache as s_cache
+import synapse.lib.cache as s_cache
 import synapse.daemon as s_daemon
 import synapse.dyndeps as s_dyndeps
 import synapse.session as s_session

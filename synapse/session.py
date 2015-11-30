@@ -1,7 +1,7 @@
 import fnmatch
 import threading
 
-import synapse.cache as s_cache
+import synapse.lib.cache as s_cache
 
 from synapse.eventbus import EventBus
 from synapse.common import *

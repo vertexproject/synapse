@@ -14,7 +14,7 @@ import tornado.httpserver
 
 from xml.etree.ElementTree import Element, tostring, fromstring
 
-import synapse.cache as s_cache
+import synapse.lib.cache as s_cache
 from synapse.eventbus import EventBus
 
 # TODO: sub-class AsyncBoss and make callback helpers

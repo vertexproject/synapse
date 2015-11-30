@@ -1,7 +1,7 @@
 import unittest
 import threading
 
-import synapse.cache as s_cache
+import synapse.lib.cache as s_cache
 import synapse.cortex as s_cortex
 
 from synapse.common import *
