@@ -351,7 +351,7 @@ class Neuron(s_daemon.Daemon):
         todo = list(trees)
         while todo:
             node = todo.pop()
-            for iden in self.links[ node[0] ]:
+            for iden in list(self.links[ node[0] ]):
                 if iden in done:
                     continue
 
