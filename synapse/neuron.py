@@ -213,13 +213,13 @@ class Neuron(s_daemon.Daemon):
         Handle a neu:syn hello from a newly connected peer.
         '''
         iden = mesg[1].get('iden')
+        mesh = mesg[1].get('mesh')
+
+        self._syncMeshDict(mesh)
 
         self._setPeerSock(iden,sock)
 
         sock.tx( tufo('neu:synack', iden=self.iden, mesh=self.mesh) )
-
-        mesh = mesg[1].get('mesh')
-        self._syncMeshDict(mesh)
 
     def _onNeuSynAckMesg(self, sock, mesg):
         '''
@@ -228,7 +228,7 @@ class Neuron(s_daemon.Daemon):
         iden = mesg[1].get('iden')
         mesh = mesg[1].get('mesh')
 
-        # FIXME merge mesh knowledge
+        self._syncMeshDict(mesh)
         self._setPeerSock(iden,sock)
 
     def _syncMeshDict(self, mesh):
@@ -250,18 +250,12 @@ class Neuron(s_daemon.Daemon):
         self.peers[iden] = sock
 
         def onfini():
+            # FIXME peer lock and check if it's our sock?
             self.peers.pop(iden,None)
-            #FIXME start link down timer!
             self.storm('neu:link:down', link=(self.iden,iden))
-            self.delPathLink(self.iden,iden)
-
-        self.addPathLink( self.iden, iden )
 
         sock.onfini(onfini)
-
         self.storm('neu:link:up', link=(self.iden,iden))
-
-        self.fire('neu:peer:sock', peer=iden, sock=sock)
 
     def _onNeuDataMesg(self, sock, mesg):
         '''
@@ -342,10 +336,10 @@ class Neuron(s_daemon.Daemon):
         '''
         Return a list of trees for shortest path broadcast.
         '''
-        done = set()
-        trees = []
+        done = set([self.iden])
+        #trees = []
 
-        done = self.links[self.iden]
+        #done = self.links[self.iden]
         trees = [ (i,[]) for i in self.links[self.iden] ]
 
         todo = list(trees)
@@ -453,9 +447,17 @@ class Neuron(s_daemon.Daemon):
         '''
         Send an event to all the boxes in the mesh.
         '''
-        byts = msgenpack( (evt,evtinfo) )
-        for tree in self.getPathTrees():
+        mesg = (evt,evtinfo)
+
+        self.dist(mesg)
+
+        byts = msgenpack(mesg)
+        trees = self.getPathTrees()
+
+        for tree in trees:
             self.relay(tree[0], tufo('neu:storm', tree=tree, byts=byts))
+
+        return trees
 
     def relay(self, dest, mesg):
         '''
@@ -466,6 +468,7 @@ class Neuron(s_daemon.Daemon):
             return False
 
         sock.tx(mesg)
+        return True
 
     def route(self, iden, mesg, dsid=None):
         '''
@@ -503,16 +506,16 @@ class Neuron(s_daemon.Daemon):
 
     def _onNeuStormMesg(self, sock, mesg):
         tree = mesg[1].get('tree')
-        for newt in tree[1]:
-            self.relay(newt[0], mesg)
 
         byts = mesg[1].get('byts')
-
         self.dist( msgunpack(byts) )
+
+        for newt in tree[1]:
+            self.relay(newt[0], tufo('neu:storm', tree=newt, byts=byts))
 
 class Dendrite(s_telepath.Proxy):
 
-    def __init__(self, relay, iden=None):
+    def __init__(self, relay):
 
         s_telepath.Proxy.__init__(self, relay)
 
@@ -523,10 +526,20 @@ class Dendrite(s_telepath.Proxy):
         self.itembytags = s_cache.Cache(maxtime=30)
         self.itembytags.setOnMiss( self._getByTag )
 
-    def open(self, iden, name):
+    def open(self, path):
         '''
         Open a connection to the named object on a neuron.
+
+        Name should be in the form:
+        * <iden>/<name>         - object "name" on neuron "iden"
+
+        Example:
+
+            # open object "name" on neuron "iden"
+            prox = dend.open('%s/%s' % (iden,name))
+
         '''
+        iden,name = path.split('/')
         job = self._tele_boss.initJob()
         mesg = tufo('tele:syn', sid=None, jid=job[0])
 
@@ -545,11 +558,6 @@ class Dendrite(s_telepath.Proxy):
         mesg = tufo('tele:call', sid=sid, jid=job[0], name=name, task=task)
         self.route(iden,mesg)
         return job
-
-    def sync(self, job, timeout=None):
-        if not self._tele_boss.wait(job[0], timeout=timeout):
-            raise HitMaxTime()
-        return s_async.jobret(job)
 
     def _onDendFini(self):
         '''
@@ -570,8 +578,9 @@ class Method:
         ondone = kwargs.pop('ondone',None)
         task = ( self.meth, args, kwargs )
         job = self.dend.call(self.iden, self.name, task, ondone=ondone)
-        if ondone == None:
-            return self.dend.sync(job)
+        if ondone != None:
+            return job
+        return self.dend.sync(job)
 
 class Proxy:
 
@@ -584,4 +593,13 @@ class Proxy:
         meth = Method(self, name)
         setattr(self,name,meth)
         return meth
+
+    def call(self, name, *args, **kwargs):
+        ondone = kwargs.pop('ondone',None)
+        task = (name,args,kwargs)
+        return self.dend.call( self.iden, self.name, task, ondone=ondone)
+
+    def sync(self, job, timeout=None):
+        return self.dend.sync(job,timeout=timeout)
+
 

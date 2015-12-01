@@ -6,7 +6,6 @@ import select
 import socket
 import logging
 import msgpack
-import traceback
 import collections
 
 logger = logging.getLogger(__name__)

@@ -40,53 +40,82 @@ class FooBar:
 class TestNeuron(SynTest):
 
     def initNeuNet(self):
+        '''
+        Construct a neuron mesh making sure to wait for all
+        link events ( so the mesh is "settled" before the test )
+        '''
         neu0 = s_neuron.Neuron()
         neu1 = s_neuron.Neuron()
         neu2 = s_neuron.Neuron()
         neu3 = s_neuron.Neuron()
+
+        #print('NEU0: %r' % (neu0.iden,))
+        #print('NEU1: %r' % (neu1.iden,))
+        #print('NEU2: %r' % (neu2.iden,))
+        #print('NEU3: %r' % (neu3.iden,))
 
         link0 = neu0.listen('tcp://127.0.0.1:0/neuron')
         link1 = neu1.listen('tcp://127.0.0.1:0/neuron')
         link2 = neu2.listen('tcp://127.0.0.1:0/neuron')
         link3 = neu3.listen('tcp://127.0.0.1:0/neuron')
 
-        wait0 = self.getTestWait(neu0,1,'neu:peer:sock')
-        wait1 = self.getTestWait(neu1,1,'neu:peer:sock')
+        full0 = self.getTestWait(neu0,6,'neu:link:up')
+        full1 = self.getTestWait(neu1,6,'neu:link:up')
+        full2 = self.getTestWait(neu2,4,'neu:link:up')
+        full3 = self.getTestWait(neu3,2,'neu:link:up')
+
+        # connect neu0->neu1
+
+        wait0 = self.getTestWait(neu0,2,'neu:link:up')
+        wait1 = self.getTestWait(neu1,2,'neu:link:up')
 
         neu0.connect('tcp://127.0.0.1:0/', port=link1[1]['port'] )
 
         wait0.wait()
         wait1.wait()
 
-        wait0 = self.getTestWait(neu0,1,'neu:peer:sock')
-        wait1 = self.getTestWait(neu2,1,'neu:peer:sock')
+        # connect neu0->neu2
+
+        wait0 = self.getTestWait(neu0,2,'neu:link:up')
+        wait2 = self.getTestWait(neu2,2,'neu:link:up')
 
         neu0.connect('tcp://127.0.0.1:0/', port=link2[1]['port'] )
 
         wait0.wait()
-        wait1.wait()
+        wait2.wait()
 
-        wait0 = self.getTestWait(neu2,1,'neu:peer:sock')
-        wait1 = self.getTestWait(neu3,1,'neu:peer:sock')
+        # connect neu2->neu3
+        wait2 = self.getTestWait(neu2,2,'neu:link:up')
+        wait3 = self.getTestWait(neu3,2,'neu:link:up')
 
         neu2.connect('tcp://127.0.0.1:0/', port=link3[1]['port'] )
 
-        wait0.wait()
-        wait1.wait()
+        wait2.wait()
+        wait3.wait()
 
-        #print('IDEN0: %r' % (neu0.iden,))
-        #print('IDEN1: %r' % (neu1.iden,))
-        #print('IDEN2: %r' % (neu2.iden,))
-        #print('IDEN3: %r' % (neu3.iden,))
+        # make sure all neu:link:up mesgs have been consumed
 
-        #print('PEERS0: %r' % (neu0.peers.keys(),))
-        #print('PEERS1: %r' % (neu1.peers.keys(),))
-        #print('PEERS2: %r' % (neu2.peers.keys(),))
-        #print('PEERS3: %r' % (neu3.peers.keys(),))
+        full0.wait()
+        full1.wait()
+        full2.wait()
+        full3.wait()
 
         return Net(locals())
 
     def finiNeuNet(self, net):
+
+        w0 = self.getTestWait(net.neu0,1,'test:fini')
+        w1 = self.getTestWait(net.neu1,1,'test:fini')
+        w2 = self.getTestWait(net.neu2,1,'test:fini')
+        w3 = self.getTestWait(net.neu3,1,'test:fini')
+
+        net.neu0.storm('test:fini')
+
+        w0.wait()
+        w1.wait()
+        w2.wait()
+        w3.wait()
+
         net.neu0.fini()
         net.neu1.fini()
         net.neu2.fini()
@@ -96,28 +125,12 @@ class TestNeuron(SynTest):
 
         net = self.initNeuNet()
 
-        #path = net.neu1.getLinkPath( net.neu1.iden, net.neu2.iden )
-
-        #net.neu0.share('foo',FooBar())
         net.neu3.share('foo',FooBar())
-
-        #net.link0[1]['path'] = '/foo'
-        #prox = s_telepath.openlink(net.link0)
-
-        #print(net.neu0.peers)
-        #print(net.neu1.peers)
-        #print(net.neu2.peers)
-
-        #print(prox.foo(30))
-        #path = net.neu0.getLinkPath( net.neu1.iden, net.neu2.iden )
-        #path = net.neu1.getLinkPath( net.neu1.iden, net.neu2.iden )
-        #path = net.neu2.getLinkPath( net.neu1.iden, net.neu2.iden )
 
         dend = s_neuron.openlink(net.link0)
 
-        prox = dend.open( net.neu3.iden, 'foo' )
-
-        #prox = s_neuron.Proxy( dend, net.neu3.iden, 'foo' )
+        path = '%s/foo' % (net.neu3.iden,)
+        prox = dend.open(path)
 
         task = ('foo',(30,),{})
 
@@ -129,6 +142,64 @@ class TestNeuron(SynTest):
 
         self.assertEqual( prox.foo(11), 31 )
 
+        data = {}
+        def ondone(j):
+            data['ret'] = s_async.jobret(j)
+
+        job = prox.foo(12, ondone=ondone)
+
+        self.assertEqual( dend.sync(job), 32 )
+        self.assertEqual( data.get('ret'), 32 )
+
+        self.finiNeuNet(net)
+
+    def test_neuron_tree(self):
+        net = self.initNeuNet()
+
+        def flat(x):
+            ret = set()
+            todo = [ t for t in x ]
+            while todo:
+                n = todo.pop()
+                ret.add(n[0])
+
+                for k in n[1]:
+                    todo.append(k)
+            return ret
+
+        # ensure each can build a tree to 
+        # all the others...
+
+        iall = set([
+            net.neu0.iden,
+            net.neu1.iden,
+            net.neu2.iden,
+            net.neu3.iden,
+        ])
+
+        set0 = flat( net.neu0.getPathTrees() )
+        set1 = flat( net.neu1.getPathTrees() )
+        set2 = flat( net.neu2.getPathTrees() )
+        set3 = flat( net.neu3.getPathTrees() )
+
+        self.assertEqual( len( iall & set0 ), 3 )
+        self.assertEqual( len( iall & set1 ), 3 )
+        self.assertEqual( len( iall & set2 ), 3 )
+        self.assertEqual( len( iall & set3 ), 3 )
+
+        self.finiNeuNet(net)
+
+    def test_neuron_storm(self):
+        net = self.initNeuNet()
+
+        w2 = self.getTestWait(net.neu2, 1, 'woot:baz')
+        w3 = self.getTestWait(net.neu3, 1, 'woot:baz')
+
+        net.neu1.storm('woot:baz', faz=30)
+
+        w2.wait()
+        w3.wait()
+
         self.finiNeuNet(net)
 
     def test_neuron_ping(self):
@@ -136,7 +207,8 @@ class TestNeuron(SynTest):
 
         dend = s_neuron.openlink(net.link0)
 
-        prox1 = dend.open( net.neu2.iden, 'neuron')
+        path = '%s/neuron' % (net.neu2.iden,)
+        prox1 = dend.open(path)
 
         pong = prox1.ping()
 
@@ -337,8 +409,8 @@ class TempDisabled:
 
         dend = s_neuron.Dendrite(pxy[1])
 
-        dest = (pxy[2].getIden(),None)
-        foo = dend.open(dest, 'foo')
+        path = '%s/foo' % (pxy[2].getIden(),)
+        foo = dend.open(path)
 
         self.assertEqual( foo.foo(10), 30 )
 

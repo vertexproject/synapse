@@ -52,8 +52,12 @@ class Method:
         self.proxy = proxy
 
     def __call__(self, *args, **kwargs):
+        ondone = kwargs.pop('ondone',None)
         task = (self.meth,args,kwargs)
-        job = self.proxy._tx_call( task )
+        job = self.proxy._tx_call( task, ondone=ondone )
+        if ondone != None:
+            return job
+
         return self.proxy.sync(job)
 
 class Proxy(s_eventbus.EventBus):
