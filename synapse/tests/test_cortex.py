@@ -518,3 +518,26 @@ class CortexTest(SynTest):
         self.assertEqual( tuple(vals), (1,2,3) )
 
         core.fini()
+
+    def test_cortex_tufo_del(self):
+
+        core = s_cortex.openurl('ram://')
+        foob = core.formTufoByProp('foo','bar',baz='faz')
+
+        self.assertIsNotNone( core.getTufoByProp('foo', valu='bar') )
+        self.assertIsNotNone( core.getTufoByProp('foo:baz', valu='faz') )
+
+        core.addTufoList(foob, 'blahs', 'blah1' )
+        core.addTufoList(foob, 'blahs', 'blah2' )
+
+        blahs = core.getTufoList(foob,'blahs')
+
+        self.assertEqual( len(blahs), 2 )
+
+        core.delTufoByProp('foo','bar')
+
+        self.assertIsNone( core.getTufoByProp('foo', valu='bar') )
+        self.assertIsNone( core.getTufoByProp('foo:baz', valu='faz') )
+
+        blahs = core.getTufoList(foob,'blahs')
+        self.assertEqual( len(blahs), 0 )

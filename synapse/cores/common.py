@@ -517,6 +517,42 @@ class Cortex(EventBus):
 
             return tufo
 
+    def delTufo(self, tufo):
+        '''
+        Delete a tufo and it's associated props/lists/etc.
+
+
+        Example:
+
+            core.delTufo(foob)
+
+        '''
+        iden = tufo[0]
+        with self.lock:
+            self.delRowsById(iden)
+
+        lists = [ p.split(':',2)[2] for p in tufo[1].keys() if p.startswith('tufo:list:') ]
+        for name in lists:
+            self.delRowsByProp('%s:list:%s' % (iden,name))
+
+    def delTufoByProp(self, form, valu):
+        '''
+        Delete a tufo from the cortex by prop=valu.
+
+        Example:
+
+            core.delTufoByProp('foo','bar')
+
+        '''
+        if self.model != None:
+            valu = self.model.getPropNorm(form,valu)
+
+        item = self.getTufoByProp(form,valu)
+        if item != None:
+            self.delTufo(item)
+
+        return item
+
     def _normTufoProps(self, form, props):
         # add form prefix to tufo props
         props = {'%s:%s' % (form,p):v for (p,v) in props.items() }
