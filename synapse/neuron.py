@@ -341,9 +341,6 @@ class Neuron(s_daemon.Daemon):
         Return a list of trees for shortest path broadcast.
         '''
         done = set([self.iden])
-        #trees = []
-
-        #done = self.links[self.iden]
         trees = [ (i,[]) for i in self.links[self.iden] ]
 
         todo = list(trees)
@@ -569,7 +566,9 @@ class Dendrite(s_telepath.Proxy):
         '''
 
 class Method:
-
+    '''
+    Callable method object for methods on remote objecs.
+    '''
     def __init__(self, prox, meth):
         self.meth = meth
         self.prox = prox
@@ -587,7 +586,9 @@ class Method:
         return self.dend.sync(job)
 
 class Proxy:
-
+    '''
+    An RMI proxy for methods exposed on objects shared in the mesh.
+    '''
     def __init__(self, dend, iden, name):
         self.iden = iden
         self.name = name
