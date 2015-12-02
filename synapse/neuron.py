@@ -11,13 +11,15 @@ import collections
 
 import synapse.link as s_link
 import synapse.async as s_async
-import synapse.lib.cache as s_cache
 import synapse.daemon as s_daemon
 import synapse.dyndeps as s_dyndeps
 import synapse.session as s_session
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
+
+import synapse.lib.sched as s_sched
+import synapse.lib.cache as s_cache
 
 from synapse.common import *
 from synapse.lib.threads import firethread
@@ -66,6 +68,8 @@ class Neuron(s_daemon.Daemon):
 
         s_daemon.Daemon.__init__(self, core=core, pool=pool)
 
+        self.sched = s_sched.Sched()
+
         self.model = self.core.getDataModel()
         if self.model == None:
             self.model = s_datamodel.DataModel()
@@ -73,7 +77,7 @@ class Neuron(s_daemon.Daemon):
 
         self.model.addTufoForm('neuron')
         self.model.addTufoProp('neuron','name')
-        self.model.addTufoProp('neuron','super')
+        self.model.addTufoProp('neuron','super',ptype='int',defval=0)
 
         self.neur = self.core.formTufoByProp('neuron','self')
         self.iden = self.neur[0]
