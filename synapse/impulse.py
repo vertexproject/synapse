@@ -63,7 +63,10 @@ class PulseRelay(EventBus):
         def onfini():
             self.bysid.pop( sess.sid, None )
             for name in names:
-                self.byname[name].discard( sess )
+                nameset = self.byname[name]
+                nameset.discard( sess )
+                if not nameset:
+                    self.byname.pop(name,None)
 
         sess.onfini(onfini)
         return sess.sid
