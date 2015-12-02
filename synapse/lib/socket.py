@@ -421,9 +421,8 @@ class Plex(EventBus):
 
             try:
                 rxlist,txlist,xxlist = select.select(self._plex_rxsocks,self._plex_txsocks,self._plex_xxsocks,0.2)
-
             # mask "bad file descriptor" race and go around again...
-            except (select.error,ValueError) as e:
+            except Exception as e:
                 continue
 
             try:
@@ -453,9 +452,6 @@ class Plex(EventBus):
 
             except Exception as e:
                 logger.error('plexMainLoop: %s', e)
-
-            if self.isfini:
-                break
 
     def _onPlexFini(self):
         #self._plex_s2.fini()
