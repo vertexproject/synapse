@@ -161,6 +161,10 @@ class Cortex(EventBus):
         prop = '%s:list:%s' % (tufo[0],name)
         return [ v for (i,p,v,t) in self.getRowsByProp(prop) ]
 
+    def delTufoListValu(self, tufo, name, valu):
+        prop = '%s:list:%s' % (tufo[0],name)
+        self.delRowsByProp(prop,valu=valu)
+
     def addTufoList(self, tufo, name, *vals):
         '''
         Add "list" rows to a tufo.

@@ -517,6 +517,13 @@ class CortexTest(SynTest):
 
         self.assertEqual( tuple(vals), (1,2,3) )
 
+        core.delTufoListValu(foob,'hehe', 2)
+
+        vals = core.getTufoList(foob,'hehe')
+        vals.sort()
+
+        self.assertEqual( tuple(vals), (1,3) )
+
         core.fini()
 
     def test_cortex_tufo_del(self):
@@ -541,3 +548,5 @@ class CortexTest(SynTest):
 
         blahs = core.getTufoList(foob,'blahs')
         self.assertEqual( len(blahs), 0 )
+
+
