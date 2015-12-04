@@ -63,6 +63,12 @@ class Sess(EventBus):
 
         self.sockq = []
 
+    def getSessSock(self):
+        '''
+        Return the current socket for the session or None.
+        '''
+        return self.sock
+
     def getUserPerm(self, user, perm):
         if self.get('user') == None:
             return (None,None,False)
