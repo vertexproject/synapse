@@ -78,3 +78,43 @@ class EventBusTest(SynTest):
 
         bus.fini()
 
+
+    def test_eventbus_off(self):
+        bus = s_eventbus.EventBus()
+
+        data = {'count':0}
+
+        def woot(mesg):
+            data['count'] += 1
+
+        bus.on('hehe', woot)
+
+        bus.fire('hehe')
+
+        bus.off('hehe', woot)
+
+        bus.fire('hehe')
+
+        bus.fini()
+
+        self.assertEqual( data['count'], 1 )
+
+    def test_eventbus_off_weak(self):
+        bus = s_eventbus.EventBus()
+
+        data = {'count':0}
+
+        def woot(mesg):
+            data['count'] += 1
+
+        bus.on('hehe', woot, weak=True)
+
+        bus.fire('hehe')
+
+        bus.off('hehe', woot)
+
+        bus.fire('hehe')
+
+        bus.fini()
+
+        self.assertEqual( data['count'], 1 )

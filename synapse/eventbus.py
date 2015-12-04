@@ -78,6 +78,33 @@ class EventBus:
 
         self._syn_funcs[name].append(func)
 
+    def off(self, name, func):
+        '''
+        Remove a previously registered event handler function.
+
+        Example:
+
+            bus.off( 'foo', onFooFunc )
+
+        '''
+        funcs = self._syn_funcs.get(name)
+        if funcs != None:
+
+            if func in funcs:
+                funcs.remove(func)
+
+            if not funcs:
+                self._syn_funcs.pop(name,None)
+
+        weaks = self._syn_weaks.get(name)
+        if weaks != None:
+
+            if func in weaks:
+                weaks.remove(func)
+
+            if not weaks:
+                self._syn_weaks.pop(name,None)
+
     def fire(self, evtname, **info):
         '''
         Fire the given event name on the EventBus.
