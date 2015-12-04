@@ -32,6 +32,8 @@ class PropNotFound(Exception):pass
 class HitMaxTime(Exception):pass
 class HitMaxRetry(Exception):pass
 
+class IsFini(Exception):pass
+
 class JobErr(Exception):
     '''
     Used for remote exception propigation.
