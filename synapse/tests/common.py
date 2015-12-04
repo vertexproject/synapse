@@ -8,6 +8,27 @@ from synapse.common import *
 
 class TooFewEvents(Exception):pass
 
+class TestEnv:
+
+    def __init__(self):
+        self.items = {}
+        self.tofini = []
+
+    def __getattr__(self, prop):
+        item = self.items.get(prop)
+        if item == None:
+            raise AttributeError(prop)
+        return item
+
+    def add(self, name, item, fini=False):
+        self.items[name] = item
+        if fini:
+            self.tofini.append(item)
+
+    def fini(self):
+        for bus in self.tofini:
+            bus.fini()
+
 class TestWaiter:
 
     def __init__(self, bus, size, *evts):

@@ -314,6 +314,10 @@ class Pool(EventBus):
         '''
         work = tufo(task, jid=jid)
         with self._pool_lock:
+
+            if self.isfini:
+                raise IsFini(self.__class__.__name__)
+
             # we're about to put work into the queue
             # lets see if we should also fire another worker
 
@@ -348,10 +352,10 @@ class Pool(EventBus):
         self._pool_threads[ thr.iden ] = thr
 
         def onfini():
-            self.fire('boss:thread:fini', thread=thr)
             self._pool_threads.pop(thr.iden,None)
 
-        self.fire('boss:thread:init', thread=thr)
+        thr.onfini(onfini)
+
         thr.start()
         return thr
 
@@ -362,10 +366,11 @@ class Pool(EventBus):
             self._pool_avail += 1
 
             work = self.workq.get()
-            if work == None:
-                return
 
             self._pool_avail -= 1
+
+            if work == None:
+                return
 
             self.fire('pool:work:init', work=work)
 

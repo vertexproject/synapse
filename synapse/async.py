@@ -7,16 +7,15 @@ from synapse.compat import queue
 
 import synapse.lib.sched as s_sched
 import synapse.lib.queue as s_queue
-import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
-import synapse.impulse as s_impulse
 import synapse.session as s_session
 import synapse.lib.threads as s_threads
 
 from synapse.common import *
+from synapse.eventbus import EventBus
 
 def jobid():
-    return s_common.guidstr()
+    return guidstr()
 
 def jobret(job):
     '''
@@ -32,10 +31,29 @@ def jobret(job):
         raise JobErr(job)
     return job[1].get('ret')
 
+def jobDoneMesg(job):
+    '''
+    Construct a job:done message for the given job.
+
+    Example:
+
+        def ondone(job):
+            otherguy.dist( jobDoneMesg(job) )
+
+    '''
+    info = {'jid':job[0], 'ret':job[1].get('ret')}
+    if job[1].get('err') != None:
+        info['err'] = job[1].get('err'),
+        info['errmsg'] = job[1].get('errmsg'),
+        info['errfile'] = job[1].get('errfile'),
+        info['errline'] = job[1].get('errline'),
+
+    return tufo('job:done', **info)
+
 def newtask(meth,*args,**kwargs):
     return (meth,args,kwargs)
 
-class Boss(s_impulse.PulseRelay):
+class Boss(EventBus):
     '''
     A Boss manages asynchonous jobs.
 
@@ -46,7 +64,7 @@ class Boss(s_impulse.PulseRelay):
     he is notified of fini()
     '''
     def __init__(self):
-        s_impulse.PulseRelay.__init__(self)
+        EventBus.__init__(self)
 
         self.onfini( self._onBossFini )
 
@@ -72,7 +90,6 @@ class Boss(s_impulse.PulseRelay):
 
         '''
         self.pool = pool
-        self.onfini( self.pool.fini )
 
     def runBossPool(self, size, maxsize=None):
         '''
@@ -84,6 +101,7 @@ class Boss(s_impulse.PulseRelay):
 
         '''
         pool = s_threads.Pool(size=size, maxsize=maxsize)
+        self.onfini( pool.fini )
         self.setBossPool(pool)
 
     def _onJobDone(self, event):
@@ -138,6 +156,7 @@ class Boss(s_impulse.PulseRelay):
             job = boss.initJob(jid,task=task,timeout=60)
 
         Notes:
+
             Info Conventions:
             * task=(meth,args,kwargs)
             * timeout=<sec> # max runtime
@@ -179,6 +198,15 @@ class Boss(s_impulse.PulseRelay):
             joblocal['schedevt'] = self.sched.insec(timeout,hitmax)
 
         return job
+
+    def sync(self, job, timeout=None):
+        '''
+        Wait and return the value for the job.
+        '''
+        if not self.wait(job[0], timeout=timeout):
+            raise MaxTimeHit(timeout)
+
+        return jobret(job)
 
     def _runJob(self, job):
         '''
@@ -251,6 +279,3 @@ class Boss(s_impulse.PulseRelay):
     def _onBossFini(self):
         for job in self.jobs():
             self.fire('job:done', jid=job[0], err='BossShutDown')
-
-        if self.pool:
-            self.pool.fini()

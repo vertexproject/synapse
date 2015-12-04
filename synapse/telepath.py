@@ -84,16 +84,15 @@ class Proxy(s_eventbus.EventBus):
         self._tele_sid = None
 
         self._tele_q = s_queue.Queue()
-        self._tele_bus = s_eventbus.EventBus()
 
         self._tele_boss = s_async.Boss()
         self._tele_plex = s_socket.getGlobPlex()
 
-        self._tele_bus.on('job:done', self._tele_boss.dist )
-        self._tele_bus.on('imp:dist', self._onImpDist )
+        self._raw_on('job:done', self._tele_boss.dist )
 
-        self._tele_bus.consume( self._tele_q )
+        self.consume( self._tele_q )
 
+        self._tele_ons = set()
         self._tele_sock = None
         self._tele_relay = relay    # LinkRelay()
 
@@ -101,6 +100,27 @@ class Proxy(s_eventbus.EventBus):
         self._tele_name = relay.link[1].get('path')[1:]
 
         self._initTeleSock()
+
+    def _raw_on(self, name, func):
+        return s_eventbus.EventBus.on(self, name, func)
+
+    def on(self, name, func):
+
+        self._tele_ons.add(name)
+
+        job = self._txTeleJob('tele:on', events=[name], name=self._tele_name)
+        self.sync(job)
+
+        return s_eventbus.EventBus.on(self, name, func)
+
+    def off(self, name, func):
+
+        self._tele_ons.discard(name)
+
+        job = self._txTeleJob('tele:off', evt=name, name=self._tele_name)
+        self.sync(job)
+
+        return s_eventbus.EventBus.off(self, name, func)
 
     def call(self, name, *args, **kwargs):
         '''
@@ -138,12 +158,9 @@ class Proxy(s_eventbus.EventBus):
 
         raise HitMaxTime()
 
-    def _onImpDist(self, event):
-        mesg = event[1].get('mesg')
-        self.dist(mesg)
-
     def _initTeleSock(self):
-        if self._tele_bus.isfini:
+
+        if self.isfini:
             return False
 
         if self._tele_sock != None:
@@ -161,6 +178,10 @@ class Proxy(s_eventbus.EventBus):
         self._tele_plex.addPlexSock( self._tele_sock )
 
         self._teleSynAck()
+
+        # let client code possible do stuff on reconnect
+        self.fire('tele:sock:init', sock=self._tele_sock)
+
         return True
 
     def _onLinkSockMesg(self, event):
@@ -170,7 +191,7 @@ class Proxy(s_eventbus.EventBus):
 
     def _onSockFini(self):
         # If we still have outstanding jobs, reconnect immediately
-        if self._tele_bus.isfini:
+        if self.isfini:
             return
 
         if len( self._tele_boss.jobs() ):
@@ -188,6 +209,12 @@ class Proxy(s_eventbus.EventBus):
         '''
         job = self._txTeleJob('tele:syn', sid=self._tele_sid )
         self._tele_sid = self.sync( job )
+
+        events = list(self._tele_ons)
+
+        if events:
+            job = self._txTeleJob('tele:on', events=events, name=self._tele_name)
+            self.sync( job )
 
     def _txTeleJob(self, msg, **msginfo):
         '''
@@ -214,7 +241,6 @@ class Proxy(s_eventbus.EventBus):
         if not self._tele_sock.isfini:
             self._tele_sock.tx( tufo('tele:fin', sid=self._tele_sid) )
 
-        self._tele_bus.fini()
         self._tele_boss.fini()
         self._tele_sock.fini()
 

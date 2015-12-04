@@ -45,7 +45,11 @@ class Daemon(EventBus):
 
         self.setMesgFunc('tele:syn', self._onTeleSynMesg )
         self.setMesgFunc('tele:fin', self._onTeleFinMesg )
+
         self.setMesgFunc('tele:call', self._onTeleCallMesg )
+
+        self.setMesgFunc('tele:on', self._onTeleOnMesg )
+        self.setMesgFunc('tele:off', self._onTeleOffMesg )
 
     def setMesgFunc(self, name, func):
         self.mesgfuncs[name] = func
@@ -97,6 +101,54 @@ class Daemon(EventBus):
         with self.cura.getSessBySid(sid) as sess:
             sess.setSessSock(sock)
             sess.relay( tufo('job:done', jid=jid, ret=sess.sid) )
+
+    def _onTeleOnMesg(self, sock, mesg):
+        # set the socket tx method as the callback
+
+        # FIXME perms
+
+        jid = mesg[1].get('jid')
+        name = mesg[1].get('name')
+        events = mesg[1].get('events')
+
+        item = self.shared.get(name)
+        if item == None:
+            raise NoSuchObj(name)
+
+        on = getattr(item,'on',None)
+        if on == None:
+            return sock.tx( tufo('job:done', jid=jid, ret=False) )
+
+        for evt in events:
+            on(evt,sock.tx)
+
+        def onfini():
+            for evt in events:
+                item.off(evt, sock.tx)
+
+        sock.onfini(onfini)
+
+        return sock.tx( tufo('job:done', jid=jid, ret=True) )
+
+    def _onTeleOffMesg(self, sock, mesg):
+        # set the socket tx method as the callback
+
+        # FIXME perms
+
+        evt = mesg[1].get('evt')
+        jid = mesg[1].get('jid')
+        name = mesg[1].get('name')
+
+        item = self.shared.get(name)
+        if item == None:
+            raise NoSuchObj(name)
+
+        off = getattr(item,'off',None)
+        if off == None:
+            return sock.tx( tufo('job:done', jid=jid, ret=False) )
+
+        off(evt,sock.tx)
+        return sock.tx( tufo('job:done', jid=jid, ret=True) )
 
     def _onTeleCallMesg(self, sock, mesg):
 
