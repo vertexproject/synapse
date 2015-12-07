@@ -15,6 +15,8 @@ import tornado.httpserver
 from xml.etree.ElementTree import Element, tostring, fromstring
 
 import synapse.lib.cache as s_cache
+import synapse.lib.threads as s_threads
+
 from synapse.eventbus import EventBus
 
 # TODO: sub-class AsyncBoss and make callback helpers
@@ -36,6 +38,14 @@ davprops = {
     'mime':'{DAV:}getcontenttype',
     'size':'{DAV:}getcontentlength',
 }
+
+def statfd(fd):
+    '''
+    Return a stat dict for the given fd.
+    '''
+    fd.seek(0, os.SEEK_END)
+    size = fd.tell()
+    return {'size':size}
 
 class WebDavHandler(tornado.web.RequestHandler):
 
@@ -196,6 +206,10 @@ class WebDav(EventBus):
         '''
         self.ioloop.start()
 
+    @s_threads.firethread
+    def fireDavServer(self):
+        self.ioloop.start()
+
     def getDavRoot(self):
         '''
         Return the root PathNode for the virtual filesystem.
@@ -290,8 +304,11 @@ class PathNode:
 
         '''
         names = path.split('/')
+        if path.startswith('/'):
+            names = names[1:]
+
         node = self
-        for name in names[1:]:
+        for name in names:
             newn = node.getSubNode(name)
             if newn == None:
                 newn = BaseNode(name)
@@ -418,9 +435,7 @@ class FileNode(BaseNode):
 
     def stat(self, dyns, **info):
         with self.lock:
-            self.fd.seek(0, os.SEEK_END)
-            size = self.fd.tell()
-            return {'size':size}
+            return statfd(fd)
 
 # FIXME: for temporary platform testing
 if __name__ == '__main__':
