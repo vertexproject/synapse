@@ -36,17 +36,20 @@ class Cortex(common.Cortex):
         for row in self.rowsbyid.pop(ident,()):
             self._delRawRow(row)
 
-    def _delRowsByIdProp(self, ident, prop):
-        for row in self.rowsbyid.get(ident):
-            if row[1] != prop:
-                continue
-            self._delRawRow(row)
+    def _delRowsByIdProp(self, iden, prop):
+        rows = [ row for row in self.rowsbyid.get(iden) if row[1] == prop ]
+        [ self._delRawRow(row) for row in rows ]
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         for row in self.getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime):
             self._delRawRow(row)
 
     def _delRawRow(self, row):
+
+        byid = self.rowsbyid.get(row[0])
+        if byid != None:
+            byid.discard(row)
+
         byprop = self.rowsbyprop[ row[1] ]
         byprop.discard(row)
         if not byprop:
@@ -59,8 +62,8 @@ class Cortex(common.Cortex):
         if not byvalu:
             self.rowsbyvalu.pop(propvalu,None)
 
-    def _getRowsById(self, ident):
-        return self.rowsbyid.get(ident,())
+    def _getRowsById(self, iden):
+        return self.rowsbyid.get(iden,())
 
     def _getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
 
@@ -102,10 +105,3 @@ class Cortex(common.Cortex):
             rows = [ row for row in rows if row[3] < maxtime ]
 
         return len(rows)
-
-    def _getJoinBy(self, name, prop, valu):
-        pass
-
-    def _getRowsBy(self, name, prop, valu):
-        pass
-
