@@ -104,6 +104,9 @@ class Proxy(s_eventbus.EventBus):
     def _raw_on(self, name, func):
         return s_eventbus.EventBus.on(self, name, func)
 
+    def _raw_off(self, name, func):
+        return s_eventbus.EventBus.off(self, name, func)
+
     def on(self, name, func):
 
         self._tele_ons.add(name)
@@ -179,7 +182,7 @@ class Proxy(s_eventbus.EventBus):
 
         self._teleSynAck()
 
-        # let client code possible do stuff on reconnect
+        # let client code do stuff on reconnect
         self.fire('tele:sock:init', sock=self._tele_sock)
 
         return True
