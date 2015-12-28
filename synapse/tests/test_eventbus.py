@@ -53,6 +53,26 @@ class EventBusTest(SynTest):
         self.assertTrue( data.get('woot') )
         self.assertTrue( data.get('weak') )
 
+    def test_evenbus_unlink(self):
+
+        bus = s_eventbus.EventBus()
+
+        mesgs = []
+        def woot(mesg):
+            mesgs.append(mesg)
+
+        bus.link(woot)
+
+        bus.fire('haha')
+        self.assertEqual( len(mesgs), 1 )
+
+        bus.unlink(woot)
+
+        bus.fire('haha')
+        self.assertEqual( len(mesgs), 1 )
+
+        bus.fini()
+
     def test_eventbus_finionce(self):
 
         data = {'count':0}

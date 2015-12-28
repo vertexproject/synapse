@@ -51,6 +51,19 @@ class EventBus:
 
         self._syn_links.append(func)
 
+    def unlink(self, func):
+        '''
+        Remove a callback function previously added with link()
+
+        Example:
+
+            bus.unlink( callback )
+
+        '''
+        self._syn_weak_links.discard(func)
+        if func in self._syn_links:
+            self._syn_links.remove(func)
+
     def on(self, name, func, weak=False):
         '''
         Add a callback func to the SynCallBacker.
