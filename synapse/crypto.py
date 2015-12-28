@@ -4,21 +4,21 @@ import hashlib
 import synapse.common as s_common
 import synapse.lib.socket as s_socket
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.ciphers import Cipher
+from cryptography.hazmat.primitives.ciphers.algorithms import ARC4
+
 class Rc4Xform(s_socket.SockXform):
 
     def __init__(self, rc4key):
         self.rc4key = rc4key
 
     def init(self, sock):
-        from Crypto.Cipher import ARC4
-        txnonce = os.urandom(16)
 
-        #oldtime = sock.gettimeout()
-        #oldblock = sock.blocking()
+        txnonce = os.urandom(16)
 
         try:
 
-            #sock.settimeout(2)
             sock.setblocking(1)
 
             sock._raw_sendall(txnonce)
@@ -30,17 +30,16 @@ class Rc4Xform(s_socket.SockXform):
             txkey = hashlib.sha256( txnonce + self.rc4key ).digest()
             rxkey = hashlib.sha256( rxnonce + self.rc4key ).digest()
 
-            self.txcrypt = ARC4.new( txkey )
-            self.rxcrypt = ARC4.new( rxkey )
+            self.txcrypt = Cipher( ARC4(txkey), mode=None, backend=default_backend() ).encryptor()
+            self.rxcrypt = Cipher( ARC4(rxkey), mode=None, backend=default_backend() ).decryptor()
 
         finally:
+
             if sock.plex:
                 sock.setblocking(0)
-            #sock.settimeout(oldtime)
-            #sock.setblocking(oldblock)
 
     def txform(self, byts):
-        return self.txcrypt.encrypt(byts)
+        return self.txcrypt.update(byts)
 
     def rxform(self, byts):
-        return self.rxcrypt.decrypt(byts)
+        return self.rxcrypt.update(byts)

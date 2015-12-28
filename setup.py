@@ -13,12 +13,10 @@ from setuptools import setup,find_packages
 # python3.4 setup.py register
 # python3.4 setup.py bdist_wheel upload
 # python3.4 -m pip install
-import synapse
-import synapse.common as s_common
 
 setup(
     name='viv-synapse',
-    version=s_common.verstr( synapse.version ),
+    version='0.0.5', # sync with synapse.version!
     description='Synapse Distributed Computing Framework',
     author='Invisigoth Kenshoto',
     author_email='invisigoth.kenshoto@gmail.com',
@@ -30,7 +28,7 @@ setup(
     install_requires=[
         'tornado',
         'requests',
-        'pycrypto>=2.6.1',
+        'cryptography>=1.1.2',
         'msgpack-python>=0.4.2',
     ],
 
