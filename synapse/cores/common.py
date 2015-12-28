@@ -75,6 +75,19 @@ class Cortex(EventBus):
         '''
         return self.model
 
+    def genDataModel(self):
+        '''
+        Return (and create if needed) the DataModel instance for this Cortex.
+
+        Example:
+
+            model = core.genDataModel()
+
+        '''
+        if self.model == None:
+            self.model = s_datamodel.DataModel()
+        return self.model
+
     def getDataModelDict(self):
         '''
         Return the DataModel dictionary for this Cortex.
@@ -462,6 +475,7 @@ class Cortex(EventBus):
 
         '''
         iden = guidstr()
+
         stamp = int(time.time())
 
         props = self._normTufoProps(form,props)
@@ -477,6 +491,16 @@ class Cortex(EventBus):
         self.fire('tufo:add:%s' % form, tufo=tufo)
 
         return tufo
+
+    def formTufoByTufo(self, tufo):
+        '''
+        Form an (iden,info) tufo by extracting information from an existing one.
+        '''
+        form = tufo[1].get('tufo:form')
+        valu = tufo[1].get(form)
+        prefix = '%s:' % (form,)
+        props = { k:v for (k,v) in tufo[1].items() if k.startswith(prefix) }
+        return self.formTufoByProp(form,valu,**props)
 
     def formTufoByProp(self, form, valu, **props):
         '''
