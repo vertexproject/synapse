@@ -52,16 +52,13 @@ class Cortex(s_c_sqlite.Cortex):
         if port != None:
             dbinfo['port'] = port
 
-        authinfo = self.link[1].get('authinfo')
-        if authinfo:
+        user = self.link[1].get('user')
+        if user != None:
+            dbinfo['user'] = user
 
-            user = authinfo.get('user')
-            if user != None:
-                dbinfo['user'] = user
-
-            passwd = authinfo.get('passwd')
-            if passwd != None:
-                dbinfo['password'] = passwd
+        passwd = self.link[1].get('passwd')
+        if passwd != None:
+            dbinfo['password'] = passwd
 
         return dbinfo
 

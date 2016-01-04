@@ -65,20 +65,22 @@ def chopLinkUrl(url):
     link[1]['host'] = urlinfo.get('host')
     link[1]['port'] = urlinfo.get('port')
     link[1]['path'] = urlinfo.get('path')
-
-    user = urlinfo.get('user')
-    passwd = urlinfo.get('passwd')
-
-    if user:
-        link[1]['authinfo'] = {'user':user}
-        if passwd:
-            link[1]['authinfo']['passwd'] = passwd
+    link[1]['user'] = urlinfo.get('user')
+    link[1]['passwd'] = urlinfo.get('passwd')
 
     query = urlinfo.get('query',{})
 
     timeout = query.pop('timeout',None)
     if timeout != None:
         link[1]['timeout'] = float(timeout)
+
+    poolmax = query.pop('poolmax',None)
+    if poolmax != None:
+        link[1]['poolmax'] = int(poolmax)
+
+    poolsize = query.pop('poolsize',None)
+    if poolsize != None:
+        link[1]['poolsize'] = int(poolsize)
 
     rc4key = query.pop('rc4key',None)
     if rc4key != None:
