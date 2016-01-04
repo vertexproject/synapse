@@ -19,8 +19,8 @@ class LinkRelay:
         self.link = link
         self._reqValidLink()
 
-    def getLinkProp(self, name):
-        return self.link[1].get(name)
+    def getLinkProp(self, name, defval=None):
+        return self.link[1].get(name, defval)
 
     def _reqValidLink(self):
         pass
