@@ -43,3 +43,19 @@ class Rc4Xform(s_socket.SockXform):
 
     def rxform(self, byts):
         return self.rxcrypt.update(byts)
+
+class Rc4Skey(s_socket.SockXform):
+
+    def __init__(self, rc4key):
+        self.rc4key = rc4key
+        self.txcrypt = Cipher( ARC4(rc4key), mode=None, backend=default_backend() ).encryptor()
+        self.rxcrypt = Cipher( ARC4(rc4key), mode=None, backend=default_backend() ).decryptor()
+
+    def init(self, sock):
+        pass
+
+    def txform(self, byts):
+        return self.txcrypt.update(byts)
+
+    def rxform(self, byts):
+        return self.rxcrypt.update(byts)
