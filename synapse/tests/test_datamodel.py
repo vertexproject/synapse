@@ -118,3 +118,33 @@ class DataModelTest(unittest.TestCase):
         self.assertEqual( model.getPropParse('foo:bar', 'FaLsE'), 0 )
 
         self.assertRaises( s_datamodel.BadTypeParse, model.getPropParse, 'foo:bar', 'asdf' )
+
+    def test_datamodel_hash(self):
+        model = s_datamodel.DataModel()
+
+        model.addTufoForm('foo')
+
+        model.addTufoProp('foo','md5', ptype='hash:md5')
+        model.addTufoProp('foo','sha1', ptype='hash:sha1')
+        model.addTufoProp('foo','sha256', ptype='hash:sha256')
+
+        fakemd5 = 'AA' * 16
+        fakesha1 = 'AA' * 20
+        fakesha256= 'AA' * 32
+
+        self.assertEqual( model.getPropNorm('foo:md5', fakemd5) , fakemd5.lower() )
+        self.assertEqual( model.getPropNorm('foo:sha1', fakesha1) , fakesha1.lower() )
+        self.assertEqual( model.getPropNorm('foo:sha256', fakesha256) , fakesha256.lower() )
+
+        self.assertRaises( s_datamodel.BadTypeNorm, model.getPropNorm, 'foo:md5', 'asdf' )
+        self.assertRaises( s_datamodel.BadTypeNorm, model.getPropNorm, 'foo:sha1', 'asdf' )
+        self.assertRaises( s_datamodel.BadTypeNorm, model.getPropNorm, 'foo:sha256', 'asdf' )
+
+        self.assertEqual( model.getPropParse('foo:md5', fakemd5) , fakemd5.lower() )
+        self.assertEqual( model.getPropParse('foo:sha1', fakesha1) , fakesha1.lower() )
+        self.assertEqual( model.getPropParse('foo:sha256', fakesha256) , fakesha256.lower() )
+
+        self.assertRaises( s_datamodel.BadTypeParse, model.getPropParse, 'foo:md5', 'asdf' )
+        self.assertRaises( s_datamodel.BadTypeParse, model.getPropParse, 'foo:sha1', 'asdf' )
+        self.assertRaises( s_datamodel.BadTypeParse, model.getPropParse, 'foo:sha256', 'asdf' )
+

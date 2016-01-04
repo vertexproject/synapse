@@ -1,10 +1,13 @@
 '''
 An API to assist with the creation and enforcement of cortex data models.
 '''
+import re
 import fnmatch
 import collections
 
 import synapse.aspects as s_aspects
+
+hexre = re.compile('^[0-9a-z]+$')
 
 class ModelError(Exception):pass
 
@@ -134,13 +137,51 @@ class EnumType(DataType):
             raise BadEnumValu(self.name,text)
         return valu
 
+class HexType(DataType):
+
+    def norm(self, valu):
+        valu = valu.lower()
+        if not hexre.match(valu):
+            raise BadTypeParse('hex', valu)
+
+        return valu
+
+    def parse(self, text):
+        text = text.lower()
+        if not hexre.match(text):
+            raise BadTypeParse('hex', text)
+
+        return text
+
+class HashType(DataType):
+
+    def __init__(self, name, size):
+        self._hash_name = name
+        self._hash_size = size
+
+    def norm(self, valu):
+        valu = valu.lower()
+        if not hexre.match(valu):
+            raise BadTypeParse(self._hash_name, valu)
+        if len(valu) != self._hash_size * 2:
+            raise BadTypeNorm(self._hash_name, valu)
+        return valu
+
+    def parse(self, text):
+        text = text.lower()
+        if not hexre.match(text):
+            raise BadTypeParse(self._hash_name, text)
+
+        if len(text) != self._hash_size * 2:
+            raise BadTypeParse(self._hash_name, text)
+
+        return text
+
 #FIXME TODO
 #class TimeType(DataType):
 #class Ipv4Type(DataType):
 #class Ipv4StrType(DataType):
 #class CidrType(DataType):
-#class HexType(DataType): # __init__(self, size):
-#class HashMd5 / HashSha1 / HashSha256 / HashSha384 / HashSha512
 
 class DataModel:
 
@@ -165,8 +206,15 @@ class DataModel:
         self.addDataType('int', IntType())
         self.addDataType('lwr', LwrType())
         self.addDataType('str', StrType())
+        self.addDataType('hex', HexType())
         self.addDataType('tag', TagType())
         self.addDataType('bool', BoolType())
+
+        self.addDataType('hash:md5', HashType('hash:md5', 16) )
+        self.addDataType('hash:sha1', HashType('hash:sha1', 20) )
+        self.addDataType('hash:sha256', HashType('hash:sha256', 32) )
+        self.addDataType('hash:sha384', HashType('hash:sha384', 48) )
+        self.addDataType('hash:sha512', HashType('hash:sha512', 64) )
 
         self.addDataType('guid', GuidType())
 
