@@ -15,7 +15,6 @@ import synapse.common as s_common
 import synapse.lib.threads as s_threads
 
 from synapse.eventbus import EventBus
-from synapse.statemach import keepstate
 
 from synapse.common import *
 
@@ -35,7 +34,6 @@ class SockXform:
 
     def rxform(self, byts):
         return byts
-
 
 class Socket(EventBus):
 

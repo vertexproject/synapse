@@ -5,10 +5,12 @@ import collections
 logger = logging.getLogger(__name__)
 
 import synapse.link as s_link
-import synapse.lib.threads as s_threads
+import synapse.lib.pki as s_pki
 import synapse.lib.socket as s_socket
+import synapse.lib.threads as s_threads
 
 import synapse.cortex as s_cortex
+import synapse.crypto as s_crypto
 import synapse.impulse as s_impulse
 import synapse.session as s_session
 
@@ -24,19 +26,20 @@ class Daemon(EventBus):
         if core == None:
             core = s_cortex.openurl('ram:///')
 
-        self.socks = {}
-        self.shared = {}
+        self.socks = {}     # sockets by iden
+        self.shared = {}    # objects provided by daemon
+        self.pushed = {}    # objects provided by sockets
 
         if pool == None:
             pool = s_threads.Pool(size=8, maxsize=-1)
 
+        self.pki = s_pki.PkiStor(core)
+
         self.pool = pool
         self.core = core
         self.plex = s_socket.Plex()
-        self.cura = s_session.Curator(core=core)
 
         self.onfini( self.plex.fini )
-        self.onfini( self.cura.fini )
         self.onfini( self.pool.fini )
 
         self.plex.on('link:sock:mesg', self._onLinkSockMesg )
@@ -44,12 +47,41 @@ class Daemon(EventBus):
         self.mesgfuncs = {}
 
         self.setMesgFunc('tele:syn', self._onTeleSynMesg )
-        self.setMesgFunc('tele:fin', self._onTeleFinMesg )
 
+        self.setMesgFunc('tele:skey', self._onTeleSkeyMesg )
         self.setMesgFunc('tele:call', self._onTeleCallMesg )
+
+        # for "client shared" objects...
+        self.setMesgFunc('tele:push', self._onTelePushMesg )
+        self.setMesgFunc('tele:retn', self._onTeleRetnMesg )
 
         self.setMesgFunc('tele:on', self._onTeleOnMesg )
         self.setMesgFunc('tele:off', self._onTeleOffMesg )
+
+    def _onTelePushMesg(self, sock, mesg):
+
+        jid = mesg[1].get('jid')
+        name = mesg[1].get('name')
+
+        def onfini():
+            self.pushed.pop(name,None)
+
+        sock.onfini(onfini)
+
+        self.pushed[name] = sock
+        return sock.tx( tufo('job:done', jid=jid) )
+
+    def _onTeleRetnMesg(self, sock, mesg):
+        # tele:retn - used to pump a job:done to a client
+        suid = mesg[1].get('suid')
+        if suid == None:
+            return
+
+        dest = self.socks.get(suid)
+        if dest == None:
+            return
+
+        dest.tx( tufo('job:done', **mesg[1]) )
 
     def setMesgFunc(self, name, func):
         self.mesgfuncs[name] = func
@@ -59,11 +91,16 @@ class Daemon(EventBus):
         sock = event[1].get('sock')
         sock.on('link:sock:mesg', self._onLinkSockMesg )
 
+        def onfini():
+            self.socks.pop(sock.iden,None)
+
+        sock.onfini(onfini)
+        self.socks[ sock.iden ] = sock
+
         self.plex.addPlexSock(sock)
 
     def _onLinkSockMesg(self, event):
         # THIS MUST NOT BLOCK THE MULTIPLEXOR!
-        #print('ON LINK SOCK MESG: %r' % (event,))
         self.pool.call( self._runLinkSockMesg, event )
 
     def _runLinkSockMesg(self, event):
@@ -82,25 +119,59 @@ class Daemon(EventBus):
             traceback.print_exc()
             logger.error('_runLinkSockMesg: %s', e )
 
-    def _onTeleFinMesg(self, sock, mesg):
-        # if the client is nice enough to notify us...
-        sid = mesg[1].get('sid')
-        sess = self.cura.getSessBySid(sid)
-        if sess == None:
-            return
+    def _genChalSign(self, mesg):
+        '''
+        Generate a sign info for the chal ( if any ) in mesg.
+        '''
+        chal = mesg[1].get('chal')
+        if chal == None:
+            return {}
 
-        sess.fini()
+        host = mesg[1].get('host')
+        if host == None:
+            return {}
+
+        iden = self.pki.getIdenByHost(host)
+        if iden == None:
+            return {}
+
+        cert = self.pki.getTokenCert(iden)
+        sign = self.pki.genByteSign(iden,chal)
+
+        return {'cert':cert,'sign':sign}
 
     def _onTeleSynMesg(self, sock, mesg):
-
+        '''
+        Handle a telepath tele:syn message which is used to setup
+        a telepath session.
+        '''
         jid = mesg[1].get('jid')
         sid = mesg[1].get('sid')
-        if sid == None:
-            sid = self.cura.getNewSess().sid
+        host = mesg[1].get('host')
 
-        with self.cura.getSessBySid(sid) as sess:
-            sess.setSessSock(sock)
-            sess.relay( tufo('job:done', jid=jid, ret=sess.sid) )
+        ret = self._genChalSign(mesg)
+
+        relay = sock.get('relay')
+
+        pki = relay.getLinkProp('pki')
+        if pki:
+            # we require PKI client auth
+            cert = mesg[1].get('cert')
+            if cert == None:
+                return sock.tx(tufo('job:done', jid=jid, err='NoPkiCert'))
+
+            tokn = self.pki.loadCertToken(cert)
+            if tokn == None:
+                return sock.tx(tufo('job:done', jid=jid, err='BadPkiCert'))
+
+            chal = os.urandom(16)
+
+            sock.set('syn:pki:chal:byts',chal)
+            sock.set('syn:pki:chal:token',tokn)
+
+            ret['chal'] = chal
+
+        return sock.tx( tufo('job:done', jid=jid, ret=ret) )
 
     def _onTeleOnMesg(self, sock, mesg):
         # set the socket tx method as the callback
@@ -150,12 +221,34 @@ class Daemon(EventBus):
         off(evt,sock.tx)
         return sock.tx( tufo('job:done', jid=jid, ret=True) )
 
+    def _onTeleSkeyMesg(self, sock, mesg):
+
+        # tele:skey - client specified shared key, encrypted to server w/pki
+
+        jid = mesg[1].get('jid')
+        iden = mesg[1].get('iden')
+        byts = mesg[1].get('skey')
+
+        skey = self.pki.decToIden(iden,byts)
+        if skey == None:
+            return sock.tx(tufo('job:done', jid=jid, err='BadPkiSkey'))
+
+        xform = s_crypto.Rc4Skey( skey )
+
+        sock.tx(tufo('job:done', jid=jid, ret=True))
+
+        sock.addSockXform( s_crypto.Rc4Skey(skey) )
+
     def _onTeleCallMesg(self, sock, mesg):
+
+        # tele:call - call a method on a shared object
 
         jid = mesg[1].get('jid')
         sid = mesg[1].get('sid')
 
-        with self.cura.getSessBySid(sid) as sess:
+        perm = sock.get('perm')
+
+        with s_threads.ScopeLocal(perm=perm, dmon=self, sock=sock):
 
             try:
 
@@ -163,6 +256,13 @@ class Daemon(EventBus):
 
                 item = self.shared.get(name)
                 if item == None:
+                    # is it a pushed object?
+                    pushsock = self.pushed.get(name)
+                    if pushsock != None:
+                        # pass along how to reply
+                        mesg[1]['suid'] = sock.iden
+                        return pushsock.tx( mesg )
+
                     raise NoSuchObj(name)
 
                 task = mesg[1].get('task')
@@ -204,8 +304,30 @@ class Daemon(EventBus):
 
         return link
 
-    def share(self, name, obj):
+    def share(self, name, item, tags=()):
         '''
         Share an object via the telepath protocol.
+
+        Example:
+
+            dmon.share('foo', Foo())
+
         '''
-        self.shared[name] = obj
+        self.shared[name] = item
+
+    def main(self):
+        '''
+        Helper function to block until shutdown ( and handle ctrl-c etc ).
+
+        Example:
+
+            dmon.main()
+            # we have now fini()d
+
+        '''
+        try:
+            self.waitfini()
+        except KeyboardInterrupt as e:
+            print('ctrl-c caught: shutting down')
+            self.fini()
+

@@ -2,6 +2,7 @@ import fnmatch
 import threading
 
 import synapse.lib.cache as s_cache
+import synapse.lib.sched as s_sched
 
 from synapse.eventbus import EventBus
 from synapse.common import *
@@ -17,57 +18,88 @@ def current():
     except AttributeError as e:
         return None
 
+reflock = threading.Lock()
+
 class Sess(EventBus):
 
     def __init__(self, cura, sess):
         EventBus.__init__(self)
+
+
         self.sid = sess[0]
         self.cura = cura
         self.sess = sess
+
         self.local = {}      # runtime only props
+        self.schevt = None
+        self.refcount = 0
 
-        self.sock = None
-        self.sockq = []
+    def link(self, func):
+        self.incref()
+        return EventBus.link(self,func)
 
-    def relay(self, mesg):
-        '''
-        Helper routine for "session" oriented responses which
-        *may* be sent to a socket or may be wrapped for neuron.
+    def unlink(self, func):
+        self.decref()
+        return EventBus.unlink(self,func)
 
-        Example:
+    def incref(self):
+        with reflock:
+            if self.schevt != None:
+                self.cura.sched.cancel(self.schevt)
 
-            sess.relay( tufo('woot', hehe=10) )
+            self.refcount += 1
 
-        '''
-        if self.sock == None:
-            self.sockq.append( mesg )
-            return False
+    def decref(self):
+        with reflock:
+            if self.refcount > 0:
+                self.refcount -= 1
 
-        self.sock.tx(mesg)
-        return True
+            if self.refcount == 0:
+                self.schevt = self.cura.sched.insec(30, self.fini)
 
-    def setSessSock(self, sock):
-        '''
-        Setting the session sock allows reply() API functionality.
-        '''
-        def onfini():
-            self.sock = None
+    #def fire(self, evt, **info):
+        #print('FIRE: %r %s %r' % (self.sess, evt, info))
+        #return EventBus.fire(self, evt, **info)
 
-        sock.onfini( onfini )
+    #def relay(self, mesg):
+        #'''
+        #Helper routine for "session" oriented responses which
+        #*may* be sent to a socket or may be wrapped for neuron.
 
-        self.sock = sock
+        #Example:
+
+            #sess.relay( tufo('woot', hehe=10) )
+
+        #'''
+        #if self.sock == None:
+            #self.sockq.append( mesg )
+            #return False
+
+        #self.sock.tx(mesg)
+        #return True
+
+    #def setSessSock(self, sock):
+        #'''
+        #Setting the session sock allows reply() API functionality.
+        #'''
+        #def onfini():
+            #self.sock = None
+
+        #sock.onfini( onfini )
+
+        #self.sock = sock
 
         # deliver any pending session messages
-        for mesg in self.sockq:
-            sock.tx(mesg)
+        #for mesg in self.sockq:
+            #sock.tx(mesg)
 
-        self.sockq = []
+        #self.sockq = []
 
-    def getSessSock(self):
-        '''
-        Return the current socket for the session or None.
-        '''
-        return self.sock
+    #def getSessSock(self):
+        #'''
+        #Return the current socket for the session or None.
+        #'''
+        #return self.sock
 
     def getUserPerm(self, user, perm):
         if self.get('user') == None:
@@ -91,6 +123,9 @@ class Sess(EventBus):
 
 onehour = 60 * 60
 class Curator(EventBus):
+    '''
+    The Curator class manages session objects and storage.
+    '''
 
     def __init__(self, core=None, maxtime=onehour):
         EventBus.__init__(self)
@@ -101,6 +136,7 @@ class Curator(EventBus):
             core = s_cortex.openurl('ram:///')
 
         self.core = core
+        self.sched = s_sched.getGlobSched()
 
         self.sessions = s_cache.Cache(maxtime=maxtime)
         self.sessions.setOnMiss( self._getSessBySid )
@@ -123,14 +159,38 @@ class Curator(EventBus):
 
     def _onSessCachePop(self, event):
         sess = event[1].get('val')
-        sess.fini()
+        if sess != None:
+            sess.fini()
 
     def __iter__(self):
         return self.sessions.values()
 
+    def formSessBySid(self, sid):
+        '''
+        Retrieve for form a session by sid ( or None ).
+
+        Notes:
+
+            If sid is None or not found, a new sess is 
+            initialized.  Callers should replace their own
+            sid variable with the returned sess.sid in case
+            it was re-generated!
+        '''
+        sess = self.sessions.get(sid)
+        if sess == None:
+            sess = Sess(self, self._initSessTufo())
+            self.sessions.put(sess.sid,sess)
+
+        return sess
+
+    def getNewSess(self):
+        sess = Sess(self, self._initSessTufo())
+        self.sessions.put(sess.sid,sess)
+        return sess
+
     def getSessBySid(self, sid):
         '''
-        Return a session tufo by id (or None to init).
+        Return a session tufo by id.
 
         Example:
 
@@ -147,24 +207,12 @@ class Curator(EventBus):
 
         return Sess(self,sess)
 
-    def getNewSess(self):
-        '''
-        Create a new session and return the tufo.
-
-        Example:
-
-            sess = boss.getNewSess()
-
-        '''
+    def _initSessTufo(self):
         now = int(time.time())
         sess = self.core.addTufoEvent('sess',init=now,root=0)
 
         self.fire('sess:init', sess=sess)
-
-        ret = Sess(self,sess)
-        self.sessions.put(sess[0],ret)
-
-        return ret
+        return sess
 
     def getUserPerm(self, user, perm):
         '''

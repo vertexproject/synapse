@@ -72,6 +72,15 @@ class Axon(EventBus):
         self.core = core
         self.offset = fd.tell()
 
+        model = core.genDataModel()
+
+        model.addTufoType('file')
+        model.addTufoProp('file:mime', defval='unknown/unknown')
+
+        model.addTufoProp('file:hash:md5', ptype='hash:md5')
+        model.addTufoProp('file:hash:sha1', ptype='hash:sha1')
+        model.addTufoProp('file:hash:sha256', ptype='hash:sha256')
+
         self.axfo = core.formTufoByProp('axon:self')
         self.curator = s_session.Curator(core=core)
 

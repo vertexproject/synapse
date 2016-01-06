@@ -12,6 +12,7 @@ import collections
 import synapse.link as s_link
 import synapse.async as s_async
 import synapse.daemon as s_daemon
+import synapse.aspects as s_aspects
 import synapse.dyndeps as s_dyndeps
 import synapse.session as s_session
 import synapse.eventbus as s_eventbus
@@ -20,6 +21,7 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.sched as s_sched
 import synapse.lib.cache as s_cache
+import synapse.lib.socket as s_socket
 
 from synapse.common import *
 from synapse.lib.threads import firethread
@@ -29,26 +31,11 @@ from synapse.eventbus import EventBus
 
 logger = logging.getLogger(__name__)
 
-def openlink(link):
-    '''
-    Open a Dendrite() to a neuron mesh by link tufo.
-    '''
-    relay = s_link.getLinkRelay(link)
-    return Dendrite(relay)
+# FIXME maybe should go in neuron link protocol / relay?
+class NeuSock(s_socket.Socket):
 
-def openurl(url, **opts):
-    '''
-    Open a Dendrite() to a neuron mesh by url.
-    '''
-    link = s_link.chopLinkUrl(url)
-    link[1].update(opts)
-    return openlink(link)
-
-class NeuSock(EventBus):
-
-    def __init__(self, neur, dest, dsid):
-        EventBus.__init__(self)
-        self.dsid = dsid
+    def __init__(self, neur, dest):
+        s_socket.Socket.__init__(self, None)
         self.neur = neur
         self.dest = dest
 
@@ -61,7 +48,7 @@ class Neuron(s_daemon.Daemon):
     Neurons implement a peer-to-peer network mesh using any
     available synapse link protocol.  A neuron mesh provides service
     discovery and RMI transport to allow clients to reach services
-    and APIs via the mesh itself.
+    and APIs via the application layer mesh.
     '''
 
     def __init__(self, core=None, pool=None):
@@ -69,15 +56,13 @@ class Neuron(s_daemon.Daemon):
         s_daemon.Daemon.__init__(self, core=core, pool=pool)
 
         self.sched = s_sched.Sched()
-
-        self.model = self.core.getDataModel()
-        if self.model == None:
-            self.model = s_datamodel.DataModel()
-            self.core.setDataModel(self.model)
+        self.model = self.core.genDataModel()
 
         self.model.addTufoForm('neuron')
+
         self.model.addTufoProp('neuron','name')
         self.model.addTufoProp('neuron','super',ptype='int',defval=0)
+        self.model.addTufoProp('neuron','usepki', ptype='bool', defval=0)
 
         self.neur = self.core.formTufoByProp('neuron','self')
         self.iden = self.neur[0]
@@ -85,7 +70,9 @@ class Neuron(s_daemon.Daemon):
         self.mesh = {}
         self.peers = {}
 
+        self.mesh['certs'] = {}
         self.mesh['links'] = {}
+
         self.mesh['peers'] = { self.iden:self.neur }
 
         self.sockbyfrom = s_cache.Cache(maxtime=120)
@@ -96,14 +83,18 @@ class Neuron(s_daemon.Daemon):
         self.linkpaths = s_cache.Cache(maxtime=30)
         self.linkpaths.setOnMiss( self._getLinkPath )
 
-        self.setMesgFunc('neu:syn', self._onNeuSynMesg )
-        self.setMesgFunc('neu:synack', self._onNeuSynAckMesg )
+        self.setMesgFunc('peer:syn', self._onPeerSynMesg )
+        self.setMesgFunc('peer:synack', self._onPeerSynAckMesg )
+        self.setMesgFunc('peer:link:init', self._onPeerLinkInitMesg )
+
+        #self.setMesgFunc('neu:peer:chal', self._onNeuPeerChal )
+        #self.setMesgFunc('neu:peer:resp', self._onNeuPeerResp )
 
         self.setMesgFunc('neu:data', self._onNeuDataMesg )
         self.setMesgFunc('neu:storm', self._onNeuStormMesg )
 
-        self.on('neu:link:up', self._onNeuLinkUp)
-        self.on('neu:link:down', self._onNeuLinkDown)
+        self.on('neu:link:init', self._onNeuLinkInit)
+        self.on('neu:link:fini', self._onNeuLinkFini)
 
         self.share('neuron',self)
 
@@ -161,6 +152,11 @@ class Neuron(s_daemon.Daemon):
         '''
         return self.neur[1].get(prop)
 
+    #def addShareTask(self, name, task, tags=()):
+        #'''
+        #Add a 'task' tufo to initialize during Neuron startup.
+        #'''
+
     def addNeuShare(self, name, task, tags=()):
         '''
         Add a shared object to the neuron
@@ -212,59 +208,134 @@ class Neuron(s_daemon.Daemon):
         iden,sid = idensid
         return NeuSock(self,iden,sid)
 
-    def _onNeuSynMesg(self, sock, mesg):
+    def _sendPeerSyn(self, sock):
+
+        # only do this once per socket..
+        if sock.get('peer:chal'):
+            return
+
+        # generate and save a challenge blob for the peer
+        chal = os.urandom(16)
+        sock.set('peer:chal', chal)
+
+        # transmit our peer:syn message with challenge blob
+        sock.tx( tufo('peer:syn', chal=chal) )
+
+    def _onPeerSynMesg(self, sock, mesg):
         '''
-        Handle a neu:syn hello from a newly connected peer.
+        Handle peer:syn message to become a neuron peer.
         '''
+        sign = None
+        chal = mesg[1].get('chal')
+
+        if chal != None:
+            sign = self.pki.genByteSign(self.iden, chal)
+
+        cert = self.pki.getTokenCert(self.iden)
+        sock.tx(tufo('peer:synack', iden=self.iden, mesh=self.mesh, cert=cert, sign=sign))
+
+        # this will not send if we've already done so...
+        self._sendPeerSyn(sock)
+
+    def _onPeerSynAckMesg(self, sock, mesg):
+        '''
+        Handle a peer:synack hello from a peer we connected to.
+        '''
+        chal = sock.get('peer:chal')
+        if chal == None:
+            # we didn't send a chal... newp!
+            return
+
         iden = mesg[1].get('iden')
         mesh = mesg[1].get('mesh')
+        sign = mesg[1].get('sign')
+        cert = mesg[1].get('cert')
 
+        if cert != None:
+            self.pki.loadCertToken(cert, save=True)
+
+        if self.neur[1].get('neuron:usepki'):
+            if not self.pki.isValidSign(iden, sign, chal):
+                return
+
+        self.mesh['certs'][iden] = cert
+
+        # Inform the requestor that we have accepted them as a peer
         self._syncMeshDict(mesh)
-
         self._setPeerSock(iden,sock)
 
-        sock.tx( tufo('neu:synack', iden=self.iden, mesh=self.mesh) )
+        # this must be after mesh dict updates!
+        self._genMeshLinkStorm(sock)
 
-    def _onNeuSynAckMesg(self, sock, mesg):
-        '''
-        Handle a neu:synack hello from a peer we connected to.
-        '''
-        iden = mesg[1].get('iden')
-        mesh = mesg[1].get('mesh')
+    def _onPeerLinkInitMesg(self, sock, mesg):
+        # peer:syn->peer:synack->peer:link:init
 
-        self._syncMeshDict(mesh)
-        self._setPeerSock(iden,sock)
+        # the peer:link message confirms that the sender
+        # has accepted us as a peer so we may begin sending
+        # storm/data messages.
+
+        sock.set('peer:link',True)
+        self._genMeshLinkStorm(sock)
 
     def _syncMeshDict(self, mesh):
         '''
         Ingest the mesh dict from a peer
         '''
+        for iden,cert in mesh.get('certs',{}).items():
+            if cert != None:
+                self.pki.loadCertToken(cert, save=False)
+
         for iden,peer in mesh.get('peers',{}).items():
             if self.mesh['peers'].get(iden) == None:
                 self.mesh['peers'][iden] = peer
-                continue
 
         for (iden1,iden2),info in mesh.get('links',{}).items():
             self.addPathLink(iden1,iden2,**info)
+
+    def _genMeshLinkStorm(self, sock):
+        # check if the sock has been mutually peer'd yet
+        # and possibly make the storm() announce if so.
+
+        # do we think he's a peer yet?
+        iden = sock.get('peer:peer')
+        if iden == None:
+            return False
+
+        # does he think we're a peer yet?
+        if not sock.get('peer:link'):
+            return False
+
+        mesh = self.getMeshDict()
+        cert = self.pki.getTokenCert(self.iden)
+
+        self.storm('neu:link:init', link=(self.iden,iden), cert=cert, mesh=mesh)
 
     def _setPeerSock(self, iden, sock):
         '''
         Record that a peer is on the other end of sock.
         '''
+        # we can use this to ensure messages are from peer socks
         self.peers[iden] = sock
+        sock.set('peer:peer',iden)
 
         def onfini():
             # FIXME peer lock and check if it's our sock?
             self.peers.pop(iden,None)
-            self.storm('neu:link:down', link=(self.iden,iden))
+            self.storm('neu:link:fini', link=(self.iden,iden))
 
         sock.onfini(onfini)
-        self.storm('neu:link:up', link=(self.iden,iden))
+
+        sock.tx( tufo('peer:link:init') )
+        #self.storm('neu:link:init', link=(self.iden,iden))
 
     def _onNeuDataMesg(self, sock, mesg):
         '''
         Handle neu:data message ( most likely routing )
         '''
+        # This message is only valid from peer socks
+        if not sock.get('peer:peer'):
+            return
+
         off = mesg[1].get('off') + 1
         path = mesg[1].get('path')
 
@@ -285,11 +356,17 @@ class Neuron(s_daemon.Daemon):
         byts = mesg[1].get('byts')
         newm = msgunpack(byts)
 
+        jid = mesg[1].get('jid')
+        ssid = mesg[1].get('ssid')
         dsid = mesg[1].get('dsid')
+
         if dsid != None:
             sess = self.cura.getSessBySid(dsid)
-            if sess != None:
-                sess.relay(newm)
+            if sess == None: # the session is gone/expired...
+                # FIXME SEND ERROR BACK
+                return
+
+            sess.dist(newm)
             return
 
         ssid = mesg[1].get('ssid')
@@ -434,7 +511,7 @@ class Neuron(s_daemon.Daemon):
 
         self.runPlexSock(sock)
 
-        sock.tx( tufo('neu:syn', iden=self.iden, mesh=self.mesh) )
+        sock.tx( tufo('peer:syn', iden=self.iden, mesh=self.mesh) )
 
     def runPlexSock(self, sock):
         '''
@@ -453,10 +530,16 @@ class Neuron(s_daemon.Daemon):
         self.dist(mesg)
 
         byts = msgenpack(mesg)
+
+        sign = None
+        if self.neur[1].get('neuron:usepki'):
+            sign = self.pki.genByteSign(self.iden, byts)
+
+        cert = self.pki.getTokenCert(self.iden)
         trees = self.getPathTrees()
 
         for tree in trees:
-            self.relay(tree[0], tufo('neu:storm', tree=tree, byts=byts))
+            self.relay(tree[0], tufo('neu:storm', tree=tree, byts=byts, sign=sign, iden=self.iden, cert=cert))
 
         return trees
 
@@ -495,116 +578,49 @@ class Neuron(s_daemon.Daemon):
 
         self.relay(nhop,data)
 
-    def _onNeuLinkUp(self, event):
+    def _onNeuLinkInit(self, event):
         iden0,iden1 = event[1].get('link')
         self.addPathLink(iden0,iden1)
         self.addPathLink(iden1,iden0)
 
-    def _onNeuLinkDown(self, event):
+        cert = event[1].get('cert')
+        if cert != None:
+            self.pki.loadCertToken(cert, save=True)
+
+        mesh = event[1].get('mesh')
+        if mesh != None:
+            self._syncMeshDict(mesh)
+
+    def _onNeuLinkFini(self, event):
         iden0,iden1 = event[1].get('link')
         self.delPathLink(iden0,iden1)
         self.delPathLink(iden1,iden0)
 
     def _onNeuStormMesg(self, sock, mesg):
-        tree = mesg[1].get('tree')
 
+        # This message is only valid from peer socks
+        if not sock.get('peer:peer'):
+            return
+
+        # if they embedded a cert, check/load it
+        cert = mesg[1].get('cert')
+        if cert != None:
+            print("STORM CERT: %r" % (self.pki.loadCertToken(cert),))
+
+        tree = mesg[1].get('tree')
         byts = mesg[1].get('byts')
+        sign = mesg[1].get('sign')
+        iden = mesg[1].get('iden')
+
+        if self.neur[1].get('neuron:usepki'):
+            if not self.pki.isValidSign(iden, sign, byts):
+                print('NEWP2 %s %r' % (iden,sign))
+                print('NEWP2 TOKN %r' % (self.pki.getTokenTufo(iden),))
+                print('NEWP2 MESG: %r' % (msgunpack(byts),) )
+                return
+            
         self.dist( msgunpack(byts) )
 
         for newt in tree[1]:
-            self.relay(newt[0], tufo('neu:storm', tree=newt, byts=byts))
-
-class Dendrite(s_telepath.Proxy):
-
-    def __init__(self, relay):
-
-        s_telepath.Proxy.__init__(self, relay)
-
-        self.sidbydest = {}
-
-        self.onfini( self._onDendFini )
-
-        self.itembytags = s_cache.Cache(maxtime=30)
-        self.itembytags.setOnMiss( self._getByTag )
-
-    def open(self, path):
-        '''
-        Open a connection to the named object on a neuron.
-
-        Name should be in the form:
-        * <iden>/<name>         - object "name" on neuron "iden"
-
-        Example:
-
-            # open object "name" on neuron "iden"
-            prox = dend.open('%s/%s' % (iden,name))
-
-        '''
-        iden,name = path.split('/')
-        job = self._tele_boss.initJob()
-        mesg = tufo('tele:syn', sid=None, jid=job[0])
-
-        self.route(iden,mesg)
-
-        sid = self.sync(job)
-        self.sidbydest[ (iden,name) ] = sid
-        return Proxy( self, iden, name)
-
-    def call(self, iden, name, task, ondone=None):
-        '''
-        Fire a  job to call the given task on a neuron shared object.
-        '''
-        sid = self.sidbydest.get( (iden,name) )
-        job = self._tele_boss.initJob(ondone=ondone)
-        mesg = tufo('tele:call', sid=sid, jid=job[0], name=name, task=task)
-        self.route(iden,mesg)
-        return job
-
-    def _onDendFini(self):
-        '''
-        Make a best-effort attempt to tear down our sessions.
-        '''
-
-class Method:
-    '''
-    Callable method object for methods on remote objecs.
-    '''
-    def __init__(self, prox, meth):
-        self.meth = meth
-        self.prox = prox
-
-        self.name = prox.name
-        self.iden = prox.iden
-        self.dend = prox.dend
-
-    def __call__(self, *args, **kwargs):
-        ondone = kwargs.pop('ondone',None)
-        task = ( self.meth, args, kwargs )
-        job = self.dend.call(self.iden, self.name, task, ondone=ondone)
-        if ondone != None:
-            return job
-        return self.dend.sync(job)
-
-class Proxy:
-    '''
-    An RMI proxy for methods exposed on objects shared in the mesh.
-    '''
-    def __init__(self, dend, iden, name):
-        self.iden = iden
-        self.name = name
-        self.dend = dend
-
-    def __getattr__(self, name):
-        meth = Method(self, name)
-        setattr(self,name,meth)
-        return meth
-
-    def call(self, name, *args, **kwargs):
-        ondone = kwargs.pop('ondone',None)
-        task = (name,args,kwargs)
-        return self.dend.call( self.iden, self.name, task, ondone=ondone)
-
-    def sync(self, job, timeout=None):
-        return self.dend.sync(job,timeout=timeout)
-
+            self.relay(newt[0], tufo('neu:storm', tree=newt, byts=byts, iden=iden, sign=sign))
 

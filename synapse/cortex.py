@@ -19,8 +19,6 @@ insertion, and provide for atomic deconfliction if needed.
 import synapse.link as s_link
 import synapse.async as s_async
 import synapse.lib.sched as s_sched
-import synapse.compat as s_compat
-import synapse.telepath as s_telepath
 
 import synapse.cores.ram
 import synapse.cores.sqlite
@@ -41,8 +39,6 @@ class InvalidParam(Exception):
         self.param = name
 
 corclasses = {
-    'tcp':s_telepath.Proxy,
-
     'ram':synapse.cores.ram.Cortex,
     'sqlite':synapse.cores.sqlite.Cortex,
     'postgres':synapse.cores.postgres.Cortex,

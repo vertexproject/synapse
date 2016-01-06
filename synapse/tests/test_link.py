@@ -70,8 +70,8 @@ class LinkTest(unittest.TestCase):
         self.assertEqual(link[1].get('host'),'127.0.0.1')
         self.assertEqual(link[1].get('rc4key'),b'wootwoot')
 
-        self.assertEqual(link[1]['authinfo'].get('user'),'visi')
-        self.assertEqual(link[1]['authinfo'].get('passwd'),'secret')
+        self.assertEqual(link[1].get('user'),'visi')
+        self.assertEqual(link[1].get('passwd'),'secret')
 
     def newp_link_ssl_basic(self):
 
@@ -125,4 +125,9 @@ class LinkTest(unittest.TestCase):
 
         url = 'ssl://localhost:33333/foobar?certfile=/newpnewpnewp'
         self.assertRaises( NoSuchFile, s_telepath.openurl, url )
+
+    def test_link_pool(self):
+        link = s_link.chopLinkUrl('foo://visi:c@t@woot.com?poolsize=7&poolmax=-1')
+        self.assertEqual( link[1].get('poolsize'), 7 )
+        self.assertEqual( link[1].get('poolmax'), -1 )
 

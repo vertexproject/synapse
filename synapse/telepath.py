@@ -2,15 +2,20 @@
 An RMI framework for synapse.
 '''
 import copy
+import getpass
 import threading
 import threading
 import traceback
 
 import synapse.link as s_link
 import synapse.async as s_async
+import synapse.crypto as s_crypto
+import synapse.eventbus as s_eventbus
+
+import synapse.lib.pki as s_pki
 import synapse.lib.queue as s_queue
 import synapse.lib.socket as s_socket
-import synapse.eventbus as s_eventbus
+import synapse.lib.threads as s_threads
 
 from synapse.common import *
 from synapse.compat import queue
@@ -82,13 +87,21 @@ class Proxy(s_eventbus.EventBus):
         #       derefs with overlapping names from working correctly
 
         self._tele_sid = None
+        self._tele_pki = None
 
         self._tele_q = s_queue.Queue()
+        self._tele_pushed = {}
 
         self._tele_boss = s_async.Boss()
         self._tele_plex = s_socket.getGlobPlex()
 
         self._raw_on('job:done', self._tele_boss.dist )
+        self._raw_on('tele:call', self._onTeleCall )
+
+        poolmax = relay.getLinkProp('poolmax', -1)
+        poolsize = relay.getLinkProp('poolsize', 0)
+
+        self._tele_pool = s_threads.Pool(size=poolsize, maxsize=poolmax)
 
         self.consume( self._tele_q )
 
@@ -99,6 +112,14 @@ class Proxy(s_eventbus.EventBus):
         # obj name is path minus leading "/"
         self._tele_name = relay.link[1].get('path')[1:]
 
+        if relay.getLinkProp('pki'):
+
+            #TODO pkiurl
+
+            self._tele_pki = relay.getLinkProp('pkistor')
+            if self._tele_pki == None:
+                self._tele_pki = s_pki.getUserPki()
+
         self._initTeleSock()
 
     def _raw_on(self, name, func):
@@ -108,7 +129,6 @@ class Proxy(s_eventbus.EventBus):
         return s_eventbus.EventBus.off(self, name, func)
 
     def on(self, name, func):
-
         self._tele_ons.add(name)
 
         job = self._txTeleJob('tele:on', events=[name], name=self._tele_name)
@@ -143,6 +163,35 @@ class Proxy(s_eventbus.EventBus):
         task = (name, args, kwargs)
         return self._tx_call(task,ondone=ondone)
 
+    def callx(self, name, task, ondone=None):
+        '''
+        Call a method on a specific shared object as a job.
+
+        Example:
+
+            # task is (<method>,<args>,<kwargs>)
+            task = ('getFooByBar', (bar,), {} )
+
+            job = proxy.callx('woot',task)
+            ret = proxy.sync(job)
+
+        '''
+        return self._txTeleJob('tele:call', name=name, task=task, ondone=ondone)
+
+    def push(self, name, item):
+        '''
+        Push access to an object to the daemon, allowing other clients access.
+
+        Example:
+
+            prox = s_telepath.openurl('tcp://127.0.0.1/')
+            prox.push( 'bar', Bar() )
+
+        '''
+        job = self._txTeleJob('tele:push', name=name)
+        self._tele_pushed[ name ] = item
+        return self.sync(job)
+
     def _tx_call(self, task, ondone=None):
         return self._txTeleJob('tele:call', name=self._tele_name, task=task, ondone=ondone)
 
@@ -152,6 +201,7 @@ class Proxy(s_eventbus.EventBus):
 
         Example:
 
+            job = proxy.call('woot', 10, bar=20)
             ret = proxy.sync(job)
 
         '''
@@ -200,18 +250,103 @@ class Proxy(s_eventbus.EventBus):
         if len( self._tele_boss.jobs() ):
             self._initTeleSock()
 
+    def _onTeleCall(self, mesg):
+        # dont block consumer thread... task pool
+        self._tele_pool.call( self._runTeleCall, mesg )
+
+    def _runTeleCall(self, mesg):
+
+        jid = mesg[1].get('jid')
+        name = mesg[1].get('name')
+        task = mesg[1].get('task')
+        suid = mesg[1].get('suid')
+
+        retinfo = dict(suid=suid,jid=jid)
+
+        try:
+
+            item = self._tele_pushed.get(name)
+            if item == None:
+                return self._txTeleSock('tele:retn', err='NoSuchObj', errmsg=name, **retinfo)
+
+            meth,args,kwargs = task
+            func = getattr(item,meth,None)
+            if func == None:
+                return self._txTeleSock('tele:retn', err='NoSuchMeth', errmsg=meth, **retinfo)
+
+            self._txTeleSock('tele:retn', ret=func(*args,**kwargs), **retinfo )
+
+        except Exception as e:
+            retinfo.update( excinfo(e) )
+            return self._txTeleSock('tele:retn', **retinfo)
+
     def _getTeleSock(self):
         if self._tele_sock.isfini:
             self._initTeleSock()
 
         return self._tele_sock
 
+    def _getUserCert(self):
+        '''
+        If pki is enabled, return the cert for link username as iden.
+        '''
+        if self._tele_pki == None:
+            return None
+
+        iden = self._tele_relay.getLinkProp('user')
+        return self._tele_pki.getTokenCert(iden)
+
     def _teleSynAck(self):
         '''
         Send a tele:syn to get a telepath session
         '''
-        job = self._txTeleJob('tele:syn', sid=self._tele_sid )
-        self._tele_sid = self.sync( job )
+
+        chal = os.urandom(16)
+        cert = self._getUserCert()
+
+        host = self._tele_relay.getLinkProp('host')
+
+        msginfo = dict(sid=self._tele_sid)
+
+        job = self._txTeleJob('tele:syn', sid=self._tele_sid, chal=chal, cert=cert, host=host )
+
+        synresp = self.sync(job)
+
+        # we require the server to auth...
+        if self._tele_pki:
+
+            cert = synresp.get('cert')
+            if cert == None:
+                raise Exception('NoPkiCert')
+
+            tokn = self._tele_pki.loadCertToken(cert)
+            if tokn == None:
+                # FIXME pki exceptions...
+                raise Exception('BadPkiCert')
+
+            #if tokn[1].get('host') != host:
+                #raise Exception('BadPkiHost')
+
+            sign = synresp.get('sign')
+            if sign == None:
+                raise Exception('NoPkiSign')
+
+            if not self._tele_pki.isValidSign(tokn[0],sign,chal):
+                raise Exception('BadPkiSign')
+
+            ckey = os.urandom(16)
+            skey = self._tele_pki.encToIden(tokn[0], ckey)
+
+            job = self._txTeleJob('tele:skey', iden=tokn[0], algo='rc4', skey=skey)
+            if not self.sync(job):
+                raise Exception('BadSetSkey')
+
+            xform = s_crypto.Rc4Skey(ckey)
+            self._tele_sock.addSockXform(xform)
+
+        self._tele_sid = synresp.get('sess')
+
+        #self._tele_sid = self.sync( job )
 
         events = list(self._tele_ons)
 
@@ -244,6 +379,7 @@ class Proxy(s_eventbus.EventBus):
         if not self._tele_sock.isfini:
             self._tele_sock.tx( tufo('tele:fin', sid=self._tele_sid) )
 
+        self._tele_pool.fini()
         self._tele_boss.fini()
         self._tele_sock.fini()
 

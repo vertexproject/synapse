@@ -209,6 +209,17 @@ class EventBus:
             return self._fini_weaks.add(func)
         self._fini_funcs.append(func)
 
+    def waitfini(self, timeout=None):
+        '''
+        Wait for the event bus to fini()
+
+        Example:
+
+            bus.waitfini(timeout=30)
+
+        '''
+        return self.finievt.wait(timeout=timeout)
+
     def distall(self, events):
         '''
         Distribute multiple events on the event bus.

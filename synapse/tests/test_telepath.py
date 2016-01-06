@@ -2,11 +2,12 @@ import time
 import unittest
 
 import synapse.link as s_link
+import synapse.async as s_async
 import synapse.daemon as s_daemon
-import synapse.session as s_session
+#import synapse.session as s_session
 import synapse.telepath as s_telepath
 
-from synapse.common import *
+from synapse.tests.common import *
 
 class Foo:
 
@@ -19,14 +20,13 @@ class Foo:
     def speed(self):
         return
 
-    def get(self, prop):
-        return s_session.current().get(prop)
+    #def get(self, prop):
+        #return s_session.current().get(prop)
 
-    def set(self, prop, valu):
-        return s_session.current().set(prop,valu)
+    #def set(self, prop, valu):
+        #return s_session.current().set(prop,valu)
 
-
-class TelePathTest(unittest.TestCase):
+class TelePathTest(SynTest):
 
     def getFooServ(self):
         dmon = s_daemon.Daemon()
@@ -36,11 +36,19 @@ class TelePathTest(unittest.TestCase):
 
         return dmon,link
 
+    def getFooEnv(self, url='tcp://127.0.0.1:0/foo'):
+        env = TestEnv()
+        env.add('dmon', s_daemon.Daemon(), fini=True)
+        env.add('link', env.dmon.listen(url))
+
+        env.dmon.share('foo',Foo())
+        return env
+
     def test_telepath_basics(self):
 
-        dmon,link = self.getFooServ()
+        env = self.getFooEnv()
 
-        foo = s_telepath.openlink(link)
+        foo = s_telepath.openlink(env.link)
 
         s = time.time()
         for i in range(1000):
@@ -60,7 +68,7 @@ class TelePathTest(unittest.TestCase):
         self.assertRaises( JobErr, foo.baz, 10, 20 )
 
         foo.fini()
-        dmon.fini()
+        env.fini()
 
     def test_telepath_chop(self):
 
@@ -84,20 +92,20 @@ class TelePathTest(unittest.TestCase):
 
         dmon.fini()
 
-    def test_telepath_sess(self):
-        dmon,link = self.getFooServ()
-        port = link[1].get('port')
+    #def test_telepath_sess(self):
+        #dmon,link = self.getFooServ()
+        #port = link[1].get('port')
 
-        foo = s_telepath.openurl('tcp://localhost:%d/foo' % (port,))
+        #foo = s_telepath.openurl('tcp://localhost:%d/foo' % (port,))
 
-        self.assertIsNone( foo.get('woot') )
+        #self.assertIsNone( foo.get('woot') )
 
-        foo.set('woot',10)
+        #foo.set('woot',10)
 
-        self.assertEqual( foo.get('woot'), 10 )
+        #self.assertEqual( foo.get('woot'), 10 )
 
-        foo.fini()
-        dmon.fini()
+        #foo.fini()
+        #dmon.fini()
 
     def test_telepath_call(self):
         dmon,link = self.getFooServ()
@@ -111,3 +119,67 @@ class TelePathTest(unittest.TestCase):
 
         foo.fini()
         dmon.fini()
+
+    def test_telepath_pki(self):
+        env = self.getFooEnv(url='tcp://127.0.0.1:0/foo?pki=1')
+        port = env.link[1].get('port')
+
+        pki = env.dmon.pki # steal his...
+
+        user = pki.genUserToken('visi',bits=512)
+        host = pki.genHostToken('127.0.0.1',bits=512)
+        root = pki.genUserToken('root', bits=512, root=True)
+
+        pki.genTokenCert(user, signas=root[0])
+        pki.genTokenCert(host, signas=root[0])
+
+        #prox = s_telepath.openurl('tcp://localhost/foo?pki=1', port=port, pkistor=pki)
+        prox = s_telepath.openurl('tcp://127.0.0.1/foo?pki=1', port=port, pkistor=pki)
+        self.assertEqual( prox.bar(10,20), 30 )
+
+        env.fini()
+
+    def test_telepath_pki_nocert(self):
+        env = self.getFooEnv(url='tcp://127.0.0.1:0/foo?pki=1')
+        port = env.link[1].get('port')
+        self.assertRaises( s_async.JobErr, s_telepath.openurl, 'tcp://127.0.0.1/foo', port=port )
+        env.fini()
+
+    def test_telepath_push(self):
+        env = self.getFooEnv()
+        port = env.link[1].get('port')
+
+        prox0 = s_telepath.openurl('tcp://127.0.0.1/', port=port)
+        prox0.push('foo1', Foo() )
+
+        prox1 = s_telepath.openurl('tcp://127.0.0.1/foo1', port=port)
+
+        self.eq( prox1.bar(10,20), 30 )
+
+        prox0.fini()
+
+        self.assertRaises( s_async.JobErr, prox1.bar, 10, 20 )
+
+        prox1.fini()
+
+        env.fini()
+
+    def test_telepath_callx(self):
+
+        class Baz:
+            def faz(self, x, y=10):
+                return '%d:%d' % (x,y)
+
+        env = self.getFooEnv()
+        env.dmon.share('baz', Baz())
+
+        port = env.link[1].get('port')
+        foo = s_telepath.openurl('tcp://127.0.0.1/foo', port=port)
+
+        # make sure proxy is working normally...
+        self.assertEqual( foo.bar(10,20), 30 )
+
+        # carry out a cross item task
+        job = foo.callx( 'baz', ('faz', (30,), {'y':40}), )
+
+        self.assertEqual( foo.sync(job), '30:40' )
