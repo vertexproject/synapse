@@ -247,8 +247,7 @@ class Proxy(s_eventbus.EventBus):
         if self.isfini:
             return
 
-        if len( self._tele_boss.jobs() ):
-            self._initTeleSock()
+        self._initTeleSock()
 
     def _onTeleCall(self, mesg):
         # dont block consumer thread... task pool

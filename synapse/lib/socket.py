@@ -1,7 +1,6 @@
 from __future__ import absolute_import,unicode_literals
 
 import os
-import atexit
 import select
 import socket
 import logging
@@ -496,8 +495,6 @@ def getGlobPlex():
     with s_glob.lock:
         if s_glob.plex == None:
             s_glob.plex = Plex()
-
-            atexit.register(s_glob.plex.fini)
 
         return s_glob.plex
 
