@@ -42,7 +42,7 @@ class Socket(EventBus):
         self.sock = sock
         self.plex = None
         self.unpk = msgpack.Unpacker(use_list=0,encoding='utf8')
-        self.iden = s_common.guid()
+        self.iden = s_common.guidstr()
         self.xforms = []        # list of SockXform instances
         self.info = info
 
