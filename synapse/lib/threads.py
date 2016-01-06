@@ -12,6 +12,31 @@ import synapse.lib.queue as s_queue
 from synapse.common import *
 from synapse.eventbus import EventBus
 
+class ScopeLocal:
+    '''
+    Allow a with block to add/remove a thread local by name
+
+    Example:
+
+        import syanpse.lib.threads as s_threads
+
+        with s_threads.ScopeLocal('foo',thing):
+            # deep caller may now...
+            foo = s_threads.scope('foo')
+
+    '''
+    def __init__(self, **locs):
+        self.olds = None
+        self.locs = locs
+
+    def __enter__(self):
+        self.olds = { n:getattr(thrloc,n,None) for n in self.locs.keys() }
+        [ setattr(thrloc,n,i) for (n,i) in self.locs.items() ]
+        return self
+
+    def __exit__(self, exc, cls, tb):
+        [ setattr(thrloc,n,i) for (n,i) in self.olds.items() ]
+
 class PerThread:
     '''
     A helper class for managing thread local variables.
@@ -72,7 +97,7 @@ per = PerThread()
 per.setPerCtor('monoq', s_queue.Queue)
 
 thrloc = threading.local()
-def get(key,defval=None):
+def local(key,defval=None):
     return getattr(thrloc,key,defval)
 
 def current():
