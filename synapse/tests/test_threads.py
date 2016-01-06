@@ -117,3 +117,16 @@ class ThreadsTest(unittest.TestCase):
         safe = s_threads.ThreadSafe(item)
 
         self.assertEqual( safe.bar(), 'baz')
+
+    def test_threads_scope(self):
+
+        class Foo:
+            def bar(self):
+                return 'baz'
+
+        with s_threads.ScopeLocal(foo=Foo()):
+            foo = s_threads.local('foo')
+            self.assertEqual( foo.bar(), 'baz' )
+
+        self.assertIsNone( s_threads.local('foo') )
+
