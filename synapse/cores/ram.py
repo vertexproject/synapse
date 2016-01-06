@@ -63,7 +63,7 @@ class Cortex(common.Cortex):
             self.rowsbyvalu.pop(propvalu,None)
 
     def _getRowsById(self, iden):
-        return self.rowsbyid.get(iden,())
+        return list(self.rowsbyid.get(iden,()))
 
     def _getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
 
