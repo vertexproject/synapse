@@ -481,6 +481,9 @@ class Cortex(EventBus):
         props = self._normTufoProps(form,props)
         props[form] = iden
 
+        self.fire('tufo:form', form=form, valu=iden, props=props)
+        self.fire('tufo:form:%s' % form, form=form, valu=iden, props=props)
+
         rows = [ (iden,p,v,stamp) for (p,v) in props.items() ]
 
         self.addRows(rows)
