@@ -309,7 +309,7 @@ class Proxy(s_eventbus.EventBus):
 
         job = self._txTeleJob('tele:syn', sid=self._tele_sid, chal=chal, cert=cert, host=host )
 
-        synresp = self.sync(job)
+        synresp = self.sync(job, timeout=4)
 
         # we require the server to auth...
         if self._tele_pki:
@@ -322,9 +322,6 @@ class Proxy(s_eventbus.EventBus):
             if tokn == None:
                 # FIXME pki exceptions...
                 raise Exception('BadPkiCert')
-
-            #if tokn[1].get('host') != host:
-                #raise Exception('BadPkiHost')
 
             sign = synresp.get('sign')
             if sign == None:
@@ -344,8 +341,6 @@ class Proxy(s_eventbus.EventBus):
             self._tele_sock.addSockXform(xform)
 
         self._tele_sid = synresp.get('sess')
-
-        #self._tele_sid = self.sync( job )
 
         events = list(self._tele_ons)
 
