@@ -369,12 +369,13 @@ class Plex(EventBus):
 
     def _txSockMesg(self, sock, mesg):
         # handle the need to send on a socket in the plex
+        byts = msgenpack(mesg)
         with self._plex_lock:
 
             # we have no backlog!
             if sock.txbuf == None:
 
-                byts = sock._tx_xform( msgenpack(mesg) )
+                byts = sock._tx_xform( byts )
 
                 try:
                     sent = sock.send(byts)
@@ -392,7 +393,7 @@ class Plex(EventBus):
                 return
 
             # so... we have a backlog...
-            sock.txque.append(mesg)
+            sock.txque.append(byts)
 
     def _runSockTx(self, sock):
         # handle socket select() for tx
@@ -419,8 +420,8 @@ class Plex(EventBus):
                 return
 
             # more msgs! lets serialize the next!
-            mesg = sock.txque.popleft()
-            sock.txbuf = sock._tx_xform( msgenpack(mesg) )
+            byts = sock.txque.popleft()
+            sock.txbuf = sock._tx_xform( byts )
 
     def _isPlexThr(self):
         return getattr(threading.currentThread(),'_thr_plex',None) == self
