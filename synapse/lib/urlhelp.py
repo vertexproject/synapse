@@ -1,4 +1,6 @@
 
+from synapse.exc import *
+
 def chopurl(url):
     '''
     A sane "stand alone" url parser.
