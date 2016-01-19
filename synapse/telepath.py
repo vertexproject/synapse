@@ -31,11 +31,13 @@ def openurl(url,**opts):
         foo.dostuff(30) # call remote method
 
     '''
+    plex = opts.pop('plex',None)
+
     link = s_link.chopLinkUrl(url)
     link[1].update(opts)
 
     relay = s_link.getLinkRelay(link)
-    return Proxy(relay)
+    return Proxy(relay, plex=plex)
 
 def openlink(link):
     '''
@@ -78,7 +80,7 @@ class Proxy(s_eventbus.EventBus):
         under the assumption it's something else....
 
     '''
-    def __init__(self, relay):
+    def __init__(self, relay, plex=None):
 
         s_eventbus.EventBus.__init__(self)
         self.onfini( self._onProxyFini )
@@ -92,8 +94,11 @@ class Proxy(s_eventbus.EventBus):
         self._tele_q = s_queue.Queue()
         self._tele_pushed = {}
 
+        if plex == None:
+            plex = s_socket.Plex()
+
+        self._tele_plex = plex
         self._tele_boss = s_async.Boss()
-        self._tele_plex = s_socket.getGlobPlex()
 
         self._raw_on('job:done', self._tele_boss.dist )
         self._raw_on('tele:call', self._onTeleCall )
