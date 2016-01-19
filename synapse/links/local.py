@@ -31,7 +31,12 @@ class LocalRelay(LinkRelay):
     def _listen(self):
 
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.bind( self._getTempPath() )
+
+        path = self._getTempPath()
+        if os.path.exists(path):
+            os.unlink(path)
+
+        s.bind(path)
         s.listen(120)
 
         return s_socket.Socket(s, listen=True)
