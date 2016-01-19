@@ -1,33 +1,17 @@
 import time
 import socket
-import threading
 
 import synapse.lib.socket as s_socket
 
 from synapse.common import *
 from synapse.links.common import *
 
-def reqValidHost(link):
-    host = link[1].get('host')
-    if host == None:
-        raise PropNotFound('host')
-
-    try:
-        socket.gethostbyname(host)
-    except socket.error as e:
-        raise BadPropValu('host=%r' % host)
-
-def reqValidPort(link):
-    port = link[1].get('port')
-    if port == None:
-        raise PropNotFound('host')
-
-    if port < 0 or port > 65535:
-        raise BadPropValue('port=%d' % (port,))
-
 class TcpRelay(LinkRelay):
     '''
     Implements the TCP protocol for synapse.
+
+    tcp://[user[:passwd]@]<host>[:port]/<path>
+
     '''
     proto = 'tcp'
 

@@ -10,8 +10,7 @@ from synapse.eventbus import EventBus
 protos = {
     'tcp':s_tcp.TcpRelay,
     'ssl':s_ssl.SslRelay,
-    #'neu+tcp',s_neu.NeuRelay,
-    #'local':s_local.LocalProto(),
+    'local':s_local.LocalRelay,
 }
 
 def addLinkProto(name, ctor):

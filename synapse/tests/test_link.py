@@ -131,3 +131,18 @@ class LinkTest(unittest.TestCase):
         self.assertEqual( link[1].get('poolsize'), 7 )
         self.assertEqual( link[1].get('poolmax'), -1 )
 
+
+    def test_link_local(self):
+        name = guidstr()
+
+        dmon = s_daemon.Daemon()
+        dmon.share('foo',FooBar())
+
+        link = dmon.listen('local://%s' % (name,))
+
+        prox = s_telepath.openurl('local://%s/foo' % name)
+
+        self.assertEqual( prox.foo(), 'bar' )
+
+        prox.fini()
+        dmon.fini()
