@@ -3,6 +3,7 @@ import unittest
 import threading
 
 import synapse.session as s_session
+import synapse.lib.thishost as s_thishost
 
 from synapse.common import *
 
@@ -63,6 +64,16 @@ class SynTest(unittest.TestCase):
 
     def getTestWait(self, bus, size, *evts):
         return TestWaiter(bus, size, *evts)
+
+    def thisHostMust(self, **props):
+        for k,v in props.items():
+            if s_thishost.get(k) != v:
+                unittest.skip('skip thishost: %s!=%r' % (k,v))
+
+    def thisHostMustNot(self, **props):
+        for k,v in props.items():
+            if s_thishost.get(k) == v:
+                raise unittest.SkipTest('skip thishost: %s==%r' % (k,v))
 
     def eq(self, x, y):
         self.assertEqual(x,y)
