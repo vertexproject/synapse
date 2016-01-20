@@ -1,28 +1,41 @@
 import ctypes
+import platform
 
-import synapse.glob as s_glob
-import synapse.eventbus as s_eventbus
+import synapse.lib.platforms.linux as s_linux
+import synapse.lib.platforms.darwin as s_darwin
+import synapse.lib.platforms.freebsd as s_freebsd
+import synapse.lib.platforms.windows as s_windows
 
-# Allows other APIs to add things to host info
-thisbus = s_eventbus.EventBus()
+hostinfo = {}
+hostinfo['ptrsize'] = ctypes.sizeof( ctypes.c_void_p )
+
+platinit = {
+    'linux':s_linux._initHostInfo,
+    'darwin':s_darwin._initHostInfo,
+    'freebsd':s_freebsd._initHostInfo,
+}
+
+# avoid using osname to detect windows because of variants...
+if getattr(ctypes,'windll',None):
+    s_windows._initHostInfo(hostinfo)
+
+osname = platform.system().lower()
+infoinit = platinit.get(osname)
+if infoinit != None:
+    infoinit(hostinfo)
 
 def get(prop):
-    info = getHostInfo()
-    return info.get(prop)
+    '''
+    Retrieve a property from the hostinfo dictionary.
 
-def newHostInfo():
-    return {}
 
-def getHostInfo():
-    if s_glob.hostinfo == None:
-        with s_glob.lock:
-            if s_glob.hostinfo == None:
+    Example:
 
-                s_glob.hostinfo = newHostInfo()
+        import synapse.lib.thishost as s_thishost
 
-                #addHostInfo( s_glob.hostinfo )
+        if s_thishost.get('platform') == 'windows':
+            dostuff()
 
-    return s_glob.hostinfo
-    #info = {}
-    #thisbus.fire('this:init', info)
-    #return info
+
+    '''
+    return hostinfo.get(prop)
