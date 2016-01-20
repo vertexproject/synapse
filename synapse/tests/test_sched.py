@@ -60,6 +60,8 @@ class SchedTest(unittest.TestCase):
         sched.persec(10, woot, 10, y='hehe')
         evt.wait(timeout=0.5)
 
+        self.assertTrue( evt.is_set() )
+
         elapsed = time.time() - s
         self.assertTrue( elapsed > 0.2 and elapsed < 0.3 )
 
