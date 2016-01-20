@@ -136,6 +136,9 @@ def getModDefCode(moddef):
     '''
     Return a compiled code object for a moddef.
     '''
+    if moddef[1].get('fmt') != 'src':
+        return None
+
     path = moddef[1].get('path')
     modsrc = getModDefSrc(moddef)
     return compile(modsrc,path,'exec')
@@ -227,6 +230,8 @@ def getModDefImps(moddef):
     modules imported by moddef.
     '''
     modcode = getModDefCode(moddef)
+    if modcode == None:
+        return ()
 
     i = 0
     ops = list( iterbytes( modcode.co_code ) )
