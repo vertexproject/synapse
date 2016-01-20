@@ -66,6 +66,11 @@ class SocketTest(SynTest):
 
     def test_sock_plex_txbuf(self):
 
+        # windows sockets seem to allow *huge* buffers in non-blocking
+        # so triggering txbuf takes *way* too much ram to be a feasable test
+        if s_thishost.get('platform') == 'windows':
+            return
+
         plex = s_socket.Plex()
 
         s1,s2 = s_socket.socketpair()

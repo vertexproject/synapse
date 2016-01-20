@@ -9,7 +9,6 @@ import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 import synapse.lib.urlhelp as s_urlhelp
 
-from synapse.common import *
 from synapse.tests.common import *
 
 class FooBar:
@@ -18,7 +17,7 @@ class FooBar:
 
         return 'bar'
 
-class LinkTest(unittest.TestCase):
+class LinkTest(SynTest):
 
     def test_link_invalid(self):
         link = ('tcp',{})
@@ -133,6 +132,7 @@ class LinkTest(unittest.TestCase):
 
 
     def test_link_local(self):
+        self.thisHostMustNot(platform='windows')
         name = guidstr()
 
         dmon = s_daemon.Daemon()
