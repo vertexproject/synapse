@@ -1,0 +1,31 @@
+environment:
+
+  matrix:
+
+    - PYTHON: "C:\\Python27"
+
+    - PYTHON: "C:\\Python27-x64"
+
+    - PYTHON: "C:\\Python34"
+
+    - PYTHON: "C:\\Python34-x64"
+
+install:
+  # Check that we have the expected version and architecture for Python
+  - "%PYTHON%\\python.exe --version"
+  - "%PYTHON%\\python.exe -c \"import struct; print(struct.calcsize('P') * 8)\""
+
+  # Upgrade to the latest version of pip to avoid it displaying warnings
+  # about it being out of date.
+  - "%PYTHON%\\Scripts\\pip.exe install --disable-pip-version-check --user --upgrade pip"
+  - "%PYTHON%\\Scripts\\pip.exe install --upgrade setuptools"
+
+  # force setuptools to install deps
+  - "%CMD_IN_ENV% %PYTHON%\\python.exe setup.py develop"
+
+# no msbuild phase in the project
+build: off
+
+test_script:
+  # Run the project tests
+  - "%CMD_IN_ENV% %PYTHON%\\python.exe -m unittest discover -v --fail"
