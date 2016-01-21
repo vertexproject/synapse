@@ -20,8 +20,11 @@ install:
   - "%PYTHON%\\Scripts\\pip.exe install --disable-pip-version-check --user --upgrade pip"
   - "%PYTHON%\\Scripts\\pip.exe install --upgrade setuptools"
 
+  # for now...  should somehow be managed via setup.py
+  - "%PYTHON%\\Scripts\\pip.exe install msgpack-python cyptography requests tornado"
+
   # force setuptools to install deps
-  - "%CMD_IN_ENV% %PYTHON%\\python.exe setup.py develop"
+  #- "%CMD_IN_ENV% %PYTHON%\\python.exe setup.py develop"
 
 # no msbuild phase in the project
 build: off
