@@ -21,7 +21,7 @@ install:
   - "%PYTHON%\\Scripts\\pip.exe install --upgrade setuptools"
 
   # for now...  should somehow be managed via setup.py
-  - "%PYTHON%\\Scripts\\pip.exe install msgpack-python cyptography requests tornado"
+  - "%PYTHON%\\Scripts\\pip.exe install msgpack-python cryptography requests tornado"
 
   # force setuptools to install deps
   #- "%CMD_IN_ENV% %PYTHON%\\python.exe setup.py develop"
