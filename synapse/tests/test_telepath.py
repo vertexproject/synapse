@@ -5,6 +5,7 @@ import synapse.link as s_link
 import synapse.async as s_async
 import synapse.daemon as s_daemon
 #import synapse.session as s_session
+import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
 from synapse.tests.common import *
@@ -183,3 +184,38 @@ class TelePathTest(SynTest):
         job = foo.callx( 'baz', ('faz', (30,), {'y':40}), )
 
         self.assertEqual( foo.sync(job), '30:40' )
+
+    def test_telepath_fakesync(self):
+        env = self.getFooEnv()
+        port = env.link[1].get('port')
+
+        class DeadLock(s_eventbus.EventBus):
+
+            def hork(self):
+                self.fire('foo:bar')
+
+            def bar(self, x, y):
+                return x + y
+
+        dead = DeadLock()
+        env.dmon.share('dead',dead)
+
+        data = {}
+        evt = threading.Event()
+
+        prox = s_telepath.openurl('tcp://127.0.0.1/dead', port=port)
+        def foobar(mesg):
+            data['foobar'] = prox.bar(10,20)
+            evt.set()
+
+        prox.on('foo:bar', foobar)
+
+        prox.hork()
+
+        evt.wait(timeout=2)
+
+        self.assertEqual( data.get('foobar'), 30 )
+
+        prox.fini()
+        dead.fini()
+        env.fini()

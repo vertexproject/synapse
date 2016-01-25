@@ -106,9 +106,8 @@ class Proxy(s_eventbus.EventBus):
         poolmax = relay.getLinkProp('poolmax', -1)
         poolsize = relay.getLinkProp('poolsize', 0)
 
+        self._tele_cthr = self.consume( self._tele_q )
         self._tele_pool = s_threads.Pool(size=poolsize, maxsize=poolmax)
-
-        self.consume( self._tele_q )
 
         self._tele_ons = set()
         self._tele_sock = None
@@ -210,11 +209,34 @@ class Proxy(s_eventbus.EventBus):
             ret = proxy.sync(job)
 
         '''
+        # dont block the consumer thread, consume events
+        # until the job completes...
+        if threading.currentThread() == self._tele_cthr:
+            return self._fakeConsSync(job, timeout=timeout)
+
         # wait for job and jobret()
         if self._tele_boss.wait(job[0], timeout=timeout):
             return s_async.jobret(job)
 
         raise HitMaxTime()
+
+    def _fakeConsSync(self, job, timeout=None):
+        # a sync like function for the consumer thread
+        # which continues to consume events until a job
+        # has been completed.
+        maxtime = None
+        if timeout != None:
+            maxtime = time.time() + timeout
+
+        while not job[1].get('done'):
+
+            if maxtime != None and time.time() >= maxtime:
+                raise HitMaxTime()
+
+            mesg = self._tele_q.get()
+            self.dist(mesg)
+
+        return s_async.jobret(job)
 
     def _initTeleSock(self):
 
