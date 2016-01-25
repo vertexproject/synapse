@@ -116,6 +116,7 @@ class Boss(EventBus):
 
         job[1].update( event[1] )
 
+        job[1]['done'] = True
         self.fire('job:fini', job=job)
 
     def jobs(self):
@@ -169,6 +170,7 @@ class Boss(EventBus):
         if jid == None:
             jid = guidstr()
 
+        info['done'] = False
         info['times'] = []
 
         job = (jid,info)
