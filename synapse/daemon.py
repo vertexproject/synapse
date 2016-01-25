@@ -42,6 +42,7 @@ class Daemon(EventBus):
         self.onfini( self.plex.fini )
         self.onfini( self.pool.fini )
 
+        self.on('link:sock:init', self._onLinkSockInit )
         self.plex.on('link:sock:mesg', self._onLinkSockMesg )
 
         self.mesgfuncs = {}
@@ -298,7 +299,7 @@ class Daemon(EventBus):
         relay = s_link.getLinkRelay(link)
 
         sock = relay.listen()
-        sock.on('link:sock:init', self._onLinkSockInit )
+        sock.on('link:sock:init', self.dist )
 
         self.plex.addPlexSock(sock)
 
