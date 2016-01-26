@@ -3,6 +3,7 @@ An API to assist with the creation and enforcement of cortex data models.
 '''
 import re
 import fnmatch
+import functools
 import collections
 
 import synapse.aspects as s_aspects
@@ -183,6 +184,95 @@ class HashType(DataType):
 #class Ipv4StrType(DataType):
 #class CidrType(DataType):
 
+basetypes = {
+    'int': IntType(),
+    'lwr': LwrType(),
+    'str': StrType(),
+    'hex': HexType(),
+    'tag': TagType(),
+    'bool': BoolType(),
+    'guid': GuidType(),
+
+    # 'inet:ipv4'
+    # 'inet:ipv6'
+
+    'hash:md5': HashType('hash:md5', 16),
+    'hash:sha1': HashType('hash:sha1', 20),
+    'hash:sha256': HashType('hash:sha256', 32),
+    'hash:sha384': HashType('hash:sha384', 48),
+    'hash:sha512': HashType('hash:sha512', 64),
+}
+
+def getTypeRepr(name, valu):
+    '''
+    '''
+    tobj = basetypes.get(name)
+    if tobj == None:
+        raise NoSuchType(name)
+
+    return tobj.repr(valu)
+
+def getTypeNorm(name, valu):
+    '''
+    '''
+    tobj = basetypes.get(name)
+    if tobj == None:
+        raise NoSuchType(name)
+
+    return tobj.norm(valu)
+
+def getTypeParse(name, text):
+    '''
+    '''
+    tobj = basetypes.get(name)
+    if tobj == None:
+        raise NoSuchType(name)
+
+    return tobj.parse(text)
+
+def parsetypes(*atypes, **kwtypes):
+    '''
+    Decorator to parse input args from humon to system values.
+
+    Example:
+
+        class Woot:
+
+            @parsetypes('int','hash:md5')
+            def getFooBar(self, size, md5):
+                # size will be an int and md5 will be lower
+                dostuff()
+
+        woot = Woot()
+
+        # call with user input strings...
+        woot.getFooBar('20','0a0a0a0a0B0B0B0B0c0c0c0c0D0D0D0D')
+
+    '''
+    typeargs = [ basetypes.get(a) for a in atypes ]
+    typekwargs = { k:basetypes.get(v) for (k,v) in kwtypes.items() }
+
+    def wrapfunc(f):
+
+        def runfunc(self, *args, **kwargs):
+
+            try:
+                args = [ typeargs[i].parse( args[i] ) for i in range( len(args) ) ]
+                kwargs = { k:typekwargs[k].parse(v) for (k,v) in kwargs.items() }
+
+            except IndexError as e:
+                raise Exception('parsetypes() too many args in: %s' % (f.__name__,))
+
+            except KeyError as e:
+                raise Exception('parsetypes() no such kwtype in: %s' % (f.__name__,))
+
+            return f(self, *args, **kwargs)
+
+        functools.update_wrapper(runfunc,f)
+        return runfunc
+
+    return wrapfunc
+
 class DataModel:
 
     def __init__(self, model=None):
@@ -203,20 +293,23 @@ class DataModel:
         self.subs = collections.defaultdict(list)  # prop:subprops
         self.cache = {} # for globs
 
-        self.addDataType('int', IntType())
-        self.addDataType('lwr', LwrType())
-        self.addDataType('str', StrType())
-        self.addDataType('hex', HexType())
-        self.addDataType('tag', TagType())
-        self.addDataType('bool', BoolType())
+        for name,tobj in basetypes.items():
+            self.addDataType(name, tobj)
 
-        self.addDataType('hash:md5', HashType('hash:md5', 16) )
-        self.addDataType('hash:sha1', HashType('hash:sha1', 20) )
-        self.addDataType('hash:sha256', HashType('hash:sha256', 32) )
-        self.addDataType('hash:sha384', HashType('hash:sha384', 48) )
-        self.addDataType('hash:sha512', HashType('hash:sha512', 64) )
+        #self.addDataType('int', IntType())
+        #self.addDataType('lwr', LwrType())
+        #self.addDataType('str', StrType())
+        #self.addDataType('hex', HexType())
+        #self.addDataType('tag', TagType())
+        #self.addDataType('bool', BoolType())
 
-        self.addDataType('guid', GuidType())
+        #self.addDataType('hash:md5', HashType('hash:md5', 16) )
+        #self.addDataType('hash:sha1', HashType('hash:sha1', 20) )
+        #self.addDataType('hash:sha256', HashType('hash:sha256', 32) )
+        #self.addDataType('hash:sha384', HashType('hash:sha384', 48) )
+        #self.addDataType('hash:sha512', HashType('hash:sha512', 64) )
+
+        #self.addDataType('guid', GuidType())
 
         for name,tags in self.model.get('enums').items():
             self._loadDataEnum(enum,tags)

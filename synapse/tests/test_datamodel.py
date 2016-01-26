@@ -148,3 +148,30 @@ class DataModelTest(unittest.TestCase):
         self.assertRaises( s_datamodel.BadTypeParse, model.getPropParse, 'foo:sha1', 'asdf' )
         self.assertRaises( s_datamodel.BadTypeParse, model.getPropParse, 'foo:sha256', 'asdf' )
 
+    def test_datamodel_parsetypes(self):
+
+        class Woot:
+            @s_datamodel.parsetypes('int','lwr')
+            def getFooBar(self, size, flag):
+                return {'size':size, 'flag':flag}
+
+            @s_datamodel.parsetypes('int',flag='lwr')
+            def getBazFaz(self, size, flag=None):
+                return {'size':size, 'flag':flag }
+
+        woot = Woot()
+
+        ret = woot.getFooBar('30','ASDF')
+
+        self.assertEqual( ret.get('size'), 30 )
+        self.assertEqual( ret.get('flag'), 'asdf')
+
+        ret = woot.getBazFaz('10')
+
+        self.assertEqual( ret.get('size'), 10 )
+        self.assertEqual( ret.get('flag'), None )
+
+        ret = woot.getBazFaz('10', flag='ASDF')
+        self.assertEqual( ret.get('size'), 10 )
+        self.assertEqual( ret.get('flag'), 'asdf')
+
