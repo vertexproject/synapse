@@ -1,5 +1,6 @@
 import time
 import threading
+import collections
 
 import synapse.lib.sched as s_sched
 
@@ -204,3 +205,105 @@ class TufoPropCache(TufoCache):
 
     def getTufoByValu(self, valu):
         return self.core.getTufoByProp(self.prop,valu)
+
+
+def keymeth(name):
+    '''
+    Decorator for use with OnDem to add key callback methods.
+    '''
+    def keyfunc(f):
+        f._keycache_name = name
+        return f
+    return keyfunc
+
+class OnDem(collections.defaultdict):
+    '''
+    A dictionary based caching on-demand resolver.
+
+    Example:
+
+        class Woot(OnDem):
+
+            @keymeth('foo')
+            def _getFooThing(self):
+                # only called once
+                return FooThing()
+
+        woot = Woot()
+        foo = woot.get('foo')
+
+    '''
+    def __init__(self):
+
+        collections.defaultdict.__init__(self)
+
+        self._key_funcs = {}
+
+        for name in dir(self):
+            attr = getattr(self,name,None)
+            keyn = getattr(attr,'_keycache_name',None)
+            if keyn == None:
+                continue
+
+            self._key_funcs[keyn] = attr
+
+    def __missing__(self, name):
+        func = self._key_funcs.get(name)
+        if func == None:
+            raise KeyError(name)
+
+        valu = func()
+        self[name] = valu
+        return valu
+
+    def get(self, name):
+        '''
+        Return the value for the given OnDem key.
+
+        Example:
+
+            woot = od.get('woot')
+
+        '''
+        return self[name]
+
+    def add(self, name, func, *args, **kwargs):
+        '''
+        Add a key lookup function callback to the OnDem dict.
+
+        Example:
+
+            def getfoo():
+                return FooThing()
+
+            od = OnDem()
+
+            od.add('foo', getfoo)
+
+            foo = od.get('foo')
+
+        '''
+        def keyfunc():
+            return func(*args,**kwargs)
+
+        self._key_funcs[name] = keyfunc
+
+class KeyCache(collections.defaultdict):
+    '''
+    A fast key/val lookup cache.
+
+    Example:
+
+        cache = KeyCache( getFooThing )
+
+        valu = cache[x]
+
+    '''
+    def __init__(self, lookmeth):
+        collections.defaultdict.__init__(self)
+        self.lookmeth = lookmeth
+
+    def __missing__(self, key):
+        valu = self.lookmeth(key)
+        self[key] = valu
+        return valu

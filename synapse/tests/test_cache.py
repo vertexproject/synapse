@@ -53,3 +53,44 @@ class CacheTest(unittest.TestCase):
         self.assertIsNotNone(newfo)
         self.assertEqual(newfo[1].get('woot:lolol'), 10)
 
+    def test_ondem_add(self):
+
+        data = {'count':0}
+        def getfoo(x,y=0):
+            data['count'] += 1
+            return x + y
+
+        od = s_cache.OnDem()
+        od.add('foo', getfoo, 10, y=20 )
+
+        self.assertEqual( od.get('foo'), 30 )
+        self.assertEqual( od.get('foo'), 30 )
+        self.assertEqual( data.get('count'), 1 )
+
+    def test_ondem_class(self):
+
+        data = {'count':0}
+
+        class Woot(s_cache.OnDem):
+
+            @s_cache.keymeth('foobar')
+            def _getFooBar(self):
+                data['count'] += 1
+                return 'hi there'
+
+        woot = Woot()
+
+        self.assertEqual( woot.get('foobar'), 'hi there' )
+        self.assertEqual( woot.get('foobar'), 'hi there' )
+        self.assertEqual( data.get('count'), 1 )
+
+    def test_keycache_lookup(self):
+
+        foo = {10:'asdf'}
+
+        def getfoo(x):
+            return foo.get(x)
+
+        cache = s_cache.KeyCache(getfoo)
+
+        self.assertEqual( cache[10], 'asdf' )
