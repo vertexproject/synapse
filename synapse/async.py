@@ -199,6 +199,7 @@ class Boss(EventBus):
 
             joblocal['schedevt'] = self.sched.insec(timeout,hitmax)
 
+        self.fire('job:init', job=job)
         return job
 
     def sync(self, job, timeout=None):
