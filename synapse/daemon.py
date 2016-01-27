@@ -12,7 +12,6 @@ import synapse.lib.threads as s_threads
 import synapse.cortex as s_cortex
 import synapse.crypto as s_crypto
 import synapse.impulse as s_impulse
-import synapse.session as s_session
 
 from synapse.eventbus import EventBus
 
