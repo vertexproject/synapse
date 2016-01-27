@@ -14,6 +14,7 @@ import synapse.eventbus as s_eventbus
 
 import synapse.lib.pki as s_pki
 import synapse.lib.queue as s_queue
+import synapse.lib.sched as s_sched
 import synapse.lib.socket as s_socket
 import synapse.lib.threads as s_threads
 
@@ -66,6 +67,8 @@ class Method:
             return job
 
         return self.proxy.sync(job)
+
+telelocal = set(['tele:sock:init'])
 
 class Proxy(s_eventbus.EventBus):
     '''
@@ -133,10 +136,13 @@ class Proxy(s_eventbus.EventBus):
         return s_eventbus.EventBus.off(self, name, func)
 
     def on(self, name, func):
-        self._tele_ons.add(name)
 
-        job = self._txTeleJob('tele:on', events=[name], name=self._tele_name)
-        self.sync(job)
+        if name not in telelocal:
+
+            self._tele_ons.add(name)
+
+            job = self._txTeleJob('tele:on', events=[name], name=self._tele_name)
+            self.sync(job)
 
         return s_eventbus.EventBus.on(self, name, func)
 
@@ -148,6 +154,13 @@ class Proxy(s_eventbus.EventBus):
         self.sync(job)
 
         return s_eventbus.EventBus.off(self, name, func)
+
+    def fire(self, name, **info):
+        if name in telelocal:
+            return s_eventbus.EventBus.fire(self, name, **info)
+
+        # events fired on a proxy go through the remove first...
+        return self.call('fire', name, **info)
 
     def call(self, name, *args, **kwargs):
         '''
@@ -270,11 +283,18 @@ class Proxy(s_eventbus.EventBus):
         self._tele_q.put( mesg )
 
     def _onSockFini(self):
-        # If we still have outstanding jobs, reconnect immediately
         if self.isfini:
             return
 
-        self._initTeleSock()
+        try:
+
+            if not self._initTeleSock():
+                sched = s_sched.getGlobSched()
+                sched.insec( 1, self._onSockFini )
+
+        except Exception as e:
+            sched = s_sched.getGlobSched()
+            sched.insec( 1, self._onSockFini )
 
     def _onTeleCall(self, mesg):
         # dont block consumer thread... task pool
