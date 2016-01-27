@@ -316,19 +316,3 @@ class Daemon(EventBus):
         '''
         self.shared[name] = item
 
-    def main(self):
-        '''
-        Helper function to block until shutdown ( and handle ctrl-c etc ).
-
-        Example:
-
-            dmon.main()
-            # we have now fini()d
-
-        '''
-        try:
-            self.waitfini()
-        except KeyboardInterrupt as e:
-            print('ctrl-c caught: shutting down')
-            self.fini()
-

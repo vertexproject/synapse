@@ -220,6 +220,22 @@ class EventBus:
         '''
         return self.finievt.wait(timeout=timeout)
 
+    def main(self):
+        '''
+        Helper function to block until shutdown ( and handle ctrl-c etc ).
+
+        Example:
+
+            dmon.main()
+            # we have now fini()d
+
+        '''
+        try:
+            self.waitfini()
+        except KeyboardInterrupt as e:
+            print('ctrl-c caught: shutting down')
+            self.fini()
+
     def distall(self, events):
         '''
         Distribute multiple events on the event bus.
