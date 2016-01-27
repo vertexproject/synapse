@@ -93,21 +93,6 @@ class TelePathTest(SynTest):
 
         dmon.fini()
 
-    #def test_telepath_sess(self):
-        #dmon,link = self.getFooServ()
-        #port = link[1].get('port')
-
-        #foo = s_telepath.openurl('tcp://localhost:%d/foo' % (port,))
-
-        #self.assertIsNone( foo.get('woot') )
-
-        #foo.set('woot',10)
-
-        #self.assertEqual( foo.get('woot'), 10 )
-
-        #foo.fini()
-        #dmon.fini()
-
     def test_telepath_call(self):
         dmon,link = self.getFooServ()
 
@@ -134,7 +119,6 @@ class TelePathTest(SynTest):
         pki.genTokenCert(user, signas=root[0])
         pki.genTokenCert(host, signas=root[0])
 
-        #prox = s_telepath.openurl('tcp://localhost/foo?pki=1', port=port, pkistor=pki)
         prox = s_telepath.openurl('tcp://127.0.0.1/foo?pki=1', port=port, pkistor=pki)
         self.assertEqual( prox.bar(10,20), 30 )
 
@@ -219,3 +203,20 @@ class TelePathTest(SynTest):
         prox.fini()
         dead.fini()
         env.fini()
+
+    def test_telepath_reshare(self):
+        env0 = self.getFooEnv()
+        env1 = self.getFooEnv()
+
+        port = env0.link[1].get('port')
+        prox0 = s_telepath.openurl('tcp://127.0.0.1/foo', port=port)
+
+        env1.dmon.share('bar', prox0)
+
+        port = env1.link[1].get('port')
+        prox1 = s_telepath.openurl('tcp://127.0.0.1/bar', port=port)
+
+        self.assertEqual( prox1.bar(33,44), 77 )
+
+        env0.fini()
+        env1.fini()
