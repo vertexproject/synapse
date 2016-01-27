@@ -1,5 +1,7 @@
 import importlib
 
+from synapse.common import *
+
 def getDynMod(name):
     '''
     Dynamically import a python module and return a ref (or None).
@@ -40,5 +42,7 @@ def runDynTask(task):
 
     '''
     func = getDynLocal(task[0])
+    if func == None:
+        raise NoSuchFunc(task[0])
     return func(*task[1],**task[2])
     
