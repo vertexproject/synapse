@@ -5,7 +5,6 @@ import unittest
 import synapse.link as s_link
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
-import synapse.session as s_session
 import synapse.telepath as s_telepath
 
 from synapse.tests.common import *

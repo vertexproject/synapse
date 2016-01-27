@@ -2,7 +2,6 @@ import os
 import unittest
 import threading
 
-import synapse.session as s_session
 import synapse.lib.thishost as s_thishost
 
 from synapse.common import *

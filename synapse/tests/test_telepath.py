@@ -4,7 +4,6 @@ import unittest
 import synapse.link as s_link
 import synapse.async as s_async
 import synapse.daemon as s_daemon
-#import synapse.session as s_session
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
@@ -20,12 +19,6 @@ class Foo:
 
     def speed(self):
         return
-
-    #def get(self, prop):
-        #return s_session.current().get(prop)
-
-    #def set(self, prop, valu):
-        #return s_session.current().set(prop,valu)
 
 class TelePathTest(SynTest):
 
@@ -56,13 +49,6 @@ class TelePathTest(SynTest):
             foo.speed()
 
         e = time.time()
-
-        #print('TIME: %r' % ((e - s),))
-
-        # ensure perf is still good...
-
-        # FIXME: disabled due to travisci boxes
-        #self.assertTrue( (e - s) < 0.5 )
 
         self.assertEqual( foo.bar(10,20), 30 )
         self.assertRaises( JobErr, foo.faz, 10, 20 )
