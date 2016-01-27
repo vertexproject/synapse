@@ -307,3 +307,12 @@ class KeyCache(collections.defaultdict):
         valu = self.lookmeth(key)
         self[key] = valu
         return valu
+
+    def pop(self, key):
+        return collections.defaultdict.pop(self, key, None)
+
+    def get(self, key):
+        return self[key]
+
+    def put(self, key, val):
+        self[key] = val
