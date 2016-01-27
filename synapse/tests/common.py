@@ -58,10 +58,6 @@ class TestWaiter:
 
 class SynTest(unittest.TestCase):
 
-    def getTestSess(self):
-        cura = s_session.Curator()
-        return cura.getNewSess()
-
     def getTestWait(self, bus, size, *evts):
         return TestWaiter(bus, size, *evts)
 
