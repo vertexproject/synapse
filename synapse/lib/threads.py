@@ -23,7 +23,7 @@ class ScopeLocal:
 
         with s_threads.ScopeLocal('foo',thing):
             # deep caller may now...
-            foo = s_threads.scope('foo')
+            foo = s_threads.local('foo')
 
     '''
     def __init__(self, **locs):
@@ -100,6 +100,9 @@ per.setPerCtor('monoq', s_queue.Queue)
 thrloc = threading.local()
 def local(key,defval=None):
     return getattr(thrloc,key,defval)
+
+def put(name,valu):
+    setattr(thrloc,name,valu)
 
 def current():
     return threading.currentThread()
