@@ -584,6 +584,13 @@ class Cortex(EventBus):
 
         return item
 
+    def delTufosByProp(self, prop, valu):
+        '''
+        Delete multiple tufos by a single property.
+        '''
+        for item in self.getTufosByProp(prop,valu):
+            self.delTufo(item)
+
     def _normTufoProps(self, form, props):
         # add form prefix to tufo props
         props = {'%s:%s' % (form,p):v for (p,v) in props.items() }
