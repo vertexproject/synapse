@@ -82,7 +82,7 @@ class Axon(EventBus):
         model.addTufoProp('file:hash:sha256', ptype='hash:sha256')
 
         self.axfo = core.formTufoByProp('axon:self')
-        self.curator = s_session.Curator(core=core)
+        self.curator = s_session.Curator(core)
 
     def getAxonProp(self, prop):
         return self.axfo[1].get(prop)
@@ -106,7 +106,7 @@ class Axon(EventBus):
             sid = axon.initUpFile()
 
         '''
-        sess = self.curator.getNewSess()
+        sess = self.curator.new()
         fd = tempfile.SpooledTemporaryFile(tenmegs)
         sess.local['upfile'] = UpFile(fd)
         return sess.sid
