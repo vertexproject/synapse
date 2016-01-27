@@ -11,115 +11,107 @@ import synapse.telepath as s_telepath
 
 from synapse.tests.common import *
 
-class FakeErr(Exception):pass
-
-def borked():
-    raise FakeErr()
-
 def doit(x):
     return x + 20
-
-def zzzz(x):
-    time.sleep(x)
-    return x
 
 derpsrc = '''
 def hurrdurr(x,y=20):
     return x + y
 '''
 
-derpmeld = s_mindmeld.MindMeld()
-derpmeld.addPySource('derpderp',derpsrc)
-
 class HiveTest(SynTest):
-    pass
 
-    #def test_hive_borked(self):
-        #try:
-            #task = s_async.newtask(borked)
-            #s_hivemind.worker(task)
+    def getHiveEnv(self):
+        dmon = s_daemon.Daemon()
+        queen = s_hivemind.Queen()
 
-            #raise Exception('dont do like that')
+        dmon.share('syn.queen', queen)
+        link = dmon.listen('tcp://127.0.0.1:0/')
 
-        #except s_async.JobErr as e:
-            #self.assertEqual( e._job_err, 'FakeErr' )
+        port = link[1].get('port')
+        qprox = s_telepath.openurl('tcp://127.0.0.1/syn.queen', port=port)
 
-    #def test_hive_worker(self):
-        #task = s_async.newtask(doit,30)
-        #self.assertEqual( s_hivemind.worker(task, timeout=0.2), 50 )
+        hive = s_hivemind.Hive(qprox, size=32)
+        drone = s_hivemind.Drone(qprox, size=2)
 
-    #def test_hive_timeout(self):
-        #task = s_async.newtask(zzzz,2)
-        #self.assertRaises( HitMaxTime, s_hivemind.worker, task, timeout=0.1)
+        env = TestEnv()
 
-    #def getUnitHive(self, melds=None):
-        #dmon,link = self.getTeleServ()
-        #queen = s_hivemind.Queen()
+        # order matters for fini calls...
+        env.add('hive', hive, fini=True)
+        env.add('drone', drone, fini=True)
 
-        #dmon.share('queen',queen)
+        env.add('qprox', qprox, fini=True)
+        env.add('queen', queen, fini=True)
 
-        #port = link[1].get('port')
-        #qproxy = s_telepath.openurl('tcp://127.0.0.1:%d/queen' % port)
+        env.add('dmon', dmon, fini=True)
 
-        #drone = s_hivemind.Drone(link, melds=melds)
-        #worker = s_hivemind.Worker(qproxy, size=1)
+        return env
 
-        #return dmon,queen,drone,worker
+    def test_hivemind_basic(self):
+        env = self.getHiveEnv()
+        waiter = self.getTestWait(env.drone,1,'hive:slot:fini')
 
-    #def test_hive_queen(self):
-        #dmon,queen,drone,worker = self.getUnitHive()
+        data = {}
+        def ondone(job):
+            data['ret'] = s_async.jobret(job)
 
-        #data = {}
-        #evt = threading.Event()
-        #def onfini(job):
-            #data['job'] = job
-            #evt.set()
+        dyntask = ('synapse.tests.test_hivemind.doit', (20,), {})
 
-        #jid = s_async.jobid()
-        #dyntask = s_async.newtask('synapse.tests.test_hivemind.doit', 30)
+        env.hive.task(dyntask, ondone=ondone)
 
-        #drone.initJob(jid, dyntask=dyntask, onfini=onfini)
+        waiter.wait()
 
-        #evt.wait(timeout=2)
+        self.assertEqual( data.get('ret'), 40 )
 
-        #job = data.get('job')
-        #self.assertIsNotNone(job)
-        #self.assertEqual(job[0], jid)
+        env.fini()
 
-        #drone.fini()
-        #worker.fini()
-        #queen.fini()
-        #dmon.fini()
+    def test_hivemind_meld(self):
+        env = self.getHiveEnv()
+        waiter = self.getTestWait(env.drone,1,'hive:slot:fini')
 
-    #def test_hive_melds(self):
-        #melds = [ derpmeld, ]
-        #dmon,queen,drone,worker = self.getUnitHive(melds=melds)
+        data = {}
+        def ondone(job):
+            data['ret'] = s_async.jobret(job)
 
-        #jid = s_async.jobid()
-        #dyntask = s_async.newtask('derpderp.hurrdurr', 10, y=70)
+        dyntask = ('derpderp.hurrdurr', (20,), {'y':30})
 
-        #data = {}
-        #evt = threading.Event()
+        meld = env.hive.genHiveMeld()
+        meld.addPySource('derpderp',derpsrc)
 
-        #def onfini(job):
-            #data['job'] = job
-            #evt.set()
+        env.hive.task(dyntask, ondone=ondone)
 
-        #drone.initJob(jid, dyntask=dyntask, onfini=onfini)
+        waiter.wait()
 
-        #evt.wait(timeout=1)
+        self.assertEqual( data.get('ret'), 50 )
 
-        #job = data.get('job')
+        env.fini()
 
-        #self.assertEqual( job[0], jid )
-        #self.assertEqual( s_async.jobret(job), 80 )
+    def test_hivemind_queen(self):
+        env = self.getHiveEnv()
 
-        #drone.fini()
-        #worker.fini()
-        #queen.fini()
-        #dmon.fini()
+        hives = env.qprox.getHives()
+        drones = env.qprox.getDrones()
 
-    #def getTeleServ(self):
-        #dmon = s_daemon.Daemon()
-        #link = dmon.listen('tcp://127.0.0.1:0')
-        #return dmon,link
+        self.assertEqual( len(hives), 1 )
+        self.assertEqual( len(drones), 1 )
+
+        hslots = env.qprox.getSlotsByHive( hives[0][0] )
+        dslots = env.qprox.getSlotsByDrone( drones[0][0] )
+
+        self.assertEqual( len(hslots), 0 )
+        self.assertEqual( len(dslots), 2 )
+
+        slot = env.qprox.getWorkSlot( hives[0][0] )
+
+        self.assertEqual( slot[1].get('hive'), hives[0][0] )
+        self.assertEqual( slot[1].get('drone'), drones[0][0] )
+
+        hslots = env.qprox.getSlotsByHive( hives[0][0] )
+        self.assertEqual( len(hslots), 1 )
+
+        env.qprox.fireSlotFini( hslots[0][0] )
+
+        hslots = env.qprox.getSlotsByHive( hives[0][0] )
+        self.assertEqual( len(hslots), 0 )
+
+        env.fini()
