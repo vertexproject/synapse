@@ -11,6 +11,7 @@ class DupRole(Exception):pass
 class NoSuch(Exception):pass
 class NoSuchAct(Exception):pass
 class NoSuchJob(Exception):pass
+class NoSuchDir(Exception):pass
 class NoSuchMod(Exception):pass
 class NoSuchObj(Exception):pass
 class NoSuchFile(Exception):pass
