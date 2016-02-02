@@ -38,7 +38,6 @@ class ModDefTest(SynTest):
         self.assertIsNotNone( deps.get('synapse.lib') )
         self.assertIsNotNone( deps.get('synapse.lib.moddef') )
 
-
     def test_moddef_calldeps(self):
         foo = Foo()
 
@@ -50,3 +49,11 @@ class ModDefTest(SynTest):
         self.assertIsNotNone( deps.get('synapse.lib') )
         self.assertIsNotNone( deps.get('synapse.lib.moddef') )
 
+    def test_moddef_modsbypath(self):
+        path = os.path.dirname(__file__)
+        deps = getModsByPath(path)
+        self.assertIsNone( deps.get('newp') )
+        self.assertIsNotNone( deps.get('test_moddef') )
+
+    def test_moddef_modsbypath_nodir(self):
+        self.assertRaises( NoSuchDir, getModsByPath, 'newp/newp/newp' )

@@ -6,7 +6,12 @@ from binascii import hexlify
 import synapse
 import synapse.mindmeld as s_mindmeld
 
+from synapse.tests.common import *
+
 syndir = os.path.dirname( synapse.__file__ )
+
+def foobar(x, y=10):
+    return x + y
 
 class Foo:
     def bar(self, x, y):
@@ -33,7 +38,7 @@ class MindMeldTests(unittest.TestCase):
 
     def test_mindmeld_nosuch(self):
         meld = s_mindmeld.MindMeld()
-        self.assertRaises( s_mindmeld.NoSuchPath, meld.addPyPath, '/newp')
+        self.assertRaises( NoSuchPath, meld.addPyPath, '/newp')
 
     def test_mindmeld_base64(self):
         meld = s_mindmeld.MindMeld()
@@ -52,6 +57,25 @@ class MindMeldTests(unittest.TestCase):
     def test_mindmeld_call(self):
         foo = Foo()
         meld = s_mindmeld.getCallMeld( foo.bar )
+        self.assertIsNone( meld.getMeldMod('newp') )
+        self.assertIsNone( meld.getMeldMod('binascii') )
+        self.assertIsNotNone( meld.getMeldMod('synapse') )
+        self.assertIsNotNone( meld.getMeldMod('synapse.mindmeld') )
+
+    def test_mindmeld_pycall(self):
+
+        meld = s_mindmeld.MindMeld()
+        meld.addPyCall( foobar )
+
+        self.assertIsNone( meld.getMeldMod('newp') )
+        self.assertIsNone( meld.getMeldMod('binascii') )
+        self.assertIsNotNone( meld.getMeldMod('synapse') )
+        self.assertIsNotNone( meld.getMeldMod('synapse.mindmeld') )
+
+    def test_mindmeld_addpymod(self):
+        meld = s_mindmeld.MindMeld()
+        meld.addPyMod('synapse')
+
         self.assertIsNone( meld.getMeldMod('newp') )
         self.assertIsNone( meld.getMeldMod('binascii') )
         self.assertIsNotNone( meld.getMeldMod('synapse') )

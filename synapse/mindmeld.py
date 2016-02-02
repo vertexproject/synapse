@@ -87,7 +87,8 @@ class MindMeld:
         self._addModDef(moddef, dat=dat, src=src)
         if moddef[1].get('pkg'):
             path = moddef[1].get('path')
-            submods = s_moddef.getModsByPath(path,modpath=[name])
+            pathdir = os.path.dirname(path)
+            submods = s_moddef.getModsByPath(pathdir,modtree=[name])
             for subname,subdef in submods.items():
                 self._addModDef(subdef, dat=dat, src=src)
 
