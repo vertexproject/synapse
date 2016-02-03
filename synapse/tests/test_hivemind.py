@@ -22,6 +22,10 @@ def hurrdurr(x,y=20):
 class HiveTest(SynTest):
 
     def getHiveEnv(self):
+
+        #FIXME remove when synapse link local:// supports windows
+        self.thisHostMustNot(platform='windows')
+
         dmon = s_daemon.Daemon()
         queen = s_hivemind.Queen()
 
