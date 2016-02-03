@@ -22,6 +22,8 @@ class LocalRelay(LinkRelay):
         if not host:
             raise BadUrl('local://<name>/<path>')
 
+        self.link[1]['sockpath'] = self._getTempPath()
+
     def _getTempPath(self):
         host = self.link[1].get('host')
         # use the host part to generate a local path
@@ -32,9 +34,7 @@ class LocalRelay(LinkRelay):
 
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 
-        path = self._getTempPath()
-        if os.path.exists(path):
-            os.unlink(path)
+        path = self.link[1].get('sockpath')
 
         s.bind(path)
         s.listen(120)
@@ -42,7 +42,7 @@ class LocalRelay(LinkRelay):
         return s_socket.Socket(s, listen=True)
 
     def _connect(self):
-        path = self._getTempPath()
+        path = self.link[1].get('sockpath')
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         s.connect(path)
         return s_socket.Socket(s)
