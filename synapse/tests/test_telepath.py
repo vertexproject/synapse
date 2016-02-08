@@ -206,3 +206,18 @@ class TelePathTest(SynTest):
 
         env0.fini()
         env1.fini()
+
+    def test_telepath_eval(self):
+
+        foo = s_telepath.evalurl('ctor://synapse.tests.test_telepath.Foo()')
+        self.assertEqual( foo.bar(10,20), 30 )
+
+        env0 = self.getFooEnv()
+        port = env0.link[1].get('port')
+
+        foo = s_telepath.evalurl('tcp://127.0.0.1/foo', port=port)
+        self.assertEqual( foo.bar(10,20), 30 )
+
+        foo.fini()
+        env0.fini()
+        

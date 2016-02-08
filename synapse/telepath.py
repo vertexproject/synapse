@@ -10,6 +10,7 @@ import traceback
 import synapse.link as s_link
 import synapse.async as s_async
 import synapse.crypto as s_crypto
+import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.pki as s_pki
@@ -52,6 +53,25 @@ def openlink(link):
     '''
     relay = s_link.getLinkRelay(link)
     return Proxy(relay)
+
+def evalurl(url,**opts):
+    '''
+    Construct either a local object or a telepath proxy.
+
+    WARNING: this API enables ctor:// proto which uses eval!
+             ( trusted inputs only )
+
+    Example:
+
+        item0 = evalurl('tcp://1.2.3.4:90/foo')
+        item1 = evalurl('ctor://foo.bar.baz("woot",y=20)')
+
+    '''
+    scheme,therest = url.split('://',1)
+    if scheme == 'ctor':
+        return s_dyndeps.runDynEval(therest)
+
+    return openurl(url,**opts)
 
 class Method:
 
