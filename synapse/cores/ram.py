@@ -105,3 +105,29 @@ class Cortex(common.Cortex):
             rows = [ row for row in rows if row[3] < maxtime ]
 
         return len(rows)
+
+ramcores = {}
+
+def initRamCortex(link):
+    '''
+    Initialize a RAM based Cortex from a link tufo.
+
+    NOTE: the "path" element of the link tufo is used to
+          potentially return an existing cortex instance.
+
+    '''
+    path = link[1].get('path').strip('/')
+    if not path:
+        return Cortex(link)
+
+    core = ramcores.get(path)
+    if core == None:
+        core = Cortex(link)
+
+        ramcores[path] = core
+        def onfini():
+            ramcores.pop(path,None)
+
+        core.onfini(onfini)
+
+    return core
