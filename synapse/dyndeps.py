@@ -45,4 +45,32 @@ def runDynTask(task):
     if func == None:
         raise NoSuchFunc(task[0])
     return func(*task[1],**task[2])
+
+class CallCapt:
+    def __call__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
     
+def runDynEval(text):
+    '''
+    Run a "dyn eval" string returning the result.
+
+    Example:
+
+        # dyn imports foo.bar and calls foo.bar.baz('woot', y=30)
+        valu = runDynEval("foo.bar.baz('woot',y=30)"
+
+    WARNING: duh.  this executes arbitrary code.  trusted inputs only!
+    '''
+    off = text.find('(')
+    if off == -1:
+        raise Exception('Invalid Dyn Eval: %r' % (text,))
+
+    name = text[:off]
+    args = text[off:]
+
+    capt = CallCapt()
+    eval('capt%s' % (args,), {'capt':capt} )
+
+    task = (name, capt.args, capt.kwargs)
+    return runDynTask(task)

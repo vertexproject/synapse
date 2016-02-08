@@ -1,6 +1,6 @@
 import unittest
 
-from synapse.dyndeps import getDynMod, getDynLocal, runDynTask
+import synapse.dyndeps as s_dyndeps
 
 hehe = 'woot'
 
@@ -8,17 +8,24 @@ class Foo:
     def bar(self):
         return 'baz'
 
+def woot(x, y=30):
+    return x + y
+
 class DynDepsTest(unittest.TestCase):
 
     def test_dyndeps_dynmod(self):
-        self.assertIsNone( getDynMod('- -') )
-        self.assertIsNotNone( getDynMod('sys') )
+        self.assertIsNone( s_dyndeps.getDynMod('- -') )
+        self.assertIsNotNone( s_dyndeps.getDynMod('sys') )
 
     def test_dyndeps_dynloc(self):
-        self.assertIsNone( getDynLocal('synapse.tests.test_dyndeps.gronk') )
-        self.assertIsNotNone( getDynLocal('synapse.tests.test_dyndeps.hehe') )
+        self.assertIsNone( s_dyndeps.getDynLocal('synapse.tests.test_dyndeps.gronk') )
+        self.assertIsNotNone( s_dyndeps.getDynLocal('synapse.tests.test_dyndeps.hehe') )
 
     def test_dyndeps_dyntask(self):
         task = ('synapse.tests.test_dyndeps.Foo', (), {})
-        foo = runDynTask(task)
+        foo = s_dyndeps.runDynTask(task)
         self.assertEqual( foo.bar(), 'baz' )
+
+    def test_dyndeps_eval(self):
+        valu = s_dyndeps.runDynEval('synapse.tests.test_dyndeps.woot(40,y=10)')
+        self.assertEqual( valu, 50 )
