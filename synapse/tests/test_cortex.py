@@ -549,3 +549,34 @@ class CortexTest(SynTest):
         self.assertEqual( len(blahs), 0 )
 
 
+    def test_cortex_ramhost(self):
+        core0 = s_cortex.openurl('ram:///foobar')
+        core1 = s_cortex.openurl('ram:///foobar')
+        self.assertEqual( id(core0), id(core1) )
+
+        core0.fini()
+
+        core0 = s_cortex.openurl('ram:///foobar')
+        core1 = s_cortex.openurl('ram:///bazfaz')
+
+        self.assertNotEqual( id(core0), id(core1) )
+
+        core0.fini()
+        core1.fini()
+
+        core0 = s_cortex.openurl('ram:///')
+        core1 = s_cortex.openurl('ram:///')
+
+        self.assertNotEqual( id(core0), id(core1) )
+
+        core0.fini()
+        core1.fini()
+
+        core0 = s_cortex.openurl('ram://')
+        core1 = s_cortex.openurl('ram://')
+
+        self.assertNotEqual( id(core0), id(core1) )
+
+        core0.fini()
+        core1.fini()
+
