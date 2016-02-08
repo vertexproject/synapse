@@ -38,8 +38,8 @@ class InvalidParam(Exception):
         Exception.__init__(self, '%s invalid: %s' % (name,msg))
         self.param = name
 
-corclasses = {
-    'ram':synapse.cores.ram.Cortex,
+corctors = {
+    'ram':synapse.cores.ram.initRamCortex,
     'sqlite':synapse.cores.sqlite.Cortex,
     'postgres':synapse.cores.postgres.Cortex,
 }
@@ -71,10 +71,10 @@ def openlink(link):
     '''
     Open a cortex via a link tuple.
     '''
-    cls = corclasses.get(link[0])
-    if cls == None:
+    ctor = corctors.get(link[0])
+    if ctor == None:
         raise NoSuchScheme(link[0])
-    return cls(link)
+    return ctor(link)
 
 def choptag(tag):
     '''
