@@ -3,13 +3,9 @@ import sys
 import json
 import argparse
 
-import tornado
-import tornado.web
-import tornado.ioloop
-import tornado.httpserver
+import synapse.lib.webapp as s_webapp
 
-import synapse.async as s_async
-import synapse.httpapi as s_httpapi
+# FIXME CONFIG FILE DOCS
 
 def getArgParser():
     p = argparse.ArgumentParser()
@@ -21,92 +17,16 @@ def main(argv):
     p = getArgParser()
     opts = p.parse_args(argv)
 
-    if not os.path.isfile(opts.config):
-        jsinfo = s_httpapi.initconf()
-        with open(opts.config,'wb') as fd:
-            fd.write( json.dumps(jsinfo, indent=2, sort_keys=True).encode('utf8') )
-
     with open(opts.config,'rb') as fd:
-        jsinfo = json.loads( fd.read().decode('utf8') )
+        config = json.loads( fd.read().decode('utf8') )
 
-    httpd(jsinfo,jsfile=opts.config)
+    settings = config.get('tornado',{})
 
-def httpd(jsinfo, jsfile=None):
+    wapp = s_webapp.WebApp(**settings)
 
-    api = s_httpapi.HttpApi(jsinfo, jsfile=jsfile)
+    wapp.load(config)
 
-    size = jsinfo.get('threads',16)
-    boss = s_async.Boss(size)
-
-    port = jsinfo.get('port',8080)
-    host = jsinfo.get('host','0.0.0.0')
-
-    sslkey = jsinfo.get('sslkey')
-    sslcert = jsinfo.get('sslcert')
-
-    # tornado settings
-    settings = {}
-    if sslkey and sslcert:
-        settings['ssl_options'] = {'certfile':sslcert,'keyfile':sslkey}
-
-    app = tornado.web.Application()
-
-    serv = tornado.httpserver.HTTPServer(app, **settings)
-    serv.listen(port,address=host)
-
-    loop = tornado.ioloop.IOLoop.current()
-
-    # implemented as an inner class to simplify scope
-    # issues with RequestHandler awareness of HttpApi.
-    class HttpApiHandler(tornado.web.RequestHandler):
-
-        @tornado.web.asynchronous
-        def get(self):
-            path = self.request.path
-            hdrs = self.request.headers
-            body = self.request.body
-
-            jid = s_async.jobid()
-            task = (api.runHttpGet, (path, hdrs, body), {})
-
-            def jobdone(job):
-                ret = job[1].get('ret')
-                self.sendHttpResp(ret)
-
-            boss.initJob(jid, task=task, ondone=jobdone)
-
-        @tornado.web.asynchronous
-        def post(self):
-
-            path = self.request.path
-            hdrs = self.request.headers
-            body = self.request.body
-
-            jid = s_async.jobid()
-            task = (api.runHttpPost, (path, hdrs, body), {})
-
-            def jobdone(job):
-                ret = job[1].get('ret')
-                self.sendHttpResp(ret)
-
-            boss.initJob(jid, task=task, ondone=jobdone)
-
-        def sendHttpErr(self, exc):
-            retinfo = {'err':exc.__class__.__name__, 'msg':str(exc)}
-            loop.add_callback(self._sendHttpResp, 500, {}, retinfo)
-
-        def sendHttpResp(self, resptup):
-            # *must* be called from tornado ioloop thread!
-            loop.add_callback(self._sendHttpResp, *resptup)
-
-        def _sendHttpResp(self, code, headers, retinfo):
-            self.set_status(code)
-            [ self.set_header(k,v) for (k,v) in headers.items() ]
-            self.write(retinfo)
-            self.finish()
-
-    app.add_handlers('.*',[ ('.*',HttpApiHandler) ])
-    loop.start()
+    wapp.main()
 
 if __name__ == '__main__':
     sys.exit( main( sys.argv[1:] ) )

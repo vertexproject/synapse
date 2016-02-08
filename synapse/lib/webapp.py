@@ -10,6 +10,7 @@ import tornado.httpserver
 
 import synapse.async as s_async
 import synapse.dyndeps as s_dyndeps
+import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.threads as s_threads
@@ -113,6 +114,8 @@ class WebApp(EventBus,tornado.web.Application):
         self.boss.runBossPool(8, maxsize=128)
 
         self.items = {}
+        self.addons = {}
+
         self.iothr = self._runWappLoop()
 
         self.onfini( self._onWappFini )
@@ -203,16 +206,20 @@ class WebApp(EventBus,tornado.web.Application):
 
             config = {
 
-                'ctors':[
-                    [ <name>, <dynfunc>, <args>, <kwargs> ]
-                ],
+                'ctors':{
+                    <name>:<evalurl>,
+                },
 
                 'apis':[
-                    [ <regex>, <ctorname>, <methname> ]
-                ]
+                    [ <regex>, <name>.<meth> ]
+                ],
 
                 'paths':[
                     [ <regex>, <path> ]
+                ],
+
+                'listen':[
+                    [<host>,<port>]
                 ]
             }
 
@@ -224,36 +231,63 @@ class WebApp(EventBus,tornado.web.Application):
 
             config = {
 
-                'ctors':[
-                    [ 'woot', 'mypkg.mymod.Woot', [], {} ]
-                ],
+                'ctors':{
+                    'woot':'tcp://telepath.kenshoto.com/woot',
+                    'blah':'ctor://mypkg.mymod.Blah("haha")',
+                },
 
                 'apis':[
-                    [ '/v1/woot/by/foo/(.*)', 'woot', 'getByFoo']
+                    [ '/v1/woot/by/foo/(.*)', 'woot.getByFoo']
                 }
 
                 'paths':[
                     [ '/static/(.*)', '/path/to/static']
                 ]
+
+                'listen':[
+                    ('0.0.0.0',8080),
+                ],
             }
 
         '''
         # create our local items...
-        for name, dynfunc, args, kwargs in config.get('ctors',()):
-            self.items[name] = s_dyndeps.runDynTask( (dynfunc,args,kwargs) )
+        for name,url in config.get('ctors',{}).items():
+            self.items[name] = s_telepath.evalurl(url)
 
         # add our API paths...
-        for path,name,meth in config.get('apis',()):
+        for path,methname in config.get('apis',()):
+
+            name,meth = methname.split('.',1)
 
             item = self.items.get(name)
             if item == None:
-                raise Exception('NoSuchFIXME')
+                raise NoSuchObj(name)
 
             func = getattr(item,meth,None)
             if func == None:
-                raise Exception('NoSuchFIXME')
+                raise NoSuchMeth(meth)
 
             self.addApiPath(path, func)
 
         for path,filepath in config.get('paths',()):
             self.addFilePath(path,filepath)
+
+        for name,url in config.get('addons',{}).items():
+            self.addons[name] = s_telepath.evalurl(url)
+
+        for host,port in config.get('listen',()):
+            self.listen(port,host=host)
+
+    def getAddOn(self, name):
+        '''
+        Return the given "addon" object by name or None.
+
+        Example:
+
+            auth = wapp.getAddOn('auth')
+            if auth != None:
+                doAuthStuff(auth)
+
+        '''
+        return self.addons.get(name)
+
