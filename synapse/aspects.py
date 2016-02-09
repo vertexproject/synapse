@@ -1,4 +1,5 @@
 import time
+import collections
 
 '''
 Aspects are a hierarchical tagging system.
@@ -68,3 +69,56 @@ def getTufoTags(tufo):
     pref = '%s:tag:' % tufo[1].get('tufo:form')
     props = [ (p,v) for (p,v) in tufo[1].items() if p.startswith(pref) ]
     return { p.split(':',2)[2]:v for (p,v) in props }
+
+class ByTag:
+    '''
+    A dictionary style put/get API using tags.
+    '''
+    def __init__(self):
+        self.byval = {}
+        self.bytag = collections.defaultdict(set)
+
+    def put(self, item, tags):
+        '''
+        Add an item for ByTag lookup with tags.
+
+        Example:
+
+            btag.put( woot, ('woots.woot0', 'foo') )
+
+        '''
+        self.byval[item] = tags
+        for tag in tags:
+            for name in iterTagDown(tag):
+                self.bytag[name].add(item)
+
+    def get(self, tag):
+        '''
+        Retrieve items by a tag.
+
+        Example:
+
+            for item in btag.get('foo.bar'):
+                dostuff(item)
+
+        '''
+        vals = self.bytag.get(tag)
+        if vals == None:
+            return ()
+
+        return list(vals)
+
+    def pop(self, item, dval=None):
+        '''
+        Remove an item previously added to the ByTag.
+        '''
+        tags = self.byval.pop(item,None)
+        if tags == None:
+            return
+
+        for tag in tags:
+            for name in iterTagDown(tag):
+                s = self.bytag.get(name)
+                s.discard(item)
+                if not s:
+                    self.bytag.pop(name,None)
