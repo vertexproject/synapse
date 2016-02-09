@@ -225,7 +225,7 @@ def main(argv):
     '''
     Command line tool for Pki management.
     '''
-    p = argparse.ArgumentParser(prog='tokentool')
+    p = argparse.ArgumentParser(prog='pkitool')
     #p.add_argument('--cortex', metavar='url', default=pkicore, help='Cortex URL for Pki')
     p.add_argument('--onecmd', metavar='cmdline', default=None, help='Issue one command and exit')
 
