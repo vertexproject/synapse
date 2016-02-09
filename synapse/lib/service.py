@@ -1,5 +1,10 @@
 import time
+import logging
 
+logger = logging.getLogger(__name__)
+
+import synapse.async as s_async
+import synapse.aspects as s_aspects
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.sched as s_sched
@@ -9,7 +14,17 @@ class SvcBus(s_eventbus.EventBus):
 
     def __init__(self):
         s_eventbus.EventBus.__init__(self)
+
+        self.bytag = s_aspects.ByTag()
         self.services = {}
+
+        self.on('syn:svc:fini', self._onSynSvcFini)
+
+    def _onSynSvcFini(self, mesg):
+        name = mesg[1].get('name')
+        props = mesg[1].get('props')
+
+        self.bytag.pop(name)
 
     def iAmSynSvc(self, name, **props):
         '''
@@ -25,6 +40,9 @@ class SvcBus(s_eventbus.EventBus):
             self.fire('syn:svc:fini', name=name, props=oldp)
             
         self.services[name] = props
+        self.bytag.put(name,(name,))
+        self.bytag.put(name,props.get('tags',()))
+
         self.fire('syn:svc:init', name=name, props=props)
 
     def iAmAlive(self, name):
@@ -58,7 +76,128 @@ class SvcBus(s_eventbus.EventBus):
         '''
         return list(self.services.items())
 
-def runSynSvc(name, item, sbus):
+    def getSynSvcsByTag(self, tag):
+        '''
+        Return a list of synapse services by hierarchical tag.
+
+        Example:
+
+            for name,props in sbus.getSynSvcsByTag('foo.bar'):
+                dostuff(name,props)
+
+        '''
+        names = self.bytag.get(tag)
+        return [ (name,self.services.get(name)) for name in names ]
+
+class SvcProxy:
+    '''
+    A client-side helper for service dispatches.
+
+    Mostly exists to wrap functionality for calling multiple
+    services by tag.
+    '''
+    def __init__(self, sbus, timeout=None):
+        self.sbus = sbus
+        self.timeout = timeout
+
+        self.sbus.on('syn:svc:init', self._onSynSvcInit )
+        self.sbus.on('syn:svc:fini', self._onSynSvcFini )
+
+        self.bytag = s_aspects.ByTag()
+
+        [ self._addSvcName(n,p.get('tags',())) for (n,p) in sbus.getSynSvcs() ]
+
+    def _onSynSvcInit(self, mesg):
+        name = mesg[1].get('name')
+        props = mesg[1].get('props')
+
+        self._addSvcName(name,props.get('tags',()))
+
+    def _addSvcName(self, name, tags):
+        self.bytag.put(name,tags)
+        self.bytag.put(name,(name,))
+
+    def _onSynSvcFini(self, mesg):
+        name = mesg[1].get('name')
+        self.bytag.pop(name)
+
+    def callByTag(self, tag, name, *args, **kwargs):
+        '''
+        Call a method on all services with the given tag.
+        Yields (svcname,job) tuples for the results.
+
+        Example:
+
+            for svc,job in svc.callByTag('foo.bar'):
+                dostuff(svc,job)
+
+        '''
+        jobs = []
+
+        dyntask = (name,args,kwargs)
+
+        for svcname in self.bytag.get(tag):
+            job = self.sbus.callx(svcname, dyntask)
+            jobs.append( (svcname,job) )
+
+        for svcname,job in jobs:
+            # a bit hackish...
+            self.sbus._waitTeleJob(job, timeout=self.timeout)
+            yield svcname,job
+
+    def getTagProxy(self, tag):
+        '''
+        Construct and return a TagProxy to simplify callByTag use.
+
+        Example:
+
+            foosbars = svc.getTagProxy('foos.bars')
+
+            for valu in foosbars.getBlahThing():
+                dostuff(valu)
+
+        '''
+        return SvcTagProxy(self,tag)
+
+class SvcTagProxy:
+    '''
+    Constructed by SvcProxy for simplifying callByTag use.
+    '''
+    def __init__(self, svcprox, tag):
+        self.tag = tag
+        self.svcprox = svcprox
+
+    def _callSvcApi(self, name, *args, **kwargs):
+        return self.svcprox.callByTag(self.tag, name, *args, **kwargs)
+
+    def __getattr__(self, name):
+        item = SvcTagMeth(self,name)
+        setattr(self,name,item)
+        return item
+
+class SvcTagMeth:
+
+    def __init__(self, tagprox, name):
+        self.name = name
+        self.tagprox = tagprox
+
+    def __call__(self, *args, **kwargs):
+        res = 0
+        exc = None
+
+        for name,job in self.tagprox._callSvcApi(self.name, *args, **kwargs):
+            try:
+                yield s_async.jobret(job)
+                res += 1
+            except Exception as e:
+                exc = e
+                #logger.warning('SvcTagMeth %s.%s: %s', name, self.name, e)
+
+        # if they all failed, probably wanna raise... (user bug)
+        if exc != None and res == 0:
+            raise exc
+
+def runSynSvc(name, item, sbus, tags=()):
     '''
     Add an object as a synapse service.
 
@@ -73,10 +212,11 @@ def runSynSvc(name, item, sbus):
     sbus.push(name,item)
 
     sched = s_sched.getGlobSched()
+    hostinfo = s_thishost.hostinfo
 
     def onTeleSock(mesg):
         if not sbus.isfini:
-            sbus.iAmSynSvc(name,**s_thishost.hostinfo)
+            sbus.iAmSynSvc(name, hostinfo=hostinfo, tags=tags)
 
     def svcHeartBeat():
         if sbus.isfini:
@@ -88,4 +228,4 @@ def runSynSvc(name, item, sbus):
     svcHeartBeat()
 
     sbus.on('tele:sock:init', onTeleSock)
-    sbus.iAmSynSvc(name,**s_thishost.hostinfo)
+    sbus.iAmSynSvc(name, hostinfo=hostinfo, tags=tags)
