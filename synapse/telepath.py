@@ -242,19 +242,20 @@ class Proxy(s_eventbus.EventBus):
             ret = proxy.sync(job)
 
         '''
+        self._waitTeleJob(job,timeout=timeout)
+        return s_async.jobret(job)
+
+    def _waitTeleJob(self, job, timeout=None):
         # dont block the consumer thread, consume events
         # until the job completes...
         if threading.currentThread() == self._tele_cthr:
-            return self._fakeConsSync(job, timeout=timeout)
+            return self._fakeConsWait(job, timeout=timeout)
 
-        # wait for job and jobret()
-        if self._tele_boss.wait(job[0], timeout=timeout):
-            return s_async.jobret(job)
+        if not self._tele_boss.wait(job[0], timeout=timeout):
+            raise HitMaxTime()
 
-        raise HitMaxTime()
-
-    def _fakeConsSync(self, job, timeout=None):
-        # a sync like function for the consumer thread
+    def _fakeConsWait(self, job, timeout=None):
+        # a wait like function for the consumer thread
         # which continues to consume events until a job
         # has been completed.
         maxtime = None
@@ -268,8 +269,6 @@ class Proxy(s_eventbus.EventBus):
 
             mesg = self._tele_q.get()
             self.dist(mesg)
-
-        return s_async.jobret(job)
 
     def _initTeleSock(self):
 
