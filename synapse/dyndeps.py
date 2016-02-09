@@ -51,7 +51,7 @@ class CallCapt:
         self.args = args
         self.kwargs = kwargs
     
-def runDynEval(text):
+def runDynEval(text, locs=None):
     '''
     Run a "dyn eval" string returning the result.
 
@@ -69,8 +69,13 @@ def runDynEval(text):
     name = text[:off]
     args = text[off:]
 
+    if locs == None:
+        locs = {}
+
     capt = CallCapt()
-    eval('capt%s' % (args,), {'capt':capt} )
+
+    locs['capt'] = capt
+    eval('capt%s' % (args,), locs)
 
     task = (name, capt.args, capt.kwargs)
     return runDynTask(task)
