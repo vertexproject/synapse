@@ -9,6 +9,14 @@ import synapse.telepath as s_telepath
 
 from synapse.tests.common import *
 
+class Woot:
+    def foo(self,x,y=20):
+        return x + y
+
+class Blah:
+    def __init__(self, woot):
+        self.woot = woot
+
 class DaemonTest(unittest.TestCase):
 
     def test_daemon_timeout(self):
@@ -58,3 +66,32 @@ class DaemonTest(unittest.TestCase):
         fprox.off('woot', woot)
 
         self.assertTrue( evt.is_set() )
+
+    def test_daemon_conf(self):
+
+        class DmonConfTest(s_daemon.DmonConf,s_eventbus.EventBus):
+
+            def __init__(self):
+                s_daemon.DmonConf.__init__(self)
+                s_eventbus.EventBus.__init__(self)
+
+        conf = {
+
+            'ctors':(
+                ('woot','ctor://synapse.tests.test_daemon.Woot()'),
+                ('blah','ctor://synapse.tests.test_daemon.Blah(woot)'),
+            ),
+
+            'addons':(
+                ('haha','ctor://synapse.tests.test_daemon.Woot()'),
+            ),
+
+        }
+
+        dcon = DmonConfTest()
+        dcon.loadDmonConf(conf)
+
+        self.assertEqual( dcon.locs.get('woot').foo(10,y=30), 40 )
+        self.assertEqual( dcon.addons.get('haha').foo(10,y=30), 40 )
+
+        self.assertEqual( dcon.locs.get('blah').woot.foo(10,y=30), 40 )

@@ -67,9 +67,13 @@ def evalurl(url,**opts):
         item1 = evalurl('ctor://foo.bar.baz("woot",y=20)')
 
     '''
+    if url.find('://') == -1:
+        raise BadUrl(url)
+
     scheme,therest = url.split('://',1)
     if scheme == 'ctor':
-        return s_dyndeps.runDynEval(therest)
+        locs = opts.get('locs')
+        return s_dyndeps.runDynEval(therest, locs=locs)
 
     return openurl(url,**opts)
 

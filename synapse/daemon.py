@@ -1,3 +1,4 @@
+import json
 import logging
 import traceback
 import collections
@@ -7,20 +8,84 @@ logger = logging.getLogger(__name__)
 import synapse.link as s_link
 import synapse.lib.pki as s_pki
 import synapse.lib.socket as s_socket
+import synapse.lib.service as s_service
 import synapse.lib.threads as s_threads
 
 import synapse.cortex as s_cortex
 import synapse.crypto as s_crypto
-import synapse.impulse as s_impulse
+import synapse.telepath as s_telepath
 
 from synapse.eventbus import EventBus
 
 from synapse.common import *
 
-class Daemon(EventBus):
+class DmonConf:
+    '''
+    A mixin class for configuring a daemon by dict/json.
+
+    Note: it is assumed that DmonConf is mixed into a class
+          which inherits from EventBus.
+    '''
+    def __init__(self):
+        self.conf = {}
+        self.locs = {}
+        self.addons = {}
+
+    def _addConfValu(self, conf, prop):
+        valu = conf.get(prop)
+        if valu != None:
+            self.setDmonConf(prop,valu)
+
+    def setDmonConf(self, prop, valu):
+        self.conf[prop] = valu
+        self.fire('dmon:conf:set', prop=prop, valu=valu)
+        self.fire('dmon:conf:set:%s' % (prop,), prop=prop, valu=valu)
+
+    def loadDmonConf(self, conf):
+        '''
+        '''
+        self._addConfValu(conf,'poolsize')
+
+        for name,url in conf.get('ctors',()):
+
+            item = s_telepath.evalurl(url,locs=self.locs)
+            self.locs[name] = item
+
+            self.fire('dmon:conf:ctor', name=name, item=item)
+
+        for name,url in conf.get('addons',()):
+
+            item = s_telepath.evalurl(url,locs=self.locs)
+            self.addons[name] = item
+
+            self.fire('dmon:conf:addon', name=name, item=item)
+
+        # if there's a service bus, check for service entries
+        svcbus = self.addons.get('svcbus')
+        if svcbus:
+            for name,opts in conf.get('svc:run'):
+                item = self.locs.get(name)
+                if item == None:
+                    raise NoSuchObj(name)
+
+                tags = opts.get('tags',())
+                svcname = opts.get('name',name)
+
+                s_service.runSynSvc(svcname, item, svcbus, tags=tags)
+
+    def loadDmonJson(self, text):
+        conf = json.loads(text)
+        return self.loadDmonJson(conf)
+
+    def loadDmonFile(self, path):
+        text = open(path,'rb').read().decode('utf8')
+        return self.loadDmonJson(text)
+
+class Daemon(EventBus,DmonConf):
 
     def __init__(self, core=None, pool=None):
         EventBus.__init__(self)
+        DmonConf.__init__(self)
 
         if core == None:
             core = s_cortex.openurl('ram:///')
@@ -28,6 +93,8 @@ class Daemon(EventBus):
         self.socks = {}     # sockets by iden
         self.shared = {}    # objects provided by daemon
         self.pushed = {}    # objects provided by sockets
+
+        self._dmon_links = []   # list of listen links
 
         if pool == None:
             pool = s_threads.Pool(size=8, maxsize=-1)
@@ -57,6 +124,20 @@ class Daemon(EventBus):
 
         self.setMesgFunc('tele:on', self._onTeleOnMesg )
         self.setMesgFunc('tele:off', self._onTeleOffMesg )
+
+    def loadDmonConf(self, conf):
+        DmonConf.loadDmonConf(self,conf)
+
+        # process a few daemon specific options
+        for url in conf.get('dmon:listen',()):
+            self.listen(url)
+
+        for name,opts in conf.get('dmon:share',()):
+            item = self.locs.get(name)
+            if item == None:
+                raise NoSuchObj(name)
+
+            self.share(name,item)
 
     def _onTelePushMesg(self, sock, mesg):
 
@@ -302,9 +383,16 @@ class Daemon(EventBus):
 
         self.plex.addPlexSock(sock)
 
+        self._dmon_links.append(link)
         return link
 
-    def share(self, name, item, tags=()):
+    def links(self):
+        '''
+        Return a list of the link tufos the Daemon is listening on.
+        '''
+        return list(self._dmon_links)
+
+    def share(self, name, item):
         '''
         Share an object via the telepath protocol.
 

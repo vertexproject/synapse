@@ -18,13 +18,13 @@ def main(argv):
     opts = p.parse_args(argv)
 
     with open(opts.config,'rb') as fd:
-        config = json.loads( fd.read().decode('utf8') )
+        conf = json.loads( fd.read().decode('utf8') )
 
-    settings = config.get('tornado',{})
+    settings = conf.get('tornado:settings',{})
 
     wapp = s_webapp.WebApp(**settings)
 
-    wapp.load(config)
+    wapp.loadDmonConf(conf)
 
     wapp.main()
 

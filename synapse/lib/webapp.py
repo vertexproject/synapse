@@ -9,12 +9,14 @@ import tornado.ioloop
 import tornado.httpserver
 
 import synapse.async as s_async
+import synapse.daemon as s_daemon
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.threads as s_threads
 
+from synapse.common import *
 from synapse.eventbus import EventBus
 
 # TODO:
@@ -81,7 +83,7 @@ class BaseHand(tornado.web.RequestHandler):
         self.write(retinfo)
         self.finish()
 
-class WebApp(EventBus,tornado.web.Application):
+class WebApp(EventBus,tornado.web.Application,s_daemon.DmonConf):
     '''
     The WebApp class allows easy publishing of python methods as HTTP APIs.
 
@@ -103,6 +105,7 @@ class WebApp(EventBus,tornado.web.Application):
     '''
     def __init__(self, **settings):
         EventBus.__init__(self)
+        s_daemon.DmonConf.__init__(self)
         tornado.web.Application.__init__(self, **settings)
 
         self.loop = tornado.ioloop.IOLoop.current()
@@ -112,9 +115,6 @@ class WebApp(EventBus,tornado.web.Application):
 
         # FIXME options
         self.boss.runBossPool(8, maxsize=128)
-
-        self.items = {}
-        self.addons = {}
 
         self.iothr = self._runWappLoop()
 
@@ -195,7 +195,7 @@ class WebApp(EventBus,tornado.web.Application):
         '''
         return [ s.getsockname() for s in self.serv._sockets.values() ]
 
-    def load(self, config):
+    def loadDmonConf(self, conf):
         '''
         Load API publishing info from the given config dict.
 
@@ -210,15 +210,15 @@ class WebApp(EventBus,tornado.web.Application):
                     (<name>,<evalurl>),
                 ),
 
-                'apis':(
+                'http:apis':(
                     ( <regex>, <name>.<meth>, <props> )
                 ),
 
-                'paths':(
+                'http:paths':(
                     ( <regex>, <path>, <props> ),
                 ),
 
-                'listen':(
+                'http:listen':(
                     (<host>,<port>),
                 ),
             }
@@ -236,15 +236,15 @@ class WebApp(EventBus,tornado.web.Application):
                     ( 'blah', 'ctor://mypkg.mymod.Blah("haha")' ),
                 ),
 
-                'apis':(
+                'http:apis':(
                     ( '/v1/woot/by/foo/(.*)', 'woot.getByFoo', {} ),
                 ),
 
-                'paths':(
+                'http:paths':(
                     ( '/static/(.*)', '/path/to/static', {}),
                 )
 
-                'listen':(
+                'http:listen':(
                     ('0.0.0.0',8080),
                 ),
             }
@@ -261,16 +261,14 @@ class WebApp(EventBus,tornado.web.Application):
             )
 
         '''
-        # create our local items...
-        for name,url in config.get('ctors',()):
-            self.items[name] = s_telepath.evalurl(url, locs=self.items)
-
         # add our API paths...
-        for path,methname,props in config.get('apis',()):
+        s_daemon.DmonConf.loadDmonConf(self,conf)
+
+        for path,methname,props in conf.get('http:apis',()):
 
             name,meth = methname.split('.',1)
 
-            item = self.items.get(name)
+            item = self.locs.get(name)
             if item == None:
                 raise NoSuchObj(name)
 
@@ -280,25 +278,8 @@ class WebApp(EventBus,tornado.web.Application):
 
             self.addApiPath(path, func)
 
-        for regx,path in config.get('paths',()):
+        for regx,path in conf.get('http:paths',()):
             self.addFilePath(regx,path)
 
-        for name,url in config.get('addons',{}).items():
-            self.addons[name] = s_telepath.evalurl(url)
-
-        for host,port in config.get('listen',()):
+        for host,port in conf.get('http:listen',()):
             self.listen(port,host=host)
-
-    def getAddOn(self, name):
-        '''
-        Return the given "addon" object by name or None.
-
-        Example:
-
-            auth = wapp.getAddOn('auth')
-            if auth != None:
-                doAuthStuff(auth)
-
-        '''
-        return self.addons.get(name)
-
