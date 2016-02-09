@@ -206,21 +206,21 @@ class WebApp(EventBus,tornado.web.Application):
 
             config = {
 
-                'ctors':{
-                    <name>:<evalurl>,
-                },
+                'ctors':(
+                    (<name>,<evalurl>),
+                ),
 
-                'apis':[
-                    [ <regex>, <name>.<meth> ]
-                ],
+                'apis':(
+                    ( <regex>, <name>.<meth>, <props> )
+                ),
 
-                'paths':[
-                    [ <regex>, <path> ]
-                ],
+                'paths':(
+                    ( <regex>, <path>, <props> ),
+                ),
 
-                'listen':[
-                    [<host>,<port>]
-                ]
+                'listen':(
+                    (<host>,<port>),
+                ),
             }
 
         Example:
@@ -231,31 +231,42 @@ class WebApp(EventBus,tornado.web.Application):
 
             config = {
 
-                'ctors':{
-                    'woot':'tcp://telepath.kenshoto.com/woot',
-                    'blah':'ctor://mypkg.mymod.Blah("haha")',
-                },
+                'ctors':(
+                    ( 'woot', 'tcp://telepath.kenshoto.com/woot' ),
+                    ( 'blah', 'ctor://mypkg.mymod.Blah("haha")' ),
+                ),
 
-                'apis':[
-                    [ '/v1/woot/by/foo/(.*)', 'woot.getByFoo']
-                }
+                'apis':(
+                    ( '/v1/woot/by/foo/(.*)', 'woot.getByFoo', {} ),
+                ),
 
-                'paths':[
-                    [ '/static/(.*)', '/path/to/static']
-                ]
+                'paths':(
+                    ( '/static/(.*)', '/path/to/static', {}),
+                )
 
-                'listen':[
+                'listen':(
                     ('0.0.0.0',8080),
-                ],
+                ),
             }
+
+        Notes:
+
+            ctor:// based urls may use previous ctor names as vars
+
+            Example:
+
+            'ctors':(
+                ( 'woot', 'ctor://synapse.cortex.openurl("ram:///")' ),
+                ( 'blah', 'ctor://thing.needs.a.cortex(woot)' ),
+            )
 
         '''
         # create our local items...
-        for name,url in config.get('ctors',{}).items():
-            self.items[name] = s_telepath.evalurl(url)
+        for name,url in config.get('ctors',()):
+            self.items[name] = s_telepath.evalurl(url, locs=self.items)
 
         # add our API paths...
-        for path,methname in config.get('apis',()):
+        for path,methname,props in config.get('apis',()):
 
             name,meth = methname.split('.',1)
 
@@ -269,8 +280,8 @@ class WebApp(EventBus,tornado.web.Application):
 
             self.addApiPath(path, func)
 
-        for path,filepath in config.get('paths',()):
-            self.addFilePath(path,filepath)
+        for regx,path in config.get('paths',()):
+            self.addFilePath(regx,path)
 
         for name,url in config.get('addons',{}).items():
             self.addons[name] = s_telepath.evalurl(url)
