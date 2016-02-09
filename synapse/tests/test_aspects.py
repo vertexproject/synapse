@@ -34,3 +34,26 @@ class AspectTest(unittest.TestCase):
 
         tufos = core.getTufosByTag('foo','baz.faz.gaz')
         self.assertEqual( len(tufos), 0 )
+
+    def test_aspect_bytag(self):
+        bytag = s_aspects.ByTag()
+
+        bytag.put('foo0',('foos.foo0','bar.baz'))
+        bytag.put('foo1',('foos.foo1','bar.faz'))
+
+        vals = tuple( sorted( bytag.get('bar') ) )
+        self.assertEqual( vals, ('foo0','foo1') )
+
+        vals = tuple( sorted( bytag.get('foos') ) )
+        self.assertEqual( vals, ('foo0','foo1') )
+
+        vals = tuple( sorted( bytag.get('foos.foo0') ) )
+        self.assertEqual( vals, ('foo0',) )
+
+        vals = tuple( sorted( bytag.get('newp.foo0') ) )
+        self.assertEqual( vals, () )
+
+        bytag.pop('foo0')
+
+        vals = tuple( sorted( bytag.get('foos') ) )
+        self.assertEqual( vals, ('foo1',) )
