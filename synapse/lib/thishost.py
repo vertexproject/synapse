@@ -1,4 +1,5 @@
 import ctypes
+import socket
 import platform
 
 import synapse.lib.platforms.linux as s_linux
@@ -8,6 +9,7 @@ import synapse.lib.platforms.windows as s_windows
 
 hostinfo = {}
 hostinfo['ptrsize'] = ctypes.sizeof( ctypes.c_void_p )
+hostinfo['hostname'] = socket.gethostname()
 
 platinit = {
     'linux':s_linux._initHostInfo,
