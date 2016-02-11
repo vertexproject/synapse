@@ -59,7 +59,7 @@ def initconf():
             #         ('/context/v1/*',{'rate':(10,60), }),
             #     ],
             # }
-            guidstr():{
+            guid():{
                 'en':True,
                 'name':'root',
                 'roles':[],

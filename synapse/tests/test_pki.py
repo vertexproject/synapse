@@ -11,7 +11,7 @@ class PkiTest(SynTest):
         core0 = s_cortex.openurl('ram:///')
         pki0 = s_pki.PkiStor(core0)
 
-        uidn = guidstr()
+        uidn = guid()
 
         root = pki0.genRootToken(bits=512, save=True)
 

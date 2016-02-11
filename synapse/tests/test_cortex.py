@@ -26,7 +26,7 @@ class CortexTest(SynTest):
         if db == None:
             raise unittest.SkipTest('no SYN_COR_PG_DB')
 
-        table = 'syn_test_%s' % guidstr()
+        table = 'syn_test_%s' % guid()
 
         link = s_link.chopLinkUrl('postgres:///%s/%s' % (db,table))
         core = s_cortex.openlink(link)
@@ -40,10 +40,10 @@ class CortexTest(SynTest):
 
     def runcore(self, core):
 
-        id1 = guidstr()
-        id2 = guidstr()
-        id3 = guidstr()
-        id4 = guidstr()
+        id1 = guid()
+        id2 = guid()
+        id3 = guid()
+        id4 = guid()
 
         rows = [
             (id1,'foo','bar',30),
@@ -147,8 +147,8 @@ class CortexTest(SynTest):
     def runrange(self, core):
 
         rows = [
-            (guidstr(),'rg',10,99),
-            (guidstr(),'rg',30,99),
+            (guid(),'rg',10,99),
+            (guid(),'rg',30,99),
         ]
 
         core.addRows( rows )
@@ -201,10 +201,10 @@ class CortexTest(SynTest):
         core0 = meta.getCortex('foo.bar')
         core1 = meta.getCortex('foo.baz')
 
-        id0 = guidstr()
-        id1 = guidstr()
-        id2 = guidstr()
-        id3 = guidstr()
+        id0 = guid()
+        id1 = guid()
+        id2 = guid()
+        id3 = guid()
 
         rows0 = (
             (id0,'a',10,99),
@@ -312,7 +312,7 @@ class CortexTest(SynTest):
         meta.fini()
 
     def newp_cortex_meta_addmeta(self):
-        id1 = guidstr()
+        id1 = guid()
         meta = s_cortex.MetaCortex()
 
         meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
@@ -329,7 +329,7 @@ class CortexTest(SynTest):
         meta.fini()
 
     def newp_cortex_meta_corapi(self):
-        id1 = guidstr()
+        id1 = guid()
         meta = s_cortex.MetaCortex()
 
         meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
@@ -366,8 +366,8 @@ class CortexTest(SynTest):
         meta.on('meta:query:rows',metaqueryrows)
         meta.on('meta:query:join',metaqueryjoin)
 
-        id1 = guidstr()
-        id2 = guidstr()
+        id1 = guid()
+        id2 = guid()
         rows = [ 
             (id1,'foo',10,10),
             (id1,'haha',10,10),
@@ -394,8 +394,8 @@ class CortexTest(SynTest):
         meta.on('meta:query:rows',newp)
         meta.on('meta:query:join',newp)
 
-        id1 = guidstr()
-        id2 = guidstr()
+        id1 = guid()
+        id2 = guid()
         rows = [ 
             (id1,'foo',10,10),
             (id1,'haha',10,10),
@@ -424,13 +424,13 @@ class CortexTest(SynTest):
         meta.addCortex('foo.bar','ram:///',tags=('woot.hehe',))
         meta.addCortex('foo.baz','ram:///',tags=('woot.hehe',))
 
-        id1 = guidstr()
+        id1 = guid()
         meta.addMetaRows('foo.bar',(
             (id1,'foo',10,10),
             (id1,'haha',10,10),
         ))
 
-        id2 = guidstr()
+        id2 = guid()
         meta.addMetaRows('foo.baz',(
             (id2,'foo',20,20),
             (id2,'haha',20,20),

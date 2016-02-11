@@ -157,7 +157,7 @@ class Cortex(EventBus):
 
         '''
         now = int(time.time())
-        rows = [ (guidstr(), prop, valu, now) for valu in vals ]
+        rows = [ (guid(), prop, valu, now) for valu in vals ]
         self.addRows(rows)
         return rows
 
@@ -201,7 +201,7 @@ class Cortex(EventBus):
             tufo[1][haslist] = 1
             rows.append( ( tufo[0], haslist, 1, now) )
 
-        [ rows.append( (guidstr(),prop,v,now) ) for v in vals ]
+        [ rows.append( (guid(),prop,v,now) ) for v in vals ]
 
         self.addRows( rows )
 
@@ -474,7 +474,7 @@ class Cortex(EventBus):
             tufo = core.addTufoEvent('foo',bar=baz)
 
         '''
-        iden = guidstr()
+        iden = guid()
 
         stamp = int(time.time())
 
@@ -528,7 +528,7 @@ class Cortex(EventBus):
             if tufo != None:
                 return tufo
 
-            iden = guidstr()
+            iden = guid()
             stamp = int(time.time())
 
             props = self._normTufoProps(form,props)

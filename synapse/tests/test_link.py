@@ -133,7 +133,7 @@ class LinkTest(SynTest):
 
     def test_link_local(self):
         self.thisHostMustNot(platform='windows')
-        name = guidstr()
+        name = guid()
 
         dmon = s_daemon.Daemon()
         dmon.share('foo',FooBar())

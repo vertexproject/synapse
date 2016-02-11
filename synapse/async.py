@@ -14,7 +14,7 @@ from synapse.common import *
 from synapse.eventbus import EventBus
 
 def jobid():
-    return guidstr()
+    return guid()
 
 def jobret(job):
     '''
@@ -167,7 +167,7 @@ class Boss(EventBus):
             raise IsFini()
 
         if jid == None:
-            jid = guidstr()
+            jid = guid()
 
         info['done'] = False
         info['times'] = []

@@ -15,10 +15,7 @@ def now():
     return int(time.time())
 
 def guid():
-    return os.urandom(16)
-
-def guidstr():
-    return hexlify(guid()).decode('utf8')
+    return hexlify(os.urandom(16)).decode('utf8')
 
 def tufo(typ,**kwargs):
     return (typ,kwargs)

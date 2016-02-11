@@ -151,7 +151,7 @@ class Thread(threading.Thread,EventBus):
         threading.Thread.__init__(self)
         self.setDaemon(True)
 
-        self.iden = guidstr()
+        self.iden = guid()
         self.task = (func,args,kwargs)
 
         self.cancels = []

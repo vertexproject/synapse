@@ -298,7 +298,7 @@ class PkiStor(EventBus):
         key = genRsaKey(bits=bits)
         pub = key.public_key()
 
-        iden = guidstr()
+        iden = guid()
 
         pubder = pubToDer(pub)
 
@@ -318,7 +318,7 @@ class PkiStor(EventBus):
             tokn = pki.genHostToken('visi.kenshoto.com')
 
         '''
-        iden = guidstr()
+        iden = guid()
         key = genRsaKey(bits=bits)
 
         self.setRsaKey(iden, key, save=save)
@@ -340,7 +340,7 @@ class PkiStor(EventBus):
             skey = pki.getUserKey( tokn[1].get('syntok') )
 
         '''
-        iden = guidstr()
+        iden = guid()
         key = genRsaKey(bits=bits)
 
         self.setRsaKey(iden, key, save=save)

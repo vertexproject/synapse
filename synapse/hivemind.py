@@ -164,7 +164,7 @@ class Hive(s_async.Boss):
         s_async.Boss.__init__(self)
 
         self.meld = None
-        self.iden = guidstr()
+        self.iden = guid()
 
         self.queen = queen
 
@@ -232,7 +232,7 @@ class Drone(EventBus):
 
         EventBus.__init__(self)
 
-        self.iden = guidstr()
+        self.iden = guid()
 
         self.slots = {}
         self.slocs = {}
@@ -287,7 +287,7 @@ class Drone(EventBus):
             self._addWorkSlot()
 
     def _addWorkSlot(self):
-        iden = guidstr()
+        iden = guid()
         slot = tufo(iden, drone=self.iden)
 
         self.slots[iden] = slot
