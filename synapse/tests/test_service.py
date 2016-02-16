@@ -10,6 +10,8 @@ class Woot:
     def foo(self, x, y=10):
         return x + y
 
+class Blah(Woot):pass
+
 class SvcTest(SynTest):
 
     def test_service_base(self):
@@ -77,6 +79,16 @@ class SvcTest(SynTest):
 
         self.assertRaises( JobErr, runNewpMeth )
 
+        woots = svcp.getTagProxy('class.synapse.tests.test_service.Woot')
+
+        vals = tuple( sorted( woots.foo(10,y=20) ) )
+        self.assertEqual( vals, (30,30) )
+
         prox.fini()
         dmon.fini()
         sbus.fini()
+
+    def test_service_getclsnames(self):
+        b = Blah()
+        names = tuple( sorted( s_service.getClsNames(b) ) )
+        self.assertEqual( names, ('synapse.tests.test_service.Blah','synapse.tests.test_service.Woot') )

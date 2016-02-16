@@ -1,4 +1,5 @@
 import time
+import inspect
 import logging
 
 logger = logging.getLogger(__name__)
@@ -197,6 +198,21 @@ class SvcTagMeth:
         if exc != None and res == 0:
             raise exc
 
+clsskip = set([object])
+def getClsNames(item):
+    '''
+    Return a list of "fully qualified" class names for an instance.
+
+    Example:
+
+        for name in getClsNames(foo):
+            print(name)
+
+    '''
+    mro = inspect.getmro(item.__class__)
+    mro = [ c for c in mro if c not in clsskip ]
+    return [ '%s.%s' % (c.__module__,c.__name__) for c in mro ]
+
 def runSynSvc(name, item, sbus, tags=()):
     '''
     Add an object as a synapse service.
@@ -213,6 +229,11 @@ def runSynSvc(name, item, sbus, tags=()):
 
     sched = s_sched.getGlobSched()
     hostinfo = s_thishost.hostinfo
+
+    tags = list(tags)
+
+    names = getClsNames(item)
+    tags.extend( [ 'class.%s' % n for n in names ] )
 
     def onTeleSock(mesg):
         if not sbus.isfini:
