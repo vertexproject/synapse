@@ -33,11 +33,11 @@ class SvcTest(SynTest):
         svcs = prox.getSynSvcs()
 
         self.assertEqual( len(svcs), 1 )
-        self.assertEqual( svcs[0][0], 'syn.woot' )
+        self.assertEqual( svcs[0][1].get('name'), 'syn.woot' )
 
         dyntask = s_async.newtask('foo',10,y=30)
 
-        job = prox.callx('syn.woot', dyntask)
+        job = prox.callx(svcs[0][0], dyntask)
         self.assertEqual( prox.sync(job), 40 )
 
         prox.fini()

@@ -16,6 +16,8 @@ def getArgParser():
     p.add_argument('--add-svcbus', help='specify an svcbus addon url')
 
     p.add_argument('--run-auth', help='run a UserAuth by ctor url (/syn.auth)')
+    #p.add_argument('--run-queen', help='run a hivemind cluster Queen')
+    #p.add_argument('--run-drone', help='run a hivemind cluster Drone')
     p.add_argument('--run-svcbus', default=False, action='store_true', help='run and share a ServiceBus at /syn.svcbus')
 
     p.add_argument('configs', nargs='*', help='json config file(s)')
@@ -63,7 +65,7 @@ def main(argv):
     dmon.loadDmonConf(conf)
 
     for path in opts.configs:
-        dmon.loadDmonFile(opts.path)
+        dmon.loadDmonFile(path)
 
     # if the daemon still has no listeners, add a default
     if not dmon.links():

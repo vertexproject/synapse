@@ -9,7 +9,10 @@ import synapse.aspects as s_aspects
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.sched as s_sched
+import synapse.lib.threads as s_threads
 import synapse.lib.thishost as s_thishost
+
+from synapse.common import *
 
 class SvcBus(s_eventbus.EventBus):
 
@@ -27,7 +30,7 @@ class SvcBus(s_eventbus.EventBus):
 
         self.bytag.pop(name)
 
-    def iAmSynSvc(self, name, **props):
+    def iAmSynSvc(self, iden, props):
         '''
         API used by synapse service to register with the bus.
 
@@ -36,34 +39,43 @@ class SvcBus(s_eventbus.EventBus):
             sbus.iAmSynSvc('syn.blah', foo='bar', baz=10)
 
         '''
-        oldp = self.services.pop(name,None)
-        if oldp != None:
-            self.fire('syn:svc:fini', name=name, props=oldp)
+        props['iden'] = iden
+
+        svcfo = (iden,props)
+
+        sock = s_threads.local('sock')
+        if sock != None:
+            def onfini():
+                oldsvc = self.services.pop(iden,None)
+                self.bytag.pop(iden)
+                self.fire('syn:svc:fini', svcfo=oldsvc)
+
+            sock.onfini(onfini)
             
-        self.services[name] = props
-        self.bytag.put(name,(name,))
-        self.bytag.put(name,props.get('tags',()))
+        self.services[iden] = svcfo
 
-        self.fire('syn:svc:init', name=name, props=props)
+        tags = props.get('tags',())
 
-    def iAmAlive(self, name):
+        self.bytag.put(iden,tags)
+
+        self.fire('syn:svc:init', svcfo=svcfo)
+
+    def iAmAlive(self, iden):
         '''
         "heartbeat" API for services.
 
         Example:
 
-            sbus.iAmAlive('syn.blah')
+            sbus.iAmAlive(iden)
 
         Notes:
 
             This API is generally called by a scheduled loop
             within the service object.
         '''
-        props = self.services.get(name)
-        if props == None:
-            return
-
-        props['checkin'] = int(time.time())
+        svcfo = self.services.get(iden)
+        if svcfo != None:
+            svcfo[1]['checkin'] = int(time.time())
 
     def getSynSvcs(self):
         '''
@@ -75,7 +87,7 @@ class SvcBus(s_eventbus.EventBus):
                 dostuff(name,info)
 
         '''
-        return list(self.services.items())
+        return list(self.services.values())
 
     def getSynSvcsByTag(self, tag):
         '''
@@ -87,8 +99,8 @@ class SvcBus(s_eventbus.EventBus):
                 dostuff(name,props)
 
         '''
-        names = self.bytag.get(tag)
-        return [ (name,self.services.get(name)) for name in names ]
+        idens = self.bytag.get(tag)
+        return [ self.services.get(iden) for iden in idens ]
 
 class SvcProxy:
     '''
@@ -109,17 +121,23 @@ class SvcProxy:
         [ self._addSvcName(n,p.get('tags',())) for (n,p) in sbus.getSynSvcs() ]
 
     def _onSynSvcInit(self, mesg):
-        name = mesg[1].get('name')
-        props = mesg[1].get('props')
+        svcfo = mesg[1].get('svcfo')
+        if svcfo == None:
+            return
 
-        self._addSvcName(name,props.get('tags',()))
+        name = svcfo[1].get('name')
+        tags = svcfo[1].get('tags',())
+
+        self._addSvcName(name,tags)
 
     def _addSvcName(self, name, tags):
         self.bytag.put(name,tags)
         self.bytag.put(name,(name,))
 
     def _onSynSvcFini(self, mesg):
-        name = mesg[1].get('name')
+        svcfo = mesg[1].get('svcfo')
+
+        name = svcfo[1].get('name')
         self.bytag.pop(name)
 
     def callByTag(self, tag, name, *args, **kwargs):
@@ -225,7 +243,8 @@ def runSynSvc(name, item, sbus, tags=()):
         runSynSvc('syn.woot', woot, sbus)
 
     '''
-    sbus.push(name,item)
+    iden = guid()
+    sbus.push(iden,item)
 
     sched = s_sched.getGlobSched()
     hostinfo = s_thishost.hostinfo
@@ -235,18 +254,26 @@ def runSynSvc(name, item, sbus, tags=()):
     names = getClsNames(item)
     tags.extend( [ 'class.%s' % n for n in names ] )
 
+    tags.append(name)
+
+    props = {}
+
+    props['name'] = name
+    props['tags'] = tags
+    props['hostinfo'] = hostinfo
+
     def onTeleSock(mesg):
         if not sbus.isfini:
-            sbus.iAmSynSvc(name, hostinfo=hostinfo, tags=tags)
+            sbus.iAmSynSvc(iden, props)
 
     def svcHeartBeat():
         if sbus.isfini:
             return
 
-        sbus.iAmAlive(name)
+        sbus.iAmAlive(iden)
         sched.insec(30, svcHeartBeat)
 
     svcHeartBeat()
 
     sbus.on('tele:sock:init', onTeleSock)
-    sbus.iAmSynSvc(name, hostinfo=hostinfo, tags=tags)
+    sbus.iAmSynSvc(iden, props)

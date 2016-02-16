@@ -55,27 +55,34 @@ class DmonConf:
 
         for name,url in conf.get('addons',()):
 
-            item = s_telepath.evalurl(url,locs=self.locs)
+            try:
+                item = s_telepath.evalurl(url,locs=self.locs)
+            except Exception as e:
+                raise Exception('DmonConf addon (%s): %s %s' % (name,e.__class__.__name__,e))
+
             self.addons[name] = item
 
             self.fire('dmon:conf:addon', name=name, item=item)
 
-        # if there's a service bus, check for service entries
-        svcbus = self.addons.get('svcbus')
-        if svcbus:
-            for name,opts in conf.get('svc:run'):
-                item = self.locs.get(name)
-                if item == None:
-                    raise NoSuchObj(name)
+        svcbus = self.addons.get('syn.svcbus')
 
-                tags = opts.get('tags',())
-                svcname = opts.get('name',name)
+        svcruns = conf.get('svc:run',())
+        if svcruns and not svcbus:
+            raise Exception('svc:run with no syn.svcbus addon!')
 
-                s_service.runSynSvc(svcname, item, svcbus, tags=tags)
+        for name,opts in svcruns:
+            item = self.locs.get(name)
+            if item == None:
+                raise NoSuchObj(name)
+
+            tags = opts.get('tags',())
+            svcname = opts.get('name',name)
+
+            s_service.runSynSvc(svcname, item, svcbus, tags=tags)
 
     def loadDmonJson(self, text):
         conf = json.loads(text)
-        return self.loadDmonJson(conf)
+        return self.loadDmonConf(conf)
 
     def loadDmonFile(self, path):
         text = open(path,'rb').read().decode('utf8')
@@ -133,11 +140,13 @@ class Daemon(EventBus,DmonConf):
             self.listen(url)
 
         for name,opts in conf.get('dmon:share',()):
+            asname = opts.get('name',name)
+
             item = self.locs.get(name)
             if item == None:
                 raise NoSuchObj(name)
 
-            self.share(name,item)
+            self.share(asname,item)
 
     def _onTelePushMesg(self, sock, mesg):
 
