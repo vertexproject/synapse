@@ -44,6 +44,10 @@ class DmonConf:
     def loadDmonConf(self, conf):
         '''
         '''
+        for path in conf.get('includes',()):
+            fullpath = os.path.expanduser(path)
+            self.loadDmonFile(fullpath)
+
         self._addConfValu(conf,'poolsize')
 
         for name,url in conf.get('ctors',()):
