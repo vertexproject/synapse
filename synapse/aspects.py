@@ -119,6 +119,9 @@ class ByTag:
         for tag in tags:
             for name in iterTagDown(tag):
                 s = self.bytag.get(name)
+                if s == None:
+                    continue
+
                 s.discard(item)
                 if not s:
                     self.bytag.pop(name,None)
