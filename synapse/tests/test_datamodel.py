@@ -175,3 +175,27 @@ class DataModelTest(unittest.TestCase):
         self.assertEqual( ret.get('size'), 10 )
         self.assertEqual( ret.get('flag'), 'asdf')
 
+
+    def test_datamodel_inet(self):
+
+        model = s_datamodel.DataModel()
+
+        model.addTufoForm('foo')
+        model.addTufoProp('foo','addr', ptype='inet:ipv4')
+        model.addTufoProp('foo','serv', ptype='inet:srv4')
+        model.addTufoProp('foo','port', ptype='inet:port')
+
+        self.assertEqual( model.getPropNorm('foo:port',20), 20 )
+        self.assertEqual( model.getPropParse('foo:port','0x10'), 16 )
+
+        self.assertEqual( model.getPropRepr('foo:addr', 0x01020304), '1.2.3.4')
+        self.assertEqual( model.getPropNorm('foo:addr',0x01020304), 0x01020304 )
+        self.assertEqual( model.getPropParse('foo:addr','1.2.3.4'), 0x01020304 )
+
+        self.assertEqual( model.getPropRepr('foo:serv', 0x010203040010), '1.2.3.4:16')
+        self.assertEqual( model.getPropNorm('foo:serv',0x010203040010), 0x010203040010 )
+        self.assertEqual( model.getPropParse('foo:serv','1.2.3.4:255'), 0x0102030400ff )
+
+        self.assertRaises( s_datamodel.BadTypeNorm, model.getPropNorm, 'foo:port', 0xffffff )
+        self.assertRaises( s_datamodel.BadTypeNorm, model.getPropParse, 'foo:port', '999999' )
+

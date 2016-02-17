@@ -2,6 +2,8 @@
 An API to assist with the creation and enforcement of cortex data models.
 '''
 import re
+import socket
+import struct
 import fnmatch
 import functools
 import collections
@@ -157,6 +159,66 @@ class HexType(DataType):
 
         return text
 
+class Ipv4Type(DataType):
+
+    def norm(self, valu):
+        return int(valu)
+
+    def repr(self, valu):
+        byts = struct.pack('>I',valu)
+        return socket.inet_ntoa(byts)
+
+    def parse(self, text):
+        byts = socket.inet_aton(text)
+        return struct.unpack('>I', byts)[0]
+
+class Srv4Type(DataType):
+
+    def __init__(self):
+        DataType.__init__(self)
+        self.porttype = IntRange('inet:srv4:port', 0, 65535)
+        self.addrtype = Ipv4Type()
+
+    def norm(self, valu):
+        return int(valu)
+
+    def repr(self, valu):
+        addr = valu >> 16
+        port = valu & 0xffff
+
+        pstr = self.porttype.repr(port)
+        astr = self.addrtype.repr(addr)
+        return '%s:%s' % (astr,pstr)
+
+    def parse(self, text):
+        astr,pstr = text.split(':')
+        addr = self.addrtype.parse(astr)
+        port = self.porttype.parse(pstr)
+        return ( addr << 16 ) | port
+
+class IntRange(IntType):
+
+    def __init__(self, name, minval, maxval):
+        self.name = name
+        self.minval = minval
+        self.maxval = maxval
+
+    def repr(self, valu):
+        return str(valu)
+
+    def norm(self, valu):
+        valu = int(valu)
+        if valu < self.minval:
+            raise BadTypeNorm(self.name,'%s not in (%d-%d)' % (valu,self.minval,self.maxval))
+
+        if valu > self.maxval:
+            raise BadTypeNorm(self.name,'%s not in (%d-%d)' % (valu,self.minval,self.maxval))
+
+        return valu
+
+    def parse(self, text):
+        return self.norm( int(text,0) )
+
 class HashType(DataType):
 
     def __init__(self, name, size):
@@ -197,8 +259,12 @@ basetypes = {
     'str': StrType(),
     'str:lwr': LwrType(),
 
-    # 'inet:ipv4'
-    # 'inet:ipv6'
+    'inet:port':IntRange('inet:port', 0, 65535),
+    'inet:ipv4':Ipv4Type(),
+    'inet:srv4':Srv4Type(),
+
+    #'inet:ipv6'
+    #'inet:srv6',
 
     'hash:md5': HashType('hash:md5', 16),
     'hash:sha1': HashType('hash:sha1', 20),
