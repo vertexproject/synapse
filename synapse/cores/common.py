@@ -1,4 +1,5 @@
 import time
+import itertools
 import threading
 import traceback
 import collections
@@ -14,6 +15,15 @@ from synapse.common import *
 from synapse.eventbus import EventBus
 
 class NoSuchGetBy(Exception):pass
+
+def chunked(n, iterable):
+    it = iter(iterable)
+    while True:
+       chunk = tuple(itertools.islice(it, n))
+       if not chunk:
+           return
+
+       yield chunk
 
 class Cortex(EventBus):
     '''
@@ -514,34 +524,39 @@ class Cortex(EventBus):
             core.addTufoEvents('woot',propss)
 
         '''
-        rows = []
-        tufos = []
-
         nowstamp = int(time.time())
 
-        for props in propss:
+        ret = []
+        for chunk in chunked(1000,propss):
 
-            iden = guid()
+            rows = []
+            tufos = []
 
-            stamp = props.get('time')
-            if stamp == None:
-                stamp = nowstamp
+            for props in chunk:
 
-            props = self._normTufoProps(form,props)
-            props[form] = iden
+                iden = guid()
 
-            self.fire('tufo:form', form=form, valu=iden, props=props)
-            self.fire('tufo:form:%s' % form, form=form, valu=iden, props=props)
+                stamp = props.get('time')
+                if stamp == None:
+                    stamp = nowstamp
 
-            rows.extend([ (iden,p,v,stamp) for (p,v) in props.items() ])
+                props = self._normTufoProps(form,props)
+                props[form] = iden
 
-            tufos.append( (iden,props) )
+                self.fire('tufo:form', form=form, valu=iden, props=props)
+                self.fire('tufo:form:%s' % form, form=form, valu=iden, props=props)
 
-        self.addRows(rows)
+                rows.extend([ (iden,p,v,stamp) for (p,v) in props.items() ])
 
-        for tufo in tufos:
-            self.fire('tufo:add', tufo=tufo)
-            self.fire('tufo:add:%s' % form, tufo=tufo)
+                tufos.append( (iden,props) )
+
+            self.addRows(rows)
+
+            for tufo in tufos:
+                self.fire('tufo:add', tufo=tufo)
+                self.fire('tufo:add:%s' % form, tufo=tufo)
+
+            ret.extend(tufos)
 
         return tufos
 
