@@ -558,7 +558,7 @@ class Cortex(EventBus):
 
             ret.extend(tufos)
 
-        return tufos
+        return ret
 
     def formTufoByTufo(self, tufo):
         '''
