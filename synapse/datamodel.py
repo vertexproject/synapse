@@ -2,9 +2,11 @@
 An API to assist with the creation and enforcement of cortex data models.
 '''
 import re
+import time
 import socket
 import struct
 import fnmatch
+import datetime
 import functools
 import collections
 
@@ -243,9 +245,57 @@ class HashType(DataType):
 
         return text
 
+class EpochType(DataType):
+
+    def norm(self, valu):
+        return int(valu)
+
+    def parse(self, text, relbase=None):
+
+        text = text.strip().lower()
+        text = (''.join([ c for c in text if c.isdigit() ]))[:14]
+
+        tlen = len(text)
+        if tlen == 4:
+            st = time.strptime(text, '%Y')
+
+        elif tlen == 6:
+            st = time.strptime(text, '%Y%m')
+
+        elif tlen == 8:
+            st = time.strptime(text, '%Y%m%d')
+
+        elif tlen == 10:
+            st = time.strptime(text, '%Y%m%d%H')
+
+        elif tlen == 12:
+            st = time.strptime(text, '%Y%m%d%H%M')
+
+        elif tlen == 14:
+            st = time.strptime(text, '%Y%m%d%H%M%S')
+
+        else:
+            raise Exception('Unknown time format: %s' % text)
+
+        e = datetime.datetime(1970,1,1)
+        d = datetime.datetime(st.tm_year, st.tm_mon, st.tm_mday)
+
+        epoch = int((d - e).total_seconds())
+        epoch += st.tm_hour*3600
+        epoch += st.tm_min*60
+        epoch += st.tm_sec
+
+        return epoch
+
+    def repr(self, valu):
+        try:
+            dt = datetime.datetime(1970,1,1) + datetime.timedelta(seconds=int(valu))
+        except (ValueError,OverflowError) as e:
+            return '<invalid: %s>' % str(epoch)
+
+        return '%d/%.2d/%.2d %.2d:%.2d:%.2d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
+
 #FIXME TODO
-#class TimeType(DataType):
-#class Ipv4Type(DataType):
 #class Ipv4StrType(DataType):
 #class CidrType(DataType):
 
@@ -262,6 +312,8 @@ basetypes = {
     'inet:port':IntRange('inet:port', 0, 65535),
     'inet:ipv4':Ipv4Type(),
     'inet:srv4':Srv4Type(),
+
+    'time:epoch':EpochType(),
 
     #'inet:ipv6'
     #'inet:srv6',

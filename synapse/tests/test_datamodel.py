@@ -199,3 +199,15 @@ class DataModelTest(unittest.TestCase):
         self.assertRaises( s_datamodel.BadTypeNorm, model.getPropNorm, 'foo:port', 0xffffff )
         self.assertRaises( s_datamodel.BadTypeNorm, model.getPropParse, 'foo:port', '999999' )
 
+    def test_datamodel_time(self):
+
+        model = s_datamodel.DataModel()
+
+        model.addTufoForm('foo')
+        model.addTufoProp('foo','meow', ptype='time:epoch')
+
+        jan1_2016 = 1451606400
+        self.assertEqual( model.getPropNorm('foo:meow',jan1_2016), jan1_2016)
+        self.assertEqual( model.getPropRepr('foo:meow', jan1_2016), '2016/01/01 00:00:00')
+        self.assertEqual( model.getPropParse('foo:meow','2016/01/01 00:00:00'), jan1_2016)
+
