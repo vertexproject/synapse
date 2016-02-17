@@ -11,7 +11,7 @@ class DataModelTest(unittest.TestCase):
         model.addTufoProp('foo', 'bar', ptype='int')
         model.addTufoProp('foo', 'baz', ptype='str')
         model.addTufoProp('foo', 'faz', ptype='tag')
-        model.addTufoProp('foo', 'zip', ptype='lwr')
+        model.addTufoProp('foo', 'zip', ptype='str:lwr')
 
         self.assertEqual( model.getPropRepr('foo:bar', 10), '10')
         self.assertEqual( model.getPropRepr('foo:baz', 'woot'), 'woot')
@@ -31,7 +31,7 @@ class DataModelTest(unittest.TestCase):
     def test_datamodel_glob(self):
         model = s_datamodel.DataModel()
         model.addTufoForm('foo')
-        model.addPropGlob('foo:bar:*',ptype='lwr')
+        model.addPropGlob('foo:bar:*',ptype='str:lwr')
         self.assertEqual( model.getPropNorm('foo:bar:baz','Woot'), 'woot' )
 
     def test_datamodel_fail_notype(self):
@@ -151,11 +151,11 @@ class DataModelTest(unittest.TestCase):
     def test_datamodel_parsetypes(self):
 
         class Woot:
-            @s_datamodel.parsetypes('int','lwr')
+            @s_datamodel.parsetypes('int','str:lwr')
             def getFooBar(self, size, flag):
                 return {'size':size, 'flag':flag}
 
-            @s_datamodel.parsetypes('int',flag='lwr')
+            @s_datamodel.parsetypes('int',flag='str:lwr')
             def getBazFaz(self, size, flag=None):
                 return {'size':size, 'flag':flag }
 

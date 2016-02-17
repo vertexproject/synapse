@@ -465,6 +465,25 @@ class Cortex(EventBus):
         prop = '%s:tag:%s' % (form,tag)
         return self.getTufosByProp(prop)
 
+    def addTufoKeys(self, tufo, keyvals, stamp=None):
+        '''
+        A raw row adding API to allow tufo selection by more than one possible value.
+
+        Note: only use this API if you really know how it effects your model.
+        '''
+        if stamp == None:
+            stamp = int(time.time())
+
+        rows = []
+        form = tufo[1].get('tufo:form')
+        for key,val in keyvals:
+            prop = '%s:%s' % (form,key)
+            valu = self._normTufoProp(prop,val)
+
+            rows.append( (tufo[0], prop, valu, stamp) )
+
+        self.addRows(rows)
+
     def addTufoEvent(self, form, **props):
         '''
         Add a "non-deconflicted" tufo by generating a guid
@@ -473,27 +492,58 @@ class Cortex(EventBus):
 
             tufo = core.addTufoEvent('foo',bar=baz)
 
+        Notes:
+
+            If props contains a key "time" it will be used for
+            the cortex timestap column in the row storage.
+
         '''
-        iden = guid()
+        return self.addTufoEvents(form,(props,))[0]
 
-        stamp = int(time.time())
+    def addTufoEvents(self, form, propss):
+        '''
+        Add a list of tufo events in bulk.
 
-        props = self._normTufoProps(form,props)
-        props[form] = iden
+        Example:
 
-        self.fire('tufo:form', form=form, valu=iden, props=props)
-        self.fire('tufo:form:%s' % form, form=form, valu=iden, props=props)
+            propss = [
+                {'foo':10,'bar':30},
+                {'foo':11,'bar':99},
+            ]
 
-        rows = [ (iden,p,v,stamp) for (p,v) in props.items() ]
+            core.addTufoEvents('woot',propss)
+
+        '''
+        rows = []
+        tufos = []
+
+        nowstamp = int(time.time())
+
+        for props in propss:
+
+            iden = guid()
+
+            stamp = props.get('time')
+            if stamp == None:
+                stamp = nowstamp
+
+            props = self._normTufoProps(form,props)
+            props[form] = iden
+
+            self.fire('tufo:form', form=form, valu=iden, props=props)
+            self.fire('tufo:form:%s' % form, form=form, valu=iden, props=props)
+
+            rows.extend([ (iden,p,v,stamp) for (p,v) in props.items() ])
+
+            tufos.append( (iden,props) )
 
         self.addRows(rows)
 
-        tufo = (iden,props)
+        for tufo in tufos:
+            self.fire('tufo:add', tufo=tufo)
+            self.fire('tufo:add:%s' % form, tufo=tufo)
 
-        self.fire('tufo:add', tufo=tufo)
-        self.fire('tufo:add:%s' % form, tufo=tufo)
-
-        return tufo
+        return tufos
 
     def formTufoByTufo(self, tufo):
         '''
@@ -590,6 +640,11 @@ class Cortex(EventBus):
         '''
         for item in self.getTufosByProp(prop,valu):
             self.delTufo(item)
+
+    def _normTufoProp(self, prop, valu):
+        if self.model != None:
+            valu = self.model.getPropNorm(prop,valu)
+        return valu
 
     def _normTufoProps(self, form, props):
         # add form prefix to tufo props

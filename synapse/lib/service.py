@@ -117,52 +117,103 @@ class SvcProxy:
         self.sbus.on('syn:svc:fini', self._onSynSvcFini )
 
         self.bytag = s_aspects.ByTag()
+        self.byiden = {}
 
-        [ self._addSvcName(n,p.get('tags',())) for (n,p) in sbus.getSynSvcs() ]
+        [ self._addSvcTufo(svcfo) for svcfo in sbus.getSynSvcs() ]
 
     def _onSynSvcInit(self, mesg):
         svcfo = mesg[1].get('svcfo')
         if svcfo == None:
             return
 
+        tags = list(svcfo[1].get('tags',()))
+
+        tags.append( svcfo[1].get('name') )
+
+        self._addSvcIden(svcfo[0],tags)
+
+        self.fire('syn:svc:init', svcfo=svcfo)
+
+    def _addSvcTufo(self, svcfo):
+        iden = svcfo[0]
+
         name = svcfo[1].get('name')
         tags = svcfo[1].get('tags',())
 
-        self._addSvcName(name,tags)
+        self.byiden[iden] = svcfo
 
-    def _addSvcName(self, name, tags):
-        self.bytag.put(name,tags)
-        self.bytag.put(name,(name,))
+        self.bytag.put(iden,tags)
+        self.bytag.put(iden,(name,))
 
     def _onSynSvcFini(self, mesg):
         svcfo = mesg[1].get('svcfo')
 
-        name = svcfo[1].get('name')
-        self.bytag.pop(name)
+        self.bytag.pop(svcfo[0])
+        self.byiden.pop(svcfo[0],None)
+
+        self.fire('syn:svc:fini', svcfo=svcfo)
+
+    def getSynSvc(self, iden):
+        '''
+        Return the tufo for the specified svc iden ( or None ).
+
+        Example:
+
+            svcfo = svcprox.getSynSvc(iden)
+            if svcfo != None:
+                dostuff(svcfo)
+
+        '''
+        return self.byiden.get(iden)
+
+    def getSynSvcs(self):
+        '''
+        Return the current list of known service tufos.
+
+        Example:
+
+            for svcfo in svcprox.getSynSvcs():
+                dostuff(svcfo)
+
+        '''
+        return self.byiden.values()
+
+    def getSynSvcsByTag(self, tag):
+        '''
+        Return a list of service tufos by tag.
+
+        Example:
+
+            for svcfo in svcprox.getSynSvcsByTag(tag):
+                dostuff(svcfo)
+
+        '''
+        return [ self.byiden.get(i) for i in self.bytag.get(tag) ]
 
     def callByTag(self, tag, name, *args, **kwargs):
         '''
         Call a method on all services with the given tag.
-        Yields (svcname,job) tuples for the results.
+        Yields (svcfo,job) tuples for the results.
 
         Example:
 
-            for svc,job in svc.callByTag('foo.bar'):
-                dostuff(svc,job)
+            for svcfo,job in svcprox.callByTag('foo.bar'):
+                dostuff(svcfo,job)
 
         '''
         jobs = []
 
         dyntask = (name,args,kwargs)
 
-        for svcname in self.bytag.get(tag):
-            job = self.sbus.callx(svcname, dyntask)
-            jobs.append( (svcname,job) )
+        for iden in self.bytag.get(tag):
+            job = self.sbus.callx(iden, dyntask)
+            jobs.append( (iden,job) )
 
-        for svcname,job in jobs:
+        for iden,job in jobs:
             # a bit hackish...
             self.sbus._waitTeleJob(job, timeout=self.timeout)
-            yield svcname,job
+            svcfo = self.byiden.get(iden)
+            yield svcfo,job
 
     def getTagProxy(self, tag):
         '''
@@ -170,7 +221,7 @@ class SvcProxy:
 
         Example:
 
-            foosbars = svc.getTagProxy('foos.bars')
+            foosbars = svcprox.getTagProxy('foos.bars')
 
             for valu in foosbars.getBlahThing():
                 dostuff(valu)

@@ -94,6 +94,9 @@ class IntType(DataType):
     def repr(self, valu):
         return str(valu)
 
+    def norm(self, valu):
+        return int(valu)
+
     def parse(self, text):
         return int(text)
 
@@ -186,12 +189,13 @@ class HashType(DataType):
 
 basetypes = {
     'int': IntType(),
-    'lwr': LwrType(),
-    'str': StrType(),
     'hex': HexType(),
     'tag': TagType(),
     'bool': BoolType(),
     'guid': GuidType(),
+
+    'str': StrType(),
+    'str:lwr': LwrType(),
 
     # 'inet:ipv4'
     # 'inet:ipv6'
@@ -295,21 +299,6 @@ class DataModel:
 
         for name,tobj in basetypes.items():
             self.addDataType(name, tobj)
-
-        #self.addDataType('int', IntType())
-        #self.addDataType('lwr', LwrType())
-        #self.addDataType('str', StrType())
-        #self.addDataType('hex', HexType())
-        #self.addDataType('tag', TagType())
-        #self.addDataType('bool', BoolType())
-
-        #self.addDataType('hash:md5', HashType('hash:md5', 16) )
-        #self.addDataType('hash:sha1', HashType('hash:sha1', 20) )
-        #self.addDataType('hash:sha256', HashType('hash:sha256', 32) )
-        #self.addDataType('hash:sha384', HashType('hash:sha384', 48) )
-        #self.addDataType('hash:sha512', HashType('hash:sha512', 64) )
-
-        #self.addDataType('guid', GuidType())
 
         for name,tags in self.model.get('enums').items():
             self._loadDataEnum(enum,tags)

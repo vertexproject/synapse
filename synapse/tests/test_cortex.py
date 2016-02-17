@@ -580,3 +580,27 @@ class CortexTest(SynTest):
         core0.fini()
         core1.fini()
 
+    def test_cortex_keys(self):
+        core = s_cortex.openurl('ram://')
+        model = core.genDataModel()
+
+        model.addTufoForm('woot')
+        model.addTufoProp('woot','bar', ptype='int')
+        model.addTufoProp('woot','foo', defval='foo')
+
+        woot = core.formTufoByProp('woot','haha')
+
+        self.assertEqual( 0, len(core.getTufosByProp('woot:bar')) )
+
+        keyvals = ( ('bar',10), ('bar',20) )
+        core.addTufoKeys(woot, keyvals)
+
+        self.assertEqual( 1, len(core.getTufosByProp('woot:bar',10)) )
+        self.assertEqual( 1, len(core.getTufosByProp('woot:bar',20)) )
+
+        core.delTufo(woot)
+
+        self.assertEqual( 0, len(core.getTufosByProp('woot:bar',10)) )
+        self.assertEqual( 0, len(core.getTufosByProp('woot:bar',20)) )
+        
+        core.fini()

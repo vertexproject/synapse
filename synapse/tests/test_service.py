@@ -77,6 +77,9 @@ class SvcTest(SynTest):
             for foo in woots.newp(44,y=33):
                 pass
 
+        self.assertEqual( 2, len(svcp.getSynSvcs()) )
+        self.assertEqual( 2, len(svcp.getSynSvcsByTag('woots')) )
+
         self.assertRaises( JobErr, runNewpMeth )
 
         woots = svcp.getTagProxy('class.synapse.tests.test_service.Woot')
