@@ -45,6 +45,8 @@ class BaseHand(tornado.web.RequestHandler):
                 return
 
         kwargs = { k:v[0].decode('utf8') for (k,v) in self.request.arguments.items() }
+        if self.request.body:
+            kwargs['body'] = self.request.body
 
         boss.initJob( task=(func,args,kwargs), ondone=self._onJobDone )
 
@@ -55,6 +57,8 @@ class BaseHand(tornado.web.RequestHandler):
         func = self.globs.get('func')
 
         kwargs = { k:v[0].decode('utf8') for (k,v) in self.request.arguments.items() }
+        if self.request.body:
+            kwargs['body'] = self.request.body
 
         boss.initJob( task=(func,args,kwargs), ondone=self._onJobDone )
 

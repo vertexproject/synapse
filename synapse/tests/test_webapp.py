@@ -49,3 +49,27 @@ class WebAppTest(SynTest):
         self.assertEqual( resp.get('status'), 'err' )
 
         wapp.fini()
+
+    def test_webapp_body(self):
+
+        class Haha:
+            def bar(self, hehe, body=None):
+                return (hehe,body)
+
+        haha = Haha()
+
+        wapp = s_webapp.WebApp()
+        wapp.listen(0, host='127.0.0.1')
+        wapp.addApiPath('/v1/haha/bar/([a-z]+)', haha.bar)
+
+        port = wapp.getServBinds()[0][1]
+
+        headers={'Content-Type': 'application/octet-stream'}
+
+        resp = requests.get('http://127.0.0.1:%d/v1/haha/bar/visi' % port, timeout=1, headers=headers, data='GRONK').json()
+        self.assertEqual( tuple(resp.get('ret')), ('visi','GRONK') )
+
+        resp = requests.post('http://127.0.0.1:%d/v1/haha/bar/visi' % port, timeout=1, headers=headers, data='GRONK').json()
+        self.assertEqual( tuple(resp.get('ret')), ('visi','GRONK') )
+
+        wapp.fini()
