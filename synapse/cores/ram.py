@@ -40,6 +40,9 @@ class Cortex(common.Cortex):
         rows = [ row for row in self.rowsbyid.get(iden) if row[1] == prop ]
         [ self._delRawRow(row) for row in rows ]
 
+    def _getRowsByIdProp(self, iden, prop):
+        return [ row for row in self.rowsbyid.get(iden) if row[1] == prop ]
+
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         for row in self.getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime):
             self._delRawRow(row)

@@ -35,14 +35,18 @@ addrows = 'INSERT INTO %s (id,prop,strval,intval,stamp) VALUES (?,?,?,?,?)'
 getrows_by_id = 'SELECT * FROM %s WHERE id=?'
 getrows_by_prop = 'SELECT * FROM %s WHERE prop=?'
 getrows_by_range = 'SELECT * FROM %s WHERE prop=? and intval >= ? AND intval < ?'
+getrows_by_id_prop = 'SELECT * FROM %s WHERE id=? AND prop=?'
 
 getsize_by_prop = 'SELECT COUNT(*) FROM %s WHERE prop=?'
 getsize_by_range = 'SELECT COUNT(*) FROM %s WHERE prop=? and intval >= ? AND intval < ?'
 
 delrows_by_id = 'DELETE FROM %s WHERE id=?'
 delrows_by_prop = 'DELETE FROM %s WHERE prop=?'
-deljoin_by_prop = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? '
 delrows_by_id_prop = 'DELETE FROM %s WHERE id=? AND prop=?'
+
+#getjoin_by_prop = 'SELECT * from %s WHERE id = ANY( array( SELECT id FROM %s WHERE prop=?'
+getjoin_by_prop = 'SELECT * from %s WHERE id IN (SELECT id FROM %s WHERE prop=?'
+deljoin_by_prop = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? '
 
 uprows_by_id_prop_str = 'UPDATE %s SET strval=? WHERE id=? and prop=?'
 uprows_by_id_prop_int = 'UPDATE %s SET intval=? WHERE id=? and prop=?'
@@ -146,9 +150,10 @@ class Cortex(common.Cortex):
         self.initSizeBy('range',self._sizeByRange)
         self.initRowsBy('range',self._rowsByRange)
 
-        pool = int( self.link[1].get('pool',1) )
-
-        self.dbpool = DbPool(pool, self._initDbConn)
+        self.dbpool = self.link[1].get('dbpool')
+        if self.dbpool == None:
+            pool = int( self.link[1].get('pool',1) )
+            self.dbpool = DbPool(pool, self._initDbConn)
 
         table = self._getTableName()
 
@@ -175,14 +180,17 @@ class Cortex(common.Cortex):
         self._q_getrows_by_id = self._prepQuery(getrows_by_id, table)
         self._q_getrows_by_prop = self._prepQuery(getrows_by_prop, table)
         self._q_getrows_by_range = self._prepQuery(getrows_by_range, table)
+        self._q_getrows_by_id_prop = self._prepQuery(getrows_by_id_prop, table)
 
         self._q_getsize_by_prop = self._prepQuery(getsize_by_prop, table)
         self._q_getsize_by_range = self._prepQuery(getsize_by_range, table)
 
         self._q_delrows_by_id = self._prepQuery(delrows_by_id, table)
         self._q_delrows_by_prop = self._prepQuery(delrows_by_prop, table)
-        self._q_deljoin_by_prop = self._prepQuery(deljoin_by_prop, table)
         self._q_delrows_by_id_prop = self._prepQuery(delrows_by_id_prop, table)
+
+        self._q_getjoin_by_prop = self._prepQuery(getjoin_by_prop, table)
+        self._q_deljoin_by_prop = self._prepQuery(deljoin_by_prop, table)
 
         self._q_uprows_by_id_prop_str = self._prepQuery(uprows_by_id_prop_str, table)
         self._q_uprows_by_id_prop_int = self._prepQuery(uprows_by_id_prop_int, table)
@@ -226,6 +234,7 @@ class Cortex(common.Cortex):
         return q,r
 
     def update(self, q, r, ret=False):
+        #print('UPDATE: %r %r' % (q,r))
         with self.cursor() as cur:
             cur.execute(q,r)
             if ret:
@@ -234,6 +243,7 @@ class Cortex(common.Cortex):
             return cur.rowcount
 
     def select(self, q, r):
+        #print('SELECT: %r %r' % (q,r))
         with self.cursor() as cur:
             cur.execute(q,r)
             return cur.fetchall()
@@ -274,6 +284,9 @@ class Cortex(common.Cortex):
     def _delRowsByIdProp(self, ident, prop):
         self.delete( self._q_delrows_by_id_prop, (ident,prop))
 
+    def _getRowsByIdProp(self, iden, prop):
+        return self.select( self._q_getrows_by_id_prop, (iden,prop))
+
     def _setRowsByIdProp(self, ident, prop, valu):
         if type(valu) == int:
             count = self.update( self._q_uprows_by_id_prop_int, (valu,ident,prop) )
@@ -293,6 +306,14 @@ class Cortex(common.Cortex):
         q,r = self._addQueryParams(q,r,valu=valu,mintime=mintime,maxtime=maxtime)
         q += ' )' # terminate subselect
         self.delete(q,r)
+
+    def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+        r = [ prop ]
+        q = self._q_getjoin_by_prop
+        q,r = self._addQueryParams(q,r,valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+        q += ' )' # terminate subselect...  sigh...
+        rows = self.select(q,r)
+        return self._foldTypeCols(rows)
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         r = [ prop ]

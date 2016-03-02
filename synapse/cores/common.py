@@ -1,3 +1,4 @@
+import json
 import time
 import itertools
 import threading
@@ -7,6 +8,7 @@ import collections
 from synapse.compat import queue
 
 import synapse.async as s_async
+import synapse.compat as s_compat
 import synapse.aspects as s_aspects
 import synapse.lib.threads as s_threads
 import synapse.datamodel as s_datamodel
@@ -35,31 +37,56 @@ class Cortex(EventBus):
         self.link = link
 
         self.lock = threading.Lock()
+        self.statfuncs = {}
 
         self.model = model
         self.sizebymeths = {}
         self.rowsbymeths = {}
 
+        self.savebus = EventBus()
+        self.loadbus = EventBus()
+
+        self.loadbus.on('core:save:add:rows', self._loadAddRows)
+
+        self.loadbus.on('core:save:del:rows:by:iden', self._loadDelRowsById)
+        self.loadbus.on('core:save:del:rows:by:prop', self._loadDelRowsByProp)
+
+        self.loadbus.on('core:save:set:rows:by:idprop', self._loadSetRowsByIdProp)
+        self.loadbus.on('core:save:del:rows:by:idprop', self._loadDelRowsByIdProp)
+
+        self.onfini( self.savebus.fini )
+        self.onfini( self.loadbus.fini )
+
+        self.addStatFunc('any',self._calcStatAny)
+        self.addStatFunc('all',self._calcStatAll)
+        self.addStatFunc('min',self._calcStatMin)
+        self.addStatFunc('max',self._calcStatMax)
+        self.addStatFunc('sum',self._calcStatSum)
+        self.addStatFunc('count',self._calcStatCount)
+        self.addStatFunc('histo',self._calcStatHisto)
+        self.addStatFunc('average',self._calcStatAverage)
+
         self._initCortex()
 
         self.isok = True
 
-        self.mytufo = self.formTufoByProp('cortex','self')
+    def setSaveFd(self, fd, load=True):
+        '''
+        Set a save fd for the cortex and optionally load.
 
-    def getCortexProp(self, prop):
-        return self.mytufo.get(prop)
+        Example:
 
-    def setCortexProp(self, prop, valu):
-        self.setTufoProp(self.mytufo,prop,valu)
+            core.setSaveFd(fd)
 
-    def addCortexTag(self, tag):
-        self.addTufoTag(self.mytufo,tag)
+        '''
+        if load:
+            for mesg in msgpackfd(fd):
+                self.loadbus.dist(mesg)
 
-    def delCortexTag(self, tag):
-        self.delTufoTag(self.mytufo,tag)
+        def savemesg(mesg):
+            fd.write( msgenpack(mesg) )
 
-    def getCortexTags(self):
-        return s_aspects.getTufoTags(self.mytufo)
+        self.savebus.link(savemesg)
 
     def setDataModel(self, model):
         '''
@@ -155,7 +182,11 @@ class Cortex(EventBus):
             core.addRows(rows)
 
         '''
+        self.savebus.fire('core:save:add:rows', rows=rows)
         self._addRows(rows)
+
+    def _loadAddRows(self, mesg):
+        self._addRows( mesg[1].get('rows') )
 
     def addListRows(self, prop, *vals):
         '''
@@ -227,6 +258,18 @@ class Cortex(EventBus):
         '''
         return self._getRowsById(iden)
 
+    def getRowsByIdProp(self, iden, prop):
+        '''
+        Return rows with the given <iden>,<prop>.
+
+        Example:
+
+            for row in core.getRowsByIdProp(iden,'foo:bar'):
+                dostuff(row)
+
+        '''
+        return self._getRowsByIdProp(iden, prop)
+
     def getRowsByIds(self, idens):
         '''
         Return all the rows for a given list of idens.
@@ -247,7 +290,11 @@ class Cortex(EventBus):
             core.delRowsById(iden)
 
         '''
+        self.savebus.fire('core:save:del:rows:by:iden', iden=iden)
         self._delRowsById(iden)
+
+    def _loadDelRowsById(self, mesg):
+        self._delRowsById( mesg[1].get('iden') )
 
     def delRowsByIdProp(self, iden, prop):
         '''
@@ -258,7 +305,19 @@ class Cortex(EventBus):
             core.delRowsByIdProp(id, 'foo')
 
         '''
+        self.savebus.fire('core:save:del:rows:by:idprop', iden=iden, prop=prop)
         return self._delRowsByIdProp(iden, prop)
+
+    def _loadDelRowsByIdProp(self, mesg):
+        iden = mesg[1].get('iden')
+        prop = mesg[1].get('prop')
+        self._delRowsByIdProp(iden,prop)
+
+    def _loadSetRowsByIdProp(self, mesg):
+        iden = mesg[1].get('iden')
+        prop = mesg[1].get('prop')
+        valu = mesg[1].get('valu')
+        self._setRowsByIdProp(iden,prop,valu)
 
     def setRowsByIdProp(self, iden, prop, valu):
         '''
@@ -269,6 +328,7 @@ class Cortex(EventBus):
             core.setRowsByIdProp(iden,'foo',10)
 
         '''
+        self.savebus.fire('core:save:set:rows:by:idprop', iden=iden, prop=prop, valu=valu)
         self._setRowsByIdProp(iden, prop, valu)
 
     def getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
@@ -303,6 +363,21 @@ class Cortex(EventBus):
 
         '''
         return tuple(self._getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit))
+
+    def getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, limit=None):
+        '''
+        Similar to getRowsByProp but pivots through "iden" to a different property.
+        This can be a light way to return a single property from a tufo rather than lifting the whole.
+
+        Example:
+
+            # return rows for the foo:bar prop by lifting foo:baz=10 and pivoting through iden.
+
+            for row in core.getPivotRows('foo:bar', 'foo:baz', valu=10):
+                dostuff()
+
+        '''
+        return tuple(self._getPivotRows(prop, byprop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit))
 
     def getSizeByProp(self, prop, valu=None, mintime=None, maxtime=None):
         '''
@@ -510,6 +585,162 @@ class Cortex(EventBus):
         '''
         return self.addTufoEvents(form,(props,))[0]
 
+    def addJsonText(self, form, text):
+        '''
+        Add and fully index a blob of JSON text.
+
+        Example:
+
+        '''
+        item = json.loads(text)
+        return self.addJsonItem(item)
+
+    def addJsonItem(self, form, item, tstamp=None):
+        '''
+        Add and fully index a JSON compatible data structure ( not in text form ).
+
+        Example:
+
+            foo = { 'bar':10, 'baz':{ 'faz':'hehe', 'woot':30 } }
+
+            core.addJsonItem('foo',foo)
+
+        '''
+        return self.addJsonItems(form, (item,), tstamp=tstamp)
+
+    def getStatByProp(self, stat, prop, valu=None, mintime=None, maxtime=None, limit=None):
+        '''
+        Calculate and return a statistic for the specified rows.
+        ( See getRowsByProp docs for most args )
+
+        Various statistics types are builtin.
+
+        sum     - total of all row values
+        count   - number of rows
+        histo   - histogram of values
+        average - sum / count
+
+        min     - minimum value
+        max     - maximum value
+
+        any     - True if any value is true
+        all     - True if every value is true
+
+        Example:
+
+            minval = core.getStatByProp('min','foo:bar')
+
+        '''
+        statfunc = self.statfuncs.get(stat)
+        if statfunc == None:
+            raise Exception('Unknown Stat: %s' % (stat,))
+
+        rows = self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+        return statfunc(rows)
+
+    def addStatFunc(self, name, func):
+        '''
+        Add a callback function to implement a statistic type.
+
+        Example:
+
+            def calcwoot(rows):
+                sum([ r[2] for r in rows ]) + 99
+                ...
+
+            core.addStatFunc('woot', calcwoot)
+
+            # later..
+            woot = core.getStatByProp('haha')
+
+        '''
+        self.statfuncs[name] = func
+
+    def addJsonItems(self, form, items, tstamp=None):
+        '''
+        Add and fully index a list of JSON compatible data structures.
+
+        Example:
+
+            core.addJsonItems('foo', foolist)
+
+        '''
+        if tstamp == None:
+            tstamp = int(time.time())
+
+        for chunk in chunked(100,items):
+
+            for item in chunk:
+                iden = guid()
+
+                props = self._primToProps(form,item)
+                props = [ (p,self._normTufoProp(p,v)) for (p,v) in props ]
+
+                rows = [ (iden,p,v,tstamp) for (p,v) in props ]
+
+                rows.append( (iden, form, iden, tstamp) )
+                rows.append( (iden, 'prim:json', json.dumps(item), tstamp) )
+
+            self.addRows(rows)
+
+    def getJsonItems(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+        '''
+        Return a list of (iden,item) tuples (similar to tufos, but with hierarchical structure )
+
+        Example:
+
+            x = {
+                'bar':10,
+            }
+
+            core.addJsonItem('foo',x)
+
+            # ... later ...
+
+            for prim in core.getJsonsByProp('foo:bar', 10):
+                dostuff(tufo)
+
+        '''
+        rows = self.getPivotRows('prim:json', prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+        return [ json.loads(r[2]) for r in rows ]
+
+    def _primToProps(self, form, item):
+        '''
+        Take a json compatible primitive item and return a list of
+        "index" props for the various fields/values.
+        '''
+        props = [ ('prim:form',form) ]
+
+        todo = [ (form,item) ]
+        while todo:
+            path,item = todo.pop()
+
+            itype = type(item)
+
+            if itype in s_compat.numtypes:
+                props.append( (path,item) )
+                continue
+
+            if itype in s_compat.strtypes:
+                props.append( (path,item) )
+                continue
+
+            if itype == bool:
+                props.append( (path,int(item)) )
+                continue
+
+            if itype in (list,tuple):
+                props.append( ('prim:type:list',path) )
+                [ todo.append((path,valu)) for valu in item ]
+                continue
+
+            if itype == dict:
+                props.append( ('prim:type:dict',path) )
+                for prop,valu in item.items():
+                    todo.append( ('%s:%s' % (path,prop), valu ) )
+
+        return props
+
     def addTufoEvents(self, form, propss):
         '''
         Add a list of tufo events in bulk.
@@ -682,6 +913,20 @@ class Cortex(EventBus):
 
         return props
 
+    def addSaveLink(self, func):
+        '''
+        Add an event callback to receive save events for this cortex.
+
+        Example:
+
+            def savemesg(mesg):
+                dostuff()
+
+            core.addSaveLink(savemesg)
+
+        '''
+        self.savebus.link(func)
+
     def setTufoProps(self, tufo, **props):
         '''
         Set ( with de-duplication ) the given tufo props.
@@ -730,7 +975,15 @@ class Cortex(EventBus):
             core.delRowsByProp('foo',valu=10)
 
         '''
+        self.savebus.fire('core:save:del:rows:by:prop', prop=prop, valu=valu, mintime=mintime, maxtime=maxtime)
         return self._delRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime)
+
+    def _loadDelRowsByProp(self, mesg):
+        prop = mesg[1].get('prop')
+        valu = mesg[1].get('valu')
+        mint = mesg[1].get('mintime')
+        maxt = mesg[1].get('maxtime')
+        self._delRowsByProp(prop, valu=valu, mintime=mint, maxtime=maxt)
 
     def delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
         '''
@@ -746,6 +999,11 @@ class Cortex(EventBus):
     def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         for irow in self._getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit):
             for jrow in self._getRowsById(irow[0]):
+                yield jrow
+
+    def _getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, limit=None):
+        for irow in self._getRowsByProp(byprop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit):
+            for jrow in self._getRowsByIdProp( irow[0], prop ):
                 yield jrow
 
     def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
@@ -776,3 +1034,32 @@ class Cortex(EventBus):
         self._delRowsByIdProp(iden, prop)
         rows = [ (iden, prop, valu, now()) ]
         self.addRows(rows)
+
+    def _calcStatSum(self, rows):
+        return sum([ r[2] for r in rows ])
+
+    def _calcStatHisto(self, rows):
+        histo = collections.defaultdict(int)
+        for row in rows:
+            histo[row[2]] += 1
+        return histo
+
+    def _calcStatCount(self, rows):
+        return len(rows)
+
+    def _calcStatMin(self, rows):
+        return min([ r[2] for r in rows ])
+
+    def _calcStatMax(self, rows):
+        return max([ r[2] for r in rows ])
+
+    def _calcStatAverage(self, rows):
+        tot = sum([ r[2] for r in rows ])
+        return tot / float(len(rows))
+
+    def _calcStatAny(self, rows):
+        return any([ r[2] for r in rows ])
+
+    def _calcStatAll(self, rows):
+        return all([ r[2] for r in rows ])
+

@@ -1,8 +1,10 @@
 import os
+import logging
 import binascii
 import unittest
 
 import synapse.link as s_link
+import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
@@ -14,11 +16,13 @@ class CortexTest(SynTest):
     def test_cortex_ram(self):
         core = s_cortex.openurl('ram://')
         self.runcore( core )
+        self.runjson( core )
         self.runrange( core )
 
     def test_cortex_sqlite3(self):
         core = s_cortex.openurl('sqlite:///:memory:')
         self.runcore( core )
+        self.runjson( core )
         self.runrange( core )
 
     def test_cortex_postgres(self):
@@ -33,6 +37,7 @@ class CortexTest(SynTest):
 
         try:
             self.runcore( core )
+            self.runjson( core )
             self.runrange( core )
         finally:
             with core.cursor() as c:
@@ -66,6 +71,11 @@ class CortexTest(SynTest):
         core.addRows( rows )
 
         tufo = core.getTufoByProp('baz','faz1')
+
+        self.assertEqual( len(core.getRowsByIdProp(id1,'baz')), 1)
+
+        #pivo = core.getPivotByProp('baz','foo', valu='bar')
+        #self.assertEqual( tuple(sorted([r[2] for r in pivo])), ('faz1','faz2'))
 
         self.assertEqual( tufo[0], id1 )
         self.assertEqual( tufo[1].get('foo'), 'bar')
@@ -155,6 +165,30 @@ class CortexTest(SynTest):
 
         self.assertEqual( core.getSizeBy('range','rg',(0,20)), 1 )
         self.assertEqual( len( core.getRowsBy('range','rg',(0,20))), 1 )
+
+    def runjson(self, core):
+
+        thing = {
+            'foo':{
+                'bar':10,
+                'baz':'faz',
+                'blah':[ 99,100 ],
+                'gronk':[ 99,100 ],
+            },
+            'x':10,
+            'y':20,
+        }
+
+        core.addJsonItem('hehe', thing)
+
+        thing['x'] = 40
+        thing['x'] = 50
+
+        core.addJsonItem('hehe', thing)
+
+        for iden,item in core.getJsonItems('hehe:foo:bar', valu='faz'):
+
+            self.assertEqual( item['foo']['blah'][0], 99 )
 
     def test_cortex_choptag(self):
 
@@ -604,3 +638,53 @@ class CortexTest(SynTest):
         self.assertEqual( 0, len(core.getTufosByProp('woot:bar',20)) )
         
         core.fini()
+
+    def test_cortex_savefd(self):
+        fd = s_compat.BytesIO()
+        core0 = s_cortex.openurl('ram://', savefd=fd)
+
+        t0 = core0.formTufoByProp('foo','one', baz='faz')
+        t1 = core0.formTufoByProp('foo','two', baz='faz')
+
+        core0.setTufoProps(t0,baz='gronk')
+
+        core0.delTufoByProp('foo','two')
+        core0.fini()
+
+        fd.seek(0)
+
+        core1 = s_cortex.openurl('ram://', savefd=fd)
+        self.assertIsNone( core1.getTufoByProp('foo','two') )
+
+        t0 = core1.getTufoByProp('foo','one')
+        self.assertIsNotNone( t0 )
+
+        self.assertEqual( t0[1].get('foo:baz'), 'gronk' )
+
+    def test_cortex_stats(self):
+        rows = [
+            (guid(), 'foo:bar', 1, 99),
+            (guid(), 'foo:bar', 2, 99),
+            (guid(), 'foo:bar', 3, 99),
+            (guid(), 'foo:bar', 5, 99),
+            (guid(), 'foo:bar', 8, 99),
+            (guid(), 'foo:bar', 13, 99),
+            (guid(), 'foo:bar', 21, 99),
+        ]
+
+        core = s_cortex.openurl('ram://')
+        core.addRows(rows)
+
+        self.assertEqual( core.getStatByProp('sum','foo:bar'), 53 )
+        self.assertEqual( core.getStatByProp('count','foo:bar'), 7 )
+
+        self.assertEqual( core.getStatByProp('min','foo:bar'), 1 )
+        self.assertEqual( core.getStatByProp('max','foo:bar'), 21 )
+
+        self.assertEqual( core.getStatByProp('average','foo:bar'), 7.571428571428571 )
+
+        self.assertEqual( core.getStatByProp('any','foo:bar'), True)
+        self.assertEqual( core.getStatByProp('all','foo:bar'), True)
+
+        histo = core.getStatByProp('histo','foo:bar')
+        self.assertEqual( histo.get(13), 1 )

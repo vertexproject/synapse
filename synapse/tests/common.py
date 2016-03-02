@@ -1,6 +1,9 @@
 import os
+import logging
 import unittest
 import threading
+
+logging.basicConfig(level=logging.WARNING)
 
 import synapse.lib.thishost as s_thishost
 

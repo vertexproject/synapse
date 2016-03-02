@@ -1,3 +1,4 @@
+import os
 import ast
 import logging
 import traceback
@@ -44,7 +45,7 @@ corctors = {
     'postgres':synapse.cores.postgres.Cortex,
 }
 
-def openurl(url):
+def openurl(url, **opts):
     '''
     Construct or reference a cortex by url.
 
@@ -65,6 +66,8 @@ def openurl(url):
 
     '''
     link = s_link.chopLinkUrl(url)
+
+    link[1].update(opts)
     return openlink(link)
 
 def openlink(link):
@@ -74,7 +77,22 @@ def openlink(link):
     ctor = corctors.get(link[0])
     if ctor == None:
         raise NoSuchScheme(link[0])
-    return ctor(link)
+
+    core = ctor(link)
+
+    savefd = link[1].get('savefd')
+    if savefd != None:
+        core.setSaveFd(savefd)
+
+    savefile = link[1].get('savefile')
+    if savefile != None:
+        if not os.path.isfile(savefile):
+            savefd = open(savefile,'w+b')
+        else:
+            savefd = open(savefile,'r+b')
+        core.setSaveFd(savefd)
+
+    return core
 
 def choptag(tag):
     '''
