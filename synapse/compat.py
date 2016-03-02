@@ -19,6 +19,11 @@ if version < (3,0,0):
 
     import Queue as queue
 
+    from cStringIO import StringIO as BytesIO
+
+    numtypes = (int,long)
+    strtypes = (str,unicode)
+
     def enbase64(s):
         return s.encode('base64')
 
@@ -34,6 +39,11 @@ if version < (3,0,0):
 
 else:
     import queue
+
+    from io import BytesIO
+
+    numtypes = (int,)
+    strtypes = (str,)
 
     def enbase64(b):
         return base64.b64encode(b).decode('utf8')
