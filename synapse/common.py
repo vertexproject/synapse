@@ -28,6 +28,11 @@ def msgenpack(obj):
 def msgunpack(byts):
     return msgpack.loads(byts, use_list=False, encoding='utf8')
 
+def msgpackfd(fd):
+    unpk = msgpack.Unpacker(fd, use_list=False, encoding='utf8')
+    for mesg in unpk:
+        yield mesg
+
 def vertup(vstr):
     '''
     Convert a version string to a tuple.
