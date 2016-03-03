@@ -128,8 +128,6 @@ class SvcProxy:
 
         self._addSvcTufo(svcfo)
 
-        self.fire('syn:svc:init', svcfo=svcfo)
-
     def _addSvcTufo(self, svcfo):
         iden = svcfo[0]
 
@@ -146,8 +144,6 @@ class SvcProxy:
 
         self.bytag.pop(svcfo[0])
         self.byiden.pop(svcfo[0],None)
-
-        self.fire('syn:svc:fini', svcfo=svcfo)
 
     def getSynSvc(self, iden):
         '''
