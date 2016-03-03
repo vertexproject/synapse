@@ -126,11 +126,7 @@ class SvcProxy:
         if svcfo == None:
             return
 
-        tags = list(svcfo[1].get('tags',()))
-
-        tags.append( svcfo[1].get('name') )
-
-        self._addSvcIden(svcfo[0],tags)
+        self._addSvcTufo(svcfo)
 
         self.fire('syn:svc:init', svcfo=svcfo)
 
