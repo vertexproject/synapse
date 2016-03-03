@@ -54,7 +54,7 @@ class WebAppTest(SynTest):
 
         class Haha:
             def bar(self, hehe, body=None):
-                return (hehe,body)
+                return (hehe,body.decode('utf8'))
 
         haha = Haha()
 
