@@ -107,7 +107,6 @@ class IntType(DataType):
 class GuidType(DataType):
 
     def parse(self, text):
-        # FIXME check for valid hex
         return text
 
 class BoolType(DataType):
