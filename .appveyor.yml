@@ -23,6 +23,11 @@ install:
   # for now...  should somehow be managed via setup.py
   - "%PYTHON%\\Scripts\\pip.exe install --upgrade msgpack-python cryptography requests tornado"
 
+  - "%PYTHON%\\python.exe -c \"import msgpack; print('msgpack version: %r' % (msgpack.version,))\""
+  - "%PYTHON%\\python.exe -c \"import tornado; print('tornado version: %r' % (tornado.version,))\""
+  - "%PYTHON%\\python.exe -c \"import requests; print('requests version: %r' % (requests.__version__,))\""
+  - "%PYTHON%\\python.exe -c \"import cryptography; print('cryptography version: %r' % (cryptography.__version__,))\""
+
   # force setuptools to install deps
   #- "%CMD_IN_ENV% %PYTHON%\\python.exe setup.py develop"
 
