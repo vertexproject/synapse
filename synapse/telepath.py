@@ -292,7 +292,12 @@ class Proxy(s_eventbus.EventBus):
         # generated on the socket by the multiplexor ( and queued )
         self._tele_sock.on('link:sock:mesg', self._onLinkSockMesg )
 
-        self._tele_sock.onfini( self._onSockFini )
+        def sockfini():
+            # called by multiplexor... must not block
+            if not self.isfini:
+                self._tele_pool.call( self._runSockFini )
+
+        self._tele_sock.onfini( sockfini )
 
         self._tele_plex.addPlexSock(self._tele_sock)
 
@@ -306,7 +311,14 @@ class Proxy(s_eventbus.EventBus):
         mesg = event[1].get('mesg')
         self._tele_q.put( mesg )
 
-    def _onSockFini(self):
+    #def _onSockFini(self):
+        ## This is called by the SynPlexMain thread and may *not* block.
+        #if self.isfini:
+            #return
+
+        #self._tele_pool.call( self._runSockFini )
+
+    def _runSockFini(self):
         if self.isfini:
             return
 
@@ -314,7 +326,7 @@ class Proxy(s_eventbus.EventBus):
             self._initTeleSock()
         except LinkErr as e:
             sched = s_sched.getGlobSched()
-            sched.insec(1, self._onSockFini )
+            sched.insec(1, self._runSockFini )
 
     def _onTeleCall(self, mesg):
         # dont block consumer thread... task pool

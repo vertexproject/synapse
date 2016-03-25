@@ -130,3 +130,15 @@ class ThreadsTest(unittest.TestCase):
 
         self.assertIsNone( s_threads.local('foo') )
 
+    def test_threads_cantwait(self):
+
+        self.assertTrue( s_threads.iMayWait() )
+
+        s_threads.iCantWait()
+
+        self.assertFalse( s_threads.iMayWait() )
+        self.assertRaises(MustNotWait, s_threads.iWillWait)
+
+        del threading.currentThread()._syn_cantwait
+
+        self.assertTrue( s_threads.iMayWait() )

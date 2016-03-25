@@ -261,6 +261,8 @@ class Boss(EventBus):
             boss.wait( jid, timeout=10 )
 
         '''
+        s_threads.iWillWait()
+
         with self.joblock:
             job = self._boss_jobs.get(jid)
             if job == None:

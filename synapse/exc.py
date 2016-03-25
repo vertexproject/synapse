@@ -34,6 +34,8 @@ class PropNotFound(Exception):pass
 class HitMaxTime(Exception):pass
 class HitMaxRetry(Exception):pass
 
+class MustNotWait(Exception):pass   # blocking function called by no-wait thread
+
 class IsFini(Exception):pass
 
 class JobErr(Exception):

@@ -240,7 +240,7 @@ class TelePathTest(SynTest):
         dmon.share('foo',Foo())
         dmon.listen(url)
 
-        waiter.wait(timeout=8)
+        waiter.wait()
 
         self.assertEqual( prox.bar(10,20), 30 )
 

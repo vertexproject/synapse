@@ -378,6 +378,8 @@ class Pool(EventBus):
         thr = Thread( func, *args, **kwargs)
         thr.link( self.dist )
 
+        thr.name = 'SynPool(%d):%s' % (id(self),thr.iden)
+
         self._pool_threads[ thr.iden ] = thr
 
         def onfini():
@@ -578,3 +580,50 @@ class RWWith:
     def __exit__(self, exclass, exc, tb):
         self.rwlock.release(self)
 
+def iCantWait(name=None):
+    '''
+    Mark the current thread as a no-wait thread.
+
+    Any no-wait thread will raise MustNotWait on blocking calls
+    within synapse APIs to prevent deadlock bugs.
+
+    Example:
+
+        iCantWait(name='FooThread')
+
+    '''
+    curthr = threading.currentThread()
+    curthr._syn_cantwait = True
+
+    if name != None:
+        curthr.name = name
+
+def iWillWait():
+    '''
+    Check if the current thread is a marked no-wait thead and raise MustNotWait.
+
+    Example:
+
+        def doBlockingThing():
+            iWillWait()
+            waitForThing()
+
+    '''
+    if getattr(threading.currentThread(),'_syn_cantwait',False):
+        name = threading.currentThread().name
+        raise MustNotWait(name)
+
+def iMayWait():
+    '''
+    Function for no-wait aware APIs to use while handling no-wait threads.
+
+    Example:
+
+        def mayWaitThing():
+            if not iMayWait():
+                return False
+
+            waitForThing()
+
+    '''
+    return not getattr(threading.currentThread(),'_syn_cantwait',False)

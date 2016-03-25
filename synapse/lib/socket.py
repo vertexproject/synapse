@@ -423,13 +423,7 @@ class Plex(EventBus):
             byts = sock.txque.popleft()
             sock.txbuf = sock._tx_xform( byts )
 
-    def _isPlexThr(self):
-        return getattr(threading.currentThread(),'_thr_plex',None) == self
-
     def _plexWake(self):
-        if self._isPlexThr():
-            return
-
         try:
             self._plex_wake.sendall(b'\x00')
         except socket.error as e:
@@ -438,7 +432,7 @@ class Plex(EventBus):
     @s_threads.firethread
     def _plexMainLoop(self):
 
-        threading.currentThread()._thr_plex = self
+        s_threads.iCantWait(name='SynPlexMain')
 
         while not self.isfini:
 
@@ -477,7 +471,6 @@ class Plex(EventBus):
                 logger.warning('plexMainLoop: %s', e)
 
     def _onPlexFini(self):
-        #self._plex_s2.fini()
 
         socks = list(self._plex_socks.values())
         [ s.fini() for s in socks ]
