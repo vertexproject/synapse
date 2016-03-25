@@ -50,6 +50,14 @@ class JobErr(Exception):
 
         Exception.__init__(self, '%s: %s (%s:%s)' % (err,errmsg,errfile,errline))
 
-class LinkErr(Exception):pass
-class LinkRefused(LinkErr):pass
+class LinkErr(Exception):
+
+    retry = False
+    def __init__(self, link, mesg=''):
+        self.link = link
+        Exception.__init__(self,'%s %s' % (link[1].get('url'), mesg))
+
+class LinkRefused(LinkErr):
+    retry = True
+
 class LinkNotAuth(LinkErr):pass

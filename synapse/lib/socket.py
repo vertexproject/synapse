@@ -484,6 +484,8 @@ class Plex(EventBus):
 
         self._plex_wake.fini()
 
+        self._plex_thr.join()
+
 def getGlobPlex():
     '''
     Get/Init a reference to a singular global Plex() multiplexor.
@@ -509,9 +511,10 @@ def listen(sockaddr,**sockinfo):
         sock.bind(sockaddr)
         sock.listen(120)
         return Socket(sock,listen=True,**sockinfo)
+
     except socket.error as e:
         sock.close()
-    return None
+        raise
 
 def connect(sockaddr,**sockinfo):
     '''
@@ -521,9 +524,10 @@ def connect(sockaddr,**sockinfo):
     try:
         sock.connect(sockaddr)
         return Socket(sock,**sockinfo)
-    except socket.error as e:
+
+    except Exception as e:
         sock.close()
-    return None
+        raise
 
 def _sockpair():
     s = socket.socket()

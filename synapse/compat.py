@@ -5,6 +5,7 @@ A module to isolate python version compatibility filth.
 import sys
 import time
 import base64
+import socket
 import collections
 
 major = sys.version_info.major
@@ -24,6 +25,8 @@ if version < (3,0,0):
     numtypes = (int,long)
     strtypes = (str,unicode)
 
+    sockerrs = (socket.error,)
+
     def enbase64(s):
         return s.encode('base64')
 
@@ -39,11 +42,14 @@ if version < (3,0,0):
 
 else:
     import queue
+    import builtins
 
     from io import BytesIO
 
     numtypes = (int,)
     strtypes = (str,)
+
+    sockerrs = (builtins.ConnectionError,builtins.FileNotFoundError)
 
     def enbase64(b):
         return base64.b64encode(b).decode('utf8')

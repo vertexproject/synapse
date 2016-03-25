@@ -8,6 +8,7 @@ import synapse.link as s_link
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.thishost as s_thishost
 
 from synapse.tests.common import *
 
@@ -59,13 +60,13 @@ class LinkTest(SynTest):
         self.assertEqual( info.get('host'), 'woot.com')
 
     def test_link_fromurl(self):
-        url = 'tcp://visi:secret@127.0.0.1:9999/foo?rc4key=wootwoot&timeout=30'
+        url = 'tcp://visi:secret@127.0.0.1:9999/foo?rc4key=wootwoot&retry=20'
         link = s_link.chopLinkUrl(url)
 
         self.assertEqual(link[0],'tcp')
         self.assertEqual(link[1].get('port'),9999)
         self.assertEqual(link[1].get('path'),'/foo')
-        self.assertEqual(link[1].get('timeout'),30)
+        self.assertEqual(link[1].get('retry'),20)
         self.assertEqual(link[1].get('host'),'127.0.0.1')
         self.assertEqual(link[1].get('rc4key'),b'wootwoot')
 
@@ -130,7 +131,6 @@ class LinkTest(SynTest):
         self.assertEqual( link[1].get('poolsize'), 7 )
         self.assertEqual( link[1].get('poolmax'), -1 )
 
-
     def test_link_local(self):
         self.thisHostMustNot(platform='windows')
         name = guid()
@@ -146,3 +146,9 @@ class LinkTest(SynTest):
 
         prox.fini()
         dmon.fini()
+
+    def test_link_refused(self):
+        self.assertRaises(LinkRefused, s_telepath.openurl, 'tcp://127.0.0.1:1/foo')
+        self.assertRaises(LinkRefused, s_telepath.openurl, 'ssl://127.0.0.1:1/foo')
+        if s_thishost.get('platform') != 'windows':
+            self.assertRaises(LinkRefused, s_telepath.openurl, 'local://newpnewpnewp/foo')

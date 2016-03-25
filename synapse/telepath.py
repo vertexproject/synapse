@@ -2,6 +2,7 @@
 An RMI framework for synapse.
 '''
 import copy
+import time
 import getpass
 import threading
 import threading
@@ -274,31 +275,31 @@ class Proxy(s_eventbus.EventBus):
             mesg = self._tele_q.get()
             self.dist(mesg)
 
-    def _initTeleSock(self):
+    def _initTeleSock(self, loop=False):
 
-        if self.isfini:
-            return False
+        self._tele_sock = None
+        while self._tele_sock == None:
 
-        if self._tele_sock != None:
-            self._tele_sock.fini()
+            try:
+                self._tele_sock = self._tele_relay.connect()
 
-        self._tele_sock = self._tele_relay.connect()
-        if self._tele_sock == None:
-            return False
+            except LinkErr as e:
+                if not e.retry or not loop:
+                    raise
+
+                time.sleep(1)
 
         # generated on the socket by the multiplexor ( and queued )
         self._tele_sock.on('link:sock:mesg', self._onLinkSockMesg )
 
         self._tele_sock.onfini( self._onSockFini )
 
-        self._tele_plex.addPlexSock( self._tele_sock )
+        self._tele_plex.addPlexSock(self._tele_sock)
 
         self._teleSynAck()
 
         # let client code do stuff on reconnect
         self.fire('tele:sock:init', sock=self._tele_sock)
-
-        return True
 
     def _onLinkSockMesg(self, event):
         # MULTIPLEXOR: DO NOT BLOCK
@@ -310,14 +311,10 @@ class Proxy(s_eventbus.EventBus):
             return
 
         try:
-
-            if not self._initTeleSock():
-                sched = s_sched.getGlobSched()
-                sched.insec( 1, self._onSockFini )
-
-        except Exception as e:
+            self._initTeleSock()
+        except LinkErr as e:
             sched = s_sched.getGlobSched()
-            sched.insec( 1, self._onSockFini )
+            sched.insec(1, self._onSockFini )
 
     def _onTeleCall(self, mesg):
         # dont block consumer thread... task pool
@@ -350,8 +347,8 @@ class Proxy(s_eventbus.EventBus):
             return self._txTeleSock('tele:retn', **retinfo)
 
     def _getTeleSock(self):
-        if self._tele_sock.isfini:
-            self._initTeleSock()
+        if self.isfini:
+            raise IsFini()
 
         return self._tele_sock
 
@@ -379,7 +376,7 @@ class Proxy(s_eventbus.EventBus):
 
         job = self._txTeleJob('tele:syn', sid=self._tele_sid, chal=chal, cert=cert, host=host )
 
-        synresp = self.sync(job, timeout=4)
+        synresp = self.sync(job, timeout=6)
 
         # we require the server to auth...
         if self._tele_pki:

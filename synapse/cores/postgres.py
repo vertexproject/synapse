@@ -1,3 +1,5 @@
+import time
+
 from . import sqlite as s_c_sqlite
 
 istable = '''
@@ -12,8 +14,23 @@ class Cortex(s_c_sqlite.Cortex):
 
     def _initDbConn(self):
         import psycopg2
+
+        retry = self.link[1].get('retry',0)
+
         dbinfo = self._initDbInfo()
-        db = psycopg2.connect(**dbinfo)
+
+        db = None
+        tries = 0
+        while db == None:
+            try:
+                db = psycopg2.connect(**dbinfo)
+            except Exception as e:
+                tries += 1
+                if tries > retry:
+                    raise
+
+                time.sleep(1)
+
         c = db.cursor()
         c.execute('SET enable_seqscan=false')
         c.close()

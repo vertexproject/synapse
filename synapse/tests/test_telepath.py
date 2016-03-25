@@ -36,6 +36,7 @@ class TelePathTest(SynTest):
         env.add('link', env.dmon.listen(url))
 
         env.dmon.share('foo',Foo())
+
         return env
 
     def test_telepath_basics(self):
@@ -221,3 +222,28 @@ class TelePathTest(SynTest):
         foo.fini()
         env0.fini()
         
+    def test_telepath_reconnect(self):
+        tenv = self.getFooEnv()
+
+        port = tenv.link[1].get('port')
+        prox = s_telepath.openurl('tcp://127.0.0.1/foo', port=port)
+
+        url = 'tcp://127.0.0.1:%d/foo' % (port,)
+        self.assertEqual( prox.bar(10,20), 30 )
+
+        waiter = self.getTestWait(prox, 1, 'tele:sock:init')
+
+        # shut down the daemon
+        tenv.dmon.fini()
+
+        dmon = s_daemon.Daemon()
+        dmon.share('foo',Foo())
+        dmon.listen(url)
+
+        waiter.wait(timeout=8)
+
+        self.assertEqual( prox.bar(10,20), 30 )
+
+        prox.fini()
+        dmon.fini()
+        tenv.fini()

@@ -1,9 +1,10 @@
 import time
+import errno
 import socket
 
+import synapse.compat as s_compat
 import synapse.lib.socket as s_socket
 
-from synapse.common import *
 from synapse.links.common import *
 
 class TcpRelay(LinkRelay):
@@ -29,13 +30,15 @@ class TcpRelay(LinkRelay):
         host = self.link[1].get('host')
         port = self.link[1].get('port')
         sock = s_socket.listen((host,port))
-        if sock != None:
-            self.link[1]['port'] = sock.getsockname()[1]
+        self.link[1]['port'] = sock.getsockname()[1]
         return sock
 
     def _connect(self):
-        host = self.link[1].get('host')
-        port = self.link[1].get('port')
-        sock = s_socket.connect((host,port))
-        return sock
+        try:
 
+            host = self.link[1].get('host')
+            port = self.link[1].get('port')
+            return s_socket.connect((host,port))
+
+        except s_compat.sockerrs as e:
+            raiseSockError(self.link,e)

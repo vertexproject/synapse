@@ -61,6 +61,7 @@ def chopLinkUrl(url):
     scheme = urlinfo.get('scheme')
 
     link = (scheme,{})
+    link[1]['url'] = url
     link[1]['host'] = urlinfo.get('host')
     link[1]['port'] = urlinfo.get('port')
     link[1]['path'] = urlinfo.get('path')
@@ -95,3 +96,4 @@ def chopLinkUrl(url):
 
     link[1].update(query)
     return link
+

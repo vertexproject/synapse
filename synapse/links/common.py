@@ -1,10 +1,13 @@
 import time
+import errno
 import threading
 
 import synapse.crypto as s_crypto
 import synapse.lib.threads as s_threads
 
 from synapse.eventbus import EventBus
+
+from synapse.common import *
 
 class NoSuchProto(Exception):pass
 
@@ -57,13 +60,39 @@ class LinkRelay:
 
         return sock
 
+    def _connloop(self):
+
+        retry = self.link[1].get('retry',0)
+
+        try:
+            return self._connect()
+        except LinkErr as e:
+            if retry == 0:
+                raise
+
+        tries = 0
+        while True:
+
+            time.sleep(1)
+
+            try:
+
+                return self._connect()
+
+            except LinkErr as e:
+
+                if not e.retry:
+                    raise
+
+                tries += 1
+                if tries >= retry:
+                    raise
+
     def connect(self):
         '''
         Create, connect, and return a new client Socket()
         '''
-        sock = self._connect()
-        if sock == None:
-            return None
+        sock = self._connloop()
 
         sock.set('relay',self)
         sock.set('link',self.link)
@@ -73,3 +102,12 @@ class LinkRelay:
 
         return sock
 
+def raiseSockError(link,e):
+    url = link[1].get('url')
+    if e.errno == errno.ECONNREFUSED:
+        raise LinkRefused(link)
+
+    if e.errno == errno.ENOENT:
+        raise LinkRefused(link)
+
+    raise LinkErr(link)

@@ -1,9 +1,9 @@
 import socket
 import tempfile
 
+import synapse.compat as s_compat
 import synapse.lib.socket as s_socket
 
-from synapse.common import *
 from synapse.links.common import *
 
 class LocalRelay(LinkRelay):
@@ -45,7 +45,12 @@ class LocalRelay(LinkRelay):
 
     def _connect(self):
         path = self.link[1].get('sockpath')
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.connect(path)
-        return s_socket.Socket(s)
 
+        try:
+
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.connect(path)
+            return s_socket.Socket(s)
+
+        except s_compat.sockerrs as e:
+            raiseSockError(self.link,e)

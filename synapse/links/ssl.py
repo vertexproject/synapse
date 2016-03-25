@@ -7,9 +7,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+import synapse.compat as s_compat
 import synapse.lib.socket as s_socket
 
-from synapse.common import *
 from synapse.links.common import *
 
 class SslRelay(LinkRelay):
@@ -143,12 +143,13 @@ class SslRelay(LinkRelay):
             sslopts['cert_reqs'] = ssl.CERT_NONE
 
         try:
-
             sock.connect( (host,port) )
+        except s_compat.sockerrs as e:
+            raiseSockError(self.link,e)
+
+        try:
             wrap = ssl.wrap_socket(sock, **sslopts)
-            return s_socket.Socket(wrap)
+        except ssl.SSLError as e:
+            raise LinkErr(self.link,str(e))
 
-        except Exception as e:
-
-            sock.close()
-            raise LinkErr( str(e) )
+        return s_socket.Socket(wrap)
