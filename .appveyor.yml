@@ -26,7 +26,7 @@ install:
   - "%PYTHON%\\python.exe -c \"import msgpack; print('msgpack version: ' + repr(msgpack.version))\""
   - "%PYTHON%\\python.exe -c \"import tornado; print('tornado version: ' + repr(tornado.version))\""
   - "%PYTHON%\\python.exe -c \"import requests; print('requests version: ' + repr(requests.__version__))\""
-  - "%PYTHON%\\python.exe -c \"import cryptography; print('cryptography version: %r' % (cryptography.__version__,))\""
+  - "%PYTHON%\\python.exe -c \"import cryptography; print('cryptography version: ' + repr(cryptography.__version__))\""
 
   # force setuptools to install deps
   #- "%CMD_IN_ENV% %PYTHON%\\python.exe setup.py develop"
