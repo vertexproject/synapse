@@ -839,10 +839,10 @@ class Cortex(EventBus):
 
             tufo = (iden,props)
 
-            self.fire('tufo:add', tufo=tufo)
-            self.fire('tufo:add:%s' % form, tufo=tufo)
+        self.fire('tufo:add', tufo=tufo)
+        self.fire('tufo:add:%s' % form, tufo=tufo)
 
-            return tufo
+        return tufo
 
     def delTufo(self, tufo):
         '''
