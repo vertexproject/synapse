@@ -1,9 +1,12 @@
+import logging
 import os
 import sys
 import json
 import argparse
 
 import synapse.daemon as s_daemon
+
+LOG_LEVEL_CHOICES = ('debug', 'info', 'warning', 'error', 'critical')
 
 # FIXME CONFIG FILE DOCS
 
@@ -14,6 +17,8 @@ def getArgParser():
     p.add_argument('--add-auth', help='specify an auth addon url')
     p.add_argument('--add-logger', help='specify a logger addon url')
     p.add_argument('--add-svcbus', help='specify an svcbus addon url')
+
+    p.add_argument('--log-level', choices=LOG_LEVEL_CHOICES, help='specify the log level')
 
     p.add_argument('--run-auth', help='run a UserAuth by ctor url (/syn.auth)')
     #p.add_argument('--run-queen', help='run a hivemind cluster Queen')
@@ -61,6 +66,10 @@ def main(argv):
         conf['ctors'].append( ('syn.auth', opts.run_auth) )
         conf['svc:run'].append( ('syn.auth', {}) )
         conf['dmon:share'].append( ('syn.auth',{}) )
+
+    if opts.log_level:
+        logging.basicConfig(level=opts.log_level.upper())
+        logging.info("log level set to " + opts.log_level)
 
     dmon.loadDmonConf(conf)
 
