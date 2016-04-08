@@ -9,6 +9,7 @@ import synapse.telepath as s_telepath
 
 from synapse.tests.common import *
 
+
 class Woot:
     def foo(self,x,y=20):
         return x + y
@@ -95,3 +96,19 @@ class DaemonTest(unittest.TestCase):
         self.assertEqual( dcon.addons.get('haha').foo(10,y=30), 40 )
 
         self.assertEqual( dcon.locs.get('blah').woot.foo(10,y=30), 40 )
+
+    def test_daemon_conf_onfini(self):
+
+        conf = {
+            'ctors': (
+                ('fini', 'ctor://synapse.eventbus.EventBus()'),
+            ),
+            'dmon:share': (
+                ('fini', {'onfini': True}),
+            ),
+        }
+
+        dmon = s_daemon.Daemon()
+        dmon.loadDmonConf(conf)
+        dmon.fini()
+        self.assertTrue(dmon.shared.get('fini').isfini)

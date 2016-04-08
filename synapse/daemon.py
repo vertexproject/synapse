@@ -150,6 +150,9 @@ class Daemon(EventBus,DmonConf):
             if item == None:
                 raise NoSuchObj(name)
 
+            if opts.get('onfini'):
+                self.onfini(item.fini)
+
             self.share(asname,item)
 
     def _onTelePushMesg(self, sock, mesg):
