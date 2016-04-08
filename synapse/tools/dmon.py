@@ -76,10 +76,6 @@ def main(argv):
     for path in opts.configs:
         dmon.loadDmonFile(path)
 
-    # if the daemon still has no listeners, add a default
-    if not dmon.links():
-        dmon.listen('tcp://0.0.0.0:45654/')
-
     dmon.main()
 
 if __name__ == '__main__':
