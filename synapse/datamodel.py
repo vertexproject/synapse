@@ -308,6 +308,8 @@ basetypes = {
     'str': StrType(),
     'str:lwr': LwrType(),
 
+    #'str:python': validates syntax ( for plugin text etc? )
+
     'inet:port':IntRange('inet:port', 0, 65535),
     'inet:ipv4':Ipv4Type(),
     'inet:srv4':Srv4Type(),

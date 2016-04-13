@@ -688,3 +688,24 @@ class CortexTest(SynTest):
 
         histo = core.getStatByProp('histo','foo:bar')
         self.assertEqual( histo.get(13), 1 )
+
+    def test_cortex_fire_set(self):
+
+        core = s_cortex.openurl('ram://')
+
+        props = {'foo:bar':'lol'}
+        tufo = core.formTufoByProp('foo', 'hehe', bar='lol')
+
+        wait = self.getTestWait(core,2,'tufo:set','tufo:set:foo:bar')
+
+        core.setTufoProps(tufo,bar='hah')
+
+        evts = wait.wait()
+
+        self.assertEqual( evts[0][1]['tufo'][0], tufo[0])
+        self.assertEqual( evts[0][1]['props']['foo:bar'], 'hah' )
+
+        self.assertEqual( evts[1][1]['tufo'][0], tufo[0])
+        self.assertEqual( evts[1][1]['valu'], 'hah' )
+
+        core.fini()

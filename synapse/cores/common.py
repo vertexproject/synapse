@@ -948,10 +948,18 @@ class Cortex(EventBus):
 
         props = { p:v for (p,v) in props.items() if tufo[1].get(p) != v }
 
+        if props:
+            self.fire('tufo:set', tufo=tufo, props=props)
+
         for p,v in props.items():
+
+            oldv = tufo[1].get(p)
             self.setRowsByIdProp(tid,p,v)
 
-        tufo[1].update(props)
+            tufo[1][p] = v
+
+            self.fire('tufo:set:%s' % (p,), tufo=tufo, prop=p, valu=v, oldv=oldv)
+
         return tufo
 
     def setTufoProp(self, tufo, prop, valu):

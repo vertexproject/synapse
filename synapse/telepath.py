@@ -449,12 +449,11 @@ class Proxy(s_eventbus.EventBus):
 
     def _onProxyFini(self):
 
-        if not self._tele_sock.isfini:
-            self._tele_sock.tx( tufo('tele:fin', sid=self._tele_sid) )
-
         self._tele_pool.fini()
         self._tele_boss.fini()
-        self._tele_sock.fini()
+
+        if self._tele_sock != None:
+            self._tele_sock.fini()
 
     def __getattr__(self, name):
         meth = Method(self, name)
