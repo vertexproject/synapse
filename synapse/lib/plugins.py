@@ -84,7 +84,7 @@ class Plugins(s_eventbus.EventBus):
             try:
                 ret.append( func(*args,**kwargs) )
             except Exception as e:
-                logger.exc(e)
+                logger.exception(e)
 
         return ret
 
@@ -112,7 +112,7 @@ class Plugins(s_eventbus.EventBus):
                 try:
                     fini(self)
                 except Exception as e:
-                    logger.exc(e)
+                    logger.exception(e)
 
     def _runInitPlug(self, plug):
         sorc = plug[1].get('%s:source' % self.form)
@@ -133,7 +133,7 @@ class Plugins(s_eventbus.EventBus):
             try:
                 init(self)
             except Exception as e:
-                logger.exc(e)
+                logger.exception(e)
 
         self.plugs[iden] = plug
         self.plugmods[iden] = pmod
