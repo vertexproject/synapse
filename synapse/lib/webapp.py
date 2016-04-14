@@ -87,6 +87,118 @@ class BaseHand(tornado.web.RequestHandler):
         self.write(retinfo)
         self.finish()
 
+
+class CrudHand(BaseHand):
+    """Handle create, read, update and delete operations for a given core.
+
+    Example:
+        core = synapse.cortex.openurl('ram://')
+        wapp = synapse.lib.webapp.WebApp()
+        wapp.addHandPath('/v1/(foo)', synapse.lib.webapp.CrudHand, core=core)
+        wapp.addHandPath('/v1/(foo)/([^/]+)', synapse.lib.webapp.CrudHand, core=core)
+    """
+
+    def initialize(self, core, **globs):
+        """Hook for subclass initialization.
+
+        A dictionary passed as the third argument of a url spec will be supplied as keyword arguments to initialize().
+
+        core - synapse.cores.common
+        """
+        self.boss = globs['boss']
+        self.core = core
+        BaseHand.initialize(self, **globs)
+
+    @tornado.web.asynchronous
+    def delete(self, *args, **kwargs):
+        """Delete one or more tufos.
+
+        DELETE endpoints:
+            /v1/foo - delete all tufos
+            /v1/foo?prop=bar&valu=baz - delete all tufos matching property
+            /v1/foo/[id] - delete identified tufo
+        """
+        (prop, iden, normal) = self._normalize_arguments(*args, **kwargs)
+        if iden:
+            task = (self.core.delRowsById, [iden], {})
+        else:
+            task = (self.core.delRowsByProp, [prop], normal)
+        self.boss.initJob(task=task, ondone=self._onJobDone)
+
+    @tornado.web.asynchronous
+    def get(self, *args, **kwargs):
+        """Get one or more tufos.
+
+        GET endpoints:
+            /v1/foo - get all tufos
+            /v1/foo?prop=bar&valu=baz - get all tufos matching property
+            /v1/foo/[id] - get identified tufo
+        """
+        (prop, iden, normal) = self._normalize_arguments(*args, **kwargs)
+        if iden:
+            task = (self.core.getTufoById, [iden], {})
+        else:
+            task = (self.core.getTufosByProp, [prop], normal)
+        self.boss.initJob(task=task, ondone=self._onJobDone)
+
+    @tornado.web.asynchronous
+    def patch(self, *args, **kwargs):
+        """Patch a tufo.
+
+        PATCH endpoints:
+            /v1/foo/[id] - update identified tufo using request body
+        """
+        (prop, iden, normal) = self._normalize_arguments(*args, **kwargs)
+        if not iden:
+            raise tornado.web.HTTPError(405)
+
+        def ondone(job):
+            props = self._decode_body()
+            task = (self.core.setTufoProps, [job[1]['ret']], props)
+            self.boss.initJob(task=task, ondone=self._onJobDone)
+
+        task = (self.core.getTufoById, [iden], {})
+        self.boss.initJob(task=task, ondone=ondone)
+
+    @tornado.web.asynchronous
+    def post(self, *args, **kwargs):
+        """Post a tufo.
+
+        POST endpoints:
+            /v1/foo - create tufo using request body
+        """
+        (prop, iden, normal) = self._normalize_arguments(*args, **kwargs)
+        if iden:
+            raise tornado.web.HTTPError(405)
+        props = self._decode_body()
+        if prop not in props:
+            raise tornado.web.HTTPError(500)
+        task = (self.core.formTufoByProp, [prop, props[prop]], props)
+        self.boss.initJob(task=task, ondone=self._onJobDone)
+
+    def _decode_body(self):
+        if self.request.headers.get('Content-Type') == 'application/json':
+            return json.loads(self.request.body.decode('utf-8'))
+        raise tornado.web.HTTPError(415)
+
+    def _normalize_arguments(self, *args, **kwargs):
+        argc = len(args)
+        if argc < 1:
+            raise tornado.web.HTTPError(405)
+        model_name = args[0]
+        iden = args[1] if argc > 1 else None
+        prop = kwargs.pop('prop', model_name)
+        normal = {}
+        normal['valu'] = kwargs.get('valu')
+        for key in ['limit', 'maxtime', 'mintime']:
+            if key in kwargs:
+                try:
+                    normal[key] = int(kwargs[key])
+                except ValueError:
+                    pass
+        return (prop, iden, normal)
+
+
 class WebApp(EventBus,tornado.web.Application,s_daemon.DmonConf):
     '''
     The WebApp class allows easy publishing of python methods as HTTP APIs.
@@ -160,15 +272,15 @@ class WebApp(EventBus,tornado.web.Application,s_daemon.DmonConf):
         }
         self.add_handlers(host, [ (regex,BaseHand,globs) ])
 
-    def addHandPath(self, regex, handler, host='.*'):
+    def addHandPath(self, regex, handler, host='.*', **globs):
         '''
         Add a BaseHand derived handler.
         '''
-        globs = {
+        globs.update({
             'wapp':self,
             'loop':self.loop,
             'boss':self.boss,
-        }
+        })
         self.add_handlers(host, [ (regex,handler,globs), ] )
 
     def addFilePath(self, regex, path, host='.*'):
