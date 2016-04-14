@@ -2,14 +2,14 @@ import json
 import logging
 import traceback
 import collections
-
-logger = logging.getLogger(__name__)
+import multiprocessing
 
 import synapse.link as s_link
 import synapse.lib.pki as s_pki
 import synapse.lib.socket as s_socket
 import synapse.lib.service as s_service
 import synapse.lib.threads as s_threads
+import synapse.lib.thisplat as s_thisplat
 
 import synapse.cortex as s_cortex
 import synapse.crypto as s_crypto
@@ -18,6 +18,15 @@ import synapse.telepath as s_telepath
 from synapse.eventbus import EventBus
 
 from synapse.common import *
+
+# TODO: bumpDmonFork(self, name, fini=True)
+
+logger = logging.getLogger(__name__)
+
+def forkdmon(conf):
+    dmon = Daemon()
+    dmon.loadDmonConf(conf)
+    dmon.main()
 
 class DmonConf:
     '''
@@ -28,8 +37,16 @@ class DmonConf:
     '''
     def __init__(self):
         self.conf = {}
-        self.locs = {}
-        self.addons = {}
+        self.locs = {'dmon':self}
+        self.forks = {}
+
+        self.forkperm = {}
+
+        self.onfini( self._onDmonFini )
+
+    def _onDmonFini(self):
+        for name in list(self.forks.keys()):
+            self.killDmonFork(name,perm=True)
 
     def _addConfValu(self, conf, prop):
         valu = conf.get(prop)
@@ -41,9 +58,67 @@ class DmonConf:
         self.fire('dmon:conf:set', prop=prop, valu=valu)
         self.fire('dmon:conf:set:%s' % (prop,), prop=prop, valu=valu)
 
+    @firethread
+    def _joinDmonFork(self, name, conf, proc):
+        proc.join()
+        if not self.forkperm.get(name):
+            self._fireDmonFork(name,conf)
+
+    def _fireDmonFork(self, name, conf):
+        proc = multiprocessing.Process(target=forkdmon, args=(conf,))
+
+        self.forks[name] = proc
+
+        proc.start()
+
+        self._joinDmonFork(name,conf,proc)
+
+    def killDmonFork(self, name, perm=False):
+        '''
+        Kill ( not gracefully ) a daemon fork process by name.
+        '''
+        self.forkperm[name] = perm
+
+        proc = self.forks.get(name)
+        if proc != None:
+            proc.terminate()
+
     def loadDmonConf(self, conf):
         '''
+        {
+            'title':'The Foo Thing',
+
+            'forks':(
+                ('name',{
+                    # nested config for forked dmon
+                },
+            ),
+
+            'includes':(
+                '~/foo/config.json',
+            ),
+
+            'ctors':(
+                ('baz','ctor://foo.bar.Baz()'),
+                ('mybus','tcp://host.com/syn.svcbus'),
+            ),
+
+            'services':(
+                ('mybus',(
+                    ('baz',{'tags':('foo.bar','baz')}),
+                ),
+            ),
+        }
         '''
+        # handle forks first to prevent socket bind weirdness
+        for name,subconf in conf.get('forks',()):
+            self._fireDmonFork(name,subconf)
+
+        title = conf.get('title')
+        if title != None:
+            s_thisplat.setProcName('dmon: %s' % title)
+
+        # handle includes next
         for path in conf.get('includes',()):
             fullpath = os.path.expanduser(path)
             self.loadDmonFile(fullpath)
@@ -57,32 +132,20 @@ class DmonConf:
 
             self.fire('dmon:conf:ctor', name=name, item=item)
 
-        for name,url in conf.get('addons',()):
-
-            try:
-                item = s_telepath.evalurl(url,locs=self.locs)
-            except Exception as e:
-                raise Exception('DmonConf addon (%s): %s %s' % (name,e.__class__.__name__,e))
-
-            self.addons[name] = item
-
-            self.fire('dmon:conf:addon', name=name, item=item)
-
-        svcbus = self.addons.get('syn.svcbus')
-
-        svcruns = conf.get('svc:run',())
-        if svcruns and not svcbus:
-            raise Exception('svc:run with no syn.svcbus addon!')
-
-        for name,opts in svcruns:
-            item = self.locs.get(name)
-            if item == None:
+        for busname,svcruns in conf.get('services',()):
+            svcbus = self.locs.get(busname)
+            if svcbus == None:
                 raise NoSuchObj(name)
 
-            tags = opts.get('tags',())
-            svcname = opts.get('name',name)
+            for svcname,svcopts in svcruns:
+                item = self.locs.get(svcname)
+                if item == None:
+                    raise NoSuchObj(svcname)
 
-            s_service.runSynSvc(svcname, item, svcbus, tags=tags)
+                tags = svcopts.get('tags',())
+                svcname = opts.get('name',svcname)
+
+                s_service.runSynSvc(svcname, item, svcbus, tags=tags)
 
     def loadDmonJson(self, text):
         conf = json.loads(text)
@@ -139,11 +202,7 @@ class Daemon(EventBus,DmonConf):
     def loadDmonConf(self, conf):
         DmonConf.loadDmonConf(self,conf)
 
-        # process a few daemon specific options
-        for url in conf.get('dmon:listen',()):
-            self.listen(url)
-
-        for name,opts in conf.get('dmon:share',()):
+        for name,opts in conf.get('share',()):
             asname = opts.get('name',name)
 
             item = self.locs.get(name)
@@ -154,6 +213,10 @@ class Daemon(EventBus,DmonConf):
                 self.onfini(item.fini)
 
             self.share(asname,item)
+
+        # process a few daemon specific options
+        for url in conf.get('listen',()):
+            self.listen(url)
 
     def _onTelePushMesg(self, sock, mesg):
 

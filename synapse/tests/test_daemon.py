@@ -1,4 +1,5 @@
 import io
+import os
 import unittest
 import threading
 
@@ -14,11 +15,14 @@ class Woot:
     def foo(self,x,y=20):
         return x + y
 
+    def pid(self):
+        return os.getpid()
+
 class Blah:
     def __init__(self, woot):
         self.woot = woot
 
-class DaemonTest(unittest.TestCase):
+class DaemonTest(SynTest):
 
     def test_daemon_timeout(self):
 
@@ -73,8 +77,8 @@ class DaemonTest(unittest.TestCase):
         class DmonConfTest(s_daemon.DmonConf,s_eventbus.EventBus):
 
             def __init__(self):
-                s_daemon.DmonConf.__init__(self)
                 s_eventbus.EventBus.__init__(self)
+                s_daemon.DmonConf.__init__(self)
 
         conf = {
 
@@ -82,19 +86,12 @@ class DaemonTest(unittest.TestCase):
                 ('woot','ctor://synapse.tests.test_daemon.Woot()'),
                 ('blah','ctor://synapse.tests.test_daemon.Blah(woot)'),
             ),
-
-            'addons':(
-                ('haha','ctor://synapse.tests.test_daemon.Woot()'),
-            ),
-
         }
 
         dcon = DmonConfTest()
         dcon.loadDmonConf(conf)
 
         self.assertEqual( dcon.locs.get('woot').foo(10,y=30), 40 )
-        self.assertEqual( dcon.addons.get('haha').foo(10,y=30), 40 )
-
         self.assertEqual( dcon.locs.get('blah').woot.foo(10,y=30), 40 )
 
     def test_daemon_conf_onfini(self):
@@ -103,7 +100,7 @@ class DaemonTest(unittest.TestCase):
             'ctors': (
                 ('fini', 'ctor://synapse.eventbus.EventBus()'),
             ),
-            'dmon:share': (
+            'share': (
                 ('fini', {'onfini': True}),
             ),
         }
@@ -112,3 +109,45 @@ class DaemonTest(unittest.TestCase):
         dmon.loadDmonConf(conf)
         dmon.fini()
         self.assertTrue(dmon.shared.get('fini').isfini)
+
+    def test_daemon_conf_fork(self):
+        self.thisHostMustNot(platform='windows')
+
+        iden = guid()
+
+        conf = {
+            'forks':(
+                ('fork0',{
+                    'ctors':(
+                        ('haha','ctor://synapse.tests.test_daemon.Woot()'),
+                    ),
+                    'share': (
+                        ('haha',{}),
+                    ),
+                    'listen':(
+                        'local://%s' % (iden,),
+                    ),
+                }),
+            ),
+        }
+
+        dmon = s_daemon.Daemon()
+        dmon.loadDmonConf(conf)
+
+        prox = s_telepath.openurl('local://%s/haha?retry=6' % (iden,))
+
+        pid0 = prox.pid()
+        self.assertNotEqual( pid0, os.getpid() )
+
+        prox.fini()
+
+        #dmon.killDmonFork('fork0')
+
+        #prox = s_telepath.openurl('local://%s/haha?retry=6' % (iden,))
+
+        #pid1 = prox.pid()
+        #self.assertNotEqual( pid0, pid1 )
+        #self.assertNotEqual( pid1, os.getpid() )
+
+        #prox.fini()
+        dmon.fini()

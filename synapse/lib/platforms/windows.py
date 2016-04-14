@@ -1,9 +1,10 @@
-import ctypes
+from __future__ import absolute_import,unicode_literals
 
-if getattr(ctypes,'windll',None):
-    # windows specific code may live in here...
-    pass
+import logging
+logger = logging.getLogger(__name__)
 
-def _initHostInfo(ret):
-    ret['format'] = 'pe'
-    ret['platform'] = 'windows'
+def initHostInfo():
+    return {
+        'format':'pe',
+        'platform':'windows',
+    }

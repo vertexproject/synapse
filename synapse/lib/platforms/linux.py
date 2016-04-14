@@ -1,9 +1,10 @@
-import platform
+from __future__ import absolute_import,unicode_literals
 
-if platform.system().lower() == 'linux':
-    # linux only code goes here...
-    pass
+import logging
+logger = logging.getLogger(__name__)
 
-def _initHostInfo(ret):
-    ret['format'] = 'elf'
-    ret['platform'] = 'linux'
+def initHostInfo():
+    return {
+        'format':'elf',
+        'platform':'linux',
+    }

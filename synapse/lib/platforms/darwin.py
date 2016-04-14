@@ -1,9 +1,10 @@
-import platform
+from __future__ import absolute_import,unicode_literals
 
-if platform.system().lower() == 'darwin':
-    # darwin only code goes here...
-    pass
+import logging
+logger = logging.getLogger(__name__)
 
-def _initHostInfo(ret):
-    ret['format'] = 'macho'
-    ret['platform'] = 'darwin'
+def initHostInfo():
+    return {
+        'format':'macho',
+        'platform':'darwin',
+    }

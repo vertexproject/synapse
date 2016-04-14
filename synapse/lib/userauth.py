@@ -67,6 +67,7 @@ class UserAuth(EventBus):
         self.model = core.genDataModel()
 
         self.model.addTufoForm('auth:user')
+        self.model.addTufoProp('auth:user','apikey', defval='')
         self.model.addTufoProp('auth:user','shadow:sha256', defval='')
 
         self.model.addTufoForm('auth:role')

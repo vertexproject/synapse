@@ -1,9 +1,10 @@
-import platform
+from __future__ import absolute_import,unicode_literals
 
-if platform.system().lower() == 'freebsd':
-    # freebsd only code goes here...
-    pass
+import logging
+logger = logging.getLogger(__name__)
 
-def _initHostInfo(ret):
-    ret['format'] = 'elf'
-    ret['platform'] = 'freebsd'
+def initHostInfo():
+    return {
+        'format':'elf',
+        'platform':'freebsd',
+    }

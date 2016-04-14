@@ -1,7 +1,12 @@
+import logging
+
 import synapse.async as s_async
 import synapse.eventbus as s_eventbus
 import synapse.lib.service as s_service
 import synapse.swarm.syntax as s_syntax
+import synapse.lib.userauth as s_userauth
+
+logger = logging.getLogger(__name__)
 
 class QueryKilled(Exception):pass
 class QueryCancelled(QueryKilled):pass
@@ -220,6 +225,7 @@ class Query(s_eventbus.EventBus):
 
         self.user = info.get('user')
 
+        self.uniq = {}
         self.insts = s_syntax.parse(text)
 
         self.touched = 0
@@ -244,11 +250,30 @@ class Query(s_eventbus.EventBus):
 
         }
 
+    def allowForm(self, form):
+        if self.user == None:
+            return True
+
+        return self.runt.allow(self.user,'tufo.form.' + form)
+
     def addData(self, data, svcfo=None):
-        # FIXME enforce perms here?
-        # FIXME enforce opts like uniq here!
         self.tick()
+
+        if self.results.get('mode') == 'tufo':
+
+            form = data[1].get('tufo:form')
+            if not self.allowForm(form):
+                return False
+
+
+            if self.results['options'].get('uniq'):
+                if self.uniq.get( data[0] ):
+                    return False
+
+                self.uniq[ data[0] ] = True
+
         self.results['data'].append(data)
+        return True
 
     def setMode(self, mode):
         self.results['mode'] = mode
@@ -280,7 +305,10 @@ class Query(s_eventbus.EventBus):
 
     def takeData(self):
         data = self.results.get('data')
+
+        self.uniq.clear()
         self.results['data'] = []
+
         return data
         # FIXME reset any uniq stuff here!
 
@@ -292,10 +320,7 @@ class Query(s_eventbus.EventBus):
         if func == None:
             raise Exception('Unknown Instruction: %s' % inst[0])
 
-        try:
-            func(self,inst)
-        except Exception as e:
-            raise Exception('Swarm Instr Error: %s: %s' % (inst[0],e))
+        func(self,inst)
 
     def execute(self):
         '''
@@ -328,18 +353,54 @@ class Runtime(s_eventbus.EventBus):
 
     def __init__(self, svcbus, **info):
         s_eventbus.EventBus.__init__(self)
+
         self.info = info
+        self.auth = info.get('auth')
 
         self.svcbus = svcbus
         self.svcprox = s_service.SvcProxy(svcbus)
 
         self.insts = {}
+        self.rules = {}
 
         self.setInstFunc('opts',opts)
         self.setInstFunc('lift',lift)
         self.setInstFunc('must',must)
         self.setInstFunc('cant',cant)
         self.setInstFunc('pivot',pivot)
+
+    def setUserAuth(self, auth):
+        self.auth = auth
+        self.rules.clear()
+
+    def allow(self, user, perm):
+        '''
+        Check if a user is allowed a given permission.
+        '''
+        if self.auth == None:
+            return True
+
+        rules = self._getUserRules(user)
+        return rules.allow(perm)
+
+    def allowForm(self, user, form):
+        '''
+        Check if a user is allowed access to a data form.
+
+        Example:
+
+            if runt.allowForm('visi','foo:bar'):
+                stuff()
+
+        '''
+        return self.allow(user,'swarm.form.' + form)
+
+    def _getUserRules(self, user):
+        rules = self.rules.get(user)
+        if rules == None:
+            rules = s_userauth.Rules(self.auth,user)
+            self.rules[user] = rules
+        return rules
 
     def setInstFunc(self, name, func):
         '''

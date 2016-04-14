@@ -2,10 +2,10 @@ import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 import synapse.lib.service as s_service
+import synapse.lib.userauth as s_userauth
 import synapse.swarm.runtime as s_runtime
 
 from synapse.tests.common import *
-
 
 class SwarmRunTest(SynTest):
 
@@ -53,7 +53,7 @@ class SwarmRunTest(SynTest):
 
         return tenv
 
-    def test_swearm_runtime_lift(self):
+    def test_swarm_runtime_lift(self):
         tenv = self.getSwarmEnv()
 
         answ = tenv.runt.ask('foo:bar="baz"')
@@ -71,7 +71,7 @@ class SwarmRunTest(SynTest):
 
         tenv.fini()
 
-    def test_swearm_runtime_pivot(self):
+    def test_swarm_runtime_pivot(self):
         tenv = self.getSwarmEnv()
 
         answ = tenv.runt.ask('foo:bar="baz" ^foo:bar:vvv')
@@ -86,7 +86,7 @@ class SwarmRunTest(SynTest):
 
         tenv.fini()
 
-    def test_swearm_runtime_opts(self):
+    def test_swarm_runtime_opts(self):
         tenv = self.getSwarmEnv()
 
         answ = tenv.runt.ask('%foo')
@@ -103,5 +103,38 @@ class SwarmRunTest(SynTest):
 
         answ = tenv.runt.ask('%foo="bar"')
         self.assertEqual( answ['options'].get('foo'), 'bar' )
+
+        tenv.fini()
+
+    def test_swarm_runtime_opts_uniq(self):
+        tenv = self.getSwarmEnv()
+
+        answ = tenv.runt.ask('%uniq foo:bar="baz" foo:bar="baz"')
+        self.assertEqual( len(answ['data']), 1 )
+
+        answ = tenv.runt.ask('%uniq=0 foo:bar="baz" foo:bar="baz"')
+        self.assertEqual( len(answ['data']), 2 )
+
+        tenv.fini()
+
+    def test_swarm_runtime_userauth_form(self):
+        tenv = self.getSwarmEnv()
+
+        core = s_cortex.openurl('ram://')
+        auth = s_userauth.UserAuth(core)
+
+        auth.addUser('visi')
+        tenv.runt.setUserAuth(auth)
+
+        answ = tenv.runt.ask('foo:bar="baz"',user='visi')
+        self.assertEqual( len(answ['data']), 0 )
+
+        auth.addUserRule('visi','tufo.form.foo:*')
+
+        answ = tenv.runt.ask('foo:bar="baz"',user='visi')
+        self.assertEqual( len(answ['data']), 1 )
+
+        auth.fini()
+        core.fini()
 
         tenv.fini()
