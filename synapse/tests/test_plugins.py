@@ -9,10 +9,10 @@ class PlugTest(SynTest):
         core = s_cortex.openurl('ram://')
         srccode = '''
 def _syn_plug_init(bus):
-    print('HI')
+    pass
 
 def _syn_plug_fini(bus):
-    print('BYE')
+    pass
         '''
         core.formTufoByProp('plugin', guid(), en=1, source=srccode)
         plug = s_plugins.Plugins(core)
