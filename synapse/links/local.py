@@ -46,11 +46,12 @@ class LocalRelay(LinkRelay):
     def _connect(self):
         path = self.link[1].get('sockpath')
 
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
 
-            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             s.connect(path)
             return s_socket.Socket(s)
 
         except s_compat.sockerrs as e:
+            s.close()
             raiseSockError(self.link,e)
