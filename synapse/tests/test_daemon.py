@@ -82,6 +82,9 @@ class DaemonTest(SynTest):
 
         conf = {
 
+            'vars':{
+                'hehe':10,
+            },
             'ctors':(
                 ('woot','ctor://synapse.tests.test_daemon.Woot()'),
                 ('blah','ctor://synapse.tests.test_daemon.Blah(woot)'),
@@ -91,6 +94,7 @@ class DaemonTest(SynTest):
         dcon = DmonConfTest()
         dcon.loadDmonConf(conf)
 
+        self.assertEqual( dcon.locs.get('hehe'), 10 )
         self.assertEqual( dcon.locs.get('woot').foo(10,y=30), 40 )
         self.assertEqual( dcon.locs.get('blah').woot.foo(10,y=30), 40 )
 

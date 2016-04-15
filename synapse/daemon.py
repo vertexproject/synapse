@@ -88,6 +88,11 @@ class DmonConf:
         {
             'title':'The Foo Thing',
 
+            'vars':{
+                'foo':10,
+                'bar':["baz","faz"]
+            }
+
             'forks':(
                 ('name',{
                     # nested config for forked dmon
@@ -110,6 +115,8 @@ class DmonConf:
             ),
         }
         '''
+        self.locs.update( conf.get('vars',{}) )
+
         # handle forks first to prevent socket bind weirdness
         for name,subconf in conf.get('forks',()):
             self._fireDmonFork(name,subconf)
