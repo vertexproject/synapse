@@ -409,9 +409,9 @@ class DataModel:
         self.model.setdefault('ver', (0,0,0))
 
         self.model.setdefault('enums',{})
-        self.model.setdefault('tufos',{})
         self.model.setdefault('props',{})
         self.model.setdefault('globs',{})
+        self.model.setdefault('forms',[])
 
         self.subs = collections.defaultdict(list)  # prop:subprops
         self.cache = {} # for globs
@@ -454,6 +454,14 @@ class DataModel:
         '''
         propinfo['form'] = True
         self.addPropDef(form, **propinfo)
+
+        self.model['forms'].append(form)
+
+    def getTufoForms(self):
+        '''
+        Return a list of the tufo forms.
+        '''
+        return self.model.get('forms',())
 
     def addDataEnum(self, enum, tags):
         '''
