@@ -89,35 +89,38 @@ class BaseHand(tornado.web.RequestHandler):
 
 
 class CrudHand(BaseHand):
-    """Handle create, read, update and delete operations for a given core.
+    '''
+    Handle create, read, update and delete operations for a given core.
 
     Example:
         core = synapse.cortex.openurl('ram://')
         wapp = synapse.lib.webapp.WebApp()
         wapp.addHandPath('/v1/(foo)', synapse.lib.webapp.CrudHand, core=core)
         wapp.addHandPath('/v1/(foo)/([^/]+)', synapse.lib.webapp.CrudHand, core=core)
-    """
+    '''
 
     def initialize(self, core, **globs):
-        """Hook for subclass initialization.
+        '''
+        Hook for subclass initialization.
 
         A dictionary passed as the third argument of a url spec will be supplied as keyword arguments to initialize().
 
         core - synapse.cores.common
-        """
+        '''
         self.boss = globs['boss']
         self.core = core
         BaseHand.initialize(self, **globs)
 
     @tornado.web.asynchronous
     def delete(self, *args, **kwargs):
-        """Delete one or more tufos.
+        '''
+        Delete one or more tufos.
 
         DELETE endpoints:
             /v1/foo - delete all tufos
             /v1/foo?prop=bar&valu=baz - delete all tufos matching property
             /v1/foo/[id] - delete identified tufo
-        """
+        '''
         (prop, iden, normal) = self._normalize_arguments(*args, **kwargs)
         if iden:
             task = (self.core.delRowsById, [iden], {})
@@ -127,13 +130,14 @@ class CrudHand(BaseHand):
 
     @tornado.web.asynchronous
     def get(self, *args, **kwargs):
-        """Get one or more tufos.
+        '''
+        Get one or more tufos.
 
         GET endpoints:
             /v1/foo - get all tufos
             /v1/foo?prop=bar&valu=baz - get all tufos matching property
             /v1/foo/[id] - get identified tufo
-        """
+        '''
         (prop, iden, normal) = self._normalize_arguments(*args, **kwargs)
         if iden:
             task = (self.core.getTufoById, [iden], {})
@@ -143,11 +147,12 @@ class CrudHand(BaseHand):
 
     @tornado.web.asynchronous
     def patch(self, *args, **kwargs):
-        """Patch a tufo.
+        '''
+        Patch a tufo.
 
         PATCH endpoints:
             /v1/foo/[id] - update identified tufo using request body
-        """
+        '''
         (prop, iden, normal) = self._normalize_arguments(*args, **kwargs)
         if not iden:
             raise tornado.web.HTTPError(405)
@@ -162,11 +167,12 @@ class CrudHand(BaseHand):
 
     @tornado.web.asynchronous
     def post(self, *args, **kwargs):
-        """Post a tufo.
+        '''
+        Post a tufo.
 
         POST endpoints:
             /v1/foo - create tufo using request body
-        """
+        '''
         (prop, iden, normal) = self._normalize_arguments(*args, **kwargs)
         if iden:
             raise tornado.web.HTTPError(405)
