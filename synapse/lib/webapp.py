@@ -105,7 +105,7 @@ class CrudHand(BaseHand):
 
         A dictionary passed as the third argument of a url spec will be supplied as keyword arguments to initialize().
 
-        core - synapse.cores.common
+        core - synapse.cores.common.Cortex
         '''
         self.boss = globs['boss']
         self.core = core
@@ -193,14 +193,14 @@ class CrudHand(BaseHand):
             raise tornado.web.HTTPError(405)
         model_name = args[0]
         iden = args[1] if argc > 1 else None
-        prop = kwargs.pop('prop', model_name)
+        prop = self.get_query_argument('prop', model_name)
         normal = {}
-        normal['valu'] = kwargs.get('valu')
+        normal['valu'] = self.get_query_argument('valu', None)
         for key in ['limit', 'maxtime', 'mintime']:
             if key in kwargs:
                 try:
-                    normal[key] = int(kwargs[key])
-                except ValueError:
+                    normal[key] = int(self.get_query_argument(key))
+                except (tornado.web.MissingArgumentError, ValueError):
                     pass
         return (prop, iden, normal)
 
