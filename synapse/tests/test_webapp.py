@@ -102,6 +102,17 @@ class TestCrudHand(SynTest):
             assert rslt[1] == tufo[rslt[0]]
             assert rslt[1]['bar:key1'] == 'val1'
 
+        # Can we delete a subset?
+        resp = requests.delete(self.host + '/v1/bar?prop=bar:key1&value=val1', timeout=1).json()
+        assert resp['status'] == 'ok'
+
+        resp = requests.get(self.host + '/v1/bar', timeout=1).json()
+        assert resp['status'] == 'ok'
+        assert len(resp['ret']) == 1
+        for rslt in resp['ret']:
+            assert rslt[1] == tufo[rslt[0]]
+            assert rslt[1]['bar:key0'] == 'val0'
+
         # Can they be deleted?
         resp = requests.delete(self.host + '/v1/bar', timeout=1).json()
         assert resp['status'] == 'ok'

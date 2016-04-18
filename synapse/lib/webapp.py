@@ -125,7 +125,7 @@ class CrudHand(BaseHand):
         if iden:
             task = (self.core.delRowsById, [iden], {})
         else:
-            task = (self.core.delRowsByProp, [prop], normal)
+            task = (self.core.delJoinByProp, [prop], normal)
         self.boss.initJob(task=task, ondone=self._onJobDone)
 
     @tornado.web.asynchronous
