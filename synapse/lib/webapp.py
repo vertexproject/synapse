@@ -112,7 +112,7 @@ class CrudHand(BaseHand):
         BaseHand.initialize(self, **globs)
 
     @tornado.web.asynchronous
-    def delete(self, *args, **kwargs):
+    def delete(self, model_name, iden=None):
         '''
         Delete one or more tufos.
 
@@ -121,7 +121,7 @@ class CrudHand(BaseHand):
             /v1/foo?prop=bar&valu=baz - delete all tufos matching property
             /v1/foo/[id] - delete identified tufo
         '''
-        (prop, iden, normal) = self._normalize_arguments(*args, **kwargs)
+        (prop, normal) = self._normalize_query_arguments(model_name)
         if iden:
             task = (self.core.delRowsById, [iden], {})
         else:
@@ -129,7 +129,7 @@ class CrudHand(BaseHand):
         self.boss.initJob(task=task, ondone=self._onJobDone)
 
     @tornado.web.asynchronous
-    def get(self, *args, **kwargs):
+    def get(self, model_name, iden=None):
         '''
         Get one or more tufos.
 
@@ -138,7 +138,7 @@ class CrudHand(BaseHand):
             /v1/foo?prop=bar&valu=baz - get all tufos matching property
             /v1/foo/[id] - get identified tufo
         '''
-        (prop, iden, normal) = self._normalize_arguments(*args, **kwargs)
+        (prop, normal) = self._normalize_query_arguments(model_name)
         if iden:
             task = (self.core.getTufoById, [iden], {})
         else:
@@ -146,14 +146,14 @@ class CrudHand(BaseHand):
         self.boss.initJob(task=task, ondone=self._onJobDone)
 
     @tornado.web.asynchronous
-    def patch(self, *args, **kwargs):
+    def patch(self, model_name, iden=None):
         '''
         Patch a tufo.
 
         PATCH endpoints:
             /v1/foo/[id] - update identified tufo using request body
         '''
-        (prop, iden, normal) = self._normalize_arguments(*args, **kwargs)
+        (prop, normal) = self._normalize_query_arguments(model_name)
         if not iden:
             raise tornado.web.HTTPError(405)
 
@@ -166,14 +166,14 @@ class CrudHand(BaseHand):
         self.boss.initJob(task=task, ondone=ondone)
 
     @tornado.web.asynchronous
-    def post(self, *args, **kwargs):
+    def post(self, model_name, iden=None):
         '''
         Post a tufo.
 
         POST endpoints:
             /v1/foo - create tufo using request body
         '''
-        (prop, iden, normal) = self._normalize_arguments(*args, **kwargs)
+        (prop, normal) = self._normalize_query_arguments(model_name)
         if iden:
             raise tornado.web.HTTPError(405)
         props = self._decode_body()
@@ -187,22 +187,16 @@ class CrudHand(BaseHand):
             return json.loads(self.request.body.decode('utf-8'))
         raise tornado.web.HTTPError(415)
 
-    def _normalize_arguments(self, *args, **kwargs):
-        argc = len(args)
-        if argc < 1:
-            raise tornado.web.HTTPError(405)
-        model_name = args[0]
-        iden = args[1] if argc > 1 else None
+    def _normalize_query_arguments(self, model_name):
         prop = self.get_query_argument('prop', model_name)
         normal = {}
         normal['valu'] = self.get_query_argument('valu', None)
         for key in ['limit', 'maxtime', 'mintime']:
-            if key in kwargs:
-                try:
-                    normal[key] = int(self.get_query_argument(key))
-                except (tornado.web.MissingArgumentError, ValueError):
-                    pass
-        return (prop, iden, normal)
+            try:
+                normal[key] = int(self.get_query_argument(key))
+            except (tornado.web.MissingArgumentError, ValueError):
+                pass
+        return (prop, normal)
 
 
 class WebApp(EventBus,tornado.web.Application,s_daemon.DmonConf):
