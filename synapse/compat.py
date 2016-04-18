@@ -2,6 +2,7 @@ from __future__ import absolute_import,unicode_literals
 '''
 A module to isolate python version compatibility filth.
 '''
+import os
 import sys
 import time
 import base64
@@ -40,6 +41,9 @@ if version < (3,0,0):
         for c in byts:
             yield(ord(c))
 
+    def makedirs(path,mode=0o777):
+        os.makedirs(path,mode=mode)
+
 else:
     import queue
     import builtins
@@ -62,3 +66,6 @@ else:
 
     def iterbytes(byts):
         return iter(byts)
+
+    def makedirs(path,mode=0o777):
+        os.makedirs(path,mode=mode,exist_ok=True)
