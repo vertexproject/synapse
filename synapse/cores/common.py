@@ -9,9 +9,11 @@ from synapse.compat import queue
 
 import synapse.async as s_async
 import synapse.compat as s_compat
-import synapse.aspects as s_aspects
-import synapse.lib.threads as s_threads
 import synapse.datamodel as s_datamodel
+
+import synapse.lib.tags as s_tags
+import synapse.lib.cache as s_cache
+import synapse.lib.threads as s_threads
 
 from synapse.common import *
 from synapse.eventbus import EventBus
@@ -31,7 +33,7 @@ class Cortex(EventBus):
     '''
     Top level Cortex key/valu storage object.
     '''
-    def __init__(self, link, model=None):
+    def __init__(self, link):
         EventBus.__init__(self)
 
         self.link = link
@@ -39,7 +41,11 @@ class Cortex(EventBus):
         self.lock = threading.Lock()
         self.statfuncs = {}
 
-        self.model = model
+        self.tagcache = {}
+        self.splicefuncs = {}
+
+        self.model = s_datamodel.DataModel()
+
         self.sizebymeths = {}
         self.rowsbymeths = {}
 
@@ -68,7 +74,91 @@ class Cortex(EventBus):
 
         self._initCortex()
 
+        self.model.addTufoForm('syn:tag', ptype='str:lwr')
+        self.model.addTufoProp('syn:tag','up',ptype='str:lwr')
+        self.model.addTufoProp('syn:tag','doc',defval='',ptype='str')
+        self.model.addTufoProp('syn:tag','depth',defval=0,ptype='int')
+        self.model.addTufoProp('syn:tag','title',defval='',ptype='str')
+
+        #self.model.addTufoForm('syn:model',ptype='str')
+
+        #self.model.addTufoForm('syn:type',ptype='str')
+        #self.model.addTufoProp('syn:type','base',ptype='str',doc='what base type does this type extend?')
+        #self.model.addTufoProp('syn:type','baseinfo',ptype='str',doc='Base type specific info (for example, a regex)')
+
+        #self.model.addTufoForm('syn:form',ptype='str:prop')
+        #self.model.addTufoProp('syn:form','doc',ptype='str')
+
+        #self.model.addTufoForm('syn:prop',ptype='str:prop')
+        #self.model.addTufoProp('syn:prop','doc',ptype='str')
+        #self.model.addTufoProp('syn:prop','form',ptype='str:syn:prop')
+
+        #self.model.addTufoProp('syn:prop','ptype',ptype='str')
+        #self.model.addTufoProp('syn:prop','title',ptype='str')
+        #self.model.addTufoProp('syn:prop','defval') # ptype='any'
+
+        #self.model.addTufoForm('syn:splice',ptype='guid')
+        #self.model.addTufoProp('syn:splice','date',ptype='time:epoch',doc='Time that the splice was requested')
+        #self.model.addTufoProp('syn:splice','user',ptype='str',doc='Time user/system which requested the splice')
+        #self.model.addTufoProp('syn:splice','note',ptype='str',doc='Filthy humon notes about the change')
+        #self.model.addTufoProp('syn:splice','status',ptype='str',doc='Enum for init,done,deny to show the splice status')
+        #self.model.addTufoProp('syn:splice','action',ptype='str:lwr',doc='The requested splice action')
+
+        # FIXME load forms / props / etc
+
+        self.model.addTufoGlob('syn:splice','form:*')    # syn:splice:form:fqdn=woot.com
+        self.model.addTufoGlob('syn:splice','action:*')
+
+        self.on('tufo:add:syn:tag', self._onAddSynTag)
+
+        #self.on('tufo:add:syn:type', self._onAddSynType)
+        #self.on('tufo:add:syn:form', self._onAddSynForm)
+        #self.on('tufo:add:syn:prop', self._onAddSynProp)
+
+        self.on('tufo:del:syn:tag', self._onDelSynTag)
+        self.on('tufo:form:syn:tag', self._onFormSynTag)
+
         self.isok = True
+
+    #def _onAddSynForm(self, mesg):
+        #pass
+
+    #def _onAddSynType(self, mesg):
+        #pass
+
+    #def _onAddSynProp(self, mesg):
+        #pass
+
+    def _onDelSynTag(self, mesg):
+        # deleting a tag.  delete all sub tags and wipe tufos.
+        tufo = mesg[1].get('tufo')
+        valu = tufo[1].get('syn:tag')
+
+        [ self.delTufo(t) for t in self.getTufosByProp('syn:tag:up',valu) ]
+
+        # do the (possibly very heavy) removal of the tag from all known forms.
+        for form in self.model.getTufoForms():
+            [ self.delTufoTag(t,valu) for t in self.getTufosByTag(form,valu) ]
+
+    def _onAddSynTag(self, mesg):
+        tufo = mesg[1].get('tufo')
+        uptag = tufo[1].get('syn:tag:up')
+
+        if uptag != None:
+            self._genTufoTag(uptag)
+
+    def _onFormSynTag(self, mesg):
+        valu = mesg[1].get('valu')
+        props = mesg[1].get('props')
+
+        tags = valu.split('.')
+
+        tlen = len(tags)
+
+        if tlen > 1:
+            props['syn:tag:up'] = '.'.join(tags[:-1])
+
+        props['syn:tag:depth'] = tlen - 1
 
     def setSaveFd(self, fd, load=True):
         '''
@@ -121,8 +211,7 @@ class Cortex(EventBus):
             model = core.genDataModel()
 
         '''
-        if self.model == None:
-            self.model = s_datamodel.DataModel()
+        # FIXME this is deprecated but remains for backward compat
         return self.model
 
     def getDataModelDict(self):
@@ -506,9 +595,14 @@ class Cortex(EventBus):
         [ res[i].__setitem__(p,v) for (i,p,v,t) in rows ]
         return list(res.items())
 
+    def _genTufoTag(self, tag):
+        if not self.tagcache.get(tag):
+            self.formTufoByProp('syn:tag',tag)
+            self.tagcache[tag] = True
+
     def addTufoTag(self, tufo, tag, valu=None):
         '''
-        Add an aspect tag to a tufo.
+        Add a tag to a tufo.
 
         Example:
 
@@ -516,14 +610,15 @@ class Cortex(EventBus):
             core.addTufoTag(tufo,'baz.faz')
 
         '''
-        rows = s_aspects.genTufoRows(tufo,tag,valu=valu)
+        self._genTufoTag(tag)
+        rows = s_tags.genTufoRows(tufo,tag,valu=valu)
         self.addRows(rows)
         tufo[1].update({ p:v for (i,p,v,t) in rows })
         return tufo
 
     def delTufoTag(self, tufo, tag):
         '''
-        Delete an aspect tag from a tufo.
+        Delete a tag from a tufo.
 
         Example:
 
@@ -532,7 +627,7 @@ class Cortex(EventBus):
 
         '''
         iden = tufo[0]
-        props = s_aspects.getTufoSubs(tufo,tag)
+        props = s_tags.getTufoSubs(tufo,tag)
         [ self.delRowsByIdProp(iden,prop) for prop in props ]
         [ tufo[1].pop(p) for p in props ]
         return tufo
@@ -547,7 +642,7 @@ class Cortex(EventBus):
                 dostuff(tufo)
 
         '''
-        prop = '%s:tag:%s' % (form,tag)
+        prop = '*|%s|%s' % (form,tag)
         return self.getTufosByProp(prop)
 
     def addTufoKeys(self, tufo, keyvals, stamp=None):
@@ -854,6 +949,11 @@ class Cortex(EventBus):
             core.delTufo(foob)
 
         '''
+        form = tufo[1].get('tufo:form')
+
+        self.fire('tufo:del',tufo=tufo)
+        self.fire('tufo:del:%s' % form, tufo=tufo)
+
         iden = tufo[0]
         with self.lock:
             self.delRowsById(iden)

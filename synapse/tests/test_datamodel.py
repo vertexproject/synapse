@@ -211,3 +211,9 @@ class DataModelTest(unittest.TestCase):
         self.assertEqual( model.getPropRepr('foo:meow', jan1_2016), '2016/01/01 00:00:00')
         self.assertEqual( model.getPropParse('foo:meow','2016/01/01 00:00:00'), jan1_2016)
 
+    def test_datamodel_badprop(self):
+        model = s_datamodel.DataModel()
+        self.assertRaises( s_datamodel.BadPropName, model.addTufoForm, 'foo.bar' )
+
+        model.addTufoForm('foo:bar')
+        self.assertRaises( s_datamodel.BadPropName, model.addTufoProp, 'foo:bar', 'b*z' )

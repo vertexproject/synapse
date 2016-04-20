@@ -502,16 +502,16 @@ class CortexTest(SynTest):
         foob = core.formTufoByProp('foo','bar',baz='faz')
         core.addTufoTag(foob,'zip.zap')
 
-        self.assertIsNotNone( foob[1].get('foo:tag:zip') )
-        self.assertIsNotNone( foob[1].get('foo:tag:zip.zap') )
+        self.assertIsNotNone( foob[1].get('*|foo|zip') )
+        self.assertIsNotNone( foob[1].get('*|foo|zip.zap') )
 
         self.assertEqual( len(core.getTufosByTag('foo','zip')), 1 )
         self.assertEqual( len(core.getTufosByTag('foo','zip.zap')), 1 )
 
         core.delTufoTag(foob,'zip')
 
-        self.assertIsNone( foob[1].get('foo:tag:zip') )
-        self.assertIsNone( foob[1].get('foo:tag:zip.zap') )
+        self.assertIsNone( foob[1].get('*|foo|zip') )
+        self.assertIsNone( foob[1].get('*|foo|zip.zap') )
 
         self.assertEqual( len(core.getTufosByTag('foo','zip')), 0 )
         self.assertEqual( len(core.getTufosByTag('foo','zip.zap')), 0 )
@@ -707,5 +707,40 @@ class CortexTest(SynTest):
 
         self.assertEqual( evts[1][1]['tufo'][0], tufo[0])
         self.assertEqual( evts[1][1]['valu'], 'hah' )
+
+        core.fini()
+
+    def test_cortex_tags(self):
+        core = s_cortex.openurl('ram://')
+
+        core.genDataModel().addTufoForm('foo')
+
+        hehe = core.formTufoByProp('foo','hehe')
+
+        core.addTufoTag(hehe,'lulz.rofl')
+
+        lulz = core.getTufoByProp('syn:tag','lulz')
+
+        self.assertIsNone( lulz[1].get('syn:tag:up') )
+        self.assertEqual( lulz[1].get('syn:tag:doc'), '')
+        self.assertEqual( lulz[1].get('syn:tag:title'), '')
+        self.assertEqual( lulz[1].get('syn:tag:depth'), 0 )
+
+        rofl = core.getTufoByProp('syn:tag','lulz.rofl')
+
+        self.assertEqual( rofl[1].get('syn:tag:doc'), '')
+        self.assertEqual( rofl[1].get('syn:tag:title'), '')
+        self.assertEqual( rofl[1].get('syn:tag:up'), 'lulz' )
+
+        self.assertEqual( rofl[1].get('syn:tag:depth'), 1 )
+
+        core.delTufo(lulz)
+        # tag and subs should be wiped
+
+        self.assertIsNone( core.getTufoByProp('syn:tag','lulz') )
+        self.assertIsNone( core.getTufoByProp('syn:tag','lulz.rofl') )
+
+        self.assertEqual( len(core.getTufosByTag('foo','lulz')), 0 )
+        self.assertEqual( len(core.getTufosByTag('foo','lulz.rofl')), 0 )
 
         core.fini()
