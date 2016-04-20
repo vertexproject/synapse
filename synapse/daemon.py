@@ -28,6 +28,23 @@ def forkdmon(conf):
     dmon.loadDmonConf(conf)
     dmon.main()
 
+def checkConfDict(conf):
+    for incl in conf.get('includes',()):
+        path = os.path.expanduser(incl)
+        checkConfFile(path)
+
+    for name,subconf in conf.get('forks',()):
+        checkConfDict(subconf)
+
+def checkConfFile(path):
+    with open(path,'rb') as fd:
+        try:
+            conf = json.loads( fd.read().decode('utf8') )
+        except Exception as e:
+            raise BadJson('(%s): %s' % (path,e))
+
+    return checkConfDict(conf)
+
 class DmonConf:
     '''
     A mixin class for configuring a daemon by dict/json.
@@ -115,6 +132,7 @@ class DmonConf:
             ),
         }
         '''
+        checkConfDict(conf)
         self.locs.update( conf.get('vars',{}) )
 
         # handle forks first to prevent socket bind weirdness
@@ -128,7 +146,10 @@ class DmonConf:
         # handle includes next
         for path in conf.get('includes',()):
             fullpath = os.path.expanduser(path)
-            self.loadDmonFile(fullpath)
+            try:
+                self.loadDmonFile(fullpath)
+            except Exception as e:
+                raise Exception('Include Error (%s): %s' % (path,e))
 
         self._addConfValu(conf,'poolsize')
 
@@ -150,7 +171,7 @@ class DmonConf:
                     raise NoSuchObj(svcname)
 
                 tags = svcopts.get('tags',())
-                svcname = opts.get('name',svcname)
+                svcname = svcopts.get('name',svcname)
 
                 s_service.runSynSvc(svcname, item, svcbus, tags=tags)
 
@@ -159,6 +180,7 @@ class DmonConf:
         return self.loadDmonConf(conf)
 
     def loadDmonFile(self, path):
+        checkConfFile(path)
         text = open(path,'rb').read().decode('utf8')
         return self.loadDmonJson(text)
 

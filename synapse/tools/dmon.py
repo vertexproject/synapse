@@ -22,11 +22,11 @@ LOG_LEVEL_CHOICES = ('debug', 'info', 'warning', 'error', 'critical')
 
 def getArgParser():
     p = s_cli.ArgumentParser()
-    p.add_argument('--listen', nargs='+', default=[], help='add a synapse link listener url')
+    p.add_argument('--lsboot', default=False, action='store_true',help='List the current onboot dmon config files')
     p.add_argument('--onboot', default=False, action='store_true',help='Configure the dmon for startup on reboot and add configs')
     p.add_argument('--noboot', default=False, action='store_true',help='Remove a dmon config from the onboot list')
+    p.add_argument('--asboot', default=False, action='store_true',help='Run the onboot dmon config')
     p.add_argument('--log-level', choices=LOG_LEVEL_CHOICES, help='specify the log level')
-    p.add_argument('--run-svcbus', default=False, action='store_true', help='run and share a ServiceBus at /svcbus')
 
     p.add_argument('configs', nargs='*', help='json config file(s)')
 
@@ -52,7 +52,8 @@ def initconf():
         saveconf(conf)
 
     '''
-    s_compat.makedirs(dmondir,mode=0o700)
+    if not os.path.isdir(dmondir):
+        s_compat.makedirs(dmondir,mode=0o700)
 
     if not os.path.isfile(onefile):
         initboot()
@@ -74,8 +75,8 @@ def saveconf(conf):
         fd.write( json.dumps(conf).encode('utf8') )
 
 cronbloc = '''
-@reboot "%s" -m synapse.tools.dmon "%s" &
-''' % (sys.executable,cfgfile)
+@reboot "%s" -m synapse.tools.dmon --asboot &
+''' % (sys.executable,)
 
 def initboot():
     '''
@@ -118,6 +119,10 @@ def onboot(path):
     saveconf(conf)
     return True
 
+def lsboot():
+    conf = initconf()
+    return conf.get('includes',())
+
 def noboot(path):
     '''
     Remove a config from the list of onboot dmon configs.
@@ -139,6 +144,11 @@ def main(argv):
         logging.basicConfig(level=opts.log_level.upper())
         logger.info('log level set to ' + opts.log_level)
 
+    if opts.lsboot:
+        for path in lsboot():
+            print(path)
+        return
+
     if opts.onboot:
         plat = s_thishost.get('platform')
         if plat not in ('linux','darwin'):
@@ -158,12 +168,8 @@ def main(argv):
 
     dmon = s_daemon.Daemon()
 
-    for url in opts.listen:
-        dmon.listen(url)
-
-    if opts.run_svcbus:
-        svcbus = s_service.SvcBus()
-        dmon.share('svcbus',svcbus)
+    if opts.asboot:
+        dmon.loadDmonFile(cfgfile)
 
     for path in opts.configs:
         dmon.loadDmonFile(path)

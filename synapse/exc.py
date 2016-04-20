@@ -1,5 +1,6 @@
 
 class BadUrl(Exception):pass
+class BadJson(Exception):pass
 class BadMesgResp(Exception):pass
 class BadPropValu(Exception):pass
 class BadPySource(Exception):pass
