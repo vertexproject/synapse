@@ -5,9 +5,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 import synapse.async as s_async
-import synapse.aspects as s_aspects
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.tags as s_tags
 import synapse.lib.sched as s_sched
 import synapse.lib.threads as s_threads
 import synapse.lib.thishost as s_thishost
@@ -19,7 +19,7 @@ class SvcBus(s_eventbus.EventBus):
     def __init__(self):
         s_eventbus.EventBus.__init__(self)
 
-        self.bytag = s_aspects.ByTag()
+        self.bytag = s_tags.ByTag()
         self.services = {}
 
         self.on('syn:svc:fini', self._onSynSvcFini)
@@ -116,7 +116,7 @@ class SvcProxy:
         self.sbus.on('syn:svc:init', self._onSynSvcInit )
         self.sbus.on('syn:svc:fini', self._onSynSvcFini )
 
-        self.bytag = s_aspects.ByTag()
+        self.bytag = s_tags.ByTag()
         self.byiden = {}
 
         [ self._addSvcTufo(svcfo) for svcfo in sbus.getSynSvcs() ]
