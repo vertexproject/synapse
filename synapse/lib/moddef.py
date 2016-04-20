@@ -3,8 +3,9 @@ import sys
 import collections
 import distutils.sysconfig as sysconfig
 
-import synapse.aspects as s_aspects
 import synapse.dyndeps as s_dyndeps
+
+import synapse.lib.tags as s_tags
 
 from synapse.common import *
 from synapse.compat import iterbytes
@@ -277,7 +278,7 @@ def getSiteDeps(moddef):
     todo = collections.deque()
 
     def addtodo(md):
-        for tagname in s_aspects.iterTagDown( md[0] ):
+        for tagname in s_tags.iterTagDown( md[0] ):
             todo.append( getModDef( tagname ) )
 
     addtodo(moddef)

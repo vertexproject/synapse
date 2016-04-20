@@ -8,12 +8,12 @@ import collections
 import synapse.link as s_link
 import synapse.async as s_async
 import synapse.daemon as s_daemon
-import synapse.aspects as s_aspects
 import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.tags as s_tags
 import synapse.lib.sched as s_sched
 import synapse.lib.cache as s_cache
 import synapse.lib.socket as s_socket

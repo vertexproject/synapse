@@ -10,9 +10,10 @@ import datetime
 import functools
 import collections
 
-import synapse.aspects as s_aspects
+import synapse.lib.tags as s_tags
 
 hexre = re.compile('^[0-9a-z]+$')
+propre = re.compile('^[0-9a-zA-Z:_]+$')
 
 class ModelError(Exception):pass
 
@@ -31,6 +32,7 @@ class NoSuchForm(ModelError):pass
 
 class DupDataType(ModelError):pass
 class DupPropName(ModelError):pass
+class BadPropName(ModelError):pass
 
 class BadEnumValu(ModelError):
     def __init__(self, enum, valu):
@@ -411,7 +413,9 @@ class DataModel:
         self.model.setdefault('enums',{})
         self.model.setdefault('props',{})
         self.model.setdefault('globs',{})
-        self.model.setdefault('forms',[])
+
+        # just in case it came in as a tuple..
+        self.model['forms'] = list( self.model.get('forms',()) )
 
         self.subs = collections.defaultdict(list)  # prop:subprops
         self.cache = {} # for globs
@@ -452,6 +456,9 @@ class DataModel:
             model.addTufoForm('woot')
 
         '''
+        if not propre.match(form):
+            raise BadPropName(form)
+
         propinfo['form'] = True
         self.addPropDef(form, **propinfo)
 
@@ -538,6 +545,9 @@ class DataModel:
         propinfo['form'] = form
         fullprop = '%s:%s' % (form,prop)
 
+        if not propre.match(fullprop):
+            raise BadPropName(fullprop)
+
         self.addPropDef(fullprop, **propinfo)
 
     def addPropDef(self, prop, **propinfo):
@@ -569,7 +579,7 @@ class DataModel:
         self._addSubRefs(pdef)
 
     def _addSubRefs(self, pdef):
-        for prop in s_aspects.iterTagUp(pdef[0],div=':'):
+        for prop in s_tags.iterTagUp(pdef[0],div=':'):
             if pdef[0] == prop:
                 continue
             self.subs[prop].append(pdef)
