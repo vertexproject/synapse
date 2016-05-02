@@ -1,7 +1,10 @@
 import os
+import shutil
 import logging
+import tempfile
 import unittest
 import threading
+import contextlib
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -72,6 +75,12 @@ class SynTest(unittest.TestCase):
         for k,v in props.items():
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k,v))
+
+    @contextlib.contextmanager
+    def getTestDir(self):
+        tempdir = tempfile.mkdtemp()
+        yield tempdir
+        shutil.rmtree(tempdir)
 
     def eq(self, x, y):
         self.assertEqual(x,y)
