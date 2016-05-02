@@ -49,17 +49,38 @@ class Cortex(EventBus):
         self.sizebymeths = {}
         self.rowsbymeths = {}
 
+        #############################################################
+        # buses to save/load *raw* save events
+        #############################################################
         self.savebus = EventBus()
         self.loadbus = EventBus()
 
         self.loadbus.on('core:save:add:rows', self._loadAddRows)
-
         self.loadbus.on('core:save:del:rows:by:iden', self._loadDelRowsById)
         self.loadbus.on('core:save:del:rows:by:prop', self._loadDelRowsByProp)
-
         self.loadbus.on('core:save:set:rows:by:idprop', self._loadSetRowsByIdProp)
         self.loadbus.on('core:save:del:rows:by:idprop', self._loadDelRowsByIdProp)
 
+        #############################################################
+        # bus for model layer sync
+        # core:sync events are fired on the cortex and may be ingested
+        # into another coretx using the sync() method.
+        #############################################################
+        self.syncbus = EventBus()   # ingests model sync events
+
+        self.on('tufo:add', self._fireCoreSync )
+        self.on('tufo:del', self._fireCoreSync )
+        self.on('tufo:tag:add', self._fireCoreSync )
+        self.on('tufo:tag:del', self._fireCoreSync )
+
+        self.syncbus.on('tufo:add', self._onSyncTufoAdd )
+        self.syncbus.on('tufo:del', self._onSyncTufoDel )
+        self.syncbus.on('tufo:tag:add', self._onSyncTufoTagAdd )
+        self.syncbus.on('tufo:tag:del', self._onSyncTufoTagDel )
+
+        #############################################################
+
+        self.onfini( self.syncbus.fini )
         self.onfini( self.savebus.fini )
         self.onfini( self.loadbus.fini )
 
@@ -120,6 +141,46 @@ class Cortex(EventBus):
 
         self.isok = True
 
+    def _fireCoreSync(self, mesg):
+        self.fire('core:sync', mesg=mesg)
+
+    def _onSyncTufoAdd(self, mesg):
+        self.formTufoByTufo( mesg[1].get('tufo') )
+
+    def _onSyncTufoDel(self, mesg):
+        tufo = mesg[1].get('tufo')
+
+        form = tufo[1].get('tufo:form')
+        valu = tufo[1].get(form)
+
+        tufo = self.getTufoByProp(form,valu=valu)
+        if tufo == None:
+            return
+
+        self.delTufo(tufo)
+
+    def _onSyncTufoTagAdd(self, mesg):
+
+        tag = mesg[1].get('tag')
+        tufo = mesg[1].get('tufo')
+        asof = mesg[1].get('asof')
+
+        form = tufo[1].get('tufo:form')
+        valu = tufo[1].get(form)
+
+        tufo = self.formTufoByProp(form,valu=valu)
+        self.addTufoTag(tufo,tag,asof=asof)
+
+    def _onSyncTufoTagDel(self, mesg):
+        tag = mesg[1].get('tag')
+        tufo = mesg[1].get('tufo')
+
+        form = tufo[1].get('tufo:form')
+        valu = tufo[1].get(form)
+
+        tufo = self.formTufoByProp(form,valu=valu)
+        self.delTufoTag(tufo,tag)
+
     #def _onAddSynForm(self, mesg):
         #pass
 
@@ -128,6 +189,26 @@ class Cortex(EventBus):
 
     #def _onAddSynProp(self, mesg):
         #pass
+
+    def syncall(self, mesgs):
+        '''
+        Sync all core:sync events in a given list.
+        '''
+        [ self.sync(m) for m in mesgs ]
+
+    def sync(self, mesg):
+        '''
+        Feed the cortex a list of sync events to ingest changes from another.
+
+        Example:
+
+            core0.on('core:sync', core1.sync )
+
+            # model changes to core0 will populate in core1
+
+        '''
+        # unpack and fire a ('core:sync', mesg=<sync>) mesg
+        self.syncbus.dist(mesg[1].get('mesg'))
 
     def _onDelSynTag(self, mesg):
         # deleting a tag.  delete all sub tags and wipe tufos.
@@ -160,7 +241,7 @@ class Cortex(EventBus):
 
         props['syn:tag:depth'] = tlen - 1
 
-    def setSaveFd(self, fd, load=True):
+    def setSaveFd(self, fd, load=True, fini=False):
         '''
         Set a save fd for the cortex and optionally load.
 
@@ -172,6 +253,10 @@ class Cortex(EventBus):
         if load:
             for mesg in msgpackfd(fd):
                 self.loadbus.dist(mesg)
+
+        self.onfini( fd.flush )
+        if fini:
+            self.onfini( fd.close )
 
         def savemesg(mesg):
             fd.write( msgenpack(mesg) )
@@ -600,7 +685,7 @@ class Cortex(EventBus):
             self.formTufoByProp('syn:tag',tag)
             self.tagcache[tag] = True
 
-    def addTufoTag(self, tufo, tag, valu=None):
+    def addTufoTag(self, tufo, tag, asof=None):
         '''
         Add a tag to a tufo.
 
@@ -611,9 +696,16 @@ class Cortex(EventBus):
 
         '''
         self._genTufoTag(tag)
-        rows = s_tags.genTufoRows(tufo,tag,valu=valu)
-        self.addRows(rows)
-        tufo[1].update({ p:v for (i,p,v,t) in rows })
+        rows = s_tags.genTufoRows(tufo,tag,valu=asof)
+        if rows:
+            self.addRows(rows)
+            tufo[1].update({ p:v for (i,p,v,t) in rows })
+
+            form = tufo[1].get('tufo:form')
+            valu = tufo[1].get(form)
+
+            self.fire('tufo:tag:add', tufo=tufo, tag=tag, asof=asof)
+
         return tufo
 
     def delTufoTag(self, tufo, tag):
@@ -628,8 +720,15 @@ class Cortex(EventBus):
         '''
         iden = tufo[0]
         props = s_tags.getTufoSubs(tufo,tag)
-        [ self.delRowsByIdProp(iden,prop) for prop in props ]
-        [ tufo[1].pop(p) for p in props ]
+        if props:
+            [ self.delRowsByIdProp(iden,prop) for prop in props ]
+            [ tufo[1].pop(p) for p in props ]
+
+            form = tufo[1].get('tufo:form')
+            valu = tufo[1].get(form)
+
+            self.fire('tufo:tag:del', tufo=tufo, tag=tag)
+
         return tufo
 
     def getTufosByTag(self, form, tag):
@@ -893,7 +992,9 @@ class Cortex(EventBus):
         form = tufo[1].get('tufo:form')
         valu = tufo[1].get(form)
         prefix = '%s:' % (form,)
-        props = { k:v for (k,v) in tufo[1].items() if k.startswith(prefix) }
+        prelen = len(prefix)
+        props = { k[prelen:]:v for (k,v) in tufo[1].items() if k.startswith(prefix) }
+
         return self.formTufoByProp(form,valu,**props)
 
     def formTufoByProp(self, form, valu, **props):
@@ -994,7 +1095,7 @@ class Cortex(EventBus):
 
     def _normTufoProps(self, form, props):
         # add form prefix to tufo props
-        props = {'%s:%s' % (form,p):v for (p,v) in props.items() }
+        props = {'%s:%s' % (form,p):v for (p,v) in props.items() if v != None }
 
         props['tufo:form'] = form
 
