@@ -28,11 +28,11 @@ class Cache(EventBus):
 
     '''
 
-    def __init__(self, maxtime=None):
+    def __init__(self, maxtime=None, onmiss=None):
         EventBus.__init__(self)
 
         self.sched = s_sched.getGlobSched()
-        self.onmiss = None
+        self.onmiss = onmiss
 
         self.cache = {}
         self.lasthit = {}
