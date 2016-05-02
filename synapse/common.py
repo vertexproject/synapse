@@ -44,6 +44,27 @@ def vertup(vstr):
     '''
     return tuple([ int(x) for x in vstr.split('.') ])
 
+def genfile(*paths):
+    '''
+    Create or open ( for read/write ) a file path join.
+    '''
+    path = os.path.join(*paths)
+    path = os.path.expanduser(path)
+
+    path = os.path.abspath(path)
+    if not os.path.isfile(path):
+        return open(path,'w+b')
+    return open(path,'r+b')
+
+def gendir(*paths,mode=0o700):
+    path = os.path.join(*paths)
+    path = os.path.expanduser(path)
+
+    path = os.path.abspath(path)
+    if not os.path.isdir(path):
+        os.makedirs(path,mode=mode)
+    return path
+
 def verstr(vtup):
     '''
     Convert a version tuple to a string.
@@ -62,6 +83,12 @@ def excinfo(e):
         'errfile':path,
         'errline':line,
     }
+
+def tufoprops(tufo):
+    form = tufo[1].get('tufo:form')
+    pref = '%s:' % (form,)
+    plen = len(pref)
+    return { p[plen:]:v for (p,v) in tufo[1].items() if p.startswith(pref) }
 
 class TufoApi:
     '''
