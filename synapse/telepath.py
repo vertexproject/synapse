@@ -35,12 +35,16 @@ def openurl(url,**opts):
 
     '''
     plex = opts.pop('plex',None)
+    return openclass(Proxy,url,**opts)
+
+def openclass(cls, url, **opts):
+    plex = opts.pop('plex',None)
 
     link = s_link.chopLinkUrl(url)
     link[1].update(opts)
 
     relay = s_link.getLinkRelay(link)
-    return Proxy(relay, plex=plex)
+    return cls(relay, plex=plex)
 
 def openlink(link):
     '''
