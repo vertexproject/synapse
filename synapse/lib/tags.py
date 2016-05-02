@@ -64,6 +64,20 @@ def getTufoTags(tufo):
     '''
     return { choptag(p):v for (p,v) in tufo[1].items() if p[0] == '*' }
 
+def tufoHasTag(tufo,tag):
+    '''
+    Returns True if the tufo has the given tag.
+
+    Example:
+
+        if tufoHasTag(tufo,'woot'):
+            dostuff()
+
+    '''
+    form = tufo[1].get('tufo:form')
+    prop = '*|%s|%s' % (form,tag)
+    return tufo[1].get(prop) != None
+
 def choptag(prop):
     '''
     Chop a tag property to return tag.
