@@ -238,10 +238,10 @@ class Daemon(EventBus,DmonConf):
             if item == None:
                 raise NoSuchObj(name)
 
-            if opts.get('onfini'):
-                self.onfini(item.fini)
-
-            self.share(asname,item)
+            # keeping as "onfini" for backward compat
+            # FIXME CHANGE WITH MAJOR REV
+            fini = opts.get('onfini',False)
+            self.share(asname,item,fini=fini)
 
         # process a few daemon specific options
         for url in conf.get('listen',()):
@@ -500,7 +500,7 @@ class Daemon(EventBus,DmonConf):
         '''
         return list(self._dmon_links)
 
-    def share(self, name, item):
+    def share(self, name, item, fini=False):
         '''
         Share an object via the telepath protocol.
 
@@ -510,4 +510,7 @@ class Daemon(EventBus,DmonConf):
 
         '''
         self.shared[name] = item
+
+        if fini:
+            self.onfini( item.fini )
 
