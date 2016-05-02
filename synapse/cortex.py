@@ -90,7 +90,7 @@ def openlink(link):
             savefd = open(savefile,'w+b')
         else:
             savefd = open(savefile,'r+b')
-        core.setSaveFd(savefd)
+        core.setSaveFd(savefd,fini=True)
 
     return core
 
