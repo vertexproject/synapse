@@ -1,5 +1,7 @@
+import json
 import requests
 
+import synapse.cortex
 import synapse.datamodel as s_datamodel
 import synapse.lib.webapp as s_webapp
 
@@ -18,6 +20,107 @@ class Foo:
 
     def horked(self):
         raise Horked('you are so horked')
+
+
+class TestCrudHand(SynTest):
+
+    def setUp(self):
+        core = synapse.cortex.openurl('ram://')
+        self.wapp = s_webapp.WebApp()
+        self.wapp.listen(0, host='127.0.0.1')
+        self.host = 'http://127.0.0.1:%d' % (self.wapp.getServBinds()[0][1])
+        for model_name in ['foo', 'bar']:
+            self.wapp.addHandPath('/v1/(%s)' % (model_name), s_webapp.CrudHand, core=core)
+            self.wapp.addHandPath('/v1/(%s)/([^/]+)' % (model_name), s_webapp.CrudHand, core=core)
+
+    def tearDown(self):
+        self.wapp.fini()
+
+    def test_invalid_model(self):
+        self.thisHostMustNot(platform='windows')
+        resp = requests.get(self.host + '/v1/horked', timeout=1)
+        self.assertEqual(resp.status_code, 404)
+
+    def test_crud(self):
+        """Ensure single tufo endpoints work."""
+        self.thisHostMustNot(platform='windows')
+
+        # Can we create a tufo?
+        data = json.dumps({'foo': 'val1', 'key2': 'val2'})
+        tufo = {'foo': 'val1', 'foo:foo': 'val1', 'foo:key2': 'val2', 'tufo:form': 'foo'}
+        resp = requests.post(self.host + '/v1/foo', data=data, headers={'Content-Type': 'application/json'}, timeout=1).json()
+        self.assertEqual(resp['status'], 'ok')
+        self.assertEqual(resp['ret'][1], tufo)
+        iden = resp['ret'][0]
+
+        # Does it persist?
+        resp = requests.get(self.host + '/v1/foo/' + iden, timeout=1).json()
+        self.assertEqual(resp['status'], 'ok')
+        self.assertEqual(resp['ret'], [iden, tufo])
+
+        # Can it be updated?
+        data = json.dumps({'key2': 'val22', 'key3': 'val3'})
+        tufo = {'foo': 'val1', 'foo:foo': 'val1', 'foo:key2': 'val22', 'foo:key3': 'val3', 'tufo:form': 'foo'}
+        resp = requests.patch(self.host + '/v1/foo/' + iden, data=data, headers={'Content-Type': 'application/json'}, timeout=1).json()
+        self.assertEqual(resp['status'], 'ok')
+        self.assertEqual(resp['ret'][1], tufo)
+
+        # Can it be deleted?
+        resp = requests.delete(self.host + '/v1/foo/' + iden, timeout=1).json()
+        self.assertEqual(resp['status'], 'ok')
+
+        resp = requests.get(self.host + '/v1/foo/' + iden, timeout=1).json()
+        self.assertEqual(resp['status'], 'ok')
+        assert resp['ret'] is None
+
+    def test_cruds(self):
+        """Ensure multiple tufo endpoints work."""
+        self.thisHostMustNot(platform='windows')
+
+        # Can we create tufos?
+        tufo = {}
+        for i in range(2):
+            i = str(i)
+            data = json.dumps({'bar': i, 'key' + i: 'val' + i})
+            resp = requests.post(self.host + '/v1/bar', data=data, headers={'Content-Type': 'application/json'}, timeout=1).json()
+            self.assertEqual(resp['status'], 'ok')
+            self.assertEqual(resp['ret'][1], {'bar': i, 'bar:bar': i, 'bar:key' + i: 'val' + i, 'tufo:form': 'bar'})
+            tufo[resp['ret'][0]] = resp['ret'][1]
+
+        # Do they persist?
+        resp = requests.get(self.host + '/v1/bar', timeout=1).json()
+        self.assertEqual(resp['status'], 'ok')
+        self.assertEqual(len(resp['ret']), len(tufo))
+        for rslt in resp['ret']:
+            self.assertEqual(rslt[1], tufo[rslt[0]])
+
+        # Can we get a subset?
+        resp = requests.get(self.host + '/v1/bar?prop=bar:key1&value=val1', timeout=1).json()
+        self.assertEqual(resp['status'], 'ok')
+        self.assertEqual(len(resp['ret']), 1)
+        for rslt in resp['ret']:
+            self.assertEqual(rslt[1], tufo[rslt[0]])
+            self.assertEqual(rslt[1]['bar:key1'], 'val1')
+
+        # Can we delete a subset?
+        resp = requests.delete(self.host + '/v1/bar?prop=bar:key1&value=val1', timeout=1).json()
+        self.assertEqual(resp['status'], 'ok')
+
+        resp = requests.get(self.host + '/v1/bar', timeout=1).json()
+        self.assertEqual(resp['status'], 'ok')
+        self.assertEqual(len(resp['ret']), 1)
+        for rslt in resp['ret']:
+            self.assertEqual(rslt[1], tufo[rslt[0]])
+            self.assertEqual(rslt[1]['bar:key0'], 'val0')
+
+        # Can they be deleted?
+        resp = requests.delete(self.host + '/v1/bar', timeout=1).json()
+        self.assertEqual(resp['status'], 'ok')
+
+        resp = requests.get(self.host + '/v1/bar', timeout=1).json()
+        self.assertEqual(resp['status'], 'ok')
+        self.assertEqual(resp['ret'], [])
+
 
 class WebAppTest(SynTest):
 
