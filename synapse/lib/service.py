@@ -6,6 +6,7 @@ logger = logging.getLogger(__name__)
 
 import synapse.async as s_async
 import synapse.eventbus as s_eventbus
+import synapse.telepath as s_telepath
 
 import synapse.lib.tags as s_tags
 import synapse.lib.sched as s_sched
@@ -13,6 +14,18 @@ import synapse.lib.threads as s_threads
 import synapse.lib.thishost as s_thishost
 
 from synapse.common import *
+
+def openurl(url, **opts):
+    '''
+    Open a remote service bus and return a SvcProxy class.
+
+    Example:
+
+        svcprox = openbus('tcp://svcbus.com/mybus')
+
+    '''
+    svcbus = s_telepath.openurl(url,**opts)
+    return SvcProxy(svcbus)
 
 class SvcBus(s_eventbus.EventBus):
 
@@ -113,11 +126,15 @@ class SvcProxy:
         self.sbus = sbus
         self.timeout = timeout
 
+        # FIXME set a reconnect handler for sbus
         self.sbus.on('syn:svc:init', self._onSynSvcInit )
         self.sbus.on('syn:svc:fini', self._onSynSvcFini )
 
-        self.bytag = s_tags.ByTag()
         self.byiden = {}
+        self.byname = {}
+        self.bytag = s_tags.ByTag()
+
+        self.tagprox = {}
 
         [ self._addSvcTufo(svcfo) for svcfo in sbus.getSynSvcs() ]
 
@@ -131,10 +148,11 @@ class SvcProxy:
     def _addSvcTufo(self, svcfo):
         iden = svcfo[0]
 
-        name = svcfo[1].get('name')
         tags = svcfo[1].get('tags',())
+        name = svcfo[1].get('name',iden)
 
         self.byiden[iden] = svcfo
+        self.byname[name] = svcfo
 
         self.bytag.put(iden,tags)
         self.bytag.put(iden,(name,))
@@ -142,8 +160,12 @@ class SvcProxy:
     def _onSynSvcFini(self, mesg):
         svcfo = mesg[1].get('svcfo')
 
+        iden = svcfo[0]
+        name = svcfo.get('name',iden)
         self.bytag.pop(svcfo[0])
-        self.byiden.pop(svcfo[0],None)
+
+        self.byname.pop(name,None)
+        self.byiden.pop(iden,None)
 
     def getSynSvc(self, iden):
         '''
@@ -182,20 +204,62 @@ class SvcProxy:
         '''
         return [ self.byiden.get(i) for i in self.bytag.get(tag) ]
 
-    def callByTag(self, tag, name, *args, **kwargs):
+    def __getitem__(self, name):
+        '''
+        Syntax sugar to allow svcprox['foo'].getFooByBar().
+        '''
+        return self.getTagProxy(name)
+
+    def callByIden(self, iden, func, *args, **kwargs):
+        '''
+        Call a specific object on the service bus by iden.
+
+        Example:
+
+            ret = svcprox.callByIden(iden,'getFooByBar',bar)
+
+        '''
+        svcfo = self.byiden.get(iden)
+        if svcfo == None:
+            raise NoSuchObj(iden)
+
+        dyntask = (func,args,kwargs)
+        job = self.sbus.callx(iden,dyntask)
+        self.sbus._waitTeleJob(job, timeout=self.timeout)
+        return s_async.jobret(job)
+
+    def callByName(self, name, func, *args, **kwargs):
+        '''
+        Call a specific object on the service bus by name.
+
+        Example:
+
+            ret = svcprox.callByName('foo0','getFooByBar',bar)
+
+        '''
+        svcfo = self.byname.get(name)
+        if svcfo == None:
+            raise NoSuchObj(name)
+
+        dyntask = (func,args,kwargs)
+        job = self.sbus.callx(svcfo[0],dyntask)
+        self.sbus._waitTeleJob(job, timeout=self.timeout)
+        return s_async.jobret(job)
+
+    def callByTag(self, tag, func, *args, **kwargs):
         '''
         Call a method on all services with the given tag.
         Yields (svcfo,job) tuples for the results.
 
         Example:
 
-            for svcfo,job in svcprox.callByTag('foo.bar'):
+            for svcfo,job in svcprox.callByTag('foo.bar','getFooThing'):
                 dostuff(svcfo,job)
 
         '''
         jobs = []
 
-        dyntask = (name,args,kwargs)
+        dyntask = (func,args,kwargs)
 
         for iden in self.bytag.get(tag):
             job = self.sbus.callx(iden, dyntask)
@@ -219,7 +283,24 @@ class SvcProxy:
                 dostuff(valu)
 
         '''
-        return SvcTagProxy(self,tag)
+        prox = self.tagprox.get(tag)
+        if prox == None:
+            prox = SvcTagProxy(self,tag)
+            self.tagprox[tag] = prox
+        return prox
+
+    def runSynSvc(self, name, item, tags=()):
+        '''
+        Publish an object to the service bus with the given tags.
+
+        Example:
+
+            foo = Foo()
+
+            svcprox.runSynSvc('foo0', foo, tags=('foos.foo0',))
+
+        '''
+        return runSynSvc(name, item, self.sbus, tags=tags)
 
 class SvcTagProxy:
     '''
@@ -287,7 +368,9 @@ def runSynSvc(name, item, sbus, tags=()):
 
     '''
     iden = guid()
+
     sbus.push(iden,item)
+    sbus.push(name,item)
 
     sched = s_sched.getGlobSched()
     hostinfo = s_thishost.hostinfo
@@ -320,3 +403,5 @@ def runSynSvc(name, item, sbus, tags=()):
 
     sbus.on('tele:sock:init', onTeleSock)
     sbus.iAmSynSvc(iden, props)
+
+    return iden

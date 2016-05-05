@@ -95,3 +95,46 @@ class SvcTest(SynTest):
         b = Blah()
         names = tuple( sorted( s_service.getClsNames(b) ) )
         self.assertEqual( names, ('synapse.tests.test_service.Blah','synapse.tests.test_service.Woot') )
+
+    def test_service_proxysugar(self):
+        sbus = s_service.SvcBus()
+
+        woot0 = Woot()
+
+        dmon = s_daemon.Daemon()
+        dmon.share('syn.svcbus', sbus, fini=True)
+
+        link = dmon.listen('tcp://127.0.0.1:0/')
+
+        port = link[1].get('port')
+
+        prox = s_service.openurl('tcp://127.0.0.1/syn.svcbus', port=port)
+
+        iden = prox.runSynSvc('foo0', woot0, tags=('hehe.haha',))
+
+        res = list( prox['foo0'].foo(90) )
+
+        self.assertEqual( len(res), 1 )
+        self.assertEqual( res[0], 100 )
+
+        dmon.fini()
+
+    def test_service_byname(self):
+        sbus = s_service.SvcBus()
+
+        woot0 = Woot()
+
+        dmon = s_daemon.Daemon()
+        dmon.share('syn.svcbus', sbus, fini=True)
+
+        link = dmon.listen('tcp://127.0.0.1:0/')
+
+        port = link[1].get('port')
+
+        prox = s_service.openurl('tcp://127.0.0.1/syn.svcbus', port=port)
+
+        iden = prox.runSynSvc('foo0', woot0)
+
+        self.assertEqual( prox.callByName('foo0', 'foo',20), 30 )
+
+        dmon.fini()
