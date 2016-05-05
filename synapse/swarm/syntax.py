@@ -182,6 +182,35 @@ def parse_pivot(text,off=0):
 
     return inst,off
 
+def parse_join(text,off=0):
+    '''
+    &foo:bar
+    &foo:bar=baz:faz
+    &hehe.haha/foo:bar=baz:faz
+    '''
+    inst = ('join',{'args':[],'kwlist':[]})
+
+    prop,off = nom(text,off,varset,trim=True)
+
+    if len(text) == off:
+        inst[1]['args'].append(prop)
+        return inst,off
+
+    if text[off] == '/':
+        inst[1]['kwlist'].append( ('from',prop) )
+        prop,off = nom(text,off+1,varset,trim=True)
+
+    inst[1]['args'].append( prop )
+
+    if len(text) == off:
+        return inst,off
+
+    if nextchar(text,off,'='):
+        prop,off = nom(text,off+1,varset,trim=True)
+        inst[1]['args'].append( prop )
+
+    return inst,off
+
 def parse_ques(text,off=0,trim=True):
     '''
     Parse "query" syntax: tag/var@time#limit*as=valu
@@ -325,6 +354,12 @@ def parse(text, off=0):
         # pivot() macro syntax ^foo:bar=baz:faz
         if text[off] == '^':
             inst,off = parse_pivot(text,off+1)
+            ret.append(inst)
+            continue
+
+        # join() macro syntax &foo:bar=baz:faz
+        if text[off] == '&':
+            inst,off = parse_join(text,off+1)
             ret.append(inst)
             continue
 

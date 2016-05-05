@@ -56,7 +56,8 @@ def genfile(*paths):
         return open(path,'w+b')
     return open(path,'r+b')
 
-def gendir(*paths,mode=0o700):
+def gendir(*paths,**opts):
+    mode = opts.get('mode',0o700)
     path = os.path.join(*paths)
     path = os.path.expanduser(path)
 

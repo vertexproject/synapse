@@ -23,6 +23,9 @@ class SwarmRunTest(SynTest):
         tufo2 = core1.formTufoByProp('foo:bar','lol',vvv='visi')
         tufo3 = core1.formTufoByProp('foo:bar','hai',vvv='visi')
 
+        tufo4 = core0.formTufoByProp('zzz:woot',10,vvv='visi')
+        tufo5 = core1.formTufoByProp('zzz:woot',12,vvv='romp')
+
         tenv.add('tufo0',tufo0)
         tenv.add('tufo1',tufo1)
         tenv.add('tufo2',tufo2)
@@ -136,5 +139,22 @@ class SwarmRunTest(SynTest):
 
         auth.fini()
         core.fini()
+
+        tenv.fini()
+
+    def test_swarm_runtime_join(self):
+        tenv = self.getSwarmEnv()
+
+        #&zzz:woot:vvv=foo:bar:vvv
+
+        answ = tenv.runt.ask('foo:bar="baz" &foo:bar:vvv')
+        data = answ.get('data')
+
+        self.assertEqual( len(data), 4 )
+
+        answ = tenv.runt.ask('foo:bar="baz" &zzz:woot:vvv=foo:bar:vvv')
+        data = answ.get('data')
+
+        self.assertEqual( len(data), 2 )
 
         tenv.fini()

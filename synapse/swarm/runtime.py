@@ -102,6 +102,49 @@ def opts(query,inst):
     for name,valu in kwlist:
         query.setOpt(name,valu)
 
+def join(query,inst):
+    '''
+    Join in more results based on current properties.
+
+        foo:bar=10 &zip.zap/baz:bar=foo:bar
+
+        join("baz:bar","foo:bar",from='zip.zap')
+
+    '''
+    if query.mode() not in ('tufo',):
+        raise Exception('join() invalid mode: %s' % (query.mode(),))
+
+    args = inst[1].get('args',())
+    kwargs = dict(inst[1].get('kwlist'))
+
+    if len(args) not in (1,2):
+        raise Exception('join() requires 1 or 2 args')
+
+    srcprop = args[0]
+    dstprop = args[0]
+
+    if len(args) > 1:
+        srcprop = args[1]
+
+    uniq = query.opt('uniq')
+    fromtag = kwargs.get('from',deftag)
+
+    done = set()
+    for tufo in query.data():
+        valu = tufo[1].get(srcprop)
+        if valu == None:
+            continue
+
+        if uniq:
+            if valu in done:
+                continue
+
+            done.add(valu)
+
+        for svcfo,jobfo in query.callByTag(fromtag,'getTufosByProp',dstprop,valu=valu):
+            for tufo in s_async.jobret(jobfo):
+                query.addData(tufo,svcfo=svcfo)
+
 def pivot(query,inst):
     '''
     Pivot to results based on property values.
@@ -364,6 +407,7 @@ class Runtime(s_eventbus.EventBus):
         self.rules = {}
 
         self.setInstFunc('opts',opts)
+        self.setInstFunc('join',join)
         self.setInstFunc('lift',lift)
         self.setInstFunc('must',must)
         self.setInstFunc('cant',cant)
