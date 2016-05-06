@@ -15,6 +15,13 @@ class SwarmSyntaxTest(SynTest):
         self.assertEqual( insts[1][1]['args'][0], 10 )
         self.assertEqual( insts[1][1]['kwlist'][0], ('faz','lol') )
 
+    def test_swarm_syntax_uppercase_and_underscore(self):
+        insts = s_syntax.parse('foo_Foo("lol",bar_Bar=20)')
+
+        self.assertEqual( insts[0][0], 'foo_Foo' )
+        self.assertEqual( insts[0][1]['args'][0], 'lol' )
+        self.assertEqual( insts[0][1]['kwlist'][0], ('bar_Bar',20) )
+
     def test_swarm_syntax_macro_lift(self):
         ###########################################################
         insts = s_syntax.parse('foo:bar')
