@@ -41,6 +41,7 @@ class Cortex(EventBus):
         self.lock = threading.Lock()
         self.statfuncs = {}
 
+        self.auth = None
         self.tagcache = {}
         self.splicefuncs = {}
 
@@ -63,7 +64,7 @@ class Cortex(EventBus):
 
         #############################################################
         # bus for model layer sync
-        # core:sync events are fired on the cortex and may be ingested
+        # sync events are fired on the cortex and may be ingested
         # into another coretx using the sync() method.
         #############################################################
         self.syncbus = EventBus()   # ingests model sync events
@@ -127,8 +128,21 @@ class Cortex(EventBus):
 
         # FIXME load forms / props / etc
 
-        self.model.addTufoGlob('syn:splice','form:*')    # syn:splice:form:fqdn=woot.com
-        self.model.addTufoGlob('syn:splice','action:*')
+        self.model.addTufoForm('syn:splice', ptype='guid')
+
+        self.model.addTufoGlob('syn:splice','on:*')     # syn:splice:on:fqdn=woot.com
+        self.model.addTufoGlob('syn:splice','act:*')    # action arguments
+
+        self.model.addTufoProp('syn:splice','perm', ptype='str', doc='Permissions str for glob matching')
+        self.model.addTufoProp('syn:splice','reqtime', ptype='time:epoch', doc='When was the splice requested')
+
+        self.model.addTufoProp('syn:splice','user', ptype='str', defval='??', doc='What user is requesting the splice')
+        self.model.addTufoProp('syn:splice','note', ptype='str', defval='', doc='Notes about the splice')
+        self.model.addTufoProp('syn:splice','status', ptype='str', defval='new', doc='Splice status')
+        self.model.addTufoProp('syn:splice','action', ptype='str', doc='What action is the splice requesting')
+        #self.model.addTufoProp('syn:splice','actuser', ptype='str', doc='What user is activating the splice')
+        #self.model.addTufoProp('syn:splice','acttime', ptype='time:epoch', doc='When was the splice activated')
+
 
         self.on('tufo:add:syn:tag', self._onAddSynTag)
 
@@ -140,6 +154,205 @@ class Cortex(EventBus):
         self.on('tufo:form:syn:tag', self._onFormSynTag)
 
         self.isok = True
+
+        self.splicers = {}
+
+        self.splicers['tufo:add'] = self._spliceTufoAdd
+        self.splicers['tufo:del'] = self._spliceTufoDel
+        self.splicers['tufo:set'] = self._spliceTufoSet
+        self.splicers['tufo:tag:add'] = self._spliceTufoTagAdd
+        self.splicers['tufo:tag:del'] = self._spliceTufoTagDel
+
+    def _reqSpliceInfo(self, act, info, prop):
+        valu = info.get(prop)
+        if prop == None:
+            raise Exception('Splice: %s requires %s' % (act,prop))
+        return valu
+
+    def _spliceTufoAdd(self, act, info, props):
+
+        form = self._reqSpliceInfo(act,info,'form')
+        valu = self._reqSpliceInfo(act,info,'valu')
+
+        tprops = info.get('props',{})
+
+        props['on:%s' % form] = valu
+
+        perm = 'tufo:add:%s' % (form,)
+
+        props['perm'] = perm
+        props['status'] = 'done'
+
+        # FIXME apply perm
+
+        splice = None
+
+        item = self.formTufoByProp(form,valu,**tprops)
+
+        # if the tufo is newly formed, create a splice
+        if item[1].get('.new'):
+            splice = self.formTufoByProp('syn:splice',guid(),**props)
+
+        return splice,item
+
+    def _isSpliceAllow(self, props):
+        props['status'] = 'done'
+
+        if self.auth != None:
+            user = props.get('user')
+            perm = props.get('perm')
+            if not self.auth.isUserAllowed(user,perm):
+                props['status'] = 'pend'
+                return False
+
+        return True
+
+    def _spliceTufoSet(self, act, info, props):
+        form = self._reqSpliceInfo(act,info,'form')
+        valu = self._reqSpliceInfo(act,info,'valu')
+        prop = self._reqSpliceInfo(act,info,'prop')
+        pval = self._reqSpliceInfo(act,info,'pval')
+
+        props['on:%s' % form] = valu
+
+        fullprop = '%s:%s' % (form,prop)
+
+        props['perm'] = 'tufo:set:%s' % fullprop
+
+        # FIXME apply perm
+
+        item = self.getTufoByProp(form,valu=valu)
+        if item == None:
+            raise NoSuchTufo('%s=%r' % (form,valu))
+
+        oval = item[1].get(fullprop)
+        if oval == pval:
+            return None,item
+
+        if oval != None:
+            props['act:oval'] = oval
+
+        item = self.setTufoProp(item,prop,pval)
+        splice = self.formTufoByProp('syn:splice',guid(),**props)
+
+        return splice,item
+
+    def _spliceTufoDel(self, act, info, props):
+
+        form = self._reqSpliceInfo(act,info,'form')
+        valu = self._reqSpliceInfo(act,info,'valu')
+
+        item = self.getTufoByProp(form,valu=valu)
+        if item == None:
+            raise NoSuchTufo('%s=%r' % (form,valu))
+
+        props['on:%s' % form] = valu
+        props['status'] = 'done'
+
+        props['perm'] = 'tufo:del:%s' % form
+
+        self.delTufo(item)
+
+        splice = self.formTufoByProp('syn:splice',guid(),**props)
+
+        return splice,item
+
+    def _spliceTufoTagAdd(self, act, info, props):
+        tag = self._reqSpliceInfo(act,info,'tag')
+        form = self._reqSpliceInfo(act,info,'form')
+        valu = self._reqSpliceInfo(act,info,'valu')
+
+        item = self.getTufoByProp(form,valu)
+        if item == None:
+            raise NoSuchTufo('%s=%r' % (form,valu))
+
+        if s_tags.tufoHasTag(item,tag):
+            return None,item
+
+        props['on:%s' % form] = valu
+
+        perm = 'tufo:tag:add:%s*%s' % (form,tag)
+
+        props['perm'] = perm
+        props['status'] = 'done'
+
+        item = self.addTufoTag(item,tag)
+        splice = self.formTufoByProp('syn:splice',guid(),**props)
+        return splice,item
+
+    def _spliceTufoTagDel(self, act, info, props):
+        tag = self._reqSpliceInfo(act,info,'tag')
+        form = self._reqSpliceInfo(act,info,'form')
+        valu = self._reqSpliceInfo(act,info,'valu')
+
+        item = self.getTufoByProp(form,valu)
+        if item == None:
+            raise NoSuchTufo('%s=%r' % (form,valu))
+
+        if not s_tags.tufoHasTag(item,tag):
+            return None,item
+
+        props['on:%s' % form] = valu
+
+        perm = 'tufo:tag:del:%s*%s' % (form,tag)
+
+        props['perm'] = perm
+        props['status'] = 'done'
+
+        item = self.delTufoTag(item,tag)
+        splice = self.formTufoByProp('syn:splice',guid(),**props)
+        return splice,item
+
+    def splice(self, user, act, actinfo, **props):
+        '''
+        Apply and track a modification to the cortex.
+
+        The splice API will return a tuple of splice,retval.
+
+        If the splice does not cause a change ( such as forming a tufo
+        that exists already ) no splice is created and instead None,retval
+        is returned (for example, tufo:add returns the tufo in retval )
+
+        If the splice is pended ( due to perms ) the splice will have status
+        set to "pend" retval will be None.
+
+        Example:
+
+            actinfo = {
+                'form':'foo',
+                'valu':'bar',
+                'props':{
+                    'size':20,
+                    'name':'woot',
+                },
+            }
+
+            splice,retval = core.splice('visi','tufo:add', form='foo', valu='bar')
+            splice,retval = core.splice('tufo:add', actinfo, user='visi')
+
+        Actions:
+            'tufo:add' form=<name> valu=<valu> props=<props>
+            'tufo:del' form=<name> valu=<valu>
+            'tufo:set' form=<name> valu=<valu> props=<props>
+            'tufo:tag:add' form=<name> valu=<valu> tag=<tag>
+            'tufo:tag:del' form=<name> valu=<valu> tag=<tag>
+
+        Returns:
+
+            (splice,retval)
+
+        '''
+        props['user'] = user
+        props['action'] = act
+        props['reqtime'] = now()
+
+        props.update( dict(self._primToProps('act', actinfo)) )
+
+        func = self.splicers.get(act)
+        if func == None:
+            raise Exception('No Such Splice Action: %s' % (act,))
+
+        return func(act,actinfo,props)
 
     def _fireCoreSync(self, mesg):
         self.fire('core:sync', mesg=mesg)
@@ -903,7 +1116,7 @@ class Cortex(EventBus):
         Take a json compatible primitive item and return a list of
         "index" props for the various fields/values.
         '''
-        props = [ ('prim:form',form) ]
+        props = []
 
         todo = [ (form,item) ]
         while todo:
@@ -924,12 +1137,10 @@ class Cortex(EventBus):
                 continue
 
             if itype in (list,tuple):
-                props.append( ('prim:type:list',path) )
                 [ todo.append((path,valu)) for valu in item ]
                 continue
 
             if itype == dict:
-                props.append( ('prim:type:dict',path) )
                 for prop,valu in item.items():
                     todo.append( ('%s:%s' % (path,prop), valu ) )
 
@@ -973,6 +1184,8 @@ class Cortex(EventBus):
 
                 rows.extend([ (iden,p,v,stamp) for (p,v) in props.items() ])
 
+                # sneaky ephemeral/hidden prop to identify newly created tufos
+                props['.new'] = True
                 tufos.append( (iden,props) )
 
             self.addRows(rows)
@@ -1008,7 +1221,7 @@ class Cortex(EventBus):
 
         Notes:
 
-            * this will trigger an 'cortex:tufo:add' event if the
+            * this will trigger an 'tufo:add' event if the
               tufo does not yet exist and is being construted.
 
         '''
@@ -1038,6 +1251,7 @@ class Cortex(EventBus):
         self.fire('tufo:add', tufo=tufo)
         self.fire('tufo:add:%s' % form, tufo=tufo)
 
+        tufo[1]['.new'] = True
         return tufo
 
     def delTufo(self, tufo):
