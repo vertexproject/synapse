@@ -50,7 +50,8 @@ class TestCrudHand(SynTest):
         tufo = {'foo': 'val1', 'foo:foo': 'val1', 'foo:key2': 'val2', 'tufo:form': 'foo'}
         resp = requests.post(self.host + '/v1/foo', data=data, headers={'Content-Type': 'application/json'}, timeout=1).json()
         self.assertEqual(resp['status'], 'ok')
-        self.assertEqual(resp['ret'][1], tufo)
+        #self.assertEqual(resp['ret'][1], tufo)
+        self.assertDictMust(resp['ret'][1], tufo)
         iden = resp['ret'][0]
 
         # Does it persist?
@@ -73,6 +74,11 @@ class TestCrudHand(SynTest):
         self.assertEqual(resp['status'], 'ok')
         assert resp['ret'] is None
 
+    def assertDictMust(self, info, must):
+        for k,v in must.items():
+            if info.get(k) != v:
+                raise Exception('%s != %r' % (k,v))
+
     def test_cruds(self):
         """Ensure multiple tufo endpoints work."""
         self.thisHostMustNot(platform='windows')
@@ -84,7 +90,7 @@ class TestCrudHand(SynTest):
             data = json.dumps({'bar': i, 'key' + i: 'val' + i})
             resp = requests.post(self.host + '/v1/bar', data=data, headers={'Content-Type': 'application/json'}, timeout=1).json()
             self.assertEqual(resp['status'], 'ok')
-            self.assertEqual(resp['ret'][1], {'bar': i, 'bar:bar': i, 'bar:key' + i: 'val' + i, 'tufo:form': 'bar'})
+            self.assertDictMust(resp['ret'][1], {'bar': i, 'bar:bar': i, 'bar:key' + i: 'val' + i, 'tufo:form': 'bar',})
             tufo[resp['ret'][0]] = resp['ret'][1]
 
         # Do they persist?
@@ -92,14 +98,14 @@ class TestCrudHand(SynTest):
         self.assertEqual(resp['status'], 'ok')
         self.assertEqual(len(resp['ret']), len(tufo))
         for rslt in resp['ret']:
-            self.assertEqual(rslt[1], tufo[rslt[0]])
+            self.assertDictMust(tufo[rslt[0]],rslt[1])
 
         # Can we get a subset?
         resp = requests.get(self.host + '/v1/bar?prop=bar:key1&value=val1', timeout=1).json()
         self.assertEqual(resp['status'], 'ok')
         self.assertEqual(len(resp['ret']), 1)
         for rslt in resp['ret']:
-            self.assertEqual(rslt[1], tufo[rslt[0]])
+            self.assertDictMust(tufo[rslt[0]],rslt[1])
             self.assertEqual(rslt[1]['bar:key1'], 'val1')
 
         # Can we delete a subset?
@@ -110,7 +116,7 @@ class TestCrudHand(SynTest):
         self.assertEqual(resp['status'], 'ok')
         self.assertEqual(len(resp['ret']), 1)
         for rslt in resp['ret']:
-            self.assertEqual(rslt[1], tufo[rslt[0]])
+            self.assertDictMust(tufo[rslt[0]], rslt[1])
             self.assertEqual(rslt[1]['bar:key0'], 'val0')
 
         # Can they be deleted?

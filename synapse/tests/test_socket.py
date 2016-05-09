@@ -99,3 +99,7 @@ class SocketTest(SynTest):
         s2.fini()
 
         plex.fini()
+
+    def test_socket_hostaddr(self):
+        self.assertIsNotNone( s_socket.hostaddr() )
+
