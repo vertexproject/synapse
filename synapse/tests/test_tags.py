@@ -18,7 +18,7 @@ class TagTest(SynTest):
     def test_aspect_adddel(self):
         core = s_cortex.openurl('ram:///')
         tufo = core.formTufoByProp('foo','bar')
-        tufo = core.addTufoTag(tufo, 'baz.faz.gaz', valu=None)
+        tufo = core.addTufoTag(tufo, 'baz.faz.gaz', asof=None)
 
         tags = s_tags.getTufoTags(tufo)
 
