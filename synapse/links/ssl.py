@@ -145,11 +145,13 @@ class SslRelay(LinkRelay):
         try:
             sock.connect( (host,port) )
         except s_compat.sockerrs as e:
+            sock.close()
             raiseSockError(self.link,e)
 
         try:
             wrap = ssl.wrap_socket(sock, **sslopts)
         except ssl.SSLError as e:
+            sock.close()
             raise LinkErr(self.link,str(e))
 
         return s_socket.Socket(wrap)
