@@ -6,7 +6,7 @@ from synapse.eventbus import EventBus
 
 whites = set(' \t\n')
 intset = set('01234567890abcdefx')
-varset = set('.:abcdefghijklmnopqrstuvwxyz012345678910')
+varset = set('.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678910')
 whenset = set('0123456789abcdefghijklmnopqrstuvwxyz+,')
 
 def nom(txt,off,cset,trim=True):

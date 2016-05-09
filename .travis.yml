@@ -6,4 +6,4 @@ python:
     - "3.4"
 install:
     - pip install msgpack-python tornado requests cryptography
-script: py.test
+script: nosetests --verbosity=3 -x --with-coverage
