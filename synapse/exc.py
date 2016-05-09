@@ -23,6 +23,7 @@ class NoSuchProp(Exception):pass
 class NoSuchPath(Exception):pass
 class NoSuchSess(Exception):pass
 class NoSuchUser(Exception):pass
+class NoSuchTufo(Exception):pass
 class NoSuchRole(Exception):pass
 class NoSuchProto(Exception):pass
 
