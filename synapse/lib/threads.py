@@ -313,6 +313,10 @@ class Pool(EventBus):
 
         self._pool_lock = threading.Lock()
         self._pool_avail = 0
+
+        if maxsize == None:
+            maxsize = size
+
         self._pool_maxsize = maxsize
 
         self._pool_threads = {}
@@ -321,6 +325,21 @@ class Pool(EventBus):
 
         for i in range(size):
             self._fire_thread( self._run_work )
+
+    def wrap(self, func):
+        '''
+        Wrap a function to transparently dispatch via the pool.
+
+        Example:
+
+            # dispatch the message handler from a pool
+
+            bus.on('foo', pool.wrap( doFooThing ) )
+
+        '''
+        def poolcall(*args,**kwargs):
+            self.call(func,*args,**kwargs)
+        return poolcall
 
     def call(self, func, *args, **kwargs):
         '''
@@ -352,11 +371,6 @@ class Pool(EventBus):
 
             # if there are available threads, no need to fire
             if self._pool_avail != 0:
-                self.workq.put(work)
-                return
-
-            # if maxsize is none, nothing to do.
-            if self._pool_maxsize == None:
                 self.workq.put(work)
                 return
 

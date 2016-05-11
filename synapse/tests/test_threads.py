@@ -37,6 +37,20 @@ class ThreadsTest(unittest.TestCase):
         wait.wait()
         pool.fini()
 
+    def test_threads_pool_wrap(self):
+
+        pool = s_threads.Pool()
+
+        wait = TestWaiter( pool, 1, 'pool:work:fini' )
+
+        def woot(x,y):
+            return x + y
+
+        pool.wrap(woot)(20,30)
+
+        wait.wait()
+        pool.fini()
+
     def test_threads_perthread(self):
 
         data = dict(count=0)
