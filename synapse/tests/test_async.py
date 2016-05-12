@@ -154,3 +154,17 @@ class AsyncTests(SynTest):
         self.assertTrue( boss.wait(jid,timeout=1) )
 
         boss.fini()
+
+    def test_async_sugar(self):
+
+        boss = s_async.Boss()
+
+        job = boss.initJob()
+
+        boss.done(job[0],5)
+
+        boss.wait(job[0])
+
+        self.assertEqual( job[1].get('ret'), 5 )
+
+        boss.fini()

@@ -210,6 +210,12 @@ class Boss(EventBus):
 
         return jobret(job)
 
+    def done(self, jid, ret):
+        self.fire('job:done', jid=jid, ret=ret)
+
+    def err(self, jid, **excinfo):
+        self.fire('job:done', jid=jid, **excinfo)
+
     def _runJob(self, job):
         '''
         Actually execute the given job with the caller thread.
