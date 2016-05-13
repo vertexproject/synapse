@@ -73,6 +73,17 @@ class EventBusTest(SynTest):
 
         bus.fini()
 
+    def test_eventbus_withfini(self):
+
+        data = {'count':0}
+        def onfini():
+            data['count'] += 1
+
+        with s_eventbus.EventBus() as bus:
+            bus.onfini(onfini)
+
+        self.assertEqual( data['count'], 1 )
+
     def test_eventbus_finionce(self):
 
         data = {'count':0}
