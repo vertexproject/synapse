@@ -247,3 +247,31 @@ class TelePathTest(SynTest):
         prox.fini()
         dmon.fini()
         tenv.fini()
+
+    def test_telepath_yielder(self):
+
+        class YieldTest:
+
+            def woot(self):
+                yield 10
+                yield 20
+                yield 30
+
+        dmon = s_daemon.Daemon()
+        link = dmon.listen('tcp://127.0.0.1:0/hehe')
+
+        dmon.share('hehe', YieldTest() )
+
+        prox = s_telepath.openlink(link)
+
+        items = []
+
+        for item in prox.woot():
+            items.append(item)
+
+        self.assertEqual( tuple(items), (10,20,30) )
+
+        self.assertEqual( len(dmon._dmon_yields), 0 )
+
+        prox.fini()
+        dmon.fini()

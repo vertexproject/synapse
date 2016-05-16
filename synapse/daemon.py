@@ -1,4 +1,5 @@
 import json
+import types
 import logging
 import traceback
 import collections
@@ -198,6 +199,7 @@ class Daemon(EventBus,DmonConf):
         self.pushed = {}    # objects provided by sockets
 
         self._dmon_links = []   # list of listen links
+        self._dmon_yields = set()
 
         if pool == None:
             pool = s_threads.Pool(size=8, maxsize=-1)
@@ -227,6 +229,12 @@ class Daemon(EventBus,DmonConf):
 
         self.setMesgFunc('tele:on', self._onTeleOnMesg )
         self.setMesgFunc('tele:off', self._onTeleOffMesg )
+
+        self.setMesgFunc('tele:yield:fini', self._onTeleYieldFini )
+
+    def _onTeleYieldFini(self, sock, mesg):
+        iden = mesg[1].get('iden')
+        self._dmon_yields.discard(iden)
 
     def loadDmonConf(self, conf):
         DmonConf.loadDmonConf(self,conf)
@@ -461,7 +469,46 @@ class Daemon(EventBus,DmonConf):
                 if func == None:
                     raise NoSuchMeth(meth)
 
+                    iden = guid()
+
+                    self._dmon_yields.add(iden)
+                    sock.tx( tufo('tele:yield:init', jid=jid, iden=iden) )
+
+                    try:
+
+                        for item in func(*args,**kwargs):
+                            sock.tx( tufo('tele:yield:item', iden=iden, item=item) )
+                            if iden not in self._dmon_yields:
+                                break
+
+                    finally:
+                        self._dmon_yields.discard(iden)
+                        sock.tx( tufo('tele:yield:fini', iden=iden) )
+
+                    return
+
                 ret = func(*args,**kwargs)
+
+                # handle generator returns specially
+                if isinstance(ret,types.GeneratorType):
+
+                    iden = guid()
+
+                    self._dmon_yields.add(iden)
+                    sock.tx( tufo('tele:yield:init', jid=jid, iden=iden) )
+
+                    try:
+
+                        for item in ret:
+                            sock.tx( tufo('tele:yield:item', iden=iden, item=item) )
+                            if iden not in self._dmon_yields:
+                                break
+
+                    finally:
+                        self._dmon_yields.discard(iden)
+                        sock.tx( tufo('tele:yield:fini', iden=iden) )
+
+                    return
 
                 sock.tx( tufo('job:done', jid=jid, ret=ret) )
 

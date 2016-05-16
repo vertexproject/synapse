@@ -132,6 +132,10 @@ class Proxy(s_eventbus.EventBus):
         self._tele_plex = plex
         self._tele_boss = s_async.Boss()
 
+        self._raw_on('tele:yield:init', self._onTeleYieldInit )
+        self._raw_on('tele:yield:item', self._onTeleYieldItem )
+        self._raw_on('tele:yield:fini', self._onTeleYieldFini )
+
         self._raw_on('job:done', self._tele_boss.dist )
         self._raw_on('tele:call', self._onTeleCall )
 
@@ -144,6 +148,7 @@ class Proxy(s_eventbus.EventBus):
         self._tele_ons = set()
         self._tele_sock = None
         self._tele_relay = relay    # LinkRelay()
+        self._tele_yields = {}
 
         # obj name is path minus leading "/"
         self._tele_name = relay.link[1].get('path')[1:]
@@ -157,6 +162,35 @@ class Proxy(s_eventbus.EventBus):
                 self._tele_pki = s_pki.getUserPki()
 
         self._initTeleSock()
+
+    def _onTeleYieldInit(self, mesg):
+        jid = mesg[1].get('jid')
+        iden = mesg[1].get('iden')
+
+        que = s_queue.Queue()
+        self._tele_yields[iden] = que
+
+        def onfini():
+            self._tele_yields.pop(iden,None)
+            self._txTeleSock('tele:yield:fini', iden=iden)
+
+        que.onfini(onfini)
+        self._tele_boss.done(jid,que)
+
+    def _onTeleYieldItem(self, mesg):
+        iden = mesg[1].get('iden')
+        que = self._tele_yields.get(iden)
+        if que == None:
+            self._txTeleSock('tele:yield:fini', iden=iden)
+            return
+
+        que.put( mesg[1].get('item') )
+
+    def _onTeleYieldFini(self, mesg):
+        iden = mesg[1].get('iden')
+        que = self._tele_yields.get(iden)
+        if que != None:
+            que.done()
 
     def _raw_on(self, name, func):
         return s_eventbus.EventBus.on(self, name, func)
@@ -452,6 +486,8 @@ class Proxy(s_eventbus.EventBus):
         sock.tx( (msg,msginfo) )
 
     def _onProxyFini(self):
+
+        [ que.fini() for que in self._tele_yields.values() ]
 
         if self._tele_sock != None:
             self._tele_sock.fini()
