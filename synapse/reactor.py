@@ -2,10 +2,11 @@ from synapse.common import *
 
 class Reactor:
     '''
-    A class for registraction of one-to-one callbacks using
-    synapse event tufo conventions.  Unlike an EventBus, only
-    one action may be registered for a given event type and the
-    function is expected to return a result.
+    A class for registraction of one-to-one callbacks.
+    ( much like a switch-case in C )
+    Unlike an EventBus, only one action may be registered
+    for a given mesg type and the function is expected to
+    return a result.
 
     rtor = Reactor()
 
@@ -33,20 +34,20 @@ class Reactor:
         '''
         self.actfuncs[name] = func
 
-    def react(self, event):
+    def react(self, mesg):
         '''
         Dispatch to the handler and return his response.
 
         Example:
 
-            resp = rtor.react(event)
+            resp = rtor.react(mesg)
 
         Notes:
 
             * Handler exceptions *will* propigate upward
         '''
-        func = self.actfuncs.get(event[0])
+        func = self.actfuncs.get(mesg[0])
         if func == None:
-            raise NoSuchAct(event[0])
+            raise NoSuchAct(mesg[0])
 
-        return func(event)
+        return func(mesg)
