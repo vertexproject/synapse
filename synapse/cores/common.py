@@ -9,6 +9,7 @@ from synapse.compat import queue
 
 import synapse.async as s_async
 import synapse.compat as s_compat
+import synapse.reactor as s_reactor
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.tags as s_tags
@@ -67,21 +68,19 @@ class Cortex(EventBus):
         # sync events are fired on the cortex and may be ingested
         # into another coretx using the sync() method.
         #############################################################
-        self.syncbus = EventBus()   # ingests model sync events
-
         self.on('tufo:add', self._fireCoreSync )
         self.on('tufo:del', self._fireCoreSync )
         self.on('tufo:tag:add', self._fireCoreSync )
         self.on('tufo:tag:del', self._fireCoreSync )
 
-        self.syncbus.on('tufo:add', self._onSyncTufoAdd )
-        self.syncbus.on('tufo:del', self._onSyncTufoDel )
-        self.syncbus.on('tufo:tag:add', self._onSyncTufoTagAdd )
-        self.syncbus.on('tufo:tag:del', self._onSyncTufoTagDel )
+        self.syncact = s_reactor.Reactor()
+        self.syncact.act('tufo:add', self._actSyncTufoAdd )
+        self.syncact.act('tufo:del', self._actSyncTufoDel )
+        self.syncact.act('tufo:tag:add', self._actSyncTufoTagAdd )
+        self.syncact.act('tufo:tag:del', self._actSyncTufoTagDel )
 
         #############################################################
 
-        self.onfini( self.syncbus.fini )
         self.onfini( self.savebus.fini )
         self.onfini( self.loadbus.fini )
 
@@ -357,10 +356,10 @@ class Cortex(EventBus):
     def _fireCoreSync(self, mesg):
         self.fire('core:sync', mesg=mesg)
 
-    def _onSyncTufoAdd(self, mesg):
+    def _actSyncTufoAdd(self, mesg):
         self.formTufoByTufo( mesg[1].get('tufo') )
 
-    def _onSyncTufoDel(self, mesg):
+    def _actSyncTufoDel(self, mesg):
         tufo = mesg[1].get('tufo')
 
         form = tufo[1].get('tufo:form')
@@ -372,7 +371,7 @@ class Cortex(EventBus):
 
         self.delTufo(tufo)
 
-    def _onSyncTufoTagAdd(self, mesg):
+    def _actSyncTufoTagAdd(self, mesg):
 
         tag = mesg[1].get('tag')
         tufo = mesg[1].get('tufo')
@@ -384,7 +383,7 @@ class Cortex(EventBus):
         tufo = self.formTufoByProp(form,valu=valu)
         self.addTufoTag(tufo,tag,asof=asof)
 
-    def _onSyncTufoTagDel(self, mesg):
+    def _actSyncTufoTagDel(self, mesg):
         tag = mesg[1].get('tag')
         tufo = mesg[1].get('tufo')
 
@@ -403,15 +402,15 @@ class Cortex(EventBus):
     #def _onAddSynProp(self, mesg):
         #pass
 
-    def syncall(self, mesgs):
+    def syncs(self, msgs):
         '''
         Sync all core:sync events in a given list.
         '''
-        [ self.sync(m) for m in mesgs ]
+        [ self.sync(m) for m in msgs ]
 
     def sync(self, mesg):
         '''
-        Feed the cortex a list of sync events to ingest changes from another.
+        Feed the cortex a sync event to ingest changes from another.
 
         Example:
 
@@ -420,8 +419,7 @@ class Cortex(EventBus):
             # model changes to core0 will populate in core1
 
         '''
-        # unpack and fire a ('core:sync', mesg=<sync>) mesg
-        self.syncbus.dist(mesg[1].get('mesg'))
+        self.syncact.react( mesg[1].get('mesg') )
 
     def _onDelSynTag(self, mesg):
         # deleting a tag.  delete all sub tags and wipe tufos.
