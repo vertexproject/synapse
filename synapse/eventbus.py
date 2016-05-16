@@ -29,6 +29,12 @@ class EventBus:
         self._fini_funcs = []
         self._fini_weaks = weakref.WeakSet()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.fini()
+
     def link(self, func, weak=False):
         '''
         Add a callback function to receive *all* events.
