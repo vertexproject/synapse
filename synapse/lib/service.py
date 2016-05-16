@@ -161,7 +161,8 @@ class SvcProxy:
         svcfo = mesg[1].get('svcfo')
 
         iden = svcfo[0]
-        name = svcfo.get('name',iden)
+        name = svcfo[1].get('name',iden)
+
         self.bytag.pop(svcfo[0])
 
         self.byname.pop(name,None)
