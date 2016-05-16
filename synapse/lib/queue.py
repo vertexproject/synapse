@@ -17,7 +17,17 @@ class Queue(EventBus):
         self.lock = threading.Lock()
         self.event = threading.Event()
 
+        self._que_done = False
+
         self.onfini( self._onQueFini )
+
+    def done(self):
+        '''
+        Gracefully mark this Queue as done
+        ( but allow consumers to finish consuming it )
+        '''
+        self._que_done = True
+        self.event.set()
 
     def get(self, timeout=None):
         '''
@@ -35,6 +45,10 @@ class Queue(EventBus):
             with self.lock:
                 if self.deq:
                     return self.deq.popleft()
+
+                if self._que_done and not self.deq:
+                    self.fini()
+                    return None
 
                 self.event.clear()
 
