@@ -16,6 +16,8 @@ class NoSuchDir(Exception):pass
 class NoSuchMod(Exception):pass
 class NoSuchObj(Exception):pass
 class NoSuchFile(Exception):pass
+class NoSuchImpl(Exception):pass
+class NoSuchIden(Exception):pass
 class NoSuchMeth(Exception):pass
 class NoSuchFunc(Exception):pass
 class NoSuchPeer(Exception):pass
