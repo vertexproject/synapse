@@ -17,6 +17,7 @@ class CortexTest(SynTest):
 
     def test_cortex_ram(self):
         core = s_cortex.openurl('ram://')
+        self.assertTrue( hasattr( core.link, '__call__' ) )
         self.runcore( core )
         self.runjson( core )
         self.runrange( core )
