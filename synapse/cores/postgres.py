@@ -15,7 +15,7 @@ class Cortex(s_c_sqlite.Cortex):
     def _initDbConn(self):
         import psycopg2
 
-        retry = self.link[1].get('retry',0)
+        retry = self._link[1].get('retry',0)
 
         dbinfo = self._initDbInfo()
 
@@ -41,7 +41,7 @@ class Cortex(s_c_sqlite.Cortex):
         self._q_istable = istable
 
     def _getTableName(self):
-        path = self.link[1].get('path')
+        path = self._link[1].get('path')
         if not path:
             return 'syncortex'
 
@@ -55,25 +55,25 @@ class Cortex(s_c_sqlite.Cortex):
 
         dbinfo = {}
 
-        path = self.link[1].get('path')
+        path = self._link[1].get('path')
         if path:
             parts = [ p for p in path.split('/') if p ]
             if parts:
                 dbinfo['database'] = parts[0]
 
-        host = self.link[1].get('host')
+        host = self._link[1].get('host')
         if host != None:
             dbinfo['host'] = host
 
-        port = self.link[1].get('port')
+        port = self._link[1].get('port')
         if port != None:
             dbinfo['port'] = port
 
-        user = self.link[1].get('user')
+        user = self._link[1].get('user')
         if user != None:
             dbinfo['user'] = user
 
-        passwd = self.link[1].get('passwd')
+        passwd = self._link[1].get('passwd')
         if passwd != None:
             dbinfo['password'] = passwd
 

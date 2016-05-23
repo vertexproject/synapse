@@ -37,7 +37,7 @@ class Cortex(EventBus):
     def __init__(self, link):
         EventBus.__init__(self)
 
-        self.link = link
+        self._link = link
 
         self.lock = threading.Lock()
         self.statfuncs = {}
