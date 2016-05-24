@@ -699,17 +699,24 @@ class CortexTest(SynTest):
         props = {'foo:bar':'lol'}
         tufo = core.formTufoByProp('foo', 'hehe', bar='lol')
 
-        wait = self.getTestWait(core,2,'tufo:set','tufo:set:foo:bar')
+        events = ['tufo:set','tufo:props:foo','tufo:set:foo:bar']
+        wait = self.getTestWait(core,len(events),*events)
 
         core.setTufoProps(tufo,bar='hah')
 
         evts = wait.wait()
 
+        self.assertEqual( evts[0][0], 'tufo:set')
         self.assertEqual( evts[0][1]['tufo'][0], tufo[0])
         self.assertEqual( evts[0][1]['props']['foo:bar'], 'hah' )
 
+        self.assertEqual( evts[1][0], 'tufo:props:foo')
         self.assertEqual( evts[1][1]['tufo'][0], tufo[0])
-        self.assertEqual( evts[1][1]['valu'], 'hah' )
+        self.assertEqual( evts[1][1]['props']['foo:bar'], 'hah' )
+
+        self.assertEqual( evts[2][0], 'tufo:set:foo:bar')
+        self.assertEqual( evts[2][1]['tufo'][0], tufo[0])
+        self.assertEqual( evts[2][1]['valu'], 'hah' )
 
         core.fini()
 
