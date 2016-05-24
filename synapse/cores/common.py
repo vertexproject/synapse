@@ -1363,6 +1363,7 @@ class Cortex(EventBus):
 
         if props:
             self.fire('tufo:set', tufo=tufo, props=props)
+            self.fire('tufo:props:%s' % (form,), tufo=tufo, props=props)
 
         for p,v in props.items():
 
