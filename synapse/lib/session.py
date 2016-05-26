@@ -54,7 +54,6 @@ class Curator(EventBus):
         EventBus.__init__(self)
 
         self.core = core
-        self.model = core.genDataModel()
 
         self.cache = s_cache.Cache(maxtime=maxtime)
         self.cache.setOnMiss( self._getSessBySid )
