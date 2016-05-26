@@ -148,6 +148,7 @@ class Proxy(s_eventbus.EventBus):
         self._tele_ons = set()
         self._tele_sock = None
         self._tele_relay = relay    # LinkRelay()
+        self._tele_link = relay.link
         self._tele_yields = {}
 
         # obj name is path minus leading "/"

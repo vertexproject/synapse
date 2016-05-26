@@ -145,16 +145,14 @@ class PkiStor(EventBus):
         core.onfini( self.certs.fini )
         core.onfini( self.tokens.fini )
 
-        model = core.genDataModel()
+        core.addTufoForm('syn:token', ptype='str', doc='synapse identity token (user/host)')
 
-        model.addTufoForm('syn:token', ptype='str', doc='synapse identity token (user/host)')
+        core.addTufoProp('syn:token', 'user', doc='humon readable user name for this token')
+        core.addTufoProp('syn:token', 'host', doc='humon readable host name for this token')
 
-        model.addTufoProp('syn:token', 'user', doc='humon readable user name for this token')
-        model.addTufoProp('syn:token', 'host', doc='humon readable host name for this token')
-
-        model.addTufoProp('syn:token', 'blob', doc='Base64 encoded token blob')
-        model.addTufoProp('syn:token', 'cert', doc='Base64 encoded certificate blob')
-        model.addTufoProp('syn:token', 'rsakey', doc='base64( der( rsa.private ) )')
+        core.addTufoProp('syn:token', 'blob', doc='Base64 encoded token blob')
+        core.addTufoProp('syn:token', 'cert', doc='Base64 encoded certificate blob')
+        core.addTufoProp('syn:token', 'rsakey', doc='base64( der( rsa.private ) )')
 
     def setTokenTufo(self, token, save=False):
         '''
