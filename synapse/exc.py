@@ -1,4 +1,25 @@
 
+class SynErr(Exception):
+
+    def __init__(self, **info):
+        self.errinfo = info
+        Exception.__init__(self, self._getExcMsg() )
+
+    def _getExcMsg(self):
+        props = list(self.errinfo.items())
+        props.sort()
+        displ = ' '.join(['%s=%r' % (p,v) for (p,v) in props ])
+        return '%s: %s' % (self.__class__.__name__,displ)
+
+class NoSuchForm(SynErr):pass
+class NoSuchType(SynErr):pass
+class NoSuchProp(SynErr):pass
+
+class BadTypeValu(SynErr):pass
+class DupTypeName(SynErr):pass
+class DupPropName(SynErr):pass
+class BadPropName(SynErr):pass
+
 class BadUrl(Exception):pass
 class BadJson(Exception):pass
 class BadMesgResp(Exception):pass
@@ -21,7 +42,6 @@ class NoSuchIden(Exception):pass
 class NoSuchMeth(Exception):pass
 class NoSuchFunc(Exception):pass
 class NoSuchPeer(Exception):pass
-class NoSuchProp(Exception):pass
 class NoSuchPath(Exception):pass
 class NoSuchSess(Exception):pass
 class NoSuchUser(Exception):pass
