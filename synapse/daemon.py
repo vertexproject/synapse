@@ -469,24 +469,6 @@ class Daemon(EventBus,DmonConf):
                 if func == None:
                     raise NoSuchMeth(meth)
 
-                    iden = guid()
-
-                    self._dmon_yields.add(iden)
-                    sock.tx( tufo('tele:yield:init', jid=jid, iden=iden) )
-
-                    try:
-
-                        for item in func(*args,**kwargs):
-                            sock.tx( tufo('tele:yield:item', iden=iden, item=item) )
-                            if iden not in self._dmon_yields:
-                                break
-
-                    finally:
-                        self._dmon_yields.discard(iden)
-                        sock.tx( tufo('tele:yield:fini', iden=iden) )
-
-                    return
-
                 ret = func(*args,**kwargs)
 
                 # handle generator returns specially
@@ -494,12 +476,35 @@ class Daemon(EventBus,DmonConf):
 
                     iden = guid()
 
+                    txwait = threading.Event()
+                    # start off set...
+                    txwait.set()
+
                     self._dmon_yields.add(iden)
                     sock.tx( tufo('tele:yield:init', jid=jid, iden=iden) )
 
+                    # FIXME opt
+                    maxsize = 100000000
+                    def ontxsize(m):
+                        size = m[1].get('size')
+                        if size >= maxsize:
+                            txwait.clear()
+                        else:
+                            txwait.set()
+
                     try:
 
+                        sock.onfini( txwait.set, weak=True )
+                        sock.on('sock:tx:size', ontxsize, weak=True)
+
                         for item in ret:
+
+                            txwait.wait()
+
+                            # check if we woke due to fini
+                            if sock.isfini:
+                                break
+
                             sock.tx( tufo('tele:yield:item', iden=iden, item=item) )
                             if iden not in self._dmon_yields:
                                 break
