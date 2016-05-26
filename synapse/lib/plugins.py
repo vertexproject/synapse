@@ -38,7 +38,7 @@ class Plugins(s_eventbus.EventBus):
         plugs.fire('foo:bar',baz='faz')
 
     '''
-    def __init__(self, core, form='plugin'):
+    def __init__(self, core, form='syn:plugin'):
 
         s_eventbus.EventBus.__init__(self)
 
@@ -49,14 +49,10 @@ class Plugins(s_eventbus.EventBus):
         self.plugmods = {}
         self.plugfuncs = {}
 
-        self.plugbus = s_eventbus.EventBus()
-
-        model = core.genDataModel()
-
-        model.addTufoForm(form,ptype='guid')
-        model.addTufoProp(form,'en',ptype='bool')
-        model.addTufoProp(form,'name',ptype='str')
-        model.addTufoProp(form,'source',ptype='str')
+        self.core.addTufoForm(form,ptype='guid')
+        self.core.addTufoProp(form,'en',ptype='bool')
+        self.core.addTufoProp(form,'name',ptype='str')
+        self.core.addTufoProp(form,'source',ptype='str')
 
         self.core.on('tufo:add:%s' % (form,), self._onPlugAdd )
         self.core.on('tufo:set:%s:en' % (form,), self._onPlugSetEn )
