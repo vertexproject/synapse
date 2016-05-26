@@ -85,9 +85,11 @@ def excinfo(e):
         'errline':line,
     }
 
-def tufoprops(tufo):
-    form = tufo[1].get('tufo:form')
-    pref = '%s:' % (form,)
+def tufoprops(tufo,pref=None):
+    if pref == None:
+        pref = tufo[1].get('tufo:form')
+
+    pref = '%s:' % (pref,)
     plen = len(pref)
     return { p[plen:]:v for (p,v) in tufo[1].items() if p.startswith(pref) }
 
