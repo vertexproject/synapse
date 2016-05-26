@@ -126,7 +126,6 @@ class Dir(s_eventbus.EventBus):
             if self.pumps.get(iden):
                 raise Exception('Duplicate Pump Iden: %s' % (iden,))
 
-        #self.pumps.append( self._runPumpThread(iden,func) )
         self._runPumpThread(iden,func)
 
     def getPumpOffs(self):
@@ -141,12 +140,15 @@ class Dir(s_eventbus.EventBus):
         '''
         return [ (iden,poff.get()) for (iden,poff) in self.pumps ]
 
+    def getIdenOffset(self, iden):
+        return Offset(self.path, '%s.off' % iden)
+
     @firethread
     def _runPumpThread(self, iden, func):
         '''
         Fire a mirror thread to push persist events to a function.
         '''
-        poff = Offset(self.path, '%s.off' % iden)
+        poff = self.getIdenOffset(iden)
 
         while not self.isfini:
             noff = poff.get()
