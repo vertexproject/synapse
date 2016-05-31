@@ -285,7 +285,8 @@ class Cortex(common.Cortex):
         self.delete( self._q_delrows_by_id_prop, (ident,prop))
 
     def _getRowsByIdProp(self, iden, prop):
-        return self.select( self._q_getrows_by_id_prop, (iden,prop))
+        rows = self.select( self._q_getrows_by_id_prop, (iden,prop))
+        return self._foldTypeCols(rows)
 
     def _setRowsByIdProp(self, ident, prop, valu):
         if type(valu) == int:

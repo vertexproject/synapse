@@ -40,6 +40,8 @@ class Cortex(EventBus):
         self._link = link
 
         self.lock = threading.Lock()
+        self.inclock = threading.Lock()
+
         self.statfuncs = {}
 
         self.auth = None
@@ -1386,6 +1388,39 @@ class Cortex(EventBus):
 
         '''
         self.setTufoProps(tufo, **{prop:valu})
+        return tufo
+
+    def incTufoProp(self, tufo, prop, incval=1):
+        '''
+        Atomically increment/decrement the value of a given tufo property.
+
+        Example:
+
+            tufo = core.incTufoProp(tufo,prop)
+
+        '''
+        return self._incTufoProp(tufo,prop,incval=incval)
+
+    def _incTufoProp(self, tufo, prop, incval=1):
+        # to allow storage layer optimization
+        iden = tufo[0]
+        form = tufo[1].get('tufo:form')
+
+        prop = '%s:%s' % (form,prop)
+
+        with self.inclock:
+            rows = self._getRowsByIdProp(iden,prop)
+            if len(rows) == 0:
+                raise NoSuchTufo(repr(tufo))
+
+            oldv = rows[0][2]
+            valu = oldv + incval
+
+            self._setRowsByIdProp(iden,prop,valu)
+
+            tufo[1][prop] = valu
+            self.fire('tufo:set:%s' % (prop,), tufo=tufo, prop=prop, valu=valu, oldv=oldv)
+
         return tufo
 
     def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):

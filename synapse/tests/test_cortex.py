@@ -146,6 +146,7 @@ class CortexTest(SynTest):
         def formfqdn(event):
             fqdn = event[1].get('valu')
             event[1]['props']['tld'] = fqdn.split('.')[-1]
+            event[1]['props']['fqdn:inctest'] = 0
 
         core.on('tufo:form', formtufo)
         core.on('tufo:form:fqdn', formfqdn)
@@ -154,6 +155,16 @@ class CortexTest(SynTest):
 
         self.assertEqual( tufo[1].get('tld'), 'com')
         self.assertEqual( tufo[1].get('woot'), 'woot')
+
+        self.assertEqual( tufo[1].get('fqdn:inctest'), 0)
+
+        tufo = core.incTufoProp(tufo, 'inctest')
+
+        self.assertEqual( tufo[1].get('fqdn:inctest'), 1 )
+
+        tufo = core.incTufoProp(tufo, 'inctest', incval=-1)
+
+        self.assertEqual( tufo[1].get('fqdn:inctest'), 0 )
 
         core.fini()
 
