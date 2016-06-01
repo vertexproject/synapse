@@ -1,4 +1,5 @@
 import synapse.links.ssl as s_ssl
+import synapse.links.ssh as s_ssh
 import synapse.links.tcp as s_tcp
 import synapse.links.local as s_local
 import synapse.lib.urlhelp as s_urlhelp
@@ -10,6 +11,7 @@ from synapse.eventbus import EventBus
 protos = {
     'tcp':s_tcp.TcpRelay,
     'ssl':s_ssl.SslRelay,
+    'ssh':s_ssh.SshRelay,
     'local':s_local.LocalRelay,
 }
 
