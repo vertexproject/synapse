@@ -155,6 +155,26 @@ class AsyncTests(SynTest):
 
         boss.fini()
 
+    def test_async_wait_syntimeout(self):
+
+        def longtime():
+            time.sleep(0.1)
+
+        boss = s_async.Boss()
+        boss.runBossPool(1)
+
+        jid = s_async.jobid()
+        task = s_async.newtask(longtime)
+
+        boss.initJob(jid, task=task)
+
+        with s_threads.ScopeLocal(syntimeout=0.01):
+            self.assertFalse( boss.wait(jid) )
+
+        self.assertTrue( boss.wait(jid,timeout=1) )
+
+        boss.fini()
+
     def test_async_sugar(self):
 
         boss = s_async.Boss()

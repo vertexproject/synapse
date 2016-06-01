@@ -269,6 +269,9 @@ class Boss(EventBus):
         '''
         s_threads.iWillWait()
 
+        if timeout == None:
+            timeout = s_threads.local('syntimeout')
+
         with self.joblock:
             job = self._boss_jobs.get(jid)
             if job == None:
