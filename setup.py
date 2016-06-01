@@ -26,8 +26,8 @@ setup(
     packages=find_packages(exclude=['*.tests','*.tests.*']),
 
     install_requires=[
-        'tornado',
         'requests',
+        'tornado>=3.2',
         'cryptography>=1.1.2',
         'msgpack-python>=0.4.2',
     ],
