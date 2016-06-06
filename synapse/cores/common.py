@@ -1295,12 +1295,31 @@ class Cortex(EventBus):
 
         return item
 
-    def delTufosByProp(self, prop, valu):
+    def delTufosByProp(self, prop, valu=None):
         '''
         Delete multiple tufos by a single property.
+
+        Example:
+
+            core.delTufosByProp('foo:bar',valu=10)
+
         '''
-        for item in self.getTufosByProp(prop,valu):
+        for item in self.getTufosByProp(prop,valu=valu):
             self.delTufo(item)
+
+    def popTufosByProp(self, prop, valu=None):
+        '''
+        Delete and return multiple tufos by a property.
+
+        Example:
+
+            items = core.popTufosByProp('foo:bar',valu=10)
+
+        '''
+        items = self.getTufosByProp(prop,valu=valu)
+        for item in items:
+            self.delTufo(item)
+        return items
 
     def _normTufoProp(self, prop, valu):
         if self.model != None:
