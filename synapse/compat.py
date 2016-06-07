@@ -26,6 +26,13 @@ if version < (3,0,0):
     numtypes = (int,long)
     strtypes = (str,unicode)
 
+    fmts = {
+        1:'B',
+        2:'<H',
+        4:'<I',
+        8:'<Q',
+    }
+
     sockerrs = (socket.error,)
 
     def enbase64(s):
@@ -44,7 +51,23 @@ if version < (3,0,0):
     def makedirs(path,mode=0o777):
         os.makedirs(path,mode=mode)
 
+    def to_bytes(valu, size):
+        fmt = fmts.get(size)
+
+        if fmt == None:
+            raise Exception('to_bytes size not supported: %d' % (size,))
+
+        return struct.pack(fmt,valu)
+
+    def to_int(byts):
+        fmt = fmts.get(len(byts))
+        if fmt == None:
+            raise Exception('to_int size not supported: %d' % (len(byts),))
+
+        return struct.unpack(fmt,byts)[0]
+
 else:
+
     import queue
     import builtins
 
@@ -54,6 +77,12 @@ else:
     strtypes = (str,)
 
     sockerrs = (builtins.ConnectionError,builtins.FileNotFoundError)
+
+    def to_bytes(valu, size):
+        return valu.to_bytes(size,byteorder='little')
+
+    def to_int(byts):
+        return int.from_bytes(byts,'little')
 
     def enbase64(b):
         return base64.b64encode(b).decode('utf8')
