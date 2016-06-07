@@ -368,9 +368,6 @@ class TypeLib:
         self.addSubType('inet:tcp6','inet:srv6')
         self.addSubType('inet:udp6','inet:srv6')
 
-        #self.addSubType('inet:tcp6','inet:srv6')
-        #self.addSubType('inet:udp6','inet:srv6')
-
         self.addType(UrlType(self,'inet:url'))
         self.addType(EmailType(self,'inet:email'))
 
@@ -379,14 +376,7 @@ class TypeLib:
         self.addSubType('inet:passwd','str')
         self.addSubType('inet:filepath','str')
 
-        #self.addBaseType('inet:url','str')
-        #self.addBaseType('inet:user','str')
-        #self.addBaseType('inet:passwd','str')
-
-        #self.addBaseType('time:epoch','int',min=0,max=0xffff)
-
         self.addSubType('inet:fqdn','str', regex='^[a-z0-9.-_]+$', lower=1)
-        #self.addBaseType('inet:port','int', min=0, max=0xffff)
         self.addSubType('inet:mac', 'str', regex='^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', lower=1)
 
         self.addSubType('inet:port', 'int', min=0, max=0xffff)
@@ -438,28 +428,6 @@ class TypeLib:
         tlib.addType( MyType() )
         '''
         self.types[item.name] = item
-
-    #def addBaseType(self, name, base, **info):
-        #'''
-        #Add a new type by specifying options to a base type.
-
-        #Example:
-
-            #tlib.addBaseType('inet:port', 'int', min=0, max=0xffff)
-            #tlib.addBaseType('inet:mac','str', regex='^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', lower=1)
-
-        #'''
-        #ctor = self.bases.get(base)
-        #if ctor == None:
-            #raise Exception('No Such Base Type: %s' % (base,))
-
-        #self.addType(ctor(name,**info))
-
-    #def addTypeTufo(self, tufo):
-        #name = tufo[1].get('syn:type')
-        #base = tufo[1].get('syn:type:base')
-        #info = tufoprops(tufo, pref='syn:type:info')
-        #return self.addBaseType(name,base,info)
 
     def getTypeNorm(self, name, valu):
         '''
