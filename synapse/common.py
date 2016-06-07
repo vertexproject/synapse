@@ -93,6 +93,16 @@ def tufoprops(tufo,pref=None):
     plen = len(pref)
     return { p[plen:]:v for (p,v) in tufo[1].items() if p.startswith(pref) }
 
+def chunks(item,size):
+    '''
+    Divide an iterable into chunks.
+    '''
+    off = 0
+    offmax = len(item)
+    while off < offmax:
+        yield item[off:off+size]
+        off += size
+
 class TufoApi:
     '''
     TufoApi is a mixin class providing get/set APIs around a
