@@ -69,7 +69,7 @@ class SynTest(unittest.TestCase):
     def thisHostMust(self, **props):
         for k,v in props.items():
             if s_thishost.get(k) != v:
-                unittest.skip('skip thishost: %s!=%r' % (k,v))
+                raise unittest.SkipTest('skip thishost: %s!=%r' % (k,v))
 
     def thisHostMustNot(self, **props):
         for k,v in props.items():
