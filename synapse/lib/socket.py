@@ -392,7 +392,7 @@ class Plex(EventBus):
                 # our send was a bit short...
                 sock.txbuf = byts[sent:]
                 sock.txsize += (blen-sent)
-                sock.fire('sock:tx:size', size=self.txsize)
+                sock.fire('sock:tx:size', size=sock.txsize)
 
                 self._plex_txsocks.append(sock)
                 self._plexWake()
@@ -401,8 +401,8 @@ class Plex(EventBus):
             # so... we have a backlog...
             sock.txque.append(byts)
 
-            self.txsize += len(byts)
-            sock.fire('sock:tx:size', size=self.txsize)
+            sock.txsize += len(byts)
+            sock.fire('sock:tx:size', size=sock.txsize)
 
     def _runSockTx(self, sock):
         # handle socket select() for tx
@@ -412,7 +412,7 @@ class Plex(EventBus):
             sent = sock.send( sock.txbuf )
 
             sock.txsize -= sent
-            sock.fire('sock:tx:size', size=self.txsize)
+            sock.fire('sock:tx:size', size=sock.txsize)
 
             # did we not even manage the whole txbuf?
             if sent < len(sock.txbuf):
