@@ -88,7 +88,6 @@ class Dir(s_eventbus.EventBus):
         self.path = gendir(path)
         self.lock = threading.Lock()
 
-
         self.window = collections.deque()
 
         self.opts.setdefault('filemax',gigabyte) 
@@ -99,6 +98,7 @@ class Dir(s_eventbus.EventBus):
         self.files = []
         self.pumps = {}
         self.queues = []
+        self.pumpers = []
 
         self._initPersFiles()
 
@@ -148,30 +148,34 @@ class Dir(s_eventbus.EventBus):
         '''
         Fire a mirror thread to push persist events to a function.
         '''
-        poff = self.getIdenOffset(iden)
+        self.pumpers.append( threading.currentThread() )
 
-        while not self.isfini:
-            noff = poff.get()
-            self.pumps[iden] = noff
-            try:
+        with self.getIdenOffset(iden) as poff:
 
-                for noff,item in self.items(noff):
+            while not self.isfini:
+                noff = poff.get()
+                self.pumps[iden] = noff
+                try:
 
-                    func(item)
-                    poff.set(noff)
-                    self.pumps[iden] = noff
+                    for noff,item in self.items(noff):
 
-                    if self.isfini:
-                        return
+                        func(item)
 
-            except Exception as e:
-                if not self.isfini:
-                    logger.warning('_runPumpThread (%s): %e' % (iden,e))
-                    time.sleep(1)
+                        poff.set(noff)
+                        self.pumps[iden] = noff
+
+                        if self.isfini:
+                            return
+
+                except Exception as e:
+                    if not self.isfini:
+                        logger.warning('_runPumpThread (%s): %e' % (iden,e))
+                        time.sleep(1)
 
     def _onDirFini(self):
         [ q.fini() for q in self.queues ]
         [ f.fini() for f in self.files ]
+        [ p.join(timeout=1) for p in self.pumpers ]
 
     def _initPersFiles(self):
         # initialize the individual persist files we already have...
@@ -250,23 +254,31 @@ class Dir(s_eventbus.EventBus):
 
                 byts = pers.readoff(foff,blocksize)
 
+                # file has been closed...
+                if byts == None:
+                    return
+
                 # check if we're at the edge
                 if not byts:
 
                     with self.lock:
 
-                        # newp!
+                        # newp! ( break out to next file )
                         if self.last != pers:
                             break
 
                         # if there are byts now, we whiffed
                         # the check/set race.  Go around again.
                         byts = pers.readoff(foff,blocksize)
+                        if byts == None:
+                            return
+
                         if not byts:
                             self.queues.append(que)
                             break
 
                 unpk.feed( byts )
+
                 try:
 
                     while True:
@@ -281,6 +293,7 @@ class Dir(s_eventbus.EventBus):
         # we are now a queued real-time pump
         try:
 
+            # this will break out on fini...
             for x in que:
                 yield x
 
@@ -348,7 +361,11 @@ class File(s_eventbus.EventBus):
                 self.fd.seek(off)
 
             self.fd.seek(off)
-            byts = self.fd.read(size)
+
+            try:
+                byts = self.fd.read(size)
+            except ValueError as e:
+                return None
 
             self.fdoff = off + len(byts)
 
