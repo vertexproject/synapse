@@ -44,6 +44,11 @@ def vertup(vstr):
     '''
     return tuple([ int(x) for x in vstr.split('.') ])
 
+def genpath(*paths):
+    path = os.path.join(*paths)
+    path = os.path.expanduser(path)
+    return os.path.abspath(path)
+
 def genfile(*paths):
     '''
     Create or open ( for read/write ) a file path join.
