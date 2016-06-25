@@ -17,7 +17,7 @@ class Rules:
         self.user = user
         self.auth = auth
 
-        self.auth.on('auth:bump:%s' % user, self._onBumpUser )
+        self.auth.on('syn:auth:bump:%s' % user, self._onBumpUser )
 
         # only triggered if auth is a proxy and reconnects
         self.auth.on('tele:sock:init', self._onTeleSock )
@@ -64,20 +64,19 @@ class UserAuth(EventBus):
         EventBus.__init__(self)
 
         self.core = core
-        self.model = core.genDataModel()
 
-        self.model.addTufoForm('auth:user')
-        self.model.addTufoProp('auth:user','apikey', defval='')
-        self.model.addTufoProp('auth:user','shadow:sha256', defval='')
+        self.core.addTufoForm('syn:auth:user')
+        self.core.addTufoProp('syn:auth:user','apikey', defval='')
+        self.core.addTufoProp('syn:auth:user','shadow:sha256', defval='')
 
-        self.model.addTufoForm('auth:role')
+        self.core.addTufoForm('syn:auth:role')
 
-        self.model.addTufoForm('auth:userrole')
-        self.model.addTufoProp('auth:userrole','user')
-        self.model.addTufoProp('auth:userrole','role')
+        self.core.addTufoForm('syn:auth:userrole')
+        self.core.addTufoProp('syn:auth:userrole','user')
+        self.core.addTufoProp('syn:auth:userrole','role')
 
-        self.users = s_cache.TufoPropCache(core,'auth:user')
-        self.roles = s_cache.TufoPropCache(core,'auth:role')
+        self.users = s_cache.TufoPropCache(core,'syn:auth:user')
+        self.roles = s_cache.TufoPropCache(core,'syn:auth:role')
 
         self.rules = s_cache.KeyCache(self._getUserRulesCache)
 
@@ -88,7 +87,7 @@ class UserAuth(EventBus):
         if self.users.get(user) != None:
             raise DupUser(user)
 
-        usfo = self.core.formTufoByProp('auth:user', user, **props)
+        usfo = self.core.formTufoByProp('syn:auth:user', user, **props)
         self.users.put(user,usfo)
 
         return usfo
@@ -130,8 +129,8 @@ class UserAuth(EventBus):
         Return a list of the roles for the given user.
         '''
         usfo = self._reqUserTufo(user)
-        userroles = self.core.getTufosByProp('auth:userrole:user',user)
-        return [ u[1].get('auth:userrole:role') for u in userroles ]
+        userroles = self.core.getTufosByProp('syn:auth:userrole:user',user)
+        return [ u[1].get('syn:auth:userrole:role') for u in userroles ]
 
     def addUserRole(self, user, role):
         '''
@@ -141,13 +140,13 @@ class UserAuth(EventBus):
         rofo = self._reqRoleTufo(role)
 
         props = {'user':user,'role':role}
-        self.core.formTufoByProp('auth:userrole', '%s:%s' % (user,role), **props)
+        self.core.formTufoByProp('syn:auth:userrole', '%s:%s' % (user,role), **props)
 
         self._bumpUserRules(user)
 
     def _bumpUserRules(self, user):
         rules = self.getUserRules(user)
-        self.fire('auth:bump:%s' % user, rules=rules)
+        self.fire('syn:auth:bump:%s' % user, rules=rules)
 
     def delUserRole(self, user, role):
         '''
@@ -156,7 +155,7 @@ class UserAuth(EventBus):
         usfo = self._reqUserTufo(user)
         rofo = self._reqRoleTufo(role)
 
-        self.core.delTufoByProp('auth:userrole', '%s:%s' % (user,role))
+        self.core.delTufoByProp('syn:auth:userrole', '%s:%s' % (user,role))
 
         self._bumpUserRules(user)
 
@@ -167,8 +166,8 @@ class UserAuth(EventBus):
         rofo = self._reqRoleTufo(role)
         self.core.addTufoList(rofo,'auth:rules',rule)
 
-        for userrole in self.core.getTufosByProp('auth:userrole:role',role):
-            user = userrole[1].get('auth:userrole:user')
+        for userrole in self.core.getTufosByProp('syn:auth:userrole:role',role):
+            user = userrole[1].get('syn:auth:userrole:user')
             self._bumpUserRules(user)
 
     def delRoleRule(self, role, rule):
@@ -178,8 +177,8 @@ class UserAuth(EventBus):
         rofo = self._reqRoleTufo(role)
         self.core.delTufoListValu(rofo,'auth:rules',rule)
 
-        for userrole in self.core.getTufosByProp('auth:userrole:role',role):
-            user = userrole[1].get('auth:userrole:user')
+        for userrole in self.core.getTufosByProp('syn:auth:userrole:role',role):
+            user = userrole[1].get('syn:auth:userrole:user')
             self._bumpUserRules(user)
 
     def delUserRule(self, user, rule):
@@ -197,7 +196,7 @@ class UserAuth(EventBus):
         if self.roles.get(role) != None:
             raise DupRole(role)
 
-        rofo = self.core.formTufoByProp('auth:role', role, **props)
+        rofo = self.core.formTufoByProp('syn:auth:role', role, **props)
         self.roles.put(role,rofo)
         return rofo
 
@@ -211,8 +210,8 @@ class UserAuth(EventBus):
 
         '''
         usfo = self._reqUserTufo(user)
-        self.core.delTufoByProp('auth:user', user)
-        self.core.delTufosByProp('auth:userrole:user',user)
+        self.core.delTufoByProp('syn:auth:user', user)
+        self.core.delTufosByProp('syn:auth:userrole:user',user)
 
         self.users.pop(user)
         self.rules.pop(user)
@@ -227,12 +226,12 @@ class UserAuth(EventBus):
 
         '''
         rofo = self._reqRoleTufo(role)
-        userroles = self.core.getTufosByProp('auth:userrole:role', role)
+        userroles = self.core.getTufosByProp('syn:auth:userrole:role', role)
 
-        users = [ u[1].get('auth:userrole:user') for u in userroles ]
+        users = [ u[1].get('syn:auth:userrole:user') for u in userroles ]
 
-        self.core.delTufosByProp('auth:role', role)
-        self.core.delTufosByProp('auth:userrole:role', role)
+        self.core.delTufosByProp('syn:auth:role', role)
+        self.core.delTufosByProp('syn:auth:userrole:role', role)
 
         self.roles.pop(role)
         [ self._bumpUserRules(user) for user in users ]
@@ -241,8 +240,8 @@ class UserAuth(EventBus):
         usfo = self._reqUserTufo(user)
         rules = self.core.getTufoList(usfo,'auth:rules')
 
-        for userrole in self.core.getTufosByProp('auth:userrole:user', user):
-            rofo = self.roles.get( userrole[1].get('auth:userrole:role') )
+        for userrole in self.core.getTufosByProp('syn:auth:userrole:user', user):
+            rofo = self.roles.get( userrole[1].get('syn:auth:userrole:role') )
             rules.extend( self.core.getTufoList(rofo,'auth:rules') )
 
         return rules
