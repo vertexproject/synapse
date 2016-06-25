@@ -6,7 +6,6 @@ import collections
 import multiprocessing
 
 import synapse.link as s_link
-import synapse.lib.pki as s_pki
 import synapse.lib.socket as s_socket
 import synapse.lib.service as s_service
 import synapse.lib.threads as s_threads
@@ -204,8 +203,6 @@ class Daemon(EventBus,DmonConf):
         if pool == None:
             pool = s_threads.Pool(size=8, maxsize=-1)
 
-        self.pki = s_pki.PkiStor(core)
-
         self.pool = pool
         self.core = core
         self.plex = s_socket.Plex()
@@ -220,7 +217,6 @@ class Daemon(EventBus,DmonConf):
 
         self.setMesgFunc('tele:syn', self._onTeleSynMesg )
 
-        self.setMesgFunc('tele:skey', self._onTeleSkeyMesg )
         self.setMesgFunc('tele:call', self._onTeleCallMesg )
 
         # for "client shared" objects...
@@ -328,14 +324,7 @@ class Daemon(EventBus,DmonConf):
         if host == None:
             return {}
 
-        iden = self.pki.getIdenByHost(host)
-        if iden == None:
-            return {}
-
-        cert = self.pki.getTokenCert(iden)
-        sign = self.pki.genByteSign(iden,chal)
-
-        return {'cert':cert,'sign':sign}
+        return {}
 
     def _onTeleSynMesg(self, sock, mesg):
         '''
@@ -343,32 +332,7 @@ class Daemon(EventBus,DmonConf):
         a telepath session.
         '''
         jid = mesg[1].get('jid')
-        sid = mesg[1].get('sid')
-        host = mesg[1].get('host')
-
-        ret = self._genChalSign(mesg)
-
-        relay = sock.get('relay')
-
-        pki = relay.getLinkProp('pki')
-        if pki:
-            # we require PKI client auth
-            cert = mesg[1].get('cert')
-            if cert == None:
-                return sock.tx(tufo('job:done', jid=jid, err='NoPkiCert'))
-
-            tokn = self.pki.loadCertToken(cert)
-            if tokn == None:
-                return sock.tx(tufo('job:done', jid=jid, err='BadPkiCert'))
-
-            chal = os.urandom(16)
-
-            sock.set('syn:pki:chal:byts',chal)
-            sock.set('syn:pki:chal:token',tokn)
-
-            ret['chal'] = chal
-
-        return sock.tx( tufo('job:done', jid=jid, ret=ret) )
+        return sock.tx( tufo('job:done', jid=jid, ret={}) )
 
     def _onTeleOnMesg(self, sock, mesg):
         # set the socket tx method as the callback
@@ -417,24 +381,6 @@ class Daemon(EventBus,DmonConf):
 
         off(evt,sock.tx)
         return sock.tx( tufo('job:done', jid=jid, ret=True) )
-
-    def _onTeleSkeyMesg(self, sock, mesg):
-
-        # tele:skey - client specified shared key, encrypted to server w/pki
-
-        jid = mesg[1].get('jid')
-        iden = mesg[1].get('iden')
-        byts = mesg[1].get('skey')
-
-        skey = self.pki.decToIden(iden,byts)
-        if skey == None:
-            return sock.tx(tufo('job:done', jid=jid, err='BadPkiSkey'))
-
-        xform = s_crypto.Rc4Skey( skey )
-
-        sock.tx(tufo('job:done', jid=jid, ret=True))
-
-        sock.addSockXform( s_crypto.Rc4Skey(skey) )
 
     def _onTeleCallMesg(self, sock, mesg):
 
