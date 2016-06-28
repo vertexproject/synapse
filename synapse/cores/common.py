@@ -39,9 +39,12 @@ class Cortex(EventBus,DataModel):
         EventBus.__init__(self)
         DataModel.__init__(self)
 
-        self.link = link
+        self._link = link
 
-        self.lock = threading.RLock()
+        #self.lock = threading.RLock()
+        self.lock = threading.Lock()
+        self.inclock = threading.Lock()
+
         self.statfuncs = {}
 
         self.auth = None
@@ -1264,12 +1267,31 @@ class Cortex(EventBus,DataModel):
 
         return item
 
-    def delTufosByProp(self, prop, valu):
+    def delTufosByProp(self, prop, valu=None):
         '''
         Delete multiple tufos by a single property.
+
+        Example:
+
+            core.delTufosByProp('foo:bar',valu=10)
+
         '''
-        for item in self.getTufosByProp(prop,valu):
+        for item in self.getTufosByProp(prop,valu=valu):
             self.delTufo(item)
+
+    def popTufosByProp(self, prop, valu=None):
+        '''
+        Delete and return multiple tufos by a property.
+
+        Example:
+
+            items = core.popTufosByProp('foo:bar',valu=10)
+
+        '''
+        items = self.getTufosByProp(prop,valu=valu)
+        for item in items:
+            self.delTufo(item)
+        return items
 
     def _normTufoProps(self, form, inprops):
 
@@ -1328,6 +1350,7 @@ class Cortex(EventBus,DataModel):
 
         if props:
             self.fire('tufo:set', tufo=tufo, props=props)
+            self.fire('tufo:props:%s' % (form,), tufo=tufo, props=props)
 
         for p,v in props.items():
 
@@ -1350,6 +1373,39 @@ class Cortex(EventBus,DataModel):
 
         '''
         self.setTufoProps(tufo, **{prop:valu})
+        return tufo
+
+    def incTufoProp(self, tufo, prop, incval=1):
+        '''
+        Atomically increment/decrement the value of a given tufo property.
+
+        Example:
+
+            tufo = core.incTufoProp(tufo,prop)
+
+        '''
+        return self._incTufoProp(tufo,prop,incval=incval)
+
+    def _incTufoProp(self, tufo, prop, incval=1):
+        # to allow storage layer optimization
+        iden = tufo[0]
+        form = tufo[1].get('tufo:form')
+
+        prop = '%s:%s' % (form,prop)
+
+        with self.inclock:
+            rows = self._getRowsByIdProp(iden,prop)
+            if len(rows) == 0:
+                raise NoSuchTufo(repr(tufo))
+
+            oldv = rows[0][2]
+            valu = oldv + incval
+
+            self._setRowsByIdProp(iden,prop,valu)
+
+            tufo[1][prop] = valu
+            self.fire('tufo:set:%s' % (prop,), tufo=tufo, prop=prop, valu=valu, oldv=oldv)
+
         return tufo
 
     def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):

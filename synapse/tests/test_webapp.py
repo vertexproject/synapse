@@ -41,8 +41,7 @@ class TestCrudHand(SynTest):
         resp = requests.get(self.host + '/v1/horked', timeout=1)
         self.assertEqual(resp.status_code, 404)
 
-    def test_crud(self):
-        """Ensure single tufo endpoints work."""
+    def test_crud_single(self):
         self.thisHostMustNot(platform='windows')
 
         # Can we create a tufo?
@@ -79,8 +78,7 @@ class TestCrudHand(SynTest):
             if info.get(k) != v:
                 raise Exception('%s != %r' % (k,v))
 
-    def test_cruds(self):
-        """Ensure multiple tufo endpoints work."""
+    def test_crud_multi(self):
         self.thisHostMustNot(platform='windows')
 
         # Can we create tufos?

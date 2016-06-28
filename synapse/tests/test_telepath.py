@@ -7,6 +7,8 @@ import synapse.daemon as s_daemon
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
+import synapse.lib.threads as s_threads
+
 from synapse.tests.common import *
 
 class Foo:
@@ -94,23 +96,27 @@ class TelePathTest(SynTest):
         dmon.fini()
 
     def test_telepath_push(self):
-        env = self.getFooEnv()
-        port = env.link[1].get('port')
 
-        prox0 = s_telepath.openurl('tcp://127.0.0.1/', port=port)
-        prox0.push('foo1', Foo() )
+        # override default timeout=None for tests
+        with s_threads.ScopeLocal(syntimeout=5):
 
-        prox1 = s_telepath.openurl('tcp://127.0.0.1/foo1', port=port)
+            env = self.getFooEnv()
+            port = env.link[1].get('port')
 
-        self.eq( prox1.bar(10,20), 30 )
+            prox0 = s_telepath.openurl('tcp://127.0.0.1/', port=port)
+            prox0.push('foo1', Foo() )
 
-        prox0.fini()
+            prox1 = s_telepath.openurl('tcp://127.0.0.1/foo1', port=port)
 
-        self.assertRaises( s_async.JobErr, prox1.bar, 10, 20 )
+            self.eq( prox1.bar(10,20), 30 )
 
-        prox1.fini()
+            prox0.fini()
 
-        env.fini()
+            self.assertRaises( s_async.JobErr, prox1.bar, 10, 20 )
+
+            prox1.fini()
+
+            env.fini()
 
     def test_telepath_callx(self):
 

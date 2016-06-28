@@ -7,6 +7,7 @@ import sys
 import time
 import base64
 import socket
+import struct
 import collections
 
 major = sys.version_info.major

@@ -45,24 +45,23 @@ def vertup(vstr):
     '''
     return tuple([ int(x) for x in vstr.split('.') ])
 
-def genfile(*paths, over=False):
+def genpath(*paths):
+    path = os.path.join(*paths)
+    path = os.path.expanduser(path)
+    return os.path.abspath(path)
+
+def genfile(*paths):
     '''
     Create or open ( for read/write ) a file path join.
     '''
-    path = os.path.join(*paths)
-    path = os.path.expanduser(path)
-
-    path = os.path.abspath(path)
-    if not os.path.isfile(path) or over:
+    path = genpath(*paths)
+    if not os.path.isfile(path):
         return open(path,'w+b')
     return open(path,'r+b')
 
 def gendir(*paths,**opts):
     mode = opts.get('mode',0o700)
-    path = os.path.join(*paths)
-    path = os.path.expanduser(path)
-
-    path = os.path.abspath(path)
+    path = genpath(*paths)
     if not os.path.isdir(path):
         os.makedirs(path,mode=mode)
     return path
@@ -76,7 +75,8 @@ def jsload(*paths):
         return json.loads(byts.decode('utf8'))
 
 def jssave(js,*paths):
-    with genfile(*paths, over=True) as fd:
+    path = genpath(*paths)
+    with open(path,'wb') as fd:
         fd.write( json.dumps(js).encode('utf8') )
 
 def verstr(vtup):

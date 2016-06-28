@@ -271,7 +271,9 @@ class AxonCluster:
 
         if axon == None:
             valu = blob[1].get('axon:blob:hash:sha256')
-            return self.bytes('sha256',valu)
+            for byts in self.bytes('sha256',valu):
+                yield byts
+            return
 
         for byts in axon.iterblob(blob):
             yield byts

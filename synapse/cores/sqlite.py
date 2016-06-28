@@ -113,11 +113,11 @@ class Cortex(common.Cortex):
         return self.dbpool.cursor()
 
     def _initDbInfo(self):
-        name = self.link[1].get('path')[1:]
+        name = self._link[1].get('path')[1:]
         if not name:
             raise Exception('No Path Specified!')
 
-        return {'name':self.link[1].get('path')[1:]}
+        return {'name':self._link[1].get('path')[1:]}
 
     def _rowsByRange(self, prop, valu, limit=None):
         q = self._q_getrows_by_range
@@ -150,9 +150,9 @@ class Cortex(common.Cortex):
         self.initSizeBy('range',self._sizeByRange)
         self.initRowsBy('range',self._rowsByRange)
 
-        self.dbpool = self.link[1].get('dbpool')
+        self.dbpool = self._link[1].get('dbpool')
         if self.dbpool == None:
-            pool = int( self.link[1].get('pool',1) )
+            pool = int( self._link[1].get('pool',1) )
             self.dbpool = DbPool(pool, self._initDbConn)
 
         table = self._getTableName()
@@ -285,7 +285,8 @@ class Cortex(common.Cortex):
         self.delete( self._q_delrows_by_id_prop, (ident,prop))
 
     def _getRowsByIdProp(self, iden, prop):
-        return self.select( self._q_getrows_by_id_prop, (iden,prop))
+        rows = self.select( self._q_getrows_by_id_prop, (iden,prop))
+        return self._foldTypeCols(rows)
 
     def _setRowsByIdProp(self, ident, prop, valu):
         if type(valu) == int:
