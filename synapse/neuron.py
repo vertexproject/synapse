@@ -51,13 +51,12 @@ class Neuron(s_daemon.Daemon):
         s_daemon.Daemon.__init__(self, core=core, pool=pool)
 
         self.sched = s_sched.Sched()
-        self.model = self.core.genDataModel()
 
-        self.model.addTufoForm('neuron')
+        self.core.addTufoForm('neuron')
 
-        self.model.addTufoProp('neuron','name')
-        self.model.addTufoProp('neuron','super',ptype='int',defval=0)
-        self.model.addTufoProp('neuron','usepki', ptype='bool', defval=0)
+        self.core.addTufoProp('neuron','name')
+        self.core.addTufoProp('neuron','super',ptype='int',defval=0)
+        self.core.addTufoProp('neuron','usepki', ptype='bool', defval=0)
 
         self.neur = self.core.formTufoByProp('neuron','self')
         self.iden = self.neur[0]
@@ -400,7 +399,7 @@ class Neuron(s_daemon.Daemon):
             moddef = neu.getModelDict()
 
         '''
-        return self.model.getModelDict()
+        return self.core.getModelDict()
 
     def ping(self):
         '''

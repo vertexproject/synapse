@@ -10,7 +10,7 @@ from synapse.compat import queue
 import synapse.async as s_async
 import synapse.compat as s_compat
 import synapse.reactor as s_reactor
-import synapse.datamodel as s_datamodel
+#import synapse.datamodel as s_datamodel
 
 import synapse.lib.tags as s_tags
 import synapse.lib.cache as s_cache
@@ -18,6 +18,7 @@ import synapse.lib.threads as s_threads
 
 from synapse.common import *
 from synapse.eventbus import EventBus
+from synapse.datamodel import DataModel
 
 class NoSuchGetBy(Exception):pass
 
@@ -30,23 +31,22 @@ def chunked(n, iterable):
 
        yield chunk
 
-class Cortex(EventBus):
+class Cortex(EventBus,DataModel):
     '''
     Top level Cortex key/valu storage object.
     '''
     def __init__(self, link):
         EventBus.__init__(self)
+        DataModel.__init__(self)
 
         self.link = link
 
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.statfuncs = {}
 
         self.auth = None
         self.tagcache = {}
         self.splicefuncs = {}
-
-        self.model = s_datamodel.DataModel()
 
         self.sizebymeths = {}
         self.rowsbymeths = {}
@@ -70,12 +70,14 @@ class Cortex(EventBus):
         #############################################################
         self.on('tufo:add', self._fireCoreSync )
         self.on('tufo:del', self._fireCoreSync )
+        self.on('tufo:set', self._fireCoreSync )
         self.on('tufo:tag:add', self._fireCoreSync )
         self.on('tufo:tag:del', self._fireCoreSync )
 
         self.syncact = s_reactor.Reactor()
         self.syncact.act('tufo:add', self._actSyncTufoAdd )
         self.syncact.act('tufo:del', self._actSyncTufoDel )
+        #self.syncact.act('tufo:set', self._actSyncTufoSet )
         self.syncact.act('tufo:tag:add', self._actSyncTufoTagAdd )
         self.syncact.act('tufo:tag:del', self._actSyncTufoTagDel )
 
@@ -95,55 +97,67 @@ class Cortex(EventBus):
 
         self._initCortex()
 
-        self.model.addTufoForm('syn:tag', ptype='str:lwr')
-        self.model.addTufoProp('syn:tag','up',ptype='str:lwr')
-        self.model.addTufoProp('syn:tag','doc',defval='',ptype='str')
-        self.model.addTufoProp('syn:tag','depth',defval=0,ptype='int')
-        self.model.addTufoProp('syn:tag','title',defval='',ptype='str')
+        # FIXME unicode / "word" characters
+        #self.addSubType('syn:tag','str', regex='^[a-z0-9._]+$', lower=1)
+        #self.addSubType('syn:prop','str', regex='^[a-z0-9:_]+$', lower=1)
+        #self.addSubType('syn:type','str', regex='^[a-z0-9:_]+$', lower=1)
+
+        self.addTufoForm('syn:tag', ptype='syn:tag')
+        self.addTufoProp('syn:tag','up',ptype='syn:tag')
+        self.addTufoProp('syn:tag','doc',defval='',ptype='str')
+        self.addTufoProp('syn:tag','depth',defval=0,ptype='int')
+        self.addTufoProp('syn:tag','title',defval='',ptype='str')
 
         #self.model.addTufoForm('syn:model',ptype='str')
 
-        #self.model.addTufoForm('syn:type',ptype='str')
-        #self.model.addTufoProp('syn:type','base',ptype='str',doc='what base type does this type extend?')
-        #self.model.addTufoProp('syn:type','baseinfo',ptype='str',doc='Base type specific info (for example, a regex)')
+        self.addTufoForm('syn:type',ptype='syn:type')
+        self.addTufoProp('syn:type','doc',ptype='str', defval='??', doc='Description for this type')
+        self.addTufoProp('syn:type','ver',ptype='int', defval=1, doc='What version is this type')
+        self.addTufoProp('syn:type','base',ptype='str', doc='what type does this type extend?', req=True)
+        self.addTufoGlob('syn:type','info:*')
 
-        #self.model.addTufoForm('syn:form',ptype='str:prop')
-        #self.model.addTufoProp('syn:form','doc',ptype='str')
+        self.addTufoForm('syn:form',ptype='syn:prop')
+        self.addTufoProp('syn:form','doc',ptype='str')
 
-        #self.model.addTufoForm('syn:prop',ptype='str:prop')
-        #self.model.addTufoProp('syn:prop','doc',ptype='str')
-        #self.model.addTufoProp('syn:prop','form',ptype='str:syn:prop')
+        self.addTufoForm('syn:prop',ptype='syn:prop')
+        self.addTufoProp('syn:prop','doc',ptype='str')
+        self.addTufoProp('syn:prop','form',ptype='syn:prop')
+        self.addTufoProp('syn:prop','ptype',ptype='syn:type')
 
-        #self.model.addTufoProp('syn:prop','ptype',ptype='str')
-        #self.model.addTufoProp('syn:prop','title',ptype='str')
-        #self.model.addTufoProp('syn:prop','defval') # ptype='any'
+        #forms = self.getTufosByProp('syn:form')
 
-        #self.model.addTufoForm('syn:splice',ptype='guid')
-        #self.model.addTufoProp('syn:splice','date',ptype='time:epoch',doc='Time that the splice was requested')
-        #self.model.addTufoProp('syn:splice','user',ptype='str',doc='Time user/system which requested the splice')
-        #self.model.addTufoProp('syn:splice','note',ptype='str',doc='Filthy humon notes about the change')
-        #self.model.addTufoProp('syn:splice','status',ptype='str',doc='Enum for init,done,deny to show the splice status')
-        #self.model.addTufoProp('syn:splice','action',ptype='str:lwr',doc='The requested splice action')
+        #self.addTufoProp('syn:prop','ptype',ptype='str')
+        #self.addTufoProp('syn:prop','title',ptype='str')
+        #self.addTufoProp('syn:prop','defval') # ptype='any'
+
+        #self.addTufoForm('syn:splice',ptype='guid')
+        #self.addTufoProp('syn:splice','date',ptype='time:epoch',doc='Time that the splice was requested')
+        #self.addTufoProp('syn:splice','user',ptype='str',doc='Time user/system which requested the splice')
+        #self.addTufoProp('syn:splice','note',ptype='str',doc='Filthy humon notes about the change')
+        #self.addTufoProp('syn:splice','status',ptype='str',doc='Enum for init,done,deny to show the splice status')
+        #self.addTufoProp('syn:splice','action',ptype='str:lwr',doc='The requested splice action')
 
         # FIXME load forms / props / etc
 
-        self.model.addTufoForm('syn:splice', ptype='guid')
+        self.addTufoForm('syn:splice', ptype='guid')
 
-        self.model.addTufoGlob('syn:splice','on:*')     # syn:splice:on:fqdn=woot.com
-        self.model.addTufoGlob('syn:splice','act:*')    # action arguments
+        self.addTufoGlob('syn:splice','on:*')     # syn:splice:on:fqdn=woot.com
+        self.addTufoGlob('syn:splice','act:*')    # action arguments
 
-        self.model.addTufoProp('syn:splice','perm', ptype='str', doc='Permissions str for glob matching')
-        self.model.addTufoProp('syn:splice','reqtime', ptype='time:epoch', doc='When was the splice requested')
+        self.addTufoProp('syn:splice','perm', ptype='str', doc='Permissions str for glob matching')
+        self.addTufoProp('syn:splice','reqtime', ptype='time:epoch', doc='When was the splice requested')
 
-        self.model.addTufoProp('syn:splice','user', ptype='str', defval='??', doc='What user is requesting the splice')
-        self.model.addTufoProp('syn:splice','note', ptype='str', defval='', doc='Notes about the splice')
-        self.model.addTufoProp('syn:splice','status', ptype='str', defval='new', doc='Splice status')
-        self.model.addTufoProp('syn:splice','action', ptype='str', doc='What action is the splice requesting')
-        #self.model.addTufoProp('syn:splice','actuser', ptype='str', doc='What user is activating the splice')
-        #self.model.addTufoProp('syn:splice','acttime', ptype='time:epoch', doc='When was the splice activated')
+        self.addTufoProp('syn:splice','user', ptype='str', defval='??', doc='What user is requesting the splice')
+        self.addTufoProp('syn:splice','note', ptype='str', defval='', doc='Notes about the splice')
+        self.addTufoProp('syn:splice','status', ptype='str', defval='new', doc='Splice status')
+        self.addTufoProp('syn:splice','action', ptype='str', doc='What action is the splice requesting')
+        #self.addTufoProp('syn:splice','actuser', ptype='str', doc='What user is activating the splice')
+        #self.addTufoProp('syn:splice','acttime', ptype='time:epoch', doc='When was the splice activated')
 
 
         self.on('tufo:add:syn:tag', self._onAddSynTag)
+        self.on('tufo:add:syn:type', self._onAddSynType)
+        self.on('tufo:add:syn:prop', self._onAddSynProp)
 
         #self.on('tufo:add:syn:type', self._onAddSynType)
         #self.on('tufo:add:syn:form', self._onAddSynForm)
@@ -429,8 +443,14 @@ class Cortex(EventBus):
         [ self.delTufo(t) for t in self.getTufosByProp('syn:tag:up',valu) ]
 
         # do the (possibly very heavy) removal of the tag from all known forms.
-        for form in self.model.getTufoForms():
+        for form in self.getTufoForms():
             [ self.delTufoTag(t,valu) for t in self.getTufosByTag(form,valu) ]
+
+    def _onAddSynProp(self, mesg):
+        pass
+
+    def _onAddSynType(self, mesg):
+        pass
 
     def _onAddSynTag(self, mesg):
         tufo = mesg[1].get('tufo')
@@ -473,59 +493,6 @@ class Cortex(EventBus):
             fd.write( msgenpack(mesg) )
 
         self.savebus.link(savemesg)
-
-    def setDataModel(self, model):
-        '''
-        Set a DataModel instance to enforce when using Tufo API.
-
-        Example:
-
-            core.setDataModel(model)
-
-        '''
-        self.model = model
-
-    def getDataModel(self):
-        '''
-        Return the DataModel instance for this Cortex.
-
-        Example:
-
-            model = core.getDataModel()
-            if model != None:
-                dostuff(model)
-
-        '''
-        return self.model
-
-    def genDataModel(self):
-        '''
-        Return (and create if needed) the DataModel instance for this Cortex.
-
-        Example:
-
-            model = core.genDataModel()
-
-        '''
-        # FIXME this is deprecated but remains for backward compat
-        return self.model
-
-    def getDataModelDict(self):
-        '''
-        Return the DataModel dictionary for this Cortex.
-
-        Example:
-
-            moddef = core.getDataModelDict()
-            if moddef != None:
-                model = DataModel(model=moddef)
-                dostuff(model)
-
-        '''
-        if self.model == None:
-            return None
-
-        return self.model.getModelDict()
 
     def isOk(self):
         '''
@@ -776,6 +743,10 @@ class Cortex(EventBus):
         '''
         return self._getSizeByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
 
+    def getTufosBy(self, name, prop, valu, limit=None):
+        rows = self.getRowsBy(name,prop,valu,limit=limit)
+        return [ self.getTufoById(row[0]) for row in rows ]
+
     def getRowsBy(self, name, prop, valu, limit=None):
         '''
         Retrieve rows by a specialized index within the cortex.
@@ -968,7 +939,7 @@ class Cortex(EventBus):
         form = tufo[1].get('tufo:form')
         for key,val in keyvals:
             prop = '%s:%s' % (form,key)
-            valu = self._normTufoProp(prop,val)
+            valu = self.getPropNorm(prop,val)
 
             rows.append( (tufo[0], prop, valu, stamp) )
 
@@ -1079,7 +1050,7 @@ class Cortex(EventBus):
                 iden = guid()
 
                 props = self._primToProps(form,item)
-                props = [ (p,self._normTufoProp(p,v)) for (p,v) in props ]
+                props = [ (p,self.getPropNorm(p,v)) for (p,v) in props ]
 
                 rows = [ (iden,p,v,tstamp) for (p,v) in props ]
 
@@ -1223,8 +1194,7 @@ class Cortex(EventBus):
               tufo does not yet exist and is being construted.
 
         '''
-        if self.model != None:
-            valu = self.model.getPropNorm(form,valu)
+        valu,subs = self.getPropChop(form,valu)
 
         with self.lock:
             tufo = self.getTufoByProp(form,valu=valu)
@@ -1233,6 +1203,8 @@ class Cortex(EventBus):
 
             iden = guid()
             stamp = int(time.time())
+
+            props.update(subs)
 
             props = self._normTufoProps(form,props)
             props[form] = valu
@@ -1284,8 +1256,7 @@ class Cortex(EventBus):
             core.delTufoByProp('foo','bar')
 
         '''
-        if self.model != None:
-            valu = self.model.getPropNorm(form,valu)
+        valu = self.getPropNorm(form,valu)
 
         item = self.getTufoByProp(form,valu)
         if item != None:
@@ -1300,29 +1271,24 @@ class Cortex(EventBus):
         for item in self.getTufosByProp(prop,valu):
             self.delTufo(item)
 
-    def _normTufoProp(self, prop, valu):
-        if self.model != None:
-            valu = self.model.getPropNorm(prop,valu)
-        return valu
+    def _normTufoProps(self, form, inprops):
 
-    def _normTufoProps(self, form, props):
-        # add form prefix to tufo props
-        props = {'%s:%s' % (form,p):v for (p,v) in props.items() if v != None }
+        props = {'tufo:form':form}
 
-        props['tufo:form'] = form
+        for name,valu in inprops.items():
+            prop = '%s:%s' % (form,name)
 
-        # if we are using a data model, lets enforce it.
-        if self.model != None:
-            # if we have a model *and* a prop def
-            # check to see if it should be a form
-            fdef = self.model.getPropDef(form)
-            if fdef != None and not fdef[1].get('form'):
-                raise s_datamodel.NoSuchForm(form)
+            # do we have a DataType to normalize and carve sub props?
+            valu,subs = self.getPropChop(prop,valu)
 
-            props = self.model.getNormProps(props)
-            defprops = self.model.getSubPropDefs(form)
-            for p,v in defprops.items():
-                props.setdefault(p,v)
+            # any sub-properties to populate?
+            for sname,svalu in subs.items():
+                props[ '%s:%s' % (prop,sname) ] = valu
+
+            props[prop] = valu
+
+        for prop,valu in self.getFormDefs(form):
+            props.setdefault(prop,valu)
 
         return props
 
@@ -1354,8 +1320,7 @@ class Cortex(EventBus):
         props = { '%s:%s' % (form,p):v for (p,v) in props.items() }
 
         # normalize property values
-        if self.model != None:
-            props = { p:self.model.getPropNorm(p,v) for (p,v) in props.items() }
+        props = { p:self.getPropNorm(p,v) for (p,v) in props.items() }
 
         tid = tufo[0]
 

@@ -157,15 +157,16 @@ class MemAtom(AtomFile):
         # TODO create a windows variant
 
         self.fd.flush()
-        self.mm = mmap.mmap(self.fileno, self.size, mmap.MAP_PRIVATE, mmap.ACCESS_WRITE)
+        self.mm = mmap.mmap(self.fileno, self.size, mmap.MAP_SHARED, mmap.ACCESS_WRITE)
 
     def _onAtomFini(self):
         self.mm.flush()
         self.mm.close()
 
-        AtomFile._onAtomFini(self)
+        return AtomFile._onAtomFini(self)
 
     def _flush(self):
+        self.fd.flush()
         self.mm.flush()
 
     def _readoff(self, off, size):

@@ -328,7 +328,8 @@ class File(s_eventbus.EventBus):
         self.onfini( self._onFileFini )
 
     def _onFileFini(self):
-        self.fd.close()
+        with self.fdlock:
+            self.fd.close()
 
     def add(self, item):
         '''
@@ -338,6 +339,9 @@ class File(s_eventbus.EventBus):
         size = len(byts)
 
         with self.fdlock:
+
+            if self.isfini:
+                raise IsFini()
 
             if self.fdoff != self.size:
                 self.fd.seek(0,os.SEEK_END)
@@ -356,6 +360,9 @@ class File(s_eventbus.EventBus):
         Read size bytes form the given offset.
         '''
         with self.fdlock:
+
+            if self.isfini:
+                return None
 
             if self.fdoff != off:
                 self.fd.seek(off)

@@ -618,11 +618,10 @@ class CortexTest(SynTest):
 
     def test_cortex_keys(self):
         core = s_cortex.openurl('ram://')
-        model = core.genDataModel()
 
-        model.addTufoForm('woot')
-        model.addTufoProp('woot','bar', ptype='int')
-        model.addTufoProp('woot','foo', defval='foo')
+        core.addTufoForm('woot')
+        core.addTufoProp('woot','bar', ptype='int')
+        core.addTufoProp('woot','foo', defval='foo')
 
         woot = core.formTufoByProp('woot','haha')
 
@@ -715,7 +714,7 @@ class CortexTest(SynTest):
     def test_cortex_tags(self):
         core = s_cortex.openurl('ram://')
 
-        core.genDataModel().addTufoForm('foo')
+        core.addTufoForm('foo')
 
         hehe = core.formTufoByProp('foo','hehe')
 

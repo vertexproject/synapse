@@ -3,14 +3,16 @@ import unittest
 import synapse.cortex as s_cortex
 import synapse.datamodel as s_datamodel
 
-class DataModelTest(unittest.TestCase):
+from synapse.tests.common import *
+
+class DataModelTest(SynTest):
 
     def test_datamodel_types(self):
         model = s_datamodel.DataModel()
         model.addTufoForm('foo')
         model.addTufoProp('foo', 'bar', ptype='int')
         model.addTufoProp('foo', 'baz', ptype='str')
-        model.addTufoProp('foo', 'faz', ptype='tag')
+        model.addTufoProp('foo', 'faz', ptype='syn:tag')
         model.addTufoProp('foo', 'zip', ptype='str:lwr')
 
         self.assertEqual( model.getPropRepr('foo:bar', 10), '10')
@@ -40,29 +42,22 @@ class DataModelTest(unittest.TestCase):
         model.addTufoForm('foo')
         self.assertRaises( s_datamodel.NoSuchType, model.addTufoProp, 'foo', 'bar', ptype='hehe' )
 
-    def test_datamodel_fail_duptype(self):
-        model = s_datamodel.DataModel()
-        model.addDataType('foo', s_datamodel.StrType())
-        self.assertRaises( s_datamodel.DupDataType, model.addDataType, 'foo', s_datamodel.StrType())
-
     def test_datamodel_fail_noprop(self):
         model = s_datamodel.DataModel()
-        self.assertRaises( s_datamodel.NoSuchForm, model.addTufoProp, 'foo', 'bar' )
+        self.assertRaises( NoSuchForm, model.addTufoProp, 'foo', 'bar' )
 
         model.addTufoForm('foo')
-        self.assertRaises( s_datamodel.DupPropName, model.addTufoForm, 'foo' )
+        self.assertRaises( DupPropName, model.addTufoForm, 'foo' )
 
         model.addTufoProp('foo','bar')
-        self.assertRaises( s_datamodel.DupPropName, model.addTufoProp, 'foo', 'bar' )
+        self.assertRaises( DupPropName, model.addTufoProp, 'foo', 'bar' )
 
     def test_datamodel_cortex(self):
 
-        model = s_datamodel.DataModel()
-        model.addTufoForm('foo')
-        model.addTufoProp('foo', 'bar', ptype='int', defval=10)
-
         core = s_cortex.openurl('ram:///')
-        core.setDataModel( model )
+
+        core.addTufoForm('foo')
+        core.addTufoProp('foo', 'bar', ptype='int', defval=10)
 
         core.formTufoByProp('foo','hehe')
         core.formTufoByProp('foo','haha')
@@ -108,16 +103,16 @@ class DataModelTest(unittest.TestCase):
         model.addTufoForm('foo')
         model.addTufoProp('foo','bar',ptype='bool', defval=0)
 
-        self.assertEqual( model.getPropRepr('foo:bar', 1), 'True')
-        self.assertEqual( model.getPropRepr('foo:bar', 0), 'False')
+        self.assertEqual( model.getPropRepr('foo:bar', 1), '1')
+        self.assertEqual( model.getPropRepr('foo:bar', 0), '0')
 
         self.assertEqual( model.getPropNorm('foo:bar', True) , 1 )
         self.assertEqual( model.getPropNorm('foo:bar', False) , 0 )
 
-        self.assertEqual( model.getPropParse('foo:bar', 'TRUE'), 1 )
-        self.assertEqual( model.getPropParse('foo:bar', 'FaLsE'), 0 )
+        self.assertEqual( model.getPropParse('foo:bar', '1'), 1 )
+        self.assertEqual( model.getPropParse('foo:bar', '0'), 0 )
 
-        self.assertRaises( s_datamodel.BadTypeParse, model.getPropParse, 'foo:bar', 'asdf' )
+        self.assertRaises( BadTypeValu, model.getPropParse, 'foo:bar', 'asdf' )
 
     def test_datamodel_hash(self):
         model = s_datamodel.DataModel()
@@ -136,17 +131,17 @@ class DataModelTest(unittest.TestCase):
         self.assertEqual( model.getPropNorm('foo:sha1', fakesha1) , fakesha1.lower() )
         self.assertEqual( model.getPropNorm('foo:sha256', fakesha256) , fakesha256.lower() )
 
-        self.assertRaises( s_datamodel.BadTypeNorm, model.getPropNorm, 'foo:md5', 'asdf' )
-        self.assertRaises( s_datamodel.BadTypeNorm, model.getPropNorm, 'foo:sha1', 'asdf' )
-        self.assertRaises( s_datamodel.BadTypeNorm, model.getPropNorm, 'foo:sha256', 'asdf' )
+        self.assertRaises( BadTypeValu, model.getPropNorm, 'foo:md5', 'asdf' )
+        self.assertRaises( BadTypeValu, model.getPropNorm, 'foo:sha1', 'asdf' )
+        self.assertRaises( BadTypeValu, model.getPropNorm, 'foo:sha256', 'asdf' )
 
         self.assertEqual( model.getPropParse('foo:md5', fakemd5) , fakemd5.lower() )
         self.assertEqual( model.getPropParse('foo:sha1', fakesha1) , fakesha1.lower() )
         self.assertEqual( model.getPropParse('foo:sha256', fakesha256) , fakesha256.lower() )
 
-        self.assertRaises( s_datamodel.BadTypeParse, model.getPropParse, 'foo:md5', 'asdf' )
-        self.assertRaises( s_datamodel.BadTypeParse, model.getPropParse, 'foo:sha1', 'asdf' )
-        self.assertRaises( s_datamodel.BadTypeParse, model.getPropParse, 'foo:sha256', 'asdf' )
+        self.assertRaises( BadTypeValu, model.getPropParse, 'foo:md5', 'asdf' )
+        self.assertRaises( BadTypeValu, model.getPropParse, 'foo:sha1', 'asdf' )
+        self.assertRaises( BadTypeValu, model.getPropParse, 'foo:sha256', 'asdf' )
 
     def test_datamodel_parsetypes(self):
 
@@ -196,8 +191,8 @@ class DataModelTest(unittest.TestCase):
         self.assertEqual( model.getPropNorm('foo:serv',0x010203040010), 0x010203040010 )
         self.assertEqual( model.getPropParse('foo:serv','1.2.3.4:255'), 0x0102030400ff )
 
-        self.assertRaises( s_datamodel.BadTypeNorm, model.getPropNorm, 'foo:port', 0xffffff )
-        self.assertRaises( s_datamodel.BadTypeNorm, model.getPropParse, 'foo:port', '999999' )
+        self.assertRaises( BadTypeValu, model.getPropNorm, 'foo:port', 0xffffff )
+        self.assertRaises( BadTypeValu, model.getPropParse, 'foo:port', '999999' )
 
     def test_datamodel_time(self):
 

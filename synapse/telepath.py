@@ -14,7 +14,6 @@ import synapse.crypto as s_crypto
 import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
 
-import synapse.lib.pki as s_pki
 import synapse.lib.queue as s_queue
 import synapse.lib.sched as s_sched
 import synapse.lib.socket as s_socket
@@ -95,7 +94,7 @@ class Method:
         if ondone != None:
             return job
 
-        return self.proxy.sync(job)
+        return self.proxy.syncjob(job)
 
 telelocal = set(['tele:sock:init'])
 
@@ -121,7 +120,6 @@ class Proxy(s_eventbus.EventBus):
         #       derefs with overlapping names from working correctly
 
         self._tele_sid = None
-        self._tele_pki = None
 
         self._tele_q = s_queue.Queue()
         self._tele_pushed = {}
@@ -153,14 +151,6 @@ class Proxy(s_eventbus.EventBus):
 
         # obj name is path minus leading "/"
         self._tele_name = relay.link[1].get('path')[1:]
-
-        if relay.getLinkProp('pki'):
-
-            #TODO pkiurl
-
-            self._tele_pki = relay.getLinkProp('pkistor')
-            if self._tele_pki == None:
-                self._tele_pki = s_pki.getUserPki()
 
         self._initTeleSock()
 
@@ -206,7 +196,7 @@ class Proxy(s_eventbus.EventBus):
             self._tele_ons.add(name)
 
             job = self._txTeleJob('tele:on', events=[name], name=self._tele_name)
-            self.sync(job)
+            self.syncjob(job)
 
         return s_eventbus.EventBus.on(self, name, func)
 
@@ -215,7 +205,7 @@ class Proxy(s_eventbus.EventBus):
         self._tele_ons.discard(name)
 
         job = self._txTeleJob('tele:off', evt=name, name=self._tele_name)
-        self.sync(job)
+        self.syncjob(job)
 
         return s_eventbus.EventBus.off(self, name, func)
 
@@ -224,7 +214,8 @@ class Proxy(s_eventbus.EventBus):
             return s_eventbus.EventBus.fire(self, name, **info)
 
         # events fired on a proxy go through the remove first...
-        return self.call('fire', name, **info)
+        job = self.call('fire', name, **info)
+        return self.syncjob(job)
 
     def call(self, name, *args, **kwargs):
         '''
@@ -236,7 +227,7 @@ class Proxy(s_eventbus.EventBus):
 
             # ... do other stuff ...
 
-            ret = proxy.sync(job)
+            ret = proxy.syncjob(job)
 
         '''
         ondone = kwargs.pop('ondone',None)
@@ -254,7 +245,7 @@ class Proxy(s_eventbus.EventBus):
             task = ('getFooByBar', (bar,), {} )
 
             job = proxy.callx('woot',task)
-            ret = proxy.sync(job)
+            ret = proxy.syncjob(job)
 
         '''
         return self._txTeleJob('tele:call', name=name, task=task, ondone=ondone)
@@ -271,19 +262,19 @@ class Proxy(s_eventbus.EventBus):
         '''
         job = self._txTeleJob('tele:push', name=name)
         self._tele_pushed[ name ] = item
-        return self.sync(job)
+        return self.syncjob(job)
 
     def _tx_call(self, task, ondone=None):
         return self._txTeleJob('tele:call', name=self._tele_name, task=task, ondone=ondone)
 
-    def sync(self, job, timeout=None):
+    def syncjob(self, job, timeout=None):
         '''
         Wait on a given job and return/raise it's result.
 
         Example:
 
             job = proxy.call('woot', 10, bar=20)
-            ret = proxy.sync(job)
+            ret = proxy.syncjob(job)
 
         '''
         self._waitTeleJob(job,timeout=timeout)
@@ -403,60 +394,15 @@ class Proxy(s_eventbus.EventBus):
 
         return self._tele_sock
 
-    def _getUserCert(self):
-        '''
-        If pki is enabled, return the cert for link username as iden.
-        '''
-        if self._tele_pki == None:
-            return None
-
-        iden = self._tele_relay.getLinkProp('user')
-        return self._tele_pki.getTokenCert(iden)
-
     def _teleSynAck(self):
         '''
         Send a tele:syn to get a telepath session
         '''
-
-        chal = os.urandom(16)
-        cert = self._getUserCert()
-
-        host = self._tele_relay.getLinkProp('host')
-
         msginfo = dict(sid=self._tele_sid)
 
-        job = self._txTeleJob('tele:syn', sid=self._tele_sid, chal=chal, cert=cert, host=host )
+        job = self._txTeleJob('tele:syn', sid=self._tele_sid)
 
-        synresp = self.sync(job, timeout=6)
-
-        # we require the server to auth...
-        if self._tele_pki:
-
-            cert = synresp.get('cert')
-            if cert == None:
-                raise Exception('NoPkiCert')
-
-            tokn = self._tele_pki.loadCertToken(cert)
-            if tokn == None:
-                # FIXME pki exceptions...
-                raise Exception('BadPkiCert')
-
-            sign = synresp.get('sign')
-            if sign == None:
-                raise Exception('NoPkiSign')
-
-            if not self._tele_pki.isValidSign(tokn[0],sign,chal):
-                raise Exception('BadPkiSign')
-
-            ckey = os.urandom(16)
-            skey = self._tele_pki.encToIden(tokn[0], ckey)
-
-            job = self._txTeleJob('tele:skey', iden=tokn[0], algo='rc4', skey=skey)
-            if not self.sync(job):
-                raise Exception('BadSetSkey')
-
-            xform = s_crypto.Rc4Skey(ckey)
-            self._tele_sock.addSockXform(xform)
+        synresp = self.syncjob(job, timeout=6)
 
         self._tele_sid = synresp.get('sess')
 
@@ -464,7 +410,7 @@ class Proxy(s_eventbus.EventBus):
 
         if events:
             job = self._txTeleJob('tele:on', events=events, name=self._tele_name)
-            self.sync( job )
+            self.syncjob( job )
 
     def _txTeleJob(self, msg, **msginfo):
         '''
@@ -484,7 +430,8 @@ class Proxy(s_eventbus.EventBus):
         '''
         msginfo['sid'] = self._tele_sid
         sock = self._getTeleSock()
-        sock.tx( (msg,msginfo) )
+        if sock != None:
+            sock.tx( (msg,msginfo) )
 
     def _onProxyFini(self):
 

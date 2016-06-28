@@ -2,6 +2,9 @@ from __future__ import absolute_import,unicode_literals
 
 import os
 import logging
+import threading
+
+from synapse.exc import *
 
 logger = logging.getLogger(__name__)
 

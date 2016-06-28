@@ -135,6 +135,7 @@ class SvcProxy:
         self.bytag = s_tags.ByTag()
 
         self.tagprox = {}
+        self.idenprox = {}
 
         [ self._addSvcTufo(svcfo) for svcfo in sbus.getSynSvcs() ]
 
@@ -154,6 +155,8 @@ class SvcProxy:
         self.byiden[iden] = svcfo
         self.byname[name] = svcfo
 
+        self.idenprox[iden] = IdenProxy(self,svcfo)
+
         self.bytag.put(iden,tags)
         self.bytag.put(iden,(name,))
 
@@ -164,6 +167,7 @@ class SvcProxy:
         name = svcfo[1].get('name',iden)
 
         self.bytag.pop(svcfo[0])
+        self.idenprox.pop(svcfo[0],None)
 
         self.byname.pop(name,None)
         self.byiden.pop(iden,None)
@@ -229,6 +233,9 @@ class SvcProxy:
         self.sbus._waitTeleJob(job, timeout=self.timeout)
         return s_async.jobret(job)
 
+    def getSynSvcByName(self, name):
+        return self.byname.get(name)
+
     def callByName(self, name, func, *args, **kwargs):
         '''
         Call a specific object on the service bus by name.
@@ -270,7 +277,10 @@ class SvcProxy:
             # a bit hackish...
             self.sbus._waitTeleJob(job, timeout=self.timeout)
             svcfo = self.byiden.get(iden)
-            yield svcfo,job
+            try:
+               yield svcfo,s_async.jobret(job)
+            except Exception as e:
+                logger.warning('callByTag (%s): %s() on %s %s', tag, func, iden, e)
 
     def getTagProxy(self, tag):
         '''
@@ -290,7 +300,7 @@ class SvcProxy:
             self.tagprox[tag] = prox
         return prox
 
-    def runSynSvc(self, name, item, tags=()):
+    def runSynSvc(self, name, item, tags=(), **props):
         '''
         Publish an object to the service bus with the given tags.
 
@@ -301,7 +311,7 @@ class SvcProxy:
             svcprox.runSynSvc('foo0', foo, tags=('foos.foo0',))
 
         '''
-        return runSynSvc(name, item, self.sbus, tags=tags)
+        return runSynSvc(name, item, self.sbus, tags=tags, **props)
 
 class SvcTagProxy:
     '''
@@ -326,20 +336,40 @@ class SvcTagMeth:
         self.tagprox = tagprox
 
     def __call__(self, *args, **kwargs):
-        res = 0
-        exc = None
+        for name,ret in self.tagprox._callSvcApi(self.name, *args, **kwargs):
+            yield ret
 
-        for name,job in self.tagprox._callSvcApi(self.name, *args, **kwargs):
-            try:
-                yield s_async.jobret(job)
-                res += 1
-            except Exception as e:
-                exc = e
-                #logger.warning('SvcTagMeth %s.%s: %s', name, self.name, e)
+# FIXME UNIFY WITH ABOVE WHEN BACKWARD BREAK IS OK
+class SvcBase:
 
-        # if they all failed, probably wanna raise... (user bug)
-        if exc != None and res == 0:
-            raise exc
+    def __init__(self, svcprox):
+        self.svcprox = svcprox
+
+    def _callSvcMeth(self, name, *args, **kwargs):
+        raise NoSuchImpl('_callSvcMethod')
+
+    def __getattr__(self, name):
+        item = SvcMeth(self,name)
+        setattr(self,name,item)
+        return item
+
+class SvcMeth:
+
+    def __init__(self, svcbase, name):
+        self.name = name
+        self.svcbase = svcbase
+
+    def __call__(self, *args, **kwargs):
+        return self.svcbase._callSvcMeth(self.name,*args,**kwargs)
+
+class IdenProxy(SvcBase):
+
+    def __init__(self, svcprox, svcfo):
+        self.svcfo = svcfo
+        SvcBase.__init__(self, svcprox)
+
+    def _callSvcMeth(self, name, *args, **kwargs):
+        return self.svcprox.callByIden(self.svcfo[0], name, *args, **kwargs)
 
 clsskip = set([object])
 def getClsNames(item):
@@ -356,7 +386,7 @@ def getClsNames(item):
     mro = [ c for c in mro if c not in clsskip ]
     return [ '%s.%s' % (c.__module__,c.__name__) for c in mro ]
 
-def runSynSvc(name, item, sbus, tags=()):
+def runSynSvc(name, item, sbus, tags=(), **props):
     '''
     Add an object as a synapse service.
 
@@ -383,11 +413,10 @@ def runSynSvc(name, item, sbus, tags=()):
 
     tags.append(name)
 
-    props = {}
-
     props['name'] = name
     props['tags'] = tags
     props['hostinfo'] = hostinfo
+    props['hostname'] = hostinfo.get('hostname')
 
     def onTeleSock(mesg):
         if not sbus.isfini:

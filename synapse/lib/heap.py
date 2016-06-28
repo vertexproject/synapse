@@ -65,7 +65,6 @@ class Heap(s_eventbus.EventBus):
                 heaphead += b'\x00' * (self.pagesize - rem)
 
             fd.write(heaphead)
-            #self.size = fd.tell()
 
             fd.flush()
 

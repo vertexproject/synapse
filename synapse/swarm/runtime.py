@@ -66,18 +66,17 @@ def lift(query,inst):
         raise Exception('lift() mode not supported: %s' % (mode,))
 
     callkw = {'limit':limit,'valu':valu}
+
     if mode == 'rows':
-        for svcfo,jobfo in query.callByTag(fromtag,'getRowsByProp',prop,**callkw):
-            for data in s_async.jobret(jobfo):
-                query.addData(data,svcfo=svcfo)
+        for svcfo,retval in query.callByTag(fromtag,'getRowsByProp',prop,**callkw):
+            [ query.addData(d,svcfo=svcfo) for d in retval ]
 
         return
 
     # TODO lift rows to issue ticks and then return in chunks for iden->tufo
 
-    for svcfo,jobfo in query.callByTag(fromtag,'getTufosByProp',prop,**callkw):
-        for data in s_async.jobret(jobfo):
-            query.addData(data,svcfo=svcfo)
+    for svcfo,retval in query.callByTag(fromtag,'getTufosByProp',prop,**callkw):
+        [ query.addData(d,svcfo=svcfo) for d in retval ]
 
 def opts(query,inst):
     '''
@@ -141,8 +140,8 @@ def join(query,inst):
 
             done.add(valu)
 
-        for svcfo,jobfo in query.callByTag(fromtag,'getTufosByProp',dstprop,valu=valu):
-            for tufo in s_async.jobret(jobfo):
+        for svcfo,retval in query.callByTag(fromtag,'getTufosByProp',dstprop,valu=valu):
+            for tufo in retval:
                 query.addData(tufo,svcfo=svcfo)
 
 def pivot(query,inst):
@@ -182,8 +181,8 @@ def pivot(query,inst):
         vals.add(valu)
 
     for valu in vals:
-        for svcfo,jobfo in query.callByTag(fromtag,'getTufosByProp',dstprop,valu=valu):
-            for tufo in s_async.jobret(jobfo):
+        for svcfo,retval in query.callByTag(fromtag,'getTufosByProp',dstprop,valu=valu):
+            for tufo in retval:
                 query.addData(tufo,svcfo=svcfo)
 
 def cant(query,inst):
@@ -198,7 +197,7 @@ def cant(query,inst):
         -foo:bar=10
 
         # long form syntax for the above
-        must("foo:bar",valu=10)
+        cant("foo:bar",valu=10)
 
     '''
     args = inst[1].get('args')

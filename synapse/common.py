@@ -2,6 +2,7 @@ from __future__ import absolute_import,unicode_literals
 
 import os
 import sys
+import json
 import time
 import msgpack
 import functools
@@ -44,7 +45,7 @@ def vertup(vstr):
     '''
     return tuple([ int(x) for x in vstr.split('.') ])
 
-def genfile(*paths):
+def genfile(*paths, over=False):
     '''
     Create or open ( for read/write ) a file path join.
     '''
@@ -52,7 +53,7 @@ def genfile(*paths):
     path = os.path.expanduser(path)
 
     path = os.path.abspath(path)
-    if not os.path.isfile(path):
+    if not os.path.isfile(path) or over:
         return open(path,'w+b')
     return open(path,'r+b')
 
@@ -65,6 +66,18 @@ def gendir(*paths,**opts):
     if not os.path.isdir(path):
         os.makedirs(path,mode=mode)
     return path
+
+def jsload(*paths):
+    with genfile(*paths) as fd:
+        byts = fd.read()
+        if not byts:
+            return None
+
+        return json.loads(byts.decode('utf8'))
+
+def jssave(js,*paths):
+    with genfile(*paths, over=True) as fd:
+        fd.write( json.dumps(js).encode('utf8') )
 
 def verstr(vtup):
     '''

@@ -88,34 +88,10 @@ class TelePathTest(SynTest):
         job = foo.call('bar', 10, 20)
         self.assertIsNotNone( job )
 
-        self.assertEqual( foo.sync(job), 30 )
+        self.assertEqual( foo.syncjob(job), 30 )
 
         foo.fini()
         dmon.fini()
-
-    def test_telepath_pki(self):
-        env = self.getFooEnv(url='tcp://127.0.0.1:0/foo?pki=1')
-        port = env.link[1].get('port')
-
-        pki = env.dmon.pki # steal his...
-
-        user = pki.genUserToken('visi',bits=512)
-        host = pki.genHostToken('127.0.0.1',bits=512)
-        root = pki.genUserToken('root', bits=512, root=True)
-
-        pki.genTokenCert(user, signas=root[0])
-        pki.genTokenCert(host, signas=root[0])
-
-        prox = s_telepath.openurl('tcp://127.0.0.1/foo?pki=1', port=port, pkistor=pki)
-        self.assertEqual( prox.bar(10,20), 30 )
-
-        env.fini()
-
-    def test_telepath_pki_nocert(self):
-        env = self.getFooEnv(url='tcp://127.0.0.1:0/foo?pki=1')
-        port = env.link[1].get('port')
-        self.assertRaises( s_async.JobErr, s_telepath.openurl, 'tcp://127.0.0.1/foo', port=port )
-        env.fini()
 
     def test_telepath_push(self):
         env = self.getFooEnv()
@@ -154,7 +130,7 @@ class TelePathTest(SynTest):
         # carry out a cross item task
         job = foo.callx( 'baz', ('faz', (30,), {'y':40}), )
 
-        self.assertEqual( foo.sync(job), '30:40' )
+        self.assertEqual( foo.syncjob(job), '30:40' )
 
     def test_telepath_fakesync(self):
         env = self.getFooEnv()
