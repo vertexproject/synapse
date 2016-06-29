@@ -359,8 +359,18 @@ class CortexTest(SynTest):
 
         self.assertEqual( 0, len(core.getTufosByProp('woot:bar',10)) )
         self.assertEqual( 0, len(core.getTufosByProp('woot:bar',20)) )
-        
+
         core.fini()
+
+    def test_cortex_savefile(self):
+        for savefile in ['test_file.tmp', './test_file.tmp', 'test_save_dir/test_file.tmp']:
+            core0 = s_cortex.openurl('ram:///?savefile=%s' % savefile)
+            self.assertTrue(os.path.isfile(savefile))
+            savedir = os.path.dirname(savefile)
+            os.unlink(savefile)
+            if savedir is not None and savedir not in ['', '.', '..']:
+                self.assertTrue(os.path.isdir(savedir))
+                os.rmdir(savedir)
 
     def test_cortex_savefd(self):
         fd = s_compat.BytesIO()
