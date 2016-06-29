@@ -35,6 +35,21 @@ class SwarmSyntaxTest(SynTest):
         self.assertIsNone( kwargs.get('limit') )
 
         ###########################################################
+        insts = s_syntax.parse('foo:bar &foo:bar=baz:quux')
+        self.assertEqual( insts, [
+            ('lift', {'args': ['foo:bar'], 'kwlist': []}),
+            ('join', {'args': ['foo:bar', 'baz:quux'], 'kwlist': []})
+        ])
+
+        ###########################################################
+        # FIXME: Handle two shorthand lifts in a row
+        # insts = s_syntax.parse('foo:bar baz:quux')
+        # self.assertEqual( insts, [
+        #     ('lift', {'args': ['foo:bar'], 'kwlist': []}),
+        #     ('lift', {'args': ['baz:quux'], 'kwlist': []})
+        # ])
+
+        ###########################################################
         insts = s_syntax.parse('foo:bar=10')
         self.assertEqual( insts[0][0], 'lift' )
         self.assertEqual( insts[0][1]['args'][0], 'foo:bar' )

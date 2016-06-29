@@ -246,6 +246,10 @@ def parse_ques(text,off=0,trim=True):
             ques['valu'],off = parse_literal(text,off+1,trim=True)
             break
 
+        if text[off] in ('+','-','^','&','%'):
+            # FIXME: This fails to handle two shorthand lifts in a row
+            break
+
         raise Exception('Invalid Lift Macro At: %d' % (off,))
 
     return ques,off
@@ -374,7 +378,7 @@ def parse(text, off=0):
         name,off = nom(text,off,varset)
         _,off = nom(text,off,whites)
 
-        if len(text) == off:
+        if len(text) == off or text[off] in ('+','-','^','&','%'):
             inst,off = parse_lift(text,origoff)
             ret.append(inst)
             continue
