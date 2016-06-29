@@ -90,8 +90,10 @@ def openlink(link):
             savedir = os.path.dirname(savefile)
             if savedir is not None and savedir not in ['', '.', '..']:
                 # Create directory if it doesn't exist.
-                if not os.path.exists(savedir):
+                try:
                     os.makedirs(savedir)
+                except:
+                    pass
             savefd = open(savefile,'w+b')
         else:
             savefd = open(savefile,'r+b')
