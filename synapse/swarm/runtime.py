@@ -1,3 +1,4 @@
+import re
 import logging
 
 import synapse.async as s_async
@@ -90,7 +91,7 @@ def lift(query,inst):
             [ query.addData(d,svcfo=svcfo) for d in retval ]
         return
 
-    raise Exception('lift() Unknown Cmp: %s' % (cmpr,))
+    raise Exception('lift() unsupported cmpr: %s' % (cmpr,))
 
 def opts(query,inst):
     '''
@@ -199,33 +200,39 @@ def pivot(query,inst):
             for tufo in retval:
                 query.addData(tufo,svcfo=svcfo)
 
-def cmpeq(tufo,prop,valu):
+def cmpeq(query,tufo,prop,valu):
     tval = tufo[1].get(prop)
     return tval == valu
 
-def cmpge(tufo,prop,valu):
+def cmpge(query,tufo,prop,valu):
     tval = tufo[1].get(prop)
     if tval == None:
         return False
     return tval >= valu
 
-def cmple(tufo,prop,valu):
+def cmple(query,tufo,prop,valu):
     tval = tufo[1].get(prop)
     if tval == None:
         return False
     return tval <= valu
 
+def cmpre(query,tufo,prop,ptrn):
+    valu = tufo[1].get(prop)
+    reob = query.getRegexCache(ptrn)
+    return reob.search(valu) != None
+
 tufocmps = {
     'eq':cmpeq,
     'le':cmple,
     'ge':cmpge,
+    're':cmpre,
 }
 
-def tufocmp(cmpr,tufo,prop,valu):
+def tufocmp(query,cmpr,tufo,prop,valu):
     func = tufocmps.get(cmpr)
     if func == None:
         raise Exception('Unknown Cmp: %s' % (cmpr,))
-    return func(tufo,prop,valu)
+    return func(query,tufo,prop,valu)
 
 def cant(query,inst):
     '''
@@ -254,7 +261,7 @@ def cant(query,inst):
 
     if query.mode() == 'tufo':
         tufos = query.takeData()
-        [ query.addData(t) for t in tufos if not tufocmp(cmpr,t,prop,valu) ]
+        [ query.addData(t) for t in tufos if not tufocmp(query,cmpr,t,prop,valu) ]
         return
 
 def must(query,inst):
@@ -277,11 +284,11 @@ def must(query,inst):
 
     prop = args[0]
     valu = kwargs.get('valu')
-    cmpr = kwargs.get('cmpr','eq')
+    cmpr = kwargs.get('cmp','eq')
 
     if query.mode() == 'tufo':
         tufos = query.takeData()
-        [ query.addData(t) for t in tufos if tufocmp(cmpr,t,prop,valu) ]
+        [ query.addData(t) for t in tufos if tufocmp(query,cmpr,t,prop,valu) ]
         return
 
 class Query(s_eventbus.EventBus):
@@ -299,6 +306,7 @@ class Query(s_eventbus.EventBus):
         self.insts = s_syntax.parse(text)
 
         self.touched = 0
+        self.recache = {}
 
         self.maxtime = None
         self.maxtouch = None
@@ -319,6 +327,13 @@ class Query(s_eventbus.EventBus):
             'mode':'tufo',
 
         }
+
+    def getRegexCache(self, ptrn):
+        ret = self.recache.get(ptrn)
+        if ret == None:
+            ret = re.compile(ptrn)
+            self.recache[ptrn] = ret
+        return ret
 
     def allowForm(self, form):
         if self.user == None:

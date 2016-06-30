@@ -189,3 +189,21 @@ class SwarmRunTest(SynTest):
         self.assertEqual( len(data), 1 )
 
         env.fini()
+
+    def test_swarm_runtime_regex(self):
+        env = self.getSwarmEnv()
+        answ = env.runt.ask('foo:bar +foo:bar~="^l"')
+
+        data = answ.get('data')
+        self.assertEqual( data[0][1].get('foo:bar'), 'lol')
+
+        answ = env.runt.ask('foo:bar +foo:bar~="^Q"')
+        self.assertEqual( len(answ.get('data')), 0)
+
+        answ = env.runt.ask('foo:bar +foo:bar~="^Q"')
+        self.assertEqual( len(answ.get('data')), 0)
+
+        answ = env.runt.ask('foo:bar -foo:bar~="^[a-z]{3}$"')
+        self.assertEqual( len(answ.get('data')), 0)
+
+        env.fini()

@@ -92,3 +92,10 @@ class SwarmSyntaxTest(SynTest):
             ('lift',{'args':['foo:bar'],'kwlist':[('cmp','eq')]}),
             ('lift',{'args':['baz:faz'],'kwlist':[('cmp','eq')]}),
         ])
+
+    def test_swarm_syntax_regex(self):
+        insts = s_syntax.parse('+foo:bar~="hehe" -foo:bar~="hoho"')
+        self.assertEqual( insts, [
+            ('must',{'args':['foo:bar'],'kwlist':[('cmp','re'),('valu','hehe')]}),
+            ('cant',{'args':['foo:bar'],'kwlist':[('cmp','re'),('valu','hoho')]}),
+        ])

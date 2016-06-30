@@ -244,18 +244,25 @@ def parse_ques(text,off=0,trim=True):
             ques['when'],off = parse_when(text,off+1,trim=True)
             continue
 
-        if text[off:].startswith('<='):
+        if text[off] == '=':
+            ques['valu'],off = parse_literal(text,off+1,trim=True)
+            break
+
+        textpart = text[off:]
+
+        if textpart.startswith('<='):
             ques['cmp'] = 'le'
             ques['valu'],off = parse_literal(text,off+2,trim=True)
             break
 
-        if text[off:].startswith('>='):
+        if textpart.startswith('>='):
             ques['cmp'] = 'ge'
             ques['valu'],off = parse_literal(text,off+2,trim=True)
             break
 
-        if text[off] == '=':
-            ques['valu'],off = parse_literal(text,off+1,trim=True)
+        if textpart.startswith('~='):
+            ques['cmp'] = 're'
+            ques['valu'],off = parse_literal(text,off+2,trim=True)
             break
 
         break
@@ -400,5 +407,7 @@ def parse(text, off=0):
         # only macro lift syntax remains
         inst,off = parse_lift(text,origoff)
         ret.append(inst)
+
+    [ i[1]['kwlist'].sort() for i in ret ]
 
     return ret
