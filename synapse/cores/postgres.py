@@ -11,6 +11,7 @@ istable = '''
 class Cortex(s_c_sqlite.Cortex):
 
     dbvar = '%s'
+    dblim = None
 
     def _initDbConn(self):
         import psycopg2

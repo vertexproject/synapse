@@ -178,7 +178,13 @@ class CortexTest(SynTest):
         core.addRows( rows )
 
         self.assertEqual( core.getSizeBy('range','rg',(0,20)), 1 )
-        self.assertEqual( len( core.getRowsBy('range','rg',(0,20))), 1 )
+        self.assertEqual( core.getRowsBy('range','rg',(0,20))[0][2], 10 )
+
+        self.assertEqual( core.getSizeBy('ge','rg',20), 1 )
+        self.assertEqual( core.getRowsBy('ge','rg',20)[0][2], 30)
+
+        self.assertEqual( core.getSizeBy('le','rg',20), 1 )
+        self.assertEqual( core.getRowsBy('le','rg',20)[0][2], 10 )
 
     def runjson(self, core):
 
@@ -573,3 +579,14 @@ class CortexTest(SynTest):
         self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
 
         core.fini()
+
+    def test_cortex_dict(self):
+        core = s_cortex.openurl('ram://')
+        core.addTufoForm('foo:bar', ptype='int')
+        core.addTufoForm('baz:faz', ptype='int', defval=22)
+
+        modl = core.getModelDict()
+        self.assertEqual( modl['forms'][-2:], ['foo:bar','baz:faz'] )
+        self.assertEqual( modl['props']['foo:bar'][1]['ptype'], 'int')
+        self.assertEqual( modl['props']['baz:faz'][1]['defval'], 22)
+    

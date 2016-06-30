@@ -54,6 +54,7 @@ def lift(query,inst):
 
     prop = args[0]
 
+    cmpr = kwargs.pop('cmp','eq')
     valu = kwargs.pop('valu',None)
     limit = kwargs.pop('limit',None)
     fromtag = kwargs.get('from',deftag)
@@ -73,10 +74,23 @@ def lift(query,inst):
 
         return
 
-    # TODO lift rows to issue ticks and then return in chunks for iden->tufo
+    if cmpr == 'eq':
+        # TODO lift rows to issue ticks and then return in chunks for iden->tufo
+        for svcfo,retval in query.callByTag(fromtag,'getTufosByProp',prop,**callkw):
+            [ query.addData(d,svcfo=svcfo) for d in retval ]
+        return
 
-    for svcfo,retval in query.callByTag(fromtag,'getTufosByProp',prop,**callkw):
-        [ query.addData(d,svcfo=svcfo) for d in retval ]
+    if cmpr == 'ge':
+        for svcfo,retval in query.callByTag(fromtag,'getTufosBy','ge',prop,**callkw):
+            [ query.addData(d,svcfo=svcfo) for d in retval ]
+        return
+
+    if cmpr == 'le':
+        for svcfo,retval in query.callByTag(fromtag,'getTufosBy','le',prop,**callkw):
+            [ query.addData(d,svcfo=svcfo) for d in retval ]
+        return
+
+    raise Exception('lift() Unknown Cmp: %s' % (cmpr,))
 
 def opts(query,inst):
     '''
@@ -185,6 +199,34 @@ def pivot(query,inst):
             for tufo in retval:
                 query.addData(tufo,svcfo=svcfo)
 
+def cmpeq(tufo,prop,valu):
+    tval = tufo[1].get(prop)
+    return tval == valu
+
+def cmpge(tufo,prop,valu):
+    tval = tufo[1].get(prop)
+    if tval == None:
+        return False
+    return tval >= valu
+
+def cmple(tufo,prop,valu):
+    tval = tufo[1].get(prop)
+    if tval == None:
+        return False
+    return tval <= valu
+
+tufocmps = {
+    'eq':cmpeq,
+    'le':cmple,
+    'ge':cmpge,
+}
+
+def tufocmp(cmpr,tufo,prop,valu):
+    func = tufocmps.get(cmpr)
+    if func == None:
+        raise Exception('Unknown Cmp: %s' % (cmpr,))
+    return func(tufo,prop,valu)
+
 def cant(query,inst):
     '''
 
@@ -208,19 +250,12 @@ def cant(query,inst):
 
     prop = args[0]
     valu = kwargs.get('valu')
+    cmpr = kwargs.pop('cmp','eq')
 
     if query.mode() == 'tufo':
-        args = inst[1].get('args')
-        kwargs = dict(inst[1].get('kwlist'))
-
-        for tufo in query.takeData():
-            if valu != None and tufo[1].get(prop) == valu:
-                continue
-
-            if valu == None and tufo[1].get(prop) != None:
-                continue
-
-            query.addData(tufo)
+        tufos = query.takeData()
+        [ query.addData(t) for t in tufos if not tufocmp(cmpr,t,prop,valu) ]
+        return
 
 def must(query,inst):
     '''
@@ -242,19 +277,12 @@ def must(query,inst):
 
     prop = args[0]
     valu = kwargs.get('valu')
+    cmpr = kwargs.get('cmpr','eq')
 
     if query.mode() == 'tufo':
-        args = inst[1].get('args')
-        kwargs = dict(inst[1].get('kwlist'))
-
-        for tufo in query.takeData():
-            if valu != None and tufo[1].get(prop) != valu:
-                continue
-
-            if valu == None and tufo[1].get(prop) == None:
-                continue
-
-            query.addData(tufo)
+        tufos = query.takeData()
+        [ query.addData(t) for t in tufos if tufocmp(cmpr,t,prop,valu) ]
+        return
 
 class Query(s_eventbus.EventBus):
 

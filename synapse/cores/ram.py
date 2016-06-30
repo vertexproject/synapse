@@ -8,6 +8,12 @@ class Cortex(common.Cortex):
         self.rowsbyprop = collections.defaultdict(set)
         self.rowsbyvalu = collections.defaultdict(set)
 
+        self.initSizeBy('ge',self._sizeByGe)
+        self.initRowsBy('ge',self._rowsByGe)
+
+        self.initSizeBy('le',self._sizeByLe)
+        self.initRowsBy('le',self._rowsByLe)
+
         self.initSizeBy('range',self._sizeByRange)
         self.initRowsBy('range',self._rowsByRange)
 
@@ -25,6 +31,18 @@ class Cortex(common.Cortex):
         if limit != None:
             ret = ret[:limit]
         return ret
+
+    def _sizeByGe(self, prop, valu, limit=None):
+        return len([ r for r in self.rowsbyprop.get(prop,()) if r[2] >= valu ])
+
+    def _rowsByGe(self, prop, valu, limit=None):
+        return [ r for r in self.rowsbyprop.get(prop,()) if r[2] >= valu ][:limit]
+
+    def _sizeByLe(self, prop, valu, limit=None):
+        return len([ r for r in self.rowsbyprop.get(prop,()) if r[2] <= valu ])
+
+    def _rowsByLe(self, prop, valu, limit=None):
+        return [ r for r in self.rowsbyprop.get(prop,()) if r[2] <= valu ][:limit]
 
     def _addRows(self, rows):
         for row in rows:

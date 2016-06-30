@@ -158,3 +158,34 @@ class SwarmRunTest(SynTest):
         self.assertEqual( len(data), 2 )
 
         tenv.fini()
+
+    def test_swarm_runtime_gele(self):
+        env = self.getSwarmEnv()
+        answ = env.runt.ask('zzz:woot>=11')
+
+        data = answ.get('data')
+        self.assertEqual( len(data), 1 )
+        self.assertEqual( data[0][1].get('zzz:woot'), 12 )
+
+        answ = env.runt.ask('zzz:woot>=10')
+
+        data = answ.get('data')
+        self.assertEqual( len(data), 2 )
+
+        answ = env.runt.ask('zzz:woot<=11')
+
+        data = answ.get('data')
+        self.assertEqual( len(data), 1 )
+        self.assertEqual( data[0][1].get('zzz:woot'), 10 )
+
+        answ = env.runt.ask('zzz:woot<=13')
+
+        data = answ.get('data')
+        self.assertEqual( len(data), 2 )
+
+        answ = env.runt.ask('zzz:woot -zzz:woot<=11')
+
+        data = answ.get('data')
+        self.assertEqual( len(data), 1 )
+
+        env.fini()

@@ -65,3 +65,30 @@ class SwarmSyntaxTest(SynTest):
         insts = s_syntax.parse('baz.faz/foo:bar@2015#30="woot"')
         kwargs = dict(insts[0][1].get('kwlist'))
         self.assertEqual( kwargs.get('when'), ('2015',None))
+
+    def test_swarm_syntax_gele(self):
+        insts = s_syntax.parse('foo:bar>=10')
+        kwargs = dict(insts[0][1].get('kwlist'))
+
+        self.assertEqual( kwargs.get('valu'), 10)
+        self.assertEqual( kwargs.get('cmp'), 'ge')
+
+        insts = s_syntax.parse('foo:bar<=10')
+        kwargs = dict(insts[0][1].get('kwlist'))
+
+        self.assertEqual( kwargs.get('valu'), 10)
+        self.assertEqual( kwargs.get('cmp'), 'le')
+
+    def test_swarm_syntax_liftjoin(self):
+        insts = s_syntax.parse('foo:bar &foo:bar=baz:quux')
+        self.assertEqual( insts, [
+            ('lift',{'args':['foo:bar'],'kwlist':[('cmp','eq')]}),
+            ('join',{'args':['foo:bar','baz:quux'],'kwlist':[]}),
+        ])
+
+    def test_swarm_syntax_liftlift(self):
+        insts = s_syntax.parse('foo:bar baz:faz')
+        self.assertEqual( insts, [
+            ('lift',{'args':['foo:bar'],'kwlist':[('cmp','eq')]}),
+            ('lift',{'args':['baz:faz'],'kwlist':[('cmp','eq')]}),
+        ])

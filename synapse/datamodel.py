@@ -95,6 +95,19 @@ class DataModel(s_types.TypeLib):
 
         self.globs = []
         self.cache = {} # for globs
+        self.model = {
+            'ver':(0,0,0),
+            'enums':{},
+            'props':{},
+            'globs':{},
+            'forms':[],
+        }
+
+    def getModelDict(self):
+        '''
+        Returns a dictionary which represents the data model.
+        '''
+        return dict(self.model)
 
     def addTufoForm(self, form, **info):
         '''
@@ -112,6 +125,7 @@ class DataModel(s_types.TypeLib):
         self.forms.add(form)
 
         info['form'] = form
+        self.model['forms'].append(form)
         return self.addPropDef(form, **info)
 
     def getTufoForms(self):
@@ -173,6 +187,7 @@ class DataModel(s_types.TypeLib):
             self.reqDataType(ptype)
 
         self.props[ prop ] = pdef
+        self.model['props'][prop] = pdef
 
         self._addSubRefs(pdef)
 
@@ -202,6 +217,7 @@ class DataModel(s_types.TypeLib):
         Add a property glob to the data model.
         '''
         self.globs.append( (glob,info) )
+        self.model['globs'][glob] = info
 
     def getSubProps(self, prop):
         '''

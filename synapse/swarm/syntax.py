@@ -53,7 +53,7 @@ def parse_int(text,off,trim=True):
     try:
         return int(numstr,0),off
     except Exception as e:
-        Exception('Expected Literal At: %d (got: %s)' % (text[off:off+10],))
+        raise Exception('Expected Literal At: %d (got: %s)' % (off,text[off:off+10],))
 
 def parse_list(text,off,trim=True):
     if text[off] != '(':
@@ -218,6 +218,8 @@ def parse_ques(text,off=0,trim=True):
     ques = {}
 
     name,off = nom(text,off,varset,trim=True)
+
+    ques['cmp'] = 'eq'
     ques['prop'] = name
 
     if len(text) == off:
@@ -242,11 +244,21 @@ def parse_ques(text,off=0,trim=True):
             ques['when'],off = parse_when(text,off+1,trim=True)
             continue
 
+        if text[off:].startswith('<='):
+            ques['cmp'] = 'le'
+            ques['valu'],off = parse_literal(text,off+2,trim=True)
+            break
+
+        if text[off:].startswith('>='):
+            ques['cmp'] = 'ge'
+            ques['valu'],off = parse_literal(text,off+2,trim=True)
+            break
+
         if text[off] == '=':
             ques['valu'],off = parse_literal(text,off+1,trim=True)
             break
 
-        raise Exception('Invalid Lift Macro At: %d' % (off,))
+        break
 
     return ques,off
 
@@ -379,18 +391,14 @@ def parse(text, off=0):
             ret.append(inst)
             continue
 
+        # standard foo() oper syntax
         if text[off] == '(':
             inst,off = parse_oper(text,origoff)
             ret.append(inst)
             continue
 
-        # for simple foo=bar ( or blah/foo@2015,2016#100*range=(20,30) )
-        if text[off] in ('/','@','#','*','='):
-            inst,off = parse_lift(text,origoff)
-            ret.append(inst)
-            continue
-
-        raise Exception('Bad Syntax At: %d' % (off,))
-        # Last ditch... try some whitespace sep based regexes?
+        # only macro lift syntax remains
+        inst,off = parse_lift(text,origoff)
+        ret.append(inst)
 
     return ret
