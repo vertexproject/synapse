@@ -167,3 +167,23 @@ class DataTypesTest(SynTest):
         self.eq( tlib.getTypeParse('syn:prop','BAR'), 'bar' )
         self.eq( tlib.getTypeNorm('syn:prop','foo:BAR'), 'foo:bar' )
         self.eq( tlib.getTypeParse('syn:prop','foo:BAR'), 'foo:bar' )
+
+    def test_datatype_bool(self):
+        tlib = s_types.TypeLib()
+        self.assertTrue( tlib.getTypeParse('bool','1') )
+        self.assertTrue( tlib.getTypeParse('bool','t') )
+        self.assertTrue( tlib.getTypeParse('bool','y') )
+        self.assertTrue( tlib.getTypeParse('bool','TrUe') )
+        self.assertTrue( tlib.getTypeParse('bool','yEs') )
+
+        self.assertFalse( tlib.getTypeParse('bool','0') )
+        self.assertFalse( tlib.getTypeParse('bool','f') )
+        self.assertFalse( tlib.getTypeParse('bool','n') )
+        self.assertFalse( tlib.getTypeParse('bool','FaLsE') )
+        self.assertFalse( tlib.getTypeParse('bool','nO') )
+
+        self.assertEqual( tlib.getTypeRepr('bool',1), 'True' )
+        self.assertEqual( tlib.getTypeRepr('bool',0), 'False' )
+
+        self.assertEqual( tlib.getTypeNorm('bool',9), 1)
+        self.assertEqual( tlib.getTypeNorm('bool',0), 0)

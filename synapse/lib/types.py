@@ -104,6 +104,24 @@ class IntType(DataType):
 
         return self.norm(valu)
 
+class BoolType(DataType):
+
+    def norm(self, valu):
+        return int(bool(valu))
+
+    def repr(self, valu):
+        return repr(bool(valu))
+
+    def parse(self, text):
+        text = text.lower()
+        if text in ('true','t','y','yes','1'):
+            return 1
+
+        if text in ('false','f','n','no','0'):
+            return 0
+
+        self._raiseBadValu(text)
+
 def ipv4str(valu):
     byts = struct.pack('>I',valu)
     return socket.inet_ntoa(byts)
@@ -333,13 +351,13 @@ class TypeLib:
 
         self.addType(IntType(self,'int'))
         self.addType(StrType(self,'str'))
+        self.addType(BoolType(self,'bool'))
 
         self.addSubType('syn:tag','str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
         self.addSubType('syn:prop','str', regex=r'^([\w]+:)*[\w]+$', lower=1)
         self.addSubType('syn:type','str', regex=r'^([\w]+:)*[\w]+$', lower=1)
 
         self.addSubType('text', 'str')
-        self.addSubType('bool', 'int', min=0, max=1)
 
         self.addSubType('str:lwr', 'str', lower=1)
 
