@@ -103,8 +103,8 @@ class DataModelTest(SynTest):
         model.addTufoForm('foo')
         model.addTufoProp('foo','bar',ptype='bool', defval=0)
 
-        self.assertEqual( model.getPropRepr('foo:bar', 1), '1')
-        self.assertEqual( model.getPropRepr('foo:bar', 0), '0')
+        self.assertEqual( model.getPropRepr('foo:bar', 1), 'True')
+        self.assertEqual( model.getPropRepr('foo:bar', 0), 'False')
 
         self.assertEqual( model.getPropNorm('foo:bar', True) , 1 )
         self.assertEqual( model.getPropNorm('foo:bar', False) , 0 )
