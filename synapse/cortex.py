@@ -25,6 +25,7 @@ import synapse.cores.ram
 import synapse.cores.sqlite
 import synapse.cores.postgres
 
+from synapse.common import *
 from synapse.eventbus import EventBus
 
 class NoSuchName(Exception):pass

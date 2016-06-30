@@ -1,9 +1,10 @@
 import time
 import sqlite3
 
-from synapse.compat import queue
-
+import synapse.compat as s_compat
 import synapse.cores.common as common
+
+from synapse.compat import queue
 
 int_t = type(0)
 str_t = type('visi')
@@ -535,7 +536,7 @@ class Cortex(common.Cortex):
         return self._foldTypeCols(rows)
 
     def _setRowsByIdProp(self, ident, prop, valu):
-        if type(valu) == int:
+        if type(valu) in s_compat.numtypes:
             count = self.update( self._q_uprows_by_id_prop_int, (valu,ident,prop) )
         else:
             count = self.update( self._q_uprows_by_id_prop_str, (valu,ident,prop) )
