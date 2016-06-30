@@ -86,10 +86,7 @@ def openlink(link):
 
     savefile = link[1].get('savefile')
     if savefile != None:
-        if not os.path.isfile(savefile):
-            savefd = open(savefile,'w+b')
-        else:
-            savefd = open(savefile,'r+b')
+        savefd = genfile(savefile)
         core.setSaveFd(savefd,fini=True)
 
     return core
