@@ -55,6 +55,7 @@ def genfile(*paths):
     Create or open ( for read/write ) a file path join.
     '''
     path = genpath(*paths)
+    gendir( os.path.dirname(path) )
     if not os.path.isfile(path):
         return open(path,'w+b')
     return open(path,'r+b')
