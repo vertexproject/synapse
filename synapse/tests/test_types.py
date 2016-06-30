@@ -170,17 +170,21 @@ class DataTypesTest(SynTest):
 
     def test_datatype_bool(self):
         tlib = s_types.TypeLib()
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'bool', 'bogus' )
+
         self.assertTrue( tlib.getTypeParse('bool','1') )
         self.assertTrue( tlib.getTypeParse('bool','t') )
         self.assertTrue( tlib.getTypeParse('bool','y') )
         self.assertTrue( tlib.getTypeParse('bool','TrUe') )
         self.assertTrue( tlib.getTypeParse('bool','yEs') )
+        self.assertTrue( tlib.getTypeParse('bool','ON') )
 
         self.assertFalse( tlib.getTypeParse('bool','0') )
         self.assertFalse( tlib.getTypeParse('bool','f') )
         self.assertFalse( tlib.getTypeParse('bool','n') )
         self.assertFalse( tlib.getTypeParse('bool','FaLsE') )
         self.assertFalse( tlib.getTypeParse('bool','nO') )
+        self.assertFalse( tlib.getTypeParse('bool','OFF') )
 
         self.assertEqual( tlib.getTypeRepr('bool',1), 'True' )
         self.assertEqual( tlib.getTypeRepr('bool',0), 'False' )

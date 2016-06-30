@@ -1,5 +1,6 @@
 from __future__ import absolute_import,unicode_literals
 
+from distutils.util import strtobool
 import re
 import time
 import socket
@@ -113,14 +114,10 @@ class BoolType(DataType):
         return repr(bool(valu))
 
     def parse(self, text):
-        text = text.lower()
-        if text in ('true','t','y','yes','1'):
-            return 1
-
-        if text in ('false','f','n','no','0'):
-            return 0
-
-        self._raiseBadValu(text)
+        try:
+            return strtobool(text)
+        except ValueError:
+            self._raiseBadValu(text)
 
 def ipv4str(valu):
     byts = struct.pack('>I',valu)
