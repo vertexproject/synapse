@@ -35,6 +35,7 @@ class QueryLimitTouch(QueryKilled):pass
 
 deftag = 'class.synapse.cores.common.Cortex'
 
+
 class Query(s_eventbus.EventBus):
 
     def __init__(self, runt, insts, user=None, data=()):
@@ -167,6 +168,9 @@ class Query(s_eventbus.EventBus):
 
     def data(self):
         return self.results.get('data')
+
+    def filter(self, func):
+        self.results['data'] = [tufo for tufo in self.data() if func(tufo)]
 
     def take(self):
         '''

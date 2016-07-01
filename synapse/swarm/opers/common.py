@@ -40,10 +40,10 @@ class CmpOper(Oper):
         self.cmpfunc = self.getCmpFunc()
 
     def _oper_must(self):
-        [ self.query.add(t) for t in self.query.take() if self.cmpfunc(t) ]
+        self.query.filter(lambda t: self.cmpfunc(t))
 
     def _oper_cant(self):
-        [ self.query.add(t) for t in self.query.take() if not self.cmpfunc(t) ]
+        self.query.filter(lambda t: not self.cmpfunc(t))
 
     def getCmpFunc(self):
         '''
