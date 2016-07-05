@@ -906,13 +906,14 @@ class Cortex(EventBus,DataModel):
         iden = tufo[0]
         props = s_tags.getTufoSubs(tufo,tag)
         if props:
-            [ self.delRowsByIdProp(iden,prop) for prop in props ]
-            [ tufo[1].pop(p) for p in props ]
+            if any(p in tufo[1] for p in props):
+                [ self.delRowsByIdProp(iden,prop) for prop in props ]
+                [ tufo[1].pop(p) for p in props if p in tufo[1]]
 
-            form = tufo[1].get('tufo:form')
-            valu = tufo[1].get(form)
+                form = tufo[1].get('tufo:form')
+                valu = tufo[1].get(form)
 
-            self.fire('tufo:tag:del', tufo=tufo, tag=tag)
+                self.fire('tufo:tag:del', tufo=tufo, tag=tag)
 
         return tufo
 
@@ -1372,7 +1373,7 @@ class Cortex(EventBus,DataModel):
             core.setTufoProp(tufo, 'woot', 'hehe')
 
         '''
-        self.setTufoProps(tufo, **{prop:valu})
+        tufo = self.setTufoProps(tufo, **{prop:valu})
         return tufo
 
     def incTufoProp(self, tufo, prop, incval=1):
@@ -1391,20 +1392,21 @@ class Cortex(EventBus,DataModel):
         iden = tufo[0]
         form = tufo[1].get('tufo:form')
 
-        prop = '%s:%s' % (form,prop)
+        form_prop = '%s:%s' % (form,prop)
 
         with self.inclock:
-            rows = self._getRowsByIdProp(iden,prop)
+            rows = self._getRowsByIdProp(iden,form_prop)
             if len(rows) == 0:
-                raise NoSuchTufo(repr(tufo))
+                tufo = self.setTufoProp(tufo, prop, incval)
+                return tufo
 
             oldv = rows[0][2]
             valu = oldv + incval
 
-            self._setRowsByIdProp(iden,prop,valu)
+            self._setRowsByIdProp(iden,form_prop,valu)
 
-            tufo[1][prop] = valu
-            self.fire('tufo:set:%s' % (prop,), tufo=tufo, prop=prop, valu=valu, oldv=oldv)
+            tufo[1][form_prop] = valu
+            self.fire('tufo:set:%s' % (prop,), tufo=tufo, prop=form_prop, valu=valu, oldv=oldv)
 
         return tufo
 
@@ -1504,4 +1506,3 @@ class Cortex(EventBus,DataModel):
 
     def _calcStatAll(self, rows):
         return all([ r[2] for r in rows ])
-
