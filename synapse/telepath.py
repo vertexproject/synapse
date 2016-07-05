@@ -217,6 +217,9 @@ class Proxy(s_eventbus.EventBus):
         job = self.call('fire', name, **info)
         return self.syncjob(job)
 
+    def redist(self, event):
+        return self.fire(event[0], **event[1])
+
     def call(self, name, *args, **kwargs):
         '''
         Call a shared method as a job.
