@@ -36,9 +36,15 @@ def getTufoSubs(tufo, tag):
     '''
     Return a list of tufo props for the given tag (and down).
     '''
+    props = []
     form = tufo[1].get('tufo:form')
+
+    prop = '*|%s|%s' % (form,tag)
+    if tufo[1].get(prop):
+        props.append(prop)
+
     pref = '*|%s|%s.' % (form,tag)
-    props = [ '*|%s|%s' % (form,tag) ]
+
     props.extend([ p for p in tufo[1].keys() if p.startswith(pref) ])
     return props
 

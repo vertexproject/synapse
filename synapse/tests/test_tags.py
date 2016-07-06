@@ -59,3 +59,7 @@ class TagTest(SynTest):
 
         vals = tuple( sorted( bytag.get('foos') ) )
         self.assertEqual( vals, ('foo1',) )
+
+    def test_tags_subs(self):
+        tufo = ('lolz',{'tufo:form':'woot'})
+        self.assertFalse( s_tags.getTufoSubs(tufo,'mytag') )
