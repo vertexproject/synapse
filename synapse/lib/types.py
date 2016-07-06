@@ -114,10 +114,10 @@ class BoolType(DataType):
 
     def parse(self, text):
         text = text.lower()
-        if text in ('true','t','y','yes','1'):
+        if text in ('true','t','y','yes','1','on'):
             return 1
 
-        if text in ('false','f','n','no','0'):
+        if text in ('false','f','n','no','0','off'):
             return 0
 
         self._raiseBadValu(text)
