@@ -224,7 +224,7 @@ class WebApp(EventBus,tornado.web.Application,s_daemon.DmonConf):
         s_daemon.DmonConf.__init__(self)
         tornado.web.Application.__init__(self, **settings)
 
-        self.loop = tornado.ioloop.IOLoop.current()
+        self.loop = tornado.ioloop.IOLoop()
         self.serv = tornado.httpserver.HTTPServer(self)
 
         self.boss = s_async.Boss()
