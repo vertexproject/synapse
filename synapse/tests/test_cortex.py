@@ -453,7 +453,13 @@ class CortexTest(SynTest):
 
         hehe = core.formTufoByProp('foo','hehe')
 
+        wait = TestWaiter(core, 2, 'tufo:tag:add')
         core.addTufoTag(hehe,'lulz.rofl')
+        wait.wait()
+
+        wait = TestWaiter(core, 1, 'tufo:tag:add')
+        core.addTufoTag(hehe,'lulz.rofl.zebr')
+        wait.wait()
 
         lulz = core.getTufoByProp('syn:tag','lulz')
 
@@ -470,14 +476,22 @@ class CortexTest(SynTest):
 
         self.assertEqual( rofl[1].get('syn:tag:depth'), 1 )
 
+        wait = TestWaiter(core, 2, 'tufo:tag:del')
+        core.delTufoTag(hehe,'lulz.rofl')
+        wait.wait()
+
+        wait = TestWaiter(core, 1, 'tufo:tag:del')
         core.delTufo(lulz)
+        wait.wait()
         # tag and subs should be wiped
 
         self.assertIsNone( core.getTufoByProp('syn:tag','lulz') )
         self.assertIsNone( core.getTufoByProp('syn:tag','lulz.rofl') )
+        self.assertIsNone( core.getTufoByProp('syn:tag','lulz.rofl.zebr') )
 
         self.assertEqual( len(core.getTufosByTag('foo','lulz')), 0 )
         self.assertEqual( len(core.getTufosByTag('foo','lulz.rofl')), 0 )
+        self.assertEqual( len(core.getTufosByTag('foo','lulz.rofl.zebr')), 0 )
 
         core.fini()
 
