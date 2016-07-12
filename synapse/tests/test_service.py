@@ -135,6 +135,6 @@ class SvcTest(SynTest):
 
         iden = prox.runSynSvc('foo0', woot0)
 
-        self.assertEqual( prox.callByName('foo0', 'foo',20), 30 )
+        self.assertEqual( prox.callByName('foo0', gentask('foo',20)), 30 )
 
         dmon.fini()

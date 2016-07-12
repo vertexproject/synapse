@@ -7,6 +7,8 @@ import synapse.lib.service as s_service
 import synapse.swarm.syntax as s_syntax
 import synapse.lib.userauth as s_userauth
 
+from synapse.common import gentask
+
 logger = logging.getLogger(__name__)
 
 class QueryKilled(Exception):pass
@@ -70,24 +72,28 @@ def lift(query,inst):
     callkw = {'limit':limit,'valu':valu}
 
     if mode == 'rows':
-        for svcfo,retval in query.callByTag(fromtag,'getRowsByProp',prop,**callkw):
+        dyntask = gentask('getRowsByProp', prop, valu=valu, limit=limit)
+        for svcfo,retval in query.callByTag(fromtag,dyntask):
             [ query.addData(d,svcfo=svcfo) for d in retval ]
 
         return
 
     if cmpr == 'eq':
         # TODO lift rows to issue ticks and then return in chunks for iden->tufo
-        for svcfo,retval in query.callByTag(fromtag,'getTufosByProp',prop,**callkw):
+        dyntask = gentask('getTufosByProp', prop, valu=valu, limit=limit)
+        for svcfo,retval in query.callByTag(fromtag,dyntask):
             [ query.addData(d,svcfo=svcfo) for d in retval ]
         return
 
     if cmpr == 'ge':
-        for svcfo,retval in query.callByTag(fromtag,'getTufosBy','ge',prop,**callkw):
+        dyntask = gentask('getTufosBy', 'ge', prop, valu=valu, limit=limit)
+        for svcfo,retval in query.callByTag(fromtag,dyntask):
             [ query.addData(d,svcfo=svcfo) for d in retval ]
         return
 
     if cmpr == 'le':
-        for svcfo,retval in query.callByTag(fromtag,'getTufosBy','le',prop,**callkw):
+        dyntask = gentask('getTufosBy', 'le', prop, valu=valu, limit=limit)
+        for svcfo,retval in query.callByTag(fromtag,dyntask):
             [ query.addData(d,svcfo=svcfo) for d in retval ]
         return
 
@@ -155,7 +161,8 @@ def join(query,inst):
 
             done.add(valu)
 
-        for svcfo,retval in query.callByTag(fromtag,'getTufosByProp',dstprop,valu=valu):
+        dyntask = gentask('getTufosByProp',dstprop,valu=valu)
+        for svcfo,retval in query.callByTag(fromtag,dyntask):
             for tufo in retval:
                 query.addData(tufo,svcfo=svcfo)
 
@@ -196,7 +203,8 @@ def pivot(query,inst):
         vals.add(valu)
 
     for valu in vals:
-        for svcfo,retval in query.callByTag(fromtag,'getTufosByProp',dstprop,valu=valu):
+        dyntask = gentask('getTufosByProp',dstprop,valu=valu)
+        for svcfo,retval in query.callByTag(fromtag,dyntask):
             for tufo in retval:
                 query.addData(tufo,svcfo=svcfo)
 

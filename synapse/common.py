@@ -75,6 +75,9 @@ def jsload(*paths):
 
         return json.loads(byts.decode('utf8'))
 
+def gentask(func,*args,**kwargs):
+    return (func,args,kwargs)
+
 def jssave(js,*paths):
     path = genpath(*paths)
     with open(path,'wb') as fd:

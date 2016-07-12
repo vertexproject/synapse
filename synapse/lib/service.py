@@ -236,51 +236,56 @@ class SvcProxy:
     def getSynSvcByName(self, name):
         return self.byname.get(name)
 
-    def callByName(self, name, func, *args, **kwargs):
+    def callByName(self, name, dyntask, timeout=None):
         '''
         Call a specific object on the service bus by name.
 
         Example:
 
-            ret = svcprox.callByName('foo0','getFooByBar',bar)
+            # dyntask tuple is (name,args,kwargs)
+
+            dyntask = gentask('getFooByBar',bar)
+            ret = svcprox.callByName('foo0', dyntask)
 
         '''
+        if timeout == None:
+            timeout = self.timeout
+
         svcfo = self.byname.get(name)
         if svcfo == None:
             raise NoSuchObj(name)
 
-        dyntask = (func,args,kwargs)
         job = self.sbus.callx(svcfo[0],dyntask)
-        self.sbus._waitTeleJob(job, timeout=self.timeout)
+        self.sbus._waitTeleJob(job, timeout=timeout)
         return s_async.jobret(job)
 
-    def callByTag(self, tag, func, *args, **kwargs):
+    def callByTag(self, tag, dyntask, timeout=None):
         '''
         Call a method on all services with the given tag.
         Yields (svcfo,job) tuples for the results.
 
         Example:
 
-            for svcfo,job in svcprox.callByTag('foo.bar','getFooThing'):
-                dostuff(svcfo,job)
+            dyntask = gentask('getFooThing')
+            for svcfo,retval in svcprox.callByTag('foo.bar',dyntask):
+                dostuff(svcfo,retval)
 
         '''
         jobs = []
-
-        dyntask = (func,args,kwargs)
+        if timeout == None:
+            timeout = self.timeout
 
         for iden in self.bytag.get(tag):
             job = self.sbus.callx(iden, dyntask)
             jobs.append( (iden,job) )
 
         for iden,job in jobs:
-            # a bit hackish...
-            self.sbus._waitTeleJob(job, timeout=self.timeout)
+            self.sbus._waitTeleJob(job, timeout=timeout)
             svcfo = self.byiden.get(iden)
             try:
                yield svcfo,s_async.jobret(job)
             except Exception as e:
-                logger.warning('callByTag (%s): %s() on %s %s', tag, func, iden, e)
+                logger.warning('callByTag (%s): %s() on %s %s', tag, dyntask[0], iden, e)
 
     def getTagProxy(self, tag):
         '''
@@ -322,7 +327,8 @@ class SvcTagProxy:
         self.svcprox = svcprox
 
     def _callSvcApi(self, name, *args, **kwargs):
-        return self.svcprox.callByTag(self.tag, name, *args, **kwargs)
+        dyntask = (name,args,kwargs)
+        return self.svcprox.callByTag(self.tag, dyntask)
 
     def __getattr__(self, name):
         item = SvcTagMeth(self,name)

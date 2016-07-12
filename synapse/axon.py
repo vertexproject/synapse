@@ -195,7 +195,8 @@ class AxonCluster:
                 dostuff()
 
         '''
-        for svcfo,retval in self.svcprox.callByTag(bytag,'has',htype,hvalu):
+        dyntask = gentask('has',htype,hvalu)
+        for svcfo,retval in self.svcprox.callByTag(bytag,dyntask):
             if retval:
                 return True
 
@@ -243,7 +244,8 @@ class AxonCluster:
 
         '''
         retblobs = []
-        for svcfo,blobs in self.svcprox.callByTag(bytag,'find',htype,hvalu):
+        dyntask = gentask('find',htype,hvalu)
+        for svcfo,blobs in self.svcprox.callByTag(bytag,dyntask):
 
             if not blobs:
                 continue
@@ -280,7 +282,8 @@ class AxonCluster:
 
     def bytes(self, htype, hvalu, bytag=axontag):
 
-        for svcfo,blobs in self.svcprox.callByTag(bytag,'find',htype,hvalu):
+        dyntask = gentask('find',htype,hvalu)
+        for svcfo,blobs in self.svcprox.callByTag(bytag,dyntask):
 
             if not blobs:
                 continue
@@ -332,7 +335,8 @@ class AxonCluster:
         wraxons = []
 
         # FIXME cache this call for a few seconds
-        for svcfo,axfo in self.svcprox.callByTag(bytag,'getAxonInfo'):
+        dyntask = gentask('getAxonInfo')
+        for svcfo,axfo in self.svcprox.callByTag(bytag,dyntask):
 
             if axfo[1].get('ro'):
                 continue
@@ -527,7 +531,8 @@ class Axon(s_eventbus.EventBus):
         myhost = self.opts.get('hostname')
         bytemax = self.opts.get('bytemax')
 
-        hostinfo = list(self.axonbus.callByTag('class.synapse.axon.AxonHost', 'info'))
+        dyntask = gentask('info')
+        hostinfo = list(self.axonbus.callByTag('class.synapse.axon.AxonHost', dyntask))
 
         hostinfo = [ h for h in hostinfo if h[1].get('free') > bytemax ]
         hostinfo = [ h for h in hostinfo if h[1].get('hostname') != myhost ]

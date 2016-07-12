@@ -215,6 +215,8 @@ class AxonTest(SynTest):
 
     def test_axon_autorun(self):
 
+        self.thisHostMustNot(platform='windows')
+
         with self.getTestDir() as dirname:
 
             opts = {
