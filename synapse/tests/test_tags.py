@@ -63,3 +63,13 @@ class TagTest(SynTest):
     def test_tags_subs(self):
         tufo = ('lolz',{'tufo:form':'woot'})
         self.assertFalse( s_tags.getTufoSubs(tufo,'mytag') )
+
+        tufo = ('lolz',{'tufo:form':'woot', '*|woot|mytag': 1})
+        self.assertTrue( s_tags.getTufoSubs(tufo,'mytag') )
+
+    def test_tags_rows(self):
+        tufo = ('lolz',{'tufo:form':'woot'})
+        self.assertTrue( s_tags.genTufoRows(tufo,'mytag') )
+
+        tufo = ('lolz',{'tufo:form':'woot', '*|woot|mytag': 1})
+        self.assertFalse( s_tags.genTufoRows(tufo,'mytag') )

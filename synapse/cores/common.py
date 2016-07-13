@@ -883,10 +883,10 @@ class Cortex(EventBus,DataModel):
         self._genTufoTag(tag)
         rows = s_tags.genTufoRows(tufo,tag,valu=asof)
         if rows:
-            self.addRows(rows)
-            for (i,p,v,t) in rows:
+            self.addRows(map(lambda tup: tup[1], rows))
+            for subtag,(i,p,v,t) in rows:
                 tufo[1][p] = v
-                self.fire('tufo:tag:add', tufo=tufo, tag=s_tags.choptag(p), asof=asof)
+                self.fire('tufo:tag:add', tufo=tufo, tag=subtag, asof=asof)
 
         return tufo
 

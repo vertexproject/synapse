@@ -49,15 +49,17 @@ def getTufoSubs(tufo, tag):
     return props
 
 def genTufoRows(tufo, tag, valu=None):
-    # gen rows for a cortex
+    '''
+    Return a list of (tag,row) tuples for the given tag (and down).
+    '''
     now = int(time.time())
     if valu == None:
         valu = int(time.time())
 
     iden = tufo[0]
     form = tufo[1].get('tufo:form')
-    props = [ '*|%s|%s' % (form,tag) for tag in iterTagDown(tag) ]
-    return [ (iden,prop,valu,now) for prop in props if tufo[1].get(prop) == None ]
+    props = [ (tag,'*|%s|%s' % (form,tag)) for tag in iterTagDown(tag) ]
+    return [ (tag, (iden,prop,valu,now)) for tag, prop in props if tufo[1].get(prop) == None ]
 
 def getTufoTags(tufo):
     '''
