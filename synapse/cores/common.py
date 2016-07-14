@@ -393,9 +393,9 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         perm = 'tufo:add:%s' % (form,)
 
         props['perm'] = perm
-        props['status'] = 'done'
 
-        # FIXME apply perm
+        if not self._isSpliceAllow(props):
+            return None,None
 
         splice = None
 
@@ -431,7 +431,8 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         props['perm'] = 'tufo:set:%s' % fullprop
 
-        # FIXME apply perm
+        if not self._isSpliceAllow(props):
+            return None,None
 
         item = self.getTufoByProp(form,valu=valu)
         if item == None:
@@ -459,9 +460,10 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             raise NoSuchTufo('%s=%r' % (form,valu))
 
         props['on:%s' % form] = valu
-        props['status'] = 'done'
-
         props['perm'] = 'tufo:del:%s' % form
+
+        if not self._isSpliceAllow(props):
+            return None,None
 
         self.delTufo(item)
 
@@ -483,10 +485,12 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         props['on:%s' % form] = valu
 
-        perm = 'tufo:tag:add:%s*%s' % (form,tag)
+        perm = 'tufo:tag:add:%s|%s' % (form,tag)
 
         props['perm'] = perm
-        props['status'] = 'done'
+
+        if not self._isSpliceAllow(props):
+            return None,None
 
         item = self.addTufoTag(item,tag)
         splice = self.formTufoByProp('syn:splice',guid(),**props)
@@ -506,10 +510,12 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         props['on:%s' % form] = valu
 
-        perm = 'tufo:tag:del:%s*%s' % (form,tag)
+        perm = 'tufo:tag:del:%s|%s' % (form,tag)
 
         props['perm'] = perm
-        props['status'] = 'done'
+
+        if not self._isSpliceAllow(props):
+            return None,None
 
         item = self.delTufoTag(item,tag)
         splice = self.formTufoByProp('syn:splice',guid(),**props)
