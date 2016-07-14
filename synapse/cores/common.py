@@ -388,23 +388,19 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         tprops = info.get('props',{})
 
+        item = self.getTufoByProp(form,valu)
+        if item:
+            return None,item
+
         props['on:%s' % form] = valu
+        props['perm'] = 'tufo:add:%s' % (form,)
 
-        perm = 'tufo:add:%s' % (form,)
-
-        props['perm'] = perm
-
-        if not self._isSpliceAllow(props):
-            return None,None
-
-        splice = None
+        allow = self._isSpliceAllow(props)
+        splice = self.formTufoByProp('syn:splice',guid(),**props)
+        if not allow:
+            return splice,None
 
         item = self.formTufoByProp(form,valu,**tprops)
-
-        # if the tufo is newly formed, create a splice
-        if item[1].get('.new'):
-            splice = self.formTufoByProp('syn:splice',guid(),**props)
-
         return splice,item
 
     def _isSpliceAllow(self, props):
@@ -431,8 +427,10 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         props['perm'] = 'tufo:set:%s' % fullprop
 
-        if not self._isSpliceAllow(props):
-            return None,None
+        allow = self._isSpliceAllow(props)
+        splice = self.formTufoByProp('syn:splice',guid(),**props)
+        if not allow:
+            return splice,None
 
         item = self.getTufoByProp(form,valu=valu)
         if item == None:
@@ -446,8 +444,6 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             props['act:oval'] = oval
 
         item = self.setTufoProp(item,prop,pval)
-        splice = self.formTufoByProp('syn:splice',guid(),**props)
-
         return splice,item
 
     def _spliceTufoDel(self, act, info, props):
@@ -462,13 +458,12 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         props['on:%s' % form] = valu
         props['perm'] = 'tufo:del:%s' % form
 
-        if not self._isSpliceAllow(props):
-            return None,None
+        allow = self._isSpliceAllow(props)
+        splice = self.formTufoByProp('syn:splice',guid(),**props)
+        if not allow:
+            return splice,None
 
         self.delTufo(item)
-
-        splice = self.formTufoByProp('syn:splice',guid(),**props)
-
         return splice,item
 
     def _spliceTufoTagAdd(self, act, info, props):
@@ -484,16 +479,14 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             return None,item
 
         props['on:%s' % form] = valu
+        props['perm'] = 'tufo:tag:add:%s|%s' % (form,tag)
 
-        perm = 'tufo:tag:add:%s|%s' % (form,tag)
-
-        props['perm'] = perm
-
-        if not self._isSpliceAllow(props):
-            return None,None
+        allow = self._isSpliceAllow(props)
+        splice = self.formTufoByProp('syn:splice',guid(),**props)
+        if not allow:
+            return splice,None
 
         item = self.addTufoTag(item,tag)
-        splice = self.formTufoByProp('syn:splice',guid(),**props)
         return splice,item
 
     def _spliceTufoTagDel(self, act, info, props):
@@ -509,16 +502,14 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             return None,item
 
         props['on:%s' % form] = valu
+        props['perm'] = 'tufo:tag:del:%s|%s' % (form,tag)
 
-        perm = 'tufo:tag:del:%s|%s' % (form,tag)
-
-        props['perm'] = perm
-
-        if not self._isSpliceAllow(props):
-            return None,None
+        allow = self._isSpliceAllow(props)
+        splice = self.formTufoByProp('syn:splice',guid(),**props)
+        if not allow:
+            return splice,None
 
         item = self.delTufoTag(item,tag)
-        splice = self.formTufoByProp('syn:splice',guid(),**props)
         return splice,item
 
     def splice(self, user, act, actinfo, **props):

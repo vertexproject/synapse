@@ -740,51 +740,61 @@ class CortexTest(SynTest):
 
                     auth.addUser('bobo')
                     splice, retval = core.splice('bobo', 'tufo:add', info1)
-                    self.assertFalse(splice)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
                     self.assertFalse(retval)
 
                     auth.addUserRule('bobo', 'tufo:add:foo')
                     splice, retval = core.splice('bobo', 'tufo:add', info1)
-                    self.assertTrue(splice)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
                     self.assertEqual(retval[1]['tufo:form'], 'foo')
                     self.assertEqual(retval[1]['foo'], 'bar')
 
                     info2 = {'form': 'foo', 'valu': 'bar', 'prop': 'baz', 'pval': 'qux'}
                     splice, retval = core.splice('bobo', 'tufo:set', info2)
-                    self.assertFalse(splice)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:set')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
                     self.assertFalse(retval)
 
                     auth.addUserRule('bobo', 'tufo:set:foo:baz')
                     splice, retval = core.splice('bobo', 'tufo:set', info2)
-                    self.assertTrue(splice)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:set')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
                     self.assertEqual(retval[1]['foo:baz'], 'qux')
 
                     info3 = {'form': 'foo', 'valu': 'bar', 'tag': 'test'}
                     splice, retval = core.splice('bobo', 'tufo:tag:add', info3)
-                    self.assertFalse(splice)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
                     self.assertFalse(retval)
 
                     auth.addUserRule('bobo', 'tufo:tag:add:foo|*')
                     splice, retval = core.splice('bobo', 'tufo:tag:add', info3)
-                    self.assertTrue(splice)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
                     self.assertTrue('*|foo|test' in retval[1])
 
                     splice, retval = core.splice('bobo', 'tufo:tag:del', info3)
-                    self.assertFalse(splice)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
                     self.assertFalse(retval)
 
                     auth.addUserRule('bobo', 'tufo:tag:del:foo|*')
                     splice, retval = core.splice('bobo', 'tufo:tag:del', info3)
-                    self.assertTrue(splice)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
                     self.assertFalse('*|foo|test' in retval[1])
 
                     splice, retval = core.splice('bobo', 'tufo:del', info1)
-                    self.assertFalse(splice)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
                     self.assertFalse(retval)
 
                     auth.addUserRule('bobo', 'tufo:del:foo')
                     splice, retval = core.splice('bobo', 'tufo:del', info1)
-                    self.assertTrue(splice)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
                     self.assertEqual(retval[1]['foo'], 'bar')
 
 
