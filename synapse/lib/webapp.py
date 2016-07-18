@@ -62,19 +62,19 @@ class BaseHand(tornado.web.RequestHandler):
 
         boss.initJob( task=(func,args,kwargs), ondone=self._onJobDone )
 
-    def _onJobDone(self, job):
-
-        # a bit of "json friendlyness"
-        ret = {'status':'ok'}
-
+    def _fmtJobResp(self, job):
+        """Format job results into a standard response envelope."""
+        ret = {'status': 'ok'}
         err = job[1].get('err')
         if err != None:
             ret['status'] = 'err'
             ret['err'] = job[1].get('err')
-
         else:
             ret['ret'] = job[1].get('ret')
+        return ret
 
+    def _onJobDone(self, job):
+        ret = self._fmtJobResp(job)
         self.sendHttpResp(200, {}, ret)
 
     def sendHttpResp(self, code, headers, content):
