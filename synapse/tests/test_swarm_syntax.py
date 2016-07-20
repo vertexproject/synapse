@@ -22,10 +22,10 @@ class SwarmSyntaxTest(SynTest):
         self.assertEqual( insts[0][1]['args'][0], 'lol' )
         self.assertEqual( insts[0][1]['kwlist'][0], ('bar_Bar',20) )
 
-    def test_swarm_syntax_macro_lift(self):
+    def test_swarm_syntax_macro_eq(self):
         ###########################################################
         insts = s_syntax.parse('foo:bar')
-        self.assertEqual( insts[0][0], 'lift' )
+        self.assertEqual( insts[0][0], 'has' )
         self.assertEqual( insts[0][1]['args'][0], 'foo:bar' )
 
         kwargs = dict(insts[0][1].get('kwlist'))
@@ -36,7 +36,7 @@ class SwarmSyntaxTest(SynTest):
 
         ###########################################################
         insts = s_syntax.parse('foo:bar=10')
-        self.assertEqual( insts[0][0], 'lift' )
+        self.assertEqual( insts[0][0], 'eq' )
         self.assertEqual( insts[0][1]['args'][0], 'foo:bar' )
 
         kwargs = dict(insts[0][1].get('kwlist'))
@@ -44,7 +44,7 @@ class SwarmSyntaxTest(SynTest):
 
         ###########################################################
         insts = s_syntax.parse('foo:bar="woot"')
-        self.assertEqual( insts[0][0], 'lift' )
+        self.assertEqual( insts[0][0], 'eq' )
         self.assertEqual( insts[0][1]['args'][0], 'foo:bar' )
 
         kwargs = dict(insts[0][1].get('kwlist'))
@@ -53,7 +53,7 @@ class SwarmSyntaxTest(SynTest):
         ###########################################################
         insts = s_syntax.parse('baz.faz/foo:bar@2015,+1year#30="woot"')
 
-        self.assertEqual( insts[0][0], 'lift' )
+        self.assertEqual( insts[0][0], 'eq' )
         self.assertEqual( insts[0][1]['args'][0], 'foo:bar' )
 
         kwargs = dict(insts[0][1].get('kwlist'))
@@ -79,23 +79,23 @@ class SwarmSyntaxTest(SynTest):
         self.assertEqual( kwargs.get('valu'), 10)
         self.assertEqual( kwargs.get('cmp'), 'le')
 
-    def test_swarm_syntax_liftjoin(self):
-        insts = s_syntax.parse('foo:bar &foo:bar=baz:quux')
+    def test_swarm_syntax_lifteq(self):
+        insts = s_syntax.parse('foo:bar join("foo:bar","baz:quux")')
         self.assertEqual( insts, [
-            ('lift',{'args':['foo:bar'],'kwlist':[('cmp','eq')]}),
+            ('has',{'args':['foo:bar'],'kwlist':[('cmp','has')],'mode':'lift'}),
             ('join',{'args':['foo:bar','baz:quux'],'kwlist':[]}),
         ])
 
     def test_swarm_syntax_liftlift(self):
         insts = s_syntax.parse('foo:bar baz:faz')
         self.assertEqual( insts, [
-            ('lift',{'args':['foo:bar'],'kwlist':[('cmp','eq')]}),
-            ('lift',{'args':['baz:faz'],'kwlist':[('cmp','eq')]}),
+            ('has',{'args':['foo:bar'],'kwlist':[('cmp','has')],'mode':'lift'}),
+            ('has',{'args':['baz:faz'],'kwlist':[('cmp','has')],'mode':'lift'}),
         ])
 
     def test_swarm_syntax_regex(self):
         insts = s_syntax.parse('+foo:bar~="hehe" -foo:bar~="hoho"')
         self.assertEqual( insts, [
-            ('must',{'args':['foo:bar'],'kwlist':[('cmp','re'),('valu','hehe')]}),
-            ('cant',{'args':['foo:bar'],'kwlist':[('cmp','re'),('valu','hoho')]}),
+            ('re',{'args':['foo:bar'],'kwlist':[('cmp','re'),('valu','hehe')],'mode':'must'}),
+            ('re',{'args':['foo:bar'],'kwlist':[('cmp','re'),('valu','hoho')],'mode':'cant'}),
         ])

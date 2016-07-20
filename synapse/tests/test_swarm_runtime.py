@@ -7,7 +7,7 @@ import synapse.swarm.runtime as s_runtime
 
 from synapse.tests.common import *
 
-class SwarmRunTest(SynTest):
+class SwarmRunBase(SynTest):
 
     def getSwarmEnv(self):
         tenv = TestEnv()
@@ -56,14 +56,15 @@ class SwarmRunTest(SynTest):
 
         return tenv
 
-    def test_swarm_runtime_lift(self):
+class SwarmRunTest(SwarmRunBase):
+
+    def test_swarm_runtime_eq(self):
         tenv = self.getSwarmEnv()
 
         answ = tenv.runt.ask('foo:bar="baz"')
         data = answ.get('data')
 
         self.assertEqual( data[0][0], tenv.tufo0[0] )
-        #print(answ)
 
         # FIXME check for other expected results info!
 
@@ -124,15 +125,18 @@ class SwarmRunTest(SynTest):
         tenv = self.getSwarmEnv()
 
         core = s_cortex.openurl('ram://')
+
         auth = s_userauth.UserAuth(core)
 
         auth.addUser('visi')
+        auth.addUserRule('visi','swarm:oper:*')
+
         tenv.runt.setUserAuth(auth)
 
         answ = tenv.runt.ask('foo:bar="baz"',user='visi')
         self.assertEqual( len(answ['data']), 0 )
 
-        auth.addUserRule('visi','tufo.form.foo:*')
+        auth.addUserRule('visi','swarm:form:foo:*')
 
         answ = tenv.runt.ask('foo:bar="baz"',user='visi')
         self.assertEqual( len(answ['data']), 1 )
@@ -145,14 +149,12 @@ class SwarmRunTest(SynTest):
     def test_swarm_runtime_join(self):
         tenv = self.getSwarmEnv()
 
-        #&zzz:woot:vvv=foo:bar:vvv
-
-        answ = tenv.runt.ask('foo:bar="baz" &foo:bar:vvv')
+        answ = tenv.runt.ask('foo:bar="baz" join("foo:bar:vvv")')
         data = answ.get('data')
 
         self.assertEqual( len(data), 4 )
 
-        answ = tenv.runt.ask('foo:bar="baz" &zzz:woot:vvv=foo:bar:vvv')
+        answ = tenv.runt.ask('foo:bar="baz" join("zzz:woot:vvv","foo:bar:vvv")')
         data = answ.get('data')
 
         self.assertEqual( len(data), 2 )
@@ -161,7 +163,14 @@ class SwarmRunTest(SynTest):
 
     def test_swarm_runtime_gele(self):
         env = self.getSwarmEnv()
+
         answ = env.runt.ask('zzz:woot>=11')
+
+        data = answ.get('data')
+        self.assertEqual( len(data), 1 )
+        self.assertEqual( data[0][1].get('zzz:woot'), 12 )
+
+        answ = env.runt.ask('zzz:woot>10')
 
         data = answ.get('data')
         self.assertEqual( len(data), 1 )
@@ -173,6 +182,12 @@ class SwarmRunTest(SynTest):
         self.assertEqual( len(data), 2 )
 
         answ = env.runt.ask('zzz:woot<=11')
+
+        data = answ.get('data')
+        self.assertEqual( len(data), 1 )
+        self.assertEqual( data[0][1].get('zzz:woot'), 10 )
+
+        answ = env.runt.ask('zzz:woot<12')
 
         data = answ.get('data')
         self.assertEqual( len(data), 1 )
@@ -205,5 +220,68 @@ class SwarmRunTest(SynTest):
 
         answ = env.runt.ask('foo:bar -foo:bar~="^[a-z]{3}$"')
         self.assertEqual( len(answ.get('data')), 0)
+
+        env.fini()
+
+    def test_swarm_runtime_or(self):
+
+        env = self.getSwarmEnv()
+        answ = env.runt.ask('foo:bar +foo:bar="baz"|foo:bar="faz"')
+
+        tufos = answ.get('data')
+
+        foobars = [ t[1].get('foo:bar') for t in tufos ]
+        foobars.sort()
+
+        self.assertEqual( foobars, ['baz','faz'] )
+
+        env.fini()
+
+    def test_swarm_runtime_and(self):
+
+        env = self.getSwarmEnv()
+        answ = env.runt.ask('foo:bar -foo:bar="baz" & foo:bar:vvv="newp" ')
+
+        tufos = answ.get('data')
+
+        foobars = [ t[1].get('foo:bar') for t in tufos ]
+
+        foobars.sort()
+
+        self.assertEqual( foobars, ['baz','faz','hai','lol'] )
+
+        env.fini()
+
+    def test_swarm_runtime_clear(self):
+
+        env = self.getSwarmEnv()
+        answ = env.runt.ask('foo:bar clear()')
+
+        tufos = answ.get('data')
+        self.assertEqual( len(tufos), 0 )
+
+        env.fini()
+
+    def test_swarm_runtime_saveload(self):
+
+        env = self.getSwarmEnv()
+        answ = env.runt.ask('foo:bar="baz" save("woot") clear() load("woot")')
+
+        tufos = answ.get('data')
+
+        self.assertEqual( len(tufos), 1 )
+        self.assertEqual( tufos[0][1].get('foo:bar'), 'baz' )
+
+        env.fini()
+
+    def test_swarm_runtime_has(self):
+
+        env = self.getSwarmEnv()
+        answ = env.runt.ask('foo:bar="baz" save("woot") clear() load("woot")')
+
+        tufos = answ.get('data')
+
+        self.assertEqual( len(tufos), 1 )
+        self.assertEqual( tufos[0][1].get('foo:bar'), 'baz' )
 
         env.fini()

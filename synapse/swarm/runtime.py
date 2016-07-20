@@ -7,6 +7,9 @@ import synapse.lib.service as s_service
 import synapse.swarm.syntax as s_syntax
 import synapse.lib.userauth as s_userauth
 
+import synapse.swarm.opers.basic as s_opers_basic
+
+from synapse.exc import *
 from synapse.common import gentask
 
 logger = logging.getLogger(__name__)
@@ -32,286 +35,34 @@ class QueryLimitTouch(QueryKilled):pass
 
 deftag = 'class.synapse.cores.common.Cortex'
 
-def lift(query,inst):
-    '''
-    The "lift" instruction for the swarm query language.
-
-    Example:
-
-        # retrieve the foo's where bar == 10
-
-        lift(foo:bar,10)
-
-        # TODO FIXME STANDARD FOR TIMWINDOW SYNTAX!
-
-        foos.that.bar/foo:bar:baz@2016,+2days#8="yermom"
-
-        lift(foo:bar:baz,valu="yermom",timewin="2016,+2days",limit=8,from="foos.that.bar")
-
-    '''
-    args = inst[1].get('args',())
-    if len(args) != 1:
-        raise Exception('lift() requires a property argument :)')
-
-    kwargs = dict(inst[1].get('kwlist',()))
-
-    prop = args[0]
-
-    cmpr = kwargs.pop('cmp','eq')
-    valu = kwargs.pop('valu',None)
-    limit = kwargs.pop('limit',None)
-    fromtag = kwargs.get('from',deftag)
-
-    if kwargs:
-        raise Exception('lift() left over args: %r' % (kwargs,))
-
-    mode = query.mode()
-    if mode not in ('rows','tufo'):
-        raise Exception('lift() mode not supported: %s' % (mode,))
-
-    callkw = {'limit':limit,'valu':valu}
-
-    if mode == 'rows':
-        dyntask = gentask('getRowsByProp', prop, valu=valu, limit=limit)
-        for svcfo,retval in query.callByTag(fromtag,dyntask):
-            [ query.addData(d,svcfo=svcfo) for d in retval ]
-
-        return
-
-    if cmpr == 'eq':
-        # TODO lift rows to issue ticks and then return in chunks for iden->tufo
-        dyntask = gentask('getTufosByProp', prop, valu=valu, limit=limit)
-        for svcfo,retval in query.callByTag(fromtag,dyntask):
-            [ query.addData(d,svcfo=svcfo) for d in retval ]
-        return
-
-    if cmpr == 'ge':
-        dyntask = gentask('getTufosBy', 'ge', prop, valu=valu, limit=limit)
-        for svcfo,retval in query.callByTag(fromtag,dyntask):
-            [ query.addData(d,svcfo=svcfo) for d in retval ]
-        return
-
-    if cmpr == 'le':
-        dyntask = gentask('getTufosBy', 'le', prop, valu=valu, limit=limit)
-        for svcfo,retval in query.callByTag(fromtag,dyntask):
-            [ query.addData(d,svcfo=svcfo) for d in retval ]
-        return
-
-    raise Exception('lift() unsupported cmpr: %s' % (cmpr,))
-
-def opts(query,inst):
-    '''
-    Set various query options within an instruction.
-
-    # FIXME macro syntax?
-
-    %uniq=1
-
-    opts(uniq)
-    opts(foo="bar",baz=30)
-
-    '''
-    args = inst[1].get('args')
-    kwlist = inst[1].get('kwlist')
-
-    # Setting an option with no value makes it 1 (bool True)
-    # to allow opts(uniq) syntax
-    for name in args:
-        query.setOpt(name,1)
-
-    for name,valu in kwlist:
-        query.setOpt(name,valu)
-
-def join(query,inst):
-    '''
-    Join in more results based on current properties.
-
-        foo:bar=10 &zip.zap/baz:bar=foo:bar
-
-        join("baz:bar","foo:bar",from='zip.zap')
-
-    '''
-    if query.mode() not in ('tufo',):
-        raise Exception('join() invalid mode: %s' % (query.mode(),))
-
-    args = inst[1].get('args',())
-    kwargs = dict(inst[1].get('kwlist'))
-
-    if len(args) not in (1,2):
-        raise Exception('join() requires 1 or 2 args')
-
-    srcprop = args[0]
-    dstprop = args[0]
-
-    if len(args) > 1:
-        srcprop = args[1]
-
-    uniq = query.opt('uniq')
-    fromtag = kwargs.get('from',deftag)
-
-    done = set()
-    for tufo in query.data():
-        valu = tufo[1].get(srcprop)
-        if valu == None:
-            continue
-
-        if uniq:
-            if valu in done:
-                continue
-
-            done.add(valu)
-
-        dyntask = gentask('getTufosByProp',dstprop,valu=valu)
-        for svcfo,retval in query.callByTag(fromtag,dyntask):
-            for tufo in retval:
-                query.addData(tufo,svcfo=svcfo)
-
-def pivot(query,inst):
-    '''
-    Pivot to results based on property values.
-
-        foo:bar=10 ^foo:baz
-
-        foo:bar=10 ^hehe:haha=foo:baz
-
-        lift("foo:bar",valu=10) pivot("hehe:haha","foo:bar")
-
-    '''
-    if query.mode() not in ('tufo',):
-        raise Exception('pivot() invalid mode: %s' % (query.mode(),))
-
-    args = inst[1].get('args')
-    kwargs = dict(inst[1].get('kwlist'))
-
-    if len(args) not in (1,2):
-        raise Exception('pivot() requires 1 or 2 args')
-
-    dstprop = args[0]
-    srcprop = dstprop
-    if len(args) == 2:
-        srcprop = args[1]
-
-    fromtag = kwargs.get('from',deftag)
-
-    vals = set()
-
-    for tufo in query.takeData():
-        valu = tufo[1].get(srcprop)
-        if valu == None:
-            continue
-
-        vals.add(valu)
-
-    for valu in vals:
-        dyntask = gentask('getTufosByProp',dstprop,valu=valu)
-        for svcfo,retval in query.callByTag(fromtag,dyntask):
-            for tufo in retval:
-                query.addData(tufo,svcfo=svcfo)
-
-def cmpeq(query,tufo,prop,valu):
-    tval = tufo[1].get(prop)
-    return tval == valu
-
-def cmpge(query,tufo,prop,valu):
-    tval = tufo[1].get(prop)
-    if tval == None:
-        return False
-    return tval >= valu
-
-def cmple(query,tufo,prop,valu):
-    tval = tufo[1].get(prop)
-    if tval == None:
-        return False
-    return tval <= valu
-
-def cmpre(query,tufo,prop,ptrn):
-    valu = tufo[1].get(prop)
-    reob = query.getRegexCache(ptrn)
-    return reob.search(valu) != None
-
-tufocmps = {
-    'eq':cmpeq,
-    'le':cmple,
-    'ge':cmpge,
-    're':cmpre,
-}
-
-def tufocmp(query,cmpr,tufo,prop,valu):
-    func = tufocmps.get(cmpr)
-    if func == None:
-        raise Exception('Unknown Cmp: %s' % (cmpr,))
-    return func(query,tufo,prop,valu)
-
-def cant(query,inst):
-    '''
-
-    Examples:
-
-        # macro syntax to remove results with prop foo:bar
-        -foo:bar
-
-        # macro syntax to remove results where foo:bar=10
-        -foo:bar=10
-
-        # long form syntax for the above
-        cant("foo:bar",valu=10)
-
-    '''
-    args = inst[1].get('args')
-    kwargs = dict(inst[1].get('kwlist'))
-
-    if len(args) != 1:
-        raise Exception('cant() requires 1 property argument')
-
-    prop = args[0]
-    valu = kwargs.get('valu')
-    cmpr = kwargs.pop('cmp','eq')
-
-    if query.mode() == 'tufo':
-        tufos = query.takeData()
-        [ query.addData(t) for t in tufos if not tufocmp(query,cmpr,t,prop,valu) ]
-        return
-
-def must(query,inst):
-    '''
-
-    Examples:
-
-        # macro syntax to require results to have foo:bar=10
-        +foo:bar=10
-
-        # long form syntax for the same.
-        must("foo:bar",valu=10)
-
-    '''
-    args = inst[1].get('args')
-    kwargs = dict(inst[1].get('kwlist'))
-
-    if len(args) != 1:
-        raise Exception('must() requires 1 property argument')
-
-    prop = args[0]
-    valu = kwargs.get('valu')
-    cmpr = kwargs.get('cmp','eq')
-
-    if query.mode() == 'tufo':
-        tufos = query.takeData()
-        [ query.addData(t) for t in tufos if tufocmp(query,cmpr,t,prop,valu) ]
-        return
-
 class Query(s_eventbus.EventBus):
 
-    def __init__(self, runt, text, **info):
+    def __init__(self, runt, insts, user=None, data=()):
+
         s_eventbus.EventBus.__init__(self)
-        self.text = text
+        #self.text = text
         self.runt = runt
-        self.info = info
+        #self.info = info
         self.canc = False
 
-        self.user = info.get('user')
+        self.user = user
+        #self.user = info.get('user')
+
+        self.formallow = {}
 
         self.uniq = {}
-        self.insts = s_syntax.parse(text)
+        self.saved = {}
+        self.insts = insts
+
+        # enforce operator perms
+        for inst in insts:
+            perm = 'swarm:oper:%s' % (inst[0],)
+            if not self.allow(perm):
+                raise NoSuchRule(user=self.user,perm=perm)
+
+        self.opers = self.initInstOpers(insts)
+
+        #self.insts = s_syntax.parse(text)
 
         self.touched = 0
         self.recache = {}
@@ -331,45 +82,72 @@ class Query(s_eventbus.EventBus):
                 'touch':None,
             },
 
-            'data':[],
-            'mode':'tufo',
-
+            'data':list(data),
         }
 
-    def getRegexCache(self, ptrn):
-        ret = self.recache.get(ptrn)
-        if ret == None:
-            ret = re.compile(ptrn)
-            self.recache[ptrn] = ret
-        return ret
+    def allow(self, perm):
+        if self.user == None:
+            return True
+
+        return self.runt.allow(self.user,perm)
+
+    def setSaveData(self, name, data):
+        self.saved[name] = data
+
+    def getSaveData(self, name):
+        return self.saved.get(name,())
+
+    def initInstOpers(self, insts):
+        return [ self.initInstOper(inst) for inst in insts ]
+
+    def initInstOper(self, inst):
+        ctor = self.runt.getOperCtor(inst[0])
+        return ctor(self,inst)
 
     def allowForm(self, form):
         if self.user == None:
             return True
 
-        return self.runt.allow(self.user,'tufo.form.' + form)
+        ret = self.formallow.get(form)
+        if ret == None:
+            ret = self.runt.allow(self.user,'swarm:form:' + form)
+            self.formallow[form] = ret
 
-    def addData(self, data, svcfo=None):
+        return ret
+
+    def add(self, tufo):
+        '''
+        Add a tufo to the current query result set.
+        '''
         self.tick()
 
-        if self.results.get('mode') == 'tufo':
+        #if self.results.get('mode') == 'tufo':
 
-            form = data[1].get('tufo:form')
-            if not self.allowForm(form):
+        data = self.results.get('data')
+
+        form = tufo[1].get('tufo:form')
+
+        if not self.allowForm(form):
+            return False
+
+        if self.results['options'].get('uniq'):
+            if self.uniq.get( tufo[0] ):
                 return False
 
+            self.uniq[ tufo[0] ] = True
 
-            if self.results['options'].get('uniq'):
-                if self.uniq.get( data[0] ):
-                    return False
+        self.results['data'].append(tufo)
 
-                self.uniq[ data[0] ] = True
-
-        self.results['data'].append(data)
         return True
 
-    def setMode(self, mode):
-        self.results['mode'] = mode
+    def getTufosByPropFrom(self, prop, valu=None, limit=None, mintime=None, maxtime=None, fromtag=deftag):
+
+        dyntask = gentask('getTufosByProp',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
+
+        for svcfo,retval in self.callByTag(fromtag,dyntask):
+            for tufo in retval:
+                tufo[1]['.from'] = svcfo[0]
+                yield tufo
 
     def callByTag(self, *args, **kwargs):
         # provide direct access to the callByTag API to prevent object reaching
@@ -387,19 +165,18 @@ class Query(s_eventbus.EventBus):
         '''
         return self.results['options'].get(name)
 
-    def mode(self):
-        '''
-        Return the current query mode.
-        '''
-        return self.results.get('mode')
-
     def data(self):
         return self.results.get('data')
 
-    def takeData(self):
+    def take(self):
+        '''
+        Return and clear the current result set.
+        ( used by filtration operators )
+        '''
         data = self.results.get('data')
 
         self.uniq.clear()
+        # no list.clear() in py27
         self.results['data'] = []
 
         return data
@@ -420,7 +197,10 @@ class Query(s_eventbus.EventBus):
         Execute the parsed swarm query instructions.
         '''
         # FIXME setup user limits
-        [ self.run(i) for i in self.insts ]
+        for oper in self.opers:
+            oper.run()
+
+        #[ self.run(i) for i in self.insts ]
         return self.results
 
     def cancel(self):
@@ -453,15 +233,53 @@ class Runtime(s_eventbus.EventBus):
         self.svcbus = svcbus
         self.svcprox = s_service.SvcProxy(svcbus)
 
-        self.insts = {}
         self.rules = {}
 
-        self.setInstFunc('opts',opts)
-        self.setInstFunc('join',join)
-        self.setInstFunc('lift',lift)
-        self.setInstFunc('must',must)
-        self.setInstFunc('cant',cant)
-        self.setInstFunc('pivot',pivot)
+        self.operctors = {}
+
+        # add the basic operators
+        self.setOperCtor('eq', s_opers_basic.EqOper)
+
+        self.setOperCtor('gt', s_opers_basic.GtOper)
+        self.setOperCtor('lt', s_opers_basic.LtOper)
+        self.setOperCtor('ge', s_opers_basic.GeOper)
+        self.setOperCtor('le', s_opers_basic.LeOper)
+
+        self.setOperCtor('re', s_opers_basic.ReOper)
+
+        self.setOperCtor('or', s_opers_basic.OrOper)
+        self.setOperCtor('and', s_opers_basic.AndOper)
+
+        self.setOperCtor('has', s_opers_basic.HasOper)
+
+        self.setOperCtor('join', s_opers_basic.JoinOper)
+        self.setOperCtor('opts', s_opers_basic.OptsOper)
+
+        self.setOperCtor('load', s_opers_basic.LoadOper)
+        self.setOperCtor('save', s_opers_basic.SaveOper)
+        self.setOperCtor('clear', s_opers_basic.ClearOper)
+
+        self.setOperCtor('pivot', s_opers_basic.PivotOper)
+
+    def setOperCtor(self, name, func):
+        '''
+        Add a constructor for an operator by name.
+
+        Example:
+
+            runt.setOperInit('foo',FooOper)
+
+        '''
+        self.operctors[name] = func
+
+    def getOperCtor(self, name):
+        '''
+        Return a constructor function for an operator by name.
+        '''
+        ctor = self.operctors.get(name)
+        if ctor == None:
+            raise NoSuchOper(name=name)
+        return ctor
 
     def setUserAuth(self, auth):
         self.auth = auth
@@ -487,7 +305,7 @@ class Runtime(s_eventbus.EventBus):
                 stuff()
 
         '''
-        return self.allow(user,'swarm.form.' + form)
+        return self.allow(user,'swarm:form:' + form)
 
     def _getUserRules(self, user):
         rules = self.rules.get(user)
@@ -496,21 +314,35 @@ class Runtime(s_eventbus.EventBus):
             self.rules[user] = rules
         return rules
 
-    def setInstFunc(self, name, func):
-        '''
-        Add an instruction to the 
-        '''
-        self.insts[name] = func
+    #def setInstFunc(self, name, func):
+        #'''
+        #Add an instruction to the 
+        #'''
+        #self.insts[name] = func
 
-    def getInstFunc(self, name):
-        return self.insts.get(name)
+    #def getInstFunc(self, name):
+        #return self.insts.get(name)
 
-    def ask(self, text, **info):
+    def ask(self, text, user=None, data=()):
         '''
-        user= mode= stdin=
+        Run a swarm query and return the query result dict.
+        user= stdin=
         '''
-        query = Query(self,text,**info)
+        #info['text'] = text
+        insts = s_syntax.parse(text)
+
+        # TODO user query auditing
+        # TODO enforce oper perms here ( before run )
+
+        query = Query(self, insts, user=user, data=data)
+
         return query.execute()
+
+    def eval(self, text, user=None, data=()):
+        '''
+        Run a swarm query and return only the result data.
+        '''
+        return self.ask(text,user=user,data=data).get('data')
 
 class SwarmApi:
     '''

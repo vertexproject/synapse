@@ -26,6 +26,11 @@ class TestEnv:
             raise AttributeError(prop)
         return item
 
+    @contextlib.contextmanager
+    def getWithBlock(self):
+        yield self
+        self.fini()
+
     def add(self, name, item, fini=False):
         self.items[name] = item
         if fini:

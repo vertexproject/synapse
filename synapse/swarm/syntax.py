@@ -101,35 +101,19 @@ def parse_string(text,off,trim=True):
         _,off = nom(text,off,whites)
 
     return ''.join(vals),off
-    
-def parse_lift(text,off=0,trim=True):
+
+def parse_macro(text,off=0,trim=True, mode='lift'):
     '''
     Parse a "lift" expression and return an inst,off tuple.
     '''
-    inst = ('lift',{'args':[],'kwlist':[]})
     ques,off = parse_ques(text,off,trim=trim)
-    inst[1]['args'].append( ques.pop('prop',None) )
-    inst[1]['kwlist'].extend( ques.items() )
-    return inst,off
 
-def parse_must(text,off=0,trim=True):
-    '''
-    Parse a "must" expression and return an inst,off tuple.
-    '''
-    inst = ('must',{'args':[],'kwlist':[]})
-    ques,off = parse_ques(text,off,trim=trim)
-    inst[1]['args'].append( ques.pop('prop',None) )
-    inst[1]['kwlist'].extend( ques.items() )
-    return inst,off
+    cmpr = ques.get('cmp')
+    inst = (cmpr,{'args':[],'kwlist':[],'mode':mode})
 
-def parse_cant(text,off=0,trim=True):
-    '''
-    Parse a "cant" expression and return an inst,off tuple.
-    '''
-    inst = ('cant',{'args':[],'kwlist':[]})
-    ques,off = parse_ques(text,off,trim=trim)
     inst[1]['args'].append( ques.pop('prop',None) )
     inst[1]['kwlist'].extend( ques.items() )
+
     return inst,off
 
 def parse_opts(text,off=0):
@@ -182,7 +166,7 @@ def parse_pivot(text,off=0):
 
     return inst,off
 
-def parse_join(text,off=0):
+def parse_macro_join(text,off=0):
     '''
     &foo:bar
     &foo:bar=baz:faz
@@ -219,7 +203,7 @@ def parse_ques(text,off=0,trim=True):
 
     name,off = nom(text,off,varset,trim=True)
 
-    ques['cmp'] = 'eq'
+    ques['cmp'] = 'has'
     ques['prop'] = name
 
     if len(text) == off:
@@ -245,8 +229,11 @@ def parse_ques(text,off=0,trim=True):
             continue
 
         if text[off] == '=':
+            ques['cmp'] = 'eq'
             ques['valu'],off = parse_literal(text,off+1,trim=True)
             break
+
+        # TODO: handle "by" syntax
 
         textpart = text[off:]
 
@@ -263,6 +250,16 @@ def parse_ques(text,off=0,trim=True):
         if textpart.startswith('~='):
             ques['cmp'] = 're'
             ques['valu'],off = parse_literal(text,off+2,trim=True)
+            break
+
+        if textpart.startswith('<'):
+            ques['cmp'] = 'lt'
+            ques['valu'],off = parse_literal(text,off+1,trim=True)
+            break
+
+        if textpart.startswith('>'):
+            ques['cmp'] = 'gt'
+            ques['valu'],off = parse_literal(text,off+1,trim=True)
             break
 
         break
@@ -360,13 +357,13 @@ def parse(text, off=0):
 
         # must() macro syntax: +foo:bar="woot"
         if text[off] == '+':
-            inst,off = parse_must(text,off+1)
+            inst,off = parse_macro(text,off+1,mode='must')
             ret.append(inst)
             continue
 
         # cant() macro syntax: -foo:bar=10
         if text[off] == '-':
-            inst,off = parse_cant(text,off+1)
+            inst,off = parse_macro(text,off+1,mode='cant')
             ret.append(inst)
             continue
 
@@ -376,10 +373,46 @@ def parse(text, off=0):
             ret.append(inst)
             continue
 
-        # join() macro syntax &foo:bar=baz:faz
+        # logical and syntax for multiple filters
         if text[off] == '&':
-            inst,off = parse_join(text,off+1)
-            ret.append(inst)
+
+            if len(ret) == 0:
+                raise Exception('logical and with no previous operator')
+
+            prev = ret[-1]
+            mode = prev[1].get('mode')
+
+            if mode not in ('cant','must'):
+                raise Exception('logical and previous mode: %s (must be must/cant)' % (mode,))
+
+            inst,off = parse_macro(text,off+1,mode=mode)
+
+            if prev[0] != 'and':
+                prev = ('and',{'args':[prev,],'kwlist':[],'mode':mode})
+                ret[-1] = prev
+
+            prev[1]['args'].append(inst)
+            continue
+
+        # logical or syntax for multiple filters
+        if text[off] == '|':
+
+            if len(ret) == 0:
+                raise Exception('logical or with no previous operator')
+
+            prev = ret[-1]
+            mode = prev[1].get('mode')
+
+            if mode not in ('cant','must'):
+                raise Exception('logical or previous mode: %s (must be must/cant)' % (mode,))
+
+            inst,off = parse_macro(text,off+1,mode=mode)
+
+            if prev[0] != 'or':
+                prev = ('or',{'args':[prev,],'kwlist':[],'mode':mode})
+                ret[-1] = prev
+
+            prev[1]['args'].append(inst)
             continue
 
         # opts() macro syntax: %uniq=0
@@ -394,7 +427,7 @@ def parse(text, off=0):
         _,off = nom(text,off,whites)
 
         if len(text) == off:
-            inst,off = parse_lift(text,origoff)
+            inst,off = parse_macro(text,origoff)
             ret.append(inst)
             continue
 
@@ -405,7 +438,7 @@ def parse(text, off=0):
             continue
 
         # only macro lift syntax remains
-        inst,off = parse_lift(text,origoff)
+        inst,off = parse_macro(text,origoff)
         ret.append(inst)
 
     [ i[1]['kwlist'].sort() for i in ret ]

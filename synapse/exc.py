@@ -14,6 +14,8 @@ class SynErr(Exception):
 class NoSuchForm(SynErr):pass
 class NoSuchType(SynErr):pass
 class NoSuchProp(SynErr):pass
+class NoSuchOper(SynErr):pass
+class NoSuchRule(SynErr):pass
 
 class BadTypeValu(SynErr):pass
 class DupTypeName(SynErr):pass
