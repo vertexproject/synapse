@@ -7,6 +7,7 @@ import getpass
 import threading
 import threading
 import traceback
+import collections
 
 import synapse.link as s_link
 import synapse.async as s_async
@@ -143,7 +144,8 @@ class Proxy(s_eventbus.EventBus):
         self._tele_cthr = self.consume( self._tele_q )
         self._tele_pool = s_threads.Pool(size=poolsize, maxsize=poolmax)
 
-        self._tele_ons = set()
+        self._tele_ons = {}
+
         self._tele_sock = None
         self._tele_relay = relay    # LinkRelay()
         self._tele_link = relay.link
@@ -193,21 +195,37 @@ class Proxy(s_eventbus.EventBus):
 
         if name not in telelocal:
 
-            self._tele_ons.add(name)
+            refc = self._tele_ons.get(name)
+            if refc == None:
+                job = self._txTeleJob('tele:on', events=[name], name=self._tele_name)
+                self.syncjob(job)
 
-            job = self._txTeleJob('tele:on', events=[name], name=self._tele_name)
-            self.syncjob(job)
+                refc = 0
+
+            self._tele_ons[name] = refc + 1
 
         return s_eventbus.EventBus.on(self, name, func)
 
     def off(self, name, func):
 
-        self._tele_ons.discard(name)
+        ret = s_eventbus.EventBus.off(self, name, func)
+
+        if name not in telelocal:
+            refc = self._tele_ons.get(name)
+            if refc != None:
+                refc -= 1
+                if refc == 0:
+                    self._tele_ons.pop(name,None)
+                    job = self._txTeleJob('tele:off', evt=name, name=self._tele_name)
+                    self.syncjob(job)
+
+                else:
+                    self._tele_ons[name] = refc
+
+        return ret
 
         job = self._txTeleJob('tele:off', evt=name, name=self._tele_name)
         self.syncjob(job)
-
-        return s_eventbus.EventBus.off(self, name, func)
 
     def fire(self, name, **info):
         if name in telelocal:
@@ -406,7 +424,7 @@ class Proxy(s_eventbus.EventBus):
 
         self._tele_sid = synresp.get('sess')
 
-        events = list(self._tele_ons)
+        events = list(self._tele_ons.keys())
 
         if events:
             job = self._txTeleJob('tele:on', events=events, name=self._tele_name)
