@@ -73,6 +73,11 @@ class SwarmRunTest(SwarmRunBase):
 
         self.assertEqual( len(data), 4 )
 
+        answ = tenv.runt.ask('hehe.haha/foo:bar:vvv="visi"')
+        data = answ.get('data')
+
+        self.assertEqual( len(data), 2 )
+
         tenv.fini()
 
     def test_swarm_runtime_pivot(self):
