@@ -95,27 +95,18 @@ class ByOper(s_opers_common.Oper,ByMix):
 class RangeOper(s_opers_common.CmpOper,ByMix):
 
     def getByPropValu(self):
-        return 'range',self.args[0],
+        valu = self.kwargs.get('valu')
+        return 'range',self.args[0],valu
 
-    def _oper_lift(self):
-
-        rtup = self.getLiftRange()
+    def getCmpFunc(self):
 
         prop = self.args[0]
-        rtup = self.getLiftRange()
-        limt = self.kwargs.get('limit')
-        ftag = self.kwargs.get('from', s_opers_common.deftag)
+        valu = self.kwargs.get('valu')
 
-        dyntask = gentask('getTufosBy','range', prop, rtup, limit=limt)
+        def cmptufo(tufo):
+            return valu[0] <= tufo[1].get(prop) < valu[1]
 
-        # TODO: timeouts
-        for svcfo,tufos in self.query.callByTag(ftag, dyntask):
-            for tufo in tufos:
-                tufo[1]['.from'] = svcfo[0]
-                self.query.add(tufo)
-
-    def getLiftRange(self):
-        pass
+        return cmptufo
 
 class LtOper(s_opers_common.CmpOper,ByMix):
 

@@ -259,6 +259,7 @@ class Runtime(s_eventbus.EventBus):
         self.setOperCtor('save', s_opers_basic.SaveOper)
         self.setOperCtor('clear', s_opers_basic.ClearOper)
 
+        self.setOperCtor('range', s_opers_basic.RangeOper)
         self.setOperCtor('pivot', s_opers_basic.PivotOper)
 
     def setOperCtor(self, name, func):
