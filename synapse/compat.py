@@ -8,6 +8,7 @@ import time
 import base64
 import socket
 import struct
+import itertools
 import collections
 
 major = sys.version_info.major
@@ -67,6 +68,9 @@ if version < (3,0,0):
 
         return struct.unpack(fmt,byts)[0]
 
+    def iterzip(*args):
+        return itertools.izip_longest(*args)
+
 else:
 
     import queue
@@ -99,3 +103,6 @@ else:
 
     def makedirs(path,mode=0o777):
         os.makedirs(path,mode=mode,exist_ok=True)
+
+    def iterzip(*args):
+        return itertools.zip_longest(*args)
