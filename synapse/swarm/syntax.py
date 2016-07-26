@@ -1,8 +1,7 @@
-import synapse.lib.sched as s_sched
-import synapse.lib.service as s_service
+
+from string import ascii_lowercase
 
 from synapse.common import *
-from synapse.eventbus import EventBus
 
 whites = set(' \t\n')
 intset = set('01234567890abcdefx')
@@ -236,7 +235,12 @@ def parse_ques(text,off=0,trim=True):
             ques['valu'],off = parse_literal(text,off+1,trim=True)
             break
 
-        # TODO: handle "by" syntax
+        if text[off] == '*':
+            ques['cmp'],off = nom(text,off+1,ascii_lowercase,trim=True)
+            if text[off] != '=':
+                raise Exception('Expected = after by comparator %s (at: %d)' % (ques['cmp'],off))
+            ques['valu'],off = parse_literal(text,off+1,trim=True)
+            break
 
         textpart = text[off:]
 
