@@ -1,12 +1,16 @@
 from __future__ import absolute_import,unicode_literals
 
 import re
+import json
 import time
+import base64
 import socket
 import struct
 import datetime
 
+import synapse.compat as s_compat
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.swarm.syntax as s_syntax
 
 from synapse.common import *
 
@@ -103,6 +107,92 @@ class IntType(DataType):
             raise self._raiseBadValu(valu)
 
         return self.norm(valu)
+
+def enMsgB64(item):
+    # FIXME find a way to go directly from binary bytes to
+    # base64 *string* to avoid the extra decode pass..
+    return base64.b64encode(msgenpack(item)).decode('utf8')
+
+def deMsgB64(text):
+    # FIXME see above
+    return msgunpack(base64.b64decode(text.encode('utf8')))
+
+jsseps = (',',':')
+
+def islist(x):
+    return type(x) in (list,tuple)
+
+class CompType(DataType):
+
+    def __init__(self, tlib, name, **info):
+        DataType.__init__(self, tlib, name, **info)
+
+        fields = info.get('fields',())
+        #self.comptypes = self._initCompTypes(fields)
+
+        # each of our composit sub-fields is a sub-prop if wanted
+        self.subprops = []
+        self.comptypes = []
+
+        for name,tnam in fields:
+            tobj = self.tlib.getDataType(tnam)
+            self.comptypes.append((name,tobj))
+
+            self.subprops.append( tufo(name,ptype=tnam) )
+            for subp in tobj.subs():
+                subn = '%s:%s' % (name,subp[0])
+                self.subprops.append( tufo(subn,**subp[1]) )
+
+    def norm(self, valu):
+        # NOTE: handles both b64 blob *and* (text,text,text) list/tuple.
+        if islist(valu):
+            vals = valu
+        else:
+            vals = deMsgB64(valu)
+
+        norms = [ t.norm(v) for v,(n,t) in self._zipvals(vals) ]
+        return enMsgB64(norms)
+
+    def chop(self, valu):
+        # NOTE: handles both b64 blob *and* (text,text,text) list/tuple.
+        if islist(valu):
+            vals = valu
+        else:
+            vals = deMsgB64(valu)
+
+        subs = {}
+        norms = []
+
+        for v,(name,tobj) in self._zipvals(vals):
+
+            nval,nsub = tobj.chop(v)
+            norms.append(nval)
+
+            subs[name] = nval
+            for subn,subv in nsub.items():
+                subs['%s:%s' % (name,subn)] = subv
+
+        return enMsgB64(norms),subs
+
+    def repr(self, valu):
+        vals = deMsgB64(valu)
+        reps = [ t.repr(v) for v,(n,t) in self._zipvals(vals) ]
+        return json.dumps(reps,separators=jsseps)
+
+    def parse(self, text):
+
+        # NOTE: handles both text *and* (text,text,text) list/tuple.
+
+        if islist(text):
+            reps = text
+        else:
+            reps = json.loads(text)
+
+        vals = [ t.parse(r) for r,(n,t) in self._zipvals(reps) ]
+        return enMsgB64(vals)
+
+    def _zipvals(self, vals):
+        return s_compat.iterzip(vals,self.comptypes)
 
 class BoolType(DataType):
 
@@ -247,7 +337,15 @@ class EmailType(DataType):
         except ValueError as e:
             self._raiseBadValu(valu)
 
-        return '%s@%s' % (user.lower(),fqdn.lower())
+        return valu.lower()
+
+    def chop(self, valu):
+        norm = valu.lower()
+        try:
+            user,fqdn = valu.split('@',1)
+        except ValueError as e:
+            self._raiseBadValu(valu)
+        return norm,{'user':user,'fqdn':fqdn}
 
     def parse(self, text):
         return self.norm(text)
@@ -352,6 +450,7 @@ class TypeLib:
         self.addType(IntType(self,'int'))
         self.addType(StrType(self,'str'))
         self.addType(BoolType(self,'bool'))
+        self.addType(CompType(self,'comp'))
 
         self.addSubType('syn:tag','str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
         self.addSubType('syn:prop','str', regex=r'^([\w]+:)*[\w]+$', lower=1)
@@ -457,6 +556,9 @@ class TypeLib:
 
         '''
         return self.reqDataType(name).norm(valu)
+
+    def getTypeChop(self, name, valu):
+        return self.reqDataType(name).chop(valu)
 
     def getTypeRepr(self, name, valu):
         '''

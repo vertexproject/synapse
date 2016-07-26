@@ -10,6 +10,7 @@ import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.lib.tags as s_tags
+import synapse.lib.types as s_types
 
 from synapse.tests.common import *
 
@@ -603,4 +604,29 @@ class CortexTest(SynTest):
         self.assertEqual( modl['forms'][-2:], ['foo:bar','baz:faz'] )
         self.assertEqual( modl['props']['foo:bar'][1]['ptype'], 'int')
         self.assertEqual( modl['props']['baz:faz'][1]['defval'], 22)
+
+        core.fini()
     
+    def test_cortex_comp(self):
+        core = s_cortex.openurl('ram://')
+
+        fields = (('fqdn','inet:fqdn'),('ipv4','inet:ipv4'),('time','time:epoch'))
+        core.addSubType('dns:a','comp',fields=fields)
+
+        core.addTufoForm('dns:a',ptype='dns:a')
+        core.addTufoProp('dns:a','fqdn',ptype='inet:fqdn')
+        core.addTufoProp('dns:a','ipv4',ptype='inet:ipv4')
+        core.addTufoProp('dns:a','time',ptype='time:epoch')
+
+        arec = ('wOOt.com',0x01020304,0x00404040)
+
+        dnsa = core.formTufoByProp('dns:a', arec)
+
+        fval = s_types.enMsgB64( ('woot.com',0x01020304,0x00404040) )
+
+        self.assertEqual( dnsa[1].get('dns:a'), fval)
+        self.assertEqual( dnsa[1].get('dns:a:fqdn'), 'woot.com')
+        self.assertEqual( dnsa[1].get('dns:a:ipv4'), 0x01020304)
+        self.assertEqual( dnsa[1].get('dns:a:time'), 0x00404040)
+
+        core.fini()

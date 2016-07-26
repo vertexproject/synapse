@@ -1,3 +1,4 @@
+import base64
 import synapse.lib.types as s_types
 
 from synapse.tests.common import *
@@ -192,3 +193,58 @@ class DataTypesTest(SynTest):
 
         self.assertEqual( tlib.getTypeNorm('bool',9), 1)
         self.assertEqual( tlib.getTypeNorm('bool',0), 0)
+
+    def test_type_comp(self):
+        tlib = s_types.TypeLib()
+
+        fields = ( ('fqdn','inet:fqdn'), ('ipv4','inet:ipv4'), ('time','time:epoch') )
+        tlib.addSubType('inet:dns:a','comp',fields=fields)
+
+        jstext = '["wOOt.com","1.2.3.4","20160204080030"]'
+        rawobj = ["wOOt.com","1.2.3.4","20160204080030"]
+
+        b64t = tlib.getTypeParse('inet:dns:a',jstext)
+        epoc = tlib.getTypeParse('time:epoch','20160204080030')
+
+        item = msgunpack(base64.b64decode(b64t.encode('utf8')))
+
+        self.assertEqual(item[0], 'woot.com')
+        self.assertEqual(item[1], 0x01020304)
+        self.assertEqual(item[2], epoc)
+
+        b64t = tlib.getTypeParse('inet:dns:a',rawobj)
+
+        item = msgunpack(base64.b64decode(b64t.encode('utf8')))
+
+        self.assertEqual(item[0], 'woot.com')
+        self.assertEqual(item[1], 0x01020304)
+        self.assertEqual(item[2], epoc)
+
+        b64t = tlib.getTypeNorm('inet:dns:a',('wOOt.com',0x01020304,epoc))
+
+        item = msgunpack(base64.b64decode(b64t.encode('utf8')))
+
+        self.assertEqual(item[0], 'woot.com')
+        self.assertEqual(item[1], 0x01020304)
+        self.assertEqual(item[2], epoc)
+
+        b64t = tlib.getTypeNorm('inet:dns:a',b64t)
+
+        item = msgunpack(base64.b64decode(b64t.encode('utf8')))
+
+        self.assertEqual(item[0], 'woot.com')
+        self.assertEqual(item[1], 0x01020304)
+        self.assertEqual(item[2], epoc)
+
+        rept = tlib.getTypeRepr('inet:dns:a',b64t)
+        self.assertEqual( rept, '["woot.com","1.2.3.4","2016/02/04 08:00:30"]')
+
+    def test_type_comp_chop(self):
+        tlib = s_types.TypeLib()
+
+        fields = ( ('fqdn','inet:fqdn'), ('email','inet:email'))
+        tlib.addSubType('fake:newp','comp',fields=fields)
+
+        norm,subs = tlib.getTypeChop('fake:newp',('woot.com','visi@visi.com'))
+        print(norm)
+        print(subs)
