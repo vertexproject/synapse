@@ -92,6 +92,22 @@ class ByMix:
 class ByOper(s_opers_common.Oper,ByMix):
     pass
 
+class InOper(s_opers_common.CmpOper,ByMix):
+
+    def getByPropValu(self):
+        valu = self.kwargs.get('valu')
+        return 'in',self.args[0],valu
+
+    def getCmpFunc(self):
+
+        prop = self.args[0]
+        valu = self.kwargs.get('valu')
+
+        def cmptufo(tufo):
+            return tufo[1].get(prop) in valu
+
+        return cmptufo
+
 class RangeOper(s_opers_common.CmpOper,ByMix):
 
     def getByPropValu(self):

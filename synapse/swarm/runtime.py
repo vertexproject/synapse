@@ -246,6 +246,7 @@ class Runtime(s_eventbus.EventBus):
         self.setOperCtor('le', s_opers_basic.LeOper)
 
         self.setOperCtor('re', s_opers_basic.ReOper)
+        self.setOperCtor('in', s_opers_basic.InOper)
 
         self.setOperCtor('or', s_opers_basic.OrOper)
         self.setOperCtor('and', s_opers_basic.AndOper)
