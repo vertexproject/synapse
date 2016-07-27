@@ -129,6 +129,14 @@ class DataTypesTest(SynTest):
         self.eq( tlib.getTypeNorm('inet:ipv6', 'AF:00::02'), 'af::2')
         self.eq( tlib.getTypeRepr('inet:ipv6', 'af::2'), 'af::2')
 
+        self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8::1:1:1:1:1'), '2001:db8:0:1:1:1:1:1')
+        self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8:0:1:1:1:1:1'), '2001:db8:0:1:1:1:1:1')
+
+        self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8::0:1'), '2001:db8::1')
+        self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8:0:0:0:0:2:1'), '2001:db8::2:1')
+
+        self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8::'), '2001:db8::')
+
         self.eq( tlib.getTypeRepr('inet:srv6', '[af::2]:80'), '[af::2]:80')
         self.eq( tlib.getTypeParse('inet:srv6', '[AF:00::02]:80'), '[af::2]:80')
         self.eq( tlib.getTypeNorm('inet:srv6', '[AF:00::02]:80'), '[af::2]:80')
@@ -246,5 +254,3 @@ class DataTypesTest(SynTest):
         tlib.addSubType('fake:newp','comp',fields=fields)
 
         norm,subs = tlib.getTypeChop('fake:newp',('woot.com','visi@visi.com'))
-        print(norm)
-        print(subs)
