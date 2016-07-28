@@ -31,7 +31,15 @@ if getattr(socket,'inet_pton',None) == None:
         if WSAStringToAddressA(text, fam, None, saref, szref):
             raise socket.error('Invalid Address (fam:%d) %s' % (fam,text))
 
-        return sa.ipv4
+        if fam == socket.AF_INET:
+            return sa.ipv4
+
+        elif fam == socket.AF_INET6:
+            return sa.ipv6
+
+        else:
+            raise socket.error('Unknown Address Family: %s' % (fam,))
+
 
     socket.inet_pton = inet_pton
 
@@ -60,7 +68,7 @@ if getattr(socket,'inet_ntop',None) == None:
         if WSAAddressToStringA(sa, ctypes.sizeof(sa), None, text, szref):
             raise socket.error('Invalid Address (fam:%d) %s' % (fam,text))
 
-        return text[:size.value]
+        return text.value
 
     socket.inet_ntop = inet_ntop
 
