@@ -1,3 +1,6 @@
+
+import time
+
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
@@ -288,5 +291,13 @@ class SwarmRunTest(SwarmRunBase):
 
         self.assertEqual( len(tufos), 1 )
         self.assertEqual( tufos[0][1].get('foo:bar'), 'baz' )
+
+        env.fini()
+
+    def test_swarm_runtime_maxtime(self):
+
+        env = self.getSwarmEnv()
+
+        self.assertRaises(s_runtime.QueryLimitTime, env.runt.ask, 'foo:bar', maxtime=time.time()-1)
 
         env.fini()
