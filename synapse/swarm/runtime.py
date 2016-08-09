@@ -149,6 +149,15 @@ class Query(s_eventbus.EventBus):
                 tufo[1]['.from'] = svcfo[0]
                 yield tufo
 
+    def getTufosInPropFrom(self, prop, values, limit=None, mintime=None, maxtime=None, fromtag=deftag):
+
+        dyntask = gentask('getTufosInProp',prop,values,limit=limit,mintime=mintime,maxtime=maxtime)
+
+        for svcfo,retval in self.callByTag(fromtag,dyntask):
+            for tufo in retval:
+                tufo[1]['.from'] = svcfo[0]
+                yield tufo
+
     def callByTag(self, *args, **kwargs):
         # provide direct access to the callByTag API to prevent object reaching
         return self.runt.svcprox.callByTag(*args,**kwargs)
