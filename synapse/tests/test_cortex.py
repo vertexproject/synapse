@@ -53,6 +53,7 @@ class CortexTest(SynTest):
         id2 = guid()
         id3 = guid()
         id4 = guid()
+        id5 = guid()
 
         rows = [
             (id1,'foo','bar',30),
@@ -70,6 +71,7 @@ class CortexTest(SynTest):
             (id4,'lolint',80,30),
             (id4,'lolstr','hehe',30),
 
+            (id5,'gronk',100,99),
         ]
 
         core.addRows( rows )
@@ -113,6 +115,8 @@ class CortexTest(SynTest):
 
         self.assertEqual( len(core.getRowsByProp('baz',limit=1)), 1 )
         self.assertEqual( len(core.getJoinByProp('baz',limit=1)), 3 )
+
+        self.assertEqual( len(core.getJoinInProp('gronk',values=[80, 90])), 6 )
 
         core.setRowsByIdProp(id4,'lolstr','haha')
         self.assertEqual( len(core.getRowsByProp('lolstr','hehe')), 0 )

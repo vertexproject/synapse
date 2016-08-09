@@ -719,6 +719,21 @@ class Cortex(EventBus,DataModel):
         '''
         return tuple(self._getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit))
 
+    def getJoinInProp(self, prop, values, mintime=None, maxtime=None, limit=None):
+        '''
+        Similar to getRowsInProp but also lifts all other rows for set of values.
+
+        Example:
+
+            for row in core.getRowsByProp('foo',[20,30,40]):
+                stuff(row)
+        Notes:
+
+            * See getRowsByProp for options
+
+        '''
+        return tuple(self._getJoinInProp(prop, values, mintime=mintime, maxtime=maxtime, limit=limit))
+
     def getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, limit=None):
         '''
         Similar to getRowsByProp but pivots through "iden" to a different property.
@@ -860,6 +875,22 @@ class Cortex(EventBus,DataModel):
 
         '''
         rows = self.getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+
+        res = collections.defaultdict(dict)
+        [ res[i].__setitem__(p,v) for (i,p,v,t) in rows ]
+        return list(res.items())
+
+    def getTufosInProp(self, prop, values, mintime=None, maxtime=None, limit=None):
+        '''
+        Return a list of tufos with property in set of values.
+
+        Example:
+
+            for tufo in core.getTufosInProp('foo:bar', [86, 75, 309]):
+                dostuff(tufo)
+
+        '''
+        rows = self.getJoinInProp(prop, values, mintime=mintime, maxtime=maxtime, limit=limit)
 
         res = collections.defaultdict(dict)
         [ res[i].__setitem__(p,v) for (i,p,v,t) in rows ]
@@ -1435,6 +1466,11 @@ class Cortex(EventBus,DataModel):
 
     def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         for irow in self._getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit):
+            for jrow in self._getRowsById(irow[0]):
+                yield jrow
+
+    def _getJoinInProp(self, prop, values, mintime=None, maxtime=None, limit=None):
+        for irow in self._getRowsInProp(prop,values,mintime=mintime,maxtime=maxtime,limit=limit):
             for jrow in self._getRowsById(irow[0]):
                 yield jrow
 

@@ -504,6 +504,17 @@ class Cortex(common.Cortex):
         rows = self._runPropQuery('rowsbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
         return self._foldTypeCols(rows)
 
+    def _getRowsInProp(self, prop, values, mintime=None, maxtime=None, limit=None):
+        # FIXME: Reduce this to a single query.
+        for valu in values:
+            rows = self._runPropQuery('rowsbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
+            for row in self._foldTypeCols(rows):
+                yield row
+            if limit != None:
+                limit -= len(rows)
+                if limit < 1:
+                    break
+
     def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None, nolim=False):
         limit = self._getDbLimit(limit)
 
