@@ -33,8 +33,6 @@ if getattr(socket,'inet_pton',None) == None:
 
         return sa.ipv4
 
-    socket.inet_pton = inet_pton
-
 if getattr(socket,'inet_ntop',None) == None:
 
     WSAAddressToStringA = ctypes.windll.ws2_32.WSAAddressToStringA
@@ -62,10 +60,11 @@ if getattr(socket,'inet_ntop',None) == None:
 
         return text[:size.value]
 
-    socket.inet_ntop = inet_ntop
-
 def initHostInfo():
     return {
         'format':'pe',
         'platform':'windows',
     }
+
+def daemonize():
+    pass

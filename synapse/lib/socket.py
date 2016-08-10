@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.lib.threads as s_threads
+import synapse.lib.thisplat as s_thisplat
 
 from synapse.eventbus import EventBus
 
@@ -556,6 +557,18 @@ def socketpair():
         return Socket(s1),Socket(s2)
     except AttributeError as e:
         return _sockpair()
+
+def inet_pton(afam,text):
+    '''
+    Implements classic socket.inet_pton regardless of platform. (aka windows)
+    '''
+    return s_thisplat.inet_pton(afam,text)
+
+def inet_ntop(afam,byts):
+    '''
+    Implements classic socket.inet_ntop regardless of platform. (aka windows)
+    '''
+    return s_thisplat.inet_ntop(afam,byts)
 
 def hostaddr(dest='8.8.8.8'):
     '''
