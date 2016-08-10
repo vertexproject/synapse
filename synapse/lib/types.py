@@ -9,6 +9,7 @@ import struct
 import datetime
 
 import synapse.compat as s_compat
+import synapse.lib.socket as s_socket
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.swarm.syntax as s_syntax
 
@@ -231,8 +232,18 @@ class IPv4Type(DataType):
     def parse(self, text):
         return ipv4int(text)
 
+# RFC5952 compatible
 def ipv6norm(text):
-    return socket.inet_ntop( socket.AF_INET6, socket.inet_pton( socket.AF_INET6, text ) )
+    '''
+    Normalize an IPv6 address into RFC5952 canonical form.
+
+    Example:
+
+        text = ipv6norm(text)
+
+    '''
+    # use inet_ntop / inet_pton from synapse.lib.socket for portability
+    return s_socket.inet_ntop( socket.AF_INET6, s_socket.inet_pton( socket.AF_INET6, text ) )
 
 class IPv6Type(DataType):
 
