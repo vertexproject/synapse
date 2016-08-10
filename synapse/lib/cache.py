@@ -178,6 +178,62 @@ class Cache(EventBus):
         if self.schevt != None:
             self.sched.cancel(self.schevt)
 
+class FixedCache(EventBus):
+    '''
+    Implements a fixed-size cache.
+
+    For implementation speed, the cache will flush oldest values first
+    regardless of last cache hit.
+    '''
+
+    def __init__(self, maxsize=10000, onmiss=None):
+        EventBus.__init__(self)
+
+        self.cache = {}
+        self.onmiss = onmiss
+        self.maxsize = maxsize
+        self.cachelock = threading.Lock()
+
+        self.fifo = collections.deque()
+
+    def get(self, key):
+        '''
+        Return the value from the cache.  If onmiss is set, lookup
+        entry on cache miss and add to cache.
+
+        Example:
+
+            valu = cache.get('foo')
+            if valu != None:
+                dostuff(valu)
+
+        '''
+        with self.cachelock:
+
+            valu = self.cache.get(key,miss)
+
+            if valu is miss and self.onmiss:
+                valu = self.onmiss(key)
+                self.cache[key] = valu
+                self.fifo.append(key)
+
+                while len(self.fifo) > self.maxsize:
+                    nuk = self.fifo.popleft()
+                    self.cache.pop(nuk,None)
+
+            if valu is miss:
+                return None
+
+            return valu
+
+    def clear(self):
+        ''' 
+        Remove all entries from the FixedCache.
+        '''
+        with self.cachelock:
+            self.fifo.clear()
+            self.cache.clear()
+
 class TufoCache(Cache):
 
     def __init__(self, core, maxtime=None):

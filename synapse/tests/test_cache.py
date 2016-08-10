@@ -1,12 +1,13 @@
 import unittest
 import threading
+import collections
 
 import synapse.lib.cache as s_cache
 import synapse.cortex as s_cortex
 
-from synapse.common import *
+from synapse.tests.common import *
 
-class CacheTest(unittest.TestCase):
+class CacheTest(SynTest):
 
     def test_cache_timeout(self):
         c = s_cache.Cache(maxtime=0.1)
@@ -94,3 +95,34 @@ class CacheTest(unittest.TestCase):
         cache = s_cache.KeyCache(getfoo)
 
         self.assertEqual( cache[10], 'asdf' )
+
+    def test_cache_fixed(self):
+
+        data = collections.defaultdict(int)
+        def getfoo(x):
+            data[x] += 1
+            return x + 20
+
+        cache = s_cache.FixedCache(maxsize=3, onmiss=getfoo)
+        self.eq( cache.get(30), 50 )
+        self.eq( cache.get(30), 50 )
+        self.eq( cache.get(30), 50 )
+        self.eq( cache.get(30), 50 )
+
+        self.eq( data[30], 1 )
+
+        self.eq( cache.get(40), 60 )
+        self.eq( cache.get(50), 70 )
+        self.eq( cache.get(60), 80 )
+
+        self.eq( data[30], 1 )
+
+        self.eq( cache.get(30), 50 )
+
+        self.eq( data[30], 2 )
+
+        cache.clear()
+
+        self.eq( cache.get(30), 50 )
+
+        self.eq( data[30], 3 )
