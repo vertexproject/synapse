@@ -416,8 +416,6 @@ class Proxy(s_eventbus.EventBus):
         '''
         Send a tele:syn to get a telepath session
         '''
-        msginfo = dict(sid=self._tele_sid)
-
         job = self._txTeleJob('tele:syn', sid=self._tele_sid)
 
         synresp = self.syncjob(job, timeout=6)
