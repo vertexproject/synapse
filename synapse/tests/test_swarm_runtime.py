@@ -73,6 +73,11 @@ class SwarmRunTest(SwarmRunBase):
 
         self.assertEqual( len(data), 4 )
 
+        answ = tenv.runt.ask('hehe.haha/foo:bar:vvv')
+        data = answ.get('data')
+
+        self.assertEqual( len(data), 2 )
+
         answ = tenv.runt.ask('hehe.haha/foo:bar:vvv="visi"')
         data = answ.get('data')
 
