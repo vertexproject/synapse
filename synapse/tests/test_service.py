@@ -138,3 +138,45 @@ class SvcTest(SynTest):
         self.assertEqual( prox.callByName('foo0', gentask('foo',20)), 30 )
 
         dmon.fini()
+
+    def test_service_getNameProxy(self):
+        sbus = s_service.SvcBus()
+
+        woot0 = Woot()
+
+        dmon = s_daemon.Daemon()
+        dmon.share('syn.svcbus', sbus, fini=True)
+
+        link = dmon.listen('tcp://127.0.0.1:0/')
+
+        port = link[1].get('port')
+
+        prox = s_service.openurl('tcp://127.0.0.1/syn.svcbus', port=port)
+
+        prox.runSynSvc('foo0', woot0)
+
+        nameprox = prox.getNameProxy('foo0')
+        self.assertEqual(nameprox.foo(20), 30)
+
+        dmon.fini()
+
+    def test_service_getTagProxy(self):
+        sbus = s_service.SvcBus()
+
+        woot0 = Woot()
+
+        dmon = s_daemon.Daemon()
+        dmon.share('syn.svcbus', sbus, fini=True)
+
+        link = dmon.listen('tcp://127.0.0.1:0/')
+
+        port = link[1].get('port')
+
+        prox = s_service.openurl('tcp://127.0.0.1/syn.svcbus', port=port)
+
+        prox.runSynSvc('foo0', woot0, tags=['bar0'])
+
+        tagprox = prox.getTagProxy('bar0')
+        self.assertEqual(next(tagprox.foo(20), None), 30)
+
+        dmon.fini()
