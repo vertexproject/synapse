@@ -9,6 +9,7 @@ from synapse.compat import queue
 int_t = type(0)
 str_t = type('visi')
 none_t = type(None)
+tup_t = type((1, 2))
 
 istable = '''
     SELECT
@@ -49,16 +50,16 @@ getrows_by_prop_int = 'SELECT * FROM %s WHERE prop=? AND intval=? LIMIT ?'
 getrows_by_prop_str = 'SELECT * FROM %s WHERE prop=? AND strval=? LIMIT ?'
 
 getrows_by_prop_wmin = 'SELECT * FROM %s WHERE prop=? AND stamp >=? LIMIT ?'
-getrows_by_prop_int_wmin = 'SELECT * FROM %s WHERE prop=? LIMIT ? AND intval=? AND stamp >=? LIMIT ?'
-getrows_by_prop_str_wmin = 'SELECT * FROM %s WHERE prop=? LIMIT ? AND strval=? AND stamp >=? LIMIT ?'
+getrows_by_prop_int_wmin = 'SELECT * FROM %s WHERE prop=? AND intval=? AND stamp >=? LIMIT ?'
+getrows_by_prop_str_wmin = 'SELECT * FROM %s WHERE prop=? AND strval=? AND stamp >=? LIMIT ?'
 
 getrows_by_prop_wmax = 'SELECT * FROM %s WHERE prop=? AND stamp<? LIMIT ?'
 getrows_by_prop_int_wmax = 'SELECT * FROM %s WHERE prop=? AND intval=? AND stamp<? LIMIT ?'
 getrows_by_prop_str_wmax = 'SELECT * FROM %s WHERE prop=? AND strval=? AND stamp<? LIMIT ?'
 
 getrows_by_prop_wminmax = 'SELECT * FROM %s WHERE prop=? AND stamp>=? AND stamp<? LIMIT ?'
-getrows_by_prop_int_wminmax = 'SELECT * FROM %s WHERE prop=? LIMIT ? AND intval=? AND stamp>=? AND stamp<? LIMIT ?'
-getrows_by_prop_str_wminmax = 'SELECT * FROM %s WHERE prop=? LIMIT ? AND strval=? AND stamp>=? AND stamp<? LIMIT ?'
+getrows_by_prop_int_wminmax = 'SELECT * FROM %s WHERE prop=? AND intval=? AND stamp>=? AND stamp<? LIMIT ?'
+getrows_by_prop_str_wminmax = 'SELECT * FROM %s WHERE prop=? AND strval=? AND stamp>=? AND stamp<? LIMIT ?'
 ################################################################################
 getsize_by_prop = 'SELECT COUNT(*) FROM %s WHERE prop=? LIMIT ?'
 getsize_by_prop_int = 'SELECT COUNT(*) FROM %s WHERE prop=? AND intval=? LIMIT ?'
@@ -506,6 +507,7 @@ class Cortex(common.Cortex):
 
     def _getRowsInProp(self, prop, values, mintime=None, maxtime=None, limit=None):
         # FIXME: Reduce this to a single query.
+        # NOTE: May not be possible for sqlite; see http://www.sqlite.org/limits.html "Maximum Number Of Host Parameters In A Single SQL Statement"
         for valu in values:
             rows = self._runPropQuery('rowsbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
             for row in self._foldTypeCols(rows):
@@ -518,7 +520,10 @@ class Cortex(common.Cortex):
     def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None, nolim=False):
         limit = self._getDbLimit(limit)
 
-        qkey = (type(valu),type(mintime),type(maxtime))
+        val_t = type(valu)
+        if val_t is tup_t:
+            val_t = type(valu[0]) if any(valu) else int_t
+        qkey = (val_t,type(mintime),type(maxtime))
 
         qargs = [ prop ]
         qargs.extend( [ v for v in (valu,mintime,maxtime) if v != None ] )

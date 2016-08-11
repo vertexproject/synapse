@@ -33,11 +33,11 @@ class CortexTest(SynTest):
         db = os.getenv('SYN_COR_PG_DB')
         if db == None:
             raise unittest.SkipTest('no SYN_COR_PG_DB')
+        if not db.startswith('postgres://'):
+            db = 'postgres:///%s' % (db)
 
         table = 'syn_test_%s' % guid()
-
-        link = s_link.chopLinkUrl('postgres:///%s/%s' % (db,table))
-        core = s_cortex.openlink(link)
+        core = s_cortex.openurl(db + '/' + table)
 
         try:
             self.runcore( core )
@@ -116,7 +116,7 @@ class CortexTest(SynTest):
         self.assertEqual( len(core.getRowsByProp('baz',limit=1)), 1 )
         self.assertEqual( len(core.getJoinByProp('baz',limit=1)), 3 )
 
-        self.assertEqual( len(core.getJoinInProp('gronk',values=[80, 90])), 6 )
+        self.assertEqual( len(core.getJoinInProp('gronk',values=(80, 90))), 6 )
 
         core.setRowsByIdProp(id4,'lolstr','haha')
         self.assertEqual( len(core.getRowsByProp('lolstr','hehe')), 0 )
