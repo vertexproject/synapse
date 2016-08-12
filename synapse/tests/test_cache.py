@@ -24,6 +24,23 @@ class CacheTest(SynTest):
         e.wait(timeout=2)
         self.assertIsNotNone( data.get('event') )
 
+    def test_cache_set_maxtime(self):
+        c = s_cache.Cache()
+
+        c.setMaxTime(0.1)
+
+        e = threading.Event()
+        data = {}
+        def onflush(event):
+            data['event'] = event
+            e.set()
+
+        c.on('cache:flush', onflush)
+        c.put('woot',10)
+
+        e.wait(timeout=2)
+        self.assertIsNotNone( data.get('event') )
+
     def test_cache_miss(self):
         c = s_cache.Cache()
         def onmiss(key):

@@ -36,15 +36,14 @@ class Cache(EventBus):
 
         self.cache = {}
         self.lasthit = {}
+        self.schevt = None
+        self.maxtime = None
         self.cachelock = threading.Lock()
 
         self.onfini( self._onCacheFini )
 
-        self.schevt = None
-        self.maxtime = maxtime
-
-        if self.maxtime != None:
-            self._checkCacheTimes()
+        if maxtime != None:
+            self.setMaxTime(maxtime)
 
     def setOnMiss(self, onmiss):
         '''
@@ -59,6 +58,12 @@ class Cache(EventBus):
 
         '''
         self.onmiss = onmiss
+
+    def setMaxTime(self, valu):
+        oldm = self.maxtime
+        self.maxtime = valu
+        if oldm == None:
+            self._checkCacheTimes()
 
     def _checkCacheTimes(self):
         mintime = time.time() - self.maxtime

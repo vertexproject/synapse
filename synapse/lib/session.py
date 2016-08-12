@@ -22,21 +22,26 @@ reflock = threading.Lock()
 
 class Sess(EventBus):
 
-    def __init__(self, cura, sess):
+    def __init__(self, cura, iden, **props):
         EventBus.__init__(self)
 
-        self.sid = sess[0]
+        self.iden = iden
         self.cura = cura
-        self.sess = sess
-
-        self.local = {}      # runtime only props
+        self.props = props
 
     def get(self, prop):
-        prop = 'sess:%s' % prop
-        return self.sess[1].get(prop)
+        '''
+        Retrieve a session property by name.
+        '''
+        return self.props.get(prop)
 
-    def put(self, prop, valu):
-        self.cura.core.setTufoProp(self.sess,prop,valu)
+    def put(self, prop, valu, save=False):
+        '''
+        Put a value into the session ( but do not persist it to storage ).
+        '''
+        self.props[prop] = valu
+        if save:
+            self.cura._saveSessProp(self.iden,prop,valu)
 
     def __enter__(self):
         sesslocal.sess = self
@@ -50,21 +55,32 @@ class Curator(EventBus):
     '''
     The Curator class manages session objects and storage.
     '''
-    def __init__(self, core, maxtime=onehour):
+    def __init__(self, core=None, maxtime=onehour):
         EventBus.__init__(self)
 
         self.core = core
 
         self.cache = s_cache.Cache(maxtime=maxtime)
-        self.cache.setOnMiss( self._getSessBySid )
+        self.cache.setOnMiss( self._getSessByIden )
         self.cache.on('cache:pop', self._onSessCachePop )
 
         self.onfini( self.cache.fini )
 
     def _onSessCachePop(self, event):
+
+        iden = event[1].get('key')
         sess = event[1].get('val')
-        if sess != None:
-            sess.fini()
+
+        if sess == None:
+            return
+
+        sess.fini()
+
+        #if self.core == None:
+            #return
+
+        #sefo = self.core.formTufoByProp('syn:sess',iden)
+        #self.core.setTufoProps(sefo,**sess.props)
 
     def __iter__(self):
         return self.cache.values()
@@ -78,13 +94,15 @@ class Curator(EventBus):
             sess = cura.new()
 
         '''
-        sess = Sess(self, self._initSessTufo())
-        self.cache.put(sess.sid,sess)
+        iden = guid()
+        sess = Sess(self, iden)
+        self.cache.put(iden,sess)
+        self.fire('sess:init', sess=sess)
         return sess
 
-    def get(self, sid):
+    def get(self, iden):
         '''
-        Return a session tufo by id.
+        Return a Session by iden.
 
         Example:
 
@@ -93,20 +111,27 @@ class Curator(EventBus):
                 dostuff(sess)
 
         '''
-        return self.cache.get(sid)
+        return self.cache.get(iden)
 
-    def _getSessBySid(self, sid):
-        # look up the tufo and construct a Sess()
-        sess = self.core.getTufoByProp('sess',sid)
-        if sess == None:
+    def _getSessByIden(self, iden):
+
+        # construct a persisted sesssion if we have a cortex
+        if self.core == None:
             return None
 
-        return Sess(self,sess)
+        # look up the tufo and construct a Sess()
+        sefo = self.core.getTufoByProp('syn:sess',iden)
+        if sefo == None:
+            return None
 
-    def _initSessTufo(self):
-        now = int(time.time())
-        sess = self.core.addTufoEvent('sess',init=now,root=0)
+        props = tufoprops(sefo)
+        return Sess(self,iden,**props)
 
-        self.fire('sess:init', sess=sess)
-        return sess
+    def _saveSessProp(self, iden, prop, valu):
 
+        # if we have a cortex to persist into
+        if self.core == None:
+            return
+
+        sefo = self.core.formTufoByProp('syn:sess', iden)
+        self.core.setTufoProp(sefo,prop,valu)
