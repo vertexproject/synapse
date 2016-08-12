@@ -16,7 +16,7 @@ class SessTest(SynTest):
         print(repr(sess))
         iden = sess.iden
 
-        sess.put('woot',10, save=True)
+        sess.put('woot',10)
 
         with sess:
 
@@ -25,7 +25,7 @@ class SessTest(SynTest):
             self.eq(sess.iden,woot.iden)
             self.eq( woot.get('woot'), 10 )
 
-            sess.put('haha',30)
+            sess.put('haha',30,save=False)
             self.eq( woot.get('haha'), 30 )
 
         cura.fini()

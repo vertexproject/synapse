@@ -35,7 +35,7 @@ class Sess(EventBus):
         '''
         return self.props.get(prop)
 
-    def put(self, prop, valu, save=False):
+    def put(self, prop, valu, save=True):
         '''
         Put a value into the session ( but do not persist it to storage ).
         '''
@@ -65,6 +65,12 @@ class Curator(EventBus):
         self.cache.on('cache:pop', self._onSessCachePop )
 
         self.onfini( self.cache.fini )
+
+    def setMaxTime(self,valu):
+        return self.cache.setMaxTime(valu)
+
+    def setSessCore(self, core):
+        self.core = core
 
     def _onSessCachePop(self, event):
 
