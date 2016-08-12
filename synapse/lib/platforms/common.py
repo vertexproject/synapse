@@ -1,8 +1,11 @@
 from __future__ import absolute_import,unicode_literals
 
 import os
+import ctypes
 import logging
 import threading
+
+import ctypes.util as c_util
 
 from synapse.exc import *
 
@@ -31,6 +34,12 @@ def getVolInfo(*paths):
         'used':total - free,
         'total':total,
     }
+
+def getLibC():
+    '''
+    Return a ctypes reference to libc
+    '''
+    return ctypes.CDLL( c_util.find_library('c') )
 
 def initHostInfo():
     return {}

@@ -5,11 +5,12 @@ import threading
 import ctypes
 import ctypes.util
 
+import synapse.lib.thisplat as s_thisplat
 import synapse.lib.thishost as s_thishost
 
 from synapse.eventbus import EventBus
 
-libc = ctypes.CDLL( ctypes.util.find_library('c') )
+libc = s_thisplat.getLibC()
 
 ptrsize = s_thishost.get('ptrsize')
 # TODO figure out how to use windows mmap for this
