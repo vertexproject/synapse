@@ -1,7 +1,7 @@
-import re
-import logging
 
-import synapse.async as s_async
+import logging
+import time
+
 import synapse.eventbus as s_eventbus
 import synapse.lib.service as s_service
 import synapse.swarm.syntax as s_syntax
@@ -323,7 +323,7 @@ class Runtime(s_eventbus.EventBus):
     #def getInstFunc(self, name):
         #return self.insts.get(name)
 
-    def ask(self, text, user=None, data=()):
+    def ask(self, text, user=None, data=(), maxtime=None):
         '''
         Run a swarm query and return the query result dict.
         user= stdin=
@@ -335,6 +335,7 @@ class Runtime(s_eventbus.EventBus):
         # TODO enforce oper perms here ( before run )
 
         query = Query(self, insts, user=user, data=data)
+        query.maxtime = maxtime
 
         return query.execute()
 
