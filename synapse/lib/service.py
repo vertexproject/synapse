@@ -134,8 +134,9 @@ class SvcProxy:
         self.byname = {}
         self.bytag = s_tags.ByTag()
 
-        self.tagprox = {}
         self.idenprox = {}
+        self.nameprox = {}
+        self.tagprox = {}
 
         [ self._addSvcTufo(svcfo) for svcfo in sbus.getSynSvcs() ]
 
@@ -251,13 +252,31 @@ class SvcProxy:
         if timeout == None:
             timeout = self.timeout
 
-        svcfo = self.byname.get(name)
+        svcfo = self.getSynSvcByName(name)
         if svcfo == None:
             raise NoSuchObj(name)
 
         job = self.sbus.callx(svcfo[0],dyntask)
         self.sbus._waitTeleJob(job, timeout=timeout)
         return s_async.jobret(job)
+
+    def getNameProxy(self, name):
+        '''
+        Construct and return a SvcNameProxy to simplify callByName use.
+
+        Example:
+
+            foosbars = svcprox.getNameProxy('foos_bars')
+
+            valu = foosbars.getBlahThing()
+            dostuff(valu)
+
+        '''
+        prox = self.nameprox.get(name)
+        if prox == None:
+            prox = SvcNameProxy(self,name)
+            self.nameprox[name] = prox
+        return prox
 
     def callByTag(self, tag, dyntask, timeout=None):
         '''
@@ -289,7 +308,7 @@ class SvcProxy:
 
     def getTagProxy(self, tag):
         '''
-        Construct and return a TagProxy to simplify callByTag use.
+        Construct and return a SvcTagProxy to simplify callByTag use.
 
         Example:
 
@@ -317,6 +336,32 @@ class SvcProxy:
 
         '''
         return runSynSvc(name, item, self.sbus, tags=tags, **props)
+
+class SvcNameProxy:
+    '''
+    Constructed by SvcProxy for simplifying callByName use.
+    '''
+    def __init__(self, svcprox, name):
+        self.name = name
+        self.svcprox = svcprox
+
+    def _callSvcApi(self, name, *args, **kwargs):
+        dyntask = (name,args,kwargs)
+        return self.svcprox.callByName(self.name, dyntask)
+
+    def __getattr__(self, name):
+        item = SvcNameMeth(self,name)
+        setattr(self,name,item)
+        return item
+
+class SvcNameMeth:
+
+    def __init__(self, nameprox, name):
+        self.name = name
+        self.nameprox = nameprox
+
+    def __call__(self, *args, **kwargs):
+        return self.nameprox._callSvcApi(self.name, *args, **kwargs)
 
 class SvcTagProxy:
     '''

@@ -31,7 +31,14 @@ if getattr(socket,'inet_pton',None) == None:
         if WSAStringToAddressA(text, fam, None, saref, szref):
             raise socket.error('Invalid Address (fam:%d) %s' % (fam,text))
 
-        return sa.ipv4
+        if fam == socket.AF_INET:
+            return sa.ipv4
+
+        elif fam == socket.AF_INET6:
+            return sa.ipv6
+
+        else:
+            raise socket.error('Unknown Address Family: %s' % (fam,))
 
 if getattr(socket,'inet_ntop',None) == None:
 
@@ -53,12 +60,13 @@ if getattr(socket,'inet_ntop',None) == None:
         size = ctypes.c_int(128)
         text = ctypes.create_string_buffer(128)
 
+        saref = ctypes.byref(sa)
         szref = ctypes.byref(size)
 
-        if WSAAddressToStringA(sa, ctypes.sizeof(sa), None, text, szref):
+        if WSAAddressToStringA(saref, ctypes.sizeof(sa), None, text, szref):
             raise socket.error('Invalid Address (fam:%d) %s' % (fam,text))
 
-        return text[:size.value]
+        return text.value
 
 def initHostInfo():
     return {

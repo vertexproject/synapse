@@ -218,6 +218,9 @@ def parse_ques(text,off=0,trim=True):
 
         ques['prop'] = name
 
+        if len(text) == off:
+            return ques,off
+
     while True:
 
         if text[off] == '#':
