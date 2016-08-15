@@ -86,10 +86,12 @@ class Cortex(common.Cortex):
     def _getRowsById(self, iden):
         return list(self.rowsbyid.get(iden,()))
 
-    def _getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+    def _getRowsByProp(self, prop, valu=None, cmpr='eq', mintime=None, maxtime=None, limit=None):
 
         if valu == None:
             rows = self.rowsbyprop.get(prop)
+        elif cmpr == 'in':
+            rows = [r for v in valu for r in self.rowsbyvalu.get((prop, v), [])]
         else:
             rows = self.rowsbyvalu.get( (prop,valu) )
 
@@ -109,28 +111,6 @@ class Cortex(common.Cortex):
             c +=1 
             if limit != None and c >= limit:
                 break
-
-    def _getRowsInProp(self, prop, values, mintime=None, maxtime=None, limit=None):
-        c = 0
-
-        for valu in values:
-            rows = self.rowsbyvalu.get((prop, valu))
-
-            if rows == None:
-                continue
-
-            for row in rows:
-                if mintime != None and row[3] < mintime:
-                    continue
-
-                if maxtime != None and row[3] >= maxtime:
-                    continue
-
-                yield row
-
-                c += 1
-                if limit != None and c >= limit:
-                    return
 
     def _getSizeByProp(self, prop, valu=None, mintime=None, maxtime=None):
         if valu == None:

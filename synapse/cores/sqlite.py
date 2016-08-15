@@ -501,7 +501,9 @@ class Cortex(common.Cortex):
         rows = self._runPropQuery('sizebyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
         return rows[0][0]
 
-    def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
+    def _getRowsByProp(self, prop, valu=None, cmpr='eq', limit=None, mintime=None, maxtime=None):
+        if cmpr == 'in':
+            return self._getRowsInProp(prop, valu, mintime=mintime, maxtime=maxtime, limit=limit)
         rows = self._runPropQuery('rowsbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
         return self._foldTypeCols(rows)
 
@@ -567,9 +569,21 @@ class Cortex(common.Cortex):
     def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
         self._runPropQuery('deljoinbyprop',prop,valu=valu,mintime=mintime,maxtime=maxtime,meth=self.delete, nolim=True)
 
-    def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+    def _getJoinByProp(self, prop, valu=None, cmpr='eq', mintime=None, maxtime=None, limit=None):
+        if cmpr == 'in':
+            return self._getJoinInProp(prop, valu, mintime=mintime, maxtime=maxtime, limit=limit)
         rows = self._runPropQuery('joinbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
         return self._foldTypeCols(rows)
+
+    def _getJoinInProp(self, prop, values, mintime=None, maxtime=None, limit=None):
+        # FIXME: Reduce this to a single query.
+        # NOTE: May not be possible for sqlite; see http://www.sqlite.org/limits.html "Maximum Number Of Host Parameters In A Single SQL Statement"
+        for valu in values:
+            rows = self._runPropQuery('joinbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
+            for row in self._foldTypeCols(rows):
+                yield row
+            if limit != None:
+                limit -= len(rows)
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         self._runPropQuery('delrowsbyprop',prop,valu=valu,mintime=mintime,maxtime=maxtime,meth=self.delete, nolim=True)

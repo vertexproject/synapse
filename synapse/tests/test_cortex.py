@@ -116,7 +116,10 @@ class CortexTest(SynTest):
         self.assertEqual( len(core.getRowsByProp('baz',limit=1)), 1 )
         self.assertEqual( len(core.getJoinByProp('baz',limit=1)), 3 )
 
-        self.assertEqual( len(core.getJoinInProp('gronk',values=(80, 90))), 6 )
+        self.assertEqual( len(core.getRowsByProp('gronk',valu=(),cmpr='in')), 0 )
+        self.assertEqual( len(core.getJoinByProp('gronk',valu=(),cmpr='in')), 0 )
+        self.assertEqual( len(core.getRowsByProp('gronk',valu=(80, 90),cmpr='in')), 2 )
+        self.assertEqual( len(core.getJoinByProp('gronk',valu=(80, 90),cmpr='in')), 6 )
 
         core.setRowsByIdProp(id4,'lolstr','haha')
         self.assertEqual( len(core.getRowsByProp('lolstr','hehe')), 0 )

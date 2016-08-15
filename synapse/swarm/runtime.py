@@ -140,18 +140,9 @@ class Query(s_eventbus.EventBus):
 
         return True
 
-    def getTufosByPropFrom(self, prop, valu=None, limit=None, mintime=None, maxtime=None, fromtag=deftag):
+    def getTufosByPropFrom(self, prop, valu=None, cmpr='eq', limit=None, mintime=None, maxtime=None, fromtag=deftag):
 
-        dyntask = gentask('getTufosByProp',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
-
-        for svcfo,retval in self.callByTag(fromtag,dyntask):
-            for tufo in retval:
-                tufo[1]['.from'] = svcfo[0]
-                yield tufo
-
-    def getTufosInPropFrom(self, prop, values, limit=None, mintime=None, maxtime=None, fromtag=deftag):
-
-        dyntask = gentask('getTufosInProp',prop,values,limit=limit,mintime=mintime,maxtime=maxtime)
+        dyntask = gentask('getTufosByProp',prop,valu=valu,cmpr=cmpr,limit=limit,mintime=mintime,maxtime=maxtime)
 
         for svcfo,retval in self.callByTag(fromtag,dyntask):
             for tufo in retval:

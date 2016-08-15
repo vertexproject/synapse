@@ -44,7 +44,9 @@ class Cortex(s_c_sqlite.Cortex):
         self._q_istable = istable
 
         # Take advantage of postgres array support.
-        self.qbuild['rowsinprop'] = self._expandCorQuery('SELECT * FROM %s WHERE prop = ?', table)
+        self.qbuild['rowsinprop'] = self._expandCorQuery('SELECT * FROM %s WHERE prop=?', table)
+        subselect = self._expandCorQuery('SELECT id FROM %s WHERE prop=?', table)
+        self.qbuild['joininprop'] = {k: self._prepQuery('SELECT * from %s WHERE id IN (', table) + q + ')' for k, q in subselect.items()}
 
     def _expandCorQuery(self, query, table):
         limit = 'LIMIT ?'
@@ -68,10 +70,17 @@ class Cortex(s_c_sqlite.Cortex):
         }
         return queries
 
+    def _getJoinInProp(self, prop, values, mintime=None, maxtime=None, limit=None):
+        if values:
+            rows = self._runPropQuery('joininprop',prop,valu=values,limit=limit,mintime=mintime,maxtime=maxtime)
+            for row in self._foldTypeCols(rows):
+                yield row
+
     def _getRowsInProp(self, prop, values, mintime=None, maxtime=None, limit=None):
-        rows = self._runPropQuery('rowsinprop',prop,valu=values,limit=limit,mintime=mintime,maxtime=maxtime)
-        for row in self._foldTypeCols(rows):
-            yield row
+        if values:
+            rows = self._runPropQuery('rowsinprop',prop,valu=values,limit=limit,mintime=mintime,maxtime=maxtime)
+            for row in self._foldTypeCols(rows):
+                yield row
 
     def _getTableName(self):
         path = self._link[1].get('path')
