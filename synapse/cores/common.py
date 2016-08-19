@@ -684,6 +684,21 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         props['syn:tag:depth'] = tlen - 1
 
+    def setSaveCore(self, savecore, load=True):
+        '''
+        Set a save cortex for the cortex and optionally load.
+
+        Example:
+
+            core.setSaveCore(savecore)
+
+        '''
+        if load:
+            for tufo in savecore.getTufosByProp('tufo:form'):
+                self.formTufoByTufo(tufo)
+
+        self.savebus.link(savecore.loadbus.dist)
+
     def setSaveFd(self, fd, load=True, fini=False):
         '''
         Set a save fd for the cortex and optionally load.
@@ -705,6 +720,18 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             fd.write( msgenpack(mesg) )
 
         self.savebus.link(savemesg)
+
+    def setUserAuth(self, userauth):
+        '''
+        Set user authentication for the cortex.
+
+        Example:
+
+            userauth = synapse.lib.userauth.UserAuth()
+            core.setUserAuth(userauth)
+
+        '''
+        self.auth = userauth
 
     def isOk(self):
         '''

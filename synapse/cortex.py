@@ -85,10 +85,18 @@ def openlink(link):
     if savefd != None:
         core.setSaveFd(savefd)
 
+    savecore = link[1].get('savecore')
+    if savecore != None:
+        core.setSaveCore(savecore)
+
     savefile = link[1].get('savefile')
     if savefile != None:
         savefd = genfile(savefile)
         core.setSaveFd(savefd,fini=True)
+
+    userauth = link[1].get('userauth')
+    if userauth != None:
+        core.setUserAuth(userauth)
 
     return core
 

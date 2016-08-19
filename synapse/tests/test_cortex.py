@@ -732,9 +732,7 @@ class CortexTest(SynTest):
     def test_cortex_splice_userauth(self):
         with s_cortex.openurl('ram:///') as auth_core:
             with s_userauth.UserAuth(auth_core) as auth:
-                with s_cortex.openurl('ram:///') as core:
-                    core.auth = auth
-
+                with s_cortex.openurl('ram:///', userauth=auth) as core:
                     info1 = {'form': 'foo', 'valu': 'bar'}
                     self.assertRaises(s_exc.NoSuchUser, core.splice, 'bobo', 'tufo:add', info1)
 
@@ -1222,3 +1220,19 @@ class CortexTest(SynTest):
     def test_cortex_reqstor(self):
         with s_cortex.openurl('ram://') as core:
             self.assertRaises( BadPropValu, core.formTufoByProp, 'foo:bar', True )
+
+    def test_savecore(self):
+        with s_cortex.openurl('ram://') as savecore:
+            # test save
+            with s_cortex.openurl('ram://', savecore=savecore) as core:
+                wait = self.getTestWait(savecore.loadbus, 1, 'core:save:add:rows')
+                core.formTufoByProp('prop', 'valu')
+                wait.wait()
+                tufo = savecore.getTufoByProp('prop', valu='valu')
+                self.assertEqual(tufo[1]['tufo:form'], 'prop')
+                self.assertEqual(tufo[1]['prop'], 'valu')
+
+            # test load
+            with s_cortex.openurl('ram://', savecore=savecore) as core:
+                tufo = core.getTufoByProp('prop', valu='valu')
+                self.assertEqual(tufo[1]['prop'], 'valu')
