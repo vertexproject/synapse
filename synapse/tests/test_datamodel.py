@@ -67,6 +67,10 @@ class DataModelTest(SynTest):
         tufo0 = core.formTufoByProp('foo','hehe')
         self.assertEqual( tufo0[1].get('foo:bar'), 10 )
 
+        # TODO: core.enforce_data_model = True
+        self.assertRaises( BadPropValu, core.setTufoProp, tufo0, 'foo:bar', 'str' )
+        self.assertRaises( BadPropValu, core.formTufoByProp, 'foo:bar', 'str' )
+
         core.setTufoProp(tufo0,'bar',30)
         self.assertEqual( tufo0[1].get('foo:bar'), 30 )
 
@@ -81,6 +85,7 @@ class DataModelTest(SynTest):
 
         tufos = core.getTufosByProp('foo:bar', valu=99, limit=20)
         self.assertEqual( len(tufos) , 1 )
+
 
     def test_datamodel_subs(self):
         model = s_datamodel.DataModel()
