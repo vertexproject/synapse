@@ -8,6 +8,7 @@ import multiprocessing
 import synapse.link as s_link
 import synapse.lib.socket as s_socket
 import synapse.lib.service as s_service
+import synapse.lib.session as s_session
 import synapse.lib.threads as s_threads
 import synapse.lib.thisplat as s_thisplat
 
@@ -58,8 +59,27 @@ class DmonConf:
         self.forks = {}
 
         self.forkperm = {}
+        self.evalcache = {}
 
         self.onfini( self._onDmonFini )
+
+    def dmoneval(self, url):
+        '''
+        Evaluate ( and cache ) a URL (or local var/ctor name).
+
+        This allows multiple instances of the same URL to resolve to the
+        same object.
+        '''
+        item = self.locs.get(url)
+
+        if item == None:
+            item = self.evalcache.get(url)
+
+        if item == None:
+            item = s_telepath.evalurl(url,locs=self.locs)
+            self.evalcache[url] = item
+
+        return item
 
     def _onDmonFini(self):
         for name in list(self.forks.keys()):
@@ -130,6 +150,11 @@ class DmonConf:
                     ('baz',{'tags':('foo.bar','baz')}),
                 ),
             ),
+
+            'addons':(
+                ('auth','tcp://host.com:8899/synauth'),
+                ('logging','ctor://mypkg.mymod.MyLogger()'),
+            ),
         }
         '''
         checkConfDict(conf)
@@ -155,13 +180,14 @@ class DmonConf:
 
         for name,url in conf.get('ctors',()):
 
-            item = s_telepath.evalurl(url,locs=self.locs)
+            item = self.dmoneval(url)
             self.locs[name] = item
 
             self.fire('dmon:conf:ctor', name=name, item=item)
 
         for busname,svcruns in conf.get('services',()):
-            svcbus = self.locs.get(busname)
+
+            svcbus = self.dmoneval(busname)
             if svcbus == None:
                 raise NoSuchObj(name)
 
@@ -186,12 +212,9 @@ class DmonConf:
 
 class Daemon(EventBus,DmonConf):
 
-    def __init__(self, core=None, pool=None):
+    def __init__(self, pool=None):
         EventBus.__init__(self)
         DmonConf.__init__(self)
-
-        if core == None:
-            core = s_cortex.openurl('ram:///')
 
         self.socks = {}     # sockets by iden
         self.shared = {}    # objects provided by daemon
@@ -204,11 +227,12 @@ class Daemon(EventBus,DmonConf):
             pool = s_threads.Pool(size=8, maxsize=-1)
 
         self.pool = pool
-        self.core = core
         self.plex = s_socket.Plex()
+        self.cura = s_session.Curator()
 
         self.onfini( self.plex.fini )
         self.onfini( self.pool.fini )
+        self.onfini( self.cura.fini )
 
         self.on('link:sock:init', self._onLinkSockInit )
         self.plex.on('link:sock:mesg', self._onLinkSockMesg )
@@ -228,11 +252,49 @@ class Daemon(EventBus,DmonConf):
 
         self.setMesgFunc('tele:yield:fini', self._onTeleYieldFini )
 
+    def getNewSess(self):
+        return self.cura.new()
+
+    def getSessByIden(self, iden):
+        return self.cura.gen(iden)
+
     def _onTeleYieldFini(self, sock, mesg):
         iden = mesg[1].get('iden')
         self._dmon_yields.discard(iden)
 
     def loadDmonConf(self, conf):
+        '''
+        Process Daemon specific dmon config elements.
+
+        # examples of additional config elements
+
+        {
+            "sessions":{
+
+                "comment":"Maxtime (if set) sets the maxtime for the session cache (in seconds)",
+                "maxtime":12345,
+
+                "comment":"Curator (if set) uses dmoneval to set the session curator",
+                "curator":"tcp://host.com:8899/synsess",
+
+                "comment":"Comment (if set) saves sessions to the given path (sqlite cortex)",
+                "savefile":"sessions.sql3"
+
+            },
+
+            "share":(
+                ('fooname',{'optname':optval}),
+                ...
+            ),
+
+            "listen":(
+                'tcp://0.0.0.0:8899',
+                ...
+            ),
+
+        }
+
+        '''
         DmonConf.loadDmonConf(self,conf)
 
         for name,opts in conf.get('share',()):
@@ -247,9 +309,33 @@ class Daemon(EventBus,DmonConf):
             fini = opts.get('onfini',False)
             self.share(asname,item,fini=fini)
 
+        # process the sessions config info
+        sessinfo = conf.get('sessions')
+        if sessinfo != None:
+            self._loadSessConf(sessinfo)
+
         # process a few daemon specific options
         for url in conf.get('listen',()):
             self.listen(url)
+
+    def _loadSessConf(self, info):
+        # curator over-ride wins
+        curaname = info.get('curator')
+
+        # If it's a local, go with it...
+        if curaname != None:
+            self.cura = self.dmoneval(curaname)
+
+        maxtime = info.get('maxtime')
+        if maxtime != None:
+            self.cura.setMaxTime(maxtime)
+
+        savefile = info.get('savefile')
+        if savefile != None:
+            core = s_cortex.openurl('sqlite:///',path=savefile)
+            self.cura.setSessCore(core)
+
+            self.onfini( core.fini )
 
     def _onTelePushMesg(self, sock, mesg):
 
@@ -332,7 +418,28 @@ class Daemon(EventBus,DmonConf):
         a telepath session.
         '''
         jid = mesg[1].get('jid')
-        return sock.tx( tufo('job:done', jid=jid, ret={}) )
+
+        sess = None
+
+        iden = mesg[1].get('sess')
+        if iden != None:
+            sess = self.getSessByIden(iden)
+
+        if sess == None:
+            sess = self.getNewSess()
+
+        ret = {
+            'sess':sess.iden,
+        }
+
+        # send a nonce along for the ride in case
+        # they want to authenticate for the session
+        if not sess.get('user'):
+            nonce = guid()
+            ret['nonce'] = nonce
+            sess.put('nonce',nonce)
+
+        return sock.tx( tufo('job:done', jid=jid, ret=ret) )
 
     def _onTeleOnMesg(self, sock, mesg):
         # set the socket tx method as the callback

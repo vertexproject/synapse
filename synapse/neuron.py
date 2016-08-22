@@ -54,38 +54,46 @@ class Neuron(s_daemon.Daemon):
 
         self.core.addTufoForm('neuron')
 
-        self.core.addTufoProp('neuron','name')
-        self.core.addTufoProp('neuron','super',ptype='int',defval=0)
-        self.core.addTufoProp('neuron','usepki', ptype='bool', defval=0)
+        #self.core.addTufoProp('neuron','name')
+        #self.core.addTufoProp('neuron','super',ptype='int',defval=0)
+        #self.core.addTufoProp('neuron','usepki', ptype='bool', defval=0)
 
         self.neur = self.core.formTufoByProp('neuron','self')
         self.iden = self.neur[0]
 
-        self.mesh = {}
-        self.peers = {}
+        self.peers = {}  # <peer>:<sock>
+        self.routes = {} # <dest>:[ (dist,peer), ... ]
 
-        self.mesh['certs'] = {}
-        self.mesh['links'] = {}
+        #self.mesh = {}
+        #self.peers = {}
 
-        self.mesh['peers'] = { self.iden:self.neur }
+        #self.mesh['certs'] = {}
+        #self.mesh['links'] = {}
 
-        self.sockbyfrom = s_cache.Cache(maxtime=120)
-        self.sockbyfrom.setOnMiss( self._getFakeSock )
+        #self.mesh['peers'] = { self.iden:self.neur }
 
-        self.links = collections.defaultdict(set)
+        #self.sockbyfrom = s_cache.Cache(maxtime=120)
+        #self.sockbyfrom.setOnMiss( self._getFakeSock )
 
-        self.linkpaths = s_cache.Cache(maxtime=30)
-        self.linkpaths.setOnMiss( self._getLinkPath )
+        #self.links = collections.defaultdict(set)
+#
+        #self.linkpaths = s_cache.Cache(maxtime=30)
+        #self.linkpaths.setOnMiss( self._getLinkPath )
 
         self.setMesgFunc('peer:syn', self._onPeerSynMesg )
         self.setMesgFunc('peer:synack', self._onPeerSynAckMesg )
-        self.setMesgFunc('peer:link:init', self._onPeerLinkInitMesg )
+        self.setMesgFunc('peer:fin', self._onPeerFinMesg )      # gracefully shut down
+
+        self.setMesgFunc('peer:data', self._onPeerDataMesg)
+        self.setMesgFunc('peer:route', self._onPeerLinkMesg)    # route change information
+
+        #self.setMesgFunc('peer:link:init', self._onPeerLinkInitMesg )
 
         #self.setMesgFunc('neu:peer:chal', self._onNeuPeerChal )
         #self.setMesgFunc('neu:peer:resp', self._onNeuPeerResp )
 
-        self.setMesgFunc('neu:data', self._onNeuDataMesg )
-        self.setMesgFunc('neu:storm', self._onNeuStormMesg )
+        #self.setMesgFunc('neu:data', self._onNeuDataMesg )
+        #self.setMesgFunc('neu:storm', self._onNeuStormMesg )
 
         self.on('neu:link:init', self._onNeuLinkInit)
         self.on('neu:link:fini', self._onNeuLinkFini)
@@ -151,52 +159,52 @@ class Neuron(s_daemon.Daemon):
         #Add a 'task' tufo to initialize during Neuron startup.
         #'''
 
-    def addNeuShare(self, name, task, tags=()):
-        '''
-        Add a shared object to the neuron
+    #def addNeuShare(self, name, task, tags=()):
+        #'''
+        #Add a shared object to the neuron
 
-        Example:
+        #Example:
 
-            task = ('synapse.cortex.openurl', ('ram:///',), {})
+            #task = ('synapse.cortex.openurl', ('ram:///',), {})
 
-            neu.addNeuShare('hehe', task, tags=('foo.bar.baz',))
+            #neu.addNeuShare('hehe', task, tags=('foo.bar.baz',))
 
-        '''
-        item = s_dyndeps.runDynTask(task)
-        self.share(name,item,tags=tags)
+        #'''
+        #item = s_dyndeps.runDynTask(task)
+        #self.share(name,item,tags=tags)
 
-        jsinfo = dict(name=name, task=task, tags=tags)
-        self.core.addTufoList(self.neur,'shared', json.dumps(jsinfo) )
+        #jsinfo = dict(name=name, task=task, tags=tags)
+        #self.core.addTufoList(self.neur,'shared', json.dumps(jsinfo) )
 
-    def addNeuListen(self, url):
-        '''
-        Add a link listen url to the neuron
+    #def addNeuListen(self, url):
+        #'''
+        #Add a link listen url to the neuron
 
-        Example:
+        #Example:
 
-            neu.addNeuListen('tcp://0.0.0.0:9999')
+            #neu.addNeuListen('tcp://0.0.0.0:9999')
 
-        '''
-        if self.hasopt.get(('listen',url)):
-            raise DupOpt('listen: %s' % url)
+        #'''
+        #if self.hasopt.get(('listen',url)):
+            #raise DupOpt('listen: %s' % url)
+#
+        #self.listen(url)
+        #self.core.addTufoList(self.neur,'listen',url)
 
-        self.listen(url)
-        self.core.addTufoList(self.neur,'listen',url)
+    #def addNeuConnect(self, url):
+        ##'''
+        #Add a link connect url to the neuron
 
-    def addNeuConnect(self, url):
-        '''
-        Add a link connect url to the neuron
+        #Example:
 
-        Example:
+            #neu.addNeuConnect('tcp://mesh.kenshoto.com:9999')
 
-            neu.addNeuConnect('tcp://mesh.kenshoto.com:9999')
+        #'''
+        #if self.hasopt.get(('connect',url)):
+            #raise DupOpt('connect: %s' % url)
 
-        '''
-        if self.hasopt.get(('connect',url)):
-            raise DupOpt('connect: %s' % url)
-
-        self.connect(url)
-        self.core.addTufoList(self.neur,'connect',url)
+        #self.connect(url)
+        #self.core.addTufoList(self.neur,'connect',url)
 
     def _getFakeSock(self, idensid):
         iden,sid = idensid
@@ -368,16 +376,16 @@ class Neuron(s_daemon.Daemon):
 
         self._runLinkSockMesg( tufo('link:sock:mesg', sock=sock, mesg=newm) )
 
-    def getPeerTufo(self):
-        '''
-        Return the "peer tufo" for this neuron.
+    #def getPeerTufo(self):
+        #'''
+        #Return the "peer tufo" for this neuron.
 
-        Example:
+        #Example:
 
-            peer = neu.getPeerTufo()
+            #peer = neu.getPeerTufo()
 
-        '''
-        return self.neur
+        #'''
+        #return self.neur
 
     def getMeshDict(self):
         '''
