@@ -68,6 +68,14 @@ if getattr(socket,'inet_ntop',None) == None:
 
         return text.value
 
+    socket.inet_ntop = inet_ntop
+
+def getLibC():
+    '''
+    Override to account for python on windows not being able to find libc sometimes...
+    '''
+    return ctypes.windll.msvcrt
+
 def initHostInfo():
     return {
         'format':'pe',

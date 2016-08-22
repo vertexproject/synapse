@@ -2,8 +2,11 @@ from __future__ import absolute_import,unicode_literals
 
 import os
 import socket
+import ctypes
 import logging
 import threading
+
+import ctypes.util as c_util
 
 from synapse.exc import *
 
@@ -48,6 +51,11 @@ def daemonize():
 
     if os.fork() != 0:
         exit()
+def getLibC():
+    '''
+    Return a ctypes reference to libc
+    '''
+    return ctypes.CDLL( c_util.find_library('c') )
 
 def initHostInfo():
     return {}

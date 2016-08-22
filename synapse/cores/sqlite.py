@@ -49,16 +49,16 @@ getrows_by_prop_int = 'SELECT * FROM %s WHERE prop=? AND intval=? LIMIT ?'
 getrows_by_prop_str = 'SELECT * FROM %s WHERE prop=? AND strval=? LIMIT ?'
 
 getrows_by_prop_wmin = 'SELECT * FROM %s WHERE prop=? AND stamp >=? LIMIT ?'
-getrows_by_prop_int_wmin = 'SELECT * FROM %s WHERE prop=? LIMIT ? AND intval=? AND stamp >=? LIMIT ?'
-getrows_by_prop_str_wmin = 'SELECT * FROM %s WHERE prop=? LIMIT ? AND strval=? AND stamp >=? LIMIT ?'
+getrows_by_prop_int_wmin = 'SELECT * FROM %s WHERE prop=? AND intval=? AND stamp >=? LIMIT ?'
+getrows_by_prop_str_wmin = 'SELECT * FROM %s WHERE prop=? AND strval=? AND stamp >=? LIMIT ?'
 
 getrows_by_prop_wmax = 'SELECT * FROM %s WHERE prop=? AND stamp<? LIMIT ?'
 getrows_by_prop_int_wmax = 'SELECT * FROM %s WHERE prop=? AND intval=? AND stamp<? LIMIT ?'
 getrows_by_prop_str_wmax = 'SELECT * FROM %s WHERE prop=? AND strval=? AND stamp<? LIMIT ?'
 
 getrows_by_prop_wminmax = 'SELECT * FROM %s WHERE prop=? AND stamp>=? AND stamp<? LIMIT ?'
-getrows_by_prop_int_wminmax = 'SELECT * FROM %s WHERE prop=? LIMIT ? AND intval=? AND stamp>=? AND stamp<? LIMIT ?'
-getrows_by_prop_str_wminmax = 'SELECT * FROM %s WHERE prop=? LIMIT ? AND strval=? AND stamp>=? AND stamp<? LIMIT ?'
+getrows_by_prop_int_wminmax = 'SELECT * FROM %s WHERE prop=? AND intval=? AND stamp>=? AND stamp<? LIMIT ?'
+getrows_by_prop_str_wminmax = 'SELECT * FROM %s WHERE prop=? AND strval=? AND stamp>=? AND stamp<? LIMIT ?'
 ################################################################################
 getsize_by_prop = 'SELECT COUNT(*) FROM %s WHERE prop=? LIMIT ?'
 getsize_by_prop_int = 'SELECT COUNT(*) FROM %s WHERE prop=? AND intval=? LIMIT ?'
