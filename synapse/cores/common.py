@@ -1300,7 +1300,7 @@ class Cortex(EventBus,DataModel):
 
             # any sub-properties to populate?
             for sname,svalu in subs.items():
-                props[ '%s:%s' % (prop,sname) ] = valu
+                props[ '%s:%s' % (prop,sname) ] = svalu
 
             props[prop] = valu
 

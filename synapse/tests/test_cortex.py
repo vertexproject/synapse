@@ -5,6 +5,7 @@ import unittest
 
 import synapse.link as s_link
 import synapse.compat as s_compat
+import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
@@ -211,8 +212,49 @@ class CortexTest(SynTest):
 
             self.assertEqual( item['foo']['blah'][0], 99 )
 
-    def test_cortex_choptag(self):
+    def test_cortex_tufo_chop_subprops(self):
+        core = s_cortex.openurl('ram://')
 
+        class PairType(s_types.DataType):
+            '''
+            silly type for representing a pair like "a!b".
+            it has subprops 'first' and 'second'.
+            '''
+            subprops = (
+                s_common.tufo('first', ptype='str'),
+                s_common.tufo('second', ptype='str'),
+            )
+
+            def norm(self, valu):
+                return self.chop(valu)[0]
+
+            def chop(self, valu):
+                if self.info.get('lower'):
+                    valu = valu.lower()
+
+                first, _, second = valu.partition('!')
+                return valu, {
+                    'first': first,
+                    'second': second,
+                }
+
+            def parse(self, text):
+                return self.norm(text)
+
+            def repr(self, valu):
+                return valu
+
+        core.addType(PairType(core, 'pair'))
+
+        core.addTufoForm('foo')
+        core.addTufoProp('foo', 'bar', ptype='pair')
+
+        t0 = core.formTufoByProp('foo', 'blah', bar='A!B')
+        self.assertEqual(t0[1].get('foo:bar'), 'A!B')
+        self.assertEqual(t0[1].get('foo:bar:first'), 'A')
+        self.assertEqual(t0[1].get('foo:bar:second'), 'B')
+
+    def test_cortex_choptag(self):
         t0 = tuple(s_cortex.choptag('foo'))
         t1 = tuple(s_cortex.choptag('foo.bar'))
         t2 = tuple(s_cortex.choptag('foo.bar.baz'))
