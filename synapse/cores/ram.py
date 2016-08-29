@@ -19,11 +19,11 @@ class Cortex(common.Cortex):
 
     def _sizeByRange(self, prop, valu, limit=None):
         # HACK: for speed
-        data = dict(size=0)
+        data = [0]
         def inc():
-            data['size'] += 1
+            data[0] += 1
         [ inc() for r in self.rowsbyprop.get(prop,()) if r[2] >= valu[0] and r[2] < valu[1] ]
-        return data['size']
+        return data[0]
 
     def _rowsByRange(self, prop, valu, limit=None):
         # HACK: for speed
