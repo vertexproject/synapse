@@ -102,6 +102,14 @@ def excinfo(e):
         'errline':line,
     }
 
+def errinfo(name,mesg):
+    return {
+        'err':name,
+        'errmsg':mesg,
+        #'errfile':path,
+        #'errline':line,
+    }
+
 def tufoprops(tufo,pref=None):
     if pref == None:
         pref = tufo[1].get('tufo:form')
