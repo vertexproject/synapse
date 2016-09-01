@@ -355,12 +355,11 @@ class DataModel(s_types.TypeLib):
 
     def getPropType(self, prop):
         '''
-        Return the name of the data model type for the given property.
+        Return the data model type instance for the given property, 
+         or None if the data model doesn't have an entry for the property.
 
         Example:
-
             ptype = model.getPropType('foo:bar')
-
         '''
         pdef = self.getPropDef(prop)
         if pdef == None:
