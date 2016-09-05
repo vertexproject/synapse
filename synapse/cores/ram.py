@@ -86,10 +86,12 @@ class Cortex(common.Cortex):
     def _getRowsById(self, iden):
         return list(self.rowsbyid.get(iden,()))
 
-    def _getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+    def _getRowsByProp(self, prop, valu=None, cmpr='eq', mintime=None, maxtime=None, limit=None):
 
         if valu == None:
             rows = self.rowsbyprop.get(prop)
+        elif cmpr == 'in':
+            rows = [r for v in valu for r in self.rowsbyvalu.get((prop, v), [])]
         else:
             rows = self.rowsbyvalu.get( (prop,valu) )
 

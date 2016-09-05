@@ -195,20 +195,11 @@ class JoinOper(s_opers_common.Oper):
 
         newprop = self.args[0]
         curprop = self.args[-1]
+        values = [tufo[1].get(curprop) for tufo in self.query.data() if tufo[1].get(curprop) != None]
 
-        tufos = self.query.data()
+        for join in self.query.getTufosByPropFrom(newprop,values,cmpr='in',fromtag=ftag):
+            self.query.add(join)
 
-        vals = set()
-        for tufo in self.query.data():
-            valu = tufo[1].get(curprop)
-            if valu == None:
-                continue
-
-            vals.add(valu)
-
-        for valu in vals:
-            for tufo in self.query.getTufosByPropFrom(newprop,valu=valu,fromtag=ftag):
-                self.query.add(tufo)
 
 class PivotOper(s_opers_common.Oper):
 
