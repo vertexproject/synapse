@@ -17,10 +17,12 @@ class NoSuchProp(SynErr):pass
 class NoSuchOper(SynErr):pass
 class NoSuchRule(SynErr):pass
 
+
 class BadTypeValu(SynErr):pass
 class DupTypeName(SynErr):pass
 class DupPropName(SynErr):pass
 class BadPropName(SynErr):pass
+class BadMesgVers(SynErr):pass
 
 class BadUrl(Exception):pass
 class BadJson(Exception):pass
