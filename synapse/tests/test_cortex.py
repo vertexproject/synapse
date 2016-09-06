@@ -248,6 +248,8 @@ class CortexTest(SynTest):
 
         core.addTufoForm('foo')
         core.addTufoProp('foo', 'bar', ptype='pair')
+        core.addTufoProp('foo', 'bar:first')
+        core.addTufoProp('foo', 'bar:second')
 
         t0 = core.formTufoByProp('foo', 'blah', bar='A!B')
         self.assertEqual(t0[1].get('foo:bar'), 'A!B')
@@ -672,3 +674,64 @@ class CortexTest(SynTest):
         self.assertEqual( dnsa[1].get('dns:a:time'), 0x00404040)
 
         core.fini()
+
+    def test_cortex_enforce(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            core.addTufoForm('foo:bar', ptype='inet:email')
+            #core.addTufoProp('foo:bar', 'fqdn', ptype='fqdn')
+            #core.addTufoProp('foo:bar', 'haha', ptype='int')
+
+            core.addTufoForm('foo:baz', ptype='inet:email')
+            core.addTufoProp('foo:baz', 'fqdn', ptype='inet:fqdn')
+            core.addTufoProp('foo:baz', 'haha', ptype='int')
+
+            cofo = core.getTufoByProp('syn:core','self')
+            self.assertIsNotNone( cofo )
+
+            self.assertFalse( core.enforce )
+            self.assertFalse( cofo[1].get('syn:core:opts:enforce') )
+
+            cofo = core.setTufoProp( cofo, 'opts:enforce', 1 )
+
+            self.assertTrue( core.enforce )
+            self.assertTrue( cofo[1].get('syn:core:opts:enforce') )
+
+
+            tufo0 = core.formTufoByProp('foo:bar','foo@bar.com', hehe=10, haha=20)
+            tufo1 = core.formTufoByProp('foo:baz','foo@bar.com', hehe=10, haha=20)
+
+            # did it remove the non-declared props and subprops?
+            self.assertIsNone( tufo0[1].get('foo:bar:fqdn') )
+            self.assertIsNone( tufo0[1].get('foo:bar:hehe') )
+            self.assertIsNone( tufo0[1].get('foo:bar:haha') )
+
+            # did it selectivly keep the declared props and subprops
+            self.assertEqual( tufo1[1].get('foo:baz:haha'), 20 )
+            self.assertEqual( tufo1[1].get('foo:baz:fqdn'), 'bar.com' )
+
+            self.assertIsNone( tufo1[1].get('foo:baz:hehe') )
+            self.assertIsNone( tufo1[1].get('foo:baz:user') )
+
+            tufo0 = core.setTufoProps(tufo0, fqdn='visi.com', hehe=11 )
+            tufo1 = core.setTufoProps(tufo1, fqdn='visi.com', hehe=11, haha=21 )
+
+            self.assertIsNone( tufo0[1].get('foo:bar:fqdn') )
+            self.assertIsNone( tufo0[1].get('foo:bar:hehe') )
+
+            self.assertIsNone( tufo1[1].get('foo:baz:hehe') )
+
+            self.assertEqual( tufo1[1].get('foo:baz:haha'), 21 )
+            self.assertEqual( tufo1[1].get('foo:baz:fqdn'), 'visi.com' )
+
+
+    def test_cortex_ramtyperange(self):
+        with s_cortex.openurl('ram://') as core:
+
+            core.formTufoByProp('foo:bar',10)
+            core.formTufoByProp('foo:bar','baz')
+
+            tufs = core.getTufosBy('range','foo:bar', (5,15))
+
+            self.eq( len(tufs), 1 )

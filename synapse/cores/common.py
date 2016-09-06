@@ -48,6 +48,10 @@ class Cortex(EventBus,DataModel):
         self.statfuncs = {}
 
         self.auth = None
+
+        self.secure = 0
+        self.enforce = 0
+
         self.tagcache = {}
         self.splicefuncs = {}
 
@@ -127,6 +131,19 @@ class Cortex(EventBus,DataModel):
         self.addTufoProp('syn:prop','form',ptype='syn:prop')
         self.addTufoProp('syn:prop','ptype',ptype='syn:type')
 
+        self.addTufoForm('syn:core')
+        self.addTufoProp('syn:core','url', ptype='inet:url')
+
+        #self.addTufoProp('syn:core','opts:secure', ptype='bool', defval=0)
+        self.addTufoProp('syn:core','opts:enforce', ptype='bool', defval=0)
+
+        #self.on('tufo:set:syn:core:opts:secure', self._onSetSecure )
+        self.on('tufo:set:syn:core:opts:enforce', self._onSetEnforce )
+
+        self.myfo = self.formTufoByProp('syn:core','self')
+        self.secure = self.myfo[1].get('syn:core:opts:secure',0)
+        self.enforce = self.myfo[1].get('syn:core:opts:enforce',0)
+
         #forms = self.getTufosByProp('syn:form')
 
         #self.addTufoProp('syn:prop','ptype',ptype='str')
@@ -157,7 +174,6 @@ class Cortex(EventBus,DataModel):
         #self.addTufoProp('syn:splice','actuser', ptype='str', doc='What user is activating the splice')
         #self.addTufoProp('syn:splice','acttime', ptype='time:epoch', doc='When was the splice activated')
 
-
         self.on('tufo:add:syn:tag', self._onAddSynTag)
         self.on('tufo:add:syn:type', self._onAddSynType)
         self.on('tufo:add:syn:prop', self._onAddSynProp)
@@ -178,6 +194,15 @@ class Cortex(EventBus,DataModel):
         self.splicers['tufo:set'] = self._spliceTufoSet
         self.splicers['tufo:tag:add'] = self._spliceTufoTagAdd
         self.splicers['tufo:tag:del'] = self._spliceTufoTagDel
+
+    def _onSetEnforce(self, mesg):
+        tufo = mesg[1].get('tufo')
+        valu = mesg[1].get('valu')
+
+        if tufo[0] != self.myfo[0]:
+            return
+
+        self.enforce = valu
 
     def _reqSpliceInfo(self, act, info, prop):
         valu = info.get(prop)
@@ -756,7 +781,7 @@ class Cortex(EventBus,DataModel):
 
         Example:
 
-            rows = core.getRowsBy('range','foo',(20,30))
+            rows = core.getRowsBy('range','foo:bar',(20,30))
 
         Notes:
             * most commonly used to facilitate range searches
@@ -771,7 +796,7 @@ class Cortex(EventBus,DataModel):
 
         Example:
 
-            size = core.getSizeBy('range','foo',(20,30))
+            size = core.getSizeBy('range','foo:bar',(20,30))
             print('there are %d rows where 20 <= foo < 30 ' % (size,))
 
         '''
@@ -1295,12 +1320,20 @@ class Cortex(EventBus,DataModel):
         for name,valu in inprops.items():
             prop = '%s:%s' % (form,name)
 
+            if not self._okSetProp(prop):
+                continue
+
             # do we have a DataType to normalize and carve sub props?
             valu,subs = self.getPropChop(prop,valu)
 
             # any sub-properties to populate?
             for sname,svalu in subs.items():
-                props[ '%s:%s' % (prop,sname) ] = svalu
+
+                subprop = '%s:%s' % (prop,sname)
+                if self.getPropDef(subprop) == None:
+                    continue
+
+                props[subprop] = svalu
 
             props[prop] = valu
 
@@ -1323,6 +1356,13 @@ class Cortex(EventBus,DataModel):
         '''
         self.savebus.link(func)
 
+    def _okSetProp(self, prop):
+        # check for enforcement and validity of a full prop name
+        if not self.enforce:
+            return True
+
+        return self.getPropDef(prop) != None
+
     def setTufoProps(self, tufo, **props):
         '''
         Set ( with de-duplication ) the given tufo props.
@@ -1337,7 +1377,9 @@ class Cortex(EventBus,DataModel):
         props = { '%s:%s' % (form,p):v for (p,v) in props.items() }
 
         # normalize property values
-        props = { p:self.getPropNorm(p,v) for (p,v) in props.items() }
+        props = { p:self.getPropNorm(p,v) for (p,v) in props.items() if self._okSetProp(p) }
+
+        # FIXME handle subprops here?
 
         tid = tufo[0]
 
@@ -1379,14 +1421,18 @@ class Cortex(EventBus,DataModel):
             tufo = core.incTufoProp(tufo,prop)
 
         '''
+        form = tufo[1].get('tufo:form')
+        prop = '%s:%s' % (form,prop)
+
+        if not self._okSetProp(prop):
+            return tufo
+
         return self._incTufoProp(tufo,prop,incval=incval)
 
     def _incTufoProp(self, tufo, prop, incval=1):
+
         # to allow storage layer optimization
         iden = tufo[0]
-        form = tufo[1].get('tufo:form')
-
-        prop = '%s:%s' % (form,prop)
 
         with self.inclock:
             rows = self._getRowsByIdProp(iden,prop)
