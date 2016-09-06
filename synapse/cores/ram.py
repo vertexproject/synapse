@@ -1,6 +1,8 @@
 import collections
 import synapse.cores.common as common
 
+from synapse.compat import isint
+
 class Cortex(common.Cortex):
 
     def _initCortex(self):
@@ -22,27 +24,27 @@ class Cortex(common.Cortex):
         data = [0]
         def inc():
             data[0] += 1
-        [ inc() for r in self.rowsbyprop.get(prop,()) if r[2] >= valu[0] and r[2] < valu[1] ]
+        [ inc() for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= valu[0] and r[2] < valu[1] ]
         return data[0]
 
     def _rowsByRange(self, prop, valu, limit=None):
         # HACK: for speed
-        ret = [ r for r in self.rowsbyprop.get(prop,()) if r[2] >= valu[0] and r[2] < valu[1] ]
+        ret = [ r for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= valu[0] and r[2] < valu[1] ]
         if limit != None:
             ret = ret[:limit]
         return ret
 
     def _sizeByGe(self, prop, valu, limit=None):
-        return len([ r for r in self.rowsbyprop.get(prop,()) if r[2] >= valu ])
+        return len([ r for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= valu ])
 
     def _rowsByGe(self, prop, valu, limit=None):
-        return [ r for r in self.rowsbyprop.get(prop,()) if r[2] >= valu ][:limit]
+        return [ r for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= valu ][:limit]
 
     def _sizeByLe(self, prop, valu, limit=None):
-        return len([ r for r in self.rowsbyprop.get(prop,()) if r[2] <= valu ])
+        return len([ r for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] <= valu ])
 
     def _rowsByLe(self, prop, valu, limit=None):
-        return [ r for r in self.rowsbyprop.get(prop,()) if r[2] <= valu ][:limit]
+        return [ r for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] <= valu ][:limit]
 
     def _addRows(self, rows):
         for row in rows:
