@@ -206,7 +206,7 @@ class Cortex(common.Cortex):
         if not name:
             raise Exception('No Path Specified!')
 
-        return {'name':self._link[1].get('path')[1:]}
+        return {'name':name}
 
     def _getDbLimit(self, limit):
         if limit != None:

@@ -256,7 +256,7 @@ class Daemon(EventBus,DmonConf):
         return self.cura.new()
 
     def getSessByIden(self, iden):
-        return self.cura.gen(iden)
+        return self.cura.get(iden)
 
     def _onTeleYieldFini(self, sock, mesg):
         iden = mesg[1].get('iden')
@@ -332,7 +332,7 @@ class Daemon(EventBus,DmonConf):
 
         savefile = info.get('savefile')
         if savefile != None:
-            core = s_cortex.openurl('sqlite:///',path=savefile)
+            core = s_cortex.openurl('sqlite:///%s' % savefile)
             self.cura.setSessCore(core)
 
             self.onfini( core.fini )
