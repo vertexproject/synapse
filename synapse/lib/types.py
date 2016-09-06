@@ -93,6 +93,9 @@ class IntType(DataType):
 
     def norm(self, valu):
 
+        if not s_compat.isint(valu):
+            self._raiseBadValu(valu)
+
         if self.minval != None and valu < self.minval:
             self._raiseBadValu(valu,minval=self.minval)
 
