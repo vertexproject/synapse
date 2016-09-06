@@ -1,3 +1,5 @@
+from __future__ import absolute_import,unicode_literals
+
 import time
 import sqlite3
 
@@ -6,9 +8,9 @@ import synapse.cores.common as common
 
 from synapse.compat import queue
 
-int_t = type(0)
-str_t = type('visi')
-none_t = type(None)
+int_t = s_compat.typeof(0)
+str_t = s_compat.typeof('visi')
+none_t = s_compat.typeof(None)
 
 istable = '''
     SELECT
@@ -457,7 +459,7 @@ class Cortex(common.Cortex):
             c.execute(self._q_init_intval_idx)
 
     def _addRows(self, rows):
-        rows = [ (i,p,None,v,t) if type(v) == int else (i,p,v,None,t) for i,p,v,t in rows ]
+        rows = [ (i,p,None,v,t) if s_compat.isint(v) else (i,p,v,None,t) for i,p,v,t in rows ]
         with self.cursor() as c:
             c.executemany( self._q_addrows, rows )
 
@@ -507,7 +509,7 @@ class Cortex(common.Cortex):
     def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None, nolim=False):
         limit = self._getDbLimit(limit)
 
-        qkey = (type(valu),type(mintime),type(maxtime))
+        qkey = (s_compat.typeof(valu),s_compat.typeof(mintime),s_compat.typeof(maxtime))
 
         qargs = [ prop ]
         qargs.extend( [ v for v in (valu,mintime,maxtime) if v != None ] )
@@ -536,7 +538,7 @@ class Cortex(common.Cortex):
         return self._foldTypeCols(rows)
 
     def _setRowsByIdProp(self, ident, prop, valu):
-        if type(valu) in s_compat.numtypes:
+        if s_compat.isint(valu):
             count = self.update( self._q_uprows_by_id_prop_int, (valu,ident,prop) )
         else:
             count = self.update( self._q_uprows_by_id_prop_str, (valu,ident,prop) )
