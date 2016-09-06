@@ -419,6 +419,13 @@ class Daemon(EventBus,DmonConf):
         '''
         jid = mesg[1].get('jid')
 
+        # pass / consume protocol version information
+        vers = mesg[1].get('vers',(0,0))
+
+        if vers[0] != s_telepath.telever[0]:
+            info = errinfo('BadMesgVers','server %r != client %r' % (s_telepath.telever,vers))
+            return sock.tx( tufo('job:done', jid=jid, **info) )
+
         sess = None
 
         iden = mesg[1].get('sess')
@@ -430,6 +437,7 @@ class Daemon(EventBus,DmonConf):
 
         ret = {
             'sess':sess.iden,
+            'vers':s_telepath.telever,
         }
 
         # send a nonce along for the ride in case

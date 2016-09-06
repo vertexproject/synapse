@@ -257,3 +257,23 @@ class TelePathTest(SynTest):
 
         prox.fini()
         dmon.fini()
+
+    def test_telepath_server_badvers(self):
+
+        dmon = s_daemon.Daemon()
+        link = dmon.listen('tcp://127.0.0.1:0/')
+
+        rlay = s_link.getLinkRelay(link)
+
+        jid = guid()
+        sock = rlay.connect()
+
+        sock.tx( tufo('tele:syn', jid=jid, vers=(0,0)) )
+
+        mesg = sock.recvobj()
+
+        sock.fini()
+
+        self.eq( mesg[0],'job:done')
+        self.eq( mesg[1].get('err'), 'BadMesgVers' )
+
