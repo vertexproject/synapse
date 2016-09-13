@@ -507,7 +507,7 @@ class TypeLib:
         self.addSubType('inet:passwd','str')
         self.addSubType('inet:filepath','str')
 
-        self.addSubType('inet:fqdn','str', regex='^[a-z0-9.-_]+$', lower=1)
+        self.addSubType('inet:fqdn','str', regex='^[a-z0-9.-_\-]+$', lower=1)
         self.addSubType('inet:mac', 'str', regex='^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', lower=1)
 
         self.addSubType('inet:port', 'int', min=0, max=0xffff)
