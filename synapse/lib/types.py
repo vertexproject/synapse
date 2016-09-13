@@ -63,6 +63,9 @@ class StrType(DataType):
         return valu
 
     def norm(self, valu):
+        if not s_compat.isstr(valu):
+            self._raiseBadValu(valu)
+
         if self.info.get('lower'):
             valu = valu.lower()
 
@@ -76,6 +79,10 @@ class StrType(DataType):
         return valu
 
     def parse(self, valu):
+        try:
+            valu = str(valu)
+        except Exception:
+            raise self._raiseBadValu(valu)
         return self.norm(valu)
 
 class IntType(DataType):
@@ -92,7 +99,6 @@ class IntType(DataType):
         return self.fmt % valu
 
     def norm(self, valu):
-
         if not s_compat.isint(valu):
             self._raiseBadValu(valu)
 
