@@ -11,8 +11,7 @@ logging.basicConfig(level=logging.WARNING)
 import synapse.lib.thishost as s_thishost
 
 from synapse.common import *
-
-class TooFewEvents(Exception):pass
+from synapse.unittest import EventWaiter as TestWaiter, TooFewEvents
 
 class TestEnv:
 
@@ -40,31 +39,6 @@ class TestEnv:
         for bus in self.tofini:
             bus.fini()
 
-class TestWaiter:
-
-    def __init__(self, bus, size, *evts):
-        self.evts = evts
-        self.size = size
-        self.events = []
-
-        self.event = threading.Event()
-
-        for evt in evts:
-            bus.on(evt, self._onTestEvent)
-
-        if not evts:
-            bus.link(self._onTestEvent)
-
-    def _onTestEvent(self, event):
-        self.events.append(event)
-        if len(self.events) >= self.size:
-            self.event.set()
-
-    def wait(self, timeout=3):
-        self.event.wait(timeout=timeout)
-        if len(self.events) < self.size:
-            raise TooFewEvents('%r: %d/%d' % (self.evts, len(self.events), self.size))
-        return self.events
 
 class SynTest(unittest.TestCase):
 
