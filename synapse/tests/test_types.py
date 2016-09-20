@@ -254,3 +254,15 @@ class DataTypesTest(SynTest):
         tlib.addSubType('fake:newp','comp',fields=fields)
 
         norm,subs = tlib.getTypeChop('fake:newp',('woot.com','visi@visi.com'))
+
+    def test_datatype_int_minmax(self):
+        tlib = s_types.TypeLib()
+
+        tlib.addSubType('woot:min','int',ismin=True)
+        tlib.addSubType('woot:max','int',ismax=True)
+
+        self.eq( tlib.getTypeNorm('woot:min', 20, oldval=40), 20 )
+        self.eq( tlib.getTypeNorm('woot:min', 40, oldval=20), 20 )
+
+        self.eq( tlib.getTypeNorm('woot:max', 20, oldval=40), 40 )
+        self.eq( tlib.getTypeNorm('woot:max', 40, oldval=20), 40 )

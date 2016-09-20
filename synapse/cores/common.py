@@ -1377,7 +1377,7 @@ class Cortex(EventBus,DataModel):
         props = { '%s:%s' % (form,p):v for (p,v) in props.items() }
 
         # normalize property values
-        props = { p:self.getPropNorm(p,v) for (p,v) in props.items() if self._okSetProp(p) }
+        props = { p:self.getPropNorm(p,v,oldval=tufo[1].get(p)) for (p,v) in props.items() if self._okSetProp(p) }
 
         # FIXME handle subprops here?
 

@@ -735,3 +735,49 @@ class CortexTest(SynTest):
             tufs = core.getTufosBy('range','foo:bar', (5,15))
 
             self.eq( len(tufs), 1 )
+
+    def test_cortex_minmax(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            core.addTufoForm('foo')
+            core.addTufoProp('foo','min', ptype='int:min')
+            core.addTufoProp('foo','max', ptype='int:max')
+
+            props = {'min':20,'max':20}
+            tufo0 = core.formTufoByProp('foo', 'derp', **props)
+
+            tufo0 = core.setTufoProp(tufo0,'min', 30)
+            self.eq( tufo0[1].get('foo:min'), 20 )
+
+            tufo0 = core.setTufoProp(tufo0,'min', 10)
+            self.eq( tufo0[1].get('foo:min'), 10 )
+
+            tufo0 = core.setTufoProp(tufo0,'max', 10)
+            self.eq( tufo0[1].get('foo:max'), 20 )
+
+            tufo0 = core.setTufoProp(tufo0,'max', 30)
+            self.eq( tufo0[1].get('foo:max'), 30 )
+
+    def test_cortex_minmax_epoch(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            core.addTufoForm('foo')
+            core.addTufoProp('foo','min', ptype='time:epoch:min')
+            core.addTufoProp('foo','max', ptype='time:epoch:max')
+
+            props = {'min':20,'max':20}
+            tufo0 = core.formTufoByProp('foo', 'derp', **props)
+
+            tufo0 = core.setTufoProp(tufo0,'min', 30)
+            self.eq( tufo0[1].get('foo:min'), 20 )
+
+            tufo0 = core.setTufoProp(tufo0,'min', 10)
+            self.eq( tufo0[1].get('foo:min'), 10 )
+
+            tufo0 = core.setTufoProp(tufo0,'max', 10)
+            self.eq( tufo0[1].get('foo:max'), 20 )
+
+            tufo0 = core.setTufoProp(tufo0,'max', 30)
+            self.eq( tufo0[1].get('foo:max'), 30 )

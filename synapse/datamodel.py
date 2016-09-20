@@ -279,7 +279,7 @@ class DataModel(s_types.TypeLib):
 
         return self.getDataType(ptype)
 
-    def getPropNorm(self, prop, valu):
+    def getPropNorm(self, prop, valu, oldval=None):
         '''
         Return a normalized system mode value for the given property.
 
@@ -292,7 +292,7 @@ class DataModel(s_types.TypeLib):
         if dtype == None:
             return valu
 
-        return dtype.norm(valu)
+        return dtype.norm(valu,oldval=oldval)
 
     def getPropChop(self, prop, valu):
         '''
