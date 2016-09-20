@@ -266,3 +266,8 @@ class DataTypesTest(SynTest):
 
         self.eq( tlib.getTypeNorm('woot:max', 20, oldval=40), 40 )
         self.eq( tlib.getTypeNorm('woot:max', 40, oldval=20), 40 )
+
+    def test_datatype_fqdn(self):
+        tlib = s_types.TypeLib()
+        self.eq( tlib.getTypeNorm('inet:fqdn','WOOT.COM'), 'woot.com')
+        self.eq( tlib.getTypeNorm('inet:fqdn','WO-OT.COM'), 'wo-ot.com')
