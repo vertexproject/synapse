@@ -149,3 +149,19 @@ class EventBusTest(SynTest):
         bus.fini()
 
         self.assertEqual( data['count'], 1 )
+
+    def test_eventbus_waiter(self):
+        bus0 = s_eventbus.EventBus()
+
+        wait0 = bus0.waiter(3,'foo:bar')
+
+        bus0.fire('foo:bar')
+        bus0.fire('foo:bar')
+        bus0.fire('foo:bar')
+
+        evts = wait0.wait(timeout=3)
+        self.eq( len(evts), 3 )
+
+        wait1 = bus0.waiter(3,'foo:baz')
+        evts = wait1.wait(timeout=0.1)
+        self.assertIsNone( evts )
