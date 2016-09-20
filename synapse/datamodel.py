@@ -88,10 +88,10 @@ class DataModel(s_types.TypeLib):
 
         self.props = {}
         self.forms = set()
-        self.propsbytype = {}
 
         self.defvals = collections.defaultdict(list)
         self.subprops = collections.defaultdict(list)
+        self.propsbytype = collections.defaultdict(list)
 
         self.globs = []
         self.cache = {} # for globs
@@ -185,6 +185,7 @@ class DataModel(s_types.TypeLib):
         ptype = info.get('ptype')
         if ptype != None:
             self.reqDataType(ptype)
+            self.propsbytype[ptype].append(pdef)
 
         self.props[ prop ] = pdef
         self.model['props'][prop] = pdef

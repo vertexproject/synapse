@@ -890,6 +890,32 @@ class Cortex(EventBus,DataModel):
         [ res[i].__setitem__(p,v) for (i,p,v,t) in rows ]
         return list(res.items())
 
+    def getTufosByPropType(self, name, valu=None, mintime=None, maxtime=None, limit=None):
+        '''
+        Return tufos by interrogating the data model to find fields of the given type.
+
+        Example:
+
+            # return all tufos with an inet:email type property with value foo@bar.com
+
+            for tufo in core.getTufosByPropType('inet:email', valu='foo@bar.com'):
+                dostuff(tufo)
+
+        '''
+        ret = []
+
+        for prop,info in self.propsbytype.get(name,()):
+
+            pres = self.getTufosByProp(prop,valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+            ret.extend(pres)
+
+            if limit != None:
+                limit -= len(pres)
+                if limit <= 0:
+                    break
+
+        return ret
+
     def _genTufoTag(self, tag):
         if not self.tagcache.get(tag):
             self.formTufoByProp('syn:tag',tag)

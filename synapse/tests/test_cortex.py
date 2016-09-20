@@ -781,3 +781,30 @@ class CortexTest(SynTest):
 
             tufo0 = core.setTufoProp(tufo0,'max', 30)
             self.eq( tufo0[1].get('foo:max'), 30 )
+
+    def test_cortex_by_type(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            core.addTufoForm('foo')
+            core.addTufoProp('foo','min', ptype='time:epoch:min')
+            core.addTufoProp('foo','max', ptype='time:epoch:max')
+
+            core.addTufoForm('bar')
+            core.addTufoProp('bar','min', ptype='time:epoch:min')
+            core.addTufoProp('bar','max', ptype='time:epoch:max')
+
+            core.addTufoForm('baz')
+            core.addTufoProp('baz','min', ptype='time:epoch')
+            core.addTufoProp('baz','max', ptype='time:epoch')
+
+            props = {'min':20,'max':20}
+
+            tufo0 = core.formTufoByProp('foo', 'hurr', **props)
+            tufo1 = core.formTufoByProp('bar', 'durr', **props)
+            tufo2 = core.formTufoByProp('baz', 'durr', **props)
+
+            want = tuple(sorted([tufo0[0],tufo1[0]]))
+
+            res0 = core.getTufosByPropType('time:epoch:min', valu=20)
+            self.eq( tuple(sorted([r[0] for r in res0])), want )
