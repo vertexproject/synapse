@@ -257,7 +257,9 @@ class Cortex(common.Cortex):
 
     def _initDbConn(self):
         dbinfo = self._initDbInfo()
-        return sqlite3.connect(dbinfo.get('name'), check_same_thread=False)
+        db = sqlite3.connect(dbinfo.get('name'), check_same_thread=False)
+        self.onfini(db.close, weak=True)
+        return db
 
     def _getTableName(self):
         return 'syncortex'
