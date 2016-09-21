@@ -141,6 +141,14 @@ class DataTypesTest(SynTest):
         self.eq( tlib.getTypeParse('inet:srv6', '[AF:00::02]:80'), '[af::2]:80')
         self.eq( tlib.getTypeNorm('inet:srv6', '[AF:00::02]:80'), '[af::2]:80')
 
+    def test_datatype_str(self):
+        tlib = s_types.TypeLib()
+
+        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'str', 10 )
+
+        self.eq( tlib.getTypeNorm('str','foo'), 'foo' )
+        self.eq( tlib.getTypeParse('str','bar'), 'bar' )
+
     def test_datatype_str_enums(self):
         tlib = s_types.TypeLib()
 
