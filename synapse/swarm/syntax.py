@@ -203,6 +203,9 @@ def parse_ques(text,off=0,trim=True):
 
     name,off = nom(text,off,varset,trim=True)
 
+    if not name:
+        raise SyntaxError(text=text,off=off,mesg='expected name')
+
     ques['cmp'] = 'has'
     ques['prop'] = name
 
@@ -349,7 +352,6 @@ def parse(text, off=0):
     ret = []
 
     while True:
-
 
         # leading whitespace is irrelevant
         _,off = nom(text,off,whites)
