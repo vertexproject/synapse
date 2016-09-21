@@ -57,6 +57,7 @@ class Cortex(EventBus,DataModel):
 
         self.sizebymeths = {}
         self.rowsbymeths = {}
+        self.tufosbymeths = {}
 
         #############################################################
         # buses to save/load *raw* save events
@@ -772,8 +773,22 @@ class Cortex(EventBus,DataModel):
         return self._getSizeByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
 
     def getTufosBy(self, name, prop, valu, limit=None):
-        rows = self.getRowsBy(name,prop,valu,limit=limit)
-        return [ self.getTufoById(row[0]) for row in rows ]
+        '''
+        Retrieve tufos by either a specialized method or the lower getRowsBy api
+        Specialized methods will be dependant on the storage backing and the data indexed
+
+        Example:
+
+            tufos = core.getTufosBy('in', 'foo', (47,3,8,22))
+
+        '''
+        meth = self.tufosbymeths.get(name)
+
+        if not meth:
+            rows = self.getRowsBy(name,prop,valu,limit=limit)
+            return [ self.getTufoById(row[0]) for row in rows ]
+
+        return meth(prop, valu, limit=limit)
 
     def getRowsBy(self, name, prop, valu, limit=None):
         '''
@@ -802,6 +817,34 @@ class Cortex(EventBus,DataModel):
         '''
         meth = self._reqSizeByMeth(name)
         return meth(prop,valu,limit=limit)
+
+    def initTufosBy(self, name, meth):
+        '''
+        Initialize a "tufos by" handler for the Cortex.  This is useful
+        when the index or storage backing can optimize tufo creation from
+        raw rows.
+
+        Example:
+            def getbyin(prop,valus,limit=None):
+                ret = []
+
+                for valu in valus:
+                    res = self.getTufosByProp(prop, valu=valu, limit=limit)
+                    ret.extend(res)
+
+                    if limit != None:
+                        limit -= len(res)
+                        if limit <= 0:
+                            break
+
+                return ret
+
+            core.initTufos('in',getbyin)
+
+        Notes:
+            * Used by Cortex implementers to facilitate getTufosBy(...)
+        '''
+        self.tufosbymeths[name] = meth
 
     def initRowsBy(self, name, meth):
         '''
@@ -874,6 +917,11 @@ class Cortex(EventBus,DataModel):
 
         return tufo
 
+    def _rowsToTufos(self, rows):
+        res = collections.defaultdict(dict)
+        [ res[i].__setitem__(p,v) for (i,p,v,t) in rows ]
+        return list(res.items())
+
     def getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         '''
         Return a list of tufos by property.
@@ -886,9 +934,7 @@ class Cortex(EventBus,DataModel):
         '''
         rows = self.getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
 
-        res = collections.defaultdict(dict)
-        [ res[i].__setitem__(p,v) for (i,p,v,t) in rows ]
-        return list(res.items())
+        return self._rowsToTufos(rows)
 
     def getTufosByPropType(self, name, valu=None, mintime=None, maxtime=None, limit=None):
         '''

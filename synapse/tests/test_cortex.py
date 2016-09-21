@@ -265,6 +265,42 @@ class CortexTest(SynTest):
         self.assertEqual( t1, ('foo','foo.bar'))
         self.assertEqual( t2, ('foo','foo.bar','foo.bar.baz'))
 
+    def test_cortex_tufo_by_default(self):
+        core = s_cortex.openurl('sqlite:///:memory:')
+
+        fooa = core.formTufoByProp('foo','bar',p0=4)
+        foob = core.formTufoByProp('foo','baz',p0=5)
+
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4])), 1)
+
+        fooc = core.formTufoByProp('foo','faz',p0=5)
+        food = core.formTufoByProp('foo','haz',p0=6)
+        fooe = core.formTufoByProp('foo','gaz',p0=7)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5])), 2)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5,6,7], limit=4)), 4)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
+
+    def test_cortex_tufo_by_postgres(self):
+        db = os.getenv('SYN_COR_PG_DB')
+        if db == None:
+            raise unittest.SkipTest('no SYN_COR_PG_DB')
+
+        table = 'syn_test_%s' % guid()
+
+        link = s_link.chopLinkUrl('postgres:///%s/%s' % (db,table))
+        core = s_cortex.openlink(link)
+
+        fooa = core.formTufoByProp('foo','bar',p0=4)
+        foob = core.formTufoByProp('foo','baz',p0=5)
+
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4])), 1)
+
+        fooc = core.formTufoByProp('foo','faz',p0=5)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5])), 2)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
+
     def test_cortex_tufo_tag(self):
         core = s_cortex.openurl('ram://')
         foob = core.formTufoByProp('foo','bar',baz='faz')
