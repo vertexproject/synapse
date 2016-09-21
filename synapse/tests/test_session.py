@@ -13,7 +13,6 @@ class SessTest(SynTest):
 
         sess = cura.new()
 
-        print(repr(sess))
         iden = sess.iden
 
         sess.put('woot',10)

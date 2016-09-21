@@ -23,6 +23,10 @@ import synapse.lib.threads as s_threads
 from synapse.common import *
 from synapse.compat import queue
 
+# telepath protocol version
+# ( compat breaks only at major ver )
+telever = (1,0)
+
 def openurl(url,**opts):
     '''
     Construct a telepath proxy from a url.
@@ -416,9 +420,13 @@ class Proxy(s_eventbus.EventBus):
         '''
         Send a tele:syn to get a telepath session
         '''
-        job = self._txTeleJob('tele:syn', sid=self._tele_sid)
+        job = self._txTeleJob('tele:syn', sid=self._tele_sid, vers=telever)
 
         synresp = self.syncjob(job, timeout=6)
+
+        vers = synresp.get('vers',(0,0))
+        if vers[0] != telever[0]:
+            raise BadMesgVers(myver=telever,hisver=vers)
 
         self._tele_sid = synresp.get('sess')
 

@@ -88,10 +88,10 @@ class DataModel(s_types.TypeLib):
 
         self.props = {}
         self.forms = set()
-        self.propsbytype = {}
 
         self.defvals = collections.defaultdict(list)
         self.subprops = collections.defaultdict(list)
+        self.propsbytype = collections.defaultdict(list)
 
         self.globs = []
         self.cache = {} # for globs
@@ -185,6 +185,7 @@ class DataModel(s_types.TypeLib):
         ptype = info.get('ptype')
         if ptype != None:
             self.reqDataType(ptype)
+            self.propsbytype[ptype].append(pdef)
 
         self.props[ prop ] = pdef
         self.model['props'][prop] = pdef
@@ -279,7 +280,7 @@ class DataModel(s_types.TypeLib):
 
         return self.getDataType(ptype)
 
-    def getPropNorm(self, prop, valu):
+    def getPropNorm(self, prop, valu, oldval=None):
         '''
         Return a normalized system mode value for the given property.
 
@@ -292,7 +293,7 @@ class DataModel(s_types.TypeLib):
         if dtype == None:
             return valu
 
-        return dtype.norm(valu)
+        return dtype.norm(valu,oldval=oldval)
 
     def getPropChop(self, prop, valu):
         '''
@@ -355,12 +356,11 @@ class DataModel(s_types.TypeLib):
 
     def getPropType(self, prop):
         '''
-        Return the name of the data model type for the given property.
+        Return the data model type instance for the given property, 
+         or None if the data model doesn't have an entry for the property.
 
         Example:
-
             ptype = model.getPropType('foo:bar')
-
         '''
         pdef = self.getPropDef(prop)
         if pdef == None:

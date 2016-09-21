@@ -155,3 +155,33 @@ class DaemonTest(SynTest):
 
         #prox.fini()
         dmon.fini()
+
+    def test_daemon_sessconf(self):
+
+        with self.getTestDir() as dirname:
+
+            dmon = s_daemon.Daemon()
+
+            conf = {
+                'sessions':{
+                    'maxtime':99999,
+                    'savefile':os.path.join(dirname,'sessions.sql3'),
+                },
+            }
+
+            dmon.loadDmonConf(conf)
+
+            sess0 = dmon.getNewSess()
+            iden = sess0.iden
+
+            sess0.put('woot',10)
+
+            dmon.fini()
+
+            dmon = s_daemon.Daemon()
+            dmon.loadDmonConf(conf)
+
+            sess1 = dmon.getSessByIden(iden)
+            self.eq( sess1.get('woot'), 10 )
+
+            dmon.fini()

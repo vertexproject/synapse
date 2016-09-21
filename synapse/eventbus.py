@@ -263,3 +263,89 @@ class EventBus:
                 break
 
             self.dist(e)
+
+    def waiter(self, count, *names):
+        '''
+        Construct and return a new Waiter for events on this bus.
+
+        Example:
+
+            # wait up to 3 seconds for 10 foo:bar events...
+
+            waiter = bus.waiter(10,'foo:bar')
+
+            # .. fire thread that will cause foo:bar events
+
+            events = waiter.wait(timeout=3)
+
+            if events == None:
+                # handle the timout case...
+
+            for event in events:
+                # parse the events if you need...
+
+        NOTE: use with caution... it's easy to accidentally construct
+              race conditions with this mechanism ;)
+
+        '''
+        return Waiter(self, count, *names)
+
+class Waiter:
+    '''
+    A helper to wait for a given number of events on an EventBus.
+    '''
+    def __init__(self, bus, count, *names):
+        self.bus = bus
+        self.names = names
+        self.count = count
+        self.event = threading.Event()
+
+        self.events = []
+
+        for name in names:
+            bus.on(name, self._onWaitEvent)
+
+        if not names:
+            bus.link(self._onWaitEvent)
+
+    def _onWaitEvent(self, mesg):
+        self.events.append(mesg)
+        if len(self.events) >= self.count:
+            self.event.set()
+
+    def wait(self, timeout=None):
+        '''
+        Wait for the required number of events and return them
+        or None on timeout.
+
+        Example:
+
+            evnts = waiter.wait(timeout=30)
+
+            if evnts == None:
+                handleTimedOut()
+                return
+
+            for evnt in evnts:
+                doStuff(evnt)
+
+        '''
+        try:
+
+            self.event.wait(timeout=timeout)
+            if not self.event.is_set():
+                return None
+
+            return self.events
+
+        finally:
+            self.fini()
+
+    def fini(self):
+
+        for name in self.names:
+            self.bus.off(name,self._onWaitEvent)
+
+        if not self.names:
+            self.bus.unlink(self._onWaitEvent)
+

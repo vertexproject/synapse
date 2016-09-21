@@ -34,11 +34,11 @@ class CortexTest(SynTest):
         db = os.getenv('SYN_COR_PG_DB')
         if db == None:
             raise unittest.SkipTest('no SYN_COR_PG_DB')
+        if not db.startswith('postgres://'):
+            db = 'postgres:///%s' % (db)
 
         table = 'syn_test_%s' % guid()
-
-        link = s_link.chopLinkUrl('postgres:///%s/%s' % (db,table))
-        core = s_cortex.openlink(link)
+        core = s_cortex.openurl(db + '/' + table)
 
         try:
             self.runcore( core )
@@ -248,6 +248,8 @@ class CortexTest(SynTest):
 
         core.addTufoForm('foo')
         core.addTufoProp('foo', 'bar', ptype='pair')
+        core.addTufoProp('foo', 'bar:first')
+        core.addTufoProp('foo', 'bar:second')
 
         t0 = core.formTufoByProp('foo', 'blah', bar='A!B')
         self.assertEqual(t0[1].get('foo:bar'), 'A!B')
@@ -705,3 +707,137 @@ class CortexTest(SynTest):
         self.assertEqual( dnsa[1].get('dns:a:time'), 0x00404040)
 
         core.fini()
+
+    def test_cortex_enforce(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            core.addTufoForm('foo:bar', ptype='inet:email')
+            #core.addTufoProp('foo:bar', 'fqdn', ptype='fqdn')
+            #core.addTufoProp('foo:bar', 'haha', ptype='int')
+
+            core.addTufoForm('foo:baz', ptype='inet:email')
+            core.addTufoProp('foo:baz', 'fqdn', ptype='inet:fqdn')
+            core.addTufoProp('foo:baz', 'haha', ptype='int')
+
+            cofo = core.getTufoByProp('syn:core','self')
+            self.assertIsNotNone( cofo )
+
+            self.assertFalse( core.enforce )
+            self.assertFalse( cofo[1].get('syn:core:opts:enforce') )
+
+            cofo = core.setTufoProp( cofo, 'opts:enforce', 1 )
+
+            self.assertTrue( core.enforce )
+            self.assertTrue( cofo[1].get('syn:core:opts:enforce') )
+
+
+            tufo0 = core.formTufoByProp('foo:bar','foo@bar.com', hehe=10, haha=20)
+            tufo1 = core.formTufoByProp('foo:baz','foo@bar.com', hehe=10, haha=20)
+
+            # did it remove the non-declared props and subprops?
+            self.assertIsNone( tufo0[1].get('foo:bar:fqdn') )
+            self.assertIsNone( tufo0[1].get('foo:bar:hehe') )
+            self.assertIsNone( tufo0[1].get('foo:bar:haha') )
+
+            # did it selectivly keep the declared props and subprops
+            self.assertEqual( tufo1[1].get('foo:baz:haha'), 20 )
+            self.assertEqual( tufo1[1].get('foo:baz:fqdn'), 'bar.com' )
+
+            self.assertIsNone( tufo1[1].get('foo:baz:hehe') )
+            self.assertIsNone( tufo1[1].get('foo:baz:user') )
+
+            tufo0 = core.setTufoProps(tufo0, fqdn='visi.com', hehe=11 )
+            tufo1 = core.setTufoProps(tufo1, fqdn='visi.com', hehe=11, haha=21 )
+
+            self.assertIsNone( tufo0[1].get('foo:bar:fqdn') )
+            self.assertIsNone( tufo0[1].get('foo:bar:hehe') )
+
+            self.assertIsNone( tufo1[1].get('foo:baz:hehe') )
+
+            self.assertEqual( tufo1[1].get('foo:baz:haha'), 21 )
+            self.assertEqual( tufo1[1].get('foo:baz:fqdn'), 'visi.com' )
+
+
+    def test_cortex_ramtyperange(self):
+        with s_cortex.openurl('ram://') as core:
+
+            core.formTufoByProp('foo:bar',10)
+            core.formTufoByProp('foo:bar','baz')
+
+            tufs = core.getTufosBy('range','foo:bar', (5,15))
+
+            self.eq( len(tufs), 1 )
+
+    def test_cortex_minmax(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            core.addTufoForm('foo')
+            core.addTufoProp('foo','min', ptype='int:min')
+            core.addTufoProp('foo','max', ptype='int:max')
+
+            props = {'min':20,'max':20}
+            tufo0 = core.formTufoByProp('foo', 'derp', **props)
+
+            tufo0 = core.setTufoProp(tufo0,'min', 30)
+            self.eq( tufo0[1].get('foo:min'), 20 )
+
+            tufo0 = core.setTufoProp(tufo0,'min', 10)
+            self.eq( tufo0[1].get('foo:min'), 10 )
+
+            tufo0 = core.setTufoProp(tufo0,'max', 10)
+            self.eq( tufo0[1].get('foo:max'), 20 )
+
+            tufo0 = core.setTufoProp(tufo0,'max', 30)
+            self.eq( tufo0[1].get('foo:max'), 30 )
+
+    def test_cortex_minmax_epoch(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            core.addTufoForm('foo')
+            core.addTufoProp('foo','min', ptype='time:epoch:min')
+            core.addTufoProp('foo','max', ptype='time:epoch:max')
+
+            props = {'min':20,'max':20}
+            tufo0 = core.formTufoByProp('foo', 'derp', **props)
+
+            tufo0 = core.setTufoProp(tufo0,'min', 30)
+            self.eq( tufo0[1].get('foo:min'), 20 )
+
+            tufo0 = core.setTufoProp(tufo0,'min', 10)
+            self.eq( tufo0[1].get('foo:min'), 10 )
+
+            tufo0 = core.setTufoProp(tufo0,'max', 10)
+            self.eq( tufo0[1].get('foo:max'), 20 )
+
+            tufo0 = core.setTufoProp(tufo0,'max', 30)
+            self.eq( tufo0[1].get('foo:max'), 30 )
+
+    def test_cortex_by_type(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            core.addTufoForm('foo')
+            core.addTufoProp('foo','min', ptype='time:epoch:min')
+            core.addTufoProp('foo','max', ptype='time:epoch:max')
+
+            core.addTufoForm('bar')
+            core.addTufoProp('bar','min', ptype='time:epoch:min')
+            core.addTufoProp('bar','max', ptype='time:epoch:max')
+
+            core.addTufoForm('baz')
+            core.addTufoProp('baz','min', ptype='time:epoch')
+            core.addTufoProp('baz','max', ptype='time:epoch')
+
+            props = {'min':20,'max':20}
+
+            tufo0 = core.formTufoByProp('foo', 'hurr', **props)
+            tufo1 = core.formTufoByProp('bar', 'durr', **props)
+            tufo2 = core.formTufoByProp('baz', 'durr', **props)
+
+            want = tuple(sorted([tufo0[0],tufo1[0]]))
+
+            res0 = core.getTufosByPropType('time:epoch:min', valu=20)
+            self.eq( tuple(sorted([r[0] for r in res0])), want )

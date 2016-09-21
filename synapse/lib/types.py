@@ -62,7 +62,7 @@ class StrType(DataType):
     def repr(self, valu):
         return valu
 
-    def norm(self, valu):
+    def norm(self, valu, oldval=None):
         if self.info.get('lower'):
             valu = valu.lower()
 
@@ -88,10 +88,29 @@ class IntType(DataType):
         self.minval = info.get('min',None)
         self.maxval = info.get('max',None)
 
+        self.ismin = info.get('ismin',False)
+        self.ismax = info.get('ismax',False)
+
+        # cache the min or max function to avoid cond logic
+        # during norm() for perf
+        self.minmax = None
+
+        if self.ismin:
+            self.minmax = min
+
+        elif self.ismax:
+            self.minmax = max
+
     def repr(self, valu):
         return self.fmt % valu
 
-    def norm(self, valu):
+    def norm(self, valu, oldval=None):
+
+        if not s_compat.isint(valu):
+            self._raiseBadValu(valu)
+
+        if oldval != None and self.minmax:
+            valu = self.minmax(valu,oldval)
 
         if self.minval != None and valu < self.minval:
             self._raiseBadValu(valu,minval=self.minval)
@@ -144,7 +163,7 @@ class CompType(DataType):
                 subn = '%s:%s' % (name,subp[0])
                 self.subprops.append( tufo(subn,**subp[1]) )
 
-    def norm(self, valu):
+    def norm(self, valu, oldval=None):
         # NOTE: handles both b64 blob *and* (text,text,text) list/tuple.
         if islist(valu):
             vals = valu
@@ -197,7 +216,7 @@ class CompType(DataType):
 
 class BoolType(DataType):
 
-    def norm(self, valu):
+    def norm(self, valu, oldval=None):
         return int(bool(valu))
 
     def repr(self, valu):
@@ -223,7 +242,7 @@ def ipv4int(valu):
 
 class IPv4Type(DataType):
 
-    def norm(self, valu):
+    def norm(self, valu, oldval=None):
         return valu & 0xffffffff
 
     def repr(self, valu):
@@ -247,7 +266,7 @@ def ipv6norm(text):
 
 class IPv6Type(DataType):
 
-    def norm(self, valu):
+    def norm(self, valu, oldval=None):
         try:
             return ipv6norm(valu)
         except Exception as e:
@@ -270,7 +289,7 @@ class Srv4Type(DataType):
         tufo('ipv4', ptype='inet:ipv4'),
     )
 
-    def norm(self, valu):
+    def norm(self, valu, oldval=None):
         return valu & 0xffffffffffff
 
     def repr(self, valu):
@@ -305,7 +324,7 @@ class Srv6Type(DataType):
         tufo('ipv6', ptype='inet:ipv6'),
     )
 
-    def norm(self, valu):
+    def norm(self, valu, oldval=None):
         return self.chop(valu)[0]
 
     def chop(self, valu):
@@ -342,7 +361,7 @@ class EmailType(DataType):
         tufo('fqdn',ptype='inet:fqdn'),
     )
 
-    def norm(self, valu):
+    def norm(self, valu, oldval=None):
         try:
             user,fqdn = valu.split('@',1)
         except ValueError as e:
@@ -376,7 +395,7 @@ class UrlType(DataType):
     def parse(self, text):
         return self.norm(text)
 
-    def norm(self, valu):
+    def norm(self, valu, oldval=None):
         respath = ''
         resauth = ''
 
@@ -406,8 +425,29 @@ class UrlType(DataType):
 
 class EpochType(DataType):
 
-    def norm(self, valu):
-        return int(valu)
+    def __init__(self, tlib, name, **info):
+        DataType.__init__(self, tlib, name, **info)
+
+        self.ismin = info.get('ismin',False)
+        self.ismax = info.get('ismax',False)
+
+        self.minmax = None
+
+        if self.ismin:
+            self.minmax = min
+
+        elif self.ismax:
+            self.minmax = max
+
+    def norm(self, valu, oldval=None):
+
+        if not s_compat.isint(valu):
+            self._raiseBadValu(valu)
+
+        if oldval != None and self.minmax:
+            valu = self.minmax(valu,oldval)
+
+        return valu
 
     def parse(self, text):
 
@@ -463,6 +503,9 @@ class TypeLib:
         self.addType(BoolType(self,'bool'))
         self.addType(CompType(self,'comp'))
 
+        self.addSubType('int:min','int', ismin=1)
+        self.addSubType('int:max','int', ismax=1)
+
         self.addSubType('syn:tag','str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
         self.addSubType('syn:prop','str', regex=r'^([\w]+:)*[\w]+$', lower=1)
         self.addSubType('syn:type','str', regex=r'^([\w]+:)*[\w]+$', lower=1)
@@ -483,6 +526,8 @@ class TypeLib:
 
         # time types
         self.addType( EpochType(self,'time:epoch') )
+        self.addSubType('time:epoch:min','time:epoch',ismin=1)
+        self.addSubType('time:epoch:max','time:epoch',ismax=1)
 
         # inet types
         self.addType(IPv4Type(self,'inet:ipv4'))
@@ -504,7 +549,7 @@ class TypeLib:
         self.addSubType('inet:passwd','str')
         self.addSubType('inet:filepath','str')
 
-        self.addSubType('inet:fqdn','str', regex='^[a-z0-9.-_]+$', lower=1)
+        self.addSubType('inet:fqdn','str', regex='^[a-z0-9._-]+$', lower=1)
         self.addSubType('inet:mac', 'str', regex='^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', lower=1)
 
         self.addSubType('inet:port', 'int', min=0, max=0xffff)
@@ -550,14 +595,14 @@ class TypeLib:
                 DataType.__init__(self,'my:type')
 
             #def repr(self, valu):
-            #def norm(self, valu):
+            #def norm(self, valu, oldval=None):
             #def parse(self, text):
 
         tlib.addType( MyType() )
         '''
         self.types[item.name] = item
 
-    def getTypeNorm(self, name, valu):
+    def getTypeNorm(self, name, valu, oldval=None):
         '''
         Normalize a type specific value in system mode.
 
@@ -566,7 +611,7 @@ class TypeLib:
             fqdn = tlib.getTypeNorm('inet:fqdn','Foo.Com')
 
         '''
-        return self.reqDataType(name).norm(valu)
+        return self.reqDataType(name).norm(valu, oldval=oldval)
 
     def getTypeChop(self, name, valu):
         return self.reqDataType(name).chop(valu)

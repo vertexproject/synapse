@@ -46,6 +46,19 @@ if version < (3,0,0):
     def isstr(s):
         return type(s) in (str,unicode)
 
+    def isint(s):
+        return type(s) in (int,long)
+
+    def typeof(x):
+
+        if isint(x):
+            return int
+
+        if isstr(x):
+            return str
+
+        return type(x)
+
     def iterbytes(byts):
         for c in byts:
             yield(ord(c))
@@ -97,6 +110,12 @@ else:
 
     def isstr(s):
         return isinstance(s,str)
+
+    def isint(s):
+        return isinstance(s,int)
+
+    def typeof(x):
+        return type(x)
 
     def iterbytes(byts):
         return iter(byts)

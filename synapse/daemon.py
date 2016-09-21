@@ -256,7 +256,7 @@ class Daemon(EventBus,DmonConf):
         return self.cura.new()
 
     def getSessByIden(self, iden):
-        return self.cura.gen(iden)
+        return self.cura.get(iden)
 
     def _onTeleYieldFini(self, sock, mesg):
         iden = mesg[1].get('iden')
@@ -332,7 +332,7 @@ class Daemon(EventBus,DmonConf):
 
         savefile = info.get('savefile')
         if savefile != None:
-            core = s_cortex.openurl('sqlite:///',path=savefile)
+            core = s_cortex.openurl('sqlite:///%s' % savefile)
             self.cura.setSessCore(core)
 
             self.onfini( core.fini )
@@ -419,6 +419,13 @@ class Daemon(EventBus,DmonConf):
         '''
         jid = mesg[1].get('jid')
 
+        # pass / consume protocol version information
+        vers = mesg[1].get('vers',(0,0))
+
+        if vers[0] != s_telepath.telever[0]:
+            info = errinfo('BadMesgVers','server %r != client %r' % (s_telepath.telever,vers))
+            return sock.tx( tufo('job:done', jid=jid, **info) )
+
         sess = None
 
         iden = mesg[1].get('sess')
@@ -430,6 +437,7 @@ class Daemon(EventBus,DmonConf):
 
         ret = {
             'sess':sess.iden,
+            'vers':s_telepath.telever,
         }
 
         # send a nonce along for the ride in case
