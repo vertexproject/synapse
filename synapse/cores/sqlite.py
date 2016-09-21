@@ -516,10 +516,11 @@ class Cortex(common.Cortex):
         ret = []
 
         for valu in valus:
-            ret.extend(self.getTufosByProp(prop, valu=valu, limit=limit))
+            res = self.getTufosByProp(prop, valu=valu, limit=limit)
+            ret.extend(res)
 
             if limit != None:
-                limit -= len(ret)
+                limit -= len(res)
                 if limit <= 0:
                     break
 
