@@ -8,6 +8,9 @@ istable = '''
    WHERE    table_name = %s
 '''
 
+getjoin_by_in_int = 'SELECT * FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? and intval IN ? LIMIT ?)'
+getjoin_by_in_str = 'SELECT * FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? and strval IN ? LIMIT ?)'
+
 class Cortex(s_c_sqlite.Cortex):
 
     dbvar = '%s'
@@ -36,10 +39,6 @@ class Cortex(s_c_sqlite.Cortex):
         c.execute('SET enable_seqscan=false')
         c.close()
         return db
-
-    def _initCorQueries(self, table):
-        s_c_sqlite.Cortex._initCorQueries(self, table)
-        self._q_istable = istable
 
     def _getTableName(self):
         path = self._link[1].get('path')
@@ -79,4 +78,26 @@ class Cortex(s_c_sqlite.Cortex):
             dbinfo['password'] = passwd
 
         return dbinfo
+
+    def _tufosByIn(self, prop, valus, limit=None):
+        limit = self._getDbLimit(limit)
+
+        if type(valus[0]) == int:
+            q = self._q_getjoin_by_in_int
+        else:
+            q = self._q_getjoin_by_in_str
+
+        args = [ prop, tuple(valus), limit ]
+
+        rows = self.select(q,args)
+        rows = self._foldTypeCols(rows)
+        return self._rowsToTufos(rows)
+
+    def _initCorQueries(self, table):
+        s_c_sqlite.Cortex._initCorQueries(self, table)
+        self._q_istable = istable
+
+        self._q_getjoin_by_in_int = self._prepQuery(getjoin_by_in_int, table)
+        self._q_getjoin_by_in_str = self._prepQuery(getjoin_by_in_str, table)
+
 
