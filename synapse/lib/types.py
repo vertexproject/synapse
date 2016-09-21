@@ -63,6 +63,10 @@ class StrType(DataType):
         return valu
 
     def norm(self, valu, oldval=None):
+
+        if not s_compat.isstr(valu):
+            self._raiseBadValu(valu)
+
         if self.info.get('lower'):
             valu = valu.lower()
 
