@@ -777,7 +777,6 @@ class Cortex(EventBus,DataModel):
         Retrieve tufos by either a specialized method or the lower getRowsBy api
         Specialized methods will be dependant on the storage backing and the data indexed
 
-
         Example:
 
             tufos = core.getTufosBy('in', 'foo', (47,3,8,22))
@@ -922,7 +921,6 @@ class Cortex(EventBus,DataModel):
         res = collections.defaultdict(dict)
         [ res[i].__setitem__(p,v) for (i,p,v,t) in rows ]
         return list(res.items())
-
 
     def getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         '''
