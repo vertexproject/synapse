@@ -783,7 +783,8 @@ class Cortex(EventBus,DataModel):
             tufos = core.getTufosBy('in', 'foo', (47,3,8,22))
 
         '''
-        meth = self._getTufosByMeth(name)
+        meth = self.tufosbymeths.get(name)
+
         if not meth:
             rows = self.getRowsBy(name,prop,valu,limit=limit)
             return [ self.getTufoById(row[0]) for row in rows ]
@@ -825,10 +826,21 @@ class Cortex(EventBus,DataModel):
         raw rows.
 
         Example:
-            def getbywoot(prop,valu,limit=None):
-                return stuff() # list of tufos
+            def getbyin(prop,valus,limit=None):
+                ret = []
 
-            core.initTufos('woot',getbywoot)
+                for valu in valus:
+                    res = self.getTufosByProp(prop, valu=valu, limit=limit)
+                    ret.extend(res)
+
+                    if limit != None:
+                        limit -= len(res)
+                        if limit <= 0:
+                            break
+
+                return ret
+
+            core.initTufos('in',getbyin)
 
         Notes:
             * Used by Cortex implementers to facilitate getTufosBy(...)
@@ -1567,9 +1579,6 @@ class Cortex(EventBus,DataModel):
         if meth == None:
             raise NoSuchGetBy(name)
         return meth
-
-    def _getTufosByMeth(self, name):
-        return self.tufosbymeths.get(name)
 
     def _reqRowsByMeth(self, name):
         meth = self.rowsbymeths.get(name)
