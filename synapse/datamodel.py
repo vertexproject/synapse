@@ -303,7 +303,10 @@ class DataModel(s_types.TypeLib):
         if dtype == None:
             return valu,{}
 
-        return dtype.chop(valu)
+        try:
+            return dtype.chop(valu)
+        except BadTypeValu:
+            raise BadPropValu(name=prop, valu=valu)
 
     #def getPropNorms(self, props):
         #return { p:self.getPropNorm(p,v) for (p,v) in props.items() }
