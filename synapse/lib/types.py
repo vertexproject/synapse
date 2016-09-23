@@ -112,7 +112,7 @@ class IntType(DataType):
         DataType.__init__(self, tlib, name, **info)
 
         self.fmt = info.get('fmt','%d')
-        #self.modval = info.get('mod',None)
+        self.modval = info.get('mod',None)
         self.minval = info.get('min',None)
         self.maxval = info.get('max',None)
 
@@ -150,13 +150,18 @@ class IntType(DataType):
 
     def parse(self, valu, oldval=None):
         try:
-            valu = int(valu,0)
+            if self.modval:
+                valu = int(float(valu) * self.modval)
+            else:
+                valu = int(valu,0)
         except Exception as e:
             raise self._raiseBadValu(valu)
 
         return self.norm(valu)
 
     def frob(self, valu, oldval=None):
+        if self.modval and type(valu) is float:
+            valu = '%f' % valu
         if s_compat.isstr(valu):
             valu = self.parse(valu, oldval=oldval)
         return self.norm(valu, oldval=oldval)
@@ -548,6 +553,7 @@ class TypeLib:
 
         self.addSubType('int:min','int', ismin=1)
         self.addSubType('int:max','int', ismax=1)
+        self.addSubType('int:pct','int', mod=100.0)
 
         self.addSubType('syn:tag','str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
         self.addSubType('syn:prop','str', regex=r'^([\w]+:)*[\w]+$', lower=1)
