@@ -50,9 +50,10 @@ class DataType:
 
 class StrType(DataType):
 
-    def __init__(self, tlib, name, **info):
+    def __init__(self, tlib, name, force=False, **info):
         DataType.__init__(self, tlib, name, **info)
 
+        self.force = force
         self.regex = None
 
         regex = info.get('regex')
@@ -63,6 +64,8 @@ class StrType(DataType):
         return valu
 
     def norm(self, valu, oldval=None):
+        if self.force:
+            valu = str(valu)
 
         if not s_compat.isstr(valu):
             self._raiseBadValu(valu)
