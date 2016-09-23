@@ -256,6 +256,30 @@ class CompType(DataType):
     def _zipvals(self, vals):
         return s_compat.iterzip(vals,self.comptypes)
 
+
+class JsonType(DataType):
+
+    def __init__(self, tlib, name, **info):
+        DataType.__init__(self, tlib, name, **info)
+
+        self.codec = info.get('codec', json)
+
+    def norm(self, valu):
+        valu = self.codec.dumps(valu)
+        return valu
+
+    def repr(self, valu):
+        return valu
+
+    def parse(self, valu):
+        try:
+            valu = self.codec.loads(valu)
+        except:
+            self._raiseBadValu(valu)
+
+        return self.norm(valu)
+
+
 class BoolType(DataType):
 
     def norm(self, valu, oldval=None):
@@ -545,6 +569,7 @@ class TypeLib:
         self.addType(StrType(self,'str'))
         self.addType(BoolType(self,'bool'))
         self.addType(CompType(self,'comp'))
+        self.addType(JsonType(self, 'json'))
 
         self.addSubType('int:min','int', ismin=1)
         self.addSubType('int:max','int', ismax=1)

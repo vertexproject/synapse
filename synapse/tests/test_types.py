@@ -237,6 +237,23 @@ class DataTypesTest(SynTest):
         self.assertFalse( tlib.getTypeFrob('bool','n') )
         self.assertFalse( tlib.getTypeFrob('bool','FaLsE') )
 
+    def test_type_json(self):
+        tlib = s_types.TypeLib()
+
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'json', '[1,')
+
+        self.eq(tlib.getTypeNorm('json', 'str'), '"str"')
+        self.eq(tlib.getTypeParse('json', '"str"'), '"str"')
+        self.eq(tlib.getTypeRepr('json', '"str"'), '"str"')
+
+        self.eq(tlib.getTypeNorm('json', 123), '123')
+        self.eq(tlib.getTypeParse('json', '123'), '123')
+        self.eq(tlib.getTypeRepr('json', '123'), '123')
+
+        self.eq(tlib.getTypeNorm('json', (1, 2)), '[1, 2]')
+        self.eq(tlib.getTypeParse('json', '[1, 2]'), '[1, 2]')
+        self.eq(tlib.getTypeRepr('json', '[1, 2]'), '[1, 2]')
+
     def test_type_comp(self):
         tlib = s_types.TypeLib()
 
