@@ -15,7 +15,7 @@ from setuptools import setup,find_packages
 # python3.4 -m pip install
 
 setup(
-    name='viv-synapse',
+    name='synapse',
     version='0.0.7', # sync with synapse.version!
     description='Synapse Distributed Computing Framework',
     author='Invisigoth Kenshoto',
