@@ -21,6 +21,10 @@ class DataTypesTest(SynTest):
         self.eq( tlib.getTypeNorm('inet:url','HTTP://WoOt.com/HeHe'), 'http://woot.com/HeHe' )
         self.eq( tlib.getTypeNorm('inet:url','HttP://Visi:Secret@WoOt.com/HeHe&foo=10'), 'http://Visi:Secret@woot.com/HeHe&foo=10' )
 
+        self.eq( tlib.getTypeFrob('inet:url','http://WoOt.com/HeHe'), 'http://woot.com/HeHe' )
+        self.eq( tlib.getTypeFrob('inet:url','HTTP://WoOt.com/HeHe'), 'http://woot.com/HeHe' )
+        self.eq( tlib.getTypeFrob('inet:url','HttP://Visi:Secret@WoOt.com/HeHe&foo=10'), 'http://Visi:Secret@woot.com/HeHe&foo=10' )
+
         self.assertRaises( BadTypeValu, tlib.getTypeParse, 'inet:url', 'newp' )
         self.eq( tlib.getTypeParse('inet:url','http://WoOt.com/HeHe'), 'http://woot.com/HeHe' )
         self.eq( tlib.getTypeParse('inet:url','HTTP://WoOt.com/HeHe'), 'http://woot.com/HeHe' )
@@ -33,6 +37,9 @@ class DataTypesTest(SynTest):
 
         self.eq( tlib.getTypeNorm('inet:ipv4',0x01020304), 0x01020304 )
 
+        self.eq( tlib.getTypeFrob('inet:ipv4','1.2.3.4'), 0x01020304 )
+        self.eq( tlib.getTypeFrob('inet:ipv4',0x01020304), 0x01020304 )
+
         self.eq( tlib.getTypeParse('inet:ipv4','1.2.3.4'), 0x01020304 )
 
         self.eq( tlib.getTypeRepr('inet:ipv4',0x01020304), '1.2.3.4' )
@@ -41,6 +48,9 @@ class DataTypesTest(SynTest):
         tlib = s_types.TypeLib()
 
         self.eq( tlib.getTypeNorm('inet:tcp4',0x010203040002), 0x010203040002 )
+
+        self.eq( tlib.getTypeFrob('inet:tcp4',0x010203040002), 0x010203040002 )
+        self.eq( tlib.getTypeFrob('inet:tcp4','1.2.3.4:2'), 0x010203040002 )
 
         self.assertRaises( BadTypeValu, tlib.getTypeParse, 'inet:tcp4', 'newp' )
         self.eq( tlib.getTypeParse('inet:tcp4','1.2.3.4:2'), 0x010203040002 )
@@ -51,6 +61,9 @@ class DataTypesTest(SynTest):
         tlib = s_types.TypeLib()
 
         self.eq( tlib.getTypeNorm('inet:udp4',0x010203040002), 0x010203040002 )
+
+        self.eq( tlib.getTypeFrob('inet:udp4',0x010203040002), 0x010203040002 )
+        self.eq( tlib.getTypeFrob('inet:udp4','1.2.3.4:2'), 0x010203040002 )
 
         self.assertRaises( BadTypeValu, tlib.getTypeParse, 'inet:udp4', 'newp' )
         self.eq( tlib.getTypeParse('inet:udp4','1.2.3.4:2'), 0x010203040002 )
@@ -71,6 +84,7 @@ class DataTypesTest(SynTest):
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'inet:mac', 'newp' )
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:mac', 'newp' )
 
+        self.eq( tlib.getTypeFrob('inet:mac', 'FF:FF:FF:FF:FF:FF'), 'ff:ff:ff:ff:ff:ff' )
         self.eq( tlib.getTypeNorm('inet:mac', 'FF:FF:FF:FF:FF:FF'), 'ff:ff:ff:ff:ff:ff' )
         self.eq( tlib.getTypeParse('inet:mac', 'FF:FF:FF:FF:FF:FF'), 'ff:ff:ff:ff:ff:ff' )
         self.eq( tlib.getTypeRepr('inet:mac', 'ff:ff:ff:ff:ff:ff'), 'ff:ff:ff:ff:ff:ff' )
@@ -94,6 +108,7 @@ class DataTypesTest(SynTest):
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'guid', 'newp' )
 
         self.eq( tlib.getTypeParse('guid', '000102030405060708090A0B0C0D0E0F'), '000102030405060708090a0b0c0d0e0f')
+        self.eq( tlib.getTypeFrob('guid', '000102030405060708090A0B0C0D0E0F'), '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeNorm('guid', '000102030405060708090A0B0C0D0E0F'), '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeRepr('guid', '000102030405060708090a0b0c0d0e0f'), '000102030405060708090a0b0c0d0e0f')
 
@@ -107,6 +122,7 @@ class DataTypesTest(SynTest):
 
         self.eq( tlib.getTypeParse('woot', '000102030405060708090A0B0C0D0E0F'), '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeNorm('woot', '000102030405060708090A0B0C0D0E0F'), '000102030405060708090a0b0c0d0e0f')
+        self.eq( tlib.getTypeFrob('woot', '000102030405060708090A0B0C0D0E0F'), '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeRepr('guid', '000102030405060708090a0b0c0d0e0f'), '000102030405060708090a0b0c0d0e0f')
 
     def test_datatype_hash_md5(self):
@@ -117,6 +133,7 @@ class DataTypesTest(SynTest):
 
         self.eq( tlib.getTypeParse('hash:md5', '000102030405060708090A0B0C0D0E0F'), '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeNorm('hash:md5', '000102030405060708090A0B0C0D0E0F'), '000102030405060708090a0b0c0d0e0f')
+        self.eq( tlib.getTypeFrob('hash:md5', '000102030405060708090A0B0C0D0E0F'), '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeRepr('hash:md5', '000102030405060708090a0b0c0d0e0f'), '000102030405060708090a0b0c0d0e0f')
 
     def test_datatype_inet_ipv6(self):
@@ -131,6 +148,8 @@ class DataTypesTest(SynTest):
 
         self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8::1:1:1:1:1'), '2001:db8:0:1:1:1:1:1')
         self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8:0:1:1:1:1:1'), '2001:db8:0:1:1:1:1:1')
+
+        self.eq( tlib.getTypeFrob('inet:ipv6', '2001:db8::1:1:1:1:1'), '2001:db8:0:1:1:1:1:1')
 
         self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8::0:1'), '2001:db8::1')
         self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8:0:0:0:0:2:1'), '2001:db8::2:1')
@@ -147,6 +166,7 @@ class DataTypesTest(SynTest):
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'str', 10 )
 
         self.eq( tlib.getTypeNorm('str','foo'), 'foo' )
+        self.eq( tlib.getTypeFrob('str','foo'), 'foo' )
         self.eq( tlib.getTypeParse('str','bar'), 'bar' )
 
     def test_datatype_str_enums(self):
@@ -158,6 +178,7 @@ class DataTypesTest(SynTest):
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'woot', 'asdf' )
 
         self.eq( tlib.getTypeNorm('woot','HeHe'), 'hehe' )
+        self.eq( tlib.getTypeFrob('woot','HeHe'), 'hehe' )
         self.eq( tlib.getTypeParse('woot','HeHe'), 'hehe' )
 
     def test_datatype_dup(self):
@@ -180,6 +201,7 @@ class DataTypesTest(SynTest):
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'syn:prop', 'asdf qwer' )
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'syn:prop', 'foo::bar' )
 
+        self.eq( tlib.getTypeFrob('syn:prop','BAR'), 'bar' )
         self.eq( tlib.getTypeNorm('syn:prop','BAR'), 'bar' )
         self.eq( tlib.getTypeParse('syn:prop','BAR'), 'bar' )
         self.eq( tlib.getTypeNorm('syn:prop','foo:BAR'), 'foo:bar' )
@@ -209,6 +231,11 @@ class DataTypesTest(SynTest):
 
         self.assertEqual( tlib.getTypeNorm('bool',9), 1)
         self.assertEqual( tlib.getTypeNorm('bool',0), 0)
+
+        self.assertEqual( tlib.getTypeFrob('bool',9), 1)
+        self.assertFalse( tlib.getTypeFrob('bool','f') )
+        self.assertFalse( tlib.getTypeFrob('bool','n') )
+        self.assertFalse( tlib.getTypeFrob('bool','FaLsE') )
 
     def test_type_comp(self):
         tlib = s_types.TypeLib()
@@ -279,3 +306,7 @@ class DataTypesTest(SynTest):
         tlib = s_types.TypeLib()
         self.eq( tlib.getTypeNorm('inet:fqdn','WOOT.COM'), 'woot.com')
         self.eq( tlib.getTypeNorm('inet:fqdn','WO-OT.COM'), 'wo-ot.com')
+        self.eq( tlib.getTypeFrob('inet:fqdn','WOOT.COM'), 'woot.com')
+        self.eq( tlib.getTypeFrob('inet:fqdn','WO-OT.COM'), 'wo-ot.com')
+        self.eq( tlib.getTypeParse('inet:fqdn','WOOT.COM'), 'woot.com')
+        self.eq( tlib.getTypeParse('inet:fqdn','WO-OT.COM'), 'wo-ot.com')

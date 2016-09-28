@@ -917,6 +917,29 @@ class Cortex(EventBus,DataModel):
 
         return tufo
 
+    def getTufoByFrob(self, prop, valu=None):
+        '''
+        Return an (iden,info) tuple by joining rows based on a property.
+
+        Example:
+
+            tufo = core.getTufoByFrob('inet:ipv4',ipv4addr)
+
+        '''
+        if valu != None:
+            valu = self.getPropFrob(prop,valu)
+
+        rows = self.getJoinByProp(prop, valu=valu, limit=1)
+        if not rows:
+            return None
+
+        tufo = ( rows[0][0], {} )
+        for iden,prop,valu,stamp in rows:
+            tufo[1][prop] = valu
+
+        return tufo
+
+
     def _rowsToTufos(self, rows):
         res = collections.defaultdict(dict)
         [ res[i].__setitem__(p,v) for (i,p,v,t) in rows ]
@@ -933,7 +956,21 @@ class Cortex(EventBus,DataModel):
 
         '''
         rows = self.getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+        return self._rowsToTufos(rows)
 
+    def getTufosByFrob(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+        '''
+        Return a list of tufos by property and frob value if present.
+
+        Example:
+
+            for tufo in core.getTufosByProp('foo:bar', '0x10'):
+                dostuff(tufo)
+
+        '''
+        if valu != None:
+            valu =self.getPropFrob(prop,valu)
+        rows = self.getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
         return self._rowsToTufos(rows)
 
     def getTufosByPropType(self, name, valu=None, mintime=None, maxtime=None, limit=None):

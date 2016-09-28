@@ -48,6 +48,36 @@ class DataType:
 
         return self.__class__(self.tlib, name,**info)
 
+    def frob(self, valu, oldval=None):
+        '''
+        Attempt to take either repr *or* system form and normalize.
+
+        Example:
+
+            valu = tobj.frob(valu)
+
+        Note:
+
+            This API is mostly for use in simplifying parser / syntax
+            use cases and should be avoided if input abiguity is not required.
+
+        '''
+        return self.norm(valu, oldval=oldval)
+
+    def parse(self, text, oldval=None):
+        '''
+        Parse input text and return the system mode (normalized) value for the type.
+
+        Example:
+
+            valu = tobj.parse(text)
+
+        '''
+        return self.norm(text, oldval=oldval)
+
+    def repr(self, valu):
+        return str(valu)
+
 class StrType(DataType):
 
     def __init__(self, tlib, name, **info):
@@ -58,9 +88,6 @@ class StrType(DataType):
         regex = info.get('regex')
         if regex != None:
             self.regex = re.compile(regex)
-
-    def repr(self, valu):
-        return valu
 
     def norm(self, valu, oldval=None):
 
@@ -78,9 +105,6 @@ class StrType(DataType):
             self._raiseBadValu(valu,regex=self.info.get('regex'))
 
         return valu
-
-    def parse(self, valu):
-        return self.norm(valu)
 
 class IntType(DataType):
 
@@ -124,13 +148,18 @@ class IntType(DataType):
 
         return valu
 
-    def parse(self, valu):
+    def parse(self, valu, oldval=None):
         try:
             valu = int(valu,0)
         except Exception as e:
             raise self._raiseBadValu(valu)
 
         return self.norm(valu)
+
+    def frob(self, valu, oldval=None):
+        if s_compat.isstr(valu):
+            valu = self.parse(valu, oldval=oldval)
+        return self.norm(valu, oldval=oldval)
 
 def enMsgB64(item):
     # FIXME find a way to go directly from binary bytes to
@@ -203,7 +232,7 @@ class CompType(DataType):
         reps = [ t.repr(v) for v,(n,t) in self._zipvals(vals) ]
         return json.dumps(reps,separators=jsseps)
 
-    def parse(self, text):
+    def parse(self, text, oldval=None):
 
         # NOTE: handles both text *and* (text,text,text) list/tuple.
 
@@ -214,6 +243,15 @@ class CompType(DataType):
 
         vals = [ t.parse(r) for r,(n,t) in self._zipvals(reps) ]
         return enMsgB64(vals)
+
+    def frob(self, valu, oldval=None):
+        if islist(valu):
+            vals = valu
+        else:
+            vals = deMsgB64(valu)
+
+        frobs = [ t.frob(v) for v,(n,t) in self._zipvals(vals) ]
+        return enMsgB64(norms)
 
     def _zipvals(self, vals):
         return s_compat.iterzip(vals,self.comptypes)
@@ -226,7 +264,7 @@ class BoolType(DataType):
     def repr(self, valu):
         return repr(bool(valu))
 
-    def parse(self, text):
+    def parse(self, text, oldval=None):
         text = text.lower()
         if text in ('true','t','y','yes','1','on'):
             return 1
@@ -235,6 +273,11 @@ class BoolType(DataType):
             return 0
 
         self._raiseBadValu(text)
+
+    def frob(self, valu, oldval=None):
+        if s_compat.isstr(valu):
+            return self.parse(valu, oldval=oldval)
+        return self.norm(valu, oldval=oldval)
 
 def ipv4str(valu):
     byts = struct.pack('>I',valu)
@@ -249,10 +292,15 @@ class IPv4Type(DataType):
     def norm(self, valu, oldval=None):
         return valu & 0xffffffff
 
+    def frob(self, valu, oldval=None):
+        if s_compat.isstr(valu):
+            return self.parse(valu, oldval=oldval)
+        return self.norm(valu, oldval=oldval)
+
     def repr(self, valu):
         return ipv4str(valu)
 
-    def parse(self, text):
+    def parse(self, text, oldval=None):
         return ipv4int(text)
 
 # RFC5952 compatible
@@ -275,12 +323,6 @@ class IPv6Type(DataType):
             return ipv6norm(valu)
         except Exception as e:
             self._raiseBadValu(valu)
-
-    def parse(self, text):
-        return self.norm(text)
-
-    def repr(self, valu):
-        return valu
 
 #class HostPort(DataType):
 
@@ -306,7 +348,7 @@ class Srv4Type(DataType):
         port = valu & 0xffff
         return valu,{'port':port,'ipv4':addr}
 
-    def parse(self, text):
+    def parse(self, text, oldval=None):
 
         try:
             astr,pstr = text.split(':')
@@ -316,6 +358,11 @@ class Srv4Type(DataType):
         addr = ipv4int(astr)
         port = int(pstr,0)
         return ( addr << 16 ) | port
+
+    def frob(self, valu, oldval=None):
+        if s_compat.isstr(valu):
+            return self.parse(valu, oldval=oldval)
+        return self.norm(valu, oldval=None)
 
 srv6re = re.compile('^\[([a-f0-9:]+)\]:(\d+)$')
 
@@ -352,12 +399,6 @@ class Srv6Type(DataType):
         valu = '[%s]:%d' % (host,port)
         return valu,{'ipv6':host,'port':port}
 
-    def parse(self, text):
-        return self.norm(text)
-
-    def repr(self, valu):
-        return valu
-
 class EmailType(DataType):
 
     subprops = (
@@ -381,9 +422,6 @@ class EmailType(DataType):
             self._raiseBadValu(valu)
         return norm,{'user':user,'fqdn':fqdn}
 
-    def parse(self, text):
-        return self.norm(text)
-
     def repr(self, valu):
         return valu
 
@@ -395,10 +433,6 @@ class UrlType(DataType):
         #tufo('ipv6',ptype='inet:ipv6'),
         #tufo('port',ptype='inet:port'),
     #)
-
-    def parse(self, text):
-        return self.norm(text)
-
     def norm(self, valu, oldval=None):
         respath = ''
         resauth = ''
@@ -453,7 +487,12 @@ class EpochType(DataType):
 
         return valu
 
-    def parse(self, text):
+    def frob(self, valu, oldval=None):
+        if s_compat.isstr(valu):
+            return self.parse(valu, oldval=oldval)
+        return self.norm(valu, oldval=oldval)
+
+    def parse(self, text, oldval=None):
 
         text = text.strip().lower()
         text = (''.join([ c for c in text if c.isdigit() ]))[:14]
@@ -616,6 +655,18 @@ class TypeLib:
 
         '''
         return self.reqDataType(name).norm(valu, oldval=oldval)
+
+    def getTypeFrob(self, name, valu, oldval=None):
+        '''
+        Return a system normalized value for the given input value which
+        may be in system mode or in display mode.
+
+        Example:
+
+            valu = tlib.getTypeFrob('inet:ipv4',valu)
+
+        '''
+        return self.reqDataType(name).frob(valu, oldval=oldval)
 
     def getTypeChop(self, name, valu):
         return self.reqDataType(name).chop(valu)

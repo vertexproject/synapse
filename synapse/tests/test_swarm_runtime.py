@@ -306,3 +306,24 @@ class SwarmRunTest(SwarmRunBase):
         self.assertRaises(s_runtime.QueryLimitTime, env.runt.ask, 'foo:bar', maxtime=time.time()-1)
 
         env.fini()
+
+    def test_swarm_runtime_frob(self):
+
+        env = self.getSwarmEnv()
+
+        env.core0.addTufoForm('inet:ipv4', ptype='inet:ipv4')
+        env.core0.formTufoByProp('inet:ipv4', 0x01020304)
+
+        answ = env.runt.ask('inet:ipv4="1.2.3.4"') #foo:bar="baz" save("woot") clear() load("woot")')
+
+        tufos = answ.get('data')
+        self.assertEqual( len(tufos), 1 )
+        self.assertEqual( tufos[0][1].get('inet:ipv4'), 0x01020304 )
+
+        answ = env.runt.ask('inet:ipv4=0x01020304')
+
+        tufos = answ.get('data')
+        self.assertEqual( len(tufos), 1 )
+        self.assertEqual( tufos[0][1].get('inet:ipv4'), 0x01020304 )
+
+        env.fini()
