@@ -51,6 +51,17 @@ class SwarmSyntaxTest(SynTest):
         self.assertEqual( kwargs.get('valu'), 'woot' )
 
         ###########################################################
+        insts = s_syntax.parse('baz.faz/foo:bar@2015,+1year#30')
+
+        self.assertEqual( insts[0][0], 'has' )
+        self.assertEqual( insts[0][1]['args'][0], 'foo:bar' )
+
+        kwargs = dict(insts[0][1].get('kwlist'))
+        self.assertEqual( kwargs.get('limit'), 30)
+        self.assertEqual( kwargs.get('from'), 'baz.faz' )
+        self.assertEqual( kwargs.get('when'), ('2015','+1year'))
+
+        ###########################################################
         insts = s_syntax.parse('baz.faz/foo:bar@2015,+1year#30="woot"')
 
         self.assertEqual( insts[0][0], 'eq' )
