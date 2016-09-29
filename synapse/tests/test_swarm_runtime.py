@@ -306,3 +306,30 @@ class SwarmRunTest(SwarmRunBase):
         self.assertRaises(s_runtime.QueryLimitTime, env.runt.ask, 'foo:bar', maxtime=time.time()-1)
 
         env.fini()
+
+    def test_swarm_runtime_by(self):
+
+        env = self.getSwarmEnv()
+
+        # test out long form using range
+        answ = env.runt.ask('by("range","zzz:woot",(10,13))')
+        tufos = answ.get('data')
+
+        self.eq( len(tufos), 2 )
+
+        answ = env.runt.ask('zzz:woot*range=(10,13)')
+        tufos = answ.get('data')
+
+        self.eq( len(tufos), 2 )
+
+        answ = env.runt.ask('zzz:woot*range=(10,12)')
+        tufos = answ.get('data')
+
+        self.eq( len(tufos), 1 )
+
+        answ = env.runt.ask('zzz:woot#1*range=(10,13)')
+        tufos = answ.get('data')
+
+        self.eq( len(tufos), 2 )
+
+        env.fini()

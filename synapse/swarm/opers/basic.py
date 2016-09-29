@@ -70,8 +70,28 @@ class AndOper(s_opers_common.CmpOper):
 class ByMix:
 
     def getByPropValu(self):
-        name,prop = self.args
-        valu = self.kwargs.get('valu')
+
+        name = None
+        valu = None
+
+        argc = len(self.args)
+        if argc > 3 or argc < 1:
+            raise SyntaxError(args=self.args,mesg='by() takes from 1 to 3 args')
+
+        prop = self.args[0]
+
+        if argc == 3:
+            name,prop,valu = self.args
+
+        elif argc == 2:
+            name,prop = self.args[:2]
+
+        if name == None:
+            name = self.kwargs.get('by')
+
+        if valu == None:
+            valu = self.kwargs.get('valu')
+
         return name,prop,valu
 
     def _oper_lift(self):
@@ -95,7 +115,7 @@ class ByOper(s_opers_common.Oper,ByMix):
 class RangeOper(s_opers_common.CmpOper,ByMix):
 
     def getByPropValu(self):
-        return 'range',self.args[0],
+        return 'range',self.args[0],self.args[1]
 
     def _oper_lift(self):
 

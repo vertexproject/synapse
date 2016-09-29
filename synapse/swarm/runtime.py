@@ -21,7 +21,6 @@ class QueryLimitTouch(QueryKilled):pass
 
 # TODO: implement per-form perms
 # TODO: implement per-instruction perms
-# TODO: move instruction methods to other module
 # TODO: runtime data model awareness
 # TODO: instr to pull rest/json info and flatten to tufo form
 # TODO: plugin/event based macro last-ditch parser
@@ -238,6 +237,7 @@ class Runtime(s_eventbus.EventBus):
         self.operctors = {}
 
         # add the basic operators
+        self.setOperCtor('by', s_opers_basic.ByOper)
         self.setOperCtor('eq', s_opers_basic.EqOper)
 
         self.setOperCtor('gt', s_opers_basic.GtOper)

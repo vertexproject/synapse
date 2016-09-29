@@ -99,3 +99,14 @@ class SwarmSyntaxTest(SynTest):
             ('re',{'args':['foo:bar'],'kwlist':[('cmp','re'),('valu','hehe')],'mode':'must'}),
             ('re',{'args':['foo:bar'],'kwlist':[('cmp','re'),('valu','hoho')],'mode':'cant'}),
         ])
+
+    def test_swarm_syntax_by(self):
+        insts = s_syntax.parse('woot/foo:bar*baz="hehe"')
+        self.assertEqual( insts, [
+            ('by',{'args':['foo:bar'],'kwlist': [('by', 'baz'), ('cmp', 'by'), ('from', 'woot'), ('valu', 'hehe')],'mode':'lift'}),
+        ])
+
+        insts = s_syntax.parse('woot/foo:bar*baz')
+        self.assertEqual( insts, [
+            ('by',{'args':['foo:bar'],'kwlist': [('by', 'baz'), ('cmp', 'by'), ('from', 'woot')],'mode':'lift'}),
+        ])

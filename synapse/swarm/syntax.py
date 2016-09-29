@@ -197,7 +197,7 @@ def parse_macro_join(text,off=0):
 
 def parse_ques(text,off=0,trim=True):
     '''
-    Parse "query" syntax: tag/var@time#limit*as=valu
+    Parse "query" syntax: tag/prop[@<timewin>][#<limit>][*<by>][=valu]
     '''
     ques = {}
 
@@ -233,6 +233,21 @@ def parse_ques(text,off=0,trim=True):
         if text[off] == '@':
             ques['when'],off = parse_when(text,off+1,trim=True)
             continue
+
+        # NOTE: "by" macro syntax only supports eq so we eat and run
+        if text[off] == '*':
+
+            ques['cmp'] = 'by'
+
+            ques['by'],off = nom(text,off+1,varset,trim=True)
+            if len(text) == off:
+                return ques,off
+
+            if text[off] != '=':
+                raise SyntaxError(text=text, off=off, mesg='expected equals for by syntax')
+
+            ques['valu'],off = parse_literal(text,off+1,trim=True)
+            return ques,off
 
         if text[off] == '=':
             ques['cmp'] = 'eq'
