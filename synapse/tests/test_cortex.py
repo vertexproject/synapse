@@ -1089,3 +1089,15 @@ class CortexTest(SynTest):
 
             tufs2 = core.getTufosByTag('foo','hehe')
             self.eq( len(tufs2), 1 )
+
+    def test_cortex_caching_new(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            core.setCoreOpt('caching',1)
+
+            tufo0 = core.formTufoByProp('foo','bar')
+            tufo1 = core.formTufoByProp('foo','bar')
+
+            self.assertTrue(tufo0[1].get('.new'))
+            self.assertFalse(tufo1[1].get('.new'))

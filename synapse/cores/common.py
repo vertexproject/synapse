@@ -278,6 +278,10 @@ class Cortex(EventBus,DataModel):
         '''
         Update or flush cache entries to reflect changes to a tufo.
         '''
+        # dodge ephemeral props
+        if prop[0] == '.':
+            return
+
         oldkey = (prop,oldv)
         newkey = (prop,newv)
 
