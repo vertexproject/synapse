@@ -1089,8 +1089,3 @@ class CortexTest(SynTest):
 
             tufs2 = core.getTufosByTag('foo','hehe')
             self.eq( len(tufs2), 1 )
-
-            #ref0 = core.getTufosByProp('foo',valu='bar')[0]
-            #ref1 = core.getTufosByProp('foo',valu='bar')[0]
-
-            #self.eq( id(ref0), id(ref1) )
