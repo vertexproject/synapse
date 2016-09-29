@@ -684,7 +684,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         props['syn:tag:depth'] = tlen - 1
 
-    def setSaveCore(self, savecore, load=True):
+    def setSaveCore(self, savecore, load=True, savefilter=None):
         '''
         Set a save cortex for the cortex and optionally load.
 
@@ -697,7 +697,13 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             for tufo in savecore.getTufosByProp('tufo:form'):
                 self.formTufoByTufo(tufo)
 
-        self.savebus.link(savecore.loadbus.dist)
+        if savefilter:
+            def dist(evtfo):
+                if savefilter(evtfo):
+                    savecore.loadbus.dist(evtfo)
+            self.savebus.link(dist)
+        else:
+            self.savebus.link(savecore.loadbus.dist)
 
     def setSaveFd(self, fd, load=True, fini=False):
         '''

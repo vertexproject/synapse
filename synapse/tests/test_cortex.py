@@ -1223,14 +1223,19 @@ class CortexTest(SynTest):
 
     def test_savecore(self):
         with s_cortex.openurl('ram://') as savecore:
+            def savefilter(evtfo):
+                return not any(prop == 'prop' and valu == 'bogus' for iden, prop, valu, when in evtfo[1]['rows'])
+
             # test save
-            with s_cortex.openurl('ram://', savecore=savecore) as core:
+            with s_cortex.openurl('ram://', savecore=savecore, savefilter=savefilter) as core:
                 wait = self.getTestWait(savecore.loadbus, 1, 'core:save:add:rows')
                 core.formTufoByProp('prop', 'valu')
+                core.formTufoByProp('prop', 'bogus')
                 wait.wait()
                 tufo = savecore.getTufoByProp('prop', valu='valu')
                 self.assertEqual(tufo[1]['tufo:form'], 'prop')
                 self.assertEqual(tufo[1]['prop'], 'valu')
+                self.assertIsNone(savecore.getTufoByProp('prop', valu='bogus'))
 
             # test load
             with s_cortex.openurl('ram://', savecore=savecore) as core:
