@@ -349,11 +349,6 @@ class SwarmRunTest(SwarmRunBase):
     def test_swarm_runtime_range(self):
         env = self.getSwarmEnv()
 
-        answ = env.runt.ask('foo:bar*range=("cat","goat")')
-        tufos = answ.get('data')
-        self.assertEqual(len(tufos), 1)
-        self.assertEqual(tufos[0][1].get('foo:bar'), 'faz')
-
         answ = env.runt.ask('zzz:woot*range=(9,11)')
         tufos = answ.get('data')
         self.assertEqual(len(tufos), 1)

@@ -24,15 +24,17 @@ class Cortex(common.Cortex):
 
     def _sizeByIn(self, prop, valu, limit=None):
         # HACK: for speed
+        lookup = set(valu)
         data = dict(size=0)
         def inc():
             data['size'] += 1
-        [ inc() for r in self.rowsbyprop.get(prop,()) if r[2] in valu ]
+        [ inc() for r in self.rowsbyprop.get(prop,()) if r[2] in lookup ]
         return data['size']
 
     def _rowsByIn(self, prop, valu, limit=None):
         # HACK: for speed
-        ret = [ r for r in self.rowsbyprop.get(prop,()) if r[2] in valu ]
+        lookup = set(valu)
+        ret = [ r for r in self.rowsbyprop.get(prop,()) if r[2] in lookup ]
         if limit != None:
             ret = ret[:limit]
         return ret
