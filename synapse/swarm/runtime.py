@@ -246,6 +246,7 @@ class Runtime(s_eventbus.EventBus):
         self.setOperCtor('le', s_opers_basic.LeOper)
 
         self.setOperCtor('re', s_opers_basic.ReOper)
+        self.setOperCtor('in', s_opers_basic.InOper)
 
         self.setOperCtor('or', s_opers_basic.OrOper)
         self.setOperCtor('and', s_opers_basic.AndOper)
@@ -259,6 +260,7 @@ class Runtime(s_eventbus.EventBus):
         self.setOperCtor('save', s_opers_basic.SaveOper)
         self.setOperCtor('clear', s_opers_basic.ClearOper)
 
+        self.setOperCtor('range', s_opers_basic.RangeOper)
         self.setOperCtor('pivot', s_opers_basic.PivotOper)
 
     def setOperCtor(self, name, func):

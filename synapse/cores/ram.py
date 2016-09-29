@@ -16,8 +16,28 @@ class Cortex(common.Cortex):
         self.initSizeBy('le',self._sizeByLe)
         self.initRowsBy('le',self._rowsByLe)
 
+        self.initSizeBy('in',self._sizeByIn)
+        self.initRowsBy('in',self._rowsByIn)
+
         self.initSizeBy('range',self._sizeByRange)
         self.initRowsBy('range',self._rowsByRange)
+
+    def _sizeByIn(self, prop, valu, limit=None):
+        # HACK: for speed
+        lookup = set(valu)
+        data = dict(size=0)
+        def inc():
+            data['size'] += 1
+        [ inc() for r in self.rowsbyprop.get(prop,()) if r[2] in lookup ]
+        return data['size']
+
+    def _rowsByIn(self, prop, valu, limit=None):
+        # HACK: for speed
+        lookup = set(valu)
+        ret = [ r for r in self.rowsbyprop.get(prop,()) if r[2] in lookup ]
+        if limit != None:
+            ret = ret[:limit]
+        return ret
 
     def _sizeByRange(self, prop, valu, limit=None):
         # HACK: for speed

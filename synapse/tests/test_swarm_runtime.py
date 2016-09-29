@@ -326,4 +326,37 @@ class SwarmRunTest(SwarmRunBase):
         self.assertEqual( len(tufos), 1 )
         self.assertEqual( tufos[0][1].get('inet:ipv4'), 0x01020304 )
 
+    def test_swarm_runtime_in(self):
+        env = self.getSwarmEnv()
+
+        answ = env.runt.ask('foo:bar*in=("faz","fuzz")')
+        tufos = answ.get('data')
+        self.assertEqual(len(tufos), 1)
+        self.assertEqual(tufos[0][1].get('foo:bar'), 'faz')
+
+        answ = env.runt.ask('zzz:woot*in=(10,11)')
+        tufos = answ.get('data')
+        self.assertEqual(len(tufos), 1)
+        self.assertEqual(tufos[0][1].get('zzz:woot'), 10)
+
+        answ = env.runt.ask('zzz:woot +zzz:woot*in=(10,11)')
+        tufos = answ.get('data')
+        self.assertEqual(len(tufos), 1)
+        self.assertEqual(tufos[0][1].get('zzz:woot'), 10)
+
+        env.fini()
+
+    def test_swarm_runtime_range(self):
+        env = self.getSwarmEnv()
+
+        answ = env.runt.ask('zzz:woot*range=(9,11)')
+        tufos = answ.get('data')
+        self.assertEqual(len(tufos), 1)
+        self.assertEqual(tufos[0][1].get('zzz:woot'), 10)
+
+        answ = env.runt.ask('zzz:woot +zzz:woot*range=(9,11)')
+        tufos = answ.get('data')
+        self.assertEqual(len(tufos), 1)
+        self.assertEqual(tufos[0][1].get('zzz:woot'), 10)
+
         env.fini()
