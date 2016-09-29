@@ -1066,3 +1066,31 @@ class CortexTest(SynTest):
             ref1 = core.getTufosByProp('foo',valu='bar')[0]
 
             self.eq( id(ref0), id(ref1) )
+
+    def test_cortex_caching_tags(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            tufo0 = core.formTufoByProp('foo','bar')
+            tufo1 = core.formTufoByProp('foo','baz')
+
+            core.addTufoTag(tufo0,'hehe')
+
+            core.setCoreOpt('caching',1)
+
+            tufs0 = core.getTufosByTag('foo','hehe')
+
+            core.addTufoTag(tufo1,'hehe')
+
+            tufs1 = core.getTufosByTag('foo','hehe')
+            self.eq( len(tufs1), 2 )
+
+            core.delTufoTag(tufo0,'hehe')
+
+            tufs2 = core.getTufosByTag('foo','hehe')
+            self.eq( len(tufs2), 1 )
+
+            #ref0 = core.getTufosByProp('foo',valu='bar')[0]
+            #ref1 = core.getTufosByProp('foo',valu='bar')[0]
+
+            #self.eq( id(ref0), id(ref1) )

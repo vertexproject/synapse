@@ -1213,10 +1213,13 @@ class Cortex(EventBus,DataModel):
         self._genTufoTag(tag)
         rows = s_tags.genTufoRows(tufo,tag,valu=asof)
         if rows:
+            formevt = 'tufo:tag:add:%s' % tufo[1].get('tufo:form')
             self.addRows(map(lambda tup: tup[1], rows))
             for subtag,(i,p,v,t) in rows:
                 tufo[1][p] = v
+                self._bumpTufoCache(tufo,p,None,v)
                 self.fire('tufo:tag:add', tufo=tufo, tag=subtag, asof=asof)
+                self.fire(formevt, tufo=tufo, tag=subtag, asof=asof)
 
         return tufo
 
@@ -1233,11 +1236,20 @@ class Cortex(EventBus,DataModel):
         iden = tufo[0]
         props = s_tags.getTufoSubs(tufo,tag)
         if props:
+            formevt = 'tufo:tag:del:%s' % tufo[1].get('tufo:form') 
             [ self.delRowsByIdProp(iden,prop) for prop in props ]
+
             for p in props:
-                if p in tufo[1]:
-                    tufo[1].pop(p)
-                    self.fire('tufo:tag:del', tufo=tufo, tag=s_tags.choptag(p))
+
+                asof = tufo[1].pop(p,None)
+                if asof == None:
+                    continue
+
+                self._bumpTufoCache(tufo,p,asof,None)
+
+                subtag = s_tags.choptag(p)
+                self.fire('tufo:tag:del', tufo=tufo, tag=subtag)
+                self.fire(formevt, tufo=tufo, tag=subtag)
 
         return tufo
 
