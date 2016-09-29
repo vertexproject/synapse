@@ -264,21 +264,23 @@ class JsonType(DataType):
 
         self.codec = info.get('codec', json)
 
-    def norm(self, valu):
-        valu = self.codec.dumps(valu)
-        return valu
-
-    def repr(self, valu):
-        return valu
-
-    def parse(self, valu):
+    def norm(self, valu, oldval=None):
         try:
             valu = self.codec.loads(valu)
         except:
             self._raiseBadValu(valu)
+        return self.codec.dumps(valu)
 
-        return self.norm(valu)
+    def repr(self, valu):
+        return valu
 
+    def frob(self, valu, oldval=None):
+        if s_compat.isstr(valu):
+            try:
+                return self.parse(valu)
+            except:
+                pass
+        return self.codec.dumps(valu)
 
 class BoolType(DataType):
 
