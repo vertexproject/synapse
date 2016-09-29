@@ -52,11 +52,20 @@ class Cortex(EventBus,DataModel):
         self.secure = 0
         self.enforce = 0
 
+        self.formed = collections.defaultdict(int)      # count tufos formed since startup
         self.tagcache = {}
         self.splicefuncs = {}
 
         self.sizebymeths = {}
         self.rowsbymeths = {}
+        self.tufosbymeths = {}
+
+        self.caching = 0
+        self.cache_maxsize = 1000
+        self.cache_fifo = collections.deque()               # [ ((prop,valu,limt), {
+        self.cache_bykey = {}                               # (prop,valu,limt):( (prop,valu,limt), {iden:tufo,...} )
+        self.cache_byiden = s_cache.RefDict()
+        self.cache_byprop = collections.defaultdict(dict)   # (<prop>,<valu>):[ ((prop, valu, limt),  answ), ... ]
 
         #############################################################
         # buses to save/load *raw* save events
@@ -136,11 +145,20 @@ class Cortex(EventBus,DataModel):
 
         #self.addTufoProp('syn:core','opts:secure', ptype='bool', defval=0)
         self.addTufoProp('syn:core','opts:enforce', ptype='bool', defval=0)
+        self.addTufoProp('syn:core','opts:caching', ptype='bool', defval=0)
+        self.addTufoProp('syn:core','opts:caching:maxsize', ptype='int', defval=1000)
 
         #self.on('tufo:set:syn:core:opts:secure', self._onSetSecure )
         self.on('tufo:set:syn:core:opts:enforce', self._onSetEnforce )
+        self.on('tufo:set:syn:core:opts:caching', self._onSetCaching )
+
+        self.on('tufo:set:syn:core:opts:caching:maxsize', self._onSetCachingMaxSize )
 
         self.myfo = self.formTufoByProp('syn:core','self')
+
+        self.caching = self.myfo[1].get('syn:core:opts:caching')
+        self.cache_maxsize = self.myfo[1].get('syn:core:opts:caching:maxsize')
+
         self.secure = self.myfo[1].get('syn:core:opts:secure',0)
         self.enforce = self.myfo[1].get('syn:core:opts:enforce',0)
 
@@ -195,6 +213,152 @@ class Cortex(EventBus,DataModel):
         self.splicers['tufo:tag:add'] = self._spliceTufoTagAdd
         self.splicers['tufo:tag:del'] = self._spliceTufoTagDel
 
+    def setCoreOpt(self, prop, valu):
+        prop = 'opts:%s' % (prop,)
+        self.setTufoProp(self.myfo,prop,valu)
+
+    def _getTufosByCache(self, prop, valu, limit):
+        # only used if self.caching = 1
+        ckey = (prop,valu,limit) # cache key
+
+        # check for this exact query...
+        # ( (prop,valu,limit), answ )
+        answ = self.cache_bykey.get(ckey)
+        if answ != None:
+            return list(answ.values())
+
+        # check for same prop
+        pkey = (prop,valu)
+
+        for hkey in tuple(self.cache_byprop.get(pkey,())):
+
+            hprop,hvalu,hlimit = hkey
+            # if there's a hit that's either bigger than us *or* unlimited, use it
+            if hlimit == None or ( limit != None and limit < hlimit ):
+                answ = self.cache_bykey.get(hkey)
+                return list(answ.values())[:limit]
+
+        # no match found in the cache
+        tufos = self._getTufosByProp(prop, valu=valu, limit=limit)
+
+        self._addCacheKey(ckey,tufos)
+        return tufos
+
+    def _addCacheKey(self, ckey, tufos):
+        # only one instance of any given tufo in the cache
+        tufos = self.cache_byiden.puts( [ (t[0],t) for t in tufos ] )
+
+        self.cache_fifo.append(ckey)
+        self.cache_bykey[ckey] = { t[0]:t for t in tufos }
+        self.cache_byprop[(ckey[0],ckey[1])][ckey] = True
+
+        while len(self.cache_fifo) > self.cache_maxsize:
+            oldk = self.cache_fifo.popleft()
+            self._delCacheKey(oldk)
+
+        return tufos
+
+    def _delCacheKey(self, ckey):
+
+        # delete a tufo cache entry
+        answ = self.cache_bykey.pop(ckey,None)
+
+        # decref our cached tuples
+        if answ != None:
+            [ self.cache_byiden.pop(t[0]) for t in answ.values() ]
+
+        pkey = (ckey[0],ckey[1])
+        phits = self.cache_byprop.get(pkey)
+        if phits != None:
+            phits.pop(ckey,None)
+            if not phits:
+                self.cache_byprop.pop(pkey)
+
+    def _bumpTufoCache(self, tufo, prop, oldv, newv):
+        '''
+        Update or flush cache entries to reflect changes to a tufo.
+        '''
+        oldkey = (prop,oldv)
+        newkey = (prop,newv)
+
+        cachfo = self.cache_byiden.get(tufo[0])
+        if cachfo != None:
+            cachfo[1][prop] = newv
+
+        # remove ourselves from old ones..
+        if oldv != None:
+
+            # remove ourselves from any cached results for prop=oldv
+            for ckey in tuple(self.cache_byprop.get(oldkey,())):
+
+                answ = self.cache_bykey.get(ckey)
+                if answ == None:
+                    continue
+
+                atlim = len(answ) == ckey[2]
+
+                # ok... if we're not in the result, no bigs...
+                ctup = answ.pop(tufo[0],None)
+                if ctup == None:
+                    continue
+
+                # removing it, we must decref the byiden cache.
+                self.cache_byiden.pop(tufo[0])
+
+                # if we were at our limit, ditch it.
+                if atlim:
+                    self._delCacheKey(ckey)
+
+        # add ourselves to any cached results for the new value
+        if newv != None:
+            for ckey in tuple(self.cache_byprop.get(newkey,())):
+                answ = self.cache_bykey.get(ckey)
+                if answ == None:
+                    continue
+
+                # If it's at it's limit, no need to add us...
+                if len(answ) == ckey[2]:
+                    continue
+
+                answ[tufo[0]] = tufo
+                self.cache_byiden.put(tufo[0],tufo)
+
+        #else:
+
+                #if atlim:
+                    #continue
+
+        # check for add prop and add us to (prop,None) pkey
+        if oldv == None and newv != None:
+            for ckey in tuple(self.cache_byprop.get((prop,None), ())):
+                answ = self.cache_bykey.get(ckey)
+                if answ == None:
+                    continue
+
+                # If it's at it's limit, no need to add us...
+                if len(answ) == ckey[2]:
+                    continue
+
+                answ[tufo[0]] = tufo
+                self.cache_byiden.put(tufo[0],tufo)
+
+        # check for del prop and del us from the (prop,None) pkey
+        if oldv != None and newv == None:
+
+            for ckey in tuple(self.cache_byprop.get((prop,None), ())):
+                answ = self.cache_bykey.get(ckey)
+                if answ == None:
+                    continue
+
+                atlim = len(answ) == ckey[2]
+
+                ctup = answ.pop(tufo[0],None)
+                if ctup == None:
+                    continue
+
+                if atlim:
+                    self._delCacheKey(ckey)
+
     def _onSetEnforce(self, mesg):
         tufo = mesg[1].get('tufo')
         valu = mesg[1].get('valu')
@@ -203,6 +367,28 @@ class Cortex(EventBus,DataModel):
             return
 
         self.enforce = valu
+
+    def _onSetCaching(self, mesg):
+        tufo = mesg[1].get('tufo')
+        valu = mesg[1].get('valu')
+
+        if tufo[0] != self.myfo[0]:
+            return
+
+        self.caching = valu
+
+        if not self.caching:
+            self.cache_fifo.clear()
+            self.cache_bykey.clear()
+            self.cache_byiden.clear()
+            self.cache_byprop.clear()
+
+    def _onSetCachingMaxSize(self, mesg):
+        tufo = mesg[1].get('tufo')
+        if tufo[0] != self.myfo[0]:
+            return
+
+        self.cache_maxsize = mesg[1].get('valu')
 
     def _reqSpliceInfo(self, act, info, prop):
         valu = info.get(prop)
@@ -772,8 +958,22 @@ class Cortex(EventBus,DataModel):
         return self._getSizeByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
 
     def getTufosBy(self, name, prop, valu, limit=None):
-        rows = self.getRowsBy(name,prop,valu,limit=limit)
-        return [ self.getTufoById(row[0]) for row in rows ]
+        '''
+        Retrieve tufos by either a specialized method or the lower getRowsBy api
+        Specialized methods will be dependant on the storage backing and the data indexed
+
+        Example:
+
+            tufos = core.getTufosBy('in', 'foo', (47,3,8,22))
+
+        '''
+        meth = self.tufosbymeths.get(name)
+
+        if not meth:
+            rows = self.getRowsBy(name,prop,valu,limit=limit)
+            return [ self.getTufoById(row[0]) for row in rows ]
+
+        return meth(prop, valu, limit=limit)
 
     def getRowsBy(self, name, prop, valu, limit=None):
         '''
@@ -802,6 +1002,34 @@ class Cortex(EventBus,DataModel):
         '''
         meth = self._reqSizeByMeth(name)
         return meth(prop,valu,limit=limit)
+
+    def initTufosBy(self, name, meth):
+        '''
+        Initialize a "tufos by" handler for the Cortex.  This is useful
+        when the index or storage backing can optimize tufo creation from
+        raw rows.
+
+        Example:
+            def getbyin(prop,valus,limit=None):
+                ret = []
+
+                for valu in valus:
+                    res = self.getTufosByProp(prop, valu=valu, limit=limit)
+                    ret.extend(res)
+
+                    if limit != None:
+                        limit -= len(res)
+                        if limit <= 0:
+                            break
+
+                return ret
+
+            core.initTufos('in',getbyin)
+
+        Notes:
+            * Used by Cortex implementers to facilitate getTufosBy(...)
+        '''
+        self.tufosbymeths[name] = meth
 
     def initRowsBy(self, name, meth):
         '''
@@ -845,6 +1073,11 @@ class Cortex(EventBus,DataModel):
             tufo = core.getTufoById(iden)
 
         '''
+        if self.caching:
+            tufo = self.cache_byiden.get(iden)
+            if tufo != None:
+                return tufo
+
         rows = self.getRowsById(iden)
         if not rows:
             return None
@@ -874,6 +1107,34 @@ class Cortex(EventBus,DataModel):
 
         return tufo
 
+    def getTufoByFrob(self, prop, valu=None):
+        '''
+        Return an (iden,info) tuple by joining rows based on a property.
+
+        Example:
+
+            tufo = core.getTufoByFrob('inet:ipv4',ipv4addr)
+
+        '''
+        if valu != None:
+            valu = self.getPropFrob(prop,valu)
+
+        rows = self.getJoinByProp(prop, valu=valu, limit=1)
+        if not rows:
+            return None
+
+        tufo = ( rows[0][0], {} )
+        for iden,prop,valu,stamp in rows:
+            tufo[1][prop] = valu
+
+        return tufo
+
+
+    def _rowsToTufos(self, rows):
+        res = collections.defaultdict(dict)
+        [ res[i].__setitem__(p,v) for (i,p,v,t) in rows ]
+        return list(res.items())
+
     def getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         '''
         Return a list of tufos by property.
@@ -884,11 +1145,29 @@ class Cortex(EventBus,DataModel):
                 dostuff(tufo)
 
         '''
-        rows = self.getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+        if self.caching and mintime == None and maxtime == None:
+            return self._getTufosByCache(prop,valu,limit)
 
-        res = collections.defaultdict(dict)
-        [ res[i].__setitem__(p,v) for (i,p,v,t) in rows ]
-        return list(res.items())
+        return self._getTufosByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+
+    def _getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+        rows = self.getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+        return self._rowsToTufos(rows)
+
+    def getTufosByFrob(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+        '''
+        Return a list of tufos by property and frob value if present.
+
+        Example:
+
+            for tufo in core.getTufosByProp('foo:bar', '0x10'):
+                dostuff(tufo)
+
+        '''
+        if valu != None:
+            valu =self.getPropFrob(prop,valu)
+
+        return self.getTufosByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
 
     def getTufosByPropType(self, name, valu=None, mintime=None, maxtime=None, limit=None):
         '''
@@ -1258,6 +1537,9 @@ class Cortex(EventBus,DataModel):
             props = self._normTufoProps(form,props)
             props[form] = valu
 
+            # update our runtime form counters
+            self.formed[form] += 1
+
             self.fire('tufo:form', form=form, valu=valu, props=props)
             self.fire('tufo:form:%s' % form, form=form, valu=valu, props=props)
 
@@ -1266,6 +1548,10 @@ class Cortex(EventBus,DataModel):
             self.addRows(rows)
 
             tufo = (iden,props)
+
+            if self.caching:
+                for p,v in props.items():
+                    self._bumpTufoCache(tufo,p,None,v)
 
         self.fire('tufo:add', tufo=tufo)
         self.fire('tufo:add:%s' % form, tufo=tufo)
@@ -1287,6 +1573,10 @@ class Cortex(EventBus,DataModel):
 
         self.fire('tufo:del',tufo=tufo)
         self.fire('tufo:del:%s' % form, tufo=tufo)
+
+        if self.caching:
+            for prop,valu in tufo[1].items():
+                self._bumpTufoCache(tufo,prop,valu,None)
 
         iden = tufo[0]
         with self.lock:
@@ -1415,6 +1705,8 @@ class Cortex(EventBus,DataModel):
             self.fire('tufo:set', tufo=tufo, props=props)
             self.fire('tufo:props:%s' % (form,), tufo=tufo, props=props)
 
+        cachfo = self.cache_byiden.get(tufo[0])
+
         for p,v in props.items():
 
             oldv = tufo[1].get(p)
@@ -1422,7 +1714,12 @@ class Cortex(EventBus,DataModel):
 
             tufo[1][p] = v
 
+            # update the tufo cache if present
+            if self.caching:
+                self._bumpTufoCache(tufo,p,oldv,v)
+
             self.fire('tufo:set:%s' % (p,), tufo=tufo, prop=p, valu=v, oldv=oldv)
+
 
         return tufo
 

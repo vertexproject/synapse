@@ -141,7 +141,7 @@ class Query(s_eventbus.EventBus):
 
     def getTufosByPropFrom(self, prop, valu=None, limit=None, mintime=None, maxtime=None, fromtag=deftag):
 
-        dyntask = gentask('getTufosByProp',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
+        dyntask = gentask('getTufosByFrob',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
 
         for svcfo,retval in self.callByTag(fromtag,dyntask):
             for tufo in retval:

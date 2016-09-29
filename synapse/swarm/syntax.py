@@ -221,10 +221,10 @@ def parse_ques(text,off=0,trim=True):
 
         ques['prop'] = name
 
+    while True:
+
         if len(text) == off:
             return ques,off
-
-    while True:
 
         if text[off] == '#':
             ques['limit'],off = parse_int(text,off+1,trim=True)

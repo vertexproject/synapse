@@ -33,6 +33,11 @@ def getTypeNorm(name, valu):
     '''
     return tlib.reqDataType(name).norm(valu)
 
+def getTypeFrob(name, valu):
+    '''
+    '''
+    return tlib.reqDataType(name).frob(valu)
+
 def getTypeParse(name, text):
     '''
     '''
@@ -295,6 +300,22 @@ class DataModel(s_types.TypeLib):
 
         return dtype.norm(valu,oldval=oldval)
 
+    def getPropFrob(self, prop, valu, oldval=None):
+        '''
+        Return a normalized system mode value for the given property.
+
+        Example:
+
+            valu = model.getPropNorm(prop,valu)
+
+        '''
+        dtype = self.getPropType(prop)
+        if dtype == None:
+            return valu
+
+        return dtype.frob(valu,oldval=oldval)
+
+
     def getPropChop(self, prop, valu):
         '''
         Return norm,{'sub':subval} tuple for the given property.
@@ -303,7 +324,10 @@ class DataModel(s_types.TypeLib):
         if dtype == None:
             return valu,{}
 
-        return dtype.chop(valu)
+        try:
+            return dtype.chop(valu)
+        except BadTypeValu:
+            raise BadPropValu(name=prop, valu=valu)
 
     #def getPropNorms(self, props):
         #return { p:self.getPropNorm(p,v) for (p,v) in props.items() }

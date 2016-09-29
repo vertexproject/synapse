@@ -265,6 +265,42 @@ class CortexTest(SynTest):
         self.assertEqual( t1, ('foo','foo.bar'))
         self.assertEqual( t2, ('foo','foo.bar','foo.bar.baz'))
 
+    def test_cortex_tufo_by_default(self):
+        core = s_cortex.openurl('sqlite:///:memory:')
+
+        fooa = core.formTufoByProp('foo','bar',p0=4)
+        foob = core.formTufoByProp('foo','baz',p0=5)
+
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4])), 1)
+
+        fooc = core.formTufoByProp('foo','faz',p0=5)
+        food = core.formTufoByProp('foo','haz',p0=6)
+        fooe = core.formTufoByProp('foo','gaz',p0=7)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5])), 2)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5,6,7], limit=4)), 4)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
+
+    def test_cortex_tufo_by_postgres(self):
+        db = os.getenv('SYN_COR_PG_DB')
+        if db == None:
+            raise unittest.SkipTest('no SYN_COR_PG_DB')
+
+        table = 'syn_test_%s' % guid()
+
+        link = s_link.chopLinkUrl('postgres:///%s/%s' % (db,table))
+        core = s_cortex.openlink(link)
+
+        fooa = core.formTufoByProp('foo','bar',p0=4)
+        foob = core.formTufoByProp('foo','baz',p0=5)
+
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4])), 1)
+
+        fooc = core.formTufoByProp('foo','faz',p0=5)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5])), 2)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
+
     def test_cortex_tufo_tag(self):
         core = s_cortex.openurl('ram://')
         foob = core.formTufoByProp('foo','bar',baz='faz')
@@ -808,3 +844,225 @@ class CortexTest(SynTest):
 
             res0 = core.getTufosByPropType('time:epoch:min', valu=20)
             self.eq( tuple(sorted([r[0] for r in res0])), want )
+
+    def test_cortex_caching(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            tufo0 = core.formTufoByProp('foo','bar', asdf=2)
+            tufo1 = core.formTufoByProp('foo','baz', asdf=2)
+
+            answ0 = core.getTufosByProp('foo')
+            answ1 = core.getTufosByProp('foo', valu='bar')
+
+            self.eq( len(answ0), 2 )
+            self.eq( len(answ1), 1 )
+
+            self.eq( len(core.cache_fifo), 0 )
+            self.eq( len(core.cache_bykey), 0 )
+            self.eq( len(core.cache_byiden), 0 )
+            self.eq( len(core.cache_byprop), 0 )
+
+            core.setCoreOpt('caching',1)
+
+            self.eq( core.caching, 1 )
+
+            answ0 = core.getTufosByProp('foo')
+
+            self.eq( len(answ0), 2 )
+            self.eq( len(core.cache_fifo), 1 )
+            self.eq( len(core.cache_bykey), 1 )
+            self.eq( len(core.cache_byiden), 2 )
+            self.eq( len(core.cache_byprop), 1 )
+
+            #self.eq( len(answ1), 1 )
+            #answ1 = core.getTufosByProp('foo', valu='bar')
+
+    def test_cortex_caching_set(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            tufo0 = core.formTufoByProp('foo','bar', qwer=10)
+            tufo1 = core.formTufoByProp('foo','baz', qwer=10)
+
+            core.setCoreOpt('caching',1)
+
+            tufs0 = core.getTufosByProp('foo:qwer')
+            tufs1 = core.getTufosByProp('foo:qwer', valu=10)
+            tufs2 = core.getTufosByProp('foo:qwer', valu=11)
+            tufs3 = core.getTufosByProp('foo:qwer', valu=10, limit=2)
+
+            self.assertEqual( len(tufs0), 2 )
+            self.assertEqual( len(tufs1), 2 )
+            self.assertEqual( len(tufs2), 0 )
+            self.assertEqual( len(tufs3), 2 )
+
+            # inspect the details of the cache data structures when setTufoProps
+            # causes an addition or removal...
+            self.assertIsNotNone( core.cache_bykey.get( ('foo:qwer',10,None) ) )
+            self.assertIsNotNone( core.cache_bykey.get( ('foo:qwer',None,None) ) )
+
+            # we should have hit the unlimited query and not created a new cache hit...
+            self.assertIsNone( core.cache_bykey.get( ('foo:qwer',10,2) ) )
+
+            self.assertIsNotNone( core.cache_byiden.get( tufo0[0] ) )
+            self.assertIsNotNone( core.cache_byiden.get( tufo1[0] ) )
+
+            self.assertIsNotNone( core.cache_byprop.get( ('foo:qwer',10) ) )
+            self.assertIsNotNone( core.cache_byprop.get( ('foo:qwer',None) ) )
+
+            core.setTufoProp(tufo0,'qwer',11)
+
+            # the cached results should be updated
+            tufs0 = core.getTufosByProp('foo:qwer')
+            tufs1 = core.getTufosByProp('foo:qwer', valu=10)
+            tufs2 = core.getTufosByProp('foo:qwer', valu=11)
+
+            self.assertEqual( len(tufs0), 2 )
+            self.assertEqual( len(tufs1), 1 )
+            self.assertEqual( len(tufs2), 1 )
+
+            self.assertEqual( tufs1[0][0], tufo1[0] )
+            self.assertEqual( tufs2[0][0], tufo0[0] )
+
+    def test_cortex_caching_add_tufo(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            tufo0 = core.formTufoByProp('foo','bar', qwer=10)
+            tufo1 = core.formTufoByProp('foo','baz', qwer=10)
+
+            core.setCoreOpt('caching',1)
+
+            tufs0 = core.getTufosByProp('foo:qwer')
+            tufs1 = core.getTufosByProp('foo:qwer', valu=10)
+            tufs2 = core.getTufosByProp('foo:qwer', valu=11)
+
+            self.assertEqual( len(tufs0), 2 )
+            self.assertEqual( len(tufs1), 2 )
+            self.assertEqual( len(tufs2), 0 )
+
+            tufo2 = core.formTufoByProp('foo','lol', qwer=10)
+
+            tufs0 = core.getTufosByProp('foo:qwer')
+            tufs1 = core.getTufosByProp('foo:qwer', valu=10)
+            tufs2 = core.getTufosByProp('foo:qwer', valu=11)
+
+            self.assertEqual( len(tufs0), 3 )
+            self.assertEqual( len(tufs1), 3 )
+            self.assertEqual( len(tufs2), 0 )
+
+    def test_cortex_caching_del_tufo(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            tufo0 = core.formTufoByProp('foo','bar', qwer=10)
+            tufo1 = core.formTufoByProp('foo','baz', qwer=10)
+
+            core.setCoreOpt('caching',1)
+
+            tufs0 = core.getTufosByProp('foo:qwer')
+            tufs1 = core.getTufosByProp('foo:qwer', valu=10)
+            tufs2 = core.getTufosByProp('foo:qwer', valu=11)
+
+            self.assertEqual( len(tufs0), 2 )
+            self.assertEqual( len(tufs1), 2 )
+            self.assertEqual( len(tufs2), 0 )
+
+            core.delTufo( tufo0 )
+            #tufo2 = core.formTufoByProp('foo','lol', qwer=10)
+
+            tufs0 = core.getTufosByProp('foo:qwer')
+            tufs1 = core.getTufosByProp('foo:qwer', valu=10)
+            tufs2 = core.getTufosByProp('foo:qwer', valu=11)
+
+            self.assertEqual( len(tufs0), 1 )
+            self.assertEqual( len(tufs1), 1 )
+            self.assertEqual( len(tufs2), 0 )
+
+    def test_cortex_caching_atlimit(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            tufo0 = core.formTufoByProp('foo','bar', qwer=10)
+            tufo1 = core.formTufoByProp('foo','baz', qwer=10)
+
+            core.setCoreOpt('caching',1)
+
+            tufs0 = core.getTufosByProp('foo:qwer', limit=2)
+            tufs1 = core.getTufosByProp('foo:qwer', valu=10, limit=2)
+
+            self.assertEqual( len(tufs0), 2 )
+            self.assertEqual( len(tufs1), 2 )
+
+            # when an entry is deleted from a cache result that was at it's limit
+            # it should be fully invalidated
+
+            core.delTufo(tufo0)
+
+            self.assertIsNone( core.cache_bykey.get( ('foo:qwer',None,2) ) )
+            self.assertIsNone( core.cache_bykey.get( ('foo:qwer',10,2) ) )
+
+        with s_cortex.openurl('ram://') as core:
+
+            tufo0 = core.formTufoByProp('foo','bar', qwer=10)
+            tufo1 = core.formTufoByProp('foo','baz', qwer=10)
+
+            core.setCoreOpt('caching',1)
+
+            tufs0 = core.getTufosByProp('foo:qwer', limit=2)
+            tufs1 = core.getTufosByProp('foo:qwer', valu=10, limit=2)
+
+            self.assertEqual( len(tufs0), 2 )
+            self.assertEqual( len(tufs1), 2 )
+
+            tufo2 = core.formTufoByProp('foo','baz', qwer=10)
+
+            # when an entry is added from a cache result that was at it's limit
+            # it should *not* be invalidated
+
+            self.assertIsNotNone( core.cache_bykey.get( ('foo:qwer',None,2) ) )
+            self.assertIsNotNone( core.cache_bykey.get( ('foo:qwer',10,2) ) )
+
+    def test_cortex_caching_under_limit(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            tufo0 = core.formTufoByProp('foo','bar', qwer=10)
+            tufo1 = core.formTufoByProp('foo','baz', qwer=10)
+
+            core.setCoreOpt('caching',1)
+
+            tufs0 = core.getTufosByProp('foo:qwer', limit=9)
+            tufs1 = core.getTufosByProp('foo:qwer', valu=10, limit=9)
+
+            self.assertEqual( len(tufs0), 2 )
+            self.assertEqual( len(tufs1), 2 )
+
+            # when an entry is deleted from a cache result that was under it's limit
+            # it should be removed but *not* invalidated
+
+            core.delTufo(tufo0)
+
+            self.assertIsNotNone( core.cache_bykey.get( ('foo:qwer',None,9) ) )
+            self.assertIsNotNone( core.cache_bykey.get( ('foo:qwer',10,9) ) )
+
+            tufs0 = core.getTufosByProp('foo:qwer', limit=9)
+            tufs1 = core.getTufosByProp('foo:qwer', valu=10, limit=9)
+
+            self.assertEqual( len(tufs0), 1 )
+            self.assertEqual( len(tufs1), 1 )
+
+
+    def test_cortex_caching_oneref(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            tufo0 = core.formTufoByProp('foo','bar')
+
+            core.setCoreOpt('caching',1)
+
+            ref0 = core.getTufosByProp('foo',valu='bar')[0]
+            ref1 = core.getTufosByProp('foo',valu='bar')[0]
+
+            self.eq( id(ref0), id(ref1) )
