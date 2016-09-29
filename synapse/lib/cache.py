@@ -377,3 +377,45 @@ class KeyCache(collections.defaultdict):
 
     def put(self, key, val):
         self[key] = val
+
+class RefDict:
+    '''
+    Allow reference counted ( and instance folded ) cache.
+    '''
+    def __init__(self):
+        self.vals = {}
+        self.lock = threading.Lock()
+        self.refs = collections.defaultdict(int)
+
+    def put(self, key, val):
+        with self.lock:
+            return self._put(key,val)
+
+    def get(self, key):
+        return self.vals.get(key)
+
+    def pop(self, key):
+        with self.lock:
+            return self._pop(key)
+
+    def _pop(self, key):
+        self.refs[key] -= 1
+        if self.refs[key] <= 0:
+            self.refs.pop(key,None)
+            return self.vals.pop(key,None)
+
+    def _put(self, key, val):
+        val = self.vals.setdefault(key,val)
+        self.refs[key] += 1
+        return val
+
+    def puts(self, items):
+        with self.lock:
+            return [ self._put(k,v) for (k,v) in items ]
+
+    def pops(self, keys):
+        with self.lock:
+            return [ self._pop(k) for k in keys ]
+
+    def __len__(self):
+        return len(self.vals)
