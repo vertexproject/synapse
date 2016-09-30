@@ -87,7 +87,9 @@ def openlink(link):
 
     savecore = link[1].get('savecore')
     if savecore != None:
-        core.setSaveCore(savecore, savefilter=link[1].get('savefilter'))
+        load = link[1].get('load', True)
+        savefilter = link[1].get('savefilter')
+        core.setSaveCore(savecore, load=load, savefilter=savefilter)
 
     savefile = link[1].get('savefile')
     if savefile != None:

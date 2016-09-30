@@ -1237,7 +1237,11 @@ class CortexTest(SynTest):
                 self.assertEqual(tufo[1]['prop'], 'valu')
                 self.assertIsNone(savecore.getTufoByProp('prop', valu='bogus'))
 
-            # test load
+            # test load=False
+            with s_cortex.openurl('ram://', load=False, savecore=savecore) as core:
+                self.assertIsNone(core.getTufoByProp('prop', valu='valu'))
+
+            # test load=True
             with s_cortex.openurl('ram://', savecore=savecore) as core:
                 tufo = core.getTufoByProp('prop', valu='valu')
                 self.assertEqual(tufo[1]['prop'], 'valu')
