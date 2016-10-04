@@ -93,7 +93,7 @@ class Cortex(EventBus,DataModel):
         self.syncact = s_reactor.Reactor()
         self.syncact.act('tufo:add', self._actSyncTufoAdd )
         self.syncact.act('tufo:del', self._actSyncTufoDel )
-        #self.syncact.act('tufo:set', self._actSyncTufoSet )
+        self.syncact.act('tufo:set', self._actSyncTufoSet )
         self.syncact.act('tufo:tag:add', self._actSyncTufoTagAdd )
         self.syncact.act('tufo:tag:del', self._actSyncTufoTagDel )
 
@@ -602,6 +602,22 @@ class Cortex(EventBus,DataModel):
             return
 
         self.delTufo(tufo)
+
+    def _actSyncTufoSet(self, mesg):
+        tufo = mesg[1].get('tufo')
+
+        props = mesg[1].get('props')
+        if not props:
+            return
+
+        form = tufo[1].get('tufo:form')
+        valu = tufo[1].get(form)
+
+        tufo = self.getTufoByProp(form,valu=valu)
+        if tufo == None:
+            return
+
+        self._setTufoPropsFull(tufo,**props)
 
     def _actSyncTufoTagAdd(self, mesg):
 
@@ -1117,6 +1133,7 @@ class Cortex(EventBus,DataModel):
 
         Example:
 
+            # ipv4addr may be either 0x01020304 or "1.2.3.4"
             tufo = core.getTufoByFrob('inet:ipv4',ipv4addr)
 
         '''
@@ -1707,6 +1724,11 @@ class Cortex(EventBus,DataModel):
         # add tufo form prefix to props
         form = tufo[1].get('tufo:form')
         props = { '%s:%s' % (form,p):v for (p,v) in props.items() }
+        return self._setTufoPropsFull(tufo, **props)
+
+    def _setTufoPropsFull(self, tufo, **props):
+
+        form = tufo[1].get('tufo:form')
 
         # normalize property values
         props = { p:self.getPropNorm(p,v,oldval=tufo[1].get(p)) for (p,v) in props.items() if self._okSetProp(p) }

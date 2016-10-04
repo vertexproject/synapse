@@ -598,6 +598,11 @@ class CortexTest(SynTest):
 
         self.assertFalse( s_tags.tufoHasTag(tufo1,'hehe') )
 
+        core0.setTufoProp(tufo0,'baz','lol')
+        tufo1 = core1.getTufoByProp('foo','bar')
+
+        self.assertEqual( tufo1[1].get('foo:baz'), 'lol' )
+
         core0.delTufo(tufo0)
         tufo1 = core1.getTufoByProp('foo','bar')
 
