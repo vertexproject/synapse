@@ -35,9 +35,6 @@ class Cortex(s_c_sqlite.Cortex):
 
                 time.sleep(1)
 
-        c = db.cursor()
-        c.execute('SET enable_seqscan=false')
-        c.close()
         return db
 
     def _getTableName(self):
