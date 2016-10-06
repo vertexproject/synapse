@@ -109,8 +109,17 @@ class ByMix:
                 tufo[1]['.from'] = svcfo[0]
                 self.query.add(tufo)
 
-class ByOper(s_opers_common.Oper,ByMix):
-    pass
+class ByOper(s_opers_common.CmpOper,ByMix):
+
+    def getCmpFunc(self):
+
+        prop = self.args[0]
+        valu = self.kwargs.get('valu')
+
+        def cmptufo(tufo):
+            return tufo[1].get(prop) in valu
+
+        return cmptufo
 
 class LtOper(s_opers_common.CmpOper,ByMix):
 

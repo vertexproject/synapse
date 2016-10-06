@@ -104,6 +104,19 @@ class SwarmSyntaxTest(SynTest):
             ('has',{'args':['baz:faz'],'kwlist':[('cmp','has')],'mode':'lift'}),
         ])
 
+    def test_swarm_syntax_liftrange(self):
+        insts = s_syntax.parse('foo:bar*range=(1,2)')
+        self.assertEqual( insts, [
+            ('by',{'args':['foo:bar'],'kwlist':[('by','range'),('cmp','by'),('valu',[1,2])],'mode':'lift'}),
+        ])
+
+    def test_swarm_syntax_liftin(self):
+        insts = s_syntax.parse('foo:bar +foo:bar*in=(1,2)')
+        self.assertEqual( insts, [
+            ('has', {'kwlist': [('cmp', 'has')], 'args': ['foo:bar'], 'mode': 'lift'}),
+            ('by',{'args':['foo:bar'],'kwlist':[('by','in'),('cmp','by'),('valu',[1,2])],'mode':'must'}),
+        ])
+
     def test_swarm_syntax_regex(self):
         insts = s_syntax.parse('+foo:bar~="hehe" -foo:bar~="hoho"')
         self.assertEqual( insts, [

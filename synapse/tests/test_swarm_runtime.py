@@ -320,11 +320,10 @@ class SwarmRunTest(SwarmRunBase):
         self.assertEqual(len(tufos), 1)
         self.assertEqual(tufos[0][1].get('zzz:woot'), 10)
 
-        # TODO: synapse.exc.NoSuchImpl: ByOper does not implement must
-        # answ = env.runt.ask('zzz:woot +zzz:woot*in=(10,11)')
-        # tufos = answ.get('data')
-        # self.assertEqual(len(tufos), 1)
-        # self.assertEqual(tufos[0][1].get('zzz:woot'), 10)
+        answ = env.runt.ask('zzz:woot +zzz:woot*in=(10,11)')
+        tufos = answ.get('data')
+        self.assertEqual(len(tufos), 1)
+        self.assertEqual(tufos[0][1].get('zzz:woot'), 10)
 
         env.fini()
 
