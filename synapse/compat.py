@@ -25,6 +25,11 @@ if version < (3,0,0):
 
     from cStringIO import StringIO as BytesIO
 
+    # since py27 is aparently incapable of interning
+    # unicode strings, we will simply nop this optimization 
+    def intern(x):
+        return x
+
     numtypes = (int,long)
     strtypes = (str,unicode)
 
@@ -86,10 +91,13 @@ if version < (3,0,0):
 
 else:
 
+    import sys
     import queue
     import builtins
 
     from io import BytesIO
+
+    intern = sys.intern
 
     numtypes = (int,)
     strtypes = (str,)
