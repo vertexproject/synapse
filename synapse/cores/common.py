@@ -124,7 +124,8 @@ class Cortex(EventBus,DataModel):
         self.addTufoProp('syn:tag','depth',defval=0,ptype='int')
         self.addTufoProp('syn:tag','title',defval='',ptype='str')
 
-        #self.model.addTufoForm('syn:model',ptype='str')
+        self.addTufoForm('syn:model',ptype='syn:prop', doc='prefix for all forms within the model')
+        self.addTufoForm('syn:model:version', ptype='int', doc='model version for the model loaded in the cortex')
 
         self.addTufoForm('syn:type',ptype='syn:type')
         self.addTufoProp('syn:type','doc',ptype='str', defval='??', doc='Description for this type')
@@ -133,7 +134,11 @@ class Cortex(EventBus,DataModel):
         self.addTufoGlob('syn:type','info:*')
 
         self.addTufoForm('syn:form',ptype='syn:prop')
-        self.addTufoProp('syn:form','doc',ptype='str')
+        self.addTufoProp('syn:form','doc',ptype='str', doc='basic form definition')
+        self.addTufoProp('syn:form','ver',ptype='int', doc='form version within the model')
+        self.addTufoProp('syn:form','model',ptype='str', doc='which model defines a given form')
+
+        # TODO: syn:err with rate limiting?
 
         self.addTufoForm('syn:prop',ptype='syn:prop')
         self.addTufoProp('syn:prop','doc',ptype='str')
