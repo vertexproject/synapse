@@ -1122,6 +1122,11 @@ class Cortex(EventBus,DataModel):
             * This must be used only for rows added with formTufoByProp!
 
         '''
+        if self.caching:
+            answ = self._getTufosByCache(prop,valu,1)
+            if answ:
+                return answ[0]
+
         rows = self.getJoinByProp(prop, valu=valu, limit=1)
         if not rows:
             return None
@@ -1129,6 +1134,9 @@ class Cortex(EventBus,DataModel):
         tufo = ( rows[0][0], {} )
         for iden,prop,valu,stamp in rows:
             tufo[1][prop] = valu
+
+            if self.caching:
+                self._bumpTufoCache(tufo,prop,None,valu)
 
         return tufo
 
@@ -1145,16 +1153,7 @@ class Cortex(EventBus,DataModel):
         if valu != None:
             valu = self.getPropFrob(prop,valu)
 
-        rows = self.getJoinByProp(prop, valu=valu, limit=1)
-        if not rows:
-            return None
-
-        tufo = ( rows[0][0], {} )
-        for iden,prop,valu,stamp in rows:
-            tufo[1][prop] = valu
-
-        return tufo
-
+        return self.getTufosByProp(prop, valu=valu)
 
     def _rowsToTufos(self, rows):
         res = collections.defaultdict(dict)
@@ -1563,6 +1562,7 @@ class Cortex(EventBus,DataModel):
         valu,subs = self.getPropChop(form,valu)
 
         with self.lock:
+
             tufo = self.getTufoByProp(form,valu=valu)
             if tufo != None:
                 return tufo
@@ -1588,8 +1588,10 @@ class Cortex(EventBus,DataModel):
             tufo = (iden,props)
 
             if self.caching:
+                # avoid .new in cache
+                cachefo = (iden,dict(props))
                 for p,v in props.items():
-                    self._bumpTufoCache(tufo,p,None,v)
+                    self._bumpTufoCache(cachefo,p,None,v)
 
         self.fire('tufo:add', tufo=tufo)
         self.fire('tufo:add:%s' % form, tufo=tufo)
