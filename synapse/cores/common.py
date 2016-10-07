@@ -1748,8 +1748,6 @@ class Cortex(EventBus,DataModel):
             self.fire('tufo:set', tufo=tufo, props=props)
             self.fire('tufo:props:%s' % (form,), tufo=tufo, props=props)
 
-        cachfo = self.cache_byiden.get(tufo[0])
-
         for p,v in props.items():
 
             oldv = tufo[1].get(p)
