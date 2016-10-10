@@ -307,7 +307,28 @@ class SwarmRunTest(SwarmRunBase):
 
         env.fini()
 
-    def test_swarm_runtime_by(self):
+    def test_swarm_runtime_by_in(self):
+        env = self.getSwarmEnv()
+
+        answ = env.runt.ask('foo:bar*in=("faz","fuzz")')
+        tufos = answ.get('data')
+        self.assertEqual(len(tufos), 1)
+        self.assertEqual(tufos[0][1].get('foo:bar'), 'faz')
+
+        answ = env.runt.ask('zzz:woot*in=(10,11,90,91)')
+        tufos = answ.get('data')
+        self.assertEqual(len(tufos), 1)
+        self.assertEqual(tufos[0][1].get('zzz:woot'), 10)
+
+        # TODO: synapse.exc.NoSuchImpl: ByOper does not implement must
+        # answ = env.runt.ask('zzz:woot +zzz:woot*in=(10,11)')
+        # tufos = answ.get('data')
+        # self.assertEqual(len(tufos), 1)
+        # self.assertEqual(tufos[0][1].get('zzz:woot'), 10)
+
+        env.fini()
+
+    def test_swarm_runtime_by_range(self):
 
         env = self.getSwarmEnv()
 

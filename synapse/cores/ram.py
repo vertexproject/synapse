@@ -16,6 +16,9 @@ class Cortex(common.Cortex):
         self.initSizeBy('le',self._sizeByLe)
         self.initRowsBy('le',self._rowsByLe)
 
+        self.initSizeBy('in',self._sizeByIn)
+        self.initRowsBy('in',self._rowsByIn)
+
         self.initSizeBy('range',self._sizeByRange)
         self.initRowsBy('range',self._rowsByRange)
 
@@ -45,6 +48,17 @@ class Cortex(common.Cortex):
 
     def _rowsByLe(self, prop, valu, limit=None):
         return [ r for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] <= valu ][:limit]
+
+    def _sizeByIn(self, prop, valu, limit=None):
+        lookup = set(valu)
+        return len([ r for r in self.rowsbyprop.get(prop,()) if r[2] in lookup ])
+
+    def _rowsByIn(self, prop, valu, limit=None):
+        lookup = set(valu)
+        ret = [ r for r in self.rowsbyprop.get(prop,()) if r[2] in lookup ]
+        if limit != None:
+            ret = ret[:limit]
+        return ret
 
     def _addRows(self, rows):
         for row in rows:
