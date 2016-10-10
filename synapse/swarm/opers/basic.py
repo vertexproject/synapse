@@ -194,25 +194,15 @@ class JoinOper(s_opers_common.Oper):
             raise Exception('join() syntax error: %d args (needs 1 or 2)' % len)
 
     def _oper_lift(self):
-        
         ftag = self.kwargs.get('from',s_opers_common.deftag)
 
         newprop = self.args[0]
         curprop = self.args[-1]
 
-        tufos = self.query.data()
+        values = [tufo[1].get(curprop) for tufo in self.query.data() if tufo[1].get(curprop) != None]
+        for join in self.query.joinTufosByPropFrom(newprop,values,fromtag=ftag):
+            self.query.add(join)
 
-        vals = set()
-        for tufo in self.query.data():
-            valu = tufo[1].get(curprop)
-            if valu == None:
-                continue
-
-            vals.add(valu)
-
-        for valu in vals:
-            for tufo in self.query.getTufosByPropFrom(newprop,valu=valu,fromtag=ftag):
-                self.query.add(tufo)
 
 class PivotOper(s_opers_common.Oper):
 
