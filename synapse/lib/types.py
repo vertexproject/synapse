@@ -80,17 +80,18 @@ class DataType:
 
 class StrType(DataType):
 
-    def __init__(self, tlib, name, strip=None, **info):
+    def __init__(self, tlib, name, **info):
         DataType.__init__(self, tlib, name, **info)
 
         self.regex = None
-        self.strip = None
+        self.restrip = None
 
         regex = info.get('regex')
         if regex != None:
             self.regex = re.compile(regex)
-        if strip != None:
-            self.strip = re.compile(strip)
+        restrip = info.get('restrip')
+        if restrip != None:
+            self.restrip = re.compile(restrip)
 
     def norm(self, valu, oldval=None):
 
@@ -110,8 +111,8 @@ class StrType(DataType):
         return valu
 
     def parse(self, text, oldval=None):
-        if self.strip:
-            text = self.strip.sub('', text)
+        if self.restrip:
+            text = self.restrip.sub('', text)
 
         return self.norm(text, oldval=oldval)
 
@@ -569,7 +570,7 @@ class TypeLib:
 
         self.addSubType('geo:latlong', 'str', regex='^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)$')
 
-        self.addSubType('guid', 'str', regex='^[0-9a-f]{32}$', lower=1, strip='[-]')
+        self.addSubType('guid', 'str', regex='^[0-9a-f]{32}$', lower=1, restrip='[-]')
 
         self.addSubType('hash:md5','str', regex='^[0-9a-f]{32}$', lower=1)
         self.addSubType('hash:sha1','str', regex='^[0-9a-f]{40}$', lower=1)
