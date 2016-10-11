@@ -185,3 +185,35 @@ class DaemonTest(SynTest):
             self.eq( sess1.get('woot'), 10 )
 
             dmon.fini()
+
+    def test_daemon_ctor_config(self):
+
+        conf = {
+
+            'ctors':(
+                ('foo','ctor://synapse.cortex.openurl("ram://")', {'config':'woot'}),
+                ('bar','ctor://synapse.cortex.openurl("ram://")', {'configs':('woot','blah')}),
+            ),
+
+            'configs':{
+                'woot':{},
+            }
+
+        }
+
+        with s_daemon.Daemon() as dmon:
+            self.assertRaises(NoSuchConf, dmon.loadDmonConf, conf )
+
+        conf['configs']['blah'] = {'newp':1}
+
+        with s_daemon.Daemon() as dmon:
+            self.assertRaises(NoSuchOpt, dmon.loadDmonConf, conf )
+
+        conf['configs']['blah'].pop('newp',None)
+        conf['configs']['blah']['caching'] = 'TRUE'
+
+        with s_daemon.Daemon() as dmon:
+            dmon.loadDmonConf(conf)
+            core = dmon.locs.get('bar')
+            self.eq( core.caching, 1 )
+

@@ -19,6 +19,7 @@ import synapse.lib.threads as s_threads
 from synapse.common import *
 from synapse.eventbus import EventBus
 from synapse.datamodel import DataModel
+from synapse.lib.config import ConfigMixin
 
 class NoSuchGetBy(Exception):pass
 
@@ -31,7 +32,7 @@ def chunked(n, iterable):
 
        yield chunk
 
-class Cortex(EventBus,DataModel):
+class Cortex(EventBus,DataModel,ConfigMixin):
     '''
     Top level Cortex key/valu storage object.
     '''
@@ -39,9 +40,16 @@ class Cortex(EventBus,DataModel):
         EventBus.__init__(self)
         DataModel.__init__(self)
 
+        ConfigMixin.__init__(self)
+
+        self.addConfDef('enforce',type='bool',asloc='enforce',defval=0,doc='Enables data model enforcement')
+        self.addConfDef('caching',type='bool',asloc='caching',defval=0,doc='Enables caching layer in the cortex')
+        self.addConfDef('cache:maxsize',type='int',asloc='cache_maxsize',defval=1000,doc='Enables caching layer in the cortex')
+
+        self.onConfOptSet('caching', self._onSetCaching)
+
         self._link = link
 
-        #self.lock = threading.RLock()
         self.lock = threading.Lock()
         self.inclock = threading.Lock()
 
@@ -49,10 +57,8 @@ class Cortex(EventBus,DataModel):
 
         self.auth = None
 
-        self.secure = 0
-        self.enforce = 0
-
         self.formed = collections.defaultdict(int)      # count tufos formed since startup
+
         self.tagcache = {}
         self.splicefuncs = {}
 
@@ -60,8 +66,6 @@ class Cortex(EventBus,DataModel):
         self.rowsbymeths = {}
         self.tufosbymeths = {}
 
-        self.caching = 0
-        self.cache_maxsize = 1000
         self.cache_fifo = collections.deque()               # [ ((prop,valu,limt), {
         self.cache_bykey = {}                               # (prop,valu,limt):( (prop,valu,limt), {iden:tufo,...} )
         self.cache_byiden = s_cache.RefDict()
@@ -148,24 +152,7 @@ class Cortex(EventBus,DataModel):
         self.addTufoForm('syn:core')
         self.addTufoProp('syn:core','url', ptype='inet:url')
 
-        #self.addTufoProp('syn:core','opts:secure', ptype='bool', defval=0)
-        self.addTufoProp('syn:core','opts:enforce', ptype='bool', defval=0)
-        self.addTufoProp('syn:core','opts:caching', ptype='bool', defval=0)
-        self.addTufoProp('syn:core','opts:caching:maxsize', ptype='int', defval=1000)
-
-        #self.on('tufo:set:syn:core:opts:secure', self._onSetSecure )
-        self.on('tufo:set:syn:core:opts:enforce', self._onSetEnforce )
-        self.on('tufo:set:syn:core:opts:caching', self._onSetCaching )
-
-        self.on('tufo:set:syn:core:opts:caching:maxsize', self._onSetCachingMaxSize )
-
         self.myfo = self.formTufoByProp('syn:core','self')
-
-        self.caching = self.myfo[1].get('syn:core:opts:caching')
-        self.cache_maxsize = self.myfo[1].get('syn:core:opts:caching:maxsize')
-
-        self.secure = self.myfo[1].get('syn:core:opts:secure',0)
-        self.enforce = self.myfo[1].get('syn:core:opts:enforce',0)
 
         #forms = self.getTufosByProp('syn:form')
 
@@ -217,10 +204,6 @@ class Cortex(EventBus,DataModel):
         self.splicers['tufo:set'] = self._spliceTufoSet
         self.splicers['tufo:tag:add'] = self._spliceTufoTagAdd
         self.splicers['tufo:tag:del'] = self._spliceTufoTagDel
-
-    def setCoreOpt(self, prop, valu):
-        prop = 'opts:%s' % (prop,)
-        self.setTufoProp(self.myfo,prop,valu)
 
     def _getTufosByCache(self, prop, valu, limit):
         # only used if self.caching = 1
@@ -368,36 +351,12 @@ class Cortex(EventBus,DataModel):
                 if atlim:
                     self._delCacheKey(ckey)
 
-    def _onSetEnforce(self, mesg):
-        tufo = mesg[1].get('tufo')
-        valu = mesg[1].get('valu')
-
-        if tufo[0] != self.myfo[0]:
-            return
-
-        self.enforce = valu
-
-    def _onSetCaching(self, mesg):
-        tufo = mesg[1].get('tufo')
-        valu = mesg[1].get('valu')
-
-        if tufo[0] != self.myfo[0]:
-            return
-
-        self.caching = valu
-
-        if not self.caching:
+    def _onSetCaching(self, valu):
+        if not valu:
             self.cache_fifo.clear()
             self.cache_bykey.clear()
             self.cache_byiden.clear()
             self.cache_byprop.clear()
-
-    def _onSetCachingMaxSize(self, mesg):
-        tufo = mesg[1].get('tufo')
-        if tufo[0] != self.myfo[0]:
-            return
-
-        self.cache_maxsize = mesg[1].get('valu')
 
     def _reqSpliceInfo(self, act, info, prop):
         valu = info.get(prop)

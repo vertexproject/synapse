@@ -721,8 +721,6 @@ class CortexTest(SynTest):
         with s_cortex.openurl('ram://') as core:
 
             core.addTufoForm('foo:bar', ptype='inet:email')
-            #core.addTufoProp('foo:bar', 'fqdn', ptype='fqdn')
-            #core.addTufoProp('foo:bar', 'haha', ptype='int')
 
             core.addTufoForm('foo:baz', ptype='inet:email')
             core.addTufoProp('foo:baz', 'fqdn', ptype='inet:fqdn')
@@ -730,15 +728,11 @@ class CortexTest(SynTest):
 
             cofo = core.getTufoByProp('syn:core','self')
             self.assertIsNotNone( cofo )
-
             self.assertFalse( core.enforce )
-            self.assertFalse( cofo[1].get('syn:core:opts:enforce') )
 
-            cofo = core.setTufoProp( cofo, 'opts:enforce', 1 )
+            core.setConfOpt('enforce',True)
 
             self.assertTrue( core.enforce )
-            self.assertTrue( cofo[1].get('syn:core:opts:enforce') )
-
 
             tufo0 = core.formTufoByProp('foo:bar','foo@bar.com', hehe=10, haha=20)
             tufo1 = core.formTufoByProp('foo:baz','foo@bar.com', hehe=10, haha=20)
@@ -868,7 +862,7 @@ class CortexTest(SynTest):
             self.eq( len(core.cache_byiden), 0 )
             self.eq( len(core.cache_byprop), 0 )
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             self.eq( core.caching, 1 )
 
@@ -890,7 +884,7 @@ class CortexTest(SynTest):
             tufo0 = core.formTufoByProp('foo','bar', qwer=10)
             tufo1 = core.formTufoByProp('foo','baz', qwer=10)
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufs0 = core.getTufosByProp('foo:qwer')
             tufs1 = core.getTufosByProp('foo:qwer', valu=10)
@@ -937,7 +931,7 @@ class CortexTest(SynTest):
             tufo0 = core.formTufoByProp('foo','bar', qwer=10)
             tufo1 = core.formTufoByProp('foo','baz', qwer=10)
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufs0 = core.getTufosByProp('foo:qwer')
             tufs1 = core.getTufosByProp('foo:qwer', valu=10)
@@ -964,7 +958,7 @@ class CortexTest(SynTest):
             tufo0 = core.formTufoByProp('foo','bar', qwer=10)
             tufo1 = core.formTufoByProp('foo','baz', qwer=10)
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufs0 = core.getTufosByProp('foo:qwer')
             tufs1 = core.getTufosByProp('foo:qwer', valu=10)
@@ -992,7 +986,7 @@ class CortexTest(SynTest):
             tufo0 = core.formTufoByProp('foo','bar', qwer=10)
             tufo1 = core.formTufoByProp('foo','baz', qwer=10)
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufs0 = core.getTufosByProp('foo:qwer', limit=2)
             tufs1 = core.getTufosByProp('foo:qwer', valu=10, limit=2)
@@ -1013,7 +1007,7 @@ class CortexTest(SynTest):
             tufo0 = core.formTufoByProp('foo','bar', qwer=10)
             tufo1 = core.formTufoByProp('foo','baz', qwer=10)
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufs0 = core.getTufosByProp('foo:qwer', limit=2)
             tufs1 = core.getTufosByProp('foo:qwer', valu=10, limit=2)
@@ -1036,7 +1030,7 @@ class CortexTest(SynTest):
             tufo0 = core.formTufoByProp('foo','bar', qwer=10)
             tufo1 = core.formTufoByProp('foo','baz', qwer=10)
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufs0 = core.getTufosByProp('foo:qwer', limit=9)
             tufs1 = core.getTufosByProp('foo:qwer', valu=10, limit=9)
@@ -1065,7 +1059,7 @@ class CortexTest(SynTest):
 
             tufo0 = core.formTufoByProp('foo','bar')
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             ref0 = core.getTufosByProp('foo',valu='bar')[0]
             ref1 = core.getTufosByProp('foo',valu='bar')[0]
@@ -1081,7 +1075,7 @@ class CortexTest(SynTest):
 
             core.addTufoTag(tufo0,'hehe')
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufs0 = core.getTufosByTag('foo','hehe')
 
@@ -1099,7 +1093,7 @@ class CortexTest(SynTest):
 
         with s_cortex.openurl('ram://') as core:
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufo0 = core.formTufoByProp('foo','bar')
             tufo1 = core.formTufoByProp('foo','bar')
