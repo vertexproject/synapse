@@ -1,7 +1,7 @@
 import collections
 import synapse.cores.common as common
 
-from synapse.compat import isint
+from synapse.compat import isint,intern
 
 class Cortex(common.Cortex):
 
@@ -48,6 +48,7 @@ class Cortex(common.Cortex):
 
     def _addRows(self, rows):
         for row in rows:
+            row = (intern(row[0]), intern(row[1]), row[2], row[3])
             self.rowsbyid[row[0]].add(row)
             self.rowsbyprop[row[1]].add(row)
             self.rowsbyvalu[ (row[1],row[2]) ].add(row)

@@ -21,7 +21,6 @@ class QueryLimitTouch(QueryKilled):pass
 
 # TODO: implement per-form perms
 # TODO: implement per-instruction perms
-# TODO: move instruction methods to other module
 # TODO: runtime data model awareness
 # TODO: instr to pull rest/json info and flatten to tufo form
 # TODO: plugin/event based macro last-ditch parser
@@ -142,7 +141,7 @@ class Query(s_eventbus.EventBus):
 
     def getTufosByPropFrom(self, prop, valu=None, limit=None, mintime=None, maxtime=None, fromtag=deftag):
 
-        dyntask = gentask('getTufosByProp',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
+        dyntask = gentask('getTufosByFrob',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
 
         for svcfo,retval in self.callByTag(fromtag,dyntask):
             for tufo in retval:
@@ -238,6 +237,7 @@ class Runtime(s_eventbus.EventBus):
         self.operctors = {}
 
         # add the basic operators
+        self.setOperCtor('by', s_opers_basic.ByOper)
         self.setOperCtor('eq', s_opers_basic.EqOper)
 
         self.setOperCtor('gt', s_opers_basic.GtOper)

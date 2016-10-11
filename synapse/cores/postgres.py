@@ -2,6 +2,8 @@ import time
 
 from . import sqlite as s_c_sqlite
 
+import synapse.datamodel as s_datamodel
+
 istable = '''
    SELECT 1
    FROM   information_schema.tables 
@@ -35,9 +37,13 @@ class Cortex(s_c_sqlite.Cortex):
 
                 time.sleep(1)
 
+        seqscan = self._link[1].get('pg:seqscan',0)
+        seqscan = s_datamodel.getTypeFrob('bool',seqscan)
+
         c = db.cursor()
-        c.execute('SET enable_seqscan=false')
+        c.execute('SET enable_seqscan=%s', (seqscan,))
         c.close()
+
         return db
 
     def _getTableName(self):
