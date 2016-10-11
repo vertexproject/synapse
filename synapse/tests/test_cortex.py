@@ -394,6 +394,25 @@ class CortexTest(SynTest):
         self.assertEqual( len(blahs), 0 )
 
 
+    def test_cortex_tufo_frob(self):
+        with s_cortex.openurl('ram://') as core:
+            core.addTufoForm('inet:ipv4', ptype='inet:ipv4')
+            core.addTufoProp('inet:ipv4', 'five', ptype='inet:ipv4')
+
+            iden, props = core.formTufoByFrob('inet:ipv4', 0x01020304, five='5.5.5.5')
+            self.assertEqual(props['inet:ipv4'], 16909060)
+            self.assertEqual(props['inet:ipv4:five'], 84215045)
+
+            tufo = core.formTufoByFrob('inet:ipv4', '1.2.3.4')
+            self.assertEqual(tufo[0], iden)
+
+            tufo = core.getTufoByFrob('inet:ipv4:five', 0x05050505)
+            self.assertEqual(tufo[0], iden)
+
+            tufo = core.getTufoByFrob('inet:ipv4', '1.2.3.4')
+            self.assertEqual(tufo[0], iden)
+
+
     def test_cortex_ramhost(self):
         core0 = s_cortex.openurl('ram:///foobar')
         core1 = s_cortex.openurl('ram:///foobar')

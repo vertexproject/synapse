@@ -1153,7 +1153,7 @@ class Cortex(EventBus,DataModel):
         if valu != None:
             valu = self.getPropFrob(prop,valu)
 
-        return self.getTufosByProp(prop, valu=valu)
+        return self.getTufoByProp(prop, valu=valu)
 
     def _rowsToTufos(self, rows):
         res = collections.defaultdict(dict)
@@ -1599,6 +1599,19 @@ class Cortex(EventBus,DataModel):
         tufo[1]['.new'] = True
         return tufo
 
+    def formTufoByFrob(self, form, valu, **props):
+        '''
+        As formTufoByProp, but values are frobbed before normalization.
+
+        Examples:
+
+            tufo = core.formTufoByFrob('inet:ipv4', 0x01020304)
+            tufo = core.formTufoByFrob('inet:ipv4', "1.2.3.4")
+        '''
+        valu = self.getPropFrob(form, valu)
+        props = self._frobTufoProps(form, props)
+        return self.formTufoByProp(form, valu, **props)
+
     def delTufo(self, tufo):
         '''
         Delete a tufo and it's associated props/lists/etc.
@@ -1695,6 +1708,17 @@ class Cortex(EventBus,DataModel):
 
         for prop,valu in self.getFormDefs(form):
             props.setdefault(prop,valu)
+
+        return props
+
+    def _frobTufoProps(self, form, inprops):
+
+        props = {}
+
+        for name,valu in inprops.items():
+            prop = '%s:%s' % (form,name)
+            valu = self.getPropFrob(prop,valu)
+            props[name] = valu
 
         return props
 
