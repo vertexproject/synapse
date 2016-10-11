@@ -108,6 +108,7 @@ class DataTypesTest(SynTest):
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'guid', 'newp' )
 
         self.eq( tlib.getTypeParse('guid', '000102030405060708090A0B0C0D0E0F'), '000102030405060708090a0b0c0d0e0f')
+        self.eq( tlib.getTypeParse('guid', '00010203-0405-0607-0809-0A0B0C0D0E0F'), '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeFrob('guid', '000102030405060708090A0B0C0D0E0F'), '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeNorm('guid', '000102030405060708090A0B0C0D0E0F'), '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeRepr('guid', '000102030405060708090a0b0c0d0e0f'), '000102030405060708090a0b0c0d0e0f')
