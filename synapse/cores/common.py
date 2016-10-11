@@ -196,6 +196,8 @@ class Cortex(EventBus,DataModel):
         self.splicers['tufo:tag:add'] = self._spliceTufoTagAdd
         self.splicers['tufo:tag:del'] = self._spliceTufoTagDel
 
+        self.initTufosBy('in',self._tufosByIn)
+
     def _onSetEnforce(self, mesg):
         tufo = mesg[1].get('tufo')
         valu = mesg[1].get('valu')
@@ -1617,4 +1619,18 @@ class Cortex(EventBus,DataModel):
 
     def _calcStatAll(self, rows):
         return all([ r[2] for r in rows ])
+
+    def _tufosByIn(self, prop, valus, limit=None):
+        ret = []
+
+        for valu in valus:
+            res = self.getTufosByProp(prop, valu=valu, limit=limit)
+            ret.extend(res)
+
+            if limit != None:
+                limit -= len(res)
+                if limit <= 0:
+                    break
+
+        return ret
 

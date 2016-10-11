@@ -274,8 +274,6 @@ class Cortex(common.Cortex):
         self.initSizeBy('le',self._sizeByLe)
         self.initRowsBy('le',self._rowsByLe)
 
-        self.initTufosBy('in',self._tufosByIn)
-
         self.initSizeBy('range',self._sizeByRange)
         self.initRowsBy('range',self._rowsByRange)
 
@@ -511,20 +509,6 @@ class Cortex(common.Cortex):
     def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
         rows = self._runPropQuery('rowsbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
         return self._foldTypeCols(rows)
-
-    def _tufosByIn(self, prop, valus, limit=None):
-        ret = []
-
-        for valu in valus:
-            res = self.getTufosByProp(prop, valu=valu, limit=limit)
-            ret.extend(res)
-
-            if limit != None:
-                limit -= len(res)
-                if limit <= 0:
-                    break
-
-        return ret
 
     def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None, nolim=False):
         limit = self._getDbLimit(limit)
