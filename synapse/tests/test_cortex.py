@@ -280,6 +280,7 @@ class CortexTest(SynTest):
         self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
         self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5,6,7], limit=4)), 4)
         self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [], limit=1)), 0)
 
     def test_cortex_tufo_by_postgres(self):
         db = os.getenv('SYN_COR_PG_DB')
@@ -446,7 +447,7 @@ class CortexTest(SynTest):
 
         self.assertEqual( 0, len(core.getTufosByProp('woot:bar',10)) )
         self.assertEqual( 0, len(core.getTufosByProp('woot:bar',20)) )
-        
+
         core.fini()
 
     def test_cortex_savefd(self):
@@ -691,7 +692,7 @@ class CortexTest(SynTest):
         self.assertEqual( modl['props']['baz:faz'][1]['defval'], 22)
 
         core.fini()
-    
+
     def test_cortex_comp(self):
         core = s_cortex.openurl('ram://')
 

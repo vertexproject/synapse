@@ -86,6 +86,9 @@ class Cortex(s_c_sqlite.Cortex):
         return dbinfo
 
     def _tufosByIn(self, prop, valus, limit=None):
+        if len(valus) == 0:
+            return []
+
         limit = self._getDbLimit(limit)
 
         if type(valus[0]) == int:
