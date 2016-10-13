@@ -1,14 +1,11 @@
+
 import os
-import logging
-import binascii
 import unittest
 
 import synapse.link as s_link
 import synapse.compat as s_compat
 import synapse.common as s_common
 import synapse.cortex as s_cortex
-import synapse.daemon as s_daemon
-import synapse.telepath as s_telepath
 
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
@@ -535,11 +532,11 @@ class CortexTest(SynTest):
 
         hehe = core.formTufoByProp('foo','hehe')
 
-        wait = TestWaiter(core, 2, 'tufo:tag:add')
+        wait = self.getTestWait(core, 2, 'tufo:tag:add')
         core.addTufoTag(hehe,'lulz.rofl')
         wait.wait()
 
-        wait = TestWaiter(core, 1, 'tufo:tag:add')
+        wait = self.getTestWait(core, 1, 'tufo:tag:add')
         core.addTufoTag(hehe,'lulz.rofl.zebr')
         wait.wait()
 
@@ -558,11 +555,11 @@ class CortexTest(SynTest):
 
         self.assertEqual( rofl[1].get('syn:tag:depth'), 1 )
 
-        wait = TestWaiter(core, 2, 'tufo:tag:del')
+        wait = self.getTestWait(core, 2, 'tufo:tag:del')
         core.delTufoTag(hehe,'lulz.rofl')
         wait.wait()
 
-        wait = TestWaiter(core, 1, 'tufo:tag:del')
+        wait = self.getTestWait(core, 1, 'tufo:tag:del')
         core.delTufo(lulz)
         wait.wait()
         # tag and subs should be wiped

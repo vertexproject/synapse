@@ -27,7 +27,7 @@ class ThreadsTest(unittest.TestCase):
 
         pool = s_threads.Pool()
 
-        wait = TestWaiter( pool, 1, 'pool:work:fini' )
+        wait = s_eventbus.Waiter( pool, 1, 'pool:work:fini' )
 
         def woot(x,y):
             return x + y
@@ -41,7 +41,7 @@ class ThreadsTest(unittest.TestCase):
 
         pool = s_threads.Pool()
 
-        wait = TestWaiter( pool, 1, 'pool:work:fini' )
+        wait = s_eventbus.Waiter( pool, 1, 'pool:work:fini' )
 
         def woot(x,y):
             return x + y
