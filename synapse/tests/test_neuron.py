@@ -335,11 +335,11 @@ class TempDisabled:
         env.add('neup1', s_telepath.openurl('tcp://127.0.0.1/neu1', port=port), fini=True)
         env.add('neup2', s_telepath.openurl('tcp://127.0.0.1/neu2', port=port), fini=True)
 
-        wai0 = TestWaiter(env.neu1, 1, 'neu:link:init')
+        wai0 = self.getTestWait(env.neu1, 1, 'neu:link:init')
         env.neu0.link( env.neup1 )
         wai0.wait()
 
-        wai0 = TestWaiter(env.neu1, 1, 'neu:link:init')
+        wai0 = self.getTestWait(env.neu1, 1, 'neu:link:init')
         env.neu0.link( env.neup2 )
         wai0.wait()
 
@@ -354,7 +354,7 @@ class TempDisabled:
         neu0.link( neu1 )
         neu0.link( neu2 )
 
-        wait0 = TestWaiter(neu1, 1, 'woot')
+        wait0 = self.getTestWait(neu1, 1, 'woot')
         neu2.route( neu1.getIden(), 'woot', x=10)
 
         events = wait0.wait()
@@ -373,7 +373,7 @@ class TempDisabled:
         neu0.link( neu1 )
         neu0.link( neu2 )
 
-        wai0 = TestWaiter(neu1, 1, 'woot')
+        wai0 = self.getTestWait(neu1, 1, 'woot')
 
         neu2.storm('woot', x=10)
 
