@@ -309,6 +309,8 @@ class DataModel(s_types.TypeLib):
         '''
         dtype = self.getPropType(prop)
         if dtype == None:
+            if type(valu) is bool:
+                valu = int(valu)
             self.assertSystemValu(valu)
             return valu
 

@@ -1779,6 +1779,31 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         self.setTufoProps(tufo, **{prop:valu})
         return tufo
 
+    def setTufoFrobs(self, tufo, **props):
+        '''
+        As setTufoProps, but values are frobbed before normalization.
+
+        Example:
+
+            tufo = core.setTufoFrobs(tufo, woot='hehe', blah=True)
+
+        '''
+        form = tufo[1].get('tufo:form')
+        props = self._frobTufoProps(form, props)
+        return self.setTufoProps(tufo, **props)
+
+    def setTufoFrob(self, tufo, prop, valu):
+        '''
+        As setTufoProp, but valu is frobbed before normalization.
+
+        Example:
+
+            core.setTufoFrob(tufo, 'woot', True)
+
+        '''
+        self.setTufoFrobs(tufo, **{prop: valu})
+        return tufo
+
     def incTufoProp(self, tufo, prop, incval=1):
         '''
         Atomically increment/decrement the value of a given tufo property.

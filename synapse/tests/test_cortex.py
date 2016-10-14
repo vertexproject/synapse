@@ -410,6 +410,9 @@ class CortexTest(SynTest):
             tufo = core.getTufoByFrob('inet:ipv4', '1.2.3.4')
             self.assertEqual(tufo[0], iden)
 
+            core.setTufoFrob(tufo, 'is_true', True)
+            self.assertIs(tufo[1]['inet:ipv4:is_true'], 1)
+
 
     def test_cortex_ramhost(self):
         core0 = s_cortex.openurl('ram:///foobar')
