@@ -3,14 +3,11 @@ from __future__ import absolute_import,unicode_literals
 An API to assist with the creation and enforcement of cortex data models.
 '''
 import re
-import time
-import socket
-import struct
 import fnmatch
-import datetime
 import functools
 import collections
 
+import synapse.compat as s_compat
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
 
@@ -296,6 +293,7 @@ class DataModel(s_types.TypeLib):
         '''
         dtype = self.getPropType(prop)
         if dtype == None:
+            self.assertSystemValu(valu)
             return valu
 
         return dtype.norm(valu,oldval=oldval)
@@ -311,6 +309,7 @@ class DataModel(s_types.TypeLib):
         '''
         dtype = self.getPropType(prop)
         if dtype == None:
+            self.assertSystemValu(valu)
             return valu
 
         return dtype.frob(valu,oldval=oldval)
@@ -322,6 +321,7 @@ class DataModel(s_types.TypeLib):
         '''
         dtype = self.getPropType(prop)
         if dtype == None:
+            self.assertSystemValu(valu)
             return valu,{}
 
         try:
@@ -343,6 +343,7 @@ class DataModel(s_types.TypeLib):
         '''
         dtype = self.getPropType(prop)
         if dtype == None:
+            self.assertSystemValu(valu)
             return valu
 
         return dtype.parse(valu)
@@ -391,3 +392,14 @@ class DataModel(s_types.TypeLib):
             return None
 
         return self.getDataType( pdef[1].get('ptype') )
+
+    def assertSystemValu(self, valu):
+        '''
+        Raise BadTypeValu if the valu is not a system type: str or int.
+
+        This is used when the data model doesn't have an entry for the
+        property to ensure that arbitrary types are not presented to
+        the database.
+        '''
+        if not s_compat.isint(valu) and not s_compat.isstr(valu):
+            raise BadTypeValu(valu=valu)

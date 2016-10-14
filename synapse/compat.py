@@ -123,7 +123,7 @@ else:
         return isinstance(s,str)
 
     def isint(s):
-        return isinstance(s,int)
+        return type(s) is int
 
     def canstor(s):
         return type(s) in (int,str)

@@ -212,3 +212,11 @@ class DataModelTest(SynTest):
 
         model.addTufoForm('foo:bar')
         self.assertRaises( s_datamodel.BadPropName, model.addTufoProp, 'foo:bar', 'b*z' )
+
+    def test_datamodel_bad_system_valu(self):
+        model = s_datamodel.DataModel()
+        self.assertRaises( s_datamodel.BadTypeValu, model.assertSystemValu, True )
+        self.assertRaises( s_datamodel.BadTypeValu, model.assertSystemValu, ('tuple',) )
+        self.assertRaises( s_datamodel.BadTypeValu, model.assertSystemValu, ['list'] )
+        self.assertRaises( s_datamodel.BadTypeValu, model.assertSystemValu, {'set'} )
+        self.assertRaises( s_datamodel.BadTypeValu, model.assertSystemValu, {'dict': 'dict'} )
