@@ -184,8 +184,6 @@ class DmonConf:
             except Exception as e:
                 raise Exception('Include Error (%s): %s' % (path,e))
 
-        self._addConfValu(conf,'poolsize')
-
         configs = conf.get('configs',{})
 
         for row in conf.get('ctors',()):

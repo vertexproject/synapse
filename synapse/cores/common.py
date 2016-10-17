@@ -152,6 +152,13 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         self.addTufoForm('syn:core')
         self.addTufoProp('syn:core','url', ptype='inet:url')
 
+        # track ingest sources and their runs / errors.
+        self.addTufoForm('syn:ingest',ptype='guid')
+        self.addTufoProp('syn:ingest','ok',ptype='bool',defval=0,doc='Set to 1 if last run was successful')
+        self.addTufoProp('syn:ingest','err',ptype='str',defval='Not run yet',doc='Err string if ok=0')
+        self.addTufoProp('syn:ingest','name',ptype='str',defval='??',doc='Humon readable name for the ingest file')
+        self.addTufoProp('syn:ingest','last',ptype='time:epoch',defval=0,doc='Humon readable name for the ingest file')
+
         self.myfo = self.formTufoByProp('syn:core','self')
 
         #forms = self.getTufosByProp('syn:form')
