@@ -1915,7 +1915,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         # base case is delete and add
         self._delRowsByIdProp(iden, prop)
         rows = [ (iden, prop, valu, now()) ]
-        self.addRows(rows)
+        self._addRows(rows)
 
     def _calcStatSum(self, rows):
         return sum([ r[2] for r in rows ])
