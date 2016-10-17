@@ -1,14 +1,11 @@
+
 import os
-import logging
-import binascii
 import unittest
 
 import synapse.link as s_link
 import synapse.compat as s_compat
 import synapse.common as s_common
 import synapse.cortex as s_cortex
-import synapse.daemon as s_daemon
-import synapse.telepath as s_telepath
 
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
@@ -280,6 +277,7 @@ class CortexTest(SynTest):
         self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
         self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5,6,7], limit=4)), 4)
         self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [], limit=1)), 0)
 
     def test_cortex_tufo_by_postgres(self):
         db = os.getenv('SYN_COR_PG_DB')
@@ -394,6 +392,25 @@ class CortexTest(SynTest):
         self.assertEqual( len(blahs), 0 )
 
 
+    def test_cortex_tufo_frob(self):
+        with s_cortex.openurl('ram://') as core:
+            core.addTufoForm('inet:ipv4', ptype='inet:ipv4')
+            core.addTufoProp('inet:ipv4', 'five', ptype='inet:ipv4')
+
+            iden, props = core.formTufoByFrob('inet:ipv4', 0x01020304, five='5.5.5.5')
+            self.assertEqual(props['inet:ipv4'], 16909060)
+            self.assertEqual(props['inet:ipv4:five'], 84215045)
+
+            tufo = core.formTufoByFrob('inet:ipv4', '1.2.3.4')
+            self.assertEqual(tufo[0], iden)
+
+            tufo = core.getTufoByFrob('inet:ipv4:five', 0x05050505)
+            self.assertEqual(tufo[0], iden)
+
+            tufo = core.getTufoByFrob('inet:ipv4', '1.2.3.4')
+            self.assertEqual(tufo[0], iden)
+
+
     def test_cortex_ramhost(self):
         core0 = s_cortex.openurl('ram:///foobar')
         core1 = s_cortex.openurl('ram:///foobar')
@@ -446,7 +463,7 @@ class CortexTest(SynTest):
 
         self.assertEqual( 0, len(core.getTufosByProp('woot:bar',10)) )
         self.assertEqual( 0, len(core.getTufosByProp('woot:bar',20)) )
-        
+
         core.fini()
 
     def test_cortex_savefd(self):
@@ -534,11 +551,11 @@ class CortexTest(SynTest):
 
         hehe = core.formTufoByProp('foo','hehe')
 
-        wait = TestWaiter(core, 2, 'tufo:tag:add')
+        wait = self.getTestWait(core, 2, 'tufo:tag:add')
         core.addTufoTag(hehe,'lulz.rofl')
         wait.wait()
 
-        wait = TestWaiter(core, 1, 'tufo:tag:add')
+        wait = self.getTestWait(core, 1, 'tufo:tag:add')
         core.addTufoTag(hehe,'lulz.rofl.zebr')
         wait.wait()
 
@@ -557,11 +574,11 @@ class CortexTest(SynTest):
 
         self.assertEqual( rofl[1].get('syn:tag:depth'), 1 )
 
-        wait = TestWaiter(core, 2, 'tufo:tag:del')
+        wait = self.getTestWait(core, 2, 'tufo:tag:del')
         core.delTufoTag(hehe,'lulz.rofl')
         wait.wait()
 
-        wait = TestWaiter(core, 1, 'tufo:tag:del')
+        wait = self.getTestWait(core, 1, 'tufo:tag:del')
         core.delTufo(lulz)
         wait.wait()
         # tag and subs should be wiped
@@ -691,7 +708,7 @@ class CortexTest(SynTest):
         self.assertEqual( modl['props']['baz:faz'][1]['defval'], 22)
 
         core.fini()
-    
+
     def test_cortex_comp(self):
         core = s_cortex.openurl('ram://')
 
