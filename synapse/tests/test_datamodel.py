@@ -213,10 +213,23 @@ class DataModelTest(SynTest):
         model.addTufoForm('foo:bar')
         self.assertRaises( s_datamodel.BadPropName, model.addTufoProp, 'foo:bar', 'b*z' )
 
-    def test_datamodel_bad_system_valu(self):
+    def test_datamodel_systype(self):
         model = s_datamodel.DataModel()
-        self.assertRaises( s_datamodel.BadTypeValu, model.assertSystemValu, True )
-        self.assertRaises( s_datamodel.BadTypeValu, model.assertSystemValu, ('tuple',) )
-        self.assertRaises( s_datamodel.BadTypeValu, model.assertSystemValu, ['list'] )
-        self.assertRaises( s_datamodel.BadTypeValu, model.assertSystemValu, {'set'} )
-        self.assertRaises( s_datamodel.BadTypeValu, model.assertSystemValu, {'dict': 'dict'} )
+
+        self.assertRaises( s_datamodel.BadPropValu, model.getPropNorm, 'bogus', True )
+        self.assertRaises( s_datamodel.BadPropValu, model.getPropNorm, 'bogus', ('tuple',) )
+        self.assertRaises( s_datamodel.BadPropValu, model.getPropNorm, 'bogus', ['list'] )
+        self.assertRaises( s_datamodel.BadPropValu, model.getPropNorm, 'bogus', {'set'} )
+        self.assertRaises( s_datamodel.BadPropValu, model.getPropNorm, 'bogus', {'dict': 'dict'} )
+
+        self.assertEqual( model.getPropFrob('bogus', True), 1 )
+        self.assertRaises( s_datamodel.BadPropValu, model.getPropFrob, 'bogus', ('tuple',) )
+        self.assertRaises( s_datamodel.BadPropValu, model.getPropFrob, 'bogus', ['list'] )
+        self.assertRaises( s_datamodel.BadPropValu, model.getPropFrob, 'bogus', {'set'} )
+        self.assertRaises( s_datamodel.BadPropValu, model.getPropFrob, 'bogus', {'dict': 'dict'} )
+
+        self.assertRaises( s_datamodel.BadPropValu, model.getPropChop, 'bogus', True )
+        self.assertRaises( s_datamodel.BadPropValu, model.getPropChop, 'bogus', ('tuple',) )
+        self.assertRaises( s_datamodel.BadPropValu, model.getPropChop, 'bogus', ['list'] )
+        self.assertRaises( s_datamodel.BadPropValu, model.getPropChop, 'bogus', {'set'} )
+        self.assertRaises( s_datamodel.BadPropValu, model.getPropChop, 'bogus', {'dict': 'dict'} )

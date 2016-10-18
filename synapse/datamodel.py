@@ -292,11 +292,13 @@ class DataModel(s_types.TypeLib):
 
         '''
         dtype = self.getPropType(prop)
-        if dtype == None:
-            self.assertSystemValu(valu)
-            return valu
+        if dtype != None:
+            valu = dtype.norm(valu,oldval=oldval)
 
-        return dtype.norm(valu,oldval=oldval)
+        if not s_compat.issystype(valu):
+            raise BadPropValu(name=prop, valu=valu)
+
+        return valu
 
     def getPropFrob(self, prop, valu, oldval=None):
         '''
@@ -308,28 +310,33 @@ class DataModel(s_types.TypeLib):
 
         '''
         dtype = self.getPropType(prop)
-        if dtype == None:
-            if type(valu) is bool:
-                valu = int(valu)
-            self.assertSystemValu(valu)
-            return valu
+        if dtype != None:
+            valu = dtype.frob(valu,oldval=oldval)
 
-        return dtype.frob(valu,oldval=oldval)
+        if type(valu) is bool:
+            valu = int(valu)
 
+        if not s_compat.issystype(valu):
+            raise BadPropValu(name=prop, valu=valu)
+
+        return valu
 
     def getPropChop(self, prop, valu):
         '''
         Return norm,{'sub':subval} tuple for the given property.
         '''
         dtype = self.getPropType(prop)
-        if dtype == None:
-            self.assertSystemValu(valu)
-            return valu,{}
+        subs = {}
+        if dtype != None:
+            try:
+                valu, subs = dtype.chop(valu)
+            except BadTypeValu:
+                raise BadPropValu(name=prop, valu=valu)
 
-        try:
-            return dtype.chop(valu)
-        except BadTypeValu:
+        if not s_compat.issystype(valu):
             raise BadPropValu(name=prop, valu=valu)
+
+        return valu, subs
 
     #def getPropNorms(self, props):
         #return { p:self.getPropNorm(p,v) for (p,v) in props.items() }
@@ -344,11 +351,13 @@ class DataModel(s_types.TypeLib):
 
         '''
         dtype = self.getPropType(prop)
-        if dtype == None:
-            self.assertSystemValu(valu)
-            return valu
+        if dtype != None:
+            valu = dtype.parse(valu)
 
-        return dtype.parse(valu)
+        if not s_compat.issystype(valu):
+            raise BadPropValu(name=prop, valu=valu)
+
+        return valu
 
     def getParseProps(self, props):
         return { p:self.getPropParse(p,v) for (p,v) in props.items() }
@@ -394,14 +403,3 @@ class DataModel(s_types.TypeLib):
             return None
 
         return self.getDataType( pdef[1].get('ptype') )
-
-    def assertSystemValu(self, valu):
-        '''
-        Raise BadTypeValu if the valu is not a system type: str or int.
-
-        This is used when the data model doesn't have an entry for the
-        property to ensure that arbitrary types are not presented to
-        the database.
-        '''
-        if not s_compat.isint(valu) and not s_compat.isstr(valu):
-            raise BadTypeValu(valu=valu)

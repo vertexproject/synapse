@@ -123,7 +123,7 @@ else:
         return isinstance(s,str)
 
     def isint(s):
-        return type(s) is int
+        return isinstance(s,int) and not isinstance(s,bool)
 
     def canstor(s):
         return type(s) in (int,str)
@@ -139,3 +139,7 @@ else:
 
     def iterzip(*args):
         return itertools.zip_longest(*args)
+
+
+def issystype(s):
+    return isstr(s) or isint(s)
