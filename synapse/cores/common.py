@@ -1205,7 +1205,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         rows = s_tags.genTufoRows(tufo,tag,valu=asof)
         if rows:
             formevt = 'tufo:tag:add:%s' % tufo[1].get('tufo:form')
-            self.addRows(map(lambda tup: tup[1], rows))
+            self.addRows(list(map(lambda tup: tup[1], rows)))
             for subtag,(i,p,v,t) in rows:
                 tufo[1][p] = v
                 self._bumpTufoCache(tufo,p,None,v)
