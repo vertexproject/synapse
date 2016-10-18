@@ -1,3 +1,7 @@
+
+import time
+
+from synapse.common import msgenpack
 from synapse.exc import *
 
 # TODO: in-band help (as result)
@@ -29,7 +33,33 @@ class Oper:
         if meth == None:
             raise NoSuchImpl('%s does not implement %s' % (self.__class__.__name__,mode))
 
-        return meth()
+        debug_count = self.query.opt('debug:count')
+        debug_size = self.query.opt('debug:time')
+        debug_time = self.query.opt('debug:size')
+
+        if debug_count:
+            count = len(self.query.data())
+
+        if debug_size:
+            size_bytes = len(msgenpack(self.query.data()))
+
+        if debug_time:
+            start = time.time()
+
+        rslt = meth()
+
+        if debug_time:
+            duration_ms = int((time.time() - start) * 1000)
+            self.query.setInstDebug('time', duration_ms)
+
+        if debug_size:
+            self.query.setInstDebug('size', len(msgenpack(self.query.data())) - size_bytes)
+
+        if debug_count:
+            duration_ms = int((time.time() - start) * 1000)
+            self.query.setInstDebug('count', len(self.query.data()) - count)
+
+        return rslt
 
 class CmpOper(Oper):
     '''

@@ -10,7 +10,7 @@ import synapse.lib.userauth as s_userauth
 import synapse.swarm.opers.basic as s_opers_basic
 
 from synapse.exc import *
-from synapse.common import gentask
+from synapse.common import gentask, msgenpack
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,14 @@ class Query(s_eventbus.EventBus):
         self.maxtouch = None
 
         self.results = {
+
+            'debug': {
+                'insts': {
+                    'count': [],
+                    'size': [],
+                    'time': [],
+                }
+            },
 
             'options':{
                 'uniq':True,
@@ -157,12 +165,28 @@ class Query(s_eventbus.EventBus):
         Set a query option to the given value.
         '''
         self.results['options'][name] = valu
+        if name == 'debug':
+            self.setOpt('debug:count', valu)
+            self.setOpt('debug:size', valu)
+            self.setOpt('debug:time', valu)
 
     def opt(self,name):
         '''
         Return the current value of a query option.
         '''
         return self.results['options'].get(name)
+
+    def setDebug(self, name, valu):
+        '''
+        Set debug info to the given value.
+        '''
+        self.results['debug'][name] = valu
+
+    def setInstDebug(self, name, valu):
+        '''
+        Append the given value to instruction debug info.
+        '''
+        self.results['debug']['insts'][name].append(valu)
 
     def data(self):
         return self.results.get('data')
@@ -181,25 +205,28 @@ class Query(s_eventbus.EventBus):
         return data
         # FIXME reset any uniq stuff here!
 
-    def run(self, inst):
-        '''
-        Execute a swarm instruction tufo in the query context.
-        '''
-        func = self.runt.getInstFunc(inst[0])
-        if func == None:
-            raise Exception('Unknown Instruction: %s' % inst[0])
-
-        func(self,inst)
-
     def execute(self):
         '''
         Execute the parsed swarm query instructions.
         '''
+
+        start = time.time()
+
         # FIXME setup user limits
         for oper in self.opers:
             oper.run()
 
-        #[ self.run(i) for i in self.insts ]
+        if self.opt('debug:count'):
+            self.setDebug('count', len(self.data()))
+
+        if self.opt('debug:time'):
+            duration_ms = int((time.time() - start) * 1000)
+            self.setDebug('time', duration_ms)
+
+        if self.opt('debug:size'):
+            size_bytes = len(msgenpack(self.data()))
+            self.setDebug('size', size_bytes)
+
         return self.results
 
     def cancel(self):
@@ -313,15 +340,6 @@ class Runtime(s_eventbus.EventBus):
             rules = s_userauth.Rules(self.auth,user)
             self.rules[user] = rules
         return rules
-
-    #def setInstFunc(self, name, func):
-        #'''
-        #Add an instruction to the 
-        #'''
-        #self.insts[name] = func
-
-    #def getInstFunc(self, name):
-        #return self.insts.get(name)
 
     def ask(self, text, user=None, data=(), maxtime=None):
         '''
