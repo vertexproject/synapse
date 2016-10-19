@@ -112,7 +112,7 @@ class DataModelTest(SynTest):
         self.assertEqual( model.getPropParse('foo:bar', '1'), 1 )
         self.assertEqual( model.getPropParse('foo:bar', '0'), 0 )
 
-        self.assertRaises( BadTypeValu, model.getPropParse, 'foo:bar', 'asdf' )
+        self.assertRaises( BadPropValu, model.getPropParse, 'foo:bar', 'asdf' )
 
     def test_datamodel_hash(self):
         model = s_datamodel.DataModel()
@@ -131,17 +131,17 @@ class DataModelTest(SynTest):
         self.assertEqual( model.getPropNorm('foo:sha1', fakesha1) , fakesha1.lower() )
         self.assertEqual( model.getPropNorm('foo:sha256', fakesha256) , fakesha256.lower() )
 
-        self.assertRaises( BadTypeValu, model.getPropNorm, 'foo:md5', 'asdf' )
-        self.assertRaises( BadTypeValu, model.getPropNorm, 'foo:sha1', 'asdf' )
-        self.assertRaises( BadTypeValu, model.getPropNorm, 'foo:sha256', 'asdf' )
+        self.assertRaises( BadPropValu, model.getPropNorm, 'foo:md5', 'asdf' )
+        self.assertRaises( BadPropValu, model.getPropNorm, 'foo:sha1', 'asdf' )
+        self.assertRaises( BadPropValu, model.getPropNorm, 'foo:sha256', 'asdf' )
 
         self.assertEqual( model.getPropParse('foo:md5', fakemd5) , fakemd5.lower() )
         self.assertEqual( model.getPropParse('foo:sha1', fakesha1) , fakesha1.lower() )
         self.assertEqual( model.getPropParse('foo:sha256', fakesha256) , fakesha256.lower() )
 
-        self.assertRaises( BadTypeValu, model.getPropParse, 'foo:md5', 'asdf' )
-        self.assertRaises( BadTypeValu, model.getPropParse, 'foo:sha1', 'asdf' )
-        self.assertRaises( BadTypeValu, model.getPropParse, 'foo:sha256', 'asdf' )
+        self.assertRaises( BadPropValu, model.getPropParse, 'foo:md5', 'asdf' )
+        self.assertRaises( BadPropValu, model.getPropParse, 'foo:sha1', 'asdf' )
+        self.assertRaises( BadPropValu, model.getPropParse, 'foo:sha256', 'asdf' )
 
     def test_datamodel_parsetypes(self):
 
@@ -191,8 +191,8 @@ class DataModelTest(SynTest):
         self.assertEqual( model.getPropNorm('foo:serv',0x010203040010), 0x010203040010 )
         self.assertEqual( model.getPropParse('foo:serv','1.2.3.4:255'), 0x0102030400ff )
 
-        self.assertRaises( BadTypeValu, model.getPropNorm, 'foo:port', 0xffffff )
-        self.assertRaises( BadTypeValu, model.getPropParse, 'foo:port', '999999' )
+        self.assertRaises( BadPropValu, model.getPropNorm, 'foo:port', 0xffffff )
+        self.assertRaises( BadPropValu, model.getPropParse, 'foo:port', '999999' )
 
     def test_datamodel_time(self):
 

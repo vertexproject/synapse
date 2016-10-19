@@ -293,7 +293,10 @@ class DataModel(s_types.TypeLib):
         '''
         dtype = self.getPropType(prop)
         if dtype != None:
-            valu = dtype.norm(valu,oldval=oldval)
+            try:
+                valu = dtype.norm(valu,oldval=oldval)
+            except BadTypeValu:
+                raise BadPropValu(name=prop, valu=valu)
 
         if not s_compat.issystype(valu):
             raise BadPropValu(name=prop, valu=valu)
@@ -352,7 +355,10 @@ class DataModel(s_types.TypeLib):
         '''
         dtype = self.getPropType(prop)
         if dtype != None:
-            valu = dtype.parse(valu)
+            try:
+                valu = dtype.parse(valu)
+            except BadTypeValu:
+                raise BadPropValu(name=prop, valu=valu)
 
         if not s_compat.issystype(valu):
             raise BadPropValu(name=prop, valu=valu)
