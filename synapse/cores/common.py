@@ -694,8 +694,9 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         '''
         if load:
-            for tufo in savecore.getTufosByProp('tufo:form'):
-                self.formTufoByTufo(tufo)
+            for iden, _, _, _ in savecore.getRowsByProp('tufo:form'):
+                rows = savecore.getRowsById(iden)
+                self.addRows(rows)
 
         if savefilter:
             def dist(evtfo):

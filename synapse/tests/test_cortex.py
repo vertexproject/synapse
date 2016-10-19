@@ -1232,9 +1232,9 @@ class CortexTest(SynTest):
                 core.formTufoByProp('prop', 'valu')
                 core.formTufoByProp('prop', 'bogus')
                 wait.wait()
-                tufo = savecore.getTufoByProp('prop', valu='valu')
-                self.assertEqual(tufo[1]['tufo:form'], 'prop')
-                self.assertEqual(tufo[1]['prop'], 'valu')
+                save = savecore.getTufoByProp('prop', valu='valu')
+                self.assertEqual(save[1]['tufo:form'], 'prop')
+                self.assertEqual(save[1]['prop'], 'valu')
                 self.assertIsNone(savecore.getTufoByProp('prop', valu='bogus'))
 
             # test load=False
@@ -1243,5 +1243,6 @@ class CortexTest(SynTest):
 
             # test load=True
             with s_cortex.openurl('ram://', savecore=savecore) as core:
-                tufo = core.getTufoByProp('prop', valu='valu')
-                self.assertEqual(tufo[1]['prop'], 'valu')
+                load = core.getTufoByProp('prop', valu='valu')
+                self.assertEqual(save[0], load[0])
+                self.assertEqual(load[1]['prop'], 'valu')
