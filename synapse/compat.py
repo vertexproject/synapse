@@ -54,6 +54,9 @@ if version < (3,0,0):
     def isint(s):
         return type(s) in (int,long)
 
+    def canstor(s):
+        return type(s) in (int,long,str,unicode)
+
     def typeof(x):
 
         if isint(x):
@@ -121,6 +124,9 @@ else:
 
     def isint(s):
         return isinstance(s,int)
+
+    def canstor(s):
+        return type(s) in (int,str)
 
     def typeof(x):
         return type(x)
