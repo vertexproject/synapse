@@ -32,6 +32,14 @@ def chunked(n, iterable):
 
        yield chunk
 
+def reqstor(name,valu):
+    '''
+    Raise BadPropValue if valu is not cortex storable.
+    '''
+    if not s_compat.canstor(valu):
+        raise BadPropValu(name=name,valu=valu)
+    return valu
+
 class Cortex(EventBus,DataModel,ConfigMixin):
     '''
     Top level Cortex key/valu storage object.
@@ -739,6 +747,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             core.addRows(rows)
 
         '''
+        [ reqstor(p,v) for (i,p,v,t) in rows ]
         self.savebus.fire('core:save:add:rows', rows=rows)
         self._addRows(rows)
 
@@ -885,6 +894,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             core.setRowsByIdProp(iden,'foo',10)
 
         '''
+        reqstor(prop,valu)
         self.savebus.fire('core:save:set:rows:by:idprop', iden=iden, prop=prop, valu=valu)
         self._setRowsByIdProp(iden, prop, valu)
 
@@ -1205,7 +1215,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         rows = s_tags.genTufoRows(tufo,tag,valu=asof)
         if rows:
             formevt = 'tufo:tag:add:%s' % tufo[1].get('tufo:form')
-            self.addRows(map(lambda tup: tup[1], rows))
+            self.addRows(list(map(lambda tup: tup[1], rows)))
             for subtag,(i,p,v,t) in rows:
                 tufo[1][p] = v
                 self._bumpTufoCache(tufo,p,None,v)
@@ -1485,7 +1495,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
                 rows.extend([ (iden,p,v,stamp) for (p,v) in props.items() ])
 
                 # sneaky ephemeral/hidden prop to identify newly created tufos
-                props['.new'] = True
+                props['.new'] = 1
                 tufos.append( (iden,props) )
 
             self.addRows(rows)
@@ -1653,6 +1663,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         props = {'tufo:form':form}
 
         for name,valu in inprops.items():
+
             prop = '%s:%s' % (form,name)
 
             if not self._okSetProp(prop):

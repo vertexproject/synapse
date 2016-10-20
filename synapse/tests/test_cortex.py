@@ -1117,3 +1117,7 @@ class CortexTest(SynTest):
 
             self.assertTrue(tufo0[1].get('.new'))
             self.assertFalse(tufo1[1].get('.new'))
+
+    def test_cortex_reqstor(self):
+        with s_cortex.openurl('ram://') as core:
+            self.assertRaises( BadPropValu, core.formTufoByProp, 'foo:bar', True )
