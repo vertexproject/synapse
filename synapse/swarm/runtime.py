@@ -39,7 +39,6 @@ class Query(s_eventbus.EventBus):
     def __init__(self, runt, insts, user=None, data=()):
 
         s_eventbus.EventBus.__init__(self)
-        #self.text = text
         self.runt = runt
         #self.info = info
         self.canc = False
@@ -61,8 +60,6 @@ class Query(s_eventbus.EventBus):
 
         self.opers = self.initInstOpers(insts)
 
-        #self.insts = s_syntax.parse(text)
-
         self.touched = 0
         self.recache = {}
 
@@ -72,11 +69,10 @@ class Query(s_eventbus.EventBus):
         self.results = {
 
             'debug': {
-                'insts': {
-                    'count': [],
-                    'size': [],
-                    'time': [],
-                }
+                'count': 0,
+                'insts': [],
+                'size': 0,
+                'time': 0.0,
             },
 
             'options':{
@@ -128,9 +124,13 @@ class Query(s_eventbus.EventBus):
         '''
         self.tick()
 
-        #if self.results.get('mode') == 'tufo':
+        if self.opt('debug:count'):
+            self.incDebug('count')
 
-        data = self.results.get('data')
+        if self.opt('debug:size'):
+            prop = tufo[1].pop('.from')
+            self.incDebug('size', len(msgenpack(tufo)))
+            tufo[1]['.from'] = prop
 
         form = tufo[1].get('tufo:form')
 
@@ -176,17 +176,36 @@ class Query(s_eventbus.EventBus):
         '''
         return self.results['options'].get(name)
 
+    def getDebug(self, name):
+        '''
+        Get debug info for the given value.
+        '''
+        return self.results['debug'].get(name, 0)
+
     def setDebug(self, name, valu):
         '''
         Set debug info to the given value.
         '''
         self.results['debug'][name] = valu
 
-    def setInstDebug(self, name, valu):
+    def incDebug(self, name, valu=1):
         '''
-        Append the given value to instruction debug info.
+        Increment debug info with the given value.
         '''
-        self.results['debug']['insts'][name].append(valu)
+        valu = self.getDebug(name) + valu
+        self.setDebug(name, valu)
+
+    def addInstDebug(self, valu):
+        '''
+        Append the given instruction debug info.
+        '''
+        self.results['debug']['insts'].append(valu)
+
+    def sumInstDebug(self, name):
+        '''
+        Sum the instruction debug info of the given name.
+        '''
+        return sum(inst.get(name, 0) for inst in self.results['debug']['insts'])
 
     def data(self):
         return self.results.get('data')
@@ -205,27 +224,53 @@ class Query(s_eventbus.EventBus):
         return data
         # FIXME reset any uniq stuff here!
 
+    def run(self, oper):
+        '''
+        Run the given operation. Collect debug profiling per query options.
+        '''
+        debug = {}
+        start = time.time()
+
+        # HACK: Using top level debug for temporary storage since it will be overwritten later.
+        if self.opt('debug:size'):
+            self.setDebug('size', 0)
+
+        if self.opt('debug:count'):
+            self.setDebug('count', 0)
+
+        oper.run()
+
+        if self.opt('debug:time'):
+            debug['time'] = int((time.time() - start) * 1000)
+
+        if self.opt('debug:size'):
+            debug['size'] = self.getDebug('size')
+
+        if self.opt('debug:count'):
+            debug['count'] = self.getDebug('count')
+
+        if debug:
+            self.addInstDebug(debug)
+
     def execute(self):
         '''
         Execute the parsed swarm query instructions.
         '''
-
         start = time.time()
 
         # FIXME setup user limits
         for oper in self.opers:
-            oper.run()
+            self.run(oper)
 
         if self.opt('debug:count'):
-            self.setDebug('count', len(self.data()))
+            self.setDebug('count', self.sumInstDebug('count'))
 
         if self.opt('debug:time'):
             duration_ms = int((time.time() - start) * 1000)
             self.setDebug('time', duration_ms)
 
         if self.opt('debug:size'):
-            size_bytes = len(msgenpack(self.data()))
-            self.setDebug('size', size_bytes)
+            self.setDebug('size', self.sumInstDebug('size'))
 
         return self.results
 
