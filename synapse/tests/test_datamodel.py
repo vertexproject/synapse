@@ -216,19 +216,19 @@ class DataModelTest(SynTest):
     def test_datamodel_systype(self):
         model = s_datamodel.DataModel()
 
-        self.assertRaises( s_datamodel.BadPropValu, model.getPropNorm, 'bogus', True )
+        self.assertIs( model.getPropNorm('bogus', True), True )
         self.assertRaises( s_datamodel.BadPropValu, model.getPropNorm, 'bogus', ('tuple',) )
         self.assertRaises( s_datamodel.BadPropValu, model.getPropNorm, 'bogus', ['list'] )
         self.assertRaises( s_datamodel.BadPropValu, model.getPropNorm, 'bogus', {'set'} )
         self.assertRaises( s_datamodel.BadPropValu, model.getPropNorm, 'bogus', {'dict': 'dict'} )
 
-        self.assertEqual( model.getPropFrob('bogus', True), 1 )
+        self.assertIs( model.getPropFrob('bogus', True), 1 )
         self.assertRaises( s_datamodel.BadPropValu, model.getPropFrob, 'bogus', ('tuple',) )
         self.assertRaises( s_datamodel.BadPropValu, model.getPropFrob, 'bogus', ['list'] )
         self.assertRaises( s_datamodel.BadPropValu, model.getPropFrob, 'bogus', {'set'} )
         self.assertRaises( s_datamodel.BadPropValu, model.getPropFrob, 'bogus', {'dict': 'dict'} )
 
-        self.assertRaises( s_datamodel.BadPropValu, model.getPropChop, 'bogus', True )
+        self.assertIs( model.getPropChop('bogus', True)[0], True )
         self.assertRaises( s_datamodel.BadPropValu, model.getPropChop, 'bogus', ('tuple',) )
         self.assertRaises( s_datamodel.BadPropValu, model.getPropChop, 'bogus', ['list'] )
         self.assertRaises( s_datamodel.BadPropValu, model.getPropChop, 'bogus', {'set'} )
