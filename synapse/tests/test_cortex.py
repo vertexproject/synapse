@@ -281,7 +281,6 @@ class CortexTest(SynTest):
         self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [], limit=1)), 0)
 
         # BY CIDR
-        import synapse.lib.types as s_types
         tlib = s_types.TypeLib()
 
         ipint = tlib.getTypeParse('inet:ipv4', '192.168.0.1')
