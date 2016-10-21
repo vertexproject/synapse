@@ -11,12 +11,13 @@ class SynErr(Exception):
         displ = ' '.join(['%s=%r' % (p,v) for (p,v) in props ])
         return '%s: %s' % (self.__class__.__name__,displ)
 
+class NoSuchOpt(SynErr):pass
+class NoSuchConf(SynErr):pass
 class NoSuchForm(SynErr):pass
 class NoSuchType(SynErr):pass
 class NoSuchProp(SynErr):pass
 class NoSuchOper(SynErr):pass
 class NoSuchRule(SynErr):pass
-
 
 class BadTypeValu(SynErr):pass
 class DupTypeName(SynErr):pass
@@ -24,10 +25,12 @@ class DupPropName(SynErr):pass
 class BadPropName(SynErr):pass
 class BadMesgVers(SynErr):pass
 
+class SyntaxError(SynErr):pass
+
 class BadUrl(Exception):pass
 class BadJson(Exception):pass
 class BadMesgResp(Exception):pass
-class BadPropValu(Exception):pass
+class BadPropValu(SynErr):pass
 class BadPySource(Exception):pass
 
 class DupOpt(Exception):pass

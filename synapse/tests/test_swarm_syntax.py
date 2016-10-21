@@ -51,6 +51,17 @@ class SwarmSyntaxTest(SynTest):
         self.assertEqual( kwargs.get('valu'), 'woot' )
 
         ###########################################################
+        insts = s_syntax.parse('baz.faz/foo:bar@2015,+1year#30')
+
+        self.assertEqual( insts[0][0], 'has' )
+        self.assertEqual( insts[0][1]['args'][0], 'foo:bar' )
+
+        kwargs = dict(insts[0][1].get('kwlist'))
+        self.assertEqual( kwargs.get('limit'), 30)
+        self.assertEqual( kwargs.get('from'), 'baz.faz' )
+        self.assertEqual( kwargs.get('when'), ('2015','+1year'))
+
+        ###########################################################
         insts = s_syntax.parse('baz.faz/foo:bar@2015,+1year#30="woot"')
 
         self.assertEqual( insts[0][0], 'eq' )
@@ -98,4 +109,15 @@ class SwarmSyntaxTest(SynTest):
         self.assertEqual( insts, [
             ('re',{'args':['foo:bar'],'kwlist':[('cmp','re'),('valu','hehe')],'mode':'must'}),
             ('re',{'args':['foo:bar'],'kwlist':[('cmp','re'),('valu','hoho')],'mode':'cant'}),
+        ])
+
+    def test_swarm_syntax_by(self):
+        insts = s_syntax.parse('woot/foo:bar*baz="hehe"')
+        self.assertEqual( insts, [
+            ('by',{'args':['foo:bar'],'kwlist': [('by', 'baz'), ('cmp', 'by'), ('from', 'woot'), ('valu', 'hehe')],'mode':'lift'}),
+        ])
+
+        insts = s_syntax.parse('woot/foo:bar*baz')
+        self.assertEqual( insts, [
+            ('by',{'args':['foo:bar'],'kwlist': [('by', 'baz'), ('cmp', 'by'), ('from', 'woot')],'mode':'lift'}),
         ])
