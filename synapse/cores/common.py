@@ -10,7 +10,7 @@ from synapse.compat import queue
 import synapse.async as s_async
 import synapse.compat as s_compat
 import synapse.reactor as s_reactor
-#import synapse.datamodel as s_datamodel
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.tags as s_tags
 import synapse.lib.cache as s_cache
@@ -195,6 +195,8 @@ class Cortex(EventBus,DataModel):
         self.splicers['tufo:set'] = self._spliceTufoSet
         self.splicers['tufo:tag:add'] = self._spliceTufoTagAdd
         self.splicers['tufo:tag:del'] = self._spliceTufoTagDel
+
+        self.initTufosBy('inet:cidr',self._tufosByInetCidr)
 
     def _onSetEnforce(self, mesg):
         tufo = mesg[1].get('tufo')
@@ -1617,4 +1619,27 @@ class Cortex(EventBus,DataModel):
 
     def _calcStatAll(self, rows):
         return all([ r[2] for r in rows ])
+
+    def _tufosByIn(self, prop, valus, limit=None):
+        ret = []
+
+        for valu in valus:
+            res = self.getTufosByProp(prop, valu=valu, limit=limit)
+            ret.extend(res)
+
+            if limit != None:
+                limit -= len(res)
+                if limit <= 0:
+                    break
+
+        return ret
+
+    def _tufosByInetCidr(self, prop, valu, limit=None):
+
+        ipv4str, cidr = valu.split('/', 1)
+        ipv4addr = s_datamodel.getTypeParse('inet:ipv4', ipv4str)
+        mask = ( 2** ( 32 - int(cidr) ))
+        ipv4addr &= ~mask
+
+        return self.getTufosBy('range', prop, (ipv4addr, ipv4addr+mask), limit=limit)
 
