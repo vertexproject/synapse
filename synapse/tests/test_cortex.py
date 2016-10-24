@@ -265,6 +265,7 @@ class CortexTest(SynTest):
     def test_cortex_tufo_by_default(self):
         core = s_cortex.openurl('sqlite:///:memory:')
 
+        # BY IN
         fooa = core.formTufoByProp('foo','bar',p0=4)
         foob = core.formTufoByProp('foo','baz',p0=5)
 
@@ -278,6 +279,31 @@ class CortexTest(SynTest):
         self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5,6,7], limit=4)), 4)
         self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
         self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [], limit=1)), 0)
+
+        # BY CIDR
+        tlib = s_types.TypeLib()
+
+        ipint = tlib.getTypeParse('inet:ipv4', '192.168.0.1')
+        ipa = core.formTufoByProp('inet:ipv4', ipint)
+        ipint = tlib.getTypeParse('inet:ipv4', '192.168.255.254')
+        ipa = core.formTufoByProp('inet:ipv4', ipint)
+
+        ipint = tlib.getTypeParse('inet:ipv4', '192.167.255.254')
+        ipb = core.formTufoByProp('inet:ipv4', ipint)
+
+        ips = ['10.2.1.%d' % d for d in range(1,33)]
+        for ip in ips:
+            ipint = tlib.getTypeParse('inet:ipv4', ip)
+            ipc = core.formTufoByProp('inet:ipv4', ipint)
+
+        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.4/32')), 1)
+        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.4/31')), 2)
+        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/30')), 4)
+        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.2/30')), 4)
+        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/29')), 8)
+        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/28')), 16)
+
+        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '192.168.0.0/16')), 2)
 
     def test_cortex_tufo_by_postgres(self):
         db = os.getenv('SYN_COR_PG_DB')
