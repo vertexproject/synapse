@@ -222,10 +222,6 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         self.initTufosBy('inet:cidr',self._tufosByInetCidr)
 
-    def _onSetEnforce(self, mesg):
-        tufo = mesg[1].get('tufo')
-        valu = mesg[1].get('valu')
-
     def _getTufosByCache(self, prop, valu, limit):
         # only used if self.caching = 1
         ckey = (prop,valu,limit) # cache key
