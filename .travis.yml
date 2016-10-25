@@ -8,6 +8,8 @@ install:
     - pip install msgpack-python tornado requests cryptography psycopg2
     - docker build -t synapse/synapse -f synapse/docker/synapse_dockerfile .
     - docker build -t synapse/cortex_pg -f synapse/docker/cortex/postgres_9.5_dockerfile .
+    - docker run -d -p 127.0.0.1:47320:47320 --name cortex_ram synapse/cortex_ram
+    - docker run -d -p 127.0.0.1:47321:47321 --name cortex_sqlite synapse/cortex_sqlite
     - docker run -d -p 127.0.0.1:47322:47322 --name cortex_pg synapse/cortex_pg
 script: nosetests --verbosity=3 -x --with-coverage
 services: 
@@ -18,4 +20,6 @@ before_script:
     - docker ps | grep -q cortex_pg
 env:
     - SYN_COR_PG_DB=syn_test
-    - SYN_DOCKER=1=syn_test
+    - SYN_DOCKER_RAM=1
+    - SYN_DOCKER_SQLITE=1
+    - SYN_DOCKER_PG=1

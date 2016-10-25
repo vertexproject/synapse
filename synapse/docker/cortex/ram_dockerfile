@@ -1,0 +1,10 @@
+# vim:set ft=dockerfile:
+FROM synapse/synapse:latest
+
+# docker build -t synapse/core_ram -f ~/git/synapse/synapse/docker/cortex/ram_dockerfile ~/git/synapse
+
+COPY ./synapse/docker/cortex/ram_cortex.conf /cortex.conf
+
+EXPOSE 47320
+
+ENTRYPOINT ["python3", "-m", "synapse.tools.dmon", "/cortex.conf"]
