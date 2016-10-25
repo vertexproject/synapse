@@ -52,7 +52,7 @@ ENV PATH /usr/lib/postgresql/$PG_MAJOR/bin:$PATH
 ENV PGDATA /var/lib/postgresql/data
 VOLUME /var/lib/postgresql/data
 
-COPY ./synapse/docker/cortex/cortex.conf /
+COPY ./synapse/docker/cortex/postgres_cortex.conf /cortex.conf
 COPY ./synapse/docker/cortex/docker_entrypoint.py /
 RUN wget --no-check-certificate -O /pg_docker_entrypoint.sh https://raw.githubusercontent.com/docker-library/postgres/master/9.5/docker-entrypoint.sh \
     && chmod u+x /pg_docker_entrypoint.sh
