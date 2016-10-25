@@ -7,6 +7,8 @@ python:
 install:
     - pip install msgpack-python tornado requests cryptography psycopg2
     - docker build -t synapse/synapse -f synapse/docker/synapse_dockerfile .
+    - docker build -t synapse/cortex_ram -f synapse/docker/cortex/ram_dockerfile .
+    - docker build -t synapse/cortex_sqlite -f synapse/docker/cortex/sqlite_dockerfile .
     - docker build -t synapse/cortex_pg -f synapse/docker/cortex/postgres_9.5_dockerfile .
     - docker run -d -p 127.0.0.1:47320:47320 --name cortex_ram synapse/cortex_ram
     - docker run -d -p 127.0.0.1:47321:47321 --name cortex_sqlite synapse/cortex_sqlite
