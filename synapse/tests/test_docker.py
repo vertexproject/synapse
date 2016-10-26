@@ -5,9 +5,9 @@ from synapse.tests.common import *
 class DockerTest(SynTest):
 
     def test_ram_core(self):
-        dcker = os.getenv('SYN_DOCKER_RAM')
+        dcker = os.getenv('SYN_DOCKER')
         if dcker == None:
-            raise unittest.SkipTest('no SYN_DOCKER_RAM')
+            raise unittest.SkipTest('no SYN_DOCKER')
 
         prox = s_telepath.openurl('tcp://127.0.0.1/core', port=47320)
 
@@ -24,9 +24,9 @@ class DockerTest(SynTest):
         prox.fini()
 
     def test_sqlite_core(self):
-        dcker = os.getenv('SYN_DOCKER_SQLITE')
+        dcker = os.getenv('SYN_DOCKER')
         if dcker == None:
-            raise unittest.SkipTest('no SYN_DOCKER_SQLITE')
+            raise unittest.SkipTest('no SYN_DOCKER')
 
         prox = s_telepath.openurl('tcp://127.0.0.1/core', port=47321)
 
@@ -43,9 +43,9 @@ class DockerTest(SynTest):
         prox.fini()
 
     def test_pg_core(self):
-        dcker = os.getenv('SYN_DOCKER_PG')
+        dcker = os.getenv('SYN_DOCKER')
         if dcker == None:
-            raise unittest.SkipTest('no SYN_DOCKER_PG')
+            raise unittest.SkipTest('no SYN_DOCKER')
 
         prox = s_telepath.openurl('tcp://127.0.0.1/core', port=47322)
 
