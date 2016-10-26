@@ -22,6 +22,7 @@ before_script:
     - docker ps | grep -q cortex_ram
     - docker ps | grep -q cortex_sqlite
     - docker ps | grep -q cortex_pg
+    - docker ps -a
 env:
     - SYN_COR_PG_DB=syn_test
     - SYN_DOCKER=1
