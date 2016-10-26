@@ -23,9 +23,9 @@ before_script:
     - docker ps | grep -q cortex_sqlite
     - docker ps | grep -q cortex_pg
     - docker ps -a
-    - nc -v -w 3 127.0.0.1 47320
-    - nc -v -w 3 127.0.0.1 47321
-    - nc -v -w 3 127.0.0.1 47322
+    - nc -v -w 4 127.0.0.1 47320
+    - nc -v -w 4 127.0.0.1 47321
+    - nc -v -w 8 127.0.0.1 47322
 env:
     - SYN_COR_PG_DB=syn_test
     - SYN_DOCKER=1
