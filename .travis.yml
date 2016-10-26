@@ -5,7 +5,7 @@ python:
     - "2.7"
     - "3.4"
 install:
-    - pip install msgpack-python tornado requests cryptography psycopg2
+    - pip install msgpack-python tornado requests cryptography psycopg2 coverage
     - docker build -t vertexproject/synapse -f synapse/docker/synapse_dockerfile .
     - docker build -t vertexproject/cortex_ram -f synapse/docker/cortex/ram_dockerfile .
     - docker build -t vertexproject/cortex_sqlite -f synapse/docker/cortex/sqlite_dockerfile .
@@ -23,6 +23,9 @@ before_script:
     - docker ps | grep -q cortex_sqlite
     - docker ps | grep -q cortex_pg
     - docker ps -a
+    - nc -v -w 3 127.0.0.1 47320
+    - nc -v -w 3 127.0.0.1 47321
+    - nc -v -w 3 127.0.0.1 47322
 env:
     - SYN_COR_PG_DB=syn_test
     - SYN_DOCKER=1
