@@ -1,7 +1,7 @@
 
 FROM ubuntu:16.04
 
-# docker build -t synapse/synapse -f ~/git/synapse/synapse/docker/synapse_dockerfile ~/git/synapse
+# docker build -t vertexproject/synapse -f ~/git/synapse/synapse/docker/synapse_dockerfile ~/git/synapse
 
 RUN apt update -q\
  && apt install -yq --no-install-recommends\ 

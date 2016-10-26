@@ -1,5 +1,5 @@
 # vim:set ft=dockerfile:
-FROM synapse/synapse:latest
+FROM vertexproject/synapse:latest
 
 # docker build -t vertexproject/core_pg -f ~/git/synapse/synapse/docker/cortex/postgres_9.5_dockerfile ~/git/synapse
 
