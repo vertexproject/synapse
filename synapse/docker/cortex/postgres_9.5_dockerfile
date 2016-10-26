@@ -1,6 +1,8 @@
 # vim:set ft=dockerfile:
 FROM synapse/synapse:latest
 
+# docker build -t vertexproject/core_pg -f ~/git/synapse/synapse/docker/cortex/postgres_9.5_dockerfile ~/git/synapse
+
 # explicitly set user/group IDs
 RUN groupadd -r postgres --gid=999 && useradd -r -g postgres --uid=999 postgres
 

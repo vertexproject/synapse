@@ -1,10 +1,10 @@
 # vim:set ft=dockerfile:
 FROM synapse/synapse:latest
 
-# docker build -t synapse/core_sqlite -f ~/git/synapse/synapse/docker/cortex/sqlite_dockerfile ~/git/synapse
+# docker build -t vertexproject/core_sqlite -f ~/git/synapse/synapse/docker/cortex/sqlite_dockerfile ~/git/synapse
 
 COPY ./synapse/docker/cortex/sqlite_cortex.conf /cortex.conf
 
-EXPOSE 47321
+EXPOSE 47322
 
 ENTRYPOINT ["python3", "-m", "synapse.tools.dmon", "/cortex.conf"]
