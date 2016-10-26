@@ -1,6 +1,5 @@
 
 FROM ubuntu:16.04
-MAINTAINER foo
 
 # docker build -t synapse/synapse -f ~/git/synapse/synapse/docker/synapse_dockerfile ~/git/synapse
 
