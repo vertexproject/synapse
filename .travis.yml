@@ -11,7 +11,8 @@ install:
       && docker build -t vertexproject/synapse -f synapse/docker/synapse_dockerfile . \
       && docker build -t vertexproject/cortex_ram -f synapse/docker/cortex/ram_dockerfile . \
       && docker build -t vertexproject/cortex_sqlite -f synapse/docker/cortex/sqlite_dockerfile . \
-      && docker build -t vertexproject/cortex_pg -f synapse/docker/cortex/postgres_9.5_dockerfile . \
+      && docker build -t vertexproject/cortex_pg -f synapse/docker/cortex/postgres_9.5_dockerfile .
+    - test $SYN_DOCKER = 1 && test $TRAVIS_PYTHON_VERSION = 3.4 \
       && docker run -d -p 127.0.0.1:47320:47322 --name cortex_ram vertexproject/cortex_ram \
       && docker run -d -p 127.0.0.1:47321:47322 --name cortex_sqlite vertexproject/cortex_sqlite \
       && docker run -d -p 127.0.0.1:47322:47322 --name cortex_pg vertexproject/cortex_pg
