@@ -1,3 +1,6 @@
+
+import sys
+
 import synapse.telepath as s_telepath
 
 from synapse.tests.common import *
@@ -8,6 +11,8 @@ class DockerTest(SynTest):
         dcker = os.getenv('SYN_DOCKER')
         if dcker == None:
             raise unittest.SkipTest('no SYN_DOCKER')
+        if sys.version_info < (3,4):
+            raise unittest.SkipTest('not python 3')
 
         prox = s_telepath.openurl('tcp://127.0.0.1/core', port=47320)
 
@@ -27,6 +32,8 @@ class DockerTest(SynTest):
         dcker = os.getenv('SYN_DOCKER')
         if dcker == None:
             raise unittest.SkipTest('no SYN_DOCKER')
+        if sys.version_info < (3,4):
+            raise unittest.SkipTest('not python 3')
 
         prox = s_telepath.openurl('tcp://127.0.0.1/core', port=47321)
 
@@ -46,6 +53,8 @@ class DockerTest(SynTest):
         dcker = os.getenv('SYN_DOCKER')
         if dcker == None:
             raise unittest.SkipTest('no SYN_DOCKER')
+        if sys.version_info < (3,4):
+            raise unittest.SkipTest('not python 3')
 
         prox = s_telepath.openurl('tcp://127.0.0.1/core', port=47322)
 
