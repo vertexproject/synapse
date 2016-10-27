@@ -6,7 +6,8 @@ python:
     - "3.4"
 install:
     - pip install msgpack-python tornado requests cryptography psycopg2 coverage
-    - test $$YN_DOCKER = 1 && $TRAVIS_PYTHON_VERSION = 3.4 \
+    - echo $TRAVIS_PYTHON_VERSION
+    - test $SYN_DOCKER = 1 && $TRAVIS_PYTHON_VERSION = 3.4 \
       && docker build -t vertexproject/synapse -f synapse/docker/synapse_dockerfile . \
       && docker build -t vertexproject/cortex_ram -f synapse/docker/cortex/ram_dockerfile . \
       && docker build -t vertexproject/cortex_sqlite -f synapse/docker/cortex/sqlite_dockerfile . \
@@ -21,7 +22,7 @@ services:
 before_script:
     - psql -c 'create database syn_test;' -U postgres
     - echo $TRAVIS_PYTHON_VERSION
-    - test $$YN_DOCKER = 1 && $TRAVIS_PYTHON_VERSION = 3.4 \
+    - test $SYN_DOCKER = 1 && $TRAVIS_PYTHON_VERSION = 3.4 \
       && docker ps | grep -q cortex_ram \
       && docker ps | grep -q cortex_sqlite \
       && docker ps | grep -q cortex_pg \
