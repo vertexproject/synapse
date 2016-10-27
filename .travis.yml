@@ -22,13 +22,13 @@ before_script:
     - psql -c 'create database syn_test;' -U postgres
     - echo $TRAVIS_PYTHON_VERSION
     - test $$YN_DOCKER = 1 && $TRAVIS_PYTHON_VERSION = 3.4 \
-    && docker ps | grep -q cortex_ram \
-    && docker ps | grep -q cortex_sqlite \
-    && docker ps | grep -q cortex_pg \
-    && docker ps -a \
-    && nc -v -w 4 127.0.0.1 47320 \
-    && nc -v -w 4 127.0.0.1 47321 \
-    && nc -v -w 8 127.0.0.1 47322
+      && docker ps | grep -q cortex_ram \
+      && docker ps | grep -q cortex_sqlite \
+      && docker ps | grep -q cortex_pg \
+      && docker ps -a \
+      && nc -v -w 4 127.0.0.1 47320 \
+      && nc -v -w 4 127.0.0.1 47321 \
+      && nc -v -w 8 127.0.0.1 47322
 env:
     - SYN_COR_PG_DB=syn_test
     - SYN_DOCKER=1
