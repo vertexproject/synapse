@@ -6,6 +6,7 @@ import collections
 import multiprocessing
 
 import synapse.link as s_link
+import synapse.lib.config as s_config
 import synapse.lib.socket as s_socket
 import synapse.lib.service as s_service
 import synapse.lib.session as s_session
@@ -141,8 +142,9 @@ class DmonConf:
             ),
 
             'ctors':(
-                ('baz','ctor://foo.bar.Baz()'),
-                ('mybus','tcp://host.com/syn.svcbus'),
+                ('baz', 'ctor://foo.bar.Baz()'),
+                ('faz', 'ctor://foo.bar.Baz()', {'config':'woot'}),
+                ('mybus', 'tcp://host.com/syn.svcbus'),
             ),
 
             'services':(
@@ -155,6 +157,12 @@ class DmonConf:
                 ('auth','tcp://host.com:8899/synauth'),
                 ('logging','ctor://mypkg.mymod.MyLogger()'),
             ),
+
+            'configs':{
+                'woot':{
+                    'fooopt':10,
+                },
+            },
         }
         '''
         checkConfDict(conf)
@@ -176,12 +184,50 @@ class DmonConf:
             except Exception as e:
                 raise Exception('Include Error (%s): %s' % (path,e))
 
-        self._addConfValu(conf,'poolsize')
+        configs = conf.get('configs',{})
 
-        for name,url in conf.get('ctors',()):
+        for row in conf.get('ctors',()):
+
+            copts = {}   # ctor options
+            if len(row) == 2:
+                name,url = row
+            elif len(row) == 3:
+                name,url,copts = row
+            else:
+                raise Exception('Invalid ctor row: %r' % (row,))
 
             item = self.dmoneval(url)
             self.locs[name] = item
+
+            # check for a ctor opt that wants us to load a config dict by name
+            cfgname = copts.get('config')
+            if cfgname != None:
+                if not isinstance(item,s_config.ConfigMixin):
+                    raise Exception('dmon ctor: %s does not support configs' % name)
+
+                opts = configs.get(cfgname)
+                if opts == None:
+                    raise NoSuchConf(name=cfgname)
+
+                item.setConfOpts(opts)
+
+            # check for a ctor opt that wants us to "flatten" several configs in order
+            cfgnames = copts.get('configs')
+            if cfgnames != None:
+
+                if not isinstance(item,s_config.ConfigMixin):
+                    raise Exception('dmon ctor: %s does not support configs' % name)
+
+                opts = {}
+                for cfgname in cfgnames:
+
+                    cfgopts = configs.get(cfgname)
+                    if cfgopts == None:
+                        raise NoSuchConf(name=cfgname)
+
+                    opts.update(cfgopts)
+
+                item.setConfOpts(opts)
 
             self.fire('dmon:conf:ctor', name=name, item=item)
 

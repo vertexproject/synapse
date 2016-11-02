@@ -10,7 +10,7 @@ from synapse.compat import queue
 import synapse.async as s_async
 import synapse.compat as s_compat
 import synapse.reactor as s_reactor
-#import synapse.datamodel as s_datamodel
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.tags as s_tags
 import synapse.lib.cache as s_cache
@@ -19,6 +19,7 @@ import synapse.lib.threads as s_threads
 from synapse.common import *
 from synapse.eventbus import EventBus
 from synapse.datamodel import DataModel
+from synapse.lib.config import ConfigMixin
 
 class NoSuchGetBy(Exception):pass
 
@@ -31,7 +32,15 @@ def chunked(n, iterable):
 
        yield chunk
 
-class Cortex(EventBus,DataModel):
+def reqstor(name,valu):
+    '''
+    Raise BadPropValue if valu is not cortex storable.
+    '''
+    if not s_compat.canstor(valu):
+        raise BadPropValu(name=name,valu=valu)
+    return valu
+
+class Cortex(EventBus,DataModel,ConfigMixin):
     '''
     Top level Cortex key/valu storage object.
     '''
@@ -39,9 +48,16 @@ class Cortex(EventBus,DataModel):
         EventBus.__init__(self)
         DataModel.__init__(self)
 
+        ConfigMixin.__init__(self)
+
+        self.addConfDef('enforce',type='bool',asloc='enforce',defval=0,doc='Enables data model enforcement')
+        self.addConfDef('caching',type='bool',asloc='caching',defval=0,doc='Enables caching layer in the cortex')
+        self.addConfDef('cache:maxsize',type='int',asloc='cache_maxsize',defval=1000,doc='Enables caching layer in the cortex')
+
+        self.onConfOptSet('caching', self._onSetCaching)
+
         self._link = link
 
-        #self.lock = threading.RLock()
         self.lock = threading.Lock()
         self.inclock = threading.Lock()
 
@@ -49,10 +65,8 @@ class Cortex(EventBus,DataModel):
 
         self.auth = None
 
-        self.secure = 0
-        self.enforce = 0
-
         self.formed = collections.defaultdict(int)      # count tufos formed since startup
+
         self.tagcache = {}
         self.splicefuncs = {}
 
@@ -60,8 +74,6 @@ class Cortex(EventBus,DataModel):
         self.rowsbymeths = {}
         self.tufosbymeths = {}
 
-        self.caching = 0
-        self.cache_maxsize = 1000
         self.cache_fifo = collections.deque()               # [ ((prop,valu,limt), {
         self.cache_bykey = {}                               # (prop,valu,limt):( (prop,valu,limt), {iden:tufo,...} )
         self.cache_byiden = s_cache.RefDict()
@@ -148,24 +160,14 @@ class Cortex(EventBus,DataModel):
         self.addTufoForm('syn:core')
         self.addTufoProp('syn:core','url', ptype='inet:url')
 
-        #self.addTufoProp('syn:core','opts:secure', ptype='bool', defval=0)
-        self.addTufoProp('syn:core','opts:enforce', ptype='bool', defval=0)
-        self.addTufoProp('syn:core','opts:caching', ptype='bool', defval=0)
-        self.addTufoProp('syn:core','opts:caching:maxsize', ptype='int', defval=1000)
-
-        #self.on('tufo:set:syn:core:opts:secure', self._onSetSecure )
-        self.on('tufo:set:syn:core:opts:enforce', self._onSetEnforce )
-        self.on('tufo:set:syn:core:opts:caching', self._onSetCaching )
-
-        self.on('tufo:set:syn:core:opts:caching:maxsize', self._onSetCachingMaxSize )
+        # track ingest sources and their runs / errors.
+        self.addTufoForm('syn:ingest',ptype='guid')
+        self.addTufoProp('syn:ingest','ok',ptype='bool',defval=0,doc='Set to 1 if last run was successful')
+        self.addTufoProp('syn:ingest','err',ptype='str',defval='Not run yet',doc='Err string if ok=0')
+        self.addTufoProp('syn:ingest','name',ptype='str',defval='??',doc='Humon readable name for the ingest file')
+        self.addTufoProp('syn:ingest','last',ptype='time:epoch',defval=0,doc='Humon readable name for the ingest file')
 
         self.myfo = self.formTufoByProp('syn:core','self')
-
-        self.caching = self.myfo[1].get('syn:core:opts:caching')
-        self.cache_maxsize = self.myfo[1].get('syn:core:opts:caching:maxsize')
-
-        self.secure = self.myfo[1].get('syn:core:opts:secure',0)
-        self.enforce = self.myfo[1].get('syn:core:opts:enforce',0)
 
         #forms = self.getTufosByProp('syn:form')
 
@@ -219,10 +221,7 @@ class Cortex(EventBus,DataModel):
         self.splicers['tufo:tag:del'] = self._spliceTufoTagDel
 
         self.initTufosBy('in',self._tufosByIn)
-
-    def setCoreOpt(self, prop, valu):
-        prop = 'opts:%s' % (prop,)
-        self.setTufoProp(self.myfo,prop,valu)
+        self.initTufosBy('inet:cidr',self._tufosByInetCidr)
 
     def _getTufosByCache(self, prop, valu, limit):
         # only used if self.caching = 1
@@ -370,36 +369,12 @@ class Cortex(EventBus,DataModel):
                 if atlim:
                     self._delCacheKey(ckey)
 
-    def _onSetEnforce(self, mesg):
-        tufo = mesg[1].get('tufo')
-        valu = mesg[1].get('valu')
-
-        if tufo[0] != self.myfo[0]:
-            return
-
-        self.enforce = valu
-
-    def _onSetCaching(self, mesg):
-        tufo = mesg[1].get('tufo')
-        valu = mesg[1].get('valu')
-
-        if tufo[0] != self.myfo[0]:
-            return
-
-        self.caching = valu
-
-        if not self.caching:
+    def _onSetCaching(self, valu):
+        if not valu:
             self.cache_fifo.clear()
             self.cache_bykey.clear()
             self.cache_byiden.clear()
             self.cache_byprop.clear()
-
-    def _onSetCachingMaxSize(self, mesg):
-        tufo = mesg[1].get('tufo')
-        if tufo[0] != self.myfo[0]:
-            return
-
-        self.cache_maxsize = mesg[1].get('valu')
 
     def _reqSpliceInfo(self, act, info, prop):
         valu = info.get(prop)
@@ -775,6 +750,7 @@ class Cortex(EventBus,DataModel):
             core.addRows(rows)
 
         '''
+        [ reqstor(p,v) for (i,p,v,t) in rows ]
         self.savebus.fire('core:save:add:rows', rows=rows)
         self._addRows(rows)
 
@@ -921,6 +897,7 @@ class Cortex(EventBus,DataModel):
             core.setRowsByIdProp(iden,'foo',10)
 
         '''
+        reqstor(prop,valu)
         self.savebus.fire('core:save:set:rows:by:idprop', iden=iden, prop=prop, valu=valu)
         self._setRowsByIdProp(iden, prop, valu)
 
@@ -1155,7 +1132,7 @@ class Cortex(EventBus,DataModel):
         if valu != None:
             valu = self.getPropFrob(prop,valu)
 
-        return self.getTufosByProp(prop, valu=valu)
+        return self.getTufoByProp(prop, valu=valu)
 
     def _rowsToTufos(self, rows):
         res = collections.defaultdict(dict)
@@ -1241,7 +1218,7 @@ class Cortex(EventBus,DataModel):
         rows = s_tags.genTufoRows(tufo,tag,valu=asof)
         if rows:
             formevt = 'tufo:tag:add:%s' % tufo[1].get('tufo:form')
-            self.addRows(map(lambda tup: tup[1], rows))
+            self.addRows(list(map(lambda tup: tup[1], rows)))
             for subtag,(i,p,v,t) in rows:
                 tufo[1][p] = v
                 self._bumpTufoCache(tufo,p,None,v)
@@ -1521,7 +1498,7 @@ class Cortex(EventBus,DataModel):
                 rows.extend([ (iden,p,v,stamp) for (p,v) in props.items() ])
 
                 # sneaky ephemeral/hidden prop to identify newly created tufos
-                props['.new'] = True
+                props['.new'] = 1
                 tufos.append( (iden,props) )
 
             self.addRows(rows)
@@ -1601,6 +1578,19 @@ class Cortex(EventBus,DataModel):
         tufo[1]['.new'] = True
         return tufo
 
+    def formTufoByFrob(self, form, valu, **props):
+        '''
+        As formTufoByProp, but values are frobbed before normalization.
+
+        Examples:
+
+            tufo = core.formTufoByFrob('inet:ipv4', 0x01020304)
+            tufo = core.formTufoByFrob('inet:ipv4', "1.2.3.4")
+        '''
+        valu = self.getPropFrob(form, valu)
+        props = self._frobTufoProps(form, props)
+        return self.formTufoByProp(form, valu, **props)
+
     def delTufo(self, tufo):
         '''
         Delete a tufo and it's associated props/lists/etc.
@@ -1676,6 +1666,7 @@ class Cortex(EventBus,DataModel):
         props = {'tufo:form':form}
 
         for name,valu in inprops.items():
+
             prop = '%s:%s' % (form,name)
 
             if not self._okSetProp(prop):
@@ -1697,6 +1688,17 @@ class Cortex(EventBus,DataModel):
 
         for prop,valu in self.getFormDefs(form):
             props.setdefault(prop,valu)
+
+        return props
+
+    def _frobTufoProps(self, form, inprops):
+
+        props = {}
+
+        for name,valu in inprops.items():
+            prop = '%s:%s' % (form,name)
+            valu = self.getPropFrob(prop,valu)
+            props[name] = valu
 
         return props
 
@@ -1927,4 +1929,13 @@ class Cortex(EventBus,DataModel):
                     break
 
         return ret
+
+    def _tufosByInetCidr(self, prop, valu, limit=None):
+
+        ipv4str, cidr = valu.split('/', 1)
+        ipv4addr = s_datamodel.getTypeParse('inet:ipv4', ipv4str)
+        mask = ( 2** ( 32 - int(cidr) ))
+        ipv4addr &= ~mask
+
+        return self.getTufosBy('range', prop, (ipv4addr, ipv4addr+mask), limit=limit)
 

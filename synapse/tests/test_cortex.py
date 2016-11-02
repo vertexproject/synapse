@@ -1,14 +1,11 @@
+
 import os
-import logging
-import binascii
 import unittest
 
 import synapse.link as s_link
 import synapse.compat as s_compat
 import synapse.common as s_common
 import synapse.cortex as s_cortex
-import synapse.daemon as s_daemon
-import synapse.telepath as s_telepath
 
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
@@ -268,6 +265,7 @@ class CortexTest(SynTest):
     def test_cortex_tufo_by_default(self):
         core = s_cortex.openurl('sqlite:///:memory:')
 
+        # BY IN
         fooa = core.formTufoByProp('foo','bar',p0=4)
         foob = core.formTufoByProp('foo','baz',p0=5)
 
@@ -280,6 +278,32 @@ class CortexTest(SynTest):
         self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
         self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5,6,7], limit=4)), 4)
         self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [], limit=1)), 0)
+
+        # BY CIDR
+        tlib = s_types.TypeLib()
+
+        ipint = tlib.getTypeParse('inet:ipv4', '192.168.0.1')
+        ipa = core.formTufoByProp('inet:ipv4', ipint)
+        ipint = tlib.getTypeParse('inet:ipv4', '192.168.255.254')
+        ipa = core.formTufoByProp('inet:ipv4', ipint)
+
+        ipint = tlib.getTypeParse('inet:ipv4', '192.167.255.254')
+        ipb = core.formTufoByProp('inet:ipv4', ipint)
+
+        ips = ['10.2.1.%d' % d for d in range(1,33)]
+        for ip in ips:
+            ipint = tlib.getTypeParse('inet:ipv4', ip)
+            ipc = core.formTufoByProp('inet:ipv4', ipint)
+
+        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.4/32')), 1)
+        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.4/31')), 2)
+        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/30')), 4)
+        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.2/30')), 4)
+        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/29')), 8)
+        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/28')), 16)
+
+        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '192.168.0.0/16')), 2)
 
     def test_cortex_tufo_by_postgres(self):
         db = os.getenv('SYN_COR_PG_DB')
@@ -394,6 +418,25 @@ class CortexTest(SynTest):
         self.assertEqual( len(blahs), 0 )
 
 
+    def test_cortex_tufo_frob(self):
+        with s_cortex.openurl('ram://') as core:
+            core.addTufoForm('inet:ipv4', ptype='inet:ipv4')
+            core.addTufoProp('inet:ipv4', 'five', ptype='inet:ipv4')
+
+            iden, props = core.formTufoByFrob('inet:ipv4', 0x01020304, five='5.5.5.5')
+            self.assertEqual(props['inet:ipv4'], 16909060)
+            self.assertEqual(props['inet:ipv4:five'], 84215045)
+
+            tufo = core.formTufoByFrob('inet:ipv4', '1.2.3.4')
+            self.assertEqual(tufo[0], iden)
+
+            tufo = core.getTufoByFrob('inet:ipv4:five', 0x05050505)
+            self.assertEqual(tufo[0], iden)
+
+            tufo = core.getTufoByFrob('inet:ipv4', '1.2.3.4')
+            self.assertEqual(tufo[0], iden)
+
+
     def test_cortex_ramhost(self):
         core0 = s_cortex.openurl('ram:///foobar')
         core1 = s_cortex.openurl('ram:///foobar')
@@ -446,7 +489,7 @@ class CortexTest(SynTest):
 
         self.assertEqual( 0, len(core.getTufosByProp('woot:bar',10)) )
         self.assertEqual( 0, len(core.getTufosByProp('woot:bar',20)) )
-        
+
         core.fini()
 
     def test_cortex_savefd(self):
@@ -534,11 +577,11 @@ class CortexTest(SynTest):
 
         hehe = core.formTufoByProp('foo','hehe')
 
-        wait = TestWaiter(core, 2, 'tufo:tag:add')
+        wait = self.getTestWait(core, 2, 'tufo:tag:add')
         core.addTufoTag(hehe,'lulz.rofl')
         wait.wait()
 
-        wait = TestWaiter(core, 1, 'tufo:tag:add')
+        wait = self.getTestWait(core, 1, 'tufo:tag:add')
         core.addTufoTag(hehe,'lulz.rofl.zebr')
         wait.wait()
 
@@ -557,11 +600,11 @@ class CortexTest(SynTest):
 
         self.assertEqual( rofl[1].get('syn:tag:depth'), 1 )
 
-        wait = TestWaiter(core, 2, 'tufo:tag:del')
+        wait = self.getTestWait(core, 2, 'tufo:tag:del')
         core.delTufoTag(hehe,'lulz.rofl')
         wait.wait()
 
-        wait = TestWaiter(core, 1, 'tufo:tag:del')
+        wait = self.getTestWait(core, 1, 'tufo:tag:del')
         core.delTufo(lulz)
         wait.wait()
         # tag and subs should be wiped
@@ -691,7 +734,7 @@ class CortexTest(SynTest):
         self.assertEqual( modl['props']['baz:faz'][1]['defval'], 22)
 
         core.fini()
-    
+
     def test_cortex_comp(self):
         core = s_cortex.openurl('ram://')
 
@@ -721,8 +764,6 @@ class CortexTest(SynTest):
         with s_cortex.openurl('ram://') as core:
 
             core.addTufoForm('foo:bar', ptype='inet:email')
-            #core.addTufoProp('foo:bar', 'fqdn', ptype='fqdn')
-            #core.addTufoProp('foo:bar', 'haha', ptype='int')
 
             core.addTufoForm('foo:baz', ptype='inet:email')
             core.addTufoProp('foo:baz', 'fqdn', ptype='inet:fqdn')
@@ -730,15 +771,11 @@ class CortexTest(SynTest):
 
             cofo = core.getTufoByProp('syn:core','self')
             self.assertIsNotNone( cofo )
-
             self.assertFalse( core.enforce )
-            self.assertFalse( cofo[1].get('syn:core:opts:enforce') )
 
-            cofo = core.setTufoProp( cofo, 'opts:enforce', 1 )
+            core.setConfOpt('enforce',True)
 
             self.assertTrue( core.enforce )
-            self.assertTrue( cofo[1].get('syn:core:opts:enforce') )
-
 
             tufo0 = core.formTufoByProp('foo:bar','foo@bar.com', hehe=10, haha=20)
             tufo1 = core.formTufoByProp('foo:baz','foo@bar.com', hehe=10, haha=20)
@@ -868,7 +905,7 @@ class CortexTest(SynTest):
             self.eq( len(core.cache_byiden), 0 )
             self.eq( len(core.cache_byprop), 0 )
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             self.eq( core.caching, 1 )
 
@@ -890,7 +927,7 @@ class CortexTest(SynTest):
             tufo0 = core.formTufoByProp('foo','bar', qwer=10)
             tufo1 = core.formTufoByProp('foo','baz', qwer=10)
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufs0 = core.getTufosByProp('foo:qwer')
             tufs1 = core.getTufosByProp('foo:qwer', valu=10)
@@ -937,7 +974,7 @@ class CortexTest(SynTest):
             tufo0 = core.formTufoByProp('foo','bar', qwer=10)
             tufo1 = core.formTufoByProp('foo','baz', qwer=10)
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufs0 = core.getTufosByProp('foo:qwer')
             tufs1 = core.getTufosByProp('foo:qwer', valu=10)
@@ -964,7 +1001,7 @@ class CortexTest(SynTest):
             tufo0 = core.formTufoByProp('foo','bar', qwer=10)
             tufo1 = core.formTufoByProp('foo','baz', qwer=10)
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufs0 = core.getTufosByProp('foo:qwer')
             tufs1 = core.getTufosByProp('foo:qwer', valu=10)
@@ -992,7 +1029,7 @@ class CortexTest(SynTest):
             tufo0 = core.formTufoByProp('foo','bar', qwer=10)
             tufo1 = core.formTufoByProp('foo','baz', qwer=10)
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufs0 = core.getTufosByProp('foo:qwer', limit=2)
             tufs1 = core.getTufosByProp('foo:qwer', valu=10, limit=2)
@@ -1013,7 +1050,7 @@ class CortexTest(SynTest):
             tufo0 = core.formTufoByProp('foo','bar', qwer=10)
             tufo1 = core.formTufoByProp('foo','baz', qwer=10)
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufs0 = core.getTufosByProp('foo:qwer', limit=2)
             tufs1 = core.getTufosByProp('foo:qwer', valu=10, limit=2)
@@ -1036,7 +1073,7 @@ class CortexTest(SynTest):
             tufo0 = core.formTufoByProp('foo','bar', qwer=10)
             tufo1 = core.formTufoByProp('foo','baz', qwer=10)
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufs0 = core.getTufosByProp('foo:qwer', limit=9)
             tufs1 = core.getTufosByProp('foo:qwer', valu=10, limit=9)
@@ -1065,7 +1102,7 @@ class CortexTest(SynTest):
 
             tufo0 = core.formTufoByProp('foo','bar')
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             ref0 = core.getTufosByProp('foo',valu='bar')[0]
             ref1 = core.getTufosByProp('foo',valu='bar')[0]
@@ -1081,7 +1118,7 @@ class CortexTest(SynTest):
 
             core.addTufoTag(tufo0,'hehe')
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufs0 = core.getTufosByTag('foo','hehe')
 
@@ -1099,10 +1136,14 @@ class CortexTest(SynTest):
 
         with s_cortex.openurl('ram://') as core:
 
-            core.setCoreOpt('caching',1)
+            core.setConfOpt('caching',1)
 
             tufo0 = core.formTufoByProp('foo','bar')
             tufo1 = core.formTufoByProp('foo','bar')
 
             self.assertTrue(tufo0[1].get('.new'))
             self.assertFalse(tufo1[1].get('.new'))
+
+    def test_cortex_reqstor(self):
+        with s_cortex.openurl('ram://') as core:
+            self.assertRaises( BadPropValu, core.formTufoByProp, 'foo:bar', True )

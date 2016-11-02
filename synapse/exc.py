@@ -11,6 +11,8 @@ class SynErr(Exception):
         displ = ' '.join(['%s=%r' % (p,v) for (p,v) in props ])
         return '%s: %s' % (self.__class__.__name__,displ)
 
+class NoSuchOpt(SynErr):pass
+class NoSuchConf(SynErr):pass
 class NoSuchForm(SynErr):pass
 class NoSuchType(SynErr):pass
 class NoSuchProp(SynErr):pass
