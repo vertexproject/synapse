@@ -9,7 +9,7 @@
 [![Build Status](https://ci.appveyor.com/api/projects/status/github/vivisect/synapse?branch=master&svg=true)](https://ci.appveyor.com/project/invisig0th/synapse/)
 
 ## Test Coverage
-[![Test Coverage](https://coveralls.io/r/vivisect/synapse)](https://coveralls.io/r/vivisect/synapse)
+[![Coverage Status](https://coveralls.io/repos/github/vivisect/synapse/badge.svg?branch=master)](https://coveralls.io/github/vivisect/synapse?branch=master)
 
 ## Documentation
 [Synapse Docs](docs/index.md)
