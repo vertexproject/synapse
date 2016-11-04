@@ -476,25 +476,28 @@ class Cortex(common.Cortex):
         with self.cursor() as c:
             c.executemany( self._q_addrows, rows )
 
-    def update(self, q, r, ret=False):
+    def update(self, q, r, ret=False, timeout=None):
         #print('UPDATE: %r %r' % (q,r))
         with self.cursor() as cur:
-            cur.execute(q,r)
+            self._execute(cur,q,r,timeout=timeout)
             if ret:
                 return cur.fetchall()
 
             return cur.rowcount
 
-    def select(self, q, r):
+    def select(self, q, r, timeout=None):
         #print('SELECT: %r %r' % (q,r))
         with self.cursor() as cur:
-            cur.execute(q,r)
+            self._execute(cur,q,r,timeout=timeout)
             return cur.fetchall()
 
-    def delete(self, q, r):
+    def delete(self, q, r, timeout=None):
         #print('DELETE: %s %r' % (q,r))
         with self.cursor() as cur:
-            cur.execute(q,r)
+            self._execute(cur,q,r,timeout=timeout)
+
+    def _execute(self, cur, q, r, timeout=None):
+        cur.execute(q,r)
 
     def _foldTypeCols(self, rows):
         ret = []
@@ -511,12 +514,12 @@ class Cortex(common.Cortex):
         rows = self.select(self._q_getrows_by_id,(ident,))
         return self._foldTypeCols(rows)
 
-    def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
-        rows = self._runPropQuery('sizebyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
+    def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None, timeout=None):
+        rows = self._runPropQuery('sizebyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime,timeout=timeout)
         return rows[0][0]
 
-    def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
-        rows = self._runPropQuery('rowsbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
+    def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None, timeout=None):
+        rows = self._runPropQuery('rowsbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime,timeout=timeout)
         return self._foldTypeCols(rows)
 
     def _tufosByIn(self, prop, valus, limit=None):
@@ -550,7 +553,7 @@ class Cortex(common.Cortex):
         rows = self._foldTypeCols(rows)
         return self._rowsToTufos(rows)
 
-    def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None, nolim=False):
+    def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, timeout=None, meth=None, nolim=False):
         limit = self._getDbLimit(limit)
 
         qkey = (s_compat.typeof(valu),s_compat.typeof(mintime),s_compat.typeof(maxtime))
@@ -569,7 +572,7 @@ class Cortex(common.Cortex):
         if meth == None:
             meth = self.select
 
-        rows = meth(qstr,qargs)
+        rows = meth(qstr,qargs,timeout=timeout)
 
         #print('QROW: %r' % (rows,))
         return rows
@@ -594,12 +597,12 @@ class Cortex(common.Cortex):
     def _delRowsById(self, ident):
         self.delete(self._q_delrows_by_id,(ident,))
 
-    def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        self._runPropQuery('deljoinbyprop',prop,valu=valu,mintime=mintime,maxtime=maxtime,meth=self.delete, nolim=True)
+    def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None):
+        self._runPropQuery('deljoinbyprop',prop,valu=valu,mintime=mintime,maxtime=maxtime,timeout=timeout,meth=self.delete, nolim=True)
 
-    def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
-        rows = self._runPropQuery('joinbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
+    def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None, limit=None):
+        rows = self._runPropQuery('joinbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime,timeout=timeout)
         return self._foldTypeCols(rows)
 
-    def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        self._runPropQuery('delrowsbyprop',prop,valu=valu,mintime=mintime,maxtime=maxtime,meth=self.delete, nolim=True)
+    def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None):
+        self._runPropQuery('delrowsbyprop',prop,valu=valu,mintime=mintime,maxtime=maxtime,timeout=timeout,meth=self.delete, nolim=True)

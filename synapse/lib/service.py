@@ -302,7 +302,11 @@ class SvcProxy:
             self.sbus._waitTeleJob(job, timeout=timeout)
             svcfo = self.byiden.get(iden)
             try:
-               yield svcfo,s_async.jobret(job)
+                yield svcfo,s_async.jobret(job)
+            except JobErr as e:
+                if e.job[1]['err'] == 'HitMaxTime':
+                    raise HitMaxTime()
+                logger.warning('callByTag (%s): %s() on %s %s', tag, dyntask[0], iden, e)
             except Exception as e:
                 logger.warning('callByTag (%s): %s() on %s %s', tag, dyntask[0], iden, e)
 

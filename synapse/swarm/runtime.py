@@ -140,8 +140,8 @@ class Query(s_eventbus.EventBus):
         return True
 
     def getTufosByPropFrom(self, prop, valu=None, limit=None, mintime=None, maxtime=None, fromtag=deftag):
-
-        dyntask = gentask('getTufosByFrob',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
+        timeout = self.maxtime - time.time() if self.maxtime else None
+        dyntask = gentask('getTufosByFrob',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime,timeout=timeout)
 
         for svcfo,retval in self.callByTag(fromtag,dyntask):
             for tufo in retval:
@@ -181,15 +181,14 @@ class Query(s_eventbus.EventBus):
         return data
         # FIXME reset any uniq stuff here!
 
-    def run(self, inst):
+    def run(self, oper):
         '''
-        Execute a swarm instruction tufo in the query context.
+        Run the given operation.
         '''
-        func = self.runt.getInstFunc(inst[0])
-        if func == None:
-            raise Exception('Unknown Instruction: %s' % inst[0])
-
-        func(self,inst)
+        try:
+            oper.run()
+        except HitMaxTime:
+            raise QueryLimitTime()
 
     def execute(self):
         '''
@@ -313,15 +312,6 @@ class Runtime(s_eventbus.EventBus):
             rules = s_userauth.Rules(self.auth,user)
             self.rules[user] = rules
         return rules
-
-    #def setInstFunc(self, name, func):
-        #'''
-        #Add an instruction to the 
-        #'''
-        #self.insts[name] = func
-
-    #def getInstFunc(self, name):
-        #return self.insts.get(name)
 
     def ask(self, text, user=None, data=(), maxtime=None):
         '''

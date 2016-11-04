@@ -64,8 +64,8 @@ class Cortex(common.Cortex):
     def _getRowsByIdProp(self, iden, prop):
         return [ row for row in self.rowsbyid.get(iden) if row[1] == prop ]
 
-    def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        for row in self.getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime):
+    def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None):
+        for row in self.getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime,timeout=timeout):
             self._delRawRow(row)
 
     def _delRawRow(self, row):
@@ -89,7 +89,7 @@ class Cortex(common.Cortex):
     def _getRowsById(self, iden):
         return list(self.rowsbyid.get(iden,()))
 
-    def _getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+    def _getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None, limit=None):
 
         if valu == None:
             rows = self.rowsbyprop.get(prop)
@@ -113,7 +113,7 @@ class Cortex(common.Cortex):
             if limit != None and c >= limit:
                 break
 
-    def _getSizeByProp(self, prop, valu=None, mintime=None, maxtime=None):
+    def _getSizeByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None):
         if valu == None:
             rows = self.rowsbyprop.get(prop)
         else:

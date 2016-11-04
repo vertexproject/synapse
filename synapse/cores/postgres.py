@@ -3,6 +3,7 @@ import time
 from . import sqlite as s_c_sqlite
 
 import synapse.datamodel as s_datamodel
+from synapse.exc import HitMaxTime
 
 istable = '''
    SELECT 1
@@ -109,4 +110,14 @@ class Cortex(s_c_sqlite.Cortex):
         self._q_getjoin_by_in_int = self._prepQuery(getjoin_by_in_int, table)
         self._q_getjoin_by_in_str = self._prepQuery(getjoin_by_in_str, table)
 
+    def _execute(self, cur, q, r, timeout=None):
+        from psycopg2.extensions import QueryCanceledError
 
+        if timeout:
+            cur.execute('set local statement_timeout = %s', [int(timeout * 1000)])
+
+        try:
+            cur.execute(q, r)
+        except QueryCanceledError:
+            cur.connection.rollback()
+            raise HitMaxTime()
