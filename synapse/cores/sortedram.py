@@ -43,46 +43,49 @@ class SortedRamCortex(synapse.cores.common.Cortex):
         self.initRowsBy('range',self._rowsByRange)
 
     def _sizeByRange(self, prop, valu, limit=None):
-        min = None
+        minrow = None
         if valu[0] != None:
             if not isint(valu[0]):
                 return 0
-            min = (None, None, valu[0], None)
+            minrow = (None, None, valu[0], None)
 
-        max = None
+        maxrow = None
         if valu[1] != None:
             if not isint(valu[1]):
                 return 0
-            max = (None, None, valu[1], None)
+            maxrow = (None, None, valu[1], None)
 
         rowsbyprop = self.irowsbyprop.get(prop)
         if not rowsbyprop:
             return 0
 
         i = 0
-        for _ in rowsbyprop.irange(minimum=min, maximum=max, inclusive=(True, min and max)):
+        # if minval and maxval are provided, then we are doing a range query,
+        #  of which minval is inclusive, and maxval is exclusive.
+        # otherwise, we only support >= and <=, both of which are inclusive.
+        for _ in rowsbyprop.irange(minimum=minrow, maximum=maxrow, inclusive=(True, not (minrow and maxrow))):
             i += 1
         return i
 
     def _rowsByRange(self, prop, valu, limit=None):
-        min = None
+        minrow = None
         if valu[0] != None:
             if not isint(valu[0]):
                 return []
-            min = (None, None, valu[0], None)
+            minrow = (None, None, valu[0], None)
 
-        max = None
+        maxrow = None
         if valu[1] != None:
             if not isint(valu[1]):
                 return []
-            max = (None, None, valu[1], None)
+            maxrow = (None, None, valu[1], None)
 
         rows = []
         rowsbyprop = self.irowsbyprop.get(prop)
         if not rowsbyprop:
             return rows
 
-        for i, row in enumerate(rowsbyprop.irange(minimum=min, maximum=max, inclusive=(True, min and max))):
+        for i, row in enumerate(rowsbyprop.irange(minimum=minrow, maximum=maxrow, inclusive=(True, not (minrow and maxrow)))):
             if limit != None and i > limit:
                 return rows
             rows.append(row)
