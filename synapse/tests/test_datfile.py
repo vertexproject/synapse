@@ -2,8 +2,8 @@ import os
 import unittest
 
 import synapse
-import synapse.datfile as s_datfile
 import synapse.mindmeld as s_mindmeld
+import synapse.lib.datfile as s_datfile
 
 syndir = os.path.dirname( synapse.__file__ )
 
