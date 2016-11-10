@@ -5,7 +5,7 @@ python:
     - "2.7"
     - "3.4"
 install:
-    - pip install msgpack-python tornado requests cryptography psycopg2 coveralls
+    - pip install msgpack-python tornado requests cryptography psycopg2 coveralls sortedcontainers
 script: nosetests --verbosity=3 -x --with-coverage --cover-package=synapse
 services: postgresql
 before_script:
