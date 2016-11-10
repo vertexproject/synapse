@@ -22,7 +22,7 @@ class CortexTest(SynTest):
         self.runrange( core )
 
     def test_cortex_sortedram(self):
-        core = s_cortex.openurl('sortedram://')
+        core = s_cortex.openurl('ram://?sorted=1')
         self.assertTrue( hasattr( core.link, '__call__' ) )
         self.runcore( core )
         self.runjson( core )

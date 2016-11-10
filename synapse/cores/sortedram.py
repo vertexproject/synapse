@@ -198,28 +198,3 @@ class SortedRamCortex(synapse.cores.common.Cortex):
         return len(rows)
 
 
-sortedramcores = {}
-
-def initSortedRamCortex(link):
-    '''
-    Initialize a sorted RAM based Cortex from a link tufo.
-
-    NOTE: the "path" element of the link tufo is used to
-          potentially return an existing cortex instance.
-
-    '''
-    path = link[1].get('path').strip('/')
-    if not path:
-        return SortedRamCortex(link)
-
-    core = sortedramcores.get(path)
-    if core == None:
-        core = SortedRamCortex(link)
-
-        sortedramcores[path] = core
-        def onfini():
-            sortedramcores.pop(path,None)
-
-        core.onfini(onfini)
-
-    return core

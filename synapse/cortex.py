@@ -45,7 +45,6 @@ corctors = {
     'ram':synapse.cores.ram.initRamCortex,
     'sqlite':synapse.cores.sqlite.Cortex,
     'postgres':synapse.cores.postgres.Cortex,
-    'sortedram':synapse.cores.sortedram.initSortedRamCortex,
 }
 
 def openurl(url, **opts):

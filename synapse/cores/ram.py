@@ -1,7 +1,10 @@
 import collections
-import synapse.cores.common as common
 
+import synapse.cores.common as common
+import synapse.datamodel as s_datamodel
+import synapse.cores.sortedram as sortedram
 from synapse.compat import isint,intern
+
 
 class Cortex(common.Cortex):
 
@@ -130,7 +133,13 @@ class Cortex(common.Cortex):
 
         return len(rows)
 
+
 ramcores = {}
+
+
+def shouldBeSorted(link):
+    return s_datamodel.getTypeParse('bool', link[1].get('query', {}).get('sorted', '0')) == 1
+
 
 def initRamCortex(link):
     '''
@@ -142,11 +151,17 @@ def initRamCortex(link):
     '''
     path = link[1].get('path').strip('/')
     if not path:
-        return Cortex(link)
+        if shouldBeSorted(link):
+            return sortedram.SortedRamCortex(link)
+        else:
+            return Cortex(link)
 
     core = ramcores.get(path)
     if core == None:
-        core = Cortex(link)
+        if shouldBeSorted(link):
+            return sortedram.SortedRamCortex(link)
+        else:
+            core = Cortex(link)
 
         ramcores[path] = core
         def onfini():
