@@ -21,6 +21,13 @@ class CortexTest(SynTest):
         self.runjson( core )
         self.runrange( core )
 
+    def test_cortex_sortedram(self):
+        core = s_cortex.openurl('sortedram://')
+        self.assertTrue( hasattr( core.link, '__call__' ) )
+        self.runcore( core )
+        self.runjson( core )
+        self.runrange( core )
+
     def test_cortex_sqlite3(self):
         core = s_cortex.openurl('sqlite:///:memory:')
         self.runcore( core )
