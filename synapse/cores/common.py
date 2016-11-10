@@ -1818,7 +1818,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         return tufo
 
-    def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None):
+    def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         '''
         Delete rows with a given prop[=valu].
 
@@ -1827,8 +1827,8 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             core.delRowsByProp('foo',valu=10)
 
         '''
-        self.savebus.fire('core:save:del:rows:by:prop', prop=prop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout)
-        return self._delRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime,timeout=timeout)
+        self.savebus.fire('core:save:del:rows:by:prop', prop=prop, valu=valu, mintime=mintime, maxtime=maxtime)
+        return self._delRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime)
 
     def _loadDelRowsByProp(self, mesg):
         prop = mesg[1].get('prop')
@@ -1837,7 +1837,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         maxt = mesg[1].get('maxtime')
         self._delRowsByProp(prop, valu=valu, mintime=mint, maxtime=maxt)
 
-    def delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None):
+    def delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
         '''
         Delete a group of rows by selecting for property and joining on iden.
 
@@ -1846,7 +1846,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             core.delJoinByProp('foo',valu=10)
 
         '''
-        return self._delJoinByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime,timeout=timeout)
+        return self._delJoinByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime)
 
     def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         for irow in self._getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime,timeout=timeout,limit=limit):
@@ -1858,8 +1858,8 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             for jrow in self._getRowsByIdProp( irow[0], prop ):
                 yield jrow
 
-    def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None):
-        rows = self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout)
+    def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
+        rows = self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
         done = set()
         for row in rows:
             iden = row[0]

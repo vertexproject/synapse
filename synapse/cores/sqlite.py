@@ -479,7 +479,7 @@ class Cortex(common.Cortex):
     def update(self, q, r, ret=False, timeout=None):
         #print('UPDATE: %r %r' % (q,r))
         with self.cursor() as cur:
-            self._execute(cur,q,r,timeout=timeout)
+            self._execute(cur,q,r)
             if ret:
                 return cur.fetchall()
 
@@ -494,7 +494,7 @@ class Cortex(common.Cortex):
     def delete(self, q, r, timeout=None):
         #print('DELETE: %s %r' % (q,r))
         with self.cursor() as cur:
-            self._execute(cur,q,r,timeout=timeout)
+            self._execute(cur,q,r)
 
     def _execute(self, cur, q, r, timeout=None):
         cur.execute(q,r)
@@ -597,12 +597,12 @@ class Cortex(common.Cortex):
     def _delRowsById(self, ident):
         self.delete(self._q_delrows_by_id,(ident,))
 
-    def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None):
-        self._runPropQuery('deljoinbyprop',prop,valu=valu,mintime=mintime,maxtime=maxtime,timeout=timeout,meth=self.delete, nolim=True)
+    def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
+        self._runPropQuery('deljoinbyprop',prop,valu=valu,mintime=mintime,maxtime=maxtime,meth=self.delete, nolim=True)
 
     def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         rows = self._runPropQuery('joinbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime,timeout=timeout)
         return self._foldTypeCols(rows)
 
-    def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None):
-        self._runPropQuery('delrowsbyprop',prop,valu=valu,mintime=mintime,maxtime=maxtime,timeout=timeout,meth=self.delete, nolim=True)
+    def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
+        self._runPropQuery('delrowsbyprop',prop,valu=valu,mintime=mintime,maxtime=maxtime,meth=self.delete, nolim=True)
