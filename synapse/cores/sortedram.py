@@ -44,13 +44,13 @@ class SortedRamCortex(synapse.cores.common.Cortex):
 
     def _sizeByRange(self, prop, valu, limit=None):
         min = None
-        if valu[0] is not None:
+        if valu[0] != None:
             if not isint(valu[0]):
                 return 0
             min = (None, None, valu[0], None)
 
         max = None
-        if valu[1] is not None:
+        if valu[1] != None:
             if not isint(valu[1]):
                 return 0
             max = (None, None, valu[1], None)
@@ -66,13 +66,13 @@ class SortedRamCortex(synapse.cores.common.Cortex):
 
     def _rowsByRange(self, prop, valu, limit=None):
         min = None
-        if valu[0] is not None:
+        if valu[0] != None:
             if not isint(valu[0]):
                 return []
             min = (None, None, valu[0], None)
 
         max = None
-        if valu[1] is not None:
+        if valu[1] != None:
             if not isint(valu[1]):
                 return []
             max = (None, None, valu[1], None)
@@ -83,7 +83,7 @@ class SortedRamCortex(synapse.cores.common.Cortex):
             return rows
 
         for i, row in enumerate(rowsbyprop.irange(minimum=min, maximum=max, inclusive=(True, min and max))):
-            if limit is not None and i > limit:
+            if limit != None and i > limit:
                 return rows
             rows.append(row)
         return rows
