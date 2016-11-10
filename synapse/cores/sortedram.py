@@ -157,8 +157,8 @@ class SortedRamCortex(synapse.cores.common.Cortex):
     def _getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
 
         if valu == None:
-            rows = set(self.irowsbyprop.get(prop, ()))
-            rows.update(self.srowsbyprop.get(prop, ()))
+            rows = list(self.irowsbyprop.get(prop, ()))
+            rows.extend(self.srowsbyprop.get(prop, ()))
         else:
             rows = self.rowsbyvalu.get( (prop,valu) )
 
@@ -181,8 +181,8 @@ class SortedRamCortex(synapse.cores.common.Cortex):
 
     def _getSizeByProp(self, prop, valu=None, mintime=None, maxtime=None):
         if valu == None:
-            rows = set(self.irowsbyprop.get(prop, ()))
-            rows.update(self.srowsbyprop.get(prop, ()))
+            rows = list(self.irowsbyprop.get(prop, ()))
+            rows.extend(self.srowsbyprop.get(prop, ()))
         else:
             rows = self.rowsbyvalu.get( (prop,valu) )
 
