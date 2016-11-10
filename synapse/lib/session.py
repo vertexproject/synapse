@@ -29,6 +29,8 @@ class Sess(EventBus):
         self.cura = cura
         self.props = props
 
+        self.on('sess:log', self.cura.dist )
+
     def get(self, prop):
         '''
         Retrieve a session property by name.
@@ -42,6 +44,14 @@ class Sess(EventBus):
         self.props[prop] = valu
         if save:
             self.cura._saveSessProp(self.iden,prop,valu)
+
+    def log(self, level, mesg, **info):
+        info['mesg'] = mesg
+        info['level'] = level
+
+        info['iden'] = self.iden
+
+        self.fire('sess:log', **info)
 
     def __enter__(self):
         sesslocal.sess = self
@@ -82,12 +92,6 @@ class Curator(EventBus):
 
         sess.fini()
 
-        #if self.core == None:
-            #return
-
-        #sefo = self.core.formTufoByProp('syn:sess',iden)
-        #self.core.setTufoProps(sefo,**sess.props)
-
     def __iter__(self):
         return self.cache.values()
 
@@ -121,7 +125,7 @@ class Curator(EventBus):
 
     def _getSessByIden(self, iden):
 
-        # construct a persisted sesssion if we have a cortex
+        # If we have no cortex, we have no session storage
         if self.core == None:
             return None
 
