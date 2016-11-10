@@ -1912,4 +1912,3 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
     def _calcStatAll(self, rows):
         return all([ r[2] for r in rows ])
-
