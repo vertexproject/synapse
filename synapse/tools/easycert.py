@@ -87,7 +87,7 @@ def main(argv):
         signcert = crypto.load_certificate(crypto.FILETYPE_PEM, byts)
 
     cert.set_issuer( signcert.get_subject() )
-    cert.sign( signpkey, 'sha1' )
+    cert.sign( signpkey, 'sha256' )
 
     byts = crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey)
 
