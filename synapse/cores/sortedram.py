@@ -62,7 +62,7 @@ class SortedRamCortex(synapse.cores.common.Cortex):
         # if minval and maxval are provided, then we are doing a range query,
         #  of which minval is inclusive, and maxval is exclusive.
         # otherwise, we only support >= and <=, both of which are inclusive.
-        return sum(1 for _ rowsbyprop.irange(minimum=minrow, maximum=maxrow, inclusive=(True, not (minrow and maxrow))))
+        return sum(1 for _ in rowsbyprop.irange(minimum=minrow, maximum=maxrow, inclusive=(True, not (minrow and maxrow))))
 
     def _rowsByRange(self, prop, valu, limit=None):
         minrow = None
