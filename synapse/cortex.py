@@ -24,7 +24,6 @@ import synapse.lib.sched as s_sched
 import synapse.cores.ram
 import synapse.cores.sqlite
 import synapse.cores.postgres
-import synapse.cores.sortedram
 
 from synapse.common import *
 from synapse.eventbus import EventBus
