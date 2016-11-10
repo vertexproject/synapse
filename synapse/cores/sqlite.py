@@ -553,7 +553,7 @@ class Cortex(common.Cortex):
         rows = self._foldTypeCols(rows)
         return self._rowsToTufos(rows)
 
-    def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, timeout=None, meth=None, nolim=False):
+    def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None, nolim=False, timeout=None):
         limit = self._getDbLimit(limit)
 
         qkey = (s_compat.typeof(valu),s_compat.typeof(mintime),s_compat.typeof(maxtime))
@@ -600,7 +600,7 @@ class Cortex(common.Cortex):
     def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None):
         self._runPropQuery('deljoinbyprop',prop,valu=valu,mintime=mintime,maxtime=maxtime,timeout=timeout,meth=self.delete, nolim=True)
 
-    def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None, limit=None):
+    def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         rows = self._runPropQuery('joinbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime,timeout=timeout)
         return self._foldTypeCols(rows)
 

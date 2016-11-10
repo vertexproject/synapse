@@ -89,7 +89,7 @@ class Cortex(common.Cortex):
     def _getRowsById(self, iden):
         return list(self.rowsbyid.get(iden,()))
 
-    def _getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None, limit=None):
+    def _getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
 
         if valu == None:
             rows = self.rowsbyprop.get(prop)

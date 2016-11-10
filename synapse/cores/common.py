@@ -900,7 +900,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         self.savebus.fire('core:save:set:rows:by:idprop', iden=iden, prop=prop, valu=valu)
         self._setRowsByIdProp(iden, prop, valu)
 
-    def getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None, limit=None):
+    def getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Return a tuple of (iden,prop,valu,time) rows by prop[=valu].
 
@@ -918,7 +918,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         '''
         return tuple(self._getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout, limit=limit))
 
-    def getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None, limit=None):
+    def getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Similar to getRowsByProp but also lifts all other rows for iden.
 
@@ -933,7 +933,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         '''
         return tuple(self._getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout, limit=limit))
 
-    def getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, timeout=None, limit=None):
+    def getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Similar to getRowsByProp but pivots through "iden" to a different property.
         This can be a light way to return a single property from a tufo rather than lifting the whole.
@@ -1138,7 +1138,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         [ res[i].__setitem__(p,v) for (i,p,v,t) in rows ]
         return list(res.items())
 
-    def getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None, limit=None):
+    def getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Return a list of tufos by property.
 
@@ -1153,11 +1153,11 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         return self._getTufosByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout, limit=limit)
 
-    def _getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None, limit=None):
+    def _getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         rows = self.getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout, limit=limit)
         return self._rowsToTufos(rows)
 
-    def getTufosByFrob(self, prop, valu=None, mintime=None, maxtime=None, timeout=None, limit=None):
+    def getTufosByFrob(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Return a list of tufos by property and frob value if present.
 
@@ -1172,7 +1172,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         return self.getTufosByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout, limit=limit)
 
-    def getTufosByPropType(self, name, valu=None, mintime=None, maxtime=None, timeout=None, limit=None):
+    def getTufosByPropType(self, name, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Return tufos by interrogating the data model to find fields of the given type.
 
@@ -1327,7 +1327,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         '''
         return self.addJsonItems(form, (item,), tstamp=tstamp)
 
-    def getStatByProp(self, stat, prop, valu=None, mintime=None, maxtime=None, timeout=None, limit=None):
+    def getStatByProp(self, stat, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Calculate and return a statistic for the specified rows.
         ( See getRowsByProp docs for most args )
@@ -1402,7 +1402,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
             self.addRows(rows)
 
-    def getJsonItems(self, prop, valu=None, mintime=None, maxtime=None, timeout=None, limit=None):
+    def getJsonItems(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Return a list of (iden,item) tuples (similar to tufos, but with hierarchical structure )
 
@@ -1848,12 +1848,12 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         '''
         return self._delJoinByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime,timeout=timeout)
 
-    def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None, limit=None):
+    def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         for irow in self._getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime,timeout=timeout,limit=limit):
             for jrow in self._getRowsById(irow[0]):
                 yield jrow
 
-    def _getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, timeout=None, limit=None):
+    def _getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         for irow in self._getRowsByProp(byprop,valu=valu,mintime=mintime,maxtime=maxtime,timeout=timeout,limit=limit):
             for jrow in self._getRowsByIdProp( irow[0], prop ):
                 yield jrow
