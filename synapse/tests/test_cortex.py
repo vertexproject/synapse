@@ -6,6 +6,7 @@ import synapse.link as s_link
 import synapse.compat as s_compat
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.cores.ram as s_ram
 
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
@@ -23,6 +24,7 @@ class CortexTest(SynTest):
 
     def test_cortex_sortedram(self):
         core = s_cortex.openurl('ram://?sorted=1')
+        self.assertTrue(isinstance(core, s_ram.SortedCortex))
         self.assertTrue( hasattr( core.link, '__call__' ) )
         self.runcore( core )
         self.runjson( core )

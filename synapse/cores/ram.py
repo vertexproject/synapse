@@ -1,5 +1,7 @@
 import collections
 
+import sortedcontainers
+
 import synapse.cores.common as common
 import synapse.datamodel as s_datamodel
 from synapse.compat import isint,intern
@@ -326,7 +328,7 @@ ramcores = {}
 
 
 def shouldBeSorted(link):
-    return s_datamodel.getTypeParse('bool', link[1].get('query', {}).get('sorted', '0')) == 1
+    return s_datamodel.getTypeParse('bool', link[1].get('sorted', '0')) == 1
 
 
 def initRamCortex(link):
