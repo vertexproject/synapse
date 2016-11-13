@@ -54,11 +54,11 @@ def parse_int(text,off,trim=True):
     try:
         return int(numstr,0),off
     except Exception as e:
-        raise synapse.exc.SyntaxError('Expected Literal At: %d (got: %s)' % (off,text[off:off+10],))
+        raise synapse.exc.SyntaxError(expected='Literal', at=off, got=text[off:off+10])
 
 def parse_list(text,off,trim=True):
     if text[off] != '(':
-        raise synapse.exc.SyntaxError('Expected List At: %d' % (off,))
+        raise synapse.exc.SyntaxError(expected='List', at=off)
 
     off += 1
     valus = []
@@ -72,14 +72,14 @@ def parse_list(text,off,trim=True):
             return valus, off + 1
 
         if text[off] != ',':
-            raise synapse.exc.SyntaxError('Invalid List Syntax At: %d' % (off,))
+            raise synapse.exc.SyntaxError(invalid='List Syntax', at=off)
 
         off += 1
 
 def parse_string(text,off,trim=True):
 
     if text[off] != '"':
-        raise synapse.exc.SyntaxError('Expected String Literal: %d' % (off,))
+        raise synapse.exc.SyntaxError(expected='String Literal', at=off)
 
     if trim:
         _,off = nom(text,off,whites)
@@ -205,7 +205,7 @@ def parse_ques(text,off=0,trim=True):
     name,off = nom(text,off,varset,trim=True)
 
     if not name:
-        raise SyntaxError(text=text,off=off,mesg='expected name')
+        raise SyntaxError(text=text, off=off, mesg='expected name')
 
     ques['cmp'] = 'has'
     ques['prop'] = name
@@ -311,7 +311,7 @@ def parse_oper(text, off=0):
     _,off = nom(text,off,whites)
 
     if text[off] != '(':
-        raise synapse.exc.SyntaxError('Expected ( for operator %s (at: %d)' % (name,off))
+        raise synapse.exc.SyntaxError(expected='( for operator ' + name, at=off)
 
     off += 1
     _,off = nom(text,off,whites)
@@ -335,12 +335,12 @@ def parse_oper(text, off=0):
     while True:
         kwname,off = nom(text,off,varset)
         if not kwname:
-            raise synapse.exc.SyntaxError('Expected kwarg (at: %d)' % (off,))
+            raise synapse.exc.SyntaxError(expected='kwarg', at=off)
 
         _,off = nom(text,off,whites)
 
         if text[off] != '=':
-            raise synapse.exc.SyntaxError('kwarg w/o = (at: %d)' % (off,))
+            raise synapse.exc.SyntaxError(mesg='kwarg w/o =', at=off)
 
         off += 1
 
@@ -350,7 +350,7 @@ def parse_oper(text, off=0):
         inst[1]['kwlist'].append( (kwname,kwvalu) )
 
         if text[off] not in (',',')'):
-            raise syanpse.exc.SyntaxError('Unexpected Token: %s (at: %d)' % (text[off],off))
+            raise syanpse.exc.SyntaxError(mesg='Unexpected Token: ' + text[off], at=off)
 
         if text[off] == ')':
             off += 1
@@ -398,13 +398,13 @@ def parse(text, off=0):
         if text[off] == '&':
 
             if len(ret) == 0:
-                raise synapse.exc.SyntaxError('logical and with no previous operator')
+                raise synapse.exc.SyntaxError(mesg='logical and with no previous operator')
 
             prev = ret[-1]
             mode = prev[1].get('mode')
 
             if mode not in ('cant','must'):
-                raise synapse.exc.SyntaxError('logical and previous mode: %s (must be must/cant)' % (mode,))
+                raise synapse.exc.SyntaxError(mesg='logical and previous mode: %s (must be must/cant)' % (mode,))
 
             inst,off = parse_macro(text,off+1,mode=mode)
 
@@ -419,13 +419,13 @@ def parse(text, off=0):
         if text[off] == '|':
 
             if len(ret) == 0:
-                raise synapse.exc.SyntaxError('logical or with no previous operator')
+                raise synapse.exc.SyntaxError(mesg='logical or with no previous operator')
 
             prev = ret[-1]
             mode = prev[1].get('mode')
 
             if mode not in ('cant','must'):
-                raise synapse.exc.SyntaxError('logical or previous mode: %s (must be must/cant)' % (mode,))
+                raise synapse.exc.SyntaxError(mesg='logical or previous mode: %s (must be must/cant)' % (mode,))
 
             inst,off = parse_macro(text,off+1,mode=mode)
 
