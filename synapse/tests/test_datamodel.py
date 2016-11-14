@@ -180,7 +180,6 @@ class DataModelTest(SynTest):
         self.assertEqual( ret.get('size'), 10 )
         self.assertEqual( ret.get('flag'), 'asdf')
 
-
     def test_datamodel_inet(self):
         model = s_datamodel.DataModel()
         model.addDefaultTypes()
