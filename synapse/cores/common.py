@@ -1968,12 +1968,18 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         defval = info.get('defval')
         ptype = info.get('ptype')
 
-        del info['form']
-        self.formTufoByFrob('syn:prop', prop, **info)
+        # `form` is the name of a paramter to `formTufoByFrob`,
+        #   so we have to set it separately
+        form = info.pop('form')
+        tufo = self.formTufoByFrob('syn:prop', prop, **info)
+        self.setTufoProp(tufo, 'form', form)
 
     # overrides: synapse.datamodel.DataModel.addPropGlob
     def addPropGlob(self, glob, **info):
         DataModel.addPropGlob(self, glob, **info)
 
-        del info['form']
-        self.formTufoByFrob('syn:prop:glob', glob, **info)
+        # `form` is the name of a paramter to `formTufoByFrob`,
+        #   so we have to set it separately
+        form = info.pop('form')
+        tufo = self.formTufoByFrob('syn:prop:glob', glob, **info)
+        self.setTufoProp(tufo, 'form', form)
