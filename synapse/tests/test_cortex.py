@@ -1167,3 +1167,11 @@ class CortexTest(SynTest):
             self.assertEqual( intmintype[1].get('syn:type:base'), 'int' )
             self.assertEqual( intmintype[1].get('syn:type:ismin'), 1 )
 
+            fields = (('fqdn','inet:fqdn'),('ipv4','inet:ipv4'),('time','time:epoch'))
+            core.addSubType('dns:a','comp',fields=fields)
+            dnstype = core.getTufoByProp('syn:type', 'dns:a')
+            self.assertEqual( dnstype[1].get('syn:type:fields'), 3 )
+            self.assertEqual( dnstype[1].get('syn:type:field:0:fqdn'), 'inet:fqdn' )
+            self.assertEqual( dnstype[1].get('syn:type:field:1:ipv4'), 'inet:ipv4' )
+            self.assertEqual( dnstype[1].get('syn:type:field:2:time'), 'time:epoch' )
+
