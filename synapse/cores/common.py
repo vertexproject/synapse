@@ -1938,6 +1938,13 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         subinfo['base'] = subof
 
+        if 'fields' in subinfo:
+            fields = subinfo.pop('fields')
+            subinfo['fields'] = len(fields)
+            for i, (fieldname, fieldtype) in enumerate(fields):
+                k = 'field:%d:%s' % (i, fieldname)
+                subinfo[k] = fieldtype
+
         # TypeLib.addSubType calls TypeLib.addType, so our subtype tufo already exists,
         #  but we still need to add the subtype-specific fields
         sub = self.getTufoByProp('syn:type', name)
