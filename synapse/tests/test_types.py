@@ -8,6 +8,7 @@ class DataTypesTest(SynTest):
     def test_datatype_basics(self):
 
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
         self.assertTrue( isinstance(tlib.getDataType('inet:url'), s_types.DataType) )
 
         self.assertIsNone( tlib.getDataType('newp') )
@@ -15,6 +16,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_inet_url(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         self.assertRaises( BadTypeValu, tlib.getTypeNorm, 'inet:url', 'newp' )
         self.eq( tlib.getTypeNorm('inet:url','http://WoOt.com/HeHe'), 'http://woot.com/HeHe' )
@@ -34,6 +36,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_inet_ipv4(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         self.eq( tlib.getTypeNorm('inet:ipv4',0x01020304), 0x01020304 )
 
@@ -46,6 +49,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_inet_tcp4(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         self.eq( tlib.getTypeNorm('inet:tcp4',0x010203040002), 0x010203040002 )
 
@@ -59,6 +63,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_inet_udp4(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         self.eq( tlib.getTypeNorm('inet:udp4',0x010203040002), 0x010203040002 )
 
@@ -72,6 +77,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_inet_port(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'inet:port', '70000' )
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:port', 0xffffffff )
@@ -80,6 +86,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_inet_mac(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'inet:mac', 'newp' )
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:mac', 'newp' )
@@ -91,6 +98,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_inet_email(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'inet:email', 'newp' )
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:email', 'newp' )
@@ -103,6 +111,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_guid(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'guid', 'newp' )
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'guid', 'newp' )
@@ -115,6 +124,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_guid_sub(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         tlib.addSubType('woot','guid')
 
@@ -128,6 +138,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_hash_md5(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'hash:md5', 'newp' )
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'hash:md5', 'newp' )
@@ -139,6 +150,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_inet_ipv6(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'inet:ipv6', 'newp' )
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:srv6', 'newp' )
@@ -163,6 +175,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_str(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'str', 10 )
 
@@ -172,6 +185,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_str_enums(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         tlib.addSubType('woot','str',enums='hehe,haha,hoho', lower=1)
 
@@ -184,11 +198,14 @@ class DataTypesTest(SynTest):
 
     def test_datatype_dup(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
+
         self.assertRaises(DupTypeName, tlib.addSubType, 'inet:port', 'int' )
 
     def test_datatype_syn_tag(self):
-
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
+
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'syn:tag', 'asdf qwer' )
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'syn:tag', 'foo..bar' )
 
@@ -199,6 +216,8 @@ class DataTypesTest(SynTest):
 
     def test_datatype_syn_prop(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
+
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'syn:prop', 'asdf qwer' )
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'syn:prop', 'foo::bar' )
 
@@ -210,6 +229,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_bool(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'bool', 'bogus' )
 
@@ -239,8 +259,9 @@ class DataTypesTest(SynTest):
         self.assertFalse( tlib.getTypeFrob('bool','FaLsE') )
 
     def test_type_comp(self):
-
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
+
         tlib.addSubType('inet:dns:a','comp',fields='fqdn,inet:fqdn|ipv4,inet:ipv4|time,time:epoch')
 
         jstext = '["wOOt.com","1.2.3.4","20160204080030"]'
@@ -284,6 +305,7 @@ class DataTypesTest(SynTest):
 
     def test_type_comp_chop(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         tlib.addSubType('fake:newp','comp',fields='fqdn,inet:fqdn|email,inet:email')
 
@@ -295,6 +317,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_int_minmax(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         tlib.addSubType('woot:min','int',ismin=1)
         tlib.addSubType('woot:max','int',ismax=1)
@@ -307,6 +330,8 @@ class DataTypesTest(SynTest):
 
     def test_datatype_fqdn(self):
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
+
         self.eq( tlib.getTypeNorm('inet:fqdn','WOOT.COM'), 'woot.com')
         self.eq( tlib.getTypeNorm('inet:fqdn','WO-OT.COM'), 'wo-ot.com')
         self.eq( tlib.getTypeFrob('inet:fqdn','WOOT.COM'), 'woot.com')

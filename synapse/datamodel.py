@@ -23,6 +23,7 @@ def propdef(name, **info):
     return (name,info)
 
 tlib = s_types.TypeLib()
+tlib.addDefaultTypes()
 def getTypeRepr(name, valu):
     '''
     '''

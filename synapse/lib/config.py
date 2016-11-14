@@ -52,7 +52,7 @@ class ConfigMixin:
             self._conf_defs[name] = (name,dict(info))
 
     def reqConfOk(self, opts):
-        ''' 
+        '''
         Check that that config values pass validation or raise.
         '''
         for name,valu in opts.items():

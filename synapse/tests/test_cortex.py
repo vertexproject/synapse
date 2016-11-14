@@ -287,6 +287,7 @@ class CortexTest(SynTest):
 
         # BY CIDR
         tlib = s_types.TypeLib()
+        tlib.addDefaultTypes()
 
         ipint = tlib.getTypeParse('inet:ipv4', '192.168.0.1')
         ipa = core.formTufoByProp('inet:ipv4', ipint)
