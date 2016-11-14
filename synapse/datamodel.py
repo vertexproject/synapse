@@ -128,6 +128,7 @@ class DataModel(s_types.TypeLib):
         self.addTufoProp('syn:prop','doc',ptype='str')
         self.addTufoProp('syn:prop','form',ptype='syn:prop')
         self.addTufoProp('syn:prop','ptype',ptype='syn:type')
+        self.addTufoProp('syn:prop','req',ptype='bool')
 
         self.addTufoForm('syn:prop:glob',ptype='syn:prop:glob')
         self.addTufoProp('syn:prop:glob','doc',ptype='str')
