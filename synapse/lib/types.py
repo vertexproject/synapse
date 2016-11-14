@@ -561,10 +561,6 @@ class TypeLib:
         self.addSubType('int:min','int', ismin=1)
         self.addSubType('int:max','int', ismax=1)
 
-        self.addSubType('syn:tag','str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
-        self.addSubType('syn:prop','str', regex=r'^([\w]+:)*[\w]+$', lower=1)
-        self.addSubType('syn:type','str', regex=r'^([\w]+:)*[\w]+$', lower=1)
-
         self.addSubType('text', 'str')
 
         self.addSubType('str:lwr', 'str', lower=1)

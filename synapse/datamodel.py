@@ -109,6 +109,48 @@ class DataModel(s_types.TypeLib):
             'forms':[],
         }
 
+    def bootstrapForms(self):
+        '''
+        Initialize the DataModel with the forms that describe itself.
+        '''
+
+        self.addSubType('syn:tag','str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
+        self.addSubType('syn:prop','str', regex=r'^([\w]+:)*[\w]+$', lower=1)
+        self.addSubType('syn:prop:glob','str', regex=r'^([\w]+:)*[\w]+:\*$', lower=1)
+        self.addSubType('syn:type','str', regex=r'^([\w]+:)*[\w]+$', lower=1)
+
+        self.addTufoForm('syn:form',ptype='syn:prop')
+        self.addTufoProp('syn:form','doc',ptype='str', doc='basic form definition')
+        self.addTufoProp('syn:form','ver',ptype='int', doc='form version within the model')
+        self.addTufoProp('syn:form','model',ptype='str', doc='which model defines a given form')
+
+        self.addTufoForm('syn:prop',ptype='syn:prop')
+        self.addTufoProp('syn:prop','doc',ptype='str')
+        self.addTufoProp('syn:prop','form',ptype='syn:prop')
+        self.addTufoProp('syn:prop','ptype',ptype='syn:type')
+
+        self.addTufoForm('syn:prop:glob',ptype='syn:prop:glob')
+        self.addTufoProp('syn:prop:glob','doc',ptype='str')
+        self.addTufoProp('syn:prop:glob','form',ptype='syn:prop')
+        self.addTufoProp('syn:prop:glob','ptype',ptype='syn:type')
+
+        self.addTufoForm('syn:tag', ptype='syn:tag')
+        self.addTufoProp('syn:tag','up',ptype='syn:tag')
+        self.addTufoProp('syn:tag','doc',defval='',ptype='str')
+        self.addTufoProp('syn:tag','depth',defval=0,ptype='int')
+        self.addTufoProp('syn:tag','title',defval='',ptype='str')
+
+        self.addTufoForm('syn:model',ptype='syn:prop', doc='prefix for all forms within the model')
+        self.addTufoForm('syn:model:version', ptype='int', doc='model version for the model loaded in the cortex')
+
+        self.addTufoForm('syn:type',ptype='syn:type')
+        self.addTufoProp('syn:type','doc',ptype='str', defval='??', doc='Description for this type')
+        self.addTufoProp('syn:type','ver',ptype='int', defval=1, doc='What version is this type')
+        self.addTufoProp('syn:type','base',ptype='str', doc='what type does this type extend?', req=1)
+        self.addTufoProp('syn:type','fields',ptype='int',doc='number of fields for composite type')
+        self.addTufoGlob('syn:type','field:*',ptype='str',doc='field in composite type')
+        self.addTufoGlob('syn:type','info:*')
+
     def getModelDict(self):
         '''
         Returns a dictionary which represents the data model.
