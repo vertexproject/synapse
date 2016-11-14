@@ -113,7 +113,6 @@ class DataModel(s_types.TypeLib):
         '''
         Initialize the DataModel with the forms that describe itself.
         '''
-
         self.addSubType('syn:tag','str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
         self.addSubType('syn:prop','str', regex=r'^([\w]+:)*[\w]+$', lower=1)
         self.addSubType('syn:prop:glob','str', regex=r'^([\w]+:)*[\w]+:\*$', lower=1)
