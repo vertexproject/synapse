@@ -1919,12 +1919,12 @@ class Cortex(EventBus,DataModel,ConfigMixin):
     # overrides: synapse.lib.types.TypeLib.addType
     def addType(self, typ):
         s_types.TypeLib.addType(self, typ)
-        self.formTufoByProp('syn:type', typ.name)
+        self.formTufoByFrob('syn:type', typ.name)
 
     # overrides: synapse.lib.types.TypeLib.addSubType
     def addSubType(self, name, subof, **info):
         s_types.TypeLib.addSubType(self, name, subof, **info)
-        base = self.getTufoByProp('syn:type', subof)
+        base = self.getTufoByFrob('syn:type', subof)
 
         subinfo = {}
         for propname, propval in base[1].items():
@@ -1941,5 +1941,6 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         # TypeLib.addSubType calls TypeLib.addType, so our subtype tufo already exists,
         #  but we still need to add the subtype-specific fields
         sub = self.getTufoByProp('syn:type', name)
+        subinfo = self._frobTufoProps('syn:type', subinfo)
         self.setTufoProps(sub, **subinfo)
 
