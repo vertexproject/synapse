@@ -13,6 +13,7 @@ import synapse.reactor as s_reactor
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.tags as s_tags
+import synapse.lib.types as s_types
 import synapse.lib.cache as s_cache
 import synapse.lib.threads as s_threads
 
@@ -1939,4 +1940,35 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         ipv4addr &= ~mask
 
         return self.getTufosBy('range', prop, (ipv4addr, ipv4addr+mask), limit=limit)
+
+    #############################################################
+    # support typelib persistence
+    #############################################################
+
+    # overrides: synapse.lib.types.TypeLib.addType
+    def addType(self, typ):
+        s_types.TypeLib.addType(self, typ)
+        self.formTufoByProp('syn:type', typ.name)
+
+    # overrides: synapse.lib.types.TypeLib.addSubType
+    def addSubType(self, name, subof, **info):
+        s_types.TypeLib.addSubType(self, name, subof, **info)
+        base = self.getTufoByProp('syn:type', subof)
+
+        subinfo = {}
+        for propname, propval in base[1].items():
+            if not propname.startswith('syn:type:'):
+                continue
+            propname = propname.partition('syn:type')[2]
+            subinfo[propname] = propval
+
+        for propname, propval in info.items():
+            subinfo[propname] = propval
+
+        subinfo['base'] = subof
+
+        # TypeLib.addSubType calls TypeLib.addType, so our subtype tufo already exists,
+        #  but we still need to add the subtype-specific fields
+        sub = self.getTufoByProp('syn:type', name)
+        self.setTufoProps(sub, **subinfo)
 

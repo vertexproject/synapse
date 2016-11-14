@@ -1148,3 +1148,17 @@ class CortexTest(SynTest):
     def test_cortex_reqstor(self):
         with s_cortex.openurl('ram://') as core:
             self.assertRaises( BadPropValu, core.formTufoByProp, 'foo:bar', True )
+
+    def test_cortex_tlib_persistence(self):
+        with s_cortex.openurl('ram://') as core:
+            inttype = core.getTufoByProp('syn:type', 'int')
+            self.assertIsNotNone( inttype )
+
+            strtype = core.getTufoByProp('syn:type', 'str')
+            self.assertIsNotNone( strtype )
+
+            intmintype = core.getTufoByProp('syn:type', 'int:min')
+            self.assertIsNotNone( intmintype )
+            self.assertEqual( intmintype[1].get('syn:type:base'), 'int' )
+            self.assertEqual( intmintype[1].get('syn:type:ismin'), 1 )
+
