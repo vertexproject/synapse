@@ -1951,3 +1951,29 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         subinfo = self._frobTufoProps('syn:type', subinfo)
         self.setTufoProps(sub, **subinfo)
 
+    #############################################################
+    # support datamodel persistence
+    #############################################################
+
+    # overrides: synapse.datamodel.DataModel.addTufoForm
+    def addTufoForm(self, form, **info):
+        DataModel.addTufoForm(self, form, **info)
+        self.formTufoByFrob('syn:form', form, **info)
+
+    # overrides: synapse.datamodel.DataModel.addPropDef
+    def addPropDef(self, prop, **info):
+        DataModel.addPropDef(self, prop, **info)
+
+        form = info.get('form')
+        defval = info.get('defval')
+        ptype = info.get('ptype')
+
+        del info['form']
+        self.formTufoByFrob('syn:prop', prop, **info)
+
+    # overrides: synapse.datamodel.DataModel.addPropGlob
+    def addPropGlob(self, glob, **info):
+        DataModel.addPropGlob(self, glob, **info)
+
+        del info['form']
+        self.formTufoByFrob('syn:prop:glob', glob, **info)
