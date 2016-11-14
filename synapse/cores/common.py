@@ -125,6 +125,8 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         self._initCortex()
 
+        self.addDefaultTypes()
+
         # FIXME unicode / "word" characters
         #self.addSubType('syn:tag','str', regex='^[a-z0-9._]+$', lower=1)
         #self.addSubType('syn:prop','str', regex='^[a-z0-9:_]+$', lower=1)
