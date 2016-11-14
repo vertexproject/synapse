@@ -20,6 +20,7 @@ insertion, and provide for atomic deconfliction if needed.
 import synapse.link as s_link
 import synapse.async as s_async
 import synapse.lib.sched as s_sched
+import synapse.datamodel as s_datamodel
 
 import synapse.cores.ram
 import synapse.cores.sqlite
@@ -45,6 +46,11 @@ corctors = {
     'sqlite':synapse.cores.sqlite.Cortex,
     'postgres':synapse.cores.postgres.Cortex,
 }
+
+
+def shouldLoadModels(link):
+    return s_datamodel.getTypeParse('bool', link[1].get('nomodels', '0')) == 0
+
 
 def openurl(url, **opts):
     '''
@@ -89,6 +95,9 @@ def openlink(link):
     if savefile != None:
         savefd = genfile(savefile)
         core.setSaveFd(savefd,fini=True)
+
+    if shouldLoadModels(link):
+        core.loadModels()
 
     return core
 
