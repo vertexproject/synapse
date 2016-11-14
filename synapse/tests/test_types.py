@@ -202,31 +202,6 @@ class DataTypesTest(SynTest):
 
         self.assertRaises(DupTypeName, tlib.addSubType, 'inet:port', 'int' )
 
-    def test_datatype_syn_tag(self):
-        tlib = s_types.TypeLib()
-        tlib.addDefaultTypes()
-
-        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'syn:tag', 'asdf qwer' )
-        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'syn:tag', 'foo..bar' )
-
-        self.eq( tlib.getTypeNorm('syn:tag','BAR'), 'bar' )
-        self.eq( tlib.getTypeParse('syn:tag','BAR'), 'bar' )
-        self.eq( tlib.getTypeNorm('syn:tag','foo.BAR'), 'foo.bar' )
-        self.eq( tlib.getTypeParse('syn:tag','foo.BAR'), 'foo.bar' )
-
-    def test_datatype_syn_prop(self):
-        tlib = s_types.TypeLib()
-        tlib.addDefaultTypes()
-
-        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'syn:prop', 'asdf qwer' )
-        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'syn:prop', 'foo::bar' )
-
-        self.eq( tlib.getTypeFrob('syn:prop','BAR'), 'bar' )
-        self.eq( tlib.getTypeNorm('syn:prop','BAR'), 'bar' )
-        self.eq( tlib.getTypeParse('syn:prop','BAR'), 'bar' )
-        self.eq( tlib.getTypeNorm('syn:prop','foo:BAR'), 'foo:bar' )
-        self.eq( tlib.getTypeParse('syn:prop','foo:BAR'), 'foo:bar' )
-
     def test_datatype_bool(self):
         tlib = s_types.TypeLib()
         tlib.addDefaultTypes()

@@ -233,3 +233,32 @@ class DataModelTest(SynTest):
 
         model.addTufoForm('foo:bar')
         self.assertRaises( s_datamodel.BadPropName, model.addTufoProp, 'foo:bar', 'b*z' )
+
+    def test_datatype_syn_prop(self):
+        model = s_datamodel.DataModel()
+        model.addDefaultTypes()
+        model.bootstrapForms()
+
+        self.assertRaises(BadTypeValu, model.getTypeNorm, 'syn:prop', 'asdf qwer' )
+        self.assertRaises(BadTypeValu, model.getTypeNorm, 'syn:prop', 'foo::bar' )
+
+        self.eq( model.getTypeFrob('syn:prop','BAR'), 'bar' )
+        self.eq( model.getTypeNorm('syn:prop','BAR'), 'bar' )
+        self.eq( model.getTypeParse('syn:prop','BAR'), 'bar' )
+        self.eq( model.getTypeNorm('syn:prop','foo:BAR'), 'foo:bar' )
+        self.eq( model.getTypeParse('syn:prop','foo:BAR'), 'foo:bar' )
+
+    def test_datatype_syn_tag(self):
+        model = s_datamodel.DataModel()
+        model.addDefaultTypes()
+        model.bootstrapForms()
+
+        self.assertRaises(BadTypeValu, model.getTypeNorm, 'syn:tag', 'asdf qwer' )
+        self.assertRaises(BadTypeValu, model.getTypeNorm, 'syn:tag', 'foo..bar' )
+
+        self.eq( model.getTypeNorm('syn:tag','BAR'), 'bar' )
+        self.eq( model.getTypeParse('syn:tag','BAR'), 'bar' )
+        self.eq( model.getTypeNorm('syn:tag','foo.BAR'), 'foo.bar' )
+        self.eq( model.getTypeParse('syn:tag','foo.BAR'), 'foo.bar' )
+
+
