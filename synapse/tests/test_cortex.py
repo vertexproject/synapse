@@ -1,4 +1,3 @@
-
 import os
 import unittest
 
@@ -6,11 +5,49 @@ import synapse.link as s_link
 import synapse.compat as s_compat
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.cores.common as s_core_common
 
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
 
 from synapse.tests.common import *
+
+
+logger = logging.getLogger(__name__)
+
+
+#############################################################
+# cortex model provider
+#############################################################
+
+VERSION = 1
+THIS_MODULE = sys.modules[__name__]
+
+def getInfo():
+    '''
+    extra metadata, like `doc`.
+    '''
+    return {
+        'namespace': 'test',
+        'version': VERSION,
+        'doc': 'test model',
+    }
+
+def addTypes(core):
+    core.addSubType('test:str', 'str', model='test')
+
+def addForms(core):
+    core.addTufoForm('test:foo', model='test')
+    core.addTufoProp('test:foo', 'bar', ptype='test:str')
+
+def upgradeModel(core):
+    return
+
+
+#############################################################
+# finally, the tests...
+#############################################################
+
 
 class CortexTest(SynTest):
 
@@ -1147,3 +1184,65 @@ class CortexTest(SynTest):
     def test_cortex_reqstor(self):
         with s_cortex.openurl('ram://') as core:
             self.assertRaises( BadPropValu, core.formTufoByProp, 'foo:bar', True )
+
+    def test_cortex_loader(self):
+        with s_common.tempdir() as path:
+            with s_cortex.openurl('sqlite:////' + path + '/a.db') as core:
+                core.registerModel(THIS_MODULE)
+
+            with s_cortex.openurl('sqlite:////' + path + '/a.db') as core:
+                self.assertTrue('test:foo' in core.forms)
+
+    def test_cortex_loader_noload(self):
+        with s_common.tempdir() as path:
+            with s_cortex.openurl('sqlite:////' + path + '/a.db') as core:
+                core.registerModel(THIS_MODULE)
+
+            with s_cortex.openurl('sqlite:////' + path + '/a.db?nomodels=1') as core:
+                self.assertTrue('test:foo' not in core.forms)
+
+    def test_cortex_loader_explicit_load(self):
+        with s_common.tempdir() as path:
+            with s_cortex.openurl('sqlite:////' + path + '/a.db') as core:
+                core.registerModel(THIS_MODULE)
+
+            with s_cortex.openurl('sqlite:////' + path + '/a.db?nomodels=1') as core:
+                core.loadModel('test')
+                self.assertTrue('test:str' in core.types)
+                self.assertTrue('test:foo' in core.forms)
+
+    def test_cortex_loader_upgrade_ok(self):
+        with s_common.tempdir() as path:
+            with s_cortex.openurl('sqlite:////' + path + '/a.db') as core:
+                core.registerModel(THIS_MODULE)
+
+            global VERSION
+            try:
+                VERSION = 2
+
+                with s_cortex.openurl('sqlite:////' + path + '/a.db') as core:
+                    self.assertTrue('test:foo' in core.forms)
+            finally:
+                VERSION = 1
+
+    def test_cortex_loader_upgrade_notok(self):
+        '''
+        demonstrate the IncompatibleModelVersion exception thats raise when the importable
+         Cortex model provider cannot offer a new-enough version.
+        '''
+        with s_common.tempdir() as path:
+            with s_cortex.openurl('sqlite:////' + path + '/a.db') as core:
+                # register version two
+                global VERSION
+                try:
+                    VERSION = 2
+                    with s_cortex.openurl('sqlite:////' + path + '/a.db') as core:
+                        core.registerModel(THIS_MODULE)
+                finally:
+                    VERSION = 1
+
+                # now try to load with version one
+                with self.assertRaises(s_core_common.IncompatibleModelVersion):
+                    with s_cortex.openurl('sqlite:////' + path + '/a.db') as core:
+                        pass
+
