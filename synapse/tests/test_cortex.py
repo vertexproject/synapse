@@ -24,9 +24,6 @@ VERSION = 1
 THIS_MODULE = sys.modules[__name__]
 
 def getInfo():
-    '''
-    extra metadata, like `doc`.
-    '''
     return {
         'namespace': 'test',
         'version': VERSION,
