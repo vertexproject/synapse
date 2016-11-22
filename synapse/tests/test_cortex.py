@@ -6,6 +6,7 @@ import synapse.link as s_link
 import synapse.compat as s_compat
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.exc as s_exc
 
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
@@ -71,6 +72,8 @@ class CortexTest(SynTest):
         ]
 
         core.addRows( rows )
+
+        self.assertRaises(s_exc.BadPropValu, core.addRows, [(id4,'lolbul',True,30)])
 
         tufo = core.getTufoByProp('baz','faz1')
 
@@ -164,6 +167,10 @@ class CortexTest(SynTest):
         tufo = core.incTufoProp(tufo, 'inctest', incval=-1)
 
         self.assertEqual( tufo[1].get('fqdn:inctest'), 0 )
+
+        self.assertRaises(s_exc.BadPropValu, core.formTufoByProp, 'foo', 'bul', bul=True)
+        tufo = core.formTufoByFrob('foo', 'bul', bul=True)
+        self.assertIs(tufo[1].get('foo:bul'), 1)
 
         core.fini()
 
@@ -440,6 +447,9 @@ class CortexTest(SynTest):
 
             tufo = core.getTufoByFrob('inet:ipv4', '1.2.3.4')
             self.assertEqual(tufo[0], iden)
+
+            core.setTufoFrob(tufo, 'is_true', True)
+            self.assertIs(tufo[1]['inet:ipv4:is_true'], 1)
 
 
     def test_cortex_ramhost(self):

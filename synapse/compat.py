@@ -49,10 +49,10 @@ if version < (3,0,0):
         return s.decode('base64')
 
     def isstr(s):
-        return type(s) in (str,unicode)
+        return type(s) in strtypes
 
     def isint(s):
-        return type(s) in (int,long)
+        return type(s) in numtypes
 
     def canstor(s):
         return type(s) in (int,long,str,unicode)
@@ -139,3 +139,7 @@ else:
 
     def iterzip(*args):
         return itertools.zip_longest(*args)
+
+
+def issystype(s):
+    return isstr(s) or isint(s)

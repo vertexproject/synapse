@@ -3,14 +3,11 @@ from __future__ import absolute_import,unicode_literals
 An API to assist with the creation and enforcement of cortex data models.
 '''
 import re
-import time
-import socket
-import struct
 import fnmatch
-import datetime
 import functools
 import collections
 
+import synapse.compat as s_compat
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
 
@@ -295,10 +292,16 @@ class DataModel(s_types.TypeLib):
 
         '''
         dtype = self.getPropType(prop)
-        if dtype == None:
-            return valu
+        if dtype != None:
+            try:
+                valu = dtype.norm(valu,oldval=oldval)
+            except BadTypeValu:
+                raise BadPropValu(name=prop, valu=valu)
 
-        return dtype.norm(valu,oldval=oldval)
+        if not s_compat.issystype(valu):
+            raise BadPropValu(name=prop, valu=valu)
+
+        return valu
 
     def getPropFrob(self, prop, valu, oldval=None):
         '''
@@ -310,24 +313,33 @@ class DataModel(s_types.TypeLib):
 
         '''
         dtype = self.getPropType(prop)
-        if dtype == None:
-            return valu
+        if dtype != None:
+            valu = dtype.frob(valu,oldval=oldval)
 
-        return dtype.frob(valu,oldval=oldval)
+        if type(valu) is bool:
+            valu = int(valu)
 
+        if not s_compat.issystype(valu):
+            raise BadPropValu(name=prop, valu=valu)
+
+        return valu
 
     def getPropChop(self, prop, valu):
         '''
         Return norm,{'sub':subval} tuple for the given property.
         '''
         dtype = self.getPropType(prop)
-        if dtype == None:
-            return valu,{}
+        subs = {}
+        if dtype != None:
+            try:
+                valu, subs = dtype.chop(valu)
+            except BadTypeValu:
+                raise BadPropValu(name=prop, valu=valu)
 
-        try:
-            return dtype.chop(valu)
-        except BadTypeValu:
+        if not s_compat.issystype(valu):
             raise BadPropValu(name=prop, valu=valu)
+
+        return valu, subs
 
     #def getPropNorms(self, props):
         #return { p:self.getPropNorm(p,v) for (p,v) in props.items() }
@@ -342,10 +354,16 @@ class DataModel(s_types.TypeLib):
 
         '''
         dtype = self.getPropType(prop)
-        if dtype == None:
-            return valu
+        if dtype != None:
+            try:
+                valu = dtype.parse(valu)
+            except BadTypeValu:
+                raise BadPropValu(name=prop, valu=valu)
 
-        return dtype.parse(valu)
+        if not s_compat.issystype(valu):
+            raise BadPropValu(name=prop, valu=valu)
+
+        return valu
 
     def getParseProps(self, props):
         return { p:self.getPropParse(p,v) for (p,v) in props.items() }
