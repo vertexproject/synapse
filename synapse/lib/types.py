@@ -552,7 +552,6 @@ class TypeLib:
         self.types = {}
         self.subtypes = []
 
-    def addDefaultTypes(self):
         self.addType(IntType(self,'int'))
         self.addType(StrType(self,'str'))
         self.addType(BoolType(self,'bool'))

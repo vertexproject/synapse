@@ -9,8 +9,6 @@ class DataModelTest(SynTest):
 
     def test_datamodel_types(self):
         model = s_datamodel.DataModel()
-        model.addDefaultTypes()
-        model.bootstrapForms()
 
         model.addTufoForm('foo')
         model.addTufoProp('foo', 'bar', ptype='int')
@@ -35,8 +33,6 @@ class DataModelTest(SynTest):
 
     def test_datamodel_glob(self):
         model = s_datamodel.DataModel()
-        model.addDefaultTypes()
-        model.bootstrapForms()
 
         model.addTufoForm('foo')
         model.addPropGlob('foo:bar:*',ptype='str:lwr')
@@ -44,16 +40,12 @@ class DataModelTest(SynTest):
 
     def test_datamodel_fail_notype(self):
         model = s_datamodel.DataModel()
-        model.addDefaultTypes()
-        model.bootstrapForms()
 
         model.addTufoForm('foo')
         self.assertRaises( s_datamodel.NoSuchType, model.addTufoProp, 'foo', 'bar', ptype='hehe' )
 
     def test_datamodel_fail_noprop(self):
         model = s_datamodel.DataModel()
-        model.addDefaultTypes()
-        model.bootstrapForms()
 
         self.assertRaises( NoSuchForm, model.addTufoProp, 'foo', 'bar' )
 
@@ -94,8 +86,6 @@ class DataModelTest(SynTest):
 
     def test_datamodel_subs(self):
         model = s_datamodel.DataModel()
-        model.addDefaultTypes()
-        model.bootstrapForms()
 
         model.addTufoForm('foo')
         model.addTufoProp('foo','bar',ptype='int')
@@ -112,8 +102,6 @@ class DataModelTest(SynTest):
 
     def test_datamodel_bool(self):
         model = s_datamodel.DataModel()
-        model.addDefaultTypes()
-        model.bootstrapForms()
 
         model.addTufoForm('foo')
         model.addTufoProp('foo','bar',ptype='bool', defval=0)
@@ -131,8 +119,6 @@ class DataModelTest(SynTest):
 
     def test_datamodel_hash(self):
         model = s_datamodel.DataModel()
-        model.addDefaultTypes()
-        model.bootstrapForms()
 
         model.addTufoForm('foo')
 
@@ -189,8 +175,6 @@ class DataModelTest(SynTest):
 
     def test_datamodel_inet(self):
         model = s_datamodel.DataModel()
-        model.addDefaultTypes()
-        model.bootstrapForms()
 
         model.addTufoForm('foo')
         model.addTufoProp('foo','addr', ptype='inet:ipv4')
@@ -213,8 +197,6 @@ class DataModelTest(SynTest):
 
     def test_datamodel_time(self):
         model = s_datamodel.DataModel()
-        model.addDefaultTypes()
-        model.bootstrapForms()
 
         model.addTufoForm('foo')
         model.addTufoProp('foo','meow', ptype='time:epoch')
@@ -226,8 +208,6 @@ class DataModelTest(SynTest):
 
     def test_datamodel_badprop(self):
         model = s_datamodel.DataModel()
-        model.addDefaultTypes()
-        model.bootstrapForms()
 
         self.assertRaises( s_datamodel.BadPropName, model.addTufoForm, 'foo.bar' )
 
@@ -236,8 +216,6 @@ class DataModelTest(SynTest):
 
     def test_datatype_syn_prop(self):
         model = s_datamodel.DataModel()
-        model.addDefaultTypes()
-        model.bootstrapForms()
 
         self.assertRaises(BadTypeValu, model.getTypeNorm, 'syn:prop', 'asdf qwer' )
         self.assertRaises(BadTypeValu, model.getTypeNorm, 'syn:prop', 'foo::bar' )
@@ -250,8 +228,6 @@ class DataModelTest(SynTest):
 
     def test_datatype_syn_tag(self):
         model = s_datamodel.DataModel()
-        model.addDefaultTypes()
-        model.bootstrapForms()
 
         self.assertRaises(BadTypeValu, model.getTypeNorm, 'syn:tag', 'asdf qwer' )
         self.assertRaises(BadTypeValu, model.getTypeNorm, 'syn:tag', 'foo..bar' )

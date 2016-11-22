@@ -47,8 +47,6 @@ class Cortex(EventBus,DataModel,ConfigMixin):
     '''
     def __init__(self, link):
         EventBus.__init__(self)
-        DataModel.__init__(self)
-
         ConfigMixin.__init__(self)
 
         self.addConfDef('enforce',type='bool',asloc='enforce',defval=0,doc='Enables data model enforcement')
@@ -125,9 +123,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         self.addStatFunc('average',self._calcStatAverage)
 
         self._initCortex()
-
-        self.addDefaultTypes()
-        self.bootstrapForms()
+        DataModel.__init__(self)
 
         # TODO: syn:err with rate limiting?
 
