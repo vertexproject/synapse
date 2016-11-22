@@ -23,7 +23,6 @@ def propdef(name, **info):
     return (name,info)
 
 tlib = s_types.TypeLib()
-tlib.addDefaultTypes()
 def getTypeRepr(name, valu):
     '''
     '''
@@ -90,8 +89,6 @@ def parsetypes(*atypes, **kwtypes):
 class DataModel(s_types.TypeLib):
 
     def __init__(self):
-        s_types.TypeLib.__init__(self)
-
         self.props = {}
         self.forms = set()
 
@@ -109,10 +106,8 @@ class DataModel(s_types.TypeLib):
             'forms':[],
         }
 
-    def bootstrapForms(self):
-        '''
-        Initialize the DataModel with the forms that describe itself.
-        '''
+        s_types.TypeLib.__init__(self)
+
         self.addSubType('syn:tag','str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
         self.addSubType('syn:prop','str', regex=r'^([\w]+:)*[\w]+$', lower=1)
         self.addSubType('syn:prop:glob','str', regex=r'^([\w]+:)*[\w]+:\*$', lower=1)
