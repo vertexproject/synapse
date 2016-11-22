@@ -28,6 +28,7 @@ setup(
     install_requires=[
         'requests',
         'tornado>=3.2',
+        'sortedcontainers>=1.5.4,<2.0',
         'cryptography>=1.1.2',
         'msgpack-python>=0.4.2',
     ],
