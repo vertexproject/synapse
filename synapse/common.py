@@ -4,14 +4,11 @@ import os
 import sys
 import json
 import time
-import shutil
 import msgpack
 import logging
-import tempfile
 import functools
 import threading
 import traceback
-import contextlib
 
 from binascii import hexlify
 
@@ -184,18 +181,4 @@ def worker(meth, *args, **kwargs):
     thr.setDaemon(True)
     thr.start()
     return thr
-
-@contextlib.contextmanager
-def tempdir():
-    d = None
-    try:
-        d = tempfile.mkdtemp()
-        yield d
-    finally:
-        try:
-            shutil.rmtree(d)
-        except:
-            # we did the best we could...
-            logger.warn('failed to remove directory: %s', d)
-
 

@@ -1183,7 +1183,7 @@ class CortexTest(SynTest):
             self.assertRaises( BadPropValu, core.formTufoByProp, 'foo:bar', True )
 
     def test_cortex_loader(self):
-        with s_common.tempdir() as path:
+        with self.getTestDir() as path:
             with s_cortex.openurl('sqlite:////' + path + '/a.db') as core:
                 core.registerModel(THIS_MODULE)
 
@@ -1191,7 +1191,7 @@ class CortexTest(SynTest):
                 self.assertTrue('test:foo' in core.forms)
 
     def test_cortex_loader_noload(self):
-        with s_common.tempdir() as path:
+        with self.getTestDir() as path:
             with s_cortex.openurl('sqlite:////' + path + '/a.db') as core:
                 core.registerModel(THIS_MODULE)
 
@@ -1199,7 +1199,7 @@ class CortexTest(SynTest):
                 self.assertTrue('test:foo' not in core.forms)
 
     def test_cortex_loader_explicit_load(self):
-        with s_common.tempdir() as path:
+        with self.getTestDir() as path:
             with s_cortex.openurl('sqlite:////' + path + '/a.db') as core:
                 core.registerModel(THIS_MODULE)
 
@@ -1209,7 +1209,7 @@ class CortexTest(SynTest):
                 self.assertTrue('test:foo' in core.forms)
 
     def test_cortex_loader_upgrade_ok(self):
-        with s_common.tempdir() as path:
+        with self.getTestDir() as path:
             with s_cortex.openurl('sqlite:////' + path + '/a.db') as core:
                 core.registerModel(THIS_MODULE)
 
@@ -1227,7 +1227,7 @@ class CortexTest(SynTest):
         demonstrate the IncompatibleModelVersion exception thats raise when the importable
          Cortex model provider cannot offer a new-enough version.
         '''
-        with s_common.tempdir() as path:
+        with self.getTestDir() as path:
             with s_cortex.openurl('sqlite:////' + path + '/a.db') as core:
                 # register version two
                 global VERSION
