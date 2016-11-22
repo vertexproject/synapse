@@ -1,5 +1,6 @@
 import json
 import time
+import importlib
 import itertools
 import threading
 import traceback
@@ -7,6 +8,7 @@ import collections
 
 from synapse.compat import queue
 
+import synapse.exc as s_exc
 import synapse.async as s_async
 import synapse.compat as s_compat
 import synapse.reactor as s_reactor
@@ -21,7 +23,13 @@ from synapse.eventbus import EventBus
 from synapse.datamodel import DataModel
 from synapse.lib.config import ConfigMixin
 
+
 class NoSuchGetBy(Exception):pass
+class ModelUpgradeFailed(s_exc.SynErr):pass
+class IncompatibleModelVersion(s_exc.SynErr):pass
+class NoSuchModel(s_exc.SynErr):pass
+class BadModel(s_exc.SynErr):pass
+
 
 def chunked(n, iterable):
     it = iter(iterable)
@@ -1938,3 +1946,96 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         return self.getTufosBy('range', prop, (ipv4addr, ipv4addr+mask), limit=limit)
 
+    #############################################################
+    # support model persistence
+    #############################################################
+
+    def registerModel(self, module):
+        '''
+        Register the given Python module as a Cortex model provider.
+        Also, load the provided types and forms.
+
+        A model provider is an importable Python module with some well-known top-level functions:
+
+          - getInfo(): returns a dict with the required keys:
+            - namespace (str): unique prefix for types and forms added by this module
+            - version (int): the revision number of this model. this *must* increment with every change.
+             this routine is required, and may not be omitted.
+          - addTypes(synapse.cores.common.Cortex): add any provided types to the given cortex.
+             this routine may be omitted.
+          - addForms(synapse.cores.common.Cortex): add any provided forms to the given cortex.
+             this routine may be omitted.
+          - upgradeModel(synapse.cores.common.Cortex): when invoked, the cortex is using an out-of-date model
+             version, and requests to be updated to the latest version. implementor must manually fix up the types.
+             if new versions strictly add new forms and types (no modifications or deletions,
+             then this routine may be omitted).
+        '''
+        info = module.getInfo()
+        self.formTufoByProp('syn:model',
+                            info.get('namespace'),
+                            module=module.__name__,
+                            **info)
+
+        addTypes = getattr(module, "addTypes", None)
+        if addTypes != None:
+            addTypes(self)
+
+        addForms = getattr(module, "addForms", None)
+        if addForms != None:
+            addForms(self)
+
+    def loadModel(self, namespace):
+        '''
+        Load the types and forms for the Cortex model provider with the given namespace.
+
+        Args:
+         namespace (str): the unique namespace of the Cortex model provider to load.
+
+        Raises:
+         NoSuchModel: if the Cortex doesn't recognize the given namespace.
+         IncompatibleModelVersion: if version of the importable Cortex model provider is
+          less than the registered version.
+         BadModel: if the importable Cortex model provider doesn't have the correct routines.
+        '''
+        model = self.getTufoByProp('syn:model', namespace)
+        if model == None:
+            raise NoSuchModel(namespace=namespace)
+
+        modname = model[1].get('syn:model:module')
+        module = importlib.import_module(modname)
+
+        getInfo = getattr(module, "getInfo", None)
+        if getInfo == None:
+            raise BadModel(module=modname)
+
+        expver = model[1].get('syn:model:version')
+        gotver = getInfo().get('version')
+
+        if gotver < expver:
+            raise IncompatibleModelVersion(expected=expver, got=gotver)
+
+        elif gotver > expver:
+            upgradeModel = getattr(module, "upgradeModel", None)
+            if upgradeModel != None:
+                upgradeModel(self)
+
+            self.setTufoProp(model, 'version', gotver)
+
+        addTypes = getattr(module, "addTypes", None)
+        if addTypes != None:
+            addTypes(self)
+
+        addForms = getattr(module, "addForms", None)
+        if addForms != None:
+            addForms(self)
+
+    def loadModels(self):
+        '''
+        Load the types and forms for all Cortex model providers registered on the Cortex.
+
+        Raises:
+         IncompatibleModelVersion: if version of a importable Cortex model provider is
+          less than the registered version.
+        '''
+        for model in self.getTufosByProp('syn:model'):
+            self.loadModel(model[1].get('syn:model:namespace'))

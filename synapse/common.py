@@ -5,6 +5,7 @@ import sys
 import json
 import time
 import msgpack
+import logging
 import functools
 import threading
 import traceback
@@ -13,6 +14,10 @@ from binascii import hexlify
 
 from synapse.exc import *
 from synapse.compat import enbase64, debase64
+
+
+logger = logging.getLogger(__name__)
+
 
 def now():
     return int(time.time())
@@ -176,3 +181,4 @@ def worker(meth, *args, **kwargs):
     thr.setDaemon(True)
     thr.start()
     return thr
+
