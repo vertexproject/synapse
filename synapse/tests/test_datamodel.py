@@ -9,6 +9,7 @@ class DataModelTest(SynTest):
 
     def test_datamodel_types(self):
         model = s_datamodel.DataModel()
+
         model.addTufoForm('foo')
         model.addTufoProp('foo', 'bar', ptype='int')
         model.addTufoProp('foo', 'baz', ptype='str')
@@ -32,6 +33,7 @@ class DataModelTest(SynTest):
 
     def test_datamodel_glob(self):
         model = s_datamodel.DataModel()
+
         model.addTufoForm('foo')
         model.addPropGlob('foo:bar:*',ptype='str:lwr')
         self.assertEqual( model.getPropNorm('foo:bar:baz','Woot'), 'woot' )
@@ -44,6 +46,7 @@ class DataModelTest(SynTest):
 
     def test_datamodel_fail_noprop(self):
         model = s_datamodel.DataModel()
+
         self.assertRaises( NoSuchForm, model.addTufoProp, 'foo', 'bar' )
 
         model.addTufoForm('foo')
@@ -53,7 +56,6 @@ class DataModelTest(SynTest):
         self.assertRaises( DupPropName, model.addTufoProp, 'foo', 'bar' )
 
     def test_datamodel_cortex(self):
-
         core = s_cortex.openurl('ram:///')
 
         core.addTufoForm('foo')
@@ -84,6 +86,7 @@ class DataModelTest(SynTest):
 
     def test_datamodel_subs(self):
         model = s_datamodel.DataModel()
+
         model.addTufoForm('foo')
         model.addTufoProp('foo','bar',ptype='int')
 
@@ -170,9 +173,7 @@ class DataModelTest(SynTest):
         self.assertEqual( ret.get('size'), 10 )
         self.assertEqual( ret.get('flag'), 'asdf')
 
-
     def test_datamodel_inet(self):
-
         model = s_datamodel.DataModel()
 
         model.addTufoForm('foo')
@@ -195,7 +196,6 @@ class DataModelTest(SynTest):
         self.assertRaises( BadTypeValu, model.getPropParse, 'foo:port', '999999' )
 
     def test_datamodel_time(self):
-
         model = s_datamodel.DataModel()
 
         model.addTufoForm('foo')
@@ -208,7 +208,33 @@ class DataModelTest(SynTest):
 
     def test_datamodel_badprop(self):
         model = s_datamodel.DataModel()
+
         self.assertRaises( s_datamodel.BadPropName, model.addTufoForm, 'foo.bar' )
 
         model.addTufoForm('foo:bar')
         self.assertRaises( s_datamodel.BadPropName, model.addTufoProp, 'foo:bar', 'b*z' )
+
+    def test_datatype_syn_prop(self):
+        model = s_datamodel.DataModel()
+
+        self.assertRaises(BadTypeValu, model.getTypeNorm, 'syn:prop', 'asdf qwer' )
+        self.assertRaises(BadTypeValu, model.getTypeNorm, 'syn:prop', 'foo::bar' )
+
+        self.eq( model.getTypeFrob('syn:prop','BAR'), 'bar' )
+        self.eq( model.getTypeNorm('syn:prop','BAR'), 'bar' )
+        self.eq( model.getTypeParse('syn:prop','BAR'), 'bar' )
+        self.eq( model.getTypeNorm('syn:prop','foo:BAR'), 'foo:bar' )
+        self.eq( model.getTypeParse('syn:prop','foo:BAR'), 'foo:bar' )
+
+    def test_datatype_syn_tag(self):
+        model = s_datamodel.DataModel()
+
+        self.assertRaises(BadTypeValu, model.getTypeNorm, 'syn:tag', 'asdf qwer' )
+        self.assertRaises(BadTypeValu, model.getTypeNorm, 'syn:tag', 'foo..bar' )
+
+        self.eq( model.getTypeNorm('syn:tag','BAR'), 'bar' )
+        self.eq( model.getTypeParse('syn:tag','BAR'), 'bar' )
+        self.eq( model.getTypeNorm('syn:tag','foo.BAR'), 'foo.bar' )
+        self.eq( model.getTypeParse('syn:tag','foo.BAR'), 'foo.bar' )
+
+

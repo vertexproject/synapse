@@ -504,7 +504,7 @@ class Cortex(common.Cortex):
                 ret.append( (ident,prop,intval,stamp) )
             else:
                 ret.append( (ident,prop,strval,stamp) )
-                
+
         return ret
 
     def _getRowsById(self, ident):

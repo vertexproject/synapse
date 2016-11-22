@@ -1152,3 +1152,47 @@ class CortexTest(SynTest):
     def test_cortex_reqstor(self):
         with s_cortex.openurl('ram://') as core:
             self.assertRaises( BadPropValu, core.formTufoByProp, 'foo:bar', True )
+
+    def test_cortex_tlib_persistence(self):
+        with s_cortex.openurl('ram://') as core:
+            inttype = core.getTufoByProp('syn:type', 'int')
+            self.assertIsNotNone( inttype )
+
+            strtype = core.getTufoByProp('syn:type', 'str')
+            self.assertIsNotNone( strtype )
+
+            intmintype = core.getTufoByProp('syn:type', 'int:min')
+            self.assertIsNotNone( intmintype )
+            self.assertEqual( intmintype[1].get('syn:type:base'), 'int' )
+            self.assertEqual( intmintype[1].get('syn:type:ismin'), 1 )
+
+            fields = (('fqdn','inet:fqdn'),('ipv4','inet:ipv4'),('time','time:epoch'))
+            core.addSubType('dns:a','comp',fields=fields)
+            dnstype = core.getTufoByProp('syn:type', 'dns:a')
+            self.assertEqual( dnstype[1].get('syn:type:fields'), 3 )
+            self.assertEqual( dnstype[1].get('syn:type:field:0:fqdn'), 'inet:fqdn' )
+            self.assertEqual( dnstype[1].get('syn:type:field:1:ipv4'), 'inet:ipv4' )
+            self.assertEqual( dnstype[1].get('syn:type:field:2:time'), 'time:epoch' )
+
+    def test_cortex_datamodel_persistence(self):
+        with s_cortex.openurl('ram://') as core:
+            self.assertIsNotNone( core.getTufoByProp('syn:form', 'syn:form') )
+
+            core.addTufoForm('foo', doc='ddd')
+            fooform = core.getTufoByProp('syn:form', 'foo')
+            self.assertIsNotNone( fooform )
+            self.assertEqual( fooform[1].get('syn:form:doc'), 'ddd' )
+
+            core.addTufoProp('foo', 'bar')
+            foobarprop = core.getTufoByProp('syn:prop', 'foo:bar')
+            self.assertIsNotNone(foobarprop)
+
+            core.addTufoProp('foo', 'baz', ptype='str')
+            foobazprop = core.getTufoByProp('syn:prop', 'foo:baz')
+            self.assertIsNotNone(foobazprop)
+            self.assertEqual(foobazprop[1].get('syn:prop:ptype'), 'str')
+
+            core.addTufoGlob('foo', 'yaz:*', ptype='int')
+            fooyazprop = core.getTufoByProp('syn:prop:glob', 'foo:yaz:*')
+            self.assertIsNotNone(fooyazprop)
+            self.assertEqual(fooyazprop[1].get('syn:prop:glob:ptype'), 'int')

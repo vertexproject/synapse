@@ -13,6 +13,7 @@ import synapse.reactor as s_reactor
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.tags as s_tags
+import synapse.lib.types as s_types
 import synapse.lib.cache as s_cache
 import synapse.lib.threads as s_threads
 
@@ -46,8 +47,6 @@ class Cortex(EventBus,DataModel,ConfigMixin):
     '''
     def __init__(self, link):
         EventBus.__init__(self)
-        DataModel.__init__(self)
-
         ConfigMixin.__init__(self)
 
         self.addConfDef('enforce',type='bool',asloc='enforce',defval=0,doc='Enables data model enforcement')
@@ -124,38 +123,9 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         self.addStatFunc('average',self._calcStatAverage)
 
         self._initCortex()
-
-        # FIXME unicode / "word" characters
-        #self.addSubType('syn:tag','str', regex='^[a-z0-9._]+$', lower=1)
-        #self.addSubType('syn:prop','str', regex='^[a-z0-9:_]+$', lower=1)
-        #self.addSubType('syn:type','str', regex='^[a-z0-9:_]+$', lower=1)
-
-        self.addTufoForm('syn:tag', ptype='syn:tag')
-        self.addTufoProp('syn:tag','up',ptype='syn:tag')
-        self.addTufoProp('syn:tag','doc',defval='',ptype='str')
-        self.addTufoProp('syn:tag','depth',defval=0,ptype='int')
-        self.addTufoProp('syn:tag','title',defval='',ptype='str')
-
-        self.addTufoForm('syn:model',ptype='syn:prop', doc='prefix for all forms within the model')
-        self.addTufoForm('syn:model:version', ptype='int', doc='model version for the model loaded in the cortex')
-
-        self.addTufoForm('syn:type',ptype='syn:type')
-        self.addTufoProp('syn:type','doc',ptype='str', defval='??', doc='Description for this type')
-        self.addTufoProp('syn:type','ver',ptype='int', defval=1, doc='What version is this type')
-        self.addTufoProp('syn:type','base',ptype='str', doc='what type does this type extend?', req=True)
-        self.addTufoGlob('syn:type','info:*')
-
-        self.addTufoForm('syn:form',ptype='syn:prop')
-        self.addTufoProp('syn:form','doc',ptype='str', doc='basic form definition')
-        self.addTufoProp('syn:form','ver',ptype='int', doc='form version within the model')
-        self.addTufoProp('syn:form','model',ptype='str', doc='which model defines a given form')
+        DataModel.__init__(self)
 
         # TODO: syn:err with rate limiting?
-
-        self.addTufoForm('syn:prop',ptype='syn:prop')
-        self.addTufoProp('syn:prop','doc',ptype='str')
-        self.addTufoProp('syn:prop','form',ptype='syn:prop')
-        self.addTufoProp('syn:prop','ptype',ptype='syn:type')
 
         self.addTufoForm('syn:core')
         self.addTufoProp('syn:core','url', ptype='inet:url')
@@ -1938,3 +1908,74 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         return self.getTufosBy('range', prop, (ipv4addr, ipv4addr+mask), limit=limit)
 
+    #############################################################
+    # support typelib persistence
+    #############################################################
+
+    # overrides: synapse.lib.types.TypeLib.addType
+    def addType(self, typ):
+        s_types.TypeLib.addType(self, typ)
+        self.formTufoByFrob('syn:type', typ.name)
+
+    # overrides: synapse.lib.types.TypeLib.addSubType
+    def addSubType(self, name, subof, **info):
+        s_types.TypeLib.addSubType(self, name, subof, **info)
+        base = self.getTufoByFrob('syn:type', subof)
+
+        subinfo = {}
+        for propname, propval in base[1].items():
+            if not propname.startswith('syn:type:'):
+                continue
+            propname = propname.partition('syn:type')[2]
+            subinfo[propname] = propval
+
+        for propname, propval in info.items():
+            subinfo[propname] = propval
+
+        subinfo['base'] = subof
+
+        if 'fields' in subinfo:
+            fields = subinfo.pop('fields')
+            subinfo['fields'] = len(fields)
+            for i, (fieldname, fieldtype) in enumerate(fields):
+                k = 'field:%d:%s' % (i, fieldname)
+                subinfo[k] = fieldtype
+
+        # TypeLib.addSubType calls TypeLib.addType, so our subtype tufo already exists,
+        #  but we still need to add the subtype-specific fields
+        sub = self.getTufoByProp('syn:type', name)
+        subinfo = self._frobTufoProps('syn:type', subinfo)
+        self.setTufoProps(sub, **subinfo)
+
+    #############################################################
+    # support datamodel persistence
+    #############################################################
+
+    # overrides: synapse.datamodel.DataModel.addTufoForm
+    def addTufoForm(self, form, **info):
+        DataModel.addTufoForm(self, form, **info)
+        self.formTufoByFrob('syn:form', form, **info)
+
+    # overrides: synapse.datamodel.DataModel.addPropDef
+    def addPropDef(self, prop, **info):
+        DataModel.addPropDef(self, prop, **info)
+
+        form = info.get('form')
+        defval = info.get('defval')
+        ptype = info.get('ptype')
+
+        # `form` is the name of a paramter to `formTufoByFrob`,
+        #   so we have to set it separately
+        form = info.pop('form')
+        tufo = self.formTufoByFrob('syn:prop', prop, **info)
+        self.setTufoProp(tufo, 'form', form)
+
+    # overrides: synapse.datamodel.DataModel.addPropGlob
+    def addPropGlob(self, glob, **info):
+        DataModel.addPropGlob(self, glob, **info)
+
+        # `form` is the name of a paramter to `formTufoByFrob`,
+        #   so we have to set it separately
+        form = info.pop('form')
+        tufo = self.formTufoByFrob('syn:prop:glob', glob, **info)
+        self.setTufoProp(tufo, 'form', form)
