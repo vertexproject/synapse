@@ -20,12 +20,7 @@ class Cortex(common.Cortex):
         self.initRowsBy('range',self._rowsByRange)
 
     def _sizeByRange(self, prop, valu, limit=None):
-        # HACK: for speed
-        data = [0]
-        def inc():
-            data[0] += 1
-        [ inc() for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= valu[0] and r[2] < valu[1] ]
-        return data[0]
+        return sum( 1 for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= valu[0] and r[2] < valu[1] )
 
     def _rowsByRange(self, prop, valu, limit=None):
         # HACK: for speed
@@ -35,13 +30,13 @@ class Cortex(common.Cortex):
         return ret
 
     def _sizeByGe(self, prop, valu, limit=None):
-        return len([ r for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= valu ])
+        return sum( 1 for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= valu )
 
     def _rowsByGe(self, prop, valu, limit=None):
         return [ r for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= valu ][:limit]
 
     def _sizeByLe(self, prop, valu, limit=None):
-        return len([ r for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] <= valu ])
+        return sum( 1 for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] <= valu )
 
     def _rowsByLe(self, prop, valu, limit=None):
         return [ r for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] <= valu ][:limit]
