@@ -1,22 +1,60 @@
 import time
+import hashlib
 
 from . import sqlite as s_c_sqlite
 
 import synapse.datamodel as s_datamodel
 
-istable = '''
-   SELECT 1
-   FROM   information_schema.tables 
-   WHERE    table_name = %s
-'''
-
-getjoin_by_in_int = 'SELECT * FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? and intval IN ? LIMIT ?)'
-getjoin_by_in_str = 'SELECT * FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? and strval IN ? LIMIT ?)'
 
 class Cortex(s_c_sqlite.Cortex):
 
-    dbvar = '%s'
+    dbvar_open = '%('
+    dbvar_close = ')s'
     dblim = None
+
+    istable = '''
+       SELECT 1
+       FROM   information_schema.tables
+       WHERE    table_name = %s
+    '''
+
+    init_strval_idx = 'CREATE INDEX %s_strval_idx ON %s (prop,md5(strval),stamp)'
+
+    getjoin_by_in_int = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=?:prop:? and intval IN ?:valus:? LIMIT ?:limit:?)'
+    getjoin_by_in_str = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=?:prop:? and md5(strval) IN ?:md5s:? and strval in ?:valus:? LIMIT ?:limit:?)'
+
+    ################################################################################
+    getrows_by_prop_str = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? LIMIT ?:limit:?'
+    getrows_by_prop_str_wmin = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? AND stamp>=?:stamp:?:stamp:? LIMIT ?:limit:?'
+    getrows_by_prop_str_wmax = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? AND stamp<?:stamp:? LIMIT ?:limit:?'
+    getrows_by_prop_str_wminmax = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? AND stamp>=?:min:? AND stamp<?:max:? LIMIT ?:limit:?'
+
+    ################################################################################
+    getsize_by_prop_str = 'SELECT COUNT(*) FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? LIMIT ?:limit:?'
+    getsize_by_prop_str_wmin = 'SELECT COUNT(*) FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? AND stamp>=?:stamp:? LIMIT ?:limit:?'
+    getsize_by_prop_str_wmax = 'SELECT COUNT(*) FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? AND stamp<?:stamp:? LIMIT ?:limit:?'
+    getsize_by_prop_str_wminmax = 'SELECT COUNT(*) FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? AND stamp>=?:min:? AND stamp<?:max:? LIMIT ?:limit:?'
+
+    ################################################################################
+    delrows_by_prop_str = 'DELETE FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:?'
+    delrows_by_prop_str_wmin = 'DELETE FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? AND stamp>=?:stamp:?'
+    delrows_by_prop_str_wmax = 'DELETE FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? AND stamp<?:stamp:?'
+    delrows_by_prop_str_wminmax = 'DELETE FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? AND stamp>=?:min:? AND stamp<?:max:?'
+
+    ################################################################################
+    getjoin_by_prop_str = 'SELECT id,prop,strval,intval,stamp from %s WHERE id IN (SELECT id FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? LIMIT ?:limit:?)'
+    getjoin_by_prop_str_wmin = 'SELECT id,prop,strval,intval,stamp from %s WHERE id IN (SELECT id FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? AND stamp>=?:stamp:? LIMIT ?:limit:?)'
+    getjoin_by_prop_str_wmax = 'SELECT id,prop,strval,intval,stamp from %s WHERE id IN (SELECT id FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? AND stamp<?:stamp:? LIMIT ?:limit:?)'
+    getjoin_by_prop_str_wminmax = 'SELECT id,prop,strval,intval,stamp from %s WHERE id IN (SELECT id FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? AND stamp>=?:min:? AND stamp<?:max:? LIMIT ?:limit:?)'
+
+    ################################################################################
+    deljoin_by_prop_str = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:?)'
+    deljoin_by_prop_str_wmin = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? AND stamp>=?:stamp:? )'
+    deljoin_by_prop_str_wmax = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? AND stamp<?:stamp:? )'
+    deljoin_by_prop_str_wminmax = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=?:prop:? AND md5(strval)=md5(?:valu:?) AND strval=?:valu:? AND stamp>=?:min:? AND stamp<?:max:?)'
+
+    ################################################################################
+    uprows_by_id_prop_str = 'UPDATE %s SET strval=?:valu:? WHERE id=?:iden:? and prop=?:prop:?'
 
     def _initDbConn(self):
         import psycopg2
@@ -91,12 +129,13 @@ class Cortex(s_c_sqlite.Cortex):
 
         limit = self._getDbLimit(limit)
 
+        args = { 'prop':prop, 'valus':tuple(valus), 'limit':limit }
+
         if type(valus[0]) == int:
             q = self._q_getjoin_by_in_int
         else:
             q = self._q_getjoin_by_in_str
-
-        args = [ prop, tuple(valus), limit ]
+            args['md5s'] = [hashlib.md5(s) for s in valus]
 
         rows = self.select(q,args)
         rows = self._foldTypeCols(rows)
@@ -104,9 +143,9 @@ class Cortex(s_c_sqlite.Cortex):
 
     def _initCorQueries(self, table):
         s_c_sqlite.Cortex._initCorQueries(self, table)
-        self._q_istable = istable
+        self._q_istable = self.istable
 
-        self._q_getjoin_by_in_int = self._prepQuery(getjoin_by_in_int, table)
-        self._q_getjoin_by_in_str = self._prepQuery(getjoin_by_in_str, table)
+        self._q_getjoin_by_in_int = self._prepQuery(self.getjoin_by_in_int, table)
+        self._q_getjoin_by_in_str = self._prepQuery(self.getjoin_by_in_str, table)
 
 
