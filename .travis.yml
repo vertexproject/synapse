@@ -5,10 +5,13 @@ python:
     - "2.7"
     - "3.4"
 install:
-    - pip install msgpack-python tornado requests cryptography psycopg2
-script: nosetests --verbosity=3 -x --with-coverage
+    - pip install msgpack-python tornado requests cryptography psycopg2 coveralls
+script: nosetests --verbosity=3 -x --with-coverage --cover-package=synapse
 services: postgresql
 before_script:
     - psql -c 'create database syn_test;' -U postgres
 env:
     - SYN_COR_PG_DB=syn_test
+
+after_success:
+    - coveralls

@@ -276,7 +276,7 @@ class CompType(DataType):
             vals = deMsgB64(valu)
 
         frobs = [ t.frob(v) for v,(n,t) in self._zipvals(vals) ]
-        return enMsgB64(norms)
+        return enMsgB64(frobs)
 
     def _zipvals(self, vals):
         return s_compat.iterzip(vals,self.comptypes)
