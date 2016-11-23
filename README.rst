@@ -5,16 +5,17 @@ Distributed Key-Value Hypergraph Analysis Framework
 Builds
 ------
 
-Travis-Ci ( Linux: py-2.7 / py-3.4 )
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+- Travis-Ci ( Linux: py-2.7 / py-3.4 )
 .. image:: https://travis-ci.org/vivisect/synapse.svg
+    :target: https://travis-ci.org/vivisect/synapse
 
-AppVeyor ( Windows: py-2.7 / py-3.4 )
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- AppVeyor ( Windows: py-2.7 / py-3.4 )
 .. image:: https://ci.appveyor.com/api/projects/status/github/vivisect/synapse?branch=master&svg=true
+    :target: https://ci.appveyor.com/project/invisig0th/synapse/
 
-.. _Python: http://www.python.org/
+- Coveralls 
+.. image:: https://coveralls.io/repos/github/vivisect/synapse/badge.svg?branch=master
+    :target: https://coveralls.io/github/vivisect/synapse?branch=master
 
 Documentation
 -------------
