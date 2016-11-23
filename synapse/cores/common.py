@@ -1811,7 +1811,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             oldv = rows[0][2]
             valu = oldv + incval
 
-            self._setRowsByIdProp(iden,prop,valu)
+            self.setRowsByIdProp(iden,prop,valu)
 
             tufo[1][prop] = valu
             self.fire('tufo:set:%s' % (prop,), tufo=tufo, prop=prop, valu=valu, oldv=oldv)

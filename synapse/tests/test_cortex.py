@@ -178,6 +178,11 @@ class CortexTest(SynTest):
 
         self.assertEqual( core.getSizeBy('range','rg',(0,20)), 1 )
         self.assertEqual( core.getRowsBy('range','rg',(0,20))[0][2], 10 )
+        
+        # range is inclusive of `min`, exclusive of `max`
+        self.assertEqual( core.getSizeBy('range','rg',(9,11)), 1 )
+        self.assertEqual( core.getSizeBy('range','rg',(10,12)), 1 )
+        self.assertEqual( core.getSizeBy('range','rg',(8,10)), 0 )
 
         self.assertEqual( core.getSizeBy('ge','rg',20), 1 )
         self.assertEqual( core.getRowsBy('ge','rg',20)[0][2], 30)

@@ -120,6 +120,9 @@ getjoin_by_prop_wminmax = 'SELECT * from %s WHERE id IN (SELECT id FROM %s WHERE
 getjoin_by_prop_int_wminmax = 'SELECT * from %s WHERE id IN (SELECT id FROM %s WHERE prop=? AND intval=? AND stamp>=? AND stamp<? LIMIT ?)'
 getjoin_by_prop_str_wminmax = 'SELECT * from %s WHERE id IN (SELECT id FROM %s WHERE prop=? AND strval=? AND stamp>=? AND stamp<? LIMIT ?)'
 
+getjoin_by_range_int = 'SELECT * FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? and ? <= intval AND intval < ? LIMIT ?)'
+getjoin_by_range_str = 'SELECT * FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? and ? <= strval AND strval < ? LIMIT ?)'
+
 ################################################################################
 deljoin_by_prop = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=?)'
 deljoin_by_prop_int = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? AND intval=?)'
@@ -278,6 +281,7 @@ class Cortex(common.Cortex):
 
         self.initSizeBy('range',self._sizeByRange)
         self.initRowsBy('range',self._rowsByRange)
+        self.initTufosBy('range',self._tufosByRange)
 
         self.dbpool = self._link[1].get('dbpool')
         if self.dbpool == None:
@@ -454,6 +458,9 @@ class Cortex(common.Cortex):
         self._q_uprows_by_id_prop_str = self._prepQuery(uprows_by_id_prop_str, table)
         self._q_uprows_by_id_prop_int = self._prepQuery(uprows_by_id_prop_int, table)
 
+        self._q_getjoin_by_range_str = self._prepQuery(getjoin_by_range_str, table)
+        self._q_getjoin_by_range_int = self._prepQuery(getjoin_by_range_int, table)
+
     def _checkForTable(self, name):
         return len(self.select(self._q_istable,(name,)))
 
@@ -525,6 +532,23 @@ class Cortex(common.Cortex):
                     break
 
         return ret
+
+    def _tufosByRange(self, prop, valus, limit=None):
+        if len(valus) != 2:
+            return []  # TODO: Raise exception?
+
+        limit = self._getDbLimit(limit)
+
+        if s_compat.isint(valus[0]):
+            q = self._q_getjoin_by_range_int
+        else:
+            q = self._q_getjoin_by_range_str
+
+        args = [ prop, valus[0], valus[1], limit ]
+
+        rows = self.select(q,args)
+        rows = self._foldTypeCols(rows)
+        return self._rowsToTufos(rows)
 
     def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None, nolim=False):
         limit = self._getDbLimit(limit)
