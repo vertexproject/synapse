@@ -5,7 +5,7 @@ python:
     - "2.7"
     - "3.4"
 install:
-    - pip install msgpack-python tornado requests cryptography psycopg2 coverage coveralls
+    - pip install msgpack-python tornado requests cryptography psycopg2 coverage coveralls pyOpenSSL
     - echo $TRAVIS_PYTHON_VERSION
     - docker build -t vertexproject/synapse -f synapse/docker/synapse_dockerfile . \
     - docker build -t vertexproject/cortex_ram -f synapse/docker/cortex/ram_dockerfile . \

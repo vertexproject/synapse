@@ -12,7 +12,7 @@ import traceback
 from binascii import hexlify
 
 from synapse.exc import *
-from synapse.compat import enbase64, debase64
+from synapse.compat import enbase64, debase64, canstor
 
 def now():
     return int(time.time())
@@ -49,6 +49,21 @@ def genpath(*paths):
     path = os.path.join(*paths)
     path = os.path.expanduser(path)
     return os.path.abspath(path)
+
+def reqpath(*paths):
+    path = genpath(*paths)
+    if not os.path.isfile(path):
+        raise NoSuchFile(path)
+
+def reqfile(*paths):
+    path = genpath(*paths)
+    if not os.path.isfile(path):
+        raise NoSuchFile(path)
+    return open(path,'r+b')
+
+def reqbytes(*paths):
+    with reqfile(*paths) as fd:
+        return fd.read()
 
 def genfile(*paths):
     '''
@@ -127,6 +142,15 @@ def chunks(item,size):
     while off < offmax:
         yield item[off:off+size]
         off += size
+
+def reqStorDict(x):
+    '''
+    Raises BadStorValu if any value in the dict is not compatible
+    with being stored in a cortex.
+    '''
+    for k,v in x.items():
+        if not canstor(v):
+            raise BadStorValu(name=k,valu=v)
 
 class TufoApi:
     '''

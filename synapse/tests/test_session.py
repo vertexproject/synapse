@@ -37,3 +37,9 @@ class SessTest(SynTest):
         self.eq(sess.get('haha'), None)
 
         core.fini()
+
+    def test_sess_log(self):
+        cura = s_session.Curator()
+        watr = cura.waiter(1,'sess:log')
+        sess = cura.new()
+        sess.log(0,"woot")

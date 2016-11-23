@@ -1937,4 +1937,3 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         ipv4addr &= ~mask
 
         return self.getTufosBy('range', prop, (ipv4addr, ipv4addr+mask), limit=limit)
-
