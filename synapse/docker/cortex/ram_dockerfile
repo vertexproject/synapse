@@ -3,8 +3,8 @@ FROM vertexproject/synapse:latest
 
 # docker build -t vertexproject/core_ram -f ~/git/synapse/synapse/docker/cortex/ram_dockerfile ~/git/synapse
 
-COPY ./synapse/docker/cortex/ram_cortex.conf /cortex.conf
+COPY ./synapse/docker/cortex/ram_cortex.conf /syndata/cortex.conf
 
 EXPOSE 47322
 
-ENTRYPOINT ["python3", "-m", "synapse.tools.dmon", "/cortex.conf"]
+ENTRYPOINT ["python3", "-m", "synapse.tools.dmon", "/syndata/cortex.conf"]
