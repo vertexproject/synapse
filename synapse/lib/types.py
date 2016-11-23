@@ -23,6 +23,7 @@ class DataType:
         self.tlib = tlib
         self.name = name
         self.info = info
+        reqStorDict(info)
 
     def _raiseBadValu(self, valu, **info):
         raise BadTypeValu(name=self.name, valu=valu, **info)
@@ -84,7 +85,12 @@ class StrType(DataType):
         DataType.__init__(self, tlib, name, **info)
 
         self.regex = None
+        self.envals = None
         self.restrip = None
+
+        enumstr = info.get('enums')
+        if enumstr != None:
+            self.envals = enumstr.split(',')
 
         regex = info.get('regex')
         if regex != None:
@@ -101,9 +107,8 @@ class StrType(DataType):
         if self.info.get('lower'):
             valu = valu.lower()
 
-        enums = self.info.get('enums')
-        if enums != None and valu not in enums:
-            self._raiseBadValu(valu,enums=enums)
+        if self.envals != None and valu not in self.envals:
+            self._raiseBadValu(valu,enums=self.info.get('enums'))
 
         if self.regex != None and not self.regex.match(valu):
             self._raiseBadValu(valu,regex=self.info.get('regex'))
@@ -191,8 +196,17 @@ class CompType(DataType):
     def __init__(self, tlib, name, **info):
         DataType.__init__(self, tlib, name, **info)
 
-        fields = info.get('fields',())
-        #self.comptypes = self._initCompTypes(fields)
+        fields = []
+
+        fieldstr = info.get('fields','')
+        if fieldstr:
+            try:
+                for fpair in fieldstr.split('|'):
+                    fname,ftype = fpair.split(',')
+                    fields.append( (fname,ftype) )
+
+            except Exception as e:
+                raise BadInfoValu(name='fields',valu=fieldstr,mesg='expected: <propname>,<typename>[|...]')
 
         # each of our composit sub-fields is a sub-prop if wanted
         self.subprops = []

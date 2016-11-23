@@ -173,7 +173,7 @@ class DataTypesTest(SynTest):
     def test_datatype_str_enums(self):
         tlib = s_types.TypeLib()
 
-        tlib.addSubType('woot','str',enums=('hehe','haha','hoho'), lower=True)
+        tlib.addSubType('woot','str',enums='hehe,haha,hoho', lower=1)
 
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'woot', 'asdf' )
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'woot', 'asdf' )
@@ -239,10 +239,9 @@ class DataTypesTest(SynTest):
         self.assertFalse( tlib.getTypeFrob('bool','FaLsE') )
 
     def test_type_comp(self):
-        tlib = s_types.TypeLib()
 
-        fields = ( ('fqdn','inet:fqdn'), ('ipv4','inet:ipv4'), ('time','time:epoch') )
-        tlib.addSubType('inet:dns:a','comp',fields=fields)
+        tlib = s_types.TypeLib()
+        tlib.addSubType('inet:dns:a','comp',fields='fqdn,inet:fqdn|ipv4,inet:ipv4|time,time:epoch')
 
         jstext = '["wOOt.com","1.2.3.4","20160204080030"]'
         rawobj = ["wOOt.com","1.2.3.4","20160204080030"]
@@ -286,16 +285,19 @@ class DataTypesTest(SynTest):
     def test_type_comp_chop(self):
         tlib = s_types.TypeLib()
 
-        fields = ( ('fqdn','inet:fqdn'), ('email','inet:email'))
-        tlib.addSubType('fake:newp','comp',fields=fields)
+        tlib.addSubType('fake:newp','comp',fields='fqdn,inet:fqdn|email,inet:email')
 
         norm,subs = tlib.getTypeChop('fake:newp',('woot.com','visi@visi.com'))
+
+    def test_type_comp_err(self):
+        tlib = s_types.TypeLib()
+        self.assertRaises( BadInfoValu, tlib.addSubType, 'fake:newp', 'comp',fields='asdfqwer')
 
     def test_datatype_int_minmax(self):
         tlib = s_types.TypeLib()
 
-        tlib.addSubType('woot:min','int',ismin=True)
-        tlib.addSubType('woot:max','int',ismax=True)
+        tlib.addSubType('woot:min','int',ismin=1)
+        tlib.addSubType('woot:max','int',ismax=1)
 
         self.eq( tlib.getTypeNorm('woot:min', 20, oldval=40), 20 )
         self.eq( tlib.getTypeNorm('woot:min', 40, oldval=20), 20 )
@@ -311,3 +313,7 @@ class DataTypesTest(SynTest):
         self.eq( tlib.getTypeFrob('inet:fqdn','WO-OT.COM'), 'wo-ot.com')
         self.eq( tlib.getTypeParse('inet:fqdn','WOOT.COM'), 'woot.com')
         self.eq( tlib.getTypeParse('inet:fqdn','WO-OT.COM'), 'wo-ot.com')
+
+    def test_type_stor_info(self):
+        tlib = s_types.TypeLib()
+        self.assertRaises( BadStorValu, tlib.addSubType, 'fake:newp', 'comp',fields=() )
