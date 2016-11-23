@@ -7,13 +7,11 @@ python:
 install:
     - pip install msgpack-python tornado requests cryptography psycopg2 coverage coveralls pyOpenSSL
     - echo $TRAVIS_PYTHON_VERSION
-    - docker build -t vertexproject/synapse -f synapse/docker/synapse_dockerfile . \
-    - docker build -t vertexproject/cortex_ram -f synapse/docker/cortex/ram_dockerfile . \
-    - docker build -t vertexproject/cortex_sqlite -f synapse/docker/cortex/sqlite_dockerfile . \
-    - docker build -t vertexproject/cortex_pg -f synapse/docker/cortex/postgres_9.5_dockerfile . \
-    - docker run -d -p 127.0.0.1:47320:47322 --name cortex_ram vertexproject/cortex_ram \
-    - docker run -d -p 127.0.0.1:47321:47322 --name cortex_sqlite vertexproject/cortex_sqlite \
-    - docker run -d -p 127.0.0.1:47322:47322 --name cortex_pg vertexproject/cortex_pg
+    - echo $SYN_DOCKER
+    - test $SYN_DOCKER = 1 \
+        && docker build -t vertexproject/synapse -f synapse/docker/synapse_dockerfile . \
+        && docker build -t vertexproject/cortex_ram -f synapse/docker/cortex/ram_dockerfile . \
+        && docker run -d -p 127.0.0.1:47320:47322 --name cortex_ram vertexproject/cortex_ram 
 script: nosetests --verbosity=3 -x --with-coverage --cover-package=synapse
 services: 
     - postgresql
@@ -21,16 +19,17 @@ services:
 before_script:
     - psql -c 'create database syn_test;' -U postgres
     - echo $TRAVIS_PYTHON_VERSION
-    - docker ps | grep -q cortex_ram \
-    - docker ps | grep -q cortex_sqlite \
-    - docker ps | grep -q cortex_pg \
-    - docker ps -a \
-    - nc -v -w 4 127.0.0.1 47320 \
-    - nc -v -w 4 127.0.0.1 47321 \
-    - nc -v -w 8 127.0.0.1 47322
+    - echo $SYN_DOCKER
+    - test $SYN_DOCKER = 1 \
+        && docker ps | grep -q cortex_ram \
+        && docker ps -a \
+        && nc -v -w 4 127.0.0.1 47320
 env:
     - SYN_COR_PG_DB=syn_test
     - SYN_DOCKER=1
-
+matrix:
+  exclude:
+  - python: "2.7"
+    env: SYN_DOCKER=1
 after_success:
     - coveralls
