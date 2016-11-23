@@ -3,8 +3,8 @@ FROM vertexproject/synapse:latest
 
 # docker build -t vertexproject/core_sqlite -f ~/git/synapse/synapse/docker/cortex/sqlite_dockerfile ~/git/synapse
 
-COPY ./synapse/docker/cortex/sqlite_cortex.conf /syndata/cortex.conf
+COPY ./synapse/docker/cortex/sqlite_dmon.json /syndata/dmon.json
 
 EXPOSE 47322
 
-ENTRYPOINT ["python3", "-m", "synapse.tools.dmon", "/syndata/cortex.conf"]
+ENTRYPOINT ["python3", "-m", "synapse.tools.dmon", "/syndata/dmon.json"]

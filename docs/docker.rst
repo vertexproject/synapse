@@ -31,17 +31,12 @@ Basic synapse dmon config driven cortices that expose a cortex object
 
 connecting to any of the cortices below will be a variant of::
 
-    import os
-
-    from binascii import hexlify
-
     import synapse.telepath as s_telepath
 
     host = '172.17.0.2'
     port = 47322
 
-    core_url = 'tcp://%s:%d/core' % (host, port)
-    core = s_telepath.openurl( core_url )
+    core = s_telepath.openurl( 'tcp:///core', host=host, port=port)
 
 At this point 'core' is a proxy object to the cortex being shared by the synapse daemon running in the docker container.
 
@@ -51,8 +46,8 @@ The normal cortex apis can now be called::
     # this should return *something*
     forms = core.getTufosByProp('syn:core')
 
-    # create a random fqdn and store it
-    fqdn = 'A%s.com' % (hexlify(os.urandom(8)).decode('utf8'),)
+    # create an fqdn and store it
+    fqdn = 'woot.com'
     new_tufo = core.formTufoByProp('fqdn', fqdn)
     
     # retrieve the shiny new fqdn
@@ -73,10 +68,10 @@ core_ram
         - /syndata is still available
 
     ports
-        - 47322 - listener in the default /syndata/cortex.conf
+        - 47322 - listener in the default /syndata/dmon.json
 
     use
-        /syndata/cortex.conf is the synapse dmon conf file used by the image.  This can be modified or mapped in at container startup
+        /syndata/dmon.json is the synapse dmon conf file used by the image.  This can be modified or mapped in at container startup
         ::
 
         $ docker run vertexproject/core_ram 
@@ -93,10 +88,10 @@ core_sqlite
         - /syndata is still available
 
     ports
-        - 47322 - listener in the default /syndata/cortex.conf
+        - 47322 - listener in the default /syndata/dmon.json
 
     use
-        /syndata/cortex.conf is the synapse dmon conf file used by the image.  This can be modified or mapped in at container startup
+        /syndata/dmon.json is the synapse dmon conf file used by the image.  This can be modified or mapped in at container startup
         ::
 
         $ docker run vertexproject/core_sqlite
@@ -114,11 +109,11 @@ core_pg
         - /var/lib/postgresql/data for postgres data
 
     ports
-        - 47322 - listener in the default /cortex.conf
+        - 47322 - listener in the default /syndata/dmon.json
         - 5432 - for postgres
 
     use
-        /syndata/cortex.conf is the synapse dmon conf file used by the image.  This can be modified or mapped in at container startup
+        /syndata/dmon.json is the synapse dmon conf file used by the image.  This can be modified or mapped in at container startup
         ::
 
         $ docker run vertexproject/core_pg

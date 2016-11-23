@@ -16,5 +16,5 @@ en = {
 subprocess.Popen('./pg_docker_entrypoint.sh postgres', shell=True, cwd='/', env=en)
 
 print('initializing dmon main')
-s_dmon.main(['/syndata/cortex.conf'])
+s_dmon.main(['/syndata/dmon.json'])
 
