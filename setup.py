@@ -29,6 +29,7 @@ setup(
         'requests',
         'tornado>=3.2',
         'cryptography>=1.1.2',
+        'pyOpenSSL>=16.2.0',
         'msgpack-python>=0.4.2',
     ],
 
