@@ -5,9 +5,9 @@ Distributed Key-Value Hypergraph Analysis Framework
 Builds
 ------
 
-- Travis-Ci |travisci|
-- AppVeyor |appveyor|
-- Coveralls |coveralls|
+- Travis-Ci |travisci|_
+- AppVeyor |appveyor|_
+- Coveralls |coveralls|_
 
 Unit tests in Travis-Ci and AppVeyor run for python 2.7 / 3.4.
 
