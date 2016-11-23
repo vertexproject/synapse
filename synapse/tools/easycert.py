@@ -5,13 +5,18 @@ import argparse
 
 from OpenSSL import crypto
 
-from synapse.common import gendir,genfile
+import synapse.lib.output as s_output
+
+from synapse.common import gendir,genfile,reqbytes
 
 descr = '''
 Command line tool to generate simple x509 certs
 '''
 
-def main(argv):
+def main(argv, outp=None):
+
+    if outp == None:
+        outp = s_output.OutPutFd( sys.stdout )
 
     pars = argparse.ArgumentParser(prog='easycert', description=descr)
 
@@ -29,11 +34,11 @@ def main(argv):
     certpath = os.path.join(certdir,'%s.crt' % opts.name)
 
     if os.path.exists(pkeypath):
-        print('key exists: %s' % (pkeypath,))
+        outp.print('key exists: %s' % (pkeypath,))
         return(-1)
 
     if os.path.exists(certpath):
-        print('cert exists: %s' % (certpath,))
+        outp.print('cert exists: %s' % (certpath,))
         return(-1)
 
     pkey = crypto.PKey()
@@ -78,12 +83,10 @@ def main(argv):
     signpkey = pkey
 
     if opts.signas:
-        path = os.path.join(certdir,'%s.key' % (opts.signas,))
-        byts = open(path,'rb').read()
+        byts = reqbytes(certdir,'%s.key' % (opts.signas,))
         signpkey = crypto.load_privatekey(crypto.FILETYPE_PEM, byts)
 
-        path = os.path.join(certdir,'%s.crt' % (opts.signas,))
-        byts = open(path,'rb').read()
+        byts = reqbytes(certdir,'%s.crt' % (opts.signas,))
         signcert = crypto.load_certificate(crypto.FILETYPE_PEM, byts)
 
     cert.set_issuer( signcert.get_subject() )
@@ -94,13 +97,14 @@ def main(argv):
     with genfile(pkeypath) as fd:
         fd.write(byts)
 
-    print('pkey saved: %s' % (pkeypath,))
+    outp.print('pkey saved: %s' % (pkeypath,))
 
     byts = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
     with genfile(certpath) as fd:
         fd.write(byts)
 
-    print('cert saved: %s' % (certpath,))
+    outp.print('cert saved: %s' % (certpath,))
+    return 0
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))
