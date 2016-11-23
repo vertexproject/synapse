@@ -59,6 +59,10 @@ class LinkTest(SynTest):
         self.assertEqual( info.get('passwd'), 'c@t')
         self.assertEqual( info.get('host'), 'woot.com')
 
+        info = s_urlhelp.chopurl('foo:///bar')
+        self.assertEqual(info.get('scheme'), 'foo')
+        self.assertEqual(info.get('path'), '/bar')
+
     def test_link_fromurl(self):
         url = 'tcp://visi:secret@127.0.0.1:9999/foo?rc4key=wootwoot&retry=20'
         link = s_link.chopLinkUrl(url)
