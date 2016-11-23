@@ -8,7 +8,10 @@ class OutPut:
     def __init__(self):
         pass
 
-    def print(self, mesg):
+    def printf(self, mesg, **args):
+        if args:
+            mesg = mesg % args
+
         return self._rawOutPut(mesg+'\n')
 
     def _rawOutPut(self, mesg):

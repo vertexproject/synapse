@@ -6,21 +6,21 @@ class TestOutPut(SynTest):
 
     def test_output(self):
         outp = s_output.OutPut()
-        outp.print('foo')
-        outp.print('bar')
+        outp.printf('foo')
+        outp.printf('bar')
 
     def test_output_bytes(self):
         outp = s_output.OutPutBytes()
 
-        outp.print('foo')
-        outp.print('bar')
+        outp.printf('foo')
+        outp.printf('bar')
 
         outp.fd.seek(0)
         self.assertEqual( outp.fd.read(), b'foo\nbar\n')
 
     def test_output_str(self):
         outp = s_output.OutPutStr()
-        outp.print('foo')
-        outp.print('bar')
+        outp.printf('foo')
+        outp.printf('bar')
 
         self.assertEqual( str(outp), 'foo\nbar\n' )

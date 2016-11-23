@@ -34,11 +34,11 @@ def main(argv, outp=None):
     certpath = os.path.join(certdir,'%s.crt' % opts.name)
 
     if os.path.exists(pkeypath):
-        outp.print('key exists: %s' % (pkeypath,))
+        outp.printf('key exists: %s' % (pkeypath,))
         return(-1)
 
     if os.path.exists(certpath):
-        outp.print('cert exists: %s' % (certpath,))
+        outp.printf('cert exists: %s' % (certpath,))
         return(-1)
 
     pkey = crypto.PKey()
@@ -97,13 +97,13 @@ def main(argv, outp=None):
     with genfile(pkeypath) as fd:
         fd.write(byts)
 
-    outp.print('pkey saved: %s' % (pkeypath,))
+    outp.printf('pkey saved: %s' % (pkeypath,))
 
     byts = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
     with genfile(certpath) as fd:
         fd.write(byts)
 
-    outp.print('cert saved: %s' % (certpath,))
+    outp.printf('cert saved: %s' % (certpath,))
     return 0
 
 if __name__ == '__main__':
