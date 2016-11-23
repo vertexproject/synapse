@@ -743,7 +743,7 @@ class CortexTest(SynTest):
     def test_cortex_comp(self):
         core = s_cortex.openurl('ram://')
 
-        fields = (('fqdn','inet:fqdn'),('ipv4','inet:ipv4'),('time','time:epoch'))
+        fields = 'fqdn,inet:fqdn|ipv4,inet:ipv4|time,time:epoch'
         core.addSubType('dns:a','comp',fields=fields)
 
         core.addTufoForm('dns:a',ptype='dns:a')
