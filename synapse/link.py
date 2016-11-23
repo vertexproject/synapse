@@ -8,6 +8,10 @@ from synapse.common import *
 from synapse.links.common import *
 from synapse.eventbus import EventBus
 
+'''
+Provides access to the synapse link protocols.
+'''
+
 protos = {
     'tcp':s_tcp.TcpRelay,
     'ssl':s_ssl.SslRelay,
