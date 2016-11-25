@@ -7,12 +7,13 @@ python:
 install:
     - pip install msgpack-python tornado requests cryptography psycopg2 coverage coveralls pyOpenSSL
     - echo $TRAVIS_PYTHON_VERSION
-    - echo "$SYN_DOCKER"
-    - test "$SYN_DOCKER" \
-        && docker build -t vertexproject/synapse -f synapse/docker/synapse_dockerfile .
-    - test "$SYN_DOCKER" \
+    - bash -c 'echo "$SYN_DOCKER"'
+    - bash -c 'echo bash --version'
+    - bash -c 'test "$SYN_DOCKER" \
+        && docker build -t vertexproject/synapse -f synapse/docker/synapse_dockerfile .'
+    - bash -c 'test "$SYN_DOCKER" \
         && docker build -t vertexproject/core_ram -f synapse/docker/cortex/ram_dockerfile . \
-        && docker run -d -p 127.0.0.1:47320:47322 --name core_ram vertexproject/core_ram
+        && docker run -d -p 127.0.0.1:47320:47322 --name core_ram vertexproject/core_ram'
     - test "$SYN_DOCKER" \
         && docker build -t vertexproject/core_sqlite -f synapse/docker/cortex/sqlite_dockerfile . \
         && docker run -d -p 127.0.0.1:47321:47322 --name core_sqlite vertexproject/core_sqlite
