@@ -11,7 +11,7 @@ Contents:
     synapse/telepath
     synapse/dmon
     synapse/axon
-    api/synapse
+    synapse/api/synapse
 
 Indices and tables
 ==================
