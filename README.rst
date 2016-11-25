@@ -14,6 +14,8 @@ Unit tests in Travis-Ci and AppVeyor run for python 2.7 / 3.4.
 Documentation
 -------------
 
+https://vertexprojectsynapse.readthedocs.io
+
 Contributed
 ~~~~~~~~~~~
 
