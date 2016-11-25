@@ -11,4 +11,5 @@ if tornado.version_info < (3,2):
     raise Exception('synapse requires tornado >= 3.2')
 
 version = (0,0,7)
+verstring = '.'.join([ str(x) for x in version ])
 
