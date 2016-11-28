@@ -6,25 +6,14 @@ python:
     - "3.4"
 install:
     - pip install msgpack-python tornado requests cryptography psycopg2 coverage coveralls pyOpenSSL
-    - docker build -t vertexproject/synapse -f synapse/docker/synapse_dockerfile .
-    - docker build -t vertexproject/core_ram -f synapse/docker/cortex/ram_dockerfile .
-    - docker build -t vertexproject/core_sqlite -f synapse/docker/cortex/sqlite_dockerfile .
-    - docker build -t vertexproject/core_pg -f synapse/docker/cortex/postgres_9.5_dockerfile .
-    - docker run -d -p 127.0.0.1:47320:47322 --name core_ram vertexproject/core_ram
-    - docker run -d -p 127.0.0.1:47321:47322 --name core_sqlite vertexproject/core_sqlite
-    - docker run -d -p 127.0.0.1:47322:47322 --name core_pg vertexproject/core_pg
+    - python -m travis.install
 script: nosetests --verbosity=3 -x --with-coverage --cover-package=synapse
 services: 
     - postgresql
     - docker
 before_script:
     - psql -c 'create database syn_test;' -U postgres
-    - docker ps | grep -q core_ram
-    - docker ps | grep -q core_sqlite
-    - docker ps | grep -q core_pg
-    - nc -v -w 4 127.0.0.1 47320
-    - nc -v -w 4 127.0.0.1 47321
-    - nc -v -w 8 127.0.0.1 47322
+    - python -m travis.before_script
 env:
     - SYN_COR_PG_DB=syn_test
     - SYN_DOCKER=1
