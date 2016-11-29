@@ -1,4 +1,10 @@
 
+import os
+import sys
+import tempfile
+
+import synapse.tools.dmon as s_dmon
+
 from synapse.tests.common import SynTest
 from synapse.tools.dmon import getArgParser
 
@@ -17,3 +23,43 @@ class TestArgParser(SynTest):
             with self.assertRaises(s_cli.CmdArgErr):
                 p = getArgParser()
                 p.parse_args(['--log-level', level])
+
+    def test_getArgParser_bools(self):
+        p = getArgParser()
+        args = p.parse_args(['--lsboot'])
+        self.assertTrue(args.lsboot)
+
+        args = p.parse_args(['--onboot'])
+        self.assertTrue(args.onboot)
+
+        args = p.parse_args(['--noboot'])
+        self.assertTrue(args.noboot)
+
+        args = p.parse_args(['--asboot'])
+        self.assertTrue(args.asboot)
+
+class TestMain(SynTest):
+
+    def getTempConfig(self):
+        t = tempfile.NamedTemporaryFile()
+        t.write(b'''
+        {
+            "title": "my title"
+        }''')
+        t.flush()
+        return t
+
+    def test_main_lsboot(self):
+        tfile = self.getTempConfig()
+
+        s_dmon.main(['--log-level', 'debug', '--lsboot'])
+        s_dmon.main(['--noboot', tfile.name])
+        #s_dmon.main(['--asboot'])
+        tfile.close()
+
+    def test_main_onboot(self):
+        tfile = self.getTempConfig()
+
+        s_dmon.main(['--onboot', tfile.name])
+        tfile.close()
+
