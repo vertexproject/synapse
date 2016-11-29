@@ -5,6 +5,7 @@ import unittest
 import synapse.link as s_link
 import synapse.compat as s_compat
 import synapse.common as s_common
+import synapse.cores as s_cores
 import synapse.cortex as s_cortex
 import synapse.exc as s_exc
 import synapse.lib.userauth as s_userauth
@@ -1227,7 +1228,8 @@ class CortexTest(SynTest):
                 return not any(prop == 'prop' and valu == 'bogus' for iden, prop, valu, when in evtfo[1]['rows'])
 
             # test save
-            with s_cortex.openurl('ram://', savecore=savecore, savefilter=savefilter) as core:
+            with s_cortex.openurl('ram://') as core:
+                s_cores.CortexSaver(core, savecore, savefilter=savefilter)
                 wait = self.getTestWait(savecore.loadbus, 1, 'core:save:add:rows')
                 core.formTufoByProp('prop', 'valu')
                 core.formTufoByProp('prop', 'bogus')
@@ -1237,12 +1239,48 @@ class CortexTest(SynTest):
                 self.assertEqual(save[1]['prop'], 'valu')
                 self.assertIsNone(savecore.getTufoByProp('prop', valu='bogus'))
 
-            # test load=False
-            with s_cortex.openurl('ram://', load=False, savecore=savecore) as core:
-                self.assertIsNone(core.getTufoByProp('prop', valu='valu'))
-
-            # test load=True
-            with s_cortex.openurl('ram://', savecore=savecore) as core:
+            # test load
+            with s_cortex.openurl('ram://') as core:
+                s_cores.CortexLoader(core, savecore)
                 load = core.getTufoByProp('prop', valu='valu')
                 self.assertEqual(save[0], load[0])
                 self.assertEqual(load[1]['prop'], 'valu')
+
+            # test inc
+            with s_cortex.openurl('ram://') as core:
+                s_cores.CortexLoader(core, savecore)
+                s_cores.CortexSaver(core, savecore)
+                wait = self.getTestWait(savecore.loadbus, 1, 'core:save:set:rows:by:idprop')
+                tufo = core.formTufoByProp('prop', 'valu')
+                core.incTufoProp(tufo, 'cnt')
+                wait.wait()
+                save = savecore.getTufoByProp('prop', valu='valu')
+                self.assertEqual(save[1]['tufo:form'], 'prop')
+                self.assertEqual(save[1]['prop'], 'valu')
+                self.assertEqual(save[1]['prop:cnt'], 1)
+
+            # test min
+            with s_cortex.openurl('ram://') as core:
+                s_cores.CortexLoader(core, savecore)
+                s_cores.CortexSaver(core, savecore)
+                wait = self.getTestWait(savecore.loadbus, 1, 'core:save:set:rows:by:idprop')
+                tufo = core.formTufoByProp('prop', 'valu')
+                core.minTufoProp(tufo, 'min', 1)
+                wait.wait()
+                save = savecore.getTufoByProp('prop', valu='valu')
+                self.assertEqual(save[1]['tufo:form'], 'prop')
+                self.assertEqual(save[1]['prop'], 'valu')
+                self.assertEqual(save[1]['prop:min'], 1)
+
+            # test max
+            with s_cortex.openurl('ram://') as core:
+                s_cores.CortexLoader(core, savecore)
+                s_cores.CortexSaver(core, savecore)
+                wait = self.getTestWait(savecore.loadbus, 1, 'core:save:set:rows:by:idprop')
+                tufo = core.formTufoByProp('prop', 'valu')
+                core.incTufoProp(tufo, 'max', 1)
+                wait.wait()
+                save = savecore.getTufoByProp('prop', valu='valu')
+                self.assertEqual(save[1]['tufo:form'], 'prop')
+                self.assertEqual(save[1]['prop'], 'valu')
+                self.assertEqual(save[1]['prop:max'], 1)
