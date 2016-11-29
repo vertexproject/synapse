@@ -2,18 +2,29 @@ from __future__ import absolute_import,unicode_literals
 
 import re
 import json
-import time
+#import time
 import base64
-import socket
-import struct
-import datetime
+import collections
+#import socket
+#import struct
+import logging
+#import datetime
 
 import synapse.compat as s_compat
-import synapse.lib.socket as s_socket
-import synapse.lib.urlhelp as s_urlhelp
-import synapse.swarm.syntax as s_syntax
+import synapse.dyndeps as s_dyndeps
+import synapse.eventbus as s_eventbus
+import synapse.lib.modules as s_modules
 
 from synapse.common import *
+
+logger = logging.getLogger(__name__)
+
+def syntype(name,ctor,**info):
+    return (name,ctor,info)
+    
+def subtype(name,subof,**info):
+    # syntax sugar for model constructors
+    return (name,subof,info)
 
 class DataType:
 
@@ -304,336 +315,68 @@ class BoolType(DataType):
             return self.parse(valu, oldval=oldval)
         return self.norm(valu, oldval=oldval)
 
-def ipv4str(valu):
-    byts = struct.pack('>I',valu)
-    return socket.inet_ntoa(byts)
-
-def ipv4int(valu):
-    byts = socket.inet_aton(valu)
-    return struct.unpack('>I', byts)[0]
-
-class IPv4Type(DataType):
-
-    def norm(self, valu, oldval=None):
-        return valu & 0xffffffff
-
-    def frob(self, valu, oldval=None):
-        if s_compat.isstr(valu):
-            return self.parse(valu, oldval=oldval)
-        return self.norm(valu, oldval=oldval)
-
-    def repr(self, valu):
-        return ipv4str(valu)
-
-    def parse(self, text, oldval=None):
-        return ipv4int(text)
-
-# RFC5952 compatible
-def ipv6norm(text):
-    '''
-    Normalize an IPv6 address into RFC5952 canonical form.
-
-    Example:
-
-        text = ipv6norm(text)
-
-    '''
-    # use inet_ntop / inet_pton from synapse.lib.socket for portability
-    return s_socket.inet_ntop( socket.AF_INET6, s_socket.inet_pton( socket.AF_INET6, text ) )
-
-class IPv6Type(DataType):
-
-    def norm(self, valu, oldval=None):
-        try:
-            return ipv6norm(valu)
-        except Exception as e:
-            self._raiseBadValu(valu)
-
-#class HostPort(DataType):
-
-class Srv4Type(DataType):
-    '''
-    Base type for <ipv4>:<port> format.
-    '''
-    subprops = (
-        tufo('port', ptype='inet:port'),
-        tufo('ipv4', ptype='inet:ipv4'),
-    )
-
-    def norm(self, valu, oldval=None):
-        return valu & 0xffffffffffff
-
-    def repr(self, valu):
-        addr = valu >> 16
-        port = valu & 0xffff
-        return '%s:%d' % ( ipv4str(addr), port )
-
-    def chop(self, valu):
-        addr = valu >> 16
-        port = valu & 0xffff
-        return valu,{'port':port,'ipv4':addr}
-
-    def parse(self, text, oldval=None):
-
-        try:
-            astr,pstr = text.split(':')
-        except ValueError as e:
-            raise BadTypeValu(name=self.name,valu=text)
-
-        addr = ipv4int(astr)
-        port = int(pstr,0)
-        return ( addr << 16 ) | port
-
-    def frob(self, valu, oldval=None):
-        if s_compat.isstr(valu):
-            return self.parse(valu, oldval=oldval)
-        return self.norm(valu, oldval=None)
-
-srv6re = re.compile('^\[([a-f0-9:]+)\]:(\d+)$')
-
-class Srv6Type(DataType):
-    '''
-    Base type for [IPv6]:port format.
-    '''
-    subprops = (
-        tufo('port', ptype='inet:port'),
-        tufo('ipv6', ptype='inet:ipv6'),
-    )
-
-    def norm(self, valu, oldval=None):
-        return self.chop(valu)[0]
-
-    def chop(self, valu):
-
-        valu = valu.lower()
-        m = srv6re.match(valu)
-        if m == None:
-            self._raiseBadValu(valu, ex='[af::2]:80')
-
-        host,portstr = m.groups()
-
-        port = int(portstr,0)
-        if port > 0xffff or port < 0:
-            self._raiseBadValu(valu, port=port)
-
-        try:
-            host = ipv6norm(host)
-        except Exception as e:
-            self._raiseBadValu(valu)
-
-        valu = '[%s]:%d' % (host,port)
-        return valu,{'ipv6':host,'port':port}
-
-class EmailType(DataType):
-
-    subprops = (
-        tufo('user',ptype='inet:user'),
-        tufo('fqdn',ptype='inet:fqdn'),
-    )
-
-    def norm(self, valu, oldval=None):
-        try:
-            user,fqdn = valu.split('@',1)
-        except ValueError as e:
-            self._raiseBadValu(valu)
-
-        return valu.lower()
-
-    def chop(self, valu):
-        norm = valu.lower()
-        try:
-            user,fqdn = valu.split('@',1)
-        except ValueError as e:
-            self._raiseBadValu(valu)
-        return norm,{'user':user,'fqdn':fqdn}
-
-    def repr(self, valu):
-        return valu
-
-class UrlType(DataType):
-
-    #subprops = (
-        #tufo('fqdn',ptype='inet:fqdn'),
-        #tufo('ipv4',ptype='inet:ipv4'),
-        #tufo('ipv6',ptype='inet:ipv6'),
-        #tufo('port',ptype='inet:port'),
-    #)
-    def norm(self, valu, oldval=None):
-        respath = ''
-        resauth = ''
-
-        if valu.find('://') == -1:
-            raise BadTypeValu(name=self.name,valu=valu)
-
-        scheme,resloc = valu.split('://',1)
-
-        parts = resloc.split('/',1)
-        if len(parts) == 2:
-            resloc,respath = parts
-
-        if resloc.find('@') != -1:
-            resauth,resloc = resloc.split('@',1)
-
-        # FIXME chop sub props from resloc!
-        scheme = scheme.lower()
-        hostpart = resloc.lower()
-
-        if resauth:
-            hostpart = '%s@%s' % (resauth,hostpart)
-
-        return '%s://%s/%s' % (scheme,hostpart,respath)
-
-    def repr(self, valu):
-        return valu
-
-class EpochType(DataType):
-
-    def __init__(self, tlib, name, **info):
-        DataType.__init__(self, tlib, name, **info)
-
-        self.ismin = info.get('ismin',False)
-        self.ismax = info.get('ismax',False)
-
-        self.minmax = None
-
-        if self.ismin:
-            self.minmax = min
-
-        elif self.ismax:
-            self.minmax = max
-
-    def norm(self, valu, oldval=None):
-
-        if not s_compat.isint(valu):
-            self._raiseBadValu(valu)
-
-        if oldval != None and self.minmax:
-            valu = self.minmax(valu,oldval)
-
-        return valu
-
-    def frob(self, valu, oldval=None):
-        if s_compat.isstr(valu):
-            return self.parse(valu, oldval=oldval)
-        return self.norm(valu, oldval=oldval)
-
-    def parse(self, text, oldval=None):
-
-        text = text.strip().lower()
-        text = (''.join([ c for c in text if c.isdigit() ]))[:14]
-
-        tlen = len(text)
-        if tlen == 4:
-            st = time.strptime(text, '%Y')
-
-        elif tlen == 6:
-            st = time.strptime(text, '%Y%m')
-
-        elif tlen == 8:
-            st = time.strptime(text, '%Y%m%d')
-
-        elif tlen == 10:
-            st = time.strptime(text, '%Y%m%d%H')
-
-        elif tlen == 12:
-            st = time.strptime(text, '%Y%m%d%H%M')
-
-        elif tlen == 14:
-            st = time.strptime(text, '%Y%m%d%H%M%S')
-
-        else:
-            raise Exception('Unknown time format: %s' % text)
-
-        e = datetime.datetime(1970,1,1)
-        d = datetime.datetime(st.tm_year, st.tm_mon, st.tm_mday)
-
-        epoch = int((d - e).total_seconds())
-        epoch += st.tm_hour*3600
-        epoch += st.tm_min*60
-        epoch += st.tm_sec
-
-        return epoch
-
-    def repr(self, valu):
-        dt = datetime.datetime(1970,1,1) + datetime.timedelta(seconds=int(valu))
-        return '%d/%.2d/%.2d %.2d:%.2d:%.2d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
-
 class TypeLib:
     '''
     An extensible type library for use in cortex data models.
     '''
-    def __init__(self):
+    def __init__(self, load=True):
         self.types = {}
-        self.subtypes = []
+        self.typedefs = {}
 
-        self.addType(IntType(self,'int'))
-        self.addType(StrType(self,'str'))
-        self.addType(BoolType(self,'bool'))
-        self.addType(CompType(self,'comp'))
+        # pend creation of subtypes for non-existant base types
+        # until the base type gets loaded.
+        self.pended = collections.defaultdict(list)
 
-        self.addSubType('int:min','int', ismin=1)
-        self.addSubType('int:max','int', ismax=1)
+        self.addType('str',ctor='synapse.lib.types.StrType')
+        self.addType('int',ctor='synapse.lib.types.IntType')
+        self.addType('bool',ctor='synapse.lib.types.BoolType')
+        self.addType('comp',ctor='synapse.lib.types.CompType')
 
-        self.addSubType('text', 'str')
+        # add base synapse types
+        self.addType('syn:tag',subof='str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
+        self.addType('syn:prop',subof='str', regex=r'^([\w]+:)*[\w]+$', lower=1)
+        self.addType('syn:type',subof='str', regex=r'^([\w]+:)*[\w]+$', lower=1)
+        self.addType('syn:glob',subof='str', regex=r'^([\w]+:)*[\w]+:\*$', lower=1)
 
-        self.addSubType('str:lwr', 'str', lower=1)
+        self.addType('guid',subof='str', regex='^[0-9a-f]{32}$', lower=1, restrip='[-]')
 
-        self.addSubType('geo:latlong', 'str', regex='^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)$')
+        self.addType('int:min', subof='int', ismin=1)
+        self.addType('int:max', subof='int', ismax=1)
 
-        self.addSubType('guid', 'str', regex='^[0-9a-f]{32}$', lower=1, restrip='[-]')
+        self.addType('str:lwr', subof='str', lower=1)
+        self.addType('str:txt', subof='str', doc='Multi-line text or text blob.')
 
-        self.addSubType('hash:md5','str', regex='^[0-9a-f]{32}$', lower=1)
-        self.addSubType('hash:sha1','str', regex='^[0-9a-f]{40}$', lower=1)
-        self.addSubType('hash:sha256','str', regex='^[0-9a-f]{64}$', lower=1)
-        self.addSubType('hash:sha384','str', regex='^[0-9a-f]{96}$', lower=1)
-        self.addSubType('hash:sha512','str', regex='^[0-9a-f]{128}$', lower=1)
+        if load:
+            self.loadModModels()
 
-        # time types
-        self.addType( EpochType(self,'time:epoch') )
-        self.addSubType('time:epoch:min','time:epoch',ismin=1)
-        self.addSubType('time:epoch:max','time:epoch',ismax=1)
-
-        # inet types
-        self.addType(IPv4Type(self,'inet:ipv4'))
-        self.addType(IPv6Type(self,'inet:ipv6'))
-
-        self.addType(Srv4Type(self,'inet:srv4'))
-        self.addType(Srv6Type(self,'inet:srv6'))
-
-        self.addSubType('inet:tcp4','inet:srv4')
-        self.addSubType('inet:udp4','inet:srv4')
-        self.addSubType('inet:tcp6','inet:srv6')
-        self.addSubType('inet:udp6','inet:srv6')
-
-        self.addType(UrlType(self,'inet:url'))
-        self.addType(EmailType(self,'inet:email'))
-
-        self.addSubType('inet:asn', 'int')
-        self.addSubType('inet:user','str')
-        self.addSubType('inet:passwd','str')
-        self.addSubType('inet:filepath','str')
-
-        self.addSubType('inet:fqdn','str', regex='^[a-z0-9._-]+$', lower=1)
-        self.addSubType('inet:mac', 'str', regex='^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', lower=1)
-
-        self.addSubType('inet:port', 'int', min=0, max=0xffff)
-
-    def addSubType(self, name, subof, **info):
+    def loadDataModels(self, modtups):
         '''
-        Add a new type which extends from parent type's class.
-
-        Example:
-
-            tlib.addSubType('guid:org', 'guid', doc='guid for an org')
-
+        Load a list of (name,model) tuples into the TypeLib.
         '''
-        if self.types.get(name) != None:
-            raise DupTypeName(name=name)
+        subtodo = []
 
-        info['subof'] = subof
-        base = self.reqDataType(subof)
-        self.addType( base.extend(name, **info) )
-        self.subtypes.append( (name,info) )
+        for modname,moddict in modtups:
+            # add all base types first to simplify deps
+            for name,info in moddict.get('types',()):
+                try:
+                    self.addType(name,**info)
+                except Exception as e:
+                    logger.exception('type %s: %s' % (name, e))
+
+    def loadModModels(self):
+
+        modls = s_modules.call('getDataModel')
+
+        models = [ (name,modl) for (name,modl,excp) in modls if modl != None ]
+
+        self.loadDataModels(models)
+
+    def _bumpBasePend(self, name):
+        for name,info in self.pended.pop(name,()):
+            try:
+                self.addType(name,**info)
+            except Exception as e:
+                logger.exception('pended: addType %s' % (name,), e)
 
     def getDataType(self, name):
         '''
@@ -650,21 +393,33 @@ class TypeLib:
             raise NoSuchType(name=name)
         return item
 
-    def addType(self, item):
+    def addType(self, name, **info):
         '''
-        Add a type object which extends from DataType.
-
-        class MyType(DataType):
-            def __init__(self):
-                DataType.__init__(self,'my:type')
-
-            #def repr(self, valu):
-            #def norm(self, valu, oldval=None):
-            #def parse(self, text):
-
-        tlib.addType( MyType() )
         '''
-        self.types[item.name] = item
+        if self.types.get(name) != None:
+            raise DupTypeName(name=name)
+
+        ctor = info.get('ctor')
+        subof = info.get('subof')
+        if ctor == None and subof == None:
+            raise Exception('addType must have either ctor= or subof=')
+
+        if ctor != None:
+            item = s_dyndeps.tryDynFunc(ctor,self,name)
+            self.types[name] = item
+            self._bumpBasePend(name)
+            return True
+
+        if not self.types.get(subof):
+            self.pended[subof].append( (name,info) )
+            return False
+
+        base = self.reqDataType(subof)
+        item = base.extend(name, **info)
+        self.types[name] = item
+
+        self._bumpBasePend(name)
+        return True
 
     def getTypeNorm(self, name, valu, oldval=None):
         '''

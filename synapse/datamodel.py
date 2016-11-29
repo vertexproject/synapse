@@ -88,7 +88,7 @@ def parsetypes(*atypes, **kwtypes):
 
 class DataModel(s_types.TypeLib):
 
-    def __init__(self):
+    def __init__(self,load=True):
         self.props = {}
         self.forms = set()
 
@@ -106,28 +106,22 @@ class DataModel(s_types.TypeLib):
             'forms':[],
         }
 
-        s_types.TypeLib.__init__(self)
+        s_types.TypeLib.__init__(self,load=load)
 
-        self.addSubType('syn:tag','str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
-        self.addSubType('syn:prop','str', regex=r'^([\w]+:)*[\w]+$', lower=1)
-        self.addSubType('syn:prop:glob','str', regex=r'^([\w]+:)*[\w]+:\*$', lower=1)
-        self.addSubType('syn:type','str', regex=r'^([\w]+:)*[\w]+$', lower=1)
+        self.addTufoForm('syn:core')
 
         self.addTufoForm('syn:form',ptype='syn:prop')
-        self.addTufoProp('syn:form','doc',ptype='str', doc='basic form definition')
-        self.addTufoProp('syn:form','ver',ptype='int', doc='form version within the model')
-        self.addTufoProp('syn:form','model',ptype='str', doc='which model defines a given form')
+        self.addTufoProp('syn:form','doc', ptype='str', doc='basic form definition')
+        self.addTufoProp('syn:form','ver', ptype='int', doc='form version within the model')
+        self.addTufoProp('syn:form','model', ptype='str', doc='which model defines a given form')
 
         self.addTufoForm('syn:prop',ptype='syn:prop')
-        self.addTufoProp('syn:prop','doc',ptype='str')
-        self.addTufoProp('syn:prop','form',ptype='syn:prop')
-        self.addTufoProp('syn:prop','ptype',ptype='syn:type')
-        self.addTufoProp('syn:prop','req',ptype='bool')
-
-        self.addTufoForm('syn:prop:glob',ptype='syn:prop:glob')
-        self.addTufoProp('syn:prop:glob','doc',ptype='str')
-        self.addTufoProp('syn:prop:glob','form',ptype='syn:prop')
-        self.addTufoProp('syn:prop:glob','ptype',ptype='syn:type')
+        self.addTufoProp('syn:prop','doc',ptype='str',req=1,doc='Description of the property definition')
+        self.addTufoProp('syn:prop','form',ptype='syn:prop',req=1,doc='Synapse form which contains this property')
+        self.addTufoProp('syn:prop','ptype',ptype='syn:type',req=1,doc='Synapse type for this field')
+        self.addTufoProp('syn:prop','req',ptype='bool',defval=0,doc='Set to 1 if this property is required')
+        self.addTufoProp('syn:prop','glob',ptype='bool',defval=0,doc='Set to 1 if this property defines a glob')
+        self.addTufoProp('syn:prop','defval',doc='Set to the default value for this property')
 
         self.addTufoForm('syn:tag', ptype='syn:tag')
         self.addTufoProp('syn:tag','up',ptype='syn:tag')
@@ -135,16 +129,12 @@ class DataModel(s_types.TypeLib):
         self.addTufoProp('syn:tag','depth',defval=0,ptype='int')
         self.addTufoProp('syn:tag','title',defval='',ptype='str')
 
-        self.addTufoForm('syn:model',ptype='syn:prop', doc='prefix for all forms within the model')
-        self.addTufoForm('syn:model:version', ptype='int', doc='model version for the model loaded in the cortex')
+        self.addTufoForm('syn:model',ptype='syn:tag', doc='prefix for all forms within the model')
+        self.addTufoProp('syn:model','version', ptype='int', doc='version of the data model')
+        self.addTufoProp('syn:model','prefix', ptype='syn:prop', doc='prefix used by types/forms in the model')
 
         self.addTufoForm('syn:type',ptype='syn:type')
-        self.addTufoProp('syn:type','doc',ptype='str', defval='??', doc='Description for this type')
-        self.addTufoProp('syn:type','ver',ptype='int', defval=1, doc='What version is this type')
-        self.addTufoProp('syn:type','base',ptype='str', doc='what type does this type extend?', req=1)
-        self.addTufoProp('syn:type','fields',ptype='int',doc='number of fields for composite type')
-        self.addTufoGlob('syn:type','field:*',ptype='str',doc='field in composite type')
-        self.addTufoGlob('syn:type','info:*')
+        self.addTufoProp('syn:type','*',glob=1)
 
     def getModelDict(self):
         '''
@@ -190,6 +180,10 @@ class DataModel(s_types.TypeLib):
         pdef = self.getPropDef(form)
         if pdef == None:
             raise NoSuchForm(name=form)
+
+        if info.get('glob'):
+            self._addPropGlob(form,prop,**info)
+            return
 
         info['form'] = form
         fullprop = '%s:%s' % (form,prop)
@@ -248,20 +242,10 @@ class DataModel(s_types.TypeLib):
                 continue
             self.subprops[prop].append(pdef)
 
-    def addTufoGlob(self, form, glob, **propinfo):
-        '''
-        Add a property to the given tufo form.
-        '''
-        glob = '%s:%s' % (form,glob)
-        propinfo['form'] = form
-        return self.addPropGlob(glob, **propinfo)
-
-    def addPropGlob(self, glob, **info):
-        '''
-        Add a property glob to the data model.
-        '''
-        self.globs.append( (glob,info) )
-        self.model['globs'][glob] = info
+    def _addPropGlob(self, form, prop, **info):
+        prop = '%s:%s' % (form,prop)
+        info['form'] = form
+        self.globs.append( (prop,info) )
 
     def getSubProps(self, prop):
         '''

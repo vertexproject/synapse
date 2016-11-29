@@ -1,12 +1,12 @@
 from __future__ import absolute_import,unicode_literals
 
-import time
 import sqlite3
 
 import synapse.compat as s_compat
 import synapse.cores.common as common
 
 from synapse.compat import queue
+from synapse.common import millinow
 
 int_t = s_compat.typeof(0)
 str_t = s_compat.typeof('visi')
@@ -588,7 +588,7 @@ class Cortex(common.Cortex):
             count = self.update( self._q_uprows_by_id_prop_str, (valu,ident,prop) )
 
         if count == 0:
-            rows = [ (ident,prop,valu,int(time.time())), ]
+            rows = [ (ident,prop,valu,millinow()), ]
             self._addRows(rows)
 
     def _delRowsById(self, ident):

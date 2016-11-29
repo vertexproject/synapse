@@ -116,7 +116,7 @@ class DataTypesTest(SynTest):
     def test_datatype_guid_sub(self):
         tlib = s_types.TypeLib()
 
-        tlib.addSubType('woot','guid')
+        tlib.addType('woot',subof='guid')
 
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'woot', 'newp' )
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'woot', 'newp' )
@@ -173,7 +173,7 @@ class DataTypesTest(SynTest):
     def test_datatype_str_enums(self):
         tlib = s_types.TypeLib()
 
-        tlib.addSubType('woot','str',enums='hehe,haha,hoho', lower=1)
+        tlib.addType('woot',subof='str',enums='hehe,haha,hoho', lower=1)
 
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'woot', 'asdf' )
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'woot', 'asdf' )
@@ -185,7 +185,7 @@ class DataTypesTest(SynTest):
     def test_datatype_dup(self):
         tlib = s_types.TypeLib()
 
-        self.assertRaises(DupTypeName, tlib.addSubType, 'inet:port', 'int' )
+        self.assertRaises(DupTypeName, tlib.addType, 'inet:port', subof='int' )
 
     def test_datatype_bool(self):
         tlib = s_types.TypeLib()
@@ -220,7 +220,7 @@ class DataTypesTest(SynTest):
     def test_type_comp(self):
         tlib = s_types.TypeLib()
 
-        tlib.addSubType('inet:dns:a','comp',fields='fqdn,inet:fqdn|ipv4,inet:ipv4|time,time:epoch')
+        tlib.addType('inet:dns:a',subof='comp',fields='fqdn,inet:fqdn|ipv4,inet:ipv4|time,time:epoch')
 
         jstext = '["wOOt.com","1.2.3.4","20160204080030"]'
         rawobj = ["wOOt.com","1.2.3.4","20160204080030"]
@@ -264,19 +264,19 @@ class DataTypesTest(SynTest):
     def test_type_comp_chop(self):
         tlib = s_types.TypeLib()
 
-        tlib.addSubType('fake:newp','comp',fields='fqdn,inet:fqdn|email,inet:email')
+        tlib.addType('fake:newp',subof='comp',fields='fqdn,inet:fqdn|email,inet:email')
 
         norm,subs = tlib.getTypeChop('fake:newp',('woot.com','visi@visi.com'))
 
     def test_type_comp_err(self):
         tlib = s_types.TypeLib()
-        self.assertRaises( BadInfoValu, tlib.addSubType, 'fake:newp', 'comp',fields='asdfqwer')
+        self.assertRaises( BadInfoValu, tlib.addType, 'fake:newp', subof='comp',fields='asdfqwer')
 
     def test_datatype_int_minmax(self):
         tlib = s_types.TypeLib()
 
-        tlib.addSubType('woot:min','int',ismin=1)
-        tlib.addSubType('woot:max','int',ismax=1)
+        tlib.addType('woot:min',subof='int',ismin=1)
+        tlib.addType('woot:max',subof='int',ismax=1)
 
         self.eq( tlib.getTypeNorm('woot:min', 20, oldval=40), 20 )
         self.eq( tlib.getTypeNorm('woot:min', 40, oldval=20), 20 )
@@ -296,4 +296,10 @@ class DataTypesTest(SynTest):
 
     def test_type_stor_info(self):
         tlib = s_types.TypeLib()
-        self.assertRaises( BadStorValu, tlib.addSubType, 'fake:newp', 'comp',fields=() )
+        self.assertRaises( BadStorValu, tlib.addType, 'fake:newp', subof='comp',fields=() )
+
+    def test_type_pend(self):
+        tlib = s_types.TypeLib()
+        self.assertFalse( tlib.addType('foo',subof='bar') )
+        self.assertTrue( tlib.addType('bar',subof='int') )
+        self.assertIsNotNone( tlib.getDataType('foo') )

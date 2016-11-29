@@ -12,3 +12,13 @@ if tornado.version_info < (3,2):
 
 version = (0,0,7)
 
+import synapse.lib.modules as s_modules
+
+# load all the synapse builtin modules
+s_modules.load('synapse.models.syn')
+s_modules.load('synapse.models.inet')
+s_modules.load('synapse.models.telco')
+s_modules.load('synapse.models.crypto')
+s_modules.load('synapse.models.finance')
+s_modules.load('synapse.models.temporal')
+s_modules.load('synapse.models.geospace')

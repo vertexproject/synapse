@@ -35,7 +35,7 @@ class DataModelTest(SynTest):
         model = s_datamodel.DataModel()
 
         model.addTufoForm('foo')
-        model.addPropGlob('foo:bar:*',ptype='str:lwr')
+        model.addTufoProp('foo','bar:*', ptype='str:lwr', glob=1)
         self.assertEqual( model.getPropNorm('foo:bar:baz','Woot'), 'woot' )
 
     def test_datamodel_fail_notype(self):
