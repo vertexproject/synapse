@@ -1,5 +1,6 @@
-import time
 import collections
+
+import synapse.common as s_common
 
 '''
 Tools to help implement a hierarchical tagging system.
@@ -52,9 +53,9 @@ def genTufoRows(tufo, tag, valu=None):
     '''
     Return a list of (tag,row) tuples for the given tag (and down).
     '''
-    now = int(time.time())
+    now = s_common.millinow()
     if valu == None:
-        valu = int(time.time())
+        valu = now
 
     iden = tufo[0]
     form = tufo[1].get('tufo:form')
