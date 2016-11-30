@@ -8,6 +8,8 @@ import synapse.dyndeps as s_dyndeps
 logger = logging.getLogger(__name__)
 
 synmods = {}
+modlist = []
+
 def call(name, *args, **kwargs):
     '''
     Call the given function on all loaded synapse modules.
@@ -24,7 +26,7 @@ def call(name, *args, **kwargs):
 
     '''
     ret = []
-    for sname,smod in synmods.items():
+    for sname,smod in modlist:
         func = getattr(smod,name,None)
         if func == None:
             continue
@@ -34,7 +36,7 @@ def call(name, *args, **kwargs):
             ret.append( (sname,val,None) )
 
         except Exception as e:
-            ret.append( (sname,None,exc) )
+            ret.append( (sname,None,e) )
 
     #print('call: %r %r %r %r' % (name,args,kwargs,ret))
     return ret
@@ -55,5 +57,6 @@ def load(name):
         logging.info('loading syn mod: %s' % (name,))
         smod = s_dyndeps.tryDynMod(name)
         synmods[name] = smod
+        modlist.append( (name,smod) )
     return smod
 
