@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *.swp
 
+# sphinx build dir
+docs/_build
+
 # C extensions
 *.so
 
