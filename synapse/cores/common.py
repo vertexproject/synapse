@@ -65,6 +65,8 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         self.lock = threading.Lock()
         self.inclock = threading.Lock()
 
+        self._form_locks = collections.defaultdict(threading.RLock)
+
         self.statfuncs = {}
 
         self.auth = None
@@ -201,6 +203,10 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         self.addTufoProp('syn:splice','action', ptype='str', doc='What action is the splice requesting')
         self.addTufoProp('syn:splice','actuser', ptype='str', doc='What user is activating the splice')
         self.addTufoProp('syn:splice','acttime', ptype='time:epoch', doc='When was the splice activated')
+
+        for name,ret,exc in s_modules.call('addCoreOns',self):
+            if exc != None:
+                logger.warning('%s.addCoreOns: %s' % (name,exc))
 
     def _saveCoreModel(self):
         '''
@@ -1528,6 +1534,9 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         return self.formTufoByProp(form,valu,**props)
 
+    def _getFormLock(self, name):
+        return self._form_locks[name]
+
     def formTufoByProp(self, prop, valu, **props):
         '''
         Form an (iden,info) tuple by atomically deconflicting
@@ -1545,7 +1554,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         '''
         valu,subs = self.getPropChop(prop,valu)
 
-        with self.lock:
+        with self._getFormLock(prop):
 
             tufo = self.getTufoByProp(prop,valu=valu)
             if tufo != None:
@@ -1616,7 +1625,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
                 self._bumpTufoCache(tufo,prop,valu,None)
 
         iden = tufo[0]
-        with self.lock:
+        with self._getFormLock(form)
             self.delRowsById(iden)
 
         lists = [ p.split(':',2)[2] for p in tufo[1].keys() if p.startswith('tufo:list:') ]
