@@ -71,6 +71,9 @@ class HitMaxTime(Exception):pass
 class HitMaxLimit(Exception):pass
 class HitMaxRetry(Exception):pass
 
+class NotEnoughFree(Exception):pass
+class NoWritableAxons(Exception):pass
+
 class MustNotWait(Exception):pass   # blocking function called by no-wait thread
 
 class IsFini(Exception):pass

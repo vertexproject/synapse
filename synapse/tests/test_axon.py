@@ -42,6 +42,9 @@ class AxonTest(SynTest):
 
             self.assertEqual(byts,b'asdfasdf')
 
+            self.assertIsNone(axon.wants('md5', asdfhash, 8))
+            self.assertIsNotNone(axon.wants('md5', craphash, 8))
+
             axon.fini()
 
     def test_axon_sync(self):
@@ -68,6 +71,7 @@ class AxonTest(SynTest):
         self.thisHostMustNot(platform='windows')
 
         with self.getTestDir() as datadir:
+            open(os.path.join(datadir, 'foo'), 'w').write('useless file to skip')
 
             host = s_axon.AxonHost(datadir)
             usage = host.usage()
@@ -100,6 +104,11 @@ class AxonTest(SynTest):
             self.assertTrue( axon.has( 'md5', blob[1].get('hash:md5') ) )
             self.assertTrue( axon.has( 'sha1', blob[1].get('hash:sha1') ) )
             self.assertTrue( axon.has( 'sha256', blob[1].get('hash:sha256') ) )
+
+            props = {
+                'syncmax':s_axon.megabyte * 10,
+            }
+            self.assertRaises(NotEnoughFree, host.add, **props)
 
             host.fini()
 
@@ -155,7 +164,7 @@ class AxonTest(SynTest):
 
         dmon.fini()
 
-    def test_axon_cluster(self):
+    def test_axon_clustered(self):
 
         self.thisHostMustNot(platform='windows')
 
@@ -206,6 +215,73 @@ class AxonTest(SynTest):
             self.assertTrue( axon0.has( 'sha256', blob[1].get('hash:sha256') ) )
 
             axon0.fini()
+
+            host0.fini()
+            host1.fini()
+            host2.fini()
+
+        dmon.fini()
+
+    def test_axon_cluster(self):
+
+        self.thisHostMustNot(platform='windows')
+
+        busurl = 'local://%s/axons' % guid()
+
+        dmon = s_daemon.Daemon()
+        dmon.listen(busurl)
+
+        dmon.share('axons', s_service.SvcBus(), fini=True)
+        svcprox = s_service.openurl( busurl )
+
+        axcluster = s_axon.AxonCluster(svcprox)
+
+        with self.getTestDir() as datadir:
+
+            dir0 = gendir(datadir,'host0')
+            dir1 = gendir(datadir,'host1')
+            dir2 = gendir(datadir,'host2')
+
+            opts = {
+                'axonbus':busurl,
+            }
+
+            host0 = s_axon.AxonHost(dir0,hostname='host0',**opts)
+            host1 = s_axon.AxonHost(dir1,hostname='host1',**opts)
+            host2 = s_axon.AxonHost(dir2,hostname='host2',**opts)
+
+
+            props = {
+                'clones':1,
+                'syncmax':s_axon.megabyte,
+                'bytemax':s_axon.megabyte,
+            }
+
+            axfo0 = host0.add(**props)
+
+            self.assertFalse( axcluster.has('md5',craphash) )
+            self.assertFalse( axcluster.has('md5',asdfhash) )
+
+            buf = b'asdfasdf'
+            iden = axcluster.alloc(len(buf))
+            self.assertIsNotNone( axcluster.chunk(iden, buf) )
+
+            self.assertFalse( axcluster.has('md5',craphash) )
+            self.assertTrue( axcluster.has('md5',asdfhash) )
+
+            blobs = axcluster.find('md5', asdfhash)
+            self.assertEqual(len(blobs), 1)
+
+            blob = blobs[0]
+            byts = b''.join( axcluster.iterblob(blob) )
+            self.assertEqual(byts, buf)
+
+            blob[1].pop('.axon')
+            byts = b''.join( axcluster.iterblob(blob) )
+            self.assertEqual(byts, buf)
+
+            self.assertIsNone(axcluster.wants('md5', asdfhash, len(buf)))
+            self.assertIsNotNone(axcluster.wants('md5', craphash, len(buf)))
 
             host0.fini()
             host1.fini()
