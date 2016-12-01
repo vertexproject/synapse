@@ -8,6 +8,9 @@ Builds
 - Travis-Ci |travisci|_
 - AppVeyor |appveyor|_
 - Coveralls |coveralls|_
+- Documentation image:: https://readthedocs.org/projects/vertexprojectsynapse/badge/?version=latest
+:target: http://vertexprojectsynapse.readthedocs.io/en/latest/?badge=latest
+:alt: status
 
 Unit tests in Travis-Ci and AppVeyor run for python 2.7 / 3.4.
 
