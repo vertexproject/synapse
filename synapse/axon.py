@@ -153,7 +153,7 @@ class AxonHost(s_eventbus.EventBus):
         total = volinfo.get('total')
 
         if bytemax > free:
-            raise Exception('NotEnoughFree')
+            raise NotEnoughFree(bytemax)
 
         axondir = gendir(self.datadir,'%s.axon' % iden)
 
@@ -256,7 +256,7 @@ class AxonCluster:
                 if axon == None:
                     continue
 
-                [ b.__setitem__(self,'.axon',svcfo[0]) for b in blobs ]
+                [ b[1].__setitem__('.axon',svcfo[0]) for b in blobs ]
                 retblobs.extend(blobs)
 
             except Exception as e:
@@ -294,6 +294,7 @@ class AxonCluster:
 
             for byts in axon.bytes(htype,hvalu):
                 yield byts
+            return
 
     def wants(self, htype, hvalu, size, bytag=axontag):
         if self.has(htype,hvalu,bytag=bytag):
@@ -309,7 +310,7 @@ class AxonCluster:
         '''
         axons = self._getWrAxons(bytag=bytag)
         if not len(axons):
-            raise Exception('No Wr Axons')
+            raise NoWritableAxons(bytag)
 
         # FIXME shuffle/randomize
 
@@ -338,14 +339,16 @@ class AxonCluster:
         dyntask = gentask('getAxonInfo')
         for svcfo,axfo in self.svcprox.callByTag(bytag,dyntask):
 
-            if axfo[1].get('ro'):
+            if axfo[1]['opts'].get('ro'):
                 continue
 
-            axon = self._getAxonFromInfo(axfo)
+            axon = self._getSvcAxon(svcfo[0])
             if axon == None:
                 continue
 
             wraxons.append(axon)
+
+        return wraxons
 
 class Axon(s_eventbus.EventBus):
     '''

@@ -5,13 +5,21 @@ python:
     - "2.7"
     - "3.4"
 install:
-    - pip install msgpack-python tornado requests cryptography psycopg2 coveralls pyOpenSSL
+    - pip install msgpack-python tornado requests cryptography psycopg2 coverage coveralls pyOpenSSL
+    - python -m synapse.tests.travis.install
 script: nosetests --verbosity=3 -x --with-coverage --cover-package=synapse
-services: postgresql
+services: 
+    - postgresql
+    - docker
 before_script:
     - psql -c 'create database syn_test;' -U postgres
+    - python -m synapse.tests.travis.before_script
 env:
     - SYN_COR_PG_DB=syn_test
-
+    - SYN_DOCKER=1
+matrix:
+  exclude:
+  - python: "2.7"
+    env: SYN_DOCKER=1
 after_success:
     - coveralls
