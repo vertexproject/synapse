@@ -8,9 +8,7 @@ Builds
 - Travis-Ci |travisci|_
 - AppVeyor |appveyor|_
 - Coveralls |coveralls|_
-- Documentation image:: https://readthedocs.org/projects/vertexprojectsynapse/badge/?version=latest
-:target: http://vertexprojectsynapse.readthedocs.io/en/latest/?badge=latest
-:alt: status
+- Documentation |rtd_latest|
 
 Unit tests in Travis-Ci and AppVeyor run for python 2.7 / 3.4.
 
@@ -33,3 +31,5 @@ Contributed
 
 .. |coveralls| image:: https://coveralls.io/repos/github/vivisect/synapse/badge.svg?branch=master
 .. _coveralls: https://coveralls.io/github/vivisect/synapse?branch=master
+
+.. |rtd_latest| image:: https://readthedocs.org/projects/vertexprojectsynapse/badge/?version=latest
