@@ -1806,10 +1806,91 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         with self.inclock:
             rows = self._getRowsByIdProp(iden,prop)
             if len(rows) == 0:
-                raise NoSuchTufo(repr(tufo))
+                oldv = None
+                valu = incval
+            else:
+                oldv = rows[0][2]
+                valu = oldv + incval
 
-            oldv = rows[0][2]
-            valu = oldv + incval
+            self._setRowsByIdProp(iden,prop,valu)
+
+            tufo[1][prop] = valu
+            self.fire('tufo:set:%s' % (prop,), tufo=tufo, prop=prop, valu=valu, oldv=oldv)
+
+        return tufo
+
+    def maxTufoProp(self, tufo, prop, maxval):
+        '''
+        Atomically set a property to the maximum of its current value (if any) and the given value.
+
+        Example:
+
+            tufo = core.maxTufoProp(tufo,prop,maxval)
+
+        '''
+        form = tufo[1].get('tufo:form')
+        prop = '%s:%s' % (form,prop)
+
+        if not self._okSetProp(prop):
+            return tufo
+
+        return self._maxTufoProp(tufo,prop,maxval)
+
+    def _maxTufoProp(self, tufo, prop, maxval):
+
+        # to allow storage layer optimization
+        iden = tufo[0]
+
+        with self.inclock:
+            rows = self._getRowsByIdProp(iden,prop)
+            if len(rows) == 0:
+                oldv = None
+                valu = maxval
+            else:
+                oldv = rows[0][2]
+                valu = max(oldv,maxval)
+                if oldv == valu:
+                    return tufo
+
+            self._setRowsByIdProp(iden,prop,valu)
+
+            tufo[1][prop] = valu
+            self.fire('tufo:set:%s' % (prop,), tufo=tufo, prop=prop, valu=valu, oldv=oldv)
+
+        return tufo
+
+    def minTufoProp(self, tufo, prop, minval):
+        '''
+        Atomically set a property to the minimum of its current value (if any) and the given value.
+
+        Example:
+
+            tufo = core.minTufoProp(tufo,prop,minval)
+
+        '''
+        form = tufo[1].get('tufo:form')
+        prop = '%s:%s' % (form,prop)
+
+        if not self._okSetProp(prop):
+            return tufo
+
+        return self._minTufoProp(tufo,prop,minval)
+
+    def _minTufoProp(self, tufo, prop, minval):
+
+        # to allow storage layer optimization
+        iden = tufo[0]
+
+        with self.inclock:
+            rows = self._getRowsByIdProp(iden,prop)
+            if len(rows) == 0:
+                oldv = None
+                valu = minval
+            else:
+                oldv = rows[0][2]
+                valu = min(oldv,minval)
+                if oldv == valu:
+                    return tufo
 
             self.setRowsByIdProp(iden,prop,valu)
 
