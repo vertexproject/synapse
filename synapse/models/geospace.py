@@ -8,6 +8,14 @@ def getDataModel():
         'version':201611251209,
 
         'types':(
+            ('geo:place',{'subof':'guid'}),
             ('geo:latlong',{'subof':'str', 'regex':latlongre}),
+        ),
+
+        'forms':(
+            ('geo:place',{'ptype':'geo:place'},[
+                ('name',{'ptype':'str','lower':1}),
+                ('latlong',{'ptype':'geo:latlong'}),
+            ]),
         ),
     }

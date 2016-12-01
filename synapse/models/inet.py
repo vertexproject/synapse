@@ -1,14 +1,14 @@
 import re
 import socket
 import struct
+import hashlib
 
 import synapse.compat as s_compat
 import synapse.lib.socket as s_socket
 import synapse.lib.urlhelp as s_urlhelp
 
 from synapse.exc import *
-from synapse.common import tufo
-from synapse.lib.types import DataType,syntype,subtype
+from synapse.lib.types import DataType
 
 def getDataModel():
     return {
@@ -21,7 +21,7 @@ def getDataModel():
             ('inet:ipv6',   {'ctor':'synapse.models.inet.IPv6Type'}),
             ('inet:srv4',   {'ctor':'synapse.models.inet.Srv4Type'}),
             ('inet:srv6',   {'ctor':'synapse.models.inet.Srv6Type'}),
-            ('inet:email',  {'ctor':'synapse.models.inet.EmailType'}),
+            #('inet:email',  {'ctor':'synapse.models.inet.EmailType'}),
 
             ('inet:asn',        {'subof':'int','doc':'An Autonomous System Number (ASN)'}),
             ('inet:user',       {'subof':'str'}),
@@ -36,17 +36,44 @@ def getDataModel():
             ('inet:port', {'subof':'int', 'min':0, 'max':0xffff}),
             ('inet:fqdn', {'subof':'str', 'regex':'^[a-z0-9._-]+$', 'lower':1}),
             ('inet:mac',  {'subof':'str', 'regex':'^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower':1}),
+
+            ('inet:email',{'subof':'sepr','sep':'@','lower':1,'fields':'user,inet:user|fqdn,inet:fqdn'}),
+
+            ('inet:siteuser',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|user,inet:user'}),
+            ('inet:sitemesg',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|from,inet:user|to,inet:user|sent,time'}),
+
+            ('inet:whois:reg',{'subof':'str'}),
+            ('inet:whois:rec',{'subof':'sepr','sep':'@','fields':'fqdn,inet:fqdn|asof,time'}),
+
+            # TODO: (port from nucleus etc)
+            # inet:cidr
+            # inet:cidr6
         ),
 
         'forms':(
-            ('inet:asn',{'ptype':'inet:asn'},[]),
+            ('inet:asn',{'ptype':'inet:asn'},[
+                ('name',{'ptype':'str:lwr','defval':'??'}),
+                #TODO ('cidr',{'ptype':'inet:cidr'}),
+            ]),
             ('inet:user',{'ptype':'inet:user'},[]),
-            ('inet:passwd',{'ptype':'inet:passwd'},[]),
 
-            ('inet:mac',{'ptype':'inet:mac'},[]),
-            ('inet:fqdn',{'ptype':'inet:fqdn'},[]),
+            ('inet:passwd',{'ptype':'inet:passwd'},[
+                ('md5',{'ptype':'hash:md5'}),
+                ('sha1',{'ptype':'hash:sha1'}),
+                ('sha256',{'ptype':'hash:sha256'}),
+            ]),
 
-            ('inet:email',{},[
+            ('inet:mac',{'ptype':'inet:mac'},[
+                ('vendor',{'ptype':'str','defval':'??'}),
+            ]),
+
+            ('inet:fqdn',{'ptype':'inet:fqdn'},[
+                ('tld',{'ptype':'bool','defval':0}),
+                ('zone',{'ptype':'bool','defval':0}),
+                ('parent',{'ptype':'inet:fqdn'}),
+            ]),
+
+            ('inet:email',{'ptype':'inet:email'},[
                 ('fqdn',{'ptype':'inet:fqdn'}),
                 ('user',{'ptype':'inet:user'}),
             ]),
@@ -70,8 +97,65 @@ def getDataModel():
                 ('port',{'ptype':'inet:port'}),
             ]),
 
+            ('inet:siteuser',{'ptype':'inet:siteuser'},[
+                ('site',{'ptype':'inet:fqdn'}),
+                ('user',{'ptype':'inet:user'}),
+                ('signup',{'ptype':'time','defval':0}),
+                ('passwd',{'ptype':'inet:passwd'}),
+                ('seen:min',{'ptype':'time:min','defval':0}),
+                ('seen:max',{'ptype':'time:max','defval':0}),
+            ]),
+
+            ('inet:sitemesg',{'ptype':'inet:sitemesg'},[
+                ('site',{'ptype':'inet:fqdn'}),
+                ('to',{'ptype':'inet:user'}),
+                ('from',{'ptype':'inet:user'}),
+                ('sent',{'ptype':'time'}),
+            ]),
+
+            ('inet:whois:reg',{'ptype':'inet:whois:reg'},[]),
+
+            ('inet:whois:rec',{'ptype':'inet:whois:rec'},[
+                ('fqdn',{'ptype':'inet:fqdn'}),
+                ('asof',{'ptype':'time'}),
+                ('created',{'ptype':'time','defval':0}),
+                ('updated',{'ptype':'time','defval':0}),
+                ('expires',{'ptype':'time','defval':0}),
+                ('registrar',{'ptype':'inet:whois:reg','defval':'??'}),
+                ('registrant',{'ptype':'inet:whois:reg','defval':'??'}),
+            ]),
+
         ),
     }
+
+def addCoreOns(core):
+
+    def onTufoFormPasswd(mesg):
+        valu = mesg[1].get('valu')
+        props = mesg[1].get('props')
+        props['inet:passwd:md5'] = hashlib.md5( valu.encode('utf8') ).hexdigest()
+        props['inet:passwd:sha1'] = hashlib.sha1( valu.encode('utf8') ).hexdigest()
+        props['inet:passwd:sha256'] = hashlib.sha256( valu.encode('utf8') ).hexdigest()
+
+    def onTufoFormFqdn(mesg):
+        valu = mesg[1].get('valu')
+        props = mesg[1].get('props')
+        parts = valu.split('.',1)
+        if len(parts) > 1:
+            props['inet:fqdn:parent'] = parts[1]
+            pafo = core.formTufoByProp('inet:fqdn',parts[1])
+            if pafo[1].get('inet:fqdn:tld'):
+                props['inet:fqdn:zone'] = 1
+
+    #def onTufoAddFqdn(mesg):
+        #tufo = mesg[1].get('tufo')
+        #fqdn = tufo[1].get('inet:fqdn:parent')
+        #core.formTufoByProp('inet:fqdn',fqdn)
+
+    #core.on('tufo:add:inet:fqdn',onTufoAddFqdn)
+
+    core.on('tufo:form:inet:fqdn',onTufoFormFqdn)
+    core.on('tufo:form:inet:passwd',onTufoFormPasswd)
 
 def ipv4str(valu):
     byts = struct.pack('>I',valu)
@@ -125,8 +209,8 @@ class Srv4Type(DataType):
     Base type for <ipv4>:<port> format.
     '''
     subprops = (
-        tufo('port', ptype='inet:port'),
-        tufo('ipv4', ptype='inet:ipv4'),
+        ('port', {'ptype':'inet:port'}),
+        ('ipv4', {'ptype':'inet:ipv4'}),
     )
 
     def norm(self, valu, oldval=None):
@@ -165,8 +249,8 @@ class Srv6Type(DataType):
     Base type for [IPv6]:port format.
     '''
     subprops = (
-        tufo('port', ptype='inet:port'),
-        tufo('ipv6', ptype='inet:ipv6'),
+        ('port', {'ptype':'inet:port'}),
+        ('ipv6', {'ptype':'inet:ipv6'}),
     )
 
     def norm(self, valu, oldval=None):
@@ -196,8 +280,8 @@ class Srv6Type(DataType):
 class EmailType(DataType):
 
     subprops = (
-        tufo('user',ptype='inet:user'),
-        tufo('fqdn',ptype='inet:fqdn'),
+        ('user',{'ptype':'inet:user'}),
+        ('fqdn',{'ptype':'inet:fqdn'}),
     )
 
     def norm(self, valu, oldval=None):
@@ -221,12 +305,14 @@ class EmailType(DataType):
 
 class UrlType(DataType):
 
-    #subprops = (
-        #tufo('fqdn',ptype='inet:fqdn'),
-        #tufo('ipv4',ptype='inet:ipv4'),
-        #tufo('ipv6',ptype='inet:ipv6'),
-        #tufo('port',ptype='inet:port'),
-    #)
+    subprops = (
+        ('path',{'ptype':'str'}),
+        ('fqdn',{'ptype':'inet:fqdn'}),
+        ('ipv4',{'ptype':'inet:ipv4'}),
+        ('ipv6',{'ptype':'inet:ipv6'}),
+        ('port',{'ptype':'inet:port'}),
+    )
+
     def norm(self, valu, oldval=None):
         respath = ''
         resauth = ''

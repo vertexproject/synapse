@@ -3,7 +3,7 @@ import datetime
 
 import synapse.compat as s_compat
 
-from synapse.lib.types import DataType,syntype,subtype
+from synapse.lib.types import DataType
 
 def getDataModel():
     return {

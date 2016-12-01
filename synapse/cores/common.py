@@ -54,6 +54,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         EventBus.__init__(self)
         ConfigMixin.__init__(self)
 
+        self.addConfDef('autoadd',type='bool',asloc='autoadd',defval=1,doc='Automatically add forms for props where type is form')
         self.addConfDef('enforce',type='bool',asloc='enforce',defval=0,doc='Enables data model enforcement')
         self.addConfDef('caching',type='bool',asloc='caching',defval=0,doc='Enables caching layer in the cortex')
         self.addConfDef('cache:maxsize',type='int',asloc='cache_maxsize',defval=1000,doc='Enables caching layer in the cortex')
@@ -204,6 +205,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         self.addTufoProp('syn:splice','actuser', ptype='str', doc='What user is activating the splice')
         self.addTufoProp('syn:splice','acttime', ptype='time:epoch', doc='When was the splice activated')
 
+        # allow modules a shot at hooking cortex events for model ctors
         for name,ret,exc in s_modules.call('addCoreOns',self):
             if exc != None:
                 logger.warning('%s.addCoreOns: %s' % (name,exc))
@@ -1625,7 +1627,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
                 self._bumpTufoCache(tufo,prop,valu,None)
 
         iden = tufo[0]
-        with self._getFormLock(form)
+        with self._getFormLock(form):
             self.delRowsById(iden)
 
         lists = [ p.split(':',2)[2] for p in tufo[1].keys() if p.startswith('tufo:list:') ]
@@ -2003,7 +2005,8 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         info = tufoprops(tufo)
 
         form = info.pop('form')
+        prop = name[len(form)+1:]
 
-        self.addTufoProp(form, name, **info)
+        self.addTufoProp(form, prop, **info)
         return
 

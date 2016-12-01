@@ -53,7 +53,6 @@ def load(name):
     '''
     smod = synmods.get(name)
     if smod == None:
-        #print('loading: %s' % (name,))
         logging.info('loading syn mod: %s' % (name,))
         smod = s_dyndeps.tryDynMod(name)
         synmods[name] = smod

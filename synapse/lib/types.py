@@ -99,6 +99,8 @@ class StrType(DataType):
         self.envals = None
         self.restrip = None
 
+        self.nullval = info.get('nullval')
+
         enumstr = info.get('enums')
         if enumstr != None:
             self.envals = enumstr.split(',')
@@ -117,6 +119,9 @@ class StrType(DataType):
 
         if self.info.get('lower'):
             valu = valu.lower()
+
+        if valu == self.nullval:
+            return valu
 
         if self.envals != None and valu not in self.envals:
             self._raiseBadValu(valu,enums=self.info.get('enums'))
@@ -220,12 +225,12 @@ class CompType(DataType):
                 raise BadInfoValu(name='fields',valu=fieldstr,mesg='expected: <propname>,<typename>[|...]')
 
         # each of our composit sub-fields is a sub-prop if wanted
+        self.fields = []
         self.subprops = []
-        self.comptypes = []
 
         for name,tnam in fields:
-            tobj = self.tlib.getDataType(tnam)
-            self.comptypes.append((name,tobj))
+            tobj = self.tlib.reqDataType(tnam)
+            self.fields.append((name,tobj))
 
             self.subprops.append( tufo(name,ptype=tnam) )
             for subp in tobj.subs():
@@ -290,7 +295,58 @@ class CompType(DataType):
         return enMsgB64(frobs)
 
     def _zipvals(self, vals):
-        return s_compat.iterzip(vals,self.comptypes)
+        return s_compat.iterzip(vals,self.fields)
+
+class SeprType(CompType):
+
+    def __init__(self, tlib, name, **info):
+        CompType.__init__(self, tlib, name, **info)
+        self.sepr = info.get('sep',',')
+        self.lower = info.get('lower',0)
+
+    def norm(self, valu, oldval=None):
+        reprs = []
+
+        if self.lower:
+            valu = valu.lower()
+
+        parts = valu.split(self.sepr,len(self.fields))
+        for part,(name,tobj) in self._zipvals(parts):
+            reprs.append( tobj.repr(tobj.parse(part)) )
+        return self.sepr.join(reprs)
+
+    def repr(self, valu):
+        return valu
+
+    def chop(self, valu):
+        subs = {}
+        parts = valu.split(self.sepr,len(self.fields))
+
+        if self.lower:
+            valu = valu.lower()
+
+        reprs = []
+        for part,(name,tobj) in self._zipvals(parts):
+
+            norm = tobj.parse(part)
+            norm,nsub = tobj.chop(norm)
+
+            reprs.append(tobj.repr(norm))
+
+            subs[name] = norm
+            for subn,subv in nsub.items():
+                subs['%s:%s' % (name,subn)] = subv
+
+        return self.sepr.join(reprs),subs
+
+    def parse(self, text, oldval=None):
+        return self.norm(text,oldval=oldval)
+
+    def frob(self, valu, oldval=None):
+        return self.norm(valu, oldval=oldval)
+
+    def _zipvals(self, vals):
+        return s_compat.iterzip(vals,self.fields)
 
 class BoolType(DataType):
 
@@ -327,10 +383,12 @@ class TypeLib:
         # until the base type gets loaded.
         self.pended = collections.defaultdict(list)
 
-        self.addType('str',ctor='synapse.lib.types.StrType')
-        self.addType('int',ctor='synapse.lib.types.IntType')
-        self.addType('bool',ctor='synapse.lib.types.BoolType')
-        self.addType('comp',ctor='synapse.lib.types.CompType')
+        self.addType('str',ctor='synapse.lib.types.StrType', doc='The base string type')
+        self.addType('int',ctor='synapse.lib.types.IntType', doc='The base integer type')
+        self.addType('bool',ctor='synapse.lib.types.BoolType', doc='A boolean type')
+
+        self.addType('comp',ctor='synapse.lib.types.CompType', doc='A multi-field composite type which uses base64 encoded msgpack')
+        self.addType('sepr',ctor='synapse.lib.types.SeprType', doc='A multi-field composite type which uses separated repr values')
 
         # add base synapse types
         self.addType('syn:tag',subof='str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
@@ -410,16 +468,20 @@ class TypeLib:
             self._bumpBasePend(name)
             return True
 
-        if not self.types.get(subof):
-            self.pended[subof].append( (name,info) )
+        try:
+
+            base = self.reqDataType(subof)
+            item = base.extend(name, **info)
+
+            self.types[name] = item
+
+            self._bumpBasePend(name)
+            return True
+
+        except NoSuchType as e:
+            tnam = e.errinfo.get('name')
+            self.pended[tnam].append( (name,info) )
             return False
-
-        base = self.reqDataType(subof)
-        item = base.extend(name, **info)
-        self.types[name] = item
-
-        self._bumpBasePend(name)
-        return True
 
     def getTypeNorm(self, name, valu, oldval=None):
         '''

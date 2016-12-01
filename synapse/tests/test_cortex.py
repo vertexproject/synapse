@@ -705,23 +705,23 @@ class CortexTest(SynTest):
         core = s_cortex.openurl('ram://')
 
         fields = 'fqdn,inet:fqdn|ipv4,inet:ipv4|time,time:epoch'
-        core.addType('dns:a',subof='comp',fields=fields)
+        core.addType('foo:a',subof='comp',fields=fields)
 
-        core.addTufoForm('dns:a',ptype='dns:a')
-        core.addTufoProp('dns:a','fqdn',ptype='inet:fqdn')
-        core.addTufoProp('dns:a','ipv4',ptype='inet:ipv4')
-        core.addTufoProp('dns:a','time',ptype='time:epoch')
+        core.addTufoForm('foo:a',ptype='foo:a')
+        core.addTufoProp('foo:a','fqdn',ptype='inet:fqdn')
+        core.addTufoProp('foo:a','ipv4',ptype='inet:ipv4')
+        core.addTufoProp('foo:a','time',ptype='time:epoch')
 
         arec = ('wOOt.com',0x01020304,0x00404040)
 
-        dnsa = core.formTufoByProp('dns:a', arec)
+        dnsa = core.formTufoByProp('foo:a', arec)
 
         fval = s_types.enMsgB64( ('woot.com',0x01020304,0x00404040) )
 
-        self.assertEqual( dnsa[1].get('dns:a'), fval)
-        self.assertEqual( dnsa[1].get('dns:a:fqdn'), 'woot.com')
-        self.assertEqual( dnsa[1].get('dns:a:ipv4'), 0x01020304)
-        self.assertEqual( dnsa[1].get('dns:a:time'), 0x00404040)
+        self.assertEqual( dnsa[1].get('foo:a'), fval)
+        self.assertEqual( dnsa[1].get('foo:a:fqdn'), 'woot.com')
+        self.assertEqual( dnsa[1].get('foo:a:ipv4'), 0x01020304)
+        self.assertEqual( dnsa[1].get('foo:a:time'), 0x00404040)
 
         core.fini()
 
@@ -1131,45 +1131,5 @@ class CortexTest(SynTest):
                 self.assertEqual( core.getTypeParse('foo','30'), 30 )
                 self.assertEqual( core.getTypeParse('bar','30'), 30 )
 
-            #pass
-            #inttype = core.getTufoByProp('syn:type', 'int')
-            #self.assertIsNotNone( inttype )
-
-            #strtype = core.getTufoByProp('syn:type', 'str')
-            #self.assertIsNotNone( strtype )
-
-            #intmintype = core.getTufoByProp('syn:type', 'int:min')
-            #self.assertIsNotNone( intmintype )
-            #self.assertEqual( intmintype[1].get('syn:type:base'), 'int' )
-            #self.assertEqual( intmintype[1].get('syn:type:ismin'), 1 )
-
-            #fields = (('fqdn','inet:fqdn'),('ipv4','inet:ipv4'),('time','time:epoch'))
-            #dnstype = core.getTufoByProp('syn:type', 'dns:a')
-            #self.assertEqual( dnstype[1].get('syn:type:fields'), 3 )
-            #self.assertEqual( dnstype[1].get('syn:type:field:0:fqdn'), 'inet:fqdn' )
-            #self.assertEqual( dnstype[1].get('syn:type:field:1:ipv4'), 'inet:ipv4' )
-            #self.assertEqual( dnstype[1].get('syn:type:field:2:time'), 'time:epoch' )
-
-    def test_cortex_datamodel_persistence(self):
-        with s_cortex.openurl('ram://') as core:
-            pass
-            #self.assertIsNotNone( core.getTufoByProp('syn:form', 'syn:form') )
-
-            #core.addTufoForm('foo', doc='ddd')
-            #fooform = core.getTufoByProp('syn:form', 'foo')
-            #self.assertIsNotNone( fooform )
-            #self.assertEqual( fooform[1].get('syn:form:doc'), 'ddd' )
-
-            #core.addTufoProp('foo', 'bar')
-            #foobarprop = core.getTufoByProp('syn:prop', 'foo:bar')
-            #self.assertIsNotNone(foobarprop)
-
-            #core.addTufoProp('foo', 'baz', ptype='str')
-            #foobazprop = core.getTufoByProp('syn:prop', 'foo:baz')
-            #self.assertIsNotNone(foobazprop)
-            #self.assertEqual(foobazprop[1].get('syn:prop:ptype'), 'str')
-
-            #core.addTufoGlob('foo', 'yaz:*', ptype='int')
-            #fooyazprop = core.getTufoByProp('syn:prop:glob', 'foo:yaz:*')
-            #self.assertIsNotNone(fooyazprop)
-            #self.assertEqual(fooyazprop[1].get('syn:prop:glob:ptype'), 'int')
+    #def test_cortex_datamodel_persistence(self):
+        #with s_cortex.openurl('ram://') as core:
