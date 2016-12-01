@@ -12,8 +12,7 @@ from synapse.eventbus import Waiter
 import synapse.lib.thishost as s_thishost
 
 from synapse.common import *
-
-class TooFewEvents(Exception):pass
+from synapse.unittest import EventWaiter as TestWaiter, TooFewEvents
 
 class TestEnv:
 
