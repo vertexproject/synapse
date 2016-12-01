@@ -388,23 +388,19 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         tprops = info.get('props',{})
 
+        item = self.getTufoByProp(form,valu)
+        if item:
+            return None,item
+
         props['on:%s' % form] = valu
+        props['perm'] = 'tufo:add:%s' % (form,)
 
-        perm = 'tufo:add:%s' % (form,)
-
-        props['perm'] = perm
-        props['status'] = 'done'
-
-        # FIXME apply perm
-
-        splice = None
+        allow = self._isSpliceAllow(props)
+        splice = self.formTufoByProp('syn:splice',guid(),**props)
+        if not allow:
+            return splice,None
 
         item = self.formTufoByProp(form,valu,**tprops)
-
-        # if the tufo is newly formed, create a splice
-        if item[1].get('.new'):
-            splice = self.formTufoByProp('syn:splice',guid(),**props)
-
         return splice,item
 
     def _isSpliceAllow(self, props):
@@ -431,7 +427,10 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         props['perm'] = 'tufo:set:%s' % fullprop
 
-        # FIXME apply perm
+        allow = self._isSpliceAllow(props)
+        splice = self.formTufoByProp('syn:splice',guid(),**props)
+        if not allow:
+            return splice,None
 
         item = self.getTufoByProp(form,valu=valu)
         if item == None:
@@ -445,8 +444,6 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             props['act:oval'] = oval
 
         item = self.setTufoProp(item,prop,pval)
-        splice = self.formTufoByProp('syn:splice',guid(),**props)
-
         return splice,item
 
     def _spliceTufoDel(self, act, info, props):
@@ -459,14 +456,14 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             raise NoSuchTufo('%s=%r' % (form,valu))
 
         props['on:%s' % form] = valu
-        props['status'] = 'done'
-
         props['perm'] = 'tufo:del:%s' % form
 
-        self.delTufo(item)
-
+        allow = self._isSpliceAllow(props)
         splice = self.formTufoByProp('syn:splice',guid(),**props)
+        if not allow:
+            return splice,None
 
+        self.delTufo(item)
         return splice,item
 
     def _spliceTufoTagAdd(self, act, info, props):
@@ -482,14 +479,14 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             return None,item
 
         props['on:%s' % form] = valu
+        props['perm'] = 'tufo:tag:add:%s|%s' % (form,tag)
 
-        perm = 'tufo:tag:add:%s*%s' % (form,tag)
-
-        props['perm'] = perm
-        props['status'] = 'done'
+        allow = self._isSpliceAllow(props)
+        splice = self.formTufoByProp('syn:splice',guid(),**props)
+        if not allow:
+            return splice,None
 
         item = self.addTufoTag(item,tag)
-        splice = self.formTufoByProp('syn:splice',guid(),**props)
         return splice,item
 
     def _spliceTufoTagDel(self, act, info, props):
@@ -505,14 +502,14 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             return None,item
 
         props['on:%s' % form] = valu
+        props['perm'] = 'tufo:tag:del:%s|%s' % (form,tag)
 
-        perm = 'tufo:tag:del:%s*%s' % (form,tag)
-
-        props['perm'] = perm
-        props['status'] = 'done'
+        allow = self._isSpliceAllow(props)
+        splice = self.formTufoByProp('syn:splice',guid(),**props)
+        if not allow:
+            return splice,None
 
         item = self.delTufoTag(item,tag)
-        splice = self.formTufoByProp('syn:splice',guid(),**props)
         return splice,item
 
     def splice(self, user, act, actinfo, **props):
@@ -708,6 +705,18 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             fd.write( msgenpack(mesg) )
 
         self.savebus.link(savemesg)
+
+    def setUserAuth(self, userauth):
+        '''
+        Set user authentication for the cortex.
+
+        Example:
+
+            userauth = synapse.lib.userauth.UserAuth()
+            core.setUserAuth(userauth)
+
+        '''
+        self.auth = userauth
 
     def isOk(self):
         '''
@@ -1885,7 +1894,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         # base case is delete and add
         self._delRowsByIdProp(iden, prop)
         rows = [ (iden, prop, valu, now()) ]
-        self.addRows(rows)
+        self._addRows(rows)
 
     def _calcStatSum(self, rows):
         return sum([ r[2] for r in rows ])

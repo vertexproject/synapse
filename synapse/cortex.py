@@ -90,6 +90,10 @@ def openlink(link):
         savefd = genfile(savefile)
         core.setSaveFd(savefd,fini=True)
 
+    userauth = link[1].get('userauth')
+    if userauth != None:
+        core.setUserAuth(userauth)
+
     return core
 
 def choptag(tag):

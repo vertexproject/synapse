@@ -5,8 +5,10 @@ import unittest
 import synapse.link as s_link
 import synapse.compat as s_compat
 import synapse.common as s_common
+import synapse.cores as s_cores
 import synapse.cortex as s_cortex
-
+import synapse.exc as s_exc
+import synapse.lib.userauth as s_userauth
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
 
@@ -728,6 +730,73 @@ class CortexTest(SynTest):
 
         core.fini()
 
+    def test_cortex_splice_userauth(self):
+        with s_cortex.openurl('ram:///') as auth_core:
+            with s_userauth.UserAuth(auth_core) as auth:
+                with s_cortex.openurl('ram:///', userauth=auth) as core:
+                    info1 = {'form': 'foo', 'valu': 'bar'}
+                    self.assertRaises(s_exc.NoSuchUser, core.splice, 'bobo', 'tufo:add', info1)
+
+                    auth.addUser('bobo')
+                    splice, retval = core.splice('bobo', 'tufo:add', info1)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
+                    self.assertFalse(retval)
+
+                    auth.addUserRule('bobo', 'tufo:add:foo')
+                    splice, retval = core.splice('bobo', 'tufo:add', info1)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
+                    self.assertEqual(retval[1]['tufo:form'], 'foo')
+                    self.assertEqual(retval[1]['foo'], 'bar')
+
+                    info2 = {'form': 'foo', 'valu': 'bar', 'prop': 'baz', 'pval': 'qux'}
+                    splice, retval = core.splice('bobo', 'tufo:set', info2)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:set')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
+                    self.assertFalse(retval)
+
+                    auth.addUserRule('bobo', 'tufo:set:foo:baz')
+                    splice, retval = core.splice('bobo', 'tufo:set', info2)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:set')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
+                    self.assertEqual(retval[1]['foo:baz'], 'qux')
+
+                    info3 = {'form': 'foo', 'valu': 'bar', 'tag': 'test'}
+                    splice, retval = core.splice('bobo', 'tufo:tag:add', info3)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
+                    self.assertFalse(retval)
+
+                    auth.addUserRule('bobo', 'tufo:tag:add:foo|*')
+                    splice, retval = core.splice('bobo', 'tufo:tag:add', info3)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
+                    self.assertTrue('*|foo|test' in retval[1])
+
+                    splice, retval = core.splice('bobo', 'tufo:tag:del', info3)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
+                    self.assertFalse(retval)
+
+                    auth.addUserRule('bobo', 'tufo:tag:del:foo|*')
+                    splice, retval = core.splice('bobo', 'tufo:tag:del', info3)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
+                    self.assertFalse('*|foo|test' in retval[1])
+
+                    splice, retval = core.splice('bobo', 'tufo:del', info1)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
+                    self.assertFalse(retval)
+
+                    auth.addUserRule('bobo', 'tufo:del:foo')
+                    splice, retval = core.splice('bobo', 'tufo:del', info1)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
+                    self.assertEqual(retval[1]['foo'], 'bar')
+
+
     def test_cortex_dict(self):
         core = s_cortex.openurl('ram://')
         core.addTufoForm('foo:bar', ptype='int')
@@ -1152,3 +1221,66 @@ class CortexTest(SynTest):
     def test_cortex_reqstor(self):
         with s_cortex.openurl('ram://') as core:
             self.assertRaises( BadPropValu, core.formTufoByProp, 'foo:bar', True )
+
+    def test_savecore(self):
+        with s_cortex.openurl('ram://') as savecore:
+            def savefilter(evtfo):
+                return not any(prop == 'prop' and valu == 'bogus' for iden, prop, valu, when in evtfo[1]['rows'])
+
+            # test save
+            with s_cortex.openurl('ram://') as core:
+                s_cores.CortexSaver(core, savecore, savefilter=savefilter)
+                wait = self.getTestWait(savecore.loadbus, 1, 'core:save:add:rows')
+                core.formTufoByProp('prop', 'valu')
+                core.formTufoByProp('prop', 'bogus')
+                wait.wait()
+                save = savecore.getTufoByProp('prop', valu='valu')
+                self.assertEqual(save[1]['tufo:form'], 'prop')
+                self.assertEqual(save[1]['prop'], 'valu')
+                self.assertIsNone(savecore.getTufoByProp('prop', valu='bogus'))
+
+            # test load
+            with s_cortex.openurl('ram://') as core:
+                s_cores.CortexLoader(core, savecore)
+                load = core.getTufoByProp('prop', valu='valu')
+                self.assertEqual(save[0], load[0])
+                self.assertEqual(load[1]['prop'], 'valu')
+
+            # test inc
+            with s_cortex.openurl('ram://') as core:
+                s_cores.CortexLoader(core, savecore)
+                s_cores.CortexSaver(core, savecore)
+                wait = self.getTestWait(savecore.loadbus, 1, 'core:save:set:rows:by:idprop')
+                tufo = core.formTufoByProp('prop', 'valu')
+                core.incTufoProp(tufo, 'cnt')
+                wait.wait()
+                save = savecore.getTufoByProp('prop', valu='valu')
+                self.assertEqual(save[1]['tufo:form'], 'prop')
+                self.assertEqual(save[1]['prop'], 'valu')
+                self.assertEqual(save[1]['prop:cnt'], 1)
+
+            # test min
+            with s_cortex.openurl('ram://') as core:
+                s_cores.CortexLoader(core, savecore)
+                s_cores.CortexSaver(core, savecore)
+                wait = self.getTestWait(savecore.loadbus, 1, 'core:save:set:rows:by:idprop')
+                tufo = core.formTufoByProp('prop', 'valu')
+                core.minTufoProp(tufo, 'min', 1)
+                wait.wait()
+                save = savecore.getTufoByProp('prop', valu='valu')
+                self.assertEqual(save[1]['tufo:form'], 'prop')
+                self.assertEqual(save[1]['prop'], 'valu')
+                self.assertEqual(save[1]['prop:min'], 1)
+
+            # test max
+            with s_cortex.openurl('ram://') as core:
+                s_cores.CortexLoader(core, savecore)
+                s_cores.CortexSaver(core, savecore)
+                wait = self.getTestWait(savecore.loadbus, 1, 'core:save:set:rows:by:idprop')
+                tufo = core.formTufoByProp('prop', 'valu')
+                core.incTufoProp(tufo, 'max', 1)
+                wait.wait()
+                save = savecore.getTufoByProp('prop', valu='valu')
+                self.assertEqual(save[1]['tufo:form'], 'prop')
+                self.assertEqual(save[1]['prop'], 'valu')
+                self.assertEqual(save[1]['prop:max'], 1)
