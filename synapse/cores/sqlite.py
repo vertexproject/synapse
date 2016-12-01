@@ -34,7 +34,7 @@ CREATE TABLE %s (
 '''
 
 init_id_idx = 'CREATE INDEX %s_id_idx ON %s (id,prop)'
-init_strval_idx = 'CREATE INDEX %s_prop_time_idx ON %s (prop,stamp)'
+init_prop_idx = 'CREATE INDEX %s_prop_time_idx ON %s (prop,stamp)'
 init_strval_idx = 'CREATE INDEX %s_strval_idx ON %s (prop,strval,stamp)'
 init_intval_idx = 'CREATE INDEX %s_intval_idx ON %s (prop,intval,stamp)'
 
@@ -137,8 +137,8 @@ deljoin_by_prop_int_wmax = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE 
 deljoin_by_prop_str_wmax = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? AND strval=? AND stamp<? )'
 
 deljoin_by_prop_wminmax = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? AND stamp>=? AND stamp <?)'
-deljoin_by_prop_int_wminmax = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? AND intval=?)'
-deljoin_by_prop_str_wminmax = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? AND strval=?)'
+deljoin_by_prop_int_wminmax = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? AND intval=? AND stamp>=? AND stamp <?)'
+deljoin_by_prop_str_wminmax = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? AND strval=? AND stamp>=? AND stamp <?)'
 ################################################################################
 
 uprows_by_id_prop_str = 'UPDATE %s SET strval=? WHERE id=? and prop=?'
@@ -164,17 +164,12 @@ class DbPool:
     '''
     The DbPool allows generic db connection pooling using
     a factory/ctor method and a python queue.
-
     Example:
-
         def connectdb():
             # do stuff
             return db
-
         pool = DbPool(3, connectdb)
-
         with pool.cursor() as c:
-
     '''
 
     def __init__(self, size, ctor):
@@ -306,6 +301,7 @@ class Cortex(common.Cortex):
         self._q_istable = istable
         self._q_inittable = self._prepQuery(inittable, table)
         self._q_init_id_idx = self._prepQuery(init_id_idx, table)
+        self._q_init_prop_idx = self._prepQuery(init_prop_idx, table)
         self._q_init_strval_idx = self._prepQuery(init_strval_idx, table)
         self._q_init_intval_idx = self._prepQuery(init_intval_idx, table)
 
@@ -468,6 +464,7 @@ class Cortex(common.Cortex):
         with self.cursor() as c:
             c.execute(self._q_inittable)
             c.execute(self._q_init_id_idx)
+            c.execute(self._q_init_prop_idx)
             c.execute(self._q_init_strval_idx)
             c.execute(self._q_init_intval_idx)
 
@@ -504,7 +501,7 @@ class Cortex(common.Cortex):
                 ret.append( (ident,prop,intval,stamp) )
             else:
                 ret.append( (ident,prop,strval,stamp) )
-                
+
         return ret
 
     def _getRowsById(self, ident):

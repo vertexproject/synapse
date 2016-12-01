@@ -1,12 +1,11 @@
-
 import os
 import unittest
 
-import synapse.link as s_link
 import synapse.compat as s_compat
 import synapse.common as s_common
 import synapse.cortex as s_cortex
-
+import synapse.exc as s_exc
+import synapse.lib.userauth as s_userauth
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
 
@@ -28,15 +27,8 @@ class CortexTest(SynTest):
         self.runrange( core )
 
     def test_cortex_postgres(self):
-        db = os.getenv('SYN_COR_PG_DB')
-        if db == None:
-            raise unittest.SkipTest('no SYN_COR_PG_DB')
-        if not db.startswith('postgres://'):
-            db = 'postgres:///%s' % (db)
-
         table = 'syn_test_%s' % guid()
-        core = s_cortex.openurl(db + '/' + table)
-
+        core = self.open_cortex_postgres(table)
         try:
             self.runcore( core )
             self.runjson( core )
@@ -45,12 +37,37 @@ class CortexTest(SynTest):
             with core.cursor() as c:
                 c.execute('DROP TABLE %s' % (table,))
 
+    def open_cortex_postgres(self, table=None, pool=None):
+        db = os.getenv('SYN_COR_PG_DB')
+        if db == None:
+            raise unittest.SkipTest('no SYN_COR_PG_DB')
+        if not db.startswith('postgres://'):
+            db = 'postgres:///%s' % (db)
+        fini = None
+        if not table:
+            table = 'syn_test_%s' % guid()
+
+            def fini():
+                with core.cursor() as c:
+                    c.connection.rollback()
+                    c.execute('DROP TABLE %s' % (table,))
+        url = db + '/' + table
+        if pool:
+            url += '?pool=' + str(pool)
+        core = s_cortex.openurl(url)
+        if fini:
+            core.onfini(fini)
+        return core
+
     def runcore(self, core):
 
         id1 = guid()
         id2 = guid()
         id3 = guid()
         id4 = guid()
+        id5 = guid()
+        id6 = guid()
+        id7 = guid()
 
         rows = [
             (id1,'foo','bar',30),
@@ -67,6 +84,13 @@ class CortexTest(SynTest):
 
             (id4,'lolint',80,30),
             (id4,'lolstr','hehe',30),
+
+            (id5, 'longstr','abcdefghijklmnopqrstuvwxyz0123456789',50),
+            (id5, 'foop','bar',50),
+            (id6, 'longstr','abcdefghijklmnopqrstuvwxyz0123459999',50),
+            (id6, 'foop','bar',50),
+            (id7, 'longstr','abcdefghijklmnopqrstuvwxyz012345',50),
+            (id7, 'foop','bar',50),
 
         ]
 
@@ -112,6 +136,12 @@ class CortexTest(SynTest):
         self.assertEqual( len(core.getRowsByProp('baz',limit=1)), 1 )
         self.assertEqual( len(core.getJoinByProp('baz',limit=1)), 3 )
 
+        self.assertEqual( len(core.getRowsByProp('longstr',valu='abcdefghijklmnopqrstuvwxyz012345')), 1 )
+        self.assertEqual( len(core.getRowsByProp('longstr',valu='abcdefghijklmnopqrstuvwxyz0123456789')), 1 )
+
+        self.assertEqual( len(core.getJoinByProp('longstr',valu='abcdefghijklmnopqrstuvwxyz012345')), 2 )
+        self.assertEqual( len(core.getJoinByProp('longstr',valu='abcdefghijklmnopqrstuvwxyz0123456789')), 2 )
+
         core.setRowsByIdProp(id4,'lolstr','haha')
         self.assertEqual( len(core.getRowsByProp('lolstr','hehe')), 0 )
         self.assertEqual( len(core.getRowsByProp('lolstr','haha')), 1 )
@@ -145,7 +175,6 @@ class CortexTest(SynTest):
         def formfqdn(event):
             fqdn = event[1].get('valu')
             event[1]['props']['tld'] = fqdn.split('.')[-1]
-            event[1]['props']['fqdn:inctest'] = 0
 
         core.on('tufo:form', formtufo)
         core.on('tufo:form:fqdn', formfqdn)
@@ -155,15 +184,38 @@ class CortexTest(SynTest):
         self.assertEqual( tufo[1].get('tld'), 'com')
         self.assertEqual( tufo[1].get('woot'), 'woot')
 
-        self.assertEqual( tufo[1].get('fqdn:inctest'), 0)
+        # Test incTufoProp
+        self.assertEqual( tufo[1].get('fqdn:inctest'), None )
 
         tufo = core.incTufoProp(tufo, 'inctest')
-
         self.assertEqual( tufo[1].get('fqdn:inctest'), 1 )
 
         tufo = core.incTufoProp(tufo, 'inctest', incval=-1)
-
         self.assertEqual( tufo[1].get('fqdn:inctest'), 0 )
+
+        # Test maxTufoProp
+        self.assertEqual(tufo[1].get('fqdn:maxtest'), None)
+
+        tufo = core.maxTufoProp(tufo, 'maxtest', 0)
+        self.assertEqual(tufo[1].get('fqdn:maxtest'), 0)
+
+        tufo = core.maxTufoProp(tufo, 'maxtest', 20)
+        self.assertEqual(tufo[1].get('fqdn:maxtest'), 20)
+
+        tufo = core.maxTufoProp(tufo, 'maxtest', 10)
+        self.assertEqual(tufo[1].get('fqdn:maxtest'), 20)
+
+        # Test minTufoProp
+        self.assertEqual(tufo[1].get('fqdn:mintest'), None)
+
+        tufo = core.minTufoProp(tufo, 'mintest', 0)
+        self.assertEqual(tufo[1].get('fqdn:mintest'), 0)
+
+        tufo = core.minTufoProp(tufo, 'mintest', -20)
+        self.assertEqual(tufo[1].get('fqdn:mintest'), -20)
+
+        tufo = core.minTufoProp(tufo, 'mintest', -10)
+        self.assertEqual(tufo[1].get('fqdn:mintest'), -20)
 
         core.fini()
 
@@ -172,17 +224,12 @@ class CortexTest(SynTest):
         rows = [
             (guid(),'rg',10,99),
             (guid(),'rg',30,99),
-        ]
+    ]
 
         core.addRows( rows )
 
         self.assertEqual( core.getSizeBy('range','rg',(0,20)), 1 )
         self.assertEqual( core.getRowsBy('range','rg',(0,20))[0][2], 10 )
-        
-        # range is inclusive of `min`, exclusive of `max`
-        self.assertEqual( core.getSizeBy('range','rg',(9,11)), 1 )
-        self.assertEqual( core.getSizeBy('range','rg',(10,12)), 1 )
-        self.assertEqual( core.getSizeBy('range','rg',(8,10)), 0 )
 
         self.assertEqual( core.getSizeBy('ge','rg',20), 1 )
         self.assertEqual( core.getRowsBy('ge','rg',20)[0][2], 30)
@@ -267,10 +314,19 @@ class CortexTest(SynTest):
         self.assertEqual( t1, ('foo','foo.bar'))
         self.assertEqual( t2, ('foo','foo.bar','foo.bar.baz'))
 
+    def test_cortex_timeout_postgres(self):
+        with self.open_cortex_postgres() as core:
+            core.select('select pg_sleep(%s)', [0.001], timeout=0.100)
+            self.assertRaises(s_exc.HitMaxTime, core.select, 'select pg_sleep(%s)', [0.100], timeout=0.001)
+
+        with self.open_cortex_postgres(pool=10) as core:
+            for i in range(10):
+                core.select('select pg_sleep(%s)', [0.002], timeout=0.200)
+                self.assertRaises(s_exc.HitMaxTime, core.select, 'select pg_sleep(%s)', [0.200], timeout=0.002)
+
     def test_cortex_tufo_by_default(self):
         core = s_cortex.openurl('sqlite:///:memory:')
 
-        # BY IN
         fooa = core.formTufoByProp('foo','bar',p0=4)
         foob = core.formTufoByProp('foo','baz',p0=5)
 
@@ -285,50 +341,30 @@ class CortexTest(SynTest):
         self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
         self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [], limit=1)), 0)
 
-        # BY CIDR
-        tlib = s_types.TypeLib()
-
-        ipint = tlib.getTypeParse('inet:ipv4', '192.168.0.1')
-        ipa = core.formTufoByProp('inet:ipv4', ipint)
-        ipint = tlib.getTypeParse('inet:ipv4', '192.168.255.254')
-        ipa = core.formTufoByProp('inet:ipv4', ipint)
-
-        ipint = tlib.getTypeParse('inet:ipv4', '192.167.255.254')
-        ipb = core.formTufoByProp('inet:ipv4', ipint)
-
-        ips = ['10.2.1.%d' % d for d in range(1,33)]
-        for ip in ips:
-            ipint = tlib.getTypeParse('inet:ipv4', ip)
-            ipc = core.formTufoByProp('inet:ipv4', ipint)
-
-        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.4/32')), 1)
-        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.4/31')), 2)
-        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/30')), 4)
-        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.2/30')), 4)
-        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/29')), 8)
-        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/28')), 16)
-
-        self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '192.168.0.0/16')), 2)
-
     def test_cortex_tufo_by_postgres(self):
-        db = os.getenv('SYN_COR_PG_DB')
-        if db == None:
-            raise unittest.SkipTest('no SYN_COR_PG_DB')
-
         table = 'syn_test_%s' % guid()
+        core = self.open_cortex_postgres(table)
+        try:
+            fooa = core.formTufoByProp('foo','bar',p0=4)
+            foob = core.formTufoByProp('foo','baz',p0=5)
 
-        link = s_link.chopLinkUrl('postgres:///%s/%s' % (db,table))
-        core = s_cortex.openlink(link)
+            self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4])), 1)
 
-        fooa = core.formTufoByProp('foo','bar',p0=4)
-        foob = core.formTufoByProp('foo','baz',p0=5)
+            fooc = core.formTufoByProp('foo','faz',p0=5)
+            self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5])), 2)
+            self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
+            self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
 
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4])), 1)
+            bara = core.formTufoByProp('bar', 'longstra',p0='abcdefghijklmnopqrstuvwxyz0123456789'),
+            barb = core.formTufoByProp('bar', 'longstrb',p0='abcdefghijklmnopqrstuvwxyz0123459999'),
+            barc = core.formTufoByProp('bar', 'longstrc',p0='abcdefghijklmnopqrstuvwxyz012345'),
 
-        fooc = core.formTufoByProp('foo','faz',p0=5)
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5])), 2)
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
+            self.assertEqual( len(core.getTufosBy('range', 'bar:p0', ('abcdefghijklmnopqrstuvwxyz0123450','abcdefghijklmnopqrstuvwxyz0123458'))),  1)
+            self.assertEqual( len(core.getTufosBy('in', 'bar:p0', ['abcdefghijklmnopqrstuvwxyz0123456789'])),  1)
+        finally:
+            with core.cursor() as c:
+                c.execute('DROP TABLE %s' % (table,))
+
 
     def test_cortex_tufo_tag(self):
         core = s_cortex.openurl('ram://')
@@ -440,6 +476,9 @@ class CortexTest(SynTest):
 
             tufo = core.getTufoByFrob('inet:ipv4', '1.2.3.4')
             self.assertEqual(tufo[0], iden)
+
+            core.setTufoFrob(tufo, 'is_true', True)
+            self.assertIs(tufo[1]['inet:ipv4:is_true'], 1)
 
 
     def test_cortex_ramhost(self):
@@ -582,11 +621,11 @@ class CortexTest(SynTest):
 
         hehe = core.formTufoByProp('foo','hehe')
 
-        wait = self.getTestWait(core, 2, 'tufo:tag:add')
+        wait = TestWaiter(core, 2, 'tufo:tag:add')
         core.addTufoTag(hehe,'lulz.rofl')
         wait.wait()
 
-        wait = self.getTestWait(core, 1, 'tufo:tag:add')
+        wait = TestWaiter(core, 1, 'tufo:tag:add')
         core.addTufoTag(hehe,'lulz.rofl.zebr')
         wait.wait()
 
@@ -605,11 +644,11 @@ class CortexTest(SynTest):
 
         self.assertEqual( rofl[1].get('syn:tag:depth'), 1 )
 
-        wait = self.getTestWait(core, 2, 'tufo:tag:del')
+        wait = TestWaiter(core, 2, 'tufo:tag:del')
         core.delTufoTag(hehe,'lulz.rofl')
         wait.wait()
 
-        wait = self.getTestWait(core, 1, 'tufo:tag:del')
+        wait = TestWaiter(core, 1, 'tufo:tag:del')
         core.delTufo(lulz)
         wait.wait()
         # tag and subs should be wiped
@@ -658,13 +697,15 @@ class CortexTest(SynTest):
 
     def test_cortex_splice(self):
         core = s_cortex.openurl('ram://')
+        core.addTufoForm('foo', ptype='int')
+        core.addTufoProp('foo', 'baz', ptype='int')
 
         ####################################################################
-        info = {'form':'foo','valu':'bar','props':{'baz':'faz'}}
+        info = {'form':'foo','valu':'123','props':{'baz':'456'}}
 
         splice,retval = core.splice('visi','tufo:add',info, note='hehehaha')
 
-        self.assertEqual( len(core.getTufosByProp('foo',valu='bar')), 1 )
+        self.assertEqual( len(core.getTufosByProp('foo',valu=123)), 1 )
         self.assertIsNotNone( splice[1].get('syn:splice:reqtime') )
 
         self.assertEqual( splice[1].get('syn:splice:user'), 'visi' )
@@ -672,61 +713,128 @@ class CortexTest(SynTest):
         self.assertEqual( splice[1].get('syn:splice:perm'), 'tufo:add:foo' )
         self.assertEqual( splice[1].get('syn:splice:action'), 'tufo:add' )
 
-        self.assertEqual( splice[1].get('syn:splice:on:foo'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:on:foo'), 123 )
         self.assertEqual( splice[1].get('syn:splice:act:form'), 'foo' )
-        self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:act:valu'), 123 )
 
-        self.assertEqual( retval[1].get('foo'), 'bar' )
-        self.assertEqual( retval[1].get('foo:baz'), 'faz' )
+        self.assertEqual( retval[1].get('foo'), 123 )
+        self.assertEqual( retval[1].get('foo:baz'), 456 )
 
         ####################################################################
-        info = {'form':'foo','valu':'bar','prop':'baz','pval':'gronk'}
+        info = {'form':'foo','valu':'123','prop':'baz','pval':'789'}
         splice,retval = core.splice('visi','tufo:set',info)
 
-        self.assertEqual( retval[1].get('foo:baz'), 'gronk')
-        self.assertEqual( len(core.getTufosByProp('foo:baz',valu='gronk')), 1 )
+        self.assertEqual( retval[1].get('foo:baz'), 789)
+        self.assertEqual( len(core.getTufosByProp('foo:baz',valu=789)), 1 )
 
-        self.assertEqual( splice[1].get('syn:splice:on:foo'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:on:foo'), 123 )
         self.assertEqual( splice[1].get('syn:splice:act:form'), 'foo' )
-        self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:act:valu'), 123 )
         self.assertEqual( splice[1].get('syn:splice:act:prop'), 'baz' )
-        self.assertEqual( splice[1].get('syn:splice:act:pval'), 'gronk' )
+        self.assertEqual( splice[1].get('syn:splice:act:pval'), 789 )
 
         ####################################################################
-        info = {'form':'foo','valu':'bar','tag':'lol'}
+        info = {'form':'foo','valu':'123','tag':'lol'}
         splice,retval = core.splice('visi','tufo:tag:add',info)
 
         self.assertTrue( s_tags.tufoHasTag(retval,'lol') )
         self.assertEqual( len(core.getTufosByTag('foo','lol')), 1 )
 
-        self.assertEqual( splice[1].get('syn:splice:on:foo'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:on:foo'), 123 )
         self.assertEqual( splice[1].get('syn:splice:act:tag'), 'lol' )
         self.assertEqual( splice[1].get('syn:splice:act:form'), 'foo' )
-        self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:act:valu'), 123 )
 
         ####################################################################
-        info = {'form':'foo','valu':'bar','tag':'lol'}
+        info = {'form':'foo','valu':'123','tag':'lol'}
         splice,retval = core.splice('visi','tufo:tag:del',info)
 
         self.assertFalse( s_tags.tufoHasTag(retval,'lol') )
         self.assertEqual( len(core.getTufosByTag('foo','lol')), 0 )
 
-        self.assertEqual( splice[1].get('syn:splice:on:foo'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:on:foo'), 123 )
         self.assertEqual( splice[1].get('syn:splice:act:tag'), 'lol' )
         self.assertEqual( splice[1].get('syn:splice:act:form'), 'foo' )
-        self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:act:valu'), 123 )
 
         ####################################################################
-        info = {'form':'foo','valu':'bar'}
+        info = {'form':'foo','valu':'123'}
         splice,retval = core.splice('visi','tufo:del',info)
 
-        self.assertEqual( len(core.getTufosByProp('foo',valu='bar')), 0 )
+        self.assertEqual( len(core.getTufosByProp('foo',valu=123)), 0 )
 
-        self.assertEqual( splice[1].get('syn:splice:on:foo'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:on:foo'), 123 )
         self.assertEqual( splice[1].get('syn:splice:act:form'), 'foo' )
-        self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:act:valu'), 123 )
 
         core.fini()
+
+    def test_cortex_splice_userauth(self):
+        with s_cortex.openurl('ram:///') as auth_core:
+            with s_userauth.UserAuth(auth_core) as auth:
+                with s_cortex.openurl('ram:///', userauth=auth) as core:
+                    info1 = {'form': 'foo', 'valu': 'bar'}
+                    self.assertRaises(s_exc.NoSuchUser, core.splice, 'bobo', 'tufo:add', info1)
+
+                    auth.addUser('bobo')
+                    splice, retval = core.splice('bobo', 'tufo:add', info1)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
+                    self.assertFalse(retval)
+
+                    auth.addUserRule('bobo', 'tufo:add:foo')
+                    splice, retval = core.splice('bobo', 'tufo:add', info1)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
+                    self.assertEqual(retval[1]['tufo:form'], 'foo')
+                    self.assertEqual(retval[1]['foo'], 'bar')
+
+                    info2 = {'form': 'foo', 'valu': 'bar', 'prop': 'baz', 'pval': 'qux'}
+                    splice, retval = core.splice('bobo', 'tufo:set', info2)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:set')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
+                    self.assertFalse(retval)
+
+                    auth.addUserRule('bobo', 'tufo:set:foo:baz')
+                    splice, retval = core.splice('bobo', 'tufo:set', info2)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:set')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
+                    self.assertEqual(retval[1]['foo:baz'], 'qux')
+
+                    info3 = {'form': 'foo', 'valu': 'bar', 'tag': 'test'}
+                    splice, retval = core.splice('bobo', 'tufo:tag:add', info3)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
+                    self.assertFalse(retval)
+
+                    auth.addUserRule('bobo', 'tufo:tag:add:foo|*')
+                    splice, retval = core.splice('bobo', 'tufo:tag:add', info3)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
+                    self.assertTrue('*|foo|test' in retval[1])
+
+                    splice, retval = core.splice('bobo', 'tufo:tag:del', info3)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
+                    self.assertFalse(retval)
+
+                    auth.addUserRule('bobo', 'tufo:tag:del:foo|*')
+                    splice, retval = core.splice('bobo', 'tufo:tag:del', info3)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
+                    self.assertFalse('*|foo|test' in retval[1])
+
+                    splice, retval = core.splice('bobo', 'tufo:del', info1)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
+                    self.assertFalse(retval)
+
+                    auth.addUserRule('bobo', 'tufo:del:foo')
+                    splice, retval = core.splice('bobo', 'tufo:del', info1)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
+                    self.assertEqual(retval[1]['foo'], 'bar')
+
 
     def test_cortex_dict(self):
         core = s_cortex.openurl('ram://')
@@ -743,7 +851,7 @@ class CortexTest(SynTest):
     def test_cortex_comp(self):
         core = s_cortex.openurl('ram://')
 
-        fields = 'fqdn,inet:fqdn|ipv4,inet:ipv4|time,time:epoch'
+        fields = (('fqdn','inet:fqdn'),('ipv4','inet:ipv4'),('time','time:epoch'))
         core.addSubType('dns:a','comp',fields=fields)
 
         core.addTufoForm('dns:a',ptype='dns:a')
@@ -1149,6 +1257,57 @@ class CortexTest(SynTest):
             self.assertTrue(tufo0[1].get('.new'))
             self.assertFalse(tufo1[1].get('.new'))
 
-    def test_cortex_reqstor(self):
-        with s_cortex.openurl('ram://') as core:
-            self.assertRaises( BadPropValu, core.formTufoByProp, 'foo:bar', True )
+    def test_savecore(self):
+        with s_cortex.openurl('ram://') as savecore:
+            def savefilter(evtfo):
+                return not any(prop == 'prop' and valu == 'bogus' for iden, prop, valu, when in evtfo[1]['rows'])
+
+            # test save
+            with s_cortex.openurl('ram://', savecore=savecore, savefilter=savefilter) as core:
+                wait = TestWaiter(savecore.loadbus, 1, 'core:save:add:rows')
+                core.formTufoByProp('prop', 'valu')
+                core.formTufoByProp('prop', 'bogus')
+                wait.wait()
+                save = savecore.getTufoByProp('prop', valu='valu')
+                self.assertEqual(save[1]['tufo:form'], 'prop')
+                self.assertEqual(save[1]['prop'], 'valu')
+                self.assertIsNone(savecore.getTufoByProp('prop', valu='bogus'))
+
+            # test load
+            with s_cortex.openurl('ram://', savecore=savecore) as core:
+                load = core.getTufoByProp('prop', valu='valu')
+                self.assertEqual(save[0], load[0])
+                self.assertEqual(load[1]['prop'], 'valu')
+
+            # test inc
+            with s_cortex.openurl('ram://', savecore=savecore) as core:
+                wait = TestWaiter(savecore.loadbus, 1, 'core:save:set:rows:by:idprop')
+                tufo = core.formTufoByProp('prop', 'valu')
+                core.incTufoProp(tufo, 'cnt')
+                wait.wait()
+                save = savecore.getTufoByProp('prop', valu='valu')
+                self.assertEqual(save[1]['tufo:form'], 'prop')
+                self.assertEqual(save[1]['prop'], 'valu')
+                self.assertEqual(save[1]['prop:cnt'], 1)
+
+            # test min
+            with s_cortex.openurl('ram://', savecore=savecore) as core:
+                wait = TestWaiter(savecore.loadbus, 1, 'core:save:set:rows:by:idprop')
+                tufo = core.formTufoByProp('prop', 'valu')
+                core.minTufoProp(tufo, 'min', 1)
+                wait.wait()
+                save = savecore.getTufoByProp('prop', valu='valu')
+                self.assertEqual(save[1]['tufo:form'], 'prop')
+                self.assertEqual(save[1]['prop'], 'valu')
+                self.assertEqual(save[1]['prop:min'], 1)
+
+            # test max
+            with s_cortex.openurl('ram://', savecore=savecore) as core:
+                wait = TestWaiter(savecore.loadbus, 1, 'core:save:set:rows:by:idprop')
+                tufo = core.formTufoByProp('prop', 'valu')
+                core.incTufoProp(tufo, 'max', 1)
+                wait.wait()
+                save = savecore.getTufoByProp('prop', valu='valu')
+                self.assertEqual(save[1]['tufo:form'], 'prop')
+                self.assertEqual(save[1]['prop'], 'valu')
+                self.assertEqual(save[1]['prop:max'], 1)
