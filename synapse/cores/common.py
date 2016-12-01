@@ -54,6 +54,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         EventBus.__init__(self)
         ConfigMixin.__init__(self)
 
+        self.noauto = {'syn:form','syn:type','syn:prop'}
         self.addConfDef('autoadd',type='bool',asloc='autoadd',defval=1,doc='Automatically add forms for props where type is form')
         self.addConfDef('enforce',type='bool',asloc='enforce',defval=0,doc='Enables data model enforcement')
         self.addConfDef('caching',type='bool',asloc='caching',defval=0,doc='Enables caching layer in the cortex')
@@ -1486,6 +1487,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             core.addTufoEvents('woot',propss)
 
         '''
+        alladd = set()
         nowstamp = millinow()
 
         ret = []
@@ -1502,8 +1504,10 @@ class Cortex(EventBus,DataModel,ConfigMixin):
                 if stamp == None:
                     stamp = nowstamp
 
-                props = self._normTufoProps(form,props)
+                props,toadd = self._normTufoProps(form,props)
                 props[form] = iden
+
+                alladd.update(toadd)
 
                 self.fire('tufo:form', form=form, valu=iden, props=props)
                 self.fire('tufo:form:%s' % form, form=form, valu=iden, props=props)
@@ -1522,7 +1526,16 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
             ret.extend(tufos)
 
+        if self.autoadd:
+            self._runAutoAdd(alladd)
+
         return ret
+
+    def _runAutoAdd(self, toadd):
+        for form,valu in toadd:
+            if form in self.noauto:
+                continue
+            self.formTufoByProp(form,valu)
 
     def formTufoByTufo(self, tufo):
         '''
@@ -1567,7 +1580,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
             props.update(subs)
 
-            props = self._normTufoProps(prop,props)
+            props,toadd = self._normTufoProps(prop,props)
             props[prop] = valu
 
             # update our runtime form counters
@@ -1592,6 +1605,10 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         self.fire('tufo:add:%s' % prop, tufo=tufo)
 
         tufo[1]['.new'] = True
+
+        if self.autoadd:
+            self._runAutoAdd(toadd)
+
         return tufo
 
     def formTufoByFrob(self, form, valu, **props):
@@ -1679,17 +1696,21 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
     def _normTufoProps(self, form, inprops):
 
+        toadd = set()
         props = {'tufo:form':form}
 
         for name,valu in inprops.items():
 
             prop = '%s:%s' % (form,name)
-
             if not self._okSetProp(prop):
                 continue
 
             # do we have a DataType to normalize and carve sub props?
             valu,subs = self.getPropChop(prop,valu)
+
+            ptype = self.getPropTypeName(prop)
+            if self.isTufoForm(ptype):
+                toadd.add( (ptype,valu) )
 
             # any sub-properties to populate?
             for sname,svalu in subs.items():
@@ -1699,13 +1720,16 @@ class Cortex(EventBus,DataModel,ConfigMixin):
                     continue
 
                 props[subprop] = svalu
+                ptype = self.getPropTypeName(subprop)
+                if self.isTufoForm(ptype):
+                    toadd.add( (ptype,svalu) )
 
             props[prop] = valu
 
         for prop,valu in self.getFormDefs(form):
             props.setdefault(prop,valu)
 
-        return props
+        return props,toadd
 
     def _frobTufoProps(self, form, inprops):
 
@@ -2004,6 +2028,8 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         name = tufo[1].get('syn:prop')
         info = tufoprops(tufo)
 
+        if tufo[1].get('syn:prop') == 'geo:place':
+            print('INIT PROP TUFO: %r' % (tufo,))
         form = info.pop('form')
         prop = name[len(form)+1:]
 

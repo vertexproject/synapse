@@ -161,6 +161,12 @@ class DataModel(s_types.TypeLib):
         self.model['forms'].append(form)
         return self.addPropDef(form, **info)
 
+    def isTufoForm(self, name):
+        '''
+        Returns True if the given name is a form.
+        '''
+        return name in self.forms
+
     def getTufoForms(self):
         '''
         Return a list of the tufo forms.
@@ -306,6 +312,13 @@ class DataModel(s_types.TypeLib):
             return None
 
         return self.getDataType(ptype)
+
+    def getPropTypeName(self, prop):
+        pdef = self.getPropDef(prop)
+        if pdef == None:
+            return None
+
+        return pdef[1].get('ptype')
 
     def getPropNorm(self, prop, valu, oldval=None):
         '''

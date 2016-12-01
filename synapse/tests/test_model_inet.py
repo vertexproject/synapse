@@ -6,10 +6,10 @@ class InetModelTest(SynTest):
 
     def test_model_inet_fqdn(self):
         with s_cortex.openurl('ram:///') as core:
-            t0 = core.formTufoByProp('inet:fqdn','com', tld=1)
+            t0 = core.formTufoByProp('inet:fqdn','com', sfx=1)
             t1 = core.formTufoByProp('inet:fqdn','woot.com')
 
-            self.eq( t0[1].get('inet:fqdn:tld'), 1 )
+            self.eq( t0[1].get('inet:fqdn:sfx'), 1 )
             self.eq( t1[1].get('inet:fqdn:zone'), 1 )
             self.eq( t1[1].get('inet:fqdn:parent'), 'com' )
 

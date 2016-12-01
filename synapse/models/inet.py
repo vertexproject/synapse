@@ -39,8 +39,8 @@ def getDataModel():
 
             ('inet:email',{'subof':'sepr','sep':'@','lower':1,'fields':'user,inet:user|fqdn,inet:fqdn'}),
 
-            ('inet:siteuser',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|user,inet:user'}),
-            ('inet:sitemesg',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|from,inet:user|to,inet:user|sent,time'}),
+            ('inet:netuser',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|user,inet:user'}),
+            ('inet:netmesg',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|from,inet:user|to,inet:user|sent,time'}),
 
             ('inet:whois:reg',{'subof':'str'}),
             ('inet:whois:rec',{'subof':'sepr','sep':'@','fields':'fqdn,inet:fqdn|asof,time'}),
@@ -68,7 +68,7 @@ def getDataModel():
             ]),
 
             ('inet:fqdn',{'ptype':'inet:fqdn'},[
-                ('tld',{'ptype':'bool','defval':0}),
+                ('sfx',{'ptype':'bool','defval':0}),
                 ('zone',{'ptype':'bool','defval':0}),
                 ('parent',{'ptype':'inet:fqdn'}),
             ]),
@@ -97,7 +97,7 @@ def getDataModel():
                 ('port',{'ptype':'inet:port'}),
             ]),
 
-            ('inet:siteuser',{'ptype':'inet:siteuser'},[
+            ('inet:netuser',{'ptype':'inet:netuser'},[
                 ('site',{'ptype':'inet:fqdn'}),
                 ('user',{'ptype':'inet:user'}),
                 ('signup',{'ptype':'time','defval':0}),
@@ -106,7 +106,7 @@ def getDataModel():
                 ('seen:max',{'ptype':'time:max','defval':0}),
             ]),
 
-            ('inet:sitemesg',{'ptype':'inet:sitemesg'},[
+            ('inet:netmesg',{'ptype':'inet:netmesg'},[
                 ('site',{'ptype':'inet:fqdn'}),
                 ('to',{'ptype':'inet:user'}),
                 ('from',{'ptype':'inet:user'}),
@@ -143,9 +143,9 @@ def addCoreOns(core):
         parts = valu.split('.',1)
         if len(parts) > 1:
             props['inet:fqdn:parent'] = parts[1]
-            pafo = core.formTufoByProp('inet:fqdn',parts[1])
-            if pafo[1].get('inet:fqdn:tld'):
-                props['inet:fqdn:zone'] = 1
+            #pafo = core.formTufoByProp('inet:fqdn',parts[1])
+            #if pafo[1].get('inet:fqdn:sfx'):
+                #props['inet:fqdn:zone'] = 1
 
     #def onTufoAddFqdn(mesg):
         #tufo = mesg[1].get('tufo')
