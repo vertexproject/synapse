@@ -34,8 +34,8 @@ def getDataModel():
             ('inet:udp6', {'subof':'inet:srv6', 'doc':'A UDP server listening on ipv6:port'}),
 
             ('inet:port', {'subof':'int', 'min':0, 'max':0xffff}),
-            ('inet:fqdn', {'subof':'str', 'regex':'^[a-z0-9._-]+$', 'lower':1}),
-            ('inet:mac',  {'subof':'str', 'regex':'^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower':1}),
+            ('inet:fqdn', {'subof':'str', 'regex':'^[a-z0-9._-]+$', 'lower':1,'nullval':'??'}),
+            ('inet:mac',  {'subof':'str', 'regex':'^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower':1, 'nullval':'??'}),
 
             ('inet:email',{'subof':'sepr','sep':'@','lower':1,'fields':'user,inet:user|fqdn,inet:fqdn'}),
 
@@ -143,9 +143,9 @@ def addCoreOns(core):
         parts = valu.split('.',1)
         if len(parts) > 1:
             props['inet:fqdn:parent'] = parts[1]
-            #pafo = core.formTufoByProp('inet:fqdn',parts[1])
-            #if pafo[1].get('inet:fqdn:sfx'):
-                #props['inet:fqdn:zone'] = 1
+            pafo = core.formTufoByProp('inet:fqdn',parts[1])
+            if pafo[1].get('inet:fqdn:sfx'):
+                props['inet:fqdn:zone'] = 1
 
     #def onTufoAddFqdn(mesg):
         #tufo = mesg[1].get('tufo')
