@@ -6,6 +6,7 @@ Contents:
 .. toctree::
     :maxdepth: 2
 
+    synapse/docker
     synapse/cortex
     synapse/eventbus
     synapse/telepath

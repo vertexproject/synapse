@@ -1,32 +1,11 @@
 
-Synapse + Docker
-================
+docker
+======
 
-Synapse docker images are based on Ubuntu 16.04
-
-synapse
--------
-    This image is intended to serve 2 functions
-
-    1. Provide a simple sandbox to get started with synapse
-    2. Base image to facilitate building other synapse ecosystem images
-
-    build::
-
-        $ docker build -t vertexproject/synapse -f <synapse_dir>/synapse/docker/synapse_dockerfile <synapse_dir> 
-    
-    volumes
-      - /syndata is exposed by default
-
-    ports
-      - no ports are exposed by default
-
-    use::
-
-        $ docker run -it vertexproject/synapse /bin/bash
+Synapse docker images are based on Ubuntu 16.04 and install all relevant dependencies. 
 
 cortex docker images
-====================
+--------------------
 Basic synapse dmon config driven cortices that expose a cortex object
 
 connecting to any of the cortices below will be a variant of::
@@ -65,7 +44,7 @@ core_ram
         $ docker build -t vertexproject/core_ram -f <synapse_dir>/synapse/docker/cortex/ram_dockerfile <synapse_dir>
 
     volumes
-        - /syndata is still available
+        - /syndata
 
     ports
         - 47322 - listener in the default /syndata/dmon.json
@@ -85,7 +64,7 @@ core_sqlite
         $ docker build -t vertexproject/core_sqlite -f <synapse_dir>/synapse/docker/cortex/sqlite_dockerfile <synapse_dir>
 
     volumes
-        - /syndata is still available
+        - /syndata
 
     ports
         - 47322 - listener in the default /syndata/dmon.json
@@ -105,7 +84,7 @@ core_pg
         $ docker build -t vertexproject/core_pg -f <synapse_dir>/synapse/docker/cortex/postgres_9.5_dockerfile <synapse_dir>
 
     volumes
-        - /syndata is still available
+        - /syndata
         - /var/lib/postgresql/data for postgres data
 
     ports
@@ -118,7 +97,28 @@ core_pg
 
         $ docker run vertexproject/core_pg
 
-
 servicebus
 -----------------
     #TODO
+
+synapse image
+-------------
+    This image is intended to serve 2 functions
+
+    1. Provide a simple sandbox to get started with synapse
+    2. Base image to facilitate building other synapse ecosystem images
+
+    build::
+
+        $ docker build -t vertexproject/synapse -f <synapse_dir>/synapse/docker/synapse_dockerfile <synapse_dir> 
+
+    volumes
+      - /syndata is exposed by default
+
+    ports
+      - no ports are exposed by default
+
+    use::
+
+        $ docker run -it vertexproject/synapse /bin/bash
+
