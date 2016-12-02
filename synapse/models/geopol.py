@@ -23,7 +23,7 @@ def getDataModel():
                 ('isonum',{'ptype':'pol:isonum'}),
                 ('pop',{'ptype':'int','defval':0}),
                 ('founded',{'ptype':'time','defval':0}),
-                ('tld',{'ptype','inet:fqdn','defval':'??'})
+                ('tld',{'ptype':'inet:fqdn','defval':'??'}),
             ]),
 
             ('pol:hist',{'ptype':'pol:country'},[
