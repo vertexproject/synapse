@@ -1,5 +1,6 @@
 
 import os
+import time
 import unittest
 
 import synapse.link as s_link
@@ -1152,3 +1153,13 @@ class CortexTest(SynTest):
     def test_cortex_reqstor(self):
         with s_cortex.openurl('ram://') as core:
             self.assertRaises( BadPropValu, core.formTufoByProp, 'foo:bar', True )
+
+    def test_cortex_events(self):
+        with s_cortex.openurl('ram://') as core:
+
+            tufo0 = core.addTufoEvent('foo', bar=10, baz='thing')
+            id0 = tufo0[0]
+            rows = core.getRowsById(id0)
+
+            self.assertEqual(len(rows), 4)
+            self.assertTrue(rows[0][-1] < time.time())
