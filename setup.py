@@ -16,7 +16,7 @@ from setuptools import setup,find_packages
 
 setup(
     name='synapse',
-    version='0.0.8', # sync with synapse.version!
+    version='0.0.9', # sync with synapse.version!
     description='Synapse Distributed Computing Framework',
     author='Invisigoth Kenshoto',
     author_email='invisigoth.kenshoto@gmail.com',
