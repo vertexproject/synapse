@@ -17,6 +17,9 @@ from synapse.compat import enbase64, debase64, canstor
 def now():
     return int(time.time())
 
+def millinow():
+    return int( time.time() * 1000 )
+
 def guid():
     return hexlify(os.urandom(16)).decode('utf8')
 

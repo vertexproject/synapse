@@ -79,18 +79,7 @@ def openlink(link):
     if ctor == None:
         raise NoSuchScheme(link[0])
 
-    core = ctor(link)
-
-    savefd = link[1].get('savefd')
-    if savefd != None:
-        core.setSaveFd(savefd)
-
-    savefile = link[1].get('savefile')
-    if savefile != None:
-        savefd = genfile(savefile)
-        core.setSaveFd(savefd,fini=True)
-
-    return core
+    return ctor(link)
 
 def choptag(tag):
     '''

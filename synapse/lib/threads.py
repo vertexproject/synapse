@@ -19,7 +19,7 @@ class ScopeLocal:
 
     Example:
 
-        import syanpse.lib.threads as s_threads
+        import synapse.lib.threads as s_threads
 
         with s_threads.ScopeLocal('foo',thing):
             # deep caller may now...

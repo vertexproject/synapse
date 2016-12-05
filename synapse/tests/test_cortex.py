@@ -11,7 +11,12 @@ import synapse.cortex as s_cortex
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
 
+import synapse.models.syn as s_models_syn
+
 from synapse.tests.common import *
+
+class FakeType(s_types.IntType):
+    pass
 
 class CortexTest(SynTest):
 
@@ -145,7 +150,7 @@ class CortexTest(SynTest):
 
         def formfqdn(event):
             fqdn = event[1].get('valu')
-            event[1]['props']['tld'] = fqdn.split('.')[-1]
+            event[1]['props']['sfx'] = fqdn.split('.')[-1]
             event[1]['props']['fqdn:inctest'] = 0
 
         core.on('tufo:form', formtufo)
@@ -153,7 +158,7 @@ class CortexTest(SynTest):
 
         tufo = core.formTufoByProp('fqdn','woot.com')
 
-        self.assertEqual( tufo[1].get('tld'), 'com')
+        self.assertEqual( tufo[1].get('sfx'), 'com')
         self.assertEqual( tufo[1].get('woot'), 'woot')
 
         self.assertEqual( tufo[1].get('fqdn:inctest'), 0)
@@ -214,50 +219,6 @@ class CortexTest(SynTest):
         for iden,item in core.getJsonItems('hehe:foo:bar', valu='faz'):
 
             self.assertEqual( item['foo']['blah'][0], 99 )
-
-    def test_cortex_tufo_chop_subprops(self):
-        core = s_cortex.openurl('ram://')
-
-        class PairType(s_types.DataType):
-            '''
-            silly type for representing a pair like "a!b".
-            it has subprops 'first' and 'second'.
-            '''
-            subprops = (
-                s_common.tufo('first', ptype='str'),
-                s_common.tufo('second', ptype='str'),
-            )
-
-            def norm(self, valu):
-                return self.chop(valu)[0]
-
-            def chop(self, valu):
-                if self.info.get('lower'):
-                    valu = valu.lower()
-
-                first, _, second = valu.partition('!')
-                return valu, {
-                    'first': first,
-                    'second': second,
-                }
-
-            def parse(self, text):
-                return self.norm(text)
-
-            def repr(self, valu):
-                return valu
-
-        core.addType(PairType(core, 'pair'))
-
-        core.addTufoForm('foo')
-        core.addTufoProp('foo', 'bar', ptype='pair')
-        core.addTufoProp('foo', 'bar:first')
-        core.addTufoProp('foo', 'bar:second')
-
-        t0 = core.formTufoByProp('foo', 'blah', bar='A!B')
-        self.assertEqual(t0[1].get('foo:bar'), 'A!B')
-        self.assertEqual(t0[1].get('foo:bar:first'), 'A')
-        self.assertEqual(t0[1].get('foo:bar:second'), 'B')
 
     def test_cortex_choptag(self):
         t0 = tuple(s_cortex.choptag('foo'))
@@ -745,23 +706,23 @@ class CortexTest(SynTest):
         core = s_cortex.openurl('ram://')
 
         fields = 'fqdn,inet:fqdn|ipv4,inet:ipv4|time,time:epoch'
-        core.addSubType('dns:a','comp',fields=fields)
+        core.addType('foo:a',subof='comp',fields=fields)
 
-        core.addTufoForm('dns:a',ptype='dns:a')
-        core.addTufoProp('dns:a','fqdn',ptype='inet:fqdn')
-        core.addTufoProp('dns:a','ipv4',ptype='inet:ipv4')
-        core.addTufoProp('dns:a','time',ptype='time:epoch')
+        core.addTufoForm('foo:a',ptype='foo:a')
+        core.addTufoProp('foo:a','fqdn',ptype='inet:fqdn')
+        core.addTufoProp('foo:a','ipv4',ptype='inet:ipv4')
+        core.addTufoProp('foo:a','time',ptype='time:epoch')
 
         arec = ('wOOt.com',0x01020304,0x00404040)
 
-        dnsa = core.formTufoByProp('dns:a', arec)
+        dnsa = core.formTufoByProp('foo:a', arec)
 
         fval = s_types.enMsgB64( ('woot.com',0x01020304,0x00404040) )
 
-        self.assertEqual( dnsa[1].get('dns:a'), fval)
-        self.assertEqual( dnsa[1].get('dns:a:fqdn'), 'woot.com')
-        self.assertEqual( dnsa[1].get('dns:a:ipv4'), 0x01020304)
-        self.assertEqual( dnsa[1].get('dns:a:time'), 0x00404040)
+        self.assertEqual( dnsa[1].get('foo:a'), fval)
+        self.assertEqual( dnsa[1].get('foo:a:fqdn'), 'woot.com')
+        self.assertEqual( dnsa[1].get('foo:a:ipv4'), 0x01020304)
+        self.assertEqual( dnsa[1].get('foo:a:time'), 0x00404040)
 
         core.fini()
 
@@ -1157,9 +1118,33 @@ class CortexTest(SynTest):
     def test_cortex_events(self):
         with s_cortex.openurl('ram://') as core:
 
+            now0 = millinow()
+
             tufo0 = core.addTufoEvent('foo', bar=10, baz='thing')
+
+            now1 = millinow()
+
             id0 = tufo0[0]
             rows = core.getRowsById(id0)
 
             self.assertEqual(len(rows), 4)
-            self.assertTrue(rows[0][-1] < time.time())
+            self.assertTrue(rows[0][-1] >= now0)
+            self.assertTrue(rows[0][-1] <= now1)
+
+    def test_cortex_tlib_persistence(self):
+        with self.getTestDir() as path:
+
+            savefile = genpath(path,'savefile.mpk')
+
+            with s_cortex.openurl('ram://',savefile=savefile) as core:
+
+                core.formTufoByProp('syn:type','foo',subof='bar')
+                core.formTufoByProp('syn:type','bar',ctor='synapse.tests.test_cortex.FakeType')
+
+                self.assertEqual( core.getTypeParse('foo','30'), 30 )
+                self.assertEqual( core.getTypeParse('bar','30'), 30 )
+
+            with s_cortex.openurl('ram://',savefile=savefile) as core:
+                self.assertEqual( core.getTypeParse('foo','30'), 30 )
+                self.assertEqual( core.getTypeParse('bar','30'), 30 )
+

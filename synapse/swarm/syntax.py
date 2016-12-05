@@ -350,7 +350,7 @@ def parse_oper(text, off=0):
         inst[1]['kwlist'].append( (kwname,kwvalu) )
 
         if text[off] not in (',',')'):
-            raise syanpse.exc.SyntaxError(mesg='Unexpected Token: ' + text[off], at=off)
+            raise synapse.exc.SyntaxError(mesg='Unexpected Token: ' + text[off], at=off)
 
         if text[off] == ')':
             off += 1

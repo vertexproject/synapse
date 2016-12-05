@@ -88,9 +88,7 @@ def parsetypes(*atypes, **kwtypes):
 
 class DataModel(s_types.TypeLib):
 
-    def __init__(self):
-        s_types.TypeLib.__init__(self)
-
+    def __init__(self,load=True):
         self.props = {}
         self.forms = set()
 
@@ -107,6 +105,36 @@ class DataModel(s_types.TypeLib):
             'globs':{},
             'forms':[],
         }
+
+        s_types.TypeLib.__init__(self,load=load)
+
+        self.addTufoForm('syn:core')
+
+        self.addTufoForm('syn:form',ptype='syn:prop')
+        self.addTufoProp('syn:form','doc', ptype='str', doc='basic form definition')
+        self.addTufoProp('syn:form','ver', ptype='int', doc='form version within the model')
+        self.addTufoProp('syn:form','model', ptype='str', doc='which model defines a given form')
+
+        self.addTufoForm('syn:prop',ptype='syn:prop')
+        self.addTufoProp('syn:prop','doc',ptype='str',req=1,doc='Description of the property definition')
+        self.addTufoProp('syn:prop','form',ptype='syn:prop',req=1,doc='Synapse form which contains this property')
+        self.addTufoProp('syn:prop','ptype',ptype='syn:type',req=1,doc='Synapse type for this field')
+        self.addTufoProp('syn:prop','req',ptype='bool',defval=0,doc='Set to 1 if this property is required')
+        self.addTufoProp('syn:prop','glob',ptype='bool',defval=0,doc='Set to 1 if this property defines a glob')
+        self.addTufoProp('syn:prop','defval',doc='Set to the default value for this property')
+
+        self.addTufoForm('syn:tag', ptype='syn:tag')
+        self.addTufoProp('syn:tag','up',ptype='syn:tag')
+        self.addTufoProp('syn:tag','doc',defval='',ptype='str')
+        self.addTufoProp('syn:tag','depth',defval=0,ptype='int')
+        self.addTufoProp('syn:tag','title',defval='',ptype='str')
+
+        self.addTufoForm('syn:model',ptype='syn:tag', doc='prefix for all forms within the model')
+        self.addTufoProp('syn:model','version', ptype='int', doc='version of the data model')
+        self.addTufoProp('syn:model','prefix', ptype='syn:prop', doc='prefix used by types/forms in the model')
+
+        self.addTufoForm('syn:type',ptype='syn:type')
+        self.addTufoProp('syn:type','*',glob=1)
 
     def getModelDict(self):
         '''
@@ -133,6 +161,12 @@ class DataModel(s_types.TypeLib):
         self.model['forms'].append(form)
         return self.addPropDef(form, **info)
 
+    def isTufoForm(self, name):
+        '''
+        Returns True if the given name is a form.
+        '''
+        return name in self.forms
+
     def getTufoForms(self):
         '''
         Return a list of the tufo forms.
@@ -152,6 +186,10 @@ class DataModel(s_types.TypeLib):
         pdef = self.getPropDef(form)
         if pdef == None:
             raise NoSuchForm(name=form)
+
+        if info.get('glob'):
+            self._addPropGlob(form,prop,**info)
+            return
 
         info['form'] = form
         fullprop = '%s:%s' % (form,prop)
@@ -210,20 +248,10 @@ class DataModel(s_types.TypeLib):
                 continue
             self.subprops[prop].append(pdef)
 
-    def addTufoGlob(self, form, glob, **propinfo):
-        '''
-        Add a property to the given tufo form.
-        '''
-        glob = '%s:%s' % (form,glob)
-        propinfo['form'] = form
-        return self.addPropGlob(glob, **propinfo)
-
-    def addPropGlob(self, glob, **info):
-        '''
-        Add a property glob to the data model.
-        '''
-        self.globs.append( (glob,info) )
-        self.model['globs'][glob] = info
+    def _addPropGlob(self, form, prop, **info):
+        prop = '%s:%s' % (form,prop)
+        info['form'] = form
+        self.globs.append( (prop,info) )
 
     def getSubProps(self, prop):
         '''
@@ -284,6 +312,13 @@ class DataModel(s_types.TypeLib):
             return None
 
         return self.getDataType(ptype)
+
+    def getPropTypeName(self, prop):
+        pdef = self.getPropDef(prop)
+        if pdef == None:
+            return None
+
+        return pdef[1].get('ptype')
 
     def getPropNorm(self, prop, valu, oldval=None):
         '''
