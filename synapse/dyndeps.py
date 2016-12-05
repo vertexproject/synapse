@@ -32,6 +32,26 @@ def getDynLocal(name):
         return None
     return getattr(mod,objname,None)
 
+def tryDynMod(name):
+    '''
+    Dynamically import a python module or exception.
+    '''
+    return importlib.import_module(name)
+
+def tryDynLocal(name):
+    '''
+    Dynamically import a module and return a module local or raise an exception.
+    '''
+    modname,objname = name.rsplit('.',1)
+    mod = tryDynMod(modname)
+    return getattr(mod,objname)
+
+def tryDynFunc(name,*args,**kwargs):
+    '''
+    Dynamically import a module and call a function or raise an exception.
+    '''
+    return tryDynLocal(name)(*args,**kwargs)
+
 def runDynTask(task):
     '''
     Run a dynamic task and return the result.

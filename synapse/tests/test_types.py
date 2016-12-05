@@ -116,7 +116,7 @@ class DataTypesTest(SynTest):
     def test_datatype_guid_sub(self):
         tlib = s_types.TypeLib()
 
-        tlib.addSubType('woot','guid')
+        tlib.addType('woot',subof='guid')
 
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'woot', 'newp' )
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'woot', 'newp' )
@@ -173,7 +173,7 @@ class DataTypesTest(SynTest):
     def test_datatype_str_enums(self):
         tlib = s_types.TypeLib()
 
-        tlib.addSubType('woot','str',enums='hehe,haha,hoho', lower=1)
+        tlib.addType('woot',subof='str',enums='hehe,haha,hoho', lower=1)
 
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'woot', 'asdf' )
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'woot', 'asdf' )
@@ -184,29 +184,8 @@ class DataTypesTest(SynTest):
 
     def test_datatype_dup(self):
         tlib = s_types.TypeLib()
-        self.assertRaises(DupTypeName, tlib.addSubType, 'inet:port', 'int' )
 
-    def test_datatype_syn_tag(self):
-
-        tlib = s_types.TypeLib()
-        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'syn:tag', 'asdf qwer' )
-        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'syn:tag', 'foo..bar' )
-
-        self.eq( tlib.getTypeNorm('syn:tag','BAR'), 'bar' )
-        self.eq( tlib.getTypeParse('syn:tag','BAR'), 'bar' )
-        self.eq( tlib.getTypeNorm('syn:tag','foo.BAR'), 'foo.bar' )
-        self.eq( tlib.getTypeParse('syn:tag','foo.BAR'), 'foo.bar' )
-
-    def test_datatype_syn_prop(self):
-        tlib = s_types.TypeLib()
-        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'syn:prop', 'asdf qwer' )
-        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'syn:prop', 'foo::bar' )
-
-        self.eq( tlib.getTypeFrob('syn:prop','BAR'), 'bar' )
-        self.eq( tlib.getTypeNorm('syn:prop','BAR'), 'bar' )
-        self.eq( tlib.getTypeParse('syn:prop','BAR'), 'bar' )
-        self.eq( tlib.getTypeNorm('syn:prop','foo:BAR'), 'foo:bar' )
-        self.eq( tlib.getTypeParse('syn:prop','foo:BAR'), 'foo:bar' )
+        self.assertRaises(DupTypeName, tlib.addType, 'inet:port', subof='int' )
 
     def test_datatype_bool(self):
         tlib = s_types.TypeLib()
@@ -239,14 +218,14 @@ class DataTypesTest(SynTest):
         self.assertFalse( tlib.getTypeFrob('bool','FaLsE') )
 
     def test_type_comp(self):
-
         tlib = s_types.TypeLib()
-        tlib.addSubType('inet:dns:a','comp',fields='fqdn,inet:fqdn|ipv4,inet:ipv4|time,time:epoch')
+
+        tlib.addType('inet:foo:a',subof='comp',fields='fqdn,inet:fqdn|ipv4,inet:ipv4|time,time:epoch')
 
         jstext = '["wOOt.com","1.2.3.4","20160204080030"]'
         rawobj = ["wOOt.com","1.2.3.4","20160204080030"]
 
-        b64t = tlib.getTypeParse('inet:dns:a',jstext)
+        b64t = tlib.getTypeParse('inet:foo:a',jstext)
         epoc = tlib.getTypeParse('time:epoch','20160204080030')
 
         item = msgunpack(base64.b64decode(b64t.encode('utf8')))
@@ -255,7 +234,7 @@ class DataTypesTest(SynTest):
         self.assertEqual(item[1], 0x01020304)
         self.assertEqual(item[2], epoc)
 
-        b64t = tlib.getTypeParse('inet:dns:a',rawobj)
+        b64t = tlib.getTypeParse('inet:foo:a',rawobj)
 
         item = msgunpack(base64.b64decode(b64t.encode('utf8')))
 
@@ -263,7 +242,7 @@ class DataTypesTest(SynTest):
         self.assertEqual(item[1], 0x01020304)
         self.assertEqual(item[2], epoc)
 
-        b64t = tlib.getTypeNorm('inet:dns:a',('wOOt.com',0x01020304,epoc))
+        b64t = tlib.getTypeNorm('inet:foo:a',('wOOt.com',0x01020304,epoc))
 
         item = msgunpack(base64.b64decode(b64t.encode('utf8')))
 
@@ -271,7 +250,7 @@ class DataTypesTest(SynTest):
         self.assertEqual(item[1], 0x01020304)
         self.assertEqual(item[2], epoc)
 
-        b64t = tlib.getTypeNorm('inet:dns:a',b64t)
+        b64t = tlib.getTypeNorm('inet:foo:a',b64t)
 
         item = msgunpack(base64.b64decode(b64t.encode('utf8')))
 
@@ -279,25 +258,25 @@ class DataTypesTest(SynTest):
         self.assertEqual(item[1], 0x01020304)
         self.assertEqual(item[2], epoc)
 
-        rept = tlib.getTypeRepr('inet:dns:a',b64t)
+        rept = tlib.getTypeRepr('inet:foo:a',b64t)
         self.assertEqual( rept, '["woot.com","1.2.3.4","2016/02/04 08:00:30"]')
 
     def test_type_comp_chop(self):
         tlib = s_types.TypeLib()
 
-        tlib.addSubType('fake:newp','comp',fields='fqdn,inet:fqdn|email,inet:email')
+        tlib.addType('fake:newp',subof='comp',fields='fqdn,inet:fqdn|email,inet:email')
 
         norm,subs = tlib.getTypeChop('fake:newp',('woot.com','visi@visi.com'))
 
     def test_type_comp_err(self):
         tlib = s_types.TypeLib()
-        self.assertRaises( BadInfoValu, tlib.addSubType, 'fake:newp', 'comp',fields='asdfqwer')
+        self.assertRaises( BadInfoValu, tlib.addType, 'fake:newp', subof='comp',fields='asdfqwer')
 
     def test_datatype_int_minmax(self):
         tlib = s_types.TypeLib()
 
-        tlib.addSubType('woot:min','int',ismin=1)
-        tlib.addSubType('woot:max','int',ismax=1)
+        tlib.addType('woot:min',subof='int',ismin=1)
+        tlib.addType('woot:max',subof='int',ismax=1)
 
         self.eq( tlib.getTypeNorm('woot:min', 20, oldval=40), 20 )
         self.eq( tlib.getTypeNorm('woot:min', 40, oldval=20), 20 )
@@ -307,6 +286,7 @@ class DataTypesTest(SynTest):
 
     def test_datatype_fqdn(self):
         tlib = s_types.TypeLib()
+
         self.eq( tlib.getTypeNorm('inet:fqdn','WOOT.COM'), 'woot.com')
         self.eq( tlib.getTypeNorm('inet:fqdn','WO-OT.COM'), 'wo-ot.com')
         self.eq( tlib.getTypeFrob('inet:fqdn','WOOT.COM'), 'woot.com')
@@ -316,4 +296,32 @@ class DataTypesTest(SynTest):
 
     def test_type_stor_info(self):
         tlib = s_types.TypeLib()
-        self.assertRaises( BadStorValu, tlib.addSubType, 'fake:newp', 'comp',fields=() )
+        self.assertRaises( BadStorValu, tlib.addType, 'fake:newp', subof='comp',fields=() )
+
+    def test_type_pend(self):
+        tlib = s_types.TypeLib()
+        self.assertFalse( tlib.addType('foo',subof='bar') )
+        self.assertTrue( tlib.addType('bar',subof='int') )
+        self.assertIsNotNone( tlib.getDataType('foo') )
+
+    def test_type_sepr(self):
+        tlib = s_types.TypeLib()
+        tlib.addType('siteuser', subof='sepr', sep='/', fields='foo,inet:fqdn|bar,inet:user')
+        self.eq( tlib.getTypeNorm('siteuser','WOOT.COM/visi'), 'woot.com/visi' )
+        self.eq( tlib.getTypeParse('siteuser','WOOT.COM/visi'), 'woot.com/visi' )
+
+        norm,subs = tlib.getTypeChop('siteuser','WOOT.COM/Visi')
+        self.eq(subs.get('foo'),'woot.com')
+        self.eq(subs.get('bar'),'Visi')
+
+    def test_type_str_nullval(self):
+        tlib = s_types.TypeLib()
+        tlib.addType('woot', subof='str', regex='^[0-9]+$', nullval='??')
+        self.eq( tlib.getTypeNorm('woot','10'), '10' )
+        self.eq( tlib.getTypeParse('woot','10'), '10' )
+
+        self.eq( tlib.getTypeNorm('woot','??'), '??' )
+        self.eq( tlib.getTypeParse('woot','??'), '??' )
+
+        self.assertRaises( BadTypeValu, tlib.getTypeNorm, 'woot', 'qwer' )
+        self.assertRaises( BadTypeValu, tlib.getTypeParse, 'woot', 'qwer' )
