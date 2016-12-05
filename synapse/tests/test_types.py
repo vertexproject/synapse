@@ -161,6 +161,17 @@ class DataTypesTest(SynTest):
         self.eq( tlib.getTypeParse('inet:srv6', '[AF:00::02]:80'), '[af::2]:80')
         self.eq( tlib.getTypeNorm('inet:srv6', '[AF:00::02]:80'), '[af::2]:80')
 
+    def test_datatype_int_pct(self):
+        tlib = s_types.TypeLib()
+
+        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'int:pct', 'hehe')
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'int:pct', 'hehe')
+
+        self.eq(tlib.getTypeNorm('int:pct', 1111), 1111)
+        self.eq(tlib.getTypeParse('int:pct', '11.11'), 1111)
+        self.eq(tlib.getTypeFrob('int:pct', 11.11), 1111)
+        self.eq(tlib.getTypeRepr('int:pct', 1111), '1111')
+
     def test_datatype_str(self):
         tlib = s_types.TypeLib()
 
