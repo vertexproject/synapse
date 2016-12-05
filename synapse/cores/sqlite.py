@@ -93,7 +93,7 @@ class Cortex(common.Cortex):
     '''
 
     _t_init_id_idx = 'CREATE INDEX {{SYNTABLE}}_id_idx ON {{SYNTABLE}} (id,prop)'
-    _t_init_strval_idx = 'CREATE INDEX {{SYNTABLE}}_prop_time_idx ON {{SYNTABLE}} (prop,stamp)'
+    _t_init_prop_idx = 'CREATE INDEX {{SYNTABLE}}_prop_time_idx ON {{SYNTABLE}} (prop,stamp)'
     _t_init_strval_idx = 'CREATE INDEX {{SYNTABLE}}_strval_idx ON {{SYNTABLE}} (prop,strval,stamp)'
     _t_init_intval_idx = 'CREATE INDEX {{SYNTABLE}}_intval_idx ON {{SYNTABLE}} (prop,intval,stamp)'
 
@@ -196,8 +196,8 @@ class Cortex(common.Cortex):
     _t_deljoin_by_prop_str_wmax = 'DELETE FROM {{SYNTABLE}} WHERE id IN (SELECT id FROM {{SYNTABLE}} WHERE prop=? AND strval=? AND stamp<? )'
 
     _t_deljoin_by_prop_wminmax = 'DELETE FROM {{SYNTABLE}} WHERE id IN (SELECT id FROM {{SYNTABLE}} WHERE prop=? AND stamp>=? AND stamp <?)'
-    _t_deljoin_by_prop_int_wminmax = 'DELETE FROM {{SYNTABLE}} WHERE id IN (SELECT id FROM {{SYNTABLE}} WHERE prop=? AND intval=?)'
-    _t_deljoin_by_prop_str_wminmax = 'DELETE FROM {{SYNTABLE}} WHERE id IN (SELECT id FROM {{SYNTABLE}} WHERE prop=? AND strval=?)'
+    _t_deljoin_by_prop_int_wminmax = 'DELETE FROM {{SYNTABLE}} WHERE id IN (SELECT id FROM {{SYNTABLE}} WHERE prop=? AND intval=? AND stamp>=? AND stamp<?)'
+    _t_deljoin_by_prop_str_wminmax = 'DELETE FROM {{SYNTABLE}} WHERE id IN (SELECT id FROM {{SYNTABLE}} WHERE prop=? AND strval=? AND stamp>=? AND stamp<?)'
 
     ################################################################################
     _t_uprows_by_id_prop_str = 'UPDATE {{SYNTABLE}} SET strval=? WHERE id=? and prop=?'
@@ -308,6 +308,7 @@ class Cortex(common.Cortex):
         self._q_istable = self._t_istable
         self._q_inittable = self._prepQuery(self._t_inittable)
         self._q_init_id_idx = self._prepQuery(self._t_init_id_idx)
+        self._q_init_prop_idx = self._prepQuery(self._t_init_prop_idx)
         self._q_init_strval_idx = self._prepQuery(self._t_init_strval_idx)
         self._q_init_intval_idx = self._prepQuery(self._t_init_intval_idx)
 
@@ -470,6 +471,7 @@ class Cortex(common.Cortex):
         with self.cursor() as c:
             c.execute(self._q_inittable)
             c.execute(self._q_init_id_idx)
+            c.execute(self._q_init_prop_idx)
             c.execute(self._q_init_strval_idx)
             c.execute(self._q_init_intval_idx)
 
