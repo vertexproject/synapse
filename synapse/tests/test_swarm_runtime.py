@@ -290,12 +290,22 @@ class SwarmRunTest(SwarmRunBase):
     def test_swarm_runtime_has(self):
 
         env = self.getSwarmEnv()
-        answ = env.runt.ask('foo:bar="baz" save("woot") clear() load("woot")')
+
+        # use the lift code for has()
+        answ = env.runt.ask('foo:bar')
 
         tufos = answ.get('data')
 
-        self.assertEqual( len(tufos), 1 )
-        self.assertEqual( tufos[0][1].get('foo:bar'), 'baz' )
+        self.assertEqual( len(tufos), 4 )
+        self.assertEqual( tufos[0][1].get('tufo:form'), 'foo:bar' )
+
+        # use the filter code for has()
+        answ = env.runt.ask('tufo:form +foo:bar')
+
+        tufos = answ.get('data')
+
+        self.assertEqual( len(tufos), 4 )
+        self.assertEqual( tufos[0][1].get('tufo:form'), 'foo:bar' )
 
         env.fini()
 

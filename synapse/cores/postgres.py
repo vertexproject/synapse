@@ -4,19 +4,19 @@ from . import sqlite as s_c_sqlite
 
 import synapse.datamodel as s_datamodel
 
-istable = '''
-   SELECT 1
-   FROM   information_schema.tables 
-   WHERE    table_name = %s
-'''
-
-getjoin_by_in_int = 'SELECT * FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? and intval IN ? LIMIT ?)'
-getjoin_by_in_str = 'SELECT * FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=? and strval IN ? LIMIT ?)'
-
 class Cortex(s_c_sqlite.Cortex):
 
     dbvar = '%s'
     dblim = None
+
+    _t_istable = '''
+       SELECT 1
+       FROM   information_schema.tables 
+       WHERE    table_name = %s
+    '''
+
+    _t_getjoin_by_in_int = 'SELECT * FROM {{SYNTABLE}} WHERE id IN (SELECT id FROM {{SYNTABLE}} WHERE prop=? and intval IN ? LIMIT ?)'
+    _t_getjoin_by_in_str = 'SELECT * FROM {{SYNTABLE}} WHERE id IN (SELECT id FROM {{SYNTABLE}} WHERE prop=? and strval IN ? LIMIT ?)'
 
     def _initDbConn(self):
         import psycopg2
@@ -102,11 +102,11 @@ class Cortex(s_c_sqlite.Cortex):
         rows = self._foldTypeCols(rows)
         return self._rowsToTufos(rows)
 
-    def _initCorQueries(self, table):
-        s_c_sqlite.Cortex._initCorQueries(self, table)
-        self._q_istable = istable
+    def _initCorQueries(self):
+        s_c_sqlite.Cortex._initCorQueries(self)
+        self._q_istable = self._t_istable
 
-        self._q_getjoin_by_in_int = self._prepQuery(getjoin_by_in_int, table)
-        self._q_getjoin_by_in_str = self._prepQuery(getjoin_by_in_str, table)
+        self._q_getjoin_by_in_int = self._prepQuery(self._t_getjoin_by_in_int)
+        self._q_getjoin_by_in_str = self._prepQuery(self._t_getjoin_by_in_str)
 
 
