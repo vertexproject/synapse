@@ -267,7 +267,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'synapse.tex', 'synapse Documentation', 'asdf', 'manual'),
+    (master_doc, 'synapse.tex', 'Synapse Documentation', '', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
