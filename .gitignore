@@ -5,6 +5,8 @@ __pycache__/
 
 # sphinx build dir
 docs/_build
+# sphinx API doc dir
+docs/synapse/api
 
 # C extensions
 *.so
