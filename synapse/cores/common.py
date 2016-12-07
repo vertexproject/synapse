@@ -2028,8 +2028,6 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         name = tufo[1].get('syn:prop')
         info = tufoprops(tufo)
 
-        if tufo[1].get('syn:prop') == 'geo:place':
-            print('INIT PROP TUFO: %r' % (tufo,))
         form = info.pop('form')
         prop = name[len(form)+1:]
 
