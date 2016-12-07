@@ -19,6 +19,9 @@ class Foo:
     def baz(self, x, y):
         raise Exception('derp')
 
+    def echo(self, x):
+        return x
+
     def speed(self):
         return
 
@@ -276,4 +279,22 @@ class TelePathTest(SynTest):
 
         self.eq( mesg[0],'job:done')
         self.eq( mesg[1].get('err'), 'BadMesgVers' )
+
+    def test_telepath_gzip(self):
+
+        with s_daemon.Daemon() as dmon:
+
+            link = dmon.listen('tcp://127.0.0.1:0/foo')
+
+            dmon.share('foo', Foo() )
+
+            with s_telepath.openlink(link) as prox:
+
+                wait0 = self.getTestWait(prox, 1, 'sock:gzip')
+                #wait1 = self.getTestWait(dmon., 1, 'sock:gzip')
+
+                ping = 'V' * 50000
+                self.eq( prox.echo(ping), ping )
+
+                wait0.wait(timeout=2)
 

@@ -1,6 +1,7 @@
 from __future__ import absolute_import,unicode_literals
 
 import os
+import gzip
 import select
 import socket
 import logging
@@ -17,6 +18,12 @@ import synapse.lib.thisplat as s_thisplat
 from synapse.eventbus import EventBus
 
 from synapse.common import *
+
+def sockgzip(byts):
+    blen = len(byts)
+    byts = gzip.compress(byts)
+    #print('GZIP DELTA: %d -> %d' % (blen,len(byts)))
+    return msgenpack(('sock:gzip',{'data':byts}))
 
 class SockXform:
     '''
@@ -186,7 +193,12 @@ class Socket(EventBus):
             return self.plex._txSockMesg(self,mesg)
 
         try:
-            self.sendall( msgenpack(mesg) )
+            byts = msgenpack(mesg)
+
+            if len(byts) > 50000 and self.get('sock:can:gzip'):
+                byts = sockgzip(byts)
+
+            self.sendall( byts )
             return True
 
         except socket.error as e:
@@ -373,6 +385,9 @@ class Plex(EventBus):
     def _txSockMesg(self, sock, mesg):
         # handle the need to send on a socket in the plex
         byts = msgenpack(mesg)
+        if len(byts) > 50000 and sock.get('sock:can:gzip'):
+            byts = sockgzip(byts)
+
         with self._plex_lock:
 
             # we have no backlog!
