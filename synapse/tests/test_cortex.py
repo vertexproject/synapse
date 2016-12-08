@@ -3,10 +3,10 @@ import os
 import time
 import unittest
 
-import synapse.link as s_link
 import synapse.compat as s_compat
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.exc as s_exc
 
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
@@ -34,14 +34,8 @@ class CortexTest(SynTest):
         self.runrange( core )
 
     def test_cortex_postgres(self):
-        db = os.getenv('SYN_COR_PG_DB')
-        if db == None:
-            raise unittest.SkipTest('no SYN_COR_PG_DB')
-        if not db.startswith('postgres://'):
-            db = 'postgres:///%s' % (db)
-
         table = 'syn_test_%s' % guid()
-        core = s_cortex.openurl(db + '/' + table)
+        core = self.open_cortex_postgres(table)
 
         try:
             self.runcore( core )
@@ -50,6 +44,28 @@ class CortexTest(SynTest):
         finally:
             with core.cursor() as c:
                 c.execute('DROP TABLE %s' % (table,))
+
+    def open_cortex_postgres(self, table=None, pool=None):
+        db = os.getenv('SYN_COR_PG_DB')
+        if db == None:
+            raise unittest.SkipTest('no SYN_COR_PG_DB')
+        if not db.startswith('postgres://'):
+            db = 'postgres:///%s' % (db)
+        fini = None
+        if not table:
+            table = 'syn_test_%s' % guid()
+
+            def fini():
+                with core.cursor() as c:
+                    c.connection.rollback()
+                    c.execute('DROP TABLE %s' % (table,))
+        url = db + '/' + table
+        if pool:
+            url += '?pool=' + str(pool)
+        core = s_cortex.openurl(url)
+        if fini:
+            core.onfini(fini)
+        return core
 
     def runcore(self, core):
 
@@ -229,6 +245,16 @@ class CortexTest(SynTest):
         self.assertEqual( t1, ('foo','foo.bar'))
         self.assertEqual( t2, ('foo','foo.bar','foo.bar.baz'))
 
+    def test_cortex_timeout_postgres(self):
+        with self.open_cortex_postgres() as core:
+            core.select('select pg_sleep(%s)', [0.001], timeout=0.100)
+            self.assertRaises(s_exc.HitMaxTime, core.select, 'select pg_sleep(%s)', [0.100], timeout=0.001)
+
+        with self.open_cortex_postgres(pool=10) as core:
+            for i in range(10):
+                core.select('select pg_sleep(%s)', [0.002], timeout=0.200)
+                self.assertRaises(s_exc.HitMaxTime, core.select, 'select pg_sleep(%s)', [0.200], timeout=0.002)
+
     def test_cortex_tufo_by_default(self):
         core = s_cortex.openurl('sqlite:///:memory:')
 
@@ -273,24 +299,16 @@ class CortexTest(SynTest):
         self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '192.168.0.0/16')), 2)
 
     def test_cortex_tufo_by_postgres(self):
-        db = os.getenv('SYN_COR_PG_DB')
-        if db == None:
-            raise unittest.SkipTest('no SYN_COR_PG_DB')
+        with self.open_cortex_postgres() as core:
+            fooa = core.formTufoByProp('foo','bar',p0=4)
+            foob = core.formTufoByProp('foo','baz',p0=5)
 
-        table = 'syn_test_%s' % guid()
+            self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4])), 1)
 
-        link = s_link.chopLinkUrl('postgres:///%s/%s' % (db,table))
-        core = s_cortex.openlink(link)
-
-        fooa = core.formTufoByProp('foo','bar',p0=4)
-        foob = core.formTufoByProp('foo','baz',p0=5)
-
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4])), 1)
-
-        fooc = core.formTufoByProp('foo','faz',p0=5)
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5])), 2)
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
+            fooc = core.formTufoByProp('foo','faz',p0=5)
+            self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5])), 2)
+            self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
+            self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
 
     def test_cortex_tufo_tag(self):
         core = s_cortex.openurl('ram://')

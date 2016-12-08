@@ -915,7 +915,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         self.savebus.fire('core:save:set:rows:by:idprop', iden=iden, prop=prop, valu=valu)
         self._setRowsByIdProp(iden, prop, valu)
 
-    def getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+    def getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Return a tuple of (iden,prop,valu,time) rows by prop[=valu].
 
@@ -931,9 +931,9 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             * Specify maxtime=<time> in epoch to filter rows
 
         '''
-        return tuple(self._getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit))
+        return tuple(self._getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout, limit=limit))
 
-    def getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+    def getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Similar to getRowsByProp but also lifts all other rows for iden.
 
@@ -946,9 +946,9 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             * See getRowsByProp for options
 
         '''
-        return tuple(self._getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit))
+        return tuple(self._getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout, limit=limit))
 
-    def getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, limit=None):
+    def getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Similar to getRowsByProp but pivots through "iden" to a different property.
         This can be a light way to return a single property from a tufo rather than lifting the whole.
@@ -961,9 +961,9 @@ class Cortex(EventBus,DataModel,ConfigMixin):
                 dostuff()
 
         '''
-        return tuple(self._getPivotRows(prop, byprop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit))
+        return tuple(self._getPivotRows(prop, byprop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout, limit=limit))
 
-    def getSizeByProp(self, prop, valu=None, mintime=None, maxtime=None):
+    def getSizeByProp(self, prop, valu=None, mintime=None, maxtime=None, timeout=None):
         '''
         Return the count of matching rows by prop[=valu]
 
@@ -973,7 +973,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
                 stuff()
 
         '''
-        return self._getSizeByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
+        return self._getSizeByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout)
 
     def getTufosBy(self, name, prop, valu, limit=None):
         '''
@@ -1153,7 +1153,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         [ res[i].__setitem__(p,v) for (i,p,v,t) in rows ]
         return list(res.items())
 
-    def getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+    def getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Return a list of tufos by property.
 
@@ -1166,13 +1166,13 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         if self.caching and mintime == None and maxtime == None:
             return self._getTufosByCache(prop,valu,limit)
 
-        return self._getTufosByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+        return self._getTufosByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout, limit=limit)
 
-    def _getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
-        rows = self.getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+    def _getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
+        rows = self.getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout, limit=limit)
         return self._rowsToTufos(rows)
 
-    def getTufosByFrob(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+    def getTufosByFrob(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Return a list of tufos by property and frob value if present.
 
@@ -1185,9 +1185,9 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         if valu != None:
             valu =self.getPropFrob(prop,valu)
 
-        return self.getTufosByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+        return self.getTufosByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout, limit=limit)
 
-    def getTufosByPropType(self, name, valu=None, mintime=None, maxtime=None, limit=None):
+    def getTufosByPropType(self, name, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Return tufos by interrogating the data model to find fields of the given type.
 
@@ -1203,7 +1203,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         for prop,info in self.propsbytype.get(name,()):
 
-            pres = self.getTufosByProp(prop,valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+            pres = self.getTufosByProp(prop,valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout, limit=limit)
             ret.extend(pres)
 
             if limit != None:
@@ -1342,7 +1342,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         '''
         return self.addJsonItems(form, (item,), tstamp=tstamp)
 
-    def getStatByProp(self, stat, prop, valu=None, mintime=None, maxtime=None, limit=None):
+    def getStatByProp(self, stat, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Calculate and return a statistic for the specified rows.
         ( See getRowsByProp docs for most args )
@@ -1369,7 +1369,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         if statfunc == None:
             raise Exception('Unknown Stat: %s' % (stat,))
 
-        rows = self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+        rows = self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout, limit=limit)
         return statfunc(rows)
 
     def addStatFunc(self, name, func):
@@ -1417,7 +1417,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
             self.addRows(rows)
 
-    def getJsonItems(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+    def getJsonItems(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
         '''
         Return a list of (iden,item) tuples (similar to tufos, but with hierarchical structure )
 
@@ -1435,7 +1435,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
                 dostuff(tufo)
 
         '''
-        rows = self.getPivotRows('prim:json', prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+        rows = self.getPivotRows('prim:json', prop, valu=valu, mintime=mintime, maxtime=maxtime, timeout=timeout, limit=limit)
         return [ json.loads(r[2]) for r in rows ]
 
     def _primToProps(self, form, item):
@@ -1889,13 +1889,13 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         '''
         return self._delJoinByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime)
 
-    def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
-        for irow in self._getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit):
+    def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
+        for irow in self._getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime,timeout=timeout,limit=limit):
             for jrow in self._getRowsById(irow[0]):
                 yield jrow
 
-    def _getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, limit=None):
-        for irow in self._getRowsByProp(byprop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit):
+    def _getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, limit=None, timeout=None):
+        for irow in self._getRowsByProp(byprop,valu=valu,mintime=mintime,maxtime=maxtime,timeout=timeout,limit=limit):
             for jrow in self._getRowsByIdProp( irow[0], prop ):
                 yield jrow
 
