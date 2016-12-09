@@ -31,7 +31,7 @@ CREATE TABLE %s (
 
 init_id_idx = 'CREATE INDEX %s_id_idx ON %s (id,prop)'
 init_prop_idx = 'CREATE INDEX %s_prop_time_idx ON %s (prop,stamp)'
-init_strval_idx = 'CREATE INDEX %s_strval_idx ON %s (prop,left(strval,32),stamp)'
+init_strval_idx = 'CREATE INDEX %s_strval_idx ON %s (prop,left(strval,1000),stamp)'
 init_intval_idx = 'CREATE INDEX %s_intval_idx ON %s (prop,intval,stamp)'
 
 addrows = 'INSERT INTO %s (id,prop,strval,intval,stamp) VALUES (%(iden)s,%(prop)s,%(strval)s,%(intval)s,%(stamp)s)'
@@ -101,7 +101,7 @@ getjoin_by_prop_wminmax = 'SELECT id,prop,strval,intval,stamp from %s WHERE id I
 getjoin_by_prop_int_wminmax = 'SELECT id,prop,strval,intval,stamp from %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND intval=%(valu)s AND stamp>=%(min)s AND stamp<%(max)s LIMIT %(limit)s)'
 
 getjoin_by_range_int = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s and %(min)s <= intval AND intval<%(max)s LIMIT %(limit)s)'
-getjoin_by_range_str = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s and left(%(min)s,32) <= left(strval,32) AND left(strval,32)<=left(%(max)s,32) and %(min)s <= strval AND strval<%(max)s LIMIT %(limit)s)'
+getjoin_by_range_str = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s and left(%(min)s,1000) <= left(strval,1000) AND left(strval,1000)<=left(%(max)s,1000) and %(min)s <= strval AND strval<%(max)s LIMIT %(limit)s)'
 
 ################################################################################
 deljoin_by_prop = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s)'
@@ -121,37 +121,37 @@ uprows_by_id_prop_int = 'UPDATE %s SET intval=%(valu)s WHERE id=%(iden)s and pro
 
 ################################################################################
 getjoin_by_in_int = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s and intval IN %(valus)s LIMIT %(limit)s)'
-getjoin_by_in_str = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s and left(strval,32) in %(short_valus)s and strval in %(valus)s LIMIT %(limit)s)'
+getjoin_by_in_str = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s and left(strval,1000) in %(short_valus)s and strval in %(valus)s LIMIT %(limit)s)'
 
 ################################################################################
-getrows_by_prop_str = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s LIMIT %(limit)s'
-getrows_by_prop_str_wmin = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s AND stamp>=%(stamp:%(stamp)s LIMIT %(limit)s'
-getrows_by_prop_str_wmax = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s AND stamp<%(stamp)s LIMIT %(limit)s'
-getrows_by_prop_str_wminmax = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s AND stamp>=%(min)s AND stamp<%(max)s LIMIT %(limit)s'
+getrows_by_prop_str = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s LIMIT %(limit)s'
+getrows_by_prop_str_wmin = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s AND stamp>=%(stamp:%(stamp)s LIMIT %(limit)s'
+getrows_by_prop_str_wmax = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s AND stamp<%(stamp)s LIMIT %(limit)s'
+getrows_by_prop_str_wminmax = 'SELECT id,prop,strval,intval,stamp FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s AND stamp>=%(min)s AND stamp<%(max)s LIMIT %(limit)s'
 
 ################################################################################
-getsize_by_prop_str = 'SELECT COUNT(*) FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s LIMIT %(limit)s'
-getsize_by_prop_str_wmin = 'SELECT COUNT(*) FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s AND stamp>=%(stamp)s LIMIT %(limit)s'
-getsize_by_prop_str_wmax = 'SELECT COUNT(*) FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s AND stamp<%(stamp)s LIMIT %(limit)s'
-getsize_by_prop_str_wminmax = 'SELECT COUNT(*) FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s AND stamp>=%(min)s AND stamp<%(max)s LIMIT %(limit)s'
+getsize_by_prop_str = 'SELECT COUNT(*) FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s LIMIT %(limit)s'
+getsize_by_prop_str_wmin = 'SELECT COUNT(*) FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s AND stamp>=%(stamp)s LIMIT %(limit)s'
+getsize_by_prop_str_wmax = 'SELECT COUNT(*) FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s AND stamp<%(stamp)s LIMIT %(limit)s'
+getsize_by_prop_str_wminmax = 'SELECT COUNT(*) FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s AND stamp>=%(min)s AND stamp<%(max)s LIMIT %(limit)s'
 
 ################################################################################
-delrows_by_prop_str = 'DELETE FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s'
-delrows_by_prop_str_wmin = 'DELETE FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s AND stamp>=%(stamp)s'
-delrows_by_prop_str_wmax = 'DELETE FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s AND stamp<%(stamp)s'
-delrows_by_prop_str_wminmax = 'DELETE FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s AND stamp>=%(min)s AND stamp<%(max)s'
+delrows_by_prop_str = 'DELETE FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s'
+delrows_by_prop_str_wmin = 'DELETE FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s AND stamp>=%(stamp)s'
+delrows_by_prop_str_wmax = 'DELETE FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s AND stamp<%(stamp)s'
+delrows_by_prop_str_wminmax = 'DELETE FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s AND stamp>=%(min)s AND stamp<%(max)s'
 
 ################################################################################
-getjoin_by_prop_str = 'SELECT id,prop,strval,intval,stamp from %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s LIMIT %(limit)s)'
-getjoin_by_prop_str_wmin = 'SELECT id,prop,strval,intval,stamp from %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s AND stamp>=%(stamp)s LIMIT %(limit)s)'
-getjoin_by_prop_str_wmax = 'SELECT id,prop,strval,intval,stamp from %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s AND stamp<%(stamp)s LIMIT %(limit)s)'
-getjoin_by_prop_str_wminmax = 'SELECT id,prop,strval,intval,stamp from %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s AND stamp>=%(min)s AND stamp<%(max)s LIMIT %(limit)s)'
+getjoin_by_prop_str = 'SELECT id,prop,strval,intval,stamp from %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s LIMIT %(limit)s)'
+getjoin_by_prop_str_wmin = 'SELECT id,prop,strval,intval,stamp from %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s AND stamp>=%(stamp)s LIMIT %(limit)s)'
+getjoin_by_prop_str_wmax = 'SELECT id,prop,strval,intval,stamp from %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s AND stamp<%(stamp)s LIMIT %(limit)s)'
+getjoin_by_prop_str_wminmax = 'SELECT id,prop,strval,intval,stamp from %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s AND stamp>=%(min)s AND stamp<%(max)s LIMIT %(limit)s)'
 
 ################################################################################
-deljoin_by_prop_str = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s)'
-deljoin_by_prop_str_wmin = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s AND stamp>=%(stamp)s )'
-deljoin_by_prop_str_wmax = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s AND stamp<%(stamp)s )'
-deljoin_by_prop_str_wminmax = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,32)=left(%(valu)s,32) AND strval=%(valu)s AND stamp>=%(min)s AND stamp<%(max)s)'
+deljoin_by_prop_str = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s)'
+deljoin_by_prop_str_wmin = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s AND stamp>=%(stamp)s )'
+deljoin_by_prop_str_wmax = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s AND stamp<%(stamp)s )'
+deljoin_by_prop_str_wminmax = 'DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE prop=%(prop)s AND left(strval,1000)=left(%(valu)s,1000) AND strval=%(valu)s AND stamp>=%(min)s AND stamp<%(max)s)'
 
 ################################################################################
 uprows_by_id_prop_str = 'UPDATE %s SET strval=%(valu)s WHERE id=%(iden)s and prop=%(prop)s'
@@ -601,7 +601,7 @@ class Cortex(common.Cortex):
             q = self._q_getjoin_by_in_int
         else:
             q = self._q_getjoin_by_in_str
-            args['short_valus'] = tuple([k for k in {s[0:32]:1 for s in valus}])
+            args['short_valus'] = tuple([k for k in {s[0:1000]:1 for s in valus}])
 
         rows = self.select(q,args)
         rows = self._foldTypeCols(rows)

@@ -85,11 +85,11 @@ class CortexTest(SynTest):
             (id4,'lolint',80,30),
             (id4,'lolstr','hehe',30),
 
-            (id5, 'longstr','abcdefghijklmnopqrstuvwxyz0123456789',50),
+            (id5, 'longstr','a'+('b'*999)+'6789',50),
             (id5, 'foop','bar',50),
-            (id6, 'longstr','abcdefghijklmnopqrstuvwxyz0123459999',50),
+            (id6, 'longstr','a'+('b'*999)+'9999',50),
             (id6, 'foop','bar',50),
-            (id7, 'longstr','abcdefghijklmnopqrstuvwxyz012345',50),
+            (id7, 'longstr','a'+('b'*999),50),
             (id7, 'foop','bar',50),
 
         ]
@@ -136,11 +136,11 @@ class CortexTest(SynTest):
         self.assertEqual( len(core.getRowsByProp('baz',limit=1)), 1 )
         self.assertEqual( len(core.getJoinByProp('baz',limit=1)), 3 )
 
-        self.assertEqual( len(core.getRowsByProp('longstr',valu='abcdefghijklmnopqrstuvwxyz012345')), 1 )
-        self.assertEqual( len(core.getRowsByProp('longstr',valu='abcdefghijklmnopqrstuvwxyz0123456789')), 1 )
+        self.assertEqual( len(core.getRowsByProp('longstr',valu='a'+('b'*999))), 1 )
+        self.assertEqual( len(core.getRowsByProp('longstr',valu='a'+('b'*999)+'6789')), 1 )
 
-        self.assertEqual( len(core.getJoinByProp('longstr',valu='abcdefghijklmnopqrstuvwxyz012345')), 2 )
-        self.assertEqual( len(core.getJoinByProp('longstr',valu='abcdefghijklmnopqrstuvwxyz0123456789')), 2 )
+        self.assertEqual( len(core.getJoinByProp('longstr',valu='a'+('b'*999))), 2 )
+        self.assertEqual( len(core.getJoinByProp('longstr',valu='a'+('b'*999)+'6789')), 2 )
 
         core.setRowsByIdProp(id4,'lolstr','haha')
         self.assertEqual( len(core.getRowsByProp('lolstr','hehe')), 0 )
