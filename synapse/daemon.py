@@ -1,3 +1,4 @@
+import gzip
 import json
 import types
 import logging
@@ -286,6 +287,7 @@ class Daemon(EventBus,DmonConf):
         self.mesgfuncs = {}
 
         self.setMesgFunc('tele:syn', self._onTeleSynMesg )
+        self.setMesgFunc('sock:gzip', self._onSockGzipMesg )
 
         self.setMesgFunc('tele:call', self._onTeleCallMesg )
 
@@ -432,6 +434,10 @@ class Daemon(EventBus,DmonConf):
         sock = event[1].get('sock')
         mesg = event[1].get('mesg')
 
+        self._distSockMesg(sock,mesg)
+
+    def _distSockMesg(self, sock, mesg):
+
         func = self.mesgfuncs.get(mesg[0])
         if func == None:
             return
@@ -458,6 +464,11 @@ class Daemon(EventBus,DmonConf):
 
         return {}
 
+    def _onSockGzipMesg(self, sock, mesg):
+        data = gzip.decompress( mesg[1].get('data') )
+        mesg = msgunpack(data)
+        self._distSockMesg(sock,mesg)
+
     def _onTeleSynMesg(self, sock, mesg):
         '''
         Handle a telepath tele:syn message which is used to setup
@@ -467,6 +478,10 @@ class Daemon(EventBus,DmonConf):
 
         # pass / consume protocol version information
         vers = mesg[1].get('vers',(0,0))
+        hisopts = mesg[1].get('opts',{})
+
+        if hisopts.get('sock:can:gzip'):
+            sock.set('sock:can:gzip',True)
 
         if vers[0] != s_telepath.telever[0]:
             info = errinfo('BadMesgVers','server %r != client %r' % (s_telepath.telever,vers))
@@ -484,6 +499,7 @@ class Daemon(EventBus,DmonConf):
         ret = {
             'sess':sess.iden,
             'vers':s_telepath.telever,
+            'opts':{'sock:can:gzip':True},
         }
 
         # send a nonce along for the ride in case

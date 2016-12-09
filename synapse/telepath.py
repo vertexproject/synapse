@@ -2,6 +2,7 @@
 An RMI framework for synapse.
 '''
 import copy
+import gzip
 import time
 import getpass
 import threading
@@ -140,6 +141,7 @@ class Proxy(s_eventbus.EventBus):
         self._raw_on('tele:yield:fini', self._onTeleYieldFini )
 
         self._raw_on('job:done', self._tele_boss.dist )
+        self._raw_on('sock:gzip', self._onSockGzip )
         self._raw_on('tele:call', self._onTeleCall )
 
         poolmax = relay.getLinkProp('poolmax', -1)
@@ -384,6 +386,10 @@ class Proxy(s_eventbus.EventBus):
         # dont block consumer thread... task pool
         self._tele_pool.call( self._runTeleCall, mesg )
 
+    def _onSockGzip(self, mesg):
+        data = gzip.decompress( mesg[1].get('data') )
+        self.dist( msgunpack(data) )
+
     def _runTeleCall(self, mesg):
 
         jid = mesg[1].get('jid')
@@ -420,7 +426,9 @@ class Proxy(s_eventbus.EventBus):
         '''
         Send a tele:syn to get a telepath session
         '''
-        job = self._txTeleJob('tele:syn', sid=self._tele_sid, vers=telever)
+        opts = {'sock:can:gzip':1}
+
+        job = self._txTeleJob('tele:syn', sid=self._tele_sid, vers=telever, opts=opts)
 
         synresp = self.syncjob(job, timeout=6)
 
@@ -429,6 +437,13 @@ class Proxy(s_eventbus.EventBus):
             raise BadMesgVers(myver=telever,hisver=vers)
 
         self._tele_sid = synresp.get('sess')
+
+        hisopts = synresp.get('opts',{})
+
+        sock = self._getTeleSock()
+
+        if hisopts.get('sock:can:gzip'):
+            sock.set('sock:can:gzip',True)
 
         events = list(self._tele_ons.keys())
 
