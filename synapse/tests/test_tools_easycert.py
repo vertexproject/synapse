@@ -1,7 +1,6 @@
 
 from synapse.tests.common import *
 
-import synapse.lib.output as s_output
 import synapse.tools.easycert as s_easycert
 
     #pars.add_argument('--certdir', default='~/.syn/certs', help='Directory for certs/keys')
@@ -12,7 +11,7 @@ class TestEasyCert(SynTest):
 
     def test_easycert_user_sign(self):
         with self.getTestDir() as path:
-            outp = s_output.OutPutStr()
+            outp = self.getTestOutp()
 
             argv = ['--ca','--certdir',path,'testca']
             self.assertEqual( s_easycert.main(argv,outp=outp), 0)
@@ -24,7 +23,7 @@ class TestEasyCert(SynTest):
 
     def test_easycert_server_sign(self):
         with self.getTestDir() as path:
-            outp = s_output.OutPutStr()
+            outp = self.getTestOutp()
 
             argv = ['--ca','--certdir',path,'testca']
             self.assertEqual( s_easycert.main(argv,outp=outp), 0)

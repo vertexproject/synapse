@@ -9,6 +9,7 @@ import contextlib
 logging.basicConfig(level=logging.WARNING)
 
 from synapse.eventbus import Waiter
+import synapse.lib.output as s_output
 import synapse.lib.thishost as s_thishost
 
 from synapse.common import *
@@ -46,6 +47,9 @@ class SynTest(unittest.TestCase):
 
     def getTestWait(self, bus, size, *evts):
         return Waiter(bus, size, *evts)
+
+    def getTestOutp(self):
+        return s_output.OutPutStr()
 
     def thisHostMust(self, **props):
         for k,v in props.items():

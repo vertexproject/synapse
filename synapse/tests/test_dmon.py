@@ -52,9 +52,12 @@ class TestMain(SynTest):
     def test_main_lsboot(self):
         tfile = self.getTempConfig()
 
-        s_dmon.main(['--log-level', 'debug', '--lsboot'])
-        s_dmon.main(['--noboot', tfile.name])
-        #s_dmon.main(['--asboot'])
+        out0 = self.getTestOutp()
+        out1 = self.getTestOutp()
+
+        s_dmon.main(['--log-level', 'debug', '--lsboot'], out0)
+        s_dmon.main(['--noboot', tfile.name], out1)
+
         tfile.close()
 
     def test_main_onboot(self):
