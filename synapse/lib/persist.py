@@ -93,7 +93,6 @@ class Dir(s_eventbus.EventBus):
         self.opts.setdefault('filemax',gigabyte) 
 
         self.baseoff = opts.get('base',0)  # base address of this file
-        self.nextoff = self.baseoff + self.size
 
         self.files = []
         self.pumps = {}
