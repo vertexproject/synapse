@@ -9,6 +9,7 @@ import synapse.compat as s_compat
 import synapse.daemon as s_daemon
 
 import synapse.lib.cli as s_cli
+import synapse.lib.output as s_output
 import synapse.lib.thishost as s_thishost
 
 # TODO management CLI for individual dmon *and* svcbus!
@@ -135,7 +136,10 @@ def noboot(path):
         incs.remove(path)
     saveconf(conf)
 
-def main(argv):
+def main(argv, outp=None):
+
+    if outp == None:
+        outp = s_output.OutPutFd( sys.stdout )
 
     p = getArgParser()
     opts = p.parse_args(argv)
@@ -146,7 +150,7 @@ def main(argv):
 
     if opts.lsboot:
         for path in lsboot():
-            print(path)
+            outp.printf(path)
         return
 
     if opts.onboot:
