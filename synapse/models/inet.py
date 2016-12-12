@@ -16,34 +16,40 @@ def getDataModel():
         'version':201611251045,
 
         'types':(
-            ('inet:url',    {'ctor':'synapse.models.inet.UrlType'}),
-            ('inet:ipv4',   {'ctor':'synapse.models.inet.IPv4Type'}),
-            ('inet:ipv6',   {'ctor':'synapse.models.inet.IPv6Type'}),
-            ('inet:srv4',   {'ctor':'synapse.models.inet.Srv4Type'}),
-            ('inet:srv6',   {'ctor':'synapse.models.inet.Srv6Type'}),
+            ('inet:url',    {'ctor':'synapse.models.inet.UrlType','doc':'A Universal Resource Locator (URL)'}),
+            ('inet:ipv4',   {'ctor':'synapse.models.inet.IPv4Type','doc':'An IPv4 Address'}),
+            ('inet:ipv6',   {'ctor':'synapse.models.inet.IPv6Type','doc':'An IPv6 Address'}),
+            ('inet:srv4',   {'ctor':'synapse.models.inet.Srv4Type','doc':'An IPv4 Address and Port'}),
+            ('inet:srv6',   {'ctor':'synapse.models.inet.Srv6Type','doc':'An IPv6 Address and Port'}),
             #('inet:email',  {'ctor':'synapse.models.inet.EmailType'}),
 
             ('inet:asn',        {'subof':'int','doc':'An Autonomous System Number (ASN)'}),
-            ('inet:user',       {'subof':'str'}),
-            ('inet:passwd',     {'subof':'str'}),
-            ('inet:filepath',   {'subof':'str'}),
+            ('inet:user',       {'subof':'str','doc':'A username string'}),
+            ('inet:passwd',     {'subof':'str','doc':'A password string'}),
+            ('inet:filepath',   {'subof':'str','doc':'An absolute file path'}),
+            #('inet:filenorm',   {'subof':'str','doc':'An absolute file path'}),
 
-            ('inet:tcp4', {'subof':'inet:srv4', 'doc':'A TCP server listening on ipv4:port'}),
-            ('inet:udp4', {'subof':'inet:srv4', 'doc':'A UDP server listening on ipv4:port'}),
-            ('inet:tcp6', {'subof':'inet:srv6', 'doc':'A TCP server listening on ipv6:port'}),
-            ('inet:udp6', {'subof':'inet:srv6', 'doc':'A UDP server listening on ipv6:port'}),
+            ('inet:tcp4', {'subof':'inet:srv4', 'doc':'A TCP server listening on IPv4:port','ex':'1.2.3.4:80'}),
+            ('inet:udp4', {'subof':'inet:srv4', 'doc':'A UDP server listening on IPv4:port','ex':'8.8.8.8:53'}),
+            ('inet:tcp6', {'subof':'inet:srv6', 'doc':'A TCP server listening on IPv6:port','ex':'[2607:f8b0:4004:809::200e]:80'}),
+            ('inet:udp6', {'subof':'inet:srv6', 'doc':'A UDP server listening on IPv6:port','ex':'[2607:f8b0:4004:809::200e]:53'}),
 
-            ('inet:port', {'subof':'int', 'min':0, 'max':0xffff}),
-            ('inet:fqdn', {'subof':'str', 'regex':'^[a-z0-9._-]+$', 'lower':1,'nullval':'??'}),
-            ('inet:mac',  {'subof':'str', 'regex':'^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower':1, 'nullval':'??'}),
+            ('inet:port', {'subof':'int', 'min':0, 'max':0xffff,'ex':'80'}),
+            ('inet:fqdn', {'subof':'str', 'regex':'^[a-z0-9._-]+$', 'lower':1,'nullval':'??','ex':'vertex.link'}),
+            ('inet:mac',  {'subof':'str', 'regex':'^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower':1, 'nullval':'??','ex':'aa:bb:cc:dd:ee:ff'}),
 
-            ('inet:email',{'subof':'sepr','sep':'@','lower':1,'fields':'user,inet:user|fqdn,inet:fqdn'}),
+            ('inet:email',{'subof':'sepr','sep':'@','lower':1,'fields':'user,inet:user|fqdn,inet:fqdn',
+                           'doc':'An e-mail address','ex':'visi@vertex.link'}),
 
-            ('inet:netuser',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|user,inet:user'}),
-            ('inet:netmesg',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|from,inet:user|to,inet:user|sent,time'}),
+            ('inet:netuser',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|user,inet:user',
+                               'doc':'A user account at a given web address','ex':'twitter.com/invisig0th'}),
 
-            ('inet:whois:reg',{'subof':'str'}),
-            ('inet:whois:rec',{'subof':'sepr','sep':'@','fields':'fqdn,inet:fqdn|asof,time'}),
+            ('inet:netmesg',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|from,inet:user|to,inet:user|sent,time',
+                               'doc':'A message sent from one user to another within a web community',
+                                'ex':'twitter.com/invisig0th/gobbles/20041042130122'}),
+
+            ('inet:whois:reg',{'subof':'str','doc':'A whois registrant','ex':'Woot Hostmaster'}),
+            ('inet:whois:rec',{'subof':'sepr','sep':'@','fields':'fqdn,inet:fqdn|asof,time','doc':'A whois record','ex':''}),
 
             # TODO: (port from nucleus etc)
             # inet:cidr
