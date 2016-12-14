@@ -1,5 +1,5 @@
-import gzip
 import json
+import zlib
 import types
 import logging
 import traceback
@@ -465,7 +465,7 @@ class Daemon(EventBus,DmonConf):
         return {}
 
     def _onSockGzipMesg(self, sock, mesg):
-        data = gzip.decompress( mesg[1].get('data') )
+        data = zlib.decompress( mesg[1].get('data') )
         mesg = msgunpack(data)
         self._distSockMesg(sock,mesg)
 
