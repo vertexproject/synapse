@@ -511,12 +511,12 @@ class Cortex(common.Cortex):
 
     def _foldTypeCols(self, rows):
         ret = []
-        for ident,prop,intval,strval,tstamp in rows:
+        for iden,prop,intval,strval,tstamp in rows:
 
             if intval != None:
-                ret.append( (ident,prop,intval,tstamp) )
+                ret.append( (iden,prop,intval,tstamp) )
             else:
-                ret.append( (ident,prop,strval,tstamp) )
+                ret.append( (iden,prop,strval,tstamp) )
 
         return ret
 
@@ -588,7 +588,7 @@ class Cortex(common.Cortex):
             count = self.update( self._q_uprows_by_iden_prop_str, iden=iden, prop=prop, valu=valu )
 
         if count == 0:
-            rows = [ (ident,prop,valu,millinow()), ]
+            rows = [ (iden,prop,valu,millinow()), ]
             self._addRows(rows)
 
     def _delRowsById(self, iden):
