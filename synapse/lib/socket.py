@@ -1,7 +1,7 @@
 from __future__ import absolute_import,unicode_literals
 
 import os
-import gzip
+import zlib
 import select
 import socket
 import logging
@@ -21,7 +21,7 @@ from synapse.common import *
 
 def sockgzip(byts):
     blen = len(byts)
-    byts = gzip.compress(byts)
+    byts = zlib.compress(byts)
     #print('GZIP DELTA: %d -> %d' % (blen,len(byts)))
     return msgenpack(('sock:gzip',{'data':byts}))
 

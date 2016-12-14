@@ -2,8 +2,8 @@
 An RMI framework for synapse.
 '''
 import copy
-import gzip
 import time
+import zlib
 import getpass
 import threading
 import threading
@@ -387,7 +387,7 @@ class Proxy(s_eventbus.EventBus):
         self._tele_pool.call( self._runTeleCall, mesg )
 
     def _onSockGzip(self, mesg):
-        data = gzip.decompress( mesg[1].get('data') )
+        data = zlib.decompress( mesg[1].get('data') )
         self.dist( msgunpack(data) )
 
     def _runTeleCall(self, mesg):

@@ -1,6 +1,7 @@
 
 import os
 import time
+import binascii
 import unittest
 
 import synapse.link as s_link
@@ -170,6 +171,12 @@ class CortexTest(SynTest):
         tufo = core.incTufoProp(tufo, 'inctest', incval=-1)
 
         self.assertEqual( tufo[1].get('fqdn:inctest'), 0 )
+
+        bigstr = binascii.hexlify( os.urandom(80000) ).decode('utf8')
+        tufo = core.formTufoByProp('zoot:suit','foo', bar=bigstr)
+
+        self.eq( tufo[1].get('zoot:suit:bar'), bigstr )
+        self.eq( len( core.getTufosByProp('zoot:suit:bar',valu=bigstr) ), 1 )
 
         core.fini()
 
