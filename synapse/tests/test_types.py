@@ -1,4 +1,6 @@
 import base64
+
+import synapse.lib.thishost as s_thishost
 import synapse.lib.types as s_types
 
 from synapse.tests.common import *
@@ -147,10 +149,11 @@ class DataTypesTest(SynTest):
         self.eq( tlib.getTypeNorm('inet:ipv6', 'AF:00::02'), 'af::2')
         self.eq( tlib.getTypeRepr('inet:ipv6', 'af::2'), 'af::2')
 
-        self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8::1:1:1:1:1'), '2001:db8:0:1:1:1:1:1')
-        self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8:0:1:1:1:1:1'), '2001:db8:0:1:1:1:1:1')
+        if s_thishost.get('platform') != 'darwin':
+            self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8::1:1:1:1:1'), '2001:db8:0:1:1:1:1:1')
+            self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8:0:1:1:1:1:1'), '2001:db8:0:1:1:1:1:1')
 
-        self.eq( tlib.getTypeFrob('inet:ipv6', '2001:db8::1:1:1:1:1'), '2001:db8:0:1:1:1:1:1')
+            self.eq( tlib.getTypeFrob('inet:ipv6', '2001:db8::1:1:1:1:1'), '2001:db8:0:1:1:1:1:1')
 
         self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8::0:1'), '2001:db8::1')
         self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8:0:0:0:0:2:1'), '2001:db8::2:1')
