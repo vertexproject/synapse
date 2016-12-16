@@ -57,6 +57,7 @@ def reqpath(*paths):
     path = genpath(*paths)
     if not os.path.isfile(path):
         raise NoSuchFile(path)
+    return path
 
 def reqfile(*paths):
     path = genpath(*paths)
