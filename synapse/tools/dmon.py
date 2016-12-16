@@ -139,7 +139,7 @@ def noboot(path):
 def main(argv, outp=None):
 
     if outp == None:
-        outp = s_output.OutPutFd( sys.stdout )
+        outp = s_output.OutPut()
 
     p = getArgParser()
     opts = p.parse_args(argv)
