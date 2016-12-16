@@ -110,10 +110,15 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         self.on('tufo:tag:add', self._fireCoreSync )
         self.on('tufo:tag:del', self._fireCoreSync )
 
+        #############################################################
+        # Dynamically update our model APIs via the modification of
+        # model related tufos
         self.on('tufo:add:syn:type', self._onTufoAddSynType )
         self.on('tufo:add:syn:form', self._onTufoAddSynForm )
         self.on('tufo:add:syn:prop', self._onTufoAddSynProp )
 
+        #############################################################
+        # Handlers for each core:sync inner message type
         self.syncact = s_reactor.Reactor()
         self.syncact.act('tufo:add', self._actSyncTufoAdd )
         self.syncact.act('tufo:del', self._actSyncTufoDel )
@@ -671,6 +676,40 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         '''
         self.syncact.react( mesg[1].get('mesg') )
 
+    # TODO
+    #def setSyncDir(self, path):
+        #'''
+        #Set the given directory as the archive of core:sync events
+        #for this cortex.  The sync dir may then be used to populate
+        #and synchronize other cortexes.
+        #'''
+
+    def addSyncFd(self, fd):
+        '''
+        Write all core:sync events to the specified file-like object.
+
+        Example:
+
+            fd = open('audit.mpk','r+b')
+            core.addSyncFd(fd)
+        '''
+        def saveobj(m):
+            fd.write( msgenpack(m) )
+
+        self.on('core:sync', saveobj)
+
+    def eatSyncFd(self, fd):
+        '''
+        Consume and sync all core:sync messages from the given file-like object.
+
+        Example:
+
+            fd = open('saved.mpk','rb')
+            core.eatSyncFd(fd)
+
+        '''
+        self.syncs( msgpackfd(fd) )
+
     def _onDelSynTag(self, mesg):
         # deleting a tag.  delete all sub tags and wipe tufos.
         tufo = mesg[1].get('tufo')
@@ -709,6 +748,9 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         Example:
 
             core.setSaveFd(fd)
+
+        NOTE: This save file is allowed to be storage layer specific.
+              If you want to store core:sync events, use addSyncFd().
 
         '''
         if load:

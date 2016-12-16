@@ -1148,3 +1148,29 @@ class CortexTest(SynTest):
                 self.assertEqual( core.getTypeParse('foo','30'), 30 )
                 self.assertEqual( core.getTypeParse('bar','30'), 30 )
 
+    def test_cortex_syncfd(self):
+        with self.getTestDir() as path:
+            with genfile(path,'savefile.mpk') as fd:
+                with s_cortex.openurl('ram://') as core:
+                    core.addSyncFd(fd)
+
+                    tuf0 = core.formTufoByProp('inet:fqdn','woot.com')
+                    tuf1 = core.formTufoByProp('inet:fqdn','newp.com')
+
+                    core.addTufoTag(tuf0,'foo.bar')
+                    # this should leave the tag foo
+                    core.delTufoTag(tuf0,'foo.bar')
+
+                    core.delTufo(tuf1)
+
+                fd.seek(0)
+
+                with s_cortex.openurl('ram://') as core:
+
+                    core.eatSyncFd(fd)
+
+                    self.assertIsNone( core.getTufoByProp('inet:fqdn','newp.com') )
+                    self.assertIsNotNone( core.getTufoByProp('inet:fqdn','woot.com') )
+
+                    self.eq( len(core.getTufosByTag('inet:fqdn', 'foo.bar')), 0 )
+                    self.eq( len(core.getTufosByTag('inet:fqdn', 'foo')), 1)
