@@ -11,13 +11,13 @@ def getDataModel():
         'version':201611251045,
 
         'types':(
-            ('time',{'ctor':'synapse.models.temporal.TimeType'}),
-            ('time:epoch',{'ctor':'synapse.models.temporal.EpochType'}),
+            ('time',{'ctor':'synapse.models.temporal.TimeType','doc':'Timestamp in milliseconds since epoch','ex':'20161216084632'}),
+            ('time:epoch',{'ctor':'synapse.models.temporal.EpochType','doc':'Timestamp in seconds since epoch (deprecated)','ex':'20161216084632'}),
 
-            ('time:min',{'subof':'time', 'ismin':1}),
-            ('time:max',{'subof':'time', 'ismax':1}),
-            ('time:epoch:min',{'subof':'time:epoch', 'ismin':1}),
-            ('time:epoch:max',{'subof':'time:epoch', 'ismax':1}),
+            ('time:min',{'subof':'time', 'ismin':1, 'doc':'Minimum time in millis since epoch'}),
+            ('time:max',{'subof':'time', 'ismax':1, 'doc':'Maximum time in millis since epoch'}),
+            ('time:epoch:min',{'subof':'time:epoch', 'ismin':1,'doc':'Minimum time in seconds (depricated)'}),
+            ('time:epoch:max',{'subof':'time:epoch', 'ismax':1,'doc':'Maximum time in seconds (depricated)'}),
         ),
     }
 
@@ -28,8 +28,8 @@ class TimeType(DataType):
     def __init__(self, tlib, name, **info):
         DataType.__init__(self, tlib, name, **info)
 
-        self.ismin = info.get('ismin',False)
-        self.ismax = info.get('ismax',False)
+        self.ismin = self.get('ismin',False)
+        self.ismax = self.get('ismax',False)
 
         self.minmax = None
 
@@ -105,8 +105,8 @@ class EpochType(DataType):
     def __init__(self, tlib, name, **info):
         DataType.__init__(self, tlib, name, **info)
 
-        self.ismin = info.get('ismin',False)
-        self.ismax = info.get('ismax',False)
+        self.ismin = self.get('ismin',0)
+        self.ismax = self.get('ismax',0)
 
         self.minmax = None
 

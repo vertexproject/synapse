@@ -6,10 +6,14 @@ def getDataModel():
 
         'types':(
             ('dns:look',{'subof':'guid'}),
-            ('dns:a',{'subof':'sepr','sep':'/','fields':'fqdn,inet:fqdn|ipv4,inet:ipv4'}),
-            ('dns:ns',{'subof':'sepr','sep':'/','fields':'zone,inet:fqdn|ns,inet:fqdn'}),
-            ('dns:rev',{'subof':'sepr','sep':'/','fields':'ipv4,inet:ipv4|fqdn,inet:fqdn'}),
-            ('dns:aaaa',{'subof':'sepr','sep':'/','fields':'fqdn,inet:fqdn|ipv6,inet:ipv6'}),
+            ('dns:a',{'subof':'sepr','sep':'/','fields':'fqdn,inet:fqdn|ipv4,inet:ipv4',
+                      'ex':'vertex.link/1.2.3.4','doc':'The result of a DNS A record lookup'}),
+            ('dns:ns',{'subof':'sepr','sep':'/','fields':'zone,inet:fqdn|ns,inet:fqdn',
+                       'ex':'vertex.link/ns.dnshost.com','doc':'The result of a DNS NS record lookup'}),
+            ('dns:rev',{'subof':'sepr','sep':'/','fields':'ipv4,inet:ipv4|fqdn,inet:fqdn',
+                        'ex':'1.2.3.4/vertex.link','doc':'The transformed result of a DNS PTR record lookup'}),
+            ('dns:aaaa',{'subof':'sepr','sep':'/','fields':'fqdn,inet:fqdn|ipv6,inet:ipv6',
+                         'ex':'vertex.link/2607:f8b0:4004:809::200e','doc':'The result of a DNS AAAA record lookup'}),
         ),
 
         'forms':(

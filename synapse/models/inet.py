@@ -17,10 +17,10 @@ def getDataModel():
 
         'types':(
             ('inet:url',    {'ctor':'synapse.models.inet.UrlType','doc':'A Universal Resource Locator (URL)'}),
-            ('inet:ipv4',   {'ctor':'synapse.models.inet.IPv4Type','doc':'An IPv4 Address'}),
-            ('inet:ipv6',   {'ctor':'synapse.models.inet.IPv6Type','doc':'An IPv6 Address'}),
-            ('inet:srv4',   {'ctor':'synapse.models.inet.Srv4Type','doc':'An IPv4 Address and Port'}),
-            ('inet:srv6',   {'ctor':'synapse.models.inet.Srv6Type','doc':'An IPv6 Address and Port'}),
+            ('inet:ipv4',   {'ctor':'synapse.models.inet.IPv4Type','doc':'An IPv4 Address','ex':'1.2.3.4'}),
+            ('inet:ipv6',   {'ctor':'synapse.models.inet.IPv6Type','doc':'An IPv6 Address','ex':'2607:f8b0:4004:809::200e'}),
+            ('inet:srv4',   {'ctor':'synapse.models.inet.Srv4Type','doc':'An IPv4 Address and Port','ex':'1.2.3.4:80'}),
+            ('inet:srv6',   {'ctor':'synapse.models.inet.Srv6Type','doc':'An IPv6 Address and Port','ex':'[2607:f8b0:4004:809::200e]:80'}),
             #('inet:email',  {'ctor':'synapse.models.inet.EmailType'}),
 
             ('inet:asn',        {'subof':'int','doc':'An Autonomous System Number (ASN)'}),
@@ -29,14 +29,15 @@ def getDataModel():
             ('inet:filepath',   {'subof':'str','doc':'An absolute file path'}),
             #('inet:filenorm',   {'subof':'str','doc':'An absolute file path'}),
 
-            ('inet:tcp4', {'subof':'inet:srv4', 'doc':'A TCP server listening on IPv4:port','ex':'1.2.3.4:80'}),
-            ('inet:udp4', {'subof':'inet:srv4', 'doc':'A UDP server listening on IPv4:port','ex':'8.8.8.8:53'}),
-            ('inet:tcp6', {'subof':'inet:srv6', 'doc':'A TCP server listening on IPv6:port','ex':'[2607:f8b0:4004:809::200e]:80'}),
-            ('inet:udp6', {'subof':'inet:srv6', 'doc':'A UDP server listening on IPv6:port','ex':'[2607:f8b0:4004:809::200e]:53'}),
+            ('inet:tcp4', {'subof':'inet:srv4', 'doc':'A TCP server listening on IPv4:port'}),
+            ('inet:udp4', {'subof':'inet:srv4', 'doc':'A UDP server listening on IPv4:port'}),
+            ('inet:tcp6', {'subof':'inet:srv6', 'doc':'A TCP server listening on IPv6:port'}),
+            ('inet:udp6', {'subof':'inet:srv6', 'doc':'A UDP server listening on IPv6:port'}),
 
             ('inet:port', {'subof':'int', 'min':0, 'max':0xffff,'ex':'80'}),
-            ('inet:fqdn', {'subof':'str', 'regex':'^[a-z0-9._-]+$', 'lower':1,'nullval':'??','ex':'vertex.link'}),
-            ('inet:mac',  {'subof':'str', 'regex':'^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower':1, 'nullval':'??','ex':'aa:bb:cc:dd:ee:ff'}),
+            ('inet:fqdn', {'subof':'str', 'regex':'^[a-z0-9._-]+$', 'lower':1,'nullval':'??','ex':'vertex.link','doc':'A Fully Qualified Domain Name (FQDN)'}),
+            ('inet:mac',  {'subof':'str', 'regex':'^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower':1, 'nullval':'??',
+                           'ex':'aa:bb:cc:dd:ee:ff','doc':'A 48 bit mac address'}),
 
             ('inet:email',{'subof':'sepr','sep':'@','lower':1,'fields':'user,inet:user|fqdn,inet:fqdn',
                            'doc':'An e-mail address','ex':'visi@vertex.link'}),
@@ -46,7 +47,7 @@ def getDataModel():
 
             ('inet:netmesg',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|from,inet:user|to,inet:user|sent,time',
                                'doc':'A message sent from one user to another within a web community',
-                                'ex':'twitter.com/invisig0th/gobbles/20041042130122'}),
+                                'ex':'twitter.com/invisig0th/gobbles/20041012130220'}),
 
             ('inet:whois:reg',{'subof':'str','doc':'A whois registrant','ex':'Woot Hostmaster'}),
             ('inet:whois:rec',{'subof':'sepr','sep':'@','fields':'fqdn,inet:fqdn|asof,time','doc':'A whois record','ex':''}),
@@ -61,62 +62,64 @@ def getDataModel():
                 ('name',{'ptype':'str:lwr','defval':'??'}),
                 #TODO ('cidr',{'ptype':'inet:cidr'}),
             ]),
+
             ('inet:user',{'ptype':'inet:user'},[]),
 
             ('inet:passwd',{'ptype':'inet:passwd'},[
-                ('md5',{'ptype':'hash:md5'}),
-                ('sha1',{'ptype':'hash:sha1'}),
-                ('sha256',{'ptype':'hash:sha256'}),
+                ('md5',{'ptype':'hash:md5','doc':'Pre-computed MD5 hash of the passwd'}),
+                ('sha1',{'ptype':'hash:sha1','doc':'Pre-computed SHA1 hash of the passwd'}),
+                ('sha256',{'ptype':'hash:sha256','doc':'Pre-computed SHA256 hash of the passwd'}),
             ]),
 
             ('inet:mac',{'ptype':'inet:mac'},[
-                ('vendor',{'ptype':'str','defval':'??'}),
+                ('vendor',{'ptype':'str','defval':'??','doc':'The vendor name registered for the 24 bit prefix'}),
             ]),
 
             ('inet:fqdn',{'ptype':'inet:fqdn'},[
-                ('sfx',{'ptype':'bool','defval':0}),
-                ('zone',{'ptype':'bool','defval':0}),
-                ('parent',{'ptype':'inet:fqdn'}),
+                ('sfx',{'ptype':'bool','defval':0,'doc':'Set to 1 if this FQDN is considered a "suffix"'}),
+                ('zone',{'ptype':'bool','defval':0,'doc':'Set to 1 if this FQDN is a logical zone (under a suffix)'}),
+                ('parent',{'ptype':'inet:fqdn','doc':'The parent FQDN'}),
             ]),
 
             ('inet:email',{'ptype':'inet:email'},[
-                ('fqdn',{'ptype':'inet:fqdn'}),
-                ('user',{'ptype':'inet:user'}),
+                ('fqdn',{'ptype':'inet:fqdn','ro':1}),
+                ('user',{'ptype':'inet:user','ro':1}),
             ]),
 
             ('inet:tcp4',{'ptype':'inet:srv4'},[
-                ('ipv4',{'ptype':'inet:ipv4'}),
-                ('port',{'ptype':'inet:port'}),
+                ('ipv4',{'ptype':'inet:ipv4','ro':1}),
+                ('port',{'ptype':'inet:port','ro':1}),
             ]),
 
             ('inet:udp4',{'ptype':'inet:srv4'},[
-                ('ipv4',{'ptype':'inet:ipv4'}),
-                ('port',{'ptype':'inet:port'}),
+                ('ipv4',{'ptype':'inet:ipv4','ro':1}),
+                ('port',{'ptype':'inet:port','ro':1}),
             ]),
             ('inet:tcp6',{'ptype':'inet:srv6'},[
-                ('ipv6',{'ptype':'inet:ipv6'}),
-                ('port',{'ptype':'inet:port'}),
+                ('ipv6',{'ptype':'inet:ipv6','ro':1}),
+                ('port',{'ptype':'inet:port','ro':1}),
             ]),
 
             ('inet:udp6',{'ptype':'inet:srv6'},[
-                ('ipv6',{'ptype':'inet:ipv6'}),
-                ('port',{'ptype':'inet:port'}),
+                ('ipv6',{'ptype':'inet:ipv6','ro':1}),
+                ('port',{'ptype':'inet:port','ro':1}),
             ]),
 
             ('inet:netuser',{'ptype':'inet:netuser'},[
-                ('site',{'ptype':'inet:fqdn'}),
-                ('user',{'ptype':'inet:user'}),
-                ('signup',{'ptype':'time','defval':0}),
-                ('passwd',{'ptype':'inet:passwd'}),
+                ('site',{'ptype':'inet:fqdn','ro':1}),
+                ('user',{'ptype':'inet:user','ro':1}),
+                ('signup',{'ptype':'time','defval':0,'doc':'The time the netuser account was registered'}),
+                ('passwd',{'ptype':'inet:passwd','doc':'The current passwd for the netuser account'}),
                 ('seen:min',{'ptype':'time:min','defval':0}),
                 ('seen:max',{'ptype':'time:max','defval':0}),
             ]),
 
             ('inet:netmesg',{'ptype':'inet:netmesg'},[
-                ('site',{'ptype':'inet:fqdn'}),
-                ('to',{'ptype':'inet:user'}),
-                ('from',{'ptype':'inet:user'}),
-                ('sent',{'ptype':'time'}),
+                ('site',{'ptype':'inet:fqdn','ro':1}),
+                ('to',{'ptype':'inet:user','ro':1}),
+                ('from',{'ptype':'inet:user','ro':1}),
+                ('sent',{'ptype':'time','ro':1,'doc':'The time at which the message was sent'}),
+                ('body',{'ptype':'str'}),
             ]),
 
             ('inet:whois:reg',{'ptype':'inet:whois:reg'},[]),
@@ -124,13 +127,13 @@ def getDataModel():
             ('inet:whois:rec',{'ptype':'inet:whois:rec'},[
                 ('fqdn',{'ptype':'inet:fqdn'}),
                 ('asof',{'ptype':'time'}),
-                ('created',{'ptype':'time','defval':0}),
-                ('updated',{'ptype':'time','defval':0}),
-                ('expires',{'ptype':'time','defval':0}),
+                ('created',{'ptype':'time','defval':0,'doc':'The "created" time from the whois record'}),
+                ('updated',{'ptype':'time','defval':0,'doc':'The "last updated" time from the whois record'}),
+                ('expires',{'ptype':'time','defval':0,'doc':'The "expires" time from the whois record'}),
                 ('registrar',{'ptype':'inet:whois:reg','defval':'??'}),
                 ('registrant',{'ptype':'inet:whois:reg','defval':'??'}),
+                # TODO admin/tech/billing contact info
             ]),
-
         ),
     }
 

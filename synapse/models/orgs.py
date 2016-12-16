@@ -4,16 +4,11 @@ def getDataModel():
         'version':201611301215,
 
         'types':(
-            ('ou:pop',{'subof':'int'}),
-            ('ou:fname',{'subof':'str:lwr','doc':'A persons first/given name'}),
-            ('ou:lname',{'subof':'str:lwr','doc':'A persons family name'}),
+            ('ou:org',{'subof':'guid','doc':'A GUID for a human organization such as a company or military unit'}),
+            ('ou:host',{'subof':'guid','doc':'A GUID for a host within an organization'}),
+            ('ou:user',{'subof':'sepr','sep':'/','fields':'org,ou:org|user,inet:user','doc':'A user name within an organization'}),
 
-            ('ou:org',{'subof':'guid'}),
-            ('ou:host',{'subof':'guid'}),
-            ('ou:person',{'subof':'guid'}),
-
-            ('ou:user',{'subof':'sepr','sep':'/','fields':'org,ou:org|user,inet:user'}),
-            ('ou:fullname',{'subof':'sepr','sep':'/','fields':'last,ou:lname|first,ou:fname'}),
+            ('ou:alias',{'subof':'str','lower':1,'regex':'^[0-9a-z]+$','doc':'An alias for the org GUID','ex':'vertexproj'}),
         ),
 
         'forms':(
@@ -21,14 +16,7 @@ def getDataModel():
             ('ou:org',{'ptype':'ou:org'},[
                 ('cc',{'ptype':'pol:iso2'}),
                 ('name',{'ptype':'str:lwr'}),
-                ('alias',{'ptype':'str:lwr'}),
-            ]),
-
-            ('ou:person',{'ptype':'ou:person'},[
-                ('dob',{'ptype':'time'}),
-                ('fullname',{'ptype':'ou:fullname'}),
-                ('fullname:fname',{'ptype':'ou:fname'}),
-                ('fullname:lname',{'ptype':'ou:lname'}),
+                ('alias',{'ptype':'ou:alias'}),
             ]),
 
             ('ou:member',{'ptype':'sepr','sep':'/','fields':'org,ou:org|person,ou:person'},[
