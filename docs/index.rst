@@ -13,6 +13,7 @@ Contents:
     synapse/axon
     synapse/devops
     synapse/api/synapse
+    synapse/datamodel
 
 Indices and tables
 ==================

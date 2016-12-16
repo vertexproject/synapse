@@ -410,6 +410,19 @@ class TypeLib:
         if load:
             self.loadModModels()
 
+    def getTypeInst(self, name):
+        '''
+        Return the DataType instance for the given type name.
+
+        Example:
+
+            dtype = tlib.getTypeInst('foo:bar')
+
+        NOTE: This API returns non-primitive objects and can not be
+              used over telepath RMI.
+        '''
+        return self.types.get(name)
+
     def getTypeBases(self, name):
         '''
         Return a list of type inheritence names beginning with the base type.

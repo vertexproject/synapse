@@ -7,6 +7,7 @@ __pycache__/
 docs/_build
 # sphinx API doc dir
 docs/synapse/api
+docs/synapse/datamodel.rst
 
 # C extensions
 *.so
