@@ -27,16 +27,16 @@ class SslRelay(LinkRelay):
             raise PropNotFound('port')
 
         cafile = self.link[1].get('cafile')
-        if cafile != None and not os.path.isfile(cafile):
-            raise NoSuchFile(cafile)
+        if cafile != None:
+            self.link[1]['cafile'] = reqpath(cafile)
 
         keyfile = self.link[1].get('keyfile')
-        if keyfile != None and not os.path.isfile(keyfile):
-            raise NoSuchFile(keyfile)
+        if keyfile != None:
+            self.link[1]['keyfile'] = reqpath(keyfile)
 
         certfile = self.link[1].get('certfile')
-        if certfile != None and not os.path.isfile(certfile):
-            raise NoSuchFile(certfile)
+        if certfile != None:
+            self.link[1]['certfile'] = reqpath(certfile)
 
     def _listen(self):
 
