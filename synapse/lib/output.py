@@ -15,7 +15,7 @@ class OutPut:
         return self._rawOutPut(mesg+'\n')
 
     def _rawOutPut(self, mesg):
-        pass
+        print( mesg[:-1] )
 
 class OutPutFd(OutPut):
 
