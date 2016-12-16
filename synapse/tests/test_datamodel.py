@@ -237,4 +237,13 @@ class DataModelTest(SynTest):
         self.eq( model.getTypeNorm('syn:tag','foo.BAR'), 'foo.bar' )
         self.eq( model.getTypeParse('syn:tag','foo.BAR'), 'foo.bar' )
 
+    def test_datamodel_getPropInfo(self):
+        model = s_datamodel.DataModel()
 
+        model.addType('foo:bar', subof='str', doc='foo bar doc')
+        model.addType('foo:baz', subof='foo:bar')
+
+        model.addTufoForm('foo')
+        model.addTufoProp('foo','meow', ptype='foo:baz')
+
+        self.eq( model.getPropInfo('foo:meow','doc'), 'foo bar doc' )

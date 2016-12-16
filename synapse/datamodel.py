@@ -426,3 +426,28 @@ class DataModel(s_types.TypeLib):
             return None
 
         return self.getDataType( pdef[1].get('ptype') )
+
+    def getPropInfo(self, prop, name):
+        '''
+        A helper function to resolve a prop info from either the
+        property itself or the first type it inherits from which
+        contains the info.
+
+        Example:
+
+            ex = modl.getPropInfo('dns:a:fqdn','ex')
+
+        '''
+        pdef = self.getPropDef(prop)
+        if pdef == None:
+            return None
+
+        valu = pdef[1].get(name)
+        if valu != None:
+            return valu
+
+        ptype = pdef[1].get('ptype')
+        if ptype == None:
+            return None
+
+        return self.getTypeInfo(ptype,name)
