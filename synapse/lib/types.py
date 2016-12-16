@@ -2,13 +2,9 @@ from __future__ import absolute_import,unicode_literals
 
 import re
 import json
-#import time
 import base64
-import collections
-#import socket
-#import struct
 import logging
-#import datetime
+import collections
 
 import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
@@ -18,13 +14,6 @@ import synapse.lib.modules as s_modules
 from synapse.common import *
 
 logger = logging.getLogger(__name__)
-
-def syntype(name,ctor,**info):
-    return (name,ctor,info)
-    
-def subtype(name,subof,**info):
-    # syntax sugar for model constructors
-    return (name,subof,info)
 
 class DataType:
 
@@ -38,6 +27,17 @@ class DataType:
 
     def _raiseBadValu(self, valu, **info):
         raise BadTypeValu(name=self.name, valu=valu, **info)
+
+    def get(self, prop, defval=None):
+        '''
+        Retrieve a type info property from this type or parent types.
+
+        Example:
+
+            ex = item.get('doc')
+
+        '''
+        return self.tlib.getTypeInfo(self.name,prop,defval=defval)
 
     def subs(self):
         '''
@@ -108,6 +108,7 @@ class StrType(DataType):
         regex = info.get('regex')
         if regex != None:
             self.regex = re.compile(regex)
+
         restrip = info.get('restrip')
         if restrip != None:
             self.restrip = re.compile(restrip)
@@ -377,7 +378,9 @@ class TypeLib:
     '''
     def __init__(self, load=True):
         self.types = {}
-        self.typedefs = {}
+        self.typeinfo = {}
+        self.typetree = {}
+        self.subscache = {}
 
         # pend creation of subtypes for non-existant base types
         # until the base type gets loaded.
@@ -406,6 +409,45 @@ class TypeLib:
 
         if load:
             self.loadModModels()
+
+    def getTypeBases(self, name):
+        '''
+        Return a list of type inheritence names beginning with the base type.
+
+        Example:
+
+            for base in tlib.getTypeBases('foo:minval'):
+                print('base type: %s' % (name,))
+
+        '''
+        done = [name]
+
+        todo = self.typetree.get(name)
+        while todo != None:
+            done.append(todo)
+            todo = self.typetree.get(todo)
+
+        done.reverse()
+        return done
+
+    def isSubType(self, name, base):
+        '''
+        Returns True if the given type name is a sub-type of the base name.
+
+        Example:
+
+            if tlib.isSubType('foo','str'):
+                dostuff()
+
+        '''
+        key = (name,base)
+
+        ret = self.subscache.get(key)
+        if ret == None:
+            ret = base in self.getTypeBases(name)
+            self.subscache[key] = ret
+
+        return ret
 
     def loadDataModels(self, modtups):
         '''
@@ -463,25 +505,59 @@ class TypeLib:
             raise Exception('addType must have either ctor= or subof=')
 
         if ctor != None:
-            item = s_dyndeps.tryDynFunc(ctor,self,name)
-            self.types[name] = item
-            self._bumpBasePend(name)
-            return True
+            self.typeinfo[name] = info
 
+            try:
+                item = s_dyndeps.tryDynFunc(ctor,self,name,**info)
+                self.types[name] = item
+                self._bumpBasePend(name)
+                return True
+
+            except Exception as e:
+                self.typeinfo.pop(name,None)
         try:
 
             base = self.reqDataType(subof)
+            # inherit docs and examples from parent types
+            self.typeinfo[name] = info
             item = base.extend(name, **info)
 
             self.types[name] = item
 
             self._bumpBasePend(name)
+            self.typetree[name] = subof
+            self.subscache.clear()
             return True
 
         except NoSuchType as e:
             tnam = e.errinfo.get('name')
+            self.typeinfo.pop(name,None)
             self.pended[tnam].append( (name,info) )
             return False
+
+    def getTypeInfo(self, name, prop, defval=None):
+        '''
+        A helper to return an info prop for the type or it's parents.
+
+        Example:
+
+            ex = tlib.getTypeInfo('inet:tcp4','ex')
+
+        '''
+        todo = name
+        while todo != None:
+
+            info = self.typeinfo.get(todo)
+            if info == None:
+                return defval
+
+            ret = info.get(prop)
+            if ret != None:
+                return ret
+
+            todo = info.get('subof')
+
+        return defval
 
     def getTypeNorm(self, name, valu, oldval=None):
         '''

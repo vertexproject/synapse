@@ -1,4 +1,6 @@
 import base64
+
+import synapse.cortex as s_cortex
 import synapse.lib.types as s_types
 
 from synapse.tests.common import *
@@ -325,3 +327,18 @@ class DataTypesTest(SynTest):
 
         self.assertRaises( BadTypeValu, tlib.getTypeNorm, 'woot', 'qwer' )
         self.assertRaises( BadTypeValu, tlib.getTypeParse, 'woot', 'qwer' )
+
+    def test_type_bases(self):
+        with s_cortex.openurl('ram:///') as core:
+            self.eq( tuple(core.getTypeBases('dns:look')), ('str','guid','dns:look') )
+
+    def test_type_issub(self):
+        with s_cortex.openurl('ram:///') as core:
+            self.assertTrue( core.isSubType('dns:look', 'guid') )
+            self.assertFalse( core.isSubType('dns:look', 'int') )
+            self.assertTrue( core.isSubType('str', 'str') )
+
+    def test_type_getTypeInfo(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.addType('foo:bar',subof='inet:ipv4')
+            self.assertIsNotNone( core.getTypeInfo('foo:bar','ex') )
