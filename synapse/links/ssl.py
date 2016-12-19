@@ -112,6 +112,8 @@ class SslRelay(LinkRelay):
             # handshake completed! no more pre-read!
             sock.set('preread',False)
 
+            cert = sock.getpeercert()
+
         except ssl.SSLError as e:
 
             if e.errno == ssl.SSL_ERROR_WANT_READ:

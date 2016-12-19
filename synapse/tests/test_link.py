@@ -77,48 +77,68 @@ class LinkTest(SynTest):
         self.assertEqual(link[1].get('user'),'visi')
         self.assertEqual(link[1].get('passwd'),'secret')
 
-    def newp_link_ssl_basic(self):
+    def test_link_ssl_basic(self):
 
         # FIXME some kind of cert validation diffs in *py* vers killed us
-        cafile = getTestPath('ca.pem')
+        cafile = getTestPath('ca.crt')
         keyfile = getTestPath('server.key')
-        certfile = getTestPath('server.pem')
+        certfile = getTestPath('server.crt')
 
-        dmon = s_daemon.Daemon()
-        dmon.share('foobar', FooBar() )
+        with s_daemon.Daemon() as dmon:
 
-        link = dmon.listen('ssl://localhost:0/', keyfile=keyfile, certfile=certfile)
+            dmon.share('foobar', FooBar() )
 
-        port = link[1].get('port')
+            link = dmon.listen('ssl://localhost:0/', keyfile=keyfile, certfile=certfile)
 
-        url = 'ssl://localhost/foobar'
-        foo = s_telepath.openurl(url, port=port, cafile=cafile)
+            port = link[1].get('port')
 
-        self.assertEqual( foo.foo(), 'bar' )
+            url = 'ssl://localhost/foobar'
 
-        foo.fini()
-        dmon.fini()
+            with s_telepath.openurl(url, port=port, cafile=cafile) as foo:
+                self.assertEqual( foo.foo(), 'bar' )
+
+    def test_link_ssl_auth(self):
+
+        # FIXME some kind of cert validation diffs in *py* vers killed us
+        cafile = getTestPath('ca.crt')
+        keyfile = getTestPath('server.key')
+        certfile = getTestPath('server.crt')
+
+        userkey = getTestPath('user.key')
+        usercert = getTestPath('user.crt')
+
+        with s_daemon.Daemon() as dmon:
+
+            dmon.share('foobar', FooBar() )
+
+            link = dmon.listen('ssl://localhost:0/', cafile=cafile, keyfile=keyfile, certfile=certfile)
+
+            port = link[1].get('port')
+
+            url = 'ssl://localhost/foobar'
+
+            with s_telepath.openurl(url, port=port, cafile=cafile, keyfile=userkey, certfile=usercert) as foo:
+                self.assertEqual( foo.foo(), 'bar' )
 
     def test_link_ssl_nocheck(self):
 
-        cafile = getTestPath('ca.pem')
+        cafile = getTestPath('ca.crt')
         keyfile = getTestPath('server.key')
-        certfile = getTestPath('server.pem')
+        certfile = getTestPath('server.crt')
 
-        dmon = s_daemon.Daemon()
-        dmon.share('foobar', FooBar() )
+        with s_daemon.Daemon() as dmon:
 
-        link = dmon.listen('ssl://localhost:0/', keyfile=keyfile, certfile=certfile)
+            dmon.share('foobar', FooBar() )
 
-        port = link[1].get('port')
+            link = dmon.listen('ssl://localhost:0/', keyfile=keyfile, certfile=certfile)
 
-        url = 'ssl://localhost/foobar'
-        self.assertRaises( LinkErr, s_telepath.openurl, url, port=port )
+            port = link[1].get('port')
 
-        foo = s_telepath.openurl(url, port=port, nocheck=True)
+            url = 'ssl://localhost/foobar'
+            self.assertRaises( LinkErr, s_telepath.openurl, url, port=port )
 
-        foo.fini()
-        dmon.fini()
+            with s_telepath.openurl(url, port=port, nocheck=True) as foo:
+                pass
 
     def test_link_ssl_nofile(self):
         url = 'ssl://localhost:33333/foobar?cafile=/newpnewpnewp'
