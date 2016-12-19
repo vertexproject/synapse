@@ -28,7 +28,12 @@ logger = logging.getLogger(__name__)
 
 def forkdmon(conf):
     dmon = Daemon()
-    dmon.loadDmonConf(conf)
+    try:
+        dmon.loadDmonConf(conf)
+    except Exception as e:
+        logger.exc(e)
+        traceback.print_exc()
+        sys.exit(-56)
     dmon.main()
 
 def checkConfDict(conf):
@@ -100,8 +105,14 @@ class DmonConf:
     @firethread
     def _joinDmonFork(self, name, conf, proc):
         proc.join()
-        if not self.forkperm.get(name):
-            self._fireDmonFork(name,conf)
+
+        if proc.exitcode == -56:
+            return
+
+        if self.forkperm.get(name):
+            return
+
+        self._fireDmonFork(name,conf)
 
     def _fireDmonFork(self, name, conf):
         proc = multiprocessing.Process(target=forkdmon, args=(conf,))
