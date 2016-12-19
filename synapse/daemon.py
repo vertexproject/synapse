@@ -1,3 +1,4 @@
+import sys
 import json
 import zlib
 import types
@@ -7,6 +8,7 @@ import collections
 import multiprocessing
 
 import synapse.link as s_link
+import synapse.compat as s_compat
 import synapse.lib.config as s_config
 import synapse.lib.socket as s_socket
 import synapse.lib.service as s_service
@@ -26,15 +28,20 @@ from synapse.common import *
 
 logger = logging.getLogger(__name__)
 
+FORK_ERR_OK     = 0
+FORK_ERR_CONFIG = 2
+
 def forkdmon(conf):
     dmon = Daemon()
+
     try:
         dmon.loadDmonConf(conf)
     except Exception as e:
-        logger.exc(e)
-        traceback.print_exc()
-        sys.exit(-56)
+        logger.exception(e)
+        sys.exit(FORK_ERR_CONFIG)
+
     dmon.main()
+    sys.exit(FORK_ERR_OK)
 
 def checkConfDict(conf):
     for incl in conf.get('includes',()):
@@ -106,13 +113,12 @@ class DmonConf:
     def _joinDmonFork(self, name, conf, proc):
         proc.join()
 
-        if proc.exitcode == -56:
+        if proc.exitcode == FORK_ERR_CONFIG:
+            logger.error('fork config (%s) error!' % name)
             return
 
-        if self.forkperm.get(name):
-            return
-
-        self._fireDmonFork(name,conf)
+        if not self.forkperm.get(name):
+            self._fireDmonFork(name,conf)
 
     def _fireDmonFork(self, name, conf):
         proc = multiprocessing.Process(target=forkdmon, args=(conf,))
@@ -375,7 +381,12 @@ class Daemon(EventBus,DmonConf):
 
         # process a few daemon specific options
         for url in conf.get('listen',()):
-            self.listen(url)
+            if s_compat.isstr(url):
+                self.listen(url)
+                continue
+
+            url,opts = url
+            self.listen(url,**opts)
 
     def _loadSessConf(self, info):
         # curator over-ride wins
