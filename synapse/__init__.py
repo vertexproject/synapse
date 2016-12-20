@@ -17,9 +17,9 @@ import synapse.lib.modules as s_modules
 
 # load all the synapse builtin modules
 s_modules.load('synapse.models.syn')
+s_modules.load('synapse.models.inet')
 s_modules.load('synapse.models.dns')
 s_modules.load('synapse.models.orgs')
-s_modules.load('synapse.models.inet')
 s_modules.load('synapse.models.mime')
 s_modules.load('synapse.models.money')
 s_modules.load('synapse.models.telco')
