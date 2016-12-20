@@ -304,6 +304,7 @@ class SeprType(CompType):
         CompType.__init__(self, tlib, name, **info)
         self.sepr = info.get('sep',',')
         self.lower = info.get('lower',0)
+        self.reverse = info.get('reverse',0)
 
     def norm(self, valu, oldval=None):
         reprs = []
@@ -311,7 +312,10 @@ class SeprType(CompType):
         if self.lower:
             valu = valu.lower()
 
-        parts = valu.split(self.sepr,len(self.fields))
+        if self.reverse:
+            parts = valu.rsplit(self.sepr,len(self.fields)-1)
+        else:
+            parts = valu.split(self.sepr,len(self.fields)-1)
         for part,(name,tobj) in self._zipvals(parts):
             reprs.append( tobj.repr(tobj.parse(part)) )
         return self.sepr.join(reprs)
@@ -321,7 +325,10 @@ class SeprType(CompType):
 
     def chop(self, valu):
         subs = {}
-        parts = valu.split(self.sepr,len(self.fields))
+        if self.reverse:
+            parts = valu.rsplit(self.sepr,len(self.fields)-1)
+        else:
+            parts = valu.split(self.sepr,len(self.fields)-1)
 
         if self.lower:
             valu = valu.lower()
