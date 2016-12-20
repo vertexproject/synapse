@@ -257,6 +257,32 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         for item in self.getTufosByProp('syn:prop'):
             self._initPropTufo(item)
 
+    def addDataModel(self, modname, modl):
+        '''
+        Store all types/forms/props from the given data model in the cortex.
+        This should be done on initialization of an empty cortex only.
+
+        Example:
+
+            modname = 'synapse.models.foo'
+            core.addDataModel(modname, s_dyndep.tryDynFunc(modname, 'getDataModel'))
+        '''
+        vers = modl.get('version',0)
+        item = self.formTufoByProp('syn:model',modname,version=vers)
+
+        for name,info in modl.get('types',()):
+            print(name)
+            print(self.formTufoByProp('syn:type',name,**info))
+
+        # load all forms after loading all types
+        for name,info,props in modl.get('forms',()):
+            self.formTufoByProp('syn:form',name,**info)
+
+            for prop,pnfo in props:
+                pnfo['form'] = name
+                fullprop = '%s:%s' % (name,prop)
+                self.formTufoByProp('syn:prop',fullprop,**pnfo)
+
     def _getTufosByCache(self, prop, valu, limit):
         # only used if self.caching = 1
         ckey = (prop,valu,limit) # cache key
