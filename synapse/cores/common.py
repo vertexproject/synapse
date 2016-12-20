@@ -265,7 +265,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         Example:
 
             modname = 'synapse.models.foo'
-            core.addDataModel(modname, s_dyndep.tryDynFunc(modname, 'getDataModel'))
+            core.addDataModel(modname, s_dyndep.tryDynFunc(modname+'.getDataModel'))
         '''
         vers = modl.get('version',0)
         item = self.formTufoByProp('syn:model',modname,version=vers)
