@@ -271,8 +271,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         item = self.formTufoByProp('syn:model',modname,version=vers)
 
         for name,info in modl.get('types',()):
-            print(name)
-            print(self.formTufoByProp('syn:type',name,**info))
+            self.formTufoByProp('syn:type',name,**info)
 
         # load all forms after loading all types
         for name,info,props in modl.get('forms',()):
