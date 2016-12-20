@@ -313,6 +313,7 @@ class SeprType(CompType):
         self.lower = info.get('lower',0)
         self.recursive = info.get('recursive',0)
         self.reverse = info.get('reverse',0)
+        self.strictfields = info.get('strictfields',1)
 
     def norm(self, valu, oldval=None):
         reprs = []
@@ -327,6 +328,10 @@ class SeprType(CompType):
 
         if self.recursive:
             for part,(name,tobj) in self._zipvals(parts):
+
+                if part == None and not self.strictfields:
+                    continue
+
                 if tobj == self:
                     # do not recursively norm
                     reprs.append(part)
@@ -336,6 +341,8 @@ class SeprType(CompType):
 
         else:
             for part,(name,tobj) in self._zipvals(parts):
+                if part == None and not self.strictfields:
+                    continue
                 reprs.append( tobj.repr(tobj.parse(part)) )
             return self.sepr.join(reprs)
 
@@ -357,6 +364,9 @@ class SeprType(CompType):
         if self.recursive:
             for part,(name,tobj) in self._zipvals(parts):
 
+                if part == None and not self.strictfields:
+                    continue
+
                 if tobj == self:
                     # do not recursively chop
                     norm, nsub = part, {}
@@ -371,6 +381,10 @@ class SeprType(CompType):
                     subs['%s:%s' % (name,subn)] = subv
         else:
             for part,(name,tobj) in self._zipvals(parts):
+
+                if part == None and not self.strictfields:
+                    continue
+
                 norm = tobj.parse(part)
                 norm,nsub = tobj.chop(norm)
 
@@ -379,6 +393,7 @@ class SeprType(CompType):
                 subs[name] = norm
                 for subn,subv in nsub.items():
                     subs['%s:%s' % (name,subn)] = subv
+
 
         return self.sepr.join(reprs),subs
 
