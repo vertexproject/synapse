@@ -1,27 +1,29 @@
-
+##########################
 devops: Synapse Deployment
-==========================
+##########################
 
+********
 Hardware
---------
+********
 Currently Synapse may be run either natively or in a docker container.  Both options will be covered.
-If performance is a consideration in testing please do not use a virtual machine and be sure to
-contact to make sure the resources allocated are appropriate for the performance needed.  
+If performance is a consideration in testing please do not use a virtual machine and  make sure
+the resources allocated are appropriate for the performance needed.
 
 Experimental Hardware
-^^^^^^^^^^^^^^^^^^^^^
-For an experimental setup we recommend at least 8GB ram and several terabytes of disk space. 
-Performance will drop considerably if the hardware resources are out paced by the data 
-being loaded.  
+=====================
+For an experimental setup we recommend at least 8GB ram and several terabytes of disk space.
+Performance will drop considerably if the hardware resources are out paced by the data
+being loaded.
 
 
+*******
 Install
--------
-Ubuntu 16.04 LTS is the recommended platform for installation. Installation via Docker is also 
+*******
+Ubuntu 16.04 LTS is the recommended platform for installation. Installation via Docker is also
 supported. Synapse is available at https://github.com/vivisect/synapse.git
 
 Ubuntu
-^^^^^^
+======
 Install the following prerequisites prior to using Synapse::
 
     $ sudo apt update
@@ -40,11 +42,11 @@ An exmplar dmon configuration file is located at synapse/docker/cortex/sqlite_dm
     $ python3 -m synapse.tools.dmon synapse/docker/cortex/sqlite_dmon.json
 
 Docker
-^^^^^^
-Synapse docker images are also based on Ubuntu 16.04 and install all relevant dependencies. 
+======
+Synapse docker images are also based on Ubuntu 16.04 and install all relevant dependencies.
 
-Unless otherwise stated Synapse tracks the latest stable release of Docker engine for Ubuntu 16.04 
-LTS. 
+Unless otherwise stated Synapse tracks the latest stable release of Docker engine for Ubuntu 16.04
+LTS.
 
 General steps:
 
@@ -53,7 +55,7 @@ General steps:
 #. Start Synapse
 
 Synapse image
-"""""""""""""
+-------------
 This image is intended to serve 2 functions
 
 #. Provide a simple sandbox to get started with synapse
@@ -62,7 +64,7 @@ This image is intended to serve 2 functions
 - build
     ::
 
-        $ docker build -t vertexproject/synapse -f <synapse_dir>/synapse/docker/synapse_dockerfile <synapse_dir> 
+        $ docker build -t vertexproject/synapse -f <synapse_dir>/synapse/docker/synapse_dockerfile <synapse_dir>
 
 - volumes
     - /syndata is exposed by default
@@ -71,11 +73,11 @@ This image is intended to serve 2 functions
     - no ports are exposed by default
 
 Cortex image - Postgresql
-"""""""""""""""""""""""""
-This image will provide a synapse daemon config driven cortex backed into a postgres(9.5) database 
-by default. 
-It is the general image used for experimentation as it can also be easily configured to start 
-additional Cortexes with alternate storage backings as well.  By default each Cortex image is 
+-------------------------
+This image will provide a synapse daemon config driven cortex backed into a postgres(9.5) database
+by default.
+It is the general image used for experimentation as it can also be easily configured to start
+additional Cortexes with alternate storage backings as well.  By default each Cortex image is
 configured to expose a Cortex object.
 
 - build
@@ -95,46 +97,46 @@ configured to expose a Cortex object.
         $ docker run vertexproject/core_pg
 
 Start Docker Cortex
-"""""""""""""""""""
+-------------------
 Start a container using the Posgresql Cortex image just created::
 
     $ docker run vertexproject/core_pg
 
 General Cortex Use
-^^^^^^^^^^^^^^^^^^
-    Connecting to a Cortex will be a variant of::
+==================
+Connecting to a Cortex will be a variant of::
 
-        import synapse.telepath as s_telepath
+    import synapse.telepath as s_telepath
 
-        host = '172.17.0.2'
-        port = 47322
+    host = '172.17.0.2'
+    port = 47322
 
-        core = s_telepath.openurl( 'tcp:///core', host=host, port=port)
+    core = s_telepath.openurl( 'tcp:///core', host=host, port=port)
 
-    At this point 'core' is a proxy object to the Cortex being shared by the Synapse daemon running in the Docker container.
+At this point 'core' is a proxy object to the Cortex being shared by the Synapse daemon running in the Docker container.
 
-    The normal Cortex apis can now be called::
+The normal Cortex apis can now be called::
 
-        # make sure proxy is working normally...
-        # this should return *something*
-        forms = core.getTufosByProp('syn:core')
+    # make sure proxy is working normally...
+    # this should return *something*
+    forms = core.getTufosByProp('syn:core')
 
-        # create an fqdn and store it
-        fqdn = 'woot.com'
-        new_tufo = core.formTufoByProp('fqdn', fqdn)
-        
-        # retrieve the shiny new fqdn
-        ret_tufo = core.getTufosByProp('fqdn', fqdn)[0]
+    # create an fqdn and store it
+    fqdn = 'woot.com'
+    new_tufo = core.formTufoByProp('fqdn', fqdn)
 
-        print('formed, stored and retrieved a form: %r' % (new_tufo[0] == ret_tufo[0],))
-        
+    # retrieve the shiny new fqdn
+    ret_tufo = core.getTufosByProp('fqdn', fqdn)[0]
 
+    print('formed, stored and retrieved a form: %r' % (new_tufo[0] == ret_tufo[0],))
+
+**************************
 Other Cortex Docker images
---------------------------
-    The other Docker images listed below are simpler examples of running a more basic Cortex without Postgresql.
+**************************
+The other Docker images listed below are simpler examples of running a more basic Cortex without Postgresql.
 
 core_ram
-^^^^^^^^
+========
 Provides a synapse daemon config driven cortex backed into ram.
 
 - build
@@ -150,12 +152,13 @@ Provides a synapse daemon config driven cortex backed into ram.
 
 - use
     - /syndata/dmon.json is the synapse dmon conf file used by the image.  This can be modified or mapped in at container startup
+
     ::
 
-        $ docker run vertexproject/core_ram 
+        $ docker run vertexproject/core_ram
 
 core_sqlite
-^^^^^^^^^^^
+===========
 Provides a synapse daemon config driven cortex backed into a sqlite database by default.
 
 - build
@@ -171,6 +174,7 @@ Provides a synapse daemon config driven cortex backed into a sqlite database by 
 
 - use
     - /syndata/dmon.json is the synapse dmon conf file used by the image.  This can be modified or mapped in at container startup
+
     ::
 
         $ docker run vertexproject/core_sqlite
