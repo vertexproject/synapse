@@ -369,25 +369,3 @@ class DataTypesTest(SynTest):
 
         self.assertRaises( BadTypeValu, tlib.getTypeChop, 'path', 'some-filename' )
 
-    def test_type_sepr_strictfields(self):
-        tlib = s_types.TypeLib()
-
-        tlib.addType('foo',subof='sepr',sep='.',fields='a,str:lwr|b,str:lwr')
-        foo = tlib.getTypeChop('foo', 'AAA.BBB')
-        self.eq( foo[1].get('a'), 'aaa' )
-        self.eq( foo[1].get('b'), 'bbb' )
-        self.eq( tlib.getTypeNorm('foo', 'AAA.BBB'), 'aaa.bbb' )
-
-        self.assertRaises( BadTypeValu, tlib.getTypeChop, 'foo', 'AAABBB' )
-
-        tlib.addType('bar',subof='sepr',sep='.',fields='a,str:lwr|b,str:lwr', strictfields=0)
-        bar = tlib.getTypeChop('bar', 'AAA.BBB')
-        self.eq( bar[1].get('a'), 'aaa' )
-        self.eq( bar[1].get('b'), 'bbb' )
-        self.eq( tlib.getTypeNorm('bar', 'AAA.BBB'), 'aaa.bbb')
-
-        bar2 = tlib.getTypeChop('bar', 'AAABBB')
-        self.eq( bar2[1].get('a'), 'aaabbb' )
-        self.eq( bar2[1].get('b'), None )
-        self.eq( tlib.getTypeNorm('bar', 'AAABBB'), 'aaabbb')
-
