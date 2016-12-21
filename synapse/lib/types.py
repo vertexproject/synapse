@@ -395,7 +395,7 @@ class TypeLib:
 
         # add base synapse types
         self.addType('syn:tag',subof='str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
-        self.addType('syn:prop',subof='str', regex=r'^([\w]+:)*[\w]+$', lower=1)
+        self.addType('syn:prop',subof='str', regex=r'^([\w]+:)*([\w]+|\*)$', lower=1)
         self.addType('syn:type',subof='str', regex=r'^([\w]+:)*[\w]+$', lower=1)
         self.addType('syn:glob',subof='str', regex=r'^([\w]+:)*[\w]+:\*$', lower=1)
 
