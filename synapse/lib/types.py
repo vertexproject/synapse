@@ -311,7 +311,6 @@ class SeprType(CompType):
         CompType.__init__(self, tlib, name, **info)
         self.sepr = info.get('sep',',')
         self.lower = info.get('lower',0)
-        self.recursive = info.get('recursive',0)
         self.reverse = info.get('reverse',0)
 
     def norm(self, valu, oldval=None):
@@ -325,19 +324,13 @@ class SeprType(CompType):
         else:
             parts = valu.split(self.sepr,len(self.fields)-1)
 
-        if self.recursive:
-            for part,(name,tobj) in self._zipvals(parts):
-                if tobj == self:
-                    # do not recursively norm
-                    reprs.append(part)
-                else:
-                    reprs.append( tobj.repr(tobj.parse(part)) )
-            return self.sepr.join(reprs)
-
-        else:
-            for part,(name,tobj) in self._zipvals(parts):
+        for part,(name,tobj) in self._zipvals(parts):
+            if tobj == self:
+                # do not recursively norm
+                reprs.append(part)
+            else:
                 reprs.append( tobj.repr(tobj.parse(part)) )
-            return self.sepr.join(reprs)
+        return self.sepr.join(reprs)
 
     def repr(self, valu):
         return valu
@@ -354,31 +347,20 @@ class SeprType(CompType):
 
         reprs = []
 
-        if self.recursive:
-            for part,(name,tobj) in self._zipvals(parts):
+        for part,(name,tobj) in self._zipvals(parts):
 
-                if tobj == self:
-                    # do not recursively chop
-                    norm, nsub = part, {}
-                    reprs.append(norm)
-                else:
-                    norm = tobj.parse(part)
-                    norm,nsub = tobj.chop(norm)
-                    reprs.append(tobj.repr(norm))
-
-                subs[name] = norm
-                for subn,subv in nsub.items():
-                    subs['%s:%s' % (name,subn)] = subv
-        else:
-            for part,(name,tobj) in self._zipvals(parts):
+            if tobj == self:
+                # do not recursively chop
+                norm, nsub = part, {}
+                reprs.append(norm)
+            else:
                 norm = tobj.parse(part)
                 norm,nsub = tobj.chop(norm)
-
                 reprs.append(tobj.repr(norm))
 
-                subs[name] = norm
-                for subn,subv in nsub.items():
-                    subs['%s:%s' % (name,subn)] = subv
+            subs[name] = norm
+            for subn,subv in nsub.items():
+                subs['%s:%s' % (name,subn)] = subv
 
         return self.sepr.join(reprs),subs
 

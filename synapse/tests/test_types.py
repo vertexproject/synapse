@@ -354,7 +354,7 @@ class DataTypesTest(SynTest):
     def test_type_comp_recursive(self):
         tlib = s_types.TypeLib()
 
-        tlib.addType('path',subof='sepr',sep='/',fields='dirname,path|filename,str:lwr',recursive=1,reverse=1)
+        tlib.addType('path',subof='sepr',sep='/',fields='dirname,path|filename,str:lwr',reverse=1)
         foo = tlib.getTypeChop('path','/home/user/Downloads')
         self.eq( foo[1].get('dirname'), '/home/user' )
         self.eq( foo[1].get('filename'), 'downloads' )
