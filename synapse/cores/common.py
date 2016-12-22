@@ -229,6 +229,43 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
             mofos.append((name,modl))
 
+        self.addDataModels(mofos)
+
+    def _loadCoreModel(self):
+        for item in self.getTufosByProp('syn:type'):
+            self._initTypeTufo(item)
+
+        for item in self.getTufosByProp('syn:form'):
+            self._initFormTufo(item)
+
+        for item in self.getTufosByProp('syn:prop'):
+            self._initPropTufo(item)
+
+    def addDataModels(self, mofos):
+        '''
+        Store all types/forms/props from the given data models in the cortex.
+        `mofos` is a sequence of tuples (module name, model dict).
+
+        Example:
+
+            core.addDataModels([
+                ('synapse.models.foo',
+                 {
+                    'prefix':'foo',
+                    'version':201612231411,
+
+                    'types':( ('foo:g',{'subof':'guid'}), ),
+
+                    'forms':(
+                        ('foo:f',{'ptype':'foo:g','doc':'a foo'},[
+                            ('a',{'ptype':'str:lwr'}),
+                            ('b',{'ptype':'int'}),
+                        ]),
+                    ),
+                 }),
+                 ...
+            ])
+        '''
         for modname,modl in mofos:
             vers = modl.get('version',0)
             item = self.formTufoByProp('syn:model',modname,version=vers)
@@ -247,40 +284,28 @@ class Cortex(EventBus,DataModel,ConfigMixin):
                     fullprop = '%s:%s' % (name,prop)
                     self.formTufoByProp('syn:prop',fullprop,**pnfo)
 
-    def _loadCoreModel(self):
-        for item in self.getTufosByProp('syn:type'):
-            self._initTypeTufo(item)
-
-        for item in self.getTufosByProp('syn:form'):
-            self._initFormTufo(item)
-
-        for item in self.getTufosByProp('syn:prop'):
-            self._initPropTufo(item)
-
     def addDataModel(self, modname, modl):
         '''
         Store all types/forms/props from the given data model in the cortex.
-        This should be done on initialization of an empty cortex only.
 
         Example:
 
-            modname = 'synapse.models.foo'
-            core.addDataModel(modname, s_dyndep.tryDynFunc(modname+'.getDataModel'))
+            core.addDataModel('synapse.models.foo',
+                              {
+                                'prefix':'foo',
+                                'version':201612231411,
+
+                                'types':( ('foo:g',{'subof':'guid'}), ),
+
+                                'forms':(
+                                    ('foo:f',{'ptype':'foo:g','doc':'a foo'},[
+                                        ('a',{'ptype':'str:lwr'}),
+                                        ('b',{'ptype':'int'}),
+                                    ]),
+                                ),
+                              })
         '''
-        vers = modl.get('version',0)
-        item = self.formTufoByProp('syn:model',modname,version=vers)
-
-        for name,info in modl.get('types',()):
-            self.formTufoByProp('syn:type',name,**info)
-
-        # load all forms after loading all types
-        for name,info,props in modl.get('forms',()):
-            self.formTufoByProp('syn:form',name,**info)
-
-            for prop,pnfo in props:
-                pnfo['form'] = name
-                fullprop = '%s:%s' % (name,prop)
-                self.formTufoByProp('syn:prop',fullprop,**pnfo)
+        return self.addDataModels([(modname, modl)])
 
     def _getTufosByCache(self, prop, valu, limit):
         # only used if self.caching = 1
