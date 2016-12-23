@@ -112,7 +112,9 @@ class SslRelay(LinkRelay):
             # handshake completed! no more pre-read!
             sock.set('preread',False)
 
-            cert = sock.getpeercert()
+            user = self._getCommonName(sock)
+            if user != None:
+                sock.set('syn:user',user)
 
         except ssl.SSLError as e:
 
@@ -124,6 +126,24 @@ class SslRelay(LinkRelay):
         except Exception as e:
 
             sock.fini()
+
+    def _getCommonName(self, sock):
+
+        cert = sock.getpeercert()
+        if not cert:
+            return None
+
+        subj = cert.get('subject')
+        if subj == None:
+            return None
+
+        try:
+
+            info = dict( x[0] for x in subj )
+            return info.get('commonName')
+
+        except Exception as e:
+            return None
 
     def _connect(self):
         sock = socket.socket()
