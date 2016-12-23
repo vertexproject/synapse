@@ -247,6 +247,11 @@ class DmonConf:
 
                 item.setConfOpts(opts)
 
+            # check for a match between config and ctor names
+            opts = configs.get(name)
+            if opts != None:
+                item.setConfOpts(opts)
+
             self.fire('dmon:conf:ctor', name=name, item=item)
 
         for busname,svcruns in conf.get('services',()):
@@ -280,6 +285,7 @@ class Daemon(EventBus,DmonConf):
         EventBus.__init__(self)
         DmonConf.__init__(self)
 
+        self.auth = None
         self.socks = {}     # sockets by iden
         self.shared = {}    # objects provided by daemon
         self.pushed = {}    # objects provided by sockets
@@ -316,6 +322,9 @@ class Daemon(EventBus,DmonConf):
         self.setMesgFunc('tele:off', self._onTeleOffMesg )
 
         self.setMesgFunc('tele:yield:fini', self._onTeleYieldFini )
+
+    def setUserAuth(self, auth):
+        self.auth = auth
 
     def getNewSess(self):
         return self.cura.new()
@@ -411,6 +420,10 @@ class Daemon(EventBus,DmonConf):
 
         jid = mesg[1].get('jid')
         name = mesg[1].get('name')
+
+        user = sock.get('syn:user')
+        if not self._isUserAllowed(user, 'tele:push:'+name ):
+            return sock.tx( tufo('job:done', err='NoSuchRule', jid=jid) )
 
         def onfini():
             self.pushed.pop(name,None)
@@ -534,52 +547,81 @@ class Daemon(EventBus,DmonConf):
         return sock.tx( tufo('job:done', jid=jid, ret=ret) )
 
     def _onTeleOnMesg(self, sock, mesg):
-        # set the socket tx method as the callback
 
-        # FIXME perms
+        try:
+            # set the socket tx method as the callback
+            jid = mesg[1].get('jid')
+            name = mesg[1].get('name')
+            events = mesg[1].get('events')
 
-        jid = mesg[1].get('jid')
-        name = mesg[1].get('name')
-        events = mesg[1].get('events')
+            item = self.shared.get(name)
+            if item == None:
+                raise NoSuchObj(name)
 
-        item = self.shared.get(name)
-        if item == None:
-            raise NoSuchObj(name)
+            on = getattr(item,'on',None)
+            if on == None:
+                return sock.tx( tufo('job:done', jid=jid, ret=False) )
 
-        on = getattr(item,'on',None)
-        if on == None:
-            return sock.tx( tufo('job:done', jid=jid, ret=False) )
+            user = sock.get('syn:user')
+            # TODO restrict access by event type?
+            self._reqUserAllowed(user,'tele:call',name,'on')
 
-        for evt in events:
-            on(evt,sock.tx)
-
-        def onfini():
             for evt in events:
-                item.off(evt, sock.tx)
+                on(evt,sock.tx)
 
-        sock.onfini(onfini)
+            def onfini():
+                for evt in events:
+                    item.off(evt, sock.tx)
 
-        return sock.tx( tufo('job:done', jid=jid, ret=True) )
+            sock.onfini(onfini)
+
+            return sock.tx( tufo('job:done', jid=jid, ret=True) )
+
+        except Exception as e:
+            sock.tx( tufo('job:done', jid=jid, **excinfo(e)) )
 
     def _onTeleOffMesg(self, sock, mesg):
         # set the socket tx method as the callback
+        try:
 
-        # FIXME perms
+            evt = mesg[1].get('evt')
+            jid = mesg[1].get('jid')
+            name = mesg[1].get('name')
 
-        evt = mesg[1].get('evt')
-        jid = mesg[1].get('jid')
-        name = mesg[1].get('name')
+            item = self.shared.get(name)
+            if item == None:
+                raise NoSuchObj(name)
 
-        item = self.shared.get(name)
-        if item == None:
-            raise NoSuchObj(name)
+            off = getattr(item,'off',None)
+            if off == None:
+                return sock.tx( tufo('job:done', jid=jid, ret=False) )
 
-        off = getattr(item,'off',None)
-        if off == None:
-            return sock.tx( tufo('job:done', jid=jid, ret=False) )
+            user = sock.get('syn:user')
+            self._reqUserAllowed(user,'tele:call',name,'off')
 
-        off(evt,sock.tx)
-        return sock.tx( tufo('job:done', jid=jid, ret=True) )
+            off(evt,sock.tx)
+            return sock.tx( tufo('job:done', jid=jid, ret=True) )
+
+        except Exception as e:
+            return sock.tx( tufo('job:done', jid=jid, **excinfo(e)) )
+
+    def _reqUserAllowed(self, user, *perms):
+        if not self._isUserAllowed(user,*perms):
+            perm = ':'.join(perms)
+            logger.warning('userauth denied: %s %s' % (user,perm))
+            raise NoSuchRule(user=user,perm=perm)
+
+    def _isUserAllowed(self, user, *perms):
+        if self.auth == None:
+            return True
+
+        # If they have no user raise
+        if user == None:
+            raise NoAuthUser()
+
+        perm = ':'.join(perms)
+
+        return self.auth.isUserAllowed(user,perm)
 
     def _onTeleCallMesg(self, sock, mesg):
 
@@ -588,9 +630,11 @@ class Daemon(EventBus,DmonConf):
         jid = mesg[1].get('jid')
         sid = mesg[1].get('sid')
 
-        perm = sock.get('perm')
+        # check if the socket knows about their auth
+        # ( most likely via SSL client cert )
+        user = sock.get('syn:user')
 
-        with s_threads.ScopeLocal(perm=perm, dmon=self, sock=sock):
+        with s_threads.scope({'dmon':self, 'sock':sock, 'syn:user':user, 'syn:auth':self.auth }):
 
             try:
 
@@ -609,6 +653,8 @@ class Daemon(EventBus,DmonConf):
 
                 task = mesg[1].get('task')
                 meth,args,kwargs = task
+
+                self._reqUserAllowed(user,'tele:call',name,meth)
 
                 func = getattr(item,meth,None)
                 if func == None:
