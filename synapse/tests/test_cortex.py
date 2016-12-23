@@ -35,15 +35,8 @@ class CortexTest(SynTest):
         self.runrange( core )
 
     def test_cortex_postgres(self):
-        db = os.getenv('SYN_COR_PG_DB')
-        if db == None:
-            raise unittest.SkipTest('no SYN_COR_PG_DB')
-        if not db.startswith('postgres://'):
-            db = 'postgres:///%s' % (db)
-
         table = 'syn_test_%s' % guid()
-        core = s_cortex.openurl(db + '/' + table)
-
+        core = self.open_cortex_postgres(table)
         try:
             self.runcore( core )
             self.runjson( core )
@@ -51,6 +44,15 @@ class CortexTest(SynTest):
         finally:
             with core.cursor() as c:
                 c.execute('DROP TABLE %s' % (table,))
+
+    def open_cortex_postgres(self, table):
+        db = os.getenv('SYN_COR_PG_DB')
+        if db == None:
+            raise unittest.SkipTest('no SYN_COR_PG_DB')
+        if not db.startswith('postgres://'):
+            db = 'postgres:///%s' % (db)
+        core = s_cortex.openurl(db + '/' + table)
+        return core
 
     def runcore(self, core):
 
@@ -280,24 +282,22 @@ class CortexTest(SynTest):
         self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '192.168.0.0/16')), 2)
 
     def test_cortex_tufo_by_postgres(self):
-        db = os.getenv('SYN_COR_PG_DB')
-        if db == None:
-            raise unittest.SkipTest('no SYN_COR_PG_DB')
-
         table = 'syn_test_%s' % guid()
+        core = self.open_cortex_postgres(table)
+        try:
+            fooa = core.formTufoByProp('foo','bar',p0=4)
+            foob = core.formTufoByProp('foo','baz',p0=5)
 
-        link = s_link.chopLinkUrl('postgres:///%s/%s' % (db,table))
-        core = s_cortex.openlink(link)
+            self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4])), 1)
 
-        fooa = core.formTufoByProp('foo','bar',p0=4)
-        foob = core.formTufoByProp('foo','baz',p0=5)
+            fooc = core.formTufoByProp('foo','faz',p0=5)
+            self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5])), 2)
+            self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
+            self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
+        finally:
+            with core.cursor() as c:
+                c.execute('DROP TABLE %s' % (table,))
 
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4])), 1)
-
-        fooc = core.formTufoByProp('foo','faz',p0=5)
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5])), 2)
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
 
     def test_cortex_tufo_tag(self):
         core = s_cortex.openurl('ram://')
