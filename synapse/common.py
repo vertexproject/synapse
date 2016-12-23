@@ -51,6 +51,7 @@ def vertup(vstr):
 def genpath(*paths):
     path = os.path.join(*paths)
     path = os.path.expanduser(path)
+    path = os.path.expandvars(path)
     return os.path.abspath(path)
 
 def reqpath(*paths):
