@@ -281,8 +281,6 @@ class Cortex(common.Cortex):
         self.initSizeBy('le',self._sizeByLe)
         self.initRowsBy('le',self._rowsByLe)
 
-        self.initTufosBy('in',self._tufosByIn)
-
         self.initSizeBy('range',self._sizeByRange)
         self.initRowsBy('range',self._rowsByRange)
         self.initTufosBy('range',self._tufosByRange)

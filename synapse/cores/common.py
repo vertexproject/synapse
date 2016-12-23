@@ -180,6 +180,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         self.splicers['tufo:tag:add'] = self._spliceTufoTagAdd
         self.splicers['tufo:tag:del'] = self._spliceTufoTagDel
 
+        self.initTufosBy('in',self._tufosByIn)
         self.initTufosBy('inet:cidr',self._tufosByInetCidr)
 
         # process a savefile/savefd if we have one
