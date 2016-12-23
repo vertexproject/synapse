@@ -363,3 +363,38 @@ class SwarmRunTest(SwarmRunBase):
         self.assertEqual( tufos[0][1].get('inet:ipv4'), 0x01020304 )
 
         env.fini()
+
+    def test_swarm_runtime_maxtime(self):
+
+        env = self.getSwarmEnv()
+
+        self.assertRaises(s_runtime.QueryLimitTime, env.runt.ask, 'foo:bar', maxtime=time.time())
+
+        env.fini()
+
+    def test_swarm_runtime_debug(self):
+
+        tenv = self.getSwarmEnv()
+
+        answ = tenv.runt.ask('%debug=1 foo:bar="baz" ^foo:bar:vvv')
+        prof = answ.get('debug')
+
+        self.assertEqual( prof['count'], 5 )
+        self.assertEqual( prof['size'], 415 )
+        self.assertGreater( prof['time'], 0 )
+
+        self.assertEqual( len(prof['insts']), 3 )
+
+        self.assertEqual( prof['insts'][0]['count'], 0 )
+        self.assertEqual( prof['insts'][0]['size'], 0 )
+        # self.assertGreater( prof['insts'][0]['time'], 0 )
+
+        self.assertEqual( prof['insts'][1]['count'], 1 )
+        self.assertEqual( prof['insts'][1]['size'], 83 )
+        self.assertGreater( prof['insts'][1]['time'], 0 )
+
+        self.assertEqual( prof['insts'][2]['count'], 4 )
+        self.assertEqual( prof['insts'][2]['size'], 332 )
+        self.assertGreater( prof['insts'][2]['time'], 0 )
+
+        tenv.fini()

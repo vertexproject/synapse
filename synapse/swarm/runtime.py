@@ -10,7 +10,7 @@ import synapse.lib.userauth as s_userauth
 import synapse.swarm.opers.basic as s_opers_basic
 
 from synapse.exc import *
-from synapse.common import gentask
+from synapse.common import gentask, msgenpack
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,6 @@ class Query(s_eventbus.EventBus):
     def __init__(self, runt, insts, user=None, data=()):
 
         s_eventbus.EventBus.__init__(self)
-        #self.text = text
         self.runt = runt
         #self.info = info
         self.canc = False
@@ -61,8 +60,6 @@ class Query(s_eventbus.EventBus):
 
         self.opers = self.initInstOpers(insts)
 
-        #self.insts = s_syntax.parse(text)
-
         self.touched = 0
         self.recache = {}
 
@@ -70,6 +67,13 @@ class Query(s_eventbus.EventBus):
         self.maxtouch = None
 
         self.results = {
+
+            'debug': {
+                'count': 0,
+                'insts': [],
+                'size': 0,
+                'time': 0.0,
+            },
 
             'options':{
                 'uniq':True,
@@ -120,9 +124,13 @@ class Query(s_eventbus.EventBus):
         '''
         self.tick()
 
-        #if self.results.get('mode') == 'tufo':
+        if self.opt('debug:count'):
+            self.incDebug('count')
 
-        data = self.results.get('data')
+        if self.opt('debug:size'):
+            prop = tufo[1].pop('.from')
+            self.incDebug('size', len(msgenpack(tufo)))
+            tufo[1]['.from'] = prop
 
         form = tufo[1].get('tufo:form')
 
@@ -157,12 +165,47 @@ class Query(s_eventbus.EventBus):
         Set a query option to the given value.
         '''
         self.results['options'][name] = valu
+        if name == 'debug':
+            self.setOpt('debug:count', valu)
+            self.setOpt('debug:size', valu)
+            self.setOpt('debug:time', valu)
 
     def opt(self,name):
         '''
         Return the current value of a query option.
         '''
         return self.results['options'].get(name)
+
+    def getDebug(self, name):
+        '''
+        Get debug info for the given value.
+        '''
+        return self.results['debug'].get(name, 0)
+
+    def setDebug(self, name, valu):
+        '''
+        Set debug info to the given value.
+        '''
+        self.results['debug'][name] = valu
+
+    def incDebug(self, name, valu=1):
+        '''
+        Increment debug info with the given value.
+        '''
+        valu = self.getDebug(name) + valu
+        self.setDebug(name, valu)
+
+    def addInstDebug(self, valu):
+        '''
+        Append the given instruction debug info.
+        '''
+        self.results['debug']['insts'].append(valu)
+
+    def sumInstDebug(self, name):
+        '''
+        Sum the instruction debug info of the given name.
+        '''
+        return sum(inst.get(name, 0) for inst in self.results['debug']['insts'])
 
     def data(self):
         return self.results.get('data')
@@ -181,25 +224,54 @@ class Query(s_eventbus.EventBus):
         return data
         # FIXME reset any uniq stuff here!
 
-    def run(self, inst):
+    def run(self, oper):
         '''
-        Execute a swarm instruction tufo in the query context.
+        Run the given operation. Collect debug profiling per query options.
         '''
-        func = self.runt.getInstFunc(inst[0])
-        if func == None:
-            raise Exception('Unknown Instruction: %s' % inst[0])
+        debug = {}
+        start = time.time()
 
-        func(self,inst)
+        # HACK: Using top level debug for temporary storage since it will be overwritten later.
+        if self.opt('debug:size'):
+            self.setDebug('size', 0)
+
+        if self.opt('debug:count'):
+            self.setDebug('count', 0)
+
+        oper.run()
+
+        if self.opt('debug:time'):
+            debug['time'] = int((time.time() - start) * 1000)
+
+        if self.opt('debug:size'):
+            debug['size'] = self.getDebug('size')
+
+        if self.opt('debug:count'):
+            debug['count'] = self.getDebug('count')
+
+        if debug:
+            self.addInstDebug(debug)
 
     def execute(self):
         '''
         Execute the parsed swarm query instructions.
         '''
+        start = time.time()
+
         # FIXME setup user limits
         for oper in self.opers:
-            oper.run()
+            self.run(oper)
 
-        #[ self.run(i) for i in self.insts ]
+        if self.opt('debug:count'):
+            self.setDebug('count', self.sumInstDebug('count'))
+
+        if self.opt('debug:time'):
+            duration_ms = int((time.time() - start) * 1000)
+            self.setDebug('time', duration_ms)
+
+        if self.opt('debug:size'):
+            self.setDebug('size', self.sumInstDebug('size'))
+
         return self.results
 
     def cancel(self):
@@ -313,15 +385,6 @@ class Runtime(s_eventbus.EventBus):
             rules = s_userauth.Rules(self.auth,user)
             self.rules[user] = rules
         return rules
-
-    #def setInstFunc(self, name, func):
-        #'''
-        #Add an instruction to the 
-        #'''
-        #self.insts[name] = func
-
-    #def getInstFunc(self, name):
-        #return self.insts.get(name)
 
     def ask(self, text, user=None, data=(), maxtime=None):
         '''
