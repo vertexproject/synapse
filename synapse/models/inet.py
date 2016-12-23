@@ -58,6 +58,22 @@ def getDataModel():
         ),
 
         'forms':(
+
+            ('inet:ipv4',{'ptype':'inet:ipv4'},[
+                ('cc',{'ptype':'pol:iso2','defval':'??'}),
+                #('uni',{'ptype':'bool','defval':1,'doc':'Set to 1 if the address is unicast and internet routable'}),
+                ('asn',{'ptype':'inet:asn','defval':0}),
+            ]),
+
+            ('inet:ipv6',{'ptype':'inet:ipv6'},[
+                ('cc',{'ptype':'pol:iso2','defval':'??'}),
+                ('asn',{'ptype':'inet:asn','defval':0}),
+            ]),
+
+            ('inet:url',{'ptype':'inet:url'},[
+                ('fqdn',{'ptype':'inet:fqdn'}),
+            ]),
+
             ('inet:asn',{'ptype':'inet:asn'},[
                 ('name',{'ptype':'str:lwr','defval':'??'}),
                 #TODO ('cidr',{'ptype':'inet:cidr'}),
@@ -177,6 +193,9 @@ def ipv4int(valu):
 class IPv4Type(DataType):
 
     def norm(self, valu, oldval=None):
+        if not s_compat.isint(valu):
+            raise BadTypeValu(name=self.name,valu=valu)
+
         return valu & 0xffffffff
 
     def frob(self, valu, oldval=None):
