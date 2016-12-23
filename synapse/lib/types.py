@@ -534,6 +534,8 @@ class TypeLib:
                 return True
 
             except Exception as e:
+                logger.warning('failed to ctor type %s', name)
+                logger.debug('failed to ctor type %s', name, exc_info=True)
                 self.typeinfo.pop(name,None)
         try:
 
