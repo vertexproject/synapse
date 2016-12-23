@@ -143,10 +143,17 @@ class Query(s_eventbus.EventBus):
 
         dyntask = gentask('getTufosByFrob',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
 
-        for svcfo,retval in self.callByTag(fromtag,dyntask):
-            for tufo in retval:
-                tufo[1]['.from'] = svcfo[0]
-                yield tufo
+        timeout = None
+        if self.maxtime:
+            timeout = self.maxtime - time.time()
+
+        try:
+            for svcfo,retval in self.callByTag(fromtag,dyntask,timeout=timeout):
+                for tufo in retval:
+                    tufo[1]['.from'] = svcfo[0]
+                    yield tufo
+        except HitMaxTime:
+            raise QueryLimitTime()
 
     def callByTag(self, *args, **kwargs):
         # provide direct access to the callByTag API to prevent object reaching
