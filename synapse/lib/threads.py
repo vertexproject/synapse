@@ -38,6 +38,9 @@ class ScopeLocal:
     def __exit__(self, exc, cls, tb):
         [ setattr(thrloc,n,i) for (n,i) in self.olds.items() ]
 
+def scope(locs):
+    return ScopeLocal(**locs)
+
 class PerThread:
     '''
     A helper class for managing thread local variables.
