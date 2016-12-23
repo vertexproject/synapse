@@ -1181,3 +1181,57 @@ class CortexTest(SynTest):
 
                     self.eq( len(core.getTufosByTag('inet:fqdn', 'foo.bar')), 0 )
                     self.eq( len(core.getTufosByTag('inet:fqdn', 'foo')), 1)
+
+    def test_cortex_addmodel(self):
+        with s_cortex.openurl('ram://') as core:
+            core.addDataModel('a.foo.module',
+                {
+                    'prefix':'foo',
+                    'version':201612201147,
+
+                    'types':(
+                        ('foo:bar',{'subof':'str:lwr'}),
+                    ),
+
+                    'forms':(
+                        ('foo:baz',{'ptype':'foo:bar'},[
+                            ('faz',{'ptype':'str:lwr'}),
+                        ]),
+                    ),
+                })
+
+            tuf0 = core.formTufoByFrob('foo:baz', 'AAA', faz='BBB')
+            self.eq( tuf0[1].get('foo:baz'), 'aaa' )
+            self.eq( tuf0[1].get('foo:baz:faz'), 'bbb' )
+
+            self.assertIsNotNone( core.getTufoByProp('syn:model', 'a.foo.module') )
+            self.assertIsNotNone( core.getTufoByProp('syn:type', 'foo:bar') )
+            self.assertIsNotNone( core.getTufoByProp('syn:form', 'foo:baz') )
+            self.assertIsNotNone( core.getTufoByProp('syn:prop', 'foo:baz:faz') )
+
+        with s_cortex.openurl('ram://') as core:
+            core.addDataModels([('a.foo.module',
+                {
+                    'prefix':'foo',
+                    'version':201612201147,
+
+                    'types':(
+                        ('foo:bar',{'subof':'str:lwr'}),
+                    ),
+
+                    'forms':(
+                        ('foo:baz',{'ptype':'foo:bar'},[
+                            ('faz',{'ptype':'str:lwr'}),
+                        ]),
+                    ),
+                })])
+
+            tuf0 = core.formTufoByFrob('foo:baz', 'AAA', faz='BBB')
+            self.eq( tuf0[1].get('foo:baz'), 'aaa' )
+            self.eq( tuf0[1].get('foo:baz:faz'), 'bbb' )
+
+            self.assertIsNotNone( core.getTufoByProp('syn:model', 'a.foo.module') )
+            self.assertIsNotNone( core.getTufoByProp('syn:type', 'foo:bar') )
+            self.assertIsNotNone( core.getTufoByProp('syn:form', 'foo:baz') )
+            self.assertIsNotNone( core.getTufoByProp('syn:prop', 'foo:baz:faz') )
+
