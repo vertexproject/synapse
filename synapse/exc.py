@@ -28,6 +28,8 @@ class BadMesgVers(SynErr):pass
 class BadInfoValu(SynErr):pass
 class BadStorValu(SynErr):pass
 
+class NoAuthUser(SynErr):pass
+
 class WebAppErr(SynErr):pass
 
 class SyntaxError(SynErr):pass
