@@ -5,6 +5,8 @@ from synapse.compat import isint,intern
 
 class Cortex(common.Cortex):
 
+    IN_SET_THRESHOLD = 12
+
     def _initCortex(self):
         self.rowsbyid = collections.defaultdict(set)
         self.rowsbyprop = collections.defaultdict(set)
@@ -15,6 +17,9 @@ class Cortex(common.Cortex):
 
         self.initSizeBy('le',self._sizeByLe)
         self.initRowsBy('le',self._rowsByLe)
+
+        self.initSizeBy('in',self._sizeByIn)
+        self.initRowsBy('in',self._rowsByIn)
 
         self.initSizeBy('range',self._sizeByRange)
         self.initRowsBy('range',self._rowsByRange)
@@ -40,6 +45,19 @@ class Cortex(common.Cortex):
 
     def _rowsByLe(self, prop, valu, limit=None):
         return [ r for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] <= valu ][:limit]
+
+    def _sizeByIn(self, prop, valu, limit=None):
+        size = len(self._genByIn(prop, valu))
+        if limit != None and size > limit:
+            return limit
+        return size
+
+    def _rowsByIn(self, prop, valu, limit=None):
+        return self._genByIn(prop, valu)[:limit]
+
+    def _genByIn(self, prop, valu):
+        lookup = set(valu) if len(valu) > self.IN_SET_THRESHOLD else valu
+        return [ r for r in self.rowsbyprop.get(prop,()) if r[2] in lookup ]
 
     def _addRows(self, rows):
         for row in rows:

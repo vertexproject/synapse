@@ -126,6 +126,9 @@ class Cortex(s_c_sqlite.Cortex):
 
         limit = self._getDbLimit(limit)
 
+        if not len(valus):
+            return []
+
         if type(valus[0]) == int:
             q = self._q_getjoin_by_in_int
         else:

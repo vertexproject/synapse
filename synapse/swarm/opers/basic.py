@@ -109,33 +109,17 @@ class ByMix:
                 tufo[1]['.from'] = svcfo[0]
                 self.query.add(tufo)
 
-class ByOper(s_opers_common.Oper,ByMix):
-    pass
+class ByOper(s_opers_common.CmpOper,ByMix):
 
-class RangeOper(s_opers_common.CmpOper,ByMix):
-
-    def getByPropValu(self):
-        return 'range',self.args[0],self.args[1]
-
-    def _oper_lift(self):
-
-        rtup = self.getLiftRange()
+    def getCmpFunc(self):
 
         prop = self.args[0]
-        rtup = self.getLiftRange()
-        limt = self.kwargs.get('limit')
-        ftag = self.kwargs.get('from', s_opers_common.deftag)
+        valu = self.kwargs.get('valu')
 
-        dyntask = gentask('getTufosBy','range', prop, rtup, limit=limt)
+        def cmptufo(tufo):
+            return tufo[1].get(prop) in valu
 
-        # TODO: timeouts
-        for svcfo,tufos in self.query.callByTag(ftag, dyntask):
-            for tufo in tufos:
-                tufo[1]['.from'] = svcfo[0]
-                self.query.add(tufo)
-
-    def getLiftRange(self):
-        pass
+        return cmptufo
 
 class LtOper(s_opers_common.CmpOper,ByMix):
 
@@ -210,25 +194,15 @@ class JoinOper(s_opers_common.Oper):
             raise Exception('join() syntax error: %d args (needs 1 or 2)' % len)
 
     def _oper_lift(self):
-        
         ftag = self.kwargs.get('from',s_opers_common.deftag)
 
         newprop = self.args[0]
         curprop = self.args[-1]
 
-        tufos = self.query.data()
+        values = [tufo[1].get(curprop) for tufo in self.query.data() if tufo[1].get(curprop) != None]
+        for join in self.query.joinTufosByPropFrom(newprop,values,fromtag=ftag):
+            self.query.add(join)
 
-        vals = set()
-        for tufo in self.query.data():
-            valu = tufo[1].get(curprop)
-            if valu == None:
-                continue
-
-            vals.add(valu)
-
-        for valu in vals:
-            for tufo in self.query.getTufosByPropFrom(newprop,valu=valu,fromtag=ftag):
-                self.query.add(tufo)
 
 class PivotOper(s_opers_common.Oper):
 

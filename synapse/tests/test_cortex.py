@@ -236,6 +236,24 @@ class CortexTest(SynTest):
         self.assertEqual( t1, ('foo','foo.bar'))
         self.assertEqual( t2, ('foo','foo.bar','foo.bar.baz'))
 
+    def test_cortex_tufo_by_ram(self):
+        core = s_cortex.openurl('ram:///')
+
+        core.formTufoByProp('foo','bar',p0=4)
+        core.formTufoByProp('foo','baz',p0=5)
+
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4])), 1)
+
+        core.formTufoByProp('foo','faz',p0=5)
+        core.formTufoByProp('foo','haz',p0=6)
+        core.formTufoByProp('foo','gaz',p0=7)
+
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5])), 2)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5,6,7], limit=4)), 4)
+        self.assertEqual( core.getSizeBy('in', 'foo:p0', [4,5,6,7], limit=4), 4)
+        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
+
     def test_cortex_tufo_by_default(self):
         core = s_cortex.openurl('sqlite:///:memory:')
 
