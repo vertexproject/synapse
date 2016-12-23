@@ -394,7 +394,6 @@ class CortexTest(SynTest):
 
     def test_cortex_tufo_frob(self):
         with s_cortex.openurl('ram://') as core:
-            core.addTufoForm('inet:ipv4', ptype='inet:ipv4')
             core.addTufoProp('inet:ipv4', 'five', ptype='inet:ipv4')
 
             iden, props = core.formTufoByFrob('inet:ipv4', 0x01020304, five='5.5.5.5')
