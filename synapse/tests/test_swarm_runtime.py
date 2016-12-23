@@ -348,7 +348,6 @@ class SwarmRunTest(SwarmRunBase):
 
         env = self.getSwarmEnv()
 
-        env.core0.addTufoForm('inet:ipv4', ptype='inet:ipv4')
         env.core0.formTufoByProp('inet:ipv4', 0x01020304)
 
         answ = env.runt.ask('inet:ipv4="1.2.3.4"') #foo:bar="baz" save("woot") clear() load("woot")')
