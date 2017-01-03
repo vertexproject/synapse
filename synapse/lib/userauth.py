@@ -1,7 +1,9 @@
 import hashlib
 import fnmatch
 
+import synapse.cortex as s_cortex
 import synapse.lib.cache as s_cache
+import synapse.lib.threads as s_threads
 
 from synapse.common import *
 from synapse.eventbus import EventBus
@@ -276,3 +278,75 @@ class UserAuth(EventBus):
             raise NoSuchRole(role)
         return rofo
 
+def opencore(url,**opts):
+    '''
+    Construct a UserAuth object around the given cortex URL.
+    '''
+    core = s_cortex.openurl(url,**opts)
+    return UserAuth(core)
+
+def getSynUser():
+    '''
+    Return the name of the current synapse user for this thread.
+
+    Example:
+
+        name = s_userauth.getSynUser()
+
+    '''
+    return s_threads.local('syn:user')
+
+def getSynAuth():
+    '''
+    Return the current UserAuth object for the current thread.
+
+    Example:
+
+        auth = s_userauth.getSynAuth()
+
+    '''
+    return s_threads.local('syn:auth')
+
+def amIAllowed(rule, onnone=False):
+    '''
+    Retuns True if the current synapse user and UserAuth allow the
+    user access via the given rule.  If there is not currently a
+    UserAuth for the calling thread, the onnone value is returned,
+    allowing a "default allow" or "default deny" stance.
+
+    Example:
+
+        if s_userauth.amIAllowed('foo:bar:baz'):
+            doFooBarBaz()
+
+    '''
+    auth = getSynAuth()
+    if auth == None:
+        return onnone
+
+    # if we have an auth and user is None, deny.
+    # ( it's probably a code / scope error )
+    user = getSynUser()
+    if user == None:
+        return False
+
+    return auth.isUserAllowed(user,rule)
+
+def asSynUser(user, auth=None, **locs):
+    '''
+    Construct and return a with-block object which runs as the given
+    synapse user name. Locs may be optionally populated with additional
+    items to be added to the LocalScope instance.
+
+    Example:
+
+        import synapse.lib.userauth as s_userauth
+
+        s_userauth.asSynUser('visi@localhost'):
+            # calls from here down may use check user/perms
+            dostuff()
+
+    '''
+    locs['syn:user'] = user
+    locs['syn:auth'] = auth
+    return s_threads.scope(locs)

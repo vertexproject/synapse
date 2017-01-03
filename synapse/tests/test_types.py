@@ -342,3 +342,30 @@ class DataTypesTest(SynTest):
         with s_cortex.openurl('ram:///') as core:
             core.addType('foo:bar',subof='inet:ipv4')
             self.assertIsNotNone( core.getTypeInfo('foo:bar','ex') )
+
+    def test_type_sepr_reverse(self):
+        tlib = s_types.TypeLib()
+
+        tlib.addType('foo',subof='sepr',sep='/',fields='first,str:lwr|rest,str:lwr',reverse=1)
+        foo = tlib.getTypeChop('foo','/home/user/Downloads')
+        self.eq( foo[1].get('first'), '/home/user' )
+        self.eq( foo[1].get('rest'), 'downloads' )
+
+    def test_type_comp_recursive(self):
+        tlib = s_types.TypeLib()
+
+        tlib.addType('path',subof='sepr',sep='/',fields='dirname,path|filename,str:lwr',reverse=1)
+        foo = tlib.getTypeChop('path','/home/user/Downloads')
+        self.eq( foo[1].get('dirname'), '/home/user' )
+        self.eq( foo[1].get('filename'), 'downloads' )
+
+        foo2 = tlib.getTypeChop('path','/home')
+        self.eq( foo2[1].get('dirname'), '' )
+        self.eq( foo2[1].get('filename'), 'home' )
+
+        foo3 = tlib.getTypeChop('path','/')
+        self.eq( foo3[1].get('dirname'), '' )
+        self.eq( foo3[1].get('filename'), '' )
+
+        self.assertRaises( BadTypeValu, tlib.getTypeChop, 'path', 'some-filename' )
+

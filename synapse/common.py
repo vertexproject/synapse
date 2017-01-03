@@ -11,13 +11,12 @@ import traceback
 
 from binascii import hexlify
 
+import synapse.exc as s_exc
+
 from synapse.exc import *
 from synapse.compat import enbase64, debase64, canstor
 
 def now():
-    return int(time.time())
-
-def millinow():
     return int( time.time() * 1000 )
 
 def guid():
@@ -51,6 +50,7 @@ def vertup(vstr):
 def genpath(*paths):
     path = os.path.join(*paths)
     path = os.path.expanduser(path)
+    path = os.path.expandvars(path)
     return os.path.abspath(path)
 
 def reqpath(*paths):
@@ -114,28 +114,32 @@ def excinfo(e):
     '''
     tb = sys.exc_info()[2]
     path,line,name,sorc = traceback.extract_tb(tb)[-1]
-    return {
+    ret = {
         'err':e.__class__.__name__,
         'errmsg':str(e),
         'errfile':path,
         'errline':line,
     }
 
+    if isinstance(e,SynErr):
+        ret['errinfo'] = e.errinfo
+
+    return ret
+
+def synerr(excname,**info):
+    '''
+    Return a SynErr exception.  If the given name
+    is not known, fall back on the base class.
+    '''
+    info['excname'] = excname
+    cls = getattr(s_exc,excname,s_exc.SynErr)
+    return cls(**info)
+
 def errinfo(name,mesg):
     return {
         'err':name,
         'errmsg':mesg,
-        #'errfile':path,
-        #'errline':line,
     }
-
-def tufoprops(tufo,pref=None):
-    if pref == None:
-        pref = tufo[1].get('tufo:form')
-
-    pref = '%s:' % (pref,)
-    plen = len(pref)
-    return { p[plen:]:v for (p,v) in tufo[1].items() if p.startswith(pref) }
 
 def chunks(item,size):
     '''

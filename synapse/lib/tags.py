@@ -53,14 +53,14 @@ def genTufoRows(tufo, tag, valu=None):
     '''
     Return a list of (tag,row) tuples for the given tag (and down).
     '''
-    now = s_common.millinow()
+    tick = s_common.now()
     if valu == None:
-        valu = now
+        valu = tick
 
     iden = tufo[0]
     form = tufo[1].get('tufo:form')
     props = [ (tag,'*|%s|%s' % (form,tag)) for tag in iterTagDown(tag) ]
-    return [ (tag, (iden,prop,valu,now)) for tag, prop in props if tufo[1].get(prop) == None ]
+    return [ (tag, (iden,prop,valu,tick)) for tag, prop in props if tufo[1].get(prop) == None ]
 
 def getTufoTags(tufo):
     '''

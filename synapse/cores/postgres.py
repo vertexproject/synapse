@@ -1,12 +1,13 @@
 import time
 import hashlib
 
-from . import sqlite as s_c_sqlite
+import synapse.cores.sqlite as s_c_sqlite
 
+import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
 
 def md5(x):
-    return hashlib.md5(x).hexdigest()
+    return hashlib.md5(x.encode('utf8')).hexdigest()
 
 class Cortex(s_c_sqlite.Cortex):
 
@@ -45,6 +46,8 @@ class Cortex(s_c_sqlite.Cortex):
 
     _t_getjoin_by_in_int = 'SELECT * FROM {{TABLE}} WHERE iden IN (SELECT iden FROM {{TABLE}} WHERE prop={{PROP}} and intval IN {{VALU}} LIMIT {{LIMIT}})'
     _t_getjoin_by_in_str = 'SELECT * FROM {{TABLE}} WHERE iden IN (SELECT iden FROM {{TABLE}} WHERE prop={{PROP}} and MD5(strval) IN {{VALU}} LIMIT {{LIMIT}})'
+
+    _t_getrows_by_idens = 'SELECT * FROM {{TABLE}} WHERE iden IN {{VALU}}'
 
     def _initDbConn(self):
         import psycopg2
@@ -126,7 +129,7 @@ class Cortex(s_c_sqlite.Cortex):
 
         limit = self._getDbLimit(limit)
 
-        if type(valus[0]) == int:
+        if s_compat.isint(valus[0]):
             q = self._q_getjoin_by_in_int
         else:
             q = self._q_getjoin_by_in_str
@@ -136,10 +139,15 @@ class Cortex(s_c_sqlite.Cortex):
         rows = self._foldTypeCols(rows)
         return self._rowsToTufos(rows)
 
+    def _getTufosByIdens(self, idens):
+        rows = self.select( self._q_getrows_by_idens, valu=tuple(idens) )
+        rows = self._foldTypeCols(rows)
+        return self._rowsToTufos(rows)
+
     def _initCorQueries(self):
         s_c_sqlite.Cortex._initCorQueries(self)
-        #self._q_istable = self._t_istable
 
+        self._q_getrows_by_idens = self._prepQuery(self._t_getrows_by_idens)
         self._q_getjoin_by_in_int = self._prepQuery(self._t_getjoin_by_in_int)
         self._q_getjoin_by_in_str = self._prepQuery(self._t_getjoin_by_in_str)
 

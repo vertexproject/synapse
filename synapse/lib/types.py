@@ -229,14 +229,21 @@ class CompType(DataType):
         self.fields = []
         self.subprops = []
 
-        for name,tnam in fields:
-            tobj = self.tlib.reqDataType(tnam)
-            self.fields.append((name,tobj))
+        for fname,tnam in fields:
+            if tnam == name:
+                # this is a recursive type, so can't fetch its definition yet.
+                # fortunately, that definition is us!
+                tobj = self
+            else:
+                tobj = self.tlib.reqDataType(tnam)
+            self.fields.append((fname,tobj))
 
-            self.subprops.append( tufo(name,ptype=tnam) )
-            for subp in tobj.subs():
-                subn = '%s:%s' % (name,subp[0])
-                self.subprops.append( tufo(subn,**subp[1]) )
+            self.subprops.append( tufo(fname,ptype=tnam) )
+            if tnam != name:
+                # don't support subprops on recursive fields, or we'll infinite loop.
+                for subp in tobj.subs():
+                    subn = '%s:%s' % (fname,subp[0])
+                    self.subprops.append( tufo(subn,**subp[1]) )
 
     def norm(self, valu, oldval=None):
         # NOTE: handles both b64 blob *and* (text,text,text) list/tuple.
@@ -304,6 +311,7 @@ class SeprType(CompType):
         CompType.__init__(self, tlib, name, **info)
         self.sepr = info.get('sep',',')
         self.lower = info.get('lower',0)
+        self.reverse = info.get('reverse',0)
 
     def norm(self, valu, oldval=None):
         reprs = []
@@ -311,9 +319,17 @@ class SeprType(CompType):
         if self.lower:
             valu = valu.lower()
 
-        parts = valu.split(self.sepr,len(self.fields))
+        if self.reverse:
+            parts = valu.rsplit(self.sepr,len(self.fields)-1)
+        else:
+            parts = valu.split(self.sepr,len(self.fields)-1)
+
         for part,(name,tobj) in self._zipvals(parts):
-            reprs.append( tobj.repr(tobj.parse(part)) )
+            if tobj == self:
+                # do not recursively norm
+                reprs.append(part)
+            else:
+                reprs.append( tobj.repr(tobj.parse(part)) )
         return self.sepr.join(reprs)
 
     def repr(self, valu):
@@ -321,18 +337,26 @@ class SeprType(CompType):
 
     def chop(self, valu):
         subs = {}
-        parts = valu.split(self.sepr,len(self.fields))
+        if self.reverse:
+            parts = valu.rsplit(self.sepr,len(self.fields)-1)
+        else:
+            parts = valu.split(self.sepr,len(self.fields)-1)
 
         if self.lower:
             valu = valu.lower()
 
         reprs = []
+
         for part,(name,tobj) in self._zipvals(parts):
 
-            norm = tobj.parse(part)
-            norm,nsub = tobj.chop(norm)
-
-            reprs.append(tobj.repr(norm))
+            if tobj == self:
+                # do not recursively chop
+                norm, nsub = part, {}
+                reprs.append(norm)
+            else:
+                norm = tobj.parse(part)
+                norm,nsub = tobj.chop(norm)
+                reprs.append(tobj.repr(norm))
 
             subs[name] = norm
             for subn,subv in nsub.items():
@@ -395,7 +419,7 @@ class TypeLib:
 
         # add base synapse types
         self.addType('syn:tag',subof='str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
-        self.addType('syn:prop',subof='str', regex=r'^([\w]+:)*[\w]+$', lower=1)
+        self.addType('syn:prop',subof='str', regex=r'^([\w]+:)*([\w]+|\*)$', lower=1)
         self.addType('syn:type',subof='str', regex=r'^([\w]+:)*[\w]+$', lower=1)
         self.addType('syn:glob',subof='str', regex=r'^([\w]+:)*[\w]+:\*$', lower=1)
 
@@ -527,6 +551,8 @@ class TypeLib:
                 return True
 
             except Exception as e:
+                logger.warning('failed to ctor type %s', name)
+                logger.debug('failed to ctor type %s', name, exc_info=True)
                 self.typeinfo.pop(name,None)
         try:
 

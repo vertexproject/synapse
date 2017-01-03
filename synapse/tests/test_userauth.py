@@ -74,3 +74,36 @@ class UserAuthTest(SynTest):
 
         auth.fini()
         core.fini()
+
+    def test_userauth_scope(self):
+        core = s_cortex.openurl('ram:///')
+        auth = s_userauth.UserAuth(core)
+
+        auth.addUser('visi')
+        auth.addUserRule('visi','foo:*')
+
+        self.eq( s_userauth.getSynUser(), None )
+        self.eq( s_userauth.getSynAuth(), None )
+
+        self.assertFalse( s_userauth.amIAllowed('foo:bar') )
+        self.assertTrue( s_userauth.amIAllowed('foo:bar', onnone=True) )
+
+        with s_userauth.asSynUser('visi',auth=auth):
+
+            self.eq( s_userauth.getSynUser(), 'visi' )
+            self.assertIsNotNone( s_userauth.getSynAuth() )
+
+            self.assertTrue( s_userauth.amIAllowed('foo:bar') )
+            self.assertFalse( s_userauth.amIAllowed('derp:bar') )
+
+        self.eq( s_userauth.getSynUser(), None )
+        self.eq( s_userauth.getSynAuth(), None )
+
+        with s_userauth.asSynUser('newp',auth=auth):
+
+            self.eq( s_userauth.getSynUser(), 'newp' )
+            self.assertIsNotNone( s_userauth.getSynAuth() )
+            self.assertRaises( NoSuchUser, s_userauth.amIAllowed, 'foo:bar' )
+
+        self.eq( s_userauth.getSynUser(), None )
+        self.eq( s_userauth.getSynAuth(), None )

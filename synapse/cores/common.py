@@ -15,6 +15,7 @@ import synapse.reactor as s_reactor
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.tags as s_tags
+import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
 import synapse.lib.cache as s_cache
 import synapse.lib.threads as s_threads
@@ -22,12 +23,11 @@ import synapse.lib.modules as s_modules
 
 from synapse.common import *
 from synapse.eventbus import EventBus
+from synapse.lib.storm import Runtime
 from synapse.datamodel import DataModel
-from synapse.lib.config import ConfigMixin
+from synapse.lib.config import Configable
 
 logger = logging.getLogger(__name__)
-
-class NoSuchGetBy(Exception):pass
 
 def chunked(n, iterable):
     it = iter(iterable)
@@ -38,6 +38,14 @@ def chunked(n, iterable):
 
        yield chunk
 
+def reqiden(tufo):
+    '''
+    Raise an exception if the given tufo is ephemeral.
+    '''
+    if tufo[0] == None:
+        raise NoSuchTufo(iden=None)
+    return tufo[0]
+
 def reqstor(name,valu):
     '''
     Raise BadPropValue if valu is not cortex storable.
@@ -46,13 +54,14 @@ def reqstor(name,valu):
         raise BadPropValu(name=name,valu=valu)
     return valu
 
-class Cortex(EventBus,DataModel,ConfigMixin):
+class Cortex(EventBus,DataModel,Runtime,Configable):
     '''
     Top level Cortex key/valu storage object.
     '''
     def __init__(self, link):
+        Runtime.__init__(self)
         EventBus.__init__(self)
-        ConfigMixin.__init__(self)
+        Configable.__init__(self)
 
         self.noauto = {'syn:form','syn:type','syn:prop'}
         self.addConfDef('autoadd',type='bool',asloc='autoadd',defval=1,doc='Automatically add forms for props where type is form')
@@ -180,6 +189,10 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         self.splicers['tufo:tag:add'] = self._spliceTufoTagAdd
         self.splicers['tufo:tag:del'] = self._spliceTufoTagDel
 
+        self.initTufosBy('eq',self._tufosByEq)
+        self.initTufosBy('in',self._tufosByIn)
+        self.initTufosBy('has',self._tufosByHas)
+        self.initTufosBy('tag',self._tufosByTag)
         self.initTufosBy('inet:cidr',self._tufosByInetCidr)
 
         # process a savefile/savefd if we have one
@@ -216,6 +229,10 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             if exc != None:
                 logger.warning('%s.addCoreOns: %s' % (name,exc))
 
+    # over-ride to allow the storm runtime to lift/join/pivot tufos
+    def _stormTufosBy(self, by, prop, valu=None, limit=None):
+        return self.getTufosBy(by, prop, valu=valu, limit=limit)
+
     def _saveCoreModel(self):
         '''
         Store all types/forms/props from the given data models in the cortex.
@@ -229,6 +246,43 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
             mofos.append((name,modl))
 
+        self.addDataModels(mofos)
+
+    def _loadCoreModel(self):
+        for item in self.getTufosByProp('syn:type'):
+            self._initTypeTufo(item)
+
+        for item in self.getTufosByProp('syn:form'):
+            self._initFormTufo(item)
+
+        for item in self.getTufosByProp('syn:prop'):
+            self._initPropTufo(item)
+
+    def addDataModels(self, mofos):
+        '''
+        Store all types/forms/props from the given data models in the cortex.
+        `mofos` is a sequence of tuples (module name, model dict).
+
+        Example:
+
+            core.addDataModels([
+                ('synapse.models.foo',
+                 {
+                    'prefix':'foo',
+                    'version':201612231411,
+
+                    'types':( ('foo:g',{'subof':'guid'}), ),
+
+                    'forms':(
+                        ('foo:f',{'ptype':'foo:g','doc':'a foo'},[
+                            ('a',{'ptype':'str:lwr'}),
+                            ('b',{'ptype':'int'}),
+                        ]),
+                    ),
+                 }),
+                 ...
+            ])
+        '''
         for modname,modl in mofos:
             vers = modl.get('version',0)
             item = self.formTufoByProp('syn:model',modname,version=vers)
@@ -247,15 +301,28 @@ class Cortex(EventBus,DataModel,ConfigMixin):
                     fullprop = '%s:%s' % (name,prop)
                     self.formTufoByProp('syn:prop',fullprop,**pnfo)
 
-    def _loadCoreModel(self):
-        for item in self.getTufosByProp('syn:type'):
-            self._initTypeTufo(item)
+    def addDataModel(self, modname, modl):
+        '''
+        Store all types/forms/props from the given data model in the cortex.
 
-        for item in self.getTufosByProp('syn:form'):
-            self._initFormTufo(item)
+        Example:
 
-        for item in self.getTufosByProp('syn:prop'):
-            self._initPropTufo(item)
+            core.addDataModel('synapse.models.foo',
+                              {
+                                'prefix':'foo',
+                                'version':201612231411,
+
+                                'types':( ('foo:g',{'subof':'guid'}), ),
+
+                                'forms':(
+                                    ('foo:f',{'ptype':'foo:g','doc':'a foo'},[
+                                        ('a',{'ptype':'str:lwr'}),
+                                        ('b',{'ptype':'int'}),
+                                    ]),
+                                ),
+                              })
+        '''
+        return self.addDataModels([(modname, modl)])
 
     def _getTufosByCache(self, prop, valu, limit):
         # only used if self.caching = 1
@@ -470,7 +537,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         item = self.getTufoByProp(form,valu=valu)
         if item == None:
-            raise NoSuchTufo('%s=%r' % (form,valu))
+            raise NoSuchTufo(form=form,valu=valu)
 
         oval = item[1].get(fullprop)
         if oval == pval:
@@ -491,7 +558,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         item = self.getTufoByProp(form,valu=valu)
         if item == None:
-            raise NoSuchTufo('%s=%r' % (form,valu))
+            raise NoSuchTufo(form=form,valu=valu)
 
         props['on:%s' % form] = valu
         props['status'] = 'done'
@@ -511,7 +578,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         item = self.getTufoByProp(form,valu)
         if item == None:
-            raise NoSuchTufo('%s=%r' % (form,valu))
+            raise NoSuchTufo(form=form,valu=valu)
 
         if s_tags.tufoHasTag(item,tag):
             return None,item
@@ -534,7 +601,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         item = self.getTufoByProp(form,valu)
         if item == None:
-            raise NoSuchTufo('%s=%r' % (form,valu))
+            raise NoSuchTufo(form=form,valu=valu)
 
         if not s_tags.tufoHasTag(item,tag):
             return None,item
@@ -591,7 +658,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         '''
         props['user'] = user
         props['action'] = act
-        props['reqtime'] = millinow()
+        props['reqtime'] = now()
 
         props.update( dict(self._primToProps('act', actinfo)) )
 
@@ -796,11 +863,11 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         Example:
 
             import time
-            now = millinow()
+            tick = now()
 
             rows = [
-                (id1,'baz',30,now),
-                (id1,'foo','bar',now),
+                (id1,'baz',30,tick),
+                (id1,'foo','bar',tick),
             ]
 
             core.addRows(rows)
@@ -815,15 +882,15 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
     def addListRows(self, prop, *vals):
         '''
-        Add rows by making a guid for each and using millinow().
+        Add rows by making a guid for each and using now().
 
         Example:
 
             core.addListRows('foo:bar',[ 1, 2, 3, 4])
 
         '''
-        now = millinow()
-        rows = [ (guid(), prop, valu, now) for valu in vals ]
+        tick = millinow()
+        rows = [ (guid(), prop, valu, tick) for valu in vals ]
         self.addRows(rows)
         return rows
 
@@ -858,16 +925,18 @@ class Cortex(EventBus,DataModel,ConfigMixin):
               tufo to indicate that the list is present.
 
         '''
+        reqiden(tufo)
+
         rows = []
-        now = millinow()
+        tick = now()
         prop = '%s:list:%s' % (tufo[0],name)
 
         haslist = 'tufo:list:%s' % name
         if tufo[1].get(haslist) == None:
             tufo[1][haslist] = 1
-            rows.append( ( tufo[0], haslist, 1, now) )
+            rows.append( ( tufo[0], haslist, 1, tick) )
 
-        [ rows.append( (guid(),prop,v,now) ) for v in vals ]
+        [ rows.append( (guid(),prop,v,tick) ) for v in vals ]
 
         self.addRows( rows )
 
@@ -1031,7 +1100,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         if not meth:
             rows = self.getRowsBy(name,prop,valu,limit=limit)
-            return [ self.getTufoById(row[0]) for row in rows ]
+            return [ self.getTufoByIden(row[0]) for row in rows ]
 
         return meth(prop, valu, limit=limit)
 
@@ -1124,13 +1193,13 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         '''
         self.sizebymeths[name] = meth
 
-    def getTufoById(self, iden):
+    def getTufoByIden(self, iden):
         '''
         Retrieve a tufo by id.
 
         Example:
 
-            tufo = core.getTufoById(iden)
+            tufo = core.getTufoByIden(iden)
 
         '''
         if self.caching:
@@ -1143,6 +1212,27 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             return None
 
         return (iden,{ p:v for (i,p,v,t) in rows })
+
+    def getTufosByIdens(self, idens):
+        '''
+        Return a list of tufos for the given iden GUIDs.
+
+        Exmple:
+
+            tufos = core.getTufosByIdens(idens)
+
+        '''
+        return self._getTufosByIdens(idens)
+
+    def _getTufosByIdens(self, idens):
+        # storage layers may optimize here!
+        ret = []
+        for iden in idens:
+            tufo = self.getTufoByIden(iden)
+            if tufo == None:
+                continue
+            ret.append(tufo)
+        return ret
 
     def getTufoByProp(self, prop, valu=None):
         '''
@@ -1225,7 +1315,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         '''
         if valu != None:
-            valu =self.getPropFrob(prop,valu)
+            valu = self.getPropFrob(prop,valu)
 
         return self.getTufosByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
 
@@ -1270,6 +1360,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             core.addTufoTag(tufo,'baz.faz')
 
         '''
+        reqiden(tufo)
         self._genTufoTag(tag)
         rows = s_tags.genTufoRows(tufo,tag,valu=asof)
         if rows:
@@ -1293,7 +1384,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             core.delTufoTag(tufo,'baz')
 
         '''
-        iden = tufo[0]
+        iden = reqiden(tufo)
         props = s_tags.getTufoSubs(tufo,tag)
         if props:
             formevt = 'tufo:tag:del:%s' % tufo[1].get('tufo:form') 
@@ -1313,7 +1404,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         return tufo
 
-    def getTufosByTag(self, form, tag):
+    def getTufosByTag(self, form, tag, limit=None):
         '''
         Retrieve a list of tufos by form and tag.
 
@@ -1324,7 +1415,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         '''
         prop = '*|%s|%s' % (form,tag)
-        return self.getTufosByProp(prop)
+        return self.getTufosByProp(prop,limit=limit)
 
     def addTufoKeys(self, tufo, keyvals, stamp=None):
         '''
@@ -1332,8 +1423,9 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         Note: only use this API if you really know how it effects your model.
         '''
+        iden = reqiden(tufo)
         if stamp == None:
-            stamp = millinow()
+            stamp = now()
 
         rows = []
         form = tufo[1].get('tufo:form')
@@ -1341,7 +1433,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             prop = '%s:%s' % (form,key)
             valu = self.getPropNorm(prop,val)
 
-            rows.append( (tufo[0], prop, valu, stamp) )
+            rows.append( (iden, prop, valu, stamp) )
 
         self.addRows(rows)
 
@@ -1442,7 +1534,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         '''
         if tstamp == None:
-            tstamp = millinow()
+            tstamp = now()
 
         for chunk in chunked(100,items):
 
@@ -1530,7 +1622,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
 
         '''
         alladd = set()
-        nowstamp = millinow()
+        nowstamp = now()
 
         ret = []
         for chunk in chunked(1000,propss):
@@ -1618,7 +1710,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
                 return tufo
 
             iden = guid()
-            stamp = millinow()
+            stamp = now()
 
             props.update(subs)
 
@@ -1814,6 +1906,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
             tufo = core.setTufoProps(tufo, woot='hehe', blah=10)
 
         '''
+        reqiden(tufo)
         # add tufo form prefix to props
         form = tufo[1].get('tufo:form')
         props = { '%s:%s' % (form,p):v for (p,v) in props.items() }
@@ -1889,7 +1982,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         with self.inclock:
             rows = self._getRowsByIdProp(iden,prop)
             if len(rows) == 0:
-                raise NoSuchTufo(repr(tufo))
+                raise NoSuchTufo(iden=iden,prop=prop)
 
             oldv = rows[0][2]
             valu = oldv + incval
@@ -1955,19 +2048,19 @@ class Cortex(EventBus,DataModel,ConfigMixin):
     def _reqSizeByMeth(self, name):
         meth = self.sizebymeths.get(name)
         if meth == None:
-            raise NoSuchGetBy(name)
+            raise NoSuchGetBy(name=name)
         return meth
 
     def _reqRowsByMeth(self, name):
         meth = self.rowsbymeths.get(name)
         if meth == None:
-            raise NoSuchGetBy(name)
+            raise NoSuchGetBy(name=name)
         return meth
 
     def _setRowsByIdProp(self, iden, prop, valu):
         # base case is delete and add
         self._delRowsByIdProp(iden, prop)
-        rows = [ (iden, prop, valu, millinow()) ]
+        rows = [ (iden, prop, valu, now()) ]
         self.addRows(rows)
 
     def _calcStatSum(self, rows):
@@ -2050,7 +2143,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         Initialize a TypeLib Type from syn:type tufo
         '''
         name = tufo[1].get('syn:type')
-        info = tufoprops(tufo)
+        info = s_tufo.props(tufo)
 
         self.addType(name,**info)
 
@@ -2059,7 +2152,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         Initialize a DataModel Form from syn:form tufo
         '''
         name = tufo[1].get('syn:form')
-        info = tufoprops(tufo)
+        info = s_tufo.props(tufo)
         # add the tufo definition to the DataModel
         self.addTufoForm(name,**info)
 
@@ -2068,7 +2161,7 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         Initialize a DataModel Prop from syn:prop tufo
         '''
         name = tufo[1].get('syn:prop')
-        info = tufoprops(tufo)
+        info = s_tufo.props(tufo)
 
         form = info.pop('form')
         prop = name[len(form)+1:]
@@ -2076,3 +2169,42 @@ class Cortex(EventBus,DataModel,ConfigMixin):
         self.addTufoProp(form, prop, **info)
         return
 
+    def _tufosByIn(self, prop, valus, limit=None):
+        ret = []
+
+        for valu in valus:
+            res = self.getTufosByProp(prop, valu=valu, limit=limit)
+            ret.extend(res)
+
+            if limit != None:
+                limit -= len(res)
+                if limit <= 0:
+                    break
+
+        return ret
+
+    # some helpers to allow *all* queries to be processed via getTufosBy()
+    def _tufosByEq(self, prop, valu, limit=None):
+        valu = self.getPropFrob(prop,valu)
+        return self.getTufosByProp(prop,valu=valu,limit=limit)
+
+    def _tufosByHas(self, prop, valu, limit=None):
+        return self.getTufosByProp(prop,limit=limit)
+
+    def _tufosByTag(self, prop, valu, limit=None):
+        return self.getTufosByTag(prop,valu,limit=limit)
+
+    # these helpers allow a storage layer to simply implement
+    # and register _getTufosByGe and _getTufosByLe 
+
+    def _rowsByLt(self, prop, valu, limit=None):
+        return self._rowsByLe(prop, valu-1, limit=limit)
+
+    def _rowsByGt(self, prop, valu, limit=None):
+        return self._rowsByGe(prop, valu+1, limit=limit)
+
+    def _tufosByLt(self, prop, valu, limit=None):
+        return self._tufosByLe(prop, valu-1, limit=limit)
+
+    def _tufosByGt(self, prop, valu, limit=None):
+        return self._tufosByGe(prop, valu+1, limit=limit)

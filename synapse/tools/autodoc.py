@@ -4,9 +4,9 @@ import collections
 
 import synapse.cortex as s_cortex
 import synapse.compat as s_compat
-import synapse.lib.output as s_output
 
-from synapse.common import tufoprops
+import synapse.lib.tufo as s_tufo
+import synapse.lib.output as s_output
 
 descr = '''
 Command line tool to generate various synapse documentation
@@ -78,18 +78,18 @@ def main(argv, outp=None):
 
         for tufo in core.getTufosByProp('syn:type'):
             name = tufo[1].get('syn:type')
-            info = tufoprops(tufo)
+            info = s_tufo.props(tufo)
             types.append( (name,info) )
 
         for tufo in core.getTufosByProp('syn:form'):
             name = tufo[1].get('syn:form')
-            info = tufoprops(tufo)
+            info = s_tufo.props(tufo)
             forms.append( (name,info) )
 
         for tufo in core.getTufosByProp('syn:prop'):
             prop = tufo[1].get('syn:prop')
             form = tufo[1].get('syn:prop:form')
-            info = tufoprops(tufo)
+            info = s_tufo.props(tufo)
             props[form].append( (prop,info) )
 
         types.sort()

@@ -6,8 +6,8 @@ import sqlite3
 import synapse.compat as s_compat
 import synapse.cores.common as common
 
+from synapse.common import now
 from synapse.compat import queue
-from synapse.common import millinow
 
 stashre = re.compile('{{([A-Z]+)}}')
 
@@ -184,6 +184,9 @@ class Cortex(common.Cortex):
     _t_getjoin_by_range_int = 'SELECT * FROM {{TABLE}} WHERE iden IN (SELECT iden FROM {{TABLE}} WHERE prop={{PROP}} and {{MINVALU}} <= intval AND intval < {{MAXVALU}} LIMIT {{LIMIT}})'
     _t_getjoin_by_range_str = 'SELECT * FROM {{TABLE}} WHERE iden IN (SELECT iden FROM {{TABLE}} WHERE prop={{PROP}} and {{MINVALU}} <= strval AND strval < {{MAXVALU}} LIMIT {{LIMIT}})'
 
+    _t_getjoin_by_le_int = 'SELECT * FROM {{TABLE}} WHERE iden IN (SELECT iden FROM {{TABLE}} WHERE prop={{PROP}} and intval <= {{VALU}} LIMIT {{LIMIT}})'
+    _t_getjoin_by_ge_int = 'SELECT * FROM {{TABLE}} WHERE iden IN (SELECT iden FROM {{TABLE}} WHERE prop={{PROP}} and intval >= {{VALU}} LIMIT {{LIMIT}})'
+
     ################################################################################
     _t_deljoin_by_prop = 'DELETE FROM {{TABLE}} WHERE iden IN (SELECT iden FROM {{TABLE}} WHERE prop={{PROP}})'
     _t_deljoin_by_prop_int = 'DELETE FROM {{TABLE}} WHERE iden IN (SELECT iden FROM {{TABLE}} WHERE prop={{PROP}} AND intval={{VALU}})'
@@ -281,11 +284,16 @@ class Cortex(common.Cortex):
         self.initSizeBy('le',self._sizeByLe)
         self.initRowsBy('le',self._rowsByLe)
 
-        self.initTufosBy('in',self._tufosByIn)
-
         self.initSizeBy('range',self._sizeByRange)
         self.initRowsBy('range',self._rowsByRange)
+
+        self.initTufosBy('ge', self._tufosByGe)
+        self.initTufosBy('le', self._tufosByLe)
         self.initTufosBy('range',self._tufosByRange)
+
+        # borrow the helpers from common
+        self.initTufosBy('gt', self._tufosByGt)
+        self.initTufosBy('lt', self._tufosByLt)
 
         self.dbpool = self._link[1].get('dbpool')
         if self.dbpool == None:
@@ -470,6 +478,9 @@ class Cortex(common.Cortex):
         self._q_getjoin_by_range_str = self._prepQuery(self._t_getjoin_by_range_str)
         self._q_getjoin_by_range_int = self._prepQuery(self._t_getjoin_by_range_int)
 
+        self._q_getjoin_by_ge_int = self._prepQuery(self._t_getjoin_by_ge_int)
+        self._q_getjoin_by_le_int = self._prepQuery(self._t_getjoin_by_le_int)
+
     def _checkForTable(self, name):
         return len(self.select(self._q_istable, name=name))
 
@@ -532,20 +543,6 @@ class Cortex(common.Cortex):
         rows = self._runPropQuery('rowsbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
         return self._foldTypeCols(rows)
 
-    def _tufosByIn(self, prop, valus, limit=None):
-        ret = []
-
-        for valu in valus:
-            res = self.getTufosByProp(prop, valu=valu, limit=limit)
-            ret.extend(res)
-
-            if limit != None:
-                limit -= len(res)
-                if limit <= 0:
-                    break
-
-        return ret
-
     def _tufosByRange(self, prop, valu, limit=None):
 
         if len(valu) != 2:
@@ -559,6 +556,24 @@ class Cortex(common.Cortex):
 
         rows = self.select(self._q_getjoin_by_range_int, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)
         rows = self._foldTypeCols(rows)
+        return self._rowsToTufos(rows)
+
+    def _tufosByLe(self, prop, valu, limit=None):
+        valu = self.getPropFrob(prop,valu)
+        limit = self._getDbLimit(limit)
+
+        rows = self.select(self._q_getjoin_by_le_int, prop=prop, valu=valu, limit=limit)
+        rows = self._foldTypeCols(rows)
+
+        return self._rowsToTufos(rows)
+
+    def _tufosByGe(self, prop, valu, limit=None):
+        valu = self.getPropFrob(prop,valu)
+        limit = self._getDbLimit(limit)
+
+        rows = self.select(self._q_getjoin_by_ge_int, prop=prop, valu=valu, limit=limit)
+        rows = self._foldTypeCols(rows)
+
         return self._rowsToTufos(rows)
 
     def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None, nolim=False):
@@ -588,7 +603,7 @@ class Cortex(common.Cortex):
             count = self.update( self._q_uprows_by_iden_prop_str, iden=iden, prop=prop, valu=valu )
 
         if count == 0:
-            rows = [ (iden,prop,valu,millinow()), ]
+            rows = [ (iden,prop,valu,now()), ]
             self._addRows(rows)
 
     def _delRowsById(self, iden):

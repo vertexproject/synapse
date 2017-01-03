@@ -27,30 +27,34 @@ class CortexTest(SynTest):
         self.runcore( core )
         self.runjson( core )
         self.runrange( core )
+        self.runidens( core )
 
     def test_cortex_sqlite3(self):
         core = s_cortex.openurl('sqlite:///:memory:')
         self.runcore( core )
         self.runjson( core )
         self.runrange( core )
+        self.runidens( core )
 
     def test_cortex_postgres(self):
-        db = os.getenv('SYN_COR_PG_DB')
-        if db == None:
-            raise unittest.SkipTest('no SYN_COR_PG_DB')
-        if not db.startswith('postgres://'):
-            db = 'postgres:///%s' % (db)
-
-        table = 'syn_test_%s' % guid()
-        core = s_cortex.openurl(db + '/' + table)
-
-        try:
+        with self.getPgCore() as core:
             self.runcore( core )
             self.runjson( core )
             self.runrange( core )
-        finally:
-            with core.cursor() as c:
-                c.execute('DROP TABLE %s' % (table,))
+            self.runidens( core )
+
+    def runidens(self, core):
+        t0 = core.formTufoByProp('inet:ipv4', 0)
+        t1 = core.formTufoByProp('inet:ipv4', 0x01020304)
+        t2 = core.formTufoByProp('inet:ipv4', 0x7f000001)
+
+        # re-form to ditch things like .new=1
+        t0 = core.formTufoByProp('inet:ipv4', 0)
+        t1 = core.formTufoByProp('inet:ipv4', 0x01020304)
+        t2 = core.formTufoByProp('inet:ipv4', 0x7f000001)
+
+        idens = [ t0[0], t1[0], t2[0] ]
+        self.sorteq( core.getTufosByIdens(idens), [t0,t1,t2] )
 
     def runcore(self, core):
 
@@ -178,8 +182,6 @@ class CortexTest(SynTest):
         self.eq( tufo[1].get('zoot:suit:bar'), bigstr )
         self.eq( len( core.getTufosByProp('zoot:suit:bar',valu=bigstr) ), 1 )
 
-        core.fini()
-
     def runrange(self, core):
 
         rows = [
@@ -280,24 +282,19 @@ class CortexTest(SynTest):
         self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '192.168.0.0/16')), 2)
 
     def test_cortex_tufo_by_postgres(self):
-        db = os.getenv('SYN_COR_PG_DB')
-        if db == None:
-            raise unittest.SkipTest('no SYN_COR_PG_DB')
 
-        table = 'syn_test_%s' % guid()
+        with self.getPgCore() as core:
 
-        link = s_link.chopLinkUrl('postgres:///%s/%s' % (db,table))
-        core = s_cortex.openlink(link)
+            fooa = core.formTufoByProp('foo','bar',p0=4)
+            foob = core.formTufoByProp('foo','baz',p0=5)
 
-        fooa = core.formTufoByProp('foo','bar',p0=4)
-        foob = core.formTufoByProp('foo','baz',p0=5)
+            self.eq( len(core.getTufosBy('in', 'foo:p0', [4])), 1)
 
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4])), 1)
+            fooc = core.formTufoByProp('foo','faz',p0=5)
 
-        fooc = core.formTufoByProp('foo','faz',p0=5)
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5])), 2)
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
-        self.assertEqual( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
+            self.eq( len(core.getTufosBy('in', 'foo:p0', [5])), 2)
+            self.eq( len(core.getTufosBy('in', 'foo:p0', [4,5])), 3)
+            self.eq( len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
 
     def test_cortex_tufo_tag(self):
         core = s_cortex.openurl('ram://')
@@ -394,7 +391,6 @@ class CortexTest(SynTest):
 
     def test_cortex_tufo_frob(self):
         with s_cortex.openurl('ram://') as core:
-            core.addTufoForm('inet:ipv4', ptype='inet:ipv4')
             core.addTufoProp('inet:ipv4', 'five', ptype='inet:ipv4')
 
             iden, props = core.formTufoByFrob('inet:ipv4', 0x01020304, five='5.5.5.5')
@@ -891,9 +887,6 @@ class CortexTest(SynTest):
             self.eq( len(core.cache_byiden), 2 )
             self.eq( len(core.cache_byprop), 1 )
 
-            #self.eq( len(answ1), 1 )
-            #answ1 = core.getTufosByProp('foo', valu='bar')
-
     def test_cortex_caching_set(self):
 
         with s_cortex.openurl('ram://') as core:
@@ -1125,18 +1118,18 @@ class CortexTest(SynTest):
     def test_cortex_events(self):
         with s_cortex.openurl('ram://') as core:
 
-            now0 = millinow()
+            tick = now()
 
             tufo0 = core.addTufoEvent('foo', bar=10, baz='thing')
 
-            now1 = millinow()
+            tock = now()
 
             id0 = tufo0[0]
             rows = core.getRowsById(id0)
 
             self.assertEqual(len(rows), 4)
-            self.assertTrue(rows[0][-1] >= now0)
-            self.assertTrue(rows[0][-1] <= now1)
+            self.assertTrue(rows[0][-1] >= tick)
+            self.assertTrue(rows[0][-1] <= tock)
 
     def test_cortex_tlib_persistence(self):
         with self.getTestDir() as path:
@@ -1181,3 +1174,57 @@ class CortexTest(SynTest):
 
                     self.eq( len(core.getTufosByTag('inet:fqdn', 'foo.bar')), 0 )
                     self.eq( len(core.getTufosByTag('inet:fqdn', 'foo')), 1)
+
+    def test_cortex_addmodel(self):
+        with s_cortex.openurl('ram://') as core:
+            core.addDataModel('a.foo.module',
+                {
+                    'prefix':'foo',
+                    'version':201612201147,
+
+                    'types':(
+                        ('foo:bar',{'subof':'str:lwr'}),
+                    ),
+
+                    'forms':(
+                        ('foo:baz',{'ptype':'foo:bar'},[
+                            ('faz',{'ptype':'str:lwr'}),
+                        ]),
+                    ),
+                })
+
+            tuf0 = core.formTufoByFrob('foo:baz', 'AAA', faz='BBB')
+            self.eq( tuf0[1].get('foo:baz'), 'aaa' )
+            self.eq( tuf0[1].get('foo:baz:faz'), 'bbb' )
+
+            self.assertIsNotNone( core.getTufoByProp('syn:model', 'a.foo.module') )
+            self.assertIsNotNone( core.getTufoByProp('syn:type', 'foo:bar') )
+            self.assertIsNotNone( core.getTufoByProp('syn:form', 'foo:baz') )
+            self.assertIsNotNone( core.getTufoByProp('syn:prop', 'foo:baz:faz') )
+
+        with s_cortex.openurl('ram://') as core:
+            core.addDataModels([('a.foo.module',
+                {
+                    'prefix':'foo',
+                    'version':201612201147,
+
+                    'types':(
+                        ('foo:bar',{'subof':'str:lwr'}),
+                    ),
+
+                    'forms':(
+                        ('foo:baz',{'ptype':'foo:bar'},[
+                            ('faz',{'ptype':'str:lwr'}),
+                        ]),
+                    ),
+                })])
+
+            tuf0 = core.formTufoByFrob('foo:baz', 'AAA', faz='BBB')
+            self.eq( tuf0[1].get('foo:baz'), 'aaa' )
+            self.eq( tuf0[1].get('foo:baz:faz'), 'bbb' )
+
+            self.assertIsNotNone( core.getTufoByProp('syn:model', 'a.foo.module') )
+            self.assertIsNotNone( core.getTufoByProp('syn:type', 'foo:bar') )
+            self.assertIsNotNone( core.getTufoByProp('syn:form', 'foo:baz') )
+            self.assertIsNotNone( core.getTufoByProp('syn:prop', 'foo:baz:faz') )
+
