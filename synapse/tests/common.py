@@ -8,6 +8,8 @@ import contextlib
 
 logging.basicConfig(level=logging.WARNING)
 
+import synapse.cortex as s_cortex
+
 from synapse.eventbus import Waiter
 import synapse.lib.output as s_output
 import synapse.lib.thishost as s_thishost
@@ -48,6 +50,26 @@ class SynTest(unittest.TestCase):
     def getTestWait(self, bus, size, *evts):
         return Waiter(bus, size, *evts)
 
+    def getPgCore(self):
+        url = os.getenv('SYN_TEST_PG_URL')
+        if url != None:
+            return s_cortex.openurl(url)
+
+        db = os.getenv('SYN_TEST_PG_DB')
+        if db == None:
+            raise unittest.SkipTest('no SYN_TEST_PG_DB or SYN_TEST_PG_URL')
+
+        table = 'syn_test_%s' % guid()
+
+        core = s_cortex.openurl('postgres:///%s/%s' % (db,table))
+
+        def droptable():
+            with core.cursor() as c:
+                c.execute('DROP TABLE %s' % (table,))
+
+        core.onfini(droptable)
+        return core
+
     def getTestOutp(self):
         return s_output.OutPutStr()
 
@@ -70,8 +92,17 @@ class SynTest(unittest.TestCase):
     def eq(self, x, y):
         self.assertEqual(x,y)
 
+    def true(self, x):
+        self.assertTrue(x)
+
+    def false(self, x):
+        self.assertFalse(x)
+
     def nn(self, x):
         self.assertIsNotNone(x)
+
+    def sorteq(self, x, y):
+        return self.eq( sorted(x), sorted(y) )
 
 testdir = os.path.dirname(__file__)
 def getTestPath(*paths):

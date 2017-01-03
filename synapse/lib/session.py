@@ -1,6 +1,7 @@
 import fnmatch
 import threading
 
+import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.sched as s_sched
 
@@ -134,7 +135,7 @@ class Curator(EventBus):
         if sefo == None:
             return None
 
-        props = tufoprops(sefo)
+        props = s_tufo.props(sefo)
         return Sess(self,iden,**props)
 
     def _saveSessProp(self, iden, prop, valu):

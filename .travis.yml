@@ -16,7 +16,7 @@ before_script:
     - psql -c 'create database syn_test;' -U postgres
     - python -m synapse.tests.travis.before_script
 env:
-    - SYN_COR_PG_DB=syn_test
+    - SYN_TEST_PG_DB=syn_test
     - SYN_DOCKER=1
 matrix:
   exclude:

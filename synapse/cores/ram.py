@@ -16,8 +16,29 @@ class Cortex(common.Cortex):
         self.initSizeBy('le',self._sizeByLe)
         self.initRowsBy('le',self._rowsByLe)
 
+        self.initTufosBy('ge', self._tufosByGe)
+        self.initTufosBy('le', self._tufosByLe)
+
+        # use helpers from base class
+        self.initRowsBy('gt',self._rowsByGt)
+        self.initRowsBy('lt',self._rowsByLt)
+        self.initTufosBy('gt', self._tufosByGt)
+        self.initTufosBy('lt', self._tufosByLt)
+
         self.initSizeBy('range',self._sizeByRange)
         self.initRowsBy('range',self._rowsByRange)
+
+    def _tufosByGe(self, prop, valu, limit=None):
+        # FIXME sortedcontainers optimizations go here
+        valu = self.getPropFrob(prop,valu)
+        rows = self._rowsByGe(prop, valu, limit=limit)
+        return self.getTufosByIdens([ r[0] for r in rows ])
+
+    def _tufosByLe(self, prop, valu, limit=None):
+        # FIXME sortedcontainers optimizations go here
+        valu = self.getPropFrob(prop,valu)
+        rows = self._rowsByLe(prop, valu, limit=limit)
+        return self.getTufosByIdens([ r[0] for r in rows ])
 
     def _sizeByRange(self, prop, valu, limit=None):
         return sum( 1 for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= valu[0] and r[2] < valu[1] )

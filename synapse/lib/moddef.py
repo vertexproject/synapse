@@ -99,7 +99,10 @@ def getModDef(name):
     if mod == None:
         return None
 
-    modpath = abspath(mod.__file__)
+    modpath = getattr(mod,'__file__',None)
+    if modpath == None:
+        return None
+
     if modpath.endswith('.pyc'):
         modpath = modpath[:-1]
 

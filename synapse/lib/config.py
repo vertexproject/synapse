@@ -5,7 +5,7 @@ from synapse.exc import *
 from synapse.eventbus import EventBus
 from synapse.datamodel import getTypeFrob
 
-class ConfigMixin:
+class Configable:
 
     '''
     Config object base mixin to allow addition to objects which already inherit
@@ -140,7 +140,7 @@ class ConfigMixin:
 
         self.on('syn:conf:set:%s' % name, callback)
 
-class Config(ConfigMixin,EventBus):
+class Config(Configable,EventBus):
     def __init__(self, opts=None, defs=()):
         EventBus.__init__(self)
-        ConfigMixin.__init__(self,opts=opts,defs=defs)
+        Configable.__init__(self,opts=opts,defs=defs)

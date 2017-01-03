@@ -5,6 +5,11 @@ import synapse.exc
 from synapse.common import *
 from synapse.eventbus import EventBus
 
+'''
+This module implements syntax parsing for the storm runtime.
+( see synapse/lib/storm.py )
+'''
+
 whites = set(' \t\n')
 intset = set('01234567890abcdefx')
 varset = set('.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678910')
@@ -103,19 +108,28 @@ def parse_string(text,off,trim=True):
 
     return ''.join(vals),off
 
-def parse_macro(text,off=0,trim=True, mode='lift'):
+def parse_macro_filt(text,off=0,trim=True, mode='must'):
+
+    if trim:
+        _,off = nom(text,off,whites)
+
+    # special + #tag (without prop) based filter syntax
+    if nextchar(text,off,'#'):
+        _,off = nom(text,off,whites)
+        tag,off = nom(text,off+1,varset,trim=True)
+        oper = ('filt',{'cmp':'tag','mode':mode,'valu':tag})
+        return oper,off
+
+    ques,off = parse_ques(text,off,trim=trim)
+    ques['mode'] = mode
+    return ('filt',ques),off
+
+def parse_macro_lift(text,off=0,trim=True):
     '''
-    Parse a "lift" expression and return an inst,off tuple.
+    Parse a "lift" macro and return an inst,off tuple.
     '''
     ques,off = parse_ques(text,off,trim=trim)
-
-    cmpr = ques.get('cmp')
-    inst = (cmpr,{'args':[],'kwlist':[],'mode':mode})
-
-    inst[1]['args'].append( ques.pop('prop',None) )
-    inst[1]['kwlist'].extend( ques.items() )
-
-    return inst,off
+    return ('lift',ques),off
 
 def parse_opts(text,off=0):
     inst = ('opts',{'args':[],'kwlist':[]})
@@ -238,9 +252,8 @@ def parse_ques(text,off=0,trim=True):
         # NOTE: "by" macro syntax only supports eq so we eat and run
         if text[off] == '*':
 
-            ques['cmp'] = 'by'
-
-            ques['by'],off = nom(text,off+1,varset,trim=True)
+            #ques['cmp'] = 'by'
+            ques['cmp'],off = nom(text,off+1,varset,trim=True)
             if len(text) == off:
                 return ques,off
 
@@ -378,13 +391,13 @@ def parse(text, off=0):
 
         # must() macro syntax: +foo:bar="woot"
         if text[off] == '+':
-            inst,off = parse_macro(text,off+1,mode='must')
+            inst,off = parse_macro_filt(text,off+1,mode='must')
             ret.append(inst)
             continue
 
         # cant() macro syntax: -foo:bar=10
         if text[off] == '-':
-            inst,off = parse_macro(text,off+1,mode='cant')
+            inst,off = parse_macro_filt(text,off+1,mode='cant')
             ret.append(inst)
             continue
 
@@ -401,15 +414,15 @@ def parse(text, off=0):
                 raise synapse.exc.SyntaxError(mesg='logical and with no previous operator')
 
             prev = ret[-1]
+
+            if prev[0] != 'filt':
+                raise synapse.exc.SyntaxError(mesg='prev oper must be filter not: %r' % prev)
+
             mode = prev[1].get('mode')
+            inst,off = parse_macro_filt(text,off+1,mode=mode)
 
-            if mode not in ('cant','must'):
-                raise synapse.exc.SyntaxError(mesg='logical and previous mode: %s (must be must/cant)' % (mode,))
-
-            inst,off = parse_macro(text,off+1,mode=mode)
-
-            if prev[0] != 'and':
-                prev = ('and',{'args':[prev,],'kwlist':[],'mode':mode})
+            if prev[1].get('cmp') != 'and':
+                prev = ('filt',{'args':[prev,],'kwlist':[],'cmp':'and','mode':mode})
                 ret[-1] = prev
 
             prev[1]['args'].append(inst)
@@ -422,15 +435,15 @@ def parse(text, off=0):
                 raise synapse.exc.SyntaxError(mesg='logical or with no previous operator')
 
             prev = ret[-1]
+
+            if prev[0] != 'filt':
+                raise synapse.exc.SyntaxError(mesg='prev oper must be filter not: %r' % prev)
+
             mode = prev[1].get('mode')
+            inst,off = parse_macro_filt(text,off+1,mode=mode)
 
-            if mode not in ('cant','must'):
-                raise synapse.exc.SyntaxError(mesg='logical or previous mode: %s (must be must/cant)' % (mode,))
-
-            inst,off = parse_macro(text,off+1,mode=mode)
-
-            if prev[0] != 'or':
-                prev = ('or',{'args':[prev,],'kwlist':[],'mode':mode})
+            if prev[1].get('cmp') != 'or':
+                prev = ('filt',{'args':[prev,],'kwlist':[],'cmp':'or','mode':mode})
                 ret[-1] = prev
 
             prev[1]['args'].append(inst)
@@ -447,8 +460,9 @@ def parse(text, off=0):
         name,off = nom(text,off,varset)
         _,off = nom(text,off,whites)
 
+        # mop up in the case where we end with a macro
         if len(text) == off:
-            inst,off = parse_macro(text,origoff)
+            inst,off = parse_macro_lift(text,origoff)
             ret.append(inst)
             continue
 
@@ -459,9 +473,9 @@ def parse(text, off=0):
             continue
 
         # only macro lift syntax remains
-        inst,off = parse_macro(text,origoff)
+        inst,off = parse_macro_lift(text,origoff)
         ret.append(inst)
 
-    [ i[1]['kwlist'].sort() for i in ret ]
+    #[ i[1]['kwlist'].sort() for i in ret ]
 
     return ret

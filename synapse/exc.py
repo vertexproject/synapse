@@ -14,10 +14,14 @@ class SynErr(Exception):
 class NoSuchOpt(SynErr):pass
 class NoSuchConf(SynErr):pass
 class NoSuchForm(SynErr):pass
+class NoSuchImpl(SynErr):pass
+class NoSuchTufo(SynErr):pass
 class NoSuchType(SynErr):pass
 class NoSuchProp(SynErr):pass
 class NoSuchOper(SynErr):pass
+class NoSuchCmpr(SynErr):pass
 class NoSuchRule(SynErr):pass
+class NoSuchGetBy(SynErr):pass
 
 class BadOperArg(SynErr):pass
 class BadTypeValu(SynErr):pass
@@ -40,6 +44,8 @@ class BadMesgResp(Exception):pass
 class BadPropValu(SynErr):pass
 class BadPySource(Exception):pass
 
+class HitStormLimit(SynErr):pass
+
 class DupOpt(Exception):pass
 class DupUser(Exception):pass
 class DupRole(Exception):pass
@@ -51,7 +57,6 @@ class NoSuchDir(Exception):pass
 class NoSuchMod(Exception):pass
 class NoSuchObj(Exception):pass
 class NoSuchFile(Exception):pass
-class NoSuchImpl(Exception):pass
 class NoSuchIden(Exception):pass
 class NoSuchMeth(Exception):pass
 class NoSuchFunc(Exception):pass
@@ -59,7 +64,6 @@ class NoSuchPeer(Exception):pass
 class NoSuchPath(Exception):pass
 class NoSuchSess(Exception):pass
 class NoSuchUser(Exception):pass
-class NoSuchTufo(Exception):pass
 class NoSuchRole(Exception):pass
 class NoSuchProto(Exception):pass
 
@@ -70,7 +74,6 @@ class SidNotFound(Exception):pass
 class PropNotFound(Exception):pass
 
 class HitMaxTime(Exception):pass
-class HitMaxLimit(Exception):pass
 class HitMaxRetry(Exception):pass
 
 class NotEnoughFree(Exception):pass

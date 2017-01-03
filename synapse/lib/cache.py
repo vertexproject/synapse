@@ -245,13 +245,13 @@ class TufoCache(Cache):
         Cache.__init__(self, maxtime=maxtime)
 
         self.core = core
-        self.setOnMiss( core.getTufoById )
+        self.setOnMiss( core.getTufoByIden )
 
     def _onTufoFlush(self, event):
         iden = event[1].get('key')
         tufo0 = event[1].get('val')
 
-        tufo1 = self.core.getTufoById(iden)
+        tufo1 = self.core.getTufoByIden(iden)
         if tufo1 == None:
             return
 

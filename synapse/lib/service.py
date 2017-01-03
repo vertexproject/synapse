@@ -173,6 +173,9 @@ class SvcProxy:
         self.byname.pop(name,None)
         self.byiden.pop(iden,None)
 
+    def setSynSvcTimeout(self, timeout):
+        self.timeout = timeout
+
     def getSynSvc(self, iden):
         '''
         Return the tufo for the specified svc iden ( or None ).
@@ -397,7 +400,7 @@ class SvcBase:
         self.svcprox = svcprox
 
     def _callSvcMeth(self, name, *args, **kwargs):
-        raise NoSuchImpl('_callSvcMethod')
+        raise NoSuchImpl(name='_callSvcMethod')
 
     def __getattr__(self, name):
         item = SvcMeth(self,name)

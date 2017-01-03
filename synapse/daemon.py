@@ -220,7 +220,7 @@ class DmonConf:
             # check for a ctor opt that wants us to load a config dict by name
             cfgname = copts.get('config')
             if cfgname != None:
-                if not isinstance(item,s_config.ConfigMixin):
+                if not isinstance(item,s_config.Configable):
                     raise Exception('dmon ctor: %s does not support configs' % name)
 
                 opts = configs.get(cfgname)
@@ -233,7 +233,7 @@ class DmonConf:
             cfgnames = copts.get('configs')
             if cfgnames != None:
 
-                if not isinstance(item,s_config.ConfigMixin):
+                if not isinstance(item,s_config.Configable):
                     raise Exception('dmon ctor: %s does not support configs' % name)
 
                 opts = {}
