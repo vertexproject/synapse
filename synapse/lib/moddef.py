@@ -176,7 +176,7 @@ def getModsByPath(path, modtree=None):
         modtree = []
 
     if not os.path.isdir(path):
-        raise NoSuchDir(path)
+        raise NoSuchDir(path=path)
 
     mods = {}
     todo = [ (path, modtree) ]
