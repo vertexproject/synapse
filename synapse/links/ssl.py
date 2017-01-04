@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 import synapse.compat as s_compat
 import synapse.lib.socket as s_socket
 
+from OpenSSL import crypto
 from synapse.links.common import *
 
 class SslRelay(LinkRelay):
@@ -163,7 +164,7 @@ class SslRelay(LinkRelay):
             byts = reqbytes(certfile)
             cert = crypto.load_certificate(crypto.FILETYPE_PEM,byts)
 
-            cafile = genpath('~/.syn/certs/%s.crt', cert.get_issuer().get_subject().CN )
+            cafile = genpath('~/.syn/certs/%s.crt' % cert.get_issuer().CN )
 
         cafile = self.link[1].get('cafile',cafile)
         keyfile = self.link[1].get('keyfile',keyfile)
