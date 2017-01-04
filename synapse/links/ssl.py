@@ -151,9 +151,23 @@ class SslRelay(LinkRelay):
         host = self.link[1].get('host')
         port = self.link[1].get('port')
 
-        cafile = self.link[1].get('cafile')
-        keyfile = self.link[1].get('keyfile')
-        certfile = self.link[1].get('certfile')
+        cafile = None
+        keyfile = None
+        certfile = None
+
+        user = self.link[1].get('user')
+        if user != None:
+            keyfile = genpath('~/.syn/certs/%s.key' % (user,))
+            certfile = genpath('~/.syn/certs/%s.crt' % (user,))
+
+            byts = reqbytes(certfile)
+            cert = crypto.load_certificate(crypto.FILETYPE_PEM,byts)
+
+            cafile = genpath('~/.syn/certs/%s.crt', cert.get_issuer().get_subject().CN )
+
+        cafile = self.link[1].get('cafile',cafile)
+        keyfile = self.link[1].get('keyfile',keyfile)
+        certfile = self.link[1].get('certfile',certfile)
 
         sslopts = dict(ca_certs=cafile,
                        keyfile=keyfile,
