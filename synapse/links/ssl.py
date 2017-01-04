@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 import synapse.compat as s_compat
 import synapse.lib.socket as s_socket
 
+from OpenSSL import crypto
 from synapse.links.common import *
 
 class SslRelay(LinkRelay):
@@ -151,9 +152,23 @@ class SslRelay(LinkRelay):
         host = self.link[1].get('host')
         port = self.link[1].get('port')
 
-        cafile = self.link[1].get('cafile')
-        keyfile = self.link[1].get('keyfile')
-        certfile = self.link[1].get('certfile')
+        cafile = None
+        keyfile = None
+        certfile = None
+
+        user = self.link[1].get('user')
+        if user != None:
+            keyfile = genpath('~/.syn/certs/%s.key' % (user,))
+            certfile = genpath('~/.syn/certs/%s.crt' % (user,))
+
+            byts = reqbytes(certfile)
+            cert = crypto.load_certificate(crypto.FILETYPE_PEM,byts)
+
+            cafile = genpath('~/.syn/certs/%s.crt' % cert.get_issuer().CN )
+
+        cafile = self.link[1].get('cafile',cafile)
+        keyfile = self.link[1].get('keyfile',keyfile)
+        certfile = self.link[1].get('certfile',certfile)
 
         sslopts = dict(ca_certs=cafile,
                        keyfile=keyfile,
