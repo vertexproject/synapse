@@ -45,6 +45,13 @@ class TestEnv:
             bus.fini()
 
 
+class TestOutPut(s_output.OutPutStr):
+
+    def expect(self, substr):
+        outs = str(self)
+        if outs.find(substr) == -1:
+            raise Exception('TestOutPut.expect(%s) not in %s' % (substr,outs))
+
 class SynTest(unittest.TestCase):
 
     def getTestWait(self, bus, size, *evts):
@@ -71,7 +78,7 @@ class SynTest(unittest.TestCase):
         return core
 
     def getTestOutp(self):
-        return s_output.OutPutStr()
+        return TestOutPut()
 
     def thisHostMust(self, **props):
         for k,v in props.items():
