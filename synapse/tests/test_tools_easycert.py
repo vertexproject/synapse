@@ -37,7 +37,7 @@ class TestEasyCert(SynTest):
         with self.getTestDir() as path:
 
             outp = self.getTestOutp()
-            argv = ['--gen-csr','--certdir',path,'user@test.com']
+            argv = ['--csr','--certdir',path,'user@test.com']
             self.assertEqual( s_easycert.main(argv,outp=outp), 0)
             outp.expect('csr saved:')
 
@@ -47,7 +47,7 @@ class TestEasyCert(SynTest):
             outp.expect('cert saved:')
 
             outp = self.getTestOutp()
-            csrpath = os.path.join(path,'user@test.com.csr')
+            csrpath = os.path.join(path,'users','user@test.com.csr')
             argv = ['--certdir',path,'--signas','testca','--sign-csr',csrpath ]
             self.assertEqual( s_easycert.main(argv,outp=outp), 0)
             outp.expect('cert saved:')

@@ -227,18 +227,17 @@ class SwarmRunTest(SwarmRunBase):
 
     def test_swarm_runtime_and(self):
 
-        env = self.getSwarmEnv()
-        answ = env.runt.ask('foo:bar -foo:bar="baz" & foo:bar:vvv="newp" ')
+        with self.getSwarmEnv() as env:
 
-        tufos = answ.get('data')
+            answ = env.runt.ask('foo:bar -foo:bar="baz" & foo:bar:vvv="newp" ')
 
-        foobars = [ t[1].get('foo:bar') for t in tufos ]
+            tufos = answ.get('data')
 
-        foobars.sort()
+            foobars = [ t[1].get('foo:bar') for t in tufos ]
 
-        self.assertEqual( foobars, ['baz','faz','hai','lol'] )
+            foobars.sort()
 
-        env.fini()
+            self.assertEqual( foobars, ['baz','faz','hai','lol'] )
 
     def test_swarm_runtime_clear(self):
 

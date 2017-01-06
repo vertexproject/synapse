@@ -72,6 +72,10 @@ class DataPath:
             return None
         return data._d_item
 
+    def items(self, *path):
+        for item in self.valu(*path).items():
+            yield item
+
     def iter(self, *path):
         '''
         Yield DataPath instances from the given child path element.

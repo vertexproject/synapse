@@ -86,6 +86,12 @@ def gendir(*paths,**opts):
         os.makedirs(path,mode=mode)
     return path
 
+def reqdir(*paths):
+    path = genpath(*paths)
+    if not os.path.isdir(path):
+        raise NoSuchDir(path=path)
+    return path
+
 def jsload(*paths):
     with genfile(*paths) as fd:
         byts = fd.read()

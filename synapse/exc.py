@@ -12,6 +12,7 @@ class SynErr(Exception):
         return '%s: %s' % (self.__class__.__name__,displ)
 
 class NoSuchOpt(SynErr):pass
+class NoSuchDir(SynErr):pass
 class NoSuchConf(SynErr):pass
 class NoSuchForm(SynErr):pass
 class NoSuchImpl(SynErr):pass
@@ -27,6 +28,7 @@ class BadOperArg(SynErr):pass
 class BadTypeValu(SynErr):pass
 class DupTypeName(SynErr):pass
 class DupPropName(SynErr):pass
+class DupFileName(SynErr):pass
 class BadPropName(SynErr):pass
 class BadMesgVers(SynErr):pass
 class BadInfoValu(SynErr):pass
@@ -53,7 +55,6 @@ class DupRole(Exception):pass
 class NoSuch(Exception):pass
 class NoSuchAct(Exception):pass
 class NoSuchJob(Exception):pass
-class NoSuchDir(Exception):pass
 class NoSuchMod(Exception):pass
 class NoSuchObj(Exception):pass
 class NoSuchFile(Exception):pass

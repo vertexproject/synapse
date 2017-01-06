@@ -9,8 +9,8 @@ import contextlib
 logging.basicConfig(level=logging.WARNING)
 
 import synapse.cortex as s_cortex
+import synapse.eventbus as s_eventbus
 
-from synapse.eventbus import Waiter
 import synapse.lib.output as s_output
 import synapse.lib.thishost as s_thishost
 
@@ -30,9 +30,10 @@ class TestEnv:
             raise AttributeError(prop)
         return item
 
-    @contextlib.contextmanager
-    def getWithBlock(self):
-        yield self
+    def __enter__(self):
+        return self
+
+    def __exit__(self, cls, exc, tb):
         self.fini()
 
     def add(self, name, item, fini=False):
@@ -55,7 +56,7 @@ class TestOutPut(s_output.OutPutStr):
 class SynTest(unittest.TestCase):
 
     def getTestWait(self, bus, size, *evts):
-        return Waiter(bus, size, *evts)
+        return s_eventbus.Waiter(bus, size, *evts)
 
     def getPgCore(self):
         url = os.getenv('SYN_TEST_PG_URL')
@@ -94,7 +95,7 @@ class SynTest(unittest.TestCase):
     def getTestDir(self):
         tempdir = tempfile.mkdtemp()
         yield tempdir
-        shutil.rmtree(tempdir)
+        shutil.rmtree(tempdir, ignore_errors=True)
 
     def eq(self, x, y):
         self.assertEqual(x,y)
