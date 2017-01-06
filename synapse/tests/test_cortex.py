@@ -498,19 +498,19 @@ class CortexTest(SynTest):
         core = s_cortex.openurl('ram://')
         core.addRows(rows)
 
-        self.assertEqual( core.getStatByProp('sum','foo:bar'), 53 )
-        self.assertEqual( core.getStatByProp('count','foo:bar'), 7 )
+        self.eq( core.getStatByProp('sum','foo:bar'), 53 )
+        self.eq( core.getStatByProp('count','foo:bar'), 7 )
 
-        self.assertEqual( core.getStatByProp('min','foo:bar'), 1 )
-        self.assertEqual( core.getStatByProp('max','foo:bar'), 21 )
+        self.eq( core.getStatByProp('min','foo:bar'), 1 )
+        self.eq( core.getStatByProp('max','foo:bar'), 21 )
 
-        self.assertEqual( core.getStatByProp('average','foo:bar'), 7.571428571428571 )
+        self.eq( core.getStatByProp('average','foo:bar'), 7.571428571428571 )
 
-        self.assertEqual( core.getStatByProp('any','foo:bar'), True)
-        self.assertEqual( core.getStatByProp('all','foo:bar'), True)
+        self.eq( core.getStatByProp('any','foo:bar'), 1)
+        self.eq( core.getStatByProp('all','foo:bar'), 1)
 
         histo = core.getStatByProp('histo','foo:bar')
-        self.assertEqual( histo.get(13), 1 )
+        self.eq( histo.get(13), 1 )
 
     def test_cortex_fire_set(self):
 
