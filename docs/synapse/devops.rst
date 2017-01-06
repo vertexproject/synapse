@@ -32,10 +32,15 @@ Install the following prerequisites prior to using Synapse::
 
     $ sudo -H pip3 install --upgrade pip setuptools wheel
 
-The following commands assume your Synapse checkout is in '~/synapse'::
+The following commands assume your Synapse checkout will be in '~/synapse'::
 
-    $ cd ~/synapse
-    $ sudo python3 setup.py install
+    $ cd ~/
+    $ sudo apt install unzip wget
+    $ wget https://github.com/vivisect/synapse/archive/master.zip
+    $ unzip master.zip
+    $ mv synapse-master synapse
+    $ cd synapse
+    $ sudo python3 setup.py develop
 
 An exmplar dmon configuration file is located at synapse/docker/cortex/sqlite_dmon.json::
 
