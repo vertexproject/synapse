@@ -2088,7 +2088,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
     def _calcStatMean(self, rows):
         count = len(rows)
         tot = sum([ r[2] for r in rows ])
-        return int( tot / float(count) )
+        return tot / float(count)
 
     def _calcStatAny(self, rows):
         return any([ r[2] for r in rows ])
