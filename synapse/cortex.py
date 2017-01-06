@@ -19,6 +19,8 @@ insertion, and provide for atomic deconfliction if needed.
 
 import synapse.link as s_link
 import synapse.async as s_async
+import synapse.telepath as s_telepath
+
 import synapse.lib.sched as s_sched
 
 import synapse.cores.ram
@@ -27,11 +29,6 @@ import synapse.cores.postgres
 
 from synapse.common import *
 from synapse.eventbus import EventBus
-
-class NoSuchName(Exception):pass
-class PermDenied(Exception):pass
-class NoSuchScheme(Exception):pass
-class DupCortexName(Exception):pass
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +74,7 @@ def openlink(link):
     '''
     ctor = corctors.get(link[0])
     if ctor == None:
-        raise NoSuchScheme(link[0])
+        return s_telepath.openlink(link)
 
     return ctor(link)
 
