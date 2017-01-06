@@ -145,9 +145,9 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         self.addStatFunc('min',self._calcStatMin)
         self.addStatFunc('max',self._calcStatMax)
         self.addStatFunc('sum',self._calcStatSum)
+        self.addStatFunc('mean',self._calcStatMean)
         self.addStatFunc('count',self._calcStatCount)
         self.addStatFunc('histo',self._calcStatHisto)
-        self.addStatFunc('average',self._calcStatAverage)
 
         self._initCortex()
 
@@ -223,6 +223,9 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         self.addTufoProp('syn:splice','action', ptype='str', doc='What action is the splice requesting')
         self.addTufoProp('syn:splice','actuser', ptype='str', doc='What user is activating the splice')
         self.addTufoProp('syn:splice','acttime', ptype='time:epoch', doc='When was the splice activated')
+
+        # storm operators specific to the cortex
+        self.setOperFunc('stat', self._stormOperStat)
 
         # allow modules a shot at hooking cortex events for model ctors
         for name,ret,exc in s_modules.call('addCoreOns',self):
@@ -1501,7 +1504,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         '''
         statfunc = self.statfuncs.get(stat)
         if statfunc == None:
-            raise Exception('Unknown Stat: %s' % (stat,))
+            knowns = self.statfuncs.keys()
+            raise NoSuchStat(name=stat,knowns=knowns)
 
         rows = self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
         return statfunc(rows)
@@ -1519,7 +1523,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
             core.addStatFunc('woot', calcwoot)
 
             # later..
-            woot = core.getStatByProp('haha')
+            woot = core.getStatByProp('woot','haha')
 
         '''
         self.statfuncs[name] = func
@@ -2081,9 +2085,10 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
     def _calcStatMax(self, rows):
         return max([ r[2] for r in rows ])
 
-    def _calcStatAverage(self, rows):
+    def _calcStatMean(self, rows):
+        count = len(rows)
         tot = sum([ r[2] for r in rows ])
-        return tot / float(len(rows))
+        return int( tot / float(count) )
 
     def _calcStatAny(self, rows):
         return any([ r[2] for r in rows ])
@@ -2182,6 +2187,16 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
                     break
 
         return ret
+
+    def _stormOperStat(self, query, oper):
+
+        name,prop = oper[1].get('args')
+        kwargs = dict(oper[1].get('kwlist'))
+
+        valu = kwargs.get('valu')
+        sval = self.getStatByProp(name,prop,valu=valu)
+
+        query.add( s_tufo.ephem('stat:%s' % name, prop, valu=sval) )
 
     # some helpers to allow *all* queries to be processed via getTufosBy()
     def _tufosByEq(self, prop, valu, limit=None):
