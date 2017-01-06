@@ -1,7 +1,9 @@
 from __future__ import absolute_import,unicode_literals
 
 import os
+import ssl
 import zlib
+import errno
 import select
 import socket
 import logging
@@ -57,6 +59,9 @@ class Socket(EventBus):
         # used by Plex() tx
         self.txbuf = None
         self.txsize = 0
+
+        if self.info.get('nodelay',True):
+            self._tryTcpNoDelay()
 
         self.txque = collections.deque()
 
@@ -223,8 +228,8 @@ class Socket(EventBus):
             return
 
         byts = self.recv(102400)
-        if not byts:
-            self.fini()
+        # special case for non-blocking recv with no data ready
+        if byts == None:
             return
 
         try:
@@ -234,6 +239,7 @@ class Socket(EventBus):
                 yield mesg
 
         except Exception as e:
+            logger.exception(e)
             self.fini()
             return
 
@@ -245,15 +251,27 @@ class Socket(EventBus):
             for mesg in self.rx():
                 yield mesg
 
+    def _tryTcpNoDelay(self):
+
+        if self.sock.family not in (socket.AF_INET, socket.AF_INET6):
+            return False
+
+        if self.sock.type != socket.SOCK_STREAM:
+            return False
+
+        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        return True
+
     def accept(self):
 
         try:
-            conn,addr = self.sock.accept()
+
+            sock,addr = self.sock.accept()
 
         except Exception as e:
             return None,None
 
-        sock = Socket(conn, accept=True)
+        sock = Socket(sock, accept=True)
 
         relay = self.get('relay')
         if relay != None:
@@ -277,6 +295,9 @@ class Socket(EventBus):
         '''
         Slighly modified recv function which masks socket errors.
         ( makes them look like a simple close )
+
+        Additionally, any non-blocking recv's with no available data
+        will return None!
         '''
         try:
 
@@ -287,7 +308,21 @@ class Socket(EventBus):
 
             return self._rx_xform(byts)
 
+        except ssl.SSLError as e:
+
+            # handle "did not complete" error where we didn't
+            # get all the bytes necessary to decrypt the data.
+            if e.errno == 2:
+                return None
+
+            self.fini()
+            return b''
+
         except socket.error as e:
+
+            if e.errno == errno.EAGAIN:
+                return None
+
             self.fini()
             return b''
 
@@ -542,6 +577,7 @@ def connect(sockaddr,**sockinfo):
     Simplified connected TCP socket constructor.
     '''
     sock = socket.socket()
+
     try:
         sock.connect(sockaddr)
         return Socket(sock,**sockinfo)
