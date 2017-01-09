@@ -73,3 +73,7 @@ class StormSyntaxTest(SynTest):
 
         insts = s_syntax.parse('woot/foo:bar*baz')
         self.eq(insts[0], ('lift',{'from':'woot','prop':'foo:bar','cmp':'baz'}))
+
+    def test_storm_syntax_pivot(self):
+        insts = s_syntax.parse('foo:bar -> hehe.haha/baz:faz')
+        self.eq(insts[0], ('pivot',{'args':['baz:faz','foo:bar'],'kwlist':[('from','hehe.haha')]}))

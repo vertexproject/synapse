@@ -145,6 +145,9 @@ def getModDefCode(moddef):
 
     path = moddef[1].get('path')
     modsrc = getModDefSrc(moddef)
+    if modsrc == None:
+        return None
+
     return compile(modsrc,path,'exec')
 
 def getCallModDef(func):

@@ -147,39 +147,42 @@ def nextchar(text,off,valu):
         return False
     return text[off] == valu
 
+def nextstr(text,off,valu):
+    return text.startswith(valu,off)
+
 def nextin(text,off,vals):
     if len(text) <= off:
         return False
     return text[off] in vals
 
-def parse_pivot(text,off=0):
-    '''
-    ^foo:bar
-    ^foo:bar=baz:faz
-    ^hehe.haha/foo:bar=baz:faz
-    '''
-    inst = ('pivot',{'args':[],'kwlist':[]})
+#def parse_pivot(text,off=0):
+    #'''
+    #^foo:bar
+    #^foo:bar=baz:faz
+    #^hehe.haha/foo:bar=baz:faz
+    #'''
+    #inst = ('pivot',{'args':[],'kwlist':[]})
 
-    prop,off = nom(text,off,varset,trim=True)
+    #prop,off = nom(text,off,varset,trim=True)
 
-    if len(text) == off:
-        inst[1]['args'].append(prop)
-        return inst,off
+    #if len(text) == off:
+        #inst[1]['args'].append(prop)
+        #return inst,off
 
-    if text[off] == '/':
-        inst[1]['kwlist'].append( ('from',prop) )
-        prop,off = nom(text,off+1,varset,trim=True)
+    #if text[off] == '/':
+        #inst[1]['kwlist'].append( ('from',prop) )
+        #prop,off = nom(text,off+1,varset,trim=True)
 
-    inst[1]['args'].append( prop )
+    #inst[1]['args'].append( prop )
 
-    if len(text) == off:
-        return inst,off
+    #if len(text) == off:
+        #return inst,off
 
-    if nextchar(text,off,'='):
-        prop,off = nom(text,off+1,varset,trim=True)
-        inst[1]['args'].append( prop )
+    #if nextchar(text,off,'='):
+        #prop,off = nom(text,off+1,varset,trim=True)
+        #inst[1]['args'].append( prop )
 
-    return inst,off
+    #return inst,off
 
 def parse_macro_join(text,off=0):
     '''
@@ -209,6 +212,16 @@ def parse_macro_join(text,off=0):
         inst[1]['args'].append( prop )
 
     return inst,off
+
+macrocmps = [
+    ('<=','le'),
+    ('>=','ge'),
+    ('~=','re'),
+    ('!=','ne'),
+    ('<','lt'),
+    ('>','gt'),
+    ('=','eq'),
+]
 
 def parse_ques(text,off=0,trim=True):
     '''
@@ -252,7 +265,6 @@ def parse_ques(text,off=0,trim=True):
         # NOTE: "by" macro syntax only supports eq so we eat and run
         if text[off] == '*':
 
-            #ques['cmp'] = 'by'
             ques['cmp'],off = nom(text,off+1,varset,trim=True)
             if len(text) == off:
                 return ques,off
@@ -260,42 +272,23 @@ def parse_ques(text,off=0,trim=True):
             if text[off] != '=':
                 raise SyntaxError(text=text, off=off, mesg='expected equals for by syntax')
 
-            ques['valu'],off = parse_literal(text,off+1,trim=True)
+            ques['valu'],off = parse_oarg(text,off+1)
             return ques,off
 
         if text[off] == '=':
             ques['cmp'] = 'eq'
-            ques['valu'],off = parse_literal(text,off+1,trim=True)
+            ques['valu'],off = parse_oarg(text,off+1)
             break
 
         # TODO: handle "by" syntax
 
         textpart = text[off:]
+        for ctxt,cmpr in macrocmps:
 
-        if textpart.startswith('<='):
-            ques['cmp'] = 'le'
-            ques['valu'],off = parse_literal(text,off+2,trim=True)
-            break
-
-        if textpart.startswith('>='):
-            ques['cmp'] = 'ge'
-            ques['valu'],off = parse_literal(text,off+2,trim=True)
-            break
-
-        if textpart.startswith('~='):
-            ques['cmp'] = 're'
-            ques['valu'],off = parse_literal(text,off+2,trim=True)
-            break
-
-        if textpart.startswith('<'):
-            ques['cmp'] = 'lt'
-            ques['valu'],off = parse_literal(text,off+1,trim=True)
-            break
-
-        if textpart.startswith('>'):
-            ques['cmp'] = 'gt'
-            ques['valu'],off = parse_literal(text,off+1,trim=True)
-            break
+            if textpart.startswith(ctxt):
+                ques['cmp'] = cmpr
+                ques['valu'],off = parse_oarg(text,off+len(ctxt))
+                break
 
         break
 
@@ -307,6 +300,23 @@ def parse_when(text,off,trim=True):
     if whenstr.find(',') != -1:
         return tuple(whenstr.split(',',1)),off
     return (whenstr,None),off
+
+def parse_oarg(text, off=0):
+    '''
+    Parse something that might be a literal *or*
+    a kwarg name, *or* an unadorned literal string
+    ( which may not use any context sensitive chars )
+    '''
+    _,off = nom(text,off,whites)
+
+    if is_literal(text,off):
+        valu,off = parse_literal(text,off)
+
+    else:
+        valu,off = nom(text,off,varset)
+
+    _,off = nom(text,off,whites)
+    return valu,off
 
 def parse_oper(text, off=0):
     '''
@@ -323,57 +333,35 @@ def parse_oper(text, off=0):
 
     _,off = nom(text,off,whites)
 
-    if text[off] != '(':
+    #if text[off] != '(':
+    if not nextchar(text,off,'('):
         raise synapse.exc.SyntaxError(expected='( for operator ' + name, at=off)
 
     off += 1
-    _,off = nom(text,off,whites)
-
-    # parse arg literals
-    while is_literal(text,off):
-        valu,off = parse_literal(text,off)
-        _,off = nom(text,off,whites)
-
-        inst[1]['args'].append(valu)
-
-        if text[off] == ',':
-            off += 1
-            _,off = nom(text,off,whites)
-
-    # short circuit with no kwlist...
-    if text[off] == ')':
-        off += 1
-        return inst,off
 
     while True:
-        kwname,off = nom(text,off,varset)
-        if not kwname:
-            raise synapse.exc.SyntaxError(expected='kwarg', at=off)
 
         _,off = nom(text,off,whites)
 
-        if text[off] != '=':
-            raise synapse.exc.SyntaxError(mesg='kwarg w/o =', at=off)
-
-        off += 1
-
-        kwvalu,off = parse_literal(text,off)
-        _,off = nom(text,off,whites)
-
-        inst[1]['kwlist'].append( (kwname,kwvalu) )
-
-        if text[off] not in (',',')'):
-            raise synapse.exc.SyntaxError(mesg='Unexpected Token: ' + text[off], at=off)
-
-        if text[off] == ')':
+        if nextchar(text,off,')'):
             off += 1
             return inst,off
 
-        # eat the comma
-        off += 1
-    
-    # parse kwlist
+        oarg,off = parse_oarg(text,off)
 
+        if nextchar(text,off,'='):
+            off += 1
+            valu,off = parse_oarg(text,off)
+            inst[1]['kwlist'].append( (oarg,valu) )
+        else:
+            inst[1]['args'].append(oarg)
+
+        if not nextin(text,off,[',',')']):
+            raise synapse.exc.SyntaxError(mesg='Unexpected Token: ' + text[off], at=off)
+
+        if nextchar(text,off,','):
+            off += 1
+            
 def parse(text, off=0):
     '''
     Parse and return a set of instruction tufos.
@@ -398,12 +386,6 @@ def parse(text, off=0):
         # cant() macro syntax: -foo:bar=10
         if text[off] == '-':
             inst,off = parse_macro_filt(text,off+1,mode='cant')
-            ret.append(inst)
-            continue
-
-        # pivot() macro syntax ^foo:bar=baz:faz
-        if text[off] == '^':
-            inst,off = parse_pivot(text,off+1)
             ret.append(inst)
             continue
 
@@ -463,6 +445,22 @@ def parse(text, off=0):
         # mop up in the case where we end with a macro
         if len(text) == off:
             inst,off = parse_macro_lift(text,origoff)
+            ret.append(inst)
+            continue
+
+        # macro foo:bar->baz:faz prop pivot
+        if nextstr(text,off,'->'):
+
+            pivn,off = nom(text,off+2,varset)
+            inst = ('pivot',{'args':[name],'kwlist':[]})
+
+            # FIXME make a parser for foo.bar/baz:faz*blah#40
+            if nextchar(text,off,'/'):
+                inst[1]['kwlist'].append( ('from',pivn) )
+                pivn,off = nom(text,off+1,varset)
+
+            inst[1]['args'].insert(0, pivn)
+
             ret.append(inst)
             continue
 

@@ -65,3 +65,8 @@ def equal(tuf0,tuf1):
 
     return props0 == props1
 
+def ephem(form,fval,**props):
+    props = { '%s:%s' % (form,p):v for (p,v) in props.items() }
+    props[form] = fval
+    props['tufo:form'] = form
+    return (None,props)

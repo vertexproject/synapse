@@ -22,6 +22,10 @@ class CertDir:
         if path == None:
             path = defdir
 
+        gendir(path,'cas')
+        gendir(path,'hosts')
+        gendir(path,'users')
+
         self.certdir = reqdir(path)
 
     def getPathJoin(self, *paths):
