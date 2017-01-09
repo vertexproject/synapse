@@ -1,4 +1,5 @@
 import synapse.cortex as s_cortex
+import synapse.lib.tufo as s_tufo
 
 from synapse.tests.common import *
 
@@ -27,17 +28,37 @@ class StormRunTest(SynTest):
     def test_storm_ram(self):
         with s_cortex.openurl('ram://') as core:
             self.prepStormCore(core)
+            self.runStormStats(core)
             self.runStormBasics(core)
 
     def test_storm_sqlite(self):
         with s_cortex.openurl('sqlite:///:memory:') as core:
             self.prepStormCore(core)
+            self.runStormStats(core)
             self.runStormBasics(core)
 
     def test_storm_postgres(self):
         with self.getPgCore() as core:
             self.prepStormCore(core)
+            self.runStormStats(core)
             self.runStormBasics(core)
+
+    def runStormStats(self, core):
+
+        tufo = s_tufo.ephem('stat:sum','inet:ipv4', valu=0x80020305)
+        self.sorteq( core.eval('stat(sum,inet:ipv4)'), [tufo] )
+
+        tufo = s_tufo.ephem('stat:min','inet:ipv4', valu=0)
+        self.sorteq( core.eval('stat(min,inet:ipv4)'), [tufo] )
+
+        tufo = s_tufo.ephem('stat:max','inet:ipv4', valu=0x7f000001)
+        self.sorteq( core.eval('stat(max,inet:ipv4)'), [tufo] )
+
+        tufo = s_tufo.ephem('stat:mean','inet:ipv4', valu=715871831)
+        self.sorteq( core.eval('stat(mean,inet:ipv4)'), [tufo] )
+
+        tufo = s_tufo.ephem('stat:count','inet:ipv4', valu=3)
+        self.sorteq( core.eval('stat(count,inet:ipv4)'), [tufo] )
 
     def runStormBasics(self, core):
 
@@ -56,11 +77,12 @@ class StormRunTest(SynTest):
         self.sorteq( core.eval('inet:ipv4="1.2.3.4"'), [t2] )
         self.sorteq( core.eval('inet:ipv4=0x01020304'), [t2] )
 
-        self.sorteq( core.eval('inet:ipv4="127.0.0.1" ^dns:a:ipv4=inet:ipv4 ^inet:fqdn=dns:a:fqdn'), [t6,t7] )
+        self.sorteq( core.eval('inet:ipv4="127.0.0.1" inet:ipv4->dns:a:ipv4 dns:a:fqdn->inet:fqdn'), [t6,t7] )
+        self.sorteq( core.eval('inet:ipv4="127.0.0.1" inet:ipv4->dns:a:ipv4 dns:a:fqdn->inet:fqdn'), [t6,t7] )
 
         # test join operator basics
-        self.sorteq( core.eval('inet:ipv4="127.0.0.1" join("inet:ipv4:cc")'), [t0,t1,t2] )
-        self.sorteq( core.eval('inet:ipv4="127.0.0.1" ^dns:a:ipv4=inet:ipv4 join("inet:fqdn","dns:a:fqdn")'), [t4,t5,t6,t7] )
+        self.sorteq( core.eval('inet:ipv4="127.0.0.1" join(inet:ipv4:cc)'), [t0,t1,t2] )
+        self.sorteq( core.eval('inet:ipv4="127.0.0.1" inet:ipv4->dns:a:ipv4 join("inet:fqdn","dns:a:fqdn")'), [t4,t5,t6,t7] )
 
         # test filt #####################################################
 
