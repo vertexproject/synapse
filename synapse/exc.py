@@ -17,6 +17,7 @@ class NoSuchConf(SynErr):pass
 class NoSuchForm(SynErr):pass
 class NoSuchStat(SynErr):pass
 class NoSuchImpl(SynErr):pass
+class NoSuchName(SynErr):pass
 class NoSuchTufo(SynErr):pass
 class NoSuchType(SynErr):pass
 class NoSuchProp(SynErr):pass
