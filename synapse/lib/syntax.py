@@ -42,6 +42,13 @@ def nom(txt,off,cset,trim=True):
 
     return r,off
 
+def meh(txt,off,cset):
+    r = ''
+    while len(txt) > off and txt[off] not in cset:
+        r += txt[off]
+        off += 1
+    return r,off
+
 def is_literal(text,off):
     return text[off] in '("0123456789'
 
