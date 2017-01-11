@@ -115,7 +115,7 @@ class SvcBus(s_eventbus.EventBus):
         idens = self.bytag.get(tag)
         return [ self.services.get(iden) for iden in idens ]
 
-class SvcProxy:
+class SvcProxy(s_eventbus.EventBus):
     '''
     A client-side helper for service dispatches.
 
@@ -123,8 +123,12 @@ class SvcProxy:
     services by tag.
     '''
     def __init__(self, sbus, timeout=None):
+        s_eventbus.EventBus.__init__(self)
+
         self.sbus = sbus
         self.timeout = timeout
+
+        self.onfini( self.sbus.fini )
 
         # FIXME set a reconnect handler for sbus
         self.sbus.on('syn:svc:init', self._onSynSvcInit )
@@ -480,7 +484,7 @@ def runSynSvc(name, item, sbus, tags=(), **props):
         if sbus.isfini:
             return
 
-        sbus.iAmAlive(iden)
+        sbus.call('iAmAlive',iden)
         sched.insec(30, svcHeartBeat)
 
     svcHeartBeat()
