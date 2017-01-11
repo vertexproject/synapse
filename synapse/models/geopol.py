@@ -8,8 +8,8 @@ def getDataModel():
             ('pol:news',{'subof':'guid','doc':'A GUID for a news article or report'}),
             ('pol:country',{'subof':'guid','doc':'A GUID for a country'}),
 
-            ('pol:iso2',{'subof':'str','lower':1,'regex':'^[a-z0-9]{2}$','doc':'The 2 digit ISO country code','ex':'us'}),
-            ('pol:iso3',{'subof':'str','lower':1,'regex':'^[a-z0-9]{3}$','doc':'The 3 digit ISO country code','ex':'usa'}),
+            ('pol:iso2',{'subof':'str','lower':1,'regex':'^[a-z0-9]{2}$','nullval':'??','doc':'The 2 digit ISO country code','ex':'us'}),
+            ('pol:iso3',{'subof':'str','lower':1,'regex':'^[a-z0-9]{3}$','nullval':'??','doc':'The 3 digit ISO country code','ex':'usa'}),
             ('pol:isonum',{'subof':'int','doc':'The ISO integer country code','ex':'840'}),
         ),
 

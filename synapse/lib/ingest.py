@@ -1,10 +1,93 @@
 import csv
+import json
+import codecs
 
 from synapse.common import *
 from synapse.eventbus import EventBus
 
 import synapse.dyndeps as s_dyndeps
 import synapse.lib.datapath as s_datapath
+
+
+def _fmt_csv(fd,gest):
+
+    opts = {}
+
+    quot = gest.get('fmt:csv:quote')
+    dial = gest.get('fmt:csv:dialect')
+    path = gest.get('fmt:csv:filepath')
+    delm = gest.get('fmt:csv:delimiter')
+
+    if dial != None:
+        opts['dialect'] = dial
+
+    if delm != None:
+        opts['delimiter'] = delm
+
+    if quot != None:
+        opts['quotechar'] = quot
+
+    return csv.reader(fd,**opts)
+
+def _fmt_lines(fd,gest):
+
+    lowr = gest.get('format:lines:lower')
+
+    for line in fd:
+
+        line = line.strip()
+        if line.startswith('#'):
+            continue
+
+        if not line:
+            continue
+
+        if lowr:
+            line = line.lower()
+
+        yield line
+
+fmtyielders = {
+    'csv':_fmt_csv,
+    'lines':_fmt_lines,
+}
+
+fmtopts = {
+    'csv':{'mode':'r','encoding':'utf8'},
+    'lines':{'mode':'r','encoding':'utf8'},
+}
+
+def opendata(path,**opts):
+    '''
+    Open a data file on disk and iterate through the top level elements.
+    '''
+    fmt = opts.get('format','lines')
+
+    fopts = fmtopts.get(fmt,{})
+
+    fmtr = fmtyielders.get(fmt)
+    if fmtr == None:
+        raise NoSuchImpl(name=fmt,knowns=fmtyielders.keys())
+
+    with reqfile(path,**fopts) as fd:
+        for item in fmtr(fd,opts):
+            yield item
+
+def openfd(fd,**opts):
+
+    fmt = opts.get('format','lines')
+    fopts = fmtopts.get(fmt,{})
+
+    ncod = fopts.get('encoding')
+    if ncod != None:
+        fd = codecs.getreader(ncod)(fd)
+
+    fmtr = fmtyielders.get(fmt)
+    if fmtr == None:
+        raise NoSuchImpl(name=fmt,knowns=fmtyielders.keys())
+
+    for item in fmtr(fd,opts):
+        yield item
 
 class Ingest(EventBus):
     '''
@@ -21,9 +104,10 @@ class Ingest(EventBus):
             ( <iterpath>, {
                  'skipif': TODO
                  'forms':(
-                     (<form>, <path>, {
+                     (<form>, {
+                         'path':<path>,
                          'props':(
-                             (<prop>,<path>,{}),
+                             (<prop>,{ 'path':<path> | 'value':<valu> }),
                          ),
                      })
                  ),
@@ -40,6 +124,9 @@ class Ingest(EventBus):
         EventBus.__init__(self)
         self._i_info = info
 
+    def get(self, name, defval=None):
+        return self._i_info.get(name,defval)
+
     def iterDataRoots(self):
         '''
         Yield "root" DataPath elements to ingest from.
@@ -54,107 +141,84 @@ class Ingest(EventBus):
         for item in self._iterRawData():
             yield s_datapath.DataPath(item)
 
-    def ingest(self, core):
+    def ingest(self, core, data):
         '''
         Extract data and add it to a Cortex.
+
+        The data input is expected to be an iterable object
+        full of dicts/lists/strings/integers.  If a source
+        of data yields a single monolithic data structure,
+        it is still expected to be contained within a list
+        or generator.
+
+        Example:
+
+            data = s_ingest.opendata('foo/bar/baz.csv', format='csv')
+
+            gest = s_ingest.Ingest(info)
+
+            gest.ingest(core,data)
+
         '''
-        for root in self.iterDataRoots():
-            self._ingFromRoot(core,root)
+        root = s_datapath.DataPath(data)
+        info = self._i_info.get('ingest',{})
+        self._ingDataInfo(core, root, info)
 
-    def _ingFromRoot(self, core, root):
+    def _ingDataInfo(self, core, data, info, **ctx):
 
-        for iterpath,iterinfo in self._i_info.get('ingest',()):
+        ctx['tags'] = tuple(info.get('tags',())) + ctx.get('tags',())
 
-            for data in root.iter(*iterpath):
+        # iterate and create any forms at our level
+        for form,fnfo in info.get('forms',()):
 
-                for formname, forminfo in iterinfo.get('forms'):
+            base = data
 
-                    formpath = forminfo.get('path')
+            # Allow dynamic forms...
+            fstr = fnfo.get('form')
+            if fstr != None:
+                form = base.valu(fstr)
 
-                    props = {}
-                    formvalu = data.valu(*formpath)
+            path = fnfo.get('path')
+            if path != None:
+                base = base.open(path)
 
-                    if formvalu == None:
-                        continue
+            if base == None:
+                continue
 
-                    for propname,propinfo in forminfo.get('props',()):
-                        # FIXME implement altername normalization here...
-                        proppath = propinfo.get('path')
-                        propvalu = data.valu(*proppath)
-                        if propvalu == None:
-                            continue
+            valu = base.valu()
+            if valu == None:
+                continue
 
-                        props[propname] = propvalu
+            tufo = core.formTufoByFrob(form,valu)
 
-                    core.formTufoByFrob(formname,formvalu,**props)
+            #FIXME optimize for pre-parsing path strings.
 
-    def _iterRawData(self):
-        # default impl for in-band (in info) data
-        yield self._i_info.get('data')
+            props = {}
+            for prop,pnfo in fnfo.get('props',{}).items():
 
-class CsvIngest(Ingest):
-    '''
-    Ingest implementation for CSV data.
-    '''
+                # FIXME implement altername normalization here...
 
-    def _iterRawData(self):
+                valu = pnfo.get('value')
 
-        # TODO url = self._i_info.get('csv:url')
-        #cols = self._i_info.get('csv:columns')
-        dial = self._i_info.get('csv:dialect')
-        path = self._i_info.get('csv:filepath')
+                if valu == None:
 
-        quot = self._i_info.get('csv:quote')
-        delm = self._i_info.get('csv:delimiter')
+                    path = pnfo.get('path')
+                    if path != None:
+                        valu = data.valu(path)
 
-        fmtinfo = {}
+                if valu == None:
+                    continue
 
-        if dial != None:
-            fmtinfo['dialect'] = dial
+                props[prop] = valu
 
-        if delm != None:
-            fmtinfo['delimiter'] = delm
 
-        if quot != None:
-            fmtinfo['quotechar'] = quot
+            if props:
+                core.setTufoFrobs(tufo,**props)
 
-        with open(path,'r') as fd:
+            for tag in ctx.get('tags'):
+                core.addTufoTag(tufo,tag)
 
-            rows = []
-            for row in csv.reader(fd, **fmtinfo):
-                rows.append(row)
-                if len(rows) >= 1000:
-                    yield rows
-                    rows.clear()
+        for path,tifo in info.get('iters',()):
+            for base in data.iter(path):
+                self._ingDataInfo(core, base, tifo, **ctx)
 
-            if rows:
-                yield rows
-
-formats = {
-    'csv':'synapse.lib.ingest.CsvIngest',
-}
-
-def init(info):
-    '''
-    Create and return an Ingest for the given ingest data.
-
-    Example:
-
-        info = {
-            'name':'The Woot Ingest v1',
-
-            'format':'woot',
-                # ... or ... 
-            'ctor':'foo.bar.WootIngest',
-
-            ... scheme specific info ...
-
-        }
-
-    '''
-    ctor = info.get('ctor')
-    if ctor == None:
-        fmat = info.get('format')
-        ctor = formats.get(fmat,'synapse.lib.ingest.Ingest')
-
-    return s_dyndeps.tryDynFunc(ctor,info)

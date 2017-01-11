@@ -8,6 +8,8 @@ item0 = {
         {'foo':20},
     ],
     'woot':'hehe',
+    '..':'hurr',
+    '20':'durr',
 }
 
 
@@ -15,18 +17,32 @@ class DataPathTest(SynTest):
 
     def test_datapath_valu(self):
         data = s_datapath.DataPath(item0)
-        self.eq( data.valu('results',0,'foo'), 10 )
-        self.eq( data.valu('results',1,'foo'), 20 )
+        self.eq( data.valu('results/0/foo'), 10 )
+        self.eq( data.valu('results/1/foo'), 20 )
 
     def test_datapath_iter(self):
-        dat0 = s_datapath.DataPath(item0)
-        vals = []
-        for dat1 in dat0.iter('results'):
-            vals.append( dat1.valu('foo') )
+        data = s_datapath.DataPath(item0)
 
-        self.eq( tuple(vals), (10,20) )
+        vals = tuple([ x.valu() for x in data.iter('results/*/foo') ])
+
+        self.eq( vals, (10,20) )
 
     def test_datapath_parent(self):
         data = s_datapath.DataPath(item0)
-        subd = data.walk('results',0)
-        self.eq( subd.valu(-1,-1,'woot'), 'hehe' )
+        self.eq( data.valu('results/../woot'), 'hehe' )
+
+    def test_datapath_quoted(self):
+        data = s_datapath.DataPath(item0)
+        self.eq( data.valu('".."'), 'hurr' )
+        self.eq( data.valu('"20"'), 'durr' )
+
+    def test_datapath_abs(self):
+        data = s_datapath.DataPath(item0)
+
+        woot = data.open('woot')
+
+        self.eq( woot.open('/results/0/foo').valu(), 10 )
+
+    def test_datapath_self(self):
+        data = s_datapath.DataPath(item0)
+        self.eq( data.open('/results/0/././foo').valu(), 10 )

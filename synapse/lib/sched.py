@@ -16,6 +16,8 @@ class Sched(EventBus):
         EventBus.__init__(self)
 
         self.root = None
+        self.running = None
+
         self.lock = threading.Lock()
         self.wake = threading.Event()
 
@@ -137,8 +139,10 @@ class Sched(EventBus):
     def _runSchedMain(self):
         for task in self.yieldTimeTasks():
             try:
+                self.running = task
                 func,args,kwargs = task
                 func(*args,**kwargs)
+                self.running = None
             except Exception as e:
                 traceback.format_exc()
 

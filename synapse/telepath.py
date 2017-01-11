@@ -479,8 +479,8 @@ class Proxy(s_eventbus.EventBus):
         if self._tele_sock != None:
             self._tele_sock.fini()
 
-        self._tele_pool.fini()
         self._tele_boss.fini()
+        self._tele_pool.fini()
 
     def __getattr__(self, name):
         meth = Method(self, name)

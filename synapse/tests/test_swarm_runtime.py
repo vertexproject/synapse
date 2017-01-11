@@ -91,13 +91,7 @@ class SwarmRunTest(SwarmRunBase):
     def test_swarm_runtime_pivot(self):
         tenv = self.getSwarmEnv()
 
-        data = tenv.runt.eval('foo:bar="baz" ^foo:bar:vvv')
-        #data = answ.get('data')
-
-        self.assertEqual( len(data), 4 )
-
-        data = tenv.runt.eval('foo:bar="baz" ^foo:bar:vvv=foo:bar:vvv')
-        #data = answ.get('data')
+        data = tenv.runt.eval('foo:bar="baz" foo:bar:vvv->foo:bar:vvv')
 
         self.assertEqual( len(data), 4 )
 
