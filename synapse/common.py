@@ -4,8 +4,10 @@ import os
 import sys
 import json
 import time
+import types
 import msgpack
 import functools
+import itertools
 import threading
 import traceback
 
@@ -59,11 +61,12 @@ def reqpath(*paths):
         raise NoSuchFile(path)
     return path
 
-def reqfile(*paths):
+def reqfile(*paths, **opts):
     path = genpath(*paths)
     if not os.path.isfile(path):
         raise NoSuchFile(path)
-    return open(path,'r+b')
+    opts.setdefault('mode','rb')
+    return open(path,**opts)
 
 def reqbytes(*paths):
     with reqfile(*paths) as fd:
@@ -151,10 +154,29 @@ def chunks(item,size):
     '''
     Divide an iterable into chunks.
     '''
+    # use islice if it's a generator
+    if type(item) == types.GeneratorType:
+
+        while True:
+
+            chunk = tuple(itertools.islice(item,size))
+            if not chunk:
+                return
+
+            yield chunk
+
+    # otherwise, use normal slicing
+
     off = 0
-    offmax = len(item)
-    while off < offmax:
-        yield item[off:off+size]
+
+    while True:
+
+        chunk = item[off:off+size]
+        if not chunk:
+            return
+
+        yield chunk
+
         off += size
 
 def reqStorDict(x):
