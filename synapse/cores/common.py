@@ -1869,6 +1869,20 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
         return props,toadd
 
+    def setTufoFrobs(self, tufo, **props):
+        '''
+        Set tufo props from frob'd values.
+
+        Example:
+
+            core.setTufoFrobs(tufo,foo='1.2.3.4')
+
+        '''
+        # FIXME prevent prop string concat twice...
+        form = tufo[1].get('tufo:form')
+        props = self._frobTufoProps(form,props)
+        return self.setTufoProps(tufo,**props)
+
     def _frobTufoProps(self, form, inprops):
 
         props = {}
