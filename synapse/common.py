@@ -1,5 +1,6 @@
 from __future__ import absolute_import,unicode_literals
 
+import io
 import os
 import sys
 import json
@@ -66,7 +67,7 @@ def reqfile(*paths, **opts):
     if not os.path.isfile(path):
         raise NoSuchFile(path)
     opts.setdefault('mode','rb')
-    return open(path,**opts)
+    return io.open(path,**opts)
 
 def reqbytes(*paths):
     with reqfile(*paths) as fd:
@@ -79,8 +80,8 @@ def genfile(*paths):
     path = genpath(*paths)
     gendir( os.path.dirname(path) )
     if not os.path.isfile(path):
-        return open(path,'w+b')
-    return open(path,'r+b')
+        return io.open(path,'w+b')
+    return io.open(path,'r+b')
 
 def gendir(*paths,**opts):
     mode = opts.get('mode',0o700)
@@ -108,7 +109,7 @@ def gentask(func,*args,**kwargs):
 
 def jssave(js,*paths):
     path = genpath(*paths)
-    with open(path,'wb') as fd:
+    with io.open(path,'wb') as fd:
         fd.write( json.dumps(js).encode('utf8') )
 
 def verstr(vtup):
