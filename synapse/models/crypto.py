@@ -17,4 +17,13 @@ def getDataModel():
             ('hash:sha384', {'subof':'str','regex':'^[0-9a-f]{96}$', 'lower':1, 'doc':'A SHA384 hash', 'ex':ex_sha384 }),
             ('hash:sha512', {'subof':'str','regex':'^[0-9a-f]{128}$', 'lower':1, 'doc':'A SHA512 hash', 'ex':ex_sha512 }),
         ),
+
+        'forms':(
+            ('hash:md5', {'ptype':'hash:md5'},[]),
+            ('hash:sha1', {'ptype':'hash:sha1'},[]),
+            ('hash:sha256', {'ptype':'hash:sha256'},[]),
+            ('hash:sha384', {'ptype':'hash:sha384'},[]),
+            ('hash:sha512', {'ptype':'hash:sha512'},[]),
+        ),
+
     }
