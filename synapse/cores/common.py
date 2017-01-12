@@ -1353,6 +1353,18 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
             self.formTufoByProp('syn:tag',tag)
             self.tagcache[tag] = True
 
+    def addTufoTags(self, tufo, tags, asof=None):
+        '''
+        Add multiple tags to a tufo.
+
+        Example:
+
+            core.addTufoTags(tufo,['foo.bar','baz.faz'])
+
+        '''
+        for tag in tags:
+            self.addTufoTag(tufo,tag,asof=asof)
+
     def addTufoTag(self, tufo, tag, asof=None):
         '''
         Add a tag to a tufo.

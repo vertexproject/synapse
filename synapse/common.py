@@ -69,6 +69,41 @@ def reqfile(*paths, **opts):
     opts.setdefault('mode','rb')
     return io.open(path,**opts)
 
+def reqlines(*paths, **opts):
+    '''
+    Open a file and yield lines of text.
+
+    Example:
+
+        for line in reqlines('foo.txt'):
+            dostuff(line)
+
+    NOTE: This API is used as a performance optimization
+          over the standard fd line iteration mechanism.
+    '''
+    opts.setdefault('mode','r')
+    opts.setdefault('encoding','utf8')
+
+    rem = None
+    with reqfile(*paths,**opts) as fd:
+
+        bufr = fd.read(10000000)
+        while bufr:
+
+            if rem != None:
+                bufr = rem + bufr
+
+            lines = bufr.split('\n')
+            rem = lines[-1]
+
+            for line in lines[:-1]:
+                yield line.strip()
+
+            bufr = fd.read(10000000)
+
+            if rem != None:
+                bufr = rem + bufr
+
 def reqbytes(*paths):
     with reqfile(*paths) as fd:
         return fd.read()
