@@ -219,14 +219,12 @@ class AxonMixin:
     ( used as mixin for both Axon and AxonProxy )
     '''
     def eatfd(self, fd):
-        print('LOCAL CONSUME')
 
         hset = HashSet()
         iden,props = hset.eatfd(fd)
 
         blob = self.byiden(iden)
         if blob != None:
-            print('HAD IT: %r' % (blob,))
             return blob
 
         fd.seek(0)
@@ -238,7 +236,6 @@ class AxonMixin:
             retn = self.chunk(sess,byts)
             byts = fd.read(10000000)
 
-        print('BLOB: %s %r' % (sess,retn,))
         return retn
 
 class AxonCluster(AxonMixin):
