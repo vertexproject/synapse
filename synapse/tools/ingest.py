@@ -28,9 +28,10 @@ def main(argv, outp=None):
     core = s_cortex.openurl('ram://')
     core.setConfOpt('enforce',1)
 
+    pump = None
     if opts.sync != None:
         sync = s_cortex.openurl( opts.sync )
-        core.on('core:sync', sync.sync )
+        pump = core.getSyncPump(sync)
 
     jsfo = jsload( opts.json )
 
@@ -39,6 +40,10 @@ def main(argv, outp=None):
     for datafile in opts.files:
         data = s_ingest.opendata(datafile,gest)
         gest.ingest(core,data)
+
+    if pump != None:
+        pump.done()
+        pump.waitfini()
 
     if opts.debug:
         code.interact( local=locals() )
