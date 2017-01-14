@@ -331,6 +331,7 @@ class AxonCluster:
 
             for byts in axon.bytes(htype,hvalu):
                 yield byts
+
             return
 
     def wants(self, htype, hvalu, size, bytag=axontag):
@@ -342,7 +343,7 @@ class AxonCluster:
         '''
         Allocate a new block within an axon to save size bytes.
 
-        Returns an iden to use for subsequent calls to 
+        Returns an iden to use for subsequent calls to axon.chunk()
 
         '''
         axons = self._getWrAxons(bytag=bytag)
