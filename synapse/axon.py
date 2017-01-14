@@ -55,16 +55,17 @@ class HashSet:
 
         return iden.hexdigest(),props
 
-    def consume(self, fd):
+    def eatfd(self, fd):
         '''
         Consume all the bytes from a file like object.
 
         Example:
 
             hset = HashSet()
-            hset.consume(fd)
+            hset.eatfd(fd)
 
         '''
+        fd.seek(0)
         byts = fd.read(10000000)
         while byts:
             self.update(byts)
@@ -212,7 +213,35 @@ class AxonHost(s_eventbus.EventBus):
 
 axontag = 'class.synapse.axon.Axon'
 
-class AxonCluster:
+class AxonMixin:
+    '''
+    The parts of the Axon which must be executed locally in proxy cases.
+    ( used as mixin for both Axon and AxonProxy )
+    '''
+    def eatfd(self, fd):
+        print('LOCAL CONSUME')
+
+        hset = HashSet()
+        iden,props = hset.eatfd(fd)
+
+        blob = self.byiden(iden)
+        if blob != None:
+            print('HAD IT: %r' % (blob,))
+            return blob
+
+        fd.seek(0)
+
+        sess = self.alloc( props.get('size') )
+
+        byts = fd.read(10000000)
+        while byts:
+            retn = self.chunk(sess,byts)
+            byts = fd.read(10000000)
+
+        print('BLOB: %s %r' % (sess,retn,))
+        return retn
+
+class AxonCluster(AxonMixin):
     '''
     Present a singular axon API from an axon cluster.
     '''
@@ -388,7 +417,7 @@ class AxonCluster:
 
         return wraxons
 
-class Axon(s_eventbus.EventBus):
+class Axon(s_eventbus.EventBus,AxonMixin):
     '''
     An Axon acts as a binary blob store with hash based indexing/retrieval.
 
@@ -800,3 +829,16 @@ class Axon(s_eventbus.EventBus):
         '''
         tufo = self.core.getTufoByProp('axon:blob:%s' % htype, hvalu)
         return tufo != None
+
+    def byiden(self, iden):
+        return self.core.getTufoByProp('axon:blob',iden)
+
+
+class AxonProxy(s_telepath.Proxy,AxonMixin):
+    pass
+
+def openurl(url, **opts):
+    '''
+    Open a URL to a remote Axon
+    '''
+    return s_telepath.openclass(AxonProxy, url, **opts)
