@@ -7,6 +7,7 @@ import argparse
 import tornado.httpclient
 
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.lib.ingest as s_ingest
 
 data_sources = {
@@ -16,9 +17,19 @@ data_sources = {
 
         'http:url':'http://data.iana.org/TLD/tlds-alpha-by-domain.txt',
 
-        'ingest':(
-            ( (), { 'forms':( ('inet:fqdn', {'props':( ('sfx',{'value':1}), ) }), ) }),
-        ),
+        'ingest':{
+            'iters':(
+                ('*', {
+                    'forms':(
+                        ('inet:fqdn',{
+                            'props': {
+                                'sfx':{'value':1},
+                            }
+                        }),
+                    )
+                }),
+            ),
+        }
     },
 }
 
@@ -54,7 +65,7 @@ def load(name, **opts):
     if isinstance(data,types.GeneratorType):
         data = list(data)
 
-    return data
+    return data,info
 
 if __name__ == '__main__':
 
@@ -63,15 +74,24 @@ if __name__ == '__main__':
     pars.add_argument('--debug', default=False, action='store_true', help='Drop to interactive prompt to inspect data')
     pars.add_argument('--save', default=None, help='Save data to the named file in message pack format')
     pars.add_argument('--no-print', default=False, action='store_true', help='Do not print the loaded data')
+    pars.add_argument('--ingest', default=None, help='Cortex url to ingest the data into')
 
     pars.add_argument('names', nargs='*', help='Ingest names to load')
 
     opts = pars.parse_args(sys.argv[1:])
 
+    core = None
+    if opts.ingest:
+        core = s_cortex.openurl(opts.ingest)
+
     datas = []
     for name in opts.names:
-        data = load(name)
+        data,info = load(name)
         datas.append(data)
+
+        if core != None:
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core,data)
 
     if opts.save:
         with s_common.genfile(opts.save) as fd:
@@ -82,3 +102,6 @@ if __name__ == '__main__':
 
     if not opts.no_print:
         print( repr(data) )
+
+    if core != None:
+        core.fini()
