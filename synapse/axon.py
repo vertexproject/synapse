@@ -309,7 +309,7 @@ class AxonCluster:
         axon = self._getSvcAxon(iden)
 
         if axon == None:
-            valu = blob[1].get('axon:blob:hash:sha256')
+            valu = blob[1].get('axon:blob:sha256')
             for byts in self.bytes('sha256',valu):
                 yield byts
             return
@@ -475,7 +475,6 @@ class Axon(s_eventbus.EventBus):
 
         # model details for the actual byte blobs
         self.core.addTufoForm('axon:blob',ptype='guid')
-        self.core.addTufoProp('axon:blob','ver',ptype='int',defval=1)
         self.core.addTufoProp('axon:blob','off', ptype='int',req=True)
         self.core.addTufoProp('axon:blob','size', ptype='int',req=True)
 
@@ -670,7 +669,7 @@ class Axon(s_eventbus.EventBus):
             blobs = axon.find('sha256',x)
 
         '''
-        return self.core.getTufosByProp('axon:blob:hash:%s' % htype, valu=hvalu)
+        return self.core.getTufosByProp('axon:blob:%s' % htype, valu=hvalu)
 
     def bytes(self, htype, hvalu):
         '''
@@ -682,7 +681,7 @@ class Axon(s_eventbus.EventBus):
                 fd.write(byts)
 
         '''
-        blob = self.core.getTufoByProp('axon:blob:hash:%s' % htype, valu=hvalu)
+        blob = self.core.getTufoByProp('axon:blob:%s' % htype, valu=hvalu)
         return self.iterblob(blob)
 
     def iterblob(self, blob):
@@ -775,7 +774,9 @@ class Axon(s_eventbus.EventBus):
         self.heap.writeoff(cur,byts)
 
         info['cur'] += len(byts)
-        info['hashset'].update(byts)
+
+        hset =info.get('hashset')
+        hset.update(byts)
 
         # if the upload is complete, fire the add event
         if info['cur'] == info['maxoff']:
@@ -783,13 +784,9 @@ class Axon(s_eventbus.EventBus):
             self.inprog.pop(iden,None)
 
             off = info.get('off')
-            size = info.get('size')
+            iden,props = hset.guid()
 
-            hashes = info['hashset'].digests()
-
-            props = { 'hash:%s' % name:valu for (name,valu) in hashes }
-
-            return self.core.formTufoByProp('axon:blob', guid(), off=off, size=size, **props)
+            return self.core.formTufoByProp('axon:blob', iden, off=off, **props)
 
     def has(self, htype, hvalu):
         '''
@@ -801,5 +798,5 @@ class Axon(s_eventbus.EventBus):
                 stuff()
 
         '''
-        tufo = self.core.getTufoByProp('axon:blob:hash:%s' % htype, hvalu)
+        tufo = self.core.getTufoByProp('axon:blob:%s' % htype, hvalu)
         return tufo != None
