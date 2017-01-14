@@ -21,6 +21,7 @@ def main(argv, outp=None):
     pars = argparse.ArgumentParser(prog='scrape', description='Command line tool for scraping data into a cortex')
 
     pars.add_argument('--sync', default=None, help='Sync to an additional cortex')
+    pars.add_argument('--save', default=None, help='Save changes to a .sync file for later loading')
     pars.add_argument('--debug', default=False, action='store_true', help='Drop to interactive prompt to inspect cortex')
     pars.add_argument('--verbose',default=False, action='store_true', help='Show the nodes being scraped')
     pars.add_argument('--tags', default=None, help='Tags to add to scraped nodes')
@@ -35,9 +36,14 @@ def main(argv, outp=None):
     core = s_cortex.openurl('ram://')
     core.setConfOpt('enforce',1)
 
+    if opts.save:
+        fd = genfile(opts.save)
+        core.addSyncFd(fd)
+
+    pump = None
     if opts.sync != None:
         sync = s_cortex.openurl( opts.sync )
-        core.on('core:sync', sync.sync )
+        pump = core.getSyncPump(sync)
 
     for path in opts.files:
 
@@ -49,7 +55,6 @@ def main(argv, outp=None):
 
         node = core.formTufoByProp('file:bytes',iden,**props)
 
-        print(repr(node))
         core.addTufoTags(node,tags)
 
         for line in reqlines(path):
@@ -61,6 +66,11 @@ def main(argv, outp=None):
 
                 node = core.formTufoByFrob(form,valu)
                 core.addTufoTags(node,tags)
+
+    if pump != None:
+        outp.printf('Waiting For Sync Pump...')
+        pump.done()
+        pump.waitfini()
 
     if opts.debug:
         code.interact( local=locals() )

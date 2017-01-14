@@ -30,4 +30,3 @@ class HashItemTest(SynTest):
         }
 
         self.eq( s_hashitem.hashitem(x), s_hashitem.hashitem(y) )
-        self.eq( s_hashitem.hashitem(x), '2bb0bdf8acad994373ce363621559066' )
