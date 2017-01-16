@@ -70,3 +70,7 @@ def ephem(form,fval,**props):
     props[form] = fval
     props['tufo:form'] = form
     return (None,props)
+
+def tagged(tufo,tag):
+    prop = '*|%s|%s' % (tufo[1].get('tufo:form'),tag)
+    return tufo[1].get(prop) != None

@@ -22,9 +22,7 @@ class DataPathTest(SynTest):
 
     def test_datapath_iter(self):
         data = s_datapath.DataPath(item0)
-
-        vals = tuple([ x.valu() for x in data.iter('results/*/foo') ])
-
+        vals = tuple(data.valu('results/*/foo'))
         self.eq( vals, (10,20) )
 
     def test_datapath_parent(self):

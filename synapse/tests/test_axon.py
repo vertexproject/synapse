@@ -1,4 +1,6 @@
+import io
 import hashlib
+
 import synapse.axon as s_axon
 import synapse.daemon as s_daemon
 import synapse.lib.heap as s_heap
@@ -303,3 +305,27 @@ class AxonTest(SynTest):
             host = s_axon.AxonHost(dirname,**opts)
             self.assertEqual( len(host.axons), 2 )
             host.fini()
+
+    def test_axon_eatbytes(self):
+        self.thisHostMustNot(platform='windows')
+
+        with self.getTestDir() as dirname:
+            with s_axon.Axon(dirname) as axon:
+
+                blob0 = axon.eatbytes(b'visi')
+                with io.BytesIO(b'vertex') as fd:
+                    blob1 = axon.eatfd(fd)
+
+                port = axon.getAxonInfo()[1].get('link')[1].get('port')
+
+                with s_axon.openurl('tcp://127.0.0.1/axon', port=port) as prox:
+                    blob2 = axon.eatbytes(b'hurr')
+                    with io.BytesIO(b'durr') as fd:
+                        blob3 = axon.eatfd(fd)
+
+        self.eq( blob0[1].get('axon:blob'), '442f602ecf8230b2a59a44b4f845be27' )
+        self.eq( blob1[1].get('axon:blob'), 'd4552906c1f6966b96d27e6fc79441b5' )
+        self.eq( blob2[1].get('axon:blob'), '0d60960570ef6da0a15f68c24b420334' )
+        self.eq( blob3[1].get('axon:blob'), '97c11d1057f75c9c0b79090131709f62' )
+
+    #def test_axon_proxy(self):

@@ -23,22 +23,22 @@ class DataPath:
         except (KeyError,TypeError) as e:
             return None
 
-    def walk(self, *path):
-        '''
-        Return a data path element by walking down they given keys.
+    #def walk(self, *path):
+        #'''
+        #Return a data path element by walking down they given keys.
 
-        Example:
+        #Example:
 
-            item = { 'foo':[ {'bar':10},{'baz':20} ], 'hur':'dur' }
+            #item = { 'foo':[ {'bar':10},{'baz':20} ], 'hur':'dur' }
 
-            data = DataPath(item)
-            bazdata = data.walk('foo', 1)
+            #data = DataPath(item)
+            #bazdata = data.walk('foo', 1)
 
-        '''
-        data = self
-        for elem in path:
-            data = data.step(elem)
-        return data
+        #'''
+        #data = self
+        #for elem in path:
+            #data = data.step(elem)
+        #return data
 
     def open(self, path):
         '''
@@ -49,61 +49,65 @@ class DataPath:
 
             fqdn = data.open('foo/bar/fqdn').valu()
 
-        '''
-        off = 0
-        base = self
-
-        if path.startswith('/'):
-            off += 1
-            base = self.root()
-
-        plen = len(path)
-        while off < plen:
-
-            _,off = s_syntax.nom(path,off,('/',))
-
-            # if it's a literal, there's no chance for
-            # control data such as iterator directives
-            if s_syntax.is_literal(path,off):
-                elem,off = s_syntax.parse_literal(path,off)
-
-            else:
-                elem,off = s_syntax.meh(path,off,('/',))
-
-                if elem == '.':
-                    continue
-
-                if elem == '..':
-                    base = base.parent()
-                    continue
-
-            base = base.step(elem)
-            if base == None:
-                return None
-
-        return base
-
-    def iter(self, path):
-        '''
-        Iterate over DataPath elements by path string.
+        Additionally, if any /*/ paths are encountered, the
+        API assumes you would like to iterate over elements.
 
         Example:
 
-            for woot in data.iter('foo/bar/*/woot'):
-                dostuff(woot)
+            for baz in data.open('foo/bar/*/baz'):
+                valu = baz.valu()
 
         '''
-        off = 0
+        steps = self._parse_path(path)
+        if self._is_iter(steps):
+            return self._iter_steps(steps)
+
+        return self._open_steps(steps)
+
+    def iter(self, path):
+        steps = self._parse_path(path)
+        return self._iter_steps(steps)
+
+    def _open_steps(self, steps):
+
         base = self
+        for step in steps:
+            base = base._run_step(step)
+            if base == None:
+                break
+
+        return base
+
+    #def iter(self, path):
+        #'''
+        #Iterate over DataPath elements by path string.
+
+        #Example:
+
+            #for woot in data.iter('foo/bar/*/woot'):
+                #dostuff(woot)
+
+        #'''
+        #steps = self._parse_path(path)
+        #for data in self._iter_steps(steps,0,self):
+            #yield data
+
+    def _parse_path(self, path):
+        '''
+        Parse a path string into a series of ( <cmd>, <data> ) directives.
+
+        /foo/*/hehe -> ( ('root',None), ('step','foo'), ('step','bar'), ('iter',None) )
+
+        '''
+        if not path:
+            return ()
+
+        off = 0
+        ret = []
 
         if path.startswith('/'):
             off += 1
-            base = self.root()
-
-        for data in self._iter_recurse(path,off,base):
-            yield data
-
-    def _iter_recurse(self, path, off, base):
+            ret.append( ('move','/') )
 
         plen = len(path)
         while off < plen:
@@ -114,45 +118,83 @@ class DataPath:
             # control data such as iterator directives
             if s_syntax.is_literal(path,off):
                 elem,off = s_syntax.parse_literal(path,off)
-                base = base.step(elem)
-                if base == None:
-                    return
-
+                ret.append( ('step',elem) )
                 continue
 
             elem,off = s_syntax.meh(path,off,('/',))
 
             if elem == '*':
-
-                for x in base:
-                    for y in self._iter_recurse(path, off, x):
-                        yield y
-
-                return
+                ret.append( ('iter',None) )
+                continue
 
             if elem == '.':
                 continue
 
             if elem == '..':
-                base = base.parent()
+                ret.append( ('move','..') )
                 continue
 
-            base = base.step(elem)
+            ret.append( ('step',elem) )
+
+        return ret
+
+    def _is_iter(self, steps):
+        return any([ 1 for step in steps if step[0] == 'iter' ])
+
+    def _run_step(self, step):
+        oper,data = step
+        if oper == 'step':
+            return self.step(data)
+
+        if oper == 'move':
+            if data == '..':
+                return self.parent()
+
+            if data == '/':
+                return self.root()
+
+    def _iter_steps(self, steps, off=0):
+
+        base = self
+
+        plen = len(steps)
+        while off < plen:
+
             if base == None:
+                break
+
+            oper,data = steps[off]
+
+            off += 1
+
+            if oper == 'step':
+                base = base.step(data)
+                continue
+
+            if oper == 'iter':
+                for x in base:
+                    for y in x._iter_steps(steps, off=off):
+                        yield y
                 return
 
-        yield base
+            if oper == 'move':
+
+                if data == '..':
+                    base = base.parent()
+                    continue
+
+                if data == '/':
+                    base = base.root()
+                    continue
+
+                raise SynErr(oper='move',data=data)
+
+        if base != None:
+            yield base
 
     def __iter__(self):
         for item in self.valu():
             yield DataPath(item,parent=self)
-
-    #def iter(self, path):
-
-    #def parse(self, path):
-        #'''
-        #Parse the given path and return a tuple of ( parts, info ).
-        #'''
 
     def root(self):
         '''
@@ -210,14 +252,20 @@ class DataPath:
                 print('woot')
 
         '''
-        data = self
-        if path != None:
-            data = self.open(path)
+        if path == None:
+            return self._d_item
 
-        if data == None:
-            return None
+        steps = self._parse_path(path)
+        if self._is_iter(steps):
+            return self._valu_iter(steps)
 
-        return data._d_item
+        base = self._open_steps(steps)
+        if base != None:
+            return base.valu()
+
+    def _valu_iter(self, steps):
+        for base in self._iter_steps(steps):
+            yield base.valu()
 
     def items(self, *path):
         for item in self.valu(*path).items():

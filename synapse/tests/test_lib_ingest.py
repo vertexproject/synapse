@@ -1,6 +1,7 @@
 from synapse.tests.common import *
 
 import synapse.cortex as s_cortex
+import synapse.lib.tufo as s_tufo
 import synapse.lib.ingest as s_ingest
 
 class IngTest(SynTest):
@@ -115,3 +116,83 @@ class IngTest(SynTest):
 
             self.eq( len( core.eval('inet:ipv4*tag=hehe.haha') ), 2 )
             self.eq( len( core.eval('inet:fqdn*tag=hehe.haha') ), 2 )
+
+    def test_ingest_files(self):
+
+        #s_encoding.encode('utf8,base64,-utf8','
+        data = {'foo':['dmlzaQ==']}
+
+        info = {'ingest':{
+            'tags':['woo.woo'],
+            'files':[ ('foo/*',{'mime':'hehe/haha','decode':'+utf8,base64'}) ],
+        }}
+
+        with s_cortex.openurl('ram://') as core:
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core,data)
+
+            tufo = core.getTufoByProp('file:bytes','442f602ecf8230b2a59a44b4f845be27')
+
+            self.assertTrue( s_tufo.tagged(tufo,'woo.woo') )
+            self.eq( tufo[1].get('file:bytes'), '442f602ecf8230b2a59a44b4f845be27')
+            self.eq( tufo[1].get('file:bytes:mime'), 'hehe/haha' )
+
+        # do it again with an outer iter and non-iter path
+        data = {'foo':['dmlzaQ==']}
+
+        info = {'ingest':{
+            'tags':['woo.woo'],
+            'iters':[
+                ('foo/*',{
+                    'files':[ ('.',{'mime':'hehe/haha','decode':'+utf8,base64'}) ],
+                }),
+            ]
+        }}
+
+        with s_cortex.openurl('ram://') as core:
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core,data)
+
+            tufo = core.getTufoByProp('file:bytes','442f602ecf8230b2a59a44b4f845be27')
+
+            self.eq( tufo[1].get('file:bytes'), '442f602ecf8230b2a59a44b4f845be27')
+            self.eq( tufo[1].get('file:bytes:mime'), 'hehe/haha' )
+            self.assertTrue( s_tufo.tagged(tufo,'woo.woo') )
+
+    def test_ingest_pivot(self):
+
+        data = {'foo':['dmlzaQ=='],'bar':[ '1b2e93225959e3722efed95e1731b764'] }
+
+        info = {'ingest':{
+            'tags':['woo.woo'],
+            'files':[ ('foo/*',{'mime':'hehe/haha','decode':'+utf8,base64'}) ],
+            'forms':[ ('hehe:haha',{'path':'bar/*','pivot':('file:bytes:md5','file:bytes')}) ],
+        }}
+
+        with s_cortex.openurl('ram://') as core:
+
+            core.addTufoForm('hehe:haha', ptype='file:guid')
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core,data)
+
+            self.assertIsNotNone( core.getTufoByProp('hehe:haha','442f602ecf8230b2a59a44b4f845be27') )
+
+    def test_ingest_template(self):
+
+        data = {'foo':[ ('1.2.3.4','vertex.link') ] }
+
+        info = {'ingest':{
+            'forms':[ ('dns:a',{'path':'foo/*','template':('{{fqdn}}/{{ipv4}}', {'ipv4':{'path':'0'},'fqdn':{'path':'1'}}) } ) ],
+        }}
+
+        with s_cortex.openurl('ram://') as core:
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core,data)
+
+            self.assertIsNotNone( core.getTufoByProp('inet:ipv4', 0x01020304 ) )
+            self.assertIsNotNone( core.getTufoByProp('inet:fqdn', 'vertex.link') )
+            self.assertIsNotNone( core.getTufoByProp('dns:a','vertex.link/1.2.3.4') )
