@@ -27,6 +27,9 @@ class NoSuchCmpr(SynErr):pass
 class NoSuchRule(SynErr):pass
 class NoSuchGetBy(SynErr):pass
 
+class NoSuchDecoder(SynErr):pass
+class NoSuchEncoder(SynErr):pass
+
 class BadOperArg(SynErr):pass
 class BadTypeValu(SynErr):pass
 class DupTypeName(SynErr):pass
