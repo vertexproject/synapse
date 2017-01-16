@@ -238,6 +238,22 @@ class AxonMixin:
 
         return retn
 
+    def eatbytes(self, byts):
+        hset = HashSet()
+
+        hset.update(byts)
+        iden,props = hset.guid()
+        blob = self.byiden(iden)
+        if blob != None:
+            return blob
+
+        sess = self.alloc( props.get('size') )
+
+        for chnk in chunks(byts,10000000):
+            blob = self.chunk(sess,chnk)
+
+        return blob
+
 class AxonCluster(AxonMixin):
     '''
     Present a singular axon API from an axon cluster.
