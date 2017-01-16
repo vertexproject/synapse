@@ -41,7 +41,6 @@ def main(argv, outp=None):
     if opts.axon != None:
         outp.printf('connecting to axon: %s' % (opts.axon,))
         axon = s_axon.openurl(opts.axon)
-        outp.printf('...success! %r' % (axon,))
 
     if opts.save:
         outp.printf('adding save file: %s' % (opts.save,))

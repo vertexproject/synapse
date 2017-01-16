@@ -18,7 +18,13 @@ def getDataModel():
                 ('sha1',{'ptype':'hash:sha1'}),
                 ('sha256',{'ptype':'hash:sha256'}),
                 ('sha512',{'ptype':'hash:sha512'}),
-                ('name',{'ptype':'file:base','doc':'For display purposes only'})
+                ('name',{'ptype':'file:base','doc':'For display purposes only'}),
+                ('mime',{'ptype':'str','defval':'??','doc':'Mime type for the file bytes'}),
+
+                # FIXME could another model define props for this form?
+                ('mime:x509:cn',{'ptype':'str','doc':'X509 Subject Common Name'}),
+
+                ('mime:*',{'glob':1,'doc':'Namespace for high-value mime details'})
             )),
 
             ('file:subfile', {'ptype':'file:sub'},(
