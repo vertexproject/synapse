@@ -98,6 +98,7 @@ class StrType(DataType):
         self.regex = None
         self.envals = None
         self.restrip = None
+        self.frobintfmt = None
 
         self.nullval = info.get('nullval')
 
@@ -112,6 +113,15 @@ class StrType(DataType):
         restrip = info.get('restrip')
         if restrip != None:
             self.restrip = re.compile(restrip)
+
+        frobintfmt = info.get('frob_int_fmt')
+        if frobintfmt != None:
+            self.frobintfmt = frobintfmt
+
+    def frob(self, valu, oldval=None):
+        if self.frobintfmt and s_compat.isint(valu):
+                valu = self.frobintfmt % valu
+        return self.norm(valu, oldval=oldval)
 
     def norm(self, valu, oldval=None):
 
@@ -310,19 +320,11 @@ class SeprType(CompType):
     def __init__(self, tlib, name, **info):
         CompType.__init__(self, tlib, name, **info)
         self.sepr = info.get('sep',',')
-        self.lower = info.get('lower',0)
         self.reverse = info.get('reverse',0)
 
     def norm(self, valu, oldval=None):
         reprs = []
-
-        if self.lower:
-            valu = valu.lower()
-
-        if self.reverse:
-            parts = valu.rsplit(self.sepr,len(self.fields)-1)
-        else:
-            parts = valu.split(self.sepr,len(self.fields)-1)
+        parts = self._split_str(valu)
 
         for part,(name,tobj) in self._zipvals(parts):
             if tobj == self:
@@ -330,6 +332,7 @@ class SeprType(CompType):
                 reprs.append(part)
             else:
                 reprs.append( tobj.repr(tobj.parse(part)) )
+
         return self.sepr.join(reprs)
 
     def repr(self, valu):
@@ -337,15 +340,8 @@ class SeprType(CompType):
 
     def chop(self, valu):
         subs = {}
-        if self.reverse:
-            parts = valu.rsplit(self.sepr,len(self.fields)-1)
-        else:
-            parts = valu.split(self.sepr,len(self.fields)-1)
-
-        if self.lower:
-            valu = valu.lower()
-
         reprs = []
+        parts = self._split_str(valu)
 
         for part,(name,tobj) in self._zipvals(parts):
 
@@ -368,7 +364,19 @@ class SeprType(CompType):
         return self.norm(text,oldval=oldval)
 
     def frob(self, valu, oldval=None):
+        if islist(valu):
+            return self.sepr.join([ t.repr(t.frob(v)) for v,(n,t) in self._zipvals(valu) ])
+
         return self.norm(valu, oldval=oldval)
+
+    def _split_str(self, text):
+
+        if self.reverse:
+            parts = text.rsplit(self.sepr,len(self.fields)-1)
+        else:
+            parts = text.split(self.sepr,len(self.fields)-1)
+
+        return parts
 
     def _zipvals(self, vals):
         return s_compat.iterzip(vals,self.fields)
@@ -430,6 +438,7 @@ class TypeLib:
 
         self.addType('str:lwr', subof='str', lower=1)
         self.addType('str:txt', subof='str', doc='Multi-line text or text blob.')
+        self.addType('str:hex', subof='str', frob_int_fmt='%x', regex=r'^[0-9a-f]+$', lower=1)
 
         if load:
             self.loadModModels()
