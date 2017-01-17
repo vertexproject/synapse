@@ -184,6 +184,36 @@ class DataTypesTest(SynTest):
         self.eq( tlib.getTypeFrob('woot','HeHe'), 'hehe' )
         self.eq( tlib.getTypeParse('woot','HeHe'), 'hehe' )
 
+    def test_datatype_str_hex(self):
+        tlib = s_types.TypeLib()
+
+        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'str:hex', 0xFFF)
+        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'str:hex', '0xFFF')
+        self.eq(tlib.getTypeNorm('str:hex', 'FfF'), 'fff')
+        self.eq(tlib.getTypeNorm('str:hex', '12345'), '12345')
+        self.eq(tlib.getTypeNorm('str:hex', '12A45'), '12a45')
+
+        self.assertRaises(BadTypeValu, tlib.getTypeFrob, 'str:hex', '0xFFF')
+        self.eq(tlib.getTypeFrob('str:hex', 0xFfF), 'fff')
+        self.eq(tlib.getTypeFrob('str:hex', 'FFF'), 'fff')
+        self.eq(tlib.getTypeFrob('str:hex', '1A2b3C'), '1a2b3c')
+        self.eq(tlib.getTypeFrob('str:hex', 0x1A2b3C), '1a2b3c')
+        self.eq(tlib.getTypeFrob('str:hex', '12345'), '12345') # already str
+        self.eq(tlib.getTypeFrob('str:hex', 12345), '3039')
+
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'str:hex', '0xFFF')
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'str:hex', 0xFFF)
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'str:hex', 123)
+        self.eq(tlib.getTypeParse('str:hex', '10001'), '10001')
+        self.eq(tlib.getTypeParse('str:hex', 'FFF'), 'fff')
+
+        tlib.addType('woot', subof='sepr', sep='/', fields='a,str:hex|b,str:hex')
+        self.eq(tlib.getTypeFrob('woot', 'AAA/BBB'), 'aaa/bbb')
+        self.eq(tlib.getTypeFrob('woot', '123456/BBB'), '123456/bbb') # already str
+        self.eq(tlib.getTypeFrob('woot', (123456, 'BBB')), '1e240/bbb')
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'woot', '123x/aaaa')
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'woot', '0x123/aaaa')
+
     def test_datatype_dup(self):
         tlib = s_types.TypeLib()
 
@@ -316,6 +346,40 @@ class DataTypesTest(SynTest):
         self.eq(subs.get('foo'),'woot.com')
         self.eq(subs.get('bar'),'Visi')
 
+    def test_type_sepr_reverse(self):
+        tlib = s_types.TypeLib()
+
+        tlib.addType('foo',subof='sepr',sep='/',fields='first,str:lwr|rest,str:lwr',reverse=1)
+        foo = tlib.getTypeChop('foo','/home/user/Downloads')
+        self.eq( foo[1].get('first'), '/home/user' )
+        self.eq( foo[1].get('rest'), 'downloads' )
+
+    def test_type_sepr_frob(self):
+        tlib = s_types.TypeLib()
+
+        tlib.addType('woot',subof='sepr',sep='/',fields='a,str:hex|b,str:hex')
+        tlib.addType('wootaddr',subof='sepr',sep='/',fields='a,str:hex|b,str:hex|c,inet:ipv4')
+        tlib.addType('underwoot',subof='sepr',sep='_',fields='c,woot|d,woot')
+        tlib.addType('badwoot',subof='sepr',sep='/',fields='c,woot|d,woot')
+
+        self.eq(tlib.getTypeFrob('woot', '12345/67890'), '12345/67890') # already str
+        self.eq(tlib.getTypeFrob('woot', (12345, 67890)), '3039/10932')
+        self.eq(tlib.getTypeFrob('woot', [12345, 67890]), '3039/10932')
+
+        self.eq(tlib.getTypeFrob('underwoot', '12/34_56/78'), '12/34_56/78') # already str
+        self.eq(tlib.getTypeFrob('underwoot', ((12,34), (56,78))), 'c/22_38/4e')
+        self.eq(tlib.getTypeFrob('underwoot', [(12,34), [56,78]]), 'c/22_38/4e')
+        
+        self.assertRaises(BadTypeValu, tlib.getTypeFrob, 'badwoot', '1/2/3/4')
+
+        self.eq(tlib.getTypeFrob('wootaddr', [12345, 67890, 0]), '3039/10932/0.0.0.0')
+        self.eq(tlib.getTypeFrob('wootaddr', [12345, 67890, '192.168.1.1']), '3039/10932/192.168.1.1')
+
+    def test_type_sepr_parse(self):
+        tlib = s_types.TypeLib()
+        tlib.addType('woot',subof='sepr',sep='/',fields='a,str:hex|b,str:hex')
+        self.eq(tlib.getTypeParse('woot', '12345/67890'), '12345/67890')
+
     def test_type_str_nullval(self):
         tlib = s_types.TypeLib()
         tlib.addType('woot', subof='str', regex='^[0-9]+$', nullval='??')
@@ -342,14 +406,6 @@ class DataTypesTest(SynTest):
         with s_cortex.openurl('ram:///') as core:
             core.addType('foo:bar',subof='inet:ipv4')
             self.assertIsNotNone( core.getTypeInfo('foo:bar','ex') )
-
-    def test_type_sepr_reverse(self):
-        tlib = s_types.TypeLib()
-
-        tlib.addType('foo',subof='sepr',sep='/',fields='first,str:lwr|rest,str:lwr',reverse=1)
-        foo = tlib.getTypeChop('foo','/home/user/Downloads')
-        self.eq( foo[1].get('first'), '/home/user' )
-        self.eq( foo[1].get('rest'), 'downloads' )
 
     def test_type_comp_recursive(self):
         tlib = s_types.TypeLib()
