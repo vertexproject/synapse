@@ -123,7 +123,7 @@ class MindMeld:
         '''
         moddef = s_moddef.getModDef(name)
         if moddef == None:
-            raise NoSuchMod(name)
+            raise NoSuchMod(name=name)
 
         self.addModDef(moddef)
 
