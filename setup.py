@@ -20,7 +20,7 @@ setup(
     description='Synapse Distributed Computing Framework',
     author='Invisigoth Kenshoto',
     author_email='invisigoth.kenshoto@gmail.com',
-    url='https://github.com/vivisect/synapse',
+    url='https://github.com/vertexproject/synapse',
     license='Apache License 2.0',
 
     packages=find_packages(exclude=['*.tests','*.tests.*']),

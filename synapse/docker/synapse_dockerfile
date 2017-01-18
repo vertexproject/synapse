@@ -31,7 +31,7 @@ RUN mkdir ~/git &&\
 VOLUME /syndata
 
 RUN apt install -yq wget unzip &&\ 
- cd /root/git && wget https://github.com/vivisect/synapse/archive/master.zip &&\
+ cd /root/git && wget https://github.com/vertexproject/synapse/archive/master.zip &&\
  unzip master.zip &&\
  mv synapse-master synapse &&\
  cd synapse &&\
