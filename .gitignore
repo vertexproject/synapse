@@ -65,3 +65,9 @@ target/
 
 # pyvenv
 venv
+
+# pyenv
+.python-version
+
+# PyCharm files.
+.idea/
