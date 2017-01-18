@@ -2330,8 +2330,9 @@ class CoreXact:
         self._coreXactCommit()
 
     def fireall(self):
-        events = list(self.events)
-        self.events.clear()
+
+        events = self.events
+        self.events = []
 
         [ self.core.fire(name,**props) for (name,props) in events ]
 
