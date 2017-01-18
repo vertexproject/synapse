@@ -72,8 +72,8 @@ class SynTest(unittest.TestCase):
         core = s_cortex.openurl('postgres:///%s/%s' % (db,table))
 
         def droptable():
-            with core.cursor() as c:
-                c.execute('DROP TABLE %s' % (table,))
+            with core.getCoreXact() as xact:
+                xact.cursor.execute('DROP TABLE %s' % (table,))
 
         core.onfini(droptable)
         return core
