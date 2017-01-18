@@ -148,6 +148,19 @@ class StrType(DataType):
 
         return self.norm(text, oldval=oldval)
 
+class JsonType(DataType):
+
+    def frob(self, valu, oldval=None):
+        if not s_compat.isstr(valu):
+            return json.dumps(valu,separators=(',', ':'))
+
+        return self.norm(valu,oldval=None)
+
+    def norm(self, valu, oldval=None):
+        try:
+            return json.dumps( json.loads(valu), separators=(',', ':') )
+        except Exception as e:
+            self._raiseBadValu(valu)
 
 class IntType(DataType):
 
@@ -421,6 +434,7 @@ class TypeLib:
         self.addType('str',ctor='synapse.lib.types.StrType', doc='The base string type')
         self.addType('int',ctor='synapse.lib.types.IntType', doc='The base integer type')
         self.addType('bool',ctor='synapse.lib.types.BoolType', doc='A boolean type')
+        self.addType('json',ctor='synapse.lib.types.JsonType', doc='A json type (stored as str)')
 
         self.addType('comp',ctor='synapse.lib.types.CompType', doc='A multi-field composite type which uses base64 encoded msgpack')
         self.addType('sepr',ctor='synapse.lib.types.SeprType', doc='A multi-field composite type which uses separated repr values')

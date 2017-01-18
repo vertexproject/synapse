@@ -425,3 +425,10 @@ class DataTypesTest(SynTest):
 
         self.assertRaises( BadTypeValu, tlib.getTypeChop, 'path', 'some-filename' )
 
+    def test_type_json(self):
+        tlib = s_types.TypeLib()
+        self.eq( tlib.getTypeNorm('json','{  "woot"       :10}'), '{"woot":10}' )
+        self.eq( tlib.getTypeFrob('json',{'woot':10}), '{"woot":10}' )
+
+        # cant frob json string unless it's valid json... ( can't tell the difference )
+        self.assertRaises( BadTypeValu, tlib.getTypeFrob, 'json', 'derp' )
