@@ -20,11 +20,6 @@ RUN pip3 install --upgrade\
     setuptools\
     wheel
 
-RUN pip3 install --upgrade\
-    cryptography\ 
-    msgpack-python\
-    tornado
-
 RUN mkdir ~/git &&\
  mkdir /syndata
 
