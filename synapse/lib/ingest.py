@@ -7,6 +7,7 @@ from synapse.eventbus import EventBus
 
 import synapse.axon as s_axon
 import synapse.dyndeps as s_dyndeps
+import synapse.lib.scrape as s_scrape
 import synapse.lib.datapath as s_datapath
 import synapse.lib.encoding as s_encoding
 
@@ -116,6 +117,10 @@ class Ingest(EventBus):
                 (<path>, {'mime':<mime>, 'decode':<decode> }),
             ),
 
+            'scrapes':(
+                (<path>, {<opts>}),
+            ),
+
         },
 
         # for the default in-band case only...
@@ -204,6 +209,18 @@ class Ingest(EventBus):
                 tufo = core.formTufoByProp('file:bytes',iden,**props)
                 for tag in ctx.get('tags'):
                     core.addTufoTag(tufo,tag)
+
+        for path,scfo in info.get('scrapes',()):
+
+            tags = list( ctx.get('tags',()) )
+            tags.extend( scfo.get('tags',() ) )
+
+            for item in data.iter(path):
+                text = item.valu()
+
+                for form,valu in s_scrape.scrape(text):
+                    tufo = core.formTufoByProp(form,valu)
+                    core.addTufoTags(tufo,tags)
 
         # iterate and create any forms at our level
         for form,fnfo in info.get('forms',()):
