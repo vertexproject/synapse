@@ -78,7 +78,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         self.lock = threading.Lock()
         self.inclock = threading.Lock()
 
-        self._form_locks = collections.defaultdict(threading.RLock)
+        self._core_xacts = {}
 
         self.statfuncs = {}
 
@@ -684,7 +684,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         '''
         Sync all core:sync events in a given list.
         '''
-        [ self.sync(m) for m in msgs ]
+        with self.getCoreXact() as xact:
+            [ self.sync(m) for m in msgs ]
 
     def sync(self, mesg):
         '''
@@ -1315,8 +1316,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
             core.addTufoTags(tufo,['foo.bar','baz.faz'])
 
         '''
-        for tag in tags:
-            self.addTufoTag(tufo,tag,asof=asof)
+        with self.getCoreXact():
+            [ self.addTufoTag(tufo,tag,asof=asof) for tag in tags ]
 
     def addTufoTag(self, tufo, tag, asof=None):
         '''
@@ -1330,15 +1331,22 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         '''
         reqiden(tufo)
         self._genTufoTag(tag)
+
         rows = s_tags.genTufoRows(tufo,tag,valu=asof)
         if rows:
-            formevt = 'tufo:tag:add:%s' % tufo[1].get('tufo:form')
-            self.addRows(list(map(lambda tup: tup[1], rows)))
-            for subtag,(i,p,v,t) in rows:
-                tufo[1][p] = v
-                self._bumpTufoCache(tufo,p,None,v)
-                self.fire('tufo:tag:add', tufo=tufo, tag=subtag, asof=asof)
-                self.fire(formevt, tufo=tufo, tag=subtag, asof=asof)
+
+            with self.getCoreXact() as xact:
+
+                formevt = 'tufo:tag:add:%s' % tufo[1].get('tufo:form')
+
+                self.addRows(list(map(lambda tup: tup[1], rows)))
+
+                for subtag,(i,p,v,t) in rows:
+                    tufo[1][p] = v
+                    self._bumpTufoCache(tufo,p,None,v)
+
+                    xact.fire('tufo:tag:add', tufo=tufo, tag=subtag, asof=asof)
+                    xact.fire(formevt, tufo=tufo, tag=subtag, asof=asof)
 
         return tufo
 
@@ -1354,21 +1362,27 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         '''
         iden = reqiden(tufo)
         props = s_tags.getTufoSubs(tufo,tag)
+
         if props:
-            formevt = 'tufo:tag:del:%s' % tufo[1].get('tufo:form') 
-            [ self.delRowsByIdProp(iden,prop) for prop in props ]
 
-            for p in props:
+            with self.getCoreXact() as xact:
 
-                asof = tufo[1].pop(p,None)
-                if asof == None:
-                    continue
+                formevt = 'tufo:tag:del:%s' % tufo[1].get('tufo:form') 
 
-                self._bumpTufoCache(tufo,p,asof,None)
+                [ self.delRowsByIdProp(iden,prop) for prop in props ]
 
-                subtag = s_tags.choptag(p)
-                self.fire('tufo:tag:del', tufo=tufo, tag=subtag)
-                self.fire(formevt, tufo=tufo, tag=subtag)
+                for p in props:
+
+                    asof = tufo[1].pop(p,None)
+                    if asof == None:
+                        continue
+
+                    self._bumpTufoCache(tufo,p,asof,None)
+
+                    subtag = s_tags.choptag(p)
+
+                    xact.fire('tufo:tag:del', tufo=tufo, tag=subtag)
+                    xact.fire(formevt, tufo=tufo, tag=subtag)
 
         return tufo
 
@@ -1652,9 +1666,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
         return self.formTufoByProp(form,valu,**props)
 
-    def _getFormLock(self, name):
-        return self._form_locks[name]
-
     def formTufoByProp(self, prop, valu, **props):
         '''
         Form an (iden,info) tuple by atomically deconflicting
@@ -1672,7 +1683,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         '''
         valu,subs = self.getPropChop(prop,valu)
 
-        with self._getFormLock(prop):
+        with self.getCoreXact() as xact:
 
             tufo = self.getTufoByProp(prop,valu=valu)
             if tufo != None:
@@ -1704,13 +1715,13 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
                 for p,v in props.items():
                     self._bumpTufoCache(cachefo,p,None,v)
 
-        self.fire('tufo:add', tufo=tufo)
-        self.fire('tufo:add:%s' % prop, tufo=tufo)
+            xact.fire('tufo:add',tufo=tufo)
+            xact.fire('tufo:add:%s' % prop, tufo=tufo)
+
+            if self.autoadd:
+                self._runAutoAdd(toadd)
 
         tufo[1]['.new'] = True
-
-        if self.autoadd:
-            self._runAutoAdd(toadd)
 
         return tufo
 
@@ -1747,7 +1758,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
                 self._bumpTufoCache(tufo,prop,valu,None)
 
         iden = tufo[0]
-        with self._getFormLock(form):
+        with self.getCoreXact():
             self.delRowsById(iden)
 
         lists = [ p.split(':',2)[2] for p in tufo[1].keys() if p.startswith('tufo:list:') ]
@@ -1909,24 +1920,26 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         tid = tufo[0]
 
         props = { p:v for (p,v) in props.items() if tufo[1].get(p) != v }
+        if not props:
+            return tufo
 
-        if props:
+        with self.getCoreXact() as xact:
+
             self.fire('tufo:set', tufo=tufo, props=props)
             self.fire('tufo:props:%s' % (form,), tufo=tufo, props=props)
 
-        for p,v in props.items():
+            for p,v in props.items():
 
-            oldv = tufo[1].get(p)
-            self.setRowsByIdProp(tid,p,v)
+                oldv = tufo[1].get(p)
+                self.setRowsByIdProp(tid,p,v)
 
-            tufo[1][p] = v
+                tufo[1][p] = v
 
-            # update the tufo cache if present
-            if self.caching:
-                self._bumpTufoCache(tufo,p,oldv,v)
+                # update the tufo cache if present
+                if self.caching:
+                    self._bumpTufoCache(tufo,p,oldv,v)
 
-            self.fire('tufo:set:%s' % (p,), tufo=tufo, prop=p, valu=v, oldv=oldv)
-
+                xact.fire('tufo:set:%s' % (p,), tufo=tufo, prop=p, valu=v, oldv=oldv)
 
         return tufo
 
@@ -2227,3 +2240,161 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         pump.onfini( wrkr.fini )
 
         return pump
+
+    def getCoreXact(self, size=1000):
+        '''
+        Get a cortex transaction context for use in a with block.
+        This object allows bulk storage layer optimization and
+        proper ordering of events.
+
+        Example:
+
+            with core.getCoreXact() as xact:
+                core.dostuff()
+
+        '''
+        iden = s_threads.iden()
+
+        xact = self._core_xacts.get(iden)
+        if xact != None:
+            return xact
+
+        xact = self._getCoreXact(size)
+        self._core_xacts[iden] = xact
+        return xact
+
+    def _popCoreXact(self):
+        # Used by the CoreXact fini routine
+        self._core_xacts.pop( s_threads.iden(), None)
+
+    def _getCoreXact(self, size):
+        raise NoSuchImpl(name='_getCoreXact')
+
+inclock = threading.Lock()
+
+class CoreXact:
+    '''
+    A context manager for a cortex "transaction".
+    '''
+    def __init__(self, core, size=None):
+        self.core = core
+        self.size = size
+
+        self.refs = 0
+        self.ready = False
+        self.exiting = False
+
+        self.events = []
+
+    def _coreXactAcquire(self):
+        # allow implementors to acquire any synchronized resources
+        pass
+
+    def _coreXactRelease(self):
+        # allow implementors to release any synchronized resources
+        pass
+
+    def _coreXactInit(self):
+        # called once during the first __enter__
+        pass
+
+    def _coreXactFini(self):
+        # called once during the last __exit__
+        pass
+
+    def _coreXactBegin(self):
+        raise NoSuchImpl(name='_coreXactBegin')
+
+    def _coreXactCommit(self):
+        raise NoSuchImpl(name='_coreXactCommit')
+
+    def acquire(self):
+        #print('ACQUIRE')
+        self.core.lock.acquire()
+        self._coreXactAcquire()
+
+    def release(self):
+        #print('RELEASE')
+        self.core.lock.release()
+        self._coreXactRelease()
+
+    def begin(self):
+        #print('BEGIN')
+        self._coreXactBegin()
+
+    def commit(self):
+        '''
+        Commit the results thus far ( without closing / releasing )
+        '''
+        #print('COMMIT: %d' % (len(self.events),))
+        self._coreXactCommit()
+
+    def fireall(self):
+
+        events = self.events
+        self.events = []
+
+        [ self.core.fire(name,**props) for (name,props) in events ]
+
+    def cedetime(self):
+        # release and re acquire the form lock to allow others a shot
+        # give up our scheduler quanta to allow acquire() priority to go
+        # to any existing waiters.. ( or come back almost immediately if none )
+        self.release()
+        time.sleep(0)
+        self.acquire()
+
+    def fire(self, name, **props):
+        '''
+        Pend an event to fire when the transaction next commits.
+        '''
+        self.events.append( (name,props) )
+
+        if self.size != None and len(self.events) >= self.size:
+            self.sync()
+            self.cedetime()
+            self.begin()
+
+    def sync(self):
+        '''
+        Loop commiting and syncing events until there are no more
+        events that need to fire.
+        '''
+        self.commit()
+
+        # odd thing during exit... we need to fire events
+        # ( possibly causing more xact uses ) until there are
+        # no more events left to fire.
+        while self.events:
+            self.begin()
+            self.fireall()
+            self.commit()
+
+    def __enter__(self):
+
+        with inclock:
+            self.refs += 1
+            if self.refs == 1 and not self.ready:
+                self._coreXactInit()
+                self.acquire()
+                self.begin()
+                self.ready = True
+
+        return self
+
+    def __exit__(self, exc, cls, tb):
+
+        # FIXME handle exception rollback
+
+        with inclock:
+            self.refs -= 1
+            if self.refs > 0 or self.exiting:
+                return
+
+            self.exiting = True
+
+        self.sync()
+        self.release()
+        self._coreXactFini()
+        self.core._popCoreXact()
+
