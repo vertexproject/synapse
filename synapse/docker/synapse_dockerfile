@@ -42,3 +42,8 @@ RUN apt install -yq wget unzip &&\
 VOLUME /root/git/synapse
 WORKDIR /root/git/synapse
 
+COPY ./synapse/docker/cortex/ram_dmon.json /syndata/dmon.json
+
+EXPOSE 47322
+
+ENTRYPOINT ["python3", "-m", "synapse.tools.dmon", "/syndata/dmon.json"]
