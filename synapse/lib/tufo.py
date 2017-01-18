@@ -1,5 +1,5 @@
 '''
-Some common utility functions for deailing with tufos.
+Some common utility functions for dealing with tufos.
 '''
 
 def tufo(name,**props):
@@ -9,7 +9,7 @@ def tufo(name,**props):
     Example:
 
         tuf0 = s_tufo.tufo('bar',baz='faz',derp=20)
-        # tuf0 = ('bar',{'baz':'faz':'derp':20})
+        # tuf0 = ('bar',{'baz':'faz', 'derp':20})
 
     '''
     return (name,props)
@@ -22,8 +22,14 @@ def props(tufo,pref=None):
     Example:
 
         import synapse.tufo as s_tufo
-
-        info = s_tufo.props(tuf0)
+        tuf0 = s_tufo.tufo('bar', **{'baz':'faz', 'derp': 20, 'namespace:sound': 'quack'})
+        # tuf0 = ('bar', {'namespace:ducksound': 'quack', 'derp': 20, 'baz': 'faz'})
+        info = s_tufo.props(tuf0, pref='namespace')
+        # info = {'ducksound': 'quack'}
+        tuf1 = s_tufo.tufo('duck', **{'tufo:form': 'animal', 'animal:sound':'quack', 'animal:stype': 'duck'})
+        # tuf1 = ('duck', {'tufo:form': 'animal', 'animal:stype': 'duck', 'animal:sound': 'quack'})
+        info = s_tufo.props(tuf1)
+        # info = {'stype': 'duck', 'sound': 'quack'}
 
     '''
     if pref == None:
