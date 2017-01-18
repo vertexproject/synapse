@@ -110,6 +110,9 @@ def put(name,valu):
 def current():
     return threading.currentThread()
 
+def iden():
+    return threading.currentThread().ident
+
 def isfini():
     return getattr(current(),'isfini',False)
 

@@ -13,6 +13,7 @@ class SynErr(Exception):
 
 class NoSuchOpt(SynErr):pass
 class NoSuchDir(SynErr):pass
+class NoSuchMod(SynErr):pass
 class NoSuchConf(SynErr):pass
 class NoSuchForm(SynErr):pass
 class NoSuchPath(SynErr):pass
@@ -61,7 +62,6 @@ class DupRole(Exception):pass
 class NoSuch(Exception):pass
 class NoSuchAct(Exception):pass
 class NoSuchJob(Exception):pass
-class NoSuchMod(Exception):pass
 class NoSuchObj(Exception):pass
 class NoSuchFile(Exception):pass
 class NoSuchIden(Exception):pass

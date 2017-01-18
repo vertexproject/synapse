@@ -4,7 +4,7 @@ import re
 import sqlite3
 
 import synapse.compat as s_compat
-import synapse.cores.common as common
+import synapse.cores.common as s_cores_common
 
 from synapse.common import now
 from synapse.compat import queue
@@ -15,21 +15,28 @@ int_t = s_compat.typeof(0)
 str_t = s_compat.typeof('visi')
 none_t = s_compat.typeof(None)
 
-class WithCursor:
+class CoreXact(s_cores_common.CoreXact):
 
-    def __init__(self, pool, db, cursor):
-        self.db = db
-        self.pool = pool
-        self.cursor = cursor
+    def _coreXactInit(self):
+        self.db = None
+        self.cursor = None
 
-    def __enter__(self):
-        return self.cursor
+    def _coreXactCommit(self):
+        self.cursor.execute('COMMIT')
 
-    def __exit__(self, exc, cls, tb):
+    def _coreXactBegin(self):
+        self.cursor.execute('BEGIN TRANSACTION')
+
+    def _coreXactAcquire(self):
+        self.db = self.core.dbpool.get()
+        self.cursor = self.db.cursor()
+
+    def _coreXactRelease(self):
         self.cursor.close()
+        self.core.dbpool.put( self.db )
 
-        self.db.commit()
-        self.pool.putdb( self.db )
+        self.db = None
+        self.cursor = None
 
 class DbPool:
     '''
@@ -44,8 +51,6 @@ class DbPool:
 
         pool = DbPool(3, connectdb)
 
-        with pool.cursor() as c:
-
     '''
 
     def __init__(self, size, ctor):
@@ -56,20 +61,18 @@ class DbPool:
 
         for i in range(size):
             db = ctor()
-            self.putdb( db )
+            self.put( db )
 
-    def cursor(self):
-        db = self.dbque.get()
-        cur = db.cursor()
-        return WithCursor(self, db, cur)
-
-    def putdb(self, db):
+    def put(self, db):
         '''
         Add/Return a db connection to the pool.
         '''
         self.dbque.put(db)
 
-class Cortex(common.Cortex):
+    def get(self):
+        return self.dbque.get()
+
+class Cortex(s_cores_common.Cortex):
 
     dblim = -1
 
@@ -208,16 +211,15 @@ class Cortex(common.Cortex):
     _t_uprows_by_iden_prop_str = 'UPDATE {{TABLE}} SET strval={{VALU}} WHERE iden={{IDEN}} and prop={{PROP}}'
     _t_uprows_by_iden_prop_int = 'UPDATE {{TABLE}} SET intval={{VALU}} WHERE iden={{IDEN}} and prop={{PROP}}'
 
-
-    def cursor(self):
-        return self.dbpool.cursor()
-
     def _initDbInfo(self):
         name = self._link[1].get('path')[1:]
         if not name:
             raise Exception('No Path Specified!')
 
         return {'name':name}
+
+    def _getCoreXact(self, size=None):
+        return CoreXact(self, size=size)
 
     def _getDbLimit(self, limit):
         if limit != None:
@@ -264,10 +266,12 @@ class Cortex(common.Cortex):
 
     def _initDbConn(self):
         dbinfo = self._initDbInfo()
-        db = sqlite3.connect(dbinfo.get('name'), check_same_thread=False)
+        dbname = dbinfo.get('name')
+        db = sqlite3.connect(dbname, check_same_thread=False)
+        db.isolation_level = None
         def onfini():
             db.close()
-        self.onfini(onfini, weak=True)
+        self.onfini(onfini)
         return db
 
     def _getTableName(self):
@@ -485,12 +489,12 @@ class Cortex(common.Cortex):
         return len(self.select(self._q_istable, name=name))
 
     def _initCorTable(self, name):
-        with self.cursor() as c:
-            c.execute(self._q_inittable)
-            c.execute(self._q_init_iden_idx)
-            c.execute(self._q_init_prop_idx)
-            c.execute(self._q_init_strval_idx)
-            c.execute(self._q_init_intval_idx)
+        with self.getCoreXact() as xact:
+            xact.cursor.execute(self._q_inittable)
+            xact.cursor.execute(self._q_init_iden_idx)
+            xact.cursor.execute(self._q_init_prop_idx)
+            xact.cursor.execute(self._q_init_strval_idx)
+            xact.cursor.execute(self._q_init_intval_idx)
 
     def _addRows(self, rows):
         args = []
@@ -500,25 +504,25 @@ class Cortex(common.Cortex):
             else:
                 args.append( {'iden':i, 'prop':p, 'intval':None, 'strval':v, 'tstamp':t} )
 
-        with self.cursor() as c:
-            c.executemany( self._q_addrows, args )
+        with self.getCoreXact() as xact:
+            xact.cursor.executemany( self._q_addrows, args )
 
     def update(self, q, **args):
         #print('UPDATE: %r %r' % (q,r))
-        with self.cursor() as cur:
-            cur.execute(q,args)
-            return cur.rowcount
+        with self.getCoreXact() as xact:
+            xact.cursor.execute(q,args)
+            return xact.cursor.rowcount
 
     def select(self, q, **args):
         #print('SELECT: %r %r' % (q,args))
-        with self.cursor() as cur:
-            cur.execute(q,args)
-            return cur.fetchall()
+        with self.getCoreXact() as xact:
+            xact.cursor.execute(q,args)
+            return xact.cursor.fetchall()
 
     def delete(self, q, **args):
         #print('DELETE: %s %r' % (q,args))
-        with self.cursor() as cur:
-            cur.execute(q,args)
+        with self.getCoreXact() as xact:
+            xact.cursor.execute(q,args)
 
     def _foldTypeCols(self, rows):
         ret = []
