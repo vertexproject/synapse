@@ -1,11 +1,23 @@
 
+import os
 import sys
 
+from synapse.docker import getSyncCore
 import synapse.telepath as s_telepath
 
 from synapse.tests.common import *
 
 class DockerTest(SynTest):
+
+    def test_getSyncCore(self):
+        SYN_UPSTREAM_CORE = os.getenv('SYN_UPSTREAM_CORE', '')
+        try:
+            os.environ['SYN_UPSTREAM_CORE'] = 'ram:///'
+            with getSyncCore() as core:
+                tufo = core.formTufoByProp('test', '1', **{})
+                self.eq(tufo[1]['tufo:form'], 'test')
+        finally:
+            os.environ['SYN_UPSTREAM_CORE'] = SYN_UPSTREAM_CORE
 
     def test_ram_core(self):
         dcker = os.getenv('SYN_DOCKER')

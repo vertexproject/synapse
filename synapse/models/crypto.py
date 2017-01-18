@@ -8,7 +8,7 @@ ex_sha512 = 'ca74fe2ff2d03b29339ad7d08ba21d192077fece1715291c7b43c20c9136cd13278
 def getDataModel():
     return {
 
-        'version':201611251144,
+        'version':201701181223,
 
         'types':(
             ('hash:md5',    {'subof':'str','regex':'^[0-9a-f]{32}$', 'lower':1, 'doc':'An MD5 hash', 'ex':ex_md5 }),
@@ -16,6 +16,7 @@ def getDataModel():
             ('hash:sha256', {'subof':'str','regex':'^[0-9a-f]{64}$', 'lower':1, 'doc':'A SHA256 hash', 'ex':ex_sha256 }),
             ('hash:sha384', {'subof':'str','regex':'^[0-9a-f]{96}$', 'lower':1, 'doc':'A SHA384 hash', 'ex':ex_sha384 }),
             ('hash:sha512', {'subof':'str','regex':'^[0-9a-f]{128}$', 'lower':1, 'doc':'A SHA512 hash', 'ex':ex_sha512 }),
+            ('rsa:key',     {'subof':'sepr','sep':'/','fields':'mod,str:hex|pub:exp,str:hex', 'doc':'An RSA keypair modulus and public exponent' }),
         ),
 
         'forms':(
@@ -24,6 +25,14 @@ def getDataModel():
             ('hash:sha256', {'ptype':'hash:sha256'},[]),
             ('hash:sha384', {'ptype':'hash:sha384'},[]),
             ('hash:sha512', {'ptype':'hash:sha512'},[]),
+            ('rsa:key',      {'ptype':'rsa:key'},[
+                ('mod',      {'pytpe':'str:hex','doc':'The modulus'}),
+                ('bits',     {'ptype':'int','doc':'The length of the modulus in bits'}),
+                ('pub:exp',  {'ptype':'str:hex','doc':'The public exponent'}),
+                ('priv:exp', {'ptype':'str:hex','doc':'The private exponent'}),
+                ('priv:p',   {'ptype':'str:hex','doc':'One of the two private primes'}),
+                ('priv:q',   {'ptype':'str:hex','doc':'One of the two private primes'}),
+            ]),
         ),
 
     }
