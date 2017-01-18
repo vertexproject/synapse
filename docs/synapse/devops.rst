@@ -20,7 +20,7 @@ being loaded.
 Install
 *******
 Ubuntu 16.04 LTS is the recommended platform for installation. Installation via Docker is also
-supported. Synapse is available at https://github.com/vivisect/synapse.git
+supported. Synapse is available at https://github.com/vertexproject/synapse.git
 
 Ubuntu
 ======
@@ -36,7 +36,7 @@ The following commands assume your Synapse checkout will be in '~/synapse'::
 
     $ cd ~/
     $ sudo apt install unzip wget
-    $ wget https://github.com/vivisect/synapse/archive/master.zip
+    $ wget https://github.com/vertexproject/synapse/archive/master.zip
     $ unzip master.zip
     $ mv synapse-master synapse
     $ cd synapse
