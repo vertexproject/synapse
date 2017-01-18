@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import time
 import subprocess
 
 import synapse.tools.dmon as s_dmon
@@ -13,7 +14,14 @@ en = {
     'PATH': os.getenv('PATH'),
 }
 
-subprocess.Popen('./pg_docker_entrypoint.sh postgres', shell=True, cwd='/', env=en)
+subprocess.Popen('./docker-entrypoint.sh postgres', shell=True, cwd='/', env=en)
+
+pgv = '%s/PG_VERSION' % (en['PGDATA'],)
+while True:
+    if os.path.isfile(pgv) and os.stat(pgv).st_size > 0:
+        break
+    print('waiting for PG to initialize')
+    time.sleep(1)
 
 print('initializing dmon main')
 s_dmon.main(['/syndata/dmon.json'])
