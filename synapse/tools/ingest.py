@@ -53,7 +53,7 @@ def main(argv, outp=None):
 
     if opts.verbose:
         core.on('tufo:add', _print_tufo_add)
-        core.on('tufo:tag:add', _print__tufo_tag_add)
+        core.on('tufo:tag:add', _print_tufo_tag_add)
 
     pump = None
     if opts.sync != None:
