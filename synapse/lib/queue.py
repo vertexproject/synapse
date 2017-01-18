@@ -69,6 +69,35 @@ class Queue(EventBus):
             self.deq.append(item)
             self.event.set()
 
+    def slice(self, size, timeout=None):
+
+        while not self.isfini:
+
+            with self.lock:
+
+                ret = []
+                while len(ret) < size and self.deq:
+                    ret.append( self.deq.popleft() )
+
+                if ret:
+                    return ret
+
+                if self._que_done and not self.deq:
+                    self.fini()
+                    return None
+
+                self.event.clear()
+
+            self.event.wait(timeout=timeout)
+            if not self.event.is_set():
+                return None
+
+    def slices(self, size):
+        ret = self.slice(size)
+        while ret != None:
+            yield ret
+            ret = self.slice(size)
+
     def __iter__(self):
         while not self.isfini:
             ret = self.get()
@@ -79,6 +108,13 @@ class Queue(EventBus):
 
     def _onQueFini(self):
         self.event.set()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc, cls, tb):
+        self.done()
+        self.waitfini()
 
 class BulkQueue(EventBus):
     '''
@@ -211,7 +247,7 @@ class BulkQueue(EventBus):
             self.items.append(item)
             self.event.set()
 
-    def get(self, timeout=None):
+    def get(self, timeout=None, maxsize=None):
         '''
         Retrieve the next list of items from the BulkQueue.
 
@@ -244,7 +280,7 @@ class BulkQueue(EventBus):
                 self.fd = None
 
             if self.items:
-                return self._get_items()
+                return self._get_items(maxsize=maxsize)
 
             if self.isfini:
                 return None
@@ -260,7 +296,7 @@ class BulkQueue(EventBus):
             self.last = time.time()
             if not self.items and self.isfini:
                 return None
-            return self._get_items()
+            return self._get_items(maxsize=maxsize)
 
     def peek(self):
         return list(self.items)
@@ -268,7 +304,7 @@ class BulkQueue(EventBus):
     def __len__(self):
         return len(self.items)
 
-    def _get_items(self):
-        ret = self.items
-        self.items = []
+    def _get_items(self, maxsize=None):
+        ret = self.items[:maxsize]
+        self.items = self.items[len(ret):]
         return ret

@@ -1182,7 +1182,6 @@ class CortexTest(SynTest):
             core.addDataModel('a.foo.module',
                 {
                     'prefix':'foo',
-                    'version':201612201147,
 
                     'types':(
                         ('foo:bar',{'subof':'str:lwr'}),
@@ -1194,6 +1193,15 @@ class CortexTest(SynTest):
                         ]),
                     ),
                 })
+
+            tyfo = core.getTufoByProp('syn:type','foo:bar')
+            self.eq( tyfo[1].get('syn:type:subof'), 'str:lwr' )
+
+            fofo = core.getTufoByProp('syn:form','foo:baz')
+            self.eq( fofo[1].get('syn:form:ptype'),'foo:bar' )
+
+            pofo = core.getTufoByProp('syn:prop','foo:baz:faz')
+            self.eq( pofo[1].get('syn:prop:ptype'),'str:lwr' )
 
             tuf0 = core.formTufoByFrob('foo:baz', 'AAA', faz='BBB')
             self.eq( tuf0[1].get('foo:baz'), 'aaa' )
@@ -1229,4 +1237,15 @@ class CortexTest(SynTest):
             self.assertIsNotNone( core.getTufoByProp('syn:type', 'foo:bar') )
             self.assertIsNotNone( core.getTufoByProp('syn:form', 'foo:baz') )
             self.assertIsNotNone( core.getTufoByProp('syn:prop', 'foo:baz:faz') )
+
+    def test_cortex_syncpump(self):
+
+        with s_cortex.openurl('ram://') as core0:
+
+            with s_cortex.openurl('ram://') as core1:
+
+                with core0.getSyncPump(core1):
+                    core0.formTufoByProp('inet:fqdn','woot.com')
+
+                self.assertIsNotNone( core1.getTufoByProp('inet:fqdn','woot.com') )
 

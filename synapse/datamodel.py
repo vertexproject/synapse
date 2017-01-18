@@ -130,7 +130,7 @@ class DataModel(s_types.TypeLib):
         self.addTufoProp('syn:tag','title',defval='',ptype='str')
 
         self.addTufoForm('syn:model',ptype='syn:tag', doc='prefix for all forms within the model')
-        self.addTufoProp('syn:model','version', ptype='int', doc='version of the data model')
+        self.addTufoProp('syn:model','hash', ptype='guid', doc='version hash for the current model')
         self.addTufoProp('syn:model','prefix', ptype='syn:prop', doc='prefix used by types/forms in the model')
 
         self.addTufoForm('syn:type',ptype='syn:type')

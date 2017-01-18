@@ -49,6 +49,8 @@ def getDataModel():
                                'doc':'A message sent from one user to another within a web community',
                                 'ex':'twitter.com/invisig0th/gobbles/20041012130220'}),
 
+            ('inet:ssl:tcp4cert',{'subof':'sepr','sep':'/','fields':'tcp4,inet:tcp4|cert,file:guid','doc':'An SSL cert file served by an IPv4 server'}),
+
             ('inet:whois:reg',{'subof':'str','doc':'A whois registrant','ex':'Woot Hostmaster'}),
             ('inet:whois:rec',{'subof':'sepr','sep':'@','fields':'fqdn,inet:fqdn|asof,time','doc':'A whois record','ex':''}),
 
@@ -61,7 +63,7 @@ def getDataModel():
 
             ('inet:ipv4',{'ptype':'inet:ipv4'},[
                 ('cc',{'ptype':'pol:iso2','defval':'??'}),
-                #('uni',{'ptype':'bool','defval':1,'doc':'Set to 1 if the address is unicast and internet routable'}),
+                ('type',{'defval':'??','doc':'what type of ipv4 address ( uni, multi, priv )'}),
                 ('asn',{'ptype':'inet:asn','defval':0}),
             ]),
 
@@ -71,7 +73,10 @@ def getDataModel():
             ]),
 
             ('inet:url',{'ptype':'inet:url'},[
-                ('fqdn',{'ptype':'inet:fqdn'}),
+                ('ipv6',{'ptype':'inet:ipv6','ro':1}),
+                ('ipv4',{'ptype':'inet:ipv4','ro':1}),
+                ('fqdn',{'ptype':'inet:fqdn','ro':1}),
+                ('port',{'ptype':'inet:port','ro':1}),
             ]),
 
             ('inet:asn',{'ptype':'inet:asn'},[
@@ -149,6 +154,12 @@ def getDataModel():
                 ('registrar',{'ptype':'inet:whois:reg','defval':'??'}),
                 ('registrant',{'ptype':'inet:whois:reg','defval':'??'}),
                 # TODO admin/tech/billing contact info
+            ]),
+
+            ('inet:ssl:tcp4cert',{'ptype':'inet:ssl:tcp4cert'},[
+                ('tcp4',{'ptype':'inet:tcp4'}),
+                ('cert',{'ptype':'file:guid'}),
+                ('tcp4:ipv4',{'ptype':'inet:ipv4'}),
             ]),
         ),
     }
@@ -334,6 +345,7 @@ class EmailType(DataType):
 class UrlType(DataType):
 
     subprops = (
+        ('proto',{'ptype':'str'}),
         ('path',{'ptype':'str'}),
         ('fqdn',{'ptype':'inet:fqdn'}),
         ('ipv4',{'ptype':'inet:ipv4'}),
@@ -342,13 +354,16 @@ class UrlType(DataType):
     )
 
     def norm(self, valu, oldval=None):
+        return self.chop(valu,oldval=oldval)[0]
+
+    def chop(self, valu, oldval=None):
         respath = ''
         resauth = ''
 
         if valu.find('://') == -1:
             raise BadTypeValu(name=self.name,valu=valu)
 
-        scheme,resloc = valu.split('://',1)
+        proto,resloc = valu.split('://',1)
 
         parts = resloc.split('/',1)
         if len(parts) == 2:
@@ -358,13 +373,14 @@ class UrlType(DataType):
             resauth,resloc = resloc.split('@',1)
 
         # FIXME chop sub props from resloc!
-        scheme = scheme.lower()
+        proto = proto.lower()
         hostpart = resloc.lower()
 
         if resauth:
             hostpart = '%s@%s' % (resauth,hostpart)
 
-        return '%s://%s/%s' % (scheme,hostpart,respath)
+        valu = '%s://%s/%s' % (proto,hostpart,respath)
+        return (valu,{'proto':proto})
 
     def repr(self, valu):
         return valu

@@ -15,8 +15,10 @@ class NoSuchOpt(SynErr):pass
 class NoSuchDir(SynErr):pass
 class NoSuchConf(SynErr):pass
 class NoSuchForm(SynErr):pass
+class NoSuchPath(SynErr):pass
 class NoSuchStat(SynErr):pass
 class NoSuchImpl(SynErr):pass
+class NoSuchName(SynErr):pass
 class NoSuchTufo(SynErr):pass
 class NoSuchType(SynErr):pass
 class NoSuchProp(SynErr):pass
@@ -24,6 +26,9 @@ class NoSuchOper(SynErr):pass
 class NoSuchCmpr(SynErr):pass
 class NoSuchRule(SynErr):pass
 class NoSuchGetBy(SynErr):pass
+
+class NoSuchDecoder(SynErr):pass
+class NoSuchEncoder(SynErr):pass
 
 class BadOperArg(SynErr):pass
 class BadTypeValu(SynErr):pass
@@ -63,7 +68,6 @@ class NoSuchIden(Exception):pass
 class NoSuchMeth(Exception):pass
 class NoSuchFunc(Exception):pass
 class NoSuchPeer(Exception):pass
-class NoSuchPath(Exception):pass
 class NoSuchSess(Exception):pass
 class NoSuchUser(Exception):pass
 class NoSuchRole(Exception):pass

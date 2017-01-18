@@ -28,7 +28,12 @@ gigabyte = 1024000000
 chunksize = megabyte * 10
 
 class HashSet:
+
     def __init__(self):
+
+        self.size = 0
+
+        # BEWARE ORDER MATTERS FOR guid()
         self.hashes = [
             ('md5',hashlib.md5()),
             ('sha1',hashlib.sha1()),
@@ -36,10 +41,43 @@ class HashSet:
             ('sha512',hashlib.sha512())
         ]
 
+    def guid(self):
+        '''
+        Use elements from this hash set to create a unique
+        (re)identifier.
+        '''
+        iden = hashlib.md5()
+        props = {'size':self.size}
+
+        for name,item in self.hashes:
+            iden.update(item.digest())
+            props[name] = item.hexdigest()
+
+        return iden.hexdigest(),props
+
+    def eatfd(self, fd):
+        '''
+        Consume all the bytes from a file like object.
+
+        Example:
+
+            hset = HashSet()
+            hset.eatfd(fd)
+
+        '''
+        fd.seek(0)
+        byts = fd.read(10000000)
+        while byts:
+            self.update(byts)
+            byts = fd.read(10000000)
+
+        return self.guid()
+
     def update(self, byts):
         '''
         Update all the hashes in the set with the given bytes.
         '''
+        self.size += len(byts)
         [ h[1].update(byts) for h in self.hashes ]
 
     def digests(self):
@@ -175,7 +213,48 @@ class AxonHost(s_eventbus.EventBus):
 
 axontag = 'class.synapse.axon.Axon'
 
-class AxonCluster:
+class AxonMixin:
+    '''
+    The parts of the Axon which must be executed locally in proxy cases.
+    ( used as mixin for both Axon and AxonProxy )
+    '''
+    def eatfd(self, fd):
+
+        hset = HashSet()
+        iden,props = hset.eatfd(fd)
+
+        blob = self.byiden(iden)
+        if blob != None:
+            return blob
+
+        fd.seek(0)
+
+        sess = self.alloc( props.get('size') )
+
+        byts = fd.read(10000000)
+        while byts:
+            retn = self.chunk(sess,byts)
+            byts = fd.read(10000000)
+
+        return retn
+
+    def eatbytes(self, byts):
+        hset = HashSet()
+
+        hset.update(byts)
+        iden,props = hset.guid()
+        blob = self.byiden(iden)
+        if blob != None:
+            return blob
+
+        sess = self.alloc( props.get('size') )
+
+        for chnk in chunks(byts,10000000):
+            blob = self.chunk(sess,chnk)
+
+        return blob
+
+class AxonCluster(AxonMixin):
     '''
     Present a singular axon API from an axon cluster.
     '''
@@ -272,7 +351,7 @@ class AxonCluster:
         axon = self._getSvcAxon(iden)
 
         if axon == None:
-            valu = blob[1].get('axon:blob:hash:sha256')
+            valu = blob[1].get('axon:blob:sha256')
             for byts in self.bytes('sha256',valu):
                 yield byts
             return
@@ -294,6 +373,7 @@ class AxonCluster:
 
             for byts in axon.bytes(htype,hvalu):
                 yield byts
+
             return
 
     def wants(self, htype, hvalu, size, bytag=axontag):
@@ -305,7 +385,7 @@ class AxonCluster:
         '''
         Allocate a new block within an axon to save size bytes.
 
-        Returns an iden to use for subsequent calls to 
+        Returns an iden to use for subsequent calls to axon.chunk()
 
         '''
         axons = self._getWrAxons(bytag=bytag)
@@ -350,7 +430,7 @@ class AxonCluster:
 
         return wraxons
 
-class Axon(s_eventbus.EventBus):
+class Axon(s_eventbus.EventBus,AxonMixin):
     '''
     An Axon acts as a binary blob store with hash based indexing/retrieval.
 
@@ -437,7 +517,6 @@ class Axon(s_eventbus.EventBus):
 
         # model details for the actual byte blobs
         self.core.addTufoForm('axon:blob',ptype='guid')
-        self.core.addTufoProp('axon:blob','ver',ptype='int',defval=1)
         self.core.addTufoProp('axon:blob','off', ptype='int',req=True)
         self.core.addTufoProp('axon:blob','size', ptype='int',req=True)
 
@@ -632,7 +711,7 @@ class Axon(s_eventbus.EventBus):
             blobs = axon.find('sha256',x)
 
         '''
-        return self.core.getTufosByProp('axon:blob:hash:%s' % htype, valu=hvalu)
+        return self.core.getTufosByProp('axon:blob:%s' % htype, valu=hvalu)
 
     def bytes(self, htype, hvalu):
         '''
@@ -644,7 +723,7 @@ class Axon(s_eventbus.EventBus):
                 fd.write(byts)
 
         '''
-        blob = self.core.getTufoByProp('axon:blob:hash:%s' % htype, valu=hvalu)
+        blob = self.core.getTufoByProp('axon:blob:%s' % htype, valu=hvalu)
         return self.iterblob(blob)
 
     def iterblob(self, blob):
@@ -737,7 +816,9 @@ class Axon(s_eventbus.EventBus):
         self.heap.writeoff(cur,byts)
 
         info['cur'] += len(byts)
-        info['hashset'].update(byts)
+
+        hset =info.get('hashset')
+        hset.update(byts)
 
         # if the upload is complete, fire the add event
         if info['cur'] == info['maxoff']:
@@ -745,13 +826,9 @@ class Axon(s_eventbus.EventBus):
             self.inprog.pop(iden,None)
 
             off = info.get('off')
-            size = info.get('size')
+            iden,props = hset.guid()
 
-            hashes = info['hashset'].digests()
-
-            props = { 'hash:%s' % name:valu for (name,valu) in hashes }
-
-            return self.core.formTufoByProp('axon:blob', guid(), off=off, size=size, **props)
+            return self.core.formTufoByProp('axon:blob', iden, off=off, **props)
 
     def has(self, htype, hvalu):
         '''
@@ -763,5 +840,18 @@ class Axon(s_eventbus.EventBus):
                 stuff()
 
         '''
-        tufo = self.core.getTufoByProp('axon:blob:hash:%s' % htype, hvalu)
+        tufo = self.core.getTufoByProp('axon:blob:%s' % htype, hvalu)
         return tufo != None
+
+    def byiden(self, iden):
+        return self.core.getTufoByProp('axon:blob',iden)
+
+
+class AxonProxy(s_telepath.Proxy,AxonMixin):
+    pass
+
+def openurl(url, **opts):
+    '''
+    Open a URL to a remote Axon
+    '''
+    return s_telepath.openclass(AxonProxy, url, **opts)

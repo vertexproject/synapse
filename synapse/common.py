@@ -1,11 +1,14 @@
 from __future__ import absolute_import,unicode_literals
 
+import io
 import os
 import sys
 import json
 import time
+import types
 import msgpack
 import functools
+import itertools
 import threading
 import traceback
 
@@ -59,11 +62,47 @@ def reqpath(*paths):
         raise NoSuchFile(path)
     return path
 
-def reqfile(*paths):
+def reqfile(*paths, **opts):
     path = genpath(*paths)
     if not os.path.isfile(path):
         raise NoSuchFile(path)
-    return open(path,'r+b')
+    opts.setdefault('mode','rb')
+    return io.open(path,**opts)
+
+def reqlines(*paths, **opts):
+    '''
+    Open a file and yield lines of text.
+
+    Example:
+
+        for line in reqlines('foo.txt'):
+            dostuff(line)
+
+    NOTE: This API is used as a performance optimization
+          over the standard fd line iteration mechanism.
+    '''
+    opts.setdefault('mode','r')
+    opts.setdefault('encoding','utf8')
+
+    rem = None
+    with reqfile(*paths,**opts) as fd:
+
+        bufr = fd.read(10000000)
+        while bufr:
+
+            if rem != None:
+                bufr = rem + bufr
+
+            lines = bufr.split('\n')
+            rem = lines[-1]
+
+            for line in lines[:-1]:
+                yield line.strip()
+
+            bufr = fd.read(10000000)
+
+            if rem != None:
+                bufr = rem + bufr
 
 def reqbytes(*paths):
     with reqfile(*paths) as fd:
@@ -76,8 +115,8 @@ def genfile(*paths):
     path = genpath(*paths)
     gendir( os.path.dirname(path) )
     if not os.path.isfile(path):
-        return open(path,'w+b')
-    return open(path,'r+b')
+        return io.open(path,'w+b')
+    return io.open(path,'r+b')
 
 def gendir(*paths,**opts):
     mode = opts.get('mode',0o700)
@@ -105,7 +144,7 @@ def gentask(func,*args,**kwargs):
 
 def jssave(js,*paths):
     path = genpath(*paths)
-    with open(path,'wb') as fd:
+    with io.open(path,'wb') as fd:
         fd.write( json.dumps(js).encode('utf8') )
 
 def verstr(vtup):
@@ -151,10 +190,29 @@ def chunks(item,size):
     '''
     Divide an iterable into chunks.
     '''
+    # use islice if it's a generator
+    if type(item) == types.GeneratorType:
+
+        while True:
+
+            chunk = tuple(itertools.islice(item,size))
+            if not chunk:
+                return
+
+            yield chunk
+
+    # otherwise, use normal slicing
+
     off = 0
-    offmax = len(item)
-    while off < offmax:
-        yield item[off:off+size]
+
+    while True:
+
+        chunk = item[off:off+size]
+        if not chunk:
+            return
+
+        yield chunk
+
         off += size
 
 def reqStorDict(x):

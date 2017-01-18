@@ -16,10 +16,12 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
-import synapse.lib.types as s_types
 import synapse.lib.cache as s_cache
+import synapse.lib.queue as s_queue
+import synapse.lib.types as s_types
 import synapse.lib.threads as s_threads
 import synapse.lib.modules as s_modules
+import synapse.lib.hashitem as s_hashitem
 
 from synapse.common import *
 from synapse.eventbus import EventBus
@@ -120,13 +122,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         self.on('tufo:tag:del', self._fireCoreSync )
 
         #############################################################
-        # Dynamically update our model APIs via the modification of
-        # model related tufos
-        self.on('tufo:add:syn:type', self._onTufoAddSynType )
-        self.on('tufo:add:syn:form', self._onTufoAddSynForm )
-        self.on('tufo:add:syn:prop', self._onTufoAddSynProp )
-
-        #############################################################
         # Handlers for each core:sync inner message type
         self.syncact = s_reactor.Reactor()
         self.syncact.act('tufo:add', self._actSyncTufoAdd )
@@ -152,28 +147,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         self._initCortex()
 
         DataModel.__init__(self,load=False)
-
-        # track ingest sources and their runs / errors.
-        #self.addTufoForm('syn:ingest',ptype='guid')
-        #self.addTufoProp('syn:ingest','ok',ptype='bool',defval=0,doc='Set to 1 if last run was successful')
-        #self.addTufoProp('syn:ingest','err',ptype='str',defval='Not run yet',doc='Err string if ok=0')
-        #self.addTufoProp('syn:ingest','name',ptype='str',defval='??',doc='Humon readable name for the ingest file')
-        #self.addTufoProp('syn:ingest','last',ptype='time',defval=0,doc='Humon readable name for the ingest file')
-
-        #forms = self.getTufosByProp('syn:form')
-
-        #self.addTufoProp('syn:prop','ptype',ptype='str')
-        #self.addTufoProp('syn:prop','title',ptype='str')
-        #self.addTufoProp('syn:prop','defval') # ptype='any'
-
-        #self.addTufoForm('syn:splice',ptype='guid')
-        #self.addTufoProp('syn:splice','date',ptype='time:epoch',doc='Time that the splice was requested')
-        #self.addTufoProp('syn:splice','user',ptype='str',doc='Time user/system which requested the splice')
-        #self.addTufoProp('syn:splice','note',ptype='str',doc='Filthy humon notes about the change')
-        #self.addTufoProp('syn:splice','status',ptype='str',doc='Enum for init,done,deny to show the splice status')
-        #self.addTufoProp('syn:splice','action',ptype='str:lwr',doc='The requested splice action')
-
-        # FIXME load forms / props / etc
 
         self.on('tufo:add:syn:tag', self._onAddSynTag)
         self.on('tufo:del:syn:tag', self._onDelSynTag)
@@ -207,10 +180,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
         self.myfo = self.formTufoByProp('syn:core','self')
 
-        if self.myfo[1].get('.new'):
-            self._saveCoreModel()
-        else:
-            self._loadCoreModel()
+        self._initCoreModels()
 
         self.addTufoForm('syn:splice', ptype='guid')
         self.addTufoProp('syn:splice','on:*',glob=1)     # syn:splice:on:fqdn=woot.com
@@ -236,75 +206,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
     def _stormTufosBy(self, by, prop, valu=None, limit=None):
         return self.getTufosBy(by, prop, valu=valu, limit=limit)
 
-    def _saveCoreModel(self):
-        '''
-        Store all types/forms/props from the given data models in the cortex.
-        ( this is done on initialization of an empty cortex only )
-        '''
-        mofos = []
-        for name,modl,exc in s_modules.call('getDataModel'):
-            if exc != None:
-                logger.warning('%s.getDataModel(): %s' % (name,exc))
-                continue
-
-            mofos.append((name,modl))
-
-        self.addDataModels(mofos)
-
-    def _loadCoreModel(self):
-        for item in self.getTufosByProp('syn:type'):
-            self._initTypeTufo(item)
-
-        for item in self.getTufosByProp('syn:form'):
-            self._initFormTufo(item)
-
-        for item in self.getTufosByProp('syn:prop'):
-            self._initPropTufo(item)
-
-    def addDataModels(self, mofos):
-        '''
-        Store all types/forms/props from the given data models in the cortex.
-        `mofos` is a sequence of tuples (module name, model dict).
-
-        Example:
-
-            core.addDataModels([
-                ('synapse.models.foo',
-                 {
-                    'prefix':'foo',
-                    'version':201612231411,
-
-                    'types':( ('foo:g',{'subof':'guid'}), ),
-
-                    'forms':(
-                        ('foo:f',{'ptype':'foo:g','doc':'a foo'},[
-                            ('a',{'ptype':'str:lwr'}),
-                            ('b',{'ptype':'int'}),
-                        ]),
-                    ),
-                 }),
-                 ...
-            ])
-        '''
-        for modname,modl in mofos:
-            vers = modl.get('version',0)
-            item = self.formTufoByProp('syn:model',modname,version=vers)
-
-            for name,info in modl.get('types',()):
-                self.formTufoByProp('syn:type',name,**info)
-
-        # load all forms after loading all types
-        for modname,modl in mofos:
-
-            for name,info,props in modl.get('forms',()):
-                self.formTufoByProp('syn:form',name,**info)
-
-                for prop,pnfo in props:
-                    pnfo['form'] = name
-                    fullprop = '%s:%s' % (name,prop)
-                    self.formTufoByProp('syn:prop',fullprop,**pnfo)
-
-    def addDataModel(self, modname, modl):
+    def addDataModel(self, name, modl):
         '''
         Store all types/forms/props from the given data model in the cortex.
 
@@ -313,7 +215,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
             core.addDataModel('synapse.models.foo',
                               {
                                 'prefix':'foo',
-                                'version':201612231411,
 
                                 'types':( ('foo:g',{'subof':'guid'}), ),
 
@@ -325,7 +226,59 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
                                 ),
                               })
         '''
-        return self.addDataModels([(modname, modl)])
+        tufo = self.formTufoByProp('syn:model',name)
+
+        # use the normalized hash of the model dict to short
+        # circuit loading if it is unchanged.
+        mhas = s_hashitem.hashitem(modl)
+        if tufo[1].get('syn:model:hash') == mhas:
+            return
+
+        # FIXME handle type/form/prop removal
+        for name,tnfo in modl.get('types',()):
+
+            tufo = self.formTufoByProp('syn:type',name,**tnfo)
+            tufo = self.setTufoProps(tufo,**tnfo)
+
+        for form,fnfo,props in modl.get('forms',()):
+
+            tufo = self.formTufoByProp('syn:form',form,**fnfo)
+            tufo = self.setTufoProps(tufo,**fnfo)
+
+            for prop,pnfo in props:
+                fullprop = '%s:%s' % (form,prop)
+                tufo = self.formTufoByProp('syn:prop',fullprop,form=form,**pnfo)
+                tufo = self.setTufoProps(tufo,**pnfo)
+
+    def addDataModels(self, modtups):
+        [ self.addDataModel(name,modl) for (name,modl) in modtups ]
+
+    def _initCoreModels(self):
+
+        for name,modl,exc in s_modules.call('getDataModel'):
+
+            if exc != None:
+                logger.warning('%s.getDataModel(): %s' % (name,exc))
+                continue
+
+            self.addDataModel(name,modl)
+
+        # now we lift/initialize from the tufos...
+        for tufo in self.getTufosByProp('syn:type'):
+            self._initTypeTufo(tufo)
+
+        for tufo in self.getTufosByProp('syn:form'):
+            self._initFormTufo(tufo)
+
+        for tufo in self.getTufosByProp('syn:prop'):
+            self._initPropTufo(tufo)
+
+        # and finally, strap in our event handlers...
+        self.on('tufo:add:syn:type', self._onTufoAddSynType )
+        self.on('tufo:add:syn:form', self._onTufoAddSynForm )
+        self.on('tufo:add:syn:prop', self._onTufoAddSynProp )
+
+        # FIXME handle tufo:del / tufo:set events...
 
     def _getTufosByCache(self, prop, valu, limit):
         # only used if self.caching = 1
@@ -1353,6 +1306,18 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
             self.formTufoByProp('syn:tag',tag)
             self.tagcache[tag] = True
 
+    def addTufoTags(self, tufo, tags, asof=None):
+        '''
+        Add multiple tags to a tufo.
+
+        Example:
+
+            core.addTufoTags(tufo,['foo.bar','baz.faz'])
+
+        '''
+        for tag in tags:
+            self.addTufoTag(tufo,tag,asof=asof)
+
     def addTufoTag(self, tufo, tag, asof=None):
         '''
         Add a tag to a tufo.
@@ -1869,6 +1834,20 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
         return props,toadd
 
+    def setTufoFrobs(self, tufo, **props):
+        '''
+        Set tufo props from frob'd values.
+
+        Example:
+
+            core.setTufoFrobs(tufo,foo='1.2.3.4')
+
+        '''
+        # FIXME prevent prop string concat twice...
+        form = tufo[1].get('tufo:form')
+        props = self._frobTufoProps(form,props)
+        return self.setTufoProps(tufo,**props)
+
     def _frobTufoProps(self, form, inprops):
 
         props = {}
@@ -1893,6 +1872,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
         '''
         self.savebus.link(func)
+
+    # FIXME addSyncLink()
 
     def _okSetProp(self, prop):
         # check for enforcement and validity of a full prop name
@@ -2149,7 +2130,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         '''
         name = tufo[1].get('syn:type')
         info = s_tufo.props(tufo)
-
         self.addType(name,**info)
 
     def _initFormTufo(self, tufo):
@@ -2223,3 +2203,27 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
     def _tufosByGt(self, prop, valu, limit=None):
         return self._tufosByGe(prop, valu+1, limit=limit)
+
+    def getSyncPump(self,core):
+        '''
+        Return a sync pump for the remote cortex.
+
+        Example:
+
+            with core.getSyncPump(prox):
+
+                core.formTufoByProp('inet:fqdn','vertex.link')
+
+        '''
+        pump = s_queue.Queue()
+
+        self.on('core:sync', pump.put)
+
+        def syncpump():
+            for msgs in pump.slices(1000):
+                core.syncs(msgs)
+
+        wrkr = s_threads.worker(syncpump)
+        pump.onfini( wrkr.fini )
+
+        return pump

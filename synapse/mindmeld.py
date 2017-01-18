@@ -217,7 +217,7 @@ class MindMeld:
 
             return
 
-        raise NoSuchPath(path)
+        raise NoSuchPath(path=path)
 
     def addPySource(self, name, sorc):
         '''
