@@ -17,11 +17,13 @@ install:
 
   # Upgrade to the latest version of pip to avoid it displaying warnings
   # about it being out of date.
-  #- "%PYTHON%\\python.exe -m pip install --upgrade pip"
-  #- "%PYTHON%\\python.exe -m pip install --upgrade setuptools"
+  - "%PYTHON%\\python.exe -m pip install --upgrade pip"
+  - "%PYTHON%\\python.exe -m pip install --upgrade setuptools"
+  #- "%PYTHON%\\Scripts\\pip.exe install --upgrade setuptools"
 
   - "%PYTHON%\\python.exe -m pip install pycparser"
-  - "%PYTHON%\\python.exe -m pip install --only-binary :all: cryptography"
+  #- "%PYTHON%\\python.exe -m pip install --only-binary :all: cryptography"
+  - "%PYTHON%\\python.exe -m pip install cryptography"
 
   #- "%PYTHON%\\python.exe -c \"import msgpack; print('msgpack version: ' + repr(msgpack.version))\""
   #- "%PYTHON%\\python.exe -c \"import tornado; print('tornado version: ' + repr(tornado.version))\""
