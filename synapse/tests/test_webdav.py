@@ -38,5 +38,3 @@ class DavTest(unittest.TestCase):
         self.assertEqual( len(nodes), 1 )
         self.assertEqual( nodes[0].getBaseName(), 'bar') 
 
-    # TODO: actual http server based tests using requests module.
-

@@ -26,7 +26,6 @@ setup(
     packages=find_packages(exclude=['*.tests','*.tests.*']),
 
     install_requires=[
-        'requests',
         'tornado>=3.2',
         'cryptography>=1.1.2',
         'pyOpenSSL>=16.2.0',

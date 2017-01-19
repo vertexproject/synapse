@@ -63,9 +63,6 @@ class WebAppTest(AsyncTestCase, SynTest):
     @gen_test
     def test_webapp_body(self):
 
-        # python requests module has windows bug?!?!?
-        self.thisHostMustNot(platform='windows')
-
         class Haha:
             def bar(self, hehe, body=None):
                 return (hehe,body.decode('utf8'))
