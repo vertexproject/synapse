@@ -10,26 +10,23 @@ environment:
 
     - PYTHON: "C:\\Python34-x64"
 
+    # TODO
+    #- PYTHON: "C:\\Python36"
+    #- PYTHON: "C:\\Python36-x64"
+
+
 install:
-  # Check that we have the expected version and architecture for Python
-  - "%PYTHON%\\python.exe --version"
-  - "%PYTHON%\\python.exe -c \"import struct; print(struct.calcsize('P') * 8)\""
 
   # Upgrade to the latest version of pip to avoid it displaying warnings
-  # about it being out of date.
-  - "%PYTHON%\\Scripts\\pip.exe install --disable-pip-version-check --user --upgrade pip"
-  - "%PYTHON%\\Scripts\\pip.exe install --upgrade setuptools"
+  - "%PYTHON%\\python.exe -m pip install --upgrade pip"
+  - "%PYTHON%\\python.exe -m pip install --upgrade setuptools"
 
-  # for now...  should somehow be managed via setup.py
-  - "%PYTHON%\\Scripts\\pip.exe install --upgrade msgpack-python cryptography requests tornado"
+  # do some manual dep installs that fix windows issues...
+  - "%PYTHON%\\python.exe -m pip install pycparser"
+  - "%PYTHON%\\python.exe -m pip install cryptography"
 
-  - "%PYTHON%\\python.exe -c \"import msgpack; print('msgpack version: ' + repr(msgpack.version))\""
-  - "%PYTHON%\\python.exe -c \"import tornado; print('tornado version: ' + repr(tornado.version))\""
-  - "%PYTHON%\\python.exe -c \"import requests; print('requests version: ' + repr(requests.__version__))\""
-  - "%PYTHON%\\python.exe -c \"import cryptography; print('cryptography version: ' + repr(cryptography.__version__))\""
-
-  # force setuptools to install deps
-  #- "%CMD_IN_ENV% %PYTHON%\\python.exe setup.py develop"
+  # use setuptools to install deps
+  - "%CMD_IN_ENV% %PYTHON%\\python.exe setup.py develop"
 
 # no msbuild phase in the project
 build: off

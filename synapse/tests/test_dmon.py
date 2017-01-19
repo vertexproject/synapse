@@ -50,6 +50,8 @@ class TestMain(SynTest):
         return t
 
     def test_main_lsboot(self):
+        self.thisHostMustNot(platform='windows')
+
         tfile = self.getTempConfig()
 
         out0 = self.getTestOutp()
@@ -61,6 +63,8 @@ class TestMain(SynTest):
         tfile.close()
 
     def test_main_onboot(self):
+        self.thisHostMustNot(platform='windows')
+
         tfile = self.getTempConfig()
 
         s_dmon.main(['--onboot', tfile.name])
