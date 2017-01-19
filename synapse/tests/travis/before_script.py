@@ -23,9 +23,9 @@ def main(argv):
         'docker ps | grep -q core_ram',
         'docker ps | grep -q core_sqlite',
         'docker ps | grep -q core_pg',
-        'nc -v -w 4 127.0.0.1 47320',
-        'nc -v -w 4 127.0.0.1 47321',
-        'nc -v -w 8 127.0.0.1 47322',
+        'nc -v -w 4 127.0.0.1 47000',
+        'nc -v -w 4 127.0.0.1 47001',
+        'nc -v -w 8 127.0.0.1 47002',
     ]
     for cmd in cmds:
         print('run: %r' % (cmd,))

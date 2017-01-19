@@ -26,7 +26,7 @@ class DockerTest(SynTest):
         if sys.version_info < (3,4):
             raise unittest.SkipTest('not python 3')
 
-        prox = s_telepath.openurl('tcp://127.0.0.1/core', port=47320)
+        prox = s_telepath.openurl('tcp://127.0.0.1/core', port=47000)
 
         job00 = prox.call('formTufoByProp', 'inet:fqdn', 'foo.com')
         job01 = prox.call('formTufoByProp', 'inet:fqdn', 'bar.com')
@@ -47,7 +47,7 @@ class DockerTest(SynTest):
         if sys.version_info < (3,4):
             raise unittest.SkipTest('not python 3')
 
-        prox = s_telepath.openurl('tcp://127.0.0.1/core', port=47321)
+        prox = s_telepath.openurl('tcp://127.0.0.1/core', port=47001)
 
         job00 = prox.call('formTufoByProp', 'inet:fqdn', 'foo.com')
         job01 = prox.call('formTufoByProp', 'inet:fqdn', 'bar.com')
@@ -68,7 +68,7 @@ class DockerTest(SynTest):
         if sys.version_info < (3,4):
             raise unittest.SkipTest('not python 3')
 
-        prox = s_telepath.openurl('tcp://127.0.0.1/core', port=47322)
+        prox = s_telepath.openurl('tcp://127.0.0.1/core', port=47002)
 
         job00 = prox.call('formTufoByProp', 'inet:fqdn', 'foo.com')
         job01 = prox.call('formTufoByProp', 'inet:fqdn', 'bar.com')
