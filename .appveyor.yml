@@ -17,10 +17,8 @@ install:
 
   # Upgrade to the latest version of pip to avoid it displaying warnings
   # about it being out of date.
-  - "%PYTHON%\\python.exe -m pip install --upgrade pip"
-  - "%PYTHON%\\python.exe -m pip install --upgrade setuptools"
-  #- "%PYTHON%\\Scripts\\pip.exe install --disable-pip-version-check --user --upgrade pip"
-  #- "%PYTHON%\\Scripts\\pip.exe install --upgrade setuptools"
+  #- "%PYTHON%\\python.exe -m pip install --upgrade pip"
+  #- "%PYTHON%\\python.exe -m pip install --upgrade setuptools"
 
   - "%PYTHON%\\python.exe -m pip install pycparser"
   - "%PYTHON%\\python.exe -m pip install --only-binary :all: cryptography"
