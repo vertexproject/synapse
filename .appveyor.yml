@@ -22,7 +22,7 @@ install:
   #- "%PYTHON%\\Scripts\\pip.exe install --disable-pip-version-check --user --upgrade pip"
   #- "%PYTHON%\\Scripts\\pip.exe install --upgrade setuptools"
 
-  - "%PYTHON%\\python.exe -m pip install --only-binary cryptography"
+  - "%PYTHON%\\python.exe -m pip install --only-binary :all: cryptography"
 
   #- "%PYTHON%\\python.exe -c \"import msgpack; print('msgpack version: ' + repr(msgpack.version))\""
   #- "%PYTHON%\\python.exe -c \"import tornado; print('tornado version: ' + repr(tornado.version))\""
