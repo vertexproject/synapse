@@ -1,20 +1,10 @@
+sudo: required
 os:
     - linux
 language: python
 python:
     - "2.7"
     - "3.4"
-install:
-    - python setup.py install
-    - pip install psycopg2 coverage coveralls
-    - python -m synapse.tests.travis.install
-script: nosetests --verbosity=3 -x --with-coverage --cover-package=synapse
-services: 
-    - postgresql
-    - docker
-before_script:
-    - psql -c 'create database syn_test;' -U postgres
-    - python -m synapse.tests.travis.before_script
 env:
     - SYN_TEST_PG_DB=syn_test
     - SYN_DOCKER=1
@@ -22,5 +12,16 @@ matrix:
   exclude:
   - python: "2.7"
     env: SYN_DOCKER=1
+services:
+    - postgresql
+    - docker
+install:
+    - python setup.py install
+    - pip install psycopg2 coverage coveralls
+    - python -m synapse.tests.travis.install
+before_script:
+    - psql -c 'create database syn_test;' -U postgres
+    - python -m synapse.tests.travis.before_script
+script: nosetests --verbosity=3 --stop --with-coverage --cover-package=synapse
 after_success:
     - coveralls
