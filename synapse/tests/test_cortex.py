@@ -8,7 +8,8 @@ import synapse.link as s_link
 import synapse.compat as s_compat
 import synapse.common as s_common
 import synapse.cortex as s_cortex
-
+import synapse.exc as s_exc
+import synapse.lib.userauth as s_userauth
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
 
@@ -694,6 +695,75 @@ class CortexTest(SynTest):
         self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
 
         core.fini()
+
+    def test_cortex_splice_userauth(self):
+        with s_cortex.openurl('ram:///') as auth_core:
+            with s_userauth.UserAuth(auth_core) as auth:
+                with s_cortex.openurl('ram:///') as core:
+                    core.auth = auth
+
+                    info1 = {'form': 'foo', 'valu': 'bar'}
+                    self.assertRaises(s_exc.NoSuchUser, core.splice, 'bobo', 'tufo:add', info1)
+
+                    auth.addUser('bobo')
+                    splice, retval = core.splice('bobo', 'tufo:add', info1)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
+                    self.assertFalse(retval)
+
+                    auth.addUserRule('bobo', 'tufo:add:foo')
+                    splice, retval = core.splice('bobo', 'tufo:add', info1)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
+                    self.assertEqual(retval[1]['tufo:form'], 'foo')
+                    self.assertEqual(retval[1]['foo'], 'bar')
+
+                    info2 = {'form': 'foo', 'valu': 'bar', 'prop': 'baz', 'pval': 'qux'}
+                    splice, retval = core.splice('bobo', 'tufo:set', info2)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:set')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
+                    self.assertFalse(retval)
+
+                    auth.addUserRule('bobo', 'tufo:set:foo:baz')
+                    splice, retval = core.splice('bobo', 'tufo:set', info2)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:set')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
+                    self.assertEqual(retval[1]['foo:baz'], 'qux')
+
+                    info3 = {'form': 'foo', 'valu': 'bar', 'tag': 'test'}
+                    splice, retval = core.splice('bobo', 'tufo:tag:add', info3)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
+                    self.assertFalse(retval)
+
+                    auth.addUserRule('bobo', 'tufo:tag:add:foo|*')
+                    splice, retval = core.splice('bobo', 'tufo:tag:add', info3)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:add')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
+                    self.assertTrue('*|foo|test' in retval[1])
+
+                    splice, retval = core.splice('bobo', 'tufo:tag:del', info3)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
+                    self.assertFalse(retval)
+
+                    auth.addUserRule('bobo', 'tufo:tag:del:foo|*')
+                    splice, retval = core.splice('bobo', 'tufo:tag:del', info3)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:tag:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
+                    self.assertFalse('*|foo|test' in retval[1])
+
+                    splice, retval = core.splice('bobo', 'tufo:del', info1)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'pend')
+                    self.assertFalse(retval)
+
+                    auth.addUserRule('bobo', 'tufo:del:foo')
+                    splice, retval = core.splice('bobo', 'tufo:del', info1)
+                    self.assertEqual(splice[1]['syn:splice:action'], 'tufo:del')
+                    self.assertEqual(splice[1]['syn:splice:status'], 'done')
+                    self.assertEqual(retval[1]['foo'], 'bar')
+
 
     def test_cortex_dict(self):
         core = s_cortex.openurl('ram://')
