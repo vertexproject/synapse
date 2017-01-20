@@ -6,6 +6,7 @@ FROM ubuntu:16.04
 RUN apt update -q\
  && apt install -yq --no-install-recommends\ 
     build-essential\
+    cron\
     libffi-dev\
     libssl-dev\
     python3\
@@ -20,10 +21,11 @@ RUN pip3 install --upgrade\
     setuptools\
     wheel
 
-RUN pip3 install --upgrade\
-    cryptography\ 
-    msgpack-python\
-    tornado
+# Set the locale
+RUN locale-gen en_US.UTF-8
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
 
 RUN mkdir ~/git &&\
  mkdir /syndata
@@ -42,3 +44,8 @@ RUN apt install -yq wget unzip &&\
 VOLUME /root/git/synapse
 WORKDIR /root/git/synapse
 
+COPY ./synapse/docker/cortex/ram_dmon.json /syndata/dmon.json
+
+EXPOSE 47322
+
+ENTRYPOINT ["python3", "-m", "synapse.tools.dmon", "/syndata/dmon.json"]
