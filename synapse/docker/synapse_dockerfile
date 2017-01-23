@@ -2,7 +2,7 @@
 FROM ubuntu:16.04
 
 # docker build -t vertexproject/synapse -f ~/git/synapse/synapse/docker/synapse_dockerfile ~/git/synapse
-
+ENV DEBIAN_FRONTEND noninteractive
 RUN apt update -q\
  && apt install -yq --no-install-recommends\ 
     build-essential\
@@ -22,24 +22,21 @@ RUN pip3 install --upgrade\
     wheel
 
 # Set the locale
-RUN locale-gen en_US.UTF-8
+RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen &&\
+    locale-gen en_US.UTF-8 &&\
+    dpkg-reconfigure locales &&\
+    /usr/sbin/update-locale LANG=en_US.UTF-8
 ENV LANG en_US.UTF-8
-ENV LANGUAGE en_US:en
+ENV LANGUAGE en_US.UTF-8
 ENV LC_ALL en_US.UTF-8
 
-RUN mkdir ~/git &&\
- mkdir /syndata
+COPY . /root/git/synapse
+RUN mkdir -p /root/git/synapse &&\
+    mkdir /syndata &&\
+    cd /root/git/synapse &&\
+    python3 setup.py develop
 
 VOLUME /syndata
-
-RUN apt install -yq wget unzip &&\ 
- cd /root/git && wget https://github.com/vertexproject/synapse/archive/master.zip &&\
- unzip master.zip &&\
- mv synapse-master synapse &&\
- cd synapse &&\
- python3 setup.py develop &&\
- apt remove -yq wget unzip &&\
- apt autoremove -yq
 
 VOLUME /root/git/synapse
 WORKDIR /root/git/synapse
