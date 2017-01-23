@@ -133,8 +133,8 @@ class TestFilePath(SynTest):
 
         # open zip file
         path = temp_fd.name
-        fd0 = s_filepath._open(path, mode='r')
-        fd1 = open(path, mode='r')
+        fd0 = s_filepath._open(path, mode='rb')
+        fd1 = open(path, mode='rb')
         self.assertEqual(fd0.read(), fd1.read())
 
         # open inner zip file
