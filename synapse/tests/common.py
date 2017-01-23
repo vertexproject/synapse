@@ -11,6 +11,7 @@ logging.basicConfig(level=logging.WARNING)
 import synapse.cortex as s_cortex
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.ingest as s_ingest
 import synapse.lib.output as s_output
 import synapse.lib.thishost as s_thishost
 
@@ -115,3 +116,13 @@ class SynTest(unittest.TestCase):
 testdir = os.path.dirname(__file__)
 def getTestPath(*paths):
     return os.path.join(testdir,*paths)
+
+def getIngestCore(path, core=None):
+    if core == None:
+        core = s_cortex.openurl('ram:///')
+
+    gest = s_ingest.loadfile(path)
+    with core.getCoreXact() as xact:
+        gest.ingest(core)
+
+    return core
