@@ -1,5 +1,4 @@
 import time
-import unittest
 
 import synapse.link as s_link
 import synapse.async as s_async
@@ -7,6 +6,7 @@ import synapse.daemon as s_daemon
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
+import synapse.lib.service as s_service
 import synapse.lib.threads as s_threads
 import synapse.lib.userauth as s_userauth
 
@@ -353,3 +353,28 @@ class TelePathTest(SynTest):
                 with s_telepath.openurl(url, port=port1, cafile=cafile, keyfile=userkey, certfile=usercert) as foo:
                     self.eq( foo.echo('woot'), 'woot' )
 
+    def test_telepath_events(self):
+        with s_daemon.Daemon() as dmon:
+            with s_service.SvcBus() as sbus:
+                urlt = 'tcp://127.0.0.1:%d'
+                url = urlt % (0)
+                link = dmon.listen(url)
+                port = link[1].get('port')
+                url = urlt % (port)
+                dmon.share('sbus', sbus)
+                proxy0 = s_telepath.openurl(url + '/sbus')
+                proxy1 = s_telepath.openurl(url + '/sbus')
+                counters = [0, 0]
+
+                def count(offset):
+                    def on(*args, **kwargs):
+                        counters[offset] += 1
+                    return on
+
+                proxy0.on('tufo:tag:add', count(0))
+                proxy1.on('tufo:tag:add', count(1))
+                wait = s_eventbus.Waiter(proxy1, 1, 'tufo:tag:add')
+                proxy0.fire('tufo:tag:add', tag='tagu', tufo=('iden', {'prop': 'valu'}))
+                wait.wait()
+                self.assertEqual(counters[0], 1)
+                self.assertEqual(counters[1], 1)

@@ -1,65 +1,54 @@
 # vim:set ft=dockerfile:
-FROM vertexproject/synapse:latest
+FROM postgres:9.5
 
 # docker build -t vertexproject/core_pg -f ~/git/synapse/synapse/docker/cortex/postgres_9.5_dockerfile ~/git/synapse
 
-# explicitly set user/group IDs
-RUN groupadd -r postgres --gid=999 && useradd -r -g postgres --uid=999 postgres
+RUN apt update -q\
+ && apt install -yq --no-install-recommends\
+    build-essential\
+    cron\
+    libpq-dev\
+    libffi-dev\
+    libssl-dev\
+    python3\
+    python3-dev\
+    python3-pip\
+    python3-setuptools\
+ && apt-get clean\
+ && apt-get purge
 
-# grab gosu for easy step-down from root
-ENV GOSU_VERSION 1.7
-RUN apt-get update && apt-get install -y --no-install-recommends postgresql-server-dev-9.5\
-    && python3 -m pip install psycopg2
-RUN set -x \
-    && apt-get update && apt-get install -y --no-install-recommends ca-certificates wget && rm -rf /var/lib/apt/lists/* \
-    && wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture)" \
-    && wget -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture).asc" \
-    && export GNUPGHOME="$(mktemp -d)" \
-    && gpg --keyserver ha.pool.sks-keyservers.net --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4 \
-    && gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu \
-    && rm -r "$GNUPGHOME" /usr/local/bin/gosu.asc \
-    && chmod +x /usr/local/bin/gosu \
-    && gosu nobody true \
-    && apt-get purge -y --auto-remove ca-certificates 
+RUN pip3 install --upgrade\
+    pip\
+    psycopg2\
+    setuptools\
+    wheel
 
-# make the "en_US.UTF-8" locale so postgres will be utf-8 enabled by default
-RUN apt-get update && apt-get install -y locales && rm -rf /var/lib/apt/lists/* \
-    && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
-ENV LANG en_US.utf8
+# Set the locale
+RUN locale-gen en_US.UTF-8
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
 
-RUN mkdir /docker-entrypoint-initdb.d
+RUN mkdir ~/git &&\
+ mkdir /syndata
 
-RUN apt-key adv --keyserver ha.pool.sks-keyservers.net --recv-keys B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+VOLUME /syndata
 
-ENV PG_MAJOR 9.5
+RUN apt install -yq wget unzip &&\
+ cd /root/git && wget https://github.com/vertexproject/synapse/archive/master.zip &&\
+ unzip master.zip &&\
+ mv synapse-master synapse &&\
+ cd synapse &&\
+ python3 setup.py develop &&\
+ apt-get remove -yq wget unzip &&\
+ apt-get autoremove -yq
 
-RUN echo 'deb http://apt.postgresql.org/pub/repos/apt/ xenial-pgdg main' $PG_MAJOR > /etc/apt/sources.list.d/pgdg.list
-
-RUN apt-get update \
-    && apt-get install -y postgresql-common \
-    && sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf \
-    && apt-get install -y \
-        postgresql-$PG_MAJOR \
-        postgresql-contrib-$PG_MAJOR \
-    && rm -rf /var/lib/apt/lists/*
-
-# make the sample config easier to munge (and "correct by default")
-RUN mv -v /usr/share/postgresql/$PG_MAJOR/postgresql.conf.sample /usr/share/postgresql/ \
-    && ln -sv ../postgresql.conf.sample /usr/share/postgresql/$PG_MAJOR/ \
-    && sed -ri "s!^#?(listen_addresses)\s*=\s*\S+.*!\1 = '*'!" /usr/share/postgresql/postgresql.conf.sample
-
-RUN mkdir -p /var/run/postgresql && chown -R postgres /var/run/postgresql
-
-ENV PATH /usr/lib/postgresql/$PG_MAJOR/bin:$PATH
-ENV PGDATA /var/lib/postgresql/data
-VOLUME /var/lib/postgresql/data
+VOLUME /root/git/synapse
+WORKDIR /root/git/synapse
 
 COPY ./synapse/docker/cortex/postgres_dmon.json /syndata/dmon.json
 COPY ./synapse/docker/cortex/docker_entrypoint.py /
-RUN wget --no-check-certificate -O /pg_docker_entrypoint.sh https://raw.githubusercontent.com/docker-library/postgres/master/9.5/docker-entrypoint.sh \
-    && chmod u+x /pg_docker_entrypoint.sh
 
-EXPOSE 5432
 EXPOSE 47322
 
 ENTRYPOINT ["python3", "-u", "/docker_entrypoint.py"]

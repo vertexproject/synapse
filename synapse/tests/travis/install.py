@@ -24,9 +24,12 @@ def main(argv):
         'docker build -t vertexproject/core_ram -f synapse/docker/cortex/ram_dockerfile .',
         'docker build -t vertexproject/core_sqlite -f synapse/docker/cortex/sqlite_dockerfile .',
         'docker build -t vertexproject/core_pg -f synapse/docker/cortex/postgres_9.5_dockerfile .',
-        'docker run -d -p 127.0.0.1:47320:47322 --name core_ram vertexproject/core_ram',
-        'docker run -d -p 127.0.0.1:47321:47322 --name core_sqlite vertexproject/core_sqlite',
-        'docker run -d -p 127.0.0.1:47322:47322 --name core_pg vertexproject/core_pg',
+        'docker run -d -p 127.0.0.1:47000:47322 --name core_ram vertexproject/core_ram',
+        'docker run -d -p 127.0.0.1:47001:47322 --name core_sqlite vertexproject/core_sqlite',
+        'docker run -d -p 127.0.0.1:47002:47322 --name core_pg vertexproject/core_pg',
+        'docker exec core_ram python3 -m pip install nose coverage coveralls',
+        'docker exec core_sqlite python3 -m pip install nose coverage coveralls',
+        'docker exec core_pg python3 -m pip install nose coverage coveralls',
     ]
     for cmd in cmds:
         print('run: %r' % (cmd,))
