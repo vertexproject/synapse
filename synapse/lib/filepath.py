@@ -5,6 +5,7 @@ import zipfile
 import tempfile
 import traceback
 
+import synapse.exc as s_exc
 from synapse.common import *
 
 # 10 MB
@@ -18,9 +19,6 @@ The above represents a file named bar located in the d0 directory inside the foo
 located on the filesystem in the /dir0/dir1 directory.
 '''
 
-class NoSuchPath(Exception):
-    pass
-
 def _get_path_class(path):
     '''
     Returns the class to handle the type of item located at path.  This function
@@ -28,7 +26,7 @@ def _get_path_class(path):
     '''
     
     if not os.path.exists(path):
-        raise NoSuchPath('No Such Path: %r' % (path,))
+        raise s_exc.NoSuchPath(path=path)
 
     if os.path.isdir(path):
         return _path_ctors.get('reg.dir')
@@ -138,7 +136,7 @@ class FilePathTarDir(FilePath):
             self.child = _get_path_class(child_path)(child_path, child_remainder, parent=self)
 
         elif self.remainder:
-            raise NoSuchPath('No Such Path: %r' % (os.path.join(self.path, self.remainder),))
+            raise s_exc.NoSuchPath(path=os.path.join(self.path, self.remainder))
 
 class FilePathTarFile(FilePathTarDir):
     def _type(self):
@@ -205,7 +203,7 @@ class FilePathZipDir(FilePath):
             self.child = _get_path_class(child_path)(child_path, child_remainder, parent=self)
 
         elif self.remainder:
-            raise NoSuchPath('No Such Path: %r' % (os.path.join(self.path, self.remainder),))
+            raise s_exc.NoSuchPath(path=os.path.join(self.path, self.remainder))
 
 class FilePathZipFile(FilePathZipDir):
     def _type(self):
@@ -289,10 +287,10 @@ def _parse_path(path):
     Internal function to parse the incoming path
     '''
 
-    path = genpath(path)
-
     if not path:
         return None
+
+    path = genpath(path)
 
     path_parts = path.strip('/').split('/')
 
@@ -306,7 +304,7 @@ def _parse_path(path):
 
         while fpobj.getChild():
             fpobj = fpobj.getChild()
-    except NoSuchPath as e:
+    except s_exc.NoSuchPath as e:
         return None
 
     return fpobj
@@ -318,14 +316,15 @@ def _open(path, mode='r'):
     in a container file mode is ignored.
 
     If the path does not exist a NoSuchPath exception is raised.
-    If the path exists, but is not a file a FileNotFoundError exception is raised.
 
     ex.
     _open('/foo/bar/baz.egg/path/inside/zip/to/file')
     '''
     fpobj = _parse_path(path)
+    if not fpobj:
+        raise s_exc.NoSuchPath(path=path)
     if not fpobj._type().endswith('.file'):
-        raise FileNotFoundError(path)
+        raise s_exc.NoSuchPath(path=path)
 
     fd = fpobj._open(mode=mode)
     return fd
