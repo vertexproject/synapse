@@ -20,17 +20,17 @@ def main(argv):
         return
 
     cmds = [
-        'docker ps | grep -q core_ram',
-        'docker ps | grep -q core_sqlite',
-        'docker ps | grep -q core_pg',
-        'docker ps | grep -q synapse_27',
-        'docker ps | grep -q synapse_35',
+        #'docker ps | grep -q core_ram',
+        #'docker ps | grep -q core_sqlite',
+        #'docker ps | grep -q core_pg',
+        #'docker ps | grep -q synapse_27',
+        #'docker ps | grep -q synapse_35',
         'docker ps | grep -q synapse_36',
-        'nc -v -w 4 127.0.0.1 47000',
-        'nc -v -w 4 127.0.0.1 47001',
-        'nc -v -w 8 127.0.0.1 47002',
-        'nc -v -w 4 127.0.0.1 47003',
-        'nc -v -w 4 127.0.0.1 47004',
+        #'nc -v -w 4 127.0.0.1 47000',
+        #'nc -v -w 4 127.0.0.1 47001',
+        #'nc -v -w 8 127.0.0.1 47002',
+        #'nc -v -w 4 127.0.0.1 47003',
+        #'nc -v -w 4 127.0.0.1 47004',
         'nc -v -w 4 127.0.0.1 47005',
     ]
     for cmd in cmds:
