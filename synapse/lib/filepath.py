@@ -359,11 +359,13 @@ def _parse_path(*paths):
 
     return fpobj
 
-def openfile(*paths, mode='r'):
+# KILL2.7 kwargs instead of mode='r' here because of python2.7
+def openfile(*paths, **kwargs):
     '''
     Returns a read-only file-like object even if the path terminates inside a container file.
-    If the path is a regular os accessible path mode is passed through.  If the path terminates 
-    in a container file mode is ignored.
+
+    If the path is a regular os accessible path mode may be passed through as a keyword argument.
+    If the path terminates in a container file mode is ignored.
 
     If the path does not exist a NoSuchPath exception is raised.
 
@@ -377,7 +379,7 @@ def openfile(*paths, mode='r'):
         path = genpath(*paths)
         raise s_exc.NoSuchPath(path=path)
 
-    fd = fpobj._open(mode=mode)
+    fd = fpobj._open(mode=kwargs.get('mode', 'r'))
     return fd
 
 def isfile(*paths):
