@@ -32,6 +32,8 @@ def main(argv):
         print('run: %r' % (cmd,))
         proc = subprocess.Popen(cmd, shell=True)
         proc.wait()
+        if proc.returncode != 0:
+            return proc.returncode
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))
