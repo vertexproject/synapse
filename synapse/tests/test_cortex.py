@@ -1,16 +1,21 @@
 
-import os
 import time
 import binascii
+import os
+import tempfile
+import time
 import unittest
 
-import synapse.link as s_link
-import synapse.compat as s_compat
 import synapse.common as s_common
+import synapse.compat as s_compat
 import synapse.cortex as s_cortex
+import synapse.daemon as s_daemon
+import synapse.link as s_link
+import synapse.telepath as s_telepath
 
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
+import synapse.lib.threads as s_threads
 
 import synapse.models.syn as s_models_syn
 
@@ -1249,3 +1254,29 @@ class CortexTest(SynTest):
 
                 self.assertIsNotNone( core1.getTufoByProp('inet:fqdn','woot.com') )
 
+    def test_cortex_xact_deadlock(self):
+        N = 100
+        prop = 'testform'
+        fd = tempfile.NamedTemporaryFile()
+        dmon = s_daemon.Daemon()
+        pool = s_threads.Pool(size=4, maxsize=8)
+        wait = s_eventbus.Waiter(pool, 1, 'pool:work:fini')
+
+        with s_cortex.openurl('sqlite:///%s' % fd.name) as core:
+
+            def populate():
+                for i in range(N):
+                    #print('wrote %d tufos' % i)
+                    core.formTufoByProp(prop, str(i), **{})
+
+            dmon.share('core', core)
+            link = dmon.listen('tcp://127.0.0.1:0/core')
+            prox = s_telepath.openurl('tcp://127.0.0.1:%d/core' % link[1]['port'])
+
+            pool.wrap(populate)()
+            for i in range(N):
+                tufos = prox.getTufosByProp(prop)
+                #print('got %d tufos' % len(tufos))
+
+            wait.wait()
+            pool.fini()

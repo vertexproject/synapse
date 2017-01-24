@@ -77,6 +77,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
         self.lock = threading.Lock()
         self.inclock = threading.Lock()
+        self.xlock = threading.Lock()
 
         self._core_xacts = {}
 
@@ -2270,7 +2271,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
     def _getCoreXact(self, size):
         raise NoSuchImpl(name='_getCoreXact')
 
-inclock = threading.Lock()
 
 class CoreXact:
     '''
@@ -2310,12 +2310,12 @@ class CoreXact:
 
     def acquire(self):
         #print('ACQUIRE')
-        self.core.lock.acquire()
         self._coreXactAcquire()
+        self.core.xlock.acquire()
 
     def release(self):
         #print('RELEASE')
-        self.core.lock.release()
+        self.core.xlock.release()
         self._coreXactRelease()
 
     def begin(self):
@@ -2371,30 +2371,24 @@ class CoreXact:
             self.commit()
 
     def __enter__(self):
-
-        with inclock:
-            self.refs += 1
-            if self.refs == 1 and not self.ready:
-                self._coreXactInit()
-                self.acquire()
-                self.begin()
-                self.ready = True
+        self.refs += 1
+        if self.refs == 1 and not self.ready:
+            self._coreXactInit()
+            self.acquire()
+            self.begin()
+            self.ready = True
 
         return self
 
     def __exit__(self, exc, cls, tb):
+        # FIXME handle rollback on exc not None
+        self.refs -= 1
+        if self.refs > 0 or self.exiting:
+            return
 
-        # FIXME handle exception rollback
-
-        with inclock:
-            self.refs -= 1
-            if self.refs > 0 or self.exiting:
-                return
-
-            self.exiting = True
+        self.exiting = True
 
         self.sync()
         self.release()
         self._coreXactFini()
         self.core._popCoreXact()
-
