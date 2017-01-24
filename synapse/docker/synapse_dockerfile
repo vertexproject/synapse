@@ -21,7 +21,7 @@ RUN pip3 install --upgrade\
     setuptools\
     wheel
 
-# Set the locale
+# set the locale
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen &&\
     locale-gen en_US.UTF-8 &&\
     dpkg-reconfigure locales &&\
@@ -30,14 +30,13 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US.UTF-8
 ENV LC_ALL en_US.UTF-8
 
+# setup synapse
 COPY . /root/git/synapse
-RUN mkdir -p /root/git/synapse &&\
-    mkdir /syndata &&\
+RUN mkdir /syndata &&\
     cd /root/git/synapse &&\
     python3 setup.py develop
 
 VOLUME /syndata
-
 VOLUME /root/git/synapse
 WORKDIR /root/git/synapse
 
