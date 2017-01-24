@@ -19,32 +19,6 @@ The above represents a file named bar located in the d0 directory inside the foo
 located on the filesystem in the /dir0/dir1 directory.
 '''
 
-def _get_path_class(path):
-    '''
-    Returns the class to handle the type of item located at path.  This function
-    only operates on regular os. accessible paths
-    '''
-    
-    if not os.path.exists(path):
-        raise s_exc.NoSuchPath(path=path)
-
-    if os.path.isdir(path):
-        return _path_ctors.get('reg.dir')
-    mime = _mime_file(path)
-    return _path_ctors.get(mime)
-
-def _mime_file(path):
-    '''
-    Assumes the path exists and is a file. 
-    returns reg.file unless it is a known container
-    '''
-    if zipfile.is_zipfile(path):
-        return 'zip.file'
-    if tarfile.is_tarfile(path):
-        return 'tar.file'
-
-    return 'reg.file'
-
 class FilePath(object):
     def __init__(self, path, remainder, parent=None):
         '''
@@ -61,7 +35,10 @@ class FilePath(object):
             self._process_next()
 
     def _type(self):
-        return 'reg.file'
+        return 'fs.reg.file'
+
+    def isfile(self):
+        return True
 
     def _process_next(self):
         return
@@ -81,16 +58,16 @@ class FilePathDir(FilePath):
     The base dir object for filesystem files.  
     '''
     def _type(self):
-        return 'reg.dir'
+        return 'fs.reg.dir'
+
+    def isfile(self):
+        return False
 
     def _process_next(self):
-
-        next_part = self.remainder.strip('/').split('/')[0]
-        next_path = os.path.join(self.path, next_part)
-        next_remainder = '/'.join(self.remainder.strip('/').split('/')[1:])
-
-        cls = _get_path_class(next_path)
-        self.child = cls(next_path, next_remainder, parent=self)
+        child_path, child_remainder = _get_child_paths(self.path, self.remainder)
+        
+        cls = _get_path_class(child_path)
+        self.child = cls(child_path, child_remainder, parent=self)
 
 class FilePathTarDir(FilePath):
     def __init__(self, tarfd, path, remainder, parent=None):
@@ -101,7 +78,10 @@ class FilePathTarDir(FilePath):
         super(FilePathTarDir, self).__init__(path, remainder, parent=parent)
 
     def _type(self):
-        return 'tar.dir'
+        return 'inner.tar.dir'
+
+    def isfile(self):
+        return False
 
     def _process_next(self):
         '''
@@ -110,15 +90,13 @@ class FilePathTarDir(FilePath):
 
         tar_dirs, tar_files = tar_enumerate(self.tarfd)
 
-        # either it's either a file/dir or DNE
-        next_part = self.remainder.strip('/').split('/')[0]
-        child_path = os.path.join('/', self.path, next_part)
-        child_remainder = '/'.join(self.remainder.strip('/').split('/')[1:])
+        child_path, child_remainder = _get_child_paths(self.path, self.remainder)
 
-        if child_path in tar_dirs:
+        child_tar_path = _container_pathnorm(child_path)
+        if child_tar_path in tar_dirs:
             self.child = FilePathTarDir(self.tarfd, child_path, child_remainder, parent=self)
 
-        elif child_path in tar_files:
+        elif child_tar_path in tar_files:
             if not child_remainder:
                 self.child = FilePathTarFile(self.tarfd, child_path, child_remainder, parent=self)
                 return
@@ -140,7 +118,10 @@ class FilePathTarDir(FilePath):
 
 class FilePathTarFile(FilePathTarDir):
     def _type(self):
-        return 'tar.inner.file'
+        return 'inner.tar.file'
+
+    def isfile(self):
+        return True
 
     def _open(self, mode='r'):
         return self.tarfd.extractfile(self.path.lstrip('/'))
@@ -153,7 +134,10 @@ class FilePathTar(FilePathTarDir):
         super(FilePathTar, self).__init__(tarfd, '/', remainder, parent=parent)
 
     def _type(self):
-        return 'tar.file'
+        return 'fs.tar.file'
+
+    def isfile(self):
+        return True
 
     def _open(self, mode='r'):
         return open(self.tarpath, mode=mode)
@@ -167,7 +151,10 @@ class FilePathZipDir(FilePath):
         super(FilePathZipDir, self).__init__(path, remainder, parent=parent)
 
     def _type(self):
-        return 'zip.dir'
+        return 'inner.zip.dir'
+
+    def isfile(self):
+        return False
 
     def _process_next(self):
         '''
@@ -176,15 +163,13 @@ class FilePathZipDir(FilePath):
 
         zip_dirs, zip_files = zip_enumerate(self.zipfd)
 
-        # either it's either a file/dir or DNE
-        next_part = self.remainder.strip('/').split('/')[0]
-        child_path = os.path.join('/', self.path, next_part)
-        child_remainder = '/'.join(self.remainder.strip('/').split('/')[1:])
+        child_path, child_remainder = _get_child_paths(self.path, self.remainder)
 
-        if child_path in zip_dirs:
+        child_zip_path = _container_pathnorm(child_path)
+        if child_zip_path in zip_dirs:
             self.child = FilePathZipDir(self.zipfd, child_path, child_remainder, parent=self)
 
-        elif child_path in zip_files:
+        elif child_zip_path in zip_files:
             if not child_remainder:
                 self.child = FilePathZipFile(self.zipfd, child_path, child_remainder, parent=self)
                 return
@@ -207,7 +192,10 @@ class FilePathZipDir(FilePath):
 
 class FilePathZipFile(FilePathZipDir):
     def _type(self):
-        return 'zip.inner.file'
+        return 'inner.zip.file'
+
+    def isfile(self):
+        return True
 
     def _open(self, mode='r'):
         return self.zipfd.open(self.path.lstrip('/'), mode='r')
@@ -220,7 +208,10 @@ class FilePathZip(FilePathZipDir):
         super(FilePathZip, self).__init__(zipfd, '/', remainder, parent=parent)
 
     def _type(self):
-        return 'zip.file'
+        return 'fs.zip.file'
+
+    def isfile(self):
+        return True
 
     def _open(self, mode='r'):
         return open(self.zippath, mode=mode)
@@ -236,7 +227,7 @@ def zip_enumerate(zipfd):
         
         for spath in _get_subpaths(path):
             try:
-                info = zipfd.getinfo(spath.strip('/'))
+                info = zipfd.getinfo(spath)
                 files.add(spath)
             except KeyError as e:
                 dirs.add(spath)
@@ -253,7 +244,8 @@ def tar_enumerate(tarfd):
     for path in tarfd.getnames():
         
         for spath in _get_subpaths(path):
-            info = tarfd.getmember(spath.strip('/'))
+            info = tarfd.getmember(spath)
+            
             if info.isdir():
                 dirs.add(spath)
             if info.isfile():
@@ -261,46 +253,104 @@ def tar_enumerate(tarfd):
                 
     return dirs, files
 
+def _get_path_class(path):
+    '''
+    Returns the class to handle the type of item located at path.  This function
+    only operates on regular os. accessible paths
+    '''
+    
+    if not os.path.exists(path):
+        raise s_exc.NoSuchPath(path=path)
+
+    if os.path.isdir(path):
+        return _path_ctors.get('fs.reg.dir')
+    mime = _mime_file(path)
+    return _path_ctors.get(mime)
+
+def _mime_file(path):
+    '''
+    Assumes the path exists and is a file. 
+    returns reg.file unless it is a known container
+    '''
+    if zipfile.is_zipfile(path):
+        return 'fs.zip.file'
+    if tarfile.is_tarfile(path):
+        return 'fs.tar.file'
+
+    return 'fs.reg.file'
+
+def _lsplit(path):
+    '''
+    Split a pathname.  Returns tuple "(head, tail)" where "tail" is everything after the 
+    FIRST slash that is not at position 0.  Either part may be empty.
+
+    It's the inverse of os.path.split
+    '''
+
+    drive, rpath = os.path.splitdrive(path)
+    parts = os.path.normpath(rpath).split(os.path.sep)
+    if parts[0] == '':
+        parts[0] = os.path.sep
+    head = os.path.join(drive, parts[0])
+
+    tail = ''
+    if parts[1:]:
+        tail = os.path.join(*parts[1:])
+    return head, tail
+
+def _get_child_paths(headpath, tailpath):
+    '''
+    Take a split head/tail path and create a new head tail that is one directory lower
+    in the joined path
+    '''
+    child_part, child_remainder = _lsplit(tailpath)
+    child_headpath = os.path.join(headpath, child_part)
+    return child_headpath, child_remainder
+
+def _container_pathnorm(path):
+    return path.replace('\\', '/').strip('/')
+
 def _get_subpaths(path):
     '''
     Returns a list of subpaths in a path, one for each level in the path
+    This is an internal function used for ONLY for iterating over paths in a container
+    As such it should not be used for filesystem paths since separators will vary across platforms
     '''
-    path_parts = path.strip('/').split('/')
+    path = path.replace('\\', '/')
+    path = path.rstrip('/')
+
+    path_parts = path.split('/')
+    if path_parts[0] == '':
+        path_parts[0] = '/'
 
     paths = []
     for i in range(len(path_parts)):
 
-        ipath = os.path.join('/', *path_parts[:i+1])
+        ipath = os.path.join(*path_parts[:i+1])
         paths.append(ipath)
 
     return paths
 
-def _enum_path(path):
-    fpobj = _parse_path(path)
-
-    if fpobj:
-        return fpobj._type()
-    return None
-
-def _parse_path(path):
+def _parse_path(*paths):
     '''
-    Internal function to parse the incoming path
+    Internal function to parse the incoming path.
+    lists of paths are joined prior to parsing
     '''
+
+    if not paths or None in paths:
+        return None
+
+    path = genpath(*paths)
 
     if not path:
         return None
 
-    path = genpath(path)
-
-    path_parts = path.strip('/').split('/')
-
     fpobj = None
-    next_path = os.path.join('/', path_parts[0])
-    remainder = '/'.join(path_parts[1:])
-
+    child_path, child_remainder = _lsplit(path)
+    
     try:
-        cls = _get_path_class(next_path)
-        fpobj = cls(next_path, remainder)
+        cls = _get_path_class(child_path)
+        fpobj = cls(child_path, child_remainder)
 
         while fpobj.getChild():
             fpobj = fpobj.getChild()
@@ -309,63 +359,67 @@ def _parse_path(path):
 
     return fpobj
 
-def _open(path, mode='r'):
+def openfile(*paths, mode='r'):
     '''
-    Returns a read-only file-like object even is the path terminates inside a container file.
+    Returns a read-only file-like object even if the path terminates inside a container file.
     If the path is a regular os accessible path mode is passed through.  If the path terminates 
     in a container file mode is ignored.
 
     If the path does not exist a NoSuchPath exception is raised.
 
     ex.
-    _open('/foo/bar/baz.egg/path/inside/zip/to/file')
+    openfile('/foo/bar/baz.egg/path/inside/zip/to/file')
     '''
-    fpobj = _parse_path(path)
+    fpobj = _parse_path(*paths)
     if not fpobj:
-        raise s_exc.NoSuchPath(path=path)
-    if not fpobj._type().endswith('.file'):
+        raise s_exc.NoSuchPath(path='%r' % (paths,))
+    if not fpobj.isfile():
+        path = genpath(*paths)
         raise s_exc.NoSuchPath(path=path)
 
     fd = fpobj._open(mode=mode)
     return fd
 
-def isfile(path):
+def isfile(*paths):
     '''
     Determines if the path is a file, even if the path terminates inside a container file.
+    If a list of paths are provided, they are joined first.
     Returns a boolean.
     '''
-    ptype = _enum_path(path)
-    if ptype and ptype.endswith('.file'):
+    fpath = _parse_path(*paths)
+    if fpath and fpath.isfile():
         return True
     return False
 
-def isdir(path):
+def isdir(*paths):
     '''
     Determines if the path is a directory, even if the path terminates inside a container file.
+    If a list of paths are provided, they are joined first.
     Returns a boolean.
     '''
-    ptype = _enum_path(path)
-    if ptype and ptype.endswith('.dir'):
+    fpath = _parse_path(*paths)
+    if fpath and not fpath.isfile():
         return True
     return False
 
-def exists(path):
+def exists(*paths):
     '''
     Determines if the path exists even if the path terminates inside a container file.
+    If a list of paths are provided, they are joined first.
     Returns a boolean.
     '''
-    if _enum_path(path) == None:
+    if _parse_path(*paths) == None:
         return False
     return True
 
 _path_ctors = {
-    'reg.dir': FilePathDir,
-    'tar.dir': FilePathTarDir,
-    'zip.dir': FilePathZipDir,
-    'reg.file': FilePathFile,
-    'tar.file': FilePathTar,
-    'zip.file': FilePathZip,
-    'tar.inner.file': FilePathTarFile,
-    'zip.inner.file': FilePathZipFile,
+    'fs.reg.dir': FilePathDir,
+    'fs.reg.file': FilePathFile,
+    'fs.tar.file': FilePathTar,
+    'fs.zip.file': FilePathZip,
+    'inner.tar.dir': FilePathTarDir,
+    'inner.zip.dir': FilePathZipDir,
+    'inner.tar.file': FilePathTarFile,
+    'inner.zip.file': FilePathZipFile,
 }
 

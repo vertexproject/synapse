@@ -28,16 +28,17 @@ class TestFilePath(SynTest):
         self.assertFalse(s_filepath.exists(path))
 
         # open regular file
-        fd = s_filepath._open(temp_fd.name, mode='rb')
+        fd = s_filepath.openfile(temp_fd.name, mode='rb')
         self.assertEqual(fd.read(), fbuf)
 
         # dne path
-        self.assertRaises(s_exc.NoSuchPath, s_filepath._open, '%s%s' % (temp_fd.name, '_DNE'), mode='rb')
-        self.assertRaises(s_exc.NoSuchPath, s_filepath._open, None)
-        self.assertRaises(s_exc.NoSuchPath, s_filepath._open, '')
+        self.assertRaises(s_exc.NoSuchPath, s_filepath.openfile, '%s%s' % (temp_fd.name, '_DNE'), mode='rb')
+        self.assertRaises(s_exc.NoSuchPath, s_filepath.openfile, None)
+        self.assertRaises(s_exc.NoSuchPath, s_filepath.openfile, '')
 
         # open not filepath
-        self.assertRaises(s_exc.NoSuchPath, s_filepath._open, '/tmp', mode='rb')
+        self.assertRaises(s_exc.NoSuchPath, s_filepath.openfile, '/tmp', mode='rb')
+        self.assertRaises(s_exc.NoSuchPath, s_filepath.openfile, '/')
 
         temp_fd.close()
         os.rmdir(temp_dir)
@@ -133,13 +134,13 @@ class TestFilePath(SynTest):
 
         # open zip file
         path = temp_fd.name
-        fd0 = s_filepath._open(path, mode='rb')
+        fd0 = s_filepath.openfile(path, mode='rb')
         fd1 = open(path, mode='rb')
         self.assertEqual(fd0.read(), fd1.read())
 
         # open inner zip file
         path = os.path.join(temp_fd.name, 'dir0', 'foo')
-        fd = s_filepath._open(path, mode='r')
+        fd = s_filepath.openfile(path, mode='r')
         self.assertEqual(fd.read(), bbuf)
 
         temp_fd.close()
@@ -237,13 +238,13 @@ class TestFilePath(SynTest):
 
         # open tar file
         path = temp_fd.name
-        fd0 = s_filepath._open(path, mode='r')
+        fd0 = s_filepath.openfile(path, mode='r')
         fd1 = open(path, mode='r')
         self.assertEqual(fd0.read(), fd1.read())
 
         # open inner tar file
         path = os.path.join(temp_fd.name, 'dir0', 'foo')
-        fd = s_filepath._open(path, mode='r')
+        fd = s_filepath.openfile(path, mode='r')
         self.assertEqual(fd.read(), bbuf)
 
         temp_fd.close()
