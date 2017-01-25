@@ -13,6 +13,7 @@ def parse_args(argv):
 
 def main(argv):
     args = parse_args(argv)
+    cmds = []
 
     if os.environ.get('SYN_PY27'):
         cmds = [
@@ -48,7 +49,7 @@ def main(argv):
         cmds = [
             'docker build -t vertexproject/core_pg95 -f synapse/docker/cortex/postgres_9.5_dockerfile .',
             'docker run -d -p 127.0.0.1:47322:47322 --name core_pg95 vertexproject/core_pg95',
-            'docker exec core_pg95 python -m pip install nose coverage coveralls',
+            'docker exec core_pg95 python3 -m pip install nose coverage coveralls',
         ]
 
     for cmd in cmds:

@@ -3,6 +3,7 @@ FROM postgres:9.5
 
 # docker build -t vertexproject/core_pg -f ~/git/synapse/synapse/docker/cortex/postgres_9.5_dockerfile ~/git/synapse
 
+ENV DEBIAN_FRONTEND noninteractive
 RUN apt update -q\
  && apt install -yq --no-install-recommends\
     build-essential\
@@ -10,6 +11,7 @@ RUN apt update -q\
     libpq-dev\
     libffi-dev\
     libssl-dev\
+    locales\
     python3\
     python3-dev\
     python3-pip\
@@ -23,26 +25,22 @@ RUN pip3 install --upgrade\
     setuptools\
     wheel
 
-# Set the locale
-RUN locale-gen en_US.UTF-8
+# set the locale
+RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen &&\
+    locale-gen en_US.UTF-8 &&\
+    dpkg-reconfigure locales &&\
+    /usr/sbin/update-locale LANG=en_US.UTF-8
 ENV LANG en_US.UTF-8
-ENV LANGUAGE en_US:en
+ENV LANGUAGE en_US.UTF-8
 ENV LC_ALL en_US.UTF-8
 
-RUN mkdir ~/git &&\
- mkdir /syndata
+# setup synapse
+COPY . /root/git/synapse
+RUN mkdir /syndata &&\
+    cd /root/git/synapse &&\
+    python3 setup.py develop
 
 VOLUME /syndata
-
-RUN apt install -yq wget unzip &&\
- cd /root/git && wget https://github.com/vertexproject/synapse/archive/master.zip &&\
- unzip master.zip &&\
- mv synapse-master synapse &&\
- cd synapse &&\
- python3 setup.py develop &&\
- apt-get remove -yq wget unzip &&\
- apt-get autoremove -yq
-
 VOLUME /root/git/synapse
 WORKDIR /root/git/synapse
 

@@ -13,6 +13,7 @@ def parse_args(argv):
 
 def main(argv):
     args = parse_args(argv)
+    cmds = []
 
     if os.environ.get('SYN_PY27'):
         cmds = [
