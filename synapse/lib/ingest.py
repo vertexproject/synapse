@@ -1,7 +1,9 @@
 import os
+import re
 import csv
 import json
 import codecs
+import logging
 
 from synapse.common import *
 from synapse.eventbus import EventBus
@@ -11,15 +13,17 @@ import synapse.dyndeps as s_dyndeps
 import synapse.lib.scrape as s_scrape
 import synapse.lib.datapath as s_datapath
 import synapse.lib.encoding as s_encoding
+import synapse.lib.openfile as s_openfile
+
+logger = logging.getLogger(__name__)
 
 def _fmt_csv(fd,gest):
 
     opts = {}
 
-    quot = gest.get('fmt:csv:quote')
-    dial = gest.get('fmt:csv:dialect')
-    path = gest.get('fmt:csv:filepath')
-    delm = gest.get('fmt:csv:delimiter')
+    quot = gest.get('format:csv:quote')
+    dial = gest.get('format:csv:dialect')
+    delm = gest.get('format:csv:delimiter')
 
     if dial != None:
         opts['dialect'] = dial
@@ -34,19 +38,38 @@ def _fmt_csv(fd,gest):
 
 def _fmt_lines(fd,gest):
 
+    skipre = None
+    mustre = None
+
     lowr = gest.get('format:lines:lower')
+    cmnt = gest.get('format:lines:comment','#')
+
+    skipstr = gest.get('format:lines:skipre')
+    if skipstr != None:
+        skipre = re.compile(skipstr)
+
+    muststr = gest.get('format:lines:mustre')
+    if muststr != None:
+        mustre = re.compile(muststr)
 
     for line in fd:
 
         line = line.strip()
-        if line.startswith('#'):
-            continue
 
         if not line:
             continue
 
+        if line.startswith(cmnt):
+            continue
+
         if lowr:
             line = line.lower()
+
+        if skipre != None and skipre.match(line) != None:
+            continue
+
+        if mustre != None and mustre.match(line) == None:
+            continue
 
         yield line
 
@@ -162,21 +185,13 @@ class Ingest(EventBus):
         '''
         Open a data source tuple and return a data yielder object.
         '''
-        if path.startswith('http://'):
-            return self._openHttpSorc(path,info)
-
-        if path.startswith('https://'):
-            return self._openHttpSorc(path,info)
-
-        # do we have a known running dir?
         basedir = self.get('basedir')
-        if basedir != None and not os.path.isabs(path):
-            path = os.path.join(basedir,path)
+        if basedir != None:
+            info['file:basedir'] = basedir
 
-        # FIXME universal open...
-        fd = open(path,'rb')
-        onfo = info.get('open',{})
+        fd = s_openfile.openfd(path, **info)
 
+        onfo = info.get('open')
         return iterdata(fd,**onfo)
 
     def ingest(self, core, data=None):
@@ -266,31 +281,33 @@ class Ingest(EventBus):
             path = fnfo.get('path')
             for base in base.iter(path):
 
-                #valu = self._get_prop(core,base,fnfo)
-                valu = self._get_form(core,base,fnfo)
-                if valu == None:
-                    continue
+                try:
 
-                tufo = core.formTufoByFrob(form,valu)
-                self.fire('gest:prog', act='form')
-
-                props = {}
-                for prop,pnfo in fnfo.get('props',{}).items():
-                    valu = self._get_prop(core,base,pnfo)
+                    valu = self._get_form(core,base,fnfo)
                     if valu == None:
                         continue
 
-                    props[prop] = valu
+                    tufo = core.formTufoByFrob(form,valu)
+                    self.fire('gest:prog', act='form')
 
+                    props = {}
+                    for prop,pnfo in fnfo.get('props',{}).items():
+                        valu = self._get_prop(core,base,pnfo)
+                        if valu == None:
+                            continue
 
-                if props:
-                    core.setTufoFrobs(tufo,**props)
-                    self.fire('gest:prog', act='set')
+                        props[prop] = valu
 
-                for tag in ctx.get('tags'):
-                    core.addTufoTag(tufo,tag)
-                    self.fire('gest:prog', act='tag')
+                    if props:
+                        core.setTufoFrobs(tufo,**props)
+                        self.fire('gest:prog', act='set')
 
+                    for tag in ctx.get('tags'):
+                        core.addTufoTag(tufo,tag)
+                        self.fire('gest:prog', act='tag')
+
+                except Exception as e:
+                    core.logCoreExc(e,subsys='ingest')
 
         for path,tifo in info.get('iters',()):
             for base in data.iter(path):
