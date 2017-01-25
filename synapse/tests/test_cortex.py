@@ -1280,3 +1280,26 @@ class CortexTest(SynTest):
 
             wait.wait()
             pool.fini()
+
+    def test_coretex_logging(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('log:save',1)
+
+            exc = NoSuchPath(path='foo/bar')
+
+            core.logCoreExc(exc,subsys='hehe')
+
+            tufo = core.getTufoByProp('syn:log:subsys',valu='hehe')
+
+            self.eq( tufo[1].get('syn:log:subsys'), 'hehe' )
+            self.eq( tufo[1].get('syn:log:exc'), 'synapse.exc.NoSuchPath' )
+            self.eq( tufo[1].get('syn:log:info:path'), 'foo/bar' )
+
+            self.assertIsNotNone( tufo[1].get('syn:log:time') )
+
+            core.setConfOpt('log:level', logging.ERROR)
+
+            core.logCoreExc(exc,subsys='haha', level=logging.WARNING)
+
+            self.assertIsNone( core.getTufoByProp('syn:log:subsys', valu='haha') )
