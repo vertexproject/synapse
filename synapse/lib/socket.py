@@ -438,12 +438,12 @@ class Plex(EventBus):
                     # FIXME isolate this filth within link modules.
                     sent = 0
                     if e.errno != 3:
-                        logger.exception(e)
+                        #logger.exception(e)
                         sock.fini()
                         return
 
                 except Exception as e:
-                    logger.exception(e)
+                    #logger.exception(e)
                     sock.fini()
                     return
 
