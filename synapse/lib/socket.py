@@ -431,8 +431,19 @@ class Plex(EventBus):
                 byts = sock._tx_xform( byts )
 
                 try:
+
                     sent = sock.send(byts)
+
+                except ssl.SSLError as e:
+                    # FIXME isolate this filth within link modules.
+                    sent = 0
+                    if e.errno != 3:
+                        logger.exception(e)
+                        sock.fini()
+                        return
+
                 except Exception as e:
+                    logger.exception(e)
                     sock.fini()
                     return
 
