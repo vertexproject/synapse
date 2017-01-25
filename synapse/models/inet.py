@@ -180,12 +180,8 @@ def addCoreOns(core):
             if pafo[1].get('inet:fqdn:sfx'):
                 props['inet:fqdn:zone'] = 1
 
-    #def onTufoAddFqdn(mesg):
-        #tufo = mesg[1].get('tufo')
-        #fqdn = tufo[1].get('inet:fqdn:parent')
-        #core.formTufoByProp('inet:fqdn',fqdn)
-
-    #core.on('tufo:add:inet:fqdn',onTufoAddFqdn)
+    # FIXME this needs to mark/unmark kids as zone
+    #def onTufoSetFqdnSfx(mesg):
 
     core.on('tufo:form:inet:fqdn',onTufoFormFqdn)
     core.on('tufo:form:inet:passwd',onTufoFormPasswd)
@@ -216,6 +212,11 @@ class IPv4Type(DataType):
 
     def parse(self, text, oldval=None):
         return ipv4int(text)
+
+#FIXME
+#class FqdnType(DataType):
+    # need this to change unicode to xn-- syntax!
+    # also needs to have sub props of host and domain
 
 # RFC5952 compatible
 def ipv6norm(text):
@@ -369,7 +370,6 @@ class UrlType(DataType):
         if resloc.find('@') != -1:
             resauth,resloc = resloc.split('@',1)
 
-        # FIXME chop sub props from resloc!
         proto = proto.lower()
         hostpart = resloc.lower()
 
