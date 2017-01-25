@@ -16,17 +16,17 @@ env:
 matrix:
     exclude:
     - python: "2.7"
-        env: SYN_PY27=1
+      env: SYN_PY27=1
     - python: "2.7"
-        env: SYN_PY35=1
+      env: SYN_PY35=1
     - python: "2.7"
-        env: SYN_PY36=1
+      env: SYN_PY36=1
     - python: "2.7"
-        env: SYN_CORE_RAM=1
+      env: SYN_CORE_RAM=1
     - python: "2.7"
-        env: SYN_CORE_SQLITE=1
+      env: SYN_CORE_SQLITE=1
     - python: "2.7"
-        env: SYN_CORE_PG95=1
+      env: SYN_CORE_PG95=1
 services:
     - postgresql
     - docker
