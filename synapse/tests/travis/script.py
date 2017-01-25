@@ -18,18 +18,6 @@ def main(argv):
         'nosetests --verbosity=3 --with-coverage --cover-erase --cover-package=synapse',
     ]
 
-    if os.environ.get('SYN_PY27'):
-        cmds = [
-            'docker exec synapse_27 /bin/bash -c "SYN_DOCKER=1 nosetests --verbosity=3 --with-coverage --cover-erase --cover-package=synapse"',
-        ]
-    if os.environ.get('SYN_PY35'):
-        cmds = [
-            'docker exec synapse_35 /bin/bash -c "SYN_DOCKER=1 nosetests --verbosity=3 --with-coverage --cover-erase --cover-package=synapse"',
-        ]
-    if os.environ.get('SYN_PY36'):
-        cmds = [
-            'docker exec synapse_36 /bin/bash -c "SYN_DOCKER=1 nosetests --verbosity=3 --with-coverage --cover-erase --cover-package=synapse"',
-        ]
     if os.environ.get('SYN_CORE_RAM'):
         cmds = [
             'docker exec core_ram /bin/bash -c "SYN_DOCKER=1 nosetests --verbosity=3 --with-coverage --cover-erase --cover-package=synapse"',

@@ -15,21 +15,6 @@ def main(argv):
     args = parse_args(argv)
     cmds = []
 
-    if os.environ.get('SYN_PY27'):
-        cmds = [
-            'docker ps | grep -q synapse_27',
-            'nc -v -w 4 127.0.0.1 47322',
-        ]
-    if os.environ.get('SYN_PY35'):
-        cmds = [
-            'docker ps | grep -q synapse_35',
-            'nc -v -w 4 127.0.0.1 47322',
-        ]
-    if os.environ.get('SYN_PY36'):
-        cmds = [
-            'docker ps | grep -q synapse_36',
-            'nc -v -w 4 127.0.0.1 47322',
-        ]
     if os.environ.get('SYN_CORE_RAM'):
         cmds = [
             'docker ps | grep -q core_ram',
@@ -44,6 +29,7 @@ def main(argv):
         cmds = [
             'docker ps | grep -q core_pg95',
             'nc -v -w 8 127.0.0.1 47322',
+            '''docker exec core_pg95 /bin/bash -c "psql -c 'create database syn_test;' -U postgres"''',
         ]
 
     for cmd in cmds:
