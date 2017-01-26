@@ -294,7 +294,8 @@ def getSiteDeps(moddef):
         moddef = todo.popleft()
         modname = moddef[0]
 
-        if modname in siteskip:
+        topname = modname.split('.')[0]
+        if topname in siteskip:
             continue
 
         if deps.get(modname):

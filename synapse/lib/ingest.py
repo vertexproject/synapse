@@ -1,6 +1,9 @@
+import os
+import re
 import csv
 import json
 import codecs
+import logging
 
 from synapse.common import *
 from synapse.eventbus import EventBus
@@ -10,15 +13,17 @@ import synapse.dyndeps as s_dyndeps
 import synapse.lib.scrape as s_scrape
 import synapse.lib.datapath as s_datapath
 import synapse.lib.encoding as s_encoding
+import synapse.lib.openfile as s_openfile
+
+logger = logging.getLogger(__name__)
 
 def _fmt_csv(fd,gest):
 
     opts = {}
 
-    quot = gest.get('fmt:csv:quote')
-    dial = gest.get('fmt:csv:dialect')
-    path = gest.get('fmt:csv:filepath')
-    delm = gest.get('fmt:csv:delimiter')
+    quot = gest.get('format:csv:quote')
+    dial = gest.get('format:csv:dialect')
+    delm = gest.get('format:csv:delimiter')
 
     if dial != None:
         opts['dialect'] = dial
@@ -33,19 +38,38 @@ def _fmt_csv(fd,gest):
 
 def _fmt_lines(fd,gest):
 
+    skipre = None
+    mustre = None
+
     lowr = gest.get('format:lines:lower')
+    cmnt = gest.get('format:lines:comment','#')
+
+    skipstr = gest.get('format:lines:skipre')
+    if skipstr != None:
+        skipre = re.compile(skipstr)
+
+    muststr = gest.get('format:lines:mustre')
+    if muststr != None:
+        mustre = re.compile(muststr)
 
     for line in fd:
 
         line = line.strip()
-        if line.startswith('#'):
-            continue
 
         if not line:
             continue
 
+        if line.startswith(cmnt):
+            continue
+
         if lowr:
             line = line.lower()
+
+        if skipre != None and skipre.match(line) != None:
+            continue
+
+        if mustre != None and mustre.match(line) == None:
+            continue
 
         yield line
 
@@ -59,28 +83,30 @@ fmtopts = {
     'lines':{'mode':'r','encoding':'utf8'},
 }
 
-def opendata(path,**opts):
+def iterdata(fd,**opts):
     '''
-    Open a data file on disk and iterate through the top level elements.
+    Iterate through the data provided by a file like object.
+
+    Optional parameters may be used to control how the data
+    is deserialized.
+
+    Example:
+
+        with open('foo.csv','rb') as fd:
+
+            for row in iterdata(fd, format='csv', encoding='utf8'):
+
+                dostuff(row)
+
     '''
-    fmt = opts.get('format','lines')
-
-    fopts = fmtopts.get(fmt,{})
-
-    fmtr = fmtyielders.get(fmt)
-    if fmtr == None:
-        raise NoSuchImpl(name=fmt,knowns=fmtyielders.keys())
-
-    with reqfile(path,**fopts) as fd:
-        for item in fmtr(fd,opts):
-            yield item
-
-def openfd(fd,**opts):
-
     fmt = opts.get('format','lines')
     fopts = fmtopts.get(fmt,{})
 
-    ncod = fopts.get('encoding')
+    # set default options for format
+    for opt,val in fopts.items():
+        opts.setdefault(opt,val)
+
+    ncod = opts.get('encoding')
     if ncod != None:
         fd = codecs.getreader(ncod)(fd)
 
@@ -90,6 +116,8 @@ def openfd(fd,**opts):
 
     for item in fmtr(fd,opts):
         yield item
+
+    fd.close()
 
 class Ingest(EventBus):
     '''
@@ -136,6 +164,9 @@ class Ingest(EventBus):
     def get(self, name, defval=None):
         return self._i_info.get(name,defval)
 
+    def set(self, name, valu):
+        self._i_info[name] = valu
+
     def iterDataRoots(self):
         '''
         Yield "root" DataPath elements to ingest from.
@@ -150,38 +181,42 @@ class Ingest(EventBus):
         for item in self._iterRawData():
             yield s_datapath.DataPath(item)
 
-    def ingest(self, core, data):
+    def _openDataSorc(self, path, info):
         '''
-        Extract data and add it to a Cortex.
-
-        The data input is expected to be an iterable object
-        full of dicts/lists/strings/integers.  If a source
-        of data yields a single monolithic data structure,
-        it is still expected to be contained within a list
-        or generator.
-
-        Example:
-
-            data = s_ingest.opendata('foo/bar/baz.csv', format='csv')
-
-            gest = s_ingest.Ingest(info)
-
-            gest.ingest(core,data)
-
+        Open a data source tuple and return a data yielder object.
         '''
-        root = s_datapath.DataPath(data)
-        info = self._i_info.get('ingest',{})
-        self._ingDataInfo(core, root, info)
+        basedir = self.get('basedir')
+        if basedir != None:
+            info['file:basedir'] = basedir
 
-    def _getBaseValu(self, base, info):
-        path = flfo.get('path')
-        if path != None:
-            base = path.open(base)
+        fd = s_openfile.openfd(path, **info)
 
-        if base == None:
-            return None
+        onfo = info.get('open')
+        return iterdata(fd,**onfo)
 
-        return base.valu()
+    def ingest(self, core, data=None):
+        '''
+        Ingest the data from this definition into the specified cortex.
+        '''
+        if data != None:
+            root = s_datapath.DataPath(data)
+            gest = self._i_info.get('ingest')
+            self._ingDataInfo(core, root, gest)
+            return
+
+        for path,info in self.get('sources'):
+
+            data = self._openDataSorc(path,info)
+
+            gest = info.get('ingest')
+            if gest == None:
+                gest = self._i_info.get('ingest')
+
+            if gest == None:
+                raise Exception('Ingest Info Not Found: %s' % (path,))
+
+            root = s_datapath.DataPath(data)
+            self._ingDataInfo(core, root, gest)
 
     def _ingDataInfo(self, core, data, info, **ctx):
 
@@ -207,8 +242,12 @@ class Ingest(EventBus):
                     props['mime'] = mime
 
                 tufo = core.formTufoByProp('file:bytes',iden,**props)
+
+                self.fire('gest:prog', act='file')
+
                 for tag in ctx.get('tags'):
                     core.addTufoTag(tufo,tag)
+                    self.fire('gest:prog', act='tag')
 
         for path,scfo in info.get('scrapes',()):
 
@@ -219,8 +258,14 @@ class Ingest(EventBus):
                 text = item.valu()
 
                 for form,valu in s_scrape.scrape(text):
+
                     tufo = core.formTufoByProp(form,valu)
-                    core.addTufoTags(tufo,tags)
+
+                    self.fire('gest:prog', act='form')
+
+                    for tag in tags:
+                        self.fire('gest:prog', act='tag')
+                        core.addTufoTag(tufo,tag)
 
         # iterate and create any forms at our level
         for form,fnfo in info.get('forms',()):
@@ -236,27 +281,33 @@ class Ingest(EventBus):
             path = fnfo.get('path')
             for base in base.iter(path):
 
-                #valu = self._get_prop(core,base,fnfo)
-                valu = self._get_form(core,base,fnfo)
-                if valu == None:
-                    continue
+                try:
 
-                tufo = core.formTufoByFrob(form,valu)
-
-                props = {}
-                for prop,pnfo in fnfo.get('props',{}).items():
-                    valu = self._get_prop(core,base,pnfo)
+                    valu = self._get_form(core,base,fnfo)
                     if valu == None:
                         continue
 
-                    props[prop] = valu
+                    tufo = core.formTufoByFrob(form,valu)
+                    self.fire('gest:prog', act='form')
 
+                    props = {}
+                    for prop,pnfo in fnfo.get('props',{}).items():
+                        valu = self._get_prop(core,base,pnfo)
+                        if valu == None:
+                            continue
 
-                if props:
-                    core.setTufoFrobs(tufo,**props)
+                        props[prop] = valu
 
-                for tag in ctx.get('tags'):
-                    core.addTufoTag(tufo,tag)
+                    if props:
+                        core.setTufoFrobs(tufo,**props)
+                        self.fire('gest:prog', act='set')
+
+                    for tag in ctx.get('tags'):
+                        core.addTufoTag(tufo,tag)
+                        self.fire('gest:prog', act='tag')
+
+                except Exception as e:
+                    core.logCoreExc(e,subsys='ingest')
 
         for path,tifo in info.get('iters',()):
             for base in data.iter(path):
@@ -338,3 +389,24 @@ class Ingest(EventBus):
             valu = pivo[1].get(pivt)
 
         return valu
+
+def loadfile(*paths):
+    '''
+    Load a json ingest def from file and construct an Ingest class.
+
+    This routine is useful because it implements the convention
+    for adding runtime info to the ingest json to facilitate path
+    relative file opening etc...
+    '''
+    path = genpath(*paths)
+
+    # FIXME universal open
+
+    with reqfile(path) as fd:
+        jsfo = json.loads( fd.read().decode('utf8') )
+
+    gest = Ingest(jsfo)
+
+    gest.set('basedir', os.path.dirname(path))
+
+    return gest

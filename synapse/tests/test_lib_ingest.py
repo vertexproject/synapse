@@ -24,7 +24,7 @@ class IngTest(SynTest):
                     }}
 
             gest = s_ingest.Ingest(info)
-            gest.ingest(core,data)
+            gest.ingest(core,data=data)
 
             self.assertIsNotNone( core.getTufoByProp('inet:fqdn','woot.com') )
 
@@ -66,7 +66,7 @@ class IngTest(SynTest):
 
         gest = s_ingest.Ingest(info)
 
-        gest.ingest(core,data)
+        gest.ingest(core,data=data)
 
         self.eq( core.getTufoByProp('inet:fqdn','com')[1].get('inet:fqdn:sfx'), 1 )
         self.eq( core.getTufoByProp('inet:fqdn','woot.com')[1].get('inet:fqdn:zone'), 1 )
@@ -86,28 +86,26 @@ class IngTest(SynTest):
                     fd.write(b'vertex.link,5.6.7.8\n')
 
                 info = {
-                    'format':'csv',
+                    'sources':(
+                        (csvp,{'open':{'format':'csv'}, 'ingest':{
 
-                    'ingest':{
+                            'tags':['hehe.haha'],
 
-                        'tags':['hehe.haha'],
-
-                        'iters':[
-                            ('*', {
-                                'forms':[
-                                    ('inet:fqdn',{'path':'0'}),
-                                    ('inet:ipv4',{'path':'1'}),
-                                ]
-                            }),
-                        ],
-                    },
+                            'iters':[
+                                ('*', {
+                                    'forms':[
+                                        ('inet:fqdn',{'path':'0'}),
+                                        ('inet:ipv4',{'path':'1'}),
+                                    ]
+                                }),
+                            ],
+                        }}),
+                    )
                 }
-
-                data = s_ingest.opendata(csvp,**info)
 
                 gest = s_ingest.Ingest(info)
 
-                gest.ingest(core,data=data)
+                gest.ingest(core)
 
             self.assertIsNotNone( core.getTufoByProp('inet:fqdn','foo.com') )
             self.assertIsNotNone( core.getTufoByProp('inet:fqdn','vertex.link') )
@@ -130,7 +128,7 @@ class IngTest(SynTest):
         with s_cortex.openurl('ram://') as core:
 
             gest = s_ingest.Ingest(info)
-            gest.ingest(core,data)
+            gest.ingest(core,data=data)
 
             tufo = core.getTufoByProp('file:bytes','442f602ecf8230b2a59a44b4f845be27')
 
@@ -153,7 +151,7 @@ class IngTest(SynTest):
         with s_cortex.openurl('ram://') as core:
 
             gest = s_ingest.Ingest(info)
-            gest.ingest(core,data)
+            gest.ingest(core,data=data)
 
             tufo = core.getTufoByProp('file:bytes','442f602ecf8230b2a59a44b4f845be27')
 
@@ -176,7 +174,7 @@ class IngTest(SynTest):
             core.addTufoForm('hehe:haha', ptype='file:guid')
 
             gest = s_ingest.Ingest(info)
-            gest.ingest(core,data)
+            gest.ingest(core,data=data)
 
             self.assertIsNotNone( core.getTufoByProp('hehe:haha','442f602ecf8230b2a59a44b4f845be27') )
 
@@ -191,7 +189,7 @@ class IngTest(SynTest):
         with s_cortex.openurl('ram://') as core:
 
             gest = s_ingest.Ingest(info)
-            gest.ingest(core,data)
+            gest.ingest(core,data=data)
 
             self.assertIsNotNone( core.getTufoByProp('inet:ipv4', 0x01020304 ) )
             self.assertIsNotNone( core.getTufoByProp('inet:fqdn', 'vertex.link') )

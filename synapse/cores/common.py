@@ -71,6 +71,9 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         self.addConfDef('caching',type='bool',asloc='caching',defval=0,doc='Enables caching layer in the cortex')
         self.addConfDef('cache:maxsize',type='int',asloc='cache_maxsize',defval=1000,doc='Enables caching layer in the cortex')
 
+        self.addConfDef('log:save',type='bool',asloc='logsave', defval=0, doc='Enables saving exceptions to the cortex as syn:log nodes')
+        self.addConfDef('log:level',type='int',asloc='loglevel',defval=0,doc='Filters log events to >= level')
+
         self.onConfOptSet('caching', self._onSetCaching)
 
         self._link = link
@@ -183,6 +186,13 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
         self._initCoreModels()
 
+        self.addTufoForm('syn:log', ptype='guid')
+        self.addTufoProp('syn:log', 'subsys', defval='??', help='Named subsystem which originated the log event')
+        self.addTufoProp('syn:log', 'level', ptype='int', defval=logging.WARNING)
+        self.addTufoProp('syn:log', 'time', ptype='time', doc='When did the log event occur')
+        self.addTufoProp('syn:log', 'exc', ptype='str', help='Exception class name if caused by an exception')
+        self.addTufoProp('syn:log', 'info:*', glob=1)
+
         self.addTufoForm('syn:splice', ptype='guid')
         self.addTufoProp('syn:splice','on:*',glob=1)     # syn:splice:on:fqdn=woot.com
         self.addTufoProp('syn:splice','act:*',glob=1)    # action arguments
@@ -206,6 +216,41 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
     # over-ride to allow the storm runtime to lift/join/pivot tufos
     def _stormTufosBy(self, by, prop, valu=None, limit=None):
         return self.getTufosBy(by, prop, valu=valu, limit=limit)
+
+    def logCoreExc(self, exc, subsys='??', level=logging.ERROR):
+        '''
+        Report an exception to/within the cortex.  This unified API is
+        used to facilitate optional cortex exception logging within the
+        cortex itself.
+
+        Example:
+
+            try:
+
+                dostuff()
+
+            except Exception as e:
+
+                core.logCoreExc(e,subsys='mything')
+
+        '''
+        # TODO make an object to wrap a cortex as a logger to allow
+        # cortex based log aggrigation
+        if not self.logsave:
+            return
+
+        if level < self.loglevel:
+            return
+
+        logger.exception(exc)
+
+        name = '%s.%s' % (exc.__class__.__module__,exc.__class__.__name__)
+        props = {'exc':name,'time':now(),'level':level,'subsys':subsys}
+
+        if isinstance(exc,SynErr):
+            [ props.__setitem__('info:%s' % k, v) for (k,v) in exc.items() ]
+
+        self.addTufoEvent('syn:log', **props)
 
     def addDataModel(self, name, modl):
         '''
