@@ -88,7 +88,7 @@ class DataType:
         return self.norm(text, oldval=oldval)
 
     def repr(self, valu):
-        return str(valu)
+        return valu
 
 class StrType(DataType):
 
