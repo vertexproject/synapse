@@ -22,6 +22,7 @@ class TestFilePath(SynTest):
         # file and dir that exist
         self.assertTrue(s_filepath.exists(temp_fd.name))
         self.assertTrue(s_filepath.exists(temp_dir))
+        self.assertTrue(s_filepath.exists('/'))
 
         # DNE in a real directory
         path = os.path.join(temp_dir, 'dne')
@@ -120,9 +121,9 @@ class TestFilePath(SynTest):
         temp_fd = tempfile.NamedTemporaryFile()
 
         zip_fd = zipfile.ZipFile(temp_fd.name, 'w')
-        fbuf = 'A'*20
+        abuf = 'A'*20
         bbuf = b'A'*20
-        zip_fd.writestr('dir0/foo', fbuf)
+        zip_fd.writestr('dir0/foo', abuf)
         fbuf2 = 'B'*20
         zip_fd.writestr('bar', fbuf2)
 
@@ -220,9 +221,10 @@ class TestFilePath(SynTest):
         temp_d = tempfile.mkdtemp()
 
         os.mkdir(os.path.join(temp_d, 'dir0'))
+        abuf = 'A'*20
         bbuf = b'A'*20
         with open(os.path.join(temp_d, 'dir0', 'foo'), 'w') as fd:
-            fd.write('A'*20)
+            fd.write(abuf)
         with open(os.path.join(temp_d, 'bar'), 'w') as fd:
             fd.write('B'*20)
         
