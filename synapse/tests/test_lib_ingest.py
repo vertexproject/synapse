@@ -91,14 +91,10 @@ class IngTest(SynTest):
 
                             'tags':['hehe.haha'],
 
-                            'iters':[
-                                ('*', {
-                                    'forms':[
-                                        ('inet:fqdn',{'path':'0'}),
-                                        ('inet:ipv4',{'path':'1'}),
-                                    ]
-                                }),
-                            ],
+                            'forms':[
+                                ('inet:fqdn',{'path':'0'}),
+                                ('inet:ipv4',{'path':'1'}),
+                            ]
                         }}),
                     )
                 }
@@ -121,8 +117,10 @@ class IngTest(SynTest):
         data = {'foo':['dmlzaQ==']}
 
         info = {'ingest':{
-            'tags':['woo.woo'],
-            'files':[ ('foo/*',{'mime':'hehe/haha','decode':'+utf8,base64'}) ],
+            'iters':[ ["foo/*", {
+                'tags':['woo.woo'],
+                'files':[ {'mime':'hehe/haha','decode':'+utf8,base64'} ],
+            }]]
         }}
 
         with s_cortex.openurl('ram://') as core:
@@ -143,7 +141,7 @@ class IngTest(SynTest):
             'tags':['woo.woo'],
             'iters':[
                 ('foo/*',{
-                    'files':[ ('.',{'mime':'hehe/haha','decode':'+utf8,base64'}) ],
+                    'files':[ {'mime':'hehe/haha','decode':'+utf8,base64'} ],
                 }),
             ]
         }}
@@ -165,8 +163,17 @@ class IngTest(SynTest):
 
         info = {'ingest':{
             'tags':['woo.woo'],
-            'files':[ ('foo/*',{'mime':'hehe/haha','decode':'+utf8,base64'}) ],
-            'forms':[ ('hehe:haha',{'path':'bar/*','pivot':('file:bytes:md5','file:bytes')}) ],
+            'iters':[
+
+                ['foo/*',{
+                    'files':[ {'mime':'hehe/haha','decode':'+utf8,base64'} ],
+                }],
+
+                ['bar/*',{
+                    'forms':[ ('hehe:haha',{'pivot':('file:bytes:md5','file:bytes')}) ],
+                }],
+
+            ],
         }}
 
         with s_cortex.openurl('ram://') as core:
@@ -183,7 +190,11 @@ class IngTest(SynTest):
         data = {'foo':[ ('1.2.3.4','vertex.link') ] }
 
         info = {'ingest':{
-            'forms':[ ('dns:a',{'path':'foo/*','template':('{{fqdn}}/{{ipv4}}', {'ipv4':{'path':'0'},'fqdn':{'path':'1'}}) } ) ],
+            'iters':[
+                ["foo/*",{
+                    'forms':[ ('dns:a',{'template':('{{fqdn}}/{{ipv4}}', {'ipv4':{'path':'0'},'fqdn':{'path':'1'}}) } ) ],
+                }],
+            ],
         }}
 
         with s_cortex.openurl('ram://') as core:
