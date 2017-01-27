@@ -221,6 +221,7 @@ class Ingest(EventBus):
                 raise Exception('Ingest Info Not Found: %s' % (path,))
 
             for data in self._openDataSorc(path,info):
+            #data = self._openDataSorc(path,info)
                 root = s_datapath.DataPath(data)
                 self._ingDataInfo(core, root, gest)
 
@@ -229,6 +230,7 @@ class Ingest(EventBus):
         ctx['tags'] = tuple(info.get('tags',())) + ctx.get('tags',())
 
         # extract files embedded within the data structure
+        #for path,flfo in info.get('files',()):
         for flfo in info.get('files',()):
 
             path = flfo.get('path')
