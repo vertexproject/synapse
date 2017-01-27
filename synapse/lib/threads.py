@@ -453,27 +453,6 @@ class Pool(EventBus):
         [ t.fini() for t in threads ]
         #[ t.join() for t in threads ]
 
-def getGlobPool():
-    '''
-    Get/Init a reference to a singular global thread Pool().
-
-    Example:
-
-        plex = getGlobPool()
-
-    '''
-    with s_glob.lock:
-        if s_glob.pool == None:
-            s_glob.pool = Pool()
-
-            atexit.register(s_glob.pool.fini)
-
-        return s_glob.pool
-
-def setGlobPool(pool):
-    with s_glob.lock:
-        s_glob.pool = pool
-
 class RWLock:
     '''
     A multi-reader/exclusive-writer lock.
