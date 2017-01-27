@@ -221,7 +221,6 @@ class Ingest(EventBus):
                 raise Exception('Ingest Info Not Found: %s' % (path,))
 
             for data in self._openDataSorc(path,info):
-            #data = self._openDataSorc(path,info)
                 root = s_datapath.DataPath(data)
                 self._ingDataInfo(core, root, gest)
 
