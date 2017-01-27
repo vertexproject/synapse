@@ -23,10 +23,17 @@ def getDataModel():
             ('inet:srv6',   {'ctor':'synapse.models.inet.Srv6Type','doc':'An IPv6 Address and Port','ex':'[2607:f8b0:4004:809::200e]:80'}),
             ('inet:email',  {'ctor':'synapse.models.inet.EmailType','doc':'An e-mail address','ex':'visi@vertex.link'}),
 
+            ('inet:cidr4',   {'ctor':'synapse.models.inet.CidrType','doc':'An IPv4 CIDR type','ex':'1.2.3.0/24'}),
+
+            ('inet:net4',   {'subof':'sepr','sep':'-','fields':'min,inet:ipv4|max,inet:ipv4','doc':'An IPv4 address range','ex':'1.2.3.4-1.2.3.20'}),
+            ('inet:net6',   {'subof':'sepr','sep':'-','fields':'min,inet:ipv6|max,inet:ipv6','doc':'An IPv6 address range','ex':'ff::00-ff::30'}),
+
+            ('inet:asnet4', {'subof':'sepr','sep':'/','fields':'asn,inet:asn|net4,inet:net4','doc':'An IPv4 address range assigned to an autonomous system','ex':'54959/1.2.3.4-1.2.3.20'}),
+
             ('inet:asn',        {'subof':'int','doc':'An Autonomous System Number (ASN)'}),
             ('inet:user',       {'subof':'str','doc':'A username string'}),
             ('inet:passwd',     {'subof':'str','doc':'A password string'}),
-            ('inet:filepath',   {'subof':'str','doc':'An absolute file path'}),
+            #('inet:filepath',   {'subof':'str','doc':'An absolute file path'}),
             #('inet:filenorm',   {'subof':'str','doc':'An absolute file path'}),
 
             ('inet:tcp4', {'subof':'inet:srv4', 'doc':'A TCP server listening on IPv4:port'}),
@@ -52,7 +59,6 @@ def getDataModel():
             ('inet:whois:rec',{'subof':'sepr','sep':'@','fields':'fqdn,inet:fqdn|asof,time','doc':'A whois record','ex':''}),
 
             # TODO: (port from nucleus etc)
-            # inet:cidr
             # inet:cidr6
         ),
 
@@ -62,6 +68,11 @@ def getDataModel():
                 ('cc',{'ptype':'pol:iso2','defval':'??'}),
                 ('type',{'defval':'??','doc':'what type of ipv4 address ( uni, multi, priv )'}),
                 ('asn',{'ptype':'inet:asn','defval':0}),
+            ]),
+
+            ('inet:cidr4',{'ptype':'inet:cidr4'},[
+                ('ipv4',{'ptype':'inet:ipv4','doc':'The CIDR Network Address','ro':1}),
+                ('mask',{'ptype':'int','doc':'The CIDR mask','ro':1})
             ]),
 
             ('inet:ipv6',{'ptype':'inet:ipv6'},[
@@ -76,9 +87,15 @@ def getDataModel():
                 ('port',{'ptype':'inet:port','ro':1}),
             ]),
 
-            ('inet:asn',{'ptype':'inet:asn'},[
+            ('inet:asn',{'ptype':'inet:asn','doc':'An Autonomous System'},[
                 ('name',{'ptype':'str:lwr','defval':'??'}),
-                #TODO ('cidr',{'ptype':'inet:cidr'}),
+            ]),
+
+            ('inet:asnet4',{'ptype':'inet:asnet4','doc':'A netblock IPv4 range assigned to an Autonomous System'},[
+                ('asn',{'ptype':'inet:asn'}),
+                ('net4',{'ptype':'inet:net4'}),
+                ('net4:min',{'ptype':'inet:ipv4'}),
+                ('net4:max',{'ptype':'inet:ipv4'}),
             ]),
 
             ('inet:user',{'ptype':'inet:user'},[]),
@@ -194,6 +211,10 @@ def ipv4int(valu):
     byts = socket.inet_aton(valu)
     return struct.unpack('>I', byts)[0]
 
+masks = [ (0xffffffff - ( 2**(32-i) - 1 )) for i in range(33) ]
+def ipv4mask(ipv4,mask):
+    return ipv4 & masks[mask]
+
 class IPv4Type(DataType):
 
     def norm(self, valu, oldval=None):
@@ -204,6 +225,9 @@ class IPv4Type(DataType):
 
     def frob(self, valu, oldval=None):
         if s_compat.isstr(valu):
+            # handle decimal integer strings...
+            if valu.isdigit():
+                return int(valu) & 0xffffffff
             return self.parse(valu, oldval=oldval)
         return self.norm(valu, oldval=oldval)
 
@@ -382,3 +406,26 @@ class UrlType(DataType):
     def repr(self, valu):
         return valu
 
+
+class CidrType(DataType):
+
+    def norm(self, valu, oldval=None):
+        return self.chop(valu,oldval=oldval)[0]
+
+    def chop(self, valu, oldval=None):
+
+        ipstr,maskstr = valu.split('/')
+
+        mask = int(maskstr)
+        ipv4 = ipv4int(ipstr)
+
+        if mask > 32 or mask < 0:
+            raise BadTypeValu(name=self.name,valu=valu,mesg='Invalid CIDR Mask')
+
+        ipv4 = ipv4mask(ipv4,mask)
+        valu = '%s/%d' % ( ipv4str(ipv4), mask )
+
+        return valu,{'ipv4':ipv4,'mask':mask}
+
+    def repr(self, valu):
+        return valu
