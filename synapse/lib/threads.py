@@ -106,6 +106,7 @@ def local(key,defval=None):
 
 def put(name,valu):
     setattr(thrloc,name,valu)
+    return valu
 
 def current():
     return threading.currentThread()
