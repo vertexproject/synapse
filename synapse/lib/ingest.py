@@ -158,8 +158,15 @@ class Ingest(EventBus):
     '''
     def __init__(self, info, axon=None):
         EventBus.__init__(self)
+        self._i_res = {}
         self._i_info = info
         self._i_axon = axon
+
+    def _re_compile(self, regex):
+        ret = self._i_res.get(regex)
+        if ret == None:
+            self._i_res[regex] = ret = re.compile(regex)
+        return ret
 
     def get(self, name, defval=None):
         return self._i_info.get(name,defval)
@@ -206,8 +213,6 @@ class Ingest(EventBus):
 
         for path,info in self.get('sources'):
 
-            data = self._openDataSorc(path,info)
-
             gest = info.get('ingest')
             if gest == None:
                 gest = self._i_info.get('ingest')
@@ -215,140 +220,98 @@ class Ingest(EventBus):
             if gest == None:
                 raise Exception('Ingest Info Not Found: %s' % (path,))
 
-            root = s_datapath.DataPath(data)
-            self._ingDataInfo(core, root, gest)
+            for data in self._openDataSorc(path,info):
+            #data = self._openDataSorc(path,info)
+                root = s_datapath.DataPath(data)
+                self._ingDataInfo(core, root, gest)
 
     def _ingDataInfo(self, core, data, info, **ctx):
 
         ctx['tags'] = tuple(info.get('tags',())) + ctx.get('tags',())
 
         # extract files embedded within the data structure
-        for path,flfo in info.get('files',()):
+        #for path,flfo in info.get('files',()):
+        for flfo in info.get('files',()):
 
-            for item in data.iter(path):
-                byts = item.valu()
+            path = flfo.get('path')
 
-                dcod = flfo.get('decode')
-                if dcod != None:
-                    byts = s_encoding.decode(dcod,byts)
+            byts = data.valu(path)
 
-                hset = s_axon.HashSet()
-                hset.update(byts)
+            dcod = flfo.get('decode')
+            if dcod != None:
+                byts = s_encoding.decode(dcod,byts)
 
-                iden,props = hset.guid()
+            hset = s_axon.HashSet()
+            hset.update(byts)
 
-                mime = flfo.get('mime')
-                if mime != None:
-                    props['mime'] = mime
+            iden,props = hset.guid()
 
-                tufo = core.formTufoByProp('file:bytes',iden,**props)
+            mime = flfo.get('mime')
+            if mime != None:
+                props['mime'] = mime
 
-                self.fire('gest:prog', act='file')
+            tufo = core.formTufoByProp('file:bytes',iden,**props)
 
-                for tag in ctx.get('tags'):
-                    core.addTufoTag(tufo,tag)
-                    self.fire('gest:prog', act='tag')
+            self.fire('gest:prog', act='file')
+
+            for tag in ctx.get('tags'):
+                core.addTufoTag(tufo,tag)
+                self.fire('gest:prog', act='tag')
 
         for path,scfo in info.get('scrapes',()):
 
             tags = list( ctx.get('tags',()) )
             tags.extend( scfo.get('tags',() ) )
 
-            for item in data.iter(path):
-                text = item.valu()
+            for form,valu in s_scrape.scrape(text):
 
-                for form,valu in s_scrape.scrape(text):
+                tufo = core.formTufoByProp(form,valu)
 
-                    tufo = core.formTufoByProp(form,valu)
+                self.fire('gest:prog', act='form')
 
-                    self.fire('gest:prog', act='form')
-
-                    for tag in tags:
-                        self.fire('gest:prog', act='tag')
-                        core.addTufoTag(tufo,tag)
+                for tag in tags:
+                    self.fire('gest:prog', act='tag')
+                    core.addTufoTag(tufo,tag)
 
         # iterate and create any forms at our level
         for form,fnfo in info.get('forms',()):
 
-            base = data
-
             # Allow dynamic forms...
             fstr = fnfo.get('form')
             if fstr != None:
-                form = base.valu(fstr)
+                form = data.valu(fstr)
 
-            # iterate elements from the specified path
-            path = fnfo.get('path')
-            for base in base.iter(path):
+            try:
 
-                try:
+                valu = self._get_prop(core,data,fnfo)
+                if valu == None:
+                    continue
 
-                    valu = self._get_form(core,base,fnfo)
+                tufo = core.formTufoByFrob(form,valu)
+                self.fire('gest:prog', act='form')
+
+                props = {}
+                for prop,pnfo in fnfo.get('props',{}).items():
+                    valu = self._get_prop(core,data,pnfo)
                     if valu == None:
                         continue
 
-                    tufo = core.formTufoByFrob(form,valu)
-                    self.fire('gest:prog', act='form')
+                    props[prop] = valu
 
-                    props = {}
-                    for prop,pnfo in fnfo.get('props',{}).items():
-                        valu = self._get_prop(core,base,pnfo)
-                        if valu == None:
-                            continue
+                if props:
+                    core.setTufoFrobs(tufo,**props)
+                    self.fire('gest:prog', act='set')
 
-                        props[prop] = valu
+                for tag in ctx.get('tags'):
+                    core.addTufoTag(tufo,tag)
+                    self.fire('gest:prog', act='tag')
 
-                    if props:
-                        core.setTufoFrobs(tufo,**props)
-                        self.fire('gest:prog', act='set')
-
-                    for tag in ctx.get('tags'):
-                        core.addTufoTag(tufo,tag)
-                        self.fire('gest:prog', act='tag')
-
-                except Exception as e:
-                    core.logCoreExc(e,subsys='ingest')
+            except Exception as e:
+                core.logCoreExc(e,subsys='ingest')
 
         for path,tifo in info.get('iters',()):
             for base in data.iter(path):
                 self._ingDataInfo(core, base, tifo, **ctx)
-
-    def _get_form(self, core, base, info):
-
-        valu = info.get('value')
-        if valu != None:
-            return valu
-
-        # template=('{{foo}}:80', {'foo':{'path':'bar/baz'}})
-        template = info.get('template')
-        if template != None:
-            valu,tnfo = template
-
-            for tname,tinfo in tnfo.items():
-
-                tval = self._get_prop(core,base,tinfo)
-                if tval == None:
-                    return None
-
-                valu = valu.replace('{{%s}}' % tname, tval)
-
-            return valu
-
-        valu = base.valu()
-        if valu == None:
-            return None
-
-        pivot = info.get('pivot')
-        if pivot != None:
-            pivf,pivt = pivot
-
-            pivo = core.getTufoByFrob(pivf,valu)
-            if pivo == None:
-                return None
-
-            valu = pivo[1].get(pivt)
-
-        return valu
 
     def _get_prop(self, core, base, info):
 
@@ -356,7 +319,13 @@ class Ingest(EventBus):
         if valu != None:
             return valu
 
-        #FIXME explicit cast/frob
+        #########################################################
+        #FIXME
+        #
+        # Make this routine and others ( such as path stuff )
+        # more optimized using either function factories or some
+        # way to cache things like parsed regex objects...
+        #
 
         # template=('{{foo}}:80', {'foo':{'path':'bar/baz'}})
         template = info.get('template')
@@ -377,6 +346,24 @@ class Ingest(EventBus):
         valu = base.valu(path)
         if valu == None:
             return None
+
+        # If we have a regex field, use it to extract valu from the
+        # first grouping
+        rexs = info.get('regex')
+        if rexs != None:
+            rexo = self._re_compile(rexs)
+            match = rexo.search(valu)
+            if match == None:
+                return None
+
+            groups = match.groups()
+            if groups:
+                valu = groups[0]
+
+        # FIXME make a mechanism here for field translation based
+        # on an included translation table within the ingest def
+
+        #FIXME explicit cast/frob
 
         pivot = info.get('pivot')
         if pivot != None:
