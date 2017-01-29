@@ -1,3 +1,4 @@
+from encodings import idna
 import re
 import socket
 import struct
@@ -22,11 +23,19 @@ def getDataModel():
             ('inet:srv4',   {'ctor':'synapse.models.inet.Srv4Type','doc':'An IPv4 Address and Port','ex':'1.2.3.4:80'}),
             ('inet:srv6',   {'ctor':'synapse.models.inet.Srv6Type','doc':'An IPv6 Address and Port','ex':'[2607:f8b0:4004:809::200e]:80'}),
             ('inet:email',  {'ctor':'synapse.models.inet.EmailType','doc':'An e-mail address','ex':'visi@vertex.link'}),
+            ('inet:fqdn',   {'ctor':'synapse.models.inet.FqdnType', 'ex':'vertex.link','doc':'A Fully Qualified Domain Name (FQDN)'}),
+
+            ('inet:cidr4',   {'ctor':'synapse.models.inet.CidrType','doc':'An IPv4 CIDR type','ex':'1.2.3.0/24'}),
+
+            ('inet:net4',   {'subof':'sepr','sep':'-','fields':'min,inet:ipv4|max,inet:ipv4','doc':'An IPv4 address range','ex':'1.2.3.4-1.2.3.20'}),
+            ('inet:net6',   {'subof':'sepr','sep':'-','fields':'min,inet:ipv6|max,inet:ipv6','doc':'An IPv6 address range','ex':'ff::00-ff::30'}),
+
+            ('inet:asnet4', {'subof':'sepr','sep':'/','fields':'asn,inet:asn|net4,inet:net4','doc':'An IPv4 address range assigned to an autonomous system','ex':'54959/1.2.3.4-1.2.3.20'}),
 
             ('inet:asn',        {'subof':'int','doc':'An Autonomous System Number (ASN)'}),
             ('inet:user',       {'subof':'str','doc':'A username string'}),
             ('inet:passwd',     {'subof':'str','doc':'A password string'}),
-            ('inet:filepath',   {'subof':'str','doc':'An absolute file path'}),
+            #('inet:filepath',   {'subof':'str','doc':'An absolute file path'}),
             #('inet:filenorm',   {'subof':'str','doc':'An absolute file path'}),
 
             ('inet:tcp4', {'subof':'inet:srv4', 'doc':'A TCP server listening on IPv4:port'}),
@@ -35,7 +44,6 @@ def getDataModel():
             ('inet:udp6', {'subof':'inet:srv6', 'doc':'A UDP server listening on IPv6:port'}),
 
             ('inet:port', {'subof':'int', 'min':0, 'max':0xffff,'ex':'80'}),
-            ('inet:fqdn', {'subof':'str', 'regex':'^[a-z0-9._-]+$', 'lower':1,'nullval':'??','ex':'vertex.link','doc':'A Fully Qualified Domain Name (FQDN)'}),
             ('inet:mac',  {'subof':'str', 'regex':'^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower':1, 'nullval':'??',
                            'ex':'aa:bb:cc:dd:ee:ff','doc':'A 48 bit mac address'}),
 
@@ -52,7 +60,6 @@ def getDataModel():
             ('inet:whois:rec',{'subof':'sepr','sep':'@','fields':'fqdn,inet:fqdn|asof,time','doc':'A whois record','ex':''}),
 
             # TODO: (port from nucleus etc)
-            # inet:cidr
             # inet:cidr6
         ),
 
@@ -62,6 +69,11 @@ def getDataModel():
                 ('cc',{'ptype':'pol:iso2','defval':'??'}),
                 ('type',{'defval':'??','doc':'what type of ipv4 address ( uni, multi, priv )'}),
                 ('asn',{'ptype':'inet:asn','defval':0}),
+            ]),
+
+            ('inet:cidr4',{'ptype':'inet:cidr4'},[
+                ('ipv4',{'ptype':'inet:ipv4','doc':'The CIDR Network Address','ro':1}),
+                ('mask',{'ptype':'int','doc':'The CIDR mask','ro':1})
             ]),
 
             ('inet:ipv6',{'ptype':'inet:ipv6'},[
@@ -76,9 +88,15 @@ def getDataModel():
                 ('port',{'ptype':'inet:port','ro':1}),
             ]),
 
-            ('inet:asn',{'ptype':'inet:asn'},[
+            ('inet:asn',{'ptype':'inet:asn','doc':'An Autonomous System'},[
                 ('name',{'ptype':'str:lwr','defval':'??'}),
-                #TODO ('cidr',{'ptype':'inet:cidr'}),
+            ]),
+
+            ('inet:asnet4',{'ptype':'inet:asnet4','doc':'A netblock IPv4 range assigned to an Autonomous System'},[
+                ('asn',{'ptype':'inet:asn'}),
+                ('net4',{'ptype':'inet:net4'}),
+                ('net4:min',{'ptype':'inet:ipv4'}),
+                ('net4:max',{'ptype':'inet:ipv4'}),
             ]),
 
             ('inet:user',{'ptype':'inet:user'},[]),
@@ -96,7 +114,8 @@ def getDataModel():
             ('inet:fqdn',{'ptype':'inet:fqdn'},[
                 ('sfx',{'ptype':'bool','defval':0,'doc':'Set to 1 if this FQDN is considered a "suffix"'}),
                 ('zone',{'ptype':'bool','defval':0,'doc':'Set to 1 if this FQDN is a logical zone (under a suffix)'}),
-                ('parent',{'ptype':'inet:fqdn','doc':'The parent FQDN'}),
+                ('domain',{'ptype':'inet:fqdn','doc':'The parent FQDN of the FQDN'}),
+                ('host',{'ptype':'str','doc':'The hostname of the FQDN'}),
             ]),
 
             ('inet:email',{'ptype':'inet:email'},[
@@ -175,15 +194,19 @@ def addCoreOns(core):
         props = mesg[1].get('props')
         parts = valu.split('.',1)
         if len(parts) > 1:
-            props['inet:fqdn:parent'] = parts[1]
+            props['inet:fqdn:domain'] = parts[1]
             pafo = core.formTufoByProp('inet:fqdn',parts[1])
             if pafo[1].get('inet:fqdn:sfx'):
                 props['inet:fqdn:zone'] = 1
 
-    # FIXME this needs to mark/unmark kids as zone
-    #def onTufoSetFqdnSfx(mesg):
+    def onTufoSetFqdnSfx(mesg):
+        sfx = mesg[1].get('valu')
+        fqdn = mesg[1].get('tufo')[1].get('inet:fqdn')
+        for tufo in core.getTufosByProp('inet:fqdn:domain', fqdn):
+            core.setTufoProp(tufo, 'zone', sfx)
 
     core.on('tufo:form:inet:fqdn',onTufoFormFqdn)
+    core.on('tufo:set:inet:fqdn:sfx',onTufoSetFqdnSfx)
     core.on('tufo:form:inet:passwd',onTufoFormPasswd)
 
 def ipv4str(valu):
@@ -193,6 +216,10 @@ def ipv4str(valu):
 def ipv4int(valu):
     byts = socket.inet_aton(valu)
     return struct.unpack('>I', byts)[0]
+
+masks = [ (0xffffffff - ( 2**(32-i) - 1 )) for i in range(33) ]
+def ipv4mask(ipv4,mask):
+    return ipv4 & masks[mask]
 
 class IPv4Type(DataType):
 
@@ -204,6 +231,9 @@ class IPv4Type(DataType):
 
     def frob(self, valu, oldval=None):
         if s_compat.isstr(valu):
+            # handle decimal integer strings...
+            if valu.isdigit():
+                return int(valu) & 0xffffffff
             return self.parse(valu, oldval=oldval)
         return self.norm(valu, oldval=oldval)
 
@@ -213,10 +243,34 @@ class IPv4Type(DataType):
     def parse(self, text, oldval=None):
         return ipv4int(text)
 
-#FIXME
-#class FqdnType(DataType):
-    # need this to change unicode to xn-- syntax!
-    # also needs to have sub props of host and domain
+fqdnre = re.compile(r'^[\w._-]+$', re.U)
+class FqdnType(DataType):
+
+    subprops = (
+        ('sfx',{'ptype':'bool'}),
+        ('zone',{'ptype':'bool'}),
+        ('domain',{'ptype':'inet:fqdn'}),
+        ('host',{'ptype':'str'}),
+    )
+
+    def norm(self, valu, oldval=None):
+        if not fqdnre.match(valu):
+            raise BadTypeValu(name=self.name,valu=valu)
+        valu = valu.lower()
+        if valu.startswith('xn--'):
+            return idna.ToUnicode(valu)
+        return valu
+
+    def chop(self, valu, oldval=None):
+        norm = self.norm(valu)
+        parts = norm.split('.', 1)
+        subs = {'host': parts[0]}
+        if len(parts) == 2:
+            subs['domain'] = parts[1]
+        else:
+            subs['sfx'] = 1
+        return norm, subs
+
 
 # RFC5952 compatible
 def ipv6norm(text):
@@ -322,17 +376,14 @@ class EmailType(DataType):
     )
 
     def norm(self, valu, oldval=None):
+        return self.chop(valu, oldval)[0]
+
+    def chop(self, valu, oldval=None):
         try:
             user,fqdn = valu.split('@',1)
-        except ValueError as e:
-            self._raiseBadValu(valu)
-
-        return valu.lower()
-
-    def chop(self, valu):
-        norm = valu.lower()
-        try:
-            user,fqdn = valu.split('@',1)
+            user = self.tlib.getTypeNorm('inet:user', user)
+            fqdn = self.tlib.getTypeNorm('inet:fqdn', fqdn)
+            norm = ('%s@%s' % (user, fqdn)).lower()
         except ValueError as e:
             self._raiseBadValu(valu)
         return norm,{'user':user,'fqdn':fqdn}
@@ -382,3 +433,26 @@ class UrlType(DataType):
     def repr(self, valu):
         return valu
 
+
+class CidrType(DataType):
+
+    def norm(self, valu, oldval=None):
+        return self.chop(valu,oldval=oldval)[0]
+
+    def chop(self, valu, oldval=None):
+
+        ipstr,maskstr = valu.split('/')
+
+        mask = int(maskstr)
+        ipv4 = ipv4int(ipstr)
+
+        if mask > 32 or mask < 0:
+            raise BadTypeValu(name=self.name,valu=valu,mesg='Invalid CIDR Mask')
+
+        ipv4 = ipv4mask(ipv4,mask)
+        valu = '%s/%d' % ( ipv4str(ipv4), mask )
+
+        return valu,{'ipv4':ipv4,'mask':mask}
+
+    def repr(self, valu):
+        return valu

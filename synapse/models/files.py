@@ -6,7 +6,7 @@ def getDataModel():
 
         'types':(
             ('file:guid',{'subof':'guid','doc':'A unique file identifier'}),
-            ('file:sub',{'subof':'sepr','fields':'parent,file:guid|child,file:guid'}),
+            ('file:sub',{'subof':'sepr','sep':'/','fields':'parent,file:guid|child,file:guid'}),
             ('file:base',{'subof':'str','lower':1,'doc':'A file basename such as foo.exe'}),
         ),
 

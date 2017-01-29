@@ -1,3 +1,5 @@
+# -*- coding: UTF-8 -*-
+from __future__ import absolute_import,unicode_literals
 import base64
 
 import synapse.cortex as s_cortex
@@ -316,6 +318,15 @@ class DataTypesTest(SynTest):
         self.eq( tlib.getTypeNorm('woot:max', 20, oldval=40), 40 )
         self.eq( tlib.getTypeNorm('woot:max', 40, oldval=20), 40 )
 
+    def test_datatype_int_repr(self):
+        tlib = s_types.TypeLib()
+
+        self.eq( tlib.getTypeRepr('int', -1), '-1')
+        self.eq( tlib.getTypeRepr('int', 1), '1')
+
+        tlib.addType('woot:min',subof='int',ismin=1)
+        self.eq( tlib.getTypeRepr('woot:min', 1), '1')
+
     def test_datatype_fqdn(self):
         tlib = s_types.TypeLib()
 
@@ -432,3 +443,19 @@ class DataTypesTest(SynTest):
 
         # cant frob json string unless it's valid json... ( can't tell the difference )
         self.assertRaises( BadTypeValu, tlib.getTypeFrob, 'json', 'derp' )
+
+    def test_type_fqdn(self):
+        tlib = s_types.TypeLib()
+        prop = 'inet:fqdn'
+        fqdns = ('test.example.com', 'test.èxamplè.com', 'tèst.èxamplè.com', 'xn--test.xampl.com-zjbf', 'xn--tst.xampl.com-wgbdf')
+        idnas = ('test.example.com', 'test.èxamplè.com', 'tèst.èxamplè.com',        'test.èxamplè.com',        'tèst.èxamplè.com')
+        domns = (     'example.com',      'èxamplè.com',      'èxamplè.com',             'èxamplè.com',             'èxamplè.com')
+        hosts = (            'test',             'test',             'tèst',                    'test',                    'tèst')
+
+        for i in range(len(fqdns)):
+            self.eq(tlib.getTypeNorm(prop, fqdns[i]), idnas[i])
+            self.eq(tlib.getTypeFrob(prop, fqdns[i]), idnas[i])
+            self.eq(tlib.getTypeRepr(prop, fqdns[i]), fqdns[i])
+            self.eq(tlib.getTypeChop(prop, fqdns[i]), (idnas[i], {'domain': domns[i], 'host': hosts[i]}))
+
+        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:fqdn', '!@#$%')

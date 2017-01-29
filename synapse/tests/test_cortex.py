@@ -1,3 +1,4 @@
+from __future__ import absolute_import,unicode_literals
 
 import time
 import binascii
@@ -1286,9 +1287,10 @@ class CortexTest(SynTest):
         with s_cortex.openurl('ram:///') as core:
             core.setConfOpt('log:save',1)
 
-            exc = NoSuchPath(path='foo/bar')
-
-            core.logCoreExc(exc,subsys='hehe')
+            try:
+                raise NoSuchPath(path='foo/bar')
+            except NoSuchPath as exc:
+                core.logCoreExc(exc,subsys='hehe')
 
             tufo = core.getTufoByProp('syn:log:subsys',valu='hehe')
 
@@ -1300,6 +1302,9 @@ class CortexTest(SynTest):
 
             core.setConfOpt('log:level', logging.ERROR)
 
-            core.logCoreExc(exc,subsys='haha', level=logging.WARNING)
+            try:
+                raise NoSuchPath(path='foo/bar')
+            except NoSuchPath as exc:
+                core.logCoreExc(exc,subsys='haha', level=logging.WARNING)
 
             self.assertIsNone( core.getTufoByProp('syn:log:subsys', valu='haha') )
