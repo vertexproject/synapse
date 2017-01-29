@@ -11,6 +11,32 @@ import synapse.lib.filepath as s_filepath
 
 class TestFilePath(SynTest):
 
+    def test_filepath_objects(self):
+        temp_dir = tempfile.mkdtemp()
+        name = temp_dir
+
+        # FilePath base object defaults
+        fp = s_filepath.FilePath(name, parent=None, fd=None)
+        self.assertIsNone(fp.open())
+        self.assertTrue(fp.isfile())
+        self.assertIsNone(fp.parent())
+        self.eq(temp_dir, fp.path())
+
+        # CntrPathDir
+        path = getTestPath('nest2.tar')
+        tar = s_filepath.FpTar(path)
+        cpd = s_filepath.CntrPathDir('foo', parent=tar)
+        self.assertFalse(cpd.isfile())
+        self.assertIsNone(cpd.open())
+
+        # FpTarFile
+        path = getTestPath('nest2.tar')
+        tar = s_filepath.FpTar(path)
+        ftf = s_filepath.FpTarFile('nnfoo', parent=tar)
+        self.assertTrue(ftf.isfile())
+
+        shutil.rmtree(temp_dir)
+
     def test_filepath_regular(self):
         temp_fd = tempfile.NamedTemporaryFile()
         temp_dir = tempfile.mkdtemp()
@@ -29,17 +55,17 @@ class TestFilePath(SynTest):
         self.assertFalse(s_filepath.exists(path))
 
         # open regular file
-        fd = s_filepath.openfile(temp_fd.name, mode='rb')
+        fd = s_filepath.openFile(temp_fd.name, mode='rb')
         self.assertEqual(fd.read(), fbuf)
 
         # dne path
-        self.assertRaises(s_exc.NoSuchPath, s_filepath.openfile, '%s%s' % (temp_fd.name, '_DNE'), mode='rb')
-        self.assertRaises(s_exc.NoSuchPath, s_filepath.openfile, None)
-        self.assertRaises(s_exc.NoSuchPath, s_filepath.openfile, '')
+        self.assertRaises(s_exc.NoSuchPath, s_filepath.openFile, '%s%s' % (temp_fd.name, '_DNE'), mode='rb')
+        self.assertRaises(s_exc.NoSuchPath, s_filepath.openFile, None)
+        self.assertRaises(s_exc.NoSuchPath, s_filepath.openFile, '')
 
-        # open not filepath
-        self.assertRaises(s_exc.NoSuchPath, s_filepath.openfile, '/tmp', mode='rb')
-        self.assertRaises(s_exc.NoSuchPath, s_filepath.openfile, '/')
+        # open a directory 
+        self.assertIsNone(s_filepath.openFile('/tmp', mode='rb', req=False))
+        self.assertIsNone(s_filepath.openFile('/', req=False))
 
         temp_fd.close()
         os.rmdir(temp_dir)
@@ -135,120 +161,85 @@ class TestFilePath(SynTest):
 
         # open zip file
         path = temp_fd.name
-        fd0 = s_filepath.openfile(path, mode='rb')
+        fd0 = s_filepath.openFile(path, mode='rb')
         fd1 = open(path, mode='rb')
         self.assertEqual(fd0.read(), fd1.read())
 
         # open inner zip file
         path = os.path.join(temp_fd.name, 'dir0', 'foo')
-        fd = s_filepath.openfile(path, mode='r')
+        fd = s_filepath.openFile(path, mode='r')
         self.assertEqual(fd.read(), bbuf)
 
         temp_fd.close()
 
     def test_filepath_tar(self):
-        temp_fd = tempfile.NamedTemporaryFile()
-        nested_temp_fd = tempfile.NamedTemporaryFile()
-        temp_d = tempfile.mkdtemp()
-
-        os.mkdir(os.path.join(temp_d, 'dir0'))
-
-        with open(os.path.join(temp_d, 'dir0', 'foo'), 'w') as fd:
-            fd.write('A'*20)
-        with open(os.path.join(temp_d, 'bar'), 'w') as fd:
-            fd.write('B'*20)
         
-        fd0 = tarfile.TarFile(temp_fd.name, mode='w')
-        fd0.add(os.path.join(temp_d, 'dir0'), arcname='dir0')
-        fd0.add(os.path.join(temp_d, 'bar'), arcname='bar')
-        fd0.close()
-
-        fd1 = tarfile.TarFile(nested_temp_fd.name, mode='w')
-        fd1.add(os.path.join(temp_d, 'dir0'), arcname='dir1')
-        fd1.add(os.path.join(temp_d, 'bar'), arcname='f00')
-        fd1.add(temp_fd.name, arcname='dir1/nested.tar')
-        fd1.close()
-
         # container is path
-        path = nested_temp_fd.name
+        path = getTestPath('nest2.tar')
+        self.assertTrue(s_filepath.exists(path))
+        self.assertTrue(s_filepath.isfile(path))
+
+        # base directory that exists
+        path = getTestPath('nest2.tar', 'nndir0')
+        self.assertTrue(s_filepath.exists(path))
+        self.assertTrue(s_filepath.isdir(path))
+
+        # file that exists in a tar
+        path = getTestPath('nest2.tar', 'nndir0', 'nnbar')
         self.assertTrue(s_filepath.exists(path))
         self.assertTrue(s_filepath.isfile(path))
 
         # container nested base directory that exists
-        path = os.path.join(nested_temp_fd.name, 'dir1', 'nested.tar', 'dir0')
+        path = getTestPath('nest2.tar', 'nndir0', 'nndir1', 'nest1.tar', 'ndir0')
         self.assertTrue(s_filepath.exists(path))
         self.assertTrue(s_filepath.isdir(path))
 
         # container nested file that exists
-        path = os.path.join(nested_temp_fd.name, 'dir1', 'nested.tar', 'dir0', 'foo')
+        path = getTestPath('nest2.tar', 'nndir0', 'nndir1', 'nest1.tar', 'nfoo')
+        self.assertTrue(s_filepath.exists(path))
+        self.assertTrue(s_filepath.isfile(path))
+
+        # container nested file that exists
+        path = getTestPath('nest2.tar', 'nndir0', 'nndir1', 'nest1.tar', 'ndir0', 'ndir1', 'nest0.zip', 'foo')
         self.assertTrue(s_filepath.exists(path))
         self.assertTrue(s_filepath.isfile(path))
 
         # container nested path that DNE
-        path = os.path.join(nested_temp_fd.name, 'dir1', 'nested.tar', 'dir0', 'dne')
+        path = getTestPath('nest2.tar', 'nndir0', 'nndir1', 'nest1.tar', 'ndir0', 'dne')
         self.assertFalse(s_filepath.exists(path))
         self.assertFalse(s_filepath.isdir(path))
         self.assertFalse(s_filepath.isfile(path))
 
-        # base directory that exists
-        path = os.path.join(temp_fd.name, 'dir0')
-        self.assertTrue(s_filepath.exists(path))
-        self.assertTrue(s_filepath.isdir(path))
-
-        # file that exists in a directory
-        path = os.path.join(temp_fd.name, 'dir0', 'foo')
-        self.assertTrue(s_filepath.exists(path))
-        self.assertTrue(s_filepath.isfile(path))
-
         # DNE file in a real directory
-        path = os.path.join(temp_fd.name, 'dir0', 'dne')
+        path = getTestPath('nest2.tar', 'nndir0', 'dne')
         self.assertFalse(s_filepath.exists(path))
         self.assertFalse(s_filepath.isfile(path))
         self.assertFalse(s_filepath.isdir(path))
 
         # DNE base
-        path = os.path.join(temp_fd.name, 'dne')
+        path = getTestPath('nest2.tar', 'dne')
         self.assertFalse(s_filepath.exists(path))
         self.assertFalse(s_filepath.isfile(path))
         self.assertFalse(s_filepath.isdir(path))
 
-        temp_fd.close()
-        nested_temp_fd.close()
-        shutil.rmtree(temp_d)
-
     def test_filepath_tar_open(self):
-        temp_fd = tempfile.NamedTemporaryFile()
-        temp_d = tempfile.mkdtemp()
-
-        os.mkdir(os.path.join(temp_d, 'dir0'))
-        abuf = 'A'*20
-        bbuf = b'A'*20
-        with open(os.path.join(temp_d, 'dir0', 'foo'), 'w') as fd:
-            fd.write(abuf)
-        with open(os.path.join(temp_d, 'bar'), 'w') as fd:
-            fd.write('B'*20)
-        
-        fd = tarfile.TarFile(temp_fd.name, mode='w')
-        fd.add(os.path.join(temp_d, 'dir0'), arcname='dir0')
-        fd.add(os.path.join(temp_d, 'bar'), arcname='bar')
-
-        fd.close()
-
-        # file that exists in a directory
-        path = os.path.join(temp_fd.name, 'dir0', 'foo')
-        self.assertTrue(s_filepath.isfile(path))
 
         # open tar file
-        path = temp_fd.name
-        fd0 = s_filepath.openfile(path, mode='r')
-        fd1 = open(path, mode='r')
-        self.assertEqual(fd0.read(), fd1.read())
+        path = getTestPath('nest2.tar')
+        fd = s_filepath.openFile(path, mode='rb')
+        fs_fd = open(getTestPath('nest2.tar'), 'rb')
+        self.assertEqual(fd.read(), fs_fd.read())
 
         # open inner tar file
-        path = os.path.join(temp_fd.name, 'dir0', 'foo')
-        fd = s_filepath.openfile(path, mode='r')
-        self.assertEqual(fd.read(), bbuf)
+        path = getTestPath('nest2.tar', 'nndir0', 'nndir1', 'nest1.tar')
+        fd = s_filepath.openFile(path, mode='rb')
+        fs_fd = open(getTestPath('nest1.tar'), 'rb')
+        self.assertEqual(fd.read(), fs_fd.read())
 
-        temp_fd.close()
-        shutil.rmtree(temp_d)
+        # open inner file
+        path = getTestPath('nest2.tar', 'nnfoo')
+        fd = s_filepath.openFile(path, mode='rb')
+        buf = b'A'*20
+        buf += b'\n'
+        self.assertEqual(fd.read(), buf)
 
