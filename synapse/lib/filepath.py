@@ -10,6 +10,8 @@ from synapse.common import *
 
 # 10 MB
 read_chunk_sz = 1048576*10
+# 100 MB
+max_temp_sz = 1048576*100
 
 '''
 Provide a generic opener API for paths that cross into supported container files.
@@ -20,10 +22,11 @@ located on the filesystem in the /dir0/dir1 directory.
 '''
 
 class FilePath(object):
-    def __init__(self, name, parent=None):
+    def __init__(self, name, parent=None, fd=None):
         '''
         Base path object for regular filesystems
         '''
+        self.fd = fd
         self.name = name
         self._child = None
         self.tempfd = None
@@ -42,303 +45,299 @@ class FilePath(object):
         '''
         return True
 
-    def child(self, name, end=False):
+    def child(self, name):
 
-        self._process_next(name, end=end)
+        self._process_next(name)
         return self._child
 
     def parent(self):
         return self._parent
 
-    def _getpath(self):
+    def path(self):
         parts = []
         if self._parent != None:
-            parts.append(self._parent._getpath())
+            parts.append(self._parent.path())
         parts.append(self.name)
         return os.path.join(*parts)
 
-    def _process_next(self, child_name, end=False):
+    def _process_next(self, child_name):
         '''
         This is the workhorse method that can contain path specific processing of children.
         Override for container formats
         '''
 
-        cls = _get_path_class(self._getpath(), child_name)
+        cls = _pathClass(self.path(), child_name)
         self._child = cls(child_name, parent=self)
 
-class FilePathFile(FilePath):
+class FpFile(FilePath):
     '''
     The base path object for filesystem files.
     '''
     def open(self, mode='r'):
-        return open(self._getpath(), mode=mode)
+        if self.fd:
+            return self.fd
+        return open(self.path(), mode=mode)
 
-    def isfile(self):
-        return True
-
-class FilePathDir(FilePath):
+class FpDir(FilePath):
     '''
     The base dir object for filesystem files.
     '''
-
     def isfile(self):
         return False
 
-class FilePathTar(FilePath):
-    def __init__(self, name, parent=None):
-        super(FilePathTar, self).__init__(name, parent=parent)
-        self._tar_init()
+class CntrPath(FilePath):
+    def __init__(self, name, parent=None, fd=None):
+        super(CntrPath, self).__init__(name, parent=parent, fd=fd)
+        self.init()
 
-    def open(self, mode='r'):
-        return open(self.tarpath, mode=mode)
-
-    def _tar_init(self):
-        if not hasattr(self, 'tarfd'):
-            self.tarpath = self._getpath()
-            self.tarfd = tarfile.open(self.tarpath)
+    def init(self):
         return
 
-    def _tarpath(self):
-        return ''
-
     def isfile(self):
         return True
 
-    def _process_next(self, child_name, end=False):
+    def cntrPath(self):
+        return ''
 
-        tar_dirs, tar_files = tar_ls(self._tarpath(), self.tarfd)
+    def _normpath(self, *paths):
+        '''
+        Normalizes a path:
+        1. uses forward-slashes
+        2. removes leading slashes
+        3. removes trailing slashes
 
-        if child_name in tar_dirs:
-            self._child = FilePathTarDir(child_name, parent=self)
+        This is useful for container path enumeration
+        '''
+        path = '/'.join(paths)
+        return path.replace('\\', '/').strip('/')
 
-        elif child_name in tar_files:
-            if end:
-                self._child = FilePathTarFile(child_name, parent=self)
-                return
+    def path_list(self, path, members):
+        '''
+        Given a list of member paths, return the list of member names contained in path
+        '''
+        ls = []
+        for mebr in members:
+            if mebr == path:
+                continue
+            if os.path.dirname(mebr) != path:
+                continue
 
-            self.tempfd = tempfile.NamedTemporaryFile(prefix='syn_sfp_')
+            ls.append(os.path.basename(mebr))
 
-            child_path = _container_normpath(self._tarpath(), child_name)
+        return ls
 
-            tfd = self.tarfd.extractfile(child_path)
-            tbuf = tfd.read(read_chunk_sz)
-            while tbuf:
-                self.tempfd.write(tbuf)
-                tbuf = tfd.read(read_chunk_sz)
-            self.tempfd.flush()
-            child_path = self.tempfd.name
-            cls = _get_path_class(child_path)
-            self._child = cls(child_path, parent=self)
+    def cntr_enum(self, listfx):
+        '''
+        This function generically returns a list of files and directories from a container.
+        Container files generally have 'members' and not typical files and directories.
 
-class FilePathTarDir(FilePathTar):
-    def __init__(self, name, parent=None):
-        self.tarfd = parent.tarfd
-        self.tarpath = parent.tarpath
-        super(FilePathTarDir, self).__init__(name, parent=parent)
+        listfx -    listing function capable of returning a list of *all* the members of a container
+                    and should take no arguments
+        '''
+        files = set()
+        dirs = set()
+
+        for path in listfx():
+            for spath in self.cntr_subpaths(path):
+                if self.cntr_isfile(spath):
+                    files.add(spath)
+                    continue
+                dirs.add(spath)
+
+        return dirs, files
+
+    def cntr_subpaths(self, path):
+        '''
+        Returns a list of subpaths in a path, one for each level in the path
+        This is an internal function used for ONLY for iterating over paths in a container
+        As such it should not be used for filesystem paths since separators will vary across platforms
+        '''
+
+        path_parts = getPathParts(path)
+
+        for i in range(len(path_parts)):
+
+            ipath = os.path.join(*path_parts[:i+1])
+            yield ipath
+
+class CntrPathDir(CntrPath):
+
+    def __init__(self, name, parent=None, fd=None):
+        self.cntr = parent.cntr
+        super(CntrPathDir, self).__init__(name, parent=parent, fd=fd)
 
     def isfile(self):
         return False
 
-    def _tarpath(self):
+    def open(self, mode='r'):
+        return None
+
+    def cntrPath(self):
+        '''
+        Returns the path of the member relative to the base of the container
+        '''
         parts = []
         if self._parent != None:
-            parts.append(self._parent._tarpath())
+            parts.append(self._parent.cntrPath())
         parts.append(self.name)
-        return _container_normpath(*parts)
+        return self._normpath(*parts)
 
-class FilePathTarFile(FilePathTarDir):
+class TarMixin(object):
+
+    def _process_next(self, child_name):
+
+        tdirs, tfiles = self.cntr_ls(self.cntrPath())
+
+        if child_name in tdirs:
+            self._child = FpTarDir(child_name, parent=self)
+
+        elif child_name in tfiles:
+            fptf = FpTarFile(child_name, parent=self)
+
+            cls = _fdClass(fptf.open())
+            self._child = cls(child_name, parent=self, fd=fptf.open())
+
+    def init(self):
+        if hasattr(self, 'cntr'):
+            return
+        if not self.fd:
+            self.fd = open(self.path(), 'rb')
+        self.cntr = tarfile.open(fileobj=self.fd)
+
+    def cntr_ls(self, path):
+        dirs, files = self.cntr_enum(self.cntr.getnames)
+        dirs = self.path_list(path, dirs)
+        files = self.path_list(path, files)
+        return dirs, files
+
+    def cntr_isfile(self, path):
+        info = self.cntr.getmember(path)
+        if info.isfile():
+            return True
+        return False
+
+class FpTar(TarMixin, CntrPath):
+    def __init__(self, name, parent=None, fd=None):
+        TarMixin.__init__(self)
+        CntrPath.__init__(self, name, parent=parent, fd=fd)
+
+    def open(self, mode='r'):
+        self.fd.seek(0)
+        return self.fd
+
+class FpTarDir(TarMixin, CntrPathDir):
+    def __init__(self, name, parent=None, fd=None):
+        TarMixin.__init__(self)
+        CntrPathDir.__init__(self, name, parent=parent, fd=fd)
+
+class FpTarFile(FpTarDir):
 
     def isfile(self):
         return True
 
     def open(self, mode='r'):
-        return self.tarfd.extractfile(self._tarpath())
+        return self.cntr.extractfile(self.cntrPath())
+    
+class ZipMixin(object):
 
-class FilePathZip(FilePath):
-    def __init__(self, name, parent=None):
-        super(FilePathZip, self).__init__(name, parent=parent)
-        self._zip_init()
+    def cntr_ls(self, path):
+        dirs, files = self.cntr_enum(self.cntr.namelist)
+        dirs = self.path_list(path, dirs)
+        files = self.path_list(path, files)
+        return dirs, files
 
-    def _zip_init(self):
-        if not hasattr(self, 'zipfd'):
-            self.zippath = self._getpath()
-            self.zipfd = zipfile.ZipFile(self.zippath)
+    def cntr_isfile(self, path):
+        try:
+            info = self.cntr.getinfo(path)
+            return True
+        except KeyError as e:
+            return False
 
-    def isfile(self):
-        return True
+    def init(self):
+        if hasattr(self, 'cntr'):
+            return
+        if not self.fd:
+            self.fd = open(self.path(), 'rb')
+        self.cntr = zipfile.ZipFile(self.fd)
 
-    def _zippath(self):
-        return ''
+    def _process_next(self, cname):
 
-    def open(self, mode='r'):
-        return open(self.zippath, mode=mode)
+        zdirs, zfiles = self.cntr_ls(self.cntrPath())
 
-    def _process_next(self, child_name, end=False):
+        if cname in zdirs:
+            self._child = FpZipDir(cname, parent=self)
 
-        zdirs, zfiles = zip_ls(self._zippath(), self.zipfd)
+        if cname in zfiles:
+            self.tempfd = tempfile.SpooledTemporaryFile(prefix='syn_sfp_', max_size=max_temp_sz)
 
-        if child_name in zdirs:
-            self._child = FilePathZipDir(child_name, parent=self)
-
-        elif child_name in zfiles:
-            if end:
-                self._child = FilePathZipFile(child_name, parent=self)
-                return
-
-            # extract the file to a directory and parse it
-            self.tempfd = tempfile.NamedTemporaryFile(prefix='syn_sfp_')
-
-            child_path = _container_normpath(self._zippath(), child_name)
-
-            zfd = self.zipfd.open(child_path, mode='r')
+            cpath = self._normpath(self.cntrPath(), cname)
+            zfd = self.cntr.open(cpath, mode='r')
             zbuf = zfd.read(read_chunk_sz)
             while zbuf:
                 self.tempfd.write(zbuf)
                 zbuf = zfd.read(read_chunk_sz)
 
             self.tempfd.flush()
-            child_path = self.tempfd.name
-            cls = _get_path_class(child_path)
-            self._child = cls(child_path, parent=self)
+            cls = _fdClass(self.tempfd)
+            self.tempfd.seek(0)
 
-        elif end:
-            raise s_exc.NoSuchPath(path=os.path.join(self._getpath(), child_name))
+            self._child = cls(cname, parent=self, fd=self.tempfd)
 
-class FilePathZipDir(FilePathZip):
-    def __init__(self, name, parent=None):
-        '''
-        This is a directory in a zip.
-        '''
-        self.zippath = parent.zippath
-        self.zipfd = parent.zipfd
-        super(FilePathZipDir, self).__init__(name, parent=parent)
-
-    def isfile(self):
-        return False
-
-    def _zippath(self):
-        parts = []
-        if self._parent != None:
-            parts.append(self._parent._zippath())
-        parts.append(self.name)
-        return _container_normpath(*parts)
-
-class FilePathZipFile(FilePathZipDir):
-
-    def isfile(self):
-        return True
+class FpZip(ZipMixin, CntrPath):
+    def __init__(self, name, parent=None, fd=None):
+        ZipMixin.__init__(self)
+        CntrPath.__init__(self, name, parent=parent, fd=fd)
 
     def open(self, mode='r'):
-        return self.zipfd.open(self._zippath(), mode='r')
+        self.fd.seek(0)
+        return self.fd
 
-def ls_atlevel(path, dirs, files):
+class FpZipDir(ZipMixin, CntrPathDir):
+    def __init__(self, name, parent=None, fd=None):
+        ZipMixin.__init__(self)
+        CntrPathDir.__init__(self, name, parent=parent, fd=fd)
 
-    lsdirs = []
-    lsfiles = []
-    for d in dirs:
-        if d == path:
-            continue
-        if os.path.dirname(d) != path:
-            continue
-
-        lsdirs.append(os.path.basename(d))
-
-    for f in files:
-        if f == path:
-            continue
-        if os.path.dirname(f) != path:
-            continue
-
-        lsfiles.append(os.path.basename(f))
-
-    return lsdirs, lsfiles
-
-def zip_ls(path, zipfd):
-    dirs, files = zip_enumerate(zipfd)
-    return ls_atlevel(path, dirs, files)
-
-def zip_enumerate(zipfd):
-    '''
-    Return the files and dirs in a zip file
-    '''
-    files = set()
-    dirs = set()
-
-    for path in zipfd.namelist():
-
-        for spath in _get_subpaths(path):
-            try:
-                info = zipfd.getinfo(spath)
-                files.add(spath)
-            except KeyError as e:
-                dirs.add(spath)
-
-    return dirs, files
-
-def tar_ls(path, tarfd):
-    dirs, files = tar_enumerate(tarfd)
-    return ls_atlevel(path, dirs, files)
-
-def tar_enumerate(tarfd):
-    '''
-    Return the files and dirs in a tar archive
-    '''
-    files = set()
-    dirs = set()
-
-    for path in tarfd.getnames():
-
-        for spath in _get_subpaths(path):
-            info = tarfd.getmember(spath)
-
-            if info.isdir():
-                dirs.add(spath)
-            if info.isfile():
-                files.add(spath)
-
-    return dirs, files
-
-def _get_path_class(*paths):
+def _pathClass(*paths):
     '''
     Returns the class to handle the type of item located at path.  This function
     only operates on regular os.accessible paths
     '''
-    path = os.path.join(*paths)
+    path = genpath(*paths)
     if not os.path.exists(path):
         raise s_exc.NoSuchPath(path=path)
 
     if os.path.isdir(path):
         return path_ctors.get('fs.reg.dir')
-    mime = _mime_file(path)
+    mime = _mimeFile(open(path, 'rb'))
     return path_ctors.get(mime)
 
-def _mime_file(path):
+def _fdClass(fd):
+    mime = _mimeFile(fd)
+    fd.seek(0)
+    return path_ctors.get(mime)
+
+def _mimeFile(fd):
     '''
-    Assumes the path exists and is a file.
     returns reg.file unless it is a known container
     '''
-    if zipfile.is_zipfile(path):
-        return 'fs.zip.file'
-    if tarfile.is_tarfile(path):
+    try:
+        fd.seek(0)
+        tarfile.open(fileobj=fd)
         return 'fs.tar.file'
+    except Exception as e:
+        pass
+
+    # OMG order matters here, zipfile will return True on some tar files
+    # check tar before zip
+    fd.seek(0)
+    if zipfile.is_zipfile(fd):
+        return 'fs.zip.file'
 
     return 'fs.reg.file'
 
-def _container_normpath(*paths):
+def getPathParts(path):
     '''
-    Normalizes a path:
-    1. uses forward-slashes
-    2. w/o a leading slash
-    3. w/o a trailing slash
-
-    This is useful for container path enumeration
-    '''
-    path = '/'.join(paths)
-    return path.replace('\\', '/').strip('/')
-
-def _get_path_parts(path):
-    '''
-    Returns the elements of a path in order, w/o regard to their original separaors
+    Returns the elements of a path in order, w/o regard to their original separators
     '''
 
     parts = path.replace('\\', '/').rstrip('/').split('/')
@@ -348,46 +347,24 @@ def _get_path_parts(path):
 
     return parts
 
-def _get_subpaths(path):
+def parsePath(*paths):
     '''
-    Returns a list of subpaths in a path, one for each level in the path
-    This is an internal function used for ONLY for iterating over paths in a container
-    As such it should not be used for filesystem paths since separators will vary across platforms
-    '''
-
-    paths = []
-    path_parts = _get_path_parts(path)
-
-    for i in range(len(path_parts)):
-
-        ipath = os.path.join(*path_parts[:i+1])
-        paths.append(ipath)
-
-    return paths
-
-def _parse_path(*paths):
-    '''
-    Internal function to parse the incoming path.
+    function to parse the incoming path.
     lists of paths are joined prior to parsing
     '''
-
-    if not paths or None in paths:
+    if None in paths:
         return None
 
     path = genpath(*paths)
 
-    if not path:
-        return None
-
-    path_parts = _get_path_parts(path)
+    path_parts = getPathParts(path)
 
     try:
-        cls = _get_path_class(path_parts[0])
+        cls = _pathClass(path_parts[0])
         base = cls(path_parts[0], parent=None)
 
-        for i, name in enumerate(path_parts[1:]):
-            end = i == len(path_parts[1:]) - 1
-            base = base.child(name, end=end)
+        for name in path_parts[1:]:
+            base = base.child(name)
             if base == None:
                 return None
     except s_exc.NoSuchPath as e:
@@ -395,28 +372,31 @@ def _parse_path(*paths):
 
     return base
 
-# KILL2.7 kwargs instead of mode='r' here because of python2.7
-def openfile(*paths, **kwargs):
+def openFile(*paths, **kwargs):
     '''
     Returns a read-only file-like object even if the path terminates inside a container file.
 
     If the path is a regular os accessible path mode may be passed through as a keyword argument.
-    If the path terminates in a container file mode is ignored.
+    If the path terminates in a container file, mode is ignored.
 
     If the path does not exist a NoSuchPath exception is raised.
+    If req=True (Default) NoSuchPath will also be raised if the path exists, but is a directory
 
     ex.
-    openfile('/foo/bar/baz.egg/path/inside/zip/to/file')
+    openFile('/foo/bar/baz.egg/path/inside/zip/to/file')
     '''
-    fpobj = _parse_path(*paths)
-    if not fpobj:
-        raise s_exc.NoSuchPath(path='%r' % (paths,))
-    if not fpobj.isfile():
-        path = genpath(*paths)
-        raise s_exc.NoSuchPath(path=path)
+    reqd = kwargs.get('req', True)
+    mode = kwargs.get('mode', 'r')
+    path = parsePath(*paths)
 
-    fd = fpobj.open(mode=kwargs.get('mode', 'r'))
-    return fd
+    if not path:
+        raise s_exc.NoSuchPath(path='%r' % (paths,))
+    if not path.isfile():
+        if reqd:
+            raise s_exc.NoSuchPath(path=path.path())
+        return None
+
+    return path.open(mode=mode)
 
 def isfile(*paths):
     '''
@@ -424,7 +404,7 @@ def isfile(*paths):
     If a list of paths are provided, they are joined first.
     Returns a boolean.
     '''
-    fpath = _parse_path(*paths)
+    fpath = parsePath(*paths)
     if fpath and fpath.isfile():
         return True
     return False
@@ -435,7 +415,7 @@ def isdir(*paths):
     If a list of paths are provided, they are joined first.
     Returns a boolean.
     '''
-    fpath = _parse_path(*paths)
+    fpath = parsePath(*paths)
     if fpath and not fpath.isfile():
         return True
     return False
@@ -446,17 +426,16 @@ def exists(*paths):
     If a list of paths are provided, they are joined first.
     Returns a boolean.
     '''
-    if _parse_path(*paths) == None:
+    if parsePath(*paths) == None:
         return False
     return True
 
 path_ctors = {
-    'fs.reg.dir': FilePathDir,
-    'fs.reg.file': FilePathFile,
-    'fs.tar.file': FilePathTar,
-    'fs.zip.file': FilePathZip,
-    'inner.tar.dir': FilePathTarDir,
-    'inner.zip.dir': FilePathZipDir,
-    'inner.tar.file': FilePathTarFile,
-    'inner.zip.file': FilePathZipFile,
+    'fs.reg.dir': FpDir,
+    'fs.reg.file': FpFile,
+    'fs.tar.file': FpTar,
+    'fs.zip.file': FpZip,
+    'inner.tar.dir': FpTarDir,
+    'inner.zip.dir': FpZipDir,
+    'inner.tar.file': FpTarFile,
 }
