@@ -459,3 +459,17 @@ class DataTypesTest(SynTest):
             self.eq(tlib.getTypeChop(prop, fqdns[i]), (idnas[i], {'domain': domns[i], 'host': hosts[i]}))
 
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:fqdn', '!@#$%')
+
+    def test_type_phone(self):
+        tlib = s_types.TypeLib()
+        prop = 'tel:phone'
+
+        self.eq(tlib.getTypeNorm(prop, '123 456 7890'), '1234567890')
+        self.assertRaises(BadTypeValu, tlib.getTypeNorm, prop, 1234567890)
+
+        self.eq(tlib.getTypeParse(prop, '123 456 7890'), '1234567890')
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, prop, 1234567890)
+
+        self.eq(tlib.getTypeRepr(prop, '123 456 7890'), '+123 456 7890')
+        self.eq(tlib.getTypeRepr(prop, '1234567890'), '+1234567890')
+        self.eq(tlib.getTypeRepr(prop, 1234567890), '+1234567890')
