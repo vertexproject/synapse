@@ -1,5 +1,6 @@
 
 import os
+import fnmatch
 import tarfile
 import zipfile
 import tempfile
@@ -60,6 +61,9 @@ class FilePath(object):
         parts.append(self.name)
         return os.path.join(*parts)
 
+    def list(self):
+        return os.listdir(self.path())
+
     def _process_next(self, child_name):
         '''
         This is the workhorse method that can contain path specific processing of children.
@@ -77,6 +81,9 @@ class FpFile(FilePath):
         if self.fd:
             return self.fd
         return open(self.path(), mode=mode)
+
+    def list(self):
+        return []
 
 class FpDir(FilePath):
     '''
@@ -110,6 +117,19 @@ class CntrPath(FilePath):
         '''
         path = '/'.join(paths)
         return path.replace('\\', '/').strip('/')
+
+    def list(self):
+        '''
+        Return a list of files/directories immediately "inside" this path
+        e.g.
+        /foo/bar/baz
+        /foo/bar/haz
+        /foo/bar/naz/caz
+
+        if the above the structure and the path is /foo/bar, baz,haz,naz should be returned
+        '''
+        dirs, files = self.cntr_ls(self.cntrPath())
+        return dirs + files
 
     def path_list(self, path, members):
         '''
@@ -237,7 +257,7 @@ class FpTarFile(FpTarDir):
 
     def open(self, mode='r'):
         return self.cntr.extractfile(self.cntrPath())
-    
+
 class ZipMixin(object):
 
     def cntr_ls(self, path):
@@ -347,6 +367,40 @@ def getPathParts(path):
 
     return parts
 
+def parsePaths(*paths):
+    '''
+    function to parse the incoming path.
+    lists of paths are joined prior to parsing
+    The path supports python's fnmatch glob matching
+
+    '''
+    if None in paths:
+        return None
+
+    path = genpath(*paths)
+
+    path_parts = getPathParts(path)
+
+    cls = _pathClass(path_parts[0])
+    base = cls(path_parts[0], parent=None)
+
+    bases = [base]
+    chld_bases = []
+    for name in path_parts[1:]:
+        chld_bases = []
+        for base in bases:
+            for member in base.list():
+                if not fnmatch.fnmatch(member, name):
+                    continue
+                chld_bases.append(base.child(member))
+
+        bases = chld_bases
+
+    if not bases:
+        return None
+
+    return bases
+
 def parsePath(*paths):
     '''
     function to parse the incoming path.
@@ -360,6 +414,7 @@ def parsePath(*paths):
     path_parts = getPathParts(path)
 
     try:
+
         cls = _pathClass(path_parts[0])
         base = cls(path_parts[0], parent=None)
 
@@ -367,10 +422,38 @@ def parsePath(*paths):
             base = base.child(name)
             if base == None:
                 return None
+
     except s_exc.NoSuchPath as e:
         return None
 
     return base
+
+def openFiles(*paths, **kwargs):
+    '''
+    Yields a read-only file-like object for each path even if the path terminates inside a container file.
+    Paths may use python's fnmatch glob matching
+
+    If the path is a regular os accessible path mode may be passed through as a keyword argument.
+    If the path terminates in a container file, mode is ignored.
+
+    If the path does not exist a NoSuchPath exception is raised.
+    If req=True (Default) NoSuchPath will also be raised if ANY matching path exists, but is a directory
+
+    ex.
+    openFiles('/foo/bar/*.egg/dir0/zz*/nest.zip')
+    '''
+    reqd = kwargs.get('req', True)
+    mode = kwargs.get('mode', 'r')
+    fpaths = parsePaths(*paths)
+
+    if not fpaths:
+        raise s_exc.NoSuchPath(path='%r' % (paths,))
+    for path in fpaths:
+        if not path.isfile():
+            if not reqd:
+                continue
+            raise s_exc.NoSuchPath(path=path.path())
+        yield path.open(mode=mode)
 
 def openFile(*paths, **kwargs):
     '''
@@ -387,16 +470,16 @@ def openFile(*paths, **kwargs):
     '''
     reqd = kwargs.get('req', True)
     mode = kwargs.get('mode', 'r')
-    path = parsePath(*paths)
+    fpath = parsePath(*paths)
 
-    if not path:
+    if not fpath:
         raise s_exc.NoSuchPath(path='%r' % (paths,))
-    if not path.isfile():
+    if not fpath.isfile():
         if reqd:
-            raise s_exc.NoSuchPath(path=path.path())
+            raise s_exc.NoSuchPath(path=fpath.path())
         return None
 
-    return path.open(mode=mode)
+    return fpath.open(mode=mode)
 
 def isfile(*paths):
     '''
@@ -405,7 +488,10 @@ def isfile(*paths):
     Returns a boolean.
     '''
     fpath = parsePath(*paths)
-    if fpath and fpath.isfile():
+
+    if not fpath:
+        return False
+    if fpath.isfile():
         return True
     return False
 
@@ -416,9 +502,12 @@ def isdir(*paths):
     Returns a boolean.
     '''
     fpath = parsePath(*paths)
-    if fpath and not fpath.isfile():
-        return True
-    return False
+
+    if not fpath:
+        return False
+    if fpath.isfile():
+        return False
+    return True
 
 def exists(*paths):
     '''
@@ -426,7 +515,7 @@ def exists(*paths):
     If a list of paths are provided, they are joined first.
     Returns a boolean.
     '''
-    if parsePath(*paths) == None:
+    if not parsePath(*paths):
         return False
     return True
 

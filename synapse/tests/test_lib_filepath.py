@@ -22,6 +22,10 @@ class TestFilePath(SynTest):
         self.assertIsNone(fp.parent())
         self.eq(temp_dir, fp.path())
 
+        # FpFile
+        fpf = s_filepath.FpFile(name, parent=None, fd=None)
+        self.eq(fpf.list(), [])
+
         # CntrPathDir
         path = getTestPath('nest2.tar')
         tar = s_filepath.FpTar(path)
@@ -35,7 +39,114 @@ class TestFilePath(SynTest):
         ftf = s_filepath.FpTarFile('nnfoo', parent=tar)
         self.assertTrue(ftf.isfile())
 
+        # parsePaths
+        self.assertIsNone(s_filepath.parsePaths('foo','bar',None))
+
         shutil.rmtree(temp_dir)
+
+    def test_filepath_glob(self):
+        temp_dir = tempfile.mkdtemp()
+
+        os.mkdir(os.path.join(temp_dir, 'dir0'))
+        os.mkdir(os.path.join(temp_dir, 'dir1'))
+        os.mkdir(os.path.join(temp_dir, 'dir2'))
+        os.mkdir(os.path.join(temp_dir, 'fooD'))
+
+        f0 = b'A'*20
+        f0_path = os.path.join(temp_dir, 'foo0')
+        open(f0_path, 'wb').write(f0)
+
+        f1 = b'B'*20
+        f1_path = os.path.join(temp_dir, 'foo1')
+        open(f1_path, 'wb').write(f1)
+
+        f2 = b'C'*20
+        f2_path = os.path.join(temp_dir, 'foo2')
+        open(f2_path, 'wb').write(f2)
+
+        f3 = b'Z'*20
+        f3_path = os.path.join(temp_dir, 'junk')
+        open(f3_path, 'wb').write(f3)
+
+        # files that exists
+        path = os.path.join(temp_dir, 'foo*')
+        self.assertFalse(s_filepath.exists(path))
+        self.assertFalse(s_filepath.isfile(path))
+        self.assertFalse(s_filepath.isdir(path))
+
+        # dirs that exist
+        path = os.path.join(temp_dir, 'dir*')
+        self.assertFalse(s_filepath.exists(path))
+        self.assertFalse(s_filepath.isfile(path))
+        self.assertFalse(s_filepath.isdir(path))
+
+        # multiple open regular files
+        path = os.path.join(temp_dir, 'foo*')
+        fds = [f for f in s_filepath.openFiles(path, mode='rb', req=False)]
+        self.eq(len(fds), 3)
+        for fd in fds:
+            buf = fd.read()
+            self.eq(len(buf), 20)
+            self.assertIn(buf, [f0, f1, f2])
+
+        # multiple open on dir
+        path = os.path.join(temp_dir, 'dir*')
+        def diropen(path):
+            [f for f in s_filepath.openFiles(path, mode='rb', req=True)]
+        self.assertRaises(s_exc.NoSuchPath, diropen, path)
+
+        path = os.path.join(temp_dir, 'dir*')
+        def diropen(path):
+            return [f for f in s_filepath.openFiles(path, mode='rb', req=False)]
+        self.eq([], diropen(path))
+
+        # multiple open on dne
+        path = os.path.join(temp_dir, 'dne*')
+        def diropen(path):
+            return [f for f in s_filepath.openFiles(path, mode='rb', req=True)]
+        self.assertRaises(s_exc.NoSuchPath, diropen, path)
+
+
+        # multiple open zip files
+        tzfd0 = tempfile.NamedTemporaryFile()
+        tzfd1 = tempfile.NamedTemporaryFile()
+        ttfd0 = tempfile.NamedTemporaryFile()
+
+        zfd0 = zipfile.ZipFile(tzfd0.name, 'w')
+        zfd0.writestr('dir0/dir1/dir2/foo0', f0)
+        zfd0.writestr('dir0/dir1/dir2/foo1', f1)
+        zfd0.writestr('dir0/dir1/dir2/foo2', f2)
+        zfd0.writestr('dir0/dir1/dir2/junk', 'Z'*20)
+        zfd0.close()
+
+        import io
+        tfd0 = tarfile.TarFile(ttfd0.name, 'w')
+        tfd0.add(f0_path, arcname='dir0/dir1/dir2/foo0')
+        tfd0.add(f1_path, arcname='dir0/dir1/dir2/foo1')
+        tfd0.add(f2_path, arcname='dir0/dir1/dir2/foo2')
+        tfd0.add(f3_path, arcname='dir0/dir1/dir2/junk')
+        tfd0.close()
+
+        zfd1 = zipfile.ZipFile(tzfd1.name, 'w')
+        zfd1.writestr('dir0/dir1/dir2/bar0', f0)
+        zfd1.writestr('dir0/dir1/dir2/bar1', f1)
+        zfd1.writestr('dir0/dir1/dir2/bar2', f2)
+        zfd1.writestr('dir0/dir1/dir2/junk', 'Z'*20)
+        zfd1.write(tzfd0.name, arcname='ndir0/nested.zip')
+        zfd1.write(ttfd0.name, arcname='ndir0/nested.tar')
+        zfd1.close()
+
+        path = os.path.join(tzfd1.name, 'dir0/dir1/dir2/bar*')
+        fds = [f for f in s_filepath.openFiles(path, mode='rb')]
+        self.eq(len(fds), 3)
+        for fd in fds:
+            buf = fd.read()
+            self.eq(len(buf), 20)
+            self.assertIn(buf, [f0, f1, f2])
+
+        zfd0.close()
+        zfd1.close()
+        tfd0.close()
 
     def test_filepath_regular(self):
         temp_fd = tempfile.NamedTemporaryFile()
@@ -49,6 +160,8 @@ class TestFilePath(SynTest):
         self.assertTrue(s_filepath.exists(temp_fd.name))
         self.assertTrue(s_filepath.exists(temp_dir))
         self.assertTrue(s_filepath.exists('/'))
+        self.assertFalse(s_filepath.isfile(temp_dir))
+        self.assertFalse(s_filepath.isdir(temp_fd.name))
 
         # DNE in a real directory
         path = os.path.join(temp_dir, 'dne')
@@ -63,7 +176,7 @@ class TestFilePath(SynTest):
         self.assertRaises(s_exc.NoSuchPath, s_filepath.openFile, None)
         self.assertRaises(s_exc.NoSuchPath, s_filepath.openFile, '')
 
-        # open a directory 
+        # open a directory
         self.assertIsNone(s_filepath.openFile('/tmp', mode='rb', req=False))
         self.assertIsNone(s_filepath.openFile('/', req=False))
 
@@ -173,7 +286,7 @@ class TestFilePath(SynTest):
         temp_fd.close()
 
     def test_filepath_tar(self):
-        
+
         # container is path
         path = getTestPath('nest2.tar')
         self.assertTrue(s_filepath.exists(path))
