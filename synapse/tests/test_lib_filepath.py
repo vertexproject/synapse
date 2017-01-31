@@ -82,7 +82,7 @@ class TestFilePath(SynTest):
 
         # multiple open regular files
         path = os.path.join(temp_dir, 'foo*')
-        fds = [f for f in s_filepath.openFiles(path, mode='rb', req=False)]
+        fds = [f for f in s_filepath.openfiles(path, mode='rb', req=False)]
         self.eq(len(fds), 3)
         for fd in fds:
             buf = fd.read()
@@ -92,19 +92,22 @@ class TestFilePath(SynTest):
         # multiple open on dir
         path = os.path.join(temp_dir, 'dir*')
         def diropen(path):
-            [f for f in s_filepath.openFiles(path, mode='rb', req=True)]
+            [f for f in s_filepath.openfiles(path, mode='rb', req=True)]
         self.assertRaises(s_exc.NoSuchPath, diropen, path)
 
         path = os.path.join(temp_dir, 'dir*')
         def diropen(path):
-            return [f for f in s_filepath.openFiles(path, mode='rb', req=False)]
+            return [f for f in s_filepath.openfiles(path, mode='rb', req=False)]
         self.eq([], diropen(path))
 
         # multiple open on dne
         path = os.path.join(temp_dir, 'dne*')
         def diropen(path):
-            return [f for f in s_filepath.openFiles(path, mode='rb', req=True)]
+            return [f for f in s_filepath.openfiles(path, mode='rb', req=True)]
         self.assertRaises(s_exc.NoSuchPath, diropen, path)
+
+        ret = [ a for a in s_filepath.openfiles(None)]
+        self.eq([], ret)
 
 
         # multiple open zip files
@@ -137,7 +140,7 @@ class TestFilePath(SynTest):
         zfd1.close()
 
         path = os.path.join(tzfd1.name, 'dir0/dir1/dir2/bar*')
-        fds = [f for f in s_filepath.openFiles(path, mode='rb')]
+        fds = [f for f in s_filepath.openfiles(path, mode='rb')]
         self.eq(len(fds), 3)
         for fd in fds:
             buf = fd.read()
@@ -168,17 +171,18 @@ class TestFilePath(SynTest):
         self.assertFalse(s_filepath.exists(path))
 
         # open regular file
-        fd = s_filepath.openFile(temp_fd.name, mode='rb')
+        fd = s_filepath.openfile(temp_fd.name, mode='rb')
         self.assertEqual(fd.read(), fbuf)
 
         # dne path
-        self.assertRaises(s_exc.NoSuchPath, s_filepath.openFile, '%s%s' % (temp_fd.name, '_DNE'), mode='rb')
-        self.assertRaises(s_exc.NoSuchPath, s_filepath.openFile, None)
-        self.assertRaises(s_exc.NoSuchPath, s_filepath.openFile, '')
+        self.assertRaises(s_exc.NoSuchPath, s_filepath.openfile, '%s%s' % (temp_fd.name, '_DNE'), mode='rb')
+        self.assertRaises(s_exc.NoSuchPath, s_filepath.openfile, None)
+        self.assertRaises(s_exc.NoSuchPath, s_filepath.openfile, '')
+        self.assertIsNone(s_filepath.openfile(None, req=False))
 
         # open a directory
-        self.assertIsNone(s_filepath.openFile('/tmp', mode='rb', req=False))
-        self.assertIsNone(s_filepath.openFile('/', req=False))
+        self.assertIsNone(s_filepath.openfile('/tmp', mode='rb', req=False))
+        self.assertIsNone(s_filepath.openfile('/', req=False))
 
         temp_fd.close()
         os.rmdir(temp_dir)
@@ -274,13 +278,13 @@ class TestFilePath(SynTest):
 
         # open zip file
         path = temp_fd.name
-        fd0 = s_filepath.openFile(path, mode='rb')
+        fd0 = s_filepath.openfile(path, mode='rb')
         fd1 = open(path, mode='rb')
         self.assertEqual(fd0.read(), fd1.read())
 
         # open inner zip file
         path = os.path.join(temp_fd.name, 'dir0', 'foo')
-        fd = s_filepath.openFile(path, mode='r')
+        fd = s_filepath.openfile(path, mode='r')
         self.assertEqual(fd.read(), bbuf)
 
         temp_fd.close()
@@ -339,19 +343,19 @@ class TestFilePath(SynTest):
 
         # open tar file
         path = getTestPath('nest2.tar')
-        fd = s_filepath.openFile(path, mode='rb')
+        fd = s_filepath.openfile(path, mode='rb')
         fs_fd = open(getTestPath('nest2.tar'), 'rb')
         self.assertEqual(fd.read(), fs_fd.read())
 
         # open inner tar file
         path = getTestPath('nest2.tar', 'nndir0', 'nndir1', 'nest1.tar')
-        fd = s_filepath.openFile(path, mode='rb')
+        fd = s_filepath.openfile(path, mode='rb')
         fs_fd = open(getTestPath('nest1.tar'), 'rb')
         self.assertEqual(fd.read(), fs_fd.read())
 
         # open inner file
         path = getTestPath('nest2.tar', 'nnfoo')
-        fd = s_filepath.openFile(path, mode='rb')
+        fd = s_filepath.openfile(path, mode='rb')
         buf = b'A'*20
         buf += b'\n'
         self.assertEqual(fd.read(), buf)

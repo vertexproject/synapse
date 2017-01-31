@@ -2,6 +2,7 @@
 FROM ubuntu:16.04
 
 # docker build -t vertexproject/synapse -f ~/git/synapse/synapse/docker/synapse_dockerfile ~/git/synapse
+
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt update -q\
  && apt install -yq --no-install-recommends\ 
@@ -14,7 +15,11 @@ RUN apt update -q\
     python3-pip\
     python3-setuptools\
  && apt clean\
- && apt purge 
+ && apt purge\
+ && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen &&\
+    locale-gen en_US.UTF-8 &&\
+    dpkg-reconfigure locales &&\
+    /usr/sbin/update-locale LANG=en_US.UTF-8
 
 RUN pip3 install --upgrade\
     pip\
@@ -22,10 +27,6 @@ RUN pip3 install --upgrade\
     wheel
 
 # set the locale
-RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen &&\
-    locale-gen en_US.UTF-8 &&\
-    dpkg-reconfigure locales &&\
-    /usr/sbin/update-locale LANG=en_US.UTF-8
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US.UTF-8
 ENV LC_ALL en_US.UTF-8

@@ -428,7 +428,7 @@ def parsePath(*paths):
 
     return base
 
-def openFiles(*paths, **kwargs):
+def openfiles(*paths, **kwargs):
     '''
     Yields a read-only file-like object for each path even if the path terminates inside a container file.
     Paths may use python's fnmatch glob matching
@@ -436,44 +436,52 @@ def openFiles(*paths, **kwargs):
     If the path is a regular os accessible path mode may be passed through as a keyword argument.
     If the path terminates in a container file, mode is ignored.
 
-    If the path does not exist a NoSuchPath exception is raised.
     If req=True (Default) NoSuchPath will also be raised if ANY matching path exists, but is a directory
 
-    ex.
-    openFiles('/foo/bar/*.egg/dir0/zz*/nest.zip')
+    example:
+        for fd in openfiles('/foo/bar/*.egg/dir0/zz*/nest.zip'):
+            fbuf = fd.read()
     '''
-    reqd = kwargs.get('req', True)
+    reqd = kwargs.get('req', False)
     mode = kwargs.get('mode', 'r')
     fpaths = parsePaths(*paths)
+    paths = [p for p in paths if p]
 
     if not fpaths:
-        raise s_exc.NoSuchPath(path='%r' % (paths,))
-    for path in fpaths:
-        if not path.isfile():
+        if not reqd:
+            return
+        raise s_exc.NoSuchPath(path='/'.join(paths))
+    for fpath in fpaths:
+        if not fpath.isfile():
             if not reqd:
                 continue
-            raise s_exc.NoSuchPath(path=path.path())
-        yield path.open(mode=mode)
+            raise s_exc.NoSuchPath(path=fpath.path())
+        yield fpath.open(mode=mode)
 
-def openFile(*paths, **kwargs):
+def openfile(*paths, **kwargs):
     '''
     Returns a read-only file-like object even if the path terminates inside a container file.
 
     If the path is a regular os accessible path mode may be passed through as a keyword argument.
     If the path terminates in a container file, mode is ignored.
 
-    If the path does not exist a NoSuchPath exception is raised.
     If req=True (Default) NoSuchPath will also be raised if the path exists, but is a directory
 
-    ex.
-    openFile('/foo/bar/baz.egg/path/inside/zip/to/file')
+    example:
+        fd = openfile('/foo/bar/baz.egg/path/inside/zip/to/file')
+        if fd == None:
+            return
+        fbuf = fd.read()
     '''
     reqd = kwargs.get('req', True)
     mode = kwargs.get('mode', 'r')
     fpath = parsePath(*paths)
+    paths = [p for p in paths if p]
 
     if not fpath:
-        raise s_exc.NoSuchPath(path='%r' % (paths,))
+        if reqd:
+            raise s_exc.NoSuchPath(path='/'.join(paths))
+        return None
     if not fpath.isfile():
         if reqd:
             raise s_exc.NoSuchPath(path=fpath.path())
