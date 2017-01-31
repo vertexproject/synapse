@@ -218,6 +218,7 @@ def main(argv, outp=None):
                     rst.addLines('\t\t- %s' % (pdoc,))
 
         outp.printf( rst.getRstText() )
+        return 0
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))

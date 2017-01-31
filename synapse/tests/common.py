@@ -59,6 +59,10 @@ class SynTest(unittest.TestCase):
     def getTestWait(self, bus, size, *evts):
         return s_eventbus.Waiter(bus, size, *evts)
 
+    def skipIfNoInternet(self):
+        if os.getenv('SYN_TEST_NO_INTERNET'):
+            raise unittest.SkipTest('no internet access')
+
     def getPgCore(self):
         url = os.getenv('SYN_TEST_PG_URL')
         if url != None:

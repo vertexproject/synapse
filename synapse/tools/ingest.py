@@ -33,6 +33,9 @@ def main(argv, outp=None):
     core = s_cortex.openurl(opts.core)
     core.setConfOpt('enforce',1)
 
+    if opts.debug:
+        core.setConfOpt('log:save',1)
+
     # FIXME check for telepath proxy and bitch.
     # this core may not be remote because we use
     # the transaction API.
@@ -126,6 +129,8 @@ def main(argv, outp=None):
         pump.done()
         outp.printf('waiting on sync pump...')
         pump.waitfini()
+
+    return 0
 
 if __name__ == '__main__':
     sys.exit( main(sys.argv[1:] ) )
