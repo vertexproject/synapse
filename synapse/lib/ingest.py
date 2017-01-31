@@ -5,6 +5,8 @@ import json
 import codecs
 import logging
 
+import xml.etree.ElementTree as x_etree
+
 from synapse.common import *
 from synapse.eventbus import EventBus
 
@@ -16,6 +18,10 @@ import synapse.lib.encoding as s_encoding
 import synapse.lib.openfile as s_openfile
 
 logger = logging.getLogger(__name__)
+
+def _fmt_xml(fd,gest):
+    elem = x_etree.fromstring(fd.read())
+    yield {elem.tag:elem}
 
 def _fmt_csv(fd,gest):
 
@@ -75,10 +81,12 @@ def _fmt_lines(fd,gest):
 
 fmtyielders = {
     'csv':_fmt_csv,
+    'xml':_fmt_xml,
     'lines':_fmt_lines,
 }
 
 fmtopts = {
+    'xml':{'mode':'r','encoding':'utf8'},
     'csv':{'mode':'r','encoding':'utf8'},
     'lines':{'mode':'r','encoding':'utf8'},
 }
@@ -174,20 +182,6 @@ class Ingest(EventBus):
     def set(self, name, valu):
         self._i_info[name] = valu
 
-    def iterDataRoots(self):
-        '''
-        Yield "root" DataPath elements to ingest from.
-
-        Example:
-
-            for data in gest.iterDataRoots():
-                # data is a DataPath instance.
-                doStuff( data )
-
-        '''
-        for item in self._iterRawData():
-            yield s_datapath.DataPath(item)
-
     def _openDataSorc(self, path, info):
         '''
         Open a data source tuple and return a data yielder object.
@@ -206,7 +200,7 @@ class Ingest(EventBus):
         Ingest the data from this definition into the specified cortex.
         '''
         if data != None:
-            root = s_datapath.DataPath(data)
+            root = s_datapath.initelem(data)
             gest = self._i_info.get('ingest')
             self._ingDataInfo(core, root, gest)
             return
@@ -221,12 +215,14 @@ class Ingest(EventBus):
                 raise Exception('Ingest Info Not Found: %s' % (path,))
 
             for data in self._openDataSorc(path,info):
-                root = s_datapath.DataPath(data)
+                root = s_datapath.initelem(data)
                 self._ingDataInfo(core, root, gest)
 
     def _ingDataInfo(self, core, data, info, **ctx):
 
         ctx['tags'] = tuple(info.get('tags',())) + ctx.get('tags',())
+
+        self.fire('gest:prog', act='data')
 
         # extract files embedded within the data structure
         for flfo in info.get('files',()):

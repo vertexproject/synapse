@@ -1,272 +1,209 @@
 import collections
 
+import xml.etree.ElementTree as x_etree
+
 import synapse.lib.syntax as s_syntax
 
-class PathDict(collections.defaultdict):
-    def __init__(self, onmiss):
-        collections.defaultdict.__init__(self)
-        self.onmiss = onmiss
+class DataElem:
 
-    def __missing__(self, key):
-        return self.onmiss(key)
-
-class DataPath:
-
-    def __init__(self, item, parent=None):
+    def __init__(self, item, name=None, parent=None):
+        self._d_name = name
         self._d_item = item
-        self._d_kids = PathDict( self._getItemElem )
         self._d_parent = parent
+        self._d_special = {'..':parent,'.':self}
 
-    def _getItemElem(self, elem):
+    def _elem_valu(self):
+        return self._d_item
+
+    def _elem_step(self, step):
         try:
-            return DataPath(self._d_item[elem],parent=self)
-        except (KeyError,TypeError) as e:
+            item = self._d_item[step]
+        except Exception as e:
             return None
+        return initelem(item,name=step,parent=self)
 
-    #def walk(self, *path):
-        #'''
-        #Return a data path element by walking down they given keys.
+    def _elem_kids(self, step):
+        # Most primitives only have 1 child at a given step...
+        # However, we must handle the case of nested children
+        # during this form of iteration to account for constructs
+        # like XML/HTML ( See XmlDataElem )
+        try:
+            item = self._d_item[step]
+        except Exception as e:
+            return
 
-        #Example:
+        yield initelem(item,name=step,parent=self)
 
-            #item = { 'foo':[ {'bar':10},{'baz':20} ], 'hur':'dur' }
-
-            #data = DataPath(item)
-            #bazdata = data.walk('foo', 1)
-
-        #'''
-        #data = self
-        #for elem in path:
-            #data = data.step(elem)
-        #return data
-
-    def open(self, path):
+    def step(self, path):
         '''
-        Parse and open the specified data path.
-        Returns a DataPath element for the specified path.
-
-        Example:
-
-            fqdn = data.open('foo/bar/fqdn').valu()
-
-        Additionally, if any /*/ paths are encountered, the
-        API assumes you would like to iterate over elements.
-
-        Example:
-
-            for baz in data.open('foo/bar/*/baz'):
-                valu = baz.valu()
-
+        Step to the given DataElem within the tree.
         '''
-        steps = self._parse_path(path)
-        if self._is_iter(steps):
-            return self._iter_steps(steps)
-
-        return self._open_steps(steps)
-
-    def iter(self, path):
-        steps = self._parse_path(path)
-        return self._iter_steps(steps)
-
-    def _open_steps(self, steps):
-
         base = self
-        for step in steps:
-            base = base._run_step(step)
+        for step in self._parse_path(path):
+
+            spec = base._d_special.get(step)
+            if spec != None:
+                base = spec
+                continue
+
+            base = base._elem_step(step)
             if base == None:
-                break
+                return None
 
         return base
 
-    #def iter(self, path):
-        #'''
-        #Iterate over DataPath elements by path string.
-
-        #Example:
-
-            #for woot in data.iter('foo/bar/*/woot'):
-                #dostuff(woot)
-
-        #'''
-        #steps = self._parse_path(path)
-        #for data in self._iter_steps(steps,0,self):
-            #yield data
-
-    def _parse_path(self, path):
+    def valu(self, path):
         '''
-        Parse a path string into a series of ( <cmd>, <data> ) directives.
-
-        /foo/*/hehe -> ( ('root',None), ('step','foo'), ('step','bar'), ('iter',None) )
-
+        Return the value of the element at the given path.
         '''
         if not path:
-            return ()
+            return self._elem_valu()
+
+        elem = self.step(path)
+        return elem._elem_valu()
+
+    def vals(self, path):
+        '''
+        Iterate the given path elements and yield values.
+
+        Example:
+
+            data = { 'foo':[ {'bar':'lol'}, {'bar':'heh'} ] }
+
+            root = s_datapath.initelem(data)
+
+            for elem in root.iter('foo/*/bar'):
+                dostuff(elem) # elem is at value "lol" and "heh"
+        '''
+        for elem in self.iter(path):
+            yield elem._elem_valu()
+
+    def _elem_iter(self):
+        for i,item in enumerate(self._d_item):
+            yield initelem(item,name=str(i),parent=self)
+
+    def iter(self, path):
+        '''
+        Iterate sub elements using the given path.
+
+        Example:
+
+            data = { 'foo':[ {'bar':'lol'}, {'bar':'heh'} ] }
+
+            root = s_datapath.initelem(data)
+
+            for elem in root.iter('foo/*/bar'):
+                dostuff(elem) # elem is at value "lol" and "heh"
+
+        '''
+        steps = self._parse_path(path)
+        if not steps:
+            return
+
+        omax = len(steps) - 1
+        todo = collections.deque([ (self,0) ] )
+
+        while todo:
+            base,off = todo.popleft()
+
+            step = steps[off]
+
+            # some special syntax for "all kids" / iterables
+            if step == '*':
+                for elem in base._elem_iter():
+
+                    if off == omax:
+                        yield elem
+                    else:
+                        todo.append( (elem,off+1) )
+
+                continue
+
+            for elem in base._elem_kids(step):
+                if off == omax:
+                    yield elem
+                else:
+                    todo.append( (elem,off+1) )
+
+    def _parse_path(self, path):
 
         off = 0
-        ret = []
-
-        if path.startswith('/'):
-            off += 1
-            ret.append( ('move','/') )
+        steps = []
 
         plen = len(path)
         while off < plen:
 
+            # eat the next (or possibly a first) slash
             _,off = s_syntax.nom(path,off,('/',))
 
-            # if it's a literal, there's no chance for
-            # control data such as iterator directives
-            if s_syntax.is_literal(path,off):
-                elem,off = s_syntax.parse_literal(path,off)
-                ret.append( ('step',elem) )
-                continue
-
-            elem,off = s_syntax.meh(path,off,('/',))
-
-            if elem == '*':
-                ret.append( ('iter',None) )
-                continue
-
-            if elem == '.':
-                continue
-
-            if elem == '..':
-                ret.append( ('move','..') )
-                continue
-
-            ret.append( ('step',elem) )
-
-        return ret
-
-    def _is_iter(self, steps):
-        return any([ 1 for step in steps if step[0] == 'iter' ])
-
-    def _run_step(self, step):
-        oper,data = step
-        if oper == 'step':
-            return self.step(data)
-
-        if oper == 'move':
-            if data == '..':
-                return self.parent()
-
-            if data == '/':
-                return self.root()
-
-    def _iter_steps(self, steps, off=0):
-
-        base = self
-
-        plen = len(steps)
-        while off < plen:
-
-            if base == None:
+            if off >= plen:
                 break
 
-            oper,data = steps[off]
-
-            off += 1
-
-            if oper == 'step':
-                base = base.step(data)
+            if s_syntax.is_literal(path,off):
+                elem,off = s_syntax.parse_literal(path,off)
+                steps.append(elem)
                 continue
 
-            if oper == 'iter':
-                for x in base:
-                    for y in x._iter_steps(steps, off=off):
-                        yield y
-                return
+            # eat until the next /
+            elem,off = s_syntax.meh(path,off,('/',))
+            if not elem:
+                continue
 
-            if oper == 'move':
+            steps.append(elem)
 
-                if data == '..':
-                    base = base.parent()
-                    continue
+        return steps
 
-                if data == '/':
-                    base = base.root()
-                    continue
+class XmlDataElem(DataElem):
 
-                raise SynErr(oper='move',data=data)
+    def __init__(self, item, name=None, parent=None):
+        DataElem.__init__(self, item, name=name, parent=parent)
 
-        if base != None:
-            yield base
+    def _elem_kids(self, step):
+        #TODO possibly make step fnmatch compat?
+        for xmli in self._d_item:
+            if xmli.tag == step:
+                yield XmlDataElem(xmli,name=step,parent=self)
 
-    def __iter__(self):
-        for item in self.valu():
-            yield DataPath(item,parent=self)
+    def _elem_step(self, step):
 
-    def root(self):
-        '''
-        Return the root element of this DataPath.
+        # optional explicit syntax for dealing with colliding
+        # attributes and sub elements.
+        if step.startswith('$'):
+            item = self._d_item.attrib.get(step[1:])
+            if item == None:
+                return None
 
-        Example:
+            return initelem(item,name=step,parent=self)
 
-            root = data.root()
+        for xmli in self._d_item:
+            if xmli.tag == step:
+                return XmlDataElem(xmli,name=step,parent=self)
 
-        '''
-        retn = self
-        while retn._d_parent:
-            retn = retn._d_parent
-        return retn
+        item = self._d_item.attrib.get(step)
+        if item != None:
+            return initelem(item,name=step,parent=self)
 
-    def parent(self):
-        '''
-        Return the parent data path element.
+    def _elem_valu(self):
+        return self._d_item.text
 
-        Example:
+    def _elem_iter(self):
+        for item in self._d_item:
+            yield initelem(item,name=item.tag,parent=self)
 
-            rent = data.parent()
+# Special Element Handler Classes
+elemcls = {
+    x_etree.Element:XmlDataElem,
+}
 
-        '''
-        if self._d_parent == None:
-            return self
+def initelem(item, name=None, parent=None):
+    '''
+    Construct a new DataElem from the given item using
+    which ever DataElem class is most correct for the type.
 
-        return self._d_parent
+    Example:
 
-    def step(self, elem):
-        '''
-        Return a DataPath element for the specified child path element.
+        elem = initelem(
 
-        Example:
-
-            item = { 'foo':[ {'bar':10},{'baz':20} ], 'hur':'dur' }
-
-            data = DataPath(item)
-            foodata = data.step('foo')
-
-        '''
-        return self._d_kids[elem]
-
-    def valu(self, path=None):
-        '''
-        Return the value of the specified child path element.
-
-        Example:
-
-            item = { 'foo':[ {'bar':10},{'baz':20} ], 'hur':'dur' }
-
-            data = DataPath(item)
-
-            if data.valu('foo/0/bar') == 10:
-                print('woot')
-
-        '''
-        if path == None:
-            return self._d_item
-
-        steps = self._parse_path(path)
-        if self._is_iter(steps):
-            return self._valu_iter(steps)
-
-        base = self._open_steps(steps)
-        if base != None:
-            return base.valu()
-
-    def _valu_iter(self, steps):
-        for base in self._iter_steps(steps):
-            yield base.valu()
-
-    def items(self, *path):
-        for item in self.valu(*path).items():
-            yield item
+    '''
+    ecls = elemcls.get(type(item),DataElem)
+    return ecls(item,name=name,parent=parent)
