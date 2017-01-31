@@ -30,6 +30,7 @@ def main(argv):
             'docker ps | grep -q core_pg95',
             'nc -v -w 8 127.0.0.1 47322',
             '''docker exec core_pg95 /bin/bash -c "psql -c 'create database syn_test;' -U postgres"''',
+            '''docker exec core_pg95 /bin/bash -c "psql -c 'create user root;' -U postgres"''',
         ]
 
     for cmd in cmds:
