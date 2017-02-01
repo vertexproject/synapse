@@ -14,7 +14,7 @@ env:
 matrix:
     include:
     - python: "3.6"
-      env: SYN_TEST_DB_PG="syn_test"
+      env: SYN_TEST_PG_DB="syn_test"
 addons:
     postgresql: "9.6"
 services:
