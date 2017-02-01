@@ -8,7 +8,6 @@ import synapse.compat as s_compat
 import synapse.lib.socket as s_socket
 import synapse.lib.urlhelp as s_urlhelp
 
-from synapse.exc import *
 from synapse.lib.types import DataType
 
 def getDataModel():
@@ -225,7 +224,7 @@ class IPv4Type(DataType):
 
     def norm(self, valu, oldval=None):
         if not s_compat.isint(valu):
-            raise BadTypeValu(name=self.name,valu=valu)
+            self._raiseBadValu(valu)
 
         return valu & 0xffffffff
 
@@ -255,7 +254,7 @@ class FqdnType(DataType):
 
     def norm(self, valu, oldval=None):
         if not fqdnre.match(valu):
-            raise BadTypeValu(name=self.name,valu=valu)
+            self._raiseBadValu(valu)
         valu = valu.lower()
         if valu.startswith('xn--'):
             return idna.ToUnicode(valu)
@@ -322,7 +321,7 @@ class Srv4Type(DataType):
         try:
             astr,pstr = text.split(':')
         except ValueError as e:
-            raise BadTypeValu(name=self.name,valu=text)
+            self._raiseBadValu(text)
 
         addr = ipv4int(astr)
         port = int(pstr,0)
@@ -410,7 +409,7 @@ class UrlType(DataType):
         resauth = ''
 
         if valu.find('://') == -1:
-            raise BadTypeValu(name=self.name,valu=valu)
+            self._raiseBadValu(valu)
 
         proto,resloc = valu.split('://',1)
 
@@ -447,7 +446,7 @@ class CidrType(DataType):
         ipv4 = ipv4int(ipstr)
 
         if mask > 32 or mask < 0:
-            raise BadTypeValu(name=self.name,valu=valu,mesg='Invalid CIDR Mask')
+            self._raiseBadValu(valu, mesg='Invalid CIDR Mask')
 
         ipv4 = ipv4mask(ipv4,mask)
         valu = '%s/%d' % ( ipv4str(ipv4), mask )
