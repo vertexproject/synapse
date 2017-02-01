@@ -8,32 +8,20 @@ python:
     - "3.5"
     - "3.6"
 env:
-    - SYN_TEST_PG_DB=syn_test
-    - SYN_CORE_RAM=1
-    - SYN_CORE_SQLITE=1
-    - SYN_CORE_PG95=1
+    - SYN_TEST_CORE="ram"
+    - SYN_TEST_CORE="sqlite"
+    - SYN_TEST_CORE="postgres"
 matrix:
     exclude:
     - python: "2.7"
-      env: SYN_CORE_RAM=1
-    - python: "2.7"
-      env: SYN_CORE_SQLITE=1
-    - python: "2.7"
-      env: SYN_CORE_PG95=1
+      env: SYN_TEST_CORE
     - python: "3.4"
-      env: SYN_CORE_RAM=1
-    - python: "3.4"
-      env: SYN_CORE_SQLITE=1
-    - python: "3.4"
-      env: SYN_CORE_PG95=1
+      env: SYN_TEST_CORE
     - python: "3.5"
-      env: SYN_CORE_RAM=1
-    - python: "3.5"
-      env: SYN_CORE_SQLITE=1
-    - python: "3.5"
-      env: SYN_CORE_PG95=1
+      env: SYN_TEST_CORE
+addons:
+    postgresql: "9.6"
 services:
-    - postgresql
     - docker
 install:
     - python setup.py install

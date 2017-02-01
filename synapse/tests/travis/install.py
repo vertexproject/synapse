@@ -15,23 +15,27 @@ def main(argv):
     args = parse_args(argv)
     cmds = []
 
-    if os.environ.get('SYN_CORE_RAM'):
+    core = os.environ.get('SYN_TEST_CORE')
+
+    if core == 'ram':
         cmds = [
+            'docker build -t vertexproject/synapse -f synapse/docker/synapse_dockerfile .',
             'docker build -t vertexproject/core_ram -f synapse/docker/cortex/ram_dockerfile .',
             'docker run -d -p 127.0.0.1:47322:47322 --name core_ram vertexproject/core_ram',
             'docker exec core_ram python -m pip install nose coverage coveralls',
         ]
-    if os.environ.get('SYN_CORE_SQLITE'):
+    elif core == 'sqlite':
         cmds = [
+            'docker build -t vertexproject/synapse -f synapse/docker/synapse_dockerfile .',
             'docker build -t vertexproject/core_sqlite -f synapse/docker/cortex/sqlite_dockerfile .',
             'docker run -d -p 127.0.0.1:47322:47322 --name core_sqlite vertexproject/core_sqlite',
             'docker exec core_sqlite python -m pip install nose coverage coveralls',
         ]
-    if os.environ.get('SYN_CORE_PG95'):
+    elif core == 'postgres':
         cmds = [
-            'docker build -t vertexproject/core_pg95 -f synapse/docker/cortex/postgres_9.5_dockerfile .',
-            'docker run -d -p 127.0.0.1:47322:47322 --name core_pg95 vertexproject/core_pg95',
-            'docker exec core_pg95 python3 -m pip install nose coverage coveralls',
+            'docker build -t vertexproject/core_pg -f synapse/docker/cortex/postgres_dockerfile .',
+            'docker run -d -p 127.0.0.1:47322:47322 --name core_pg vertexproject/core_pg',
+            'docker exec core_pg python3 -m pip install nose coverage coveralls',
         ]
 
     for cmd in cmds:

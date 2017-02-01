@@ -1,5 +1,5 @@
 # vim:set ft=dockerfile:
-FROM postgres:9.5
+FROM postgres:9.6
 
 # docker build -t vertexproject/core_pg -f ~/git/synapse/synapse/docker/cortex/postgres_9.5_dockerfile ~/git/synapse
 
@@ -17,7 +17,11 @@ RUN apt update -q\
     python3-pip\
     python3-setuptools\
  && apt-get clean\
- && apt-get purge
+ && apt-get purge\
+ && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen &&\
+    locale-gen en_US.UTF-8 &&\
+    dpkg-reconfigure locales &&\
+    /usr/sbin/update-locale LANG=en_US.UTF-8
 
 RUN pip3 install --upgrade\
     pip\
@@ -26,10 +30,6 @@ RUN pip3 install --upgrade\
     wheel
 
 # set the locale
-RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen &&\
-    locale-gen en_US.UTF-8 &&\
-    dpkg-reconfigure locales &&\
-    /usr/sbin/update-locale LANG=en_US.UTF-8
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US.UTF-8
 ENV LC_ALL en_US.UTF-8

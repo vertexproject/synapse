@@ -15,22 +15,23 @@ def main(argv):
     args = parse_args(argv)
     cmds = []
 
-    if os.environ.get('SYN_CORE_RAM'):
+    core = os.environ.get('SYN_TEST_CORE')
+    if core == 'ram':
         cmds = [
             'docker ps | grep -q core_ram',
             'nc -v -w 4 127.0.0.1 47322',
         ]
-    if os.environ.get('SYN_CORE_SQLITE'):
+    elif core == 'sqlite':
         cmds = [
             'docker ps | grep -q core_sqlite',
             'nc -v -w 4 127.0.0.1 47322',
         ]
-    if os.environ.get('SYN_CORE_PG95'):
+    elif core == 'postgres':
         cmds = [
-            'docker ps | grep -q core_pg95',
+            'docker ps | grep -q core_pg',
             'nc -v -w 8 127.0.0.1 47322',
-            '''docker exec core_pg95 /bin/bash -c "psql -c 'create database syn_test;' -U postgres"''',
-            '''docker exec core_pg95 /bin/bash -c "psql -c 'create user root;' -U postgres"''',
+            '''docker exec core_pg /bin/bash -c "psql -c 'create database syn_test;' -U postgres"''',
+            '''docker exec core_pg /bin/bash -c "psql -c 'create user root;' -U postgres"''',
         ]
 
     for cmd in cmds:
