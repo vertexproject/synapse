@@ -280,3 +280,41 @@ class IngTest(SynTest):
 
                 self.eq( len(core.eval('dns:a*tag=lolxml')), 2 )
                 self.eq( len(core.eval('inet:url*tag=lolxml')), 2 )
+
+    def test_ingest_xml_search(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            with self.getTestDir() as path:
+
+                xpth = os.path.join(path,'woot.xml')
+
+                with genfile(xpth) as fd:
+                    fd.write(testxml)
+
+                info = {
+
+                    'sources':[
+
+                        (xpth,{
+
+                            'open':{'format':'xml'},
+
+                            'ingest':{
+
+                                'iters':[
+
+                                    ['~badurl', { 'forms':[ ('inet:url',{}), ], }],
+
+                                ]
+                            }
+                        })
+                    ]
+                }
+
+                gest = s_ingest.Ingest(info)
+
+                gest.ingest(core)
+
+                self.nn( core.getTufoByProp('inet:url','http://evil.com/') )
+                self.nn( core.getTufoByProp('inet:url','http://badguy.com/') )
