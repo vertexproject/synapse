@@ -8,12 +8,6 @@ python:
     - "3.6"
 matrix:
     include:
-    - python: "2.7"
-      env: SYN_TEST_CORE="py"
-    - python: "3.4"
-      env: SYN_TEST_CORE="py"
-    - python: "3.5"
-      env: SYN_TEST_CORE="py"
     - python: "3.6"
       env: SYN_TEST_CORE="ram"
     - python: "3.6"
