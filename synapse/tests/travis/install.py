@@ -20,7 +20,7 @@ def main(argv):
 
     # wait on docker :(
     timeout = 60
-    if core:
+    if core and core != 'py':
         start = time.time()
         while True:
             cmd = 'docker --images'
