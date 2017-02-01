@@ -110,6 +110,7 @@ class DataElem:
 
             # some special syntax for "all kids" / iterables
             if step == '*':
+
                 for elem in base._elem_iter():
 
                     if off == omax:

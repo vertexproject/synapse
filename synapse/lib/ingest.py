@@ -12,6 +12,7 @@ from synapse.eventbus import EventBus
 
 import synapse.axon as s_axon
 import synapse.dyndeps as s_dyndeps
+import synapse.lib.syntax as s_syntax
 import synapse.lib.scrape as s_scrape
 import synapse.lib.datapath as s_datapath
 import synapse.lib.encoding as s_encoding
@@ -19,8 +20,25 @@ import synapse.lib.openfile as s_openfile
 
 logger = logging.getLogger(__name__)
 
+def _xml_stripns(e):
+
+    # believe it or not, this is the recommended
+    # way to strip XML namespaces...
+    if e.tag.find('}') != -1:
+        e.tag = e.tag.split('}')[1]
+
+    for name,valu in e.attrib.items():
+        if name.find('}') != -1:
+            e.attrib[name.split('{')[1]] = valu
+
+    for x in e:
+        _xml_stripns(x)
+
+
 def _fmt_xml(fd,gest):
+    #TODO stream XML ingest for huge files
     elem = x_etree.fromstring(fd.read())
+    _xml_stripns(elem)
     yield {elem.tag:elem}
 
 def _fmt_csv(fd,gest):
@@ -304,7 +322,21 @@ class Ingest(EventBus):
                 core.logCoreExc(e,subsys='ingest')
 
         for path,tifo in info.get('iters',()):
+
+            # The "musteq" syntax is a primitive way to test a
+            # relative path value.  This will eventually be replaced
+            # with a full AST syntax and conditional evaluator.
+            # whose json key will be "cond"
+            musteq = tifo.get('musteq')
+            if musteq != None:
+                mustpath,mustvalu = musteq
+
             for base in data.iter(path):
+                if musteq != None:
+                    basevalu = base.valu(mustpath)
+                    if basevalu != mustvalu:
+                        continue
+
                 self._ingDataInfo(core, base, tifo, **ctx)
 
     def _get_prop(self, core, base, info):
