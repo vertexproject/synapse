@@ -2,9 +2,9 @@ sudo: required
 os:
     - linux
 language: python
+python:
+    - "3.6"
 matrix:
-    exclude:
-    - python:
     include:
     - python: "2.7"
       env: SYN_TEST_CORE="py"
@@ -18,16 +18,12 @@ matrix:
       env: SYN_TEST_CORE="sqlite"
     - python: "3.6"
       env: SYN_TEST_CORE="postgres"
-    - python: "3.6"
-      env: SYN_TEST_DB_PG="syn_test"
-addons:
-    postgresql: "9.6"
 services:
     - docker
 install:
     - python synapse/tests/travis/install.py
 before_script:
-    - python -m synapse.tests.travis.before_script
-script: python -m synapse.tests.travis.script
+    - python synapse/tests/travis/before_script.py
+script: python synapse/tests/travis/script.py
 after_success:
     - coveralls
