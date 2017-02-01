@@ -13,35 +13,32 @@ def parse_args(argv):
 
 def main(argv):
     args = parse_args(argv)
-    cmds = []
+
 
     core = os.environ.get('SYN_TEST_CORE')
     if core == 'ram':
         cmds = [
-            'docker ps | grep -q core_ram',
-            'nc -v -w 4 127.0.0.1 47322',
+            'docker exec core_ram /bin/bash -c "SYN_DOCKER=1 nosetests --verbosity=3 --with-coverage --cover-erase --cover-package=synapse"',
         ]
     elif core == 'sqlite':
         cmds = [
-            'docker ps | grep -q core_sqlite',
-            'nc -v -w 4 127.0.0.1 47322',
+            'docker exec core_sqlite /bin/bash -c "SYN_DOCKER=1 nosetests --verbosity=3 --with-coverage --cover-erase --cover-package=synapse"',
         ]
     elif core == 'postgres':
         cmds = [
-            'docker ps | grep -q core_pg',
-            'nc -v -w 8 127.0.0.1 47322',
-            '''docker exec core_pg /bin/bash -c "psql -c 'create database syn_test;' -U postgres"''',
-            '''docker exec core_pg /bin/bash -c "psql -c 'create user root;' -U postgres"''',
+            'docker exec core_pg /bin/bash -c "SYN_TEST_PG_DB=syn_test SYN_DOCKER=1 nosetests --verbosity=3 --with-coverage --cover-erase --cover-package=synapse"',
         ]
     else:
         cmds = [
-            '''psql -c 'create database syn_test;' -U postgres''',
+            'nosetests --verbosity=3 --with-coverage --cover-erase --cover-package=synapse',
         ]
 
     for cmd in cmds:
         print('run: %r' % (cmd,))
         proc = subprocess.Popen(cmd, shell=True)
         proc.wait()
+        if proc.returncode != 0:
+            return proc.returncode
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))
