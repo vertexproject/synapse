@@ -4,6 +4,20 @@ import synapse.cortex as s_cortex
 import synapse.lib.tufo as s_tufo
 import synapse.lib.ingest as s_ingest
 
+testxml = b'''<?xml version="1.0"?>
+<data>
+
+    <dnsa fqdn="foo.com" ipv4="1.2.3.4"/>
+    <dnsa fqdn="bar.com" ipv4="5.6.7.8"/>
+
+    <urls>
+        <badurl>http://evil.com/</badurl>
+        <badurl>http://badguy.com/</badurl>
+    </urls>
+
+</data>
+'''
+
 class IngTest(SynTest):
 
     def test_ingest_iteriter(self):
@@ -205,3 +219,64 @@ class IngTest(SynTest):
             self.assertIsNotNone( core.getTufoByProp('inet:ipv4', 0x01020304 ) )
             self.assertIsNotNone( core.getTufoByProp('inet:fqdn', 'vertex.link') )
             self.assertIsNotNone( core.getTufoByProp('dns:a','vertex.link/1.2.3.4') )
+
+    def test_ingest_xml(self):
+        with s_cortex.openurl('ram://') as core:
+
+            with self.getTestDir() as path:
+
+                xpth = os.path.join(path,'woot.xml')
+
+                with genfile(xpth) as fd:
+                    fd.write(testxml)
+
+                info = {
+
+                    'sources':[
+
+                        (xpth,{
+
+                            'open':{'format':'xml'},
+
+                            'ingest':{
+
+                                'tags':['lolxml'],
+
+
+                                'iters':[
+
+                                    ['data/dnsa', {
+                                        'forms':[
+                                            ('dns:a',{
+                                                'template':('{{fqdn}}/{{ipv4}}',{
+                                                    #explicitly opt fqdn into the optional attrib syntax
+                                                    'fqdn':{'path':'$fqdn'},
+                                                    'ipv4':{'path':'ipv4'},
+                                                })
+                                            })
+                                        ]
+                                    }],
+
+                                    ['data/urls/*',{
+                                        'forms':[
+                                            ('inet:url',{}),
+                                        ],
+                                    }],
+
+                                ]
+                            }
+                        })
+                    ]
+                }
+
+                gest = s_ingest.Ingest(info)
+
+                gest.ingest(core)
+
+                self.nn( core.getTufoByProp('dns:a','foo.com/1.2.3.4') )
+                self.nn( core.getTufoByProp('dns:a','bar.com/5.6.7.8') )
+                self.nn( core.getTufoByProp('inet:url','http://evil.com/') )
+                self.nn( core.getTufoByProp('inet:url','http://badguy.com/') )
+
+                self.eq( len(core.eval('dns:a*tag=lolxml')), 2 )
+                self.eq( len(core.eval('inet:url*tag=lolxml')), 2 )

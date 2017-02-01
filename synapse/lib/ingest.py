@@ -5,17 +5,41 @@ import json
 import codecs
 import logging
 
+import xml.etree.ElementTree as x_etree
+
 from synapse.common import *
 from synapse.eventbus import EventBus
 
 import synapse.axon as s_axon
 import synapse.dyndeps as s_dyndeps
+import synapse.lib.syntax as s_syntax
 import synapse.lib.scrape as s_scrape
 import synapse.lib.datapath as s_datapath
 import synapse.lib.encoding as s_encoding
 import synapse.lib.openfile as s_openfile
 
 logger = logging.getLogger(__name__)
+
+def _xml_stripns(e):
+
+    # believe it or not, this is the recommended
+    # way to strip XML namespaces...
+    if e.tag.find('}') != -1:
+        e.tag = e.tag.split('}')[1]
+
+    for name,valu in e.attrib.items():
+        if name.find('}') != -1:
+            e.attrib[name.split('{')[1]] = valu
+
+    for x in e:
+        _xml_stripns(x)
+
+
+def _fmt_xml(fd,gest):
+    #TODO stream XML ingest for huge files
+    elem = x_etree.fromstring(fd.read())
+    _xml_stripns(elem)
+    yield {elem.tag:elem}
 
 def _fmt_csv(fd,gest):
 
@@ -75,10 +99,12 @@ def _fmt_lines(fd,gest):
 
 fmtyielders = {
     'csv':_fmt_csv,
+    'xml':_fmt_xml,
     'lines':_fmt_lines,
 }
 
 fmtopts = {
+    'xml':{'mode':'r','encoding':'utf8'},
     'csv':{'mode':'r','encoding':'utf8'},
     'lines':{'mode':'r','encoding':'utf8'},
 }
@@ -174,20 +200,6 @@ class Ingest(EventBus):
     def set(self, name, valu):
         self._i_info[name] = valu
 
-    def iterDataRoots(self):
-        '''
-        Yield "root" DataPath elements to ingest from.
-
-        Example:
-
-            for data in gest.iterDataRoots():
-                # data is a DataPath instance.
-                doStuff( data )
-
-        '''
-        for item in self._iterRawData():
-            yield s_datapath.DataPath(item)
-
     def _openDataSorc(self, path, info):
         '''
         Open a data source tuple and return a data yielder object.
@@ -206,7 +218,7 @@ class Ingest(EventBus):
         Ingest the data from this definition into the specified cortex.
         '''
         if data != None:
-            root = s_datapath.DataPath(data)
+            root = s_datapath.initelem(data)
             gest = self._i_info.get('ingest')
             self._ingDataInfo(core, root, gest)
             return
@@ -221,12 +233,14 @@ class Ingest(EventBus):
                 raise Exception('Ingest Info Not Found: %s' % (path,))
 
             for data in self._openDataSorc(path,info):
-                root = s_datapath.DataPath(data)
+                root = s_datapath.initelem(data)
                 self._ingDataInfo(core, root, gest)
 
     def _ingDataInfo(self, core, data, info, **ctx):
 
         ctx['tags'] = tuple(info.get('tags',())) + ctx.get('tags',())
+
+        self.fire('gest:prog', act='data')
 
         # extract files embedded within the data structure
         for flfo in info.get('files',()):
@@ -308,7 +322,21 @@ class Ingest(EventBus):
                 core.logCoreExc(e,subsys='ingest')
 
         for path,tifo in info.get('iters',()):
+
+            # The "musteq" syntax is a primitive way to test a
+            # relative path value.  This will eventually be replaced
+            # with a full AST syntax and conditional evaluator.
+            # whose json key will be "cond"
+            musteq = tifo.get('musteq')
+            if musteq != None:
+                mustpath,mustvalu = musteq
+
             for base in data.iter(path):
+                if musteq != None:
+                    basevalu = base.valu(mustpath)
+                    if basevalu != mustvalu:
+                        continue
+
                 self._ingDataInfo(core, base, tifo, **ctx)
 
     def _get_prop(self, core, base, info):
