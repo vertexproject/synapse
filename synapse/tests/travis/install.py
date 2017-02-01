@@ -23,7 +23,7 @@ def main(argv):
     if core and core != 'py':
         start = time.time()
         while True:
-            cmd = 'docker --images'
+            cmd = 'docker images'
             print('run: %r' % (cmd,))
             proc = subprocess.Popen(cmd, shell=True)
             proc.wait()
