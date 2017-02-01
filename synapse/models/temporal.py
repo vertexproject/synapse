@@ -1,4 +1,3 @@
-import time
 import datetime
 
 import synapse.compat as s_compat
@@ -28,8 +27,8 @@ class TimeType(DataType):
     def __init__(self, tlib, name, **info):
         DataType.__init__(self, tlib, name, **info)
 
-        self.ismin = self.get('ismin',False)
-        self.ismax = self.get('ismax',False)
+        self.ismin = info.get('ismin',False)
+        self.ismax = info.get('ismax',False)
 
         self.minmax = None
 
@@ -55,48 +54,42 @@ class TimeType(DataType):
         return self.norm(valu, oldval=oldval)
 
     def parse(self, text, oldval=None):
+        if not s_compat.isstr(text):
+            self._raiseBadValu(text)
 
         text = text.strip().lower()
-        text = (''.join([ c for c in text if c.isdigit() ]))[:17]
+        text = (''.join([ c for c in text if c.isdigit() ]))
 
         tlen = len(text)
         if tlen == 4:
-            st = time.strptime(text, '%Y')
+            dt = datetime.datetime.strptime(text, '%Y')
 
         elif tlen == 6:
-            st = time.strptime(text, '%Y%m')
+            dt = datetime.datetime.strptime(text, '%Y%m')
 
         elif tlen == 8:
-            st = time.strptime(text, '%Y%m%d')
+            dt = datetime.datetime.strptime(text, '%Y%m%d')
 
         elif tlen == 10:
-            st = time.strptime(text, '%Y%m%d%H')
+            dt = datetime.datetime.strptime(text, '%Y%m%d%H')
 
         elif tlen == 12:
-            st = time.strptime(text, '%Y%m%d%H%M')
+            dt = datetime.datetime.strptime(text, '%Y%m%d%H%M')
 
         elif tlen == 14:
-            st = time.strptime(text, '%Y%m%d%H%M%S')
+            dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S')
 
         elif tlen in (15,16,17):
-            st = time.strptime(text, '%Y%m%d%H%M%S%f')
+            dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S%f')
 
         else:
-            raise Exception('Unknown time format: %s' % text)
+            self._raiseBadValu(text, mesg='Unknown time format')
 
-        e = datetime.datetime(1970,1,1)
-        d = datetime.datetime(st.tm_year, st.tm_mon, st.tm_mday)
-
-        millis = (d - e).microseconds / 1000
-        millis += st.tm_hour*3600000
-        millis += st.tm_min*60000
-        millis += st.tm_sec*1000
-        millis += st.microseconds / 1000
-
-        return millis
+        epoch = datetime.datetime(1970,1,1)
+        return int((dt - epoch).total_seconds() * 1000)
 
     def repr(self, valu):
-        dt = datetime.datetime(1970,1,1) + datetime.timedelta(microseconds=valu*1000)
+        dt = datetime.datetime(1970,1,1) + datetime.timedelta(milliseconds=valu)
         millis = dt.microsecond / 1000
         return '%d/%.2d/%.2d %.2d:%.2d:%.2d.%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second,millis)
 
@@ -132,41 +125,36 @@ class EpochType(DataType):
         return self.norm(valu, oldval=oldval)
 
     def parse(self, text, oldval=None):
+        if not s_compat.isstr(text):
+            self._raiseBadValu(text)
 
         text = text.strip().lower()
-        text = (''.join([ c for c in text if c.isdigit() ]))[:14]
+        text = (''.join([ c for c in text if c.isdigit() ]))
 
         tlen = len(text)
         if tlen == 4:
-            st = time.strptime(text, '%Y')
+            dt = datetime.datetime.strptime(text, '%Y')
 
         elif tlen == 6:
-            st = time.strptime(text, '%Y%m')
+            dt = datetime.datetime.strptime(text, '%Y%m')
 
         elif tlen == 8:
-            st = time.strptime(text, '%Y%m%d')
+            dt = datetime.datetime.strptime(text, '%Y%m%d')
 
         elif tlen == 10:
-            st = time.strptime(text, '%Y%m%d%H')
+            dt = datetime.datetime.strptime(text, '%Y%m%d%H')
 
         elif tlen == 12:
-            st = time.strptime(text, '%Y%m%d%H%M')
+            dt = datetime.datetime.strptime(text, '%Y%m%d%H%M')
 
         elif tlen == 14:
-            st = time.strptime(text, '%Y%m%d%H%M%S')
+            dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S')
 
         else:
-            raise Exception('Unknown time format: %s' % text)
+            self._raiseBadValu(text, mesg='Unknown time format')
 
-        e = datetime.datetime(1970,1,1)
-        d = datetime.datetime(st.tm_year, st.tm_mon, st.tm_mday)
-
-        epoch = int((d - e).total_seconds())
-        epoch += st.tm_hour*3600
-        epoch += st.tm_min*60
-        epoch += st.tm_sec
-
-        return epoch
+        epoch = datetime.datetime(1970,1,1)
+        return int((dt - epoch).total_seconds())
 
     def repr(self, valu):
         dt = datetime.datetime(1970,1,1) + datetime.timedelta(seconds=int(valu))

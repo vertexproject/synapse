@@ -473,3 +473,90 @@ class DataTypesTest(SynTest):
         self.eq(tlib.getTypeRepr(prop, '123 456 7890'), '+123 456 7890')
         self.eq(tlib.getTypeRepr(prop, '1234567890'), '+1234567890')
         self.eq(tlib.getTypeRepr(prop, 1234567890), '+1234567890')
+
+    def test_type_time_timeepoch(self):
+        tlib = s_types.TypeLib()
+        SECOND_MS = 1000
+        MINUTE_SEC = 60
+        MINUTE_MS = MINUTE_SEC * 1000
+        HOUR_SEC = MINUTE_SEC * 60
+        HOUR_MS = HOUR_SEC * 1000
+        DAY_SEC = HOUR_SEC * 24
+        DAY_MS = DAY_SEC * 1000
+        EPOCH_FEB_SEC = 2678400
+        EPOCH_FEB_MS = 2678400000
+
+        self.eq(tlib.getTypeParse('time',      '1970'),             0)
+        self.eq(tlib.getTypeParse('time:epoch','1970'),             0)
+        self.eq(tlib.getTypeParse('time',      '1970 02'),          EPOCH_FEB_MS)
+        self.eq(tlib.getTypeParse('time:epoch','1970 02'),          EPOCH_FEB_SEC)
+        self.eq(tlib.getTypeParse('time',      '1970 0201'),        EPOCH_FEB_MS)
+        self.eq(tlib.getTypeParse('time:epoch','1970 0201'),        EPOCH_FEB_SEC)
+        self.eq(tlib.getTypeParse('time',      '1970 0202'),        EPOCH_FEB_MS + DAY_MS)
+        self.eq(tlib.getTypeParse('time:epoch','1970 0202'),        EPOCH_FEB_SEC + DAY_SEC)
+        self.eq(tlib.getTypeParse('time',      '1970 0201 00'),     EPOCH_FEB_MS)
+        self.eq(tlib.getTypeParse('time:epoch','1970 0201 00'),     EPOCH_FEB_SEC)
+        self.eq(tlib.getTypeParse('time',      '1970 0201 01'),     EPOCH_FEB_MS + HOUR_MS)
+        self.eq(tlib.getTypeParse('time:epoch','1970 0201 01'),     EPOCH_FEB_SEC + HOUR_SEC)
+        self.eq(tlib.getTypeParse('time',      '1970 0201 0000'),   EPOCH_FEB_MS)
+        self.eq(tlib.getTypeParse('time:epoch','1970 0201 0000'),   EPOCH_FEB_SEC)
+        self.eq(tlib.getTypeParse('time',      '1970 0201 0001'),   EPOCH_FEB_MS + MINUTE_MS)
+        self.eq(tlib.getTypeParse('time:epoch','1970 0201 0001'),   EPOCH_FEB_SEC + MINUTE_SEC)
+        self.eq(tlib.getTypeParse('time',      '1970 0201 000000'), EPOCH_FEB_MS)
+        self.eq(tlib.getTypeParse('time:epoch','1970 0201 000000'), EPOCH_FEB_SEC)
+        self.eq(tlib.getTypeParse('time',      '1970 0201 000001'), EPOCH_FEB_MS + SECOND_MS)
+        self.eq(tlib.getTypeParse('time:epoch','1970 0201 000001'), EPOCH_FEB_SEC + 1)
+
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time', 0)
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time','19700')
+        self.eq(tlib.getTypeParse('time','1970 0201 000000 0'),   EPOCH_FEB_MS)
+        self.eq(tlib.getTypeParse('time','1970 0201 000000 1'),   EPOCH_FEB_MS + 100)
+        self.eq(tlib.getTypeParse('time','1970 0201 000000 00'),  EPOCH_FEB_MS)
+        self.eq(tlib.getTypeParse('time','1970 0201 000000 12'),  EPOCH_FEB_MS + 120)
+        self.eq(tlib.getTypeParse('time','1970 0201 000000 000'), EPOCH_FEB_MS)
+        self.eq(tlib.getTypeParse('time','1970 0201 000000 123'), EPOCH_FEB_MS + 123)
+        self.eq(tlib.getTypeParse('time','1970-01-01 00:00:00.010'), 10)
+        self.eq(tlib.getTypeParse('time','1q9w7e0r0t1y0u1i0o0p0a0s0d0f0g0h0j'), 0)
+
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time:epoch', 0)
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time:epoch','19700')
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time:epoch','1970 0201 000000 0')
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time:epoch','1970 0201 000000 1')
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time:epoch','1970 0201 000000 00')
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time:epoch','1970 0201 000000 12')
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time:epoch','1970 0201 000000 000')
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time:epoch','1970 0201 000000 123')
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time:epoch','1970-01-01 00:00:00.010')
+        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time:epoch','1q9w7e0r0t1y0u1i0o0p0a0s0d0f0g0h1j')
+
+        self.eq(tlib.getTypeParse('time','1970'), tlib.getTypeParse('time:epoch','1970')*1000) # time should = epoch*1000
+        self.eq(tlib.getTypeParse('time','19700101 123456'), tlib.getTypeParse('time:epoch','19700101 123456')*1000) # time should = epoch*1000
+
+        self.eq(tlib.getTypeRepr('time',       -1), '1969/12/31 23:59:59.999')
+        self.eq(tlib.getTypeRepr('time:epoch', -1), '1969/12/31 23:59:59')
+        self.eq(tlib.getTypeRepr('time',        0), '1970/01/01 00:00:00.000')
+        self.eq(tlib.getTypeRepr('time:epoch',  0), '1970/01/01 00:00:00')
+        self.eq(tlib.getTypeRepr('time',        1), '1970/01/01 00:00:00.001')
+        self.eq(tlib.getTypeRepr('time:epoch',  1), '1970/01/01 00:00:01')
+
+        self.eq(tlib.getTypeNorm('time',       -1), -1)
+        self.eq(tlib.getTypeNorm('time:epoch', -1), -1)
+        self.eq(tlib.getTypeNorm('time',        0),  0)
+        self.eq(tlib.getTypeNorm('time:epoch',  0),  0)
+        self.eq(tlib.getTypeNorm('time',        1),  1)
+        self.eq(tlib.getTypeNorm('time:epoch',  1),  1)
+        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'time','0')
+        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'time:epoch','0')
+
+        self.eq(tlib.getTypeFrob('time',       '1969/12/31 23:59:59.999'), -1)
+        self.eq(tlib.getTypeFrob('time:epoch', '1969/12/31 23:59:59'),     -1)
+        self.eq(tlib.getTypeFrob('time',       '1970/01/01 00:00:00.000'),  0)
+        self.eq(tlib.getTypeFrob('time:epoch', '1970/01/01 00:00:00'),      0)
+        self.eq(tlib.getTypeFrob('time',       '1970/01/01 00:00:00.001'),  1)
+        self.eq(tlib.getTypeFrob('time:epoch', '1970/01/01 00:00:01'),      1)
+        self.eq(tlib.getTypeFrob('time',                          -1),     -1)
+        self.eq(tlib.getTypeFrob('time:epoch',                    -1),     -1)
+        self.eq(tlib.getTypeFrob('time',                           0),      0)
+        self.eq(tlib.getTypeFrob('time:epoch',                     0),      0)
+        self.eq(tlib.getTypeFrob('time',                           1),      1)
+        self.eq(tlib.getTypeFrob('time:epoch',                     1),      1)
