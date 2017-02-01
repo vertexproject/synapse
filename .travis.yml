@@ -6,14 +6,11 @@ dist: trusty
 language: python
 python:
     - "3.6"
-matrix:
-    include:
-    - python: "3.6"
-      env: SYN_TEST_CORE="ram"
-    - python: "3.6"
-      env: SYN_TEST_CORE="sqlite"
-    - python: "3.6"
-      env: SYN_TEST_CORE="postgres"
+env:
+    - SYN_TEST_CORE=py
+    - SYN_TEST_CORE=ram
+    - SYN_TEST_CORE=sqlite
+    - SYN_TEST_CORE=postgres
 services:
     - docker
 install:

@@ -18,6 +18,8 @@ def main(argv):
 
     core = os.environ.get('SYN_TEST_CORE')
 
+    cwd = os.getcwd()
+    print('CWD: %r' % (cwd,))
     # wait on docker :(
     timeout = 60
     if core and core != 'py':
@@ -39,7 +41,7 @@ def main(argv):
         cmds = [
             'docker build -t vertexproject/synapse -f synapse/docker/synapse_dockerfile .',
             'docker build -t vertexproject/core_ram -f synapse/docker/cortex/ram_dockerfile .',
-            'docker run -d -p 127.0.0.1:47322:47322 --name core_ram vertexproject/core_ram',
+            'docker run -d -p 127.0.0.1:47322:47322 --volume %s:/root/git/synapse --name core_ram vertexproject/core_ram' % (cwd,),
             'docker exec core_ram python -m pip install nose coverage coveralls',
         ]
     elif core == 'sqlite':
@@ -52,7 +54,7 @@ def main(argv):
     elif core == 'postgres':
         cmds = [
             'docker build -t vertexproject/core_pg -f synapse/docker/cortex/postgres_dockerfile .',
-            'docker run -d -p 127.0.0.1:47322:47322 --name core_pg vertexproject/core_pg',
+            'docker run -d -p 127.0.0.1:47322:47322 --volume %s:/root/git/synapse --name core_pg vertexproject/core_pg' % (cwd,),
             'docker exec core_pg python3 -m pip install nose coverage coveralls',
         ]
     else:
