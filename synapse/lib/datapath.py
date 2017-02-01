@@ -2,6 +2,7 @@ import collections
 
 import xml.etree.ElementTree as x_etree
 
+import synapse.compat as s_compat
 import synapse.lib.syntax as s_syntax
 
 class DataElem:
@@ -21,6 +22,9 @@ class DataElem:
         except Exception as e:
             return None
         return initelem(item,name=step,parent=self)
+
+    def name(self):
+        return self._d_name
 
     def _elem_kids(self, step):
         # Most primitives only have 1 child at a given step...
@@ -79,8 +83,38 @@ class DataElem:
             yield elem._elem_valu()
 
     def _elem_iter(self):
+
+        # special case for dictionaries
+        # to iterate children and keep track
+        # of their names...
+        if type( self._d_item ) == dict:
+            for name,item in self._d_item.items():
+                yield initelem(item,name=name,parent=self)
+            return
+
+        if s_compat.isint(self._d_item):
+            return
+
+        if s_compat.isstr(self._d_item):
+            return
+
         for i,item in enumerate(self._d_item):
             yield initelem(item,name=str(i),parent=self)
+
+    def _elem_search(self, step):
+
+        subs = self._elem_iter()
+
+        todo = collections.deque(subs)
+        while todo:
+
+            elem = todo.popleft()
+            #print('SEARCH: %r' % (elem.name(),))
+            if elem.name() == step:
+                yield elem
+
+            for sube in elem._elem_iter():
+                todo.append(sube)
 
     def iter(self, path):
         '''
@@ -112,6 +146,21 @@ class DataElem:
             if step == '*':
 
                 for elem in base._elem_iter():
+
+                    if off == omax:
+                        yield elem
+                    else:
+                        todo.append( (elem,off+1) )
+
+                continue
+
+            # special "all kids with name" syntax ~foo
+            # (including recursive kids within kids)
+            # this syntax is mostly useful XML like
+            # hierarchical data structures.
+            if step[0] == '~':
+
+                for elem in base._elem_search(step[1:]):
 
                     if off == omax:
                         yield elem
@@ -161,9 +210,30 @@ class XmlDataElem(DataElem):
 
     def _elem_kids(self, step):
         #TODO possibly make step fnmatch compat?
+
+        # special case for iterating <tag> which recurses
+        # to find all instances of that element.
+        #if step[0] == '<' and step[-1] == '>':
+            #allstep = step[1:-1]
+            #todo = collections.deque(self._d_item)
+            #while todo:
+                #elem = todo.popleft()
+
         for xmli in self._d_item:
             if xmli.tag == step:
                 yield XmlDataElem(xmli,name=step,parent=self)
+
+    def _elem_tree(self):
+
+        todo = collections.deque([self._d_item])
+        while todo:
+
+            elem = todo.popleft()
+
+            yield elem
+
+            for sube in elem:
+                todo.append(sube)
 
     def _elem_step(self, step):
 
