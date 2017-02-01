@@ -3,14 +3,14 @@ os:
     - linux
 language: python
 matrix:
+    exclude:
+    - python:
     include:
     - python: "2.7"
       env: SYN_TEST_CORE="py"
     - python: "3.4"
       env: SYN_TEST_CORE="py"
     - python: "3.5"
-      env: SYN_TEST_CORE="py"
-    - python: "3.6"
       env: SYN_TEST_CORE="py"
     - python: "3.6"
       env: SYN_TEST_CORE="ram"
@@ -25,7 +25,7 @@ addons:
 services:
     - docker
 install:
-    - python -m synapse.tests.travis.install
+    - python synapse/tests/travis/install.py
 before_script:
     - python -m synapse.tests.travis.before_script
 script: python -m synapse.tests.travis.script
