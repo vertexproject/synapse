@@ -19,7 +19,7 @@ def main(argv):
     core = os.environ.get('SYN_TEST_CORE')
 
     # wait on docker :(
-    timeout = 10
+    timeout = 60
     if core:
         start = time.time()
         while True:
@@ -29,6 +29,7 @@ def main(argv):
             proc.wait()
 
             if proc.returncode == 0:
+                print('waited %.1fs for docker' % (time.time()-start,))
                 break
             if time.time() > start+timeout:
                 raise Exception('wait for Docker timeout')
