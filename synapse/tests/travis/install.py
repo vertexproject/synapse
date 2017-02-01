@@ -1,6 +1,7 @@
 
 import os
 import sys
+import time
 import argparse
 import subprocess
 
@@ -16,6 +17,22 @@ def main(argv):
     cmds = []
 
     core = os.environ.get('SYN_TEST_CORE')
+
+    # wait on docker :(
+    timeout = 10
+    if core:
+        start = time.time()
+        while True:
+            cmd = 'docker --images'
+            print('run: %r' % (cmd,))
+            proc = subprocess.Popen(cmd, shell=True)
+            proc.wait()
+
+            if proc.returncode == 0:
+                break
+            if time.time() > start+timeout:
+                raise Exception('wait for Docker timeout')
+            time.sleep(.2)
 
     if core == 'ram':
         cmds = [
