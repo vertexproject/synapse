@@ -11,6 +11,16 @@ env:
     - SYN_TEST_CORE=ram
     - SYN_TEST_CORE=sqlite
     - SYN_TEST_CORE=postgres
+matrix:
+    include:
+    - python: "3.6"
+      env: SYN_TEST_PG_DB="syn_test"
+    - python: "2.7"
+      env: SYN_TEST_CORE=py
+    - python: "3.4"
+      env: SYN_TEST_CORE=py
+    - python: "3.5"
+      env: SYN_TEST_CORE=py
 addons:
     postgresql: "9.6"
 services:
