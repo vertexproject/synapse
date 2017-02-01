@@ -33,6 +33,10 @@ def main(argv):
             '''docker exec core_pg /bin/bash -c "psql -c 'create database syn_test;' -U postgres"''',
             '''docker exec core_pg /bin/bash -c "psql -c 'create user root;' -U postgres"''',
         ]
+    else:
+        cmds = [
+            '''psql -c 'create database syn_test;' -U postgres''',
+        ]
 
     for cmd in cmds:
         print('run: %r' % (cmd,))

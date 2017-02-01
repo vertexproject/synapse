@@ -37,6 +37,11 @@ def main(argv):
             'docker run -d -p 127.0.0.1:47322:47322 --name core_pg vertexproject/core_pg',
             'docker exec core_pg python3 -m pip install nose coverage coveralls',
         ]
+    else:
+        cmds = [
+            'python setup.py install',
+            'pip install psycopg2 coverage coveralls',
+        ]
 
     for cmd in cmds:
         print('run: %r' % (cmd,))

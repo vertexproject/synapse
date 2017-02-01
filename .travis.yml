@@ -2,48 +2,31 @@ sudo: required
 os:
     - linux
 language: python
-python:
-    - "2.7"
-    - "3.4"
-    - "3.5"
-    - "3.6"
-env:
-    - SYN_TEST_CORE="py"
-    - SYN_TEST_CORE="ram"
-    - SYN_TEST_CORE="sqlite"
-    - SYN_TEST_CORE="postgres"
 matrix:
-    exclude:
+    include:
     - python: "2.7"
-      env: SYN_TEST_CORE="ram"
-    - python: "2.7"
-      env: SYN_TEST_CORE="sqlite"
-    - python: "2.7"
-      env: SYN_TEST_CORE="postgres"
+      env: SYN_TEST_CORE="py"
     - python: "3.4"
-      env: SYN_TEST_CORE="ram"
-    - python: "3.4"
-      env: SYN_TEST_CORE="sqlite"
-    - python: "3.4"
-      env: SYN_TEST_CORE="postgres"
+      env: SYN_TEST_CORE="py"
     - python: "3.5"
-      env: SYN_TEST_CORE="ram"
-    - python: "3.5"
-      env: SYN_TEST_CORE="sqlite"
-    - python: "3.5"
-      env: SYN_TEST_CORE="postgres"
+      env: SYN_TEST_CORE="py"
     - python: "3.6"
       env: SYN_TEST_CORE="py"
+    - python: "3.6"
+      env: SYN_TEST_CORE="ram"
+    - python: "3.6"
+      env: SYN_TEST_CORE="sqlite"
+    - python: "3.6"
+      env: SYN_TEST_CORE="postgres"
+    - python: "3.6"
+      env: SYN_TEST_DB_PG="syn_test"
 addons:
     postgresql: "9.6"
 services:
     - docker
 install:
-    - python setup.py install
-    - pip install psycopg2 coverage coveralls
     - python -m synapse.tests.travis.install
 before_script:
-    - psql -c 'create database syn_test;' -U postgres
     - python -m synapse.tests.travis.before_script
 script: python -m synapse.tests.travis.script
 after_success:
