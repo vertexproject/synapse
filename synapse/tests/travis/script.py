@@ -15,7 +15,7 @@ def main(argv):
     args = parse_args(argv)
 
 
-    core = os.environ.get('SYN_TESt_CORE')
+    core = os.environ.get('SYN_TEST_CORE')
     if core == 'ram':
         cmds = [
             'docker exec core_ram /bin/bash -c "SYN_DOCKER=1 nosetests --verbosity=3 --with-coverage --cover-erase --cover-package=synapse"',
