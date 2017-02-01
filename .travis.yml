@@ -8,17 +8,32 @@ python:
     - "3.5"
     - "3.6"
 env:
+    - SYN_TEST_CORE="py"
     - SYN_TEST_CORE="ram"
     - SYN_TEST_CORE="sqlite"
     - SYN_TEST_CORE="postgres"
 matrix:
     exclude:
     - python: "2.7"
-      env: SYN_TEST_CORE
+      env: SYN_TEST_CORE="ram"
+    - python: "2.7"
+      env: SYN_TEST_CORE="sqlite"
+    - python: "2.7"
+      env: SYN_TEST_CORE="postgres"
     - python: "3.4"
-      env: SYN_TEST_CORE
+      env: SYN_TEST_CORE="ram"
+    - python: "3.4"
+      env: SYN_TEST_CORE="sqlite"
+    - python: "3.4"
+      env: SYN_TEST_CORE="postgres"
     - python: "3.5"
-      env: SYN_TEST_CORE
+      env: SYN_TEST_CORE="ram"
+    - python: "3.5"
+      env: SYN_TEST_CORE="sqlite"
+    - python: "3.5"
+      env: SYN_TEST_CORE="postgres"
+    - python: "3.6"
+      env: SYN_TEST_CORE="py"
 addons:
     postgresql: "9.6"
 services:
