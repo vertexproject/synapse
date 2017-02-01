@@ -5,6 +5,4 @@ FROM vertexproject/synapse:latest
 
 COPY ./synapse/docker/cortex/ram_dmon.json /syndata/dmon.json
 
-EXPOSE 47322
-
-ENTRYPOINT ["python3", "-m", "synapse.tools.dmon", "/syndata/dmon.json"]
+ENTRYPOINT ["python", "-m", "synapse.tools.dmon", "/syndata/dmon.json"]
