@@ -48,7 +48,7 @@ class FilePath(object):
 
     def child(self, name):
 
-        self._process_next(name)
+        self._processNext(name)
         return self._child
 
     def parent(self):
@@ -64,7 +64,7 @@ class FilePath(object):
     def list(self):
         return os.listdir(self.path())
 
-    def _process_next(self, child_name):
+    def _processNext(self, child_name):
         '''
         This is the workhorse method that can contain path specific processing of children.
         Override for container formats
@@ -95,28 +95,10 @@ class FpDir(FilePath):
 class CntrPath(FilePath):
     def __init__(self, name, parent=None, fd=None):
         super(CntrPath, self).__init__(name, parent=parent, fd=fd)
-        self.init()
-
-    def init(self):
-        return
+        self._init()
 
     def isfile(self):
         return True
-
-    def cntrPath(self):
-        return ''
-
-    def _normpath(self, *paths):
-        '''
-        Normalizes a path:
-        1. uses forward-slashes
-        2. removes leading slashes
-        3. removes trailing slashes
-
-        This is useful for container path enumeration
-        '''
-        path = '/'.join(paths)
-        return path.replace('\\', '/').strip('/')
 
     def list(self):
         '''
@@ -128,10 +110,28 @@ class CntrPath(FilePath):
 
         if the above the structure and the path is /foo/bar, baz,haz,naz should be returned
         '''
-        dirs, files = self.cntr_ls(self.cntrPath())
+        dirs, files = self._cntrLs(self._cntrPath())
         return dirs + files
 
-    def path_list(self, path, members):
+    def _init(self):
+        return
+
+    def _cntrPath(self):
+        return ''
+
+    def _normPath(self, *paths):
+        '''
+        Normalizes a path:
+        1. uses forward-slashes
+        2. removes leading slashes
+        3. removes trailing slashes
+
+        This is useful for container path enumeration
+        '''
+        path = '/'.join(paths)
+        return path.replace('\\', '/').strip('/')
+
+    def _pathList(self, path, members):
         '''
         Given a list of member paths, return the list of member names contained in path
         '''
@@ -146,7 +146,7 @@ class CntrPath(FilePath):
 
         return ls
 
-    def cntr_enum(self, listfx):
+    def _cntrEnum(self, listfx):
         '''
         This function generically returns a list of files and directories from a container.
         Container files generally have 'members' and not typical files and directories.
@@ -158,15 +158,15 @@ class CntrPath(FilePath):
         dirs = set()
 
         for path in listfx():
-            for spath in self.cntr_subpaths(path):
-                if self.cntr_isfile(spath):
+            for spath in self._cntrSubpaths(path):
+                if self._cntrIsFile(spath):
                     files.add(spath)
                     continue
                 dirs.add(spath)
 
         return dirs, files
 
-    def cntr_subpaths(self, path):
+    def _cntrSubpaths(self, path):
         '''
         Returns a list of subpaths in a path, one for each level in the path
         This is an internal function used for ONLY for iterating over paths in a container
@@ -192,21 +192,28 @@ class CntrPathDir(CntrPath):
     def open(self, mode='r'):
         return None
 
-    def cntrPath(self):
+    def _cntrPath(self):
         '''
         Returns the path of the member relative to the base of the container
         '''
         parts = []
         if self._parent != None:
-            parts.append(self._parent.cntrPath())
+            parts.append(self._parent._cntrPath())
         parts.append(self.name)
-        return self._normpath(*parts)
+        return self._normPath(*parts)
 
 class TarMixin(object):
 
-    def _process_next(self, child_name):
+    def _init(self):
+        if hasattr(self, 'cntr'):
+            return
+        if not self.fd:
+            self.fd = open(self.path(), 'rb')
+        self.cntr = tarfile.open(fileobj=self.fd)
 
-        tdirs, tfiles = self.cntr_ls(self.cntrPath())
+    def _processNext(self, child_name):
+
+        tdirs, tfiles = self._cntrLs(self._cntrPath())
 
         if child_name in tdirs:
             self._child = FpTarDir(child_name, parent=self)
@@ -217,20 +224,13 @@ class TarMixin(object):
             cls = _fdClass(fptf.open())
             self._child = cls(child_name, parent=self, fd=fptf.open())
 
-    def init(self):
-        if hasattr(self, 'cntr'):
-            return
-        if not self.fd:
-            self.fd = open(self.path(), 'rb')
-        self.cntr = tarfile.open(fileobj=self.fd)
-
-    def cntr_ls(self, path):
-        dirs, files = self.cntr_enum(self.cntr.getnames)
-        dirs = self.path_list(path, dirs)
-        files = self.path_list(path, files)
+    def _cntrLs(self, path):
+        dirs, files = self._cntrEnum(self.cntr.getnames)
+        dirs = self._pathList(path, dirs)
+        files = self._pathList(path, files)
         return dirs, files
 
-    def cntr_isfile(self, path):
+    def _cntrIsFile(self, path):
         info = self.cntr.getmember(path)
         if info.isfile():
             return True
@@ -256,33 +256,33 @@ class FpTarFile(FpTarDir):
         return True
 
     def open(self, mode='r'):
-        return self.cntr.extractfile(self.cntrPath())
+        return self.cntr.extractfile(self._cntrPath())
 
 class ZipMixin(object):
 
-    def cntr_ls(self, path):
-        dirs, files = self.cntr_enum(self.cntr.namelist)
-        dirs = self.path_list(path, dirs)
-        files = self.path_list(path, files)
-        return dirs, files
-
-    def cntr_isfile(self, path):
-        try:
-            info = self.cntr.getinfo(path)
-            return True
-        except KeyError as e:
-            return False
-
-    def init(self):
+    def _init(self):
         if hasattr(self, 'cntr'):
             return
         if not self.fd:
             self.fd = open(self.path(), 'rb')
         self.cntr = zipfile.ZipFile(self.fd)
 
-    def _process_next(self, cname):
+    def _cntrLs(self, path):
+        dirs, files = self._cntrEnum(self.cntr.namelist)
+        dirs = self._pathList(path, dirs)
+        files = self._pathList(path, files)
+        return dirs, files
 
-        zdirs, zfiles = self.cntr_ls(self.cntrPath())
+    def _cntrIsFile(self, path):
+        try:
+            info = self.cntr.getinfo(path)
+            return True
+        except KeyError as e:
+            return False
+
+    def _processNext(self, cname):
+
+        zdirs, zfiles = self._cntrLs(self._cntrPath())
 
         if cname in zdirs:
             self._child = FpZipDir(cname, parent=self)
@@ -290,7 +290,7 @@ class ZipMixin(object):
         if cname in zfiles:
             self.tempfd = tempfile.SpooledTemporaryFile(prefix='syn_sfp_', max_size=max_temp_sz)
 
-            cpath = self._normpath(self.cntrPath(), cname)
+            cpath = self._normPath(self._cntrPath(), cname)
             zfd = self.cntr.open(cpath, mode='r')
             zbuf = zfd.read(read_chunk_sz)
             while zbuf:
@@ -438,7 +438,7 @@ def openfiles(*paths, **kwargs):
 
     If req=True (Default) NoSuchPath will also be raised if ANY matching path exists, but is a directory
 
-    example:
+    Example:
         for fd in openfiles('/foo/bar/*.egg/dir0/zz*/nest.zip'):
             fbuf = fd.read()
     '''
@@ -467,7 +467,7 @@ def openfile(*paths, **kwargs):
 
     If req=True (Default) NoSuchPath will also be raised if the path exists, but is a directory
 
-    example:
+    Example:
         fd = openfile('/foo/bar/baz.egg/path/inside/zip/to/file')
         if fd == None:
             return
