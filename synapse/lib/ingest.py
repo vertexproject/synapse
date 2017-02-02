@@ -16,6 +16,7 @@ import synapse.lib.syntax as s_syntax
 import synapse.lib.scrape as s_scrape
 import synapse.lib.datapath as s_datapath
 import synapse.lib.encoding as s_encoding
+import synapse.lib.filepath as s_filepath
 import synapse.lib.openfile as s_openfile
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,7 @@ def _fmt_csv(fd,gest):
     opts = {}
 
     quot = gest.get('format:csv:quote')
+    cmnt = gest.get('format:csv:comment')
     dial = gest.get('format:csv:dialect')
     delm = gest.get('format:csv:delimiter')
 
@@ -57,6 +59,18 @@ def _fmt_csv(fd,gest):
 
     if quot != None:
         opts['quotechar'] = quot
+
+    # do we need to strip a comment char?
+    if cmnt != None:
+
+        # use this if we need to strip comments
+        # (but avoid it otherwise for perf )
+        def lineiter():
+            for line in fd:
+                if not line.startswith(cmnt):
+                    yield line
+
+        return csv.reader(lineiter(),**opts)
 
     return csv.reader(fd,**opts)
 
@@ -155,10 +169,10 @@ class Ingest(EventBus):
             'name':'Example Ingest',
             'iden':'f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0',
 
-            'tags':( <tag0>, [... ]),       # tags to add to *all* formed tufos
+            'tags':[ <tag>, ... ],
 
             'iters':(
-                (<path/*>, {<ingest>}),
+                ( <path>, {<ingest>}),
             ),
 
             'forms':(
@@ -200,18 +214,15 @@ class Ingest(EventBus):
     def set(self, name, valu):
         self._i_info[name] = valu
 
-    def _openDataSorc(self, path, info):
-        '''
-        Open a data source tuple and return a data yielder object.
-        '''
-        basedir = self.get('basedir')
-        if basedir != None:
-            info['file:basedir'] = basedir
+    def _iterDataSorc(self, path, info):
 
-        fd = s_openfile.openfd(path, **info)
+        if not os.path.isabs(path):
+            basedir = self.get('basedir')
+            path = os.path.join(basedir,path)
 
         onfo = info.get('open')
-        return iterdata(fd,**onfo)
+        for fd in s_filepath.openfiles(path,mode='rb'):
+            yield iterdata(fd,**onfo)
 
     def ingest(self, core, data=None):
         '''
@@ -232,13 +243,39 @@ class Ingest(EventBus):
             if gest == None:
                 raise Exception('Ingest Info Not Found: %s' % (path,))
 
-            for data in self._openDataSorc(path,info):
-                root = s_datapath.initelem(data)
-                self._ingDataInfo(core, root, gest)
+            tags = info.get('tags',())
+            for datasorc in self._iterDataSorc(path,info):
+                for data in datasorc:
+                    root = s_datapath.initelem(data)
+                    self._ingDataInfo(core, root, gest, tags=tags)
 
-    def _ingDataInfo(self, core, data, info, **ctx):
+    def _ingMergTags(self, core, data, tags, *infos):
+        # merge tags from the given info dict into a new
+        # unified tag list and return
+        tags = list(tags)
+        for info in infos:
+            tags.extend( info.get('tags',()) )
+            tags.extend( self._ingGetTagData(core,data,info) )
+        return tags
 
-        ctx['tags'] = tuple(info.get('tags',())) + ctx.get('tags',())
+    def _ingGetTagData(self, core, data, info):
+        # extract tags from within the data being processed
+        # using standard property extraction syntax.
+        tdefs = info.get('tagdata',())
+        if not tdefs:
+            return ()
+
+        tags = []
+        for tdef in tdefs:
+            valu = self._get_prop(core, data, tdef)
+            if valu != None:
+                tags.append(valu.lower())
+
+        return tags
+
+    def _ingDataInfo(self, core, data, info, tags=(), **ctx):
+
+        tags = self._ingMergTags(core,data,tags,info)
 
         self.fire('gest:prog', act='data')
 
@@ -266,14 +303,11 @@ class Ingest(EventBus):
 
             self.fire('gest:prog', act='file')
 
-            for tag in ctx.get('tags'):
+            for tag in self._ingMergTags(core,data,tags,flfo):
                 core.addTufoTag(tufo,tag)
                 self.fire('gest:prog', act='tag')
 
         for path,scfo in info.get('scrapes',()):
-
-            tags = list( ctx.get('tags',()) )
-            tags.extend( scfo.get('tags',() ) )
 
             for form,valu in s_scrape.scrape(text):
 
@@ -281,7 +315,7 @@ class Ingest(EventBus):
 
                 self.fire('gest:prog', act='form')
 
-                for tag in tags:
+                for tag in self._ingMergTags(core,data,tags,scfo):
                     self.fire('gest:prog', act='tag')
                     core.addTufoTag(tufo,tag)
 
@@ -314,7 +348,7 @@ class Ingest(EventBus):
                     core.setTufoFrobs(tufo,**props)
                     self.fire('gest:prog', act='set')
 
-                for tag in ctx.get('tags'):
+                for tag in self._ingMergTags(core,data,tags,fnfo):
                     core.addTufoTag(tufo,tag)
                     self.fire('gest:prog', act='tag')
 
@@ -337,7 +371,7 @@ class Ingest(EventBus):
                     if basevalu != mustvalu:
                         continue
 
-                self._ingDataInfo(core, base, tifo, **ctx)
+                self._ingDataInfo(core, base, tifo, tags=tags, **ctx)
 
     def _get_prop(self, core, base, info):
 
@@ -356,6 +390,7 @@ class Ingest(EventBus):
         # template=('{{foo}}:80', {'foo':{'path':'bar/baz'}})
         template = info.get('template')
         if template != None:
+
             valu,tnfo = template
 
             for tname,tinfo in tnfo.items():
@@ -370,6 +405,7 @@ class Ingest(EventBus):
 
         path = info.get('path')
         valu = base.valu(path)
+
         if valu == None:
             return None
 
@@ -386,10 +422,13 @@ class Ingest(EventBus):
             if groups:
                 valu = groups[0]
 
+        # allow type based normalization here
+        cast = info.get('cast')
+        if cast != None:
+            valu = core.getTypeNorm(cast,valu)
+
         # FIXME make a mechanism here for field translation based
         # on an included translation table within the ingest def
-
-        #FIXME explicit cast/frob
 
         pivot = info.get('pivot')
         if pivot != None:

@@ -105,6 +105,9 @@ class SynTest(unittest.TestCase):
     def eq(self, x, y):
         self.assertEqual(x,y)
 
+    def ne(self, x, y):
+        self.assertNotEqual(x,y)
+
     def true(self, x):
         self.assertTrue(x)
 
