@@ -218,7 +218,8 @@ class Ingest(EventBus):
 
         if not os.path.isabs(path):
             basedir = self.get('basedir')
-            path = os.path.join(basedir,path)
+            if basedir:
+                path = os.path.join(basedir,path)
 
         onfo = info.get('open')
         for fd in s_filepath.openfiles(path,mode='rb'):
