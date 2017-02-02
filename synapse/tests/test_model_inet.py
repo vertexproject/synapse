@@ -209,3 +209,7 @@ class InetModelTest(SynTest):
             self.eq(tufo[1].get('inet:fqdn:domain'), 'def.dyndns.com')
             self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
             self.eq(tufo[1].get('inet:fqdn:zone'), 0) # should remain zone=0 sfx=0 because its parent is not a sfx
+
+    def test_model_inet_cast_defang(self):
+        with s_cortex.openurl('ram:///') as core:
+            self.eq( core.getTypeCast('inet:defang','1[.]2[.]3[.]4'), '1.2.3.4' )

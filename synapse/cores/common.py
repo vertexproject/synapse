@@ -65,6 +65,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         EventBus.__init__(self)
         Configable.__init__(self)
 
+        self.seedctors = {}
+
         self.noauto = {'syn:form','syn:type','syn:prop'}
         self.addConfDef('autoadd',type='bool',asloc='autoadd',defval=1,doc='Automatically add forms for props where type is form')
         self.addConfDef('enforce',type='bool',asloc='enforce',defval=0,doc='Enables data model enforcement')
@@ -216,6 +218,26 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
     # over-ride to allow the storm runtime to lift/join/pivot tufos
     def _stormTufosBy(self, by, prop, valu=None, limit=None):
         return self.getTufosBy(by, prop, valu=valu, limit=limit)
+
+    def addSeedCtor(self, name, func):
+        '''
+        Add a "seed constructor" to the cortex.  This allows modules
+        to register functions to construct nodes by a "seed name" which
+        they transform into an existing node from the model.
+
+        Example:
+
+            def seedOrgName(name, valu, **props):
+                orgn = core.getTufoByProp('org:iden:name',valu)
+                if orgn == None:
+                    orgn = core.formTufoByProp('org:iden',guid(),name=valu)
+                return orgn
+
+            core.addSeedCtor('org:iden:name', seedOrgName)
+
+            core.formTufoByProp('org:iden:name','The Vertex Project, LLC')
+        '''
+        self.seedctors[name] = func
 
     def logCoreExc(self, exc, subsys='??', level=logging.ERROR):
         '''
@@ -1727,6 +1749,10 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
               tufo does not yet exist and is being construted.
 
         '''
+        ctor = self.seedctors.get(prop)
+        if ctor != None:
+            return ctor(prop,valu,**props)
+
         valu,subs = self.getPropChop(prop,valu)
 
         with self.getCoreXact() as xact:

@@ -3,6 +3,7 @@ from __future__ import absolute_import,unicode_literals
 import re
 import json
 import base64
+import hashlib
 import logging
 import collections
 
@@ -423,6 +424,7 @@ class TypeLib:
     '''
     def __init__(self, load=True):
         self.types = {}
+        self.casts = {}
         self.typeinfo = {}
         self.typetree = {}
         self.subscache = {}
@@ -454,8 +456,13 @@ class TypeLib:
         self.addType('str:txt', subof='str', doc='Multi-line text or text blob.')
         self.addType('str:hex', subof='str', frob_int_fmt='%x', regex=r'^[0-9a-f]+$', lower=1)
 
+        self.addTypeCast('make:guid', self._castMakeGuid )
+
         if load:
             self.loadModModels()
+
+    def _castMakeGuid(self, valu):
+        return hashlib.md5(valu.encode('utf8')).hexdigest()
 
     def getTypeInst(self, name):
         '''
@@ -646,6 +653,29 @@ class TypeLib:
 
     def getTypeChop(self, name, valu):
         return self.reqDataType(name).chop(valu)
+
+    def getTypeCast(self, name, valu):
+        '''
+        Use either a type or a registered "cast" name to normalize
+        the given input.
+
+        Example:
+
+            valu = tlib.getTypeCast("foo:bar","hehe")
+
+        '''
+        func = self.casts.get(name)
+        if func != None:
+            return func(valu)
+
+        return self.getTypeNorm(name,valu)
+
+    def addTypeCast(self, name, func):
+        '''
+        Add a "cast" function to do normalization without
+        creating a complete type.
+        '''
+        self.casts[name] = func
 
     def getTypeRepr(self, name, valu):
         '''

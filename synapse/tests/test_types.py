@@ -560,3 +560,15 @@ class DataTypesTest(SynTest):
         self.eq(tlib.getTypeFrob('time:epoch',                     0),      0)
         self.eq(tlib.getTypeFrob('time',                           1),      1)
         self.eq(tlib.getTypeFrob('time:epoch',                     1),      1)
+
+    def test_type_cast(self):
+        tlib = s_types.TypeLib()
+
+        def cast(x):
+            return x.upper()
+
+        tlib.addTypeCast("toupper",cast)
+
+        self.eq( tlib.getTypeCast('str:lwr','HeHe'), 'hehe' )
+        self.eq( tlib.getTypeCast('toupper','HeHe'), 'HEHE' )
+        self.eq( tlib.getTypeCast('make:guid','visi'), '1b2e93225959e3722efed95e1731b764' )
