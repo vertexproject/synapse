@@ -33,7 +33,7 @@ class FilePath(object):
         self.tempfd = None
         self._parent = parent
 
-    def open(self, mode='r'):
+    def open(self, mode='rb'):
         '''
         Returns a file-like object for this path
         This should return None if it doesn't make sense to open, i.e. a directory
@@ -77,7 +77,7 @@ class FpFile(FilePath):
     '''
     The base path object for filesystem files.
     '''
-    def open(self, mode='r'):
+    def open(self, mode='rb'):
         if self.fd:
             return self.fd
         return open(self.path(), mode=mode)
@@ -189,7 +189,7 @@ class CntrPathDir(CntrPath):
     def isfile(self):
         return False
 
-    def open(self, mode='r'):
+    def open(self, mode='rb'):
         return None
 
     def _cntrPath(self):
@@ -241,7 +241,7 @@ class FpTar(TarMixin, CntrPath):
         TarMixin.__init__(self)
         CntrPath.__init__(self, name, parent=parent, fd=fd)
 
-    def open(self, mode='r'):
+    def open(self, mode='rb'):
         self.fd.seek(0)
         return self.fd
 
@@ -255,7 +255,7 @@ class FpTarFile(FpTarDir):
     def isfile(self):
         return True
 
-    def open(self, mode='r'):
+    def open(self, mode='rb'):
         return self.cntr.extractfile(self._cntrPath())
 
 class ZipMixin(object):
@@ -264,7 +264,7 @@ class ZipMixin(object):
         if hasattr(self, 'cntr'):
             return
         if not self.fd:
-            self.fd = open(self.path(), 'rb')
+            self.fd = open(self.path(), mode='rb')
         self.cntr = zipfile.ZipFile(self.fd)
 
     def _cntrLs(self, path):
@@ -308,7 +308,7 @@ class FpZip(ZipMixin, CntrPath):
         ZipMixin.__init__(self)
         CntrPath.__init__(self, name, parent=parent, fd=fd)
 
-    def open(self, mode='r'):
+    def open(self, mode='rb'):
         self.fd.seek(0)
         return self.fd
 
@@ -328,7 +328,8 @@ def _pathClass(*paths):
 
     if os.path.isdir(path):
         return path_ctors.get('fs.reg.dir')
-    mime = _mimeFile(open(path, 'rb'))
+    with open(path, 'rb') as fd:
+        mime = _mimeFile(fd)
     return path_ctors.get(mime)
 
 def _fdClass(fd):
