@@ -64,6 +64,9 @@ class DataElem:
             return self._elem_valu()
 
         elem = self.step(path)
+        if elem == None:
+            return None
+
         return elem._elem_valu()
 
     def vals(self, path):
