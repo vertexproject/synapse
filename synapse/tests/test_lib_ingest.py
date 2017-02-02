@@ -320,7 +320,6 @@ class IngTest(SynTest):
                 self.nn( core.getTufoByProp('inet:url','http://evil.com/') )
                 self.nn( core.getTufoByProp('inet:url','http://badguy.com/') )
 
-
     def test_ingest_tagdata(self):
 
         with s_cortex.openurl('ram://') as core:
