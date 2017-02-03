@@ -407,7 +407,7 @@ class Ingest(EventBus):
         # allow type based normalization here
         cast = info.get('cast')
         if cast != None:
-            valu = core.getTypeNorm(cast,valu)
+            valu = core.getTypeCast(cast,valu)
 
         # FIXME make a mechanism here for field translation based
         # on an included translation table within the ingest def
