@@ -17,6 +17,10 @@ testxml = b'''<?xml version="1.0"?>
 
 </data>
 '''
+testlines = b'''
+foo.com
+bar.com
+'''
 
 class IngTest(SynTest):
 
@@ -364,3 +368,31 @@ class IngTest(SynTest):
             gest.ingest(core,data=data)
 
             self.nn( core.getTufoByProp('hehe:haha','lulz') )
+
+    def test_ingest_lines(self):
+        with s_cortex.openurl('ram://') as core:
+
+            with self.getTestDir() as path:
+
+                path = os.path.join(path,'woot.txt')
+
+                with genfile(path) as fd:
+                    fd.write(testlines)
+
+                info = {
+                    'sources':[
+                        (path,{
+                            'open':{'format':'lines'},
+                            'ingest':{
+                                'forms':[ ['inet:fqdn',{}] ]
+                            }
+                        })
+                    ]
+                }
+
+                gest = s_ingest.Ingest(info)
+
+                gest.ingest(core)
+
+                self.nn( core.getTufoByProp('inet:fqdn','foo.com') )
+                self.nn( core.getTufoByProp('inet:fqdn','bar.com') )
