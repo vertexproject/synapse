@@ -88,17 +88,23 @@ def parse_list(text,off,trim=True):
 
         off += 1
 
+def nom_whitespace(text,off):
+    return nom(text,off,whites)
+
 def parse_string(text,off,trim=True):
 
-    if text[off] != '"':
+    if text[off] not in ('"',"'"): # lulz...
         raise synapse.exc.SyntaxError(expected='String Literal', at=off)
+
+    quot = text[off]
 
     if trim:
         _,off = nom(text,off,whites)
 
     off += 1
     vals = []
-    while text[off] != '"':
+    while text[off] != quot:
+
         c = text[off]
 
         off += 1

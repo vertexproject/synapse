@@ -11,7 +11,10 @@ from synapse.common import *
 from synapse.eventbus import EventBus
 
 import synapse.axon as s_axon
+import synapse.gene as s_gene
 import synapse.dyndeps as s_dyndeps
+
+import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
 import synapse.lib.scrape as s_scrape
 import synapse.lib.datapath as s_datapath
@@ -162,45 +165,14 @@ def iterdata(fd,**opts):
 class Ingest(EventBus):
     '''
     An Ingest allows modular data acquisition and cortex loading.
-
-    info = {
-
-        'ingest':{
-            'name':'Example Ingest',
-            'iden':'f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0',
-
-            'tags':[ <tag>, ... ],
-
-            'iters':(
-                ( <path>, {<ingest>}),
-            ),
-
-            'forms':(
-                (<form>, {'path':<path>, 'props':{
-                    <prop>:{ 'path':<path> | 'value':<value> }
-                )
-            ),
-
-            'files':(
-                (<path>, {'mime':<mime>, 'decode':<decode> }),
-            ),
-
-            'scrapes':(
-                (<path>, {<opts>}),
-            ),
-
-        },
-
-        # for the default in-band case only...
-        'data':<in-band-data>,
-    }
-
     '''
     def __init__(self, info, axon=None):
         EventBus.__init__(self)
         self._i_res = {}
         self._i_info = info
         self._i_axon = axon
+
+        self._i_glab = s_gene.GeneLab()
 
     def _re_compile(self, regex):
         ret = self._i_res.get(regex)
@@ -320,6 +292,15 @@ class Ingest(EventBus):
                     self.fire('gest:prog', act='tag')
                     core.addTufoTag(tufo,tag)
 
+        syms = {}
+        for name,vnfo in info.get('vars',()):
+            syms[name] = self._get_prop(core,data,vnfo)
+
+        for cond,cnfo in info.get('conds',()):
+            expr = self._i_glab.getGeneExpr(cond)
+            if expr(syms):
+                self._ingDataInfo(core,data,cnfo,tags=tags)
+
         # iterate and create any forms at our level
         for form,fnfo in info.get('forms',()):
 
@@ -426,7 +407,7 @@ class Ingest(EventBus):
         # allow type based normalization here
         cast = info.get('cast')
         if cast != None:
-            valu = core.getTypeNorm(cast,valu)
+            valu = core.getTypeCast(cast,valu)
 
         # FIXME make a mechanism here for field translation based
         # on an included translation table within the ingest def
