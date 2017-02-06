@@ -2305,8 +2305,14 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         self.on('core:sync', pump.put)
 
         def syncpump():
-            for msgs in pump.slices(1000):
-                core.syncs(msgs)
+            try:
+
+                for msgs in pump.slices(1000):
+                    core.syncs(msgs)
+
+            except Exception as e:
+                self.logCoreExc(e,subsys='syncpump')
+                raise
 
         wrkr = s_threads.worker(syncpump)
         pump.onfini( wrkr.fini )

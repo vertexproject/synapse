@@ -13,7 +13,8 @@ from synapse.common import genpath
 def _open_http(*paths,**opts):
     # all URLs use /
     purl = '/'.join(paths)
-    resp = t_http.HTTPClient().fetch(purl)
+    http = t_http.HTTPClient()
+    resp = http.fetch(purl)
     return resp.buffer
 
 def openfd(*paths, **opts):

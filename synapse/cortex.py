@@ -84,3 +84,10 @@ def choptag(tag):
     '''
     parts = tag.split('.')
     return [ '.'.join(parts[:x+1]) for x in range(len(parts)) ]
+
+if __name__ == '__main__':
+    import sys
+    import code
+    core = openurl(sys.argv[1])
+    local = {'core':core,'ask':core.ask,'eval':core.eval}
+    code.interact(local=local)

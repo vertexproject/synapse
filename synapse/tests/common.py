@@ -117,6 +117,9 @@ class SynTest(unittest.TestCase):
     def nn(self, x):
         self.assertIsNotNone(x)
 
+    def none(self, x):
+        self.assertIsNone(x)
+
     def sorteq(self, x, y):
         return self.eq( sorted(x), sorted(y) )
 

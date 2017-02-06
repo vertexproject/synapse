@@ -4,6 +4,7 @@ import csv
 import json
 import codecs
 import logging
+import traceback
 
 import xml.etree.ElementTree as x_etree
 
@@ -12,6 +13,7 @@ from synapse.eventbus import EventBus
 
 import synapse.axon as s_axon
 import synapse.gene as s_gene
+import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
 
 import synapse.lib.scope as s_scope
@@ -114,15 +116,20 @@ def _fmt_lines(fd,gest):
 
         yield line
 
+def _fmt_json(fd,info):
+    yield json.loads( fd.read() )
+
 fmtyielders = {
     'csv':_fmt_csv,
     'xml':_fmt_xml,
+    'json':_fmt_json,
     'lines':_fmt_lines,
 }
 
 fmtopts = {
     'xml':{'mode':'r','encoding':'utf8'},
     'csv':{'mode':'r','encoding':'utf8'},
+    'json':{'mode':'r','encoding':'utf8'},
     'lines':{'mode':'r','encoding':'utf8'},
 }
 
@@ -201,13 +208,16 @@ class Ingest(EventBus):
         '''
         Ingest the data from this definition into the specified cortex.
         '''
+        scope = s_scope.Scope()
         if data != None:
             root = s_datapath.initelem(data)
             gest = self._i_info.get('ingest')
-            self._ingDataInfo(core, root, gest)
+            self._ingDataInfo(core, root, gest, scope)
             return
 
         for path,info in self.get('sources'):
+
+            scope = s_scope.Scope()
 
             gest = info.get('ingest')
             if gest == None:
@@ -216,50 +226,47 @@ class Ingest(EventBus):
             if gest == None:
                 raise Exception('Ingest Info Not Found: %s' % (path,))
 
-            tags = info.get('tags',())
             for datasorc in self._iterDataSorc(path,info):
+                scope = s_scope.Scope()
                 for data in datasorc:
                     root = s_datapath.initelem(data)
-                    self._ingDataInfo(core, root, gest, tags=tags)
+                    self._ingDataInfo(core, root, gest, scope)
 
-    def _ingMergTags(self, core, data, tags, *infos):
-        # merge tags from the given info dict into a new
-        # unified tag list and return
-        tags = list(tags)
-        for info in infos:
-            tags.extend( info.get('tags',()) )
-            tags.extend( self._ingGetTagData(core,data,info) )
-        return tags
+    def _ingMergScope(self, core, data, info, scope):
 
-    def _ingGetTagData(self, core, data, info):
-        # extract tags from within the data being processed
-        # using standard property extraction syntax.
-        tdefs = info.get('tagdata',())
-        if not tdefs:
-            return ()
+        vard = info.get('vars')
+        if vard != None:
+            for varn,vnfo in vard.items():
+                valu = self._get_prop(core,data,vnfo,scope)
+                scope.set(varn,valu)
 
-        tags = []
-        for tdef in tdefs:
-            valu = self._get_prop(core, data, tdef)
-            if valu != None:
-                tags.append(valu.lower())
+        for tagv in info.get('tags',()):
 
-        return tags
+            # if it's a simple tag string, add and move along
+            if s_compat.isstr(tagv):
+                scope.add('tags',tagv.lower())
+                continue
 
-    def _ingDataInfo(self, core, data, info, tags=(), **ctx):
+            # otherwise it's an iteration compatible prop dict
+            tags = [ t.lower() for t in self._iter_prop(core,data,tagv,scope) ]
 
-        tags = self._ingMergTags(core,data,tags,info)
+            scope.add('tags',*tags)
 
-        self.fire('gest:prog', act='data')
+    def _ingFileInfo(self, core, data, info, scope):
 
-        # extract files embedded within the data structure
-        for flfo in info.get('files',()):
+        with scope:
 
-            path = flfo.get('path')
+            self._ingMergScope(core,data,info,scope)
+
+            cond = info.get('cond')
+            if cond != None and not self._isCondTrue(cond,scope):
+                return
+
+            path = info.get('path')
 
             byts = data.valu(path)
 
-            dcod = flfo.get('decode')
+            dcod = info.get('decode')
             if dcod != None:
                 byts = s_encoding.decode(dcod,byts)
 
@@ -268,7 +275,7 @@ class Ingest(EventBus):
 
             iden,props = hset.guid()
 
-            mime = flfo.get('mime')
+            mime = info.get('mime')
             if mime != None:
                 props['mime'] = mime
 
@@ -276,51 +283,34 @@ class Ingest(EventBus):
 
             self.fire('gest:prog', act='file')
 
-            for tag in self._ingMergTags(core,data,tags,flfo):
+            for tag in scope.iter('tags'):
                 core.addTufoTag(tufo,tag)
                 self.fire('gest:prog', act='tag')
 
-        for path,scfo in info.get('scrapes',()):
+    def _ingFormInfo(self, core, data, info, scope):
 
-            for form,valu in s_scrape.scrape(text):
-
-                tufo = core.formTufoByProp(form,valu)
-
-                self.fire('gest:prog', act='form')
-
-                for tag in self._ingMergTags(core,data,tags,scfo):
-                    self.fire('gest:prog', act='tag')
-                    core.addTufoTag(tufo,tag)
-
-        syms = {}
-        for name,vnfo in info.get('vars',()):
-            syms[name] = self._get_prop(core,data,vnfo)
-
-        for cond,cnfo in info.get('conds',()):
-            expr = self._i_glab.getGeneExpr(cond)
-            if expr(syms):
-                self._ingDataInfo(core,data,cnfo,tags=tags)
-
-        # iterate and create any forms at our level
-        for form,fnfo in info.get('forms',()):
-
-            # Allow dynamic forms...
-            fstr = fnfo.get('form')
-            if fstr != None:
-                form = data.valu(fstr)
+        with scope:
 
             try:
 
-                valu = self._get_prop(core,data,fnfo)
+                form = info.get('form')
+                self._ingMergScope(core,data,info,scope)
+
+                cond = info.get('cond')
+                if cond != None and not self._isCondTrue(cond,scope):
+                    return
+
+                valu = self._get_prop(core,data,info,scope)
                 if valu == None:
-                    continue
+                    return
 
                 tufo = core.formTufoByFrob(form,valu)
+
                 self.fire('gest:prog', act='form')
 
                 props = {}
-                for prop,pnfo in fnfo.get('props',{}).items():
-                    valu = self._get_prop(core,data,pnfo)
+                for prop,pnfo in info.get('props',{}).items():
+                    valu = self._get_prop(core,data,pnfo,scope)
                     if valu == None:
                         continue
 
@@ -330,46 +320,77 @@ class Ingest(EventBus):
                     core.setTufoFrobs(tufo,**props)
                     self.fire('gest:prog', act='set')
 
-                for tag in self._ingMergTags(core,data,tags,fnfo):
+                for tag in scope.iter('tags'):
                     core.addTufoTag(tufo,tag)
                     self.fire('gest:prog', act='tag')
 
             except Exception as e:
+                traceback.print_exc()
                 core.logCoreExc(e,subsys='ingest')
 
-        for path,tifo in info.get('iters',()):
+    def _ingDataInfo(self, core, data, info, scope):
 
-            # The "musteq" syntax is a primitive way to test a
-            # relative path value.  This will eventually be replaced
-            # with a full AST syntax and conditional evaluator.
-            # whose json key will be "cond"
-            musteq = tifo.get('musteq')
-            if musteq != None:
-                mustpath,mustvalu = musteq
+        with scope:
 
-            for base in data.iter(path):
-                if musteq != None:
-                    basevalu = base.valu(mustpath)
-                    if basevalu != mustvalu:
-                        continue
+            self._ingMergScope(core,data,info,scope)
 
-                self._ingDataInfo(core, base, tifo, tags=tags, **ctx)
+            cond = info.get('cond')
+            if cond != None and not self._isCondTrue(cond,scope):
+                return
 
-    def _get_prop(self, core, base, info):
+            self.fire('gest:prog', act='data')
+
+            # extract files embedded within the data structure
+            for flfo in info.get('files',()):
+                self._ingFileInfo(core,data,flfo,scope)
+
+            for cond,cnfo in info.get('conds',()):
+                if not self._isCondTrue(cond,scope):
+                    continue
+                self._ingDataInfo(core,data,cnfo,scope)
+
+            # iterate and create any forms at our level
+            for form,fnfo in info.get('forms',()):
+                fnfo.setdefault('form',form)
+                self._ingFormInfo(core,data,fnfo,scope)
+
+            # handle explicit nested iterators
+            for path,tifo in info.get('iters',()):
+                for base in data.iter(path):
+                    self._ingDataInfo(core, base, tifo, scope)
+
+    def _isCondTrue(self, cond, scope):
+        expr = self._i_glab.getGeneExpr(cond)
+        return bool( expr( scope ) )
+
+    def _iter_prop(self, core, data, info, scope):
+
+        cond = info.get('cond')
+        if cond != None and not self._isCondTrue(cond,scope):
+            return
+
+        path = info.get('iter')
+        if path == None:
+            yield self._get_prop(core, data, info, scope)
+            return
+
+        for base in data.iter(path):
+            yield self._get_prop(core, base, info, scope)
+
+    def _get_prop(self, core, base, info, scope):
+
+        cond = info.get('cond')
+        if cond != None and not self._isCondTrue(cond,scope):
+            return
 
         valu = info.get('value')
         if valu != None:
             return valu
 
-        #########################################################
-        #FIXME
-        #
-        # Make this routine and others ( such as path stuff )
-        # more optimized using either function factories or some
-        # way to cache things like parsed regex objects...
-        #
+        if valu == None:
+            varn = info.get('var')
+            valu = scope.get(varn)
 
-        # template=('{{foo}}:80', {'foo':{'path':'bar/baz'}})
         template = info.get('template')
         if template != None:
 
@@ -377,16 +398,15 @@ class Ingest(EventBus):
 
             for tname,tinfo in tnfo.items():
 
-                tval = self._get_prop(core,base,tinfo)
+                tval = self._get_prop(core,base,tinfo,scope)
                 if tval == None:
                     return None
 
                 valu = valu.replace('{{%s}}' % tname, tval)
 
-            return valu
-
-        path = info.get('path')
-        valu = base.valu(path)
+        if valu == None:
+            path = info.get('path')
+            valu = base.valu(path)
 
         if valu == None:
             return None
