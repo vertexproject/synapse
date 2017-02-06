@@ -324,7 +324,7 @@ class IngTest(SynTest):
                 self.nn( core.getTufoByProp('inet:url','http://evil.com/') )
                 self.nn( core.getTufoByProp('inet:url','http://badguy.com/') )
 
-    def test_ingest_tagdata(self):
+    def test_ingest_taginfo(self):
 
         with s_cortex.openurl('ram://') as core:
 
@@ -332,7 +332,7 @@ class IngTest(SynTest):
                 'ingest':{
                     'iters':[
                         ('foo/*',{
-                            'tagdata':[
+                            'tags':[
                                 {'template':('foo.bar.{{baz}}', {'baz':{'path':'1'}})}
                             ],
                             'forms':[ ('inet:fqdn',{'path':'0'}) ]
@@ -396,3 +396,103 @@ class IngTest(SynTest):
 
                 self.nn( core.getTufoByProp('inet:fqdn','foo.com') )
                 self.nn( core.getTufoByProp('inet:fqdn','bar.com') )
+
+    def test_ingest_condform(self):
+
+        data = {'foo':[ {'fqdn':'vertex.link','hehe':3} ] }
+
+        info = {'ingest':{
+            'iters':[
+                ["foo/*",{
+                    'vars':{ 'hehe':{'path':'hehe'} },
+                    'forms':[ ('inet:fqdn',{'path':'fqdn','cond':'hehe != 3'}) ],
+                }],
+            ],
+        }}
+
+        with s_cortex.openurl('ram://') as core:
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core,data=data)
+
+            self.assertIsNone( core.getTufoByProp('inet:fqdn','vertex.link') )
+
+            data['foo'][0]['hehe'] = 9
+
+            gest.ingest(core,data=data)
+
+            self.nn( core.getTufoByProp('inet:fqdn','vertex.link') )
+
+    def test_ingest_condtag(self):
+
+        data = {'foo':[ {'fqdn':'vertex.link','hehe':3} ] }
+
+        info = {'ingest':{
+            'iters':[
+                ["foo/*",{
+                    'vars':{ 'hehe':{'path':'hehe'} },
+                    'tags':[ {'value':'hehe.haha','cond':'hehe != 3'} ],
+                    'forms':[ ('inet:fqdn',{'path':'fqdn'}) ],
+                }],
+            ],
+        }}
+
+        with s_cortex.openurl('ram://') as core:
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core,data=data)
+
+            node = core.getTufoByProp('inet:fqdn','vertex.link')
+            self.false( s_tufo.tagged(node,'hehe.haha') )
+
+            data['foo'][0]['hehe'] = 9
+
+            gest.ingest(core,data=data)
+
+            node = core.getTufoByProp('inet:fqdn','vertex.link')
+            self.true( s_tufo.tagged(node,'hehe.haha') )
+
+    def test_ingest_varprop(self):
+
+        data = {'foo':[ {'fqdn':'vertex.link','hehe':3} ] }
+
+        info = {'ingest':{
+            'iters':[
+                ["foo/*",{
+                    'vars':{ 'zoom':{'path':'fqdn'} },
+                    'forms':[ ('inet:fqdn',{'var':'zoom'}) ],
+                }],
+            ],
+        }}
+
+        with s_cortex.openurl('ram://') as core:
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core,data=data)
+
+            self.nn( core.getTufoByProp('inet:fqdn','vertex.link') )
+
+    def test_ingest_tagiter(self):
+
+        data = {'foo':[ {'fqdn':'vertex.link','haha':['foo','bar']} ] }
+
+        info = {'ingest':{
+            'iters':[
+                ["foo/*",{
+                    'vars':{ 'zoom':{'path':'fqdn'} },
+                    'tags':[
+                        {'iter':'haha/*','template':('zoom.{{tag}}',{'tag':{}})}
+                    ],
+                    'forms':[ ('inet:fqdn',{'path':'fqdn'}) ],
+                }],
+            ],
+        }}
+
+        with s_cortex.openurl('ram://') as core:
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core,data=data)
+
+            node = core.getTufoByProp('inet:fqdn','vertex.link')
+            self.true( s_tufo.tagged(node,'zoom.foo') )
+            self.true( s_tufo.tagged(node,'zoom.bar') )
