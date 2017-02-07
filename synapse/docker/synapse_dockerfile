@@ -30,7 +30,6 @@ ENV LC_ALL en_US.UTF-8
 
 # setup synapse
 COPY / /root/git/synapse/
-RUN ls -al /root/git/synapse
 RUN cd /root/git/synapse &&\
     python setup.py develop
 
