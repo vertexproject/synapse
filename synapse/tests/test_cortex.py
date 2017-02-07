@@ -235,6 +235,11 @@ class CortexTest(SynTest):
 
             self.assertEqual( item['foo']['blah'][0], 99 )
 
+    def test_pg_encoding(self):
+        with self.getPgCore() as core:
+            res = core.select('SHOW SERVER_ENCODING')[0][0]
+            self.eq(res, 'UTF8')
+
     def test_cortex_choptag(self):
         t0 = tuple(s_cortex.choptag('foo'))
         t1 = tuple(s_cortex.choptag('foo.bar'))
