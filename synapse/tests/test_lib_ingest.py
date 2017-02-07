@@ -17,6 +17,10 @@ testxml = b'''<?xml version="1.0"?>
 
 </data>
 '''
+testlines = b'''
+foo.com
+bar.com
+'''
 
 class IngTest(SynTest):
 
@@ -44,48 +48,48 @@ class IngTest(SynTest):
 
     def test_ingest_basic(self):
 
-        core = s_cortex.openurl('ram://')
+        with s_cortex.openurl('ram://') as core:
 
-        info = {
-            'ingest':{
-                'iters':(
-                    ('foo/*/fqdn',{
-                        'forms':[
-                            ('inet:fqdn', {
-                                'props':{
-                                    'sfx':{'path':'../tld'},
-                                }
-                            }),
-                        ]
-                    }),
-                ),
+            info = {
+                'ingest':{
+                    'iters':(
+                        ('foo/*/fqdn',{
+                            'forms':[
+                                ('inet:fqdn', {
+                                    'props':{
+                                        'sfx':{'path':'../tld'},
+                                    }
+                                }),
+                            ]
+                        }),
+                    ),
+                }
             }
-        }
 
-        data = {
-            'foo':[
-                {'fqdn':'com','tld':True},
-                {'fqdn':'woot.com'},
-            ],
+            data = {
+                'foo':[
+                    {'fqdn':'com','tld':True},
+                    {'fqdn':'woot.com'},
+                ],
 
-            'bar':[
-                {'fqdn':'vertex.link','tld':0},
-            ],
+                'bar':[
+                    {'fqdn':'vertex.link','tld':0},
+                ],
 
-            'newp':[
-                {'fqdn':'newp.com','tld':0},
-            ],
+                'newp':[
+                    {'fqdn':'newp.com','tld':0},
+                ],
 
-        }
+            }
 
-        gest = s_ingest.Ingest(info)
+            gest = s_ingest.Ingest(info)
 
-        gest.ingest(core,data=data)
+            gest.ingest(core,data=data)
 
-        self.eq( core.getTufoByProp('inet:fqdn','com')[1].get('inet:fqdn:sfx'), 1 )
-        self.eq( core.getTufoByProp('inet:fqdn','woot.com')[1].get('inet:fqdn:zone'), 1 )
+            self.eq( core.getTufoByProp('inet:fqdn','com')[1].get('inet:fqdn:sfx'), 1 )
+            self.eq( core.getTufoByProp('inet:fqdn','woot.com')[1].get('inet:fqdn:zone'), 1 )
 
-        self.assertIsNone( core.getTufoByProp('inet:fqdn','newp.com') )
+            self.assertIsNone( core.getTufoByProp('inet:fqdn','newp.com') )
 
     def test_ingest_csv(self):
 
@@ -96,12 +100,13 @@ class IngTest(SynTest):
                 csvp = os.path.join(path,'woot.csv')
 
                 with genfile(csvp) as fd:
+                    fd.write(b'#THIS IS A COMMENT\n')
                     fd.write(b'foo.com,1.2.3.4\n')
                     fd.write(b'vertex.link,5.6.7.8\n')
 
                 info = {
                     'sources':(
-                        (csvp,{'open':{'format':'csv'}, 'ingest':{
+                        (csvp,{'open':{'format':'csv','format:csv:comment':'#'}, 'ingest':{
 
                             'tags':['hehe.haha'],
 
@@ -280,3 +285,114 @@ class IngTest(SynTest):
 
                 self.eq( len(core.eval('dns:a*tag=lolxml')), 2 )
                 self.eq( len(core.eval('inet:url*tag=lolxml')), 2 )
+
+    def test_ingest_xml_search(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            with self.getTestDir() as path:
+
+                xpth = os.path.join(path,'woot.xml')
+
+                with genfile(xpth) as fd:
+                    fd.write(testxml)
+
+                info = {
+
+                    'sources':[
+
+                        (xpth,{
+
+                            'open':{'format':'xml'},
+
+                            'ingest':{
+
+                                'iters':[
+
+                                    ['~badurl', { 'forms':[ ('inet:url',{}), ], }],
+
+                                ]
+                            }
+                        })
+                    ]
+                }
+
+                gest = s_ingest.Ingest(info)
+
+                gest.ingest(core)
+
+                self.nn( core.getTufoByProp('inet:url','http://evil.com/') )
+                self.nn( core.getTufoByProp('inet:url','http://badguy.com/') )
+
+    def test_ingest_tagdata(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            info = {
+                'ingest':{
+                    'iters':[
+                        ('foo/*',{
+                            'tagdata':[
+                                {'template':('foo.bar.{{baz}}', {'baz':{'path':'1'}})}
+                            ],
+                            'forms':[ ('inet:fqdn',{'path':'0'}) ]
+                        }),
+                    ]
+                }
+            }
+
+            data = { 'foo':[ ('vertex.link','LULZ') ] }
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core,data=data)
+
+            self.eq( len(core.eval('inet:fqdn*tag="foo.bar.lulz"')), 1 )
+
+    def test_ingest_cast(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            info = {
+                'ingest':{
+                    'iters':[
+                        ('foo/*',{
+                            'forms':[ ('hehe:haha',{'path':'1','cast':'str:lwr'}) ]
+                        }),
+                    ]
+                }
+            }
+
+            data = { 'foo':[ ('vertex.link','LULZ') ] }
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core,data=data)
+
+            self.nn( core.getTufoByProp('hehe:haha','lulz') )
+
+    def test_ingest_lines(self):
+        with s_cortex.openurl('ram://') as core:
+
+            with self.getTestDir() as path:
+
+                path = os.path.join(path,'woot.txt')
+
+                with genfile(path) as fd:
+                    fd.write(testlines)
+
+                info = {
+                    'sources':[
+                        (path,{
+                            'open':{'format':'lines'},
+                            'ingest':{
+                                'forms':[ ['inet:fqdn',{}] ]
+                            }
+                        })
+                    ]
+                }
+
+                gest = s_ingest.Ingest(info)
+
+                gest.ingest(core)
+
+                self.nn( core.getTufoByProp('inet:fqdn','foo.com') )
+                self.nn( core.getTufoByProp('inet:fqdn','bar.com') )

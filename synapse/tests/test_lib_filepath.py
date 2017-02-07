@@ -1,4 +1,5 @@
 
+import io
 import shutil
 import tarfile
 import zipfile
@@ -54,19 +55,23 @@ class TestFilePath(SynTest):
 
         f0 = b'A'*20
         f0_path = os.path.join(temp_dir, 'foo0')
-        open(f0_path, 'wb').write(f0)
+        with open(f0_path, 'wb') as fd:
+            fd.write(f0)
 
         f1 = b'B'*20
         f1_path = os.path.join(temp_dir, 'foo1')
-        open(f1_path, 'wb').write(f1)
+        with open(f1_path, 'wb') as fd:
+            fd.write(f1)
 
         f2 = b'C'*20
         f2_path = os.path.join(temp_dir, 'foo2')
-        open(f2_path, 'wb').write(f2)
+        with open(f2_path, 'wb') as fd:
+            fd.write(f2)
 
         f3 = b'Z'*20
         f3_path = os.path.join(temp_dir, 'junk')
-        open(f3_path, 'wb').write(f3)
+        with open(f3_path, 'wb') as fd:
+            fd.write(f3)
 
         # files that exists
         path = os.path.join(temp_dir, 'foo*')
@@ -122,7 +127,6 @@ class TestFilePath(SynTest):
         zfd0.writestr('dir0/dir1/dir2/junk', 'Z'*20)
         zfd0.close()
 
-        import io
         tfd0 = tarfile.TarFile(ttfd0.name, 'w')
         tfd0.add(f0_path, arcname='dir0/dir1/dir2/foo0')
         tfd0.add(f1_path, arcname='dir0/dir1/dir2/foo1')
@@ -140,15 +144,17 @@ class TestFilePath(SynTest):
         zfd1.close()
 
         path = os.path.join(tzfd1.name, 'dir0/dir1/dir2/bar*')
-        fds = [f for f in s_filepath.openfiles(path, mode='rb')]
-        self.eq(len(fds), 3)
-        for fd in fds:
+        count = 0
+        for fd in s_filepath.openfiles(path, mode='rb'):
             buf = fd.read()
             self.eq(len(buf), 20)
             self.assertIn(buf, [f0, f1, f2])
+            fd.close()
+            count += 1
+        self.eq(count, 3)
 
-        zfd0.close()
-        zfd1.close()
+        tzfd0.close()
+        tzfd1.close()
         tfd0.close()
 
     def test_filepath_regular(self):
@@ -173,6 +179,7 @@ class TestFilePath(SynTest):
         # open regular file
         fd = s_filepath.openfile(temp_fd.name, mode='rb')
         self.assertEqual(fd.read(), fbuf)
+        fd.close()
 
         # dne path
         self.assertRaises(s_exc.NoSuchPath, s_filepath.openfile, '%s%s' % (temp_fd.name, '_DNE'), mode='rb')
@@ -185,7 +192,7 @@ class TestFilePath(SynTest):
         self.assertIsNone(s_filepath.openfile('/', req=False))
 
         temp_fd.close()
-        os.rmdir(temp_dir)
+        shutil.rmtree(temp_dir)
 
     def test_filepath_zip(self):
         temp_fd = tempfile.NamedTemporaryFile()
@@ -259,6 +266,7 @@ class TestFilePath(SynTest):
         self.assertFalse(s_filepath.isdir(path))
 
         temp_fd.close()
+        nested_temp_fd.close()
 
     def test_filepath_zip_open(self):
         temp_fd = tempfile.NamedTemporaryFile()
@@ -346,12 +354,14 @@ class TestFilePath(SynTest):
         fd = s_filepath.openfile(path, mode='rb')
         fs_fd = open(getTestPath('nest2.tar'), 'rb')
         self.assertEqual(fd.read(), fs_fd.read())
+        fs_fd.close()
 
         # open inner tar file
         path = getTestPath('nest2.tar', 'nndir0', 'nndir1', 'nest1.tar')
         fd = s_filepath.openfile(path, mode='rb')
         fs_fd = open(getTestPath('nest1.tar'), 'rb')
         self.assertEqual(fd.read(), fs_fd.read())
+        fs_fd.close()
 
         # open inner file
         path = getTestPath('nest2.tar', 'nnfoo')
@@ -359,4 +369,5 @@ class TestFilePath(SynTest):
         buf = b'A'*20
         buf += b'\n'
         self.assertEqual(fd.read(), buf)
+        fd.close()
 

@@ -179,7 +179,13 @@ def getDataModel():
         ),
     }
 
+def castInetDeFang(valu):
+    return valu.replace('[.]','.')
+
 def addCoreOns(core):
+
+    # add an inet:defang cast to swap [.] to .
+    core.addTypeCast('inet:defang',castInetDeFang)
 
     def onTufoFormPasswd(mesg):
         valu = mesg[1].get('valu')
@@ -240,6 +246,8 @@ class IPv4Type(DataType):
         return ipv4str(valu)
 
     def parse(self, text, oldval=None):
+        # deal with "defanged" ipv4
+        text = text.replace('[.]','.')
         return ipv4int(text)
 
 fqdnre = re.compile(r'^[\w._-]+$', re.U)
@@ -253,6 +261,8 @@ class FqdnType(DataType):
     )
 
     def norm(self, valu, oldval=None):
+        # deal with "defanged" fqdn
+        valu = valu.replace('[.]','.')
         if not fqdnre.match(valu):
             self._raiseBadValu(valu)
         valu = valu.lower()

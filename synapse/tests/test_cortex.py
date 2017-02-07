@@ -1308,3 +1308,14 @@ class CortexTest(SynTest):
                 core.logCoreExc(exc,subsys='haha', level=logging.WARNING)
 
             self.assertIsNone( core.getTufoByProp('syn:log:subsys', valu='haha') )
+
+    def test_cortex_seed(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            def seedFooBar(prop,valu,**props):
+                return core.formTufoByProp('inet:fqdn',valu,**props)
+
+            core.addSeedCtor('foo:bar', seedFooBar)
+            tufo = core.formTufoByProp('foo:bar','woot.com')
+            self.eq( tufo[1].get('inet:fqdn'), 'woot.com' )
