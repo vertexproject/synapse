@@ -24,11 +24,11 @@ class Scope:
     def __exit__(self, exc, cls, tb):
         self.leave()
 
-    def enter(self):
+    def enter(self,**vals):
         '''
         Add an additional scope frame.
         '''
-        return self.frames.append({})
+        return self.frames.append(vals)
 
     def leave(self):
         '''
