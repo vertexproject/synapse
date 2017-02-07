@@ -496,3 +496,28 @@ class IngTest(SynTest):
             node = core.getTufoByProp('inet:fqdn','vertex.link')
             self.true( s_tufo.tagged(node,'zoom.foo') )
             self.true( s_tufo.tagged(node,'zoom.bar') )
+
+    def test_ingest_tag_template_whif(self):
+
+        data = {'foo':[ {'fqdn':'vertex.link','haha':['barbar','foofoo']} ] }
+
+        info = {'ingest':{
+            'iters':[
+                ["foo/*",{
+                    'vars':{ 'zoom':{'path':'fqdn'} },
+                    'tags':[
+                        {'iter':'haha/*','template':('zoom.{{tag}}',{'tag':{'regex':"^foo"}})}
+                    ],
+                    'forms':[ ('inet:fqdn',{'path':'fqdn'}) ],
+                }],
+            ],
+        }}
+
+        with s_cortex.openurl('ram://') as core:
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core,data=data)
+
+            node = core.getTufoByProp('inet:fqdn','vertex.link')
+            self.true( s_tufo.tagged(node,'zoom.foofoo') )
+            self.false( s_tufo.tagged(node,'zoom.barbar') )

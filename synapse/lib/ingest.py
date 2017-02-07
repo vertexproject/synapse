@@ -248,7 +248,7 @@ class Ingest(EventBus):
                 continue
 
             # otherwise it's an iteration compatible prop dict
-            tags = [ t.lower() for t in self._iter_prop(core,data,tagv,scope) ]
+            tags = [ t.lower() for t in self._iter_prop(core,data,tagv,scope) if t ]
 
             scope.add('tags',*tags)
 
@@ -370,12 +370,21 @@ class Ingest(EventBus):
             return
 
         path = info.get('iter')
+
         if path == None:
-            yield self._get_prop(core, data, info, scope)
+
+            valu = self._get_prop(core, data, info, scope)
+            if valu != None:
+                yield valu
+
             return
 
         for base in data.iter(path):
-            yield self._get_prop(core, base, info, scope)
+            valu = self._get_prop(core, base, info, scope)
+            if valu == None:
+                continue
+
+            yield valu
 
     def _get_prop(self, core, base, info, scope):
 
