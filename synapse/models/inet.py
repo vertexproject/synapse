@@ -57,6 +57,7 @@ def getDataModel():
 
             ('inet:whois:reg',{'subof':'str','doc':'A whois registrant','ex':'Woot Hostmaster'}),
             ('inet:whois:rec',{'subof':'sepr','sep':'@','fields':'fqdn,inet:fqdn|asof,time','doc':'A whois record','ex':''}),
+            ('inet:whois:regmail',{'subof':'sepr','sep':'/','fields':'fqdn,inet:fqdn|email,inet:email','doc':'A whois registration fqdn->email link'}),
 
             # TODO: (port from nucleus etc)
             # inet:cidr6
@@ -144,6 +145,9 @@ def getDataModel():
             ('inet:netuser',{'ptype':'inet:netuser'},[
                 ('site',{'ptype':'inet:fqdn','ro':1}),
                 ('user',{'ptype':'inet:user','ro':1}),
+                ('name',{'ptype':'str','defval':'??'}),
+                ('email',{'ptype':'inet:email'}),
+                ('passwd',{'ptype':'inet:passwd'}),
                 ('signup',{'ptype':'time','defval':0,'doc':'The time the netuser account was registered'}),
                 ('passwd',{'ptype':'inet:passwd','doc':'The current passwd for the netuser account'}),
                 ('seen:min',{'ptype':'time:min','defval':0}),
@@ -159,6 +163,11 @@ def getDataModel():
             ]),
 
             ('inet:whois:reg',{'ptype':'inet:whois:reg'},[]),
+
+            ('inet:whois:regmail',{'ptype':'inet:whois:regmail'},[
+                ('fqdn',{'ptype':'inet:fqdn','ro':1}),
+                ('email',{'ptype':'inet:email','ro':1}),
+            ]),
 
             ('inet:whois:rec',{'ptype':'inet:whois:rec'},[
                 ('fqdn',{'ptype':'inet:fqdn'}),

@@ -211,7 +211,8 @@ class IngTest(SynTest):
         info = {'ingest':{
             'iters':[
                 ["foo/*",{
-                    'forms':[ ('dns:a',{'template':('{{fqdn}}/{{ipv4}}', {'ipv4':{'path':'0'},'fqdn':{'path':'1'}}) } ) ],
+                    'vars':{ 'ipv4':{'path':'0'}, 'fqdn':{'path':'1'} },
+                    'forms':[ ('dns:a',{'template':'{{fqdn}}/{{ipv4}}'}) ]
                 }],
             ],
         }}
@@ -251,14 +252,10 @@ class IngTest(SynTest):
                                 'iters':[
 
                                     ['data/dnsa', {
+                                        #explicitly opt fqdn into the optional attrib syntax
+                                        'vars':{'fqdn':{'path':'$fqdn'},'ipv4':{'path':'ipv4'}},
                                         'forms':[
-                                            ('dns:a',{
-                                                'template':('{{fqdn}}/{{ipv4}}',{
-                                                    #explicitly opt fqdn into the optional attrib syntax
-                                                    'fqdn':{'path':'$fqdn'},
-                                                    'ipv4':{'path':'ipv4'},
-                                                })
-                                            })
+                                            ('dns:a',{'template':'{{fqdn}}/{{ipv4}}'}),
                                         ]
                                     }],
 
@@ -332,9 +329,8 @@ class IngTest(SynTest):
                 'ingest':{
                     'iters':[
                         ('foo/*',{
-                            'tags':[
-                                {'template':('foo.bar.{{baz}}', {'baz':{'path':'1'}})}
-                            ],
+                            'vars':{'baz':{'path':'1'}},
+                            'tags':[ {'template':'foo.bar.{{baz}}'} ],
                             'forms':[ ('inet:fqdn',{'path':'0'}) ]
                         }),
                     ]
@@ -479,9 +475,11 @@ class IngTest(SynTest):
         info = {'ingest':{
             'iters':[
                 ["foo/*",{
-                    'vars':{ 'zoom':{'path':'fqdn'} },
+                    'vars':{ 'zoom':{'path':'fqdn'}},
                     'tags':[
-                        {'iter':'haha/*','template':('zoom.{{tag}}',{'tag':{}})}
+                        {'iter':'haha/*',
+                         'vars':{'zoomtag':{}},
+                         'template':'zoom.{{zoomtag}}'}
                     ],
                     'forms':[ ('inet:fqdn',{'path':'fqdn'}) ],
                 }],
@@ -506,7 +504,11 @@ class IngTest(SynTest):
                 ["foo/*",{
                     'vars':{ 'zoom':{'path':'fqdn'} },
                     'tags':[
-                        {'iter':'haha/*','template':('zoom.{{tag}}',{'tag':{'regex':"^foo"}})}
+                        {'iter':'haha/*',
+                         'vars':{
+                            'tag':{'regex':'^foo'},
+                         },
+                         'template':'zoom.{{tag}}'}
                     ],
                     'forms':[ ('inet:fqdn',{'path':'fqdn'}) ],
                 }],
