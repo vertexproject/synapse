@@ -181,6 +181,9 @@ class Ingest(EventBus):
 
         self._i_glab = s_gene.GeneLab()
 
+        self._tvar_cache = {}
+        self._tvar_regex = re.compile('{{(\w+)}}')
+
     def _re_compile(self, regex):
         ret = self._i_res.get(regex)
         if ret == None:
@@ -248,7 +251,7 @@ class Ingest(EventBus):
                 continue
 
             # otherwise it's an iteration compatible prop dict
-            tags = [ t.lower() for t in self._iter_prop(core,data,tagv,scope) if t ]
+            tags = [ t.lower() for t in self._iter_prop(core,data,tagv,scope) ]
 
             scope.add('tags',*tags)
 
@@ -305,6 +308,8 @@ class Ingest(EventBus):
                     return
 
                 tufo = core.formTufoByFrob(form,valu)
+                if tufo == None:
+                    return
 
                 self.fire('gest:prog', act='form')
 
@@ -380,11 +385,21 @@ class Ingest(EventBus):
             return
 
         for base in data.iter(path):
-            valu = self._get_prop(core, base, info, scope)
-            if valu == None:
-                continue
 
-            yield valu
+            with scope:
+
+                self._ingMergScope(core,base,info,scope)
+                valu = self._get_prop(core, base, info, scope)
+                if valu == None:
+                    continue
+
+                yield valu
+
+    def _getTmplVars(self, text):
+        ret = self._tvar_cache.get(text)
+        if ret == None:
+            self._tvar_cache[text] = ret = self._tvar_regex.findall(text)
+        return ret
 
     def _get_prop(self, core, base, info, scope):
 
@@ -403,15 +418,15 @@ class Ingest(EventBus):
         template = info.get('template')
         if template != None:
 
-            valu,tnfo = template
+            valu = template
 
-            for tname,tinfo in tnfo.items():
-
-                tval = self._get_prop(core,base,tinfo,scope)
+            for tvar in self._getTmplVars(template):
+                tval = scope.get(tvar)
                 if tval == None:
                     return None
 
-                valu = valu.replace('{{%s}}' % tname, tval)
+                # FIXME optimize away the following format string
+                valu = valu.replace('{{%s}}' % tvar, tval)
 
         if valu == None:
             path = info.get('path')

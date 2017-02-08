@@ -1806,9 +1806,17 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
             tufo = core.formTufoByFrob('inet:ipv4', 0x01020304)
             tufo = core.formTufoByFrob('inet:ipv4', "1.2.3.4")
         '''
-        valu = self.getPropFrob(form, valu)
-        props = self._frobTufoProps(form, props)
-        return self.formTufoByProp(form, valu, **props)
+        fval = self.getPropFrob(form, valu)
+        if fval == None:
+            return None
+
+        try:
+
+            props = self._frobTufoProps(form, props)
+            return self.formTufoByProp(form, fval, **props)
+
+        except BadTypeValu as e:
+            return None
 
     def delTufo(self, tufo):
         '''
@@ -1937,7 +1945,11 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
         for name,valu in inprops.items():
             prop = '%s:%s' % (form,name)
+
             valu = self.getPropFrob(prop,valu)
+            if valu == None:
+                continue
+
             props[name] = valu
 
         return props
