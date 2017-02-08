@@ -147,7 +147,6 @@ def getDataModel():
                 ('user',{'ptype':'inet:user','ro':1}),
                 ('name',{'ptype':'str','defval':'??'}),
                 ('email',{'ptype':'inet:email'}),
-                ('passwd',{'ptype':'inet:passwd'}),
                 ('signup',{'ptype':'time','defval':0,'doc':'The time the netuser account was registered'}),
                 ('passwd',{'ptype':'inet:passwd','doc':'The current passwd for the netuser account'}),
                 ('seen:min',{'ptype':'time:min','defval':0}),
