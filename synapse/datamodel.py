@@ -348,8 +348,12 @@ class DataModel(s_types.TypeLib):
         if dtype == None:
             return valu
 
-        return dtype.frob(valu,oldval=oldval)
+        try:
 
+            return dtype.frob(valu,oldval=oldval)
+
+        except BadTypeValu as e:
+            return None
 
     def getPropChop(self, prop, valu):
         '''

@@ -213,3 +213,11 @@ class InetModelTest(SynTest):
     def test_model_inet_cast_defang(self):
         with s_cortex.openurl('ram:///') as core:
             self.eq( core.getTypeCast('inet:defang','1[.]2[.]3[.]4'), '1.2.3.4' )
+
+    def test_model_inet_whoisemail(self):
+        with s_cortex.openurl('ram:///') as core:
+            node = core.formTufoByProp('inet:whois:regmail','WOOT.COM/visi@vertex.LINK')
+            self.nn( core.getTufoByProp('inet:fqdn','woot.com') )
+            self.nn( core.getTufoByProp('inet:email','visi@vertex.link') )
+            self.eq( node[1].get('inet:whois:regmail:email'), 'visi@vertex.link' )
+            self.eq( node[1].get('inet:whois:regmail:fqdn'), 'woot.com' )
