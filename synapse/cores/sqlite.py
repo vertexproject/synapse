@@ -511,19 +511,16 @@ class Cortex(s_cores_common.Cortex):
             xact.cursor.executemany( self._q_addrows, args )
 
     def update(self, q, **args):
-        #print('UPDATE: %r %r' % (q,r))
         with self.getCoreXact() as xact:
             xact.cursor.execute(q,args)
             return xact.cursor.rowcount
 
     def select(self, q, **args):
-        #print('SELECT: %r %r' % (q,args))
         with self.getCoreXact() as xact:
             xact.cursor.execute(q,args)
             return xact.cursor.fetchall()
 
     def delete(self, q, **args):
-        #print('DELETE: %s %r' % (q,args))
         with self.getCoreXact() as xact:
             xact.cursor.execute(q,args)
 
@@ -566,7 +563,7 @@ class Cortex(s_cores_common.Cortex):
         return self._rowsToTufos(rows)
 
     def _tufosByLe(self, prop, valu, limit=None):
-        valu = self.getPropFrob(prop,valu)
+        valu,_ = self.getPropFrob(prop,valu)
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_le_int, prop=prop, valu=valu, limit=limit)
@@ -575,7 +572,7 @@ class Cortex(s_cores_common.Cortex):
         return self._rowsToTufos(rows)
 
     def _tufosByGe(self, prop, valu, limit=None):
-        valu = self.getPropFrob(prop,valu)
+        valu,_ = self.getPropFrob(prop,valu)
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_ge_int, prop=prop, valu=valu, limit=limit)

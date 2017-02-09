@@ -1302,7 +1302,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
         '''
         if valu != None:
-            valu = self.getPropFrob(prop,valu)
+            valu,_ = self.getPropFrob(prop,valu)
 
         return self.getTufoByProp(prop, valu=valu)
 
@@ -1341,7 +1341,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
         '''
         if valu != None:
-            valu = self.getPropFrob(prop,valu)
+            valu,_ = self.getPropFrob(prop,valu)
 
         return self.getTufosByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
 
@@ -1436,7 +1436,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
             with self.getCoreXact() as xact:
 
-                formevt = 'tufo:tag:del:%s' % tufo[1].get('tufo:form') 
+                formevt = 'tufo:tag:del:%s' % tufo[1].get('tufo:form')
 
                 [ self.delRowsByIdProp(iden,prop) for prop in props ]
 
@@ -1482,7 +1482,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         form = tufo[1].get('tufo:form')
         for key,val in keyvals:
             prop = '%s:%s' % (form,key)
-            valu = self.getPropNorm(prop,val)
+            valu,subs = self.getPropNorm(prop,val)
 
             rows.append( (iden, prop, valu, stamp) )
 
@@ -1594,7 +1594,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
                 iden = guid()
 
                 props = self._primToProps(form,item)
-                props = [ (p,self.getPropNorm(p,v)) for (p,v) in props ]
+                props = [ (p,self.getPropNorm(p,v)[0]) for (p,v) in props ]
 
                 rows = [ (iden,p,v,tstamp) for (p,v) in props ]
 
@@ -1754,7 +1754,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         if ctor != None:
             return ctor(prop,valu,**props)
 
-        valu,subs = self.getPropChop(prop,valu)
+        valu,subs = self.getPropNorm(prop,valu)
 
         with self.getCoreXact() as xact:
 
@@ -1807,13 +1807,14 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
             tufo = core.formTufoByFrob('inet:ipv4', 0x01020304)
             tufo = core.formTufoByFrob('inet:ipv4', "1.2.3.4")
         '''
-        fval = self.getPropFrob(form, valu)
+        fval,fprops = self.getPropFrob(form, valu)
         if fval == None:
             return None
 
         try:
 
             props = self._frobTufoProps(form, props)
+            props.update(fprops)
             return self.formTufoByProp(form, fval, **props)
 
         except BadTypeValu as e:
@@ -1855,7 +1856,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
             core.delTufoByProp('foo','bar')
 
         '''
-        valu = self.getPropNorm(form,valu)
+        valu,_ = self.getPropNorm(form,valu)
 
         item = self.getTufoByProp(form,valu)
         if item != None:
@@ -1899,9 +1900,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
             prop = '%s:%s' % (form,name)
             if not self._okSetProp(prop):
                 continue
-
-            # do we have a DataType to normalize and carve sub props?
-            valu,subs = self.getPropChop(prop,valu)
+            valu,subs = self.getPropNorm(prop,valu)
 
             ptype = self.getPropTypeName(prop)
             if self.isTufoForm(ptype):
@@ -1947,7 +1946,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         for name,valu in inprops.items():
             prop = '%s:%s' % (form,name)
 
-            valu = self.getPropFrob(prop,valu)
+            valu,_ = self.getPropFrob(prop,valu)
             if valu == None:
                 continue
 
@@ -1998,7 +1997,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         form = tufo[1].get('tufo:form')
 
         # normalize property values
-        props = { p:self.getPropNorm(p,v,oldval=tufo[1].get(p)) for (p,v) in props.items() if self._okSetProp(p) }
+        props = { p:self.getPropNorm(p,v,oldval=tufo[1].get(p))[0] for (p,v) in props.items() if self._okSetProp(p) }
 
         # FIXME handle subprops here?
 
@@ -2192,7 +2191,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
     def _tufosByInetCidr(self, prop, valu, limit=None):
 
         ipv4str, cidr = valu.split('/', 1)
-        ipv4addr = s_datamodel.getTypeParse('inet:ipv4', ipv4str)
+        ipv4addr,_ = s_datamodel.getTypeParse('inet:ipv4', ipv4str)
         mask = ( 2** ( 32 - int(cidr) ))
         ipv4addr &= ~mask
 
@@ -2278,7 +2277,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
     # some helpers to allow *all* queries to be processed via getTufosBy()
     def _tufosByEq(self, prop, valu, limit=None):
-        valu = self.getPropFrob(prop,valu)
+        valu,_ = self.getPropFrob(prop,valu)
         return self.getTufosByProp(prop,valu=valu,limit=limit)
 
     def _tufosByHas(self, prop, valu, limit=None):
@@ -2288,11 +2287,11 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         return self.getTufosByTag(prop,valu,limit=limit)
 
     def _tufosByType(self, prop, valu, limit=None):
-        valu = self.getTypeFrob(prop,valu)
+        valu,_ = self.getTypeFrob(prop,valu)
         return self.getTufosByPropType(prop,valu=valu,limit=limit)
 
     # these helpers allow a storage layer to simply implement
-    # and register _getTufosByGe and _getTufosByLe 
+    # and register _getTufosByGe and _getTufosByLe
 
     def _rowsByLt(self, prop, valu, limit=None):
         return self._rowsByLe(prop, valu-1, limit=limit)
@@ -2403,24 +2402,20 @@ class CoreXact:
         raise NoSuchImpl(name='_coreXactCommit')
 
     def acquire(self):
-        #print('ACQUIRE')
         self._coreXactAcquire()
         self.core.xlock.acquire()
 
     def release(self):
-        #print('RELEASE')
         self.core.xlock.release()
         self._coreXactRelease()
 
     def begin(self):
-        #print('BEGIN')
         self._coreXactBegin()
 
     def commit(self):
         '''
         Commit the results thus far ( without closing / releasing )
         '''
-        #print('COMMIT: %d' % (len(self.events),))
         self._coreXactCommit()
 
     def fireall(self):

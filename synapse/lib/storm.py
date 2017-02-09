@@ -235,7 +235,7 @@ class Runtime(Configable):
     def stormTufosBy(self, by, prop, valu=None, limit=None):
         '''
         A STORM runtime specific version of the cortex function getTufosBy
-        which allows sub-classes to override the default behavior for 
+        which allows sub-classes to override the default behavior for
         operators like lift/join/pivot.
         '''
         limit = self.getLiftLimit(limit)

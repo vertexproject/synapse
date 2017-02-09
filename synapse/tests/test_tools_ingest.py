@@ -6,7 +6,7 @@ import synapse.daemon as s_daemon
 import synapse.cortex as s_cortex
 import synapse.tools.ingest as s_ingest
 
-class TestAutoDoc(SynTest):
+class TestIngest(SynTest):
 
     def test_tools_ingest(self):
 

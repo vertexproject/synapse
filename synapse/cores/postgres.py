@@ -40,7 +40,7 @@ class Cortex(s_c_sqlite.Cortex):
 
     _t_istable = '''
        SELECT 1
-       FROM   information_schema.tables 
+       FROM   information_schema.tables
        WHERE    table_name = {{NAME}}
     '''
 
@@ -69,7 +69,7 @@ class Cortex(s_c_sqlite.Cortex):
                 time.sleep(1)
 
         seqscan = self._link[1].get('pg:seqscan',0)
-        seqscan = s_datamodel.getTypeFrob('bool',seqscan)
+        seqscan,_ = s_datamodel.getTypeFrob('bool',seqscan)
 
         c = db.cursor()
         c.execute('SET enable_seqscan=%s', (seqscan,))
