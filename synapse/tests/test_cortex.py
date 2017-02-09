@@ -199,7 +199,7 @@ class CortexTest(SynTest):
 
         self.assertEqual( core.getSizeBy('range','rg',(0,20)), 1 )
         self.assertEqual( core.getRowsBy('range','rg',(0,20))[0][2], 10 )
-        
+
         # range is inclusive of `min`, exclusive of `max`
         self.assertEqual( core.getSizeBy('range','rg',(9,11)), 1 )
         self.assertEqual( core.getSizeBy('range','rg',(10,12)), 1 )
@@ -270,17 +270,17 @@ class CortexTest(SynTest):
         # BY CIDR
         tlib = s_types.TypeLib()
 
-        ipint = tlib.getTypeParse('inet:ipv4', '192.168.0.1')
+        ipint,_ = tlib.getTypeParse('inet:ipv4', '192.168.0.1')
         ipa = core.formTufoByProp('inet:ipv4', ipint)
-        ipint = tlib.getTypeParse('inet:ipv4', '192.168.255.254')
+        ipint,_ = tlib.getTypeParse('inet:ipv4', '192.168.255.254')
         ipa = core.formTufoByProp('inet:ipv4', ipint)
 
-        ipint = tlib.getTypeParse('inet:ipv4', '192.167.255.254')
+        ipint,_ = tlib.getTypeParse('inet:ipv4', '192.167.255.254')
         ipb = core.formTufoByProp('inet:ipv4', ipint)
 
         ips = ['10.2.1.%d' % d for d in range(1,33)]
         for ip in ips:
-            ipint = tlib.getTypeParse('inet:ipv4', ip)
+            ipint,_ = tlib.getTypeParse('inet:ipv4', ip)
             ipc = core.formTufoByProp('inet:ipv4', ipint)
 
         self.assertEqual( len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.4/32')), 1)
@@ -1154,12 +1154,12 @@ class CortexTest(SynTest):
                 core.formTufoByProp('syn:type','foo',subof='bar')
                 core.formTufoByProp('syn:type','bar',ctor='synapse.tests.test_cortex.FakeType')
 
-                self.assertEqual( core.getTypeParse('foo','30'), 30 )
-                self.assertEqual( core.getTypeParse('bar','30'), 30 )
+                self.assertEqual( core.getTypeParse('foo','30')[0], 30 )
+                self.assertEqual( core.getTypeParse('bar','30')[0], 30 )
 
             with s_cortex.openurl('ram://',savefile=savefile) as core:
-                self.assertEqual( core.getTypeParse('foo','30'), 30 )
-                self.assertEqual( core.getTypeParse('bar','30'), 30 )
+                self.assertEqual( core.getTypeParse('foo','30')[0], 30 )
+                self.assertEqual( core.getTypeParse('bar','30')[0], 30 )
 
     def test_cortex_syncfd(self):
         with self.getTestDir() as path:

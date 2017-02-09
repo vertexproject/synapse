@@ -240,13 +240,13 @@ class IPv4Type(DataType):
         if not s_compat.isint(valu):
             self._raiseBadValu(valu)
 
-        return valu & 0xffffffff
+        return valu & 0xffffffff,{}
 
     def frob(self, valu, oldval=None):
         if s_compat.isstr(valu):
             # handle decimal integer strings...
             if valu.isdigit():
-                return int(valu) & 0xffffffff
+                return int(valu) & 0xffffffff,{}
             return self.parse(valu, oldval=oldval)
         return self.norm(valu, oldval=oldval)
 
@@ -255,8 +255,10 @@ class IPv4Type(DataType):
 
     def parse(self, text, oldval=None):
         # deal with "defanged" ipv4
-        text = text.replace('[.]','.')
-        return ipv4int(text)
+        if s_compat.isstr(text):
+            text = text.replace('[.]','.')
+            return ipv4int(text),{}
+        self._raiseBadValu(text)
 
 fqdnre = re.compile(r'^[\w._-]+$', re.U)
 class FqdnType(DataType):
@@ -269,24 +271,20 @@ class FqdnType(DataType):
     )
 
     def norm(self, valu, oldval=None):
-        # deal with "defanged" fqdn
         valu = valu.replace('[.]','.')
         if not fqdnre.match(valu):
             self._raiseBadValu(valu)
-        valu = valu.lower()
         if valu.startswith('xn--'):
-            return idna.ToUnicode(valu)
-        return valu
+            valu = idna.ToUnicode(valu)
+        valu = valu.lower()
 
-    def chop(self, valu, oldval=None):
-        norm = self.norm(valu)
-        parts = norm.split('.', 1)
+        parts = valu.split('.', 1)
         subs = {'host': parts[0]}
         if len(parts) == 2:
             subs['domain'] = parts[1]
         else:
             subs['sfx'] = 1
-        return norm, subs
+        return valu,subs
 
 
 # RFC5952 compatible
@@ -306,7 +304,7 @@ class IPv6Type(DataType):
 
     def norm(self, valu, oldval=None):
         try:
-            return ipv6norm(valu)
+            return ipv6norm(valu),{}
         except Exception as e:
             self._raiseBadValu(valu)
 
@@ -321,15 +319,12 @@ class Srv4Type(DataType):
         ('ipv4', {'ptype':'inet:ipv4'}),
     )
 
-    def norm(self, valu, oldval=None):
-        return valu & 0xffffffffffff
-
     def repr(self, valu):
         addr = valu >> 16
         port = valu & 0xffff
         return '%s:%d' % ( ipv4str(addr), port )
 
-    def chop(self, valu):
+    def norm(self, valu, oldval=None):
         addr = valu >> 16
         port = valu & 0xffff
         return valu,{'port':port,'ipv4':addr}
@@ -343,7 +338,7 @@ class Srv4Type(DataType):
 
         addr = ipv4int(astr)
         port = int(pstr,0)
-        return ( addr << 16 ) | port
+        return ( addr << 16 ) | port,{}
 
     def frob(self, valu, oldval=None):
         if s_compat.isstr(valu):
@@ -362,9 +357,6 @@ class Srv6Type(DataType):
     )
 
     def norm(self, valu, oldval=None):
-        return self.chop(valu)[0]
-
-    def chop(self, valu):
 
         valu = valu.lower()
         m = srv6re.match(valu)
@@ -393,13 +385,10 @@ class EmailType(DataType):
     )
 
     def norm(self, valu, oldval=None):
-        return self.chop(valu, oldval)[0]
-
-    def chop(self, valu, oldval=None):
         try:
             user,fqdn = valu.split('@',1)
-            user = self.tlib.getTypeNorm('inet:user', user)
-            fqdn = self.tlib.getTypeNorm('inet:fqdn', fqdn)
+            user,_ = self.tlib.getTypeNorm('inet:user', user)
+            fqdn,_ = self.tlib.getTypeNorm('inet:fqdn', fqdn)
             norm = ('%s@%s' % (user, fqdn)).lower()
         except ValueError as e:
             self._raiseBadValu(valu)
@@ -420,9 +409,6 @@ class UrlType(DataType):
     )
 
     def norm(self, valu, oldval=None):
-        return self.chop(valu,oldval=oldval)[0]
-
-    def chop(self, valu, oldval=None):
         respath = ''
         resauth = ''
 
@@ -454,9 +440,6 @@ class UrlType(DataType):
 class CidrType(DataType):
 
     def norm(self, valu, oldval=None):
-        return self.chop(valu,oldval=oldval)[0]
-
-    def chop(self, valu, oldval=None):
 
         ipstr,maskstr = valu.split('/')
 

@@ -56,7 +56,7 @@ class Configable:
         Check that that config values pass validation or raise.
         '''
         for name,valu in opts.items():
-            valu = self.getConfFrob(name,valu)
+            valu,_ = self.getConfFrob(name,valu)
 
     def getConfOpt(self, name):
         return self._conf_opts.get(name)
@@ -90,7 +90,7 @@ class Configable:
 
         ctype = cdef[1].get('type')
         if ctype != None:
-            valu = getTypeFrob(ctype,valu)
+            valu,_ = getTypeFrob(ctype,valu)
 
         if valu == oldval:
             return False

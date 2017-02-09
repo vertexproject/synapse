@@ -70,8 +70,8 @@ def parsetypes(*atypes, **kwtypes):
         def runfunc(self, *args, **kwargs):
 
             try:
-                args = [ getTypeParse(atypes[i],args[i]) for i in range(len(args)) ]
-                kwargs = { k:getTypeParse(kwtypes[k],v) for (k,v) in kwargs.items() }
+                args = [ getTypeParse(atypes[i],args[i])[0] for i in range(len(args)) ]
+                kwargs = { k:getTypeParse(kwtypes[k],v)[0] for (k,v) in kwargs.items() }
 
             except IndexError as e:
                 raise Exception('parsetypes() too many args in: %s' % (f.__name__,))
@@ -326,12 +326,12 @@ class DataModel(s_types.TypeLib):
 
         Example:
 
-            valu = model.getPropNorm(prop,valu)
+            valu,subs = model.getPropNorm(prop,valu)
 
         '''
         dtype = self.getPropType(prop)
         if dtype == None:
-            return valu
+            return valu,{}
 
         return dtype.norm(valu,oldval=oldval)
 
@@ -341,12 +341,12 @@ class DataModel(s_types.TypeLib):
 
         Example:
 
-            valu = model.getPropNorm(prop,valu)
+            valu,subs = model.getPropNorm(prop,valu)
 
         '''
         dtype = self.getPropType(prop)
         if dtype == None:
-            return valu
+            return valu,{}
 
         try:
 
@@ -355,29 +355,13 @@ class DataModel(s_types.TypeLib):
         except BadTypeValu as e:
             return None
 
-    def getPropChop(self, prop, valu):
-        '''
-        Return norm,{'sub':subval} tuple for the given property.
-        '''
-        dtype = self.getPropType(prop)
-        if dtype == None:
-            return valu,{}
-
-        try:
-            return dtype.chop(valu)
-        except BadTypeValu:
-            raise BadPropValu(name=prop, valu=valu)
-
-    #def getPropNorms(self, props):
-        #return { p:self.getPropNorm(p,v) for (p,v) in props.items() }
-
     def getPropParse(self, prop, valu):
         '''
         Parse a humon input string into a system mode property value.
 
         Example:
 
-            valu = model.getPropParse(prop, text)
+            valu,subs = model.getPropParse(prop, text)
 
         '''
         dtype = self.getPropType(prop)
@@ -387,7 +371,7 @@ class DataModel(s_types.TypeLib):
         return dtype.parse(valu)
 
     def getParseProps(self, props):
-        return { p:self.getPropParse(p,v) for (p,v) in props.items() }
+        return { p:self.getPropParse(p,v)[0] for (p,v) in props.items() }
 
     def getPropDef(self, prop, glob=True):
         '''
@@ -419,7 +403,7 @@ class DataModel(s_types.TypeLib):
 
     def getPropType(self, prop):
         '''
-        Return the data model type instance for the given property, 
+        Return the data model type instance for the given property,
          or None if the data model doesn't have an entry for the property.
 
         Example:
