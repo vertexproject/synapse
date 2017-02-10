@@ -66,8 +66,7 @@ class Cli(EventBus):
         # cli now has "bar" command
 
     '''
-
-    def __init__(self):
+    def __init__(self, outp=None):
         #cmd.Cmd.__init__(self)
         EventBus.__init__(self)
 

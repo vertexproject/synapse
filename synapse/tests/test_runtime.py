@@ -16,9 +16,9 @@ class StormRunTest(SynTest):
         core.addTufoTag(t0,'omit.cmn')
         core.addTufoTag(t1,'omit.cmn')
 
-        t3 = core.formTufoByProp('dns:a','woot.com/1.2.3.4')
-        t4 = core.formTufoByProp('dns:a','vertex.link/127.0.0.1')
-        t5 = core.formTufoByProp('dns:a','woot.com/127.0.0.1')
+        t3 = core.formTufoByProp('inet:dns:a','woot.com/1.2.3.4')
+        t4 = core.formTufoByProp('inet:dns:a','vertex.link/127.0.0.1')
+        t5 = core.formTufoByProp('inet:dns:a','woot.com/127.0.0.1')
 
         t6 = core.formTufoByProp('inet:fqdn','woot.com')
         t7 = core.formTufoByProp('inet:fqdn','vertex.link')
@@ -66,9 +66,9 @@ class StormRunTest(SynTest):
         t1 = core.formTufoByProp('inet:ipv4',0x7f000001)
         t2 = core.formTufoByProp('inet:ipv4',0x01020304)
 
-        t3 = core.formTufoByProp('dns:a','woot.com/1.2.3.4')
-        t4 = core.formTufoByProp('dns:a','vertex.link/127.0.0.1')
-        t5 = core.formTufoByProp('dns:a','woot.com/127.0.0.1')
+        t3 = core.formTufoByProp('inet:dns:a','woot.com/1.2.3.4')
+        t4 = core.formTufoByProp('inet:dns:a','vertex.link/127.0.0.1')
+        t5 = core.formTufoByProp('inet:dns:a','woot.com/127.0.0.1')
 
         t6 = core.formTufoByProp('inet:fqdn','woot.com')
         t7 = core.formTufoByProp('inet:fqdn','vertex.link')
@@ -77,12 +77,12 @@ class StormRunTest(SynTest):
         self.sorteq( core.eval('inet:ipv4="1.2.3.4"'), [t2] )
         self.sorteq( core.eval('inet:ipv4=0x01020304'), [t2] )
 
-        self.sorteq( core.eval('inet:ipv4="127.0.0.1" inet:ipv4->dns:a:ipv4 dns:a:fqdn->inet:fqdn'), [t6,t7] )
-        self.sorteq( core.eval('inet:ipv4="127.0.0.1" inet:ipv4->dns:a:ipv4 dns:a:fqdn->inet:fqdn'), [t6,t7] )
+        self.sorteq( core.eval('inet:ipv4="127.0.0.1" inet:ipv4->inet:dns:a:ipv4 inet:dns:a:fqdn->inet:fqdn'), [t6,t7] )
+        self.sorteq( core.eval('inet:ipv4="127.0.0.1" inet:ipv4->inet:dns:a:ipv4 inet:dns:a:fqdn->inet:fqdn'), [t6,t7] )
 
         # test join operator basics
         self.sorteq( core.eval('inet:ipv4="127.0.0.1" join(inet:ipv4:cc)'), [t0,t1,t2] )
-        self.sorteq( core.eval('inet:ipv4="127.0.0.1" inet:ipv4->dns:a:ipv4 join("inet:fqdn","dns:a:fqdn")'), [t4,t5,t6,t7] )
+        self.sorteq( core.eval('inet:ipv4="127.0.0.1" inet:ipv4->inet:dns:a:ipv4 join("inet:fqdn","inet:dns:a:fqdn")'), [t4,t5,t6,t7] )
 
         # test filt #####################################################
 

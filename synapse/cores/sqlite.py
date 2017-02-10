@@ -6,8 +6,8 @@ import sqlite3
 import synapse.compat as s_compat
 import synapse.cores.common as s_cores_common
 
-from synapse.common import now
 from synapse.compat import queue
+from synapse.common import now,genpath
 
 stashre = re.compile('{{([A-Z]+)}}')
 
@@ -215,6 +215,9 @@ class Cortex(s_cores_common.Cortex):
         name = self._link[1].get('path')[1:]
         if not name:
             raise Exception('No Path Specified!')
+
+        if name.find(':') == -1:
+            name = genpath(name)
 
         return {'name':name}
 

@@ -405,12 +405,12 @@ class DataTypesTest(SynTest):
 
     def test_type_bases(self):
         with s_cortex.openurl('ram:///') as core:
-            self.eq( tuple(core.getTypeBases('dns:look')), ('str','guid','dns:look') )
+            self.eq( tuple(core.getTypeBases('inet:dns:look')), ('str','guid','inet:dns:look') )
 
     def test_type_issub(self):
         with s_cortex.openurl('ram:///') as core:
-            self.assertTrue( core.isSubType('dns:look', 'guid') )
-            self.assertFalse( core.isSubType('dns:look', 'int') )
+            self.assertTrue( core.isSubType('inet:dns:look', 'guid') )
+            self.assertFalse( core.isSubType('inet:dns:look', 'int') )
             self.assertTrue( core.isSubType('str', 'str') )
 
     def test_type_getTypeInfo(self):

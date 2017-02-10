@@ -172,6 +172,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         self.initTufosBy('in',self._tufosByIn)
         self.initTufosBy('has',self._tufosByHas)
         self.initTufosBy('tag',self._tufosByTag)
+        self.initTufosBy('type',self._tufosByType)
         self.initTufosBy('inet:cidr',self._tufosByInetCidr)
 
         # process a savefile/savefd if we have one
@@ -2285,6 +2286,10 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
     def _tufosByTag(self, prop, valu, limit=None):
         return self.getTufosByTag(prop,valu,limit=limit)
+
+    def _tufosByType(self, prop, valu, limit=None):
+        valu = self.getTypeFrob(prop,valu)
+        return self.getTufosByPropType(prop,valu=valu,limit=limit)
 
     # these helpers allow a storage layer to simply implement
     # and register _getTufosByGe and _getTufosByLe 

@@ -24,6 +24,13 @@ def getDataModel():
                 # FIXME could another model define props for this form?
                 ('mime:x509:cn',{'ptype':'str','doc':'X509 Subject Common Name'}),
 
+                ('mime:pe:size',{'ptype':'int','doc':'Size of the executable according to headers'}),
+                ('mime:pe:imphash',{'ptype':'guid','doc':'PE Import hash as calculated by vivisect'}),
+                ('mime:pe:compiled',{'ptype':'time','doc':'Compile time from the PE header'}),
+
+                # once we have dark prop based text token indexes...
+                #('mime:pe:imports',{'ptype':'time','doc':'Compile time from the PE header'}),
+
                 ('mime:*',{'glob':1,'doc':'Namespace for high-value mime details'})
             )),
 
