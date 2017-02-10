@@ -212,7 +212,7 @@ class IngTest(SynTest):
             'iters':[
                 ["foo/*",{
                     'vars':{ 'ipv4':{'path':'0'}, 'fqdn':{'path':'1'} },
-                    'forms':[ ('dns:a',{'template':'{{fqdn}}/{{ipv4}}'}) ]
+                    'forms':[ ('inet:dns:a',{'template':'{{fqdn}}/{{ipv4}}'}) ]
                 }],
             ],
         }}
@@ -224,7 +224,7 @@ class IngTest(SynTest):
 
             self.assertIsNotNone( core.getTufoByProp('inet:ipv4', 0x01020304 ) )
             self.assertIsNotNone( core.getTufoByProp('inet:fqdn', 'vertex.link') )
-            self.assertIsNotNone( core.getTufoByProp('dns:a','vertex.link/1.2.3.4') )
+            self.assertIsNotNone( core.getTufoByProp('inet:dns:a','vertex.link/1.2.3.4') )
 
     def test_ingest_xml(self):
         with s_cortex.openurl('ram://') as core:
@@ -255,7 +255,7 @@ class IngTest(SynTest):
                                         #explicitly opt fqdn into the optional attrib syntax
                                         'vars':{'fqdn':{'path':'$fqdn'},'ipv4':{'path':'ipv4'}},
                                         'forms':[
-                                            ('dns:a',{'template':'{{fqdn}}/{{ipv4}}'}),
+                                            ('inet:dns:a',{'template':'{{fqdn}}/{{ipv4}}'}),
                                         ]
                                     }],
 
@@ -275,12 +275,12 @@ class IngTest(SynTest):
 
                 gest.ingest(core)
 
-                self.nn( core.getTufoByProp('dns:a','foo.com/1.2.3.4') )
-                self.nn( core.getTufoByProp('dns:a','bar.com/5.6.7.8') )
+                self.nn( core.getTufoByProp('inet:dns:a','foo.com/1.2.3.4') )
+                self.nn( core.getTufoByProp('inet:dns:a','bar.com/5.6.7.8') )
                 self.nn( core.getTufoByProp('inet:url','http://evil.com/') )
                 self.nn( core.getTufoByProp('inet:url','http://badguy.com/') )
 
-                self.eq( len(core.eval('dns:a*tag=lolxml')), 2 )
+                self.eq( len(core.eval('inet:dns:a*tag=lolxml')), 2 )
                 self.eq( len(core.eval('inet:url*tag=lolxml')), 2 )
 
     def test_ingest_xml_search(self):

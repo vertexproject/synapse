@@ -439,7 +439,7 @@ class DataModel(s_types.TypeLib):
 
         Example:
 
-            ex = modl.getPropInfo('dns:a:fqdn','ex')
+            ex = modl.getPropInfo('inet:dns:a:fqdn','ex')
 
         '''
         pdef = self.getPropDef(prop)

@@ -1324,3 +1324,8 @@ class CortexTest(SynTest):
             core.addSeedCtor('foo:bar', seedFooBar)
             tufo = core.formTufoByProp('foo:bar','woot.com')
             self.eq( tufo[1].get('inet:fqdn'), 'woot.com' )
+
+    def test_cortex_bytype(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.formTufoByProp('inet:dns:a','woot.com/1.2.3.4')
+            self.eq( len( core.eval('inet:ipv4*type="1.2.3.4"')), 2 )
