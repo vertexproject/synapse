@@ -10,7 +10,7 @@ if msgpack.version < (0,4,2):
 if tornado.version_info < (3,2):
     raise Exception('synapse requires tornado >= 3.2')
 
-version = (0,0,9)
+version = (0,0,10)
 verstring = '.'.join([ str(x) for x in version ])
 
 import synapse.lib.modules as s_modules
