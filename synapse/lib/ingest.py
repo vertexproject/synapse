@@ -119,10 +119,15 @@ def _fmt_lines(fd,gest):
 def _fmt_json(fd,info):
     yield json.loads( fd.read() )
 
+def _fmt_jsonl(fd,info):
+    for line in fd.readlines():
+        yield json.loads(line)
+
 fmtyielders = {
     'csv':_fmt_csv,
     'xml':_fmt_xml,
     'json':_fmt_json,
+    'jsonl':_fmt_jsonl,
     'lines':_fmt_lines,
 }
 
@@ -130,6 +135,7 @@ fmtopts = {
     'xml':{'mode':'r','encoding':'utf8'},
     'csv':{'mode':'r','encoding':'utf8'},
     'json':{'mode':'r','encoding':'utf8'},
+    'jsonl':{'mode':'r','encoding':'utf8'},
     'lines':{'mode':'r','encoding':'utf8'},
 }
 
