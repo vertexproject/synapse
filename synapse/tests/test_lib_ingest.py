@@ -226,6 +226,77 @@ class IngTest(SynTest):
             self.assertIsNotNone( core.getTufoByProp('inet:fqdn', 'vertex.link') )
             self.assertIsNotNone( core.getTufoByProp('inet:dns:a','vertex.link/1.2.3.4') )
 
+    def test_ingest_json(self):
+        testjson = b'''{
+            "fqdn": "spooky.com",
+            "ipv4": "192.168.1.1",
+            "aliases": ["foo", "bar", "baz"]
+        }'''
+        with s_cortex.openurl('ram://') as core:
+            with self.getTestDir() as path:
+                xpth = os.path.join(path, 'woot.json')
+
+                with genfile(xpth) as fd:
+                    fd.write(testjson)
+
+                info = {
+                    'sources': [(xpth,
+                                 {'open': {'format':'json'},
+                                  'ingest': {
+                                      'tags': ['luljson'],
+                                      'iters':[
+                                          ['fqdn', {
+                                              'forms': [('inet:fqdn', {})]
+                                          }],
+                                          ['ipv4', {
+                                              'forms': [('inet:ipv4', {})]
+                                          }],
+                                          ['aliases/*', {
+                                              'forms': [('str:lwr', {})]
+                                          }]
+                                      ]}})]}
+                gest = s_ingest.Ingest(info)
+                gest.ingest(core)
+
+                self.nn( core.getTufoByProp('inet:fqdn', 'spooky.com') )
+                self.nn( core.getTufoByFrob('inet:ipv4', '192.168.1.1') )
+                self.nn( core.getTufoByProp('str:lwr', 'foo') )
+                self.nn( core.getTufoByProp('str:lwr', 'bar') )
+                self.nn( core.getTufoByProp('str:lwr', 'baz') )
+
+    def test_ingest_jsonl(self):
+        testjsonl = b'''{"fqdn": "spooky.com", "ipv4": "192.168.1.1"}
+{"fqdn":"spookier.com", "ipv4":"192.168.1.2"}'''
+
+        with s_cortex.openurl('ram://') as core:
+            with self.getTestDir() as path:
+                xpth = os.path.join(path, 'woot.jsonl')
+
+                with genfile(xpth) as fd:
+                    fd.write(testjsonl)
+
+                info = {
+                    'sources': [(xpth,
+                                 {'open': {'format':'jsonl'},
+                                  'ingest': {
+                                      'tags': ['leljsonl'],
+                                      'iters':[
+                                          ['fqdn', {
+                                              'forms': [('inet:fqdn', {})]
+                                          }],
+                                          ['ipv4', {
+                                              'forms': [('inet:ipv4', {})]
+                                          }]
+                                      ]}})]}
+                gest = s_ingest.Ingest(info)
+                gest.ingest(core)
+
+                self.nn( core.getTufoByProp('inet:fqdn', 'spooky.com') )
+                self.nn( core.getTufoByFrob('inet:ipv4', '192.168.1.1') )
+                self.nn( core.getTufoByProp('inet:fqdn', 'spookier.com') )
+                self.nn( core.getTufoByFrob('inet:ipv4', '192.168.1.2') )
+
+
     def test_ingest_xml(self):
         with s_cortex.openurl('ram://') as core:
 
