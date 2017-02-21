@@ -54,4 +54,4 @@ class DnsModelTest(SynTest):
             t0 = core.addTufoEvent('inet:dns:look', aaaa='WOOT.com/FF::56')
             self.eq( t0[1].get('inet:dns:look:aaaa') ,'woot.com/ff::56')
             self.eq( t0[1].get('inet:dns:look:aaaa:fqdn'), 'woot.com' )
-            self.eq( t0[1].get('inet:dns:look:aaaa:ipv6'), 'ff::56' ) 
+            self.eq( t0[1].get('inet:dns:look:aaaa:ipv6'), 'ff::56' )

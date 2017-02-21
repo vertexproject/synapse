@@ -46,7 +46,7 @@ class TimeType(DataType):
         if oldval != None and self.minmax:
             valu = self.minmax(valu,oldval)
 
-        return valu
+        return valu,{}
 
     def frob(self, valu, oldval=None):
         if s_compat.isstr(valu):
@@ -86,7 +86,7 @@ class TimeType(DataType):
             self._raiseBadValu(text, mesg='Unknown time format')
 
         epoch = datetime.datetime(1970,1,1)
-        return int((dt - epoch).total_seconds() * 1000)
+        return int((dt - epoch).total_seconds() * 1000),{}
 
     def repr(self, valu):
         dt = datetime.datetime(1970,1,1) + datetime.timedelta(milliseconds=valu)
@@ -117,7 +117,7 @@ class EpochType(DataType):
         if oldval != None and self.minmax:
             valu = self.minmax(valu,oldval)
 
-        return valu
+        return valu,{}
 
     def frob(self, valu, oldval=None):
         if s_compat.isstr(valu):
@@ -154,7 +154,7 @@ class EpochType(DataType):
             self._raiseBadValu(text, mesg='Unknown time format')
 
         epoch = datetime.datetime(1970,1,1)
-        return int((dt - epoch).total_seconds())
+        return int((dt - epoch).total_seconds()),{}
 
     def repr(self, valu):
         dt = datetime.datetime(1970,1,1) + datetime.timedelta(seconds=int(valu))
