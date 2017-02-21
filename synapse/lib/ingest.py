@@ -120,7 +120,7 @@ def _fmt_json(fd,info):
     yield json.loads( fd.read() )
 
 def _fmt_jsonl(fd,info):
-    for line in fd.readlines():
+    for line in fd:
         yield json.loads(line)
 
 fmtyielders = {
