@@ -270,7 +270,7 @@ class IngTest(SynTest):
 
         with s_cortex.openurl('ram://') as core:
             with self.getTestDir() as path:
-                xpth = os.path.join(path, 'woot.json')
+                xpth = os.path.join(path, 'woot.jsonl')
 
                 with genfile(xpth) as fd:
                     fd.write(testjsonl)
@@ -279,7 +279,7 @@ class IngTest(SynTest):
                     'sources': [(xpth,
                                  {'open': {'format':'jsonl'},
                                   'ingest': {
-                                      'tags': ['luljson'],
+                                      'tags': ['leljsonl'],
                                       'iters':[
                                           ['fqdn', {
                                               'forms': [('inet:fqdn', {})]
