@@ -224,9 +224,8 @@ class Cli(EventBus):
                 self.vprint( self.cmdprompt, addnl=False )
 
                 line = input()
-                #line = stdin.readline()
                 if not line:
-                    break
+                    continue
 
                 line = line.strip()
                 if not line:
