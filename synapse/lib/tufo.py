@@ -39,6 +39,9 @@ def props(tufo,pref=None):
     plen = len(pref)
     return { p[plen:]:v for (p,v) in tufo[1].items() if p.startswith(pref) }
 
+def tags(tufo):
+    return [ p.split('|',2)[2] for p in tufo[1].keys() if p.startswith('*') ]
+
 def equal(tuf0,tuf1):
     '''
     Since dicts are not comparible, this implements equality comparison
