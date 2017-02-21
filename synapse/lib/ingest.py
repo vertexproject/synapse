@@ -220,7 +220,9 @@ class Ingest(EventBus):
 
         for path,info in self.get('sources'):
 
-            scope = s_scope.Scope()
+            scope.enter()
+
+            scope.add('tags', *info.get('tags',()) )
 
             gest = info.get('ingest')
             if gest == None:
@@ -230,7 +232,6 @@ class Ingest(EventBus):
                 raise Exception('Ingest Info Not Found: %s' % (path,))
 
             for datasorc in self._iterDataSorc(path,info):
-                scope = s_scope.Scope()
                 for data in datasorc:
                     root = s_datapath.initelem(data)
                     self._ingDataInfo(core, root, gest, scope)
@@ -239,7 +240,7 @@ class Ingest(EventBus):
 
         vard = info.get('vars')
         if vard != None:
-            for varn,vnfo in vard.items():
+            for varn,vnfo in vard:
                 valu = self._get_prop(core,data,vnfo,scope)
                 scope.set(varn,valu)
 

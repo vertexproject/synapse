@@ -15,14 +15,18 @@ class Scope:
             dostuff(scope) # 'foo' is 10 again...
 
     '''
-    def __init__(self, **vals):
-        self.frames = [vals]
+    def __init__(self, *frames, **vals):
+        self.frames = list(frames)
+        self.frames.append(vals)
 
     def __enter__(self):
-        self.enter()
+        return self.enter()
 
     def __exit__(self, exc, cls, tb):
         self.leave()
+
+    def fork(self,**vals):
+        return Scope(*self.frames,**vals)
 
     def enter(self,**vals):
         '''
