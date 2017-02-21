@@ -1,8 +1,12 @@
 '''
 The synapse distributed computing framework.
 '''
+import os
 import msgpack
 import tornado
+import logging
+
+logger = logging.getLogger(__name__)
 
 if msgpack.version < (0,4,2):
     raise Exception('synapse requires msgpack >= 0.4.2')
@@ -30,3 +34,11 @@ s_modules.load('synapse.models.person')
 s_modules.load('synapse.models.temporal')
 s_modules.load('synapse.models.geospace')
 s_modules.load('synapse.models.av')
+
+mods = os.getenv('SYN_MODULES')
+if mods:
+    for name in mods.split(','):
+        try:
+            s_modules.load(name)
+        except Exception as e:
+            logger.warning('SYN_MODULES failed: %s (%s)' % (name,e))
