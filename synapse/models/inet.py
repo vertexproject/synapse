@@ -68,7 +68,7 @@ def getDataModel():
             ('inet:ipv4',{'ptype':'inet:ipv4'},[
                 ('cc',{'ptype':'pol:iso2','defval':'??'}),
                 ('type',{'defval':'??','doc':'what type of ipv4 address ( uni, multi, priv )'}),
-                ('asn',{'ptype':'inet:asn','defval':0}),
+                ('asn',{'ptype':'inet:asn','defval':-1}),
             ]),
 
             ('inet:cidr4',{'ptype':'inet:cidr4'},[
@@ -78,7 +78,7 @@ def getDataModel():
 
             ('inet:ipv6',{'ptype':'inet:ipv6'},[
                 ('cc',{'ptype':'pol:iso2','defval':'??'}),
-                ('asn',{'ptype':'inet:asn','defval':0}),
+                ('asn',{'ptype':'inet:asn','defval':-1}),
             ]),
 
             ('inet:url',{'ptype':'inet:url'},[

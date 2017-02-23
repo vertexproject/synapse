@@ -42,6 +42,14 @@ class InetModelTest(SynTest):
         with s_cortex.openurl('ram:///') as core:
             t0 = core.formTufoByFrob('inet:ipv4','16909060')
             self.eq( t0[1].get('inet:ipv4'), 0x01020304 )
+            self.eq( t0[1].get('inet:ipv4:asn'), -1 )
+
+    def test_model_inet_ipv6(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            t0 = core.formTufoByFrob('inet:ipv6','0:0:0:0:0:0:0:1')
+            self.eq( t0[1].get('inet:ipv6'), '::1' )
+            self.eq( t0[1].get('inet:ipv6:asn'), -1 )
 
     def test_model_inet_cidr4(self):
 
