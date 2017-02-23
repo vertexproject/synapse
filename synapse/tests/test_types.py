@@ -40,6 +40,7 @@ class DataTypesTest(SynTest):
         tlib = s_types.TypeLib()
 
         self.eq( tlib.getTypeNorm('inet:ipv4',0x01020304), 0x01020304 )
+        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:ipv4', '0x01020304')
 
         self.eq( tlib.getTypeFrob('inet:ipv4','1.2.3.4'), 0x01020304 )
         self.eq( tlib.getTypeFrob('inet:ipv4',0x01020304), 0x01020304 )
@@ -146,6 +147,7 @@ class DataTypesTest(SynTest):
 
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'inet:ipv6', 'newp' )
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:srv6', 'newp' )
+        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:srv6', '[fffffffffffffffffffffffff::2]:80' )
 
         self.eq( tlib.getTypeParse('inet:ipv6', 'AF:00::02'), 'af::2')
         self.eq( tlib.getTypeNorm('inet:ipv6', 'AF:00::02'), 'af::2')
@@ -164,6 +166,19 @@ class DataTypesTest(SynTest):
         self.eq( tlib.getTypeRepr('inet:srv6', '[af::2]:80'), '[af::2]:80')
         self.eq( tlib.getTypeParse('inet:srv6', '[AF:00::02]:80'), '[af::2]:80')
         self.eq( tlib.getTypeNorm('inet:srv6', '[AF:00::02]:80'), '[af::2]:80')
+        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:srv6', '[AF:00::02]:999999')
+        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:srv6', '[AF:00::02]:-1')
+
+    def test_datatype_inet_cidr(self):
+        tlib = s_types.TypeLib()
+
+        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:cidr4', '1.2.3.0/33' )
+        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:cidr4', '1.2.3.0/-1' )
+
+        self.eq( tlib.getTypeNorm('inet:cidr4', '1.2.3.0/24'), '1.2.3.0/24')
+        self.eq( tlib.getTypeChop('inet:cidr4', '1.2.3.0/24'), ('1.2.3.0/24', {'ipv4':16909056, 'mask':24}) )
+        self.eq( tlib.getTypeRepr('inet:cidr4', '1.2.3.0/24'), '1.2.3.0/24')
+
 
     def test_datatype_str(self):
         tlib = s_types.TypeLib()
@@ -380,7 +395,7 @@ class DataTypesTest(SynTest):
         self.eq(tlib.getTypeFrob('underwoot', '12/34_56/78'), '12/34_56/78') # already str
         self.eq(tlib.getTypeFrob('underwoot', ((12,34), (56,78))), 'c/22_38/4e')
         self.eq(tlib.getTypeFrob('underwoot', [(12,34), [56,78]]), 'c/22_38/4e')
-        
+
         self.assertRaises(BadTypeValu, tlib.getTypeFrob, 'badwoot', '1/2/3/4')
 
         self.eq(tlib.getTypeFrob('wootaddr', [12345, 67890, 0]), '3039/10932/0.0.0.0')
