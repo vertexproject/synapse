@@ -71,3 +71,7 @@ venv
 
 # PyCharm files.
 .idea/
+
+# vim
+*.swo
+*.swp

@@ -41,12 +41,12 @@ class PhoneType(DataType):
     def parse(self, text, oldval=None):
         if not s_compat.isstr(text):
             self._raiseBadValu(text)
-        return (''.join([ c for c in text if c.isdigit() ]))
+        return (''.join([ c for c in text if c.isdigit() ])),{}
 
     def norm(self, valu, oldval=None):
         if not s_compat.isstr(valu):
             self._raiseBadValu(valu)
-        return ''.join([ c for c in valu if c.isdigit() ])
+        return ''.join([ c for c in valu if c.isdigit() ]),{}
 
     def repr(self, valu):
         return '+%s' % (valu,)

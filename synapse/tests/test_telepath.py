@@ -207,7 +207,7 @@ class TelePathTest(SynTest):
 
         foo.fini()
         env0.fini()
-        
+
     def test_telepath_reconnect(self):
         tenv = self.getFooEnv()
 

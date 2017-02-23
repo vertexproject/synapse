@@ -43,13 +43,13 @@ class Cortex(s_cores_common.Cortex):
 
     def _tufosByGe(self, prop, valu, limit=None):
         # FIXME sortedcontainers optimizations go here
-        valu = self.getPropFrob(prop,valu)
+        valu,_ = self.getPropFrob(prop,valu)
         rows = self._rowsByGe(prop, valu, limit=limit)
         return self.getTufosByIdens([ r[0] for r in rows ])
 
     def _tufosByLe(self, prop, valu, limit=None):
         # FIXME sortedcontainers optimizations go here
-        valu = self.getPropFrob(prop,valu)
+        valu,_ = self.getPropFrob(prop,valu)
         rows = self._rowsByLe(prop, valu, limit=limit)
         return self.getTufosByIdens([ r[0] for r in rows ])
 
@@ -138,7 +138,7 @@ class Cortex(s_cores_common.Cortex):
 
             yield row
 
-            c +=1 
+            c +=1
             if limit != None and c >= limit:
                 break
 
