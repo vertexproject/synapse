@@ -2028,6 +2028,20 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         self.setTufoProps(tufo, **{prop:valu})
         return tufo
 
+    def setPropByProp(self, form, prop, fromval, toval):
+        '''
+        Sets a property on tufos that have a given property value.
+
+        Example:
+
+            tufos = core.setPropByProp(form,prop,fromval,toval)
+        '''
+        getprop = '%s:%s' % (form, prop)
+        tufos = self.getTufosByProp(getprop, fromval)
+        for tufo in tufos:
+            self.setTufoProp(tufo, prop, toval)
+        return tufos
+
     def incTufoProp(self, tufo, prop, incval=1):
         '''
         Atomically increment/decrement the value of a given tufo property.
