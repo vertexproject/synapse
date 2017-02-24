@@ -31,6 +31,13 @@ class DataModelTest(SynTest):
         self.assertEqual( model.getPropParse('foo:faz', 'WOOT.toow')[0], 'woot.toow')
         self.assertEqual( model.getPropParse('foo:zip', 'WOOT')[0], 'woot')
 
+        self.assertEqual( model.getPropFrob('foo:bar', 10), (10, {}))
+        self.assertEqual( model.getPropFrob('foo:bar', '10'), (10, {}))
+        self.assertEqual( model.getPropFrob('foo:baz', 'woot'), ('woot', {}))
+        self.assertEqual( model.getPropFrob('foo:faz', 'WOOT.toow'), ('woot.toow',{}))
+        self.assertEqual( model.getPropFrob('foo:zip', 'WOOT'), ('woot',{}))
+        self.assertEqual( model.getPropFrob('foo:bar', 'not an integer'), (None, {}))
+
     def test_datamodel_glob(self):
         model = s_datamodel.DataModel()
 

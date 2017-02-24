@@ -337,11 +337,11 @@ class DataModel(s_types.TypeLib):
 
     def getPropFrob(self, prop, valu, oldval=None):
         '''
-        Return a normalized system mode value for the given property.
+        Return a frobbed system mode value for the given property.
 
         Example:
 
-            valu,subs = model.getPropNorm(prop,valu)
+            valu,subs = model.getPropFrob(prop,valu)
 
         '''
         dtype = self.getPropType(prop)
@@ -353,7 +353,7 @@ class DataModel(s_types.TypeLib):
             return dtype.frob(valu,oldval=oldval)
 
         except BadTypeValu as e:
-            return None
+            return None,{}
 
     def getPropParse(self, prop, valu):
         '''
