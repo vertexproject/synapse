@@ -1,5 +1,5 @@
 '''
-The synapse distributed computing framework.
+The synapse distributed key-value hypergraph analysis framework.
 '''
 import os
 import msgpack
@@ -8,11 +8,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-if msgpack.version < (0,4,2):
-    raise Exception('synapse requires msgpack >= 0.4.2')
+if msgpack.version >= (1,0,0) or msgpack.version < (0,4,2):
+    raise Exception('synapse requires msgpack <1.0.0, >=0.4.2')
 
-if tornado.version_info < (3,2):
-    raise Exception('synapse requires tornado >= 3.2')
+if tornado.version_info >= (4,0,0) or tornado.version_info < (3,2,2):
+    raise Exception('synapse requires tornado <4.0.0, >=3.2.2')
 
 version = (0,0,10)
 verstring = '.'.join([ str(x) for x in version ])
