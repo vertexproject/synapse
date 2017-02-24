@@ -1,13 +1,6 @@
-from synapse.utils import FeatureNotEnabled
-try:
-    import synapse.links.ssl as s_ssl
-except ImportError:
-    s_ssl = FeatureNotEnabled('synapse.links.ssl')
-
-try:
-    import synapse.links.ssh as s_ssh
-except ImportError:
-    s_ssh = FeatureNotEnabled('synapse.links.ssh')
+from synapse.utils import importOptionalModule, FeatureNotEnabled
+s_ssl = importOptionalModule('synapse.links.ssl')
+s_ssh = importOptionalModule('synapse.links.ssh')
 
 import synapse.links.tcp as s_tcp
 import synapse.links.local as s_local

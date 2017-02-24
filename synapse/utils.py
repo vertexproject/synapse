@@ -1,6 +1,7 @@
+import importlib
+
 class FeatureNotEnabledException(Exception):
     pass
-
 
 class FeatureNotEnabled:
     def __init__(self, module_name):
@@ -12,3 +13,10 @@ class FeatureNotEnabled:
         else:
             raise FeatureNotEnabledException('{}.{} not enabled due to missing dependencies for {}'
                                              .format(self.module_name, name, self.module_name))
+
+def importOptionalModule(module_name):
+    try:
+        module_or_stub = importlib.import_module(module_name)
+    except ImportError:
+        module_or_stub = FeatureNotEnabled(module_name)
+    return module_or_stub

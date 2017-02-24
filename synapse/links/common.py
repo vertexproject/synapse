@@ -1,12 +1,9 @@
 import time
 import errno
 import threading
-from synapse.utils import FeatureNotEnabled
+from synapse.utils import importOptionalModule
 
-try:
-    import synapse.crypto as s_crypto
-except ImportError:
-    s_crypto = FeatureNotEnabled('synapse.crypto')
+s_crypto = importOptionalModule('synapse.crypto')
 
 import synapse.lib.threads as s_threads
 from synapse.eventbus import EventBus

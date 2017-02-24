@@ -4,15 +4,8 @@ The synapse distributed computing framework.
 import os
 import msgpack
 import logging
-from synapse.utils import FeatureNotEnabled
-
-try:
-    import tornado
-
-    if tornado.version_info < (3, 2):
-        raise Exception('synapse requires tornado >= 3.2')
-except ImportError:
-    tornado = FeatureNotEnabled('tornado')
+from synapse.utils import importOptionalModule
+tornado = importOptionalModule('tornado')
 
 logger = logging.getLogger(__name__)
 
