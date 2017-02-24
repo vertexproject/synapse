@@ -1,11 +1,13 @@
 import time
 import errno
 import threading
+from synapse.utils import importOptionalModule
 
-import synapse.crypto as s_crypto
+s_crypto = importOptionalModule('synapse.crypto')
+
 import synapse.lib.threads as s_threads
-
 from synapse.eventbus import EventBus
+
 
 from synapse.common import *
 
