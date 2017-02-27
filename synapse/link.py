@@ -1,5 +1,7 @@
-import synapse.links.ssl as s_ssl
-import synapse.links.ssh as s_ssh
+from synapse.utils import importOptionalModule, FeatureNotEnabled
+s_ssl = importOptionalModule('synapse.links.ssl')
+s_ssh = importOptionalModule('synapse.links.ssh')
+
 import synapse.links.tcp as s_tcp
 import synapse.links.local as s_local
 import synapse.lib.urlhelp as s_urlhelp
@@ -14,8 +16,8 @@ Provides access to the synapse link protocols.
 
 protos = {
     'tcp':s_tcp.TcpRelay,
-    'ssl':s_ssl.SslRelay,
-    'ssh':s_ssh.SshRelay,
+    'ssl':s_ssl.SslRelay if type(s_ssl) is not FeatureNotEnabled else None,
+    'ssh':s_ssh.SshRelay if type(s_ssl) is not FeatureNotEnabled else None,
     'local':s_local.LocalRelay,
 }
 

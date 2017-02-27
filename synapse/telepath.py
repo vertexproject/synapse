@@ -12,7 +12,10 @@ import collections
 
 import synapse.link as s_link
 import synapse.async as s_async
-import synapse.crypto as s_crypto
+
+from synapse.utils import importOptionalModule
+s_crypto = importOptionalModule('synapse.crypto')
+
 import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
 
