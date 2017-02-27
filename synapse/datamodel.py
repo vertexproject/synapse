@@ -19,9 +19,6 @@ from synapse.common import *
 hexre = re.compile('^[0-9a-z]+$')
 propre = re.compile('^[0-9a-zA-Z:_]+$')
 
-def propdef(name, **info):
-    return (name,info)
-
 tlib = s_types.TypeLib()
 def getTypeRepr(name, valu):
     '''
@@ -294,25 +291,6 @@ class DataModel(s_types.TypeLib):
 
         return dtype.repr(valu)
 
-    def getPropType(self, prop):
-        '''
-        Retrieve the DataType instance for the given property.
-
-        Example:
-
-            dtype = modl.getPropType('foo:bar')
-
-        '''
-        pdef = self.getPropDef(prop)
-        if pdef == None:
-            return None
-
-        ptype = pdef[1].get('ptype')
-        if ptype == None:
-            return None
-
-        return self.getDataType(ptype)
-
     def getPropTypeName(self, prop):
         pdef = self.getPropDef(prop)
         if pdef == None:
@@ -369,9 +347,6 @@ class DataModel(s_types.TypeLib):
             return valu
 
         return dtype.parse(valu)
-
-    def getParseProps(self, props):
-        return { p:self.getPropParse(p,v)[0] for (p,v) in props.items() }
 
     def getPropDef(self, prop, glob=True):
         '''
