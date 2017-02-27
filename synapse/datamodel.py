@@ -17,7 +17,7 @@ import synapse.lib.types as s_types
 from synapse.common import *
 
 hexre = re.compile('^[0-9a-z]+$')
-propre = re.compile('^[0-9a-zA-Z:_]+$')
+propre = re.compile('^[0-9a-z:_]+$')
 
 tlib = s_types.TypeLib()
 def getTypeRepr(name, valu):
