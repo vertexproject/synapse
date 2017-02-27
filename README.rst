@@ -10,8 +10,6 @@ Builds
 - Coveralls |coveralls|_
 - Documentation |rtd_latest|
 
-Unit tests in Travis-Ci and AppVeyor run for python 2.7 / 3.4.
-
 Documentation
 -------------
 

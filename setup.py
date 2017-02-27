@@ -1,20 +1,11 @@
 #!/usr/bin/env python
 from setuptools import setup,find_packages
 
-# For Testing:
-#
-# python setup.py bdist_wheel upload -r https://testpypi.python.org/pypi
-# python -m pip install synapse -i https://testpypi.python.org/pypi
-#
-# For Realz:
-#
-# python setup.py bdist_wheel upload
-# python -m pip install synapse
 
 setup(
     name='synapse',
     version='0.0.10', # sync with synapse.version!
-    description='Synapse Distributed Computing Framework',
+    description='Synapse Distributed Key-Value Hypergraph Analysis Framework',
     author='Invisigoth Kenshoto',
     author_email='invisigoth.kenshoto@gmail.com',
     url='https://github.com/vertexproject/synapse',
@@ -23,10 +14,10 @@ setup(
     packages=find_packages(exclude=['*.tests','*.tests.*']),
 
     install_requires=[
-        'tornado>=3.2',
-        'cryptography>=1.1.2',
-        'pyOpenSSL>=16.2.0',
-        'msgpack-python>=0.4.2',
+        'tornado<4.0.0,>=3.2.2',
+        'cryptography<2.0.0,>=1.7.2',
+        'pyOpenSSL<17.0.0,>=16.2.0',
+        'msgpack-python<1.0.0,>=0.4.2',
     ],
 
     classifiers=[
@@ -37,6 +28,11 @@ setup(
         'Topic :: System :: Clustering',
         'Topic :: System :: Distributed Computing',
         'Topic :: System :: Software Distribution',
+
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
     ],
 
 )
