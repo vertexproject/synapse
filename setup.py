@@ -14,10 +14,10 @@ setup(
     packages=find_packages(exclude=['*.tests','*.tests.*']),
 
     install_requires=[
-        'tornado<4.0.0,>=3.2.2',
-        'cryptography<2.0.0,>=1.7.2',
-        'pyOpenSSL<17.0.0,>=16.2.0',
-        'msgpack-python<1.0.0,>=0.4.2',
+        'tornado>=3.2.2',
+        'cryptography>=1.7.2',
+        'pyOpenSSL>=16.2.0',
+        'msgpack-python>=0.4.2',
     ],
 
     classifiers=[
