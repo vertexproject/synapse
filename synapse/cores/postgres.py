@@ -2,9 +2,9 @@ import time
 import hashlib
 
 import synapse.cores.sqlite as s_c_sqlite
+from synapse.lib.types import TypeLib
 
 import synapse.compat as s_compat
-import synapse.datamodel as s_datamodel
 
 def md5(x):
     return hashlib.md5(x.encode('utf8')).hexdigest()
@@ -68,8 +68,9 @@ class Cortex(s_c_sqlite.Cortex):
 
                 time.sleep(1)
 
+        tlib = TypeLib()
         seqscan = self._link[1].get('pg:seqscan',0)
-        seqscan,_ = s_datamodel.getTypeFrob('bool',seqscan)
+        seqscan,_ = tlib.getTypeFrob('bool',seqscan)
 
         c = db.cursor()
         c.execute('SET enable_seqscan=%s', (seqscan,))

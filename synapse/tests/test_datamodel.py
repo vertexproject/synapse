@@ -159,14 +159,24 @@ class DataModelTest(SynTest):
 
     def test_datamodel_parsetypes(self):
 
+        model = s_datamodel.DataModel()
+
         class Woot:
-            @s_datamodel.parsetypes('int','str:lwr')
+            @model.parsetypes('int','str:lwr')
             def getFooBar(self, size, flag):
                 return {'size':size, 'flag':flag}
 
-            @s_datamodel.parsetypes('int',flag='str:lwr')
+            @model.parsetypes('int',flag='str:lwr')
             def getBazFaz(self, size, flag=None):
                 return {'size':size, 'flag':flag }
+
+            @model.parsetypes('int')
+            def getFooTooManyArgs(self, size, flag):
+                return {'size':size, 'flag':flag}
+
+            @model.parsetypes('int', nope='str:lwr')
+            def getFooNoSuchKwarg(self, size, flag=None):
+                return {'size':size, 'flag':flag}
 
         woot = Woot()
 
@@ -183,6 +193,9 @@ class DataModelTest(SynTest):
         ret = woot.getBazFaz('10', flag='ASDF')
         self.assertEqual( ret.get('size'), 10 )
         self.assertEqual( ret.get('flag'), 'asdf')
+
+        self.assertRaises(Exception, woot.getFooTooManyArgs, '1', 'haha')
+        self.assertRaises(Exception, woot.getFooNoSuchKwarg, '1', **{'flag':'haha'})
 
     def test_datamodel_inet(self):
         model = s_datamodel.DataModel()

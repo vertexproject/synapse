@@ -12,7 +12,6 @@ import synapse.async as s_async
 import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
 import synapse.reactor as s_reactor
-import synapse.datamodel as s_datamodel
 
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
@@ -2277,7 +2276,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
     def _tufosByInetCidr(self, prop, valu, limit=None):
 
         ipv4str, cidr = valu.split('/', 1)
-        ipv4addr,_ = s_datamodel.getTypeParse('inet:ipv4', ipv4str)
+        ipv4addr,_ = self.getTypeParse('inet:ipv4', ipv4str)
         mask = ( 2** ( 32 - int(cidr) ))
         ipv4addr &= ~mask
 

@@ -19,69 +19,6 @@ from synapse.common import *
 hexre = re.compile('^[0-9a-z]+$')
 propre = re.compile('^[0-9a-z:_]+$')
 
-tlib = s_types.TypeLib()
-def getTypeRepr(name, valu):
-    '''
-    '''
-    return tlib.reqDataType(name).repr(valu)
-
-def getTypeNorm(name, valu):
-    '''
-    '''
-    return tlib.reqDataType(name).norm(valu)
-
-def getTypeFrob(name, valu):
-    '''
-    '''
-    return tlib.reqDataType(name).frob(valu)
-
-def getTypeParse(name, text):
-    '''
-    '''
-    return tlib.reqDataType(name).parse(text)
-
-def parsetypes(*atypes, **kwtypes):
-    '''
-    Decorator to parse input args from humon to system values.
-
-    Example:
-
-        class Woot:
-
-            @parsetypes('int','hash:md5')
-            def getFooBar(self, size, md5):
-                # size will be an int and md5 will be lower
-                dostuff()
-
-        woot = Woot()
-
-        # call with user input strings...
-        woot.getFooBar('20','0a0a0a0a0B0B0B0B0c0c0c0c0D0D0D0D')
-
-    '''
-    #typeargs = [ basetypes.get(a) for a in atypes ]
-    #typekwargs = { k:basetypes.get(v) for (k,v) in kwtypes.items() }
-
-    def wrapfunc(f):
-
-        def runfunc(self, *args, **kwargs):
-
-            try:
-                args = [ getTypeParse(atypes[i],args[i])[0] for i in range(len(args)) ]
-                kwargs = { k:getTypeParse(kwtypes[k],v)[0] for (k,v) in kwargs.items() }
-
-            except IndexError as e:
-                raise Exception('parsetypes() too many args in: %s' % (f.__name__,))
-
-            except KeyError as e:
-                raise Exception('parsetypes() no such kwtype in: %s' % (f.__name__,))
-
-            return f(self, *args, **kwargs)
-
-        functools.update_wrapper(runfunc,f)
-        return runfunc
-
-    return wrapfunc
 
 class DataModel(s_types.TypeLib):
 
@@ -132,6 +69,50 @@ class DataModel(s_types.TypeLib):
 
         self.addTufoForm('syn:type',ptype='syn:type')
         self.addTufoProp('syn:type','*',glob=1)
+
+
+    def parsetypes(self, *atypes, **kwtypes):
+        '''
+        Decorator to parse input args from humon to system values.
+
+        Example:
+
+            class Woot:
+
+                @parsetypes('int','hash:md5')
+                def getFooBar(self, size, md5):
+                    # size will be an int and md5 will be lower
+                    dostuff()
+
+            woot = Woot()
+
+            # call with user input strings...
+            woot.getFooBar('20','0a0a0a0a0B0B0B0B0c0c0c0c0D0D0D0D')
+
+        '''
+
+        def wrapfunc(f):
+
+            @staticmethod
+            def runfunc(*args, **kwargs):
+
+                try:
+                    args = [ self.getTypeParse(atypes[i],args[i])[0] for i in range(len(args)) ]
+                    kwargs = { k:self.getTypeParse(kwtypes[k],v)[0] for (k,v) in kwargs.items() }
+
+                except IndexError as e:
+                    raise Exception('parsetypes() too many args in: %s' % (f.__name__,))
+
+                except KeyError as e:
+                    raise Exception('parsetypes() no such kwtype in: %s' % (f.__name__,))
+
+                return f(self, *args, **kwargs)
+
+            functools.update_wrapper(runfunc,f)
+            return runfunc
+
+        return wrapfunc
+
 
     def getModelDict(self):
         '''
