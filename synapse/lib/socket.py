@@ -4,6 +4,7 @@ import os
 import ssl
 import zlib
 import errno
+import atexit
 import select
 import socket
 import logging
@@ -552,21 +553,6 @@ class Plex(EventBus):
         self._plex_wake.fini()
 
         self._plex_thr.join()
-
-def getGlobPlex():
-    '''
-    Get/Init a reference to a singular global Plex() multiplexor.
-
-    Example:
-
-        plex = getGlobPlex()
-
-    '''
-    with s_glob.lock:
-        if s_glob.plex == None:
-            s_glob.plex = Plex()
-
-        return s_glob.plex
 
 def listen(sockaddr,**sockinfo):
     '''

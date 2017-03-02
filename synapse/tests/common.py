@@ -11,11 +11,16 @@ logging.basicConfig(level=logging.WARNING)
 import synapse.cortex as s_cortex
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.scope as s_scope
 import synapse.lib.ingest as s_ingest
 import synapse.lib.output as s_output
 import synapse.lib.thishost as s_thishost
 
 from synapse.common import *
+
+# create the global multi-plexor *not* within a test
+# to avoid "leaked resource" when a test triggers creation
+s_scope.get('plex')
 
 class TooFewEvents(Exception):pass
 

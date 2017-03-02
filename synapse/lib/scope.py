@@ -1,4 +1,6 @@
 import os
+import threading
+import contextlib
 
 class Scope:
     '''
@@ -29,10 +31,12 @@ class Scope:
     def __exit__(self, exc, cls, tb):
         self.leave()
 
-    def enter(self,**vals):
+    def enter(self,vals=None):
         '''
         Add an additional scope frame.
         '''
+        if vals == None:
+            vals = {}
         return self.frames.append(vals)
 
     def leave(self):
@@ -46,6 +50,12 @@ class Scope:
         Set a value in the current scope frame.
         '''
         self.frames[-1][name] = valu
+
+    def update(self, vals):
+        '''
+        Set multiple values in the current scope frame.
+        '''
+        self.frames[-1].update(vals)
 
     def get(self, name, defval=None):
         '''
@@ -98,6 +108,9 @@ class Scope:
             for valu in vals:
                 yield valu
 
+    def __setitem__(self, name, valu):
+        self.frames[-1][name] = valu
+
 # set up a global scope with env vars etc...
 envr = dict(os.environ)
 globscope = Scope(envr)
@@ -128,14 +141,22 @@ def set(name,valu):
     scope = _thr_scope()
     scope.set(name,valu)
 
+def update(vals):
+    scope = _thr_scope()
+    scope.update(vals)
+
 def ctor(name,func,*args,**kwargs):
     '''
     Add a ctor callback to the global scope.
     '''
     return globscope.ctor(name,func,*args,**kwargs)
 
-def enter():
+@contextlib.contextmanager
+def enter(vals=None):
     '''
     Return the thread's local scope for use in a with block
     '''
-    return _thr_scope()
+    scope = _thr_scope()
+    scope.enter(vals)
+    yield
+    scope.leave()

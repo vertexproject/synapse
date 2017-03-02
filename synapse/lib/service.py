@@ -10,7 +10,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.tags as s_tags
 import synapse.lib.sched as s_sched
-import synapse.lib.threads as s_threads
+import synapse.lib.scope as s_scope
 import synapse.lib.thishost as s_thishost
 
 from synapse.common import *
@@ -56,7 +56,7 @@ class SvcBus(s_eventbus.EventBus):
 
         svcfo = (iden,props)
 
-        sock = s_threads.local('sock')
+        sock = s_scope.get('sock')
         if sock != None:
             def onfini():
                 oldsvc = self.services.pop(iden,None)
