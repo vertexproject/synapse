@@ -1,3 +1,5 @@
+import os
+
 class Scope:
     '''
     The Scope object assists in creating nested varible scopes.
@@ -15,8 +17,11 @@ class Scope:
             dostuff(scope) # 'foo' is 10 again...
 
     '''
-    def __init__(self, **vals):
-        self.frames = [vals]
+    def __init__(self, *frames, **vals):
+        self.ctors = {}
+        self.frames = list(frames)
+        if vals:
+            self.frames.append(vals)
 
     def __enter__(self):
         self.enter()
@@ -50,6 +55,14 @@ class Scope:
             valu = frame.get(name)
             if valu != None:
                 return valu
+
+        task = self.ctors.get(name)
+        if task != None:
+            func,args,kwargs = task
+            item = func(*args,**kwargs)
+            self.frames[-1][name] = item
+            return item
+
         return defval
 
     def add(self, name, *vals):
@@ -61,6 +74,19 @@ class Scope:
             self.frames[-1][name] = item = []
         item.extend(vals)
 
+    def ctor(self, name, func, *args, **kwargs):
+        '''
+        Add a constructor to be called when a specific property is not present.
+
+        Example:
+
+            scope.ctor('foo',FooThing)
+            ...
+            foo = scope.get('foo')
+
+        '''
+        self.ctors[name] = (func,args,kwargs)
+
     def iter(self, name):
         '''
         Iterate through values added with add() from each scope frame.
@@ -71,3 +97,45 @@ class Scope:
                 continue
             for valu in vals:
                 yield valu
+
+# set up a global scope with env vars etc...
+envr = dict(os.environ)
+globscope = Scope(envr)
+
+def _thr_scope():
+
+    thrd = threading.currentThread()
+    scope = getattr(thrd,'_syn_scope',None)
+
+    # no need to lock because it's per-thread...
+    if scope == None:
+        scope = Scope(globscope)
+        thrd._syn_scope = scope
+
+    return scope
+
+def get(name):
+    '''
+    Access this thread's scope with default values from glob.
+    '''
+    scope = _thr_scope()
+    return scope.get(name)
+
+def set(name,valu):
+    '''
+    Set a value in the current frame of the local thread scope.
+    '''
+    scope = _thr_scope()
+    scope.set(name,valu)
+
+def ctor(name,func,*args,**kwargs):
+    '''
+    Add a ctor callback to the global scope.
+    '''
+    return globscope.ctor(name,func,*args,**kwargs)
+
+def enter():
+    '''
+    Return the thread's local scope for use in a with block
+    '''
+    return _thr_scope()
