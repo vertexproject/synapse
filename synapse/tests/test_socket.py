@@ -3,6 +3,7 @@ import unittest
 import threading
 
 import synapse.compat as s_compat
+import synapse.lib.scope as s_scope
 import synapse.lib.socket as s_socket
 
 from synapse.tests.common import *
@@ -109,8 +110,9 @@ class SocketTest(SynTest):
         self.nn(plex0)
 
         with s_scope.enter():
-            plex1 = Plex()
+            plex1 = s_socket.Plex()
             s_scope.set('plex',plex1)
             self.ne( id(plex0), id( s_scope.get('plex') ) )
+            plex1.fini()
 
         self.eq( id(plex0), id( s_scope.get('plex') ) )

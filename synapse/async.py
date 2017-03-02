@@ -7,6 +7,7 @@ from synapse.compat import queue
 
 import synapse.dyndeps as s_dyndeps
 import synapse.lib.sched as s_sched
+import synapse.lib.scope as s_scope
 import synapse.lib.queue as s_queue
 import synapse.lib.threads as s_threads
 
@@ -270,7 +271,7 @@ class Boss(EventBus):
         s_threads.iWillWait()
 
         if timeout == None:
-            timeout = s_threads.local('syntimeout')
+            timeout = s_scope.get('syntimeout')
 
         with self.joblock:
             job = self._boss_jobs.get(jid)

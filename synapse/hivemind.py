@@ -15,6 +15,7 @@ import synapse.mindmeld as s_mindmeld
 import synapse.telepath as s_telepath
 
 import synapse.lib.sched as s_sched
+import synapse.lib.scope as s_scope
 import synapse.lib.threads as s_threads
 
 from synapse.common import *
@@ -62,7 +63,7 @@ class Queen(EventBus):
         hive = (iden,info)
         self.hives[iden] = hive
 
-        sock = s_threads.local('sock')
+        sock = s_scope.get('sock')
         def onfini():
             self.fireHiveFini(iden)
         sock.onfini( onfini )
@@ -74,7 +75,7 @@ class Queen(EventBus):
         drone = (iden,info)
         self.drones[iden] = drone
 
-        sock = s_threads.local('sock')
+        sock = s_scope.get('sock')
         def onfini():
             self.fireDroneFini(iden)
         sock.onfini(onfini)
@@ -340,7 +341,7 @@ def subtask(job):
 
     queen = s_telepath.openurl( job[1].get('queen') )
 
-    s_threads.put('syn.queen',queen)
+    s_scope.set('syn.queen',queen)
 
     try:
         dyntask = job[1].get('dyntask')
