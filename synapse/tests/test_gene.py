@@ -74,3 +74,6 @@ class GeneTest(SynTest):
         expr1 = glab.getGeneExpr('foo == 10')
         self.eq( id(expr0), id(expr1) )
         self.eq( expr0({'foo':10}), 1 )
+
+    def test_gene_noname(self):
+        self.assertRaises( NoSuchName, s_gene.eval('x + 20') )
