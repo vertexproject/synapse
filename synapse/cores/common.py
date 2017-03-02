@@ -89,6 +89,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         self.statfuncs = {}
 
         self.auth = None
+        self.snaps = s_cache.Cache(maxtime=60)
 
         self.formed = collections.defaultdict(int)      # count tufos formed since startup
 
@@ -210,6 +211,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
         # storm operators specific to the cortex
         self.setOperFunc('stat', self._stormOperStat)
+        self.setOperFunc('dset', self._stormOperDset)
 
         # allow modules a shot at hooking cortex events for model ctors
         for name,ret,exc in s_modules.call('addCoreOns',self):
@@ -458,11 +460,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
                 answ[tufo[0]] = tufo
                 self.cache_byiden.put(tufo[0],tufo)
-
-        #else:
-
-                #if atlim:
-                    #continue
 
         # check for add prop and add us to (prop,None) pkey
         if oldv == None and newv != None:
@@ -978,7 +975,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         '''
         return self._getRowsById(iden)
 
-    def getRowsByIdProp(self, iden, prop):
+    def getRowsByIdProp(self, iden, prop, valu=None):
         '''
         Return rows with the given <iden>,<prop>.
 
@@ -988,7 +985,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
                 dostuff(row)
 
         '''
-        return self._getRowsByIdProp(iden, prop)
+        return self._getRowsByIdProp(iden, prop, valu=valu)
 
     def getRowsByIds(self, idens):
         '''
@@ -1016,7 +1013,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
     def _loadDelRowsById(self, mesg):
         self._delRowsById( mesg[1].get('iden') )
 
-    def delRowsByIdProp(self, iden, prop):
+    def delRowsByIdProp(self, iden, prop, valu=None):
         '''
         Delete rows with the givin combination of iden and prop[=valu].
 
@@ -1025,8 +1022,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
             core.delRowsByIdProp(id, 'foo')
 
         '''
-        self.savebus.fire('core:save:del:rows:by:idprop', iden=iden, prop=prop)
-        return self._delRowsByIdProp(iden, prop)
+        self.savebus.fire('core:save:del:rows:by:idprop', iden=iden, prop=prop, valu=valu)
+        return self._delRowsByIdProp(iden, prop, valu=valu)
 
     def _loadDelRowsByIdProp(self, mesg):
         iden = mesg[1].get('iden')
@@ -1835,6 +1832,9 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         self.fire('tufo:del',tufo=tufo)
         self.fire('tufo:del:%s' % form, tufo=tufo)
 
+        for name,tick in self.getTufoDsets(tufo):
+            self.delTufoDset(tufo,name)
+
         if self.caching:
             for prop,valu in tufo[1].items():
                 self._bumpTufoCache(tufo,prop,valu,None)
@@ -1842,10 +1842,107 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         iden = tufo[0]
         with self.getCoreXact():
             self.delRowsById(iden)
+            # delete any dark props/rows
+            self.delRowsById(iden[::-1])
 
         lists = [ p.split(':',2)[2] for p in tufo[1].keys() if p.startswith('tufo:list:') ]
         for name in lists:
             self.delRowsByProp('%s:list:%s' % (iden,name))
+
+    def addTufoDset(self, tufo, name):
+        '''
+        Add the tufo to a named dataset.
+        '''
+        dark = tufo[0][::-1]
+        if self.getRowsByIdProp(dark,'_:dset',valu=name):
+            return
+
+        rows = [ (dark, '_:dset', name, now()) ]
+        self.addRows(rows)
+        #NOTE: may add this if a use cases occurs
+        #self.fire('syn:dset:add', name=name, tufo=tufo)
+        self.fire('syn:dset:add:%s' % name, name=name, tufo=tufo)
+
+    def delTufoDset(self, tufo, name):
+        dark = tufo[0][::-1]
+        self.delRowsByIdProp(dark,'_:dset',name)
+        self.fire('syn:dset:del:%s' % name, name=name, tufo=tufo)
+
+    def getTufoDsets(self, tufo):
+        '''
+        Return a list of (name,time) tuples for dset membership.
+        '''
+        dark = tufo[0][::-1]
+        return [ (v,t) for (i,p,v,t) in self.getRowsByIdProp(dark,'_:dset') ]
+
+    def getTufosByDset(self, name, mintime=None, maxtime=None, limit=None):
+        '''
+        Return a list of the tufos in the named dataset.
+
+        Example:
+
+            for tufo in getTufosByDset('woot'):
+                dostuff(tufo)
+
+        '''
+        rows = self.getRowsByProp('_:dset', valu=name, mintime=mintime, maxtime=maxtime, limit=limit)
+        idens = [ r[0][::-1] for r in rows ]
+
+        ret = []
+        for part in chunks(idens,1000):
+            ret.extend( self.getTufosByIdens(part) )
+
+        return ret
+
+    def snapTufosByDset(self, name, mintime=None, maxtime=None, limit=None):
+        rows = self.getRowsByProp('_:dset', valu=name, mintime=mintime, maxtime=maxtime, limit=limit)
+        idens = [ r[0][::-1] for r in rows ]
+        return self._initTufoSnap(idens)
+
+    def snapTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+        rows = self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+        idens = [ r[0] for r in rows ]
+        return self._initTufoSnap(idens)
+
+    def _initTufoSnap(self, idens):
+
+        snap = guid()
+
+        if not idens:
+            return {'snap':snap,'tufos':(),'count':0}
+
+        count = len(idens)
+
+        x = collections.deque( chunks(idens,1000) )
+
+        rets = x.popleft()
+        tufos = self.getTufosByIdens(rets)
+
+        if x:
+            self.snaps.put(snap,x)
+
+        return {'snap':snap, 'tufos':tufos, 'count':count}
+
+    def getSnapNext(self, snap):
+        '''
+        Get the next block of tufos for the given snapshot.
+        '''
+        x = self.snaps.get(snap)
+        if x == None:
+            return None
+
+        idens = x.popleft()
+
+        if not x:
+            self.snaps.pop(snap)
+
+        return self.getTufosByIdens(idens)
+
+    def finiSnap(self, snap):
+        '''
+        Cancel a tufo snapshot.
+        '''
+        self.snaps.pop(snap)
 
     def delTufoByProp(self, form, valu):
         '''
@@ -2274,6 +2371,10 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         sval = self.getStatByProp(name,prop,valu=valu)
 
         query.add( s_tufo.ephem('stat:%s' % name, prop, valu=sval) )
+
+    def _stormOperDset(self, query, oper):
+        for name in oper[1].get('args'):
+            [ query.add(t) for t in self.getTufosByDset(name) ]
 
     # some helpers to allow *all* queries to be processed via getTufosBy()
     def _tufosByEq(self, prop, valu, limit=None):
