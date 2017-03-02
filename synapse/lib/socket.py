@@ -12,8 +12,8 @@ import collections
 
 logger = logging.getLogger(__name__)
 
-import synapse.glob as s_glob
 import synapse.common as s_common
+import synapse.lib.scope as s_scope
 import synapse.lib.threads as s_threads
 import synapse.lib.thisplat as s_thisplat
 
@@ -650,3 +650,12 @@ def hostaddr(dest='8.8.8.8'):
     sock.close()
 
     return addr
+
+# make a plex and register an atexit handler.
+def _plex_ctor():
+    plex = Plex()
+    atexit.register( plex.fini )
+    return plex
+
+# add a Plex constructor to the global scope
+s_scope.ctor('plex',_plex_ctor)
