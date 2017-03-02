@@ -86,12 +86,21 @@ class Cortex(s_cores_common.Cortex):
         for row in self.rowsbyid.pop(ident,()):
             self._delRawRow(row)
 
-    def _delRowsByIdProp(self, iden, prop):
-        rows = [ row for row in self.rowsbyid.get(iden) if row[1] == prop ]
-        [ self._delRawRow(row) for row in rows ]
+    def _delRowsByIdProp(self, iden, prop, valu=None):
+        if valu == None:
+            rows = [ row for row in self.rowsbyid.get(iden) if row[1] == prop ]
+            [ self._delRawRow(row) for row in rows ]
+            return
 
-    def _getRowsByIdProp(self, iden, prop):
-        return [ row for row in self.rowsbyid.get(iden) if row[1] == prop ]
+        rows = [ row for row in self.rowsbyid.get(iden) if row[1] == prop and row[2] == valu ]
+        [ self._delRawRow(row) for row in rows ]
+        return
+
+    def _getRowsByIdProp(self, iden, prop, valu=None):
+        if valu == None:
+            return [ row for row in self.rowsbyid.get(iden,()) if row[1] == prop ]
+
+        return [ row for row in self.rowsbyid.get(iden,()) if row[1] == prop and row[2] == valu]
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         for row in self.getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime):
