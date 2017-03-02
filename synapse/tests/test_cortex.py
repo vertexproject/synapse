@@ -34,6 +34,8 @@ class CortexTest(SynTest):
         self.runjson( core )
         self.runrange( core )
         self.runidens( core )
+        self.rundsets( core )
+        self.runsnaps( core )
 
     def test_cortex_sqlite3(self):
         core = s_cortex.openurl('sqlite:///:memory:')
@@ -41,6 +43,8 @@ class CortexTest(SynTest):
         self.runjson( core )
         self.runrange( core )
         self.runidens( core )
+        self.rundsets( core )
+        self.runsnaps( core )
 
     def test_cortex_postgres(self):
         with self.getPgCore() as core:
@@ -48,6 +52,79 @@ class CortexTest(SynTest):
             self.runjson( core )
             self.runrange( core )
             self.runidens( core )
+            self.rundsets( core )
+            self.runsnaps( core )
+
+    def rundsets(self, core):
+        tufo = core.formTufoByProp('lol:zonk',1)
+        core.addTufoDset(tufo,'violet')
+
+        self.eq( len( core.eval('dset(violet)') ), 1 )
+        self.eq( len( core.getTufosByDset('violet') ), 1 )
+        self.eq( core.getTufoDsets(tufo)[0][0], 'violet' )
+
+        core.delTufoDset(tufo,'violet')
+
+        self.eq( len( core.getTufosByDset('violet') ), 0 )
+        self.eq( len(core.getTufoDsets(tufo)), 0 )
+
+    def runsnaps(self, core):
+
+        with core.getCoreXact():
+            for i in range(1500):
+                tufo = core.formTufoByProp('lol:foo', i)
+                core.addTufoDset(tufo,'zzzz')
+
+        #############################################
+
+        answ = core.snapTufosByProp('lol:foo', valu=100)
+
+        self.eq( answ.get('count'), 1 )
+        self.eq( answ.get('tufos')[0][1].get('lol:foo'), 100 )
+
+        #############################################
+
+        answ = core.snapTufosByProp('lol:foo')
+        snap = answ.get('snap')
+
+        core.finiSnap( snap )
+        self.assertIsNone( core.getSnapNext(snap) )
+
+        #############################################
+
+        answ = core.snapTufosByProp('lol:foo')
+
+        res = []
+
+        snap = answ.get('snap')
+        tufs = answ.get('tufos')
+
+        self.eq( answ.get('count'), 1500 )
+
+        while tufs:
+            res.extend(tufs)
+            tufs = core.getSnapNext(snap)
+
+        self.eq(len(res),1500)
+        self.assertIsNone( core.getSnapNext(snap) )
+
+        #############################################
+
+        answ = core.snapTufosByDset('zzzz')
+
+        res = []
+
+        snap = answ.get('snap')
+        tufs = answ.get('tufos')
+
+        self.eq( answ.get('count'), 1500 )
+
+        while tufs:
+            res.extend(tufs)
+            tufs = core.getSnapNext(snap)
+
+        self.eq(len(res),1500)
+        self.assertIsNone( core.getSnapNext(snap) )
 
     def runidens(self, core):
         t0 = core.formTufoByProp('inet:ipv4', 0)

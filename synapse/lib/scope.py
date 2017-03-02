@@ -1,9 +1,6 @@
 import os
-<<<<<<< HEAD
 import threading
 import contextlib
-=======
->>>>>>> afb002f00fd8a82a479f258668ea580a84bf452b
 
 class Scope:
     '''
