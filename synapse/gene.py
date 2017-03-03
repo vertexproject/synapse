@@ -24,22 +24,6 @@ class GeneLab:
             self.exprcache[text] = expr = node.eval
         return expr
 
-        #self.geneexprs = {}
-        #self.genenodes = {}
-
-    #def clear(self):
-
-    #def scope(self):
-        #scop = Scope(self)
-        #return Scope(**self.globs)
-
-    #def addGeneFunc(self, name, func):
-    #def addGeneExpr(self, name, text):
-
-    #def eval(self, text, **syms):
-
-    #def evalGeneExpr(self, name, **syms):
-
 tokstrs = [
 
     '!=',
