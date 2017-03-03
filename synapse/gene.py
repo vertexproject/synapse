@@ -281,13 +281,13 @@ def istokoper(toks,off):
         return False
     return opers.get(toks[off][0]) != None
 
-def istokin(toks,off,vals):
-    '''
-    Returns True if the tokn at offset is in vals.
-    '''
-    if off >= len(toks):
-        return False
-    return toks[off][0] in vals
+#def istokin(toks,off,vals):
+    #'''
+    #Returns True if the tokn at offset is in vals.
+    #'''
+    #if off >= len(toks):
+        #return False
+    #return toks[off][0] in vals
 
 def nexttok(toks,off):
     '''
