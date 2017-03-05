@@ -25,6 +25,7 @@ from synapse.tests.common import *
 class FakeType(s_types.IntType):
     pass
 
+
 class CortexTest(SynTest):
 
     def test_cortex_ram(self):
@@ -36,11 +37,28 @@ class CortexTest(SynTest):
         self.runidens( core )
 
     def test_cortex_sqlite3(self):
+        import ipdb
+        ipdb.set_trace()
         core = s_cortex.openurl('sqlite:///:memory:')
         self.runcore( core )
         self.runjson( core )
         self.runrange( core )
         self.runidens( core )
+
+    lmdb_file = 'test.lmdb'
+    def test_cortex_lmdb(self):
+        core = s_cortex.openurl('lmdb:///%s' % CortexTest.lmdb_file)
+        self.runcore( core )
+        if 0:
+            self.runjson( core )
+            self.runrange( core )
+            self.runidens( core )
+
+    def tearDown(self):
+        try:
+            os.remove(CortexTest.lmdb_file)
+        except FileNotFoundError:
+            pass
 
     def test_cortex_postgres(self):
         with self.getPgCore() as core:
