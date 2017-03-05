@@ -128,7 +128,7 @@ class Cortex(s_cores_common.Cortex):
         self.onfini(onfini)
 
     @staticmethod
-    def _encode_val(v):
+    def _enc_val(v):
         if s_compat.isint(v):
             if v >= 0:
                 return msgenpack(v)
@@ -138,7 +138,7 @@ class Cortex(s_cores_common.Cortex):
             return STRING_VAL_MARKER_ENC + msgenpack(v)
 
     @staticmethod
-    def _decode_val(unpacker):
+    def _dec_val(unpacker):
         v = unpacker.unpack()
         if v == NEGATIVE_VAL_MARKER:
             return -1 * unpacker.unpack()
@@ -173,7 +173,7 @@ class Cortex(s_cores_common.Cortex):
                     raise Exception('Out of primary key values')
                 i_enc = self._enc_iden(i)
                 p_enc = msgenpack(p)
-                v_enc = self._encode_val(v)
+                v_enc = self._enc_val(v)
                 t_enc = msgenpack(t)
                 pk_val_enc = msgenpack(next_pk)
 
@@ -202,11 +202,13 @@ class Cortex(s_cores_common.Cortex):
         UUID_SIZE = 16
         pk = msgunpack(pk_enc)
         row = txn.get(self._enc_pk_key(pk), db=self.rows)
+        if row is None:
+            raise Exception('Index val has no corresponding row')
         i = self._dec_iden(row[:UUID_SIZE])
         unpacker = msgpack.Unpacker(use_list=False, encoding='utf8')
         unpacker.feed(row[UUID_SIZE:])
         p = unpacker.unpack()
-        v = self._decode_val(unpacker)
+        v = self._dec_val(unpacker)
         t = unpacker.unpack()
         return (i, p, v, t)
 
@@ -225,10 +227,29 @@ class Cortex(s_cores_common.Cortex):
                     ret.append(self._getRowByPkEnc(txn, value))
         return ret
 
-    def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
+    def _getRowsByIdProp(self, iden, prop):
+        # ??? Confused:  how can there ever be more than 1 row with a certain iden prop?
+        iden_enc = self._enc_iden(iden)
+        prop_enc = msgenpack(prop)
+
+        key = iden_enc + prop_enc
+
+        ret = []
+        with self.dbenv.begin(buffers=True) as txn:
+            value = txn.get(key, db=self.index_ip)
+            if value is None:
+                return ret
+            ret.append(self._getRowByPkEnc(txn, value))
+        return ret
+
+    def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
+        return self._getRowsByProp(prop, valu, limit, mintime, maxtime, do_count_only=True)
+
+    def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None,
+                       do_count_only=False):
         indx = self.index_pt if valu is None else self.index_pvt
         prop_enc = msgenpack(prop)
-        valu_enc = b'' if valu is None else msgenpack(valu)
+        valu_enc = b'' if valu is None else self._enc_val(valu)
         mintime_enc = b'' if mintime is None else msgenpack(mintime)
         maxtime_enc = MAX_TIME_ENC if maxtime is None else msgenpack(maxtime)
 
@@ -236,15 +257,22 @@ class Cortex(s_cores_common.Cortex):
         last_key = prop_enc + valu_enc + maxtime_enc
 
         ret = []
+        count = 0
 
         with self.dbenv.begin(buffers=True) as txn:
             with txn.cursor(indx) as cursor:
                 if not cursor.set_range(first_key):
-                    return ret
+                    return 0 if do_count_only else []
                 for key, value in cursor:
                     if key.tobytes() >= last_key:
-                        return ret
-                    ret.append(self._getRowByPkEnc(txn, value))
+                        break
+                    if do_count_only:
+                        count += 1
+                    else:
+                        ret.append(self._getRowByPkEnc(txn, value))
                     if limit is not None and limit >= len(ret):
-                        return ret
-        return ret
+                        break
+        if do_count_only:
+            return count
+        else:
+            return ret
