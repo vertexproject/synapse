@@ -211,7 +211,10 @@ class IngTest(SynTest):
         info = {'ingest':{
             'iters':[
                 ["foo/*",{
-                    'vars':{ 'ipv4':{'path':'0'}, 'fqdn':{'path':'1'} },
+                    'vars':[
+                        ['ipv4',{'path':'0'}],
+                        ['fqdn',{'path':'1'}]
+                    ],
                     'forms':[ ('inet:dns:a',{'template':'{{fqdn}}/{{ipv4}}'}) ]
                 }],
             ],
@@ -324,7 +327,10 @@ class IngTest(SynTest):
 
                                     ['data/dnsa', {
                                         #explicitly opt fqdn into the optional attrib syntax
-                                        'vars':{'fqdn':{'path':'$fqdn'},'ipv4':{'path':'ipv4'}},
+                                        'vars':[
+                                            ['fqdn',{'path':'$fqdn'}],
+                                            ['ipv4',{'path':'ipv4'}],
+                                        ],
                                         'forms':[
                                             ('inet:dns:a',{'template':'{{fqdn}}/{{ipv4}}'}),
                                         ]
@@ -400,7 +406,9 @@ class IngTest(SynTest):
                 'ingest':{
                     'iters':[
                         ('foo/*',{
-                            'vars':{'baz':{'path':'1'}},
+                            'vars':[
+                                ['baz',{'path':'1'}]
+                            ],
                             'tags':[ {'template':'foo.bar.{{baz}}'} ],
                             'forms':[ ('inet:fqdn',{'path':'0'}) ]
                         }),
@@ -471,7 +479,7 @@ class IngTest(SynTest):
         info = {'ingest':{
             'iters':[
                 ["foo/*",{
-                    'vars':{ 'hehe':{'path':'hehe'} },
+                    'vars':[ ['hehe',{'path':'hehe'}] ],
                     'forms':[ ('inet:fqdn',{'path':'fqdn','cond':'hehe != 3'}) ],
                 }],
             ],
@@ -497,7 +505,7 @@ class IngTest(SynTest):
         info = {'ingest':{
             'iters':[
                 ["foo/*",{
-                    'vars':{ 'hehe':{'path':'hehe'} },
+                    'vars':[ ['hehe',{'path':'hehe'}] ],
                     'tags':[ {'value':'hehe.haha','cond':'hehe != 3'} ],
                     'forms':[ ('inet:fqdn',{'path':'fqdn'}) ],
                 }],
@@ -526,7 +534,7 @@ class IngTest(SynTest):
         info = {'ingest':{
             'iters':[
                 ["foo/*",{
-                    'vars':{ 'zoom':{'path':'fqdn'} },
+                    'vars':[ ['zoom',{'path':'fqdn'}] ],
                     'forms':[ ('inet:fqdn',{'var':'zoom'}) ],
                 }],
             ],
@@ -546,10 +554,10 @@ class IngTest(SynTest):
         info = {'ingest':{
             'iters':[
                 ["foo/*",{
-                    'vars':{ 'zoom':{'path':'fqdn'}},
+                    'vars':[ ['zoom',{'path':'fqdn'}] ],
                     'tags':[
                         {'iter':'haha/*',
-                         'vars':{'zoomtag':{}},
+                         'vars':[['zoomtag',{}]],
                          'template':'zoom.{{zoomtag}}'}
                     ],
                     'forms':[ ('inet:fqdn',{'path':'fqdn'}) ],
@@ -573,12 +581,12 @@ class IngTest(SynTest):
         info = {'ingest':{
             'iters':[
                 ["foo/*",{
-                    'vars':{ 'zoom':{'path':'fqdn'} },
+                    'vars':[ ['zoom',{'path':'fqdn'}] ],
                     'tags':[
                         {'iter':'haha/*',
-                         'vars':{
-                            'tag':{'regex':'^foo'},
-                         },
+                         'vars':[
+                            ['tag',{'regex':'^foo'}],
+                         ],
                          'template':'zoom.{{tag}}'}
                     ],
                     'forms':[ ('inet:fqdn',{'path':'fqdn'}) ],
@@ -594,3 +602,37 @@ class IngTest(SynTest):
             node = core.getTufoByProp('inet:fqdn','vertex.link')
             self.true( s_tufo.tagged(node,'zoom.foofoo') )
             self.false( s_tufo.tagged(node,'zoom.barbar') )
+
+    def test_ingest_addFormat(self):
+
+        def _fmt_woot_old(fd,info):
+            yield 'old.bad'
+        def _fmt_woot(fd,info):
+            yield 'woot'
+        opts = {'mode':'r','encoding':'utf8'}
+
+        s_ingest.addFormat('woot',_fmt_woot_old,opts)
+        self.nn(s_ingest.fmtyielders.get('woot'))
+        s_ingest.addFormat('woot',_fmt_woot,opts)  # last write wins
+
+        with s_cortex.openurl('ram://') as core:
+            with self.getTestDir() as path:
+                wootpath = os.path.join(path, 'woot.woot')
+                with genfile(wootpath) as fd:
+                    fd.write(b'this is irrelevant, we always yield woot :-)')
+
+                info = {
+                    'sources':(
+                        (wootpath,{'open':{'format':'woot'}, 'ingest':{
+                            'tags':['hehe.haha'],
+                            'forms':[
+                                ('inet:fqdn', {}),
+                            ]
+                        }}),
+                    )
+                }
+
+                gest = s_ingest.Ingest(info)
+                gest.ingest(core)
+
+            self.assertIsNotNone( core.getTufoByProp('inet:fqdn','woot') )
