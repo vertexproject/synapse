@@ -602,3 +602,37 @@ class IngTest(SynTest):
             node = core.getTufoByProp('inet:fqdn','vertex.link')
             self.true( s_tufo.tagged(node,'zoom.foofoo') )
             self.false( s_tufo.tagged(node,'zoom.barbar') )
+
+    def test_ingest_addFormat(self):
+
+        def _fmt_woot_old(fd,info):
+            yield 'old.bad'
+        def _fmt_woot(fd,info):
+            yield 'woot'
+        opts = {'mode':'r','encoding':'utf8'}
+
+        s_ingest.addFormat('woot',_fmt_woot_old,opts)
+        self.nn(s_ingest.fmtyielders.get('woot'))
+        s_ingest.addFormat('woot',_fmt_woot,opts)  # last write wins
+
+        with s_cortex.openurl('ram://') as core:
+            with self.getTestDir() as path:
+                wootpath = os.path.join(path, 'woot.woot')
+                with genfile(wootpath) as fd:
+                    fd.write(b'this is irrelevant, we always yield woot :-)')
+
+                info = {
+                    'sources':(
+                        (wootpath,{'open':{'format':'woot'}, 'ingest':{
+                            'tags':['hehe.haha'],
+                            'forms':[
+                                ('inet:fqdn', {}),
+                            ]
+                        }}),
+                    )
+                }
+
+                gest = s_ingest.Ingest(info)
+                gest.ingest(core)
+
+            self.assertIsNotNone( core.getTufoByProp('inet:fqdn','woot') )

@@ -139,6 +139,13 @@ fmtopts = {
     'lines':{'mode':'r','encoding':'utf8'},
 }
 
+def addFormat(name, fn, opts):
+    '''
+    Add an additional ingest file format
+    '''
+    fmtyielders[name] = fn
+    fmtopts[name] = opts
+
 def iterdata(fd,**opts):
     '''
     Iterate through the data provided by a file like object.
