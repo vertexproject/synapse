@@ -25,13 +25,15 @@ class Scope:
         if vals:
             self.frames.append(vals)
 
+
     def __enter__(self):
-        self.enter()
+        return self.enter()
 
     def __exit__(self, exc, cls, tb):
         self.leave()
 
     def enter(self,vals=None):
+
         '''
         Add an additional scope frame.
         '''

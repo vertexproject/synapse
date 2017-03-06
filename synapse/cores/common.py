@@ -987,17 +987,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         '''
         return self._getRowsByIdProp(iden, prop, valu=valu)
 
-    def getRowsByIds(self, idens):
-        '''
-        Return all the rows for a given list of idens.
-
-        Example:
-
-            rows = core.getRowsByIds( (id1, id2, id3) )
-
-        '''
-        return self._getRowsByIds(idens)
-
     def delRowsById(self, iden):
         '''
         Delete all the rows for a given iden.
