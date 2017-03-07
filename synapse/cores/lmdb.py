@@ -17,6 +17,10 @@ STRING_VAL_MARKER_ENC = msgenpack(STRING_VAL_MARKER)
 MAX_TIME_ENC = msgenpack(2 ** 64 - 1)
 
 
+class DatabaseInconsistent(Exception):
+    pass
+
+
 class CoreXact(s_cores_common.CoreXact):
 
     def _coreXactInit(self):
@@ -85,7 +89,7 @@ class Cortex(s_cores_common.Cortex):
         dbname = dbinfo.get('name')
 
         # MAX DB Size.  Must be < 2 GiB for 32-bit.  Can be big for 64-bit systems.
-        MAP_SIZE = 10485760
+        MAP_SIZE = 2147483647 if MAX_PK_BYTES == 4 else 1099511627776  # a terabyte
 
         # Maximum number of "databases", really namespaces.  We use 4 different tables (1 main plus
         # 3 indices)
@@ -98,7 +102,7 @@ class Cortex(s_cores_common.Cortex):
         # Write data directly to mapped memory
         WRITEMAP = True
 
-        # Doesn't create a subdirectory for files
+        # Doesn't create a subdirectory for storage files
         SUBDIR = False
 
         # Disable locking DB.  We're single threaded, right?
@@ -111,10 +115,18 @@ class Cortex(s_cores_common.Cortex):
                                       writemap=WRITEMAP, max_readers=MAX_READERS, max_dbs=MAX_DBS,
                                       lock=LOCK)
 
-        # LMDB has an optimization if all the keys in a namespace are unsigned size_ts.
+        # LMDB has an optimization (integerkey) if all the keys in a namespace are unsigned size_ts.
+
+        # Make the main storage table, keyed by an incrementing counter, pk
         self.rows = self.dbenv.open_db(key=b"rows", integerkey=True)  # pk -> i,p,v,t
+
+        # Make the iden-prop index table, keyed by iden-prop, with value being a pk
         self.index_ip = self.dbenv.open_db(key=b"ip")  # i,p -> pk
+
+        # Make the iden-value-prop index table, keyed by iden-value-prop, with value being a pk
         self.index_pvt = self.dbenv.open_db(key=b"pvt")  # p,v,t -> pk
+
+        # Make the iden-timestamp index table, keyed by iden-timestamp, with value being a pk
         self.index_pt = self.dbenv.open_db(key=b"pt")  # p, t -> pk
 
         largest_pk = self._get_largest_pk()
@@ -152,7 +164,11 @@ class Cortex(s_cores_common.Cortex):
 
     @staticmethod
     def _dec_iden(iden_enc: bytes) -> str:
-        return uuid.UUID(bytes=iden_enc.tobytes()).hex
+        # hack around inappropriate assert in uuid.UUID
+        if isinstance(iden_enc, memoryview):
+            iden_enc = iden_enc.tobytes()
+
+        return uuid.UUID(bytes=iden_enc).hex
 
     @staticmethod
     def _enc_pk_key(pk):
@@ -184,7 +200,7 @@ class Cortex(s_cores_common.Cortex):
                              append=True, db=self.rows)
                 # Will only fail if record already exists, which should never happen
                 if not rv:
-                    raise Exception('unexpected pk in DB')
+                    raise DatabaseInconsistent('unexpected pk in DB')
 
                 # Ignoring if already exists; emulating sqlite insert here
                 txn.put(i_enc + p_enc, pk_val_enc, overwrite=False, db=self.index_ip)
@@ -198,12 +214,15 @@ class Cortex(s_cores_common.Cortex):
                 txn = None
             raise
 
-    def _getRowByPkEnc(self, txn, pk_enc):
+    def _getRowByPkValEnc(self, txn, pk_val_enc, do_delete=False):
         UUID_SIZE = 16
-        pk = msgunpack(pk_enc)
-        row = txn.get(self._enc_pk_key(pk), db=self.rows)
+        pk = msgunpack(pk_val_enc)
+        if do_delete:
+            row = txn.pop(self._enc_pk_key(pk), db=self.rows)
+        else:
+            row = txn.get(self._enc_pk_key(pk), db=self.rows)
         if row is None:
-            raise Exception('Index val has no corresponding row')
+            raise DatabaseInconsistent('Index val has no corresponding row')
         i = self._dec_iden(row[:UUID_SIZE])
         unpacker = msgpack.Unpacker(use_list=False, encoding='utf8')
         unpacker.feed(row[UUID_SIZE:])
@@ -224,8 +243,79 @@ class Cortex(s_cores_common.Cortex):
                         return ret
 
                     # FIXME: check if anything remaining in buffer?
-                    ret.append(self._getRowByPkEnc(txn, value))
+                    ret.append(self._getRowByPkValEnc(txn, value))
         return ret
+
+    def _delRowsById(self, iden):
+        i_enc = self._enc_iden(iden)
+
+        with self.dbenv.begin(buffers=True, write=True) as txn:
+            # We know just the key prefix
+            with txn.cursor(self.index_ip) as cursor:
+                if not cursor.set_range(i_enc):
+                    return
+                while True:
+                    # We don't use iterator here because the delete already advances to the next
+                    # record
+                    key, value = cursor.item()
+                    if key[:len(i_enc)] != i_enc:
+                        return
+                    # Need to copy out with tobytes because we're deleting
+                    pk_val_enc = value.tobytes()
+
+                    cursor.delete()
+                    self._delRowAndIndices(txn, pk_val_enc, delete_ip=False)
+
+    def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
+        raise Exception('not implemented')
+        # TODO next
+
+    def _delRowsByIdProp(self, iden, prop):
+        i_enc = self._enc_iden(iden)
+        p_enc = msgenpack(prop)
+
+        with self.dbenv.begin(buffers=True, write=True) as txn:
+            # Retrieve and delete I-P index
+            pk_val_enc = txn.pop(i_enc + p_enc, db=self.index_ip)
+
+            if pk_val_enc is None:
+                return
+
+            # Delete the row and the other indices
+            self._delRowAndIndices(txn, pk_val_enc, delete_ip=False)
+
+    def _delRowAndIndices(self, txn, pk_val_enc, delete_ip=True, delete_pvt=True, delete_pt=True):
+        ''' Deletes the row corresponding to pk_val_enc and the indices pointing to it '''
+        i, p, v, t = self._getRowByPkValEnc(txn, pk_val_enc, do_delete=True)
+
+        if delete_ip:
+            i_enc = self._enc_iden(i)
+
+        p_enc = msgenpack(p)
+
+        if delete_pvt:
+            v_enc = self._enc_val(v)
+
+        if delete_pvt or delete_pt:
+            t_enc = msgenpack(t)
+
+        if delete_ip:
+            # Delete I-P index entry
+            rv = txn.delete(i_enc + p_enc, db=self.index_p)
+            if not rv:
+                raise DatabaseInconsistent("Missing I-P index")
+
+        if delete_pvt:
+            # Delete P-V-T index entry
+            rv = txn.delete(p_enc + v_enc + t_enc, db=self.index_pvt)
+            if not rv:
+                raise DatabaseInconsistent("Missing P-V-T index")
+
+        if delete_pt:
+            # Delete P-T index entry
+            rv = txn.delete(p_enc + t_enc, db=self.index_pt)
+            if not rv:
+                raise DatabaseInconsistent("Missing P-T index")
 
     def _getRowsByIdProp(self, iden, prop):
         # ??? Confused:  how can there ever be more than 1 row with a certain iden prop?
@@ -239,7 +329,7 @@ class Cortex(s_cores_common.Cortex):
             value = txn.get(key, db=self.index_ip)
             if value is None:
                 return ret
-            ret.append(self._getRowByPkEnc(txn, value))
+            ret.append(self._getRowByPkValEnc(txn, value))
         return ret
 
     def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
@@ -269,7 +359,7 @@ class Cortex(s_cores_common.Cortex):
                     if do_count_only:
                         count += 1
                     else:
-                        ret.append(self._getRowByPkEnc(txn, value))
+                        ret.append(self._getRowByPkValEnc(txn, value))
                     if limit is not None and limit >= len(ret):
                         break
         if do_count_only:
