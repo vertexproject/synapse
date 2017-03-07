@@ -636,12 +636,18 @@ class TypeLib:
         Return a system normalized value for the given input value which
         may be in system mode or in display mode.
 
+        Returns None,{} on Exception
+
         Example:
 
             valu,subs = tlib.getTypeFrob('inet:ipv4',valu)
 
         '''
-        return self.reqDataType(name).frob(valu, oldval=oldval)
+        try:
+            return self.reqDataType(name).frob(valu, oldval=oldval)
+        except Exception as e:
+            logger.warn(e)
+            return None,{}
 
     def getTypeCast(self, name, valu):
         '''
