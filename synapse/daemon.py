@@ -9,6 +9,7 @@ import multiprocessing
 
 import synapse.link as s_link
 import synapse.compat as s_compat
+import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.socket as s_socket
 import synapse.lib.service as s_service
@@ -634,7 +635,7 @@ class Daemon(EventBus,DmonConf):
         # ( most likely via SSL client cert )
         user = sock.get('syn:user')
 
-        with s_threads.scope({'dmon':self, 'sock':sock, 'syn:user':user, 'syn:auth':self.auth }):
+        with s_scope.enter({'dmon':self, 'sock':sock, 'syn:user':user, 'syn:auth':self.auth }):
 
             try:
 

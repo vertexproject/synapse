@@ -24,3 +24,12 @@ class GeneTest(SynTest):
         self.eq( scope.get('bar'), 30 )
         self.eq( scope.get('foo'), 'woot' )
         self.eq( tuple( scope.iter('baz') ), (1,2) )
+
+    def test_lib_scope_enter(self):
+
+        with s_scope.enter({'woot':10}):
+            self.eq( s_scope.get('woot'), 10 )
+            self.assertIsNone( s_scope.get('newp') )
+
+        self.assertIsNone( s_scope.get('woot') )
+        self.assertIsNone( s_scope.get('newp') )

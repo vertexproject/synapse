@@ -3,7 +3,7 @@ import unittest
 import threading
 
 import synapse.async as s_async
-import synapse.lib.threads as s_threads
+import synapse.lib.scope as s_scope
 
 from synapse.tests.common import *
 
@@ -168,7 +168,7 @@ class AsyncTests(SynTest):
 
         boss.initJob(jid, task=task)
 
-        with s_threads.ScopeLocal(syntimeout=0.01):
+        with s_scope.enter({'syntimeout':0.01}):
             self.assertFalse( boss.wait(jid) )
 
         self.assertTrue( boss.wait(jid,timeout=1) )

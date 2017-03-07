@@ -6,6 +6,7 @@ import synapse.daemon as s_daemon
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
+import synapse.lib.scope as s_scope
 import synapse.lib.service as s_service
 import synapse.lib.threads as s_threads
 import synapse.lib.userauth as s_userauth
@@ -102,7 +103,7 @@ class TelePathTest(SynTest):
     def test_telepath_push(self):
 
         # override default timeout=None for tests
-        with s_threads.ScopeLocal(syntimeout=5):
+        with s_scope.enter({'syntimeout':5}):
 
             env = self.getFooEnv()
             port = env.link[1].get('port')

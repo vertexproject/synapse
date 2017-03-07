@@ -4,7 +4,7 @@ import logging
 
 import synapse.eventbus as s_eventbus
 
-import synapse.eventbus as s_eventbus
+import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
 import synapse.lib.threads as s_threads
 
@@ -218,7 +218,7 @@ class Runtime(Configable):
         self.setOperFunc('pivot', self._stormOperPivot)
 
     def getLiftLimit(self, limit):
-        userlim = s_threads.local('storm:limit:lift')
+        userlim = s_scope.get('storm:limit:lift')
         if userlim != None:
             if limit == None:
                 return userlim
