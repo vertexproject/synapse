@@ -208,7 +208,7 @@ class DataTypesTest(SynTest):
         self.eq(tlib.getTypeNorm('str:hex', '12345')[0], '12345')
         self.eq(tlib.getTypeNorm('str:hex', '12A45')[0], '12a45')
 
-        self.assertRaises(BadTypeValu, tlib.getTypeFrob, 'str:hex', '0xFFF')
+        self.none(tlib.getTypeFrob('str:hex', '0xFFF')[0])
         self.eq(tlib.getTypeFrob('str:hex', 0xFfF)[0], 'fff')
         self.eq(tlib.getTypeFrob('str:hex', 'FFF')[0], 'fff')
         self.eq(tlib.getTypeFrob('str:hex', '1A2b3C')[0], '1a2b3c')
@@ -263,6 +263,7 @@ class DataTypesTest(SynTest):
         self.assertFalse( tlib.getTypeFrob('bool','f')[0] )
         self.assertFalse( tlib.getTypeFrob('bool','n')[0] )
         self.assertFalse( tlib.getTypeFrob('bool','FaLsE')[0] )
+        self.none( tlib.getTypeFrob('bool','coffee')[0] )
 
     def test_type_comp(self):
         tlib = s_types.TypeLib()
@@ -403,7 +404,7 @@ class DataTypesTest(SynTest):
         self.eq(tlib.getTypeFrob('underwoot', ((12,34), (56,78)))[0], 'c/22_38/4e')
         self.eq(tlib.getTypeFrob('underwoot', [(12,34), [56,78]])[0], 'c/22_38/4e')
 
-        self.assertRaises(BadTypeValu, tlib.getTypeFrob, 'badwoot', '1/2/3/4')
+        self.none(tlib.getTypeFrob('badwoot', '1/2/3/4')[0])
 
         self.eq(tlib.getTypeFrob('wootaddr', [12345, 67890, 0])[0], '3039/10932/0.0.0.0')
         self.eq(tlib.getTypeFrob('wootaddr', [12345, 67890, '192.168.1.1'])[0], '3039/10932/192.168.1.1')
@@ -465,7 +466,7 @@ class DataTypesTest(SynTest):
         self.eq( tlib.getTypeParse('json','{"woot":10}')[0], '{"woot":10}' )
 
         # cant frob json string unless it's valid json... ( can't tell the difference )
-        self.assertRaises( BadTypeValu, tlib.getTypeFrob, 'json', 'derp' )
+        self.none(tlib.getTypeFrob('json', 'derp' )[0])
         self.assertRaises( BadTypeValu, tlib.getTypeParse, 'json', {'woot':10} )
 
     def test_type_fqdn(self):

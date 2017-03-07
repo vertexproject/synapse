@@ -12,12 +12,14 @@ from synapse.tests.common import *
 
 class Horked(Exception):pass
 
+model = s_datamodel.DataModel()
+
 class Foo:
 
     def bar(self):
         return 'baz'
 
-    @s_datamodel.parsetypes('int', y='int')
+    @model.parsetypes('int', y='int')
     def addup(self, x, y=0):
         return x + y
 

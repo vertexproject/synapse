@@ -3,7 +3,7 @@ Central API for configurable objects within synapse.
 '''
 from synapse.exc import *
 from synapse.eventbus import EventBus
-from synapse.datamodel import getTypeFrob
+from synapse.lib.types import TypeLib
 
 class Configable:
 
@@ -20,6 +20,8 @@ class Configable:
 
         if opts != None:
             self.setConfOpts(opts)
+
+        self.tlib = TypeLib()
 
     def addConfDefs(self, defs):
         for name,info in defs:
@@ -78,7 +80,7 @@ class Configable:
         ctype = cdef[1].get('type')
         if ctype == None:
             return valu
-        return getTypeFrob(ctype,valu)
+        return self.tlib.getTypeFrob(ctype,valu)
 
     def setConfOpt(self, name, valu):
         '''
@@ -90,7 +92,7 @@ class Configable:
 
         ctype = cdef[1].get('type')
         if ctype != None:
-            valu,_ = getTypeFrob(ctype,valu)
+            valu,_ = self.tlib.getTypeFrob(ctype,valu)
 
         if valu == oldval:
             return False
