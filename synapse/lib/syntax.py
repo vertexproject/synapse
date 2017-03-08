@@ -91,6 +91,18 @@ def parse_list(text,off,trim=True):
 def nom_whitespace(text,off):
     return nom(text,off,whites)
 
+def parse_cmd_string(text,off,trim=True):
+    '''
+    Parse in a command line string which may be quoted.
+    '''
+    if trim:
+        _,off = nom(text,off,whites)
+
+    if text[off] in ('"',"'"):
+        return parse_string(text,off,trim=trim)
+
+    return meh(text,off,whites)
+
 def parse_string(text,off,trim=True):
 
     if text[off] not in ('"',"'"): # lulz...
