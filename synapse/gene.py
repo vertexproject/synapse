@@ -162,10 +162,9 @@ class ValuNode(GeneNode):
 class VarNode(GeneNode):
     def _eval(self, syms):
         name = self.tokn[1].get('name')
-        valu = syms.get(name)
-        if valu == None:
+        if name not in syms:
             raise s_exc.NoSuchName(name=name)
-        return valu
+        return syms.get(name)
 
 class CallNode(GeneNode):
     def _eval(self, syms):
