@@ -156,8 +156,8 @@ class Cmd:
         '''
         return self.__doc__
 
-    def printf(self, mesg, **args):
-        return self._cmd_cli.printf(mesg,**args)
+    def printf(self, mesg, addnl=True):
+        return self._cmd_cli.printf(mesg,addnl=addnl)
 
 class Cli(EventBus):
     '''
@@ -177,8 +177,8 @@ class Cli(EventBus):
         self.addCmdClass( CmdHelp )
         self.addCmdClass( CmdQuit )
 
-    def printf(self, mesg, *args, addnl=True):
-        return self.outp.printf(mesg,*args,addnl=addnl)
+    def printf(self, mesg, addnl=True):
+        return self.outp.printf(mesg,addnl=addnl)
 
     def addCmdClass(self, ctor, **opts):
         '''
