@@ -1,211 +1,190 @@
 import sys
-import shlex
-import argparse
 import traceback
+import collections
+
+import synapse.lib.output as s_output
+import synapse.lib.syntax as s_syntax
 
 from synapse.eventbus import EventBus
 
-class CmdArgErr(Exception):
-
-    def __init__(self, pars, msg):
-        self.msg = msg
-        self.pars = pars
-        Exception.__init__(self, msg)
-
-# fucking argparse....
-class CmdArgExit(Exception):pass
-
-class ArgumentParser(argparse.ArgumentParser):
-
-    def error(self, msg):
-        # fuck argparse and it's thinking it should unilaterally exit()
-        raise CmdArgErr(self,msg)
-
-    def exit(self, *args, **kwargs):
-        raise CmdArgExit()
-
 class CliFini(Exception): pass
+
+class Cmd:
+    '''
+    Base class for modular commands in the synapse CLI.
+
+    FIXME: document the _cmd_syntax definitions.
+    '''
+    _cmd_name = 'FIXME'
+    _cmd_syntax = ()
+
+    def __init__(self, cli, **opts):
+        self._cmd_cli = cli
+        self._cmd_opts = opts
+
+    def runCmdLine(self, line):
+        '''
+        Run a line of command input for this command.
+
+        Example:
+
+            foo.runCmdLine('foo --opt baz woot.com')
+
+        '''
+        opts = self.getCmdOpts(line)
+        return self.runCmdOpts(opts)
+
+    def getCmdOpts(self, text):
+        '''
+        Use the _cmd_syntax def to split/parse/normalize the cmd line.
+
+        NOTE: This is implemented indepedent of argparse (et.al) due to
+              the need for syntax aware argument splitting.
+              ( also, allows different split per command type )
+        '''
+        off = 0
+
+        _,off = s_syntax.nom(text,off,s_syntax.whites)
+
+        name,off = s_syntax.meh(text,off,s_syntax.whites)
+
+        _,off = s_syntax.nom(text,off,s_syntax.whites)
+
+        opts = {}
+
+        args = collections.deque([ synt for synt in self._cmd_syntax if not synt[0].startswith('-') ])
+
+        switches = { synt[0]:synt for synt in self._cmd_syntax if synt[0].startswith('-') }
+
+        # populate defaults and lists
+        for synt in self._cmd_syntax:
+            if synt[1].get('type') == 'list':
+                opts[name] = []
+
+        def atswitch(t,o):
+            # check if we are at a recognized switch.  if not
+            # assume the data is part of regular arguments.
+            if not text.startswith('-',o):
+                return None,o
+
+            name,x = s_syntax.meh(t,o,s_syntax.whites)
+            swit = switches.get(name)
+            if swit == None:
+                return None,o
+
+            return swit,x
+
+        while off < len(text):
+
+            _,off = s_syntax.nom(text,off,s_syntax.whites)
+
+            swit,off = atswitch(text,off)
+            if swit != None:
+
+                valu = True
+                styp = swit[1].get('type','flag')
+
+                if styp == 'valu':
+                    valu,off = s_syntax.parse_cmd_string(text,off)
+                    opts[swit[0]] = valu
+
+                elif styp == 'list':
+                    valu,off = s_syntax.parse_cmd_string(text,off)
+                    vals = valu.split(',')
+                    opts[swit[0]].extend(vals)
+
+                else:
+                    opts[swit[0]] = True
+
+                continue
+
+            if not args:
+                raise Exception('trailing text: %s' % (text[off:],))
+
+            synt = args.popleft()
+            styp = synt[1].get('type','valu')
+
+            #print('SYNT: %r' % (synt,))
+
+            # a glob type eats the remainder of the string
+            if styp == 'glob':
+                opts[synt[0]] = text[off:]
+                break
+
+            # eat the remainder of the string as separate vals
+            if styp == 'list':
+                valu = []
+
+                while off < len(text):
+                    item,off = s_syntax.parse_cmd_string(text,off)
+                    valu.append(item)
+
+                opts[synt[0]] = valu
+                break
+
+            valu,off = s_syntax.parse_cmd_string(text,off)
+            opts[synt[0]] = valu
+
+        return opts
+
+    def getCmdBrief(self):
+        '''
+        Return the single-line description for this command.
+        '''
+        return self.getCmdDoc().strip().split('\n',1)[0].strip()
+
+    def getCmdName(self):
+        return self._cmd_name
+
+    def getCmdDoc(self):
+        '''
+        Return the help/doc output for this command.
+        '''
+        return self.__doc__
+
+    def printf(self, mesg, **args):
+        return self._cmd_cli.printf(mesg,**args)
 
 class Cli(EventBus):
     '''
-    A modular / event-driven CLI object similar to cmd.Cmd (but not lame)
-
-    Example:
-
-        import synapse.lib.cli as s_cli
-
-        class WootCli(s_cli.Cli):
-
-            def cmd_woot(self, cli, line):
-                """
-                The woot command.
-                """
-                # using CLI rather than self allows cli "federation"
-                cli.vprint('woot!')
-
-        wootcli = WootCli()
-
-        # can also dynamically register commands...
-
-        def lulz(cli,line):
-            """
-            Lulz the live long day.
-            """
-            stuff()
-
-        wootcli.addCmdFunc(lulz)
-
-        # or methods from other objects...
-
-        class Foo:
-            def cmd_bar(self, cli, line):
-
-        foo = Foo()
-        cli.addCmdMeths(foo)
-
-        # cli now has "bar" command
-
+    A modular / event-driven CLI base object.
     '''
     def __init__(self, outp=None):
-        #cmd.Cmd.__init__(self)
         EventBus.__init__(self)
 
-        self.cmdfuncs = {}
+        if outp == None:
+            outp = s_output.OutPut()
+
+        self.outp = outp
+
+        self.cmds = {}
         self.cmdprompt = 'cli> '
 
-        self.addCmdMeths(self)
-        self.addCmdFunc(cmd_quit, name='quit')
-        self.addCmdFunc(cmd_help, name='help')
+        self.addCmdClass( CmdHelp )
+        self.addCmdClass( CmdQuit )
+
+    def printf(self, mesg, *args, addnl=True):
+        return self.outp.printf(mesg,*args,addnl=addnl)
+
+    def addCmdClass(self, ctor, **opts):
+        '''
+        Add a Cmd subclass to this cli.
+        '''
+        item = ctor(self, **opts)
+        name = item.getCmdName()
+        self.cmds[name] = item
 
     def getCmdNames(self):
         '''
         Return a list of all the known command names for the CLI.
         '''
-        return list(self.cmdfuncs.keys())
+        return list(self.cmds.keys())
 
-    def delCmdFunc(self, name):
+    def getCmdByName(self, name):
         '''
-        Remove a previously registered command function.
+        Return a Cmd instance by name.
         '''
-        return self.cmdfuncs.pop(name,None)
-
-    def getCmdDoc(self, name):
-        '''
-        Return the doc string for the given function name.
-        '''
-        func = self.getCmdFunc(name)
-        if func == None:
-            return None
-
-        return func.__doc__
-
-    def getCmdBrief(self, name):
-        '''
-        Return the strip()d first line from the cmd doc string.
-        '''
-        doc = self.getCmdDoc(name)
-        if doc == None:
-            return None
-
-        return doc.strip().split('\n',1)[0].strip()
-
-    def getCmdFunc(self, name):
-        '''
-        Return the func callback for a given command.
-        '''
-        return self.cmdfuncs.get(name)
-
-    def addStdPrint(self):
-        '''
-        Add a callback to print cli:print events to stdout.
-        '''
-        self.on('cli:print', _cliprint)
-
-    def addCmdFunc(self, func, name=None):
-        '''
-        Add an additional command callback to the CLI object.
-
-        def woot(cli,line):
-            do_woot_stuff(line)
-
-        cli.addCmdFunc('woot', woot)
-
-        # cli now has "woot" command
-
-        '''
-        if name == None:
-            name = func.__name__
-
-        self.cmdfuncs[name] = func
-
-    def _printCliExc(self, exc):
-        exctxt = traceback.format_exc()
-        self.vprint(exctxt)
-        self.vprint('error: %s' % exc)
-
-    def getArgParser(self, prog):
-        '''
-        Return a synapse ArgumentParser instance.
-
-        Example:
-
-            pars = cli.getArgParser()
-
-        Notes:
-
-            * our ArgumentParser subclass doesnt exit()
-
-        '''
-        return ArgumentParser(prog=prog)
-
-    def vprint(self, msg, addnl=True):
-        '''
-        Print output for the CLI.
-        '''
-        self.fire('cli:print', msg=msg, addnl=addnl)
-
-    def getLineArgv(self, line):
-        '''
-        Chop up an input line and return argv list.
-
-        Example:
-
-            argv = cli.getLineArgv(line)
-
-        '''
-        return shlex.split(line)[1:]
-
-    def addCmdMeths(self, item):
-        '''
-        Add all cmd_<foo> methods from the given item as commands.
-
-        Example:
-
-            import synapse.lib.cli as s_cli
-
-            class Lulz:
-
-                def cmd_woot(self, cli, line):
-                    cli.vprint('woot: %s' % (line,))
-
-            lulz = Lulz()
-
-            cli = s_cli.Cli()
-            cli.addCmdMeths(lulz)
-
-            # cli now has command named "woot"
-
-        '''
-        for name in dir(item):
-
-            if not name.startswith('cmd_'):
-                continue
-
-            meth = getattr(item,name,None)
-            if not meth:
-                continue
-
-            self.addCmdFunc(meth, name=name[4:])
+        return self.cmds.get(name)
 
     def runCmdLoop(self, stdin=sys.stdin):
         '''
@@ -221,7 +200,7 @@ class Cli(EventBus):
 
             try:
 
-                self.vprint( self.cmdprompt, addnl=False )
+                self.printf( self.cmdprompt, addnl=False )
 
                 line = input()
                 if not line:
@@ -229,13 +208,12 @@ class Cli(EventBus):
 
                 line = line.strip()
                 if not line:
-                    self.vprint('FIXME EMPTY')
                     continue
 
                 self.runCmdLine(line)
 
             except KeyboardInterrupt as e:
-                self.vprint('<ctrl-c>')
+                self.printf('<ctrl-c>')
 
             except Exception as e:
                 traceback.print_exc()
@@ -250,87 +228,150 @@ class Cli(EventBus):
 
         '''
         ret = None
-        name = line.split(None,1)[0]
-        func = self.getCmdFunc(name)
 
-        # FIXME partial match!
-        if func == None:
-            self.vprint('cmd not found: %s' % (name,))
+        name = line.split(None,1)[0]
+
+        cmdo = self.getCmdByName(name)
+        if cmdo == None:
+            self.printf('cmd not found: %s' % (name,))
             return
 
         self.fire('cli:cmd:run', line=line)
 
         try:
 
-            ret = func(self,line)
+            ret = cmdo.runCmdLine(line)
 
         except CliFini as e:
             self.fini()
 
         except KeyboardInterrupt as e:
-            self.vprint('<ctrl-c>')
-
-        except CmdArgErr as e:
-            self.vprint( e.pars.format_usage() )
-            self.vprint( e.msg )
-
-        except CmdArgExit as e:
-            pass
+            self.printf('<ctrl-c>')
 
         except Exception as e:
-            self._printCliExc(e)
-
-        self.fire('cli:cmd:ret', line=line, ret=ret)
+            exctxt = traceback.format_exc()
+            self.printf(exctxt)
+            self.printf('error: %s' % e)
 
         return ret
 
-def _cliprint(mesg):
+class CmdQuit(Cmd):
     '''
-    Callback for printing cli:print events.
+    Quit the current command line interpreter.
+
+    Example:
+
+        quit
     '''
-    msg = mesg[1].get('msg')
 
-    addnl = mesg[1].get('addnl')
-    if addnl:
-        msg += '\n'
+    _cmd_name = 'quit'
 
-    sys.stdout.write(msg)
-    sys.stdout.flush()
+    def runCmdOpts(self, opts):
+        self.printf('o/')
+        raise CliFini()
 
-def cmd_quit(cli, line):
+class CmdHelp(Cmd):
     '''
-    Quit the CLI.
+    List commands and display help output.
+
+    Example:
+
+        help foocmd
+
     '''
-    cli.fini()
-    raise CliFini()
+    _cmd_name = 'help'
+    _cmd_syntax = [
+        ('cmds',{'type':'list'})
+    ]
 
-def cmd_help(cli, line):
-    '''
-    Show command list and descriptions.
-    '''
-    argv = cli.getLineArgv(line)
-    if argv:
+    def runCmdOpts(self, opts):
+        cmds = opts.get('cmds')
 
-        for name in argv:
-            cli.vprint('=== %s' % (name,))
+        # if they didn't specify one, just show the list
+        if not cmds:
+            cmds = self._cmd_cli.getCmdNames()
+            cmds.sort()
 
-            doc = cli.getCmdDoc(name)
-            if doc != None:
-                cli.vprint(doc)
+            padsize = max( [ len(n) for n in cmds ] )
 
-            cli.runCmdLine('%s --help' % name)
+            for name in cmds:
+                padname = name.ljust(padsize)
+                cmdo = self._cmd_cli.getCmdByName(name)
+                brief = cmdo.getCmdBrief()
+                self.printf('%s - %s' % (padname,brief))
+
+            return
+
+        for name in cmds:
+
+            cmdo = self._cmd_cli.getCmdByName(name)
+            if cmdo == None:
+                self.printf('=== NOT FOUND: %s' % (name,))
+                continue
+
+            self.printf('=== %s' % (name,))
+            self.printf( cmdo.getCmdDoc() )
 
         return
 
-    names = cli.getCmdNames()
+#def cmd_quit(cli, line):
+    #'''
+    #Quit the CLI.
+    #'''
+    #cli.fini()
+    #raise CliFini()
 
-    names.sort()
-    padsize = max( [ len(n) for n in names ] )
+#def cmd_help(cli, line):
+    #'''
+    #Show command list and descriptions.
+    #'''
+    #argv = cli.getLineArgv(line)
+    #if argv:
 
-    for name in names:
-        brief = cli.getCmdBrief(name)
-        padname = name.ljust(padsize)
-        cli.vprint('%s - %s' % (padname,brief))
+        #for name in argv:
+            #cli.printf('=== %s' % (name,))
 
-    cli.vprint('(%d cmds)' % (len(names),))
+            #doc = cli.getCmdDoc(name)
+            #if doc != None:
+                #cli.printf(doc)
 
+            #cli.runCmdLine('%s --help' % name)
+
+        #return
+
+    #names = cli.getCmdNames()
+
+    #names.sort()
+    #padsize = max( [ len(n) for n in names ] )
+
+    #for name in names:
+        #brief = cli.getCmdBrief(name)
+        #padname = name.ljust(padsize)
+        #cli.printf('%s - %s' % (padname,brief))
+
+    #cli.printf('(%d cmds)' % (len(names),))
+
+if __name__ == '__main__':
+    cli = Cli()
+    quit = cli.getCmdByName('quit')
+
+    halp = cli.getCmdByName('help')
+    print( repr( halp.getCmdOpts('help foo bar') ) )
+
+    quit._cmd_syntax = (
+        ('--foo',{}),
+        ('--bar',{'type':'valu'}),
+        ('baz',{}),
+        ('faz',{'type':'glob'})
+    )
+
+    print( repr( quit.getCmdOpts('quit --bar 10 hehe --foo haha hoho hum') ) )
+    print( repr( quit.getCmdOpts('quit --bar 10 hehe --foo haha hoho hum') ) )
+
+    #opts.get('baz')
+
+    #print( quit.__doc__ )
+    #print( quit.getCmdBrief() )
+
+    #cli.runCmdLine('help')
+    cli.runCmdLoop()
