@@ -13,9 +13,10 @@ class Hehe:
 class CliTest(SynTest):
 
     def test_cli_quit(self):
-        cli = s_cli.Cli()
-        cli.runCmdLine('quit')
-        self.assertTrue(cli.isfini)
+        outp = s_output.OutPutStr()
+        with s_cli.Cli(outp=outp) as cli:
+            cli.runCmdLine('quit')
+            self.true(cli.isfini)
 
     def test_cli_help(self):
         outp = s_output.OutPutStr()
@@ -53,7 +54,7 @@ class CliTest(SynTest):
 
             opts = quit.getCmdOpts('quit --bar hoho')
 
-            self.eq( opts.get('--bar'), True )
+            self.eq( opts.get('bar'), True )
             self.eq( opts.get('haha'), 'hoho')
 
     def test_cli_opts_flag(self):
@@ -68,7 +69,7 @@ class CliTest(SynTest):
 
             opts = quit.getCmdOpts('quit --bar hoho')
 
-            self.eq( opts.get('--bar'), True )
+            self.eq( opts.get('bar'), True )
             self.eq( opts.get('haha'), 'hoho')
 
     def test_cli_opts_list(self):
@@ -84,7 +85,7 @@ class CliTest(SynTest):
 
             opts = quit.getCmdOpts('quit --bar hoho haha "hehe hehe"')
 
-            self.eq( opts.get('--bar'), True )
+            self.eq( opts.get('bar'), True )
             self.eq( tuple(opts.get('haha')), ('hoho','haha','hehe hehe') )
 
     def test_cli_opts_glob(self):
@@ -100,6 +101,19 @@ class CliTest(SynTest):
 
             opts = quit.getCmdOpts('quit --bar hoho lulz')
 
-            self.eq( opts.get('--bar'), True )
+            self.eq( opts.get('bar'), True )
             self.eq( opts.get('haha'), 'hoho lulz')
 
+    def test_cli_opts_defval(self):
+
+        with s_cli.Cli() as cli:
+
+            quit = cli.getCmdByName('quit')
+
+            quit._cmd_syntax = (
+                ('--bar',{'type':'valu','defval':'lol'}),
+                ('haha',{'type':'glob'}),
+            )
+
+            opts = quit.getCmdOpts('quit hoho lulz')
+            self.eq( opts.get('bar'), 'lol' )

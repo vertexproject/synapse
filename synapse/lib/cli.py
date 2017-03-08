@@ -58,8 +58,14 @@ class Cmd:
 
         # populate defaults and lists
         for synt in self._cmd_syntax:
+            snam = synt[0].strip('-')
+
+            defval = synt[1].get('defval')
+            if defval != None:
+                opts[snam] = defval
+
             if synt[1].get('type') == 'list':
-                opts[name] = []
+                opts[snam] = []
 
         def atswitch(t,o):
             # check if we are at a recognized switch.  if not
@@ -81,20 +87,28 @@ class Cmd:
             swit,off = atswitch(text,off)
             if swit != None:
 
-                valu = True
                 styp = swit[1].get('type','flag')
+                snam = swit[0].strip('-')
 
                 if styp == 'valu':
                     valu,off = s_syntax.parse_cmd_string(text,off)
-                    opts[swit[0]] = valu
+                    opts[snam] = valu
 
                 elif styp == 'list':
                     valu,off = s_syntax.parse_cmd_string(text,off)
                     vals = valu.split(',')
-                    opts[swit[0]].extend(vals)
+                    opts[snam].extend(vals)
+
+                elif styp == 'enum':
+                    vals = synt[1].get('enum:vals')
+                    valu,off = s_syntax.parse_cmd_string(text,off)
+                    if valu not in vals:
+                        raise Exception('%s (%s)' % (synt[0],'|'.join(vals)))
+
+                    opts[snam] = valu
 
                 else:
-                    opts[swit[0]] = True
+                    opts[snam] = True
 
                 continue
 
@@ -313,65 +327,3 @@ class CmdHelp(Cmd):
             self.printf( cmdo.getCmdDoc() )
 
         return
-
-#def cmd_quit(cli, line):
-    #'''
-    #Quit the CLI.
-    #'''
-    #cli.fini()
-    #raise CliFini()
-
-#def cmd_help(cli, line):
-    #'''
-    #Show command list and descriptions.
-    #'''
-    #argv = cli.getLineArgv(line)
-    #if argv:
-
-        #for name in argv:
-            #cli.printf('=== %s' % (name,))
-
-            #doc = cli.getCmdDoc(name)
-            #if doc != None:
-                #cli.printf(doc)
-
-            #cli.runCmdLine('%s --help' % name)
-
-        #return
-
-    #names = cli.getCmdNames()
-
-    #names.sort()
-    #padsize = max( [ len(n) for n in names ] )
-
-    #for name in names:
-        #brief = cli.getCmdBrief(name)
-        #padname = name.ljust(padsize)
-        #cli.printf('%s - %s' % (padname,brief))
-
-    #cli.printf('(%d cmds)' % (len(names),))
-
-if __name__ == '__main__':
-    cli = Cli()
-    quit = cli.getCmdByName('quit')
-
-    halp = cli.getCmdByName('help')
-    print( repr( halp.getCmdOpts('help foo bar') ) )
-
-    quit._cmd_syntax = (
-        ('--foo',{}),
-        ('--bar',{'type':'valu'}),
-        ('baz',{}),
-        ('faz',{'type':'glob'})
-    )
-
-    print( repr( quit.getCmdOpts('quit --bar 10 hehe --foo haha hoho hum') ) )
-    print( repr( quit.getCmdOpts('quit --bar 10 hehe --foo haha hoho hum') ) )
-
-    #opts.get('baz')
-
-    #print( quit.__doc__ )
-    #print( quit.getCmdBrief() )
-
-    #cli.runCmdLine('help')
-    cli.runCmdLoop()
