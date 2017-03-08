@@ -250,8 +250,9 @@ class Cortex(s_cores_common.Cortex):
         i_enc = self._enc_iden(iden)
 
         with self.dbenv.begin(buffers=True, write=True) as txn:
-            # We know just the key prefix
             with txn.cursor(self.index_ip) as cursor:
+
+                # Get the first record => i_enc
                 if not cursor.set_range(i_enc):
                     return
                 while True:
@@ -260,11 +261,13 @@ class Cortex(s_cores_common.Cortex):
                     key, value = cursor.item()
                     if key[:len(i_enc)] != i_enc:
                         return
+                    p_enc = key[len(i_enc):].tobytes()
                     # Need to copy out with tobytes because we're deleting
                     pk_val_enc = value.tobytes()
 
                     cursor.delete()
-                    self._delRowAndIndices(txn, pk_val_enc, delete_ip=False)
+                    self._delRowAndIndices(txn, pk_val_enc, i_enc=i_enc, p_enc=p_enc,
+                                           delete_ip=False)
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         raise Exception('not implemented')
@@ -282,21 +285,23 @@ class Cortex(s_cores_common.Cortex):
                 return
 
             # Delete the row and the other indices
-            self._delRowAndIndices(txn, pk_val_enc, delete_ip=False)
+            self._delRowAndIndices(txn, pk_val_enc, i_enc=i_enc, p_enc=p_enc, delete_ip=False)
 
-    def _delRowAndIndices(self, txn, pk_val_enc, delete_ip=True, delete_pvt=True, delete_pt=True):
+    def _delRowAndIndices(self, txn, pk_val_enc, i_enc=None, p_enc=None, v_enc=None, t_enc=None,
+                          delete_ip=True, delete_pvt=True, delete_pt=True):
         ''' Deletes the row corresponding to pk_val_enc and the indices pointing to it '''
         i, p, v, t = self._getRowByPkValEnc(txn, pk_val_enc, do_delete=True)
 
-        if delete_ip:
+        if delete_ip and i_enc is None:
             i_enc = self._enc_iden(i)
 
-        p_enc = msgenpack(p)
+        if p_enc is None:
+            p_enc = msgenpack(p)
 
-        if delete_pvt:
+        if delete_pvt and v_enc is None:
             v_enc = self._enc_val(v)
 
-        if delete_pvt or delete_pt:
+        if (delete_pvt or delete_pt) and t_enc is None:
             t_enc = msgenpack(t)
 
         if delete_ip:
