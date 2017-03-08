@@ -1,5 +1,4 @@
 import sys
-import uuid
 import msgpack
 import lmdb
 
@@ -7,17 +6,47 @@ import synapse.cores.common as s_cores_common
 from synapse.common import genpath, msgenpack, msgunpack
 import synapse.compat as s_compat
 
+# File conventions:
+# i, p, v, t: iden, prop, value, timestamp
+# i_enc, p_enc, v_enc, t_enc: above encoded to be space efficient and fully-ordered when compared
+#   lexicographically (i.e. like alphabetically first byte at a time)
+# pk:  primary key, unique identifier of the row in the main table
+# pk_val_enc:  space efficient encoding of pk for use as value in an index table
+# pk_key_enc:  database-efficient encoding of pk for use as key in main table
 
+# N.B.  LMDB calls the separate namespaces in a a file "databases" (e.g. db=).
+
+
+# Largest primary key value.  No more rows than this
 MAX_PK = sys.maxsize
+
+# Bytes in MAX_PK
 MAX_PK_BYTES = 8 if sys.maxsize > 2**32 else 4
+
+# Prefix to indicate that a v is a negative value an not the defaault nonnegative value
 NEGATIVE_VAL_MARKER = -1
+
+# Prefix to indicate than a v is a string
 STRING_VAL_MARKER = -2
+
+# The negative marker encoded
 NEGATIVE_VAL_MARKER_ENC = msgenpack(NEGATIVE_VAL_MARKER)
+
+# The string marker encoded
 STRING_VAL_MARKER_ENC = msgenpack(STRING_VAL_MARKER)
+
+# The maximum possible timestamp.  Probably a bit overkill
 MAX_TIME_ENC = msgenpack(2 ** 64 - 1)
+
+# Number of bytes in an UUID
+UUID_SIZE = 16
+
+# An index key can't ever be larger (lexicographically) than this
+MAX_INDEX_KEY = b'\xff\xff'
 
 
 class DatabaseInconsistent(Exception):
+    ''' If you get this Exception, that means the database is corrupt '''
     pass
 
 
@@ -88,10 +117,12 @@ class Cortex(s_cores_common.Cortex):
         dbinfo = self._initDbInfo()
         dbname = dbinfo.get('name')
 
+        # FIXME:  make some settings configurable?
+
         # MAX DB Size.  Must be < 2 GiB for 32-bit.  Can be big for 64-bit systems.
         MAP_SIZE = 2147483647 if MAX_PK_BYTES == 4 else 1099511627776  # a terabyte
 
-        # Maximum number of "databases", really namespaces.  We use 4 different tables (1 main plus
+        # Maximum number of "databases", really tables.  We use 4 different tables (1 main plus
         # 3 indices)
         MAX_DBS = 4
 
@@ -115,7 +146,7 @@ class Cortex(s_cores_common.Cortex):
                                       writemap=WRITEMAP, max_readers=MAX_READERS, max_dbs=MAX_DBS,
                                       lock=LOCK)
 
-        # LMDB has an optimization (integerkey) if all the keys in a namespace are unsigned size_ts.
+        # LMDB has an optimization (integerkey) if all the keys in a table are unsigned size_t.
 
         # Make the main storage table, keyed by an incrementing counter, pk
         self.rows = self.dbenv.open_db(key=b"rows", integerkey=True)  # pk -> i,p,v,t
@@ -129,6 +160,13 @@ class Cortex(s_cores_common.Cortex):
         # Make the iden-timestamp index table, keyed by iden-timestamp, with value being a pk
         self.index_pt = self.dbenv.open_db(key=b"pt")  # p, t -> pk
 
+        # Put 1 max key sentinel at the end of each index table.  This avoids unfortunate behavior
+        # where the cursor moves backwards after deleting the final record.
+        with self.dbenv.begin(buffers=True, write=True) as txn:
+            for db in (self.index_ip, self.index_pvt, self.index_pt):
+                txn.put(MAX_INDEX_KEY, b'', db=db)
+
+        # Find the largest stored pk.  We just track this in memory from now on.
         largest_pk = self._get_largest_pk()
         if largest_pk == MAX_PK:
             raise Exception('Out of primary key values')
@@ -141,6 +179,11 @@ class Cortex(s_cores_common.Cortex):
 
     @staticmethod
     def _enc_val(v):
+        ''' Encode a v.  Non-negative numbers are msgpack encoded.  Negative numbers are encoded
+            as a marker, then the encoded negative of that value, so that the ordering of the
+            encodings is easily mapped to the ordering of the negative numbers.  Note that this
+            scheme prevents interleaving of value types:  all string encodings compare larger than
+            all negative number encodings compare larger than all nonnegative encodings.  '''
         if s_compat.isint(v):
             if v >= 0:
                 return msgenpack(v)
@@ -151,6 +194,7 @@ class Cortex(s_cores_common.Cortex):
 
     @staticmethod
     def _dec_val(unpacker):
+        ''' Decode a v.'''
         v = unpacker.unpack()
         if v == NEGATIVE_VAL_MARKER:
             return -1 * unpacker.unpack()
@@ -160,19 +204,15 @@ class Cortex(s_cores_common.Cortex):
 
     @staticmethod
     def _enc_iden(iden: str) -> bytes:
-        return uuid.UUID(hex=iden).bytes
+        return int(iden, UUID_SIZE).to_bytes(UUID_SIZE, byteorder='big')
 
     @staticmethod
     def _dec_iden(iden_enc: bytes) -> str:
-        # hack around inappropriate assert in uuid.UUID
-        if isinstance(iden_enc, memoryview):
-            iden_enc = iden_enc.tobytes()
-
-        return uuid.UUID(bytes=iden_enc).hex
+        return hex(int.from_bytes(iden_enc, byteorder='big'))[2:]
 
     @staticmethod
     def _enc_pk_key(pk):
-        ''' Encode for integerkey row DB option '''
+        ''' Encode for integerkey row DB option:  as a native size_t '''
         return int.to_bytes(pk, MAX_PK_BYTES, byteorder=sys.byteorder)
 
     @staticmethod
@@ -265,13 +305,11 @@ class Cortex(s_cores_common.Cortex):
                     # Need to copy out with tobytes because we're deleting
                     pk_val_enc = value.tobytes()
 
-                    cursor.delete()
+                    rv = cursor.delete()
+                    if not rv:
+                        raise Exception('Delete failure')
                     self._delRowAndIndices(txn, pk_val_enc, i_enc=i_enc, p_enc=p_enc,
                                            delete_ip=False)
-
-    def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        raise Exception('not implemented')
-        # TODO next
 
     def _delRowsByIdProp(self, iden, prop):
         i_enc = self._enc_iden(iden)
@@ -306,7 +344,7 @@ class Cortex(s_cores_common.Cortex):
 
         if delete_ip:
             # Delete I-P index entry
-            rv = txn.delete(i_enc + p_enc, db=self.index_p)
+            rv = txn.delete(i_enc + p_enc, db=self.index_ip)
             if not rv:
                 raise DatabaseInconsistent("Missing I-P index")
 
@@ -340,34 +378,54 @@ class Cortex(s_cores_common.Cortex):
     def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
         return self._getRowsByProp(prop, valu, limit, mintime, maxtime, do_count_only=True)
 
+    def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
+        self._getRowsByProp(prop, valu, mintime=mintime, maxtime=maxtime, do_delete_only=True)
+
     def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None,
-                       do_count_only=False):
+                       do_count_only=False, do_delete_only=False):
+
+        assert(not (do_count_only and do_delete_only))
         indx = self.index_pt if valu is None else self.index_pvt
-        prop_enc = msgenpack(prop)
-        valu_enc = b'' if valu is None else self._enc_val(valu)
+        p_enc = msgenpack(prop)
+        v_enc = b'' if valu is None else self._enc_val(valu)
         mintime_enc = b'' if mintime is None else msgenpack(mintime)
         maxtime_enc = MAX_TIME_ENC if maxtime is None else msgenpack(maxtime)
 
-        first_key = prop_enc + valu_enc + mintime_enc
-        last_key = prop_enc + valu_enc + maxtime_enc
+        first_key = p_enc + v_enc + mintime_enc
+        last_key = p_enc + v_enc + maxtime_enc
 
         ret = []
         count = 0
 
-        with self.dbenv.begin(buffers=True) as txn:
+        with self.dbenv.begin(buffers=True, write=do_delete_only) as txn:
             with txn.cursor(indx) as cursor:
                 if not cursor.set_range(first_key):
                     return 0 if do_count_only else []
-                for key, value in cursor:
+                while True:
+                    key, value = cursor.item()
                     if key.tobytes() >= last_key:
                         break
-                    if do_count_only:
-                        count += 1
-                    else:
+                    count += 1
+                    if do_delete_only:
+                        pk_val_enc = value.tobytes()
+
+                        rv = cursor.delete()
+                        if not rv:
+                            raise Exception('Delete failure')
+
+                        self._delRowAndIndices(txn, pk_val_enc, p_enc=p_enc,
+                                               delete_pt=(valu is not None),
+                                               delete_pvt=(valu is None))
+                    elif not do_count_only:
                         ret.append(self._getRowByPkValEnc(txn, value))
-                    if limit is not None and limit >= len(ret):
+                    if limit is not None and limit >= count:
                         break
+                    if not do_delete_only:
+                        rv = cursor.next()
+                        if not rv:
+                            # Sentinel record should prevent this
+                            raise DatabaseInconsistent('Got to end of index')
         if do_count_only:
             return count
-        else:
+        elif not do_delete_only:
             return ret
