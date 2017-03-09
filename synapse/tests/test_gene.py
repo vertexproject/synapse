@@ -75,6 +75,9 @@ class GeneTest(SynTest):
         self.eq( id(expr0), id(expr1) )
         self.eq( expr0({'foo':10}), 1 )
 
+    def test_gene_empty_value(self):
+        self.eq(s_gene.eval('empty', syms={'empty': None}), None)
+
     def test_gene_noname(self):
         self.assertRaises( NoSuchName, s_gene.eval, 'x + 20' )
 

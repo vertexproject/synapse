@@ -3,6 +3,10 @@ import operator
 import synapse.exc as s_exc
 import synapse.lib.syntax as s_syntax
 
+
+class UndefinedValue: pass
+undefined = UndefinedValue()
+
 class GeneLab:
 
     def __init__(self, globs=None):
@@ -162,9 +166,10 @@ class ValuNode(GeneNode):
 class VarNode(GeneNode):
     def _eval(self, syms):
         name = self.tokn[1].get('name')
-        if name not in syms:
+        valu = syms.get(name, undefined)
+        if valu is undefined:
             raise s_exc.NoSuchName(name=name)
-        return syms.get(name)
+        return valu
 
 class CallNode(GeneNode):
     def _eval(self, syms):
