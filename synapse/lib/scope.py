@@ -77,15 +77,6 @@ class Scope:
 
         return defval
 
-    def __contains__(self, name):
-        '''
-        Test for the existence of given name in the scope.
-        '''
-        for frame in self.frames:
-            if name in frame:
-                return True
-        return False
-
     def add(self, name, *vals):
         '''
         Add values as iter() compatible items in the current scope frame.
