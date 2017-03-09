@@ -169,7 +169,7 @@ class VarNode(GeneNode):
         valu = syms.get(name, undefined)
         if valu is undefined:
             raise s_exc.NoSuchName(name=name)
-        return syms.get(name)
+        return valu
 
 class CallNode(GeneNode):
     def _eval(self, syms):
