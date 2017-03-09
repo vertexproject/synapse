@@ -11,6 +11,8 @@ import synapse.compat as s_compat
 ValueT = typing.Union[int, str]
 
 # FIXME:  consider duplicate keys for everything
+# FIXME:  need negative int tests
+# FIXME:  desperately need fencepost tests for queries
 
 # File conventions:
 # i, p, v, t: iden, prop, value, timestamp
@@ -118,7 +120,7 @@ class Cortex(s_cores_common.Cortex):
         name = self._link[1].get('path')[1:]
         if not name:
             raise Exception('No Path Specified!')
-                                                                                                    
+
         if name.find(':') == -1:
             name = genpath(name)
 
@@ -128,12 +130,11 @@ class Cortex(s_cores_common.Cortex):
         return CoreXact(self, size=size)
 
     def _get_largest_pk(self):
-        with self.dbenv.begin(buffers=True) as txn:
-            with txn.cursor(self.rows) as cursor:
-                rv = cursor.last()
-                if not rv:
-                    return 0  # db is empty
-                return self._dec_pk_key(cursor.key())
+        with self.dbenv.begin(buffers=True) as txn, txn.cursor(self.rows) as cursor:
+            rv = cursor.last()
+            if not rv:
+                return 0  # db is empty
+            return self._dec_pk_key(cursor.key())
 
     def _initDbConn(self):
         dbinfo = self._initDbInfo()
@@ -190,6 +191,8 @@ class Cortex(s_cores_common.Cortex):
         with self.dbenv.begin(buffers=True, write=True) as txn:
             for db in (self.index_ip, self.index_pvt, self.index_pt):
                 txn.put(MAX_INDEX_KEY, b'', db=db)
+                # One more sentinel for going backwards through the pvt table.
+                txn.put(b'\x00', b'', db=self.index_pvt)
 
         # Find the largest stored pk.  We just track this in memory from now on.
         largest_pk = self._get_largest_pk()
@@ -244,7 +247,6 @@ class Cortex(s_cores_common.Cortex):
     @staticmethod
     def _enc_iden(iden: str) -> bytes:
         return int(iden, UUID_SIZE).to_bytes(UUID_SIZE, byteorder='big')
-
 
     @staticmethod
     def _dec_iden(iden_enc: bytes) -> str:
@@ -321,42 +323,40 @@ class Cortex(s_cores_common.Cortex):
     def _getRowsById(self, iden):
         ret = []
         iden_enc = self._enc_iden(iden)
-        with self.dbenv.begin(buffers=True) as txn:
-            with txn.cursor(self.index_ip) as cursor:
-                if not cursor.set_range(iden_enc):
+        with self.dbenv.begin(buffers=True) as txn, txn.cursor(self.index_ip) as cursor:
+            if not cursor.set_range(iden_enc):
+                return ret
+            for key, value in cursor:
+                if key[:len(iden_enc)] != iden_enc:
                     return ret
-                for key, value in cursor:
-                    if key[:len(iden_enc)] != iden_enc:
-                        return ret
 
-                    # FIXME: check if anything remaining in buffer?
-                    ret.append(self._getRowByPkValEnc(txn, value))
+                # FIXME: check if anything remaining in buffer?
+                ret.append(self._getRowByPkValEnc(txn, value))
         return ret
 
     def _delRowsById(self, iden):
         i_enc = self._enc_iden(iden)
 
-        with self.dbenv.begin(buffers=True, write=True) as txn:
-            with txn.cursor(self.index_ip) as cursor:
+        with self.dbenv.begin(buffers=True, write=True) as txn, txn.cursor(self.index_ip) as cursor:
 
-                # Get the first record => i_enc
-                if not cursor.set_range(i_enc):
+            # Get the first record => i_enc
+            if not cursor.set_range(i_enc):
+                return
+            while True:
+                # We don't use iterator here because the delete already advances to the next
+                # record
+                key, value = cursor.item()
+                if key[:len(i_enc)] != i_enc:
                     return
-                while True:
-                    # We don't use iterator here because the delete already advances to the next
-                    # record
-                    key, value = cursor.item()
-                    if key[:len(i_enc)] != i_enc:
-                        return
-                    p_enc = key[len(i_enc):].tobytes()
-                    # Need to copy out with tobytes because we're deleting
-                    pk_val_enc = value.tobytes()
+                p_enc = key[len(i_enc):].tobytes()
+                # Need to copy out with tobytes because we're deleting
+                pk_val_enc = value.tobytes()
 
-                    rv = cursor.delete()
-                    if not rv:
-                        raise Exception('Delete failure')
-                    self._delRowAndIndices(txn, pk_val_enc, i_enc=i_enc, p_enc=p_enc,
-                                           delete_ip=False)
+                rv = cursor.delete()
+                if not rv:
+                    raise Exception('Delete failure')
+                self._delRowAndIndices(txn, pk_val_enc, i_enc=i_enc, p_enc=p_enc,
+                                       delete_ip=False)
 
     def _delRowsByIdProp(self, iden, prop):
         i_enc = self._enc_iden(iden)
@@ -448,40 +448,40 @@ class Cortex(s_cores_common.Cortex):
         ret = []
         count = 0
 
-        with self.dbenv.begin(buffers=True, write=do_delete_only) as txn:
-            with txn.cursor(indx) as cursor:
-                if not cursor.set_range(first_key):
-                    return 0 if do_count_only else []
-                while True:
-                    key, value = cursor.item()
-                    if key.tobytes() >= last_key:
-                        break
-                    if do_delete_only:
-                        pk_val_enc = value.tobytes()
+        with self.dbenv.begin(buffers=True, write=do_delete_only) as txn, \
+                txn.cursor(indx) as cursor:
+            if not cursor.set_range(first_key):
+                return 0 if do_count_only else []
+            while True:
+                key, value = cursor.item()
+                if key.tobytes() >= last_key:
+                    break
+                if do_delete_only:
+                    pk_val_enc = value.tobytes()
 
-                        rv = cursor.delete()
-                        if not rv:
-                            raise Exception('Delete failure')
+                    rv = cursor.delete()
+                    if not rv:
+                        raise Exception('Delete failure')
 
-                        self._delRowAndIndices(txn, pk_val_enc, p_enc=p_enc,
-                                               delete_pt=(valu is not None),
-                                               delete_pvt=(valu is None), only_if_val=valu)
-                    elif not do_count_only or v_is_hashed:
-                        # If we hashed, we must double check that val actually matches in row
-                        row = self._getRowByPkValEnc(txn, value)
-                        if v_is_hashed:
-                            if valu != row[2]:
-                                continue
-                        if not do_count_only:
-                            ret.append(row)
-                    count += 1
-                    if limit is not None and limit >= count:
-                        break
-                    if not do_delete_only:
-                        rv = cursor.next()
-                        if not rv:
-                            # Sentinel record should prevent this
-                            raise DatabaseInconsistent('Got to end of index')
+                    self._delRowAndIndices(txn, pk_val_enc, p_enc=p_enc,
+                                           delete_pt=(valu is not None),
+                                           delete_pvt=(valu is None), only_if_val=valu)
+                elif not do_count_only or v_is_hashed:
+                    # If we hashed, we must double check that val actually matches in row
+                    row = self._getRowByPkValEnc(txn, value)
+                    if v_is_hashed:
+                        if valu != row[2]:
+                            continue
+                    if not do_count_only:
+                        ret.append(row)
+                count += 1
+                if limit is not None and limit >= count:
+                    break
+                if not do_delete_only:
+                    rv = cursor.next()
+                    if not rv:
+                        # Sentinel record should prevent this
+                        raise DatabaseInconsistent('Got to end of index')
         if do_count_only:
             return count
         elif not do_delete_only:
@@ -506,7 +506,76 @@ class Cortex(s_cores_common.Cortex):
         raise Exception('Not done yet')
 
     def _sizeByRange(self, prop, valu, limit=None):
-        raise Exception('Not done yet')
+        return self._rowsByRange(prop, valu, limit, do_count_only=True)
 
-    def _rowsByRange(self, prop, valu, limit=None):
-        raise Exception('Not done yet')
+    def _rowsByRange(self, prop, valu, limit=None, do_count_only=False):
+        minval, maxval = valu
+        if minval > maxval:
+            return 0
+        do_neg_search = (minval < 0)
+        do_pos_search = (maxval >= 0)
+        ret = 0 if do_count_only else []
+
+        p_enc = msgenpack(prop)
+
+        # The encoding of negative integers and positive integers are not continuous, so we split
+        # into two queries.  Also the ordering of the encoding of negative integers is backwards.
+        if do_neg_search:
+            # We include the right boundary (-1) if we're searching through to the positives
+            do_include_last = do_pos_search
+            first_val = minval
+            last_val = min(-1, maxval)
+            ret += self._subrangeRows(p_enc, first_val, last_val, limit, do_count_only,
+                                      do_include_last=do_include_last)
+            if limit is not None:
+                if do_count_only:
+                    limit -= ret
+                else:
+                    limit -= len(ret)
+                if limit == 0:
+                    return ret
+
+        if do_pos_search:
+            first_val = max(0, minval)
+            last_val = maxval
+            ret += self._subrangeRows(p_enc, first_val, last_val, limit, do_count_only)
+        return ret
+
+    def _subrangeRows(self, p_enc, first_val, last_val, limit, do_count_only,
+                      do_include_last=False):
+        first_key = p_enc + self._enc_val_key(first_val)
+        last_key = p_enc + self._enc_val_key(last_val)
+
+        ret = []
+        count = 0
+
+        am_going_backwards = (first_val > last_val)
+
+        # Figure out the terminating condition of the loop
+        if am_going_backwards:
+            term_cmp = bytes.__lt__ if do_include_last else bytes.__le__
+        else:
+            assert(not do_include_last)
+            term_cmp = bytes.__ge__
+
+        with self.dbenv.begin(buffers=True) as txn, txn.cursor(self.index_pvt) as cursor:
+            if not cursor.set_range(first_key):
+                raise DatabaseInconsistent("Missing sentinel")
+            if am_going_backwards:
+                if cursor.key().tobytes() > first_key:
+                    rv = cursor.prev()
+                    if not rv:
+                        return 0 if do_count_only else []
+                it = cursor.iterprev(keys=True, values=True)
+            else:
+                it = cursor.iternext(keys=True, values=True)
+
+            for key, value in it:
+                if term_cmp(key.tobytes(), last_key):
+                    break
+                count += 1
+                if not do_count_only:
+                    ret.append(self._getRowByPkValEnc(txn, value))
+                if limit is not None and limit >= count:
+                    break
+        return count if do_count_only else ret
