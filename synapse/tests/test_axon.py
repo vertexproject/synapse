@@ -73,7 +73,9 @@ class AxonTest(SynTest):
         self.thisHostMustNot(platform='windows')
 
         with self.getTestDir() as datadir:
-            open(os.path.join(datadir, 'foo'), 'w').write('useless file to skip')
+
+            with open(os.path.join(datadir,'foo'),'w') as fd:
+                fd.write('useless file to skip')
 
             host = s_axon.AxonHost(datadir)
             usage = host.usage()
