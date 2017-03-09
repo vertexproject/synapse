@@ -188,7 +188,15 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
         self.myfo = self.formTufoByProp('syn:core','self')
 
-        self._initCoreModels()
+        with self.getCoreXact() as xact:
+            self._initCoreModels()
+
+        # and finally, strap in our event handlers...
+        self.on('tufo:add:syn:type', self._onTufoAddSynType )
+        self.on('tufo:add:syn:form', self._onTufoAddSynForm )
+        self.on('tufo:add:syn:prop', self._onTufoAddSynProp )
+        # FIXME handle tufo:del / tufo:set events...
+
 
         self.addTufoForm('syn:log', ptype='guid')
         self.addTufoProp('syn:log', 'subsys', defval='??', help='Named subsystem which originated the log event')
@@ -343,13 +351,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
         for tufo in self.getTufosByProp('syn:prop'):
             self._initPropTufo(tufo)
-
-        # and finally, strap in our event handlers...
-        self.on('tufo:add:syn:type', self._onTufoAddSynType )
-        self.on('tufo:add:syn:form', self._onTufoAddSynForm )
-        self.on('tufo:add:syn:prop', self._onTufoAddSynProp )
-
-        # FIXME handle tufo:del / tufo:set events...
 
     def _getTufosByCache(self, prop, valu, limit):
         # only used if self.caching = 1
@@ -1759,6 +1760,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
             # update our runtime form counters
             self.formed[prop] += 1
 
+            # fire these immediately since we need them to potentially fill
+            # in values before we generate rows for the new tufo
             self.fire('tufo:form', form=prop, valu=valu, props=props)
             self.fire('tufo:form:%s' % prop, form=prop, valu=valu, props=props)
 
