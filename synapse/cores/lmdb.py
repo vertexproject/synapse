@@ -107,14 +107,9 @@ class Cortex(s_cores_common.Cortex):
         self.initSizeBy('le', self._sizeByLe)
         self.initRowsBy('le', self._rowsByLe)
 
-        self.initTufosBy('ge', self._tufosByGe)
-        self.initTufosBy('le', self._tufosByLe)
-
         # use helpers from base class
         self.initRowsBy('gt', self._rowsByGt)
         self.initRowsBy('lt', self._rowsByLt)
-        self.initTufosBy('gt', self._tufosByGt)
-        self.initTufosBy('lt', self._tufosByLt)
 
         self.initSizeBy('range', self._sizeByRange)
         self.initRowsBy('range', self._rowsByRange)
@@ -434,6 +429,7 @@ class Cortex(s_cores_common.Cortex):
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         self._getRowsByProp(prop, valu, mintime=mintime, maxtime=maxtime, do_delete_only=True)
 
+# TODO:  refactor this func
     def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None,
                        do_count_only=False, do_delete_only=False):
 
@@ -489,26 +485,22 @@ class Cortex(s_cores_common.Cortex):
             return count
         elif not do_delete_only:
             return ret
-
-    def _tufosByGe(self, prop, valu, limit=None):
-        raise Exception('Not done yet')
-
-    def _tufosByLe(self, prop, valu, limit=None):
-        raise Exception('Not done yet')
+    # right_closed:  on an interval, e.g. (0, 1] is left-open and right-closed
 
     def _sizeByGe(self, prop, valu, limit=None):
-        return self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit, do_count_only=True)
+        return self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit, right_closed=True,
+                                  do_count_only=True)
 
-    # FIXME:  what if val actually === 2 ** 64 -1
     def _rowsByGe(self, prop, valu, limit=None):
-        return self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit)
+        return self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit, right_closed=True)
 
     # FIXME:  fencepost valu=valu
     def _sizeByLe(self, prop, valu, limit=None):
-        return self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, do_count_only=True)
+        return self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, right_closed=True,
+                                  do_count_only=True)
 
     def _rowsByLe(self, prop, valu, limit=None):
-        return self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit)
+        return self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, right_closed=True)
 
     def _sizeByRange(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, valu[0], valu[1], limit, do_count_only=True)
@@ -516,7 +508,7 @@ class Cortex(s_cores_common.Cortex):
     def _rowsByRange(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, valu[0], valu[1], limit)
 
-    def _rowsByMinmax(self, prop, minval, maxval, limit=None, do_count_only=False):
+    def _rowsByMinmax(self, prop, minval, maxval, limit, right_closed=False, do_count_only=False):
         if minval > maxval:
             return 0
         do_neg_search = (minval < 0)
@@ -529,11 +521,11 @@ class Cortex(s_cores_common.Cortex):
         # into two queries.  Also the ordering of the encoding of negative integers is backwards.
         if do_neg_search:
             # We include the right boundary (-1) if we're searching through to the positives
-            do_include_last = do_pos_search
+            this_right_closed = do_pos_search or right_closed
             first_val = minval
             last_val = min(-1, maxval)
-            ret += self._subrangeRows(p_enc, first_val, last_val, limit, do_count_only,
-                                      do_include_last=do_include_last)
+            ret += self._subrangeRows(p_enc, first_val, last_val, limit, this_right_closed,
+                                      do_count_only)
             if limit is not None:
                 if do_count_only:
                     limit -= ret
@@ -545,11 +537,13 @@ class Cortex(s_cores_common.Cortex):
         if do_pos_search:
             first_val = max(0, minval)
             last_val = maxval
-            ret += self._subrangeRows(p_enc, first_val, last_val, limit, do_count_only)
+            ret += self._subrangeRows(p_enc, first_val, last_val, limit, right_closed,
+                                      do_count_only)
         return ret
 
-    def _subrangeRows(self, p_enc, first_val, last_val, limit, do_count_only,
-                      do_include_last=False):
+# TODO:  investigate memoryview, bytes cmp func
+
+    def _subrangeRows(self, p_enc, first_val, last_val, limit, right_closed, do_count_only):
         first_key = p_enc + self._enc_val_key(first_val)
         last_key = p_enc + self._enc_val_key(last_val)
 
@@ -560,10 +554,9 @@ class Cortex(s_cores_common.Cortex):
 
         # Figure out the terminating condition of the loop
         if am_going_backwards:
-            term_cmp = bytes.__lt__ if do_include_last else bytes.__le__
+            term_cmp = bytes.__lt__ if right_closed else bytes.__le__
         else:
-            assert(not do_include_last)
-            term_cmp = bytes.__ge__
+            term_cmp = bytes.__gt__ if right_closed else bytes.__ge__
 
         with self.dbenv.begin(buffers=True) as txn, txn.cursor(self.index_pvt) as cursor:
             if not cursor.set_range(first_key):
