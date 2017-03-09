@@ -65,6 +65,9 @@ LARGE_STRING_SIZE = 128
 # Largest length allowed for a prop
 MAX_PROP_LEN = 350
 
+MAX_INT_VAL = 2 ** 64 - 1
+MIN_INT_VAL = -1 * (2 ** 63) - 1
+
 
 class DatabaseInconsistent(Exception):
     ''' If you get this Exception, that means the database is corrupt '''
@@ -487,29 +490,33 @@ class Cortex(s_cores_common.Cortex):
         elif not do_delete_only:
             return ret
 
-    def _sizeByGe(self, prop, valu, limit=None):
-        raise Exception('Not done yet')
-
-    def _rowsByGe(self, prop, valu, limit=None):
-        raise Exception('Not done yet')
-
-    def _sizeByLe(self, prop, valu, limit=None):
-        raise Exception('Not done yet')
-
-    def _rowsByLe(self, prop, valu, limit=None):
-        raise Exception('Not done yet')
-
     def _tufosByGe(self, prop, valu, limit=None):
         raise Exception('Not done yet')
 
     def _tufosByLe(self, prop, valu, limit=None):
         raise Exception('Not done yet')
 
-    def _sizeByRange(self, prop, valu, limit=None):
-        return self._rowsByRange(prop, valu, limit, do_count_only=True)
+    def _sizeByGe(self, prop, valu, limit=None):
+        return self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit, do_count_only=True)
 
-    def _rowsByRange(self, prop, valu, limit=None, do_count_only=False):
-        minval, maxval = valu
+    # FIXME:  what if val actually === 2 ** 64 -1
+    def _rowsByGe(self, prop, valu, limit=None):
+        return self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit)
+
+    # FIXME:  fencepost valu=valu
+    def _sizeByLe(self, prop, valu, limit=None):
+        return self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, do_count_only=True)
+
+    def _rowsByLe(self, prop, valu, limit=None):
+        return self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit)
+
+    def _sizeByRange(self, prop, valu, limit=None):
+        return self._rowsByMinmax(prop, valu[0], valu[1], limit, do_count_only=True)
+
+    def _rowsByRange(self, prop, valu, limit=None):
+        return self._rowsByMinmax(prop, valu[0], valu[1], limit)
+
+    def _rowsByMinmax(self, prop, minval, maxval, limit=None, do_count_only=False):
         if minval > maxval:
             return 0
         do_neg_search = (minval < 0)
@@ -549,7 +556,7 @@ class Cortex(s_cores_common.Cortex):
         ret = []
         count = 0
 
-        am_going_backwards = (first_val > last_val)
+        am_going_backwards = (first_val < 0)
 
         # Figure out the terminating condition of the loop
         if am_going_backwards:
