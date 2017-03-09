@@ -273,6 +273,9 @@ class AxonTest(SynTest):
             self.assertFalse( axcluster.has('md5',craphash) )
             self.assertTrue( axcluster.has('md5',asdfhash) )
 
+            blobs = axcluster.find('md5', craphash)
+            self.assertEqual(len(blobs), 0)
+
             blobs = axcluster.find('md5', asdfhash)
             self.assertEqual(len(blobs), 1)
 
