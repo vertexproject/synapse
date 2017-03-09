@@ -37,8 +37,6 @@ class CortexTest(SynTest):
         self.runidens( core )
 
     def test_cortex_sqlite3(self):
-        import ipdb
-        ipdb.set_trace()
         core = s_cortex.openurl('sqlite:///:memory:')
         self.runcore( core )
         self.runjson( core )
@@ -51,12 +49,12 @@ class CortexTest(SynTest):
         self.runcore( core )
         self.runjson( core )
         self.runrange( core )
-        if 0:
-            self.runidens( core )
+        self.runidens( core )
 
     def tearDown(self):
         try:
             os.remove(CortexTest.lmdb_file)
+            os.remove(CortexTest.lmdb_file + '-lock')
         except FileNotFoundError:
             pass
 
