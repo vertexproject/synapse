@@ -1,15 +1,21 @@
 import sys
 import msgpack
 import lmdb
+import typing
+import xxhash
 
 import synapse.cores.common as s_cores_common
 from synapse.common import genpath, msgenpack, msgunpack
 import synapse.compat as s_compat
 
+ValueT = typing.Union[int, str]
+
+# FIXME:  consider duplicate keys for everything
+
 # File conventions:
 # i, p, v, t: iden, prop, value, timestamp
-# i_enc, p_enc, v_enc, t_enc: above encoded to be space efficient and fully-ordered when compared
-#   lexicographically (i.e. like alphabetically first byte at a time)
+# i_enc, p_enc, v_key_enc, t_enc: above encoded to be space efficient and fully-ordered when
+# compared lexicographically (i.e. 'aaa' < 'ba')
 # pk:  primary key, unique identifier of the row in the main table
 # pk_val_enc:  space efficient encoding of pk for use as value in an index table
 # pk_key_enc:  database-efficient encoding of pk for use as key in main table
@@ -29,11 +35,16 @@ NEGATIVE_VAL_MARKER = -1
 # Prefix to indicate than a v is a string
 STRING_VAL_MARKER = -2
 
+# Prefix to indicate that a v is hash of a string
+HASH_VAL_MARKER = -3
+
 # The negative marker encoded
 NEGATIVE_VAL_MARKER_ENC = msgenpack(NEGATIVE_VAL_MARKER)
 
 # The string marker encoded
 STRING_VAL_MARKER_ENC = msgenpack(STRING_VAL_MARKER)
+
+HASH_VAL_MARKER_ENC = msgenpack(HASH_VAL_MARKER)
 
 # The maximum possible timestamp.  Probably a bit overkill
 MAX_TIME_ENC = msgenpack(2 ** 64 - 1)
@@ -41,12 +52,24 @@ MAX_TIME_ENC = msgenpack(2 ** 64 - 1)
 # Number of bytes in an UUID
 UUID_SIZE = 16
 
+MAX_UUID_PLUS_1 = 2**(UUID_SIZE*8)
+
 # An index key can't ever be larger (lexicographically) than this
 MAX_INDEX_KEY = b'\xff\xff'
+
+# String vals of this size or larger will be truncated and hashed in index
+LARGE_STRING_SIZE = 128
+
+# Largest length allowed for a prop
+MAX_PROP_LEN = 350
 
 
 class DatabaseInconsistent(Exception):
     ''' If you get this Exception, that means the database is corrupt '''
+    pass
+
+
+class DatabaseLimitReached(Exception):
     pass
 
 
@@ -136,11 +159,11 @@ class Cortex(s_cores_common.Cortex):
         # Doesn't create a subdirectory for storage files
         SUBDIR = False
 
-        # Disable locking DB.  We're single threaded, right?
-        LOCK = False
+        # If we don't have multiple threads, we can disable locking, but we have multiple threads
+        LOCK = True
 
-        # Maximum simultaneous readers.  We're single threaded, right?
-        MAX_READERS = 1
+        # Maximum simultaneous readers.
+        MAX_READERS = 4
 
         self.dbenv = lmdb.Environment(dbname, map_size=MAP_SIZE, subdir=SUBDIR, metasync=METASYNC,
                                       writemap=WRITEMAP, max_readers=MAX_READERS, max_dbs=MAX_DBS,
@@ -152,13 +175,13 @@ class Cortex(s_cores_common.Cortex):
         self.rows = self.dbenv.open_db(key=b"rows", integerkey=True)  # pk -> i,p,v,t
 
         # Make the iden-prop index table, keyed by iden-prop, with value being a pk
-        self.index_ip = self.dbenv.open_db(key=b"ip")  # i,p -> pk
+        self.index_ip = self.dbenv.open_db(key=b"ip", dupsort=True)  # i,p -> pk
 
         # Make the iden-value-prop index table, keyed by iden-value-prop, with value being a pk
-        self.index_pvt = self.dbenv.open_db(key=b"pvt")  # p,v,t -> pk
+        self.index_pvt = self.dbenv.open_db(key=b"pvt", dupsort=True)  # p,v,t -> pk
 
         # Make the iden-timestamp index table, keyed by iden-timestamp, with value being a pk
-        self.index_pt = self.dbenv.open_db(key=b"pt")  # p, t -> pk
+        self.index_pt = self.dbenv.open_db(key=b"pt", dupsort=True)  # p, t -> pk
 
         # Put 1 max key sentinel at the end of each index table.  This avoids unfortunate behavior
         # where the cursor moves backwards after deleting the final record.
@@ -178,7 +201,7 @@ class Cortex(s_cores_common.Cortex):
         self.onfini(onfini)
 
     @staticmethod
-    def _enc_val(v):
+    def _enc_val_key(v: ValueT) -> (bytes, bool):
         ''' Encode a v.  Non-negative numbers are msgpack encoded.  Negative numbers are encoded
             as a marker, then the encoded negative of that value, so that the ordering of the
             encodings is easily mapped to the ordering of the negative numbers.  Note that this
@@ -190,25 +213,42 @@ class Cortex(s_cores_common.Cortex):
             else:
                 return NEGATIVE_VAL_MARKER_ENC + msgenpack(-v)
         else:
-            return STRING_VAL_MARKER_ENC + msgenpack(v)
+            if len(v) >= LARGE_STRING_SIZE:
+                return (HASH_VAL_MARKER_ENC + msgenpack(xxhash.xxh64(v).intdigest()))
+            else:
+                return STRING_VAL_MARKER_ENC + msgenpack(v)
 
     @staticmethod
-    def _dec_val(unpacker):
-        ''' Decode a v.'''
-        v = unpacker.unpack()
-        if v == NEGATIVE_VAL_MARKER:
-            return -1 * unpacker.unpack()
-        elif v == STRING_VAL_MARKER:
-            return unpacker.unpack()
-        return v
+    def _enc_val_val(v: ValueT) -> (bytes):
+        return msgenpack(v)
+
+    @staticmethod
+    def _dec_val_val(unpacker: msgpack.Unpacker) -> (ValueT):
+        return unpacker.unpack()
+
+    if 0:
+        @staticmethod
+        def _dec_val_key(unpacker):
+            ''' Decode a v.'''
+            v = unpacker.unpack()
+            if v == NEGATIVE_VAL_MARKER:
+                return -1 * unpacker.unpack()
+            elif v == STRING_VAL_MARKER:
+                return unpacker.unpack()
+            elif v == HASH_VAL_MARKER:
+                return unpacker.unpack()
+            return v
 
     @staticmethod
     def _enc_iden(iden: str) -> bytes:
         return int(iden, UUID_SIZE).to_bytes(UUID_SIZE, byteorder='big')
 
+
     @staticmethod
     def _dec_iden(iden_enc: bytes) -> str:
-        return hex(int.from_bytes(iden_enc, byteorder='big'))[2:]
+        # We add a 1 as the MSBit and remove it at the end to always produce an even number of
+        # hexdigits.
+        return hex(MAX_UUID_PLUS_1 + int.from_bytes(iden_enc, byteorder='big'))[3:]
 
     @staticmethod
     def _enc_pk_key(pk):
@@ -226,25 +266,27 @@ class Cortex(s_cores_common.Cortex):
             txn = self.dbenv.begin(write=True, buffers=True)
             for i, p, v, t in rows:
                 if next_pk > MAX_PK:
-                    raise Exception('Out of primary key values')
+                    raise DatabaseLimitReached('Out of primary key values')
+                if len(p) > MAX_PROP_LEN:
+                    raise DatabaseLimitReached('Property length too large')
                 i_enc = self._enc_iden(i)
                 p_enc = msgenpack(p)
-                v_enc = self._enc_val(v)
+                v_val_enc = self._enc_val_val(v)
+                v_key_enc = self._enc_val_key(v)
                 t_enc = msgenpack(t)
                 pk_val_enc = msgenpack(next_pk)
 
                 pk_key_enc = self._enc_pk_key(next_pk)
 
                 next_pk += 1
-                rv = txn.put(pk_key_enc, i_enc + p_enc + v_enc + t_enc, overwrite=False,
+                rv = txn.put(pk_key_enc, i_enc + p_enc + v_val_enc + t_enc, overwrite=False,
                              append=True, db=self.rows)
                 # Will only fail if record already exists, which should never happen
                 if not rv:
                     raise DatabaseInconsistent('unexpected pk in DB')
 
-                # Ignoring if already exists; emulating sqlite insert here
                 txn.put(i_enc + p_enc, pk_val_enc, overwrite=False, db=self.index_ip)
-                txn.put(p_enc + v_enc + t_enc, pk_val_enc, overwrite=False, db=self.index_pvt)
+                txn.put(p_enc + v_key_enc + t_enc, pk_val_enc, overwrite=False, db=self.index_pvt)
                 txn.put(p_enc + t_enc, pk_val_enc, overwrite=False, db=self.index_pt)
             txn.commit()
             self.next_pk = next_pk
@@ -267,7 +309,7 @@ class Cortex(s_cores_common.Cortex):
         unpacker = msgpack.Unpacker(use_list=False, encoding='utf8')
         unpacker.feed(row[UUID_SIZE:])
         p = unpacker.unpack()
-        v = self._dec_val(unpacker)
+        v = self._dec_val_val(unpacker)
         t = unpacker.unpack()
         return (i, p, v, t)
 
@@ -325,10 +367,13 @@ class Cortex(s_cores_common.Cortex):
             # Delete the row and the other indices
             self._delRowAndIndices(txn, pk_val_enc, i_enc=i_enc, p_enc=p_enc, delete_ip=False)
 
-    def _delRowAndIndices(self, txn, pk_val_enc, i_enc=None, p_enc=None, v_enc=None, t_enc=None,
-                          delete_ip=True, delete_pvt=True, delete_pt=True):
+    def _delRowAndIndices(self, txn, pk_val_enc, i_enc=None, p_enc=None, v_key_enc=None, t_enc=None,
+                          delete_ip=True, delete_pvt=True, delete_pt=True, only_if_val=None):
         ''' Deletes the row corresponding to pk_val_enc and the indices pointing to it '''
         i, p, v, t = self._getRowByPkValEnc(txn, pk_val_enc, do_delete=True)
+
+        if only_if_val is not None and only_if_val != v:
+            return
 
         if delete_ip and i_enc is None:
             i_enc = self._enc_iden(i)
@@ -336,8 +381,8 @@ class Cortex(s_cores_common.Cortex):
         if p_enc is None:
             p_enc = msgenpack(p)
 
-        if delete_pvt and v_enc is None:
-            v_enc = self._enc_val(v)
+        if delete_pvt and v_key_enc is None:
+            v_key_enc = self._enc_val_key(v)
 
         if (delete_pvt or delete_pt) and t_enc is None:
             t_enc = msgenpack(t)
@@ -350,7 +395,7 @@ class Cortex(s_cores_common.Cortex):
 
         if delete_pvt:
             # Delete P-V-T index entry
-            rv = txn.delete(p_enc + v_enc + t_enc, db=self.index_pvt)
+            rv = txn.delete(p_enc + v_key_enc + t_enc, db=self.index_pvt)
             if not rv:
                 raise DatabaseInconsistent("Missing P-V-T index")
 
@@ -361,7 +406,7 @@ class Cortex(s_cores_common.Cortex):
                 raise DatabaseInconsistent("Missing P-T index")
 
     def _getRowsByIdProp(self, iden, prop):
-        # ??? Confused:  how can there ever be more than 1 row with a certain iden prop?
+        # FIXME:  use cursor for dup keys
         iden_enc = self._enc_iden(iden)
         prop_enc = msgenpack(prop)
 
@@ -387,12 +432,13 @@ class Cortex(s_cores_common.Cortex):
         assert(not (do_count_only and do_delete_only))
         indx = self.index_pt if valu is None else self.index_pvt
         p_enc = msgenpack(prop)
-        v_enc = b'' if valu is None else self._enc_val(valu)
+        v_key_enc = b'' if valu is None else self._enc_val_key(valu)
+        v_is_hashed = valu is not None and (v_key_enc[0] == HASH_VAL_MARKER_ENC)
         mintime_enc = b'' if mintime is None else msgenpack(mintime)
         maxtime_enc = MAX_TIME_ENC if maxtime is None else msgenpack(maxtime)
 
-        first_key = p_enc + v_enc + mintime_enc
-        last_key = p_enc + v_enc + maxtime_enc
+        first_key = p_enc + v_key_enc + mintime_enc
+        last_key = p_enc + v_key_enc + maxtime_enc
 
         ret = []
         count = 0
@@ -405,7 +451,6 @@ class Cortex(s_cores_common.Cortex):
                     key, value = cursor.item()
                     if key.tobytes() >= last_key:
                         break
-                    count += 1
                     if do_delete_only:
                         pk_val_enc = value.tobytes()
 
@@ -415,9 +460,16 @@ class Cortex(s_cores_common.Cortex):
 
                         self._delRowAndIndices(txn, pk_val_enc, p_enc=p_enc,
                                                delete_pt=(valu is not None),
-                                               delete_pvt=(valu is None))
-                    elif not do_count_only:
-                        ret.append(self._getRowByPkValEnc(txn, value))
+                                               delete_pvt=(valu is None), only_if_val=valu)
+                    elif not do_count_only or v_is_hashed:
+                        # If we hashed, we must double check that val actually matches in row
+                        row = self._getRowByPkValEnc(txn, value)
+                        if v_is_hashed:
+                            if valu != row[2]:
+                                continue
+                        if not do_count_only:
+                            ret.append(row)
+                    count += 1
                     if limit is not None and limit >= count:
                         break
                     if not do_delete_only:
