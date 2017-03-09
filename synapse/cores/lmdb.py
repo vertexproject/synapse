@@ -10,7 +10,6 @@ import synapse.compat as s_compat
 
 ValueT = typing.Union[int, str]
 
-# FIXME:  consider duplicate keys for everything
 # FIXME:  need negative int tests
 # FIXME:  desperately need fencepost tests for queries
 
@@ -22,8 +21,7 @@ ValueT = typing.Union[int, str]
 # pk_val_enc:  space efficient encoding of pk for use as value in an index table
 # pk_key_enc:  database-efficient encoding of pk for use as key in main table
 
-# N.B.  LMDB calls the separate namespaces in a a file "databases" (e.g. db=).
-
+# N.B.  LMDB calls the separate namespaces in a file "databases" (e.g. named parameter db=).
 
 # Largest primary key value.  No more rows than this
 MAX_PK = sys.maxsize
@@ -31,7 +29,7 @@ MAX_PK = sys.maxsize
 # Bytes in MAX_PK
 MAX_PK_BYTES = 8 if sys.maxsize > 2**32 else 4
 
-# Prefix to indicate that a v is a negative value an not the defaault nonnegative value
+# Prefix to indicate that a v is a negative value and not the default nonnegative value
 NEGATIVE_VAL_MARKER = -1
 
 # Prefix to indicate than a v is a string
@@ -46,6 +44,7 @@ NEGATIVE_VAL_MARKER_ENC = msgenpack(NEGATIVE_VAL_MARKER)
 # The string marker encoded
 STRING_VAL_MARKER_ENC = msgenpack(STRING_VAL_MARKER)
 
+# The hash marker encoded
 HASH_VAL_MARKER_ENC = msgenpack(HASH_VAL_MARKER)
 
 # The maximum possible timestamp.  Probably a bit overkill
@@ -75,6 +74,7 @@ class DatabaseInconsistent(Exception):
 
 
 class DatabaseLimitReached(Exception):
+    ''' You've reached some limit of the database '''
     pass
 
 
@@ -87,7 +87,8 @@ class CoreXact(s_cores_common.CoreXact):
         self.txn.commit()
 
     def _coreXactBegin(self):
-        self.txn = self.core.dbenv.begin(buffers=True)  # how to handle writing?
+        # Note that this will only allow reading, not writing
+        self.txn = self.core.dbenv.begin(buffers=True)
 
     def _coreXactAcquire(self):
         pass
@@ -138,18 +139,20 @@ class Cortex(s_cores_common.Cortex):
         dbinfo = self._initDbInfo()
         dbname = dbinfo.get('name')
 
-        # FIXME:  make some settings configurable?
-
         # MAX DB Size.  Must be < 2 GiB for 32-bit.  Can be big for 64-bit systems.
         MAP_SIZE = 2147483647 if MAX_PK_BYTES == 4 else 1099511627776  # a terabyte
+
+        map_size = self._link[1].get('lmdb:mapsize',MAP_SIZE)
 
         # Maximum number of "databases", really tables.  We use 4 different tables (1 main plus
         # 3 indices)
         MAX_DBS = 4
 
-        # flush system buffers to disk only once per transaction.  Can lead to last transaction
-        # loss, but not corruption
-        METASYNC = False
+        # flush system buffers to disk only once per transaction.  Set to False can lead to last
+        # transaction loss, but not corruption
+
+        metasync_val = self._link[1].get('lmdb:metasync', 0)
+        metasync = (metasync_val != 0)
 
         # Write data directly to mapped memory
         WRITEMAP = True
@@ -162,9 +165,10 @@ class Cortex(s_cores_common.Cortex):
 
         # Maximum simultaneous readers.
         MAX_READERS = 4
+        max_readers = self._link[1].get('lmdb:maxreaders', MAX_READERS)
 
-        self.dbenv = lmdb.Environment(dbname, map_size=MAP_SIZE, subdir=SUBDIR, metasync=METASYNC,
-                                      writemap=WRITEMAP, max_readers=MAX_READERS, max_dbs=MAX_DBS,
+        self.dbenv = lmdb.Environment(dbname, map_size=map_size, subdir=SUBDIR, metasync=metasync,
+                                      writemap=WRITEMAP, max_readers=max_readers, max_dbs=MAX_DBS,
                                       lock=LOCK)
 
         # LMDB has an optimization (integerkey) if all the keys in a table are unsigned size_t.
@@ -409,18 +413,21 @@ class Cortex(s_cores_common.Cortex):
                 raise DatabaseInconsistent("Missing P-T index")
 
     def _getRowsByIdProp(self, iden, prop):
-        # FIXME:  use cursor for dup keys
         iden_enc = self._enc_iden(iden)
         prop_enc = msgenpack(prop)
 
-        key = iden_enc + prop_enc
+        first_key = iden_enc + prop_enc
 
         ret = []
-        with self.dbenv.begin(buffers=True) as txn:
-            value = txn.get(key, db=self.index_ip)
-            if value is None:
-                return ret
-            ret.append(self._getRowByPkValEnc(txn, value))
+
+        with self.dbenv.begin(buffers=True) as txn, txn.cursor(self.index_ip) as cursor:
+            rv = cursor.set_range(first_key)
+            if not rv:
+                raise DatabaseInconsistent("Missing sentinel")
+            for key, value in cursor:
+                if key.tobytes() != first_key:
+                    return ret
+                ret.append(self._getRowByPkValEnc(txn, value))
         return ret
 
     def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
