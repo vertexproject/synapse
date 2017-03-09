@@ -1,6 +1,7 @@
 '''
 Tools for easily hookable output from cli-like tools.
 '''
+import sys
 import synapse.compat as s_compat
 
 class OutPut:
@@ -8,14 +9,15 @@ class OutPut:
     def __init__(self):
         pass
 
-    def printf(self, mesg, **args):
-        if args:
-            mesg = mesg % args
+    def printf(self, mesg, addnl=True):
 
-        return self._rawOutPut(mesg+'\n')
+        if addnl:
+            mesg += '\n'
+
+        return self._rawOutPut(mesg)
 
     def _rawOutPut(self, mesg):
-        print( mesg[:-1] )
+        sys.stdout.write(mesg)
 
 class OutPutFd(OutPut):
 

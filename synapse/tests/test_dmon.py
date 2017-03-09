@@ -1,14 +1,13 @@
 
 import os
 import sys
+import argparse
 import tempfile
 
 import synapse.tools.dmon as s_dmon
 
 from synapse.tests.common import SynTest
 from synapse.tools.dmon import getArgParser
-
-import synapse.lib.cli as s_cli
 
 class TestArgParser(SynTest):
 
@@ -20,7 +19,7 @@ class TestArgParser(SynTest):
 
     def test_getArgParser_logLevel_exception(self):
         for level in ['all', 'notice']:
-            with self.assertRaises(s_cli.CmdArgErr):
+            with self.assertRaises(SystemExit):
                 p = getArgParser()
                 p.parse_args(['--log-level', level])
 

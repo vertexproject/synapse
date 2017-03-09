@@ -22,7 +22,7 @@ LOG_LEVEL_CHOICES = ('debug', 'info', 'warning', 'error', 'critical')
 # FIXME CONFIG FILE DOCS
 
 def getArgParser():
-    p = s_cli.ArgumentParser()
+    p = argparse.ArgumentParser()
     p.add_argument('--lsboot', default=False, action='store_true',help='List the current onboot dmon config files')
     p.add_argument('--onboot', default=False, action='store_true',help='Configure the dmon for startup on reboot and add configs')
     p.add_argument('--noboot', default=False, action='store_true',help='Remove a dmon config from the onboot list')
