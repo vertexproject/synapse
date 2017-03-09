@@ -49,9 +49,9 @@ class CortexTest(SynTest):
     def test_cortex_lmdb(self):
         core = s_cortex.openurl('lmdb:///%s' % CortexTest.lmdb_file)
         self.runcore( core )
+        self.runjson( core )
+        self.runrange( core )
         if 0:
-            self.runjson( core )
-            self.runrange( core )
             self.runidens( core )
 
     def tearDown(self):

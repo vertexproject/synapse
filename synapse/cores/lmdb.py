@@ -95,31 +95,30 @@ class Cortex(s_cores_common.Cortex):
 
     def _initCortex(self):
         self._initDbConn()
-        if 0:
 
-            self.initSizeBy('ge', self._sizeByGe)
-            self.initRowsBy('ge', self._rowsByGe)
+        self.initSizeBy('ge', self._sizeByGe)
+        self.initRowsBy('ge', self._rowsByGe)
 
-            self.initSizeBy('le', self._sizeByLe)
-            self.initRowsBy('le', self._rowsByLe)
+        self.initSizeBy('le', self._sizeByLe)
+        self.initRowsBy('le', self._rowsByLe)
 
-            self.initTufosBy('ge', self._tufosByGe)
-            self.initTufosBy('le', self._tufosByLe)
+        self.initTufosBy('ge', self._tufosByGe)
+        self.initTufosBy('le', self._tufosByLe)
 
-            # use helpers from base class
-            self.initRowsBy('gt', self._rowsByGt)
-            self.initRowsBy('lt', self._rowsByLt)
-            self.initTufosBy('gt', self._tufosByGt)
-            self.initTufosBy('lt', self._tufosByLt)
+        # use helpers from base class
+        self.initRowsBy('gt', self._rowsByGt)
+        self.initRowsBy('lt', self._rowsByLt)
+        self.initTufosBy('gt', self._tufosByGt)
+        self.initTufosBy('lt', self._tufosByLt)
 
-            self.initSizeBy('range', self._sizeByRange)
-            self.initRowsBy('range', self._rowsByRange)
+        self.initSizeBy('range', self._sizeByRange)
+        self.initRowsBy('range', self._rowsByRange)
 
     def _initDbInfo(self):
         name = self._link[1].get('path')[1:]
         if not name:
             raise Exception('No Path Specified!')
-
+                                                                                                    
         if name.find(':') == -1:
             name = genpath(name)
 
@@ -174,6 +173,9 @@ class Cortex(s_cores_common.Cortex):
         # Make the main storage table, keyed by an incrementing counter, pk
         self.rows = self.dbenv.open_db(key=b"rows", integerkey=True)  # pk -> i,p,v,t
 
+        # Note there's another LMDB optimization ("dupfixed") we're not using that we could
+        # in the index tables.  It would pay off if a large proportion of keys are duplicates.
+
         # Make the iden-prop index table, keyed by iden-prop, with value being a pk
         self.index_ip = self.dbenv.open_db(key=b"ip", dupsort=True)  # i,p -> pk
 
@@ -192,7 +194,7 @@ class Cortex(s_cores_common.Cortex):
         # Find the largest stored pk.  We just track this in memory from now on.
         largest_pk = self._get_largest_pk()
         if largest_pk == MAX_PK:
-            raise Exception('Out of primary key values')
+            raise DatabaseLimitReached('Out of primary key values')
 
         self.next_pk = largest_pk + 1
 
@@ -288,8 +290,11 @@ class Cortex(s_cores_common.Cortex):
                 txn.put(i_enc + p_enc, pk_val_enc, overwrite=False, db=self.index_ip)
                 txn.put(p_enc + v_key_enc + t_enc, pk_val_enc, overwrite=False, db=self.index_pvt)
                 txn.put(p_enc + t_enc, pk_val_enc, overwrite=False, db=self.index_pt)
-            txn.commit()
+
+            # self.next_pk should be protected from multiple writers. Luckily lmdb write lock does
+            # that for us.
             self.next_pk = next_pk
+            txn.commit()
         except:
             if txn is not None:
                 txn.abort()
@@ -481,3 +486,27 @@ class Cortex(s_cores_common.Cortex):
             return count
         elif not do_delete_only:
             return ret
+
+    def _sizeByGe(self, prop, valu, limit=None):
+        raise Exception('Not done yet')
+
+    def _rowsByGe(self, prop, valu, limit=None):
+        raise Exception('Not done yet')
+
+    def _sizeByLe(self, prop, valu, limit=None):
+        raise Exception('Not done yet')
+
+    def _rowsByLe(self, prop, valu, limit=None):
+        raise Exception('Not done yet')
+
+    def _tufosByGe(self, prop, valu, limit=None):
+        raise Exception('Not done yet')
+
+    def _tufosByLe(self, prop, valu, limit=None):
+        raise Exception('Not done yet')
+
+    def _sizeByRange(self, prop, valu, limit=None):
+        raise Exception('Not done yet')
+
+    def _rowsByRange(self, prop, valu, limit=None):
+        raise Exception('Not done yet')
