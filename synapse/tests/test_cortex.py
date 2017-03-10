@@ -50,6 +50,9 @@ class CortexTest(SynTest):
         self.runrange( core, do_extras=True )
         self.runidens( core )
 
+        # Test load an existing db
+        core = s_cortex.openurl('lmdb:///%s' % CortexTest.lmdb_file)
+
     def tearDown(self):
         try:
             os.remove(CortexTest.lmdb_file)
