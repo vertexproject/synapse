@@ -523,8 +523,6 @@ class Cortex(s_cores_common.Cortex):
                                       do_count_only)
         return ret
 
-# TODO:  investigate memoryview, bytes cmp func
-
     def _subrangeRows(self, p_enc, first_val, last_val, limit, right_closed, do_count_only):
         first_key = p_enc + self._enc_val_key(first_val)
         last_key = p_enc + self._enc_val_key(last_val)
