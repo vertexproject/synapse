@@ -7,9 +7,6 @@ import synapse.cores.common as s_cores_common
 from synapse.common import genpath, msgenpack, msgunpack
 import synapse.compat as s_compat
 
-# FIXME:  need negative int tests
-# FIXME:  desperately need fencepost tests for queries
-
 # File conventions:
 # i, p, v, t: iden, prop, value, timestamp
 # i_enc, p_enc, v_key_enc, t_enc: above encoded to be space efficient and fully-ordered when
@@ -129,8 +126,7 @@ class Cortex(s_cores_common.Cortex):
 
     def _get_largest_pk(self):
         with self.dbenv.begin(buffers=True) as txn, txn.cursor(self.rows) as cursor:
-            rv = cursor.last()
-            if not rv:
+            if not cursor.last():
                 return 0  # db is empty
             return self._dec_pk_key(cursor.key())
 
@@ -141,7 +137,7 @@ class Cortex(s_cores_common.Cortex):
         # MAX DB Size.  Must be < 2 GiB for 32-bit.  Can be big for 64-bit systems.
         MAP_SIZE = 2147483647 if MAX_PK_BYTES == 4 else 1099511627776  # a terabyte
 
-        map_size = self._link[1].get('lmdb:mapsize',MAP_SIZE)
+        map_size = self._link[1].get('lmdb:mapsize', MAP_SIZE)
 
         # Maximum number of "databases", really tables.  We use 4 different tables (1 main plus
         # 3 indices)
@@ -273,10 +269,9 @@ class Cortex(s_cores_common.Cortex):
                 pk_key_enc = self._enc_pk_key(next_pk)
 
                 next_pk += 1
-                rv = txn.put(pk_key_enc, i_enc + p_enc + v_val_enc + t_enc, overwrite=False,
-                             append=True, db=self.rows)
-                # Will only fail if record already exists, which should never happen
-                if not rv:
+                if not txn.put(pk_key_enc, i_enc + p_enc + v_val_enc + t_enc, overwrite=False,
+                               append=True, db=self.rows):
+                    # Will only fail if record already exists, which should never happen
                     raise DatabaseInconsistent('unexpected pk in DB')
 
                 txn.put(i_enc + p_enc, pk_val_enc, overwrite=False, db=self.index_ip)
@@ -309,14 +304,14 @@ class Cortex(s_cores_common.Cortex):
         iden_enc = self._enc_iden(iden)
         with self.dbenv.begin(buffers=True) as txn, txn.cursor(self.index_ip) as cursor:
             if not cursor.set_range(iden_enc):
-                return ret
+                raise DatabaseInconsistent("Missing sentinel")
             for key, value in cursor:
                 if key[:len(iden_enc)] != iden_enc:
                     return ret
 
                 # FIXME: check if anything remaining in buffer?
                 ret.append(self._getRowByPkValEnc(txn, value))
-        return ret
+        raise DatabaseInconsistent("Missing sentinel")
 
     def _delRowsById(self, iden):
         i_enc = self._enc_iden(iden)
@@ -324,7 +319,7 @@ class Cortex(s_cores_common.Cortex):
         with self.dbenv.begin(buffers=True, write=True) as txn, txn.cursor(self.index_ip) as cursor:
             # Get the first record => i_enc
             if not cursor.set_range(i_enc):
-                return
+                raise DatabaseInconsistent("Missing sentinel")
             while True:
                 # We don't use iterator here because the delete already advances to the next
                 # record
@@ -335,8 +330,7 @@ class Cortex(s_cores_common.Cortex):
                 # Need to copy out with tobytes because we're deleting
                 pk_val_enc = value.tobytes()
 
-                rv = cursor.delete()
-                if not rv:
+                if not cursor.delete():
                     raise Exception('Delete failure')
                 self._delRowAndIndices(txn, pk_val_enc, i_enc=i_enc, p_enc=p_enc,
                                        delete_ip=False)
@@ -344,16 +338,25 @@ class Cortex(s_cores_common.Cortex):
     def _delRowsByIdProp(self, iden, prop):
         i_enc = self._enc_iden(iden)
         p_enc = msgenpack(prop)
+        first_key = i_enc + p_enc
 
-        with self.dbenv.begin(buffers=True, write=True) as txn:
+        with self.dbenv.begin(buffers=True, write=True) as txn, txn.cursor(self.index_ip) as cursor:
             # Retrieve and delete I-P index
-            pk_val_enc = txn.pop(i_enc + p_enc, db=self.index_ip)
+            if not cursor.set_range(first_key):
+                raise DatabaseInconsistent("Missing sentinel")
+            while True:
+                # We don't use iterator here because the delete already advances to the next
+                # record
+                key, value = cursor.item()
+                if key[:len(first_key)] != first_key:
+                    return
+                # Need to copy out with tobytes because we're deleting
+                pk_val_enc = value.tobytes()
 
-            if pk_val_enc is None:
-                return
-
-            # Delete the row and the other indices
-            self._delRowAndIndices(txn, pk_val_enc, i_enc=i_enc, p_enc=p_enc, delete_ip=False)
+                if not cursor.delete():
+                    raise Exception('Delete failure')
+                # Delete the row and the other indices
+                self._delRowAndIndices(txn, pk_val_enc, i_enc=i_enc, p_enc=p_enc, delete_ip=False)
 
     def _delRowAndIndices(self, txn, pk_val_enc, i_enc=None, p_enc=None, v_key_enc=None, t_enc=None,
                           delete_ip=True, delete_pvt=True, delete_pt=True, only_if_val=None):
@@ -377,20 +380,17 @@ class Cortex(s_cores_common.Cortex):
 
         if delete_ip:
             # Delete I-P index entry
-            rv = txn.delete(i_enc + p_enc, db=self.index_ip)
-            if not rv:
+            if not txn.delete(i_enc + p_enc, db=self.index_ip):
                 raise DatabaseInconsistent("Missing I-P index")
 
         if delete_pvt:
             # Delete P-V-T index entry
-            rv = txn.delete(p_enc + v_key_enc + t_enc, db=self.index_pvt)
-            if not rv:
+            if not txn.delete(p_enc + v_key_enc + t_enc, db=self.index_pvt):
                 raise DatabaseInconsistent("Missing P-V-T index")
 
         if delete_pt:
             # Delete P-T index entry
-            rv = txn.delete(p_enc + t_enc, db=self.index_pt)
-            if not rv:
+            if not txn.delete(p_enc + t_enc, db=self.index_pt):
                 raise DatabaseInconsistent("Missing P-T index")
 
     def _getRowsByIdProp(self, iden, prop):
@@ -408,7 +408,7 @@ class Cortex(s_cores_common.Cortex):
                 if key.tobytes() != first_key:
                     return ret
                 ret.append(self._getRowByPkValEnc(txn, value))
-        return ret
+        raise DatabaseInconsistent("Missing sentinel")
 
     def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
         return self._getRowsByProp(prop, valu, limit, mintime, maxtime, do_count_only=True)
@@ -460,7 +460,7 @@ class Cortex(s_cores_common.Cortex):
                     if not do_count_only:
                         ret.append(row)
                 count += 1
-                if limit is not None and limit >= count:
+                if limit is not None and count >= limit:
                     break
                 if not do_delete_only:
                     # deleting auto-advances, so we don't advance the cursor
@@ -513,10 +513,7 @@ class Cortex(s_cores_common.Cortex):
             ret += self._subrangeRows(p_enc, first_val, last_val, limit, this_right_closed,
                                       do_count_only)
             if limit is not None:
-                if do_count_only:
-                    limit -= ret
-                else:
-                    limit -= len(ret)
+                limit -= ret if do_count_only else len(ret)
                 if limit == 0:
                     return ret
 
@@ -537,7 +534,6 @@ class Cortex(s_cores_common.Cortex):
         ret = []
         count = 0
 
-
         # Figure out the terminating condition of the loop
         if am_going_backwards:
             term_cmp = bytes.__lt__ if right_closed else bytes.__le__
@@ -548,10 +544,11 @@ class Cortex(s_cores_common.Cortex):
             if not cursor.set_range(first_key):
                 raise DatabaseInconsistent("Missing sentinel")
             if am_going_backwards:
+                # set_range sets the cursor at the first key >= first_key, if we're going backwards
+                # we actually want the first key <= first_key
                 if cursor.key()[:len(first_key)].tobytes() > first_key:
-                    rv = cursor.prev()
-                    if not rv:
-                        return 0 if do_count_only else []
+                    if not cursor.prev():
+                        raise DatabaseInconsistent("Missing sentinel")
                 it = cursor.iterprev(keys=True, values=True)
             else:
                 it = cursor.iternext(keys=True, values=True)
@@ -562,6 +559,6 @@ class Cortex(s_cores_common.Cortex):
                 count += 1
                 if not do_count_only:
                     ret.append(self._getRowByPkValEnc(txn, value))
-                if limit is not None and limit >= count:
+                if limit is not None and count >= limit:
                     break
         return count if do_count_only else ret

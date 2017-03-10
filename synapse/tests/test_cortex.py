@@ -4,7 +4,6 @@ import time
 import binascii
 import os
 import tempfile
-import time
 import unittest
 
 import synapse.common as s_common
@@ -19,7 +18,7 @@ import synapse.lib.types as s_types
 import synapse.lib.threads as s_threads
 
 import synapse.models.syn as s_models_syn
-import synapse.cores.ldmb as lmdb
+import synapse.cores.lmdb as lmdb
 
 from synapse.tests.common import *
 
@@ -235,21 +234,21 @@ class CortexTest(SynTest):
             (guid(),'rg',-1,99),
             (guid(),'rg',0,99),
             (guid(),'rg',1,99),
-            (guid(),'rg',MIN_INT_VAL,99),
-            (guid(),'rg',MAX_INT_VAL,99),
+            (guid(),'rg',lmdb.MIN_INT_VAL,99),
+            (guid(),'rg',lmdb.MAX_INT_VAL,99),
         ]
         core.addRows( rows )
-        self.assertEqual( core.getSizeBy('range','rg',(MIN_INT_VAL+1,-42)), 0 )
-        self.assertEqual( core.getSizeBy('range','rg',(MIN_INT_VAL,-42)), 1 )
+        self.assertEqual( core.getSizeBy('range','rg',(lmdb.MIN_INT_VAL+1,-42)), 0 )
+        self.assertEqual( core.getSizeBy('range','rg',(lmdb.MIN_INT_VAL,-42)), 1 )
         self.assertEqual( core.getSizeBy('le','rg',-42), 2 )
         self.assertEqual( core.getSizeBy('lt','rg',-42), 1 )
         self.assertEqual( core.getSizeBy('range','rg',(-42, 0)), 2 )
         self.assertEqual( core.getSizeBy('range','rg',(-1, 2)), 3 )
         self.assertEqual( core.getSizeBy('lt','rg',0), 3 )
         self.assertEqual( core.getSizeBy('le','rg',0), 4 )
-        self.assertEqual( core.getSizeBy('ge','rg',-1), 6 )
+        self.assertEqual( core.getSizeBy('ge','rg',-1, limit=3), 3 )
         self.assertEqual( core.getSizeBy('ge','rg',30), 2 )
-        self.assertEqual( core.getSizeBy('ge','rg',MAX_INT_VAL), 1 )
+        self.assertEqual( core.getSizeBy('ge','rg',lmdb.MAX_INT_VAL), 1 )
 
     def runjson(self, core):
 
