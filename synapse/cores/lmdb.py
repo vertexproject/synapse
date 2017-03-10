@@ -1,14 +1,11 @@
 import sys
 import msgpack
 import lmdb
-import typing
 import xxhash
 
 import synapse.cores.common as s_cores_common
 from synapse.common import genpath, msgenpack, msgunpack
 import synapse.compat as s_compat
-
-ValueT = typing.Union[int, str]
 
 # FIXME:  need negative int tests
 # FIXME:  desperately need fencepost tests for queries
@@ -208,7 +205,7 @@ class Cortex(s_cores_common.Cortex):
         self.onfini(onfini)
 
     @staticmethod
-    def _enc_val_key(v: ValueT) -> (bytes, bool):
+    def _enc_val_key(v):
         ''' Encode a v.  Non-negative numbers are msgpack encoded.  Negative numbers are encoded
             as a marker, then the encoded negative of that value, so that the ordering of the
             encodings is easily mapped to the ordering of the negative numbers.  Note that this
@@ -226,21 +223,21 @@ class Cortex(s_cores_common.Cortex):
                 return STRING_VAL_MARKER_ENC + msgenpack(v)
 
     @staticmethod
-    def _enc_val_val(v: ValueT) -> (bytes):
+    def _enc_val_val(v):
         ''' Encode a v for use on the value side.  '''
         return msgenpack(v)
 
     @staticmethod
-    def _dec_val_val(unpacker: msgpack.Unpacker) -> (ValueT):
+    def _dec_val_val(unpacker):
         ''' Inverse of above '''
         return unpacker.unpack()
 
     @staticmethod
-    def _enc_iden(iden: str) -> bytes:
+    def _enc_iden(iden):
         return int(iden, UUID_SIZE).to_bytes(UUID_SIZE, byteorder='big')
 
     @staticmethod
-    def _dec_iden(iden_enc: bytes) -> str:
+    def _dec_iden(iden_enc):
         # We add a 1 as the MSBit and remove it at the end to always produce 32 hexdigits.
         return hex(MAX_UUID_PLUS_1 + int.from_bytes(iden_enc, byteorder='big'))[3:]
 
