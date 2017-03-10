@@ -227,24 +227,13 @@ class Cortex(s_cores_common.Cortex):
 
     @staticmethod
     def _enc_val_val(v: ValueT) -> (bytes):
+        ''' Encode a v for use on the value side.  '''
         return msgenpack(v)
 
     @staticmethod
     def _dec_val_val(unpacker: msgpack.Unpacker) -> (ValueT):
+        ''' Inverse of above '''
         return unpacker.unpack()
-
-    if 0:
-        @staticmethod
-        def _dec_val_key(unpacker):
-            ''' Decode a v.'''
-            v = unpacker.unpack()
-            if v == NEGATIVE_VAL_MARKER:
-                return -1 * unpacker.unpack()
-            elif v == STRING_VAL_MARKER:
-                return unpacker.unpack()
-            elif v == HASH_VAL_MARKER:
-                return unpacker.unpack()
-            return v
 
     @staticmethod
     def _enc_iden(iden: str) -> bytes:
@@ -252,8 +241,7 @@ class Cortex(s_cores_common.Cortex):
 
     @staticmethod
     def _dec_iden(iden_enc: bytes) -> str:
-        # We add a 1 as the MSBit and remove it at the end to always produce an even number of
-        # hexdigits.
+        # We add a 1 as the MSBit and remove it at the end to always produce 32 hexdigits.
         return hex(MAX_UUID_PLUS_1 + int.from_bytes(iden_enc, byteorder='big'))[3:]
 
     @staticmethod
@@ -263,13 +251,12 @@ class Cortex(s_cores_common.Cortex):
 
     @staticmethod
     def _dec_pk_key(pk_enc):
+        ''' Inverse of above '''
         return int.from_bytes(pk_enc, byteorder=sys.byteorder)
 
     def _addRows(self, rows):
         next_pk = self.next_pk
-        txn = None
-        try:
-            txn = self.dbenv.begin(write=True, buffers=True)
+        with self.dbenv.begin(write=True, buffers=True) as txn:
             for i, p, v, t in rows:
                 if next_pk > MAX_PK:
                     raise DatabaseLimitReached('Out of primary key values')
@@ -298,12 +285,6 @@ class Cortex(s_cores_common.Cortex):
             # self.next_pk should be protected from multiple writers. Luckily lmdb write lock does
             # that for us.
             self.next_pk = next_pk
-            txn.commit()
-        except:
-            if txn is not None:
-                txn.abort()
-                txn = None
-            raise
 
     def _getRowByPkValEnc(self, txn, pk_val_enc, do_delete=False):
         UUID_SIZE = 16
@@ -340,7 +321,6 @@ class Cortex(s_cores_common.Cortex):
         i_enc = self._enc_iden(iden)
 
         with self.dbenv.begin(buffers=True, write=True) as txn, txn.cursor(self.index_ip) as cursor:
-
             # Get the first record => i_enc
             if not cursor.set_range(i_enc):
                 return
@@ -421,8 +401,7 @@ class Cortex(s_cores_common.Cortex):
         ret = []
 
         with self.dbenv.begin(buffers=True) as txn, txn.cursor(self.index_ip) as cursor:
-            rv = cursor.set_range(first_key)
-            if not rv:
+            if not cursor.set_range(first_key):
                 raise DatabaseInconsistent("Missing sentinel")
             for key, value in cursor:
                 if key.tobytes() != first_key:
@@ -436,7 +415,6 @@ class Cortex(s_cores_common.Cortex):
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         self._getRowsByProp(prop, valu, mintime=mintime, maxtime=maxtime, do_delete_only=True)
 
-# TODO:  refactor this func
     def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None,
                        do_count_only=False, do_delete_only=False):
 
@@ -463,10 +441,10 @@ class Cortex(s_cores_common.Cortex):
                 if key.tobytes() >= last_key:
                     break
                 if do_delete_only:
+                    # Have to save off pk_val_enc because is being deleted
                     pk_val_enc = value.tobytes()
 
-                    rv = cursor.delete()
-                    if not rv:
+                    if not cursor.delete():
                         raise Exception('Delete failure')
 
                     self._delRowAndIndices(txn, pk_val_enc, p_enc=p_enc,
@@ -484,14 +462,12 @@ class Cortex(s_cores_common.Cortex):
                 if limit is not None and limit >= count:
                     break
                 if not do_delete_only:
-                    rv = cursor.next()
-                    if not rv:
+                    # deleting auto-advances, so we don't advance the cursor
+                    if not cursor.next():
                         # Sentinel record should prevent this
                         raise DatabaseInconsistent('Got to end of index')
-        if do_count_only:
-            return count
-        elif not do_delete_only:
-            return ret
+        return count if do_count_only else ret
+
     # right_closed:  on an interval, e.g. (0, 1] is left-open and right-closed
 
     def _sizeByGe(self, prop, valu, limit=None):
@@ -501,7 +477,6 @@ class Cortex(s_cores_common.Cortex):
     def _rowsByGe(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit, right_closed=True)
 
-    # FIXME:  fencepost valu=valu
     def _sizeByLe(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, right_closed=True,
                                   do_count_only=True)
@@ -524,8 +499,8 @@ class Cortex(s_cores_common.Cortex):
 
         p_enc = msgenpack(prop)
 
-        # The encoding of negative integers and positive integers are not continuous, so we split
-        # into two queries.  Also the ordering of the encoding of negative integers is backwards.
+        # The encodings of negative integers and positive integers are not continuous, so we split
+        # into two queries.  Also, the ordering of the encoding of negative integers is backwards.
         if do_neg_search:
             # We include the right boundary (-1) if we're searching through to the positives
             this_right_closed = do_pos_search or right_closed
