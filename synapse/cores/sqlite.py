@@ -108,6 +108,8 @@ class Cortex(s_cores_common.Cortex):
     _t_getrows_by_le = 'SELECT * FROM {{TABLE}} WHERE prop={{PROP}} and intval <= {{VALU}} LIMIT {{LIMIT}}'
     _t_getrows_by_ge = 'SELECT * FROM {{TABLE}} WHERE prop={{PROP}} and intval >= {{VALU}} LIMIT {{LIMIT}}'
     _t_getrows_by_iden_prop = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}}'
+    _t_getrows_by_iden_prop_intval = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND intval={{VALU}}'
+    _t_getrows_by_iden_prop_strval = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND strval={{VALU}}'
 
     ################################################################################
     _t_getrows_by_prop = 'SELECT * FROM {{TABLE}} WHERE prop={{PROP}} LIMIT {{LIMIT}}'
@@ -149,6 +151,8 @@ class Cortex(s_cores_common.Cortex):
 
     _t_delrows_by_iden = 'DELETE FROM {{TABLE}} WHERE iden={{IDEN}}'
     _t_delrows_by_iden_prop = 'DELETE FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}}'
+    _t_delrows_by_iden_prop_strval = 'DELETE FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND strval={{VALU}}'
+    _t_delrows_by_iden_prop_intval = 'DELETE FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND intval={{VALU}}'
 
     ################################################################################
     _t_delrows_by_prop = 'DELETE FROM {{TABLE}} WHERE prop={{PROP}}'
@@ -339,6 +343,8 @@ class Cortex(s_cores_common.Cortex):
         self._q_getrows_by_ge = self._prepQuery(self._t_getrows_by_ge)
         self._q_getrows_by_le = self._prepQuery(self._t_getrows_by_le)
         self._q_getrows_by_iden_prop = self._prepQuery(self._t_getrows_by_iden_prop)
+        self._q_getrows_by_iden_prop_intval = self._prepQuery(self._t_getrows_by_iden_prop_intval)
+        self._q_getrows_by_iden_prop_strval = self._prepQuery(self._t_getrows_by_iden_prop_strval)
 
         ###################################################################################
         self._q_getrows_by_prop = self._prepQuery(self._t_getrows_by_prop)
@@ -478,6 +484,8 @@ class Cortex(s_cores_common.Cortex):
 
         self._q_delrows_by_iden = self._prepQuery(self._t_delrows_by_iden)
         self._q_delrows_by_iden_prop = self._prepQuery(self._t_delrows_by_iden_prop)
+        self._q_delrows_by_iden_prop_intval = self._prepQuery(self._t_delrows_by_iden_prop_intval)
+        self._q_delrows_by_iden_prop_strval = self._prepQuery(self._t_delrows_by_iden_prop_strval)
 
         self._q_uprows_by_iden_prop_str = self._prepQuery(self._t_uprows_by_iden_prop_str)
         self._q_uprows_by_iden_prop_int = self._prepQuery(self._t_uprows_by_iden_prop_int)
@@ -593,12 +601,27 @@ class Cortex(s_cores_common.Cortex):
 
         return rows
 
-    def _delRowsByIdProp(self, iden, prop):
-        self.delete( self._q_delrows_by_iden_prop, iden=iden, prop=prop )
+    def _delRowsByIdProp(self, iden, prop, valu=None):
+        if valu == None:
+            return self.delete( self._q_delrows_by_iden_prop, iden=iden, prop=prop )
 
-    def _getRowsByIdProp(self, iden, prop):
-        rows = self.select( self._q_getrows_by_iden_prop, iden=iden, prop=prop)
-        return self._foldTypeCols(rows)
+        if s_compat.isint(valu):
+            return self.delete( self._q_delrows_by_iden_prop_intval, iden=iden, prop=prop, valu=valu )
+        else:
+            return self.delete( self._q_delrows_by_iden_prop_strval, iden=iden, prop=prop, valu=valu )
+
+    def _getRowsByIdProp(self, iden, prop, valu=None):
+        if valu == None:
+            rows = self.select( self._q_getrows_by_iden_prop, iden=iden, prop=prop)
+            return self._foldTypeCols(rows)
+
+        if s_compat.isint(valu):
+            rows = self.select( self._q_getrows_by_iden_prop_intval, iden=iden, prop=prop, valu=valu)
+            return self._foldTypeCols(rows)
+
+        else:
+            rows = self.select( self._q_getrows_by_iden_prop_strval, iden=iden, prop=prop, valu=valu)
+            return self._foldTypeCols(rows)
 
     def _setRowsByIdProp(self, iden, prop, valu):
         if s_compat.isint(valu):

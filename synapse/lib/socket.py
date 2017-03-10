@@ -4,6 +4,7 @@ import os
 import ssl
 import zlib
 import errno
+import atexit
 import select
 import socket
 import logging
@@ -12,8 +13,8 @@ import collections
 
 logger = logging.getLogger(__name__)
 
-import synapse.glob as s_glob
 import synapse.common as s_common
+import synapse.lib.scope as s_scope
 import synapse.lib.threads as s_threads
 import synapse.lib.thisplat as s_thisplat
 
@@ -553,21 +554,6 @@ class Plex(EventBus):
 
         self._plex_thr.join()
 
-def getGlobPlex():
-    '''
-    Get/Init a reference to a singular global Plex() multiplexor.
-
-    Example:
-
-        plex = getGlobPlex()
-
-    '''
-    with s_glob.lock:
-        if s_glob.plex == None:
-            s_glob.plex = Plex()
-
-        return s_glob.plex
-
 def listen(sockaddr,**sockinfo):
     '''
     Simplified listening socket contructor.
@@ -650,3 +636,12 @@ def hostaddr(dest='8.8.8.8'):
     sock.close()
 
     return addr
+
+# make a plex and register an atexit handler.
+def _plex_ctor():
+    plex = Plex()
+    atexit.register( plex.fini )
+    return plex
+
+# add a Plex constructor to the global scope
+s_scope.ctor('plex',_plex_ctor)

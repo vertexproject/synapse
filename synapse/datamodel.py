@@ -10,36 +10,46 @@ import fnmatch
 import datetime
 import functools
 import collections
+import logging
 
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
 
 from synapse.common import *
 
-hexre = re.compile('^[0-9a-z]+$')
-propre = re.compile('^[0-9a-zA-Z:_]+$')
+logger = logging.getLogger(__name__)
 
-def propdef(name, **info):
-    return (name,info)
+hexre = re.compile('^[0-9a-z]+$')
+propre = re.compile('^[0-9a-z:_]+$')
 
 tlib = s_types.TypeLib()
 def getTypeRepr(name, valu):
     '''
+    Return the humon readable form of the given type value.
     '''
     return tlib.reqDataType(name).repr(valu)
 
 def getTypeNorm(name, valu):
     '''
+    Normalize a type specific value in system mode.
     '''
     return tlib.reqDataType(name).norm(valu)
 
 def getTypeFrob(name, valu):
     '''
+    Return a system normalized value for the given input value which may be in
+    system mode or in display mode.
+    Returns None,{} on Exception
     '''
-    return tlib.reqDataType(name).frob(valu)
+    try:
+        return tlib.reqDataType(name).frob(valu)
+    except Exception as e:
+        logger.warn(e)
+        return None,{}
 
 def getTypeParse(name, text):
     '''
+    Parse input text for the given type into it's system form.
     '''
     return tlib.reqDataType(name).parse(text)
 
@@ -294,25 +304,6 @@ class DataModel(s_types.TypeLib):
 
         return dtype.repr(valu)
 
-    def getPropType(self, prop):
-        '''
-        Retrieve the DataType instance for the given property.
-
-        Example:
-
-            dtype = modl.getPropType('foo:bar')
-
-        '''
-        pdef = self.getPropDef(prop)
-        if pdef == None:
-            return None
-
-        ptype = pdef[1].get('ptype')
-        if ptype == None:
-            return None
-
-        return self.getDataType(ptype)
-
     def getPropTypeName(self, prop):
         pdef = self.getPropDef(prop)
         if pdef == None:
@@ -369,9 +360,6 @@ class DataModel(s_types.TypeLib):
             return valu
 
         return dtype.parse(valu)
-
-    def getParseProps(self, props):
-        return { p:self.getPropParse(p,v)[0] for (p,v) in props.items() }
 
     def getPropDef(self, prop, glob=True):
         '''

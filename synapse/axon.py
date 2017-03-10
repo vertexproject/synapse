@@ -480,12 +480,8 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         self.opts.setdefault('synckeep',threedays)
         self.opts.setdefault('syncsize',gigabyte*10)
 
-        self.core = opts.get('core')
-
-        if self.core == None:
-            savefile = os.path.join(self.axondir,'axon.save')
-            self.core = s_cortex.openurl('ram:///',savefile=savefile)
-            self.onfini( self.core.fini )
+        corepath = os.path.join(self.axondir,'axon.db')
+        self.core = s_cortex.openurl('sqlite:///%s' % corepath)
 
         fd = genfile(axondir,'axon.heap')
 
@@ -532,6 +528,12 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
         self.syncdir = None
 
+        self.onfini( self._onAxonFini )
+
+        self.onfini( self.core.fini )
+        self.onfini( self.heap.fini )
+        self.onfini( self.dmon.fini )
+
         # if we're not a clone, create a sync dir
         if not self.opts.get('clone'):
             self.syncdir = s_persist.Dir(dirname,**syncopts)
@@ -539,10 +541,7 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
             self.on('axon:sync', self.syncdir.add )
 
-        self.onfini( self._onAxonFini )
-        self.onfini( self.core.fini )
-        self.onfini( self.heap.fini )
-        self.onfini( self.dmon.fini )
+        self.axcthr = None
 
         # share last to avoid startup races
         busurl = self.opts.get('axonbus')
@@ -552,7 +551,7 @@ class Axon(s_eventbus.EventBus,AxonMixin):
             props = {'link':self.link,'tags':self.tags}
             self.axonbus.runSynSvc(self.iden,self,**props)
 
-            self._fireAxonClones()
+            self.axcthr = self._fireAxonClones()
 
     @firethread
     def _fireAxonClones(self):
@@ -596,6 +595,9 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         Sleep/Loop attempting to find AxonHost instances to clone for us.
         '''
         while len(self.clones) < self.opts.get('clones'):
+
+            if self.isfini:
+                break
 
             try:
 
@@ -775,11 +777,14 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         '''
         Consume a list of axon:sync events.
         '''
-        [ self.sync(m) for m in msgs ]
+        with self.core.getCoreXact():
+            [ self.sync(m) for m in msgs ]
 
     def _onAxonFini(self):
         # join clone threads
         [ thr.join(timeout=2) for thr in list(self.axthrs) ]
+        if self.axcthr != None:
+            self.axcthr.join(timeout=2)
 
     def alloc(self, size):
         '''

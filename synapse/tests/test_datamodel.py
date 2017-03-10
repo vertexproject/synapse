@@ -20,6 +20,9 @@ class DataModelTest(SynTest):
         self.assertEqual( model.getPropRepr('foo:baz', 'woot'), 'woot')
         self.assertEqual( model.getPropRepr('foo:faz', 'woot.toow'), 'woot.toow')
         self.assertEqual( model.getPropRepr('foo:zip', 'woot'), 'woot')
+        self.assertEqual( model.getPropRepr('foo:nonexistent', 'stillwoot'), 'stillwoot')
+
+        self.assertEqual( model.getPropType('foo:bar').name, 'int' )
 
         self.assertEqual( model.getPropNorm('foo:bar', 10)[0], 10)
         self.assertEqual( model.getPropNorm('foo:baz', 'woot')[0], 'woot')
@@ -30,6 +33,7 @@ class DataModelTest(SynTest):
         self.assertEqual( model.getPropParse('foo:baz', 'woot')[0], 'woot')
         self.assertEqual( model.getPropParse('foo:faz', 'WOOT.toow')[0], 'woot.toow')
         self.assertEqual( model.getPropParse('foo:zip', 'WOOT')[0], 'woot')
+        self.assertEqual( model.getPropParse('foo:nonexistent', 'stillwoot'), 'stillwoot')
 
         self.assertEqual( model.getPropFrob('foo:bar', 10), (10, {}))
         self.assertEqual( model.getPropFrob('foo:bar', '10'), (10, {}))
@@ -254,3 +258,29 @@ class DataModelTest(SynTest):
         model.addTufoProp('foo','meow', ptype='foo:baz')
 
         self.eq( model.getPropInfo('foo:meow','doc'), 'foo bar doc' )
+        self.eq( model.getPropInfo('foo:nonexistent','doc'), None )
+
+    def test_datamodel_getPropDef(self):
+        model = s_datamodel.DataModel()
+
+        model.addTufoForm('foo')
+        model.addTufoProp('foo','meow', ptype='int')
+
+        self.eq( model.getPropDef('foo:meow'), ('foo:meow', {'doc': None, 'title': None, 'defval': None, 'form': 'foo', 'uniq': False, 'ptype': 'int'}) )
+        self.eq( model.getPropDef('foo:meow:nonexistent'), None)
+        self.eq( model.getPropDef('foo:meow:nonexistent', glob=False), None)
+
+    def test_datamodel_typefns(self):
+        self.eq( s_datamodel.getTypeRepr('str', 'haha'), 'haha')
+        self.eq( s_datamodel.getTypeRepr('inet:ipv4', 0x01020304), '1.2.3.4')
+
+        self.eq( s_datamodel.getTypeNorm('str', 'haha'),  ('haha',{}) )
+        self.eq( s_datamodel.getTypeNorm('inet:ipv4', 0x01020304),  (16909060,{}) )
+
+        self.eq( s_datamodel.getTypeFrob('str', 'haha'),  ('haha',{}) )
+        self.eq( s_datamodel.getTypeFrob('inet:ipv4', '1.2.3.4'),  (16909060,{}) )
+        self.eq( s_datamodel.getTypeFrob('inet:ipv4', 0x01020304),  (16909060,{}) )
+        self.eq( s_datamodel.getTypeFrob('inet:ipv4', 'haha'),  (None,{}) )
+
+        self.eq( s_datamodel.getTypeParse('str', 'haha'),  ('haha',{}) )
+        self.eq( s_datamodel.getTypeParse('inet:ipv4', '1.2.3.4'),  (16909060,{}) )

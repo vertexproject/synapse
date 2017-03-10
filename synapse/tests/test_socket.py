@@ -3,6 +3,7 @@ import unittest
 import threading
 
 import synapse.compat as s_compat
+import synapse.lib.scope as s_scope
 import synapse.lib.socket as s_socket
 
 from synapse.tests.common import *
@@ -103,3 +104,15 @@ class SocketTest(SynTest):
     def test_socket_hostaddr(self):
         self.assertIsNotNone( s_socket.hostaddr() )
 
+    def test_socket_glob_plex(self):
+        plex0 = s_scope.get('plex')
+
+        self.nn(plex0)
+
+        with s_scope.enter():
+            plex1 = s_socket.Plex()
+            s_scope.set('plex',plex1)
+            self.ne( id(plex0), id( s_scope.get('plex') ) )
+            plex1.fini()
+
+        self.eq( id(plex0), id( s_scope.get('plex') ) )

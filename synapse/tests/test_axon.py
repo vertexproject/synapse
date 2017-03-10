@@ -73,7 +73,9 @@ class AxonTest(SynTest):
         self.thisHostMustNot(platform='windows')
 
         with self.getTestDir() as datadir:
-            open(os.path.join(datadir, 'foo'), 'w').write('useless file to skip')
+
+            with open(os.path.join(datadir,'foo'),'w') as fd:
+                fd.write('useless file to skip')
 
             host = s_axon.AxonHost(datadir)
             usage = host.usage()
@@ -270,6 +272,9 @@ class AxonTest(SynTest):
 
             self.assertFalse( axcluster.has('md5',craphash) )
             self.assertTrue( axcluster.has('md5',asdfhash) )
+
+            blobs = axcluster.find('md5', craphash)
+            self.assertEqual(len(blobs), 0)
 
             blobs = axcluster.find('md5', asdfhash)
             self.assertEqual(len(blobs), 1)

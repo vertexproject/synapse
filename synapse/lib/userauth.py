@@ -1,9 +1,10 @@
 import hashlib
 import fnmatch
+import contextlib
 
 import synapse.cortex as s_cortex
 import synapse.lib.cache as s_cache
-import synapse.lib.threads as s_threads
+import synapse.lib.scope as s_scope
 
 from synapse.common import *
 from synapse.eventbus import EventBus
@@ -294,7 +295,7 @@ def getSynUser():
         name = s_userauth.getSynUser()
 
     '''
-    return s_threads.local('syn:user')
+    return s_scope.get('syn:user')
 
 def getSynAuth():
     '''
@@ -305,7 +306,7 @@ def getSynAuth():
         auth = s_userauth.getSynAuth()
 
     '''
-    return s_threads.local('syn:auth')
+    return s_scope.get('syn:auth')
 
 def amIAllowed(rule, onnone=False):
     '''
@@ -332,6 +333,7 @@ def amIAllowed(rule, onnone=False):
 
     return auth.isUserAllowed(user,rule)
 
+@contextlib.contextmanager
 def asSynUser(user, auth=None, **locs):
     '''
     Construct and return a with-block object which runs as the given
@@ -347,6 +349,5 @@ def asSynUser(user, auth=None, **locs):
             dostuff()
 
     '''
-    locs['syn:user'] = user
-    locs['syn:auth'] = auth
-    return s_threads.scope(locs)
+    with s_scope.enter({'syn:user':user,'syn:auth':auth}):
+        yield
