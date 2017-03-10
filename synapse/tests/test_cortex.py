@@ -19,12 +19,12 @@ import synapse.lib.types as s_types
 import synapse.lib.threads as s_threads
 
 import synapse.models.syn as s_models_syn
+import synapse.cores.ldmb as lmdb
 
 from synapse.tests.common import *
 
 class FakeType(s_types.IntType):
     pass
-
 
 class CortexTest(SynTest):
 
@@ -48,7 +48,7 @@ class CortexTest(SynTest):
         core = s_cortex.openurl('lmdb:///%s' % CortexTest.lmdb_file)
         self.runcore( core )
         self.runjson( core )
-        self.runrange( core )
+        self.runrange( core, do_extras=True )
         self.runidens( core )
 
     def tearDown(self):
@@ -204,7 +204,7 @@ class CortexTest(SynTest):
         self.eq( tufo[1].get('zoot:suit:bar'), bigstr )
         self.eq( len( core.getTufosByProp('zoot:suit:bar',valu=bigstr) ), 1 )
 
-    def runrange(self, core):
+    def runrange(self, core, do_extras=False):
 
         rows = [
             (guid(),'rg',10,99),
@@ -226,6 +226,30 @@ class CortexTest(SynTest):
 
         self.assertEqual( core.getSizeBy('le','rg',20), 1 )
         self.assertEqual( core.getRowsBy('le','rg',20)[0][2], 10 )
+
+        if not do_extras:
+            return
+
+        rows = [
+            (guid(),'rg',-42,99),
+            (guid(),'rg',-1,99),
+            (guid(),'rg',0,99),
+            (guid(),'rg',1,99),
+            (guid(),'rg',MIN_INT_VAL,99),
+            (guid(),'rg',MAX_INT_VAL,99),
+        ]
+        core.addRows( rows )
+        self.assertEqual( core.getSizeBy('range','rg',(MIN_INT_VAL+1,-42)), 0 )
+        self.assertEqual( core.getSizeBy('range','rg',(MIN_INT_VAL,-42)), 1 )
+        self.assertEqual( core.getSizeBy('le','rg',-42), 2 )
+        self.assertEqual( core.getSizeBy('lt','rg',-42), 1 )
+        self.assertEqual( core.getSizeBy('range','rg',(-42, 0)), 2 )
+        self.assertEqual( core.getSizeBy('range','rg',(-1, 2)), 3 )
+        self.assertEqual( core.getSizeBy('lt','rg',0), 3 )
+        self.assertEqual( core.getSizeBy('le','rg',0), 4 )
+        self.assertEqual( core.getSizeBy('ge','rg',-1), 6 )
+        self.assertEqual( core.getSizeBy('ge','rg',30), 2 )
+        self.assertEqual( core.getSizeBy('ge','rg',MAX_INT_VAL), 1 )
 
     def runjson(self, core):
 

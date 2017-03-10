@@ -61,8 +61,9 @@ LARGE_STRING_SIZE = 128
 # Largest length allowed for a prop
 MAX_PROP_LEN = 350
 
+# These are dictated by messagepack specification
 MAX_INT_VAL = 2 ** 64 - 1
-MIN_INT_VAL = -1 * (2 ** 63) - 1
+MIN_INT_VAL = -1 * (2 ** 63)
 
 
 class DatabaseInconsistent(Exception):
@@ -104,6 +105,7 @@ class Cortex(s_cores_common.Cortex):
 
         self.initSizeBy('le', self._sizeByLe)
         self.initRowsBy('le', self._rowsByLe)
+        self.initSizeBy('lt', self._sizeByLt)
 
         # use helpers from base class
         self.initRowsBy('gt', self._rowsByGt)
@@ -234,10 +236,12 @@ class Cortex(s_cores_common.Cortex):
 
     @staticmethod
     def _enc_iden(iden):
+        ''' Encode an iden '''
         return int(iden, UUID_SIZE).to_bytes(UUID_SIZE, byteorder='big')
 
     @staticmethod
     def _dec_iden(iden_enc):
+        ''' Decode an iden '''
         # We add a 1 as the MSBit and remove it at the end to always produce 32 hexdigits.
         return hex(MAX_UUID_PLUS_1 + int.from_bytes(iden_enc, byteorder='big'))[3:]
 
@@ -432,7 +436,7 @@ class Cortex(s_cores_common.Cortex):
         with self.dbenv.begin(buffers=True, write=do_delete_only) as txn, \
                 txn.cursor(indx) as cursor:
             if not cursor.set_range(first_key):
-                return 0 if do_count_only else []
+                raise DatabaseInconsistent("Missing sentinel")
             while True:
                 key, value = cursor.item()
                 if key.tobytes() >= last_key:
@@ -461,8 +465,7 @@ class Cortex(s_cores_common.Cortex):
                 if not do_delete_only:
                     # deleting auto-advances, so we don't advance the cursor
                     if not cursor.next():
-                        # Sentinel record should prevent this
-                        raise DatabaseInconsistent('Got to end of index')
+                        raise DatabaseInconsistent('Missing sentinel')
         return count if do_count_only else ret
 
     # right_closed:  on an interval, e.g. (0, 1] is left-open and right-closed
@@ -476,6 +479,10 @@ class Cortex(s_cores_common.Cortex):
 
     def _sizeByLe(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, right_closed=True,
+                                  do_count_only=True)
+
+    def _sizeByLt(self, prop, valu, limit=None):
+        return self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, right_closed=False,
                                   do_count_only=True)
 
     def _rowsByLe(self, prop, valu, limit=None):
@@ -522,12 +529,14 @@ class Cortex(s_cores_common.Cortex):
 
     def _subrangeRows(self, p_enc, first_val, last_val, limit, right_closed, do_count_only):
         first_key = p_enc + self._enc_val_key(first_val)
+
+        am_going_backwards = (first_val < 0)
+
         last_key = p_enc + self._enc_val_key(last_val)
 
         ret = []
         count = 0
 
-        am_going_backwards = (first_val < 0)
 
         # Figure out the terminating condition of the loop
         if am_going_backwards:
@@ -539,7 +548,7 @@ class Cortex(s_cores_common.Cortex):
             if not cursor.set_range(first_key):
                 raise DatabaseInconsistent("Missing sentinel")
             if am_going_backwards:
-                if cursor.key().tobytes() > first_key:
+                if cursor.key()[:len(first_key)].tobytes() > first_key:
                     rv = cursor.prev()
                     if not rv:
                         return 0 if do_count_only else []
@@ -548,7 +557,7 @@ class Cortex(s_cores_common.Cortex):
                 it = cursor.iternext(keys=True, values=True)
 
             for key, value in it:
-                if term_cmp(key.tobytes(), last_key):
+                if term_cmp(key[:len(last_key)].tobytes(), last_key):
                     break
                 count += 1
                 if not do_count_only:
