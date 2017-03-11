@@ -335,7 +335,7 @@ class Cortex(s_cores_common.Cortex):
                 self._delRowAndIndices(txn, pk_val_enc, i_enc=i_enc, p_enc=p_enc,
                                        delete_ip=False)
 
-    def _delRowsByIdProp(self, iden, prop):
+    def _delRowsByIdProp(self, iden, prop, valu=None):
         i_enc = self._enc_iden(iden)
         p_enc = msgenpack(prop)
         first_key = i_enc + p_enc
@@ -353,10 +353,15 @@ class Cortex(s_cores_common.Cortex):
                 # Need to copy out with tobytes because we're deleting
                 pk_val_enc = value.tobytes()
 
-                if not cursor.delete():
-                    raise Exception('Delete failure')
                 # Delete the row and the other indices
-                self._delRowAndIndices(txn, pk_val_enc, i_enc=i_enc, p_enc=p_enc, delete_ip=False)
+                if not self._delRowAndIndices(txn, pk_val_enc, i_enc=i_enc, p_enc=p_enc,
+                                              delete_ip=False, only_if_val=valu):
+                    if not cursor.next():
+                        raise DatabaseInconsistent("Missing sentinel")
+                else:
+                    if not cursor.delete():
+                        raise Exception('Delete failure')
+
 
     def _delRowAndIndices(self, txn, pk_val_enc, i_enc=None, p_enc=None, v_key_enc=None, t_enc=None,
                           delete_ip=True, delete_pvt=True, delete_pt=True, only_if_val=None):
@@ -364,7 +369,7 @@ class Cortex(s_cores_common.Cortex):
         i, p, v, t = self._getRowByPkValEnc(txn, pk_val_enc, do_delete=True)
 
         if only_if_val is not None and only_if_val != v:
-            return
+            return False
 
         if delete_ip and i_enc is None:
             i_enc = self._enc_iden(i)
@@ -393,7 +398,10 @@ class Cortex(s_cores_common.Cortex):
             if not txn.delete(p_enc + t_enc, db=self.index_pt):
                 raise DatabaseInconsistent("Missing P-T index")
 
-    def _getRowsByIdProp(self, iden, prop):
+        return True
+
+    def _getRowsByIdProp(self, iden, prop, valu=None):
+        # For now not making a ipv index because multiple v for a given i,p are probably rare
         iden_enc = self._enc_iden(iden)
         prop_enc = msgenpack(prop)
 
@@ -407,7 +415,10 @@ class Cortex(s_cores_common.Cortex):
             for key, value in cursor:
                 if key.tobytes() != first_key:
                     return ret
-                ret.append(self._getRowByPkValEnc(txn, value))
+                row = self._getRowByPkValEnc(txn, value)
+                if valu is not None and row[2] != valu:
+                    continue
+                ret.append(row)
         raise DatabaseInconsistent("Missing sentinel")
 
     def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
