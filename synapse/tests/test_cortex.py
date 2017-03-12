@@ -61,7 +61,7 @@ class CortexTest(SynTest):
         try:
             os.remove(CortexTest.lmdb_file)
             os.remove(CortexTest.lmdb_file + '-lock')
-        except FileNotFoundError:
+        except OSError:
             pass
 
     def test_cortex_postgres(self):
