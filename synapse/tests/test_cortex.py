@@ -47,15 +47,16 @@ class CortexTest(SynTest):
         self.runsnaps( core )
 
     lmdb_file = 'test.lmdb'
+    lmdb_url = 'lmdb:///%s?lmdb:mapsize=100000000' % lmdb_file
     def test_cortex_lmdb(self):
-        core = s_cortex.openurl('lmdb:///%s' % CortexTest.lmdb_file)
+        core = s_cortex.openurl(CortexTest.lmdb_url)
         self.runcore( core )
         self.runjson( core )
         self.runrange( core, do_extras=True )
         self.runidens( core )
 
         # Test load an existing db
-        core = s_cortex.openurl('lmdb:///%s' % CortexTest.lmdb_file)
+        core = s_cortex.openurl(CortexTest.lmdb_url)
 
     def tearDown(self):
         try:

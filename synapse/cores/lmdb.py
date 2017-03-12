@@ -10,6 +10,7 @@ import xxhash
 import synapse.cores.common as s_cores_common
 from synapse.common import genpath, msgenpack, msgunpack
 import synapse.compat as s_compat
+import synapse.datamodel as s_datamodel
 
 import lmdb
 
@@ -127,7 +128,7 @@ def _dec_iden(iden_enc):
     return hexlify(iden_enc).decode('utf8')
 
 
-# Precompile the struct parser for native size_t
+# The precompiled struct parser for native size_t
 _SIZET_ST = struct.Struct('@Q' if sys.maxsize > 2**32 else '@L')
 
 
@@ -206,6 +207,7 @@ class Cortex(s_cores_common.Cortex):
         MAP_SIZE = 2147483647 if MAX_PK_BYTES == 4 else 1099511627776  # a terabyte
 
         map_size = self._link[1].get('lmdb:mapsize', MAP_SIZE)
+        map_size, _ = s_datamodel.getTypeFrob('int', map_size)
 
         # Maximum number of "databases", really tables.  We use 4 different tables (1 main plus
         # 3 indices)
@@ -214,8 +216,8 @@ class Cortex(s_cores_common.Cortex):
         # flush system buffers to disk only once per transaction.  Set to False can lead to last
         # transaction loss, but not corruption
 
-        metasync_val = self._link[1].get('lmdb:metasync', 0)
-        metasync = (metasync_val != 0)
+        metasync_val = self._link[1].get('lmdb:metasync', False)
+        metasync, _ = s_datamodel.getTypeFrob('bool', metasync_val)
 
         # Write data directly to mapped memory
         WRITEMAP = True
@@ -229,6 +231,7 @@ class Cortex(s_cores_common.Cortex):
         # Maximum simultaneous readers.
         MAX_READERS = 4
         max_readers = self._link[1].get('lmdb:maxreaders', MAX_READERS)
+        max_readers, _ = s_datamodel.getTypeFrob('int', max_readers)
 
         self.dbenv = lmdb.Environment(dbname, map_size=map_size, subdir=SUBDIR, metasync=metasync,
                                       writemap=WRITEMAP, max_readers=max_readers, max_dbs=MAX_DBS,
