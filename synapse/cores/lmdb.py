@@ -299,9 +299,6 @@ class Cortex(s_cores_common.Cortex):
                     # Will only fail if record already exists, which should never happen
                     raise DatabaseInconsistent('unexpected pk in DB')
 
-                if p in ('syn:type', 'syn:form'):
-                    print('*LMDB adding %s=%s iden=%s' % (p, v, i))
-
                 txn.put(i_enc + p_enc, pk_val_enc, overwrite=False, db=self.index_ip)
                 txn.put(p_enc + v_key_enc + t_enc, pk_val_enc, overwrite=False, db=self.index_pvt)
                 txn.put(p_enc + t_enc, pk_val_enc, overwrite=False, db=self.index_pt)
