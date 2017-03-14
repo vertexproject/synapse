@@ -299,9 +299,13 @@ class Cortex(s_cores_common.Cortex):
                     # Will only fail if record already exists, which should never happen
                     raise DatabaseInconsistent('unexpected pk in DB')
 
-                txn.put(i_enc + p_enc, pk_val_enc, overwrite=False, db=self.index_ip)
-                txn.put(p_enc + v_key_enc + t_enc, pk_val_enc, overwrite=False, db=self.index_pvt)
-                txn.put(p_enc + t_enc, pk_val_enc, overwrite=False, db=self.index_pt)
+                if not txn.put(i_enc + p_enc, pk_val_enc, dupdata=True, db=self.index_ip):
+                    raise Exception('LMDB write I-P index failure')
+                if not txn.put(p_enc + v_key_enc + t_enc, pk_val_enc, dupdata=True,
+                               db=self.index_pvt):
+                    raise Exception('LMDB write P-V-T index failure')
+                if not txn.put(p_enc + t_enc, pk_val_enc, dupdata=True, db=self.index_pt):
+                    raise Exception('LMDB write P-T index failure')
 
             # self.next_pk should be protected from multiple writers. Luckily lmdb write lock does
             # that for us.
