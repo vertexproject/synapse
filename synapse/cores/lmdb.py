@@ -57,7 +57,7 @@ UUID_SIZE = 16
 MAX_UUID_PLUS_1 = 2**(UUID_SIZE*8)
 
 # An index key can't ever be larger (lexicographically) than this
-MAX_INDEX_KEY = b'\xff\xff'
+MAX_INDEX_KEY = b'\xff' * 20
 
 # String vals of this size or larger will be truncated and hashed in index
 LARGE_STRING_SIZE = 128
@@ -204,7 +204,7 @@ class Cortex(s_cores_common.Cortex):
         dbname = dbinfo.get('name')
 
         # MAX DB Size.  Must be < 2 GiB for 32-bit.  Can be big for 64-bit systems.
-        MAP_SIZE = 2147483647 if MAX_PK_BYTES == 4 else 1099511627776  # a terabyte
+        MAP_SIZE = 1073741824 if MAX_PK_BYTES == 4 else 1099511627776  # a terabyte
 
         map_size = self._link[1].get('lmdb:mapsize', MAP_SIZE)
         map_size, _ = s_datamodel.getTypeFrob('int', map_size)
@@ -218,6 +218,9 @@ class Cortex(s_cores_common.Cortex):
 
         metasync_val = self._link[1].get('lmdb:metasync', False)
         metasync, _ = s_datamodel.getTypeFrob('bool', metasync_val)
+
+        # Nic debug
+        metasync = True
 
         # Write data directly to mapped memory
         WRITEMAP = True
@@ -296,6 +299,9 @@ class Cortex(s_cores_common.Cortex):
                     # Will only fail if record already exists, which should never happen
                     raise DatabaseInconsistent('unexpected pk in DB')
 
+                if p in ('syn:type', 'syn:form'):
+                    print('*LMDB adding %s=%s iden=%s' % (p, v, i))
+
                 txn.put(i_enc + p_enc, pk_val_enc, overwrite=False, db=self.index_ip)
                 txn.put(p_enc + v_key_enc + t_enc, pk_val_enc, overwrite=False, db=self.index_pvt)
                 txn.put(p_enc + t_enc, pk_val_enc, overwrite=False, db=self.index_pt)
@@ -331,7 +337,6 @@ class Cortex(s_cores_common.Cortex):
                 if key[:len(iden_enc)] != iden_enc:
                     return ret
 
-                # FIXME: check if anything remaining in buffer?
                 ret.append(self._getRowByPkValEnc(txn, value))
         raise DatabaseInconsistent("Missing sentinel")
 
@@ -498,6 +503,7 @@ class Cortex(s_cores_common.Cortex):
                     # deleting auto-advances, so we don't advance the cursor
                     if not cursor.next():
                         raise DatabaseInconsistent('Missing sentinel')
+
         return count if do_count_only else ret
 
     # right_closed:  on an interval, e.g. (0, 1] is left-open and right-closed
