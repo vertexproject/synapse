@@ -48,10 +48,7 @@ STRING_VAL_MARKER_ENC = msgenpack(STRING_VAL_MARKER)
 # The hash marker encoded
 HASH_VAL_MARKER_ENC = msgenpack(HASH_VAL_MARKER)
 
-# The maximum possible timestamp.  Probably a bit overkill
-MAX_TIME_ENC = msgenpack(2 ** 64 - 1)
-
-# Number of bytes in an UUID
+# Number of bytes in a UUID
 UUID_SIZE = 16
 
 MAX_UUID_PLUS_1 = 2**(UUID_SIZE*8)
@@ -65,9 +62,12 @@ LARGE_STRING_SIZE = 128
 # Largest length allowed for a prop
 MAX_PROP_LEN = 350
 
-# These are dictated by messagepack specification
-MAX_INT_VAL = 2 ** 64 - 1
+# Matches sqlite3
+MAX_INT_VAL = 2 ** 63 - 1
 MIN_INT_VAL = -1 * (2 ** 63)
+
+# The maximum possible timestamp.  Probably a bit overkill
+MAX_TIME_ENC = msgenpack(MAX_INT_VAL)
 
 
 class DatabaseInconsistent(Exception):
@@ -218,9 +218,6 @@ class Cortex(s_cores_common.Cortex):
 
         metasync_val = self._link[1].get('lmdb:metasync', False)
         metasync, _ = s_datamodel.getTypeFrob('bool', metasync_val)
-
-        # Nic debug
-        metasync = True
 
         # Write data directly to mapped memory
         WRITEMAP = True

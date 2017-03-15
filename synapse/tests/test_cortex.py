@@ -52,7 +52,7 @@ class CortexTest(SynTest):
         core = s_cortex.openurl(CortexTest.lmdb_url)
         self.runcore( core )
         self.runjson( core )
-        self.runrange( core, do_extras=True )
+        self.runrange( core )
         self.runidens( core )
 
         # Test load an existing db
@@ -284,7 +284,7 @@ class CortexTest(SynTest):
         self.eq( tufo[1].get('zoot:suit:bar'), bigstr )
         self.eq( len( core.getTufosByProp('zoot:suit:bar',valu=bigstr) ), 1 )
 
-    def runrange(self, core, do_extras=False):
+    def runrange(self, core):
 
         rows = [
             (guid(),'rg',10,99),
@@ -306,9 +306,6 @@ class CortexTest(SynTest):
 
         self.assertEqual( core.getSizeBy('le','rg',20), 1 )
         self.assertEqual( core.getRowsBy('le','rg',20)[0][2], 10 )
-
-        if not do_extras:
-            return
 
         rows = [
             (guid(),'rg',-42,99),

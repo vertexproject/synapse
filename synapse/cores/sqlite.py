@@ -147,6 +147,7 @@ class Cortex(s_cores_common.Cortex):
 
     _t_getsize_by_range = 'SELECT COUNT(*) FROM {{TABLE}} WHERE prop={{PROP}} and intval >= {{MINVALU}} AND intval < {{MAXVALU}} LIMIT {{LIMIT}}'
     _t_getsize_by_le = 'SELECT COUNT(*) FROM {{TABLE}} WHERE prop={{PROP}} and intval <= {{VALU}} LIMIT {{LIMIT}}'
+    _t_getsize_by_lt = 'SELECT COUNT(*) FROM {{TABLE}} WHERE prop={{PROP}} and intval < {{VALU}} LIMIT {{LIMIT}}'
     _t_getsize_by_ge = 'SELECT COUNT(*) FROM {{TABLE}} WHERE prop={{PROP}} and intval >= {{VALU}} LIMIT {{LIMIT}}'
 
     _t_delrows_by_iden = 'DELETE FROM {{TABLE}} WHERE iden={{IDEN}}'
@@ -258,18 +259,28 @@ class Cortex(s_cores_common.Cortex):
     def _sizeByRange(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getsize_by_range
-        return self.select(q,prop=prop,minvalu=valu[0],maxvalu=valu[1],limit=limit)[0][0]
+        count = self.select(q,prop=prop,minvalu=valu[0],maxvalu=valu[1],limit=limit)[0][0]
+        return count if limit == self.dblim else min(limit, count)
 
     def _sizeByGe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getsize_by_ge
-        return self.select(q,prop=prop,valu=valu,limit=limit)[0][0]
+        count = self.select(q,prop=prop,valu=valu,limit=limit)[0][0]
+        return count if limit == self.dblim else min(limit, count)
+
+    def _sizeByLt(self, prop, valu, limit=None):
+        limit = self._getDbLimit(limit)
+        q = self._q_getsize_by_lt
+        args = [ prop, valu, limit ]
+        count = self.select(q,prop=prop,valu=valu,limit=limit)[0][0]
+        return count if limit == self.dblim else min(limit, count)
 
     def _sizeByLe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getsize_by_le
         args = [ prop, valu, limit ]
-        return self.select(q,prop=prop,valu=valu,limit=limit)[0][0]
+        count = self.select(q,prop=prop,valu=valu,limit=limit)[0][0]
+        return count if limit == self.dblim else min(limit, count)
 
     def _initDbConn(self):
         dbinfo = self._initDbInfo()
@@ -293,6 +304,7 @@ class Cortex(s_cores_common.Cortex):
         self.initRowsBy('ge',self._rowsByGe)
 
         self.initSizeBy('le',self._sizeByLe)
+        self.initSizeBy('lt', self._sizeByLt)
         self.initRowsBy('le',self._rowsByLe)
 
         self.initSizeBy('range',self._sizeByRange)
@@ -480,6 +492,7 @@ class Cortex(s_cores_common.Cortex):
 
         self._q_getsize_by_ge = self._prepQuery(self._t_getsize_by_ge)
         self._q_getsize_by_le = self._prepQuery(self._t_getsize_by_le)
+        self._q_getsize_by_lt = self._prepQuery(self._t_getsize_by_lt)
         self._q_getsize_by_range = self._prepQuery(self._t_getsize_by_range)
 
         self._q_delrows_by_iden = self._prepQuery(self._t_delrows_by_iden)
