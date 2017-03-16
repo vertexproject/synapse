@@ -977,6 +977,15 @@ class CortexTest(SynTest):
             self.eq( len(core.cache_byiden), 2 )
             self.eq( len(core.cache_byprop), 1 )
 
+            tufo0 = core.formTufoByProp('foo','bar')
+            tufo0 = core.addTufoTag(tufo0,'hehe')
+
+            self.eq( len( core.getTufosByTag('foo','hehe') ), 1 )
+            core.delTufoTag(tufo0,'hehe')
+
+            tufo0 = core.getTufoByProp('foo','bar')
+            self.noprop( tufo0[1], '*|foo|hehe')
+
     def test_cortex_caching_set(self):
 
         with s_cortex.openurl('ram://') as core:

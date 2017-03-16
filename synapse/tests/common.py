@@ -125,6 +125,10 @@ class SynTest(unittest.TestCase):
     def none(self, x):
         self.assertIsNone(x)
 
+    def noprop(self, info, prop):
+        valu = info.get(prop,novalu)
+        self.eq(valu,novalu)
+
     def sorteq(self, x, y):
         return self.eq( sorted(x), sorted(y) )
 
