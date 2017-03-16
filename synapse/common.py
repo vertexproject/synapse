@@ -19,6 +19,9 @@ import synapse.exc as s_exc
 from synapse.exc import *
 from synapse.compat import enbase64, debase64, canstor
 
+class NoValu:pass
+novalu = NoValu()
+
 def now():
     return int( time.time() * 1000 )
 
