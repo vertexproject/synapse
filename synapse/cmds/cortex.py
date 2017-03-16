@@ -13,7 +13,6 @@ class AskCmd(s_cli.Cmd):
     def runCmdOpts(self, opts):
         ques = opts.get('query')
         core = self.getCmdItem()
-
         resp = core.ask(ques)
         # {'oplog': [{'mnem': 'lift', 'add': 0, 'took': 1, 'sub': 0}], 'data': [], 'options': {'uniq': 1}, 'limits': {'touch': None, 'lift': None, 'time': None}}
 
