@@ -52,9 +52,22 @@ class SslRelay(LinkRelay):
 
         self.link[1]['port'] = sock.getsockname()[1]
 
+        certdir = self.link[1].get('certdir')
+        cdir = s_certdir.CertDir(path=certdir)
+
+        hostname = socket.gethostname()
+
         cafile = self.link[1].get('cafile')
-        keyfile = self.link[1].get('keyfile')
+        if cafile == None:
+            cafile = cdir.getHostCaPath(hostname)
+
         certfile = self.link[1].get('certfile')
+        if certfile == None:
+            certfile = cdir.getHostCertPath(hostname)
+
+        keyfile = self.link[1].get('keyfile')
+        if keyfile == None:
+            keyfile = cdir.getHostKeyPath(hostname)
 
         sslopts = dict(server_side=True,
                        ca_certs=cafile,
