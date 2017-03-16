@@ -34,7 +34,7 @@ def getArgParser():
     return p
 
 homedir = os.path.expanduser('~')
-dmondir = os.path.join(homedir,'.syn.dmon')
+dmondir = os.path.join(homedir,'.syn','dmon')
 cfgfile = os.path.join(dmondir,'onboot.json')
 onefile = os.path.join(dmondir,'onboot.once')
 
