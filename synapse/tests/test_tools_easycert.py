@@ -51,3 +51,6 @@ class TestEasyCert(SynTest):
             argv = ['--certdir',path,'--signas','testca','--sign-csr',csrpath ]
             self.assertEqual( s_easycert.main(argv,outp=outp), 0)
             outp.expect('cert saved:')
+
+            argv = ['--certdir',path,'--signas','testca','--sign-csr','lololol' ]
+            self.assertEqual( s_easycert.main(argv,outp=outp), -1)
