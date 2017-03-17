@@ -3,6 +3,7 @@ from __future__ import absolute_import
 import sys
 import struct
 from binascii import hexlify, unhexlify
+from contextlib import contextmanager
 
 import msgpack
 import xxhash
@@ -11,6 +12,7 @@ import synapse.cores.common as s_cores_common
 from synapse.common import genpath, msgenpack, msgunpack
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
+import synapse.lib.threads as s_threads
 
 import lmdb
 
@@ -151,14 +153,13 @@ class CoreXact(s_cores_common.CoreXact):
         self.txn.commit()
 
     def _coreXactBegin(self):
-        # Note that this will only allow reading, not writing
-        self.txn = self.core.dbenv.begin(buffers=True)
+        self.txn = self.core.dbenv.begin(buffers=True, write=True)
 
     def _coreXactAcquire(self):
         pass
 
     def _coreXactRelease(self):
-        self.txn = None
+        pass
 
 
 class Cortex(s_cores_common.Cortex):
@@ -194,10 +195,23 @@ class Cortex(s_cores_common.Cortex):
         return CoreXact(self, size=size)
 
     def _get_largest_pk(self):
-        with self.dbenv.begin(buffers=True) as txn, txn.cursor(self.rows) as cursor:
+        with self._get_txn() as txn, txn.cursor(self.rows) as cursor:
             if not cursor.last():
                 return 0  # db is empty
             return _dec_pk_key(cursor.key())
+
+    @contextmanager
+    def _get_txn(self, write=False):
+        ''' LMDB doesn't have the concept of store access without a transaction, so figure out
+        whether there's already one open and use that, else make one.  If we found an existing
+        transaction, this doesn't close it after leaving the context.  If we made one and the
+        context is exited without exception, the transaction is committed. '''
+        existing_xact = self._core_xacts.get(s_threads.iden())
+        if existing_xact is not None:
+            yield existing_xact.txn
+        else:
+            with self.dbenv.begin(buffers=True, write=write) as txn:
+                yield txn
 
     def _initDbConn(self):
         dbinfo = self._initDbInfo()
@@ -256,7 +270,7 @@ class Cortex(s_cores_common.Cortex):
 
         # Put 1 max key sentinel at the end of each index table.  This avoids unfortunate behavior
         # where the cursor moves backwards after deleting the final record.
-        with self.dbenv.begin(buffers=True, write=True) as txn:
+        with self._get_txn(write=True) as txn:
             for db in (self.index_ip, self.index_pvt, self.index_pt):
                 txn.put(MAX_INDEX_KEY, b'', db=db)
                 # One more sentinel for going backwards through the pvt table.
@@ -275,7 +289,7 @@ class Cortex(s_cores_common.Cortex):
 
     def _addRows(self, rows):
         next_pk = self.next_pk
-        with self.dbenv.begin(write=True, buffers=True) as txn:
+        with self._get_txn(write=True) as txn:
             for i, p, v, t in rows:
                 if next_pk > MAX_PK:
                     raise DatabaseLimitReached('Out of primary key values')
@@ -328,7 +342,7 @@ class Cortex(s_cores_common.Cortex):
     def _getRowsById(self, iden):
         ret = []
         iden_enc = _enc_iden(iden)
-        with self.dbenv.begin(buffers=True) as txn, txn.cursor(self.index_ip) as cursor:
+        with self._get_txn() as txn, txn.cursor(self.index_ip) as cursor:
             if not cursor.set_range(iden_enc):
                 raise DatabaseInconsistent("Missing sentinel")
             for key, value in cursor:
@@ -341,7 +355,7 @@ class Cortex(s_cores_common.Cortex):
     def _delRowsById(self, iden):
         i_enc = _enc_iden(iden)
 
-        with self.dbenv.begin(buffers=True, write=True) as txn, txn.cursor(self.index_ip) as cursor:
+        with self._get_txn(write=True) as txn, txn.cursor(self.index_ip) as cursor:
             # Get the first record => i_enc
             if not cursor.set_range(i_enc):
                 raise DatabaseInconsistent("Missing sentinel")
@@ -365,7 +379,7 @@ class Cortex(s_cores_common.Cortex):
         p_enc = msgenpack(prop)
         first_key = i_enc + p_enc
 
-        with self.dbenv.begin(buffers=True, write=True) as txn, txn.cursor(self.index_ip) as cursor:
+        with self._get_txn(write=True) as txn, txn.cursor(self.index_ip) as cursor:
             # Retrieve and delete I-P index
             if not cursor.set_range(first_key):
                 raise DatabaseInconsistent("Missing sentinel")
@@ -433,7 +447,7 @@ class Cortex(s_cores_common.Cortex):
 
         ret = []
 
-        with self.dbenv.begin(buffers=True) as txn, txn.cursor(self.index_ip) as cursor:
+        with self._get_txn() as txn, txn.cursor(self.index_ip) as cursor:
             if not cursor.set_range(first_key):
                 raise DatabaseInconsistent("Missing sentinel")
             for key, value in cursor:
@@ -468,8 +482,7 @@ class Cortex(s_cores_common.Cortex):
         ret = []
         count = 0
 
-        with self.dbenv.begin(buffers=True, write=do_delete_only) as txn, \
-                txn.cursor(indx) as cursor:
+        with self._get_txn(write=do_delete_only) as txn, txn.cursor(indx) as cursor:
             if not cursor.set_range(first_key):
                 raise DatabaseInconsistent("Missing sentinel")
             while True:
@@ -576,7 +589,7 @@ class Cortex(s_cores_common.Cortex):
         else:
             term_cmp = bytes.__gt__ if right_closed else bytes.__ge__
 
-        with self.dbenv.begin(buffers=True) as txn, txn.cursor(self.index_pvt) as cursor:
+        with self._get_txn() as txn, txn.cursor(self.index_pvt) as cursor:
             if not cursor.set_range(first_key):
                 raise DatabaseInconsistent("Missing sentinel")
             if am_going_backwards:
