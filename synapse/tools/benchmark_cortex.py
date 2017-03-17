@@ -5,9 +5,10 @@ from time import perf_counter as now
 import itertools
 
 
-NUM_PREEXISTING_TUFOS = 100000
+NUM_PREEXISTING_TUFOS = 10000
 
-NUM_TUFOS = 1000000
+NUM_TUFOS = 100000
+NUM_ONE_AT_A_TIME_TUFOS = NUM_TUFOS // 1000
 
 HUGE_VAL_BYTES = 1000000
 HUGE_VAL_RATE = 0.0001
@@ -38,7 +39,7 @@ def addRows_bench(core, rows, one_at_a_time=False, num_threads=1):
 
 def random_normal(avg):
     ''' Returns a number with normal distribution around avg, the very fast way '''
-    return random.randint(1, avg) + random.randint(0, avg)
+    return random.randint(1, avg-1) + random.randint(0, avg)
 
 
 def random_string(avg):
@@ -86,30 +87,39 @@ def flatten(iterable):
     return list(itertools.chain.from_iterable(iterable))
 
 
-def _prepopulate_core(core):
-    rows = flatten(_rows_from_tufo(gen_random_tufo()) for x in range(NUM_PREEXISTING_TUFOS))
+def _prepopulate_core(core, rows):
     core.addRows(rows)
 
 
-def benchmark_cortex(url, cleanup_func, is_ephemeral):
-    random.seed(4)  # 4 chosen by fair dice roll.  Guaranteed to be random
+class TestData:
+    def __init__(self):
+        print("Generating test data...")
+        random.seed(4)  # 4 chosen by fair dice roll.  Guaranteed to be random
+        start = now()
+        self.prepop_rows = flatten(_rows_from_tufo(gen_random_tufo())
+                                   for x in range(NUM_PREEXISTING_TUFOS))
+        self.rows = flatten(_rows_from_tufo(gen_random_tufo()) for x in range(NUM_TUFOS))
+        self.onerows = flatten(_rows_from_tufo(gen_random_tufo())
+                               for x in range(NUM_ONE_AT_A_TIME_TUFOS))
+        print("Test data generation took: %.2f" % (now() - start))
+        print('addRows: # Tufos:%8d, # Rows: %8d' % (NUM_TUFOS, len(self.rows)))
+        print('one at : # Tufos:%8d, # Rows: %8d' % (NUM_ONE_AT_A_TIME_TUFOS, len(self.onerows)))
+
+
+def benchmark_cortex(test_data, url, cleanup_func, is_ephemeral):
     core = s_cortex.openurl(url)
-    _prepopulate_core(core)
-    rows1 = flatten(_rows_from_tufo(gen_random_tufo()) for x in range(NUM_TUFOS))
-    rows2 = flatten(_rows_from_tufo(gen_random_tufo()) for x in range(NUM_TUFOS//1000))
-    print('addRows: # Tufos:%8d, # Rows: %8d' % (len(rows1), NUM_TUFOS))
-    print('one at : # Tufos:%8d, # Rows: %8d' % (len(rows2), NUM_TUFOS//1000))
+    _prepopulate_core(core, test_data.prepop_rows)
     times = []
-    times.append(('start', now()))
+    times.append(('start', now(), 1))
     if not is_ephemeral:
         del core
         core = s_cortex.openurl(url)
-        times.append(('openurl preexisting', now()))
+        times.append(('openurl preexisting', now(), 1))
 
-    addRows_bench(core, rows1)
-    times.append(('addRows', now()))
-    addRows_bench(core, rows2, one_at_a_time=True)
-    times.append(('addRows one at a time', now()))
+    addRows_bench(core, test_data.rows)
+    times.append(('addRows', now(), NUM_TUFOS))
+    addRows_bench(core, test_data.onerows, one_at_a_time=True)
+    times.append(('addRows one at a time', now(), NUM_ONE_AT_A_TIME_TUFOS))
 
     if cleanup_func is not None:
         cleanup_func()
@@ -118,8 +128,8 @@ def benchmark_cortex(url, cleanup_func, is_ephemeral):
 
 def display_times(times):
     prev = times[0][1]
-    for desc, t in times[1:]:
-        print('%30s:   %8.1f' % (desc, t - prev))
+    for desc, t, divisor in times[1:]:
+        print('%30s:   %8.1f %7d %10.6f' % (desc, t - prev, divisor, (t-prev)/divisor))
         prev = t
 
 
@@ -146,9 +156,10 @@ def benchmark_all():
     urls = ('ram://', 'sqlite:///:memory:', 'sqlite:///' + SQLITE_FILE, 'lmdb:///' + LMDB_FILE)
     cleanup = (None, None, cleanup_sqlite, cleanup_lmdb)
     is_ephemeral = (True, True, False, False)
+    test_data = TestData()
     for url, cleanup_func, is_ephem in zip(urls, cleanup, is_ephemeral):
         print('Benchmarking ', url)
-        benchmark_cortex(url, cleanup_func, is_ephem)
+        benchmark_cortex(test_data, url, cleanup_func, is_ephem)
 
 if __name__ == '__main__':
     benchmark_all()
