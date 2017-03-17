@@ -59,7 +59,9 @@ class SslRelay(LinkRelay):
 
         cafile = self.link[1].get('cafile')
         if cafile == None:
-            cafile = cdir.getHostCaPath(hostname)
+            caname = self.link[1].get('ca')
+            if caname != None:
+                cafile = cdir.getCaCertPath(caname)
 
         certfile = self.link[1].get('certfile')
         if certfile == None:
