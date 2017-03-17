@@ -321,6 +321,9 @@ class CertDir:
 
     def getHostCaPath(self, name):
         cert = self.getHostCert(name)
+        if cert == None:
+            return None
+
         subj = cert.get_issuer()
 
         capath = self.getPathJoin('cas','%s.crt' % subj.CN)
