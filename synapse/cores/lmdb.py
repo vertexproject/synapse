@@ -299,34 +299,37 @@ class Cortex(s_cores_common.Cortex):
 
     def _addRows(self, rows):
         next_pk = self.next_pk
+        encs = []
+        for i, p, v, t in rows:
+            if next_pk > MAX_PK:
+                raise DatabaseLimitReached('Out of primary key values')
+            if len(p) > MAX_PROP_LEN:
+                raise DatabaseLimitReached('Property length too large')
+            i_enc = _enc_iden(i)
+            p_enc = msgenpack(p)
+            v_val_enc = _enc_val_val(v)
+            v_key_enc = _enc_val_key(v)
+            t_enc = msgenpack(t)
+            pk_val_enc = msgenpack(next_pk)
+            pk_key_enc = _enc_pk_key(next_pk)
+            # idx        0      1         2         3       4          5           6
+            encs.append((i_enc, p_enc, v_val_enc, t_enc, v_key_enc, pk_val_enc, pk_key_enc))
+            next_pk += 1
+
         with self._get_txn(write=True) as txn:
-            for i, p, v, t in rows:
-                if next_pk > MAX_PK:
-                    raise DatabaseLimitReached('Out of primary key values')
-                if len(p) > MAX_PROP_LEN:
-                    raise DatabaseLimitReached('Property length too large')
-                i_enc = _enc_iden(i)
-                p_enc = msgenpack(p)
-                v_val_enc = _enc_val_val(v)
-                v_key_enc = _enc_val_key(v)
-                t_enc = msgenpack(t)
-                pk_val_enc = msgenpack(next_pk)
+            # an iterator of key, value pairs:  key=pk_key_enc, val=i_enc+p_enc+v_val_enc+t_enc
+            kvs = ((x[6], x[0] + x[1] + x[2] + x[3]) for x in encs)
+            consumed, added = txn.cursor(db=self.rows).putmulti(kvs, overwrite=False, append=True)
+            if consumed != added or consumed != len(encs):
+                # Will only fail if record already exists, which should never happen
+                raise DatabaseInconsistent('unexpected pk in DB')
 
-                pk_key_enc = _enc_pk_key(next_pk)
-
-                next_pk += 1
-                if not txn.put(pk_key_enc, i_enc + p_enc + v_val_enc + t_enc, overwrite=False,
-                               append=True, db=self.rows):
-                    # Will only fail if record already exists, which should never happen
-                    raise DatabaseInconsistent('unexpected pk in DB')
-
-                if not txn.put(i_enc + p_enc, pk_val_enc, dupdata=True, db=self.index_ip):
-                    raise Exception('LMDB write I-P index failure')
-                if not txn.put(p_enc + v_key_enc + t_enc, pk_val_enc, dupdata=True,
-                               db=self.index_pvt):
-                    raise Exception('LMDB write P-V-T index failure')
-                if not txn.put(p_enc + t_enc, pk_val_enc, dupdata=True, db=self.index_pt):
-                    raise Exception('LMDB write P-T index failure')
+            kvs = ((x[0] + x[1], x[5]) for x in encs)
+            txn.cursor(db=self.index_ip).putmulti(kvs, dupdata=True)
+            kvs = ((x[1] + x[4] + x[3], x[5]) for x in encs)
+            txn.cursor(db=self.index_pvt).putmulti(kvs, dupdata=True)
+            kvs = ((x[1] + x[3], x[5]) for x in encs)
+            txn.cursor(db=self.index_pt).putmulti(kvs, dupdata=True)
 
             # self.next_pk should be protected from multiple writers. Luckily lmdb write lock does
             # that for us.
