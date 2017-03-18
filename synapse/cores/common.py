@@ -422,7 +422,10 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
         cachfo = self.cache_byiden.get(tufo[0])
         if cachfo != None:
-            cachfo[1][prop] = newv
+            if newv == None:
+                cachfo[1].pop(prop,None)
+            else:
+                cachfo[1][prop] = newv
 
         # remove ourselves from old ones..
         if oldv != None:

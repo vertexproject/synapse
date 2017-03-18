@@ -19,6 +19,9 @@ import synapse.exc as s_exc
 from synapse.exc import *
 from synapse.compat import enbase64, debase64, canstor
 
+class NoValu:pass
+novalu = NoValu()
+
 def now():
     return int( time.time() * 1000 )
 
@@ -103,6 +106,21 @@ def reqlines(*paths, **opts):
 
             if rem != None:
                 bufr = rem + bufr
+
+def getfile(*paths,**opts):
+    path = genpath(*paths)
+    if not os.path.isfile(path):
+        return None
+    opts.setdefault('mode','rb')
+    return io.open(path,**opts)
+
+def getbytes(*paths,**opts):
+    fd = getfile(*paths,**opts)
+    if fd == None:
+        return None
+
+    with fd:
+        return fd.read()
 
 def reqbytes(*paths):
     with reqfile(*paths) as fd:
