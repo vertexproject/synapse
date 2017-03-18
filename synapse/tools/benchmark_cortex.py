@@ -5,10 +5,10 @@ from time import perf_counter as now
 import itertools
 
 
-NUM_PREEXISTING_TUFOS = 10000
+NUM_PREEXISTING_TUFOS = 1000
 
 NUM_TUFOS = 100000
-NUM_ONE_AT_A_TIME_TUFOS = NUM_TUFOS // 1000
+NUM_ONE_AT_A_TIME_TUFOS = 50
 
 HUGE_VAL_BYTES = 1000000
 HUGE_VAL_RATE = 0.0001
@@ -35,6 +35,7 @@ def addRows_bench(core, rows, one_at_a_time=False, num_threads=1):
             core.addRows([row])
     else:
         core.addRows(rows)
+    core.flush()
 
 
 def random_normal(avg):
@@ -153,9 +154,13 @@ def cleanup_sqlite():
 
 
 def benchmark_all():
-    urls = ('ram://', 'sqlite:///:memory:', 'sqlite:///' + SQLITE_FILE, 'lmdb:///' + LMDB_FILE)
-    cleanup = (None, None, cleanup_sqlite, cleanup_lmdb)
-    is_ephemeral = (True, True, False, False)
+    urls = ('ram://',
+            'sqlite:///:memory:',
+            'sqlite:///' + SQLITE_FILE,
+            'lmdb:///%s' % LMDB_FILE,
+            'lmdb:///%s?lmdb:sync=False&lmdb:lock=False' % LMDB_FILE)
+    cleanup = (None, None, cleanup_sqlite, cleanup_lmdb, cleanup_lmdb)
+    is_ephemeral = (True, True, False, False, False)
     test_data = TestData()
     for url, cleanup_func, is_ephem in zip(urls, cleanup, is_ephemeral):
         print('Benchmarking ', url)

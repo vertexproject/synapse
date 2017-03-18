@@ -213,6 +213,10 @@ class Cortex(s_cores_common.Cortex):
             with self.dbenv.begin(buffers=True, write=write) as txn:
                 yield txn
 
+    def flush(self):
+        ''' Flushs/syncs to disk '''
+        self.dbenv.sync(True)
+
     def _initDbConn(self):
         dbinfo = self._initDbInfo()
         dbname = dbinfo.get('name')
@@ -233,27 +237,33 @@ class Cortex(s_cores_common.Cortex):
         metasync_val = self._link[1].get('lmdb:metasync', False)
         metasync, _ = s_datamodel.getTypeFrob('bool', metasync_val)
 
+        sync_val = self._link[1].get('lmdb:sync', True)
+        sync, _ = s_datamodel.getTypeFrob('bool', sync_val)
+
         # Write data directly to mapped memory
         WRITEMAP = True
 
         # Doesn't create a subdirectory for storage files
         SUBDIR = False
 
-        # If we don't have multiple threads, we can disable locking, but we have multiple threads
-        LOCK = True
+        # We can disable locking...
+        DEFAULT_LOCK = True
+        lock_val = self._link[1].get('lmdb:lock', DEFAULT_LOCK)
+        lock, _ = s_datamodel.getTypeFrob('bool', lock_val)
 
         # Maximum simultaneous readers.
         MAX_READERS = 4
         max_readers = self._link[1].get('lmdb:maxreaders', MAX_READERS)
         max_readers, _ = s_datamodel.getTypeFrob('int', max_readers)
+        if max_readers == 1:
+            lock = False
 
         self.dbenv = lmdb.Environment(dbname, map_size=map_size, subdir=SUBDIR, metasync=metasync,
                                       writemap=WRITEMAP, max_readers=max_readers, max_dbs=MAX_DBS,
-                                      lock=LOCK)
-
-        # LMDB has an optimization (integerkey) if all the keys in a table are unsigned size_t.
+                                      sync=sync, lock=lock)
 
         # Make the main storage table, keyed by an incrementing counter, pk
+        # LMDB has an optimization (integerkey) if all the keys in a table are unsigned size_t.
         self.rows = self.dbenv.open_db(key=b"rows", integerkey=True)  # pk -> i,p,v,t
 
         # Note there's another LMDB optimization ("dupfixed") we're not using that we could

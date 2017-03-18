@@ -2195,6 +2195,10 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         '''
         return self._delJoinByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime)
 
+    def flush(self):
+        ''' Flushs/syncs to disk '''
+        pass
+
     def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         for irow in self._getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit):
             for jrow in self._getRowsById(irow[0]):
