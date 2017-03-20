@@ -89,7 +89,7 @@ class IngTest(SynTest):
             self.eq( core.getTufoByProp('inet:fqdn','com')[1].get('inet:fqdn:sfx'), 1 )
             self.eq( core.getTufoByProp('inet:fqdn','woot.com')[1].get('inet:fqdn:zone'), 1 )
 
-            self.assertIsNone( core.getTufoByProp('inet:fqdn','newp.com') )
+            self.none( core.getTufoByProp('inet:fqdn','newp.com') )
 
     def test_ingest_csv(self):
 
@@ -636,3 +636,132 @@ class IngTest(SynTest):
                 gest.ingest(core)
 
             self.assertIsNotNone( core.getTufoByProp('inet:fqdn','woot') )
+
+    def test_ingest_embed_nodes(self):
+
+        with s_cortex.openurl('ram://') as core:
+            info = {
+                "embed":[
+                    {
+                        "nodes":[
+
+                            ["inet:fqdn",[
+                                "woot.com",
+                                "vertex.link"
+                            ]],
+
+                            ["inet:ipv4",[
+                                "1.2.3.4",
+                                0x05060708,
+                            ]],
+                        ]
+                    }
+                ]
+            }
+
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core)
+
+            self.nn( core.getTufoByProp('inet:ipv4',0x01020304) )
+            self.nn( core.getTufoByProp('inet:ipv4',0x05060708) )
+            self.nn( core.getTufoByProp('inet:fqdn','woot.com') )
+            self.nn( core.getTufoByProp('inet:fqdn','vertex.link') )
+
+    def test_ingest_embed_tags(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            info = {
+                "embed":[
+                    {
+                        "tags":[
+                            "hehe.haha.hoho"
+                        ],
+
+                        "nodes":[
+
+                            ["inet:fqdn",[
+                                "rofl.com",
+                                "laughitup.edu"
+                            ]],
+
+                            ["inet:email",[
+                                "pennywise@weallfloat.com"
+                            ]]
+                        ]
+                    }
+                ]
+            }
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core)
+
+            self.nn( core.getTufoByProp('inet:fqdn','rofl.com') )
+            self.nn( core.getTufoByProp('inet:fqdn','laughitup.edu') )
+            self.nn( core.getTufoByProp('inet:email','pennywise@weallfloat.com') )
+
+            self.eq( 2, len(core.eval('inet:fqdn*tag=hehe.haha.hoho')))
+            self.eq( 1, len(core.eval('inet:email*tag=hehe.haha.hoho')))
+
+    def test_ingest_embed_props(self):
+        with s_cortex.openurl('ram://') as core:
+            info = {
+                "embed":[
+                    {
+                        "props":{ "tld":1 },
+                        "nodes":[
+                            ["inet:fqdn",[
+                                "com",
+                                "net",
+                                "org"
+                            ]],
+                        ],
+                    }
+                ]
+            }
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core)
+
+            self.nn( core.getTufoByProp('inet:fqdn','com') )
+            self.nn( core.getTufoByProp('inet:fqdn','net') )
+            self.nn( core.getTufoByProp('inet:fqdn','org') )
+
+            self.eq( 3, len(core.eval('inet:fqdn:tld=1')))
+
+    def test_ingest_embed_pernode_tagsprops(self):
+        with s_cortex.openurl('ram://') as core:
+            info = {
+                "embed":[
+                    {
+                        "nodes":[
+
+                            ["inet:fqdn",[
+                                ["link", { "props":{"tld":1} } ],
+                            ]],
+
+                            ["inet:netuser",[
+                                ["rootkit.com/metr0", { "props":{"email":"metr0@kenshoto.com"} } ],
+                                ["twitter.com/invisig0th", { "props":{"email":"visi@vertex.link"} } ]
+                            ]],
+
+                            ["inet:email",[
+                                ["visi@vertex.link",{"tags":["foo.bar","baz.faz"]}],
+                            ]],
+                        ]
+                    }
+                ]
+             }
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core)
+
+            self.nn( core.getTufoByProp('inet:netuser','rootkit.com/metr0') )
+            self.nn( core.getTufoByProp('inet:netuser','twitter.com/invisig0th') )
+
+            self.eq( 1, len(core.eval('inet:netuser:email="visi@vertex.link"')))
+            self.eq( 1, len(core.eval('inet:netuser:email="metr0@kenshoto.com"')))
+
+            node = core.eval('inet:email*tag=foo.bar')[0]
+            self.eq( node[1].get('inet:email'), 'visi@vertex.link' )
