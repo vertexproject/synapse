@@ -231,7 +231,10 @@ class Ingest(EventBus):
             self._ingDataInfo(core, root, gest, scope)
             return
 
-        for path,info in self.get('sources'):
+        for embed in self.get('embed',()):
+            self._ingEmbedInfo(core,embed,scope)
+
+        for path,info in self.get('sources',()):
 
             scope.enter()
 
@@ -248,6 +251,122 @@ class Ingest(EventBus):
                 for data in datasorc:
                     root = s_datapath.initelem(data)
                     self._ingDataInfo(core, root, gest, scope)
+
+    def _ingEmbedInfo(self, core, embed, scope):
+        '''
+        Ingest from an "embed" value:
+
+        # simple declaration of nodes
+            info = {
+                "embed":[
+                    {
+                        "nodes":[
+
+                            ["inet:fqdn",[
+                                "woot.com",
+                                "vertex.link"
+                            ]],
+
+                            ["inet:ipv4",[
+                                "1.2.3.4",
+                                0x05060708,
+                            ]],
+                        ]
+                    }
+                ]
+            }
+
+
+        # declaration of many nodes with the same tags
+        {
+            "embed":[
+                {
+                    "tags":[
+                        "hehe.haha.hoho"
+                    ],
+
+                    "nodes":[
+
+                        ["inet:fqdn",[
+                            "rofl.com",
+                            "laughitup.edu"
+                        ]],
+
+                        ["inet:email",[
+                            "pennywise@weallfloat.com"
+                        ]]
+                    ]
+                }
+            ]
+        }
+
+        # declaration of many nodes with the same props
+        {
+            "embed":[
+                {
+                    "props":{ "tld":1 },
+                    "nodes":[
+                        ["inet:fqdn",[
+                            "com",
+                            "net",
+                            "org"
+                        ]],
+                    ],
+                }
+            ]
+        }
+
+        # declaration of nodes with tags/props per node
+        {
+
+            "embed":[
+                {
+                    "nodes":[
+
+                        ["inet:fqdn",[
+                            ["link", { "props":{"tld":1} } ],
+                        ]],
+
+                        ["inet:netuser",[
+                            ["rootkit.com/metr0", { "props":{"email":"metr0@kenshoto.com"} } ],
+                            ["twitter.com/invisig0th", { "props":{"email":"visi@vertex.link"} } ]
+                        ]],
+
+                        ["inet:email",[
+                            ["visi@vertex.link",{"tags":["foo.bar","baz.faz"]}],
+                        ]],
+                    ]
+                }
+            ]
+        }
+
+        '''
+        with scope:
+            t = embed.get('tags',())
+            p = embed.get('props',{})
+
+            scope.add('tags',*t)
+            scope.add('props',*p.items())
+
+            tags = scope.get('tags')
+            props = dict(scope.get('props'))
+
+            for form,vals in embed.get('nodes'):
+
+                for valu in vals:
+                    nodetags = list(tags)
+                    nodeprops = dict(props)
+
+                    info = {}
+                    if type(valu) in (list,tuple):
+                        valu,info = valu
+                        nodetags.extend( info.get('tags',()) )
+                        nodeprops.update( info.get('props',{}) )
+
+                    node = core.formTufoByFrob(form,valu)
+
+                    core.setTufoFrobs(node,**nodeprops)
+                    core.addTufoTags(node,nodetags)
 
     def _ingMergScope(self, core, data, info, scope):
 
