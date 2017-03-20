@@ -129,17 +129,9 @@ class EventBus:
     def fire(self, evtname, **info):
         '''
         Fire the given event name on the EventBus.
-        Returns a list of the return values of each callback.
-
-        Example:
-
-            for ret in d.fire('woot',foo='asdf'):
-                print('got: %r' % (ret,))
-
         '''
         event = (evtname,info)
         self.dist(event)
-        return event
 
     def dist(self, event):
         '''
@@ -174,8 +166,6 @@ class EventBus:
                 ret.append( func(event) )
             except Exception as e:
                 logger.exception(e)
-
-        return ret
 
     def fini(self):
         '''
@@ -247,7 +237,7 @@ class EventBus:
         Distribute multiple events on the event bus.
         '''
         [self.dist(evt) for evt in events]
-    
+
     @firethread
     def consume(self, gtor):
         '''
