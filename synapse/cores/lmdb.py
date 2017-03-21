@@ -436,17 +436,17 @@ class Cortex(s_cores_common.Cortex):
 
         if delete_ip:
             # Delete I-P index entry
-            if not txn.delete(i_enc + p_enc, db=self.index_ip):
+            if not txn.delete(i_enc + p_enc, value=pk_val_enc, db=self.index_ip):
                 raise DatabaseInconsistent("Missing I-P index")
 
         if delete_pvt:
             # Delete P-V-T index entry
-            if not txn.delete(p_enc + v_key_enc + t_enc, db=self.index_pvt):
+            if not txn.delete(p_enc + v_key_enc + t_enc, value=pk_val_enc, db=self.index_pvt):
                 raise DatabaseInconsistent("Missing P-V-T index")
 
         if delete_pt:
             # Delete P-T index entry
-            if not txn.delete(p_enc + t_enc, db=self.index_pt):
+            if not txn.delete(p_enc + t_enc, value=pk_val_enc, db=self.index_pt):
                 raise DatabaseInconsistent("Missing P-T index")
 
         return True
