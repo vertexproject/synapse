@@ -2,14 +2,14 @@
 import contextlib
 import json
 import logging
-import threading
 
-import synapse.eventbus
+import synapse.common as s_common
+import synapse.eventbus as s_eventbus
 
 logger = logging.getLogger(__name__)
 
 
-class EventBus(synapse.eventbus.EventBus):
+class EventBus(s_eventbus.EventBus):
     """
     A persistent event bus backed by an Apache Kafka topic.
 
@@ -26,13 +26,12 @@ class EventBus(synapse.eventbus.EventBus):
         super().__init__()
 
         from kafka import KafkaProducer
-        self.consumer = EventConsumer(super().dist, topic, **configs)
+        self.configs = configs
         self.producer = KafkaProducer(**{k: v for k, v in configs.items()
                                          if k in KafkaProducer.DEFAULT_CONFIG})
         self.topic = topic
-
-        self.onfini(self.consumer.stop)
-        self.consumer.start()
+        self._consumer = self._consume()
+        self.onfini(self._consumer.join)
 
     def dist(self, event):
         """
@@ -44,49 +43,21 @@ class EventBus(synapse.eventbus.EventBus):
         value = json.dumps(event).encode('utf-8')
         self.producer.send(self.topic, value=value)
 
-
-class EventConsumer(threading.Thread):
-
-    def __init__(self, handler, topic, **configs):
-        """
-        Constructor
-
-        handler - lambda event: pass
-        topic - str
-
-        See kafka-python documentation for configuration.
-
-        http://kafka-python.readthedocs.io/en/master/apidoc/KafkaConsumer.html
-        """
-        from kafka import KafkaConsumer
-        super().__init__()
-        self.configs = {k: v for k, v in configs.items()
-                        if k in KafkaConsumer.DEFAULT_CONFIG}
-        self.daemon = True
-        self.handler = handler
-        self.stopped = threading.Event()
-        self.topic = topic
-
-    def run(self):
+    @s_common.firethread
+    def _consume(self):
         """
         Consume messages from Kafka until the thread is stopped.
         """
         from kafka import KafkaConsumer
-        while not self.stopped.is_set():
+        while not self.isfini:
             try:
-                consumer = KafkaConsumer(self.topic, **self.configs)
-                logger.debug('consuming from kafka topic %s' % (self.topic))
+                consumer = KafkaConsumer(self.topic, **{k: v for k, v in self.configs.items()
+                                                        if k in KafkaConsumer.DEFAULT_CONFIG})
                 with contextlib.closing(consumer) as consumer:
                     for message in consumer:
                         event = json.loads(message.value.decode('utf-8'))
-                        self.handler(event)
-                        if self.stopped.is_set():
+                        super().dist(event)
+                        if self.isfini:
                             break
             except Exception as e:
                 logger.exception(e)
-
-    def stop(self):
-        """
-        Stop consuming messages from Kafka.
-        """
-        self.stopped.set()
