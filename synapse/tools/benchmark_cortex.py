@@ -1,13 +1,16 @@
-import random
+from numpy import random
 import os
 import synapse.cortex as s_cortex
 from time import perf_counter as now
 import itertools
+import threading
+from math import ceil
+from binascii import hexlify
 
 
 NUM_PREEXISTING_TUFOS = 1000
 
-NUM_TUFOS = 100000
+NUM_TUFOS = 50000
 NUM_ONE_AT_A_TIME_TUFOS = 100
 
 HUGE_VAL_BYTES = 1000000
@@ -28,8 +31,10 @@ INTEGER_VAL_RATE = .20
 AVG_PROPS_PER_TUFO = 7
 AVG_PROP_NAME_LEN = 11
 
+NUM_THREADS = 4
 
-def addRows_bench(core, rows, one_at_a_time=False, num_threads=1):
+
+def _addRows(core, rows, one_at_a_time=False, num_threads=1):
     if one_at_a_time:
         for row in rows:
             core.addRows([row])
@@ -40,7 +45,7 @@ def addRows_bench(core, rows, one_at_a_time=False, num_threads=1):
 
 def random_normal(avg):
     ''' Returns a number with normal distribution around avg, the very fast way '''
-    return random.randint(1, avg-1) + random.randint(0, avg)
+    return random.randint(1, avg) + random.randint(0, avg+1)
 
 
 def random_string(avg):
@@ -48,22 +53,33 @@ def random_string(avg):
     return ''.join(chr(random.randint(ord('a'), ord('a')+25)) for x in range(num_letters))
 
 
+small_count = 0
+medium_count = 0
+large_count = 0
+huge_count = 0
+
+
 def random_val_len():
+    global small_count, medium_count, large_count, huge_count
     x = random.random()
     prob = SMALL_VAL_RATE
     if x < prob:
+        small_count += 1
         return SMALL_VAL_BYTES
     prob += MEDIUM_VAL_RATE
     if x < prob:
+        medium_count += 1
         return MEDIUM_VAL_BYTES
     prob += LARGE_VAL_RATE
     if x < prob:
+        large_count += 1
         return LARGE_VAL_BYTES
+    huge_count += 1
     return HUGE_VAL_BYTES
 
 
 def gen_random_tufo():
-    iden = '%032x' % random.randint(0, 2**128)
+    iden = hexlify(random.bytes(16)).decode('utf8')
     num_props = random_normal(AVG_PROPS_PER_TUFO)
     props = {}
     for p in range(num_props):
@@ -105,21 +121,29 @@ class TestData:
         print("Test data generation took: %.2f" % (now() - start))
         print('addRows: # Tufos:%8d, # Rows: %8d' % (NUM_TUFOS, len(self.rows)))
         print('one at : # Tufos:%8d, # Rows: %8d' % (NUM_ONE_AT_A_TIME_TUFOS, len(self.onerows)))
+        print('len count: small:%d, medium:%d, large:%d, huge:%d' %
+              (small_count, medium_count, large_count, huge_count))
 
 
-def benchmark_cortex(test_data, url, cleanup_func, is_ephemeral):
+def _run_x(func, data, *args, num_threads=1, **kwargs):
+    chunk_size = ceil(len(data)/num_threads)
+    chunks = [data[i:i + chunk_size] for i in range(0, len(data), chunk_size)]
+    threads = [threading.Thread(target=func, args=[chunks[x]] + list(args), kwargs=kwargs)
+               for x in range(num_threads)]
+    for i in range(num_threads):
+        threads[i].start()
+    for i in range(num_threads):
+        threads[i].join()
+
+
+def benchmark_cortex(test_data, url, cleanup_func, num_threads=1):
     core = s_cortex.openurl(url)
     _prepopulate_core(core, test_data.prepop_rows)
     times = []
     times.append(('start', now(), 1))
-    if not is_ephemeral:
-        del core
-        core = s_cortex.openurl(url)
-        times.append(('openurl preexisting', now(), 1))
-
-    addRows_bench(core, test_data.rows)
+    _addRows(core, test_data.rows)
     times.append(('addRows', now(), NUM_TUFOS))
-    addRows_bench(core, test_data.onerows, one_at_a_time=True)
+    _addRows(core, test_data.onerows, one_at_a_time=True)
     times.append(('addRows one at a time', now(), NUM_ONE_AT_A_TIME_TUFOS))
 
     if cleanup_func is not None:
@@ -160,11 +184,12 @@ def benchmark_all():
             'lmdb:///%s' % LMDB_FILE,
             'lmdb:///%s?lmdb:sync=False&lmdb:lock=False' % LMDB_FILE)
     cleanup = (None, None, cleanup_sqlite, cleanup_lmdb, cleanup_lmdb)
-    is_ephemeral = (True, True, False, False, False)
     test_data = TestData()
-    for url, cleanup_func, is_ephem in zip(urls, cleanup, is_ephemeral):
-        print('Benchmarking ', url)
-        benchmark_cortex(test_data, url, cleanup_func, is_ephem)
+    for url, cleanup_func in zip(urls, cleanup):
+        print('1-threaded benchmarking: %s' % url)
+        benchmark_cortex(test_data, url, cleanup_func)
+        # print('%d-threaded benchmarking: %s', NUM_THREADS, url)
+        # benchmark_cortex(test_data, url, cleanup_func, num_threads=NUM_THREADS)
 
 if __name__ == '__main__':
     benchmark_all()
