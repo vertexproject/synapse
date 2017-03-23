@@ -40,3 +40,28 @@ class FileModelTest(SynTest):
 
             self.ne( t0[0], core.formTufoByProp('file:bytes:md5', props.get('md5') )[0] )
 
+    def test_filepath(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            core.formTufoByProp('file:path', '/foo/bar/baz/faz')
+
+            self.nn(core.getTufoByProp('file:path', 'foo/bar/baz/faz'))
+            self.nn(core.getTufoByProp('file:base', 'faz'))
+            self.nn(core.getTufoByProp('file:path', 'foo/bar/baz'))
+            self.nn(core.getTufoByProp('file:base', 'baz'))
+            self.nn(core.getTufoByProp('file:path', 'foo/bar'))
+            self.nn(core.getTufoByProp('file:base', 'bar'))
+            self.nn(core.getTufoByProp('file:path', 'foo'))
+            self.nn(core.getTufoByProp('file:base', 'foo'))
+            self.none(core.getTufoByProp('file:path', ''))
+            self.none(core.getTufoByProp('file:base', ''))
+
+    def test_filebase(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            core.formTufoByProp('file:base', 'baz.quux')
+            self.nn(core.getTufoByProp('file:base', 'baz.quux'))
+
+            self.assertRaises(BadTypeValu, core.formTufoByProp, 'file:base', '/haha')

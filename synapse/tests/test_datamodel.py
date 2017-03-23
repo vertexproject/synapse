@@ -284,3 +284,62 @@ class DataModelTest(SynTest):
 
         self.eq( s_datamodel.getTypeParse('str', 'haha'),  ('haha',{}) )
         self.eq( s_datamodel.getTypeParse('inet:ipv4', '1.2.3.4'),  (16909060,{}) )
+
+    def test_datamodel_filepath(self):
+        model = s_datamodel.DataModel()
+        prop = 'file:path'
+
+        data = (
+            ('', ('', {}), ''),
+            ('/', ('', {}), '/'),
+            ('//', ('', {}), '//'),
+            ('////////////', ('', {}), '////////////'),
+            ('weirD', ('weird', {'base': 'weird'}), 'weirD' ),
+
+            ('foo', ('foo', {'base': 'foo'}), 'foo'),
+            ('/foo', ('foo', {'base': 'foo'}), '/foo'),
+            ('/foo/bar', ('foo/bar', {'base': 'bar', 'dir': 'foo'}), '/foo/bar'),
+            ('/foo/bar    ', ('foo/bar    ', {'base': 'bar    ', 'dir': 'foo'}), '/foo/bar    '),  # These are valid filepaths
+            ('/foo/bar/', ('foo/bar', {'base': 'bar', 'dir': 'foo'}), '/foo/bar/'),
+
+            ('C:\\', ('c:', {'base': 'c:'}), 'C:\\'),
+            ('C:\\Program Files\\Foo.bAr.BAZ.exe',
+                ('c:/program files/foo.bar.baz.exe', {'base': 'foo.bar.baz.exe', 'dir': 'c:/program files'}), 'C:\\Program Files\\Foo.bAr.BAZ.exe')
+        )
+
+        for valu, expected, expected_repr in data:
+
+            self.assertEqual(expected,      model.getTypeNorm(prop, valu))
+            self.assertEqual(expected,      model.getTypeParse(prop, valu))
+            self.assertEqual(expected,      model.getTypeFrob(prop, valu))
+            self.assertEqual(expected_repr, model.getTypeRepr(prop, valu))
+
+
+        bads = (None, [], {}, 1)
+        for bad in bads:
+            self.assertRaises(s_datamodel.BadTypeValu, model.getTypeNorm, prop, bad)
+            self.assertRaises(s_datamodel.BadTypeValu, model.getTypeParse, prop, bad)
+            self.assertEqual((None, {}), model.getTypeFrob(prop, bad))
+
+    def test_datamodel_filebase(self):
+        model = s_datamodel.DataModel()
+        prop = 'file:base'
+
+        data = (
+            ('my_COOL_file', ('my_cool_file',{}), 'my_COOL_file'),
+            ('my      file', ('my      file',{}), 'my      file'),
+            ('!@#$%^&.jpeg', ('!@#$%^&.jpeg',{}), '!@#$%^&.jpeg'),
+        )
+
+        for valu, expected, expected_repr in data:
+
+            self.assertEqual(expected,      model.getTypeNorm(prop, valu))
+            self.assertEqual(expected,      model.getTypeParse(prop, valu))
+            self.assertEqual(expected,      model.getTypeFrob(prop, valu))
+            self.assertEqual(expected_repr, model.getTypeRepr(prop, valu))
+
+        bads = (None, [], {}, 1, '/teehee', 'hoho/haha', '')
+        for bad in bads:
+            self.assertRaises(s_datamodel.BadTypeValu, model.getTypeNorm, prop, bad)
+            self.assertRaises(s_datamodel.BadTypeValu, model.getTypeParse, prop, bad)
+            self.assertEqual((None, {}), model.getTypeFrob(prop, bad))
