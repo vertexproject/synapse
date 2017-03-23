@@ -117,11 +117,14 @@ class FilePathType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if not s_compat.isstr(valu):
+        if not (s_compat.isstr(valu) and len(valu) > 0):
             self._raiseBadValu(valu)
 
-        valu = valu.replace('\\', '/').lower().strip('/')
-        parts = valu.split('/')
+        newval = valu.replace('\\', '/').lower().strip('/')
+        parts = newval.split('/')
+        leadingslash = valu.startswith('/')
+        if leadingslash:
+            newval = '/' + newval
 
         props = {}
         base = parts[-1]
@@ -130,9 +133,14 @@ class FilePathType(DataType):
 
         dirname = '/'.join(parts[0:-1])
         if dirname:
-            props['dir'] = dirname
+            if leadingslash:
+                props['dir'] = '/' + dirname
+            else:
+                props['dir'] = dirname
+        elif leadingslash:
+            props['dir'] = '/'
 
-        return valu, props
+        return newval, props
 
     def frob(self, valu, oldval=None):
         return self.norm(valu, oldval)
@@ -142,3 +150,6 @@ class FilePathType(DataType):
 
     def repr(self, valu):
         return valu
+
+# FIXME make file to base path
+# FIXME file bytes to file path

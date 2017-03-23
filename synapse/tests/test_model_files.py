@@ -44,18 +44,19 @@ class FileModelTest(SynTest):
 
         with s_cortex.openurl('ram:///') as core:
 
-            core.formTufoByProp('file:path', '/foo/bar/baz/faz')
+            core.formTufoByProp('file:path', '/foo/bar/baz/faz/')
 
-            self.nn(core.getTufoByProp('file:path', 'foo/bar/baz/faz'))
+            self.nn(core.getTufoByProp('file:path', '/foo/bar/baz/faz'))
             self.nn(core.getTufoByProp('file:base', 'faz'))
-            self.nn(core.getTufoByProp('file:path', 'foo/bar/baz'))
+            self.nn(core.getTufoByProp('file:path', '/foo/bar/baz'))
             self.nn(core.getTufoByProp('file:base', 'baz'))
-            self.nn(core.getTufoByProp('file:path', 'foo/bar'))
+            self.nn(core.getTufoByProp('file:path', '/foo/bar'))
             self.nn(core.getTufoByProp('file:base', 'bar'))
-            self.nn(core.getTufoByProp('file:path', 'foo'))
+            self.nn(core.getTufoByProp('file:path', '/foo'))
             self.nn(core.getTufoByProp('file:base', 'foo'))
-            self.none(core.getTufoByProp('file:path', ''))
+            self.nn(core.getTufoByProp('file:path', '/'))
             self.none(core.getTufoByProp('file:base', ''))
+            self.none(core.getTufoByProp('file:base', '/'))
 
     def test_filebase(self):
 
