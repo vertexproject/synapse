@@ -9,7 +9,7 @@ logger  = logging.getLogger(__name__)
 
 from synapse.common import *
 
-class EventBus:
+class EventBus(object):
     '''
     A synapse EventBus provides an easy way manage callbacks.
     '''

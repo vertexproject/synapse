@@ -53,12 +53,19 @@ class Queue(EventBus):
         '''
         while not self.isfini:
 
+            # for perf, try taking a lockless shot at it
+            try:
+                return self.deq.popleft()
+            except IndexError as e:
+                pass
+
             with self.lock:
-                if self.deq:
+                try:
                     return self.deq.popleft()
-                elif self._que_done:
-                    self.fini()
-                    return None
+                except IndexError as e:
+                    if self._que_done:
+                        self.fini()
+                        return None
 
                 self.event.clear()
 
