@@ -850,13 +850,3 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
     def byiden(self, iden):
         return self.core.getTufoByProp('axon:blob',iden)
-
-
-class AxonProxy(s_telepath.Proxy,AxonMixin):
-    pass
-
-def openurl(url, **opts):
-    '''
-    Open a URL to a remote Axon
-    '''
-    return s_telepath.openclass(AxonProxy, url, **opts)
