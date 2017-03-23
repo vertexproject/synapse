@@ -11,6 +11,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.tags as s_tags
 import synapse.lib.sched as s_sched
 import synapse.lib.scope as s_scope
+import synapse.lib.reflect as s_reflect
 import synapse.lib.thishost as s_thishost
 
 from synapse.common import *
@@ -429,21 +430,6 @@ class IdenProxy(SvcBase):
     def _callSvcMeth(self, name, *args, **kwargs):
         return self.svcprox.callByIden(self.svcfo[0], name, *args, **kwargs)
 
-clsskip = set([object])
-def getClsNames(item):
-    '''
-    Return a list of "fully qualified" class names for an instance.
-
-    Example:
-
-        for name in getClsNames(foo):
-            print(name)
-
-    '''
-    mro = inspect.getmro(item.__class__)
-    mro = [ c for c in mro if c not in clsskip ]
-    return [ '%s.%s' % (c.__module__,c.__name__) for c in mro ]
-
 def runSynSvc(name, item, sbus, tags=(), **props):
     '''
     Add an object as a synapse service.
@@ -466,7 +452,7 @@ def runSynSvc(name, item, sbus, tags=(), **props):
 
     tags = list(tags)
 
-    names = getClsNames(item)
+    names = s_reflect.getClsNames(item)
     tags.extend( [ 'class.%s' % n for n in names ] )
 
     tags.append(name)
