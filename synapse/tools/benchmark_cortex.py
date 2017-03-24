@@ -7,6 +7,7 @@ import threading
 from math import ceil
 from binascii import hexlify
 import pickle
+import timeit
 
 
 NUM_PREEXISTING_TUFOS = 1000
@@ -33,6 +34,7 @@ AVG_PROPS_PER_TUFO = 7
 AVG_PROP_NAME_LEN = 11
 
 NUM_THREADS = 4
+NUM_FORMS = 20
 
 
 def _addRows(core, rows, one_at_a_time=False, num_threads=1):
@@ -88,16 +90,21 @@ def random_val_len():
     return HUGE_VAL_BYTES
 
 
-def gen_random_tufo():
-    iden = hexlify(random.bytes(16)).decode('utf8')
+def gen_random_form():
     num_props = random_normal(AVG_PROPS_PER_TUFO)
+    props = [random_string(AVG_PROP_NAME_LEN) for x in range(num_props)]
+    return props
+
+
+def gen_random_tufo(form):
+    iden = hexlify(random.bytes(16)).decode('utf8')
     props = {}
-    for p in range(num_props):
+    for propname in form:
         if random.random() <= INTEGER_VAL_RATE:
             val = random.randint(-2 ** 62, 2 ** 63)
         else:
             val = random_string(random_val_len())
-        props[random_string(AVG_PROP_NAME_LEN)] = val
+        props[propname] = val
     return (iden, props)
 
 
@@ -134,28 +141,26 @@ class TestData:
         start = now()
         if os.path.isfile(test_data_fn):
             print("Reading test data...")
-            self.prepop_rows, self.idens, self.props, self.rows, self.onerows = \
+            self.prepop_rows, self.idens, self.props, self.rows = \
                 pickle.load(open(test_data_fn, 'rb'))
         else:
             print("Generating test data...")
             random.seed(4)  # 4 chosen by fair dice roll.  Guaranteed to be random
-            self.prepop_rows = flatten(_rows_from_tufo(gen_random_tufo())
+            forms = [gen_random_form() for x in range(NUM_FORMS)]
+            self.prepop_rows = flatten(_rows_from_tufo(gen_random_tufo(random.choice(forms)))
                                        for x in range(NUM_PREEXISTING_TUFOS))
-            tufos = [gen_random_tufo() for x in range(NUM_TUFOS)]
+            tufos = [gen_random_tufo(random.choice(forms)) for x in range(NUM_TUFOS)]
             self.idens = [t[0] for t in tufos]
             self.props = [get_random_keyval(t[1]) for t in tufos]
             random.shuffle(self.idens)
             random.shuffle(self.props)
 
             self.rows = flatten(_rows_from_tufo(x) for x in tufos)
-            self.onerows = flatten(_rows_from_tufo(gen_random_tufo())
-                                   for x in range(NUM_ONE_AT_A_TIME_TUFOS))
-            pickle.dump((self.prepop_rows, self.idens, self.props, self.rows, self.onerows),
+            pickle.dump((self.prepop_rows, self.idens, self.props, self.rows),
                         open(test_data_fn, 'wb'))
 
         print("Test data generation took: %.2f" % (now() - start))
         print('addRows: # Tufos:%8d, # Rows: %8d' % (NUM_TUFOS, len(self.rows)))
-        print('one at : # Tufos:%8d, # Rows: %8d' % (NUM_ONE_AT_A_TIME_TUFOS, len(self.onerows)))
         print('len count: small:%d, medium:%d, large:%d, huge:%d' %
               (small_count, medium_count, large_count, huge_count))
 
@@ -171,31 +176,31 @@ def _run_x(func, data, *args, num_threads=1, **kwargs):
         threads[i].join()
 
 
-def benchmark_cortex(test_data, url, cleanup_func, num_threads=1):
+def do_it(cmd, globals, number, repeat, divisor):
+    times = timeit.repeat(cmd, globals=globals, number=number, repeat=repeat)
+    print_time(cmd, times, divisor)
+
+
+def benchmark_cortex(test_data, url, cleanup_func, is_ephemeral, num_threads=1):
     core = s_cortex.openurl(url)
     _prepopulate_core(core, test_data.prepop_rows)
-    times = []
-    times.append(('start', now(), 1))
-    _addRows(core, test_data.rows)
-    times.append(('addRows', now(), NUM_TUFOS))
-    _addRows(core, test_data.onerows, one_at_a_time=True)
-    times.append(('addRows one at a time', now(), NUM_ONE_AT_A_TIME_TUFOS))
-    _getTufosByIdens(core, test_data.idens)
-    times.append(('_getTufosByIdens', now(), NUM_TUFOS))
-    _getTufoByPropVal(core, test_data.props)
-    times.append(('_getTufoByPropVal', now(), NUM_TUFOS))
+    g = {'_addRows': _addRows, '_getTufosByIdens': _getTufosByIdens, 'core': core,
+         'test_data': test_data, '_getTufoByPropVal': _getTufoByPropVal}
+    do_it('_addRows(core, test_data.rows)', g, 1, 1, len(test_data.rows))
+    if is_ephemeral:
+        del core
+        core = s_cortex.openurl(url)
+        g['core'] = core
+    do_it('_getTufosByIdens(core, test_data.idens)', g, 2, 5, NUM_TUFOS)
+    do_it('_getTufoByPropVal(core, test_data.props)', g, 2, 5, NUM_TUFOS)
 
     if cleanup_func is not None:
         cleanup_func()
-    display_times(times)
 
 
-def display_times(times):
-    prev = times[0][1]
-    for desc, t, divisor in times[1:]:
-        print('%30s:   %8.1f %7d %10.6f' % (desc, t - prev, divisor, (t-prev)/divisor))
-        prev = t
-
+def print_time(label, times, divisor):
+    t = min(times)
+    print('%50s:   %8.2f (max=%7.2f) %7d %10.6f' % (label, t, max(times), divisor, t/divisor))
 
 LMDB_FILE = 'test.lmdb'
 SQLITE_FILE = 'test.sqlite'
@@ -222,13 +227,16 @@ def benchmark_all():
             'sqlite:///' + SQLITE_FILE,
             'lmdb:///%s' % LMDB_FILE,
             'lmdb:///%s?lmdb:sync=False&lmdb:lock=False' % LMDB_FILE)
+    ephemeral = (True, True, False, False, False)
     cleanup = (None, None, cleanup_sqlite, cleanup_lmdb, cleanup_lmdb)
     test_data = TestData('testdata')
-    for url, cleanup_func in zip(urls, cleanup):
+    for url, cleanup_func, is_ephemeral in zip(urls, cleanup, ephemeral):
         print('1-threaded benchmarking: %s' % url)
-        benchmark_cortex(test_data, url, cleanup_func)
+        benchmark_cortex(test_data, url, cleanup_func, is_ephemeral)
         # print('%d-threaded benchmarking: %s', NUM_THREADS, url)
         # benchmark_cortex(test_data, url, cleanup_func, num_threads=NUM_THREADS)
 
 if __name__ == '__main__':
-    benchmark_all()
+    # benchmark_all()
+    test_data = TestData('testdata')
+    benchmark_cortex(test_data, 'lmdb:///%s' % LMDB_FILE, cleanup_lmdb, False)

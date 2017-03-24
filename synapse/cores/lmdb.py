@@ -4,6 +4,7 @@ import sys
 import struct
 from binascii import hexlify, unhexlify
 from contextlib import contextmanager
+from functools import lru_cache
 
 import msgpack
 import xxhash
@@ -120,14 +121,21 @@ def _dec_val_val(unpacker):
     return unpacker.unpack()
 
 
+@lru_cache()
 def _enc_iden(iden):
     ''' Encode an iden '''
     return unhexlify(iden)
 
 
+@lru_cache()
 def _dec_iden(iden_enc):
     ''' Decode an iden '''
     return hexlify(iden_enc).decode('utf8')
+
+
+@lru_cache(maxsize=1024)
+def _enc_prop(prop):
+    return msgenpack(prop)
 
 
 # The precompiled struct parser for native size_t
@@ -146,7 +154,7 @@ def _dec_pk_key(pk_enc):
 
 class CoreXact(s_cores_common.CoreXact):
 
-    def _coreXactInit(self):
+    def _coreXactInit(self, size=None):
         self.txn = None
 
     def _coreXactCommit(self):
@@ -306,7 +314,7 @@ class Cortex(s_cores_common.Cortex):
             if len(p) > MAX_PROP_LEN:
                 raise DatabaseLimitReached('Property length too large')
             i_enc = _enc_iden(i)
-            p_enc = msgenpack(p)
+            p_enc = _enc_prop(p)
             v_val_enc = _enc_val_val(v)
             v_key_enc = _enc_val_key(v)
             t_enc = msgenpack(t)
@@ -389,7 +397,7 @@ class Cortex(s_cores_common.Cortex):
 
     def _delRowsByIdProp(self, iden, prop, valu=None):
         i_enc = _enc_iden(iden)
-        p_enc = msgenpack(prop)
+        p_enc = _enc_prop(prop)
         first_key = i_enc + p_enc
 
         with self._get_txn(write=True) as txn, txn.cursor(self.index_ip) as cursor:
@@ -426,7 +434,7 @@ class Cortex(s_cores_common.Cortex):
             i_enc = _enc_iden(i)
 
         if p_enc is None:
-            p_enc = msgenpack(p)
+            p_enc = _enc_prop(p)
 
         if delete_pvt and v_key_enc is None:
             v_key_enc = _enc_val_key(v)
@@ -454,7 +462,7 @@ class Cortex(s_cores_common.Cortex):
     def _getRowsByIdProp(self, iden, prop, valu=None):
         # For now not making a ipv index because multiple v for a given i,p are probably rare
         iden_enc = _enc_iden(iden)
-        prop_enc = msgenpack(prop)
+        prop_enc = _enc_prop(prop)
 
         first_key = iden_enc + prop_enc
 
@@ -483,7 +491,7 @@ class Cortex(s_cores_common.Cortex):
 
         assert(not (do_count_only and do_delete_only))
         indx = self.index_pt if valu is None else self.index_pvt
-        p_enc = msgenpack(prop)
+        p_enc = _enc_prop(prop)
         v_key_enc = b'' if valu is None else _enc_val_key(valu)
         v_is_hashed = valu is not None and (v_key_enc[0] == HASH_VAL_MARKER_ENC)
         mintime_enc = b'' if mintime is None else msgenpack(mintime)
@@ -563,7 +571,7 @@ class Cortex(s_cores_common.Cortex):
         do_pos_search = (maxval >= 0)
         ret = 0 if do_count_only else []
 
-        p_enc = msgenpack(prop)
+        p_enc = _enc_prop(prop)
 
         # The encodings of negative integers and positive integers are not continuous, so we split
         # into two queries.  Also, the ordering of the encoding of negative integers is backwards.
