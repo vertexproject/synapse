@@ -65,6 +65,7 @@ class Socket(EventBus):
             self._tryTcpNoDelay()
 
         self.txque = collections.deque()
+        self.rxque = collections.deque()
 
         self.onfini(self._finiSocket)
 
@@ -237,7 +238,10 @@ class Socket(EventBus):
 
             self.unpk.feed(byts)
             for mesg in self.unpk:
-                yield mesg
+                self.rxque.append(mesg)
+
+            while self.rxque:
+                yield self.rxque.popleft()
 
         except Exception as e:
             logger.exception(e)

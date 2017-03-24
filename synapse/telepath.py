@@ -18,11 +18,15 @@ import synapse.eventbus as s_eventbus
 
 import synapse.lib.queue as s_queue
 import synapse.lib.sched as s_sched
+import synapse.lib.mixins as s_mixins
 import synapse.lib.socket as s_socket
+import synapse.lib.reflect as s_reflect
 import synapse.lib.threads as s_threads
 
 from synapse.common import *
 from synapse.compat import queue
+
+s_mixins.addSynMixin('telepath','synapse.axon.AxonMixin')
 
 # telepath protocol version
 # ( compat breaks only at major ver )
@@ -39,17 +43,12 @@ def openurl(url,**opts):
         foo.dostuff(30) # call remote method
 
     '''
-    plex = opts.pop('plex',None)
-    return openclass(Proxy,url,**opts)
-
-def openclass(cls, url, **opts):
-    plex = opts.pop('plex',None)
-
+    #plex = opts.pop('plex',None)
+    #return openclass(Proxy,url,**opts)
     link = s_link.chopLinkUrl(url)
     link[1].update(opts)
 
-    relay = s_link.getLinkRelay(link)
-    return cls(relay, plex=plex)
+    return openlink(link)
 
 def openlink(link):
     '''
@@ -62,7 +61,37 @@ def openlink(link):
 
     '''
     relay = s_link.getLinkRelay(link)
-    return Proxy(relay)
+    name = link[1].get('path')[1:]
+
+    sock = relay.connect()
+
+    synack = teleSynAck(sock, name=name)
+    bases = ()
+
+    inherits = ()
+
+    refl = synack.get('reflect')
+    if refl != None:
+        inherits = refl.get('inherits',())
+
+    return getMixClass(inherits)(relay,sock=sock)
+
+classcache = {}
+def getMixClass(inherits):
+    base = [Proxy,]
+
+    for name in inherits:
+        for mixin in s_mixins.getSynMixins('telepath',name):
+            base.append(mixin)
+
+    inherit = tuple(base)
+
+    clas = classcache.get(inherit)
+    if clas == None:
+        clas = type('Proxy',inherit,{})
+        classcache[inherit] = clas
+
+    return clas
 
 def evalurl(url,**opts):
     '''
@@ -117,7 +146,7 @@ class Proxy(s_eventbus.EventBus):
         under the assumption it's something else....
 
     '''
-    def __init__(self, relay, plex=None):
+    def __init__(self, relay, plex=None, sock=None):
 
         s_eventbus.EventBus.__init__(self)
         self.onfini( self._onProxyFini )
@@ -156,11 +185,15 @@ class Proxy(s_eventbus.EventBus):
         self._tele_relay = relay    # LinkRelay()
         self._tele_link = relay.link
         self._tele_yields = {}
+        self._tele_reflect = None
 
         # obj name is path minus leading "/"
         self._tele_name = relay.link[1].get('path')[1:]
 
-        self._initTeleSock()
+        if sock == None:
+            sock = self._tele_relay.connect()
+
+        self._initTeleSock(sock=sock)
 
     def _onTeleYieldInit(self, mesg):
         jid = mesg[1].get('jid')
@@ -284,7 +317,8 @@ class Proxy(s_eventbus.EventBus):
             prox.push( 'bar', Bar() )
 
         '''
-        job = self._txTeleJob('tele:push', name=name)
+        reflect = s_reflect.getItemInfo(item)
+        job = self._txTeleJob('tele:push', name=name, reflect=reflect)
         self._tele_pushed[ name ] = item
         return self.syncjob(job)
 
@@ -329,36 +363,29 @@ class Proxy(s_eventbus.EventBus):
             mesg = self._tele_q.get()
             self.dist(mesg)
 
-    def _initTeleSock(self, loop=False):
+    def _initTeleSock(self, sock=None):
 
-        self._tele_sock = None
-        while self._tele_sock == None:
-
-            try:
-                self._tele_sock = self._tele_relay.connect()
-
-            except LinkErr as e:
-                if not e.retry or not loop:
-                    raise
-
-                time.sleep(1)
+        if sock == None:
+            sock = self._tele_relay.connect()
 
         # generated on the socket by the multiplexor ( and queued )
-        self._tele_sock.on('link:sock:mesg', self._onLinkSockMesg )
+        sock.on('link:sock:mesg', self._onLinkSockMesg )
 
         def sockfini():
             # called by multiplexor... must not block
             if not self.isfini:
                 self._tele_pool.call( self._runSockFini )
 
-        self._tele_sock.onfini( sockfini )
+        sock.onfini( sockfini )
 
-        self._tele_plex.addPlexSock(self._tele_sock)
+        self._teleSynAck(sock)
 
-        self._teleSynAck()
+        # add the sock to the multiplexor
+        self._tele_plex.addPlexSock(sock)
 
         # let client code do stuff on reconnect
-        self.fire('tele:sock:init', sock=self._tele_sock)
+        self._tele_sock = sock
+        self.fire('tele:sock:init', sock=sock)
 
     def _onLinkSockMesg(self, event):
         # MULTIPLEXOR: DO NOT BLOCK
@@ -422,25 +449,22 @@ class Proxy(s_eventbus.EventBus):
 
         return self._tele_sock
 
-    def _teleSynAck(self):
+    def _syn_reflect(self):
+        return self._tele_reflect
+
+    def _teleSynAck(self, sock):
         '''
         Send a tele:syn to get a telepath session
         '''
-        opts = {'sock:can:gzip':1}
+        sid = self._tele_sid
+        name = self._tele_name
 
-        job = self._txTeleJob('tele:syn', sid=self._tele_sid, vers=telever, opts=opts)
+        synack = teleSynAck(sock, name=name, sid=sid)
 
-        synresp = self.syncjob(job, timeout=6)
+        self._tele_sid = synack.get('sess')
+        self._tele_reflect = synack.get('reflect')
 
-        vers = synresp.get('vers',(0,0))
-        if vers[0] != telever[0]:
-            raise BadMesgVers(myver=telever,hisver=vers)
-
-        self._tele_sid = synresp.get('sess')
-
-        hisopts = synresp.get('opts',{})
-
-        sock = self._getTeleSock()
+        hisopts = synack.get('opts',{})
 
         if hisopts.get('sock:can:gzip'):
             sock.set('sock:can:gzip',True)
@@ -497,3 +521,29 @@ class Proxy(s_eventbus.EventBus):
     def __ne__(self, obj):
         return not self.__eq__(obj)
 
+def teleSynAck(sock, name=None, sid=None):
+
+    synack = sock.get('tele:synack')
+
+    if synack == None:
+
+        opts = {'sock:can:gzip':1}
+        info = {
+            'sid':sid,
+            'opts':opts,
+            'vers':telever,
+            'name':name,
+        }
+
+        sock.tx( ('tele:syn',info) )
+
+        done = next(sock.rx())
+        synack = done[1].get('ret')
+
+        sock.set('tele:synack',synack)
+
+        vers = synack.get('vers',(0,0))
+        if vers[0] != telever[0]:
+            raise BadMesgVers(myver=telever,hisver=vers)
+
+    return synack
