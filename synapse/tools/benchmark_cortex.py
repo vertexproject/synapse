@@ -187,7 +187,6 @@ def profile_it(cmd, globals, number, repeat, divisor):
     cProfile.runctx(cmd, globals, {}, filename='lmdb_02.prof')
 
 
-
 def benchmark_cortex(test_data, url, cleanup_func, is_ephemeral, num_threads=1):
     core = s_cortex.openurl(url)
     _prepopulate_core(core, test_data.prepop_rows)
@@ -244,6 +243,6 @@ def benchmark_all():
         # benchmark_cortex(test_data, url, cleanup_func, num_threads=NUM_THREADS)
 
 if __name__ == '__main__':
-    # benchmark_all()
-    test_data = TestData('testdata')
-    benchmark_cortex(test_data, 'lmdb:///%s' % LMDB_FILE, cleanup_lmdb, False)
+    benchmark_all()
+    # test_data = TestData('testdata')
+    # benchmark_cortex(test_data, 'lmdb:///%s' % LMDB_FILE, cleanup_lmdb, False)

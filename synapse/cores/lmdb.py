@@ -85,7 +85,7 @@ class DatabaseLimitReached(Exception):
 
 # Python 2.7 version of lmdb buffers=True functions return buffers.  Python 3 version returns
 # memoryview
-if (sys.version_info > (3, 0)):
+if sys.version_info > (3, 0):
     def memToBytes(x):
         return x.tobytes()
 else:
@@ -146,16 +146,19 @@ def _dec_pk(pk_enc):
 
 
 def _calcFirstLastKeys(prop, valu, mintime, maxtime):
-    ''' Returns the encoded bytes for the start and end keys to the pt or pvt index '''
+    ''' Returns the encoded bytes for the start and end keys to the pt or pvt index.  Helper functino
+        for _{get,del}RowsByProp'''
     p_enc = _enc_prop(prop)
     v_key_enc = b'' if valu is None else _enc_val_key(valu)
     v_is_hashed = valu is not None and (v_key_enc[0] == HASH_VAL_MARKER_ENC)
+    if mintime is None and maxtime is None:
+        return (p_enc + v_key_enc, None, v_is_hashed, True)
     mintime_enc = b'' if mintime is None else msgenpack(mintime)
     maxtime_enc = MAX_TIME_ENC if maxtime is None else msgenpack(maxtime)
 
     first_key = p_enc + v_key_enc + mintime_enc
     last_key = p_enc + v_key_enc + maxtime_enc
-    return (first_key, last_key, v_is_hashed)
+    return (first_key, last_key, v_is_hashed, False)
 
 
 class CoreXact(s_cores_common.CoreXact):
@@ -481,49 +484,56 @@ class Cortex(s_cores_common.Cortex):
     def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
         return self._getRowsByProp(prop, valu, limit, mintime, maxtime, do_count_only=True)
 
-    # Could make special version of getRowsByProp for no mintime/maxtime that has faster key
-    # compare
     def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None,
                        do_count_only=False):
         indx = self.index_pt if valu is None else self.index_pvt
-        first_key, last_key, v_is_hashed = _calcFirstLastKeys(prop, valu, mintime, maxtime)
+        first_key, last_key, v_is_hashed, do_fast_compare = _calcFirstLastKeys(prop, valu,
+                                                                               mintime, maxtime)
 
         count = 0
         rows = []
 
-        with self._get_txn() as txn:
-            with txn.cursor(indx) as cursor:
-                if not cursor.set_range(first_key):
-                    raise DatabaseInconsistent("Missing sentinel")
-                while True:
-                    key, pk_enc = cursor.item()
+        with self._get_txn() as txn, txn.cursor(indx) as cursor:
+            if not cursor.set_range(first_key):
+                raise DatabaseInconsistent("Missing sentinel")
+            while True:
+                key, pk_enc = cursor.item()
+                if do_fast_compare:
+                    if key[:len(first_key)] != first_key:
+                        break
+                else:
                     if memToBytes(key) >= last_key:
                         break
-                    if v_is_hashed or not do_count_only:
-                        row = self._getRowByPkValEnc(txn, pk_enc)
-                        if v_is_hashed:
-                            if row[2] != valu:
-                                continue
-                        if not do_count_only:
-                            rows.append(row)
-                    count += 1
-                    if limit is not None and count >= limit:
-                        break
-                    if not cursor.next():
-                        raise DatabaseInconsistent('Missing sentinel')
+                if v_is_hashed or not do_count_only:
+                    row = self._getRowByPkValEnc(txn, pk_enc)
+                    if v_is_hashed:
+                        if row[2] != valu:
+                            continue
+                    if not do_count_only:
+                        rows.append(row)
+                count += 1
+                if limit is not None and count >= limit:
+                    break
+                if not cursor.next():
+                    raise DatabaseInconsistent('Missing sentinel')
 
         return count if do_count_only else rows
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         indx = self.index_pt if valu is None else self.index_pvt
-        first_key, last_key, v_is_hashed = _calcFirstLastKeys(prop, valu, mintime, maxtime)
+        first_key, last_key, v_is_hashed, do_fast_compare = _calcFirstLastKeys(prop, valu,
+                                                                               mintime, maxtime)
         with self._get_txn(write=True) as txn, txn.cursor(indx) as cursor:
             if not cursor.set_range(first_key):
                 raise DatabaseInconsistent("Missing sentinel")
             while True:
                 key, pk_enc = cursor.item()
-                if memToBytes(key) >= last_key:
-                    break
+                if do_fast_compare:
+                    if key[:len(first_key)] != first_key:
+                        break
+                else:
+                    if memToBytes(key) >= last_key:
+                        break
 
                 if self._delRowAndIndices(txn, pk_enc,
                                           delete_pt=(valu is not None),
