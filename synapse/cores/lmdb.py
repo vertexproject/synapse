@@ -24,7 +24,8 @@ import lmdb
 # pk_enc:  space efficient encoding of pk for use as value in an index table
 # pk_key_enc:  database-efficient encoding of pk for use as key in main table
 
-# N.B.  LMDB calls the separate namespaces in a file "databases" (e.g. named parameter db=).
+# N.B.  LMDB calls the separate namespaces in a file "databases" (e.g. named parameter db=), just
+# like Berkeley DB.
 
 # Largest primary key value.  No more rows than this
 MAX_PK = sys.maxsize
@@ -32,7 +33,10 @@ MAX_PK = sys.maxsize
 # Bytes in MAX_PK
 MAX_PK_BYTES = 8 if sys.maxsize > 2**32 else 4
 
-# Prefix to indicate that a v is a negative value and not the default nonnegative value
+# Prefix to indicate that a v is a nonnegative value
+NONNEGATIVE_VAL_MARKER = 0
+
+# Prefix to indicate that a v is a negative value
 NEGATIVE_VAL_MARKER = -1
 
 # Prefix to indicate than a v is a string
@@ -53,8 +57,6 @@ HASH_VAL_MARKER_ENC = msgenpack(HASH_VAL_MARKER)
 # Number of bytes in a UUID
 UUID_SIZE = 16
 
-MAX_UUID_PLUS_1 = 2**(UUID_SIZE*8)
-
 # An index key can't ever be larger (lexicographically) than this
 MAX_INDEX_KEY = b'\xff' * 20
 
@@ -65,7 +67,7 @@ LARGE_STRING_SIZE = 128
 # Largest length allowed for a prop
 MAX_PROP_LEN = 350
 
-# Matches sqlite3
+# Smallest and largest values for an integer value.  Matches sqlite3
 MAX_INT_VAL = 2 ** 63 - 1
 MIN_INT_VAL = -1 * (2 ** 63)
 
@@ -83,17 +85,17 @@ class DatabaseLimitReached(Exception):
     pass
 
 
-# Python 2.7 version of lmdb buffers=True functions return buffers.  Python 3 version returns
-# memoryview
+# Python 2.7 version of lmdb buffers=True functions return buffer objects.  Python 3 version returns
+# memoryview objects
 if sys.version_info > (3, 0):
-    def memToBytes(x):
+    def _memToBytes(x):
         return x.tobytes()
 else:
-    def memToBytes(x):
+    def _memToBytes(x):
         return str(x)
 
 
-def _enc_val_key(v):
+def _encValKey(v):
     ''' Encode a v.  Non-negative numbers are msgpack encoded.  Negative numbers are encoded
         as a marker, then the encoded negative of that value, so that the ordering of the
         encodings is easily mapped to the ordering of the negative numbers.  Note that this
@@ -114,20 +116,14 @@ def _enc_val_key(v):
 # Really just want to memoize the last iden encoded, but there might be some multithreading, so keep
 # a few more (8)
 @lru_cache(maxsize=8)
-def _enc_iden(iden):
+def _encIden(iden):
     ''' Encode an iden '''
     return unhexlify(iden)
 
 
-@lru_cache(maxsize=8)
-def _dec_iden(iden_enc):
-    ''' Decode an iden '''
-    return hexlify(iden_enc).decode('utf8')
-
-
 # Try to memoize most of the prop names we get
 @lru_cache(maxsize=1024)
-def _enc_prop(prop):
+def _encProp(prop):
     return msgenpack(prop)
 
 
@@ -135,12 +131,12 @@ def _enc_prop(prop):
 _SIZET_ST = struct.Struct('@Q' if sys.maxsize > 2**32 else '@L')
 
 
-def _enc_pk(pk):
+def _encPk(pk):
     ''' Encode for integerkey row DB option:  as a native size_t '''
     return _SIZET_ST.pack(pk)
 
 
-def _dec_pk(pk_enc):
+def _decPk(pk_enc):
     ''' Inverse of above '''
     return _SIZET_ST.unpack(pk_enc)[0]
 
@@ -148,8 +144,8 @@ def _dec_pk(pk_enc):
 def _calcFirstLastKeys(prop, valu, mintime, maxtime):
     ''' Returns the encoded bytes for the start and end keys to the pt or pvt index.  Helper functino
         for _{get,del}RowsByProp'''
-    p_enc = _enc_prop(prop)
-    v_key_enc = b'' if valu is None else _enc_val_key(valu)
+    p_enc = _encProp(prop)
+    v_key_enc = b'' if valu is None else _encValKey(valu)
     v_is_hashed = valu is not None and (v_key_enc[0] == HASH_VAL_MARKER_ENC)
     if mintime is None and maxtime is None:
         return (p_enc + v_key_enc, None, v_is_hashed, True)
@@ -211,14 +207,14 @@ class Cortex(s_cores_common.Cortex):
     def _getCoreXact(self, size=None):
         return CoreXact(self, size=size)
 
-    def _get_largest_pk(self):
-        with self._get_txn() as txn, txn.cursor(self.rows) as cursor:
+    def _getLargestPk(self):
+        with self._getTxn() as txn, txn.cursor(self.rows) as cursor:
             if not cursor.last():
                 return 0  # db is empty
-            return _dec_pk(cursor.key())
+            return _decPk(cursor.key())
 
     @contextmanager
-    def _get_txn(self, write=False):
+    def _getTxn(self, write=False):
         ''' LMDB doesn't have the concept of store access without a transaction, so figure out
         whether there's already one open and use that, else make one.  If we found an existing
         transaction, this doesn't close it after leaving the context.  If we made one and the
@@ -297,14 +293,14 @@ class Cortex(s_cores_common.Cortex):
 
         # Put 1 max key sentinel at the end of each index table.  This avoids unfortunate behavior
         # where the cursor moves backwards after deleting the final record.
-        with self._get_txn(write=True) as txn:
+        with self._getTxn(write=True) as txn:
             for db in (self.index_ip, self.index_pvt, self.index_pt):
                 txn.put(MAX_INDEX_KEY, b'', db=db)
                 # One more sentinel for going backwards through the pvt table.
                 txn.put(b'\x00', b'', db=self.index_pvt)
 
         # Find the largest stored pk.  We just track this in memory from now on.
-        largest_pk = self._get_largest_pk()
+        largest_pk = self._getLargestPk()
         if largest_pk == MAX_PK:
             raise DatabaseLimitReached('Out of primary key values')
 
@@ -322,17 +318,17 @@ class Cortex(s_cores_common.Cortex):
                 raise DatabaseLimitReached('Out of primary key values')
             if len(p) > MAX_PROP_LEN:
                 raise DatabaseLimitReached('Property length too large')
-            i_enc = _enc_iden(i)
-            p_enc = _enc_prop(p)
-            v_key_enc = _enc_val_key(v)
+            i_enc = _encIden(i)
+            p_enc = _encProp(p)
+            v_key_enc = _encValKey(v)
             t_enc = msgenpack(t)
-            pk_enc = _enc_pk(next_pk)
+            pk_enc = _encPk(next_pk)
             row_enc = msgenpack((i, p, v, t))
-            # idx        0      1         2         3       4          5
+            # idx          0      1       2       3       4          5
             encs.append((i_enc, p_enc, row_enc, t_enc, v_key_enc, pk_enc))
             next_pk += 1
 
-        with self._get_txn(write=True) as txn:
+        with self._getTxn(write=True) as txn:
             # an iterator of key, value pairs:  key=pk_key_enc, val=i_enc+p_enc+v_val_enc+t_enc
             kvs = ((x[5], x[2]) for x in encs)
             consumed, added = txn.cursor(db=self.rows).putmulti(kvs, overwrite=False, append=True)
@@ -358,9 +354,9 @@ class Cortex(s_cores_common.Cortex):
         return msgunpack(row)
 
     def _getRowsById(self, iden):
-        iden_enc = _enc_iden(iden)
+        iden_enc = _encIden(iden)
         rows = []
-        with self._get_txn() as txn, txn.cursor(self.index_ip) as cursor:
+        with self._getTxn() as txn, txn.cursor(self.index_ip) as cursor:
             if not cursor.set_range(iden_enc):
                 raise DatabaseInconsistent("Missing sentinel")
             for key, pk_enc in cursor:
@@ -371,9 +367,9 @@ class Cortex(s_cores_common.Cortex):
             return rows
 
     def _delRowsById(self, iden):
-        i_enc = _enc_iden(iden)
+        i_enc = _encIden(iden)
 
-        with self._get_txn(write=True) as txn, txn.cursor(self.index_ip) as cursor:
+        with self._getTxn(write=True) as txn, txn.cursor(self.index_ip) as cursor:
             # Get the first record => i_enc
             if not cursor.set_range(i_enc):
                 raise DatabaseInconsistent("Missing sentinel")
@@ -383,9 +379,9 @@ class Cortex(s_cores_common.Cortex):
                 key, value = cursor.item()
                 if key[:len(i_enc)] != i_enc:
                     return
-                p_enc = memToBytes(key[len(i_enc):])
+                p_enc = _memToBytes(key[len(i_enc):])
                 # Need to copy out with tobytes because we're deleting
-                pk_enc = memToBytes(value)
+                pk_enc = _memToBytes(value)
 
                 if not cursor.delete():
                     raise Exception('Delete failure')
@@ -393,11 +389,11 @@ class Cortex(s_cores_common.Cortex):
                                        delete_ip=False)
 
     def _delRowsByIdProp(self, iden, prop, valu=None):
-        i_enc = _enc_iden(iden)
-        p_enc = _enc_prop(prop)
+        i_enc = _encIden(iden)
+        p_enc = _encProp(prop)
         first_key = i_enc + p_enc
 
-        with self._get_txn(write=True) as txn, txn.cursor(self.index_ip) as cursor:
+        with self._getTxn(write=True) as txn, txn.cursor(self.index_ip) as cursor:
             # Retrieve and delete I-P index
             if not cursor.set_range(first_key):
                 raise DatabaseInconsistent("Missing sentinel")
@@ -408,7 +404,7 @@ class Cortex(s_cores_common.Cortex):
                 if key[:len(first_key)] != first_key:
                     return
                 # Need to copy out with tobytes because we're deleting
-                pk_enc = memToBytes(value)
+                pk_enc = _memToBytes(value)
 
                 # Delete the row and the other indices
                 if not self._delRowAndIndices(txn, pk_enc, i_enc=i_enc, p_enc=p_enc,
@@ -432,13 +428,13 @@ class Cortex(s_cores_common.Cortex):
             cursor.delete()
 
         if delete_ip and i_enc is None:
-            i_enc = _enc_iden(i)
+            i_enc = _encIden(i)
 
         if p_enc is None:
-            p_enc = _enc_prop(p)
+            p_enc = _encProp(p)
 
         if delete_pvt and v_key_enc is None:
-            v_key_enc = _enc_val_key(v)
+            v_key_enc = _encValKey(v)
 
         if (delete_pvt or delete_pt) and t_enc is None:
             t_enc = msgenpack(t)
@@ -462,18 +458,18 @@ class Cortex(s_cores_common.Cortex):
 
     def _getRowsByIdProp(self, iden, prop, valu=None):
         # For now not making a ipv index because multiple v for a given i,p are probably rare
-        iden_enc = _enc_iden(iden)
-        prop_enc = _enc_prop(prop)
+        iden_enc = _encIden(iden)
+        prop_enc = _encProp(prop)
 
         first_key = iden_enc + prop_enc
 
         ret = []
 
-        with self._get_txn() as txn, txn.cursor(self.index_ip) as cursor:
+        with self._getTxn() as txn, txn.cursor(self.index_ip) as cursor:
             if not cursor.set_range(first_key):
                 raise DatabaseInconsistent("Missing sentinel")
             for key, value in cursor:
-                if memToBytes(key) != first_key:
+                if _memToBytes(key) != first_key:
                     return ret
                 row = self._getRowByPkValEnc(txn, value)
                 if valu is not None and row[2] != valu:
@@ -493,7 +489,7 @@ class Cortex(s_cores_common.Cortex):
         count = 0
         rows = []
 
-        with self._get_txn() as txn, txn.cursor(indx) as cursor:
+        with self._getTxn() as txn, txn.cursor(indx) as cursor:
             if not cursor.set_range(first_key):
                 raise DatabaseInconsistent("Missing sentinel")
             while True:
@@ -502,7 +498,7 @@ class Cortex(s_cores_common.Cortex):
                     if key[:len(first_key)] != first_key:
                         break
                 else:
-                    if memToBytes(key) >= last_key:
+                    if _memToBytes(key) >= last_key:
                         break
                 if v_is_hashed or not do_count_only:
                     row = self._getRowByPkValEnc(txn, pk_enc)
@@ -523,7 +519,7 @@ class Cortex(s_cores_common.Cortex):
         indx = self.index_pt if valu is None else self.index_pvt
         first_key, last_key, v_is_hashed, do_fast_compare = _calcFirstLastKeys(prop, valu,
                                                                                mintime, maxtime)
-        with self._get_txn(write=True) as txn, txn.cursor(indx) as cursor:
+        with self._getTxn(write=True) as txn, txn.cursor(indx) as cursor:
             if not cursor.set_range(first_key):
                 raise DatabaseInconsistent("Missing sentinel")
             while True:
@@ -532,7 +528,7 @@ class Cortex(s_cores_common.Cortex):
                     if key[:len(first_key)] != first_key:
                         break
                 else:
-                    if memToBytes(key) >= last_key:
+                    if _memToBytes(key) >= last_key:
                         break
 
                 if self._delRowAndIndices(txn, pk_enc,
@@ -580,7 +576,7 @@ class Cortex(s_cores_common.Cortex):
         do_pos_search = (maxval >= 0)
         ret = 0 if do_count_only else []
 
-        p_enc = _enc_prop(prop)
+        p_enc = _encProp(prop)
 
         # The encodings of negative integers and positive integers are not continuous, so we split
         # into two queries.  Also, the ordering of the encoding of negative integers is backwards.
@@ -604,11 +600,11 @@ class Cortex(s_cores_common.Cortex):
         return ret
 
     def _subrangeRows(self, p_enc, first_val, last_val, limit, right_closed, do_count_only):
-        first_key = p_enc + _enc_val_key(first_val)
+        first_key = p_enc + _encValKey(first_val)
 
         am_going_backwards = (first_val < 0)
 
-        last_key = p_enc + _enc_val_key(last_val)
+        last_key = p_enc + _encValKey(last_val)
 
         ret = []
         count = 0
@@ -619,13 +615,13 @@ class Cortex(s_cores_common.Cortex):
         else:
             term_cmp = bytes.__gt__ if right_closed else bytes.__ge__
 
-        with self._get_txn() as txn, txn.cursor(self.index_pvt) as cursor:
+        with self._getTxn() as txn, txn.cursor(self.index_pvt) as cursor:
             if not cursor.set_range(first_key):
                 raise DatabaseInconsistent("Missing sentinel")
             if am_going_backwards:
                 # set_range sets the cursor at the first key >= first_key, if we're going backwards
                 # we actually want the first key <= first_key
-                if memToBytes(cursor.key()[:len(first_key)]) > first_key:
+                if _memToBytes(cursor.key()[:len(first_key)]) > first_key:
                     if not cursor.prev():
                         raise DatabaseInconsistent("Missing sentinel")
                 it = cursor.iterprev(keys=True, values=True)
@@ -633,7 +629,7 @@ class Cortex(s_cores_common.Cortex):
                 it = cursor.iternext(keys=True, values=True)
 
             for key, value in it:
-                if term_cmp(memToBytes(key[:len(last_key)]), last_key):
+                if term_cmp(_memToBytes(key[:len(last_key)]), last_key):
                     break
                 count += 1
                 if not do_count_only:
