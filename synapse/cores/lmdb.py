@@ -6,7 +6,6 @@ from binascii import hexlify, unhexlify
 from contextlib import contextmanager
 from functools import lru_cache
 
-import msgpack
 import xxhash
 
 import synapse.cores.common as s_cores_common
@@ -22,7 +21,7 @@ import lmdb
 # i_enc, p_enc, v_key_enc, t_enc: above encoded to be space efficient and fully-ordered when
 # compared lexicographically (i.e. 'aaa' < 'ba')
 # pk:  primary key, unique identifier of the row in the main table
-# pk_val_enc:  space efficient encoding of pk for use as value in an index table
+# pk_enc:  space efficient encoding of pk for use as value in an index table
 # pk_key_enc:  database-efficient encoding of pk for use as key in main table
 
 # N.B.  LMDB calls the separate namespaces in a file "databases" (e.g. named parameter db=).
@@ -112,26 +111,6 @@ def _enc_val_key(v):
             return STRING_VAL_MARKER_ENC + msgenpack(v)
 
 
-def _enc_val_val(v):
-    ''' Encode a v for use on the value side.  '''
-    return msgenpack(v)
-
-
-def _dec_val_val(unpacker):
-    ''' Inverse of above '''
-    return unpacker.unpack()
-
-
-def _dec_row(row):
-    i = _dec_iden(row[:UUID_SIZE])
-    unpacker = msgpack.Unpacker(use_list=False, encoding='utf8')
-    unpacker.feed(row[UUID_SIZE:])
-    p = unpacker.unpack()
-    v = _dec_val_val(unpacker)
-    t = unpacker.unpack()
-    return (i, p, v, t)
-
-
 # Really just want to memoize the last iden encoded, but there might be some multithreading, so keep
 # a few more (8)
 @lru_cache(maxsize=8)
@@ -156,12 +135,12 @@ def _enc_prop(prop):
 _SIZET_ST = struct.Struct('@Q' if sys.maxsize > 2**32 else '@L')
 
 
-def _enc_pk_key(pk):
+def _enc_pk(pk):
     ''' Encode for integerkey row DB option:  as a native size_t '''
     return _SIZET_ST.pack(pk)
 
 
-def _dec_pk_key(pk_enc):
+def _dec_pk(pk_enc):
     ''' Inverse of above '''
     return _SIZET_ST.unpack(pk_enc)[0]
 
@@ -233,7 +212,7 @@ class Cortex(s_cores_common.Cortex):
         with self._get_txn() as txn, txn.cursor(self.rows) as cursor:
             if not cursor.last():
                 return 0  # db is empty
-            return _dec_pk_key(cursor.key())
+            return _dec_pk(cursor.key())
 
     @contextmanager
     def _get_txn(self, write=False):
@@ -342,18 +321,17 @@ class Cortex(s_cores_common.Cortex):
                 raise DatabaseLimitReached('Property length too large')
             i_enc = _enc_iden(i)
             p_enc = _enc_prop(p)
-            v_val_enc = _enc_val_val(v)
             v_key_enc = _enc_val_key(v)
             t_enc = msgenpack(t)
-            pk_val_enc = msgenpack(next_pk)
-            pk_key_enc = _enc_pk_key(next_pk)
-            # idx        0      1         2         3       4          5           6
-            encs.append((i_enc, p_enc, v_val_enc, t_enc, v_key_enc, pk_val_enc, pk_key_enc))
+            pk_enc = _enc_pk(next_pk)
+            row_enc = msgenpack((i, p, v, t))
+            # idx        0      1         2         3       4          5
+            encs.append((i_enc, p_enc, row_enc, t_enc, v_key_enc, pk_enc))
             next_pk += 1
 
         with self._get_txn(write=True) as txn:
             # an iterator of key, value pairs:  key=pk_key_enc, val=i_enc+p_enc+v_val_enc+t_enc
-            kvs = ((x[6], x[0] + x[1] + x[2] + x[3]) for x in encs)
+            kvs = ((x[5], x[2]) for x in encs)
             consumed, added = txn.cursor(db=self.rows).putmulti(kvs, overwrite=False, append=True)
             if consumed != added or consumed != len(encs):
                 # Will only fail if record already exists, which should never happen
@@ -370,15 +348,11 @@ class Cortex(s_cores_common.Cortex):
             # that for us.
             self.next_pk = next_pk
 
-    def _getRowByPkValEnc(self, txn, pk_val_enc, do_delete=False):
-        pk = msgunpack(pk_val_enc)
-        if do_delete:
-            row = txn.pop(_enc_pk_key(pk), db=self.rows)
-        else:
-            row = txn.get(_enc_pk_key(pk), db=self.rows)
+    def _getRowByPkValEnc(self, txn, pk_enc):
+        row = txn.get(pk_enc, db=self.rows)
         if row is None:
             raise DatabaseInconsistent('Index val has no corresponding row')
-        return _dec_row(row)
+        return msgunpack(row)
 
     def _getRowsById(self, iden):
         iden_enc = _enc_iden(iden)
@@ -386,10 +360,10 @@ class Cortex(s_cores_common.Cortex):
         with self._get_txn() as txn, txn.cursor(self.index_ip) as cursor:
             if not cursor.set_range(iden_enc):
                 raise DatabaseInconsistent("Missing sentinel")
-            for key, pk_val_enc in cursor:
+            for key, pk_enc in cursor:
                 if key[:len(iden_enc)] != iden_enc:
                     break
-                rows.append(self._getRowByPkValEnc(txn, pk_val_enc))
+                rows.append(self._getRowByPkValEnc(txn, pk_enc))
 
             return rows
 
@@ -408,11 +382,11 @@ class Cortex(s_cores_common.Cortex):
                     return
                 p_enc = memToBytes(key[len(i_enc):])
                 # Need to copy out with tobytes because we're deleting
-                pk_val_enc = memToBytes(value)
+                pk_enc = memToBytes(value)
 
                 if not cursor.delete():
                     raise Exception('Delete failure')
-                self._delRowAndIndices(txn, pk_val_enc, i_enc=i_enc, p_enc=p_enc,
+                self._delRowAndIndices(txn, pk_enc, i_enc=i_enc, p_enc=p_enc,
                                        delete_ip=False)
 
     def _delRowsByIdProp(self, iden, prop, valu=None):
@@ -431,10 +405,10 @@ class Cortex(s_cores_common.Cortex):
                 if key[:len(first_key)] != first_key:
                     return
                 # Need to copy out with tobytes because we're deleting
-                pk_val_enc = memToBytes(value)
+                pk_enc = memToBytes(value)
 
                 # Delete the row and the other indices
-                if not self._delRowAndIndices(txn, pk_val_enc, i_enc=i_enc, p_enc=p_enc,
+                if not self._delRowAndIndices(txn, pk_enc, i_enc=i_enc, p_enc=p_enc,
                                               delete_ip=False, only_if_val=valu):
                     if not cursor.next():
                         raise DatabaseInconsistent("Missing sentinel")
@@ -442,13 +416,17 @@ class Cortex(s_cores_common.Cortex):
                     if not cursor.delete():
                         raise Exception('Delete failure')
 
-    def _delRowAndIndices(self, txn, pk_val_enc, i_enc=None, p_enc=None, v_key_enc=None, t_enc=None,
+    def _delRowAndIndices(self, txn, pk_enc, i_enc=None, p_enc=None, v_key_enc=None, t_enc=None,
                           delete_ip=True, delete_pvt=True, delete_pt=True, only_if_val=None):
-        ''' Deletes the row corresponding to pk_val_enc and the indices pointing to it '''
-        i, p, v, t = self._getRowByPkValEnc(txn, pk_val_enc, do_delete=True)
+        ''' Deletes the row corresponding to pk_enc and the indices pointing to it '''
+        with txn.cursor(db=self.rows) as cursor:
+            if not cursor.set_key(pk_enc):
+                raise DatabaseInconsistent("Missing PK")
+            i, p, v, t = msgunpack(cursor.value())
 
-        if only_if_val is not None and only_if_val != v:
-            return False
+            if only_if_val is not None and only_if_val != v:
+                return False
+            cursor.delete()
 
         if delete_ip and i_enc is None:
             i_enc = _enc_iden(i)
@@ -464,17 +442,17 @@ class Cortex(s_cores_common.Cortex):
 
         if delete_ip:
             # Delete I-P index entry
-            if not txn.delete(i_enc + p_enc, value=pk_val_enc, db=self.index_ip):
+            if not txn.delete(i_enc + p_enc, value=pk_enc, db=self.index_ip):
                 raise DatabaseInconsistent("Missing I-P index")
 
         if delete_pvt:
             # Delete P-V-T index entry
-            if not txn.delete(p_enc + v_key_enc + t_enc, value=pk_val_enc, db=self.index_pvt):
+            if not txn.delete(p_enc + v_key_enc + t_enc, value=pk_enc, db=self.index_pvt):
                 raise DatabaseInconsistent("Missing P-V-T index")
 
         if delete_pt:
             # Delete P-T index entry
-            if not txn.delete(p_enc + t_enc, value=pk_val_enc, db=self.index_pt):
+            if not txn.delete(p_enc + t_enc, value=pk_enc, db=self.index_pt):
                 raise DatabaseInconsistent("Missing P-T index")
 
         return True
@@ -518,11 +496,11 @@ class Cortex(s_cores_common.Cortex):
                 if not cursor.set_range(first_key):
                     raise DatabaseInconsistent("Missing sentinel")
                 while True:
-                    key, pk_val_enc = cursor.item()
+                    key, pk_enc = cursor.item()
                     if memToBytes(key) >= last_key:
                         break
                     if v_is_hashed or not do_count_only:
-                        row = self._getRowByPkValEnc(txn, pk_val_enc)
+                        row = self._getRowByPkValEnc(txn, pk_enc)
                         if v_is_hashed:
                             if row[2] != valu:
                                 continue
@@ -543,13 +521,11 @@ class Cortex(s_cores_common.Cortex):
             if not cursor.set_range(first_key):
                 raise DatabaseInconsistent("Missing sentinel")
             while True:
-                key, pk_val_enc = cursor.item()
+                key, pk_enc = cursor.item()
                 if memToBytes(key) >= last_key:
                     break
-                # Have to save off pk_val_enc because is being deleted
-                pk_val_enc = memToBytes(pk_val_enc)
 
-                if self._delRowAndIndices(txn, pk_val_enc,
+                if self._delRowAndIndices(txn, pk_enc,
                                           delete_pt=(valu is not None),
                                           delete_pvt=(valu is None),
                                           only_if_val=(valu if v_is_hashed else None)):
