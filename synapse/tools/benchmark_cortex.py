@@ -8,6 +8,7 @@ from math import ceil
 from binascii import hexlify
 import pickle
 import timeit
+import cProfile
 
 
 NUM_PREEXISTING_TUFOS = 1000
@@ -147,6 +148,7 @@ class TestData:
             print("Generating test data...")
             random.seed(4)  # 4 chosen by fair dice roll.  Guaranteed to be random
             forms = [gen_random_form() for x in range(NUM_FORMS)]
+            # FIXME:  don't use random.choice!!! Super duper slow
             self.prepop_rows = flatten(_rows_from_tufo(gen_random_tufo(random.choice(forms)))
                                        for x in range(NUM_PREEXISTING_TUFOS))
             tufos = [gen_random_tufo(random.choice(forms)) for x in range(NUM_TUFOS)]
@@ -179,6 +181,11 @@ def _run_x(func, data, *args, num_threads=1, **kwargs):
 def do_it(cmd, globals, number, repeat, divisor):
     times = timeit.repeat(cmd, globals=globals, number=number, repeat=repeat)
     print_time(cmd, times, divisor)
+
+
+def profile_it(cmd, globals, number, repeat, divisor):
+    cProfile.runctx(cmd, globals, {}, filename='lmdb_02.prof')
+
 
 
 def benchmark_cortex(test_data, url, cleanup_func, is_ephemeral, num_threads=1):

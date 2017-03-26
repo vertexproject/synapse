@@ -59,7 +59,8 @@ MAX_UUID_PLUS_1 = 2**(UUID_SIZE*8)
 # An index key can't ever be larger (lexicographically) than this
 MAX_INDEX_KEY = b'\xff' * 20
 
-# String vals of this size or larger will be truncated and hashed in index
+# String vals of this size or larger will be truncated and hashed in index.  What this means is
+# that comparison on large string vals require retrieving the row from the main table
 LARGE_STRING_SIZE = 128
 
 # Largest length allowed for a prop
@@ -121,18 +122,31 @@ def _dec_val_val(unpacker):
     return unpacker.unpack()
 
 
-@lru_cache()
+def _dec_row(row):
+    i = _dec_iden(row[:UUID_SIZE])
+    unpacker = msgpack.Unpacker(use_list=False, encoding='utf8')
+    unpacker.feed(row[UUID_SIZE:])
+    p = unpacker.unpack()
+    v = _dec_val_val(unpacker)
+    t = unpacker.unpack()
+    return (i, p, v, t)
+
+
+# Really just want to memoize the last iden encoded, but there might be some multithreading, so keep
+# a few more (8)
+@lru_cache(maxsize=8)
 def _enc_iden(iden):
     ''' Encode an iden '''
     return unhexlify(iden)
 
 
-@lru_cache()
+@lru_cache(maxsize=8)
 def _dec_iden(iden_enc):
     ''' Decode an iden '''
     return hexlify(iden_enc).decode('utf8')
 
 
+# Try to memoize most of the prop names we get
 @lru_cache(maxsize=1024)
 def _enc_prop(prop):
     return msgenpack(prop)
@@ -150,6 +164,19 @@ def _enc_pk_key(pk):
 def _dec_pk_key(pk_enc):
     ''' Inverse of above '''
     return _SIZET_ST.unpack(pk_enc)[0]
+
+
+def _calcFirstLastKeys(prop, valu, mintime, maxtime):
+    ''' Returns the encoded bytes for the start and end keys to the pt or pvt index '''
+    p_enc = _enc_prop(prop)
+    v_key_enc = b'' if valu is None else _enc_val_key(valu)
+    v_is_hashed = valu is not None and (v_key_enc[0] == HASH_VAL_MARKER_ENC)
+    mintime_enc = b'' if mintime is None else msgenpack(mintime)
+    maxtime_enc = MAX_TIME_ENC if maxtime is None else msgenpack(maxtime)
+
+    first_key = p_enc + v_key_enc + mintime_enc
+    last_key = p_enc + v_key_enc + maxtime_enc
+    return (first_key, last_key, v_is_hashed)
 
 
 class CoreXact(s_cores_common.CoreXact):
@@ -344,7 +371,6 @@ class Cortex(s_cores_common.Cortex):
             self.next_pk = next_pk
 
     def _getRowByPkValEnc(self, txn, pk_val_enc, do_delete=False):
-        UUID_SIZE = 16
         pk = msgunpack(pk_val_enc)
         if do_delete:
             row = txn.pop(_enc_pk_key(pk), db=self.rows)
@@ -352,26 +378,20 @@ class Cortex(s_cores_common.Cortex):
             row = txn.get(_enc_pk_key(pk), db=self.rows)
         if row is None:
             raise DatabaseInconsistent('Index val has no corresponding row')
-        i = _dec_iden(row[:UUID_SIZE])
-        unpacker = msgpack.Unpacker(use_list=False, encoding='utf8')
-        unpacker.feed(row[UUID_SIZE:])
-        p = unpacker.unpack()
-        v = _dec_val_val(unpacker)
-        t = unpacker.unpack()
-        return (i, p, v, t)
+        return _dec_row(row)
 
     def _getRowsById(self, iden):
-        ret = []
         iden_enc = _enc_iden(iden)
+        rows = []
         with self._get_txn() as txn, txn.cursor(self.index_ip) as cursor:
             if not cursor.set_range(iden_enc):
                 raise DatabaseInconsistent("Missing sentinel")
-            for key, value in cursor:
+            for key, pk_val_enc in cursor:
                 if key[:len(iden_enc)] != iden_enc:
-                    return ret
+                    break
+                rows.append(self._getRowByPkValEnc(txn, pk_val_enc))
 
-                ret.append(self._getRowByPkValEnc(txn, value))
-        raise DatabaseInconsistent("Missing sentinel")
+            return rows
 
     def _delRowsById(self, iden):
         i_enc = _enc_iden(iden)
@@ -483,62 +503,63 @@ class Cortex(s_cores_common.Cortex):
     def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
         return self._getRowsByProp(prop, valu, limit, mintime, maxtime, do_count_only=True)
 
-    def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        self._getRowsByProp(prop, valu, mintime=mintime, maxtime=maxtime, do_delete_only=True)
-
+    # Could make special version of getRowsByProp for no mintime/maxtime that has faster key
+    # compare
     def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None,
-                       do_count_only=False, do_delete_only=False):
-
-        assert(not (do_count_only and do_delete_only))
+                       do_count_only=False):
         indx = self.index_pt if valu is None else self.index_pvt
-        p_enc = _enc_prop(prop)
-        v_key_enc = b'' if valu is None else _enc_val_key(valu)
-        v_is_hashed = valu is not None and (v_key_enc[0] == HASH_VAL_MARKER_ENC)
-        mintime_enc = b'' if mintime is None else msgenpack(mintime)
-        maxtime_enc = MAX_TIME_ENC if maxtime is None else msgenpack(maxtime)
+        first_key, last_key, v_is_hashed = _calcFirstLastKeys(prop, valu, mintime, maxtime)
 
-        first_key = p_enc + v_key_enc + mintime_enc
-        last_key = p_enc + v_key_enc + maxtime_enc
-
-        ret = []
         count = 0
+        rows = []
 
-        with self._get_txn(write=do_delete_only) as txn, txn.cursor(indx) as cursor:
-            if not cursor.set_range(first_key):
-                raise DatabaseInconsistent("Missing sentinel")
-            while True:
-                key, value = cursor.item()
-                if memToBytes(key) >= last_key:
-                    break
-                if do_delete_only:
-                    # Have to save off pk_val_enc because is being deleted
-                    pk_val_enc = memToBytes(value)
-
-                    if not cursor.delete():
-                        raise Exception('Delete failure')
-
-                    self._delRowAndIndices(txn, pk_val_enc, p_enc=p_enc,
-                                           delete_pt=(valu is not None),
-                                           delete_pvt=(valu is None), only_if_val=valu)
-                elif not do_count_only or v_is_hashed:
-                    # If we hashed, we must double check that val actually matches in row
-                    row = self._getRowByPkValEnc(txn, value)
-                    if v_is_hashed:
-                        if valu != row[2]:
-                            continue
-                    if not do_count_only:
-                        ret.append(row)
-                count += 1
-                if limit is not None and count >= limit:
-                    break
-                if not do_delete_only:
-                    # deleting auto-advances, so we don't advance the cursor
+        with self._get_txn() as txn:
+            with txn.cursor(indx) as cursor:
+                if not cursor.set_range(first_key):
+                    raise DatabaseInconsistent("Missing sentinel")
+                while True:
+                    key, pk_val_enc = cursor.item()
+                    if memToBytes(key) >= last_key:
+                        break
+                    if v_is_hashed or not do_count_only:
+                        row = self._getRowByPkValEnc(txn, pk_val_enc)
+                        if v_is_hashed:
+                            if row[2] != valu:
+                                continue
+                        if not do_count_only:
+                            rows.append(row)
+                    count += 1
+                    if limit is not None and count >= limit:
+                        break
                     if not cursor.next():
                         raise DatabaseInconsistent('Missing sentinel')
 
-        return count if do_count_only else ret
+        return count if do_count_only else rows
 
-    # right_closed:  on an interval, e.g. (0, 1] is left-open and right-closed
+    def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
+        indx = self.index_pt if valu is None else self.index_pvt
+        first_key, last_key, v_is_hashed = _calcFirstLastKeys(prop, valu, mintime, maxtime)
+        with self._get_txn(write=True) as txn, txn.cursor(indx) as cursor:
+            if not cursor.set_range(first_key):
+                raise DatabaseInconsistent("Missing sentinel")
+            while True:
+                key, pk_val_enc = cursor.item()
+                if memToBytes(key) >= last_key:
+                    break
+                # Have to save off pk_val_enc because is being deleted
+                pk_val_enc = memToBytes(pk_val_enc)
+
+                if self._delRowAndIndices(txn, pk_val_enc,
+                                          delete_pt=(valu is not None),
+                                          delete_pvt=(valu is None),
+                                          only_if_val=(valu if v_is_hashed else None)):
+                    # Delete did go through: delete entry at cursor
+                    if not cursor.delete():
+                        raise Exception('Delete failure')
+                else:
+                    # Delete didn't go through:  advance to next
+                    if not cursor.next():
+                        raise DatabaseInconsistent('Missing sentinel')
 
     def _sizeByGe(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit, right_closed=True,
@@ -565,6 +586,8 @@ class Cortex(s_cores_common.Cortex):
         return self._rowsByMinmax(prop, valu[0], valu[1], limit)
 
     def _rowsByMinmax(self, prop, minval, maxval, limit, right_closed=False, do_count_only=False):
+        ''' Returns either count or actual rows for a range of prop vals where both min and max
+            may be closed (included) or open (not included) '''
         if minval > maxval:
             return 0
         do_neg_search = (minval < 0)
