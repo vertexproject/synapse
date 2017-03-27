@@ -1,19 +1,20 @@
 import synapse.cortex as s_cortex
-import synapse.cmds.cortex as s_cmds_cortex
+import synapse.telepath as s_telepath
 
-import synapse.lib.cli as s_cli
-import synapse.lib.tufo as s_tufo
-import synapse.lib.scope as s_scope
+
+import synapse.lib.cmdr as s_cmdr
 
 def main(argv):
 
-    if len(argv) > 1:
-        core = s_cortex.openurl(argv[1])
-        s_scope.set('syn:cmd:core',core)
+    if len(argv) != 2:
+        print('usage: python -m synapse.tools.cmdr <url>')
+        return -1
 
-    cli = s_cmds_cortex.initCoreCli()
-    cli.cmdprompt = 'core> '
-    cli.runCmdLoop()
+    item = s_telepath.openurl(argv[1])
+
+    cmdr = s_cmdr.getItemCmdr(item)
+
+    cmdr.runCmdLoop()
 
 if __name__ == '__main__':
     import sys

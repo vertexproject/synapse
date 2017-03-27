@@ -5,6 +5,8 @@ from contextlib import contextmanager
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
+
+import synapse.lib.cmdr as s_cmdr
 import synapse.cmds.cortex as s_cmds_cortex
 
 from synapse.tests.common import *
@@ -33,20 +35,20 @@ class SynCmdCoreTest(SynTest):
         core.fini()
         dmon.fini()
 
-    def getCoreCmdr(self):
+    def getCoreCmdr(self, core):
         outp = s_output.OutPutStr()
-        return s_cmds_cortex.initCoreCli(outp=outp)
+        return s_cmdr.getItemCmdr(core, outp=outp)
 
     def test_cmds_addnode(self):
         with self.getDmonCore() as core:
-            cmdr = self.getCoreCmdr()
+            cmdr = self.getCoreCmdr(core)
             cmdr.runCmdLine('addnode inet:email visi@vertex.link')
             self.nn( core.getTufoByProp('inet:email','visi@vertex.link') )
 
     def test_cmds_addtag(self):
 
         with self.getDmonCore() as core:
-            cmdr = self.getCoreCmdr()
+            cmdr = self.getCoreCmdr(core)
 
             core.formTufoByProp('inet:email','visi@vertex.link')
 
@@ -58,7 +60,7 @@ class SynCmdCoreTest(SynTest):
     def test_cmds_deltag(self):
 
         with self.getDmonCore() as core:
-            cmdr = self.getCoreCmdr()
+            cmdr = self.getCoreCmdr(core)
 
             node = core.formTufoByProp('inet:email','visi@vertex.link')
             core.addTufoTag(node,'woot')
@@ -71,7 +73,7 @@ class SynCmdCoreTest(SynTest):
     def test_cmds_ask(self):
         # FIXME moar robust output testing
         with self.getDmonCore() as core:
-            cmdr = self.getCoreCmdr()
+            cmdr = self.getCoreCmdr(core)
             core.formTufoByProp('inet:email','visi@vertex.link')
             resp = cmdr.runCmdLine('ask inet:email="visi@vertex.link"')
             self.eq( len(resp['data']), 1 )
