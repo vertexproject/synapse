@@ -116,7 +116,7 @@ class AxonHost(s_eventbus.EventBus):
         self.opts.setdefault('axonbus','')              # url to axonbus
 
         self.opts.setdefault('bytemax',terabyte)        # by default make each Axon 1 Terabyte
-        self.opts.setdefault('syncmax',gigabyte * 10)   # 
+        self.opts.setdefault('syncmax',gigabyte * 10)   #
 
         self.opts.setdefault('hostname', s_thishost.get('hostname') ) # allow override for testing
 

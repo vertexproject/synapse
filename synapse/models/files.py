@@ -1,3 +1,7 @@
+from synapse.lib.types import DataType
+import synapse.compat as s_compat
+
+
 def getDataModel():
     return {
 
@@ -7,10 +11,18 @@ def getDataModel():
         'types':(
             ('file:guid',{'subof':'guid','doc':'A unique file identifier'}),
             ('file:sub',{'subof':'sepr','sep':'/','fields':'parent,file:guid|child,file:guid'}),
-            ('file:base',{'subof':'str','lower':1,'doc':'A file basename such as foo.exe'}),
+            ('file:path',{'ctor':'synapse.models.files.FilePathType', 'doc':'A file path'}),
+            ('file:base',{'ctor':'synapse.models.files.FileBaseType', 'doc':'A file basename such as foo.exe'}),
         ),
 
         'forms':(
+
+            ('file:path', {'ptype':'file:path'},(
+                ('dir', {'ptype':'file:path'}),
+                ('base', {'ptype':'file:base'})
+            )),
+
+            ('file:base', {'ptype':'file:base'},()),
 
             ('file:bytes', {'ptype':'file:guid'},(
                 ('size',{'ptype':'int'}),
@@ -83,3 +95,50 @@ def addCoreOns(core):
 
 #def revDataModel(core):
 
+class FileBaseType(DataType):
+
+    def norm(self, valu, oldval=None):
+
+        if not (s_compat.isstr(valu) and not valu.find('/') > -1 and len(valu) > 0):
+            self._raiseBadValu(valu)
+
+        return valu.lower(), {}
+
+    def frob(self, valu, oldval=None):
+        return self.norm(valu, oldval)
+
+    def parse(self, text, oldval=None):
+        return self.norm(text, oldval)
+
+    def repr(self, valu):
+        return valu
+
+class FilePathType(DataType):
+
+    def norm(self, valu, oldval=None):
+
+        if not s_compat.isstr(valu):
+            self._raiseBadValu(valu)
+
+        valu = valu.replace('\\', '/').lower().strip('/')
+        parts = valu.split('/')
+
+        props = {}
+        base = parts[-1]
+        if base:
+            props['base'] = base
+
+        dirname = '/'.join(parts[0:-1])
+        if dirname:
+            props['dir'] = dirname
+
+        return valu, props
+
+    def frob(self, valu, oldval=None):
+        return self.norm(valu, oldval)
+
+    def parse(self, text, oldval=None):
+        return self.norm(text, oldval)
+
+    def repr(self, valu):
+        return valu
