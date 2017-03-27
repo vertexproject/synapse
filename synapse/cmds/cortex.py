@@ -12,10 +12,7 @@ class AskCmd(s_cli.Cmd):
 
     def runCmdOpts(self, opts):
         ques = opts.get('query')
-        core = s_scope.get('syn:cmd:core')
-        if core == None:
-            self.printf('no connected cortex. see "open" cmd.')
-            return None
+        core = self.getCmdItem()
 
         resp = core.ask(ques)
         # {'oplog': [{'mnem': 'lift', 'add': 0, 'took': 1, 'sub': 0}], 'data': [], 'options': {'uniq': 1}, 'limits': {'touch': None, 'lift': None, 'time': None}}
@@ -53,18 +50,6 @@ class AskCmd(s_cli.Cmd):
 
         return resp
 
-class OpenCmd(s_cli.Cmd):
-    _cmd_name = 'open'
-    _cmd_syntax = (
-        ('url',{'type':'valu'}),
-    )
-    def runCmdOpts(self, opts):
-        url = opts.get('url')
-        self.printf('connecting to: %s' % (url,))
-        core = s_cortex.openurl(url)
-        s_scope.set('syn:cmd:core',core)
-        return core
-
 class AddNodeCmd(s_cli.Cmd):
     _cmd_name = 'addnode'
     _cmd_syntax = (
@@ -73,7 +58,7 @@ class AddNodeCmd(s_cli.Cmd):
     )
     def runCmdOpts(self, opts):
 
-        core = s_scope.get('syn:cmd:core')
+        core = self.getCmdItem()
 
         prop = opts.get('prop')
         valu = opts.get('valu')
@@ -90,7 +75,7 @@ class AddTagCmd(s_cli.Cmd):
     def runCmdOpts(self, opts):
 
         tag = opts.get('tag')
-        core = s_scope.get('syn:cmd:core')
+        core = self.getCmdItem()
 
         nodes = core.eval( opts.get('query') )
         if not nodes:
@@ -121,7 +106,7 @@ class DelTagCmd(s_cli.Cmd):
     def runCmdOpts(self, opts):
 
         tag = opts.get('tag')
-        core = s_scope.get('syn:cmd:core')
+        core = self.getCmdItem()
 
         nodes = core.eval( opts.get('query') )
         if not nodes:
@@ -142,18 +127,3 @@ class DelTagCmd(s_cli.Cmd):
             # FIXME local typelib and datamodel
             disp = core.getPropRepr(form,valu)
             self.printf('%s - %s' % (disp,','.join(tags)))
-
-def initCoreCli(cli=None,outp=None):
-    '''
-    Initialize a Cli() object with cortex related commands.
-    '''
-    if cli == None:
-        cli = s_cli.Cli(outp=outp)
-
-    cli.addCmdClass(AskCmd)
-    cli.addCmdClass(OpenCmd)
-    cli.addCmdClass(AddTagCmd)
-    cli.addCmdClass(DelTagCmd)
-    cli.addCmdClass(AddNodeCmd)
-
-    return cli
