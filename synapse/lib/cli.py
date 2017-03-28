@@ -34,6 +34,12 @@ class Cmd:
         opts = self.getCmdOpts(line)
         return self.runCmdOpts(opts)
 
+    def getCmdItem(self):
+        '''
+        Get a reference to the object we are commanding.
+        '''
+        return self._cmd_cli.item
+
     def getCmdOpts(self, text):
         '''
         Use the _cmd_syntax def to split/parse/normalize the cmd line.
@@ -163,19 +169,27 @@ class Cli(EventBus):
     '''
     A modular / event-driven CLI base object.
     '''
-    def __init__(self, outp=None):
+    def __init__(self, item, outp=None, **locs):
         EventBus.__init__(self)
 
         if outp == None:
             outp = s_output.OutPut()
 
         self.outp = outp
+        self.locs = locs
+        self.item = item    # whatever object we are commanding
 
         self.cmds = {}
         self.cmdprompt = 'cli> '
 
         self.addCmdClass( CmdHelp )
         self.addCmdClass( CmdQuit )
+
+    def get(self, name, defval=None):
+        return self.locs.get(name,defval)
+
+    def set(self, name, valu):
+        self.locs[name] = valu
 
     def printf(self, mesg, addnl=True):
         return self.outp.printf(mesg,addnl=addnl)

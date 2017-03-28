@@ -4,7 +4,7 @@ from setuptools import setup,find_packages
 
 setup(
     name='synapse',
-    version='0.0.11', # sync with synapse.version!
+    version='0.0.12', # sync with synapse.version!
     description='Synapse Distributed Key-Value Hypergraph Analysis Framework',
     author='Invisigoth Kenshoto',
     author_email='invisigoth.kenshoto@gmail.com',
@@ -36,5 +36,4 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
     ],
-
 )

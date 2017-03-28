@@ -116,7 +116,7 @@ class AxonHost(s_eventbus.EventBus):
         self.opts.setdefault('axonbus','')              # url to axonbus
 
         self.opts.setdefault('bytemax',terabyte)        # by default make each Axon 1 Terabyte
-        self.opts.setdefault('syncmax',gigabyte * 10)   # 
+        self.opts.setdefault('syncmax',gigabyte * 10)   #
 
         self.opts.setdefault('hostname', s_thishost.get('hostname') ) # allow override for testing
 
@@ -850,13 +850,3 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
     def byiden(self, iden):
         return self.core.getTufoByProp('axon:blob',iden)
-
-
-class AxonProxy(s_telepath.Proxy,AxonMixin):
-    pass
-
-def openurl(url, **opts):
-    '''
-    Open a URL to a remote Axon
-    '''
-    return s_telepath.openclass(AxonProxy, url, **opts)
