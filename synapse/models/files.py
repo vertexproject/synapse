@@ -9,8 +9,8 @@ def getDataModel():
         'version':201701061638,
 
         'types':(
-            ('file:guid',{'subof':'guid','doc':'A unique file identifier'}),
-            ('file:sub',{'subof':'sepr','sep':'/','fields':'parent,file:guid|child,file:guid'}),
+            ('file:bytes',{'subof':'guid','doc':'A unique file identifier'}),
+            ('file:sub',{'subof':'sepr','sep':'/','fields':'parent,file:bytes|child,file:bytes'}),
             ('file:path',{'ctor':'synapse.models.files.FilePathType', 'doc':'A file path'}),
             ('file:base',{'ctor':'synapse.models.files.FileBaseType', 'doc':'A file basename such as foo.exe'}),
         ),
@@ -24,7 +24,7 @@ def getDataModel():
 
             ('file:base', {'ptype':'file:base', 'doc': 'A final path component, such as the filename.'},()),
 
-            ('file:bytes', {'ptype':'file:guid'},(
+            ('file:bytes', {'ptype':'file:bytes'},(
                 ('size',{'ptype':'int'}),
                 ('md5',{'ptype':'hash:md5'}),
                 ('sha1',{'ptype':'hash:sha1'}),
@@ -47,8 +47,8 @@ def getDataModel():
             )),
 
             ('file:subfile', {'ptype':'file:sub'},(
-                ('parent',{'ptype':'file:guid'}),
-                ('child',{'ptype':'file:guid'}),
+                ('parent',{'ptype':'file:bytes'}),
+                ('child',{'ptype':'file:bytes'}),
                 ('name',{'ptype':'file:base'}),
                 #TODO others....
             )),
