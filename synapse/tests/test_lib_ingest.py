@@ -197,7 +197,7 @@ class IngTest(SynTest):
 
         with s_cortex.openurl('ram://') as core:
 
-            core.addTufoForm('hehe:haha', ptype='file:guid')
+            core.addTufoForm('hehe:haha', ptype='file:bytes')
 
             gest = s_ingest.Ingest(info)
             gest.ingest(core,data=data)

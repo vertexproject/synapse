@@ -5,7 +5,7 @@ def getDataModel():
 
         'types': (
             ('tech:av:sig',     {'subof':'sepr', 'sep':'/', 'fields':'org,ou:alias|sig,str:lwr', 'doc':'An antivirus signature' }),
-            ('tech:av:filehit', {'subof':'sepr', 'sep':'/', 'fields':'file,file:guid|sig,tech:av:sig', 'doc':'An antivirus hit' }),
+            ('tech:av:filehit', {'subof':'sepr', 'sep':'/', 'fields':'file,file:bytes|sig,tech:av:sig', 'doc':'An antivirus hit' }),
         ),
 
         'forms': (
@@ -16,7 +16,7 @@ def getDataModel():
                 ('url',{'ptype':'inet:url'}),
             ]),
             ('tech:av:filehit', {'ptype':'tech:av:filehit'},[
-                ('file',{'ptype':'file:guid'}),
+                ('file',{'ptype':'file:bytes'}),
                 ('sig',{'ptype':'tech:av:sig'}),
             ])
         ),
