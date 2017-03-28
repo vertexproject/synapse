@@ -12,6 +12,7 @@ import synapse.compat as s_compat
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.socket as s_socket
+import synapse.lib.reflect as s_reflect
 import synapse.lib.service as s_service
 import synapse.lib.session as s_session
 import synapse.lib.threads as s_threads
@@ -290,6 +291,7 @@ class Daemon(EventBus,DmonConf):
         self.socks = {}     # sockets by iden
         self.shared = {}    # objects provided by daemon
         self.pushed = {}    # objects provided by sockets
+        self.reflect = {}   # objects reflect info by name
 
         self._dmon_links = []   # list of listen links
         self._dmon_yields = set()
@@ -421,6 +423,7 @@ class Daemon(EventBus,DmonConf):
 
         jid = mesg[1].get('jid')
         name = mesg[1].get('name')
+        reflect = mesg[1].get('reflect')
 
         user = sock.get('syn:user')
         if not self._isUserAllowed(user, 'tele:push:'+name ):
@@ -428,10 +431,13 @@ class Daemon(EventBus,DmonConf):
 
         def onfini():
             self.pushed.pop(name,None)
+            self.reflect.pop(name,None)
 
         sock.onfini(onfini)
 
         self.pushed[name] = sock
+        self.reflect[name] = reflect
+
         return sock.tx( tufo('job:done', jid=jid) )
 
     def _onTeleRetnMesg(self, sock, mesg):
@@ -514,6 +520,7 @@ class Daemon(EventBus,DmonConf):
 
         # pass / consume protocol version information
         vers = mesg[1].get('vers',(0,0))
+        name = mesg[1].get('name')
         hisopts = mesg[1].get('opts',{})
 
         if hisopts.get('sock:can:gzip'):
@@ -537,6 +544,9 @@ class Daemon(EventBus,DmonConf):
             'vers':s_telepath.telever,
             'opts':{'sock:can:gzip':True},
         }
+
+        if name != None:
+            ret['reflect'] = self.reflect.get(name)
 
         # send a nonce along for the ride in case
         # they want to authenticate for the session
@@ -754,6 +764,7 @@ class Daemon(EventBus,DmonConf):
 
         '''
         self.shared[name] = item
+        self.reflect[name] = s_reflect.getItemInfo(item)
 
         if fini:
             self.onfini( item.fini )

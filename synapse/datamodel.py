@@ -10,11 +10,14 @@ import fnmatch
 import datetime
 import functools
 import collections
+import logging
 
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
 
 from synapse.common import *
+
+logger = logging.getLogger(__name__)
 
 hexre = re.compile('^[0-9a-z]+$')
 propre = re.compile('^[0-9a-z:_]+$')
@@ -22,21 +25,31 @@ propre = re.compile('^[0-9a-z:_]+$')
 tlib = s_types.TypeLib()
 def getTypeRepr(name, valu):
     '''
+    Return the humon readable form of the given type value.
     '''
     return tlib.reqDataType(name).repr(valu)
 
 def getTypeNorm(name, valu):
     '''
+    Normalize a type specific value in system mode.
     '''
     return tlib.reqDataType(name).norm(valu)
 
 def getTypeFrob(name, valu):
     '''
+    Return a system normalized value for the given input value which may be in
+    system mode or in display mode.
+    Returns None,{} on Exception
     '''
-    return tlib.reqDataType(name).frob(valu)
+    try:
+        return tlib.reqDataType(name).frob(valu)
+    except Exception as e:
+        logger.warn(e)
+        return None,{}
 
 def getTypeParse(name, text):
     '''
+    Parse input text for the given type into it's system form.
     '''
     return tlib.reqDataType(name).parse(text)
 

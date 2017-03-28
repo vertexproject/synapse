@@ -32,32 +32,42 @@ class CertDir:
         return genpath(self.certdir,*paths)
 
     def getCaCert(self, name):
-        byts = reqbytes( self.getCaCertPath(name) )
-        return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+        return self._loadCertPath( self.getCaCertPath(name) )
 
     def getHostCert(self, name):
-        byts = reqbytes( self.getHostCertPath(name) )
-        return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+        return self._loadCertPath( self.getHostCertPath(name) )
 
     def getUserCert(self, name):
-        byts = reqbytes( self.getUserCertPath(name) )
-        return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+        return self._loadCertPath( self.getUserCertPath(name) )
 
     def getCaKey(self, name):
-        byts = reqbytes( self.getCaKeyPath(name) )
-        return crypto.load_privatekey(crypto.FILETYPE_PEM, byts)
+        return self._loadKeyPath( self.getCaKeyPath(name) )
 
     def getHostKey(self, name):
-        byts = reqbytes( self.getHostKeyPath(name) )
-        return crypto.load_privatekey(crypto.FILETYPE_PEM, byts)
+        return self._loadKeyPath( self.getHostKeyPath(name) )
 
     def getUserKey(self, name):
-        byts = reqbytes( self.getUserKeyPath(name) )
+        return self._loadKeyPath( self.getUserKeyPath(name) )
+
+    def _loadKeyPath(self, path):
+        if path == None:
+            return None
+
+        byts = getbytes(path)
+        if byts == None:
+            return None
+
         return crypto.load_privatekey(crypto.FILETYPE_PEM, byts)
 
-    #def getHostCert(self, name):
-        #byts = reqbytes( self.getHostCertPath(name) )
-        #return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+    def _loadCertPath(self, path):
+        if path == None:
+            return None
+
+        byts = getbytes(path)
+        if byts == None:
+            return None
+
+        return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
 
     #def saveCaCert(self, cert):
     #def saveUserCert(self, cert):
@@ -184,6 +194,12 @@ class CertDir:
 
         return pkey,cert
 
+    def _loadCsrPath(self, path):
+        byts = getbytes(path)
+        if byts == None:
+            return None
+        return crypto.load_certificate_request(crypto.FILETYPE_PEM,byts)
+
     def genUserCsr(self, name, outp=None):
         return self._genPkeyCsr(name,'users',outp=outp)
 
@@ -242,25 +258,59 @@ class CertDir:
                 return usercert
 
     def getCaCertPath(self, name):
-        return reqpath(self.certdir,'cas','%s.crt' % name)
+        path = genpath(self.certdir,'cas','%s.crt' % name)
+        if not os.path.isfile(path):
+            return None
+        return path
 
     def getCaKeyPath(self, name):
-        return reqpath(self.certdir,'cas','%s.key' % name)
+        path = genpath(self.certdir,'cas','%s.key' % name)
+        if not os.path.isfile(path):
+            return None
+        return path
 
     def getHostCertPath(self, name):
-        return reqpath(self.certdir,'hosts','%s.crt' % name)
+        path = genpath(self.certdir,'hosts','%s.crt' % name)
+        if not os.path.isfile(path):
+            return None
+        return path
 
     def getHostKeyPath(self, name):
-        return reqpath(self.certdir,'hosts','%s.key' % name)
+        path = genpath(self.certdir,'hosts','%s.key' % name)
+        if not os.path.isfile(path):
+            return None
+        return path
 
     def getUserCertPath(self, name):
-        return reqpath(self.certdir,'users','%s.crt' % name)
+        path = genpath(self.certdir,'users','%s.crt' % name)
+        if not os.path.isfile(path):
+            return None
+        return path
 
     def getUserKeyPath(self, name):
-        return reqpath(self.certdir,'users','%s.key' % name)
+        path = genpath(self.certdir,'users','%s.key' % name)
+        if not os.path.isfile(path):
+            return None
+        return path
 
     def getUserCaPath(self, name):
         cert = self.getUserCert(name)
+        if cert == None:
+            return None
+
+        subj = cert.get_issuer()
+
+        capath = self.getPathJoin('cas','%s.crt' % subj.CN)
+        if not os.path.isfile(capath):
+            return None
+
+        return capath
+
+    def getHostCaPath(self, name):
+        cert = self.getHostCert(name)
+        if cert == None:
+            return None
+
         subj = cert.get_issuer()
 
         capath = self.getPathJoin('cas','%s.crt' % subj.CN)
