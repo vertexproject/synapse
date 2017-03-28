@@ -2,9 +2,8 @@ from __future__ import absolute_import
 
 import sys
 import struct
-from binascii import hexlify, unhexlify
+from binascii import unhexlify
 from contextlib import contextmanager
-from functools import lru_cache
 
 import xxhash
 
@@ -15,6 +14,9 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.threads as s_threads
 
 import lmdb
+
+if sys.version_info > (3, 0):
+    from functools import lru_cache
 
 # File conventions:
 # i, p, v, t: iden, prop, value, timestamp
@@ -93,6 +95,12 @@ if sys.version_info > (3, 0):
 else:
     def _memToBytes(x):
         return str(x)
+
+    def lru_cache(maxsize):
+        ''' A dumb passthrough.  Python 2 impl is just going to be a tad slower '''
+        def actual_decorator(wrappee):
+            return wrappee
+        return actual_decorator
 
 
 def _encValKey(v):
@@ -311,24 +319,25 @@ class Cortex(s_cores_common.Cortex):
         self.onfini(onfini)
 
     def _addRows(self, rows):
-        next_pk = self.next_pk
         encs = []
-        for i, p, v, t in rows:
-            if next_pk > MAX_PK:
-                raise DatabaseLimitReached('Out of primary key values')
-            if len(p) > MAX_PROP_LEN:
-                raise DatabaseLimitReached('Property length too large')
-            i_enc = _encIden(i)
-            p_enc = _encProp(p)
-            v_key_enc = _encValKey(v)
-            t_enc = msgenpack(t)
-            pk_enc = _encPk(next_pk)
-            row_enc = msgenpack((i, p, v, t))
-            # idx          0      1       2       3       4          5
-            encs.append((i_enc, p_enc, row_enc, t_enc, v_key_enc, pk_enc))
-            next_pk += 1
 
         with self._getTxn(write=True) as txn:
+            next_pk = self.next_pk
+            for i, p, v, t in rows:
+                if next_pk > MAX_PK:
+                    raise DatabaseLimitReached('Out of primary key values')
+                if len(p) > MAX_PROP_LEN:
+                    raise DatabaseLimitReached('Property length too large')
+                i_enc = _encIden(i)
+                p_enc = _encProp(p)
+                v_key_enc = _encValKey(v)
+                t_enc = msgenpack(t)
+                pk_enc = _encPk(next_pk)
+                row_enc = msgenpack((i, p, v, t))
+                # idx          0      1       2       3       4          5
+                encs.append((i_enc, p_enc, row_enc, t_enc, v_key_enc, pk_enc))
+                next_pk += 1
+
             # an iterator of key, value pairs:  key=pk_key_enc, val=i_enc+p_enc+v_val_enc+t_enc
             kvs = ((x[5], x[2]) for x in encs)
             consumed, added = txn.cursor(db=self.rows).putmulti(kvs, overwrite=False, append=True)
