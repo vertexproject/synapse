@@ -53,7 +53,7 @@ def getDataModel():
                                'doc':'A message sent from one user to another within a web community',
                                 'ex':'twitter.com/invisig0th/gobbles/20041012130220'}),
 
-            ('inet:ssl:tcp4cert',{'subof':'sepr','sep':'/','fields':'tcp4,inet:tcp4|cert,file:guid','doc':'An SSL cert file served by an IPv4 server'}),
+            ('inet:ssl:tcp4cert',{'subof':'sepr','sep':'/','fields':'tcp4,inet:tcp4|cert,file:bytes','doc':'An SSL cert file served by an IPv4 server'}),
 
             ('inet:whois:reg',{'subof':'str','doc':'A whois registrant','ex':'Woot Hostmaster'}),
             ('inet:whois:rec',{'subof':'sepr','sep':'@','fields':'fqdn,inet:fqdn|asof,time','doc':'A whois record','ex':''}),
@@ -181,7 +181,7 @@ def getDataModel():
 
             ('inet:ssl:tcp4cert',{'ptype':'inet:ssl:tcp4cert'},[
                 ('tcp4',{'ptype':'inet:tcp4'}),
-                ('cert',{'ptype':'file:guid'}),
+                ('cert',{'ptype':'file:bytes'}),
                 ('tcp4:ipv4',{'ptype':'inet:ipv4'}),
             ]),
         ),
