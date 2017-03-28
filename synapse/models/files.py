@@ -18,11 +18,11 @@ def getDataModel():
         'forms':(
 
             ('file:path', {'ptype':'file:path'},(
-                ('dir', {'ptype':'file:path'}),
-                ('base', {'ptype':'file:base'})
+                ('dir', {'ptype':'file:path', 'doc': 'The parent directory for this path.'}),
+                ('base', {'ptype':'file:base', 'doc': 'The final path component, such as the filename, of this path.'})
             )),
 
-            ('file:base', {'ptype':'file:base'},()),
+            ('file:base', {'ptype':'file:base', 'doc': 'A final path component, such as the filename.'},()),
 
             ('file:bytes', {'ptype':'file:guid'},(
                 ('size',{'ptype':'int'}),
