@@ -8,9 +8,6 @@ python:
     - "3.6"
 env:
     - SYN_TEST_CORE=py
-    - SYN_TEST_CORE=ram
-    - SYN_TEST_CORE=sqlite
-    - SYN_TEST_CORE=postgres
 matrix:
     include:
     - python: "3.6"
@@ -23,10 +20,7 @@ matrix:
       env: SYN_TEST_CORE=py
 addons:
     postgresql: "9.6"
-services:
-    - docker
 install:
-    - docker --version
     - python synapse/tests/travis/install.py
 before_script:
     - python synapse/tests/travis/before_script.py
