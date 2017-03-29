@@ -646,7 +646,7 @@ class TypeLib:
         try:
             return self.reqDataType(name).frob(valu, oldval=oldval)
         except Exception as e:
-            logger.warn(e)
+            logger.warning(e)
             return None,{}
 
     def getTypeCast(self, name, valu):

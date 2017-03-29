@@ -44,7 +44,7 @@ def getTypeFrob(name, valu):
     try:
         return tlib.reqDataType(name).frob(valu)
     except Exception as e:
-        logger.warn(e)
+        logger.warning(e)
         return None,{}
 
 def getTypeParse(name, text):
