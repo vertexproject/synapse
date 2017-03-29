@@ -26,7 +26,7 @@ def getDataModel():
                 ('published',{'ptype':'time','defval':0,'doc':'The date the news item was published','ex':'20161201180433'}),
 
                 ('org',{'ptype':'ou:alias','defval':'??','doc':'The org alias which published the news','ex':'microsoft'}),
-                ('author',{'ptype':'ps:fullname','defval':'?,?','doc':'The free-form author of the news','ex':'stark,anthony'}),
+                ('author',{'ptype':'ps:name','defval':'?,?','doc':'The free-form author of the news','ex':'stark,anthony'}),
             ]),
         ),
     }
