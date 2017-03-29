@@ -747,8 +747,8 @@ class IngTest(SynTest):
                             ]],
 
                             ["inet:email",[
-                                ["visi@vertex.link",{"tags":["foo.bar","baz.faz"]}],
-                            ]],
+                                ["visi@vertex.link",{"tags":["foo.bar","baz.faz"]}]
+                            ]]
                         ]
                     }
                 ]
