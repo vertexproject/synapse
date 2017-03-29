@@ -9,5 +9,4 @@ class MediaTest(SynTest):
             self.eq( node[1].get('media:news:org'), '??' )
             self.eq( node[1].get('media:news:author'), '?,?' )
             self.eq( node[1].get('media:news:title'), 'synapse is awesome!')
-
             self.eq( node[1].get('media:news:url'), 'http://www.vertex.link/synapse' )
