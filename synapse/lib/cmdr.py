@@ -23,3 +23,7 @@ def getItemCmdr(item, outp=None, **opts):
             cmdr.addCmdClass(mixi)
 
     return cmdr
+
+def runItemCmdr(item, outp=None, **opts):
+    cmdr = getItemCmdr(item, outp=outp, **opts)
+    cmdr.runCmdLoop()

@@ -1,5 +1,4 @@
 import sys
-import code
 import time
 import argparse
 import cProfile
@@ -7,6 +6,7 @@ import collections
 
 import synapse.cortex as s_cortex
 
+import synapse.lib.cmdr as s_cmdr
 import synapse.lib.ingest as s_ingest
 import synapse.lib.output as s_output
 import synapse.lib.scrape as s_scrape
@@ -123,7 +123,7 @@ def main(argv, outp=None):
     outp.printf('ingest took: %s sec' % (tock-tick,))
 
     if opts.debug:
-        code.interact( local=locals() )
+        s_cmdr.runItemCmdr(core)
 
     if pump != None:
         pump.done()
