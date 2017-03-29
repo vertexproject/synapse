@@ -11,7 +11,14 @@ s_mixins.addSynMixin('cmdr','synapse.cores.common.Cortex','synapse.cmds.cortex.A
 
 
 def getItemCmdr(item, outp=None, **opts):
+    '''
+    Construct and return a cmdr for the given item.
 
+    Example:
+
+        cmdr = getItemCmdr(foo)
+
+    '''
     cmdr = s_cli.Cli(item,outp=outp)
 
     refl = s_reflect.getItemInfo(item)
@@ -23,3 +30,15 @@ def getItemCmdr(item, outp=None, **opts):
             cmdr.addCmdClass(mixi)
 
     return cmdr
+
+def runItemCmdr(item, outp=None, **opts):
+    '''
+    Create a cmdr for the given item and run the cmd loop.
+
+    Example:
+
+        runItemCmdr(foo)
+
+    '''
+    cmdr = getItemCmdr(item, outp=outp, **opts)
+    cmdr.runCmdLoop()
