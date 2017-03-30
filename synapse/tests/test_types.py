@@ -595,20 +595,3 @@ class DataTypesTest(SynTest):
         self.eq( tlib.getTypeCast('str:lwr','HeHe'), 'hehe' )
         self.eq( tlib.getTypeCast('toupper','HeHe'), 'HEHE' )
         self.eq( tlib.getTypeCast('make:guid','visi'), '1b2e93225959e3722efed95e1731b764' )
-
-    def test_type_av_types(self):
-        tlib = s_types.TypeLib()
-
-        sig = 'tech:av:sig'
-        hit = 'tech:av:filehit'
-        orgname = 'fOo'
-        bytesguid = 'FEDCBA0987654321FEDCBA0987654321'
-        signame = 'BaR.BAZ.faz'
-
-        self.eq(tlib.getTypeNorm(sig, '%s/%s'%(orgname, signame))[0], '%s/%s'%(orgname.lower(), signame.lower()))
-        self.eq(tlib.getTypeFrob(sig, '%s/%s'%(orgname, signame))[0], '%s/%s'%(orgname.lower(), signame.lower()))
-        self.eq(tlib.getTypeParse(sig, '%s/%s'%(orgname, signame))[0], '%s/%s'%(orgname.lower(), signame.lower()))
-
-        self.eq(tlib.getTypeNorm(hit, '%s/%s/%s'%(bytesguid, orgname, signame))[0], '%s/%s/%s'%(bytesguid.lower(), orgname.lower(), signame.lower()))
-        self.eq(tlib.getTypeFrob(hit, '%s/%s/%s'%(bytesguid, orgname, signame))[0], '%s/%s/%s'%(bytesguid.lower(), orgname.lower(), signame.lower()))
-        self.eq(tlib.getTypeParse(hit, '%s/%s/%s'%(bytesguid, orgname, signame))[0], '%s/%s/%s'%(bytesguid.lower(), orgname.lower(), signame.lower()))
