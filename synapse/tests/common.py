@@ -129,6 +129,9 @@ class SynTest(unittest.TestCase):
         valu = info.get(prop,novalu)
         self.eq(valu,novalu)
 
+    def raises(self, *args, **kwargs):
+        return self.assertRaises(*args,**kwargs)
+
     def sorteq(self, x, y):
         return self.eq( sorted(x), sorted(y) )
 

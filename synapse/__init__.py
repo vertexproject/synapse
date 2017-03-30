@@ -32,9 +32,9 @@ s_modules.load('synapse.models.telco')
 s_modules.load('synapse.models.crypto')
 s_modules.load('synapse.models.geopol')
 s_modules.load('synapse.models.person')
+s_modules.load('synapse.models.infotech')
 s_modules.load('synapse.models.temporal')
 s_modules.load('synapse.models.geospace')
-s_modules.load('synapse.models.av')
 
 mods = os.getenv('SYN_MODULES')
 if mods:
