@@ -8,6 +8,8 @@ import synapse.compat as s_compat
 import synapse.lib.socket as s_socket
 import synapse.lib.urlhelp as s_urlhelp
 
+import synapse.lookup.iana as s_l_iana
+
 from synapse.lib.types import DataType
 
 def getDataModel():
@@ -86,6 +88,8 @@ def getDataModel():
                 ('ipv4',{'ptype':'inet:ipv4','ro':1}),
                 ('fqdn',{'ptype':'inet:fqdn','ro':1}),
                 ('port',{'ptype':'inet:port','ro':1}),
+                ('user',{'ptype':'inet:user','ro':1}),
+                ('passwd',{'ptype':'inet:passwd','ro':1}),
             ]),
 
             ('inet:asn',{'ptype':'inet:asn','doc':'An Autonomous System'},[
@@ -397,6 +401,11 @@ class EmailType(DataType):
     def repr(self, valu):
         return valu
 
+urlports = {
+    'ftp':21,
+    'http':80,
+    'https':443,
+}
 class UrlType(DataType):
 
     subprops = (
@@ -406,9 +415,12 @@ class UrlType(DataType):
         ('ipv4',{'ptype':'inet:ipv4'}),
         ('ipv6',{'ptype':'inet:ipv6'}),
         ('port',{'ptype':'inet:port'}),
+        ('user',{'ptype':'inet:user'}),
+        ('passwd',{'ptype':'inet:passwd'}),
     )
 
     def norm(self, valu, oldval=None):
+        subs = {}
         respath = ''
         resauth = ''
 
@@ -424,14 +436,40 @@ class UrlType(DataType):
         if resloc.find('@') != -1:
             resauth,resloc = resloc.split('@',1)
 
+            user = resauth
+            passwd = None
+
+            if user.find(':') != None:
+                user,passwd = user.rsplit(':',1)
+
+            if user:
+                subs['user'] = user
+
+            if passwd:
+                subs['passwd'] = passwd
+
+        port = None
         proto = proto.lower()
         hostpart = resloc.lower()
+
+        subs['proto'] = proto
+
+        if hostpart.find(':') != -1:
+            host,portstr = hostpart.rsplit(':',1)
+            port = self.tlib.getTypeParse('inet:port',portstr)[0]
+
+        # try for a default iana protocol lookup
+        if port == None:
+            port = s_l_iana.services.get(proto)
+
+        if port != None:
+            subs['port'] = port
 
         if resauth:
             hostpart = '%s@%s' % (resauth,hostpart)
 
         valu = '%s://%s/%s' % (proto,hostpart,respath)
-        return (valu,{'proto':proto})
+        return valu,subs
 
     def repr(self, valu):
         return valu
