@@ -229,3 +229,13 @@ class InetModelTest(SynTest):
             self.nn( core.getTufoByProp('inet:email','visi@vertex.link') )
             self.eq( node[1].get('inet:whois:regmail:email'), 'visi@vertex.link' )
             self.eq( node[1].get('inet:whois:regmail:fqdn'), 'woot.com' )
+
+    def test_model_inet_url_fields(self):
+        with s_cortex.openurl('ram:///') as core:
+            node = core.formTufoByProp('inet:url','HTTP://visi:hehe@www.vertex.link:9999/')
+            self.eq( node[1].get('inet:url:port'), 9999 )
+            self.eq( node[1].get('inet:url:user'), 'visi' )
+            self.eq( node[1].get('inet:url:passwd'), 'hehe' )
+
+            node = core.formTufoByProp('inet:url','HTTP://www.vertex.link/')
+            self.eq( node[1].get('inet:url:port'), 80 )
