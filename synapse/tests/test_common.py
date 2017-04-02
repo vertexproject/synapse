@@ -10,3 +10,10 @@ class CommonTest(SynTest):
         with self.getTestDir() as testdir:
             fd = genfile(testdir,'woot','foo.bin')
             fd.close()
+
+    def test_common_guid(self):
+        iden0 = guid()
+        iden1 = guid('foo bar baz')
+        iden2 = guid('foo bar baz')
+        self.ne(iden0,iden1)
+        self.eq(iden1,iden2)
