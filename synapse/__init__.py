@@ -36,6 +36,10 @@ s_modules.load('synapse.models.infotech')
 s_modules.load('synapse.models.temporal')
 s_modules.load('synapse.models.geospace')
 
+s_modules.load('synapse.models.usgov')
+s_modules.load('synapse.models.cngov')
+s_modules.load('synapse.models.intlgov')
+
 mods = os.getenv('SYN_MODULES')
 if mods:
     for name in mods.split(','):
