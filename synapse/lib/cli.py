@@ -218,6 +218,8 @@ class Cli(EventBus):
         '''
         Run commands from stdin until close or fini().
         '''
+        import readline
+        readline.read_init_file()
 
         while not self.isfini:
 
