@@ -249,6 +249,7 @@ class Ingest(EventBus):
 
             for datasorc in self._iterDataSorc(path,info):
                 for data in datasorc:
+                    self.fire('gest:data')
                     root = s_datapath.initelem(data)
                     self._ingDataInfo(core, root, gest, scope)
 
@@ -546,7 +547,8 @@ class Ingest(EventBus):
 
         if valu == None:
             varn = info.get('var')
-            valu = scope.get(varn)
+            if varn != None:
+                valu = scope.get(varn)
 
         template = info.get('template')
         if template != None:
@@ -585,6 +587,8 @@ class Ingest(EventBus):
         cast = info.get('cast')
         if cast != None:
             valu = core.getTypeCast(cast,valu)
+            if valu == None:
+                return None
 
         # FIXME make a mechanism here for field translation based
         # on an included translation table within the ingest def
