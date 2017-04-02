@@ -67,11 +67,11 @@ class PersonTest(SynTest):
             iden = guid()
             node = core.formTufoByProp('ps:hasphone','%s/17035551212' % iden)
 
-            self.eq( node[1].get('ps:hasphone:phone'), '17035551212' )
+            self.eq( node[1].get('ps:hasphone:phone'), 17035551212 )
             self.eq( node[1].get('ps:hasphone:person'), iden )
 
             self.nn( core.getTufoByProp('ps:person',iden) )
-            self.nn( core.getTufoByProp('tel:phone','17035551212') )
+            self.nn( core.getTufoByProp('tel:phone',17035551212) )
 
     def test_model_person_has_email(self):
         with s_cortex.openurl('ram:///') as core:
