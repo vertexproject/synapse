@@ -6,6 +6,7 @@ import sys
 import json
 import time
 import types
+import hashlib
 import msgpack
 import functools
 import itertools
@@ -25,8 +26,12 @@ novalu = NoValu()
 def now():
     return int( time.time() * 1000 )
 
-def guid():
-    return hexlify(os.urandom(16)).decode('utf8')
+def guid(valu=None):
+    if valu == None:
+        return hexlify(os.urandom(16)).decode('utf8')
+    # Generate a "stable" guid from the given item
+    byts = msgenpack(valu)
+    return hashlib.md5(byts).hexdigest()
 
 def tufo(typ,**kwargs):
     return (typ,kwargs)
