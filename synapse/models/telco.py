@@ -3,6 +3,8 @@ import logging
 import synapse.compat as s_compat
 from synapse.lib.types import DataType
 
+import synapse.lookup.phonenum as s_l_phone
+
 logger = logging.getLogger(__name__)
 
 def getDataModel():
@@ -105,10 +107,17 @@ class PhoneType(DataType):
         return self.norm(valu,oldval=oldval)
 
     def norm(self, valu, oldval=None):
+        subs = {}
         try:
             valu = int(valu)
+            info = s_l_phone.getPhoneInfo(valu)
+
+            cc = info.get('cc')
+            if cc != None:
+                subs['cc'] = cc
+
             # TODO prefix based validation?
-            return valu,{}
+            return valu,subs
 
         except TypeError as e:
             self._raiseBadValu(valu)
