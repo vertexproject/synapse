@@ -95,6 +95,7 @@ class StrType(DataType):
         self.restrip = None
         self.frobintfmt = None
 
+        self.strip = info.get('strip',0)
         self.nullval = info.get('nullval')
 
         enumstr = info.get('enums')
@@ -128,6 +129,9 @@ class StrType(DataType):
 
         if valu == self.nullval:
             return valu,{}
+
+        if self.strip:
+            valu = valu.strip()
 
         if self.envals != None and valu not in self.envals:
             self._raiseBadValu(valu,enums=self.info.get('enums'))
@@ -444,7 +448,7 @@ class TypeLib:
         self.addType('int:min', subof='int', ismin=1)
         self.addType('int:max', subof='int', ismax=1)
 
-        self.addType('str:lwr', subof='str', lower=1)
+        self.addType('str:lwr', subof='str', lower=1, strip=1)
         self.addType('str:txt', subof='str', doc='Multi-line text or text blob.')
         self.addType('str:hex', subof='str', frob_int_fmt='%x', regex=r'^[0-9a-f]+$', lower=1)
 
@@ -454,7 +458,7 @@ class TypeLib:
             self.loadModModels()
 
     def _castMakeGuid(self, valu):
-        return hashlib.md5(valu.encode('utf8')).hexdigest()
+        return guid(valu)
 
     def getTypeInst(self, name):
         '''
@@ -542,6 +546,18 @@ class TypeLib:
         Return the DataType subclass for the given type name.
         '''
         return self.types.get(name)
+
+    def isDataType(self, name):
+        '''
+        Return boolean which is true if the given name is a data type.
+
+        Example:
+
+            if tlib.isDataType('foo:bar'):
+                dostuff()
+
+        '''
+        return self.types.get(name) != None
 
     def reqDataType(self, name):
         '''

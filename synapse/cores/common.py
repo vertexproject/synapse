@@ -321,6 +321,10 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
         for form,fnfo,props in modl.get('forms',()):
 
+            # allow forms declared without ptype if their name *is* one
+            if fnfo.get('ptype') == None:
+                fnfo['ptype'] = form
+
             tufo = self.formTufoByProp('syn:form',form,**fnfo)
             tufo = self.setTufoProps(tufo,**fnfo)
 

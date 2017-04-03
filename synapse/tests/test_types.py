@@ -12,10 +12,11 @@ class DataTypesTest(SynTest):
     def test_datatype_basics(self):
 
         tlib = s_types.TypeLib()
-        self.assertTrue( isinstance(tlib.getDataType('inet:url'), s_types.DataType) )
+        self.true( tlib.isDataType('inet:url') )
+        self.true( isinstance(tlib.getDataType('inet:url'), s_types.DataType) )
 
-        self.assertIsNone( tlib.getDataType('newp') )
-        self.assertRaises( NoSuchType, tlib.reqDataType, 'newp' )
+        self.none( tlib.getDataType('newp') )
+        self.raises( NoSuchType, tlib.reqDataType, 'newp' )
 
     def test_datatype_inet_url(self):
         tlib = s_types.TypeLib()
@@ -487,15 +488,11 @@ class DataTypesTest(SynTest):
         tlib = s_types.TypeLib()
         prop = 'tel:phone'
 
-        self.eq(tlib.getTypeNorm(prop, '123 456 7890')[0], '1234567890')
-        self.assertRaises(BadTypeValu, tlib.getTypeNorm, prop, 1234567890)
+        self.eq(tlib.getTypeNorm(prop, 1234567890)[0], 1234567890)
+        self.eq(tlib.getTypeParse(prop, '123 456 7890')[0], 1234567890)
 
-        self.eq(tlib.getTypeParse(prop, '123 456 7890')[0], '1234567890')
-        self.assertRaises(BadTypeValu, tlib.getTypeParse, prop, 1234567890)
-
-        self.eq(tlib.getTypeRepr(prop, '123 456 7890'), '+123 456 7890')
-        self.eq(tlib.getTypeRepr(prop, '1234567890'), '+1234567890')
-        self.eq(tlib.getTypeRepr(prop, 1234567890), '+1234567890')
+        self.eq(tlib.getTypeRepr(prop, 12345678901), '+1 (234) 567-8901')
+        self.eq(tlib.getTypeRepr(prop, 9999999999), '+9999999999')
 
     def test_type_time_timeepoch(self):
         tlib = s_types.TypeLib()
@@ -592,6 +589,10 @@ class DataTypesTest(SynTest):
 
         tlib.addTypeCast("toupper",cast)
 
-        self.eq( tlib.getTypeCast('str:lwr','HeHe'), 'hehe' )
+        self.eq( tlib.getTypeCast('str:lwr','  HeHe  '), 'hehe' )
         self.eq( tlib.getTypeCast('toupper','HeHe'), 'HEHE' )
-        self.eq( tlib.getTypeCast('make:guid','visi'), '1b2e93225959e3722efed95e1731b764' )
+        self.eq( tlib.getTypeCast('make:guid','visi'), '98db59098e385f0bfdec8a6a0a6118b3')
+
+    def test_str_strip(self):
+        tlib = s_types.TypeLib()
+        self.eq( tlib.getTypeCast('str:lwr',' ASDF  '), 'asdf' )

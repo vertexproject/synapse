@@ -7,6 +7,7 @@ class AskCmd(s_cli.Cmd):
     _cmd_name = 'ask'
     _cmd_syntax = (
         ('--debug',{}),
+        ('--props',{}),
         ('query',{'type':'glob'}),
     )
 
@@ -15,6 +16,11 @@ class AskCmd(s_cli.Cmd):
         core = self.getCmdItem()
         resp = core.ask(ques)
         # {'oplog': [{'mnem': 'lift', 'add': 0, 'took': 1, 'sub': 0}], 'data': [], 'options': {'uniq': 1}, 'limits': {'touch': None, 'lift': None, 'time': None}}
+
+        #props = []
+        #pvalu = opts.get('props')
+        #if pvalu != None:
+            #props = pvalu.split(',')
 
         if opts.get('debug'):
 
@@ -46,6 +52,11 @@ class AskCmd(s_cli.Cmd):
             # FIXME local typelib and datamodel
             disp = core.getPropRepr(form,valu)
             self.printf('%s - %s' % (disp,','.join(tags)))
+            if opts.get('props'):
+                props = list(s_tufo.props(node).items())
+                for prop,valu in sorted(props):
+                    disp = core.getPropRepr(prop,valu)
+                    self.printf('    %s = %s' % (prop,disp))
 
         return resp
 
