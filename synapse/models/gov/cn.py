@@ -6,10 +6,12 @@ def getDataModel():
         'version':201703301924,
 
         'types':(
+            ('gov:cn:icp',     {'subof':'int','doc':'A Chinese Internet Content Provider ID'}),
             ('gov:cn:mucd',     {'subof':'int','doc':'A Chinese PLA MUCD'}),
         ),
 
         'forms':(
+            ('gov:cn:icp',{},()),
             ('gov:cn:mucd',{},()),
         ),
     }
