@@ -1,6 +1,5 @@
 
 import os
-import queue
 import fnmatch
 import tarfile
 import zipfile
@@ -8,7 +7,7 @@ import tempfile
 import traceback
 
 import synapse.exc as s_exc
-#from synapse.common import *
+from synapse.compat import queue
 from synapse.common import genpath
 
 # 10 MB
@@ -62,8 +61,8 @@ class FpOpener(object):
     def seek(self, *args):
         return self.fd.seek(*args)
 
-    def read(self, size=-1):
-        return self.fd.read(size)
+    def read(self, *args):
+        return self.fd.read(*args)
 
     def close(self):
         self.fd.close()
@@ -520,7 +519,7 @@ def parsePaths(*paths):
 
     '''
     if None in paths:
-        return None
+        return 
     path = genpath(*paths)
 
     pparts = getPathParts(path)
@@ -551,7 +550,7 @@ def parsePaths(*paths):
                 break
 
     except s_exc.NoSuchPath as e:
-        return None
+        return 
 
 def parsePath(*paths):
     '''
