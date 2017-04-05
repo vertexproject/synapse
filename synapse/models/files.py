@@ -120,25 +120,20 @@ class FilePathType(DataType):
         if not (s_compat.isstr(valu) and len(valu) > 0):
             self._raiseBadValu(valu)
 
+        leadingslash = '/' if valu.startswith('/') else ''
         newval = valu.replace('\\', '/').lower().strip('/')
         parts = newval.split('/')
-        leadingslash = valu.startswith('/')
-        if leadingslash:
-            newval = '/' + newval
+
+        dirname = leadingslash + '/'.join(parts[0:-1])
+        newval = leadingslash + newval
 
         props = {}
         base = parts[-1]
         if base:
             props['base'] = base
 
-        dirname = '/'.join(parts[0:-1])
         if dirname:
-            if leadingslash:
-                props['dir'] = '/' + dirname
-            else:
-                props['dir'] = dirname
-        elif leadingslash:
-            props['dir'] = '/'
+            props['dir'] = dirname
 
         return newval, props
 
@@ -150,6 +145,3 @@ class FilePathType(DataType):
 
     def repr(self, valu):
         return valu
-
-# FIXME make file to base path
-# FIXME file bytes to file path

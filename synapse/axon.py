@@ -1,11 +1,11 @@
 import os
 import json
+import stat
 import hashlib
 import logging
 import tempfile
 import threading
 import multiprocessing
-import stat
 
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
@@ -19,8 +19,8 @@ import synapse.lib.service as s_service
 import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
 
-from synapse.common import *
 from synapse.exc import *
+from synapse.common import *
 
 logger = logging.getLogger(__name__)
 
@@ -1003,8 +1003,7 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         tufos = self.core.getTufosByProp('axon:path:parent', path)
         for tufo in tufos:
             fpath = tufo[1].get('axon:path')
-            fname = fpath.split('/')
-            fname = fname[len(fname)-1]
+            fname = fpath.split('/')[-1]
             files.append(fname)
 
         return files

@@ -8,8 +8,8 @@ import synapse.lib.heap as s_heap
 import synapse.telepath as s_telepath
 import synapse.lib.service as s_service
 
-from synapse.tests.common import *
 from synapse.exc import *
+from synapse.tests.common import *
 
 craphash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 asdfhash = '6a204bd89f3c8348afd5c77c717a097a'
