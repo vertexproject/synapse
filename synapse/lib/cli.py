@@ -247,6 +247,9 @@ class Cli(EventBus):
             except KeyboardInterrupt as e:
                 self.printf('<ctrl-c>')
 
+            except EOFError as e:
+                self.fini()
+
             except Exception as e:
                 traceback.print_exc()
 
@@ -274,7 +277,7 @@ class Cli(EventBus):
 
             ret = cmdo.runCmdLine(line)
 
-        except CliFini as e:
+        except (CliFini, EOFError) as e:
             self.fini()
 
         except KeyboardInterrupt as e:
