@@ -39,6 +39,20 @@ class SynCmdCoreTest(SynTest):
         outp = s_output.OutPutStr()
         return s_cmdr.getItemCmdr(core, outp=outp)
 
+    def test_cmds_help(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('help')
+            self.true( str(outp).find('List commands and display help output.') != -1 )
+
+    def test_cmds_quit(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('quit')
+            self.true( str(outp).find('o/') != -1 )
+
     def test_cmds_addnode(self):
         with self.getDmonCore() as core:
             cmdr = self.getCoreCmdr(core)
