@@ -160,6 +160,8 @@ class Cmd:
         '''
         Return the help/doc output for this command.
         '''
+        if not self.__doc__:
+            return ''
         return self.__doc__
 
     def printf(self, mesg, addnl=True):
