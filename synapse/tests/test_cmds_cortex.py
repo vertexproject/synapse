@@ -1,5 +1,6 @@
 from __future__ import absolute_import,unicode_literals
 
+import re
 from contextlib import contextmanager
 
 import synapse.cortex as s_cortex
@@ -55,14 +56,16 @@ class SynCmdCoreTest(SynTest):
 
     def test_cmds_addnode(self):
         with self.getDmonCore() as core:
-            cmdr = self.getCoreCmdr(core)
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('addnode inet:email visi@vertex.link')
             self.nn( core.getTufoByProp('inet:email','visi@vertex.link') )
 
     def test_cmds_addtag(self):
 
         with self.getDmonCore() as core:
-            cmdr = self.getCoreCmdr(core)
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
 
             core.formTufoByProp('inet:email','visi@vertex.link')
 
@@ -71,10 +74,20 @@ class SynCmdCoreTest(SynTest):
             node = core.formTufoByProp('inet:email','visi@vertex.link')
             self.nn( node[1].get('*|inet:email|woot') )
 
+    def test_cmds_addtag_nonodes(self):
+
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+
+            cmdr.runCmdLine('addtag woot inet:email="visi@vertex.link"')
+            self.eq( str(outp).strip(), '0 nodes...')
+
     def test_cmds_deltag(self):
 
         with self.getDmonCore() as core:
-            cmdr = self.getCoreCmdr(core)
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
 
             node = core.formTufoByProp('inet:email','visi@vertex.link')
             core.addTufoTag(node,'woot')
@@ -84,19 +97,63 @@ class SynCmdCoreTest(SynTest):
             node = core.getTufoByProp('inet:email','visi@vertex.link')
             self.none( node[1].get('*|inet:email|woot') )
 
-    def test_cmds_ask(self):
-        # FIXME moar robust output testing
+    def test_cmds_deltag_nonodes(self):
+
         with self.getDmonCore() as core:
-            cmdr = self.getCoreCmdr(core)
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+
+            cmdr.runCmdLine('deltag woot inet:email="visi@vertex.link"')
+            self.eq( str(outp).strip(), '0 nodes...')
+
+    def test_cmds_ask(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             core.formTufoByProp('inet:email','visi@vertex.link')
             resp = cmdr.runCmdLine('ask inet:email="visi@vertex.link"')
             self.eq( len(resp['data']), 1 )
+            self.eq( str(outp).strip(), 'visi@vertex.link -')
+
+    def test_cmds_ask_debug(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            core.formTufoByProp('inet:email','visi@vertex.link')
+            resp = cmdr.runCmdLine('ask --debug inet:email="visi@vertex.link"')
+            self.eq( len(resp['data']), 1 )
+
+            outp = str(outp)
+            terms = ('oplog', 'took', 'options', 'limits')
+
+            for term in terms:
+                self.nn(re.search(term, outp))
+
+    def test_cmds_ask_props(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            core.formTufoByProp('inet:email','visi@vertex.link')
+            resp = cmdr.runCmdLine('ask --props inet:email="visi@vertex.link"')
+            self.eq( len(resp['data']), 1 )
+
+            outp = str(outp)
+            terms = ('fqdn = vertex.link', 'user = visi')
+
+            for term in terms:
+                self.nn(re.search(term, outp))
 
     def test_cmds_ask_multilift(self):
-        # FIXME moar robust output testing
         with self.getDmonCore() as core:
-            cmdr = self.getCoreCmdr(core)
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             core.formTufoByProp('str', 'hehe')
             core.formTufoByProp('inet:ipv4', 0)
             resp = cmdr.runCmdLine('ask str inet:ipv4')
             self.eq( len(resp['data']), 2 )
+
+            outp = str(outp)
+            terms = ('0.0.0.0 -', 'hehe -')
+
+            for term in terms:
+                self.nn(re.search(term, outp))
