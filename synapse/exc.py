@@ -1,7 +1,7 @@
 
 class SynErr(Exception):
 
-    def __init__(self, **info):
+    def __init__(self, *args, **info):
         self.errinfo = info
         Exception.__init__(self, self._getExcMsg() )
 
@@ -65,14 +65,14 @@ class DupRole(Exception):pass
 class NoSuch(Exception):pass
 class NoSuchAct(Exception):pass
 class NoSuchJob(Exception):pass
-class NoSuchObj(Exception):pass
+class NoSuchObj(SynErr):pass
 class NoSuchFile(Exception):pass
 class NoSuchIden(Exception):pass
-class NoSuchMeth(Exception):pass
+class NoSuchMeth(SynErr):pass
 class NoSuchFunc(Exception):pass
 class NoSuchPeer(Exception):pass
 class NoSuchSess(Exception):pass
-class NoSuchUser(Exception):pass
+class NoSuchUser(SynErr):pass
 class NoSuchRole(Exception):pass
 class NoSuchProto(Exception):pass
 
@@ -89,6 +89,12 @@ class NotEnoughFree(Exception):pass
 class NoWritableAxons(Exception):pass
 
 class MustNotWait(Exception):pass   # blocking function called by no-wait thread
+
+class NoSuchEntity(SynErr):pass
+class NoSuchData(SynErr):pass
+class FileExists(SynErr):pass
+class NotEmpty(SynErr):pass
+class NotSupported(SynErr):pass
 
 class IsFini(Exception):pass
 

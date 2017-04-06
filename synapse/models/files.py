@@ -117,22 +117,25 @@ class FilePathType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if not s_compat.isstr(valu):
+        if not (s_compat.isstr(valu) and len(valu) > 0):
             self._raiseBadValu(valu)
 
-        valu = valu.replace('\\', '/').lower().strip('/')
-        parts = valu.split('/')
+        leadingslash = '/' if valu.startswith('/') else ''
+        newval = valu.replace('\\', '/').lower().strip('/')
+        parts = newval.split('/')
+
+        dirname = leadingslash + '/'.join(parts[0:-1])
+        newval = leadingslash + newval
 
         props = {}
         base = parts[-1]
         if base:
             props['base'] = base
 
-        dirname = '/'.join(parts[0:-1])
         if dirname:
             props['dir'] = dirname
 
-        return valu, props
+        return newval, props
 
     def frob(self, valu, oldval=None):
         return self.norm(valu, oldval)

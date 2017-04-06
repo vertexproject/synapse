@@ -28,6 +28,11 @@ def jobret(job):
     '''
     err = job[1].get('err')
     if err != None:
+        if err != 'NameErr':
+            try:
+                raise synerr(err)
+            except NameError as e:
+                pass
         raise JobErr(job)
     return job[1].get('ret')
 

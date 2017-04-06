@@ -290,17 +290,16 @@ class DataModelTest(SynTest):
         prop = 'file:path'
 
         data = (
-            ('', ('', {}), ''),
-            ('/', ('', {}), '/'),
-            ('//', ('', {}), '//'),
-            ('////////////', ('', {}), '////////////'),
+            ('/', ('/', {'dir': '/'}), '/'),
+            ('//', ('/', {'dir': '/'}), '//'),
+            ('////////////', ('/', {'dir': '/'}), '////////////'),
             ('weirD', ('weird', {'base': 'weird'}), 'weirD' ),
 
-            ('foo', ('foo', {'base': 'foo'}), 'foo'),
-            ('/foo', ('foo', {'base': 'foo'}), '/foo'),
-            ('/foo/bar', ('foo/bar', {'base': 'bar', 'dir': 'foo'}), '/foo/bar'),
-            ('/foo/bar    ', ('foo/bar    ', {'base': 'bar    ', 'dir': 'foo'}), '/foo/bar    '),  # These are valid filepaths
-            ('/foo/bar/', ('foo/bar', {'base': 'bar', 'dir': 'foo'}), '/foo/bar/'),
+            ('foo1', ('foo1', {'base': 'foo1'}), 'foo1'),
+            ('/foo2', ('/foo2', {'dir':'/', 'base': 'foo2'}), '/foo2'),
+            ('/foo/bar3', ('/foo/bar3', {'base': 'bar3', 'dir': '/foo'}), '/foo/bar3'),
+            ('/foo/bar4    ', ('/foo/bar4    ', {'base': 'bar4    ', 'dir': '/foo'}), '/foo/bar4    '),  # These are valid filepaths
+            ('/foo/bar5/', ('/foo/bar5', {'base': 'bar5', 'dir': '/foo'}), '/foo/bar5/'),
 
             ('C:\\', ('c:', {'base': 'c:'}), 'C:\\'),
             ('C:\\Program Files\\Foo.bAr.BAZ.exe',
@@ -315,7 +314,7 @@ class DataModelTest(SynTest):
             self.assertEqual(expected_repr, model.getTypeRepr(prop, valu))
 
 
-        bads = (None, [], {}, 1)
+        bads = (None, [], {}, 1, '')
         for bad in bads:
             self.assertRaises(s_datamodel.BadTypeValu, model.getTypeNorm, prop, bad)
             self.assertRaises(s_datamodel.BadTypeValu, model.getTypeParse, prop, bad)
