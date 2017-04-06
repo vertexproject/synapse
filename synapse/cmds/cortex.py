@@ -50,7 +50,7 @@ class AskCmd(s_cli.Cmd):
                 self.printf('    %s = %s' % (name,valu))
 
         def nodevalu(t):
-            return t[1].get( t[1].get('tufo:form') )
+            return repr( t[1].get( t[1].get('tufo:form') ) )
 
         nodes = list(sorted( resp.get('data'), key=nodevalu))
 

@@ -91,3 +91,12 @@ class SynCmdCoreTest(SynTest):
             core.formTufoByProp('inet:email','visi@vertex.link')
             resp = cmdr.runCmdLine('ask inet:email="visi@vertex.link"')
             self.eq( len(resp['data']), 1 )
+
+    def test_cmds_ask_multilift(self):
+        # FIXME moar robust output testing
+        with self.getDmonCore() as core:
+            cmdr = self.getCoreCmdr(core)
+            core.formTufoByProp('str', 'hehe')
+            core.formTufoByProp('inet:ipv4', 0)
+            resp = cmdr.runCmdLine('ask str inet:ipv4')
+            self.eq( len(resp['data']), 2 )
