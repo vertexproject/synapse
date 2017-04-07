@@ -23,6 +23,7 @@ def getDataModel():
                 ('sic',{'ptype':'ou:sic'}),
                 ('naics',{'ptype':'ou:naics'}),
                 ('us:cage',{'ptype':'gov:us:cage'}),
+                ('url',{'ptype':'inet:url'})
             ]),
 
             ('ou:member',{'ptype':'sepr','sep':'/','fields':'org,ou:org|person,ou:person'},[
