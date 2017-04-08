@@ -24,6 +24,10 @@ class AskCmd(s_cli.Cmd):
 
     def runCmdOpts(self, opts):
         ques = opts.get('query')
+        if ques == None:
+            self.printf(self.__doc__)
+            return
+
         core = self.getCmdItem()
         resp = core.ask(ques)
 
@@ -69,7 +73,7 @@ class AddNodeCmd(s_cli.Cmd):
     '''
     Form a node in the cortex.
 
-    Example:
+    Examples:
 
         addnode <prop> <valu>
 
@@ -86,10 +90,13 @@ class AddNodeCmd(s_cli.Cmd):
 
     def runCmdOpts(self, opts):
 
-        core = self.getCmdItem()
-
         prop = opts.get('prop')
         valu = opts.get('valu')
+        if prop == None or valu == None:
+            self.printf(self.__doc__)
+            return
+
+        core = self.getCmdItem()
 
         node = core.formTufoByFrob(prop,valu)
         self.printf('formed: %r' % (node,))
@@ -114,6 +121,10 @@ class AddTagCmd(s_cli.Cmd):
     def runCmdOpts(self, opts):
 
         tag = opts.get('tag')
+        if tag == None:
+            self.printf(self.__doc__)
+            return
+
         core = self.getCmdItem()
 
         nodes = core.eval( opts.get('query') )
@@ -156,6 +167,10 @@ class DelTagCmd(s_cli.Cmd):
     def runCmdOpts(self, opts):
 
         tag = opts.get('tag')
+        if tag == None:
+            self.printf(self.__doc__)
+            return
+
         core = self.getCmdItem()
 
         nodes = core.eval( opts.get('query') )

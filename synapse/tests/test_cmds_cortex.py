@@ -61,6 +61,13 @@ class SynCmdCoreTest(SynTest):
             cmdr.runCmdLine('addnode inet:email visi@vertex.link')
             self.nn( core.getTufoByProp('inet:email','visi@vertex.link') )
 
+    def test_cmds_addnode_noopts(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('addnode')
+            self.nn(re.search('Examples:', str(outp)))
+
     def test_cmds_addtag(self):
 
         with self.getDmonCore() as core:
@@ -82,6 +89,13 @@ class SynCmdCoreTest(SynTest):
 
             cmdr.runCmdLine('addtag woot inet:email="visi@vertex.link"')
             self.eq( str(outp).strip(), '0 nodes...')
+
+    def test_cmds_addtag_noopts(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('addtag')
+            self.nn(re.search('Examples:', str(outp)))
 
     def test_cmds_deltag(self):
 
@@ -105,6 +119,13 @@ class SynCmdCoreTest(SynTest):
 
             cmdr.runCmdLine('deltag woot inet:email="visi@vertex.link"')
             self.eq( str(outp).strip(), '0 nodes...')
+
+    def test_cmds_deltag_noopts(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('deltag')
+            self.nn(re.search('Examples:', str(outp)))
 
     def test_cmds_ask(self):
         with self.getDmonCore() as core:
@@ -157,3 +178,10 @@ class SynCmdCoreTest(SynTest):
 
             for term in terms:
                 self.nn(re.search(term, outp))
+
+    def test_cmds_ask_noopts(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask')
+            self.nn(re.search('Examples:', str(outp)))
