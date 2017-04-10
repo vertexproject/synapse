@@ -216,7 +216,7 @@ class Cli(EventBus):
         '''
         return self.cmds.get(name)
 
-    def runCmdLoop(self, stdin=sys.stdin):
+    def runCmdLoop(self):
         '''
         Run commands from stdin until close or fini().
         '''
@@ -232,9 +232,7 @@ class Cli(EventBus):
 
             try:
 
-                self.printf( self.cmdprompt, addnl=False )
-
-                line = input()
+                line = input(self.cmdprompt)
                 if not line:
                     continue
 
