@@ -52,7 +52,7 @@ def openurl(url, **opts):
 
     Notes:
         * ram://
-        * sqlite3:///<db>
+        * sqlite:///<db>
         * postgres://[[<passwd>:]<user>@][<host>]/[<db>][/<table>]
 
         * default table name: syncortex
