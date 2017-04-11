@@ -1,0 +1,2 @@
+recursive-include synapse/data *
+global-exclude *.py[co]
