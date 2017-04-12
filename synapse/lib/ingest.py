@@ -496,6 +496,7 @@ class Ingest(EventBus):
             # handle explicit nested iterators
             for path,tifo in info.get('iters',()):
                 for base in data.iter(path):
+                    scope.set('__key__', base.name())
                     self._ingDataInfo(core, base, tifo, scope)
 
     def _isCondTrue(self, cond, scope):
