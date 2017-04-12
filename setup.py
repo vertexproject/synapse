@@ -13,6 +13,8 @@ setup(
 
     packages=find_packages(exclude=['*.tests','*.tests.*']),
 
+    include_package_data=True,
+
     install_requires=[
         'tornado>=3.2.2',
         'cryptography>=1.7.2',
