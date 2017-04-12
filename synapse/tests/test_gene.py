@@ -46,6 +46,14 @@ class GeneTest(SynTest):
         # self.eq( s_gene.eval('foo:baz != False', syms=syms), 1)
         # self.eq( s_gene.eval('bar:duck != True', syms=syms), 1)
 
+    def test_gene_null(self):
+        # Ensure that if we compare values against None/null objects, we don't match
+        syms = {'foo:baz': None, 'spam:eggs': 10}
+        self.eq(s_gene.eval('foo:baz == 1', syms=syms), 0)
+        self.eq(s_gene.eval('foo:baz == "asdf"', syms=syms), 0)
+        # TODO Add / change tests depending on how we choose to support null operators for comparison
+        # self.eq(s_gene.eval('foo:baz == None', syms=syms), 1)
+
     def test_gene_prec(self):
         self.eq( s_gene.eval('5 + 3 * 2'), 11 )
         self.eq( s_gene.eval('(5 + 3) * 2'), 16 )
