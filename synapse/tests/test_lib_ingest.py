@@ -765,3 +765,75 @@ class IngTest(SynTest):
 
             node = core.eval('inet:email*tag=foo.bar')[0]
             self.eq( node[1].get('inet:email'), 'visi@vertex.link' )
+
+    def test_ingest_iter_object(self):
+        data = {
+            'foo': {
+                'boosh': {
+                    'fqdn': 'vertex.link'
+                },
+                'woot': {
+                    'fqdn': 'foo.bario'
+                }
+            }
+        }
+        info = {'ingest':{
+            'iters':[
+                ["foo/*",{
+                    'vars':[
+                        ['bar', {'path':'0'}],
+                        ['fqdn',{'path':'1/fqdn'}]
+                    ],
+                    'forms': [('inet:fqdn', {'template': '{{bar}}.{{fqdn}}'})]
+                }],
+            ],
+        }}
+
+        with s_cortex.openurl('ram://') as core:
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core,data=data)
+
+            node = core.getTufoByProp('inet:fqdn','boosh.vertex.link')
+            self.assertIsNotNone(node)
+
+            node = core.getTufoByProp('inet:fqdn','woot.foo.bario')
+            self.assertIsNotNone(node)
+
+    def test_ingest_iter_objectish_array(self):
+        data = {
+            'foo': [
+                { 0: 'boosh',
+                  1: {
+                    'fqdn': 'vertex.link'
+                  },
+                },
+                { 0: 'woot',
+                  1: {
+                    'fqdn': 'foo.bario'
+                  }
+                }
+            ]
+        }
+        info = {'ingest':{
+            'iters':[
+                ["foo/*",{
+                    'vars':[
+                        ['bar', {'path':'0'}],
+                        ['fqdn',{'path':'1/fqdn'}]
+                    ],
+                    'forms': [('inet:fqdn', {'template': '{{bar}}.{{fqdn}}'})]
+                }],
+            ],
+        }}
+
+        with s_cortex.openurl('ram://') as core:
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core,data=data)
+
+            node = core.getTufoByProp('inet:fqdn','boosh.vertex.link')
+            self.assertIsNotNone(node)
+
+            node = core.getTufoByProp('inet:fqdn','woot.foo.bario')
+            self.assertIsNotNone(node)
