@@ -866,7 +866,7 @@ def test_ingest_outvar(self):
                     ['file:bytes:sha256',
                      {'props': {'md5': {'var': 'md5'}, 'sha1': {'var': 'sha1'}, 'sha256': {'var': 'sha256'}},
                       'var': 'sha256',
-                      'outvar': 'file_guid'}],
+                      'savevar': 'file_guid'}],
                     ['it:av:filehit', {'template': '{{file_guid}}/{{vendor}}/{{sig_name}}'}]
                 ]
             }],
