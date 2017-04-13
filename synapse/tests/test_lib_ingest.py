@@ -44,7 +44,7 @@ class IngTest(SynTest):
             gest = s_ingest.Ingest(info)
             gest.ingest(core,data=data)
 
-            self.assertIsNotNone( core.getTufoByProp('inet:fqdn','woot.com') )
+            self.nn( core.getTufoByProp('inet:fqdn','woot.com') )
 
     def test_ingest_basic(self):
 
@@ -122,10 +122,10 @@ class IngTest(SynTest):
 
                 gest.ingest(core)
 
-            self.assertIsNotNone( core.getTufoByProp('inet:fqdn','foo.com') )
-            self.assertIsNotNone( core.getTufoByProp('inet:fqdn','vertex.link') )
-            self.assertIsNotNone( core.getTufoByFrob('inet:ipv4','1.2.3.4') )
-            self.assertIsNotNone( core.getTufoByFrob('inet:ipv4','5.6.7.8') )
+            self.nn( core.getTufoByProp('inet:fqdn','foo.com') )
+            self.nn( core.getTufoByProp('inet:fqdn','vertex.link') )
+            self.nn( core.getTufoByFrob('inet:ipv4','1.2.3.4') )
+            self.nn( core.getTufoByFrob('inet:ipv4','5.6.7.8') )
 
             self.eq( len( core.eval('inet:ipv4*tag=hehe.haha') ), 2 )
             self.eq( len( core.eval('inet:fqdn*tag=hehe.haha') ), 2 )
@@ -149,7 +149,7 @@ class IngTest(SynTest):
 
             tufo = core.getTufoByProp('file:bytes','442f602ecf8230b2a59a44b4f845be27')
 
-            self.assertTrue( s_tufo.tagged(tufo,'woo.woo') )
+            self.true( s_tufo.tagged(tufo,'woo.woo') )
             self.eq( tufo[1].get('file:bytes'), '442f602ecf8230b2a59a44b4f845be27')
             self.eq( tufo[1].get('file:bytes:mime'), 'hehe/haha' )
 
@@ -174,7 +174,7 @@ class IngTest(SynTest):
 
             self.eq( tufo[1].get('file:bytes'), '442f602ecf8230b2a59a44b4f845be27')
             self.eq( tufo[1].get('file:bytes:mime'), 'hehe/haha' )
-            self.assertTrue( s_tufo.tagged(tufo,'woo.woo') )
+            self.true( s_tufo.tagged(tufo,'woo.woo') )
 
     def test_ingest_pivot(self):
 
@@ -202,7 +202,7 @@ class IngTest(SynTest):
             gest = s_ingest.Ingest(info)
             gest.ingest(core,data=data)
 
-            self.assertIsNotNone( core.getTufoByProp('hehe:haha','442f602ecf8230b2a59a44b4f845be27') )
+            self.nn( core.getTufoByProp('hehe:haha','442f602ecf8230b2a59a44b4f845be27') )
 
     def test_ingest_template(self):
 
@@ -225,9 +225,9 @@ class IngTest(SynTest):
             gest = s_ingest.Ingest(info)
             gest.ingest(core,data=data)
 
-            self.assertIsNotNone( core.getTufoByProp('inet:ipv4', 0x01020304 ) )
-            self.assertIsNotNone( core.getTufoByProp('inet:fqdn', 'vertex.link') )
-            self.assertIsNotNone( core.getTufoByProp('inet:dns:a','vertex.link/1.2.3.4') )
+            self.nn( core.getTufoByProp('inet:ipv4', 0x01020304 ) )
+            self.nn( core.getTufoByProp('inet:fqdn', 'vertex.link') )
+            self.nn( core.getTufoByProp('inet:dns:a','vertex.link/1.2.3.4') )
 
     def test_ingest_json(self):
         testjson = b'''{
@@ -490,7 +490,7 @@ class IngTest(SynTest):
             gest = s_ingest.Ingest(info)
             gest.ingest(core,data=data)
 
-            self.assertIsNone( core.getTufoByProp('inet:fqdn','vertex.link') )
+            self.none( core.getTufoByProp('inet:fqdn','vertex.link') )
 
             data['foo'][0]['hehe'] = 9
 
@@ -635,7 +635,7 @@ class IngTest(SynTest):
                 gest = s_ingest.Ingest(info)
                 gest.ingest(core)
 
-            self.assertIsNotNone( core.getTufoByProp('inet:fqdn','woot') )
+            self.nn( core.getTufoByProp('inet:fqdn','woot') )
 
     def test_ingest_embed_nodes(self):
 
