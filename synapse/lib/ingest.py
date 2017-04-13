@@ -472,7 +472,7 @@ class Ingest(EventBus):
                 traceback.print_exc()
                 core.logCoreExc(e,subsys='ingest')
 
-        savevarn = info.get('outvar')
+        savevarn = info.get('savevar')
         if savevarn and _savevar:
             scope.set(savevarn, _savevar)
 
