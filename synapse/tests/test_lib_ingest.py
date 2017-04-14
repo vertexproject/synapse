@@ -498,6 +498,26 @@ class IngTest(SynTest):
 
             self.nn( core.getTufoByProp('inet:fqdn','vertex.link') )
 
+    def test_ingest_condform_with_missing_var(self):
+
+        data = {'foo':[ {'fqdn':'vertex.link','hehe':3} ] }
+
+        info = {'ingest':{
+            'iters':[
+                ["foo/*",{
+                    'vars':[ ['hehe',{'path':'heho'}] ],
+                    'forms':[ ('inet:fqdn',{'path':'fqdn','cond':'hehe != 3'}) ],
+                }],
+            ],
+        }}
+
+        with s_cortex.openurl('ram://') as core:
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core,data=data)
+
+            self.nn( core.getTufoByProp('inet:fqdn','vertex.link') )
+
     def test_ingest_condtag(self):
 
         data = {'foo':[ {'fqdn':'vertex.link','hehe':3} ] }

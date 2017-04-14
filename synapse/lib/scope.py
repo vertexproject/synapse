@@ -64,8 +64,8 @@ class Scope:
         Retrieve a value from the closest scope frame.
         '''
         for frame in reversed(self.frames):
-            valu = frame.get(name)
-            if valu != None:
+            valu = frame.get(name, defval)
+            if valu != defval:
                 return valu
 
         task = self.ctors.get(name)
