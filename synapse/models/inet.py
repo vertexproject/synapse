@@ -184,8 +184,8 @@ def getDataModel():
                 ('signup',{'ptype':'time','defval':0,'doc':'The time the netuser account was registered'}),
                 ('signup:ipv4',{'ptype':'inet:ipv4','defval':0,'doc':'The original ipv4 address used to sign up for the account'}),
                 ('passwd',{'ptype':'inet:passwd','doc':'The current passwd for the netuser account'}),
-                ('seen:min',{'ptype':'time:min','defval':0}),
-                ('seen:max',{'ptype':'time:max','defval':0}),
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
             ]),
 
             ('inet:netgroup',{},[
