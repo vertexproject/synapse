@@ -27,7 +27,7 @@ def getDataModel():
             ]),
 
             ('ou:member',{'ptype':'sepr','sep':'/','fields':'org,ou:org|person,ou:person'},[
-                ('start',{'ptype':'time:min','defval':0}),
+                ('start',{'ptype':'time:min'}),
                 ('title',{'ptype':'str:lwr','defval':'??'}),
             ]),
 

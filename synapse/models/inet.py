@@ -153,8 +153,8 @@ def getDataModel():
                 ('email',{'ptype':'inet:email'}),
                 ('signup',{'ptype':'time','defval':0,'doc':'The time the netuser account was registered'}),
                 ('passwd',{'ptype':'inet:passwd','doc':'The current passwd for the netuser account'}),
-                ('seen:min',{'ptype':'time:min','defval':0}),
-                ('seen:max',{'ptype':'time:max','defval':0}),
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
             ]),
 
             ('inet:netmesg',{'ptype':'inet:netmesg'},[
