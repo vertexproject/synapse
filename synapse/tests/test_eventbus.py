@@ -98,6 +98,22 @@ class EventBusTest(SynTest):
 
         self.assertEqual( data['count'], 1 )
 
+    def test_eventbus_fini_weak(self):
+        '''
+        Ensure that weak ref'd fini functions are fire as well.
+        '''
+        data = {'count': 0}
+
+        def onfini():
+            data['count'] += 1
+
+        bus = s_eventbus.EventBus()
+        bus.onfini(onfini, weak=True)
+
+        bus.fini()
+        bus.fini()
+
+        self.assertEqual(data['count'], 1)
 
     def test_eventbus_consume(self):
         bus = s_eventbus.EventBus()
