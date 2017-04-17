@@ -426,6 +426,8 @@ class Ingest(EventBus):
 
     def _ingFormInfo(self, core, data, info, scope):
 
+        _savevar = None
+
         with scope:
 
             try:
@@ -463,9 +465,16 @@ class Ingest(EventBus):
                     core.addTufoTag(tufo,tag)
                     self.fire('gest:prog', act='tag')
 
+                if info.get('savevar'):
+                    _savevar = tufo[1].get(tufo[1].get('tufo:form'))
+
             except Exception as e:
                 traceback.print_exc()
                 core.logCoreExc(e,subsys='ingest')
+
+        savevarn = info.get('savevar')
+        if savevarn and _savevar:
+            scope.set(savevarn, _savevar)
 
     def _ingDataInfo(self, core, data, info, scope):
 
