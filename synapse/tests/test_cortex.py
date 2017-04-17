@@ -15,9 +15,7 @@ import synapse.link as s_link
 import synapse.telepath as s_telepath
 
 import synapse.lib.tags as s_tags
-import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
-import synapse.lib.ingest as s_ingest
 import synapse.lib.threads as s_threads
 
 import synapse.models.syn as s_models_syn
