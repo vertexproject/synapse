@@ -885,7 +885,7 @@ class IngTest(SynTest):
             self.nn(core.getTufoByProp('it:av:sig:sig', 'meme32.lazydog.puntuation'))
             self.eq(len(core.getTufosByProp('it:av:sig:org', 'memesec')), 2)
 
-    def test_cortex_with_ingest(self):
+    def test_ingest_cortex_registration(self):
 
         data1 = {'foo': [{'fqdn':'vertex.link','haha':['barbar','foofoo']}]}
         data2 = {'foo': [{'fqdn': 'weallfloat.com', 'haha': ['fooboat', 'sewer']}]}
