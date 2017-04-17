@@ -221,9 +221,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         self.setOperFunc('stat', self._stormOperStat)
         self.setOperFunc('dset', self._stormOperDset)
 
-        # Storage for registered ingest handlers.
-        self._ingest_ref = {}
-
         # allow modules a shot at hooking cortex events for model ctors
         for name,ret,exc in s_modules.call('addCoreOns',self):
             if exc != None:
@@ -2466,22 +2463,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
     def _getCoreXact(self, size):
         raise NoSuchImpl(name='_getCoreXact')
-
-    def regIngest(self, name, gest):
-        if name in self._ingest_ref:
-            raise Exception('Ingest handler %s already registered.' % str(name))
-        self._ingest_ref[name] = gest
-
-    def unregIngest(self, name):
-        if name not in self._ingest_ref:
-            raise Exception('No handler registered for %s' % str(name))
-        self._ingest_ref.pop(name)
-
-    def ingestData(self, name, data):
-        gest = self._ingest_ref.get(name)
-        if not gest:
-            raise Exception('No handler registered for %s' % str(name))
-        gest.ingest(self, data)
 
 
 class CoreXact:
