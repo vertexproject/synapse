@@ -1,3 +1,9 @@
+"""
+Provides data for the ISO 3166-1 Country codes.
+
+Reference:
+    https://en.wikipedia.org/wiki/ISO_3166
+"""
 countries = [
     ("afghanistan","af","afg","004"),
     ("aland islands","ax","ala","248"),
@@ -255,6 +261,3 @@ def makeColLook(rows,scol,dcol):
     return retn
 
 country2iso = makeColLook(countries,0,1)
-
-#print(country2iso2)
-#print(country2iso2.get('united states of america'))
