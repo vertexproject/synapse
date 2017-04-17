@@ -651,7 +651,8 @@ def loadfile(*paths):
 def register_ingest(core, gest, evtname):
     '''
     Register an ingest class with a cortex eventbus with a given name.
-    When events are fired, they are expected to have the arguement "data" which is passed along to the Ingest.ingest() function.
+    When events are fired, they are expected to have the argument "data" which 
+    is passed along to the Ingest.ingest() function.
 
     :param core: Cortex to register the Ingest with 
     :param gest: Ingest to register
