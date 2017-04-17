@@ -435,7 +435,9 @@ class Ingest(EventBus):
                 self.fire('gest:prog', act='tag')
 
     def _ingFormInfo(self, core, data, info, scope):
-
+        '''
+        Create new nodes via frob interface which match a given form definition.
+        '''
         _savevar = None
 
         with scope:
