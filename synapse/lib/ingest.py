@@ -644,3 +644,17 @@ def loadfile(*paths):
     gest.set('basedir', os.path.dirname(path))
 
     return gest
+
+def register_ingest(core, gest, evtname):
+    '''
+    Register an ingest class with a cortex eventbus with a given name.
+
+    :param core: Cortex to register the Ingest with 
+    :param gest: Ingest to register
+    :param evtname: Event name to register the ingest with.
+    '''
+    def ingest(args):
+        evtname, data = args
+        gest.ingest(core, data=data)
+
+    core.on(evtname, ingest)

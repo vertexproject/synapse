@@ -884,3 +884,62 @@ class IngTest(SynTest):
             self.nn(core.getTufoByProp('it:av:filehit:sig', 'memesec/meme32.lazydog.puntuation'))
             self.nn(core.getTufoByProp('it:av:sig:sig', 'meme32.lazydog.puntuation'))
             self.eq(len(core.getTufosByProp('it:av:sig:org', 'memesec')), 2)
+
+    def test_cortex_with_ingest(self):
+
+        data1 = {'foo': [{'fqdn':'vertex.link','haha':['barbar','foofoo']}]}
+        data2 = {'foo': [{'fqdn': 'weallfloat.com', 'haha': ['fooboat', 'sewer']}]}
+        data3 = {'foo': [{'fqdn': 'woot.com', 'haha': ['fooboat', 'sewer']}]}
+
+        ingest_def = {'ingest': {
+            'iters': [
+                ["foo/*", {
+                    'vars': [['zoom', {'path': 'fqdn'}]],
+                    'tags': [
+                        {'iter': 'haha/*',
+                         'vars': [
+                             ['tag', {'regex': '^foo'}],
+                         ],
+                         'template': 'zoom.{{tag}}'}
+                    ],
+                    'forms': [('inet:fqdn', {'path': 'fqdn'})],
+                }],
+            ],
+        }}
+
+        ingest_def2 = {'ingest': {
+            'iters': [
+                ["foo/*", {
+                    'vars': [['zoom', {'path': 'fqdn'}]],
+                    'forms': [('inet:fqdn', {'path': 'fqdn'})],
+                }],
+            ],
+        }}
+
+        gest = s_ingest.Ingest(ingest_def)
+        gest2 = s_ingest.Ingest(ingest_def2)
+
+        with s_cortex.openurl('ram:///') as core:
+
+            s_ingest.register_ingest(core=core, gest=gest, evtname='ingest:test')
+            s_ingest.register_ingest(core=core, gest=gest2, evtname='ingest:test2')
+
+            # Dump data into the core an event at a time.
+            core.fire('ingest:test', data=data1)
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.true(isinstance(node, tuple))
+            self.true(s_tufo.tagged(node, 'zoom.foofoo'))
+            self.false(s_tufo.tagged(node, 'zoom.barbar'))
+
+            core.fire('ingest:test', data=data2)
+            node = core.getTufoByProp('inet:fqdn', 'weallfloat.com')
+            self.true(isinstance(node, tuple))
+            self.true(s_tufo.tagged(node, 'zoom.fooboat'))
+            self.false(s_tufo.tagged(node, 'zoom.sewer'))
+
+            # Try another ingest attached to the core.  This won't have any tags applied.
+            core.fire('ingest:test2', data=data3)
+            node = core.getTufoByProp('inet:fqdn', 'woot.com')
+            self.true(isinstance(node, tuple))
+            self.false(s_tufo.tagged(node, 'zoom.fooboat'))
+            self.false(s_tufo.tagged(node, 'zoom.sewer'))
