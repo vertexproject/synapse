@@ -165,3 +165,13 @@ class EventBusTest(SynTest):
         wait1 = bus0.waiter(3,'foo:baz')
         evts = wait1.wait(timeout=0.1)
         self.assertIsNone( evts )
+
+    def test_eventbus_bad_callback(self):
+        '''
+        Ensure that registering non-callables fails.
+        '''
+        bus = s_eventbus.EventBus()
+        non_callable = 1
+        with self.raises(Exception) as cm:
+            bus.on('woot', non_callable)
+        self.assertIn('func not callable', str(cm.exception))
