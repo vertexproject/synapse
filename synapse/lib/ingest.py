@@ -204,9 +204,15 @@ class Ingest(EventBus):
         return ret
 
     def get(self, name, defval=None):
+        """
+        Retrieve a value from self._i_info
+        """
         return self._i_info.get(name,defval)
 
     def set(self, name, valu):
+        '''
+        Set a value in self._i_info
+        '''
         self._i_info[name] = valu
 
     def _iterDataSorc(self, path, info):
@@ -370,6 +376,10 @@ class Ingest(EventBus):
                     core.addTufoTags(node,nodetags)
 
     def _ingMergScope(self, core, data, info, scope):
+        '''
+        Extract variables from info and populate them into the current scope.
+        Extract tags from the info and populate them into the current scope.
+        '''
 
         vard = info.get('vars')
         if vard != None:
