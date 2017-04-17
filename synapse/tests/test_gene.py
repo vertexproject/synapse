@@ -33,6 +33,27 @@ class GeneTest(SynTest):
 
         self.eq( s_gene.eval('foo:bar + 0x0a == 20', syms=syms), 1 )
 
+    def test_gene_bool(self):
+        # Ensure we can handle values in syms which are True / False
+        syms = {'foo:baz': True, 'bar:duck': False}
+        self.eq( s_gene.eval('foo:baz == 1', syms=syms), 1)
+        self.eq( s_gene.eval('bar:duck == 0', syms=syms), 1)
+        self.eq( s_gene.eval('foo:baz != 0', syms=syms), 1)
+        self.eq( s_gene.eval('bar:duck != 1', syms=syms), 1)
+        # TODO Add / change tests depending on how we choose to support boolean operators.
+        # self.eq( s_gene.eval('foo:baz == True', syms=syms), 1)
+        # self.eq( s_gene.eval('bar:duck == False', syms=syms), 1)
+        # self.eq( s_gene.eval('foo:baz != False', syms=syms), 1)
+        # self.eq( s_gene.eval('bar:duck != True', syms=syms), 1)
+
+    def test_gene_null(self):
+        # Ensure that if we compare values against None/null objects, we don't match
+        syms = {'foo:baz': None, 'spam:eggs': 10}
+        self.eq(s_gene.eval('foo:baz == 1', syms=syms), 0)
+        self.eq(s_gene.eval('foo:baz == "asdf"', syms=syms), 0)
+        # TODO Add / change tests depending on how we choose to support null operators for comparison
+        # self.eq(s_gene.eval('foo:baz == None', syms=syms), 1)
+
     def test_gene_prec(self):
         self.eq( s_gene.eval('5 + 3 * 2'), 11 )
         self.eq( s_gene.eval('(5 + 3) * 2'), 16 )
