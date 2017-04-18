@@ -41,6 +41,18 @@ class TestEasyCert(SynTest):
             self.assertEqual( s_easycert.main(argv,outp=outp), 0)
             outp.expect('csr saved:')
 
+            # Generate a server CSR
+            outp = self.getTestOutp()
+            argv = ['--csr', '--certdir', path, 'wwww.vertex.link', '--server']
+            self.assertEqual(s_easycert.main(argv, outp=outp), 0)
+            outp.expect('csr saved:')
+
+            # Ensure that duplicate files won't be overwritten
+            outp = self.getTestOutp()
+            argv = ['--csr','--certdir',path,'user@test.com']
+            self.assertEqual( s_easycert.main(argv,outp=outp), -1)
+            outp.expect('file exists:')
+
             outp = self.getTestOutp()
             argv = ['--ca','--certdir',path,'testca']
             self.assertEqual( s_easycert.main(argv,outp=outp), 0)
@@ -48,9 +60,24 @@ class TestEasyCert(SynTest):
 
             outp = self.getTestOutp()
             csrpath = os.path.join(path,'users','user@test.com.csr')
-            argv = ['--certdir',path,'--signas','testca','--sign-csr',csrpath ]
+            argv = ['--certdir',path,'--signas','testca','--sign-csr',csrpath, ]
             self.assertEqual( s_easycert.main(argv,outp=outp), 0)
             outp.expect('cert saved:')
 
-            argv = ['--certdir',path,'--signas','testca','--sign-csr','lololol' ]
+            # Ensure we can do server certificate signing
+            outp = self.getTestOutp()
+            csrpath = os.path.join(path,'hosts','wwww.vertex.link.csr')
+            argv = ['--certdir',path,'--signas','testca','--sign-csr', csrpath, '--server']
+            self.eq(s_easycert.main(argv,outp=outp), 0)
+            outp.expect('cert saved:')
+
+            outp = self.getTestOutp()
+            argv = ['--certdir',path,'--signas','testca','--sign-csr','lololol', ]
             self.assertEqual( s_easycert.main(argv,outp=outp), -1)
+            outp.expect('csr not found')
+
+            # Test bad input
+            outp = self.getTestOutp()
+            argv = ['--certdir',path, '--sign-csr','lololol', ]
+            self.assertEqual( s_easycert.main(argv,outp=outp), -1)
+            outp.expect('--sign-csr requires --signas')
