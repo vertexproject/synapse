@@ -7,6 +7,16 @@ import synapse.lib.syntax as s_syntax
 
 from synapse.eventbus import EventBus
 
+
+def get_input(text):
+    '''
+    Wrapper for input function for testing runCmdLoop.
+    :param text: 
+    :return: 
+    '''
+    return input(text)
+
+
 class CliFini(Exception): pass
 
 class Cmd:
@@ -232,7 +242,7 @@ class Cli(EventBus):
 
             try:
 
-                line = input(self.cmdprompt)
+                line = get_input(self.cmdprompt)
                 if not line:
                     continue
 
