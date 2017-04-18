@@ -661,6 +661,7 @@ def register_ingest(core, gest, evtname):
     def ingest(args):
         name, kwargs = args
         data = kwargs.get('data')
-        gest.ingest(core, data=data)
+        with core.getCoreXact() as xact:
+            gest.ingest(core, data=data)
 
     core.on(evtname, ingest)
