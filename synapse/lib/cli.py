@@ -8,11 +8,10 @@ import synapse.lib.syntax as s_syntax
 from synapse.eventbus import EventBus
 
 
-def get_input(text):
+def get_input(text):  # pragma: no cover
     '''
-    Wrapper for input function for testing runCmdLoop.
-    :param text: 
-    :return: 
+    Wrapper for input() function for testing runCmdLoop.
+    :param text: Banner to display.
     '''
     return input(text)
 
