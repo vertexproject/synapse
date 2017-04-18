@@ -84,7 +84,7 @@ def choptag(tag):
     parts = tag.split('.')
     return [ '.'.join(parts[:x+1]) for x in range(len(parts)) ]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     import sys
     import code
 
