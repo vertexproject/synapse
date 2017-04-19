@@ -98,6 +98,22 @@ class EventBusTest(SynTest):
 
         self.assertEqual( data['count'], 1 )
 
+    def test_eventbus_fini_weak(self):
+        '''
+        Ensure that weak ref'd fini functions are fire as well.
+        '''
+        data = {'count': 0}
+
+        def onfini():
+            data['count'] += 1
+
+        bus = s_eventbus.EventBus()
+        bus.onfini(onfini, weak=True)
+
+        bus.fini()
+        bus.fini()
+
+        self.assertEqual(data['count'], 1)
 
     def test_eventbus_consume(self):
         bus = s_eventbus.EventBus()
@@ -165,3 +181,13 @@ class EventBusTest(SynTest):
         wait1 = bus0.waiter(3,'foo:baz')
         evts = wait1.wait(timeout=0.1)
         self.assertIsNone( evts )
+
+    def test_eventbus_bad_callback(self):
+        '''
+        Ensure that registering non-callables fails.
+        '''
+        bus = s_eventbus.EventBus()
+        non_callable = 1
+        with self.raises(Exception) as cm:
+            bus.on('woot', non_callable)
+        self.assertIn('func not callable', str(cm.exception))

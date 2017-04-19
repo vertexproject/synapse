@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 import logging
 import tempfile
@@ -63,6 +64,11 @@ class SynTest(unittest.TestCase):
 
     def getTestWait(self, bus, size, *evts):
         return s_eventbus.Waiter(bus, size, *evts)
+
+    def skipIfOldPython(self):
+        python_version = sys.version_info
+        if python_version.major == 2 or (python_version.major == 3 and python_version.minor < 3):
+            raise unittest.SkipTest('old python version')
 
     def skipIfNoInternet(self):
         if os.getenv('SYN_TEST_NO_INTERNET'):
