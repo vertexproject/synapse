@@ -1,12 +1,15 @@
+import json
 import traceback
 import collections
 
 import synapse.common as s_common
+import synapse.eventbus as s_eventbus
 
+import synapse.lib.mixins as s_mixins
 import synapse.lib.output as s_output
 import synapse.lib.syntax as s_syntax
+import synapse.lib.reflect as s_reflect
 
-from synapse.eventbus import EventBus
 
 def get_input(text):  # pragma: no cover
     '''
@@ -22,8 +25,6 @@ def get_input(text):  # pragma: no cover
         str: String of text from the user.
     '''
     return input(text)
-
-class CliFini(Exception): pass
 
 class Cmd:
     '''
@@ -188,12 +189,12 @@ class Cmd:
     def printf(self, mesg, addnl=True):
         return self._cmd_cli.printf(mesg, addnl=addnl)
 
-class Cli(EventBus):
+class Cli(s_eventbus.EventBus):
     '''
     A modular / event-driven CLI base object.
     '''
     def __init__(self, item, outp=None, **locs):
-        EventBus.__init__(self)
+        s_eventbus.EventBus.__init__(self)
 
         if outp is None:
             outp = s_output.OutPut()
@@ -207,12 +208,38 @@ class Cli(EventBus):
 
         self.addCmdClass(CmdHelp)
         self.addCmdClass(CmdQuit)
+        self.addCmdClass(CmdLocals)
+
+    def reflectItem(self):
+        refl = s_reflect.getItemInfo(self.item)
+        if refl is None:
+            return
+
+        for name in refl.get('inherits', ()):
+            for mixi in s_mixins.getSynMixins('cmdr', name):
+                self.addCmdClass(mixi)
 
     def get(self, name, defval=None):
         return self.locs.get(name, defval)
 
     def set(self, name, valu):
         self.locs[name] = valu
+
+    def get_input(self, prompt=None):
+        '''
+        Get the input string to parse.
+
+        Args:
+            prompt (str): Optional string to use as the prompt. Otherwise self.cmdprompt is used.
+
+        Returns:
+            str: A string to process.
+        '''
+        if not prompt:
+            prompt = self.cmdprompt
+
+        self.fire('cli:getinput')
+        return get_input(prompt)
 
     def printf(self, mesg, addnl=True):
         return self.outp.printf(mesg, addnl=addnl)
@@ -237,23 +264,29 @@ class Cli(EventBus):
         '''
         return self.cmds.get(name)
 
+    def getCmdPrompt(self):
+        '''
+        Get the command prompt.
+
+        Returns:
+            str: Configured command prompt
+        '''
+        return self.cmdprompt
+
     def runCmdLoop(self):
         '''
-        Run commands from stdin until close or fini().
+        Run commands from a user in an interactive fashion until fini() or EOFError is raised.
         '''
         import readline
         readline.read_init_file()
 
         while not self.isfini:
 
-            # if our stdin closes, return from runCmdLoop
-
-            # FIXME raw_input
             # FIXME history / completion
 
             try:
 
-                line = get_input(self.cmdprompt)
+                line = self.get_input()
                 if not line:
                     continue
 
@@ -266,20 +299,27 @@ class Cli(EventBus):
             except KeyboardInterrupt as e:
                 self.printf('<ctrl-c>')
 
-            except EOFError as e:
+            except (s_common.CliFini, EOFError) as e:
                 self.fini()
 
             except Exception as e:
-                traceback.print_exc()
+                s = traceback.format_exc()
+                self.printf(s)
 
     def runCmdLine(self, line):
         '''
         Run a single command line.
 
-        Example:
+        Args:
+            line (str): Line to execute.
 
-            cli.runCmdLine('woot --help')
+        Examples:
+            Execute the 'woot' command with the 'help' switch:
 
+                cli.runCmdLine('woot --help')
+
+        Returns:
+            object: Arbitrary data from the cmd class.
         '''
         ret = None
 
@@ -296,7 +336,7 @@ class Cli(EventBus):
 
             ret = cmdo.runCmdLine(line)
 
-        except (CliFini, EOFError) as e:
+        except s_common.CliFini as e:
             self.fini()
 
         except KeyboardInterrupt as e:
@@ -322,7 +362,7 @@ class CmdQuit(Cmd):
 
     def runCmdOpts(self, opts):
         self.printf('o/')
-        raise CliFini()
+        raise s_common.CliFini()
 
 class CmdHelp(Cmd):
     '''
@@ -367,3 +407,16 @@ class CmdHelp(Cmd):
             self.printf(cmdo.getCmdDoc())
 
         return
+
+class CmdLocals(Cmd):
+    '''
+    List the current locals for a given CLI object
+    '''
+    _cmd_name = 'locs'
+
+    def runCmdOpts(self, opts):
+        ret = {}
+        for k, v in self._cmd_cli.locs.items():
+            ret[k] = repr(v)
+        mesg = json.dumps(ret, indent=2, sort_keys=True)
+        self.printf(mesg)
