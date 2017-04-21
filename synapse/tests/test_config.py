@@ -16,6 +16,9 @@ class ConfTest(SynTest):
 
         with s_config.Config(defs=defs) as conf:
 
+            self.eq(conf.getConfOpt('enabled'), 0)
+            self.eq(conf.getConfOpt('fooval'), 99)
+
             conf.onConfOptSet('enabled',callback)
 
             conf.setConfOpt('enabled','true')
