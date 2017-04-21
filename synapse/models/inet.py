@@ -48,8 +48,12 @@ def getDataModel():
             ('inet:mac',  {'subof':'str', 'regex':'^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower':1, 'nullval':'??',
                            'ex':'aa:bb:cc:dd:ee:ff','doc':'A 48 bit mac address'}),
 
-            ('inet:netuser',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|user,inet:user',
+            ('inet:netuser',{'subof':'sepr','sep':'/','fields':'site,inet:fqdn|user,inet:user',
                                'doc':'A user account at a given web address','ex':'twitter.com/invisig0th'}),
+
+            ('inet:netpost',{'subof':'sepr', 'sep':'/', 'reverse':1, 'fields':'netuser,inet:netuser|time,time',
+                             'doc':'A post made by a netuser at a specific time','ex':'twitter.com/invisig0th/20150302225401'}),
+
 
             ('inet:netmesg',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|from,inet:user|to,inet:user|sent,time',
                                'doc':'A message sent from one user to another within a web community',
@@ -59,6 +63,7 @@ def getDataModel():
 
             ('inet:whois:reg',{'subof':'str','doc':'A whois registrant','ex':'Woot Hostmaster'}),
             ('inet:whois:rec',{'subof':'sepr','sep':'@','fields':'fqdn,inet:fqdn|asof,time','doc':'A whois record','ex':''}),
+            ('inet:whois:contact',{'subof':'sepr','sep':'/','fields':'type,str|rec,inet:whois:rec','doc':'A whois contact for a specific record'}),
             ('inet:whois:regmail',{'subof':'sepr','sep':'/','fields':'fqdn,inet:fqdn|email,inet:email','doc':'A whois registration fqdn->email link'}),
 
             # TODO: (port from nucleus etc)
@@ -92,9 +97,9 @@ def getDataModel():
                 ('passwd',{'ptype':'inet:passwd','ro':1}),
             ]),
 
-            ('inet:asn',{'ptype':'inet:asn','doc':'An Autonomous System'},[
+            ('inet:asn',{'ptype':'inet:asn','doc':'An Autonomous System'},(
                 ('name',{'ptype':'str:lwr','defval':'??'}),
-            ]),
+            )),
 
             ('inet:asnet4',{'ptype':'inet:asnet4','doc':'A netblock IPv4 range assigned to an Autonomous System'},[
                 ('asn',{'ptype':'inet:asn'}),
@@ -120,6 +125,11 @@ def getDataModel():
                 ('zone',{'ptype':'bool','defval':0,'doc':'Set to 1 if this FQDN is a logical zone (under a suffix)'}),
                 ('domain',{'ptype':'inet:fqdn','doc':'The parent FQDN of the FQDN'}),
                 ('host',{'ptype':'str','doc':'The hostname of the FQDN'}),
+
+                ('created',{'ptype':'time:min'}),
+                ('updated',{'ptype':'time:max'}),
+                ('expires',{'ptype':'time:max'}),
+
             ]),
 
             ('inet:email',{'ptype':'inet:email'},[
@@ -136,6 +146,7 @@ def getDataModel():
                 ('ipv4',{'ptype':'inet:ipv4','ro':1}),
                 ('port',{'ptype':'inet:port','ro':1}),
             ]),
+
             ('inet:tcp6',{'ptype':'inet:srv6'},[
                 ('ipv6',{'ptype':'inet:ipv6','ro':1}),
                 ('port',{'ptype':'inet:port','ro':1}),
@@ -149,13 +160,45 @@ def getDataModel():
             ('inet:netuser',{'ptype':'inet:netuser'},[
                 ('site',{'ptype':'inet:fqdn','ro':1}),
                 ('user',{'ptype':'inet:user','ro':1}),
-                ('name',{'ptype':'str','defval':'??'}),
+
+                ('dob',{'ptype':'time'}),
+
+                #('bio:bt',{'ptype':'wtf','doc':'The netusers self documented blood type'}),
+
+                ('url',{'ptype':'inet:url'}),
+                ('webpage',{'ptype':'inet:url'}),
+                ('avatar',{'ptype':'file:bytes'}),
+
+                ('tagline',{'ptype':'str:txt','doc':'A netuser status/tag line text'}),
+                ('occupation',{'ptype':'str:txt','doc':'A netuser self declared occupation'}),
+                #('gender',{'ptype':'inet:fqdn','ro':1}),
+
+                ('name',{'ptype':'inet:user'}),
+                ('realname',{'ptype':'ps:name'}),
                 ('email',{'ptype':'inet:email'}),
+                ('phone',{'ptype':'tel:phone'}),
                 ('signup',{'ptype':'time','defval':0,'doc':'The time the netuser account was registered'}),
+                ('signup:ipv4',{'ptype':'inet:ipv4','defval':0,'doc':'The original ipv4 address used to sign up for the account'}),
                 ('passwd',{'ptype':'inet:passwd','doc':'The current passwd for the netuser account'}),
                 ('seen:min',{'ptype':'time:min'}),
                 ('seen:max',{'ptype':'time:max'}),
             ]),
+
+            ('inet:netpost',{},[
+                ('netuser',{'ptype':'inet:netuser'}),
+                ('time',{'ptype':'time'}),
+
+                #FIXME how do we deal with this issue both generally and in a non-english-centric way
+                ('text',{'ptype':'str:txt','defval':'??','doc':'The text of the post'}),
+                ('text:en',{'ptype':'str:txt','doc':'An optional english translation of the post text'}),
+
+                ('url',{'ptype':'inet:url','doc':'The (optional) URL where the post is published/visible'}),
+                ('file',{'ptype':'file:bytes','doc':'The (optional) file which was posted'}),
+            ]),
+
+            #('inet:netfollow ( seed net:friend creates 2 net follow )
+            #('inet:netroup #avatar, url, website
+            #('inet:netmemb',
 
             ('inet:netmesg',{'ptype':'inet:netmesg'},[
                 ('site',{'ptype':'inet:fqdn','ro':1}),
@@ -175,12 +218,37 @@ def getDataModel():
             ('inet:whois:rec',{'ptype':'inet:whois:rec'},[
                 ('fqdn',{'ptype':'inet:fqdn'}),
                 ('asof',{'ptype':'time'}),
+                ('text',{'ptype':'str:lwr'}),
                 ('created',{'ptype':'time','defval':0,'doc':'The "created" time from the whois record'}),
                 ('updated',{'ptype':'time','defval':0,'doc':'The "last updated" time from the whois record'}),
                 ('expires',{'ptype':'time','defval':0,'doc':'The "expires" time from the whois record'}),
                 ('registrar',{'ptype':'inet:whois:reg','defval':'??'}),
                 ('registrant',{'ptype':'inet:whois:reg','defval':'??'}),
-                # TODO admin/tech/billing contact info
+                ('ns1',{'ptype':'inet:fqdn'}),
+                ('ns2',{'ptype':'inet:fqdn'}),
+            ]),
+
+            ('inet:whois:contact',{},[
+
+                ('rec',{'ptype':'inet:whois:rec'}),
+                ('rec:fqdn',{'ptype':'inet:fqdn'}),
+                ('rec:asof',{'ptype':'time'}),
+
+                ('type',{'ptype':'str:lwr'}),
+
+                ('id',{'ptype':'str:lwr'}),
+                ('name',{'ptype':'str:lwr'}),
+                ('email',{'ptype':'inet:email'}),
+
+                ('orgname',{'ptype':'ou:name'}),
+                ('address',{'ptype':'str:lwr'}), # FIXME street address type
+                ('city',{'ptype':'str:lwr'}),
+                #('zip',{'ptype':'str:lwr'}),
+                ('state',{'ptype':'str:lwr'}),
+                ('country',{'ptype':'pol:iso2'}),
+
+                ('phone',{'ptype':'tel:phone'}),
+                ('fax',{'ptype':'tel:phone'}),
             ]),
 
             ('inet:ssl:tcp4cert',{'ptype':'inet:ssl:tcp4cert'},[
