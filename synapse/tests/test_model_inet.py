@@ -29,14 +29,6 @@ class InetModelTest(SynTest):
             self.eq( t1[1].get('inet:mac'), 'ff:ee:dd:cc:bb:aa' )
             self.eq( t1[1].get('inet:mac:vendor'), 'woot' )
 
-    def test_model_inet_passwd(self):
-
-        with s_cortex.openurl('ram:///') as core:
-            t0 = core.formTufoByProp('inet:passwd','secret')
-            self.eq( t0[1].get('inet:passwd:md5'), '5ebe2294ecd0e0f08eab7690d2a6ee69' )
-            self.eq( t0[1].get('inet:passwd:sha1'), 'e5e9fa1ba31ecd1ae84f75caaa474f3a663f05f4' )
-            self.eq( t0[1].get('inet:passwd:sha256'), '2bb80d537b1da3e38bd30361aa855686bde0eacd7162fef6a25fe97bf527a25b' )
-
     def test_model_inet_ipv4(self):
 
         with s_cortex.openurl('ram:///') as core:

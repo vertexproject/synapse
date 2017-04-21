@@ -7,7 +7,7 @@ class PersonTest(SynTest):
 
         with s_cortex.openurl('ram:///') as core:
             dob = core.getTypeParse('time','19700101000000001')
-            node = core.formTufoByProp('ps:person', guid(), dob=dob, name='Kenshoto,Invisigoth')
+            node = core.formTufoByProp('ps:person', guid(), dob=dob[0], name='Kenshoto,Invisigoth')
             self.eq( node[1].get('ps:person:dob'), 1 )
             self.eq( node[1].get('ps:person:name'), 'kenshoto,invisigoth' )
             self.eq( node[1].get('ps:person:name:sur'), 'kenshoto' )
@@ -28,7 +28,7 @@ class PersonTest(SynTest):
             self.nn( core.getTufoByProp('ps:tokn','kenshoto') )
             self.nn( core.getTufoByProp('ps:tokn','invisigoth') )
 
-    def test_model_person(self):
+    def test_model_person_2(self):
 
         with s_cortex.openurl('ram:///') as core:
             node = core.formTufoByProp('ps:name','Kenshoto,Invisigoth')

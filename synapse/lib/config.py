@@ -22,20 +22,6 @@ class Configable:
             self.setConfOpts(opts)
 
     def addConfDefs(self, defs):
-        for name,info in defs:
-            self.addConfDef(name,**info)
-
-    def addConfDef(self, name, **info):
-        self._conf_defs[name] = (name,dict(info))
-
-        defval = info.get('defval')
-        self._conf_opts.setdefault(name,defval)
-
-        asloc = info.get('asloc')
-        if asloc != None:
-            self.__dict__.setdefault(asloc,defval)
-
-    def addConfDefs(self, defs):
         '''
         Add configuration definitions for this object.
 
@@ -49,7 +35,17 @@ class Configable:
 
         '''
         for name,info in defs:
-            self._conf_defs[name] = (name,dict(info))
+            self.addConfDef(name,**info)
+
+    def addConfDef(self, name, **info):
+        self._conf_defs[name] = (name,dict(info))
+
+        defval = info.get('defval')
+        self._conf_opts.setdefault(name,defval)
+
+        asloc = info.get('asloc')
+        if asloc != None:
+            self.__dict__.setdefault(asloc,defval)
 
     def reqConfOk(self, opts):
         '''
