@@ -2389,20 +2389,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         self.addTufoProp(form, prop, **info)
         return
 
-    def _tufosByIn(self, prop, valus, limit=None):
-        ret = []
-
-        for valu in valus:
-            res = self.getTufosByProp(prop, valu=valu, limit=limit)
-            ret.extend(res)
-
-            if limit != None:
-                limit -= len(res)
-                if limit <= 0:
-                    break
-
-        return ret
-
     def _stormOperStat(self, query, oper):
 
         name,prop = oper[1].get('args')

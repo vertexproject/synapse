@@ -319,19 +319,6 @@ class CertDir:
 
         return capath
 
-    def getHostCaPath(self, name):
-        cert = self.getHostCert(name)
-        if cert == None:
-            return None
-
-        subj = cert.get_issuer()
-
-        capath = self.getPathJoin('cas','%s.crt' % subj.CN)
-        if not os.path.isfile(capath):
-            return None
-
-        return capath
-
     def isUserCert(self, name):
         crtpath = self.getPathJoin('users','%s.crt' % name)
         return os.path.isfile(crtpath)
