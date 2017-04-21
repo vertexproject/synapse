@@ -28,7 +28,7 @@ class PersonTest(SynTest):
             self.nn( core.getTufoByProp('ps:tokn','kenshoto') )
             self.nn( core.getTufoByProp('ps:tokn','invisigoth') )
 
-    def test_model_person(self):
+    def test_model_person_2(self):
 
         with s_cortex.openurl('ram:///') as core:
             node = core.formTufoByProp('ps:name','Kenshoto,Invisigoth')
