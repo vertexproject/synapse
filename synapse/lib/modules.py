@@ -53,7 +53,7 @@ def load(name):
     '''
     smod = synmods.get(name)
     if smod == None:
-        logger.info('loading syn mod: %s' % (name,))
+        logger.info('loading syn mod: %s', name)
         smod = s_dyndeps.tryDynMod(name)
         synmods[name] = smod
         modlist.append( (name,smod) )
