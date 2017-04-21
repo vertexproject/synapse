@@ -13,8 +13,7 @@ def getDataModel():
         'forms':(
 
             ('lang:idiom',{},(
-                ('url',{'ptype':'inet:url','doc':'Authoritative URL for the idiom'}),
-
+                ('url',         {'ptype':'inet:url','doc':'Authoritative URL for the idiom'}),
                 ('desc:en',     {'ptype':'str:txt','doc':'English description'}),
                 # TODO etc...
             )),

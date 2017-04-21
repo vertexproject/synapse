@@ -54,7 +54,6 @@ class FileModelTest(SynTest):
             self.nn(core.getTufoByProp('file:base', 'bar'))
             self.nn(core.getTufoByProp('file:path', '/foo'))
             self.nn(core.getTufoByProp('file:base', 'foo'))
-            self.nn(core.getTufoByProp('file:path', '/'))
             self.none(core.getTufoByProp('file:base', ''))
             self.none(core.getTufoByProp('file:base', '/'))
 

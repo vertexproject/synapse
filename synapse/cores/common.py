@@ -91,6 +91,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         self.auth = None
         self.snaps = s_cache.Cache(maxtime=60)
 
+        self.seqs = s_cache.KeyCache(self.getSeqNode)
+
         self.formed = collections.defaultdict(int)      # count tufos formed since startup
 
         self.tagcache = {}
@@ -229,6 +231,35 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
     # over-ride to allow the storm runtime to lift/join/pivot tufos
     def _stormTufosBy(self, by, prop, valu=None, limit=None):
         return self.getTufosBy(by, prop, valu=valu, limit=limit)
+
+    def getSeqNode(self, name):
+        '''
+        API helper/wrapper to form a syn:seq sequential id tracker
+        '''
+        return self.getTufoByProp('syn:seq', name)
+
+    def nextSeqValu(self, name):
+        '''
+        Return the next sequence identifier for the given name.
+
+        Example:
+
+            name = core.nextSeqValu('foo')
+            # name is now foo0 or fooN from sequence
+
+        '''
+        node = self.seqs.get(name)
+        if node == None:
+            raise NoSuchSeq(name=name)
+
+        #FIXME perms
+
+        wid = node[1].get('syn:seq:width')
+        valu = node[1].get('syn:seq:nextvalu')
+
+        self._incTufoProp(node,'syn:seq:nextvalu')
+
+        return name + str(valu).rjust(wid,'0')
 
     def addSeedCtor(self, name, func):
         '''
@@ -1748,13 +1779,24 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         if ctor != None:
             return ctor(prop,valu,**props)
 
+        # special case for adding nodes with a guid primary property
+        # if the value None is specified, generate a new guid and skip
+        # deconfliction ( allows highly performant "event" ingest )
+        deconf = True
+        if valu == None:
+            tname = self.getPropTypeName(prop)
+            if tname and self.isSubType(tname,'guid'):
+                valu = guid()
+                deconf = False
+
         valu,subs = self.getPropNorm(prop,valu)
 
         with self.getCoreXact() as xact:
 
-            tufo = self.getTufoByProp(prop,valu=valu)
-            if tufo != None:
-                return tufo
+            if deconf:
+                tufo = self.getTufoByProp(prop,valu=valu)
+                if tufo != None:
+                    return tufo
 
             iden = guid()
             stamp = now()

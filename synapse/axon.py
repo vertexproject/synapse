@@ -874,20 +874,18 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
         '''
         normed, props = self.core.getPropNorm('axon:path', path)
+
+        dirn = None
         ppath = props.get('dir')
 
-        if not ppath:
-            raise NoSuchDir()
-
-        parentfo = self.core.getTufoByProp('axon:path', ppath)
-        if not(parentfo and Axon._fs_isdir(parentfo[1].get('axon:path:st_mode'))):
-            raise NoSuchDir()
+        if ppath:
+            dirn = self._getDirNode(ppath)
 
         attr = Axon._fs_new_file_attrs(ppath, mode)
         filefo = self.core.formTufoByProp('axon:path', path, **attr)
 
-        if filefo[1].get('.new'):
-            self.core.incTufoProp(parentfo, 'st_nlink', 1)
+        if filefo[1].get('.new') and dirn != None:
+            self.core.incTufoProp(dirn, 'st_nlink', 1)
 
         return 0
 
@@ -934,21 +932,31 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
         '''
         normed, props = self.core.getPropNorm('axon:path', path)
+
+        dirn = None
         ppath = props.get('dir')
 
-        if not ppath:
-            raise NoSuchDir()
-
-        parentfo = self.core.getTufoByProp('axon:path', ppath)
-        if not(parentfo and Axon._fs_isdir(parentfo[1].get('axon:path:st_mode'))):
-            raise NoSuchDir()
+        if ppath:
+            dirn = self._getDirNode(ppath)
 
         attr = Axon._fs_new_dir_attrs(ppath, mode)
         tufo = self.core.formTufoByProp('axon:path', path, **attr)
         if tufo and tufo[1].get('.new') != True:
             raise FileExists()
 
-        self.core.incTufoProp(parentfo, 'st_nlink', 1)
+        if dirn != None:
+            self.core.incTufoProp(dirn, 'st_nlink', 1)
+
+    def _getDirNode(self, path):
+
+        node = self.core.getTufoByProp('axon:path', path)
+        if node == None:
+            raise NoSuchDir()
+
+        if not Axon._fs_isdir(node[1].get('axon:path:st_mode')):
+            raise NoSuchDir()
+
+        return node
 
     def fs_read(self, path, size, offset):
         '''
@@ -994,7 +1002,7 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         if not Axon._fs_isdir(attr.get('st_mode')):
             raise NotSupported()
 
-        tufos = self.core.getTufosByProp('axon:path:parent', path)
+        tufos = self.core.getTufosByProp('axon:path:dir', path)
         for tufo in tufos:
             fpath = tufo[1].get('axon:path')
             fname = fpath.split('/')[-1]

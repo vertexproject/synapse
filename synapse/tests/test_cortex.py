@@ -810,7 +810,7 @@ class CortexTest(SynTest):
 
         dnsa = core.formTufoByProp('foo:a', arec)
 
-        fval = s_types.enMsgB64( ('woot.com',0x01020304,0x00404040) )
+        fval = guid(('woot.com',0x01020304,0x00404040))
 
         self.assertEqual( dnsa[1].get('foo:a'), fval)
         self.assertEqual( dnsa[1].get('foo:a:fqdn'), 'woot.com')
@@ -1415,3 +1415,18 @@ class CortexTest(SynTest):
         with s_cortex.openurl('ram:///') as core:
             core.formTufoByProp('inet:dns:a','woot.com/1.2.3.4')
             self.eq( len( core.eval('inet:ipv4*type="1.2.3.4"')), 2 )
+
+    def test_cortex_seq(self):
+        with s_cortex.openurl('ram:///') as core:
+
+            core.formTufoByProp('syn:seq','foo')
+            node = core.formTufoByProp('syn:seq','bar', nextvalu=10, width=4)
+
+            self.eq( core.nextSeqValu('foo'), 'foo0' )
+            self.eq( core.nextSeqValu('foo'), 'foo1' )
+
+            self.eq( core.nextSeqValu('bar'), 'bar0010' )
+            self.eq( core.nextSeqValu('bar'), 'bar0011' )
+
+            self.raises(NoSuchSeq, core.nextSeqValu, 'lol' )
+

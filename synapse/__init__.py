@@ -33,6 +33,8 @@ s_modules.load('synapse.models.crypto')
 s_modules.load('synapse.models.geopol')
 s_modules.load('synapse.models.person')
 s_modules.load('synapse.models.infotech')
+s_modules.load('synapse.models.language')
+s_modules.load('synapse.models.material')
 s_modules.load('synapse.models.temporal')
 s_modules.load('synapse.models.geospace')
 

@@ -36,8 +36,6 @@ def getDataModel():
             ('inet:asn',        {'subof':'int','doc':'An Autonomous System Number (ASN)'}),
             ('inet:user',       {'subof':'str','doc':'A username string'}),
             ('inet:passwd',     {'subof':'str','doc':'A password string'}),
-            #('inet:filepath',   {'subof':'str','doc':'An absolute file path'}),
-            #('inet:filenorm',   {'subof':'str','doc':'An absolute file path'}),
 
             ('inet:tcp4', {'subof':'inet:srv4', 'doc':'A TCP server listening on IPv4:port'}),
             ('inet:udp4', {'subof':'inet:srv4', 'doc':'A UDP server listening on IPv4:port'}),
@@ -51,13 +49,19 @@ def getDataModel():
             ('inet:netuser',{'subof':'sepr','sep':'/','fields':'site,inet:fqdn|user,inet:user',
                                'doc':'A user account at a given web address','ex':'twitter.com/invisig0th'}),
 
-            ('inet:netpost',{'subof':'sepr', 'sep':'/', 'reverse':1, 'fields':'netuser,inet:netuser|time,time',
+            ('inet:netpost',{'subof':'sepr', 'sep':'@', 'fields':'netuser,inet:netuser|time,time',
                              'doc':'A post made by a netuser at a specific time','ex':'twitter.com/invisig0th/20150302225401'}),
 
+            ('inet:netgroup',   {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|name,ou:name','doc':'A group within an online community'}),
 
-            ('inet:netmesg',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|from,inet:user|to,inet:user|sent,time',
-                               'doc':'A message sent from one user to another within a web community',
-                                'ex':'twitter.com/invisig0th/gobbles/20041012130220'}),
+            ('inet:netmemb',    {'subof':'comp','fields':'user,inet:netuser|group,inet:netgroup'}),
+            ('inet:follows',  {'subof':'comp','fields':'src,inet:netuser|dst,inet:netuser'}),
+
+
+            ('inet:netmesg',  {'subof':'comp',
+                               'fields':'from,inet:netuser|to,inet:netuser|time,time',
+                               'doc':'A message sent from one netuser to another',
+                               'ex':'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'}),
 
             ('inet:ssl:tcp4cert',{'subof':'sepr','sep':'/','fields':'tcp4,inet:tcp4|cert,file:bytes','doc':'An SSL cert file served by an IPv4 server'}),
 
@@ -184,9 +188,27 @@ def getDataModel():
                 ('seen:max',{'ptype':'time:max'}),
             ]),
 
+            ('inet:netgroup',{},[
+                ('site',{'ptype':'inet:fqdn','ro':1}),
+                ('name',{'ptype':'ou:name','ro':1}),
+
+                ('desc',{'ptype':'str:txt'}),
+
+                ('url',{'ptype':'inet:url'}),
+                ('webpage',{'ptype':'inet:url'}),
+                ('avatar',{'ptype':'file:bytes'}),
+            ]),
+
             ('inet:netpost',{},[
-                ('netuser',{'ptype':'inet:netuser'}),
-                ('time',{'ptype':'time'}),
+
+                ('netuser',{'ptype':'inet:netuser','ro':1}),
+
+                ('netuser:site',{'ptype':'inet:fqdn','ro':1}),
+                ('netuser:user',{'ptype':'inet:user','ro':1}),
+
+                ('time',{'ptype':'time','ro':1}),
+
+                ('replyto',{'ptype':'inet:netpost'}),
 
                 #FIXME how do we deal with this issue both generally and in a non-english-centric way
                 ('text',{'ptype':'str:txt','defval':'??','doc':'The text of the post'}),
@@ -196,16 +218,36 @@ def getDataModel():
                 ('file',{'ptype':'file:bytes','doc':'The (optional) file which was posted'}),
             ]),
 
-            #('inet:netfollow ( seed net:friend creates 2 net follow )
-            #('inet:netroup #avatar, url, website
-            #('inet:netmemb',
+            ('inet:netmesg',{},[
+                ('from',{'ptype':'inet:netuser','ro':1}),
+                ('to',{'ptype':'inet:netuser','ro':1}),
+                ('time',{'ptype':'time','ro':1,'doc':'The time at which the message was sent'}),
+                ('url',{'ptype':'inet:url','doc':'Optional URL of netmesg'}),
+                ('text',{'ptype':'str','doc':'Optional text body of message'}),
+                ('file',{'ptype':'file:bytes','doc':'Optional file attachment'}),
+            ]),
 
-            ('inet:netmesg',{'ptype':'inet:netmesg'},[
-                ('site',{'ptype':'inet:fqdn','ro':1}),
-                ('to',{'ptype':'inet:user','ro':1}),
-                ('from',{'ptype':'inet:user','ro':1}),
-                ('sent',{'ptype':'time','ro':1,'doc':'The time at which the message was sent'}),
-                ('body',{'ptype':'str'}),
+            ('inet:follows',{},[
+
+                ('src',{'ptype':'inet:netuser','ro':1}),
+                ('dst',{'ptype':'inet:netuser','ro':1}),
+
+                ('seen:min',{'ptype':'time:min','doc':'Optional first/earliest following'}),
+                ('seen:max',{'ptype':'time:max','doc':'Optional last/end of following'}),
+
+            ]),
+
+            ('inet:netmemb',{},[
+
+                ('user',{'ptype':'inet:netuser','ro':1}),
+                ('group',{'ptype':'inet:netgroup','ro':1}),
+
+                ('title',{'ptype':'str:lwr'}),
+
+                ('joined',  {'ptype':'time'}),
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
+
             ]),
 
             ('inet:whois:reg',{'ptype':'inet:whois:reg'},[]),
@@ -309,28 +351,23 @@ def ipv4mask(ipv4,mask):
 class IPv4Type(DataType):
 
     def norm(self, valu, oldval=None):
+        if s_compat.isstr(valu):
+            return self._norm_str(valu,oldval=oldval)
+
         if not s_compat.isint(valu):
             self._raiseBadValu(valu)
 
         return valu & 0xffffffff,{}
 
-    def frob(self, valu, oldval=None):
-        if s_compat.isstr(valu):
-            # handle decimal integer strings...
-            if valu.isdigit():
-                return int(valu) & 0xffffffff,{}
-            return self.parse(valu, oldval=oldval)
-        return self.norm(valu, oldval=oldval)
+    def _norm_str(self, valu, oldval=None):
+        if valu.isdigit():
+            return int(valu,0) & 0xffffffff,{}
+
+        valu = valu.replace('[.]','.')
+        return ipv4int(valu),{}
 
     def repr(self, valu):
         return ipv4str(valu)
-
-    def parse(self, text, oldval=None):
-        # deal with "defanged" ipv4
-        if s_compat.isstr(text):
-            text = text.replace('[.]','.')
-            return ipv4int(text),{}
-        self._raiseBadValu(text)
 
 fqdnre = re.compile(r'^[\w._-]+$', re.U)
 class FqdnType(DataType):
@@ -397,12 +434,14 @@ class Srv4Type(DataType):
         return '%s:%d' % ( ipv4str(addr), port )
 
     def norm(self, valu, oldval=None):
+        if s_compat.isstr(valu):
+            return self._norm_str(valu,oldval=oldval)
+
         addr = valu >> 16
         port = valu & 0xffff
         return valu,{'port':port,'ipv4':addr}
 
-    def parse(self, text, oldval=None):
-
+    def _norm_str(self, text, oldval=None):
         try:
             astr,pstr = text.split(':')
         except ValueError as e:
@@ -411,11 +450,6 @@ class Srv4Type(DataType):
         addr = ipv4int(astr)
         port = int(pstr,0)
         return ( addr << 16 ) | port,{}
-
-    def frob(self, valu, oldval=None):
-        if s_compat.isstr(valu):
-            return self.parse(valu, oldval=oldval)
-        return self.norm(valu, oldval=None)
 
 srv6re = re.compile('^\[([a-f0-9:]+)\]:(\d+)$')
 

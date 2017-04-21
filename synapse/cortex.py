@@ -87,6 +87,11 @@ def choptag(tag):
 if __name__ == '__main__':  # pragma: no cover
     import sys
     import code
+
+    import synapse.lib.cmdr as s_cmdr
+
     core = openurl(sys.argv[1])
-    local = {'core':core,'ask':core.ask,'eval':core.eval}
-    code.interact(local=local)
+
+    cmdr = s_cmdr.getItemCmdr(core)
+
+    cmdr.runCmdLoop()

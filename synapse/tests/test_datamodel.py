@@ -290,20 +290,20 @@ class DataModelTest(SynTest):
         prop = 'file:path'
 
         data = (
-            ('/', ('/', {'dir': '/'}), '/'),
-            ('//', ('/', {'dir': '/'}), '//'),
-            ('////////////', ('/', {'dir': '/'}), '////////////'),
-            ('weirD', ('weird', {'base': 'weird'}), 'weirD' ),
+            ('/', ('/', {'dir': '','depth':0}), '/'),
+            ('//', ('/', {'dir': '','depth':0}), '//'),
+            ('////////////', ('/', {'dir': '','depth':0}), '////////////'),
+            ('weirD', ('weird', {'base': 'weird','dir':'','depth':1}), 'weirD' ),
 
-            ('foo1', ('foo1', {'base': 'foo1'}), 'foo1'),
-            ('/foo2', ('/foo2', {'dir':'/', 'base': 'foo2'}), '/foo2'),
-            ('/foo/bar3', ('/foo/bar3', {'base': 'bar3', 'dir': '/foo'}), '/foo/bar3'),
-            ('/foo/bar4    ', ('/foo/bar4    ', {'base': 'bar4    ', 'dir': '/foo'}), '/foo/bar4    '),  # These are valid filepaths
-            ('/foo/bar5/', ('/foo/bar5', {'base': 'bar5', 'dir': '/foo'}), '/foo/bar5/'),
+            ('foo1', ('foo1', {'base': 'foo1','dir':'','depth':1}), 'foo1'),
+            ('/foo2', ('/foo2', {'base': 'foo2','dir':'','depth':1}), '/foo2'),
+            ('/foo/bar3', ('/foo/bar3', {'base': 'bar3', 'dir': '/foo','depth':2}), '/foo/bar3'),
+            ('/foo/bar4    ', ('/foo/bar4    ', {'base': 'bar4    ', 'dir': '/foo', 'depth':2}), '/foo/bar4    '),  # These are valid filepaths
+            ('/foo/bar5/', ('/foo/bar5', {'base': 'bar5', 'dir': '/foo', 'depth':2}), '/foo/bar5/'),
 
-            ('C:\\', ('c:', {'base': 'c:'}), 'C:\\'),
+            ('C:\\', ('c:', {'base': 'c:','depth':1,'dir':''}), 'C:\\'),
             ('C:\\Program Files\\Foo.bAr.BAZ.exe',
-                ('c:/program files/foo.bar.baz.exe', {'base': 'foo.bar.baz.exe', 'dir': 'c:/program files'}), 'C:\\Program Files\\Foo.bAr.BAZ.exe')
+                ('c:/program files/foo.bar.baz.exe', {'base': 'foo.bar.baz.exe', 'dir': 'c:/program files','depth':3,'ext':'exe'}), 'C:\\Program Files\\Foo.bAr.BAZ.exe')
         )
 
         for valu, expected, expected_repr in data:
@@ -313,12 +313,6 @@ class DataModelTest(SynTest):
             self.assertEqual(expected,      model.getTypeFrob(prop, valu))
             self.assertEqual(expected_repr, model.getTypeRepr(prop, valu))
 
-
-        bads = (None, [], {}, 1, '')
-        for bad in bads:
-            self.assertRaises(s_datamodel.BadTypeValu, model.getTypeNorm, prop, bad)
-            self.assertRaises(s_datamodel.BadTypeValu, model.getTypeParse, prop, bad)
-            self.assertEqual((None, {}), model.getTypeFrob(prop, bad))
 
     def test_datamodel_filebase(self):
         model = s_datamodel.DataModel()

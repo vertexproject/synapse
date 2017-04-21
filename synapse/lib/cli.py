@@ -79,7 +79,7 @@ class Cmd:
             if defval != None:
                 opts[snam] = defval
 
-            if synt[1].get('type') == 'list':
+            if synt[1].get('type') in ('list','kwlist'):
                 opts[snam] = []
 
         def atswitch(t,o):
@@ -149,6 +149,11 @@ class Cmd:
                     valu.append(item)
 
                 opts[synt[0]] = valu
+                break
+
+            if styp == 'kwlist':
+                kwlist,off = s_syntax.parse_cmd_kwlist(text,off)
+                opts[snam] = kwlist
                 break
 
             valu,off = s_syntax.parse_cmd_string(text,off)

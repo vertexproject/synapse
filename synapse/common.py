@@ -33,6 +33,12 @@ def guid(valu=None):
     byts = msgenpack(valu)
     return hashlib.md5(byts).hexdigest()
 
+def addpref(pref,info):
+    '''
+    Add the given prefix to all elements in the info dict.
+    '''
+    return { '%s:%s' % (pref,k):v for (k,v) in info.items() }
+
 def tufo(typ,**kwargs):
     return (typ,kwargs)
 

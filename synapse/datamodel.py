@@ -146,6 +146,11 @@ class DataModel(s_types.TypeLib):
         self.addTufoForm('syn:type',ptype='syn:type')
         self.addTufoProp('syn:type','*',glob=1)
 
+        # used most commonly for sequential tag generation
+        self.addTufoForm('syn:seq',ptype='str:lwr',doc='A sequential id generation tracker')
+        self.addTufoProp('syn:seq','width', ptype='int', defval=0, doc='How many digits to use to represent the number')
+        self.addTufoProp('syn:seq','nextvalu', ptype='int', defval=0, doc='The next sequential value')
+
     def getModelDict(self):
         '''
         Returns a dictionary which represents the data model.
