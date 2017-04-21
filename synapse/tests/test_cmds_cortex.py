@@ -61,6 +61,18 @@ class SynCmdCoreTest(SynTest):
             cmdr.runCmdLine('addnode inet:email visi@vertex.link')
             self.nn( core.getTufoByProp('inet:email','visi@vertex.link') )
 
+    def test_cmds_addnode_props(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('addnode inet:asn 99 name="foo bar baz"')
+
+            node = core.getTufoByProp('inet:asn',99)
+
+            self.nn( node )
+            self.eq( node[1].get('inet:asn:name'), 'foo bar baz')
+
     def test_cmds_addnode_noopts(self):
         with self.getDmonCore() as core:
             outp = s_output.OutPutStr()

@@ -1,3 +1,5 @@
+from synapse.common import guid
+
 def getDataModel():
     return {
         'prefix':'ou',
@@ -18,6 +20,7 @@ def getDataModel():
             ('ou:org',{'ptype':'ou:org'},[
                 ('cc',{'ptype':'pol:iso2'}),
                 ('name',{'ptype':'ou:name'}),
+                ('name:en',{'ptype':'ou:name'}),
                 ('alias',{'ptype':'ou:alias'}),
                 ('phone',{'ptype':'tel:phone','doc':'The primary phone number for the organization'}),
                 ('sic',{'ptype':'ou:sic'}),
@@ -36,3 +39,20 @@ def getDataModel():
         ),
 
     }
+
+def addCoreOns(core):
+
+    def seedOrgAlias(prop,valu,**props):
+        node = core.getTufoByProp('ou:org:alias',valu)
+        if node == None:
+            node = core.formTufoByProp('ou:org',guid(),alias=valu,**props)
+        return node
+
+    def seedOrgName(prop,valu,**props):
+        node = core.getTufoByProp('ou:org:name',valu)
+        if node == None:
+            node = core.formTufoByProp('ou:org',guid(),name=valu,**props)
+        return node
+
+    core.addSeedCtor('ou:org:name', seedOrgName)
+    core.addSeedCtor('ou:org:alias', seedOrgAlias)

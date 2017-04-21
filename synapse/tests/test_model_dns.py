@@ -12,6 +12,11 @@ class DnsModelTest(SynTest):
             self.eq( t0[1].get('inet:dns:a:fqdn'), 'woot.com' )
             self.eq( t0[1].get('inet:dns:a:ipv4'), 0x01020304 )
 
+            t1 = core.formTufoByProp('inet:dns:a',('foo.com',0x05060708) )
+            self.eq( t1[1].get('inet:dns:a') ,'foo.com/5.6.7.8')
+            self.eq( t1[1].get('inet:dns:a:fqdn'), 'foo.com' )
+            self.eq( t1[1].get('inet:dns:a:ipv4'), 0x05060708 )
+
     def test_model_dns_aaaa(self):
         with s_cortex.openurl('ram:///') as core:
             t0 = core.formTufoByProp('inet:dns:aaaa','WOOT.com/FF::56')

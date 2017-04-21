@@ -40,22 +40,18 @@ class TimeType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if not s_compat.isint(valu):
-            self._raiseBadValu(valu)
+        subs = {}
+
+        # make the string into int form then apply our min/max
+        if s_compat.isstr(valu):
+            valu,subs = self._norm_str(valu,oldval=oldval)
 
         if oldval != None and self.minmax:
             valu = self.minmax(valu,oldval)
 
-        return valu,{}
+        return valu,subs
 
-    def frob(self, valu, oldval=None):
-        if s_compat.isstr(valu):
-            return self.parse(valu, oldval=oldval)
-        return self.norm(valu, oldval=oldval)
-
-    def parse(self, text, oldval=None):
-        if not s_compat.isstr(text):
-            self._raiseBadValu(text)
+    def _norm_str(self, text, oldval=None):
 
         text = text.strip().lower()
         text = (''.join([ c for c in text if c.isdigit() ]))
@@ -111,6 +107,9 @@ class EpochType(DataType):
 
     def norm(self, valu, oldval=None):
 
+        if s_compat.isstr(valu):
+            return self._norm_str(valu,oldval=oldval)
+
         if not s_compat.isint(valu):
             self._raiseBadValu(valu)
 
@@ -119,14 +118,7 @@ class EpochType(DataType):
 
         return valu,{}
 
-    def frob(self, valu, oldval=None):
-        if s_compat.isstr(valu):
-            return self.parse(valu, oldval=oldval)
-        return self.norm(valu, oldval=oldval)
-
-    def parse(self, text, oldval=None):
-        if not s_compat.isstr(text):
-            self._raiseBadValu(text)
+    def _norm_str(self, text, oldval=None):
 
         text = text.strip().lower()
         text = (''.join([ c for c in text if c.isdigit() ]))
@@ -154,7 +146,12 @@ class EpochType(DataType):
             self._raiseBadValu(text, mesg='Unknown time format')
 
         epoch = datetime.datetime(1970,1,1)
-        return int((dt - epoch).total_seconds()),{}
+
+        valu = int((dt-epoch).total_seconds())
+        if oldval != None and self.minmax:
+            valu = self.minmax(valu,oldval)
+
+        return valu,{}
 
     def repr(self, valu):
         dt = datetime.datetime(1970,1,1) + datetime.timedelta(seconds=int(valu))
