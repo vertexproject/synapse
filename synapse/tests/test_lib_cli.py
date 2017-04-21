@@ -57,21 +57,6 @@ class CliTest(SynTest):
             self.eq( opts.get('bar'), True )
             self.eq( opts.get('haha'), 'hoho')
 
-    def test_cli_opts_flag(self):
-        with s_cli.Cli(None) as cli:
-
-            quit = cli.getCmdByName('quit')
-
-            quit._cmd_syntax = (
-                ('--bar',{}),
-                ('haha',{'type':'valu'}),
-            )
-
-            opts = quit.getCmdOpts('quit --bar hoho')
-
-            self.eq( opts.get('bar'), True )
-            self.eq( opts.get('haha'), 'hoho')
-
     def test_cli_opts_list(self):
 
         with s_cli.Cli(None) as cli:
