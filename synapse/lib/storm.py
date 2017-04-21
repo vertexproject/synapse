@@ -284,8 +284,13 @@ class Runtime(Configable):
         def cmprctor(oper):
             prop = oper[1].get('prop')
             valu = oper[1].get('valu')
+            isrel = prop.startswith(':')
             def cmpr(tufo):
-                return func(tufo[1].get(prop),valu)
+                full = prop
+                if isrel:
+                    full = tufo[1].get('tufo:form') + prop
+
+                return func(tufo[1].get(full),valu)
             return cmpr
 
         self.setCmprCtor(name,cmprctor)
