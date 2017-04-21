@@ -26,8 +26,10 @@ logger = logging.getLogger(__name__)
 
 megabyte = 1024000
 gigabyte = 1024000000
-
+terabyte = 1024000000000
 chunksize = megabyte * 10
+threedays = ((60 * 60) * 24) * 3
+axontag = 'class.synapse.axon.Axon'
 
 _fs_attrs = ('st_mode','st_nlink','st_size','st_atime','st_ctime','st_mtime')
 
@@ -90,13 +92,6 @@ class HashSet:
         '''
         return [ (name,item.hexdigest()) for (name,item) in self.hashes ]
 
-threedays = ((60 * 60) * 24) * 3
-
-megabyte = 1024000
-gigabyte = 1024000000
-terabyte = 1024000000000
-
-axontag = 'class.synapse.axon.Axon'
 
 class AxonHost(s_eventbus.EventBus):
     '''
@@ -215,7 +210,6 @@ class AxonHost(s_eventbus.EventBus):
         volinfo = s_thisplat.getVolInfo( self.datadir )
         return volinfo
 
-axontag = 'class.synapse.axon.Axon'
 
 class AxonMixin:
     '''
