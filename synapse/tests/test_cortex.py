@@ -1415,3 +1415,18 @@ class CortexTest(SynTest):
         with s_cortex.openurl('ram:///') as core:
             core.formTufoByProp('inet:dns:a','woot.com/1.2.3.4')
             self.eq( len( core.eval('inet:ipv4*type="1.2.3.4"')), 2 )
+
+    def test_cortex_setPropByProp(self):
+        with s_cortex.openurl('ram:///') as core:
+            for i in range(10):
+                core.formTufoByProp('inet:ipv4', i, asn=0)
+
+            self.eq(core.getStatByProp('count','inet:ipv4:asn',0), 10)
+            self.eq(core.getStatByProp('count','inet:ipv4:asn',1), 0)
+
+            tufos = core.setPropByProp('inet:ipv4','asn',0,1)
+            self.eq(len(tufos), 10)
+            for tufo in tufos:
+                self.eq(tufo[1]['inet:ipv4:asn'], 1)
+            self.eq(core.getStatByProp('count','inet:ipv4:asn',0), 0)
+            self.eq(core.getStatByProp('count','inet:ipv4:asn',1), 10)
