@@ -120,7 +120,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         #############################################################
         # bus for model layer sync
         # sync events are fired on the cortex and may be ingested
-        # into another coretx using the sync() method.
+        # into another cortex using the sync() method.
         #############################################################
         self.on('tufo:add', self._fireCoreSync )
         self.on('tufo:del', self._fireCoreSync )
