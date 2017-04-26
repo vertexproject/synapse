@@ -232,6 +232,9 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
     def _stormTufosBy(self, by, prop, valu=None, limit=None):
         return self.getTufosBy(by, prop, valu=valu, limit=limit)
 
+    def _getStormCore(self, name=None):
+        return self
+
     def getSeqNode(self, name):
         '''
         API helper/wrapper to form a syn:seq sequential id tracker
