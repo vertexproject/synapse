@@ -390,24 +390,6 @@ class DataTypesTest(SynTest):
             core.addType('foo:bar',subof='inet:ipv4')
             self.assertIsNotNone( core.getTypeInfo('foo:bar','ex') )
 
-    #def test_type_comp_recursive(self):
-        #tlib = s_types.TypeLib()
-
-        #tlib.addType('path',subof='sepr',sep='/',fields='dirname,path|filename,str:lwr',reverse=1)
-        #foo = tlib.getTypeNorm('path','/home/user/Downloads')
-        #self.eq( foo[1].get('dirname'), '/home/user' )
-        #self.eq( foo[1].get('filename'), 'downloads' )
-
-        #foo2 = tlib.getTypeNorm('path','/home')
-        #self.eq( foo2[1].get('dirname'), '' )
-        #self.eq( foo2[1].get('filename'), 'home' )
-
-        #foo3 = tlib.getTypeNorm('path','/')
-        #self.eq( foo3[1].get('dirname'), '' )
-        #self.eq( foo3[1].get('filename'), '' )
-
-        #self.assertRaises( BadTypeValu, tlib.getTypeNorm, 'path', 'some-filename' )
-
     def test_type_json(self):
         tlib = s_types.TypeLib()
         self.eq( tlib.getTypeNorm('json','{  "woot"       :10}')[0], '{"woot":10}' )
@@ -416,7 +398,6 @@ class DataTypesTest(SynTest):
 
         # cant frob json string unless it's valid json... ( can't tell the difference )
         self.none(tlib.getTypeFrob('json', 'derp' )[0])
-        #self.assertRaises( BadTypeValu, tlib.getTypeParse, 'json', {'woot':10} )
 
     def test_type_fqdn(self):
         tlib = s_types.TypeLib()
