@@ -205,3 +205,10 @@ class SynCmdCoreTest(SynTest):
             cmdr.runCmdLine('addnode syn:seq foo.bar')
             cmdr.runCmdLine('nextseq foo.bar')
             self.ne( str(outp).find('foo.bar0'), -1 )
+
+    def test_cmds_guid(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('guid')
+            self.ne( str(outp).find('new guid:'), -1 )
