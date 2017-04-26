@@ -287,12 +287,6 @@ class SwarmRunTest(SwarmRunBase):
 
         env = self.getSwarmEnv()
 
-        # test out long form using range
-        #answ = env.runt.ask('by("range","zzz:woot",(10,13))')
-        #print('answ: %r' % (answ,))
-        #tufos = answ.get('data')
-        #self.eq( len(tufos), 2 )
-
         answ = env.runt.ask('zzz:woot*range=(10,13)')
         tufos = answ.get('data')
 
