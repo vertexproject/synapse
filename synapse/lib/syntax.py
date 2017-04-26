@@ -346,7 +346,7 @@ def parse_cmd_kwarg(text, off=0):
 
 def parse_cmd_kwlist(text, off=0):
     '''
-    Parse a foo:bar=<valu> kwarg into (prop,valu),off
+    Parse a foo:bar=<valu>[,...] kwarg list into (prop,valu),off
     '''
     kwlist = []
 
