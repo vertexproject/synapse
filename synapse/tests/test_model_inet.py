@@ -233,11 +233,15 @@ class InetModelTest(SynTest):
             self.eq( node[1].get('inet:url:port'), 80 )
 
     def test_model_inet_netpost(self):
-        with s_cortex.openurl('ram:///') as core:
+
+        with s_cortex.openurl('sqlite:///:memory:') as core:
+
             core.setConfOpt('enforce',1)
 
-            node0 = core.formTufoByProp('inet:netpost','vertex.link/visi@20141217010101', text='knock knock')
-            node1 = core.formTufoByProp('inet:netpost','vertex.link/visi@20141217010102', text='whos there', replyto='vertex.link/visi@20141217010101')
+            node0 = core.formTufoByProp('inet:netpost', ('vertex.link/visi','knock knock'), time='20141217010101')
+            iden = node0[1].get('inet:netpost')
+
+            node1 = core.formTufoByProp('inet:netpost',('vertex.link/visi','whos there'), time='20141217010102', replyto=iden)
 
             self.nn( core.getTufoByProp('inet:netuser','vertex.link/visi') )
 

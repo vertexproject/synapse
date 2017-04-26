@@ -300,8 +300,7 @@ class CompType(MultiFieldType):
     def _norm_str(self, text, oldval=None):
 
         if len(text) == 32 and text.find('|') == -1:
-            valu = self.tlib.getTypeNorm('guid',text)
-            return valu,{}
+            return self.tlib.getTypeNorm('guid',text)
 
         # TODO consume | separated ( possibly quoted ) strings
         valu,subs = self._norm_fields( text.split('|') )
@@ -343,7 +342,7 @@ class SeprType(MultiFieldType):
                 norm,nsub = part, {}
                 reprs.append(norm)
             else:
-                norm,nsub = tobj.parse(part)
+                norm,nsub = tobj.norm(part)
                 reprs.append(tobj.repr(norm))
 
             subs[name] = norm

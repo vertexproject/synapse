@@ -46,14 +46,11 @@ def getDataModel():
             ('inet:mac',  {'subof':'str', 'regex':'^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower':1, 'nullval':'??',
                            'ex':'aa:bb:cc:dd:ee:ff','doc':'A 48 bit mac address'}),
 
-            ('inet:netuser',{'subof':'sepr','sep':'/','fields':'site,inet:fqdn|user,inet:user',
-                               'doc':'A user account at a given web address','ex':'twitter.com/invisig0th'}),
-
-            ('inet:netpost',{'subof':'sepr', 'sep':'@', 'fields':'netuser,inet:netuser|time,time',
-                             'doc':'A post made by a netuser at a specific time','ex':'twitter.com/invisig0th/20150302225401'}),
+            ('inet:netuser',{'subof':'sepr','sep':'/','fields':'site,inet:fqdn|user,inet:user', 'doc':'A user account at a given web address','ex':'twitter.com/invisig0th'}),
 
             ('inet:netgroup',   {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|name,ou:name','doc':'A group within an online community'}),
 
+            ('inet:netpost',    {'subof':'comp','fields':'netuser,inet:netuser|text,str:txt', 'doc':'A post made by a netuser'}),
             ('inet:netmemb',    {'subof':'comp','fields':'user,inet:netuser|group,inet:netgroup'}),
             ('inet:follows',  {'subof':'comp','fields':'src,inet:netuser|dst,inet:netuser'}),
 
@@ -202,17 +199,14 @@ def getDataModel():
             ('inet:netpost',{},[
 
                 ('netuser',{'ptype':'inet:netuser','ro':1}),
+                ('text',{'ptype':'str:txt','ro':1,'doc':'The text of the actual post'}),
 
                 ('netuser:site',{'ptype':'inet:fqdn','ro':1}),
                 ('netuser:user',{'ptype':'inet:user','ro':1}),
 
-                ('time',{'ptype':'time','ro':1}),
+                ('time',{'ptype':'time'}),
 
                 ('replyto',{'ptype':'inet:netpost'}),
-
-                #FIXME how do we deal with this issue both generally and in a non-english-centric way
-                ('text',{'ptype':'str:txt','defval':'??','doc':'The text of the post'}),
-                ('text:en',{'ptype':'str:txt','doc':'An optional english translation of the post text'}),
 
                 ('url',{'ptype':'inet:url','doc':'The (optional) URL where the post is published/visible'}),
                 ('file',{'ptype':'file:bytes','doc':'The (optional) file which was posted'}),
@@ -223,7 +217,7 @@ def getDataModel():
                 ('to',{'ptype':'inet:netuser','ro':1}),
                 ('time',{'ptype':'time','ro':1,'doc':'The time at which the message was sent'}),
                 ('url',{'ptype':'inet:url','doc':'Optional URL of netmesg'}),
-                ('text',{'ptype':'str','doc':'Optional text body of message'}),
+                ('text',{'ptype':'str:txt','doc':'Optional text body of message'}),
                 ('file',{'ptype':'file:bytes','doc':'Optional file attachment'}),
             ]),
 
