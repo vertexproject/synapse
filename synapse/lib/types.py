@@ -322,7 +322,6 @@ class CompType(MultiFieldType):
 
         return self._norm_list(valu)
 
-#class SeprType(DataType):
 class SeprType(MultiFieldType):
 
     def __init__(self, tlib, name, **info):
