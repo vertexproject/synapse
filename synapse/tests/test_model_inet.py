@@ -295,8 +295,8 @@ class InetModelTest(SynTest):
             node = core.formTufoByProp('inet:follows', ('VERTEX.link/visi','vertex.LINK/hehe'), **props)
 
             self.nn(node)
-            self.eq(node[1].get('inet:follows:src'), 'vertex.link/visi')
-            self.eq(node[1].get('inet:follows:dst'), 'vertex.link/hehe')
+            self.eq(node[1].get('inet:follows:follower'), 'vertex.link/visi')
+            self.eq(node[1].get('inet:follows:followee'), 'vertex.link/hehe')
             self.eq(node[1].get('inet:follows:seen:min'), 2554848000000)
             self.eq(node[1].get('inet:follows:seen:max'), 2554848000000)
 

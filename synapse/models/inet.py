@@ -52,7 +52,7 @@ def getDataModel():
 
             ('inet:netpost',    {'subof':'comp','fields':'netuser,inet:netuser|text,str:txt', 'doc':'A post made by a netuser'}),
             ('inet:netmemb',    {'subof':'comp','fields':'user,inet:netuser|group,inet:netgroup'}),
-            ('inet:follows',  {'subof':'comp','fields':'src,inet:netuser|dst,inet:netuser'}),
+            ('inet:follows',  {'subof':'comp','fields':'follower,inet:netuser|followee,inet:netuser'}),
 
 
             ('inet:netmesg',  {'subof':'comp',
@@ -223,8 +223,8 @@ def getDataModel():
 
             ('inet:follows',{},[
 
-                ('src',{'ptype':'inet:netuser','ro':1}),
-                ('dst',{'ptype':'inet:netuser','ro':1}),
+                ('follower',{'ptype':'inet:netuser','ro':1}),
+                ('followee',{'ptype':'inet:netuser','ro':1}),
 
                 ('seen:min',{'ptype':'time:min','doc':'Optional first/earliest following'}),
                 ('seen:max',{'ptype':'time:max','doc':'Optional last/end of following'}),
