@@ -199,17 +199,6 @@ def getDataModel():
                 ('avatar',{'ptype':'file:bytes'}),
             ]),
 
-            ('inet:netgroup',{},[
-                ('site',{'ptype':'inet:fqdn','ro':1}),
-                ('name',{'ptype':'ou:name','ro':1}),
-
-                ('desc',{'ptype':'str:txt'}),
-
-                ('url',{'ptype':'inet:url'}),
-                ('webpage',{'ptype':'inet:url'}),
-                ('avatar',{'ptype':'file:bytes'}),
-            ]),
-
             ('inet:netpost',{},[
 
                 ('netuser',{'ptype':'inet:netuser','ro':1}),
