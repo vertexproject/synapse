@@ -11,6 +11,7 @@ s_mixins.addSynMixin('cmdr','synapse.cores.common.Cortex','synapse.cmds.cortex.A
 s_mixins.addSynMixin('cmdr','synapse.cores.common.Cortex','synapse.cmds.cortex.AddTagCmd')
 s_mixins.addSynMixin('cmdr','synapse.cores.common.Cortex','synapse.cmds.cortex.DelTagCmd')
 s_mixins.addSynMixin('cmdr','synapse.cores.common.Cortex','synapse.cmds.cortex.AddNodeCmd')
+s_mixins.addSynMixin('cmdr','synapse.cores.common.Cortex','synapse.cmds.cortex.NextSeqCmd')
 
 
 def getItemCmdr(item, outp=None, **opts):

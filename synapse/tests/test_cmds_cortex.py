@@ -197,3 +197,11 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('ask')
             self.nn(re.search('Examples:', str(outp)))
+
+    def test_cmds_nextseq(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('addnode syn:seq foo.bar')
+            cmdr.runCmdLine('nextseq foo.bar')
+            self.ne( str(outp).find('foo.bar0'), -1 )

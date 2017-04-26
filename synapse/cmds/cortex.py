@@ -200,7 +200,27 @@ class DelTagCmd(s_cli.Cmd):
             disp = core.getPropRepr(form,valu)
             self.printf('%s - %s' % (disp,','.join(tags)))
 
-class NextSeq(s_cli.Cmd):
+class NextSeqCmd(s_cli.Cmd):
     '''
     Generate and display the next id in the named sequence.
+
+    Usage:
+
+        nextseq <name>
+
     '''
+    _cmd_name = 'nextseq'
+    _cmd_syntax = (
+        ('name',{'type':'valu'}),
+    )
+
+    def runCmdOpts(self, opts):
+        name = opts.get('name')
+        if name == None:
+            self.printf(self.__doc__)
+            return
+
+        core = self.getCmdItem()
+        valu = core.nextSeqValu(name)
+        self.printf('next in sequence (%s): %s' % (name,valu))
+
