@@ -326,6 +326,45 @@ def parse_when(text,off,trim=True):
         return tuple(whenstr.split(',',1)),off
     return (whenstr,None),off
 
+def parse_cmd_kwarg(text, off=0):
+    '''
+    Parse a foo:bar=<valu> kwarg into (prop,valu),off
+    '''
+    _,off = nom(text,off,whites)
+
+    prop,off = nom(text,off,varset)
+
+    _,off = nom(text,off,whites)
+
+    if not nextchar(text,off,'='):
+        raise synapse.exc.SyntaxError(expected='= for kwarg ' + prop, at=off)
+
+    _,off = nom(text,off+1,whites)
+
+    valu,off = parse_cmd_string(text,off)
+    return (prop,valu),off
+
+def parse_cmd_kwlist(text, off=0):
+    '''
+    Parse a foo:bar=<valu>[,...] kwarg list into (prop,valu),off
+    '''
+    kwlist = []
+
+    _,off = nom(text,off,whites)
+
+    while off < len(text):
+
+        (p,v),off = parse_cmd_kwarg(text,off=off)
+
+        kwlist.append( (p,v) )
+
+        _,off = nom(text,off,whites)
+        if not nextchar(text,off,','):
+            break
+
+    _,off = nom(text,off,whites)
+    return kwlist,off
+
 def parse_oarg(text, off=0):
     '''
     Parse something that might be a literal *or*

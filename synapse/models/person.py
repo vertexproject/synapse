@@ -12,48 +12,66 @@ def getDataModel():
 
 
             ('ps:hasuser',{'subof':'sepr','sep':'/','fields':'person,ps:person|user,inet:user'}),
+            ('ps:hashost',{'subof':'sepr','sep':'/','fields':'person,ps:person|host,it:host'}),
             ('ps:hasalias',{'subof':'sepr','sep':'/','fields':'person,ps:person|alias,ps:name'}),
             ('ps:hasphone',{'subof':'sepr','sep':'/','fields':'person,ps:person|phone,tel:phone'}),
             ('ps:hasemail',{'subof':'sepr','sep':'/','fields':'person,ps:person|email,inet:email'}),
             ('ps:hasnetuser',{'subof':'sepr','sep':'/','fields':'person,ps:person|netuser,inet:netuser'}),
 
-            #('ps:hashost',{'subof','sepr','sep':'/','fields':'person,ps:person|host,it:host'}),
+            ('ps:image',{'subof':'sepr','sep':'/','fields':'person,ps:person|file,file:bytes'}),
+
             # FIXME add wireless elemements like NMEI and IMEI once modeled
         ),
 
         'forms':(
+
             ('ps:tokn',{'ptype':'ps:tokn'},[]),
+
             ('ps:name',{'ptype':'ps:name'},[
                 ('sur',{'ptype':'ps:tokn','doc':'The "surname" part of ps:name','ex':'stark'}),
                 ('given',{'ptype':'ps:tokn','doc':'The "given name" part of ps:name','ex':'tony'}),
                 ('middle',{'ptype':'ps:tokn','doc':'The "middle name" part of ps:name','ex':'alex'}),
             ]),
+
             ('ps:person',{'ptype':'ps:person'},[
                 ('dob',{'ptype':'time','doc':'The Date of Birth (DOB) if known'}),
+                ('img',{'ptype':'file:bytes','doc':'The "primary" image of a person'}),
+                ('nick',{'ptype':'inet:user'}),
                 ('name',{'ptype':'ps:name'}),
                 ('name:sur',{'ptype':'ps:tokn'}),
                 ('name:given',{'ptype':'ps:tokn'}),
             ]),
-            ('ps:hasuser',{'ptype':'ps:hasuser'},[
+
+            ('ps:image',{},(
+                ('person',{'ptype':'ps:person'}),
+                ('file',{'ptype':'file:bytes'}),
+                #FIXME add an optional bounding box
+            )),
+
+            ('ps:hasuser',{'ptype':'ps:hasuser'},(
+                ('person',{'ptype':'ps:person'}),
                 ('user',{'ptype':'inet:user'}),
+            )),
+
+            ('ps:hasalias',{'ptype':'ps:hasalias'},(
                 ('person',{'ptype':'ps:person'}),
-            ]),
-            ('ps:hasalias',{'ptype':'ps:hasalias'},[
                 ('alias',{'ptype':'ps:name'}),
+            )),
+
+            ('ps:hasphone',{'ptype':'ps:hasphone'},(
                 ('person',{'ptype':'ps:person'}),
-            ]),
-            ('ps:hasphone',{'ptype':'ps:hasphone'},[
                 ('phone',{'ptype':'tel:phone'}),
+            )),
+
+            ('ps:hasemail',{'ptype':'ps:hasemail'},(
                 ('person',{'ptype':'ps:person'}),
-            ]),
-            ('ps:hasemail',{'ptype':'ps:hasemail'},[
                 ('email',{'ptype':'inet:email'}),
+            )),
+
+            ('ps:hasnetuser',{'ptype':'ps:hasnetuser'},(
                 ('person',{'ptype':'ps:person'}),
-            ]),
-            ('ps:hasnetuser',{'ptype':'ps:hasnetuser'},[
                 ('netuser',{'ptype':'inet:netuser'}),
-                ('person',{'ptype':'ps:person'}),
-            ]),
+            )),
         ),
     }
 

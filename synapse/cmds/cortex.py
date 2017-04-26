@@ -75,17 +75,21 @@ class AddNodeCmd(s_cli.Cmd):
 
     Examples:
 
-        addnode <prop> <valu>
+        addnode <prop> <valu> [<secprop>=<valu>...]
 
         addnode inet:ipv4 0.0.0.0
         addnode inet:ipv4 0x01020304
         addnode inet:ipv4 1
+
+        # add a node and specify secondary props
+        addnode syn:seq woot width=8
     '''
 
     _cmd_name = 'addnode'
     _cmd_syntax = (
         ('prop',{'type':'valu'}),
         ('valu',{'type':'valu'}),
+        ('props',{'type':'kwlist'}),
     )
 
     def runCmdOpts(self, opts):
@@ -96,9 +100,12 @@ class AddNodeCmd(s_cli.Cmd):
             self.printf(self.__doc__)
             return
 
+        kwlist = opts.get('props')
+        props = dict( opts.get('props') )
+
         core = self.getCmdItem()
 
-        node = core.formTufoByFrob(prop,valu)
+        node = core.formTufoByFrob(prop,valu,**props)
         self.printf('formed: %r' % (node,))
 
 class AddTagCmd(s_cli.Cmd):
@@ -192,3 +199,28 @@ class DelTagCmd(s_cli.Cmd):
             # FIXME local typelib and datamodel
             disp = core.getPropRepr(form,valu)
             self.printf('%s - %s' % (disp,','.join(tags)))
+
+class NextSeqCmd(s_cli.Cmd):
+    '''
+    Generate and display the next id in the named sequence.
+
+    Usage:
+
+        nextseq <name>
+
+    '''
+    _cmd_name = 'nextseq'
+    _cmd_syntax = (
+        ('name',{'type':'valu'}),
+    )
+
+    def runCmdOpts(self, opts):
+        name = opts.get('name')
+        if name == None:
+            self.printf(self.__doc__)
+            return
+
+        core = self.getCmdItem()
+        valu = core.nextSeqValu(name)
+        self.printf('next in sequence (%s): %s' % (name,valu))
+

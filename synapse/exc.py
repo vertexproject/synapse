@@ -17,6 +17,7 @@ class SynErr(Exception):
 class NoSuchOpt(SynErr):pass
 class NoSuchDir(SynErr):pass
 class NoSuchMod(SynErr):pass
+class NoSuchSeq(SynErr):pass
 class NoSuchConf(SynErr):pass
 class NoSuchForm(SynErr):pass
 class NoSuchPath(SynErr):pass
@@ -28,6 +29,7 @@ class NoSuchType(SynErr):pass
 class NoSuchProp(SynErr):pass
 class NoSuchOper(SynErr):pass
 class NoSuchCmpr(SynErr):pass
+class NoSuchCore(SynErr):pass
 class NoSuchRule(SynErr):pass
 class NoSuchGetBy(SynErr):pass
 
@@ -40,6 +42,7 @@ class DupTypeName(SynErr):pass
 class DupPropName(SynErr):pass
 class DupFileName(SynErr):pass
 class BadPropName(SynErr):pass
+class BadCoreName(SynErr):pass
 class BadMesgVers(SynErr):pass
 class BadInfoValu(SynErr):pass
 class BadStorValu(SynErr):pass

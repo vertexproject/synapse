@@ -242,6 +242,7 @@ countries = [
     ("united kingdom","gb","gbr","826"),
     ("united states of america","us","usa","840"),
     ("us minor outlying islands","um","umi","581"),
+    ("us minor islands","um","umi","581"),
     ("uruguay","uy","ury","858"),
     ("uzbekistan","uz","uzb","860"),
     ("vanuatu","vu","vut","548"),
