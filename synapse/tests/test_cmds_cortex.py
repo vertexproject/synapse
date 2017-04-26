@@ -212,3 +212,10 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('guid')
             self.ne( str(outp).find('new guid:'), -1 )
+
+    def test_cmds_py(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('py 20 + 20')
+            self.ne( str(outp).find('40'), -1 )
