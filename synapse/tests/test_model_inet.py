@@ -300,3 +300,6 @@ class InetModelTest(SynTest):
             self.eq(node[1].get('inet:follows:seen:min'), 2554848000000)
             self.eq(node[1].get('inet:follows:seen:max'), 2554848000000)
 
+    def test_model_inet_ipv4_raise(self):
+        with s_cortex.openurl('ram:///') as core:
+            self.raises( BadTypeValu, core.formTufoByProp, 'inet:ipv4', 'lolololololol' )

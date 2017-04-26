@@ -10,6 +10,7 @@ import synapse.lib.urlhelp as s_urlhelp
 
 import synapse.lookup.iana as s_l_iana
 
+from synapse.exc import BadTypeValu
 from synapse.lib.types import DataType
 
 def getDataModel():
@@ -337,8 +338,11 @@ def ipv4str(valu):
     return socket.inet_ntoa(byts)
 
 def ipv4int(valu):
-    byts = socket.inet_aton(valu)
-    return struct.unpack('>I', byts)[0]
+    try:
+        byts = socket.inet_aton(valu)
+        return struct.unpack('>I', byts)[0]
+    except socket.error as e:
+        raise BadTypeValu(valu=valu,type='inet:ipv4',mesg=str(e))
 
 masks = [ (0xffffffff - ( 2**(32-i) - 1 )) for i in range(33) ]
 def ipv4mask(ipv4,mask):
