@@ -262,6 +262,8 @@ def getDataModel():
                 ('registrant',{'ptype':'inet:whois:reg','defval':'??'}),
                 ('ns1',{'ptype':'inet:fqdn'}),
                 ('ns2',{'ptype':'inet:fqdn'}),
+                ('ns3',{'ptype':'inet:fqdn'}),
+                ('ns4',{'ptype':'inet:fqdn'}),
             ]),
 
             ('inet:whois:contact',{},[
