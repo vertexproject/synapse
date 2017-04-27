@@ -1,3 +1,5 @@
+from __future__ import absolute_import,unicode_literals
+
 import synapse.axon as s_axon
 import synapse.cortex as s_cortex
 
@@ -80,6 +82,9 @@ class FileModelTest(SynTest):
 
             img0 = core.formTufoByProp('file:imgof',(fiden,'ps:person',piden))
             img1 = core.formTufoByProp('file:imgof','%s|ps:person|%s' % (fiden,piden))
+
+            print('IMG0 %r' % (img0,))
+            print('IMG1 %r' % (img1,))
 
             self.eq( img0[0], img1[0] )
             self.eq( img0[1].get('file:imgof:file'), fiden )
