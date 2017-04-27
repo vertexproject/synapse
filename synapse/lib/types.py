@@ -517,8 +517,6 @@ class TypeLib:
         self.addType('syn:type',subof='str', regex=r'^([\w]+:)*[\w]+$', lower=1)
         self.addType('syn:glob',subof='str', regex=r'^([\w]+:)*[\w]+:\*$', lower=1)
 
-        #self.addType('guid',subof='str', regex='^[0-9a-f]{32}$', lower=1, restrip='[-]')
-
         self.addType('int:min', subof='int', ismin=1)
         self.addType('int:max', subof='int', ismax=1)
 
