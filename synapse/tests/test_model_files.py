@@ -83,9 +83,6 @@ class FileModelTest(SynTest):
             img0 = core.formTufoByProp('file:imgof',(fiden,'ps:person',piden))
             img1 = core.formTufoByProp('file:imgof','%s|ps:person|%s' % (fiden,piden))
 
-            print('IMG0 %r' % (img0,))
-            print('IMG1 %r' % (img1,))
-
             self.eq( img0[0], img1[0] )
             self.eq( img0[1].get('file:imgof:file'), fiden )
             self.eq( img0[1].get('file:imgof:xref:ps:person'), piden )
