@@ -65,3 +65,37 @@ class FileModelTest(SynTest):
             self.nn(core.getTufoByProp('file:base', 'baz.quux'))
 
             self.assertRaises(BadTypeValu, core.formTufoByProp, 'file:base', '/haha')
+
+    def test_model_files_imgof(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            core.setConfOpt('enforce',1)
+
+            pnod = core.formTufoByProp('ps:person',None)
+            fnod = core.formTufoByProp('file:bytes',None)
+
+            piden = pnod[1].get('ps:person')
+            fiden = fnod[1].get('file:bytes')
+
+            img0 = core.formTufoByProp('file:imgof',(fiden,'ps:person',piden))
+            img1 = core.formTufoByProp('file:imgof','%s|ps:person|%s' % (fiden,piden))
+
+            self.eq( img0[0], img1[0] )
+            self.eq( img0[1].get('file:imgof:file'), fiden )
+            self.eq( img0[1].get('file:imgof:xref:ps:person'), piden )
+
+    def test_model_files_txtref(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce',1)
+
+            iden = guid()
+
+            img0 = core.formTufoByProp('file:txtref',(iden,'inet:email','visi@vertex.link'))
+            img1 = core.formTufoByProp('file:txtref','%s|inet:email|visi@VERTEX.LINK' % iden)
+
+            self.eq( img0[0], img1[0] )
+            self.eq( img0[1].get('file:txtref:file'), iden )
+            self.eq( img0[1].get('file:txtref:xref:inet:email'), 'visi@vertex.link')
+

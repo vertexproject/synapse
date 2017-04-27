@@ -18,9 +18,23 @@ def getDataModel():
             ('file:base',{'ctor':'synapse.models.files.FileBaseType', 'doc':'A file basename such as foo.exe'}),
 
             ('file:path',{'ctor':'synapse.models.files.FilePathType', 'doc':'A normalized file path'}),
+
+            ('file:imgof',{'subof':'xref','source':'file,file:bytes','doc':'The file is an image file which shows the referenced node'}),
+            ('file:txtref',{'subof':'xref','source':'file,file:bytes','doc':'The file content refereneces the given node'}),
+
         ),
 
         'forms':(
+
+            ('file:imgof',{},[
+                ('file',{'ptype':'file:bytes'}),
+                ('xref:*',{'glob':1}),
+            ]),
+
+            ('file:txtref',{},[
+                ('file',{'ptype':'file:bytes'}),
+                ('xref:*',{'glob':1}),
+            ]),
 
             ('file:path', {},(
                 ('dir',  {'ptype':'file:path', 'doc': 'The parent directory for this path.'}),

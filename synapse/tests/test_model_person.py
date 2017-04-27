@@ -95,3 +95,21 @@ class PersonTest(SynTest):
             self.nn( core.getTufoByProp('ps:person',iden) )
             self.nn( core.getTufoByProp('inet:user','visi') )
             self.nn( core.getTufoByProp('inet:netuser','rootkit.com/visi') )
+
+    def test_model_person_guidname(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            node = core.formTufoByProp('ps:person:guidname','visi')
+            self.eq( node[1].get('ps:person:guidname'), 'visi' )
+
+            iden = node[1].get('ps:person')
+
+            node = core.formTufoByProp('ps:hasnetuser','$visi/rootkit.com/visi')
+
+            self.eq( node[1].get('ps:hasnetuser:netuser'), 'rootkit.com/visi')
+            self.eq( node[1].get('ps:hasnetuser:person'), iden )
+
+            self.nn( core.getTufoByProp('ps:person',iden) )
+
+            self.eq( len(core.eval('ps:person=$visi')), 1 )

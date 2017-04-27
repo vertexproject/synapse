@@ -8,7 +8,7 @@ def getDataModel():
         'types':(
             ('ps:tokn',{'subof':'str:lwr','doc':'A single name element (potentially given or sur)','ex':'mike'}),
             ('ps:name',{'ctor':'synapse.models.person.Name','ex':'smith,bob', 'doc':'A last,first person full name'}),
-            ('ps:person',{'subof':'guid','doc':'A GUID for a person or suspected person'}),
+            ('ps:person',{'subof':'guid','alias':'ps:person:guidname','doc':'A GUID for a person or suspected person'}),
 
 
             ('ps:hasuser',{'subof':'sepr','sep':'/','fields':'person,ps:person|user,inet:user'}),
@@ -34,6 +34,7 @@ def getDataModel():
             ]),
 
             ('ps:person',{'ptype':'ps:person'},[
+                ('guidname',{'ptype':'str:lwr','doc':'The GUID resolver alias for this person'}),
                 ('dob',{'ptype':'time','doc':'The Date of Birth (DOB) if known'}),
                 ('img',{'ptype':'file:bytes','doc':'The "primary" image of a person'}),
                 ('nick',{'ptype':'inet:user'}),
@@ -107,3 +108,14 @@ class Name(DataType):
         subs['parts'] = len(parts)
         valu = ','.join(parts)
         return valu,subs
+
+def addCoreOns(core):
+
+    def seedPersonGuidName(prop,valu,**props):
+        node = core.getTufoByProp('ps:person:guidname',valu)
+        if node == None:
+            # trigger GUID auto-creation
+            node = core.formTufoByProp('ps:person',None,guidname=valu,**props)
+        return node
+
+    core.addSeedCtor('ps:person:guidname', seedPersonGuidName )
