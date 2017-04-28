@@ -32,7 +32,6 @@ def compute_hashes(fp):
 
 
 def main(argv, outp=None):
-
     if outp == None:  # pragma: no cover
         outp = s_output.OutPut()
 
@@ -69,6 +68,7 @@ def main(argv, outp=None):
                 outp.printf('{}\t{}'.format(key, value))
 
     return 0
+
 
 def makeargpaser():
     parser = argparse.ArgumentParser(description="Compute the guid and hashes for a file.")
