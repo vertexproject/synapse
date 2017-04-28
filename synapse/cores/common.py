@@ -10,8 +10,8 @@ from synapse.compat import queue
 
 import synapse.async as s_async
 import synapse.compat as s_compat
-import synapse.dyndeps as s_dyndeps
 import synapse.reactor as s_reactor
+import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.tags as s_tags
@@ -19,6 +19,7 @@ import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 import synapse.lib.types as s_types
+import synapse.lib.hashset as s_hashset
 import synapse.lib.threads as s_threads
 import synapse.lib.modules as s_modules
 import synapse.lib.hashitem as s_hashitem
@@ -56,15 +57,74 @@ def reqstor(name,valu):
         raise BadPropValu(name=name,valu=valu)
     return valu
 
-class Cortex(EventBus,DataModel,Runtime,Configable):
+class CortexMixin:
+
+    def formNodeByBytes(self, byts, stor=True, **props):
+        '''
+        Form a new file:bytes node by passing bytes and optional props.
+
+        If stor=False is specified, the cortex will create the file:bytes
+        node even if it is not configured with access to an axon to store
+        the bytes.
+
+        Example:
+
+            core.formNodeByBytes(byts,name='foo.exe')
+
+        '''
+
+        hset = s_hashset.HashSet()
+        hset.update(byts)
+
+        iden,info = hset.guid()
+
+        props.update(info)
+
+        if stor:
+
+            size = props.get('size')
+            upid = self._getAxonWants('guid',iden,size)
+
+            if upid != None:
+                for chun in chunks(byts,10000000):
+                    self._addAxonChunk(upid,chun)
+
+        return self.formTufoByProp('file:bytes', iden, **props)
+
+    def formNodeByFd(self, fd, stor=True, **props):
+        '''
+        Form a new file:bytes node by passing a file object and optional props.
+        '''
+        hset = s_hashset.HashSet()
+        iden,info = hset.eatfd(fd)
+
+        props.update(info)
+
+
+        if stor:
+
+            size = props.get('size')
+            upid = self._getAxonWants('guid',iden,size)
+
+            # time to send it!
+            if upid != None:
+                for byts in iterfd(fd):
+                    self._addAxonChunk(upid,byts)
+
+        return self.formTufoByProp('file:bytes', iden, **props)
+
+class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin):
     '''
     Top level Cortex key/valu storage object.
     '''
-    def __init__(self, link):
+    def __init__(self, link, **conf):
         Runtime.__init__(self)
         EventBus.__init__(self)
+        CortexMixin.__init__(self)
         Configable.__init__(self)
 
+        # a cortex may have a ref to an axon
+        self.axon = None
         self.seedctors = {}
 
         self.noauto = {'syn:form','syn:type','syn:prop'}
@@ -73,10 +133,15 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
         self.addConfDef('caching',type='bool',asloc='caching',defval=0,doc='Enables caching layer in the cortex')
         self.addConfDef('cache:maxsize',type='int',asloc='cache_maxsize',defval=1000,doc='Enables caching layer in the cortex')
 
+        self.addConfDef('axon:url',type='str',doc='Allows cortex to be aware of an axon blob store')
+
         self.addConfDef('log:save',type='bool',asloc='logsave', defval=0, doc='Enables saving exceptions to the cortex as syn:log nodes')
         self.addConfDef('log:level',type='int',asloc='loglevel',defval=0,doc='Filters log events to >= level')
 
         self.onConfOptSet('caching', self._onSetCaching)
+        self.onConfOptSet('axon:url', self._onSetAxonUrl)
+
+        self.setConfOpts(conf)
 
         self._link = link
 
@@ -234,6 +299,16 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
     def _getStormCore(self, name=None):
         return self
+
+    def _getAxonWants(self, htype, hvalu, size):
+        if self.axon == None:
+            raise NoSuchOpt(name='axon:url',mesg='The cortex does not have an axon configured')
+        return self.axon.wants(htype,hvalu,size)
+
+    def _addAxonChunk(self, iden, byts):
+        if self.axon == None:
+            raise NoSuchOpt(name='axon:url',mesg='The cortex does not have an axon configured')
+        return self.axon.chunk(iden,byts)
 
     def getSeqNode(self, name):
         '''
@@ -533,6 +608,9 @@ class Cortex(EventBus,DataModel,Runtime,Configable):
 
                 if atlim:
                     self._delCacheKey(ckey)
+
+    def _onSetAxonUrl(self, url):
+        self.axon = s_telepath.openurl(url)
 
     def _onSetCaching(self, valu):
         if not valu:
@@ -2612,3 +2690,4 @@ class CoreXact:
         self.release()
         self._coreXactFini()
         self.core._popCoreXact()
+

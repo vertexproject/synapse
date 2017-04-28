@@ -51,5 +51,12 @@ if mods:
             logger.warning('SYN_MODULES failed: %s (%s)' % (name,e))
 
 # load any modules which register dyndeps aliases...
-import synapse.axon as s_axon
+# ( order matters...)
+import synapse.axon
+import synapse.cortex
+#import synapse.cores.common as s_cores_common
+
+# register our telepath mixins from here...
+import synapse.lib.mixins as s_mixins
+s_mixins.addSynMixin('telepath','synapse.cores.common.CortexMixin')
 

@@ -15,9 +15,9 @@ and is expected to provide indexed access to rows, allow bulk
 insertion, and provide for atomic deconfliction if needed.
 
 '''
-
 import synapse.link as s_link
 import synapse.async as s_async
+import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 
 import synapse.lib.sched as s_sched
@@ -83,6 +83,18 @@ def choptag(tag):
     '''
     parts = tag.split('.')
     return [ '.'.join(parts[:x+1]) for x in range(len(parts)) ]
+
+def _ctor_cortex(conf):
+    url = conf.pop('url',None)
+    if url == None:
+        raise BadInfoValu(name='url',valu=None,mesg='cortex ctor requires "url":<url> option')
+
+    core = openurl(url)
+    core.setConfOpts(conf)
+
+    return core
+
+s_dyndeps.addDynAlias('syn:cortex',_ctor_cortex)
 
 if __name__ == '__main__':  # pragma: no cover
     import sys

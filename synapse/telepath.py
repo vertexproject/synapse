@@ -18,6 +18,7 @@ import synapse.eventbus as s_eventbus
 
 import synapse.lib.queue as s_queue
 import synapse.lib.sched as s_sched
+import synapse.lib.scope as s_scope
 import synapse.lib.mixins as s_mixins
 import synapse.lib.socket as s_socket
 import synapse.lib.reflect as s_reflect
@@ -60,6 +61,22 @@ def openlink(link):
         foo.bar(20)
 
     '''
+    # special case for dmon://fooname/ which refers to a
+    # named object within whatever dmon is currently in scope
+    if link[0] == 'dmon':
+
+        dmon = s_scope.get('dmon')
+        if dmon == None:
+            raise NoSuchName(name='dmon',link=link, mesg='no dmon instance in current scope')
+
+        # the "host" part is really a dmon local
+        host = link[1].get('host')
+        item = dmon.locs.get(host)
+        if item == None:
+            raise NoSuchName(name=host,link=link, mesg='dmon instance has no local with that name')
+
+        return item
+
     relay = s_link.getLinkRelay(link)
     name = link[1].get('path')[1:]
 

@@ -244,6 +244,13 @@ def chunks(item,size):
 
         off += size
 
+def iterfd(fd, size=10000000):
+    fd.seek(0)
+    byts = fd.read(size)
+    while byts:
+        yield byts
+        byts = fd.read(size)
+
 def reqStorDict(x):
     '''
     Raises BadStorValu if any value in the dict is not compatible

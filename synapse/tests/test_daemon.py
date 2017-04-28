@@ -235,3 +235,28 @@ class DaemonTest(SynTest):
 
         s_dyndeps.delDynAlias('test:blah')
 
+
+    def test_daemon_ctor_dmonurl(self):
+
+        conf = {
+            'ctors':[
+                ('thing0','synapse.tests.test_daemon.Blah',{'lulz':'hehe'}),
+                ('thing1','test:check:blah',{}),
+            ],
+        }
+
+        self.raises( NoSuchName, s_telepath.openurl, 'dmon://thing0' )
+
+        with s_daemon.Daemon() as dmon:
+
+
+            def checkblah(conf):
+                self.eq( dmon.locs.get('thing0'), s_telepath.openurl('dmon://thing0') )
+                self.raises( NoSuchName, s_telepath.openurl, 'dmon://newp0/' )
+                return 1
+
+            s_dyndeps.addDynAlias('test:check:blah',checkblah)
+
+            dmon.loadDmonConf(conf)
+
+            s_dyndeps.delDynAlias('test:check:blah')
