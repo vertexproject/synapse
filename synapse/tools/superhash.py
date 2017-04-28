@@ -73,7 +73,7 @@ def main(argv, outp=None):
 def makeargpaser():
     parser = argparse.ArgumentParser(description="Compute the guid and hashes for a file.")
     parser.add_argument('-i', '--input', dest='input', required=True, type=str, action='append',
-                        help='Input file to process')
+                        help='Input file to process. May be specified multple times.')
     parser.add_argument('--ingest', dest='ingest', default=False, action='store_true',
                         help='Display the data in a format that can be placed into a ingest definition.')
     return parser
