@@ -7,11 +7,11 @@ Created on 4/26/17.
 Generate the hashsets and guid (superhash) for a file.
 """
 # Stdlib
-import argparse
-import json
-import logging
 import os
 import sys
+import json
+import logging
+import argparse
 # Custom Code
 import synapse.axon as s_axon
 import synapse.lib.output as s_output
