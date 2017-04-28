@@ -73,7 +73,10 @@ def tryDynMod(name):
     '''
     Dynamically import a python module or exception.
     '''
-    return importlib.import_module(name)
+    try:
+        return importlib.import_module(name)
+    except ImportError as e:
+        raise NoSuchDyn(name=name)
 
 def tryDynLocal(name):
     '''
@@ -83,9 +86,15 @@ def tryDynLocal(name):
     if item is not novalu:
         return item
 
+    if name.find('.') == -1:
+        raise NoSuchDyn(name=name)
+
     modname,objname = name.rsplit('.',1)
     mod = tryDynMod(modname)
-    return getattr(mod,objname)
+    item = getattr(mod,objname,novalu)
+    if item is novalu:
+        raise NoSuchDyn(name=name)
+    return item
 
 def tryDynFunc(name,*args,**kwargs):
     '''

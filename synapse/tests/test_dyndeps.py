@@ -30,6 +30,10 @@ class DynDepsTest(SynTest):
         valu = s_dyndeps.runDynEval('synapse.tests.test_dyndeps.woot(40,y=10)')
         self.eq( valu, 50 )
 
+    def test_dyndeps_nosuchdyn(self):
+        self.raises( NoSuchDyn, s_dyndeps.tryDynMod, 'newpnewp' )
+        self.raises( NoSuchDyn, s_dyndeps.tryDynLocal, 'sys.newpnewp' )
+
     def test_dyndeps_alias(self):
 
         s_dyndeps.addDynAlias('unit_test_woot',woot)
@@ -39,3 +43,5 @@ class DynDepsTest(SynTest):
 
         self.eq( s_dyndeps.delDynAlias('unit_test_woot'), woot )
         self.none( s_dyndeps.getDynLocal('unit_test_woot') )
+
+        self.raises( NoSuchDyn, s_dyndeps.tryDynFunc, 'unit_test_woot', 20, y=40 )
