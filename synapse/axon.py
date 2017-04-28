@@ -9,6 +9,7 @@ import multiprocessing
 
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
+import synapse.dyndeps as s_dyndeps
 import synapse.reactor as s_reactor
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
@@ -212,11 +213,21 @@ class AxonHost(s_eventbus.EventBus):
 
 
 class AxonMixin:
+
     '''
     The parts of the Axon which must be executed locally in proxy cases.
     ( used as mixin for both Axon and AxonProxy )
     '''
+
     def eatfd(self, fd):
+        '''
+        Consume the contents of a file object into the axon as a blob.
+
+        Example:
+
+            tufo = axon.eatfd(fd)
+
+        '''
 
         hset = HashSet()
         iden,props = hset.eatfd(fd)
@@ -237,6 +248,14 @@ class AxonMixin:
         return retn
 
     def eatbytes(self, byts):
+        '''
+        Consume a buffer of bytes into the axon as a blob.
+
+        Example:
+
+            tufo = axon.eatbytes(byts)
+
+        '''
         hset = HashSet()
 
         hset.update(byts)
@@ -1231,3 +1250,16 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
         now = int(time.time())
         return {'st_ctime': now, 'st_mtime': now, 'st_atime': now, 'st_nlink': 2, 'st_mode': (stat.S_IFDIR | mode), 'parent': parent}
+
+def _ctor_axon(opts):
+    '''
+    A function to allow terse/clean construction of an axon from a dmon ctor.
+    '''
+    datadir = opts.pop('datadir',None)
+    if datadir == None:
+        raise BadInfoValu(name='datadir',valu=None,mesg='axon ctor requires "datadir":<path> option')
+
+    return Axon(datadir,**opts)
+
+s_dyndeps.addDynAlias('syn:axon',_ctor_axon)
+

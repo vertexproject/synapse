@@ -9,6 +9,7 @@ import multiprocessing
 
 import synapse.link as s_link
 import synapse.compat as s_compat
+import synapse.dyndeps as s_dyndeps
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.socket as s_socket
@@ -216,7 +217,12 @@ class DmonConf:
             else:
                 raise Exception('Invalid ctor row: %r' % (row,))
 
-            item = self.dmoneval(url)
+            if url.find('://') == -1:
+                # this is a (name,dynfunc,config) formatted ctor...
+                item = s_dyndeps.tryDynFunc(url,copts)
+            else:
+                item = self.dmoneval(url)
+
             self.locs[name] = item
 
             # check for a ctor opt that wants us to load a config dict by name

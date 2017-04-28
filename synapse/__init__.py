@@ -49,3 +49,7 @@ if mods:
             s_modules.load(name)
         except Exception as e:
             logger.warning('SYN_MODULES failed: %s (%s)' % (name,e))
+
+# load any modules which register dyndeps aliases...
+import synapse.axon as s_axon
+
