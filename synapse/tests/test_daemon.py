@@ -5,6 +5,7 @@ import threading
 
 import synapse.link as s_link
 import synapse.daemon as s_daemon
+import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
@@ -216,4 +217,21 @@ class DaemonTest(SynTest):
             dmon.loadDmonConf(conf)
             core = dmon.locs.get('bar')
             self.eq( core.caching, 1 )
+
+    def test_daemon_ctor_nonurl(self):
+
+        s_dyndeps.addDynAlias('test:blah',Blah)
+
+        conf = {
+            'ctors':(
+                ('foo','test:blah', {'lulz':'rofl'}),
+            ),
+        }
+
+        with s_daemon.Daemon() as dmon:
+            dmon.loadDmonConf(conf)
+            item = dmon.locs.get('foo')
+            self.eq( item.woot.get('lulz'), 'rofl' )
+
+        s_dyndeps.delDynAlias('test:blah')
 
