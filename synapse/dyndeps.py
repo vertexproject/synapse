@@ -21,7 +21,7 @@ def addDynAlias(name,item):
 
 def delDynAlias(name):
     '''
-    Remove a dyndeps "alias" previously registered with addDynAlias()
+    Remove (and return) a dyndeps "alias" previously registered with addDynAlias()
 
     Example:
 
