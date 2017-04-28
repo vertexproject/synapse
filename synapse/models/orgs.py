@@ -6,7 +6,7 @@ def getDataModel():
         'version':201611301215,
 
         'types':(
-            ('ou:org',{'subof':'guid','doc':'A GUID for a human organization such as a company or military unit'}),
+            ('ou:org',{'subof':'guid','alias':'ou:org:alias','doc':'A GUID for a human organization such as a company or military unit'}),
             ('ou:user',{'subof':'sepr','sep':'/','fields':'org,ou:org|user,inet:user','doc':'A user name within an organization'}),
             ('ou:alias',{'subof':'str:lwr','regex':'^[0-9a-z]+$','doc':'An alias for the org GUID','ex':'vertexproj'}),
 
@@ -27,6 +27,11 @@ def getDataModel():
                 ('naics',{'ptype':'ou:naics'}),
                 ('us:cage',{'ptype':'gov:us:cage'}),
                 ('url',{'ptype':'inet:url'})
+            ]),
+
+            ('ou:user',{},[
+                ('org',{'ptype':'ou:org'}),
+                ('user',{'ptype':'inet:user'}),
             ]),
 
             ('ou:member',{'ptype':'sepr','sep':'/','fields':'org,ou:org|person,ou:person'},[

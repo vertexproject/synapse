@@ -377,7 +377,7 @@ class DataTypesTest(SynTest):
 
     def test_type_bases(self):
         with s_cortex.openurl('ram:///') as core:
-            self.eq( tuple(core.getTypeBases('inet:dns:look')), ('str','guid','inet:dns:look') )
+            self.eq( tuple(core.getTypeBases('inet:dns:look')), ('guid','inet:dns:look') )
 
     def test_type_issub(self):
         with s_cortex.openurl('ram:///') as core:
@@ -523,6 +523,49 @@ class DataTypesTest(SynTest):
         self.eq( tlib.getTypeCast('toupper','HeHe'), 'HEHE' )
         self.eq( tlib.getTypeCast('make:guid','visi'), '98db59098e385f0bfdec8a6a0a6118b3')
 
-    def test_str_strip(self):
+    def test_type_str_strip(self):
         tlib = s_types.TypeLib()
         self.eq( tlib.getTypeCast('str:lwr',' ASDF  '), 'asdf' )
+
+    def test_type_xref(self):
+
+        tlib = s_types.TypeLib()
+
+        tlib.addType('foo:bar', subof='xref', source='org,ou:org')
+
+        valu,subs = tlib.getTypeNorm('foo:bar',('98db59098e385f0bfdec8a6a0a6118b3','inet:fqdn','woot.com'))
+        self.eq( subs.get('org'), '98db59098e385f0bfdec8a6a0a6118b3' )
+        self.eq( subs.get('xtype'), 'inet:fqdn' )
+        self.eq( subs.get('xref:inet:fqdn'), 'woot.com' )
+
+        valu,subs = tlib.getTypeNorm('foo:bar','98db59098e385f0bfdec8a6a0a6118b3|inet:fqdn|wOOT.com')
+        self.eq( subs.get('org'), '98db59098e385f0bfdec8a6a0a6118b3' )
+        self.eq( subs.get('xtype'), 'inet:fqdn' )
+        self.eq( subs.get('xref:inet:fqdn'), 'woot.com' )
+
+
+    def test_types_isguid(self):
+        self.true( s_types.isguid('98db59098e385f0bfdec8a6a0a6118b3') )
+        self.false( s_types.isguid('visi') )
+
+    def test_types_guid_resolver(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            core.setConfOpt('enforce',1)
+
+            # use the seed constructor for an org
+            onode = core.formTufoByProp('ou:org:alias','vertex')
+
+            iden = onode[1].get('ou:org')
+
+            self.raises( BadTypeValu, core.formTufoByProp, 'ou:user', '$newp/visi' )
+
+            unode = core.formTufoByProp('ou:user','$vertex/visi')
+
+            self.eq( unode[1].get('ou:user'), '%s/visi' % iden )
+            self.eq( unode[1].get('ou:user:org'), iden )
+
+            self.eq( len( core.eval('ou:org=$vertex')), 1 )
+            self.eq( len( core.eval('ou:user:org=$vertex')), 1 )
+

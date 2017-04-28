@@ -18,6 +18,10 @@ from synapse.common import *
 
 logger = logging.getLogger(__name__)
 
+guidre = re.compile('^[0-9a-f]{32}$')
+def isguid(text):
+    return guidre.match(text) != None
+
 class DataType:
 
     subprops = ()
@@ -91,6 +95,40 @@ class DataType:
 
     def repr(self, valu):
         return valu
+
+class GuidType(DataType):
+
+    def __init__(self, tlib, name, **info):
+        DataType.__init__(self, tlib, name, **info)
+        self._guid_alias = info.get('alias')
+        # TODO figure out what to do about tlib vs core issues
+        self._getTufoByProp = getattr(tlib,'getTufoByProp',None)
+
+    def norm(self, valu, oldval=None):
+
+        if not s_compat.isstr(valu) or len(valu) < 1:
+            self._raiseBadValu(valu)
+
+        if valu[0] != '$':
+            retn = valu.lower().replace('-','')
+            if not isguid(retn):
+                self._raiseBadValu(valu)
+
+            return retn,{}
+
+        if self._guid_alias == None:
+            self._raiseBadValu(valu,mesg='guid resolver syntax used with non-aliased guid')
+
+        if self._getTufoByProp == None:
+            self._raiseBadValu(valu,mesg='guid resolver syntax used with non-cortex tlib')
+
+        # ( sigh... eventually everything will be a cortex... )
+        node = self._getTufoByProp(self._guid_alias,valu[1:])
+        if node == None:
+            self._raiseBadValu(valu,mesg='no result for guid resolver')
+
+        iden = node[1].get( node[1].get('tufo:form') )
+        return iden,{}
 
 class StrType(DataType):
 
@@ -321,6 +359,71 @@ class CompType(MultiFieldType):
 
         return self._norm_list(valu)
 
+class XrefType(DataType):
+    '''
+    The XrefType allows linking a specific type of node to an inspecific
+    set of node forms.
+
+    Example Sub Type:
+
+        addType('foo:barrefs', subof='xref', source='bar,foo:bar')
+
+    '''
+
+    def __init__(self, tlib, name, **info):
+        DataType.__init__(self, tlib, name, **info)
+        self._sorc_type = None
+        self._sorc_name = None
+
+        sorc = info.get('source')
+
+        if sorc != None:
+            parts = sorc.split(',')
+            if len(parts) != 2:
+                raise BadInfoValu(name='source',valu=sorc,mesg='expected source=<name>,<type>')
+
+            self._sorc_name = parts[0]
+            self._sorc_type = parts[1]
+
+    def norm(self, valu, oldval=None):
+
+        if s_compat.isstr(valu):
+            return self._norm_str(valu, oldval=oldval)
+
+        if not islist(valu):
+            self._raiseBadValu(valu,mesg='Expected guid, psv, or list')
+
+        return self._norm_list(valu,oldval=None)
+
+    def _norm_str(self, text, oldval=None):
+
+        if len(text) == 32 and text.find('|') == -1:
+            return self.tlib.getTypeNorm('guid',text)
+
+        # FIXME full logical / quoted split
+        parts = text.split('|')
+        return self._norm_list(parts)
+
+    def _norm_list(self, valu, oldval=None):
+
+        if len(valu) != 3:
+            self._raiseBadValu(text,mesg='xref type requires 3 fields')
+
+        valu,tstr,tval = valu
+
+        valu,vsub = self.tlib.getTypeNorm(self._sorc_type,valu)
+        tval,tsub = self.tlib.getTypeNorm(tstr,tval)
+
+        iden = guid((valu,tstr,tval))
+
+        subs = {
+            self._sorc_name:valu,
+            'xtype':tstr,
+            'xref:%s' % tstr:tval,
+        }
+
+        return iden,subs
+
 class SeprType(MultiFieldType):
 
     def __init__(self, tlib, name, **info):
@@ -403,16 +506,16 @@ class TypeLib:
         self.addType('bool',ctor='synapse.lib.types.BoolType', doc='A boolean type')
         self.addType('json',ctor='synapse.lib.types.JsonType', doc='A json type (stored as str)')
 
-        self.addType('comp',ctor='synapse.lib.types.CompType', doc='A multi-field composite type which generates a stable guid from normalized fields')
+        self.addType('guid',ctor='synapse.lib.types.GuidType', doc='A Globally Unique Identifier type')
         self.addType('sepr',ctor='synapse.lib.types.SeprType', doc='A multi-field composite type which uses separated repr values')
+        self.addType('comp',ctor='synapse.lib.types.CompType', doc='A multi-field composite type which generates a stable guid from normalized fields')
+        self.addType('xref',ctor='synapse.lib.types.XrefType', doc='A multi-field composite type which can be used to link a known form to an unknown form')
 
         # add base synapse types
         self.addType('syn:tag',subof='str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
         self.addType('syn:prop',subof='str', regex=r'^([\w]+:)*([\w]+|\*)$', lower=1)
         self.addType('syn:type',subof='str', regex=r'^([\w]+:)*[\w]+$', lower=1)
         self.addType('syn:glob',subof='str', regex=r'^([\w]+:)*[\w]+:\*$', lower=1)
-
-        self.addType('guid',subof='str', regex='^[0-9a-f]{32}$', lower=1, restrip='[-]')
 
         self.addType('int:min', subof='int', ismin=1)
         self.addType('int:max', subof='int', ismax=1)
