@@ -16,6 +16,7 @@ class SynErr(Exception):
 
 class NoSuchOpt(SynErr):pass
 class NoSuchDir(SynErr):pass
+class NoSuchDyn(SynErr):pass
 class NoSuchMod(SynErr):pass
 class NoSuchSeq(SynErr):pass
 class NoSuchConf(SynErr):pass
