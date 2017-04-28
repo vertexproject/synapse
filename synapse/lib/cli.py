@@ -7,6 +7,15 @@ import synapse.lib.syntax as s_syntax
 
 from synapse.eventbus import EventBus
 
+
+def get_input(text):  # pragma: no cover
+    '''
+    Wrapper for input() function for testing runCmdLoop.
+    :param text: Banner to display.
+    '''
+    return input(text)
+
+
 class CliFini(Exception): pass
 
 class Cmd:
@@ -70,7 +79,7 @@ class Cmd:
             if defval != None:
                 opts[snam] = defval
 
-            if synt[1].get('type') == 'list':
+            if synt[1].get('type') in ('list','kwlist'):
                 opts[snam] = []
 
         def atswitch(t,o):
@@ -140,6 +149,11 @@ class Cmd:
                     valu.append(item)
 
                 opts[synt[0]] = valu
+                break
+
+            if styp == 'kwlist':
+                kwlist,off = s_syntax.parse_cmd_kwlist(text,off)
+                opts[snam] = kwlist
                 break
 
             valu,off = s_syntax.parse_cmd_string(text,off)
@@ -232,7 +246,7 @@ class Cli(EventBus):
 
             try:
 
-                line = input(self.cmdprompt)
+                line = get_input(self.cmdprompt)
                 if not line:
                     continue
 

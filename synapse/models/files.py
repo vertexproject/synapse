@@ -1,8 +1,11 @@
 from synapse.lib.types import DataType
+
 import synapse.compat as s_compat
 
+from synapse.common import addpref
 
 def getDataModel():
+
     return {
 
         'prefix':'file',
@@ -11,15 +14,32 @@ def getDataModel():
         'types':(
             ('file:bytes',{'subof':'guid','doc':'A unique file identifier'}),
             ('file:sub',{'subof':'sepr','sep':'/','fields':'parent,file:bytes|child,file:bytes'}),
-            ('file:path',{'ctor':'synapse.models.files.FilePathType', 'doc':'A file path'}),
+            ('file:rawpath',{'ctor':'synapse.models.files.FileRawPathType', 'doc':'A file path'}),
             ('file:base',{'ctor':'synapse.models.files.FileBaseType', 'doc':'A file basename such as foo.exe'}),
+
+            ('file:path',{'ctor':'synapse.models.files.FilePathType', 'doc':'A normalized file path'}),
+
+            ('file:imgof',{'subof':'xref','source':'file,file:bytes','doc':'The file is an image file which shows the referenced node'}),
+            ('file:txtref',{'subof':'xref','source':'file,file:bytes','doc':'The file content refereneces the given node'}),
+
         ),
 
         'forms':(
 
-            ('file:path', {'ptype':'file:path'},(
-                ('dir', {'ptype':'file:path', 'doc': 'The parent directory for this path.'}),
-                ('base', {'ptype':'file:base', 'doc': 'The final path component, such as the filename, of this path.'})
+            ('file:imgof',{},[
+                ('file',{'ptype':'file:bytes'}),
+                ('xref:*',{'glob':1}),
+            ]),
+
+            ('file:txtref',{},[
+                ('file',{'ptype':'file:bytes'}),
+                ('xref:*',{'glob':1}),
+            ]),
+
+            ('file:path', {},(
+                ('dir',  {'ptype':'file:path', 'doc': 'The parent directory for this path.'}),
+                ('ext',  {'ptype':'str:lwr',   'doc': 'The file extension ( if present ).'}),
+                ('base', {'ptype':'file:base', 'doc': 'The final path component, such as the filename, of this path.'}),
             )),
 
             ('file:base', {'ptype':'file:base', 'doc': 'A final path component, such as the filename.'},()),
@@ -93,8 +113,6 @@ def addCoreOns(core):
     core.addSeedCtor('file:bytes:sha256',seedFileGoodHash)
     core.addSeedCtor('file:bytes:sha512',seedFileGoodHash)
 
-#def revDataModel(core):
-
 class FileBaseType(DataType):
 
     def norm(self, valu, oldval=None):
@@ -104,12 +122,6 @@ class FileBaseType(DataType):
 
         return valu.lower(), {}
 
-    def frob(self, valu, oldval=None):
-        return self.norm(valu, oldval)
-
-    def parse(self, text, oldval=None):
-        return self.norm(text, oldval)
-
     def repr(self, valu):
         return valu
 
@@ -117,31 +129,59 @@ class FilePathType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if not (s_compat.isstr(valu) and len(valu) > 0):
+        if not s_compat.isstr(valu):
             self._raiseBadValu(valu)
 
-        leadingslash = '/' if valu.startswith('/') else ''
-        newval = valu.replace('\\', '/').lower().strip('/')
-        parts = newval.split('/')
+        lead = ''
 
-        dirname = leadingslash + '/'.join(parts[0:-1])
-        newval = leadingslash + newval
+        valu = valu.replace('\\','/').lower()
+        if valu and valu[0] == '/':
+            lead = '/'
 
-        props = {}
-        base = parts[-1]
-        if base:
-            props['base'] = base
+        valu = valu.strip('/')
 
-        if dirname:
-            props['dir'] = dirname
+        vals = [ v for v in valu.split('/') if v ]
 
-        return newval, props
+        fins = []
 
-    def frob(self, valu, oldval=None):
-        return self.norm(valu, oldval)
+        # canonicalize . and ..
+        for v in vals:
+            if v == '.':
+                continue
 
-    def parse(self, text, oldval=None):
-        return self.norm(text, oldval)
+            if v == '..' and fins:
+                fins.pop()
+                continue
 
-    def repr(self, valu):
-        return valu
+            fins.append(v)
+
+        subs = {'dir':'','depth':len(fins)}
+        valu = lead + ('/'.join(fins))
+
+        if fins:
+            base = fins[-1]
+            subs['base'] = base
+
+            pext = base.rsplit('.',1)
+            if len(pext) > 1:
+                subs['ext'] = pext[1]
+
+            if len(fins) > 1:
+                subs['dir'] = lead + ('/'.join(fins[:-1]))
+
+        return valu,subs
+
+class FileRawPathType(DataType):
+
+    def norm(self, valu, oldval=None):
+
+        if not s_compat.isstr(valu):
+            self._raiseBadValu(valu)
+
+        subs = {}
+
+        subs['norm'],subsubs = self.tlib.getTypeNorm('file:path',valu)
+        subs.update( addpref('norm',subsubs) )
+
+        return valu,subs
+

@@ -9,6 +9,7 @@ import multiprocessing
 
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
+import synapse.dyndeps as s_dyndeps
 import synapse.reactor as s_reactor
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
@@ -26,8 +27,10 @@ logger = logging.getLogger(__name__)
 
 megabyte = 1024000
 gigabyte = 1024000000
-
+terabyte = 1024000000000
 chunksize = megabyte * 10
+threedays = ((60 * 60) * 24) * 3
+axontag = 'class.synapse.axon.Axon'
 
 _fs_attrs = ('st_mode','st_nlink','st_size','st_atime','st_ctime','st_mtime')
 
@@ -90,13 +93,6 @@ class HashSet:
         '''
         return [ (name,item.hexdigest()) for (name,item) in self.hashes ]
 
-threedays = ((60 * 60) * 24) * 3
-
-megabyte = 1024000
-gigabyte = 1024000000
-terabyte = 1024000000000
-
-axontag = 'class.synapse.axon.Axon'
 
 class AxonHost(s_eventbus.EventBus):
     '''
@@ -215,14 +211,23 @@ class AxonHost(s_eventbus.EventBus):
         volinfo = s_thisplat.getVolInfo( self.datadir )
         return volinfo
 
-axontag = 'class.synapse.axon.Axon'
 
 class AxonMixin:
+
     '''
     The parts of the Axon which must be executed locally in proxy cases.
     ( used as mixin for both Axon and AxonProxy )
     '''
+
     def eatfd(self, fd):
+        '''
+        Consume the contents of a file object into the axon as a blob.
+
+        Example:
+
+            tufo = axon.eatfd(fd)
+
+        '''
 
         hset = HashSet()
         iden,props = hset.eatfd(fd)
@@ -243,6 +248,14 @@ class AxonMixin:
         return retn
 
     def eatbytes(self, byts):
+        '''
+        Consume a buffer of bytes into the axon as a blob.
+
+        Example:
+
+            tufo = axon.eatbytes(byts)
+
+        '''
         hset = HashSet()
 
         hset.update(byts)
@@ -880,20 +893,18 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
         '''
         normed, props = self.core.getPropNorm('axon:path', path)
+
+        dirn = None
         ppath = props.get('dir')
 
-        if not ppath:
-            raise NoSuchDir()
-
-        parentfo = self.core.getTufoByProp('axon:path', ppath)
-        if not(parentfo and Axon._fs_isdir(parentfo[1].get('axon:path:st_mode'))):
-            raise NoSuchDir()
+        if ppath:
+            dirn = self._getDirNode(ppath)
 
         attr = Axon._fs_new_file_attrs(ppath, mode)
         filefo = self.core.formTufoByProp('axon:path', path, **attr)
 
-        if filefo[1].get('.new'):
-            self.core.incTufoProp(parentfo, 'st_nlink', 1)
+        if filefo[1].get('.new') and dirn != None:
+            self.core.incTufoProp(dirn, 'st_nlink', 1)
 
         return 0
 
@@ -940,21 +951,31 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
         '''
         normed, props = self.core.getPropNorm('axon:path', path)
+
+        dirn = None
         ppath = props.get('dir')
 
-        if not ppath:
-            raise NoSuchDir()
-
-        parentfo = self.core.getTufoByProp('axon:path', ppath)
-        if not(parentfo and Axon._fs_isdir(parentfo[1].get('axon:path:st_mode'))):
-            raise NoSuchDir()
+        if ppath:
+            dirn = self._getDirNode(ppath)
 
         attr = Axon._fs_new_dir_attrs(ppath, mode)
         tufo = self.core.formTufoByProp('axon:path', path, **attr)
         if tufo and tufo[1].get('.new') != True:
             raise FileExists()
 
-        self.core.incTufoProp(parentfo, 'st_nlink', 1)
+        if dirn != None:
+            self.core.incTufoProp(dirn, 'st_nlink', 1)
+
+    def _getDirNode(self, path):
+
+        node = self.core.getTufoByProp('axon:path', path)
+        if node == None:
+            raise NoSuchDir()
+
+        if not Axon._fs_isdir(node[1].get('axon:path:st_mode')):
+            raise NoSuchDir()
+
+        return node
 
     def fs_read(self, path, size, offset):
         '''
@@ -1000,7 +1021,7 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         if not Axon._fs_isdir(attr.get('st_mode')):
             raise NotSupported()
 
-        tufos = self.core.getTufosByProp('axon:path:parent', path)
+        tufos = self.core.getTufosByProp('axon:path:dir', path)
         for tufo in tufos:
             fpath = tufo[1].get('axon:path')
             fname = fpath.split('/')[-1]
@@ -1229,3 +1250,16 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
         now = int(time.time())
         return {'st_ctime': now, 'st_mtime': now, 'st_atime': now, 'st_nlink': 2, 'st_mode': (stat.S_IFDIR | mode), 'parent': parent}
+
+def _ctor_axon(opts):
+    '''
+    A function to allow terse/clean construction of an axon from a dmon ctor.
+    '''
+    datadir = opts.pop('datadir',None)
+    if datadir == None:
+        raise BadInfoValu(name='datadir',valu=None,mesg='axon ctor requires "datadir":<path> option')
+
+    return Axon(datadir,**opts)
+
+s_dyndeps.addDynAlias('syn:axon',_ctor_axon)
+

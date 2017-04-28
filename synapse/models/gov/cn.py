@@ -8,6 +8,7 @@ def getDataModel():
         'types':(
             ('gov:cn:icp',     {'subof':'int','doc':'A Chinese Internet Content Provider ID'}),
             ('gov:cn:mucd',     {'subof':'int','doc':'A Chinese PLA MUCD'}),
+            ('gov:cn:orgicp',   {'subof':'sepr','sep':'/','fields':'org,ou:org|icp,gov:cn:icp'}),
         ),
 
         'forms':(

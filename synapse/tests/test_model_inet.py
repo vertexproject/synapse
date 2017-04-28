@@ -29,14 +29,6 @@ class InetModelTest(SynTest):
             self.eq( t1[1].get('inet:mac'), 'ff:ee:dd:cc:bb:aa' )
             self.eq( t1[1].get('inet:mac:vendor'), 'woot' )
 
-    def test_model_inet_passwd(self):
-
-        with s_cortex.openurl('ram:///') as core:
-            t0 = core.formTufoByProp('inet:passwd','secret')
-            self.eq( t0[1].get('inet:passwd:md5'), '5ebe2294ecd0e0f08eab7690d2a6ee69' )
-            self.eq( t0[1].get('inet:passwd:sha1'), 'e5e9fa1ba31ecd1ae84f75caaa474f3a663f05f4' )
-            self.eq( t0[1].get('inet:passwd:sha256'), '2bb80d537b1da3e38bd30361aa855686bde0eacd7162fef6a25fe97bf527a25b' )
-
     def test_model_inet_ipv4(self):
 
         with s_cortex.openurl('ram:///') as core:
@@ -239,3 +231,75 @@ class InetModelTest(SynTest):
 
             node = core.formTufoByProp('inet:url','HTTP://www.vertex.link/')
             self.eq( node[1].get('inet:url:port'), 80 )
+
+    def test_model_inet_netpost(self):
+
+        with s_cortex.openurl('sqlite:///:memory:') as core:
+
+            core.setConfOpt('enforce',1)
+
+            node0 = core.formTufoByProp('inet:netpost', ('vertex.link/visi','knock knock'), time='20141217010101')
+            iden = node0[1].get('inet:netpost')
+
+            node1 = core.formTufoByProp('inet:netpost',('vertex.link/visi','whos there'), time='20141217010102', replyto=iden)
+
+            self.nn( core.getTufoByProp('inet:netuser','vertex.link/visi') )
+
+            self.eq( node0[1].get('inet:netpost:netuser:user' ), 'visi' )
+            self.eq( node1[1].get('inet:netpost:netuser:user' ), 'visi' )
+
+            self.eq( node0[1].get('inet:netpost:netuser:site' ), 'vertex.link' )
+            self.eq( node1[1].get('inet:netpost:netuser:site' ), 'vertex.link' )
+
+            self.eq( node0[1].get('inet:netpost'), node1[1].get('inet:netpost:replyto') )
+
+
+    def test_model_inet_netmesg(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce',1)
+
+            node = core.formTufoByProp('inet:netmesg', ('VERTEX.link/visi','vertex.LINK/hehe','20501217'), text='hehe haha')
+            self.nn(node)
+            self.eq( node[1].get('inet:netmesg:from'), 'vertex.link/visi' )
+            self.eq( node[1].get('inet:netmesg:to'), 'vertex.link/hehe' )
+            self.eq( node[1].get('inet:netmesg:time'), 2554848000000 )
+            self.eq( node[1].get('inet:netmesg:text'), 'hehe haha' )
+
+            self.nn( core.getTufoByProp('inet:netuser','vertex.link/visi') )
+            self.nn( core.getTufoByProp('inet:netuser','vertex.link/hehe') )
+
+    def test_model_inet_netmemb(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            core.setConfOpt('enforce',1)
+
+            node = core.formTufoByProp('inet:netmemb', ('VERTEX.link/visi','vertex.LINK/kenshoto'), joined='20501217')
+
+            self.nn(node)
+
+            self.eq( node[1].get('inet:netmemb:joined'), 2554848000000 )
+            self.eq( node[1].get('inet:netmemb:user'), 'vertex.link/visi' )
+            self.eq( node[1].get('inet:netmemb:group'), 'vertex.link/kenshoto' )
+
+            self.nn( core.getTufoByProp('inet:netuser','vertex.link/visi') )
+            self.nn( core.getTufoByProp('inet:netgroup','vertex.link/kenshoto') )
+
+    def test_model_inet_follows(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            core.setConfOpt('enforce',1)
+
+            props = {'seen:min':'20501217','seen:max':'20501217'}
+            node = core.formTufoByProp('inet:follows', ('VERTEX.link/visi','vertex.LINK/hehe'), **props)
+
+            self.nn(node)
+            self.eq(node[1].get('inet:follows:follower'), 'vertex.link/visi')
+            self.eq(node[1].get('inet:follows:followee'), 'vertex.link/hehe')
+            self.eq(node[1].get('inet:follows:seen:min'), 2554848000000)
+            self.eq(node[1].get('inet:follows:seen:max'), 2554848000000)
+
+    def test_model_inet_ipv4_raise(self):
+        with s_cortex.openurl('ram:///') as core:
+            self.raises( BadTypeValu, core.formTufoByProp, 'inet:ipv4', 'lolololololol' )

@@ -216,6 +216,17 @@ class Runtime(Configable):
         self.setOperFunc('join', self._stormOperJoin)
         self.setOperFunc('lift', self._stormOperLift)
         self.setOperFunc('pivot', self._stormOperPivot)
+        self.setOperFunc('nexttag',self._stormOperNextSeq)
+
+    def getStormCore(self, name=None):
+        '''
+        Return the (optionally named) cortex for use in direct storm
+        operators.
+        '''
+        return self._getStormCore(name=name)
+
+    def _getStormCore(self, name=None):
+        raise NoSuchImpl(name='getStormCore')
 
     def getLiftLimit(self, limit):
         userlim = s_scope.get('storm:limit:lift')
@@ -284,8 +295,13 @@ class Runtime(Configable):
         def cmprctor(oper):
             prop = oper[1].get('prop')
             valu = oper[1].get('valu')
+            isrel = prop.startswith(':')
             def cmpr(tufo):
-                return func(tufo[1].get(prop),valu)
+                full = prop
+                if isrel:
+                    full = tufo[1].get('tufo:form') + prop
+
+                return func(tufo[1].get(full),valu)
             return cmpr
 
         self.setCmprCtor(name,cmprctor)
@@ -521,6 +537,27 @@ class Runtime(Configable):
         vals = list({ t[1].get(srcp) for t in query.take() if t != None })
         for tufo in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit') ):
             query.add(tufo)
+
+    def _stormOperNextSeq(self, query, oper):
+        name = None
+
+        args = oper[1].get('args')
+        kwargs = dict( oper[1].get('kwlist') )
+
+        doc = kwargs.get('doc')
+        name = kwargs.get('core')
+
+        if len(args) != 1:
+            raise SyntaxError('nexttag(<tagname>,doc=<doc>)')
+
+        tag = args[0]
+
+        core = self.getStormCore(name=name)
+        valu = core.nextSeqValu(tag)
+
+        node = core.formTufoByProp('syn:tag',valu,doc=doc)
+
+        query.add(node)
 
     def _stormOperJoin(self, query, oper):
 

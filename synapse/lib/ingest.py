@@ -204,9 +204,15 @@ class Ingest(EventBus):
         return ret
 
     def get(self, name, defval=None):
+        """
+        Retrieve a value from self._i_info
+        """
         return self._i_info.get(name,defval)
 
     def set(self, name, valu):
+        '''
+        Set a value in self._i_info
+        '''
         self._i_info[name] = valu
 
     def _iterDataSorc(self, path, info):
@@ -370,6 +376,10 @@ class Ingest(EventBus):
                     core.addTufoTags(node,nodetags)
 
     def _ingMergScope(self, core, data, info, scope):
+        '''
+        Extract variables from info and populate them into the current scope.
+        Extract tags from the info and populate them into the current scope.
+        '''
 
         vard = info.get('vars')
         if vard != None:
@@ -425,6 +435,10 @@ class Ingest(EventBus):
                 self.fire('gest:prog', act='tag')
 
     def _ingFormInfo(self, core, data, info, scope):
+        '''
+        Create new nodes via frob interface which match a given form definition.
+        '''
+        _savevar = None
 
         with scope:
 
@@ -463,9 +477,16 @@ class Ingest(EventBus):
                     core.addTufoTag(tufo,tag)
                     self.fire('gest:prog', act='tag')
 
+                if info.get('savevar'):
+                    _savevar = tufo[1].get(tufo[1].get('tufo:form'))
+
             except Exception as e:
                 traceback.print_exc()
                 core.logCoreExc(e,subsys='ingest')
+
+        savevarn = info.get('savevar')
+        if savevarn and _savevar:
+            scope.set(savevarn, _savevar)
 
     def _ingDataInfo(self, core, data, info, scope):
 
@@ -625,3 +646,22 @@ def loadfile(*paths):
     gest.set('basedir', os.path.dirname(path))
 
     return gest
+
+
+def register_ingest(core, gest, evtname):
+    '''
+    Register an ingest class with a cortex eventbus with a given name.
+    When events are fired, they are expected to have the argument "data" which 
+    is passed along to the Ingest.ingest() function.
+
+    :param core: Cortex to register the Ingest with 
+    :param gest: Ingest to register
+    :param evtname: Event name to register the ingest with.
+    '''
+    def ingest(args):
+        name, kwargs = args
+        data = kwargs.get('data')
+        with core.getCoreXact() as xact:
+            gest.ingest(core, data=data)
+
+    core.on(evtname, ingest)

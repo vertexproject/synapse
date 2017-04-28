@@ -97,16 +97,11 @@ def digits(text):
 
 class PhoneType(DataType):
 
-    def parse(self, text, oldval=None):
-        text = digits(text)
-        return self.norm( int(text), oldval=oldval )
-
-    def frob(self, valu, oldval=None):
-        if s_compat.isstr(valu):
-            return self.parse(valu, oldval=oldval)
-        return self.norm(valu,oldval=oldval)
-
     def norm(self, valu, oldval=None):
+
+        if s_compat.isstr(valu):
+            valu = int(digits(valu))
+
         subs = {}
         try:
             valu = int(valu)
@@ -125,6 +120,7 @@ class PhoneType(DataType):
     def repr(self, valu):
         text = str(valu)
 
+        # FIXME implement more geo aware reprs
         if text[0] == '1':
             area = text[1:4]
             pref = text[4:7]

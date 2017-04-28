@@ -1,10 +1,12 @@
+from synapse.common import guid
+
 def getDataModel():
     return {
         'prefix':'ou',
         'version':201611301215,
 
         'types':(
-            ('ou:org',{'subof':'guid','doc':'A GUID for a human organization such as a company or military unit'}),
+            ('ou:org',{'subof':'guid','alias':'ou:org:alias','doc':'A GUID for a human organization such as a company or military unit'}),
             ('ou:user',{'subof':'sepr','sep':'/','fields':'org,ou:org|user,inet:user','doc':'A user name within an organization'}),
             ('ou:alias',{'subof':'str:lwr','regex':'^[0-9a-z]+$','doc':'An alias for the org GUID','ex':'vertexproj'}),
 
@@ -18,6 +20,7 @@ def getDataModel():
             ('ou:org',{'ptype':'ou:org'},[
                 ('cc',{'ptype':'pol:iso2'}),
                 ('name',{'ptype':'ou:name'}),
+                ('name:en',{'ptype':'ou:name'}),
                 ('alias',{'ptype':'ou:alias'}),
                 ('phone',{'ptype':'tel:phone','doc':'The primary phone number for the organization'}),
                 ('sic',{'ptype':'ou:sic'}),
@@ -26,8 +29,13 @@ def getDataModel():
                 ('url',{'ptype':'inet:url'})
             ]),
 
+            ('ou:user',{},[
+                ('org',{'ptype':'ou:org'}),
+                ('user',{'ptype':'inet:user'}),
+            ]),
+
             ('ou:member',{'ptype':'sepr','sep':'/','fields':'org,ou:org|person,ou:person'},[
-                ('start',{'ptype':'time:min','defval':0}),
+                ('start',{'ptype':'time:min'}),
                 ('title',{'ptype':'str:lwr','defval':'??'}),
             ]),
 
@@ -36,3 +44,20 @@ def getDataModel():
         ),
 
     }
+
+def addCoreOns(core):
+
+    def seedOrgAlias(prop,valu,**props):
+        node = core.getTufoByProp('ou:org:alias',valu)
+        if node == None:
+            node = core.formTufoByProp('ou:org',guid(),alias=valu,**props)
+        return node
+
+    def seedOrgName(prop,valu,**props):
+        node = core.getTufoByProp('ou:org:name',valu)
+        if node == None:
+            node = core.formTufoByProp('ou:org',guid(),name=valu,**props)
+        return node
+
+    core.addSeedCtor('ou:org:name', seedOrgName)
+    core.addSeedCtor('ou:org:alias', seedOrgAlias)

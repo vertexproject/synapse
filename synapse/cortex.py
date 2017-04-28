@@ -52,7 +52,7 @@ def openurl(url, **opts):
 
     Notes:
         * ram://
-        * sqlite3:///<db>
+        * sqlite:///<db>
         * postgres://[[<passwd>:]<user>@][<host>]/[<db>][/<table>]
 
         * default table name: syncortex
@@ -84,9 +84,14 @@ def choptag(tag):
     parts = tag.split('.')
     return [ '.'.join(parts[:x+1]) for x in range(len(parts)) ]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     import sys
     import code
+
+    import synapse.lib.cmdr as s_cmdr
+
     core = openurl(sys.argv[1])
-    local = {'core':core,'ask':core.ask,'eval':core.eval}
-    code.interact(local=local)
+
+    cmdr = s_cmdr.getItemCmdr(core)
+
+    cmdr.runCmdLoop()

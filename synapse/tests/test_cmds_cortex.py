@@ -61,6 +61,18 @@ class SynCmdCoreTest(SynTest):
             cmdr.runCmdLine('addnode inet:email visi@vertex.link')
             self.nn( core.getTufoByProp('inet:email','visi@vertex.link') )
 
+    def test_cmds_addnode_props(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('addnode inet:asn 99 name="foo bar baz"')
+
+            node = core.getTufoByProp('inet:asn',99)
+
+            self.nn( node )
+            self.eq( node[1].get('inet:asn:name'), 'foo bar baz')
+
     def test_cmds_addnode_noopts(self):
         with self.getDmonCore() as core:
             outp = s_output.OutPutStr()
@@ -185,3 +197,25 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('ask')
             self.nn(re.search('Examples:', str(outp)))
+
+    def test_cmds_nextseq(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('addnode syn:seq foo.bar')
+            cmdr.runCmdLine('nextseq foo.bar')
+            self.ne( str(outp).find('foo.bar0'), -1 )
+
+    def test_cmds_guid(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('guid')
+            self.ne( str(outp).find('new guid:'), -1 )
+
+    def test_cmds_py(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('py 20 + 20')
+            self.ne( str(outp).find('40'), -1 )

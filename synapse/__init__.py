@@ -14,7 +14,7 @@ if msgpack.version < (0,4,2):
 if tornado.version_info < (3,2,2):
     raise Exception('synapse requires tornado >= 3.2.2')
 
-version = (0,0,13)
+version = (0,0,14)
 verstring = '.'.join([ str(x) for x in version ])
 
 import synapse.lib.modules as s_modules
@@ -33,6 +33,8 @@ s_modules.load('synapse.models.crypto')
 s_modules.load('synapse.models.geopol')
 s_modules.load('synapse.models.person')
 s_modules.load('synapse.models.infotech')
+s_modules.load('synapse.models.language')
+s_modules.load('synapse.models.material')
 s_modules.load('synapse.models.temporal')
 s_modules.load('synapse.models.geospace')
 
@@ -47,3 +49,7 @@ if mods:
             s_modules.load(name)
         except Exception as e:
             logger.warning('SYN_MODULES failed: %s (%s)' % (name,e))
+
+# load any modules which register dyndeps aliases...
+import synapse.axon as s_axon
+
