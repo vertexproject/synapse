@@ -4,9 +4,9 @@ import synapse.tools.superhash as s_superhash
 
 
 class SuperhashTest(SynTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.expected_data = [
+
+    def setUp(self):
+        self.expected_data = [
             ('null',
              '',
              {'md5': 'd41d8cd98f00b204e9800998ecf8427e',
@@ -65,12 +65,14 @@ class SuperhashTest(SynTest):
     def test_ingest_multiple_files(self):
         with self.getTestDir() as fdir:
             args = ['--ingest', ]
+            test_data = []
             for fn, s, edict in self.expected_data:
                 fp = os.path.join(fdir, fn)
                 with open(fp, 'wb') as f:
                     f.write(s.encode())
                 args.append('-i')
                 args.append(fp)
+                test_data.append((fn, edict))
             # Ordered behavior is expected
             outp = self.getTestOutp()
             s_superhash.main(argv=args, outp=outp)
@@ -78,7 +80,7 @@ class SuperhashTest(SynTest):
             obj = json.loads(r)
             self.assertIsInstance(obj, list)
             self.eq(len(obj), 3)
-            for blob, (fn, s, edict) in zip(obj, self.expected_data):
+            for blob, (fn, edict) in zip(obj, test_data):
                 self.check_json_blob(obj=blob, fn=fn, edict=edict)
 
     def test_ingest(self):
