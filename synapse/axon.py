@@ -1,7 +1,6 @@
 import os
 import json
 import stat
-import hashlib
 import logging
 import tempfile
 import threading
@@ -23,6 +22,9 @@ import synapse.lib.thisplat as s_thisplat
 from synapse.exc import *
 from synapse.common import *
 
+# for backward compat (HashSet moved from this module to synapse.lib.hashset )
+from synapse.lib.hashset import *
+
 logger = logging.getLogger(__name__)
 
 megabyte = 1024000
@@ -33,66 +35,6 @@ threedays = ((60 * 60) * 24) * 3
 axontag = 'class.synapse.axon.Axon'
 
 _fs_attrs = ('st_mode','st_nlink','st_size','st_atime','st_ctime','st_mtime')
-
-class HashSet:
-
-    def __init__(self):
-
-        self.size = 0
-
-        # BEWARE ORDER MATTERS FOR guid()
-        self.hashes = [
-            ('md5',hashlib.md5()),
-            ('sha1',hashlib.sha1()),
-            ('sha256',hashlib.sha256()),
-            ('sha512',hashlib.sha512())
-        ]
-
-    def guid(self):
-        '''
-        Use elements from this hash set to create a unique
-        (re)identifier.
-        '''
-        iden = hashlib.md5()
-        props = {'size':self.size}
-
-        for name,item in self.hashes:
-            iden.update(item.digest())
-            props[name] = item.hexdigest()
-
-        return iden.hexdigest(),props
-
-    def eatfd(self, fd):
-        '''
-        Consume all the bytes from a file like object.
-
-        Example:
-
-            hset = HashSet()
-            hset.eatfd(fd)
-
-        '''
-        fd.seek(0)
-        byts = fd.read(10000000)
-        while byts:
-            self.update(byts)
-            byts = fd.read(10000000)
-
-        return self.guid()
-
-    def update(self, byts):
-        '''
-        Update all the hashes in the set with the given bytes.
-        '''
-        self.size += len(byts)
-        [ h[1].update(byts) for h in self.hashes ]
-
-    def digests(self):
-        '''
-        Return a list of (name,digest) tuples for the hashes in the set.
-        '''
-        return [ (name,item.hexdigest()) for (name,item) in self.hashes ]
-
 
 class AxonHost(s_eventbus.EventBus):
     '''
@@ -755,7 +697,10 @@ class Axon(s_eventbus.EventBus,AxonMixin):
                 fd.write(byts)
 
         '''
-        blob = self.core.getTufoByProp('axon:blob:%s' % htype, valu=hvalu)
+        if htype == 'guid':
+            blob = self.core.getTufoByProp('axon:blob', valu=hvalu)
+        else:
+            blob = self.core.getTufoByProp('axon:blob:%s' % htype, valu=hvalu)
         return self.iterblob(blob)
 
     def iterblob(self, blob):
@@ -845,7 +790,7 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         info = self.inprog.get(iden)
 
         if info == None:
-            NoSuchIden(iden)
+            raise NoSuchIden(iden)
 
         cur = info.get('cur')
         self.heap.writeoff(cur,byts)
@@ -875,7 +820,10 @@ class Axon(s_eventbus.EventBus,AxonMixin):
                 stuff()
 
         '''
-        tufo = self.core.getTufoByProp('axon:blob:%s' % htype, hvalu)
+        if htype == 'guid':
+            tufo = self.core.getTufoByProp('axon:blob',hvalu)
+        else:
+            tufo = self.core.getTufoByProp('axon:blob:%s' % htype, hvalu)
         return tufo != None
 
     def byiden(self, iden):

@@ -117,7 +117,7 @@ class FileBaseType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if not (s_compat.isstr(valu) and not valu.find('/') > -1 and len(valu) > 0):
+        if not (s_compat.isstr(valu) and not valu.find('/') > -1):
             self._raiseBadValu(valu)
 
         return valu.lower(), {}

@@ -186,6 +186,11 @@ class DmonConf:
             },
         }
         '''
+        with s_scope.enter({'dmon':self}):
+            return self._loadDmonConf(conf)
+
+    def _loadDmonConf(self, conf):
+
         checkConfDict(conf)
         self.locs.update( conf.get('vars',{}) )
 

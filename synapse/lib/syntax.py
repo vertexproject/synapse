@@ -91,6 +91,46 @@ def parse_list(text,off,trim=True):
 def nom_whitespace(text,off):
     return nom(text,off,whites)
 
+def isquote(text,off):
+    return nextin(text,off,(",",'"'))
+
+def parse_cmd_list(text,off,trim=True):
+    '''
+    Parse a list (likely for comp type ) coming from a command line input.
+
+    The string elements within the list may optionally be quoted.
+    '''
+
+    if not nextchar(text,off,'('):
+        raise synapse.exc.SyntaxError(at=off,mesg='expected open paren for list')
+
+    off += 1
+
+    valus = []
+    while off < len(text):
+
+        _,off = nom_whitespace(text,off)
+
+        if isquote(text,off):
+            valu,off = parse_string(text,off,trim=trim)
+        else:
+            valu,off = meh(text,off,',)')
+            valu = valu.strip()
+
+        valus.append(valu)
+
+        _,off = nom_whitespace(text,off)
+
+        if nextchar(text,off,')'):
+            return valus, off + 1
+
+        if not nextchar(text,off,','):
+            raise synapse.exc.SyntaxError(at=off,mesg='expected comma in list')
+
+        off += 1
+
+    raise synapse.exc.SyntaxError(at=off,mesg='unexpected and of text during list')
+
 def parse_cmd_string(text,off,trim=True):
     '''
     Parse in a command line string which may be quoted.
@@ -98,8 +138,11 @@ def parse_cmd_string(text,off,trim=True):
     if trim:
         _,off = nom(text,off,whites)
 
-    if text[off] in ('"',"'"):
+    if isquote(text,off):
         return parse_string(text,off,trim=trim)
+
+    if nextchar(text,off,'('):
+        return parse_cmd_list(text,off)
 
     return meh(text,off,whites)
 
