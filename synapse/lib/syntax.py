@@ -141,7 +141,7 @@ def parse_cmd_string(text,off,trim=True):
     if isquote(text,off):
         return parse_string(text,off,trim=trim)
 
-    if text[off] == '(':
+    if nextchar(text,off,'('):
         return parse_cmd_list(text,off)
 
     return meh(text,off,whites)
