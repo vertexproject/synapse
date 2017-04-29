@@ -303,16 +303,21 @@ class InetModelTest(SynTest):
     def test_model_inet_ipv4_raise(self):
         with s_cortex.openurl('ram:///') as core:
             self.raises( BadTypeValu, core.formTufoByProp, 'inet:ipv4', 'lolololololol' )
+
     def test_model_inet_urlfile(self):
         with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce',1)
+
             url = 'HTTP://visi:hehe@www.vertex.link:9999/'
             fguid = 32 * 'a'
-            node = core.formTufoByProp('inet:urlfile', (fguid, url), **{'seen:min':0, 'seen:max':0})
+            node = core.formTufoByProp('inet:urlfile', (url, fguid), **{'seen:min':0, 'seen:max':1})
 
-            self.eq( node[1].get('inet:urlfile:url:port'), 9999 )
-            self.eq( node[1].get('inet:urlfile:url:proto'), 'http' )
-            self.eq( node[1].get('inet:urlfile:url:user'), 'visi' )
-            self.eq( node[1].get('inet:urlfile:url:passwd'), 'hehe')
-            self.eq( node[1].get('inet:urlfile:file'), 32 * 'a' )
+            self.eq( node[1].get('inet:urlfile:file'), 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' )
+            self.eq( node[1].get('inet:urlfile:url'), 'http://visi:hehe@www.vertex.link:9999/' )
             self.eq( node[1].get('inet:urlfile:seen:min'), 0 )
-            self.eq( node[1].get('inet:urlfile:seen:max'), 0 )
+            self.eq( node[1].get('inet:urlfile:seen:max'), 1 )
+
+            self.none( node[1].get('inet:urlfile:url:port') )
+            self.none( node[1].get('inet:urlfile:url:proto') )
+            self.none( node[1].get('inet:urlfile:url:user') )
+            self.none( node[1].get('inet:urlfile:url:passwd') )

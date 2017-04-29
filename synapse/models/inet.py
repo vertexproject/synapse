@@ -29,7 +29,7 @@ def getDataModel():
 
             ('inet:cidr4',   {'ctor':'synapse.models.inet.CidrType','doc':'An IPv4 CIDR type','ex':'1.2.3.0/24'}),
 
-            ('inet:urlfile', {'subof':'comp','fields':'file,file:bytes|url,inet:url','doc':'A File at a Universal Resource Locator (URL)'}),
+            ('inet:urlfile', {'subof':'comp','types':'inet:url,file:bytes','names':'url,file','doc':'A File at a Universal Resource Locator (URL)'}),
             ('inet:net4',   {'subof':'sepr','sep':'-','fields':'min,inet:ipv4|max,inet:ipv4','doc':'An IPv4 address range','ex':'1.2.3.4-1.2.3.20'}),
             ('inet:net6',   {'subof':'sepr','sep':'-','fields':'min,inet:ipv6|max,inet:ipv6','doc':'An IPv6 address range','ex':'ff::00-ff::30'}),
 
@@ -101,8 +101,8 @@ def getDataModel():
             ]),
 
             ('inet:urlfile',{'ptype':'inet:urlfile'},[
-                ('file',{'ptype':'file:bytes','ro':1}),
                 ('url',{'ptype':'inet:url','ro':1}),
+                ('file',{'ptype':'file:bytes','ro':1}),
                 ('seen:min',{'ptype':'time:min'}),
                 ('seen:max',{'ptype':'time:max'}),
             ]),
