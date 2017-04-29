@@ -331,7 +331,7 @@ class DataModelTest(SynTest):
             self.assertEqual(expected,      model.getTypeFrob(prop, valu))
             self.assertEqual(expected_repr, model.getTypeRepr(prop, valu))
 
-        bads = (None, [], {}, 1, '/teehee', 'hoho/haha', '')
+        bads = (None, [], {}, 1, '/teehee', 'hoho/haha')
         for bad in bads:
             self.assertRaises(s_datamodel.BadTypeValu, model.getTypeNorm, prop, bad)
             self.assertRaises(s_datamodel.BadTypeValu, model.getTypeParse, prop, bad)

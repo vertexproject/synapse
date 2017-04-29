@@ -219,3 +219,18 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('py 20 + 20')
             self.ne( str(outp).find('40'), -1 )
+
+    def test_cmds_addnode_list(self):
+
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('addnode inet:netpost (vertex.link/visi,"this is crazy") time="20501217"')
+
+            node = core.getTufoByProp('inet:netpost',('vertex.link/visi','this is crazy'))
+
+            self.nn( node )
+            self.eq( node[1].get('inet:netpost:time'), 2554848000000 )
+            self.eq( node[1].get('inet:netpost:text'), 'this is crazy')
+

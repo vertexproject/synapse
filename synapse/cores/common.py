@@ -1379,6 +1379,9 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin):
             * This must be used only for rows added with formTufoByProp!
 
         '''
+        if valu != None:
+            valu,subs = self.getPropNorm(prop,valu)
+
         if self.caching:
             answ = self._getTufosByCache(prop,valu,1)
             if answ:
@@ -1427,6 +1430,9 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin):
                 dostuff(tufo)
 
         '''
+        if valu != None:
+            valu,subs = self.getPropNorm(prop,valu)
+
         if self.caching and mintime == None and maxtime == None:
             return self._getTufosByCache(prop,valu,limit)
 
