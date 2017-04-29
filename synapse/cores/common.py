@@ -59,6 +59,9 @@ def reqstor(name,valu):
 
 class CortexMixin:
 
+    def __init__(self):
+        pass
+
     def formNodeByBytes(self, byts, stor=True, **props):
         '''
         Form a new file:bytes node by passing bytes and optional props.
