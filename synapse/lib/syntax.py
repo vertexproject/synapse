@@ -101,8 +101,8 @@ def parse_cmd_list(text,off,trim=True):
     The string elements within the list may optionally be quoted.
     '''
 
-    if text[off] != '(':
-        raise synapse.exc.SyntaxError(expected='List', at=off)
+    if not nextchar(text,off,'('):
+        raise synapse.exc.SyntaxError(at=off,mesg='expected open paren for list')
 
     off += 1
 
