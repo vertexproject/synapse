@@ -1,0 +1,623 @@
+import synapse.lib.remcycle as s_remcycle
+import synapse.models.inet as s_inet
+
+from synapse.tests.common import *
+
+from tornado.testing import AsyncTestCase
+
+
+def get_vertex_global_config():
+    gconfig = {
+        'apis': {
+            'http': {
+                'doc': 'Get the vertex project landing page.',
+                'url': 'http://vertex.link/',
+                'http': {'validate_cert': False}
+            },
+            'https': {
+                'doc': 'Get the vertex project landing page.',
+                'url': 'https://vertex.link/',
+                'http': {'validate_cert': False}
+            }
+        },
+        'doc': 'Grab Vertex.link stuff',
+        'http': {
+            'user_agent': 'ClownBrowser'
+        },
+        'namespace': 'vertexproject',
+    }
+    return gconfig
+
+
+def get_bad_vertex_global_config():
+    gconfig = {
+        'apis': {
+            'fake_endpoint': {
+                'doc': 'Fake endpoint',
+                'url': 'https://vertex.link/foo/bar/duck',
+                'http': {'validate_cert': False}
+            }
+        },
+        'doc': 'Grab Vertex.link stuff',
+        'http': {
+            'user_agent': 'ClownBrowser'
+        },
+        'namespace': 'vertexproject',
+    }
+    return gconfig
+
+
+def get_ipify_global_config():
+    gconfig = {
+        'apis': {
+            'jsonip': {
+                'doc': 'Get IP in a JSON blob',
+                'http': {
+                    'validate_cert': False
+                },
+                'url': 'https://api.ipify.org?format=json',
+            }
+        },
+        'doc': 'API for getting calling IP address',
+        'http': {
+            'user_agent': 'SynapseTest'
+        },
+        'namespace': 'ipify',
+    }
+    return gconfig
+
+
+def get_ipify_ingest_global_config():
+    gconfig = {
+        'apis': {
+            'jsonip': {
+                'doc': 'Get IP in a JSON blob',
+                'http': {
+                    'validate_cert': False
+                },
+                'ingests': {
+                    'ipv4': {
+                        'ingest': {
+                            "forms": [
+                                [
+                                    "inet:ipv4",
+                                    {
+                                        "var": "ip"
+                                    }
+                                ]
+                            ],
+                            "vars": [
+                                [
+                                    "ip",
+                                    {
+                                        "path": "ip"
+                                    }
+                                ]
+                            ]
+                        }
+                    }
+                },
+                'url': 'https://api.ipify.org?format=json',
+            }
+        },
+        'doc': 'API for getting calling IP address',
+        'http': {
+            'user_agent': 'SynapseTest'
+        },
+        'namespace': 'ipify',
+    }
+    return gconfig
+
+
+class NyxTest(SynTest):
+    def setUp(self):
+        self.config = {
+            "url": "http://vertex.link/api/v4/geoloc/{{someplace}}/info?domore={{domore}}&apikey={APIKEY}",
+
+            "vars": [
+                ["APIKEY", "8675309"]
+            ],
+
+            "http": {
+                "method": "GET",  # this defaults to GET obvs, just making an example
+                "headers": {
+                    "x-notes-log": "stardate 1234",
+                    "token-goodness": "sekrit token"
+                },
+                "user_agent": "Totally Not a Python application."
+            },
+
+            "doc": "api example",
+
+            "api": [
+                ["someplace"],
+                {"domore": 0}
+            ]
+        }
+
+    def test_nyx_tornado_http_values(self):
+        """
+        A few expected values in the valid tornado arguments
+        """
+        self.true('user_agent' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
+        self.true('headers' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
+        self.true('method' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
+        self.true('request_timeout' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
+        self.true('connect_timeout' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
+        self.true('auth_username' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
+        self.true('auth_password' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
+        self.true('auth_mode' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
+        self.true('validate_cert' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
+
+    def test_nyx_tornado_http_check(self):
+        good_dict = {'method': 'PUT',
+                     'user_agent': 'VertexWeb',
+                     'headers': {'X-Derry': 'FriendlyClowns',
+                                 'CSRF-Token': '1234'},
+                     'request_timeout': 100,
+                     'connect_timeout': 20,
+                     }
+        self.true(s_remcycle.validate_http_values(vard=good_dict))
+
+        with self.raises(Exception) as cm:
+            s_remcycle.validate_http_values('A string')
+        self.true('bad type' in str(cm.exception))
+
+        bad_dict = {'method': 'PUT',
+                    'user-agent': 'Lynx',  # Typo / misspelling
+                    }
+
+        with self.raises(Exception) as cm:
+            s_remcycle.validate_http_values(bad_dict)
+        self.true('Varn is not a valid tornado arg' in str(cm.exception))
+
+    def test_nyx_simple_config(self):
+        nyx = s_remcycle.Nyx(api_config=self.config, namespace_http_config={})
+        e_url = 'http://vertex.link/api/v4/geoloc/{someplace}/info?domore={domore}&apikey=8675309'
+        self.eq(nyx.effective_url, e_url)
+        self.eq(nyx.api_args, ['someplace'])
+        self.eq(nyx.api_kwargs, {'domore': 0})
+
+    def test_nyx_make_request(self):
+        nyx = s_remcycle.Nyx(api_config=self.config, namespace_http_config={})
+        e_url = 'http://vertex.link/api/v4/geoloc/{someplace}/info?domore={domore}&apikey=8675309'
+        self.eq(nyx.effective_url, e_url)
+        req = nyx.build_http_request(api_args={'someplace': 'foobar'}, request_args={})
+        e_url = 'http://vertex.link/api/v4/geoloc/foobar/info?domore=0&apikey=8675309'
+        self.eq(req.url, e_url)
+        self.eq(req.user_agent, self.config.get('http').get('user_agent'))
+
+        req = nyx.build_http_request(api_args={'someplace': 'duck', 'domore': 1},
+                                     request_args={'user_agent': 'Lynx'})
+        e_url = 'http://vertex.link/api/v4/geoloc/duck/info?domore=1&apikey=8675309'
+        self.eq(req.url, e_url)
+        self.eq(req.user_agent, 'Lynx')
+        self.eq(req.connect_timeout, None)  # Default value for the object itself
+        self.eq(req.request_timeout, None)  # Default value for the object itself
+
+        req = nyx.build_http_request(api_args={'someplace': 'duck', 'domore': 1},
+                                     request_args={'connect_timeout': 25,
+                                                   'request_timeout': 100})
+        self.eq(req.connect_timeout, 25)  # Default value
+        self.eq(req.request_timeout, 100)  # Default value
+
+    def test_nyx_quoted_values(self):
+        nyx = s_remcycle.Nyx(api_config=self.config, namespace_http_config={})
+        req = nyx.build_http_request(api_args={'someplace': 'foo bar',
+                                               'domore': 'eeep@foo.bar'}, request_args={})
+        e_url = 'http://vertex.link/api/v4/geoloc/foo+bar/info?domore=eeep%40foo.bar&apikey=8675309'
+        self.eq(req.url, e_url)
+
+    def test_nyx_config_global(self):
+        gconf = get_ipify_global_config()
+        ipify_global = gconf.get('http')
+        api = gconf.get('apis').get('jsonip')
+
+        nyx_obj = s_remcycle.Nyx(api_config=api, namespace_http_config=ipify_global)
+
+        req = nyx_obj.build_http_request()
+        self.eq(req.user_agent, ipify_global.get('user_agent'))
+        self.eq(req.validate_cert, api.get('http').get('validate_cert'))
+
+        # Ensure we are overriding globals and api configs as well
+        req = nyx_obj.build_http_request(request_args={'user_agent': 'ClownBrowser'})
+        self.eq(req.user_agent, 'ClownBrowser')
+        self.ne(req.user_agent, ipify_global.get('user_agent'))
+        self.eq(req.validate_cert, api.get('http').get('validate_cert'))
+
+        # Ensure we are overriding globals and api configs as well
+        req = nyx_obj.build_http_request(request_args={'validate_cert': True})
+        self.eq(req.user_agent, ipify_global.get('user_agent'))
+        self.eq(req.validate_cert, True)
+        self.ne(req.validate_cert, api.get('http').get('validate_cert'))
+
+
+class HypnosTest(SynTest, AsyncTestCase):
+
+    def test_hypnos_fini(self):
+        """Ensure we call fini on all objects created by the core."""
+        hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
+        self.false(hypo_obj.core_provided)
+        hypo_obj.fini()
+        self.true(hypo_obj.isfini)
+        self.true(hypo_obj.boss.isfini)
+        self.false(hypo_obj.iothr.is_alive())
+        self.true(hypo_obj.core.isfini)
+
+    def test_hypnos_fini_core(self):
+        """Ensure we don't tear down a Cortex provided to us by the constructor."""
+        core = s_cortex.openurl('ram:///')
+        hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop, core=core)
+        self.true(hypo_obj.core_provided)
+        hypo_obj.fini()
+        self.true(hypo_obj.isfini)
+        self.true(hypo_obj.boss.isfini)
+        self.false(hypo_obj.iothr.is_alive())
+        self.false(hypo_obj.core.isfini)
+        core.fini()
+        self.true(hypo_obj.core.isfini)
+
+    def test_hypnos_callback_ondone(self):
+        self.skipIfNoInternet()
+        gconf = get_ipify_global_config()
+        hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
+        hypo_obj.register_config(config=gconf)
+
+        self.true('ipify:jsonip' in hypo_obj.apis)
+
+        data = {}
+
+        def ondone(job_tufo):
+            _jid, jobd = job_tufo
+            data[_jid] = jobd
+
+        def cb(*args, **kwargs):
+            resp = kwargs.get('resp')
+            self.true(resp.get('code') == 200)
+            body = resp.get('body')
+            body = json.loads(body)
+            self.true('ip' in body)
+
+        jid = hypo_obj.fire_api('ipify:jsonip',
+                                callback=cb,
+                                ondone=ondone)
+
+        job = hypo_obj.boss.job(jid)
+        hypo_obj.boss.wait(jid)
+        self.true(jid in data)
+        self.true(job[1].get('done'))
+
+        hypo_obj.fini()
+
+    def test_hypnos_config_register_deregister(self):
+        vertex_conf = get_vertex_global_config()
+        ipify_conf = get_ipify_ingest_global_config()
+
+        hypo_obj = s_remcycle.Hypnos()
+
+        hypo_obj.register_config(config=vertex_conf)
+        self.true('vertexproject' in hypo_obj.namespaces)
+        self.true('vertexproject' in hypo_obj.docs)
+        self.true(len(hypo_obj.apis) == 2)
+        self.true('vertexproject:http' in hypo_obj.apis)
+        self.true('vertexproject:https' in hypo_obj.apis)
+        self.eq(dict(hypo_obj._api_ingests), {})
+
+        hypo_obj.register_config(config=ipify_conf)
+        self.true('ipify' in hypo_obj.namespaces)
+        self.true('ipify' in hypo_obj.docs)
+        self.true(len(hypo_obj.namespaces) == 2)
+        self.true(len(hypo_obj.apis) == 3)
+        self.true('ipify:jsonip' in hypo_obj.apis)
+        self.true('ipify:jsonip' in hypo_obj._api_ingests)
+        self.true('ipify:jsonip' in hypo_obj._syn_funcs)
+        self.true('ipify:jsonip:ipv4' in hypo_obj.core._syn_funcs)
+
+        # Ensure that if we remove everything when we dereregister a namespace
+        hypo_obj.deregister_config(namespace='ipify')
+        self.true('ipify' not in hypo_obj.namespaces)
+        self.true('ipify' not in hypo_obj.docs)
+        self.true(len(hypo_obj.namespaces) == 1)
+        self.true(len(hypo_obj.apis) == 2)
+        self.true('ipify:jsonip' not in hypo_obj.apis)
+        self.true('ipify:jsonip' not in hypo_obj._api_ingests)
+        self.true('ipify:jsonip' not in hypo_obj._syn_funcs)
+        self.true('ipify:jsonip:ipv4' not in hypo_obj.core._syn_funcs)
+
+        # Trying to re-register a present namespace should fail
+        with self.raises(Exception) as cm:
+            hypo_obj.register_config(config=vertex_conf)
+        self.true('Namespace is already registered' in str(cm.exception))
+
+        # Register ipfy again
+        hypo_obj.register_config(config=ipify_conf)
+        self.true('ipify' in hypo_obj.namespaces)
+        self.true('ipify' in hypo_obj.docs)
+        self.true(len(hypo_obj.namespaces) == 2)
+        self.true(len(hypo_obj.apis) == 3)
+        self.true('ipify:jsonip' in hypo_obj.apis)
+        self.true('ipify:jsonip' in hypo_obj._api_ingests)
+        self.true('ipify:jsonip' in hypo_obj._syn_funcs)
+        self.true('ipify:jsonip:ipv4' in hypo_obj.core._syn_funcs)
+
+        # Now change something with ipify, register it and force a reload to occur
+        api_def = ipify_conf['apis'].pop('jsonip')
+        gest_def = api_def['ingests'].pop('ipv4')
+        api_def['ingests']['foobar'] = gest_def
+        ipify_conf['apis']['duckip'] = api_def
+
+        hypo_obj.register_config(config=ipify_conf, reload_config=True)
+
+        self.true('ipify' in hypo_obj.namespaces)
+        self.true('ipify' in hypo_obj.docs)
+        self.true(len(hypo_obj.namespaces) == 2)
+        self.true(len(hypo_obj.apis) == 3)
+        self.true('ipify:jsonip' not in hypo_obj.apis)
+        self.true('ipify:jsonip' not in hypo_obj._api_ingests)
+        self.true('ipify:jsonip' not in hypo_obj._syn_funcs)
+        self.true('ipify:jsonip:ipv4' not in hypo_obj.core._syn_funcs)
+        self.true('ipify:duckip' in hypo_obj.apis)
+        self.true('ipify:duckip' in hypo_obj._api_ingests)
+        self.true('ipify:duckip' in hypo_obj._syn_funcs)
+        self.true('ipify:duckip:foobar' in hypo_obj.core._syn_funcs)
+
+        hypo_obj.fini()
+
+    def test_hypnos_fire_api_callback(self):
+        """
+        Ensure that the provided callback is fired and args are passed to the callbacks.
+        """
+        self.skipIfNoInternet()
+        gconf = get_vertex_global_config()
+        hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
+        hypo_obj.register_config(config=gconf)
+
+        d = {'set': False,
+             'keys': set([])}
+
+        def cb(*args, **kwargs):
+            self.true('foo' in args)
+            self.true('bar' in args)
+            self.true('resp' in kwargs)
+            self.true('key' in kwargs)
+            resp = kwargs.get('resp')
+            self.eq(resp.get('code'), 200)
+            d['set'] = True
+            d['keys'].add(kwargs.get('key'))
+
+        jid1 = hypo_obj.fire_api('vertexproject:http', 'foo', 'bar', key='12345', callback=cb)
+        jid2 = hypo_obj.fire_api('vertexproject:http', 'foo', 'bar', key='67890', callback=cb)
+
+        hypo_obj.boss.wait(jid=jid1)
+        hypo_obj.boss.wait(jid=jid2)
+        self.eq(d['set'], True)
+        self.eq(d.get('keys'), {'12345', '67890'})
+
+        hypo_obj.fini()
+
+    def test_hypnos_default_callback(self):
+        """
+        Ensure that the default callback, of firing an event handler, works.
+        """
+        self.skipIfNoInternet()
+        gconf = get_ipify_global_config()
+        hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
+        hypo_obj.register_config(config=gconf)
+
+        self.true('ipify:jsonip' in hypo_obj.apis)
+
+        def func(event_tufo):
+            event_name, argdata = event_tufo
+            kwargs = argdata.get('kwargs')
+            resp = kwargs.get('resp')
+            self.eq(resp.get('code'), 200)
+
+        hypo_obj.on('ipify:jsonip', func=func)
+
+        jid = hypo_obj.fire_api('ipify:jsonip')
+
+        job = hypo_obj.boss.job(jid)
+        hypo_obj.boss.wait(jid)
+        self.true(job[1].get('done'))
+
+        hypo_obj.fini()
+
+    def test_hypnos_default_callback_null(self):
+        """
+        Ensure the Job is complete even if we have no explicit callback or 
+        listening event handlers.
+        """
+        self.skipIfNoInternet()
+        gconf = get_ipify_global_config()
+        hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
+        hypo_obj.register_config(config=gconf)
+
+        self.true('ipify:jsonip' in hypo_obj.apis)
+
+        jid = hypo_obj.fire_api('ipify:jsonip')
+
+        job = hypo_obj.boss.job(jid)
+        hypo_obj.boss.wait(jid)
+        self.true(job[1].get('done'))
+        self.eq(job[1].get('task')[2].get('resp').get('code'), 200)
+
+        hypo_obj.fini()
+
+    def test_hypnos_manual_ingest_via_eventbus(self):
+        """
+        This is a manual setup of the core / ingest type of action.
+        """
+        self.skipIfNoInternet()
+        gconf = get_ipify_global_config()
+        hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
+        hypo_obj.register_config(config=gconf)
+        core = s_cortex.openurl('ram://')
+
+        data = {}
+
+        ingest_def = {
+            "ingest": {
+                "forms": [
+                    [
+                        "inet:ipv4",
+                        {
+                            "var": "ip"
+                        }
+                    ]
+                ],
+                "vars": [
+                    [
+                        "ip",
+                        {
+                            "path": "ip"
+                        }
+                    ]
+                ]
+            }
+        }
+
+        name = 'ipify:jsonip'
+        core_name = ':'.join([name, 'ingest'])
+
+        gest = s_ingest.Ingest(info=ingest_def)
+
+        s_ingest.register_ingest(core=core,
+                                 gest=gest,
+                                 evtname=core_name)
+
+        def glue(event):
+            evtname, event_args = event
+            kwargs = event_args.get('kwargs')
+            resp = kwargs.get('resp')
+            data = resp.get('data')
+            core.fire(core_name, data=data)
+
+        def ondone(job_tufo):
+            _jid, jobd = job_tufo
+            ip = jobd.get('task')[2].get('resp', {}).get('data', {}).get('ip', '')
+            data[_jid] = ip
+
+        hypo_obj.on(name=name, func=glue)
+
+        jid = hypo_obj.fire_api(name=name, ondone=ondone)
+        hypo_obj.boss.wait(jid)
+
+        tufos = core.getTufosByProp('inet:ipv4')
+        self.eq(len(tufos), 1)
+        # Validate the IP of the tufo is the same we got from ipify
+        self.eq(s_inet.ipv4str(tufos[0][1].get('inet:ipv4')), data[jid])
+
+        hypo_obj.fini()
+        core.fini()
+
+    def test_hypnos_automatic_ingest(self):
+        """
+        Ensure that a configuration object with a ingest definition is automatically parsed.
+        """
+        self.skipIfNoInternet()
+        gconf = get_ipify_ingest_global_config()
+        hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
+        hypo_obj.register_config(config=gconf)
+
+        self.true('ipify:jsonip' in hypo_obj._syn_funcs)
+        self.true('ipify:jsonip:ipv4' in hypo_obj.core._syn_funcs)
+
+        data = {}
+
+        def ondone(job_tufo):
+            _jid, jobd = job_tufo
+            ip = jobd.get('task')[2].get('resp', {}).get('data', {}).get('ip', '')
+            data[_jid] = ip
+
+        jid = hypo_obj.fire_api(name='ipify:jsonip', ondone=ondone)
+        hypo_obj.boss.wait(jid)
+
+        tufos = hypo_obj.core.getTufosByProp('inet:ipv4')
+        self.eq(len(tufos), 1)
+        # Validate the IP of the tufo is the same we got from ipify
+        self.eq(s_inet.ipv4str(tufos[0][1].get('inet:ipv4')), data[jid])
+
+        hypo_obj.fini()
+
+    def test_hypnos_throw_timeouts(self):
+        """
+        Run a test scenario which will generate hundreds of jobs which will timeout.
+        """
+        self.skipIfNoInternet()
+        gconf = get_ipify_ingest_global_config()
+        hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
+        hypo_obj.register_config(config=gconf)
+
+        data = {}
+
+        def ondone(job_tufo):
+            _jid, jobd = job_tufo
+            data[_jid] = jobd
+
+        n = 500
+
+        jids = []
+        for i in range(n):
+            jid = hypo_obj.fire_api(name='ipify:jsonip',
+                                    ondone=ondone,
+                                    request_args={'request_timeout': 0.6,
+                                                  'connect_timeout': 0.3})
+            jids.append(jid)
+        for jid in jids:
+            hypo_obj.boss.wait(jid)
+
+        completed_jobs = {jid: d for jid, d in data.items() if 'ret' in d}
+        error_jobs = {jid: d for jid, d in data.items() if 'ret' not in d}
+        self.true(len(completed_jobs) > 1)
+        self.true(len(error_jobs) > 1)
+        bad_job = list(error_jobs.values())[0]
+        # Ensure that we have error information propogated up to the job
+        self.true('err' in bad_job)
+        self.true('errfile' in bad_job)
+        self.true('errline' in bad_job)
+        self.true('errmsg' in bad_job)
+
+        # The following are error messages which are expected
+        e_messages = ['HTTP 599: Timeout in request queue',
+                      'HTTP 599: Timeout while connecting',
+                      'HTTP 599: Timeout during request']
+        error_messages = {d.get('errmsg') for d in error_jobs.values()}
+        i = 0
+        for msg in e_messages:
+            if msg in error_messages:
+                i = i + 1
+        # Expect 2-3 of the error messages to exist.
+        self.true(0 < i < 4)
+
+        hypo_obj.fini()
+
+    def test_hypnos_simple_fail(self):
+        self.skipIfNoInternet()
+        gconf = get_bad_vertex_global_config()
+        hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
+        hypo_obj.register_config(config=gconf)
+
+        data = {}
+
+        def ondone(job_tufo):
+            _jid, jobd = job_tufo
+            data[_jid] = jobd
+
+        jid = hypo_obj.fire_api(name='vertexproject:fake_endpoint',
+                                ondone=ondone)
+        hypo_obj.boss.wait(jid)
+        job = data.get(jid)
+
+        # Ensure that we have error information propogated up to the job
+        self.true('err' in job)
+        self.eq(job.get('err'), 'HTTPError')
+        self.true('errfile' in job)
+        self.true('errline' in job)
+        self.true('errmsg' in job)
+        # Since our fail is going to be a http error we have some response data
+        resp = job.get('task')[2].get('resp')
+        self.true('code' in resp)
+        self.true('request' in resp)
+        self.true('headers' in resp)
+
+        hypo_obj.fini()
