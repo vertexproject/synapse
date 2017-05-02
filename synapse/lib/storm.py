@@ -292,16 +292,34 @@ class Runtime(Configable):
             runt.setCmprFunc('substr', substr)
 
         '''
+        # TODO make ourselves a model that is local...
+        # ( in most instances it is anyway, but for swarm... )
+        core = self.getStormCore()
+
         def cmprctor(oper):
+            norm = None
             prop = oper[1].get('prop')
             valu = oper[1].get('valu')
+
             isrel = prop.startswith(':')
+            if not isrel:
+                norm,_ = core.getPropNorm(prop,valu)
+
+            norms = {}
+            def _get_norm(p,v):
+                r = norms.get(p,novalu)
+                if r == novalu:
+                    r,_ = norms[p] = core.getPropNorm(p,v)
+                return r
+
             def cmpr(tufo):
                 full = prop
                 if isrel:
                     full = tufo[1].get('tufo:form') + prop
+                    norm = _get_norm(full,valu)
 
-                return func(tufo[1].get(full),valu)
+                return func(tufo[1].get(full),norm)
+
             return cmpr
 
         self.setCmprCtor(name,cmprctor)
