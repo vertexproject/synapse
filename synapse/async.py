@@ -213,7 +213,7 @@ class Boss(EventBus):
         Wait and return the value for the job.
         '''
         if not self.wait(job[0], timeout=timeout):
-            raise MaxTimeHit(timeout)
+            raise HitMaxTime(timeout)
 
         return jobret(job)
 

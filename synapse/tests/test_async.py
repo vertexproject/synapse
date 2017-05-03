@@ -103,12 +103,43 @@ class AsyncTests(SynTest):
         def myjob():
             time.sleep(0.2)
 
+        def mylongjob():
+            time.sleep(2.0)
+
         jid = s_async.jobid()
         job = boss.initJob(jid, task=(myjob,(),{}), timeout=0.01)
 
         boss.wait(jid)
 
-        self.assertEqual( job[1]['err'], 'HitMaxTime' )
+        self.eq( job[1]['err'], 'HitMaxTime' )
+
+        # Ensure the boss.sync() fails as well
+        jid = s_async.jobid()
+        job = boss.initJob(jid, task=(mylongjob, (), {}), timeout=0.1)
+        # Try a sync() call which times out.
+        with self.raises(HitMaxTime) as cm:
+            boss.sync(job, timeout=0.01)
+
+        boss.fini()
+
+    def test_async_sync(self):
+
+        boss = s_async.Boss()
+        boss.runBossPool(1)
+
+        def myjob():
+            time.sleep(0.1)
+            return True
+
+        jid = s_async.jobid()
+        job = boss.initJob(jid, task=(myjob, (), {}), timeout=0.2)
+        # Try a sync() call which times out.
+        with self.raises(HitMaxTime) as cm:
+            boss.sync(job, timeout=0.01)
+        self.false(job[1].get('status'))
+        # Now sync() again and get the job ret
+        ret = boss.sync(job)
+        self.true(ret)
 
         boss.fini()
 
