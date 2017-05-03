@@ -1,4 +1,5 @@
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.tufo as s_tufo
@@ -16,7 +17,13 @@ class Runtime(s_storm.Runtime,EventBus):
     '''
     def __init__(self, svcbus, **opts):
         EventBus.__init__(self)
+
+        # a core we use for data model stuff..
+        self.core = s_cortex.openurl('ram:///')
+        self.onfini( self.core.fini )
+
         s_storm.Runtime.__init__(self)
+
 
         self.addConfDef('svcbus:deftag', asloc='deftag', type='syn:tag', defval=deftag, doc='Default tag for cores')
         self.addConfDef('svcbus:timeout', asloc='svctime', type='int', doc='SvcBus Telepath Link Tufo')
@@ -25,6 +32,9 @@ class Runtime(s_storm.Runtime,EventBus):
 
         self.svcbus = svcbus
         self.svcprox = s_service.SvcProxy(svcbus, self.svctime)
+
+    def _getStormCore(self, name=None):
+        return self.core
 
     def _getTufosByFrom(self, by, prop, valu=None, limit=None, fromtag=None):
 

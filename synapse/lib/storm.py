@@ -291,17 +291,47 @@ class Runtime(Configable):
 
             runt.setCmprFunc('substr', substr)
 
+        NOTE: Under the hood, this API dynamically generates a
+              cmpr ctor add adds it using addCmprCtor.
+
         '''
+        # TODO make ourselves a model that is local...
+        # ( in most instances it is anyway, but for swarm... )
+        core = self.getStormCore()
+
         def cmprctor(oper):
+
             prop = oper[1].get('prop')
             valu = oper[1].get('valu')
-            isrel = prop.startswith(':')
-            def cmpr(tufo):
-                full = prop
-                if isrel:
-                    full = tufo[1].get('tufo:form') + prop
 
-                return func(tufo[1].get(full),valu)
+            isrel = prop.startswith(':')
+
+            # generate a slightly different function for rel / non-rel
+            if not isrel:
+
+                valu,subs = core.getPropNorm(prop,valu)
+                def cmpr(tufo):
+                    return func(tufo[1].get(prop),valu)
+
+                return cmpr
+
+            # we are processing a relative property filter....
+            fulls = {}
+            norms = {}
+
+            def _get_full_norm(f,p,v):
+                retfull = fulls.get(f)
+                if retfull == None:
+                    retfull = fulls[f] = (f+p)
+
+                retnorm,_ = core.getPropNorm(retfull,v)
+                return retfull,retnorm
+
+            def cmpr(tufo):
+                form = tufo[1].get('tufo:form')
+                full,norm = _get_full_norm(form,prop,valu)
+                return func(tufo[1].get(full),norm)
+
             return cmpr
 
         self.setCmprCtor(name,cmprctor)

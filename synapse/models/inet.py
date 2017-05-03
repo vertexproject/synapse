@@ -36,7 +36,7 @@ def getDataModel():
             ('inet:asnet4', {'subof':'sepr','sep':'/','fields':'asn,inet:asn|net4,inet:net4','doc':'An IPv4 address range assigned to an autonomous system','ex':'54959/1.2.3.4-1.2.3.20'}),
 
             ('inet:asn',        {'subof':'int','doc':'An Autonomous System Number (ASN)'}),
-            ('inet:user',       {'subof':'str','doc':'A username string'}),
+            ('inet:user',       {'subof':'str:lwr','doc':'A username string'}),
             ('inet:passwd',     {'subof':'str','doc':'A password string'}),
 
             ('inet:tcp4', {'subof':'inet:srv4', 'doc':'A TCP server listening on IPv4:port'}),
@@ -64,10 +64,11 @@ def getDataModel():
 
             ('inet:ssl:tcp4cert',{'subof':'sepr','sep':'/','fields':'tcp4,inet:tcp4|cert,file:bytes','doc':'An SSL cert file served by an IPv4 server'}),
 
-            ('inet:whois:reg',{'subof':'str','doc':'A whois registrant','ex':'Woot Hostmaster'}),
+            ('inet:whois:reg',{'subof':'str:lwr','doc':'A whois registrant','ex':'woot hostmaster'}),
             ('inet:whois:rec',{'subof':'sepr','sep':'@','fields':'fqdn,inet:fqdn|asof,time','doc':'A whois record','ex':''}),
-            ('inet:whois:contact',{'subof':'sepr','sep':'/','fields':'type,str|rec,inet:whois:rec','doc':'A whois contact for a specific record'}),
-            ('inet:whois:regmail',{'subof':'sepr','sep':'/','fields':'fqdn,inet:fqdn|email,inet:email','doc':'A whois registration fqdn->email link'}),
+
+            ('inet:whois:contact',{'subof':'comp','fields':'rec,inet:whois:rec|type,str:lwr','doc':'A whois contact for a specific record'}),
+            ('inet:whois:regmail',{'subof':'comp','fields':'fqdn,inet:fqdn|email,inet:email','doc':'A whois registration fqdn->email link'}),
 
             # TODO: (port from nucleus etc)
             # inet:cidr6

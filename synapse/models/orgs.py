@@ -12,7 +12,16 @@ def getDataModel():
 
             ('ou:name',{'subof':'str:lwr'}),
             ('ou:sic',{'subof':'int','doc':'Standard Industrial Classification Code'}),
-            ('ou:naics',{'subof':'int','doc':'North American Industry Classification System'})
+            ('ou:naics',{'subof':'int','doc':'North American Industry Classification System'}),
+
+            ('ou:hasfile',{'subof':'comp','fields':'org,ou:org|file,file:bytes'}),
+            ('ou:hasfqdn',{'subof':'comp','fields':'org,ou:org|fqdn,inet:fqdn'}),
+            ('ou:hasipv4',{'subof':'comp','fields':'org,ou:org|ipv4,inet:ipv4'}),
+            ('ou:hashost',{'subof':'comp','fields':'org,ou:org|host,it:host'}),
+            ('ou:hasemail',{'subof':'comp','fields':'org,ou:org|email,inet:email'}),
+            ('ou:hasphone',{'subof':'comp','fields':'org,ou:org|phone,tel:phone'}),
+            ('ou:hasnetuser',{'subof':'comp','fields':'org,ou:org|netuser,inet:netuser'}),
+
         ),
 
         'forms':(
@@ -26,7 +35,7 @@ def getDataModel():
                 ('sic',{'ptype':'ou:sic'}),
                 ('naics',{'ptype':'ou:naics'}),
                 ('us:cage',{'ptype':'gov:us:cage'}),
-                ('url',{'ptype':'inet:url'})
+                ('url',{'ptype':'inet:url'}),
             ]),
 
             ('ou:user',{},[
@@ -40,6 +49,49 @@ def getDataModel():
             ]),
 
             ('ou:owns',{'ptype':'sepr','sep':'/','fields':'owner,ou:org|owned,ou:org'},[
+            ]),
+
+            ('ou:hasfile',{},[
+                ('org',     {'ptype':'ou:org','ro':1}),
+                ('file',    {'ptype':'file:bytes','ro':1}),
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
+            ]),
+            ('ou:hasfqdn',{},[
+                ('org',     {'ptype':'ou:org','ro':1}),
+                ('fqdn',    {'ptype':'inet:fqdn','ro':1}),
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
+            ]),
+            ('ou:hasipv4',{},[
+                ('org',     {'ptype':'ou:org','ro':1}),
+                ('ipv4',    {'ptype':'inet:ipv4','ro':1}),
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
+            ]),
+            ('ou:hashost',{},[
+                ('org',     {'ptype':'ou:org','ro':1}),
+                ('host',    {'ptype':'it:host','ro':1}),
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
+            ]),
+            ('ou:hasemail',{},[
+                ('org',     {'ptype':'ou:org','ro':1}),
+                ('email',   {'ptype':'inet:email','ro':1}),
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
+            ]),
+            ('ou:hasphone',{},[
+                ('org',     {'ptype':'ou:org','ro':1}),
+                ('phone',   {'ptype':'tel:phone','ro':1}),
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
+            ]),
+            ('ou:hasnetuser',{},[
+                ('org',     {'ptype':'ou:org','ro':1}),
+                ('netuser', {'ptype':'inet:netuser','ro':1}),
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
             ]),
         ),
 

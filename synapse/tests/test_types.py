@@ -327,7 +327,7 @@ class DataTypesTest(SynTest):
 
         norm,subs = tlib.getTypeNorm('siteuser','WOOT.COM/Visi')
         self.eq(subs.get('foo'),'woot.com')
-        self.eq(subs.get('bar'),'Visi')
+        self.eq(subs.get('bar'),'visi')
 
     def test_type_sepr_reverse(self):
         tlib = s_types.TypeLib()
