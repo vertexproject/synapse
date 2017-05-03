@@ -324,7 +324,7 @@ class Runtime(Configable):
                 if retfull == None:
                     retfull = fulls[f] = (f+p)
 
-                retnorm = core.getPropNorm(retful,v)
+                retnorm,_ = core.getPropNorm(retfull,v)
                 return retfull,retnorm
 
             def cmpr(tufo):
