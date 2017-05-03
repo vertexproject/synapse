@@ -4,6 +4,7 @@ import threading
 
 import synapse.async as s_async
 import synapse.lib.scope as s_scope
+import synapse.lib.threads as s_threads
 
 from synapse.tests.common import *
 
@@ -91,6 +92,7 @@ class AsyncTests(SynTest):
         ret2 = data.get('job2')
         self.assertIsNotNone(ret2)
         self.assertEqual( ret2[1]['err'], 'Exception' )
+        self.assertEqual( ret2[1]['errmsg'], 'hi' )
 
         boss.fini()
 
@@ -186,5 +188,51 @@ class AsyncTests(SynTest):
         boss.wait(job[0])
 
         self.assertEqual( job[1].get('ret'), 5 )
+
+        boss.fini()
+
+    def test_async_custom_pool_basics(self):
+        boss = s_async.Boss()
+
+        my_pool = s_threads.Pool(3, maxsize=8)
+
+        data = {}
+        def jobmeth(x, y=20):
+            return x + y
+
+        def jobdork(x, y=20):
+            raise Exception('hi')
+
+        def jobdone(job):
+            name = job[1].get('name')
+            data[name] = job
+
+        jid1 = s_async.jobid()
+        jid2 = s_async.jobid()
+
+        task1 = (jobmeth, (3,), {})
+        task2 = (jobdork, (3,), {})
+
+        job1 = boss.initJob(jid1, task=task1, name='job1', ondone=jobdone)
+        job2 = boss.initJob(jid2, task=task2, name='job2', ondone=jobdone)
+
+        self.assertEqual(job1[0], jid1)
+        self.assertEqual(job2[0], jid2)
+
+        my_pool.call(boss._runJob, job1)
+        my_pool.call(boss._runJob, job2)
+
+        boss.wait(jid1, timeout=1)
+        boss.wait(jid2, timeout=1)
+
+        ret1 = data.get('job1')
+
+        self.assertIsNotNone(ret1)
+        self.assertEqual( ret1[1]['ret'], 23 )
+
+        ret2 = data.get('job2')
+        self.assertIsNotNone(ret2)
+        self.assertEqual(ret2[1]['err'], 'Exception')
+        self.assertEqual(ret2[1]['errmsg'], 'hi')
 
         boss.fini()
