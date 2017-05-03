@@ -192,6 +192,9 @@ class AsyncTests(SynTest):
         boss.fini()
 
     def test_async_custom_pool_basics(self):
+        """
+        Demonstrate Boss use with a custom thread pool.
+        """
         boss = s_async.Boss()
 
         my_pool = s_threads.Pool(3, maxsize=8)
