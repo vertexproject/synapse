@@ -219,8 +219,13 @@ class AsyncTests(SynTest):
         job1 = boss.initJob(jid1, task=task1, name='job1', ondone=jobdone)
         job2 = boss.initJob(jid2, task=task2, name='job2', ondone=jobdone)
 
-        self.assertEqual(job1[0], jid1)
-        self.assertEqual(job2[0], jid2)
+        self.eq(job1[0], jid1)
+        self.eq(job2[0], jid2)
+
+        # Test __iter__ since we've got jobs in the boss that haven't been run.
+        jobs = [job for job in boss]
+        self.eq(len(jobs), 2)
+
 
         my_pool.call(boss._runJob, job1)
         my_pool.call(boss._runJob, job2)
@@ -230,12 +235,12 @@ class AsyncTests(SynTest):
 
         ret1 = data.get('job1')
 
-        self.assertIsNotNone(ret1)
-        self.assertEqual( ret1[1]['ret'], 23 )
+        self.nn(ret1)
+        self.eq( ret1[1]['ret'], 23 )
 
         ret2 = data.get('job2')
-        self.assertIsNotNone(ret2)
-        self.assertEqual(ret2[1]['err'], 'Exception')
-        self.assertEqual(ret2[1]['errmsg'], 'hi')
+        self.nn(ret2)
+        self.eq(ret2[1]['err'], 'Exception')
+        self.eq(ret2[1]['errmsg'], 'hi')
 
         boss.fini()

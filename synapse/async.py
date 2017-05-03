@@ -137,7 +137,8 @@ class Boss(EventBus):
         return list(self._boss_jobs.values())
 
     def __iter__(self):
-        return self.jobs()
+        for job in self.jobs():
+            yield job
 
     def job(self, jid):
         '''
