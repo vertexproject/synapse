@@ -229,6 +229,8 @@ class Boss(EventBus):
         '''
         task = job[1].get('task')
         if task == None:
+            # TODO This attribute is not set, a bad tufo
+            # sent to _runJob will have unexpected behavior.
             self.setJobErr(job[0],'NoJobTask')
             return
 
