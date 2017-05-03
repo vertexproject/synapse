@@ -6,10 +6,10 @@ def getDataModel():
         'version':201703271415,
 
         'types':(
+
             ('ps:tokn',{'subof':'str:lwr','doc':'A single name element (potentially given or sur)','ex':'mike'}),
             ('ps:name',{'ctor':'synapse.models.person.Name','ex':'smith,bob', 'doc':'A last,first person full name'}),
             ('ps:person',{'subof':'guid','alias':'ps:person:guidname','doc':'A GUID for a person or suspected person'}),
-
 
             ('ps:hasuser',{'subof':'sepr','sep':'/','fields':'person,ps:person|user,inet:user'}),
             ('ps:hashost',{'subof':'sepr','sep':'/','fields':'person,ps:person|host,it:host'}),
