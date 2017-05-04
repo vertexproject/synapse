@@ -1,14 +1,5 @@
-import time
-import traceback
-import threading
-import collections
-
-from synapse.compat import queue
-
-import synapse.dyndeps as s_dyndeps
 import synapse.lib.sched as s_sched
 import synapse.lib.scope as s_scope
-import synapse.lib.queue as s_queue
 import synapse.lib.threads as s_threads
 
 from synapse.common import *
