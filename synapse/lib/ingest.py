@@ -747,7 +747,7 @@ def loadfile(*paths):
     return gest
 
 
-def register_ingest(core, gest, evtname):
+def register_ingest(core, gest, evtname, ret_func=False):
     '''
     Register an ingest class with a cortex eventbus with a given name.
     When events are fired, they are expected to have the argument "data" which 
@@ -756,6 +756,7 @@ def register_ingest(core, gest, evtname):
     :param core: Cortex to register the Ingest with 
     :param gest: Ingest to register
     :param evtname: Event name to register the ingest with.
+    :param ret_func:  Bool, if true, return the ingest function.
     '''
     def ingest(args):
         name, kwargs = args
@@ -764,3 +765,6 @@ def register_ingest(core, gest, evtname):
             gest.ingest(core, data=data)
 
     core.on(evtname, ingest)
+
+    if ret_func:
+        return ingest

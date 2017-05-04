@@ -941,8 +941,10 @@ class IngTest(SynTest):
 
         with s_cortex.openurl('ram:///') as core:
 
-            s_ingest.register_ingest(core=core, gest=gest, evtname='ingest:test')
-            s_ingest.register_ingest(core=core, gest=gest2, evtname='ingest:test2')
+            ret1 = s_ingest.register_ingest(core=core, gest=gest, evtname='ingest:test')
+            ret2 = s_ingest.register_ingest(core=core, gest=gest2, evtname='ingest:test2', ret_func=True)
+            self.none(ret1)
+            self.true(callable(ret2))
 
             # Dump data into the core an event at a time.
             core.fire('ingest:test', data=data1)
