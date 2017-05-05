@@ -567,21 +567,34 @@ class Runtime(Configable):
         # do we have a relative source property?
         relsrc = srcp != None and srcp.startswith(':')
 
+        vals = set()
+        tufs = query.take()
+
         if srcp != None and not relsrc:
-            vals = [ t[1].get(srcp) for t in query.take() ]
+
+            for tufo in tufs:
+                valu = tufo[1].get(srcp)
+                if valu != None:
+                    vals.add(valu)
 
         elif not relsrc:
-            vals = [ t[1].get( t[1]['tufo:form'] ) for t in query.take() ]
+
+            for tufo in tufs:
+                form = tufo[1].get('tufo:form')
+                valu = tufo[1].get(form)
+                if valu != None:
+                    vals.add(valu)
 
         else:
-            vals = [ t[1].get( t[1]['tufo:form'] + srcp ) for t in query.take() ]
 
-        # de-dup and remove None
-        vals = list(set([ v for v in vals if v != None ]))
+            for tufo in tufs:
+                form = tufo[1].get('tufo:form')
+                valu = tufo[1].get(form+srcp)
+                if valu != None:
+                    vals.add(valu)
 
-        for tufo in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit') ):
-            query.add(tufo)
-            return
+        for t in self.stormTufosBy('in', dstp, list(vals), limit=opts.get('limit') ):
+            query.add(t)
 
     def _stormOperNextSeq(self, query, oper):
         name = None
