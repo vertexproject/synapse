@@ -25,3 +25,8 @@ class InetModelTest(SynTest):
             self.eq(tufo[1]['foo:latest'], 100)
             core.setTufoProp(tufo, 'latest', 1)
             self.eq(tufo[1]['foo:latest'], 100)
+
+    def test_model_time_from_unix(self):
+        with s_cortex.openurl('ram:///') as core:
+            self.eq( core.getTypeCast('from:unix:epoch', 100), 100000 )
+            self.eq( core.getTypeCast('from:unix:epoch', '0x20'), 32000 )
