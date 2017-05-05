@@ -48,7 +48,7 @@ def valid_http_values():
         spec = inspect.getfullargspec(func=t_http.HTTPRequest)
     except AttributeError:
         try:
-            spec = inspect.getargspec(func=t_http.HTTPRequest)
+            spec = inspect.getargspec(func=t_http.HTTPRequest.__init__)
         except:
             raise
     args = set(spec.args)
