@@ -163,3 +163,46 @@ class SvcTest(SynTest):
 
                 tagprox = prox.getTagProxy('bar0')
                 self.assertEqual(next(tagprox.foo(20), None), 30)
+
+    def test_service_dmon_conf(self):
+
+        conf0 = {
+            'ctors':[
+                ['svcbus','ctor://synapse.lib.service.SvcBus()', {}],
+            ],
+            'share':[
+                ['svcbus',{}],
+            ],
+
+        }
+
+        with s_daemon.Daemon() as dmon0:
+
+            dmon0.loadDmonConf(conf0)
+            link = dmon0.listen('tcp://127.0.0.1:0/')
+            port = link[1].get('port')
+
+            conf1 = {
+
+                'ctors':[
+                    ['svcbus','tcp://127.0.0.1:%d/svcbus' % port, {}],
+                    ['ebus','ctor://synapse.eventbus.EventBus()', {}],
+                ],
+
+                'services':[
+                    ['svcbus',[
+                        ['ebus',{'woot':'heh'}],
+                    ]],
+                ],
+            }
+
+            with s_daemon.Daemon() as dmon1:
+
+                dmon1.loadDmonConf(conf1)
+
+                proxy = s_telepath.openurl('tcp://127.0.0.1/svcbus', port=port)
+                dmon1.onfini( proxy.fini )
+
+                svcfo = proxy.getSynSvcsByTag('ebus')[0]
+                self.eq( svcfo[1].get('woot'), 'heh' )
+
