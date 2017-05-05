@@ -259,7 +259,7 @@ class IngestApi:
 
     def addGestData(self, name, data):
         '''
-        Ingest data into according to a previously registered ingest format.
+        Ingest data according to a previously registered ingest format.
 
         Example:
 
