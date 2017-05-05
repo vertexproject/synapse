@@ -321,3 +321,15 @@ class InetModelTest(SynTest):
             self.none( node[1].get('inet:urlfile:url:proto') )
             self.none( node[1].get('inet:urlfile:url:user') )
             self.none( node[1].get('inet:urlfile:url:passwd') )
+
+    def test_model_whois_contact(self):
+        with s_cortex.openurl('ram:///') as core:
+
+            core.setConfOpt('enforce',1)
+
+            node = core.formTufoByProp('inet:whois:contact','(woot.com@20501217,admin)')
+
+            self.eq( len(core.eval('inet:fqdn="woot.com"')), 1 )
+            self.eq( len(core.eval('inet:whois:rec="woot.com@20501217"')), 1 )
+            self.eq( len(core.eval('inet:whois:contact:rec="woot.com@20501217"')), 1 )
+

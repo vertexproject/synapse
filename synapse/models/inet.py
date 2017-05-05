@@ -64,6 +64,7 @@ def getDataModel():
 
             ('inet:ssl:tcp4cert',{'subof':'sepr','sep':'/','fields':'tcp4,inet:tcp4|cert,file:bytes','doc':'An SSL cert file served by an IPv4 server'}),
 
+            ('inet:whois:rar',{'subof':'str:lwr','doc':'A whois registrar','ex':'blah domain registrar'}),
             ('inet:whois:reg',{'subof':'str:lwr','doc':'A whois registrant','ex':'woot hostmaster'}),
             ('inet:whois:rec',{'subof':'sepr','sep':'@','fields':'fqdn,inet:fqdn|asof,time','doc':'A whois record','ex':''}),
 
@@ -254,11 +255,14 @@ def getDataModel():
 
             ]),
 
-            ('inet:whois:reg',{'ptype':'inet:whois:reg'},[]),
+            ('inet:whois:reg',{},[]), 
+            ('inet:whois:rar',{},[]),
 
             ('inet:whois:regmail',{'ptype':'inet:whois:regmail'},[
                 ('fqdn',{'ptype':'inet:fqdn','ro':1}),
                 ('email',{'ptype':'inet:email','ro':1}),
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
             ]),
 
             ('inet:whois:rec',{'ptype':'inet:whois:rec'},[
@@ -268,7 +272,7 @@ def getDataModel():
                 ('created',{'ptype':'time','defval':0,'doc':'The "created" time from the whois record'}),
                 ('updated',{'ptype':'time','defval':0,'doc':'The "last updated" time from the whois record'}),
                 ('expires',{'ptype':'time','defval':0,'doc':'The "expires" time from the whois record'}),
-                ('registrar',{'ptype':'inet:whois:reg','defval':'??'}),
+                ('registrar',{'ptype':'inet:whois:rar','defval':'??'}),
                 ('registrant',{'ptype':'inet:whois:reg','defval':'??'}),
                 ('ns1',{'ptype':'inet:fqdn'}),
                 ('ns2',{'ptype':'inet:fqdn'}),

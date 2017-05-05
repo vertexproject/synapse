@@ -19,6 +19,7 @@ import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 import synapse.lib.types as s_types
+import synapse.lib.ingest as s_ingest
 import synapse.lib.hashset as s_hashset
 import synapse.lib.threads as s_threads
 import synapse.lib.modules as s_modules
@@ -116,7 +117,7 @@ class CortexMixin:
 
         return self.formTufoByProp('file:bytes', iden, **props)
 
-class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin):
+class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestApi):
     '''
     Top level Cortex key/valu storage object.
     '''
@@ -275,6 +276,10 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin):
         self.addTufoProp('syn:log', 'exc', ptype='str', help='Exception class name if caused by an exception')
         self.addTufoProp('syn:log', 'info:*', glob=1)
 
+        self.addTufoForm('syn:ingest', ptype='str:lwr')
+        self.addTufoProp('syn:ingest', 'time', ptype='time')
+        self.addTufoProp('syn:ingest', 'text', ptype='json')
+
         self.addTufoForm('syn:splice', ptype='guid')
         self.addTufoProp('syn:splice','on:*',glob=1)     # syn:splice:on:fqdn=woot.com
         self.addTufoProp('syn:splice','act:*',glob=1)    # action arguments
@@ -295,6 +300,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin):
         for name,ret,exc in s_modules.call('addCoreOns',self):
             if exc != None:
                 logger.warning('%s.addCoreOns: %s' % (name,exc))
+
+        s_ingest.IngestApi.__init__(self, self)
 
     # over-ride to allow the storm runtime to lift/join/pivot tufos
     def _stormTufosBy(self, by, prop, valu=None, limit=None):

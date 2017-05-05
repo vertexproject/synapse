@@ -94,7 +94,7 @@ def nom_whitespace(text,off):
 def isquote(text,off):
     return nextin(text,off,(",",'"'))
 
-def parse_cmd_list(text,off,trim=True):
+def parse_cmd_list(text,off=0,trim=True):
     '''
     Parse a list (likely for comp type ) coming from a command line input.
 
@@ -484,14 +484,22 @@ def parse(text, off=0):
 
         # handle some special "macro" style syntaxes
 
+        # pivot() macro with no src prop:   -> foo:bar
+        if nextstr(text,off,'->'):
+            _,off = nom(text,off+2,whites)
+            name,off = nom(text,off,varset)
+            inst = ('pivot',{'args':[name],'kwlist':[]})
+            ret.append(inst)
+            continue
+
         # must() macro syntax: +foo:bar="woot"
-        if text[off] == '+':
+        if nextchar(text,off,'+'):
             inst,off = parse_macro_filt(text,off+1,mode='must')
             ret.append(inst)
             continue
 
         # cant() macro syntax: -foo:bar=10
-        if text[off] == '-':
+        if nextchar(text,off,'-'):
             inst,off = parse_macro_filt(text,off+1,mode='cant')
             ret.append(inst)
             continue

@@ -11,7 +11,6 @@ import xml.etree.ElementTree as x_etree
 from synapse.common import *
 from synapse.eventbus import EventBus
 
-import synapse.axon as s_axon
 import synapse.gene as s_gene
 import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
@@ -19,6 +18,7 @@ import synapse.dyndeps as s_dyndeps
 import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
 import synapse.lib.scrape as s_scrape
+import synapse.lib.hashset as s_hashset
 import synapse.lib.datapath as s_datapath
 import synapse.lib.encoding as s_encoding
 import synapse.lib.filepath as s_filepath
@@ -181,6 +181,104 @@ def iterdata(fd,**opts):
         yield item
 
     fd.close()
+
+class IngestApi:
+    '''
+    An API mixin which may be used to wrap a cortex and send along ingest data.
+    '''
+    def __init__(self, core):
+        self._gest_core = core
+        self._gest_cache = {}
+
+        self._gest_core.on('tufo:del:syn:ingest', self._onDelSynIngest)
+        self._gest_core.on('tufo:add:syn:ingest', self._onAddSynIngest)
+        self._gest_core.on('tufo:set:syn:ingest:text', self._onAddSynIngest)
+
+        for node in self._gest_core.getTufosByProp('syn:ingest'):
+            self._addDefFromTufo(node)
+
+    def _onAddSynIngest(self, mesg):
+        tufo = mesg[1].get('tufo')
+        return self._addDefFromTufo(tufo)
+
+    def _addDefFromTufo(self, tufo):
+
+        name = tufo[1].get('syn:ingest')
+        if name == None:
+            logger.warning('_addDefFromTufo syn:ingest == None')
+            return
+
+        text = tufo[1].get('syn:ingest:text')
+        if text == None:
+            logger.warning('_addDefFromTufo syn:ingest:text == None')
+            return
+
+        try:
+
+            info = json.loads(text)
+            self._gest_cache[name] = Ingest(info)
+
+        except Exception as e:
+            logger.exception('_addDefFromTufo json loading failed')
+            return
+
+    def _onDelSynIngest(self, mesg):
+        tufo = mesg[1].get('tufo')
+        if tufo == None:
+            logger.warning('_onDelSynIngest tufo == None')
+            return
+
+        name = tufo[1].get('syn:ingest')
+        if name == None:
+            logger.warning('_onDelSynIngest syn:ingest == None')
+            return
+
+        self._gest_cache.pop(name,None)
+
+    def setGestDef(self, name, idef):
+        '''
+        Set an ingest definition by storing it in the cortex.
+
+        Example:
+
+            idef = {... ingest def json ... }
+
+            iapi.setGestDef('foo:bar', idef)
+
+        '''
+        props = {
+            'time':now(),
+            'text':json.dumps(idef),
+        }
+
+        node = self._gest_core.formTufoByProp('syn:ingest',name,**props)
+        if node[1].get('.new'):
+            return node
+
+        return self.setTufoProps(node,**props)
+
+    def addGestData(self, name, data):
+        '''
+        Ingest data into according to a previously registered ingest format.
+
+        Example:
+
+            data = getDataFromThing()
+
+            # use the foo:bar ingest
+            iapi.addGestData('foo:bar', data)
+
+        '''
+        gest = self._gest_cache.get(name)
+        if gest == None:
+            raise NoSuchTufo(prop='syn:ingest',valu=name)
+
+        gest.ingest(self._gest_core, data=data)
+
+    # TODO - use open/format directives to parse raw file data
+    #def addGestFd(self, name, fd):
+    #def addGestPath(self, name, path):
+    #def addGestBytes(self, name, byts):
 
 class Ingest(EventBus):
     '''
@@ -417,7 +515,7 @@ class Ingest(EventBus):
             if dcod != None:
                 byts = s_encoding.decode(dcod,byts)
 
-            hset = s_axon.HashSet()
+            hset = s_hashset.HashSet()
             hset.update(byts)
 
             iden,props = hset.guid()

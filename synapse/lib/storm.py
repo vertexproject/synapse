@@ -1,6 +1,7 @@
 import re
 import time
 import logging
+import collections
 
 import synapse.eventbus as s_eventbus
 
@@ -557,16 +558,30 @@ class Runtime(Configable):
         args = oper[1].get('args')
         opts = dict( oper[1].get('kwlist') )
 
+        srcp = None
         dstp = args[0]
-        srcp = args[0]
 
         if len(args) > 1:
             srcp = args[1]
 
-        # use the more optimal "in" mechanism once we have the pivot vals
-        vals = list({ t[1].get(srcp) for t in query.take() if t != None })
+        # do we have a relative source property?
+        relsrc = srcp != None and srcp.startswith(':')
+
+        if srcp != None and not relsrc:
+            vals = [ t[1].get(srcp) for t in query.take() ]
+
+        elif not relsrc:
+            vals = [ t[1].get( t[1]['tufo:form'] ) for t in query.take() ]
+
+        else:
+            vals = [ t[1].get( t[1]['tufo:form'] + srcp ) for t in query.take() ]
+
+        # de-dup and remove None
+        vals = list(set([ v for v in vals if v != None ]))
+
         for tufo in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit') ):
             query.add(tufo)
+            return
 
     def _stormOperNextSeq(self, query, oper):
         name = None

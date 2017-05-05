@@ -10,6 +10,8 @@ import collections
 import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
+
+import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
 
 import synapse.lookup.iso3166 as s_l_iso3166
@@ -337,12 +339,24 @@ class CompType(MultiFieldType):
 
     def _norm_str(self, text, oldval=None):
 
-        if len(text) == 32 and text.find('|') == -1:
+        text = text.strip()
+
+        if len(text) == 32 and text.find('|') == -1 and text[0] != '(':
             return self.tlib.getTypeNorm('guid',text)
 
-        # TODO consume | separated ( possibly quoted ) strings
-        valu,subs = self._norm_fields( text.split('|') )
-        return guid(valu),subs
+        if text[0] == '(':
+
+            vals,off = s_syntax.parse_cmd_list(text)
+            if off != len(text):
+                self._raiseBadValu(text)
+
+            vals,subs = self._norm_fields( vals )
+
+        else:
+
+            vals,subs = self._norm_fields( text.split('|') )
+
+        return guid(vals),subs
 
     def _norm_list(self, valu, oldval=None):
         valu,subs = self._norm_fields(valu)
@@ -462,6 +476,9 @@ class SeprType(MultiFieldType):
             parts = text.rsplit(self.sepr,len(fields)-1)
         else:
             parts = text.split(self.sepr,len(fields)-1)
+
+        if len(parts) != len(fields):
+            self._raiseBadValu(text,sep=self.sepr,mesg='split: %d fields: %d' % (len(parts),len(fields)))
 
         return parts
 
