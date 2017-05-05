@@ -3,7 +3,7 @@
 # synapse - remcycle.py
 # Created on 4/28/17.
 """
-Remcycle provides a mechanism for kicking off asynchronous HTTP(S) requests 
+Remcycle provides a mechanism for kicking off asynchronous HTTP(S) requests
 via Tornado's AsyncHTTPClient.
 
 A method for templating URL endpoints, providing default configuration values
@@ -11,7 +11,7 @@ and user set configuration values, per request, is available.  In addition,
 data can also be ingested into a cortex (provided, or a default ram cortex)
 for immeadiate consumption.
 
-These requests are handled by Hypnos objects, which can have a single or 
+These requests are handled by Hypnos objects, which can have a single or
 multiple definitions snapped into them in order to grab data on demand.
 Hypnos grabs these requests with a single IO thread, and offloads the
 consumption of the data to multiple worker threads.
@@ -69,7 +69,7 @@ def validate_http_values(vard):
 
     :param vard: Dictionary to examine.
     :return: True, otherwise raises an Exception.
-    :raises: Exception if the input isn't a dictionary or if a key in the 
+    :raises: Exception if the input isn't a dictionary or if a key in the
              input isn't in VALID_TORNADO_HTTP_ARGS.
     """
     if not isinstance(vard, dict):
@@ -85,44 +85,44 @@ def validate_http_values(vard):
 class Nyx(object):
     """
     Configuration parser & request generator for a REST service.
-    
+
     This class is responsible for doing the actual HTTPRequest generation
     in a parameterized fashion for a given input.
-    
+
     The API configuration is expected to be a dictionary with the expected
     values:
-    
+
         * doc: Human readable description of the current API endpoint.
-        * url: This is the actual URL which will be used to connect to a 
+        * url: This is the actual URL which will be used to connect to a
           service.  This string will be run through format() twice - once
           during the construction of the Nyx object, and the second time
-          during the construction of the per-request url. As such, any 
+          during the construction of the per-request url. As such, any
           values set by the api configuration method noted below should
           be encloused with double curly brackets.
-    
+
     The following configuration values are optional.
-    
+
         * api: This is a list of two objects, one listing required API values
           and the second listing default API values.
-            - The first object should be a list of required values.  These 
+            - The first object should be a list of required values.  These
               must be provided by the user when they call build_http_request.
             - The second object should be a dictionary of optional values and
-              their defaults.  A user may provide alternative values when 
-              calling build_http_request, but sensible defaults should be 
-              provided here. 
-        * http: A dictionary of key/value items which can provide per-api 
+              their defaults.  A user may provide alternative values when
+              calling build_http_request, but sensible defaults should be
+              provided here.
+        * http: A dictionary of key/value items which can provide per-api
           specific arguements for the creation of HTTPRequest objects.
-        * ingests: A dictionary of Synapse ingest definitions which will be 
-          used to create Ingest objects.  During registration of a Nyx object 
-          with Hypnos, these will be registered into the Hypnos cortex.  
+        * ingests: A dictionary of Synapse ingest definitions which will be
+          used to create Ingest objects.  During registration of a Nyx object
+          with Hypnos, these will be registered into the Hypnos cortex.
           Multiple named ingests may be made available for a single API.
         * vars: This is a list of 2 value items which are stamped into the url
-          value during the construction of the Nyx object. 
-    
+          value during the construction of the Nyx object.
+
     See a complete example below:
-    
+
     ::
-    
+
         {
           "api": [
             [
@@ -165,31 +165,30 @@ class Nyx(object):
             ["APIKEY", "8675309"]
           ]
         }
-    
+
     ::
-    
+
     This example should be interpreted as the following:
-        
+
         1. The APIKEY value in the 'vars' will be set in the URL, resulting in
            the following default url:
-        
+
         ::
-        
+
             "http://vertex.link/api/v4/geoloc/{someplace}/info?domore={domore}&apikey=8675309"
-        
+
         ::
-    
-        2. The HTTP request will have the header "token-goodness" set to 
+
+        2. The HTTP request will have the header "token-goodness" set to
            "sekrit token" for the request.
         3. The caller must provide the "someplace" value in the api_args when
-           calling build_http_request.  The caller may provide the "domore" 
+           calling build_http_request.  The caller may provide the "domore"
            value if they want to override the default value of "0".
-        4. An Ingest will be created for parsing the data from the API and 
-           made available to the Hypnos object. 
-    
+        4. An Ingest will be created for parsing the data from the API and
+           made available to the Hypnos object.
+
     :param api_config: API Endpoint configuration outlined above.
     :param namespace_http_config: Default HTTPRequent configuration values.
-    
     """
 
     def __init__(self, api_config, namespace_http_config=None):
@@ -281,10 +280,10 @@ class Nyx(object):
                            request_args=None):
         """
         Build the HTTPRequest object for a given configuration.
-        
+
         :param api_args: Arguments support either required or optional URL
                          values.
-        :param request_args: Arguments which will override or add to the 
+        :param request_args: Arguments which will override or add to the
                              HTTPRequest object arguments. Strings will be
                              url quoted so that they may be safely requested.
         :return: tornado.httpclient.HTTPRequest object with the configured
@@ -314,11 +313,11 @@ class Hypnos(s_config.Config):
     or ingest definitions.  Users can register multiple namespaces, each with
     their own set of API endpoints configured with them.  See the fire_api()
     function for details on retrieving data with Hypnos.
-    
-    :param core: Cortex used to store ingest data.  By default, a ram cortex 
+
+    :param core: Cortex used to store ingest data.  By default, a ram cortex
                  is used.
-    :param ioloop: Tornado ioloop used by the IO thread. This would normally 
-                   be left unset, and an ioloop will be created for the io 
+    :param ioloop: Tornado ioloop used by the IO thread. This would normally
+                   be left unset, and an ioloop will be created for the io
                    thread. This is provided as a helper for testing.
     """
 
@@ -393,9 +392,9 @@ class Hypnos(s_config.Config):
         Register a configuration into a Hypnos object.
 
         The Hypnos object can accept a configuration object shaped like the following:
-        
+
         ::
-        
+
             {
               "apis": {
                 "geoloc": {
@@ -454,29 +453,29 @@ class Hypnos(s_config.Config):
               },
               "namespace": "vertexproject"
             }
-        
+
         ::
-        
+
         The following keys are required:
-        
-            * namespace: String identifier for all APIs present in the 
+
+            * namespace: String identifier for all APIs present in the
               configuration.  Must be locally unique.
             * doc: Simple string describing the overall namespace.
-            * apis: Dictionary containing configuration values for API 
-              endpoints. See Nyx object for details of how this data should be 
+            * apis: Dictionary containing configuration values for API
+              endpoints. See Nyx object for details of how this data should be
               shaped.  The keys of this dictionary, when joined with the
               namespace of the configuration, form the name of the APIs for
               later use.  Given the example above, the following APIs would
               be registered:
                 - vertexproject:geoloc
                 - vertexproject:https
-            
+
         The following keys are optional:
-            
+
             * http: Global HTTP Request arguments which will be the basis
               for creating HTTPRequest objects.
-        
-        
+
+
         :param config: Dictionary containing the configuration information.
         :param reload_config: If true and the namespace is already registered,
                               the existing namespace will be removed and the new
@@ -532,7 +531,7 @@ class Hypnos(s_config.Config):
 
     def _register_api(self, name, obj):
         """
-        Register a Nyx object and any corresponding ingest definitions to the 
+        Register a Nyx object and any corresponding ingest definitions to the
         cortex.
         """
         if name in self.apis:
@@ -657,68 +656,68 @@ class Hypnos(s_config.Config):
 
     def fire_api(self, name, *args, **kwargs):
         """
-        Fire a request to a registered API.  
-        
+        Fire a request to a registered API.
+
         The API response is serviced by a thread in the Hypnos thread pool,
         which will fire either an event on the Hypnos service bus or a caller
-        provided callback function.  The default action is to fire an event 
+        provided callback function.  The default action is to fire an event
         on the service bus with the same name as the API itself.
-        
+
         A flattened version of the response, error information and the Boss
-        job id will be stamped into the kwargs passed along to the the 
+        job id will be stamped into the kwargs passed along to the the
         callbacks.
-        
-        The flattened response is a dictionary, accessed from kwargs using 
+
+        The flattened response is a dictionary, accessed from kwargs using
         the 'resp' key. It contains the following information:
-        
-            * request: A dictionary containing the requested URL and headers.  
+
+            * request: A dictionary containing the requested URL and headers.
               This is guaranteed to exist.  It has the following values:
                 - url: URL requested by the remote server.
                 - headers: Headers passed to the remote server.
-            * code: HTTP Response code.  This will only be present on a 
+            * code: HTTP Response code.  This will only be present on a
               successfull request or if a HTTPError is encountered.
-            * raw_body: The raw bytes of the reponse.  This will only be 
-              present on a successful request or if a HTTPError is 
+            * raw_body: The raw bytes of the reponse.  This will only be
+              present on a successful request or if a HTTPError is
               encountered.
-            * effective_url: The effective url returned by the server. 
-              By default, Tornado will follow redirects, so this URL may 
+            * effective_url: The effective url returned by the server.
+              By default, Tornado will follow redirects, so this URL may
               differ from the request URL.  It will only be present on a
               successful request or if a HTTPError is encountered.
-            * headers: The response headers.  It will only be present on a 
+            * headers: The response headers.  It will only be present on a
               successful request or if a HTTPError is encountered.
-            * data: If we have a raw response body, we will attempt to decode 
-              the data.  If we are able to decode the content-type header, 
+            * data: If we have a raw response body, we will attempt to decode
+              the data.  If we are able to decode the content-type header,
               this key will contain a str.  In addition, if we have support
               for the specific content type to decode the data, such a JSON,
-              we'll also decode it as well. This will be present given the 
+              we'll also decode it as well. This will be present given the
               above conditions.
-        
-        
-        The flattened error is a dictionary, accessed from kwargs using the 
-        'errinfo' key.  It mimics the synapse excinfo output, but without 
-        investigating a stack trace for performance reasons.  It contains 
+
+
+        The flattened error is a dictionary, accessed from kwargs using the
+        'errinfo' key.  It mimics the synapse excinfo output, but without
+        investigating a stack trace for performance reasons.  It contains
         the following information:
-        
+ 
             * err: The Exception class raised during the request.
             * errmsg: The str() represnetation of the exception.
             * errfile: Empty string.
             * errline: Empty string.
-        
-        The Hypnos boss job id is a str which can be accessed from kwargs 
+
+        The Hypnos boss job id is a str which can be accessed from kwargs
         using the 'jid' key.
-        
+
         The following items may be used via kwargs to set request parameters:
-        
-            * api_args: This should be a dictionary containing any required 
+
+            * api_args: This should be a dictionary containing any required
               or optional arguments the API rquires.
             * request_args: This should be a dictionary containing values
-              used to override any namespace or api default values when 
+              used to override any namespace or api default values when
               creating the Tornado HTTPRequest object.
-        
-        The following items may be passed via kwargs to change the job 
+
+        The following items may be passed via kwargs to change the job
         execution parameters:
-        
-            * callback: A function which will be called by the servicing 
+
+            * callback: A function which will be called by the servicing
               thread.  By default, this will be wrapped to fire boss.err()
               if excinfo is present in the callback's kwargs.
             * ondone: A function to be executed by the job:fini handler
@@ -730,7 +729,7 @@ class Hypnos(s_config.Config):
               calls boss.err() on the executing job will not be applied to
               the callback.  It is then the responsibility for any event
               handlers or callback functions to handle errors.
-        
+
         :param name: Name of the API to send a request for.
         :param args: Additional args passed to the callback functions.
         :param kwargs: Additional args passed to the callback functions or for
