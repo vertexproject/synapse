@@ -1,7 +1,6 @@
 import re
 
 import synapse.data as s_data
-import synapse.cortex as s_cortex
 import synapse.lib.datfile as s_datfile
 
 from synapse.common import *
@@ -43,6 +42,8 @@ def scrape(text, data=None):
 def getsync(text, tags=()):
 
     ret = []
+
+    import synapse.cortex as s_cortex
 
     core = s_cortex.openurl('ram://')
     with s_cortex.openurl('ram://'):

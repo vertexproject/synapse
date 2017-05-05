@@ -157,3 +157,11 @@ class EpochType(DataType):
         dt = datetime.datetime(1970,1,1) + datetime.timedelta(seconds=int(valu))
         return '%d/%.2d/%.2d %.2d:%.2d:%.2d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
 
+def fromUnixEpoch(valu):
+    if s_compat.isstr(valu):
+        valu =int(valu,0)
+    return valu * 1000
+
+def addCoreOns(core):
+    core.addTypeCast('from:unix:epoch',fromUnixEpoch)
+
