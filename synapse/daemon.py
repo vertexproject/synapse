@@ -274,14 +274,13 @@ class DmonConf:
                 raise NoSuchObj(name)
 
             for svcname,svcopts in svcruns:
+
                 item = self.locs.get(svcname)
                 if item == None:
                     raise NoSuchObj(svcname)
 
-                tags = svcopts.get('tags',())
                 svcname = svcopts.get('name',svcname)
-
-                s_service.runSynSvc(svcname, item, svcbus, tags=tags)
+                s_service.runSynSvc(svcname, item, svcbus, **svcopts)
 
     def loadDmonJson(self, text):
         conf = json.loads(text)
