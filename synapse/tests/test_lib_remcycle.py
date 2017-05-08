@@ -155,10 +155,10 @@ class NyxTest(SynTest):
                      'request_timeout': 100,
                      'connect_timeout': 20,
                      }
-        self.true(s_remcycle.validate_http_values(vard=good_dict))
+        self.true(s_remcycle.validateHttpValues(vard=good_dict))
 
         with self.raises(Exception) as cm:
-            s_remcycle.validate_http_values('A string')
+            s_remcycle.validateHttpValues('A string')
         self.true('bad type' in str(cm.exception))
 
         bad_dict = {'method': 'PUT',
@@ -166,7 +166,7 @@ class NyxTest(SynTest):
                     }
 
         with self.raises(Exception) as cm:
-            s_remcycle.validate_http_values(bad_dict)
+            s_remcycle.validateHttpValues(bad_dict)
         self.true('Varn is not a valid tornado arg' in str(cm.exception))
 
     def test_nyx_simple_config(self):

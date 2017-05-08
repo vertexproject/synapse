@@ -39,7 +39,7 @@ from synapse.common import *
 log = logging.getLogger(__name__)
 
 
-def valid_http_values():
+def genValidHttpValues():
     '''
     Generate a set of valid HTTPRequest arguments we will recognize in Remcycle.
     '''
@@ -60,10 +60,10 @@ def valid_http_values():
     return args
 
 
-VALID_TORNADO_HTTP_ARGS = valid_http_values()
+VALID_TORNADO_HTTP_ARGS = genValidHttpValues()
 
 
-def validate_http_values(vard):
+def validateHttpValues(vard):
     '''
     Ensure that the values in a dictionary are valid HTTPRequest arguments.
 
@@ -196,7 +196,7 @@ class Nyx(object):
             self.namespace_http_config = namespace_http_config.copy()
         else:
             self.namespace_http_config = {}
-        validate_http_values(self.namespace_http_config)
+        validateHttpValues(self.namespace_http_config)
         self._raw_config = dict(api_config)
         self.required_keys = ['url',
                               'doc'
@@ -242,7 +242,7 @@ class Nyx(object):
                 for varn, varv in value:
                     self.url_vars[varn] = varv
             if key == 'http':
-                validate_http_values(vard=value)
+                validateHttpValues(vard=value)
                 for varn, varv in value.items():
                     self.request_defaults[varn] = varv
             if key == 'api':
@@ -301,7 +301,7 @@ class Nyx(object):
         url = self.effective_url.format(**t_args)
         args = self._default_client_config.copy()
         if request_args:
-            validate_http_values(vard=request_args)
+            validateHttpValues(vard=request_args)
             args.update(request_args)
         req = t_http.HTTPRequest(url, **args)
         return req
@@ -517,7 +517,7 @@ class Hypnos(s_config.Config):
             if value is None:
                 continue
             if key == 'http':
-                validate_http_values(vard=value)
+                validateHttpValues(vard=value)
                 gd = {varn: varv for varn, varv in value.items()}
                 self.global_request_headers[_namespace] = gd
         # Register APIs
