@@ -114,9 +114,7 @@ class NyxTest(SynTest):
         self.config = {
             "url": "http://vertex.link/api/v4/geoloc/{{someplace}}/info?domore={{domore}}&apikey={APIKEY}",
 
-            "vars": [
-                ["APIKEY", "8675309"]
-            ],
+            "vars": {"APIKEY": "8675309"},
 
             "http": {
                 "method": "GET",  # this defaults to GET obvs, just making an example
@@ -129,10 +127,8 @@ class NyxTest(SynTest):
 
             "doc": "api example",
 
-            "api": [
-                ["someplace"],
-                {"domore": 0}
-            ]
+            "api_args": ["someplace"],
+            "api_optargs": {"domore": 0}
         }
 
     def test_nyx_tornado_http_values(self):
@@ -157,9 +153,10 @@ class NyxTest(SynTest):
                      }
         self.true(s_remcycle.validateHttpValues(vard=good_dict))
 
-        with self.raises(Exception) as cm:
+        # Duck typing
+        with self.raises(AttributeError) as cm:
             s_remcycle.validateHttpValues('A string')
-        self.true('bad type' in str(cm.exception))
+        self.true("""object has no attribute 'items'""" in str(cm.exception))
 
         bad_dict = {'method': 'PUT',
                     'user-agent': 'Lynx',  # Typo / misspelling
@@ -170,64 +167,49 @@ class NyxTest(SynTest):
         self.true('Varn is not a valid tornado arg' in str(cm.exception))
 
     def test_nyx_simple_config(self):
-        nyx = s_remcycle.Nyx(api_config=self.config, namespace_http_config={})
+        nyx = s_remcycle.Nyx(config=self.config)
         e_url = 'http://vertex.link/api/v4/geoloc/{someplace}/info?domore={domore}&apikey=8675309'
         self.eq(nyx.effective_url, e_url)
         self.eq(nyx.api_args, ['someplace'])
         self.eq(nyx.api_kwargs, {'domore': 0})
 
     def test_nyx_make_request(self):
-        nyx = s_remcycle.Nyx(api_config=self.config, namespace_http_config={})
+        nyx = s_remcycle.Nyx(config=self.config)
         e_url = 'http://vertex.link/api/v4/geoloc/{someplace}/info?domore={domore}&apikey=8675309'
         self.eq(nyx.effective_url, e_url)
-        req = nyx.build_http_request(api_args={'someplace': 'foobar'}, request_args={})
+        req = nyx.build_http_request(api_args={'someplace': 'foobar'})
         e_url = 'http://vertex.link/api/v4/geoloc/foobar/info?domore=0&apikey=8675309'
         self.eq(req.url, e_url)
         self.eq(req.user_agent, self.config.get('http').get('user_agent'))
 
-        req = nyx.build_http_request(api_args={'someplace': 'duck', 'domore': 1},
-                                     request_args={'user_agent': 'Lynx'})
+        req = nyx.build_http_request(api_args={'someplace': 'duck', 'domore': 1})
         e_url = 'http://vertex.link/api/v4/geoloc/duck/info?domore=1&apikey=8675309'
         self.eq(req.url, e_url)
-        self.eq(req.user_agent, 'Lynx')
         self.eq(req.connect_timeout, None)  # Default value for the object itself
         self.eq(req.request_timeout, None)  # Default value for the object itself
 
-        req = nyx.build_http_request(api_args={'someplace': 'duck', 'domore': 1},
-                                     request_args={'connect_timeout': 25,
-                                                   'request_timeout': 100})
-        self.eq(req.connect_timeout, 25)  # Default value
-        self.eq(req.request_timeout, 100)  # Default value
-
-    def test_nyx_quoted_values(self):
-        nyx = s_remcycle.Nyx(api_config=self.config, namespace_http_config={})
-        req = nyx.build_http_request(api_args={'someplace': 'foo bar',
-                                               'domore': 'eeep@foo.bar'}, request_args={})
-        e_url = 'http://vertex.link/api/v4/geoloc/foo+bar/info?domore=eeep%40foo.bar&apikey=8675309'
+        # Ensure that extra params don't make it through
+        req = nyx.build_http_request(api_args={'someplace': 'duck', 'domore': 1, 'beep': 1234})
+        e_url = 'http://vertex.link/api/v4/geoloc/duck/info?domore=1&apikey=8675309'
         self.eq(req.url, e_url)
 
-    def test_nyx_config_global(self):
-        gconf = get_ipify_global_config()
-        ipify_global = gconf.get('http')
-        api = gconf.get('apis').get('jsonip')
+        # Ensure that values stamped in via HTTP get used
+        conf = self.config.copy()
+        conf['http']['request_timeout'] = 1000
+        conf['http']['connect_timeout'] = 100
+        nyx2 = s_remcycle.Nyx(config=conf)
+        req = nyx2.build_http_request(api_args={'someplace': 'duck', 'domore': 1})
+        e_url = 'http://vertex.link/api/v4/geoloc/duck/info?domore=1&apikey=8675309'
+        self.eq(req.url, e_url)
+        self.eq(req.connect_timeout, 100)  # Default value for the object itself
+        self.eq(req.request_timeout, 1000)  # Default value for the object itself
 
-        nyx_obj = s_remcycle.Nyx(api_config=api, namespace_http_config=ipify_global)
-
-        req = nyx_obj.build_http_request()
-        self.eq(req.user_agent, ipify_global.get('user_agent'))
-        self.eq(req.validate_cert, api.get('http').get('validate_cert'))
-
-        # Ensure we are overriding globals and api configs as well
-        req = nyx_obj.build_http_request(request_args={'user_agent': 'ClownBrowser'})
-        self.eq(req.user_agent, 'ClownBrowser')
-        self.ne(req.user_agent, ipify_global.get('user_agent'))
-        self.eq(req.validate_cert, api.get('http').get('validate_cert'))
-
-        # Ensure we are overriding globals and api configs as well
-        req = nyx_obj.build_http_request(request_args={'validate_cert': True})
-        self.eq(req.user_agent, ipify_global.get('user_agent'))
-        self.eq(req.validate_cert, True)
-        self.ne(req.validate_cert, api.get('http').get('validate_cert'))
+    def test_nyx_quoted_values(self):
+        nyx = s_remcycle.Nyx(config=self.config)
+        req = nyx.build_http_request(api_args={'someplace': 'foo bar',
+                                               'domore': 'eeep@foo.bar'})
+        e_url = 'http://vertex.link/api/v4/geoloc/foo+bar/info?domore=eeep%40foo.bar&apikey=8675309'
+        self.eq(req.url, e_url)
 
 
 class HypnosTest(SynTest, AsyncTestCase):
@@ -289,7 +271,17 @@ class HypnosTest(SynTest, AsyncTestCase):
         vertex_conf = get_vertex_global_config()
         ipify_conf = get_ipify_ingest_global_config()
 
+        data = set([])
+        def func(eventdata):
+            evtname, _ = eventdata
+            data.add(evtname)
+
         with s_remcycle.Hypnos(ioloop=self.io_loop) as hypo_obj:
+            # Register callbacks
+            hypo_obj.on('hypnos:register:namespace:add', func)
+            hypo_obj.on('hypnos:register:namespace:del', func)
+            hypo_obj.on('hypnos:register:api:del', func)
+            hypo_obj.on('hypnos:register:api:add', func)
 
             hypo_obj.addConfig(config=vertex_conf)
             self.true('vertexproject' in hypo_obj.namespaces)
@@ -328,7 +320,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('ipify:jsonip:ipv4' not in hypo_obj.core._syn_funcs)
 
             # Trying to re-register a present namespace should fail
-            with self.raises(Exception) as cm:
+            with self.raises(NameError) as cm:
                 hypo_obj.addConfig(config=vertex_conf)
             self.true('Namespace is already registered' in str(cm.exception))
 
@@ -363,6 +355,12 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('ipify:duckip' in hypo_obj._api_ingests)
             self.true('ipify:duckip' in hypo_obj._syn_funcs)
             self.true('ipify:duckip:foobar' in hypo_obj.core._syn_funcs)
+
+        # ensure all the expected events fired during testing
+        self.true('hypnos:register:namespace:add' in data)
+        self.true('hypnos:register:namespace:del' in data)
+        self.true('hypnos:register:api:add' in data)
+        self.true('hypnos:register:api:del' in data)
 
     def test_hypnos_fire_api_callback(self):
         #Ensure that the provided callback is fired and args are passed to the callbacks.

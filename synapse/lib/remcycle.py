@@ -39,6 +39,25 @@ from synapse.common import *
 log = logging.getLogger(__name__)
 
 
+DOC = 'doc'
+URL = 'url'
+APIS = 'apis'
+HTTP = 'http'
+VARS = 'vars'
+INGESTS = 'ingests'
+NAMESPACE = 'namespace'
+API_ARGS = 'api_args'
+API_OPTARGS = 'api_optargs'
+
+MIN_WORKER_THREADS = 'min_worker_threads'
+MAX_WORKER_THREADS = 'max_worker_threads'
+HYPNOS_BASE_DEFS = (
+    (MIN_WORKER_THREADS, {'type': 'int', 'doc': 'Minimum number of worker threads to spawn', 'defval': 8}),
+    (MAX_WORKER_THREADS, {'type': 'int', 'doc': 'Maximum number of worker threads to spawn', 'defval': 64}),
+)
+
+
+
 def genValidHttpValues():
     '''
     Generate a set of valid HTTPRequest arguments we will recognize in Remcycle.
@@ -72,12 +91,10 @@ def validateHttpValues(vard):
     :raises: Exception if the input isn't a dictionary or if a key in the
              input isn't in VALID_TORNADO_HTTP_ARGS.
     '''
-    if not isinstance(vard, dict):
-        raise Exception('bad type')
     for varn, varv in vard.items():
         if varn not in VALID_TORNADO_HTTP_ARGS:
             log.error('Bad varn encountered: %s', varn)
-            raise Exception('Varn is not a valid tornado arg')
+            raise NameError('Varn is not a valid tornado arg')
     return True
 
 
@@ -97,41 +114,36 @@ class Nyx(object):
           service.  This string will be run through format() twice - once
           during the construction of the Nyx object, and the second time
           during the construction of the per-request url. As such, any
-          values set by the api configuration method noted below should
-          be enclosed with double curly brackets.
+          values set by the api_args and api_optargs configuration methods
+          noted below should be enclosed with double curly brackets.
 
     The following configuration values are optional.
 
-        * api: This is a list of two objects, one listing required API values
-          and the second listing default API values.
-            - The first object should be a list of required values.  These
-              must be provided by the user when they call build_http_request.
-            - The second object should be a dictionary of optional values and
-              their defaults.  A user may provide alternative values when
-              calling build_http_request, but sensible defaults should be
-              provided here.
+        * api_args: This is a list of required values which must be provided
+          by the user when they call build_http_request.  All
+        * api_optargs: This is a dictionary of optional values and their
+          defaults.  A user may provide alternative values when calling 
+          build_http_request, but sensible defaults should be provided here.
         * http: A dictionary of key/value items which can provide per-api
           specific arguements for the creation of HTTPRequest objects.
         * ingests: A dictionary of Synapse ingest definitions which will be
           used to create Ingest objects.  During registration of a Nyx object
           with Hypnos, these will be registered into the Hypnos cortex.
           Multiple named ingests may be made available for a single API.
-        * vars: This is a list of 2 value items which are stamped into the url
-          value during the construction of the Nyx object.
+        * vars: This is a dictionary of items which are stamped into the url
+          template during the construction of the Nyx object using format().
 
     See a complete example below:
 
     ::
 
         {
-          "api": [
-            [
+          "api_args": [
               "someplace"
             ],
-            {
+          "api_optargs": {
               "domore": 0
-            }
-          ],
+          },
           "doc": "api example",
           "http": {
             "headers": {
@@ -161,8 +173,9 @@ class Nyx(object):
             }
           },
           "url": "http://vertex.link/api/v4/geoloc/{{someplace}}/info?domore={{domore}}&apikey={APIKEY}",
-          "vars": [
-            ["APIKEY", "8675309"]
+          "vars": {
+            "APIKEY": "8675309"
+            }
           ]
         }
 
@@ -188,23 +201,12 @@ class Nyx(object):
            made available to the Hypnos object.
 
     :param api_config: API Endpoint configuration outlined above.
-    :param namespace_http_config: Default HTTPRequent configuration values.
     '''
 
-    def __init__(self, api_config, namespace_http_config=None):
-        if namespace_http_config:
-            self.namespace_http_config = namespace_http_config.copy()
-        else:
-            self.namespace_http_config = {}
-        validateHttpValues(self.namespace_http_config)
-        self._raw_config = dict(api_config)
-        self.required_keys = ['url',
-                              'doc'
-                              ]
-        self.optional_keys = ['vars',
-                              'http',
-                              'api',
-                              'ingests'
+    def __init__(self, config):
+        self._raw_config = dict(config)
+        self.required_keys = [URL,
+                              DOC
                               ]
         self.doc = ''
         self.url_template = ''
@@ -216,76 +218,34 @@ class Nyx(object):
         self.gests = {}
 
         self._parse_config()
-        self._default_client_config = self._build_default_req_dict()
 
     def _parse_config(self):
         for key in self.required_keys:
             if key not in self._raw_config:
                 log.error('Remcycle config is missing a required value %s.', key)
                 raise NoSuchName('Missing required key.')
-            value = self._raw_config.get(key)
-            if key == 'url':
-                if not s_compat.isstr(value):
-                    raise Exception('bad type')
-                self.url_template = value
-            if key == 'doc':
-                if not s_compat.isstr(value):
-                    raise Exception('bad type')
-                self.doc = value
-        for key in self.optional_keys:
-            value = self._raw_config.get(key)
-            if value is None:
-                continue
-            if key == 'vars':
-                if not isinstance(value, (tuple, list)):
-                    raise Exception('bad type')
-                for varn, varv in value:
-                    self.url_vars[varn] = varv
-            if key == 'http':
-                validateHttpValues(vard=value)
-                for varn, varv in value.items():
-                    self.request_defaults[varn] = varv
-            if key == 'api':
-                if not isinstance(value, (tuple, list)):
-                    raise Exception('bad type')
-                api_args, api_kwargs = value
-                if not isinstance(api_args, (tuple, list)):
-                    raise Exception('bad type')
-                if not isinstance(api_kwargs, dict):
-                    raise Exception('bad type')
-                for argn in api_args:
-                    if not s_compat.isstr(argn):
-                        raise Exception('bad type')
-                    self.api_args.append(argn)
-                for argn, defval in api_kwargs.items():
-                    if not s_compat.isstr(argn):
-                        raise Exception('bad type')
-                    self.api_kwargs[argn] = defval
-            if key == 'ingests':
-                if not isinstance(value, dict):
-                    raise Exception('bad type')
-                for varn, var in value.items():
-                    gest = s_ingest.Ingest(var)
-                    self.gests[varn] = gest
+        self.url_template = self._raw_config.get(URL)
+        self.doc = self._raw_config.get(DOC)
+
+        self.url_vars.update(self._raw_config.get(VARS, {}))
+        self.request_defaults = self._raw_config.get(HTTP, {})
+        validateHttpValues(self.request_defaults)
+        _gests = {k: s_ingest.Ingest(v) for k, v in self._raw_config.get(INGESTS, {}).items()}
+        self.gests.update(_gests)
+
+        self.api_args.extend(self._raw_config.get(API_ARGS, []))
+        self.api_kwargs.update(self._raw_config.get(API_OPTARGS, {}))
+
         # Set effective url
         self.effective_url = self.url_template.format(**self.url_vars)
 
-    def _build_default_req_dict(self):
-        ret = self.namespace_http_config.copy()
-        ret.update(self.request_defaults)
-        return ret
-
     def build_http_request(self,
-                           api_args=None,
-                           request_args=None):
+                           api_args=None):
         '''
         Build the HTTPRequest object for a given configuration.
 
         :param api_args: Arguments support either required or optional URL
                          values.
-        :param request_args: Arguments which will override or add to the
-                             HTTPRequest object arguments. Strings will be
-                             url quoted so that they may be safely requested.
         :return: tornado.httpclient.HTTPRequest object with the configured
                  url and attributes.
         :raises: NoSuchName if the api_args is missing a required API value.
@@ -299,11 +259,7 @@ class Nyx(object):
         for argn, defval in self.api_kwargs.items():
             t_args[argn] = s_compat.url_quote_plus(str(api_args.get(argn, defval)))
         url = self.effective_url.format(**t_args)
-        args = self._default_client_config.copy()
-        if request_args:
-            validateHttpValues(vard=request_args)
-            args.update(request_args)
-        req = t_http.HTTPRequest(url, **args)
+        req = t_http.HTTPRequest(url, **self.request_defaults)
         return req
 
 
@@ -314,23 +270,34 @@ class Hypnos(s_config.Config):
     their own set of API endpoints configured with them.  See the fire_api()
     function for details on retrieving data with Hypnos.
 
+    The Hypnos object inherits from the Config object, and as such has both
+    configable parameters and an EventBus available for message passing.
+
+    The following items may be passed via kwargs to change the Hypnos object
+    behavior:
+
+        * ioloop: Tornado ioloop used by the IO thread. This would normally
+                  be left unset, and an ioloop will be created for the io
+                  thread. This is provided as a helper for testing.
+
     :param core: Cortex used to store ingest data.  By default, a ram cortex
                  is used.
-    :param ioloop: Tornado ioloop used by the IO thread. This would normally
-                   be left unset, and an ioloop will be created for the io
-                   thread. This is provided as a helper for testing.
+    :param opts: Opts applied to the object via the Config interface.
+    :param defs: Default options applied to the object via the Config
+                 interface.  Generally this would not be overridden.
     '''
 
     def __init__(self,
                  core=None,
-                 ioloop=None):
-        s_config.Config.__init__(self)
+                 opts=None,
+                 defs=HYPNOS_BASE_DEFS,
+                 *args,
+                 **kwargs):
+        s_config.Config.__init__(self,
+                                 opts=opts,
+                                 defs=defs)
 
-        self.required_keys = ('namespace',
-                              'doc',
-                              'apis')
-        self.optional_keys = ['http',
-                              ]
+        self.required_keys = (NAMESPACE, DOC, APIS)
 
         self.apis = {}
         self.namespaces = set([])
@@ -338,16 +305,21 @@ class Hypnos(s_config.Config):
         self.global_request_headers = {}  # Global request headers per namespace
 
         # Tornado Async
-        if ioloop:
-            self.loop = ioloop
+        if 'ioloop' in kwargs:
+            loop = kwargs.get('ioloop')
         else:
-            self.loop = t_ioloop.IOLoop()
+            loop = t_ioloop.IOLoop()
+        self.loop = loop
         self.client = t_http.AsyncHTTPClient(io_loop=self.loop)
         self.iothr = self._runIoLoop()
 
         # Synapse Async
         self.boss = s_async.Boss()
-        # FIXME options
+
+        pool_min = self.getConfOpt(MIN_WORKER_THREADS)
+        pool_max = self.getConfOpt(MAX_WORKER_THREADS)
+        if pool_min < 1 or pool_max < pool_min:
+            raise ValueError('Bad pool configuration provided.')
         self.pool = s_threads.Pool(8, maxsize=64)
 
         # Synapse Core and ingest tracking
@@ -398,14 +370,12 @@ class Hypnos(s_config.Config):
             {
               "apis": {
                 "geoloc": {
-                  "api": [
-                    [
-                      "someplace"
-                    ],
-                    {
-                      "domore": 0
-                    }
+                  "api_args": [
+                    "someplace"
                   ],
+                  "api_optargs: {
+                    "domore": 0
+                  }
                   "doc": "api example",
                   "http": {
                     "headers": {
@@ -481,53 +451,48 @@ class Hypnos(s_config.Config):
                               the existing namespace will be removed and the new
                               config added.
         :return: None
-        :raises: NameError if the existing namespace is registered.
-        :raises: Exception if the configuration isn't shaped properly.
+        :raises: NameError if the existing namespace is registered or a
+                 invalid HTTP value is provided.
+        :raises: Other exceptions are possible if the configuration isn't
+                 shaped properly, this would likely come from duck typing.
         '''
-        _apis = {}
-        _namespace = ''
-        _doc = ''
+        try:
+            self._parseConfig(config=config, reload_config=reload_config)
+        except Exception as e:
+            log.exception('Failed to process configuration')
+            raise e
+
+    def _parseConfig(self, config, reload_config):
+
         for key in self.required_keys:
             if key not in config:
                 log.error('Remcycle config is missing a required value %s.', key)
                 raise NoSuchName('Missing required key.')
-            value = config.get(key)
-            if not value:
-                raise Exception('Value must be present.')
-            if key == 'namespace':
-                if not s_compat.isstr(value):
-                    raise Exception('bad type')
-                _namespace = value
-            if key == 'apis':
-                if not isinstance(value, dict):
-                    raise Exception('Bad type')
-                _apis = value
-            if key == 'doc':
-                if not s_compat.isstr(value):
-                    raise Exception('bad type')
-                _doc = value
+
+        _apis = config.get(APIS)
+        _namespace = config.get(NAMESPACE)
+        _doc = config.get(DOC)
+
         if _namespace in self.namespaces:
             if reload_config:
                 self.delConfig(namespace=_namespace)
             else:
                 raise NameError('Namespace is already registered.')
+
         self.docs[_namespace] = _doc
-        for key in self.optional_keys:
-            value = config.get(key)
-            if value is None:
-                continue
-            if key == 'http':
-                validateHttpValues(vard=value)
-                gd = {varn: varv for varn, varv in value.items()}
-                self.global_request_headers[_namespace] = gd
+        self.global_request_headers[_namespace] = {k: v for k,v in config.get(HTTP, {}).items()}
+
         # Register APIs
         for varn, val in _apis.items():
             name = ':'.join([_namespace, varn])
-            nyx_obj = Nyx(api_config=val,
-                          namespace_http_config=self.global_request_headers.get(_namespace)
-                          )
+            # Stamp api http config ontop of global config, then stamp it into the API config
+            _http = self.global_request_headers[_namespace].copy()
+            _http.update(val.get('http', {}))
+            nyx_obj = Nyx(config=val)
             self._register_api(name=name, obj=nyx_obj)
         self.namespaces.add(_namespace)
+
+        self.fire('hypnos:register:namespace:add', namespace=_namespace)
 
     def _register_api(self, name, obj):
         '''
@@ -535,7 +500,7 @@ class Hypnos(s_config.Config):
         cortex.
         '''
         if name in self.apis:
-            raise Exception('Already registered {}'.format(name))
+            raise NameError('Already registered {}'.format(name))
         self.apis[name] = obj
         for gest_name, gest in obj.gests.items():
             action_name = ':'.join([name, gest_name])
@@ -558,6 +523,8 @@ class Hypnos(s_config.Config):
 
             # Store things for later reuse (for deregistartion)
             self._api_ingests[name].append((action_name, ingest_func, gest_glue))
+
+        self.fire('hypnos:register:api:add', api=name)
 
     def delConfig(self, namespace):
         '''
@@ -586,6 +553,8 @@ class Hypnos(s_config.Config):
         for api_name in apis_to_remove:
             self._deregister_api(name=api_name)
 
+        self.fire('hypnos:register:namespace:del', namespace=namespace)
+
     def _deregister_api(self, name):
         if name not in self.apis:
             raise NoSuchName('API name not registered.')
@@ -596,6 +565,8 @@ class Hypnos(s_config.Config):
         for action_name, ingest_func, gest_glue in funclist:
             self.off(name, gest_glue)
             self.core.off(action_name, ingest_func)
+
+        self.fire('hypnos:register:api:del', api=name)
 
     def getApiNyx(self, name):
         '''
@@ -710,9 +681,6 @@ class Hypnos(s_config.Config):
 
             * api_args: This should be a dictionary containing any required
               or optional arguments the API rquires.
-            * request_args: This should be a dictionary containing values
-              used to override any namespace or api default values when
-              creating the Tornado HTTPRequest object.
 
         The following items may be passed via kwargs to change the job
         execution parameters:
@@ -747,12 +715,11 @@ class Hypnos(s_config.Config):
         job_timeout = kwargs.pop('job_timeout', None)
         fail_fast = kwargs.pop('fail_fast', True)
         api_args = kwargs.get('api_args', {})
-        request_args = kwargs.get('request_args', {})
 
         if not callback:
             # Setup the default callback
-            def default_callback(*args, **kwargs):
-                self.fire(evtname=name, **{'args': args, 'kwargs': kwargs})
+            def default_callback(*cbargs, **cbkwargs):
+                self.fire(evtname=name, **{'args': cbargs, 'kwargs': cbkwargs})
 
             callback = default_callback
         # Wrap the callback so that it will fail fast in the case of a request error.
@@ -782,7 +749,7 @@ class Hypnos(s_config.Config):
             self.pool.call(self.boss._runJob, job)
 
         # Construct the request object
-        req = nyx.build_http_request(api_args=api_args, request_args=request_args)
+        req = nyx.build_http_request(api_args=api_args)
 
         self.client.fetch(req, callback=response_nommer)
 
@@ -810,10 +777,7 @@ def main(argv, outp=None):  # pragma: no cover
                     'validate_cert': False
                 },
                 'url': 'https://{{fqdn}}/',
-                'api': [
-                    ['fqdn'],
-                    {}
-                ]
+                'api_args': ['fqdn']
             }
         },
         'doc': 'Definition for getting an arbitrary domain.',
