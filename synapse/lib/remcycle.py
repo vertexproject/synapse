@@ -200,7 +200,7 @@ class Nyx(object):
         4. An Ingest will be created for parsing the data from the API and
            made available to the Hypnos object.
 
-    :param api_config: API Endpoint configuration outlined above.
+    :param config: API Endpoint configuration outlined above.
     '''
 
     def __init__(self, config):
