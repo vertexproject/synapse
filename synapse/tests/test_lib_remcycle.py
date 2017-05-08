@@ -136,9 +136,9 @@ class NyxTest(SynTest):
         }
 
     def test_nyx_tornado_http_values(self):
-        """
+        '''
         A few expected values in the valid tornado arguments
-        """
+        '''
         self.true('user_agent' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
         self.true('headers' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
         self.true('method' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
@@ -235,7 +235,7 @@ class NyxTest(SynTest):
 class HypnosTest(SynTest, AsyncTestCase):
 
     def test_hypnos_fini(self):
-        """Ensure we call fini on all objects created by the core."""
+        '''Ensure we call fini on all objects created by the core.'''
         hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
         self.false(hypo_obj.core_provided)
         hypo_obj.fini()
@@ -245,7 +245,7 @@ class HypnosTest(SynTest, AsyncTestCase):
         self.true(hypo_obj.core.isfini)
 
     def test_hypnos_fini_core(self):
-        """Ensure we don't tear down a Cortex provided to us by the constructor."""
+        '''Ensure we don't tear down a Cortex provided to us by the constructor.'''
         core = s_cortex.openurl('ram:///')
         hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop, core=core)
         self.true(hypo_obj.core_provided)
@@ -364,9 +364,9 @@ class HypnosTest(SynTest, AsyncTestCase):
         hypo_obj.fini()
 
     def test_hypnos_fire_api_callback(self):
-        """
+        '''
         Ensure that the provided callback is fired and args are passed to the callbacks.
-        """
+        '''
         self.skipIfNoInternet()
         gconf = get_vertex_global_config()
         hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
@@ -396,9 +396,9 @@ class HypnosTest(SynTest, AsyncTestCase):
         hypo_obj.fini()
 
     def test_hypnos_default_callback(self):
-        """
+        '''
         Ensure that the default callback, of firing an event handler, works.
-        """
+        '''
         self.skipIfNoInternet()
         gconf = get_ipify_global_config()
         hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
@@ -423,10 +423,10 @@ class HypnosTest(SynTest, AsyncTestCase):
         hypo_obj.fini()
 
     def test_hypnos_default_callback_null(self):
-        """
+        '''
         Ensure the Job is complete even if we have no explicit callback or 
         listening event handlers.
-        """
+        '''
         self.skipIfNoInternet()
         gconf = get_ipify_global_config()
         hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
@@ -444,9 +444,9 @@ class HypnosTest(SynTest, AsyncTestCase):
         hypo_obj.fini()
 
     def test_hypnos_manual_ingest_via_eventbus(self):
-        """
+        '''
         This is a manual setup of the core / ingest type of action.
-        """
+        '''
         self.skipIfNoInternet()
         gconf = get_ipify_global_config()
         hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
@@ -511,9 +511,9 @@ class HypnosTest(SynTest, AsyncTestCase):
         core.fini()
 
     def test_hypnos_automatic_ingest(self):
-        """
+        '''
         Ensure that a configuration object with a ingest definition is automatically parsed.
-        """
+        '''
         self.skipIfNoInternet()
         gconf = get_ipify_ingest_global_config()
         hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
@@ -540,9 +540,9 @@ class HypnosTest(SynTest, AsyncTestCase):
         hypo_obj.fini()
 
     def test_hypnos_throw_timeouts(self):
-        """
+        '''
         Run a test scenario which will generate hundreds of jobs which will timeout.
-        """
+        '''
         self.skipIfNoInternet()
         gconf = get_ipify_ingest_global_config()
         hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)

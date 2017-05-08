@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # synapse - remcycle.py
 # Created on 4/28/17.
-"""
+'''
 Remcycle provides a mechanism for kicking off asynchronous HTTP(S) requests
 via Tornado's AsyncHTTPClient.
 
@@ -15,7 +15,7 @@ These requests are handled by Hypnos objects, which can have a single or
 multiple definitions snapped into them in order to grab data on demand.
 Hypnos grabs these requests with a single IO thread, and offloads the
 consumption of the data to multiple worker threads.
-"""
+'''
 # Stdlib
 import cgi
 import inspect
@@ -40,9 +40,9 @@ log = logging.getLogger(__name__)
 
 
 def valid_http_values():
-    """
+    '''
     Generate a set of valid HTTPRequest arguments we will recognize in Remcycle.
-    """
+    '''
     # TODO Replace try/except when Python2.7 support is dropped.
     try:
         spec = inspect.getfullargspec(func=t_http.HTTPRequest)
@@ -64,14 +64,14 @@ VALID_TORNADO_HTTP_ARGS = valid_http_values()
 
 
 def validate_http_values(vard):
-    """
+    '''
     Ensure that the values in a dictionary are valid HTTPRequest arguments.
 
     :param vard: Dictionary to examine.
     :return: True, otherwise raises an Exception.
     :raises: Exception if the input isn't a dictionary or if a key in the
              input isn't in VALID_TORNADO_HTTP_ARGS.
-    """
+    '''
     if not isinstance(vard, dict):
         raise Exception('bad type')
     for varn, varv in vard.items():
@@ -83,7 +83,7 @@ def validate_http_values(vard):
 
 # TODO Lots of string constants used here which should be defined.
 class Nyx(object):
-    """
+    '''
     Configuration parser & request generator for a REST service.
 
     This class is responsible for doing the actual HTTPRequest generation
@@ -189,7 +189,7 @@ class Nyx(object):
 
     :param api_config: API Endpoint configuration outlined above.
     :param namespace_http_config: Default HTTPRequent configuration values.
-    """
+    '''
 
     def __init__(self, api_config, namespace_http_config=None):
         if namespace_http_config:
@@ -278,7 +278,7 @@ class Nyx(object):
     def build_http_request(self,
                            api_args=None,
                            request_args=None):
-        """
+        '''
         Build the HTTPRequest object for a given configuration.
 
         :param api_args: Arguments support either required or optional URL
@@ -289,7 +289,7 @@ class Nyx(object):
         :return: tornado.httpclient.HTTPRequest object with the configured
                  url and attributes.
         :raises: NoSuchName if the api_args is missing a required API value.
-        """
+        '''
         t_args = {}
         for argn in self.api_args:
             if argn not in api_args:
@@ -308,7 +308,7 @@ class Nyx(object):
 
 
 class Hypnos(s_config.Config):
-    """
+    '''
     Object for grabbing a bunch of HTTP(S) data and consuming it via callbacks
     or ingest definitions.  Users can register multiple namespaces, each with
     their own set of API endpoints configured with them.  See the fire_api()
@@ -319,7 +319,7 @@ class Hypnos(s_config.Config):
     :param ioloop: Tornado ioloop used by the IO thread. This would normally
                    be left unset, and an ioloop will be created for the io
                    thread. This is provided as a helper for testing.
-    """
+    '''
 
     def __init__(self,
                  core=None,
@@ -388,7 +388,7 @@ class Hypnos(s_config.Config):
             self.core.fini()
 
     def register_config(self, config, reload_config=False):
-        """
+        '''
         Register a configuration into a Hypnos object.
 
         The Hypnos object can accept a configuration object shaped like the following:
@@ -483,7 +483,7 @@ class Hypnos(s_config.Config):
         :return: None
         :raises: NameError if the existing namespace is registered.
         :raises: Exception if the configuration isn't shaped properly.
-        """
+        '''
         _apis = {}
         _namespace = ''
         _doc = ''
@@ -530,10 +530,10 @@ class Hypnos(s_config.Config):
         self.namespaces.add(_namespace)
 
     def _register_api(self, name, obj):
-        """
+        '''
         Register a Nyx object and any corresponding ingest definitions to the
         cortex.
-        """
+        '''
         if name in self.apis:
             raise Exception('Already registered {}'.format(name))
         self.apis[name] = obj
@@ -560,7 +560,7 @@ class Hypnos(s_config.Config):
             self._api_ingests[name].append((action_name, ingest_func, gest_glue))
 
     def deregister_config(self, namespace):
-        """
+        '''
         Remove a given namespace, APIs and any corresponding event handlers
         which have been snapped into the Hypnos object and its cortex via
         the register_config API .
@@ -568,7 +568,7 @@ class Hypnos(s_config.Config):
         :param namespace: Namespace of objects to remove.
         :return: None
         :raises: NoSuchName if the namespace requested does not exist.
-        """
+        '''
 
         if namespace not in self.namespaces:
             raise NoSuchName('Namespace is not registered.')
@@ -598,13 +598,13 @@ class Hypnos(s_config.Config):
             self.core.off(action_name, ingest_func)
 
     def get_api(self, name):
-        """
+        '''
         Get the Nyx object corresponding to a given API name.
 
         :param name: Name of the API to get the object for.
         :return: A Nyx object.
         :raises: A NoSuchName error if the requested name does not exist.
-        """
+        '''
         nyx = self.apis.get(name)
         if not nyx:
             log.error('No name registered with')
@@ -613,7 +613,7 @@ class Hypnos(s_config.Config):
 
     @staticmethod
     def _flatten_response(resp):
-        """Flatten the Tornado HTTPResponse object to a dictionary."""
+        '''Flatten the Tornado HTTPResponse object to a dictionary.'''
         resp_dict = {
             'request': {'url': resp.request.url,
                         'headers': dict(resp.request.headers)}
@@ -642,7 +642,7 @@ class Hypnos(s_config.Config):
         return resp_dict
 
     def _resp_fail_wrapper(self, f):
-        """Decorator for wrapping callback functions to check for exception information."""
+        '''Decorator for wrapping callback functions to check for exception information.'''
 
         def check_job_fail(*fargs, **fkwargs):
             _excinfo = fkwargs.get('excinfo')
@@ -655,7 +655,7 @@ class Hypnos(s_config.Config):
         return check_job_fail
 
     def fire_api(self, name, *args, **kwargs):
-        """
+        '''
         Fire a request to a registered API.
 
         The API response is serviced by a thread in the Hypnos thread pool,
@@ -737,7 +737,7 @@ class Hypnos(s_config.Config):
         :return: Job id value which can be referenced against the Hypnos boss
                  object.
         :raises: NoSuchName if the API name does not exist.
-        """
+        '''
         # First, make sure the name is good
         nyx = self.get_api(name=name)
 
@@ -790,9 +790,9 @@ class Hypnos(s_config.Config):
 
 
 def main(argv, outp=None):  # pragma: no cover
-    """
+    '''
     Example usage of remcycle.Hypnos
-    """
+    '''
     if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
 
@@ -859,7 +859,7 @@ def main(argv, outp=None):  # pragma: no cover
 
 
 def makeargpaser():  # pragma: no cover
-    """Make argument parser."""
+    '''Make argument parser.'''
     parser = argparse.ArgumentParser(description="Execute a simple remcycle.Hypnos example.")
     parser.add_argument('-v', '--verbose', dest='verbose', default=False, action='store_true',
                         help='Enable verbose output')
