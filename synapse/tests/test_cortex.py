@@ -1430,3 +1430,36 @@ class CortexTest(SynTest):
 
             self.raises(NoSuchSeq, core.nextSeqValu, 'lol' )
 
+    def test_cortex_ingest(self):
+
+        data = { 'results':{'fqdn':'woot.com','ipv4':'1.2.3.4'} }
+
+        with s_cortex.openurl('ram:///') as core:
+
+            idef = {
+                'ingest':{
+                    'forms':[
+                        ['inet:fqdn',{'path':'results/fqdn'}]
+                    ]
+                }
+            }
+
+            core.setGestDef('test:whee', idef)
+
+            self.nn( core.getTufoByProp('syn:ingest','test:whee') )
+            self.none( core.getTufoByProp('inet:fqdn','woot.com') )
+            self.none( core.getTufoByProp('inet:ipv4','1.2.3.4') )
+
+            core.addGestData('test:whee', data)
+
+            self.nn( core.getTufoByProp('inet:fqdn','woot.com') )
+            self.none( core.getTufoByProp('inet:ipv4','1.2.3.4') )
+
+            idef['ingest']['forms'].append( ('inet:ipv4',{'path':'results/ipv4'}) )
+
+            core.setGestDef('test:whee', idef)
+            core.addGestData('test:whee', data)
+
+            self.nn( core.getTufoByProp('inet:fqdn','woot.com') )
+            self.nn( core.getTufoByProp('inet:ipv4','1.2.3.4') )
+

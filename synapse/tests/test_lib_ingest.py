@@ -516,7 +516,7 @@ class IngTest(SynTest):
             gest = s_ingest.Ingest(info)
             gest.ingest(core,data=data)
 
-            self.nn( core.getTufoByProp('inet:fqdn','vertex.link') )
+            self.none( core.getTufoByProp('inet:fqdn','vertex.link') )
 
     def test_ingest_condtag(self):
 
