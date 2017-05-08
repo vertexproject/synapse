@@ -9,7 +9,7 @@ via Tornado's AsyncHTTPClient.
 A method for templating URL endpoints, providing default configuration values
 and user set configuration values, per request, is available.  In addition,
 data can also be ingested into a cortex (provided, or a default ram cortex)
-for immeadiate consumption.
+for immediate consumption.
 
 These requests are handled by Hypnos objects, which can have a single or
 multiple definitions snapped into them in order to grab data on demand.
@@ -563,7 +563,7 @@ class Hypnos(s_config.Config):
         '''
         Remove a given namespace, APIs and any corresponding event handlers
         which have been snapped into the Hypnos object and its cortex via
-        the register_config API .
+        the register_config API.
 
         :param namespace: Namespace of objects to remove.
         :return: None

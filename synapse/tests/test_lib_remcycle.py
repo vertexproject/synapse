@@ -309,6 +309,13 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('ipify:jsonip' in hypo_obj._syn_funcs)
             self.true('ipify:jsonip:ipv4' in hypo_obj.core._syn_funcs)
 
+            # Check repr!
+            r = repr(hypo_obj)
+            self.true('Hypnos' in r)
+            self.true('vertexproject' in r)
+            self.true('ipify' in r)
+            self.true('synapse.cores.ram.Cortex' in r)
+
             # Ensure that if we remove everything when we dereregister a namespace
             hypo_obj.delConfig(namespace='ipify')
             self.true('ipify' not in hypo_obj.namespaces)
