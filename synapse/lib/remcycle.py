@@ -81,7 +81,7 @@ def validate_http_values(vard):
     return True
 
 
-# TODO Lots of string contants used here which should be defined.
+# TODO Lots of string constants used here which should be defined.
 class Nyx(object):
     """
     Configuration parser & request generator for a REST service.
@@ -98,7 +98,7 @@ class Nyx(object):
           during the construction of the Nyx object, and the second time
           during the construction of the per-request url. As such, any
           values set by the api configuration method noted below should
-          be encloused with double curly brackets.
+          be enclosed with double curly brackets.
 
     The following configuration values are optional.
 
