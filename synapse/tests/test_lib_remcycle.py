@@ -523,6 +523,7 @@ class HypnosTest(SynTest, AsyncTestCase):
 
     def test_hypnos_throw_timeouts(self):
         # Run a test scenario which will generate hundreds of jobs which will timeout.
+        self.skipTest(reason='This test can periodically cause coverage.py failures and even then may not run sucessfully.')
         self.skipIfNoInternet()
         gconf = get_ipify_ingest_global_config()
         with s_remcycle.Hypnos(ioloop=self.io_loop) as hypo_obj:
