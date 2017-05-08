@@ -483,7 +483,8 @@ class Ingest(EventBus):
         if vard != None:
             for varn,vnfo in vard:
                 valu = self._get_prop(core,data,vnfo,scope)
-                scope.set(varn,valu)
+                if valu != None:
+                    scope.set(varn,valu)
 
         for tagv in info.get('tags',()):
 
