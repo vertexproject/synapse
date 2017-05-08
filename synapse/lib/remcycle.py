@@ -387,7 +387,7 @@ class Hypnos(s_config.Config):
         if not self.core_provided:
             self.core.fini()
 
-    def register_config(self, config, reload_config=False):
+    def addConfig(self, config, reload_config=False):
         '''
         Register a configuration into a Hypnos object.
 
@@ -508,7 +508,7 @@ class Hypnos(s_config.Config):
                 _doc = value
         if _namespace in self.namespaces:
             if reload_config:
-                self.deregister_config(namespace=_namespace)
+                self.delConfig(namespace=_namespace)
             else:
                 raise NameError('Namespace is already registered.')
         self.docs[_namespace] = _doc
@@ -559,7 +559,7 @@ class Hypnos(s_config.Config):
             # Store things for later reuse (for deregistartion)
             self._api_ingests[name].append((action_name, ingest_func, gest_glue))
 
-    def deregister_config(self, namespace):
+    def delConfig(self, namespace):
         '''
         Remove a given namespace, APIs and any corresponding event handlers
         which have been snapped into the Hypnos object and its cortex via
@@ -597,7 +597,7 @@ class Hypnos(s_config.Config):
             self.off(name, gest_glue)
             self.core.off(action_name, ingest_func)
 
-    def get_api(self, name):
+    def getApiNyx(self, name):
         '''
         Get the Nyx object corresponding to a given API name.
 
@@ -607,7 +607,7 @@ class Hypnos(s_config.Config):
         '''
         nyx = self.apis.get(name)
         if not nyx:
-            log.error('No name registered with')
+            log.error('No name registered with Hypnos as %s', name)
             raise NoSuchName
         return nyx
 
@@ -654,7 +654,7 @@ class Hypnos(s_config.Config):
 
         return check_job_fail
 
-    def fire_api(self, name, *args, **kwargs):
+    def fireApi(self, name, *args, **kwargs):
         '''
         Fire a request to a registered API.
 
@@ -739,7 +739,7 @@ class Hypnos(s_config.Config):
         :raises: NoSuchName if the API name does not exist.
         '''
         # First, make sure the name is good
-        nyx = self.get_api(name=name)
+        nyx = self.getApiNyx(name=name)
 
         # Grab things out of kwargs
         callback = kwargs.pop('callback', None)
@@ -835,7 +835,7 @@ def main(argv, outp=None):  # pragma: no cover
              ]
 
     h = Hypnos()
-    h.register_config(gconfig)
+    h.addConfig(gconfig)
 
     def func(event_tufo):
         event_name, argdata = event_tufo
@@ -849,7 +849,7 @@ def main(argv, outp=None):  # pragma: no cover
 
     h.on('generic:fqdn', func=func)
 
-    job_ids = [h.fire_api('generic:fqdn', api_args={'fqdn': fqdn}) for fqdn in fqdns]
+    job_ids = [h.fireApi('generic:fqdn', api_args={'fqdn': fqdn}) for fqdn in fqdns]
     for jid in job_ids:
         h.boss.wait(jid)
 
