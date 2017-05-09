@@ -122,7 +122,7 @@ In order to contribute to the project, do the following:
         ./testrunner.sh synapse.tests.your_test_file
 
 #. Rebase your feature branch on top of the latest master branch of the Vertex
-   Project Synapse repository. This may require y ou to add the Vertex Project
+   Project Synapse repository. This may require you to add the Vertex Project
    repository to your git remotes. The following example of rebasing can be
    followed:
 
