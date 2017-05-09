@@ -164,6 +164,22 @@ class NyxTest(SynTest):
         self.eq(nyx.api_args, ['someplace'])
         self.eq(nyx.api_kwargs, {'domore': 0})
 
+        # Ensure property is structured correctly and data from the property
+        # cannot mutate the Nyx object
+        desc = nyx.description
+        self.true(isinstance(desc, dict))
+        self.true('doc' in desc)
+        self.true('api_args' in desc)
+        self.true(desc.get('api_args') == nyx.api_args)
+        self.true(desc.get('api_args') is not nyx.api_args)
+        self.true('api_optargs' in desc)
+        self.true(desc.get('api_optargs') is not nyx.api_kwargs)
+        # Overkill
+        desc.get('api_optargs')['foo'] = '1'
+        self.true('foo' not in nyx.api_kwargs)
+        desc.get('api_optargs')['domore'] = '1'
+        self.true(nyx.api_kwargs['domore'] == 0)
+
     def test_nyx_make_request(self):
         nyx = s_remcycle.Nyx(config=self.config)
         e_url = 'http://vertex.link/api/v4/geoloc/{someplace}/info?domore={domore}&apikey=8675309'
@@ -299,6 +315,14 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('vertexproject:http' in hypo_obj.apis)
             self.true('vertexproject:https' in hypo_obj.apis)
             self.eq(dict(hypo_obj._api_ingests), {})
+
+            # Test description data
+            d = hypo_obj.getDescription()
+            self.true(isinstance(d, dict))
+            self.true('vertexproject' in d)
+            self.true('doc' in d['vertexproject'])
+            self.true('vertexproject:http' in d['vertexproject'])
+            self.true('doc' in d['vertexproject']['vertexproject:http'])
 
             hypo_obj.addConfig(config=ipify_conf)
             self.true('ipify' in hypo_obj.namespaces)

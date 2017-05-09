@@ -182,6 +182,22 @@ class Nyx(object):
 
         self._parse_config()
 
+    @property
+    def description(self):
+        '''
+        Get a dictionary containing an objects docstring, required api_args
+        and optional api args.
+
+        :return: Dictionary contiaining data.
+        '''
+        # Make copies of object so the returned multable dictionary does not
+        # affect the
+        d = {'doc': str(self.doc),
+             'api_args': self.api_args.copy(),
+             'api_optargs': self.api_kwargs.copy(),
+             }
+        return d
+
     def _parse_config(self):
         for key in self.required_keys:
             if key not in self._raw_config:
@@ -321,6 +337,34 @@ class Hypnos(s_config.Config):
         # Stop the cortex if we created the cortex ourselves.
         if not self.core_provided:
             self.core.fini()
+
+    def getDescription(self):
+        '''
+        Get a dictionary containing all namespaces, their docstrings, and
+        registered api data.
+
+        :return: Dictionary describing the regsistered namespace API data.
+        '''
+        return self._description
+
+    @property
+    def _description(self):
+        '''
+        Get a dictionary containing all namespaces, their docstrings, and
+        registered api data.
+
+        :return: Dictionary describing the regsistered namespace API data.
+        '''
+        # Make copies of object so the returned multable dictionary does not
+        # affect the
+        d = {}
+        for ns in self.namespaces:
+            nsd = {'doc': self.docs[ns]}
+            for api_name, api_obj in self.apis.items():
+                nsd[api_name] = api_obj.description
+            if nsd:
+                d[ns] = nsd
+        return d
 
     def addConfig(self, config, reload_config=False):
         '''
