@@ -113,8 +113,9 @@ In order to contribute to the project, do the following:
        python -m unittest synapse.tests.your_test_file -v
 
    If test coverage is desired, you can use the provided testrunner.sh shell
-   script to run a test.  This script will generate HTML coverage reports and
-   attempt to open those reports using xdg-open.
+   script to run a test. This script will generate HTML coverage reports and
+   attempt to open those reports using xdg-open. This requires the nose and
+   coverage packages to be installed.
 
    ::
 
