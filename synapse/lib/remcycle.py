@@ -117,13 +117,17 @@ class Nyx(object):
           values set by the api_args and api_optargs configuration methods
           noted below should be enclosed with double curly brackets.
 
-    The following configuration values are optional.
+    The following configuration values are optional for a Nyx configuration.
 
-        * api_args: This is a list of required values which must be provided
-          by the user when they call build_http_request.  All
-        * api_optargs: This is a dictionary of optional values and their
-          defaults.  A user may provide alternative values when calling 
-          build_http_request, but sensible defaults should be provided here.
+        * api_args: This is a list of values which must be provided by the
+          user when they call buildHttpRequest. These would represent URL
+          parameters which are required to be provided by the user each time
+          a new HTTPRequest object is built.
+        * api_optargs: This is a dictionary of URL parameters which are
+          are optional for the user to provide when calling buildHttpRequest.
+          This dictionary represents the parameter names and default values
+          for them.  A user may provide alternative values when calling 
+          buildHttpRequest, but sensible defaults should be provided here.
         * http: A dictionary of key/value items which can provide per-api
           specific arguements for the creation of HTTPRequest objects.
         * ingests: A dictionary of Synapse ingest definitions which will be
@@ -195,7 +199,7 @@ class Nyx(object):
         2. The HTTP request will have the header "token-goodness" set to
            "sekrit token" for the request.
         3. The caller must provide the "someplace" value in the api_args when
-           calling build_http_request.  The caller may provide the "domore"
+           calling buildHttpRequest.  The caller may provide the "domore"
            value if they want to override the default value of "0".
         4. An Ingest will be created for parsing the data from the API and
            made available to the Hypnos object.
@@ -239,8 +243,8 @@ class Nyx(object):
         # Set effective url
         self.effective_url = self.url_template.format(**self.url_vars)
 
-    def build_http_request(self,
-                           api_args=None):
+    def buildHttpRequest(self,
+                         api_args=None):
         '''
         Build the HTTPRequest object for a given configuration.
 
@@ -670,7 +674,7 @@ class Hypnos(s_config.Config):
         the following information:
  
             * err: The Exception class raised during the request.
-            * errmsg: The str() represnetation of the exception.
+            * errmsg: The str() representation of the exception.
             * errfile: Empty string.
             * errline: Empty string.
 
@@ -749,7 +753,7 @@ class Hypnos(s_config.Config):
             self.pool.call(self.boss._runJob, job)
 
         # Construct the request object
-        req = nyx.build_http_request(api_args=api_args)
+        req = nyx.buildHttpRequest(api_args=api_args)
 
         self.client.fetch(req, callback=response_nommer)
 

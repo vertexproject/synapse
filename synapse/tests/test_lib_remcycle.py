@@ -177,19 +177,19 @@ class NyxTest(SynTest):
         nyx = s_remcycle.Nyx(config=self.config)
         e_url = 'http://vertex.link/api/v4/geoloc/{someplace}/info?domore={domore}&apikey=8675309'
         self.eq(nyx.effective_url, e_url)
-        req = nyx.build_http_request(api_args={'someplace': 'foobar'})
+        req = nyx.buildHttpRequest(api_args={'someplace': 'foobar'})
         e_url = 'http://vertex.link/api/v4/geoloc/foobar/info?domore=0&apikey=8675309'
         self.eq(req.url, e_url)
         self.eq(req.user_agent, self.config.get('http').get('user_agent'))
 
-        req = nyx.build_http_request(api_args={'someplace': 'duck', 'domore': 1})
+        req = nyx.buildHttpRequest(api_args={'someplace': 'duck', 'domore': 1})
         e_url = 'http://vertex.link/api/v4/geoloc/duck/info?domore=1&apikey=8675309'
         self.eq(req.url, e_url)
         self.eq(req.connect_timeout, None)  # Default value for the object itself
         self.eq(req.request_timeout, None)  # Default value for the object itself
 
         # Ensure that extra params don't make it through
-        req = nyx.build_http_request(api_args={'someplace': 'duck', 'domore': 1, 'beep': 1234})
+        req = nyx.buildHttpRequest(api_args={'someplace': 'duck', 'domore': 1, 'beep': 1234})
         e_url = 'http://vertex.link/api/v4/geoloc/duck/info?domore=1&apikey=8675309'
         self.eq(req.url, e_url)
 
@@ -198,7 +198,7 @@ class NyxTest(SynTest):
         conf['http']['request_timeout'] = 1000
         conf['http']['connect_timeout'] = 100
         nyx2 = s_remcycle.Nyx(config=conf)
-        req = nyx2.build_http_request(api_args={'someplace': 'duck', 'domore': 1})
+        req = nyx2.buildHttpRequest(api_args={'someplace': 'duck', 'domore': 1})
         e_url = 'http://vertex.link/api/v4/geoloc/duck/info?domore=1&apikey=8675309'
         self.eq(req.url, e_url)
         self.eq(req.connect_timeout, 100)  # Default value for the object itself
@@ -206,7 +206,7 @@ class NyxTest(SynTest):
 
     def test_nyx_quoted_values(self):
         nyx = s_remcycle.Nyx(config=self.config)
-        req = nyx.build_http_request(api_args={'someplace': 'foo bar',
+        req = nyx.buildHttpRequest(api_args={'someplace': 'foo bar',
                                                'domore': 'eeep@foo.bar'})
         e_url = 'http://vertex.link/api/v4/geoloc/foo+bar/info?domore=eeep%40foo.bar&apikey=8675309'
         self.eq(req.url, e_url)
