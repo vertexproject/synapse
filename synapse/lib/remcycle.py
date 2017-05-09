@@ -228,10 +228,11 @@ class Nyx(object):
         '''
         t_args = {}
         for argn in self.api_args:
-            if argn not in api_args:
-                log.error('Missing arguement: %s', argn)
+            argv = api_args.get(argn, novalu)
+            if argv is novalu:
+                log.error('Missing argument: %s', argn)
                 raise NoSuchName(name=argn, mesg='Missing an expected argument')
-            t_args[argn] = s_compat.url_quote_plus(str(api_args.get(argn)))
+            t_args[argn] = s_compat.url_quote_plus(str(argv))
         for argn, defval in self.api_kwargs.items():
             t_args[argn] = s_compat.url_quote_plus(str(api_args.get(argn, defval)))
         url = self.effective_url.format(**t_args)
