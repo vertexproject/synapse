@@ -308,6 +308,12 @@ class Hypnos(s_config.Config):
         self.docs = {}
         self.global_request_headers = {}  # Global request headers per namespace
 
+        # Check configable options before we spin up any resources
+        pool_min = self.getConfOpt(MIN_WORKER_THREADS)
+        pool_max = self.getConfOpt(MAX_WORKER_THREADS)
+        if pool_min < 1 or pool_max < pool_min:
+            raise ValueError('Bad pool configuration provided.')
+
         # Tornado Async
         if 'ioloop' in kwargs:
             loop = kwargs.get('ioloop')
@@ -317,14 +323,9 @@ class Hypnos(s_config.Config):
         self.client = t_http.AsyncHTTPClient(io_loop=self.loop)
         self.iothr = self._runIoLoop()
 
-        # Synapse Async
+        # Synapse Async and thread pool
         self.boss = s_async.Boss()
-
-        pool_min = self.getConfOpt(MIN_WORKER_THREADS)
-        pool_max = self.getConfOpt(MAX_WORKER_THREADS)
-        if pool_min < 1 or pool_max < pool_min:
-            raise ValueError('Bad pool configuration provided.')
-        self.pool = s_threads.Pool(8, maxsize=64)
+        self.pool = s_threads.Pool(pool_min, maxsize=pool_max)
 
         # Synapse Core and ingest tracking
         if core:

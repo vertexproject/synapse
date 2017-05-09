@@ -214,6 +214,19 @@ class NyxTest(SynTest):
 
 class HypnosTest(SynTest, AsyncTestCase):
 
+    def test_hypnos_config_bounds(self):
+
+        with self.raises(ValueError) as cm:
+            hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 0},
+                                         ioloop=self.io_loop)
+        self.true('Bad pool configuration provided' in str(cm.exception))
+
+        with self.raises(ValueError) as cm:
+            hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MAX_WORKER_THREADS: 1,
+                                               s_remcycle.MIN_WORKER_THREADS: 2},
+                                         ioloop=self.io_loop)
+        self.true('Bad pool configuration provided' in str(cm.exception))
+
     def test_hypnos_fini(self):
         # Ensure we call fini on all objects created by the core.
         hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
