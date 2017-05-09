@@ -358,7 +358,7 @@ class Hypnos(s_config.Config):
                 d[ns] = nsd
         return d
 
-    def addConfig(self, config, reload_config=False):
+    def addConfig(self, config, reload_config=True):
         '''
         Register a configuration into a Hypnos object.
 

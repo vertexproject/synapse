@@ -346,7 +346,7 @@ class HypnosTest(SynTest, AsyncTestCase):
 
             # Trying to re-register a present namespace should fail
             with self.raises(NameError) as cm:
-                hypo_obj.addConfig(config=vertex_conf)
+                hypo_obj.addConfig(config=vertex_conf, reload_config=False)
             self.true('Namespace is already registered' in str(cm.exception))
 
             # Register ipfy again
@@ -366,7 +366,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             api_def['ingests']['foobar'] = gest_def
             ipify_conf['apis']['duckip'] = api_def
 
-            hypo_obj.addConfig(config=ipify_conf, reload_config=True)
+            hypo_obj.addConfig(config=ipify_conf)
 
             self.true('ipify' in hypo_obj.namespaces)
             self.true('ipify' in hypo_obj.docs)
