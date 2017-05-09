@@ -49,8 +49,7 @@ API documentation is automatically generated from docstrings, and additional
 docs may also be added to Synapse as well for more detailed discussions of
 Syanpse subsystems.  This is currently done via readthedocs.
 
-In order to do local doc generation, typically for the purposes of ensuring
-that your docs will render properly, you can following the following steps:
+In order to do local doc generation you can do the following steps:
 
 #. Install the following packages (preferably in a virtualenv):
 
@@ -103,9 +102,10 @@ In order to contribute to the project, do the following:
    * If possible, unit tests should also show minimal use examples of new
      features.
 
-#. Ensure that both your tests run and any other synapse tests run.  You can do
-   that manually via unit test, or you can setup Travis CI to run tests for
-   your fork.  The following examples show manual test runs:
+#. Ensure that both your tests and existing Synapse tests succesfully run.
+   You can do that manually via the python unittest module, or you can set
+   up Travis CI to run tests for your fork.  The following examples show
+   manual test runs:
 
    ::
 
@@ -121,8 +121,8 @@ In order to contribute to the project, do the following:
         ./testrunner.sh
         ./testrunner.sh synapse.tests.your_test_file
 
-#. Rebase your feature branch ontop of the latest master branch of the Vertex
-   Project Synapse repository. This may require you add the Vertex Project
+#. Rebase your feature branch on top of the latest master branch of the Vertex
+   Project Synapse repository. This may require y ou to add the Vertex Project
    repository to your git remotes. The following example of rebasing can be
    followed:
 
