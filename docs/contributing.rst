@@ -11,14 +11,39 @@ Project Style Guide
 
 The following items should be considered when contributing to Synapse:
 
-* The project is not currently strictly PEP8 compliant.
+* The project is not currently strictly PEP8 compliant.  Compliant sections
+  include the following:
+
+  - `Whitespace in Expressions and Statements <https://www.python.org/dev/peps/pep-0008/#whitespace-in-expressions-and-statements>`_.
+
 * Please keep line lengths under 120 characters.
 * Use single quotes for docstrings, not double quotes.
-* Use Restructured Text (RST) form when writing docstrings.
+* Use Napoleon format when writing docstrings. This format is very readable
+  and will allow type hinting for IDE ussers.
+
+  - Synapse as a project is not written using the Napoleon format currently
+    but all new modules should adhere to that format.
+
 * Imports should be in order of shortest to longest import, not alphabetical
   order. Imports should be ordered starting from the Python standard library
   first, then any third party packages, then any Synapse specific imports.
-  Please review source files if you are unsure of what this should look like.
+  The following example shows the reccomended styling for imports:
+
+  ::
+
+    # Stdlib
+    import logging
+    import collections
+    # Third Party Code
+    import barlib.duck as b_duck
+    import foolib.thing as f_thing
+    # Synapse Code
+    import synapse.compat as s_compat
+    import synapse.cortex as s_cortex
+    import synapse.lib.config as s_config
+
+    from synapse.common import *
+
 * Function names should follow the mixedCase format for anything which is
   exposed as a externally facing API on a object or module.
 
@@ -29,6 +54,13 @@ The following items should be considered when contributing to Synapse:
 
   - privateInternalThingDontUseMe() is not acceptable.
   - _internalThing() is acceptable.
+
+* Logging should be setup on a per-module basis, with loggers created using
+  calls to logging.getLogger(__name__).  This allows for module level control
+  of loggers as neccesary.
+
+  - Logger calls should use logging string interpolation, instead of using
+    % or .format() methods.  See Python Logging module docs for reference.
 
 * Convenience methods are availible for unit tests, primarily through the
   SynTest class. This is a subclass of unittest.TestCase and provides many
@@ -119,8 +151,8 @@ In order to contribute to the project, do the following:
 
    ::
 
-        ./testrunner.sh
-        ./testrunner.sh synapse.tests.your_test_file
+        ./scripts/testrunner.sh
+        ./scripts/testrunner.sh synapse.tests.your_test_file
 
 #. Rebase your feature branch on top of the latest master branch of the Vertex
    Project Synapse repository. This may require you to add the Vertex Project

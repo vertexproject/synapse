@@ -14,6 +14,7 @@ Contents:
     synapse/devops
     synapse/api/synapse
     synapse/datamodel
+    contributing
 
 Indices and tables
 ==================

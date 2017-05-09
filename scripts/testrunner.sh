@@ -8,7 +8,7 @@
 ##############################################################################
 
 MODULE=synapse
-HTML_DIR=./htmlcov
+HTML_DIR=./build/htmlcov
 INDEX=$HTML_DIR/index.html
 
 if [ -e $HTML_DIR ]; then
