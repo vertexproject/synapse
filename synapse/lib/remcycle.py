@@ -256,8 +256,8 @@ class Hypnos(s_config.Config):
                  *args,
                  **kwargs):
         s_config.Config.__init__(self,
-                                 opts=opts,
-                                 defs=defs)
+                                 opts,
+                                 defs)
 
         self.required_keys = (NAMESPACE, DOC, APIS)
 
@@ -283,7 +283,7 @@ class Hypnos(s_config.Config):
 
         # Synapse Async and thread pool
         self.boss = s_async.Boss()
-        self.pool = s_threads.Pool(pool_min, maxsize=pool_max)
+        self.pool = s_threads.Pool(pool_min, pool_max)
 
         # Synapse Core and ingest tracking
         if core:
@@ -421,7 +421,7 @@ class Hypnos(s_config.Config):
                  shaped properly, this would likely come from duck typing.
         '''
         try:
-            self._parseConfig(config=config, reload_config=reload_config)
+            self._parseConfig(config, reload_config)
         except Exception as e:
             log.exception('Failed to process configuration')
             raise e
@@ -439,7 +439,7 @@ class Hypnos(s_config.Config):
 
         if _namespace in self.namespaces:
             if reload_config:
-                self.delConfig(namespace=_namespace)
+                self.delConfig(_namespace)
             else:
                 raise NameError('Namespace is already registered.')
 
@@ -453,8 +453,8 @@ class Hypnos(s_config.Config):
             _http = self.global_request_headers[_namespace].copy()
             _http.update(val.get('http', {}))
             val['http'] = _http
-            nyx_obj = Nyx(config=val)
-            self._register_api(name=name, obj=nyx_obj)
+            nyx_obj = Nyx(val)
+            self._register_api(name, nyx_obj)
         self.namespaces.add(_namespace)
 
         self.fire('hypnos:register:namespace:add', namespace=_namespace)
@@ -470,10 +470,10 @@ class Hypnos(s_config.Config):
         for gest_name, gest in obj.gests.items():
             action_name = ':'.join([name, gest_name])
             # Register the action with the attached cortex
-            ingest_func = s_ingest.register_ingest(core=self.core,
-                                                   gest=gest,
-                                                   evtname=action_name,
-                                                   ret_func=True
+            ingest_func = s_ingest.register_ingest(self.core,
+                                                   gest,
+                                                   action_name,
+                                                   True
                                                    )
 
             def gest_glue(event):
@@ -484,7 +484,7 @@ class Hypnos(s_config.Config):
                 self.core.fire(action_name, data=data)
 
             # Register the action to unpack the async.Boss job results and fire the cortex event
-            self.on(name=name, func=gest_glue)
+            self.on(name, gest_glue)
 
             # Store things for later reuse (for deregistartion)
             self._api_ingests[name].append((action_name, ingest_func, gest_glue))
@@ -516,7 +516,7 @@ class Hypnos(s_config.Config):
                 apis_to_remove.append(api_name)
 
         for api_name in apis_to_remove:
-            self._deregister_api(name=api_name)
+            self._deregister_api(api_name)
 
         self.fire('hypnos:register:namespace:del', namespace=namespace)
 
@@ -584,7 +584,7 @@ class Hypnos(s_config.Config):
             _excinfo = fkwargs.get('excinfo')
             if _excinfo:
                 _jid = fkwargs.get('jid')
-                self.boss.err(jid=_jid, **_excinfo)
+                self.boss.err(_jid, **_excinfo)
             else:
                 f(*fargs, **fkwargs)
 
@@ -672,7 +672,7 @@ class Hypnos(s_config.Config):
         :raises: NoSuchName if the API name does not exist.
         '''
         # First, make sure the name is good
-        nyx = self.getApiNyx(name=name)
+        nyx = self.getApiNyx(name)
 
         # Grab things out of kwargs
         callback = kwargs.pop('callback', None)
@@ -684,7 +684,7 @@ class Hypnos(s_config.Config):
         if not callback:
             # Setup the default callback
             def default_callback(*cbargs, **cbkwargs):
-                self.fire(evtname=name, **{'args': cbargs, 'kwargs': cbkwargs})
+                self.fire(name, **{'args': cbargs, 'kwargs': cbkwargs})
 
             callback = default_callback
         # Wrap the callback so that it will fail fast in the case of a request error.
@@ -709,12 +709,12 @@ class Hypnos(s_config.Config):
                     'errline': '',
                 }
                 job_kwargs['excinfo'] = _execinfo
-            resp_dict = self._flatten_response(resp=resp)
+            resp_dict = self._flatten_response(resp)
             job_kwargs['resp'] = resp_dict
             self.pool.call(self.boss._runJob, job)
 
         # Construct the request object
-        req = nyx.buildHttpRequest(api_args=api_args)
+        req = nyx.buildHttpRequest(api_args)
 
         self.client.fetch(req, callback=response_nommer)
 
@@ -776,9 +776,9 @@ def main(argv, outp=None):  # pragma: no cover
                                                              )
         outp.printf(msg)
 
-    h.on('generic:fqdn', func=func)
+    h.on('generic:fqdn', func)
 
-    job_ids = [h.fireApi('generic:fqdn', api_args={'fqdn': fqdn}) for fqdn in fqdns]
+    job_ids = [h.fireApi('generic:fqdn', {'fqdn': fqdn}) for fqdn in fqdns]
     for jid in job_ids:
         h.boss.wait(jid)
 
