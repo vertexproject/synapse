@@ -200,7 +200,7 @@ class Nyx(object):
         for key in self.required_keys:
             if key not in self._raw_config:
                 log.error('Remcycle config is missing a required value %s.', key)
-                raise NoSuchName('Missing required key.')
+                raise NoSuchName(name=key, mesg='Missing required key.')
         self.url_template = self._raw_config.get(URL)
         self.doc = self._raw_config.get(DOC)
 
@@ -230,7 +230,7 @@ class Nyx(object):
         for argn in self.api_args:
             if argn not in api_args:
                 log.error('Missing arguement: %s', argn)
-                raise NoSuchName('Missing an expected argument')
+                raise NoSuchName(name=argn, mesg='Missing an expected argument')
             t_args[argn] = s_compat.url_quote_plus(str(api_args.get(argn)))
         for argn, defval in self.api_kwargs.items():
             t_args[argn] = s_compat.url_quote_plus(str(api_args.get(argn, defval)))
@@ -467,7 +467,7 @@ class Hypnos(s_config.Config):
         for key in self.required_keys:
             if key not in config:
                 log.error('Remcycle config is missing a required value %s.', key)
-                raise NoSuchName('Missing required key.')
+                raise NoSuchName(name=key, mesg='Missing required key.')
 
         _apis = config.get(APIS)
         _namespace = config.get(NAMESPACE)
@@ -558,7 +558,7 @@ class Hypnos(s_config.Config):
 
     def _delWebApi(self, name):
         if name not in self.apis:
-            raise NoSuchName('API name not registered.')
+            raise NoSuchName(name=name, mesg='API name not registered.')
 
         self.apis.pop(name, None)
 
@@ -575,12 +575,8 @@ class Hypnos(s_config.Config):
 
         :param name: Name of the API to get the object for.
         :return: A Nyx object.
-        :raises: A NoSuchName error if the requested name does not exist.
         '''
         nyx = self.apis.get(name)
-        if not nyx:
-            log.error('No name registered with Hypnos as %s', name)
-            raise NoSuchName
         return nyx
 
     @staticmethod
@@ -709,6 +705,10 @@ class Hypnos(s_config.Config):
         '''
         # First, make sure the name is good
         nyx = self.getNyxApi(name)
+        # Fail fast on a bad name before creating a reference in the self.boss
+        # for the job.
+        if nyx is None:
+            raise NoSuchName(name=name, mesg='Invalid API name')
 
         # Grab things out of kwargs
         callback = kwargs.pop('callback', None)
