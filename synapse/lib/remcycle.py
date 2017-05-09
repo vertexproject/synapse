@@ -330,17 +330,17 @@ class Hypnos(s_config.Config):
         # Stop the consuming pool
         self.pool.fini()
 
-    def getDescription(self):
+    def getWebDescription(self):
         '''
         Get a dictionary containing all namespaces, their docstrings, and
         registered api data.
 
         :return: Dictionary describing the regsistered namespace API data.
         '''
-        return self._description
+        return self._webDescription
 
     @property
-    def _description(self):
+    def _webDescription(self):
         '''
         Get a dictionary containing all namespaces, their docstrings, and
         registered api data.
@@ -358,7 +358,7 @@ class Hypnos(s_config.Config):
                 d[ns] = nsd
         return d
 
-    def addConfig(self, config, reload_config=True):
+    def addWebConfig(self, config, reload_config=True):
         '''
         Register a configuration into a Hypnos object.
 
@@ -457,12 +457,12 @@ class Hypnos(s_config.Config):
                  shaped properly, this would likely come from duck typing.
         '''
         try:
-            self._parseConfig(config, reload_config)
+            self._parseWebConf(config, reload_config)
         except Exception as e:
             log.exception('Failed to process configuration')
             raise e
 
-    def _parseConfig(self, config, reload_config):
+    def _parseWebConf(self, config, reload_config):
 
         for key in self.required_keys:
             if key not in config:
@@ -475,7 +475,7 @@ class Hypnos(s_config.Config):
 
         if _namespace in self.namespaces:
             if reload_config:
-                self.delConfig(_namespace)
+                self.delWebConf(_namespace)
             else:
                 raise NameError('Namespace is already registered.')
 
@@ -490,12 +490,12 @@ class Hypnos(s_config.Config):
             _http.update(val.get('http', {}))
             val['http'] = _http
             nyx_obj = Nyx(val)
-            self._register_api(name, nyx_obj)
+            self._registerWebApi(name, nyx_obj)
         self.namespaces.add(_namespace)
 
         self.fire('hypnos:register:namespace:add', namespace=_namespace)
 
-    def _register_api(self, name, obj):
+    def _registerWebApi(self, name, obj):
         '''
         Register a Nyx object and any corresponding ingest definitions to the
         cortex.
@@ -527,7 +527,7 @@ class Hypnos(s_config.Config):
 
         self.fire('hypnos:register:api:add', api=name)
 
-    def delConfig(self, namespace):
+    def delWebConf(self, namespace):
         '''
         Remove a given namespace, APIs and any corresponding event handlers
         which have been snapped into the Hypnos object and its cortex via
@@ -552,11 +552,11 @@ class Hypnos(s_config.Config):
                 apis_to_remove.append(api_name)
 
         for api_name in apis_to_remove:
-            self._deregister_api(api_name)
+            self._delWebApi(api_name)
 
         self.fire('hypnos:register:namespace:del', namespace=namespace)
 
-    def _deregister_api(self, name):
+    def _delWebApi(self, name):
         if name not in self.apis:
             raise NoSuchName('API name not registered.')
 
@@ -569,7 +569,7 @@ class Hypnos(s_config.Config):
 
         self.fire('hypnos:register:api:del', api=name)
 
-    def getApiNyx(self, name):
+    def getNyxApi(self, name):
         '''
         Get the Nyx object corresponding to a given API name.
 
@@ -584,7 +584,7 @@ class Hypnos(s_config.Config):
         return nyx
 
     @staticmethod
-    def _flatten_response(resp):
+    def _webFlattenHttpResponse(resp):
         '''Flatten the Tornado HTTPResponse object to a dictionary.'''
         resp_dict = {
             'request': {'url': resp.request.url,
@@ -613,7 +613,7 @@ class Hypnos(s_config.Config):
             resp_dict['data'] = json.loads(resp_dict.get('data'))
         return resp_dict
 
-    def _resp_fail_wrapper(self, f):
+    def _webRespFailWrapper(self, f):
         '''Decorator for wrapping callback functions to check for exception information.'''
 
         def check_job_fail(*fargs, **fkwargs):
@@ -626,7 +626,7 @@ class Hypnos(s_config.Config):
 
         return check_job_fail
 
-    def fireApi(self, name, *args, **kwargs):
+    def fireWebApi(self, name, *args, **kwargs):
         '''
         Fire a request to a registered API.
 
@@ -708,7 +708,7 @@ class Hypnos(s_config.Config):
         :raises: NoSuchName if the API name does not exist.
         '''
         # First, make sure the name is good
-        nyx = self.getApiNyx(name)
+        nyx = self.getNyxApi(name)
 
         # Grab things out of kwargs
         callback = kwargs.pop('callback', None)
@@ -725,7 +725,7 @@ class Hypnos(s_config.Config):
             callback = default_callback
         # Wrap the callback so that it will fail fast in the case of a request error.
         if fail_fast:
-            callback = self._resp_fail_wrapper(callback)
+            callback = self._webRespFailWrapper(callback)
 
         # Construct the job tufo
         jid = s_async.jobid()
@@ -745,7 +745,7 @@ class Hypnos(s_config.Config):
                     'errline': '',
                 }
                 job_kwargs['excinfo'] = _execinfo
-            resp_dict = self._flatten_response(resp)
+            resp_dict = self._webFlattenHttpResponse(resp)
             job_kwargs['resp'] = resp_dict
             self.pool.call(self.boss._runJob, job)
 
@@ -799,7 +799,7 @@ def main(argv, outp=None):  # pragma: no cover
              ]
 
     h = Hypnos()
-    h.addConfig(gconfig)
+    h.addWebConfig(gconfig)
 
     def func(event_tufo):
         event_name, argdata = event_tufo
@@ -813,7 +813,7 @@ def main(argv, outp=None):  # pragma: no cover
 
     h.on('generic:fqdn', func)
 
-    job_ids = [h.fireApi('generic:fqdn', {'fqdn': fqdn}) for fqdn in fqdns]
+    job_ids = [h.fireWebApi('generic:fqdn', {'fqdn': fqdn}) for fqdn in fqdns]
     for jid in job_ids:
         h.boss.wait(jid)
 

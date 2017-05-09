@@ -256,7 +256,7 @@ class HypnosTest(SynTest, AsyncTestCase):
         gconf = get_ipify_global_config()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                ioloop=self.io_loop) as hypo_obj:
-            hypo_obj.addConfig(config=gconf)
+            hypo_obj.addWebConfig(config=gconf)
 
             self.true('ipify:jsonip' in hypo_obj.apis)
 
@@ -273,9 +273,9 @@ class HypnosTest(SynTest, AsyncTestCase):
                 body = json.loads(body)
                 self.true('ip' in body)
 
-            jid = hypo_obj.fireApi('ipify:jsonip',
-                                   callback=cb,
-                                   ondone=ondone)
+            jid = hypo_obj.fireWebApi('ipify:jsonip',
+                                      callback=cb,
+                                      ondone=ondone)
 
             job = hypo_obj.boss.job(jid)
             hypo_obj.boss.wait(jid)
@@ -300,7 +300,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             hypo_obj.on('hypnos:register:api:del', func)
             hypo_obj.on('hypnos:register:api:add', func)
 
-            hypo_obj.addConfig(config=vertex_conf)
+            hypo_obj.addWebConfig(config=vertex_conf)
             self.true('vertexproject' in hypo_obj.namespaces)
             self.true('vertexproject' in hypo_obj.docs)
             self.true(len(hypo_obj.apis) == 2)
@@ -309,14 +309,14 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.eq(dict(hypo_obj._api_ingests), {})
 
             # Test description data
-            d = hypo_obj.getDescription()
+            d = hypo_obj.getWebDescription()
             self.true(isinstance(d, dict))
             self.true('vertexproject' in d)
             self.true('doc' in d['vertexproject'])
             self.true('vertexproject:http' in d['vertexproject'])
             self.true('doc' in d['vertexproject']['vertexproject:http'])
 
-            hypo_obj.addConfig(config=ipify_conf)
+            hypo_obj.addWebConfig(config=ipify_conf)
             self.true('ipify' in hypo_obj.namespaces)
             self.true('ipify' in hypo_obj.docs)
             self.true(len(hypo_obj.namespaces) == 2)
@@ -334,7 +334,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('synapse.cores.ram.Cortex' in r)
 
             # Ensure that if we remove everything when we dereregister a namespace
-            hypo_obj.delConfig(namespace='ipify')
+            hypo_obj.delWebConf(namespace='ipify')
             self.true('ipify' not in hypo_obj.namespaces)
             self.true('ipify' not in hypo_obj.docs)
             self.true(len(hypo_obj.namespaces) == 1)
@@ -346,11 +346,11 @@ class HypnosTest(SynTest, AsyncTestCase):
 
             # Trying to re-register a present namespace should fail
             with self.raises(NameError) as cm:
-                hypo_obj.addConfig(config=vertex_conf, reload_config=False)
+                hypo_obj.addWebConfig(config=vertex_conf, reload_config=False)
             self.true('Namespace is already registered' in str(cm.exception))
 
             # Register ipfy again
-            hypo_obj.addConfig(config=ipify_conf)
+            hypo_obj.addWebConfig(config=ipify_conf)
             self.true('ipify' in hypo_obj.namespaces)
             self.true('ipify' in hypo_obj.docs)
             self.true(len(hypo_obj.namespaces) == 2)
@@ -366,7 +366,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             api_def['ingests']['foobar'] = gest_def
             ipify_conf['apis']['duckip'] = api_def
 
-            hypo_obj.addConfig(config=ipify_conf)
+            hypo_obj.addWebConfig(config=ipify_conf)
 
             self.true('ipify' in hypo_obj.namespaces)
             self.true('ipify' in hypo_obj.docs)
@@ -393,7 +393,7 @@ class HypnosTest(SynTest, AsyncTestCase):
         gconf = get_vertex_global_config()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 2},
                                oloop=self.io_loop) as hypo_obj:
-            hypo_obj.addConfig(config=gconf)
+            hypo_obj.addWebConfig(config=gconf)
 
             d = {'set': False,
                  'keys': set([])}
@@ -408,8 +408,8 @@ class HypnosTest(SynTest, AsyncTestCase):
                 d['set'] = True
                 d['keys'].add(kwargs.get('key'))
 
-            jid1 = hypo_obj.fireApi('vertexproject:http', 'foo', 'bar', key='12345', callback=cb)
-            jid2 = hypo_obj.fireApi('vertexproject:http', 'foo', 'bar', key='67890', callback=cb)
+            jid1 = hypo_obj.fireWebApi('vertexproject:http', 'foo', 'bar', key='12345', callback=cb)
+            jid2 = hypo_obj.fireWebApi('vertexproject:http', 'foo', 'bar', key='67890', callback=cb)
 
             hypo_obj.boss.wait(jid=jid1)
             hypo_obj.boss.wait(jid=jid2)
@@ -421,7 +421,7 @@ class HypnosTest(SynTest, AsyncTestCase):
         self.skipIfNoInternet()
         gconf = get_ipify_global_config()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1}, ioloop=self.io_loop) as hypo_obj:
-            hypo_obj.addConfig(config=gconf)
+            hypo_obj.addWebConfig(config=gconf)
 
             self.true('ipify:jsonip' in hypo_obj.apis)
 
@@ -433,7 +433,7 @@ class HypnosTest(SynTest, AsyncTestCase):
 
             hypo_obj.on('ipify:jsonip', func=func)
 
-            jid = hypo_obj.fireApi('ipify:jsonip')
+            jid = hypo_obj.fireWebApi('ipify:jsonip')
 
             job = hypo_obj.boss.job(jid)
             hypo_obj.boss.wait(jid)
@@ -446,11 +446,11 @@ class HypnosTest(SynTest, AsyncTestCase):
         gconf = get_ipify_global_config()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                ioloop=self.io_loop) as hypo_obj:
-            hypo_obj.addConfig(config=gconf)
+            hypo_obj.addWebConfig(config=gconf)
 
             self.true('ipify:jsonip' in hypo_obj.apis)
 
-            jid = hypo_obj.fireApi('ipify:jsonip')
+            jid = hypo_obj.fireWebApi('ipify:jsonip')
 
             job = hypo_obj.boss.job(jid)
             hypo_obj.boss.wait(jid)
@@ -463,7 +463,7 @@ class HypnosTest(SynTest, AsyncTestCase):
         gconf = get_ipify_global_config()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                ioloop=self.io_loop) as hypo_obj:
-            hypo_obj.addConfig(config=gconf)
+            hypo_obj.addWebConfig(config=gconf)
             core = s_cortex.openurl('ram://')
 
             data = {}
@@ -512,7 +512,7 @@ class HypnosTest(SynTest, AsyncTestCase):
 
             hypo_obj.on(name=name, func=glue)
 
-            jid = hypo_obj.fireApi(name=name, ondone=ondone)
+            jid = hypo_obj.fireWebApi(name=name, ondone=ondone)
             hypo_obj.boss.wait(jid)
 
             tufos = core.getTufosByProp('inet:ipv4')
@@ -528,7 +528,7 @@ class HypnosTest(SynTest, AsyncTestCase):
         gconf = get_ipify_ingest_global_config()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                ioloop=self.io_loop) as hypo_obj:
-            hypo_obj.addConfig(config=gconf)
+            hypo_obj.addWebConfig(config=gconf)
 
             self.true('ipify:jsonip' in hypo_obj._syn_funcs)
             self.true('ipify:jsonip:ipv4' in hypo_obj.core._syn_funcs)
@@ -540,7 +540,7 @@ class HypnosTest(SynTest, AsyncTestCase):
                 ip = jobd.get('task')[2].get('resp', {}).get('data', {}).get('ip', '')
                 data[_jid] = ip
 
-            jid = hypo_obj.fireApi(name='ipify:jsonip', ondone=ondone)
+            jid = hypo_obj.fireWebApi(name='ipify:jsonip', ondone=ondone)
             hypo_obj.boss.wait(jid)
 
             tufos = hypo_obj.core.getTufosByProp('inet:ipv4')
@@ -556,7 +556,7 @@ class HypnosTest(SynTest, AsyncTestCase):
         gconf = get_ipify_ingest_global_config()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                ioloop=self.io_loop) as hypo_obj:
-            hypo_obj.addConfig(config=gconf)
+            hypo_obj.addWebConfig(config=gconf)
 
             data = {}
 
@@ -568,9 +568,9 @@ class HypnosTest(SynTest, AsyncTestCase):
 
             jids = []
             for i in range(n):
-                jid = hypo_obj.fireApi(name='ipify:jsonip',
-                                       ondone=ondone,
-                                       request_args={'request_timeout': 0.6,
+                jid = hypo_obj.fireWebApi(name='ipify:jsonip',
+                                          ondone=ondone,
+                                          request_args={'request_timeout': 0.6,
                                                      'connect_timeout': 0.3})
                 jids.append(jid)
             for jid in jids:
@@ -605,7 +605,7 @@ class HypnosTest(SynTest, AsyncTestCase):
         gconf = get_bad_vertex_global_config()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                ioloop=self.io_loop) as hypo_obj:
-            hypo_obj.addConfig(config=gconf)
+            hypo_obj.addWebConfig(config=gconf)
 
             data = {}
 
@@ -613,8 +613,8 @@ class HypnosTest(SynTest, AsyncTestCase):
                 _jid, jobd = job_tufo
                 data[_jid] = jobd
 
-            jid = hypo_obj.fireApi(name='vertexproject:fake_endpoint',
-                                   ondone=ondone)
+            jid = hypo_obj.fireWebApi(name='vertexproject:fake_endpoint',
+                                      ondone=ondone)
             hypo_obj.boss.wait(jid)
             job = data.get(jid)
 
