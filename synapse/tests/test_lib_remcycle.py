@@ -5,7 +5,6 @@ from synapse.tests.common import *
 
 from tornado.testing import AsyncTestCase
 
-
 def get_vertex_global_config():
     gconfig = {
         'apis': {
@@ -28,7 +27,6 @@ def get_vertex_global_config():
     }
     return gconfig
 
-
 def get_bad_vertex_global_config():
     gconfig = {
         'apis': {
@@ -45,7 +43,6 @@ def get_bad_vertex_global_config():
         'namespace': 'vertexproject',
     }
     return gconfig
-
 
 def get_ipify_global_config():
     gconfig = {
@@ -65,7 +62,6 @@ def get_ipify_global_config():
         'namespace': 'ipify',
     }
     return gconfig
-
 
 def get_ipify_ingest_global_config():
     gconfig = {
@@ -107,7 +103,6 @@ def get_ipify_ingest_global_config():
         'namespace': 'ipify',
     }
     return gconfig
-
 
 class NyxTest(SynTest):
     def setUp(self):
@@ -217,7 +212,6 @@ class NyxTest(SynTest):
                                              'domore': 'eeep@foo.bar'})
         e_url = 'http://vertex.link/api/v4/geoloc/foo+bar/info?domore=eeep%40foo.bar&apikey=8675309'
         self.eq(req.url, e_url)
-
 
 class HypnosTest(SynTest, AsyncTestCase):
 

@@ -38,7 +38,6 @@ from synapse.common import *
 
 log = logging.getLogger(__name__)
 
-
 DOC = 'doc'
 URL = 'url'
 APIS = 'apis'
@@ -55,7 +54,6 @@ HYPNOS_BASE_DEFS = (
     (MIN_WORKER_THREADS, {'type': 'int', 'doc': 'Minimum number of worker threads to spawn', 'defval': 8}),
     (MAX_WORKER_THREADS, {'type': 'int', 'doc': 'Maximum number of worker threads to spawn', 'defval': 64}),
 )
-
 
 class Nyx(object):
     '''
@@ -239,7 +237,6 @@ class Nyx(object):
         url = self.effective_url.format(**t_args)
         req = t_http.HTTPRequest(url, **self.request_defaults)
         return req
-
 
 class Hypnos(s_config.Config):
     '''
@@ -764,7 +761,6 @@ class Hypnos(s_config.Config):
 
         return jid
 
-
 def main(argv, outp=None):  # pragma: no cover
     '''
     Example usage of remcycle.Hypnos
@@ -830,7 +826,6 @@ def main(argv, outp=None):  # pragma: no cover
 
     return 0
 
-
 def makeargpaser():  # pragma: no cover
     '''Make argument parser.'''
     parser = argparse.ArgumentParser(description="Execute a simple remcycle.Hypnos example.")
@@ -838,12 +833,10 @@ def makeargpaser():  # pragma: no cover
                         help='Enable verbose output')
     return parser
 
-
 def _main():  # pragma: no cover
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s]')
     return main(sys.argv[1:])
-
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(_main())
