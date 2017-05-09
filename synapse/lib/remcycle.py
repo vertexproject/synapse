@@ -492,6 +492,7 @@ class Hypnos(s_config.Config):
             # Stamp api http config ontop of global config, then stamp it into the API config
             _http = self.global_request_headers[_namespace].copy()
             _http.update(val.get('http', {}))
+            val['http'] = _http
             nyx_obj = Nyx(config=val)
             self._register_api(name=name, obj=nyx_obj)
         self.namespaces.add(_namespace)
