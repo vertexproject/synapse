@@ -286,9 +286,8 @@ class Hypnos(s_config.Config):
             raise ValueError('Bad pool configuration provided.')
 
         # Tornado Async
-        if 'ioloop' in kwargs:
-            loop = kwargs.get('ioloop')
-        else:
+        loop = kwargs.get('ioloop')
+        if loop is None:
             loop = t_ioloop.IOLoop()
         self.loop = loop
         self.client = t_http.AsyncHTTPClient(io_loop=self.loop)
