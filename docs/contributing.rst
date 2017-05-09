@@ -19,8 +19,12 @@ The following items should be considered when contributing to Synapse:
 * Please keep line lengths under 120 characters.
 * Use single quotes for docstrings, not double quotes.
 * Use Napoleon format when writing docstrings. This format is very readable
-  and will allow type hinting for IDE ussers.
+  and will allow type hinting for IDE users. Use the Google format docstring
+  format.
 
+  - More information about Napoleon can be found `here <https://sphinxcontrib-napoleon.readthedocs.io>`_.
+  - Google style typically has the summary line after the opening ''' marker.
+    Place this summary value on the new line following the opening ''' marker.
   - Synapse as a project is not written using the Napoleon format currently
     but all new modules should adhere to that format.
 

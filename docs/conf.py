@@ -40,6 +40,9 @@ extensions = [
     #'sphinx.ext.napoleon',  # TODO - Uncomment this line when we are ready to cut over style types.
 ]
 
+# # Napoleon settings # TODO - Uncomment these napoleon settings when we are ready to cover over style types.
+# napoleon_google_docstring = True
+# napoleon_numpy_docstring = False
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
