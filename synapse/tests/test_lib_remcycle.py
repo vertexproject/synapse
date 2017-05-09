@@ -207,7 +207,7 @@ class NyxTest(SynTest):
     def test_nyx_quoted_values(self):
         nyx = s_remcycle.Nyx(config=self.config)
         req = nyx.buildHttpRequest(api_args={'someplace': 'foo bar',
-                                               'domore': 'eeep@foo.bar'})
+                                             'domore': 'eeep@foo.bar'})
         e_url = 'http://vertex.link/api/v4/geoloc/foo+bar/info?domore=eeep%40foo.bar&apikey=8675309'
         self.eq(req.url, e_url)
 
@@ -229,7 +229,8 @@ class HypnosTest(SynTest, AsyncTestCase):
 
     def test_hypnos_fini(self):
         # Ensure we call fini on all objects created by the core.
-        hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop)
+        hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
+                                     ioloop=self.io_loop)
         self.false(hypo_obj.core_provided)
         hypo_obj.fini()
         self.true(hypo_obj.isfini)
@@ -240,7 +241,8 @@ class HypnosTest(SynTest, AsyncTestCase):
     def test_hypnos_fini_core(self):
         # Ensure we don't tear down a Cortex provided to us by the constructor.
         core = s_cortex.openurl('ram:///')
-        hypo_obj = s_remcycle.Hypnos(ioloop=self.io_loop, core=core)
+        hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
+                                     ioloop=self.io_loop, core=core)
         self.true(hypo_obj.core_provided)
         hypo_obj.fini()
         self.true(hypo_obj.isfini)
@@ -253,7 +255,8 @@ class HypnosTest(SynTest, AsyncTestCase):
     def test_hypnos_callback_ondone(self):
         self.skipIfNoInternet()
         gconf = get_ipify_global_config()
-        with s_remcycle.Hypnos(ioloop=self.io_loop) as hypo_obj:
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
+                               ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addConfig(config=gconf)
 
             self.true('ipify:jsonip' in hypo_obj.apis)
@@ -285,11 +288,13 @@ class HypnosTest(SynTest, AsyncTestCase):
         ipify_conf = get_ipify_ingest_global_config()
 
         data = set([])
+
         def func(eventdata):
             evtname, _ = eventdata
             data.add(evtname)
 
-        with s_remcycle.Hypnos(ioloop=self.io_loop) as hypo_obj:
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
+                               ioloop=self.io_loop) as hypo_obj:
             # Register callbacks
             hypo_obj.on('hypnos:register:namespace:add', func)
             hypo_obj.on('hypnos:register:namespace:del', func)
@@ -376,10 +381,11 @@ class HypnosTest(SynTest, AsyncTestCase):
         self.true('hypnos:register:api:del' in data)
 
     def test_hypnos_fire_api_callback(self):
-        #Ensure that the provided callback is fired and args are passed to the callbacks.
+        # Ensure that the provided callback is fired and args are passed to the callbacks.
         self.skipIfNoInternet()
         gconf = get_vertex_global_config()
-        with s_remcycle.Hypnos(ioloop=self.io_loop) as hypo_obj:
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 2},
+                               oloop=self.io_loop) as hypo_obj:
             hypo_obj.addConfig(config=gconf)
 
             d = {'set': False,
@@ -407,7 +413,7 @@ class HypnosTest(SynTest, AsyncTestCase):
         # Ensure that the default callback, of firing an event handler, works.
         self.skipIfNoInternet()
         gconf = get_ipify_global_config()
-        with s_remcycle.Hypnos(ioloop=self.io_loop) as hypo_obj:
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1}, ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addConfig(config=gconf)
 
             self.true('ipify:jsonip' in hypo_obj.apis)
@@ -431,7 +437,8 @@ class HypnosTest(SynTest, AsyncTestCase):
         # listening event handlers.
         self.skipIfNoInternet()
         gconf = get_ipify_global_config()
-        with s_remcycle.Hypnos(ioloop=self.io_loop) as hypo_obj:
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
+                               ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addConfig(config=gconf)
 
             self.true('ipify:jsonip' in hypo_obj.apis)
@@ -447,7 +454,8 @@ class HypnosTest(SynTest, AsyncTestCase):
         # This is a manual setup of the core / ingest type of action.
         self.skipIfNoInternet()
         gconf = get_ipify_global_config()
-        with s_remcycle.Hypnos(ioloop=self.io_loop) as hypo_obj:
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
+                               ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addConfig(config=gconf)
             core = s_cortex.openurl('ram://')
 
@@ -511,7 +519,8 @@ class HypnosTest(SynTest, AsyncTestCase):
         # Ensure that a configuration object with a ingest definition is automatically parsed.
         self.skipIfNoInternet()
         gconf = get_ipify_ingest_global_config()
-        with s_remcycle.Hypnos(ioloop=self.io_loop) as hypo_obj:
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
+                               ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addConfig(config=gconf)
 
             self.true('ipify:jsonip' in hypo_obj._syn_funcs)
@@ -534,10 +543,12 @@ class HypnosTest(SynTest, AsyncTestCase):
 
     def test_hypnos_throw_timeouts(self):
         # Run a test scenario which will generate hundreds of jobs which will timeout.
-        self.skipTest(reason='This test can periodically cause coverage.py failures and even then may not run sucessfully.')
+        self.skipTest(reason='This test can periodically cause coverage.py failures and even then may not run '
+                             'sucessfully.')
         self.skipIfNoInternet()
         gconf = get_ipify_ingest_global_config()
-        with s_remcycle.Hypnos(ioloop=self.io_loop) as hypo_obj:
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
+                               ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addConfig(config=gconf)
 
             data = {}
@@ -553,7 +564,7 @@ class HypnosTest(SynTest, AsyncTestCase):
                 jid = hypo_obj.fireApi(name='ipify:jsonip',
                                        ondone=ondone,
                                        request_args={'request_timeout': 0.6,
-                                                      'connect_timeout': 0.3})
+                                                     'connect_timeout': 0.3})
                 jids.append(jid)
             for jid in jids:
                 hypo_obj.boss.wait(jid)
@@ -585,7 +596,8 @@ class HypnosTest(SynTest, AsyncTestCase):
         # Test a simple failure case
         self.skipIfNoInternet()
         gconf = get_bad_vertex_global_config()
-        with s_remcycle.Hypnos(ioloop=self.io_loop) as hypo_obj:
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
+                               ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addConfig(config=gconf)
 
             data = {}
