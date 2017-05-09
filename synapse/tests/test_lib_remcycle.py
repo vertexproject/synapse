@@ -232,7 +232,6 @@ class HypnosTest(SynTest, AsyncTestCase):
         # Ensure we call fini on all objects created by the core.
         hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                      ioloop=self.io_loop)
-        self.false(hypo_obj.core_provided)
         hypo_obj.fini()
         self.true(hypo_obj.isfini)
         self.true(hypo_obj.boss.isfini)
@@ -244,7 +243,6 @@ class HypnosTest(SynTest, AsyncTestCase):
         core = s_cortex.openurl('ram:///')
         hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                      ioloop=self.io_loop, core=core)
-        self.true(hypo_obj.core_provided)
         hypo_obj.fini()
         self.true(hypo_obj.isfini)
         self.true(hypo_obj.boss.isfini)

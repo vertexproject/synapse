@@ -299,12 +299,10 @@ class Hypnos(s_config.Config):
         self.pool = s_threads.Pool(pool_min, pool_max)
 
         # Synapse Core and ingest tracking
-        if core:
-            self.core = core
-            self.core_provided = True
-        else:
-            self.core = s_cortex.openurl('ram://')
-            self.core_provided = False
+        if core is None:
+            core = s_cortex.openurl('ram://')
+            self.onfini(core.fini)
+        self.core = core
         self._api_ingests = collections.defaultdict(list)
 
         # Setup Fini handlers
@@ -331,9 +329,6 @@ class Hypnos(s_config.Config):
         self.boss.fini()
         # Stop the consuming pool
         self.pool.fini()
-        # Stop the cortex if we created the cortex ourselves.
-        if not self.core_provided:
-            self.core.fini()
 
     def getDescription(self):
         '''
