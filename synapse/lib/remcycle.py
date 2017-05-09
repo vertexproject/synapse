@@ -57,48 +57,6 @@ HYPNOS_BASE_DEFS = (
 )
 
 
-
-def genValidHttpValues():
-    '''
-    Generate a set of valid HTTPRequest arguments we will recognize in Remcycle.
-    '''
-    # TODO Replace try/except when Python2.7 support is dropped.
-    try:
-        spec = inspect.getfullargspec(func=t_http.HTTPRequest)
-    except AttributeError:
-        try:
-            spec = inspect.getargspec(func=t_http.HTTPRequest.__init__)
-        except:
-            raise
-    args = set(spec.args)
-    if 'self' in args:
-        args.remove('self')
-    # We don't want url's coming through an HTTP configuration option
-    if 'url' in args:
-        args.remove('url')
-    return args
-
-
-VALID_TORNADO_HTTP_ARGS = genValidHttpValues()
-
-
-def validateHttpValues(vard):
-    '''
-    Ensure that the values in a dictionary are valid HTTPRequest arguments.
-
-    :param vard: Dictionary to examine.
-    :return: True, otherwise raises an Exception.
-    :raises: Exception if the input isn't a dictionary or if a key in the
-             input isn't in VALID_TORNADO_HTTP_ARGS.
-    '''
-    for varn, varv in vard.items():
-        if varn not in VALID_TORNADO_HTTP_ARGS:
-            log.error('Bad varn encountered: %s', varn)
-            raise NameError('Varn is not a valid tornado arg')
-    return True
-
-
-# TODO Lots of string constants used here which should be defined.
 class Nyx(object):
     '''
     Configuration parser & request generator for a REST service.
@@ -129,7 +87,8 @@ class Nyx(object):
           for them.  A user may provide alternative values when calling 
           buildHttpRequest, but sensible defaults should be provided here.
         * http: A dictionary of key/value items which can provide per-api
-          specific arguements for the creation of HTTPRequest objects.
+          specific arguements for the creation of HTTPRequest objects. These
+          values should conform to the Tornado HTTPRequest constructor.
         * ingests: A dictionary of Synapse ingest definitions which will be
           used to create Ingest objects.  During registration of a Nyx object
           with Hypnos, these will be registered into the Hypnos cortex.
@@ -233,7 +192,6 @@ class Nyx(object):
 
         self.url_vars.update(self._raw_config.get(VARS, {}))
         self.request_defaults = self._raw_config.get(HTTP, {})
-        validateHttpValues(self.request_defaults)
         _gests = {k: s_ingest.Ingest(v) for k, v in self._raw_config.get(INGESTS, {}).items()}
         self.gests.update(_gests)
 
@@ -448,7 +406,8 @@ class Hypnos(s_config.Config):
         The following keys are optional:
 
             * http: Global HTTP Request arguments which will be the basis
-              for creating HTTPRequest objects.
+              for creating HTTPRequest objects. These values should conform to
+              the Tornado HTTPRequest constructor.
 
 
         :param config: Dictionary containing the configuration information.

@@ -131,19 +131,9 @@ class NyxTest(SynTest):
             "api_optargs": {"domore": 0}
         }
 
-    def test_nyx_tornado_http_values(self):
-        # Ensure a few expected values are in the valid tornado arguments
-        self.true('user_agent' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
-        self.true('headers' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
-        self.true('method' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
-        self.true('request_timeout' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
-        self.true('connect_timeout' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
-        self.true('auth_username' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
-        self.true('auth_password' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
-        self.true('auth_mode' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
-        self.true('validate_cert' in s_remcycle.VALID_TORNADO_HTTP_ARGS)
-
     def test_nyx_tornado_http_check(self):
+        nyx = s_remcycle.Nyx(config=self.config)
+
         good_dict = {'method': 'PUT',
                      'user_agent': 'VertexWeb',
                      'headers': {'X-Derry': 'FriendlyClowns',
@@ -151,20 +141,21 @@ class NyxTest(SynTest):
                      'request_timeout': 100,
                      'connect_timeout': 20,
                      }
-        self.true(s_remcycle.validateHttpValues(vard=good_dict))
 
-        # Duck typing
-        with self.raises(AttributeError) as cm:
-            s_remcycle.validateHttpValues('A string')
-        self.true("""object has no attribute 'items'""" in str(cm.exception))
+        nyx.request_defaults = good_dict
+
+        r = nyx.buildHttpRequest({'someplace': 'A house'})
+        self.nn(r)
 
         bad_dict = {'method': 'PUT',
                     'user-agent': 'Lynx',  # Typo / misspelling
                     }
 
+        nyx.request_defaults = bad_dict
+
         with self.raises(Exception) as cm:
-            s_remcycle.validateHttpValues(bad_dict)
-        self.true('Varn is not a valid tornado arg' in str(cm.exception))
+            nyx.buildHttpRequest({'someplace': 'A house'})
+        self.true('unexpected keyword argument' in str(cm.exception))
 
     def test_nyx_simple_config(self):
         nyx = s_remcycle.Nyx(config=self.config)
