@@ -217,7 +217,10 @@ class Runtime(Configable):
         self.setOperFunc('join', self._stormOperJoin)
         self.setOperFunc('lift', self._stormOperLift)
         self.setOperFunc('pivot', self._stormOperPivot)
+        self.setOperFunc('addtag',self._stormOperAddTag)
+        self.setOperFunc('deltag',self._stormOperDelTag)
         self.setOperFunc('nexttag',self._stormOperNextSeq)
+        self.setOperFunc('setprop',self._stormOperSetProp)
 
     def getStormCore(self, name=None):
         '''
@@ -632,3 +635,31 @@ class Runtime(Configable):
         vals = list({ t[1].get(srcp) for t in query.data() if t != None })
         for tufo in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit') ):
             query.add(tufo)
+
+    def _stormOperSetProp(self, query, oper):
+        args = oper[1].get('args')
+        props = dict( oper[1].get('kwlist') )
+
+        core = self.getStormCore()
+
+        [ core.setTufoProps(node,**props) for node in query.data() ]
+
+    def _stormOperAddTag(self, query, oper):
+        tags = oper[1].get('args')
+
+        core = self.getStormCore()
+
+        nodes = query.data()
+
+        for tag in tags:
+            [ core.addTufoTag(node,tag) for node in nodes ]
+
+    def _stormOperDelTag(self, query, oper):
+        tags = oper[1].get('args')
+
+        core = self.getStormCore()
+
+        nodes = query.data()
+
+        for tag in tags:
+            [ core.delTufoTag(node,tag) for node in nodes ]
