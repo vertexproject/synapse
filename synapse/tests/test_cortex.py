@@ -1483,3 +1483,16 @@ class CortexTest(SynTest):
 
             self.eq( tdoc[1].get('syn:tagform:doc'), '??' )
             self.eq( tdoc[1].get('syn:tagform:title'), '??' )
+
+    def test_cortex_syncs_errs(self):
+
+        syncs = [ ('core:sync', {'mesg':('newp:fake',{})} ) ]
+        with s_cortex.openurl('ram:///') as core:
+            core.on('core:sync', syncs.append )
+            core.formTufoByProp('inet:fqdn','vertex.link')
+
+        with s_cortex.openurl('ram:///') as core:
+            errs = core.syncs( syncs )
+            self.eq( len(errs), 1 )
+            self.eq( errs[0][0][1]['mesg'][0], 'newp:fake' )
+            self.nn( core.getTufoByProp('inet:fqdn','vertex.link') )
