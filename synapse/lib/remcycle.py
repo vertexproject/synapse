@@ -587,7 +587,19 @@ class Hypnos(s_config.Config):
 
     @staticmethod
     def _webFlattenHttpResponse(resp):
-        '''Flatten the Tornado HTTPResponse object to a dictionary.'''
+        '''
+        Flatten a HTTPResponse into a dictionary.
+
+        This allows the response to be transported across RMI boundaries if
+        needed.
+
+        Args:
+            resp (t_http.HTTPResponse): HTTP Response to flatten. 
+
+        Returns:
+            dict
+
+        '''
         resp_dict = {
             'request': {'url': resp.request.url,
                         'headers': dict(resp.request.headers)}
@@ -596,16 +608,39 @@ class Hypnos(s_config.Config):
         if error and not isinstance(error, t_http.HTTPError):
             return resp_dict
         resp_dict.update({'code': resp.code,
-                          'raw_body': resp.body,
+                          'data': resp.body,
                           'headers': dict(resp.headers),
                           'effective_url': resp.effective_url, })
-        if not resp.body:
+        return resp_dict
+
+    @staticmethod
+    def _webProcessFlattenedResponse(resp_dict, encoding=None):
+        '''
+        Process a flattened HTTP response to extract as much meaningful data
+        out of it as possible.
+
+        Notes:
+            This should be called by the IO thread consuming the response
+            data, not the thread responsible for actually retrieving the web
+            data. 
+
+        Args:
+            resp_dict (dict) : Dictionary which has been flattened with the
+                               _webFlattenHttpResponse function. 
+
+        Returns:
+
+        '''
+
+        # Fail fast when we have no data to process
+        if not resp_dict.get('data'):
             return resp_dict
-        ct = resp.headers.get('Content-Type', 'text/plain')
+        # Try to do a clean decoding of the provided data if possible.
+        ct = resp_dict.get('headers', {}).get('Content-Type', 'text/plain')
         ct_type, ct_params = cgi.parse_header(ct)
         charset = ct_params.get('charset', 'utf-8').lower()
         try:
-            resp_dict['data'] = resp_dict.get('raw_body').decode(charset)
+            resp_dict['data'] = resp_dict.get('data').decode(charset)
         except Exception as e:
             logger.exception('Failed to decode a raw body in a response object.')
             return resp_dict
@@ -615,16 +650,33 @@ class Hypnos(s_config.Config):
             resp_dict['data'] = json.loads(resp_dict.get('data'))
         return resp_dict
 
-    def _webRespFailWrapper(self, f):
-        '''Decorator for wrapping callback functions to check for exception information.'''
+    def _webRespWrapper(self, f):
+        '''
+        Decorator for wrapping callback functions.
+
+        The decorator performs two functions:
+
+        * Checks for exception information fails the job if the exception
+          information is present.
+        * Continues to process the resp dictionary to extract and decode
+          data.
+
+        Args:
+            f: Function to wrap. 
+
+        Returns:
+            Wrapped function.
+
+        '''
 
         def check_job_fail(*fargs, **fkwargs):
             _excinfo = fkwargs.get('excinfo')
             if _excinfo:
                 _jid = fkwargs.get('jid')
                 self.boss.err(_jid, **_excinfo)
-            else:
-                f(*fargs, **fkwargs)
+                return
+            self._webProcessFlattenedResponse(fkwargs.get('resp'))
+            f(*fargs, **fkwargs)
 
         return check_job_fail
 
@@ -696,10 +748,16 @@ class Hypnos(s_config.Config):
             * job_timeout: A timeout on how long the job can run from the
               perspective of the boss.  This isn't related to the request
               or connect timeouts.
-            * fail_fast: Boolean value, if set to false, the wrapper which
-              calls boss.err() on the executing job will not be applied to
-              the callback.  It is then the responsibility for any event
-              handlers or callback functions to handle errors.
+            * wrap_callback: By default, the callback function is wrapped to
+              perform error checking (and fast job failure) in the event of an
+              error encountered during the request, and additional processing
+              of the HTTP response data to perform decoding and content-type
+              processing.  If this value is set to false, the decorator will
+              not be applied to a provided callback function, and the error
+              handling and additional data procesing will be the
+              responsibility of any event handlers or the provided callback
+              function.  The fast failure behavior is handled by boss.err()
+              on the job associated with the API call.
 
         :param name: Name of the API to send a request for.
         :param args: Additional args passed to the callback functions.
@@ -720,7 +778,7 @@ class Hypnos(s_config.Config):
         callback = kwargs.pop('callback', None)
         ondone = kwargs.pop('ondone', None)
         job_timeout = kwargs.pop('job_timeout', None)
-        fail_fast = kwargs.pop('fail_fast', True)
+        wrap_callback = kwargs.pop('wrap_callback', True)
         api_args = kwargs.get('api_args', {})
 
         if not callback:
@@ -730,8 +788,8 @@ class Hypnos(s_config.Config):
 
             callback = default_callback
         # Wrap the callback so that it will fail fast in the case of a request error.
-        if fail_fast:
-            callback = self._webRespFailWrapper(callback)
+        if wrap_callback:
+            callback = self._webRespWrapper(callback)
 
         # Construct the job tufo
         jid = s_async.jobid()
