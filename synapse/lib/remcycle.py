@@ -36,7 +36,7 @@ import synapse.lib.threads as s_threads
 
 from synapse.common import *
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 MIN_WORKER_THREADS = 'min_worker_threads'
 MAX_WORKER_THREADS = 'max_worker_threads'
@@ -194,7 +194,7 @@ class Nyx(object):
     def _parse_config(self):
         for key in self.required_keys:
             if key not in self._raw_config:
-                log.error('Remcycle config is missing a required value %s.', key)
+                logger.error('Remcycle config is missing a required value %s.', key)
                 raise NoSuchName(name=key, mesg='Missing required key.')
         self.url_template = self._raw_config.get('url')
         self.doc = self._raw_config.get('doc')
@@ -225,7 +225,7 @@ class Nyx(object):
         for argn in self.api_args:
             argv = api_args.get(argn, novalu)
             if argv is novalu:
-                log.error('Missing argument: %s', argn)
+                logger.error('Missing argument: %s', argn)
                 raise NoSuchName(name=argn, mesg='Missing an expected argument')
             t_args[argn] = s_compat.url_quote_plus(str(argv))
         for argn, defval in self.api_kwargs.items():
@@ -468,14 +468,14 @@ class Hypnos(s_config.Config):
         try:
             self._parseWebConf(config, reload_config)
         except Exception as e:
-            log.exception('Failed to process configuration')
+            logger.exception('Failed to process configuration')
             raise e
 
     def _parseWebConf(self, config, reload_config):
 
         for key in self.required_keys:
             if key not in config:
-                log.error('Remcycle config is missing a required value %s.', key)
+                logger.error('Remcycle config is missing a required value %s.', key)
                 raise NoSuchName(name=key, mesg='Missing required key.')
 
         _apis = config.get('apis')
@@ -610,7 +610,7 @@ class Hypnos(s_config.Config):
         try:
             resp_dict['data'] = resp_dict.get('raw_body').decode(charset)
         except Exception as e:
-            log.exception('Failed to decode a raw body in a response object.')
+            logger.exception('Failed to decode a raw body in a response object.')
             return resp_dict
         # Handle known content types and put them in the 'data' key
         # we can add support for additional data types as needed.
