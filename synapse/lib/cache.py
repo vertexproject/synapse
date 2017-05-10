@@ -197,7 +197,7 @@ class FixedCache(EventBus):
         self.cache = {}
         self.onmiss = onmiss
         self.maxsize = maxsize
-        self.cachelock = threading.Lock()
+        self.cachelock = threading.RLock()
 
         self.fifo = collections.deque()
 
@@ -238,6 +238,9 @@ class FixedCache(EventBus):
         with self.cachelock:
             self.fifo.clear()
             self.cache.clear()
+
+    def __len__(self):
+        return len(self.fifo)
 
 class TufoCache(Cache):
 

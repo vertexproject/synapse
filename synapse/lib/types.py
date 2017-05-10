@@ -308,7 +308,6 @@ class MultiFieldType(DataType):
 
                 return self.fields
 
-
             # process names= and types= info fields
             fnames = []
             ftypes = []

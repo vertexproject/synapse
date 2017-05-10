@@ -1463,3 +1463,23 @@ class CortexTest(SynTest):
             self.nn( core.getTufoByProp('inet:fqdn','woot.com') )
             self.nn( core.getTufoByProp('inet:ipv4','1.2.3.4') )
 
+
+    def test_cortex_tagform(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            core.setConfOpt('enforce', 1)
+
+            node = core.formTufoByProp('inet:fqdn', 'vertex.link')
+
+            core.addTufoTag(node,'foo.bar')
+
+            tdoc = core.getTufoByProp('syn:tagform', ('foo.bar','inet:fqdn'))
+
+            self.nn(tdoc)
+
+            self.eq( tdoc[1].get('syn:tagform:tag'), 'foo.bar' )
+            self.eq( tdoc[1].get('syn:tagform:form'), 'inet:fqdn' )
+
+            self.eq( tdoc[1].get('syn:tagform:doc'), '??' )
+            self.eq( tdoc[1].get('syn:tagform:title'), '??' )
