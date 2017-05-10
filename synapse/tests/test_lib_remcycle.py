@@ -7,18 +7,28 @@ from tornado.testing import AsyncTestCase
 
 def get_vertex_global_config():
     gconfig = {
-        'apis': {
-            'http': {
-                'doc': 'Get the vertex project landing page.',
-                'url': 'http://vertex.link/',
-                'http': {'validate_cert': False}
-            },
-            'https': {
-                'doc': 'Get the vertex project landing page.',
-                'url': 'https://vertex.link/',
-                'http': {'validate_cert': False}
-            }
-        },
+        'apis': [
+            [
+                'http',
+                {
+                    'doc': 'Get the vertex project landing page.',
+                    'url': 'http://vertex.link/',
+                    'http': {
+                        'validate_cert': False
+                    }
+                }
+            ],
+            [
+                'https',
+                {
+                    'doc': 'Get the vertex project landing page.',
+                    'url': 'https://vertex.link/',
+                    'http': {
+                        'validate_cert': False
+                    }
+                }
+            ]
+        ],
         'doc': 'Grab Vertex.link stuff',
         'http': {
             'user_agent': 'ClownBrowser'
@@ -29,13 +39,18 @@ def get_vertex_global_config():
 
 def get_bad_vertex_global_config():
     gconfig = {
-        'apis': {
-            'fake_endpoint': {
-                'doc': 'Fake endpoint',
-                'url': 'https://vertex.link/foo/bar/duck',
-                'http': {'validate_cert': False}
-            }
-        },
+        'apis': [
+            [
+                'fake_endpoint',
+                {
+                    'doc': 'Fake endpoint',
+                    'url': 'https://vertex.link/foo/bar/duck',
+                    'http': {
+                        'validate_cert': False
+                    }
+                }
+            ]
+        ],
         'doc': 'Grab Vertex.link stuff',
         'http': {
             'user_agent': 'ClownBrowser'
@@ -46,15 +61,18 @@ def get_bad_vertex_global_config():
 
 def get_ipify_global_config():
     gconfig = {
-        'apis': {
-            'jsonip': {
-                'doc': 'Get IP in a JSON blob',
-                'http': {
-                    'validate_cert': False
-                },
-                'url': 'https://api.ipify.org?format=json',
-            }
-        },
+        'apis': [
+            [
+                'jsonip',
+                {
+                    'doc': 'Get IP in a JSON blob',
+                    'http': {
+                        'validate_cert': False
+                    },
+                    'url': 'https://api.ipify.org?format=json',
+                }
+            ]
+        ],
         'doc': 'API for getting calling IP address',
         'http': {
             'user_agent': 'SynapseTest'
@@ -65,37 +83,43 @@ def get_ipify_global_config():
 
 def get_ipify_ingest_global_config():
     gconfig = {
-        'apis': {
-            'jsonip': {
-                'doc': 'Get IP in a JSON blob',
-                'http': {
-                    'validate_cert': False
-                },
-                'ingests': {
-                    'ipv4': {
-                        'ingest': {
-                            "forms": [
-                                [
-                                    "inet:ipv4",
-                                    {
-                                        "var": "ip"
-                                    }
-                                ]
-                            ],
-                            "vars": [
-                                [
-                                    "ip",
-                                    {
-                                        "path": "ip"
-                                    }
-                                ]
-                            ]
-                        }
-                    }
-                },
-                'url': 'https://api.ipify.org?format=json',
-            }
-        },
+        'apis': [
+            [
+                'jsonip',
+                {
+                    'doc': 'Get IP in a JSON blob',
+                    'http': {
+                        'validate_cert': False
+                    },
+                    'ingests': [
+                        [
+                            'ipv4',
+                            {
+                                'ingest': {
+                                    "forms": [
+                                        [
+                                            "inet:ipv4",
+                                            {
+                                                "var": "ip"
+                                            }
+                                        ]
+                                    ],
+                                    "vars": [
+                                        [
+                                            "ip",
+                                            {
+                                                "path": "ip"
+                                            }
+                                        ]
+                                    ]
+                                }
+                            }
+                        ]
+                    ],
+                    'url': 'https://api.ipify.org?format=json',
+                }
+            ]
+        ],
         'doc': 'API for getting calling IP address',
         'http': {
             'user_agent': 'SynapseTest'
@@ -361,10 +385,10 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('ipify:jsonip:ipv4' in hypo_obj.core._syn_funcs)
 
             # Now change something with ipify, register it and force a reload to occur
-            api_def = ipify_conf['apis'].pop('jsonip')
-            gest_def = api_def['ingests'].pop('ipv4')
-            api_def['ingests']['foobar'] = gest_def
-            ipify_conf['apis']['duckip'] = api_def
+            api_def = ipify_conf['apis'].pop(0)
+            gest_def = api_def[1]['ingests'].pop(0)
+            api_def[1]['ingests'].append(['foobar', gest_def[1]])
+            ipify_conf['apis'].append(['duckip', api_def[1]])
 
             hypo_obj.addWebConfig(config=ipify_conf)
 

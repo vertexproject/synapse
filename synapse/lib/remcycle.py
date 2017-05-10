@@ -87,10 +87,13 @@ class Nyx(object):
         * http: A dictionary of key/value items which can provide per-api
           specific arguements for the creation of HTTPRequest objects. These
           values should conform to the Tornado HTTPRequest constructor.
-        * ingests: A dictionary of Synapse ingest definitions which will be
-          used to create Ingest objects.  During registration of a Nyx object
-          with Hypnos, these will be registered into the Hypnos cortex.
-          Multiple named ingests may be made available for a single API.
+        * ingests: A sequence, containing Synapse ingest definitions which 
+          will be used to create Ingest objects.  During registration of a
+          Nyx object with Hypnos, these will be registered into the Hypnos
+          cortex. Multiple named ingests may be made available for a single 
+          API.  This sequence should contain two value pairs, the first is the
+          name given for the individual ingest, the second is the ingest
+          definition itself.
         * vars: This is a dictionary of items which are stamped into the url
           template during the construction of the Nyx object using format().
 
@@ -100,10 +103,10 @@ class Nyx(object):
 
         {
           "api_args": [
-              "someplace"
-            ],
+            "someplace"
+          ],
           "api_optargs": {
-              "domore": 0
+            "domore": 0
           },
           "doc": "api example",
           "http": {
@@ -111,33 +114,35 @@ class Nyx(object):
               "token-goodness": "sekrit token"
             }
           },
-          "ingests": {
-            "ingest_definition": {
-              "ingest": {
-                "forms": [
-                  [
-                    "inet:ipv4",
-                    {
-                      "var": "ip"
-                    }
+          "ingests": [
+            [
+              "ingest_definition",
+              {
+                "ingest": {
+                  "forms": [
+                    [
+                      "inet:ipv4",
+                      {
+                        "var": "ip"
+                      }
+                    ]
+                  ],
+                  "vars": [
+                    [
+                      "ip",
+                      {
+                        "path": "ip"
+                      }
+                    ]
                   ]
-                ],
-                "vars": [
-                  [
-                    "ip",
-                    {
-                      "path": "ip"
-                    }
-                  ]
-                ]
+                }
               }
-            }
-          },
+            ]
+          ],
           "url": "http://vertex.link/api/v4/geoloc/{{someplace}}/info?domore={{domore}}&apikey={APIKEY}",
           "vars": {
             "APIKEY": "8675309"
-            }
-          ]
+          }
         }
 
     ::
@@ -206,7 +211,7 @@ class Nyx(object):
 
         self.url_vars.update(self._raw_config.get(VARS, {}))
         self.request_defaults = self._raw_config.get(HTTP, {})
-        _gests = {k: s_ingest.Ingest(v) for k, v in self._raw_config.get(INGESTS, {}).items()}
+        _gests = {k: s_ingest.Ingest(v) for k, v in self._raw_config.get(INGESTS, [])}
         self.gests.update(_gests)
 
         self.api_args.extend(self._raw_config.get(API_ARGS, []))
@@ -367,58 +372,70 @@ class Hypnos(s_config.Config):
         ::
 
             {
-              "apis": {
-                "geoloc": {
-                  "api_args": [
-                    "someplace"
-                  ],
-                  "api_optargs: {
-                    "domore": 0
-                  }
-                  "doc": "api example",
-                  "http": {
-                    "headers": {
-                      "token-goodness": "sekrit token"
-                    }
-                  },
-                  "ingests": {
-                    "ingest_definition": {
-                      "ingest": {
-                        "forms": [
-                          [
-                            "inet:ipv4",
-                            {
-                              "var": "ip"
-                            }
-                          ]
-                        ],
-                        "vars": [
-                          [
-                            "ip",
-                            {
-                              "path": "ip"
-                            }
-                          ]
-                        ]
+              "apis": [
+                [
+                  "geoloc",
+                  {
+                    "api_args": [
+                      "someplace"
+                    ],
+                    "api_optargs": {
+                      "domore": 0
+                    },
+                    "doc": "apiexample",
+                    "http": {
+                      "headers": {
+                        "token-goodness": "sekrittoken"
                       }
-                    }
-                  },
-                  "url": "http://vertex.link/api/v4/geoloc/{{someplace}}/info?domore={{domore}}&apikey={APIKEY}",
-                  "vars": [
-                    ["APIKEY", "8675309"]
-                  ]
-                },
-                "https": {
-                  "doc": "Get the vertex project landing page.",
-                  "http": {
-                    "validate_cert": false
-                  },
-                  "url": "https://vertex.link/"
-                }
-              },
-              "doc": "Grab Vertex.link stuff",
+                    },
+                    "ingests": [
+                      [
+                        "ingest_definition",
+                        {
+                          "ingest": {
+                            "forms": [
+                              [
+                                "inet:ipv4",
+                                {
+                                  "var": "ip"
+                                }
+                              ]
+                            ],
+                            "vars": [
+                              [
+                                "ip",
+                                {
+                                  "path": "ip"
+                                }
+                              ]
+                            ]
+                          }
+                        }
+                      ]
+                    ],
+                    "url": "http://vertex.link/api/v4/geoloc/{{someplace}}/info?domore={{domore}}&apikey={APIKEY}",
+                    "vars": [
+                      [
+                        "APIKEY",
+                        "8675309"
+                      ]
+                    ]
+                  }
+                ],
+                [
+                  "https",
+                  {
+                    "doc": "Getthevertexprojectlandingpage.",
+                    "http": {
+                      "validate_cert": false
+                    },
+                    "url": "https://vertex.link/"
+                  }
+                ]
+              ],
+              "doc": "GrabVertex.linkstuff",
               "http": {
-                "user_agent": "Totally Not a Python application."
+                "user_agent": "TotallyNotaPythonapplication."
               },
               "namespace": "vertexproject"
             }
@@ -430,12 +447,14 @@ class Hypnos(s_config.Config):
             * namespace: String identifier for all APIs present in the
               configuration.  Must be locally unique.
             * doc: Simple string describing the overall namespace.
-            * apis: Dictionary containing configuration values for API
-              endpoints. See Nyx object for details of how this data should be
-              shaped.  The keys of this dictionary, when joined with the
-              namespace of the configuration, form the name of the APIs for
-              later use.  Given the example above, the following APIs would
-              be registered:
+            * apis: Sequence containing containing configuration values for
+              API endpoints. See Nyx object for details of how this data
+              should be shaped. The sequence should contain two value pairs
+              of data. The first value should be the name of the API, while
+              the second value is the actual API configuration. The name of
+              the API, when joined with the namespace, forms the name the API
+              can be called with for for later use.  Given the example above,
+              the following APIs would be registered:
                 - vertexproject:geoloc
                 - vertexproject:https
 
@@ -483,7 +502,7 @@ class Hypnos(s_config.Config):
         self.global_request_headers[_namespace] = {k: v for k,v in config.get(HTTP, {}).items()}
 
         # Register APIs
-        for varn, val in _apis.items():
+        for varn, val in _apis:
             name = ':'.join([_namespace, varn])
             # Stamp api http config ontop of global config, then stamp it into the API config
             _http = self.global_request_headers[_namespace].copy()
@@ -770,16 +789,19 @@ def main(argv, outp=None):  # pragma: no cover
         logging.disable(logging.DEBUG)
 
     gconfig = {
-        'apis': {
-            'fqdn': {
-                'doc': 'Get arbitrary domain name.',
-                'http': {
-                    'validate_cert': False
-                },
-                'url': 'https://{{fqdn}}/',
-                'api_args': ['fqdn']
-            }
-        },
+        'apis': [
+            [
+                'fqdn',
+                {
+                    'doc': 'Get arbitrary domain name.',
+                    'http': {
+                        'validate_cert': False
+                    },
+                    'url': 'https://{{fqdn}}/',
+                    'api_args': ['fqdn']
+                }
+            ]
+        ],
         'doc': 'Definition for getting an arbitrary domain.',
         'http': {
             'user_agent': 'SynapseTest.RemCycle'
@@ -813,7 +835,7 @@ def main(argv, outp=None):  # pragma: no cover
 
     h.on('generic:fqdn', func)
 
-    job_ids = [h.fireWebApi('generic:fqdn', {'fqdn': fqdn}) for fqdn in fqdns]
+    job_ids = [h.fireWebApi('generic:fqdn', api_args={'fqdn': fqdn}) for fqdn in fqdns]
     for jid in job_ids:
         h.boss.wait(jid)
 
