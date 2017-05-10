@@ -18,9 +18,7 @@ consumption of the data to multiple worker threads.
 '''
 # Stdlib
 import cgi
-import inspect
 import logging
-import argparse
 import collections
 # Third Party Code
 import tornado.ioloop as t_ioloop
@@ -31,7 +29,6 @@ import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.lib.ingest as s_ingest
 import synapse.lib.config as s_config
-import synapse.lib.output as s_output
 import synapse.lib.threads as s_threads
 
 from synapse.common import *
