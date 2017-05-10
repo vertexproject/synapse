@@ -894,8 +894,18 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         '''
         Sync all core:sync events in a given list.
         '''
+        errs = []
+
         with self.getCoreXact() as xact:
-            [ self.sync(m) for m in msgs ]
+            for mesg in msgs:
+                try:
+                    self.sync(mesg)
+                except Exception as e:
+                    logger.exception(e)
+                    logger.warning('sync event err: %s %r' % (e,mesg))
+                    errs.append( (mesg,excinfo(e)) )
+
+        return errs
 
     def sync(self, mesg):
         '''
@@ -2566,10 +2576,12 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
             try:
 
                 for msgs in pump.slices(1000):
-                    core.syncs(msgs)
+                    errs = core.syncs(msgs)
+
+                    for err in errs:
+                        logger.warning('sync pump: %r' % (err,))
 
             except Exception as e:
-                self.logCoreExc(e,subsys='syncpump')
                 raise
 
         wrkr = s_threads.worker(syncpump)
