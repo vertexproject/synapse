@@ -183,7 +183,7 @@ class Nyx(object):
         # Make copies of object so the returned multable dictionary does not
         # affect the
         d = {'doc': str(self.doc),
-             'api_args': self.api_args.copy(),
+             'api_args': list(self.api_args),
              'api_optargs': self.api_kwargs.copy(),
              }
         return d
