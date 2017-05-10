@@ -146,10 +146,11 @@ The following items should be considered when contributing to Synapse:
             # Do stuff the with args...
 
 
-* Imports should be in order of shortest to longest import, not alphabetical
-  order. Imports should be ordered starting from the Python standard library
-  first, then any third party packages, then any Synapse specific imports.
-  The following example shows the reccomended styling for imports:
+* Imports should first be sorted  in order of shortest to longest import, then
+  by alphabetical order (when lengths match). Imports should be ordered
+  starting from the Python standard library first, then any third party
+  packages, then any Synapse specific imports. The following example shows the
+  reccomended styling for imports:
 
   ::
 
