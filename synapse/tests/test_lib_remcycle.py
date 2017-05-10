@@ -1,9 +1,12 @@
-import synapse.lib.remcycle as s_remcycle
+from tornado.testing import AsyncTestCase
 import synapse.models.inet as s_inet
+import synapse.lib.output as s_output
+import synapse.lib.remcycle as s_remcycle
+
 
 from synapse.tests.common import *
 
-from tornado.testing import AsyncTestCase
+
 
 def get_vertex_global_config():
     gconfig = {
@@ -69,7 +72,7 @@ def get_ipify_global_config():
                     'http': {
                         'validate_cert': False
                     },
-                    'url': 'https://api.ipify.org?format=json',
+                    'url': 'https://api.ipify.org/?format=json',
                 }
             ]
         ],
@@ -116,7 +119,7 @@ def get_ipify_ingest_global_config():
                             }
                         ]
                     ],
-                    'url': 'https://api.ipify.org?format=json',
+                    'url': 'https://api.ipify.org/?format=json',
                 }
             ]
         ],
@@ -125,6 +128,30 @@ def get_ipify_ingest_global_config():
             'user_agent': 'SynapseTest'
         },
         'namespace': 'ipify',
+    }
+    return gconfig
+
+def get_generic_domain_global_config():
+    gconfig = {
+        'apis': [
+            [
+                'fqdn',
+                {
+                    'doc': 'Get arbitrary domain name.',
+                    'http': {
+                        'validate_cert': False
+                    },
+                    'url': 'https://{{fqdn}}/{{endpoint}}',
+                    'api_args': ['fqdn'],
+                    'api_optargs': {'endpoint': ''}
+                }
+            ]
+        ],
+        'doc': 'Definition for getting an arbitrary domain.',
+        'http': {
+            'user_agent': 'SynapseTest.RemCycle'
+        },
+        'namespace': 'generic',
     }
     return gconfig
 
@@ -653,3 +680,51 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('code' in resp)
             self.true('request' in resp)
             self.true('headers' in resp)
+
+    def test_hypnos_generic_config(self):
+        # Test hypnos with a generic config which allows the user to request
+        # arbitrary fqdns and paths. This is really example code.
+        self.skipIfNoInternet()
+
+        fqdns = [('www.google.com', ''),
+                 ('www.cnn.com', ''),
+                 ('www.vertex.link', ''),
+                 ('www.reddit.com', ''),
+                 ('www.foxnews.com', ''),
+                 ('www.msnbc.com', ''),
+                 ('www.bbc.co.uk', ''),
+                 ('www.amazon.com', ''),
+                 ('www.paypal.com', ''),
+                 ]
+
+        outp = s_output.OutPutStr()
+
+        def func(event_tufo):
+            event_name, argdata = event_tufo
+            kwargs = argdata.get('kwargs')
+            resp = kwargs.get('resp')
+            msg = 'Asked for [{}], got [{}] with code {}'.format(resp.get('request').get('url'),
+                                                                 resp.get('effective_url'),
+                                                                 resp.get('code')
+                                                                 )
+            outp.printf(msg)
+
+        gconf = get_generic_domain_global_config()
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 4},
+                               ioloop=self.io_loop) as hypo_obj:
+            hypo_obj.addWebConfig(config=gconf)
+            hypo_obj.on('generic:fqdn', func)
+
+            job_ids = []
+            for fqdn, endpoint in fqdns:
+                jid = hypo_obj.fireWebApi('generic:fqdn',
+                                          api_args={'fqdn': fqdn, 'endpoint': endpoint},
+                                          )
+                job_ids.append(jid)
+
+            for jid in job_ids:
+                hypo_obj.boss.wait(jid)
+
+            mesgs = str(outp)
+            for fqdn, _ in fqdns:
+                self.true(fqdn in mesgs)
