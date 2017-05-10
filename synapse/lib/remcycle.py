@@ -38,16 +38,6 @@ from synapse.common import *
 
 log = logging.getLogger(__name__)
 
-DOC = 'doc'
-URL = 'url'
-APIS = 'apis'
-HTTP = 'http'
-VARS = 'vars'
-INGESTS = 'ingests'
-NAMESPACE = 'namespace'
-API_ARGS = 'api_args'
-API_OPTARGS = 'api_optargs'
-
 MIN_WORKER_THREADS = 'min_worker_threads'
 MAX_WORKER_THREADS = 'max_worker_threads'
 HYPNOS_BASE_DEFS = (
@@ -171,8 +161,8 @@ class Nyx(object):
 
     def __init__(self, config):
         self._raw_config = dict(config)
-        self.required_keys = [URL,
-                              DOC
+        self.required_keys = ['url',
+                              'doc'
                               ]
         self.doc = ''
         self.url_template = ''
@@ -206,16 +196,16 @@ class Nyx(object):
             if key not in self._raw_config:
                 log.error('Remcycle config is missing a required value %s.', key)
                 raise NoSuchName(name=key, mesg='Missing required key.')
-        self.url_template = self._raw_config.get(URL)
-        self.doc = self._raw_config.get(DOC)
+        self.url_template = self._raw_config.get('url')
+        self.doc = self._raw_config.get('doc')
 
-        self.url_vars.update(self._raw_config.get(VARS, {}))
-        self.request_defaults = self._raw_config.get(HTTP, {})
-        _gests = {k: s_ingest.Ingest(v) for k, v in self._raw_config.get(INGESTS, [])}
+        self.url_vars.update(self._raw_config.get('vars', {}))
+        self.request_defaults = self._raw_config.get('http', {})
+        _gests = {k: s_ingest.Ingest(v) for k, v in self._raw_config.get('ingests', [])}
         self.gests.update(_gests)
 
-        self.api_args.extend(self._raw_config.get(API_ARGS, []))
-        self.api_kwargs.update(self._raw_config.get(API_OPTARGS, {}))
+        self.api_args.extend(self._raw_config.get('api_args', []))
+        self.api_kwargs.update(self._raw_config.get('api_optargs', {}))
 
         # Set effective url
         self.effective_url = self.url_template.format(**self.url_vars)
@@ -278,7 +268,7 @@ class Hypnos(s_config.Config):
                                  opts,
                                  defs)
 
-        self.required_keys = (NAMESPACE, DOC, APIS)
+        self.required_keys = ('namespace', 'doc', 'apis')
 
         self.apis = {}
         self.namespaces = set([])
@@ -488,9 +478,9 @@ class Hypnos(s_config.Config):
                 log.error('Remcycle config is missing a required value %s.', key)
                 raise NoSuchName(name=key, mesg='Missing required key.')
 
-        _apis = config.get(APIS)
-        _namespace = config.get(NAMESPACE)
-        _doc = config.get(DOC)
+        _apis = config.get('apis')
+        _namespace = config.get('namespace')
+        _doc = config.get('doc')
 
         if _namespace in self.namespaces:
             if reload_config:
@@ -499,7 +489,7 @@ class Hypnos(s_config.Config):
                 raise NameError('Namespace is already registered.')
 
         self.docs[_namespace] = _doc
-        self.global_request_headers[_namespace] = {k: v for k,v in config.get(HTTP, {}).items()}
+        self.global_request_headers[_namespace] = {k: v for k,v in config.get('http', {}).items()}
 
         # Register APIs
         for varn, val in _apis:
