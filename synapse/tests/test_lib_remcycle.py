@@ -443,7 +443,7 @@ class HypnosTest(SynTest, AsyncTestCase):
         self.skipIfNoInternet()
         gconf = get_vertex_global_config()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 2},
-                               oloop=self.io_loop) as hypo_obj:
+                               ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addWebConfig(config=gconf)
 
             d = {'set': False,
