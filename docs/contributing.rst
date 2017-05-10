@@ -17,16 +17,134 @@ The following items should be considered when contributing to Synapse:
   - `Whitespace in Expressions and Statements <https://www.python.org/dev/peps/pep-0008/#whitespace-in-expressions-and-statements>`_.
 
 * Please keep line lengths under 120 characters.
-* Use single quotes for docstrings, not double quotes.
-* Use Napoleon format when writing docstrings. This format is very readable
-  and will allow type hinting for IDE users. Use the Google format docstring
-  format.
+* Use single quotes for string constants (including docstrings) unless double
+  quotes are required.
 
-  - More information about Napoleon can be found `here <https://sphinxcontrib-napoleon.readthedocs.io>`_.
-  - Google style typically has the summary line after the opening ''' marker.
+  ::
+
+     # Do this
+     foo = '1234'
+     # NOT this
+     foo = "1234"
+
+* Use a single line break between top level functions and class definitions,
+  and class methods.  This helps conserve vertical space.
+
+  - Do this
+
+    ::
+
+       import foo
+       import duck
+
+       def bar():
+           return True
+
+       def baz():
+           return False
+
+       class Obj(object):
+
+           def __init__(self, a):
+               self.a = a
+
+           def gimmeA(self):
+               return self.a
+
+    - NOT this
+
+    ::
+
+       import foo
+       import duck
+
+
+       def bar():
+           return True
+
+
+       def baz():
+           return False
+
+
+       class Obj(object):
+
+           def __init__(self, a):
+               self.a = a
+
+
+           def gimmeA(self):
+               return self.a
+
+* Use Google style Python docstrings.  This format is very readable and will
+  allow type hinting for IDE users. See the following notes below about our
+  slight twist on this convention.
+
+  - Use ''' quotes instead of """ for starting/stoping doc strings.
+  - Google Style typically has the summary line after the opening ''' marker.
     Place this summary value on the new line following the opening ''' marker.
+  - More information about Google Style docstrings (and examples) can be found
+    `here <http://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html>`_.
+  - We use Napoleon for parsing these doc strings. More info `here <https://sphinxcontrib-napoleon.readthedocs.io>`_.
   - Synapse as a project is not written using the Napoleon format currently
-    but all new modules should adhere to that format.
+    but all new modules should audhere to that format.
+  - Synapse acceptable example:
+
+    ::
+
+        def fooTheBar(param1, param2, **kwargs):
+            '''
+            Summary line goes first.
+
+            Longer description lives here. It can be a bunch of stuff across
+            multiple blocks if neccesary.
+
+            Example:
+                Examples should be given using either the ``Example`` section.
+                Sections support any reStructuredText formatting, including
+                literal blocks::
+
+                    woah = fooTheBar('a', 'b', duck='quacker')
+
+            Section breaks are created by resuming unindented text. Section breaks
+            are also implicitly created anytime a new section starts.
+
+            `PEP 484`_ type annotations are supported. If attribute, parameter, and
+            return types are annotated according to `PEP 484`_, they do not need to be
+            included in the docstring:
+
+            Args:
+                param1 (int): The first parameter.
+                param2 (str): The second parameter.
+
+            Keyword Arguments:
+                duck (str): Optional keyword args which come in via **kwargs call conventions,
+                            which modify function behavior, should be documented under the
+                            Keyword Args section.
+
+            Returns:
+                bool: The return value. True for success, False otherwise.
+
+                      The ``Returns`` section supports any reStructuredText formatting,
+                      including literal blocks::
+
+                          {
+                              'param1': param1,
+                              'param2': param2
+                          }
+
+            Raises:
+                AttributeError: The ``Raises`` section is a list of all exceptions
+                    that are relevant to the interface.
+                ValueError: If `param2` is equal to `param1`.
+
+
+            .. _PEP 484:
+                https://www.python.org/dev/peps/pep-0484/
+
+            '''
+            # Do stuff the with args...
+
 
 * Imports should be in order of shortest to longest import, not alphabetical
   order. Imports should be ordered starting from the Python standard library
@@ -51,13 +169,41 @@ The following items should be considered when contributing to Synapse:
 * Function names should follow the mixedCase format for anything which is
   exposed as a externally facing API on a object or module.
 
-  - fooTheBar() is acceptable.
-  - foo_the_bar() is not acceptable.
+  ::
+
+    # Do this
+    fooTheBar()
+    # NOT this
+    foo_the_bar()
 
 * Private methods should be marked as such with a proceeding underscore.
 
-  - privateInternalThingDontUseMe() is not acceptable.
-  - _internalThing() is acceptable.
+  ::
+
+    # Do this
+    _internalThing()
+    # NOT this
+    privateInternalThingDontUseMe()
+
+  - The corralary to this is that any function which is not private may be
+    called arbitrarily at any time, so avoid public API functions which are
+    tightly bound to instance state. For example, if a processing routine is
+    broken into smaller subroutines for readability or testability, these
+    routines are likely private and should not be exposed to outside callers.
+
+
+* Function calls with mandatory arguments should be called with positional
+  arguments.  Do not use keyword arguments unless neccesary.
+
+  ::
+
+    def foo(a, b, duck=None):
+       print(a, b, duck)
+
+    #Do this
+    foo('a', 'b', duck='quacker')
+    # Not this
+    foo(a='a', b='b', duck='quacker')
 
 * Logging should be setup on a per-module basis, with loggers created using
   calls to logging.getLogger(__name__).  This allows for module level control
@@ -65,6 +211,26 @@ The following items should be considered when contributing to Synapse:
 
   - Logger calls should use logging string interpolation, instead of using
     % or .format() methods.  See Python Logging module docs for reference.
+  - Example:
+
+   ::
+
+      # Get the module level logger
+      logger = logging.getLogger(__name__)
+      # Do this - it only forms the final string if the message is
+      # actually going to be logged
+      logger.info('I am a message from %s about %s', 'bob', 'a duck')
+      # NOT this - it performs the string format() call regardless of
+      # whether or not the message is going to be logged.
+      logger.info('I am a message from {} about {}'.format('bob', 'a duck'))
+
+* It may be neccesary from time to time to include non-ASCII characters. Use
+  UTF8 formatting for such source files and use the following encoding
+  declaration at the top of the source file.
+
+  ::
+
+     # -*- coding: utf-8 -*-
 
 * Convenience methods are availible for unit tests, primarily through the
   SynTest class. This is a subclass of unittest.TestCase and provides many
