@@ -115,7 +115,12 @@ class CortexMixin:
                 for byts in iterfd(fd):
                     self._addAxonChunk(upid,byts)
 
-        return self.formTufoByProp('file:bytes', iden, **props)
+        node = self.formTufoByProp('file:bytes', iden, **props)
+
+        if node[1].get('file:bytes:size') == None:
+            self.setTufoProp(node,'size',info.get('size'))
+
+        return node
 
 class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestApi):
     '''
