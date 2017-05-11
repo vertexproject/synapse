@@ -115,7 +115,12 @@ class CortexMixin:
                 for byts in iterfd(fd):
                     self._addAxonChunk(upid,byts)
 
-        return self.formTufoByProp('file:bytes', iden, **props)
+        node = self.formTufoByProp('file:bytes', iden, **props)
+
+        if node[1].get('file:bytes:size') == None:
+            self.setTufoProp(node,'size',info.get('size'))
+
+        return node
 
 class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestApi):
     '''
@@ -164,7 +169,9 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
         self.formed = collections.defaultdict(int)      # count tufos formed since startup
 
-        self.tagcache = {}
+        self._core_tags = s_cache.FixedCache(maxsize=10000, onmiss=self._getFormFunc('syn:tag') )
+        self._core_tagforms = s_cache.FixedCache(maxsize=10000, onmiss=self._getFormFunc('syn:tagform') )
+
         self.splicefuncs = {}
 
         self.sizebymeths = {}
@@ -302,6 +309,13 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                 logger.warning('%s.addCoreOns: %s' % (name,exc))
 
         s_ingest.IngestApi.__init__(self, self)
+
+    def _getFormFunc(self, name):
+        # easy way to construct a single argument node constructor
+        # ( used for constructing onmiss cache callbacks )
+        def func(valu, **props):
+            return self.formTufoByProp(name, valu, **props)
+        return func
 
     # over-ride to allow the storm runtime to lift/join/pivot tufos
     def _stormTufosBy(self, by, prop, valu=None, limit=None):
@@ -880,8 +894,18 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         '''
         Sync all core:sync events in a given list.
         '''
+        errs = []
+
         with self.getCoreXact() as xact:
-            [ self.sync(m) for m in msgs ]
+            for mesg in msgs:
+                try:
+                    self.sync(mesg)
+                except Exception as e:
+                    logger.exception(e)
+                    logger.warning('sync event err: %s %r' % (e,mesg))
+                    errs.append( (mesg,excinfo(e)) )
+
+        return errs
 
     def sync(self, mesg):
         '''
@@ -943,10 +967,11 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
     def _onAddSynTag(self, mesg):
         tufo = mesg[1].get('tufo')
-        uptag = tufo[1].get('syn:tag:up')
+        form = tufo[1].get('tufo:form')
+        utag = tufo[1].get('syn:tag:up')
 
-        if uptag != None:
-            self._genTufoTag(uptag)
+        if utag != None:
+            self._genTagForm(utag,form)
 
     def _onFormSynTag(self, mesg):
         valu = mesg[1].get('valu')
@@ -1493,10 +1518,9 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
         return ret
 
-    def _genTufoTag(self, tag):
-        if not self.tagcache.get(tag):
-            self.formTufoByProp('syn:tag',tag)
-            self.tagcache[tag] = True
+    def _genTagForm(self, tag, form):
+        self._core_tags.get(tag)
+        self._core_tagforms.get( (tag,form) )
 
     def addTufoTags(self, tufo, tags, asof=None):
         '''
@@ -1520,8 +1544,11 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
             core.addTufoTag(tufo,'baz.faz')
 
         '''
+        form = tufo[1].get('tufo:form')
+
         reqiden(tufo)
-        self._genTufoTag(tag)
+
+        self._genTagForm(tag,form)
 
         rows = s_tags.genTufoRows(tufo,tag,valu=asof)
         if rows:
@@ -2549,10 +2576,12 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
             try:
 
                 for msgs in pump.slices(1000):
-                    core.syncs(msgs)
+                    errs = core.syncs(msgs)
+
+                    for err in errs:
+                        logger.warning('sync pump: %r' % (err,))
 
             except Exception as e:
-                self.logCoreExc(e,subsys='syncpump')
                 raise
 
         wrkr = s_threads.worker(syncpump)
