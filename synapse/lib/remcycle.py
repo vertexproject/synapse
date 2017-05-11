@@ -19,11 +19,13 @@ consumption of the data to multiple worker threads.
 # Stdlib
 import cgi
 import logging
+import tempfile
 import collections
 # Third Party Code
 import tornado.ioloop as t_ioloop
 import tornado.httpclient as t_http
 # Custom Code
+import synapse.axon as s_axon
 import synapse.async as s_async
 import synapse.compat as s_compat
 import synapse.cortex as s_cortex
@@ -35,11 +37,16 @@ from synapse.common import *
 
 logger = logging.getLogger(__name__)
 
-MIN_WORKER_THREADS = 'min_worker_threads'
-MAX_WORKER_THREADS = 'max_worker_threads'
+MIN_WORKER_THREADS = 'web_min_worker_threads'
+MAX_WORKER_THREADS = 'web_max_worker_threads'
+MAX_SPOOL_FILESIZE = 'web_max_spool_file_size'
 HYPNOS_BASE_DEFS = (
     (MIN_WORKER_THREADS, {'type': 'int', 'doc': 'Minimum number of worker threads to spawn', 'defval': 8}),
     (MAX_WORKER_THREADS, {'type': 'int', 'doc': 'Maximum number of worker threads to spawn', 'defval': 64}),
+    (MAX_SPOOL_FILESIZE, {'type': 'int',
+                          'doc': 'Maximum spoolfile size, in bytes, to use for storing responses associated with '
+                                 'APIs that have ingest definitions.',
+                          'defval': s_axon.megabyte * 2})
 )
 
 class Nyx(object):
@@ -74,13 +81,14 @@ class Nyx(object):
         * http: A dictionary of key/value items which can provide per-api
           specific arguements for the creation of HTTPRequest objects. These
           values should conform to the Tornado HTTPRequest constructor.
-        * ingests: A sequence, containing Synapse ingest definitions which 
-          will be used to create Ingest objects.  During registration of a
+        * ingest: A dictionary containing a Synapse ingest definition which
+          will be used to create an Ingest objects. During registration of a
           Nyx object with Hypnos, these will be registered into the Hypnos
-          cortex. Multiple named ingests may be made available for a single 
-          API.  This sequence should contain two value pairs, the first is the
-          name given for the individual ingest, the second is the ingest
-          definition itself.
+          cortex. This dictionary should contain the key "name" which will be
+          used to create a unique name for the ingest events, and the key
+          "definition" which must contain the ingest definition. The ingest
+          definition must contain a "open" directive which is used with the
+          ingest iterdata() function to process the API data prior to ingest.
         * vars: This is a dictionary of items which are stamped into the url
           template during the construction of the Nyx object using format().
 
@@ -101,31 +109,32 @@ class Nyx(object):
               "token-goodness": "sekrit token"
             }
           },
-          "ingests": [
-            [
-              "ingest_definition",
-              {
-                "ingest": {
-                  "forms": [
-                    [
-                      "inet:ipv4",
-                      {
-                        "var": "ip"
-                      }
-                    ]
-                  ],
-                  "vars": [
-                    [
-                      "ip",
-                      {
-                        "path": "ip"
-                      }
-                    ]
+          "ingest": {
+            "definition": {
+              "ingest": {
+                "forms": [
+                  [
+                    "inet:ipv4",
+                    {
+                      "var": "ip"
+                    }
                   ]
-                }
+                ],
+                "vars": [
+                  [
+                    "ip",
+                    {
+                      "path": "ip"
+                    }
+                  ]
+                ]
+              },
+              "open": {
+                "format": "json"
               }
-            ]
-          ],
+            },
+            "name": "geolocv4"
+          },
           "url": "http://vertex.link/api/v4/geoloc/{{someplace}}/info?domore={{domore}}&apikey={APIKEY}",
           "vars": {
             "APIKEY": "8675309"
@@ -168,9 +177,11 @@ class Nyx(object):
         self.request_defaults = {}
         self.api_args = []
         self.api_kwargs = {}
-        self.gests = {}
+        self.gest = None
+        self.gest_name = None
+        self.gest_open = None
 
-        self._parse_config()
+        self._parseConfig()
 
     @property
     def description(self):
@@ -188,24 +199,34 @@ class Nyx(object):
              }
         return d
 
-    def _parse_config(self):
+    def _parseConfig(self):
         for key in self.required_keys:
             if key not in self._raw_config:
                 logger.error('Remcycle config is missing a required value %s.', key)
                 raise NoSuchName(name=key, mesg='Missing required key.')
         self.url_template = self._raw_config.get('url')
         self.doc = self._raw_config.get('doc')
-
         self.url_vars.update(self._raw_config.get('vars', {}))
         self.request_defaults = self._raw_config.get('http', {})
-        _gests = {k: s_ingest.Ingest(v) for k, v in self._raw_config.get('ingests', [])}
-        self.gests.update(_gests)
-
+        self._parseGestConfig(self._raw_config.get('ingest'))
         self.api_args.extend(self._raw_config.get('api_args', []))
         self.api_kwargs.update(self._raw_config.get('api_optargs', {}))
 
         # Set effective url
         self.effective_url = self.url_template.format(**self.url_vars)
+
+    def _parseGestConfig(self, gest_data):
+        if gest_data is None:
+            return
+        self.gest_name = gest_data.get('name')
+        gestdef = gest_data.get('definition')
+        self.gest_open = gestdef.get('open')
+        self.gest = s_ingest.Ingest(gestdef)
+        # Blow up on missing data early
+        if not self.gest_name:
+            raise NoSuchName(name='name', mesg='API Ingest definition is missing its name.')
+        if not self.gest_open:
+            raise NoSuchName(name='open', mesg='Ingest definition is missing a open directive.')
 
     def buildHttpRequest(self,
                          api_args=None):
@@ -296,6 +317,7 @@ class Hypnos(s_config.Config):
             self.onfini(core.fini)
         self.core = core
         self._api_ingests = collections.defaultdict(list)
+        self._api_gest_opens = {}
 
         # Setup Fini handlers
         self.onfini(self._onHypoFini)
@@ -369,37 +391,38 @@ class Hypnos(s_config.Config):
                     "api_optargs": {
                       "domore": 0
                     },
-                    "doc": "apiexample",
+                    "doc": "api example",
                     "http": {
                       "headers": {
                         "token-goodness": "sekrittoken"
                       }
                     },
-                    "ingests": [
-                      [
-                        "ingest_definition",
-                        {
-                          "ingest": {
-                            "forms": [
-                              [
-                                "inet:ipv4",
-                                {
-                                  "var": "ip"
-                                }
-                              ]
-                            ],
-                            "vars": [
-                              [
-                                "ip",
-                                {
-                                  "path": "ip"
-                                }
-                              ]
+                    "ingest": {
+                      "definition": {
+                        "ingest": {
+                          "forms": [
+                            [
+                              "inet:ipv4",
+                              {
+                                "var": "ip"
+                              }
                             ]
-                          }
+                          ],
+                          "vars": [
+                            [
+                              "ip",
+                              {
+                                "path": "ip"
+                              }
+                            ]
+                          ]
+                        },
+                        "open": {
+                          "format": "json"
                         }
-                      ]
-                    ],
+                      },
+                      "name": "geolocv4"
+                    },
                     "url": "http://vertex.link/api/v4/geoloc/{{someplace}}/info?domore={{domore}}&apikey={APIKEY}",
                     "vars": [
                       [
@@ -412,7 +435,7 @@ class Hypnos(s_config.Config):
                 [
                   "https",
                   {
-                    "doc": "Getthevertexprojectlandingpage.",
+                    "doc": "Get the vertex project landingpage.",
                     "http": {
                       "validate_cert": false
                     },
@@ -422,7 +445,7 @@ class Hypnos(s_config.Config):
               ],
               "doc": "GrabVertex.linkstuff",
               "http": {
-                "user_agent": "TotallyNotaPythonapplication."
+                "user_agent": "Totally Not a Python application."
               },
               "namespace": "vertexproject"
             }
@@ -486,7 +509,7 @@ class Hypnos(s_config.Config):
                 raise NameError('Namespace is already registered.')
 
         self.docs[_namespace] = _doc
-        self.global_request_headers[_namespace] = {k: v for k,v in config.get('http', {}).items()}
+        self.global_request_headers[_namespace] = {k: v for k, v in config.get('http', {}).items()}
 
         # Register APIs
         for varn, val in _apis:
@@ -503,17 +526,27 @@ class Hypnos(s_config.Config):
 
     def _registerWebApi(self, name, obj):
         '''
+        Register a Nyx API with Hypnos.
+        
+        Args:
+            name (str): API Name  
+            obj (Nyx): Nyx object contianing spec and gest data.
+
+        Returns:
+            None
+        '''
+        '''
         Register a Nyx object and any corresponding ingest definitions to the
         cortex.
         '''
         if name in self.apis:
             raise NameError('Already registered {}'.format(name))
         self.apis[name] = obj
-        for gest_name, gest in obj.gests.items():
-            action_name = ':'.join([name, gest_name])
+        if obj.gest:
+            action_name = ':'.join([name, obj.gest_name])
             # Register the action with the attached cortex
             ingest_func = s_ingest.register_ingest(self.core,
-                                                   gest,
+                                                   obj.gest,
                                                    action_name,
                                                    True
                                                    )
@@ -523,13 +556,15 @@ class Hypnos(s_config.Config):
                 kwargs = event_args.get('kwargs')
                 resp = kwargs.get('resp')
                 data = resp.get('data')
-                self.core.fire(action_name, data=data)
+                for _data in data:
+                    self.core.fire(action_name, data=_data)
 
             # Register the action to unpack the async.Boss job results and fire the cortex event
             self.on(name, gest_glue)
 
             # Store things for later reuse (for deregistartion)
             self._api_ingests[name].append((action_name, ingest_func, gest_glue))
+            self._api_gest_opens[name] = obj.gest_open
 
         self.fire('hypnos:register:api:add', api=name)
 
@@ -567,6 +602,7 @@ class Hypnos(s_config.Config):
             raise NoSuchName(name=name, mesg='API name not registered.')
 
         self.apis.pop(name, None)
+        self._api_gest_opens.pop(name, None)
 
         funclist = self._api_ingests.pop(name, [])
         for action_name, ingest_func, gest_glue in funclist:
@@ -614,7 +650,7 @@ class Hypnos(s_config.Config):
         return resp_dict
 
     @staticmethod
-    def _webProcessFlattenedResponse(resp_dict, encoding=None):
+    def _webProcessResponseFlatten(resp_dict):
         '''
         Process a flattened HTTP response to extract as much meaningful data
         out of it as possible.
@@ -629,6 +665,7 @@ class Hypnos(s_config.Config):
                                _webFlattenHttpResponse function. 
 
         Returns:
+            None
 
         '''
 
@@ -648,7 +685,36 @@ class Hypnos(s_config.Config):
         # we can add support for additional data types as needed.
         if ct_type.lower() == 'application/json':
             resp_dict['data'] = json.loads(resp_dict.get('data'))
-        return resp_dict
+
+    def _webProcessResponseGest(self, resp_dict, gest_open):
+        '''
+        Process a web reponsse using a ingest open directive.
+
+        Notes:
+            This should be called by the IO thread consuming the response
+            data, not the thread responsible for actually retrieving the web
+            data. 
+
+        Args:
+            resp_dict (dict): Reponse dictionary. It will have the 'data' field
+                overwritten with the ingest generator.
+            gest_open (dict): Ingest open directive.
+
+        Returns:
+            None
+        '''
+        # Fail fast, let the ingest go boom later.
+        if not resp_dict.get('data'):
+            return resp_dict
+        # SpooledTemporaryFile will reduce memory burden (as the expanse of disk space)
+        # in the event we get a large amount of data back from an endpoint.
+        buf = tempfile.SpooledTemporaryFile(max_size=self.getConfOpt(MAX_SPOOL_FILESIZE))
+        # TODO Loop in chunks in the event we have a large amount of data.
+        buf.write(resp_dict.get('data'))
+        buf.seek(0)
+        # Build the generator and replace 'data' with the generator.
+        ingdata = s_ingest.iterdata(fd=buf, **gest_open)
+        resp_dict['data'] = ingdata
 
     def _webRespWrapper(self, f):
         '''
@@ -675,7 +741,12 @@ class Hypnos(s_config.Config):
                 _jid = fkwargs.get('jid')
                 self.boss.err(_jid, **_excinfo)
                 return
-            self._webProcessFlattenedResponse(fkwargs.get('resp'))
+            _api_name = fkwargs.get('web_api_name')
+            _gest_opens = self._api_gest_opens.get(_api_name)
+            if _gest_opens:
+                self._webProcessResponseGest(fkwargs.get('resp'), _gest_opens)
+            else:
+                self._webProcessResponseFlatten(fkwargs.get('resp'))
             f(*fargs, **fkwargs)
 
         return check_job_fail
@@ -691,7 +762,9 @@ class Hypnos(s_config.Config):
 
         A flattened version of the response, error information and the Boss
         job id will be stamped into the kwargs passed along to the the
-        callbacks.
+        callbacks.  If the API name has a ingest associated with it, the
+        response data will be pushed into a generator created according to
+        the ingest open directive.
 
         The flattened response is a dictionary, accessed from kwargs using
         the 'resp' key. It contains the following information:
@@ -702,22 +775,22 @@ class Hypnos(s_config.Config):
                 - headers: Headers passed to the remote server.
             * code: HTTP Response code.  This will only be present on a
               successfull request or if a HTTPError is encountered.
-            * raw_body: The raw bytes of the reponse.  This will only be
-              present on a successful request or if a HTTPError is
-              encountered.
+            * data: This may be one of three values:
+
+              - A iterdata generator for a response associated with a ingest
+                definition.
+              - The decoded data as a string or a decoded json blob. We will
+                attempt to parse the data based on the Content-Type header.
+                This is a best effort decoding.
+              - In the event that the best effort decoding fails, the response
+                will be available as raw bytes.
+
             * effective_url: The effective url returned by the server.
               By default, Tornado will follow redirects, so this URL may
               differ from the request URL.  It will only be present on a
               successful request or if a HTTPError is encountered.
             * headers: The response headers.  It will only be present on a
               successful request or if a HTTPError is encountered.
-            * data: If we have a raw response body, we will attempt to decode
-              the data.  If we are able to decode the content-type header,
-              this key will contain a str.  In addition, if we have support
-              for the specific content type to decode the data, such a JSON,
-              we'll also decode it as well. This will be present given the
-              above conditions.
-
 
         The flattened error is a dictionary, accessed from kwargs using the
         'errinfo' key.  It mimics the synapse excinfo output, but without
@@ -744,7 +817,9 @@ class Hypnos(s_config.Config):
               thread.  By default, this will be wrapped to fire boss.err()
               if excinfo is present in the callback's kwargs.
             * ondone: A function to be executed by the job:fini handler
-              when the job has been completed.
+              when the job has been completed. If the api we're firing has an
+              ingest associated with it, the response data may not be
+              available to be consumed by the ondone handler.
             * job_timeout: A timeout on how long the job can run from the
               perspective of the boss.  This isn't related to the request
               or connect timeouts.
@@ -799,6 +874,8 @@ class Hypnos(s_config.Config):
         # Create our Async callback function - it enjoys the locals().
         def response_nommer(resp):
             job_kwargs = job[1]['task'][2]
+            # Stamp the job id and the web_api_name into the kwargs dictiionary.
+            job_kwargs['web_api_name'] = name
             job_kwargs['jid'] = job[0]
             if resp.error:
                 _e = resp.error

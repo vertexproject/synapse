@@ -1,5 +1,6 @@
 from synapse.tests.common import *
 
+import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.lib.tufo as s_tufo
 import synapse.lib.ingest as s_ingest
@@ -63,7 +64,7 @@ class IngTest(SynTest):
                             ]
                         }),
                     ),
-                }
+                },
             }
 
             data = {
@@ -965,3 +966,56 @@ class IngTest(SynTest):
             self.true(isinstance(node, tuple))
             self.false(s_tufo.tagged(node, 'zoom.fooboat'))
             self.false(s_tufo.tagged(node, 'zoom.sewer'))
+
+    def test_ingest_basic_bufio(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            info = {
+                'ingest':{
+                    'iters':(
+                        ('foo/*/fqdn',{
+                            'forms':[
+                                ('inet:fqdn', {
+                                    'props':{
+                                        'sfx':{'path':'../tld'},
+                                    }
+                                }),
+                            ]
+                        }),
+                    ),
+                },
+                'open': {
+                    'format': 'json'
+                }
+            }
+
+            data = {
+                'foo':[
+                    {'fqdn':'com','tld':True},
+                    {'fqdn':'woot.com'},
+                ],
+
+                'bar':[
+                    {'fqdn':'vertex.link','tld':0},
+                ],
+
+                'newp':[
+                    {'fqdn':'newp.com','tld':0},
+                ],
+
+            }
+
+            buf = s_compat.BytesIO(json.dumps(data).encode())
+
+            ingdata = s_ingest.iterdata(fd=buf, **info.get('open'))
+
+            gest = s_ingest.Ingest(info)
+
+            for _data in ingdata:
+                gest.ingest(core, data=_data)
+
+            self.eq( core.getTufoByProp('inet:fqdn','com')[1].get('inet:fqdn:sfx'), 1 )
+            self.eq( core.getTufoByProp('inet:fqdn','woot.com')[1].get('inet:fqdn:zone'), 1 )
+
+            self.none( core.getTufoByProp('inet:fqdn','newp.com') )

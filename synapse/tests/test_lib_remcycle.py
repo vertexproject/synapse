@@ -1,6 +1,5 @@
 from tornado.testing import AsyncTestCase
 import synapse.models.inet as s_inet
-import synapse.lib.output as s_output
 import synapse.lib.remcycle as s_remcycle
 
 
@@ -94,9 +93,9 @@ def get_ipify_ingest_global_config():
                     'http': {
                         'validate_cert': False
                     },
-                    'ingests': [
-                        [
-                            'ipv4',
+                    'ingest': {
+                        'name': 'ipv4',
+                        'definition':
                             {
                                 'ingest': {
                                     "forms": [
@@ -115,10 +114,12 @@ def get_ipify_ingest_global_config():
                                             }
                                         ]
                                     ]
+                                },
+                                'open': {
+                                    'format': 'json'
                                 }
                             }
-                        ]
-                    ],
+                    },
                     'url': 'https://api.ipify.org/?format=json',
                 }
             ]
@@ -410,11 +411,12 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('ipify:jsonip' in hypo_obj._api_ingests)
             self.true('ipify:jsonip' in hypo_obj._syn_funcs)
             self.true('ipify:jsonip:ipv4' in hypo_obj.core._syn_funcs)
+            self.true('ipify:jsonip' in hypo_obj._api_gest_opens)
 
             # Now change something with ipify, register it and force a reload to occur
             api_def = ipify_conf['apis'].pop(0)
-            gest_def = api_def[1]['ingests'].pop(0)
-            api_def[1]['ingests'].append(['foobar', gest_def[1]])
+            gest_def = api_def[1]['ingest']
+            gest_def['name'] = 'foobar'
             ipify_conf['apis'].append(['duckip', api_def[1]])
 
             hypo_obj.addWebConfig(config=ipify_conf)
@@ -427,10 +429,12 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('ipify:jsonip' not in hypo_obj._api_ingests)
             self.true('ipify:jsonip' not in hypo_obj._syn_funcs)
             self.true('ipify:jsonip:ipv4' not in hypo_obj.core._syn_funcs)
+            self.true('ipify:jsonip' not in hypo_obj._api_gest_opens)
             self.true('ipify:duckip' in hypo_obj.apis)
             self.true('ipify:duckip' in hypo_obj._api_ingests)
             self.true('ipify:duckip' in hypo_obj._syn_funcs)
             self.true('ipify:duckip:foobar' in hypo_obj.core._syn_funcs)
+            self.true('ipify:duckip' in hypo_obj._api_gest_opens)
 
         # ensure all the expected events fired during testing
         self.true('hypnos:register:namespace:add' in data)
@@ -588,16 +592,19 @@ class HypnosTest(SynTest, AsyncTestCase):
 
             def ondone(job_tufo):
                 _jid, jobd = job_tufo
-                ip = jobd.get('task')[2].get('resp', {}).get('data', {}).get('ip', '')
-                data[_jid] = ip
+                code = jobd.get('task')[2].get('resp', {}).get('code')
+                data[_jid] = code
 
             jid = hypo_obj.fireWebApi(name='ipify:jsonip', ondone=ondone)
             hypo_obj.boss.wait(jid)
 
             tufos = hypo_obj.core.getTufosByProp('inet:ipv4')
             self.eq(len(tufos), 1)
+            self.eq(data[jid], 200)
             # Validate the IP of the tufo is the same we got from ipify
-            self.eq(s_inet.ipv4str(tufos[0][1].get('inet:ipv4')), data[jid])
+            ip = tufos[0][1].get('inet:ipv4')
+            self.nn(ip)
+
 
     def test_hypnos_throw_timeouts(self):
         # Run a test scenario which will generate hundreds of jobs which will timeout.
