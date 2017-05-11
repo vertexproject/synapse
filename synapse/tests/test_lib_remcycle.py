@@ -592,18 +592,19 @@ class HypnosTest(SynTest, AsyncTestCase):
 
             def ondone(job_tufo):
                 _jid, jobd = job_tufo
-                code = jobd.get('task')[2].get('resp', {}).get('code')
-                data[_jid] = code
+                _data = jobd.get('task')[2].get('resp', {}).get('data')
+                _bytez = _data.read()
+                _d = json.loads(_bytez.decode())
+                data[_jid] = _d.get('ip')
 
             jid = hypo_obj.fireWebApi(name='ipify:jsonip', ondone=ondone)
             hypo_obj.boss.wait(jid)
 
             tufos = hypo_obj.core.getTufosByProp('inet:ipv4')
             self.eq(len(tufos), 1)
-            self.eq(data[jid], 200)
             # Validate the IP of the tufo is the same we got from ipify
-            ip = tufos[0][1].get('inet:ipv4')
-            self.nn(ip)
+            self.nn(data[jid])
+            self.eq(s_inet.ipv4str(tufos[0][1].get('inet:ipv4')), data[jid])
 
 
     def test_hypnos_throw_timeouts(self):

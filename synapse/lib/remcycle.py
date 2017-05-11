@@ -555,9 +555,10 @@ class Hypnos(s_config.Config):
                 evtname, event_args = event
                 kwargs = event_args.get('kwargs')
                 resp = kwargs.get('resp')
-                data = resp.get('data')
+                data = resp.get('ingdata')
                 for _data in data:
                     self.core.fire(action_name, data=_data)
+                resp['data'].seek(0)
 
             # Register the action to unpack the async.Boss job results and fire the cortex event
             self.on(name, gest_glue)
@@ -713,8 +714,9 @@ class Hypnos(s_config.Config):
         buf.write(resp_dict.get('data'))
         buf.seek(0)
         # Build the generator and replace 'data' with the generator.
-        ingdata = s_ingest.iterdata(fd=buf, **gest_open)
-        resp_dict['data'] = ingdata
+        ingdata = s_ingest.iterdata(fd=buf, close_fd=False, **gest_open)
+        resp_dict['data'] = buf
+        resp_dict['ingdata'] = ingdata
 
     def _webRespWrapper(self, f):
         '''
@@ -777,8 +779,14 @@ class Hypnos(s_config.Config):
               successfull request or if a HTTPError is encountered.
             * data: This may be one of three values:
 
-              - A iterdata generator for a response associated with a ingest
-                definition.
+              - A SpooledTemporaryFile containing the raw bytes of the
+                response. This will be present if there is a ingest associated
+                with the named response. A corresponding generator will be
+                created and placed in the "ingdata" field and consumed by the
+                ingest. Post-consumption, seek(0) will be called on the
+                file-like object. If there are multiple post-ingest consumers
+                of the job, each one may want to call seek(0) on the file
+                object before consuming it.
               - The decoded data as a string or a decoded json blob. We will
                 attempt to parse the data based on the Content-Type header.
                 This is a best effort decoding.

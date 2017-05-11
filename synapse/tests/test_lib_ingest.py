@@ -1019,3 +1019,40 @@ class IngTest(SynTest):
             self.eq( core.getTufoByProp('inet:fqdn','woot.com')[1].get('inet:fqdn:zone'), 1 )
 
             self.none( core.getTufoByProp('inet:fqdn','newp.com') )
+
+    def test_ingest_iterdata(self):
+        data = {
+            'foo': [
+                {'fqdn': 'com', 'tld': True},
+                {'fqdn': 'woot.com'},
+            ],
+
+            'bar': [
+                {'fqdn': 'vertex.link', 'tld': 0},
+            ],
+
+            'newp': [
+                {'fqdn': 'newp.com', 'tld': 0},
+            ],
+
+        }
+
+        buf = s_compat.BytesIO(json.dumps(data).encode())
+
+        ingdata = s_ingest.iterdata(fd=buf, **{'format': 'json'})
+
+        for _data in ingdata:
+            self.nn(_data)
+        self.true(buf.closed)
+
+        buf2 = s_compat.BytesIO(json.dumps(data).encode())
+
+        # Leave the file descriptor open.
+        ingdata = s_ingest.iterdata(buf2,
+                                    close_fd=False,
+                                    **{'format': 'json'})
+
+        for _data in ingdata:
+            self.nn(_data)
+        self.false(buf2.closed)
+        buf2.close()
