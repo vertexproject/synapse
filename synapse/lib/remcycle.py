@@ -286,12 +286,12 @@ class Hypnos(s_config.Config):
                                  opts,
                                  defs)
 
-        self.required_keys = ('namespace', 'doc', 'apis')
+        self._web_required_keys = ('namespace', 'doc', 'apis')
 
-        self.apis = {}
-        self.namespaces = set([])
-        self.docs = {}
-        self.global_request_headers = {}  # Global request headers per namespace
+        self._web_apis = {}
+        self._web_namespaces = set([])
+        self._web_docs = {}
+        self._web_default_http_args = {}  # Global request headers per namespace
 
         # Check configable options before we spin up any resources
         pool_min = self.getConfOpt(MIN_WORKER_THREADS)
@@ -303,21 +303,21 @@ class Hypnos(s_config.Config):
         loop = kwargs.get('ioloop')
         if loop is None:
             loop = t_ioloop.IOLoop()
-        self.loop = loop
-        self.client = t_http.AsyncHTTPClient(io_loop=self.loop)
-        self.iothr = self._runIoLoop()
+        self.web_loop = loop
+        self.web_client = t_http.AsyncHTTPClient(io_loop=self.web_loop)
+        self.web_iothr = self._runIoLoop()
 
         # Synapse Async and thread pool
-        self.boss = s_async.Boss()
-        self.pool = s_threads.Pool(pool_min, pool_max)
+        self.web_boss = s_async.Boss()
+        self.web_pool = s_threads.Pool(pool_min, pool_max)
 
         # Synapse Core and ingest tracking
         if core is None:
             core = s_cortex.openurl('ram://')
             self.onfini(core.fini)
-        self.core = core
-        self._api_ingests = collections.defaultdict(list)
-        self._api_gest_opens = {}
+        self.web_core = core
+        self._web_api_ingests = collections.defaultdict(list)
+        self._web_api_gest_opens = {}
 
         # Setup Fini handlers
         self.onfini(self._onHypoFini)
@@ -325,24 +325,24 @@ class Hypnos(s_config.Config):
     def __repr__(self):
         d = {'name': self.__class__.__name__,
              'loc': hex(id(self)),
-             'ns': list(self.namespaces),
-             'core': self.core,
+             'ns': list(self._web_namespaces),
+             'core': self.web_core,
              }
         s = '<{name} at {loc}, namespaces: {ns}, core: {core}>'.format(**d)
         return s
 
     @s_threads.firethread
     def _runIoLoop(self):
-        self.loop.start()
+        self.web_loop.start()
 
     def _onHypoFini(self):
         # Stop the IOLoop async thread
-        self.loop.stop()
-        self.iothr.join()
+        self.web_loop.stop()
+        self.web_iothr.join()
         # Stop the boss making jobs
-        self.boss.fini()
+        self.web_boss.fini()
         # Stop the consuming pool
-        self.pool.fini()
+        self.web_pool.fini()
 
     def getWebDescription(self):
         '''
@@ -364,9 +364,9 @@ class Hypnos(s_config.Config):
         # Make copies of object so the returned multable dictionary does not
         # affect the
         d = {}
-        for ns in self.namespaces:
-            nsd = {'doc': self.docs[ns]}
-            for api_name, api_obj in self.apis.items():
+        for ns in self._web_namespaces:
+            nsd = {'doc': self._web_docs[ns]}
+            for api_name, api_obj in self._web_apis.items():
                 nsd[api_name] = api_obj.description
             if nsd:
                 d[ns] = nsd
@@ -493,7 +493,7 @@ class Hypnos(s_config.Config):
 
     def _parseWebConf(self, config, reload_config):
 
-        for key in self.required_keys:
+        for key in self._web_required_keys:
             if key not in config:
                 logger.error('Remcycle config is missing a required value %s.', key)
                 raise NoSuchName(name=key, mesg='Missing required key.')
@@ -502,25 +502,25 @@ class Hypnos(s_config.Config):
         _namespace = config.get('namespace')
         _doc = config.get('doc')
 
-        if _namespace in self.namespaces:
+        if _namespace in self._web_namespaces:
             if reload_config:
                 self.delWebConf(_namespace)
             else:
                 raise NameError('Namespace is already registered.')
 
-        self.docs[_namespace] = _doc
-        self.global_request_headers[_namespace] = {k: v for k, v in config.get('http', {}).items()}
+        self._web_docs[_namespace] = _doc
+        self._web_default_http_args[_namespace] = {k: v for k, v in config.get('http', {}).items()}
 
         # Register APIs
         for varn, val in _apis:
             name = ':'.join([_namespace, varn])
             # Stamp api http config ontop of global config, then stamp it into the API config
-            _http = self.global_request_headers[_namespace].copy()
+            _http = self._web_default_http_args[_namespace].copy()
             _http.update(val.get('http', {}))
             val['http'] = _http
             nyx_obj = Nyx(val)
             self._registerWebApi(name, nyx_obj)
-        self.namespaces.add(_namespace)
+        self._web_namespaces.add(_namespace)
 
         self.fire('hypnos:register:namespace:add', namespace=_namespace)
 
@@ -539,13 +539,13 @@ class Hypnos(s_config.Config):
         Register a Nyx object and any corresponding ingest definitions to the
         cortex.
         '''
-        if name in self.apis:
+        if name in self._web_apis:
             raise NameError('Already registered {}'.format(name))
-        self.apis[name] = obj
+        self._web_apis[name] = obj
         if obj.gest:
             action_name = ':'.join([name, obj.gest_name])
             # Register the action with the attached cortex
-            ingest_func = s_ingest.register_ingest(self.core,
+            ingest_func = s_ingest.register_ingest(self.web_core,
                                                    obj.gest,
                                                    action_name,
                                                    True
@@ -557,15 +557,15 @@ class Hypnos(s_config.Config):
                 resp = kwargs.get('resp')
                 data = resp.get('ingdata')
                 for _data in data:
-                    self.core.fire(action_name, data=_data)
+                    self.web_core.fire(action_name, data=_data)
                 resp['data'].seek(0)
 
             # Register the action to unpack the async.Boss job results and fire the cortex event
             self.on(name, gest_glue)
 
             # Store things for later reuse (for deregistartion)
-            self._api_ingests[name].append((action_name, ingest_func, gest_glue))
-            self._api_gest_opens[name] = obj.gest_open
+            self._web_api_ingests[name].append((action_name, ingest_func, gest_glue))
+            self._web_api_gest_opens[name] = obj.gest_open
 
         self.fire('hypnos:register:api:add', api=name)
 
@@ -580,15 +580,15 @@ class Hypnos(s_config.Config):
         :raises: NoSuchName if the namespace requested does not exist.
         '''
 
-        if namespace not in self.namespaces:
+        if namespace not in self._web_namespaces:
             raise NoSuchName('Namespace is not registered.')
 
-        self.namespaces.remove(namespace)
-        self.docs.pop(namespace, None)
-        self.global_request_headers.pop(namespace, None)
+        self._web_namespaces.remove(namespace)
+        self._web_docs.pop(namespace, None)
+        self._web_default_http_args.pop(namespace, None)
 
         apis_to_remove = []
-        for api_name in list(self.apis.keys()):
+        for api_name in list(self._web_apis.keys()):
             ns, name = api_name.split(':', 1)
             if ns == namespace:
                 apis_to_remove.append(api_name)
@@ -599,16 +599,16 @@ class Hypnos(s_config.Config):
         self.fire('hypnos:register:namespace:del', namespace=namespace)
 
     def _delWebApi(self, name):
-        if name not in self.apis:
+        if name not in self._web_apis:
             raise NoSuchName(name=name, mesg='API name not registered.')
 
-        self.apis.pop(name, None)
-        self._api_gest_opens.pop(name, None)
+        self._web_apis.pop(name, None)
+        self._web_api_gest_opens.pop(name, None)
 
-        funclist = self._api_ingests.pop(name, [])
+        funclist = self._web_api_ingests.pop(name, [])
         for action_name, ingest_func, gest_glue in funclist:
             self.off(name, gest_glue)
-            self.core.off(action_name, ingest_func)
+            self.web_core.off(action_name, ingest_func)
 
         self.fire('hypnos:register:api:del', api=name)
 
@@ -619,7 +619,7 @@ class Hypnos(s_config.Config):
         :param name: Name of the API to get the object for.
         :return: A Nyx object.
         '''
-        nyx = self.apis.get(name)
+        nyx = self._web_apis.get(name)
         return nyx
 
     @staticmethod
@@ -741,10 +741,10 @@ class Hypnos(s_config.Config):
             _excinfo = fkwargs.get('excinfo')
             if _excinfo:
                 _jid = fkwargs.get('jid')
-                self.boss.err(_jid, **_excinfo)
+                self.web_boss.err(_jid, **_excinfo)
                 return
             _api_name = fkwargs.get('web_api_name')
-            _gest_opens = self._api_gest_opens.get(_api_name)
+            _gest_opens = self._web_api_gest_opens.get(_api_name)
             if _gest_opens:
                 self._webProcessResponseGest(fkwargs.get('resp'), _gest_opens)
             else:
@@ -877,7 +877,7 @@ class Hypnos(s_config.Config):
         # Construct the job tufo
         jid = s_async.jobid()
         t = s_async.newtask(callback, *args, **kwargs)
-        job = self.boss.initJob(jid, task=t, ondone=ondone, timeout=job_timeout)
+        job = self.web_boss.initJob(jid, task=t, ondone=ondone, timeout=job_timeout)
 
         # Create our Async callback function - it enjoys the locals().
         def response_nommer(resp):
@@ -896,11 +896,11 @@ class Hypnos(s_config.Config):
                 job_kwargs['excinfo'] = _execinfo
             resp_dict = self._webFlattenHttpResponse(resp)
             job_kwargs['resp'] = resp_dict
-            self.pool.call(self.boss._runJob, job)
+            self.web_pool.call(self.web_boss._runJob, job)
 
         # Construct the request object
         req = nyx.buildHttpRequest(api_args)
 
-        self.client.fetch(req, callback=response_nommer)
+        self.web_client.fetch(req, callback=response_nommer)
 
         return jid
