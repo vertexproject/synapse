@@ -189,10 +189,11 @@ class Nyx(object):
         Get a dictionary containing an objects docstring, required api_args
         and optional api args.
 
-        :return: Dictionary contiaining data.
+        Returns:
+            dict: Dictionary containing data.
         '''
-        # Make copies of object so the returned multable dictionary does not
-        # affect the
+        # Make copies of object so the returned mutable dictionary does not
+        # affect the Nyx instance.
         d = {'doc': str(self.doc),
              'api_args': list(self.api_args),
              'api_optargs': self.api_kwargs.copy(),
@@ -231,14 +232,20 @@ class Nyx(object):
     def buildHttpRequest(self,
                          api_args=None):
         '''
-        Build the HTTPRequest object for a given configuration.
+        Build the HTTPRequest object for a given configuration and arguments.
 
-        :param api_args: Arguments support either required or optional URL
-                         values.
-        :return: tornado.httpclient.HTTPRequest object with the configured
-                 url and attributes.
-        :raises: NoSuchName if the api_args is missing a required API value.
+        Args:
+            api_args (dict): Arguments support either required or optional URL
+                             values.
+
+        Returns:
+            tornado.httpclient.HTTPRequest: HTTPRequest object with the
+                                            configured url and attributes.
+
+        Raises:
+            NoSuchName: If the api_args is missing a required API value.
         '''
+
         t_args = {}
         for argn in self.api_args:
             argv = api_args.get(argn, novalu)
@@ -261,19 +268,6 @@ class Hypnos(s_config.Config):
 
     The Hypnos object inherits from the Config object, and as such has both
     configable parameters and an EventBus available for message passing.
-
-    The following items may be passed via kwargs to change the Hypnos object
-    behavior:
-
-        * ioloop: Tornado ioloop used by the IO thread. This would normally
-                  be left unset, and an ioloop will be created for the io
-                  thread. This is provided as a helper for testing.
-
-    :param core: Cortex used to store ingest data.  By default, a ram cortex
-                 is used.
-    :param opts: Opts applied to the object via the Config interface.
-    :param defs: Default options applied to the object via the Config
-                 interface.  Generally this would not be overridden.
     '''
 
     def __init__(self,
@@ -282,6 +276,22 @@ class Hypnos(s_config.Config):
                  defs=HYPNOS_BASE_DEFS,
                  *args,
                  **kwargs):
+        '''
+        Notes:
+            The following items may be passed via kwargs to change the Hypnos object
+            behavior:
+
+                * ioloop: Tornado ioloop used by the IO thread. This would normally
+                          be left unset, and an ioloop will be created for the io
+                          thread. This is provided as a helper for testing.
+
+        Args:
+            core (synapse.cores.common.Cortex): A cortex used to store ingest data. By default,
+                                                a ram cortex is used.
+            opts (dict): Optional configuration data for the Config mixin.
+            defs (tuple): Default configuration data for the Config mixin.
+        '''
+
         s_config.Config.__init__(self,
                                  opts,
                                  defs)
@@ -349,7 +359,8 @@ class Hypnos(s_config.Config):
         Get a dictionary containing all namespaces, their docstrings, and
         registered api data.
 
-        :return: Dictionary describing the regsistered namespace API data.
+        Returns:
+            dict: Dictionary describing the regsistered namespace API data.
         '''
         return self._webDescription
 
@@ -359,7 +370,8 @@ class Hypnos(s_config.Config):
         Get a dictionary containing all namespaces, their docstrings, and
         registered api data.
 
-        :return: Dictionary describing the regsistered namespace API data.
+        Returns:
+            dict: Dictionary describing the regsistered namespace API data.
         '''
         # Make copies of object so the returned multable dictionary does not
         # affect the
@@ -452,7 +464,7 @@ class Hypnos(s_config.Config):
 
         ::
 
-        The following keys are required:
+        The following config keys are required:
 
             * namespace: String identifier for all APIs present in the
               configuration.  Must be locally unique.
@@ -468,22 +480,27 @@ class Hypnos(s_config.Config):
                 - vertexproject:geoloc
                 - vertexproject:https
 
-        The following keys are optional:
+        The following config keys are optional:
 
             * http: Global HTTP Request arguments which will be the basis
               for creating HTTPRequest objects. These values should conform to
               the Tornado HTTPRequest constructor.
 
+        Args:
+            config (dict): Dictionary containing the configuration information.
+            reload_config (bool): If true and the namespace is already registered,
+                                  the existing namespace will be removed and the
+                                  new config added. Otherwise a NameError will
+                                  be thrown.
 
-        :param config: Dictionary containing the configuration information.
-        :param reload_config: If true and the namespace is already registered,
-                              the existing namespace will be removed and the new
-                              config added.
-        :return: None
-        :raises: NameError if the existing namespace is registered or a
-                 invalid HTTP value is provided.
-        :raises: Other exceptions are possible if the configuration isn't
-                 shaped properly, this would likely come from duck typing.
+        Returns:
+            None
+
+        Raises:
+            Other exceptions are possible, likely as a result of ducktyping.
+            NameError: If the existing namespace is registered or a invalid
+                       HTTP value is provided.
+
         '''
         try:
             self._parseWebConf(config, reload_config)
@@ -535,10 +552,6 @@ class Hypnos(s_config.Config):
         Returns:
             None
         '''
-        '''
-        Register a Nyx object and any corresponding ingest definitions to the
-        cortex.
-        '''
         if name in self._web_apis:
             raise NameError('Already registered {}'.format(name))
         self._web_apis[name] = obj
@@ -571,15 +584,21 @@ class Hypnos(s_config.Config):
 
     def delWebConf(self, namespace):
         '''
-        Remove a given namespace, APIs and any corresponding event handlers
+        Safely remove a namespace.
+
+        Removes a given namespace, APIs and any corresponding event handlers
         which have been snapped into the Hypnos object and its cortex via
-        the register_config API.
+        the addWebConfig API.
 
-        :param namespace: Namespace of objects to remove.
-        :return: None
-        :raises: NoSuchName if the namespace requested does not exist.
+        Args:
+            namespace (str): Namespace to remove.
+
+        Returns:
+            None
+
+        Raises:
+            NoSuchName: If the namespace requested does not exist.
         '''
-
         if namespace not in self._web_namespaces:
             raise NoSuchName('Namespace is not registered.')
 
@@ -616,8 +635,11 @@ class Hypnos(s_config.Config):
         '''
         Get the Nyx object corresponding to a given API name.
 
-        :param name: Name of the API to get the object for.
-        :return: A Nyx object.
+        Args:
+            name (str): Name of the API to get the object for.
+
+        Returns:
+            Nyx: A Nyx object.
         '''
         nyx = self._web_apis.get(name)
         return nyx
@@ -630,12 +652,18 @@ class Hypnos(s_config.Config):
         This allows the response to be transported across RMI boundaries if
         needed.
 
+        Notes:
+            This should be called by the IO thread which actually retrieved
+            the web response, as the HTTPResponse object may not be safe to
+            pass across threads.
+
         Args:
             resp (t_http.HTTPResponse): HTTP Response to flatten. 
 
         Returns:
-            dict
-
+            dict: Dictionary containing the request (url and headers), as well
+                  as the code, data, headers and effective url if there was
+                  a non-HTTP error.
         '''
         resp_dict = {
             'request': {'url': resp.request.url,
@@ -689,7 +717,7 @@ class Hypnos(s_config.Config):
 
     def _webProcessResponseGest(self, resp_dict, gest_open):
         '''
-        Process a web reponsse using a ingest open directive.
+        Prepare a web reponse using a ingest open directive.
 
         Notes:
             This should be called by the IO thread consuming the response
@@ -698,7 +726,8 @@ class Hypnos(s_config.Config):
 
         Args:
             resp_dict (dict): Reponse dictionary. It will have the 'data' field
-                overwritten with the ingest generator.
+                              overwritten with a SpooledTemporaryFile and the
+                              'ingdata' field added with a generator.
             gest_open (dict): Ingest open directive.
 
         Returns:
@@ -727,7 +756,7 @@ class Hypnos(s_config.Config):
         * Checks for exception information fails the job if the exception
           information is present.
         * Continues to process the resp dictionary to extract and decode
-          data.
+          data, preparing it for a ingest or other consumption.
 
         Args:
             f: Function to wrap. 
@@ -813,42 +842,49 @@ class Hypnos(s_config.Config):
         The Hypnos boss job id is a str which can be accessed from kwargs
         using the 'jid' key.
 
-        The following items may be used via kwargs to set request parameters:
+        Notes:
 
-            * api_args: This should be a dictionary containing any required
-              or optional arguments the API rquires.
+            The following items may be used via kwargs to set request parameters:
 
-        The following items may be passed via kwargs to change the job
-        execution parameters:
+                * api_args: This should be a dictionary containing any required
+                  or optional arguments the API rquires.
 
-            * callback: A function which will be called by the servicing
-              thread.  By default, this will be wrapped to fire boss.err()
-              if excinfo is present in the callback's kwargs.
-            * ondone: A function to be executed by the job:fini handler
-              when the job has been completed. If the api we're firing has an
-              ingest associated with it, the response data may not be
-              available to be consumed by the ondone handler.
-            * job_timeout: A timeout on how long the job can run from the
-              perspective of the boss.  This isn't related to the request
-              or connect timeouts.
-            * wrap_callback: By default, the callback function is wrapped to
-              perform error checking (and fast job failure) in the event of an
-              error encountered during the request, and additional processing
-              of the HTTP response data to perform decoding and content-type
-              processing.  If this value is set to false, the decorator will
-              not be applied to a provided callback function, and the error
-              handling and additional data procesing will be the
-              responsibility of any event handlers or the provided callback
-              function.  The fast failure behavior is handled by boss.err()
-              on the job associated with the API call.
+            The following items may be passed via kwargs to change the job
+            execution parameters:
 
-        :param name: Name of the API to send a request for.
-        :param args: Additional args passed to the callback functions.
-        :param kwargs: Additional args passed to the callback functions or for
-                       changing the job execution.
-        :return: Job id value which can be referenced against the Hypnos boss
-                 object.
-        :raises: NoSuchName if the API name does not exist.
+                * callback: A function which will be called by the servicing
+                  thread.  By default, this will be wrapped to fire boss.err()
+                  if excinfo is present in the callback's kwargs.
+                * ondone: A function to be executed by the job:fini handler
+                  when the job has been completed. If the api we're firing has an
+                  ingest associated with it, the response data may not be
+                  available to be consumed by the ondone handler.
+                * job_timeout: A timeout on how long the job can run from the
+                  perspective of the boss.  This isn't related to the request
+                  or connect timeouts.
+                * wrap_callback: By default, the callback function is wrapped to
+                  perform error checking (and fast job failure) in the event of an
+                  error encountered during the request, and additional processing
+                  of the HTTP response data to perform decoding and content-type
+                  processing.  If this value is set to false, the decorator will
+                  not be applied to a provided callback function, and the error
+                  handling and additional data procesing will be the
+                  responsibility of any event handlers or the provided callback
+                  function.  The fast failure behavior is handled by boss.err()
+                  on the job associated with the API call.
+
+        Args:
+            name: Name of the API to send a request for.
+            *args: Additional args passed to the callback functions.
+            **kwargs: Additional args passed to the callback functions or for
+                      changing the job execution.
+
+        Returns:
+            str: String containing a Job ID which can be used to look up a
+                 job against the Hypnos.web_boss object.
+
+        Raises:
+            NoSuchName: If the requested API name does not exist.
         '''
         # First, make sure the name is good
         nyx = self.getNyxApi(name)
