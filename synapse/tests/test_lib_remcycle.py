@@ -213,7 +213,7 @@ class NyxTest(SynTest):
 
         # Ensure property is structured correctly and data from the property
         # cannot mutate the Nyx object
-        desc = nyx.description
+        desc = nyx.description()
         self.true(isinstance(desc, dict))
         self.true('doc' in desc)
         self.true('api_args' in desc)

@@ -50,6 +50,9 @@ class GeneTest(SynTest):
         # Ensure that if we compare values against None/null objects, we don't match
         syms = {'foo:baz': None, 'spam:eggs': 10}
         self.eq(s_gene.eval('foo:baz == 1', syms=syms), 0)
+        self.eq(s_gene.eval('foo:baz == 0', syms=syms), 0)
+        self.eq(s_gene.eval('foo:baz != 0', syms=syms), 1)
+        self.eq(s_gene.eval('foo:baz != 1', syms=syms), 1)
         self.eq(s_gene.eval('foo:baz == "asdf"', syms=syms), 0)
         # TODO Add / change tests depending on how we choose to support null operators for comparison
         # self.eq(s_gene.eval('foo:baz == None', syms=syms), 1)

@@ -183,7 +183,6 @@ class Nyx(object):
 
         self._parseConfig()
 
-    @property
     def description(self):
         '''
         Get a dictionary containing an objects docstring, required api_args
@@ -362,24 +361,13 @@ class Hypnos(s_config.Config):
         Returns:
             dict: Dictionary describing the regsistered namespace API data.
         '''
-        return self._webDescription
-
-    @property
-    def _webDescription(self):
-        '''
-        Get a dictionary containing all namespaces, their docstrings, and
-        registered api data.
-
-        Returns:
-            dict: Dictionary describing the regsistered namespace API data.
-        '''
         # Make copies of object so the returned multable dictionary does not
         # affect the
         d = {}
         for ns in self._web_namespaces:
             nsd = {'doc': self._web_docs[ns]}
             for api_name, api_obj in self._web_apis.items():
-                nsd[api_name] = api_obj.description
+                nsd[api_name] = api_obj.description()
             if nsd:
                 d[ns] = nsd
         return d
