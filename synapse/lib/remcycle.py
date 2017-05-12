@@ -700,16 +700,18 @@ class Hypnos(s_config.Config):
 
         # Fail fast when we have no data to process
         if not resp_dict.get('data'):
-            return resp_dict
+            return
         # Try to do a clean decoding of the provided data if possible.
         ct = resp_dict.get('headers', {}).get('Content-Type', 'text/plain')
+        if ct.lower() == 'application/octet-stream':
+            return
         ct_type, ct_params = cgi.parse_header(ct)
         charset = ct_params.get('charset', 'utf-8').lower()
         try:
             resp_dict['data'] = resp_dict.get('data').decode(charset)
         except Exception as e:
             logger.exception('Failed to decode a raw body in a response object.')
-            return resp_dict
+            return
         # Handle known content types and put them in the 'data' key
         # we can add support for additional data types as needed.
         if ct_type.lower() == 'application/json':
