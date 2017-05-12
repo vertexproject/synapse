@@ -14,3 +14,13 @@ class CompatTest(SynTest):
         self.assertFalse( s_compat.canstor(('asdf',)) )
         self.assertFalse( s_compat.canstor(['asdf',]) )
         self.assertFalse( s_compat.canstor({'asdf':True}) )
+
+    def test_compat_quote(self):
+        self.eq(s_compat.url_quote('asdf'), 'asdf')
+        self.eq(s_compat.url_quote('asdf&foo'), 'asdf%26foo')
+        self.eq(s_compat.url_quote('asdf foo'), 'asdf%20foo')
+
+    def test_compat_quote_plus(self):
+        self.eq(s_compat.url_quote_plus('asdf'), 'asdf')
+        self.eq(s_compat.url_quote_plus('asdf&foo'), 'asdf%26foo')
+        self.eq(s_compat.url_quote_plus('asdf foo'), 'asdf+foo')
