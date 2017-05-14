@@ -36,7 +36,7 @@ class OperWith:
         }
 
         if exc != None:
-            info.update( excinfo(exc) )
+            info['excinfo'] = excinfo(exc)
             self.query.clear()
 
         self.query.log(**info)
@@ -217,10 +217,12 @@ class Runtime(Configable):
         self.setOperFunc('join', self._stormOperJoin)
         self.setOperFunc('lift', self._stormOperLift)
         self.setOperFunc('pivot', self._stormOperPivot)
-        self.setOperFunc('addtag',self._stormOperAddTag)
-        self.setOperFunc('deltag',self._stormOperDelTag)
-        self.setOperFunc('nexttag',self._stormOperNextSeq)
-        self.setOperFunc('setprop',self._stormOperSetProp)
+        self.setOperFunc('expand', self._stormOperExpand)
+        self.setOperFunc('alltag', self._stormOperAllTag)
+        self.setOperFunc('addtag', self._stormOperAddTag)
+        self.setOperFunc('deltag', self._stormOperDelTag)
+        self.setOperFunc('nexttag', self._stormOperNextSeq)
+        self.setOperFunc('setprop', self._stormOperSetProp)
 
     def getStormCore(self, name=None):
         '''
@@ -643,6 +645,73 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         [ core.setTufoProps(node,**props) for node in query.data() ]
+
+    def _iterPropTags(self, props, tags):
+        for prop in props:
+            for tag in tags:
+                yield prop,tag
+
+    def _stormOperAllTag(self, query, oper):
+
+        tags = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        limit = opts.get('limit')
+
+        core = self.getStormCore()
+        forms = core.getTufoForms()
+
+        for form,tag in self._iterPropTags(forms,tags):
+            nodes = core.getTufosByTag(form,tag,limit=limit)
+
+            for node in nodes:
+                query.add(node)
+
+            if limit != None:
+                limit -= len(nodes)
+                if limit <= 0:
+                    break
+
+    def _stormOperExpand(self, query, oper):
+
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        # total node lift limit
+        limit = opts.get('limit')
+
+        # how many degress of expansion?
+        degs = int(opts.get('degrees',1))
+
+        done = set()
+        todo = collections.deque([ (0,node) for node in query.data() ])
+
+        core = self.getStormCore()
+
+        while len(todo):
+
+            if limit != None and limit <= 0:
+                # TODO: plumb a way to communicate this in the result?
+                break
+
+            deg,node = todo.popleft()
+            if node[0] in done:
+                continue
+
+            done.add(node[0])
+            if deg >= degs:
+                continue
+
+            form = node[1].get('tufo:form')
+            valu = node[1].get(form)
+
+            nods = core.getTufosByPropType(form, valu, limit=limit)
+            for newn in nods:
+                query.add(newn)
+                todo.append( (deg+1, newn) )
+
+            if limit != None:
+                limit -= len(newn)
 
     def _stormOperAddTag(self, query, oper):
         tags = oper[1].get('args')

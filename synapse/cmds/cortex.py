@@ -31,6 +31,12 @@ class AskCmd(s_cli.Cmd):
         core = self.getCmdItem()
         resp = core.ask(ques)
 
+        oplog = resp.get('oplog')
+
+        # check for an error condition
+        if oplog and oplog[-1].get('excinfo'):
+            opts['debug'] = 1
+
         if opts.get('debug'):
 
             self.printf('oplog:')
@@ -52,6 +58,14 @@ class AskCmd(s_cli.Cmd):
 
         nodes = list(sorted( resp.get('data'), key=nodevalu))
 
+        if len(nodes) == 0:
+            self.printf('(no results)')
+            return
+
+        forms = set([ node[1].get('tufo:form') for node in nodes ])
+
+        fsize = max([ len(f) for f in forms ])
+
         for node in nodes:
             form = node[1].get('tufo:form')
             valu = node[1].get(form)
@@ -60,12 +74,14 @@ class AskCmd(s_cli.Cmd):
 
             # FIXME local typelib and datamodel
             disp = core.getPropRepr(form,valu)
-            self.printf('%s - %s' % (disp,','.join(tags)))
+            self.printf('%s = %s - %s' % (form.ljust(fsize),disp,','.join(tags)))
             if opts.get('props'):
-                props = list(s_tufo.props(node).items())
-                for prop,valu in sorted(props):
+                pref = form + ':'
+                flen = len(form)
+                for prop in sorted([ k for k in node[1].keys() if k.startswith(pref) ]):
+                    valu = node[1].get(prop)
                     disp = core.getPropRepr(prop,valu)
-                    self.printf('    %s = %s' % (prop,disp))
+                    self.printf('    %s = %s' % (prop[flen:],disp))
 
         return resp
 

@@ -468,7 +468,7 @@ def parse_oper(text, off=0):
 
         if nextchar(text,off,','):
             off += 1
-            
+
 def parse(text, off=0):
     '''
     Parse and return a set of instruction tufos.
@@ -489,6 +489,14 @@ def parse(text, off=0):
             _,off = nom(text,off+2,whites)
             name,off = nom(text,off,varset)
             inst = ('pivot',{'args':[name],'kwlist':[]})
+            ret.append(inst)
+            continue
+
+        # lift by tag alone macro
+        if nextstr(text,off,'#'):
+            _,off = nom(text,off+1,whites)
+            name,off = nom(text,off,varset)
+            inst = ('alltag',{'args':[name],'kwlist':[]})
             ret.append(inst)
             continue
 
