@@ -67,6 +67,22 @@ class StormTest(SynTest):
 
             self.eq( forms, ['inet:dns:a','inet:fqdn'] )
 
+    def test_storm_filt_regex(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce',1)
+
+            iden0 = guid()
+            iden1 = guid()
+            iden2 = guid()
+
+            node0 = core.formTufoByProp('file:bytes', iden0)
+            node1 = core.formTufoByProp('file:bytes', iden1, name='woot.exe')
+            node2 = core.formTufoByProp('file:bytes', iden2, name='toow.exe')
+
+            nodes = core.eval('file:bytes +:name~=exe')
+            self.eq( len(nodes), 2 )
+
     def test_storm_alltag(self):
 
         with s_cortex.openurl('ram:///') as core:

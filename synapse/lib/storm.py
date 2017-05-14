@@ -454,10 +454,21 @@ class Runtime(Configable):
 
     def _cmprCtorRe(self, oper):
         prop = oper[1].get('prop')
+
+        isrel = prop.startswith(':')
         reobj = re.compile( oper[1].get('valu') )
 
         def cmpr(tufo):
-            return reobj.search(tufo[1].get(prop)) != None
+
+            full = prop
+            if isrel:
+                full = tufo[1].get('tufo:form') + prop
+
+            valu = tufo[1].get(full)
+            if valu == None:
+                return False
+
+            return reobj.search(valu) != None
 
         return cmpr
 
