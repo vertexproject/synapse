@@ -111,6 +111,10 @@ class GuidType(DataType):
         if not s_compat.isstr(valu) or len(valu) < 1:
             self._raiseBadValu(valu)
 
+        # generate me one.  we dont care.
+        if valu == '*':
+            return guid(),{}
+
         if valu[0] != '$':
             retn = valu.lower().replace('-','')
             if not isguid(retn):
