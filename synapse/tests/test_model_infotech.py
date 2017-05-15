@@ -13,11 +13,17 @@ class InfoTechTest(SynTest):
     def test_model_infotech_cve(self):
         with s_cortex.openurl('ram:///') as core:
             core.setConfOpt('enforce',1)
+
             node = core.formTufoByProp('it:sec:cve','CVE-2013-9999', desc='This is a description')
             self.nn(node)
-            self.eq( node[1].get('it:sec:cve'), 'CVE-2013-9999')
+            self.eq( node[1].get('it:sec:cve'), 'cve-2013-9999')
             self.eq( node[1].get('it:sec:cve:desc'), 'This is a description' )
             self.raises( BadTypeValu, core.formTufoByProp, 'it:sec:cve', 'dERP' )
+
+            node = core.formTufoByProp('it:sec:cve','Cve-2014-1234567890', desc='This is a description')
+            self.nn(node)
+            self.eq( node[1].get('it:sec:cve'), 'cve-2014-1234567890')
+            self.eq( node[1].get('it:sec:cve:desc'), 'This is a description' )
 
     def test_model_infotech_av(self):
         with s_cortex.openurl('ram:///') as core:

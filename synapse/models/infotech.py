@@ -10,7 +10,7 @@ def getDataModel():
             ('it:hosturl',      {'subof':'comp','fields':'host,it:host|url,inet:url'}),
             ('it:hostfile',     {'subof':'comp','fields':'host,it:host|path,file:path|file,file:bytes','doc':'A file created on a host'}),
 
-            ('it:sec:cve',      {'subof':'str', 'regex':'^CVE-[0-9]{4}-[0-9]{4,6}$','doc':'A CVE entry from Mitre'}),
+            ('it:sec:cve',      {'subof':'str:lwr', 'regex':'(?i)^CVE-[0-9]{4}-[0-9]{4,}$','doc':'A CVE entry from Mitre'}),
 
             ('it:av:sig',       {'subof':'sepr', 'sep':'/', 'fields':'org,ou:alias|sig,str:lwr', 'doc':'An antivirus signature' }),
             ('it:av:filehit',   {'subof':'sepr', 'sep':'/', 'fields':'file,file:bytes|sig,it:av:sig', 'doc':'An antivirus hit' }),
