@@ -1533,6 +1533,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         '''
         with self.getCoreXact():
             [ self.addTufoTag(tufo,tag,asof=asof) for tag in tags ]
+            return tufo
 
     def addTufoTag(self, tufo, tag, asof=None):
         '''
