@@ -45,13 +45,19 @@ class AskCmd(s_cli.Cmd):
                 took = opfo.get('took')
                 self.printf('    %s (took:%d) %r' % (mnem,took,opfo))
 
+            self.printf('')
+
             self.printf('options:')
             for name,valu in sorted(resp.get('options').items()):
                 self.printf('    %s = %s' % (name,valu))
 
+            self.printf('')
+
             self.printf('limits:')
             for name,valu in sorted(resp.get('limits').items()):
                 self.printf('    %s = %s' % (name,valu))
+
+            self.printf('')
 
         def nodevalu(t):
             return repr( t[1].get( t[1].get('tufo:form') ) )
@@ -59,7 +65,7 @@ class AskCmd(s_cli.Cmd):
         nodes = list(sorted( resp.get('data'), key=nodevalu))
 
         if len(nodes) == 0:
-            self.printf('(no results)')
+            self.printf('(0 results)')
             return
 
         forms = set([ node[1].get('tufo:form') for node in nodes ])
@@ -70,11 +76,12 @@ class AskCmd(s_cli.Cmd):
             form = node[1].get('tufo:form')
             valu = node[1].get(form)
 
-            tags = s_tufo.tags(node)
+            tags = sorted(s_tufo.tags(node,leaf=True))
+            tags = [ '#'+tag for tag in tags ]
 
             # FIXME local typelib and datamodel
             disp = core.getPropRepr(form,valu)
-            self.printf('%s = %s - %s' % (form.ljust(fsize),disp,','.join(tags)))
+            self.printf('%s = %s - %s' % (form.ljust(fsize),disp,' '.join(tags)))
             if opts.get('props'):
                 pref = form + ':'
                 flen = len(form)
@@ -82,6 +89,8 @@ class AskCmd(s_cli.Cmd):
                     valu = node[1].get(prop)
                     disp = core.getPropRepr(prop,valu)
                     self.printf('    %s = %s' % (prop[flen:],disp))
+
+        self.printf('(%d results)' % (len(nodes),))
 
         return resp
 
@@ -103,6 +112,7 @@ class AddNodeCmd(s_cli.Cmd):
 
     _cmd_name = 'addnode'
     _cmd_syntax = (
+        ('--tags',{'type':'valu'}),
         ('prop',{'type':'valu'}),
         ('valu',{'type':'valu'}),
         ('props',{'type':'kwlist'}),
@@ -116,12 +126,21 @@ class AddNodeCmd(s_cli.Cmd):
             self.printf(self.__doc__)
             return
 
+        tags = ()
+
+        tstr = opts.get('tags')
+        if tstr != None:
+            tags = tstr.split(',')
+
         kwlist = opts.get('props')
         props = dict( opts.get('props') )
 
         core = self.getCmdItem()
 
         node = core.formTufoByFrob(prop,valu,**props)
+        if tags:
+            node = core.addTufoTags(node,tags)
+
         self.printf('formed: %r' % (node,))
 
 class AddTagCmd(s_cli.Cmd):
