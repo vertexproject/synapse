@@ -1,4 +1,5 @@
 import synapse.cortex as s_cortex
+import synapse.cores.common as s_common
 
 from synapse.tests.common import *
 
@@ -128,3 +129,32 @@ class StormTest(SynTest):
 
             self.eq( len(core.eval('inet:dns:a=foo.com/1.2.3.4 refs(out)')), 3 )
             self.eq( len(core.eval('inet:dns:a=foo.com/1.2.3.4 refs(out,limit=1)')), 2 )
+
+    def test_storm_tag_query(self):
+        # Ensure that non-glob tag filters operate as expected.
+        with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+            node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
+            node2 = core.formTufoByProp('inet:dns:a', 'vertex.vis/5.6.7.8')
+            node3 = core.formTufoByProp('inet:dns:a', 'vertex.link/5.6.7.8')
+
+            core.addTufoTags(node1, ['aka.foo.bar.baz', 'aka.duck.quack.loud', 'src.clowntown'])
+            core.addTufoTags(node2, ['aka.foo.duck.baz', 'aka.duck.quack.loud', 'src.clowntown'])
+            core.addTufoTags(node3, ['aka.foo.bar.knight', 'aka.duck.sound.loud', 'src.clowntown'])
+
+            nodes = core.eval('inet:dns:a +#src.clowntown')
+            self.eq(len(nodes), 3)
+
+            nodes = core.eval('inet:dns:a +#src')
+            self.eq(len(nodes), 3)
+
+            nodes = core.eval('inet:dns:a +#aka.duck.quack')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('inet:dns:a +#aka.foo.bar.knight')
+            self.eq(len(nodes), 1)
+
+            nodes = core.eval('inet:dns:a +#src.internet')
+            self.eq(len(nodes), 0)
+
+            nodes = core.eval('inet:dns:a -#aka.foo.bar')
+            self.eq(len(nodes), 1)
