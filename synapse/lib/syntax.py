@@ -54,7 +54,7 @@ def is_literal(text,off):
 
 def parse_literal(text, off,trim=True):
     if text[off] == '(':
-        return parse_list(text,off,trim=trim)
+        return parse_cmd_list(text,off,trim=trim)
 
     if text[off] == '"':
         return parse_string(text,off,trim=trim)
@@ -96,7 +96,7 @@ def isquote(text,off):
 
 def parse_cmd_list(text,off=0,trim=True):
     '''
-    Parse a list (likely for comp type ) coming from a command line input.
+    Parse a list (likely for comp type) coming from a command line input.
 
     The string elements within the list may optionally be quoted.
     '''
@@ -187,6 +187,19 @@ def parse_macro_filt(text,off=0,trim=True, mode='must'):
         tag,off = nom(text,off+1,varset,trim=True)
         oper = ('filt',{'cmp':'tag','mode':mode,'valu':tag})
         return oper,off
+
+    # check for non-macro syntax
+    name,xoff = nom(text,off,varset)
+    _,xoff = nom(text,xoff,whites)
+    if nextchar(text,xoff,'('):
+        inst,off = parse_oper(text,off)
+
+        opfo = {'cmp':inst[0],'mode':mode}
+
+        opfo['args'] = inst[1].get('args',())
+        opfo['kwlist'] = inst[1].get('kwlist',())
+
+        return ('filt',opfo),off
 
     ques,off = parse_ques(text,off,trim=trim)
     ques['mode'] = mode
@@ -340,12 +353,14 @@ def parse_ques(text,off=0,trim=True):
             if text[off] != '=':
                 raise SyntaxError(text=text, off=off, mesg='expected equals for by syntax')
 
-            ques['valu'],off = parse_oarg(text,off+1)
+            #ques['valu'],off = parse_oarg(text,off+1)
+            ques['valu'],off = parse_macro_valu(text,off+1)
             return ques,off
 
         if text[off] == '=':
             ques['cmp'] = 'eq'
-            ques['valu'],off = parse_oarg(text,off+1)
+            #ques['valu'],off = parse_oarg(text,off+1)
+            ques['valu'],off = parse_macro_valu(text,off+1)
             break
 
         # TODO: handle "by" syntax
@@ -361,6 +376,20 @@ def parse_ques(text,off=0,trim=True):
         break
 
     return ques,off
+
+def parse_macro_valu(text,off=0):
+    '''
+    Special syntax for the right side of equals in a macro
+    '''
+    if nextchar(text,off,'('):
+        return parse_cmd_list(text,off)
+
+    if isquote(text,off):
+        return parse_string(text,off)
+
+    # since it's not quoted, we can assume we are white
+    # whit space bound ( only during macro syntax )
+    return meh(text,off,whites)
 
 def parse_when(text,off,trim=True):
     whenstr,off = nom(text,off,whenset)
