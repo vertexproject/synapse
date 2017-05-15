@@ -526,17 +526,62 @@ class Runtime(Configable):
     def _cmprCtorTag(self, oper):
         tag = self._reqOperArg(oper,'valu')
 
-        props = {}
-        def cmpr(tufo):
+        glob_single_magic = '.*.'
+        glob_single_sentinal = '.SYN_SINGLE_SENTINAL.'
+        glob_single_sentinal_replace = 'SYN_SINGLE_SENTINAL'
+        glob_multi_magic = '.**.'
+        glob_multi_sentinal = '.SYN_MULTI_SENTINAL.'
+        glob_multi_sentinal_replace = 'SYN_MULTI_SENTINAL'
+        glob_re_single = '[^\.]+?'
+        glob_re_multi = '.+'
+
+        glob_props = collections.defaultdict(set)
+        reg_props = {}
+
+        if glob_single_magic in tag or glob_multi_magic in tag:
+            # Prep the tag regex
+            _tag = tag.lower()
+            while glob_single_magic in _tag:
+                _tag = _tag.replace(glob_single_magic, glob_single_sentinal)
+            while glob_multi_magic in _tag:
+                _tag = _tag.replace(glob_multi_magic, glob_multi_sentinal)
+            # Escape and anchor
+            _tag = re.escape(_tag)
+            _tag = _tag + '$'
+            # Substitute in regex values
+            tag_regex = _tag.replace(glob_single_sentinal_replace, glob_re_single)
+            tag_regex = tag_regex.replace(glob_multi_sentinal_replace, glob_re_multi)
+
+        def glob_cmpr(tufo):
+            form = tufo[1].get('tufo:form')
+            # Check cached props first
+            fprops = glob_props.get(form, ())
+            for prop in fprops:
+                if prop in tufo[1]:
+                    return True
+            # Now search for matching tags on the tufo
+            form_prefix = '*|%s|' % form
+            full_regex = re.escape(form_prefix) + tag_regex
+            form_props = [_prop for _prop in tufo[1].keys() if _prop.startswith(form_prefix)]
+            valid_props = [_prop for _prop in form_props if re.search(full_regex, _prop, re.I)]
+            # Cache valid props & return appropriate bool
+            if valid_props:
+                [glob_props[form].add(prop) for prop in valid_props]
+                return True
+            return False
+
+        def reg_cmpr(tufo):
             form = tufo[1].get('tufo:form')
 
-            prop = props.get(form)
+            prop = reg_props.get(form)
             if prop == None:
-                props[form] = prop = '*|%s|%s' % (form,tag)
+                prop = reg_props[form] = '*|%s|%s' % (form,tag)
 
             return tufo[1].get(prop) != None
 
-        return cmpr
+        if glob_single_magic in tag or glob_multi_magic in tag:
+            return glob_cmpr
+        return reg_cmpr
 
     def _cmprCtorSeen(self, oper):
 

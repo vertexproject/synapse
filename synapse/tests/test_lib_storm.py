@@ -158,3 +158,65 @@ class StormTest(SynTest):
 
             nodes = core.eval('inet:dns:a -#aka.foo.bar')
             self.eq(len(nodes), 1)
+
+    def test_storm_tag_glob(self):
+        # Ensure that glob operators with tag filters operate properly.
+        with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+            node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
+            node2 = core.formTufoByProp('inet:dns:a', 'vertex.vis/5.6.7.8')
+            node3 = core.formTufoByProp('inet:dns:a', 'vertex.link/5.6.7.8')
+            node4 = core.formTufoByProp('inet:dns:a', 'clowntown.link/10.11.12.13')
+
+            core.addTufoTags(node1, ['aka.bar.baz',
+                                     'aka.duck.quack.loud',
+                                     'src.clowntown',
+                                     'loc.milkyway.galactic_arm_a.sol.earth.us.ca.san_francisco'])
+            core.addTufoTags(node2, ['aka.duck.baz',
+                                     'aka.duck.quack.loud',
+                                     'src.clowntown',
+                                     'loc.milkyway.galactic_arm_a.sol.earth.us.va.san_francisco'])
+            core.addTufoTags(node3, ['aka.bar.knight',
+                                     'aka.duck.sound.loud',
+                                     'src.clowntown',
+                                     'loc.milkyway.galactic_arm_a.sol.earth.us.nv.perfection'])
+            core.addTufoTags(node4, ['aka.bar.knightdark',
+                                     'aka.duck.sound.loud',
+                                     'src.clowntown',
+                                     'loc.milkyway.galactic_arm_a.sol.mars.us.tx.perfection'])
+
+
+            nodes = core.eval('inet:dns:a +#aka.*.baz')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('inet:dns:a +#aka.duck.*.loud')
+            self.eq(len(nodes), 4)
+
+            nodes = core.eval('inet:dns:a +#aka.*.sound.loud')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('inet:dns:a -#aka.*.baz')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('inet:dns:a +#aka.*.loud')
+            self.eq(len(nodes), 0)
+
+            nodes = core.eval('inet:dns:a +#aka.*.*.loud')
+            self.eq(len(nodes), 4)
+
+            nodes = core.eval('inet:dns:a +#aka.*.*.*.loud')
+            self.eq(len(nodes), 0)
+
+            nodes = core.eval('inet:dns:a +#aka.*.knight')
+            self.eq(len(nodes), 1)
+
+            nodes = core.eval('inet:dns:a +#aka.**.loud')
+            self.eq(len(nodes), 4)
+
+            nodes = core.eval('inet:dns:a +#loc.**.perfection')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('inet:dns:a +#loc.**.sol.*.us')
+            self.eq(len(nodes), 4)
+
+            nodes = core.eval('inet:dns:a +#loc.*.galactic_arm_a.**.us.*.perfection')
+            self.eq(len(nodes), 2)
