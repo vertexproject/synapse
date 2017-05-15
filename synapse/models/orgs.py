@@ -14,6 +14,8 @@ def getDataModel():
             ('ou:sic',{'subof':'int','doc':'Standard Industrial Classification Code'}),
             ('ou:naics',{'subof':'int','doc':'North American Industry Classification System'}),
 
+            ('ou:suborg', {'subof':'comp','fields':'org,ou:org|sub,ou:org','doc':'An org which owns a sub org'}),
+
             ('ou:hasfile',{'subof':'comp','fields':'org,ou:org|file,file:bytes'}),
             ('ou:hasfqdn',{'subof':'comp','fields':'org,ou:org|fqdn,inet:fqdn'}),
             ('ou:hasipv4',{'subof':'comp','fields':'org,ou:org|ipv4,inet:ipv4'}),
@@ -36,6 +38,15 @@ def getDataModel():
                 ('naics',{'ptype':'ou:naics'}),
                 ('us:cage',{'ptype':'gov:us:cage'}),
                 ('url',{'ptype':'inet:url'}),
+            ]),
+
+            ('ou:suborg',{},[
+                ('org',{'ptype':'ou:org','doc':'The org which owns sub'}),
+                ('sub',{'ptype':'ou:org','doc':'The the sub which is owned by org'}),
+                ('perc',{'ptype':'int','doc':'The optional percentage of sub which is owned by org'}),
+                ('current',{'ptype':'bool','defval':1,'doc':'Is the suborg relationship still current'}),
+                ('seen:min',{'ptype':'time:min','doc':'The optional time the suborg relationship began'}),
+                ('seen:max',{'ptype':'time:max','doc':'The optional time the suborg relationship ended'}),
             ]),
 
             ('ou:user',{},[
