@@ -5,6 +5,7 @@ import collections
 
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
 import synapse.lib.threads as s_threads
@@ -202,6 +203,8 @@ class Runtime(Configable):
         self.setCmprCtor('or', self._cmprCtorOr )
         self.setCmprCtor('and', self._cmprCtorAnd )
         self.setCmprCtor('tag', self._cmprCtorTag )
+        self.setCmprCtor('seen', self._cmprCtorSeen)
+        self.setCmprCtor('range', self._cmprCtorRange)
 
         self.setCmprCtor('in', self._cmprCtorIn )
         self.setCmprCtor('re', self._cmprCtorRe )
@@ -223,6 +226,8 @@ class Runtime(Configable):
         self.setOperFunc('deltag', self._stormOperDelTag)
         self.setOperFunc('nexttag', self._stormOperNextSeq)
         self.setOperFunc('setprop', self._stormOperSetProp)
+
+        self.setOperFunc('addxref', self._stormOperAddXref)
 
     def getStormCore(self, name=None):
         '''
@@ -514,6 +519,74 @@ class Runtime(Configable):
 
         return cmpr
 
+    def _cmprCtorSeen(self, oper):
+
+        args = [ str(v) for v in oper[1].get('args') ]
+
+        core = self.getStormCore()
+
+        vals = [ core.getTypeNorm('time',t)[0] for t in args ]
+
+        seenprops = {}
+        def getseen(form):
+            stup = seenprops.get(form)
+            if stup == None:
+                stup = seenprops[form] = (form+':seen:min',form+':seen:max')
+            return stup
+
+        def cmpr(tufo):
+
+            form = tufo[1].get('tufo:form')
+
+            minprop,maxprop = getseen(form)
+
+            smin = tufo[1].get(minprop)
+            smax = tufo[1].get(maxprop)
+
+            if smin == None or smax == None:
+                return False
+
+            for valu in vals:
+                if valu >= smin and valu <= smax:
+                    return True
+
+        return cmpr
+
+    def _cmprCtorRange(self, oper):
+
+        prop = self._reqOperArg(oper,'prop')
+        valu = self._reqOperArg(oper,'valu')
+
+        #TODO unified syntax plumbing with in-band help
+
+        core = self.getStormCore()
+        isrel = prop.startswith(':')
+
+        def initMinMax(key):
+            xmin,_ = core.getPropNorm(key,valu[0])
+            xmax,_ = core.getPropNorm(key,valu[1])
+            return int(xmin),int(xmax)
+
+        norms = s_cache.KeyCache( initMinMax )
+
+        def cmpr(tufo):
+
+            full = prop
+            if isrel:
+                form = tufo[1].get('tufo:form')
+                full = form + prop
+
+            valu = tufo[1].get(full)
+            if valu == None:
+                return False
+
+            minval,maxval = norms.get(full)
+
+            return valu >= minval and valu <= maxval
+
+        return cmpr
+
+
     def _stormOperAnd(self, query, oper):
         funcs = [ self.getCmprFunc(op) for op in oper[1].get('args') ]
         for tufo in query.take():
@@ -648,6 +721,22 @@ class Runtime(Configable):
         vals = list({ t[1].get(srcp) for t in query.data() if t != None })
         for tufo in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit') ):
             query.add(tufo)
+
+    def _stormOperAddXref(self, query, oper):
+
+        args = oper[1].get('args')
+        if len(args) != 3:
+            raise SyntaxError('addxref(<type>,<form>,<valu>)')
+
+        xref,form,valu = args
+
+        core = self.getStormCore()
+
+        # TODO clearer error handling
+        for node in query.take():
+            sorc = node[1].get( node[1].get('tufo:form') )
+            node = core.formTufoByProp(xref,(sorc,form,valu))
+            query.add(node)
 
     def _stormOperSetProp(self, query, oper):
         args = oper[1].get('args')
