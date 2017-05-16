@@ -248,6 +248,16 @@ class Runtime(Configable):
 
         self.setOperFunc('addxref', self._stormOperAddXref)
 
+        # Glob helpers
+        self._rt_glob_single_magic = '.*.'
+        self._rt_glob_single_sentinal = '.SYNSINGLESENTINAL.'
+        self._rt_glob_single_sentinal_replace = 'SYNSINGLESENTINAL'
+        self._rt_glob_multi_magic = '.**.'
+        self._rt_glob_multi_sentinal = '.SYNMULTISENTINAL.'
+        self._rt_glob_multi_sentinal_replace = 'SYNMULTISENTINAL'
+        self._rt_glob_re_single = '[^\.]+?'
+        self._rt_glob_re_multi = '.+'
+
     def getStormCore(self, name=None):
         '''
         Return the (optionally named) cortex for use in direct storm
@@ -525,32 +535,22 @@ class Runtime(Configable):
 
     def _cmprCtorTag(self, oper):
         tag = self._reqOperArg(oper,'valu')
-
-        glob_single_magic = '.*.'
-        glob_single_sentinal = '.SYN_SINGLE_SENTINAL.'
-        glob_single_sentinal_replace = 'SYN_SINGLE_SENTINAL'
-        glob_multi_magic = '.**.'
-        glob_multi_sentinal = '.SYN_MULTI_SENTINAL.'
-        glob_multi_sentinal_replace = 'SYN_MULTI_SENTINAL'
-        glob_re_single = '[^\.]+?'
-        glob_re_multi = '.+'
-
         glob_props = collections.defaultdict(set)
         reg_props = {}
 
-        if glob_single_magic in tag or glob_multi_magic in tag:
+        if self._rt_glob_single_magic in tag or self._rt_glob_multi_magic in tag:
             # Prep the tag regex
             _tag = tag.lower()
-            while glob_single_magic in _tag:
-                _tag = _tag.replace(glob_single_magic, glob_single_sentinal)
-            while glob_multi_magic in _tag:
-                _tag = _tag.replace(glob_multi_magic, glob_multi_sentinal)
+            while self._rt_glob_single_magic in _tag:
+                _tag = _tag.replace(self._rt_glob_single_magic, self._rt_glob_single_sentinal)
+            while self._rt_glob_multi_magic in _tag:
+                _tag = _tag.replace(self._rt_glob_multi_magic, self._rt_glob_multi_sentinal)
             # Escape and anchor
             _tag = re.escape(_tag)
             _tag = _tag + '$'
             # Substitute in regex values
-            tag_regex = _tag.replace(glob_single_sentinal_replace, glob_re_single)
-            tag_regex = tag_regex.replace(glob_multi_sentinal_replace, glob_re_multi)
+            tag_regex = _tag.replace(self._rt_glob_single_sentinal_replace, self._rt_glob_re_single)
+            tag_regex = tag_regex.replace(self._rt_glob_multi_sentinal_replace, self._rt_glob_re_multi)
 
         def glob_cmpr(tufo):
             form = tufo[1].get('tufo:form')
@@ -579,7 +579,7 @@ class Runtime(Configable):
 
             return tufo[1].get(prop) != None
 
-        if glob_single_magic in tag or glob_multi_magic in tag:
+        if self._rt_glob_single_magic in tag or self._rt_glob_multi_magic in tag:
             return glob_cmpr
         return reg_cmpr
 
