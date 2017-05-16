@@ -185,7 +185,6 @@ def parse_macro_filt(text,off=0,trim=True, mode='must'):
         _,off = nom(text,off,whites)
 
     # special + #tag (without prop) based filter syntax
-    # XXX This is where we are not getting the complete globbed text.
     if nextchar(text,off,'#'):
         _,off = nom(text,off,whites)
         tag,off = nom(text,off+1,starset,trim=True)
