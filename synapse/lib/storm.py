@@ -249,11 +249,12 @@ class Runtime(Configable):
         self.setOperFunc('addxref', self._stormOperAddXref)
 
         # Glob helpers
-        self._rt_regexcache = s_cache.KeyCache(re.compile)
+        self._rt_regexcache = s_cache.FixedCache(1024, re.compile)
         self._rt_glob_smark = '*'
         self._rt_glob_mmark = '**'
         self._rt_glob_sre = '[^\.]+?'
         self._rt_glob_mre = '.+'
+        self._rt_glob_tag_cache = s_cache.FixedCache(1012, self._cmpGlobParts)
 
     def getStormCore(self, name=None):
         '''
@@ -530,31 +531,30 @@ class Runtime(Configable):
             return all([ func(tufo) for func in funcs ])
         return cmpr
 
+    def _cmpGlobParts(self, s, sep='.'):
+        parts = s.split(sep)
+        parts = [p.replace(self._rt_glob_mmark, self._rt_glob_mre) for p in parts]
+        parts = [p.replace(self._rt_glob_smark, self._rt_glob_sre) for p in parts]
+        regex = '\{}'.format(sep).join(parts)
+        return regex + '$'
+
     def _cmprCtorTag(self, oper):
         tag = self._reqOperArg(oper,'valu')
         reg_props = {}
 
         tag_parts = tag.lower().split('.')
         if self._rt_glob_smark in tag_parts or self._rt_glob_mmark in tag_parts:
-            glob_props = collections.defaultdict(set)
-            tag_parts = [p.replace(self._rt_glob_mmark, self._rt_glob_mre) for p in tag_parts]
-            tag_parts = [p.replace(self._rt_glob_smark, self._rt_glob_sre) for p in tag_parts]
-            tag_regex = '\.'.join(tag_parts)
-            tag_regex = tag_regex + '$'
-            tag_re_obj = self._rt_regexcache[tag_regex]
+            tag_regex = self._rt_glob_tag_cache.get(tag)
+            tag_re_obj = self._rt_regexcache.get(tag_regex)
+
+            def getIsHit(prop):
+                _tag = prop.split('|', 2)[2]
+                return tag_re_obj.search(_tag)
+
+            glob_props = s_cache.KeyCache(getIsHit)
 
             def glob_cmpr(tufo):
-                form = tufo[1].get('tufo:form')
-                # Check cached props first
-                if any((p in tufo[1] for p in glob_props.get(form, ()))):
-                    return True
-                # Now search for matching tags on the tufo
-                valid_props = [p for p in tufo[1] if p.startswith('*|') and tag_re_obj.search(p.split('|', 2)[2])]
-                # Cache valid props & return appropriate bool
-                if valid_props:
-                    [glob_props[form].add(prop) for prop in valid_props]
-                    return True
-                return False
+                return any((glob_props.get(p) for p in tufo[1] if p.startswith('*|')))
 
             return glob_cmpr
 
