@@ -146,21 +146,31 @@ def addFormat(name, fn, opts):
     fmtyielders[name] = fn
     fmtopts[name] = opts
 
-def iterdata(fd,**opts):
+def iterdata(fd, close_fd=True, **opts):
     '''
     Iterate through the data provided by a file like object.
 
     Optional parameters may be used to control how the data
     is deserialized.
 
-    Example:
+    Examples:
+        The following example show use of the iterdata function.::
 
-        with open('foo.csv','rb') as fd:
+            with open('foo.csv','rb') as fd:
+                for row in iterdata(fd, format='csv', encoding='utf8'):
+                    dostuff(row)
 
-            for row in iterdata(fd, format='csv', encoding='utf8'):
+    Args:
+        fd (file) : File like object to iterate over.
+        close_fd (bool) : Default behavior is to close the fd object.
+                          If this is not true, the fd will not be closed.
+        **opts (dict): Ingest open directive.  Causes the data in the fd
+                       to be parsed according to the 'format' key and any
+                       additional arguments.
 
-                dostuff(row)
-
+    Yields:
+        An item to process. The type of the item is dependent on the format
+        parameters.
     '''
     fmt = opts.get('format','lines')
     fopts = fmtopts.get(fmt,{})
@@ -180,7 +190,8 @@ def iterdata(fd,**opts):
     for item in fmtr(fd,opts):
         yield item
 
-    fd.close()
+    if close_fd:
+        fd.close()
 
 class IngestApi:
     '''
@@ -747,7 +758,7 @@ def loadfile(*paths):
     return gest
 
 
-def register_ingest(core, gest, evtname):
+def register_ingest(core, gest, evtname, ret_func=False):
     '''
     Register an ingest class with a cortex eventbus with a given name.
     When events are fired, they are expected to have the argument "data" which 
@@ -756,6 +767,7 @@ def register_ingest(core, gest, evtname):
     :param core: Cortex to register the Ingest with 
     :param gest: Ingest to register
     :param evtname: Event name to register the ingest with.
+    :param ret_func:  Bool, if true, return the ingest function.
     '''
     def ingest(args):
         name, kwargs = args
@@ -764,3 +776,6 @@ def register_ingest(core, gest, evtname):
             gest.ingest(core, data=data)
 
     core.on(evtname, ingest)
+
+    if ret_func:
+        return ingest

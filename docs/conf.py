@@ -37,8 +37,12 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
+    #'sphinx.ext.napoleon',  # TODO - Uncomment this line when we are ready to cut over style types.
 ]
 
+# # Napoleon settings # TODO - Uncomment these napoleon settings when we are ready to cover over style types.
+# napoleon_google_docstring = True
+# napoleon_numpy_docstring = False
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -57,7 +61,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'synapse'
-copyright = '2016 visi@vertex.link'
+copyright = '2017 visi@vertex.link'
 author = 'visi'
 
 # The version info for the project you're documenting, acts as replacement for
