@@ -389,7 +389,14 @@ def parse_macro_valu(text,off=0):
 
     # since it's not quoted, we can assume we are white
     # whit space bound ( only during macro syntax )
-    return meh(text,off,whites)
+    valu,off = meh(text,off,whites)
+    if valu.isdigit():
+        return int(valu),off
+
+    if valu.startswith('0x') and valu[2:].isdigit():
+        return int(valu,0),off
+
+    return valu,off
 
 def parse_when(text,off,trim=True):
     whenstr,off = nom(text,off,whenset)

@@ -146,7 +146,7 @@ class SynCmdCoreTest(SynTest):
             core.formTufoByProp('inet:email','visi@vertex.link')
             resp = cmdr.runCmdLine('ask inet:email="visi@vertex.link"')
             self.eq( len(resp['data']), 1 )
-            self.eq( str(outp).strip(), 'visi@vertex.link -')
+            self.ne( str(outp).strip().find('visi@vertex.link'), -1 )
 
     def test_cmds_ask_debug(self):
         with self.getDmonCore() as core:
