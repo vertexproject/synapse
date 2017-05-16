@@ -249,6 +249,7 @@ class Runtime(Configable):
         self.setOperFunc('addxref', self._stormOperAddXref)
 
         # Glob helpers
+        self._rt_regexcache = s_cache.KeyCache(re.compile)
         self._rt_glob_smark = '*'
         self._rt_glob_mmark = '**'
         self._rt_glob_sre = '[^\.]+?'
@@ -540,6 +541,7 @@ class Runtime(Configable):
             tag_parts = [p.replace(self._rt_glob_smark, self._rt_glob_sre) for p in tag_parts]
             tag_regex = '\.'.join(tag_parts)
             tag_regex = tag_regex + '$'
+            tag_re_obj = self._rt_regexcache[tag_regex]
 
             def glob_cmpr(tufo):
                 form = tufo[1].get('tufo:form')
@@ -549,10 +551,7 @@ class Runtime(Configable):
                     if prop in tufo[1]:
                         return True
                 # Now search for matching tags on the tufo
-                form_prefix = '*|%s|' % form
-                full_regex = re.escape(form_prefix) + tag_regex
-                form_props = [_prop for _prop in tufo[1].keys() if _prop.startswith(form_prefix)]
-                valid_props = [_prop for _prop in form_props if re.search(full_regex, _prop, re.I)]
+                valid_props = [_prop for _prop in tufo[1] if _prop.startswith('*|') and tag_re_obj.search(_prop)]
                 # Cache valid props & return appropriate bool
                 if valid_props:
                     [glob_props[form].add(prop) for prop in valid_props]

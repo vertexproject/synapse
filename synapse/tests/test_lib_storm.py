@@ -184,7 +184,6 @@ class StormTest(SynTest):
                                      'src.clowntown',
                                      'loc.milkyway.galactic_arm_a.sol.mars.us.tx.perfection'])
 
-
             nodes = core.eval('inet:dns:a +#aka.*.baz')
             self.eq(len(nodes), 2)
 
