@@ -136,3 +136,18 @@ class StormTest(SynTest):
             self.none( node[1].get('*|inet:fqdn|foo') )
             self.none( node[1].get('*|inet:fqdn|foo.bar') )
             self.none( node[1].get('*|inet:fqdn|baz.faz') )
+
+    def test_storm_refs(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce',1)
+
+            iden = guid()
+            core.formTufoByProp('inet:dns:a','foo.com/1.2.3.4')
+            core.formTufoByProp('inet:dns:a','bar.com/1.2.3.4')
+
+            self.eq( len(core.eval('inet:ipv4=1.2.3.4 refs(in)')), 3 )
+            self.eq( len(core.eval('inet:ipv4=1.2.3.4 refs(in,limit=1)')), 2 )
+
+            self.eq( len(core.eval('inet:dns:a=foo.com/1.2.3.4 refs(out)')), 3 )
+            self.eq( len(core.eval('inet:dns:a=foo.com/1.2.3.4 refs(out,limit=1)')), 2 )

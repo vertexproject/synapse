@@ -15,6 +15,25 @@ from synapse.lib.config import Configable
 
 logger = logging.getLogger(__name__)
 
+class LimitHelp:
+
+    def __init__(self, limit):
+        self.limit = limit
+
+    def get(self):
+        return self.limit
+
+    def reached(self):
+        return self.limit != None and self.limit == 0
+
+    def dec(self, size=1):
+
+        if self.limit == None:
+            return False
+
+        self.limit = max(self.limit-size,0)
+        return self.limit == 0
+
 class OperWith:
 
     def __init__(self, query, oper):
@@ -219,8 +238,8 @@ class Runtime(Configable):
 
         self.setOperFunc('join', self._stormOperJoin)
         self.setOperFunc('lift', self._stormOperLift)
+        self.setOperFunc('refs', self._stormOperRefs)
         self.setOperFunc('pivot', self._stormOperPivot)
-        self.setOperFunc('expand', self._stormOperExpand)
         self.setOperFunc('alltag', self._stormOperAllTag)
         self.setOperFunc('addtag', self._stormOperAddTag)
         self.setOperFunc('deltag', self._stormOperDelTag)
@@ -738,6 +757,83 @@ class Runtime(Configable):
             node = core.formTufoByProp(xref,(sorc,form,valu))
             query.add(node)
 
+    def _stormOperRefs(self, query, oper):
+        args = oper[1].get('args')
+        opts = dict( oper[1].get('kwlist') )
+
+        #TODO opts.get('degrees')
+        limt = LimitHelp( opts.get('limit') )
+
+        core = self.getStormCore()
+
+        nodes = query.data()
+
+        #NOTE: we only actually want refs where type is form
+
+        done = set()
+        if not args or 'in' in args:
+
+            for node in nodes:
+
+                if limt.reached():
+                    break
+
+                form = node[1].get('tufo:form')
+                valu = node[1].get(form)
+
+                dkey = (form,valu)
+                if dkey in done:
+                    continue
+
+                done.add(dkey)
+
+                for prop,info in core.getPropsByType(form):
+
+                    pkey = (prop,valu)
+                    if pkey in done:
+                        continue
+
+                    done.add(pkey)
+
+                    news = core.getTufosByProp(prop,valu=valu, limit=limt.get())
+
+                    [ query.add(n) for n in news ]
+
+                    if limt.dec(len(news)):
+                        break
+
+        if not args or 'out' in args:
+
+            for node in nodes:
+
+                if limt.reached():
+                    break
+
+                form = node[1].get('tufo:form')
+                for prop,info in core.getSubProps(form):
+
+                    valu = node[1].get(prop)
+                    if valu == None:
+                        continue
+
+                    # ensure that the prop's type is also a form
+                    name = core.getPropTypeName(prop)
+                    if not core.isTufoForm(name):
+                        continue
+
+                    pkey = (prop,valu)
+                    if pkey in done:
+                        continue
+
+                    done.add(pkey)
+
+                    news = core.getTufosByProp(name,valu=valu,limit=limt.get())
+
+                    [ query.add(n) for n in news ]
+
+                    if limt.dec(len(news)):
+                        break
+
     def _stormOperSetProp(self, query, oper):
         args = oper[1].get('args')
         props = dict( oper[1].get('kwlist') )
@@ -771,47 +867,6 @@ class Runtime(Configable):
                 limit -= len(nodes)
                 if limit <= 0:
                     break
-
-    def _stormOperExpand(self, query, oper):
-
-        args = oper[1].get('args')
-        opts = dict(oper[1].get('kwlist'))
-
-        # total node lift limit
-        limit = opts.get('limit')
-
-        # how many degress of expansion?
-        degs = int(opts.get('degrees',1))
-
-        done = set()
-        todo = collections.deque([ (0,node) for node in query.data() ])
-
-        core = self.getStormCore()
-
-        while len(todo):
-
-            if limit != None and limit <= 0:
-                # TODO: plumb a way to communicate this in the result?
-                break
-
-            deg,node = todo.popleft()
-            if node[0] in done:
-                continue
-
-            done.add(node[0])
-            if deg >= degs:
-                continue
-
-            form = node[1].get('tufo:form')
-            valu = node[1].get(form)
-
-            nods = core.getTufosByPropType(form, valu, limit=limit)
-            for newn in nods:
-                query.add(newn)
-                todo.append( (deg+1, newn) )
-
-            if limit != None:
-                limit -= len(newn)
 
     def _stormOperAddTag(self, query, oper):
         tags = oper[1].get('args')
