@@ -353,13 +353,11 @@ def parse_ques(text,off=0,trim=True):
             if text[off] != '=':
                 raise SyntaxError(text=text, off=off, mesg='expected equals for by syntax')
 
-            #ques['valu'],off = parse_oarg(text,off+1)
             ques['valu'],off = parse_macro_valu(text,off+1)
             return ques,off
 
         if text[off] == '=':
             ques['cmp'] = 'eq'
-            #ques['valu'],off = parse_oarg(text,off+1)
             ques['valu'],off = parse_macro_valu(text,off+1)
             break
 
@@ -388,15 +386,8 @@ def parse_macro_valu(text,off=0):
         return parse_string(text,off)
 
     # since it's not quoted, we can assume we are white
-    # whit space bound ( only during macro syntax )
-    valu,off = meh(text,off,whites)
-    if valu.isdigit():
-        return int(valu),off
-
-    if valu.startswith('0x') and valu[2:].isdigit():
-        return int(valu,0),off
-
-    return valu,off
+    # space bound ( only during macro syntax )
+    return  meh(text,off,whites)
 
 def parse_when(text,off,trim=True):
     whenstr,off = nom(text,off,whenset)
