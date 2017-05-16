@@ -1,3 +1,5 @@
+import re
+
 import synapse.lib.sched as s_sched
 import synapse.lib.service as s_service
 
@@ -377,6 +379,17 @@ def parse_ques(text,off=0,trim=True):
 
     return ques,off
 
+hexnumre = re.compile(r'^0x[0-9a-fA-F]+$')
+def isint(text):
+
+    if text.isdigit():
+        return True
+
+    if hexnumre.match(text):
+        return True
+
+    return False
+
 def parse_macro_valu(text,off=0):
     '''
     Special syntax for the right side of equals in a macro
@@ -388,12 +401,9 @@ def parse_macro_valu(text,off=0):
         return parse_string(text,off)
 
     # since it's not quoted, we can assume we are white
-    # whit space bound ( only during macro syntax )
+    # space bound ( only during macro syntax )
     valu,off = meh(text,off,whites)
-    if valu.isdigit():
-        return int(valu),off
-
-    if valu.startswith('0x') and valu[2:].isdigit():
+    if isint(valu):
         return int(valu,0),off
 
     return valu,off
