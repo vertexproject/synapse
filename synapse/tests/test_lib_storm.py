@@ -221,8 +221,11 @@ class StormTest(SynTest):
             nodes = core.eval('inet:dns:a +#loc.*.galactic_arm_a.**.us.*.perfection')
             self.eq(len(nodes), 2)
 
-            nodes = core.eval('inet:dns:a +#*.baz')
+            nodes = core.eval('inet:dns:a +#**.baz')
             self.eq(len(nodes), 2)
 
-            nodes = core.eval('inet:dns:a +#*.mars')
+            nodes = core.eval('inet:dns:a +#**.mars')
             self.eq(len(nodes), 1)
+
+            nodes = core.eval('inet:dns:a -#**.mars.*.tx')
+            self.eq(len(nodes), 3)

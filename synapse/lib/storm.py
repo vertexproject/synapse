@@ -255,7 +255,7 @@ class Runtime(Configable):
         self._rt_glob_mmark = '.**.'
         self._rt_glob_msentinalbase = 'SYNMULTISENTINAL'
         self._rt_glob_msentinal = '.%s.' % self._rt_glob_msentinalbase
-        self._rt_glob_smmark = '*.'
+        self._rt_glob_smmark = '**.'
         self._rt_glob_smsentinalbase = 'SYNSTARTMULTISENTINAL'
         self._rt_glob_smsentinal = '%s.' % self._rt_glob_smsentinalbase
         self._rt_glob_sre = '[^\.]+?'
