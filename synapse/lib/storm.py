@@ -249,15 +249,8 @@ class Runtime(Configable):
         self.setOperFunc('addxref', self._stormOperAddXref)
 
         # Glob helpers
-        self._rt_glob_smark = '.*.'
-        self._rt_glob_ssentinalbase = 'SYNSINGLESENTINAL'
-        self._rt_glob_ssentinal = '.%s.' % self._rt_glob_ssentinalbase
-        self._rt_glob_mmark = '.**.'
-        self._rt_glob_msentinalbase = 'SYNMULTISENTINAL'
-        self._rt_glob_msentinal = '.%s.' % self._rt_glob_msentinalbase
-        self._rt_glob_smmark = '**.'
-        self._rt_glob_smsentinalbase = 'SYNSTARTMULTISENTINAL'
-        self._rt_glob_smsentinal = '%s.' % self._rt_glob_smsentinalbase
+        self._rt_glob_smark = '*'
+        self._rt_glob_mmark = '**'
         self._rt_glob_sre = '[^\.]+?'
         self._rt_glob_mre = '.+'
 
@@ -538,43 +531,35 @@ class Runtime(Configable):
 
     def _cmprCtorTag(self, oper):
         tag = self._reqOperArg(oper,'valu')
-        glob_props = collections.defaultdict(set)
         reg_props = {}
 
-        if tag.startswith(self._rt_glob_smmark) or self._rt_glob_smark in tag or self._rt_glob_mmark in tag:
-            # Prep the tag regex
-            _tag = tag.lower()
-            if _tag.startswith(self._rt_glob_smmark):
-                _tag = _tag.replace(self._rt_glob_smmark, self._rt_glob_smsentinal, 1)
-            while self._rt_glob_smark in _tag:
-                _tag = _tag.replace(self._rt_glob_smark, self._rt_glob_ssentinal)
-            while self._rt_glob_mmark in _tag:
-                _tag = _tag.replace(self._rt_glob_mmark, self._rt_glob_msentinal)
-            # Escape and anchor
-            _tag = re.escape(_tag)
-            _tag = _tag + '$'
-            # Substitute in regex values
-            tag_regex = _tag.replace(self._rt_glob_smsentinalbase, self._rt_glob_mre)
-            tag_regex = tag_regex.replace(self._rt_glob_ssentinalbase, self._rt_glob_sre)
-            tag_regex = tag_regex.replace(self._rt_glob_msentinalbase, self._rt_glob_mre)
+        tag_parts = tag.lower().split('.')
+        if self._rt_glob_smark in tag_parts or self._rt_glob_mmark in tag_parts:
+            glob_props = collections.defaultdict(set)
+            tag_parts = [p.replace(self._rt_glob_mmark, self._rt_glob_mre) for p in tag_parts]
+            tag_parts = [p.replace(self._rt_glob_smark, self._rt_glob_sre) for p in tag_parts]
+            tag_regex = '\.'.join(tag_parts)
+            tag_regex = tag_regex + '$'
 
-        def glob_cmpr(tufo):
-            form = tufo[1].get('tufo:form')
-            # Check cached props first
-            fprops = glob_props.get(form, ())
-            for prop in fprops:
-                if prop in tufo[1]:
+            def glob_cmpr(tufo):
+                form = tufo[1].get('tufo:form')
+                # Check cached props first
+                fprops = glob_props.get(form, ())
+                for prop in fprops:
+                    if prop in tufo[1]:
+                        return True
+                # Now search for matching tags on the tufo
+                form_prefix = '*|%s|' % form
+                full_regex = re.escape(form_prefix) + tag_regex
+                form_props = [_prop for _prop in tufo[1].keys() if _prop.startswith(form_prefix)]
+                valid_props = [_prop for _prop in form_props if re.search(full_regex, _prop, re.I)]
+                # Cache valid props & return appropriate bool
+                if valid_props:
+                    [glob_props[form].add(prop) for prop in valid_props]
                     return True
-            # Now search for matching tags on the tufo
-            form_prefix = '*|%s|' % form
-            full_regex = re.escape(form_prefix) + tag_regex
-            form_props = [_prop for _prop in tufo[1].keys() if _prop.startswith(form_prefix)]
-            valid_props = [_prop for _prop in form_props if re.search(full_regex, _prop, re.I)]
-            # Cache valid props & return appropriate bool
-            if valid_props:
-                [glob_props[form].add(prop) for prop in valid_props]
-                return True
-            return False
+                return False
+
+            return glob_cmpr
 
         def reg_cmpr(tufo):
             form = tufo[1].get('tufo:form')
@@ -585,8 +570,6 @@ class Runtime(Configable):
 
             return tufo[1].get(prop) != None
 
-        if tag.startswith(self._rt_glob_smmark) or self._rt_glob_smark in tag or self._rt_glob_mmark in tag:
-            return glob_cmpr
         return reg_cmpr
 
     def _cmprCtorSeen(self, oper):
