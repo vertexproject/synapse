@@ -264,7 +264,13 @@ def getDataModel():
 
                 ('file',{'ptype':'file:bytes','ro':1}),
 
+                ('name',{'ptype':'file:base','doc':'The basename of the file in the post'}),
+
                 ('posted',{'ptype':'time'}),
+
+                ('ipv4',{'ptype':'inet:ipv4','doc':'The source IPv4 address of the post.'}),
+                ('ipv6',{'ptype':'inet:ipv6','doc':'The source IPv6 address of the post.'}),
+
                 ('seen:min',{'ptype':'time:min'}),
                 ('seen:max',{'ptype':'time:max'}),
             ]),
