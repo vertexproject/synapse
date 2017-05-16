@@ -272,6 +272,18 @@ class DataModel(s_types.TypeLib):
                 continue
             self.subprops[prop].append(pdef)
 
+    def getPropsByType(self, name):
+        '''
+        Return a list of prop def tuples (name,info) for all props of the given type.
+
+        Example:
+
+            for prop,info in modl.getPropsByType('guid'):
+                dostuff()
+
+        '''
+        return self.propsbytype.get(name,())
+
     def _addPropGlob(self, form, prop, **info):
         prop = '%s:%s' % (form,prop)
         info['form'] = form

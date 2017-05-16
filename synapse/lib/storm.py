@@ -5,6 +5,7 @@ import collections
 
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
 import synapse.lib.threads as s_threads
@@ -13,6 +14,25 @@ from synapse.common import *
 from synapse.lib.config import Configable
 
 logger = logging.getLogger(__name__)
+
+class LimitHelp:
+
+    def __init__(self, limit):
+        self.limit = limit
+
+    def get(self):
+        return self.limit
+
+    def reached(self):
+        return self.limit != None and self.limit == 0
+
+    def dec(self, size=1):
+
+        if self.limit == None:
+            return False
+
+        self.limit = max(self.limit-size,0)
+        return self.limit == 0
 
 class OperWith:
 
@@ -36,7 +56,7 @@ class OperWith:
         }
 
         if exc != None:
-            info.update( excinfo(exc) )
+            info['excinfo'] = excinfo(exc)
             self.query.clear()
 
         self.query.log(**info)
@@ -202,6 +222,8 @@ class Runtime(Configable):
         self.setCmprCtor('or', self._cmprCtorOr )
         self.setCmprCtor('and', self._cmprCtorAnd )
         self.setCmprCtor('tag', self._cmprCtorTag )
+        self.setCmprCtor('seen', self._cmprCtorSeen)
+        self.setCmprCtor('range', self._cmprCtorRange)
 
         self.setCmprCtor('in', self._cmprCtorIn )
         self.setCmprCtor('re', self._cmprCtorRe )
@@ -216,11 +238,15 @@ class Runtime(Configable):
 
         self.setOperFunc('join', self._stormOperJoin)
         self.setOperFunc('lift', self._stormOperLift)
+        self.setOperFunc('refs', self._stormOperRefs)
         self.setOperFunc('pivot', self._stormOperPivot)
-        self.setOperFunc('addtag',self._stormOperAddTag)
-        self.setOperFunc('deltag',self._stormOperDelTag)
-        self.setOperFunc('nexttag',self._stormOperNextSeq)
-        self.setOperFunc('setprop',self._stormOperSetProp)
+        self.setOperFunc('alltag', self._stormOperAllTag)
+        self.setOperFunc('addtag', self._stormOperAddTag)
+        self.setOperFunc('deltag', self._stormOperDelTag)
+        self.setOperFunc('nexttag', self._stormOperNextSeq)
+        self.setOperFunc('setprop', self._stormOperSetProp)
+
+        self.setOperFunc('addxref', self._stormOperAddXref)
 
     def getStormCore(self, name=None):
         '''
@@ -452,10 +478,21 @@ class Runtime(Configable):
 
     def _cmprCtorRe(self, oper):
         prop = oper[1].get('prop')
+
+        isrel = prop.startswith(':')
         reobj = re.compile( oper[1].get('valu') )
 
         def cmpr(tufo):
-            return reobj.search(tufo[1].get(prop)) != None
+
+            full = prop
+            if isrel:
+                full = tufo[1].get('tufo:form') + prop
+
+            valu = tufo[1].get(full)
+            if valu == None:
+                return False
+
+            return reobj.search(valu) != None
 
         return cmpr
 
@@ -500,6 +537,74 @@ class Runtime(Configable):
             return tufo[1].get(prop) != None
 
         return cmpr
+
+    def _cmprCtorSeen(self, oper):
+
+        args = [ str(v) for v in oper[1].get('args') ]
+
+        core = self.getStormCore()
+
+        vals = [ core.getTypeNorm('time',t)[0] for t in args ]
+
+        seenprops = {}
+        def getseen(form):
+            stup = seenprops.get(form)
+            if stup == None:
+                stup = seenprops[form] = (form+':seen:min',form+':seen:max')
+            return stup
+
+        def cmpr(tufo):
+
+            form = tufo[1].get('tufo:form')
+
+            minprop,maxprop = getseen(form)
+
+            smin = tufo[1].get(minprop)
+            smax = tufo[1].get(maxprop)
+
+            if smin == None or smax == None:
+                return False
+
+            for valu in vals:
+                if valu >= smin and valu <= smax:
+                    return True
+
+        return cmpr
+
+    def _cmprCtorRange(self, oper):
+
+        prop = self._reqOperArg(oper,'prop')
+        valu = self._reqOperArg(oper,'valu')
+
+        #TODO unified syntax plumbing with in-band help
+
+        core = self.getStormCore()
+        isrel = prop.startswith(':')
+
+        def initMinMax(key):
+            xmin,_ = core.getPropNorm(key,valu[0])
+            xmax,_ = core.getPropNorm(key,valu[1])
+            return int(xmin),int(xmax)
+
+        norms = s_cache.KeyCache( initMinMax )
+
+        def cmpr(tufo):
+
+            full = prop
+            if isrel:
+                form = tufo[1].get('tufo:form')
+                full = form + prop
+
+            valu = tufo[1].get(full)
+            if valu == None:
+                return False
+
+            minval,maxval = norms.get(full)
+
+            return valu >= minval and valu <= maxval
+
+        return cmpr
+
 
     def _stormOperAnd(self, query, oper):
         funcs = [ self.getCmprFunc(op) for op in oper[1].get('args') ]
@@ -636,6 +741,99 @@ class Runtime(Configable):
         for tufo in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit') ):
             query.add(tufo)
 
+    def _stormOperAddXref(self, query, oper):
+
+        args = oper[1].get('args')
+        if len(args) != 3:
+            raise SyntaxError('addxref(<type>,<form>,<valu>)')
+
+        xref,form,valu = args
+
+        core = self.getStormCore()
+
+        # TODO clearer error handling
+        for node in query.take():
+            sorc = node[1].get( node[1].get('tufo:form') )
+            node = core.formTufoByProp(xref,(sorc,form,valu))
+            query.add(node)
+
+    def _stormOperRefs(self, query, oper):
+        args = oper[1].get('args')
+        opts = dict( oper[1].get('kwlist') )
+
+        #TODO opts.get('degrees')
+        limt = LimitHelp( opts.get('limit') )
+
+        core = self.getStormCore()
+
+        nodes = query.data()
+
+        #NOTE: we only actually want refs where type is form
+
+        done = set()
+        if not args or 'in' in args:
+
+            for node in nodes:
+
+                if limt.reached():
+                    break
+
+                form = node[1].get('tufo:form')
+                valu = node[1].get(form)
+
+                dkey = (form,valu)
+                if dkey in done:
+                    continue
+
+                done.add(dkey)
+
+                for prop,info in core.getPropsByType(form):
+
+                    pkey = (prop,valu)
+                    if pkey in done:
+                        continue
+
+                    done.add(pkey)
+
+                    news = core.getTufosByProp(prop,valu=valu, limit=limt.get())
+
+                    [ query.add(n) for n in news ]
+
+                    if limt.dec(len(news)):
+                        break
+
+        if not args or 'out' in args:
+
+            for node in nodes:
+
+                if limt.reached():
+                    break
+
+                form = node[1].get('tufo:form')
+                for prop,info in core.getSubProps(form):
+
+                    valu = node[1].get(prop)
+                    if valu == None:
+                        continue
+
+                    # ensure that the prop's type is also a form
+                    name = core.getPropTypeName(prop)
+                    if not core.isTufoForm(name):
+                        continue
+
+                    pkey = (prop,valu)
+                    if pkey in done:
+                        continue
+
+                    done.add(pkey)
+
+                    news = core.getTufosByProp(name,valu=valu,limit=limt.get())
+
+                    [ query.add(n) for n in news ]
+
+                    if limt.dec(len(news)):
+                        break
+
     def _stormOperSetProp(self, query, oper):
         args = oper[1].get('args')
         props = dict( oper[1].get('kwlist') )
@@ -643,6 +841,32 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         [ core.setTufoProps(node,**props) for node in query.data() ]
+
+    def _iterPropTags(self, props, tags):
+        for prop in props:
+            for tag in tags:
+                yield prop,tag
+
+    def _stormOperAllTag(self, query, oper):
+
+        tags = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        limit = opts.get('limit')
+
+        core = self.getStormCore()
+        forms = core.getTufoForms()
+
+        for form,tag in self._iterPropTags(forms,tags):
+            nodes = core.getTufosByTag(form,tag,limit=limit)
+
+            for node in nodes:
+                query.add(node)
+
+            if limit != None:
+                limit -= len(nodes)
+                if limit <= 0:
+                    break
 
     def _stormOperAddTag(self, query, oper):
         tags = oper[1].get('args')

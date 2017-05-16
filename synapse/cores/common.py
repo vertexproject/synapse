@@ -1465,13 +1465,16 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                 dostuff(tufo)
 
         '''
+        norm = None
         if valu != None:
-            valu,subs = self.getPropNorm(prop,valu)
+            norm,subs = self.getPropNorm(prop,valu)
+            if norm == None:
+                raise BadPropValu(prop=prop,valu=valu)
 
         if self.caching and mintime == None and maxtime == None:
-            return self._getTufosByCache(prop,valu,limit)
+            return self._getTufosByCache(prop,norm,limit)
 
-        return self._getTufosByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+        return self._getTufosByProp(prop, valu=norm, mintime=mintime, maxtime=maxtime, limit=limit)
 
     def _getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         rows = self.getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
@@ -1487,9 +1490,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                 dostuff(tufo)
 
         '''
-        if valu != None:
-            valu,_ = self.getPropFrob(prop,valu)
-
         return self.getTufosByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
 
     def getTufosByPropType(self, name, valu=None, mintime=None, maxtime=None, limit=None):
@@ -1533,6 +1533,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         '''
         with self.getCoreXact():
             [ self.addTufoTag(tufo,tag,asof=asof) for tag in tags ]
+            return tufo
 
     def addTufoTag(self, tufo, tag, asof=None):
         '''
@@ -2529,7 +2530,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
     # some helpers to allow *all* queries to be processed via getTufosBy()
     def _tufosByEq(self, prop, valu, limit=None):
-        valu,_ = self.getPropFrob(prop,valu)
         return self.getTufosByProp(prop,valu=valu,limit=limit)
 
     def _tufosByHas(self, prop, valu, limit=None):

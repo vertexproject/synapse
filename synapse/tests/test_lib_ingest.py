@@ -730,7 +730,7 @@ class IngTest(SynTest):
             info = {
                 "embed":[
                     {
-                        "props":{ "tld":1 },
+                        "props":{ "sfx":1 },
                         "nodes":[
                             ["inet:fqdn",[
                                 "com",
@@ -749,7 +749,7 @@ class IngTest(SynTest):
             self.nn( core.getTufoByProp('inet:fqdn','net') )
             self.nn( core.getTufoByProp('inet:fqdn','org') )
 
-            self.eq( 3, len(core.eval('inet:fqdn:tld=1')))
+            self.eq( 3, len(core.eval('inet:fqdn:sfx=1')))
 
     def test_ingest_embed_pernode_tagsprops(self):
         with s_cortex.openurl('ram://') as core:

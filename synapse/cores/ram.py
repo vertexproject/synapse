@@ -54,13 +54,20 @@ class Cortex(s_cores_common.Cortex):
         return self.getTufosByIdens([ r[0] for r in rows ])
 
     def _sizeByRange(self, prop, valu, limit=None):
-        return sum( 1 for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= valu[0] and r[2] < valu[1] )
+        minval = int(valu[0])
+        maxval = int(valu[1])
+        return sum( 1 for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= minval and r[2] < maxval )
 
     def _rowsByRange(self, prop, valu, limit=None):
+        minval = int(valu[0])
+        maxval = int(valu[1])
+
         # HACK: for speed
-        ret = [ r for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= valu[0] and r[2] < valu[1] ]
+        ret = [ r for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= minval and r[2] < maxval ]
+
         if limit != None:
             ret = ret[:limit]
+
         return ret
 
     def _sizeByGe(self, prop, valu, limit=None):

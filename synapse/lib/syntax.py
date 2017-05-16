@@ -1,3 +1,5 @@
+import re
+
 import synapse.lib.sched as s_sched
 import synapse.lib.service as s_service
 
@@ -54,7 +56,7 @@ def is_literal(text,off):
 
 def parse_literal(text, off,trim=True):
     if text[off] == '(':
-        return parse_list(text,off,trim=trim)
+        return parse_cmd_list(text,off,trim=trim)
 
     if text[off] == '"':
         return parse_string(text,off,trim=trim)
@@ -96,7 +98,7 @@ def isquote(text,off):
 
 def parse_cmd_list(text,off=0,trim=True):
     '''
-    Parse a list (likely for comp type ) coming from a command line input.
+    Parse a list (likely for comp type) coming from a command line input.
 
     The string elements within the list may optionally be quoted.
     '''
@@ -187,6 +189,19 @@ def parse_macro_filt(text,off=0,trim=True, mode='must'):
         tag,off = nom(text,off+1,varset,trim=True)
         oper = ('filt',{'cmp':'tag','mode':mode,'valu':tag})
         return oper,off
+
+    # check for non-macro syntax
+    name,xoff = nom(text,off,varset)
+    _,xoff = nom(text,xoff,whites)
+    if nextchar(text,xoff,'('):
+        inst,off = parse_oper(text,off)
+
+        opfo = {'cmp':inst[0],'mode':mode}
+
+        opfo['args'] = inst[1].get('args',())
+        opfo['kwlist'] = inst[1].get('kwlist',())
+
+        return ('filt',opfo),off
 
     ques,off = parse_ques(text,off,trim=trim)
     ques['mode'] = mode
@@ -340,12 +355,12 @@ def parse_ques(text,off=0,trim=True):
             if text[off] != '=':
                 raise SyntaxError(text=text, off=off, mesg='expected equals for by syntax')
 
-            ques['valu'],off = parse_oarg(text,off+1)
+            ques['valu'],off = parse_macro_valu(text,off+1)
             return ques,off
 
         if text[off] == '=':
             ques['cmp'] = 'eq'
-            ques['valu'],off = parse_oarg(text,off+1)
+            ques['valu'],off = parse_macro_valu(text,off+1)
             break
 
         # TODO: handle "by" syntax
@@ -361,6 +376,32 @@ def parse_ques(text,off=0,trim=True):
         break
 
     return ques,off
+
+def parse_macro_valu(text,off=0):
+    '''
+    Special syntax for the right side of equals in a macro
+    '''
+    if nextchar(text,off,'('):
+        return parse_cmd_list(text,off)
+
+    if isquote(text,off):
+        return parse_string(text,off)
+
+    # since it's not quoted, we can assume we are white
+    # space bound ( only during macro syntax )
+    valu,off =  meh(text,off,whites)
+
+    # for now, give it a shot as an int...  maybe eventually
+    # we'll be able to disable this completely, but for now
+    # lets maintain backward compatibility...
+    try:
+        # NOTE: this is ugly, but faster than parsing the string
+        valu = int(valu,0)
+    except ValueError as e:
+        pass
+
+    return valu,off
+
 
 def parse_when(text,off,trim=True):
     whenstr,off = nom(text,off,whenset)
@@ -468,7 +509,7 @@ def parse_oper(text, off=0):
 
         if nextchar(text,off,','):
             off += 1
-            
+
 def parse(text, off=0):
     '''
     Parse and return a set of instruction tufos.
@@ -489,6 +530,14 @@ def parse(text, off=0):
             _,off = nom(text,off+2,whites)
             name,off = nom(text,off,varset)
             inst = ('pivot',{'args':[name],'kwlist':[]})
+            ret.append(inst)
+            continue
+
+        # lift by tag alone macro
+        if nextstr(text,off,'#'):
+            _,off = nom(text,off+1,whites)
+            name,off = nom(text,off,varset)
+            inst = ('alltag',{'args':[name],'kwlist':[]})
             ret.append(inst)
             continue
 

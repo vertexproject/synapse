@@ -39,8 +39,23 @@ def props(tufo,pref=None):
     plen = len(pref)
     return { p[plen:]:v for (p,v) in tufo[1].items() if p.startswith(pref) }
 
-def tags(tufo):
-    return [ p.split('|',2)[2] for p in tufo[1].keys() if p.startswith('*') ]
+def tags(tufo,leaf=False):
+
+    fulltags = [ p.split('|',2)[2] for p in tufo[1].keys() if p.startswith('*|') ]
+    if not leaf:
+        return fulltags
+
+    # longest first
+    retn = []
+
+    # brute force rather than build a tree.  faster in small sets.
+    for size,tag in sorted([ (len(t),t) for t in fulltags ], reverse=True):
+        look = tag + '.'
+        if any([ r.startswith(look) for r in retn]):
+            continue
+        retn.append(tag)
+
+    return retn
 
 def equal(tuf0,tuf1):
     '''

@@ -53,6 +53,7 @@ def getDataModel():
             ('inet:netgroup',   {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|name,ou:name','doc':'A group within an online community'}),
 
             ('inet:netpost',    {'subof':'comp','fields':'netuser,inet:netuser|text,str:txt', 'doc':'A post made by a netuser'}),
+            ('inet:netfile',    {'subof':'comp','fields':'netuser,inet:netuser|file,file:bytes', 'doc':'A file posted by a netuser'}),
             ('inet:netmemb',    {'subof':'comp','fields':'user,inet:netuser|group,inet:netgroup'}),
             ('inet:follows',  {'subof':'comp','fields':'follower,inet:netuser|followee,inet:netuser'}),
 
@@ -189,8 +190,8 @@ def getDataModel():
                 ('realname',{'ptype':'ps:name'}),
                 ('email',{'ptype':'inet:email'}),
                 ('phone',{'ptype':'tel:phone'}),
-                ('signup',{'ptype':'time','defval':0,'doc':'The time the netuser account was registered'}),
-                ('signup:ipv4',{'ptype':'inet:ipv4','defval':0,'doc':'The original ipv4 address used to sign up for the account'}),
+                ('signup',{'ptype':'time','doc':'The time the netuser account was registered'}),
+                ('signup:ipv4',{'ptype':'inet:ipv4','doc':'The original ipv4 address used to sign up for the account'}),
                 ('passwd',{'ptype':'inet:passwd','doc':'The current passwd for the netuser account'}),
                 ('seen:min',{'ptype':'time:min'}),
                 ('seen:max',{'ptype':'time:max'}),
@@ -255,6 +256,25 @@ def getDataModel():
 
             ]),
 
+            ('inet:netfile',{},[
+
+                ('netuser',{'ptype':'inet:netuser','ro':1}),
+                ('netuser:site',{'ptype':'inet:fqdn','ro':1}),
+                ('netuser:user',{'ptype':'inet:user','ro':1}),
+
+                ('file',{'ptype':'file:bytes','ro':1}),
+
+                ('name',{'ptype':'file:base','doc':'The basename of the file in the post'}),
+
+                ('posted',{'ptype':'time'}),
+
+                ('ipv4',{'ptype':'inet:ipv4','doc':'The source IPv4 address of the post.'}),
+                ('ipv6',{'ptype':'inet:ipv6','doc':'The source IPv6 address of the post.'}),
+
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
+            ]),
+
             ('inet:whois:reg',{},[]), 
             ('inet:whois:rar',{},[]),
 
@@ -269,9 +289,9 @@ def getDataModel():
                 ('fqdn',{'ptype':'inet:fqdn'}),
                 ('asof',{'ptype':'time'}),
                 ('text',{'ptype':'str:lwr'}),
-                ('created',{'ptype':'time','defval':0,'doc':'The "created" time from the whois record'}),
-                ('updated',{'ptype':'time','defval':0,'doc':'The "last updated" time from the whois record'}),
-                ('expires',{'ptype':'time','defval':0,'doc':'The "expires" time from the whois record'}),
+                ('created',{'ptype':'time','doc':'The "created" time from the whois record'}),
+                ('updated',{'ptype':'time','doc':'The "last updated" time from the whois record'}),
+                ('expires',{'ptype':'time','doc':'The "expires" time from the whois record'}),
                 ('registrar',{'ptype':'inet:whois:rar','defval':'??'}),
                 ('registrant',{'ptype':'inet:whois:reg','defval':'??'}),
                 ('ns1',{'ptype':'inet:fqdn'}),

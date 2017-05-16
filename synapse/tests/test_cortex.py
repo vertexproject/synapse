@@ -1496,3 +1496,8 @@ class CortexTest(SynTest):
             self.eq( len(errs), 1 )
             self.eq( errs[0][0][1]['mesg'][0], 'newp:fake' )
             self.nn( core.getTufoByProp('inet:fqdn','vertex.link') )
+
+    def test_cortex_norm_fail(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.formTufoByProp('inet:netuser','vertex.link/visi')
+            self.raises( BadTypeValu, core.eval, 'inet:netuser="totally invalid input"' )

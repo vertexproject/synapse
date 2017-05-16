@@ -237,9 +237,11 @@ class Cortex(s_cores_common.Cortex):
         limit = self._getDbLimit(limit)
 
         q = self._q_getrows_by_range
-        args = [ prop, valu[0], valu[1], limit ]
 
-        rows = self.select(q, prop=prop, minvalu=valu[0], maxvalu=valu[1], limit=limit)
+        minvalu = int(valu[0])
+        maxvalu = int(valu[1])
+
+        rows = self.select(q, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)
         return self._foldTypeCols(rows)
 
     def _rowsByGe(self, prop, valu, limit=None):

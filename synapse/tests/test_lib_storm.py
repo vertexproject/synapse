@@ -43,6 +43,7 @@ class StormTest(SynTest):
     def test_storm_setprop(self):
 
         with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce',1)
 
             node = core.formTufoByProp('inet:fqdn','vertex.link')
 
@@ -51,6 +52,40 @@ class StormTest(SynTest):
             self.eq( node[1].get('inet:fqdn'), 'vertex.link')
             self.eq( node[1].get('inet:fqdn:created'), 1462406400000 )
             self.eq( node[1].get('inet:fqdn:updated'), 1493942400000 )
+
+    def test_storm_filt_regex(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce',1)
+
+            iden0 = guid()
+            iden1 = guid()
+            iden2 = guid()
+
+            node0 = core.formTufoByProp('file:bytes', iden0)
+            node1 = core.formTufoByProp('file:bytes', iden1, name='woot.exe')
+            node2 = core.formTufoByProp('file:bytes', iden2, name='toow.exe')
+
+            nodes = core.eval('file:bytes +:name~=exe')
+            self.eq( len(nodes), 2 )
+
+    def test_storm_alltag(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce',1)
+
+            iden = guid()
+            node = core.formTufoByProp('inet:fqdn','vertex.link')
+
+            core.addTufoTag(node,'foo.bar')
+            core.addTufoTag(node,'baz.faz')
+
+            node = core.eval('#foo.bar')[0]
+
+            self.eq( node[1].get('inet:fqdn'), 'vertex.link' )
+
+            self.nn( node[1].get('*|inet:fqdn|baz') )
+            self.nn( node[1].get('*|inet:fqdn|foo.bar') )
 
     def test_storm_addtag(self):
 
@@ -87,3 +122,18 @@ class StormTest(SynTest):
             self.none( node[1].get('*|inet:fqdn|foo') )
             self.none( node[1].get('*|inet:fqdn|foo.bar') )
             self.none( node[1].get('*|inet:fqdn|baz.faz') )
+
+    def test_storm_refs(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce',1)
+
+            iden = guid()
+            core.formTufoByProp('inet:dns:a','foo.com/1.2.3.4')
+            core.formTufoByProp('inet:dns:a','bar.com/1.2.3.4')
+
+            self.eq( len(core.eval('inet:ipv4=1.2.3.4 refs(in)')), 3 )
+            self.eq( len(core.eval('inet:ipv4=1.2.3.4 refs(in,limit=1)')), 2 )
+
+            self.eq( len(core.eval('inet:dns:a=foo.com/1.2.3.4 refs(out)')), 3 )
+            self.eq( len(core.eval('inet:dns:a=foo.com/1.2.3.4 refs(out,limit=1)')), 2 )
