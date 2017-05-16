@@ -542,8 +542,7 @@ class Runtime(Configable):
         tag = self._reqOperArg(oper,'valu')
         reg_props = {}
 
-        tag_parts = tag.lower().split('.')
-        if self._rt_glob_smark in tag_parts or self._rt_glob_mmark in tag_parts:
+        if self._rt_glob_smark in tag or self._rt_glob_mmark in tag:
             tag_regex = self._rt_glob_tag_cache.get(tag)
             tag_re_obj = self._rt_regexcache.get(tag_regex)
 
