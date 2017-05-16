@@ -389,7 +389,19 @@ def parse_macro_valu(text,off=0):
 
     # since it's not quoted, we can assume we are white
     # space bound ( only during macro syntax )
-    return  meh(text,off,whites)
+    valu,off =  meh(text,off,whites)
+
+    # for now, give it a shot as an int...  maybe eventually
+    # we'll be able to disable this completely, but for now
+    # lets maintain backward compatibility...
+    try:
+        # NOTE: this is ugly, but faster than parsing the string
+        valu = int(valu,0)
+    except ValueError as e:
+        pass
+
+    return valu,off
+
 
 def parse_when(text,off,trim=True):
     whenstr,off = nom(text,off,whenset)

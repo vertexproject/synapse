@@ -53,20 +53,6 @@ class StormTest(SynTest):
             self.eq( node[1].get('inet:fqdn:created'), 1462406400000 )
             self.eq( node[1].get('inet:fqdn:updated'), 1493942400000 )
 
-    def test_storm_expand(self):
-
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce',1)
-
-            iden = guid()
-            node = core.formTufoByProp('inet:dns:a','vertex.link/1.2.3.4')
-
-            nodes = core.eval('inet:fqdn=vertex.link expand()')
-
-            forms = list(sorted([ n[1].get('tufo:form') for n in nodes ]))
-
-            self.eq( forms, ['inet:dns:a','inet:fqdn'] )
-
     def test_storm_filt_regex(self):
 
         with s_cortex.openurl('ram:///') as core:
