@@ -1,3 +1,5 @@
+import re
+
 import synapse.lib.sched as s_sched
 import synapse.lib.service as s_service
 
