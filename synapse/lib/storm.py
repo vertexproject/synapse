@@ -546,12 +546,10 @@ class Runtime(Configable):
             def glob_cmpr(tufo):
                 form = tufo[1].get('tufo:form')
                 # Check cached props first
-                fprops = glob_props.get(form, ())
-                for prop in fprops:
-                    if prop in tufo[1]:
-                        return True
+                if any((p in tufo[1] for p in glob_props.get(form, ()))):
+                    return True
                 # Now search for matching tags on the tufo
-                valid_props = [_prop for _prop in tufo[1] if _prop.startswith('*|') and tag_re_obj.search(_prop)]
+                valid_props = [p for p in tufo[1] if p.startswith('*|') and tag_re_obj.search(p.split('|', 2)[2])]
                 # Cache valid props & return appropriate bool
                 if valid_props:
                     [glob_props[form].add(prop) for prop in valid_props]
