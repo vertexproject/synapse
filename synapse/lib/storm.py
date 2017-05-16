@@ -255,6 +255,9 @@ class Runtime(Configable):
         self._rt_glob_mmark = '.**.'
         self._rt_glob_msentinalbase = 'SYNMULTISENTINAL'
         self._rt_glob_msentinal = '.%s.' % self._rt_glob_msentinalbase
+        self._rt_glob_smmark = '*.'
+        self._rt_glob_smsentinalbase = 'SYNSTARTMULTISENTINAL'
+        self._rt_glob_smsentinal = '%s.' % self._rt_glob_smsentinalbase
         self._rt_glob_sre = '[^\.]+?'
         self._rt_glob_mre = '.+'
 
@@ -538,9 +541,11 @@ class Runtime(Configable):
         glob_props = collections.defaultdict(set)
         reg_props = {}
 
-        if self._rt_glob_smark in tag or self._rt_glob_mmark in tag:
+        if tag.startswith(self._rt_glob_smmark) or self._rt_glob_smark in tag or self._rt_glob_mmark in tag:
             # Prep the tag regex
             _tag = tag.lower()
+            if _tag.startswith(self._rt_glob_smmark):
+                _tag = _tag.replace(self._rt_glob_smmark, self._rt_glob_smsentinal, 1)
             while self._rt_glob_smark in _tag:
                 _tag = _tag.replace(self._rt_glob_smark, self._rt_glob_ssentinal)
             while self._rt_glob_mmark in _tag:
@@ -549,7 +554,8 @@ class Runtime(Configable):
             _tag = re.escape(_tag)
             _tag = _tag + '$'
             # Substitute in regex values
-            tag_regex = _tag.replace(self._rt_glob_ssentinalbase, self._rt_glob_sre)
+            tag_regex = _tag.replace(self._rt_glob_smsentinalbase, self._rt_glob_mre)
+            tag_regex = tag_regex.replace(self._rt_glob_ssentinalbase, self._rt_glob_sre)
             tag_regex = tag_regex.replace(self._rt_glob_msentinalbase, self._rt_glob_mre)
 
         def glob_cmpr(tufo):
@@ -579,7 +585,7 @@ class Runtime(Configable):
 
             return tufo[1].get(prop) != None
 
-        if self._rt_glob_smark in tag or self._rt_glob_mmark in tag:
+        if tag.startswith(self._rt_glob_smmark) or self._rt_glob_smark in tag or self._rt_glob_mmark in tag:
             return glob_cmpr
         return reg_cmpr
 
