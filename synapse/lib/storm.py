@@ -248,8 +248,9 @@ class Runtime(Configable):
 
         self.setOperFunc('addxref', self._stormOperAddXref)
 
-        # Glob helpers
+        # Cache compiled regex objects.
         self._rt_regexcache = s_cache.FixedCache(1024, re.compile)
+        # Glob helpers
         self._rt_glob_smark = '*'
         self._rt_glob_mmark = '**'
         self._rt_glob_sre = '[^\.]+?'
@@ -488,7 +489,7 @@ class Runtime(Configable):
         prop = oper[1].get('prop')
 
         isrel = prop.startswith(':')
-        reobj = re.compile( oper[1].get('valu') )
+        reobj = self._rt_regexcache.get(oper[1].get('valu'))
 
         def cmpr(tufo):
 
@@ -544,11 +545,11 @@ class Runtime(Configable):
 
         if self._rt_glob_smark in tag or self._rt_glob_mmark in tag:
             tag_regex = self._rt_glob_tag_cache.get(tag)
-            tag_re_obj = self._rt_regexcache.get(tag_regex)
+            reobj = self._rt_regexcache.get(tag_regex)
 
             def getIsHit(prop):
                 _tag = prop.split('|', 2)[2]
-                return tag_re_obj.search(_tag)
+                return reobj.search(_tag)
 
             glob_props = s_cache.KeyCache(getIsHit)
 
