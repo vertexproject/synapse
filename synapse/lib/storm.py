@@ -250,12 +250,6 @@ class Runtime(Configable):
 
         # Cache compiled regex objects.
         self._rt_regexcache = s_cache.FixedCache(1024, re.compile)
-        # Glob helpers
-        self._rt_glob_smark = '*'
-        self._rt_glob_mmark = '**'
-        self._rt_glob_sre = '[^\.]+?'
-        self._rt_glob_mre = '.+'
-        self._rt_glob_tag_cache = s_cache.FixedCache(1012, self._cmpGlobParts)
 
     def getStormCore(self, name=None):
         '''
@@ -532,19 +526,25 @@ class Runtime(Configable):
             return all([ func(tufo) for func in funcs ])
         return cmpr
 
-    def _cmpGlobParts(self, s, sep='.'):
-        parts = s.split(sep)
-        parts = [p.replace(self._rt_glob_mmark, self._rt_glob_mre) for p in parts]
-        parts = [p.replace(self._rt_glob_smark, self._rt_glob_sre) for p in parts]
-        regex = '\{}'.format(sep).join(parts)
-        return regex + '$'
-
     def _cmprCtorTag(self, oper):
         tag = self._reqOperArg(oper,'valu')
         reg_props = {}
 
-        if self._rt_glob_smark in tag or self._rt_glob_mmark in tag:
-            tag_regex = self._rt_glob_tag_cache.get(tag)
+        # Glob helpers
+        glob_smark = '*'
+        glob_mmark = '**'
+        glob_sre = '[^\.]+?'
+        glob_mre = '.+'
+
+        def _cmpGlobParts(s, sep='.'):
+            parts = s.split(sep)
+            parts = [p.replace(glob_mmark, glob_mre) for p in parts]
+            parts = [p.replace(glob_smark, glob_sre) for p in parts]
+            regex = '\{}'.format(sep).join(parts)
+            return regex + '$'
+
+        if glob_smark in tag:
+            tag_regex = _cmpGlobParts(tag)
             reobj = self._rt_regexcache.get(tag_regex)
 
             def getIsHit(prop):
