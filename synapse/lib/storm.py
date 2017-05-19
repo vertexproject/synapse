@@ -248,6 +248,9 @@ class Runtime(Configable):
 
         self.setOperFunc('addxref', self._stormOperAddXref)
 
+        # Cache compiled regex objects.
+        self._rt_regexcache = s_cache.FixedCache(1024, re.compile)
+
     def getStormCore(self, name=None):
         '''
         Return the (optionally named) cortex for use in direct storm
@@ -480,7 +483,7 @@ class Runtime(Configable):
         prop = oper[1].get('prop')
 
         isrel = prop.startswith(':')
-        reobj = re.compile( oper[1].get('valu') )
+        reobj = self._rt_regexcache.get(oper[1].get('valu'))
 
         def cmpr(tufo):
 
@@ -525,18 +528,46 @@ class Runtime(Configable):
 
     def _cmprCtorTag(self, oper):
         tag = self._reqOperArg(oper,'valu')
+        reg_props = {}
 
-        props = {}
-        def cmpr(tufo):
+        # Glob helpers
+        glob_smark = '*'
+        glob_mmark = '**'
+        glob_sre = '[^\.]+?'
+        glob_mre = '.+'
+
+        def _cmpGlobParts(s, sep='.'):
+            parts = s.split(sep)
+            parts = [p.replace(glob_mmark, glob_mre) for p in parts]
+            parts = [p.replace(glob_smark, glob_sre) for p in parts]
+            regex = '\{}'.format(sep).join(parts)
+            return regex + '$'
+
+        if glob_smark in tag:
+            tag_regex = _cmpGlobParts(tag)
+            reobj = self._rt_regexcache.get(tag_regex)
+
+            def getIsHit(prop):
+                _tag = prop.split('|', 2)[2]
+                return reobj.search(_tag)
+
+            glob_props = s_cache.KeyCache(getIsHit)
+
+            def glob_cmpr(tufo):
+                return any((glob_props.get(p) for p in tufo[1] if p.startswith('*|')))
+
+            return glob_cmpr
+
+        def reg_cmpr(tufo):
             form = tufo[1].get('tufo:form')
 
-            prop = props.get(form)
+            prop = reg_props.get(form)
             if prop == None:
-                props[form] = prop = '*|%s|%s' % (form,tag)
+                prop = reg_props[form] = '*|%s|%s' % (form,tag)
 
             return tufo[1].get(prop) != None
 
-        return cmpr
+        return reg_cmpr
 
     def _cmprCtorSeen(self, oper):
 

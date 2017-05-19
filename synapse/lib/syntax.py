@@ -15,6 +15,7 @@ This module implements syntax parsing for the storm runtime.
 whites = set(' \t\n')
 intset = set('01234567890abcdefx')
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678910')
+starset = varset.union({'*'})
 whenset = set('0123456789abcdefghijklmnopqrstuvwxyz+,')
 
 def nom(txt,off,cset,trim=True):
@@ -186,7 +187,7 @@ def parse_macro_filt(text,off=0,trim=True, mode='must'):
     # special + #tag (without prop) based filter syntax
     if nextchar(text,off,'#'):
         _,off = nom(text,off,whites)
-        tag,off = nom(text,off+1,varset,trim=True)
+        tag,off = nom(text,off+1,starset,trim=True)
         oper = ('filt',{'cmp':'tag','mode':mode,'valu':tag})
         return oper,off
 
