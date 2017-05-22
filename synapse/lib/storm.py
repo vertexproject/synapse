@@ -1,10 +1,12 @@
 import re
 import time
 import logging
+import itertools
 import collections
 
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
@@ -30,6 +32,9 @@ class LimitHelp:
 
         if self.limit == None:
             return False
+
+        if size < 0:
+            size = 0
 
         self.limit = max(self.limit-size,0)
         return self.limit == 0
@@ -243,10 +248,12 @@ class Runtime(Configable):
         self.setOperFunc('alltag', self._stormOperAllTag)
         self.setOperFunc('addtag', self._stormOperAddTag)
         self.setOperFunc('deltag', self._stormOperDelTag)
+        self.setOperFunc('totags', self._stormOperToTags)
         self.setOperFunc('nexttag', self._stormOperNextSeq)
         self.setOperFunc('setprop', self._stormOperSetProp)
-
         self.setOperFunc('addxref', self._stormOperAddXref)
+        self.setOperFunc('fromtags', self._stormOperFromTags)
+        self.setOperFunc('jointags', self._stormOperJoinTags)
 
         # Cache compiled regex objects.
         self._rt_regexcache = s_cache.FixedCache(1024, re.compile)
@@ -918,3 +925,78 @@ class Runtime(Configable):
 
         for tag in tags:
             [ core.delTufoTag(node,tag) for node in nodes ]
+
+    def _stormOperJoinTags(self, query, oper):
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        nodes = query.data()
+
+        keep_nodes = opts.get('keep_nodes', False)
+        limt = LimitHelp(opts.get('limit'))
+
+        forms = {arg for arg in args}
+
+        bases = {tag.split('.')[-1] for node in nodes for tag in s_tufo.tags(node, leaf=True)}
+
+        core = self.getStormCore()
+        tags = {tufo[1].get('syn:tag') for base in bases for tufo in core.getTufosByProp('syn:tag:base', base)}
+
+        if forms:
+            tagforms = [(tag, tufo[1].get('syn:tagform:form')) for tag in tags
+                        for tufo in core.getTufosByProp('syn:tagform:tag', tag)
+                        if tufo[1].get('syn:tagform:form') in forms]
+        else:
+            tagforms = [(tag, tufo[1].get('syn:tagform:form')) for tag in tags
+                        for tufo in core.getTufosByProp('syn:tagform:tag', tag)]
+        tagforms = sorted(tagforms)
+        # This allows us to do 'join' source tufos together.
+        if not keep_nodes:
+            query.clear()
+
+        for tag, form in tagforms:
+            lqs = len(query.results.get('data'))
+            tufos = core.getTufosByTag(form, tag, limit=limt.get())
+            [query.add(tufo) for tufo in tufos]
+            if tufos:
+                lq = len(query.results.get('data'))
+                nnewnodes = lq - lqs
+                if limt.dec(nnewnodes):
+                    break
+
+    def _stormOperToTags(self, query, oper):
+        nodes = query.data()
+        core = self.getStormCore()
+
+        bases = {tag.split('.')[-1] for node in nodes for tag in s_tufo.tags(node, leaf=True)}
+        query.clear()
+        [query.add(tufo) for base in bases for tufo in core.getTufosByProp('syn:tag:base', base)]
+
+    def _stormOperFromTags(self, query, oper):
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        nodes = query.data()
+
+        forms = {arg for arg in args}
+        limt = LimitHelp(opts.get('limit'))
+
+        bases = {node[1].get('syn:tag:base') for node in nodes if node[1].get('tufo:form') == 'syn:tag'}
+
+        core = self.getStormCore()
+        tags = {tufo[1].get('syn:tag') for base in bases for tufo in core.getTufosByProp('syn:tag:base', base)}
+        if not forms:
+            forms = {tufo[1].get('syn:type') for tufo in core.getTufosByProp('tufo:form', 'syn:type')}
+        # Predictable looping
+        tagforms = sorted(itertools.product(tags, forms))
+
+        query.clear()
+        for tag, form in tagforms:
+            lqs = len(query.results.get('data'))
+            tufos = core.getTufosByTag(form, tag, limit=limt.get())
+            [query.add(tufo) for tufo in tufos]
+            if tufos:
+                lq = len(query.results.get('data'))
+                nnewnodes = lq - lqs
+                if limt.dec(nnewnodes):
+                    break

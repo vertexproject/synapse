@@ -985,6 +985,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
             props['syn:tag:up'] = '.'.join(tags[:-1])
 
         props['syn:tag:depth'] = tlen - 1
+        props['syn:tag:base'] = tags[-1]
 
     def setSaveFd(self, fd, load=True, fini=False):
         '''

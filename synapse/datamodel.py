@@ -138,6 +138,7 @@ class DataModel(s_types.TypeLib):
         self.addTufoProp('syn:tag','doc',defval='',ptype='str')
         self.addTufoProp('syn:tag','depth',defval=0,ptype='int')
         self.addTufoProp('syn:tag','title',defval='',ptype='str')
+        self.addTufoProp('syn:tag', 'base', ptype='str', ro=1)
 
         self.addType('syn:tagform', subof='comp', fields='tag,syn:tag|form,syn:prop', ex="(foo.bar,baz:faz)")
 
