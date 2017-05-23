@@ -35,6 +35,19 @@ class EventBus(object):
     def __exit__(self, type, value, traceback):
         self.fini()
 
+    def ping(self):
+        '''
+        A no-op method that is useful for testing connectivity between distributed components.
+
+        Often times it is useful to proactively determine if a connection with a particular component exists, especially
+        when looking up components by name via the ServiceBus. This method provides a light-weight mechanism for doing
+        that. Clients attempting to invoke this method when not connected will experience an exception being raised.
+
+        Returns:
+            bool: True
+        '''
+        return True
+
     def link(self, func, weak=False):
         '''
         Add a callback function to receive *all* events.
