@@ -19,6 +19,7 @@ class DendriteJobsTest(SynTest):
         link = dmon.listen('tcp://127.0.0.1:0/')
         port = link[1].get('port')
         yield Jobs('ram://', 'tcp://127.0.0.1:%d/syn.svcbus' % port)
+        dmon.fini()
 
     def test_put_and_get(self):
         with self.setup() as jobs:

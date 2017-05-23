@@ -36,6 +36,7 @@ class DendriteParserTest(SynTest):
                 proxy.runSynSvc('dendrite-coordinator', coordinator)
                 opts = {'svcbus': sbusurl, 'coordinator': 'dendrite-coordinator', 'jobs': 'dendrite-jobs'}
                 yield (opts, coordinator, jobs)
+                dmon.fini()
 
     def test_register(self):
         with self.setup() as (opts, coordinator, jobs):
@@ -66,7 +67,7 @@ class DendriteParserTest(SynTest):
         def __init__(self, **kwargs):
             Parser.__init__(self, **kwargs)
             self.results = []
-        def process(self, queue, job):
+        def _process(self, queue, job):
             del(job['iden'])
             self.results.append((queue, job))
 

@@ -53,7 +53,7 @@ class Parser:
         '''
         logger.info('registering %s => %s, and svcbus event: %s', mimeType, queue, self._eventName(queue))
         self.coordinator.register(mimeType, queue)
-        self.svcbus.on(self._eventName(queue), self._processJob)
+        self.svcbus.on(self._eventName(queue), self._processEvent)
 
     def unregister(self, mimeType, queue):
         '''
@@ -73,16 +73,16 @@ class Parser:
         '''
         logger.info('unregistering %s => %s, and svcbus event: %s', mimeType, queue, self._eventName(queue))
         self.coordinator.unregister(mimeType, queue)
-        self.svcbus.off(self._eventName(queue), self._processJob)
+        self.svcbus.off(self._eventName(queue), self._processEvent)
 
     def process(self, queue, job):
         '''
         Process a parse job.
 
-        This method is to be overridden by sub-classes. The typical implementation should involve actions such as
-        reading the bytes from the Axon service, parse the bytes, and store results in a Cortex. If an exception 
-        occurs during the processing and the exception is allowed to propagate out of the process method, the job
-        will be re-enqueued for subsequent processing.
+        This method invokes the internal method '_process', which should be overridden by sub-classes. The typical
+        implementation should involve actions such as reading the bytes from the Axon service, parse the bytes, and
+        store results in a Cortex. If an exception occurs during the processing and the exception is allowed to
+        propagate out of the process method, the job will be moved to a 'failed' status.
 
         Args:
             queue (str):
@@ -91,7 +91,7 @@ class Parser:
             job (dict):
                 Dict containing properties of the job.
         '''
-        raise NotImplementedError("Parser.process needs to be implemented by subclass")
+        self._process(queue, job)
 
     def processAll(self, queue):
         '''
@@ -114,7 +114,10 @@ class Parser:
                 self.jobs.fail(job)
             job = self.jobs.get(queue)
 
-    def _processJob(self, mesg):
+    def _process(self, queue, job):
+        raise NotImplementedError("Parser._process needs to be implemented by subclass")
+
+    def _processEvent(self, mesg):
         queue = mesg[1].get('queue')
         logger.info('Parser received event', mesg[1])
         self.processAll(queue)

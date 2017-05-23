@@ -1,9 +1,9 @@
-import time
 import logging
 import magic
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+from synapse.common import firethread
 import synapse.telepath as s_telepath
 import synapse.lib.service as s_service
 
@@ -71,7 +71,10 @@ class Coordinator:
         self._registerListeners()
         self._initCortex()
         self._initState()
-        self._processExistingTufos()
+        self.existingProcessorThread = self._processExistingTufos()
+
+    def fini(self):
+        self.existingProcessorThread.join()
 
     def register(self, mimeType, queue):
         '''
@@ -101,10 +104,9 @@ class Coordinator:
         '''
         Remove a MIME type to queue name mapping that was created by calling 'register'.
 
-        This method is intended to be called remotely via Telepath by the individual Parsers. When a Parser comes
-        online, it should call this method to register the MIME type that it is interested in Parsing. The queue name
-        can be any value, however, care should be taken that queue names do not collide unintentionally in a given
-        deployment.
+        This method is intended to be called remotely via Telepath by the individual Parsers. When running a deployment
+        that runs multiple instances of a particular Parser that are all listening on the same queue, care should be
+        taken when calling this method, as it will unregister for any and all Parsers.
 
         Args:
             mimeType (str):
@@ -161,7 +163,7 @@ class Coordinator:
         return queues
 
     def _guid(self, mimeType, queue):
-        return s_common.guid('%s:%s' % (mimeType, queue))
+        return s_common.guid((mimeType, queue))
 
     def _registration(self, mimeType, queue):
         return self.core.getTufoByProp('dendrite:coordinator', self._guid(mimeType, queue))
@@ -208,17 +210,17 @@ class Coordinator:
 
     def _assertConnected(self):
         try:
-            self.listenCore.getTufoByIden('')
+            self.listenCore.ping()
             logger.info('Successfully connected to cortex')
         except s_exc.NoSuchObj:
             raise s_exc.NoSuchObj(msg='unable to connect to cortex, please check url')
         try:
-            self.axon.alloc(0)
+            self.axon.ping()
             logger.info('Successfully connected to axon')
         except s_exc.NoSuchObj:
             raise s_exc.NoSuchObj(msg='unable to connect to axon, please check url')
         try:
-            self.jobs.isEmpty('')
+            self.jobs.ping()
             logger.info('Successfully connected to job queue')
         except s_exc.NoSuchObj:
             raise s_exc.NoSuchObj(msg='unable to connect to job queue, please check url')
@@ -239,20 +241,21 @@ class Coordinator:
         mintime = self.opts.get('mintime')
         if not self.state:
             if not mintime:
-                mintime = int(time.time() * 1000)
+                mintime = s_common.now()
             self.state = self.core.formTufoByProp('dendrite:state', self._stateGuid(), mintime=mintime)
         elif mintime:
             self.core.setTufoProps(self.state, mintime=mintime)
 
-    def _updateState(self):
+    def _updateState(self, mintime=s_common.now()):
         # currently, the tstamp on a tufo is only set when a tufo is created, and not when a prop is updated. For now
         # just record current time as a point of return on restart... there may exist tufos that had prop updates during
         # down time, but at least all new tufos will be processed.
-        self.core.setTufoProps(self.state, mintime=int(time.time() * 1000))
+        self.core.setTufoProps(self.state, mintime=mintime)
 
     def _stateGuid(self):
         return s_common.guid('coordinator')
 
+    @firethread
     def _processExistingTufos(self):
         mintime = self.state[1].get('dendrite:state:mintime')
         tufos = self.listenCore.getTufosByProp('file:bytes', mintime=mintime)

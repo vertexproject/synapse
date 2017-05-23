@@ -1,5 +1,4 @@
 import json
-import time
 import logging
 import collections
 import synapse.common as s_common
@@ -34,10 +33,10 @@ class Jobs(s_eventbus.EventBus):
         self.core.addTufoProp('dendrite:job', 'data', ptype='str', req=True)
         self.core.addTufoProp('dendrite:job', 'runkey', ptype='int', req=True)
         self.core.addTufoProp('dendrite:job', 'status', ptype='str', req=True)
-        self.core.addTufoProp('dendrite:job', 'failed_at', ptype='int', req=True)
-        self.core.addTufoProp('dendrite:job', 'queued_at', ptype='int', req=True)
-        self.core.addTufoProp('dendrite:job', 'working_at', ptype='int', req=True)
-        self.core.addTufoProp('dendrite:job', 'completed_at', ptype='int', req=True)
+        self.core.addTufoProp('dendrite:job', 'failed_at', ptype='time', req=True)
+        self.core.addTufoProp('dendrite:job', 'queued_at', ptype='time', req=True)
+        self.core.addTufoProp('dendrite:job', 'working_at', ptype='time', req=True)
+        self.core.addTufoProp('dendrite:job', 'completed_at', ptype='time', req=True)
         self.svcbus = s_telepath.openurl(svcbus)
 
     def put(self, queue, job):
@@ -54,7 +53,7 @@ class Jobs(s_eventbus.EventBus):
                 Dict containing any properties needed to represent the job.
         '''
         logger.debug('Adding job %s to queue %s', job, queue)
-        props = self._buildJobTufo(queue, job)
+        props = self._initJobProps(queue, job)
         self.core.formTufoByProp('dendrite:job', s_common.guid(), **props)
         self.svcbus.fire(self._eventName(queue), job=job, queue=queue)
 
@@ -74,10 +73,9 @@ class Jobs(s_eventbus.EventBus):
             tufo = tufos[0]
             job = json.loads(tufo[1].get('dendrite:job:data'))
             job.update({'iden': tufo[0]})
-            self.core.setTufoProps(tufo, status='working', working_at=self._currTimestamp())
+            self.core.setTufoProps(tufo, status='working', working_at=s_common.now())
             return job
-        else:
-            return None
+        return None
 
     def clear(self, queue):
         '''
@@ -104,7 +102,7 @@ class Jobs(s_eventbus.EventBus):
         tufo = self.core.getTufoByIden(job.get('iden'))
         if tufo:
             logger.debug('Completing job %s', tufo)
-            self.core.setTufoProps(tufo, status='completed', completed_at=self._currTimestamp())
+            self.core.setTufoProps(tufo, status='completed', completed_at=s_common.now())
 
     def fail(self, job):
         '''
@@ -121,7 +119,7 @@ class Jobs(s_eventbus.EventBus):
         if tufo:
             # for now, just log and requeue the job
             logger.debug('Failing job %s', tufo)
-            self.core.setTufoProps(tufo, status='failed', failed_at=self._currTimestamp())
+            self.core.setTufoProps(tufo, status='failed', failed_at=s_common.now())
 
     def qsize(self, queue, status='queued'):
         '''
@@ -182,26 +180,23 @@ class Jobs(s_eventbus.EventBus):
                 histo[row[2]] += 1
         return histo
 
-    def _buildJobTufo(self, queue, job):
+    def _initJobProps(self, queue, job):
         return {
             'queue':    queue,
             'data':     json.dumps(job),
             'runkey':   self._runkey(),
             'status':   'queued',
-            'queued_at': self._currTimestamp()
+            'queued_at': s_common.now()
         }
 
     def _runkey(self):
-        currms = self._currTimestamp()
+        currms = s_common.now()
         if currms != self.currMs:
             self.currMs = currms
             self.jobNum = 1
         else:
             self.jobNum += 1
         return (currms << 8) | self.jobNum
-
-    def _currTimestamp(self):
-        return int(time.time() * 1000)
 
     def _jobsByQueue(self, queue, status='queued'):
         jobs = []
