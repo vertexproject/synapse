@@ -175,9 +175,8 @@ class Jobs(s_eventbus.EventBus):
             return self.core.getStatByProp('histo', 'dendrite:job:queue')
 
         histo = collections.defaultdict(int)
-        for row in self.core.getJoinByProp('dendrite:job:status', status):
-            if row[1] == 'dendrite:job:queue':
-                histo[row[2]] += 1
+        for tufo in self.core.getTufosByProp('dendrite:job:status', status):
+            histo[tufo[1].get('dendrite:job:queue')] += 1
         return histo
 
     def _initJobProps(self, queue, job):
