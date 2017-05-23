@@ -15,6 +15,8 @@ The following items should be considered when contributing to Synapse:
   include the following:
 
   - `Whitespace in Expressions and Statements <https://www.python.org/dev/peps/pep-0008/#whitespace-in-expressions-and-statements>`_.
+  - `Programming Recommendations <https://www.python.org/dev/peps/pep-0008/#programming-recommendations>`_ regarding
+    singleton comparison (use 'is' instead of equality operators).
 
 * Please keep line lengths under 120 characters.
 * Use single quotes for string constants (including docstrings) unless double
