@@ -29,6 +29,7 @@ import synapse.axon as s_axon
 import synapse.async as s_async
 import synapse.compat as s_compat
 import synapse.cortex as s_cortex
+import synapse.lib.queue as s_queue
 import synapse.lib.ingest as s_ingest
 import synapse.lib.config as s_config
 import synapse.lib.threads as s_threads
@@ -315,6 +316,7 @@ class Hypnos(s_config.Config):
         self.web_loop = loop
         self.web_client = t_http.AsyncHTTPClient(io_loop=self.web_loop)
         self.web_iothr = self._runIoLoop()
+        self._web_queue = s_queue.Queue()
 
         # Synapse Async and thread pool
         self.web_boss = s_async.Boss()
@@ -343,6 +345,17 @@ class Hypnos(s_config.Config):
     @s_threads.firethread
     def _runIoLoop(self):
         self.web_loop.start()
+
+    def _consume_queue(self):
+        '''
+        Callback for consuming objects from the web_queue in the IOLoop.
+        '''
+        while True:
+            obj = self._web_queue.get(timeout=0)
+            if obj is None:
+                break
+            req, response_nommer = obj
+            self.web_client.fetch(req, callback=response_nommer)
 
     def _onHypoFini(self):
         # Stop the IOLoop async thread
@@ -864,7 +877,7 @@ class Hypnos(s_config.Config):
                   on the job associated with the API call.
 
         Args:
-            name: Name of the API to send a request for.
+            name (str): Name of the API to send a request for.
             *args: Additional args passed to the callback functions.
             **kwargs: Additional args passed to the callback functions or for
                       changing the job execution.
@@ -926,7 +939,22 @@ class Hypnos(s_config.Config):
 
         # Construct the request object
         req = nyx.buildHttpRequest(api_args)
-
-        self.web_client.fetch(req, callback=response_nommer)
+        self._web_queue.put((req, response_nommer))
+        self.web_loop.add_callback(self._consume_queue)
 
         return jid
+
+    def webJobWait(self, jid, timeout=None):
+        '''
+        Proxy function for the self.web_boss wait() call, in order to allow
+        RMI callers to wait for a job to be completed if they wish.
+
+        Args:
+            jid (str): Job id to wait for.
+            timeout: Time to wait for.
+
+        Returns:
+            bool: async.Boss.wait() result.
+
+        '''
+        return self.web_boss.wait(jid, timeout=timeout)
