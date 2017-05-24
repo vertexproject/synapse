@@ -864,7 +864,7 @@ class Hypnos(s_config.Config):
                   on the job associated with the API call.
 
         Args:
-            name: Name of the API to send a request for.
+            name (str): Name of the API to send a request for.
             *args: Additional args passed to the callback functions.
             **kwargs: Additional args passed to the callback functions or for
                       changing the job execution.
@@ -926,7 +926,21 @@ class Hypnos(s_config.Config):
 
         # Construct the request object
         req = nyx.buildHttpRequest(api_args)
-
-        self.web_client.fetch(req, callback=response_nommer)
+        self.web_loop.add_callback(self.web_client.fetch, req, response_nommer)
 
         return jid
+
+    def webJobWait(self, jid, timeout=None):
+        '''
+        Proxy function for the self.web_boss wait() call, in order to allow
+        RMI callers to wait for a job to be completed if they wish.
+
+        Args:
+            jid (str): Job id to wait for.
+            timeout: Time to wait for.
+
+        Returns:
+            bool: async.Boss.wait() result.
+
+        '''
+        return self.web_boss.wait(jid, timeout=timeout)

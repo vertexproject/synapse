@@ -1,4 +1,6 @@
 from tornado.testing import AsyncTestCase
+import synapse.daemon as s_daemon
+import synapse.telepath as s_telepath
 import synapse.models.inet as s_inet
 import synapse.lib.remcycle as s_remcycle
 
@@ -606,7 +608,6 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.nn(data[jid])
             self.eq(s_inet.ipv4str(tufos[0][1].get('inet:ipv4')), data[jid])
 
-
     def test_hypnos_throw_timeouts(self):
         # Run a test scenario which will generate hundreds of jobs which will timeout.
         self.skipTest(reason='This test can periodically cause coverage.py failures and even then may not run '
@@ -736,3 +737,63 @@ class HypnosTest(SynTest, AsyncTestCase):
             mesgs = str(outp)
             for fqdn, _ in fqdns:
                 self.true(fqdn in mesgs)
+
+    def test_hypnos_with_telepath(self):
+        # Setup the Hypnos object using telepath, then get the proxy object and
+        # issue the fireWebApi calls via telepath, validate that they worked
+        # against ingested tufo in the hypnos cortex. Use daemon to handle
+        # telepath proxying.
+        self.skipIfNoInternet()
+
+        gconf = get_ipify_ingest_global_config()
+        dconf = {
+            'vars': {
+                'hopts': {
+                    s_remcycle.MIN_WORKER_THREADS: 1,
+                },
+                'hioloop': self.io_loop,
+                'cortex_url': 'ram://'
+            },
+            'ctors': [
+                [
+                    'core',
+                    'ctor://synapse.cortex.openurl(cortex_url)'
+                ],
+                [
+                    'hypnos',
+                    'ctor://synapse.lib.remcycle.Hypnos(core=core, ioloop=hioloop,opts=hopts)'
+                ]
+            ],
+            'share': [
+                [
+                    'hypnos',
+                    {}
+                ],
+                [
+                    'core',
+                    {}
+                ]
+            ],
+            'listen': [
+                'tcp://127.0.0.1:50000'
+            ]
+        }
+
+        dmon = s_daemon.Daemon()
+        dmon.loadDmonConf(dconf)
+
+        hypnos_proxy = s_telepath.openurl('tcp://127.0.0.1:50000/hypnos')
+        core_proxy = s_telepath.openurl('tcp://127.0.0.1:50000/core')
+        # Lets do a remote config load!
+        hypnos_proxy.addWebConfig(config=gconf)
+
+        description = hypnos_proxy.getWebDescription()
+        self.true('ipify' in description)
+        # Fire the
+        jid = hypnos_proxy.fireWebApi(name='ipify:jsonip')
+        self.nn(jid)
+        hypnos_proxy.webJobWait(jid)
+        tufos = core_proxy.getTufosByProp('inet:ipv4')
+        self.eq(len(tufos), 1)
+        ip = s_inet.ipv4str(tufos[0][1].get('inet:ipv4'))
+        self.true(len(ip) >= 7)
