@@ -937,10 +937,9 @@ class Runtime(Configable):
 
         forms = {arg for arg in args}
 
-        bases = {tag.split('.')[-1] for node in nodes for tag in s_tufo.tags(node, leaf=True)}
+        tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=True)}
 
         core = self.getStormCore()
-        tags = {tufo[1].get('syn:tag') for base in bases for tufo in core.getTufosByProp('syn:tag:base', base)}
 
         if forms:
             tagforms = [(tag, tufo[1].get('syn:tagform:form')) for tag in tags
@@ -965,12 +964,14 @@ class Runtime(Configable):
                     break
 
     def _stormOperToTags(self, query, oper):
+        opts = dict(oper[1].get('kwlist'))
         nodes = query.data()
         core = self.getStormCore()
 
-        bases = {tag.split('.')[-1] for node in nodes for tag in s_tufo.tags(node, leaf=True)}
+        leaf = opts.get('leaf', True)
+        tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=leaf)}
         query.clear()
-        [query.add(tufo) for base in bases for tufo in core.getTufosByProp('syn:tag:base', base)]
+        [query.add(tufo) for tag in tags for tufo in core.getTufosByProp('syn:tag', tag)]
 
     def _stormOperFromTags(self, query, oper):
         args = oper[1].get('args')
@@ -981,10 +982,10 @@ class Runtime(Configable):
         forms = {arg for arg in args}
         limt = LimitHelp(opts.get('limit'))
 
-        bases = {node[1].get('syn:tag:base') for node in nodes if node[1].get('tufo:form') == 'syn:tag'}
+        tags = {node[1].get('syn:tag') for node in nodes if node[1].get('tufo:form') == 'syn:tag'}
 
         core = self.getStormCore()
-        tags = {tufo[1].get('syn:tag') for base in bases for tufo in core.getTufosByProp('syn:tag:base', base)}
+        # TODO This is O(m*n).
         if not forms:
             forms = {tufo[1].get('syn:type') for tufo in core.getTufosByProp('tufo:form', 'syn:type')}
         # Predictable looping

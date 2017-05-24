@@ -260,24 +260,27 @@ class StormTest(SynTest):
                                      'loc.milkyway.galactic_arm_a.sol.mars.us.tx.perfection'])
 
             nodes = core.eval('inet:dns:a jointags()')
-            self.eq(len(nodes), 4)
+            self.eq(len(nodes), 2)
 
-            nodes = core.eval('inet:dns:a jointags(inet:url, limit=2)')
+            nodes = core.eval('inet:dns:a jointags(inet:fqdn, limit=2)')
             self.eq(len(nodes), 1)
-            self.eq(nodes[0][1].get('tufo:form'), 'inet:url')
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:fqdn')
 
-            nodes = core.eval('inet:dns:a jointags(ps:tokn, inet:url)')
+            nodes = core.eval('inet:dns:a jointags(ps:tokn, inet:fqdn)')
             self.eq(len(nodes), 1)
-            self.eq(nodes[0][1].get('tufo:form'), 'inet:url')
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:fqdn')
 
             nodes = core.eval('inet:dns:a jointags(ps:tokn)')
             self.eq(len(nodes), 0)
 
-            nodes = core.eval('inet:dns:a jointags(ps:tokn, keep_nodes=True)')
+            nodes = core.eval('inet:dns:a jointags(ps:tokn, keep_nodes=1)')
             self.eq(len(nodes), 1)
 
-            nodes = core.eval('inet:dns:a jointags(limit=2)')
+            nodes = core.eval('inet:dns:a jointags(inet:fqdn, keep_nodes=1)')
             self.eq(len(nodes), 2)
+
+            nodes = core.eval('inet:dns:a jointags(limit=1)')
+            self.eq(len(nodes), 1)
 
     def test_storm_tag_totag(self):
         with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
@@ -285,6 +288,7 @@ class StormTest(SynTest):
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
             node4 = core.formTufoByProp('inet:netuser', 'clowntown.link/pennywise')
+            node5 = core.formTufoByProp('geo:loc', 'derry')
 
             core.addTufoTags(node1, ['aka.bar.baz',
                                      'aka.duck.quack.loud',
@@ -300,13 +304,28 @@ class StormTest(SynTest):
                                      'loc.milkyway.galactic_arm_a.sol.mars.us.tx.perfection'])
 
             nodes = core.eval('inet:dns:a totags()')
-            self.eq(len(nodes), 6)
+            self.eq(len(nodes), 3)
 
-            nodes = core.eval('inet:url totags()')
+            nodes = core.eval('inet:dns:a totags(leaf=0)')
+            self.eq(len(nodes), 14)
+
+            nodes = core.eval('#aka.duck.quack.loud totags()')
             self.eq(len(nodes), 5)
+
+            nodes = core.eval('#aka.duck totags()')
+            self.eq(len(nodes), 10)
 
             nodes = core.eval('ps:tokn totags()')
             self.eq(len(nodes), 0)
+
+            # Tag input
+            nodes = core.eval('syn:tag=aktoa.bar.baz totags()')
+            self.eq(len(nodes), 0)
+
+            # Tagless node input
+            nodes = core.eval('geo:loc=derry totags()')
+            self.eq(len(nodes), 0)
+
 
     def test_storm_tag_fromtag(self):
         with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
@@ -328,7 +347,7 @@ class StormTest(SynTest):
                                      'loc.milkyway.galactic_arm_a.sol.mars.us.tx.perfection'])
 
             nodes = core.eval('syn:tag=aka.bar.baz fromtags()')
-            self.eq(len(nodes), 2)
+            self.eq(len(nodes), 1)
 
             nodes = core.eval('syn:tag=aka.bar fromtags()')
             self.eq(len(nodes), 3)
@@ -350,6 +369,10 @@ class StormTest(SynTest):
 
             nodes = core.eval('syn:tag=aka.duck fromtags(limit=2)')
             self.eq(len(nodes), 2)
+
+            # Non-tag input
+            nodes = core.eval('inet:dns:a fromtags()')
+            self.eq(len(nodes), 0)
 
 class LimitTest(SynTest):
 
