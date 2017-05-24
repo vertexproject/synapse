@@ -645,6 +645,10 @@ class CortexTest(SynTest):
         core.addTufoTag(hehe,'lulz.rofl.zebr')
         wait.wait()
 
+        wait = self.getTestWait(core, 1, 'tufo:tag:add')
+        core.addTufoTag(hehe, 'duck.quack.rofl')
+        wait.wait()
+
         lulz = core.getTufoByProp('syn:tag','lulz')
 
         self.assertIsNone( lulz[1].get('syn:tag:up') )
