@@ -374,6 +374,9 @@ class StormTest(SynTest):
             nodes = core.eval('inet:dns:a fromtags()')
             self.eq(len(nodes), 0)
 
+            nodes = core.eval('syn:tag:base=bar fromtags()')
+            self.eq(len(nodes), 3)
+
 class LimitTest(SynTest):
 
     def test_limit_default(self):
