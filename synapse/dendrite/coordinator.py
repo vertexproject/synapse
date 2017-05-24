@@ -24,6 +24,12 @@ class Coordinator:
     completed status. There can be multiple Parsers online for a given queue, as they will all work independently to
     drain the queue without duplicating work.
 
+    Note to Windows users: Coordinator relies on libmagic for determining MIME types. Fortunately, there is a 'file'
+    port to Windows, http://gnuwin32.sourceforge.net/packages/file.htm. Following the default setup is the recommended
+    path to fast success. Then note the path to magic.mgc and provide that via the 'magic_file' parameter. The dlls will
+    also need to be discoverable via PATH, and it is best to add the directory that the libraries were installed into to
+    the PATH, ex. 'C:\Program Files (x86)\GnuWin32\bin'.
+
     Keyword Arguments:
         svcbus (str):
             URL for the SvcBus service that is used to locate the Cortex, Axon, and Jobs services.
@@ -46,6 +52,10 @@ class Coordinator:
             created since this time will be processed on startup. This is useful for ensuring that any
             work that would have been processed during Coordinator downtime is accounted for.
 
+        magic_file (str):
+            The path to the magic.mgc file that libmagic uses for MIME determination. This option is likely not needed
+            on *nix flavors, but is needed when running on Windows.
+
     Raises:
         TypeError:
             If one of 'svcbus', 'core', 'axon', 'jobs' kwargs are not provided.
@@ -67,6 +77,7 @@ class Coordinator:
         self.axonLink = axonSvc[1].get('link')
         self.axon = s_telepath.openurl(self.axonLink)
         self.jobs = self.svcbus.getNameProxy(self.opts.get('jobs'))
+        self.magicFile = self.opts.get('magic_file', None)
         self._assertConnected()
         self._registerListeners()
         self._initCortex()
@@ -87,8 +98,7 @@ class Coordinator:
 
         Args:
             mimeType (str):
-                The MIME type as is returned by filemagic with the MAGIC_MIME_TYPE flag set. For more
-                information, see: https://filemagic.readthedocs.io/en/latest/api.html.
+                The MIME type as is returned by libmagic.
 
             queue (str):
                 The name of the queue to enqueue Parser jobs for this MIME type on.
@@ -110,8 +120,7 @@ class Coordinator:
 
         Args:
             mimeType (str):
-                The MIME type as is returned by filemagic with the MAGIC_MIME_TYPE flag set. For more
-                information, see: https://filemagic.readthedocs.io/en/latest/api.html.
+                The MIME type as is returned by libmagic.
 
             queue (str):
                 The name of the queue to enqueue Parser jobs for this MIME type on.
@@ -130,8 +139,7 @@ class Coordinator:
 
         Args:
             mimeType (str):
-                The MIME type as is returned by filemagic with the MAGIC_MIME_TYPE flag set. For more
-                information, see: https://filemagic.readthedocs.io/en/latest/api.html.
+                The MIME type as is returned by libmagic.
 
             queue (str):
                 The name of the queue to enqueue Parser jobs for this MIME type on.
@@ -151,8 +159,7 @@ class Coordinator:
 
         Args:
             mimeType (str):
-                The MIME type as is returned by filemagic with the MAGIC_MIME_TYPE flag set. For more
-                information, see: https://filemagic.readthedocs.io/en/latest/api.html.
+                The MIME type as is returned by libmagic.
 
         Returns:
             list: A list of queue names, or an empty list if none are found.
@@ -197,12 +204,18 @@ class Coordinator:
 
     def _getMimeType(self, bytes):
         mimeType = None
-        with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as mimer:
-            try:
-                mimeType = mimer.id_buffer(bytes)
-            except magic.MagicError as e:
-                logger.error('Error determining mime type %s', e)
+        try:
+            mimer = self._createMimer()
+            mimeType = mimer.from_buffer(bytes)
+        except magic.MagicException as e:
+            logger.error('Error determining mime type: %s', e)
         return mimeType
+
+    def _createMimer(self):
+        if self.magicFile:
+            return magic.Magic(mime=True, magic_file=self.magicFile)
+        else:
+            return magic.Magic(mime=True)
 
     def _assertOpts(self):
         if not Coordinator._REQUIRED_ARGS.issubset(self.opts):

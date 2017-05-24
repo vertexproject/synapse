@@ -36,8 +36,8 @@ class DendriteCoordinatorTest(SynTest):
                 proxy.runSynSvc('dendrite-jobs', jobs)
                 coordinator = Coordinator(svcbus=sbusurl, core='core', axon='axon', jobs='dendrite-jobs')
                 yield (core, coordinator)
-                dmon.fini()
                 coordinator.fini()
+                dmon.fini()
 
     def test_register(self):
         with self.setup() as (cortex, coordinator):
