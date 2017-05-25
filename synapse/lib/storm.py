@@ -951,12 +951,8 @@ class Runtime(Configable):
 
         if not forms:
             forms = core.getModelDict().get('forms')
-        # Predictable looping
-        tagforms = sorted(self._iterPropTags(forms, tags))
-        # This allows us to do 'join' source tufos together.
 
-
-        for form, tag in tagforms:
+        for form, tag in self._iterPropTags(forms, tags):
             lqs = query.size()
             tufos = core.getTufosByTag(form, tag, limit=limt.get())
             [query.add(tufo) for tufo in tufos]
@@ -990,10 +986,8 @@ class Runtime(Configable):
         # TODO This is O(m*n).
         if not forms:
             forms = core.getModelDict().get('forms')
-        # Predictable looping
-        tagforms = sorted(self._iterPropTags(forms, tags))
 
-        for form, tag in tagforms:
+        for form, tag in self._iterPropTags(forms, tags):
             lqs = query.size()
             tufos = core.getTufosByTag(form, tag, limit=limt.get())
             [query.add(tufo) for tufo in tufos]
