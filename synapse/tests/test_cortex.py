@@ -645,12 +645,17 @@ class CortexTest(SynTest):
         core.addTufoTag(hehe,'lulz.rofl.zebr')
         wait.wait()
 
+        wait = self.getTestWait(core, 1, 'tufo:tag:add')
+        core.addTufoTag(hehe, 'duck.quack.rofl')
+        wait.wait()
+
         lulz = core.getTufoByProp('syn:tag','lulz')
 
         self.assertIsNone( lulz[1].get('syn:tag:up') )
         self.assertEqual( lulz[1].get('syn:tag:doc'), '')
         self.assertEqual( lulz[1].get('syn:tag:title'), '')
         self.assertEqual( lulz[1].get('syn:tag:depth'), 0 )
+        self.eq(lulz[1].get('syn:tag:base'), 'lulz')
 
         rofl = core.getTufoByProp('syn:tag','lulz.rofl')
 
@@ -659,6 +664,10 @@ class CortexTest(SynTest):
         self.assertEqual( rofl[1].get('syn:tag:up'), 'lulz' )
 
         self.assertEqual( rofl[1].get('syn:tag:depth'), 1 )
+        self.eq(rofl[1].get('syn:tag:base'), 'rofl')
+
+        tags = core.getTufosByProp('syn:tag:base', 'rofl')
+        self.eq(len(tags), 2)
 
         wait = self.getTestWait(core, 2, 'tufo:tag:del')
         core.delTufoTag(hehe,'lulz.rofl')

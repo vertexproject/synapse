@@ -1,4 +1,5 @@
 import synapse.cortex as s_cortex
+import synapse.lib.storm as s_storm
 import synapse.cores.common as s_common
 
 from synapse.tests.common import *
@@ -237,3 +238,178 @@ class StormTest(SynTest):
 
             nodes = core.eval('inet:dns:a +#loc.milkyway.galactic**.tx')
             self.eq(len(nodes), 1)
+
+    def test_storm_tag_jointag(self):
+        with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+            node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
+            node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
+            node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
+            node4 = core.formTufoByProp('inet:netuser', 'clowntown.link/pennywise')
+
+            core.addTufoTags(node1, ['aka.bar.baz',
+                                     'aka.duck.quack.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.earth.us.ca.san_francisco'])
+            core.addTufoTags(node2, ['aka.duck.baz',
+                                     'aka.duck.quack.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.earth.us.va.san_francisco'])
+            core.addTufoTags(node3, ['aka.bar.knight',
+                                     'aka.duck.sound.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.earth.us.nv.perfection'])
+            core.addTufoTags(node4, ['aka.bar.knightdark',
+                                     'aka.duck.sound.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.mars.us.tx.perfection'])
+
+            nodes = core.eval('inet:dns:a jointags()')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('inet:dns:a jointags(inet:fqdn, limit=2)')
+            self.eq(len(nodes), 1)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:fqdn')
+
+            nodes = core.eval('inet:dns:a jointags(ps:tokn, inet:fqdn)')
+            self.eq(len(nodes), 1)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:fqdn')
+
+            nodes = core.eval('inet:dns:a jointags(ps:tokn)')
+            self.eq(len(nodes), 0)
+
+            nodes = core.eval('inet:dns:a jointags(ps:tokn, keep_nodes=1)')
+            self.eq(len(nodes), 1)
+
+            nodes = core.eval('inet:dns:a jointags(inet:fqdn, keep_nodes=1)')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('inet:dns:a jointags(limit=1)')
+            self.eq(len(nodes), 1)
+
+    def test_storm_tag_totag(self):
+        with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+            node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
+            node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
+            node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
+            node4 = core.formTufoByProp('inet:netuser', 'clowntown.link/pennywise')
+            node5 = core.formTufoByProp('geo:loc', 'derry')
+
+            core.addTufoTags(node1, ['aka.bar.baz',
+                                     'aka.duck.quack.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.earth.us.ca.san_francisco'])
+            core.addTufoTags(node2, ['aka.duck.baz',
+                                     'aka.duck.quack.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.earth.us.va.san_francisco'])
+            core.addTufoTags(node3, ['aka.bar.knight',
+                                     'aka.duck.sound.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.earth.us.nv.perfection'])
+            core.addTufoTags(node4, ['aka.bar.knightdark',
+                                     'aka.duck.sound.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.mars.us.tx.perfection'])
+
+            nodes = core.eval('inet:dns:a totags()')
+            self.eq(len(nodes), 3)
+
+            nodes = core.eval('inet:dns:a totags(leaf=0)')
+            self.eq(len(nodes), 14)
+
+            nodes = core.eval('#aka.duck.quack.loud totags()')
+            self.eq(len(nodes), 5)
+
+            nodes = core.eval('#aka.duck totags()')
+            self.eq(len(nodes), 10)
+
+            nodes = core.eval('ps:tokn totags()')
+            self.eq(len(nodes), 0)
+
+            # Tag input
+            nodes = core.eval('syn:tag=aktoa.bar.baz totags()')
+            self.eq(len(nodes), 0)
+
+            # Tagless node input
+            nodes = core.eval('geo:loc=derry totags()')
+            self.eq(len(nodes), 0)
+
+
+    def test_storm_tag_fromtag(self):
+        with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+            node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
+            node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
+            node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
+            node4 = core.formTufoByProp('inet:netuser', 'clowntown.link/pennywise')
+            core.addTufoTags(node1, ['aka.bar.baz',
+                                     'aka.duck.quack.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.earth.us.ca.san_francisco'])
+            core.addTufoTags(node2, ['aka.duck.baz',
+                                     'aka.duck.quack.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.earth.us.va.san_francisco'])
+            core.addTufoTags(node3, ['aka.bar.knight',
+                                     'aka.duck.sound.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.earth.us.nv.perfection'])
+            core.addTufoTags(node4, ['aka.bar.knightdark',
+                                     'aka.duck.sound.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.mars.us.tx.perfection'])
+
+            nodes = core.eval('syn:tag=aka.bar.baz fromtags()')
+            self.eq(len(nodes), 1)
+
+            nodes = core.eval('syn:tag=aka.bar fromtags()')
+            self.eq(len(nodes), 3)
+
+            nodes = core.eval('syn:tag=aka.duck fromtags()')
+            self.eq(len(nodes), 4)
+
+            nodes = core.eval('syn:tag=aka.bar.baz fromtags(inet:dns:a)')
+            self.eq(len(nodes), 1)
+
+            nodes = core.eval('syn:tag=aka.bar.baz fromtags(inet:dns:a, ps:tokn)')
+            self.eq(len(nodes), 1)
+
+            nodes = core.eval('syn:tag=aka.bar.baz fromtags(ps:tokn)')
+            self.eq(len(nodes), 0)
+
+            nodes = core.eval('syn:tag=spam.and.eggs fromtags()')
+            self.eq(len(nodes), 0)
+
+            nodes = core.eval('syn:tag=aka.duck fromtags(limit=2)')
+            self.eq(len(nodes), 2)
+
+            # Non-tag input
+            nodes = core.eval('inet:dns:a fromtags()')
+            self.eq(len(nodes), 0)
+
+            nodes = core.eval('syn:tag:base=bar fromtags()')
+            self.eq(len(nodes), 3)
+
+class LimitTest(SynTest):
+
+    def test_limit_default(self):
+        # LimitHelper would normally be used with the kwlist arg limit,
+        # which if not specified would default to None when the .get()
+        # is performed on the kwlist dictionary.
+        limt = s_storm.LimitHelp(None)
+        self.eq(limt.reached(), False)
+        self.eq(limt.get(), None)
+        self.eq(limt.dec(), False)
+        self.eq(limt.dec(100), False)
+
+    def test_limit_behavior(self):
+        n = 4
+        limt = s_storm.LimitHelp(n)
+        self.eq(limt.get(), 4)
+        self.eq(limt.reached(), False)
+
+        self.eq(limt.dec(), False)
+        self.eq(limt.get(), 3)
+        self.eq(limt.dec(4), True)
+
+    def test_limit_behavior_negatives(self):
+        n = 4
+        limt = s_storm.LimitHelp(n)
+        self.eq(limt.dec(0), False)
+        self.eq(limt.get(), 4)
+
+        self.eq(limt.dec(-1), False)
+        self.eq(limt.get(), 4)
+
+        self.eq(limt.dec(4), True)
+        self.eq(limt.get(), 0)
+        self.eq(limt.reached(), True)
+        self.eq(limt.dec(-1), True)
+        self.eq(limt.get(), 0)
