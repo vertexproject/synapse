@@ -99,6 +99,15 @@ class Query:
             'data':list(data),
         }
 
+    def __len__(self):
+        return len(self.results['data'])
+
+    def size(self):
+        '''
+        Get the number of tufos currently in the query.
+        '''
+        return len(self)
+
     def log(self, **info):
         '''
         Log execution metadata for the current oper.
@@ -954,11 +963,11 @@ class Runtime(Configable):
             query.clear()
 
         for tag, form in tagforms:
-            lqs = len(query.results.get('data'))
+            lqs = query.size()
             tufos = core.getTufosByTag(form, tag, limit=limt.get())
             [query.add(tufo) for tufo in tufos]
             if tufos:
-                lq = len(query.results.get('data'))
+                lq = query.size()
                 nnewnodes = lq - lqs
                 if limt.dec(nnewnodes):
                     break
@@ -993,11 +1002,11 @@ class Runtime(Configable):
 
         query.clear()
         for tag, form in tagforms:
-            lqs = len(query.results.get('data'))
+            lqs = query.size()
             tufos = core.getTufosByTag(form, tag, limit=limt.get())
             [query.add(tufo) for tufo in tufos]
             if tufos:
-                lq = len(query.results.get('data'))
+                lq = query.size()
                 nnewnodes = lq - lqs
                 if limt.dec(nnewnodes):
                     break
