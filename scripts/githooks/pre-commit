@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 """
+Requires pycodestyle to be installed.
+
 Forked from https://gist.github.com/810399
 Updated from https://github.com/cbrueffer/pep8-git-hook
 """

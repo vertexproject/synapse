@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 #
+# Requires autopep8 to be installed.
 # Script for cleaning up most PEP8 related errors checked by the pre-commit hook.
 #
 import os
