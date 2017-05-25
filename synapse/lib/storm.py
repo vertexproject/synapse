@@ -969,7 +969,7 @@ class Runtime(Configable):
 
         leaf = opts.get('leaf', True)
         tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=leaf)}
-        [query.add(tufo) for tag in tags for tufo in core.getTufosByProp('syn:tag', tag)]
+        [query.add(tufo) for tufo in core.getTufosBy('in', 'syn:tag', list(tags))]
 
     def _stormOperFromTags(self, query, oper):
         args = oper[1].get('args')
