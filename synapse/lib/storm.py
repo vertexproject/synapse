@@ -974,19 +974,18 @@ class Runtime(Configable):
 
     def _stormOperToTags(self, query, oper):
         opts = dict(oper[1].get('kwlist'))
-        nodes = query.data()
+        nodes = query.take()
         core = self.getStormCore()
 
         leaf = opts.get('leaf', True)
         tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=leaf)}
-        query.clear()
         [query.add(tufo) for tag in tags for tufo in core.getTufosByProp('syn:tag', tag)]
 
     def _stormOperFromTags(self, query, oper):
         args = oper[1].get('args')
         opts = dict(oper[1].get('kwlist'))
 
-        nodes = query.data()
+        nodes = query.take()
 
         forms = {arg for arg in args}
         limt = LimitHelp(opts.get('limit'))
@@ -1000,7 +999,6 @@ class Runtime(Configable):
         # Predictable looping
         tagforms = sorted(itertools.product(tags, forms))
 
-        query.clear()
         for tag, form in tagforms:
             lqs = query.size()
             tufos = core.getTufosByTag(form, tag, limit=limt.get())
