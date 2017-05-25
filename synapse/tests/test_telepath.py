@@ -27,6 +27,10 @@ class Foo:
     def speed(self):
         return
 
+    @s_telepath.clientside
+    def localthing(self, x):
+        return self.echo(x)
+
 class TelePathTest(SynTest):
 
     def getFooServ(self):
@@ -379,3 +383,16 @@ class TelePathTest(SynTest):
                 wait.wait()
                 self.assertEqual(counters[0], 1)
                 self.assertEqual(counters[1], 1)
+
+    def test_telepath_clientside(self):
+
+        with s_daemon.Daemon() as dmon:
+
+            link = dmon.listen('tcp://127.0.0.1:0/')
+            port = link[1].get('port')
+
+            dmon.share('foo',Foo())
+
+            with s_telepath.openurl('tcp://127.0.0.1/foo', port=port) as prox:
+                self.eq( prox.localthing(20), 20 )
+                self.eq( prox.localthing(30), 30 )

@@ -69,6 +69,18 @@ def getDynLocal(name):
 
     return getattr(mod,objname,None)
 
+def getDynMeth(name):
+    '''
+    Retrieve and return an unbound method by python path.
+    '''
+    cname,fname = name.rsplit('.',1)
+
+    clas = getDynLocal(cname)
+    if clas is None:
+        return None
+
+    return getattr(clas,fname,None)
+
 def tryDynMod(name):
     '''
     Dynamically import a python module or exception.

@@ -14,6 +14,20 @@ class SynErr(Exception):
     def items(self):
         return self.errinfo.items()
 
+    def get(self, name):
+        '''
+        Return a value from the errinfo dict.
+
+        Example:
+
+            try:
+                foothing()
+            except SynErr as e:
+                blah = e.get('blah')
+
+        '''
+        return self.errinfo.get(name)
+
 class NoSuchOpt(SynErr):pass
 class NoSuchDir(SynErr):pass
 class NoSuchDyn(SynErr):pass
@@ -59,6 +73,8 @@ class BadJson(Exception):pass
 class BadMesgResp(Exception):pass
 class BadPropValu(SynErr):pass
 class BadPySource(Exception):pass
+
+class TeleClientSide(SynErr):pass
 
 class HitStormLimit(SynErr):pass
 

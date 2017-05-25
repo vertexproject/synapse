@@ -160,7 +160,7 @@ class AxonMixin:
     The parts of the Axon which must be executed locally in proxy cases.
     ( used as mixin for both Axon and AxonProxy )
     '''
-
+    @s_telepath.clientside
     def eatfd(self, fd):
         '''
         Consume the contents of a file object into the axon as a blob.
@@ -189,6 +189,7 @@ class AxonMixin:
 
         return retn
 
+    @s_telepath.clientside
     def eatbytes(self, byts):
         '''
         Consume a buffer of bytes into the axon as a blob.

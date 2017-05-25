@@ -5,6 +5,7 @@ import tempfile
 import synapse.axon as s_axon
 import synapse.daemon as s_daemon
 import synapse.lib.heap as s_heap
+import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 import synapse.lib.service as s_service
 
@@ -614,3 +615,20 @@ class AxonTest(SynTest):
         self.assertGreater(actual['st_atime'], 1000000000)
         self.assertGreater(actual['st_ctime'], 1000000000)
         self.assertGreater(actual['st_mtime'], 1000000000)
+
+    def test_axon_telepath(self):
+        with self.getTestDir() as dirname:
+
+            with s_daemon.Daemon() as dmon:
+
+                link = dmon.listen('tcp://127.0.0.1:0/')
+                port = link[1].get('port')
+
+                with s_axon.Axon(dirname) as axon:
+                    dmon.share('axon',axon)
+
+                    prox = s_telepath.openurl('tcp://127.0.0.1/axon', port=port)
+
+                    with io.BytesIO(b'vertex') as fd:
+                        blob = prox.eatfd(fd)
+                        print(blob)

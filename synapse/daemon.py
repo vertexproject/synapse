@@ -301,6 +301,7 @@ class Daemon(EventBus,DmonConf):
         self.socks = {}     # sockets by iden
         self.shared = {}    # objects provided by daemon
         self.pushed = {}    # objects provided by sockets
+        self.csides = {}    # item:[ (name,path), ... ]
         self.reflect = {}   # objects reflect info by name
 
         self._dmon_links = []   # list of listen links
@@ -433,6 +434,7 @@ class Daemon(EventBus,DmonConf):
 
         jid = mesg[1].get('jid')
         name = mesg[1].get('name')
+        csides = mesg[1].get('csides')
         reflect = mesg[1].get('reflect')
 
         user = sock.get('syn:user')
@@ -446,6 +448,7 @@ class Daemon(EventBus,DmonConf):
         sock.onfini(onfini)
 
         self.pushed[name] = sock
+        self.csides[name] = csides
         self.reflect[name] = reflect
 
         return sock.tx( tufo('job:done', jid=jid) )
@@ -556,6 +559,7 @@ class Daemon(EventBus,DmonConf):
         }
 
         if name != None:
+            ret['csides'] = self.csides.get(name)
             ret['reflect'] = self.reflect.get(name)
 
         # send a nonce along for the ride in case
@@ -681,6 +685,10 @@ class Daemon(EventBus,DmonConf):
                 if func == None:
                     raise NoSuchMeth(meth)
 
+                if getattr(func,'_tele_clientside',False):
+                    name = s_reflect.getMethName(func)
+                    raise TeleClientSide(name=name)
+
                 ret = func(*args,**kwargs)
 
                 # handle generator returns specially
@@ -775,6 +783,7 @@ class Daemon(EventBus,DmonConf):
         '''
         self.shared[name] = item
         self.reflect[name] = s_reflect.getItemInfo(item)
+        self.csides[name] = s_telepath.getClientSides(item)
 
         if fini:
             self.onfini( item.fini )

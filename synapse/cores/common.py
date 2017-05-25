@@ -58,78 +58,13 @@ def reqstor(name,valu):
         raise BadPropValu(name=name,valu=valu)
     return valu
 
-class CortexMixin:
-
-    def __init__(self):
-        pass
-
-    def formNodeByBytes(self, byts, stor=True, **props):
-        '''
-        Form a new file:bytes node by passing bytes and optional props.
-
-        If stor=False is specified, the cortex will create the file:bytes
-        node even if it is not configured with access to an axon to store
-        the bytes.
-
-        Example:
-
-            core.formNodeByBytes(byts,name='foo.exe')
-
-        '''
-
-        hset = s_hashset.HashSet()
-        hset.update(byts)
-
-        iden,info = hset.guid()
-
-        props.update(info)
-
-        if stor:
-
-            size = props.get('size')
-            upid = self._getAxonWants('guid',iden,size)
-
-            if upid != None:
-                for chun in chunks(byts,10000000):
-                    self._addAxonChunk(upid,chun)
-
-        return self.formTufoByProp('file:bytes', iden, **props)
-
-    def formNodeByFd(self, fd, stor=True, **props):
-        '''
-        Form a new file:bytes node by passing a file object and optional props.
-        '''
-        hset = s_hashset.HashSet()
-        iden,info = hset.eatfd(fd)
-
-        props.update(info)
-
-
-        if stor:
-
-            size = props.get('size')
-            upid = self._getAxonWants('guid',iden,size)
-
-            # time to send it!
-            if upid != None:
-                for byts in iterfd(fd):
-                    self._addAxonChunk(upid,byts)
-
-        node = self.formTufoByProp('file:bytes', iden, **props)
-
-        if node[1].get('file:bytes:size') == None:
-            self.setTufoProp(node,'size',info.get('size'))
-
-        return node
-
-class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestApi):
+class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
     '''
     Top level Cortex key/valu storage object.
     '''
     def __init__(self, link, **conf):
         Runtime.__init__(self)
         EventBus.__init__(self)
-        CortexMixin.__init__(self)
         Configable.__init__(self)
 
         # a cortex may have a ref to an axon
@@ -2231,7 +2166,67 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         '''
         self.savebus.link(func)
 
-    # FIXME addSyncLink()
+    @s_telepath.clientside
+    def formNodeByBytes(self, byts, stor=True, **props):
+        '''
+        Form a new file:bytes node by passing bytes and optional props.
+
+        If stor=False is specified, the cortex will create the file:bytes
+        node even if it is not configured with access to an axon to store
+        the bytes.
+
+        Example:
+
+            core.formNodeByBytes(byts,name='foo.exe')
+
+        '''
+
+        hset = s_hashset.HashSet()
+        hset.update(byts)
+
+        iden,info = hset.guid()
+
+        props.update(info)
+
+        if stor:
+
+            size = props.get('size')
+            upid = self._getAxonWants('guid',iden,size)
+
+            if upid != None:
+                for chun in chunks(byts,10000000):
+                    self._addAxonChunk(upid,chun)
+
+        return self.formTufoByProp('file:bytes', iden, **props)
+
+    @s_telepath.clientside
+    def formNodeByFd(self, fd, stor=True, **props):
+        '''
+        Form a new file:bytes node by passing a file object and optional props.
+        '''
+        hset = s_hashset.HashSet()
+        iden,info = hset.eatfd(fd)
+
+        props.update(info)
+
+
+        if stor:
+
+            size = props.get('size')
+            upid = self._getAxonWants('guid',iden,size)
+
+            # time to send it!
+            if upid != None:
+                for byts in iterfd(fd):
+                    self._addAxonChunk(upid,byts)
+
+        node = self.formTufoByProp('file:bytes', iden, **props)
+
+        if node[1].get('file:bytes:size') == None:
+            self.setTufoProp(node,'size',info.get('size'))
+
+        return node
+
 
     def _okSetProp(self, prop):
         # check for enforcement and validity of a full prop name

@@ -27,8 +27,6 @@ import synapse.lib.threads as s_threads
 from synapse.common import *
 from synapse.compat import queue
 
-s_mixins.addSynMixin('telepath','synapse.axon.AxonMixin')
-
 # telepath protocol version
 # ( compat breaks only at major ver )
 telever = (1,0)
@@ -85,30 +83,7 @@ def openlink(link):
     synack = teleSynAck(sock, name=name)
     bases = ()
 
-    inherits = ()
-
-    refl = synack.get('reflect')
-    if refl != None:
-        inherits = refl.get('inherits',())
-
-    return getMixClass(inherits)(relay,sock=sock)
-
-classcache = {}
-def getMixClass(inherits):
-    base = [Proxy,]
-
-    for name in inherits:
-        for mixin in s_mixins.getSynMixins('telepath',name):
-            base.append(mixin)
-
-    inherit = tuple(base)
-
-    clas = classcache.get(inherit)
-    if clas == None:
-        clas = type('Proxy',inherit,{})
-        classcache[inherit] = clas
-
-    return clas
+    return Proxy(relay,sock=sock)
 
 def evalurl(url,**opts):
     '''
@@ -137,11 +112,22 @@ class Method:
 
     def __init__(self, proxy, meth):
         self.meth = meth
+        self.cside = None
         self.proxy = proxy
 
+        # act as much like a bound method as possible...
+        self.__name__ = meth
+        self.__self__ = proxy
+
     def __call__(self, *args, **kwargs):
+
+        # check if we have a cached client-side function
+        if self.cside != None:
+            return self.cside(self.proxy,*args,**kwargs)
+
         ondone = kwargs.pop('ondone',None)
         task = (self.meth,args,kwargs)
+
         job = self.proxy._tx_call( task, ondone=ondone )
         if ondone != None:
             return job
@@ -202,6 +188,7 @@ class Proxy(s_eventbus.EventBus):
         self._tele_relay = relay    # LinkRelay()
         self._tele_link = relay.link
         self._tele_yields = {}
+        self._tele_csides = {}
         self._tele_reflect = None
 
         # obj name is path minus leading "/"
@@ -334,8 +321,9 @@ class Proxy(s_eventbus.EventBus):
             prox.push( 'bar', Bar() )
 
         '''
+        csides = getClientSides(item)
         reflect = s_reflect.getItemInfo(item)
-        job = self._txTeleJob('tele:push', name=name, reflect=reflect)
+        job = self._txTeleJob('tele:push', name=name, reflect=reflect, csides=csides)
         self._tele_pushed[ name ] = item
         return self.syncjob(job)
 
@@ -481,6 +469,10 @@ class Proxy(s_eventbus.EventBus):
         self._tele_sid = synack.get('sess')
         self._tele_reflect = synack.get('reflect')
 
+        csides = synack.get('csides')
+        if csides is not None:
+            self._tele_csides.update(csides)
+
         hisopts = synack.get('opts',{})
 
         if hisopts.get('sock:can:gzip'):
@@ -524,7 +516,17 @@ class Proxy(s_eventbus.EventBus):
         self._tele_pool.fini()
 
     def __getattr__(self, name):
-        meth = Method(self, name)
+        path = self._tele_csides.get(name)
+        if path is not None:
+            func = s_dyndeps.getDynMeth(path)
+            if func is None:
+                return None
+
+            meth =func.__get__(self)
+
+        else:
+            meth = Method(self, name)
+
         setattr(self,name,meth)
         return meth
 
@@ -564,3 +566,39 @@ def teleSynAck(sock, name=None, sid=None):
             raise BadMesgVers(myver=telever,hisver=vers)
 
     return synack
+
+def clientside(f):
+    '''
+    A function decorator which causes the given function to be run on
+    the telepath client side.
+
+    Example:
+
+        @s_telepath.clientside
+        def foo(self, bar):
+            dostuff()
+
+    NOTE: you *must* use APIs within the function to access locals etc.
+          ( ie, the method must be able to have self be a telepath proxy )
+    '''
+    f._tele_clientside = True
+    return f
+
+def getClientSides(item):
+    '''
+    Return a dict of name:path pairs for any clientside functions in item.
+    '''
+    retn = {}
+
+    for name,valu in s_reflect.getItemLocals(item):
+
+        if not getattr(valu,'_tele_clientside',False):
+            continue
+
+        path = s_reflect.getMethName(valu)
+        if path == None:
+            continue
+
+        retn[name] = path
+
+    return retn
