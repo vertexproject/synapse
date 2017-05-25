@@ -901,10 +901,9 @@ class Runtime(Configable):
         limit = opts.get('limit')
 
         core = self.getStormCore()
-        forms = core.getTufoForms()
 
-        for form,tag in self._iterPropTags(forms,tags):
-            nodes = core.getTufosByTag(form,tag,limit=limit)
+        for tag in tags:
+            nodes = core.getTufosByDark('tag', tag, limit=limit)
 
             for node in nodes:
                 query.add(node)
@@ -950,12 +949,12 @@ class Runtime(Configable):
         tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=True)}
 
         if not forms:
-            forms = core.getModelDict().get('forms')
+            forms = set(core.getModelDict().get('forms'))
 
-        for form, tag in self._iterPropTags(forms, tags):
+        for tag in tags:
             lqs = query.size()
-            tufos = core.getTufosByTag(form, tag, limit=limt.get())
-            [query.add(tufo) for tufo in tufos]
+            tufos = core.getTufosByDark('tag', tag, limit=limt.get())
+            [query.add(tufo) for tufo in tufos if tufo[1].get('tufo:form') in forms]
             if tufos:
                 lq = query.size()
                 nnewnodes = lq - lqs
@@ -983,14 +982,14 @@ class Runtime(Configable):
         tags = {node[1].get('syn:tag') for node in nodes if node[1].get('tufo:form') == 'syn:tag'}
 
         core = self.getStormCore()
-        # TODO This is O(m*n).
-        if not forms:
-            forms = core.getModelDict().get('forms')
 
-        for form, tag in self._iterPropTags(forms, tags):
+        if not forms:
+            forms = set(core.getModelDict().get('forms'))
+
+        for tag in tags:
             lqs = query.size()
-            tufos = core.getTufosByTag(form, tag, limit=limt.get())
-            [query.add(tufo) for tufo in tufos]
+            tufos = core.getTufosByDark('tag', tag, limit=limt.get())
+            [query.add(tufo) for tufo in tufos if tufo[1].get('tufo:form') in forms]
             if tufos:
                 lq = query.size()
                 nnewnodes = lq - lqs
