@@ -937,25 +937,24 @@ class Runtime(Configable):
     def _stormOperJoinTags(self, query, oper):
         args = oper[1].get('args')
         opts = dict(oper[1].get('kwlist'))
+        core = self.getStormCore()
 
-        nodes = query.data()
-
+        forms = {arg for arg in args}
         keep_nodes = opts.get('keep_nodes', False)
         limt = LimitHelp(opts.get('limit'))
 
-        forms = {arg for arg in args}
+        nodes = query.data()
+        if not keep_nodes:
+            query.clear()
 
         tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=True)}
-
-        core = self.getStormCore()
 
         if not forms:
             forms = core.getModelDict().get('forms')
         # Predictable looping
         tagforms = sorted(self._iterPropTags(forms, tags))
         # This allows us to do 'join' source tufos together.
-        if not keep_nodes:
-            query.clear()
+
 
         for form, tag in tagforms:
             lqs = query.size()
