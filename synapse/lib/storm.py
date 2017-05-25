@@ -1,7 +1,6 @@
 import re
 import time
 import logging
-import itertools
 import collections
 
 import synapse.eventbus as s_eventbus
@@ -950,19 +949,15 @@ class Runtime(Configable):
 
         core = self.getStormCore()
 
-        if forms:
-            tagforms = [(tag, tufo[1].get('syn:tagform:form')) for tag in tags
-                        for tufo in core.getTufosByProp('syn:tagform:tag', tag)
-                        if tufo[1].get('syn:tagform:form') in forms]
-        else:
-            tagforms = [(tag, tufo[1].get('syn:tagform:form')) for tag in tags
-                        for tufo in core.getTufosByProp('syn:tagform:tag', tag)]
-        tagforms = sorted(tagforms)
+        if not forms:
+            forms = core.getModelDict().get('forms')
+        # Predictable looping
+        tagforms = sorted(self._iterPropTags(forms, tags))
         # This allows us to do 'join' source tufos together.
         if not keep_nodes:
             query.clear()
 
-        for tag, form in tagforms:
+        for form, tag in tagforms:
             lqs = query.size()
             tufos = core.getTufosByTag(form, tag, limit=limt.get())
             [query.add(tufo) for tufo in tufos]
@@ -995,11 +990,11 @@ class Runtime(Configable):
         core = self.getStormCore()
         # TODO This is O(m*n).
         if not forms:
-            forms = {tufo[1].get('syn:type') for tufo in core.getTufosByProp('tufo:form', 'syn:type')}
+            forms = core.getModelDict().get('forms')
         # Predictable looping
-        tagforms = sorted(itertools.product(tags, forms))
+        tagforms = sorted(self._iterPropTags(forms, tags))
 
-        for tag, form in tagforms:
+        for form, tag in tagforms:
             lqs = query.size()
             tufos = core.getTufosByTag(form, tag, limit=limt.get())
             [query.add(tufo) for tufo in tufos]
