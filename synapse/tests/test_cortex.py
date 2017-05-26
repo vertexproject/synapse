@@ -84,6 +84,8 @@ class CortexTest(SynTest):
 
         tufo = core.formTufoByProp('lol:zonk', 1)
         core.addTufoDark(tufo, 'hidden', 'color')
+        # Duplicate call for code coverage.
+        core.addTufoDark(tufo, 'hidden', 'color')
 
         self.true(d.get('syn:dark:add:hidden'))
 
