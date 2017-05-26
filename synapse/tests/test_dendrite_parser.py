@@ -12,31 +12,30 @@ class DendriteParserTest(SynTest):
 
     @contextlib.contextmanager
     def setup(self):
-        dmon = s_daemon.Daemon()
-        sbus = s_service.SvcBus()
-        dmon.share('syn.svcbus', sbus, fini=True)
-        link = dmon.listen('tcp://127.0.0.1:0/')
-        port = link[1].get('port')
-        sbusurl = 'tcp://127.0.0.1:%d/syn.svcbus' % port
-        with s_service.openurl(sbusurl) as proxy:
-            with self.getTestDir() as dir:
-                axon = s_axon.Axon(dir)
-                dmon.share('axon', axon, fini=True)
-                axonurl = 'tcp://127.0.0.1:%d/axon' % port
-                proxy.runSynSvc('axon', axon, link=axonurl)
+        with s_daemon.Daemon() as dmon:
+            sbus = s_service.SvcBus()
+            dmon.share('syn.svcbus', sbus, fini=True)
+            link = dmon.listen('tcp://127.0.0.1:0/')
+            port = link[1].get('port')
+            sbusurl = 'tcp://127.0.0.1:%d/syn.svcbus' % port
+            with s_service.openurl(sbusurl) as proxy:
+                with self.getTestDir() as dir:
+                    axon = s_axon.Axon(dir)
+                    dmon.share('axon', axon, fini=True)
+                    axonurl = 'tcp://127.0.0.1:%d/axon' % port
+                    proxy.runSynSvc('axon', axon, link=axonurl)
 
-                coreurl = 'tcp://127.0.0.1:%d/core' % port
-                core = s_cortex.openurl('ram:///', **{'axon:url': axonurl})
-                dmon.share('core', core, fini=True)
-                proxy.runSynSvc('core', core, link=coreurl)
+                    coreurl = 'tcp://127.0.0.1:%d/core' % port
+                    core = s_cortex.openurl('ram:///', **{'axon:url': axonurl})
+                    dmon.share('core', core, fini=True)
+                    proxy.runSynSvc('core', core, link=coreurl)
 
-                jobs = Jobs('ram://', sbusurl)
-                proxy.runSynSvc('dendrite-jobs', jobs)
-                coordinator = Coordinator(svcbus=sbusurl, core='core', axon='axon', jobs='dendrite-jobs')
-                proxy.runSynSvc('dendrite-coordinator', coordinator)
-                opts = {'svcbus': sbusurl, 'coordinator': 'dendrite-coordinator', 'jobs': 'dendrite-jobs'}
-                yield (opts, coordinator, jobs)
-                dmon.fini()
+                    jobs = Jobs('ram://', sbusurl)
+                    proxy.runSynSvc('dendrite-jobs', jobs)
+                    coordinator = Coordinator(svcbus=sbusurl, core='core', axon='axon', jobs='dendrite-jobs')
+                    proxy.runSynSvc('dendrite-coordinator', coordinator)
+                    opts = {'svcbus': sbusurl, 'coordinator': 'dendrite-coordinator', 'jobs': 'dendrite-jobs'}
+                    yield (opts, coordinator, jobs)
 
     def test_register(self):
         with self.setup() as (opts, coordinator, jobs):

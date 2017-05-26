@@ -28,7 +28,9 @@ class Jobs(s_eventbus.EventBus):
         self.currMs = None
         self.jobNum = None
         self.core = s_cortex.openurl(core)
+        #self.core.setConfOpt('caching', True)
         self.core.addTufoForm('dendrite:job', ptype='guid')
+        self.core.addTufoProp('dendrite:job', 'link', ptype='guid')
         self.core.addTufoProp('dendrite:job', 'queue', ptype='str', req=True)
         self.core.addTufoProp('dendrite:job', 'data', ptype='str', req=True)
         self.core.addTufoProp('dendrite:job', 'runkey', ptype='int', req=True)
@@ -37,13 +39,19 @@ class Jobs(s_eventbus.EventBus):
         self.core.addTufoProp('dendrite:job', 'queued_at', ptype='time', req=True)
         self.core.addTufoProp('dendrite:job', 'working_at', ptype='time', req=True)
         self.core.addTufoProp('dendrite:job', 'completed_at', ptype='time', req=True)
+
+        self.core.addTufoForm('dendrite:queue', ptype='str')
+        self.core.addTufoProp('dendrite:queue', 'head', ptype='guid')
+        self.core.addTufoProp('dendrite:queue', 'tail', ptype='guid')
+
         self.svcbus = s_telepath.openurl(svcbus)
 
     def put(self, queue, job):
         '''
         Adds job to a queue.
 
-        The job is added to the queue and event of the form ``'dendrite:jobs:%s' % queue`` is fired on the Service Bus.
+        The job is added to the queue and an event of the form ``'dendrite:jobs:%s' % queue`` is fired on
+        the Service Bus.
 
         Args:
             queue (str):
@@ -54,8 +62,41 @@ class Jobs(s_eventbus.EventBus):
         '''
         logger.debug('Adding job %s to queue %s', job, queue)
         props = self._initJobProps(queue, job)
-        self.core.formTufoByProp('dendrite:job', s_common.guid(), **props)
-        self.svcbus.fire(self._eventName(queue), job=job, queue=queue)
+        tufo = self.core.formTufoByProp('dendrite:job', s_common.guid(), **props)
+        self._updateLinksOnPut(tufo)
+        self.svcbus.fire(self._eventName(queue), queue=queue)
+
+    def putAll(self, queue, jobList):
+        '''
+        Adds a list of jobs to a queue.
+
+        The list of jobs are added to the queue and an event of the form ``'dendrite:jobs:%s' % queue`` is fired on
+        the Service Bus.
+
+        Args:
+            queue (str):
+                Name of the queue to add the job to.
+
+            jobList (list):
+                List of jobs containing any properties needed to represent the job.
+        '''
+        logger.debug('Adding %d jobs to queue %s', len(jobList), queue)
+        queueState = self._getQueue(queue)
+        tail = queueState[1].get('dendrite:queue:tail')
+        tailTufo = self.core.getTufoByIden(tail) if tail else None
+        for job in jobList:
+            props = self._initJobProps(queue, job)
+            tufo = self.core.formTufoByProp('dendrite:job', s_common.guid(), **props)
+            if tail == None:
+                self.core.setTufoProps(queueState, head=tufo[0], tail=tufo[0])
+            else:
+                self.core.setTufoProps(tailTufo, link=tufo[0])
+            tail = tufo[0]
+            tailTufo = tufo
+
+        if tail:
+            self.core.setTufoProps(queueState, tail=tail)
+        self.svcbus.fire(self._eventName(queue), queue=queue)
 
     def get(self, queue):
         '''
@@ -68,24 +109,34 @@ class Jobs(s_eventbus.EventBus):
         Returns:
             dict: The next job if one exists, None otherwise.
         '''
-        tufos = sorted(self._jobsByQueue(queue), key=lambda t: t[1].get('dendrite:job:runkey'))
-        if len(tufos) > 0:
-            tufo = tufos[0]
+        queueState = self._getQueue(queue)
+        head = queueState[1].get('dendrite:queue:head')
+        if head:
+            tufo = self.core.getTufoByIden(head)
             job = json.loads(tufo[1].get('dendrite:job:data'))
             job.update({'iden': tufo[0]})
             self.core.setTufoProps(tufo, status='working', working_at=s_common.now())
+            link = tufo[1].get('dendrite:job:link')
+            if link:
+                self.core.setTufoProps(queueState, head=link)
+            else:
+                self.core.delTufo(queueState)
             return job
         return None
 
-    def clear(self, queue):
+    def clear(self, queue, status='any'):
         '''
-        Clear all the jobs from the queue specified.
+        Clear all the jobs from the queue specified. By default, the pseudo status of 'any' is used to clear all jobs
+        from the queue, regardless of status. Any status may be provided to only clear certain jobs from a queue.
 
         Args:
             queue (str):
                 The name of the queue to clear.
+
+            status (str):
+                The job status to predicate on while clearing jobs from the specified queue.
         '''
-        for tufo in self._jobsByQueue(queue):
+        for tufo in self._jobsByQueue(queue, status):
             logger.debug('Deleting job %s', tufo)
             self.core.delTufo(tufo)
 
@@ -126,7 +177,8 @@ class Jobs(s_eventbus.EventBus):
         Determine the size of the queue specified.
 
         By default, the number of 'queued' jobs is returned. A status is optionally specified to determine the number
-        of jobs in other states, e.g. 'working' or 'completed'.
+        of jobs in other states, e.g. 'working' or 'completed'. The pseudo status of 'any' is also accepted for
+        counting all jobs regardless of status.
 
         Args:
             queue (str):
@@ -151,7 +203,7 @@ class Jobs(s_eventbus.EventBus):
                 The name of the queue to determine the size of.
 
             status (str):
-                The job status to predicate on while determining the size.
+                The job status to predicate on while determining if a queue is empty.
 
         Returns:
             bool: True if the queue is empty, False otherwise.
@@ -198,6 +250,9 @@ class Jobs(s_eventbus.EventBus):
         return (currms << 8) | self.jobNum
 
     def _jobsByQueue(self, queue, status='queued'):
+        if status == 'any':
+            return self.core.getTufosByProp('dendrite:job:queue', queue)
+
         jobs = []
         for tufo in self.core.getTufosByProp('dendrite:job:queue', queue):
             if tufo[1].get('dendrite:job:status') == status:
@@ -206,3 +261,19 @@ class Jobs(s_eventbus.EventBus):
 
     def _eventName(self, queue):
         return 'dendrite:jobs:%s' % queue
+
+    def _updateLinksOnPut(self, tufo):
+        queueState = self._getQueue(tufo[1].get('dendrite:job:queue'))
+        tail = queueState[1].get('dendrite:queue:tail')
+        if tail == None:
+            self.core.setTufoProps(queueState, head=tufo[0], tail=tufo[0])
+        else:
+            tailTufo = self.core.getTufoByIden(tail)
+            self.core.setTufoProps(tailTufo, link=tufo[0])
+            self.core.setTufoProps(queueState, tail=tufo[0])
+
+    def _getQueue(self, queue):
+        tufo = self.core.getTufoByProp('dendrite:queue', queue)
+        if tufo == None:
+            tufo = self.core.formTufoByProp('dendrite:queue', queue)
+        return tufo

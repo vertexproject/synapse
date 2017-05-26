@@ -13,13 +13,12 @@ class DendriteJobsTest(SynTest):
 
     @contextlib.contextmanager
     def setup(self):
-        dmon = s_daemon.Daemon()
-        sbus = s_service.SvcBus()
-        dmon.share('syn.svcbus', sbus, fini=True)
-        link = dmon.listen('tcp://127.0.0.1:0/')
-        port = link[1].get('port')
-        yield Jobs('ram://', 'tcp://127.0.0.1:%d/syn.svcbus' % port)
-        dmon.fini()
+        with s_daemon.Daemon() as dmon:
+            sbus = s_service.SvcBus()
+            dmon.share('syn.svcbus', sbus, fini=True)
+            link = dmon.listen('tcp://127.0.0.1:0/')
+            port = link[1].get('port')
+            yield Jobs('ram://', 'tcp://127.0.0.1:%d/syn.svcbus' % port)
 
     def test_put_and_get(self):
         with self.setup() as jobs:
@@ -36,6 +35,21 @@ class DendriteJobsTest(SynTest):
             self.assertEqual(self.withoutIden(jobs.get(queue)), data1)
             self.assertEqual(self.withoutIden(jobs.get(queue)), data2)
             self.assertEqual(self.withoutIden(jobs.get(queue)), data3)
+            self.assertEqual(self.withoutIden(jobs.get(queue)), None)
+
+    def test_putAll(self):
+        with self.setup() as jobs:
+            queue = 'fooqueue'
+            listOfJobs = [
+                {'some': 'thing', 'todo': 'shoobeedoobeedoo'},
+                {'some': 'thing', 'todo': 'wootastication'},
+                {'some': 'thing', 'todo': 'shakababafication'}
+            ]
+            jobs.putAll(queue, listOfJobs)
+
+            self.assertEqual(self.withoutIden(jobs.get(queue)), listOfJobs[0])
+            self.assertEqual(self.withoutIden(jobs.get(queue)), listOfJobs[1])
+            self.assertEqual(self.withoutIden(jobs.get(queue)), listOfJobs[2])
             self.assertEqual(self.withoutIden(jobs.get(queue)), None)
 
     def test_complete(self):
@@ -87,6 +101,31 @@ class DendriteJobsTest(SynTest):
 
             jobs.clear(queue2)
             self.assertEqual(jobs.qsize(queue1), 0)
+            self.assertEqual(jobs.qsize(queue2), 0)
+
+    def test_clear_any_status(self):
+        with self.setup() as jobs:
+            data = {'some': 'thing', 'todo': 'shoobeedoobeedoo'}
+
+            queue1 = 'wooties'
+            jobs.put(queue1, data)
+            jobs.put(queue1, data)
+            jobs.put(queue1, data)
+            job1 = jobs.get(queue1)
+
+            queue2 = 'shoobiedoobies'
+            jobs.put(queue2, data)
+            jobs.put(queue2, data)
+            job2 = jobs.get(queue2)
+
+            jobs.clear(queue1)
+            self.assertEqual(jobs.qsize(queue1, status='any'), 0)
+            self.assertEqual(jobs.qsize(queue2, status='any'), 2)
+
+            jobs.clear(queue2, 'queued')
+            self.assertEqual(jobs.qsize(queue1, status='any'), 0)
+            self.assertEqual(jobs.qsize(queue2, status='any'), 1)
+            jobs.clear(queue2)
             self.assertEqual(jobs.qsize(queue2), 0)
 
     def test_qsize(self):
