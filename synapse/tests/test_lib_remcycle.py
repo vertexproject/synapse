@@ -797,3 +797,41 @@ class HypnosTest(SynTest, AsyncTestCase):
         self.eq(len(tufos), 1)
         ip = s_inet.ipv4str(tufos[0][1].get('inet:ipv4'))
         self.true(len(ip) >= 7)
+
+    def test_hypnos_content_type_skips(self):
+        self.skipIfNoInternet()
+        gconf = get_ipify_global_config()
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
+                               ioloop=self.io_loop) as hypo_obj:
+            hypo_obj.addWebConfig(config=gconf)
+
+            self.true('ipify:jsonip' in hypo_obj._web_apis)
+
+            from pprint import pprint
+            data = {}
+
+            def ondone(job_tufo):
+                _jid, jobd = job_tufo
+                resp_data = jobd.get('task')[2].get('resp').get('data')
+                data[_jid] = type(resp_data)
+
+            jid1 = hypo_obj.fireWebApi('ipify:jsonip',
+                                       ondone=ondone)
+            hypo_obj.web_boss.wait(jid1)
+
+            hypo_obj.webContentTypeSkipAdd('application/json')
+            jid2 = hypo_obj.fireWebApi('ipify:jsonip',
+                                       ondone=ondone)
+            hypo_obj.web_boss.wait(jid2)
+
+            hypo_obj.webContentTypeSkipDel('application/json')
+            jid3 = hypo_obj.fireWebApi('ipify:jsonip',
+                                       ondone=ondone)
+            hypo_obj.web_boss.wait(jid3)
+
+            self.true(jid1 in data)
+            self.eq(data[jid1], type({}))
+            self.true(jid2 in data)
+            self.eq(data[jid2], type(b''))
+            self.true(jid3 in data)
+            self.eq(data[jid3], type({}))
