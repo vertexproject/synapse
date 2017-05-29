@@ -90,13 +90,17 @@ class CortexTest(SynTest):
         self.true(d.get('syn:dark:add:hidden'))
 
         self.eq(len(core.getTufosByDark('hidden', 'color')), 1)
-        self.eq(core.getTufoDarkTypes(tufo, 'hidden')[0][0], 'color')
+        self.eq(len(core.getTufosBy('dark', 'hidden', 'color')), 1)
+        self.eq(core.getTufoDarkNames(tufo)[0][0], 'hidden')
+        self.eq(core.getTufoDarkValus(tufo, 'hidden')[0][0], 'color')
 
         core.delTufoDark(tufo, 'hidden', 'color')
 
         self.true(d.get('syn:dark:del:hidden'))
+        self.eq(core.getTufoDarkNames(tufo), [])
         self.eq(len(core.getTufosByDark('hidden', 'color')), 0)
-        self.eq(len(core.getTufoDarkTypes(tufo, 'hidden')), 0)
+        self.eq(len(core.getTufosBy('dark', 'hidden', 'color')), 0)
+        self.eq(len(core.getTufoDarkValus(tufo, 'hidden')), 0)
 
         core.off('syn:dark:add:hidden', fireadd)
         core.off('syn:dark:del:hidden', firedel)

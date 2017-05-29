@@ -253,6 +253,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         self.initTufosBy('tag',self._tufosByTag)
         self.initTufosBy('type',self._tufosByType)
         self.initTufosBy('inet:cidr',self._tufosByInetCidr)
+        self.initTufosBy('dark', self._tufosByDark)
 
         # process a savefile/savefd if we have one
         savefd = link[1].get('savefd')
@@ -309,10 +310,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                 logger.warning('%s.addCoreOns: %s' % (name,exc))
 
         s_ingest.IngestApi.__init__(self, self)
-
-        # Register dark handlers for tag creation
-        self.on('tufo:tag:add', self._onAddSynTagDark)
-        self.on('tufo:tag:del', self._onDelSynTagDark)
 
     def _getFormFunc(self, name):
         # easy way to construct a single argument node constructor
@@ -1567,7 +1564,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                 for subtag,(i,p,v,t) in rows:
                     tufo[1][p] = v
                     self._bumpTufoCache(tufo,p,None,v)
-
+                    self.addTufoDark(tufo, 'tag', subtag)
                     xact.fire('tufo:tag:add', tufo=tufo, tag=subtag, asof=asof)
                     xact.fire(formevt, tufo=tufo, tag=subtag, asof=asof)
 
@@ -1603,6 +1600,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                     self._bumpTufoCache(tufo,p,asof,None)
 
                     subtag = s_tags.choptag(p)
+                    self.delTufoDark(tufo, 'tag', subtag)
 
                     xact.fire('tufo:tag:del', tufo=tufo, tag=subtag)
                     xact.fire(formevt, tufo=tufo, tag=subtag)
@@ -2546,6 +2544,9 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         valu,_ = self.getTypeFrob(prop,valu)
         return self.getTufosByPropType(prop,valu=valu,limit=limit)
 
+    def _tufosByDark(self, prop, valu, limit=None):
+        return self.getTufosByDark(name=prop, valu=valu, limit=limit)
+
     # these helpers allow a storage layer to simply implement
     # and register _getTufosByGe and _getTufosByLe
 
@@ -2622,17 +2623,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
     def _getCoreXact(self, size):
         raise NoSuchImpl(name='_getCoreXact')
 
-    def _onAddSynTagDark(self, mesg):
-        tufo = mesg[1].get('tufo')  # type: tuple(str, dict)
-        tag = mesg[1].get('tag')  # type: str
-        self.addTufoDark(tufo, 'tag', tag)
-
-    def _onDelSynTagDark(self, mesg):
-        tufo = mesg[1].get('tufo')  #type: ((str, dict))
-        tag = mesg[1].get('tag')
-        self.delTufoDark(tufo, 'tag', tag)
-
-    def addTufoDark(self, tufo, darktype, name):
+    def addTufoDark(self, tufo, name, valu):
         '''
         Add the tufo to a dark type with a given name.
 
@@ -2642,63 +2633,79 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
         Args:
             tufo ((str, dict)): Tufo to add to the darktype.
-            darktype (str): Dark type to add.
-            name (str): Named type value.
+            name (str): Dark type value.
+            value (str): Value to set on the dark property. May be any data type which may stored in a cortex.
 
         Returns:
             None: Returns None.
         '''
         dark = tufo[0][::-1]
-        if self.getRowsByIdProp(dark, '_:dark:%s' % darktype, valu=name):
+        dark_name = '_:dark:%s' % name
+        if self.getRowsByIdProp(dark, dark_name, valu=valu):
             return
 
-        rows = [(dark, '_:dark:%s' % darktype, name, now())]
+        rows = [(dark, dark_name, valu, now())]
         self.addRows(rows)
         # NOTE: may add this if a use cases occurs
-        # self.fire('syn:dark:add', darktype=darktype, name=name, tufo=tufo, dark=dark)
-        self.fire('syn:dark:add:%s' % darktype, dark=dark, name=name, tufo=tufo)
+        # self.fire('syn:dark:add', name=name, tufo=tufo, valu=valu)
+        self.fire('syn:dark:add:%s' % name, valu=valu, tufo=tufo)
 
-    def delTufoDark(self, tufo, darktype, name):
+    def delTufoDark(self, tufo, name, valu=None):
         '''
         Remove dark values from a tufo.
 
         Args:
             tufo ((str, dict)): Tufo to remove data from. 
-            darktype (str): Dark type to remove data from.
-            name (str): Specific name to remove. 
+            name (str): Specific name to remove.
+            valu (str): Value to remove (optional). May be any data type which may stored in a cortex.
 
         Returns:
             None: Returns None.
         '''
         dark = tufo[0][::-1]
-        self.delRowsByIdProp(dark, '_:dark:%s' % darktype, name)
+        self.delRowsByIdProp(dark, '_:dark:%s' % name, valu)
         # NOTE: may add this if a use cases occurs
-        # self.fire('syn:dark:del', darktype=darktype, name=name, tufo=tufo, dark=dark)
-        self.fire('syn:dark:del:%s' % darktype, dark=dark, name=name, tufo=tufo)
+        # self.fire('syn:dark:del', valu=valu, name=name, tufo=tufo, dark=dark)
+        self.fire('syn:dark:del:%s' % name, valu=valu, name=name, tufo=tufo)
 
-    def getTufoDarkTypes(self, tufo, darktype):
+    def getTufoDarkValus(self, tufo, name):
         '''
-        Return a list of (name,time) tuples for dark membership.
+        Return a list of (name,time) tuples for dark membership for a given name.
 
         Args:
             tufo ((str, dict)): Tufo to look up.
-            darktype (str): Dark type to look up.
+            name (str): Dark type to look up.
 
         Returns:
-            list: List of (name,time) tuples for a given tufos dark membership.
+            list: List of (value,time) tuples for a given tufos dark membership.
 
         '''
         dark = tufo[0][::-1]
-        dprop = '_:dark:%s' % darktype
+        dprop = '_:dark:%s' % name
         return [(v, t) for (i, p, v, t) in self.getRowsByIdProp(dark, dprop)]
 
-    def getTufosByDark(self, darktype, name, mintime=None, maxtime=None, limit=None):
+    def getTufoDarkNames(self, tufo):
+        '''
+        Get a list of dark names on a tufo.
+
+        Args:
+            tufo ((str, dict)): Tufo to look up. 
+
+        Returns:
+            list: List of (name,time) tuples for a given tufos dark membership.
+        '''
+        dark = tufo[0][::-1]
+        rows = self.getRowsById(dark)
+        ret = {(p.split(':', 2)[2], t) for (i, p, v, t) in rows if p.startswith('_:dark:')}
+        return list(ret)
+
+    def getTufosByDark(self, name, valu, mintime=None, maxtime=None, limit=None):
         '''
         Return a list of the tufos in the named dark set.
 
         Args:
-            darktype (str): Dark type to retrieve.
-            name (str): Value to retrieve.
+            name (str): Dark type to retrieve.
+            valu (str): Value to retrieve.
             mintime (int): Minimum timevalue on tufos to return.
             maxtime (int): Maximum timevalue on tufos to return.
             limit (int): Maximum number of tufos to return.
@@ -2712,7 +2719,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         Returns:
             list: List of tufos
         '''
-        rows = self.getRowsByProp('_:dark:%s' % darktype, valu=name, mintime=mintime, maxtime=maxtime, limit=limit)
+        rows = self.getRowsByProp('_:dark:%s' % name, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
         idens = [r[0][::-1] for r in rows]
 
         ret = []
@@ -2721,8 +2728,21 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
         return ret
 
-    def snapTufosByDark(self, darktype, name, mintime=None, maxtime=None, limit=None):
-        rows = self.getRowsByProp('_:dark:%s' % darktype, valu=name, mintime=mintime, maxtime=maxtime, limit=limit)
+    def snapTufosByDark(self, name, valu, mintime=None, maxtime=None, limit=None):
+        '''
+        Create a snapshot of tufos by dark name/values.
+
+        Args:
+            name (str): Dark type to retrieve.
+            valu (str): Value to retrieve.
+            mintime (int): Minimum timevalue on tufos to return.
+            maxtime (int): Maximum timevalue on tufos to return.
+            limit (int): Maximum number of tufos to return.
+
+        Returns:
+            dict: Snapshot generator for getting tufos.
+        '''
+        rows = self.getRowsByProp('_:dark:%s' % name, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
         idens = [r[0][::-1] for r in rows]
         return self._initTufoSnap(idens)
 
