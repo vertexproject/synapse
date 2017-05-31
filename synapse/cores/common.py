@@ -2646,9 +2646,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
         rows = [(dark, dark_name, valu, now())]
         self.addRows(rows)
-        # NOTE: may add this if a use cases occurs
-        # self.fire('syn:dark:add', name=name, tufo=tufo, valu=valu)
-        self.fire('syn:dark:add:%s' % name, valu=valu, tufo=tufo)
 
     def delTufoDark(self, tufo, name, valu=None):
         '''
@@ -2664,9 +2661,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         '''
         dark = tufo[0][::-1]
         self.delRowsByIdProp(dark, '_:dark:%s' % name, valu)
-        # NOTE: may add this if a use cases occurs
-        # self.fire('syn:dark:del', valu=valu, name=name, tufo=tufo, dark=dark)
-        self.fire('syn:dark:del:%s' % name, valu=valu, name=name, tufo=tufo)
 
     def getTufoDarkValus(self, tufo, name):
         '''
