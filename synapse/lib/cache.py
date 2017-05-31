@@ -176,6 +176,9 @@ class Cache(EventBus):
     def __iter__(self):
         return list( self.cache.items() )
 
+    def __contains__(self, item):
+        return item in self.cache
+
     def _onCacheFini(self):
         for key in self.keys():
             self.pop(key)
@@ -241,6 +244,9 @@ class FixedCache(EventBus):
 
     def __len__(self):
         return len(self.fifo)
+
+    def __contains__(self, item):
+        return item in self.cache
 
 class TufoCache(Cache):
 

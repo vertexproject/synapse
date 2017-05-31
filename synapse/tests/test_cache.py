@@ -47,7 +47,9 @@ class CacheTest(SynTest):
             return 10
 
         c.setOnMiss( onmiss )
+        self.false('woot' in c)
         self.assertEqual( c.get('woot'), 10 )
+        self.true('woot' in c)
 
     def test_cache_tufo(self):
         core = s_cortex.openurl('ram:///')
@@ -121,7 +123,9 @@ class CacheTest(SynTest):
             return x + 20
 
         cache = s_cache.FixedCache(maxsize=3, onmiss=getfoo)
+        self.false(30 in cache)
         self.eq( cache.get(30), 50 )
+        self.true(30 in cache)
         self.eq( cache.get(30), 50 )
         self.eq( cache.get(30), 50 )
         self.eq( cache.get(30), 50 )
