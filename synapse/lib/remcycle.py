@@ -331,6 +331,9 @@ class Hypnos(s_config.Config):
         # Setup Fini handlers
         self.onfini(self._onHypoFini)
 
+        # List of content-type headers to skip processing on
+        self._web_content_type_skip = set([])
+
     def __repr__(self):
         d = {'name': self.__class__.__name__,
              'loc': hex(id(self)),
@@ -666,8 +669,7 @@ class Hypnos(s_config.Config):
                           'effective_url': resp.effective_url, })
         return resp_dict
 
-    @staticmethod
-    def _webProcessResponseFlatten(resp_dict):
+    def _webProcessResponseFlatten(self, resp_dict):
         '''
         Process a flattened HTTP response to extract as much meaningful data
         out of it as possible.
@@ -694,6 +696,8 @@ class Hypnos(s_config.Config):
         if ct.lower() == 'application/octet-stream':
             return
         ct_type, ct_params = cgi.parse_header(ct)
+        if ct_type in self._web_content_type_skip:
+            return
         charset = ct_params.get('charset', 'utf-8').lower()
         try:
             resp_dict['data'] = resp_dict.get('data').decode(charset)
@@ -944,3 +948,30 @@ class Hypnos(s_config.Config):
 
         '''
         return self.web_boss.wait(jid, timeout=timeout)
+
+    def webContentTypeSkipAdd(self, content_type):
+        '''
+        Add a content-type value to be skipped from any sort of decoding
+        attempts.
+
+        Args:
+            content_type (str): Content-type value to skip.
+             
+        Returns:
+            None: Returns None.
+        '''
+        self._web_content_type_skip.add(content_type)
+
+    def webContentTypeSkipDel(self, content_type):
+        '''
+        Removes a content-type value from the set of values to be skipped 
+        from any sort of decoding attempts.
+
+        Args:
+            content_type (str): Content-type value to remove.
+
+        Returns:
+            None: Returns None.
+        '''
+        if content_type in self._web_content_type_skip:
+            self._web_content_type_skip.remove(content_type)
