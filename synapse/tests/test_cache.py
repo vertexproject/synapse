@@ -47,7 +47,9 @@ class CacheTest(SynTest):
             return 10
 
         c.setOnMiss( onmiss )
+        self.false('woot' in c)
         self.assertEqual( c.get('woot'), 10 )
+        self.true('woot' in c)
 
     def test_cache_tufo(self):
         core = s_cortex.openurl('ram:///')
@@ -112,6 +114,10 @@ class CacheTest(SynTest):
         cache = s_cache.KeyCache(getfoo)
 
         self.assertEqual( cache[10], 'asdf' )
+        # Ensure put/pop methods work.
+        cache.put(20, 'wasd')
+        self.eq(cache[20], 'wasd')
+        self.eq(cache.pop(20), 'wasd')
 
     def test_cache_fixed(self):
 
@@ -121,7 +127,10 @@ class CacheTest(SynTest):
             return x + 20
 
         cache = s_cache.FixedCache(maxsize=3, onmiss=getfoo)
+        self.false(30 in cache)
         self.eq( cache.get(30), 50 )
+        self.eq(len(cache), 1)
+        self.true(30 in cache)
         self.eq( cache.get(30), 50 )
         self.eq( cache.get(30), 50 )
         self.eq( cache.get(30), 50 )
@@ -143,3 +152,71 @@ class CacheTest(SynTest):
         self.eq( cache.get(30), 50 )
 
         self.eq( data[30], 3 )
+
+    def test_cache_magic(self):
+        c = s_cache.Cache()
+        c.put(1, 'a')
+        c.put(2, 'b')
+        keys = set([])
+        values = set([])
+
+        self.eq(len(c), 2)
+
+        cvs = c.values()
+        cvs.sort()
+        self.eq(cvs, ['a', 'b'])
+
+        cks = c.keys()
+        cks.sort()
+        self.eq(cks, [1, 2])
+
+        for k, v in c:
+            keys.add(k)
+            values.add(v)
+
+        self.eq(keys, {1, 2})
+        self.eq(values, {'a', 'b'})
+
+    def test_cache_clearing(self):
+        c = s_cache.Cache()
+
+        d = {}
+        def flush(event):
+            key = event[1].get('key')
+            d[key] = c.get(key)
+
+        c.on('cache:flush', flush)
+        c.put(1, 'a')
+        c.put(2, 'b')
+        self.eq(len(c), 2)
+
+        c.flush(1)
+        self.true(1 in d)
+        self.eq(d, {1: 'a'})
+        self.eq(len(c), 2)  # A straight flush doesn't remove the key.
+
+        c.clear()
+        self.eq(len(c), 0)
+
+    def test_cache_fini(self):
+        c = s_cache.Cache(maxtime=0.1)
+        c.put(1, 'a')
+        self.nn(c.schevt)
+        self.nn(c.schevt[1])
+        c.fini()
+        self.none(c.schevt[1])
+        self.eq(len(c), 0)
+
+    def test_cache_defval(self):
+        # Ensure default behaviors are covered.
+        c = s_cache.Cache()
+        r = c.get('foo')
+        self.none(r)
+
+        fc = s_cache.FixedCache(maxsize=10)
+        fr = fc.get('foo')
+        self.none(fr)
+
+        od = s_cache.OnDem()
+        with self.raises(KeyError) as cm:
+            od.get('foo')
