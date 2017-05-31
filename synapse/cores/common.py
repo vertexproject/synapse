@@ -2625,15 +2625,15 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
     def addTufoDark(self, tufo, name, valu):
         '''
-        Add the tufo to a dark type with a given name.
+        Add a dark row to a tufo with a given name and value.
 
-        Dark types get their own index and can be used to quickly pull sets of
-        rows.  While similar to Dsets, these are intended for implementing
+        Dark rows get their own index and can be used to quickly pull tufos.
+        While similar to dsets, these are primarily intended for implementing
         features inside of Synapse directly.
 
         Args:
-            tufo ((str, dict)): Tufo to add to the darktype.
-            name (str): Dark type value.
+            tufo ((str, dict)): Tufo to add the dark row too.
+            name (str): Dark row name.
             value (str): Value to set on the dark property. May be any data type which may stored in a cortex.
 
         Returns:
@@ -2652,12 +2652,12 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
     def delTufoDark(self, tufo, name, valu=None):
         '''
-        Remove dark values from a tufo.
+        Remove dark rows from a tufo for a given name and optional value.
 
         Args:
-            tufo ((str, dict)): Tufo to remove data from. 
-            name (str): Specific name to remove.
-            valu (str): Value to remove (optional). May be any data type which may stored in a cortex.
+            tufo ((str, dict)): Tufo to remove data dark rows from.
+            name (str): Specific dark rows to remove.
+            valu (str): Value to remove (optional).
 
         Returns:
             None: Returns None.
@@ -2670,14 +2670,14 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
     def getTufoDarkValus(self, tufo, name):
         '''
-        Return a list of (name,time) tuples for dark membership for a given name.
+        Get a list of dark row values on a given tufo with a specific name.
 
         Args:
             tufo ((str, dict)): Tufo to look up.
-            name (str): Dark type to look up.
+            name (str): Specific dark rows to look up.
 
         Returns:
-            list: List of (value,time) tuples for a given tufos dark membership.
+            list: List of (value, time) tuples for a given tufos dark rows.
 
         '''
         dark = tufo[0][::-1]
@@ -2686,25 +2686,25 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
     def getTufoDarkNames(self, tufo):
         '''
-        Get a list of dark names on a tufo.
+        Get a list of dark row names on a tufo.
 
         Args:
             tufo ((str, dict)): Tufo to look up. 
 
         Returns:
-            list: List of (name,time) tuples for a given tufos dark membership.
+            list: List of (name, time) tuples for a given tufos dark rows.
         '''
         dark = tufo[0][::-1]
         rows = self.getRowsById(dark)
         ret = {(p.split(':', 2)[2], t) for (i, p, v, t) in rows if p.startswith('_:dark:')}
         return list(ret)
 
-    def getTufosByDark(self, name, valu, mintime=None, maxtime=None, limit=None):
+    def getTufosByDark(self, name, valu=None, mintime=None, maxtime=None, limit=None):
         '''
-        Return a list of the tufos in the named dark set.
+        Get a list of tufos with the named dark rows and optional values.
 
         Args:
-            name (str): Dark type to retrieve.
+            name (str): Dark row name to retrieve tufos by.
             valu (str): Value to retrieve.
             mintime (int): Minimum timevalue on tufos to return.
             maxtime (int): Maximum timevalue on tufos to return.
@@ -2720,7 +2720,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
             list: List of tufos
         '''
         rows = self.getRowsByProp('_:dark:%s' % name, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
-        idens = [r[0][::-1] for r in rows]
+        idens = list(set([r[0][::-1] for r in rows]))  # Unique the idens we pull.
 
         ret = []
         for part in chunks(idens,1000):
@@ -2728,13 +2728,13 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
         return ret
 
-    def snapTufosByDark(self, name, valu, mintime=None, maxtime=None, limit=None):
+    def snapTufosByDark(self, name, valu=None, mintime=None, maxtime=None, limit=None):
         '''
         Create a snapshot of tufos by dark name/values.
 
         Args:
-            name (str): Dark type to retrieve.
-            valu (str): Value to retrieve.
+            name (str): Dark row name to snapshot tufos by.
+            valu (str): Optional value to retrieve tufos by.
             mintime (int): Minimum timevalue on tufos to return.
             maxtime (int): Maximum timevalue on tufos to return.
             limit (int): Maximum number of tufos to return.
@@ -2743,7 +2743,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
             dict: Snapshot generator for getting tufos.
         '''
         rows = self.getRowsByProp('_:dark:%s' % name, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
-        idens = [r[0][::-1] for r in rows]
+        idens = list(set([r[0][::-1] for r in rows]))  # Unique the idens we pull.
         return self._initTufoSnap(idens)
 
 class CoreXact:

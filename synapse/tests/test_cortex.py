@@ -90,6 +90,10 @@ class CortexTest(SynTest):
         self.true(d.get('syn:dark:add:hidden'))
 
         self.eq(len(core.getTufosByDark('hidden', 'color')), 1)
+        self.eq(len(core.getTufosByDark('hidden')), 1)
+        self.eq(len(core.getTufosByDark('hidden', 'secret')), 0)
+        self.eq(len(core.getTufosByDark('knight')), 0)
+
         self.eq(len(core.getTufosBy('dark', 'hidden', 'color')), 1)
         self.eq(core.getTufoDarkNames(tufo)[0][0], 'hidden')
         self.eq(core.getTufoDarkValus(tufo, 'hidden')[0][0], 'color')
@@ -180,6 +184,31 @@ class CortexTest(SynTest):
             tufs = core.getSnapNext(snap)
 
         self.eq(len(res), 1500)
+        self.assertIsNone(core.getSnapNext(snap))
+
+        answ = core.snapTufosByDark('animal')
+
+        res = []
+
+        snap = answ.get('snap')
+        tufs = answ.get('tufos')
+
+        self.eq(answ.get('count'), 1500)
+
+        while tufs:
+            res.extend(tufs)
+            tufs = core.getSnapNext(snap)
+
+        self.eq(len(res), 1500)
+        self.assertIsNone(core.getSnapNext(snap))
+
+        answ = core.snapTufosByDark('plant', 'tree')
+
+        snap = answ.get('snap')
+        tufs = answ.get('tufos')
+
+        self.eq(answ.get('count'), 0)
+        self.eq(len(tufs), 0)
         self.assertIsNone(core.getSnapNext(snap))
 
     def runidens(self, core):
