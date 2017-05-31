@@ -276,6 +276,22 @@ class Hypnos(s_config.Config):
 
     The Hypnos object inherits from the Config object, and as such has both
     configable parameters and an EventBus available for message passing.
+
+    Notes:
+        The following items may be passed via kwargs to change the Hypnos
+        object behavior:
+
+        * ioloop: Tornado ioloop used by the IO thread. This would normally
+                  be left unset, and an ioloop will be created for the io
+                  thread. This is provided as a helper for testing.
+        * content_type_skip: A list of content-type values which will not have
+                             any attempts to decode data done on them.
+
+    Args:
+        core (synapse.cores.common.Cortex): A cortex used to store ingest data.
+                                            By default a ram cortex is used.
+        opts (dict): Optional configuration data for the Config mixin.
+        defs (tuple): Default configuration data for the Config mixin.
     '''
 
     def __init__(self,
@@ -284,24 +300,6 @@ class Hypnos(s_config.Config):
                  defs=HYPNOS_BASE_DEFS,
                  *args,
                  **kwargs):
-        '''
-        Notes:
-            The following items may be passed via kwargs to change the Hypnos object
-            behavior:
-
-                * ioloop: Tornado ioloop used by the IO thread. This would normally
-                          be left unset, and an ioloop will be created for the io
-                          thread. This is provided as a helper for testing.
-                * content_type_skip: A list of content-type values which will not have
-                                     any attempts to decode data done on them.
-
-        Args:
-            core (synapse.cores.common.Cortex): A cortex used to store ingest data. By default,
-                                                a ram cortex is used.
-            opts (dict): Optional configuration data for the Config mixin.
-            defs (tuple): Default configuration data for the Config mixin.
-        '''
-
         s_config.Config.__init__(self,
                                  opts,
                                  defs)
@@ -972,22 +970,16 @@ class Hypnos(s_config.Config):
 
         Args:
             content_type (str): Content-type value to skip.
-             
-        Returns:
-            None: Returns None.
         '''
         self._web_content_type_skip.add(content_type)
 
     def webContentTypeSkipDel(self, content_type):
         '''
-        Removes a content-type value from the set of values to be skipped 
+        Removes a content-type value from the set of values to be skipped
         from any sort of decoding attempts.
 
         Args:
             content_type (str): Content-type value to remove.
-
-        Returns:
-            None: Returns None.
         '''
         if content_type in self._web_content_type_skip:
             self._web_content_type_skip.remove(content_type)
@@ -1027,28 +1019,38 @@ class Hypnos(s_config.Config):
             d['errline'] = job['errline']
         self.web_cache.put(jid, d)
 
-    def getWebCachedReponse(self, jid):
+    def webCacheGet(self, jid):
         '''
         Retrieve the cached web response for a given job id.
-        
+
         Args:
-            jid (str): Job ID to check. 
+            jid (str): Job ID to retrieve. 
 
         Returns:
+            dict: A dictionary containing the job response data. It will have
+            the following keys:
 
+            * web_api_name: Name of the API
+            * resp: Dictionary containing response data
+            * api_args: Args used when crafting the HTTPRequest with Nyx
+            * err (optional): Error type if a error is encountered.
+            * errmsg (optional): Error message if a error is encountered.
+            * errfile (optional): Empty string if a error is encountered.
+            * errline (optional): Empty string if a error is encountered.
         '''
         if not self.web_cache_enabled:
             logger.warning('Cached response requested but cache not enabled.')
         return self.web_cache.get(jid)
 
-    def delWebCachedResponse(self, jid):
+    def webCachePop(self, jid):
         '''
-        
+        Retrieve the cached web response for a given job id and remove it from the cache.
         Args:
-            jid: 
+            jid (str): Job ID to retrieve.
 
         Returns:
-
+            dict: A dictionary containing the job response data. See the docs
+            for webCacheGet for the dictionary details.
         '''
         if not self.web_cache_enabled:
             logger.warning('Cache deletion requested but cache not enabled.')
@@ -1068,6 +1070,12 @@ class Hypnos(s_config.Config):
         Disable caching of results from fireWebApi and clear all data from the cache.
         '''
         self.web_boss.off('job:fini', self._cacheRequestResults)
-        self.web_cache.clear()
+        self.webCacheClear()
         self.setConfOpt(CACHE_ENABLED, False)
         self.web_cache_enabled = False
+
+    def webCacheClear(self):
+        '''
+        Clear all the contents of the web cache.
+        '''
+        self.web_cache.clear()

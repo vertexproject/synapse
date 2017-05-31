@@ -849,14 +849,14 @@ class HypnosTest(SynTest, AsyncTestCase):
             hypo_obj.web_boss.wait(jid=jid1)
             time.sleep(0.01)
             self.true(jid1 in hypo_obj.web_cache)
-            cached_data = hypo_obj.getWebCachedReponse(jid=jid1)
+            cached_data = hypo_obj.webCacheGet(jid=jid1)
             self.true(isinstance(cached_data, dict))
             resp = cached_data.get('resp')
             self.true('data' in resp)
             data = resp.get('data')
             # This is expected data from the API endpoint.
             self.true('ip' in data)
-            cached_data2 = hypo_obj.delWebCachedResponse(jid=jid1)
+            cached_data2 = hypo_obj.webCachePop(jid=jid1)
             self.eq(cached_data, cached_data2)
             self.false(jid1 in hypo_obj.web_cache)
             # Disable the cache and ensure the responses are cleared and no longer cached.
@@ -866,7 +866,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             hypo_obj.web_boss.wait(jid=jid1)
             time.sleep(0.01)
             self.false(jid2 in hypo_obj.web_cache)
-            cached_data3 = hypo_obj.delWebCachedResponse(jid=jid2)
+            cached_data3 = hypo_obj.webCachePop(jid=jid2)
             self.none(cached_data3)
 
     def test_hypnos_cache_with_ingest(self):
@@ -882,7 +882,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             job = hypo_obj.web_boss.job(jid=jid)
             hypo_obj.web_boss.wait(jid)
             time.sleep(0.01)
-            cached_data = hypo_obj.getWebCachedReponse(jid=jid)
+            cached_data = hypo_obj.webCacheGet(jid=jid)
             self.nn(cached_data)
             # Ensure the cached data can be msgpacked as needed.
             buf = msgenpack(cached_data)
@@ -896,7 +896,7 @@ class HypnosTest(SynTest, AsyncTestCase):
         gconf = get_bad_vertex_global_config()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1,
                                      s_remcycle.CACHE_ENABLED: True},
-                               ioloop=self.io_loop) as hypo_obj:
+                               ioloop=self.io_loop) as hypo_obj:  # type: s_remcycle.Hypnos
             hypo_obj.addWebConfig(config=gconf)
 
             jid = hypo_obj.fireWebApi(name='vertexproject:fake_endpoint')
@@ -904,7 +904,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             hypo_obj.web_boss.wait(jid)
             # Ensure that we have error information cached for the job
             time.sleep(0.01)
-            cached_data = hypo_obj.getWebCachedReponse(jid=jid)
+            cached_data = hypo_obj.webCacheGet(jid=jid)
             self.true('err' in cached_data)
             self.eq(cached_data.get('err'), 'HTTPError')
             self.true('errfile' in cached_data)
