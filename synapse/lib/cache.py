@@ -73,7 +73,7 @@ class Cache(EventBus):
         finally:
             if not self.isfini and self.maxtime != None:
                 ival = self.maxtime / 10.0
-                self.sched.insec(ival, self._checkCacheTimes )
+                self.schevt = self.sched.insec(ival, self._checkCacheTimes )
 
     def clear(self):
         '''
@@ -174,7 +174,7 @@ class Cache(EventBus):
         return len(self.cache)
 
     def __iter__(self):
-        return list( self.cache.items() )
+        return iter(list(self.cache.items()))
 
     def __contains__(self, item):
         return item in self.cache
