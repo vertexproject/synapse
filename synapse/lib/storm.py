@@ -705,8 +705,7 @@ class Runtime(Configable):
         valu = oper[1].get('valu')
         limit = oper[1].get('limit')
 
-        for tufo in self.stormTufosBy(by, prop, valu, limit=limit):
-            query.add(tufo)
+        [query.add(tufo) for tufo in self.stormTufosBy(by, prop, valu, limit=limit)]
 
     def _stormOperPivot(self, query, oper):
         args = oper[1].get('args')
@@ -747,8 +746,7 @@ class Runtime(Configable):
                 if valu != None:
                     vals.add(valu)
 
-        for t in self.stormTufosBy('in', dstp, list(vals), limit=opts.get('limit') ):
-            query.add(t)
+        [query.add(t)for t in self.stormTufosBy('in', dstp, list(vals), limit=opts.get('limit'))]
 
     def _stormOperNextSeq(self, query, oper):
         name = None
@@ -784,8 +782,7 @@ class Runtime(Configable):
 
         # use the more optimal "in" mechanism once we have the pivot vals
         vals = list({ t[1].get(srcp) for t in query.data() if t != None })
-        for tufo in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit') ):
-            query.add(tufo)
+        [query.add(tufo) for tufo in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit'))]
 
     def _stormOperAddXref(self, query, oper):
 
@@ -905,8 +902,7 @@ class Runtime(Configable):
         for tag in tags:
             nodes = core.getTufosByDark('tag', tag, limit=limit)
 
-            for node in nodes:
-                query.add(node)
+            [query.add(node) for node in nodes]
 
             if limit != None:
                 limit -= len(nodes)
