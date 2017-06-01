@@ -14,6 +14,7 @@ import synapse.reactor as s_reactor
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.dark as s_dark
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
@@ -1559,14 +1560,16 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
                 formevt = 'tufo:tag:add:%s' % tufo[1].get('tufo:form')
 
-                self.addRows(list(map(lambda tup: tup[1], rows)))
-
                 for subtag,(i,p,v,t) in rows:
                     tufo[1][p] = v
                     self._bumpTufoCache(tufo,p,None,v)
-                    self.addTufoDark(tufo, 'tag', subtag)
                     xact.fire('tufo:tag:add', tufo=tufo, tag=subtag, asof=asof)
                     xact.fire(formevt, tufo=tufo, tag=subtag, asof=asof)
+
+                dark_row_gen = s_dark.genDarkRows(tufo[0], 'tag', [t[0] for t in rows])
+                rows = [t[1] for t in rows]
+                rows.extend(dark_row_gen)
+                self.addRows(rows)
 
         return tufo
 
