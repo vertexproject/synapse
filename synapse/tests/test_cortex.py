@@ -72,22 +72,11 @@ class CortexTest(SynTest):
         self.eq( len(core.getTufoDsets(tufo)), 0 )
 
     def rundarks(self, core):
-        d = {}
-        def fireadd(mesg):
-            d[mesg[0]] = True
-
-        def firedel(mesg):
-            d[mesg[0]] = True
-
-        core.on('syn:dark:add:hidden', fireadd)
-        core.on('syn:dark:del:hidden', firedel)
 
         tufo = core.formTufoByProp('lol:zonk', 1)
         core.addTufoDark(tufo, 'hidden', 'color')
         # Duplicate call for code coverage.
         core.addTufoDark(tufo, 'hidden', 'color')
-
-        self.true(d.get('syn:dark:add:hidden'))
 
         self.eq(len(core.getTufosByDark('hidden', 'color')), 1)
         self.eq(len(core.getTufosByDark('hidden')), 1)
@@ -100,14 +89,11 @@ class CortexTest(SynTest):
 
         core.delTufoDark(tufo, 'hidden', 'color')
 
-        self.true(d.get('syn:dark:del:hidden'))
         self.eq(core.getTufoDarkNames(tufo), [])
         self.eq(len(core.getTufosByDark('hidden', 'color')), 0)
         self.eq(len(core.getTufosBy('dark', 'hidden', 'color')), 0)
         self.eq(len(core.getTufoDarkValus(tufo, 'hidden')), 0)
 
-        core.off('syn:dark:add:hidden', fireadd)
-        core.off('syn:dark:del:hidden', firedel)
 
     def runsnaps(self, core):
 
