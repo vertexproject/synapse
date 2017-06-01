@@ -1560,16 +1560,16 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
                 formevt = 'tufo:tag:add:%s' % tufo[1].get('tufo:form')
 
+                dark_row_gen = s_dark.genDarkRows(tufo[0], 'tag', [t[0] for t in rows])
+                _rows = [t[1] for t in rows]
+                _rows.extend(dark_row_gen)
+                self.addRows(_rows)
+
                 for subtag,(i,p,v,t) in rows:
                     tufo[1][p] = v
                     self._bumpTufoCache(tufo,p,None,v)
                     xact.fire('tufo:tag:add', tufo=tufo, tag=subtag, asof=asof)
                     xact.fire(formevt, tufo=tufo, tag=subtag, asof=asof)
-
-                dark_row_gen = s_dark.genDarkRows(tufo[0], 'tag', [t[0] for t in rows])
-                rows = [t[1] for t in rows]
-                rows.extend(dark_row_gen)
-                self.addRows(rows)
 
         return tufo
 
