@@ -44,7 +44,7 @@ class TagBaseMigration(SynTest):
             buf = zf.read('test_tag_base.db')  # type: bytes
         return buf
 
-    def get_test_cortex_fp(self, fdir):
+    def get_cortex_fp(self, fdir):
         buf = self.get_cortex_bytes()
         fp = os.path.abspath(os.path.join(fdir, 'test_tag_base.db'))
         with open(fp, 'wb') as f:
@@ -54,7 +54,7 @@ class TagBaseMigration(SynTest):
     @contextlib.contextmanager
     def get_dmon_core(self):
         with self.getTestDir() as fdir:
-            core_fp = self.get_test_cortex_fp(fdir=fdir)
+            core_fp = self.get_cortex_fp(fdir=fdir)
             dconf = self.get_dmon_config(fp=core_fp)
             with s_daemon.Daemon() as dmon:
                 dmon.loadDmonConf(dconf)
@@ -63,13 +63,13 @@ class TagBaseMigration(SynTest):
     @contextlib.contextmanager
     def get_file_core(self):
         with self.getTestDir() as fdir:
-            core_fp = self.get_test_cortex_fp(fdir=fdir)
+            core_fp = self.get_cortex_fp(fdir=fdir)
             c_url = 'sqlite:///{}'.format(core_fp)
             yield s_cortex.openurl(c_url)
 
     def test_migration_tagbase_core_nodes(self):
         with self.getTestDir() as fdir:
-            core_fp = self.get_test_cortex_fp(fdir=fdir)
+            core_fp = self.get_cortex_fp(fdir=fdir)
             self.true(os.path.isfile(core_fp))
             c_url = 'sqlite:///{}'.format(core_fp)
             core = s_cortex.openurl(c_url)
@@ -79,7 +79,7 @@ class TagBaseMigration(SynTest):
 
     def test_migration_tagbase_core_nodes_dmon(self):
         with self.getTestDir() as fdir:
-            core_fp = self.get_test_cortex_fp(fdir=fdir)
+            core_fp = self.get_cortex_fp(fdir=fdir)
             dconf = self.get_dmon_config(fp=core_fp)
 
             dmon = s_daemon.Daemon()
@@ -110,7 +110,7 @@ class TagBaseMigration(SynTest):
 
     def test_migration_tagbase_main(self):
         with self.getTestDir() as fdir:
-            core_fp = self.get_test_cortex_fp(fdir=fdir)
+            core_fp = self.get_cortex_fp(fdir=fdir)
             self.true(os.path.isfile(core_fp))
 
             core_url = 'sqlite:///{}'.format(core_fp)
@@ -129,7 +129,7 @@ class TagBaseMigration(SynTest):
 
     def test_migration_tagbase_main_dmon(self):
         with self.getTestDir() as fdir:
-            core_fp = self.get_test_cortex_fp(fdir=fdir)
+            core_fp = self.get_cortex_fp(fdir=fdir)
             dconf = self.get_dmon_config(fp=core_fp)
 
             with s_daemon.Daemon() as dmon:
