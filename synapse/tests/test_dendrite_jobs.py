@@ -103,31 +103,6 @@ class DendriteJobsTest(SynTest):
             self.assertEqual(jobs.qsize(queue1), 0)
             self.assertEqual(jobs.qsize(queue2), 0)
 
-    def test_clear_any_status(self):
-        with self.setup() as jobs:
-            data = {'some': 'thing', 'todo': 'shoobeedoobeedoo'}
-
-            queue1 = 'wooties'
-            jobs.put(queue1, data)
-            jobs.put(queue1, data)
-            jobs.put(queue1, data)
-            job1 = jobs.get(queue1)
-
-            queue2 = 'shoobiedoobies'
-            jobs.put(queue2, data)
-            jobs.put(queue2, data)
-            job2 = jobs.get(queue2)
-
-            jobs.clear(queue1)
-            self.assertEqual(jobs.qsize(queue1, status='any'), 0)
-            self.assertEqual(jobs.qsize(queue2, status='any'), 2)
-
-            jobs.clear(queue2, 'queued')
-            self.assertEqual(jobs.qsize(queue1, status='any'), 0)
-            self.assertEqual(jobs.qsize(queue2, status='any'), 1)
-            jobs.clear(queue2)
-            self.assertEqual(jobs.qsize(queue2), 0)
-
     def test_qsize(self):
         with self.setup() as jobs:
             data = {'some': 'thing', 'todo': 'shoobeedoobeedoo'}
@@ -141,6 +116,7 @@ class DendriteJobsTest(SynTest):
 
             self.assertEqual(jobs.qsize(queue1), 2)
             self.assertEqual(jobs.qsize(queue2), 1)
+            self.assertEqual(jobs.qsize('somenonqueue'), 0)
 
     def test_isEmpty(self):
         with self.setup() as jobs:

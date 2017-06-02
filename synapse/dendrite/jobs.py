@@ -23,17 +23,15 @@ class Jobs(s_eventbus.EventBus):
         svcbus (str):
             URL of the SvcBus that events will be emitted on.
     '''
+    _EMPTY_STR = ''
+
     def __init__(self, core, svcbus):
         s_eventbus.EventBus.__init__(self)
-        self.currMs = None
-        self.jobNum = None
         self.core = s_cortex.openurl(core)
-        #self.core.setConfOpt('caching', True)
         self.core.addTufoForm('dendrite:job', ptype='guid')
-        self.core.addTufoProp('dendrite:job', 'link', ptype='guid')
+        self.core.addTufoProp('dendrite:job', 'link', ptype='str', defval=Jobs._EMPTY_STR)
         self.core.addTufoProp('dendrite:job', 'queue', ptype='str', req=True)
         self.core.addTufoProp('dendrite:job', 'data', ptype='str', req=True)
-        self.core.addTufoProp('dendrite:job', 'runkey', ptype='int', req=True)
         self.core.addTufoProp('dendrite:job', 'status', ptype='str', req=True)
         self.core.addTufoProp('dendrite:job', 'failed_at', ptype='time', req=True)
         self.core.addTufoProp('dendrite:job', 'queued_at', ptype='time', req=True)
@@ -41,8 +39,12 @@ class Jobs(s_eventbus.EventBus):
         self.core.addTufoProp('dendrite:job', 'completed_at', ptype='time', req=True)
 
         self.core.addTufoForm('dendrite:queue', ptype='str')
-        self.core.addTufoProp('dendrite:queue', 'head', ptype='guid')
-        self.core.addTufoProp('dendrite:queue', 'tail', ptype='guid')
+        self.core.addTufoProp('dendrite:queue', 'head', ptype='str', defval=Jobs._EMPTY_STR)
+        self.core.addTufoProp('dendrite:queue', 'tail', ptype='str', defval=Jobs._EMPTY_STR)
+        self.core.addTufoProp('dendrite:queue', 'failed', ptype='int', defval=0)
+        self.core.addTufoProp('dendrite:queue', 'queued', ptype='int', defval=0)
+        self.core.addTufoProp('dendrite:queue', 'working', ptype='int', defval=0)
+        self.core.addTufoProp('dendrite:queue', 'completed', ptype='int', defval=0)
 
         self.svcbus = s_telepath.openurl(svcbus)
 
@@ -82,12 +84,14 @@ class Jobs(s_eventbus.EventBus):
         '''
         logger.debug('Adding %d jobs to queue %s', len(jobList), queue)
         queueState = self._getQueue(queue)
+        count = queueState[1].get('dendrite:queue:queued')
         tail = queueState[1].get('dendrite:queue:tail')
         tailTufo = self.core.getTufoByIden(tail) if tail else None
         for job in jobList:
+            count += 1
             props = self._initJobProps(queue, job)
             tufo = self.core.formTufoByProp('dendrite:job', s_common.guid(), **props)
-            if tail == None:
+            if tail == Jobs._EMPTY_STR:
                 self.core.setTufoProps(queueState, head=tufo[0], tail=tufo[0])
             else:
                 self.core.setTufoProps(tailTufo, link=tufo[0])
@@ -95,7 +99,7 @@ class Jobs(s_eventbus.EventBus):
             tailTufo = tufo
 
         if tail:
-            self.core.setTufoProps(queueState, tail=tail)
+            self.core.setTufoProps(queueState, tail=tail, queued=count)
         self.svcbus.fire(self._eventName(queue), queue=queue)
 
     def get(self, queue):
@@ -110,35 +114,36 @@ class Jobs(s_eventbus.EventBus):
             dict: The next job if one exists, None otherwise.
         '''
         queueState = self._getQueue(queue)
+        queuedCount = queueState[1].get('dendrite:queue:queued')
+        workingCount = queueState[1].get('dendrite:queue:working')
         head = queueState[1].get('dendrite:queue:head')
+        job = None
         if head:
             tufo = self.core.getTufoByIden(head)
             job = json.loads(tufo[1].get('dendrite:job:data'))
             job.update({'iden': tufo[0]})
             self.core.setTufoProps(tufo, status='working', working_at=s_common.now())
             link = tufo[1].get('dendrite:job:link')
-            if link:
-                self.core.setTufoProps(queueState, head=link)
+            if link != Jobs._EMPTY_STR:
+                self.core.setTufoProps(queueState, head=link, queued=queuedCount-1, working=workingCount+1)
             else:
-                self.core.delTufo(queueState)
-            return job
-        return None
+                self.core.setTufoProps(
+                    queueState, head=Jobs._EMPTY_STR, queued=queuedCount - 1, working=workingCount + 1)
+        return job
 
-    def clear(self, queue, status='any'):
+    def clear(self, queue):
         '''
-        Clear all the jobs from the queue specified. By default, the pseudo status of 'any' is used to clear all jobs
-        from the queue, regardless of status. Any status may be provided to only clear certain jobs from a queue.
+        Clear all the jobs from the queue specified.
 
         Args:
             queue (str):
                 The name of the queue to clear.
-
-            status (str):
-                The job status to predicate on while clearing jobs from the specified queue.
         '''
-        for tufo in self._jobsByQueue(queue, status):
-            logger.debug('Deleting job %s', tufo)
-            self.core.delTufo(tufo)
+        logger.debug('Deleting job from queue %s', queue)
+        self.core.delTufosByProp('dendrite:job:queue', queue)
+        queueState = self.core.getTufoByProp('dendrite:queue', queue)
+        if queueState:
+            self.core.delTufo(queueState)
 
     def complete(self, job):
         '''
@@ -154,6 +159,10 @@ class Jobs(s_eventbus.EventBus):
         if tufo:
             logger.debug('Completing job %s', tufo)
             self.core.setTufoProps(tufo, status='completed', completed_at=s_common.now())
+            queueState = self._getQueue(tufo[1].get('dendrite:job:queue'))
+            workingCount = queueState[1].get('dendrite:queue:working')
+            completedCount = queueState[1].get('dendrite:queue:completed')
+            self.core.setTufoProps(queueState, working=workingCount-1, completed=completedCount+1)
 
     def fail(self, job):
         '''
@@ -171,6 +180,10 @@ class Jobs(s_eventbus.EventBus):
             # for now, just log and requeue the job
             logger.debug('Failing job %s', tufo)
             self.core.setTufoProps(tufo, status='failed', failed_at=s_common.now())
+            queueState = self._getQueue(tufo[1].get('dendrite:job:queue'))
+            workingCount = queueState[1].get('dendrite:queue:working')
+            failedCount = queueState[1].get('dendrite:queue:failed')
+            self.core.setTufoProps(queueState, working=workingCount-1, failed=failedCount+1)
 
     def qsize(self, queue, status='queued'):
         '''
@@ -190,7 +203,7 @@ class Jobs(s_eventbus.EventBus):
         Returns:
             int: Size of the queue.
         '''
-        return len(self._jobsByQueue(queue, status))
+        return self._getQueueSize(self.core.getTufoByProp('dendrite:queue', queue), status)
 
     def isEmpty(self, queue, status='queued'):
         '''
@@ -223,57 +236,48 @@ class Jobs(s_eventbus.EventBus):
         Returns:
             collections.defaultdict: A dictionary containing a histogram of count by queue name.
         '''
-        if status == 'any':
-            return self.core.getStatByProp('histo', 'dendrite:job:queue')
-
         histo = collections.defaultdict(int)
-        for tufo in self.core.getTufosByProp('dendrite:job:status', status):
-            histo[tufo[1].get('dendrite:job:queue')] += 1
+        for tufo in self.core.getTufosByProp('dendrite:queue'):
+            histo[tufo[1].get('dendrite:queue')] = self._getQueueSize(tufo, status)
         return histo
 
     def _initJobProps(self, queue, job):
         return {
             'queue':    queue,
             'data':     json.dumps(job),
-            'runkey':   self._runkey(),
             'status':   'queued',
             'queued_at': s_common.now()
         }
-
-    def _runkey(self):
-        currms = s_common.now()
-        if currms != self.currMs:
-            self.currMs = currms
-            self.jobNum = 1
-        else:
-            self.jobNum += 1
-        return (currms << 8) | self.jobNum
-
-    def _jobsByQueue(self, queue, status='queued'):
-        if status == 'any':
-            return self.core.getTufosByProp('dendrite:job:queue', queue)
-
-        jobs = []
-        for tufo in self.core.getTufosByProp('dendrite:job:queue', queue):
-            if tufo[1].get('dendrite:job:status') == status:
-                jobs.append(tufo)
-        return jobs
 
     def _eventName(self, queue):
         return 'dendrite:jobs:%s' % queue
 
     def _updateLinksOnPut(self, tufo):
         queueState = self._getQueue(tufo[1].get('dendrite:job:queue'))
+        count = queueState[1].get('dendrite:queue:queued')
         tail = queueState[1].get('dendrite:queue:tail')
-        if tail == None:
-            self.core.setTufoProps(queueState, head=tufo[0], tail=tufo[0])
+        if tail == Jobs._EMPTY_STR:
+            self.core.setTufoProps(queueState, head=tufo[0], tail=tufo[0], queued=count+1)
         else:
             tailTufo = self.core.getTufoByIden(tail)
             self.core.setTufoProps(tailTufo, link=tufo[0])
-            self.core.setTufoProps(queueState, tail=tufo[0])
+            self.core.setTufoProps(queueState, tail=tufo[0], queued=count+1)
 
     def _getQueue(self, queue):
         tufo = self.core.getTufoByProp('dendrite:queue', queue)
         if tufo == None:
             tufo = self.core.formTufoByProp('dendrite:queue', queue)
         return tufo
+
+    def _getQueueSize(self, tufo, status):
+        count = 0
+        if tufo != None:
+            if status == 'any':
+                queued    = tufo[1].get('dendrite:queue:queued')
+                working   = tufo[1].get('dendrite:queue:working')
+                completed = tufo[1].get('dendrite:queue:completed')
+                failed    = tufo[1].get('dendrite:queue:failed')
+                count     = queued + working + completed + failed
+            else:
+                count = tufo[1].get('dendrite:queue:%s' % status, 0)
+        return count
