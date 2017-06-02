@@ -1,5 +1,4 @@
 import unittest
-from unittest.mock import MagicMock
 import synapse.axon as s_axon
 import synapse.cortex as s_cortex
 import synapse.common as s_common
@@ -60,14 +59,19 @@ class DendriteCoordinatorTest(SynTest):
             coordinator.unregister(mimeType, 'queuetoo')
             self.assertEqual(coordinator.queues(mimeType), ['somequeue'])
 
+    class CoordinatorMock:
+        def __init__(self):
+            self.call_count = 0
+
+        def __call__(self, *args, **kwargs):
+            self.call_count += 1
+
     def test_process_existing(self):
         with self.setup() as (cortex, coordinator):
             timeBefore = s_common.now()
-            origMethod = coordinator._processTufo
-            coordinator._processTufo = MagicMock()
+            coordinator._processTufo = DendriteCoordinatorTest.CoordinatorMock()
             coordinator._processExistingTufos()
-            coordinator._processTufo.assert_not_called()
-            coordinator._processTufo = origMethod
+            self.assertEqual(coordinator._processTufo.call_count, 0)
             coordinator.existingProcessorThread.join() # typically done via fini, but cleaning up explicitly for test
 
             cortex.formNodeByBytes(b'some bytes')
@@ -75,7 +79,7 @@ class DendriteCoordinatorTest(SynTest):
 
             time.sleep(0.5) # give the callbacks some time to get called from creating nodes above
             coordinator._updateState(timeBefore)
-            coordinator._processTufo = MagicMock()
+            coordinator._processTufo = DendriteCoordinatorTest.CoordinatorMock()
             coordinator._processExistingTufos()
             time.sleep(0.5) # allow the processing thread to do its thing
             self.assertEqual(coordinator._processTufo.call_count, 2)
