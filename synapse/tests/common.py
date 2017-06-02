@@ -80,12 +80,11 @@ class SynTest(unittest.TestCase):
             return s_cortex.openurl(url)
 
         db = os.getenv('SYN_TEST_PG_DB')
-        if db == None:
+        if not db:
             raise unittest.SkipTest('no SYN_TEST_PG_DB or SYN_TEST_PG_URL')
 
         table = 'syn_test_%s' % guid()
-
-        core = s_cortex.openurl('postgres:///%s/%s' % (db,table))
+        core = s_cortex.openurl('postgres://%s/%s' % (db, table))
 
         def droptable():
             with core.getCoreXact() as xact:
