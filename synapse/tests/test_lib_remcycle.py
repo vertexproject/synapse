@@ -797,3 +797,116 @@ class HypnosTest(SynTest, AsyncTestCase):
         self.eq(len(tufos), 1)
         ip = s_inet.ipv4str(tufos[0][1].get('inet:ipv4'))
         self.true(len(ip) >= 7)
+
+    def test_hypnos_content_type_skips(self):
+        self.skipIfNoInternet()
+        gconf = get_ipify_global_config()
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
+                               ioloop=self.io_loop) as hypo_obj:
+            hypo_obj.addWebConfig(config=gconf)
+
+            self.true('ipify:jsonip' in hypo_obj._web_apis)
+
+            data = {}
+
+            def ondone(job_tufo):
+                _jid, jobd = job_tufo
+                resp_data = jobd.get('task')[2].get('resp').get('data')
+                data[_jid] = type(resp_data)
+
+            jid1 = hypo_obj.fireWebApi('ipify:jsonip',
+                                       ondone=ondone)
+            hypo_obj.web_boss.wait(jid1)
+
+            hypo_obj.webContentTypeSkipAdd('application/json')
+            jid2 = hypo_obj.fireWebApi('ipify:jsonip',
+                                       ondone=ondone)
+            hypo_obj.web_boss.wait(jid2)
+
+            hypo_obj.webContentTypeSkipDel('application/json')
+            jid3 = hypo_obj.fireWebApi('ipify:jsonip',
+                                       ondone=ondone)
+            hypo_obj.web_boss.wait(jid3)
+
+            self.true(jid1 in data)
+            self.eq(data[jid1], type({}))
+            self.true(jid2 in data)
+            self.eq(data[jid2], type(b''))
+            self.true(jid3 in data)
+            self.eq(data[jid3], type({}))
+
+    def test_hypnos_cache_job(self):
+        # Ensure that job results are available via cache when caching is enabled.
+        self.skipIfNoInternet()
+        gconf = get_ipify_global_config()
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 2,
+                                     s_remcycle.CACHE_ENABLED: True},
+                               ioloop=self.io_loop) as hypo_obj:  # type: s_remcycle.Hypnos
+            hypo_obj.addWebConfig(config=gconf)
+
+            jid1 = hypo_obj.fireWebApi('ipify:jsonip')
+            self.false(jid1 in hypo_obj.web_cache)
+            hypo_obj.web_boss.wait(jid=jid1)
+            time.sleep(0.01)
+            self.true(jid1 in hypo_obj.web_cache)
+            cached_data = hypo_obj.webCacheGet(jid=jid1)
+            self.true(isinstance(cached_data, dict))
+            resp = cached_data.get('resp')
+            self.true('data' in resp)
+            data = resp.get('data')
+            # This is expected data from the API endpoint.
+            self.true('ip' in data)
+            cached_data2 = hypo_obj.webCachePop(jid=jid1)
+            self.eq(cached_data, cached_data2)
+            self.false(jid1 in hypo_obj.web_cache)
+            # Disable the cache and ensure the responses are cleared and no longer cached.
+            hypo_obj.webCacheDisable()
+            self.false(jid1 in hypo_obj.web_cache)
+            jid2 = hypo_obj.fireWebApi('ipify:jsonip')
+            hypo_obj.web_boss.wait(jid=jid1)
+            time.sleep(0.01)
+            self.false(jid2 in hypo_obj.web_cache)
+            cached_data3 = hypo_obj.webCachePop(jid=jid2)
+            self.none(cached_data3)
+
+    def test_hypnos_cache_with_ingest(self):
+        # Ensure that the cached data from a result with a ingest definition is msgpack serializable.
+        self.skipIfNoInternet()
+        gconf = get_ipify_ingest_global_config()
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1,
+                                     s_remcycle.CACHE_ENABLED: True},
+                               ioloop=self.io_loop) as hypo_obj:  # type: s_remcycle.Hypnos
+            hypo_obj.addWebConfig(config=gconf)
+
+            jid = hypo_obj.fireWebApi(name='ipify:jsonip')
+            job = hypo_obj.web_boss.job(jid=jid)
+            hypo_obj.web_boss.wait(jid)
+            time.sleep(0.01)
+            cached_data = hypo_obj.webCacheGet(jid=jid)
+            self.nn(cached_data)
+            # Ensure the cached data can be msgpacked as needed.
+            buf = msgenpack(cached_data)
+            self.true(isinstance(buf, bytes))
+            # Ensure that the existing job tufo is untouched when caching.
+            self.true('ingdata' in job[1].get('task')[2].get('resp'))
+
+    def test_hypnos_cached_failure(self):
+        # Test a simple failure case
+        self.skipIfNoInternet()
+        gconf = get_bad_vertex_global_config()
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1,
+                                     s_remcycle.CACHE_ENABLED: True},
+                               ioloop=self.io_loop) as hypo_obj:  # type: s_remcycle.Hypnos
+            hypo_obj.addWebConfig(config=gconf)
+
+            jid = hypo_obj.fireWebApi(name='vertexproject:fake_endpoint')
+            job = hypo_obj.web_boss.job(jid=jid)[1]  # type: dict
+            hypo_obj.web_boss.wait(jid)
+            # Ensure that we have error information cached for the job
+            time.sleep(0.01)
+            cached_data = hypo_obj.webCacheGet(jid=jid)
+            self.true('err' in cached_data)
+            self.eq(cached_data.get('err'), 'HTTPError')
+            self.true('errfile' in cached_data)
+            self.true('errline' in cached_data)
+            self.true('errmsg' in cached_data)
