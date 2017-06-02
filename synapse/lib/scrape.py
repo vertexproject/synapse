@@ -49,7 +49,7 @@ def getsync(text, tags=()):
     with s_cortex.openurl('ram://'):
 
         core.setConfOpt('enforce',1)
-        core.on('core:sync', ret.append)
+        core.onsync(ret.append)
 
         for form,valu in scrape(text):
             tufo = core.formTufoByFrob(form,valu)

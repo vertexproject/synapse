@@ -14,6 +14,7 @@ class SynErr(Exception):
     def items(self):
         return self.errinfo.items()
 
+class NoSuchAct(SynErr):pass
 class NoSuchOpt(SynErr):pass
 class NoSuchDir(SynErr):pass
 class NoSuchDyn(SynErr):pass
@@ -67,7 +68,6 @@ class DupUser(Exception):pass
 class DupRole(Exception):pass
 
 class NoSuch(Exception):pass
-class NoSuchAct(Exception):pass
 class NoSuchJob(Exception):pass
 class NoSuchObj(SynErr):pass
 class NoSuchFile(Exception):pass
