@@ -12,6 +12,7 @@ import logging
 import sys
 # Third Party Code
 import synapse.cortex as s_cortex
+import synapse.telepath as s_telepath
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +56,8 @@ def main(options):  # pragma: no cover
     logger.info('Opening URL %s', url)
     core = s_cortex.openurl(url)
     nodes = get_nodes_to_migrate(core)
-    is_telepath = False
-    if isinstance(nodes, tuple):
-        is_telepath = True
+    is_telepath = s_telepath.isProxy(core)
+    if is_telepath:
         nodes = list(nodes)
     if not nodes:
         logger.info('No nodes to upgrade.')

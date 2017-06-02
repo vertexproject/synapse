@@ -52,6 +52,9 @@ class TelePathTest(SynTest):
 
         foo = s_telepath.openlink(env.link)
 
+        self.true(s_telepath.isProxy(foo))
+        self.false(s_telepath.isProxy(self))
+
         s = time.time()
         for i in range(1000):
             foo.speed()
