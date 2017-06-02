@@ -1,12 +1,13 @@
 import logging
-import magic
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.dyndeps as s_dyndeps
 from synapse.common import firethread
 import synapse.telepath as s_telepath
 import synapse.lib.service as s_service
 
+magic = s_dyndeps.getDynMod('magic')
 logger = logging.getLogger(__name__)
 
 class Coordinator:
@@ -57,6 +58,9 @@ class Coordinator:
             on *nix flavors, but is needed when running on Windows.
 
     Raises:
+        Exception:
+            If python-magic module is not installed.
+
         TypeError:
             If one of 'svcbus', 'core', 'axon', 'jobs' kwargs are not provided.
 
@@ -68,6 +72,9 @@ class Coordinator:
     _BYTES_TO_READ = 1024
 
     def __init__(self, **kwargs):
+        if magic == None:
+            raise Exception('python-magic module not installed')
+
         self.opts = kwargs
         self._assertOpts()
         self.svcbus = s_service.openurl(self.opts.get('svcbus'))
@@ -226,17 +233,17 @@ class Coordinator:
             self.listenCore.ping()
             logger.info('Successfully connected to cortex')
         except s_exc.NoSuchObj:
-            raise s_exc.NoSuchObj(msg='unable to connect to cortex, please check url')
+            raise s_exc.NoSuchObj(mesg='unable to connect to cortex, please check url')
         try:
             self.axon.ping()
             logger.info('Successfully connected to axon')
         except s_exc.NoSuchObj:
-            raise s_exc.NoSuchObj(msg='unable to connect to axon, please check url')
+            raise s_exc.NoSuchObj(mesg='unable to connect to axon, please check url')
         try:
             self.jobs.ping()
             logger.info('Successfully connected to job queue')
         except s_exc.NoSuchObj:
-            raise s_exc.NoSuchObj(msg='unable to connect to job queue, please check url')
+            raise s_exc.NoSuchObj(mesg='unable to connect to job queue, please check url')
 
     def _initCortex(self):
         coreurl = self.opts.get('interncore', 'ram:///')
