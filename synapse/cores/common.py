@@ -911,16 +911,54 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
     def sync(self, mesg):
         '''
-        Feed the cortex a sync event to ingest changes from another.
+        Feed the cortex a sync event to make changes to the hypergraph.
+
+        Args:
+            mesg (str,dict):    The (name,info) for the sync event.
+
+        Returns:
+            None
 
         Example:
 
-            core0.on('core:sync', core1.sync )
-
-            # model changes to core0 will populate in core1
+            core.sync(mesg)
 
         '''
-        self.syncact.react( mesg[1].get('mesg') )
+        self.syncact.react(mesg)
+
+    def onsync(self, func):
+        '''
+        Register a callback for all sync events within the cortex.
+
+        Args:
+            func (function((name,info))): The event callback ( see EventBus.on )
+
+        Returns:
+            None
+        '''
+        def unwrap(mesg):
+            func(mesg[1].get('mesg'))
+
+        self.on('core:sync', unwrap)
+
+    def coresync(self, mesg):
+        '''
+        Unwrap and sync() a core:sync event from another cortex.
+
+        Args:
+            mesg ((str,dict)):  An event tuple of ('core:sync',{'mesg':<mesg>}).
+
+        Returns:
+            None
+
+        Example:
+
+            core0.on('core:sync', core1.coresync)
+
+        '''
+        sync = mesg[1].get('mesg')
+        if mesg is not None:
+            self.sync(sync)
 
     # TODO
     #def setSyncDir(self, path):
@@ -932,7 +970,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
     def addSyncFd(self, fd):
         '''
-        Write all core:sync events to the specified file-like object.
+        Write all cortex sync events to the specified file-like object.
 
         Example:
 
@@ -940,13 +978,14 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
             core.addSyncFd(fd)
         '''
         def saveobj(m):
-            fd.write( msgenpack(m) )
+            # speed hacking
+            fd.write(msgenpack(m[1].get('mesg')))
 
         self.on('core:sync', saveobj)
 
     def eatSyncFd(self, fd):
         '''
-        Consume and sync all core:sync messages from the given file-like object.
+        Consume all cortex sync events from the given file-like object.
 
         Example:
 
@@ -997,7 +1036,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
             core.setSaveFd(fd)
 
         NOTE: This save file is allowed to be storage layer specific.
-              If you want to store core:sync events, use addSyncFd().
+              If you want to store cortex sync events, use addSyncFd().
 
         '''
         if load:
@@ -2576,21 +2615,28 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                 core.formTufoByProp('inet:fqdn','vertex.link')
 
         '''
-        pump = s_queue.Queue()
+        # unwrap the core:sync event
+        def putsync(mesg):
+            sync = mesg[1].get('mesg')
+            pump.put(sync)
 
-        self.on('core:sync', pump.put)
+        pump = s_queue.Queue()
+        self.on('core:sync', putsync)
 
         def syncpump():
-            try:
 
-                for msgs in pump.slices(1000):
-                    errs = core.syncs(msgs)
+            while not self.isfini:
 
-                    for err in errs:
-                        logger.warning('sync pump: %r' % (err,))
+                try:
 
-            except Exception as e:
-                raise
+                    for msgs in pump.slices(1000):
+                        errs = core.syncs(msgs)
+
+                        for err in errs:
+                            logger.warning('sync pump: %r' % (err,))
+
+                except Exception as e:
+                    logger.exception(e)
 
         wrkr = s_threads.worker(syncpump)
         pump.onfini( wrkr.fini )

@@ -133,6 +133,18 @@ def evalurl(url,**opts):
 
     return openurl(url,**opts)
 
+def isProxy(item):
+    '''
+    Check to see if a object is a telepath proxy object or not.
+
+    Args:
+        item (object): Object to inspect.
+
+    Returns:
+        bool: True if the object is a telepath object; otherwise False.
+    '''
+    return isinstance(item, Proxy)
+
 class Method:
 
     def __init__(self, proxy, meth):
