@@ -983,7 +983,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
     def eatSyncFd(self, fd):
         '''
-        Consume all coretex sync events from the given file-like object.
+        Consume all cortex sync events from the given file-like object.
 
         Example:
 
