@@ -688,11 +688,11 @@ class CortexTest(SynTest):
 
         core.fini()
 
-    def test_cortex_sync(self):
+    def test_cortex_coresync(self):
         core0 = s_cortex.openurl('ram://')
         core1 = s_cortex.openurl('ram://')
 
-        core0.on('core:sync', core1.sync )
+        core0.onsync(core1.sync)
 
         tufo0 = core0.formTufoByProp('foo','bar',baz='faz')
         tufo1 = core1.getTufoByProp('foo','bar')
@@ -1495,15 +1495,15 @@ class CortexTest(SynTest):
 
     def test_cortex_syncs_errs(self):
 
-        syncs = [ ('core:sync', {'mesg':('newp:fake',{})} ) ]
+        syncs = [ ('newp:fake',{}) ]
         with s_cortex.openurl('ram:///') as core:
-            core.on('core:sync', syncs.append )
+            core.onsync(syncs.append)
             core.formTufoByProp('inet:fqdn','vertex.link')
 
         with s_cortex.openurl('ram:///') as core:
             errs = core.syncs( syncs )
             self.eq( len(errs), 1 )
-            self.eq( errs[0][0][1]['mesg'][0], 'newp:fake' )
+            self.eq( errs[0][0][0], 'newp:fake' )
             self.nn( core.getTufoByProp('inet:fqdn','vertex.link') )
 
     def test_cortex_norm_fail(self):
