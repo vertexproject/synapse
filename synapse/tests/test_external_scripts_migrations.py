@@ -12,7 +12,7 @@ from scripts import migrate_add_tag_base
 
 ASSETS_FP = getTestPath('assets')
 
-class Migration_Base(SynTest):
+class MigrationBase(SynTest):
     def get_dmon_config(self, fp):
         dconf = {
             'vars': {
@@ -66,7 +66,7 @@ class Migration_Base(SynTest):
             c_url = 'sqlite:///{}'.format(core_fp)
             yield s_cortex.openurl(c_url)
 
-class TagBaseMigration(Migration_Base):
+class TagBaseMigration(MigrationBase):
 
     def test_migration_tagbase_core_nodes(self):
         with self.getTestDir() as fdir:
@@ -146,3 +146,6 @@ class TagBaseMigration(Migration_Base):
                 self.true(len(nodes) == 16)
                 for node in nodes:
                     self.eq(node[1].get('syn:tag:base'), node[1].get('syn:tag').split('.')[-1])
+
+class DarkTagMigration(MigrationBase):
+    pass
