@@ -9,6 +9,7 @@ import synapse.telepath as s_telepath
 from synapse.tests.common import *
 # Test code
 from scripts import migrate_add_tag_base
+from scripts import migrate_add_dark_tags
 
 ASSETS_FP = getTestPath('assets')
 
@@ -148,4 +149,35 @@ class TagBaseMigration(MigrationBase):
                     self.eq(node[1].get('syn:tag:base'), node[1].get('syn:tag').split('.')[-1])
 
 class DarkTagMigration(MigrationBase):
-    pass
+    def test_migration_darktags_main(self):
+        with self.getTestDir() as fdir:
+            core_fp = self.get_cortex_fp(fdir=fdir, asset_fn='test_dark_tag_migration.zip')
+            self.true(os.path.isfile(core_fp))
+
+            core_url = 'sqlite:///{}'.format(core_fp)
+
+            ns = argparse.Namespace(core=core_url, verbose=True)
+
+            r = migrate_add_dark_tags.main(options=ns)
+            self.eq(r, 0)
+            core = s_cortex.openurl(core_url)
+            node = core.eval('inet:dns:a')[0]
+            self.eq(len(core.getRowsById(node[0][::-1])), 16)
+            self.eq(core.getTufosByDark('tag', 'src.clowntown')[0], node)
+
+    def test_migration_darktags_main_dmon(self):
+        with self.getTestDir() as fdir:
+            core_fp = self.get_cortex_fp(fdir=fdir, asset_fn='test_dark_tag_migration.zip')
+            dconf = self.get_dmon_config(fp=core_fp)
+
+            with s_daemon.Daemon() as dmon:
+                dmon.loadDmonConf(dconf)
+                core_url = 'tcp://127.0.0.1:36001/core'
+
+                ns = argparse.Namespace(core=core_url, verbose=True)
+                r = migrate_add_dark_tags.main(options=ns)
+                self.eq(r, 0)
+                core = s_telepath.openurl(url=core_url)
+                node = core.eval('inet:dns:a')[0]
+                self.eq(len(core.getRowsById(node[0][::-1])), 16)
+                self.eq(core.getTufosByDark('tag', 'src.clowntown')[0], node)
