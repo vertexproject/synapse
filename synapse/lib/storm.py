@@ -705,8 +705,7 @@ class Runtime(Configable):
         valu = oper[1].get('valu')
         limit = oper[1].get('limit')
 
-        for tufo in self.stormTufosBy(by, prop, valu, limit=limit):
-            query.add(tufo)
+        [query.add(tufo) for tufo in self.stormTufosBy(by, prop, valu, limit=limit)]
 
     def _stormOperPivot(self, query, oper):
         args = oper[1].get('args')
@@ -747,8 +746,7 @@ class Runtime(Configable):
                 if valu != None:
                     vals.add(valu)
 
-        for t in self.stormTufosBy('in', dstp, list(vals), limit=opts.get('limit') ):
-            query.add(t)
+        [query.add(t)for t in self.stormTufosBy('in', dstp, list(vals), limit=opts.get('limit'))]
 
     def _stormOperNextSeq(self, query, oper):
         name = None
@@ -784,8 +782,7 @@ class Runtime(Configable):
 
         # use the more optimal "in" mechanism once we have the pivot vals
         vals = list({ t[1].get(srcp) for t in query.data() if t != None })
-        for tufo in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit') ):
-            query.add(tufo)
+        [query.add(tufo) for tufo in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit'))]
 
     def _stormOperAddXref(self, query, oper):
 
@@ -901,13 +898,11 @@ class Runtime(Configable):
         limit = opts.get('limit')
 
         core = self.getStormCore()
-        forms = core.getTufoForms()
 
-        for form,tag in self._iterPropTags(forms,tags):
-            nodes = core.getTufosByTag(form,tag,limit=limit)
+        for tag in tags:
+            nodes = core.getTufosByDark('tag', tag, limit=limit)
 
-            for node in nodes:
-                query.add(node)
+            [query.add(node) for node in nodes]
 
             if limit != None:
                 limit -= len(nodes)
@@ -950,12 +945,12 @@ class Runtime(Configable):
         tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=True)}
 
         if not forms:
-            forms = core.getModelDict().get('forms')
+            forms = set(core.getModelDict().get('forms'))
 
-        for form, tag in self._iterPropTags(forms, tags):
+        for tag in tags:
             lqs = query.size()
-            tufos = core.getTufosByTag(form, tag, limit=limt.get())
-            [query.add(tufo) for tufo in tufos]
+            tufos = core.getTufosByDark('tag', tag, limit=limt.get())
+            [query.add(tufo) for tufo in tufos if tufo[1].get('tufo:form') in forms]
             if tufos:
                 lq = query.size()
                 nnewnodes = lq - lqs
@@ -983,14 +978,14 @@ class Runtime(Configable):
         tags = {node[1].get('syn:tag') for node in nodes if node[1].get('tufo:form') == 'syn:tag'}
 
         core = self.getStormCore()
-        # TODO This is O(m*n).
-        if not forms:
-            forms = core.getModelDict().get('forms')
 
-        for form, tag in self._iterPropTags(forms, tags):
+        if not forms:
+            forms = set(core.getModelDict().get('forms'))
+
+        for tag in tags:
             lqs = query.size()
-            tufos = core.getTufosByTag(form, tag, limit=limt.get())
-            [query.add(tufo) for tufo in tufos]
+            tufos = core.getTufosByDark('tag', tag, limit=limt.get())
+            [query.add(tufo) for tufo in tufos if tufo[1].get('tufo:form') in forms]
             if tufos:
                 lq = query.size()
                 nnewnodes = lq - lqs

@@ -9,11 +9,11 @@ import synapse.telepath as s_telepath
 from synapse.tests.common import *
 # Test code
 from scripts import migrate_add_tag_base
+from scripts import migrate_add_dark_tags
 
 ASSETS_FP = getTestPath('assets')
 
-class TagBaseMigration(SynTest):
-
+class MigrationBase(SynTest):
     def get_dmon_config(self, fp):
         dconf = {
             'vars': {
@@ -37,39 +37,41 @@ class TagBaseMigration(SynTest):
         }
         return dconf
 
-    def get_cortex_bytes(self):
-        fp = os.path.join(ASSETS_FP, 'test_tag_base.zip')
+    def get_cortex_bytes(self, asset_fn):
+        fp = os.path.join(ASSETS_FP, asset_fn)
         self.true(os.path.isfile(fp))
         with zipfile.ZipFile(fp) as zf:
-            buf = zf.read('test_tag_base.db')  # type: bytes
+            buf = zf.read('test.db')  # type: bytes
         return buf
 
-    def get_cortex_fp(self, fdir):
-        buf = self.get_cortex_bytes()
-        fp = os.path.abspath(os.path.join(fdir, 'test_tag_base.db'))
+    def get_cortex_fp(self, fdir, asset_fn):
+        buf = self.get_cortex_bytes(asset_fn)
+        fp = os.path.abspath(os.path.join(fdir, 'test.db'))
         with open(fp, 'wb') as f:
             f.write(buf)
         return fp
 
     @contextlib.contextmanager
-    def get_dmon_core(self):
+    def get_dmon_core(self, asset_fn):
         with self.getTestDir() as fdir:
-            core_fp = self.get_cortex_fp(fdir=fdir)
+            core_fp = self.get_cortex_fp(fdir=fdir, asset_fn=asset_fn)
             dconf = self.get_dmon_config(fp=core_fp)
             with s_daemon.Daemon() as dmon:
                 dmon.loadDmonConf(dconf)
                 yield s_telepath.openurl(url='tcp://127.0.0.1:36001/core')
 
     @contextlib.contextmanager
-    def get_file_core(self):
+    def get_file_core(self, asset_fn):
         with self.getTestDir() as fdir:
-            core_fp = self.get_cortex_fp(fdir=fdir)
+            core_fp = self.get_cortex_fp(fdir=fdir, asset_fn=asset_fn)
             c_url = 'sqlite:///{}'.format(core_fp)
             yield s_cortex.openurl(c_url)
 
+class TagBaseMigration(MigrationBase):
+
     def test_migration_tagbase_core_nodes(self):
         with self.getTestDir() as fdir:
-            core_fp = self.get_cortex_fp(fdir=fdir)
+            core_fp = self.get_cortex_fp(fdir=fdir, asset_fn='test_tag_base.zip')
             self.true(os.path.isfile(core_fp))
             c_url = 'sqlite:///{}'.format(core_fp)
             core = s_cortex.openurl(c_url)
@@ -79,7 +81,7 @@ class TagBaseMigration(SynTest):
 
     def test_migration_tagbase_core_nodes_dmon(self):
         with self.getTestDir() as fdir:
-            core_fp = self.get_cortex_fp(fdir=fdir)
+            core_fp = self.get_cortex_fp(fdir=fdir, asset_fn='test_tag_base.zip')
             dconf = self.get_dmon_config(fp=core_fp)
 
             dmon = s_daemon.Daemon()
@@ -93,7 +95,7 @@ class TagBaseMigration(SynTest):
             dmon.fini()
 
     def test_migration_tagbase_node_conversion(self):
-        with self.get_file_core() as core:
+        with self.get_file_core(asset_fn='test_tag_base.zip') as core:
             nodes = migrate_add_tag_base.get_nodes_to_migrate(core)
             self.eq(len(nodes), 16)
             migrate_add_tag_base.upgrade_tagbase_xact(core, nodes)
@@ -101,7 +103,7 @@ class TagBaseMigration(SynTest):
             self.eq(len(nodes), 0)
 
     def test_migration_tagbase_node_conversion_dmon(self):
-        with self.get_dmon_core() as core:
+        with self.get_dmon_core(asset_fn='test_tag_base.zip') as core:
             nodes = migrate_add_tag_base.get_nodes_to_migrate(core)
             self.eq(len(nodes), 16)
             migrate_add_tag_base.upgrade_tagbase_no_xact(core, nodes)
@@ -110,7 +112,7 @@ class TagBaseMigration(SynTest):
 
     def test_migration_tagbase_main(self):
         with self.getTestDir() as fdir:
-            core_fp = self.get_cortex_fp(fdir=fdir)
+            core_fp = self.get_cortex_fp(fdir=fdir, asset_fn='test_tag_base.zip')
             self.true(os.path.isfile(core_fp))
 
             core_url = 'sqlite:///{}'.format(core_fp)
@@ -129,7 +131,7 @@ class TagBaseMigration(SynTest):
 
     def test_migration_tagbase_main_dmon(self):
         with self.getTestDir() as fdir:
-            core_fp = self.get_cortex_fp(fdir=fdir)
+            core_fp = self.get_cortex_fp(fdir=fdir, asset_fn='test_tag_base.zip')
             dconf = self.get_dmon_config(fp=core_fp)
 
             with s_daemon.Daemon() as dmon:
@@ -145,3 +147,37 @@ class TagBaseMigration(SynTest):
                 self.true(len(nodes) == 16)
                 for node in nodes:
                     self.eq(node[1].get('syn:tag:base'), node[1].get('syn:tag').split('.')[-1])
+
+class DarkTagMigration(MigrationBase):
+    def test_migration_darktags_main(self):
+        with self.getTestDir() as fdir:
+            core_fp = self.get_cortex_fp(fdir=fdir, asset_fn='test_dark_tag_migration.zip')
+            self.true(os.path.isfile(core_fp))
+
+            core_url = 'sqlite:///{}'.format(core_fp)
+
+            ns = argparse.Namespace(core=core_url, verbose=True)
+
+            r = migrate_add_dark_tags.main(options=ns)
+            self.eq(r, 0)
+            core = s_cortex.openurl(core_url)
+            node = core.eval('inet:dns:a')[0]
+            self.eq(len(core.getRowsById(node[0][::-1])), 16)
+            self.eq(core.getTufosByDark('tag', 'src.clowntown')[0], node)
+
+    def test_migration_darktags_main_dmon(self):
+        with self.getTestDir() as fdir:
+            core_fp = self.get_cortex_fp(fdir=fdir, asset_fn='test_dark_tag_migration.zip')
+            dconf = self.get_dmon_config(fp=core_fp)
+
+            with s_daemon.Daemon() as dmon:
+                dmon.loadDmonConf(dconf)
+                core_url = 'tcp://127.0.0.1:36001/core'
+
+                ns = argparse.Namespace(core=core_url, verbose=True)
+                r = migrate_add_dark_tags.main(options=ns)
+                self.eq(r, 0)
+                core = s_telepath.openurl(url=core_url)
+                node = core.eval('inet:dns:a')[0]
+                self.eq(len(core.getRowsById(node[0][::-1])), 16)
+                self.eq(core.getTufosByDark('tag', 'src.clowntown')[0], node)

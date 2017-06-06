@@ -326,7 +326,6 @@ class StormTest(SynTest):
             nodes = core.eval('geo:loc=derry totags()')
             self.eq(len(nodes), 0)
 
-
     def test_storm_tag_fromtag(self):
         with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
@@ -376,6 +375,44 @@ class StormTest(SynTest):
 
             nodes = core.eval('syn:tag:base=bar fromtags()')
             self.eq(len(nodes), 3)
+
+    def test_storm_lifts_by(self):
+        # Test various lifts by handlers
+        with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+            node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
+            node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
+            node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
+            node4 = core.formTufoByProp('inet:netuser', 'clowntown.link/pennywise')
+
+            core.addTufoTags(node1, ['aka.foo.bar.baz', 'aka.duck.quack.loud', 'src.clowntown'])
+            core.addTufoTags(node2, ['aka.foo.duck.baz', 'aka.duck.quack.loud', 'src.clowntown'])
+            core.addTufoTags(node3, ['aka.foo.bar.knight', 'aka.duck.sound.loud', 'src.clowntown'])
+
+            # Lift by tags
+            nodes = core.eval('inet:dns:a*tag=src.clowntown')
+            self.eq(len(nodes), 1)
+
+            # Lift by type
+            nodes = core.eval('inet:netuser*type=pennywise')
+            self.eq(len(nodes), 1)
+
+            # Lift by inet:cidr
+            nodes = core.eval('inet:dns:a:ipv4*inet:cidr=1.2.0.0/16')
+            self.eq(len(nodes), 1)
+
+            # Lift by dark
+            nodes = core.eval('tag*dark=aka')
+            self.eq(len(nodes), 3)
+
+            nodes = core.eval('tag*dark=aka.duck.quack')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('tag*dark=aka.foo.bar.knight')
+            self.eq(len(nodes), 1)
+
+            nodes = core.eval('tag*dark=loc')
+            self.eq(len(nodes), 0)
+
 
 class LimitTest(SynTest):
 

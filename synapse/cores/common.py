@@ -14,6 +14,7 @@ import synapse.reactor as s_reactor
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.dark as s_dark
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
@@ -253,6 +254,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         self.initTufosBy('tag',self._tufosByTag)
         self.initTufosBy('type',self._tufosByType)
         self.initTufosBy('inet:cidr',self._tufosByInetCidr)
+        self.initTufosBy('dark', self._tufosByDark)
 
         # process a savefile/savefd if we have one
         savefd = link[1].get('savefd')
@@ -1001,8 +1003,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         [ self.delTufo(t) for t in self.getTufosByProp('syn:tag:up',valu) ]
 
         # do the (possibly very heavy) removal of the tag from all known forms.
-        for form in self.getTufoForms():
-            [ self.delTufoTag(t,valu) for t in self.getTufosByTag(form,valu) ]
+        [self.delTufoTag(t, valu) for t in self.getTufosByDark('tag', valu)]
 
     def _onAddSynTag(self, mesg):
         tufo = mesg[1].get('tufo')
@@ -1598,12 +1599,14 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
                 formevt = 'tufo:tag:add:%s' % tufo[1].get('tufo:form')
 
-                self.addRows(list(map(lambda tup: tup[1], rows)))
+                dark_row_gen = s_dark.genDarkRows(tufo[0], 'tag', [t[0] for t in rows])
+                _rows = [t[1] for t in rows]
+                _rows.extend(dark_row_gen)
+                self.addRows(_rows)
 
                 for subtag,(i,p,v,t) in rows:
                     tufo[1][p] = v
                     self._bumpTufoCache(tufo,p,None,v)
-
                     xact.fire('tufo:tag:add', tufo=tufo, tag=subtag, asof=asof)
                     xact.fire(formevt, tufo=tufo, tag=subtag, asof=asof)
 
@@ -1639,6 +1642,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                     self._bumpTufoCache(tufo,p,asof,None)
 
                     subtag = s_tags.choptag(p)
+                    self.delTufoDark(tufo, 'tag', subtag)
 
                     xact.fire('tufo:tag:del', tufo=tufo, tag=subtag)
                     xact.fire(formevt, tufo=tufo, tag=subtag)
@@ -2582,6 +2586,9 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         valu,_ = self.getTypeFrob(prop,valu)
         return self.getTufosByPropType(prop,valu=valu,limit=limit)
 
+    def _tufosByDark(self, prop, valu, limit=None):
+        return self.getTufosByDark(name=prop, valu=valu, limit=limit)
+
     # these helpers allow a storage layer to simply implement
     # and register _getTufosByGe and _getTufosByLe
 
@@ -2665,6 +2672,122 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
     def _getCoreXact(self, size):
         raise NoSuchImpl(name='_getCoreXact')
 
+    def addTufoDark(self, tufo, name, valu):
+        '''
+        Add a dark row to a tufo with a given name and value.
+
+        Dark rows get their own index and can be used to quickly pull tufos.
+        While similar to dsets, these are primarily intended for implementing
+        features inside of Synapse directly.
+
+        Args:
+            tufo ((str, dict)): Tufo to add the dark row too.
+            name (str): Dark row name.
+            value (str): Value to set on the dark property. May be any data type which may stored in a cortex.
+
+        Returns:
+            None: Returns None.
+        '''
+        dark = tufo[0][::-1]
+        dark_name = '_:dark:%s' % name
+        if self.getRowsByIdProp(dark, dark_name, valu=valu):
+            return
+
+        rows = [(dark, dark_name, valu, now())]
+        self.addRows(rows)
+
+    def delTufoDark(self, tufo, name, valu=None):
+        '''
+        Remove dark rows from a tufo for a given name and optional value.
+
+        Args:
+            tufo ((str, dict)): Tufo to remove data dark rows from.
+            name (str): Specific dark rows to remove.
+            valu (str): Value to remove (optional).
+
+        Returns:
+            None: Returns None.
+        '''
+        dark = tufo[0][::-1]
+        self.delRowsByIdProp(dark, '_:dark:%s' % name, valu)
+
+    def getTufoDarkValus(self, tufo, name):
+        '''
+        Get a list of dark row values on a given tufo with a specific name.
+
+        Args:
+            tufo ((str, dict)): Tufo to look up.
+            name (str): Specific dark rows to look up.
+
+        Returns:
+            list: List of (value, time) tuples for a given tufos dark rows.
+
+        '''
+        dark = tufo[0][::-1]
+        dprop = '_:dark:%s' % name
+        return [(v, t) for (i, p, v, t) in self.getRowsByIdProp(dark, dprop)]
+
+    def getTufoDarkNames(self, tufo):
+        '''
+        Get a list of dark row names on a tufo.
+
+        Args:
+            tufo ((str, dict)): Tufo to look up. 
+
+        Returns:
+            list: List of (name, time) tuples for a given tufos dark rows.
+        '''
+        dark = tufo[0][::-1]
+        rows = self.getRowsById(dark)
+        ret = {(p.split(':', 2)[2], t) for (i, p, v, t) in rows if p.startswith('_:dark:')}
+        return list(ret)
+
+    def getTufosByDark(self, name, valu=None, mintime=None, maxtime=None, limit=None):
+        '''
+        Get a list of tufos with the named dark rows and optional values.
+
+        Args:
+            name (str): Dark row name to retrieve tufos by.
+            valu (str): Value to retrieve.
+            mintime (int): Minimum timevalue on tufos to return.
+            maxtime (int): Maximum timevalue on tufos to return.
+            limit (int): Maximum number of tufos to return.
+
+        Examples:
+            Get a list of tufos by a tag::
+
+                for tufo in getTufosByDark('tag', 'foo.bar.baz'):
+                    dostuff(tufo)
+
+        Returns:
+            list: List of tufos
+        '''
+        rows = self.getRowsByProp('_:dark:%s' % name, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+        idens = list(set([r[0][::-1] for r in rows]))  # Unique the idens we pull.
+
+        ret = []
+        for part in chunks(idens,1000):
+            ret.extend(self.getTufosByIdens(part))
+
+        return ret
+
+    def snapTufosByDark(self, name, valu=None, mintime=None, maxtime=None, limit=None):
+        '''
+        Create a snapshot of tufos by dark name/values.
+
+        Args:
+            name (str): Dark row name to snapshot tufos by.
+            valu (str): Optional value to retrieve tufos by.
+            mintime (int): Minimum timevalue on tufos to return.
+            maxtime (int): Maximum timevalue on tufos to return.
+            limit (int): Maximum number of tufos to return.
+
+        Returns:
+            dict: Snapshot generator for getting tufos.
+        '''
+        rows = self.getRowsByProp('_:dark:%s' % name, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+        idens = list(set([r[0][::-1] for r in rows]))  # Unique the idens we pull.
+        return self._initTufoSnap(idens)
 
 class CoreXact:
     '''
