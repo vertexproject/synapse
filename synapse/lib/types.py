@@ -138,9 +138,10 @@ class GuidType(DataType):
 
 class StrType(DataType):
 
-    def __init__(self, tlib, name, **info):
+    def __init__(self, tlib, name, force=False, **info):
         DataType.__init__(self, tlib, name, **info)
 
+        self.force = force
         self.regex = None
         self.envals = None
         self.restrip = None
@@ -166,6 +167,8 @@ class StrType(DataType):
             self.frobintfmt = frobintfmt
 
     def norm(self, valu, oldval=None):
+        if self.force:
+            valu = str(valu)
 
         if self.frobintfmt and s_compat.isint(valu):
             valu = self.frobintfmt % valu
