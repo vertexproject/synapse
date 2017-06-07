@@ -393,8 +393,8 @@ class StormTest(SynTest):
             self.eq(len(nodes), 1)
 
             # Lift by type
-            nodes = core.eval('inet:netuser*type=pennywise')
-            self.eq(len(nodes), 1)
+            nodes = core.eval('inet:user*type=pennywise')
+            self.eq(len(nodes), 2)
 
             # Lift by inet:cidr
             nodes = core.eval('inet:dns:a:ipv4*inet:cidr=1.2.0.0/16')
