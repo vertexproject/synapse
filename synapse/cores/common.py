@@ -647,7 +647,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
     def _reqSpliceInfo(self, act, info, prop):
         valu = info.get(prop)
-        if prop == None:
+        if valu == None:
             raise Exception('Splice: %s requires %s' % (act,prop))
         return valu
 
@@ -827,6 +827,20 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         props['user'] = user
         props['action'] = act
         props['reqtime'] = now()
+
+        # Frob everything that could make it into a splice or tufo valu.
+        form = actinfo.get('form')
+        if form != None:
+            valu = actinfo.get('valu')
+            if valu != None:
+                actinfo['valu'] = self.getPropFrob(form, valu)
+            prop = actinfo.get('prop')
+            pval = actinfo.get('pval')
+            if prop != None and pval != None:
+                actinfo['pval'] = self.getPropFrob('%s:%s' % (form, prop), pval)
+            tprops = actinfo.get('props')
+            if tprops != None:
+                actinfo['props'] = self._frobTufoProps(form, tprops)
 
         props.update( dict(self._primToProps('act', actinfo)) )
 

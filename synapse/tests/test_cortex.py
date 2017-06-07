@@ -797,13 +797,15 @@ class CortexTest(SynTest):
 
     def test_cortex_splice(self):
         core = s_cortex.openurl('ram://')
+        core.addTufoForm('foo', ptype='int')
+        core.addTufoProp('foo', 'baz', ptype='int')
 
         ####################################################################
-        info = {'form':'foo','valu':'bar','props':{'baz':'faz'}}
+        info = {'form':'foo','valu':'123','props':{'baz':'456'}}
 
         splice,retval = core.splice('visi','tufo:add',info, note='hehehaha')
 
-        self.assertEqual( len(core.getTufosByProp('foo',valu='bar')), 1 )
+        self.assertEqual( len(core.getTufosByProp('foo',valu=123)), 1 )
         self.assertIsNotNone( splice[1].get('syn:splice:reqtime') )
 
         self.assertEqual( splice[1].get('syn:splice:user'), 'visi' )
@@ -811,59 +813,59 @@ class CortexTest(SynTest):
         self.assertEqual( splice[1].get('syn:splice:perm'), 'tufo:add:foo' )
         self.assertEqual( splice[1].get('syn:splice:action'), 'tufo:add' )
 
-        self.assertEqual( splice[1].get('syn:splice:on:foo'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:on:foo'), 123 )
         self.assertEqual( splice[1].get('syn:splice:act:form'), 'foo' )
-        self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:act:valu'), 123 )
 
-        self.assertEqual( retval[1].get('foo'), 'bar' )
-        self.assertEqual( retval[1].get('foo:baz'), 'faz' )
+        self.assertEqual( retval[1].get('foo'), 123 )
+        self.assertEqual( retval[1].get('foo:baz'), 456 )
 
         ####################################################################
-        info = {'form':'foo','valu':'bar','prop':'baz','pval':'gronk'}
+        info = {'form':'foo','valu':'123','prop':'baz','pval':'789'}
         splice,retval = core.splice('visi','tufo:set',info)
 
-        self.assertEqual( retval[1].get('foo:baz'), 'gronk')
-        self.assertEqual( len(core.getTufosByProp('foo:baz',valu='gronk')), 1 )
+        self.assertEqual( retval[1].get('foo:baz'), 789)
+        self.assertEqual( len(core.getTufosByProp('foo:baz',valu=789)), 1 )
 
-        self.assertEqual( splice[1].get('syn:splice:on:foo'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:on:foo'), 123 )
         self.assertEqual( splice[1].get('syn:splice:act:form'), 'foo' )
-        self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:act:valu'), 123 )
         self.assertEqual( splice[1].get('syn:splice:act:prop'), 'baz' )
-        self.assertEqual( splice[1].get('syn:splice:act:pval'), 'gronk' )
+        self.assertEqual( splice[1].get('syn:splice:act:pval'), 789 )
 
         ####################################################################
-        info = {'form':'foo','valu':'bar','tag':'lol'}
+        info = {'form':'foo','valu':'123','tag':'lol'}
         splice,retval = core.splice('visi','tufo:tag:add',info)
 
         self.assertTrue( s_tags.tufoHasTag(retval,'lol') )
         self.assertEqual( len(core.getTufosByTag('foo','lol')), 1 )
 
-        self.assertEqual( splice[1].get('syn:splice:on:foo'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:on:foo'), 123 )
         self.assertEqual( splice[1].get('syn:splice:act:tag'), 'lol' )
         self.assertEqual( splice[1].get('syn:splice:act:form'), 'foo' )
-        self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:act:valu'), 123 )
 
         ####################################################################
-        info = {'form':'foo','valu':'bar','tag':'lol'}
+        info = {'form':'foo','valu':'123','tag':'lol'}
         splice,retval = core.splice('visi','tufo:tag:del',info)
 
         self.assertFalse( s_tags.tufoHasTag(retval,'lol') )
         self.assertEqual( len(core.getTufosByTag('foo','lol')), 0 )
 
-        self.assertEqual( splice[1].get('syn:splice:on:foo'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:on:foo'), 123 )
         self.assertEqual( splice[1].get('syn:splice:act:tag'), 'lol' )
         self.assertEqual( splice[1].get('syn:splice:act:form'), 'foo' )
-        self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:act:valu'), 123 )
 
         ####################################################################
-        info = {'form':'foo','valu':'bar'}
+        info = {'form':'foo','valu':'123'}
         splice,retval = core.splice('visi','tufo:del',info)
 
-        self.assertEqual( len(core.getTufosByProp('foo',valu='bar')), 0 )
+        self.assertEqual( len(core.getTufosByProp('foo',valu=123)), 0 )
 
-        self.assertEqual( splice[1].get('syn:splice:on:foo'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:on:foo'), 123 )
         self.assertEqual( splice[1].get('syn:splice:act:form'), 'foo' )
-        self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
+        self.assertEqual( splice[1].get('syn:splice:act:valu'), 123 )
 
         core.fini()
 
