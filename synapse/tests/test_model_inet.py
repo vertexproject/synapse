@@ -32,14 +32,14 @@ class InetModelTest(SynTest):
     def test_model_inet_ipv4(self):
 
         with s_cortex.openurl('ram:///') as core:
-            t0 = core.formTufoByFrob('inet:ipv4','16909060')
+            t0 = core.formTufoByProp('inet:ipv4','16909060')
             self.eq( t0[1].get('inet:ipv4'), 0x01020304 )
             self.eq( t0[1].get('inet:ipv4:asn'), -1 )
 
     def test_model_inet_ipv6(self):
 
         with s_cortex.openurl('ram:///') as core:
-            t0 = core.formTufoByFrob('inet:ipv6','0:0:0:0:0:0:0:1')
+            t0 = core.formTufoByProp('inet:ipv6','0:0:0:0:0:0:0:1')
             self.eq( t0[1].get('inet:ipv6'), '::1' )
             self.eq( t0[1].get('inet:ipv6:asn'), -1 )
 
@@ -92,7 +92,7 @@ class InetModelTest(SynTest):
                     ('èxamplè.link', {'inet:fqdn:host': 'èxamplè', 'inet:fqdn:domain': 'link', 'inet:fqdn:zone': 1, 'inet:fqdn:sfx': 0}),
                     ('link', {'inet:fqdn:host': 'link', 'inet:fqdn:domain': None, 'inet:fqdn:zone': 0, 'inet:fqdn:sfx': 1}),
             )
-            idna_tufo = core.formTufoByFrob(prop, idna_valu)
+            idna_tufo = core.formTufoByProp(prop, idna_valu)
             self.eq(idna_tufo[1].get('inet:fqdn:host'), 'tèst')
             self.eq(idna_tufo[1].get('inet:fqdn:domain'), 'èxamplè.link')
             self.eq(idna_tufo[1].get('inet:fqdn:zone'), 0)
@@ -103,8 +103,8 @@ class InetModelTest(SynTest):
                 for key in parent_props:
                     self.eq(parent_tufo[1].get(key), parent_props[key])
 
-            idna_tufo = core.formTufoByFrob(prop, idna_valu)
-            unicode_tufo = core.formTufoByFrob(prop, unicode_valu)
+            idna_tufo = core.formTufoByProp(prop, idna_valu)
+            unicode_tufo = core.formTufoByProp(prop, unicode_valu)
             self.eq(unicode_tufo, idna_tufo)
 
         with s_cortex.openurl('ram:///') as core:

@@ -465,11 +465,11 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
         # create a reactor to unwrap core/heap sync events
         self.syncact = s_reactor.Reactor()
+        self.syncact.act('splice', self.core.splice )
         self.syncact.act('heap:sync', self.heap.sync )
-        self.syncact.act('core:sync', self.core.coresync )
 
         # wrap core/heap sync events as axon:sync events
-        self.core.on('core:sync', self._fireAxonSync )
+        self.core.on('splice', self._fireAxonSync )
         self.heap.on('heap:sync', self._fireAxonSync )
 
         # model details for the actual byte blobs

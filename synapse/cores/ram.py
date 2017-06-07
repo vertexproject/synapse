@@ -43,13 +43,13 @@ class Cortex(s_cores_common.Cortex):
 
     def _tufosByGe(self, prop, valu, limit=None):
         # FIXME sortedcontainers optimizations go here
-        valu,_ = self.getPropFrob(prop,valu)
+        valu,_ = self.getPropNorm(prop,valu)
         rows = self._rowsByGe(prop, valu, limit=limit)
         return self.getTufosByIdens([ r[0] for r in rows ])
 
     def _tufosByLe(self, prop, valu, limit=None):
         # FIXME sortedcontainers optimizations go here
-        valu,_ = self.getPropFrob(prop,valu)
+        valu,_ = self.getPropNorm(prop,valu)
         rows = self._rowsByLe(prop, valu, limit=limit)
         return self.getTufosByIdens([ r[0] for r in rows ])
 

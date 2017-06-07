@@ -35,18 +35,6 @@ def getTypeNorm(name, valu):
     '''
     return tlib.reqDataType(name).norm(valu)
 
-def getTypeFrob(name, valu):
-    '''
-    Return a system normalized value for the given input value which may be in
-    system mode or in display mode.
-    Returns None,{} on Exception
-    '''
-    try:
-        return tlib.reqDataType(name).frob(valu)
-    except Exception as e:
-        logger.warning(e)
-        return None,{}
-
 def getTypeParse(name, text):
     '''
     Parse input text for the given type into it's system form.
@@ -224,6 +212,25 @@ class DataModel(s_types.TypeLib):
 
         self.addPropDef(fullprop, **info)
 
+    def getPropFormBase(self, prop):
+        '''
+        Return a form,base tuple for the name parts of a given property.
+
+        Example:
+
+        Args:
+            prop (str): The fully qualified property name
+
+        Returns:
+            (str,str):  The (form,base) name tuple for the prop.
+
+        '''
+        pdef = self.getPropDef(prop)
+        if pdef == None:
+            raise NoSuchProp(name=prop)
+
+        return pdef[1].get('form'),pdef[1].get('base')
+
     def addPropDef(self, prop, **info):
         '''
         Add a property definition to the DataModel.
@@ -243,6 +250,10 @@ class DataModel(s_types.TypeLib):
         info.setdefault('defval',None)
 
         form = info.get('form')
+        base = prop[len(form)+1:]
+
+        info['base'] = base
+
         defval = info.get('defval')
 
         if defval != None:
@@ -256,6 +267,8 @@ class DataModel(s_types.TypeLib):
             self.propsbytype[ptype].append(pdef)
 
         self.props[ prop ] = pdef
+        self.props[ (form,base) ] = pdef
+
         self.model['props'][prop] = pdef
 
         self._addSubRefs(pdef)
@@ -352,26 +365,6 @@ class DataModel(s_types.TypeLib):
             return valu,{}
 
         return dtype.norm(valu,oldval=oldval)
-
-    def getPropFrob(self, prop, valu, oldval=None):
-        '''
-        Return a frobbed system mode value for the given property.
-
-        Example:
-
-            valu,subs = model.getPropFrob(prop,valu)
-
-        '''
-        dtype = self.getPropType(prop)
-        if dtype == None:
-            return valu,{}
-
-        try:
-
-            return dtype.frob(valu,oldval=oldval)
-
-        except BadTypeValu as e:
-            return None,{}
 
     def getPropParse(self, prop, valu):
         '''

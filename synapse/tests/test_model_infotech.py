@@ -33,7 +33,7 @@ class InfoTechTest(SynTest):
             signame = 'Bar.BAZ.faZ'
             valu = (bytesguid, (orgname, signame))
 
-            tufo = core.formTufoByFrob('it:av:filehit', valu)
+            tufo = core.formTufoByProp('it:av:filehit', valu)
             self.eq(tufo[1].get('it:av:filehit:sig'), 'foo/bar.baz.faz')
             self.eq(tufo[1].get('it:av:filehit:file'), '1234567890abcdeffedcba0987654321')
 

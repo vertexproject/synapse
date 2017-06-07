@@ -125,8 +125,8 @@ class IngTest(SynTest):
 
             self.nn( core.getTufoByProp('inet:fqdn','foo.com') )
             self.nn( core.getTufoByProp('inet:fqdn','vertex.link') )
-            self.nn( core.getTufoByFrob('inet:ipv4','1.2.3.4') )
-            self.nn( core.getTufoByFrob('inet:ipv4','5.6.7.8') )
+            self.nn( core.getTufoByProp('inet:ipv4','1.2.3.4') )
+            self.nn( core.getTufoByProp('inet:ipv4','5.6.7.8') )
 
             self.eq( len( core.eval('inet:ipv4*tag=hehe.haha') ), 2 )
             self.eq( len( core.eval('inet:fqdn*tag=hehe.haha') ), 2 )
@@ -263,7 +263,7 @@ class IngTest(SynTest):
                 gest.ingest(core)
 
                 self.nn( core.getTufoByProp('inet:fqdn', 'spooky.com') )
-                self.nn( core.getTufoByFrob('inet:ipv4', '192.168.1.1') )
+                self.nn( core.getTufoByProp('inet:ipv4', '192.168.1.1') )
                 self.nn( core.getTufoByProp('str:lwr', 'foo') )
                 self.nn( core.getTufoByProp('str:lwr', 'bar') )
                 self.nn( core.getTufoByProp('str:lwr', 'baz') )
@@ -296,9 +296,9 @@ class IngTest(SynTest):
                 gest.ingest(core)
 
                 self.nn( core.getTufoByProp('inet:fqdn', 'spooky.com') )
-                self.nn( core.getTufoByFrob('inet:ipv4', '192.168.1.1') )
+                self.nn( core.getTufoByProp('inet:ipv4', '192.168.1.1') )
                 self.nn( core.getTufoByProp('inet:fqdn', 'spookier.com') )
-                self.nn( core.getTufoByFrob('inet:ipv4', '192.168.1.2') )
+                self.nn( core.getTufoByProp('inet:ipv4', '192.168.1.2') )
 
 
     def test_ingest_xml(self):

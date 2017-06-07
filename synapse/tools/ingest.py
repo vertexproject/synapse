@@ -117,7 +117,7 @@ def main(argv, outp=None):
 
     if opts.save:
         outp.printf('saving sync events to: %s' % (opts.save,))
-        core.addSyncFd( genfile( opts.save ) )
+        core.addSpliceFd( genfile( opts.save ) )
 
     if opts.verbose:
         core.on('tufo:add', _print_tufo_add)
@@ -126,7 +126,7 @@ def main(argv, outp=None):
     pump = None
     if opts.sync != None:
         sync = s_cortex.openurl( opts.sync )
-        pump = core.getSyncPump(sync)
+        pump = core.getSplicePump(sync)
 
     tick = time.time()
 

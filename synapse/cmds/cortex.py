@@ -137,7 +137,7 @@ class AddNodeCmd(s_cli.Cmd):
 
         core = self.getCmdItem()
 
-        node = core.formTufoByFrob(prop,valu,**props)
+        node = core.formTufoByProp(prop,valu,**props)
         if tags:
             node = core.addTufoTags(node,tags)
 

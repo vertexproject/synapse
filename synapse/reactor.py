@@ -34,7 +34,7 @@ class Reactor:
         '''
         self.actfuncs[name] = func
 
-    def react(self, mesg):
+    def react(self, mesg, name=None):
         '''
         Dispatch to the handler and return his response.
 
@@ -46,8 +46,11 @@ class Reactor:
 
             * Handler exceptions *will* propigate upward
         '''
-        func = self.actfuncs.get(mesg[0])
+        if name is None:
+            name = mesg[0]
+
+        func = self.actfuncs.get(name)
         if func == None:
-            raise NoSuchAct(name=mesg[0])
+            raise NoSuchAct(name=name)
 
         return func(mesg)

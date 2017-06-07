@@ -12,7 +12,7 @@ class InetModelTest(SynTest):
             core.addTufoProp('foo', 'earliest', ptype='foo:min')
             core.addTufoProp('foo', 'latest', ptype='foo:max')
 
-            tufo = core.formTufoByFrob('foo', 'a', **{'earliest':10, 'latest':10})
+            tufo = core.formTufoByProp('foo', 'a', **{'earliest':10, 'latest':10})
             self.eq(tufo[1]['foo:earliest'], 10)
             self.eq(tufo[1]['foo:latest'], 10)
 
