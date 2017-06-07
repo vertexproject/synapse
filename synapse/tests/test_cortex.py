@@ -36,6 +36,7 @@ class CortexTest(SynTest):
         self.runidens( core )
         self.rundsets( core )
         self.runsnaps( core )
+        self.rundarks(core)
 
     def test_cortex_sqlite3(self):
         core = s_cortex.openurl('sqlite:///:memory:')
@@ -45,6 +46,7 @@ class CortexTest(SynTest):
         self.runidens( core )
         self.rundsets( core )
         self.runsnaps( core )
+        self.rundarks(core)
 
     def test_cortex_postgres(self):
         with self.getPgCore() as core:
@@ -54,6 +56,7 @@ class CortexTest(SynTest):
             self.runidens( core )
             self.rundsets( core )
             self.runsnaps( core )
+            self.rundarks(core)
 
     def rundsets(self, core):
         tufo = core.formTufoByProp('lol:zonk',1)
@@ -68,12 +71,37 @@ class CortexTest(SynTest):
         self.eq( len( core.getTufosByDset('violet') ), 0 )
         self.eq( len(core.getTufoDsets(tufo)), 0 )
 
+    def rundarks(self, core):
+
+        tufo = core.formTufoByProp('lol:zonk', 1)
+        core.addTufoDark(tufo, 'hidden', 'color')
+        # Duplicate call for code coverage.
+        core.addTufoDark(tufo, 'hidden', 'color')
+
+        self.eq(len(core.getTufosByDark('hidden', 'color')), 1)
+        self.eq(len(core.getTufosByDark('hidden')), 1)
+        self.eq(len(core.getTufosByDark('hidden', 'secret')), 0)
+        self.eq(len(core.getTufosByDark('knight')), 0)
+
+        self.eq(len(core.getTufosBy('dark', 'hidden', 'color')), 1)
+        self.eq(core.getTufoDarkNames(tufo)[0][0], 'hidden')
+        self.eq(core.getTufoDarkValus(tufo, 'hidden')[0][0], 'color')
+
+        core.delTufoDark(tufo, 'hidden', 'color')
+
+        self.eq(core.getTufoDarkNames(tufo), [])
+        self.eq(len(core.getTufosByDark('hidden', 'color')), 0)
+        self.eq(len(core.getTufosBy('dark', 'hidden', 'color')), 0)
+        self.eq(len(core.getTufoDarkValus(tufo, 'hidden')), 0)
+
+
     def runsnaps(self, core):
 
         with core.getCoreXact():
             for i in range(1500):
                 tufo = core.formTufoByProp('lol:foo', i)
                 core.addTufoDset(tufo,'zzzz')
+                core.addTufoDark(tufo, 'animal', 'duck')
 
         #############################################
 
@@ -125,6 +153,49 @@ class CortexTest(SynTest):
 
         self.eq(len(res),1500)
         self.assertIsNone( core.getSnapNext(snap) )
+
+        #############################################
+
+        answ = core.snapTufosByDark('animal', 'duck')
+
+        res = []
+
+        snap = answ.get('snap')
+        tufs = answ.get('tufos')
+
+        self.eq(answ.get('count'), 1500)
+
+        while tufs:
+            res.extend(tufs)
+            tufs = core.getSnapNext(snap)
+
+        self.eq(len(res), 1500)
+        self.assertIsNone(core.getSnapNext(snap))
+
+        answ = core.snapTufosByDark('animal')
+
+        res = []
+
+        snap = answ.get('snap')
+        tufs = answ.get('tufos')
+
+        self.eq(answ.get('count'), 1500)
+
+        while tufs:
+            res.extend(tufs)
+            tufs = core.getSnapNext(snap)
+
+        self.eq(len(res), 1500)
+        self.assertIsNone(core.getSnapNext(snap))
+
+        answ = core.snapTufosByDark('plant', 'tree')
+
+        snap = answ.get('snap')
+        tufs = answ.get('tufos')
+
+        self.eq(answ.get('count'), 0)
+        self.eq(len(tufs), 0)
+        self.assertIsNone(core.getSnapNext(snap))
 
     def runidens(self, core):
         t0 = core.formTufoByProp('inet:ipv4', 0)
@@ -394,6 +465,8 @@ class CortexTest(SynTest):
 
         self.assertEqual( len(core.getTufosByTag('foo','zip')), 1 )
         self.assertEqual( len(core.getTufosByTag('foo','zip.zap')), 1 )
+        self.eq(len(core.getTufosByDark('tag', 'zip')), 1)
+        self.eq(len(core.getTufosByDark('tag', 'zip.zap')), 1)
 
         core.delTufoTag(foob,'zip')
 
@@ -402,6 +475,8 @@ class CortexTest(SynTest):
 
         self.assertEqual( len(core.getTufosByTag('foo','zip')), 0 )
         self.assertEqual( len(core.getTufosByTag('foo','zip.zap')), 0 )
+        self.eq(len(core.getTufosByDark('tag', 'zip')), 0)
+        self.eq(len(core.getTufosByDark('tag', 'zip.zap')), 0)
 
     def test_cortex_tufo_setprops(self):
         core = s_cortex.openurl('ram://')

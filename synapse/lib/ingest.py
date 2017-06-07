@@ -692,7 +692,7 @@ class Ingest(EventBus):
                     return None
 
                 # FIXME optimize away the following format string
-                valu = valu.replace('{{%s}}' % tvar, tval)
+                valu = valu.replace('{{%s}}' % tvar, str(tval))
 
         if valu == None:
             path = info.get('path')

@@ -12,40 +12,38 @@ import logging
 import sys
 # Third Party Code
 import synapse.cortex as s_cortex
+import synapse.lib.tufo as s_tufo
 import synapse.telepath as s_telepath
+import synapse.cores.common as s_cores_common
 
 logger = logging.getLogger(__name__)
 
-def upgrade_tagbase_xact(core, nodes):
+
+def upgrade_dark_tags_xact(core, nodes):
     '''
     Wrap the upgrade of a local cortex in a transaction.
     '''
     with core.getCoreXact() as xact:
-        upgrade_tagbase_no_xact(core, nodes)
+        upgrade_dark_tags_no_xact(core, nodes)
 
-def upgrade_tagbase_no_xact(core, nodes):
+def upgrade_dark_tags_no_xact(core, tagforms):
     '''
-    Upgrade a set of tag nodes to have syn:tag:base properties.
+    Upgrade a set of nodes defined by tag, form values to have dark tags.
     '''
     node_count = 0
-    for node in nodes:
-        tag = node[1].get('syn:tag')
-        if not tag:
-            continue
-        if 'syn:tag:base' in node[1]:
-            logger.debug('Skipping: [%s]', tag)
-            continue
-        parts = tag.split('.')
-        base = parts[-1]
-        logger.debug('Setting syn:tag:base for [%s] to [%s]', tag, base)
-        core.setTufoProps(node, base=base)
-        node_count += 1
-    logger.debug('Migrated %s tag nodes.', node_count)
-
-def get_nodes_to_migrate(core):
-    logger.info('Getting tag nodes to migrate')
-    nodes = core.eval('syn:tag -syn:tag:base')
-    return nodes
+    for tag, form in tagforms:
+        tufos = core.getTufosByTag(form, tag)
+        for tufo in tufos:
+            if core.getTufoDarkValus(tufo, 'tag'):
+                # We've probably already processed the tags on this tufo
+                logger.debug('Skipping: [%s]', tufo[0])
+                continue
+            ttags = s_tufo.tags(tufo)
+            for ttag in ttags:
+                core.addTufoDark(tufo, 'tag', ttag)
+            logger.debug('Added dark tags to [%s]', tufo[0])
+            node_count += 1
+    logger.info('Added dark tags to {} nodes.'.format(node_count))
 
 # noinspection PyMissingOrEmptyDocstring
 def main(options):  # pragma: no cover
@@ -54,22 +52,20 @@ def main(options):  # pragma: no cover
 
     url = options.core
     logger.info('Opening URL %s', url)
-    core = s_cortex.openurl(url)
-    nodes = get_nodes_to_migrate(core)
-    is_telepath = s_telepath.isProxy(core)
-    if is_telepath:
-        nodes = list(nodes)
-    if not nodes:
-        logger.info('No nodes to upgrade.')
-        return 0
-    logger.info('Got {} tags'.format(len(nodes)))
-    # Order the nodes.
-    nodes.sort(key=lambda x: x[1].get('syn:tag'))
-
-    if is_telepath:
-        upgrade_tagbase_no_xact(core, nodes)
+    core = s_cortex.openurl(url)  # type: s_cores_common.Cortex
+    tag_nodes = core.eval('syn:tag')
+    logger.info('Got {} tag nodes'.format(len(tag_nodes)))
+    tags = [node[1].get('syn:tag') for node in tag_nodes]
+    tags.sort()
+    # Do model introspection to get tagged forms since we need to be able to pull nodes by tag.
+    tagforms = [(tag, tufo[1].get('syn:tagform:form')) for tag in tags
+                for tufo in core.getTufosByProp('syn:tagform:tag', tag)
+                if tufo[1].get('syn:tagform:form') != 'syn:tag']
+    logger.info('Got {} tagforms'.format(len(tagforms)))
+    if s_telepath.isProxy(core):
+        upgrade_dark_tags_no_xact(core, tagforms)
     else:
-        upgrade_tagbase_xact(core, nodes)
+        upgrade_dark_tags_xact(core, tagforms)
     logger.info('Done upgrading nodes.')
     return 0
 
