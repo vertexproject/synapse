@@ -86,7 +86,7 @@ class InetModelTest(SynTest):
 
         with s_cortex.openurl('ram:///') as core:
             prop = 'inet:fqdn'
-            idna_valu = 'xn--tst.xampl.link-vjbdf'
+            idna_valu = 'xn--tst-6la.xn--xampl-3raf.link'
             unicode_valu = 'tèst.èxamplè.link'
             parents = (
                     ('èxamplè.link', {'inet:fqdn:host': 'èxamplè', 'inet:fqdn:domain': 'link', 'inet:fqdn:zone': 1, 'inet:fqdn:sfx': 0}),
@@ -109,23 +109,23 @@ class InetModelTest(SynTest):
 
         with s_cortex.openurl('ram:///') as core:
             prop = 'inet:netuser'
-            valu = '%s/%s' % ('xn--tst.xampl.link-vjbdf', 'user')
+            valu = '%s/%s' % ('xn--tst-6la.xn--xampl-3raf.link', 'user')
             tufo = core.formTufoByProp(prop, valu)
             self.eq(tufo[1].get('inet:netuser:site'), 'tèst.èxamplè.link')
             self.eq(tufo[1].get('inet:netuser'), 'tèst.èxamplè.link/user')
 
         with s_cortex.openurl('ram:///') as core:
             prop = 'inet:email'
-            valu = '%s@%s' % ('user', 'xn--tst.xampl.link-vjbdf')
+            valu = '%s@%s' % ('user', 'xn--tst-6la.xn--xampl-3raf.link')
             tufo = core.formTufoByProp(prop, valu)
             self.eq(tufo[1].get('inet:email:fqdn'), 'tèst.èxamplè.link')
             self.eq(tufo[1].get('inet:email'), 'user@tèst.èxamplè.link')
 
         with s_cortex.openurl('ram:///') as core:
             prop = 'inet:url'
-            valu = '%s://%s/%s' % ('https', 'xn--tst.xampl.link-vjbdf', 'things')
+            valu = '%s://%s/%s' % ('https', 'xn--tst-6la.xn--xampl-3raf.link', 'things')
             tufo = core.formTufoByProp(prop, valu)
-            self.eq(tufo[1].get('inet:url'), 'https://xn--tst.xampl.link-vjbdf/things') # hostpart is not normed in inet:url
+            self.eq(tufo[1].get('inet:url'), 'https://xn--tst-6la.xn--xampl-3raf.link/things') # hostpart is not normed in inet:url
 
     def test_model_inet_fqdn_set_sfx(self):
         with s_cortex.openurl('ram:///') as core:
