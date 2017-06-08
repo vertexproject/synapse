@@ -44,7 +44,7 @@ class Reactor:
 
         Notes:
 
-            * Handler exceptions *will* propigate upward
+            * Handler exceptions *will* propagate upward
         '''
         if name is None:
             name = mesg[0]

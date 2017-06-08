@@ -335,3 +335,4 @@ class DataModelTest(SynTest):
         self.eq(form,'foo:bar')
         self.eq(base,'baz')
 
+        self.raises( NoSuchProp, modl.getPropFormBase, 'newp:newp' )

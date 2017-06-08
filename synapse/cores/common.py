@@ -730,6 +730,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
     def eatSpliceFd(self, fd):
         '''
         Consume all cortex splice events from the given file-like object.
+        The file bytes are expected to be msgpack encoded (str,dict) splice tuples.
 
         Example:
 
@@ -775,6 +776,14 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
     def setSaveFd(self, fd, load=True, fini=False):
         '''
         Set a save fd for the cortex and optionally load.
+
+        Args:
+            fd (file):  A file like object to save splice events to using msgpack
+            load (bool):    If True, load splice event from fd before starting to record
+            fini (bool):    If True, close() the fd automatically on cortex fini()
+
+        Returns:
+            (None)
 
         Example:
 

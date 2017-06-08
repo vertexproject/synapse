@@ -222,7 +222,7 @@ class DataModel(s_types.TypeLib):
             prop (str): The fully qualified property name
 
         Returns:
-            (str,str):  The (form,base) name tuple for the prop.
+            ((str,str)):  The (form,base) name tuple for the prop.
 
         '''
         pdef = self.getPropDef(prop)

@@ -46,7 +46,7 @@ def getTufoSubs(tufo, tag):
     else:
         return props
 
-    pref = '*|%s|%s.' % (form,tag)
+    pref = prop + '.'
 
     props.extend([ p for p in tufo[1].keys() if p.startswith(pref) ])
     return props
