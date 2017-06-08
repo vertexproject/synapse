@@ -416,9 +416,11 @@ class FqdnType(DataType):
         valu = valu.replace('[.]','.')
         if not fqdnre.match(valu):
             self._raiseBadValu(valu)
-        if valu.startswith('xn--'):
-            valu = idna.ToUnicode(valu)
-        valu = valu.lower()
+
+        try:
+            valu = valu.encode('idna').decode('idna').lower()
+        except UnicodeError as e:
+            self._raiseBadValu(valu)
 
         parts = valu.split('.', 1)
         subs = {'host': parts[0]}
