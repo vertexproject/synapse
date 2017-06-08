@@ -66,7 +66,8 @@ class SocketTest(SynTest):
         plex.fini()
 
     def test_sock_plex_txbuf(self):
-
+        # Periodically fails with a lock - bash 1 liner to trigger lock
+        # n=0; while [[ $n -lt 10000 ]]; do nosetests --verbosity 3 -s --nologcapture synapse.tests.test_socket:SocketTest.test_sock_plex_txbuf; n=$((n+1)); done
         # XXX We have a common handler for this type of check.
         # windows sockets seem to allow *huge* buffers in non-blocking
         # so triggering txbuf takes *way* too much ram to be a feasable test
