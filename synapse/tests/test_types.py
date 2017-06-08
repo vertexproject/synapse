@@ -342,20 +342,6 @@ class DataTypesTest(SynTest):
         self.eq( tlib.getTypeNorm('json',{'woot':10})[0], '{"woot":10}' )
         self.eq( tlib.getTypeParse('json','{"woot":10}')[0], '{"woot":10}' )
 
-    def test_type_fqdn(self):
-        tlib = s_types.TypeLib()
-        prop = 'inet:fqdn'
-        fqdns = ('test.example.com', 'test.èxamplè.com', 'tèst.èxamplè.com', 'xn--test.xampl.com-zjbf', 'xn--tst.xampl.com-wgbdf')
-        idnas = ('test.example.com', 'test.èxamplè.com', 'tèst.èxamplè.com',        'test.èxamplè.com',        'tèst.èxamplè.com')
-        domns = (     'example.com',      'èxamplè.com',      'èxamplè.com',             'èxamplè.com',             'èxamplè.com')
-        hosts = (            'test',             'test',             'tèst',                    'test',                    'tèst')
-
-        for i in range(len(fqdns)):
-            self.eq(tlib.getTypeNorm(prop, fqdns[i])[0], idnas[i])
-            self.eq(tlib.getTypeRepr(prop, fqdns[i]), fqdns[i])
-
-        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:fqdn', '!@#$%')
-
     def test_type_phone(self):
         tlib = s_types.TypeLib()
         prop = 'tel:phone'

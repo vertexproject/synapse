@@ -341,3 +341,5 @@ class InetModelTest(SynTest):
 
             node = core.formTufoByProp('inet:fqdn','www.xn--heilpdagogik-wiki-uqb.de')
             self.eq(node[1].get('inet:fqdn'),'www.heilpädagogik-wiki.de')
+
+            self.assertRaises(BadTypeValu, core.getTypeNorm, 'inet:fqdn', '!@#$%')

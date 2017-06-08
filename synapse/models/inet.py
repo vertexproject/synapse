@@ -417,7 +417,10 @@ class FqdnType(DataType):
         if not fqdnre.match(valu):
             self._raiseBadValu(valu)
 
-        valu = valu.encode('idna').decode('idna').lower()
+        try:
+            valu = valu.encode('idna').decode('idna').lower()
+        except UnicodeError as e:
+            self._raiseBadValu(valu)
 
         parts = valu.split('.', 1)
         subs = {'host': parts[0]}
