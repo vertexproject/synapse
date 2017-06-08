@@ -67,11 +67,12 @@ class SocketTest(SynTest):
 
     def test_sock_plex_txbuf(self):
 
+        # XXX We have a common handler for this type of check.
         # windows sockets seem to allow *huge* buffers in non-blocking
         # so triggering txbuf takes *way* too much ram to be a feasable test
         if s_thishost.get('platform') == 'windows':
             return
-
+        print('.\nstart')
         plex = s_socket.Plex()
 
         s1,s2 = s_socket.socketpair()
@@ -82,24 +83,29 @@ class SocketTest(SynTest):
 
         self.assertEqual( s1.recvobj()[0], 'hi' )
 
-        s2.tx( tufo('OMG', y='A'*409000) )
+        t = tufo('OMG', y='A'*409000)
+        s2.tx( t )
 
         self.assertIsNotNone( s2.txbuf )
 
         s2.tx( tufo('foo', bar='baz') )
 
         self.assertEqual( len(s2.txque), 1 )
-
+        print('recvobj call 1')
         m1 = s1.recvobj()
+        print('recvobj call 2')
+        time.sleep(0.01)
         m2 = s1.recvobj()
-
+        print('Checking assertions!')
         self.assertEqual( len(m1[1].get('y')), 409000 )
         self.assertEqual( m2[0], 'foo' )
-
+        print('fini s1')
         s1.fini()
+        print('fini s2')
         s2.fini()
-
+        print('plex fini')
         plex.fini()
+        print('done test')
 
     def test_socket_hostaddr(self):
         self.assertIsNotNone( s_socket.hostaddr() )

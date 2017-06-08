@@ -12,6 +12,8 @@ import msgpack
 import collections
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s]')
 
 import synapse.common as s_common
 import synapse.lib.scope as s_scope
@@ -46,13 +48,22 @@ class SockXform:
         return byts
 
 class Socket(EventBus):
+    '''
+
+    '''
 
     def __init__(self, sock, **info):
+        '''
+
+        Args:
+            sock socket.socket: socket to wrap
+            **info:
+        '''
         EventBus.__init__(self)
 
-        self.sock = sock
+        self.sock = sock  # type: socket.socket
         self.plex = None
-        self.unpk = msgpack.Unpacker(use_list=0,encoding='utf8')
+        self.unpk = msgpack.Unpacker(use_list=0, encoding='utf8')
         self.iden = s_common.guid()
         self.xforms = []        # list of SockXform instances
         self.info = info
@@ -151,6 +162,7 @@ class Socket(EventBus):
         return byts
 
     def _rx_xform(self, byts):
+        logger.info('Entering _rx_xform')
         for xform in self.xforms:
             byts = xform.rxform(byts)
         return byts
@@ -185,6 +197,7 @@ class Socket(EventBus):
         return byts
 
     def recvobj(self):
+        # logger.info('Entering recvobj')
         for mesg in self:
             return mesg
 
@@ -197,11 +210,12 @@ class Socket(EventBus):
         If present this API is safe for use with a socket in a Plex().
         '''
         if self.plex != None:
+            logger.info('using plex tx')
             return self.plex._txSockMesg(self,mesg)
-
+        logger.info('Trying to tx directly')
         try:
             byts = msgenpack(mesg)
-
+            logger.info('Sending {} bytes'.format(len(byts)))
             if len(byts) > 50000 and self.get('sock:can:gzip'):
                 byts = sockgzip(byts)
 
@@ -222,6 +236,7 @@ class Socket(EventBus):
                 dostuff(mesg)
 
         '''
+        logger.info('entering rx')
 
         # the "preread" state for a socket means it has IO todo
         # which is part of it's initial negotiation ( not mesg )
@@ -229,13 +244,17 @@ class Socket(EventBus):
             self.fire('link:sock:preread', sock=self)
             return
 
+        logger.info('Getting the first 102400 bytes')
         byts = self.recv(102400)
         # special case for non-blocking recv with no data ready
         if byts == None:
+            logger.warning('Got no bytes!')
             return
 
-        try:
+        logger.info('got {} bytes'.format(len(byts)))
 
+        try:
+            logger.info('unpacking message')
             self.unpk.feed(byts)
             for mesg in self.unpk:
                 self.rxque.append(mesg)
@@ -252,6 +271,7 @@ class Socket(EventBus):
         '''
         Receive loop which yields messages until socket close.
         '''
+        # logger.info('Entering iter')
         while not self.isfini:
             for mesg in self.rx():
                 yield mesg
@@ -298,7 +318,7 @@ class Socket(EventBus):
 
     def recv(self, size):
         '''
-        Slighly modified recv function which masks socket errors.
+        Slightly modified recv function which masks socket errors.
         ( makes them look like a simple close )
 
         Additionally, any non-blocking recv's with no available data
@@ -306,14 +326,17 @@ class Socket(EventBus):
         '''
         try:
 
+            logger.info('Entering recv')
             byts = self.sock.recv(size)
             if not byts:
+                logger.warning('no bytes!')
                 self.fini()
                 return byts
 
             return self._rx_xform(byts)
 
         except ssl.SSLError as e:
+            logger.exception('oops ssl')
 
             # handle "did not complete" error where we didn't
             # get all the bytes necessary to decrypt the data.
@@ -324,6 +347,7 @@ class Socket(EventBus):
             return b''
 
         except socket.error as e:
+            logger.exception('oops socketerror')
 
             if e.errno == errno.EAGAIN:
                 return None
@@ -351,7 +375,7 @@ class Plex(EventBus):
         #self._plex_sel = selectors.DefaultSelector()
 
         self._plex_lock = threading.Lock()
-        self._plex_socks = {} # set()
+        self._plex_socks = {} # set()  # XXX Type wrong?
 
         # used for select()
         self._plex_rxsocks = []
@@ -396,6 +420,9 @@ class Plex(EventBus):
     def addPlexSock(self, sock):
         '''
         Add a Socket to the Plex()
+
+        Args:
+            sock (Socket): Socket to add.
 
         Example:
 
@@ -517,8 +544,10 @@ class Plex(EventBus):
 
             try:
                 rxlist,txlist,xxlist = select.select(self._plex_rxsocks,self._plex_txsocks,self._plex_xxsocks,0.2)
+                # logger.debug('{} / {} / {}'.format(rxlist, txlist, xxlist))
             # mask "bad file descriptor" race and go around again...
             except Exception as e:
+                logger.exception('Something blew up!')
                 continue
 
             try:
@@ -608,6 +637,7 @@ def socketpair():
         s1,s2 = socket.socketpair()
         return Socket(s1),Socket(s2)
     except AttributeError as e:
+        print('oh crap socket time')
         return _sockpair()
 
 def inet_pton(afam,text):
