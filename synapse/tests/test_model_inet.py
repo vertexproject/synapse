@@ -333,3 +333,11 @@ class InetModelTest(SynTest):
             self.eq( len(core.eval('inet:whois:rec="woot.com@20501217"')), 1 )
             self.eq( len(core.eval('inet:whois:contact:rec="woot.com@20501217"')), 1 )
 
+
+    def test_model_fqdn_punycode(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce',1)
+
+            node = core.formTufoByProp('inet:fqdn','www.xn--heilpdagogik-wiki-uqb.de')
+            self.eq(node[1].get('inet:fqdn'),'www.heilpädagogik-wiki.de')
