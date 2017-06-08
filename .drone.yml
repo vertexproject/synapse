@@ -49,7 +49,7 @@ pipeline:
       [ SLACK_WEBHOOK ]
     template: >
       {{#success build.status}}
-        :white_check_mark: {{build.author}} your tests worked. Please feed me more code to eat :robot_face:.  Details at https://drone.vertex.link/{{repo.owner}}/{{repo.name}}/{{build.number}}
+        :white_check_mark: {{build.author}} your tests worked. Please feed :robot_face: more code to eat.  Details at https://drone.vertex.link/{{repo.owner}}/{{repo.name}}/{{build.number}}
       {{else}}
         :red_circle: {{build.author}} you broke the build. Build :robot_face: is :angry:. Details are here https://drone.vertex.link/{{repo.owner}}/{{repo.name}}/{{build.number}}
       {{/success}}
