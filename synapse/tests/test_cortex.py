@@ -551,25 +551,6 @@ class CortexTest(SynTest):
         blahs = core.getTufoList(foob,'blahs')
         self.assertEqual( len(blahs), 0 )
 
-
-    def test_cortex_tufo_frob(self):
-        with s_cortex.openurl('ram://') as core:
-            core.addTufoProp('inet:ipv4', 'five', ptype='inet:ipv4')
-
-            iden, props = core.formTufoByFrob('inet:ipv4', 0x01020304, five='5.5.5.5')
-            self.assertEqual(props['inet:ipv4'], 16909060)
-            self.assertEqual(props['inet:ipv4:five'], 84215045)
-
-            tufo = core.formTufoByFrob('inet:ipv4', '1.2.3.4')
-            self.assertEqual(tufo[0], iden)
-
-            tufo = core.getTufoByFrob('inet:ipv4:five', 0x05050505)
-            self.assertEqual(tufo[0], iden)
-
-            tufo = core.getTufoByFrob('inet:ipv4', '1.2.3.4')
-            self.assertEqual(tufo[0], iden)
-
-
     def test_cortex_ramhost(self):
         core0 = s_cortex.openurl('ram:///foobar')
         core1 = s_cortex.openurl('ram:///foobar')
@@ -763,11 +744,11 @@ class CortexTest(SynTest):
 
         core.fini()
 
-    def test_cortex_coresync(self):
+    def test_cortex_splices(self):
         core0 = s_cortex.openurl('ram://')
         core1 = s_cortex.openurl('ram://')
 
-        core0.onsync(core1.sync)
+        core0.on('splice',core1.splice)
 
         tufo0 = core0.formTufoByProp('foo','bar',baz='faz')
         tufo1 = core1.getTufoByProp('foo','bar')
@@ -794,78 +775,6 @@ class CortexTest(SynTest):
         tufo1 = core1.getTufoByProp('foo','bar')
 
         self.assertIsNone( tufo1 )
-
-    def test_cortex_splice(self):
-        core = s_cortex.openurl('ram://')
-
-        ####################################################################
-        info = {'form':'foo','valu':'bar','props':{'baz':'faz'}}
-
-        splice,retval = core.splice('visi','tufo:add',info, note='hehehaha')
-
-        self.assertEqual( len(core.getTufosByProp('foo',valu='bar')), 1 )
-        self.assertIsNotNone( splice[1].get('syn:splice:reqtime') )
-
-        self.assertEqual( splice[1].get('syn:splice:user'), 'visi' )
-        self.assertEqual( splice[1].get('syn:splice:note'), 'hehehaha' )
-        self.assertEqual( splice[1].get('syn:splice:perm'), 'tufo:add:foo' )
-        self.assertEqual( splice[1].get('syn:splice:action'), 'tufo:add' )
-
-        self.assertEqual( splice[1].get('syn:splice:on:foo'), 'bar' )
-        self.assertEqual( splice[1].get('syn:splice:act:form'), 'foo' )
-        self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
-
-        self.assertEqual( retval[1].get('foo'), 'bar' )
-        self.assertEqual( retval[1].get('foo:baz'), 'faz' )
-
-        ####################################################################
-        info = {'form':'foo','valu':'bar','prop':'baz','pval':'gronk'}
-        splice,retval = core.splice('visi','tufo:set',info)
-
-        self.assertEqual( retval[1].get('foo:baz'), 'gronk')
-        self.assertEqual( len(core.getTufosByProp('foo:baz',valu='gronk')), 1 )
-
-        self.assertEqual( splice[1].get('syn:splice:on:foo'), 'bar' )
-        self.assertEqual( splice[1].get('syn:splice:act:form'), 'foo' )
-        self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
-        self.assertEqual( splice[1].get('syn:splice:act:prop'), 'baz' )
-        self.assertEqual( splice[1].get('syn:splice:act:pval'), 'gronk' )
-
-        ####################################################################
-        info = {'form':'foo','valu':'bar','tag':'lol'}
-        splice,retval = core.splice('visi','tufo:tag:add',info)
-
-        self.assertTrue( s_tags.tufoHasTag(retval,'lol') )
-        self.assertEqual( len(core.getTufosByTag('foo','lol')), 1 )
-
-        self.assertEqual( splice[1].get('syn:splice:on:foo'), 'bar' )
-        self.assertEqual( splice[1].get('syn:splice:act:tag'), 'lol' )
-        self.assertEqual( splice[1].get('syn:splice:act:form'), 'foo' )
-        self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
-
-        ####################################################################
-        info = {'form':'foo','valu':'bar','tag':'lol'}
-        splice,retval = core.splice('visi','tufo:tag:del',info)
-
-        self.assertFalse( s_tags.tufoHasTag(retval,'lol') )
-        self.assertEqual( len(core.getTufosByTag('foo','lol')), 0 )
-
-        self.assertEqual( splice[1].get('syn:splice:on:foo'), 'bar' )
-        self.assertEqual( splice[1].get('syn:splice:act:tag'), 'lol' )
-        self.assertEqual( splice[1].get('syn:splice:act:form'), 'foo' )
-        self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
-
-        ####################################################################
-        info = {'form':'foo','valu':'bar'}
-        splice,retval = core.splice('visi','tufo:del',info)
-
-        self.assertEqual( len(core.getTufosByProp('foo',valu='bar')), 0 )
-
-        self.assertEqual( splice[1].get('syn:splice:on:foo'), 'bar' )
-        self.assertEqual( splice[1].get('syn:splice:act:form'), 'foo' )
-        self.assertEqual( splice[1].get('syn:splice:act:valu'), 'bar' )
-
-        core.fini()
 
     def test_cortex_dict(self):
         core = s_cortex.openurl('ram://')
@@ -1331,11 +1240,11 @@ class CortexTest(SynTest):
                 self.assertEqual( core.getTypeParse('foo','30')[0], 30 )
                 self.assertEqual( core.getTypeParse('bar','30')[0], 30 )
 
-    def test_cortex_syncfd(self):
+    def test_cortex_splicefd(self):
         with self.getTestDir() as path:
             with genfile(path,'savefile.mpk') as fd:
                 with s_cortex.openurl('ram://') as core:
-                    core.addSyncFd(fd)
+                    core.addSpliceFd(fd)
 
                     tuf0 = core.formTufoByProp('inet:fqdn','woot.com')
                     tuf1 = core.formTufoByProp('inet:fqdn','newp.com')
@@ -1350,7 +1259,7 @@ class CortexTest(SynTest):
 
                 with s_cortex.openurl('ram://') as core:
 
-                    core.eatSyncFd(fd)
+                    core.eatSpliceFd(fd)
 
                     self.assertIsNone( core.getTufoByProp('inet:fqdn','newp.com') )
                     self.assertIsNotNone( core.getTufoByProp('inet:fqdn','woot.com') )
@@ -1384,7 +1293,7 @@ class CortexTest(SynTest):
             pofo = core.getTufoByProp('syn:prop','foo:baz:faz')
             self.eq( pofo[1].get('syn:prop:ptype'),'str:lwr' )
 
-            tuf0 = core.formTufoByFrob('foo:baz', 'AAA', faz='BBB')
+            tuf0 = core.formTufoByProp('foo:baz', 'AAA', faz='BBB')
             self.eq( tuf0[1].get('foo:baz'), 'aaa' )
             self.eq( tuf0[1].get('foo:baz:faz'), 'bbb' )
 
@@ -1410,7 +1319,7 @@ class CortexTest(SynTest):
                     ),
                 })])
 
-            tuf0 = core.formTufoByFrob('foo:baz', 'AAA', faz='BBB')
+            tuf0 = core.formTufoByProp('foo:baz', 'AAA', faz='BBB')
             self.eq( tuf0[1].get('foo:baz'), 'aaa' )
             self.eq( tuf0[1].get('foo:baz:faz'), 'bbb' )
 
@@ -1419,13 +1328,13 @@ class CortexTest(SynTest):
             self.assertIsNotNone( core.getTufoByProp('syn:form', 'foo:baz') )
             self.assertIsNotNone( core.getTufoByProp('syn:prop', 'foo:baz:faz') )
 
-    def test_cortex_syncpump(self):
+    def test_cortex_splicepump(self):
 
         with s_cortex.openurl('ram://') as core0:
 
             with s_cortex.openurl('ram://') as core1:
 
-                with core0.getSyncPump(core1):
+                with core0.getSplicePump(core1):
                     core0.formTufoByProp('inet:fqdn','woot.com')
 
                 self.assertIsNotNone( core1.getTufoByProp('inet:fqdn','woot.com') )
@@ -1466,6 +1375,8 @@ class CortexTest(SynTest):
                 raise NoSuchPath(path='foo/bar')
             except NoSuchPath as exc:
                 core.logCoreExc(exc,subsys='hehe')
+
+            print(repr(core.getTufosByProp('syn:log')))
 
             tufo = core.getTufoByProp('syn:log:subsys',valu='hehe')
 
@@ -1568,15 +1479,15 @@ class CortexTest(SynTest):
             self.eq( tdoc[1].get('syn:tagform:doc'), '??' )
             self.eq( tdoc[1].get('syn:tagform:title'), '??' )
 
-    def test_cortex_syncs_errs(self):
+    def test_cortex_splices_errs(self):
 
-        syncs = [ ('newp:fake',{}) ]
+        splices = [ ('newp:fake',{}) ]
         with s_cortex.openurl('ram:///') as core:
-            core.onsync(syncs.append)
+            core.on('splice',splices.append)
             core.formTufoByProp('inet:fqdn','vertex.link')
 
         with s_cortex.openurl('ram:///') as core:
-            errs = core.syncs( syncs )
+            errs = core.splices( splices )
             self.eq( len(errs), 1 )
             self.eq( errs[0][0][0], 'newp:fake' )
             self.nn( core.getTufoByProp('inet:fqdn','vertex.link') )
@@ -1585,3 +1496,15 @@ class CortexTest(SynTest):
         with s_cortex.openurl('ram:///') as core:
             core.formTufoByProp('inet:netuser','vertex.link/visi')
             self.raises( BadTypeValu, core.eval, 'inet:netuser="totally invalid input"' )
+
+    def test_cortex_local(self):
+        splices = []
+        with s_cortex.openurl('ram:///') as core:
+
+            core.on('splice',splices.append)
+            node = core.formTufoByProp('syn:splice',None)
+
+            self.nn(node)
+            self.nn(node[0])
+
+        self.eq( len(splices), 0 )

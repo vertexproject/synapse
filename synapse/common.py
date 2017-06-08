@@ -42,6 +42,10 @@ def addpref(pref,info):
 def tufo(typ,**kwargs):
     return (typ,kwargs)
 
+def splice(act,**info):
+    info['act'] = act
+    return ('splice',info)
+
 def msgenpack(obj):
     return msgpack.dumps(obj, use_bin_type=True, encoding='utf8')
 
@@ -259,39 +263,6 @@ def reqStorDict(x):
     for k,v in x.items():
         if not canstor(v):
             raise BadStorValu(name=k,valu=v)
-
-class TufoApi:
-    '''
-    TufoApi is a mixin class providing get/set APIs around a
-    tufo being cached in memory.
-    '''
-
-    def __init__(self, core, myfo):
-        self.core = core
-        self.myfo = myfo
-
-    def get(self, prop):
-        '''
-        Retrieve a property from the tufo.
-
-        Example:
-
-            foo = tapi.get('foo')
-
-        '''
-        form = self.myfo[1].get('tufo:form')
-        return self.myfo[1].get('%s:%s' % (form,prop))
-
-    def set(self, prop, valu):
-        '''
-        Set a property in the tufo ( and persist change to core ).
-
-        Example:
-
-            tapi.set('foo', 20)
-
-        '''
-        self.core.setTufoProp(self.myfo, prop, valu)
 
 def firethread(f):
     '''

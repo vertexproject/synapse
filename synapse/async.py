@@ -30,7 +30,8 @@ def jobret(job):
     if err != None:
         if err != 'NameErr':
             try:
-                raise synerr(err)
+                info = job[1].get('errinfo',{})
+                raise synerr(err,**info)
             except NameError as e:
                 pass
         raise JobErr(job)

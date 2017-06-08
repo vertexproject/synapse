@@ -25,7 +25,7 @@ class ScrapeTest(SynTest):
 
     def test_scrape_sync(self):
         core = s_cortex.openurl('ram://')
-        core.syncs( s_scrape.getsync(data0) )
+        core.splices( s_scrape.splices(data0) )
 
         self.assertIsNotNone( core.getTufoByProp('inet:fqdn','vertex.link') )
         self.assertIsNotNone( core.getTufoByProp('inet:email','visi@vertex.link') )

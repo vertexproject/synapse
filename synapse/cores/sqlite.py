@@ -573,7 +573,7 @@ class Cortex(s_cores_common.Cortex):
         return self._rowsToTufos(rows)
 
     def _tufosByLe(self, prop, valu, limit=None):
-        valu,_ = self.getPropFrob(prop,valu)
+        valu,_ = self.getPropNorm(prop,valu)
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_le_int, prop=prop, valu=valu, limit=limit)
@@ -582,7 +582,7 @@ class Cortex(s_cores_common.Cortex):
         return self._rowsToTufos(rows)
 
     def _tufosByGe(self, prop, valu, limit=None):
-        valu,_ = self.getPropFrob(prop,valu)
+        valu,_ = self.getPropNorm(prop,valu)
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_ge_int, prop=prop, valu=valu, limit=limit)

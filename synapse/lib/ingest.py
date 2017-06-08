@@ -479,9 +479,9 @@ class Ingest(EventBus):
                         nodetags.extend( info.get('tags',()) )
                         nodeprops.update( info.get('props',{}) )
 
-                    node = core.formTufoByFrob(form,valu)
+                    node = core.formTufoByProp(form,valu)
 
-                    core.setTufoFrobs(node,**nodeprops)
+                    core.setTufoProps(node,**nodeprops)
                     core.addTufoTags(node,nodetags)
 
     def _ingMergScope(self, core, data, info, scope):
@@ -565,7 +565,7 @@ class Ingest(EventBus):
                 if valu == None:
                     return
 
-                tufo = core.formTufoByFrob(form,valu)
+                tufo = core.formTufoByProp(form,valu)
                 if tufo == None:
                     return
 
@@ -580,7 +580,7 @@ class Ingest(EventBus):
                     props[prop] = valu
 
                 if props:
-                    core.setTufoFrobs(tufo,**props)
+                    core.setTufoProps(tufo,**props)
                     self.fire('gest:prog', act='set')
 
                 for tag in scope.iter('tags'):
@@ -728,7 +728,7 @@ class Ingest(EventBus):
         if pivot != None:
             pivf,pivt = pivot
 
-            pivo = core.getTufoByFrob(pivf,valu)
+            pivo = core.getTufoByProp(pivf,valu)
             if pivo == None:
                 return None
 
