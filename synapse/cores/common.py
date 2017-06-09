@@ -1604,8 +1604,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
             core.addTufoEvents('woot',propss)
 
         '''
-        alladd = set()
 
+        doneadd = set()
         with self.getCoreXact() as xact:
 
             ret = []
@@ -1614,6 +1614,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                 rows = []
                 tufos = []
                 splices = []
+
+                alladd = set()
 
                 for props in chunk:
 
@@ -1625,7 +1627,10 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
                     fulls[form] = iden
 
+                    toadd = [ t for t in toadd if t not in doneadd ]
+
                     alladd.update(toadd)
+                    doneadd.update(toadd)
 
                     splices.append((form,iden,props))
 
@@ -1637,6 +1642,10 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                     # sneaky ephemeral/hidden prop to identify newly created tufos
                     fulls['.new'] = 1
                     tufos.append( (iden,fulls) )
+
+                # add "toadd" nodes *first* (for tree/parent issues )
+                if self.autoadd:
+                    self._runAutoAdd(alladd)
 
                 self.addRows(rows)
 
@@ -1650,9 +1659,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                     xact.fire('tufo:add:%s' % form, tufo=tufo)
 
                 ret.extend(tufos)
-
-            if self.autoadd:
-                self._runAutoAdd(alladd)
 
         return ret
 
@@ -1719,6 +1725,10 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
             fulls,toadd = self._normTufoProps(prop,props)
 
+            # add "toadd" nodes *first* (for tree/parent issues )
+            if self.autoadd:
+                self._runAutoAdd(toadd)
+
             # create a "full" props dict which includes defaults
             self._addDefProps(prop,fulls)
 
@@ -1744,15 +1754,14 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                 for p,v in fulls.items():
                     self._bumpTufoCache(cachefo,p,None,v)
 
-
             # fire notification events
             xact.fire('tufo:add',tufo=tufo)
             xact.fire('tufo:add:%s' % prop, tufo=tufo)
 
             xact.spliced('node:add', form=prop, valu=valu, props=props)
 
-            if self.autoadd:
-                self._runAutoAdd(toadd)
+            #if self.autoadd:
+                #self._runAutoAdd(toadd)
 
         tufo[1]['.new'] = True
 

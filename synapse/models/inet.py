@@ -347,14 +347,22 @@ def addCoreOns(core):
         props['inet:passwd:sha256'] = hashlib.sha256( valu.encode('utf8') ).hexdigest()
 
     def onTufoFormFqdn(mesg):
+
         valu = mesg[1].get('valu')
         props = mesg[1].get('props')
-        parts = valu.split('.',1)
-        if len(parts) > 1:
-            props['inet:fqdn:domain'] = parts[1]
-            pafo = core.formTufoByProp('inet:fqdn',parts[1])
-            if pafo[1].get('inet:fqdn:sfx'):
+
+        domain = props.get('inet:fqdn:domain')
+        if domain:
+            node = core.getTufoByProp('inet:fqdn',domain)
+            if node[1].get('inet:fqdn:sfx'):
                 props['inet:fqdn:zone'] = 1
+
+        #parts = valu.split('.',1)
+        #if len(parts) > 1:
+            #props['inet:fqdn:domain'] = parts[1]
+            #pafo = core.formTufoByProp('inet:fqdn',parts[1])
+            #if pafo[1].get('inet:fqdn:sfx'):
+                #props['inet:fqdn:zone'] = 1
 
     def onTufoSetFqdnSfx(mesg):
         sfx = mesg[1].get('valu')
