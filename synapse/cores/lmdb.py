@@ -3,20 +3,18 @@ from __future__ import absolute_import
 import sys
 import struct
 from binascii import unhexlify
+if sys.version_info > (3, 0):
+    from functools import lru_cache
 from contextlib import contextmanager
 
-import xxhash
-
-import synapse.cores.common as s_cores_common
-from synapse.common import genpath, msgenpack, msgunpack
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
 import synapse.lib.threads as s_threads
+import synapse.cores.common as s_cores_common
+from synapse.common import genpath, msgenpack, msgunpack
 
+import xxhash
 import lmdb
-
-if sys.version_info > (3, 0):
-    from functools import lru_cache
 
 # File conventions:
 # i, p, v, t: iden, prop, value, timestamp
@@ -75,16 +73,13 @@ MIN_INT_VAL = -1 * (2 ** 63)
 # The maximum possible timestamp.  Probably a bit overkill
 MAX_TIME_ENC = msgenpack(MAX_INT_VAL)
 
-
 class DatabaseInconsistent(Exception):
     ''' If you get this Exception, that means the database is corrupt '''
     pass
 
-
 class DatabaseLimitReached(Exception):
     ''' You've reached some limit of the database '''
     pass
-
 
 # Python 2.7 version of lmdb buffers=True functions return buffer objects.  Python 3 version returns
 # memoryview objects
@@ -100,7 +95,6 @@ else:
         def actual_decorator(wrappee):
             return wrappee
         return actual_decorator
-
 
 def _encValKey(v):
     ''' Encode a value.  Non-negative numbers are msgpack encoded.  Negative numbers are encoded
@@ -119,7 +113,6 @@ def _encValKey(v):
         else:
             return STRING_VAL_MARKER_ENC + msgenpack(v)
 
-
 # Really just want to memoize the last iden encoded, but there might be some multithreading, so keep
 # a few more (8)
 @lru_cache(maxsize=8)
@@ -127,30 +120,27 @@ def _encIden(iden):
     ''' Encode an iden '''
     return unhexlify(iden)
 
-
 # Try to memoize most of the prop names we get
 @lru_cache(maxsize=1024)
 def _encProp(prop):
     return msgenpack(prop)
 
-
 # The precompiled struct parser for native size_t
 _SIZET_ST = struct.Struct('@Q' if sys.maxsize > 2**32 else '@L')
-
 
 def _encPk(pk):
     ''' Encode for integerkey row DB option:  as a native size_t '''
     return _SIZET_ST.pack(pk)
 
-
 def _decPk(pk_enc):
     ''' Inverse of above '''
     return _SIZET_ST.unpack(pk_enc)[0]
 
-
 def _calcFirstLastKeys(prop, valu, mintime, maxtime):
-    ''' Returns the encoded bytes for the start and end keys to the pt or pvt
-    index.  Helper functino for _{get,del}RowsByProp'''
+    ''' 
+    Returns the encoded bytes for the start and end keys to the pt or pvt
+    index.  Helper function for _{get,del}RowsByProp
+    '''
     p_enc = _encProp(prop)
     v_key_enc = b'' if valu is None else _encValKey(valu)
     v_is_hashed = valu is not None and (v_key_enc[0] == HASH_VAL_MARKER_ENC)
@@ -162,7 +152,6 @@ def _calcFirstLastKeys(prop, valu, mintime, maxtime):
     first_key = p_enc + v_key_enc + mintime_enc
     last_key = p_enc + v_key_enc + maxtime_enc
     return (first_key, last_key, v_is_hashed, False)
-
 
 class CoreXact(s_cores_common.CoreXact):
 
@@ -180,7 +169,6 @@ class CoreXact(s_cores_common.CoreXact):
 
     def _coreXactRelease(self):
         pass
-
 
 class Cortex(s_cores_common.Cortex):
 
@@ -222,10 +210,14 @@ class Cortex(s_cores_common.Cortex):
 
     @contextmanager
     def _getTxn(self, write=False):
-        ''' LMDB doesn't have the concept of store access without a transaction, so figure out
+        ''' 
+        Acquires a transaction.
+
+        LMDB doesn't have the concept of store access without a transaction, so figure out
         whether there's already one open and use that, else make one.  If we found an existing
         transaction, this doesn't close it after leaving the context.  If we made one and the
-        context is exited without exception, the transaction is committed. '''
+        context is exited without exception, the transaction is committed. 
+        '''
         existing_xact = self._core_xacts.get(s_threads.iden())
         if existing_xact is not None:
             yield existing_xact.txn
@@ -319,9 +311,13 @@ class Cortex(s_cores_common.Cortex):
         self.onfini(onfini)
 
     def _addRows(self, rows):
-        encs = []
+        '''
+        Adds a bunch of rows to the database
+        
+        Take care:  this was written this way for performance, in particular when len(rows) is large.
+        '''
 
-        # Take care:  this was written this way for performance
+        encs = []
 
         with self._getTxn(write=True) as txn:
             next_pk = self.next_pk
@@ -617,7 +613,7 @@ class Cortex(s_cores_common.Cortex):
         return ret
 
     def _subrangeRows(self, p_enc, first_val, last_val, limit, right_closed, do_count_only):
-        """ Performs part of a range query, either completely negative or non-negative """
+        ''' Performs part of a range query, either completely negative or non-negative '''
         first_key = p_enc + _encValKey(first_val)
 
         am_going_backwards = (first_val < 0)
