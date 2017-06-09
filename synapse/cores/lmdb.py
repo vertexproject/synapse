@@ -21,10 +21,9 @@ if sys.version_info > (3, 0):
 # File conventions:
 # i, p, v, t: iden, prop, value, timestamp
 # i_enc, p_enc, v_key_enc, t_enc: above encoded to be space efficient and fully-ordered when
-# compared lexicographically (i.e. 'aaa' < 'ba')
+#                                 compared lexicographically (i.e. 'aaa' < 'ba')
 # pk:  primary key, unique identifier of the row in the main table
 # pk_enc:  space efficient encoding of pk for use as value in an index table
-# pk_key_enc:  database-efficient encoding of pk for use as key in main table
 
 # N.B.  LMDB calls the separate namespaces in a file "databases" (e.g. named parameter db=), just
 # like Berkeley DB.
@@ -104,7 +103,7 @@ else:
 
 
 def _encValKey(v):
-    ''' Encode a v.  Non-negative numbers are msgpack encoded.  Negative numbers are encoded
+    ''' Encode a value.  Non-negative numbers are msgpack encoded.  Negative numbers are encoded
         as a marker, then the encoded negative of that value, so that the ordering of the
         encodings is easily mapped to the ordering of the negative numbers.  Note that this
         scheme prevents interleaving of value types:  all string encodings compare larger than
@@ -150,8 +149,8 @@ def _decPk(pk_enc):
 
 
 def _calcFirstLastKeys(prop, valu, mintime, maxtime):
-    ''' Returns the encoded bytes for the start and end keys to the pt or pvt index.  Helper functino
-        for _{get,del}RowsByProp'''
+    ''' Returns the encoded bytes for the start and end keys to the pt or pvt
+    index.  Helper functino for _{get,del}RowsByProp'''
     p_enc = _encProp(prop)
     v_key_enc = b'' if valu is None else _encValKey(valu)
     v_is_hashed = valu is not None and (v_key_enc[0] == HASH_VAL_MARKER_ENC)
@@ -246,7 +245,7 @@ class Cortex(s_cores_common.Cortex):
         MAP_SIZE = 1073741824 if MAX_PK_BYTES == 4 else 1099511627776  # a terabyte
 
         map_size = self._link[1].get('lmdb:mapsize', MAP_SIZE)
-        map_size, _ = s_datamodel.getTypeFrob('int', map_size)
+        map_size, _ = s_datamodel.getTypeNorm('int', map_size)
 
         # Maximum number of "databases", really tables.  We use 4 different tables (1 main plus
         # 3 indices)
@@ -256,10 +255,11 @@ class Cortex(s_cores_common.Cortex):
         # transaction loss, but not corruption
 
         metasync_val = self._link[1].get('lmdb:metasync', False)
-        metasync, _ = s_datamodel.getTypeFrob('bool', metasync_val)
+        metasync, _ = s_datamodel.getTypeNorm('bool', metasync_val)
 
+        # If sync is False, could lead to database corruption on power loss
         sync_val = self._link[1].get('lmdb:sync', True)
-        sync, _ = s_datamodel.getTypeFrob('bool', sync_val)
+        sync, _ = s_datamodel.getTypeNorm('bool', sync_val)
 
         # Write data directly to mapped memory
         WRITEMAP = True
@@ -267,15 +267,15 @@ class Cortex(s_cores_common.Cortex):
         # Doesn't create a subdirectory for storage files
         SUBDIR = False
 
-        # We can disable locking...
+        # We can disable locking, but bad things might happen if we have multiple threads
         DEFAULT_LOCK = True
         lock_val = self._link[1].get('lmdb:lock', DEFAULT_LOCK)
-        lock, _ = s_datamodel.getTypeFrob('bool', lock_val)
+        lock, _ = s_datamodel.getTypeNorm('bool', lock_val)
 
         # Maximum simultaneous readers.
         MAX_READERS = 4
         max_readers = self._link[1].get('lmdb:maxreaders', MAX_READERS)
-        max_readers, _ = s_datamodel.getTypeFrob('int', max_readers)
+        max_readers, _ = s_datamodel.getTypeNorm('int', max_readers)
         if max_readers == 1:
             lock = False
 
@@ -293,10 +293,10 @@ class Cortex(s_cores_common.Cortex):
         # Make the iden-prop index table, keyed by iden-prop, with value being a pk
         self.index_ip = self.dbenv.open_db(key=b"ip", dupsort=True)  # i,p -> pk
 
-        # Make the iden-value-prop index table, keyed by iden-value-prop, with value being a pk
+        # Make the prop-val-timestamp index table, with value being a pk
         self.index_pvt = self.dbenv.open_db(key=b"pvt", dupsort=True)  # p,v,t -> pk
 
-        # Make the iden-timestamp index table, keyed by iden-timestamp, with value being a pk
+        # Make the prop-timestamp index table, with value being a pk
         self.index_pt = self.dbenv.open_db(key=b"pt", dupsort=True)  # p, t -> pk
 
         # Put 1 max key sentinel at the end of each index table.  This avoids unfortunate behavior
@@ -321,8 +321,12 @@ class Cortex(s_cores_common.Cortex):
     def _addRows(self, rows):
         encs = []
 
+        # Take care:  this was written this way for performance
+
         with self._getTxn(write=True) as txn:
             next_pk = self.next_pk
+
+            # First, we encode all the i, p, v, t for all rows
             for i, p, v, t in rows:
                 if next_pk > MAX_PK:
                     raise DatabaseLimitReached('Out of primary key values')
@@ -334,17 +338,21 @@ class Cortex(s_cores_common.Cortex):
                 t_enc = msgenpack(t)
                 pk_enc = _encPk(next_pk)
                 row_enc = msgenpack((i, p, v, t))
+
                 # idx          0      1       2       3       4          5
                 encs.append((i_enc, p_enc, row_enc, t_enc, v_key_enc, pk_enc))
                 next_pk += 1
 
-            # an iterator of key, value pairs:  key=pk_key_enc, val=i_enc+p_enc+v_val_enc+t_enc
+            # An iterator of what goes into the main table: key=pk_enc, val=encoded(i, p, v, t)
             kvs = ((x[5], x[2]) for x in encs)
+
+            # Shove it all in at once
             consumed, added = txn.cursor(db=self.rows).putmulti(kvs, overwrite=False, append=True)
             if consumed != added or consumed != len(encs):
                 # Will only fail if record already exists, which should never happen
                 raise DatabaseInconsistent('unexpected pk in DB')
 
+            # Update the indices for all rows
             kvs = ((x[0] + x[1], x[5]) for x in encs)
             txn.cursor(db=self.index_ip).putmulti(kvs, dupdata=True)
             kvs = ((x[1] + x[4] + x[3], x[5]) for x in encs)
@@ -379,7 +387,7 @@ class Cortex(s_cores_common.Cortex):
         i_enc = _encIden(iden)
 
         with self._getTxn(write=True) as txn, txn.cursor(self.index_ip) as cursor:
-            # Get the first record => i_enc
+            # Get the first record >= i_enc
             if not cursor.set_range(i_enc):
                 raise DatabaseInconsistent("Missing sentinel")
             while True:
@@ -609,6 +617,7 @@ class Cortex(s_cores_common.Cortex):
         return ret
 
     def _subrangeRows(self, p_enc, first_val, last_val, limit, right_closed, do_count_only):
+        """ Performs part of a range query, either completely negative or non-negative """
         first_key = p_enc + _encValKey(first_val)
 
         am_going_backwards = (first_val < 0)
