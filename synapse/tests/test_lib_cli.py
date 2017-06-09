@@ -57,21 +57,6 @@ class CliTest(SynTest):
             self.eq( opts.get('bar'), True )
             self.eq( opts.get('haha'), 'hoho')
 
-    def test_cli_opts_flag(self):
-        with s_cli.Cli(None) as cli:
-
-            quit = cli.getCmdByName('quit')
-
-            quit._cmd_syntax = (
-                ('--bar',{}),
-                ('haha',{'type':'valu'}),
-            )
-
-            opts = quit.getCmdOpts('quit --bar hoho')
-
-            self.eq( opts.get('bar'), True )
-            self.eq( opts.get('haha'), 'hoho')
-
     def test_cli_opts_list(self):
 
         with s_cli.Cli(None) as cli:
@@ -117,3 +102,15 @@ class CliTest(SynTest):
 
             opts = quit.getCmdOpts('quit hoho lulz')
             self.eq( opts.get('bar'), 'lol' )
+
+    def test_cli_cmd_loop_quit(self):
+        self.skipIfOldPython()
+        import unittest.mock as mock
+
+        @mock.patch('synapse.lib.cli.get_input', return_value='quit')
+        def _innertest(testcase, *args, **kwargs):
+            with s_cli.Cli(None) as cli:
+                cli.runCmdLoop()
+                testcase.eq(cli.isfini, True)
+
+        _innertest()

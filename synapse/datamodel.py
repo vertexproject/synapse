@@ -35,18 +35,6 @@ def getTypeNorm(name, valu):
     '''
     return tlib.reqDataType(name).norm(valu)
 
-def getTypeFrob(name, valu):
-    '''
-    Return a system normalized value for the given input value which may be in
-    system mode or in display mode.
-    Returns None,{} on Exception
-    '''
-    try:
-        return tlib.reqDataType(name).frob(valu)
-    except Exception as e:
-        logger.warn(e)
-        return None,{}
-
 def getTypeParse(name, text):
     '''
     Parse input text for the given type into it's system form.
@@ -138,6 +126,16 @@ class DataModel(s_types.TypeLib):
         self.addTufoProp('syn:tag','doc',defval='',ptype='str')
         self.addTufoProp('syn:tag','depth',defval=0,ptype='int')
         self.addTufoProp('syn:tag','title',defval='',ptype='str')
+        self.addTufoProp('syn:tag', 'base', ptype='str', ro=1)
+
+        self.addType('syn:tagform', subof='comp', fields='tag,syn:tag|form,syn:prop', ex="(foo.bar,baz:faz)")
+
+        self.addTufoForm('syn:tagform', ptype='syn:tagform', fields='tag,syn:tag|form,syn:prop')
+        self.addTufoProp('syn:tagform', 'tag', ptype='syn:tag', ro=1, doc='The tag being documented')
+        self.addTufoProp('syn:tagform', 'form', ptype='syn:prop', ro=1, doc='The the form that the tag applies to.')
+
+        self.addTufoProp('syn:tagform', 'doc', ptype='str:txt', defval='??', doc='The long form description for what the tag means on the given node form')
+        self.addTufoProp('syn:tagform', 'title', ptype='str:txt', defval='??', doc='The short name for what the tag means on the given node form')
 
         self.addTufoForm('syn:model',ptype='syn:tag', doc='prefix for all forms within the model')
         self.addTufoProp('syn:model','hash', ptype='guid', doc='version hash for the current model')
@@ -145,6 +143,11 @@ class DataModel(s_types.TypeLib):
 
         self.addTufoForm('syn:type',ptype='syn:type')
         self.addTufoProp('syn:type','*',glob=1)
+
+        # used most commonly for sequential tag generation
+        self.addTufoForm('syn:seq',ptype='str:lwr',doc='A sequential id generation tracker')
+        self.addTufoProp('syn:seq','width', ptype='int', defval=0, doc='How many digits to use to represent the number')
+        self.addTufoProp('syn:seq','nextvalu', ptype='int', defval=0, doc='The next sequential value')
 
     def getModelDict(self):
         '''
@@ -209,6 +212,25 @@ class DataModel(s_types.TypeLib):
 
         self.addPropDef(fullprop, **info)
 
+    def getPropFormBase(self, prop):
+        '''
+        Return a form,base tuple for the name parts of a given property.
+
+        Example:
+
+        Args:
+            prop (str): The fully qualified property name
+
+        Returns:
+            ((str,str)):  The (form,base) name tuple for the prop.
+
+        '''
+        pdef = self.getPropDef(prop)
+        if pdef == None:
+            raise NoSuchProp(name=prop)
+
+        return pdef[1].get('form'),pdef[1].get('base')
+
     def addPropDef(self, prop, **info):
         '''
         Add a property definition to the DataModel.
@@ -228,6 +250,10 @@ class DataModel(s_types.TypeLib):
         info.setdefault('defval',None)
 
         form = info.get('form')
+        base = prop[len(form)+1:]
+
+        info['base'] = base
+
         defval = info.get('defval')
 
         if defval != None:
@@ -241,6 +267,8 @@ class DataModel(s_types.TypeLib):
             self.propsbytype[ptype].append(pdef)
 
         self.props[ prop ] = pdef
+        self.props[ (form,base) ] = pdef
+
         self.model['props'][prop] = pdef
 
         self._addSubRefs(pdef)
@@ -257,6 +285,18 @@ class DataModel(s_types.TypeLib):
             if prop == pdef[0]:
                 continue
             self.subprops[prop].append(pdef)
+
+    def getPropsByType(self, name):
+        '''
+        Return a list of prop def tuples (name,info) for all props of the given type.
+
+        Example:
+
+            for prop,info in modl.getPropsByType('guid'):
+                dostuff()
+
+        '''
+        return self.propsbytype.get(name,())
 
     def _addPropGlob(self, form, prop, **info):
         prop = '%s:%s' % (form,prop)
@@ -325,26 +365,6 @@ class DataModel(s_types.TypeLib):
             return valu,{}
 
         return dtype.norm(valu,oldval=oldval)
-
-    def getPropFrob(self, prop, valu, oldval=None):
-        '''
-        Return a frobbed system mode value for the given property.
-
-        Example:
-
-            valu,subs = model.getPropFrob(prop,valu)
-
-        '''
-        dtype = self.getPropType(prop)
-        if dtype == None:
-            return valu,{}
-
-        try:
-
-            return dtype.frob(valu,oldval=oldval)
-
-        except BadTypeValu as e:
-            return None,{}
 
     def getPropParse(self, prop, valu):
         '''

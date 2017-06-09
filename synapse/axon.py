@@ -1,6 +1,6 @@
 import os
 import json
-import hashlib
+import stat
 import logging
 import tempfile
 import threading
@@ -8,6 +8,7 @@ import multiprocessing
 
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
+import synapse.dyndeps as s_dyndeps
 import synapse.reactor as s_reactor
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
@@ -18,81 +19,22 @@ import synapse.lib.service as s_service
 import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
 
+from synapse.exc import *
 from synapse.common import *
+
+# for backward compat (HashSet moved from this module to synapse.lib.hashset )
+from synapse.lib.hashset import *
 
 logger = logging.getLogger(__name__)
 
 megabyte = 1024000
 gigabyte = 1024000000
-
-chunksize = megabyte * 10
-
-class HashSet:
-
-    def __init__(self):
-
-        self.size = 0
-
-        # BEWARE ORDER MATTERS FOR guid()
-        self.hashes = [
-            ('md5',hashlib.md5()),
-            ('sha1',hashlib.sha1()),
-            ('sha256',hashlib.sha256()),
-            ('sha512',hashlib.sha512())
-        ]
-
-    def guid(self):
-        '''
-        Use elements from this hash set to create a unique
-        (re)identifier.
-        '''
-        iden = hashlib.md5()
-        props = {'size':self.size}
-
-        for name,item in self.hashes:
-            iden.update(item.digest())
-            props[name] = item.hexdigest()
-
-        return iden.hexdigest(),props
-
-    def eatfd(self, fd):
-        '''
-        Consume all the bytes from a file like object.
-
-        Example:
-
-            hset = HashSet()
-            hset.eatfd(fd)
-
-        '''
-        fd.seek(0)
-        byts = fd.read(10000000)
-        while byts:
-            self.update(byts)
-            byts = fd.read(10000000)
-
-        return self.guid()
-
-    def update(self, byts):
-        '''
-        Update all the hashes in the set with the given bytes.
-        '''
-        self.size += len(byts)
-        [ h[1].update(byts) for h in self.hashes ]
-
-    def digests(self):
-        '''
-        Return a list of (name,digest) tuples for the hashes in the set.
-        '''
-        return [ (name,item.hexdigest()) for (name,item) in self.hashes ]
-
-threedays = ((60 * 60) * 24) * 3
-
-megabyte = 1024000
-gigabyte = 1024000000
 terabyte = 1024000000000
-
+chunksize = megabyte * 10
+threedays = ((60 * 60) * 24) * 3
 axontag = 'class.synapse.axon.Axon'
+
+_fs_attrs = ('st_mode','st_nlink','st_size','st_atime','st_ctime','st_mtime')
 
 class AxonHost(s_eventbus.EventBus):
     '''
@@ -211,14 +153,23 @@ class AxonHost(s_eventbus.EventBus):
         volinfo = s_thisplat.getVolInfo( self.datadir )
         return volinfo
 
-axontag = 'class.synapse.axon.Axon'
 
 class AxonMixin:
+
     '''
     The parts of the Axon which must be executed locally in proxy cases.
     ( used as mixin for both Axon and AxonProxy )
     '''
+
     def eatfd(self, fd):
+        '''
+        Consume the contents of a file object into the axon as a blob.
+
+        Example:
+
+            tufo = axon.eatfd(fd)
+
+        '''
 
         hset = HashSet()
         iden,props = hset.eatfd(fd)
@@ -239,6 +190,14 @@ class AxonMixin:
         return retn
 
     def eatbytes(self, byts):
+        '''
+        Consume a buffer of bytes into the axon as a blob.
+
+        Example:
+
+            tufo = axon.eatbytes(byts)
+
+        '''
         hset = HashSet()
 
         hset.update(byts)
@@ -482,6 +441,8 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
         corepath = os.path.join(self.axondir,'axon.db')
         self.core = s_cortex.openurl('sqlite:///%s' % corepath)
+        self._fs_mkdir_root()  # create the fs root
+        self.flock = threading.Lock()
 
         fd = genfile(axondir,'axon.heap')
 
@@ -504,11 +465,11 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
         # create a reactor to unwrap core/heap sync events
         self.syncact = s_reactor.Reactor()
+        self.syncact.act('splice', self.core.splice )
         self.syncact.act('heap:sync', self.heap.sync )
-        self.syncact.act('core:sync', self.core.sync )
 
         # wrap core/heap sync events as axon:sync events
-        self.core.on('core:sync', self._fireAxonSync )
+        self.core.on('splice', self._fireAxonSync )
         self.heap.on('heap:sync', self._fireAxonSync )
 
         # model details for the actual byte blobs
@@ -520,6 +481,17 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         self.core.addTufoProp('axon:blob','sha1', ptype='hash:sha1',req=True)
         self.core.addTufoProp('axon:blob','sha256', ptype='hash:sha256',req=True)
         self.core.addTufoProp('axon:blob','sha512', ptype='hash:sha512',req=True)
+
+        self.core.addTufoForm('axon:path',            ptype='file:path')
+        self.core.addTufoProp('axon:path','dir',      ptype='file:path', req=False)
+        self.core.addTufoProp('axon:path','base',     ptype='file:base', req=True)
+        self.core.addTufoProp('axon:path','blob',     ptype='guid',      req=False)
+        self.core.addTufoProp('axon:path','st_mode',  ptype='int',       req=True)
+        self.core.addTufoProp('axon:path','st_nlink', ptype='int',       req=True)
+        self.core.addTufoProp('axon:path','st_atime', ptype='int',       req=False)
+        self.core.addTufoProp('axon:path','st_ctime', ptype='int',       req=False)
+        self.core.addTufoProp('axon:path','st_mtime', ptype='int',       req=False)
+        self.core.addTufoProp('axon:path','st_size',  ptype='int',       req=False)
 
         self.core.addTufoForm('axon:clone',ptype='guid')
 
@@ -725,7 +697,10 @@ class Axon(s_eventbus.EventBus,AxonMixin):
                 fd.write(byts)
 
         '''
-        blob = self.core.getTufoByProp('axon:blob:%s' % htype, valu=hvalu)
+        if htype == 'guid':
+            blob = self.core.getTufoByProp('axon:blob', valu=hvalu)
+        else:
+            blob = self.core.getTufoByProp('axon:blob:%s' % htype, valu=hvalu)
         return self.iterblob(blob)
 
     def iterblob(self, blob):
@@ -815,7 +790,7 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         info = self.inprog.get(iden)
 
         if info == None:
-            NoSuchIden(iden)
+            raise NoSuchIden(iden)
 
         cur = info.get('cur')
         self.heap.writeoff(cur,byts)
@@ -845,8 +820,394 @@ class Axon(s_eventbus.EventBus,AxonMixin):
                 stuff()
 
         '''
-        tufo = self.core.getTufoByProp('axon:blob:%s' % htype, hvalu)
+        if htype == 'guid':
+            tufo = self.core.getTufoByProp('axon:blob',hvalu)
+        else:
+            tufo = self.core.getTufoByProp('axon:blob:%s' % htype, hvalu)
         return tufo != None
 
     def byiden(self, iden):
         return self.core.getTufoByProp('axon:blob',iden)
+
+    def fs_create(self, path, mode):
+        '''
+        Forms an axon:path node and sets its properties based on a given file mode.
+        Returns 0.
+
+        Example:
+
+            axon.fs_create('/mydir',        0x1FD)
+            axon.fs_create('/mydir/myfile', 0x81B4)
+
+        '''
+        normed, props = self.core.getPropNorm('axon:path', path)
+
+        dirn = None
+        ppath = props.get('dir')
+
+        if ppath:
+            dirn = self._getDirNode(ppath)
+
+        attr = Axon._fs_new_file_attrs(ppath, mode)
+        filefo = self.core.formTufoByProp('axon:path', path, **attr)
+
+        if filefo[1].get('.new') and dirn != None:
+            self.core.incTufoProp(dirn, 'st_nlink', 1)
+
+        return 0
+
+    def fs_getattr(self, path):
+        '''
+        Return the file attributes for a given file path.
+
+        Example:
+
+            axon.fs_getattr('/foo/bar/baz.faz')
+
+        '''
+        path = self._fs_normpath(path)
+        tufo = self.core.getTufoByProp('axon:path', path)
+        return Axon._fs_tufo2attr(tufo)
+
+    def fs_getxattr(self, path, name):
+        '''
+        Return a file attribute value for a given file path and attr name.
+
+        Example:
+
+            axon.fs_getxattr('/foo/bar/baz.faz', 'st_size')
+
+        '''
+        if name not in _fs_attrs:
+            raise NoSuchData()
+
+        path = self._fs_normpath(path)
+        tufo = self.core.getTufoByProp('axon:path', path)
+        if tufo:
+            return tufo[1].get('axon:path:%s' % name)
+
+        raise NoSuchData()
+
+    def fs_mkdir(self, path, mode):
+        '''
+        Creates a new directory at the given path.
+        Returns 0.
+
+        Example:
+
+            axon.fs_mkdir('/mydir')
+
+        '''
+        normed, props = self.core.getPropNorm('axon:path', path)
+
+        dirn = None
+        ppath = props.get('dir')
+
+        if ppath:
+            dirn = self._getDirNode(ppath)
+
+        attr = Axon._fs_new_dir_attrs(ppath, mode)
+        tufo = self.core.formTufoByProp('axon:path', path, **attr)
+        if tufo and tufo[1].get('.new') != True:
+            raise FileExists()
+
+        if dirn != None:
+            self.core.incTufoProp(dirn, 'st_nlink', 1)
+
+    def _getDirNode(self, path):
+
+        node = self.core.getTufoByProp('axon:path', path)
+        if node == None:
+            raise NoSuchDir()
+
+        if not Axon._fs_isdir(node[1].get('axon:path:st_mode')):
+            raise NoSuchDir()
+
+        return node
+
+    def fs_read(self, path, size, offset):
+        '''
+        Reads a directory.
+        Returns list of files.
+
+        Example:
+
+            axon.fs_read('/mydir', 100, 0)
+
+        '''
+        tufo = self.core.getTufoByProp('axon:path', path)
+        if not tufo:
+            raise NoSuchEntity()
+        bval = tufo[1].get('axon:path:blob')
+        blob = None
+
+        if bval:
+            blob = self.core.getTufoByProp('axon:blob', bval)
+
+        if not blob:
+            return b''
+
+        boff = blob[1].get('axon:blob:off')
+        blob[1]['axon:blob:off'] = boff + offset  # the offset of the blob in the axon + the offset within the file
+        blob[1]['axon:blob:size'] = size  # number of bytes that the OS asks for
+
+        return b''.join(self.iterblob(blob))
+
+    def fs_readdir(self, path):
+        '''
+        Reads a directory.
+        Returns list of files.
+
+        Example:
+
+            axon.fs_readdir('/mydir')
+
+        '''
+        files = ['.','..']
+
+        attr = self.fs_getattr(path)
+        if not Axon._fs_isdir(attr.get('st_mode')):
+            raise NotSupported()
+
+        tufos = self.core.getTufosByProp('axon:path:dir', path)
+        for tufo in tufos:
+            fpath = tufo[1].get('axon:path')
+            fname = fpath.split('/')[-1]
+            files.append(fname)
+
+        return files
+
+    def fs_rmdir(self, path):
+        '''
+        Removes a directory.
+
+        Example:
+
+            axon.fs_rmdir('/mydir')
+
+        '''
+        tufo = self.core.getTufoByProp('axon:path', path)
+        if not tufo:
+            raise NoSuchEntity()
+
+        nlinks = tufo[1].get('axon:path:st_nlink')
+        if nlinks != 2:
+            raise NotEmpty()
+
+        parent = tufo[1].get('axon:path:parent')
+        if parent:
+            parentfo = self.core.getTufoByProp('axon:path', parent)
+            self.core.incTufoProp(parentfo, 'st_nlink', -1)
+            self.core.delTufo(tufo)
+
+    def fs_rename(self, src, dst):
+        '''
+        Renames a file.
+
+        Example:
+
+            axon.fs_rename('/myfile', '/mycoolerfile')
+
+        '''
+
+        _, srcprops = self.core.getPropNorm('axon:path', src)
+        srcppath, srcfname = srcprops.get('dir'), srcprops.get('base')
+        _, dstprops = self.core.getPropNorm('axon:path', dst)
+        dstppath, dstfname = dstprops.get('dir'), dstprops.get('base')
+
+        with self.flock:
+
+            srcfo = self.core.getTufoByProp('axon:path', src)
+            if not srcfo:
+                raise NoSuchEntity()
+            src_isdir = Axon._fs_isdir(srcfo[1].get('axon:path:st_mode'))
+
+            psrcfo = self.core.getTufoByProp('axon:path', srcppath)
+            if not (psrcfo and Axon._fs_isdir(psrcfo[1].get('axon:path:st_mode'))):
+                raise NoSuchDir()
+
+            pdstfo = self.core.getTufoByProp('axon:path', dstppath)
+            if not (pdstfo and Axon._fs_isdir(pdstfo[1].get('axon:path:st_mode'))):
+                raise NoSuchDir()
+
+            dstfo = self.core.formTufoByProp('axon:path', dst)
+            dst_isdir = Axon._fs_isdir(dstfo[1].get('axon:path:st_mode'))
+            dst_isemptydir = dstfo[1].get('axon:path:st_nlink', -1) == 2
+            if dst_isdir and not dst_isemptydir:
+                raise NotEmpty()
+
+            # all pre-checks complete
+
+            # if a new file was created, increment its parents link count
+            if dstfo[1].get('.new') == True:
+                self.core.incTufoProp(pdstfo, 'st_nlink', 1)
+
+            # set dst props to what src props were
+            dstprops = Axon._get_renameprops(srcfo)
+            dstprops.update({'parent': dstppath})
+            self.core.setTufoProps(dstfo, **dstprops)
+
+            # if overwriting a regular file with a dir, remove its st_size
+            if src_isdir:
+                self.core.delRowsByIdProp(dstfo[0], 'axon:path:st_size')
+                self._fs_reroot_kids(src, dst)
+
+            # Remove src and decrement its parent's link count
+            self.core.delTufo(srcfo)
+            self.core.incTufoProp(psrcfo, 'st_nlink', -1)
+
+    def fs_truncate(self, path):
+        '''
+        Tuncates a file.
+        Returns 0.
+
+        Example:
+
+            axon.fs_truncate('/myfile')
+
+        '''
+        tufo = self.core.getTufoByProp('axon:path', path)
+        if tufo:
+            self.core.delRowsByIdProp(tufo[0], 'axon:path:blob')
+            self.core.setTufoProps(tufo, st_size=0)
+
+    def fs_unlink(self, path):
+        '''
+        Deletes a file.
+        Returns 0.
+
+        Example:
+
+            axon.fs_unlink('/myfile')
+
+        '''
+        tufo = self.core.getTufoByProp('axon:path', path)
+        if not tufo:
+            raise NoSuchFile()
+
+        ppath = tufo[1].get('axon:path:parent')
+        self.core.delTufo(tufo)
+
+        parentfo = self.core.getTufoByProp('axon:path', ppath)
+        if parentfo:
+            self.core.incTufoProp(parentfo, 'st_nlink', -1)
+
+        return 0
+
+    def fs_utimens(self, path, times=None):
+        '''
+        Changes file timstamp.
+        Returns None.
+
+        Example:
+
+            axon.fs_utimens('/myfile', (0, 0))
+
+        '''
+        if not(type(times) is tuple and len(times) == 2):
+            return
+
+        st_atime = int(times[0])
+        st_mtime = int(times[1])
+
+        tufo = self.core.getTufoByProp('axon:path', path)
+        if tufo:
+            self.core.setTufoProps(tufo, st_atime=st_atime, st_mtime=st_mtime)
+
+    def _fs_reroot_kids(self, oldroot, newroot):
+
+        for child in self.core.getTufosByProp('axon:path:parent', oldroot):
+
+            normed, props = self.core.getPropNorm('axon:path', child[1].get('axon:path'))
+            cpath, cfname = props.get('dir'), props.get('base')
+            cmode = child[1].get('axon:path:st_mode')
+
+            newdst = '%s%s%s' % (newroot, '/', cfname)
+            self.core.setTufoProp(child, 'parent', newroot)
+            self.core.setRowsByIdProp(child[0], 'axon:path', newdst)
+
+            # move the kids
+            if Axon._fs_isdir(cmode):
+                newroot = '%s/%s' % (newroot, cfname)
+                self._fs_reroot_kids(normed, newroot)
+
+    def _fs_update_blob(self, path, blobsize, blob):
+        tufo = self.core.getTufoByProp('axon:path', path)
+        if tufo:
+            self.core.setTufoProps(tufo, st_size=blobsize, blob=blob)
+
+    def _fs_normpath(self, path):
+        normed, _ = self.core.getPropNorm('axon:path', path)
+        return normed
+
+    def _fs_mkdir_root(self):
+
+        attr = Axon._fs_new_dir_attrs(None, 0x1FD)
+        del attr['parent']
+        self.core.formTufoByProp('axon:path', '/', **attr)
+
+    @staticmethod
+    def _fs_tufo2attr(tufo):
+
+        if not tufo:
+            raise NoSuchEntity()
+
+        attrs = {}
+        for attr in _fs_attrs:
+            val = tufo[1].get('axon:path:%s' % attr)
+            if val != None:
+                attrs[attr] = val
+
+        return attrs
+
+    @staticmethod
+    def _get_renameprops(tufo):
+
+        props = Axon._fs_tufo2attr(tufo)
+        blob = tufo[1].get('axon:path:blob')
+        if blob:
+            props['blob'] = blob
+
+        return props
+
+
+    @staticmethod
+    def _fs_isdir(mode):
+
+        try:
+            return stat.S_ISDIR(mode)
+        except:
+            return False
+
+    @staticmethod
+    def _fs_isfile(mode):
+
+        try:
+            return stat.S_ISREG(mode)
+        except:
+            return False
+
+    @staticmethod
+    def _fs_new_file_attrs(parent, mode):
+
+        now = int(time.time())
+        return {'st_ctime': now, 'st_mtime': now, 'st_atime': now, 'st_nlink': 1, 'st_size':0, 'st_mode': (stat.S_IFREG | mode), 'parent': parent}
+
+    @staticmethod
+    def _fs_new_dir_attrs(parent, mode):
+
+        now = int(time.time())
+        return {'st_ctime': now, 'st_mtime': now, 'st_atime': now, 'st_nlink': 2, 'st_mode': (stat.S_IFDIR | mode), 'parent': parent}
+
+def _ctor_axon(opts):
+    '''
+    A function to allow terse/clean construction of an axon from a dmon ctor.
+    '''
+    datadir = opts.pop('datadir',None)
+    if datadir == None:
+        raise BadInfoValu(name='datadir',valu=None,mesg='axon ctor requires "datadir":<path> option')
+
+    return Axon(datadir,**opts)
+
+s_dyndeps.addDynAlias('syn:axon',_ctor_axon)
+

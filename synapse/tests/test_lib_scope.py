@@ -33,3 +33,18 @@ class GeneTest(SynTest):
 
         self.assertIsNone( s_scope.get('woot') )
         self.assertIsNone( s_scope.get('newp') )
+
+    def test_lib_scope_get_defval(self):
+        syms = {'foo': None, 'bar': 123}
+        scope = s_scope.Scope(**syms)
+        self.eq(scope.get('foo'), None)
+        self.eq(scope.get('foo', defval=None), None)
+        self.eq(scope.get('bar'), 123)
+        self.eq(scope.get('bar', defval=123), 123)
+        self.eq(scope.get('boo'), None)
+        self.eq(scope.get('boo', defval=None), None)
+
+        scope.enter({'bar': 321})
+        self.eq(scope.get('bar'), 321)
+        self.eq(scope.get('bar', defval=321), 321)
+        scope.leave()

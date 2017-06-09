@@ -68,4 +68,3 @@ class TestMain(SynTest):
 
         s_dmon.main(['--onboot', tfile.name])
         tfile.close()
-

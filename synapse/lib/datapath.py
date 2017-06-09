@@ -92,7 +92,7 @@ class DataElem:
         # of their names...
         if type( self._d_item ) == dict:
             for name,item in self._d_item.items():
-                yield initelem(item,name=name,parent=self)
+                yield initelem((name, item),name=self.name(),parent=self)
             return
 
         if s_compat.isint(self._d_item):

@@ -1,3 +1,5 @@
+import re
+
 import synapse.lib.sched as s_sched
 import synapse.lib.service as s_service
 
@@ -12,7 +14,8 @@ This module implements syntax parsing for the storm runtime.
 
 whites = set(' \t\n')
 intset = set('01234567890abcdefx')
-varset = set('.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678910')
+varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678910')
+starset = varset.union({'*'})
 whenset = set('0123456789abcdefghijklmnopqrstuvwxyz+,')
 
 def nom(txt,off,cset,trim=True):
@@ -54,7 +57,7 @@ def is_literal(text,off):
 
 def parse_literal(text, off,trim=True):
     if text[off] == '(':
-        return parse_list(text,off,trim=trim)
+        return parse_cmd_list(text,off,trim=trim)
 
     if text[off] == '"':
         return parse_string(text,off,trim=trim)
@@ -91,6 +94,46 @@ def parse_list(text,off,trim=True):
 def nom_whitespace(text,off):
     return nom(text,off,whites)
 
+def isquote(text,off):
+    return nextin(text,off,(",",'"'))
+
+def parse_cmd_list(text,off=0,trim=True):
+    '''
+    Parse a list (likely for comp type) coming from a command line input.
+
+    The string elements within the list may optionally be quoted.
+    '''
+
+    if not nextchar(text,off,'('):
+        raise synapse.exc.SyntaxError(at=off,mesg='expected open paren for list')
+
+    off += 1
+
+    valus = []
+    while off < len(text):
+
+        _,off = nom_whitespace(text,off)
+
+        if isquote(text,off):
+            valu,off = parse_string(text,off,trim=trim)
+        else:
+            valu,off = meh(text,off,',)')
+            valu = valu.strip()
+
+        valus.append(valu)
+
+        _,off = nom_whitespace(text,off)
+
+        if nextchar(text,off,')'):
+            return valus, off + 1
+
+        if not nextchar(text,off,','):
+            raise synapse.exc.SyntaxError(at=off,mesg='expected comma in list')
+
+        off += 1
+
+    raise synapse.exc.SyntaxError(at=off,mesg='unexpected and of text during list')
+
 def parse_cmd_string(text,off,trim=True):
     '''
     Parse in a command line string which may be quoted.
@@ -98,8 +141,11 @@ def parse_cmd_string(text,off,trim=True):
     if trim:
         _,off = nom(text,off,whites)
 
-    if text[off] in ('"',"'"):
+    if isquote(text,off):
         return parse_string(text,off,trim=trim)
+
+    if nextchar(text,off,'('):
+        return parse_cmd_list(text,off)
 
     return meh(text,off,whites)
 
@@ -141,9 +187,22 @@ def parse_macro_filt(text,off=0,trim=True, mode='must'):
     # special + #tag (without prop) based filter syntax
     if nextchar(text,off,'#'):
         _,off = nom(text,off,whites)
-        tag,off = nom(text,off+1,varset,trim=True)
+        tag,off = nom(text,off+1,starset,trim=True)
         oper = ('filt',{'cmp':'tag','mode':mode,'valu':tag})
         return oper,off
+
+    # check for non-macro syntax
+    name,xoff = nom(text,off,varset)
+    _,xoff = nom(text,xoff,whites)
+    if nextchar(text,xoff,'('):
+        inst,off = parse_oper(text,off)
+
+        opfo = {'cmp':inst[0],'mode':mode}
+
+        opfo['args'] = inst[1].get('args',())
+        opfo['kwlist'] = inst[1].get('kwlist',())
+
+        return ('filt',opfo),off
 
     ques,off = parse_ques(text,off,trim=trim)
     ques['mode'] = mode
@@ -297,12 +356,12 @@ def parse_ques(text,off=0,trim=True):
             if text[off] != '=':
                 raise SyntaxError(text=text, off=off, mesg='expected equals for by syntax')
 
-            ques['valu'],off = parse_oarg(text,off+1)
+            ques['valu'],off = parse_macro_valu(text,off+1)
             return ques,off
 
         if text[off] == '=':
             ques['cmp'] = 'eq'
-            ques['valu'],off = parse_oarg(text,off+1)
+            ques['valu'],off = parse_macro_valu(text,off+1)
             break
 
         # TODO: handle "by" syntax
@@ -319,12 +378,77 @@ def parse_ques(text,off=0,trim=True):
 
     return ques,off
 
+def parse_macro_valu(text,off=0):
+    '''
+    Special syntax for the right side of equals in a macro
+    '''
+    if nextchar(text,off,'('):
+        return parse_cmd_list(text,off)
+
+    if isquote(text,off):
+        return parse_string(text,off)
+
+    # since it's not quoted, we can assume we are white
+    # space bound ( only during macro syntax )
+    valu,off =  meh(text,off,whites)
+
+    # for now, give it a shot as an int...  maybe eventually
+    # we'll be able to disable this completely, but for now
+    # lets maintain backward compatibility...
+    try:
+        # NOTE: this is ugly, but faster than parsing the string
+        valu = int(valu,0)
+    except ValueError as e:
+        pass
+
+    return valu,off
+
+
 def parse_when(text,off,trim=True):
     whenstr,off = nom(text,off,whenset)
     # FIXME validate syntax
     if whenstr.find(',') != -1:
         return tuple(whenstr.split(',',1)),off
     return (whenstr,None),off
+
+def parse_cmd_kwarg(text, off=0):
+    '''
+    Parse a foo:bar=<valu> kwarg into (prop,valu),off
+    '''
+    _,off = nom(text,off,whites)
+
+    prop,off = nom(text,off,varset)
+
+    _,off = nom(text,off,whites)
+
+    if not nextchar(text,off,'='):
+        raise synapse.exc.SyntaxError(expected='= for kwarg ' + prop, at=off)
+
+    _,off = nom(text,off+1,whites)
+
+    valu,off = parse_cmd_string(text,off)
+    return (prop,valu),off
+
+def parse_cmd_kwlist(text, off=0):
+    '''
+    Parse a foo:bar=<valu>[,...] kwarg list into (prop,valu),off
+    '''
+    kwlist = []
+
+    _,off = nom(text,off,whites)
+
+    while off < len(text):
+
+        (p,v),off = parse_cmd_kwarg(text,off=off)
+
+        kwlist.append( (p,v) )
+
+        _,off = nom(text,off,whites)
+        if not nextchar(text,off,','):
+            break
+
+    _,off = nom(text,off,whites)
+    return kwlist,off
 
 def parse_oarg(text, off=0):
     '''
@@ -386,7 +510,7 @@ def parse_oper(text, off=0):
 
         if nextchar(text,off,','):
             off += 1
-            
+
 def parse(text, off=0):
     '''
     Parse and return a set of instruction tufos.
@@ -402,14 +526,30 @@ def parse(text, off=0):
 
         # handle some special "macro" style syntaxes
 
+        # pivot() macro with no src prop:   -> foo:bar
+        if nextstr(text,off,'->'):
+            _,off = nom(text,off+2,whites)
+            name,off = nom(text,off,varset)
+            inst = ('pivot',{'args':[name],'kwlist':[]})
+            ret.append(inst)
+            continue
+
+        # lift by tag alone macro
+        if nextstr(text,off,'#'):
+            _,off = nom(text,off+1,whites)
+            name,off = nom(text,off,varset)
+            inst = ('alltag',{'args':[name],'kwlist':[]})
+            ret.append(inst)
+            continue
+
         # must() macro syntax: +foo:bar="woot"
-        if text[off] == '+':
+        if nextchar(text,off,'+'):
             inst,off = parse_macro_filt(text,off+1,mode='must')
             ret.append(inst)
             continue
 
         # cant() macro syntax: -foo:bar=10
-        if text[off] == '-':
+        if nextchar(text,off,'-'):
             inst,off = parse_macro_filt(text,off+1,mode='cant')
             ret.append(inst)
             continue

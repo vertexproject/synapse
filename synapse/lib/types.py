@@ -10,11 +10,19 @@ import collections
 import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
+
+import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
+
+import synapse.lookup.iso3166 as s_l_iso3166
 
 from synapse.common import *
 
 logger = logging.getLogger(__name__)
+
+guidre = re.compile('^[0-9a-f]{32}$')
+def isguid(text):
+    return guidre.match(text) != None
 
 class DataType:
 
@@ -55,22 +63,6 @@ class DataType:
 
         return self.__class__(self.tlib, name,**info)
 
-    def frob(self, valu, oldval=None):
-        '''
-        Attempt to take either repr *or* system form and normalize.
-
-        Example:
-
-            valu = tobj.frob(valu)
-
-        Note:
-
-            This API is mostly for use in simplifying parser / syntax
-            use cases and should be avoided if input abiguity is not required.
-
-        '''
-        return self.norm(valu, oldval=oldval)
-
     def parse(self, text, oldval=None):
         '''
         Parse input text and return the system mode (normalized) value for the type.
@@ -85,6 +77,44 @@ class DataType:
     def repr(self, valu):
         return valu
 
+class GuidType(DataType):
+
+    def __init__(self, tlib, name, **info):
+        DataType.__init__(self, tlib, name, **info)
+        self._guid_alias = info.get('alias')
+        # TODO figure out what to do about tlib vs core issues
+        self._getTufoByProp = getattr(tlib,'getTufoByProp',None)
+
+    def norm(self, valu, oldval=None):
+
+        if not s_compat.isstr(valu) or len(valu) < 1:
+            self._raiseBadValu(valu)
+
+        # generate me one.  we dont care.
+        if valu == '*':
+            return guid(),{}
+
+        if valu[0] != '$':
+            retn = valu.lower().replace('-','')
+            if not isguid(retn):
+                self._raiseBadValu(valu)
+
+            return retn,{}
+
+        if self._guid_alias == None:
+            self._raiseBadValu(valu,mesg='guid resolver syntax used with non-aliased guid')
+
+        if self._getTufoByProp == None:
+            self._raiseBadValu(valu,mesg='guid resolver syntax used with non-cortex tlib')
+
+        # ( sigh... eventually everything will be a cortex... )
+        node = self._getTufoByProp(self._guid_alias,valu[1:])
+        if node == None:
+            self._raiseBadValu(valu,mesg='no result for guid resolver')
+
+        iden = node[1].get( node[1].get('tufo:form') )
+        return iden,{}
+
 class StrType(DataType):
 
     def __init__(self, tlib, name, **info):
@@ -95,6 +125,7 @@ class StrType(DataType):
         self.restrip = None
         self.frobintfmt = None
 
+        self.strip = info.get('strip',0)
         self.nullval = info.get('nullval')
 
         enumstr = info.get('enums')
@@ -113,12 +144,10 @@ class StrType(DataType):
         if frobintfmt != None:
             self.frobintfmt = frobintfmt
 
-    def frob(self, valu, oldval=None):
-        if self.frobintfmt and s_compat.isint(valu):
-                valu = self.frobintfmt % valu
-        return self.norm(valu, oldval=oldval)
-
     def norm(self, valu, oldval=None):
+
+        if self.frobintfmt and s_compat.isint(valu):
+            valu = self.frobintfmt % valu
 
         if not s_compat.isstr(valu):
             self._raiseBadValu(valu)
@@ -129,6 +158,12 @@ class StrType(DataType):
         if valu == self.nullval:
             return valu,{}
 
+        if self.restrip:
+            valu = self.restrip.sub('', valu)
+
+        if self.strip:
+            valu = valu.strip()
+
         if self.envals != None and valu not in self.envals:
             self._raiseBadValu(valu,enums=self.info.get('enums'))
 
@@ -137,21 +172,13 @@ class StrType(DataType):
 
         return valu,{}
 
-    def parse(self, text, oldval=None):
-        if self.restrip:
-            text = self.restrip.sub('', text)
-
-        return self.norm(text, oldval=oldval)
-
 class JsonType(DataType):
 
-    def frob(self, valu, oldval=None):
+    def norm(self, valu, oldval=None):
+
         if not s_compat.isstr(valu):
             return json.dumps(valu,separators=(',', ':')),{}
 
-        return self.norm(valu,oldval=None)
-
-    def norm(self, valu, oldval=None):
         try:
             return json.dumps( json.loads(valu), separators=(',', ':') ),{}
         except Exception as e:
@@ -185,6 +212,12 @@ class IntType(DataType):
 
     def norm(self, valu, oldval=None):
 
+        if s_compat.isstr(valu):
+            try:
+                valu = int(valu,0)
+            except ValueError as e:
+                self._raiseBadValu(valu)
+
         if not s_compat.isint(valu):
             self._raiseBadValu(valu)
 
@@ -198,19 +231,6 @@ class IntType(DataType):
             self._raiseBadValu(valu,maxval=self.maxval)
 
         return valu,{}
-
-    def parse(self, valu, oldval=None):
-        try:
-            valu = int(valu,0)
-        except Exception as e:
-            raise self._raiseBadValu(valu)
-
-        return self.norm(valu)
-
-    def frob(self, valu, oldval=None):
-        if s_compat.isstr(valu):
-            valu,_ = self.parse(valu, oldval=oldval)
-        return self.norm(valu, oldval=oldval)
 
 def enMsgB64(item):
     # FIXME find a way to go directly from binary bytes to
@@ -226,119 +246,202 @@ jsseps = (',',':')
 def islist(x):
     return type(x) in (list,tuple)
 
-class CompType(DataType):
+class MultiFieldType(DataType):
 
     def __init__(self, tlib, name, **info):
         DataType.__init__(self, tlib, name, **info)
+        self.fields = None
 
-        fields = []
+    def _norm_fields(self, valu):
 
-        fieldstr = info.get('fields','')
-        if fieldstr:
-            try:
-                for fpair in fieldstr.split('|'):
-                    fname,ftype = fpair.split(',')
-                    fields.append( (fname,ftype) )
+        fields = self._get_fields()
 
-            except Exception as e:
-                raise BadInfoValu(name='fields',valu=fieldstr,mesg='expected: <propname>,<typename>[|...]')
+        if len(valu) != len(fields):
+            self._raiseBadValu(valu,mesg='field count != %d' % (len(fields),))
 
-        # each of our composit sub-fields is a sub-prop if wanted
-        self.fields = []
-        self.subprops = []
+        vals = []
+        subs = {}
 
-        for fname,tnam in fields:
-            if tnam == name:
-                # this is a recursive type, so can't fetch its definition yet.
-                # fortunately, that definition is us!
-                tobj = self
-            else:
-                tobj = self.tlib.reqDataType(tnam)
-            self.fields.append((fname,tobj))
+        for valu,(name,item) in s_compat.iterzip(valu,fields):
 
-            self.subprops.append( tufo(fname,ptype=tnam) )
-            if tnam != name:
-                # don't support subprops on recursive fields, or we'll infinite loop.
-                for subp in tobj.subs():
-                    subn = '%s:%s' % (fname,subp[0])
-                    self.subprops.append( tufo(subn,**subp[1]) )
+            norm,fubs = item.norm(valu)
 
-    def norm(self, valu, oldval=None):
-        '''handles both b64 blob *and* (text,text,text) list/tuple.'''
-        if islist(valu):
-            vals = valu
-        else:
-            vals = deMsgB64(valu)
+            vals.append(norm)
 
-        norms,subs = [], {}
-        for v,(name,tobj) in self._zipvals(vals):
+            subs[name] = norm
+            for fubk,fubv in fubs.items():
+                subs[name + ':' + fubk] = fubv
 
-            nval,nsub = tobj.norm(v)
-            norms.append(nval)
-            subs[name] = nval
+        return vals,subs
 
-            for subn,subv in nsub.items():
-                subs['%s:%s' % (name,subn)] = subv
+    def _get_fields(self):
 
-        return enMsgB64(norms),subs
+        if self.fields == None:
 
-    def frob(self, valu, oldval=None):
-        if islist(valu):
-            vals = valu
-        else:
-            vals = deMsgB64(valu)
+            self.fields = []
 
-        frobs,subs = [], {}
-        for v,(name,tobj) in self._zipvals(vals):
+            # maintain legacy "fields=" syntax for a bit yet...
+            fields = self.info.get('fields')
+            if fields != None:
+                if fields:
+                    for part in fields.split('|'):
+                        fname,ftype = part.split(',')
+                        fitem = self.tlib.getTypeInst(ftype)
+                        self.fields.append( (fname, fitem) )
 
-            nval,nsub = tobj.frob(v)
-            frobs.append(nval)
+                return self.fields
 
-            subs[name] = nval
-            for subn,subv in nsub.items():
-                subs['%s:%s' % (name,subn)] = subv
+            # process names= and types= info fields
+            fnames = []
+            ftypes = []
 
-        return enMsgB64(frobs),subs
+            fnstr = self.info.get('names')
+            if fnstr:
+                fnames.extend( fnstr.split(',') )
 
-    def repr(self, valu):
-        vals = deMsgB64(valu)
-        reps = [ t.repr(v) for v,(n,t) in self._zipvals(vals) ]
-        return json.dumps(reps,separators=jsseps)
+            ftstr = self.info.get('types','')
+            if ftstr:
+                ftypes.extend( ftstr.split(',') )
 
-    def parse(self, text, oldval=None):
-        '''handles both text *and* (text,text,text) list/tuple.'''
+            self.flen = len(ftypes)
 
-        if islist(text):
-            reps = text
-        else:
-            reps = json.loads(text)
+            if len(fnames) != self.flen:
+                raise BadInfoValu(name='types',valu=ftstr,mesg='len(names) != len(types)')
 
-        vals = [ t.parse(r)[0] for r,(n,t) in self._zipvals(reps) ]
-        return enMsgB64(vals),{}
+            for i in range(self.flen):
+                item = self.tlib.getTypeInst(ftypes[i])
+                self.fields.append( (fnames[i], item) )
 
+        return self.fields
 
-    def _zipvals(self, vals):
-        return s_compat.iterzip(vals,self.fields)
-
-class SeprType(CompType):
+class CompType(MultiFieldType):
 
     def __init__(self, tlib, name, **info):
-        CompType.__init__(self, tlib, name, **info)
+        MultiFieldType.__init__(self, tlib, name, **info)
+
+    def _norm_str(self, text, oldval=None):
+
+        text = text.strip()
+
+        if len(text) == 32 and text.find('|') == -1 and text[0] != '(':
+            return self.tlib.getTypeNorm('guid',text)
+
+        if text[0] == '(':
+
+            vals,off = s_syntax.parse_cmd_list(text)
+            if off != len(text):
+                self._raiseBadValu(text)
+
+            vals,subs = self._norm_fields( vals )
+
+        else:
+
+            vals,subs = self._norm_fields( text.split('|') )
+
+        return guid(vals),subs
+
+    def _norm_list(self, valu, oldval=None):
+        valu,subs = self._norm_fields(valu)
+        return guid(valu),subs
+
+    def norm(self, valu, oldval=None):
+
+        # if it's already a guid, we have nothing to normalize...
+        if s_compat.isstr(valu):
+            return self._norm_str(valu,oldval=oldval)
+
+        if not islist(valu):
+            self._raiseBadValu(valu,mesg='Expected guid or list/tuple')
+
+        return self._norm_list(valu)
+
+class XrefType(DataType):
+    '''
+    The XrefType allows linking a specific type of node to an inspecific
+    set of node forms.
+
+    Example Sub Type:
+
+        addType('foo:barrefs', subof='xref', source='bar,foo:bar')
+
+    '''
+
+    def __init__(self, tlib, name, **info):
+        DataType.__init__(self, tlib, name, **info)
+        self._sorc_type = None
+        self._sorc_name = None
+
+        sorc = info.get('source')
+
+        if sorc != None:
+            parts = sorc.split(',')
+            if len(parts) != 2:
+                raise BadInfoValu(name='source',valu=sorc,mesg='expected source=<name>,<type>')
+
+            self._sorc_name = parts[0]
+            self._sorc_type = parts[1]
+
+    def norm(self, valu, oldval=None):
+
+        if s_compat.isstr(valu):
+            return self._norm_str(valu, oldval=oldval)
+
+        if not islist(valu):
+            self._raiseBadValu(valu,mesg='Expected guid, psv, or list')
+
+        return self._norm_list(valu,oldval=None)
+
+    def _norm_str(self, text, oldval=None):
+
+        if len(text) == 32 and text.find('|') == -1:
+            return self.tlib.getTypeNorm('guid',text)
+
+        # FIXME full logical / quoted split
+        parts = text.split('|')
+        return self._norm_list(parts)
+
+    def _norm_list(self, valu, oldval=None):
+
+        if len(valu) != 3:
+            self._raiseBadValu(text,mesg='xref type requires 3 fields')
+
+        valu,tstr,tval = valu
+
+        valu,vsub = self.tlib.getTypeNorm(self._sorc_type,valu)
+        tval,tsub = self.tlib.getTypeNorm(tstr,tval)
+
+        iden = guid((valu,tstr,tval))
+
+        subs = {
+            self._sorc_name:valu,
+            'xtype':tstr,
+            'xref:%s' % tstr:tval,
+        }
+
+        return iden,subs
+
+class SeprType(MultiFieldType):
+
+    def __init__(self, tlib, name, **info):
+        MultiFieldType.__init__(self, tlib, name, **info)
         self.sepr = info.get('sep',',')
         self.reverse = info.get('reverse',0)
 
     def norm(self, valu, oldval=None):
         subs = {}
         reprs = []
-        parts = self._split_str(valu)
 
-        for part,(name,tobj) in self._zipvals(parts):
+        if s_compat.isstr(valu):
+            valu = self._split_str(valu)
+
+        # only other possiblity should be that it was a list
+        for part,(name,tobj) in self._zipvals(valu):
 
             if tobj == self:
                 norm,nsub = part, {}
                 reprs.append(norm)
             else:
-                norm,nsub = tobj.parse(part)
+                norm,nsub = tobj.norm(part)
                 reprs.append(tobj.repr(norm))
 
             subs[name] = norm
@@ -347,68 +450,40 @@ class SeprType(CompType):
 
         return self.sepr.join(reprs),subs
 
-    def frob(self, valu, oldval=None):
-        subs = {}
-        reprs = []
-        if not islist(valu):
-            parts = self._split_str(valu)
-        else:
-            parts = valu
-
-        for part,(name,tobj) in self._zipvals(parts):
-            if tobj == self:
-                norm, nsub = part, {}
-                reprs.append(norm)
-            else:
-                frob,nsub = tobj.frob(part)
-                reprs.append(tobj.repr(frob))
-
-            subs[name] = frob
-            for subn,subv in nsub.items():
-                subs['%s:%s' % (name,subn)] = subv
-
-        return self.sepr.join(reprs),subs
-
-    def parse(self, text, oldval=None):
-        return self.norm(text, oldval=None)
-
-    def repr(self, valu, oldval=None):
-        return valu
-
     def _split_str(self, text):
 
+        fields = self._get_fields()
+
         if self.reverse:
-            parts = text.rsplit(self.sepr,len(self.fields)-1)
+            parts = text.rsplit(self.sepr,len(fields)-1)
         else:
-            parts = text.split(self.sepr,len(self.fields)-1)
+            parts = text.split(self.sepr,len(fields)-1)
+
+        if len(parts) != len(fields):
+            self._raiseBadValu(text,sep=self.sepr,mesg='split: %d fields: %d' % (len(parts),len(fields)))
 
         return parts
 
     def _zipvals(self, vals):
-        return s_compat.iterzip(vals,self.fields)
+        return s_compat.iterzip(vals,self._get_fields())
 
 class BoolType(DataType):
 
     def norm(self, valu, oldval=None):
+        if s_compat.isstr(valu):
+            valu = valu.lower()
+            if valu in ('true','t','y','yes','1','on'):
+                return 1,{}
+
+            if valu in ('false','f','n','no','0','off'):
+                return 0,{}
+
+            self._raiseBadValu(valu,mesg='Invalid boolean string')
+
         return int(bool(valu)),{}
 
     def repr(self, valu):
         return repr(bool(valu))
-
-    def parse(self, text, oldval=None):
-        text = text.lower()
-        if text in ('true','t','y','yes','1','on'):
-            return 1,{}
-
-        if text in ('false','f','n','no','0','off'):
-            return 0,{}
-
-        self._raiseBadValu(text)
-
-    def frob(self, valu, oldval=None):
-        if s_compat.isstr(valu):
-            return self.parse(valu, oldval=oldval)
-        return self.norm(valu, oldval=oldval)
 
 class TypeLib:
     '''
@@ -430,8 +505,10 @@ class TypeLib:
         self.addType('bool',ctor='synapse.lib.types.BoolType', doc='A boolean type')
         self.addType('json',ctor='synapse.lib.types.JsonType', doc='A json type (stored as str)')
 
-        self.addType('comp',ctor='synapse.lib.types.CompType', doc='A multi-field composite type which uses base64 encoded msgpack')
+        self.addType('guid',ctor='synapse.lib.types.GuidType', doc='A Globally Unique Identifier type')
         self.addType('sepr',ctor='synapse.lib.types.SeprType', doc='A multi-field composite type which uses separated repr values')
+        self.addType('comp',ctor='synapse.lib.types.CompType', doc='A multi-field composite type which generates a stable guid from normalized fields')
+        self.addType('xref',ctor='synapse.lib.types.XrefType', doc='A multi-field composite type which can be used to link a known form to an unknown form')
 
         # add base synapse types
         self.addType('syn:tag',subof='str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
@@ -439,22 +516,25 @@ class TypeLib:
         self.addType('syn:type',subof='str', regex=r'^([\w]+:)*[\w]+$', lower=1)
         self.addType('syn:glob',subof='str', regex=r'^([\w]+:)*[\w]+:\*$', lower=1)
 
-        self.addType('guid',subof='str', regex='^[0-9a-f]{32}$', lower=1, restrip='[-]')
-
         self.addType('int:min', subof='int', ismin=1)
         self.addType('int:max', subof='int', ismax=1)
 
-        self.addType('str:lwr', subof='str', lower=1)
+        self.addType('str:lwr', subof='str', lower=1, strip=1)
         self.addType('str:txt', subof='str', doc='Multi-line text or text blob.')
         self.addType('str:hex', subof='str', frob_int_fmt='%x', regex=r'^[0-9a-f]+$', lower=1)
 
+        self.addTypeCast('country:2:cc', self._castCountry2CC )
         self.addTypeCast('make:guid', self._castMakeGuid )
 
         if load:
             self.loadModModels()
 
+    def _castCountry2CC(self, valu):
+        valu = valu.replace('.','').lower()
+        return s_l_iso3166.country2iso.get(valu)
+
     def _castMakeGuid(self, valu):
-        return hashlib.md5(valu.encode('utf8')).hexdigest()
+        return guid(valu)
 
     def getTypeInst(self, name):
         '''
@@ -543,6 +623,18 @@ class TypeLib:
         '''
         return self.types.get(name)
 
+    def isDataType(self, name):
+        '''
+        Return boolean which is true if the given name is a data type.
+
+        Example:
+
+            if tlib.isDataType('foo:bar'):
+                dostuff()
+
+        '''
+        return self.types.get(name) != None
+
     def reqDataType(self, name):
         '''
         Return a reference to the named DataType or raise NoSuchType.
@@ -630,24 +722,6 @@ class TypeLib:
 
         '''
         return self.reqDataType(name).norm(valu, oldval=oldval)
-
-    def getTypeFrob(self, name, valu, oldval=None):
-        '''
-        Return a system normalized value for the given input value which
-        may be in system mode or in display mode.
-
-        Returns None,{} on Exception
-
-        Example:
-
-            valu,subs = tlib.getTypeFrob('inet:ipv4',valu)
-
-        '''
-        try:
-            return self.reqDataType(name).frob(valu, oldval=oldval)
-        except Exception as e:
-            logger.warn(e)
-            return None,{}
 
     def getTypeCast(self, name, valu):
         '''

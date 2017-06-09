@@ -15,9 +15,9 @@ and is expected to provide indexed access to rows, allow bulk
 insertion, and provide for atomic deconfliction if needed.
 
 '''
-
 import synapse.link as s_link
 import synapse.async as s_async
+import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 
 import synapse.lib.sched as s_sched
@@ -54,7 +54,7 @@ def openurl(url, **opts):
 
     Notes:
         * ram://
-        * sqlite3:///<db>
+        * sqlite:///<db>
         * postgres://[[<passwd>:]<user>@][<host>]/[<db>][/<table>]
 
         * default table name: syncortex
@@ -86,9 +86,26 @@ def choptag(tag):
     parts = tag.split('.')
     return [ '.'.join(parts[:x+1]) for x in range(len(parts)) ]
 
-if __name__ == '__main__':
+def _ctor_cortex(conf):
+    url = conf.pop('url',None)
+    if url == None:
+        raise BadInfoValu(name='url',valu=None,mesg='cortex ctor requires "url":<url> option')
+
+    core = openurl(url)
+    core.setConfOpts(conf)
+
+    return core
+
+s_dyndeps.addDynAlias('syn:cortex',_ctor_cortex)
+
+if __name__ == '__main__':  # pragma: no cover
     import sys
     import code
+
+    import synapse.lib.cmdr as s_cmdr
+
     core = openurl(sys.argv[1])
-    local = {'core':core,'ask':core.ask,'eval':core.eval}
-    code.interact(local=local)
+
+    cmdr = s_cmdr.getItemCmdr(core)
+
+    cmdr.runCmdLoop()

@@ -4,7 +4,7 @@ from setuptools import setup,find_packages
 
 setup(
     name='synapse',
-    version='0.0.12', # sync with synapse.version!
+    version='0.0.17', # sync with synapse.version!
     description='Synapse Distributed Key-Value Hypergraph Analysis Framework',
     author='Invisigoth Kenshoto',
     author_email='invisigoth.kenshoto@gmail.com',
@@ -12,6 +12,8 @@ setup(
     license='Apache License 2.0',
 
     packages=find_packages(exclude=['*.tests','*.tests.*']),
+
+    include_package_data=True,
 
     install_requires=[
         'tornado>=3.2.2',

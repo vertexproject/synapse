@@ -1,5 +1,4 @@
 import sys
-import code
 import time
 import argparse
 import cProfile
@@ -7,6 +6,8 @@ import collections
 
 import synapse.cortex as s_cortex
 
+import synapse.lib.cmdr as s_cmdr
+import synapse.lib.tufo as s_tufo
 import synapse.lib.ingest as s_ingest
 import synapse.lib.output as s_output
 import synapse.lib.scrape as s_scrape
@@ -44,6 +45,8 @@ def main(argv, outp=None):
         tufo = mesg[1].get('tufo')
         form = tufo[1].get('tufo:form')
         outp.printf('add: %s=%s' % (form,tufo[1].get(form)))
+        for prop,valu in sorted(s_tufo.props(tufo).items()):
+            outp.printf('       :%s = %s' % (prop,valu))
 
     def _print_tufo_tag_add(mesg):
         tag = mesg[1].get('tag')
@@ -54,7 +57,15 @@ def main(argv, outp=None):
     progtot = collections.defaultdict(int)
     proglast = collections.defaultdict(int)
 
-    proglocs = {'tick':None}
+    proglocs = {'tick':None,'datatot':0,'datalast':0,'tufotot':0,'tufolast':0}
+
+    def onGestData(mesg):
+        proglocs['datatot'] += 1
+        proglocs['datalast'] += 1
+
+    def onTufoAdd(mesg):
+        proglocs['tufotot'] += 1
+        proglocs['tufolast'] += 1
 
     # callback for displaying progress...
     def onGestProg(mesg):
@@ -81,6 +92,15 @@ def main(argv, outp=None):
 
                 tot = sum( proglast.values() )
                 persec = int( float(tot) / delta )
+                tot = proglast.get('total',0)
+
+                datatot = proglocs.get('datatot',0)
+                datalast = proglocs.get('datalast',0)
+                datasec = int( float(datalast) / delta )
+
+                tufotot = proglocs.get('tufotot',0)
+                tufolast = proglocs.get('tufolast',0)
+                tufosec = int( float(tufolast) / delta )
 
                 totstat = tuple( sorted( progtot.items() ) )
                 laststat = tuple( sorted( proglast.items() ) )
@@ -88,14 +108,16 @@ def main(argv, outp=None):
                 totstr = ' '.join([ '%s=%s' % (n,v) for (n,v) in totstat ])
                 laststr = ' '.join([ '%s=%s' % (n,v) for (n,v) in laststat ])
 
-                outp.printf('%s/sec %s (%s)' % (persec,laststr,totstr))
+                outp.printf('data: %s %s/sec (%d) nodes: %s %s/sec (%d)' % (datalast,datasec,datatot,tufolast,tufosec,tufotot))
 
                 proglast.clear()
                 proglocs['tick'] = time.time()
+                proglocs['datalast'] = 0
+                proglocs['tufolast'] = 0
 
     if opts.save:
         outp.printf('saving sync events to: %s' % (opts.save,))
-        core.addSyncFd( genfile( opts.save ) )
+        core.addSpliceFd( genfile( opts.save ) )
 
     if opts.verbose:
         core.on('tufo:add', _print_tufo_add)
@@ -104,7 +126,7 @@ def main(argv, outp=None):
     pump = None
     if opts.sync != None:
         sync = s_cortex.openurl( opts.sync )
-        pump = core.getSyncPump(sync)
+        pump = core.getSplicePump(sync)
 
     tick = time.time()
 
@@ -114,6 +136,8 @@ def main(argv, outp=None):
             gest = s_ingest.loadfile(path)
 
             if opts.progress:
+                core.on('tufo:add',onTufoAdd)
+                gest.on('gest:data',onGestData)
                 gest.on('gest:prog',onGestProg)
 
             gest.ingest(core)
@@ -123,7 +147,7 @@ def main(argv, outp=None):
     outp.printf('ingest took: %s sec' % (tock-tick,))
 
     if opts.debug:
-        code.interact( local=locals() )
+        s_cmdr.runItemCmdr(core)
 
     if pump != None:
         pump.done()

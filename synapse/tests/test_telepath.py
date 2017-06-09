@@ -19,7 +19,7 @@ class Foo:
         return x + y
 
     def baz(self, x, y):
-        raise Exception('derp')
+        raise ValueError('derp')
 
     def echo(self, x):
         return x
@@ -52,6 +52,9 @@ class TelePathTest(SynTest):
 
         foo = s_telepath.openlink(env.link)
 
+        self.true(s_telepath.isProxy(foo))
+        self.false(s_telepath.isProxy(self))
+
         s = time.time()
         for i in range(1000):
             foo.speed()
@@ -59,8 +62,8 @@ class TelePathTest(SynTest):
         e = time.time()
 
         self.assertEqual( foo.bar(10,20), 30 )
-        self.assertRaises( JobErr, foo.faz, 10, 20 )
-        self.assertRaises( JobErr, foo.baz, 10, 20 )
+        self.assertRaises( NoSuchMeth, foo.faz, 10, 20 )
+        self.assertRaises( SynErr, foo.baz, 10, 20 )
 
         foo.fini()
         env.fini()
@@ -83,7 +86,7 @@ class TelePathTest(SynTest):
         port = link[1].get('port')
 
         newp = s_telepath.openurl('tcp://localhost:%d/newp' % (port,))
-        self.assertRaises( JobErr, newp.foo )
+        self.assertRaises( SynErr, newp.foo )
 
         dmon.fini()
 
@@ -117,7 +120,7 @@ class TelePathTest(SynTest):
 
             prox0.fini()
 
-            self.assertRaises( s_async.JobErr, prox1.bar, 10, 20 )
+            self.assertRaises( SynErr, prox1.bar, 10, 20 )
 
             prox1.fini()
 
@@ -326,16 +329,16 @@ class TelePathTest(SynTest):
                 url = 'ssl://localhost/foo'
 
                 with s_telepath.openurl('tcp://localhost/foo', port=port0) as foo:
-                    self.assertRaises( JobErr, foo.bar, 20, 30 )
+                    self.assertRaises( NoAuthUser, foo.bar, 20, 30 )
 
                 with s_telepath.openurl(url, port=port1, cafile=cafile, keyfile=userkey, certfile=usercert) as foo:
-                    self.assertRaises( JobErr, foo.bar, 20, 30 )
+                    self.assertRaises( NoSuchUser, foo.bar, 20, 30 )
 
                 auth.addUser('user@localhost')
 
                 # even with the user added we should fail
                 with s_telepath.openurl(url, port=port1, cafile=cafile, keyfile=userkey, certfile=usercert) as foo:
-                    self.assertRaises( JobErr, foo.bar, 20, 30 )
+                    self.assertRaises( NoSuchRule, foo.bar, 20, 30 )
 
                 auth.addUserRule('user@localhost','tele:call:foo:bar')
 
@@ -345,7 +348,7 @@ class TelePathTest(SynTest):
 
                 # but echo should still fail
                 with s_telepath.openurl(url, port=port1, cafile=cafile, keyfile=userkey, certfile=usercert) as foo:
-                    self.assertRaises( JobErr, foo.echo, 'woot' )
+                    self.assertRaises( NoSuchRule, foo.echo, 'woot' )
 
                 # until we add a * rule
                 auth.addUserRule('user@localhost','tele:call:foo:*')

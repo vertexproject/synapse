@@ -12,7 +12,7 @@ class InetModelTest(SynTest):
             core.addTufoProp('foo', 'earliest', ptype='foo:min')
             core.addTufoProp('foo', 'latest', ptype='foo:max')
 
-            tufo = core.formTufoByFrob('foo', 'a', **{'earliest':10, 'latest':10})
+            tufo = core.formTufoByProp('foo', 'a', **{'earliest':10, 'latest':10})
             self.eq(tufo[1]['foo:earliest'], 10)
             self.eq(tufo[1]['foo:latest'], 10)
 
@@ -25,3 +25,8 @@ class InetModelTest(SynTest):
             self.eq(tufo[1]['foo:latest'], 100)
             core.setTufoProp(tufo, 'latest', 1)
             self.eq(tufo[1]['foo:latest'], 100)
+
+    def test_model_time_from_unix(self):
+        with s_cortex.openurl('ram:///') as core:
+            self.eq( core.getTypeCast('from:unix:epoch', 100), 100000 )
+            self.eq( core.getTypeCast('from:unix:epoch', '0x20'), 32000 )

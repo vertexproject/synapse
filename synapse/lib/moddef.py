@@ -133,7 +133,7 @@ def getModDefSrc(moddef):
     path = moddef[1].get('path')
 
     if fmt == 'src' and path != None and os.path.isfile(path):
-        with open(path,'r') as fd:
+        with open(path,'rb') as fd:
             return fd.read()
 
 def getModDefCode(moddef):

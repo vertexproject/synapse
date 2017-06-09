@@ -7,7 +7,8 @@ import tempfile
 import traceback
 
 import synapse.exc as s_exc
-from synapse.common import *
+from synapse.compat import queue
+from synapse.common import genpath
 
 # 10 MB
 read_chunk_sz = 1048576*10
@@ -22,300 +23,442 @@ The above represents a file named bar located in the d0 directory inside the foo
 located on the filesystem in the /dir0/dir1 directory.
 '''
 
-class FilePath(object):
-    def __init__(self, name, parent=None, fd=None):
+def normpath(*paths):
+    '''
+    Normalizes a path:
+    1. uses forward-slashes
+    2. removes leading slashes
+    3. removes trailing slashes
+
+    This is useful for container path enumeration
+    '''
+    path = '/'.join(paths)
+    path = path.replace('\\', '/').strip('/')
+    path = os.path.expanduser(path)
+    path = os.path.expandvars(path)
+
+    return path
+
+def subpaths(path):
+    '''
+    Returns a list of subpaths in a path, one for each level in the path
+    This is an internal function used for ONLY for iterating over paths in a container
+    As such it should not be used for filesystem paths since separators will vary across platforms
+    '''
+
+    path_parts = getPathParts(path)
+
+    for i in range(len(path_parts)):
+
+        ipath = os.path.join(*path_parts[:i+1])
+        yield ipath
+
+class FpOpener(object):
+    def __init__(self, fpobj):
+        self.fpobj = fpobj
+        self.fd = fpobj.open()
+
+    def seek(self, *args):
+        return self.fd.seek(*args)
+
+    def read(self, *args):
+        return self.fd.read(*args)
+
+    def close(self):
+        self.fd.close()
+        self.fpobj.close()
+
+class FpFile(object):
+    def __init__(self, pparts, idx, parent=None, fd=None):
         '''
         Base path object for regular filesystems
         '''
         self.fd = fd
-        self.name = name
-        self._child = None
-        self.tempfd = None
-        self._parent = parent
+        self.idx = idx
+        self.end = False
+        self.maxidx = idx+1
+        self.pparts = pparts
+        self._isfile = True
 
     def open(self, mode='rb'):
         '''
         Returns a file-like object for this path
         This should return None if it doesn't make sense to open, i.e. a directory
         '''
-        return None
+
+        if not self.isfile():
+            return None
+
+        if not self.fd:
+            self.fd = open(genpath(*self.pparts[:self.maxidx]), mode=mode)
+
+        return self.fd
+
+    def close(self):
+        '''
+        Closes the file-like object if it has one
+        '''
+        if self.fd:
+            self.fd.close()
 
     def isfile(self):
         '''
         Returns a boolean.  If it returns False, it may be assumed to be a directory
         '''
-        return True
-
-    def child(self, name):
-
-        self._processNext(name)
-        return self._child
-
-    def parent(self):
-        return self._parent
+        return self._isfile
 
     def path(self):
-        parts = []
-        if self._parent != None:
-            parts.append(self._parent.path())
-        parts.append(self.name)
-        return os.path.join(*parts)
+        return genpath(*self.pparts[:self.maxidx])
 
-    def list(self):
-        return os.listdir(self.path())
+    def nexts(self):
+        # pparts up to *our* index should be discrete, anything after may still be a glob
 
-    def _processNext(self, child_name):
+        maxidx = self.idx
+        spath = genpath(*self.pparts[:self.idx+1])
+
+        # if itsa regular file
+        if os.path.isfile(spath):
+            if self.idx+1 == len(self.pparts)-1:
+                self.end = True
+                yield self
+            return 
+
+        spaths = [spath]
+
+        ends = []
+        nexts = []
+        for idx in range(self.idx+1, len(self.pparts)):
+            cpaths = []
+            for spath in spaths:
+                match = self.pparts[idx]
+
+                for member in os.listdir(spath):
+                    if not fnmatch.fnmatch(member, match):
+                        continue
+                    tpath = genpath(spath, member)
+
+                    # discrete path with remaining wildcards
+                    eparts = getPathParts(spath)
+                    eparts.append(member)
+                    eparts.extend(self.pparts[idx+1:])
+
+                    if idx == len(self.pparts)-1:
+                        cls = _pathClass(tpath)
+                        if cls:
+                            fp = cls(eparts, idx, parent=self)
+                            fp.next()
+                            fp.end = True
+                            yield fp
+                    else:
+                        if os.path.isfile(tpath):
+                            cls = _pathClass(tpath)
+                            fp = cls(eparts, idx, parent=self)
+                            yield fp
+                        else:
+                            cpaths.append(genpath(spath, member))
+            spaths = cpaths
+
+    def next(self):
         '''
         This is the workhorse method that can contain path specific processing of children.
-        Override for container formats
+        The object should consume as much as possible of the path before creating the 
+        child class
+
+        NOTE: Override for container formats
         '''
 
-        cls = _pathClass(self.path(), child_name)
-        self._child = cls(child_name, parent=self)
+        # get longest consistent path
+        partlen = len(self.pparts)
+        # the end of the line
+        if self.idx == partlen-1:
+            if os.path.isdir(genpath(*self.pparts[:self.idx+1])):
+                self._isfile = False
+            return
 
-class FpFile(FilePath):
-    '''
-    The base path object for filesystem files.
-    '''
-    def open(self, mode='rb'):
-        if self.fd:
-            return self.fd
-        return open(self.path(), mode=mode)
+        maxpath = None
+        checkpath = genpath(*self.pparts[:self.idx+1])
+        cidx = self.idx + 1
 
-    def list(self):
-        return []
+        while cidx < partlen:
+            checkpath = genpath(*self.pparts[:cidx+1])
+            if not os.path.exists(checkpath):
+                break
+            maxpath = checkpath
+            cidx += 1
 
-class FpDir(FilePath):
-    '''
-    The base dir object for filesystem files.
-    '''
-    def isfile(self):
-        return False
+        self.maxidx = cidx
 
-class CntrPath(FilePath):
-    def __init__(self, name, parent=None, fd=None):
-        super(CntrPath, self).__init__(name, parent=parent, fd=fd)
+        # if the max path is a dir, we're finished
+        if os.path.isdir(maxpath):
+            self._isfile = False
+
+            if self.maxidx != partlen:
+                self.close()
+                raise s_exc.NoSuchPath(path=os.path.join(*self.pparts))
+
+        # if end of the path we're finished
+        if self.maxidx == partlen:
+            return
+
+        # supported container file
+        cls = _pathClass(*self.pparts[:self.maxidx])
+        return cls(self.pparts, self.maxidx-1, parent=self)
+
+class FpTar(FpFile):
+    def __init__(self, pparts, idx, parent=None, fd=None):
+        self.fd = fd
+        self.inner_fd = None
+
+        if not self.fd:
+            self.fd = open(genpath(*pparts[:idx+1]), 'rb')
         self._init()
 
-    def isfile(self):
-        return True
+        self.innrEnum()
 
-    def list(self):
-        '''
-        Return a list of files/directories immediately "inside" this path
-        e.g.
-        /foo/bar/baz
-        /foo/bar/haz
-        /foo/bar/naz/caz
-
-        if the above the structure and the path is /foo/bar, baz,haz,naz should be returned
-        '''
-        dirs, files = self._cntrLs(self._cntrPath())
-        return dirs + files
+        super(FpTar, self).__init__(pparts, idx, parent=parent, fd=self.fd)
 
     def _init(self):
-        return
-
-    def _cntrPath(self):
-        return ''
-
-    def _normPath(self, *paths):
-        '''
-        Normalizes a path:
-        1. uses forward-slashes
-        2. removes leading slashes
-        3. removes trailing slashes
-
-        This is useful for container path enumeration
-        '''
-        path = '/'.join(paths)
-        return path.replace('\\', '/').strip('/')
-
-    def _pathList(self, path, members):
-        '''
-        Given a list of member paths, return the list of member names contained in path
-        '''
-        ls = []
-        for mebr in members:
-            if mebr == path:
-                continue
-            if os.path.dirname(mebr) != path:
-                continue
-
-            ls.append(os.path.basename(mebr))
-
-        return ls
-
-    def _cntrEnum(self, listfx):
-        '''
-        This function generically returns a list of files and directories from a container.
-        Container files generally have 'members' and not typical files and directories.
-
-        listfx -    listing function capable of returning a list of *all* the members of a container
-                    and should take no arguments
-        '''
-        files = set()
-        dirs = set()
-
-        for path in listfx():
-            for spath in self._cntrSubpaths(path):
-                if self._cntrIsFile(spath):
-                    files.add(spath)
-                    continue
-                dirs.add(spath)
-
-        return dirs, files
-
-    def _cntrSubpaths(self, path):
-        '''
-        Returns a list of subpaths in a path, one for each level in the path
-        This is an internal function used for ONLY for iterating over paths in a container
-        As such it should not be used for filesystem paths since separators will vary across platforms
-        '''
-
-        path_parts = getPathParts(path)
-
-        for i in range(len(path_parts)):
-
-            ipath = os.path.join(*path_parts[:i+1])
-            yield ipath
-
-class CntrPathDir(CntrPath):
-
-    def __init__(self, name, parent=None, fd=None):
-        self.cntr = parent.cntr
-        super(CntrPathDir, self).__init__(name, parent=parent, fd=fd)
-
-    def isfile(self):
-        return False
-
-    def open(self, mode='rb'):
-        return None
-
-    def _cntrPath(self):
-        '''
-        Returns the path of the member relative to the base of the container
-        '''
-        parts = []
-        if self._parent != None:
-            parts.append(self._parent._cntrPath())
-        parts.append(self.name)
-        return self._normPath(*parts)
-
-class TarMixin(object):
-
-    def _init(self):
-        if hasattr(self, 'cntr'):
-            return
-        if not self.fd:
-            self.fd = open(self.path(), 'rb')
         self.cntr = tarfile.open(fileobj=self.fd)
 
-    def _processNext(self, child_name):
+    def innrOpen(self, *parts):
+        return self.cntr.extractfile(normpath(*parts))
 
-        tdirs, tfiles = self._cntrLs(self._cntrPath())
+    def innrTmpExtract(self, path):
+        '''
+        Extract a file from within the container to a named temporary file
+        '''
+        tempfd = tempfile.NamedTemporaryFile(prefix='syn_sfp_')
 
-        if child_name in tdirs:
-            self._child = FpTarDir(child_name, parent=self)
+        cfd = self.innrOpen(path)
+        cbuf = cfd.read(read_chunk_sz)
+        while cbuf:
+            tempfd.write(cbuf)
+            cbuf = cfd.read(read_chunk_sz)
+        cfd.close()
 
-        elif child_name in tfiles:
-            fptf = FpTarFile(child_name, parent=self)
+        tempfd.flush()
+        tempfd.seek(0)
+        return tempfd
 
-            cls = _fdClass(fptf.open())
-            self._child = cls(child_name, parent=self, fd=fptf.open())
+    def innrEnum(self):
+        '''
+        enumerate the files and directory paths in the container exactly once!
+        creates a nested dict *and* a set of files and dirs... memory inefficient
+        FIXME: consider abandoning sets
+        '''
+        self.files = set()
+        self.dirs = set()
+        self.dstruct = {}
 
-    def _cntrLs(self, path):
-        dirs, files = self._cntrEnum(self.cntr.getnames)
-        dirs = self._pathList(path, dirs)
-        files = self._pathList(path, files)
-        return dirs, files
+        for info in self.cntr.getmembers():
+            pparts = info.name.split('/')
+            if info.isfile():
+                self.files.add(info.name)
 
-    def _cntrIsFile(self, path):
-        info = self.cntr.getmember(path)
-        if info.isfile():
+                dstruct = self.dstruct
+                endidx = len(pparts)-1
+                for i, elem in enumerate(pparts):
+                    if i == endidx:
+                        dstruct[elem] = 1
+                        break
+                    dstruct.setdefault(elem, {})
+                    dstruct = dstruct[elem]
+                tdirs = pparts[:-1]
+                continue
+            if info.isdir():
+                self.dirs.add(info.name)
+
+                dstruct = self.dstruct
+                for elem in pparts:
+                    dstruct.setdefault(elem, {})
+                    dstruct = dstruct[elem]
+
+    def innerLs(self, path):
+        if not path:
+            return [k for k in self.dstruct.keys()]
+
+        pparts = path.split('/')
+        dstruct = self.dstruct
+        for p in pparts:
+            if dstruct == None:
+                return None
+            dstruct = dstruct.get(p)
+
+        return [k for k in dstruct.keys()]
+
+    def innrExists(self, path):
+        if path in self.files:
+            return True
+        if path in self.dirs:
             return True
         return False
 
-class FpTar(TarMixin, CntrPath):
-    def __init__(self, name, parent=None, fd=None):
-        TarMixin.__init__(self)
-        CntrPath.__init__(self, name, parent=parent, fd=fd)
+    def innrIsfile(self, path):
+        if path in self.files:
+            return True
+        return False
+
+    def innrIsdir(self, path):
+        if path in self.dirs:
+            return True
+        return False
 
     def open(self, mode='rb'):
-        self.fd.seek(0)
-        return self.fd
+        '''
+        Returns a file-like object for the path inside the container
+        This should return None if it doesn't make sense to open, i.e. a directory
+        or if the container doesn't contain the end of the path
+        '''
 
-class FpTarDir(TarMixin, CntrPathDir):
-    def __init__(self, name, parent=None, fd=None):
-        TarMixin.__init__(self)
-        CntrPathDir.__init__(self, name, parent=parent, fd=fd)
+        if self.maxidx != len(self.pparts):
+            return None
 
-class FpTarFile(FpTarDir):
+        inner_pparts = self.pparts[self.idx+1:self.maxidx]
+        self.inner_fd = self.innrOpen(*inner_pparts) 
+        return self.inner_fd
 
-    def isfile(self):
-        return True
+    def close(self):
+        '''
+        Closes the file-like object if it has one
+        '''
+        if self.inner_fd:
+            self.inner_fd.close()
 
-    def open(self, mode='rb'):
-        return self.cntr.extractfile(self._cntrPath())
+        self.cntr.close()
 
-class ZipMixin(object):
+        self.fd.close()
+
+    def path(self):
+        return os.path.join(*self.pparts[:self.maxidx])
+
+    def nexts(self):
+        # pparts up to *our* index should be discrete, anything after may still be a glob
+        maxidx = self.idx
+        spaths = ['']
+
+        ends = []
+        nexts = []
+        for idx in range(self.idx+1, len(self.pparts)):
+            cpaths = []
+            for spath in spaths:
+                match = self.pparts[idx]
+
+                for member in self.innerLs(spath):
+                    if not fnmatch.fnmatch(member, match):
+                        continue
+                    tpath = normpath(spath, member)
+
+                    if not self.innrIsfile(tpath):
+                        cpaths.append(normpath(spath, member))
+                        continue
+
+                    tempfd = self.innrTmpExtract(tpath)
+                    cls = _fdClass(tempfd)
+                    if not cls:
+                        continue
+
+                    eparts = getPathParts(tempfd.name)
+                    eidx = len(eparts)-1
+                    eparts.extend(self.pparts[idx+1:])
+                    fp = cls(eparts, eidx, parent=self, fd=tempfd)
+
+                    if idx == len(self.pparts)-1:
+                        fp.next()
+                        fp.end = True
+                    yield fp
+
+            spaths = cpaths
+
+    def next(self):
+        '''
+        This is the workhorse method for path specific processing of container children.
+        The object should consume as much as possible of the path before instantiating a new
+        object
+
+        At a minimum, each container should override:
+        innrOpen(path)
+        innrEnum(path)
+        '''
+
+        # get longest consistent path
+        partlen = len(self.pparts)
+
+        # the end of the line
+        if self.idx == partlen-1:
+            return
+
+        # since it's a container we only care about the "inner path"
+        maxpath = None
+        checkpath = None
+        cidx = self.idx + 1
+
+        while cidx < partlen:
+            checkpath = normpath(*self.pparts[self.idx+1:cidx+1])
+            if not self.innrExists(checkpath):
+                break
+            maxpath = checkpath
+            cidx += 1
+
+        if maxpath == None:
+            self.close()
+            raise s_exc.NoSuchPath(path=os.path.join(*self.pparts))
+        self.maxidx = cidx
+
+        # if the max path is a dir, we're finished
+        if self.innrIsdir(maxpath):
+            self._isfile = False
+
+            if self.maxidx != partlen:
+                self.close()
+                raise s_exc.NoSuchPath(path=os.path.join(*self.pparts))
+
+        # if end of the path we're finished
+        if self.maxidx == partlen:
+            return
+
+        # supported file
+        tempfd = self.innrTmpExtract(maxpath)
+
+        cls = _fdClass(tempfd)
+        if not cls:
+            return
+        tempfd.seek(0)
+
+        return cls(self.pparts, self.maxidx-1, parent=self, fd=tempfd)
+
+class FpZip(FpTar):
+    def __init__(self, pparts, idx, parent=None, fd=None):
+        super(FpZip, self).__init__(pparts, idx, parent=parent, fd=fd)
 
     def _init(self):
-        if hasattr(self, 'cntr'):
-            return
-        if not self.fd:
-            self.fd = open(self.path(), mode='rb')
         self.cntr = zipfile.ZipFile(self.fd)
 
-    def _cntrLs(self, path):
-        dirs, files = self._cntrEnum(self.cntr.namelist)
-        dirs = self._pathList(path, dirs)
-        files = self._pathList(path, files)
-        return dirs, files
+    def innrOpen(self, *parts):
+        return self.cntr.open(normpath(*parts))
 
-    def _cntrIsFile(self, path):
-        try:
-            info = self.cntr.getinfo(path)
-            return True
-        except KeyError as e:
-            return False
+    def innrEnum(self):
+        '''
+        enumerate the files and directory paths in the container exactly once!
+        '''
+        self.files = set()
+        self.dirs = set()
+        self.dstruct = {}
 
-    def _processNext(self, cname):
+        for cpath in self.cntr.namelist():
+            self.files.add(cpath)
 
-        zdirs, zfiles = self._cntrLs(self._cntrPath())
+            dpath = os.path.dirname(cpath)
+            self.dirs.update(subpaths(dpath))
 
-        if cname in zdirs:
-            self._child = FpZipDir(cname, parent=self)
-
-        if cname in zfiles:
-            self.tempfd = tempfile.SpooledTemporaryFile(prefix='syn_sfp_', max_size=max_temp_sz)
-
-            cpath = self._normPath(self._cntrPath(), cname)
-            zfd = self.cntr.open(cpath, mode='r')
-            zbuf = zfd.read(read_chunk_sz)
-            while zbuf:
-                self.tempfd.write(zbuf)
-                zbuf = zfd.read(read_chunk_sz)
-
-            self.tempfd.flush()
-            cls = _fdClass(self.tempfd)
-            self.tempfd.seek(0)
-
-            self._child = cls(cname, parent=self, fd=self.tempfd)
-
-class FpZip(ZipMixin, CntrPath):
-    def __init__(self, name, parent=None, fd=None):
-        ZipMixin.__init__(self)
-        CntrPath.__init__(self, name, parent=parent, fd=fd)
-
-    def open(self, mode='rb'):
-        self.fd.seek(0)
-        return self.fd
-
-class FpZipDir(ZipMixin, CntrPathDir):
-    def __init__(self, name, parent=None, fd=None):
-        ZipMixin.__init__(self)
-        CntrPathDir.__init__(self, name, parent=parent, fd=fd)
+            dstruct = self.dstruct
+            pparts = cpath.split('/')
+            endidx = len(pparts)-1
+            for i, elem in enumerate(pparts):
+                if i == endidx:
+                    dstruct[elem] = 1
+                    break
+                dstruct.setdefault(elem, {})
+                dstruct = dstruct[elem]
 
 def _pathClass(*paths):
     '''
@@ -327,7 +470,7 @@ def _pathClass(*paths):
         raise s_exc.NoSuchPath(path=path)
 
     if os.path.isdir(path):
-        return path_ctors.get('fs.reg.dir')
+        return path_ctors.get('fs.reg.file')
     with open(path, 'rb') as fd:
         mime = _mimeFile(fd)
     return path_ctors.get(mime)
@@ -376,31 +519,38 @@ def parsePaths(*paths):
 
     '''
     if None in paths:
-        return None
-
+        return 
     path = genpath(*paths)
 
-    path_parts = getPathParts(path)
+    pparts = getPathParts(path)
+    cls = _pathClass('/')
+    base = cls(pparts, 0, parent=None)
 
-    cls = _pathClass(path_parts[0])
-    base = cls(path_parts[0], parent=None)
+    ends_ct = 0
 
-    bases = [base]
-    chld_bases = []
-    for name in path_parts[1:]:
-        chld_bases = []
-        for base in bases:
-            for member in base.list():
-                if not fnmatch.fnmatch(member, name):
-                    continue
-                chld_bases.append(base.child(member))
+    bases = queue.Queue()
+    bases.put(base)
 
-        bases = chld_bases
+    try:
+        # iterate over each "matcher" in the path
+        # pull out each member at that level that matches
+        # and create a discrete path for that member to allow
+        # traversal
+        while True:
+            try:
+                base = bases.get_nowait()
+                for nex in base.nexts():
+                    if not nex.end:
+                        bases.put(nex)
+                        continue
+                    yield nex
+                    ends_ct += 1
+                base.close()
+            except queue.Empty as e:
+                break
 
-    if not bases:
-        return None
-
-    return bases
+    except s_exc.NoSuchPath as e:
+        return 
 
 def parsePath(*paths):
     '''
@@ -414,18 +564,23 @@ def parsePath(*paths):
 
     path_parts = getPathParts(path)
 
+    base = None
+    oldbases = []
     try:
 
         cls = _pathClass(path_parts[0])
-        base = cls(path_parts[0], parent=None)
-
-        for name in path_parts[1:]:
-            base = base.child(name)
-            if base == None:
-                return None
+        base = cls(path_parts, 0, parent=None)
+        nbase = base.next()
+        while nbase:
+            base = nbase
+            nbase = base.next()
+            if nbase:
+                oldbases.append(base)
 
     except s_exc.NoSuchPath as e:
         return None
+    finally:
+        [b.close() for b in oldbases]
 
     return base
 
@@ -445,19 +600,18 @@ def openfiles(*paths, **kwargs):
     '''
     reqd = kwargs.get('req', False)
     mode = kwargs.get('mode', 'r')
-    fpaths = parsePaths(*paths)
-    paths = [p for p in paths if p]
 
-    if not fpaths:
-        if not reqd:
-            return
-        raise s_exc.NoSuchPath(path='/'.join(paths))
-    for fpath in fpaths:
+    nopaths = True
+    for fpath in parsePaths(*paths):
+        nopaths = False
         if not fpath.isfile():
             if not reqd:
                 continue
+            fpath.close()
             raise s_exc.NoSuchPath(path=fpath.path())
-        yield fpath.open(mode=mode)
+        yield FpOpener(fpath)
+    if nopaths and reqd:
+        raise s_exc.NoSuchPath(path='/'.join(paths))
 
 def openfile(*paths, **kwargs):
     '''
@@ -473,6 +627,7 @@ def openfile(*paths, **kwargs):
         if fd == None:
             return
         fbuf = fd.read()
+        fd.close()
     '''
     reqd = kwargs.get('req', True)
     mode = kwargs.get('mode', 'r')
@@ -485,10 +640,11 @@ def openfile(*paths, **kwargs):
         return None
     if not fpath.isfile():
         if reqd:
+            fpath.close()
             raise s_exc.NoSuchPath(path=fpath.path())
         return None
 
-    return fpath.open(mode=mode)
+    return FpOpener(fpath)
 
 def isfile(*paths):
     '''
@@ -500,9 +656,8 @@ def isfile(*paths):
 
     if not fpath:
         return False
-    if fpath.isfile():
-        return True
-    return False
+    fpath.close()
+    return fpath.isfile()
 
 def isdir(*paths):
     '''
@@ -514,9 +669,8 @@ def isdir(*paths):
 
     if not fpath:
         return False
-    if fpath.isfile():
-        return False
-    return True
+    fpath.close()
+    return not fpath.isfile()
 
 def exists(*paths):
     '''
@@ -524,16 +678,14 @@ def exists(*paths):
     If a list of paths are provided, they are joined first.
     Returns a boolean.
     '''
-    if not parsePath(*paths):
+    fpath = parsePath(*paths)
+    if not fpath:
         return False
+    fpath.close()
     return True
 
 path_ctors = {
-    'fs.reg.dir': FpDir,
     'fs.reg.file': FpFile,
     'fs.tar.file': FpTar,
     'fs.zip.file': FpZip,
-    'inner.tar.dir': FpTarDir,
-    'inner.zip.dir': FpZipDir,
-    'inner.tar.file': FpTarFile,
 }

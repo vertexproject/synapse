@@ -7,6 +7,15 @@ import synapse.lib.syntax as s_syntax
 
 from synapse.eventbus import EventBus
 
+
+def get_input(text):  # pragma: no cover
+    '''
+    Wrapper for input() function for testing runCmdLoop.
+    :param text: Banner to display.
+    '''
+    return input(text)
+
+
 class CliFini(Exception): pass
 
 class Cmd:
@@ -70,7 +79,7 @@ class Cmd:
             if defval != None:
                 opts[snam] = defval
 
-            if synt[1].get('type') == 'list':
+            if synt[1].get('type') in ('list','kwlist'):
                 opts[snam] = []
 
         def atswitch(t,o):
@@ -142,6 +151,11 @@ class Cmd:
                 opts[synt[0]] = valu
                 break
 
+            if styp == 'kwlist':
+                kwlist,off = s_syntax.parse_cmd_kwlist(text,off)
+                opts[snam] = kwlist
+                break
+
             valu,off = s_syntax.parse_cmd_string(text,off)
             opts[synt[0]] = valu
 
@@ -160,6 +174,8 @@ class Cmd:
         '''
         Return the help/doc output for this command.
         '''
+        if not self.__doc__:
+            return ''
         return self.__doc__
 
     def printf(self, mesg, addnl=True):
@@ -214,10 +230,12 @@ class Cli(EventBus):
         '''
         return self.cmds.get(name)
 
-    def runCmdLoop(self, stdin=sys.stdin):
+    def runCmdLoop(self):
         '''
         Run commands from stdin until close or fini().
         '''
+        import readline
+        readline.read_init_file()
 
         while not self.isfini:
 
@@ -228,9 +246,7 @@ class Cli(EventBus):
 
             try:
 
-                self.printf( self.cmdprompt, addnl=False )
-
-                line = input()
+                line = get_input(self.cmdprompt)
                 if not line:
                     continue
 
@@ -242,6 +258,9 @@ class Cli(EventBus):
 
             except KeyboardInterrupt as e:
                 self.printf('<ctrl-c>')
+
+            except EOFError as e:
+                self.fini()
 
             except Exception as e:
                 traceback.print_exc()
@@ -270,7 +289,7 @@ class Cli(EventBus):
 
             ret = cmdo.runCmdLine(line)
 
-        except CliFini as e:
+        except (CliFini, EOFError) as e:
             self.fini()
 
         except KeyboardInterrupt as e:

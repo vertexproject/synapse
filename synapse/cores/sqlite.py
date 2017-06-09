@@ -237,9 +237,11 @@ class Cortex(s_cores_common.Cortex):
         limit = self._getDbLimit(limit)
 
         q = self._q_getrows_by_range
-        args = [ prop, valu[0], valu[1], limit ]
 
-        rows = self.select(q, prop=prop, minvalu=valu[0], maxvalu=valu[1], limit=limit)
+        minvalu = int(valu[0])
+        maxvalu = int(valu[1])
+
+        rows = self.select(q, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)
         return self._foldTypeCols(rows)
 
     def _rowsByGe(self, prop, valu, limit=None):
@@ -571,7 +573,7 @@ class Cortex(s_cores_common.Cortex):
         return self._rowsToTufos(rows)
 
     def _tufosByLe(self, prop, valu, limit=None):
-        valu,_ = self.getPropFrob(prop,valu)
+        valu,_ = self.getPropNorm(prop,valu)
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_le_int, prop=prop, valu=valu, limit=limit)
@@ -580,7 +582,7 @@ class Cortex(s_cores_common.Cortex):
         return self._rowsToTufos(rows)
 
     def _tufosByGe(self, prop, valu, limit=None):
-        valu,_ = self.getPropFrob(prop,valu)
+        valu,_ = self.getPropNorm(prop,valu)
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_ge_int, prop=prop, valu=valu, limit=limit)

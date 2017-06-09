@@ -2,6 +2,34 @@ import importlib
 
 from synapse.common import *
 
+aliases = {}
+
+def addDynAlias(name,item):
+    '''
+    Add an "alias" to the dyndeps resolver system.
+
+    Example:
+
+        addDynAlias('foobar',FooBar)
+
+        # ... subsequently allows ...
+
+        x = getDynLocal('foobar')
+
+    '''
+    aliases[name] = item
+
+def delDynAlias(name):
+    '''
+    Remove (and return) a dyndeps "alias" previously registered with addDynAlias()
+
+    Example:
+
+        delDynAlias('foobar')
+
+    '''
+    return aliases.pop(name,None)
+
 def getDynMod(name):
     '''
     Dynamically import a python module and return a ref (or None).
@@ -26,25 +54,47 @@ def getDynLocal(name):
         blah = cls()
 
     '''
+    item = aliases.get(name,novalu)
+    if item is not novalu:
+        return item
+
+    # this is probably a whiffd alias
+    if name.find('.') == -1:
+        return None
+
     modname,objname = name.rsplit('.',1)
     mod = getDynMod(modname)
     if mod == None:
         return None
+
     return getattr(mod,objname,None)
 
 def tryDynMod(name):
     '''
     Dynamically import a python module or exception.
     '''
-    return importlib.import_module(name)
+    try:
+        return importlib.import_module(name)
+    except ImportError as e:
+        raise NoSuchDyn(name=name)
 
 def tryDynLocal(name):
     '''
     Dynamically import a module and return a module local or raise an exception.
     '''
+    item = aliases.get(name,novalu)
+    if item is not novalu:
+        return item
+
+    if name.find('.') == -1:
+        raise NoSuchDyn(name=name)
+
     modname,objname = name.rsplit('.',1)
     mod = tryDynMod(modname)
-    return getattr(mod,objname)
+    item = getattr(mod,objname,novalu)
+    if item is novalu:
+        raise NoSuchDyn(name=name)
+    return item
 
 def tryDynFunc(name,*args,**kwargs):
     '''
@@ -78,7 +128,7 @@ def runDynEval(text, locs=None):
     Example:
 
         # dyn imports foo.bar and calls foo.bar.baz('woot', y=30)
-        valu = runDynEval("foo.bar.baz('woot',y=30)"
+        valu = runDynEval("foo.bar.baz('woot',y=30)")
 
     WARNING: duh.  this executes arbitrary code.  trusted inputs only!
     '''

@@ -35,13 +35,6 @@ class DataModelTest(SynTest):
         self.assertEqual( model.getPropParse('foo:zip', 'WOOT')[0], 'woot')
         self.assertEqual( model.getPropParse('foo:nonexistent', 'stillwoot'), 'stillwoot')
 
-        self.assertEqual( model.getPropFrob('foo:bar', 10), (10, {}))
-        self.assertEqual( model.getPropFrob('foo:bar', '10'), (10, {}))
-        self.assertEqual( model.getPropFrob('foo:baz', 'woot'), ('woot', {}))
-        self.assertEqual( model.getPropFrob('foo:faz', 'WOOT.toow'), ('woot.toow',{}))
-        self.assertEqual( model.getPropFrob('foo:zip', 'WOOT'), ('woot',{}))
-        self.assertEqual( model.getPropFrob('foo:bar', 'not an integer'), (None, {}))
-
     def test_datamodel_glob(self):
         model = s_datamodel.DataModel()
 
@@ -231,7 +224,6 @@ class DataModelTest(SynTest):
         self.assertRaises(BadTypeValu, model.getTypeNorm, 'syn:prop', 'asdf qwer' )
         self.assertRaises(BadTypeValu, model.getTypeNorm, 'syn:prop', 'foo::bar' )
 
-        self.eq( model.getTypeFrob('syn:prop','BAR')[0], 'bar' )
         self.eq( model.getTypeNorm('syn:prop','BAR')[0], 'bar' )
         self.eq( model.getTypeParse('syn:prop','BAR')[0], 'bar' )
         self.eq( model.getTypeNorm('syn:prop','foo:BAR')[0], 'foo:bar' )
@@ -266,7 +258,7 @@ class DataModelTest(SynTest):
         model.addTufoForm('foo')
         model.addTufoProp('foo','meow', ptype='int')
 
-        self.eq( model.getPropDef('foo:meow'), ('foo:meow', {'doc': None, 'title': None, 'defval': None, 'form': 'foo', 'uniq': False, 'ptype': 'int'}) )
+        self.eq( model.getPropDef('foo:meow'), ('foo:meow', {'doc': None, 'title': None, 'defval': None, 'form': 'foo', 'base':'meow', 'uniq': False, 'ptype': 'int'}) )
         self.eq( model.getPropDef('foo:meow:nonexistent'), None)
         self.eq( model.getPropDef('foo:meow:nonexistent', glob=False), None)
 
@@ -276,11 +268,9 @@ class DataModelTest(SynTest):
 
         self.eq( s_datamodel.getTypeNorm('str', 'haha'),  ('haha',{}) )
         self.eq( s_datamodel.getTypeNorm('inet:ipv4', 0x01020304),  (16909060,{}) )
+        self.eq( s_datamodel.getTypeNorm('inet:ipv4', '1.2.3.4'),  (16909060,{}) )
 
-        self.eq( s_datamodel.getTypeFrob('str', 'haha'),  ('haha',{}) )
-        self.eq( s_datamodel.getTypeFrob('inet:ipv4', '1.2.3.4'),  (16909060,{}) )
-        self.eq( s_datamodel.getTypeFrob('inet:ipv4', 0x01020304),  (16909060,{}) )
-        self.eq( s_datamodel.getTypeFrob('inet:ipv4', 'haha'),  (None,{}) )
+        self.raises( s_datamodel.BadTypeValu, s_datamodel.getTypeNorm, 'inet:ipv4', 'hahaha' )
 
         self.eq( s_datamodel.getTypeParse('str', 'haha'),  ('haha',{}) )
         self.eq( s_datamodel.getTypeParse('inet:ipv4', '1.2.3.4'),  (16909060,{}) )
@@ -290,36 +280,28 @@ class DataModelTest(SynTest):
         prop = 'file:path'
 
         data = (
-            ('', ('', {}), ''),
-            ('/', ('', {}), '/'),
-            ('//', ('', {}), '//'),
-            ('////////////', ('', {}), '////////////'),
-            ('weirD', ('weird', {'base': 'weird'}), 'weirD' ),
+            ('/', ('/', {'dir': '','depth':0}), '/'),
+            ('//', ('/', {'dir': '','depth':0}), '//'),
+            ('////////////', ('/', {'dir': '','depth':0}), '////////////'),
+            ('weirD', ('weird', {'base': 'weird','dir':'','depth':1}), 'weirD' ),
 
-            ('foo', ('foo', {'base': 'foo'}), 'foo'),
-            ('/foo', ('foo', {'base': 'foo'}), '/foo'),
-            ('/foo/bar', ('foo/bar', {'base': 'bar', 'dir': 'foo'}), '/foo/bar'),
-            ('/foo/bar    ', ('foo/bar    ', {'base': 'bar    ', 'dir': 'foo'}), '/foo/bar    '),  # These are valid filepaths
-            ('/foo/bar/', ('foo/bar', {'base': 'bar', 'dir': 'foo'}), '/foo/bar/'),
+            ('foo1', ('foo1', {'base': 'foo1','dir':'','depth':1}), 'foo1'),
+            ('/foo2', ('/foo2', {'base': 'foo2','dir':'','depth':1}), '/foo2'),
+            ('/foo/bar3', ('/foo/bar3', {'base': 'bar3', 'dir': '/foo','depth':2}), '/foo/bar3'),
+            ('/foo/bar4    ', ('/foo/bar4    ', {'base': 'bar4    ', 'dir': '/foo', 'depth':2}), '/foo/bar4    '),  # These are valid filepaths
+            ('/foo/bar5/', ('/foo/bar5', {'base': 'bar5', 'dir': '/foo', 'depth':2}), '/foo/bar5/'),
 
-            ('C:\\', ('c:', {'base': 'c:'}), 'C:\\'),
+            ('C:\\', ('c:', {'base': 'c:','depth':1,'dir':''}), 'C:\\'),
             ('C:\\Program Files\\Foo.bAr.BAZ.exe',
-                ('c:/program files/foo.bar.baz.exe', {'base': 'foo.bar.baz.exe', 'dir': 'c:/program files'}), 'C:\\Program Files\\Foo.bAr.BAZ.exe')
+                ('c:/program files/foo.bar.baz.exe', {'base': 'foo.bar.baz.exe', 'dir': 'c:/program files','depth':3,'ext':'exe'}), 'C:\\Program Files\\Foo.bAr.BAZ.exe')
         )
 
         for valu, expected, expected_repr in data:
 
             self.assertEqual(expected,      model.getTypeNorm(prop, valu))
             self.assertEqual(expected,      model.getTypeParse(prop, valu))
-            self.assertEqual(expected,      model.getTypeFrob(prop, valu))
             self.assertEqual(expected_repr, model.getTypeRepr(prop, valu))
 
-
-        bads = (None, [], {}, 1)
-        for bad in bads:
-            self.assertRaises(s_datamodel.BadTypeValu, model.getTypeNorm, prop, bad)
-            self.assertRaises(s_datamodel.BadTypeValu, model.getTypeParse, prop, bad)
-            self.assertEqual((None, {}), model.getTypeFrob(prop, bad))
 
     def test_datamodel_filebase(self):
         model = s_datamodel.DataModel()
@@ -335,11 +317,22 @@ class DataModelTest(SynTest):
 
             self.assertEqual(expected,      model.getTypeNorm(prop, valu))
             self.assertEqual(expected,      model.getTypeParse(prop, valu))
-            self.assertEqual(expected,      model.getTypeFrob(prop, valu))
             self.assertEqual(expected_repr, model.getTypeRepr(prop, valu))
 
-        bads = (None, [], {}, 1, '/teehee', 'hoho/haha', '')
+        bads = (None, [], {}, 1, '/teehee', 'hoho/haha')
         for bad in bads:
             self.assertRaises(s_datamodel.BadTypeValu, model.getTypeNorm, prop, bad)
             self.assertRaises(s_datamodel.BadTypeValu, model.getTypeParse, prop, bad)
-            self.assertEqual((None, {}), model.getTypeFrob(prop, bad))
+
+    def test_datamodel_formbase(self):
+
+        modl = s_datamodel.DataModel()
+        modl.addTufoForm('foo:bar')
+        modl.addTufoProp('foo:bar','baz')
+
+        form,base = modl.getPropFormBase('foo:bar:baz')
+
+        self.eq(form,'foo:bar')
+        self.eq(base,'baz')
+
+        self.raises( NoSuchProp, modl.getPropFormBase, 'newp:newp' )
