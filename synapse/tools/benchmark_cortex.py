@@ -167,7 +167,7 @@ class TestData:
               (small_count, medium_count, large_count, huge_count))
 
 
-def _run_x(func, data, *args, num_threads=1, **kwargs):
+def _run_x(func, data, num_threads=1, *args, **kwargs):
     chunk_size = ceil(len(data)/num_threads)
     chunks = [data[i:i + chunk_size] for i in range(0, len(data), chunk_size)]
     threads = [threading.Thread(target=func, args=[chunks[x]] + list(args), kwargs=kwargs)
