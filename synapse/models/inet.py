@@ -414,12 +414,12 @@ class FqdnType(DataType):
 
     def norm(self, valu, oldval=None):
         valu = valu.replace('[.]','.')
-        if not fqdnre.match(valu):
+        try:
+            valu = valu.encode('idna').decode('utf8').lower()
+        except UnicodeError as e:
             self._raiseBadValu(valu)
 
-        try:
-            valu = valu.encode('idna').decode('idna').lower()
-        except UnicodeError as e:
+        if not fqdnre.match(valu):
             self._raiseBadValu(valu)
 
         parts = valu.split('.', 1)
@@ -429,6 +429,9 @@ class FqdnType(DataType):
         else:
             subs['sfx'] = 1
         return valu,subs
+
+    def repr(self, valu):
+        return valu.encode('utf8').decode('idna')
 
 
 # RFC5952 compatible
