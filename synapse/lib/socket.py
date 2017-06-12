@@ -12,7 +12,7 @@ import msgpack
 import collections
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.WARNING,
                     format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s]')
 
 import synapse.common as s_common
@@ -204,7 +204,6 @@ class Socket(EventBus):
     def fireobj(self, msg, **msginfo):
         return self.tx( (msg,msginfo) )
 
-
     def tx(self, mesg):
         '''
         Transmit a mesg tufo ( type, info ) via the socket using msgpack.
@@ -244,6 +243,10 @@ class Socket(EventBus):
         if self.get('preread'):
             self.fire('link:sock:preread', sock=self)
             return
+
+        while self.rxque:
+            logger.info('yielding an obj we already have')
+            yield self.rxque.popleft()
 
         logger.info('Getting the first 102400 bytes')
         byts = self.recv(102400)

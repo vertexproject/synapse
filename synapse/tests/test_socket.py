@@ -90,11 +90,11 @@ class SocketTest(SynTest):
 
         def onsent(mesg):
             data['tx'] = data['tx'] + mesg[1].get('sent')
-            print(data)
+            # print(data)
 
         def onrecv(mesg):
             data['rx'] = data['rx'] + mesg[1].get('recv')
-            print(data)
+            # print(data)
 
         plex.on('sock:tx:sentbytes', onsent)
         s2.on('sock:tx:sentbytes', onsent)
