@@ -80,25 +80,55 @@ class SocketTest(SynTest):
 
         plex.addPlexSock(s2)
 
-        s2.tx( tufo('hi',there='there') )
+        print(s1.gettimeout())
+        # the rx socket is a blocking socket which cause calls to
+        # rx() to block on the recv() call in the main thread of
+        # the python program
+        print(s2.gettimeout())
+
+        data = {'rx': 0, 'tx': 0}
+
+        def onsent(mesg):
+            data['tx'] = data['tx'] + mesg[1].get('sent')
+
+        def onrecv(mesg):
+            data['rx'] = data['rx'] + mesg[1].get('recv')
+
+        plex.on('sock:tx:sentbytes', onsent)
+        s2.on('sock:tx:sentbytes', onsent)
+        s1.on('sock:rx:recvbytes', onrecv)
+
+
+        t1 = tufo('hi',there='there')
+        t2 = tufo('OMG', y='A'*409000)
+        t3 = tufo('foo', bar='baz')
+
+        # Expected bytes #s
+        t1_bytes, t2_bytes, t3_bytes = msgenpack(t1), msgenpack(t2), msgenpack(t3)
+        total_bytes = sum([len(t1_bytes), len(t2_bytes), len(t3_bytes)])
+
+        s2.tx( t1 )
 
         self.assertEqual( s1.recvobj()[0], 'hi' )
 
-        t = tufo('OMG', y='A'*409000)
+        self.eq(data['tx'], data['rx'])
+
         # So this is pushing a large message which is going to be
         # transmitted in parts - hence the NEXT assertion statement
-        s2.tx( t )
+        s2.tx( t2 )
 
         self.assertIsNotNone( s2.txbuf )
         # This tx should CLEAR the txbuf???
-        s2.tx( tufo('foo', bar='baz') )
+        s2.tx( t3 )
 
         self.assertEqual( len(s2.txque), 1 )
         print('recvobj call 1')
         m1 = s1.recvobj()
         print(type(m1))
         print(len(m1))
+        self.assertEqual( len(s2.txque), 0 )
         self.none( s2.txbuf )
+        print(data)
         print('recvobj call 2')
         # time.sleep(10)
         m2 = s1.recvobj()

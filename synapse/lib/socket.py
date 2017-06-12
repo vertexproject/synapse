@@ -197,12 +197,13 @@ class Socket(EventBus):
         return byts
 
     def recvobj(self):
-        # logger.info('Entering recvobj')
+        logger.info('Entering recvobj')
         for mesg in self:
             return mesg
 
     def fireobj(self, msg, **msginfo):
         return self.tx( (msg,msginfo) )
+
 
     def tx(self, mesg):
         '''
@@ -252,6 +253,7 @@ class Socket(EventBus):
             return
 
         logger.info('got {} bytes'.format(len(byts)))
+        self.fire('sock:rx:recvbytes', recv=len(byts))
 
         try:
             logger.info('unpacking message')
@@ -485,6 +487,7 @@ class Plex(EventBus):
                     return
 
                 blen = len(byts)
+                sock.fire('sock:tx:sentbytes', sent=sent)
                 if sent == blen:
                     return
 
@@ -515,6 +518,7 @@ class Plex(EventBus):
 
             sock.txsize -= sent
             sock.fire('sock:tx:size', size=sock.txsize)
+            sock.fire('sock:tx:sentbytes', sent=sent)
 
             # did we not even manage the whole txbuf?
             if sent < len(sock.txbuf):
