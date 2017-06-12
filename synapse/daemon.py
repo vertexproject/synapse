@@ -440,8 +440,10 @@ class Daemon(EventBus,DmonConf):
             return sock.tx( tufo('job:done', err='NoSuchRule', jid=jid) )
 
         def onfini():
+            logger.error('Now removing {} from pushed objs'.format(name))
             self.pushed.pop(name,None)
             self.reflect.pop(name,None)
+            logger.error('Done removing the pushed obj')
 
         sock.onfini(onfini)
 
