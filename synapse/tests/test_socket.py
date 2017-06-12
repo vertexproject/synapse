@@ -85,17 +85,22 @@ class SocketTest(SynTest):
         self.assertEqual( s1.recvobj()[0], 'hi' )
 
         t = tufo('OMG', y='A'*409000)
+        # So this is pushing a large message which is going to be
+        # transmitted in parts - hence the NEXT assertion statement
         s2.tx( t )
 
         self.assertIsNotNone( s2.txbuf )
-
+        # This tx should CLEAR the txbuf???
         s2.tx( tufo('foo', bar='baz') )
 
         self.assertEqual( len(s2.txque), 1 )
         print('recvobj call 1')
         m1 = s1.recvobj()
+        print(type(m1))
+        print(len(m1))
+        self.none( s2.txbuf )
         print('recvobj call 2')
-        time.sleep(0.01)
+        # time.sleep(10)
         m2 = s1.recvobj()
         print('Checking assertions!')
         self.assertEqual( len(m1[1].get('y')), 409000 )

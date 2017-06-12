@@ -162,7 +162,7 @@ class Socket(EventBus):
         return byts
 
     def _rx_xform(self, byts):
-        logger.info('Entering _rx_xform')
+        # logger.info('Entering _rx_xform')
         for xform in self.xforms:
             byts = xform.rxform(byts)
         return byts
@@ -212,10 +212,10 @@ class Socket(EventBus):
         if self.plex != None:
             logger.info('using plex tx')
             return self.plex._txSockMesg(self,mesg)
-        logger.info('Trying to tx directly')
+
         try:
             byts = msgenpack(mesg)
-            logger.info('Sending {} bytes'.format(len(byts)))
+
             if len(byts) > 50000 and self.get('sock:can:gzip'):
                 byts = sockgzip(byts)
 
@@ -260,7 +260,10 @@ class Socket(EventBus):
                 self.rxque.append(mesg)
 
             while self.rxque:
-                yield self.rxque.popleft()
+                logger.info('yielding an obj')
+                obj = self.rxque.popleft()
+                yield obj
+                logger.info('yielded an obj')
 
         except Exception as e:
             logger.exception(e)
@@ -326,7 +329,7 @@ class Socket(EventBus):
         '''
         try:
 
-            logger.info('Entering recv')
+            logger.info('Entering recv {}'.format(threading.current_thread().name))
             byts = self.sock.recv(size)
             if not byts:
                 logger.warning('no bytes!')
@@ -430,7 +433,7 @@ class Plex(EventBus):
 
         '''
         sock.plex = self
-        sock.setblocking(0)
+        sock.setblocking(0.0)
 
         iden = sock.iden
 
@@ -451,9 +454,11 @@ class Plex(EventBus):
 
     def _txSockMesg(self, sock, mesg):
         # handle the need to send on a socket in the plex
+        logger.info('Sending mesg: {}'.format(mesg[0]))
         byts = msgenpack(mesg)
         if len(byts) > 50000 and sock.get('sock:can:gzip'):
             byts = sockgzip(byts)
+        logger.info('Its size is: {}'.format(len(byts)))
 
         with self._plex_lock:
 
@@ -483,15 +488,17 @@ class Plex(EventBus):
                 if sent == blen:
                     return
 
+                diff = blen - sent
+                logger.info('short send - bytes remaining: {}'.format(diff))
                 # our send was a bit short...
                 sock.txbuf = byts[sent:]
-                sock.txsize += (blen-sent)
+                sock.txsize += (diff)
                 sock.fire('sock:tx:size', size=sock.txsize)
 
                 self._plex_txsocks.append(sock)
                 self._plexWake()
                 return
-
+            logger.info('backlog addition')
             # so... we have a backlog...
             sock.txque.append(byts)
 
@@ -501,6 +508,7 @@ class Plex(EventBus):
     def _runSockTx(self, sock):
         # handle socket select() for tx
         # ( this is *always* run by plexMainLoop() )
+        logger.info('in _runSockTx - thread: {}'.format(threading.current_thread().name))
         with self._plex_lock:
 
             sent = sock.send( sock.txbuf )
@@ -510,6 +518,7 @@ class Plex(EventBus):
 
             # did we not even manage the whole txbuf?
             if sent < len(sock.txbuf):
+                logger.info('Did not send entire buff')
                 sock.txbuf = sock.txbuf[sent:]
                 return
 
