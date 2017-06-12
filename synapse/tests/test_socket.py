@@ -90,9 +90,11 @@ class SocketTest(SynTest):
 
         def onsent(mesg):
             data['tx'] = data['tx'] + mesg[1].get('sent')
+            print(data)
 
         def onrecv(mesg):
             data['rx'] = data['rx'] + mesg[1].get('recv')
+            print(data)
 
         plex.on('sock:tx:sentbytes', onsent)
         s2.on('sock:tx:sentbytes', onsent)
@@ -108,8 +110,8 @@ class SocketTest(SynTest):
         total_bytes = sum([len(t1_bytes), len(t2_bytes), len(t3_bytes)])
 
         s2.tx( t1 )
-
-        self.assertEqual( s1.recvobj()[0], 'hi' )
+        m0 = s1.recvobj()
+        self.assertEqual( m0[0], 'hi' )
 
         self.eq(data['tx'], data['rx'])
 
@@ -127,8 +129,8 @@ class SocketTest(SynTest):
         print(type(m1))
         print(len(m1))
         self.assertEqual( len(s2.txque), 0 )
-        self.none( s2.txbuf )
         print(data)
+        print('rx queue length {}'.format(len(s1.rxque)))
         print('recvobj call 2')
         # time.sleep(10)
         m2 = s1.recvobj()

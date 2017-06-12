@@ -259,12 +259,12 @@ class Socket(EventBus):
             logger.info('unpacking message')
             self.unpk.feed(byts)
             for mesg in self.unpk:
+                logger.info('Queing up {}'.format(mesg[0]))
                 self.rxque.append(mesg)
 
             while self.rxque:
                 logger.info('yielding an obj')
-                obj = self.rxque.popleft()
-                yield obj
+                yield self.rxque.popleft()
                 logger.info('yielded an obj')
 
         except Exception as e:
