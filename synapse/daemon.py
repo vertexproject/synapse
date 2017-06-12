@@ -668,8 +668,10 @@ class Daemon(EventBus,DmonConf):
                     if pushsock != None:
                         # pass along how to reply
                         mesg[1]['suid'] = sock.iden
+                        # XXX On timeout instances this is called instead of noSuchObj
+                        logger.warning('We are in pushsock land!')
                         return pushsock.tx( mesg )
-
+                    logger.warning('Ruh row - noSuchObj({}) called'.format(name))
                     raise NoSuchObj(name)
 
                 task = mesg[1].get('task')

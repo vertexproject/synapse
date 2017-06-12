@@ -12,8 +12,8 @@ import msgpack
 import collections
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.WARNING,
-                    format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s]')
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s:%(threadName)s]')
 
 import synapse.common as s_common
 import synapse.lib.scope as s_scope

@@ -89,7 +89,8 @@ class NoCurrSess(Exception):pass # API requires a current session
 class SidNotFound(Exception):pass
 class PropNotFound(Exception):pass
 
-class HitMaxTime(Exception):pass
+# class HitMaxTime(Exception):pass  # This is not a SynErr
+class HitMaxTime(SynErr):pass  # This is not a SynErr
 class HitMaxRetry(Exception):pass
 
 class NotEnoughFree(Exception):pass

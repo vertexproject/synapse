@@ -4,6 +4,7 @@ An RMI framework for synapse.
 import copy
 import time
 import zlib
+import logging
 import getpass
 import threading
 import threading
@@ -26,8 +27,9 @@ import synapse.lib.threads as s_threads
 
 from synapse.common import *
 from synapse.compat import queue
-
 s_mixins.addSynMixin('telepath','synapse.axon.AxonMixin')
+
+logger = logging.getLogger(__name__)
 
 # telepath protocol version
 # ( compat breaks only at major ver )
@@ -387,7 +389,8 @@ class Proxy(s_eventbus.EventBus):
         reflect = s_reflect.getItemInfo(item)
         job = self._txTeleJob('tele:push', name=name, reflect=reflect)
         self._tele_pushed[ name ] = item
-        return self.syncjob(job)
+        ret = self.syncjob(job)
+        return ret
 
     def _tx_call(self, task, ondone=None):
         return self._txTeleJob('tele:call', name=self._tele_name, task=task, ondone=ondone)
@@ -402,8 +405,11 @@ class Proxy(s_eventbus.EventBus):
             ret = proxy.syncjob(job)
 
         '''
+        logger.warning('Waiting for teleJob')
         self._waitTeleJob(job,timeout=timeout)
-        return s_async.jobret(job)
+        logger.warning('jobret call')
+        ret = s_async.jobret(job)
+        return ret
 
     def _waitTeleJob(self, job, timeout=None):
         # dont block the consumer thread, consume events
@@ -412,6 +418,7 @@ class Proxy(s_eventbus.EventBus):
             return self._fakeConsWait(job, timeout=timeout)
 
         if not self._tele_boss.wait(job[0], timeout=timeout):
+            logger.warning('we took too long waiting for the job sync')
             raise HitMaxTime()
 
     def _fakeConsWait(self, job, timeout=None):
@@ -425,6 +432,7 @@ class Proxy(s_eventbus.EventBus):
         while not job[1].get('done'):
 
             if maxtime != None and time.time() >= maxtime:
+                logging.warning('Fake wait took too long')
                 raise HitMaxTime()
 
             mesg = self._tele_q.get()

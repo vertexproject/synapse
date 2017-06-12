@@ -12,10 +12,13 @@ import synapse.lib.threads as s_threads
 import synapse.lib.userauth as s_userauth
 
 from synapse.tests.common import *
+import logging
+logger = logging.getLogger(__name__)
 
 class Foo:
 
     def bar(self, x, y):
+        logger.warning('in Foo().bar({}, {})'.format(x, y))
         return x + y
 
     def baz(self, x, y):
@@ -106,24 +109,27 @@ class TelePathTest(SynTest):
     def test_telepath_push(self):
 
         # override default timeout=None for tests
-        with s_scope.enter({'syntimeout':5}):
+        with s_scope.enter({'syntimeout':3}):
 
             env = self.getFooEnv()
             port = env.link[1].get('port')
 
-            prox0 = s_telepath.openurl('tcp://127.0.0.1/', port=port)
+            prox0 = s_telepath.openurl('tcp://127.0.0.1/', port=port)  # type: s_telepath.Proxy
+            logger.debug('Pushing foo1 prox')
             prox0.push('foo1', Foo() )
-
-            prox1 = s_telepath.openurl('tcp://127.0.0.1/foo1', port=port)
-
+            logger.debug('Opening up proxy for foo1')
+            prox1 = s_telepath.openurl('tcp://127.0.0.1/foo1', port=port)  # type: s_telepath.Proxy
+            logger.debug('Calling prox"d instance of Foo()')
             self.eq( prox1.bar(10,20), 30 )
-
+            logger.debug('Done with call - fini on prox0')
             prox0.fini()
-
-            self.assertRaises( SynErr, prox1.bar, 10, 20 )
-
+            logger.debug('Calling the prox1.bar()  which should thrown an error')
+            with self.assertRaises(NoSuchObj) as cm:
+                r = prox1.bar(10, 20)
+            logger.debug(type(cm.exception))
+            logger.debug('Fini on prox1')
             prox1.fini()
-
+            logger.debug('Fini on env')
             env.fini()
 
     def test_telepath_callx(self):
