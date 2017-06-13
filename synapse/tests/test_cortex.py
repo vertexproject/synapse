@@ -25,6 +25,17 @@ from synapse.tests.common import *
 class FakeType(s_types.IntType):
     pass
 
+import synapse.lib.module as s_module
+
+class CoreTestModule(s_module.CoreModule):
+
+    def initCoreModule(self):
+
+        def formipv4(form, valu, props, mesg):
+            props['inet:ipv4:asn'] = 10
+
+        self.onFormNode('inet:ipv4',formipv4)
+
 class CortexTest(SynTest):
 
     def test_cortex_ram(self):
@@ -581,30 +592,6 @@ class CortexTest(SynTest):
 
         core0.fini()
         core1.fini()
-
-    def test_cortex_keys(self):
-        core = s_cortex.openurl('ram://')
-
-        core.addTufoForm('woot')
-        core.addTufoProp('woot','bar', ptype='int')
-        core.addTufoProp('woot','foo', defval='foo')
-
-        woot = core.formTufoByProp('woot','haha')
-
-        self.assertEqual( 0, len(core.getTufosByProp('woot:bar')) )
-
-        keyvals = ( ('bar',10), ('bar',20) )
-        core.addTufoKeys(woot, keyvals)
-
-        self.assertEqual( 1, len(core.getTufosByProp('woot:bar',10)) )
-        self.assertEqual( 1, len(core.getTufosByProp('woot:bar',20)) )
-
-        core.delTufo(woot)
-
-        self.assertEqual( 0, len(core.getTufosByProp('woot:bar',10)) )
-        self.assertEqual( 0, len(core.getTufosByProp('woot:bar',20)) )
-
-        core.fini()
 
     def test_cortex_savefd(self):
         fd = s_compat.BytesIO()
@@ -1508,3 +1495,20 @@ class CortexTest(SynTest):
             self.nn(node[0])
 
         self.eq( len(splices), 0 )
+
+    def test_cortex_module(self):
+        with s_cortex.openurl('ram:///') as core:
+
+            node = core.formTufoByProp('inet:ipv4','1.2.3.4')
+            self.eq( node[1].get('inet:ipv4:asn'), -1 )
+
+            mods = ( ('synapse.tests.test_cortex.CoreTestModule', {}), )
+            core.setConfOpt('modules', mods)
+
+            # directly access the module so we can confirm it gets fini()
+            modu = core.coremods.get('synapse.tests.test_cortex.CoreTestModule')
+
+            node = core.formTufoByProp('inet:ipv4','1.2.3.5')
+            self.eq( node[1].get('inet:ipv4:asn'), 10 )
+
+        self.true( modu.isfini )

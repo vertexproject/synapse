@@ -49,6 +49,9 @@ class BadMesgVers(SynErr):pass
 class BadInfoValu(SynErr):pass
 class BadStorValu(SynErr):pass
 
+class MustBeLocal(SynErr):pass
+class MustBeProxy(SynErr):pass
+
 class NoAuthUser(SynErr):pass
 
 class WebAppErr(SynErr):pass
@@ -73,7 +76,7 @@ class NoSuchObj(SynErr):pass
 class NoSuchFile(Exception):pass
 class NoSuchIden(Exception):pass
 class NoSuchMeth(SynErr):pass
-class NoSuchFunc(Exception):pass
+class NoSuchFunc(SynErr):pass
 class NoSuchPeer(Exception):pass
 class NoSuchSess(Exception):pass
 class NoSuchUser(SynErr):pass
