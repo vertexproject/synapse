@@ -44,7 +44,7 @@ def _addRows(core, rows, one_at_a_time=False, num_threads=1):
             core.addRows([row])
     else:
         core.addRows(rows)
-    core.flush()
+    # core.flush()
 
 
 def _getTufosByIdens(core, idens):
@@ -231,8 +231,8 @@ def benchmark_all():
     urls = ('ram://',
             'sqlite:///:memory:',
             'sqlite:///' + SQLITE_FILE,
-            'lmdb:///%s' % LMDB_FILE,
-            'lmdb:///%s?lmdb:sync=False&lmdb:lock=False' % LMDB_FILE)
+            'lmdb:///%s?lmdb:mapsize=536870912' % LMDB_FILE,
+            'lmdb:///%s?lmcb:mapsize=536870912&lmdb:sync=False&lmdb:lock=False' % LMDB_FILE)
     ephemeral = (True, True, False, False, False)
     cleanup = (None, None, cleanup_sqlite, cleanup_lmdb, cleanup_lmdb)
     test_data = TestData('testdata')
