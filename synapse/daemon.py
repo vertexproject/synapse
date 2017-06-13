@@ -434,7 +434,7 @@ class Daemon(EventBus,DmonConf):
 
     def _onTelePushFiniMesg(self, sock, mesg):
         name = mesg[1].get('name')
-        iden = mesg[1].get('guid')
+        iden = mesg[1].get('iden')
 
         user = sock.get('syn:user')
         # Fail fast on permissions errors
