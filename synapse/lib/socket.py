@@ -229,15 +229,15 @@ class Socket(EventBus):
                 dostuff(mesg)
 
         '''
+        # Yield any objects we have already queued up first.
+        while self.rxque:
+            yield self.rxque.popleft()
 
         # the "preread" state for a socket means it has IO todo
         # which is part of it's initial negotiation ( not mesg )
         if self.get('preread'):
             self.fire('link:sock:preread', sock=self)
             return
-
-        while self.rxque:
-            yield self.rxque.popleft()
 
         byts = self.recv(102400)
         # special case for non-blocking recv with no data ready
