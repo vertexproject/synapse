@@ -388,7 +388,7 @@ class Proxy(s_eventbus.EventBus):
         '''
         reflect = s_reflect.getItemInfo(item)
         iden = guid()
-        job = self._txTeleJob('tele:push', name=name, reflect=reflect, guid=iden)
+        job = self._txTeleJob('tele:push', name=name, reflect=reflect, iden=iden)
         self._tele_pushed[ name ] = item, iden
         return self.syncjob(job)
 
