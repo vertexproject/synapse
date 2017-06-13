@@ -302,6 +302,7 @@ class Daemon(EventBus,DmonConf):
         self.shared = {}    # objects provided by daemon
         self.pushed = {}    # objects provided by sockets
         self.reflect = {}   # objects reflect info by name
+        self.pushed_guids = {}  # guid associated with the push of an object provided by a socket.
 
         self._dmon_links = []   # list of listen links
         self._dmon_yields = set()
@@ -432,7 +433,18 @@ class Daemon(EventBus,DmonConf):
 
     def _onTelePushFiniMesg(self, sock, mesg):
         name = mesg[1].get('name')
-        # logger.info('Nuking pushed object from link msg: {}'.format(name))
+        guid = mesg[1].get('guid')
+        current_guid = self.pushed_guids.get(name, None)
+
+        # user = sock.get('syn:user')
+        # if not self._isUserAllowed(user, 'tele:push:fini:'+name):
+        #     return
+        #     # XXX Not certain what sould be expected here since we're
+        #     # Firing this from the fini() handler of the Proxy object
+        #     # return sock.tx( tufo('job:done', err='NoSuchRule', jid=jid) )
+
+        if current_guid != guid:
+            return
         self.pushed.pop(name, None)
         self.reflect.pop(name, None)
         # logger.info('Done nuking pushed object reference')
@@ -442,21 +454,26 @@ class Daemon(EventBus,DmonConf):
         jid = mesg[1].get('jid')
         name = mesg[1].get('name')
         reflect = mesg[1].get('reflect')
+        iden = mesg[1].get('guid')
 
         user = sock.get('syn:user')
         if not self._isUserAllowed(user, 'tele:push:'+name ):
             return sock.tx( tufo('job:done', err='NoSuchRule', jid=jid) )
 
         def onfini():
-            # logger.error('Now removing {} from pushed objs'.format(name))
-            self.pushed.pop(name,None)
-            self.reflect.pop(name,None)
-            # logger.error('Done removing the pushed obj')
+            current_guid = self.pushed_guids.get(name, None)
+            if current_guid != iden:
+                return
+            self.pushed.pop(name, None)
+            self.reflect.pop(name, None)
+            self.pushed_guids.pop(name, None)
 
         sock.onfini(onfini)
 
         self.pushed[name] = sock
         self.reflect[name] = reflect
+        self.pushed_guids[name] = guid
+
 
         return sock.tx( tufo('job:done', jid=jid) )
 

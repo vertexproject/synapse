@@ -162,7 +162,7 @@ class Socket(EventBus):
         return byts
 
     def _rx_xform(self, byts):
-        # logger.info('Entering _rx_xform')
+        # logger.debug('Entering _rx_xform')
         for xform in self.xforms:
             byts = xform.rxform(byts)
         return byts

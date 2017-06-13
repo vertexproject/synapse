@@ -387,8 +387,9 @@ class Proxy(s_eventbus.EventBus):
 
         '''
         reflect = s_reflect.getItemInfo(item)
-        job = self._txTeleJob('tele:push', name=name, reflect=reflect)
-        self._tele_pushed[ name ] = item
+        iden = guid()
+        job = self._txTeleJob('tele:push', name=name, reflect=reflect, guid=iden)
+        self._tele_pushed[ name ] = item, iden
         ret = self.syncjob(job)
         return ret
 
@@ -405,11 +406,8 @@ class Proxy(s_eventbus.EventBus):
             ret = proxy.syncjob(job)
 
         '''
-        logger.warning('Waiting for teleJob')
         self._waitTeleJob(job,timeout=timeout)
-        logger.warning('jobret call')
-        ret = s_async.jobret(job)
-        return ret
+        return s_async.jobret(job)
 
     def _waitTeleJob(self, job, timeout=None):
         # dont block the consumer thread, consume events
@@ -503,7 +501,7 @@ class Proxy(s_eventbus.EventBus):
 
         try:
 
-            item = self._tele_pushed.get(name)
+            item,_ = self._tele_pushed.get(name)
             if item == None:
                 return self._txTeleSock('tele:retn', err='NoSuchObj', errmsg=name, **retinfo)
 
@@ -573,11 +571,11 @@ class Proxy(s_eventbus.EventBus):
 
     def _onProxyFini(self):
 
-        for name in self._tele_pushed:
+        for name, (item, iden) in self._tele_pushed.items():
             try:
                 if self._tele_sock:
                     self._tele_sock.tx(('tele:push:fini',
-                                        {'sid': self._tele_sid, 'name': name}))
+                                        {'sid': self._tele_sid, 'name': name, 'guid': iden}))
             except Exception as e:
                 pass
 
