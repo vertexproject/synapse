@@ -6,6 +6,7 @@ from binascii import unhexlify
 if sys.version_info > (3, 0):
     from functools import lru_cache
 from contextlib import contextmanager
+from hashlib import md5
 
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
@@ -13,7 +14,6 @@ import synapse.lib.threads as s_threads
 import synapse.cores.common as s_cores_common
 from synapse.common import genpath, msgenpack, msgunpack
 
-import xxhash
 import lmdb
 
 # File conventions:
@@ -109,7 +109,8 @@ def _encValKey(v):
             return NEGATIVE_VAL_MARKER_ENC + msgenpack(-v)
     else:
         if len(v) >= LARGE_STRING_SIZE:
-            return (HASH_VAL_MARKER_ENC + msgenpack(xxhash.xxh64(v).intdigest()))
+            return HASH_VAL_MARKER_ENC + msgenpack(int.from_bytes(md5(v.encode('utf8')).digest()[:8],
+                                                                  byteorder='little'))
         else:
             return STRING_VAL_MARKER_ENC + msgenpack(v)
 
@@ -137,7 +138,7 @@ def _decPk(pk_enc):
     return _SIZET_ST.unpack(pk_enc)[0]
 
 def _calcFirstLastKeys(prop, valu, mintime, maxtime):
-    ''' 
+    '''
     Returns the encoded bytes for the start and end keys to the pt or pvt
     index.  Helper function for _{get,del}RowsByProp
     '''
@@ -210,13 +211,13 @@ class Cortex(s_cores_common.Cortex):
 
     @contextmanager
     def _getTxn(self, write=False):
-        ''' 
+        '''
         Acquires a transaction.
 
         LMDB doesn't have the concept of store access without a transaction, so figure out
         whether there's already one open and use that, else make one.  If we found an existing
         transaction, this doesn't close it after leaving the context.  If we made one and the
-        context is exited without exception, the transaction is committed. 
+        context is exited without exception, the transaction is committed.
         '''
         existing_xact = self._core_xacts.get(s_threads.iden())
         if existing_xact is not None:
@@ -225,16 +226,14 @@ class Cortex(s_cores_common.Cortex):
             with self.dbenv.begin(buffers=True, write=write) as txn:
                 yield txn
 
-    def flush(self):
-        ''' Flushs/syncs to disk '''
-        self.dbenv.sync(True)
-
     def _initDbConn(self):
         dbinfo = self._initDbInfo()
         dbname = dbinfo.get('name')
 
-        # MAX DB Size.  Must be < 2 GiB for 32-bit.  Can be big for 64-bit systems.
-        MAP_SIZE = 1073741824 if MAX_PK_BYTES == 4 else 1099511627776  # a terabyte
+        # MAX DB Size.  Must be < 2 GiB for 32-bit.  Can be big for 64-bit systems.  Will create
+        # a file of that size.  On MacOS/Windows, will actually immediately take up that much
+        # disk space.
+        MAP_SIZE = 1073741824
 
         map_size = self._link[1].get('lmdb:mapsize', MAP_SIZE)
         map_size, _ = s_datamodel.getTypeNorm('int', map_size)
@@ -313,8 +312,9 @@ class Cortex(s_cores_common.Cortex):
     def _addRows(self, rows):
         '''
         Adds a bunch of rows to the database
-        
-        Take care:  this was written this way for performance, in particular when len(rows) is large.
+
+        Take care:  this was written this way for performance, in particular when len(rows) is
+        large.
         '''
 
         encs = []
