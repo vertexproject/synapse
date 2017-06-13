@@ -2130,10 +2130,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         '''
         return self._delJoinByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime)
 
-    def flush(self):
-        ''' Flushs/syncs to disk '''
-        pass
-
     def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         for irow in self._getRowsByProp(prop,valu=valu,mintime=mintime,maxtime=maxtime,limit=limit):
             for jrow in self._getRowsById(irow[0]):
@@ -2447,7 +2443,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         Get a list of dark row names on a tufo.
 
         Args:
-            tufo ((str, dict)): Tufo to look up. 
+            tufo ((str, dict)): Tufo to look up.
 
         Returns:
             list: List of (name, time) tuples for a given tufos dark rows.
