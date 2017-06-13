@@ -573,6 +573,14 @@ class Proxy(s_eventbus.EventBus):
 
     def _onProxyFini(self):
 
+        for name in self._tele_pushed:
+            try:
+                if self._tele_sock:
+                    self._tele_sock.tx(('tele:push:fini',
+                                        {'sid': self._tele_sid, 'name': name}))
+            except Exception as e:
+                pass
+
         [ que.fini() for que in self._tele_yields.values() ]
 
         if self._tele_sock != None:

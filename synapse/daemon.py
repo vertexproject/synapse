@@ -329,6 +329,7 @@ class Daemon(EventBus,DmonConf):
 
         # for "client shared" objects...
         self.setMesgFunc('tele:push', self._onTelePushMesg )
+        self.setMesgFunc('tele:push:fini', self._onTelePushFiniMesg )
         self.setMesgFunc('tele:retn', self._onTeleRetnMesg )
 
         self.setMesgFunc('tele:on', self._onTeleOnMesg )
@@ -429,6 +430,13 @@ class Daemon(EventBus,DmonConf):
 
             self.onfini( core.fini )
 
+    def _onTelePushFiniMesg(self, sock, mesg):
+        name = mesg[1].get('name')
+        # logger.info('Nuking pushed object from link msg: {}'.format(name))
+        self.pushed.pop(name, None)
+        self.reflect.pop(name, None)
+        # logger.info('Done nuking pushed object reference')
+
     def _onTelePushMesg(self, sock, mesg):
 
         jid = mesg[1].get('jid')
@@ -440,10 +448,10 @@ class Daemon(EventBus,DmonConf):
             return sock.tx( tufo('job:done', err='NoSuchRule', jid=jid) )
 
         def onfini():
-            logger.error('Now removing {} from pushed objs'.format(name))
+            # logger.error('Now removing {} from pushed objs'.format(name))
             self.pushed.pop(name,None)
             self.reflect.pop(name,None)
-            logger.error('Done removing the pushed obj')
+            # logger.error('Done removing the pushed obj')
 
         sock.onfini(onfini)
 
