@@ -359,7 +359,7 @@ class Plex(EventBus):
         #self._plex_sel = selectors.DefaultSelector()
 
         self._plex_lock = threading.Lock()
-        self._plex_socks = {} # set()  # XXX Type wrong?
+        self._plex_socks = {}
 
         # used for select()
         self._plex_rxsocks = []

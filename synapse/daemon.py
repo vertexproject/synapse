@@ -473,7 +473,6 @@ class Daemon(EventBus,DmonConf):
         self.reflect[name] = reflect
         self.pushed_guids[name] = iden
 
-
         return sock.tx( tufo('job:done', jid=jid) )
 
     def _onTeleRetnMesg(self, sock, mesg):
