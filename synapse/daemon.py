@@ -472,7 +472,7 @@ class Daemon(EventBus,DmonConf):
 
         self.pushed[name] = sock
         self.reflect[name] = reflect
-        self.pushed_guids[name] = guid
+        self.pushed_guids[name] = iden
 
 
         return sock.tx( tufo('job:done', jid=jid) )
