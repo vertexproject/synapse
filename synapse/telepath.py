@@ -390,8 +390,7 @@ class Proxy(s_eventbus.EventBus):
         iden = guid()
         job = self._txTeleJob('tele:push', name=name, reflect=reflect, guid=iden)
         self._tele_pushed[ name ] = item, iden
-        ret = self.syncjob(job)
-        return ret
+        return self.syncjob(job)
 
     def _tx_call(self, task, ondone=None):
         return self._txTeleJob('tele:call', name=self._tele_name, task=task, ondone=ondone)
@@ -416,7 +415,6 @@ class Proxy(s_eventbus.EventBus):
             return self._fakeConsWait(job, timeout=timeout)
 
         if not self._tele_boss.wait(job[0], timeout=timeout):
-            logger.warning('we took too long waiting for the job sync')
             raise HitMaxTime()
 
     def _fakeConsWait(self, job, timeout=None):
@@ -430,7 +428,6 @@ class Proxy(s_eventbus.EventBus):
         while not job[1].get('done'):
 
             if maxtime != None and time.time() >= maxtime:
-                logging.warning('Fake wait took too long')
                 raise HitMaxTime()
 
             mesg = self._tele_q.get()
