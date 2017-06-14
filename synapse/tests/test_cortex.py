@@ -35,6 +35,7 @@ class CoreTestModule(s_module.CoreModule):
             props['inet:ipv4:asn'] = 10
 
         self.onFormNode('inet:ipv4',formipv4)
+        self.addConfDef('foobar', defval=False, asloc='foobar')
 
 class CortexTest(SynTest):
 
@@ -1502,11 +1503,13 @@ class CortexTest(SynTest):
             node = core.formTufoByProp('inet:ipv4','1.2.3.4')
             self.eq( node[1].get('inet:ipv4:asn'), -1 )
 
-            mods = ( ('synapse.tests.test_cortex.CoreTestModule', {}), )
+            mods = ( ('synapse.tests.test_cortex.CoreTestModule', {'foobar':True}), )
             core.setConfOpt('modules', mods)
 
             # directly access the module so we can confirm it gets fini()
             modu = core.coremods.get('synapse.tests.test_cortex.CoreTestModule')
+
+            self.true( modu.foobar )
 
             node = core.formTufoByProp('inet:ipv4','1.2.3.5')
             self.eq( node[1].get('inet:ipv4:asn'), 10 )

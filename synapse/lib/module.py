@@ -8,7 +8,7 @@ class CoreModule(s_eventbus.EventBus,s_config.Configable):
     The CoreModule base class from which cortex modules must extend.
 
     This module interface implements helper APIs to facilitate cortex
-    extensions.  It is highly encouraged
+    extensions.
 
     To load a module within a cortex, add it to the list of modules in
     the cortex config ( mostly likely within your dmon config ) as shown:
@@ -40,9 +40,8 @@ class CoreModule(s_eventbus.EventBus,s_config.Configable):
 
         self.core = core
 
-        self.setConfOpts(conf)
-
         self.initCoreModule()
+        self.setConfOpts(conf)
 
     def initCoreModule(self):
         '''
