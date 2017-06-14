@@ -145,6 +145,44 @@ def isProxy(item):
     '''
     return isinstance(item, Proxy)
 
+def reqIsProxy(item):
+    '''
+    Check if the item is a proxy and raise MustBeProxy if not.
+
+    Args:
+        item (obj): The object to test for being a telepath proxy
+
+    Returns:
+        (None)
+
+    Example:
+
+        reqIsProxy(foo)
+        # foo is def a proxy here...
+
+    '''
+    if not isProxy(item):
+        raise MustBeProxy(item=item)
+
+def reqNotProxy(item):
+    '''
+    Check if the item is a proxy and raise MustBeProxy if so.
+
+    Args:
+        item (obj): The object to test for being a telepath proxy
+
+    Returns:
+        (None)
+
+    Example:
+
+        reqNotProxy(foo)
+        # foo is def not a proxy here...
+
+    '''
+    if isProxy(item):
+        raise MustBeLocal(item=item)
+
 class Method:
 
     def __init__(self, proxy, meth):

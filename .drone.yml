@@ -49,9 +49,9 @@ pipeline:
       [ SLACK_WEBHOOK ]
     template: >
       {{#success build.status}}
-        :white_check_mark: Good job, {{build.author}}! {{repo.owner}}/{{repo.name}} build {{build.number}} passed. Details are here {{build.link}}
+        :white_check_mark: {{build.author}} your tests worked. Please feed :robot_face: more code to eat.  Details at https://drone.vertex.link/{{repo.owner}}/{{repo.name}}/{{build.number}}
       {{else}}
-        :red_circle: {{repo.owner}}/{{repo.name}} build {{build.number}} failed. Fix me please, {{build.author}}. Details are here {{build.link}}
+        :red_circle: {{build.author}} you broke the build. Build :robot_face: is :angry:. Details are here https://drone.vertex.link/{{repo.owner}}/{{repo.name}}/{{build.number}}
       {{/success}}
 
 services:

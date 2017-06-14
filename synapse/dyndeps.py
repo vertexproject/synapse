@@ -113,7 +113,7 @@ def runDynTask(task):
     '''
     func = getDynLocal(task[0])
     if func == None:
-        raise NoSuchFunc(task[0])
+        raise NoSuchFunc(name=task[0])
     return func(*task[1],**task[2])
 
 class CallCapt:

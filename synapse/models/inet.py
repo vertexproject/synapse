@@ -1,4 +1,3 @@
-from encodings import idna
 import re
 import socket
 import struct
@@ -275,7 +274,7 @@ def getDataModel():
                 ('seen:max',{'ptype':'time:max'}),
             ]),
 
-            ('inet:whois:reg',{},[]), 
+            ('inet:whois:reg',{},[]),
             ('inet:whois:rar',{},[]),
 
             ('inet:whois:regmail',{'ptype':'inet:whois:regmail'},[
