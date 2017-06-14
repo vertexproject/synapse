@@ -70,10 +70,21 @@ class Configable:
         return { name:dict(info) for (name,info) in self._conf_defs.items() }
 
     def getConfNorm(self, name, valu):
+        '''
+        Return a normalized version of valu based on type knowledge for name.
+
+        Args:
+            name (str): The name of the config option
+            valu (obj): The valu of the config option
+
+        Returns:
+            (obj):  The normalized form for valu
+
+        '''
         cdef = self.getConfDef(name)
         ctype = cdef[1].get('type')
         if ctype == None:
-            return valu
+            return valu,{}
         return getTypeNorm(ctype,valu)
 
     def setConfOpt(self, name, valu):

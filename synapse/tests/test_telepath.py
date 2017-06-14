@@ -382,3 +382,17 @@ class TelePathTest(SynTest):
                 wait.wait()
                 self.assertEqual(counters[0], 1)
                 self.assertEqual(counters[1], 1)
+
+    def test_telepath_reqproxy(self):
+
+        self.raises( MustBeProxy, s_telepath.reqIsProxy, 'woot' )
+
+        with s_daemon.Daemon() as dmon:
+
+            dmon.share('foo','woot')
+
+            link = dmon.listen('tcp://127.0.0.1:0/')
+            port = link[1].get('port')
+
+            with s_telepath.openurl('tcp://127.0.0.1/foo', port=port) as foo:
+                self.raises( MustBeLocal, s_telepath.reqNotProxy, foo )
