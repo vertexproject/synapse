@@ -387,9 +387,8 @@ class Proxy(s_eventbus.EventBus):
 
         '''
         reflect = s_reflect.getItemInfo(item)
-        iden = guid()
-        job = self._txTeleJob('tele:push', name=name, reflect=reflect, iden=iden)
-        self._tele_pushed[ name ] = item, iden
+        job = self._txTeleJob('tele:push', name=name, reflect=reflect)
+        self._tele_pushed[ name ] = item
         return self.syncjob(job)
 
     def _tx_call(self, task, ondone=None):
@@ -498,7 +497,7 @@ class Proxy(s_eventbus.EventBus):
 
         try:
 
-            item,_ = self._tele_pushed.get(name)
+            item = self._tele_pushed.get(name)
             if item == None:
                 return self._txTeleSock('tele:retn', err='NoSuchObj', errmsg=name, **retinfo)
 
@@ -567,14 +566,6 @@ class Proxy(s_eventbus.EventBus):
             sock.tx( (msg,msginfo) )
 
     def _onProxyFini(self):
-
-        for name, (item, iden) in self._tele_pushed.items():
-            try:
-                if self._tele_sock:
-                    self._tele_sock.tx(('tele:push:fini',
-                                        {'sid': self._tele_sid, 'name': name, 'guid': iden}))
-            except Exception as e:
-                pass
 
         [ que.fini() for que in self._tele_yields.values() ]
 

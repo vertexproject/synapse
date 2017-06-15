@@ -302,8 +302,6 @@ class Daemon(EventBus,DmonConf):
         self.shared = {}    # objects provided by daemon
         self.pushed = {}    # objects provided by sockets
         self.reflect = {}   # objects reflect info by name
-        self.pushed_idens = {}  # guid associated with the push of an object provided by a socket.
-        self.push_lock = threading.Lock()
 
         self._dmon_links = []   # list of listen links
         self._dmon_yields = set()
@@ -331,7 +329,6 @@ class Daemon(EventBus,DmonConf):
 
         # for "client shared" objects...
         self.setMesgFunc('tele:push', self._onTelePushMesg )
-        self.setMesgFunc('tele:push:fini', self._onTelePushFiniMesg )
         self.setMesgFunc('tele:retn', self._onTeleRetnMesg )
 
         self.setMesgFunc('tele:on', self._onTeleOnMesg )
@@ -432,59 +429,24 @@ class Daemon(EventBus,DmonConf):
 
             self.onfini( core.fini )
 
-    def _onTelePushFiniMesg(self, sock, mesg):
-        name = mesg[1].get('name')
-        iden = mesg[1].get('iden')
-
-        user = sock.get('syn:user')
-        # Fail fast on permissions errors
-        if not self._isUserAllowed(user, 'tele:push:fini:'+name):
-            return
-
-        with self.push_lock:
-            tup = self.pushed_idens.get(name, None)
-            if not tup:
-                return
-            cached_iden, cached_user = tup
-            if cached_iden != iden:
-                return
-            if cached_user != user:
-                return
-            self.pushed.pop(name, None)
-            self.reflect.pop(name, None)
-            self.pushed_idens.pop(name, None)
-
     def _onTelePushMesg(self, sock, mesg):
 
         jid = mesg[1].get('jid')
         name = mesg[1].get('name')
         reflect = mesg[1].get('reflect')
-        iden = mesg[1].get('iden')
 
         user = sock.get('syn:user')
         if not self._isUserAllowed(user, 'tele:push:'+name ):
             return sock.tx( tufo('job:done', err='NoSuchRule', jid=jid) )
 
         def onfini():
-            with self.push_lock:
-                # User doesn't matter here since this is called on the socket
-                # teardown meaning it won't be available.
-                tup = self.pushed_idens.get(name, None)
-                if not tup:
-                    return
-                current_guid, _ = tup
-                if current_guid != iden:
-                    return
-                self.pushed.pop(name, None)
-                self.reflect.pop(name, None)
-                self.pushed_idens.pop(name, None)
+            self.pushed.pop(name, None)
+            self.reflect.pop(name, None)
 
         sock.onfini(onfini)
 
-        with self.push_lock:
-            self.pushed[name] = sock
-            self.reflect[name] = reflect
-            self.pushed_idens[name] = iden, user
+        self.pushed[name] = sock
+        self.reflect[name] = reflect
 
         return sock.tx( tufo('job:done', jid=jid) )
 
