@@ -2,6 +2,7 @@ import time
 import traceback
 import threading
 import collections
+import multiprocessing
 
 from synapse.compat import queue
 
@@ -9,6 +10,7 @@ import synapse.dyndeps as s_dyndeps
 import synapse.lib.sched as s_sched
 import synapse.lib.scope as s_scope
 import synapse.lib.queue as s_queue
+import synapse.lib.process as s_process
 import synapse.lib.threads as s_threads
 
 from synapse.common import *
@@ -236,13 +238,26 @@ class Boss(EventBus):
             return
 
         try:
-
-            func,args,kwargs = task
-            ret = func(*args,**kwargs)
-            self.fire('job:done', jid=job[0], ret=ret)
+            if job[1].get('subprocess', False):
+                result = self._runTaskAsProcess(job[1])
+                self.fire('job:done', jid=job[0], **result)
+            else:
+                func, args, kwargs = task
+                ret = func(*args,**kwargs)
+                self.fire('job:done', jid=job[0], ret=ret)
 
         except Exception as e:
             self.fire('job:done', jid=job[0], **excinfo(e))
+
+    def _runTaskAsProcess(self, opts):
+        # allow Process to handle error conditions
+        procOpts = opts.copy()
+        opts.pop('timeout', None)
+        process = s_process.Process(**procOpts)
+        result = {'ret': process.run()}
+        if process.error():
+            result['err'] = process.error()
+        return result
 
     def _onJobFini(self, event):
 
