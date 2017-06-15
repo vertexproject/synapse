@@ -12,6 +12,8 @@ import synapse.lib.threads as s_threads
 import synapse.lib.userauth as s_userauth
 
 from synapse.tests.common import *
+import logging
+logger = logging.getLogger(__name__)
 
 class Foo:
 
@@ -106,21 +108,24 @@ class TelePathTest(SynTest):
     def test_telepath_push(self):
 
         # override default timeout=None for tests
-        with s_scope.enter({'syntimeout':5}):
+        with s_scope.enter({'syntimeout':3}):
 
             env = self.getFooEnv()
+
             port = env.link[1].get('port')
 
-            prox0 = s_telepath.openurl('tcp://127.0.0.1/', port=port)
+            prox0 = s_telepath.openurl('tcp://127.0.0.1/', port=port)  # type: s_telepath.Proxy
+
             prox0.push('foo1', Foo() )
 
-            prox1 = s_telepath.openurl('tcp://127.0.0.1/foo1', port=port)
+            prox1 = s_telepath.openurl('tcp://127.0.0.1/foo1', port=port)  # type: s_telepath.Proxy
 
             self.eq( prox1.bar(10,20), 30 )
 
             prox0.fini()
 
-            self.assertRaises( SynErr, prox1.bar, 10, 20 )
+            with self.assertRaises(NoSuchObj) as cm:
+                r = prox1.bar(10, 20)
 
             prox1.fini()
 
