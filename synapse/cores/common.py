@@ -162,9 +162,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
         DataModel.__init__(self,load=False)
 
-        self.on('tufo:add:syn:tag', self._onAddSynTag)
-        self.on('tufo:del:syn:tag', self._onDelSynTag)
-        self.on('tufo:form:syn:tag', self._onFormSynTag)
+        self.on('node:del', self._onDelSynTag, form='syn:tag')
+        self.on('node:form', self._onFormSynTag, form='syn:tag')
 
         self.isok = True
 
@@ -192,9 +191,9 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
             self._initCoreModels()
 
         # and finally, strap in our event handlers...
-        self.on('tufo:add:syn:type', self._onTufoAddSynType )
-        self.on('tufo:add:syn:form', self._onTufoAddSynForm )
-        self.on('tufo:add:syn:prop', self._onTufoAddSynProp )
+        self.on('node:add', self._onTufoAddSynType, form='syn:type')
+        self.on('node:add', self._onTufoAddSynForm, form='syn:form')
+        self.on('node:add', self._onTufoAddSynProp, form='syn:prop')
 
         self.addTufoForm('syn:log', ptype='guid', local=1)
         self.addTufoProp('syn:log', 'subsys', defval='??', help='Named subsystem which originated the log event')
@@ -713,14 +712,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
         # do the (possibly very heavy) removal of the tag from all known forms.
         [self.delTufoTag(t, valu) for t in self.getTufosByDark('tag', valu)]
-
-    def _onAddSynTag(self, mesg):
-        tufo = mesg[1].get('tufo')
-        form = tufo[1].get('tufo:form')
-        utag = tufo[1].get('syn:tag:up')
-
-        if utag != None:
-            self._genTagForm(utag,form)
 
     def _onFormSynTag(self, mesg):
         valu = mesg[1].get('valu')
@@ -1289,7 +1280,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
             with self.getCoreXact() as xact:
 
                 form = tufo[1].get('tufo:form')
-                formevt = 'tufo:tag:add:' + form
 
                 dark_row_gen = s_dark.genDarkRows(tufo[0], 'tag', [t[0] for t in rows])
                 _rows = [t[1] for t in rows]
@@ -1300,9 +1290,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
                     tufo[1][p] = v
                     self._bumpTufoCache(tufo,p,None,v)
-                    xact.fire('tufo:tag:add', tufo=tufo, tag=subtag, asof=asof)
-                    xact.fire(formevt, tufo=tufo, tag=subtag, asof=asof)
 
+                    xact.fire('node:tag:add', form=form, valu=valu, tag=subtag, node=tufo)
                     xact.spliced('node:tag:add', form=form, valu=valu, tag=tag)
 
         return tufo
@@ -1328,8 +1317,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
         with self.getCoreXact() as xact:
 
-            formevt = 'tufo:tag:del:' + tufo[1].get('tufo:form')
-
             [ self.delRowsByIdProp(iden,prop) for prop in props ]
 
             for p in props:
@@ -1345,9 +1332,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
                 self.delTufoDark(tufo, 'tag', subtag)
 
                 # fire notification events
-                xact.fire('tufo:tag:del', tufo=tufo, tag=subtag)
-                xact.fire(formevt, tufo=tufo, tag=subtag)
-
+                xact.fire('node:tag:del', form=form, valu=valu, tag=subtag, node=tufo)
                 xact.spliced('node:tag:del', form=form, valu=valu, tag=tag)
 
     def getTufosByTag(self, form, tag, limit=None):
@@ -1553,11 +1538,11 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         with self.getCoreXact() as xact:
 
             ret = []
+
             for chunk in chunked(1000,propss):
 
+                adds = []
                 rows = []
-                tufos = []
-                splices = []
 
                 for props in chunk:
 
@@ -1571,29 +1556,24 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
                     alladd.update(toadd)
 
-                    splices.append((form,iden,props))
-
-                    self.fire('tufo:form', form=form, valu=iden, props=fulls)
-                    self.fire('tufo:form:' + form, form=form, valu=iden, props=fulls)
+                    self.fire('node:form', form=form, valu=iden, props=fulls)
 
                     rows.extend([ (iden,p,v,xact.tick) for (p,v) in fulls.items() ])
 
                     # sneaky ephemeral/hidden prop to identify newly created tufos
                     fulls['.new'] = 1
-                    tufos.append( (iden,fulls) )
+
+                    node = (iden,fulls)
+
+                    ret.append(node)
+                    adds.append((form,iden,props,node))
 
                 self.addRows(rows)
 
                 # fire splice events
-                for form,valu,props in splices:
+                for form,valu,props,node in adds:
+                    xact.fire('node:add', form=form, valu=valu, node=node)
                     xact.spliced('node:add', form=form, valu=valu, props=props)
-
-                for tufo in tufos:
-                    # fire notification events
-                    xact.fire('tufo:add', tufo=tufo)
-                    xact.fire('tufo:add:' + form, tufo=tufo)
-
-                ret.extend(tufos)
 
             if self.autoadd:
                 self._runAutoAdd(alladd)
@@ -1673,8 +1653,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
             # fire these immediately since we need them to potentially fill
             # in values before we generate rows for the new tufo
-            self.fire('tufo:form', form=prop, valu=valu, props=fulls)
-            self.fire('tufo:form:' + prop, form=prop, valu=valu, props=fulls)
+            self.fire('node:form', form=prop, valu=valu, props=fulls)
 
             rows = [ (iden,p,v,tick) for (p,v) in fulls.items() ]
 
@@ -1688,18 +1667,14 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
                 for p,v in fulls.items():
                     self._bumpTufoCache(cachefo,p,None,v)
 
-
             # fire notification events
-            xact.fire('tufo:add',tufo=tufo)
-            xact.fire('tufo:add:' + prop, tufo=tufo)
-
+            xact.fire('node:add', form=prop, valu=valu, node=tufo)
             xact.spliced('node:add', form=prop, valu=valu, props=props)
 
             if self.autoadd:
                 self._runAutoAdd(toadd)
 
         tufo[1]['.new'] = True
-
         return tufo
 
     def delTufo(self, tufo):
@@ -1716,8 +1691,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         valu = tufo[1].get(form)
 
         # fire notification events
-        self.fire('tufo:del',tufo=tufo)
-        self.fire('tufo:del:' + form, tufo=tufo)
+        self.fire('node:del', form=form, valu=valu, node=tufo)
 
         for name,tick in self.getTufoDsets(tufo):
             self.delTufoDset(tufo,name)
@@ -1746,15 +1720,14 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
             return
 
         rows = [ (dark, '_:dset', name, now()) ]
+
         self.addRows(rows)
-        #NOTE: may add this if a use cases occurs
-        #self.fire('syn:dset:add', name=name, tufo=tufo)
-        self.fire('syn:dset:add:' + name, name=name, tufo=tufo)
+        self.fire('syn:dset:add', name=name, node=tufo)
 
     def delTufoDset(self, tufo, name):
         dark = tufo[0][::-1]
         self.delRowsByIdProp(dark,'_:dset',name)
-        self.fire('syn:dset:del:' + name, name=name, tufo=tufo)
+        self.fire('syn:dset:del', name=name, node=tufo)
 
     def getTufoDsets(self, tufo):
         '''
@@ -2034,12 +2007,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
         with self.getCoreXact() as xact:
 
-            # fire notification events
-            self.fire('tufo:set', tufo=tufo, props=fulls)
-            self.fire('tufo:props:' + form, tufo=tufo, props=fulls)
-
-            xact.spliced('node:set', form=form, valu=valu, props=props)
-
             for p,v in fulls.items():
 
                 oldv = tufo[1].get(p)
@@ -2051,8 +2018,10 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
                 if self.caching:
                     self._bumpTufoCache(tufo,p,oldv,v)
 
-                # fire notification events
-                xact.fire('tufo:set:' + p, tufo=tufo, prop=p, valu=v, oldv=oldv)
+                # fire notification event
+                xact.fire('node:set', form=form, valu=valu, prop=p, newv=v, oldv=oldv, node=tufo)
+
+            xact.spliced('node:set', form=form, valu=valu, props=props)
 
         return tufo
 
@@ -2090,18 +2059,21 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         # to allow storage layer optimization
         iden = tufo[0]
 
+        form = tufo[1].get('tufo:form')
+        valu = tufo[1].get(form)
+
         with self.inclock:
             rows = self._getRowsByIdProp(iden,prop)
             if len(rows) == 0:
                 raise NoSuchTufo(iden=iden,prop=prop)
 
             oldv = rows[0][2]
-            valu = oldv + incval
+            newv = oldv + incval
 
-            self.setRowsByIdProp(iden,prop,valu)
+            self.setRowsByIdProp(iden,prop,newv)
 
-            tufo[1][prop] = valu
-            self.fire('tufo:set:' + prop, tufo=tufo, prop=prop, valu=valu, oldv=oldv)
+            tufo[1][prop] = newv
+            self.fire('node:set', form=form, valu=valu, prop=prop, newv=newv, oldv=oldv, node=tufo)
 
         return tufo
 
@@ -2227,24 +2199,21 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         return self.getTufosBy('range', prop, (ipv4addr, ipv4addr+mask), limit=limit)
 
     def _onTufoAddSynType(self, mesg):
-        # tufo:add:syn:type
-        tufo = mesg[1].get('tufo')
+        tufo = mesg[1].get('node')
         if tufo == None:
             return
 
         self._initTypeTufo(tufo)
 
     def _onTufoAddSynForm(self, mesg):
-        # tufo:add:syn:form
-        tufo = mesg[1].get('tufo')
+        tufo = mesg[1].get('node')
         if tufo == None:
             return
 
         self._initFormTufo(tufo)
 
     def _onTufoAddSynProp(self, mesg):
-        # tufo:add:syn:prop
-        tufo = mesg[1].get('tufo')
+        tufo = mesg[1].get('node')
         if tufo == None:
             return
 

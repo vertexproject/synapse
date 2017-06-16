@@ -324,8 +324,8 @@ class CortexTest(SynTest):
             event[1]['props']['sfx'] = fqdn.split('.')[-1]
             event[1]['props']['fqdn:inctest'] = 0
 
-        core.on('tufo:form', formtufo)
-        core.on('tufo:form:fqdn', formfqdn)
+        core.on('node:form', formtufo)
+        core.on('node:form:fqdn', formfqdn, form='fqdn')
 
         tufo = core.formTufoByProp('fqdn','woot.com')
 
@@ -653,24 +653,17 @@ class CortexTest(SynTest):
         props = {'foo:bar':'lol'}
         tufo = core.formTufoByProp('foo', 'hehe', bar='lol')
 
-        events = ['tufo:set','tufo:props:foo','tufo:set:foo:bar']
-        wait = self.getTestWait(core,len(events),*events)
+        msgs = wait = core.waiter(1,'node:set')
 
         core.setTufoProps(tufo,bar='hah')
 
-        evts = wait.wait()
+        evts = wait.wait(timeout=2)
 
-        self.assertEqual( evts[0][0], 'tufo:set')
-        self.assertEqual( evts[0][1]['tufo'][0], tufo[0])
-        self.assertEqual( evts[0][1]['props']['foo:bar'], 'hah' )
-
-        self.assertEqual( evts[1][0], 'tufo:props:foo')
-        self.assertEqual( evts[1][1]['tufo'][0], tufo[0])
-        self.assertEqual( evts[1][1]['props']['foo:bar'], 'hah' )
-
-        self.assertEqual( evts[2][0], 'tufo:set:foo:bar')
-        self.assertEqual( evts[2][1]['tufo'][0], tufo[0])
-        self.assertEqual( evts[2][1]['valu'], 'hah' )
+        self.eq( evts[0][0], 'node:set')
+        self.eq( evts[0][1]['node'][0], tufo[0])
+        self.eq( evts[0][1]['prop'], 'foo:bar' )
+        self.eq( evts[0][1]['newv'], 'hah')
+        self.eq( evts[0][1]['oldv'], None)
 
         core.fini()
 
@@ -681,54 +674,50 @@ class CortexTest(SynTest):
 
         hehe = core.formTufoByProp('foo','hehe')
 
-        wait = self.getTestWait(core, 2, 'tufo:tag:add')
+        wait = core.waiter(2, 'node:tag:add')
         core.addTufoTag(hehe,'lulz.rofl')
-        wait.wait()
+        wait.wait(timeout=2)
 
-        wait = self.getTestWait(core, 1, 'tufo:tag:add')
+        wait = core.waiter(1, 'node:tag:add')
         core.addTufoTag(hehe,'lulz.rofl.zebr')
-        wait.wait()
-
-        wait = self.getTestWait(core, 1, 'tufo:tag:add')
-        core.addTufoTag(hehe, 'duck.quack.rofl')
-        wait.wait()
+        wait.wait(timeout=2)
 
         lulz = core.getTufoByProp('syn:tag','lulz')
 
-        self.assertIsNone( lulz[1].get('syn:tag:up') )
-        self.assertEqual( lulz[1].get('syn:tag:doc'), '')
-        self.assertEqual( lulz[1].get('syn:tag:title'), '')
-        self.assertEqual( lulz[1].get('syn:tag:depth'), 0 )
+        self.none( lulz[1].get('syn:tag:up') )
+        self.eq( lulz[1].get('syn:tag:doc'), '')
+        self.eq( lulz[1].get('syn:tag:title'), '')
+        self.eq( lulz[1].get('syn:tag:depth'), 0 )
         self.eq(lulz[1].get('syn:tag:base'), 'lulz')
 
         rofl = core.getTufoByProp('syn:tag','lulz.rofl')
 
-        self.assertEqual( rofl[1].get('syn:tag:doc'), '')
-        self.assertEqual( rofl[1].get('syn:tag:title'), '')
-        self.assertEqual( rofl[1].get('syn:tag:up'), 'lulz' )
+        self.eq( rofl[1].get('syn:tag:doc'), '')
+        self.eq( rofl[1].get('syn:tag:title'), '')
+        self.eq( rofl[1].get('syn:tag:up'), 'lulz' )
 
-        self.assertEqual( rofl[1].get('syn:tag:depth'), 1 )
+        self.eq( rofl[1].get('syn:tag:depth'), 1 )
         self.eq(rofl[1].get('syn:tag:base'), 'rofl')
 
         tags = core.getTufosByProp('syn:tag:base', 'rofl')
         self.eq(len(tags), 2)
 
-        wait = self.getTestWait(core, 2, 'tufo:tag:del')
+        wait = core.waiter(2, 'node:tag:del')
         core.delTufoTag(hehe,'lulz.rofl')
-        wait.wait()
+        wait.wait(timeout=2)
 
-        wait = self.getTestWait(core, 1, 'tufo:tag:del')
+        wait = core.waiter(1, 'node:tag:del')
         core.delTufo(lulz)
-        wait.wait()
+        wait.wait(timeout=2)
         # tag and subs should be wiped
 
-        self.assertIsNone( core.getTufoByProp('syn:tag','lulz') )
-        self.assertIsNone( core.getTufoByProp('syn:tag','lulz.rofl') )
-        self.assertIsNone( core.getTufoByProp('syn:tag','lulz.rofl.zebr') )
+        self.none( core.getTufoByProp('syn:tag','lulz') )
+        self.none( core.getTufoByProp('syn:tag','lulz.rofl') )
+        self.none( core.getTufoByProp('syn:tag','lulz.rofl.zebr') )
 
-        self.assertEqual( len(core.getTufosByTag('foo','lulz')), 0 )
-        self.assertEqual( len(core.getTufosByTag('foo','lulz.rofl')), 0 )
-        self.assertEqual( len(core.getTufosByTag('foo','lulz.rofl.zebr')), 0 )
+        self.eq( len(core.getTufosByTag('foo','lulz')), 0 )
+        self.eq( len(core.getTufosByTag('foo','lulz.rofl')), 0 )
+        self.eq( len(core.getTufosByTag('foo','lulz.rofl.zebr')), 0 )
 
         core.fini()
 

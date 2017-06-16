@@ -201,16 +201,15 @@ class IngestApi:
         self._gest_core = core
         self._gest_cache = {}
 
-        self._gest_core.on('tufo:del:syn:ingest', self._onDelSynIngest)
-        self._gest_core.on('tufo:add:syn:ingest', self._onAddSynIngest)
-        self._gest_core.on('tufo:set:syn:ingest:text', self._onAddSynIngest)
+        self._gest_core.on('node:del', self._onDelSynIngest, form='syn:ingest')
+        self._gest_core.on('node:add', self._onAddSynIngest, form='syn:ingest')
+        self._gest_core.on('node:set', self._onAddSynIngest, prop='syn:ingest:text')
 
         for node in self._gest_core.getTufosByProp('syn:ingest'):
             self._addDefFromTufo(node)
 
     def _onAddSynIngest(self, mesg):
-        tufo = mesg[1].get('tufo')
-        return self._addDefFromTufo(tufo)
+        return self._addDefFromTufo( mesg[1].get('node') )
 
     def _addDefFromTufo(self, tufo):
 
@@ -234,12 +233,12 @@ class IngestApi:
             return
 
     def _onDelSynIngest(self, mesg):
-        tufo = mesg[1].get('tufo')
-        if tufo == None:
-            logger.warning('_onDelSynIngest tufo == None')
+        node = mesg[1].get('node')
+        if node == None:
+            logger.warning('_onDelSynIngest node == None')
             return
 
-        name = tufo[1].get('syn:ingest')
+        name = node[1].get('syn:ingest')
         if name == None:
             logger.warning('_onDelSynIngest syn:ingest == None')
             return

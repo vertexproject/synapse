@@ -389,32 +389,32 @@ class TelePathTest(SynTest):
                         counters[name] += 1
                     return onmesg
 
-                proxy0.on('tufo:tag:add', count('p0'))
-                proxy1.on('tufo:tag:add', count('p1'))
+                proxy0.on('foo:bar', count('p0'))
+                proxy1.on('foo:bar', count('p1'))
 
                 func = count('f0')
-                proxy1.on('tufo:tag:add', func, tag='hehe')
+                proxy1.on('foo:bar', func, tag='hehe')
 
-                wait = proxy1.waiter(1,'tufo:tag:add')
-                proxy0.fire('tufo:tag:add', tag='tagu', tufo=('iden', {'prop': 'valu'}))
+                wait = proxy1.waiter(1,'foo:bar')
+                proxy0.fire('foo:bar', tag='tagu', tufo=('iden', {'prop': 'valu'}))
                 self.nn(wait.wait(timeout=2))
 
                 self.eq(counters['p0'], 1)
                 self.eq(counters['p1'], 1)
                 self.eq(counters['f0'], 0)
 
-                wait = proxy1.waiter(1,'tufo:tag:add')
-                proxy0.fire('tufo:tag:add', tag='hehe', tufo=('iden', {'prop': 'valu'}))
+                wait = proxy1.waiter(1,'foo:bar')
+                proxy0.fire('foo:bar', tag='hehe', tufo=('iden', {'prop': 'valu'}))
                 self.nn(wait.wait(timeout=2))
 
                 self.eq(counters['p0'], 2)
                 self.eq(counters['p1'], 2)
                 self.eq(counters['f0'], 1)
 
-                proxy1.off('tufo:tag:add', func)
+                proxy1.off('foo:bar', func)
 
-                wait = proxy1.waiter(1,'tufo:tag:add')
-                proxy0.fire('tufo:tag:add', tag='hehe', tufo=('iden', {'prop': 'valu'}))
+                wait = proxy1.waiter(1,'foo:bar')
+                proxy0.fire('foo:bar', tag='hehe', tufo=('iden', {'prop': 'valu'}))
                 self.nn(wait.wait(timeout=2))
 
                 self.eq(counters['p0'], 3)

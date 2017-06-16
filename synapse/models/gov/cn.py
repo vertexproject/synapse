@@ -20,10 +20,10 @@ def getDataModel():
 def addCoreOns(core):
 
     def onTufoAddMucd(mesg):
-        node = mesg[1].get('tufo')
+        node = mesg[1].get('node')
         mucd = node[1].get('gov:cn:mucd')
         name = 'Chinese PLA Unit %d' % (mucd,)
         iden = guid( ('gov:cn:mucd',mucd) )
         core.formTufoByProp('ou:org', iden, name=name, alias='pla%d' % mucd)
 
-    core.on('tufo:add:gov:cn:mucd', onTufoAddMucd)
+    core.on('node:add', onTufoAddMucd, form='gov:cn:mucd')
