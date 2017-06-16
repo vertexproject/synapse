@@ -5,9 +5,9 @@ Distributed Key-Value Hypergraph Analysis Framework
 Builds
 ------
 
-- Travis-Ci |travisci|_
+- Drone |drone|_
 - AppVeyor |appveyor|_
-- Coveralls |coveralls|_
+- Codecov |codecov|_
 - Documentation |rtd_latest|
 
 Documentation
@@ -21,13 +21,13 @@ Contributed
 - Willi's Swarm Gist https://gist.github.com/williballenthin/9e5891c967004eee8bdf256cbd4f9fcc
 - Willi's Cortex Tutorial https://gist.github.com/williballenthin/d3de15fb701fef2259d41546c6dc377d
 
-.. |travisci| image:: https://travis-ci.org/vertexproject/synapse.svg
-.. _travisci: https://travis-ci.org/vertexproject/synapse
+.. |drone| image:: https://drone.vertex.link/api/badges/vertexproject/synapse/status.svg?branch=master
+.. _drone: https://drone.vertex.link/vertexproject/synapse
 
 .. |appveyor| image:: https://ci.appveyor.com/api/projects/status/github/vertexproject/synapse?branch=master&svg=true
 .. _appveyor: https://ci.appveyor.com/project/invisig0th/synapse/
 
-.. |coveralls| image:: https://coveralls.io/repos/github/vertexproject/synapse/badge.svg?branch=master
-.. _coveralls: https://coveralls.io/github/vertexproject/synapse?branch=master
+.. |codecov| image:: https://codecov.io/gh/vertexproject/synapse/branch/master/graph/badge.svg?branch=master
+.. _codecov: https://codecov.io/gh/vertexproject/synapse
 
 .. |rtd_latest| image:: https://readthedocs.org/projects/vertexprojectsynapse/badge/?version=latest

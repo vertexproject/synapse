@@ -5,6 +5,7 @@ import collections
 
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
@@ -30,6 +31,9 @@ class LimitHelp:
 
         if self.limit == None:
             return False
+
+        if size < 0:
+            size = 0
 
         self.limit = max(self.limit-size,0)
         return self.limit == 0
@@ -93,6 +97,15 @@ class Query:
 
             'data':list(data),
         }
+
+    def __len__(self):
+        return len(self.results['data'])
+
+    def size(self):
+        '''
+        Get the number of tufos currently in the query.
+        '''
+        return len(self)
 
     def log(self, **info):
         '''
@@ -243,10 +256,12 @@ class Runtime(Configable):
         self.setOperFunc('alltag', self._stormOperAllTag)
         self.setOperFunc('addtag', self._stormOperAddTag)
         self.setOperFunc('deltag', self._stormOperDelTag)
+        self.setOperFunc('totags', self._stormOperToTags)
         self.setOperFunc('nexttag', self._stormOperNextSeq)
         self.setOperFunc('setprop', self._stormOperSetProp)
-
         self.setOperFunc('addxref', self._stormOperAddXref)
+        self.setOperFunc('fromtags', self._stormOperFromTags)
+        self.setOperFunc('jointags', self._stormOperJoinTags)
 
         # Cache compiled regex objects.
         self._rt_regexcache = s_cache.FixedCache(1024, re.compile)
@@ -690,8 +705,7 @@ class Runtime(Configable):
         valu = oper[1].get('valu')
         limit = oper[1].get('limit')
 
-        for tufo in self.stormTufosBy(by, prop, valu, limit=limit):
-            query.add(tufo)
+        [query.add(tufo) for tufo in self.stormTufosBy(by, prop, valu, limit=limit)]
 
     def _stormOperPivot(self, query, oper):
         args = oper[1].get('args')
@@ -732,8 +746,7 @@ class Runtime(Configable):
                 if valu != None:
                     vals.add(valu)
 
-        for t in self.stormTufosBy('in', dstp, list(vals), limit=opts.get('limit') ):
-            query.add(t)
+        [query.add(t)for t in self.stormTufosBy('in', dstp, list(vals), limit=opts.get('limit'))]
 
     def _stormOperNextSeq(self, query, oper):
         name = None
@@ -769,8 +782,7 @@ class Runtime(Configable):
 
         # use the more optimal "in" mechanism once we have the pivot vals
         vals = list({ t[1].get(srcp) for t in query.data() if t != None })
-        for tufo in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit') ):
-            query.add(tufo)
+        [query.add(tufo) for tufo in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit'))]
 
     def _stormOperAddXref(self, query, oper):
 
@@ -886,13 +898,11 @@ class Runtime(Configable):
         limit = opts.get('limit')
 
         core = self.getStormCore()
-        forms = core.getTufoForms()
 
-        for form,tag in self._iterPropTags(forms,tags):
-            nodes = core.getTufosByTag(form,tag,limit=limit)
+        for tag in tags:
+            nodes = core.getTufosByDark('tag', tag, limit=limit)
 
-            for node in nodes:
-                query.add(node)
+            [query.add(node) for node in nodes]
 
             if limit != None:
                 limit -= len(nodes)
@@ -918,3 +928,66 @@ class Runtime(Configable):
 
         for tag in tags:
             [ core.delTufoTag(node,tag) for node in nodes ]
+
+    def _stormOperJoinTags(self, query, oper):
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+        core = self.getStormCore()
+
+        forms = {arg for arg in args}
+        keep_nodes = opts.get('keep_nodes', False)
+        limt = LimitHelp(opts.get('limit'))
+
+        nodes = query.data()
+        if not keep_nodes:
+            query.clear()
+
+        tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=True)}
+
+        if not forms:
+            forms = set(core.getModelDict().get('forms'))
+
+        for tag in tags:
+            lqs = query.size()
+            tufos = core.getTufosByDark('tag', tag, limit=limt.get())
+            [query.add(tufo) for tufo in tufos if tufo[1].get('tufo:form') in forms]
+            if tufos:
+                lq = query.size()
+                nnewnodes = lq - lqs
+                if limt.dec(nnewnodes):
+                    break
+
+    def _stormOperToTags(self, query, oper):
+        opts = dict(oper[1].get('kwlist'))
+        nodes = query.take()
+        core = self.getStormCore()
+
+        leaf = opts.get('leaf', True)
+        tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=leaf)}
+        [query.add(tufo) for tufo in core.getTufosBy('in', 'syn:tag', list(tags))]
+
+    def _stormOperFromTags(self, query, oper):
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        nodes = query.take()
+
+        forms = {arg for arg in args}
+        limt = LimitHelp(opts.get('limit'))
+
+        tags = {node[1].get('syn:tag') for node in nodes if node[1].get('tufo:form') == 'syn:tag'}
+
+        core = self.getStormCore()
+
+        if not forms:
+            forms = set(core.getModelDict().get('forms'))
+
+        for tag in tags:
+            lqs = query.size()
+            tufos = core.getTufosByDark('tag', tag, limit=limt.get())
+            [query.add(tufo) for tufo in tufos if tufo[1].get('tufo:form') in forms]
+            if tufos:
+                lq = query.size()
+                nnewnodes = lq - lqs
+                if limt.dec(nnewnodes):
+                    break

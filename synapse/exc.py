@@ -28,6 +28,7 @@ class SynErr(Exception):
         '''
         return self.errinfo.get(name)
 
+class NoSuchAct(SynErr):pass
 class NoSuchOpt(SynErr):pass
 class NoSuchDir(SynErr):pass
 class NoSuchDyn(SynErr):pass
@@ -62,6 +63,9 @@ class BadMesgVers(SynErr):pass
 class BadInfoValu(SynErr):pass
 class BadStorValu(SynErr):pass
 
+class MustBeLocal(SynErr):pass
+class MustBeProxy(SynErr):pass
+
 class NoAuthUser(SynErr):pass
 
 class WebAppErr(SynErr):pass
@@ -83,13 +87,12 @@ class DupUser(Exception):pass
 class DupRole(Exception):pass
 
 class NoSuch(Exception):pass
-class NoSuchAct(Exception):pass
 class NoSuchJob(Exception):pass
 class NoSuchObj(SynErr):pass
 class NoSuchFile(Exception):pass
 class NoSuchIden(Exception):pass
 class NoSuchMeth(SynErr):pass
-class NoSuchFunc(Exception):pass
+class NoSuchFunc(SynErr):pass
 class NoSuchPeer(Exception):pass
 class NoSuchSess(Exception):pass
 class NoSuchUser(SynErr):pass

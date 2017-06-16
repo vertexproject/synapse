@@ -66,7 +66,6 @@ class SocketTest(SynTest):
         plex.fini()
 
     def test_sock_plex_txbuf(self):
-
         # windows sockets seem to allow *huge* buffers in non-blocking
         # so triggering txbuf takes *way* too much ram to be a feasable test
         if s_thishost.get('platform') == 'windows':
@@ -78,15 +77,25 @@ class SocketTest(SynTest):
 
         plex.addPlexSock(s2)
 
-        s2.tx( tufo('hi',there='there') )
+        # the rx socket is a blocking socket which cause calls to
+        # rx() to block on the recv() call in the main thread of
+        # the python program
 
-        self.assertEqual( s1.recvobj()[0], 'hi' )
+        t0 = tufo('hi',there='there')
+        t1 = tufo('OMG', y='A'*409000)
+        t2 = tufo('foo', bar='baz')
 
-        s2.tx( tufo('OMG', y='A'*409000) )
+        s2.tx( t0 )
+        m0 = s1.recvobj()
+        self.assertEqual( m0[0], 'hi' )
+
+        # So this is pushing a large message which is going to be
+        # transmitted in parts - hence the NEXT assertion statement
+        s2.tx( t1 )
 
         self.assertIsNotNone( s2.txbuf )
 
-        s2.tx( tufo('foo', bar='baz') )
+        s2.tx( t2 )
 
         self.assertEqual( len(s2.txque), 1 )
 
@@ -98,7 +107,6 @@ class SocketTest(SynTest):
 
         s1.fini()
         s2.fini()
-
         plex.fini()
 
     def test_socket_hostaddr(self):

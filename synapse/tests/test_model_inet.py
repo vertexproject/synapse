@@ -32,14 +32,14 @@ class InetModelTest(SynTest):
     def test_model_inet_ipv4(self):
 
         with s_cortex.openurl('ram:///') as core:
-            t0 = core.formTufoByFrob('inet:ipv4','16909060')
+            t0 = core.formTufoByProp('inet:ipv4','16909060')
             self.eq( t0[1].get('inet:ipv4'), 0x01020304 )
             self.eq( t0[1].get('inet:ipv4:asn'), -1 )
 
     def test_model_inet_ipv6(self):
 
         with s_cortex.openurl('ram:///') as core:
-            t0 = core.formTufoByFrob('inet:ipv6','0:0:0:0:0:0:0:1')
+            t0 = core.formTufoByProp('inet:ipv6','0:0:0:0:0:0:0:1')
             self.eq( t0[1].get('inet:ipv6'), '::1' )
             self.eq( t0[1].get('inet:ipv6:asn'), -1 )
 
@@ -86,13 +86,13 @@ class InetModelTest(SynTest):
 
         with s_cortex.openurl('ram:///') as core:
             prop = 'inet:fqdn'
-            idna_valu = 'xn--tst.xampl.link-vjbdf'
+            idna_valu = 'xn--tst-6la.xn--xampl-3raf.link'
             unicode_valu = 'tèst.èxamplè.link'
             parents = (
                     ('èxamplè.link', {'inet:fqdn:host': 'èxamplè', 'inet:fqdn:domain': 'link', 'inet:fqdn:zone': 1, 'inet:fqdn:sfx': 0}),
                     ('link', {'inet:fqdn:host': 'link', 'inet:fqdn:domain': None, 'inet:fqdn:zone': 0, 'inet:fqdn:sfx': 1}),
             )
-            idna_tufo = core.formTufoByFrob(prop, idna_valu)
+            idna_tufo = core.formTufoByProp(prop, idna_valu)
             self.eq(idna_tufo[1].get('inet:fqdn:host'), 'tèst')
             self.eq(idna_tufo[1].get('inet:fqdn:domain'), 'èxamplè.link')
             self.eq(idna_tufo[1].get('inet:fqdn:zone'), 0)
@@ -103,29 +103,29 @@ class InetModelTest(SynTest):
                 for key in parent_props:
                     self.eq(parent_tufo[1].get(key), parent_props[key])
 
-            idna_tufo = core.formTufoByFrob(prop, idna_valu)
-            unicode_tufo = core.formTufoByFrob(prop, unicode_valu)
+            idna_tufo = core.formTufoByProp(prop, idna_valu)
+            unicode_tufo = core.formTufoByProp(prop, unicode_valu)
             self.eq(unicode_tufo, idna_tufo)
 
         with s_cortex.openurl('ram:///') as core:
             prop = 'inet:netuser'
-            valu = '%s/%s' % ('xn--tst.xampl.link-vjbdf', 'user')
+            valu = '%s/%s' % ('xn--tst-6la.xn--xampl-3raf.link', 'user')
             tufo = core.formTufoByProp(prop, valu)
             self.eq(tufo[1].get('inet:netuser:site'), 'tèst.èxamplè.link')
             self.eq(tufo[1].get('inet:netuser'), 'tèst.èxamplè.link/user')
 
         with s_cortex.openurl('ram:///') as core:
             prop = 'inet:email'
-            valu = '%s@%s' % ('user', 'xn--tst.xampl.link-vjbdf')
+            valu = '%s@%s' % ('user', 'xn--tst-6la.xn--xampl-3raf.link')
             tufo = core.formTufoByProp(prop, valu)
             self.eq(tufo[1].get('inet:email:fqdn'), 'tèst.èxamplè.link')
             self.eq(tufo[1].get('inet:email'), 'user@tèst.èxamplè.link')
 
         with s_cortex.openurl('ram:///') as core:
             prop = 'inet:url'
-            valu = '%s://%s/%s' % ('https', 'xn--tst.xampl.link-vjbdf', 'things')
+            valu = '%s://%s/%s' % ('https', 'xn--tst-6la.xn--xampl-3raf.link', 'things')
             tufo = core.formTufoByProp(prop, valu)
-            self.eq(tufo[1].get('inet:url'), 'https://xn--tst.xampl.link-vjbdf/things') # hostpart is not normed in inet:url
+            self.eq(tufo[1].get('inet:url'), 'https://xn--tst-6la.xn--xampl-3raf.link/things') # hostpart is not normed in inet:url
 
     def test_model_inet_fqdn_set_sfx(self):
         with s_cortex.openurl('ram:///') as core:
@@ -333,3 +333,13 @@ class InetModelTest(SynTest):
             self.eq( len(core.eval('inet:whois:rec="woot.com@20501217"')), 1 )
             self.eq( len(core.eval('inet:whois:contact:rec="woot.com@20501217"')), 1 )
 
+
+    def test_model_fqdn_punycode(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce',1)
+
+            node = core.formTufoByProp('inet:fqdn','www.xn--heilpdagogik-wiki-uqb.de')
+            self.eq(node[1].get('inet:fqdn'),'www.heilpädagogik-wiki.de')
+
+            self.assertRaises(BadTypeValu, core.getTypeNorm, 'inet:fqdn', '!@#$%')

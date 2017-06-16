@@ -442,8 +442,8 @@ class Daemon(EventBus,DmonConf):
             return sock.tx( tufo('job:done', err='NoSuchRule', jid=jid) )
 
         def onfini():
-            self.pushed.pop(name,None)
-            self.reflect.pop(name,None)
+            self.pushed.pop(name, None)
+            self.reflect.pop(name, None)
 
         sock.onfini(onfini)
 
@@ -673,7 +673,6 @@ class Daemon(EventBus,DmonConf):
                         # pass along how to reply
                         mesg[1]['suid'] = sock.iden
                         return pushsock.tx( mesg )
-
                     raise NoSuchObj(name)
 
                 task = mesg[1].get('task')

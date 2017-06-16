@@ -63,27 +63,6 @@ class DataType:
 
         return self.__class__(self.tlib, name,**info)
 
-    def frob(self, valu, oldval=None):
-        '''
-        Attempt to take either repr *or* system form and normalize.
-
-        Example:
-
-            valu = tobj.frob(valu)
-
-        Note:
-
-            This API is mostly for use in simplifying parser / syntax
-            use cases and should be avoided if input abiguity is not required.
-
-        '''
-        # FIXME this is the only remaining special behavior of frob vs norm.
-        # ( frob() on an invalid or un-normalizable value should return None not raise )
-        try:
-            return self.norm(valu, oldval=oldval)
-        except BadTypeValu as e:
-            return None,{}
-
     def parse(self, text, oldval=None):
         '''
         Parse input text and return the system mode (normalized) value for the type.
@@ -743,24 +722,6 @@ class TypeLib:
 
         '''
         return self.reqDataType(name).norm(valu, oldval=oldval)
-
-    def getTypeFrob(self, name, valu, oldval=None):
-        '''
-        Return a system normalized value for the given input value which
-        may be in system mode or in display mode.
-
-        Returns None,{} on Exception
-
-        Example:
-
-            valu,subs = tlib.getTypeFrob('inet:ipv4',valu)
-
-        '''
-        try:
-            return self.reqDataType(name).frob(valu, oldval=oldval)
-        except Exception as e:
-            logger.warning(e)
-            return None,{}
 
     def getTypeCast(self, name, valu):
         '''

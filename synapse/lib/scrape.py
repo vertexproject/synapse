@@ -3,7 +3,7 @@ import re
 import synapse.data as s_data
 import synapse.lib.datfile as s_datfile
 
-from synapse.common import *
+import synapse.common as s_common
 
 tldlist = list(s_data.get('iana.tlds'))
 
@@ -27,34 +27,33 @@ scrape_types = [
 
 regexes = { name:re.compile(rule,re.IGNORECASE) for (name,rule,opts) in scrape_types }
 
-def scrape(text, data=None):
+def scrape(text):
     '''
     Scrape types from a blob of text and return an ingest compatible dict.
     '''
-    if data == None:
-        data = {}
-
     for ptype,rule,info in scrape_types:
         regx = regexes.get(ptype)
         for valu in regx.findall(text):
             yield (ptype,valu)
 
-def getsync(text, tags=()):
-
+def splices(text, tags=()):
+    '''
+    Return a list of splice events for the give scrape output.
+    '''
     ret = []
+    done = set()
 
-    import synapse.cortex as s_cortex
+    for formvalu in scrape(text):
 
-    core = s_cortex.openurl('ram://')
-    with s_cortex.openurl('ram://'):
+        if formvalu in done:
+            continue
 
-        core.setConfOpt('enforce',1)
-        core.on('core:sync', ret.append)
+        done.add(formvalu)
+        form,valu = formvalu
 
-        for form,valu in scrape(text):
-            tufo = core.formTufoByFrob(form,valu)
-            for tag in tags:
-                core.addTufoTag(tufo,tag)
+        mesg = s_common.splice('node:add', form=form, valu=valu, tags=tags)
+
+        ret.append( mesg )
 
     return ret
 

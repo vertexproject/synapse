@@ -125,8 +125,8 @@ class IngTest(SynTest):
 
             self.nn( core.getTufoByProp('inet:fqdn','foo.com') )
             self.nn( core.getTufoByProp('inet:fqdn','vertex.link') )
-            self.nn( core.getTufoByFrob('inet:ipv4','1.2.3.4') )
-            self.nn( core.getTufoByFrob('inet:ipv4','5.6.7.8') )
+            self.nn( core.getTufoByProp('inet:ipv4','1.2.3.4') )
+            self.nn( core.getTufoByProp('inet:ipv4','5.6.7.8') )
 
             self.eq( len( core.eval('inet:ipv4*tag=hehe.haha') ), 2 )
             self.eq( len( core.eval('inet:fqdn*tag=hehe.haha') ), 2 )
@@ -263,7 +263,7 @@ class IngTest(SynTest):
                 gest.ingest(core)
 
                 self.nn( core.getTufoByProp('inet:fqdn', 'spooky.com') )
-                self.nn( core.getTufoByFrob('inet:ipv4', '192.168.1.1') )
+                self.nn( core.getTufoByProp('inet:ipv4', '192.168.1.1') )
                 self.nn( core.getTufoByProp('str:lwr', 'foo') )
                 self.nn( core.getTufoByProp('str:lwr', 'bar') )
                 self.nn( core.getTufoByProp('str:lwr', 'baz') )
@@ -296,9 +296,9 @@ class IngTest(SynTest):
                 gest.ingest(core)
 
                 self.nn( core.getTufoByProp('inet:fqdn', 'spooky.com') )
-                self.nn( core.getTufoByFrob('inet:ipv4', '192.168.1.1') )
+                self.nn( core.getTufoByProp('inet:ipv4', '192.168.1.1') )
                 self.nn( core.getTufoByProp('inet:fqdn', 'spookier.com') )
-                self.nn( core.getTufoByFrob('inet:ipv4', '192.168.1.2') )
+                self.nn( core.getTufoByProp('inet:ipv4', '192.168.1.2') )
 
 
     def test_ingest_xml(self):
@@ -1056,3 +1056,64 @@ class IngTest(SynTest):
             self.nn(_data)
         self.false(buf2.closed)
         buf2.close()
+
+    def test_ingest_xref(self):
+        data = {
+            "fhash": "e844031e309ce19520f563c38239190f59e7e1a67d4302eaea563c3ad36a8d81",
+            "ip": "8.8.8.8"
+        }
+
+        ingdef = {
+            'ingest': {
+                'vars': [
+                    [
+                        "fhash",
+                        {
+                            "path": "fhash"
+                        }
+                    ],
+                    [
+                        "ip",
+                        {
+                            "path": "ip"
+                        }
+                    ]
+                ],
+                'forms': [
+                    [
+                        "file:bytes:sha256",
+                        {
+                            "var": "fhash",
+                            "savevar": "file_guid"
+                        }
+                    ],
+                    [
+                        "inet:ipv4",
+                        {
+                            "var": "ip",
+                            "savevar": "ip_guid"
+                        }
+                    ],
+                    [
+                        "file:txtref",
+                        {
+                            "template": "{{file_guid}}|inet:ipv4|{{ip_guid}}"
+                        }
+                    ]
+                ]
+            }
+        }
+
+        with s_cortex.openurl('ram://') as core:
+            ingest = s_ingest.Ingest(info=ingdef)
+            ingest.ingest(core=core, data=data)
+
+            nodes1 = core.eval('file:bytes')
+            self.eq(len(nodes1), 1)
+            nodes2 = core.eval('inet:ipv4')
+            self.eq(len(nodes2), 1)
+            nodes3 = core.eval('file:txtref')
+            self.eq(len(nodes3), 1)
+            xrefnode = nodes3[0]
+            self.eq(xrefnode[1].get('file:txtref:file'), nodes1[0][1].get('file:bytes'))
+            self.eq(xrefnode[1].get('file:txtref:xref:inet:ipv4'), nodes2[0][1].get('inet:ipv4'))

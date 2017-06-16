@@ -5,7 +5,7 @@ class TelcoTest(SynTest):
     def test_model_telco_phone(self):
         with s_cortex.openurl('ram:///') as core:
             core.setConfOpt('enforce',1)
-            node = core.formTufoByFrob('tel:phone','+1 (703) 555-1212')
+            node = core.formTufoByProp('tel:phone','+1 (703) 555-1212')
             self.eq(node[1].get('tel:phone'), 17035551212 )
             self.eq(node[1].get('tel:phone:cc'), 'us' )
 
