@@ -390,6 +390,19 @@ class AxonCluster(AxonMixin):
 
         return wraxons
 
+    def _waitWrAxons(self, count, timeout):
+
+        # mostly used for unit test race elimination
+        maxtime = time.time() + timeout
+        while True:
+            if time.time() >= maxtime:
+                return False
+
+            if len(self._getWrAxons()) >= count:
+                return True
+
+            time.sleep(0.1)
+
 class Axon(s_eventbus.EventBus,AxonMixin):
     '''
     An Axon acts as a binary blob store with hash based indexing/retrieval.
