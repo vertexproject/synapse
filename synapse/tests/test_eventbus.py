@@ -138,8 +138,7 @@ class EventBusTest(SynTest):
 
         bus.on('lol', wootfunc)
 
-        filt = [('foo',10)]
-        bus.on('rofl', wootfunc, filt=filt)
+        bus.on('rofl', wootfunc, foo=10 )
 
         mesg = bus.fire('lol')
         self.true( mesg[1].get('woot') )

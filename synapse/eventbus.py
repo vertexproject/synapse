@@ -59,14 +59,15 @@ class EventBus(object):
         if func in self._syn_links:
             self._syn_links.remove(func)
 
-    def on(self, name, func, filt=()):
+    def on(self, name, func, **filts):
         '''
-        Add a callback func to the SynCallBacker.
+        Add an event bus callback for a specific event with optional filtering.
 
         Args:
             name (str):         An event name
             func (function):    A callback function to receive event tufo
-            filt (tuple):        A list of (prop,valu) tuples to filter events
+            filt (tuple):       A list of (prop,valu) tuples to filter events
+            **filts:            Optional filter values for the event tuple.
 
         Returns:
             (None)
@@ -78,17 +79,16 @@ class EventBus(object):
                 y = event[1].get('y')
                 return x + y
 
-            filt = [('x',10)]
-            d.on('woot', baz, filt=filt)
+            d.on('woot', baz, x=10)
 
             # this fire triggers baz...
             d.fire('foo', x=10, y=20)
+
             # this fire does not ( due to filt )
             d.fire('foo', x=30, y=20)
 
         '''
-        filt = tuple(filt)
-        self._syn_funcs[name].append((func,filt))
+        self._syn_funcs[name].append((func,tuple(filts.items())))
 
     def off(self, name, func):
         '''

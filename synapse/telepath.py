@@ -287,12 +287,13 @@ class Proxy(s_eventbus.EventBus):
     def _raw_off(self, name, func):
         return s_eventbus.EventBus.off(self, name, func)
 
-    def on(self, evnt, func, filt=()):
+    def on(self, evnt, func, **filts):
 
         # create a separate record for each so the dmon
         # can potentially create an "any" filter for us
         if evnt not in telelocal:
             iden = guid()
+            filt = tuple(filts.items())
 
             onit = (iden,filt)
 
@@ -302,7 +303,7 @@ class Proxy(s_eventbus.EventBus):
             job = self._txTeleJob('tele:on', ons=[(evnt,[onit])], name=self._tele_name)
             self.syncjob(job)
 
-        return s_eventbus.EventBus.on(self, evnt, func, filt=filt)
+        return s_eventbus.EventBus.on(self, evnt, func, **filts)
 
     def off(self, name, func):
 

@@ -393,7 +393,7 @@ class TelePathTest(SynTest):
                 proxy1.on('tufo:tag:add', count('p1'))
 
                 func = count('f0')
-                proxy1.on('tufo:tag:add', func, filt=[('tag','hehe')])
+                proxy1.on('tufo:tag:add', func, tag='hehe')
 
                 wait = proxy1.waiter(1,'tufo:tag:add')
                 proxy0.fire('tufo:tag:add', tag='tagu', tufo=('iden', {'prop': 'valu'}))
