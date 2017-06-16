@@ -26,13 +26,17 @@ class Process:
         maxmemory (int):
             Limit the resident set size(RSS) of the process, specified in bytes.
 
-        maxcpu (int):
+        maxcpuavg (int):
             Limit the average cpu utilization of the process, specified as percentage.
+
+        maxcpu (int):
+            Limit the cpu utilization of the process, specified as percentage.
 
         maxcpucycles (int):
             The number of 'over the threshold' maxcpu samples required before terminating the process. If not specified,
             the process will be terminated on the first observation of it exceeding the maxcpu threshold. This parameter
-            provides a way to allow for occasional spikes in cpu utilization.
+            used in conjunction with maxcpu provides an alternative to maxcpuavg to allow for occasional spikes in cpu
+            utilization.
 
         monitorinterval (float):
             The time between sampling of the process' resource utilization. Defaults to 10 seconds.
@@ -52,16 +56,17 @@ class Process:
         self.timeout   = kwargs.get('timeout')
         self.monitint  = kwargs.get('monitorinterval', Process.DEFAULT_MONITOR_INTERVAL)
         self.maxmemory = kwargs.get('maxmemory')
+        self.maxcpuavg = kwargs.get('maxcpuavg')
         self.maxcpu    = kwargs.get('maxcpu')
         self.cpucycles = kwargs.get('maxcpucycles')
         self.pinfo     = None
-        self.err       = None
+        self.errinfo   = None
         self.queue     = Queue()
         if not self.monitint > 0:
             self.monitint = Process.DEFAULT_MONITOR_INTERVAL
         if not isinstance(self.task, tuple):
             raise TypeError('kwargs task must be specified as (func, args, kwargs)')
-        if self.maxmemory or self.maxcpu:
+        if self.maxmemory or self.maxcpu or self.maxcpuavg:
             if psutil == None:
                 raise Exception('psutils module not found, but is required when specifying maxmemory or maxcpu')
 
@@ -80,7 +85,7 @@ class Process:
             try:
                 result['ret'] = func(*args, **kwargs)
             except Exception as e:
-                result['err'] = str(e)
+                result['err'] = excinfo(e)
             queue.put(result)
 
         p = multiprocessing.Process(target=exec, args=(self.queue,))
@@ -101,16 +106,17 @@ class Process:
         Provides an error string if an error occurred during process execution.
 
         Returns:
-            str: Error string, or None if process execution completed successfully.
+            dict: Containing err and when available: errfile, errline, errmsg. Or, None if process execution completed
+                  successfully.
         '''
-        return self.err
+        return self.errinfo
 
     def _readResult(self):
         ret = None
         try:
             result = self.queue.get_nowait()
-            if not self.err:
-                self.err = result.get('err')
+            if not self.errinfo and result.get('err'):
+                self.errinfo = result.get('err')
             ret = result.get('ret')
         except Empty:
             pass
@@ -119,16 +125,21 @@ class Process:
     def _shouldKillProcess(self):
         currTime = now()
         if self.endts and currTime >= self.endts:
-            self.err = 'HitMaxTime'
+            self.errinfo = {'err': 'HitMaxTime'}
             return True
         if self.maxmemory and self.pinfo.memory_info().rss > self.maxmemory:
-            self.err = 'HitMaxMemory'
+            self.errinfo = {'err': 'HitMaxMemory'}
             return True
-        if self.maxcpu and self._cpuAverage() > self.maxcpu:
-            self.cpuoverages += 1
-            if not self.cpucycles or (self.cpucycles and self.cpuoverages >= self.cpucycles):
-                self.err = 'HitMaxCPU'
+        if self.pinfo != None:
+            cpuPercent = self.pinfo.cpu_percent()
+            if self.maxcpuavg and self._cpuAverage(cpuPercent) > self.maxcpuavg:
+                self.errinfo = {'err': 'HitMaxCPU'}
                 return True
+            if self.maxcpu and cpuPercent > self.maxcpu:
+                self.cpuoverages += 1
+                if not self.cpucycles or (self.cpucycles and self.cpuoverages >= self.cpucycles):
+                    self.errinfo = {'err': 'HitMaxCPU'}
+                    return True
         return False
 
     def _sleepInterval(self):
@@ -146,13 +157,13 @@ class Process:
             self.endts = None
 
     def _initProcessInfo(self, proc):
-        if self.maxmemory or self.maxcpu:
+        if self.maxmemory or self.maxcpu or self.maxcpuavg:
             self.pinfo = psutil.Process(proc.pid)
             self.cputotal = 0
             self.cpusamples = 0
             self.cpuoverages = 0
 
-    def _cpuAverage(self):
+    def _cpuAverage(self, cpuPercent):
         self.cpusamples += 1
-        self.cputotal += self.pinfo.cpu_percent()
+        self.cputotal += cpuPercent
         return self.cputotal / self.cpusamples

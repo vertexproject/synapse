@@ -200,7 +200,8 @@ class Boss(EventBus):
 
         # if we have a timeout, setup a sched callback
         timeout = job[1].get('timeout')
-        if timeout != None:
+        subprocess = job[1].get('subprocess')
+        if timeout != None and subprocess == None:
 
             def hitmax():
                 joblocal.pop('schedevt',None)
@@ -256,7 +257,7 @@ class Boss(EventBus):
         process = s_process.Process(**procOpts)
         result = {'ret': process.run()}
         if process.error():
-            result['err'] = process.error()
+            result.update(process.error())
         return result
 
     def _onJobFini(self, event):

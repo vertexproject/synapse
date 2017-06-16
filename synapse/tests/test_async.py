@@ -369,6 +369,43 @@ class AsyncTests(SynTest):
 
         boss.fini()
 
+    def test_async_subprocess_maxcpuavg(self):
+        boss = s_async.Boss()
+        def runningwarm():
+            currTime = now()
+            d = 1
+            while True:
+                d += 1
+                if d % 1000 == 0 and (now() - currTime) > 300:
+                    time.sleep(0.1)
+                    if (now() - currTime) > 500:
+                        break
+            return True
+
+        jid1 = s_async.jobid()
+        task1 = (runningwarm, (), {})
+
+        job1 = boss.initJob(jid1, task=task1, subprocess=True, maxcpuavg=50, monitorinterval=0.1)
+        self.assertEqual( len(boss.jobs()), 1)
+
+        boss._runJob(job1)
+        self.assertEqual( len(boss.jobs()), 0)
+
+        self.assertEqual(job1[1].get('err'), 'HitMaxCPU')
+        self.assertEqual(job1[1].get('ret'), None)
+
+        jid2 = s_async.jobid()
+        task2 = (runningwarm, (), {})
+
+        job2 = boss.initJob(jid2, task=task2, subprocess=True, maxcpuavg=50, monitorinterval=0.4)
+        self.assertEqual( len(boss.jobs()), 1)
+
+        boss._runJob(job2)
+        self.assertEqual( len(boss.jobs()), 0)
+
+        self.assertEqual(job2[1].get('err'), None)
+        self.assertEqual(job2[1].get('ret'), True)
+
     def test_async_subprocess_maxcpu(self):
         boss = s_async.Boss()
         def runningwarm():
@@ -442,3 +479,121 @@ class AsyncTests(SynTest):
 
         self.assertEqual(job2[1].get('err'), 'HitMaxCPU')
         self.assertEqual(job2[1].get('ret'), None)
+
+    def test_async_pool_processes(self):
+        boss = s_async.Boss()
+        boss.runBossPool(3)
+
+        data = {}
+        def jobmeth(x, y=20):
+            return x + y
+
+        def jobdork(x, y=20):
+            raise Exception('hi')
+
+        def jobdone(job):
+            name = job[1].get('name')
+            data[name] = job
+
+        jid1 = s_async.jobid()
+        jid2 = s_async.jobid()
+
+        task1 = (jobmeth, (3,), {})
+        task2 = (jobdork, (3,), {})
+
+        job1 = boss.initJob(jid1, task=task1, name='job1', ondone=jobdone, subprocess=True)
+        job2 = boss.initJob(jid2, task=task2, name='job2', ondone=jobdone, subprocess=True)
+
+        self.assertEqual( job1[0], jid1 )
+
+        boss.wait(jid1, timeout=1)
+        boss.wait(jid2, timeout=1)
+
+        ret1 = data.get('job1')
+
+        self.assertIsNotNone(ret1)
+        self.assertEqual(ret1[1]['ret'], 23)
+
+        ret2 = data.get('job2')
+        self.assertIsNotNone(ret2)
+        self.assertEqual(ret2[1]['err'], 'Exception')
+        self.assertEqual(ret2[1]['errmsg'], 'hi')
+
+        boss.fini()
+
+    def test_async_pool_processes_wait(self):
+        boss = s_async.Boss()
+        boss.runBossPool(3)
+
+        data = {}
+        def sallgood():
+            return True
+
+        def longtime():
+            time.sleep(1)
+
+        def jobdone(job):
+            name = job[1].get('name')
+            data[name] = job
+
+        jid1 = s_async.jobid()
+        jid2 = s_async.jobid()
+
+        task1 = s_async.newtask(sallgood)
+        task2 = s_async.newtask(longtime)
+
+        boss.initJob(jid1, task=task1, name='job1', ondone=jobdone, subprocess=True)
+        self.assertTrue(boss.wait(jid1, timeout=0.1))
+
+        ret1 = data.get('job1')
+        self.assertIsNotNone(ret1)
+        self.assertEqual(ret1[1]['ret'], True)
+
+        boss.initJob(jid2, task=task2, name='job2', ondone=jobdone, subprocess=True)
+        self.assertFalse(boss.wait(jid2, timeout=0.1))
+        self.assertTrue(boss.wait(jid2, timeout=1))
+
+        ret2 = data.get('job2')
+        self.assertIsNotNone(ret2)
+        self.assertEqual(ret2[1]['ret'], None)
+
+        boss.fini()
+
+    def test_async_pool_processes_timeout(self):
+        boss = s_async.Boss()
+        boss.runBossPool(2)
+
+        data = {}
+        def sallgood():
+            return True
+
+        def longtime():
+            time.sleep(1)
+
+        def jobdone(job):
+            name = job[1].get('name')
+            data[name] = job
+
+        jid1 = s_async.jobid()
+        jid2 = s_async.jobid()
+
+        task1 = s_async.newtask(sallgood)
+        task2 = s_async.newtask(longtime)
+
+        boss.initJob(jid1, task=task1, name='job1', ondone=jobdone, subprocess=True, timeout=0.5)
+        self.assertTrue(boss.wait(jid1, timeout=0.1))
+
+        ret1 = data.get('job1')
+        self.assertIsNotNone(ret1)
+        self.assertEqual(ret1[1]['ret'], True)
+
+        boss.initJob(jid2, task=task2, name='job2', ondone=jobdone, subprocess=True, timeout=0.5)
+        self.assertFalse(boss.wait(jid2, timeout=0.1))
+        self.assertTrue(boss.wait(jid2, timeout=1))
+
+        ret2 = data.get('job2')
+        self.assertIsNotNone(ret2)
+        self.assertEqual(ret2[1]['ret'], None)
+        self.assertEqual(ret2[1]['err'], 'HitMaxTime')
+
+        boss.fini()
