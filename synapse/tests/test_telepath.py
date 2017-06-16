@@ -1,4 +1,5 @@
 import time
+import collections
 
 import synapse.link as s_link
 import synapse.async as s_async
@@ -15,7 +16,7 @@ from synapse.tests.common import *
 import logging
 logger = logging.getLogger(__name__)
 
-class Foo:
+class Foo(s_eventbus.EventBus):
 
     def bar(self, x, y):
         return x + y
@@ -126,10 +127,13 @@ class TelePathTest(SynTest):
 
             self.eq( prox1.bar(10,20), 30 )
 
+            wait0 = env.dmon.waiter(1, 'tele:push:fini')
+
             prox0.fini()
 
-            with self.assertRaises(NoSuchObj) as cm:
-                r = prox1.bar(10, 20)
+            self.nn(wait0.wait(timeout=2))
+
+            self.raises( SynErr, prox1.bar, 10, 20 )
 
             prox1.fini()
 
@@ -377,20 +381,45 @@ class TelePathTest(SynTest):
                 dmon.share('sbus', sbus)
                 proxy0 = s_telepath.openurl(url + '/sbus')
                 proxy1 = s_telepath.openurl(url + '/sbus')
-                counters = [0, 0]
 
-                def count(offset):
-                    def on(*args, **kwargs):
-                        counters[offset] += 1
-                    return on
+                counters = collections.defaultdict(int)
 
-                proxy0.on('tufo:tag:add', count(0))
-                proxy1.on('tufo:tag:add', count(1))
-                wait = s_eventbus.Waiter(proxy1, 1, 'tufo:tag:add')
+                def count(name):
+                    def onmesg(mesg):
+                        counters[name] += 1
+                    return onmesg
+
+                proxy0.on('tufo:tag:add', count('p0'))
+                proxy1.on('tufo:tag:add', count('p1'))
+
+                func = count('f0')
+                proxy1.on('tufo:tag:add', func, filt=[('tag','hehe')])
+
+                wait = proxy1.waiter(1,'tufo:tag:add')
                 proxy0.fire('tufo:tag:add', tag='tagu', tufo=('iden', {'prop': 'valu'}))
-                wait.wait()
-                self.assertEqual(counters[0], 1)
-                self.assertEqual(counters[1], 1)
+                self.nn(wait.wait(timeout=2))
+
+                self.eq(counters['p0'], 1)
+                self.eq(counters['p1'], 1)
+                self.eq(counters['f0'], 0)
+
+                wait = proxy1.waiter(1,'tufo:tag:add')
+                proxy0.fire('tufo:tag:add', tag='hehe', tufo=('iden', {'prop': 'valu'}))
+                self.nn(wait.wait(timeout=2))
+
+                self.eq(counters['p0'], 2)
+                self.eq(counters['p1'], 2)
+                self.eq(counters['f0'], 1)
+
+                proxy1.off('tufo:tag:add', func)
+
+                wait = proxy1.waiter(1,'tufo:tag:add')
+                proxy0.fire('tufo:tag:add', tag='hehe', tufo=('iden', {'prop': 'valu'}))
+                self.nn(wait.wait(timeout=2))
+
+                self.eq(counters['p0'], 3)
+                self.eq(counters['p1'], 3)
+                self.eq(counters['f0'], 1)
 
     def test_telepath_clientside(self):
 
