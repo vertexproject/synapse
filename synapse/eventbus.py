@@ -184,7 +184,7 @@ class EventBus(object):
 
         # explicitly release the handlers
         self._syn_funcs.clear()
-        self._fini_funcs.clear()
+        del self._fini_funcs[:]
 
         self.finievt.set()
 
