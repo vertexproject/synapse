@@ -6,6 +6,7 @@ import tempfile
 import unittest
 import threading
 import synapse.async as s_async
+import synapse.dyndeps as s_dyndeps
 import synapse.lib.scope as s_scope
 import synapse.lib.threads as s_threads
 
@@ -335,6 +336,10 @@ class AsyncTests(SynTest):
         boss.fini()
 
     def test_async_subprocess_maxmemory(self):
+        # only run this test if the psutil module is available
+        if not s_dyndeps.getDynMod('psutil'):
+            return
+
         boss = s_async.Boss()
         def eatsalot():
             wooties = []
@@ -368,117 +373,6 @@ class AsyncTests(SynTest):
         self.assertEqual(job2[1].get('ret'), 'woot')
 
         boss.fini()
-
-    def test_async_subprocess_maxcpuavg(self):
-        boss = s_async.Boss()
-        def runningwarm():
-            currTime = now()
-            d = 1
-            while True:
-                d += 1
-                if d % 1000 == 0 and (now() - currTime) > 300:
-                    time.sleep(0.1)
-                    if (now() - currTime) > 500:
-                        break
-            return True
-
-        jid1 = s_async.jobid()
-        task1 = (runningwarm, (), {})
-
-        job1 = boss.initJob(jid1, task=task1, subprocess=True, maxcpuavg=50, monitorinterval=0.1)
-        self.assertEqual( len(boss.jobs()), 1)
-
-        boss._runJob(job1)
-        self.assertEqual( len(boss.jobs()), 0)
-
-        self.assertEqual(job1[1].get('err'), 'HitMaxCPU')
-        self.assertEqual(job1[1].get('ret'), None)
-
-        jid2 = s_async.jobid()
-        task2 = (runningwarm, (), {})
-
-        job2 = boss.initJob(jid2, task=task2, subprocess=True, maxcpuavg=50, monitorinterval=0.4)
-        self.assertEqual( len(boss.jobs()), 1)
-
-        boss._runJob(job2)
-        self.assertEqual( len(boss.jobs()), 0)
-
-        self.assertEqual(job2[1].get('err'), None)
-        self.assertEqual(job2[1].get('ret'), True)
-
-    def test_async_subprocess_maxcpu(self):
-        boss = s_async.Boss()
-        def runningwarm():
-            currTime = now()
-            d = 1
-            while True:
-                d += 1
-                if d % 10000 == 0 and (now() - currTime) > 500:
-                    break
-            return True
-
-        jid1 = s_async.jobid()
-        task1 = (runningwarm, (), {})
-
-        job1 = boss.initJob(jid1, task=task1, subprocess=True, maxcpu=50, monitorinterval=0.1)
-        self.assertEqual( len(boss.jobs()), 1)
-
-        boss._runJob(job1)
-        self.assertEqual( len(boss.jobs()), 0)
-
-        self.assertEqual(job1[1].get('err'), 'HitMaxCPU')
-        self.assertEqual(job1[1].get('ret'), None)
-
-        jid2 = s_async.jobid()
-        task2 = (runningwarm, (), {})
-
-        job2 = boss.initJob(jid2, task=task2, subprocess=True, maxcpu=100, monitorinterval=0.1)
-        self.assertEqual( len(boss.jobs()), 1)
-
-        boss._runJob(job2)
-        self.assertEqual( len(boss.jobs()), 0)
-
-        self.assertEqual(job2[1].get('err'), None)
-        self.assertEqual(job2[1].get('ret'), True)
-
-    def test_async_subprocess_maxcpu_cycles(self):
-        boss = s_async.Boss()
-        def spikes():
-            currTime = now()
-            d = 1
-            while True:
-                d += 1
-                if d % 10000 == 0:
-                    runtime = now() - currTime
-                    if runtime > 500:
-                        break
-                    elif runtime > 300:
-                        time.sleep(0.1)
-            return True
-
-        jid1 = s_async.jobid()
-        task1 = (spikes, (), {})
-
-        job1 = boss.initJob(jid1, task=task1, subprocess=True, maxcpu=50, maxcpucycles=4, monitorinterval=0.1)
-        self.assertEqual( len(boss.jobs()), 1)
-
-        boss._runJob(job1)
-        self.assertEqual( len(boss.jobs()), 0)
-
-        self.assertEqual(job1[1].get('err'), None)
-        self.assertEqual(job1[1].get('ret'), True)
-
-        jid2 = s_async.jobid()
-        task2 = (spikes, (), {})
-
-        job2 = boss.initJob(jid2, task=task2, subprocess=True, maxcpu=50, maxcpucycles=1, monitorinterval=0.1)
-        self.assertEqual( len(boss.jobs()), 1)
-
-        boss._runJob(job2)
-        self.assertEqual( len(boss.jobs()), 0)
-
-        self.assertEqual(job2[1].get('err'), 'HitMaxCPU')
-        self.assertEqual(job2[1].get('ret'), None)
 
     def test_async_pool_processes(self):
         boss = s_async.Boss()
@@ -595,5 +489,61 @@ class AsyncTests(SynTest):
         self.assertIsNotNone(ret2)
         self.assertEqual(ret2[1]['ret'], None)
         self.assertEqual(ret2[1]['err'], 'HitMaxTime')
+
+        boss.fini()
+
+    def test_async_subprocess_events(self):
+        boss = s_async.Boss()
+
+        def longtime():
+            time.sleep(0.3)
+            return True
+
+        def ontick(job):
+            proc = job[1].get('proc')
+            if proc.runtime() >= 200:
+                proc.kill()
+
+        jid1 = s_async.jobid()
+        task1 = s_async.newtask(longtime)
+
+        job1 = boss.initJob(jid1, task=task1, subprocess=True, monitorinterval=0.1)
+        self.assertEqual( len(boss.jobs()), 1)
+
+        boss.on('job:tick', ontick)
+        boss._runJob(job1)
+        self.assertEqual( len(boss.jobs()), 0)
+
+        self.assertFalse(job1[1]['proc'].isAlive())
+        self.assertEqual(job1[1]['ret'], None)
+        self.assertEqual(job1[1].get('err'), None)
+
+        boss.fini()
+
+    def test_async_subprocess_pool_events(self):
+        boss = s_async.Boss()
+        boss.runBossPool(1)
+
+        def longtime():
+            time.sleep(0.3)
+            return True
+
+        def ontick(job):
+            proc = job[1].get('proc')
+            if proc.runtime() >= 200:
+                proc.kill()
+
+        jid1 = s_async.jobid()
+        task1 = s_async.newtask(longtime)
+
+        job1 = boss.initJob(jid1, task=task1, subprocess=True, monitorinterval=0.1)
+        self.assertEqual( len(boss.jobs()), 1)
+
+        boss.on('job:tick', ontick)
+        boss.wait(jid1)
+
+        self.assertFalse(job1[1]['proc'].isAlive())
+        self.assertEqual(job1[1]['ret'], None)
+        self.assertEqual(job1[1].get('err'), None)
 
         boss.fini()

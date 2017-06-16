@@ -240,7 +240,7 @@ class Boss(EventBus):
 
         try:
             if job[1].get('subprocess', False):
-                result = self._runTaskAsProcess(job[1])
+                result = self._runTaskAsProcess(job)
                 self.fire('job:done', jid=job[0], **result)
             else:
                 func, args, kwargs = task
@@ -250,11 +250,16 @@ class Boss(EventBus):
         except Exception as e:
             self.fire('job:done', jid=job[0], **excinfo(e))
 
-    def _runTaskAsProcess(self, opts):
+    def _runTaskAsProcess(self, job):
         # allow Process to handle error conditions
+        opts = job[1]
         procOpts = opts.copy()
         opts.pop('timeout', None)
         process = s_process.Process(**procOpts)
+        opts['proc'] = process
+        def firejobtick(boss, event):
+            boss.fire('job:tick', jid=job[0], **opts)
+        process.on('proc:tick', functools.partial(firejobtick, self))
         result = {'ret': process.run()}
         if process.error():
             result.update(process.error())

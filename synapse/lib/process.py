@@ -1,13 +1,15 @@
+import threading
 import multiprocessing
 from queue import Empty
 from multiprocessing import Queue
 
 from synapse.common import *
 import synapse.dyndeps as s_dyndeps
+from synapse.eventbus import EventBus
 
 psutil = s_dyndeps.getDynMod('psutil')
 
-class Process:
+class Process(EventBus):
     '''
     Process provides a convenient API for executing a controlled process.
 
@@ -26,49 +28,32 @@ class Process:
         maxmemory (int):
             Limit the resident set size(RSS) of the process, specified in bytes.
 
-        maxcpuavg (int):
-            Limit the average cpu utilization of the process, specified as percentage.
-
-        maxcpu (int):
-            Limit the cpu utilization of the process, specified as percentage.
-
-        maxcpucycles (int):
-            The number of 'over the threshold' maxcpu samples required before terminating the process. If not specified,
-            the process will be terminated on the first observation of it exceeding the maxcpu threshold. This parameter
-            used in conjunction with maxcpu provides an alternative to maxcpuavg to allow for occasional spikes in cpu
-            utilization.
-
         monitorinterval (float):
             The time between sampling of the process' resource utilization. Defaults to 10 seconds.
 
     Raises:
         TypeError:
             If kwarg 'task' is not provided or is not of the correct form.
-
-        Exception:
-            If 'maxmemory' or 'maxcpu' arguments are supplied and psutil module is not installed.
-
     '''
     DEFAULT_MONITOR_INTERVAL = 10
 
     def __init__(self, **kwargs):
+        EventBus.__init__(self)
         self.task      = kwargs.get('task')
         self.timeout   = kwargs.get('timeout')
         self.monitint  = kwargs.get('monitorinterval', Process.DEFAULT_MONITOR_INTERVAL)
         self.maxmemory = kwargs.get('maxmemory')
-        self.maxcpuavg = kwargs.get('maxcpuavg')
-        self.maxcpu    = kwargs.get('maxcpu')
-        self.cpucycles = kwargs.get('maxcpucycles')
         self.pinfo     = None
         self.errinfo   = None
+        self.proc      = None
+        self.procLock  = threading.Lock()
         self.queue     = Queue()
         if not self.monitint > 0:
             self.monitint = Process.DEFAULT_MONITOR_INTERVAL
         if not isinstance(self.task, tuple):
             raise TypeError('kwargs task must be specified as (func, args, kwargs)')
-        if self.maxmemory or self.maxcpu or self.maxcpuavg:
-            if psutil == None:
-                raise Exception('psutils module not found, but is required when specifying maxmemory or maxcpu')
+        if self.maxmemory and psutil == None:
+            raise Exception('psutils module not found, but is required when specifying maxmemory.')
 
     def run(self):
         '''
@@ -77,10 +62,18 @@ class Process:
         Returns:
             object: The return value of the task function. If the process was terminated, a value of None will be
                     returned and 'error()' can be called to retrieve the error string.
+
+        Raises:
+            Exception:
+                If process is currently running.
         '''
+        with self.procLock:
+            if self.isAlive():
+                raise Exception('cannot call run on an already running process')
+
         func, args, kwargs = self.task
 
-        def exec(queue):
+        def doit(queue):
             result = {}
             try:
                 result['ret'] = func(*args, **kwargs)
@@ -88,18 +81,28 @@ class Process:
                 result['err'] = excinfo(e)
             queue.put(result)
 
-        p = multiprocessing.Process(target=exec, args=(self.queue,))
-        p.start()
+        self.proc = multiprocessing.Process(target=doit, args=(self.queue,))
+        self.proc.start()
         self._initTimestamps()
-        self._initProcessInfo(p)
-        while p.is_alive():
+        self._initProcessInfo(self.proc)
+        while self.proc.is_alive():
             if self._shouldKillProcess():
-                p.terminate()
+                self.kill()
                 break
             else:
-                p.join(self._sleepInterval())
+                self.proc.join(self._sleepInterval())
+                self._fireTick()
+        self.endts = now()
         result = self._readResult()
         return result
+
+    def kill(self):
+        '''
+        Terminates the process.
+        '''
+        with self.procLock:
+            if self.isAlive():
+                self.proc.terminate()
 
     def error(self):
         '''
@@ -110,6 +113,46 @@ class Process:
                   successfully.
         '''
         return self.errinfo
+
+    def runtime(self):
+        '''
+        Current runtime of running process, or total runtime of completed process.
+
+        Returns:
+            int: Runtime of process expressed in milliseconds.
+        '''
+        if self.isAlive():
+            result = now() - self.startts
+        elif self.endts and self.startts:
+            result = self.endts - self.startts
+        else:
+            result = 0
+        return result
+
+    def memusage(self):
+        '''
+        Current RSS memory usage of process.
+
+        Returns:
+            int: Memory usage expressed in bytes.
+        '''
+        result = 0
+        if self.pinfo:
+            result = self.pinfo.memory_info().rss
+        return result
+
+    def isAlive(self):
+        '''
+        Indicates whether the process is still running.
+
+        Returns:
+            bool: True if process is still running, False otherwise.
+        '''
+        return self.proc != None and self.proc.is_alive()
+
+    def _fireTick(self):
+        if self.isAlive():
+            self.fire('proc:tick', proc=self)
 
     def _readResult(self):
         ret = None
@@ -130,16 +173,6 @@ class Process:
         if self.maxmemory and self.pinfo.memory_info().rss > self.maxmemory:
             self.errinfo = {'err': 'HitMaxMemory'}
             return True
-        if self.pinfo != None:
-            cpuPercent = self.pinfo.cpu_percent()
-            if self.maxcpuavg and self._cpuAverage(cpuPercent) > self.maxcpuavg:
-                self.errinfo = {'err': 'HitMaxCPU'}
-                return True
-            if self.maxcpu and cpuPercent > self.maxcpu:
-                self.cpuoverages += 1
-                if not self.cpucycles or (self.cpucycles and self.cpuoverages >= self.cpucycles):
-                    self.errinfo = {'err': 'HitMaxCPU'}
-                    return True
         return False
 
     def _sleepInterval(self):
@@ -157,13 +190,5 @@ class Process:
             self.endts = None
 
     def _initProcessInfo(self, proc):
-        if self.maxmemory or self.maxcpu or self.maxcpuavg:
+        if self.maxmemory:
             self.pinfo = psutil.Process(proc.pid)
-            self.cputotal = 0
-            self.cpusamples = 0
-            self.cpuoverages = 0
-
-    def _cpuAverage(self, cpuPercent):
-        self.cpusamples += 1
-        self.cputotal += cpuPercent
-        return self.cputotal / self.cpusamples
