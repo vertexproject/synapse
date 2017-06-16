@@ -31,7 +31,7 @@ s_mixins.addSynMixin('telepath','synapse.axon.AxonMixin')
 
 # telepath protocol version
 # ( compat breaks only at major ver )
-telever = (1,0)
+telever = (2,0)
 
 def openurl(url,**opts):
     '''
@@ -297,47 +297,44 @@ class Proxy(s_eventbus.EventBus):
     def _raw_off(self, name, func):
         return s_eventbus.EventBus.off(self, name, func)
 
-    def on(self, name, func):
+    def on(self, evnt, func, filt=()):
 
-        if name not in telelocal:
+        # create a separate record for each so the dmon
+        # can potentially create an "any" filter for us
+        if evnt not in telelocal:
+            iden = guid()
 
-            refc = self._tele_ons.get(name)
-            if refc == None:
-                job = self._txTeleJob('tele:on', events=[name], name=self._tele_name)
-                self.syncjob(job)
+            onit = (iden,filt)
 
-                refc = 0
+            okey = (evnt,func)
+            self._tele_ons[okey] = (iden,filt)
 
-            self._tele_ons[name] = refc + 1
+            job = self._txTeleJob('tele:on', ons=[(evnt,[onit])], name=self._tele_name)
+            self.syncjob(job)
 
-        return s_eventbus.EventBus.on(self, name, func)
+        return s_eventbus.EventBus.on(self, evnt, func, filt=filt)
 
     def off(self, name, func):
 
         ret = s_eventbus.EventBus.off(self, name, func)
+        if name in telelocal:
+            return ret
 
-        if name not in telelocal:
-            refc = self._tele_ons.get(name)
-            if refc != None:
-                refc -= 1
-                if refc == 0:
-                    self._tele_ons.pop(name,None)
-                    job = self._txTeleJob('tele:off', evt=name, name=self._tele_name)
-                    self.syncjob(job)
+        okey = (name,func)
+        onit = self._tele_ons.pop(okey,None)
+        if onit is None:
+            return ret
 
-                else:
-                    self._tele_ons[name] = refc
+        iden,filt = onit
+        job = self._txTeleJob('tele:off', evnt=name, iden=iden, name=self._tele_name)
+        self.syncjob(job)
 
         return ret
-
-        job = self._txTeleJob('tele:off', evt=name, name=self._tele_name)
-        self.syncjob(job)
 
     def fire(self, name, **info):
         if name in telelocal:
             return s_eventbus.EventBus.fire(self, name, **info)
 
-        # events fired on a proxy go through the remove first...
         job = self.call('fire', name, **info)
         return self.syncjob(job)
 
@@ -459,13 +456,6 @@ class Proxy(s_eventbus.EventBus):
         mesg = event[1].get('mesg')
         self._tele_q.put( mesg )
 
-    #def _onSockFini(self):
-        ## This is called by the SynPlexMain thread and may *not* block.
-        #if self.isfini:
-            #return
-
-        #self._tele_pool.call( self._runSockFini )
-
     def _runSockFini(self):
         if self.isfini:
             return
@@ -536,10 +526,12 @@ class Proxy(s_eventbus.EventBus):
         if hisopts.get('sock:can:gzip'):
             sock.set('sock:can:gzip',True)
 
-        events = list(self._tele_ons.keys())
+        eper = collections.defaultdict(list)
+        for (evnt,func),(iden,filt) in self._tele_ons.items():
+            eper[evnt].append((iden, filt))
 
-        if events:
-            job = self._txTeleJob('tele:on', events=events, name=self._tele_name)
+        if eper:
+            job = self._txTeleJob('tele:on', ons=eper.items(), name=self._tele_name)
             self.syncjob( job )
 
     def _txTeleJob(self, msg, **msginfo):
