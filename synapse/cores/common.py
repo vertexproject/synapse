@@ -1954,6 +1954,11 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         node even if it is not configured with access to an axon to store
         the bytes.
 
+        Args:
+            byts (bytes):   The bytes for a file:bytes node
+            stor (bool):    If True, attempt to store the bytes in an axon
+            **props:        Additional props for the file:bytes node
+
         Example:
 
             core.formNodeByBytes(byts,name='foo.exe')
@@ -1982,6 +1987,12 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
     def formNodeByFd(self, fd, stor=True, **props):
         '''
         Form a new file:bytes node by passing a file object and optional props.
+
+        Args:
+            fd (file):      A file-like object to read file:bytes from.
+            stor (bool):    If True, attempt to store the bytes in an axon
+            **props:        Additional props for the file:bytes node
+
         '''
         hset = s_hashset.HashSet()
         iden,info = hset.eatfd(fd)

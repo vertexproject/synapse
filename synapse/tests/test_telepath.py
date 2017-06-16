@@ -133,7 +133,7 @@ class TelePathTest(SynTest):
 
             self.nn(wait0.wait(timeout=2))
 
-            self.raises( SynErr, prox1.bar, 10, 20 )
+            self.raises( NoSuchObj, prox1.bar, 10, 20 )
 
             prox1.fini()
 

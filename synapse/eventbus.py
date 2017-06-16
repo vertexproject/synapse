@@ -66,8 +66,7 @@ class EventBus(object):
         Args:
             name (str):         An event name
             func (function):    A callback function to receive event tufo
-            filt (tuple):       A list of (prop,valu) tuples to filter events
-            **filts:            Optional filter values for the event tuple.
+            **filts:            Optional positive filter values for the event tuple.
 
         Returns:
             (None)

@@ -291,7 +291,7 @@ class DmonConf:
         text = open(path,'rb').read().decode('utf8')
         return self.loadDmonJson(text)
 
-helplock = threading.Lock()
+_onhelp_lock = threading.Lock()
 
 class OnHelp:
     '''
@@ -300,7 +300,7 @@ class OnHelp:
     def __init__(self):
         self.ons = collections.defaultdict(dict)
 
-    @s_threads.withlock(helplock)
+    @s_threads.withlock(_onhelp_lock)
     def addOnInst(self, sock, iden, filt):
 
         filts = self.ons[sock]
@@ -312,7 +312,7 @@ class OnHelp:
         filts[iden] = filt
         return
 
-    @s_threads.withlock(helplock)
+    @s_threads.withlock(_onhelp_lock)
     def delOnInst(self, sock, iden):
 
         filts = self.ons.get(sock)
@@ -760,7 +760,6 @@ class Daemon(EventBus,DmonConf):
                             txwait.clear()
                         else:
                             txwait.set()
-
 
                     try:
 
