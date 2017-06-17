@@ -1,11 +1,10 @@
 import threading
 import multiprocessing
-from queue import Empty
-from multiprocessing import Queue
 
-from synapse.common import *
+import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
 from synapse.eventbus import EventBus
+from synapse.common import *
 
 psutil = s_dyndeps.getDynMod('psutil')
 
@@ -47,7 +46,7 @@ class Process(EventBus):
         self.errinfo   = None
         self.proc      = None
         self.procLock  = threading.Lock()
-        self.queue     = Queue()
+        self.queue     = multiprocessing.Queue()
         if not self.monitint > 0:
             self.monitint = Process.DEFAULT_MONITOR_INTERVAL
         if not isinstance(self.task, tuple):
@@ -161,7 +160,7 @@ class Process(EventBus):
             if not self.errinfo and result.get('err'):
                 self.errinfo = result.get('err')
             ret = result.get('ret')
-        except Empty:
+        except s_compat.queue.Empty:
             pass
         return ret
 
