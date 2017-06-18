@@ -1,7 +1,18 @@
+import collections
+
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
 import synapse.lib.config as s_config
+
+def modelrev(name,vers):
+    '''
+    A decoarator used to flag model revision functions.
+    '''
+    def wrap(f):
+        f._syn_mrev = (name,vers)
+        return f
+    return wrap
 
 class CoreModule(s_eventbus.EventBus,s_config.Configable):
     '''
@@ -40,6 +51,21 @@ class CoreModule(s_eventbus.EventBus,s_config.Configable):
 
         self.core = core
 
+        # check for decorated functions for model rev
+        self._syn_mrevs = collections.defaultdict(list)
+        for name in dir(self):
+
+            meth = getattr(self,name,None)
+            mrev = getattr(meth,'_syn_mrev',None)
+            if mrev == None:
+                continue
+
+            name,vers = mrev
+            self._syn_mrevs[name].append( (vers,meth) )
+
+        # ensure the revs are in sequential order
+        [ v.sort() for v in self._syn_mrevs.values() ]
+
         self.initCoreModule()
         self.setConfOpts(conf)
 
@@ -54,8 +80,39 @@ class CoreModule(s_eventbus.EventBus,s_config.Configable):
 
         Returns:
             (None)
+
+        NOTE: If this method is implemented in a subclass, the subclass is
+              responsible for calling the base implementation or revCoreModl()
         '''
-        pass
+        self.revCoreModl()
+
+    def revCoreModl(self):
+        '''
+        Use modelrev decorated functions within this module to update the cortex.
+
+        Returns:
+            None
+        '''
+        for name,revs in self.genModlRevs():
+            self.core.revModlVers(name,revs)
+
+    def genModlRevs(self):
+        '''
+        Generate a list of ( name, revs ) tuples for model revisions in this module.
+
+        Returns:
+            ([ (str,[ (int,func), ... ]), ... ])
+
+        Example:
+
+            for name,revs in modu.genModlRevs():
+                core.revModlVers(name,revs)
+
+        '''
+        retn = []
+        for name,revs in self._syn_mrevs.items():
+            retn.append((name,tuple(revs)))
+        return retn
 
     def onFormNode(self, form, func):
         '''
@@ -78,8 +135,6 @@ class CoreModule(s_eventbus.EventBus,s_config.Configable):
 
         NOTE: This may not be used for a module loaded with a remote cortex.
         '''
-        evnt = 'tufo:form:' + form
-
         def distfunc(mesg):
             form = mesg[1].get('form')
             valu = mesg[1].get('valu')
@@ -88,9 +143,9 @@ class CoreModule(s_eventbus.EventBus,s_config.Configable):
             return func(form, valu, props, mesg)
 
         def fini():
-            self.core.off(evnt, distfunc)
+            self.core.off('node:form', distfunc)
 
-        self.core.on(evnt, distfunc)
+        self.core.on('node:form', distfunc)
         self.onfini(fini)
 
     # TODO: many more helper functions which wrap event conventions with APIs go here...

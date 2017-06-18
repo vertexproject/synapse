@@ -95,11 +95,11 @@ class Cortex(s_cores_common.Cortex):
 
     def _delRowsByIdProp(self, iden, prop, valu=None):
         if valu == None:
-            rows = [ row for row in self.rowsbyid.get(iden) if row[1] == prop ]
+            rows = [ row for row in self.rowsbyid.get(iden,()) if row[1] == prop ]
             [ self._delRawRow(row) for row in rows ]
             return
 
-        rows = [ row for row in self.rowsbyid.get(iden) if row[1] == prop and row[2] == valu ]
+        rows = [ row for row in self.rowsbyid.get(iden,()) if row[1] == prop and row[2] == valu ]
         [ self._delRawRow(row) for row in rows ]
         return
 

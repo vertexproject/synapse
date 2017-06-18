@@ -37,6 +37,16 @@ class CoreTestModule(s_module.CoreModule):
         self.onFormNode('inet:ipv4',formipv4)
         self.addConfDef('foobar', defval=False, asloc='foobar')
 
+        self.revCoreModl()
+
+    @s_module.modelrev('test',1)
+    def _testRev0(self, core):
+        core.addType('test:type1',subof='str')
+
+    @s_module.modelrev('test',2)
+    def _testRev1(self, core):
+        core.addType('test:type2',subof='str')
+
 class CortexTest(SynTest):
 
     def test_cortex_ram(self):
@@ -1498,12 +1508,15 @@ class CortexTest(SynTest):
         self.eq( len(splices), 0 )
 
     def test_cortex_module(self):
+
         with s_cortex.openurl('ram:///') as core:
 
             node = core.formTufoByProp('inet:ipv4','1.2.3.4')
             self.eq( node[1].get('inet:ipv4:asn'), -1 )
 
             mods = ( ('synapse.tests.test_cortex.CoreTestModule', {'foobar':True}), )
+
+            core.setConfOpt('rev:model',1)
             core.setConfOpt('modules', mods)
 
             # directly access the module so we can confirm it gets fini()
@@ -1511,7 +1524,64 @@ class CortexTest(SynTest):
 
             self.true( modu.foobar )
 
+            self.nn( core.getTypeInst('test:type1') )
+            self.nn( core.getTypeInst('test:type2') )
+            self.none( core.getTypeInst('test:type3') )
+
+            self.eq( core.getModlVers('test'), 2 )
+
             node = core.formTufoByProp('inet:ipv4','1.2.3.5')
             self.eq( node[1].get('inet:ipv4:asn'), 10 )
 
         self.true( modu.isfini )
+
+    def test_cortex_modlvers(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            self.eq( core.getModlVers('hehe'), -1 )
+
+            core.setModlVers('hehe', 10)
+            self.eq( core.getModlVers('hehe'), 10 )
+
+            core.setModlVers('hehe', 20)
+            self.eq( core.getModlVers('hehe'), 20 )
+
+    def test_cortex_modlrevs(self):
+
+        def v0(c):
+            c.formTufoByProp('inet:fqdn', 'foo.com')
+
+        def v1(c):
+            c.formTufoByProp('inet:fqdn', 'bar.com')
+
+        def v2(c):
+            c.formTufoByProp('inet:fqdn', 'baz.com')
+
+        revs = [ (0,v0), (1,v1) ]
+
+        with s_cortex.openurl('ram:///') as core:
+
+            self.raises(NoRevAllow, core.revModlVers, 'grok', revs )
+
+            core.setConfOpt('rev:model',1)
+
+            core.revModlVers('grok', revs)
+
+            self.nn( core.getTufoByProp('inet:fqdn','foo.com') )
+            self.nn( core.getTufoByProp('inet:fqdn','bar.com') )
+            self.none( core.getTufoByProp('inet:fqdn','baz.com') )
+
+            self.eq( core.getModlVers('grok'), 1 )
+
+            core.delTufo( core.getTufoByProp('inet:fqdn','foo.com') )
+            core.delTufo( core.getTufoByProp('inet:fqdn','bar.com') )
+
+            revs.append( (2,v2) )
+            core.revModlVers('grok', revs)
+
+            self.none( core.getTufoByProp('inet:fqdn','foo.com') )
+            self.none( core.getTufoByProp('inet:fqdn','bar.com') )
+            self.nn( core.getTufoByProp('inet:fqdn','baz.com') )
+
+            self.eq( core.getModlVers('grok'), 2 )

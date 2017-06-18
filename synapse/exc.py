@@ -34,6 +34,7 @@ class NoSuchDir(SynErr):pass
 class NoSuchDyn(SynErr):pass
 class NoSuchMod(SynErr):pass
 class NoSuchSeq(SynErr):pass
+class NoRevAllow(SynErr):pass
 class NoSuchConf(SynErr):pass
 class NoSuchForm(SynErr):pass
 class NoSuchPath(SynErr):pass

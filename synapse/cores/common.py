@@ -75,10 +75,14 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         self.seedctors = {}
 
         self.noauto = {'syn:form','syn:type','syn:prop'}
+
         self.addConfDef('autoadd',type='bool',asloc='autoadd',defval=1,doc='Automatically add forms for props where type is form')
         self.addConfDef('enforce',type='bool',asloc='enforce',defval=0,doc='Enables data model enforcement')
         self.addConfDef('caching',type='bool',asloc='caching',defval=0,doc='Enables caching layer in the cortex')
         self.addConfDef('cache:maxsize',type='int',asloc='cache_maxsize',defval=1000,doc='Enables caching layer in the cortex')
+
+        self.addConfDef('rev:model', type='bool', defval=0, doc='Set to 1 to allow model version updates')
+        self.addConfDef('rev:storage', type='bool', defval=0, doc='Set to 1 to allow storage version updates')
 
         self.addConfDef('axon:url',type='str',doc='Allows cortex to be aware of an axon blob store')
 
@@ -219,6 +223,92 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         self.onfini( self._finiCoreMods )
 
         s_ingest.IngestApi.__init__(self, self)
+
+    def getModlVers(self, name):
+        '''
+        Retrieve the model version for the given modle name.
+
+        Args:
+            name (str): The name of the model
+
+        Returns:
+            (int):  The model version ( linear version number ) or -1
+        '''
+        prop = '.:modl:vers:' + name
+        rows = self.getRowsByProp(prop)
+        if not rows:
+            return -1
+        return rows[0][2]
+
+    def setModlVers(self, name, vers):
+        '''
+        Set the version number for a specific model.
+
+        Args:
+            name (str): The name of the model
+            vers (int): The new (linear) version number
+
+        Returns:
+            (None)
+
+        '''
+        prop = '.:modl:vers:' + name
+
+        with self.getCoreXact() as xact:
+
+            rows = self.getRowsByProp(prop)
+
+            if rows:
+                iden = rows[0][0]
+            else:
+                iden = guid()
+
+            self.setRowsByIdProp(iden,prop,vers)
+
+    def revModlVers(self, name, revs):
+        '''
+        Update a model using a list of (vers,func) tuples.
+
+        Args:
+            name (str): The name of the model
+            refs ([(int,function)]):  List of (vers,func) revision tuples.
+
+        Returns:
+            (None)
+
+        Example:
+
+            def v0(core):
+                addModelStuff(core)
+
+            def v1(core):
+                addMoreStuff(core)
+
+            revs = [ (0,v0), (1,v1) ]
+
+            core.revModlVers('foo', revs)
+
+        Each specified function is expected to update the cortex including data migration.
+        '''
+        if not revs:
+            return
+
+        curv = self.getModlVers(name)
+
+        maxver = revs[-1][0]
+        if maxver == curv:
+            return
+
+        if not self.getConfOpt('rev:model'):
+            raise NoRevAllow(name=name, mesg='add rev:model=1 to cortex url to allow model updates')
+
+        for vers,func in revs:
+
+            if vers <= curv:
+                continue
+
+            func(self)
+            self.setModlVers(name,vers)
 
     def _finiCoreMods(self):
         [ modu.fini() for modu in self.coremods.values() ]
