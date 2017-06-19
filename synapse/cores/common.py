@@ -238,7 +238,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
     def getModlVers(self, name):
         '''
-        Retrieve the model version for the given modle name.
+        Retrieve the model version for the given model name.
 
         Args:
             name (str): The name of the model
