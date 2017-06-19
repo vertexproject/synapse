@@ -3,10 +3,39 @@ import threading
 import traceback
 import collections
 
+import synapse.lib.reflect as s_reflect
+
 finlock = threading.RLock()
 logger  = logging.getLogger(__name__)
 
 from synapse.common import *
+
+def on(name,**filt):
+    '''
+    A decoarator register a method for EventBus.on() callbacks.
+
+    Example:
+
+        class FooBar(EventBus):
+
+            @on('haha', woot=True)
+            def _onHahaWoot(self, mesg):
+                dostuff(mesg)
+
+    See: EventBus.on()
+
+    '''
+    def wrap(f):
+        ons = getattr(f,'_ebus_ons',None)
+        if ons == None:
+            ons = f._ebus_ons = []
+        ons.append( (name,filt) )
+        return f
+    return wrap
+
+def onfini(f):
+     f._ebus_onfini = True
+     return f
 
 class EventBus(object):
     '''
@@ -24,6 +53,26 @@ class EventBus(object):
         self._syn_queues = {}
 
         self._fini_funcs = []
+
+        for name,valu in s_reflect.getItemLocals(self):
+
+            if not callable(valu):
+                continue
+
+            # check for onfini() decorator
+            if getattr(valu,'_ebus_onfini',None):
+                self.onfini(valu)
+                continue
+
+            # check for on() decorators
+            eons = getattr(valu,'_ebus_ons',None)
+            if eons == None:
+                continue
+
+            for name,filt in eons:
+                self.on(name,valu,**filt)
+
+        self.fire('ebus:init')
 
     def __enter__(self):
         return self

@@ -2,6 +2,7 @@ import collections
 
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
+import synapse.lib.reflect as s_reflect
 
 import synapse.lib.config as s_config
 
@@ -41,6 +42,9 @@ class CoreModule(s_eventbus.EventBus,s_config.Configable):
         * Add "by" handlers and side-pocket indexes to extend queries
         * Add custom storm/swarm operators to the query language
         * etc etc etc...
+
+    NOTE: The cortex which loads the module plumbs all events into the
+          CoreModule instance using EventBus.link().
     '''
 
     def __init__(self, core, conf):
@@ -50,12 +54,16 @@ class CoreModule(s_eventbus.EventBus,s_config.Configable):
         s_telepath.reqNotProxy(core)
 
         self.core = core
+        core.link( self.dist )
+
+        def fini():
+            core.unlink(self.dist)
+
+        self.onfini(fini)
 
         # check for decorated functions for model rev
         self._syn_mrevs = collections.defaultdict(list)
-        for name in dir(self):
-
-            meth = getattr(self,name,None)
+        for name,meth in s_reflect.getItemLocals(self):
             mrev = getattr(meth,'_syn_mrev',None)
             if mrev == None:
                 continue
@@ -68,6 +76,18 @@ class CoreModule(s_eventbus.EventBus,s_config.Configable):
 
         self.initCoreModule()
         self.setConfOpts(conf)
+
+    def form(self, form, valu, **props):
+        '''
+        A module shortcut for core.formTufoByProp()
+
+        Args:
+            form (str): The node form to retrieve/create
+            valu (obj): The node value
+            **props:    Additional node properties
+
+        '''
+        return self.core.formTufoByProp(form, valu, **props)
 
     def initCoreModule(self):
         '''
@@ -143,9 +163,9 @@ class CoreModule(s_eventbus.EventBus,s_config.Configable):
             return func(form, valu, props, mesg)
 
         def fini():
-            self.core.off('node:form', distfunc)
+            self.core.off('tufo:form', distfunc)
 
-        self.core.on('node:form', distfunc)
+        self.core.on('tufo:form', distfunc, form=form)
         self.onfini(fini)
 
     # TODO: many more helper functions which wrap event conventions with APIs go here...

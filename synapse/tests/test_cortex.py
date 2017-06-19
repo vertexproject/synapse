@@ -39,13 +39,13 @@ class CoreTestModule(s_module.CoreModule):
 
         self.revCoreModl()
 
-    @s_module.modelrev('test',1)
-    def _testRev0(self, core):
-        core.addType('test:type1',subof='str')
+    @s_module.modelrev('test',0)
+    def _testRev0(self):
+        self.core.addType('test:type1',subof='str')
 
-    @s_module.modelrev('test',2)
-    def _testRev1(self, core):
-        core.addType('test:type2',subof='str')
+    @s_module.modelrev('test',1)
+    def _testRev1(self):
+        self.core.addType('test:type2',subof='str')
 
 class CortexTest(SynTest):
 
@@ -1528,7 +1528,7 @@ class CortexTest(SynTest):
             self.nn( core.getTypeInst('test:type2') )
             self.none( core.getTypeInst('test:type3') )
 
-            self.eq( core.getModlVers('test'), 2 )
+            self.eq( core.getModlVers('test'), 1 )
 
             node = core.formTufoByProp('inet:ipv4','1.2.3.5')
             self.eq( node[1].get('inet:ipv4:asn'), 10 )
@@ -1549,19 +1549,25 @@ class CortexTest(SynTest):
 
     def test_cortex_modlrevs(self):
 
-        def v0(c):
-            c.formTufoByProp('inet:fqdn', 'foo.com')
-
-        def v1(c):
-            c.formTufoByProp('inet:fqdn', 'bar.com')
-
-        def v2(c):
-            c.formTufoByProp('inet:fqdn', 'baz.com')
-
-        revs = [ (0,v0), (1,v1) ]
 
         with s_cortex.openurl('ram:///') as core:
 
+            def v0():
+                core.formTufoByProp('inet:fqdn', 'foo.com')
+
+            def v1():
+                core.formTufoByProp('inet:fqdn', 'bar.com')
+
+            def v2():
+                core.formTufoByProp('inet:fqdn', 'baz.com')
+                return 3
+
+            def v3():
+                core.formTufoByProp('inet:fqdn', 'newp.com')
+
+            revs = [ (0,v0), (1,v1) ]
+
+            core.setConfOpt('rev:model',0)
             self.raises(NoRevAllow, core.revModlVers, 'grok', revs )
 
             core.setConfOpt('rev:model',1)
@@ -1577,11 +1583,21 @@ class CortexTest(SynTest):
             core.delTufo( core.getTufoByProp('inet:fqdn','foo.com') )
             core.delTufo( core.getTufoByProp('inet:fqdn','bar.com') )
 
-            revs.append( (2,v2) )
+            revs.extend(((2,v2), (3,v3)))
             core.revModlVers('grok', revs)
 
-            self.none( core.getTufoByProp('inet:fqdn','foo.com') )
-            self.none( core.getTufoByProp('inet:fqdn','bar.com') )
-            self.nn( core.getTufoByProp('inet:fqdn','baz.com') )
+            self.none(core.getTufoByProp('inet:fqdn','newp.com'))
+            self.none(core.getTufoByProp('inet:fqdn','foo.com'))
+            self.none(core.getTufoByProp('inet:fqdn','bar.com'))
+            self.nn(core.getTufoByProp('inet:fqdn','baz.com'))
 
-            self.eq( core.getModlVers('grok'), 2 )
+            self.eq( core.getModlVers('grok'), 3 )
+
+    def test_cortex_isnew(self):
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn,'test.db')
+            with s_cortex.openurl('sqlite:///%s' % (path,)) as core:
+                self.true( core.isnew )
+
+            with s_cortex.openurl('sqlite:///%s' % (path,)) as core:
+                self.false( core.isnew )

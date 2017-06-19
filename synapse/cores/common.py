@@ -61,6 +61,11 @@ def reqstor(name,valu):
         raise BadPropValu(name=name,valu=valu)
     return valu
 
+# the built-in cortex modules...
+basemods = (
+    ('synapse.models.gov.cn.GovCnMod',{}),
+)
+
 class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
     '''
     Top level Cortex key/valu storage object.
@@ -73,6 +78,9 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         # a cortex may have a ref to an axon
         self.axon = None
         self.seedctors = {}
+
+        self.modules = list( basemods )
+        self.modsdone = False
 
         self.noauto = {'syn:form','syn:type','syn:prop'}
 
@@ -105,7 +113,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
         self._core_xacts = {}
 
-        self.coremods = {}
+        self.coremods = {}  # name:module ( CoreModule() )
         self.statfuncs = {}
 
         self.auth = None
@@ -191,6 +199,12 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
             self.setSaveFd(savefd,fini=True)
 
         self.myfo = self.formTufoByProp('syn:core','self')
+        self.isnew = self.myfo[1].get('.new',False)
+
+        # if a cortex is brand new, allow model/storage updates
+        if self.isnew:
+            self.setConfOpt('rev:model',1)
+            self.setConfOpt('rev:storage',1)
 
         with self.getCoreXact() as xact:
             self._initCoreModels()
@@ -214,6 +228,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         # storm operators specific to the cortex
         self.setOperFunc('stat', self._stormOperStat)
         self.setOperFunc('dset', self._stormOperDset)
+
+        self._initCoreMods()
 
         # allow modules a shot at hooking cortex events for model ctors
         for name,ret,exc in s_modules.call('addCoreOns',self):
@@ -264,6 +280,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
                 iden = guid()
 
             self.setRowsByIdProp(iden,prop,vers)
+            return vers
 
     def revModlVers(self, name, revs):
         '''
@@ -302,13 +319,18 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         if not self.getConfOpt('rev:model'):
             raise NoRevAllow(name=name, mesg='add rev:model=1 to cortex url to allow model updates')
 
-        for vers,func in revs:
+        for vers,func in sorted(revs):
 
             if vers <= curv:
                 continue
 
-            func(self)
-            self.setModlVers(name,vers)
+            # allow the revision function to optionally return the
+            # revision he jumped to ( to allow initial override )
+            retn = func()
+            if retn != None:
+                vers = retn
+
+            curv = self.setModlVers(name,vers)
 
     def _finiCoreMods(self):
         [ modu.fini() for modu in self.coremods.values() ]
@@ -639,23 +661,48 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
     def _onSetAxonUrl(self, url):
         self.axon = s_telepath.openurl(url)
 
+    def initCoreModule(self, ctor, conf):
+        '''
+        Load a cortex module with the given ctor and conf.
+
+        Args:
+            ctor (str): The python module class path
+            conf (dict):Config dictionary for the module
+        '''
+        # load modules as dyndeps which construct a module
+        # subclass with ctor(<core>,<conf>)
+        try:
+
+            oldm = self.coremods.pop(ctor,None)
+            if oldm != None:
+                oldm.fini()
+
+            modu = s_dyndeps.tryDynFunc(ctor, self, conf)
+
+            self.coremods[ctor] = modu
+
+            return True
+
+        except Exception as e:
+            logger.exception(e)
+            logger.warning('mod load fail: %s %s' % (ctor,e))
+            return False
+
+    def _initCoreMods(self):
+        # load each of the configured (and base) modules.
+        for ctor,conf in self.modules:
+            self.initCoreModule(ctor,conf)
+        self.modsdone = True
+
     def _onSetMods(self, mods):
+
+        self.modules.extend(mods)
+        if not self.modsdone:
+            return
+
+        # dynamically load modules if we are already done loading
         for ctor,conf in mods:
-            # load modules as dyndeps which construct a module
-            # subclass with ctor(<core>,<conf>)
-            try:
-
-                oldm = self.coremods.pop(ctor,None)
-                if oldm != None:
-                    oldm.fini()
-
-                modu = s_dyndeps.tryDynFunc(ctor, self, conf)
-
-                self.coremods[ctor] = modu
-
-            except Exception as e:
-                logger.exception(e)
-                logger.warning('mod load fail: %s %s' % (ctor,e))
+            self.initCoreModule(ctor,conf)
 
     def _onSetCaching(self, valu):
         if not valu:

@@ -152,3 +152,37 @@ class EventBusTest(SynTest):
         mesg = bus.fire('rofl', foo=10)
         self.true( mesg[1].get('woot') )
 
+    def test_eventbus_decor(self):
+
+        class Woot(s_eventbus.EventBus):
+
+            @s_eventbus.on('ebus:init')
+            def _onWootInit(self, mesg):
+                self.hit = False
+                self.finid = False
+
+            @s_eventbus.on('hehe:hoho')
+            @s_eventbus.on('hehe:haha', woot=1)
+            def _onHeheHaHaWoot(self, mesg):
+                self.hit = True
+
+            @s_eventbus.onfini
+            def _onWootFini(self):
+                self.finid = True
+
+        woot = Woot()
+        self.false( woot.hit )
+
+        woot.fire('hehe:haha')
+        self.false( woot.hit )
+
+        woot.fire('hehe:haha', woot=1)
+        self.true( woot.hit )
+
+        woot.hit = False
+        woot.fire('hehe:hoho')
+        self.true( woot.hit )
+
+        woot.fini()
+        self.true(woot.finid)
+

@@ -37,8 +37,11 @@ def getItemLocals(item):
 
     '''
     for name in dir(item):
-        valu = getattr(item,name,None)
-        yield name,valu
+        try:
+            valu = getattr(item,name,None)
+            yield name,valu
+        except Exception as e:
+            pass # various legit reasons...
 
 def getItemInfo(item):
     '''

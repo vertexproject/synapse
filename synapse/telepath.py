@@ -187,7 +187,7 @@ class Method:
 
         return self.proxy.syncjob(job)
 
-telelocal = set(['tele:sock:init'])
+telelocal = set(['tele:sock:init','ebus:init'])
 
 class Proxy(s_eventbus.EventBus):
     '''
