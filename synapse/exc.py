@@ -64,6 +64,8 @@ class BadMesgVers(SynErr):pass
 class BadInfoValu(SynErr):pass
 class BadStorValu(SynErr):pass
 
+class NotGuidForm(SynErr):pass
+
 class MustBeLocal(SynErr):pass
 class MustBeProxy(SynErr):pass
 

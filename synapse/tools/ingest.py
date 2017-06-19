@@ -42,7 +42,7 @@ def main(argv, outp=None):
     # the transaction API.
 
     def _print_tufo_add(mesg):
-        tufo = mesg[1].get('tufo')
+        tufo = mesg[1].get('node')
         form = tufo[1].get('tufo:form')
         outp.printf('add: %s=%s' % (form,tufo[1].get(form)))
         for prop,valu in sorted(s_tufo.props(tufo).items()):
@@ -50,7 +50,7 @@ def main(argv, outp=None):
 
     def _print_tufo_tag_add(mesg):
         tag = mesg[1].get('tag')
-        tufo = mesg[1].get('tufo')
+        tufo = mesg[1].get('node')
         form = tufo[1].get('tufo:form')
         outp.printf('tag: %s=%s (%s)' % (form,tufo[1].get(form),tag))
 
@@ -63,7 +63,7 @@ def main(argv, outp=None):
         proglocs['datatot'] += 1
         proglocs['datalast'] += 1
 
-    def onTufoAdd(mesg):
+    def onNodeAdd(mesg):
         proglocs['tufotot'] += 1
         proglocs['tufolast'] += 1
 
@@ -120,8 +120,8 @@ def main(argv, outp=None):
         core.addSpliceFd( genfile( opts.save ) )
 
     if opts.verbose:
-        core.on('tufo:add', _print_tufo_add)
-        core.on('tufo:tag:add', _print_tufo_tag_add)
+        core.on('node:add', _print_tufo_add)
+        core.on('node:tag:add', _print_tufo_tag_add)
 
     pump = None
     if opts.sync != None:
@@ -136,7 +136,7 @@ def main(argv, outp=None):
             gest = s_ingest.loadfile(path)
 
             if opts.progress:
-                core.on('tufo:add',onTufoAdd)
+                core.on('node:add',onNodeAdd)
                 gest.on('gest:data',onGestData)
                 gest.on('gest:prog',onGestProg)
 

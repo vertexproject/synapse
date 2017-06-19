@@ -163,9 +163,9 @@ class CoreModule(s_eventbus.EventBus,s_config.Configable):
             return func(form, valu, props, mesg)
 
         def fini():
-            self.core.off('tufo:form', distfunc)
+            self.core.off('node:form', distfunc)
 
-        self.core.on('tufo:form', distfunc, form=form)
+        self.core.on('node:form', distfunc, form=form)
         self.onfini(fini)
 
     # TODO: many more helper functions which wrap event conventions with APIs go here...

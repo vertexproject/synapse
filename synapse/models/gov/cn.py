@@ -23,7 +23,7 @@ class GovCnMod(CoreModule):
 
         })
 
-    @on('tufo:form', form='gov:cn:mucd')
+    @on('node:add', form='gov:cn:mucd')
     def _onFormMucd(self, mesg):
 
         mucd = mesg[1].get('valu')
