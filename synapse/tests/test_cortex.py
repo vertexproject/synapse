@@ -1540,7 +1540,6 @@ class CortexTest(SynTest):
 
     def test_cortex_modlrevs(self):
 
-
         with s_cortex.openurl('ram:///') as core:
 
             def v0():

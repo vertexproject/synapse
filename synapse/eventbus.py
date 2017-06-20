@@ -12,15 +12,20 @@ from synapse.common import *
 
 def on(name,**filt):
     '''
-    A decoarator register a method for EventBus.on() callbacks.
+    A decorator to register a method for EventBus.on() callbacks.
 
     Example:
 
         class FooBar(EventBus):
 
+            @on('hehe')
+            def _onHehe(self, mesg):
+                doHeheStuff(mesg)
+
+            # only fires if mesg[1].get('woot') == True
             @on('haha', woot=True)
             def _onHahaWoot(self, mesg):
-                dostuff(mesg)
+                doHahaStuff(mesg)
 
     See: EventBus.on()
 
@@ -34,8 +39,22 @@ def on(name,**filt):
     return wrap
 
 def onfini(f):
-     f._ebus_onfini = True
-     return f
+    '''
+    A decorator to register a method for EventBus.onfini() callbacks.
+
+    Example:
+
+        class FooBar(EventBus):
+
+            @onfini
+            def _onFooBarFini(self):
+                doFiniStuff()
+
+    See: EventBus.onfini()
+
+    '''
+    f._ebus_onfini = True
+    return f
 
 class EventBus(object):
     '''
@@ -65,11 +84,7 @@ class EventBus(object):
                 continue
 
             # check for on() decorators
-            eons = getattr(valu,'_ebus_ons',None)
-            if eons == None:
-                continue
-
-            for name,filt in eons:
+            for name,filt in getattr(valu,'_ebus_ons',()):
                 self.on(name,valu,**filt)
 
         self.fire('ebus:init')

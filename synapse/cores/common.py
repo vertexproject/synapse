@@ -291,15 +291,17 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
         Example:
 
-            def v0(core):
-                addModelStuff(core)
+            with s_cortex.openurl('ram:///') as core:
 
-            def v1(core):
-                addMoreStuff(core)
+                def v0():
+                    addModelStuff(core)
 
-            revs = [ (0,v0), (1,v1) ]
+                def v1():
+                    addMoarStuff(core)
 
-            core.revModlVers('foo', revs)
+                revs = [ (0,v0), (1,v1) ]
+
+                core.revModlVers('foo', revs)
 
         Each specified function is expected to update the cortex including data migration.
         '''
