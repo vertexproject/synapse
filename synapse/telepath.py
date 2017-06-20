@@ -4,6 +4,7 @@ An RMI framework for synapse.
 import copy
 import time
 import zlib
+import logging
 import getpass
 import threading
 import threading
@@ -26,8 +27,9 @@ import synapse.lib.threads as s_threads
 
 from synapse.common import *
 from synapse.compat import queue
-
 s_mixins.addSynMixin('telepath','synapse.axon.AxonMixin')
+
+logger = logging.getLogger(__name__)
 
 # telepath protocol version
 # ( compat breaks only at major ver )
@@ -144,6 +146,44 @@ def isProxy(item):
         bool: True if the object is a telepath object; otherwise False.
     '''
     return isinstance(item, Proxy)
+
+def reqIsProxy(item):
+    '''
+    Check if the item is a proxy and raise MustBeProxy if not.
+
+    Args:
+        item (obj): The object to test for being a telepath proxy
+
+    Returns:
+        (None)
+
+    Example:
+
+        reqIsProxy(foo)
+        # foo is def a proxy here...
+
+    '''
+    if not isProxy(item):
+        raise MustBeProxy(item=item)
+
+def reqNotProxy(item):
+    '''
+    Check if the item is a proxy and raise MustBeProxy if so.
+
+    Args:
+        item (obj): The object to test for being a telepath proxy
+
+    Returns:
+        (None)
+
+    Example:
+
+        reqNotProxy(foo)
+        # foo is def not a proxy here...
+
+    '''
+    if isProxy(item):
+        raise MustBeLocal(item=item)
 
 class Method:
 
