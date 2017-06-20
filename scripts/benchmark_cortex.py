@@ -229,8 +229,6 @@ def cleanup_sqlite():
 
 def benchmark_all():
     urls = ('ram://',
-            'sqlite:///:memory:',
-            'sqlite:///' + SQLITE_FILE,
             'lmdb:///%s?lmdb:mapsize=536870912' % LMDB_FILE,
             'lmdb:///%s?lmcb:mapsize=536870912&lmdb:sync=False&lmdb:lock=False' % LMDB_FILE)
     ephemeral = (True, True, False, False, False)
