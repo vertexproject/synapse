@@ -39,7 +39,7 @@ s_modules.load('synapse.models.temporal')
 s_modules.load('synapse.models.geospace')
 
 s_modules.load('synapse.models.gov.us')
-s_modules.load('synapse.models.gov.cn')
+#s_modules.load('synapse.models.gov.cn')
 s_modules.load('synapse.models.gov.intl')
 
 mods = os.getenv('SYN_MODULES')

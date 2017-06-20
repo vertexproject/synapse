@@ -27,6 +27,12 @@ def jobret(job):
 
     '''
     err = job[1].get('err')
+
+    # populate errinfo into SynErr
+    info = job[1].get('errinfo')
+    if info == None:
+        info = {}
+
     if err != None:
         if err != 'NameErr':
             try:

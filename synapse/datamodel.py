@@ -137,7 +137,7 @@ class DataModel(s_types.TypeLib):
         self.addTufoProp('syn:tagform', 'doc', ptype='str:txt', defval='??', doc='The long form description for what the tag means on the given node form')
         self.addTufoProp('syn:tagform', 'title', ptype='str:txt', defval='??', doc='The short name for what the tag means on the given node form')
 
-        self.addTufoForm('syn:model',ptype='syn:tag', doc='prefix for all forms within the model')
+        self.addTufoForm('syn:model',ptype='str', doc='prefix for all forms within the model')
         self.addTufoProp('syn:model','hash', ptype='guid', doc='version hash for the current model')
         self.addTufoProp('syn:model','prefix', ptype='syn:prop', doc='prefix used by types/forms in the model')
 
