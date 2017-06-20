@@ -22,44 +22,45 @@ class StormSyntaxTest(SynTest):
     def test_storm_syntax_macro_eq(self):
         ###########################################################
         insts = s_syntax.parse('foo:bar')
-        self.eq(insts[0], ('lift',{'cmp':'has','prop':'foo:bar'}))
+        self.eq(insts[0], s_syntax.oper('lift','foo:bar', None, by='has'))
 
         ###########################################################
         insts = s_syntax.parse('foo:bar=10')
-        self.eq(insts[0], ('lift',{'prop':'foo:bar','valu':10,'cmp':'eq'}))
+        self.eq(insts[0], s_syntax.oper('lift','foo:bar', 10, by='eq'))
 
         ###########################################################
         insts = s_syntax.parse('foo:bar="woot"')
-        self.eq(insts[0], ('lift',{'prop':'foo:bar','valu':'woot','cmp':'eq'}))
+        self.eq(insts[0], s_syntax.oper('lift','foo:bar', 'woot', by='eq'))
 
         ###########################################################
-        insts = s_syntax.parse('baz.faz/foo:bar@2015,+1year#30')
-        self.eq(insts[0], ('lift',{'cmp':'has','from':'baz.faz','prop':'foo:bar','when':('2015','+1year'),'limit':30}))
+        #insts = s_syntax.parse('baz.faz/foo:bar@2015,+1year#30')
+        #self.eq(insts[0], ('lift',{'cmp':'has','from':'baz.faz','prop':'foo:bar','when':('2015','+1year'),'limit':30}))
 
         ###########################################################
-        insts = s_syntax.parse('baz.faz/foo:bar@2015,+1year#30="woot"')
-        self.eq(insts[0], ('lift',{'cmp':'eq','from':'baz.faz','prop':'foo:bar','valu':'woot','when':('2015','+1year'),'limit':30}))
+        #insts = s_syntax.parse('baz.faz/foo:bar@2015,+1year#30="woot"')
+        #self.eq(insts[0], ('lift',{'cmp':'eq','from':'baz.faz','prop':'foo:bar','valu':'woot','when':('2015','+1year'),'limit':30}))
 
         ###########################################################
-        insts = s_syntax.parse('baz.faz/foo:bar@2015#30="woot"')
-        self.eq(insts[0], ('lift',{'cmp':'eq','from':'baz.faz','prop':'foo:bar','valu':'woot','when':('2015',None),'limit':30}))
+        #insts = s_syntax.parse('baz.faz/foo:bar@2015#30="woot"')
+        #self.eq(insts[0], ('lift',{'cmp':'eq','from':'baz.faz','prop':'foo:bar','valu':'woot','when':('2015',None),'limit':30}))
 
     def test_storm_syntax_gele(self):
+
         insts = s_syntax.parse('foo:bar>=10')
-        self.eq(insts[0], ('lift',{'prop':'foo:bar','cmp':'ge','valu':10}))
+        self.eq(insts[0], s_syntax.oper('lift', 'foo:bar', 10, by='ge'))
 
         insts = s_syntax.parse('foo:bar<=10')
-        self.eq(insts[0], ('lift',{'prop':'foo:bar','cmp':'le','valu':10}))
+        self.eq(insts[0], s_syntax.oper('lift', 'foo:bar', 10, by='le'))
 
     def test_storm_syntax_lifteq(self):
         insts = s_syntax.parse('foo:bar join("foo:bar","baz:quux")')
-        self.eq(insts[0],('lift',{'prop':'foo:bar','cmp':'has'}))
+        self.eq(insts[0],s_syntax.oper('lift', 'foo:bar', None, by='has'))
         self.eq(insts[1],('join',{'args':['foo:bar','baz:quux'],'kwlist':[]}))
 
     def test_storm_syntax_liftlift(self):
         insts = s_syntax.parse('foo:bar baz:faz')
-        self.eq(insts[0],('lift',{'prop':'foo:bar','cmp':'has'}))
-        self.eq(insts[1],('lift',{'prop':'baz:faz','cmp':'has'}))
+        self.eq(insts[0], s_syntax.oper('lift','foo:bar', None, by='has'))
+        self.eq(insts[1], s_syntax.oper('lift','baz:faz', None, by='has'))
 
     def test_storm_syntax_regex(self):
         insts = s_syntax.parse('+foo:bar~="hehe" -foo:bar~="hoho"')
@@ -69,10 +70,11 @@ class StormSyntaxTest(SynTest):
 
     def test_storm_syntax_by(self):
         insts = s_syntax.parse('woot/foo:bar*baz="hehe"')
-        self.eq(insts[0], ('lift',{'from':'woot','prop':'foo:bar','valu':'hehe','cmp':'baz'}))
+        opts = {'from':'woot', 'by':'baz'}
+        self.eq(insts[0], s_syntax.oper('lift','foo:bar','hehe', **opts))
 
         insts = s_syntax.parse('woot/foo:bar*baz')
-        self.eq(insts[0], ('lift',{'from':'woot','prop':'foo:bar','cmp':'baz'}))
+        self.eq(insts[0], s_syntax.oper('lift','foo:bar',None,**opts))
 
     def test_storm_syntax_pivot(self):
         insts = s_syntax.parse('foo:bar -> hehe.haha/baz:faz')
