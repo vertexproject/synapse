@@ -312,7 +312,6 @@ class Cortex(s_cores_common.Cortex):
             self.dbenv.close()
         self.onfini(onfini)
 
-
     def _addRows(self, rows):
         '''
         Adds a bunch of rows to the database
@@ -320,9 +319,6 @@ class Cortex(s_cores_common.Cortex):
         Take care:  this was written this way for performance, in particular when len(rows) is
         large.
         '''
-
-        self._check_and_expand(rows)
-
         encs = []
         val_len_sum = 0
         GIBABYTE = 2**30
@@ -344,7 +340,7 @@ class Cortex(s_cores_common.Cortex):
                         t_enc = msgenpack(t)
                         pk_enc = _encPk(next_pk)
                         row_enc = msgenpack((i, p, v, t))
-                        val_len_sum += 4 if s_compat.is_int(v) else len(v)
+                        val_len_sum += 4 if s_compat.isint(v) else len(v)
 
                         # idx          0      1       2       3       4          5
                         encs.append((i_enc, p_enc, row_enc, t_enc, v_key_enc, pk_enc))
