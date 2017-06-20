@@ -6,7 +6,6 @@ from binascii import unhexlify
 if sys.version_info > (3, 0):
     from functools import lru_cache
 from contextlib import contextmanager
-from hashlib import md5
 
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
@@ -14,6 +13,7 @@ import synapse.lib.threads as s_threads
 import synapse.cores.common as s_cores_common
 from synapse.common import genpath, msgenpack, msgunpack
 
+import xxhash
 import lmdb
 
 # File conventions:
@@ -109,8 +109,7 @@ def _encValKey(v):
             return NEGATIVE_VAL_MARKER_ENC + msgenpack(-v)
     else:
         if len(v) >= LARGE_STRING_SIZE:
-            return HASH_VAL_MARKER_ENC + msgenpack(int.from_bytes(md5(v.encode('utf8')).digest()[:8],
-                                                                  byteorder='little'))
+            return (HASH_VAL_MARKER_ENC + msgenpack(xxhash.xxh64(v).intdigest()))
         else:
             return STRING_VAL_MARKER_ENC + msgenpack(v)
 
