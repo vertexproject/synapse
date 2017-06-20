@@ -2422,6 +2422,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
     # some helpers to allow *all* queries to be processed via getTufosBy()
     def _tufosByEq(self, prop, valu, limit=None):
+        valu,_ = self.getPropNorm(prop,valu)
         return self.getTufosByProp(prop,valu=valu,limit=limit)
 
     def _tufosByHas(self, prop, valu, limit=None):
@@ -2441,15 +2442,19 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
     # and register _getTufosByGe and _getTufosByLe
 
     def _rowsByLt(self, prop, valu, limit=None):
+        valu,_ = self.getPropNorm(prop,valu)
         return self._rowsByLe(prop, valu-1, limit=limit)
 
     def _rowsByGt(self, prop, valu, limit=None):
+        valu,_ = self.getPropNorm(prop,valu)
         return self._rowsByGe(prop, valu+1, limit=limit)
 
     def _tufosByLt(self, prop, valu, limit=None):
+        valu,_ = self.getPropNorm(prop,valu)
         return self._tufosByLe(prop, valu-1, limit=limit)
 
     def _tufosByGt(self, prop, valu, limit=None):
+        valu,_ = self.getPropNorm(prop,valu)
         return self._tufosByGe(prop, valu+1, limit=limit)
 
     def getSplicePump(self,core):
