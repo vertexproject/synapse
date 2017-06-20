@@ -376,6 +376,18 @@ class StormTest(SynTest):
             nodes = core.eval('syn:tag:base=bar fromtags()')
             self.eq(len(nodes), 3)
 
+    def test_storm_lift(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            core.formTufoByProp('inet:ipv4','1.2.3.4')
+            core.formTufoByProp('inet:ipv4','5.6.7.8')
+
+            self.eq(2, len(core.eval('lift(inet:ipv4)')))
+            self.eq(1, len(core.eval('lift(inet:ipv4, limit=1)')))
+            self.eq(1, len(core.eval('lift(inet:ipv4, 1.2.3.4)')))
+            self.eq(1, len(core.eval('lift(inet:ipv4, 2.0.0.0, by=lt)')))
+
     def test_storm_lifts_by(self):
         # Test various lifts by handlers
         with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
@@ -413,6 +425,41 @@ class StormTest(SynTest):
             nodes = core.eval('tag*dark=loc')
             self.eq(len(nodes), 0)
 
+    def test_storm_addnode(self):
+        with s_cortex.openurl('ram:///') as core:
+            node = core.eval('addnode(inet:ipv4,1.2.3.4,asn=0xf0f0f0f0)')[0]
+            self.eq(node[1].get('inet:ipv4'),0x01020304)
+            self.eq(node[1].get('inet:ipv4:asn'),0xf0f0f0f0)
+
+    def test_storm_delnode(self):
+        with s_cortex.openurl('ram:///') as core:
+            node = core.formTufoByProp('inet:ipv4',0x01020304)
+            core.eval('inet:ipv4=1.2.3.4 delnode()')
+            self.nn(core.getTufoByProp('inet:ipv4',0x01020304))
+            core.eval('inet:ipv4=1.2.3.4 delnode(force=1)')
+            self.none(core.getTufoByProp('inet:ipv4',0x01020304))
+
+    def test_storm_editmode(self):
+        with s_cortex.openurl('ram:///') as core:
+            node = core.formTufoByProp('inet:ipv4',0x01020304)
+
+            core.eval('inet:ipv4=1.2.3.4 [ #foo.bar ]')
+            self.eq( len(core.eval('#foo.bar')), 1 )
+
+            core.eval('inet:ipv4=1.2.3.4 [ +#foo.bar.baz ]')
+            self.eq( len(core.eval('#foo.bar.baz')), 1 )
+
+            core.eval('inet:ipv4=1.2.3.4 [ -#foo.bar ]')
+            self.eq( len(core.eval('#foo')), 1 )
+            self.eq( len(core.eval('#foo.bar')), 0 )
+            self.eq( len(core.eval('#foo.bar.baz')), 0 )
+
+            core.eval(' [ inet:ipv4=5.6.7.8 :cc=US #hehe.haha ]')
+
+            self.eq( len(core.eval('#hehe.haha')), 1 )
+
+            node = core.eval('inet:ipv4=5.6.7.8')[0]
+            self.eq( node[1].get('inet:ipv4:cc'), 'us' )
 
 class LimitTest(SynTest):
 
