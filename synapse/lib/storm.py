@@ -734,8 +734,6 @@ class Runtime(Configable):
         if by == 'has' and valu != None:
             by = 'eq'
 
-        limits = []
-
         limt0 = opts.get('limit')
         limt1 = query.opt('limit')
 
