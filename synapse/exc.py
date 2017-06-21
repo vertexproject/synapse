@@ -63,6 +63,7 @@ class BadCoreName(SynErr):pass
 class BadMesgVers(SynErr):pass
 class BadInfoValu(SynErr):pass
 class BadStorValu(SynErr):pass
+class BadRevValu(SynErr):pass
 
 class NotGuidForm(SynErr):pass
 

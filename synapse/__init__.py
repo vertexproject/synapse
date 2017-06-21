@@ -20,27 +20,36 @@ verstring = '.'.join([ str(x) for x in version ])
 import synapse.lib.modules as s_modules
 
 # load all the synapse builtin modules
-s_modules.load('synapse.models.syn')
-s_modules.load('synapse.models.dns')
-s_modules.load('synapse.models.orgs')
-s_modules.load('synapse.models.inet')
-s_modules.load('synapse.models.mime')
-s_modules.load('synapse.models.files')
-s_modules.load('synapse.models.media')
-s_modules.load('synapse.models.money')
-s_modules.load('synapse.models.telco')
-s_modules.load('synapse.models.crypto')
-s_modules.load('synapse.models.geopol')
-s_modules.load('synapse.models.person')
-s_modules.load('synapse.models.infotech')
-s_modules.load('synapse.models.language')
-s_modules.load('synapse.models.material')
-s_modules.load('synapse.models.temporal')
-s_modules.load('synapse.models.geospace')
+# the built-in cortex modules...
+BASE_MODELS = (
+    ('synapse.models.syn.SynMod', {}),
+    ('synapse.models.dns.DnsMod', {}),
+    ('synapse.models.orgs.OuMod', {}),
+    ('synapse.models.inet.InetMod', {}),
+    ('synapse.models.person.PsMod', {}),
+    ('synapse.models.telco.TelMod', {}),
+    ('synapse.models.files.FileMod', {}),
+    ('synapse.models.geopol.PolMod', {}),
+    ('synapse.models.infotech.ItMod', {}),
+    ('synapse.models.media.MediaMod', {}),
+    ('synapse.models.compsci.CsciMod', {}),
+    ('synapse.models.geospace.GeoMod', {}),
+    ('synapse.models.gov.cn.GovCnMod', {}),
+    ('synapse.models.gov.us.GovUsMod', {}),
+    ('synapse.models.material.MatMod', {}),
+    ('synapse.models.crypto.CryptoMod', {}),
+    ('synapse.models.language.LangMod', {}),
+    ('synapse.models.temporal.TimeMod', {}),
+    ('synapse.models.gov.intl.GovIntlMod', {}),
+)
 
-s_modules.load('synapse.models.gov.us')
-#s_modules.load('synapse.models.gov.cn')
-s_modules.load('synapse.models.gov.intl')
+for mod, conf in BASE_MODELS:
+    modpath = mod.rsplit('.', 1)[0]
+    s_modules.load(modpath)
+
+# Rebuild the datamodel's typelib now that we have loaded builtin models.
+import synapse.datamodel as s_datamodel
+s_datamodel.rebuildTlib()
 
 mods = os.getenv('SYN_MODULES')
 if mods:
@@ -55,8 +64,4 @@ if mods:
 import synapse.axon
 import synapse.cortex
 #import synapse.cores.common as s_cores_common
-
-# register our telepath mixins from here...
-import synapse.lib.mixins as s_mixins
-s_mixins.addSynMixin('telepath','synapse.cores.common.CortexMixin')
 
