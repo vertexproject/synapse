@@ -80,11 +80,13 @@ class AskCmd(s_cli.Cmd):
 
         fsize = max([ len(f) for f in forms ])
 
+        # Short circuit any fancy formatting and dump the raw node content as json
+        if opts.get('raw'):
+            self.printf(json.dumps(nodes, sort_keys=True, indent=2))
+            self.printf('(%d results)' % (len(nodes),))
+            return resp
+
         for node in nodes:
-            if opts.get('raw'):
-                # self.printf('%r' % (node,))
-                self.printf(json.dumps(node, sort_keys=True, indent=2))
-                continue
             form = node[1].get('tufo:form')
             valu = node[1].get(form)
 
