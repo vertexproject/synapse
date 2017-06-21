@@ -89,8 +89,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         self.addConfDef('caching',type='bool',asloc='caching',defval=0,doc='Enables caching layer in the cortex')
         self.addConfDef('cache:maxsize',type='int',asloc='cache_maxsize',defval=1000,doc='Enables caching layer in the cortex')
 
-        self.addConfDef('rev:model', type='bool', defval=0, doc='Set to 1 to allow model version updates')
-        self.addConfDef('rev:storage', type='bool', defval=0, doc='Set to 1 to allow storage version updates')
+        self.addConfDef('rev:model', type='bool', defval=1, doc='Set to 0 to disallow model version updates')
+        self.addConfDef('rev:storage', type='bool', defval=1, doc='Set to 0 to disallow storage version updates')
 
         self.addConfDef('axon:url',type='str',doc='Allows cortex to be aware of an axon blob store')
 
@@ -196,11 +196,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
         self.myfo = self.formTufoByProp('syn:core','self')
         self.isnew = self.myfo[1].get('.new',False)
-
-        # if a cortex is brand new, allow model/storage updates
-        if self.isnew:
-            self.setConfOpt('rev:model',1)
-            self.setConfOpt('rev:storage',1)
 
         with self.getCoreXact() as xact:
             self._initCoreModels()
