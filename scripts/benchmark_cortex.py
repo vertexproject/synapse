@@ -228,10 +228,13 @@ def cleanup_sqlite():
 
 
 def benchmark_all():
-    urls = ( 'lmdb:///%s?lmdb:mapsize=536870912' % LMDB_FILE,
-            'lmdb:///%s?lmcb:mapsize=536870912&lmdb:sync=False&lmdb:lock=False' % LMDB_FILE)
-    ephemeral = (True, True, False, False, False)
-    cleanup = (None, None, cleanup_sqlite, cleanup_lmdb, cleanup_lmdb)
+    urls = ('ram://',
+            'sqlite:///:memory:',
+            'sqlite:///' + SQLITE_FILE,
+            'lmdb:///%s?lmdb:mapsize=536870912&lmdb:mapslack=536870912' % LMDB_FILE)
+
+    ephemeral = (True, True, False, False)
+    cleanup = (None, None, cleanup_sqlite, cleanup_lmdb)
     test_data = TestData('testdata')
     for url, cleanup_func, is_ephemeral in zip(urls, cleanup, ephemeral):
         print('1-threaded benchmarking: %s' % url)
@@ -239,7 +242,6 @@ def benchmark_all():
         # print('%d-threaded benchmarking: %s', NUM_THREADS, url)
         # benchmark_cortex(test_data, url, cleanup_func, num_threads=NUM_THREADS)
 
+
 if __name__ == '__main__':
     benchmark_all()
-    # test_data = TestData('testdata')
-    # benchmark_cortex(test_data, 'lmdb:///%s' % LMDB_FILE, cleanup_lmdb, False)

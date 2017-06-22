@@ -73,6 +73,9 @@ MIN_INT_VAL = -1 * (2 ** 63)
 # The maximum possible timestamp.  Probably a bit overkill
 MAX_TIME_ENC = msgenpack(MAX_INT_VAL)
 
+def _round_up(val, modulus):
+    return val - val % -modulus
+
 class DatabaseInconsistent(Exception):
     ''' If you get this Exception, that means the database is corrupt '''
     pass
@@ -226,20 +229,41 @@ class Cortex(s_cores_common.Cortex):
         if existing_xact is not None:
             yield existing_xact.txn
         else:
+            if write:
+                self._ensure_map_slack()
             with self.dbenv.begin(buffers=True, write=write) as txn:
                 yield txn
+
+    def _ensure_map_slack(self):
+        '''
+        Checks if there's enough extra space in the map to accomodate a commit of at least
+        self._slack_space size and increase it if not.
+        '''
+        # LMDB Page Size
+        DB_PAGE_SIZE = 4096
+
+        # Make sure the map is at least big enough for the current data in the database
+        used = DB_PAGE_SIZE * self.dbenv.info()['last_pgno']
+        target_size = min(self._max_map_size, _round_up(used + self._map_slack, self._map_slack))
+        if target_size > self._map_size:
+            self.dbenv.set_mapsize(target_size)
+            self._map_size = target_size
 
     def _initDbConn(self):
         dbinfo = self._initDbInfo()
         dbname = dbinfo.get('name')
 
-        # MAX DB Size.  Must be < 2 GiB for 32-bit.  Can be big for 64-bit systems.  Will create
+        # Initial DB Size.  Must be < 2 GiB for 32-bit.  Can be big for 64-bit systems.  Will create
         # a file of that size.  On MacOS/Windows, will actually immediately take up that much
         # disk space.
-        MAP_SIZE = 512 * 1024 * 1024
+        MAP_SIZE = 256 * 1024 * 1024
 
         map_size = self._link[1].get('lmdb:mapsize', MAP_SIZE)
-        map_size, _ = s_datamodel.getTypeNorm('int', map_size)
+        self._map_size, _ = s_datamodel.getTypeNorm('int', map_size)
+        self._max_map_size = 2**48 if sys.maxsize > 2**32 else 2**31
+
+        map_slack = self._link[1].get('lmdb:mapslack', 2 ** 30)
+        self._map_slack, _ = s_datamodel.getTypeNorm('int', map_slack)
 
         # Maximum number of "databases", really tables.  We use 4 different tables (1 main plus
         # 3 indices)
@@ -273,9 +297,15 @@ class Cortex(s_cores_common.Cortex):
         if max_readers == 1:
             lock = False
 
-        self.dbenv = lmdb.Environment(dbname, map_size=map_size, subdir=SUBDIR, metasync=metasync,
-                                      writemap=WRITEMAP, max_readers=max_readers, max_dbs=MAX_DBS,
-                                      sync=sync, lock=lock)
+        self.dbenv = lmdb.Environment(dbname, map_size=self._map_size, subdir=SUBDIR,
+                                      metasync=metasync, writemap=WRITEMAP, max_readers=max_readers,
+                                      max_dbs=MAX_DBS, sync=sync, lock=lock)
+
+        # Check we're not running a weird version of LMDB
+        assert(self.dbenv.stat()['psize'] == 4096)
+
+        # Ensure we have enough room in the map for expansion
+        self._ensure_map_slack()
 
         # Make the main storage table, keyed by an incrementing counter, pk
         # LMDB has an optimization (integerkey) if all the keys in a table are unsigned size_t.
@@ -320,62 +350,47 @@ class Cortex(s_cores_common.Cortex):
         large.
         '''
         encs = []
-        val_len_sum = 0
-        GIBABYTE = 2**30
 
-        while True:
-            try:
-                with self._getTxn(write=True) as txn:
-                    next_pk = self.next_pk
+        with self._getTxn(write=True) as txn:
+            next_pk = self.next_pk
 
-                    # First, we encode all the i, p, v, t for all rows
-                    for i, p, v, t in rows:
-                        if next_pk > MAX_PK:
-                            raise DatabaseLimitReached('Out of primary key values')
-                        if len(p) > MAX_PROP_LEN:
-                            raise DatabaseLimitReached('Property length too large')
-                        i_enc = _encIden(i)
-                        p_enc = _encProp(p)
-                        v_key_enc = _encValKey(v)
-                        t_enc = msgenpack(t)
-                        pk_enc = _encPk(next_pk)
-                        row_enc = msgenpack((i, p, v, t))
-                        val_len_sum += 4 if s_compat.isint(v) else len(v)
+            # First, we encode all the i, p, v, t for all rows
+            for i, p, v, t in rows:
+                if next_pk > MAX_PK:
+                    raise DatabaseLimitReached('Out of primary key values')
+                if len(p) > MAX_PROP_LEN:
+                    raise DatabaseLimitReached('Property length too large')
+                i_enc = _encIden(i)
+                p_enc = _encProp(p)
+                v_key_enc = _encValKey(v)
+                t_enc = msgenpack(t)
+                pk_enc = _encPk(next_pk)
+                row_enc = msgenpack((i, p, v, t))
 
-                        # idx          0      1       2       3       4          5
-                        encs.append((i_enc, p_enc, row_enc, t_enc, v_key_enc, pk_enc))
-                        next_pk += 1
+                # idx          0      1       2       3       4          5
+                encs.append((i_enc, p_enc, row_enc, t_enc, v_key_enc, pk_enc))
+                next_pk += 1
 
-                    # An iterator of what goes into the main table: key=pk_enc, val=encoded(i, p, v, t)
-                    kvs = ((x[5], x[2]) for x in encs)
+            # An iterator of what goes into the main table: key=pk_enc, val=encoded(i, p, v, t)
+            kvs = ((x[5], x[2]) for x in encs)
 
-                    # Shove it all in at once
-                    consumed, added = txn.cursor(db=self.rows).putmulti(kvs, overwrite=False, append=True)
-                    if consumed != added or consumed != len(encs):
-                        # Will only fail if record already exists, which should never happen
-                        raise DatabaseInconsistent('unexpected pk in DB')
+            # Shove it all in at once
+            consumed, added = txn.cursor(db=self.rows).putmulti(kvs, overwrite=False, append=True)
+            if consumed != added or consumed != len(encs):
+                # Will only fail if record already exists, which should never happen
+                raise DatabaseInconsistent('unexpected pk in DB')
 
-                    # Update the indices for all rows
-                    kvs = ((x[0] + x[1], x[5]) for x in encs)
-                    txn.cursor(db=self.index_ip).putmulti(kvs, dupdata=True)
-                    kvs = ((x[1] + x[4] + x[3], x[5]) for x in encs)
-                    txn.cursor(db=self.index_pvt).putmulti(kvs, dupdata=True)
-                    kvs = ((x[1] + x[3], x[5]) for x in encs)
-                    txn.cursor(db=self.index_pt).putmulti(kvs, dupdata=True)
+            # Update the indices for all rows
+            kvs = ((x[0] + x[1], x[5]) for x in encs)
+            txn.cursor(db=self.index_ip).putmulti(kvs, dupdata=True)
+            kvs = ((x[1] + x[4] + x[3], x[5]) for x in encs)
+            txn.cursor(db=self.index_pvt).putmulti(kvs, dupdata=True)
+            kvs = ((x[1] + x[3], x[5]) for x in encs)
+            txn.cursor(db=self.index_pt).putmulti(kvs, dupdata=True)
 
-                    # self.next_pk should be protected from multiple writers. Luckily lmdb write lock does
-                    # that for us.
-                    self.next_pk = next_pk
-                    break
-
-            except lmdb.MapFullError:
-                # Increase the map size by the accumulated value length, rounded up to the next
-                # gibabyte.  Note that this will raise an OverflowError on 32-bit systems when
-                # new_size exceeds 2 GiB.
-                new_size = (val_len_sum + self.dbenv.info()['map_size'] + GIBABYTE-1) % GIBABYTE
-                self.dbenv.set_mapsize(new_size)
-                val_len_sum = 0
-                continue  # try again
+            # self.next_pk should be protected from multiple writers. Luckily lmdb write lock does
+            # that for us.
+            self.next_pk = next_pk
 
     def _getRowByPkValEnc(self, txn, pk_enc):
         row = txn.get(pk_enc, db=self.rows)
