@@ -79,3 +79,7 @@ class StormSyntaxTest(SynTest):
     def test_storm_syntax_pivot(self):
         insts = s_syntax.parse('foo:bar -> hehe.haha/baz:faz')
         self.eq(insts[0], ('pivot',{'args':['baz:faz','foo:bar'],'kwlist':[('from','hehe.haha')]}))
+
+    def test_storm_syntax_whites(self):
+        insts = s_syntax.parse('inet:fqdn     =      "1.2.3.4"')
+        self.eq(insts[0], s_syntax.oper('lift','inet:fqdn','1.2.3.4',by='eq'))
