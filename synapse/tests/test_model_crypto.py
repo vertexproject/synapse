@@ -118,7 +118,7 @@ class CryptoModelTest(SynTest):
         valu = HEXSTR_MODULUS + HEXSTR_PRIVATE_EXPONENT
         tufo = ('', {})
         with s_cortex.openurl('ram:///') as core:
-            tufo = core.formTufoByFrob(prop, valu, **props)
+            tufo = core.formTufoByProp(prop, valu, **props)
         self.eq(tufo[1].get('tufo:form'), 'crypto:asym')
         self.eq(tufo[1].get('crypto:asym'), HEXSTR_MODULUS + HEXSTR_PRIVATE_EXPONENT)
         self.eq(tufo[1].get('crypto:asym:size'), BITS)
@@ -150,7 +150,7 @@ class CryptoModelTest(SynTest):
         valu = HEXSTR_MODULUS + HEXSTR_PRIVATE_EXPONENT
         tufo = ('', {})
         with s_cortex.openurl('ram:///') as core:
-            tufo = core.formTufoByFrob(prop, valu, **props)
+            tufo = core.formTufoByProp(prop, valu, **props)
         self.eq(tufo[1].get('tufo:form'), 'crypto:asym')
         self.eq(tufo[1].get('crypto:asym'), HEXSTR_MODULUS + HEXSTR_PRIVATE_EXPONENT)
         self.eq(tufo[1].get('crypto:asym:size'), BITS)
@@ -179,7 +179,7 @@ class CryptoModelTest(SynTest):
         valu = HEXSTR_MODULUS + HEXSTR_PRIVATE_EXPONENT
         tufo = ('', {})
         with s_cortex.openurl('ram:///') as core:
-            tufo = core.formTufoByFrob(prop, valu, **props)
+            tufo = core.formTufoByProp(prop, valu, **props)
         self.eq(tufo[1].get('tufo:form'), 'crypto:asym')
         self.eq(tufo[1].get('crypto:asym'), HEXSTR_MODULUS + HEXSTR_PRIVATE_EXPONENT)
         self.eq(tufo[1].get('crypto:asym:size'), BITS)
@@ -208,7 +208,7 @@ class CryptoModelTest(SynTest):
         valu = HEXSTR_RSA_SIG
         tufo = ('', {})
         with s_cortex.openurl('ram:///') as core:
-            tufo = core.formTufoByFrob(prop, valu, **props)
+            tufo = core.formTufoByProp(prop, valu, **props)
         self.eq(tufo[1].get('tufo:form'), 'crypto:sig')
         self.eq(tufo[1].get('crypto:sig'), HEXSTR_RSA_SIG)
         self.eq(tufo[1].get('crypto:sig:created_at'), CREATION_TS)
@@ -242,7 +242,7 @@ class CryptoModelTest(SynTest):
         valu = HEXSTR_RSA_SIG
         tufo = ('', {})
         with s_cortex.openurl('ram:///') as core:
-            tufo = core.formTufoByFrob(prop, valu, **props)
+            tufo = core.formTufoByProp(prop, valu, **props)
         self.eq(tufo[1].get('tufo:form'), 'crypto:sig')
         self.eq(tufo[1].get('crypto:sig'), HEXSTR_RSA_SIG)
         self.eq(tufo[1].get('crypto:sig:created_at'), CREATION_TS)
@@ -262,7 +262,7 @@ class CryptoModelTest(SynTest):
         props = {}
         valu = 0xB204A082F9
         with s_cortex.openurl('ram:///') as core:
-            tufo = core.formTufoByFrob(prop, valu, **props)
+            tufo = core.formTufoByProp(prop, valu, **props)
         self.eq(tufo[1].get('tufo:form'), 'crypto:sym:rc4')
         self.eq(tufo[1].get('crypto:sym:rc4'), 'b204a082f9')
 
@@ -272,7 +272,7 @@ class CryptoModelTest(SynTest):
         props = {}
         valu = 0xD148488164B1684829398003FDA2E5F922109E22C64E0B3967A3E087B6607FF6
         with s_cortex.openurl('ram:///') as core:
-            tufo = core.formTufoByFrob(prop, valu, **props)
+            tufo = core.formTufoByProp(prop, valu, **props)
         self.eq(tufo[1].get('tufo:form'), 'crypto:sym:aes')
         self.eq(tufo[1].get('crypto:sym:aes'), 'd148488164b1684829398003fda2e5f922109e22c64e0b3967a3e087b6607ff6')
 
@@ -281,7 +281,7 @@ class CryptoModelTest(SynTest):
         props = {}
         valu = 0xEB2C6093861362
         with s_cortex.openurl('ram:///') as core:
-            tufo = core.formTufoByFrob(prop, valu, **props)
+            tufo = core.formTufoByProp(prop, valu, **props)
         self.eq(tufo[1].get('tufo:form'), 'crypto:sym:des')
         self.eq(tufo[1].get('crypto:sym:des'), 'eb2c6093861362')
 
@@ -290,7 +290,7 @@ class CryptoModelTest(SynTest):
         props = {}
         valu = 0xEB2C60938613625E46BEBD61B87537BB8F3DABC615
         with s_cortex.openurl('ram:///') as core:
-            tufo = core.formTufoByFrob(prop, valu, **props)
+            tufo = core.formTufoByProp(prop, valu, **props)
         self.eq(tufo[1].get('tufo:form'), 'crypto:sym:3des')
         self.eq(tufo[1].get('crypto:sym:3des'), 'eb2c60938613625e46bebd61b87537bb8f3dabc615')
 
@@ -299,7 +299,7 @@ class CryptoModelTest(SynTest):
         props = {}
         valu = 0xDCE47A5C776F64A7DDD0F199F8AFDD99800BFA6D684B3976677217A9D7EAD27E
         with s_cortex.openurl('ram:///') as core:
-            tufo = core.formTufoByFrob(prop, valu, **props)
+            tufo = core.formTufoByProp(prop, valu, **props)
         self.eq(tufo[1].get('tufo:form'), 'crypto:sym:bfish')
         self.eq(tufo[1].get('crypto:sym:bfish'), 'dce47a5c776f64a7ddd0f199f8afdd99800bfa6d684b3976677217a9d7ead27e')
 
@@ -308,7 +308,7 @@ class CryptoModelTest(SynTest):
         props = {}
         valu = 0xDCE47A5C776F64A7DDD0F199F8AFDD99800BFA6D684B3976677217A9D7EAD27E
         with s_cortex.openurl('ram:///') as core:
-            tufo = core.formTufoByFrob(prop, valu, **props)
+            tufo = core.formTufoByProp(prop, valu, **props)
         self.eq(tufo[1].get('tufo:form'), 'crypto:sym:2fish')
         self.eq(tufo[1].get('crypto:sym:2fish'), 'dce47a5c776f64a7ddd0f199f8afdd99800bfa6d684b3976677217a9d7ead27e')
         pass
