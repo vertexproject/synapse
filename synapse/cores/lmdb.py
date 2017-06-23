@@ -6,6 +6,7 @@ from binascii import unhexlify
 if sys.version_info > (3, 0):
     from functools import lru_cache
 from contextlib import contextmanager
+from threading import Lock
 
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
@@ -169,13 +170,14 @@ class CoreXact(s_cores_common.CoreXact):
         self.txn.commit()
 
     def _coreXactBegin(self):
+        self.core._ensure_map_slack()
         self.txn = self.core.dbenv.begin(buffers=True, write=True)
 
     def _coreXactAcquire(self):
-        pass
+        self.core._write_lock.acquire()
 
     def _coreXactRelease(self):
-        pass
+        self.core._write_lock.release()
 
 class Cortex(s_cores_common.Cortex):
 
@@ -230,21 +232,26 @@ class Cortex(s_cores_common.Cortex):
             yield existing_xact.txn
         else:
             if write:
-                self._ensure_map_slack()
-            with self.dbenv.begin(buffers=True, write=write) as txn:
-                yield txn
+                with self._write_lock:
+                    self._ensure_map_slack()
+                    with self.dbenv.begin(buffers=True, write=True) as txn:
+                        yield txn
+            else:
+                with self.dbenv.begin(buffers=True, write=False) as txn:
+                    yield txn
 
     def _ensure_map_slack(self):
         '''
         Checks if there's enough extra space in the map to accomodate a commit of at least
         self._slack_space size and increase it if not.
         '''
-        # LMDB Page Size
-        DB_PAGE_SIZE = 4096
+        # Figure how how much space the DB is using
+        used = 4096 * self.dbenv.info()['last_pgno']
 
-        # Make sure the map is at least big enough for the current data in the database
-        used = DB_PAGE_SIZE * self.dbenv.info()['last_pgno']
+        # Round up to the next multiple of _map_slack
         target_size = min(self._max_map_size, _round_up(used + self._map_slack, self._map_slack))
+
+        # Increase map size if necessary
         if target_size > self._map_size:
             self.dbenv.set_mapsize(target_size)
             self._map_size = target_size
@@ -256,9 +263,13 @@ class Cortex(s_cores_common.Cortex):
         # Initial DB Size.  Must be < 2 GiB for 32-bit.  Can be big for 64-bit systems.  Will create
         # a file of that size.  On MacOS/Windows, will actually immediately take up that much
         # disk space.
-        MAP_SIZE = 256 * 1024 * 1024
+        DEFAULT_MAP_SIZE = 256 * 1024 * 1024
 
-        map_size = self._link[1].get('lmdb:mapsize', MAP_SIZE)
+        # _write_lock exists solely to hold off other threads' write transactions long enough to
+        # potentially increase the map size.
+        self._write_lock = Lock()
+
+        map_size = self._link[1].get('lmdb:mapsize', DEFAULT_MAP_SIZE)
         self._map_size, _ = s_datamodel.getTypeNorm('int', map_size)
         self._max_map_size = 2**48 if sys.maxsize > 2**32 else 2**31
 

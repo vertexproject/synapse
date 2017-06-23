@@ -58,13 +58,16 @@ class CortexTest(SynTest):
         self.rundarks(core)
 
     lmdb_file = 'test.lmdb'
-    lmdb_url = 'lmdb:///%s?lmdb:mapsize=100000000' % lmdb_file
+    lmdb_url = 'lmdb:///%s' % lmdb_file
     def test_cortex_lmdb(self):
         core = s_cortex.openurl(CortexTest.lmdb_url)
         self.runcore( core )
         self.runjson( core )
         self.runrange( core )
         self.runidens( core )
+        self.rundsets( core )
+        self.runsnaps( core )
+        self.rundarks(core)
 
         # Test load an existing db
         core = s_cortex.openurl(CortexTest.lmdb_url)

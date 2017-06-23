@@ -38,7 +38,7 @@ NUM_THREADS = 4
 NUM_FORMS = 20
 
 
-def _addRows(core, rows, one_at_a_time=False, num_threads=1):
+def _addRows(rows, core, one_at_a_time=False):
     if one_at_a_time:
         for row in rows:
             core.addRows([row])
@@ -47,11 +47,11 @@ def _addRows(core, rows, one_at_a_time=False, num_threads=1):
     # core.flush()
 
 
-def _getTufosByIdens(core, idens):
+def _getTufosByIdens(idens, core):
     core.getTufosByIdens(idens)
 
 
-def _getTufoByPropVal(core, propvals):
+def _getTufoByPropVal(propvals, core):
     for p, v in propvals:
         core.getTufoByProp(p, v)
 
@@ -167,7 +167,7 @@ class TestData:
               (small_count, medium_count, large_count, huge_count))
 
 
-def _run_x(func, data, num_threads=1, *args, **kwargs):
+def _run_x(func, data, num_threads, *args, **kwargs):
     chunk_size = ceil(len(data)/num_threads)
     chunks = [data[i:i + chunk_size] for i in range(0, len(data), chunk_size)]
     threads = [threading.Thread(target=func, args=[chunks[x]] + list(args), kwargs=kwargs)
@@ -178,8 +178,12 @@ def _run_x(func, data, num_threads=1, *args, **kwargs):
         threads[i].join()
 
 
-def do_it(cmd, globals, number, repeat, divisor):
-    times = timeit.repeat(cmd, globals=globals, number=number, repeat=repeat)
+def do_it(cmd, data_str, num_threads, globals, number, repeat, divisor):
+    if num_threads == 1:
+        times = timeit.repeat('%s(%s, core)' % (cmd, data_str), globals=globals, number=number, repeat=repeat)
+    else:
+        times = timeit.repeat('_run_x(%s, %s, %s, core=core)' % (cmd, data_str, num_threads), globals=globals,
+                              number=number, repeat=repeat)
     print_time(cmd, times, divisor)
 
 
@@ -187,26 +191,27 @@ def profile_it(cmd, globals, number, repeat, divisor):
     cProfile.runctx(cmd, globals, {}, filename='lmdb_02.prof')
 
 
-def benchmark_cortex(test_data, url, cleanup_func, is_ephemeral, num_threads=1):
+def benchmark_cortex(test_data, url, cleanup_func, num_threads=1):
     core = s_cortex.openurl(url)
     _prepopulate_core(core, test_data.prepop_rows)
     g = {'_addRows': _addRows, '_getTufosByIdens': _getTufosByIdens, 'core': core,
-         'test_data': test_data, '_getTufoByPropVal': _getTufoByPropVal}
-    do_it('_addRows(core, test_data.rows)', g, 1, 1, len(test_data.rows))
-    if is_ephemeral:
+            'test_data': test_data, '_getTufoByPropVal': _getTufoByPropVal, '_run_x': _run_x}
+    do_it('_addRows', 'test_data.rows', num_threads, g, 1, 1, len(test_data.rows))
+    if cleanup_func:
         del core
         core = s_cortex.openurl(url)
         g['core'] = core
-    do_it('_getTufosByIdens(core, test_data.idens)', g, 2, 5, NUM_TUFOS)
-    do_it('_getTufoByPropVal(core, test_data.props)', g, 2, 5, NUM_TUFOS)
+    do_it('_getTufosByIdens', 'test_data.idens', num_threads, g, 2, 5, NUM_TUFOS)
+    do_it('_getTufoByPropVal', 'test_data.props', num_threads, g, 2, 5, NUM_TUFOS)
 
-    if cleanup_func is not None:
+    if cleanup_func:
         cleanup_func()
 
 
 def print_time(label, times, divisor):
     t = min(times)
     print('%50s:   %8.2f (max=%7.2f) %7d %10.6f' % (label, t, max(times), divisor, t/divisor))
+
 
 LMDB_FILE = 'test.lmdb'
 SQLITE_FILE = 'test.sqlite'
@@ -227,21 +232,26 @@ def cleanup_sqlite():
         pass
 
 
-def benchmark_all():
-    urls = ('ram://',
-            'sqlite:///:memory:',
-            'sqlite:///' + SQLITE_FILE,
-            'lmdb:///%s?lmdb:mapsize=536870912&lmdb:mapslack=536870912' % LMDB_FILE)
+def benchmark_all(which_runs, num_threads):
+    runs = (
+        ('ram://', None),
+        ('sqlite:///:memory:', None),
+        ('sqlite:///' + SQLITE_FILE, cleanup_sqlite),
+        ('lmdb:///%s?lmdb:mapsize=536870912&lmdb:mapslack=536870912' % LMDB_FILE, cleanup_lmdb)
+    )
 
-    ephemeral = (True, True, False, False)
-    cleanup = (None, None, cleanup_sqlite, cleanup_lmdb)
     test_data = TestData('testdata')
-    for url, cleanup_func, is_ephemeral in zip(urls, cleanup, ephemeral):
-        print('1-threaded benchmarking: %s' % url)
-        benchmark_cortex(test_data, url, cleanup_func, is_ephemeral)
-        # print('%d-threaded benchmarking: %s', NUM_THREADS, url)
-        # benchmark_cortex(test_data, url, cleanup_func, num_threads=NUM_THREADS)
+    for i, (url, cleanup_func) in enumerate(runs):
+        if i not in which_runs:
+            continue
+        print('%s-threaded benchmarking: %s' % (num_threads, url))
+        benchmark_cortex(test_data, url, cleanup_func, num_threads)
 
 
 if __name__ == '__main__':
-    benchmark_all()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('which_runs', type=int, nargs='*', default=(0, 1, 2, 3))
+    parser.add_argument('--num-threads', type=int, default=1)
+    opts = parser.parse_args()
+    benchmark_all(opts.which_runs, opts.num_threads)
