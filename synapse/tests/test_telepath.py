@@ -1,4 +1,5 @@
 import time
+import collections
 
 import synapse.link as s_link
 import synapse.async as s_async
@@ -12,8 +13,10 @@ import synapse.lib.threads as s_threads
 import synapse.lib.userauth as s_userauth
 
 from synapse.tests.common import *
+import logging
+logger = logging.getLogger(__name__)
 
-class Foo:
+class Foo(s_eventbus.EventBus):
 
     def bar(self, x, y):
         return x + y
@@ -26,6 +29,10 @@ class Foo:
 
     def speed(self):
         return
+
+    @s_telepath.clientside
+    def localthing(self, x):
+        return self.echo(x)
 
 class TelePathTest(SynTest):
 
@@ -106,21 +113,27 @@ class TelePathTest(SynTest):
     def test_telepath_push(self):
 
         # override default timeout=None for tests
-        with s_scope.enter({'syntimeout':5}):
+        with s_scope.enter({'syntimeout':3}):
 
             env = self.getFooEnv()
+
             port = env.link[1].get('port')
 
-            prox0 = s_telepath.openurl('tcp://127.0.0.1/', port=port)
+            prox0 = s_telepath.openurl('tcp://127.0.0.1/', port=port)  # type: s_telepath.Proxy
+
             prox0.push('foo1', Foo() )
 
-            prox1 = s_telepath.openurl('tcp://127.0.0.1/foo1', port=port)
+            prox1 = s_telepath.openurl('tcp://127.0.0.1/foo1', port=port)  # type: s_telepath.Proxy
 
             self.eq( prox1.bar(10,20), 30 )
 
+            wait0 = env.dmon.waiter(1, 'tele:push:fini')
+
             prox0.fini()
 
-            self.assertRaises( SynErr, prox1.bar, 10, 20 )
+            self.nn(wait0.wait(timeout=2))
+
+            self.raises( NoSuchObj, prox1.bar, 10, 20 )
 
             prox1.fini()
 
@@ -368,20 +381,58 @@ class TelePathTest(SynTest):
                 dmon.share('sbus', sbus)
                 proxy0 = s_telepath.openurl(url + '/sbus')
                 proxy1 = s_telepath.openurl(url + '/sbus')
-                counters = [0, 0]
 
-                def count(offset):
-                    def on(*args, **kwargs):
-                        counters[offset] += 1
-                    return on
+                counters = collections.defaultdict(int)
 
-                proxy0.on('tufo:tag:add', count(0))
-                proxy1.on('tufo:tag:add', count(1))
-                wait = s_eventbus.Waiter(proxy1, 1, 'tufo:tag:add')
-                proxy0.fire('tufo:tag:add', tag='tagu', tufo=('iden', {'prop': 'valu'}))
-                wait.wait()
-                self.assertEqual(counters[0], 1)
-                self.assertEqual(counters[1], 1)
+                def count(name):
+                    def onmesg(mesg):
+                        counters[name] += 1
+                    return onmesg
+
+                proxy0.on('foo:bar', count('p0'))
+                proxy1.on('foo:bar', count('p1'))
+
+                func = count('f0')
+                proxy1.on('foo:bar', func, tag='hehe')
+
+                wait = proxy1.waiter(1,'foo:bar')
+                proxy0.fire('foo:bar', tag='tagu', tufo=('iden', {'prop': 'valu'}))
+                self.nn(wait.wait(timeout=2))
+
+                self.eq(counters['p0'], 1)
+                self.eq(counters['p1'], 1)
+                self.eq(counters['f0'], 0)
+
+                wait = proxy1.waiter(1,'foo:bar')
+                proxy0.fire('foo:bar', tag='hehe', tufo=('iden', {'prop': 'valu'}))
+                self.nn(wait.wait(timeout=2))
+
+                self.eq(counters['p0'], 2)
+                self.eq(counters['p1'], 2)
+                self.eq(counters['f0'], 1)
+
+                proxy1.off('foo:bar', func)
+
+                wait = proxy1.waiter(1,'foo:bar')
+                proxy0.fire('foo:bar', tag='hehe', tufo=('iden', {'prop': 'valu'}))
+                self.nn(wait.wait(timeout=2))
+
+                self.eq(counters['p0'], 3)
+                self.eq(counters['p1'], 3)
+                self.eq(counters['f0'], 1)
+
+    def test_telepath_clientside(self):
+
+        with s_daemon.Daemon() as dmon:
+
+            link = dmon.listen('tcp://127.0.0.1:0/')
+            port = link[1].get('port')
+
+            dmon.share('foo',Foo())
+
+            with s_telepath.openurl('tcp://127.0.0.1/foo', port=port) as prox:
+                self.eq( prox.localthing(20), 20 )
+                self.eq( prox.localthing(30), 30 )
 
     def test_telepath_reqproxy(self):
 

@@ -16,7 +16,7 @@ def addSynMixin(subsys, name, cname=None):
 
     Example:
 
-        s_mixins.addSynMixin('telepath','synapse.axon.AxonMixin')
+        s_mixins.addSynMixin('foo','synapse.foo.FooMixin')
 
     '''
     if cname == None:
@@ -37,5 +37,3 @@ def getSynMixins(subsys,name):
     if not names:
         return ()
     return [ s_dyndeps.getDynLocal(name) for name in names ]
-
-#addTeleMixin('synapse.axon.AxonMixin')

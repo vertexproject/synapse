@@ -14,9 +14,11 @@ This module implements syntax parsing for the storm runtime.
 
 whites = set(' \t\n')
 intset = set('01234567890abcdefx')
-varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678910')
+varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+propset = set(':abcdefghijklmnopqrstuvwxyz_0123456789')
 starset = varset.union({'*'})
 whenset = set('0123456789abcdefghijklmnopqrstuvwxyz+,')
+alphaset = set('abcdefghijklmnopqrstuvwxyz')
 
 def nom(txt,off,cset,trim=True):
     '''
@@ -213,7 +215,26 @@ def parse_macro_lift(text,off=0,trim=True):
     Parse a "lift" macro and return an inst,off tuple.
     '''
     ques,off = parse_ques(text,off,trim=trim)
-    return ('lift',ques),off
+
+    prop = ques.get('prop')
+    valu = ques.get('valu')
+
+    kwargs = {}
+
+    limt = ques.get('limit')
+    if limt is not None:
+        kwargs['limit'] = limt
+
+    by = ques.get('cmp')
+    if by is not None:
+        kwargs['by'] = by
+
+    fromtag = ques.get('from')
+    if fromtag is not None:
+        kwargs['from'] = fromtag
+
+    inst = oper('lift', prop, valu, **kwargs)
+    return inst,off
 
 def parse_opts(text,off=0):
     inst = ('opts',{'args':[],'kwlist':[]})
@@ -321,6 +342,8 @@ def parse_ques(text,off=0,trim=True):
     ques['cmp'] = 'has'
     ques['prop'] = name
 
+    _,off = nom(text,off,whites)
+
     if len(text) == off:
         return ques,off
 
@@ -333,7 +356,11 @@ def parse_ques(text,off=0,trim=True):
 
         ques['prop'] = name
 
+    _,off = nom(text,off,whites)
+
     while True:
+
+        _,off = nom(text,off,whites)
 
         if len(text) == off:
             return ques,off
@@ -347,21 +374,26 @@ def parse_ques(text,off=0,trim=True):
             continue
 
         # NOTE: "by" macro syntax only supports eq so we eat and run
-        if text[off] == '*':
+        if nextchar(text,off,'*'):
+            _,off = nom(text,off+1,whites)
 
-            ques['cmp'],off = nom(text,off+1,varset,trim=True)
+            ques['cmp'],off = nom(text,off,varset,trim=True)
             if len(text) == off:
                 return ques,off
 
-            if text[off] != '=':
+            if not nextchar(text,off,'='):
                 raise SyntaxError(text=text, off=off, mesg='expected equals for by syntax')
 
-            ques['valu'],off = parse_macro_valu(text,off+1)
+            _,off = nom(text,off+1,whites)
+
+            ques['valu'],off = parse_macro_valu(text,off)
             return ques,off
 
-        if text[off] == '=':
+        if nextchar(text,off,'='):
+            _,off = nom(text,off+1,whites)
+
             ques['cmp'] = 'eq'
-            ques['valu'],off = parse_macro_valu(text,off+1)
+            ques['valu'],off = parse_macro_valu(text,off)
             break
 
         # TODO: handle "by" syntax
@@ -458,13 +490,18 @@ def parse_oarg(text, off=0):
     '''
     _,off = nom(text,off,whites)
 
-    if is_literal(text,off):
-        valu,off = parse_literal(text,off)
+    if nextchar(text,off,'"'):
+        valu,off = parse_string(text,off)
+        _,off = nom(text,off,whites)
 
     else:
-        valu,off = nom(text,off,varset)
+        valu,off = meh(text,off,'=,)')
+        valu = valu.strip()
+        try:
+            valu = int(valu,0)
+        except ValueError as e:
+            pass
 
-    _,off = nom(text,off,whites)
     return valu,off
 
 def parse_oper(text, off=0):
@@ -511,6 +548,10 @@ def parse_oper(text, off=0):
         if nextchar(text,off,','):
             off += 1
 
+def oper(name,*args,**kwargs):
+    kwlist = list(sorted(kwargs.items()))
+    return (name,{'args':args,'kwlist':kwlist})
+
 def parse(text, off=0):
     '''
     Parse and return a set of instruction tufos.
@@ -526,20 +567,70 @@ def parse(text, off=0):
 
         # handle some special "macro" style syntaxes
 
+        # [ ] for node modification macro syntax
+
+        # [ inet:fqdn=woot.com ]  == addnode(inet:fqdn,woot.com)
+        # [ :asn=10 ]  == setprop(asn=10)
+        # [ #foo.bar ]  or [ +#foo.bar ] == addtag(foo.bar)
+        # [ -#foo.bar ] == deltag(foo.bar)
+        if nextchar(text,off,'['):
+
+            while True:
+
+                _,off = nom(text,off+1,whites)
+                if nextchar(text,off,']'):
+                    off += 1
+                    break
+
+                if off == len(text):
+                    raise SyntaxError(mesg='unexpected end of text in edit mode')
+
+                if nextstr(text,off,'+#'):
+                    valu,off = parse_macro_valu(text,off+2)
+                    ret.append( oper('addtag',valu) )
+                    continue
+
+                if nextstr(text,off,'-#'):
+                    valu,off = parse_macro_valu(text,off+2)
+                    ret.append( oper('deltag',valu) )
+                    continue
+
+                if nextchar(text,off,'#'):
+                    valu,off = parse_macro_valu(text,off+1)
+                    ret.append( oper('addtag',valu) )
+                    continue
+
+                # otherwise, it should be a prop=valu (maybe relative)
+                prop,off = nom(text,off,propset)
+                if not prop:
+                    raise SyntaxError(mesg='edit macro expected prop=valu syntax')
+
+                _,off = nom(text,off,whites)
+                if not nextchar(text,off,'='):
+                    raise SyntaxError(mesg='edit macro expected prop=valu syntax')
+
+                valu,off = parse_macro_valu(text,off+1)
+                if prop[0] == ':':
+                    kwargs = {prop[1:]:valu}
+                    ret.append( oper('setprop',**kwargs) )
+                    continue
+
+                ret.append( oper('addnode',prop,valu) )
+
+            continue
+
         # pivot() macro with no src prop:   -> foo:bar
         if nextstr(text,off,'->'):
             _,off = nom(text,off+2,whites)
             name,off = nom(text,off,varset)
-            inst = ('pivot',{'args':[name],'kwlist':[]})
-            ret.append(inst)
+            ret.append(oper('pivot',name))
             continue
 
         # lift by tag alone macro
         if nextstr(text,off,'#'):
             _,off = nom(text,off+1,whites)
             name,off = nom(text,off,varset)
-            inst = ('alltag',{'args':[name],'kwlist':[]})
-            ret.append(inst)
+            ret.append(oper('alltag',name))
             continue
 
         # must() macro syntax: +foo:bar="woot"
@@ -596,7 +687,7 @@ def parse(text, off=0):
             prev[1]['args'].append(inst)
             continue
 
-        # opts() macro syntax: %uniq=0
+        # opts() macro syntax: %uniq=0 %limit=30
         if text[off] == '%':
             inst,off = parse_opts(text,off+1)
             ret.append(inst)

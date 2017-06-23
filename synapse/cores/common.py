@@ -30,7 +30,7 @@ import synapse.lib.interval as s_interval
 import synapse.lib.userauth as s_userauth
 
 from synapse.common import *
-from synapse.eventbus import EventBus
+from synapse.eventbus import EventBus, on, onfini
 from synapse.lib.storm import Runtime
 from synapse.datamodel import DataModel
 from synapse.lib.config import Configable
@@ -62,89 +62,36 @@ def reqstor(name,valu):
         raise BadPropValu(name=name,valu=valu)
     return valu
 
-class CortexMixin:
+# the built-in cortex modules...
+basemods = (
+    ('synapse.models.gov.cn.GovCnMod',{}),
+)
 
-    def __init__(self):
-        pass
-
-    def formNodeByBytes(self, byts, stor=True, **props):
-        '''
-        Form a new file:bytes node by passing bytes and optional props.
-
-        If stor=False is specified, the cortex will create the file:bytes
-        node even if it is not configured with access to an axon to store
-        the bytes.
-
-        Example:
-
-            core.formNodeByBytes(byts,name='foo.exe')
-
-        '''
-
-        hset = s_hashset.HashSet()
-        hset.update(byts)
-
-        iden,info = hset.guid()
-
-        props.update(info)
-
-        if stor:
-
-            size = props.get('size')
-            upid = self._getAxonWants('guid',iden,size)
-
-            if upid != None:
-                for chun in chunks(byts,10000000):
-                    self._addAxonChunk(upid,chun)
-
-        return self.formTufoByProp('file:bytes', iden, **props)
-
-    def formNodeByFd(self, fd, stor=True, **props):
-        '''
-        Form a new file:bytes node by passing a file object and optional props.
-        '''
-        hset = s_hashset.HashSet()
-        iden,info = hset.eatfd(fd)
-
-        props.update(info)
-
-
-        if stor:
-
-            size = props.get('size')
-            upid = self._getAxonWants('guid',iden,size)
-
-            # time to send it!
-            if upid != None:
-                for byts in iterfd(fd):
-                    self._addAxonChunk(upid,byts)
-
-        node = self.formTufoByProp('file:bytes', iden, **props)
-
-        if node[1].get('file:bytes:size') == None:
-            self.setTufoProp(node,'size',info.get('size'))
-
-        return node
-
-class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestApi):
+class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
     '''
     Top level Cortex key/valu storage object.
     '''
     def __init__(self, link, **conf):
         Runtime.__init__(self)
         EventBus.__init__(self)
-        CortexMixin.__init__(self)
         Configable.__init__(self)
 
         # a cortex may have a ref to an axon
         self.axon = None
         self.seedctors = {}
 
+        self.modules = list( basemods )
+        self.modsdone = False
+
         self.noauto = {'syn:form','syn:type','syn:prop'}
+
         self.addConfDef('autoadd',type='bool',asloc='autoadd',defval=1,doc='Automatically add forms for props where type is form')
         self.addConfDef('enforce',type='bool',asloc='enforce',defval=0,doc='Enables data model enforcement')
         self.addConfDef('caching',type='bool',asloc='caching',defval=0,doc='Enables caching layer in the cortex')
         self.addConfDef('cache:maxsize',type='int',asloc='cache_maxsize',defval=1000,doc='Enables caching layer in the cortex')
+
+        self.addConfDef('rev:model', type='bool', defval=1, doc='Set to 0 to disallow model version updates')
+        self.addConfDef('rev:storage', type='bool', defval=1, doc='Set to 0 to disallow storage version updates')
 
         self.addConfDef('axon:url',type='str',doc='Allows cortex to be aware of an axon blob store')
 
@@ -167,7 +114,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
         self._core_xacts = {}
 
-        self.coremods = {}
+        self.coremods = {}  # name:module ( CoreModule() )
         self.statfuncs = {}
 
         self.auth = None
@@ -228,10 +175,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
         DataModel.__init__(self,load=False)
 
-        self.on('tufo:add:syn:tag', self._onAddSynTag)
-        self.on('tufo:del:syn:tag', self._onDelSynTag)
-        self.on('tufo:form:syn:tag', self._onFormSynTag)
-
         self.isok = True
 
         self.initTufosBy('eq',self._tufosByEq)
@@ -253,14 +196,15 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
             self.setSaveFd(savefd,fini=True)
 
         self.myfo = self.formTufoByProp('syn:core','self')
+        self.isnew = self.myfo[1].get('.new',False)
 
         with self.getCoreXact() as xact:
             self._initCoreModels()
 
         # and finally, strap in our event handlers...
-        self.on('tufo:add:syn:type', self._onTufoAddSynType )
-        self.on('tufo:add:syn:form', self._onTufoAddSynForm )
-        self.on('tufo:add:syn:prop', self._onTufoAddSynProp )
+        self.on('node:add', self._onTufoAddSynType, form='syn:type')
+        self.on('node:add', self._onTufoAddSynForm, form='syn:form')
+        self.on('node:add', self._onTufoAddSynProp, form='syn:prop')
 
         self.addTufoForm('syn:log', ptype='guid', local=1)
         self.addTufoProp('syn:log', 'subsys', defval='??', help='Named subsystem which originated the log event')
@@ -277,6 +221,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         self.setOperFunc('stat', self._stormOperStat)
         self.setOperFunc('dset', self._stormOperDset)
 
+        self._initCoreMods()
+
         # allow modules a shot at hooking cortex events for model ctors
         for name,ret,exc in s_modules.call('addCoreOns',self):
             if exc != None:
@@ -285,6 +231,100 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         self.onfini( self._finiCoreMods )
 
         s_ingest.IngestApi.__init__(self, self)
+
+    def getModlVers(self, name):
+        '''
+        Retrieve the model version for the given model name.
+
+        Args:
+            name (str): The name of the model
+
+        Returns:
+            (int):  The model version ( linear version number ) or -1
+        '''
+        prop = '.:modl:vers:' + name
+        rows = self.getRowsByProp(prop)
+        if not rows:
+            return -1
+        return rows[0][2]
+
+    def setModlVers(self, name, vers):
+        '''
+        Set the version number for a specific model.
+
+        Args:
+            name (str): The name of the model
+            vers (int): The new (linear) version number
+
+        Returns:
+            (None)
+
+        '''
+        prop = '.:modl:vers:' + name
+
+        with self.getCoreXact() as xact:
+
+            rows = self.getRowsByProp(prop)
+
+            if rows:
+                iden = rows[0][0]
+            else:
+                iden = guid()
+
+            self.setRowsByIdProp(iden,prop,vers)
+            return vers
+
+    def revModlVers(self, name, revs):
+        '''
+        Update a model using a list of (vers,func) tuples.
+
+        Args:
+            name (str): The name of the model
+            refs ([(int,function)]):  List of (vers,func) revision tuples.
+
+        Returns:
+            (None)
+
+        Example:
+
+            with s_cortex.openurl('ram:///') as core:
+
+                def v0():
+                    addModelStuff(core)
+
+                def v1():
+                    addMoarStuff(core)
+
+                revs = [ (0,v0), (1,v1) ]
+
+                core.revModlVers('foo', revs)
+
+        Each specified function is expected to update the cortex including data migration.
+        '''
+        if not revs:
+            return
+
+        curv = self.getModlVers(name)
+
+        maxver = revs[-1][0]
+        if maxver == curv:
+            return
+
+        if not self.getConfOpt('rev:model'):
+            raise NoRevAllow(name=name, mesg='add rev:model=1 to cortex url to allow model updates')
+
+        for vers,func in sorted(revs):
+
+            if vers <= curv:
+                continue
+
+            # allow the revision function to optionally return the
+            # revision he jumped to ( to allow initial override )
+            retn = func()
+            if retn != None:
+                vers = retn
+
+            curv = self.setModlVers(name,vers)
 
     def _finiCoreMods(self):
         [ modu.fini() for modu in self.coremods.values() ]
@@ -580,23 +620,48 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
     def _onSetAxonUrl(self, url):
         self.axon = s_telepath.openurl(url)
 
+    def initCoreModule(self, ctor, conf):
+        '''
+        Load a cortex module with the given ctor and conf.
+
+        Args:
+            ctor (str): The python module class path
+            conf (dict):Config dictionary for the module
+        '''
+        # load modules as dyndeps which construct a module
+        # subclass with ctor(<core>,<conf>)
+        try:
+
+            oldm = self.coremods.pop(ctor,None)
+            if oldm != None:
+                oldm.fini()
+
+            modu = s_dyndeps.tryDynFunc(ctor, self, conf)
+
+            self.coremods[ctor] = modu
+
+            return True
+
+        except Exception as e:
+            logger.exception(e)
+            logger.warning('mod load fail: %s %s' % (ctor,e))
+            return False
+
+    def _initCoreMods(self):
+        # load each of the configured (and base) modules.
+        for ctor,conf in self.modules:
+            self.initCoreModule(ctor,conf)
+        self.modsdone = True
+
     def _onSetMods(self, mods):
+
+        self.modules.extend(mods)
+        if not self.modsdone:
+            return
+
+        # dynamically load modules if we are already done loading
         for ctor,conf in mods:
-            # load modules as dyndeps which construct a module
-            # subclass with ctor(<core>,<conf>)
-            try:
-
-                oldm = self.coremods.pop(ctor,None)
-                if oldm != None:
-                    oldm.fini()
-
-                modu = s_dyndeps.tryDynFunc(ctor, self, conf)
-
-                self.coremods[ctor] = modu
-
-            except Exception as e:
-                logger.exception(e)
-                logger.warning('mod load fail: %s %s' % (ctor,e))
+            self.initCoreModule(ctor,conf)
 
     def _onSetCaching(self, valu):
         if not valu:
@@ -735,24 +800,17 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         for chnk in chunks(msgpackfd(fd),1000):
             self.splices(chnk)
 
+    @on('node:del', form='syn:tag')
     def _onDelSynTag(self, mesg):
-        # deleting a tag.  delete all sub tags and wipe tufos.
-        tufo = mesg[1].get('tufo')
-        valu = tufo[1].get('syn:tag')
+        # deleting a tag node.  delete all sub tags and wipe tufos.
+        valu = mesg[1].get('valu')
 
         [ self.delTufo(t) for t in self.getTufosByProp('syn:tag:up',valu) ]
 
         # do the (possibly very heavy) removal of the tag from all known forms.
         [ self.delTufoTag(t, valu) for t in self.getTufosByTag(valu) ]
 
-    def _onAddSynTag(self, mesg):
-        tufo = mesg[1].get('tufo')
-        form = tufo[1].get('tufo:form')
-        utag = tufo[1].get('syn:tag:up')
-
-        if utag != None:
-            self._genTagForm(utag,form)
-
+    @on('node:form', form='syn:tag')
     def _onFormSynTag(self, mesg):
         valu = mesg[1].get('valu')
         props = mesg[1].get('props')
@@ -764,8 +822,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         if tlen > 1:
             props['syn:tag:up'] = '.'.join(tags[:-1])
 
-        props['syn:tag:depth'] = tlen - 1
         props['syn:tag:base'] = tags[-1]
+        props['syn:tag:depth'] = tlen - 1
 
     def setSaveFd(self, fd, load=True, fini=False):
         '''
@@ -1713,14 +1771,21 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         '''
 
         doneadd = set()
+        tname = self.getPropTypeName(form)
+        if tname == None and self.enforce:
+            raise NoSuchForm(name=form)
+
+        if tname and not self.isSubType(tname,'guid'):
+            raise NotGuidForm(name=form)
+
         with self.getCoreXact() as xact:
 
             ret = []
+
             for chunk in chunked(1000,propss):
 
+                adds = []
                 rows = []
-                tufos = []
-                splices = []
 
                 alladd = set()
 
@@ -1733,22 +1798,24 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                     self._addDefProps(form,fulls)
 
                     fulls[form] = iden
+                    fulls['tufo:form'] = form
 
                     toadd = [ t for t in toadd if t not in doneadd ]
 
                     alladd.update(toadd)
                     doneadd.update(toadd)
 
-                    splices.append((form,iden,props))
-
-                    self.fire('tufo:form', form=form, valu=iden, props=fulls)
-                    self.fire('tufo:form:' + form, form=form, valu=iden, props=fulls)
+                    self.fire('node:form', form=form, valu=iden, props=fulls)
 
                     rows.extend([ (iden,p,v,xact.tick) for (p,v) in fulls.items() ])
 
                     # sneaky ephemeral/hidden prop to identify newly created tufos
                     fulls['.new'] = 1
-                    tufos.append( (iden,fulls) )
+
+                    node = (iden,fulls)
+
+                    ret.append(node)
+                    adds.append((form,iden,props,node))
 
                 # add "toadd" nodes *first* (for tree/parent issues )
                 if self.autoadd:
@@ -1757,7 +1824,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                 self.addRows(rows)
 
                 # fire splice events
-                for form,valu,props in splices:
+                for form,valu,props,node in adds:
+                    xact.fire('node:add', form=form, valu=valu, node=node)
                     xact.spliced('node:add', form=form, valu=valu, props=props)
 
                 for tufo in tufos:
@@ -1792,14 +1860,15 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         Form an (iden,info) tuple by atomically deconflicting
         the existance of prop=valu and creating it if not present.
 
+        Args:
+
+            prop (str): The primary property (or form) of the node
+            valu (obj): The primary valu for the node
+            **props:    Additional secondary properties for the node
+
         Example:
 
             tufo = core.formTufoByProp('inet:fqdn','woot.com')
-
-        Notes:
-
-            * this will trigger an 'tufo:add' event if the
-              tufo does not yet exist and is being construted.
 
         '''
         ctor = self.seedctors.get(prop)
@@ -1840,14 +1909,14 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
             self._addDefProps(prop,fulls)
 
             fulls[prop] = valu
+            fulls['tufo:form'] = prop
 
             # update our runtime form counters
             self.formed[prop] += 1
 
             # fire these immediately since we need them to potentially fill
             # in values before we generate rows for the new tufo
-            self.fire('tufo:form', form=prop, valu=valu, props=fulls)
-            self.fire('tufo:form:' + prop, form=prop, valu=valu, props=fulls)
+            self.fire('node:form', form=prop, valu=valu, props=fulls)
 
             rows = [ (iden,p,v,tick) for (p,v) in fulls.items() ]
 
@@ -1862,16 +1931,13 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                     self._bumpTufoCache(cachefo,p,None,v)
 
             # fire notification events
-            xact.fire('tufo:add',tufo=tufo)
-            xact.fire('tufo:add:' + prop, tufo=tufo)
-
+            xact.fire('node:add', form=prop, valu=valu, node=tufo)
             xact.spliced('node:add', form=prop, valu=valu, props=props)
 
             #if self.autoadd:
                 #self._runAutoAdd(toadd)
 
         tufo[1]['.new'] = True
-
         return tufo
 
     def delTufo(self, tufo):
@@ -1888,8 +1954,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         valu = tufo[1].get(form)
 
         # fire notification events
-        self.fire('tufo:del',tufo=tufo)
-        self.fire('tufo:del:' + form, tufo=tufo)
+        self.fire('node:del', form=form, valu=valu, node=tufo)
 
         for name,tick in self.getTufoDsets(tufo):
             self.delTufoDset(tufo,name)
@@ -1918,15 +1983,14 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
             return
 
         rows = [ (dark, '_:dset', name, now()) ]
+
         self.addRows(rows)
-        #NOTE: may add this if a use cases occurs
-        #self.fire('syn:dset:add', name=name, tufo=tufo)
-        self.fire('syn:dset:add:' + name, name=name, tufo=tufo)
+        self.fire('syn:dset:add', name=name, node=tufo)
 
     def delTufoDset(self, tufo, name):
         dark = tufo[0][::-1]
         self.delRowsByIdProp(dark,'_:dset',name)
-        self.fire('syn:dset:del:' + name, name=name, tufo=tufo)
+        self.fire('syn:dset:del', name=name, node=tufo)
 
     def getTufoDsets(self, tufo):
         '''
@@ -2061,8 +2125,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         '''
 
         toadd = set()
-        props = {'tufo:form':form}
 
+        props = {}
         for name in list(inprops.keys()):
 
             valu = inprops.get(name)
@@ -2117,6 +2181,78 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         '''
         self.savebus.link(func)
 
+    @s_telepath.clientside
+    def formNodeByBytes(self, byts, stor=True, **props):
+        '''
+        Form a new file:bytes node by passing bytes and optional props.
+
+        If stor=False is specified, the cortex will create the file:bytes
+        node even if it is not configured with access to an axon to store
+        the bytes.
+
+        Args:
+            byts (bytes):   The bytes for a file:bytes node
+            stor (bool):    If True, attempt to store the bytes in an axon
+            **props:        Additional props for the file:bytes node
+
+        Example:
+
+            core.formNodeByBytes(byts,name='foo.exe')
+
+        '''
+
+        hset = s_hashset.HashSet()
+        hset.update(byts)
+
+        iden,info = hset.guid()
+
+        props.update(info)
+
+        if stor:
+
+            size = props.get('size')
+            upid = self._getAxonWants('guid',iden,size)
+
+            if upid != None:
+                for chun in chunks(byts,10000000):
+                    self._addAxonChunk(upid,chun)
+
+        return self.formTufoByProp('file:bytes', iden, **props)
+
+    @s_telepath.clientside
+    def formNodeByFd(self, fd, stor=True, **props):
+        '''
+        Form a new file:bytes node by passing a file object and optional props.
+
+        Args:
+            fd (file):      A file-like object to read file:bytes from.
+            stor (bool):    If True, attempt to store the bytes in an axon
+            **props:        Additional props for the file:bytes node
+
+        '''
+        hset = s_hashset.HashSet()
+        iden,info = hset.eatfd(fd)
+
+        props.update(info)
+
+
+        if stor:
+
+            size = props.get('size')
+            upid = self._getAxonWants('guid',iden,size)
+
+            # time to send it!
+            if upid != None:
+                for byts in iterfd(fd):
+                    self._addAxonChunk(upid,byts)
+
+        node = self.formTufoByProp('file:bytes', iden, **props)
+
+        if node[1].get('file:bytes:size') == None:
+            self.setTufoProp(node,'size',info.get('size'))
+
+        return node
+
     def _okSetProp(self, prop):
         # check for enforcement and validity of a full prop name
         if not self.enforce:
@@ -2145,12 +2281,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
         with self.getCoreXact() as xact:
 
-            # fire notification events
-            self.fire('tufo:set', tufo=tufo, props=fulls)
-            self.fire('tufo:props:' + form, tufo=tufo, props=fulls)
-
-            xact.spliced('node:set', form=form, valu=valu, props=props)
-
             for p,v in fulls.items():
 
                 oldv = tufo[1].get(p)
@@ -2162,8 +2292,10 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
                 if self.caching:
                     self._bumpTufoCache(tufo,p,oldv,v)
 
-                # fire notification events
-                xact.fire('tufo:set:' + p, tufo=tufo, prop=p, valu=v, oldv=oldv)
+                # fire notification event
+                xact.fire('node:set', form=form, valu=valu, prop=p, newv=v, oldv=oldv, node=tufo)
+
+            xact.spliced('node:set', form=form, valu=valu, props=props)
 
         return tufo
 
@@ -2201,18 +2333,21 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         # to allow storage layer optimization
         iden = tufo[0]
 
+        form = tufo[1].get('tufo:form')
+        valu = tufo[1].get(form)
+
         with self.inclock:
             rows = self._getRowsByIdProp(iden,prop)
             if len(rows) == 0:
                 raise NoSuchTufo(iden=iden,prop=prop)
 
             oldv = rows[0][2]
-            valu = oldv + incval
+            newv = oldv + incval
 
-            self.setRowsByIdProp(iden,prop,valu)
+            self.setRowsByIdProp(iden,prop,newv)
 
-            tufo[1][prop] = valu
-            self.fire('tufo:set:' + prop, tufo=tufo, prop=prop, valu=valu, oldv=oldv)
+            tufo[1][prop] = newv
+            self.fire('node:set', form=form, valu=valu, prop=prop, newv=newv, oldv=oldv, node=tufo)
 
         return tufo
 
@@ -2338,24 +2473,21 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         return self.getTufosBy('range', prop, (ipv4addr, ipv4addr+mask), limit=limit)
 
     def _onTufoAddSynType(self, mesg):
-        # tufo:add:syn:type
-        tufo = mesg[1].get('tufo')
+        tufo = mesg[1].get('node')
         if tufo == None:
             return
 
         self._initTypeTufo(tufo)
 
     def _onTufoAddSynForm(self, mesg):
-        # tufo:add:syn:form
-        tufo = mesg[1].get('tufo')
+        tufo = mesg[1].get('node')
         if tufo == None:
             return
 
         self._initFormTufo(tufo)
 
     def _onTufoAddSynProp(self, mesg):
-        # tufo:add:syn:prop
-        tufo = mesg[1].get('tufo')
+        tufo = mesg[1].get('node')
         if tufo == None:
             return
 
@@ -2408,6 +2540,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
     # some helpers to allow *all* queries to be processed via getTufosBy()
     def _tufosByEq(self, prop, valu, limit=None):
+        valu,_ = self.getPropNorm(prop,valu)
         return self.getTufosByProp(prop,valu=valu,limit=limit)
 
     def _tufosByHas(self, prop, valu, limit=None):
@@ -2427,15 +2560,19 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
     # and register _getTufosByGe and _getTufosByLe
 
     def _rowsByLt(self, prop, valu, limit=None):
+        valu,_ = self.getPropNorm(prop,valu)
         return self._rowsByLe(prop, valu-1, limit=limit)
 
     def _rowsByGt(self, prop, valu, limit=None):
+        valu,_ = self.getPropNorm(prop,valu)
         return self._rowsByGe(prop, valu+1, limit=limit)
 
     def _tufosByLt(self, prop, valu, limit=None):
+        valu,_ = self.getPropNorm(prop,valu)
         return self._tufosByLe(prop, valu-1, limit=limit)
 
     def _tufosByGt(self, prop, valu, limit=None):
+        valu,_ = self.getPropNorm(prop,valu)
         return self._tufosByGe(prop, valu+1, limit=limit)
 
     def getSplicePump(self,core):

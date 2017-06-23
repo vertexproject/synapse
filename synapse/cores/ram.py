@@ -54,13 +54,13 @@ class Cortex(s_cores_common.Cortex):
         return self.getTufosByIdens([ r[0] for r in rows ])
 
     def _sizeByRange(self, prop, valu, limit=None):
-        minval = int(valu[0])
-        maxval = int(valu[1])
+        minval = int(self.getPropNorm(prop,valu[0])[0])
+        maxval = int(self.getPropNorm(prop,valu[1])[0])
         return sum( 1 for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= minval and r[2] < maxval )
 
     def _rowsByRange(self, prop, valu, limit=None):
-        minval = int(valu[0])
-        maxval = int(valu[1])
+        minval = int(self.getPropNorm(prop,valu[0])[0])
+        maxval = int(self.getPropNorm(prop,valu[1])[0])
 
         # HACK: for speed
         ret = [ r for r in self.rowsbyprop.get(prop,()) if isint(r[2]) and r[2] >= minval and r[2] < maxval ]
@@ -95,11 +95,11 @@ class Cortex(s_cores_common.Cortex):
 
     def _delRowsByIdProp(self, iden, prop, valu=None):
         if valu == None:
-            rows = [ row for row in self.rowsbyid.get(iden) if row[1] == prop ]
+            rows = [ row for row in self.rowsbyid.get(iden,()) if row[1] == prop ]
             [ self._delRawRow(row) for row in rows ]
             return
 
-        rows = [ row for row in self.rowsbyid.get(iden) if row[1] == prop and row[2] == valu ]
+        rows = [ row for row in self.rowsbyid.get(iden,()) if row[1] == prop and row[2] == valu ]
         [ self._delRawRow(row) for row in rows ]
         return
 

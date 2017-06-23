@@ -5,16 +5,20 @@ clone:
 
 matrix:
   include:
-    - IMAGE_VERSION: py27
+    - TEST_NAME: "Python 2.7 with coverage."
+      IMAGE_VERSION: py27
       PG_DB: root@database:5432/syn_test
       COVERAGE_ARGS: --with-coverage --cover-erase --cover-package=synapse
-    - IMAGE_VERSION: py34
+    - TEST_NAME: "Python 34 without coverage."
+      IMAGE_VERSION: py34
       PG_DB: root@database:5432/syn_test
       SLEEP: 3
-    - IMAGE_VERSION: py35
+    - TEST_NAME: "Python 35 without coverage."
+      IMAGE_VERSION: py35
       PG_DB: root@database:5432/syn_test
       SLEEP: 9
-    - IMAGE_VERSION: py36
+    - TEST_NAME: "Python 36 with coverage."
+      IMAGE_VERSION: py36
       PG_DB: root@database:5432/syn_test
       COVERAGE_ARGS: --with-coverage --cover-erase --cover-package=synapse
       SLEEP: 15
@@ -39,20 +43,6 @@ pipeline:
       - python setup.py install
       - nosetests --verbosity=3 ${COVERAGE_ARGS}
       - if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${IMAGE_VERSION} --required; fi;
-
-  slack:
-    image: plugins/slack
-    pull: true
-    when:
-      status: [ success, failure ]
-    secrets:
-      [ SLACK_WEBHOOK ]
-    template: >
-      {{#success build.status}}
-        :white_check_mark: {{build.author}} your tests worked. Please feed :robot_face: more code to eat.  Details at https://drone.vertex.link/{{repo.owner}}/{{repo.name}}/{{build.number}}
-      {{else}}
-        :red_circle: {{build.author}} you broke the build. Build :robot_face: is :angry:. Details are here https://drone.vertex.link/{{repo.owner}}/{{repo.name}}/{{build.number}}
-      {{/success}}
 
 services:
   database:

@@ -364,14 +364,14 @@ def addCoreOns(core):
                 #props['inet:fqdn:zone'] = 1
 
     def onTufoSetFqdnSfx(mesg):
-        sfx = mesg[1].get('valu')
-        fqdn = mesg[1].get('tufo')[1].get('inet:fqdn')
+        sfx = mesg[1].get('newv')
+        fqdn = mesg[1].get('valu')
         for tufo in core.getTufosByProp('inet:fqdn:domain', fqdn):
             core.setTufoProp(tufo, 'zone', sfx)
 
-    core.on('tufo:form:inet:fqdn',onTufoFormFqdn)
-    core.on('tufo:set:inet:fqdn:sfx',onTufoSetFqdnSfx)
-    core.on('tufo:form:inet:passwd',onTufoFormPasswd)
+    core.on('node:form',onTufoFormFqdn, form='inet:fqdn')
+    core.on('node:set',onTufoSetFqdnSfx, prop='inet:fqdn:sfx')
+    core.on('node:form',onTufoFormPasswd, form='inet:passwd')
 
 def ipv4str(valu):
     byts = struct.pack('>I',valu)
