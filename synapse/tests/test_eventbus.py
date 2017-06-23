@@ -191,3 +191,31 @@ class EventBusTest(SynTest):
         with self.raises(Exception) as cm:
             bus.on('woot', non_callable)
         self.assertIn('func not callable', str(cm.exception))
+
+    def test_eventbus_log(self):
+
+        logs = []
+        with s_eventbus.EventBus() as ebus:
+            ebus.on('log',logs.append)
+
+            ebus.log(100,'omg woot', foo=10)
+
+        mesg = logs[0]
+        self.eq( mesg[0], 'log' )
+        self.eq( mesg[1].get('foo'), 10)
+        self.eq( mesg[1].get('mesg'), 'omg woot')
+        self.eq( mesg[1].get('level'), 100)
+
+    def test_eventbus_exc(self):
+
+        logs = []
+        with s_eventbus.EventBus() as ebus:
+            ebus.on('log',logs.append)
+
+            try:
+                raise NoSuchObj(name='hehe')
+            except Exception as e:
+                ebus.exc(e)
+
+        mesg = logs[0]
+        self.eq(mesg[1].get('err'), 'NoSuchObj')

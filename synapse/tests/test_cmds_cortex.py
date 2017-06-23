@@ -91,7 +91,7 @@ class SynCmdCoreTest(SynTest):
             cmdr.runCmdLine('addtag woot inet:email="visi@vertex.link"')
 
             node = core.formTufoByProp('inet:email','visi@vertex.link')
-            self.nn( node[1].get('*|inet:email|woot') )
+            self.nn( node[1].get('#woot') )
 
     def test_cmds_addtag_nonodes(self):
 
@@ -121,7 +121,7 @@ class SynCmdCoreTest(SynTest):
             cmdr.runCmdLine('deltag woot inet:email="visi@vertex.link"')
 
             node = core.getTufoByProp('inet:email','visi@vertex.link')
-            self.none( node[1].get('*|inet:email|woot') )
+            self.none( node[1].get('#woot') )
 
     def test_cmds_deltag_nonodes(self):
 

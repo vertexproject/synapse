@@ -7,6 +7,8 @@ import collections
 finlock = threading.RLock()
 logger  = logging.getLogger(__name__)
 
+import synapse.lib.thishost as s_thishost
+
 from synapse.common import *
 
 class EventBus(object):
@@ -289,6 +291,38 @@ class EventBus(object):
 
         '''
         return Waiter(self, count, *names)
+
+    def log(self, level, mesg, **info):
+        '''
+        Implements the log event convention for an EventBus.
+
+        Args:
+            level (int):  A python logger level for the event
+            mesg (str):   A log message
+            **info:       Additional log metadata
+
+        '''
+        info['time'] = now()
+        info['host'] = s_thishost.get('hostname')
+
+        info['level'] = level
+        info['class'] = self.__class__.__name__
+
+        self.fire('log', mesg=mesg, **info)
+
+    def exc(self, exc, **info):
+        '''
+        Implements the exception log convention for EventBus.
+        A caller is expected to be within the except frame.
+
+        Args:
+            exc (Exception):    The exception to log
+
+        Returns:
+            None
+        '''
+        info.update( excinfo(exc) )
+        self.log( logging.ERROR, str(exc), **info)
 
 class Waiter:
     '''

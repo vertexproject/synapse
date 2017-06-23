@@ -41,7 +41,7 @@ def props(tufo,pref=None):
 
 def tags(tufo,leaf=False):
 
-    fulltags = [ p.split('|',2)[2] for p in tufo[1].keys() if p.startswith('*|') ]
+    fulltags = [ p[1:] for p in tufo[1].keys() if p[0] == '#' ]
     if not leaf:
         return fulltags
 
@@ -96,5 +96,4 @@ def ephem(form,fval,**props):
     return (None,props)
 
 def tagged(tufo,tag):
-    prop = '*|%s|%s' % (tufo[1].get('tufo:form'),tag)
-    return tufo[1].get(prop) != None
+    return tufo[1].get('#'+tag) != None

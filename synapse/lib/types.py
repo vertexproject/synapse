@@ -485,6 +485,32 @@ class BoolType(DataType):
     def repr(self, valu):
         return repr(bool(valu))
 
+tagre = re.compile(r'^([\w]+\.)*[\w]+$')
+class TagType(DataType):
+
+    def norm(self, valu, oldval=None):
+
+        parts = valu.split('@',1)
+
+        subs = {}
+
+        if len(parts) == 2:
+
+            strs = parts[1].split(',')
+            tims = [ self.tlib.getTypeNorm('time',s)[0] for s in strs ]
+
+            tmin = min(tims)
+            tmax = max(tims)
+
+            subs['seen:min'] = tmin
+            subs['seen:max'] = tmax
+
+        retn = parts[0].lower()
+        if not tagre.match(retn):
+            self._raiseBadValu(valu)
+
+        return retn,subs
+
 class TypeLib:
     '''
     An extensible type library for use in cortex data models.
@@ -510,8 +536,9 @@ class TypeLib:
         self.addType('comp',ctor='synapse.lib.types.CompType', doc='A multi-field composite type which generates a stable guid from normalized fields')
         self.addType('xref',ctor='synapse.lib.types.XrefType', doc='A multi-field composite type which can be used to link a known form to an unknown form')
 
+        self.addType('syn:tag',ctor='synapse.lib.types.TagType', doc='A synapse tag', ex='foo.bar')
+
         # add base synapse types
-        self.addType('syn:tag',subof='str', regex=r'^([\w]+\.)*[\w]+$', lower=1)
         self.addType('syn:prop',subof='str', regex=r'^([\w]+:)*([\w]+|\*)$', lower=1)
         self.addType('syn:type',subof='str', regex=r'^([\w]+:)*[\w]+$', lower=1)
         self.addType('syn:glob',subof='str', regex=r'^([\w]+:)*[\w]+:\*$', lower=1)

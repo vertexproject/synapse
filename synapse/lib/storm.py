@@ -563,24 +563,20 @@ class Runtime(Configable):
             reobj = self._rt_regexcache.get(tag_regex)
 
             def getIsHit(prop):
-                _tag = prop.split('|', 2)[2]
-                return reobj.search(_tag)
+                #_tag = prop.split('|', 2)[2]
+                #_tag = prop.split('|', 2)[2]
+                # prop will be like "#foo.bar"
+                return reobj.search(prop[1:])
 
             glob_props = s_cache.KeyCache(getIsHit)
 
             def glob_cmpr(tufo):
-                return any((glob_props.get(p) for p in tufo[1] if p.startswith('*|')))
+                return any((glob_props.get(p) for p in tufo[1] if p[0] == '#'))
 
             return glob_cmpr
 
         def reg_cmpr(tufo):
-            form = tufo[1].get('tufo:form')
-
-            prop = reg_props.get(form)
-            if prop == None:
-                prop = reg_props[form] = '*|%s|%s' % (form,tag)
-
-            return tufo[1].get(prop) != None
+            return tufo[1].get('#'+tag) != None
 
         return reg_cmpr
 

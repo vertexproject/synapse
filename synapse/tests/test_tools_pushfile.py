@@ -43,7 +43,7 @@ class TestPushFile(SynTest):
                 self.eq( node[1].get('file:bytes'), '442f602ecf8230b2a59a44b4f845be27' )
                 self.eq( node[1].get('file:bytes:size'), 4 )
 
-                self.nn( node[1].get('*|file:bytes|foo') )
-                self.nn( node[1].get('*|file:bytes|foo.bar') )
-                self.nn( node[1].get('*|file:bytes|baz') )
-                self.nn( node[1].get('*|file:bytes|baz.faz') )
+                self.nn( node[1].get('#foo') )
+                self.nn( node[1].get('#foo.bar') )
+                self.nn( node[1].get('#baz') )
+                self.nn( node[1].get('#baz.faz') )

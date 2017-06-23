@@ -20,21 +20,20 @@ class TagTest(SynTest):
         tufo = core.formTufoByProp('foo','bar')
         tufo = core.addTufoTag(tufo, 'baz.faz.gaz', asof=None)
 
-        tags = s_tags.getTufoTags(tufo)
+        self.nn( tufo[1].get('#baz') )
+        self.nn( tufo[1].get('#baz.faz') )
+        self.nn( tufo[1].get('#baz.faz.gaz') )
 
-        self.assertIsNotNone( tags.get('baz') )
-        self.assertIsNotNone( tags.get('baz.faz') )
-        self.assertIsNotNone( tags.get('baz.faz.gaz') )
+        tufos = core.getTufosByTag('baz.faz', form='foo')
 
-        tufos = core.getTufosByTag('foo','baz.faz')
         self.assertEqual( len(tufos), 1 )
 
         tufo = core.delTufoTag(tufo,'baz.faz')
 
-        tufos = core.getTufosByTag('foo','baz.faz')
+        tufos = core.getTufosByTag('baz.faz', form='foo')
         self.assertEqual( len(tufos), 0 )
 
-        tufos = core.getTufosByTag('foo','baz.faz.gaz')
+        tufos = core.getTufosByTag('baz.faz.gaz', form='foo')
         self.assertEqual( len(tufos), 0 )
 
     def test_aspect_bytag(self):
@@ -64,12 +63,12 @@ class TagTest(SynTest):
         tufo = ('lolz',{'tufo:form':'woot'})
         self.assertFalse( s_tags.getTufoSubs(tufo,'mytag') )
 
-        tufo = ('lolz',{'tufo:form':'woot', '*|woot|mytag': 1})
+        tufo = ('lolz',{'tufo:form':'woot', '#mytag': 1})
         self.assertTrue( s_tags.getTufoSubs(tufo,'mytag') )
 
     def test_tags_rows(self):
         tufo = ('lolz',{'tufo:form':'woot'})
         self.assertTrue( s_tags.genTufoRows(tufo,'mytag') )
 
-        tufo = ('lolz',{'tufo:form':'woot', '*|woot|mytag': 1})
+        tufo = ('lolz',{'tufo:form':'woot', '#mytag': 1})
         self.assertFalse( s_tags.genTufoRows(tufo,'mytag') )

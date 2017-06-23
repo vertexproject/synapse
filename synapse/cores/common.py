@@ -26,6 +26,7 @@ import synapse.lib.hashset as s_hashset
 import synapse.lib.threads as s_threads
 import synapse.lib.modules as s_modules
 import synapse.lib.hashitem as s_hashitem
+import synapse.lib.interval as s_interval
 import synapse.lib.userauth as s_userauth
 
 from synapse.common import *
@@ -360,41 +361,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
             core.formTufoByProp('org:iden:name','The Vertex Project, LLC')
         '''
         self.seedctors[name] = func
-
-    def logCoreExc(self, exc, subsys='??', level=logging.ERROR):
-        '''
-        Report an exception to/within the cortex.  This unified API is
-        used to facilitate optional cortex exception logging within the
-        cortex itself.
-
-        Example:
-
-            try:
-
-                dostuff()
-
-            except Exception as e:
-
-                core.logCoreExc(e,subsys='mything')
-
-        '''
-        # TODO make an object to wrap a cortex as a logger to allow
-        # cortex based log aggrigation
-        if not self.logsave:
-            return
-
-        if level < self.loglevel:
-            return
-
-        logger.exception(exc)
-
-        name = '%s.%s' % (exc.__class__.__module__,exc.__class__.__name__)
-        props = {'exc':name,'time':now(),'level':level,'subsys':subsys}
-
-        if isinstance(exc,SynErr):
-            [ props.__setitem__('info:' + k, v) for (k,v) in exc.items() ]
-
-        self.addTufoEvent('syn:log', **props)
 
     def addDataModel(self, name, modl):
         '''
@@ -777,7 +743,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         [ self.delTufo(t) for t in self.getTufosByProp('syn:tag:up',valu) ]
 
         # do the (possibly very heavy) removal of the tag from all known forms.
-        [self.delTufoTag(t, valu) for t in self.getTufosByDark('tag', valu)]
+        [ self.delTufoTag(t, valu) for t in self.getTufosByTag(valu) ]
 
     def _onAddSynTag(self, mesg):
         tufo = mesg[1].get('tufo')
@@ -1318,7 +1284,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         self._core_tags.get(tag)
         self._core_tagforms.get( (tag,form) )
 
-    def addTufoTags(self, tufo, tags, asof=None):
+    def addTufoTags(self, tufo, tags):
         '''
         Add multiple tags to a tufo.
 
@@ -1328,64 +1294,103 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
         '''
         with self.getCoreXact():
-            [ self.addTufoTag(tufo,tag,asof=asof) for tag in tags ]
+            [ self.addTufoTag(tufo,tag) for tag in tags ]
             return tufo
 
-    def addTufoTag(self, tufo, tag, asof=None):
+    def addTufoTag(self, tufo, tag, times=()):
         '''
-        Add a tag to a tufo.
+        Add a tag (and optionally time box) to a tufo.
+
+        Args:
+            tufo ((str,dict)):  A node in tuple form.
+            tag (str):  A synapse tag string
+            times ((int,)): A list of time stamps in milli epoch
+
+        Returns:
+            ((str,dict)): The node in tuple form (with updated props)
 
         Example:
-
-            tufo = core.formTufoByProp('foo','bar')
-            core.addTufoTag(tufo,'baz.faz')
+            node = core.formTufoByProp('foo','bar')
+            node = core.addTufoTag(tufo,'baz.faz')
 
         '''
-        reqiden(tufo)
+        iden = reqiden(tufo)
 
         form = tufo[1].get('tufo:form')
         valu = tufo[1].get(form)
 
+        tag,subs = self.getTypeNorm('syn:tag',tag)
+
+        tagp = '#' + tag
+
+        mins = subs.get('seen:min')
+        maxs = subs.get('seen:max')
+
+        ival = s_interval.initIval(mins,maxs,*times)
+
+        if tufo[1].get(tagp) is not None:
+            if ival is None:
+                return tufo
+
+            return self.setTufoIval(tufo, tagp, ival)
+
         self._genTagForm(tag,form)
 
-        rows = s_tags.genTufoRows(tufo,tag,valu=asof)
-        if rows:
+        rows = []
+        dark = iden[::-1]
 
-            with self.getCoreXact() as xact:
+        with self.getCoreXact() as xact:
 
-                form = tufo[1].get('tufo:form')
-                formevt = 'tufo:tag:add:' + form
+            tick = xact.tick
 
-                dark_row_gen = s_dark.genDarkRows(tufo[0], 'tag', [t[0] for t in rows])
-                _rows = [t[1] for t in rows]
-                _rows.extend(dark_row_gen)
-                self.addRows(_rows)
+            for subtag in s_tags.iterTagDown(tag):
 
-                for subtag,(i,p,v,t) in rows:
+                subprop = '#'+subtag
+                subdark = '_:*' + form + subprop
 
-                    tufo[1][p] = v
-                    self._bumpTufoCache(tufo,p,None,v)
-                    xact.fire('tufo:tag:add', tufo=tufo, tag=subtag, asof=asof)
-                    xact.fire(formevt, tufo=tufo, tag=subtag, asof=asof)
+                if tufo[1].get(subprop) is not None:
+                    continue
 
-                    xact.spliced('node:tag:add', form=form, valu=valu, tag=tag)
+                tufo[1][subprop] = tick
+                self._bumpTufoCache(tufo,subprop,None,tick)
 
-        return tufo
+                rows.append( (iden,subprop,tick,tick) )
+                rows.append( (dark, '_:*' + form + subprop, tick, tick) )
+
+                xact.fire('node:tag:add', form=form, valu=valu, tag=subtag, node=tufo)
+                xact.spliced('node:tag:add', form=form, valu=valu, tag=subtag)
+
+            self.addRows(rows)
+
+            if ival is not None:
+                tufo = self.setTufoIval(tufo, tagp, ival)
+
+            return tufo
 
     def delTufoTag(self, tufo, tag):
         '''
         Delete a tag from a tufo.
 
+        Args:
+            tufo ((str,dict)):  The node in tuple form.
+            tag (str):          The tag to remove
+
         Example:
 
-            tufo = core.getTufosByTag('foo','baz.faz')
-            core.delTufoTag(tufo,'baz')
+            for tufo in core.getTufosByTag('baz.faz'):
+                core.delTufoTag(tufo,'baz')
 
         '''
         iden = reqiden(tufo)
+        dark = iden[::-1]
 
-        props = s_tags.getTufoSubs(tufo,tag)
-        if not props:
+        prop = '#' + tag
+
+        if tufo[1].get(prop) is None:
+            return tufo
+
+        subprops = s_tags.getTufoSubs(tufo,tag)
+        if not subprops:
             return tufo
 
         form = tufo[1].get('tufo:form')
@@ -1393,40 +1398,133 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
 
         with self.getCoreXact() as xact:
 
-            formevt = 'tufo:tag:del:' + tufo[1].get('tufo:form')
+            for subprop in subprops:
 
-            [ self.delRowsByIdProp(iden,prop) for prop in props ]
-
-            for p in props:
-
-                asof = tufo[1].pop(p,None)
+                asof = tufo[1].pop(subprop,None)
                 if asof == None:
                     continue
 
-                self._bumpTufoCache(tufo,p,asof,None)
+                subtag = subprop[1:]
+                subdark = '_:*' + form + subprop
 
-                # FIXME: optimize string join/chop behavior up in here...
-                subtag = s_tags.choptag(p)
-                self.delTufoDark(tufo, 'tag', subtag)
+                self.delRowsByIdProp(iden,subprop)
+                self.delRowsByIdProp(dark,subdark)
+
+                self._bumpTufoCache(tufo,subprop,asof,None)
+                self._bumpTufoCache(tufo,subdark,asof,None)
 
                 # fire notification events
-                xact.fire('tufo:tag:del', tufo=tufo, tag=subtag)
-                xact.fire(formevt, tufo=tufo, tag=subtag)
+                xact.fire('node:tag:del', form=form, valu=valu, tag=subtag, node=tufo)
+                xact.spliced('node:tag:del', form=form, valu=valu, tag=subtag, asof=asof)
 
-                xact.spliced('node:tag:del', form=form, valu=valu, tag=tag)
+                self.delTufoIval(tufo,subprop)
 
-    def getTufosByTag(self, form, tag, limit=None):
+    def getTufosByTag(self, tag, form=None, limit=None):
         '''
-        Retrieve a list of tufos by form and tag.
+        Retrieve a list of tufos by tag and optionally form.
+
+        Args:
+            tag (str):      A synapse tag name
+            form (str):     A synapse node form
+            limit (int):    A limit for the query
 
         Example:
 
-            for tufo in core.getTufosByTag('woot','foo.bar'):
+            for node in core.getTufosByTag('foo.bar'):
                 dostuff(tufo)
 
         '''
-        prop = '*|%s|%s' % (form,tag)
-        return self.getTufosByProp(prop,limit=limit)
+        prop = '#' + tag
+        if form is None:
+            return self.getTufosByProp(prop, limit=limit)
+
+        dark = '_:*' + form + prop
+        return self._getTufosByDarkRows(prop,limit=limit)
+
+    def setTufoIval(self, tufo, name, ival):
+        '''
+        Add an interval to a node.
+
+        Args:
+            tufo ((str,dict)):  The node to add the interval to
+            name (str):         The name of the interval
+            ival ((int,int)):   The interval tuple
+
+        Returns:
+            ((str,dict)):       The updated tufo
+
+        '''
+        minp = '>' + name
+        maxp = '<' + name
+
+        tmin = tufo[1].get(minp)
+        tmax = tufo[1].get(maxp)
+
+        if tmin is not None and tmin <= minv and tmax is not None and tmax >= maxv:
+            return tufo
+
+        iden = tufo[0]
+
+        with self.getCoreXact() as xact:
+
+            rows = []
+            props = []
+
+            if tmin is None:
+                rows.append( (iden, minp, minv, xact.tick) )
+                tufo[minp] = minv
+
+            elif minv < tmin:
+                props.append( (minp,minv) )
+                tufo[minp] = minv
+
+            if tmax is None:
+                rows.append( (iden, maxp, maxv, xact.tick) )
+                tufo[maxp] = maxv
+
+            elif maxv > tmax:
+                props.append( (maxp,maxv) )
+                tufo[maxp] = maxv
+
+            if rows:
+                self.addRows(rows)
+
+            for prop,valu in props:
+                self._setRowsByIdProp(iden, prop, valu)
+
+            ival = (tufo[1].get(minp),tufo[1].get(maxp))
+
+            xact.fire('node:ival', form=form, valu=valu, name=name, ival=ival, node=tufo)
+            xact.spliced('node:ival:set', form=form, valu=valu, name=name, ival=ival)
+
+        return tufo
+
+    def delTufoIval(self, tufo, name):
+        '''
+        Remove an iterval from a node.
+
+        Args:
+            tufo ((str,dict)):  The node in tuple form
+            name (str):         The name of the interval
+
+        Returns:
+            ((str,dict)):       The updated node in tuple form
+        '''
+        minp = '>' + name
+        maxp = '<' + name
+
+        iden = reqiden(tufo)
+
+        if tufo[1].get(minp) == None and tufo[1].get(maxp) == None:
+            return tufo
+
+        with self.getCoreXact() as xact:
+            self.delRowsByIdProp(iden,minp)
+            self.delRowsByIdProp(iden,maxp)
+            xact.fire('node:ival:del', form=form, valu=valu, name=name, node=tufo)
+            xact.spliced('node:ival:del', form=form, valu=valu, name=name)
+
+        return tufo
 
     def addTufoEvent(self, form, **props):
         '''
@@ -2316,7 +2414,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         return self.getTufosByProp(prop,limit=limit)
 
     def _tufosByTag(self, prop, valu, limit=None):
-        return self.getTufosByTag(prop,valu,limit=limit)
+        return self.getTufosByTag(valu, form=valu, limit=limit)
 
     def _tufosByType(self, prop, valu, limit=None):
         valu,_ = self.getTypeNorm(prop,valu)
@@ -2491,7 +2589,11 @@ class Cortex(EventBus,DataModel,Runtime,Configable,CortexMixin,s_ingest.IngestAp
         Returns:
             list: List of tufos
         '''
-        rows = self.getRowsByProp('_:dark:' + name, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
+        prop = '_:dark:' + name
+        return self._getTufosByDarkRows(prop, valu=valu, limit=limit)
+
+    def _getTufosByDarkRows(self, prop, valu=None, limit=None):
+        rows = self.getRowsByProp(prop, valu=valu, limit=limit)
         idens = list(set([r[0][::-1] for r in rows]))  # Unique the idens we pull.
 
         ret = []
