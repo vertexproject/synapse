@@ -239,7 +239,9 @@ class StormTest(SynTest):
             self.eq(len(nodes), 1)
 
     def test_storm_tag_jointag(self):
+
         with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
@@ -388,12 +390,18 @@ class StormTest(SynTest):
             self.eq(1, len(core.eval('lift(inet:ipv4, 2.0.0.0, by=lt)')))
 
     def test_storm_lifts_by(self):
+
         # Test various lifts by handlers
         with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
             node4 = core.formTufoByProp('inet:netuser', 'clowntown.link/pennywise')
+
+            core.addTufoDark(node1, 'hehe', 'haha')
+            core.addTufoDark(node2, 'hehe', 'haha')
+            core.addTufoDark(node3, 'hehe', 'haha')
 
             core.addTufoTags(node1, ['aka.foo.bar.baz', 'aka.duck.quack.loud', 'src.clowntown'])
             core.addTufoTags(node2, ['aka.foo.duck.baz', 'aka.duck.quack.loud', 'src.clowntown'])
@@ -412,17 +420,8 @@ class StormTest(SynTest):
             self.eq(len(nodes), 1)
 
             # Lift by dark
-            nodes = core.eval('tag*dark=aka')
+            nodes = core.eval('hehe*dark=haha')
             self.eq(len(nodes), 3)
-
-            nodes = core.eval('tag*dark=aka.duck.quack')
-            self.eq(len(nodes), 2)
-
-            nodes = core.eval('tag*dark=aka.foo.bar.knight')
-            self.eq(len(nodes), 1)
-
-            nodes = core.eval('tag*dark=loc')
-            self.eq(len(nodes), 0)
 
     def test_storm_addnode(self):
         with s_cortex.openurl('ram:///') as core:

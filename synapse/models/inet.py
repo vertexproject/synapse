@@ -352,7 +352,7 @@ def addCoreOns(core):
 
         domain = props.get('inet:fqdn:domain')
         if domain:
-            node = core.getTufoByProp('inet:fqdn',domain)
+            node = core.formTufoByProp('inet:fqdn',domain)
             if node[1].get('inet:fqdn:sfx'):
                 props['inet:fqdn:zone'] = 1
 

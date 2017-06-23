@@ -488,9 +488,6 @@ class CortexTest(SynTest):
         self.eq( len(core.getTufosByTag('zip', form='foo')), 1 )
         self.eq( len(core.getTufosByTag('zip.zap', form='foo')), 1 )
 
-        self.eq(len(core.getTufosByDark('tag', 'zip')), 1)
-        self.eq(len(core.getTufosByDark('tag', 'zip.zap')), 1)
-
         core.delTufoTag(foob,'zip')
 
         self.none( foob[1].get('#zip') )
@@ -715,7 +712,7 @@ class CortexTest(SynTest):
 
         tags = core.getTufosByProp('syn:tag:base', 'rofl')
 
-        self.eq(len(tags), 1)
+        self.eq(len(tags), 2)
 
         wait = core.waiter(2, 'node:tag:del')
         core.delTufoTag(hehe,'lulz.rofl')
@@ -1571,3 +1568,18 @@ class CortexTest(SynTest):
         with s_cortex.openurl('ram:///') as core:
 
             self.raises( NotGuidForm, core.addTufoEvents, 'inet:fqdn', [{}])
+
+    def test_cortex_getbytag(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            node0 = core.formTufoByProp('inet:user', 'visi')
+            node1 = core.formTufoByProp('inet:ipv4', 0x01020304)
+
+            core.addTufoTag(node0,'foo')
+            core.addTufoTag(node1,'foo')
+
+            self.eq( len(core.getTufosByTag('foo') ), 2 )
+            self.eq( len(core.getTufosByTag('foo', form='inet:user') ), 1 )
+            self.eq( len(core.getTufosByTag('foo', form='inet:ipv4') ), 1 )
+

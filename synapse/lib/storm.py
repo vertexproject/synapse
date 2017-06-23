@@ -961,7 +961,8 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         for tag in tags:
-            nodes = core.getTufosByDark('tag', tag, limit=limit)
+
+            nodes = core.getTufosByTag(tag, limit=limit)
 
             [query.add(node) for node in nodes]
 
@@ -991,12 +992,14 @@ class Runtime(Configable):
             [ core.delTufoTag(node,tag) for node in nodes ]
 
     def _stormOperJoinTags(self, query, oper):
+
         args = oper[1].get('args')
         opts = dict(oper[1].get('kwlist'))
         core = self.getStormCore()
 
         forms = {arg for arg in args}
         keep_nodes = opts.get('keep_nodes', False)
+
         limt = LimitHelp(opts.get('limit'))
 
         nodes = query.data()
@@ -1006,17 +1009,34 @@ class Runtime(Configable):
         tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=True)}
 
         if not forms:
-            forms = set(core.getModelDict().get('forms'))
 
-        for tag in tags:
-            lqs = query.size()
-            tufos = core.getTufosByDark('tag', tag, limit=limt.get())
-            [query.add(tufo) for tufo in tufos if tufo[1].get('tufo:form') in forms]
-            if tufos:
-                lq = query.size()
-                nnewnodes = lq - lqs
-                if limt.dec(nnewnodes):
+            for tag in tags:
+
+                nodes = core.getTufosByTag(tag, limit=limt.get())
+
+                limt.dec(len(nodes))
+                [ query.add(n) for n in nodes ]
+
+                if limt.reached():
                     break
+
+            return
+
+        for form in forms:
+
+            if limt.reached():
+                break
+
+            for tag in tags:
+
+                nodes = core.getTufosByTag(tag, form=form, limit=limt.get())
+
+                limt.dec(len(nodes))
+                [ query.add(n) for n in nodes ]
+
+                if limt.reached():
+                    break
+            return
 
     def _stormOperToTags(self, query, oper):
         opts = dict(oper[1].get('kwlist'))
@@ -1025,7 +1045,8 @@ class Runtime(Configable):
 
         leaf = opts.get('leaf', True)
         tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=leaf)}
-        [query.add(tufo) for tufo in core.getTufosBy('in', 'syn:tag', list(tags))]
+
+        [ query.add(tufo) for tufo in core.getTufosBy('in', 'syn:tag', list(tags)) ]
 
     def _stormOperFromTags(self, query, oper):
         args = oper[1].get('args')
@@ -1034,6 +1055,7 @@ class Runtime(Configable):
         nodes = query.take()
 
         forms = {arg for arg in args}
+
         limt = LimitHelp(opts.get('limit'))
 
         tags = {node[1].get('syn:tag') for node in nodes if node[1].get('tufo:form') == 'syn:tag'}
@@ -1041,14 +1063,32 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         if not forms:
-            forms = set(core.getModelDict().get('forms'))
 
-        for tag in tags:
-            lqs = query.size()
-            tufos = core.getTufosByDark('tag', tag, limit=limt.get())
-            [query.add(tufo) for tufo in tufos if tufo[1].get('tufo:form') in forms]
-            if tufos:
-                lq = query.size()
-                nnewnodes = lq - lqs
-                if limt.dec(nnewnodes):
+            for tag in tags:
+
+                nodes = core.getTufosByTag(tag, limit=limt.get())
+                limt.dec(len(nodes))
+
+                [ query.add(n) for n in nodes ]
+
+                if limt.reached():
                     break
+
+            return
+
+        for form in forms:
+
+            if limt.reached():
+                break
+
+            for tag in tags:
+
+                if limt.reached():
+                    break
+
+                nodes = core.getTufosByTag(tag, form=form, limit=limt.get())
+
+                limt.dec(len(nodes))
+                [ query.add(n) for n in nodes ]
+
+        return

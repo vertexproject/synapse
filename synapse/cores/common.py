@@ -1392,8 +1392,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
             return self.setTufoIval(tufo, tagp, ival)
 
-        self._genTagForm(tag,form)
-
         rows = []
         dark = iden[::-1]
 
@@ -1405,6 +1403,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
                 subprop = '#'+subtag
                 subdark = '_:*' + form + subprop
+
+                self._genTagForm(subtag,form)
 
                 if tufo[1].get(subprop) is not None:
                     continue
@@ -1497,7 +1497,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
             return self.getTufosByProp(prop, limit=limit)
 
         dark = '_:*' + form + prop
-        return self._getTufosByDarkRows(prop,limit=limit)
+        return self._getTufosByDarkRows(dark, limit=limit)
 
     def setTufoIval(self, tufo, name, ival):
         '''
@@ -1828,13 +1828,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
                     xact.fire('node:add', form=form, valu=valu, node=node)
                     xact.spliced('node:add', form=form, valu=valu, props=props)
 
-                for tufo in tufos:
-                    # fire notification events
-                    xact.fire('tufo:add', tufo=tufo)
-                    xact.fire('tufo:add:' + form, tufo=tufo)
-
-                ret.extend(tufos)
-
         return ret
 
     def _runAutoAdd(self, toadd):
@@ -1901,10 +1894,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
             fulls,toadd = self._normTufoProps(prop,props)
 
-            # add "toadd" nodes *first* (for tree/parent issues )
-            if self.autoadd:
-                self._runAutoAdd(toadd)
-
             # create a "full" props dict which includes defaults
             self._addDefProps(prop,fulls)
 
@@ -1934,8 +1923,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
             xact.fire('node:add', form=prop, valu=valu, node=tufo)
             xact.spliced('node:add', form=prop, valu=valu, props=props)
 
-            #if self.autoadd:
-                #self._runAutoAdd(toadd)
+            if self.autoadd:
+                self._runAutoAdd(toadd)
 
         tufo[1]['.new'] = True
         return tufo
@@ -2547,7 +2536,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         return self.getTufosByProp(prop,limit=limit)
 
     def _tufosByTag(self, prop, valu, limit=None):
-        return self.getTufosByTag(valu, form=valu, limit=limit)
+        return self.getTufosByTag(valu, form=prop, limit=limit)
 
     def _tufosByType(self, prop, valu, limit=None):
         valu,_ = self.getTypeNorm(prop,valu)
