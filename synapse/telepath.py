@@ -27,13 +27,12 @@ import synapse.lib.threads as s_threads
 
 from synapse.common import *
 from synapse.compat import queue
-s_mixins.addSynMixin('telepath','synapse.axon.AxonMixin')
 
 logger = logging.getLogger(__name__)
 
 # telepath protocol version
 # ( compat breaks only at major ver )
-telever = (1,0)
+telever = (2,0)
 
 def openurl(url,**opts):
     '''
@@ -87,30 +86,7 @@ def openlink(link):
     synack = teleSynAck(sock, name=name)
     bases = ()
 
-    inherits = ()
-
-    refl = synack.get('reflect')
-    if refl != None:
-        inherits = refl.get('inherits',())
-
-    return getMixClass(inherits)(relay,sock=sock)
-
-classcache = {}
-def getMixClass(inherits):
-    base = [Proxy,]
-
-    for name in inherits:
-        for mixin in s_mixins.getSynMixins('telepath',name):
-            base.append(mixin)
-
-    inherit = tuple(base)
-
-    clas = classcache.get(inherit)
-    if clas == None:
-        clas = type('Proxy',inherit,{})
-        classcache[inherit] = clas
-
-    return clas
+    return Proxy(relay,sock=sock)
 
 def evalurl(url,**opts):
     '''
@@ -189,18 +165,29 @@ class Method:
 
     def __init__(self, proxy, meth):
         self.meth = meth
+        self.cside = None
         self.proxy = proxy
 
+        # act as much like a bound method as possible...
+        self.__name__ = meth
+        self.__self__ = proxy
+
     def __call__(self, *args, **kwargs):
+
+        # check if we have a cached client-side function
+        if self.cside != None:
+            return self.cside(self.proxy,*args,**kwargs)
+
         ondone = kwargs.pop('ondone',None)
         task = (self.meth,args,kwargs)
+
         job = self.proxy._tx_call( task, ondone=ondone )
         if ondone != None:
             return job
 
         return self.proxy.syncjob(job)
 
-telelocal = set(['tele:sock:init'])
+telelocal = set(['tele:sock:init','ebus:init'])
 
 class Proxy(s_eventbus.EventBus):
     '''
@@ -254,6 +241,7 @@ class Proxy(s_eventbus.EventBus):
         self._tele_relay = relay    # LinkRelay()
         self._tele_link = relay.link
         self._tele_yields = {}
+        self._tele_csides = {}
         self._tele_reflect = None
 
         # obj name is path minus leading "/"
@@ -299,47 +287,45 @@ class Proxy(s_eventbus.EventBus):
     def _raw_off(self, name, func):
         return s_eventbus.EventBus.off(self, name, func)
 
-    def on(self, name, func):
+    def on(self, evnt, func, **filts):
 
-        if name not in telelocal:
+        # create a separate record for each so the dmon
+        # can potentially create an "any" filter for us
+        if evnt not in telelocal:
+            iden = guid()
+            filt = tuple(filts.items())
 
-            refc = self._tele_ons.get(name)
-            if refc == None:
-                job = self._txTeleJob('tele:on', events=[name], name=self._tele_name)
-                self.syncjob(job)
+            onit = (iden,filt)
 
-                refc = 0
+            okey = (evnt,func)
+            self._tele_ons[okey] = (iden,filt)
 
-            self._tele_ons[name] = refc + 1
+            job = self._txTeleJob('tele:on', ons=[(evnt,[onit])], name=self._tele_name)
+            self.syncjob(job)
 
-        return s_eventbus.EventBus.on(self, name, func)
+        return s_eventbus.EventBus.on(self, evnt, func, **filts)
 
     def off(self, name, func):
 
         ret = s_eventbus.EventBus.off(self, name, func)
+        if name in telelocal:
+            return ret
 
-        if name not in telelocal:
-            refc = self._tele_ons.get(name)
-            if refc != None:
-                refc -= 1
-                if refc == 0:
-                    self._tele_ons.pop(name,None)
-                    job = self._txTeleJob('tele:off', evt=name, name=self._tele_name)
-                    self.syncjob(job)
+        okey = (name,func)
+        onit = self._tele_ons.pop(okey,None)
+        if onit is None:
+            return ret
 
-                else:
-                    self._tele_ons[name] = refc
+        iden,filt = onit
+        job = self._txTeleJob('tele:off', evnt=name, iden=iden, name=self._tele_name)
+        self.syncjob(job)
 
         return ret
-
-        job = self._txTeleJob('tele:off', evt=name, name=self._tele_name)
-        self.syncjob(job)
 
     def fire(self, name, **info):
         if name in telelocal:
             return s_eventbus.EventBus.fire(self, name, **info)
 
-        # events fired on a proxy go through the remove first...
         job = self.call('fire', name, **info)
         return self.syncjob(job)
 
@@ -386,8 +372,9 @@ class Proxy(s_eventbus.EventBus):
             prox.push( 'bar', Bar() )
 
         '''
+        csides = getClientSides(item)
         reflect = s_reflect.getItemInfo(item)
-        job = self._txTeleJob('tele:push', name=name, reflect=reflect)
+        job = self._txTeleJob('tele:push', name=name, reflect=reflect, csides=csides)
         self._tele_pushed[ name ] = item
         return self.syncjob(job)
 
@@ -461,13 +448,6 @@ class Proxy(s_eventbus.EventBus):
         mesg = event[1].get('mesg')
         self._tele_q.put( mesg )
 
-    #def _onSockFini(self):
-        ## This is called by the SynPlexMain thread and may *not* block.
-        #if self.isfini:
-            #return
-
-        #self._tele_pool.call( self._runSockFini )
-
     def _runSockFini(self):
         if self.isfini:
             return
@@ -533,15 +513,21 @@ class Proxy(s_eventbus.EventBus):
         self._tele_sid = synack.get('sess')
         self._tele_reflect = synack.get('reflect')
 
+        csides = synack.get('csides')
+        if csides is not None:
+            self._tele_csides.update(csides)
+
         hisopts = synack.get('opts',{})
 
         if hisopts.get('sock:can:gzip'):
             sock.set('sock:can:gzip',True)
 
-        events = list(self._tele_ons.keys())
+        eper = collections.defaultdict(list)
+        for (evnt,func),(iden,filt) in self._tele_ons.items():
+            eper[evnt].append((iden, filt))
 
-        if events:
-            job = self._txTeleJob('tele:on', events=events, name=self._tele_name)
+        if eper:
+            job = self._txTeleJob('tele:on', ons=eper.items(), name=self._tele_name)
             self.syncjob( job )
 
     def _txTeleJob(self, msg, **msginfo):
@@ -576,7 +562,17 @@ class Proxy(s_eventbus.EventBus):
         self._tele_pool.fini()
 
     def __getattr__(self, name):
-        meth = Method(self, name)
+        path = self._tele_csides.get(name)
+        if path is not None:
+            func = s_dyndeps.getDynMeth(path)
+            if func is None:
+                return None
+
+            meth =func.__get__(self)
+
+        else:
+            meth = Method(self, name)
+
         setattr(self,name,meth)
         return meth
 
@@ -616,3 +612,39 @@ def teleSynAck(sock, name=None, sid=None):
             raise BadMesgVers(myver=telever,hisver=vers)
 
     return synack
+
+def clientside(f):
+    '''
+    A function decorator which causes the given function to be run on
+    the telepath client side.
+
+    Example:
+
+        @s_telepath.clientside
+        def foo(self, bar):
+            dostuff()
+
+    NOTE: you *must* use APIs within the function to access locals etc.
+          ( ie, the method must be able to have self be a telepath proxy )
+    '''
+    f._tele_clientside = True
+    return f
+
+def getClientSides(item):
+    '''
+    Return a dict of name:path pairs for any clientside functions in item.
+    '''
+    retn = {}
+
+    for name,valu in s_reflect.getItemLocals(item):
+
+        if not getattr(valu,'_tele_clientside',False):
+            continue
+
+        path = s_reflect.getMethName(valu)
+        if path == None:
+            continue
+
+        retn[name] = path
+
+    return retn

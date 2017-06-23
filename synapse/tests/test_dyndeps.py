@@ -45,3 +45,7 @@ class DynDepsTest(SynTest):
         self.none( s_dyndeps.getDynLocal('unit_test_woot') )
 
         self.raises( NoSuchDyn, s_dyndeps.tryDynFunc, 'unit_test_woot', 20, y=40 )
+
+    def test_dyndeps_meth(self):
+        self.nn( s_dyndeps.getDynMeth('synapse.telepath.Proxy.on') )
+        self.none( s_dyndeps.getDynMeth('synapse.telepath.Proxy.newp') )

@@ -59,11 +59,17 @@ class Runtime(s_storm.Runtime,EventBus):
 
     def _stormOperLift(self, query, oper):
 
-        by = oper[1].get('cmp')
-        prop = oper[1].get('prop')
-        valu = oper[1].get('valu')
-        limit = oper[1].get('limit')
-        fromtag = oper[1].get('from')
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        valu = None
+        prop = args[0]
+        if len(args) == 2:
+            valu = args[1]
+
+        by = opts.get('by')
+        limit = opts.get('limit')
+        fromtag = opts.get('from')
 
         for tufo in self._getTufosByFrom(by, prop, valu, limit=limit, fromtag=fromtag):
             query.add(tufo)

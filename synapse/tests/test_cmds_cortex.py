@@ -176,6 +176,55 @@ class SynCmdCoreTest(SynTest):
             for term in terms:
                 self.nn(re.search(term, outp))
 
+    def test_cmds_ask_mutual_exclusive(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            core.formTufoByProp('inet:email','visi@vertex.link')
+            resp = cmdr.runCmdLine('ask --raw --props inet:email="visi@vertex.link"')
+            self.none(resp)
+            outp = str(outp)
+            self.true('Cannot specify --raw and --props together.' in outp)
+
+    def test_cmds_ask_null_response(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            core.formTufoByProp('inet:email','visi@vertex.link')
+            resp = cmdr.runCmdLine('ask inet:email="pennywise@vertex.link"')
+            self.none(resp)
+            outp = str(outp)
+            self.true('(0 results)' in outp)
+
+    def test_cmds_ask_exc_response(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            core.formTufoByProp('inet:email','visi@vertex.link')
+            resp = cmdr.runCmdLine('ask inet:dns:a:ipv4*inet:cidr=192.168.0.0/100')
+            self.none(resp)
+
+            outp = str(outp)
+            terms = ('\(0 results\)',
+                     'oplog:',
+                     'options:',
+                     'limits:')
+            for term in terms:
+                self.nn(re.search(term, outp))
+
+    def test_cmds_ask_raw(self):
+        with self.getDmonCore() as core:
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            core.formTufoByProp('inet:email','visi@vertex.link')
+            resp = cmdr.runCmdLine('ask --raw inet:email="visi@vertex.link"')
+            self.eq( len(resp['data']), 1 )
+
+            outp = str(outp)
+            terms = ('"tufo:form": "inet:email"', '"inet:email:user": "visi"')
+            for term in terms:
+                self.nn(re.search(term, outp))
+
     def test_cmds_ask_multilift(self):
         with self.getDmonCore() as core:
             outp = s_output.OutPutStr()

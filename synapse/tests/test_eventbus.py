@@ -13,45 +13,29 @@ class EventBusTest(SynTest):
         def foo(event):
             x = event[1].get('x')
             y = event[1].get('y')
-            return event[1]['ret'].append( x + y )
-
-        def bar(event):
-            x = event[1].get('x')
-            y = event[1].get('y')
-            return event[1]['ret'].append( x * y )
+            event[1]['ret'] = x + y
 
         bus.on('woot',foo)
-        bus.on('woot',bar,weak=True)
 
         event = bus.fire('woot',x=3,y=5,ret=[])
-        self.assertEqual( tuple(event[1]['ret']), (8,15) )
+        self.eq( event[1]['ret'], 8 )
 
     def test_eventbus_link(self):
 
         bus1 = s_eventbus.EventBus()
         bus2 = s_eventbus.EventBus()
-        bus3 = s_eventbus.EventBus()
-
-        # gotta hold a reference
-        bus3dist = bus3.dist
 
         bus1.link(bus2.dist)
-        bus2.link(bus3dist, weak=True)
 
         data = {}
         def woot(event):
             data['woot'] = True
 
-        def weakwoot(event):
-            data['weak'] = True
-
         bus2.on('woot',woot)
-        bus3.on('woot',weakwoot)
 
         bus1.fire('woot')
 
-        self.assertTrue( data.get('woot') )
-        self.assertTrue( data.get('weak') )
+        self.true( data.get('woot') )
 
     def test_evenbus_unlink(self):
 
@@ -98,23 +82,6 @@ class EventBusTest(SynTest):
 
         self.assertEqual( data['count'], 1 )
 
-    def test_eventbus_fini_weak(self):
-        '''
-        Ensure that weak ref'd fini functions are fire as well.
-        '''
-        data = {'count': 0}
-
-        def onfini():
-            data['count'] += 1
-
-        bus = s_eventbus.EventBus()
-        bus.onfini(onfini, weak=True)
-
-        bus.fini()
-        bus.fini()
-
-        self.assertEqual(data['count'], 1)
-
     def test_eventbus_consume(self):
         bus = s_eventbus.EventBus()
         wait = self.getTestWait(bus,2,'woot')
@@ -146,26 +113,6 @@ class EventBusTest(SynTest):
 
         self.assertEqual( data['count'], 1 )
 
-    def test_eventbus_off_weak(self):
-        bus = s_eventbus.EventBus()
-
-        data = {'count':0}
-
-        def woot(mesg):
-            data['count'] += 1
-
-        bus.on('hehe', woot, weak=True)
-
-        bus.fire('hehe')
-
-        bus.off('hehe', woot)
-
-        bus.fire('hehe')
-
-        bus.fini()
-
-        self.assertEqual( data['count'], 1 )
-
     def test_eventbus_waiter(self):
         bus0 = s_eventbus.EventBus()
 
@@ -182,12 +129,60 @@ class EventBusTest(SynTest):
         evts = wait1.wait(timeout=0.1)
         self.assertIsNone( evts )
 
-    def test_eventbus_bad_callback(self):
-        '''
-        Ensure that registering non-callables fails.
-        '''
+    def test_eventbus_filt(self):
+
         bus = s_eventbus.EventBus()
-        non_callable = 1
-        with self.raises(Exception) as cm:
-            bus.on('woot', non_callable)
-        self.assertIn('func not callable', str(cm.exception))
+
+        def wootfunc(mesg):
+            mesg[1]['woot'] = True
+
+        bus.on('lol', wootfunc)
+
+        bus.on('rofl', wootfunc, foo=10 )
+
+        mesg = bus.fire('lol')
+        self.true( mesg[1].get('woot') )
+
+        mesg = bus.fire('rofl')
+        self.false( mesg[1].get('woot') )
+
+        mesg = bus.fire('rofl', foo=20)
+        self.false( mesg[1].get('woot') )
+
+        mesg = bus.fire('rofl', foo=10)
+        self.true( mesg[1].get('woot') )
+
+    def test_eventbus_decor(self):
+
+        class Woot(s_eventbus.EventBus):
+
+            @s_eventbus.on('ebus:init')
+            def _onWootInit(self, mesg):
+                self.hit = False
+                self.finid = False
+
+            @s_eventbus.on('hehe:hoho')
+            @s_eventbus.on('hehe:haha', woot=1)
+            def _onHeheHaHaWoot(self, mesg):
+                self.hit = True
+
+            @s_eventbus.onfini
+            def _onWootFini(self):
+                self.finid = True
+
+        woot = Woot()
+        self.false( woot.hit )
+
+        woot.fire('hehe:haha')
+        self.false( woot.hit )
+
+        woot.fire('hehe:haha', woot=1)
+        self.true( woot.hit )
+
+        woot.hit = False
+        woot.fire('hehe:hoho')
+        self.true( woot.hit )
+
+        woot.fini()
+        self.true(woot.finid)
+

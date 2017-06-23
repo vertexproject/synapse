@@ -16,6 +16,12 @@ from synapse.lib.config import Configable
 
 logger = logging.getLogger(__name__)
 
+def minlim(*vals):
+    vals = [ v for v in vals if v is not None and v > 0 ]
+    if not vals:
+        return None
+    return min(vals)
+
 class LimitHelp:
 
     def __init__(self, limit):
@@ -85,6 +91,7 @@ class Query:
 
             'options':{
                 'uniq':1,
+                'limit':None,
             },
 
             'limits':{
@@ -257,6 +264,10 @@ class Runtime(Configable):
         self.setOperFunc('addtag', self._stormOperAddTag)
         self.setOperFunc('deltag', self._stormOperDelTag)
         self.setOperFunc('totags', self._stormOperToTags)
+
+        self.setOperFunc('addnode', self._stormOperAddNode)
+        self.setOperFunc('delnode', self._stormOperDelNode)
+
         self.setOperFunc('nexttag', self._stormOperNextSeq)
         self.setOperFunc('setprop', self._stormOperSetProp)
         self.setOperFunc('addxref', self._stormOperAddXref)
@@ -276,20 +287,21 @@ class Runtime(Configable):
     def _getStormCore(self, name=None):
         raise NoSuchImpl(name='getStormCore')
 
-    def getLiftLimit(self, limit):
-        userlim = s_scope.get('storm:limit:lift')
-        if userlim != None:
-            if limit == None:
-                return userlim
+    def getLiftLimit(self, *limits):
+        '''
+        Return the lift() result limit for the current user/runtime.
+        Callers may specify additional limit values, which if not None
+        will be included in the min() calculation.
 
-            return min(userlim,limit)
+        Args:
+            *limits:    Optional list of additional int limit values
 
-        if self.limlift != None:
-            if limit == None:
-                return self.limlift
-            return min(self.limlift,limit)
+        Returns:
+            (int): The lift limit value or None
 
-        return limit
+        '''
+        limt0 = s_scope.get('storm:limit:lift')
+        return minlim( self.limlift, limt0, *limits )
 
     def stormTufosBy(self, by, prop, valu=None, limit=None):
         '''
@@ -685,7 +697,13 @@ class Runtime(Configable):
             if func == None:
                 raise NoSuchOper(name=oper[0])
 
-            func(query,oper)
+            try:
+
+                func(query,oper)
+
+            except Exception as e:
+                logger.exception(e)
+                raise
 
     def _runOperFuncs(self, query, opers):
         '''
@@ -700,12 +718,28 @@ class Runtime(Configable):
             query.log( excinfo=excinfo(e) )
 
     def _stormOperLift(self, query, oper):
-        by = oper[1].get('cmp')
-        prop = oper[1].get('prop')
-        valu = oper[1].get('valu')
-        limit = oper[1].get('limit')
 
-        [query.add(tufo) for tufo in self.stormTufosBy(by, prop, valu, limit=limit)]
+        args = oper[1].get('args')
+        opts = dict( oper[1].get('kwlist') )
+
+        if len(args) not in (1,2):
+            raise SyntaxError('lift(<prop> [,<valu>, by=<by>, limit=<limit>])')
+
+        valu = None
+        prop = args[0]
+        if len(args) == 2:
+            valu = args[1]
+
+        by = opts.get('by','has')
+        if by == 'has' and valu != None:
+            by = 'eq'
+
+        limt0 = opts.get('limit')
+        limt1 = query.opt('limit')
+
+        limit = minlim(limt0,limt1)
+
+        [ query.add(tufo) for tufo in self.stormTufosBy(by, prop, valu, limit=limit) ]
 
     def _stormOperPivot(self, query, oper):
         args = oper[1].get('args')
@@ -876,6 +910,37 @@ class Runtime(Configable):
 
                     if limt.dec(len(news)):
                         break
+
+    def _stormOperAddNode(self, query, oper):
+        # addnode(<form>,<valu>,**props)
+        args = oper[1].get('args')
+        if len(args) != 2:
+            raise SyntaxError('addnode(<form>,<valu>,[<prop>=<pval>, ...])')
+
+        kwlist = oper[1].get('kwlist')
+
+        core = self.getStormCore()
+
+        props = dict(kwlist)
+
+        node = self.formTufoByProp(args[0],args[1],**props)
+        query.add(node)
+
+    def _stormOperDelNode(self, query, oper):
+        # delnode()
+        opts = dict( oper[1].get('kwlist') )
+
+        core = self.getStormCore()
+
+        force,_ = core.getTypeNorm('bool', opts.get('force',0))
+
+        nodes = query.take()
+        if force:
+            [ core.delTufo(n) for n in nodes ]
+            return
+
+        # TODO: users and perms
+        # TODO: use edits here for requested delete
 
     def _stormOperSetProp(self, query, oper):
         args = oper[1].get('args')

@@ -160,7 +160,7 @@ class AxonMixin:
     The parts of the Axon which must be executed locally in proxy cases.
     ( used as mixin for both Axon and AxonProxy )
     '''
-
+    @s_telepath.clientside
     def eatfd(self, fd):
         '''
         Consume the contents of a file object into the axon as a blob.
@@ -189,6 +189,7 @@ class AxonMixin:
 
         return retn
 
+    @s_telepath.clientside
     def eatbytes(self, byts):
         '''
         Consume a buffer of bytes into the axon as a blob.
@@ -388,6 +389,19 @@ class AxonCluster(AxonMixin):
             wraxons.append(axon)
 
         return wraxons
+
+    def _waitWrAxons(self, count, timeout):
+
+        # mostly used for unit test race elimination
+        maxtime = time.time() + timeout
+        while True:
+            if time.time() >= maxtime:
+                return False
+
+            if len(self._getWrAxons()) >= count:
+                return True
+
+            time.sleep(0.1)
 
 class Axon(s_eventbus.EventBus,AxonMixin):
     '''

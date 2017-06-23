@@ -1,3 +1,5 @@
+import json
+
 import synapse.lib.cli as s_cli
 import synapse.lib.tufo as s_tufo
 import synapse.lib.scope as s_scope
@@ -8,10 +10,11 @@ class AskCmd(s_cli.Cmd):
 
     Examples:
 
-        ask <query>          optional: --debug --props
+        ask <query>          optional: --debug --[props|raw]
 
         ask --debug          inet:ipv4=0
         ask --props          inet:ipv4="0.0.0.0"
+        ask --raw            inet:ipv4="0.0.0.0"
         ask --debug --props  inet:ipv4=0x01020304
     '''
 
@@ -19,6 +22,7 @@ class AskCmd(s_cli.Cmd):
     _cmd_syntax = (
         ('--debug',{}),
         ('--props',{}),
+        ('--raw', {}),
         ('query',{'type':'glob'}),
     )
 
@@ -26,6 +30,10 @@ class AskCmd(s_cli.Cmd):
         ques = opts.get('query')
         if ques == None:
             self.printf(self.__doc__)
+            return
+
+        if opts.get('props') and opts.get('raw'):
+            self.printf('Cannot specify --raw and --props together.')
             return
 
         core = self.getCmdItem()
@@ -71,6 +79,12 @@ class AskCmd(s_cli.Cmd):
         forms = set([ node[1].get('tufo:form') for node in nodes ])
 
         fsize = max([ len(f) for f in forms ])
+
+        # Short circuit any fancy formatting and dump the raw node content as json
+        if opts.get('raw'):
+            self.printf(json.dumps(nodes, sort_keys=True, indent=2))
+            self.printf('(%d results)' % (len(nodes),))
+            return resp
 
         for node in nodes:
             form = node[1].get('tufo:form')
