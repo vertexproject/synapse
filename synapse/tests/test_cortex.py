@@ -1,17 +1,13 @@
 from __future__ import absolute_import,unicode_literals
 
-import time
 import binascii
 import os
 import tempfile
-import time
 import unittest
 
-import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
-import synapse.link as s_link
 import synapse.telepath as s_telepath
 
 import synapse.lib.tags as s_tags
@@ -19,6 +15,7 @@ import synapse.lib.types as s_types
 import synapse.lib.threads as s_threads
 
 import synapse.models.syn as s_models_syn
+import synapse.cores.lmdb as lmdb
 
 from synapse.tests.common import *
 
@@ -69,6 +66,28 @@ class CortexTest(SynTest):
         self.rundsets( core )
         self.runsnaps( core )
         self.rundarks(core)
+
+    lmdb_file = 'test.lmdb'
+    lmdb_url = 'lmdb:///%s' % lmdb_file
+    def test_cortex_lmdb(self):
+        core = s_cortex.openurl(CortexTest.lmdb_url)
+        self.runcore( core )
+        self.runjson( core )
+        self.runrange( core )
+        self.runidens( core )
+        self.rundsets( core )
+        self.runsnaps( core )
+        self.rundarks(core)
+
+        # Test load an existing db
+        core = s_cortex.openurl(CortexTest.lmdb_url)
+
+    def tearDown(self):
+        try:
+            os.remove(CortexTest.lmdb_file)
+            os.remove(CortexTest.lmdb_file + '-lock')
+        except OSError:
+            pass
 
     def test_cortex_postgres(self):
         with self.getPgCore() as core:
@@ -380,6 +399,32 @@ class CortexTest(SynTest):
 
         self.eq( core.getSizeBy('le','rg',20), 1 )
         self.eq( core.getRowsBy('le','rg',20)[0][2], 10 )
+
+        rows = [
+            (guid(),'rg',-42,99),
+            (guid(),'rg',-1,99),
+            (guid(),'rg',0,99),
+            (guid(),'rg',1,99),
+            (guid(),'rg',lmdb.MIN_INT_VAL,99),
+            (guid(),'rg',lmdb.MAX_INT_VAL,99),
+        ]
+        core.addRows( rows )
+        self.assertEqual( core.getSizeBy('range','rg',(lmdb.MIN_INT_VAL+1,-42)), 0 )
+        self.assertEqual( core.getSizeBy('range','rg',(lmdb.MIN_INT_VAL,-42)), 1 )
+        self.assertEqual( core.getSizeBy('le','rg',-42), 2 )
+        # TODO: Need to implement lt for all the cores
+        if 0:
+            self.assertEqual( core.getSizeBy('lt','rg',-42), 1 )
+        self.assertEqual( core.getSizeBy('range','rg',(-42, 0)), 2 )
+        self.assertEqual( core.getSizeBy('range','rg',(-1, 2)), 3 )
+        if 0:
+            self.assertEqual( core.getSizeBy('lt','rg',0), 3 )
+        self.assertEqual( core.getSizeBy('le','rg',0), 4 )
+        # This is broken for RAM and SQLite
+        if 0:
+            self.assertEqual( core.getSizeBy('ge','rg',-1, limit=3), 3 )
+        self.assertEqual( core.getSizeBy('ge','rg',30), 2 )
+        self.assertEqual( core.getSizeBy('ge','rg',lmdb.MAX_INT_VAL), 1 )
 
     def runjson(self, core):
 

@@ -25,6 +25,7 @@ import synapse.lib.sched as s_sched
 import synapse.cores.ram
 import synapse.cores.sqlite
 import synapse.cores.postgres
+import synapse.cores.lmdb
 
 from synapse.common import *
 from synapse.eventbus import EventBus
@@ -40,6 +41,7 @@ corctors = {
     'ram':synapse.cores.ram.initRamCortex,
     'sqlite':synapse.cores.sqlite.Cortex,
     'postgres':synapse.cores.postgres.Cortex,
+    'lmdb': synapse.cores.lmdb.Cortex
 }
 
 def openurl(url, **opts):
