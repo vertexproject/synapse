@@ -324,10 +324,10 @@ class Proxy(s_eventbus.EventBus):
 
     def fire(self, name, **info):
         if name in telelocal:
-            return s_eventbus.EventBus.fire(self, name, **info)
+            s_eventbus.EventBus.fire(self, name, **info)
 
         job = self.call('fire', name, **info)
-        return self.syncjob(job)
+        self.syncjob(job)
 
     def call(self, name, *args, **kwargs):
         '''
