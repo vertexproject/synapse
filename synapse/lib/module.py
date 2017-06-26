@@ -67,14 +67,6 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
 
         # check for decorated functions for model rev
         self._syn_mrevs = collections.defaultdict(list)
-        for name, modl in self.getBaseModels():
-
-            def rev0():
-                self.core.addDataModel(name, modl)
-                return 0
-
-            self._syn_mrevs[name].append((0, rev0))
-
         for name, meth in s_reflect.getItemLocals(self):
             mrev = getattr(meth, '_syn_mrev', None)
             if mrev == None:
@@ -82,6 +74,18 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
 
             name, vers = mrev
             self._syn_mrevs[name].append((vers, meth))
+        # Generate rev0 functions for new Cortex instances.
+        for name, modl in self.getBaseModels():
+            rev = 0
+            if name in self._syn_mrevs:
+                _vers = [vers for vers, meth in self._syn_mrevs.get(name)]
+                rev = max(_vers)
+
+            def rev0():
+                self.core.addDataModel(name, modl)
+                return rev
+
+            self._syn_mrevs[name].append((0, rev0))
 
         # ensure the revs are in sequential order
         [v.sort() for v in self._syn_mrevs.values()]

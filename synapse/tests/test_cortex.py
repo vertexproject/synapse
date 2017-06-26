@@ -81,11 +81,7 @@ class CoreTestDataModelModuleV1(s_module.CoreModule):
         '''
         This revision adds the 'duck' property to our foo:bar nodes with its default value.
         '''
-        try:
-            self.core.addPropDef('foo:bar:duck', form='foo:bar', defval='mallard', ptype='str', doc='Duck value!')
-        except DupPropName:
-            # The property already exists - return early
-            return
+        self.core.addPropDef('foo:bar:duck', form='foo:bar', defval='mallard', ptype='str', doc='Duck value!')
         # Now lets migrate existing nodes to accommodate model changes.
         rows = []
         tick = s_common.now()
