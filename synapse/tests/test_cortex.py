@@ -1,17 +1,16 @@
 from __future__ import absolute_import,unicode_literals
 
+import os
 import time
 import binascii
-import os
 import tempfile
-import time
 import unittest
 
+import synapse.link as s_link
 import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
-import synapse.link as s_link
 import synapse.telepath as s_telepath
 
 import synapse.lib.tags as s_tags
@@ -1617,3 +1616,30 @@ class CortexTest(SynTest):
             core.splices(splices)
             node = core.eval('inet:ipv4=1.2.3.4')[0]
             self.eq( s_tufo.ival(node,'#foo.bar'), None)
+
+    def test_cortex_rev0(self):
+
+        path = getTestPath('rev0.db')
+        with open(path,'rb') as fd:
+            byts = fd.read()
+
+        with self.getTestDir() as temp:
+
+            finl = os.path.join(temp,'test.db')
+
+            with open(finl,'wb') as fd:
+                fd.write(byts)
+
+            with s_cortex.openurl('sqlite:///%s' % finl) as core:
+
+                node = core.eval('inet:ipv4=1.2.3.4')[0]
+
+                self.nn( node[1].get('#foo.bar') )
+                self.eq( len(core.eval('inet:ipv4*tag=foo.bar')), 1)
+
+                self.eq( len( core.getRowsByProp('_:dark:tag')), 0)
+                self.eq( len( core.getRowsByProp('_:*inet:ipv4#foo.bar')), 1)
+
+                self.eq( len(core.eval('inet:ipv4*tag=foo.bar.baz')), 1)
+                self.eq( len(core.eval('#foo.bar.baz')), 1)
+

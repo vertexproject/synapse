@@ -650,7 +650,48 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
             logger.warning('mod load fail: %s %s' % (ctor,e))
             return False
 
+    def _synTagsVers0(self):
+
+        # nothing to do...
+        if self.isnew:
+            return
+
+        # we must transition tags from *|<form>|<tag> to #<tag>
+        tags = [ n[1].get('syn:tag') for n in self.eval('syn:tag') ]
+        forms = [ n[1].get('syn:form') for n in self.eval('syn:form') ]
+
+        logger.warning('syn:core updating... do *not* interrupt')
+
+        for form in forms:
+
+            for tag in tags:
+
+                prop = '#' + tag
+
+                oldp = '*|' + form + '|' + tag
+                rows = self.getRowsByProp(oldp)
+                if not rows:
+                    continue
+
+                logger.warning('syn:core updating #%s on %s' % (tag,form))
+
+                newd = '_:*' + form + prop
+
+                news = [ (i,prop,v,t) for (i,p,v,t) in rows ]
+                darks = [ (i[::-1],newd,v,t) for (i,p,v,t) in rows ]
+
+                self.addRows(news + darks)
+
+                self.delRowsByProp(oldp)
+                self.delRowsByProp('_:dark:tag', valu=tag)
+
     def _initCoreMods(self):
+        # call our interal model revision functions
+        revs = [
+            (0, self._synTagsVers0),
+        ]
+        self.revModlVers('syn:core', revs)
+
         # load each of the configured (and base) modules.
         for ctor,conf in self.modules:
             self.initCoreModule(ctor,conf)
