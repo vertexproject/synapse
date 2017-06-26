@@ -30,8 +30,11 @@ BASE_MODELS = (
     ('synapse.models.telco.TelMod', {}),
     ('synapse.models.files.FileMod', {}),
     ('synapse.models.geopol.PolMod', {}),
+    ('synapse.models.biology.BioMod', {}),
+    ('synapse.models.finance.FinMod', {}),
     ('synapse.models.infotech.ItMod', {}),
     ('synapse.models.media.MediaMod', {}),
+    ('synapse.models.money.MoneyMod', {}),
     ('synapse.models.compsci.CsciMod', {}),
     ('synapse.models.geospace.GeoMod', {}),
     ('synapse.models.gov.cn.GovCnMod', {}),
@@ -40,6 +43,8 @@ BASE_MODELS = (
     ('synapse.models.crypto.CryptoMod', {}),
     ('synapse.models.language.LangMod', {}),
     ('synapse.models.temporal.TimeMod', {}),
+    ('synapse.models.chemistry.ChemMod', {}),
+    ('synapse.models.science.SciModMod', {}),
     ('synapse.models.gov.intl.GovIntlMod', {}),
 )
 
