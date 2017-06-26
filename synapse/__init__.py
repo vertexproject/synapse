@@ -21,7 +21,7 @@ import synapse.lib.modules as s_modules
 
 # load all the synapse builtin modules
 # the built-in cortex modules...
-BASE_MODELS = (
+BASE_MODULES = (
     ('synapse.models.syn.SynMod', {}),
     ('synapse.models.dns.DnsMod', {}),
     ('synapse.models.orgs.OuMod', {}),
@@ -48,11 +48,11 @@ BASE_MODELS = (
     ('synapse.models.gov.intl.GovIntlMod', {}),
 )
 
-for mod, conf in BASE_MODELS:
+for mod, conf in BASE_MODULES:
     modpath = mod.rsplit('.', 1)[0]
     s_modules.load(modpath)
 
-# Rebuild the datamodel's typelib now that we have loaded builtin models.
+# Rebuild the datamodel's typelib now that we have loaded builtin modules.
 import synapse.datamodel as s_datamodel
 s_datamodel.rebuildTlib()
 
