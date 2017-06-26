@@ -3,7 +3,7 @@ Synapse Performance
 
 Measuring the performance of a synapse cortex is a complex undertaking which depends
 not only on the test configurations, but the "shape" of the data being ingested and
-queried.  These tests attempt to take an acurate measure of a set of "book end" data sets
+queried.  These tests attempt to take an accurate measure of a set of "bookend" data sets
 selected specifically to demonstrate best case and worst case ingest performance.
 
 A Note on Comparisons
@@ -23,7 +23,7 @@ which has been previously observed, the system does not create a new node.  This
 effect of making a cortex typically become faster as it ingests more data.  This performance
 increase is especially true when ingesting data with many recurrent nodes.
 
-"It doesn't matter that a 747 can carry more passengers than the space shuttle, when the mission
+"It doesn't matter that a 747 can carry more passengers than the Space Shuttle, when the mission
 is to repair a satellite" -visi
 
 Test Data Sets
