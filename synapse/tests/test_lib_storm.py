@@ -1,4 +1,5 @@
 import synapse.cortex as s_cortex
+import synapse.lib.tufo as s_tufo
 import synapse.lib.storm as s_storm
 import synapse.cores.common as s_common
 
@@ -267,7 +268,7 @@ class StormTest(SynTest):
             self.eq(len(nodes), 1)
             self.eq(nodes[0][1].get('tufo:form'), 'inet:fqdn')
 
-            nodes = core.eval('inet:dns:a jointags(ps:tokn, inet:fqdn)')
+            nodes = core.eval('inet:dns:a jointags(ps:tokn,inet:fqdn)')
             self.eq(len(nodes), 1)
             self.eq(nodes[0][1].get('tufo:form'), 'inet:fqdn')
 
@@ -458,6 +459,26 @@ class StormTest(SynTest):
 
             node = core.eval('inet:ipv4=5.6.7.8')[0]
             self.eq( node[1].get('inet:ipv4:cc'), 'us' )
+
+    def test_storm_tag_ival(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            node = core.eval('[ inet:ipv4=1.2.3.4  +#foo.bar@2016-2017 ] ')[0]
+
+            minv = node[1].get('>#foo.bar')
+            maxv = node[1].get('<#foo.bar')
+            self.eq((minv, maxv), (1451606400000, 1483228800000))
+
+            node = core.eval('[ inet:ipv4=5.6.7.8 +#foo.bar@2016 ] ')[0]
+
+            self.eq(s_tufo.ival(node,'#foo.bar'), (1451606400000, 1451606400000))
+
+            nodes = core.eval('inet:ipv4 +#foo.bar@201606')
+            self.eq( nodes[0][1].get('inet:ipv4'), 0x01020304 )
+
+            nodes = core.eval('inet:ipv4 -#foo.bar@201606')
+            self.eq( nodes[0][1].get('inet:ipv4'), 0x05060708)
 
 class LimitTest(SynTest):
 

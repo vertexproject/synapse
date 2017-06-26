@@ -54,6 +54,23 @@ def getTufoSubs(tufo, tag):
     props.extend( p for p in tufo[1].keys() if p.startswith(pref) )
     return props
 
+def times(tag):
+    '''
+    Split off any time elements specified on the end of a tag string.
+
+    Args:
+        tag (str):  A tag string (with optional @<time> or @<time>-<time>
+    '''
+    parts = tag.split('@',1)
+    if len(parts) == 1:
+        return tag,()
+
+    tag,text = parts
+    if text.find('-') == -1:
+        return tag,[ s_time.parse(text) ]
+
+    return tag, s_interval.parsetime(text)
+
 def tufoHasTag(tufo,tag):
     '''
     Returns True if the tufo has the given tag.

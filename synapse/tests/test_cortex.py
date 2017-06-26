@@ -15,6 +15,7 @@ import synapse.link as s_link
 import synapse.telepath as s_telepath
 
 import synapse.lib.tags as s_tags
+import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
 import synapse.lib.threads as s_threads
 
@@ -1583,3 +1584,36 @@ class CortexTest(SynTest):
             self.eq( len(core.getTufosByTag('foo', form='inet:user') ), 1 )
             self.eq( len(core.getTufosByTag('foo', form='inet:ipv4') ), 1 )
 
+    def test_cortex_tag_ival(self):
+
+        splices = []
+        with s_cortex.openurl('ram:///') as core:
+
+            core.on('splice',splices.append)
+
+            node = core.eval('[ inet:ipv4=1.2.3.4 +#foo.bar@20171217 ]')[0]
+            self.eq( s_tufo.ival(node,'#foo.bar'), (1513468800000, 1513468800000) )
+
+            node = core.eval('[ inet:ipv4=1.2.3.4 +#foo.bar@2018 ]')[0]
+            self.eq( s_tufo.ival(node,'#foo.bar'), (1513468800000, 1514764800000) )
+
+            node = core.eval('[ inet:ipv4=1.2.3.4 +#foo.bar@2011-2018 ]')[0]
+            self.eq( s_tufo.ival(node,'#foo.bar'), (1293840000000, 1514764800000) )
+
+            node = core.eval('[ inet:ipv4=1.2.3.4 +#foo.bar@2012 ]')[0]
+            self.eq( s_tufo.ival(node,'#foo.bar'), (1293840000000, 1514764800000) )
+
+            node = core.eval('[ inet:ipv4=1.2.3.4 +#foo.bar@2012-2013 ]')[0]
+            self.eq( s_tufo.ival(node,'#foo.bar'), (1293840000000, 1514764800000) )
+
+        with s_cortex.openurl('ram:///') as core:
+            core.splices(splices)
+            core.on('splice',splices.append)
+            node = core.eval('inet:ipv4=1.2.3.4')[0]
+            self.eq( s_tufo.ival(node,'#foo.bar'), (1293840000000, 1514764800000) )
+            core.eval('inet:ipv4=1.2.3.4 [ -#foo.bar ]')
+
+        with s_cortex.openurl('ram:///') as core:
+            core.splices(splices)
+            node = core.eval('inet:ipv4=1.2.3.4')[0]
+            self.eq( s_tufo.ival(node,'#foo.bar'), None)

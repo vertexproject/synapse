@@ -496,7 +496,7 @@ class TagType(DataType):
 
         if len(parts) == 2:
 
-            strs = parts[1].split(',')
+            strs = parts[1].split('-')
             tims = [ self.tlib.getTypeNorm('time',s)[0] for s in strs ]
 
             tmin = min(tims)

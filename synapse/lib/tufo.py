@@ -57,6 +57,23 @@ def tags(tufo,leaf=False):
 
     return retn
 
+def ival(tufo,name):
+    '''
+    Return a min,max inerval tuple or None for the node.
+
+    Args:
+        tufo ((str,dict)):  A node in tuple form
+        name (str):         The name of the interval to return
+
+    Returns:
+        (int,int)   An interval value ( or None )
+
+    '''
+    minv = tufo[1].get('>'+name)
+    if minv == None:
+        return None
+    return minv,tufo[1].get('<'+name)
+
 def equal(tuf0,tuf1):
     '''
     Since dicts are not comparible, this implements equality comparison
@@ -97,3 +114,17 @@ def ephem(form,fval,**props):
 
 def tagged(tufo,tag):
     return tufo[1].get('#'+tag) != None
+
+def ndef(tufo):
+    '''
+    Return a node definition (<form>,<valu> tuple from the tufo.
+
+    Args:
+        tufo ((str,dict)):  A node in tuple form
+
+    Returns:
+        ((str,obj)):    The (<form>,<valu>) tuple for the node
+
+    '''
+    form = tufo[1].get('tufo:form')
+    return form,tufo[1][form]

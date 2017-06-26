@@ -72,6 +72,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
     Top level Cortex key/valu storage object.
     '''
     def __init__(self, link, **conf):
+
         Runtime.__init__(self)
         EventBus.__init__(self)
         Configable.__init__(self)
@@ -156,6 +157,8 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         self.spliceact.act('node:set', self._actNodeSet )
         self.spliceact.act('node:tag:add', self._actNodeTagAdd )
         self.spliceact.act('node:tag:del', self._actNodeTagDel )
+        self.spliceact.act('node:ival:set', self._actNodeIvalSet )
+        self.spliceact.act('node:ival:del', self._actNodeIvalDel )
 
         #############################################################
 
@@ -724,6 +727,25 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
         node = self.formTufoByProp(form,valu)
         self.delTufoTag(node,tag)
+
+    def _actNodeIvalSet(self, mesg):
+        form = mesg[1].get('form')
+        valu = mesg[1].get('valu')
+        prop = mesg[1].get('prop')
+        ival = mesg[1].get('ival')
+
+        node = self.formTufoByProp(form,valu)
+
+        self.setTufoIval(node, prop, ival)
+
+    def _actNodeIvalDel(self, mesg):
+        form = mesg[1].get('form')
+        valu = mesg[1].get('valu')
+        prop = mesg[1].get('prop')
+
+        node = self.formTufoByProp(form,valu)
+
+        self.delTufoIval(node, prop)
 
     def splices(self, msgs):
         '''
@@ -1384,7 +1406,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         mins = subs.get('seen:min')
         maxs = subs.get('seen:max')
 
-        ival = s_interval.initIval(mins,maxs,*times)
+        ival = s_interval.fold(mins,maxs,*times)
 
         if tufo[1].get(tagp) is not None:
             if ival is None:
@@ -1518,10 +1540,14 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         tmin = tufo[1].get(minp)
         tmax = tufo[1].get(maxp)
 
+        minv,maxv = ival
+
         if tmin is not None and tmin <= minv and tmax is not None and tmax >= maxv:
             return tufo
 
         iden = tufo[0]
+
+        form,valu = s_tufo.ndef(tufo)
 
         with self.getCoreXact() as xact:
 
@@ -1530,30 +1556,32 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
             if tmin is None:
                 rows.append( (iden, minp, minv, xact.tick) )
-                tufo[minp] = minv
+                tufo[1][minp] = minv
 
             elif minv < tmin:
-                props.append( (minp,minv) )
-                tufo[minp] = minv
+                props.append( (minp,minv,tmin) )
+                tufo[1][minp] = minv
 
             if tmax is None:
                 rows.append( (iden, maxp, maxv, xact.tick) )
-                tufo[maxp] = maxv
+                tufo[1][maxp] = maxv
 
             elif maxv > tmax:
-                props.append( (maxp,maxv) )
-                tufo[maxp] = maxv
+                props.append( (maxp,maxv,tmax) )
+                tufo[1][maxp] = maxv
 
             if rows:
                 self.addRows(rows)
+                [ self._bumpTufoCache(tufo,r[1],None,r[2]) for r in rows ]
 
-            for prop,valu in props:
-                self._setRowsByIdProp(iden, prop, valu)
+            for prop,newv,oldv in props:
+                self._bumpTufoCache(tufo, prop, oldv, newv)
+                self._setRowsByIdProp(iden, prop, newv)
 
             ival = (tufo[1].get(minp),tufo[1].get(maxp))
 
-            xact.fire('node:ival', form=form, valu=valu, name=name, ival=ival, node=tufo)
-            xact.spliced('node:ival:set', form=form, valu=valu, name=name, ival=ival)
+            xact.fire('node:ival', form=form, valu=valu, prop=name, ival=ival, node=tufo)
+            xact.spliced('node:ival:set', form=form, valu=valu, prop=name, ival=ival)
 
         return tufo
 
@@ -1573,14 +1601,21 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
         iden = reqiden(tufo)
 
-        if tufo[1].get(minp) == None and tufo[1].get(maxp) == None:
+        minv = tufo[1].get(minp)
+        maxv = tufo[1].get(maxp)
+
+        if minv is None and maxv is None:
             return tufo
+
+        form,valu = s_tufo.ndef(tufo)
 
         with self.getCoreXact() as xact:
             self.delRowsByIdProp(iden,minp)
             self.delRowsByIdProp(iden,maxp)
-            xact.fire('node:ival:del', form=form, valu=valu, name=name, node=tufo)
-            xact.spliced('node:ival:del', form=form, valu=valu, name=name)
+            self._bumpTufoCache(tufo,minp,minv,None)
+            self._bumpTufoCache(tufo,maxp,maxv,None)
+            xact.fire('node:ival:del', form=form, valu=valu, prop=name, node=tufo)
+            xact.spliced('node:ival:del', form=form, valu=valu, prop=name)
 
         return tufo
 

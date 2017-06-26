@@ -245,6 +245,10 @@ class Runtime(Configable):
         self.setCmprCtor('seen', self._cmprCtorSeen)
         self.setCmprCtor('range', self._cmprCtorRange)
 
+        # interval and interval-interval comparisons
+        self.setCmprCtor('ival', self._cmprCtorIval)
+        self.setCmprCtor('ivalival', self._cmprCtorIvalIval)
+
         self.setCmprCtor('in', self._cmprCtorIn )
         self.setCmprCtor('re', self._cmprCtorRe )
         self.setCmprCtor('has', self._cmprCtorHas )
@@ -659,6 +663,47 @@ class Runtime(Configable):
 
         return cmpr
 
+    def _cmprCtorIval(self, oper):
+
+        name,tick = oper[1].get('valu')
+
+        minp = '>' + name
+        maxp = '<' + name
+
+        def cmpr(tufo):
+
+            minv = tufo[1].get(minp)
+            if minv is None or minv > tick:
+                return False
+
+            maxv = tufo[1].get(maxp)
+            if maxv is None or maxv <= tick:
+                return False
+
+            return True
+
+        return cmpr
+
+    def _cmprCtorIvalIval(self, oper):
+
+        name,ival = oper[1].get('valu')
+
+        minp = '>' + name
+        maxp = '<' + name
+
+        def cmpr(tufo):
+
+            minv = tufo[1].get(minp)
+            if minv is None:
+                return False
+
+            maxv = tufo[1].get(maxp)
+            if maxv is None:
+                return False
+
+            return s_interval.overlap(ival,(minv,maxv))
+
+        return cmpr
 
     def _stormOperAnd(self, query, oper):
         funcs = [ self.getCmprFunc(op) for op in oper[1].get('args') ]
@@ -993,11 +1038,11 @@ class Runtime(Configable):
 
     def _stormOperJoinTags(self, query, oper):
 
-        args = oper[1].get('args')
+        args = oper[1].get('args',())
         opts = dict(oper[1].get('kwlist'))
         core = self.getStormCore()
 
-        forms = {arg for arg in args}
+        forms = set(args)
         keep_nodes = opts.get('keep_nodes', False)
 
         limt = LimitHelp(opts.get('limit'))
@@ -1036,7 +1081,6 @@ class Runtime(Configable):
 
                 if limt.reached():
                     break
-            return
 
     def _stormOperToTags(self, query, oper):
         opts = dict(oper[1].get('kwlist'))

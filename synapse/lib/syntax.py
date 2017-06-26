@@ -1,5 +1,6 @@
 import re
 
+import synapse.lib.time as s_time
 import synapse.lib.sched as s_sched
 import synapse.lib.service as s_service
 
@@ -17,6 +18,7 @@ intset = set('01234567890abcdefx')
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 propset = set(':abcdefghijklmnopqrstuvwxyz_0123456789')
 starset = varset.union({'*'})
+tagfilt = varset.union({'#','*','@'})
 whenset = set('0123456789abcdefghijklmnopqrstuvwxyz+,')
 alphaset = set('abcdefghijklmnopqrstuvwxyz')
 
@@ -183,19 +185,35 @@ def parse_string(text,off,trim=True):
 
 def parse_macro_filt(text,off=0,trim=True, mode='must'):
 
-    if trim:
-        _,off = nom(text,off,whites)
+    _,off = nom(text,off,whites)
 
     # special + #tag (without prop) based filter syntax
     if nextchar(text,off,'#'):
+
         _,off = nom(text,off,whites)
-        tag,off = nom(text,off+1,starset,trim=True)
-        oper = ('filt',{'cmp':'tag','mode':mode,'valu':tag})
-        return oper,off
+        prop,off = nom(text, off, tagfilt, trim=True)
+
+        parts = prop.split('@', 1)
+        if len(parts) == 1:
+            inst = ('filt',{'cmp':'tag','mode':mode,'valu':prop[1:]})
+            return inst,off
+
+        prop,istr = parts
+
+        if istr.find('-') == -1:
+            tick = s_time.parse(istr)
+            inst = ('filt',{'cmp':'ival', 'mode':mode, 'valu':(prop,tick)})
+            return inst,off
+
+        ival = s_interval.parsetime(istr)
+        inst = ('filt',{'cmp':'ivalival','mode':mode,'valu':(prop,ival)})
+
+        return inst,off
 
     # check for non-macro syntax
     name,xoff = nom(text,off,varset)
     _,xoff = nom(text,xoff,whites)
+
     if nextchar(text,xoff,'('):
         inst,off = parse_oper(text,off)
 
