@@ -2761,7 +2761,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         Get a list of dark row names on a tufo.
 
         Args:
-            tufo ((str, dict)): Tufo to look up. 
+            tufo ((str, dict)): Tufo to look up.
 
         Returns:
             list: List of (name, time) tuples for a given tufos dark rows.
