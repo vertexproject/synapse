@@ -101,6 +101,8 @@ The current benchmark testing environment is a cluster of 3 hosts with the follo
 Results
 =======
 
+.. image:: images/synapse_bench.png
+
 ram
 ---
 * add w/ deconf: 3,347 nodes/sec
@@ -138,8 +140,6 @@ Current results show highly efficient scale gains when using multiple cortexes i
 However, the current testing environment involves the use of only 3 systems.  Future scale testing
 using additional hardware will be a better estimate of performance in a truly production scale cluster.
 That being said, current results are promising.
-
-.. image:: images/synapse_bench.png
 
 Additional Tests
 ================
