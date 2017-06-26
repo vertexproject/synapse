@@ -5,6 +5,7 @@ import os
 import tempfile
 import unittest
 
+import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
