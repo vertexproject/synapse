@@ -35,6 +35,7 @@ BASE_MODULES = (
     ('synapse.models.infotech.ItMod', {}),
     ('synapse.models.media.MediaMod', {}),
     ('synapse.models.money.MoneyMod', {}),
+    ('synapse.models.science.SciMod', {}),
     ('synapse.models.compsci.CsciMod', {}),
     ('synapse.models.geospace.GeoMod', {}),
     ('synapse.models.gov.cn.GovCnMod', {}),
@@ -44,7 +45,6 @@ BASE_MODULES = (
     ('synapse.models.language.LangMod', {}),
     ('synapse.models.temporal.TimeMod', {}),
     ('synapse.models.chemistry.ChemMod', {}),
-    ('synapse.models.science.SciModMod', {}),
     ('synapse.models.gov.intl.GovIntlMod', {}),
 )
 
