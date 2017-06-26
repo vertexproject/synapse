@@ -24,7 +24,7 @@ effect of making a cortex typically become faster as it ingests more data.  This
 increase is especially true when ingesting data with many recurrent nodes.
 
 "It doesn't matter that a 747 can carry more passengers than the space shuttle, when the mission
-is to repair a sattelite" -visi
+is to repair a satellite" -visi
 
 Test Data Sets
 ==============
