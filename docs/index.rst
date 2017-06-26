@@ -15,6 +15,7 @@ Contents:
     synapse/api/synapse
     synapse/datamodel
     synapse/storm
+    performance
     contributing
 
 Indices and tables
