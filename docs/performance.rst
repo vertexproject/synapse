@@ -8,9 +8,9 @@ selected specifically to demonstrate best case and worst case ingest performance
 
 A Note on Comparisons
 ---------------------
-When comparing these numbers to bench marks published by various big data systems such
-as hadoop and elastic search, it is very important to keep in mind the fundamental difference
-between a knowledge system like a synapse cortex versus a simple indexer such as elastic search.
+When comparing these numbers to benchmarks published by various big data systems such
+as Hadoop and Elastic Search, it is very important to keep in mind the fundamental difference
+between a knowledge system like a synapse cortex versus a simple indexer such as Elastic Search.
 A knowledge system is required to deconflict all new data against what is already known.  This
 means for each new node added to the hypergraph, it must atomically determine if that node already
 exists so there is only ever one node which represents a particular thing.  While many big data
@@ -35,7 +35,7 @@ Majestic Million
 The Majestic Million is a ranked list of a million FQDNs which is freely
 available at http://downloads.majestic.com/majestic_million.csv .  
 
-This dataset was selected for performance bench marking due to it being a "wost case" bookend.
+This dataset was selected for performance benchmarking due to it being a "worst case" bookend.
 Within a cortex, inet:fqdn nodes undergo extensive normalization and often the creation of one
 inet:fqdn node causes the creation of several others.  For example, creating inet:fqdn=www.woot.com
 would subsequently cause the creation of inet:fqdn=woot.com and inet:fqdn=com.  Additionally, the
