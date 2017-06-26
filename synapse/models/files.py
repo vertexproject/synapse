@@ -1,7 +1,7 @@
 import synapse.compat as s_compat
 
-from synapse.common import addpref
 from synapse.lib.types import DataType
+from synapse.common import addpref, guid
 from synapse.lib.module import CoreModule, modelrev
 
 def getDataModel():
@@ -78,9 +78,8 @@ class FileMod(CoreModule):
 
     def initCoreModule(self):
         self.core.addSeedCtor('file:bytes:md5', self.seedFileMd5)
-        # XXX Move sha1 to is own seed class?
-        # sha1 / sha256 / sha512 are good enough for now
-        self.core.addSeedCtor('file:bytes:sha1', self.seedFileGoodHash)
+        self.core.addSeedCtor('file:bytes:sha1', self.seedFileSha1)
+        # sha256 / sha512 are good enough for now
         self.core.addSeedCtor('file:bytes:sha256', self.seedFileGoodHash)
         self.core.addSeedCtor('file:bytes:sha512', self.seedFileGoodHash)
 
@@ -112,6 +111,11 @@ class FileMod(CoreModule):
 
     def seedFileMd5(self, prop, valu, **props):
         props['md5'] = valu
+        return self.core.formTufoByProp('file:bytes', valu, **props)
+
+    def seedFileSha1(self, prop, valu, **props):
+        props['sha1'] = valu
+        valu = guid(valu)
         return self.core.formTufoByProp('file:bytes', valu, **props)
 
     @staticmethod
