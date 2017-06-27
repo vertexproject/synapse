@@ -61,6 +61,7 @@ class DupPropName(SynErr):pass
 class DupFileName(SynErr):pass
 class BadPropName(SynErr):pass
 class BadCoreName(SynErr):pass
+class BadCtorType(SynErr):pass
 class BadMesgVers(SynErr):pass
 class BadInfoValu(SynErr):pass
 class BadStorValu(SynErr):pass

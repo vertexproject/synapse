@@ -1,7 +1,6 @@
 '''
 Module which implements the synapse module API/convention.
 '''
-import inspect
 import logging
 
 import synapse.exc as s_exc
@@ -84,42 +83,46 @@ def load(name):
         modlist.append( (name,smod) )
     return smod
 
-def load_ctor(name):
+def load_ctor(name, opts):
     '''
-    Load the given module path as a synapse module.
+    Load the given ctor path as a synapse CoreModule for extending the Cortex implementation.
 
     Args:
         name (str): Python path to a class ctor to load.
+        opts (dict): Dictionary of configuration options.
 
     Example:
         Load the foopkg.barmod.Baz ctor::
 
             import synapse.lib.modules as s_modules
-            s_modules.load_ctor('foopkg.barmod.Baz')
+            s_modules.load_ctor('foopkg.barmod.Baz', {})
 
     Notes:
+        This can only be used to dynamically load a subclass of the CoreModule class.
         Users should be aware that the import process can perform arbitrary
-        code execution by imported modules.  This also does not create any
-        class instances upon loading.
+        code execution by imported modules.
 
     Returns:
         The loaded class is returned.
 
     Raises:
-        NoSuchCtor: If the imported module does not have the listed ctor or it
-                    is not a class.
+        NoSuchCtor: If the imported module does not have the listed ctor
+        BadCtorType: If the ctor is not a subclass of the CoreModule class.
     '''
+    # Deferred import to prevent a import-loop upon __init__.py
+    # execution of the main library.
+    import synapse.lib.module as s_module
     modpath, ctor = name.rsplit('.', 1)
     smod = ctors.get(name)
     if smod == None:
         smod = s_dyndeps.tryDynMod(modpath)
         cls = getattr(smod, ctor, None)
         if cls is None:
-            raise s_exc.NoSuchCtor(name=name, mesg='Ctor not found')
-        if not inspect.isclass(cls):
-            raise s_exc.NoSuchCtor(name=name, mesg='Ctor is not a class')
+            raise s_exc.NoSuchCtor(name=name, mesg='Ctor not found.')
+        if not issubclass(cls, s_module.CoreModule):
+            raise s_exc.BadCtorType(name=name, mesg='Ctor is not a CoreModule implementation.')
         ctors[name] = smod
-        ctorlist.append((name, smod))
+        ctorlist.append((name, smod, opts))
     return ctor
 
 def call_ctor(name, *args, **kwargs):
@@ -151,7 +154,7 @@ def call_ctor(name, *args, **kwargs):
               ctor.
     '''
     ret = []
-    for sname, smod in ctorlist:
+    for sname, smod, opts in ctorlist:
 
         modpath, ctor = sname.rsplit('.', 1)
 

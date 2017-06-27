@@ -6,8 +6,6 @@ import threading
 import traceback
 import collections
 
-from synapse import BASE_MODULES
-
 import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
 import synapse.reactor as s_reactor
@@ -72,7 +70,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         self.axon = None
         self.seedctors = {}
 
-        self.modules = list(BASE_MODULES)
+        self.modules = [(ctor, conf) for ctor, smod, conf in s_modules.ctorlist]
         self.modsdone = False
 
         self.noauto = {'syn:form','syn:type','syn:prop'}

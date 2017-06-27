@@ -49,14 +49,14 @@ BASE_MODULES = (
 
 import synapse.lib.modules as s_modules
 for mod, conf in BASE_MODULES:
-    s_modules.load_ctor(mod)
+    s_modules.load_ctor(mod, conf)
 
 # Register any CoreModules from envars
 mods = os.getenv('SYN_CORE_MODULES')
 if mods:
     for name in mods.split(','):
         try:
-            s_modules.load_ctor(name)
+            s_modules.load_ctor(name, {})
         except Exception as e:
             logger.warning('SYN_CORE_MODULES failed: %s (%s)' % (name,e))
 
