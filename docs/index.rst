@@ -16,6 +16,7 @@ Contents:
     synapse/datamodel
     synapse/storm
     synapse/model_format
+    performance
     contributing
 
 Indices and tables

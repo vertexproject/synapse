@@ -202,6 +202,12 @@ class DmonConf:
         if title != None:
             s_thisplat.setProcName('dmon: %s' % title)
 
+        # handle explicit module load requests
+        for name,info in conf.get('modules',()):
+            modu = s_dyndeps.getDynMod(name)
+            if modu == None:
+                logger.warning('dmon mod not loaded: %s', name)
+
         # handle includes next
         for path in conf.get('includes',()):
             fullpath = os.path.expanduser(path)
