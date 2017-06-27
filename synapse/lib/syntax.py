@@ -19,7 +19,6 @@ varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
 propset = set(':abcdefghijklmnopqrstuvwxyz_0123456789')
 starset = varset.union({'*'})
 tagfilt = varset.union({'#','*','@'})
-whenset = set('0123456789abcdefghijklmnopqrstuvwxyz+,')
 alphaset = set('abcdefghijklmnopqrstuvwxyz')
 
 def nom(txt,off,cset,trim=True):
@@ -383,12 +382,8 @@ def parse_ques(text,off=0,trim=True):
         if len(text) == off:
             return ques,off
 
-        if text[off] == '#':
+        if text[off] == '^':
             ques['limit'],off = parse_int(text,off+1,trim=True)
-            continue
-
-        if text[off] == '@':
-            ques['when'],off = parse_when(text,off+1,trim=True)
             continue
 
         # NOTE: "by" macro syntax only supports eq so we eat and run
@@ -413,8 +408,6 @@ def parse_ques(text,off=0,trim=True):
             ques['cmp'] = 'eq'
             ques['valu'],off = parse_macro_valu(text,off)
             break
-
-        # TODO: handle "by" syntax
 
         textpart = text[off:]
         for ctxt,cmpr in macrocmps:
@@ -452,14 +445,6 @@ def parse_macro_valu(text,off=0):
         pass
 
     return valu,off
-
-
-def parse_when(text,off,trim=True):
-    whenstr,off = nom(text,off,whenset)
-    # FIXME validate syntax
-    if whenstr.find(',') != -1:
-        return tuple(whenstr.split(',',1)),off
-    return (whenstr,None),off
 
 def parse_cmd_kwarg(text, off=0):
     '''

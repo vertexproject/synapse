@@ -235,7 +235,7 @@ class SynCmdCoreTest(SynTest):
             self.eq( len(resp['data']), 2 )
 
             outp = str(outp)
-            terms = ('0.0.0.0 -', 'hehe -')
+            terms = ('0.0.0.0', 'hehe')
 
             for term in terms:
                 self.nn(re.search(term, outp))
