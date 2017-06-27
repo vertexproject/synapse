@@ -23,6 +23,20 @@ hexre = re.compile('^[0-9a-z]+$')
 propre = re.compile('^[0-9a-z:_]+$')
 
 tlib = s_types.TypeLib()
+
+def rebuildTlib():
+    '''
+    Rebuild the datamodel's global TypeLib instance.
+
+    The datamodel.py module maintains a instance of the TypeLib object.  If there are new models dynamically loaded
+    into Synapse, this can be used to rebuild the TypeLib object with those additions.
+
+    Returns:
+        (None): Returns None.
+    '''
+    global tlib
+    tlib = s_types.TypeLib()
+
 def getTypeRepr(name, valu):
     '''
     Return the humon readable form of the given type value.
@@ -164,6 +178,8 @@ class DataModel(s_types.TypeLib):
             # must add tufo before adding tufo props
             model.addTufoForm('woot')
 
+        Raises:
+            BadPropName: If the property name is poorly formed.
         '''
         if not propre.match(form):
             raise BadPropName(name=form)
@@ -238,6 +254,10 @@ class DataModel(s_types.TypeLib):
         Example:
 
             model.addPropDef('foo:bar', ptype='int', defval=30)
+
+        Raises:
+
+            DupPropName: If the property name is already present in the data model.
 
         '''
         if self.props.get(prop) != None:

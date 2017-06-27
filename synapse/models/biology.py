@@ -1,6 +1,9 @@
+from synapse.lib.module import CoreModule
 
-def getDataModel():
-    return {
-        'prefix':'bio',
-        'version':201611251045,
-    }
+class BioMod(CoreModule):
+
+    @staticmethod
+    def getBaseModels():
+        modl = {}
+        name = 'bio'
+        return ((name, modl),)

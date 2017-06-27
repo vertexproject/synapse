@@ -6,9 +6,6 @@ import threading
 import traceback
 import collections
 
-from synapse.compat import queue
-
-import synapse.async as s_async
 import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
 import synapse.reactor as s_reactor
@@ -20,7 +17,6 @@ import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
-import synapse.lib.types as s_types
 import synapse.lib.ingest as s_ingest
 import synapse.lib.hashset as s_hashset
 import synapse.lib.threads as s_threads
@@ -61,11 +57,6 @@ def reqstor(name,valu):
         raise BadPropValu(name=name,valu=valu)
     return valu
 
-# the built-in cortex modules...
-basemods = (
-    ('synapse.models.gov.cn.GovCnMod',{}),
-)
-
 class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
     '''
     Top level Cortex key/valu storage object.
@@ -79,7 +70,7 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         self.axon = None
         self.seedctors = {}
 
-        self.modules = list( basemods )
+        self.modules = [(ctor, conf) for ctor, smod, conf in s_modules.ctorlist]
         self.modsdone = False
 
         self.noauto = {'syn:form','syn:type','syn:prop'}
@@ -197,8 +188,9 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         self.myfo = self.formTufoByProp('syn:core','self')
         self.isnew = self.myfo[1].get('.new',False)
 
+        self.modelrevlist = []
         with self.getCoreXact() as xact:
-            self._initCoreModels()
+            self._initCoreMods()
 
         # and finally, strap in our event handlers...
         self.on('node:add', self._onTufoAddSynType, form='syn:type')
@@ -219,8 +211,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         # storm operators specific to the cortex
         self.setOperFunc('stat', self._stormOperStat)
         self.setOperFunc('dset', self._stormOperDset)
-
-        self._initCoreMods()
 
         # allow modules a shot at hooking cortex events for model ctors
         for name,ret,exc in s_modules.call('addCoreOns',self):
@@ -444,7 +434,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
             core.addDataModel('synapse.models.foo',
                               {
-                                'prefix':'foo',
 
                                 'types':( ('foo:g',{'subof':'guid'}), ),
 
@@ -486,26 +475,6 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
 
     def addDataModels(self, modtups):
         [ self.addDataModel(name,modl) for (name,modl) in modtups ]
-
-    def _initCoreModels(self):
-
-        for name,modl,exc in s_modules.call('getDataModel'):
-
-            if exc != None:
-                logger.warning('%s.getDataModel(): %s' % (name,exc))
-                continue
-
-            self.addDataModel(name,modl)
-
-        # now we lift/initialize from the tufos...
-        for tufo in self.getTufosByProp('syn:type'):
-            self._initTypeTufo(tufo)
-
-        for tufo in self.getTufosByProp('syn:form'):
-            self._initFormTufo(tufo)
-
-        for tufo in self.getTufosByProp('syn:prop'):
-            self._initPropTufo(tufo)
 
     def _getTufosByCache(self, prop, valu, limit):
         # only used if self.caching = 1
@@ -684,7 +653,31 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
     def _initCoreMods(self):
         # load each of the configured (and base) modules.
         for ctor,conf in self.modules:
-            self.initCoreModule(ctor,conf)
+            self.initCoreModule(ctor, conf)
+        # Sort the model revlist
+        self.modelrevlist.sort(key=lambda x: x[:2])
+        for revision, name, func in self.modelrevlist:
+            self.revModlVers(name, ((revision, func),))
+
+        for tufo in self.getTufosByProp('syn:type'):
+            try:
+                self._initTypeTufo(tufo)
+            except DupTypeName as e:
+                continue
+
+        for tufo in self.getTufosByProp('syn:form'):
+            try:
+                self._initFormTufo(tufo)
+            except DupPropName as e:
+                continue
+
+        for tufo in self.getTufosByProp('syn:prop'):
+            try:
+                self._initPropTufo(tufo)
+            except DupPropName as e:
+                continue
+
+        self.modelrevlist = []
         self.modsdone = True
 
     def _onSetMods(self, mods):
@@ -696,6 +689,14 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         # dynamically load modules if we are already done loading
         for ctor,conf in mods:
             self.initCoreModule(ctor,conf)
+        if not self.modelrevlist:
+            return
+
+        self.modelrevlist.sort(key=lambda x: x[:2])
+        for revision, name, func in self.modelrevlist:
+            self.revModlVers(name, ((revision, func),))
+
+        self.modelrevlist = []
 
     def _onSetCaching(self, valu):
         if not valu:

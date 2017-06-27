@@ -1,27 +1,26 @@
-import synapse.compat as s_compat
-import synapse.common as s_common
+from synapse.lib.module import CoreModule, modelrev
 
-def getDataModel():
-    return {
-        'prefix':'syn',
-        'version':201706032355,
+class SynMod(CoreModule):
 
-        'types':(
-            ('syn:splice', {'subof':'guid'}),
-        ),
+    @staticmethod
+    def getBaseModels():
+        modl = {
+            'types': (
+                ('syn:splice', {'subof': 'guid'}),
+            ),
+            'forms': (
+                ('syn:splice', {'local': 1}, (
+                    ('act', {'ptype': 'str:lwr'}),
+                    ('time', {'ptype': 'time'}),
+                    ('node', {'ptype': 'guid'}),
+                    ('user', {'ptype': 'str:lwr'}),
 
-        'forms':(
+                    ('tag', {'ptype': 'str:lwr'}),
+                    ('form', {'ptype': 'str:lwr'}),
+                    ('valu', {'ptype': 'str:lwr'}),
+                )),
 
-            ('syn:splice', {'local':1},(
-                ('act', {'ptype':'str:lwr'}),
-                ('time', {'ptype':'time'}),
-                ('node', {'ptype':'guid'}),
-                ('user', {'ptype':'str:lwr'}),
-
-                ('tag', {'ptype':'str:lwr'}),
-                ('form', {'ptype':'str:lwr'}),
-                ('valu', {'ptype':'str:lwr'}),
-            )),
-
-        ),
-    }
+            ),
+        }
+        name = 'syn'
+        return ((name, modl), )
