@@ -292,8 +292,7 @@ class InetMod(CoreModule):
             if pafo[1].get('inet:fqdn:sfx'):
                 props['inet:fqdn:zone'] = 1
 
-    @staticmethod
-    def onTufoFormPasswd(form, valu, props, mesg):
+    def onTufoFormPasswd(self, form, valu, props, mesg):
         props['inet:passwd:md5'] = hashlib.md5(valu.encode('utf8')).hexdigest()
         props['inet:passwd:sha1'] = hashlib.sha1(valu.encode('utf8')).hexdigest()
         props['inet:passwd:sha256'] = hashlib.sha256(valu.encode('utf8')).hexdigest()
