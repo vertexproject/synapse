@@ -75,9 +75,7 @@ the following effects:
 
 The following is a second revision of the earlier FooBarModule - it add a property for the foo:bar type, and performs
 a storage layer migration of nodes to set a default value for the new property. The model revision for the foobar model
-will be updated to 201707210101 in the Cortex.  Note that during the model revision function, we exit the function
-early if the new property already exists.  This would cause the current model version to be set and any subsequent
-functions called.::
+will be updated to 201707210101 in the Cortex.::
 
     import synapse.lib.module as s_module
 
