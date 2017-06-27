@@ -13,7 +13,7 @@ A Note on Comparisons
 is to repair a satellite" -visi
 
 When comparing these numbers to benchmarks published by various big data systems such
-as Hadoop and Elastic Search, it is very important to keep in mind the fundamental difference
+as Hadoop and Elastic Search, it is critical to keep in mind the fundamental difference
 between a knowledge system like a synapse cortex versus a simple indexer such as Elastic Search.
 A knowledge system is required to deconflict all new data against what is already known.  This
 means for each new node added to the hypergraph, it must atomically determine if that node already
