@@ -5,11 +5,11 @@ import json
 import base64
 import hashlib
 import logging
+import datetime
 import collections
 
 import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
-import synapse.eventbus as s_eventbus
 
 import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
@@ -420,6 +420,74 @@ class XrefType(DataType):
 
         return iden,subs
 
+class TimeType(DataType):
+    # FIXME subfields for various time parts (year,month,etc)
+
+    def __init__(self, tlib, name, **info):
+        DataType.__init__(self, tlib, name, **info)
+
+        self.ismin = info.get('ismin', False)
+        self.ismax = info.get('ismax', False)
+
+        self.minmax = None
+
+        if self.ismin:
+            self.minmax = min
+
+        elif self.ismax:
+            self.minmax = max
+
+    def norm(self, valu, oldval=None):
+
+        subs = {}
+
+        # make the string into int form then apply our min/max
+        if s_compat.isstr(valu):
+            valu, subs = self._norm_str(valu, oldval=oldval)
+
+        if oldval != None and self.minmax:
+            valu = self.minmax(valu, oldval)
+
+        return valu, subs
+
+    def _norm_str(self, text, oldval=None):
+
+        text = text.strip().lower()
+        text = (''.join([c for c in text if c.isdigit()]))
+
+        tlen = len(text)
+        if tlen == 4:
+            dt = datetime.datetime.strptime(text, '%Y')
+
+        elif tlen == 6:
+            dt = datetime.datetime.strptime(text, '%Y%m')
+
+        elif tlen == 8:
+            dt = datetime.datetime.strptime(text, '%Y%m%d')
+
+        elif tlen == 10:
+            dt = datetime.datetime.strptime(text, '%Y%m%d%H')
+
+        elif tlen == 12:
+            dt = datetime.datetime.strptime(text, '%Y%m%d%H%M')
+
+        elif tlen == 14:
+            dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S')
+
+        elif tlen in (15, 16, 17):
+            dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S%f')
+
+        else:
+            self._raiseBadValu(text, mesg='Unknown time format')
+
+        epoch = datetime.datetime(1970, 1, 1)
+        return int((dt - epoch).total_seconds() * 1000), {}
+
+    def repr(self, valu):
+        dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=valu)
+        millis = dt.microsecond / 1000
+        return '%d/%.2d/%.2d %.2d:%.2d:%.2d.%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
+
 class SeprType(MultiFieldType):
 
     def __init__(self, tlib, name, **info):
@@ -535,6 +603,7 @@ class TypeLib:
         self.addType('sepr',ctor='synapse.lib.types.SeprType', doc='A multi-field composite type which uses separated repr values')
         self.addType('comp',ctor='synapse.lib.types.CompType', doc='A multi-field composite type which generates a stable guid from normalized fields')
         self.addType('xref',ctor='synapse.lib.types.XrefType', doc='A multi-field composite type which can be used to link a known form to an unknown form')
+        self.addType('time', ctor='synapse.lib.types.TimeType', doc='Timestamp in milliseconds since epoch', ex='20161216084632')
 
         self.addType('syn:tag',ctor='synapse.lib.types.TagType', doc='A synapse tag', ex='foo.bar')
 
@@ -631,9 +700,9 @@ class TypeLib:
 
     def loadModModels(self):
 
-        modls = s_modules.call('getDataModel')
+        dynmodls = s_modules.call_ctor('getBaseModels')
 
-        models = [ (name,modl) for (name,modl,excp) in modls if modl != None ]
+        models = [(modname, modl) for name, modls, excp in dynmodls for modname, modl in modls if modls]
 
         self.loadDataModels(models)
 
@@ -673,6 +742,20 @@ class TypeLib:
 
     def addType(self, name, **info):
         '''
+        Add a type to the cached types.
+
+        Args:
+            name (str): Name of the type to add.
+            **info (dict): Type properties to include.
+
+        Example:
+            Add a new foo:bar type::
+
+                tlib.addType('foo:bar', subof='str', doc='A foo bar.')
+
+        Raises:
+            DupTypeName: If the type already exists.
+
         '''
         if self.types.get(name) != None:
             raise DupTypeName(name=name)

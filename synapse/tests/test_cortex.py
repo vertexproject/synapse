@@ -39,13 +39,57 @@ class CoreTestModule(s_module.CoreModule):
 
         self.revCoreModl()
 
-    @s_module.modelrev('test',0)
+    @s_module.modelrev('test', 201707200101)
     def _testRev0(self):
-        self.core.addType('test:type1',subof='str')
+        self.core.addType('test:type1', subof='str')
 
-    @s_module.modelrev('test',1)
+    @s_module.modelrev('test', 201707210101)
     def _testRev1(self):
-        self.core.addType('test:type2',subof='str')
+        self.core.addType('test:type2', subof='str')
+
+class CoreTestDataModelModuleV0(s_module.CoreModule):
+
+    @staticmethod
+    def getBaseModels():
+        modl = {
+            'types': (
+                ('foo:bar',{'subof': 'str', 'doc': 'A foo bar!'}),
+            ),
+            'forms': (),
+        }
+        name = 'test'
+        return ((name, modl),)
+
+class CoreTestDataModelModuleV1(s_module.CoreModule):
+
+    @staticmethod
+    def getBaseModels():
+        modl = {
+            'types': (
+                ('foo:bar', {'subof': 'str', 'doc': 'A foo bar!'}),
+            ),
+            'forms': (
+                ('foo:bar',
+                 {'ptype': 'str'},
+                 [('duck', {'defval': 'mallard', 'ptype': 'str', 'doc': 'Duck value!'})]
+                 ),
+            ),
+        }
+        name = 'test'
+        return ((name, modl),)
+
+    @s_module.modelrev('test', 201707210101)
+    def _testRev1(self):
+        '''
+        This revision adds the 'duck' property to our foo:bar nodes with its default value.
+        '''
+        self.core.addPropDef('foo:bar:duck', form='foo:bar', defval='mallard', ptype='str', doc='Duck value!')
+        # Now lets migrate existing nodes to accommodate model changes.
+        rows = []
+        tick = s_common.now()
+        for iden, p, v, t in self.core.getRowsByProp('foo:bar'):
+            rows.append((iden, 'foo:bar:duck', 'mallard', tick))
+        self.core.addRows(rows)
 
 class CortexTest(SynTest):
 
@@ -1538,7 +1582,7 @@ class CortexTest(SynTest):
             self.nn( core.getTypeInst('test:type2') )
             self.none( core.getTypeInst('test:type3') )
 
-            self.eq( core.getModlVers('test'), 1 )
+            self.eq( core.getModlVers('test'), 201707210101 )
 
             node = core.formTufoByProp('inet:ipv4','1.2.3.5')
             self.eq( node[1].get('inet:ipv4:asn'), 10 )
@@ -1691,3 +1735,116 @@ class CortexTest(SynTest):
                 self.eq( len(core.eval('inet:ipv4*tag=foo.bar.baz')), 1)
                 self.eq( len(core.eval('#foo.bar.baz')), 1)
 
+    def test_cortex_module_datamodel_migration(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            # Enforce data model consistency.
+            core.setConfOpt('enforce', 1)
+
+            mods = (('synapse.tests.test_cortex.CoreTestDataModelModuleV0', {}),)
+            core.setConfOpt('modules', mods)
+
+            self.eq(core.getModlVers('test'), 0)
+            self.nn(core.getTypeInst('foo:bar'))
+
+            node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
+            self.eq(node[1].get('tufo:form'), 'foo:bar')
+            self.eq(node[1].get('foo:bar'), 'I am a bar foo.')
+
+            # Test a module which will bump the module version and do a
+            # migration as well as add a property type.
+            mods = (('synapse.tests.test_cortex.CoreTestDataModelModuleV1', {}),)
+            core.setConfOpt('modules', mods)
+
+            self.eq(core.getModlVers('test'), 201707210101)
+            self.true('foo:bar:duck' in core.props)
+
+            node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
+            self.eq(node[1].get('foo:bar:duck'), 'mallard')
+            node2 = core.formTufoByProp('foo:bar', 'I am a robot', duck='mandarin')
+            self.eq(node2[1].get('foo:bar:duck'), 'mandarin')
+
+        # Ensure that when we create a new cortex and add a versioned model it loads correctly
+        with s_cortex.openurl('ram:///') as core:
+            # Enforce data model consistency.
+            core.setConfOpt('enforce', 1)
+
+            mods = (('synapse.tests.test_cortex.CoreTestDataModelModuleV1', {}),)
+            core.setConfOpt('modules', mods)
+
+            self.eq(core.getModlVers('test'), 201707210101)
+            self.nn(core.getTypeInst('foo:bar'))
+
+            node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
+            self.eq(node[1].get('foo:bar:duck'), 'mallard')
+            node = core.formTufoByProp('foo:bar', 'I am a robot', duck='mandarin')
+            self.eq(node[1].get('foo:bar:duck'), 'mandarin')
+
+    def test_cortex_module_datamodel_migration_persistent(self):
+        with self.getTestDir() as dirn:
+
+            # Test with a safefile based ram cortex
+            savefile = os.path.join(dirn, 'savefile.mpk')
+            with s_cortex.openurl('ram://', savefile=savefile) as core:
+                # Enforce data model consistency.
+                core.setConfOpt('enforce', 1)
+
+                mods = (('synapse.tests.test_cortex.CoreTestDataModelModuleV0', {}),)
+                core.setConfOpt('modules', mods)
+
+                self.eq(core.getModlVers('test'), 0)
+                self.nn(core.getTypeInst('foo:bar'))
+
+                node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
+                self.eq(node[1].get('tufo:form'), 'foo:bar')
+                self.eq(node[1].get('foo:bar'), 'I am a bar foo.')
+
+            with s_cortex.openurl('ram://', savefile=savefile) as core:
+                self.nn(core.getTypeInst('foo:bar'))
+                self.eq(core.getModlVers('test'), 0)
+                node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
+                self.false(node[1].get('.new'))
+
+                mods = (('synapse.tests.test_cortex.CoreTestDataModelModuleV1', {}),)
+                core.setConfOpt('modules', mods)
+
+                self.eq(core.getModlVers('test'), 201707210101)
+                self.true('foo:bar:duck' in core.props)
+
+                node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
+                self.eq(node[1].get('foo:bar:duck'), 'mallard')
+                node2 = core.formTufoByProp('foo:bar', 'I am a robot', duck='mandarin')
+                self.eq(node2[1].get('foo:bar:duck'), 'mandarin')
+
+            # Test with a SQLite backed cortex
+            path = os.path.join(dirn, 'test-model-migration.db')
+            with s_cortex.openurl('sqlite:///%s' % (path,)) as core:
+                # Enforce data model consistency.
+                core.setConfOpt('enforce', 1)
+
+                mods = (('synapse.tests.test_cortex.CoreTestDataModelModuleV0', {}),)
+                core.setConfOpt('modules', mods)
+
+                self.eq(core.getModlVers('test'), 0)
+                self.nn(core.getTypeInst('foo:bar'))
+
+                node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
+                self.eq(node[1].get('tufo:form'), 'foo:bar')
+                self.eq(node[1].get('foo:bar'), 'I am a bar foo.')
+
+            with s_cortex.openurl('sqlite:///%s' % (path,)) as core:
+                self.nn(core.getTypeInst('foo:bar'))
+                self.eq(core.getModlVers('test'), 0)
+                node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
+                self.false(node[1].get('.new'))
+
+                mods = (('synapse.tests.test_cortex.CoreTestDataModelModuleV1', {}),)
+                core.setConfOpt('modules', mods)
+
+                self.eq(core.getModlVers('test'), 201707210101)
+                self.true('foo:bar:duck' in core.props)
+
+                node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
+                self.eq(node[1].get('foo:bar:duck'), 'mallard')
+                node2 = core.formTufoByProp('foo:bar', 'I am a robot', duck='mandarin')
+                self.eq(node2[1].get('foo:bar:duck'), 'mandarin')

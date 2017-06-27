@@ -1,17 +1,19 @@
+from synapse.lib.module import CoreModule, modelrev
 
-def getDataModel():
-    return {
-        'prefix':'csci',
-        'version':201611301306,
+class CsciMod(CoreModule):
 
-        'types':(
-            ('csci:host',{'subof':'guid'}),
-            ('csci:hostfile',{'subof':'guid'}),
-            ('csci:hostfile',{'subof':'guid'}),
-        ),
+    @staticmethod
+    def getBaseModels():
+        modl = {
+            'types': (
+                ('csci:host', {'subof': 'guid'}),
+                ('csci:hostfile', {'subof': 'guid'}),
+            ),
 
-        'forms':(
-            ('csci:hostfile',{'ptype':'csci:hostfile'},[
-            ]),
-        ),
-    }
+            'forms': (
+                ('csci:hostfile', {'ptype': 'csci:hostfile'}, [
+                ]),
+            ),
+        }
+        name = 'csci'
+        return ((name, modl), )

@@ -36,14 +36,14 @@ class FileModelTest(SynTest):
             hset = s_axon.HashSet()
             hset.update(b'visi')
 
-            valu,props = hset.guid()
-            t0 = core.formTufoByProp('file:bytes',valu,**props)
+            valu, props = hset.guid()
+            t0 = core.formTufoByProp('file:bytes', valu, **props)
 
-            self.eq( t0[0], core.formTufoByProp('file:bytes:sha1', props.get('sha1') )[0] )
-            self.eq( t0[0], core.formTufoByProp('file:bytes:sha256', props.get('sha256') )[0] )
-            self.eq( t0[0], core.formTufoByProp('file:bytes:sha512', props.get('sha512') )[0] )
+            self.eq(t0[0], core.formTufoByProp('file:bytes:sha256', props.get('sha256'))[0])
+            self.eq(t0[0], core.formTufoByProp('file:bytes:sha512', props.get('sha512'))[0])
 
-            self.ne( t0[0], core.formTufoByProp('file:bytes:md5', props.get('md5') )[0] )
+            self.ne(t0[0], core.formTufoByProp('file:bytes:sha1', props.get('sha1'))[0])
+            self.ne(t0[0], core.formTufoByProp('file:bytes:md5', props.get('md5'))[0])
 
     def test_filepath(self):
 

@@ -36,6 +36,7 @@ class NoSuchMod(SynErr):pass
 class NoSuchSeq(SynErr):pass
 class NoRevAllow(SynErr):pass
 class NoSuchConf(SynErr):pass
+class NoSuchCtor(SynErr):pass
 class NoSuchForm(SynErr):pass
 class NoSuchPath(SynErr):pass
 class NoSuchStat(SynErr):pass
@@ -60,9 +61,11 @@ class DupPropName(SynErr):pass
 class DupFileName(SynErr):pass
 class BadPropName(SynErr):pass
 class BadCoreName(SynErr):pass
+class BadCtorType(SynErr):pass
 class BadMesgVers(SynErr):pass
 class BadInfoValu(SynErr):pass
 class BadStorValu(SynErr):pass
+class BadRevValu(SynErr):pass
 
 class NotGuidForm(SynErr):pass
 
