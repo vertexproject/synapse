@@ -8,6 +8,10 @@ selected specifically to demonstrate best case and worst case ingest performance
 
 A Note on Comparisons
 ---------------------
+
+"It doesn't matter that a 747 can carry more passengers than the Space Shuttle, when the mission
+is to repair a satellite" -visi
+
 When comparing these numbers to benchmarks published by various big data systems such
 as Hadoop and Elastic Search, it is very important to keep in mind the fundamental difference
 between a knowledge system like a synapse cortex versus a simple indexer such as Elastic Search.
@@ -22,9 +26,6 @@ However, there is also an advantage for a deconflicted knowledge system.  When e
 which has been previously observed, the system does not create a new node.  This has the counterintuitive
 effect of making a cortex typically become faster as it ingests more data.  This performance
 increase is especially true when ingesting data with many recurrent nodes.
-
-"It doesn't matter that a 747 can carry more passengers than the Space Shuttle, when the mission
-is to repair a satellite" -visi
 
 Test Data Sets
 ==============
@@ -61,28 +62,26 @@ caching in an attempt to measure the speed of the storage layer implementations 
 caching subsystem.  A production cortex configured with caches is likely to perform queries much
 faster than these results.
 
-Ram Python-3.5 ram:///
+ram-1
 ----------------------
 The RAM storage backing provides cortex storage and indexing using native python data structures
 such as dictionaries and lists.  This configuration is a highly performant cortex typically used
 for hypergraph data which can fit in system memory.  For these tests, the RAM cortex is initialized
 with default configuration options.
 
-
-LMDB lmdb:////tmp/bench.db
+lmdb-1
 --------------------------
 The LMDB storage backing provides cortex storage and indexing using the Symas Lightning DB
 available here: https://symas.com/lightning-memory-mapped-database/
+For these tests, the lmdb cortex is initialized with default configuration options.
 
-For these tests, the RAM cortex is initialized with default configuration options.
-
-Postgres (9.5) postgres:///
+postgres-1
 ---------------------------
 The Postgres storage layer provides cortex storage and indexing using the Postgresql Database
 available here: https://www.postgresql.org/.  For these tests, the Postgresql cortex is initialized
 with default values communicating with a default Postgresql 9.5 database on Ubuntu 16.04 LTS.
 
-Telepath Cluster
+telepath-x3
 ----------------
 The Telepath cluster test is designed to measure the scalability of a multi-cortex federation which
 is operating with the assumption of shard-based division of node creation across several cortex
@@ -101,48 +100,76 @@ The current benchmark testing environment is a cluster of 3 hosts with the follo
 Results
 =======
 
+Each of the test results below shows how the various test configurations perform under the different
+benchmark tests.  In sections below, we discuss results for individual configurations and what that
+means when selecting how to select a cortex configuration for a given purpose.
+
 .. image:: images/synapse_bench.png
+   :width: 100%
 
-ram
----
-* add w/ deconf: 3,347 nodes/sec
-* query node: 21,296 queries/sec
-* add w/o deconf: 11,460 nodes/sec
++----------------------------+-------------+------------+-------------+------------------+----------------+
+| benchmark                  | ram-1       | lmdb-1     | sqlite-1    | postgresql-1     | telepath-x3    |
++============================+=============+============+=============+==================+================+
+| add w/deconf (nodes/sec)   |        3,347|       1,478|          385|               336|                |
++----------------------------+-------------+------------+-------------+------------------+----------------+
+| query node (queries/sec )  |       21,296|       7,610|         8681|             1,304|                |
++----------------------------+-------------+------------+-------------+------------------+----------------+
+| add w/o deconf (nodes/sec) |       11,460|       6,310|          911|             2,473|          32,779|
++----------------------------+-------------+------------+-------------+------------------+----------------+
 
-lmdb
-----
+ram-1
+-----
 
-* add w/ deconf: 1,478 nodes/sec
-* query node: 7,610 queries/sec
-* add w/o deconf: 6,310 nodes/sec
+As expected, the ram-1 cortex has the advantage of speed.  In instances where it is possible to dedicate
+enough memory to a Cortex, this configuration can be deployed to achieve maximum deconfliction performance
+as well as being the fastest to query.  However, for large data sets this definitely puts a limit on use
+of 32 bit platforms and lower memory server configurations.  Another potential limitation in the use of a ram
+cortex is startup time.  In the case of a ram cortex which has enabled persistence, there may be a very
+long startup time during a reboot due to the cortex needing to playback change events on disk to reach the
+current state.
 
-sqlite
+Further testing will profile how much ram is expected for use by a cortex with a given population of nodes.
+
+lmdb-1
 ------
 
-* add w/ deconf: 385 nodes/sec
-* query node: 8681 queries/sec
-* add w/o deconf: 911 nodes/sec
+The lmdb-1 configuration strikes a powerful balance between performance and persistence.  It is highly likely
+that this configuration will become the recommended default configuration for production deployments.
 
-postgres
+sqlite-1
 --------
 
-* add w/ deconf: 336 nodes/sec
-* query node: 1,304 queries/sec
-* add w/o deconf: 2473 nodes/sec
+The sqlite-1 configuration demonstrates the powerful query speed of the underlying sqlite db backend.
+However, transactional limits and insert speeds are quite a bit slower.  This makes an sqlite Cortex
+most ideal for use with large datasets which grow a bit more slowly but are expected to be queried very
+quickly.
+
+postgres-1
+----------
+
+The postgres-1 configuration is the only test configuration which uses a storage mechanism which resides
+outside the python process running the Cortex.  This requires the use of Inter Process Communication (IPC)
+using local pipes, and forces many context switches in comparison with the other configurations.
+
+However, future testing of parallel query execution is expected to demonstrate postgres as a highly capable
+parallel query platform, potentially making it more attractive for use with a larger number of querying clients.
 
 telepath x3
 -----------
 
-* add w/o deconf: 32,779 nodes/sec
-* scale efficiency: 2.8 / 3.0
-
-Current results show highly efficient scale gains when using multiple cortexes in a shard configuration.
+Current results show highly efficient scale gains when using multiple cortexes in a federated configuration.
 However, the current testing environment involves the use of only 3 systems.  Future scale testing
 using additional hardware will be a better estimate of performance in a truly production scale cluster.
 That being said, current results are promising.
+
+* scale efficiency: 2.8 / 3.0
+
+Future testing of parallel query execution is expected to achieve even higher levels of efficiency.
 
 Additional Tests
 ================
 
 Over the course of subsequent releases, a table will be added here showing the performance of releases
-over time using line graphs showing the various test results over time.
+over time using line graphs showing the various test results over time.  Additionally, tests which measure
+parallel query performance will be implemented to demonstrate storage backings which operate well or poorly
+under highly parallel query load.
