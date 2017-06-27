@@ -87,15 +87,37 @@ class AskCmd(s_cli.Cmd):
             return resp
 
         for node in nodes:
+
             form = node[1].get('tufo:form')
             valu = node[1].get(form)
 
-            tags = sorted(s_tufo.tags(node,leaf=True))
-            tags = [ '#'+tag for tag in tags ]
+            leafs = set(sorted(s_tufo.tags(node,leaf=True)))
+
+            taglines = []
+            for tag in sorted(s_tufo.tags(node)):
+
+                prop = '#' + tag
+                asof = node[1].get(prop)
+
+                ival = s_tufo.ival(node, prop)
+                if ival is None and tag not in leafs:
+                    continue
+
+                mesg = '%s (added %s)' % (prop, core.getTypeRepr('time',asof))
+                if ival is not None:
+                    mins = core.getTypeRepr('time',ival[0])
+                    maxs = core.getTypeRepr('time',ival[1])
+                    mesg += ' %s  -  %s' % (mins,maxs)
+
+                taglines.append(mesg)
 
             # FIXME local typelib and datamodel
             disp = core.getPropRepr(form,valu)
-            self.printf('%s = %s - %s' % (form.ljust(fsize),disp,' '.join(tags)))
+
+            self.printf('%s = %s' % (form.ljust(fsize),disp))
+            for line in taglines:
+                self.printf('    %s' % (line,))
+
             if opts.get('props'):
                 pref = form + ':'
                 flen = len(form)

@@ -500,7 +500,7 @@ class DataTypesTest(SynTest):
     def test_types_tagtime(self):
 
         with s_cortex.openurl('ram:///') as core:
-            valu,subs = core.getTypeNorm('syn:tag','Foo.Bar@20161217,20171217')
+            valu,subs = core.getTypeNorm('syn:tag','Foo.Bar@20161217-20171217')
 
             self.eq(valu, 'foo.bar')
             self.eq( subs['seen:min'], 1481932800000 )
