@@ -8,7 +8,7 @@ This is intended as a reference for developers working on Synapse who are creati
 or for developers who are looking to extend Synapse for their own use by the creation of new models.
 
 This is not intended as a 'how-to' guide for Synapse hypergraph modeling, rather a document for how models may be
-defined and loaded into a cortex.
+defined and loaded into a Cortex.
 
 Models As Code
 --------------
@@ -17,15 +17,12 @@ The the core models used in Synapse hypergraph implementations are a part of the
 This allows the model definitions to grow along with the codebase over time.  One feature we have in Synapse is the
 ability to track model revisions over time. By using the Cortex extensions class, CoreModule, we can implement our
 modules, and specific handlers for them, and migration steps over time in a single place.  By placing some
-conventions around how the CoreModule is used for modeling, we can ensure consistency across both the Cortex, DataModel
+conventions around how the CoreModule is used for modeling, we can ensure consistency across the Cortex, DataModel
 and TypeLib classes; as well as ensuring that consistent data migrations are available to Cortex users.
 
 An example of a simple model definition file is the following ::
 
     import synapse.lib.module as s_module
-
-    def getDataModel():
-        return FooBarModule.getBaseModels()[0][1]
 
     class FooBarModule(s_module.CoreModule):
 
@@ -46,8 +43,8 @@ This example module inherits from the the Synapse CoreModule. The initial model 
 pairs; which are returned by the getBaseModels() function.  One @staticmethod, getBaseModels, is defined which returns
 a iterable of name, model tuples. This serves two purposes:
 
-  #. The @staticmethod nature of the getBaseModels function allows the implementation of a getDataModel function.
-     This allows the path to be loaded as a dynamic synapse module; which is used by the TypeLib and DataModel
+  #. The @staticmethod nature of the getBaseModels function allows for the data model to directly available.
+     This allows the path to be loaded as a dynamic Synapse module; which is used by the TypeLib and DataModel
      classes.  This way, those classes may always have the latest versions of the model available.
 
   #. Upon loading the the CoreModule implementation into a Cortex, each name & model pair is considered as the
@@ -70,7 +67,7 @@ Under the hood, when the model is loaded by the Cortex, the rev0 function and an
 sorted by model version, and these functions are then executed when CoreModule initialization is completed. This has
 the following effects:
 
-    - On new Cortex's, the rev0 function will be loaded (adding the complete data model). Then subsequent functions
+    - On new Cortexes, the rev0 function will be loaded (adding the complete data model). Then subsequent functions
       will be executed.  These should perform any model changes and data migrations as needed.
     - On existing Cortexes which have already had the base model loaded; the rev0 function will be skipped and
       subsequent functions executed until the last function has been executed.  These functions should perform a model
@@ -78,14 +75,11 @@ the following effects:
 
 The following is a second revision of the earlier FooBarModule - it add a property for the foo:bar type, and performs
 a storage layer migration of nodes to set a default value for the new property. The model revision for the foobar model
-will be updated to 201707210101 in the cortex.  Note that during the model revision function, we exit the function
+will be updated to 201707210101 in the Cortex.  Note that during the model revision function, we exit the function
 early if the new property already exists.  This would cause the current model version to be set and any subsequent
 functions called.::
 
     import synapse.lib.module as s_module
-
-    def getDataModel():
-        return FooBarModule.getBaseModels()[0][1]
 
     class FooBarModule(s_module.CoreModule):
 
@@ -124,19 +118,17 @@ that their migration functions are working correctly.
 Advanced CoreModule Usage
 -------------------------
 
-The CoreModule class can be used to define model handlers can be used to not just add models, but also add event
-handlers.  For example, we can define events using the @on handler for specific actions; and currently model creation
-events are specifically plumbed.  The CoreModule has a handle to the associated Cortex as well.  An example of
-extending the previous example is shown below (minus migration functions). ::
+The CoreModule class can also be used to extend the functionality of the Cortex beyond simply adding additional model
+definitions. The CoreModule has access to the Cortex is loaded with, for example, we can use it to add additional
+event handlers; type casts; or other functionality. The @on decorator (from eventbus.py) can be used to quickly strap
+in additional actions, and the CoreModule class itself has specific event helpers as well (with more coming soon).
+An example of extending the previous example is shown below (minus migration functions). ::
 
     import logging
     import synpase.eventbus as s_eventbus
     import synapse.lib.module as s_module
 
     logger = logging.getLogger(__name__)
-
-    def getDataModel():
-        return FooBarModule.getBaseModels()[0][1]
 
     class FooBarModule(s_module.CoreModule):
 
@@ -148,8 +140,7 @@ extending the previous example is shown below (minus migration functions). ::
             # initCoreModule and define module revisions.
             self.revCoreModl()
 
-        @staticmethod
-        def onTufoFormKnight(form, valu, props, mesg):
+        def onTufoFormKnight(self, form, valu, props, mesg):
             if valu in ['erec', 'lancelot', 'blumenthal']:
                 props['foo:knight:court'] = 'round table'
 
@@ -185,43 +176,35 @@ extending the previous example is shown below (minus migration functions). ::
 This example shows the overriding of the initCoreModule() function, which registers a single function as a helper
 during node creation, and calls the revCoreModl() to cache the model revision functions for model initalization use by
 the Cortex.  The helper is used to set a secondary property based on the primary property of the node.  In addition,
-the @s_eventbus.on decorator is used to perform any action when a event is fired in the Cortex attached to the class.
+the @s_eventbus.on decorator is used to perform any action when an event is fired in the Cortex attached to the class.
 In the example, a message is logged; but other data could be retrieved, or looked up or modified; etc.
 
 Core Synapse Model Conventions
 ------------------------------
 
-The Core synapse modules are defined in the synapse/__init__.py file, in the BASE_MODELS list.  This is a list of
-tuple values; containing the path to the coremodule name, and the options.  The base modules typically do not have
+The core Synapse modules are defined in the synapse/__init__.py file, in the BASE_MODELS list.  This is a list of
+tuple values; containing the path to the CoreModule ctor, and the options.  The base modules typically do not have
 options in them.  New modules which contain new models should be added to the BASE_MODELs list.
 
-During the import process of Synapse, the python modules will be loaded and cached in order for the TypeLib and
-DataModel classes to load model data without relying on having a whole Cortex; and the Cortex initialization itself
-will read and load the the classes from BASE_MODELS and perform any model updates.
+During the import process of Synapse, the python modules will be loaded and cached by the
+synapse.lib.modules.load_ctor() function. In addition, any ctors present in the environmental variable
+SYN_CORE_MODULES will also be loaded. The models contained in these ctors will be used to populate model information
+for instances of the TypeLib and DataModel classes, as well as serve as the CoreModules loaded into Cortexes upon
+creation.
 
-The convention for models in the Synapse BASE_MODELS shall maintain a single CoreModule subclass per file, and this
-subclass will be responsible for maintaining a single named model.
+The convention for CoreModules which implement data models within the core Synapse codebase shall maintain a
+single CoreModule subclass per file, and this subclass will be responsible for maintaining a single named model.
 
 Gotchas
 -------
 
 The following modeling gotchas exist:
 
-  - The implementation of getBaseModels should be a @staticMethod, if it is intended to be used with a
-    implementation of the getDataModel() function.
+  - The implementation of getBaseModels should be a @staticMethod, since it may be called directly by TypeLib or
+    DataModel creation if the ctor has been loaded by synapse.lib.modules.load_ctor().
   - It is possible for a single CoreModule to implement multiple named models, and revision them separately with
-    @s_module.modelrev() decorators.  If standalone use of TypeLib and the DataModel classes are needed, and the
-    module is added to the the dynamic synapse modules via synapse.lib.modules.load() calls; the implementation of
-    getDataModel() should merge the multiple named models together.  One way to do that is the following::
-
-      def getDataModel():
-          mtypes = []
-          mforms = []
-          for name, modl in FooBarModule.getBaseModels():
-              mtypes.extend(modl.get('types', ()))
-              mforms.extend(modl.get('forms', ()))
-          return {'types': tuple(mtypes), 'forms': tuple(mforms)}
-
+    @s_module.modelrev() decorators. The core Synapse modules will not be implemented in such a manner for the sake
+    of simplicity in the codebase.
   - While it is possible for the model revision functions to simply add the base model data; it should really only
     do the changes neccesary to support the model changes. Currently, there are self.core.addTufoForm,
     self.core.addPropDef, and self.core.addType functions available for doing model additions. These functions may
