@@ -89,14 +89,18 @@ class DaemonTest(SynTest):
                 ('woot','ctor://synapse.tests.test_daemon.Woot()'),
                 ('blah','ctor://synapse.tests.test_daemon.Blah(woot)'),
             ),
+            'modules':(
+                ('synapse.tests.nopmod',{}),
+            ),
         }
 
         dcon = DmonConfTest()
         dcon.loadDmonConf(conf)
 
-        self.assertEqual( dcon.locs.get('hehe'), 10 )
-        self.assertEqual( dcon.locs.get('woot').foo(10,y=30), 40 )
-        self.assertEqual( dcon.locs.get('blah').woot.foo(10,y=30), 40 )
+        self.eq( dcon.locs.get('hehe'), 10 )
+        self.eq( dcon.locs.get('woot').foo(10,y=30), 40 )
+        self.eq( dcon.locs.get('blah').woot.foo(10,y=30), 40 )
+        self.nn( sys.modules.get('synapse.tests.nopmod') )
 
     def test_daemon_conf_onfini(self):
 

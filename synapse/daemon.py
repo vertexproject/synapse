@@ -9,6 +9,7 @@ import multiprocessing
 
 import synapse.link as s_link
 import synapse.compat as s_compat
+import synapse.dyndeps as s_dyndeps
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.socket as s_socket
@@ -194,6 +195,12 @@ class DmonConf:
         title = conf.get('title')
         if title != None:
             s_thisplat.setProcName('dmon: %s' % title)
+
+        # handle explicit module load requests
+        for name,info in conf.get('modules',()):
+            modu = s_dyndeps.getDynMod(name)
+            if modu == None:
+                logger.warning('dmon mod not loaded: %s', name)
 
         # handle includes next
         for path in conf.get('includes',()):
