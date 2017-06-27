@@ -593,9 +593,11 @@ def parse(text, off=0):
         # [ -#foo.bar ] == deltag(foo.bar)
         if nextchar(text,off,'['):
 
+            off += 1
+
             while True:
 
-                _,off = nom(text,off+1,whites)
+                _,off = nom(text,off,whites)
                 if nextchar(text,off,']'):
                     off += 1
                     break

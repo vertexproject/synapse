@@ -480,6 +480,10 @@ class StormTest(SynTest):
             nodes = core.eval('inet:ipv4 -#foo.bar@201606')
             self.eq( nodes[0][1].get('inet:ipv4'), 0x05060708)
 
+    def test_storm_edit_end(self):
+        with s_cortex.openurl('ram:///') as core:
+            self.eq( len(core.eval(' [ inet:dns:a="woot.com/1.2.3.4" ] +:seen:min >= "2014" ')), 0)
+
 class LimitTest(SynTest):
 
     def test_limit_default(self):
