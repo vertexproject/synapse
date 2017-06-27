@@ -342,6 +342,8 @@ def parse_ques(text,off=0,trim=True):
     ques['cmp'] = 'has'
     ques['prop'] = name
 
+    _,off = nom(text,off,whites)
+
     if len(text) == off:
         return ques,off
 
@@ -354,7 +356,11 @@ def parse_ques(text,off=0,trim=True):
 
         ques['prop'] = name
 
+    _,off = nom(text,off,whites)
+
     while True:
+
+        _,off = nom(text,off,whites)
 
         if len(text) == off:
             return ques,off
@@ -368,21 +374,26 @@ def parse_ques(text,off=0,trim=True):
             continue
 
         # NOTE: "by" macro syntax only supports eq so we eat and run
-        if text[off] == '*':
+        if nextchar(text,off,'*'):
+            _,off = nom(text,off+1,whites)
 
-            ques['cmp'],off = nom(text,off+1,varset,trim=True)
+            ques['cmp'],off = nom(text,off,varset,trim=True)
             if len(text) == off:
                 return ques,off
 
-            if text[off] != '=':
+            if not nextchar(text,off,'='):
                 raise SyntaxError(text=text, off=off, mesg='expected equals for by syntax')
 
-            ques['valu'],off = parse_macro_valu(text,off+1)
+            _,off = nom(text,off+1,whites)
+
+            ques['valu'],off = parse_macro_valu(text,off)
             return ques,off
 
-        if text[off] == '=':
+        if nextchar(text,off,'='):
+            _,off = nom(text,off+1,whites)
+
             ques['cmp'] = 'eq'
-            ques['valu'],off = parse_macro_valu(text,off+1)
+            ques['valu'],off = parse_macro_valu(text,off)
             break
 
         # TODO: handle "by" syntax
@@ -564,9 +575,11 @@ def parse(text, off=0):
         # [ -#foo.bar ] == deltag(foo.bar)
         if nextchar(text,off,'['):
 
+            off += 1
+
             while True:
 
-                _,off = nom(text,off+1,whites)
+                _,off = nom(text,off,whites)
                 if nextchar(text,off,']'):
                     off += 1
                     break

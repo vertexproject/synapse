@@ -272,7 +272,7 @@ def getModDefImps(moddef):
 
     return imps
 
-siteskip = ('msgpack','requests','tornado')
+siteskip = ('msgpack','requests','tornado', 'lmdb')
 def getSiteDeps(moddef):
     '''
     Return a {name:moddef} dict for all deps of
