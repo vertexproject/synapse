@@ -12,7 +12,11 @@ MODEL_REV_FORMAT = '%Y%m%d%H%M'
 
 def modelrev(name, vers):
     '''
-    A decoarator used to flag model revision functions.
+    A decorator used to flag model revision functions.
+
+    Args:
+        name (str): Name of the model.
+        vers (int): Revision of the model. It is validated using validate_revnumber.
     '''
 
     def wrap(f):
