@@ -2,9 +2,6 @@ from synapse.lib.types import DataType
 
 from synapse.lib.module import CoreModule, modelrev
 
-def getDataModel():
-    return PsMod.getBaseModels()[0][1]
-
 # FIXME identify/handle possibly as seeds
 # tony stark
 # tony logan stark

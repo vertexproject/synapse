@@ -12,9 +12,6 @@ from synapse.exc import BadTypeValu
 from synapse.lib.types import DataType
 from synapse.lib.module import CoreModule, modelrev
 
-def getDataModel():
-    return InetMod.getBaseModels()[0][1]
-
 def castInetDeFang(valu):
     return valu.replace('[.]', '.')
 

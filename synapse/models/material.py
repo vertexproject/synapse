@@ -3,9 +3,6 @@ A data model focused on material objects.
 '''
 from synapse.lib.module import CoreModule, modelrev
 
-def getDataModel():
-    return MatMod.getBaseModels()[0][1]
-
 class MatMod(CoreModule):
 
     @staticmethod

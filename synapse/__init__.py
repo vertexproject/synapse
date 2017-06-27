@@ -17,8 +17,6 @@ if tornado.version_info < (3,2,2):
 version = (0,0,19)
 verstring = '.'.join([ str(x) for x in version ])
 
-import synapse.lib.modules as s_modules
-
 # load all the synapse builtin modules
 # the built-in cortex modules...
 BASE_MODULES = (
@@ -26,6 +24,7 @@ BASE_MODULES = (
     ('synapse.models.dns.DnsMod', {}),
     ('synapse.models.orgs.OuMod', {}),
     ('synapse.models.inet.InetMod', {}),
+    ('synapse.models.mime.MimeMod', {}),
     ('synapse.models.person.PsMod', {}),
     ('synapse.models.telco.TelMod', {}),
     ('synapse.models.files.FileMod', {}),
@@ -48,14 +47,20 @@ BASE_MODULES = (
     ('synapse.models.gov.intl.GovIntlMod', {}),
 )
 
+import synapse.lib.modules as s_modules
 for mod, conf in BASE_MODULES:
-    modpath = mod.rsplit('.', 1)[0]
-    s_modules.load(modpath)
+    s_modules.load_ctor(mod)
 
-# Rebuild the datamodel's typelib now that we have loaded builtin modules.
-import synapse.datamodel as s_datamodel
-s_datamodel.rebuildTlib()
+# Register any CoreModules from envars
+mods = os.getenv('SYN_CORE_MODULES')
+if mods:
+    for name in mods.split(','):
+        try:
+            s_modules.load_ctor(name)
+        except Exception as e:
+            logger.warning('SYN_CORE_MODULES failed: %s (%s)' % (name,e))
 
+# Register any synapse modules from envars
 mods = os.getenv('SYN_MODULES')
 if mods:
     for name in mods.split(','):
@@ -64,9 +69,13 @@ if mods:
         except Exception as e:
             logger.warning('SYN_MODULES failed: %s (%s)' % (name,e))
 
+# Rebuild the datamodel's typelib now that we have loaded
+# builtin and envar modules.
+import synapse.datamodel as s_datamodel
+s_datamodel.rebuildTlib()
+
 # load any modules which register dyndeps aliases...
 # ( order matters...)
 import synapse.axon
 import synapse.cortex
 #import synapse.cores.common as s_cores_common
-

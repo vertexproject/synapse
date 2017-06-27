@@ -2,9 +2,6 @@ from synapse.lib.module import CoreModule
 
 latlongre = '^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)$'
 
-def getDataModel():
-    return GeoMod.getBaseModels()[0][1]
-
 class GeoMod(CoreModule):
 
     @staticmethod

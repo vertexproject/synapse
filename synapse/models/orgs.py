@@ -1,9 +1,6 @@
 from synapse.common import guid
 from synapse.lib.module import CoreModule, modelrev
 
-def getDataModel():
-    return OuMod.getBaseModels()[0][1]
-
 class OuMod(CoreModule):
 
     def initCoreModule(self):

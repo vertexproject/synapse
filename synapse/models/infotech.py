@@ -1,8 +1,5 @@
 from synapse.lib.module import CoreModule
 
-def getDataModel():
-    return ItMod.getBaseModels()[0][1]
-
 class ItMod(CoreModule):
 
     @staticmethod

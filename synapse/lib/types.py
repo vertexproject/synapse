@@ -10,7 +10,6 @@ import collections
 
 import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
-import synapse.eventbus as s_eventbus
 
 import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
@@ -674,9 +673,9 @@ class TypeLib:
 
     def loadModModels(self):
 
-        modls = s_modules.call('getDataModel')
+        dynmodls = s_modules.call_ctor('getBaseModels')
 
-        models = [ (name,modl) for (name,modl,excp) in modls if modl != None ]
+        models = [(modname, modl) for name, modls, excp in dynmodls for modname, modl in modls if modls]
 
         self.loadDataModels(models)
 

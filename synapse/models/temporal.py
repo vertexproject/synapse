@@ -10,9 +10,6 @@ def fromUnixEpoch(valu):
         valu = int(valu, 0)
     return valu * 1000
 
-def getDataModel():
-    return TimeMod.getBaseModels()[0][1]
-
 class EpochType(DataType):
     def __init__(self, tlib, name, **info):
         DataType.__init__(self, tlib, name, **info)

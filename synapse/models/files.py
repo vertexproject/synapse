@@ -4,9 +4,6 @@ from synapse.lib.types import DataType
 from synapse.common import addpref, guid
 from synapse.lib.module import CoreModule, modelrev
 
-def getDataModel():
-    return FileMod.getBaseModels()[0][1]
-
 class FileBaseType(DataType):
     def norm(self, valu, oldval=None):
         if not (s_compat.isstr(valu) and not valu.find('/') > -1):

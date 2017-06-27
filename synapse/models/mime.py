@@ -1,11 +1,9 @@
+from synapse.lib.module import CoreModule
 
-def getDataModel():
-    return {
-        'prefix':'mime',
-        'version':201611300955,
+class MimeMod(CoreModule):
 
-        'forms':(
-            # FIXME file type specific metadata forms
-        ),
-
-    }
+    @staticmethod
+    def getBaseModels():
+        modl = {}
+        name = 'mime'
+        return ((name, modl),)

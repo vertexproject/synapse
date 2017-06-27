@@ -2,9 +2,6 @@ from synapse.common import guid
 from synapse.eventbus import on
 from synapse.lib.module import CoreModule, modelrev
 
-def getDataModel():
-    return GovCnMod.getBaseModels()[0][1]
-
 class GovCnMod(CoreModule):
 
     @staticmethod

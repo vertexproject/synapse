@@ -36,6 +36,7 @@ class NoSuchMod(SynErr):pass
 class NoSuchSeq(SynErr):pass
 class NoRevAllow(SynErr):pass
 class NoSuchConf(SynErr):pass
+class NoSuchCtor(SynErr):pass
 class NoSuchForm(SynErr):pass
 class NoSuchPath(SynErr):pass
 class NoSuchStat(SynErr):pass

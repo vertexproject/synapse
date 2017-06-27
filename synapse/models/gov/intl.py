@@ -1,8 +1,5 @@
 from synapse.lib.module import CoreModule, modelrev
 
-def getDataModel():
-    return GovIntlMod.getBaseModels()[0][1]
-
 class GovIntlMod(CoreModule):
 
     @staticmethod

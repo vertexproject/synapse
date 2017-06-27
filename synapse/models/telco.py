@@ -91,9 +91,6 @@ class PhoneType(DataType):
 
         return '+' + text
 
-def getDataModel():
-    return TelMod.getBaseModels()[0][1]
-
 class TelMod(CoreModule):
 
     def initCoreModule(self):
