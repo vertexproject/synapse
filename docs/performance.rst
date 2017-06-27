@@ -75,6 +75,12 @@ The LMDB storage backing provides cortex storage and indexing using the Symas Li
 available here: https://symas.com/lightning-memory-mapped-database/
 For these tests, the lmdb cortex is initialized with default configuration options.
 
+sqlite-1
+---------
+The sqlite storage layer provides cortex storage and indexing using the SQLite embedded database
+library which is built into the python interpreter.  For these tests, the sqlite-1 cortex
+is intitialized with default values.
+
 postgres-1
 ---------------------------
 The Postgres storage layer provides cortex storage and indexing using the Postgresql Database
