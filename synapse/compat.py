@@ -25,6 +25,8 @@ if version < (3,0,0):
 
     from cStringIO import StringIO as BytesIO
 
+    import urllib
+
     # since py27 is aparently incapable of interning
     # unicode strings, we will simply nop this optimization 
     def intern(x):
@@ -92,6 +94,13 @@ if version < (3,0,0):
     def iterzip(*args):
         return itertools.izip_longest(*args)
 
+    def url_quote(s):
+        return urllib.quote(s)
+
+    def url_quote_plus(s):
+        return urllib.quote_plus(s)
+
+
 else:
 
     import sys
@@ -99,6 +108,8 @@ else:
     import builtins
 
     from io import BytesIO
+
+    import urllib.parse
 
     intern = sys.intern
 
@@ -139,3 +150,9 @@ else:
 
     def iterzip(*args):
         return itertools.zip_longest(*args)
+
+    def url_quote(s):
+        return urllib.parse.quote(s)
+
+    def url_quote_plus(s):
+        return urllib.parse.quote_plus(s)

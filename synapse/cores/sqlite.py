@@ -237,9 +237,11 @@ class Cortex(s_cores_common.Cortex):
         limit = self._getDbLimit(limit)
 
         q = self._q_getrows_by_range
-        args = [ prop, valu[0], valu[1], limit ]
 
-        rows = self.select(q, prop=prop, minvalu=valu[0], maxvalu=valu[1], limit=limit)
+        minvalu = int(self.getPropNorm(prop,valu[0])[0])
+        maxvalu = int(self.getPropNorm(prop,valu[1])[0])
+
+        rows = self.select(q, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)
         return self._foldTypeCols(rows)
 
     def _rowsByGe(self, prop, valu, limit=None):
@@ -258,7 +260,9 @@ class Cortex(s_cores_common.Cortex):
     def _sizeByRange(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getsize_by_range
-        return self.select(q,prop=prop,minvalu=valu[0],maxvalu=valu[1],limit=limit)[0][0]
+        minvalu = int(self.getPropNorm(prop,valu[0])[0])
+        maxvalu = int(self.getPropNorm(prop,valu[1])[0])
+        return self.select(q,prop=prop,minvalu=minvalu,maxvalu=maxvalu,limit=limit)[0][0]
 
     def _sizeByGe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
@@ -560,9 +564,8 @@ class Cortex(s_cores_common.Cortex):
         if len(valu) != 2:
             return []
 
-        minvalu,maxvalu = valu
-        if not s_compat.isint(minvalu) or not s_compat.isint(maxvalu):
-            raise Exception('by "range" requires (int,int)')
+        minvalu = int(self.getPropNorm(prop,valu[0])[0])
+        maxvalu = int(self.getPropNorm(prop,valu[1])[0])
 
         limit = self._getDbLimit(limit)
 
@@ -571,7 +574,7 @@ class Cortex(s_cores_common.Cortex):
         return self._rowsToTufos(rows)
 
     def _tufosByLe(self, prop, valu, limit=None):
-        valu,_ = self.getPropFrob(prop,valu)
+        valu,_ = self.getPropNorm(prop,valu)
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_le_int, prop=prop, valu=valu, limit=limit)
@@ -580,7 +583,7 @@ class Cortex(s_cores_common.Cortex):
         return self._rowsToTufos(rows)
 
     def _tufosByGe(self, prop, valu, limit=None):
-        valu,_ = self.getPropFrob(prop,valu)
+        valu,_ = self.getPropNorm(prop,valu)
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_ge_int, prop=prop, valu=valu, limit=limit)

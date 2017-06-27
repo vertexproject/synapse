@@ -27,7 +27,19 @@ def jobret(job):
 
     '''
     err = job[1].get('err')
+
+    # populate errinfo into SynErr
+    info = job[1].get('errinfo')
+    if info == None:
+        info = {}
+
     if err != None:
+        if err != 'NameErr':
+            try:
+                info = job[1].get('errinfo',{})
+                raise synerr(err,**info)
+            except NameError as e:
+                pass
         raise JobErr(job)
     return job[1].get('ret')
 
@@ -132,7 +144,8 @@ class Boss(EventBus):
         return list(self._boss_jobs.values())
 
     def __iter__(self):
-        return self.jobs()
+        for job in self.jobs():
+            yield job
 
     def job(self, jid):
         '''
@@ -207,7 +220,7 @@ class Boss(EventBus):
         Wait and return the value for the job.
         '''
         if not self.wait(job[0], timeout=timeout):
-            raise MaxTimeHit(timeout)
+            raise HitMaxTime(timeout)
 
         return jobret(job)
 
@@ -223,6 +236,8 @@ class Boss(EventBus):
         '''
         task = job[1].get('task')
         if task == None:
+            # TODO This attribute is not set, a bad tufo
+            # sent to _runJob will have unexpected behavior.
             self.setJobErr(job[0],'NoJobTask')
             return
 

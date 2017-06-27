@@ -73,7 +73,7 @@ class Cache(EventBus):
         finally:
             if not self.isfini and self.maxtime != None:
                 ival = self.maxtime / 10.0
-                self.sched.insec(ival, self._checkCacheTimes )
+                self.schevt = self.sched.insec(ival, self._checkCacheTimes )
 
     def clear(self):
         '''
@@ -174,7 +174,10 @@ class Cache(EventBus):
         return len(self.cache)
 
     def __iter__(self):
-        return list( self.cache.items() )
+        return iter(list(self.cache.items()))
+
+    def __contains__(self, item):
+        return item in self.cache
 
     def _onCacheFini(self):
         for key in self.keys():
@@ -197,7 +200,7 @@ class FixedCache(EventBus):
         self.cache = {}
         self.onmiss = onmiss
         self.maxsize = maxsize
-        self.cachelock = threading.Lock()
+        self.cachelock = threading.RLock()
 
         self.fifo = collections.deque()
 
@@ -238,6 +241,12 @@ class FixedCache(EventBus):
         with self.cachelock:
             self.fifo.clear()
             self.cache.clear()
+
+    def __len__(self):
+        return len(self.fifo)
+
+    def __contains__(self, item):
+        return item in self.cache
 
 class TufoCache(Cache):
 

@@ -12,10 +12,11 @@ class DataTypesTest(SynTest):
     def test_datatype_basics(self):
 
         tlib = s_types.TypeLib()
-        self.assertTrue( isinstance(tlib.getDataType('inet:url'), s_types.DataType) )
+        self.true( tlib.isDataType('inet:url') )
+        self.true( isinstance(tlib.getDataType('inet:url'), s_types.DataType) )
 
-        self.assertIsNone( tlib.getDataType('newp') )
-        self.assertRaises( NoSuchType, tlib.reqDataType, 'newp' )
+        self.none( tlib.getDataType('newp') )
+        self.raises( NoSuchType, tlib.reqDataType, 'newp' )
 
     def test_datatype_inet_url(self):
         tlib = s_types.TypeLib()
@@ -24,10 +25,6 @@ class DataTypesTest(SynTest):
         self.eq( tlib.getTypeNorm('inet:url','http://WoOt.com/HeHe')[0], 'http://woot.com/HeHe' )
         self.eq( tlib.getTypeNorm('inet:url','HTTP://WoOt.com/HeHe')[0], 'http://woot.com/HeHe' )
         self.eq( tlib.getTypeNorm('inet:url','HttP://Visi:Secret@WoOt.com/HeHe&foo=10')[0], 'http://Visi:Secret@woot.com/HeHe&foo=10' )
-
-        self.eq( tlib.getTypeFrob('inet:url','http://WoOt.com/HeHe')[0], 'http://woot.com/HeHe' )
-        self.eq( tlib.getTypeFrob('inet:url','HTTP://WoOt.com/HeHe')[0], 'http://woot.com/HeHe' )
-        self.eq( tlib.getTypeFrob('inet:url','HttP://Visi:Secret@WoOt.com/HeHe&foo=10')[0], 'http://Visi:Secret@woot.com/HeHe&foo=10' )
 
         self.assertRaises( BadTypeValu, tlib.getTypeParse, 'inet:url', 'newp' )
         self.eq( tlib.getTypeParse('inet:url','http://WoOt.com/HeHe')[0], 'http://woot.com/HeHe' )
@@ -40,22 +37,15 @@ class DataTypesTest(SynTest):
         tlib = s_types.TypeLib()
 
         self.eq( tlib.getTypeNorm('inet:ipv4',0x01020304)[0], 0x01020304 )
-        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:ipv4', '0x01020304')
-
-        self.eq( tlib.getTypeFrob('inet:ipv4','1.2.3.4')[0], 0x01020304 )
-        self.eq( tlib.getTypeFrob('inet:ipv4',0x01020304)[0], 0x01020304 )
-
+        self.eq( tlib.getTypeNorm('inet:ipv4','0x01020304')[0], 0x01020304 )
         self.eq( tlib.getTypeParse('inet:ipv4','1.2.3.4')[0], 0x01020304 )
-
         self.eq( tlib.getTypeRepr('inet:ipv4',0x01020304), '1.2.3.4' )
 
     def test_datatype_inet_tcp4(self):
         tlib = s_types.TypeLib()
 
+        self.eq( tlib.getTypeNorm('inet:tcp4','1.2.3.4:2')[0], 0x010203040002 )
         self.eq( tlib.getTypeNorm('inet:tcp4',0x010203040002)[0], 0x010203040002 )
-
-        self.eq( tlib.getTypeFrob('inet:tcp4',0x010203040002)[0], 0x010203040002 )
-        self.eq( tlib.getTypeFrob('inet:tcp4','1.2.3.4:2')[0], 0x010203040002 )
 
         self.assertRaises( BadTypeValu, tlib.getTypeParse, 'inet:tcp4', 'newp' )
         self.eq( tlib.getTypeParse('inet:tcp4','1.2.3.4:2')[0], 0x010203040002 )
@@ -65,10 +55,8 @@ class DataTypesTest(SynTest):
     def test_datatype_inet_udp4(self):
         tlib = s_types.TypeLib()
 
+        self.eq( tlib.getTypeNorm('inet:udp4','1.2.3.4:2')[0], 0x010203040002 )
         self.eq( tlib.getTypeNorm('inet:udp4',0x010203040002)[0], 0x010203040002 )
-
-        self.eq( tlib.getTypeFrob('inet:udp4',0x010203040002)[0], 0x010203040002 )
-        self.eq( tlib.getTypeFrob('inet:udp4','1.2.3.4:2')[0], 0x010203040002 )
 
         self.assertRaises( BadTypeValu, tlib.getTypeParse, 'inet:udp4', 'newp' )
         self.eq( tlib.getTypeParse('inet:udp4','1.2.3.4:2')[0], 0x010203040002 )
@@ -89,7 +77,6 @@ class DataTypesTest(SynTest):
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'inet:mac', 'newp' )
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:mac', 'newp' )
 
-        self.eq( tlib.getTypeFrob('inet:mac', 'FF:FF:FF:FF:FF:FF')[0], 'ff:ff:ff:ff:ff:ff' )
         self.eq( tlib.getTypeNorm('inet:mac', 'FF:FF:FF:FF:FF:FF')[0], 'ff:ff:ff:ff:ff:ff' )
         self.eq( tlib.getTypeParse('inet:mac', 'FF:FF:FF:FF:FF:FF')[0], 'ff:ff:ff:ff:ff:ff' )
         self.eq( tlib.getTypeRepr('inet:mac', 'ff:ff:ff:ff:ff:ff'), 'ff:ff:ff:ff:ff:ff' )
@@ -114,7 +101,6 @@ class DataTypesTest(SynTest):
 
         self.eq( tlib.getTypeParse('guid', '000102030405060708090A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeParse('guid', '00010203-0405-0607-0809-0A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
-        self.eq( tlib.getTypeFrob('guid', '000102030405060708090A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeNorm('guid', '000102030405060708090A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeRepr('guid', '000102030405060708090a0b0c0d0e0f'), '000102030405060708090a0b0c0d0e0f')
 
@@ -128,7 +114,6 @@ class DataTypesTest(SynTest):
 
         self.eq( tlib.getTypeParse('woot', '000102030405060708090A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeNorm('woot', '000102030405060708090A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
-        self.eq( tlib.getTypeFrob('woot', '000102030405060708090A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeRepr('guid', '000102030405060708090a0b0c0d0e0f'), '000102030405060708090a0b0c0d0e0f')
 
     def test_datatype_hash_md5(self):
@@ -139,7 +124,6 @@ class DataTypesTest(SynTest):
 
         self.eq( tlib.getTypeParse('hash:md5', '000102030405060708090A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeNorm('hash:md5', '000102030405060708090A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
-        self.eq( tlib.getTypeFrob('hash:md5', '000102030405060708090A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
         self.eq( tlib.getTypeRepr('hash:md5', '000102030405060708090a0b0c0d0e0f'), '000102030405060708090a0b0c0d0e0f')
 
     def test_datatype_inet_ipv6(self):
@@ -155,8 +139,6 @@ class DataTypesTest(SynTest):
 
         self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8::1:1:1:1:1')[0], '2001:db8:0:1:1:1:1:1')
         self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8:0:1:1:1:1:1')[0], '2001:db8:0:1:1:1:1:1')
-
-        self.eq( tlib.getTypeFrob('inet:ipv6', '2001:db8::1:1:1:1:1')[0], '2001:db8:0:1:1:1:1:1')
 
         self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8::0:1')[0], '2001:db8::1')
         self.eq( tlib.getTypeNorm('inet:ipv6', '2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
@@ -184,7 +166,6 @@ class DataTypesTest(SynTest):
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'str', 10 )
 
         self.eq( tlib.getTypeNorm('str','foo')[0], 'foo' )
-        self.eq( tlib.getTypeFrob('str','foo')[0], 'foo' )
         self.eq( tlib.getTypeParse('str','bar')[0], 'bar' )
 
     def test_datatype_str_enums(self):
@@ -196,36 +177,25 @@ class DataTypesTest(SynTest):
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'woot', 'asdf' )
 
         self.eq( tlib.getTypeNorm('woot','HeHe')[0], 'hehe' )
-        self.eq( tlib.getTypeFrob('woot','HeHe')[0], 'hehe' )
         self.eq( tlib.getTypeParse('woot','HeHe')[0], 'hehe' )
 
     def test_datatype_str_hex(self):
         tlib = s_types.TypeLib()
 
-        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'str:hex', 0xFFF)
+        #self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'str:hex', 0xFFF)
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'str:hex', '0xFFF')
         self.eq(tlib.getTypeNorm('str:hex', 'FfF')[0], 'fff')
         self.eq(tlib.getTypeNorm('str:hex', '12345')[0], '12345')
         self.eq(tlib.getTypeNorm('str:hex', '12A45')[0], '12a45')
 
-        self.none(tlib.getTypeFrob('str:hex', '0xFFF')[0])
-        self.eq(tlib.getTypeFrob('str:hex', 0xFfF)[0], 'fff')
-        self.eq(tlib.getTypeFrob('str:hex', 'FFF')[0], 'fff')
-        self.eq(tlib.getTypeFrob('str:hex', '1A2b3C')[0], '1a2b3c')
-        self.eq(tlib.getTypeFrob('str:hex', 0x1A2b3C)[0], '1a2b3c')
-        self.eq(tlib.getTypeFrob('str:hex', '12345')[0], '12345') # already str
-        self.eq(tlib.getTypeFrob('str:hex', 12345)[0], '3039')
-
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'str:hex', '0xFFF')
-        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'str:hex', 0xFFF)
-        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'str:hex', 123)
         self.eq(tlib.getTypeParse('str:hex', '10001')[0], '10001')
         self.eq(tlib.getTypeParse('str:hex', 'FFF')[0], 'fff')
 
         tlib.addType('woot', subof='sepr', sep='/', fields='a,str:hex|b,str:hex')
-        self.eq(tlib.getTypeFrob('woot', 'AAA/BBB')[0], 'aaa/bbb')
-        self.eq(tlib.getTypeFrob('woot', '123456/BBB')[0], '123456/bbb') # already str
-        self.eq(tlib.getTypeFrob('woot', (123456, 'BBB'))[0], '1e240/bbb')
+        self.eq(tlib.getTypeNorm('woot', 'AAA/BBB')[0], 'aaa/bbb')
+        self.eq(tlib.getTypeNorm('woot', '123456/BBB')[0], '123456/bbb') # already str
+        self.eq(tlib.getTypeNorm('woot', (123456, 'BBB'))[0], '1e240/bbb')
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'woot', '123x/aaaa')
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'woot', '0x123/aaaa')
 
@@ -259,74 +229,23 @@ class DataTypesTest(SynTest):
         self.assertEqual( tlib.getTypeNorm('bool',9)[0], 1)
         self.assertEqual( tlib.getTypeNorm('bool',0)[0], 0)
 
-        self.assertEqual( tlib.getTypeFrob('bool',9)[0], 1)
-        self.assertFalse( tlib.getTypeFrob('bool','f')[0] )
-        self.assertFalse( tlib.getTypeFrob('bool','n')[0] )
-        self.assertFalse( tlib.getTypeFrob('bool','FaLsE')[0] )
+        self.assertEqual( tlib.getTypeNorm('bool',9)[0], 1)
+        self.assertFalse( tlib.getTypeNorm('bool','f')[0] )
+        self.assertFalse( tlib.getTypeNorm('bool','n')[0] )
+        self.assertFalse( tlib.getTypeNorm('bool','FaLsE')[0] )
 
     def test_type_comp(self):
         tlib = s_types.TypeLib()
+        tlib.addType('foo:bar',subof='comp',types='inet:fqdn,inet:ipv4', names='hehe,haha')
 
-        tlib.addType('inet:foo:a',subof='comp',fields='fqdn,inet:fqdn|ipv4,inet:ipv4|time,time:epoch')
+        valu,subs = tlib.getTypeNorm('foo:bar', ('WOOT.COM',0x01020304) )
+        self.eq( valu, '47e2e1c0f894266153f836a75440f803' )
+        self.eq( subs.get('hehe'), 'woot.com' )
+        self.eq( subs.get('haha'), 0x01020304 )
 
-        jstext = '["wOOt.com","1.2.3.4","20160204080030"]'
-        rawobj = ["wOOt.com","1.2.3.4","20160204080030"]
-
-        b64t,_ = tlib.getTypeParse('inet:foo:a',jstext)
-        epoc,_ = tlib.getTypeParse('time:epoch','20160204080030')
-
-        item = msgunpack(base64.b64decode(b64t.encode('utf8')))
-
-        self.assertEqual(item[0], 'woot.com')
-        self.assertEqual(item[1], 0x01020304)
-        self.assertEqual(item[2], epoc)
-
-        b64t,_ = tlib.getTypeParse('inet:foo:a',rawobj)
-
-        item = msgunpack(base64.b64decode(b64t.encode('utf8')))
-
-        self.assertEqual(item[0], 'woot.com')
-        self.assertEqual(item[1], 0x01020304)
-        self.assertEqual(item[2], epoc)
-
-        b64t,_ = tlib.getTypeNorm('inet:foo:a',('wOOt.com',0x01020304,epoc))
-
-        item = msgunpack(base64.b64decode(b64t.encode('utf8')))
-
-        self.assertEqual(item[0], 'woot.com')
-        self.assertEqual(item[1], 0x01020304)
-        self.assertEqual(item[2], epoc)
-
-        b64t,_ = tlib.getTypeFrob('inet:foo:a',('wOOt.com',0x01020304,epoc))
-
-        item = msgunpack(base64.b64decode(b64t.encode('utf8')))
-
-        self.assertEqual(item[0], 'woot.com')
-        self.assertEqual(item[1], 0x01020304)
-        self.assertEqual(item[2], epoc)
-
-        b64t,_  = tlib.getTypeNorm('inet:foo:a',b64t)
-
-        item = msgunpack(base64.b64decode(b64t.encode('utf8')))
-
-        self.assertEqual(item[0], 'woot.com')
-        self.assertEqual(item[1], 0x01020304)
-        self.assertEqual(item[2], epoc)
-
-        b64t,_  = tlib.getTypeFrob('inet:foo:a',b64t)
-
-        item = msgunpack(base64.b64decode(b64t.encode('utf8')))
-
-        self.assertEqual(item[0], 'woot.com')
-        self.assertEqual(item[1], 0x01020304)
-        self.assertEqual(item[2], epoc)
-
-        rept = tlib.getTypeRepr('inet:foo:a',b64t)
-        self.assertEqual( rept, '["woot.com","1.2.3.4","2016/02/04 08:00:30"]')
-
-    def test_type_comp_err(self):
-        tlib = s_types.TypeLib()
-        self.assertRaises( BadInfoValu, tlib.addType, 'fake:newp', subof='comp',fields='asdfqwer')
+    #def test_type_comp_err(self):
+        #tlib = s_types.TypeLib()
+        #self.assertRaises( BadInfoValu, tlib.addType, 'fake:newp', subof='comp',fields='asdfqwer')
 
     def test_datatype_int_minmax(self):
         tlib = s_types.TypeLib()
@@ -354,14 +273,12 @@ class DataTypesTest(SynTest):
 
         self.eq( tlib.getTypeNorm('inet:fqdn','WOOT.COM')[0], 'woot.com')
         self.eq( tlib.getTypeNorm('inet:fqdn','WO-OT.COM')[0], 'wo-ot.com')
-        self.eq( tlib.getTypeFrob('inet:fqdn','WOOT.COM')[0], 'woot.com')
-        self.eq( tlib.getTypeFrob('inet:fqdn','WO-OT.COM')[0], 'wo-ot.com')
         self.eq( tlib.getTypeParse('inet:fqdn','WOOT.COM')[0], 'woot.com')
         self.eq( tlib.getTypeParse('inet:fqdn','WO-OT.COM')[0], 'wo-ot.com')
 
-    def test_type_stor_info(self):
-        tlib = s_types.TypeLib()
-        self.assertRaises( BadStorValu, tlib.addType, 'fake:newp', subof='comp',fields=() )
+    #def test_type_stor_info(self):
+        #tlib = s_types.TypeLib()
+        #self.assertRaises( BadStorValu, tlib.addType, 'fake:newp', subof='comp',fields=() )
 
     def test_type_pend(self):
         tlib = s_types.TypeLib()
@@ -377,7 +294,7 @@ class DataTypesTest(SynTest):
 
         norm,subs = tlib.getTypeNorm('siteuser','WOOT.COM/Visi')
         self.eq(subs.get('foo'),'woot.com')
-        self.eq(subs.get('bar'),'Visi')
+        self.eq(subs.get('bar'),'visi')
 
     def test_type_sepr_reverse(self):
         tlib = s_types.TypeLib()
@@ -386,27 +303,6 @@ class DataTypesTest(SynTest):
         foo = tlib.getTypeNorm('foo','/home/user/Downloads')
         self.eq( foo[1].get('first'), '/home/user' )
         self.eq( foo[1].get('rest'), 'downloads' )
-
-    def test_type_sepr_frob(self):
-        tlib = s_types.TypeLib()
-
-        tlib.addType('woot',subof='sepr',sep='/',fields='a,str:hex|b,str:hex')
-        tlib.addType('wootaddr',subof='sepr',sep='/',fields='a,str:hex|b,str:hex|c,inet:ipv4')
-        tlib.addType('underwoot',subof='sepr',sep='_',fields='c,woot|d,woot')
-        tlib.addType('badwoot',subof='sepr',sep='/',fields='c,woot|d,woot')
-
-        self.eq(tlib.getTypeFrob('woot', '12345/67890')[0], '12345/67890') # already str
-        self.eq(tlib.getTypeFrob('woot', (12345, 67890))[0], '3039/10932')
-        self.eq(tlib.getTypeFrob('woot', [12345, 67890])[0], '3039/10932')
-
-        self.eq(tlib.getTypeFrob('underwoot', '12/34_56/78')[0], '12/34_56/78') # already str
-        self.eq(tlib.getTypeFrob('underwoot', ((12,34), (56,78)))[0], 'c/22_38/4e')
-        self.eq(tlib.getTypeFrob('underwoot', [(12,34), [56,78]])[0], 'c/22_38/4e')
-
-        self.none(tlib.getTypeFrob('badwoot', '1/2/3/4')[0])
-
-        self.eq(tlib.getTypeFrob('wootaddr', [12345, 67890, 0])[0], '3039/10932/0.0.0.0')
-        self.eq(tlib.getTypeFrob('wootaddr', [12345, 67890, '192.168.1.1'])[0], '3039/10932/192.168.1.1')
 
     def test_type_sepr_parse(self):
         tlib = s_types.TypeLib()
@@ -427,7 +323,7 @@ class DataTypesTest(SynTest):
 
     def test_type_bases(self):
         with s_cortex.openurl('ram:///') as core:
-            self.eq( tuple(core.getTypeBases('inet:dns:look')), ('str','guid','inet:dns:look') )
+            self.eq( tuple(core.getTypeBases('inet:dns:look')), ('guid','inet:dns:look') )
 
     def test_type_issub(self):
         with s_cortex.openurl('ram:///') as core:
@@ -440,62 +336,21 @@ class DataTypesTest(SynTest):
             core.addType('foo:bar',subof='inet:ipv4')
             self.assertIsNotNone( core.getTypeInfo('foo:bar','ex') )
 
-    def test_type_comp_recursive(self):
-        tlib = s_types.TypeLib()
-
-        tlib.addType('path',subof='sepr',sep='/',fields='dirname,path|filename,str:lwr',reverse=1)
-        foo = tlib.getTypeNorm('path','/home/user/Downloads')
-        self.eq( foo[1].get('dirname'), '/home/user' )
-        self.eq( foo[1].get('filename'), 'downloads' )
-
-        foo2 = tlib.getTypeNorm('path','/home')
-        self.eq( foo2[1].get('dirname'), '' )
-        self.eq( foo2[1].get('filename'), 'home' )
-
-        foo3 = tlib.getTypeNorm('path','/')
-        self.eq( foo3[1].get('dirname'), '' )
-        self.eq( foo3[1].get('filename'), '' )
-
-        self.assertRaises( BadTypeValu, tlib.getTypeNorm, 'path', 'some-filename' )
-
     def test_type_json(self):
         tlib = s_types.TypeLib()
         self.eq( tlib.getTypeNorm('json','{  "woot"       :10}')[0], '{"woot":10}' )
-        self.eq( tlib.getTypeFrob('json',{'woot':10})[0], '{"woot":10}' )
+        self.eq( tlib.getTypeNorm('json',{'woot':10})[0], '{"woot":10}' )
         self.eq( tlib.getTypeParse('json','{"woot":10}')[0], '{"woot":10}' )
-
-        # cant frob json string unless it's valid json... ( can't tell the difference )
-        self.none(tlib.getTypeFrob('json', 'derp' )[0])
-        self.assertRaises( BadTypeValu, tlib.getTypeParse, 'json', {'woot':10} )
-
-    def test_type_fqdn(self):
-        tlib = s_types.TypeLib()
-        prop = 'inet:fqdn'
-        fqdns = ('test.example.com', 'test.èxamplè.com', 'tèst.èxamplè.com', 'xn--test.xampl.com-zjbf', 'xn--tst.xampl.com-wgbdf')
-        idnas = ('test.example.com', 'test.èxamplè.com', 'tèst.èxamplè.com',        'test.èxamplè.com',        'tèst.èxamplè.com')
-        domns = (     'example.com',      'èxamplè.com',      'èxamplè.com',             'èxamplè.com',             'èxamplè.com')
-        hosts = (            'test',             'test',             'tèst',                    'test',                    'tèst')
-
-        for i in range(len(fqdns)):
-            self.eq(tlib.getTypeNorm(prop, fqdns[i])[0], idnas[i])
-            self.eq(tlib.getTypeFrob(prop, fqdns[i])[0], idnas[i])
-            self.eq(tlib.getTypeRepr(prop, fqdns[i]), fqdns[i])
-
-        self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'inet:fqdn', '!@#$%')
 
     def test_type_phone(self):
         tlib = s_types.TypeLib()
         prop = 'tel:phone'
 
-        self.eq(tlib.getTypeNorm(prop, '123 456 7890')[0], '1234567890')
-        self.assertRaises(BadTypeValu, tlib.getTypeNorm, prop, 1234567890)
+        self.eq(tlib.getTypeNorm(prop, 1234567890)[0], 1234567890)
+        self.eq(tlib.getTypeParse(prop, '123 456 7890')[0], 1234567890)
 
-        self.eq(tlib.getTypeParse(prop, '123 456 7890')[0], '1234567890')
-        self.assertRaises(BadTypeValu, tlib.getTypeParse, prop, 1234567890)
-
-        self.eq(tlib.getTypeRepr(prop, '123 456 7890'), '+123 456 7890')
-        self.eq(tlib.getTypeRepr(prop, '1234567890'), '+1234567890')
-        self.eq(tlib.getTypeRepr(prop, 1234567890), '+1234567890')
+        self.eq(tlib.getTypeRepr(prop, 12345678901), '+1 (234) 567-8901')
+        self.eq(tlib.getTypeRepr(prop, 9999999999), '+9999999999')
 
     def test_type_time_timeepoch(self):
         tlib = s_types.TypeLib()
@@ -530,7 +385,7 @@ class DataTypesTest(SynTest):
         self.eq(tlib.getTypeParse('time',      '1970 0201 000001')[0], EPOCH_FEB_MS + SECOND_MS)
         self.eq(tlib.getTypeParse('time:epoch','1970 0201 000001')[0], EPOCH_FEB_SEC + 1)
 
-        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time', 0)
+        #self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time', 0)
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time','19700')
         self.eq(tlib.getTypeParse('time','1970 0201 000000 0')[0],   EPOCH_FEB_MS)
         self.eq(tlib.getTypeParse('time','1970 0201 000000 1')[0],   EPOCH_FEB_MS + 100)
@@ -541,7 +396,7 @@ class DataTypesTest(SynTest):
         self.eq(tlib.getTypeParse('time','1970-01-01 00:00:00.010')[0], 10)
         self.eq(tlib.getTypeParse('time','1q9w7e0r0t1y0u1i0o0p0a0s0d0f0g0h0j')[0], 0)
 
-        self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time:epoch', 0)
+        #self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time:epoch', 0)
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time:epoch','19700')
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time:epoch','1970 0201 000000 0')
         self.assertRaises(BadTypeValu, tlib.getTypeParse, 'time:epoch','1970 0201 000000 1')
@@ -571,18 +426,18 @@ class DataTypesTest(SynTest):
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'time','0')
         self.assertRaises(BadTypeValu, tlib.getTypeNorm, 'time:epoch','0')
 
-        self.eq(tlib.getTypeFrob('time',       '1969/12/31 23:59:59.999')[0], -1)
-        self.eq(tlib.getTypeFrob('time:epoch', '1969/12/31 23:59:59')[0],     -1)
-        self.eq(tlib.getTypeFrob('time',       '1970/01/01 00:00:00.000')[0],  0)
-        self.eq(tlib.getTypeFrob('time:epoch', '1970/01/01 00:00:00')[0],      0)
-        self.eq(tlib.getTypeFrob('time',       '1970/01/01 00:00:00.001')[0],  1)
-        self.eq(tlib.getTypeFrob('time:epoch', '1970/01/01 00:00:01')[0],      1)
-        self.eq(tlib.getTypeFrob('time',                          -1)[0],     -1)
-        self.eq(tlib.getTypeFrob('time:epoch',                    -1)[0],     -1)
-        self.eq(tlib.getTypeFrob('time',                           0)[0],      0)
-        self.eq(tlib.getTypeFrob('time:epoch',                     0)[0],      0)
-        self.eq(tlib.getTypeFrob('time',                           1)[0],      1)
-        self.eq(tlib.getTypeFrob('time:epoch',                     1)[0],      1)
+        self.eq(tlib.getTypeNorm('time',       '1969/12/31 23:59:59.999')[0], -1)
+        self.eq(tlib.getTypeNorm('time:epoch', '1969/12/31 23:59:59')[0],     -1)
+        self.eq(tlib.getTypeNorm('time',       '1970/01/01 00:00:00.000')[0],  0)
+        self.eq(tlib.getTypeNorm('time:epoch', '1970/01/01 00:00:00')[0],      0)
+        self.eq(tlib.getTypeNorm('time',       '1970/01/01 00:00:00.001')[0],  1)
+        self.eq(tlib.getTypeNorm('time:epoch', '1970/01/01 00:00:01')[0],      1)
+        self.eq(tlib.getTypeNorm('time',                          -1)[0],     -1)
+        self.eq(tlib.getTypeNorm('time:epoch',                    -1)[0],     -1)
+        self.eq(tlib.getTypeNorm('time',                           0)[0],      0)
+        self.eq(tlib.getTypeNorm('time:epoch',                     0)[0],      0)
+        self.eq(tlib.getTypeNorm('time',                           1)[0],      1)
+        self.eq(tlib.getTypeNorm('time:epoch',                     1)[0],      1)
 
     def test_type_cast(self):
         tlib = s_types.TypeLib()
@@ -592,23 +447,53 @@ class DataTypesTest(SynTest):
 
         tlib.addTypeCast("toupper",cast)
 
-        self.eq( tlib.getTypeCast('str:lwr','HeHe'), 'hehe' )
+        self.eq( tlib.getTypeCast('str:lwr','  HeHe  '), 'hehe' )
         self.eq( tlib.getTypeCast('toupper','HeHe'), 'HEHE' )
-        self.eq( tlib.getTypeCast('make:guid','visi'), '1b2e93225959e3722efed95e1731b764' )
+        self.eq( tlib.getTypeCast('make:guid','visi'), '98db59098e385f0bfdec8a6a0a6118b3')
 
-    def test_type_av_types(self):
+    def test_type_str_strip(self):
+        tlib = s_types.TypeLib()
+        self.eq( tlib.getTypeCast('str:lwr',' ASDF  '), 'asdf' )
+
+    def test_type_xref(self):
+
         tlib = s_types.TypeLib()
 
-        sig = 'tech:av:sig'
-        hit = 'tech:av:filehit'
-        orgname = 'fOo'
-        bytesguid = 'FEDCBA0987654321FEDCBA0987654321'
-        signame = 'BaR.BAZ.faz'
+        tlib.addType('foo:bar', subof='xref', source='org,ou:org')
 
-        self.eq(tlib.getTypeNorm(sig, '%s/%s'%(orgname, signame))[0], '%s/%s'%(orgname.lower(), signame.lower()))
-        self.eq(tlib.getTypeFrob(sig, '%s/%s'%(orgname, signame))[0], '%s/%s'%(orgname.lower(), signame.lower()))
-        self.eq(tlib.getTypeParse(sig, '%s/%s'%(orgname, signame))[0], '%s/%s'%(orgname.lower(), signame.lower()))
+        valu,subs = tlib.getTypeNorm('foo:bar',('98db59098e385f0bfdec8a6a0a6118b3','inet:fqdn','woot.com'))
+        self.eq( subs.get('org'), '98db59098e385f0bfdec8a6a0a6118b3' )
+        self.eq( subs.get('xtype'), 'inet:fqdn' )
+        self.eq( subs.get('xref:inet:fqdn'), 'woot.com' )
 
-        self.eq(tlib.getTypeNorm(hit, '%s/%s/%s'%(bytesguid, orgname, signame))[0], '%s/%s/%s'%(bytesguid.lower(), orgname.lower(), signame.lower()))
-        self.eq(tlib.getTypeFrob(hit, '%s/%s/%s'%(bytesguid, orgname, signame))[0], '%s/%s/%s'%(bytesguid.lower(), orgname.lower(), signame.lower()))
-        self.eq(tlib.getTypeParse(hit, '%s/%s/%s'%(bytesguid, orgname, signame))[0], '%s/%s/%s'%(bytesguid.lower(), orgname.lower(), signame.lower()))
+        valu,subs = tlib.getTypeNorm('foo:bar','98db59098e385f0bfdec8a6a0a6118b3|inet:fqdn|wOOT.com')
+        self.eq( subs.get('org'), '98db59098e385f0bfdec8a6a0a6118b3' )
+        self.eq( subs.get('xtype'), 'inet:fqdn' )
+        self.eq( subs.get('xref:inet:fqdn'), 'woot.com' )
+
+
+    def test_types_isguid(self):
+        self.true( s_types.isguid('98db59098e385f0bfdec8a6a0a6118b3') )
+        self.false( s_types.isguid('visi') )
+
+    def test_types_guid_resolver(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            core.setConfOpt('enforce',1)
+
+            # use the seed constructor for an org
+            onode = core.formTufoByProp('ou:org:alias','vertex')
+
+            iden = onode[1].get('ou:org')
+
+            self.raises( BadTypeValu, core.formTufoByProp, 'ou:user', '$newp/visi' )
+
+            unode = core.formTufoByProp('ou:user','$vertex/visi')
+
+            self.eq( unode[1].get('ou:user'), '%s/visi' % iden )
+            self.eq( unode[1].get('ou:user:org'), iden )
+
+            self.eq( len( core.eval('ou:org=$vertex')), 1 )
+            self.eq( len( core.eval('ou:user:org=$vertex')), 1 )
+

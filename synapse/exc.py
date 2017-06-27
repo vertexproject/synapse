@@ -1,7 +1,7 @@
 
 class SynErr(Exception):
 
-    def __init__(self, **info):
+    def __init__(self, *args, **info):
         self.errinfo = info
         Exception.__init__(self, self._getExcMsg() )
 
@@ -14,9 +14,27 @@ class SynErr(Exception):
     def items(self):
         return self.errinfo.items()
 
+    def get(self, name):
+        '''
+        Return a value from the errinfo dict.
+
+        Example:
+
+            try:
+                foothing()
+            except SynErr as e:
+                blah = e.get('blah')
+
+        '''
+        return self.errinfo.get(name)
+
+class NoSuchAct(SynErr):pass
 class NoSuchOpt(SynErr):pass
 class NoSuchDir(SynErr):pass
+class NoSuchDyn(SynErr):pass
 class NoSuchMod(SynErr):pass
+class NoSuchSeq(SynErr):pass
+class NoRevAllow(SynErr):pass
 class NoSuchConf(SynErr):pass
 class NoSuchForm(SynErr):pass
 class NoSuchPath(SynErr):pass
@@ -28,6 +46,7 @@ class NoSuchType(SynErr):pass
 class NoSuchProp(SynErr):pass
 class NoSuchOper(SynErr):pass
 class NoSuchCmpr(SynErr):pass
+class NoSuchCore(SynErr):pass
 class NoSuchRule(SynErr):pass
 class NoSuchGetBy(SynErr):pass
 
@@ -40,9 +59,15 @@ class DupTypeName(SynErr):pass
 class DupPropName(SynErr):pass
 class DupFileName(SynErr):pass
 class BadPropName(SynErr):pass
+class BadCoreName(SynErr):pass
 class BadMesgVers(SynErr):pass
 class BadInfoValu(SynErr):pass
 class BadStorValu(SynErr):pass
+
+class NotGuidForm(SynErr):pass
+
+class MustBeLocal(SynErr):pass
+class MustBeProxy(SynErr):pass
 
 class NoAuthUser(SynErr):pass
 
@@ -56,6 +81,8 @@ class BadMesgResp(Exception):pass
 class BadPropValu(SynErr):pass
 class BadPySource(Exception):pass
 
+class TeleClientSide(SynErr):pass
+
 class HitStormLimit(SynErr):pass
 
 class DupOpt(Exception):pass
@@ -63,16 +90,15 @@ class DupUser(Exception):pass
 class DupRole(Exception):pass
 
 class NoSuch(Exception):pass
-class NoSuchAct(Exception):pass
 class NoSuchJob(Exception):pass
-class NoSuchObj(Exception):pass
+class NoSuchObj(SynErr):pass
 class NoSuchFile(Exception):pass
 class NoSuchIden(Exception):pass
-class NoSuchMeth(Exception):pass
-class NoSuchFunc(Exception):pass
+class NoSuchMeth(SynErr):pass
+class NoSuchFunc(SynErr):pass
 class NoSuchPeer(Exception):pass
 class NoSuchSess(Exception):pass
-class NoSuchUser(Exception):pass
+class NoSuchUser(SynErr):pass
 class NoSuchRole(Exception):pass
 class NoSuchProto(Exception):pass
 
@@ -89,6 +115,12 @@ class NotEnoughFree(Exception):pass
 class NoWritableAxons(Exception):pass
 
 class MustNotWait(Exception):pass   # blocking function called by no-wait thread
+
+class NoSuchEntity(SynErr):pass
+class NoSuchData(SynErr):pass
+class FileExists(SynErr):pass
+class NotEmpty(SynErr):pass
+class NotSupported(SynErr):pass
 
 class IsFini(Exception):pass
 

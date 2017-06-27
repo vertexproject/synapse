@@ -1,4 +1,3 @@
-from encodings import idna
 import re
 import socket
 import struct
@@ -8,6 +7,9 @@ import synapse.compat as s_compat
 import synapse.lib.socket as s_socket
 import synapse.lib.urlhelp as s_urlhelp
 
+import synapse.lookup.iana as s_l_iana
+
+from synapse.exc import BadTypeValu
 from synapse.lib.types import DataType
 
 def getDataModel():
@@ -26,16 +28,15 @@ def getDataModel():
 
             ('inet:cidr4',   {'ctor':'synapse.models.inet.CidrType','doc':'An IPv4 CIDR type','ex':'1.2.3.0/24'}),
 
+            ('inet:urlfile', {'subof':'comp','types':'inet:url,file:bytes','names':'url,file','doc':'A File at a Universal Resource Locator (URL)'}),
             ('inet:net4',   {'subof':'sepr','sep':'-','fields':'min,inet:ipv4|max,inet:ipv4','doc':'An IPv4 address range','ex':'1.2.3.4-1.2.3.20'}),
             ('inet:net6',   {'subof':'sepr','sep':'-','fields':'min,inet:ipv6|max,inet:ipv6','doc':'An IPv6 address range','ex':'ff::00-ff::30'}),
 
             ('inet:asnet4', {'subof':'sepr','sep':'/','fields':'asn,inet:asn|net4,inet:net4','doc':'An IPv4 address range assigned to an autonomous system','ex':'54959/1.2.3.4-1.2.3.20'}),
 
             ('inet:asn',        {'subof':'int','doc':'An Autonomous System Number (ASN)'}),
-            ('inet:user',       {'subof':'str','doc':'A username string'}),
+            ('inet:user',       {'subof':'str:lwr','doc':'A username string'}),
             ('inet:passwd',     {'subof':'str','doc':'A password string'}),
-            #('inet:filepath',   {'subof':'str','doc':'An absolute file path'}),
-            #('inet:filenorm',   {'subof':'str','doc':'An absolute file path'}),
 
             ('inet:tcp4', {'subof':'inet:srv4', 'doc':'A TCP server listening on IPv4:port'}),
             ('inet:udp4', {'subof':'inet:srv4', 'doc':'A UDP server listening on IPv4:port'}),
@@ -46,18 +47,29 @@ def getDataModel():
             ('inet:mac',  {'subof':'str', 'regex':'^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower':1, 'nullval':'??',
                            'ex':'aa:bb:cc:dd:ee:ff','doc':'A 48 bit mac address'}),
 
-            ('inet:netuser',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|user,inet:user',
-                               'doc':'A user account at a given web address','ex':'twitter.com/invisig0th'}),
+            ('inet:netuser',{'subof':'sepr','sep':'/','fields':'site,inet:fqdn|user,inet:user', 'doc':'A user account at a given web address','ex':'twitter.com/invisig0th'}),
 
-            ('inet:netmesg',  {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|from,inet:user|to,inet:user|sent,time',
-                               'doc':'A message sent from one user to another within a web community',
-                                'ex':'twitter.com/invisig0th/gobbles/20041012130220'}),
+            ('inet:netgroup',   {'subof':'sepr','sep':'/','fields':'site,inet:fqdn|name,ou:name','doc':'A group within an online community'}),
 
-            ('inet:ssl:tcp4cert',{'subof':'sepr','sep':'/','fields':'tcp4,inet:tcp4|cert,file:guid','doc':'An SSL cert file served by an IPv4 server'}),
+            ('inet:netpost',    {'subof':'comp','fields':'netuser,inet:netuser|text,str:txt', 'doc':'A post made by a netuser'}),
+            ('inet:netfile',    {'subof':'comp','fields':'netuser,inet:netuser|file,file:bytes', 'doc':'A file posted by a netuser'}),
+            ('inet:netmemb',    {'subof':'comp','fields':'user,inet:netuser|group,inet:netgroup'}),
+            ('inet:follows',  {'subof':'comp','fields':'follower,inet:netuser|followee,inet:netuser'}),
 
-            ('inet:whois:reg',{'subof':'str','doc':'A whois registrant','ex':'Woot Hostmaster'}),
+
+            ('inet:netmesg',  {'subof':'comp',
+                               'fields':'from,inet:netuser|to,inet:netuser|time,time',
+                               'doc':'A message sent from one netuser to another',
+                               'ex':'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'}),
+
+            ('inet:ssl:tcp4cert',{'subof':'sepr','sep':'/','fields':'tcp4,inet:tcp4|cert,file:bytes','doc':'An SSL cert file served by an IPv4 server'}),
+
+            ('inet:whois:rar',{'subof':'str:lwr','doc':'A whois registrar','ex':'blah domain registrar'}),
+            ('inet:whois:reg',{'subof':'str:lwr','doc':'A whois registrant','ex':'woot hostmaster'}),
             ('inet:whois:rec',{'subof':'sepr','sep':'@','fields':'fqdn,inet:fqdn|asof,time','doc':'A whois record','ex':''}),
-            ('inet:whois:regmail',{'subof':'sepr','sep':'/','fields':'fqdn,inet:fqdn|email,inet:email','doc':'A whois registration fqdn->email link'}),
+
+            ('inet:whois:contact',{'subof':'comp','fields':'rec,inet:whois:rec|type,str:lwr','doc':'A whois contact for a specific record'}),
+            ('inet:whois:regmail',{'subof':'comp','fields':'fqdn,inet:fqdn|email,inet:email','doc':'A whois registration fqdn->email link'}),
 
             # TODO: (port from nucleus etc)
             # inet:cidr6
@@ -86,11 +98,20 @@ def getDataModel():
                 ('ipv4',{'ptype':'inet:ipv4','ro':1}),
                 ('fqdn',{'ptype':'inet:fqdn','ro':1}),
                 ('port',{'ptype':'inet:port','ro':1}),
+                ('user',{'ptype':'inet:user','ro':1}),
+                ('passwd',{'ptype':'inet:passwd','ro':1}),
             ]),
 
-            ('inet:asn',{'ptype':'inet:asn','doc':'An Autonomous System'},[
-                ('name',{'ptype':'str:lwr','defval':'??'}),
+            ('inet:urlfile',{'ptype':'inet:urlfile'},[
+                ('url',{'ptype':'inet:url','ro':1}),
+                ('file',{'ptype':'file:bytes','ro':1}),
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
             ]),
+
+            ('inet:asn',{'ptype':'inet:asn','doc':'An Autonomous System'},(
+                ('name',{'ptype':'str:lwr','defval':'??'}),
+            )),
 
             ('inet:asnet4',{'ptype':'inet:asnet4','doc':'A netblock IPv4 range assigned to an Autonomous System'},[
                 ('asn',{'ptype':'inet:asn'}),
@@ -116,6 +137,11 @@ def getDataModel():
                 ('zone',{'ptype':'bool','defval':0,'doc':'Set to 1 if this FQDN is a logical zone (under a suffix)'}),
                 ('domain',{'ptype':'inet:fqdn','doc':'The parent FQDN of the FQDN'}),
                 ('host',{'ptype':'str','doc':'The hostname of the FQDN'}),
+
+                ('created',{'ptype':'time:min'}),
+                ('updated',{'ptype':'time:max'}),
+                ('expires',{'ptype':'time:max'}),
+
             ]),
 
             ('inet:email',{'ptype':'inet:email'},[
@@ -132,6 +158,7 @@ def getDataModel():
                 ('ipv4',{'ptype':'inet:ipv4','ro':1}),
                 ('port',{'ptype':'inet:port','ro':1}),
             ]),
+
             ('inet:tcp6',{'ptype':'inet:srv6'},[
                 ('ipv6',{'ptype':'inet:ipv6','ro':1}),
                 ('port',{'ptype':'inet:port','ro':1}),
@@ -145,43 +172,159 @@ def getDataModel():
             ('inet:netuser',{'ptype':'inet:netuser'},[
                 ('site',{'ptype':'inet:fqdn','ro':1}),
                 ('user',{'ptype':'inet:user','ro':1}),
-                ('name',{'ptype':'str','defval':'??'}),
+
+                ('dob',{'ptype':'time'}),
+
+                #('bio:bt',{'ptype':'wtf','doc':'The netusers self documented blood type'}),
+
+                ('url',{'ptype':'inet:url'}),
+                ('webpage',{'ptype':'inet:url'}),
+                ('avatar',{'ptype':'file:bytes'}),
+
+                ('tagline',{'ptype':'str:txt','doc':'A netuser status/tag line text'}),
+                ('occupation',{'ptype':'str:txt','doc':'A netuser self declared occupation'}),
+                #('gender',{'ptype':'inet:fqdn','ro':1}),
+
+                ('name',{'ptype':'inet:user'}),
+                ('realname',{'ptype':'ps:name'}),
                 ('email',{'ptype':'inet:email'}),
-                ('signup',{'ptype':'time','defval':0,'doc':'The time the netuser account was registered'}),
+                ('phone',{'ptype':'tel:phone'}),
+                ('signup',{'ptype':'time','doc':'The time the netuser account was registered'}),
+                ('signup:ipv4',{'ptype':'inet:ipv4','doc':'The original ipv4 address used to sign up for the account'}),
                 ('passwd',{'ptype':'inet:passwd','doc':'The current passwd for the netuser account'}),
-                ('seen:min',{'ptype':'time:min','defval':0}),
-                ('seen:max',{'ptype':'time:max','defval':0}),
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
             ]),
 
-            ('inet:netmesg',{'ptype':'inet:netmesg'},[
+            ('inet:netgroup',{},[
                 ('site',{'ptype':'inet:fqdn','ro':1}),
-                ('to',{'ptype':'inet:user','ro':1}),
-                ('from',{'ptype':'inet:user','ro':1}),
-                ('sent',{'ptype':'time','ro':1,'doc':'The time at which the message was sent'}),
-                ('body',{'ptype':'str'}),
+                ('name',{'ptype':'ou:name','ro':1}),
+
+                ('desc',{'ptype':'str:txt'}),
+
+                ('url',{'ptype':'inet:url'}),
+                ('webpage',{'ptype':'inet:url'}),
+                ('avatar',{'ptype':'file:bytes'}),
             ]),
 
-            ('inet:whois:reg',{'ptype':'inet:whois:reg'},[]),
+            ('inet:netpost',{},[
+
+                ('netuser',{'ptype':'inet:netuser','ro':1}),
+                ('text',{'ptype':'str:txt','ro':1,'doc':'The text of the actual post'}),
+
+                ('netuser:site',{'ptype':'inet:fqdn','ro':1}),
+                ('netuser:user',{'ptype':'inet:user','ro':1}),
+
+                ('time',{'ptype':'time'}),
+
+                ('replyto',{'ptype':'inet:netpost'}),
+
+                ('url',{'ptype':'inet:url','doc':'The (optional) URL where the post is published/visible'}),
+                ('file',{'ptype':'file:bytes','doc':'The (optional) file which was posted'}),
+            ]),
+
+            ('inet:netmesg',{},[
+                ('from',{'ptype':'inet:netuser','ro':1}),
+                ('to',{'ptype':'inet:netuser','ro':1}),
+                ('time',{'ptype':'time','ro':1,'doc':'The time at which the message was sent'}),
+                ('url',{'ptype':'inet:url','doc':'Optional URL of netmesg'}),
+                ('text',{'ptype':'str:txt','doc':'Optional text body of message'}),
+                ('file',{'ptype':'file:bytes','doc':'Optional file attachment'}),
+            ]),
+
+            ('inet:follows',{},[
+
+                ('follower',{'ptype':'inet:netuser','ro':1}),
+                ('followee',{'ptype':'inet:netuser','ro':1}),
+
+                ('seen:min',{'ptype':'time:min','doc':'Optional first/earliest following'}),
+                ('seen:max',{'ptype':'time:max','doc':'Optional last/end of following'}),
+
+            ]),
+
+            ('inet:netmemb',{},[
+
+                ('user',{'ptype':'inet:netuser','ro':1}),
+                ('group',{'ptype':'inet:netgroup','ro':1}),
+
+                ('title',{'ptype':'str:lwr'}),
+
+                ('joined',  {'ptype':'time'}),
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
+
+            ]),
+
+            ('inet:netfile',{},[
+
+                ('netuser',{'ptype':'inet:netuser','ro':1}),
+                ('netuser:site',{'ptype':'inet:fqdn','ro':1}),
+                ('netuser:user',{'ptype':'inet:user','ro':1}),
+
+                ('file',{'ptype':'file:bytes','ro':1}),
+
+                ('name',{'ptype':'file:base','doc':'The basename of the file in the post'}),
+
+                ('posted',{'ptype':'time'}),
+
+                ('ipv4',{'ptype':'inet:ipv4','doc':'The source IPv4 address of the post.'}),
+                ('ipv6',{'ptype':'inet:ipv6','doc':'The source IPv6 address of the post.'}),
+
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
+            ]),
+
+            ('inet:whois:reg',{},[]),
+            ('inet:whois:rar',{},[]),
 
             ('inet:whois:regmail',{'ptype':'inet:whois:regmail'},[
                 ('fqdn',{'ptype':'inet:fqdn','ro':1}),
                 ('email',{'ptype':'inet:email','ro':1}),
+                ('seen:min',{'ptype':'time:min'}),
+                ('seen:max',{'ptype':'time:max'}),
             ]),
 
             ('inet:whois:rec',{'ptype':'inet:whois:rec'},[
                 ('fqdn',{'ptype':'inet:fqdn'}),
                 ('asof',{'ptype':'time'}),
-                ('created',{'ptype':'time','defval':0,'doc':'The "created" time from the whois record'}),
-                ('updated',{'ptype':'time','defval':0,'doc':'The "last updated" time from the whois record'}),
-                ('expires',{'ptype':'time','defval':0,'doc':'The "expires" time from the whois record'}),
-                ('registrar',{'ptype':'inet:whois:reg','defval':'??'}),
+                ('text',{'ptype':'str:lwr'}),
+                ('created',{'ptype':'time','doc':'The "created" time from the whois record'}),
+                ('updated',{'ptype':'time','doc':'The "last updated" time from the whois record'}),
+                ('expires',{'ptype':'time','doc':'The "expires" time from the whois record'}),
+                ('registrar',{'ptype':'inet:whois:rar','defval':'??'}),
                 ('registrant',{'ptype':'inet:whois:reg','defval':'??'}),
-                # TODO admin/tech/billing contact info
+                ('ns1',{'ptype':'inet:fqdn'}),
+                ('ns2',{'ptype':'inet:fqdn'}),
+                ('ns3',{'ptype':'inet:fqdn'}),
+                ('ns4',{'ptype':'inet:fqdn'}),
+            ]),
+
+            ('inet:whois:contact',{},[
+
+                ('rec',{'ptype':'inet:whois:rec'}),
+                ('rec:fqdn',{'ptype':'inet:fqdn'}),
+                ('rec:asof',{'ptype':'time'}),
+
+                ('type',{'ptype':'str:lwr'}),
+
+                ('id',{'ptype':'str:lwr'}),
+                ('name',{'ptype':'str:lwr'}),
+                ('email',{'ptype':'inet:email'}),
+
+                ('orgname',{'ptype':'ou:name'}),
+                ('address',{'ptype':'str:lwr'}), # FIXME street address type
+                ('city',{'ptype':'str:lwr'}),
+                #('zip',{'ptype':'str:lwr'}),
+                ('state',{'ptype':'str:lwr'}),
+                ('country',{'ptype':'pol:iso2'}),
+
+                ('phone',{'ptype':'tel:phone'}),
+                ('fax',{'ptype':'tel:phone'}),
             ]),
 
             ('inet:ssl:tcp4cert',{'ptype':'inet:ssl:tcp4cert'},[
                 ('tcp4',{'ptype':'inet:tcp4'}),
-                ('cert',{'ptype':'file:guid'}),
+                ('cert',{'ptype':'file:bytes'}),
                 ('tcp4:ipv4',{'ptype':'inet:ipv4'}),
             ]),
         ),
@@ -213,22 +356,25 @@ def addCoreOns(core):
                 props['inet:fqdn:zone'] = 1
 
     def onTufoSetFqdnSfx(mesg):
-        sfx = mesg[1].get('valu')
-        fqdn = mesg[1].get('tufo')[1].get('inet:fqdn')
+        sfx = mesg[1].get('newv')
+        fqdn = mesg[1].get('valu')
         for tufo in core.getTufosByProp('inet:fqdn:domain', fqdn):
             core.setTufoProp(tufo, 'zone', sfx)
 
-    core.on('tufo:form:inet:fqdn',onTufoFormFqdn)
-    core.on('tufo:set:inet:fqdn:sfx',onTufoSetFqdnSfx)
-    core.on('tufo:form:inet:passwd',onTufoFormPasswd)
+    core.on('node:form',onTufoFormFqdn, form='inet:fqdn')
+    core.on('node:set',onTufoSetFqdnSfx, prop='inet:fqdn:sfx')
+    core.on('node:form',onTufoFormPasswd, form='inet:passwd')
 
 def ipv4str(valu):
     byts = struct.pack('>I',valu)
     return socket.inet_ntoa(byts)
 
 def ipv4int(valu):
-    byts = socket.inet_aton(valu)
-    return struct.unpack('>I', byts)[0]
+    try:
+        byts = socket.inet_aton(valu)
+        return struct.unpack('>I', byts)[0]
+    except socket.error as e:
+        raise BadTypeValu(valu=valu,type='inet:ipv4',mesg=str(e))
 
 masks = [ (0xffffffff - ( 2**(32-i) - 1 )) for i in range(33) ]
 def ipv4mask(ipv4,mask):
@@ -237,28 +383,23 @@ def ipv4mask(ipv4,mask):
 class IPv4Type(DataType):
 
     def norm(self, valu, oldval=None):
+        if s_compat.isstr(valu):
+            return self._norm_str(valu,oldval=oldval)
+
         if not s_compat.isint(valu):
             self._raiseBadValu(valu)
 
         return valu & 0xffffffff,{}
 
-    def frob(self, valu, oldval=None):
-        if s_compat.isstr(valu):
-            # handle decimal integer strings...
-            if valu.isdigit():
-                return int(valu) & 0xffffffff,{}
-            return self.parse(valu, oldval=oldval)
-        return self.norm(valu, oldval=oldval)
+    def _norm_str(self, valu, oldval=None):
+        if valu.isdigit():
+            return int(valu,0) & 0xffffffff,{}
+
+        valu = valu.replace('[.]','.')
+        return ipv4int(valu),{}
 
     def repr(self, valu):
         return ipv4str(valu)
-
-    def parse(self, text, oldval=None):
-        # deal with "defanged" ipv4
-        if s_compat.isstr(text):
-            text = text.replace('[.]','.')
-            return ipv4int(text),{}
-        self._raiseBadValu(text)
 
 fqdnre = re.compile(r'^[\w._-]+$', re.U)
 class FqdnType(DataType):
@@ -274,9 +415,11 @@ class FqdnType(DataType):
         valu = valu.replace('[.]','.')
         if not fqdnre.match(valu):
             self._raiseBadValu(valu)
-        if valu.startswith('xn--'):
-            valu = idna.ToUnicode(valu)
-        valu = valu.lower()
+
+        try:
+            valu = valu.encode('idna').decode('idna').lower()
+        except UnicodeError as e:
+            self._raiseBadValu(valu)
 
         parts = valu.split('.', 1)
         subs = {'host': parts[0]}
@@ -325,12 +468,14 @@ class Srv4Type(DataType):
         return '%s:%d' % ( ipv4str(addr), port )
 
     def norm(self, valu, oldval=None):
+        if s_compat.isstr(valu):
+            return self._norm_str(valu,oldval=oldval)
+
         addr = valu >> 16
         port = valu & 0xffff
         return valu,{'port':port,'ipv4':addr}
 
-    def parse(self, text, oldval=None):
-
+    def _norm_str(self, text, oldval=None):
         try:
             astr,pstr = text.split(':')
         except ValueError as e:
@@ -339,11 +484,6 @@ class Srv4Type(DataType):
         addr = ipv4int(astr)
         port = int(pstr,0)
         return ( addr << 16 ) | port,{}
-
-    def frob(self, valu, oldval=None):
-        if s_compat.isstr(valu):
-            return self.parse(valu, oldval=oldval)
-        return self.norm(valu, oldval=None)
 
 srv6re = re.compile('^\[([a-f0-9:]+)\]:(\d+)$')
 
@@ -397,6 +537,11 @@ class EmailType(DataType):
     def repr(self, valu):
         return valu
 
+urlports = {
+    'ftp':21,
+    'http':80,
+    'https':443,
+}
 class UrlType(DataType):
 
     subprops = (
@@ -406,9 +551,12 @@ class UrlType(DataType):
         ('ipv4',{'ptype':'inet:ipv4'}),
         ('ipv6',{'ptype':'inet:ipv6'}),
         ('port',{'ptype':'inet:port'}),
+        ('user',{'ptype':'inet:user'}),
+        ('passwd',{'ptype':'inet:passwd'}),
     )
 
     def norm(self, valu, oldval=None):
+        subs = {}
         respath = ''
         resauth = ''
 
@@ -424,14 +572,40 @@ class UrlType(DataType):
         if resloc.find('@') != -1:
             resauth,resloc = resloc.split('@',1)
 
+            user = resauth
+            passwd = None
+
+            if user.find(':') != None:
+                user,passwd = user.rsplit(':',1)
+
+            if user:
+                subs['user'] = user
+
+            if passwd:
+                subs['passwd'] = passwd
+
+        port = None
         proto = proto.lower()
         hostpart = resloc.lower()
+
+        subs['proto'] = proto
+
+        if hostpart.find(':') != -1:
+            host,portstr = hostpart.rsplit(':',1)
+            port = self.tlib.getTypeParse('inet:port',portstr)[0]
+
+        # try for a default iana protocol lookup
+        if port == None:
+            port = s_l_iana.services.get(proto)
+
+        if port != None:
+            subs['port'] = port
 
         if resauth:
             hostpart = '%s@%s' % (resauth,hostpart)
 
         valu = '%s://%s/%s' % (proto,hostpart,respath)
-        return (valu,{'proto':proto})
+        return valu,subs
 
     def repr(self, valu):
         return valu

@@ -11,7 +11,6 @@ import xml.etree.ElementTree as x_etree
 from synapse.common import *
 from synapse.eventbus import EventBus
 
-import synapse.axon as s_axon
 import synapse.gene as s_gene
 import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
@@ -19,6 +18,7 @@ import synapse.dyndeps as s_dyndeps
 import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
 import synapse.lib.scrape as s_scrape
+import synapse.lib.hashset as s_hashset
 import synapse.lib.datapath as s_datapath
 import synapse.lib.encoding as s_encoding
 import synapse.lib.filepath as s_filepath
@@ -146,21 +146,31 @@ def addFormat(name, fn, opts):
     fmtyielders[name] = fn
     fmtopts[name] = opts
 
-def iterdata(fd,**opts):
+def iterdata(fd, close_fd=True, **opts):
     '''
     Iterate through the data provided by a file like object.
 
     Optional parameters may be used to control how the data
     is deserialized.
 
-    Example:
+    Examples:
+        The following example show use of the iterdata function.::
 
-        with open('foo.csv','rb') as fd:
+            with open('foo.csv','rb') as fd:
+                for row in iterdata(fd, format='csv', encoding='utf8'):
+                    dostuff(row)
 
-            for row in iterdata(fd, format='csv', encoding='utf8'):
+    Args:
+        fd (file) : File like object to iterate over.
+        close_fd (bool) : Default behavior is to close the fd object.
+                          If this is not true, the fd will not be closed.
+        **opts (dict): Ingest open directive.  Causes the data in the fd
+                       to be parsed according to the 'format' key and any
+                       additional arguments.
 
-                dostuff(row)
-
+    Yields:
+        An item to process. The type of the item is dependent on the format
+        parameters.
     '''
     fmt = opts.get('format','lines')
     fopts = fmtopts.get(fmt,{})
@@ -180,7 +190,105 @@ def iterdata(fd,**opts):
     for item in fmtr(fd,opts):
         yield item
 
-    fd.close()
+    if close_fd:
+        fd.close()
+
+class IngestApi:
+    '''
+    An API mixin which may be used to wrap a cortex and send along ingest data.
+    '''
+    def __init__(self, core):
+        self._gest_core = core
+        self._gest_cache = {}
+
+        self._gest_core.on('node:del', self._onDelSynIngest, form='syn:ingest')
+        self._gest_core.on('node:add', self._onAddSynIngest, form='syn:ingest')
+        self._gest_core.on('node:set', self._onAddSynIngest, prop='syn:ingest:text')
+
+        for node in self._gest_core.getTufosByProp('syn:ingest'):
+            self._addDefFromTufo(node)
+
+    def _onAddSynIngest(self, mesg):
+        return self._addDefFromTufo( mesg[1].get('node') )
+
+    def _addDefFromTufo(self, tufo):
+
+        name = tufo[1].get('syn:ingest')
+        if name == None:
+            logger.warning('_addDefFromTufo syn:ingest == None')
+            return
+
+        text = tufo[1].get('syn:ingest:text')
+        if text == None:
+            logger.warning('_addDefFromTufo syn:ingest:text == None')
+            return
+
+        try:
+
+            info = json.loads(text)
+            self._gest_cache[name] = Ingest(info)
+
+        except Exception as e:
+            logger.exception('_addDefFromTufo json loading failed')
+            return
+
+    def _onDelSynIngest(self, mesg):
+        node = mesg[1].get('node')
+        if node == None:
+            logger.warning('_onDelSynIngest node == None')
+            return
+
+        name = node[1].get('syn:ingest')
+        if name == None:
+            logger.warning('_onDelSynIngest syn:ingest == None')
+            return
+
+        self._gest_cache.pop(name,None)
+
+    def setGestDef(self, name, idef):
+        '''
+        Set an ingest definition by storing it in the cortex.
+
+        Example:
+
+            idef = {... ingest def json ... }
+
+            iapi.setGestDef('foo:bar', idef)
+
+        '''
+        props = {
+            'time':now(),
+            'text':json.dumps(idef),
+        }
+
+        node = self._gest_core.formTufoByProp('syn:ingest',name,**props)
+        if node[1].get('.new'):
+            return node
+
+        return self.setTufoProps(node,**props)
+
+    def addGestData(self, name, data):
+        '''
+        Ingest data according to a previously registered ingest format.
+
+        Example:
+
+            data = getDataFromThing()
+
+            # use the foo:bar ingest
+            iapi.addGestData('foo:bar', data)
+
+        '''
+        gest = self._gest_cache.get(name)
+        if gest == None:
+            raise NoSuchTufo(prop='syn:ingest',valu=name)
+
+        gest.ingest(self._gest_core, data=data)
+
+    # TODO - use open/format directives to parse raw file data
+    #def addGestFd(self, name, fd):
+    #def addGestPath(self, name, path):
+    #def addGestBytes(self, name, byts):
 
 class Ingest(EventBus):
     '''
@@ -204,9 +312,15 @@ class Ingest(EventBus):
         return ret
 
     def get(self, name, defval=None):
+        """
+        Retrieve a value from self._i_info
+        """
         return self._i_info.get(name,defval)
 
     def set(self, name, valu):
+        '''
+        Set a value in self._i_info
+        '''
         self._i_info[name] = valu
 
     def _iterDataSorc(self, path, info):
@@ -249,6 +363,7 @@ class Ingest(EventBus):
 
             for datasorc in self._iterDataSorc(path,info):
                 for data in datasorc:
+                    self.fire('gest:data')
                     root = s_datapath.initelem(data)
                     self._ingDataInfo(core, root, gest, scope)
 
@@ -363,18 +478,23 @@ class Ingest(EventBus):
                         nodetags.extend( info.get('tags',()) )
                         nodeprops.update( info.get('props',{}) )
 
-                    node = core.formTufoByFrob(form,valu)
+                    node = core.formTufoByProp(form,valu)
 
-                    core.setTufoFrobs(node,**nodeprops)
+                    core.setTufoProps(node,**nodeprops)
                     core.addTufoTags(node,nodetags)
 
     def _ingMergScope(self, core, data, info, scope):
+        '''
+        Extract variables from info and populate them into the current scope.
+        Extract tags from the info and populate them into the current scope.
+        '''
 
         vard = info.get('vars')
         if vard != None:
             for varn,vnfo in vard:
                 valu = self._get_prop(core,data,vnfo,scope)
-                scope.set(varn,valu)
+                if valu != None:
+                    scope.set(varn,valu)
 
         for tagv in info.get('tags',()):
 
@@ -406,7 +526,7 @@ class Ingest(EventBus):
             if dcod != None:
                 byts = s_encoding.decode(dcod,byts)
 
-            hset = s_axon.HashSet()
+            hset = s_hashset.HashSet()
             hset.update(byts)
 
             iden,props = hset.guid()
@@ -424,6 +544,10 @@ class Ingest(EventBus):
                 self.fire('gest:prog', act='tag')
 
     def _ingFormInfo(self, core, data, info, scope):
+        '''
+        Create new nodes via frob interface which match a given form definition.
+        '''
+        _savevar = None
 
         with scope:
 
@@ -440,7 +564,7 @@ class Ingest(EventBus):
                 if valu == None:
                     return
 
-                tufo = core.formTufoByFrob(form,valu)
+                tufo = core.formTufoByProp(form,valu)
                 if tufo == None:
                     return
 
@@ -455,16 +579,23 @@ class Ingest(EventBus):
                     props[prop] = valu
 
                 if props:
-                    core.setTufoFrobs(tufo,**props)
+                    core.setTufoProps(tufo,**props)
                     self.fire('gest:prog', act='set')
 
                 for tag in scope.iter('tags'):
                     core.addTufoTag(tufo,tag)
                     self.fire('gest:prog', act='tag')
 
+                if info.get('savevar'):
+                    _savevar = tufo[1].get(tufo[1].get('tufo:form'))
+
             except Exception as e:
                 traceback.print_exc()
                 core.logCoreExc(e,subsys='ingest')
+
+        savevarn = info.get('savevar')
+        if savevarn and _savevar:
+            scope.set(savevarn, _savevar)
 
     def _ingDataInfo(self, core, data, info, scope):
 
@@ -546,7 +677,8 @@ class Ingest(EventBus):
 
         if valu == None:
             varn = info.get('var')
-            valu = scope.get(varn)
+            if varn != None:
+                valu = scope.get(varn)
 
         template = info.get('template')
         if template != None:
@@ -559,7 +691,7 @@ class Ingest(EventBus):
                     return None
 
                 # FIXME optimize away the following format string
-                valu = valu.replace('{{%s}}' % tvar, tval)
+                valu = valu.replace('{{%s}}' % tvar, str(tval))
 
         if valu == None:
             path = info.get('path')
@@ -585,6 +717,8 @@ class Ingest(EventBus):
         cast = info.get('cast')
         if cast != None:
             valu = core.getTypeCast(cast,valu)
+            if valu == None:
+                return None
 
         # FIXME make a mechanism here for field translation based
         # on an included translation table within the ingest def
@@ -593,7 +727,7 @@ class Ingest(EventBus):
         if pivot != None:
             pivf,pivt = pivot
 
-            pivo = core.getTufoByFrob(pivf,valu)
+            pivo = core.getTufoByProp(pivf,valu)
             if pivo == None:
                 return None
 
@@ -621,3 +755,26 @@ def loadfile(*paths):
     gest.set('basedir', os.path.dirname(path))
 
     return gest
+
+
+def register_ingest(core, gest, evtname, ret_func=False):
+    '''
+    Register an ingest class with a cortex eventbus with a given name.
+    When events are fired, they are expected to have the argument "data" which 
+    is passed along to the Ingest.ingest() function.
+
+    :param core: Cortex to register the Ingest with 
+    :param gest: Ingest to register
+    :param evtname: Event name to register the ingest with.
+    :param ret_func:  Bool, if true, return the ingest function.
+    '''
+    def ingest(args):
+        name, kwargs = args
+        data = kwargs.get('data')
+        with core.getCoreXact() as xact:
+            gest.ingest(core, data=data)
+
+    core.on(evtname, ingest)
+
+    if ret_func:
+        return ingest

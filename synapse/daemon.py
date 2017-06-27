@@ -13,6 +13,7 @@ import synapse.dyndeps as s_dyndeps
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.socket as s_socket
+import synapse.lib.reflect as s_reflect
 import synapse.lib.service as s_service
 import synapse.lib.session as s_session
 import synapse.lib.threads as s_threads
@@ -185,6 +186,11 @@ class DmonConf:
             },
         }
         '''
+        with s_scope.enter({'dmon':self}):
+            return self._loadDmonConf(conf)
+
+    def _loadDmonConf(self, conf):
+
         checkConfDict(conf)
         self.locs.update( conf.get('vars',{}) )
 
@@ -222,7 +228,12 @@ class DmonConf:
             else:
                 raise Exception('Invalid ctor row: %r' % (row,))
 
-            item = self.dmoneval(url)
+            if url.find('://') == -1:
+                # this is a (name,dynfunc,config) formatted ctor...
+                item = s_dyndeps.tryDynFunc(url,copts)
+            else:
+                item = self.dmoneval(url)
+
             self.locs[name] = item
 
             # check for a ctor opt that wants us to load a config dict by name
@@ -269,14 +280,13 @@ class DmonConf:
                 raise NoSuchObj(name)
 
             for svcname,svcopts in svcruns:
+
                 item = self.locs.get(svcname)
                 if item == None:
                     raise NoSuchObj(svcname)
 
-                tags = svcopts.get('tags',())
                 svcname = svcopts.get('name',svcname)
-
-                s_service.runSynSvc(svcname, item, svcbus, tags=tags)
+                s_service.runSynSvc(svcname, item, svcbus, **svcopts)
 
     def loadDmonJson(self, text):
         conf = json.loads(text)
@@ -286,6 +296,50 @@ class DmonConf:
         checkConfFile(path)
         text = open(path,'rb').read().decode('utf8')
         return self.loadDmonJson(text)
+
+_onhelp_lock = threading.Lock()
+
+class OnHelp:
+    '''
+    A class used by Daemon to deal with on() handlers and filters.
+    '''
+    def __init__(self):
+        self.ons = collections.defaultdict(dict)
+
+    @s_threads.withlock(_onhelp_lock)
+    def addOnInst(self, sock, iden, filt):
+
+        filts = self.ons[sock]
+        if not filts:
+            def fini():
+                self.ons.pop(sock,None)
+            sock.onfini(fini)
+
+        filts[iden] = filt
+        return
+
+    @s_threads.withlock(_onhelp_lock)
+    def delOnInst(self, sock, iden):
+
+        filts = self.ons.get(sock)
+        if filts == None:
+            return
+
+        filts.pop(iden,None)
+        if not filts:
+            self.ons.pop(sock,None)
+
+    def dist(self, mesg):
+
+        for sock,filts in self.ons.items():
+
+            for filt in filts.values():
+
+                if any( True for (k,v) in filt if mesg[1].get(k) != v ):
+                    continue
+
+                sock.tx(mesg)
+                break
 
 class Daemon(EventBus,DmonConf):
 
@@ -297,7 +351,10 @@ class Daemon(EventBus,DmonConf):
         self.socks = {}     # sockets by iden
         self.shared = {}    # objects provided by daemon
         self.pushed = {}    # objects provided by sockets
+        self.csides = {}    # item:[ (name,path), ... ]
+        self.reflect = {}   # objects reflect info by name
 
+        self._dmon_ons = {}
         self._dmon_links = []   # list of listen links
         self._dmon_yields = set()
 
@@ -428,17 +485,24 @@ class Daemon(EventBus,DmonConf):
 
         jid = mesg[1].get('jid')
         name = mesg[1].get('name')
+        csides = mesg[1].get('csides')
+        reflect = mesg[1].get('reflect')
 
         user = sock.get('syn:user')
         if not self._isUserAllowed(user, 'tele:push:'+name ):
             return sock.tx( tufo('job:done', err='NoSuchRule', jid=jid) )
 
         def onfini():
+            self.fire('tele:push:fini', name=name)
             self.pushed.pop(name,None)
+            self.reflect.pop(name,None)
 
         sock.onfini(onfini)
 
         self.pushed[name] = sock
+        self.csides[name] = csides
+        self.reflect[name] = reflect
+
         return sock.tx( tufo('job:done', jid=jid) )
 
     def _onTeleRetnMesg(self, sock, mesg):
@@ -521,6 +585,7 @@ class Daemon(EventBus,DmonConf):
 
         # pass / consume protocol version information
         vers = mesg[1].get('vers',(0,0))
+        name = mesg[1].get('name')
         hisopts = mesg[1].get('opts',{})
 
         if hisopts.get('sock:can:gzip'):
@@ -545,6 +610,10 @@ class Daemon(EventBus,DmonConf):
             'opts':{'sock:can:gzip':True},
         }
 
+        if name != None:
+            ret['csides'] = self.csides.get(name)
+            ret['reflect'] = self.reflect.get(name)
+
         # send a nonce along for the ride in case
         # they want to authenticate for the session
         if not sess.get('user'):
@@ -554,34 +623,42 @@ class Daemon(EventBus,DmonConf):
 
         return sock.tx( tufo('job:done', jid=jid, ret=ret) )
 
+    def _getOnHelp(self, name, evnt):
+        okey = (name,evnt)
+        onhelp = self._dmon_ons.get(okey)
+        if onhelp == None:
+            self._dmon_ons[okey] = onhelp = OnHelp()
+            return onhelp,True
+
+        return onhelp,False
+
     def _onTeleOnMesg(self, sock, mesg):
 
         try:
             # set the socket tx method as the callback
             jid = mesg[1].get('jid')
+            ons = mesg[1].get('ons')
             name = mesg[1].get('name')
-            events = mesg[1].get('events')
 
             item = self.shared.get(name)
             if item == None:
-                raise NoSuchObj(name)
-
-            on = getattr(item,'on',None)
-            if on == None:
-                return sock.tx( tufo('job:done', jid=jid, ret=False) )
+                raise NoSuchObj(name=name)
 
             user = sock.get('syn:user')
-            # TODO restrict access by event type?
+
+            func = getattr(item,'on',None)
+            if func == None:
+                return sock.tx( tufo('job:done', jid=jid, ret=False) )
+ 
             self._reqUserAllowed(user,'tele:call',name,'on')
 
-            for evt in events:
-                on(evt,sock.tx)
+            for evnt,ontups in ons: # (<evnt>, ( (<iden>,<filt>), ... ))
+                onhelp,new = self._getOnHelp(name,evnt)
+                if new:
+                    func(evnt,onhelp.dist)
 
-            def onfini():
-                for evt in events:
-                    item.off(evt, sock.tx)
-
-            sock.onfini(onfini)
+                for iden,filt in ontups:
+                    onhelp.addOnInst(sock, iden, filt)
 
             return sock.tx( tufo('job:done', jid=jid, ret=True) )
 
@@ -592,22 +669,18 @@ class Daemon(EventBus,DmonConf):
         # set the socket tx method as the callback
         try:
 
-            evt = mesg[1].get('evt')
             jid = mesg[1].get('jid')
+            evnt = mesg[1].get('evnt')
             name = mesg[1].get('name')
+            iden = mesg[1].get('iden')
 
             item = self.shared.get(name)
             if item == None:
-                raise NoSuchObj(name)
+                raise NoSuchObj(name=name)
 
-            off = getattr(item,'off',None)
-            if off == None:
-                return sock.tx( tufo('job:done', jid=jid, ret=False) )
+            onhelp,new = self._getOnHelp(name,evnt)
+            onhelp.delOnInst(sock,iden)
 
-            user = sock.get('syn:user')
-            self._reqUserAllowed(user,'tele:call',name,'off')
-
-            off(evt,sock.tx)
             return sock.tx( tufo('job:done', jid=jid, ret=True) )
 
         except Exception as e:
@@ -656,7 +729,6 @@ class Daemon(EventBus,DmonConf):
                         # pass along how to reply
                         mesg[1]['suid'] = sock.iden
                         return pushsock.tx( mesg )
-
                     raise NoSuchObj(name)
 
                 task = mesg[1].get('task')
@@ -667,6 +739,10 @@ class Daemon(EventBus,DmonConf):
                 func = getattr(item,meth,None)
                 if func == None:
                     raise NoSuchMeth(meth)
+
+                if getattr(func,'_tele_clientside',False):
+                    name = s_reflect.getMethName(func)
+                    raise TeleClientSide(name=name)
 
                 ret = func(*args,**kwargs)
 
@@ -693,8 +769,8 @@ class Daemon(EventBus,DmonConf):
 
                     try:
 
-                        sock.onfini( txwait.set, weak=True )
-                        sock.on('sock:tx:size', ontxsize, weak=True)
+                        sock.onfini(txwait.set)
+                        sock.on('sock:tx:size', ontxsize)
 
                         for item in ret:
 
@@ -709,6 +785,7 @@ class Daemon(EventBus,DmonConf):
                                 break
 
                     finally:
+                        sock.off('sock:tx:size', ontxsize)
                         self._dmon_yields.discard(iden)
                         sock.tx( tufo('tele:yield:fini', iden=iden) )
 
@@ -761,6 +838,8 @@ class Daemon(EventBus,DmonConf):
 
         '''
         self.shared[name] = item
+        self.reflect[name] = s_reflect.getItemInfo(item)
+        self.csides[name] = s_telepath.getClientSides(item)
 
         if fini:
             self.onfini( item.fini )

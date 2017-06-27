@@ -1,4 +1,5 @@
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.tufo as s_tufo
@@ -16,7 +17,13 @@ class Runtime(s_storm.Runtime,EventBus):
     '''
     def __init__(self, svcbus, **opts):
         EventBus.__init__(self)
+
+        # a core we use for data model stuff..
+        self.core = s_cortex.openurl('ram:///')
+        self.onfini( self.core.fini )
+
         s_storm.Runtime.__init__(self)
+
 
         self.addConfDef('svcbus:deftag', asloc='deftag', type='syn:tag', defval=deftag, doc='Default tag for cores')
         self.addConfDef('svcbus:timeout', asloc='svctime', type='int', doc='SvcBus Telepath Link Tufo')
@@ -25,6 +32,9 @@ class Runtime(s_storm.Runtime,EventBus):
 
         self.svcbus = svcbus
         self.svcprox = s_service.SvcProxy(svcbus, self.svctime)
+
+    def _getStormCore(self, name=None):
+        return self.core
 
     def _getTufosByFrom(self, by, prop, valu=None, limit=None, fromtag=None):
 
@@ -49,11 +59,17 @@ class Runtime(s_storm.Runtime,EventBus):
 
     def _stormOperLift(self, query, oper):
 
-        by = oper[1].get('cmp')
-        prop = oper[1].get('prop')
-        valu = oper[1].get('valu')
-        limit = oper[1].get('limit')
-        fromtag = oper[1].get('from')
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        valu = None
+        prop = args[0]
+        if len(args) == 2:
+            valu = args[1]
+
+        by = opts.get('by')
+        limit = opts.get('limit')
+        fromtag = opts.get('from')
 
         for tufo in self._getTufosByFrom(by, prop, valu, limit=limit, fromtag=fromtag):
             query.add(tufo)

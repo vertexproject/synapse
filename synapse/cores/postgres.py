@@ -69,7 +69,7 @@ class Cortex(s_c_sqlite.Cortex):
                 time.sleep(1)
 
         seqscan = self._link[1].get('pg:seqscan',0)
-        seqscan,_ = s_datamodel.getTypeFrob('bool',seqscan)
+        seqscan,_ = s_datamodel.getTypeNorm('bool',seqscan)
 
         c = db.cursor()
         c.execute('SET enable_seqscan=%s', (seqscan,))

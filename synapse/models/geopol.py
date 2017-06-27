@@ -5,7 +5,6 @@ def getDataModel():
         'version':201611301150,
 
         'types':(
-            ('pol:news',{'subof':'guid','doc':'A GUID for a news article or report'}),
             ('pol:country',{'subof':'guid','doc':'A GUID for a country'}),
 
             ('pol:iso2',{'subof':'str','lower':1,'regex':'^[a-z0-9]{2}$','nullval':'??','doc':'The 2 digit ISO country code','ex':'us'}),
@@ -25,7 +24,7 @@ def getDataModel():
                 ('tld',{'ptype':'inet:fqdn','defval':'??'}),
             ]),
 
-            ('pol:flag',{'ptype':'hash:sha256','doc':'The flag image SHA256'},[
+            ('pol:flag',{'ptype':'file:bytes','doc':'The flag image SHA256'},[
                 ('cc', {'ptype':'pol:iso2','doc':'The (optional) ISO2 country code for the flag'}),
                 ('orgalias',{'ptype':'ou:alias','doc':'The (optional) org alias for the flat'}),
             ]),
@@ -34,15 +33,5 @@ def getDataModel():
                 #TODO retired/historical countries
             ]),
 
-            ('pol:news',{'ptype':'pol:news','doc':'A published news item, report, or article GUID'},[
-                ('url',{'ptype':'inet:url','doc':'The URL where the news was published','ex':'http://cnn.com/news/mars-lander.html'}),
-                ('url:fqdn',{'ptype':'inet:fqdn','doc':'The FQDN within the news URL','ex':'cnn.com'}),
-                ('sha256',{'ptype':'hash:sha256','doc':'The SHA256 of a file blob which originated the news'}),
-
-                ('title',{'ptype':'str:lwr','doc':'Title/Headline for the news','ex':'mars lander reaches mars'}),
-                ('author',{'ptype':'str:lwr','defval':'??','doc':'The free-form author of the news article','ex':'sarcastic rover <foo@bar.com>'}),
-                ('summary',{'ptype':'str:lwr','defval':'??','doc':'A brief summary of the news item','ex':'lorum ipsum'}),
-                ('published',{'ptype':'time','defval':0,'doc':'The date the news item was published','ex':'20161201180433'}),
-            ]),
         ),
     }

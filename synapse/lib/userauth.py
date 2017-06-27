@@ -2,7 +2,6 @@ import hashlib
 import fnmatch
 import contextlib
 
-import synapse.cortex as s_cortex
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 
@@ -283,6 +282,7 @@ def opencore(url,**opts):
     '''
     Construct a UserAuth object around the given cortex URL.
     '''
+    import synapse.cortex as s_cortex
     core = s_cortex.openurl(url,**opts)
     return UserAuth(core)
 

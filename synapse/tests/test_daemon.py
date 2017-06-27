@@ -5,6 +5,7 @@ import threading
 
 import synapse.link as s_link
 import synapse.daemon as s_daemon
+import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
@@ -221,3 +222,45 @@ class DaemonTest(SynTest):
             core = dmon.locs.get('bar')
             self.eq( core.caching, 1 )
 
+    def test_daemon_ctor_nonurl(self):
+
+        s_dyndeps.addDynAlias('test:blah',Blah)
+
+        conf = {
+            'ctors':(
+                ('foo','test:blah', {'lulz':'rofl'}),
+            ),
+        }
+
+        with s_daemon.Daemon() as dmon:
+            dmon.loadDmonConf(conf)
+            item = dmon.locs.get('foo')
+            self.eq( item.woot.get('lulz'), 'rofl' )
+
+        s_dyndeps.delDynAlias('test:blah')
+
+
+    def test_daemon_ctor_dmonurl(self):
+
+        conf = {
+            'ctors':[
+                ('thing0','synapse.tests.test_daemon.Blah',{'lulz':'hehe'}),
+                ('thing1','test:check:blah',{}),
+            ],
+        }
+
+        self.raises( NoSuchName, s_telepath.openurl, 'dmon://thing0' )
+
+        with s_daemon.Daemon() as dmon:
+
+
+            def checkblah(conf):
+                self.eq( dmon.locs.get('thing0'), s_telepath.openurl('dmon://thing0') )
+                self.raises( NoSuchName, s_telepath.openurl, 'dmon://newp0/' )
+                return 1
+
+            s_dyndeps.addDynAlias('test:check:blah',checkblah)
+
+            dmon.loadDmonConf(conf)
+
+            s_dyndeps.delDynAlias('test:check:blah')

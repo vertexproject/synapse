@@ -46,13 +46,20 @@ class SockXform:
         return byts
 
 class Socket(EventBus):
+    '''
+    Wrapper for the builtin socket.Socket class.
+
+    Args:
+        sock socket.socket: socket to wrap
+        **info:
+    '''
 
     def __init__(self, sock, **info):
         EventBus.__init__(self)
 
-        self.sock = sock
+        self.sock = sock  # type: socket.socket
         self.plex = None
-        self.unpk = msgpack.Unpacker(use_list=0,encoding='utf8')
+        self.unpk = msgpack.Unpacker(use_list=0, encoding='utf8')
         self.iden = s_common.guid()
         self.xforms = []        # list of SockXform instances
         self.info = info
@@ -65,6 +72,7 @@ class Socket(EventBus):
             self._tryTcpNoDelay()
 
         self.txque = collections.deque()
+        self.rxque = collections.deque()
 
         self.onfini(self._finiSocket)
 
@@ -221,6 +229,9 @@ class Socket(EventBus):
                 dostuff(mesg)
 
         '''
+        # Yield any objects we have already queued up first.
+        while self.rxque:
+            yield self.rxque.popleft()
 
         # the "preread" state for a socket means it has IO todo
         # which is part of it's initial negotiation ( not mesg )
@@ -234,10 +245,12 @@ class Socket(EventBus):
             return
 
         try:
-
             self.unpk.feed(byts)
             for mesg in self.unpk:
-                yield mesg
+                self.rxque.append(mesg)
+
+            while self.rxque:
+                yield self.rxque.popleft()
 
         except Exception as e:
             logger.exception(e)
@@ -294,7 +307,7 @@ class Socket(EventBus):
 
     def recv(self, size):
         '''
-        Slighly modified recv function which masks socket errors.
+        Slightly modified recv function which masks socket errors.
         ( makes them look like a simple close )
 
         Additionally, any non-blocking recv's with no available data
@@ -310,7 +323,6 @@ class Socket(EventBus):
             return self._rx_xform(byts)
 
         except ssl.SSLError as e:
-
             # handle "did not complete" error where we didn't
             # get all the bytes necessary to decrypt the data.
             if e.errno == 2:
@@ -347,7 +359,7 @@ class Plex(EventBus):
         #self._plex_sel = selectors.DefaultSelector()
 
         self._plex_lock = threading.Lock()
-        self._plex_socks = {} # set()
+        self._plex_socks = {}
 
         # used for select()
         self._plex_rxsocks = []
@@ -392,6 +404,9 @@ class Plex(EventBus):
     def addPlexSock(self, sock):
         '''
         Add a Socket to the Plex()
+
+        Args:
+            sock (Socket): Socket to add.
 
         Example:
 
@@ -454,7 +469,7 @@ class Plex(EventBus):
 
                 # our send was a bit short...
                 sock.txbuf = byts[sent:]
-                sock.txsize += (blen-sent)
+                sock.txsize += (blen - sent)
                 sock.fire('sock:tx:size', size=sock.txsize)
 
                 self._plex_txsocks.append(sock)

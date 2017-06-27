@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 import logging
 import tempfile
@@ -64,6 +65,11 @@ class SynTest(unittest.TestCase):
     def getTestWait(self, bus, size, *evts):
         return s_eventbus.Waiter(bus, size, *evts)
 
+    def skipIfOldPython(self):
+        python_version = sys.version_info
+        if python_version.major == 2 or (python_version.major == 3 and python_version.minor < 3):
+            raise unittest.SkipTest('old python version')
+
     def skipIfNoInternet(self):
         if os.getenv('SYN_TEST_NO_INTERNET'):
             raise unittest.SkipTest('no internet access')
@@ -74,12 +80,11 @@ class SynTest(unittest.TestCase):
             return s_cortex.openurl(url)
 
         db = os.getenv('SYN_TEST_PG_DB')
-        if db == None:
+        if not db:
             raise unittest.SkipTest('no SYN_TEST_PG_DB or SYN_TEST_PG_URL')
 
         table = 'syn_test_%s' % guid()
-
-        core = s_cortex.openurl('postgres:///%s/%s' % (db,table))
+        core = s_cortex.openurl('postgres://%s/%s' % (db, table))
 
         def droptable():
             with core.getCoreXact() as xact:
@@ -128,6 +133,9 @@ class SynTest(unittest.TestCase):
     def noprop(self, info, prop):
         valu = info.get(prop,novalu)
         self.eq(valu,novalu)
+
+    def raises(self, *args, **kwargs):
+        return self.assertRaises(*args,**kwargs)
 
     def sorteq(self, x, y):
         return self.eq( sorted(x), sorted(y) )

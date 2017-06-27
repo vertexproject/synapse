@@ -7,6 +7,8 @@ import threading
 import traceback
 import collections
 
+from functools import wraps
+
 import synapse.glob as s_glob
 import synapse.lib.queue as s_queue
 
@@ -21,6 +23,15 @@ def iden():
 
 def isfini():
     return getattr(current(),'isfini',False)
+
+def withlock(lock):
+    def decor(f):
+        @wraps(f)
+        def wrap(*args,**kwargs):
+            with lock:
+                return f(*args,**kwargs)
+        return wrap
+    return decor
 
 class cancelable:
     '''
