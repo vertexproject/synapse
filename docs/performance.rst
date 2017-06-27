@@ -96,6 +96,7 @@ The current benchmark testing environment is a cluster of 3 hosts with the follo
 * Intel(R) Xeon(R) CPU E5-2609 v4 @ 1.70GHz (8 cores)
 * 256 GB Memory
 * 1000 base T network interface ( 1 Gbps )
+* 8x 7200 RPM Seagate ST8000NM0055-1RM112 disks
 
 Results
 =======
