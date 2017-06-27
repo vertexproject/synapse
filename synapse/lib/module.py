@@ -8,6 +8,8 @@ import synapse.telepath as s_telepath
 import synapse.lib.reflect as s_reflect
 import synapse.cores.common as s_cores_common
 
+MODEL_REV_FORMAT = '%Y%m%d%H%M'
+
 def modelrev(name, vers):
     '''
     A decoarator used to flag model revision functions.
@@ -18,6 +20,22 @@ def modelrev(name, vers):
         return f
 
     return wrap
+
+def validate_revnumber(revision):
+    '''
+    Validate a model revision number matches the time format '%Y%m%d%H%M'
+
+    Args:
+        revision (int): Revision to validate.
+
+    Raises:
+        BadRevValu: If the integer does not match the time format.
+    '''
+    try:
+        if revision != 0:
+            datetime.datetime.strptime(str(revision), MODEL_REV_FORMAT)
+    except ValueError as e:
+        raise s_exc.BadRevValu(valu=revision, mesg='CoreModule model revision must be a timestamp.')
 
 class CoreModule(s_eventbus.EventBus, s_config.Configable):
     '''
@@ -76,14 +94,14 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
             self._syn_mrevs[name].append((vers, meth))
         # Generate rev0 functions for new Cortex instances.
         for name, modl in self.getBaseModels():
-            rev = 0
+            revision = 0
             if name in self._syn_mrevs:
                 _vers = [vers for vers, meth in self._syn_mrevs.get(name)]
-                rev = max(_vers)
+                revision = max(_vers)
 
             def rev0():
                 self.core.addDataModel(name, modl)
-                return rev
+                return revision
 
             self._syn_mrevs[name].append((0, rev0))
 
@@ -134,11 +152,7 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         tups = []
         for name, revs in self.genModlRevs():
             for revision, func in revs:
-                try:
-                    if revision != 0:
-                        datetime.datetime.strptime(str(revision), '%Y%m%d%H%M')
-                except ValueError as e:
-                    raise s_exc.BadRevValu(valu=revision, mesg='CoreModule model revision must be a timestamp.')
+                validate_revnumber(revision)
                 tups.append((revision, name, func))
         self.core.modelrevlist.extend(tups)
 
