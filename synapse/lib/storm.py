@@ -221,6 +221,31 @@ def invert(func):
         return not func(*args,**kwargs)
     return invfunc
 
+def eq(x,y):
+    if x is None or y is None:
+        return False
+    return x == y
+
+def lt(x,y):
+    if x is None or y is None:
+        return False
+    return x < y
+
+def gt(x,y):
+    if x is None or y is None:
+        return False
+    return x > y
+
+def le(x,y):
+    if x is None or y is None:
+        return False
+    return x <= y
+
+def ge(x,y):
+    if x is None or y is None:
+        return False
+    return x >= y
+
 class Runtime(Configable):
 
     def __init__(self, **opts):
@@ -233,11 +258,11 @@ class Runtime(Configable):
         self.operfuncs = {}
         self.cmprctors = {}
 
-        self.setCmprFunc('eq', lambda x,y: x == y )
-        self.setCmprFunc('lt', lambda x,y: x < y )
-        self.setCmprFunc('gt', lambda x,y: x > y )
-        self.setCmprFunc('le', lambda x,y: x <= y )
-        self.setCmprFunc('ge', lambda x,y: x >= y )
+        self.setCmprFunc('eq', eq)
+        self.setCmprFunc('lt', lt)
+        self.setCmprFunc('gt', gt)
+        self.setCmprFunc('le', le)
+        self.setCmprFunc('ge', ge)
 
         self.setCmprCtor('or', self._cmprCtorOr )
         self.setCmprCtor('and', self._cmprCtorAnd )

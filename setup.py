@@ -4,7 +4,7 @@ from setuptools import setup,find_packages
 
 setup(
     name='synapse',
-    version='0.0.18', # sync with synapse.version!
+    version='0.0.19', # sync with synapse.version!
     description='Synapse Distributed Key-Value Hypergraph Analysis Framework',
     author='Invisigoth Kenshoto',
     author_email='invisigoth.kenshoto@gmail.com',
@@ -20,6 +20,8 @@ setup(
         'cryptography>=1.7.2',
         'pyOpenSSL>=16.2.0',
         'msgpack-python>=0.4.2',
+        'xxhash>=1.0.1',
+        'lmdb>=0.92'
     ],
 
     classifiers=[
