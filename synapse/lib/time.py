@@ -10,6 +10,7 @@ def parse(text, base=None):
     '''
     Parse a time string into an epoch millis value.
     '''
+    #TODO: use base to facilitate relative time offsets
     text = text.strip().lower()
     text = (''.join([ c for c in text if c.isdigit() ]))
 
@@ -42,3 +43,17 @@ def parse(text, base=None):
 
     epoch = datetime.datetime(1970,1,1)
     return int((dt - epoch).total_seconds() * 1000)
+
+def repr(tick):
+    '''
+    Return a date string for an epoch-millis timestamp.
+
+    Args:
+        tick (int): The timestamp in milliseconds since the epoch.
+
+    Returns:
+        (str):  A date time string
+    '''
+    dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=tick)
+    millis = dt.microsecond / 1000
+    return '%d/%.2d/%.2d %.2d:%.2d:%.2d.%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)

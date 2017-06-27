@@ -869,10 +869,10 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
         # deleting a tag node.  delete all sub tags and wipe tufos.
         valu = mesg[1].get('valu')
 
-        [ self.delTufo(t) for t in self.getTufosByProp('syn:tag:up',valu) ]
+        [self.delTufo(t) for t in self.getTufosByProp('syn:tag:up',valu)]
 
         # do the (possibly very heavy) removal of the tag from all known forms.
-        [ self.delTufoTag(t, valu) for t in self.getTufosByTag(valu) ]
+        [self.delTufoTag(t, valu) for t in self.getTufosByTag(valu)]
 
     @on('node:form', form='syn:tag')
     def _onFormSynTag(self, mesg):
@@ -1432,8 +1432,16 @@ class Cortex(EventBus,DataModel,Runtime,Configable,s_ingest.IngestApi):
             ((str,dict)): The node in tuple form (with updated props)
 
         Example:
+
             node = core.formTufoByProp('foo','bar')
             node = core.addTufoTag(tufo,'baz.faz')
+
+            # add a tag with a time box
+            node = core.addTufoTag(tufo,'foo.bar@2012-2016')
+
+            # add a tag with a list of sample times used to
+            # create a timebox.
+            node = core.addTufoTag(tufo,'hehe.haha', times=timelist)
 
         '''
         iden = reqiden(tufo)
