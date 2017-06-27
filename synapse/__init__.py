@@ -14,7 +14,7 @@ if msgpack.version < (0,4,2):
 if tornado.version_info < (3,2,2):
     raise Exception('synapse requires tornado >= 3.2.2')
 
-version = (0,0,18)
+version = (0,0,19)
 verstring = '.'.join([ str(x) for x in version ])
 
 import synapse.lib.modules as s_modules
@@ -39,7 +39,7 @@ s_modules.load('synapse.models.temporal')
 s_modules.load('synapse.models.geospace')
 
 s_modules.load('synapse.models.gov.us')
-s_modules.load('synapse.models.gov.cn')
+#s_modules.load('synapse.models.gov.cn')
 s_modules.load('synapse.models.gov.intl')
 
 mods = os.getenv('SYN_MODULES')

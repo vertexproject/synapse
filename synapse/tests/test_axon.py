@@ -5,6 +5,7 @@ import tempfile
 import synapse.axon as s_axon
 import synapse.daemon as s_daemon
 import synapse.lib.heap as s_heap
+import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 import synapse.lib.service as s_service
 
@@ -265,32 +266,34 @@ class AxonTest(SynTest):
 
             axfo0 = host0.add(**props)
 
-            self.assertFalse( axcluster.has('md5',craphash) )
-            self.assertFalse( axcluster.has('md5',asdfhash) )
+            axcluster._waitWrAxons(1, 4)
+
+            self.false( axcluster.has('md5',craphash) )
+            self.false( axcluster.has('md5',asdfhash) )
 
             buf = b'asdfasdf'
             iden = axcluster.alloc(len(buf))
-            self.assertIsNotNone( axcluster.chunk(iden, buf) )
+            self.nn( axcluster.chunk(iden, buf) )
 
-            self.assertFalse( axcluster.has('md5',craphash) )
-            self.assertTrue( axcluster.has('md5',asdfhash) )
+            self.false( axcluster.has('md5',craphash) )
+            self.true( axcluster.has('md5',asdfhash) )
 
             blobs = axcluster.find('md5', craphash)
-            self.assertEqual(len(blobs), 0)
+            self.eq(len(blobs), 0)
 
             blobs = axcluster.find('md5', asdfhash)
-            self.assertEqual(len(blobs), 1)
+            self.eq(len(blobs), 1)
 
             blob = blobs[0]
             byts = b''.join( axcluster.iterblob(blob) )
-            self.assertEqual(byts, buf)
+            self.eq(byts, buf)
 
             blob[1].pop('.axon')
             byts = b''.join( axcluster.iterblob(blob) )
-            self.assertEqual(byts, buf)
+            self.eq(byts, buf)
 
-            self.assertIsNone(axcluster.wants('md5', asdfhash, len(buf)))
-            self.assertIsNotNone(axcluster.wants('md5', craphash, len(buf)))
+            self.nn(axcluster.wants('md5', craphash, len(buf)))
+            self.none(axcluster.wants('md5', asdfhash, len(buf)))
 
             host0.fini()
             host1.fini()
@@ -614,3 +617,20 @@ class AxonTest(SynTest):
         self.assertGreater(actual['st_atime'], 1000000000)
         self.assertGreater(actual['st_ctime'], 1000000000)
         self.assertGreater(actual['st_mtime'], 1000000000)
+
+    def test_axon_telepath(self):
+        with self.getTestDir() as dirname:
+
+            with s_daemon.Daemon() as dmon:
+
+                link = dmon.listen('tcp://127.0.0.1:0/')
+                port = link[1].get('port')
+
+                with s_axon.Axon(dirname) as axon:
+                    dmon.share('axon',axon)
+
+                    prox = s_telepath.openurl('tcp://127.0.0.1/axon', port=port)
+
+                    with io.BytesIO(b'vertex') as fd:
+                        blob = prox.eatfd(fd)
+                        self.eq( blob[1]['axon:blob:sha256'], 'e1b683e26a3aad218df6aa63afe9cf57fdb5dfaf5eb20cddac14305d67f48a02' )

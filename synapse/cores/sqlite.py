@@ -238,8 +238,8 @@ class Cortex(s_cores_common.Cortex):
 
         q = self._q_getrows_by_range
 
-        minvalu = int(valu[0])
-        maxvalu = int(valu[1])
+        minvalu = int(self.getPropNorm(prop,valu[0])[0])
+        maxvalu = int(self.getPropNorm(prop,valu[1])[0])
 
         rows = self.select(q, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)
         return self._foldTypeCols(rows)
@@ -260,7 +260,9 @@ class Cortex(s_cores_common.Cortex):
     def _sizeByRange(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getsize_by_range
-        return self.select(q,prop=prop,minvalu=valu[0],maxvalu=valu[1],limit=limit)[0][0]
+        minvalu = int(self.getPropNorm(prop,valu[0])[0])
+        maxvalu = int(self.getPropNorm(prop,valu[1])[0])
+        return self.select(q,prop=prop,minvalu=minvalu,maxvalu=maxvalu,limit=limit)[0][0]
 
     def _sizeByGe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
@@ -562,9 +564,8 @@ class Cortex(s_cores_common.Cortex):
         if len(valu) != 2:
             return []
 
-        minvalu,maxvalu = valu
-        if not s_compat.isint(minvalu) or not s_compat.isint(maxvalu):
-            raise Exception('by "range" requires (int,int)')
+        minvalu = int(self.getPropNorm(prop,valu[0])[0])
+        maxvalu = int(self.getPropNorm(prop,valu[1])[0])
 
         limit = self._getDbLimit(limit)
 
