@@ -48,15 +48,15 @@ def main(argv, outp=None):
             results.append((fp, guid, hashd))
 
     if opts.ingest:
-        results = []
+        ret = []
         for fp, guid, hashd in results:
             hashd['name'] = os.path.basename(fp)
             d = {"props": hashd}
             hl = [guid, d]
-            results.append(hl)
-        if len(results) == 1:
-            results = results[0]
-        outp.printf(json.dumps(results, sort_keys=True, indent=2))
+            ret.append(hl)
+        if len(ret) == 1:
+            ret = ret[0]
+        outp.printf(json.dumps(ret, sort_keys=True, indent=2))
     else:
         for fp, guid, hashd in results:
             outp.printf('Superhash for: {}'.format(fp))
