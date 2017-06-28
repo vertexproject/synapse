@@ -3,6 +3,7 @@ import json
 import synapse.lib.cli as s_cli
 import synapse.lib.tufo as s_tufo
 import synapse.lib.scope as s_scope
+import synapse.lib.storm as s_storm
 
 class AskCmd(s_cli.Cmd):
     '''
@@ -87,27 +88,37 @@ class AskCmd(s_cli.Cmd):
             self.printf('(%d results)' % (len(nodes),))
             return resp
 
-        show = resp.get('show')
-        if show is not None:
-            for col in show.get('columns')
+        show = resp.get('show',{})
+        cols = show.get('columns')
 
-        for node in nodes:
-            form = node[1].get('tufo:form')
-            valu = node[1].get(form)
+        if cols is not None:
 
-            tags = sorted(s_tufo.tags(node,leaf=True))
-            tags = [ '#'+tag for tag in tags ]
+            shlp = s_storm.ShowHelp(core,show)
+            rows = shlp.rows(nodes)
+            pads = shlp.pad(rows)
 
-            # FIXME local typelib and datamodel
-            disp = core.getPropRepr(form,valu)
-            self.printf('%s = %s - %s' % (form.ljust(fsize),disp,' '.join(tags)))
-            if opts.get('props'):
-                pref = form + ':'
-                flen = len(form)
-                for prop in sorted([ k for k in node[1].keys() if k.startswith(pref) ]):
-                    valu = node[1].get(prop)
-                    disp = core.getPropRepr(prop,valu)
-                    self.printf('    %s = %s' % (prop[flen:],disp))
+            for pad in pads:
+                self.printf(' '.join(pad))
+
+        else:
+
+            for node in nodes:
+                form = node[1].get('tufo:form')
+                valu = node[1].get(form)
+
+                tags = sorted(s_tufo.tags(node,leaf=True))
+                tags = [ '#'+tag for tag in tags ]
+
+                # FIXME local typelib and datamodel
+                disp = core.getPropRepr(form,valu)
+                self.printf('%s = %s - %s' % (form.ljust(fsize),disp,' '.join(tags)))
+                if opts.get('props'):
+                    pref = form + ':'
+                    flen = len(form)
+                    for prop in sorted([ k for k in node[1].keys() if k.startswith(pref) ]):
+                        valu = node[1].get(prop)
+                        disp = core.getPropRepr(prop,valu)
+                        self.printf('    %s = %s' % (prop[flen:],disp))
 
         self.printf('(%d results)' % (len(nodes),))
 

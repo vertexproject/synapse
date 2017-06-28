@@ -474,8 +474,8 @@ class StormTest(SynTest):
 
         with s_cortex.openurl('ram:///') as core:
 
-            node0 = core.eval('[inet:ipv4=111.111.111.111 :cc=vv #foo.bar #hehe.haha ]')[0]
-            node1 = core.eval('[inet:ipv4=1.2.3.4 :cc=kd #foo.bar #hehe.haha ]')[0]
+            node0 = core.eval('[inet:ipv4=108.111.118.101 :cc=kd #foo.bar #hehe.haha ]')[0]
+            node1 = core.eval('[inet:ipv4=1.2.3.4 :cc=vv #foo.bar #hehe.haha ]')[0]
 
             nodes = core.eval('inet:ipv4')
 
@@ -483,20 +483,27 @@ class StormTest(SynTest):
 
             self.eq( shlp._getShowFunc('#')(node1), '#foo.bar #hehe.haha' )
 
-            self.eq( shlp._getShowFunc(':cc')(node1), 'kd' )
+            self.eq( shlp._getShowFunc(':cc')(node1), 'vv' )
             self.eq( shlp._getShowFunc('#foo.*')(node1), '#foo.bar' )
             self.eq( shlp._getShowFunc('inet:ipv4')(node1), '1.2.3.4' )
 
             rows = list(sorted(shlp.rows(nodes)))
             self.eq(rows, [
-                ['1.2.3.4','kd','#foo.bar'],
-                ['111.111.111.111','vv','#foo.bar'],
+                ['1.2.3.4','vv','#foo.bar'],
+                ['108.111.118.101','kd','#foo.bar'],
             ])
 
             rows = list(sorted(shlp.pad(rows)))
             self.eq(rows, [
-                ['        1.2.3.4','kd','#foo.bar'],
-                ['111.111.111.111','vv','#foo.bar'],
+                ['        1.2.3.4','vv','#foo.bar'],
+                ['108.111.118.101','kd','#foo.bar'],
+            ])
+
+            shlp.show['order'] = 'inet:ipv4:cc'
+            rows = list(shlp.rows(nodes))
+            self.eq(rows, [
+                ['108.111.118.101','kd','#foo.bar'],
+                ['1.2.3.4','vv','#foo.bar'],
             ])
 
 class LimitTest(SynTest):

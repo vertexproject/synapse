@@ -140,6 +140,10 @@ class ShowHelp:
         '''
         funcs = self._getShowFuncs()
 
+        ordr = self.show.get('order')
+        if ordr is not None:
+            nodes.sort(key=lambda x: x[1].get(ordr))
+
         rows = []
         for node in nodes:
             rows.append( [ func(node) for func in funcs ] )
@@ -219,6 +223,8 @@ class Query:
             'oplog':[], # [ <dict>, ... ] ( one dict for each oper )
 
             'data':list(data),
+            'show':{},
+
         }
 
     def __len__(self):
@@ -414,6 +420,8 @@ class Runtime(Configable):
         self.setOperFunc('addxref', self._stormOperAddXref)
         self.setOperFunc('fromtags', self._stormOperFromTags)
         self.setOperFunc('jointags', self._stormOperJoinTags)
+
+        self.setOperFunc('show:cols', self._stormOperShowCols)
 
         # Cache compiled regex objects.
         self._rt_regexcache = s_cache.FixedCache(1024, re.compile)
@@ -666,6 +674,16 @@ class Runtime(Configable):
             return reobj.search(valu) != None
 
         return cmpr
+
+    def _stormOperShowCols(self, query, oper):
+
+        opts = dict(oper[1].get('kwlist'))
+
+        order = opts.get('order')
+        if order is not None:
+            query.results['show']['order'] = order
+
+        query.results['show']['columns'] = oper[1].get('args')
 
     def _stormOperFilt(self, query, oper):
         cmpr = self.getCmprFunc(oper)
