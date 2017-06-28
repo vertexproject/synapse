@@ -30,7 +30,7 @@ class Sess(EventBus):
         self.cura = cura
         self.props = props
 
-        self.on('sess:log', self.cura.dist )
+        self.on('sess:log', self.cura.dist)
 
     def get(self, prop):
         '''
@@ -44,7 +44,7 @@ class Sess(EventBus):
         '''
         self.props[prop] = valu
         if save:
-            self.cura._saveSessProp(self.iden,prop,valu)
+            self.cura._saveSessProp(self.iden, prop, valu)
 
     def log(self, level, mesg, **info):
         info['mesg'] = mesg
@@ -72,12 +72,12 @@ class Curator(EventBus):
         self.core = core
 
         self.cache = s_cache.Cache(maxtime=maxtime)
-        self.cache.setOnMiss( self._getSessByIden )
-        self.cache.on('cache:pop', self._onSessCachePop )
+        self.cache.setOnMiss(self._getSessByIden)
+        self.cache.on('cache:pop', self._onSessCachePop)
 
-        self.onfini( self.cache.fini )
+        self.onfini(self.cache.fini)
 
-    def setMaxTime(self,valu):
+    def setMaxTime(self, valu):
         return self.cache.setMaxTime(valu)
 
     def setSessCore(self, core):
@@ -107,7 +107,7 @@ class Curator(EventBus):
         '''
         iden = guid()
         sess = Sess(self, iden)
-        self.cache.put(iden,sess)
+        self.cache.put(iden, sess)
         self.fire('sess:init', sess=sess)
         return sess
 
@@ -131,12 +131,12 @@ class Curator(EventBus):
             return None
 
         # look up the tufo and construct a Sess()
-        sefo = self.core.getTufoByProp('syn:sess',iden)
+        sefo = self.core.getTufoByProp('syn:sess', iden)
         if sefo == None:
             return None
 
         props = s_tufo.props(sefo)
-        return Sess(self,iden,**props)
+        return Sess(self, iden, **props)
 
     def _saveSessProp(self, iden, prop, valu):
 
@@ -145,4 +145,4 @@ class Curator(EventBus):
             return
 
         sefo = self.core.formTufoByProp('syn:sess', iden)
-        self.core.setTufoProp(sefo,prop,valu)
+        self.core.setTufoProp(sefo, prop, valu)

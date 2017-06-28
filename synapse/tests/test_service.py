@@ -31,13 +31,13 @@ class SvcTest(SynTest):
 
                 svcs = prox.getSynSvcs()
 
-                self.eq( len(svcs), 1 )
-                self.eq( svcs[0][1].get('name'), 'syn.woot' )
+                self.eq(len(svcs), 1)
+                self.eq(svcs[0][1].get('name'), 'syn.woot')
 
-                dyntask = s_async.newtask('foo',10,y=30)
+                dyntask = s_async.newtask('foo', 10, y=30)
 
                 job = prox.callx(svcs[0][0], dyntask)
-                self.eq( prox.syncjob(job), 40 )
+                self.eq(prox.syncjob(job), 40)
 
     def test_service_proxy(self):
 
@@ -63,24 +63,23 @@ class SvcTest(SynTest):
                 foos = svcp.getTagProxy('foo')
                 woots = svcp.getTagProxy('woots')
 
-                vals = tuple( sorted( foos.foo(20,y=20) ) )
-                self.eq( vals, (40,) )
+                vals = tuple(sorted(foos.foo(20, y=20)))
+                self.eq(vals, (40,))
 
-                vals = tuple( sorted( woots.foo(10,y=20) ) )
-                self.eq( vals, (30,30) )
+                vals = tuple(sorted(woots.foo(10, y=20)))
+                self.eq(vals, (30, 30))
 
                 def runNewpMeth():
-                    for foo in woots.newp(44,y=33):
+                    for foo in woots.newp(44, y=33):
                         pass
 
-                self.eq( 2, len(svcp.getSynSvcs()) )
-                self.eq( 2, len(svcp.getSynSvcsByTag('woots')) )
+                self.eq(2, len(svcp.getSynSvcs()))
+                self.eq(2, len(svcp.getSynSvcsByTag('woots')))
 
                 woots = svcp.getTagProxy('class.synapse.tests.test_service.Woot')
 
-                vals = tuple( sorted( woots.foo(10,y=20) ) )
-                self.eq( vals, (30,30) )
-
+                vals = tuple(sorted(woots.foo(10, y=20)))
+                self.eq(vals, (30, 30))
 
     def test_service_proxysugar(self):
 
@@ -100,10 +99,10 @@ class SvcTest(SynTest):
 
                 iden = prox.runSynSvc('foo0', woot, tags=('hehe.haha',))
 
-                res = list( prox['foo0'].foo(90) )
+                res = list(prox['foo0'].foo(90))
 
-                self.eq( len(res), 1 )
-                self.eq( res[0], 100 )
+                self.eq(len(res), 1)
+                self.eq(res[0], 100)
 
     def test_service_byname(self):
         sbus = s_service.SvcBus()
@@ -122,7 +121,7 @@ class SvcTest(SynTest):
 
                 iden = prox.runSynSvc('foo0', woot0)
 
-                self.eq( prox.callByName('foo0', gentask('foo',20)), 30 )
+                self.eq(prox.callByName('foo0', gentask('foo', 20)), 30)
 
     def test_service_getNameProxy(self):
 
@@ -167,11 +166,11 @@ class SvcTest(SynTest):
     def test_service_dmon_conf(self):
 
         conf0 = {
-            'ctors':[
-                ['svcbus','ctor://synapse.lib.service.SvcBus()', {}],
+            'ctors': [
+                ['svcbus', 'ctor://synapse.lib.service.SvcBus()', {}],
             ],
-            'share':[
-                ['svcbus',{}],
+            'share': [
+                ['svcbus', {}],
             ],
 
         }
@@ -184,14 +183,14 @@ class SvcTest(SynTest):
 
             conf1 = {
 
-                'ctors':[
-                    ['svcbus','tcp://127.0.0.1:%d/svcbus' % port, {}],
-                    ['ebus','ctor://synapse.eventbus.EventBus()', {}],
+                'ctors': [
+                    ['svcbus', 'tcp://127.0.0.1:%d/svcbus' % port, {}],
+                    ['ebus', 'ctor://synapse.eventbus.EventBus()', {}],
                 ],
 
-                'services':[
-                    ['svcbus',[
-                        ['ebus',{'woot':'heh'}],
+                'services': [
+                    ['svcbus', [
+                        ['ebus', {'woot': 'heh'}],
                     ]],
                 ],
             }
@@ -201,8 +200,7 @@ class SvcTest(SynTest):
                 dmon1.loadDmonConf(conf1)
 
                 proxy = s_telepath.openurl('tcp://127.0.0.1/svcbus', port=port)
-                dmon1.onfini( proxy.fini )
+                dmon1.onfini(proxy.fini)
 
                 svcfo = proxy.getSynSvcsByTag('ebus')[0]
-                self.eq( svcfo[1].get('woot'), 'heh' )
-
+                self.eq(svcfo[1].get('woot'), 'heh')

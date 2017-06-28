@@ -14,9 +14,9 @@ libc = s_thisplat.getLibC()
 
 ptrsize = s_thishost.get('ptrsize')
 # TODO figure out how to use windows mmap for this
-haspriv = getattr(mmap,'MAP_PRIVATE',None) != None
-haspread = getattr(os,'pread',None) != None
-hasremap = getattr(libc,'mremap',None) != None
+haspriv = getattr(mmap, 'MAP_PRIVATE', None) != None
+haspread = getattr(os, 'pread', None) != None
+hasremap = getattr(libc, 'mremap', None) != None
 
 def getAtomFile(fd, memok=True):
     '''
@@ -60,7 +60,7 @@ class AtomFile(EventBus):
 
         self.lock = threading.Lock()
 
-        self.onfini( self._onAtomFini )
+        self.onfini(self._onAtomFini)
 
     def readoff(self, off, size):
         '''
@@ -71,13 +71,13 @@ class AtomFile(EventBus):
             byts = atom.readoff(off,size)
 
         '''
-        return self._readoff(off,size)
+        return self._readoff(off, size)
 
     def writeoff(self, off, byts):
         '''
         Atomically write bytes at the given offset.
         '''
-        return self._writeoff(off,byts)
+        return self._writeoff(off, byts)
 
     def resize(self, size):
         '''
@@ -143,7 +143,7 @@ class AtomFile(EventBus):
 
             self.fd.write(byts)
             self.fdoff = off + len(byts)
-            self.size = max( self.size, self.fdoff )
+            self.size = max(self.size, self.fdoff)
 
     def _onAtomFini(self):
         self.fd.flush()
@@ -171,13 +171,13 @@ class MemAtom(AtomFile):
         self.mm.flush()
 
     def _readoff(self, off, size):
-        return self.mm[off:off+size]
+        return self.mm[off:off + size]
 
     def _writeoff(self, off, byts):
         if off + len(byts) > self.size:
             raise Exception('writeoff past size!')
 
-        self.mm[off:off+len(byts)] = byts
+        self.mm[off:off + len(byts)] = byts
 
     def _resize(self, size):
         with self.lock:
@@ -194,4 +194,3 @@ class FastAtom(AtomFile):
     def _writeoff(self, off, byts):
         os.pwrite(self.fileno, byts, off)
         self.size = max(self.size, off + len(byts))
-

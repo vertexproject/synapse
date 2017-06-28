@@ -23,7 +23,7 @@ def addSynMixin(subsys, name, cname=None):
         cname = name
     mixins[subsys][name].append(cname)
 
-def getSynMixins(subsys,name):
+def getSynMixins(subsys, name):
     '''
     Return a list of mixin classes for the given subsystem class.
 
@@ -33,7 +33,7 @@ def getSynMixins(subsys,name):
             dostuff()
 
     '''
-    names = mixins[subsys].get(name,())
+    names = mixins[subsys].get(name, ())
     if not names:
         return ()
-    return [ s_dyndeps.getDynLocal(name) for name in names ]
+    return [s_dyndeps.getDynLocal(name) for name in names]

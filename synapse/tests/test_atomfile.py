@@ -11,12 +11,12 @@ class AtomTest(SynTest):
 
         atom.resize(8192)
 
-        self.eq( atom.readoff(100,20), b'\x00'*20 )
+        self.eq(atom.readoff(100, 20), b'\x00' * 20)
 
         atom.writeoff(100, b'asdf')
         atom.writeoff(104, b'qwer')
 
-        self.eq( atom.readoff(100,8), b'asdfqwer' )
+        self.eq(atom.readoff(100, 8), b'asdfqwer')
 
     def test_atomfile_base(self):
         fd = self._getTempFile()
@@ -27,7 +27,7 @@ class AtomTest(SynTest):
 
         if not s_atomfile.haspread:
             raise unittest.SkipTest('platform lacks pread')
-        
+
         fd = self._getTempFile()
         with s_atomfile.AtomFile(fd) as atom:
             atom = s_atomfile.FastAtom(fd)

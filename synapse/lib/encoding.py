@@ -4,7 +4,7 @@ import synapse.compat as s_compat
 
 from synapse.common import *
 
-def _de_base64(item,**opts):
+def _de_base64(item, **opts):
 
     # transparently handle the strings/bytes issue...
     wasstr = s_compat.isstr(item)
@@ -18,23 +18,23 @@ def _de_base64(item,**opts):
 
     return item
 
-def _en_base64(byts,**opts):
+def _en_base64(byts, **opts):
     return base64.b64encode(byts)
 
-def _en_utf8(text,**opts):
+def _en_utf8(text, **opts):
     return text.encode('utf8')
 
-def _de_utf8(byts,**opts):
+def _de_utf8(byts, **opts):
     return byts.decode('utf8')
 
 decoders = {
-    'utf8':_de_utf8,
-    'base64':_de_base64,
+    'utf8': _de_utf8,
+    'base64': _de_base64,
 }
 
 encoders = {
-    'utf8':_en_utf8,
-    'base64':_en_base64,
+    'utf8': _en_utf8,
+    'base64': _en_base64,
 }
 
 def decode(name, byts, **opts):
@@ -61,7 +61,7 @@ def decode(name, byts, **opts):
         if func == None:
             raise NoSuchDecoder(name=name)
 
-        byts = func(byts,**opts)
+        byts = func(byts, **opts)
 
     return byts
 
@@ -77,6 +77,6 @@ def encode(name, item, **opts):
         if func == None:
             raise NoSuchEncoder(name=name)
 
-        item = func(item,**opts)
+        item = func(item, **opts)
 
     return item

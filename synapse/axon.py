@@ -34,7 +34,7 @@ chunksize = megabyte * 10
 threedays = ((60 * 60) * 24) * 3
 axontag = 'class.synapse.axon.Axon'
 
-_fs_attrs = ('st_mode','st_nlink','st_size','st_atime','st_ctime','st_mtime')
+_fs_attrs = ('st_mode', 'st_nlink', 'st_size', 'st_atime', 'st_ctime', 'st_mtime')
 
 class AxonHost(s_eventbus.EventBus):
     '''
@@ -52,27 +52,27 @@ class AxonHost(s_eventbus.EventBus):
         self.axonbus = None
         self.axonforks = {}
 
-        self.onfini( self._onAxonHostFini )
+        self.onfini(self._onAxonHostFini)
 
-        self.opts.setdefault('autorun',0)               # how many axons to auto-start
-        self.opts.setdefault('axonbus','')              # url to axonbus
+        self.opts.setdefault('autorun', 0)               # how many axons to auto-start
+        self.opts.setdefault('axonbus', '')              # url to axonbus
 
-        self.opts.setdefault('bytemax',terabyte)        # by default make each Axon 1 Terabyte
-        self.opts.setdefault('syncmax',gigabyte * 10)   #
+        self.opts.setdefault('bytemax', terabyte)        # by default make each Axon 1 Terabyte
+        self.opts.setdefault('syncmax', gigabyte * 10)   #
 
-        self.opts.setdefault('hostname', s_thishost.get('hostname') ) # allow override for testing
+        self.opts.setdefault('hostname', s_thishost.get('hostname')) # allow override for testing
 
         url = self.opts.get('axonbus')
         if url:
             self.axonbus = s_service.openurl(url)
-            self.axonbus.runSynSvc(guid(),self)
+            self.axonbus.runSynSvc(guid(), self)
 
         for name in os.listdir(self.datadir):
 
             if not name.endswith('.axon'):
                 continue
 
-            iden,_ = name.split('.',1)
+            iden, _ = name.split('.', 1)
 
             self._fireAxonIden(iden)
 
@@ -82,14 +82,14 @@ class AxonHost(s_eventbus.EventBus):
             self.add()
 
     def _fireAxonIden(self, iden):
-        axondir = gendir(self.datadir,'%s.axon' % iden)
+        axondir = gendir(self.datadir, '%s.axon' % iden)
 
         opts = dict(self.opts)
-        jsopts = jsload(axondir,'axon.opts')
+        jsopts = jsload(axondir, 'axon.opts')
         if jsopts != None:
-            opts.update( jsopts )
+            opts.update(jsopts)
 
-        self.axons[iden] = Axon(axondir,**opts)
+        self.axons[iden] = Axon(axondir, **opts)
 
     def _onAxonHostFini(self):
         for axon in list(self.axons.values()):
@@ -101,10 +101,10 @@ class AxonHost(s_eventbus.EventBus):
         '''
         usage = self.usage()
         return {
-            'count':len(self.axons),
-            'free':usage.get('free',0),
-            'used':usage.get('used',0),
-            'hostname':self.opts.get('hostname'),
+            'count': len(self.axons),
+            'free': usage.get('free', 0),
+            'used': usage.get('used', 0),
+            'hostname': self.opts.get('hostname'),
         }
 
     def add(self, **opts):
@@ -135,12 +135,12 @@ class AxonHost(s_eventbus.EventBus):
         if bytemax > free:
             raise NotEnoughFree(bytemax)
 
-        axondir = gendir(self.datadir,'%s.axon' % iden)
+        axondir = gendir(self.datadir, '%s.axon' % iden)
 
-        jssave(opts,axondir,'axon.opts')
+        jssave(opts, axondir, 'axon.opts')
 
         # FIXME fork
-        axon = Axon(axondir,**fullopts)
+        axon = Axon(axondir, **fullopts)
 
         self.axons[iden] = axon
 
@@ -150,7 +150,7 @@ class AxonHost(s_eventbus.EventBus):
         '''
         Return volume usage info.
         '''
-        volinfo = s_thisplat.getVolInfo( self.datadir )
+        volinfo = s_thisplat.getVolInfo(self.datadir)
         return volinfo
 
 
@@ -172,7 +172,7 @@ class AxonMixin:
         '''
 
         hset = HashSet()
-        iden,props = hset.eatfd(fd)
+        iden, props = hset.eatfd(fd)
 
         blob = self.byiden(iden)
         if blob != None:
@@ -180,11 +180,11 @@ class AxonMixin:
 
         fd.seek(0)
 
-        sess = self.alloc( props.get('size') )
+        sess = self.alloc(props.get('size'))
 
         byts = fd.read(10000000)
         while byts:
-            retn = self.chunk(sess,byts)
+            retn = self.chunk(sess, byts)
             byts = fd.read(10000000)
 
         return retn
@@ -202,15 +202,15 @@ class AxonMixin:
         hset = HashSet()
 
         hset.update(byts)
-        iden,props = hset.guid()
+        iden, props = hset.guid()
         blob = self.byiden(iden)
         if blob != None:
             return blob
 
-        sess = self.alloc( props.get('size') )
+        sess = self.alloc(props.get('size'))
 
-        for chnk in chunks(byts,10000000):
-            blob = self.chunk(sess,chnk)
+        for chnk in chunks(byts, 10000000):
+            blob = self.chunk(sess, chnk)
 
         return blob
 
@@ -234,8 +234,8 @@ class AxonCluster(AxonMixin):
                 dostuff()
 
         '''
-        dyntask = gentask('has',htype,hvalu)
-        for svcfo,retval in self.svcprox.callByTag(bytag,dyntask):
+        dyntask = gentask('has', htype, hvalu)
+        for svcfo, retval in self.svcprox.callByTag(bytag, dyntask):
             if retval:
                 return True
 
@@ -255,7 +255,7 @@ class AxonCluster(AxonMixin):
                 return None
 
             def onfini():
-                self.axons.pop(iden,None)
+                self.axons.pop(iden, None)
 
             try:
 
@@ -266,7 +266,7 @@ class AxonCluster(AxonMixin):
                 axon = s_telepath.openlink(link)
                 self.axons[iden] = axon
 
-                axon.onfini( onfini )
+                axon.onfini(onfini)
 
             except Exception as e:
                 return None
@@ -283,8 +283,8 @@ class AxonCluster(AxonMixin):
 
         '''
         retblobs = []
-        dyntask = gentask('find',htype,hvalu)
-        for svcfo,blobs in self.svcprox.callByTag(bytag,dyntask):
+        dyntask = gentask('find', htype, hvalu)
+        for svcfo, blobs in self.svcprox.callByTag(bytag, dyntask):
 
             if not blobs:
                 continue
@@ -295,11 +295,11 @@ class AxonCluster(AxonMixin):
                 if axon == None:
                     continue
 
-                [ b[1].__setitem__('.axon',svcfo[0]) for b in blobs ]
+                [b[1].__setitem__('.axon', svcfo[0]) for b in blobs]
                 retblobs.extend(blobs)
 
             except Exception as e:
-                logger.warning('AxonApi find: %s %s' % (svcfo[0],e))
+                logger.warning('AxonApi find: %s %s' % (svcfo[0], e))
 
         return retblobs
 
@@ -312,7 +312,7 @@ class AxonCluster(AxonMixin):
 
         if axon == None:
             valu = blob[1].get('axon:blob:sha256')
-            for byts in self.bytes('sha256',valu):
+            for byts in self.bytes('sha256', valu):
                 yield byts
             return
 
@@ -321,8 +321,8 @@ class AxonCluster(AxonMixin):
 
     def bytes(self, htype, hvalu, bytag=axontag):
 
-        dyntask = gentask('find',htype,hvalu)
-        for svcfo,blobs in self.svcprox.callByTag(bytag,dyntask):
+        dyntask = gentask('find', htype, hvalu)
+        for svcfo, blobs in self.svcprox.callByTag(bytag, dyntask):
 
             if not blobs:
                 continue
@@ -331,15 +331,15 @@ class AxonCluster(AxonMixin):
             if axon == None:
                 continue
 
-            for byts in axon.bytes(htype,hvalu):
+            for byts in axon.bytes(htype, hvalu):
                 yield byts
 
             return
 
     def wants(self, htype, hvalu, size, bytag=axontag):
-        if self.has(htype,hvalu,bytag=bytag):
+        if self.has(htype, hvalu, bytag=bytag):
             return None
-        return self.alloc(size,bytag=bytag)
+        return self.alloc(size, bytag=bytag)
 
     def alloc(self, size, bytag=axontag):
         '''
@@ -356,7 +356,7 @@ class AxonCluster(AxonMixin):
 
         for axon in axons:
             iden = axon.alloc(size)
-            self.saves[iden] = { 'iden':iden, 'axon':axon }
+            self.saves[iden] = {'iden': iden, 'axon': axon}
             return iden
 
     def chunk(self, iden, byts):
@@ -365,9 +365,9 @@ class AxonCluster(AxonMixin):
             NoSuchIden(iden)
 
         axon = info.get('axon')
-        retn = axon.chunk(iden,byts)
+        retn = axon.chunk(iden, byts)
         if retn != None:
-            self.saves.pop(iden,None)
+            self.saves.pop(iden, None)
 
         return retn
 
@@ -377,7 +377,7 @@ class AxonCluster(AxonMixin):
 
         # FIXME cache this call for a few seconds
         dyntask = gentask('getAxonInfo')
-        for svcfo,axfo in self.svcprox.callByTag(bytag,dyntask):
+        for svcfo, axfo in self.svcprox.callByTag(bytag, dyntask):
 
             if axfo[1]['opts'].get('ro'):
                 continue
@@ -403,7 +403,7 @@ class AxonCluster(AxonMixin):
 
             time.sleep(0.1)
 
-class Axon(s_eventbus.EventBus,AxonMixin):
+class Axon(s_eventbus.EventBus, AxonMixin):
     '''
     An Axon acts as a binary blob store with hash based indexing/retrieval.
 
@@ -420,7 +420,7 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
         self.inprog = {}
         self.axondir = gendir(axondir)
-        self.clonedir = gendir(axondir,'clones')
+        self.clonedir = gendir(axondir, 'clones')
 
         self.clones = {}
         self.cloneinfo = {}
@@ -434,31 +434,31 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         self.axonbus = None
 
         self.iden = self.opts.get('iden')
-        self.tags = self.opts.get('tags',())
+        self.tags = self.opts.get('tags', ())
 
-        self.opts.setdefault('ro',False)
-        self.opts.setdefault('clone','')   # are we a clone?
-        self.opts.setdefault('clones',2)   # how many clones do we want?
-        self.opts.setdefault('axonbus','')  # do we have an axon svcbus?
+        self.opts.setdefault('ro', False)
+        self.opts.setdefault('clone', '')   # are we a clone?
+        self.opts.setdefault('clones', 2)   # how many clones do we want?
+        self.opts.setdefault('axonbus', '')  # do we have an axon svcbus?
 
-        self.opts.setdefault('hostname', s_thishost.get('hostname') )
+        self.opts.setdefault('hostname', s_thishost.get('hostname'))
 
-        self.opts.setdefault('listen','tcp://0.0.0.0:0/axon') # our default "ephemeral" listener
+        self.opts.setdefault('listen', 'tcp://0.0.0.0:0/axon') # our default "ephemeral" listener
 
         # if we're a clone, we're read-only and have no clones
         if self.opts.get('clone'):
             self.opts['ro'] = True
             self.opts['clones'] = 0
 
-        self.opts.setdefault('synckeep',threedays)
-        self.opts.setdefault('syncsize',gigabyte*10)
+        self.opts.setdefault('synckeep', threedays)
+        self.opts.setdefault('syncsize', gigabyte * 10)
 
-        corepath = os.path.join(self.axondir,'axon.db')
+        corepath = os.path.join(self.axondir, 'axon.db')
         self.core = s_cortex.openurl('sqlite:///%s' % corepath)
         self._fs_mkdir_root()  # create the fs root
         self.flock = threading.Lock()
 
-        fd = genfile(axondir,'axon.heap')
+        fd = genfile(axondir, 'axon.heap')
 
         self.link = None
         self.heap = s_heap.Heap(fd)
@@ -468,64 +468,64 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         if lisn:
             self.link = self.dmon.listen(lisn)
 
-        self.axfo = (self.iden,{})
+        self.axfo = (self.iden, {})
 
         self.axthrs = set()
 
-        self.setAxonInfo('link',self.link)
-        self.setAxonInfo('opts',self.opts)
+        self.setAxonInfo('link', self.link)
+        self.setAxonInfo('opts', self.opts)
 
-        self.dmon.share('axon',self)
+        self.dmon.share('axon', self)
 
         # create a reactor to unwrap core/heap sync events
         self.syncact = s_reactor.Reactor()
-        self.syncact.act('splice', self.core.splice )
-        self.syncact.act('heap:sync', self.heap.sync )
+        self.syncact.act('splice', self.core.splice)
+        self.syncact.act('heap:sync', self.heap.sync)
 
         # wrap core/heap sync events as axon:sync events
-        self.core.on('splice', self._fireAxonSync )
-        self.heap.on('heap:sync', self._fireAxonSync )
+        self.core.on('splice', self._fireAxonSync)
+        self.heap.on('heap:sync', self._fireAxonSync)
 
         # model details for the actual byte blobs
-        self.core.addTufoForm('axon:blob',ptype='guid')
-        self.core.addTufoProp('axon:blob','off', ptype='int',req=True)
-        self.core.addTufoProp('axon:blob','size', ptype='int',req=True)
+        self.core.addTufoForm('axon:blob', ptype='guid')
+        self.core.addTufoProp('axon:blob', 'off', ptype='int', req=True)
+        self.core.addTufoProp('axon:blob', 'size', ptype='int', req=True)
 
-        self.core.addTufoProp('axon:blob','md5', ptype='hash:md5',req=True)
-        self.core.addTufoProp('axon:blob','sha1', ptype='hash:sha1',req=True)
-        self.core.addTufoProp('axon:blob','sha256', ptype='hash:sha256',req=True)
-        self.core.addTufoProp('axon:blob','sha512', ptype='hash:sha512',req=True)
+        self.core.addTufoProp('axon:blob', 'md5', ptype='hash:md5', req=True)
+        self.core.addTufoProp('axon:blob', 'sha1', ptype='hash:sha1', req=True)
+        self.core.addTufoProp('axon:blob', 'sha256', ptype='hash:sha256', req=True)
+        self.core.addTufoProp('axon:blob', 'sha512', ptype='hash:sha512', req=True)
 
-        self.core.addTufoForm('axon:path',            ptype='file:path')
-        self.core.addTufoProp('axon:path','dir',      ptype='file:path', req=False)
-        self.core.addTufoProp('axon:path','base',     ptype='file:base', req=True)
-        self.core.addTufoProp('axon:path','blob',     ptype='guid',      req=False)
-        self.core.addTufoProp('axon:path','st_mode',  ptype='int',       req=True)
-        self.core.addTufoProp('axon:path','st_nlink', ptype='int',       req=True)
-        self.core.addTufoProp('axon:path','st_atime', ptype='int',       req=False)
-        self.core.addTufoProp('axon:path','st_ctime', ptype='int',       req=False)
-        self.core.addTufoProp('axon:path','st_mtime', ptype='int',       req=False)
-        self.core.addTufoProp('axon:path','st_size',  ptype='int',       req=False)
+        self.core.addTufoForm('axon:path', ptype='file:path')
+        self.core.addTufoProp('axon:path', 'dir', ptype='file:path', req=False)
+        self.core.addTufoProp('axon:path', 'base', ptype='file:base', req=True)
+        self.core.addTufoProp('axon:path', 'blob', ptype='guid', req=False)
+        self.core.addTufoProp('axon:path', 'st_mode', ptype='int', req=True)
+        self.core.addTufoProp('axon:path', 'st_nlink', ptype='int', req=True)
+        self.core.addTufoProp('axon:path', 'st_atime', ptype='int', req=False)
+        self.core.addTufoProp('axon:path', 'st_ctime', ptype='int', req=False)
+        self.core.addTufoProp('axon:path', 'st_mtime', ptype='int', req=False)
+        self.core.addTufoProp('axon:path', 'st_size', ptype='int', req=False)
 
-        self.core.addTufoForm('axon:clone',ptype='guid')
+        self.core.addTufoForm('axon:clone', ptype='guid')
 
-        dirname = gendir(axondir,'sync')
-        syncopts = self.opts.get('syncopts',{})
+        dirname = gendir(axondir, 'sync')
+        syncopts = self.opts.get('syncopts', {})
 
         self.syncdir = None
 
-        self.onfini( self._onAxonFini )
+        self.onfini(self._onAxonFini)
 
-        self.onfini( self.core.fini )
-        self.onfini( self.heap.fini )
-        self.onfini( self.dmon.fini )
+        self.onfini(self.core.fini)
+        self.onfini(self.heap.fini)
+        self.onfini(self.dmon.fini)
 
         # if we're not a clone, create a sync dir
         if not self.opts.get('clone'):
-            self.syncdir = s_persist.Dir(dirname,**syncopts)
-            self.onfini( self.syncdir.fini )
+            self.syncdir = s_persist.Dir(dirname, **syncopts)
+            self.onfini(self.syncdir.fini)
 
-            self.on('axon:sync', self.syncdir.add )
+            self.on('axon:sync', self.syncdir.add)
 
         self.axcthr = None
 
@@ -534,8 +534,8 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         if busurl:
             self.axonbus = s_service.openurl(busurl)
 
-            props = {'link':self.link,'tags':self.tags}
-            self.axonbus.runSynSvc(self.iden,self,**props)
+            props = {'link': self.link, 'tags': self.tags}
+            self.axonbus.runSynSvc(self.iden, self, **props)
 
             self.axcthr = self._fireAxonClones()
 
@@ -604,24 +604,24 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         dyntask = gentask('info')
         hostinfo = list(self.axonbus.callByTag('class.synapse.axon.AxonHost', dyntask))
 
-        hostinfo = [ h for h in hostinfo if h[1].get('free') > bytemax ]
-        hostinfo = [ h for h in hostinfo if h[1].get('hostname') != myhost ]
+        hostinfo = [h for h in hostinfo if h[1].get('free') > bytemax]
+        hostinfo = [h for h in hostinfo if h[1].get('hostname') != myhost]
 
         def hostkey(x):
             used = x[1].get('used')
             count = x[1].get('count')
-            return (count,used)
+            return (count, used)
 
-        for svcfo,ahinfo in sorted(hostinfo,key=hostkey):
+        for svcfo, ahinfo in sorted(hostinfo, key=hostkey):
             try:
                 host = ahinfo.get('hostname')
                 if host in self.clonehosts:
                     continue
 
-                props = {'clone':self.iden,'bytemax':bytemax,'host':host}
-                axfo = self.axonbus.callByIden(svcfo[0],'add',**props)
+                props = {'clone': self.iden, 'bytemax': bytemax, 'host': host}
+                axfo = self.axonbus.callByIden(svcfo[0], 'add', **props)
 
-                tufo = self.core.formTufoByProp('axon:clone',axfo[0], host=host)
+                tufo = self.core.formTufoByProp('axon:clone', axfo[0], host=host)
                 self.clonehosts.add(host)
 
                 return axfo
@@ -630,12 +630,12 @@ class Axon(s_eventbus.EventBus,AxonMixin):
                 logger.exception('findAxonClone')
 
     def _initAxonClone(self, iden):
-        tufo = self.core.formTufoByProp('axon:clone',iden)
+        tufo = self.core.formTufoByProp('axon:clone', iden)
 
         poff = self.syncdir.getIdenOffset(iden)
-        self.cloneinfo[iden] = {'off':poff.get()}
+        self.cloneinfo[iden] = {'off': poff.get()}
 
-        thr = self._fireAxonClone(iden,poff)
+        thr = self._fireAxonClone(iden, poff)
         self.axthrs.add(thr)
 
     @firethread
@@ -666,7 +666,7 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
                         off = poff.get()
 
-                        for noff,item in self.syncdir.items(off):
+                        for noff, item in self.syncdir.items(off):
                             axon.sync(item)
                             poff.set(noff)
 
@@ -730,7 +730,7 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         off = blob[1].get('axon:blob:off')
         size = blob[1].get('axon:blob:size')
 
-        for byts in self.heap.readiter(off,size):
+        for byts in self.heap.readiter(off, size):
             yield byts
 
     def wants(self, htype, hvalu, size):
@@ -745,7 +745,7 @@ class Axon(s_eventbus.EventBus,AxonMixin):
                     axon.chunk(iden,byts)
 
         '''
-        if self.has(htype,hvalu):
+        if self.has(htype, hvalu):
             return None
 
         return self.alloc(size)
@@ -767,11 +767,11 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         Consume a list of axon:sync events.
         '''
         with self.core.getCoreXact():
-            [ self.sync(m) for m in msgs ]
+            [self.sync(m) for m in msgs]
 
     def _onAxonFini(self):
         # join clone threads
-        [ thr.join(timeout=2) for thr in list(self.axthrs) ]
+        [thr.join(timeout=2) for thr in list(self.axthrs)]
         if self.axcthr != None:
             self.axcthr.join(timeout=2)
 
@@ -793,7 +793,7 @@ class Axon(s_eventbus.EventBus,AxonMixin):
         iden = guid()
         off = self.heap.alloc(size)
 
-        self.inprog[iden] = {'size':size,'off':off,'cur':off,'maxoff':off+size,'hashset':HashSet()}
+        self.inprog[iden] = {'size': size, 'off': off, 'cur': off, 'maxoff': off + size, 'hashset': HashSet()}
 
         return iden
 
@@ -807,20 +807,20 @@ class Axon(s_eventbus.EventBus,AxonMixin):
             raise NoSuchIden(iden)
 
         cur = info.get('cur')
-        self.heap.writeoff(cur,byts)
+        self.heap.writeoff(cur, byts)
 
         info['cur'] += len(byts)
 
-        hset =info.get('hashset')
+        hset = info.get('hashset')
         hset.update(byts)
 
         # if the upload is complete, fire the add event
         if info['cur'] == info['maxoff']:
 
-            self.inprog.pop(iden,None)
+            self.inprog.pop(iden, None)
 
             off = info.get('off')
-            iden,props = hset.guid()
+            iden, props = hset.guid()
 
             return self.core.formTufoByProp('axon:blob', iden, off=off, **props)
 
@@ -835,13 +835,13 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
         '''
         if htype == 'guid':
-            tufo = self.core.getTufoByProp('axon:blob',hvalu)
+            tufo = self.core.getTufoByProp('axon:blob', hvalu)
         else:
             tufo = self.core.getTufoByProp('axon:blob:%s' % htype, hvalu)
         return tufo != None
 
     def byiden(self, iden):
-        return self.core.getTufoByProp('axon:blob',iden)
+        return self.core.getTufoByProp('axon:blob', iden)
 
     def fs_create(self, path, mode):
         '''
@@ -977,7 +977,7 @@ class Axon(s_eventbus.EventBus,AxonMixin):
             axon.fs_readdir('/mydir')
 
         '''
-        files = ['.','..']
+        files = ['.', '..']
 
         attr = self.fs_getattr(path)
         if not Axon._fs_isdir(attr.get('st_mode')):
@@ -1184,7 +1184,6 @@ class Axon(s_eventbus.EventBus,AxonMixin):
 
         return props
 
-
     @staticmethod
     def _fs_isdir(mode):
 
@@ -1205,7 +1204,7 @@ class Axon(s_eventbus.EventBus,AxonMixin):
     def _fs_new_file_attrs(parent, mode):
 
         now = int(time.time())
-        return {'st_ctime': now, 'st_mtime': now, 'st_atime': now, 'st_nlink': 1, 'st_size':0, 'st_mode': (stat.S_IFREG | mode), 'parent': parent}
+        return {'st_ctime': now, 'st_mtime': now, 'st_atime': now, 'st_nlink': 1, 'st_size': 0, 'st_mode': (stat.S_IFREG | mode), 'parent': parent}
 
     @staticmethod
     def _fs_new_dir_attrs(parent, mode):
@@ -1217,11 +1216,10 @@ def _ctor_axon(opts):
     '''
     A function to allow terse/clean construction of an axon from a dmon ctor.
     '''
-    datadir = opts.pop('datadir',None)
+    datadir = opts.pop('datadir', None)
     if datadir == None:
-        raise BadInfoValu(name='datadir',valu=None,mesg='axon ctor requires "datadir":<path> option')
+        raise BadInfoValu(name='datadir', valu=None, mesg='axon ctor requires "datadir":<path> option')
 
-    return Axon(datadir,**opts)
+    return Axon(datadir, **opts)
 
-s_dyndeps.addDynAlias('syn:axon',_ctor_axon)
-
+s_dyndeps.addDynAlias('syn:axon', _ctor_axon)

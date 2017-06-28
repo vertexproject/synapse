@@ -28,7 +28,7 @@ modtypes = (
 
 skippfx = ('.',)
 skipsfx = ('.pyc',)
-skipfiles = ('.','..','__init__.py','__pycache__')
+skipfiles = ('.', '..', '__init__.py', '__pycache__')
 
 def isSkipName(name):
     '''
@@ -54,7 +54,7 @@ def _getModInfo(name):
     if name == '__init__.py':
         modinfo['pkg'] = True
 
-    for sfx,info in modtypes:
+    for sfx, info in modtypes:
         if name.endswith(sfx):
             modinfo.update(info)
             return modinfo
@@ -70,7 +70,7 @@ def getPyStdLib():
         pymods = getModsByPath(pylib)
         # get the compiled in modules
         bins = sys.builtin_module_names
-        pymods.update({ n:tufo(n,fmt='bin') for n in bins})
+        pymods.update({n: tufo(n, fmt='bin') for n in bins})
     return pymods
 
 def isPyStdLib(name):
@@ -99,7 +99,7 @@ def getModDef(name):
     if mod == None:
         return None
 
-    modpath = getattr(mod,'__file__',None)
+    modpath = getattr(mod, '__file__', None)
     if modpath == None:
         return None
 
@@ -133,7 +133,7 @@ def getModDefSrc(moddef):
     path = moddef[1].get('path')
 
     if fmt == 'src' and path != None and os.path.isfile(path):
-        with open(path,'rb') as fd:
+        with open(path, 'rb') as fd:
             return fd.read()
 
 def getModDefCode(moddef):
@@ -148,7 +148,7 @@ def getModDefCode(moddef):
     if modsrc == None:
         return None
 
-    return compile(modsrc,path,'exec')
+    return compile(modsrc, path, 'exec')
 
 def getCallModDef(func):
     '''
@@ -159,7 +159,7 @@ def getCallModDef(func):
         moddef = getCallModDef(func)
 
     '''
-    modname = getattr(func,'__module__',None)
+    modname = getattr(func, '__module__', None)
     if modname != None:
         return getModDef(modname)
 
@@ -182,9 +182,9 @@ def getModsByPath(path, modtree=None):
         raise NoSuchDir(path=path)
 
     mods = {}
-    todo = [ (path, modtree) ]
+    todo = [(path, modtree)]
     while todo:
-        path,modtree = todo.pop()
+        path, modtree = todo.pop()
         pkgname = '.'.join(modtree)
 
         for name in os.listdir(path):
@@ -192,22 +192,22 @@ def getModsByPath(path, modtree=None):
                 continue
 
             subbase = name.rsplit('.')[0]
-            subtree = modtree + [ subbase ]
-            subpath = os.path.join(path,name)
+            subtree = modtree + [subbase]
+            subpath = os.path.join(path, name)
 
             modname = '.'.join(subtree)
 
             # check for a pkg dir...
             if isdir(subpath):
 
-                pkgfile = os.path.join(subpath,'__init__.py')
+                pkgfile = os.path.join(subpath, '__init__.py')
                 if not isfile(pkgfile):
                     continue
 
                 # pkg dir found!
                 mods[modname] = tufo(modname, fmt='src', path=pkgfile, pkg=True)
 
-                todo.append( (subpath,subtree) )
+                todo.append((subpath, subtree))
 
                 continue
 
@@ -217,7 +217,7 @@ def getModsByPath(path, modtree=None):
                 if not modinfo.get('fmt'):
                     continue
 
-                mods[modname] = tufo(modname,path=subpath,**modinfo)
+                mods[modname] = tufo(modname, path=subpath, **modinfo)
                 continue
 
             # add dat files to our pkg moddef
@@ -244,7 +244,7 @@ def getModDefImps(moddef):
         return ()
 
     i = 0
-    ops = list( iterbytes( modcode.co_code ) )
+    ops = list(iterbytes(modcode.co_code))
 
     names = modcode.co_names
     lastname = None
@@ -272,7 +272,7 @@ def getModDefImps(moddef):
 
     return imps
 
-siteskip = ('msgpack','requests','tornado', 'lmdb')
+siteskip = ('msgpack', 'requests', 'tornado', 'lmdb')
 def getSiteDeps(moddef):
     '''
     Return a {name:moddef} dict for all deps of
@@ -284,8 +284,8 @@ def getSiteDeps(moddef):
     todo = collections.deque()
 
     def addtodo(md):
-        for tagname in s_tags.iterTagDown( md[0] ):
-            todo.append( getModDef( tagname ) )
+        for tagname in s_tags.iterTagDown(md[0]):
+            todo.append(getModDef(tagname))
 
     addtodo(moddef)
 
@@ -301,7 +301,7 @@ def getSiteDeps(moddef):
         if deps.get(modname):
             continue
 
-        deps[ modname ] = moddef
+        deps[modname] = moddef
 
         for imp in getModDefImps(moddef):
 

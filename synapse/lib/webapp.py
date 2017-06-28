@@ -38,17 +38,17 @@ class BaseHand(tornado.web.RequestHandler):
         perm = self.globs.get('perm')
         if perm != None:
 
-            iden = self.get_cookie('synsess',None)
+            iden = self.get_cookie('synsess', None)
             if iden == None:
                 # FIXME redirect to login? Other status?
-                self.sendHttpResp(403,{},'Forbidden')
+                self.sendHttpResp(403, {}, 'Forbidden')
                 return
 
-        kwargs = { k:v[0].decode('utf8') for (k,v) in self.request.arguments.items() }
+        kwargs = {k: v[0].decode('utf8') for (k, v) in self.request.arguments.items()}
         if self.request.body:
             kwargs['body'] = self.request.body
 
-        boss.initJob( task=(func,args,kwargs), ondone=self._onJobDone )
+        boss.initJob(task=(func, args, kwargs), ondone=self._onJobDone)
 
     @tornado.web.asynchronous
     def post(self, *args):
@@ -56,11 +56,11 @@ class BaseHand(tornado.web.RequestHandler):
         boss = self.globs.get('boss')
         func = self.globs.get('func')
 
-        kwargs = { k:v[0].decode('utf8') for (k,v) in self.request.arguments.items() }
+        kwargs = {k: v[0].decode('utf8') for (k, v) in self.request.arguments.items()}
         if self.request.body:
             kwargs['body'] = self.request.body
 
-        boss.initJob( task=(func,args,kwargs), ondone=self._onJobDone )
+        boss.initJob(task=(func, args, kwargs), ondone=self._onJobDone)
 
     def _fmtJobResp(self, job):
         """Format job results into a standard response envelope."""
@@ -79,15 +79,15 @@ class BaseHand(tornado.web.RequestHandler):
 
     def sendHttpResp(self, code, headers, content):
         loop = self.globs.get('loop')
-        loop.add_callback( self._sendHttpResp, code, headers, content)
+        loop.add_callback(self._sendHttpResp, code, headers, content)
 
     def _sendHttpResp(self, code, headers, retinfo):
         self.set_status(code)
-        [ self.set_header(k,v) for (k,v) in headers.items() ]
+        [self.set_header(k, v) for (k, v) in headers.items()]
         self.write(retinfo)
         self.finish()
 
-class WebApp(EventBus,tornado.web.Application,s_daemon.DmonConf):
+class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf):
     '''
     The WebApp class allows easy publishing of python methods as HTTP APIs.
 
@@ -122,7 +122,7 @@ class WebApp(EventBus,tornado.web.Application,s_daemon.DmonConf):
 
         self.iothr = self._runWappLoop()
 
-        self.onfini( self._onWappFini )
+        self.onfini(self._onWappFini)
 
     def listen(self, port, host='0.0.0.0'):
         '''
@@ -152,24 +152,24 @@ class WebApp(EventBus,tornado.web.Application,s_daemon.DmonConf):
 
         '''
         globs = {
-            'wapp':self,
-            'func':func,
-            'perm':perm,
-            'loop':self.loop,
-            'boss':self.boss,
+            'wapp': self,
+            'func': func,
+            'perm': perm,
+            'loop': self.loop,
+            'boss': self.boss,
         }
-        self.add_handlers(host, [ (regex,BaseHand,globs) ])
+        self.add_handlers(host, [(regex, BaseHand, globs)])
 
     def addHandPath(self, regex, handler, host='.*', **globs):
         '''
         Add a BaseHand derived handler.
         '''
         globs.update({
-            'wapp':self,
-            'loop':self.loop,
-            'boss':self.boss,
+            'wapp': self,
+            'loop': self.loop,
+            'boss': self.boss,
         })
-        self.add_handlers(host, [ (regex,handler,globs), ] )
+        self.add_handlers(host, [(regex, handler, globs), ])
 
     def addFilePath(self, regex, path, host='.*'):
         '''
@@ -180,8 +180,8 @@ class WebApp(EventBus,tornado.web.Application,s_daemon.DmonConf):
             wapp.addFilePath('/js/(.*)', '/path/to/js' )
 
         '''
-        globs = {'path':path}
-        self.add_handlers(host, [ (regex, tornado.web.StaticFileHandler, globs) ])
+        globs = {'path': path}
+        self.add_handlers(host, [(regex, tornado.web.StaticFileHandler, globs)])
 
     @s_threads.firethread
     def _runWappLoop(self):
@@ -197,7 +197,7 @@ class WebApp(EventBus,tornado.web.Application,s_daemon.DmonConf):
 
         ( mostly used to facilitate unit testing )
         '''
-        return [ s.getsockname() for s in self.serv._sockets.values() ]
+        return [s.getsockname() for s in self.serv._sockets.values()]
 
     def loadDmonConf(self, conf):
         '''
@@ -266,24 +266,24 @@ class WebApp(EventBus,tornado.web.Application,s_daemon.DmonConf):
 
         '''
         # add our API paths...
-        s_daemon.DmonConf.loadDmonConf(self,conf)
+        s_daemon.DmonConf.loadDmonConf(self, conf)
 
-        for path,methname,props in conf.get('http:apis',()):
+        for path, methname, props in conf.get('http:apis', ()):
 
-            name,meth = methname.split('.',1)
+            name, meth = methname.split('.', 1)
 
             item = self.locs.get(name)
             if item == None:
                 raise NoSuchObj(name)
 
-            func = getattr(item,meth,None)
+            func = getattr(item, meth, None)
             if func == None:
                 raise NoSuchMeth(meth)
 
             self.addApiPath(path, func)
 
-        for regx,path in conf.get('http:paths',()):
-            self.addFilePath(regx,path)
+        for regx, path in conf.get('http:paths', ()):
+            self.addFilePath(regx, path)
 
-        for host,port in conf.get('http:listen',()):
-            self.listen(port,host=host)
+        for host, port in conf.get('http:listen', ()):
+            self.listen(port, host=host)

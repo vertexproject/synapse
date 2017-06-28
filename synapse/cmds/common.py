@@ -30,12 +30,12 @@ class PyCmd(s_cli.Cmd):
 
     _cmd_name = 'py'
     _cmd_syntax = (
-        ('expr',{'type':'glob'}),
+        ('expr', {'type': 'glob'}),
     )
 
     def runCmdOpts(self, opts):
         expr = opts.get('expr')
         item = self.getCmdItem()
 
-        retn = eval(expr,{'item':item,'cmd':self})
+        retn = eval(expr, {'item': item, 'cmd': self})
         self.printf('returned: %r' % (retn,))

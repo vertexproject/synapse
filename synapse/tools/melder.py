@@ -12,7 +12,7 @@ def main(argv):
     '''
 
     p = argparse.ArgumentParser(prog='melder')
-    p.add_argument('meldfile',help='meld file path')
+    p.add_argument('meldfile', help='meld file path')
 
     p.add_argument('--add-pypath', dest='pypaths', default=[], action='append', help='add a python path to the meld')
     p.add_argument('--add-datfiles', dest='datfiles', action='store_true', help='when adding pypath, include datfiles')
@@ -26,8 +26,8 @@ def main(argv):
 
     meldinfo = {}
     if os.path.isfile(opts.meldfile):
-        with open(opts.meldfile,'rb') as fd:
-            meldinfo = msgpack.load(fd,encoding='utf8')
+        with open(opts.meldfile, 'rb') as fd:
+            meldinfo = msgpack.load(fd, encoding='utf8')
 
     meld = s_mindmeld.MindMeld(**meldinfo)
 
@@ -38,14 +38,14 @@ def main(argv):
         meld.setName(opts.name)
 
     for pypath in opts.pypaths:
-        meld.addPyPath(pypath,datfiles=opts.datfiles)
+        meld.addPyPath(pypath, datfiles=opts.datfiles)
 
     meldinfo = meld.getMeldDict()
     if opts.dumpinfo:
         print(repr(meldinfo))
 
-    meldbyts = msgpack.dumps( meld.getMeldDict(), encoding='utf8', use_bin_type=True )
-    with open(opts.meldfile,'wb') as fd:
+    meldbyts = msgpack.dumps(meld.getMeldDict(), encoding='utf8', use_bin_type=True)
+    with open(opts.meldfile, 'wb') as fd:
         fd.write(meldbyts)
 
 if __name__ == '__main__':

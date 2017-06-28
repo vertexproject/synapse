@@ -28,7 +28,7 @@ class LocalRelay(LinkRelay):
         host = self.link[1].get('host')
         # use the host part to generate a local path
         tdir = tempfile.gettempdir()
-        return os.path.join(tdir,host)
+        return os.path.join(tdir, host)
 
     def _listen(self):
 
@@ -54,4 +54,4 @@ class LocalRelay(LinkRelay):
 
         except s_compat.sockerrs as e:
             s.close()
-            raiseSockError(self.link,e)
+            raiseSockError(self.link, e)

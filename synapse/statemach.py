@@ -7,15 +7,15 @@ def keepstate(f):
 
     @functools.wraps(f)
     def callmeth(*args, **kwargs):
-        ret = f(*args,**kwargs)
+        ret = f(*args, **kwargs)
         # if the call doesn't exception, add state
         self = args[0]
         args = args[1:]
-        self.addStateDelta(name,args,kwargs)
+        self.addStateDelta(name, args, kwargs)
         return ret
 
     return callmeth
-        
+
 class StateMachine:
     '''
     A class which can be used to save/replay API calls to allow
@@ -33,20 +33,19 @@ class StateMachine:
         self.statefd = fd
 
     def _loadStateFd(self, fd):
-        unpk = msgpack.Unpacker(fd,use_list=0,encoding='utf8')
-        for name,args,kwargs in unpk:
-            meth = getattr(self,name,None)
+        unpk = msgpack.Unpacker(fd, use_list=0, encoding='utf8')
+        for name, args, kwargs in unpk:
+            meth = getattr(self, name, None)
             if meth == None:
                 raise Exception('StateMachine Method Missing: %s' % (name,))
 
             try:
-                meth(*args,**kwargs)
+                meth(*args, **kwargs)
             except Exception as e:
-                raise Exception('StateMachine Method Error (%s): %s' % (name,e))
-
+                raise Exception('StateMachine Method Error (%s): %s' % (name, e))
 
     def addStateDelta(self, name, args, kwargs):
         if self.statefd == None:
             return
 
-        self.statefd.write( msgpack.dumps( (name,args,kwargs), use_bin_type=True ) )
+        self.statefd.write(msgpack.dumps((name, args, kwargs), use_bin_type=True))

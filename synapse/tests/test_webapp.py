@@ -10,7 +10,7 @@ import synapse.lib.webapp as s_webapp
 
 from synapse.tests.common import *
 
-class Horked(Exception):pass
+class Horked(Exception): pass
 
 class Foo:
 
@@ -35,28 +35,28 @@ class WebAppTest(AsyncTestCase, SynTest):
 
         wapp = s_webapp.WebApp()
         wapp.listen(0, host='127.0.0.1')
-        wapp.addApiPath('/v1/horked', foo.horked )
-        wapp.addApiPath('/v1/addup/([0-9]+)', foo.addup )
+        wapp.addApiPath('/v1/horked', foo.horked)
+        wapp.addApiPath('/v1/addup/([0-9]+)', foo.addup)
 
         client = AsyncHTTPClient(self.io_loop)
         port = wapp.getServBinds()[0][1]
         resp = yield client.fetch('http://127.0.0.1:%d/v1/addup/30?y=40' % port)
         resp = json.loads(resp.body.decode('utf-8'))
 
-        self.eq( resp.get('ret'), 70 )
-        self.eq( resp.get('status'), 'ok' )
+        self.eq(resp.get('ret'), 70)
+        self.eq(resp.get('status'), 'ok')
 
         resp = yield client.fetch('http://127.0.0.1:%d/v1/addup/20' % port)
         resp = json.loads(resp.body.decode('utf-8'))
 
-        self.eq( resp.get('ret'), 20 )
-        self.eq( resp.get('status'), 'ok' )
+        self.eq(resp.get('ret'), 20)
+        self.eq(resp.get('status'), 'ok')
 
         resp = yield client.fetch('http://127.0.0.1:%d/v1/horked' % port)
         resp = json.loads(resp.body.decode('utf-8'))
 
-        self.eq( resp.get('err'), 'Horked' )
-        self.eq( resp.get('status'), 'err' )
+        self.eq(resp.get('err'), 'Horked')
+        self.eq(resp.get('status'), 'err')
 
         wapp.fini()
 
@@ -65,7 +65,7 @@ class WebAppTest(AsyncTestCase, SynTest):
 
         class Haha:
             def bar(self, hehe, body=None):
-                return (hehe,body.decode('utf8'))
+                return (hehe, body.decode('utf8'))
 
         haha = Haha()
 
@@ -76,14 +76,14 @@ class WebAppTest(AsyncTestCase, SynTest):
         client = AsyncHTTPClient(self.io_loop)
         port = wapp.getServBinds()[0][1]
 
-        headers={'Content-Type': 'application/octet-stream'}
+        headers = {'Content-Type': 'application/octet-stream'}
 
         resp = yield client.fetch('http://127.0.0.1:%d/v1/haha/bar/visi' % port, headers=headers, body='GRONK', allow_nonstandard_methods=True)
         resp = json.loads(resp.body.decode('utf-8'))
-        self.eq( tuple(resp.get('ret')), ('visi','GRONK') )
+        self.eq(tuple(resp.get('ret')), ('visi', 'GRONK'))
 
         resp = yield client.fetch('http://127.0.0.1:%d/v1/haha/bar/visi' % port, method='POST', headers=headers, body='GRONK')
         resp = json.loads(resp.body.decode('utf-8'))
-        self.eq( tuple(resp.get('ret')), ('visi','GRONK') )
+        self.eq(tuple(resp.get('ret')), ('visi', 'GRONK'))
 
         wapp.fini()

@@ -21,8 +21,8 @@ class FooBar:
 class LinkTest(SynTest):
 
     def test_link_invalid(self):
-        link = ('tcp',{})
-        self.raises( PropNotFound, s_link.getLinkRelay, link )
+        link = ('tcp', {})
+        self.raises(PropNotFound, s_link.getLinkRelay, link)
 
     def test_link_chopurl(self):
 
@@ -55,9 +55,9 @@ class LinkTest(SynTest):
         self.eq(info.get('query'), None)
 
         info = s_urlhelp.chopurl('foo://visi:c@t@woot.com')
-        self.eq( info.get('user'), 'visi')
-        self.eq( info.get('passwd'), 'c@t')
-        self.eq( info.get('host'), 'woot.com')
+        self.eq(info.get('user'), 'visi')
+        self.eq(info.get('passwd'), 'c@t')
+        self.eq(info.get('host'), 'woot.com')
 
         info = s_urlhelp.chopurl('foo:///bar')
         self.eq(info.get('scheme'), 'foo')
@@ -67,15 +67,15 @@ class LinkTest(SynTest):
         url = 'tcp://visi:secret@127.0.0.1:9999/foo?rc4key=wootwoot&retry=20'
         link = s_link.chopLinkUrl(url)
 
-        self.eq(link[0],'tcp')
-        self.eq(link[1].get('port'),9999)
-        self.eq(link[1].get('path'),'/foo')
-        self.eq(link[1].get('retry'),20)
-        self.eq(link[1].get('host'),'127.0.0.1')
-        self.eq(link[1].get('rc4key'),b'wootwoot')
+        self.eq(link[0], 'tcp')
+        self.eq(link[1].get('port'), 9999)
+        self.eq(link[1].get('path'), '/foo')
+        self.eq(link[1].get('retry'), 20)
+        self.eq(link[1].get('host'), '127.0.0.1')
+        self.eq(link[1].get('rc4key'), b'wootwoot')
 
-        self.eq(link[1].get('user'),'visi')
-        self.eq(link[1].get('passwd'),'secret')
+        self.eq(link[1].get('user'), 'visi')
+        self.eq(link[1].get('passwd'), 'secret')
 
     def test_link_ssl_basic(self):
 
@@ -86,7 +86,7 @@ class LinkTest(SynTest):
 
         with s_daemon.Daemon() as dmon:
 
-            dmon.share('foobar', FooBar() )
+            dmon.share('foobar', FooBar())
 
             link = dmon.listen('ssl://localhost:0/', keyfile=keyfile, certfile=certfile)
 
@@ -95,7 +95,7 @@ class LinkTest(SynTest):
             url = 'ssl://localhost/foobar'
 
             with s_telepath.openurl(url, port=port, cafile=cafile) as foo:
-                self.eq( foo.foo(), 'bar' )
+                self.eq(foo.foo(), 'bar')
 
     def test_link_ssl_auth(self):
 
@@ -109,7 +109,7 @@ class LinkTest(SynTest):
 
         with s_daemon.Daemon() as dmon:
 
-            dmon.share('foobar', FooBar() )
+            dmon.share('foobar', FooBar())
 
             link = dmon.listen('ssl://localhost:0/', cafile=cafile, keyfile=keyfile, certfile=certfile)
 
@@ -118,7 +118,7 @@ class LinkTest(SynTest):
             url = 'ssl://localhost/foobar'
 
             with s_telepath.openurl(url, port=port, cafile=cafile, keyfile=userkey, certfile=usercert) as foo:
-                self.eq( foo.foo(), 'bar' )
+                self.eq(foo.foo(), 'bar')
 
     def test_link_ssl_nocheck(self):
 
@@ -128,45 +128,45 @@ class LinkTest(SynTest):
 
         with s_daemon.Daemon() as dmon:
 
-            dmon.share('foobar', FooBar() )
+            dmon.share('foobar', FooBar())
 
             link = dmon.listen('ssl://localhost:0/', keyfile=keyfile, certfile=certfile)
 
             port = link[1].get('port')
 
             url = 'ssl://localhost/foobar'
-            self.raises( LinkErr, s_telepath.openurl, url, port=port )
+            self.raises(LinkErr, s_telepath.openurl, url, port=port)
 
             with s_telepath.openurl(url, port=port, nocheck=True) as foo:
                 pass
 
     def test_link_ssl_nofile(self):
         url = 'ssl://localhost:33333/foobar?cafile=/newpnewpnewp'
-        self.raises( NoSuchFile, s_telepath.openurl, url )
+        self.raises(NoSuchFile, s_telepath.openurl, url)
 
         url = 'ssl://localhost:33333/foobar?keyfile=/newpnewpnewp'
-        self.raises( NoSuchFile, s_telepath.openurl, url )
+        self.raises(NoSuchFile, s_telepath.openurl, url)
 
         url = 'ssl://localhost:33333/foobar?certfile=/newpnewpnewp'
-        self.raises( NoSuchFile, s_telepath.openurl, url )
+        self.raises(NoSuchFile, s_telepath.openurl, url)
 
     def test_link_pool(self):
         link = s_link.chopLinkUrl('foo://visi:c@t@woot.com?poolsize=7&poolmax=-1')
-        self.eq( link[1].get('poolsize'), 7 )
-        self.eq( link[1].get('poolmax'), -1 )
+        self.eq(link[1].get('poolsize'), 7)
+        self.eq(link[1].get('poolmax'), -1)
 
     def test_link_local(self):
         self.thisHostMustNot(platform='windows')
         name = guid()
 
         dmon = s_daemon.Daemon()
-        dmon.share('foo',FooBar())
+        dmon.share('foo', FooBar())
 
         link = dmon.listen('local://%s' % (name,))
 
         prox = s_telepath.openurl('local://%s/foo' % name)
 
-        self.eq( prox.foo(), 'bar' )
+        self.eq(prox.foo(), 'bar')
 
         prox.fini()
         dmon.fini()

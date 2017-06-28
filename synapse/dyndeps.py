@@ -4,7 +4,7 @@ from synapse.common import *
 
 aliases = {}
 
-def addDynAlias(name,item):
+def addDynAlias(name, item):
     '''
     Add an "alias" to the dyndeps resolver system.
 
@@ -28,7 +28,7 @@ def delDynAlias(name):
         delDynAlias('foobar')
 
     '''
-    return aliases.pop(name,None)
+    return aliases.pop(name, None)
 
 def getDynMod(name):
     '''
@@ -54,7 +54,7 @@ def getDynLocal(name):
         blah = cls()
 
     '''
-    item = aliases.get(name,novalu)
+    item = aliases.get(name, novalu)
     if item is not novalu:
         return item
 
@@ -62,24 +62,24 @@ def getDynLocal(name):
     if name.find('.') == -1:
         return None
 
-    modname,objname = name.rsplit('.',1)
+    modname, objname = name.rsplit('.', 1)
     mod = getDynMod(modname)
     if mod == None:
         return None
 
-    return getattr(mod,objname,None)
+    return getattr(mod, objname, None)
 
 def getDynMeth(name):
     '''
     Retrieve and return an unbound method by python path.
     '''
-    cname,fname = name.rsplit('.',1)
+    cname, fname = name.rsplit('.', 1)
 
     clas = getDynLocal(cname)
     if clas is None:
         return None
 
-    return getattr(clas,fname,None)
+    return getattr(clas, fname, None)
 
 def tryDynMod(name):
     '''
@@ -94,25 +94,25 @@ def tryDynLocal(name):
     '''
     Dynamically import a module and return a module local or raise an exception.
     '''
-    item = aliases.get(name,novalu)
+    item = aliases.get(name, novalu)
     if item is not novalu:
         return item
 
     if name.find('.') == -1:
         raise NoSuchDyn(name=name)
 
-    modname,objname = name.rsplit('.',1)
+    modname, objname = name.rsplit('.', 1)
     mod = tryDynMod(modname)
-    item = getattr(mod,objname,novalu)
+    item = getattr(mod, objname, novalu)
     if item is novalu:
         raise NoSuchDyn(name=name)
     return item
 
-def tryDynFunc(name,*args,**kwargs):
+def tryDynFunc(name, *args, **kwargs):
     '''
     Dynamically import a module and call a function or raise an exception.
     '''
-    return tryDynLocal(name)(*args,**kwargs)
+    return tryDynLocal(name)(*args, **kwargs)
 
 def runDynTask(task):
     '''
@@ -126,13 +126,13 @@ def runDynTask(task):
     func = getDynLocal(task[0])
     if func == None:
         raise NoSuchFunc(name=task[0])
-    return func(*task[1],**task[2])
+    return func(*task[1], **task[2])
 
 class CallCapt:
     def __call__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
-    
+
 def runDynEval(text, locs=None):
     '''
     Run a "dyn eval" string returning the result.

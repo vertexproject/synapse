@@ -1,4 +1,4 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import time
 import atexit
@@ -22,7 +22,7 @@ class Sched(EventBus):
         self.wake = threading.Event()
 
         self.thr = self._runSchedMain()
-        self.onfini( self._onSchedFini )
+        self.onfini(self._onSchedFini)
 
     def _onSchedFini(self):
         self.wake.set()
@@ -38,8 +38,8 @@ class Sched(EventBus):
             sched.at(ts, foo, bar, baz=10)
 
         '''
-        task = (func,args,kwargs)
-        mine = [ ts, task, None ]
+        task = (func, args, kwargs)
+        mine = [ts, task, None]
         with self.lock:
 
             # if no root, we're it!
@@ -88,7 +88,7 @@ class Sched(EventBus):
             # woot will be called in 10 seconds..
 
         '''
-        return self.at( time.time() + delay, func, *args, **kwargs)
+        return self.at(time.time() + delay, func, *args, **kwargs)
 
     def persec(self, count, func, *args, **kwargs):
         '''
@@ -106,7 +106,7 @@ class Sched(EventBus):
         def cb():
             try:
 
-                ret = func(*args,**kwargs)
+                ret = func(*args, **kwargs)
                 if ret == False:
                     return
 
@@ -114,7 +114,7 @@ class Sched(EventBus):
                 self.fire('err:exc', exc=e, msg='persec fail: %s' % (func,))
 
             if not self.isfini:
-                self.insec(dt,cb)
+                self.insec(dt, cb)
 
         cb()
 
@@ -140,8 +140,8 @@ class Sched(EventBus):
         for task in self.yieldTimeTasks():
             try:
                 self.running = task
-                func,args,kwargs = task
-                func(*args,**kwargs)
+                func, args, kwargs = task
+                func(*args, **kwargs)
                 self.running = None
             except Exception as e:
                 traceback.format_exc()
@@ -191,6 +191,6 @@ def getGlobSched():
     with s_glob.lock:
         if s_glob.sched == None:
             s_glob.sched = Sched()
-            atexit.register( s_glob.sched.fini )
-    
+            atexit.register(s_glob.sched.fini)
+
     return s_glob.sched

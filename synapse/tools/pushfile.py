@@ -33,18 +33,18 @@ def main(argv, outp=None):
 
     for path in opts.filenames:
 
-        with open(path,'rb') as fd:
+        with open(path, 'rb') as fd:
 
             base = os.path.basename(path)
             node = core.formNodeByFd(fd, name=base)
 
-            core.addTufoTags(node,tags)
+            core.addTufoTags(node, tags)
 
             iden = node[1].get('file:bytes')
             size = node[1].get('file:bytes:size')
             name = node[1].get('file:bytes:name')
 
-            outp.printf('file: %s (%d) added (%s) as %s' % (base,size,iden,name))
+            outp.printf('file: %s (%d) added (%s) as %s' % (base, size, iden, name))
 
 if __name__ == '__main__':
-    sys.exit( main( sys.argv[1:] ) )
+    sys.exit(main(sys.argv[1:]))

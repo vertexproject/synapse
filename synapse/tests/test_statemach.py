@@ -26,15 +26,15 @@ class StateMachTest(SynTest):
         fd = io.BytesIO()
         foo = self.getFooMachine(fd)
 
-        foo.setthing('woot',20)
+        foo.setthing('woot', 20)
 
-        self.eq( foo.stuff.get('woot'), 20 )
+        self.eq(foo.stuff.get('woot'), 20)
 
         fd.seek(0)
 
         foo = self.getFooMachine(fd)
-        self.eq( foo.stuff.get('woot'), 20 )
+        self.eq(foo.stuff.get('woot'), 20)
 
     def test_statemach_nofd(self):
         foo = self.getFooMachine(None)
-        self.eq( foo.setthing('foo',20), 20 )
+        self.eq(foo.setthing('foo', 20), 20)

@@ -36,8 +36,8 @@ def jobret(job):
     if err != None:
         if err != 'NameErr':
             try:
-                info = job[1].get('errinfo',{})
-                raise synerr(err,**info)
+                info = job[1].get('errinfo', {})
+                raise synerr(err, **info)
             except NameError as e:
                 pass
         raise JobErr(job)
@@ -53,7 +53,7 @@ def jobDoneMesg(job):
             otherguy.dist( jobDoneMesg(job) )
 
     '''
-    info = {'jid':job[0], 'ret':job[1].get('ret')}
+    info = {'jid': job[0], 'ret': job[1].get('ret')}
     if job[1].get('err') != None:
         info['err'] = job[1].get('err'),
         info['errmsg'] = job[1].get('errmsg'),
@@ -62,8 +62,8 @@ def jobDoneMesg(job):
 
     return tufo('job:done', **info)
 
-def newtask(meth,*args,**kwargs):
-    return (meth,args,kwargs)
+def newtask(meth, *args, **kwargs):
+    return (meth, args, kwargs)
 
 class Boss(EventBus):
     '''
@@ -78,7 +78,7 @@ class Boss(EventBus):
     def __init__(self):
         EventBus.__init__(self)
 
-        self.onfini( self._onBossFini )
+        self.onfini(self._onBossFini)
 
         self.pool = None
         self.sched = s_sched.getGlobSched()
@@ -88,8 +88,8 @@ class Boss(EventBus):
         self._boss_jobs = {}
         self.joblocal = {}
 
-        self.on('job:done', self._onJobDone )  # trigger job done
-        self.on('job:fini', self._onJobFini )  # job is finished
+        self.on('job:done', self._onJobDone)  # trigger job done
+        self.on('job:fini', self._onJobFini)  # job is finished
 
     def setBossPool(self, pool):
         '''
@@ -113,7 +113,7 @@ class Boss(EventBus):
 
         '''
         pool = s_threads.Pool(size=size, maxsize=maxsize)
-        self.onfini( pool.fini )
+        self.onfini(pool.fini)
         self.setBossPool(pool)
 
     def _onJobDone(self, event):
@@ -126,7 +126,7 @@ class Boss(EventBus):
         if job == None:
             return
 
-        job[1].update( event[1] )
+        job[1].update(event[1])
 
         job[1]['done'] = True
         self.fire('job:fini', job=job)
@@ -186,31 +186,31 @@ class Boss(EventBus):
         info['done'] = False
         info['times'] = []
 
-        job = (jid,info)
+        job = (jid, info)
 
         self._boss_jobs[jid] = job
 
         # setup our per job local storage
         # ( for non-serializables )
         joblocal = {
-            'ondone':info.pop('ondone',None),
+            'ondone': info.pop('ondone', None),
         }
         self.joblocal[jid] = joblocal
 
-        self._addJobTime(job,'init')
+        self._addJobTime(job, 'init')
 
         if self.pool != None:
-            self.pool.call( self._runJob, job )
+            self.pool.call(self._runJob, job)
 
         # if we have a timeout, setup a sched callback
         timeout = job[1].get('timeout')
         if timeout != None:
 
             def hitmax():
-                joblocal.pop('schedevt',None)
+                joblocal.pop('schedevt', None)
                 self.fire('job:done', jid=jid, err='HitMaxTime')
 
-            joblocal['schedevt'] = self.sched.insec(timeout,hitmax)
+            joblocal['schedevt'] = self.sched.insec(timeout, hitmax)
 
         self.fire('job:init', job=job)
         return job
@@ -238,13 +238,13 @@ class Boss(EventBus):
         if task == None:
             # TODO This attribute is not set, a bad tufo
             # sent to _runJob will have unexpected behavior.
-            self.setJobErr(job[0],'NoJobTask')
+            self.setJobErr(job[0], 'NoJobTask')
             return
 
         try:
 
-            func,args,kwargs = task
-            ret = func(*args,**kwargs)
+            func, args, kwargs = task
+            ret = func(*args, **kwargs)
             self.fire('job:done', jid=job[0], ret=ret)
 
         except Exception as e:
@@ -256,8 +256,8 @@ class Boss(EventBus):
             job = event[1].get('job')
             jid = job[0]
 
-            self._boss_jobs.pop(jid,None)
-            joblocal = self.joblocal.pop(jid,None)
+            self._boss_jobs.pop(jid, None)
+            joblocal = self.joblocal.pop(jid, None)
 
             schedevt = joblocal.get('schedevt')
             if schedevt != None:
@@ -303,7 +303,7 @@ class Boss(EventBus):
         return evt.is_set()
 
     def _addJobTime(self, job, stage):
-        job[1]['times'].append( (stage,time.time()) )
+        job[1]['times'].append((stage, time.time()))
 
     def _onBossFini(self):
         for job in self.jobs():

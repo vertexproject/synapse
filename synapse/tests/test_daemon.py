@@ -13,7 +13,7 @@ from synapse.tests.common import *
 
 
 class Woot:
-    def foo(self,x,y=20):
+    def foo(self, x, y=20):
         return x + y
 
     def pid(self):
@@ -33,7 +33,7 @@ class DaemonTest(SynTest):
         relay = s_link.getLinkRelay(link)
         sock = relay.connect()
 
-        self.eq( sock.recvobj(),None)
+        self.eq(sock.recvobj(), None)
 
         sock.fini()
         daemon.fini()
@@ -71,11 +71,11 @@ class DaemonTest(SynTest):
 
         fprox.off('woot', woot)
 
-        self.true( evt.is_set() )
+        self.true(evt.is_set())
 
     def test_daemon_conf(self):
 
-        class DmonConfTest(s_daemon.DmonConf,s_eventbus.EventBus):
+        class DmonConfTest(s_daemon.DmonConf, s_eventbus.EventBus):
 
             def __init__(self):
                 s_eventbus.EventBus.__init__(self)
@@ -83,25 +83,25 @@ class DaemonTest(SynTest):
 
         conf = {
 
-            'vars':{
-                'hehe':10,
+            'vars': {
+                'hehe': 10,
             },
-            'ctors':(
-                ('woot','ctor://synapse.tests.test_daemon.Woot()'),
-                ('blah','ctor://synapse.tests.test_daemon.Blah(woot)'),
+            'ctors': (
+                ('woot', 'ctor://synapse.tests.test_daemon.Woot()'),
+                ('blah', 'ctor://synapse.tests.test_daemon.Blah(woot)'),
             ),
-            'modules':(
-                ('synapse.tests.nopmod',{}),
+            'modules': (
+                ('synapse.tests.nopmod', {}),
             ),
         }
 
         dcon = DmonConfTest()
         dcon.loadDmonConf(conf)
 
-        self.eq( dcon.locs.get('hehe'), 10 )
-        self.eq( dcon.locs.get('woot').foo(10,y=30), 40 )
-        self.eq( dcon.locs.get('blah').woot.foo(10,y=30), 40 )
-        self.nn( sys.modules.get('synapse.tests.nopmod') )
+        self.eq(dcon.locs.get('hehe'), 10)
+        self.eq(dcon.locs.get('woot').foo(10, y=30), 40)
+        self.eq(dcon.locs.get('blah').woot.foo(10, y=30), 40)
+        self.nn(sys.modules.get('synapse.tests.nopmod'))
 
     def test_daemon_conf_onfini(self):
 
@@ -125,15 +125,15 @@ class DaemonTest(SynTest):
         iden = guid()
 
         conf = {
-            'forks':(
-                ('fork0',{
-                    'ctors':(
-                        ('haha','ctor://synapse.tests.test_daemon.Woot()'),
+            'forks': (
+                ('fork0', {
+                    'ctors': (
+                        ('haha', 'ctor://synapse.tests.test_daemon.Woot()'),
                     ),
                     'share': (
-                        ('haha',{}),
+                        ('haha', {}),
                     ),
-                    'listen':(
+                    'listen': (
                         'local://%s' % (iden,),
                     ),
                 }),
@@ -146,7 +146,7 @@ class DaemonTest(SynTest):
         prox = s_telepath.openurl('local://%s/haha?retry=6' % (iden,))
 
         pid0 = prox.pid()
-        self.ne( pid0, os.getpid() )
+        self.ne(pid0, os.getpid())
 
         prox.fini()
 
@@ -168,9 +168,9 @@ class DaemonTest(SynTest):
             dmon = s_daemon.Daemon()
 
             conf = {
-                'sessions':{
-                    'maxtime':99999,
-                    'savefile':os.path.join(dirname,'sessions.sql3'),
+                'sessions': {
+                    'maxtime': 99999,
+                    'savefile': os.path.join(dirname, 'sessions.sql3'),
                 },
             }
 
@@ -179,7 +179,7 @@ class DaemonTest(SynTest):
             sess0 = dmon.getNewSess()
             iden = sess0.iden
 
-            sess0.put('woot',10)
+            sess0.put('woot', 10)
 
             dmon.fini()
 
@@ -187,7 +187,7 @@ class DaemonTest(SynTest):
             dmon.loadDmonConf(conf)
 
             sess1 = dmon.getSessByIden(iden)
-            self.eq( sess1.get('woot'), 10 )
+            self.eq(sess1.get('woot'), 10)
 
             dmon.fini()
 
@@ -195,71 +195,69 @@ class DaemonTest(SynTest):
 
         conf = {
 
-            'ctors':(
-                ('foo','ctor://synapse.cortex.openurl("ram://")', {'config':'woot'}),
-                ('bar','ctor://synapse.cortex.openurl("ram://")', {'configs':('woot','blah')}),
+            'ctors': (
+                ('foo', 'ctor://synapse.cortex.openurl("ram://")', {'config': 'woot'}),
+                ('bar', 'ctor://synapse.cortex.openurl("ram://")', {'configs': ('woot', 'blah')}),
             ),
 
-            'configs':{
-                'woot':{},
+            'configs': {
+                'woot': {},
             }
 
         }
 
         with s_daemon.Daemon() as dmon:
-            self.raises(NoSuchConf, dmon.loadDmonConf, conf )
+            self.raises(NoSuchConf, dmon.loadDmonConf, conf)
 
-        conf['configs']['blah'] = {'newp':1}
+        conf['configs']['blah'] = {'newp': 1}
 
         with s_daemon.Daemon() as dmon:
-            self.raises(NoSuchOpt, dmon.loadDmonConf, conf )
+            self.raises(NoSuchOpt, dmon.loadDmonConf, conf)
 
-        conf['configs']['blah'].pop('newp',None)
+        conf['configs']['blah'].pop('newp', None)
         conf['configs']['blah']['caching'] = 'TRUE'
 
         with s_daemon.Daemon() as dmon:
             dmon.loadDmonConf(conf)
             core = dmon.locs.get('bar')
-            self.eq( core.caching, 1 )
+            self.eq(core.caching, 1)
 
     def test_daemon_ctor_nonurl(self):
 
-        s_dyndeps.addDynAlias('test:blah',Blah)
+        s_dyndeps.addDynAlias('test:blah', Blah)
 
         conf = {
-            'ctors':(
-                ('foo','test:blah', {'lulz':'rofl'}),
+            'ctors': (
+                ('foo', 'test:blah', {'lulz': 'rofl'}),
             ),
         }
 
         with s_daemon.Daemon() as dmon:
             dmon.loadDmonConf(conf)
             item = dmon.locs.get('foo')
-            self.eq( item.woot.get('lulz'), 'rofl' )
+            self.eq(item.woot.get('lulz'), 'rofl')
 
         s_dyndeps.delDynAlias('test:blah')
-
 
     def test_daemon_ctor_dmonurl(self):
 
         conf = {
-            'ctors':[
-                ('thing0','synapse.tests.test_daemon.Blah',{'lulz':'hehe'}),
-                ('thing1','test:check:blah',{}),
+            'ctors': [
+                ('thing0', 'synapse.tests.test_daemon.Blah', {'lulz': 'hehe'}),
+                ('thing1', 'test:check:blah', {}),
             ],
         }
 
-        self.raises( NoSuchName, s_telepath.openurl, 'dmon://thing0' )
+        self.raises(NoSuchName, s_telepath.openurl, 'dmon://thing0')
 
         with s_daemon.Daemon() as dmon:
 
-
             def checkblah(conf):
-                self.eq( dmon.locs.get('thing0'), s_telepath.openurl('dmon://thing0') )
-                self.raises( NoSuchName, s_telepath.openurl, 'dmon://newp0/' )
+                self.eq(dmon.locs.get('thing0'), s_telepath.openurl('dmon://thing0'))
+                self.raises(NoSuchName, s_telepath.openurl, 'dmon://newp0/')
                 return 1
 
-            s_dyndeps.addDynAlias('test:check:blah',checkblah)
+            s_dyndeps.addDynAlias('test:check:blah', checkblah)
 
             dmon.loadDmonConf(conf)
 

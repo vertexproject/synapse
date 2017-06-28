@@ -11,7 +11,7 @@ class DataElem:
         self._d_name = name
         self._d_item = item
         self._d_parent = parent
-        self._d_special = {'..':parent,'.':self}
+        self._d_special = {'..': parent, '.': self}
 
     def _elem_valu(self):
         return self._d_item
@@ -21,7 +21,7 @@ class DataElem:
             item = self._d_item[step]
         except Exception as e:
             return None
-        return initelem(item,name=step,parent=self)
+        return initelem(item, name=step, parent=self)
 
     def name(self):
         return self._d_name
@@ -36,7 +36,7 @@ class DataElem:
         except Exception as e:
             return
 
-        yield initelem(item,name=step,parent=self)
+        yield initelem(item, name=step, parent=self)
 
     def step(self, path):
         '''
@@ -90,9 +90,9 @@ class DataElem:
         # special case for dictionaries
         # to iterate children and keep track
         # of their names...
-        if type( self._d_item ) == dict:
-            for name,item in self._d_item.items():
-                yield initelem((name, item),name=self.name(),parent=self)
+        if type(self._d_item) == dict:
+            for name, item in self._d_item.items():
+                yield initelem((name, item), name=self.name(), parent=self)
             return
 
         if s_compat.isint(self._d_item):
@@ -101,8 +101,8 @@ class DataElem:
         if s_compat.isstr(self._d_item):
             return
 
-        for i,item in enumerate(self._d_item):
-            yield initelem(item,name=str(i),parent=self)
+        for i, item in enumerate(self._d_item):
+            yield initelem(item, name=str(i), parent=self)
 
     def _elem_search(self, step):
 
@@ -138,10 +138,10 @@ class DataElem:
             return
 
         omax = len(steps) - 1
-        todo = collections.deque([ (self,0) ] )
+        todo = collections.deque([(self, 0)])
 
         while todo:
-            base,off = todo.popleft()
+            base, off = todo.popleft()
 
             step = steps[off]
 
@@ -153,7 +153,7 @@ class DataElem:
                     if off == omax:
                         yield elem
                     else:
-                        todo.append( (elem,off+1) )
+                        todo.append((elem, off + 1))
 
                 continue
 
@@ -168,7 +168,7 @@ class DataElem:
                     if off == omax:
                         yield elem
                     else:
-                        todo.append( (elem,off+1) )
+                        todo.append((elem, off + 1))
 
                 continue
 
@@ -176,7 +176,7 @@ class DataElem:
                 if off == omax:
                     yield elem
                 else:
-                    todo.append( (elem,off+1) )
+                    todo.append((elem, off + 1))
 
     def _parse_path(self, path):
 
@@ -187,18 +187,18 @@ class DataElem:
         while off < plen:
 
             # eat the next (or possibly a first) slash
-            _,off = s_syntax.nom(path,off,('/',))
+            _, off = s_syntax.nom(path, off, ('/',))
 
             if off >= plen:
                 break
 
-            if s_syntax.is_literal(path,off):
-                elem,off = s_syntax.parse_literal(path,off)
+            if s_syntax.is_literal(path, off):
+                elem, off = s_syntax.parse_literal(path, off)
                 steps.append(elem)
                 continue
 
             # eat until the next /
-            elem,off = s_syntax.meh(path,off,('/',))
+            elem, off = s_syntax.meh(path, off, ('/',))
             if not elem:
                 continue
 
@@ -224,7 +224,7 @@ class XmlDataElem(DataElem):
 
         for xmli in self._d_item:
             if xmli.tag == step:
-                yield XmlDataElem(xmli,name=step,parent=self)
+                yield XmlDataElem(xmli, name=step, parent=self)
 
     def _elem_tree(self):
 
@@ -247,26 +247,26 @@ class XmlDataElem(DataElem):
             if item == None:
                 return None
 
-            return initelem(item,name=step,parent=self)
+            return initelem(item, name=step, parent=self)
 
         for xmli in self._d_item:
             if xmli.tag == step:
-                return XmlDataElem(xmli,name=step,parent=self)
+                return XmlDataElem(xmli, name=step, parent=self)
 
         item = self._d_item.attrib.get(step)
         if item != None:
-            return initelem(item,name=step,parent=self)
+            return initelem(item, name=step, parent=self)
 
     def _elem_valu(self):
         return self._d_item.text
 
     def _elem_iter(self):
         for item in self._d_item:
-            yield initelem(item,name=item.tag,parent=self)
+            yield initelem(item, name=item.tag, parent=self)
 
 # Special Element Handler Classes
 elemcls = {
-    x_etree.Element:XmlDataElem,
+    x_etree.Element: XmlDataElem,
 }
 
 def initelem(item, name=None, parent=None):
@@ -279,5 +279,5 @@ def initelem(item, name=None, parent=None):
         elem = initelem(
 
     '''
-    ecls = elemcls.get(type(item),DataElem)
-    return ecls(item,name=name,parent=parent)
+    ecls = elemcls.get(type(item), DataElem)
+    return ecls(item, name=name, parent=parent)

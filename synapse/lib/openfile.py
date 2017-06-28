@@ -10,7 +10,7 @@ import tornado.httpclient as t_http
 
 from synapse.common import genpath
 
-def _open_http(*paths,**opts):
+def _open_http(*paths, **opts):
     # all URLs use /
     purl = '/'.join(paths)
     http = t_http.HTTPClient()
@@ -31,7 +31,7 @@ def openfd(*paths, **opts):
 
     '''
     if paths[0].startswith('http://') or paths[0].startswith('https://'):
-        fd = _open_http(*paths,**opts)
+        fd = _open_http(*paths, **opts)
 
     else:
 
@@ -41,7 +41,7 @@ def openfd(*paths, **opts):
             paths = (dirn,) + paths
 
         path = genpath(*paths)
-        fd = io.open(path,'rb')
+        fd = io.open(path, 'rb')
 
     ncod = opts.get('encoding')
     if ncod != None:

@@ -11,6 +11,6 @@ class ReactorTest(SynTest):
             x = mesg[1].get('x')
             y = mesg[1].get('y')
             return x + y
-            
-        reac.act('foo',actfoo)
-        self.eq( reac.react( tufo('foo', x=10, y=20)), 30 )
+
+        reac.act('foo', actfoo)
+        self.eq(reac.react(tufo('foo', x=10, y=20)), 30)

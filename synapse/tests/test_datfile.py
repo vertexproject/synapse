@@ -7,7 +7,7 @@ import synapse.lib.datfile as s_datfile
 
 from synapse.tests.common import *
 
-syndir = os.path.dirname( synapse.__file__ )
+syndir = os.path.dirname(synapse.__file__)
 
 class DatFileTest(SynTest):
 
@@ -18,7 +18,7 @@ class DatFileTest(SynTest):
 
     def test_datfile_mindmeld(self):
         meld = s_mindmeld.MindMeld()
-        meld.addPyPath(syndir,datfiles=True)
+        meld.addPyPath(syndir, datfiles=True)
 
         with meld.openDatFile('synapse.tests/test.dat') as fd:
             self.nn(fd)

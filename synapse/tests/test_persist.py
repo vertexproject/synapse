@@ -9,16 +9,16 @@ class PersistTest(SynTest):
     def test_persist_file(self):
         pers = s_persist.File()
 
-        foo0 = ('asdf',{'hehe':'haha'})
-        foo1 = ('qwer',{'hehe':'hoho'})
+        foo0 = ('asdf', {'hehe': 'haha'})
+        foo1 = ('qwer', {'hehe': 'hoho'})
 
-        off0,size0 = pers.add(foo0)
+        off0, size0 = pers.add(foo0)
 
-        self.eq( off0, 0 )
+        self.eq(off0, 0)
 
-        off1,size1 = pers.add(foo1)
+        off1, size1 = pers.add(foo1)
 
-        self.eq( off0 + size0, off1 )
+        self.eq(off0 + size0, off1)
 
         pers.fini()
 
@@ -27,15 +27,15 @@ class PersistTest(SynTest):
         with self.getTestDir() as dirname:
 
             opts = {
-                'filemax':1024,
+                'filemax': 1024,
             }
 
-            pdir = s_persist.Dir(dirname,**opts)
+            pdir = s_persist.Dir(dirname, **opts)
 
             # trigger storage file alloc
-            pdir.add( b'V' * 2000 )
-            pdir.add( b'I' * 2000 )
-            pdir.add( b'S' * 2000 )
+            pdir.add(b'V' * 2000)
+            pdir.add(b'I' * 2000)
+            pdir.add(b'S' * 2000)
 
             # get all caught up and gen one real-time
             items = []
@@ -45,9 +45,9 @@ class PersistTest(SynTest):
 
             def pumploop():
 
-                for noff,item in pdir.items(0):
+                for noff, item in pdir.items(0):
 
-                    items.append( (noff,item) )
+                    items.append((noff, item))
 
                     if len(items) == 3:
                         ev0.set()
@@ -59,7 +59,7 @@ class PersistTest(SynTest):
 
             ev0.wait(timeout=3)
 
-            self.true( ev0.is_set() )
+            self.true(ev0.is_set())
 
             pdir.add(b'VISI')
             ev1.wait(timeout=3)
@@ -68,24 +68,24 @@ class PersistTest(SynTest):
 
             pdir.fini()
 
-            self.eq( items[3][1], b'VISI' )
-            self.eq( items[0][1], b'V' * 2000 )
+            self.eq(items[3][1], b'VISI')
+            self.eq(items[0][1], b'V' * 2000)
 
     def test_persist_offset(self):
 
         with self.getTestDir() as dirname:
 
-            poff = s_persist.Offset(dirname,'test0.off')
+            poff = s_persist.Offset(dirname, 'test0.off')
             poff.set(200)
 
-            self.eq( poff.get(), 200 )
+            self.eq(poff.get(), 200)
 
             poff.set(201)
 
             poff.fini()
 
-            poff = s_persist.Offset(dirname,'test0.off')
-            self.eq( poff.get(), 201 )
+            poff = s_persist.Offset(dirname, 'test0.off')
+            self.eq(poff.get(), 201)
 
             poff.fini()
 
@@ -103,15 +103,15 @@ class PersistTest(SynTest):
 
             pdir = s_persist.Dir(dirname)
 
-            pdir.add( ('foo',{}) )
-            pdir.add( ('bar',{}) )
+            pdir.add(('foo', {}))
+            pdir.add(('bar', {}))
 
-            pdir.pump(iden,pumpfunc)
+            pdir.pump(iden, pumpfunc)
 
-            pdir.add( ('hehe',{}) )
-            pdir.add( ('haha',{}) )
+            pdir.add(('hehe', {}))
+            pdir.add(('haha', {}))
 
             wait.wait(timeout=2)
-            self.true( wait.is_set() )
+            self.true(wait.is_set())
 
             pdir.fini()

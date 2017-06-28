@@ -27,11 +27,11 @@ class Rc4Xform(s_socket.SockXform):
             if rxnonce == None:
                 return
 
-            txkey = hashlib.sha256( txnonce + self.rc4key ).digest()
-            rxkey = hashlib.sha256( rxnonce + self.rc4key ).digest()
+            txkey = hashlib.sha256(txnonce + self.rc4key).digest()
+            rxkey = hashlib.sha256(rxnonce + self.rc4key).digest()
 
-            self.txcrypt = Cipher( ARC4(txkey), mode=None, backend=default_backend() ).encryptor()
-            self.rxcrypt = Cipher( ARC4(rxkey), mode=None, backend=default_backend() ).decryptor()
+            self.txcrypt = Cipher(ARC4(txkey), mode=None, backend=default_backend()).encryptor()
+            self.rxcrypt = Cipher(ARC4(rxkey), mode=None, backend=default_backend()).decryptor()
 
         finally:
 
@@ -48,8 +48,8 @@ class Rc4Skey(s_socket.SockXform):
 
     def __init__(self, rc4key):
         self.rc4key = rc4key
-        self.txcrypt = Cipher( ARC4(rc4key), mode=None, backend=default_backend() ).encryptor()
-        self.rxcrypt = Cipher( ARC4(rc4key), mode=None, backend=default_backend() ).decryptor()
+        self.txcrypt = Cipher(ARC4(rc4key), mode=None, backend=default_backend()).encryptor()
+        self.rxcrypt = Cipher(ARC4(rc4key), mode=None, backend=default_backend()).decryptor()
 
     def init(self, sock):
         pass

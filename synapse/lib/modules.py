@@ -40,17 +40,17 @@ def call(name, *args, **kwargs):
               module.
     '''
     ret = []
-    for sname,smod in modlist:
-        func = getattr(smod,name,None)
+    for sname, smod in modlist:
+        func = getattr(smod, name, None)
         if func == None:
             continue
 
         try:
-            val = func(*args,**kwargs)
-            ret.append( (sname,val,None) )
+            val = func(*args, **kwargs)
+            ret.append((sname, val, None))
 
         except Exception as e:
-            ret.append( (sname,None,e) )
+            ret.append((sname, None, e))
 
     #print('call: %r %r %r %r' % (name,args,kwargs,ret))
     return ret
@@ -80,7 +80,7 @@ def load(name):
         logger.info('loading syn mod: %s', name)
         smod = s_dyndeps.tryDynMod(name)
         synmods[name] = smod
-        modlist.append( (name,smod) )
+        modlist.append((name, smod))
     return smod
 
 def load_ctor(name, opts):
@@ -161,15 +161,15 @@ def call_ctor(name, *args, **kwargs):
         cls = getattr(smod, ctor, None)
         if cls is None:
             continue
-        func = getattr(cls,name,None)
+        func = getattr(cls, name, None)
         if func is None:
             continue
 
         try:
-            val = func(*args,**kwargs)
-            ret.append( (sname,val,None) )
+            val = func(*args, **kwargs)
+            ret.append((sname, val, None))
 
         except Exception as e:
-            ret.append( (sname,None,e) )
+            ret.append((sname, None, e))
 
     return ret

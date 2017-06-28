@@ -52,7 +52,7 @@ class Cortex(s_c_sqlite.Cortex):
     def _initDbConn(self):
         import psycopg2
 
-        retry = self._link[1].get('retry',0)
+        retry = self._link[1].get('retry', 0)
 
         dbinfo = self._initDbInfo()
 
@@ -68,8 +68,8 @@ class Cortex(s_c_sqlite.Cortex):
 
                 time.sleep(1)
 
-        seqscan = self._link[1].get('pg:seqscan',0)
-        seqscan,_ = s_datamodel.getTypeNorm('bool',seqscan)
+        seqscan = self._link[1].get('pg:seqscan', 0)
+        seqscan, _ = s_datamodel.getTypeNorm('bool', seqscan)
 
         c = db.cursor()
         c.execute('SET enable_seqscan=%s', (seqscan,))
@@ -82,7 +82,7 @@ class Cortex(s_c_sqlite.Cortex):
         if not path:
             return 'syncortex'
 
-        parts = [ p for p in path.split('/') if p ]
+        parts = [p for p in path.split('/') if p]
         if len(parts) <= 1:
             return 'syncortex'
 
@@ -101,7 +101,7 @@ class Cortex(s_c_sqlite.Cortex):
 
         path = self._link[1].get('path')
         if path:
-            parts = [ p for p in path.split('/') if p ]
+            parts = [p for p in path.split('/') if p]
             if parts:
                 dbinfo['database'] = parts[0]
 
@@ -133,14 +133,14 @@ class Cortex(s_c_sqlite.Cortex):
             q = self._q_getjoin_by_in_int
         else:
             q = self._q_getjoin_by_in_str
-            valus = [ md5(v) for v in valus ]
+            valus = [md5(v) for v in valus]
 
-        rows = self.select(q,prop=prop, valu=tuple(valus), limit=limit)
+        rows = self.select(q, prop=prop, valu=tuple(valus), limit=limit)
         rows = self._foldTypeCols(rows)
         return self._rowsToTufos(rows)
 
     def _getTufosByIdens(self, idens):
-        rows = self.select( self._q_getrows_by_idens, valu=tuple(idens) )
+        rows = self.select(self._q_getrows_by_idens, valu=tuple(idens))
         rows = self._foldTypeCols(rows)
         return self._rowsToTufos(rows)
 

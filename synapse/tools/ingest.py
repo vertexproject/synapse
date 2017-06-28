@@ -32,10 +32,10 @@ def main(argv, outp=None):
     opts = pars.parse_args(argv)
 
     core = s_cortex.openurl(opts.core)
-    core.setConfOpt('enforce',1)
+    core.setConfOpt('enforce', 1)
 
     if opts.debug:
-        core.setConfOpt('log:save',1)
+        core.setConfOpt('log:save', 1)
 
     # FIXME check for telepath proxy and bitch.
     # this core may not be remote because we use
@@ -44,20 +44,20 @@ def main(argv, outp=None):
     def _print_tufo_add(mesg):
         tufo = mesg[1].get('node')
         form = tufo[1].get('tufo:form')
-        outp.printf('add: %s=%s' % (form,tufo[1].get(form)))
-        for prop,valu in sorted(s_tufo.props(tufo).items()):
-            outp.printf('       :%s = %s' % (prop,valu))
+        outp.printf('add: %s=%s' % (form, tufo[1].get(form)))
+        for prop, valu in sorted(s_tufo.props(tufo).items()):
+            outp.printf('       :%s = %s' % (prop, valu))
 
     def _print_tufo_tag_add(mesg):
         tag = mesg[1].get('tag')
         tufo = mesg[1].get('node')
         form = tufo[1].get('tufo:form')
-        outp.printf('tag: %s=%s (%s)' % (form,tufo[1].get(form),tag))
+        outp.printf('tag: %s=%s (%s)' % (form, tufo[1].get(form), tag))
 
     progtot = collections.defaultdict(int)
     proglast = collections.defaultdict(int)
 
-    proglocs = {'tick':None,'datatot':0,'datalast':0,'tufotot':0,'tufolast':0}
+    proglocs = {'tick': None, 'datatot': 0, 'datalast': 0, 'tufotot': 0, 'tufolast': 0}
 
     def onGestData(mesg):
         proglocs['datatot'] += 1
@@ -90,25 +90,25 @@ def main(argv, outp=None):
 
             if delta >= 1.0:
 
-                tot = sum( proglast.values() )
-                persec = int( float(tot) / delta )
-                tot = proglast.get('total',0)
+                tot = sum(proglast.values())
+                persec = int(float(tot) / delta)
+                tot = proglast.get('total', 0)
 
-                datatot = proglocs.get('datatot',0)
-                datalast = proglocs.get('datalast',0)
-                datasec = int( float(datalast) / delta )
+                datatot = proglocs.get('datatot', 0)
+                datalast = proglocs.get('datalast', 0)
+                datasec = int(float(datalast) / delta)
 
-                tufotot = proglocs.get('tufotot',0)
-                tufolast = proglocs.get('tufolast',0)
-                tufosec = int( float(tufolast) / delta )
+                tufotot = proglocs.get('tufotot', 0)
+                tufolast = proglocs.get('tufolast', 0)
+                tufosec = int(float(tufolast) / delta)
 
-                totstat = tuple( sorted( progtot.items() ) )
-                laststat = tuple( sorted( proglast.items() ) )
+                totstat = tuple(sorted(progtot.items()))
+                laststat = tuple(sorted(proglast.items()))
 
-                totstr = ' '.join([ '%s=%s' % (n,v) for (n,v) in totstat ])
-                laststr = ' '.join([ '%s=%s' % (n,v) for (n,v) in laststat ])
+                totstr = ' '.join(['%s=%s' % (n, v) for (n, v) in totstat])
+                laststr = ' '.join(['%s=%s' % (n, v) for (n, v) in laststat])
 
-                outp.printf('data: %s %s/sec (%d) nodes: %s %s/sec (%d)' % (datalast,datasec,datatot,tufolast,tufosec,tufotot))
+                outp.printf('data: %s %s/sec (%d) nodes: %s %s/sec (%d)' % (datalast, datasec, datatot, tufolast, tufosec, tufotot))
 
                 proglast.clear()
                 proglocs['tick'] = time.time()
@@ -117,7 +117,7 @@ def main(argv, outp=None):
 
     if opts.save:
         outp.printf('saving sync events to: %s' % (opts.save,))
-        core.addSpliceFd( genfile( opts.save ) )
+        core.addSpliceFd(genfile(opts.save))
 
     if opts.verbose:
         core.on('node:add', _print_tufo_add)
@@ -125,7 +125,7 @@ def main(argv, outp=None):
 
     pump = None
     if opts.sync != None:
-        sync = s_cortex.openurl( opts.sync )
+        sync = s_cortex.openurl(opts.sync)
         pump = core.getSplicePump(sync)
 
     tick = time.time()
@@ -136,15 +136,15 @@ def main(argv, outp=None):
             gest = s_ingest.loadfile(path)
 
             if opts.progress:
-                core.on('node:add',onNodeAdd)
-                gest.on('gest:data',onGestData)
-                gest.on('gest:prog',onGestProg)
+                core.on('node:add', onNodeAdd)
+                gest.on('gest:data', onGestData)
+                gest.on('gest:prog', onGestProg)
 
             gest.ingest(core)
 
     tock = time.time()
 
-    outp.printf('ingest took: %s sec' % (tock-tick,))
+    outp.printf('ingest took: %s sec' % (tock - tick,))
 
     if opts.debug:
         s_cmdr.runItemCmdr(core)
@@ -157,5 +157,4 @@ def main(argv, outp=None):
     return 0
 
 if __name__ == '__main__':
-    sys.exit( main(sys.argv[1:] ) )
-
+    sys.exit(main(sys.argv[1:]))

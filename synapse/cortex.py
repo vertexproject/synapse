@@ -34,14 +34,14 @@ logger = logging.getLogger(__name__)
 
 class InvalidParam(Exception):
     def __init__(self, name, msg):
-        Exception.__init__(self, '%s invalid: %s' % (name,msg))
+        Exception.__init__(self, '%s invalid: %s' % (name, msg))
         self.param = name
 
 corctors = {
     'lmdb': synapse.cores.lmdb.Cortex,
-    'sqlite':synapse.cores.sqlite.Cortex,
-    'ram':synapse.cores.ram.initRamCortex,
-    'postgres':synapse.cores.postgres.Cortex,
+    'sqlite': synapse.cores.sqlite.Cortex,
+    'ram': synapse.cores.ram.initRamCortex,
+    'postgres': synapse.cores.postgres.Cortex,
 }
 
 def openurl(url, **opts):
@@ -84,19 +84,19 @@ def choptag(tag):
     Chop a tag into hierarchal levels.
     '''
     parts = tag.split('.')
-    return [ '.'.join(parts[:x+1]) for x in range(len(parts)) ]
+    return ['.'.join(parts[:x + 1]) for x in range(len(parts))]
 
 def _ctor_cortex(conf):
-    url = conf.pop('url',None)
+    url = conf.pop('url', None)
     if url == None:
-        raise BadInfoValu(name='url',valu=None,mesg='cortex ctor requires "url":<url> option')
+        raise BadInfoValu(name='url', valu=None, mesg='cortex ctor requires "url":<url> option')
 
     core = openurl(url)
     core.setConfOpts(conf)
 
     return core
 
-s_dyndeps.addDynAlias('syn:cortex',_ctor_cortex)
+s_dyndeps.addDynAlias('syn:cortex', _ctor_cortex)
 
 if __name__ == '__main__':  # pragma: no cover
     import sys

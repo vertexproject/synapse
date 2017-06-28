@@ -45,13 +45,13 @@ class Queen(EventBus):
         '''
         Return a list of slot tuples allocated to a hive.
         '''
-        return [ s for s in self.slots.values() if s[1].get('hive') == iden ]
+        return [s for s in self.slots.values() if s[1].get('hive') == iden]
 
     def getSlotsByDrone(self, iden):
         '''
         Return the list of slot tuples provided by a drone.
         '''
-        return [ s for s in self.slots.values() if s[1].get('drone') == iden ]
+        return [s for s in self.slots.values() if s[1].get('drone') == iden]
 
     def getDrones(self):
         return list(self.drones.values())
@@ -60,19 +60,19 @@ class Queen(EventBus):
         return list(self.hives.values())
 
     def iAmHive(self, iden, **info):
-        hive = (iden,info)
+        hive = (iden, info)
         self.hives[iden] = hive
 
         sock = s_scope.get('sock')
         def onfini():
             self.fireHiveFini(iden)
-        sock.onfini( onfini )
+        sock.onfini(onfini)
 
         self.fire('hive:hive:init', hive=hive)
 
     def iAmDrone(self, iden, **info):
 
-        drone = (iden,info)
+        drone = (iden, info)
         self.drones[iden] = drone
 
         sock = s_scope.get('sock')
@@ -83,35 +83,35 @@ class Queen(EventBus):
         self.fire('hive:drone:init', iden=iden)
 
     def fireHiveFini(self, iden):
-        hive = self.hives.pop(iden,None)
+        hive = self.hives.pop(iden, None)
         if hive == None:
             return
 
         self.fire('hive:hive:fini', hive=hive)
         slots = self.getSlotsByHive(iden)
-        [ self.fireSlotFini(s[0]) for s in slots ]
+        [self.fireSlotFini(s[0]) for s in slots]
 
     def fireDroneFini(self, iden):
-        drone = self.drones.pop(iden,None)
+        drone = self.drones.pop(iden, None)
         if drone == None:
             return
 
         self.fire('hive:drone:fini', drone=drone)
         slots = self.getSlotsByDrone(iden)
-        [ self.fireSlotFini(s[0]) for s in slots ]
+        [self.fireSlotFini(s[0]) for s in slots]
 
     def fireSlotFini(self, iden):
-        slot = self.slots.pop(iden,None)
+        slot = self.slots.pop(iden, None)
         if slot == None:
             return
 
         hive = slot[1].get('hive')
         if hive != None:
-            self.tell(hive,'hive:slot:fini', slot=slot)
+            self.tell(hive, 'hive:slot:fini', slot=slot)
 
         drone = slot[1].get('drone')
         if drone != None:
-            self.tell(drone,'hive:slot:fini',slot=slot)
+            self.tell(drone, 'hive:slot:fini', slot=slot)
 
     def getWorkSlot(self, hive):
         '''
@@ -154,7 +154,7 @@ class Queen(EventBus):
         self.sched.cancel(item)
 
     def tell(self, iden, name, **info):
-        mesg = (name,info)
+        mesg = (name, info)
         self.fire('hive:tell:%s' % iden, mesg=mesg)
 
 class Hive(s_async.Boss):
@@ -174,10 +174,10 @@ class Hive(s_async.Boss):
         self.todo = collections.deque()
         self.sema = threading.Semaphore(size)
 
-        self.queen.push(self.iden,self)
+        self.queen.push(self.iden, self)
         self.queen.iAmHive(self.iden)
 
-        self.onfini( self._tellQueenFini )
+        self.onfini(self._tellQueenFini)
 
     def genHiveMeld(self):
         if self.meld == None:
@@ -188,11 +188,11 @@ class Hive(s_async.Boss):
         self.queen.fireHiveFini(self.iden)
 
     def _onHiveTell(self, mesg):
-        self.dist( mesg[1].get('mesg') )
+        self.dist(mesg[1].get('mesg'))
 
     def _onJobDone(self, mesg):
         self.sema.release()
-        return s_async.Boss._onJobDone(self,mesg)
+        return s_async.Boss._onJobDone(self, mesg)
 
     def _getWorkSlot(self, timeout=None):
         #FIXME TIMEOUT
@@ -211,17 +211,17 @@ class Hive(s_async.Boss):
         drone = slot[1].get('drone')
 
         jobinfo = {
-            'slot':slot,
-            'ondone':ondone,
-            'dyntask':dyntask,
-            'timeout':timeout,
+            'slot': slot,
+            'ondone': ondone,
+            'dyntask': dyntask,
+            'timeout': timeout,
         }
 
         if self.meld != None:
             jobinfo['meld'] = self.meld.getMeldDict()
 
         job = self.initJob(**jobinfo)
-        self.queen.tell(drone,'hive:slot:run', job=job)
+        self.queen.tell(drone, 'hive:slot:run', job=job)
         return job
 
 class Drone(EventBus):
@@ -243,7 +243,7 @@ class Drone(EventBus):
 
         # FIXME maybe put our hostname etc in config?
 
-        self.queen.on('tele:sock:init', self._onTeleSockInit )
+        self.queen.on('tele:sock:init', self._onTeleSockInit)
         self.queen.on('hive:tell:%s' % self.iden, self._onHiveTell)
 
         self.localurl = 'local://%s/syn.queen' % self.iden
@@ -252,7 +252,7 @@ class Drone(EventBus):
         self.dmon = s_daemon.Daemon()
         self.dmon.listen(self.localurl)
 
-        self.dmon.share('syn.queen',queen)
+        self.dmon.share('syn.queen', queen)
 
         self.on('hive:slot:run', self._onHiveSlotRun)
         self.on('hive:slot:fini', self._onHiveSlotFini)
@@ -260,8 +260,8 @@ class Drone(EventBus):
         self._initQueenProxy()
 
     def _initQueenProxy(self):
-        self.queen.push(self.iden,self)
-        self.queen.iAmDrone(self.iden,**self.config)
+        self.queen.push(self.iden, self)
+        self.queen.iAmDrone(self.iden, **self.config)
         self._addWorkSlots()
 
     def _onTeleSockInit(self, mesg):
@@ -270,8 +270,8 @@ class Drone(EventBus):
     def _onHiveSlotFini(self, mesg):
         iden = mesg[1].get('slot')[0]
 
-        slot = self.slots.pop(iden,None)
-        sloc = self.slocs.pop(iden,None)
+        slot = self.slots.pop(iden, None)
+        sloc = self.slocs.pop(iden, None)
 
         proc = sloc.get('proc')
         if proc != None:
@@ -281,10 +281,10 @@ class Drone(EventBus):
         self._addWorkSlot()
 
     def _onHiveTell(self, mesg):
-        self.dist( mesg[1].get('mesg') )
+        self.dist(mesg[1].get('mesg'))
 
     def _addWorkSlots(self):
-        for i in range( self.config.get('size', cpus) ):
+        for i in range(self.config.get('size', cpus)):
             self._addWorkSlot()
 
     def _addWorkSlot(self):
@@ -306,7 +306,7 @@ class Drone(EventBus):
         Fire a thread to run a job in a seperate Process.
         '''
         slot = job[1].get('slot')
-        sloc = self.slocs.get( slot[0] )
+        sloc = self.slocs.get(slot[0])
 
         job[1]['queen'] = self.localurl
 
@@ -339,9 +339,9 @@ def subtask(job):
 
     hive = slot[1].get('hive')
 
-    queen = s_telepath.openurl( job[1].get('queen') )
+    queen = s_telepath.openurl(job[1].get('queen'))
 
-    s_scope.set('syn.queen',queen)
+    s_scope.set('syn.queen', queen)
 
     try:
         dyntask = job[1].get('dyntask')
@@ -351,4 +351,3 @@ def subtask(job):
 
     except Exception as e:
         queen.tell(hive, 'job:done', jid=jid, **excinfo(e))
-

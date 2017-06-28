@@ -8,14 +8,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-if msgpack.version < (0,4,2):
+if msgpack.version < (0, 4, 2):
     raise Exception('synapse requires msgpack >= 0.4.2')
 
-if tornado.version_info < (3,2,2):
+if tornado.version_info < (3, 2, 2):
     raise Exception('synapse requires tornado >= 3.2.2')
 
-version = (0,0,19)
-verstring = '.'.join([ str(x) for x in version ])
+version = (0, 0, 19)
+verstring = '.'.join([str(x) for x in version])
 
 # load all the synapse builtin modules
 # the built-in cortex modules...
@@ -58,7 +58,7 @@ if mods:
         try:
             s_modules.load_ctor(name, {})
         except Exception as e:
-            logger.warning('SYN_CORE_MODULES failed: %s (%s)' % (name,e))
+            logger.warning('SYN_CORE_MODULES failed: %s (%s)' % (name, e))
 
 # Register any synapse modules from envars
 mods = os.getenv('SYN_MODULES')
@@ -67,7 +67,7 @@ if mods:
         try:
             s_modules.load(name)
         except Exception as e:
-            logger.warning('SYN_MODULES failed: %s (%s)' % (name,e))
+            logger.warning('SYN_MODULES failed: %s (%s)' % (name, e))
 
 # Rebuild the datamodel's typelib now that we have loaded
 # builtin and envar modules.

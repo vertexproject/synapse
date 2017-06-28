@@ -42,7 +42,7 @@ class StormTest(SynTest):
 
     def test_storm_setprop(self):
         with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce',1)
+            core.setConfOpt('enforce', 1)
 
             node = core.formTufoByProp('inet:fqdn', 'vertex.link')
 
@@ -55,7 +55,7 @@ class StormTest(SynTest):
     def test_storm_filt_regex(self):
 
         with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce',1)
+            core.setConfOpt('enforce', 1)
 
             iden0 = guid()
             iden1 = guid()
@@ -66,25 +66,25 @@ class StormTest(SynTest):
             node2 = core.formTufoByProp('file:bytes', iden2, name='toow.exe')
 
             nodes = core.eval('file:bytes +:name~=exe')
-            self.eq( len(nodes), 2 )
+            self.eq(len(nodes), 2)
 
     def test_storm_alltag(self):
 
         with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce',1)
+            core.setConfOpt('enforce', 1)
 
             iden = guid()
-            node = core.formTufoByProp('inet:fqdn','vertex.link')
+            node = core.formTufoByProp('inet:fqdn', 'vertex.link')
 
-            core.addTufoTag(node,'foo.bar')
-            core.addTufoTag(node,'baz.faz')
+            core.addTufoTag(node, 'foo.bar')
+            core.addTufoTag(node, 'baz.faz')
 
             node = core.eval('#foo.bar')[0]
 
-            self.eq( node[1].get('inet:fqdn'), 'vertex.link' )
+            self.eq(node[1].get('inet:fqdn'), 'vertex.link')
 
-            self.nn( node[1].get('#baz') )
-            self.nn( node[1].get('#foo.bar') )
+            self.nn(node[1].get('#baz'))
+            self.nn(node[1].get('#foo.bar'))
 
     def test_storm_addtag(self):
         with s_cortex.openurl('ram:///') as core:
@@ -120,17 +120,17 @@ class StormTest(SynTest):
     def test_storm_refs(self):
 
         with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce',1)
+            core.setConfOpt('enforce', 1)
 
             iden = guid()
-            core.formTufoByProp('inet:dns:a','foo.com/1.2.3.4')
-            core.formTufoByProp('inet:dns:a','bar.com/1.2.3.4')
+            core.formTufoByProp('inet:dns:a', 'foo.com/1.2.3.4')
+            core.formTufoByProp('inet:dns:a', 'bar.com/1.2.3.4')
 
-            self.eq( len(core.eval('inet:ipv4=1.2.3.4 refs(in)')), 3 )
-            self.eq( len(core.eval('inet:ipv4=1.2.3.4 refs(in,limit=1)')), 2 )
+            self.eq(len(core.eval('inet:ipv4=1.2.3.4 refs(in)')), 3)
+            self.eq(len(core.eval('inet:ipv4=1.2.3.4 refs(in,limit=1)')), 2)
 
-            self.eq( len(core.eval('inet:dns:a=foo.com/1.2.3.4 refs(out)')), 3 )
-            self.eq( len(core.eval('inet:dns:a=foo.com/1.2.3.4 refs(out,limit=1)')), 2 )
+            self.eq(len(core.eval('inet:dns:a=foo.com/1.2.3.4 refs(out)')), 3)
+            self.eq(len(core.eval('inet:dns:a=foo.com/1.2.3.4 refs(out,limit=1)')), 2)
 
     def test_storm_tag_query(self):
         # Ensure that non-glob tag filters operate as expected.
@@ -383,8 +383,8 @@ class StormTest(SynTest):
 
         with s_cortex.openurl('ram:///') as core:
 
-            core.formTufoByProp('inet:ipv4','1.2.3.4')
-            core.formTufoByProp('inet:ipv4','5.6.7.8')
+            core.formTufoByProp('inet:ipv4', '1.2.3.4')
+            core.formTufoByProp('inet:ipv4', '5.6.7.8')
 
             self.eq(2, len(core.eval('lift(inet:ipv4)')))
             self.eq(1, len(core.eval('lift(inet:ipv4, limit=1)')))
@@ -428,38 +428,38 @@ class StormTest(SynTest):
     def test_storm_addnode(self):
         with s_cortex.openurl('ram:///') as core:
             node = core.eval('addnode(inet:ipv4,1.2.3.4,asn=0xf0f0f0f0)')[0]
-            self.eq(node[1].get('inet:ipv4'),0x01020304)
-            self.eq(node[1].get('inet:ipv4:asn'),0xf0f0f0f0)
+            self.eq(node[1].get('inet:ipv4'), 0x01020304)
+            self.eq(node[1].get('inet:ipv4:asn'), 0xf0f0f0f0)
 
     def test_storm_delnode(self):
         with s_cortex.openurl('ram:///') as core:
-            node = core.formTufoByProp('inet:ipv4',0x01020304)
+            node = core.formTufoByProp('inet:ipv4', 0x01020304)
             core.eval('inet:ipv4=1.2.3.4 delnode()')
-            self.nn(core.getTufoByProp('inet:ipv4',0x01020304))
+            self.nn(core.getTufoByProp('inet:ipv4', 0x01020304))
             core.eval('inet:ipv4=1.2.3.4 delnode(force=1)')
-            self.none(core.getTufoByProp('inet:ipv4',0x01020304))
+            self.none(core.getTufoByProp('inet:ipv4', 0x01020304))
 
     def test_storm_editmode(self):
         with s_cortex.openurl('ram:///') as core:
-            node = core.formTufoByProp('inet:ipv4',0x01020304)
+            node = core.formTufoByProp('inet:ipv4', 0x01020304)
 
             core.eval('inet:ipv4=1.2.3.4 [ #foo.bar ]')
-            self.eq( len(core.eval('#foo.bar')), 1 )
+            self.eq(len(core.eval('#foo.bar')), 1)
 
             core.eval('inet:ipv4=1.2.3.4 [ +#foo.bar.baz ]')
-            self.eq( len(core.eval('#foo.bar.baz')), 1 )
+            self.eq(len(core.eval('#foo.bar.baz')), 1)
 
             core.eval('inet:ipv4=1.2.3.4 [ -#foo.bar ]')
-            self.eq( len(core.eval('#foo')), 1 )
-            self.eq( len(core.eval('#foo.bar')), 0 )
-            self.eq( len(core.eval('#foo.bar.baz')), 0 )
+            self.eq(len(core.eval('#foo')), 1)
+            self.eq(len(core.eval('#foo.bar')), 0)
+            self.eq(len(core.eval('#foo.bar.baz')), 0)
 
             core.eval(' [ inet:ipv4=5.6.7.8 :cc=US #hehe.haha ]')
 
-            self.eq( len(core.eval('#hehe.haha')), 1 )
+            self.eq(len(core.eval('#hehe.haha')), 1)
 
             node = core.eval('inet:ipv4=5.6.7.8')[0]
-            self.eq( node[1].get('inet:ipv4:cc'), 'us' )
+            self.eq(node[1].get('inet:ipv4:cc'), 'us')
 
     def test_storm_tag_ival(self):
 
@@ -473,22 +473,22 @@ class StormTest(SynTest):
 
             node = core.eval('[ inet:ipv4=5.6.7.8 +#foo.bar@2016 ] ')[0]
 
-            self.eq(s_tufo.ival(node,'#foo.bar'), (1451606400000, 1451606400000))
+            self.eq(s_tufo.ival(node, '#foo.bar'), (1451606400000, 1451606400000))
 
             nodes = core.eval('inet:ipv4 +#foo.bar@201606')
-            self.eq( nodes[0][1].get('inet:ipv4'), 0x01020304 )
+            self.eq(nodes[0][1].get('inet:ipv4'), 0x01020304)
 
             nodes = core.eval('inet:ipv4 -#foo.bar@201606')
-            self.eq( nodes[0][1].get('inet:ipv4'), 0x05060708)
+            self.eq(nodes[0][1].get('inet:ipv4'), 0x05060708)
 
     def test_storm_edit_end(self):
         with s_cortex.openurl('ram:///') as core:
-            self.eq( len(core.eval(' [ inet:dns:a="woot.com/1.2.3.4" ] +:seen:min >= "2014" ')), 0)
+            self.eq(len(core.eval(' [ inet:dns:a="woot.com/1.2.3.4" ] +:seen:min >= "2014" ')), 0)
 
     def test_storm_show_help(self):
 
         show0 = {
-            'columns':[ 'inet:ipv4', ':cc', '#foo.*' ],
+            'columns': ['inet:ipv4', ':cc', '#foo.*'],
         }
 
         with s_cortex.openurl('ram:///') as core:
@@ -498,31 +498,31 @@ class StormTest(SynTest):
 
             nodes = core.eval('inet:ipv4')
 
-            shlp = s_storm.ShowHelp(core,show0)
+            shlp = s_storm.ShowHelp(core, show0)
 
-            self.eq( shlp._getShowFunc('#')(node1), '#foo.bar #hehe.haha' )
+            self.eq(shlp._getShowFunc('#')(node1), '#foo.bar #hehe.haha')
 
-            self.eq( shlp._getShowFunc(':cc')(node1), 'vv' )
-            self.eq( shlp._getShowFunc('#foo.*')(node1), '#foo.bar' )
-            self.eq( shlp._getShowFunc('inet:ipv4')(node1), '1.2.3.4' )
+            self.eq(shlp._getShowFunc(':cc')(node1), 'vv')
+            self.eq(shlp._getShowFunc('#foo.*')(node1), '#foo.bar')
+            self.eq(shlp._getShowFunc('inet:ipv4')(node1), '1.2.3.4')
 
             rows = list(sorted(shlp.rows(nodes)))
             self.eq(rows, [
-                ['1.2.3.4','vv','#foo.bar'],
-                ['108.111.118.101','kd','#foo.bar'],
+                ['1.2.3.4', 'vv', '#foo.bar'],
+                ['108.111.118.101', 'kd', '#foo.bar'],
             ])
 
             rows = list(sorted(shlp.pad(rows)))
             self.eq(rows, [
-                ['        1.2.3.4','vv','#foo.bar'],
-                ['108.111.118.101','kd','#foo.bar'],
+                ['        1.2.3.4', 'vv', '#foo.bar'],
+                ['108.111.118.101', 'kd', '#foo.bar'],
             ])
 
             shlp.show['order'] = 'inet:ipv4:cc'
             rows = list(shlp.rows(nodes))
             self.eq(rows, [
-                ['108.111.118.101','kd','#foo.bar'],
-                ['1.2.3.4','vv','#foo.bar'],
+                ['108.111.118.101', 'kd', '#foo.bar'],
+                ['1.2.3.4', 'vv', '#foo.bar'],
             ])
 
 class LimitTest(SynTest):

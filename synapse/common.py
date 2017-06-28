@@ -1,4 +1,4 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import io
 import os
@@ -20,11 +20,11 @@ import synapse.exc as s_exc
 from synapse.exc import *
 from synapse.compat import enbase64, debase64, canstor
 
-class NoValu:pass
+class NoValu: pass
 novalu = NoValu()
 
 def now():
-    return int( time.time() * 1000 )
+    return int(time.time() * 1000)
 
 def guid(valu=None):
     if valu == None:
@@ -33,18 +33,18 @@ def guid(valu=None):
     byts = msgenpack(valu)
     return hashlib.md5(byts).hexdigest()
 
-def addpref(pref,info):
+def addpref(pref, info):
     '''
     Add the given prefix to all elements in the info dict.
     '''
-    return { '%s:%s' % (pref,k):v for (k,v) in info.items() }
+    return {'%s:%s' % (pref, k): v for (k, v) in info.items()}
 
-def tufo(typ,**kwargs):
-    return (typ,kwargs)
+def tufo(typ, **kwargs):
+    return (typ, kwargs)
 
-def splice(act,**info):
+def splice(act, **info):
     info['act'] = act
-    return ('splice',info)
+    return ('splice', info)
 
 def msgenpack(obj):
     return msgpack.dumps(obj, use_bin_type=True, encoding='utf8')
@@ -66,7 +66,7 @@ def vertup(vstr):
         ver = vertup('1.3.30')
 
     '''
-    return tuple([ int(x) for x in vstr.split('.') ])
+    return tuple([int(x) for x in vstr.split('.')])
 
 def genpath(*paths):
     path = os.path.join(*paths)
@@ -84,8 +84,8 @@ def reqfile(*paths, **opts):
     path = genpath(*paths)
     if not os.path.isfile(path):
         raise NoSuchFile(path)
-    opts.setdefault('mode','rb')
-    return io.open(path,**opts)
+    opts.setdefault('mode', 'rb')
+    return io.open(path, **opts)
 
 def reqlines(*paths, **opts):
     '''
@@ -99,11 +99,11 @@ def reqlines(*paths, **opts):
     NOTE: This API is used as a performance optimization
           over the standard fd line iteration mechanism.
     '''
-    opts.setdefault('mode','r')
-    opts.setdefault('encoding','utf8')
+    opts.setdefault('mode', 'r')
+    opts.setdefault('encoding', 'utf8')
 
     rem = None
-    with reqfile(*paths,**opts) as fd:
+    with reqfile(*paths, **opts) as fd:
 
         bufr = fd.read(10000000)
         while bufr:
@@ -122,15 +122,15 @@ def reqlines(*paths, **opts):
             if rem != None:
                 bufr = rem + bufr
 
-def getfile(*paths,**opts):
+def getfile(*paths, **opts):
     path = genpath(*paths)
     if not os.path.isfile(path):
         return None
-    opts.setdefault('mode','rb')
-    return io.open(path,**opts)
+    opts.setdefault('mode', 'rb')
+    return io.open(path, **opts)
 
-def getbytes(*paths,**opts):
-    fd = getfile(*paths,**opts)
+def getbytes(*paths, **opts):
+    fd = getfile(*paths, **opts)
     if fd == None:
         return None
 
@@ -146,16 +146,16 @@ def genfile(*paths):
     Create or open ( for read/write ) a file path join.
     '''
     path = genpath(*paths)
-    gendir( os.path.dirname(path) )
+    gendir(os.path.dirname(path))
     if not os.path.isfile(path):
-        return io.open(path,'w+b')
-    return io.open(path,'r+b')
+        return io.open(path, 'w+b')
+    return io.open(path, 'r+b')
 
-def gendir(*paths,**opts):
-    mode = opts.get('mode',0o700)
+def gendir(*paths, **opts):
+    mode = opts.get('mode', 0o700)
     path = genpath(*paths)
     if not os.path.isdir(path):
-        os.makedirs(path,mode=mode)
+        os.makedirs(path, mode=mode)
     return path
 
 def reqdir(*paths):
@@ -172,54 +172,54 @@ def jsload(*paths):
 
         return json.loads(byts.decode('utf8'))
 
-def gentask(func,*args,**kwargs):
-    return (func,args,kwargs)
+def gentask(func, *args, **kwargs):
+    return (func, args, kwargs)
 
-def jssave(js,*paths):
+def jssave(js, *paths):
     path = genpath(*paths)
-    with io.open(path,'wb') as fd:
-        fd.write( json.dumps(js).encode('utf8') )
+    with io.open(path, 'wb') as fd:
+        fd.write(json.dumps(js).encode('utf8'))
 
 def verstr(vtup):
     '''
     Convert a version tuple to a string.
     '''
-    return '.'.join([ str(v) for v in vtup ])
+    return '.'.join([str(v) for v in vtup])
 
 def excinfo(e):
     '''
     Populate err,errmsg,errtrace info from exc.
     '''
     tb = sys.exc_info()[2]
-    path,line,name,sorc = traceback.extract_tb(tb)[-1]
+    path, line, name, sorc = traceback.extract_tb(tb)[-1]
     ret = {
-        'err':e.__class__.__name__,
-        'errmsg':str(e),
-        'errfile':path,
-        'errline':line,
+        'err': e.__class__.__name__,
+        'errmsg': str(e),
+        'errfile': path,
+        'errline': line,
     }
 
-    if isinstance(e,SynErr):
+    if isinstance(e, SynErr):
         ret['errinfo'] = e.errinfo
 
     return ret
 
-def synerr(excname,**info):
+def synerr(excname, **info):
     '''
     Return a SynErr exception.  If the given name
     is not known, fall back on the base class.
     '''
     info['excname'] = excname
-    cls = getattr(s_exc,excname,s_exc.SynErr)
+    cls = getattr(s_exc, excname, s_exc.SynErr)
     return cls(**info)
 
-def errinfo(name,mesg):
+def errinfo(name, mesg):
     return {
-        'err':name,
-        'errmsg':mesg,
+        'err': name,
+        'errmsg': mesg,
     }
 
-def chunks(item,size):
+def chunks(item, size):
     '''
     Divide an iterable into chunks.
     '''
@@ -228,7 +228,7 @@ def chunks(item,size):
 
         while True:
 
-            chunk = tuple(itertools.islice(item,size))
+            chunk = tuple(itertools.islice(item, size))
             if not chunk:
                 return
 
@@ -240,7 +240,7 @@ def chunks(item,size):
 
     while True:
 
-        chunk = item[off:off+size]
+        chunk = item[off:off + size]
         if not chunk:
             return
 
@@ -260,22 +260,22 @@ def reqStorDict(x):
     Raises BadStorValu if any value in the dict is not compatible
     with being stored in a cortex.
     '''
-    for k,v in x.items():
+    for k, v in x.items():
         if not canstor(v):
-            raise BadStorValu(name=k,valu=v)
+            raise BadStorValu(name=k, valu=v)
 
 def firethread(f):
     '''
     A decorator for making a function fire a thread.
     '''
     @functools.wraps(f)
-    def callmeth(*args,**kwargs):
-        thr = worker(f,*args,**kwargs)
+    def callmeth(*args, **kwargs):
+        thr = worker(f, *args, **kwargs)
         return thr
     return callmeth
 
 def worker(meth, *args, **kwargs):
-    thr = threading.Thread(target=meth,args=args,kwargs=kwargs)
+    thr = threading.Thread(target=meth, args=args, kwargs=kwargs)
     thr.setDaemon(True)
     thr.start()
     return thr

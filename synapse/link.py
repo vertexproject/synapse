@@ -13,10 +13,10 @@ Provides access to the synapse link protocols.
 '''
 
 protos = {
-    'tcp':s_tcp.TcpRelay,
-    'ssl':s_ssl.SslRelay,
-    'ssh':s_ssh.SshRelay,
-    'local':s_local.LocalRelay,
+    'tcp': s_tcp.TcpRelay,
+    'ssl': s_ssl.SslRelay,
+    'ssh': s_ssh.SshRelay,
+    'local': s_local.LocalRelay,
 }
 
 def addLinkProto(name, ctor):
@@ -66,7 +66,7 @@ def chopLinkUrl(url):
 
     scheme = urlinfo.get('scheme')
 
-    link = (scheme,{})
+    link = (scheme, {})
     link[1]['url'] = url
     link[1]['host'] = urlinfo.get('host')
     link[1]['port'] = urlinfo.get('port')
@@ -74,32 +74,31 @@ def chopLinkUrl(url):
     link[1]['user'] = urlinfo.get('user')
     link[1]['passwd'] = urlinfo.get('passwd')
 
-    query = urlinfo.get('query',{})
+    query = urlinfo.get('query', {})
 
-    timeout = query.pop('timeout',None)
+    timeout = query.pop('timeout', None)
     if timeout != None:
         link[1]['timeout'] = float(timeout)
 
-    poolmax = query.pop('poolmax',None)
+    poolmax = query.pop('poolmax', None)
     if poolmax != None:
         link[1]['poolmax'] = int(poolmax)
 
-    poolsize = query.pop('poolsize',None)
+    poolsize = query.pop('poolsize', None)
     if poolsize != None:
         link[1]['poolsize'] = int(poolsize)
 
-    rc4key = query.pop('rc4key',None)
+    rc4key = query.pop('rc4key', None)
     if rc4key != None:
         link[1]['rc4key'] = rc4key.encode('utf8')
 
-    zerosig = query.pop('zerosig',None)
+    zerosig = query.pop('zerosig', None)
     if zerosig != None:
         link[1]['zerosig'] = True
 
-    retry = query.pop('retry',None)
+    retry = query.pop('retry', None)
     if retry != None:
-        link[1]['retry'] = int(retry,0)
+        link[1]['retry'] = int(retry, 0)
 
     link[1].update(query)
     return link
-

@@ -6,13 +6,13 @@ import collections
 import synapse.lib.reflect as s_reflect
 
 finlock = threading.RLock()
-logger  = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 import synapse.lib.thishost as s_thishost
 
 from synapse.common import *
 
-def on(name,**filt):
+def on(name, **filt):
     '''
     A decorator to register a method for EventBus.on() callbacks.
 
@@ -33,10 +33,10 @@ def on(name,**filt):
 
     '''
     def wrap(f):
-        ons = getattr(f,'_ebus_ons',None)
+        ons = getattr(f, '_ebus_ons', None)
         if ons == None:
             ons = f._ebus_ons = []
-        ons.append( (name,filt) )
+        ons.append((name, filt))
         return f
     return wrap
 
@@ -75,19 +75,19 @@ class EventBus(object):
 
         self._fini_funcs = []
 
-        for name,valu in s_reflect.getItemLocals(self):
+        for name, valu in s_reflect.getItemLocals(self):
 
             if not callable(valu):
                 continue
 
             # check for onfini() decorator
-            if getattr(valu,'_ebus_onfini',None):
+            if getattr(valu, '_ebus_onfini', None):
                 self.onfini(valu)
                 continue
 
             # check for on() decorators
-            for name,filt in getattr(valu,'_ebus_ons',()):
-                self.on(name,valu,**filt)
+            for name, filt in getattr(valu, '_ebus_ons', ()):
+                self.on(name, valu, **filt)
 
         self.fire('ebus:init')
 
@@ -153,7 +153,7 @@ class EventBus(object):
             d.fire('foo', x=30, y=20)
 
         '''
-        self._syn_funcs[name].append((func,tuple(filts.items())))
+        self._syn_funcs[name].append((func, tuple(filts.items())))
 
     def off(self, name, func):
         '''
@@ -174,7 +174,7 @@ class EventBus(object):
                     break
 
             if not funcs:
-                self._syn_funcs.pop(name,None)
+                self._syn_funcs.pop(name, None)
 
     def fire(self, evtname, **info):
         '''
@@ -187,7 +187,7 @@ class EventBus(object):
                 print('got: %r' % (ret,))
 
         '''
-        event = (evtname,info)
+        event = (evtname, info)
         self.dist(event)
         return event
 
@@ -205,21 +205,21 @@ class EventBus(object):
         '''
         ret = []
 
-        for func,filt in self._syn_funcs.get(mesg[0],()):
+        for func, filt in self._syn_funcs.get(mesg[0], ()):
 
             try:
 
-                if any( True for k,v in filt if mesg[1].get(k) != v ):
+                if any(True for k, v in filt if mesg[1].get(k) != v):
                     continue
 
-                ret.append( func( mesg ) )
+                ret.append(func(mesg))
 
             except Exception as e:
                 logger.exception(e)
 
         for func in self._syn_links:
             try:
-                ret.append( func(mesg) )
+                ret.append(func(mesg))
             except Exception as e:
                 logger.exception(e)
 
@@ -291,7 +291,7 @@ class EventBus(object):
         Distribute multiple events on the event bus.
         '''
         [self.dist(evt) for evt in events]
-    
+
     @firethread
     def consume(self, gtor):
         '''
@@ -363,8 +363,8 @@ class EventBus(object):
         Returns:
             None
         '''
-        info.update( excinfo(exc) )
-        self.log( logging.ERROR, str(exc), **info)
+        info.update(excinfo(exc))
+        self.log(logging.ERROR, str(exc), **info)
 
 class Waiter:
     '''
@@ -420,8 +420,7 @@ class Waiter:
     def fini(self):
 
         for name in self.names:
-            self.bus.off(name,self._onWaitEvent)
+            self.bus.off(name, self._onWaitEvent)
 
         if not self.names:
             self.bus.unlink(self._onWaitEvent)
-

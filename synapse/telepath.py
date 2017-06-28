@@ -32,9 +32,9 @@ logger = logging.getLogger(__name__)
 
 # telepath protocol version
 # ( compat breaks only at major ver )
-telever = (2,0)
+telever = (2, 0)
 
-def openurl(url,**opts):
+def openurl(url, **opts):
     '''
     Construct a telepath proxy from a url.
 
@@ -68,13 +68,13 @@ def openlink(link):
 
         dmon = s_scope.get('dmon')
         if dmon == None:
-            raise NoSuchName(name='dmon',link=link, mesg='no dmon instance in current scope')
+            raise NoSuchName(name='dmon', link=link, mesg='no dmon instance in current scope')
 
         # the "host" part is really a dmon local
         host = link[1].get('host')
         item = dmon.locs.get(host)
         if item == None:
-            raise NoSuchName(name=host,link=link, mesg='dmon instance has no local with that name')
+            raise NoSuchName(name=host, link=link, mesg='dmon instance has no local with that name')
 
         return item
 
@@ -86,9 +86,9 @@ def openlink(link):
     synack = teleSynAck(sock, name=name)
     bases = ()
 
-    return Proxy(relay,sock=sock)
+    return Proxy(relay, sock=sock)
 
-def evalurl(url,**opts):
+def evalurl(url, **opts):
     '''
     Construct either a local object or a telepath proxy.
 
@@ -104,12 +104,12 @@ def evalurl(url,**opts):
     if url.find('://') == -1:
         raise BadUrl(url)
 
-    scheme,therest = url.split('://',1)
+    scheme, therest = url.split('://', 1)
     if scheme == 'ctor':
         locs = opts.get('locs')
         return s_dyndeps.runDynEval(therest, locs=locs)
 
-    return openurl(url,**opts)
+    return openurl(url, **opts)
 
 def isProxy(item):
     '''
@@ -176,18 +176,18 @@ class Method:
 
         # check if we have a cached client-side function
         if self.cside != None:
-            return self.cside(self.proxy,*args,**kwargs)
+            return self.cside(self.proxy, *args, **kwargs)
 
-        ondone = kwargs.pop('ondone',None)
-        task = (self.meth,args,kwargs)
+        ondone = kwargs.pop('ondone', None)
+        task = (self.meth, args, kwargs)
 
-        job = self.proxy._tx_call( task, ondone=ondone )
+        job = self.proxy._tx_call(task, ondone=ondone)
         if ondone != None:
             return job
 
         return self.proxy.syncjob(job)
 
-telelocal = set(['tele:sock:init','ebus:init'])
+telelocal = set(['tele:sock:init', 'ebus:init'])
 
 class Proxy(s_eventbus.EventBus):
     '''
@@ -205,7 +205,7 @@ class Proxy(s_eventbus.EventBus):
     def __init__(self, relay, plex=None, sock=None):
 
         s_eventbus.EventBus.__init__(self)
-        self.onfini( self._onProxyFini )
+        self.onfini(self._onProxyFini)
 
         # NOTE: the _tele_ prefixes are designed to prevent accidental
         #       derefs with overlapping names from working correctly
@@ -221,18 +221,18 @@ class Proxy(s_eventbus.EventBus):
         self._tele_plex = plex
         self._tele_boss = s_async.Boss()
 
-        self._raw_on('tele:yield:init', self._onTeleYieldInit )
-        self._raw_on('tele:yield:item', self._onTeleYieldItem )
-        self._raw_on('tele:yield:fini', self._onTeleYieldFini )
+        self._raw_on('tele:yield:init', self._onTeleYieldInit)
+        self._raw_on('tele:yield:item', self._onTeleYieldItem)
+        self._raw_on('tele:yield:fini', self._onTeleYieldFini)
 
-        self._raw_on('job:done', self._tele_boss.dist )
-        self._raw_on('sock:gzip', self._onSockGzip )
-        self._raw_on('tele:call', self._onTeleCall )
+        self._raw_on('job:done', self._tele_boss.dist)
+        self._raw_on('sock:gzip', self._onSockGzip)
+        self._raw_on('tele:call', self._onTeleCall)
 
         poolmax = relay.getLinkProp('poolmax', -1)
         poolsize = relay.getLinkProp('poolsize', 0)
 
-        self._tele_cthr = self.consume( self._tele_q )
+        self._tele_cthr = self.consume(self._tele_q)
         self._tele_pool = s_threads.Pool(size=poolsize, maxsize=poolmax)
 
         self._tele_ons = {}
@@ -260,11 +260,11 @@ class Proxy(s_eventbus.EventBus):
         self._tele_yields[iden] = que
 
         def onfini():
-            self._tele_yields.pop(iden,None)
+            self._tele_yields.pop(iden, None)
             self._txTeleSock('tele:yield:fini', iden=iden)
 
         que.onfini(onfini)
-        self._tele_boss.done(jid,que)
+        self._tele_boss.done(jid, que)
 
     def _onTeleYieldItem(self, mesg):
         iden = mesg[1].get('iden')
@@ -273,7 +273,7 @@ class Proxy(s_eventbus.EventBus):
             self._txTeleSock('tele:yield:fini', iden=iden)
             return
 
-        que.put( mesg[1].get('item') )
+        que.put(mesg[1].get('item'))
 
     def _onTeleYieldFini(self, mesg):
         iden = mesg[1].get('iden')
@@ -295,12 +295,12 @@ class Proxy(s_eventbus.EventBus):
             iden = guid()
             filt = tuple(filts.items())
 
-            onit = (iden,filt)
+            onit = (iden, filt)
 
-            okey = (evnt,func)
-            self._tele_ons[okey] = (iden,filt)
+            okey = (evnt, func)
+            self._tele_ons[okey] = (iden, filt)
 
-            job = self._txTeleJob('tele:on', ons=[(evnt,[onit])], name=self._tele_name)
+            job = self._txTeleJob('tele:on', ons=[(evnt, [onit])], name=self._tele_name)
             self.syncjob(job)
 
         return s_eventbus.EventBus.on(self, evnt, func, **filts)
@@ -311,12 +311,12 @@ class Proxy(s_eventbus.EventBus):
         if name in telelocal:
             return ret
 
-        okey = (name,func)
-        onit = self._tele_ons.pop(okey,None)
+        okey = (name, func)
+        onit = self._tele_ons.pop(okey, None)
         if onit is None:
             return ret
 
-        iden,filt = onit
+        iden, filt = onit
         job = self._txTeleJob('tele:off', evnt=name, iden=iden, name=self._tele_name)
         self.syncjob(job)
 
@@ -342,10 +342,10 @@ class Proxy(s_eventbus.EventBus):
             ret = proxy.syncjob(job)
 
         '''
-        ondone = kwargs.pop('ondone',None)
+        ondone = kwargs.pop('ondone', None)
 
         task = (name, args, kwargs)
-        return self._tx_call(task,ondone=ondone)
+        return self._tx_call(task, ondone=ondone)
 
     def callx(self, name, task, ondone=None):
         '''
@@ -375,7 +375,7 @@ class Proxy(s_eventbus.EventBus):
         csides = getClientSides(item)
         reflect = s_reflect.getItemInfo(item)
         job = self._txTeleJob('tele:push', name=name, reflect=reflect, csides=csides)
-        self._tele_pushed[ name ] = item
+        self._tele_pushed[name] = item
         return self.syncjob(job)
 
     def _tx_call(self, task, ondone=None):
@@ -391,7 +391,7 @@ class Proxy(s_eventbus.EventBus):
             ret = proxy.syncjob(job)
 
         '''
-        self._waitTeleJob(job,timeout=timeout)
+        self._waitTeleJob(job, timeout=timeout)
         return s_async.jobret(job)
 
     def _waitTeleJob(self, job, timeout=None):
@@ -425,14 +425,14 @@ class Proxy(s_eventbus.EventBus):
             sock = self._tele_relay.connect()
 
         # generated on the socket by the multiplexor ( and queued )
-        sock.on('link:sock:mesg', self._onLinkSockMesg )
+        sock.on('link:sock:mesg', self._onLinkSockMesg)
 
         def sockfini():
             # called by multiplexor... must not block
             if not self.isfini:
-                self._tele_pool.call( self._runSockFini )
+                self._tele_pool.call(self._runSockFini)
 
-        sock.onfini( sockfini )
+        sock.onfini(sockfini)
 
         self._teleSynAck(sock)
 
@@ -446,7 +446,7 @@ class Proxy(s_eventbus.EventBus):
     def _onLinkSockMesg(self, event):
         # MULTIPLEXOR: DO NOT BLOCK
         mesg = event[1].get('mesg')
-        self._tele_q.put( mesg )
+        self._tele_q.put(mesg)
 
     def _runSockFini(self):
         if self.isfini:
@@ -456,15 +456,15 @@ class Proxy(s_eventbus.EventBus):
             self._initTeleSock()
         except LinkErr as e:
             sched = s_sched.getGlobSched()
-            sched.insec(1, self._runSockFini )
+            sched.insec(1, self._runSockFini)
 
     def _onTeleCall(self, mesg):
         # dont block consumer thread... task pool
-        self._tele_pool.call( self._runTeleCall, mesg )
+        self._tele_pool.call(self._runTeleCall, mesg)
 
     def _onSockGzip(self, mesg):
-        data = zlib.decompress( mesg[1].get('data') )
-        self.dist( msgunpack(data) )
+        data = zlib.decompress(mesg[1].get('data'))
+        self.dist(msgunpack(data))
 
     def _runTeleCall(self, mesg):
 
@@ -473,7 +473,7 @@ class Proxy(s_eventbus.EventBus):
         task = mesg[1].get('task')
         suid = mesg[1].get('suid')
 
-        retinfo = dict(suid=suid,jid=jid)
+        retinfo = dict(suid=suid, jid=jid)
 
         try:
 
@@ -481,15 +481,15 @@ class Proxy(s_eventbus.EventBus):
             if item == None:
                 return self._txTeleSock('tele:retn', err='NoSuchObj', errmsg=name, **retinfo)
 
-            meth,args,kwargs = task
-            func = getattr(item,meth,None)
+            meth, args, kwargs = task
+            func = getattr(item, meth, None)
             if func == None:
                 return self._txTeleSock('tele:retn', err='NoSuchMeth', errmsg=meth, **retinfo)
 
-            self._txTeleSock('tele:retn', ret=func(*args,**kwargs), **retinfo )
+            self._txTeleSock('tele:retn', ret=func(*args, **kwargs), **retinfo)
 
         except Exception as e:
-            retinfo.update( excinfo(e) )
+            retinfo.update(excinfo(e))
             return self._txTeleSock('tele:retn', **retinfo)
 
     def _getTeleSock(self):
@@ -517,28 +517,28 @@ class Proxy(s_eventbus.EventBus):
         if csides is not None:
             self._tele_csides.update(csides)
 
-        hisopts = synack.get('opts',{})
+        hisopts = synack.get('opts', {})
 
         if hisopts.get('sock:can:gzip'):
-            sock.set('sock:can:gzip',True)
+            sock.set('sock:can:gzip', True)
 
         eper = collections.defaultdict(list)
-        for (evnt,func),(iden,filt) in self._tele_ons.items():
+        for (evnt, func), (iden, filt) in self._tele_ons.items():
             eper[evnt].append((iden, filt))
 
         if eper:
             job = self._txTeleJob('tele:on', ons=eper.items(), name=self._tele_name)
-            self.syncjob( job )
+            self.syncjob(job)
 
     def _txTeleJob(self, msg, **msginfo):
         '''
         Transmit a message as a job ( add jid to mesg ) and return job.
         '''
-        ondone = msginfo.pop('ondone',None)
+        ondone = msginfo.pop('ondone', None)
         job = self._tele_boss.initJob(ondone=ondone)
 
         msginfo['jid'] = job[0]
-        self._txTeleSock(msg,**msginfo)
+        self._txTeleSock(msg, **msginfo)
 
         return job
 
@@ -549,11 +549,11 @@ class Proxy(s_eventbus.EventBus):
         msginfo['sid'] = self._tele_sid
         sock = self._getTeleSock()
         if sock != None:
-            sock.tx( (msg,msginfo) )
+            sock.tx((msg, msginfo))
 
     def _onProxyFini(self):
 
-        [ que.fini() for que in self._tele_yields.values() ]
+        [que.fini() for que in self._tele_yields.values()]
 
         if self._tele_sock != None:
             self._tele_sock.fini()
@@ -568,12 +568,12 @@ class Proxy(s_eventbus.EventBus):
             if func is None:
                 return None
 
-            meth =func.__get__(self)
+            meth = func.__get__(self)
 
         else:
             meth = Method(self, name)
 
-        setattr(self,name,meth)
+        setattr(self, name, meth)
         return meth
 
     # some methods to avoid round trips...
@@ -592,24 +592,24 @@ def teleSynAck(sock, name=None, sid=None):
 
     if synack == None:
 
-        opts = {'sock:can:gzip':1}
+        opts = {'sock:can:gzip': 1}
         info = {
-            'sid':sid,
-            'opts':opts,
-            'vers':telever,
-            'name':name,
+            'sid': sid,
+            'opts': opts,
+            'vers': telever,
+            'name': name,
         }
 
-        sock.tx( ('tele:syn',info) )
+        sock.tx(('tele:syn', info))
 
         done = next(sock.rx())
         synack = done[1].get('ret')
 
-        sock.set('tele:synack',synack)
+        sock.set('tele:synack', synack)
 
-        vers = synack.get('vers',(0,0))
+        vers = synack.get('vers', (0, 0))
         if vers[0] != telever[0]:
-            raise BadMesgVers(myver=telever,hisver=vers)
+            raise BadMesgVers(myver=telever, hisver=vers)
 
     return synack
 
@@ -636,9 +636,9 @@ def getClientSides(item):
     '''
     retn = {}
 
-    for name,valu in s_reflect.getItemLocals(item):
+    for name, valu in s_reflect.getItemLocals(item):
 
-        if not getattr(valu,'_tele_clientside',False):
+        if not getattr(valu, '_tele_clientside', False):
             continue
 
         path = s_reflect.getMethName(valu)

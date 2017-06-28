@@ -36,9 +36,9 @@ class SshRelay(LinkRelay):
         if keyfile != None and not os.path.isfile(keyfile):
             raise Exception('keyfile not found: %s' % (keyfile,))
 
-        fwdhost,fwdport = fwdstr.split(':')
+        fwdhost, fwdport = fwdstr.split(':')
         try:
-            fwdport = int(fwdport,0)
+            fwdport = int(fwdport, 0)
         except ValueError as e:
             raise Exception('Bad Forward Port: %r' % (fwdport,))
 
@@ -71,12 +71,11 @@ class SshRelay(LinkRelay):
 
             s = trns.open_channel('direct-tcpip', (fwdhost, fwdport), ('127.0.0.1', 0))
 
-            return s_socket.Socket(s,ssh=ssh)
+            return s_socket.Socket(s, ssh=ssh)
 
         except s_compat.sockerrs as e:
-            raiseSockError(self.link,e)
+            raiseSockError(self.link, e)
 
         except Exception as e:
             ssh.close()
             raise
-

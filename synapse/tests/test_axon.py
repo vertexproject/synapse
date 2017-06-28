@@ -22,30 +22,30 @@ class AxonTest(SynTest):
 
             axon = s_axon.Axon(axondir)
 
-            self.false( axon.has('md5',craphash) )
-            self.false( axon.has('md5',asdfhash) )
+            self.false(axon.has('md5', craphash))
+            self.false(axon.has('md5', asdfhash))
 
             iden0 = axon.alloc(8)
 
-            self.nn( axon.chunk(iden0,b'asdfasdf') )
+            self.nn(axon.chunk(iden0, b'asdfasdf'))
 
-            self.true( axon.has('md5',asdfhash) )
-            self.false( axon.has('md5',craphash) )
+            self.true(axon.has('md5', asdfhash))
+            self.false(axon.has('md5', craphash))
 
-            byts = b''.join( axon.bytes('md5',asdfhash) )
+            byts = b''.join(axon.bytes('md5', asdfhash))
 
-            self.eq(byts,b'asdfasdf')
+            self.eq(byts, b'asdfasdf')
 
             axon.fini()
 
             axon = s_axon.Axon(axondir)
 
-            self.true( axon.has('md5',asdfhash) )
-            self.false( axon.has('md5',craphash) )
+            self.true(axon.has('md5', asdfhash))
+            self.false(axon.has('md5', craphash))
 
-            byts = b''.join( axon.bytes('md5',asdfhash) )
+            byts = b''.join(axon.bytes('md5', asdfhash))
 
-            self.eq(byts,b'asdfasdf')
+            self.eq(byts, b'asdfasdf')
 
             self.none(axon.wants('md5', asdfhash, 8))
             self.nn(axon.wants('md5', craphash, 8))
@@ -59,15 +59,15 @@ class AxonTest(SynTest):
             byts = os.urandom(128)
             bytsmd5 = hashlib.md5(byts).hexdigest()
 
-            axon = s_axon.Axon(axondir,syncsize=64)
+            axon = s_axon.Axon(axondir, syncsize=64)
 
             iden = axon.alloc(128)
-            for chnk in chunks(byts,10):
-                blob = axon.chunk(iden,chnk)
+            for chnk in chunks(byts, 10):
+                blob = axon.chunk(iden, chnk)
 
             self.nn(blob)
 
-            self.true( axon.has('md5',bytsmd5) )
+            self.true(axon.has('md5', bytsmd5))
 
             axon.fini()
 
@@ -77,43 +77,43 @@ class AxonTest(SynTest):
 
         with self.getTestDir() as datadir:
 
-            with open(os.path.join(datadir,'foo'),'w') as fd:
+            with open(os.path.join(datadir, 'foo'), 'w') as fd:
                 fd.write('useless file to skip')
 
             host = s_axon.AxonHost(datadir)
             usage = host.usage()
 
             props = {
-                'syncmax':s_axon.megabyte * 10,
-                'bytemax':s_axon.megabyte * 10,
+                'syncmax': s_axon.megabyte * 10,
+                'bytemax': s_axon.megabyte * 10,
             }
 
             axfo = host.add(**props)
 
-            self.nn( usage.get('total') )
+            self.nn(usage.get('total'))
 
             axon = host.axons.get(axfo[0])
 
             iden = axon.alloc(100)
-            blob = axon.chunk(iden,b'V'*100)
+            blob = axon.chunk(iden, b'V' * 100)
 
             self.nn(blob)
 
-            self.true( axon.has( 'md5', blob[1].get('hash:md5') ) )
-            self.true( axon.has( 'sha1', blob[1].get('hash:sha1') ) )
-            self.true( axon.has( 'sha256', blob[1].get('hash:sha256') ) )
+            self.true(axon.has('md5', blob[1].get('hash:md5')))
+            self.true(axon.has('sha1', blob[1].get('hash:sha1')))
+            self.true(axon.has('sha256', blob[1].get('hash:sha256')))
 
             host.fini()
 
             host = s_axon.AxonHost(datadir)
             axon = host.axons.get(axfo[0])
 
-            self.true( axon.has( 'md5', blob[1].get('hash:md5') ) )
-            self.true( axon.has( 'sha1', blob[1].get('hash:sha1') ) )
-            self.true( axon.has( 'sha256', blob[1].get('hash:sha256') ) )
+            self.true(axon.has('md5', blob[1].get('hash:md5')))
+            self.true(axon.has('sha1', blob[1].get('hash:sha1')))
+            self.true(axon.has('sha256', blob[1].get('hash:sha256')))
 
             props = {
-                'syncmax':s_axon.megabyte * 10,
+                'syncmax': s_axon.megabyte * 10,
             }
             self.raises(NotEnoughFree, host.add, **props)
 
@@ -132,36 +132,36 @@ class AxonTest(SynTest):
 
         with self.getTestDir() as datadir:
 
-            dir0 = gendir(datadir,'host0')
-            dir1 = gendir(datadir,'host1')
-            dir2 = gendir(datadir,'host2')
+            dir0 = gendir(datadir, 'host0')
+            dir1 = gendir(datadir, 'host1')
+            dir2 = gendir(datadir, 'host2')
 
             opts = {
-                'axonbus':busurl,
+                'axonbus': busurl,
             }
 
-            host0 = s_axon.AxonHost(dir0,hostname='host0',**opts)
-            host1 = s_axon.AxonHost(dir1,hostname='host1',**opts)
-            host2 = s_axon.AxonHost(dir2,hostname='host2',**opts)
+            host0 = s_axon.AxonHost(dir0, hostname='host0', **opts)
+            host1 = s_axon.AxonHost(dir1, hostname='host1', **opts)
+            host2 = s_axon.AxonHost(dir2, hostname='host2', **opts)
 
             props = {
-                'syncmax':s_axon.megabyte,
-                'bytemax':s_axon.megabyte,
+                'syncmax': s_axon.megabyte,
+                'bytemax': s_axon.megabyte,
             }
 
             axfo0 = host0.add(**props)
 
-            axon0 = s_telepath.openlink( axfo0[1].get('link') )
-            self.true( axon0._waitClonesReady(timeout=2) )
+            axon0 = s_telepath.openlink(axfo0[1].get('link'))
+            self.true(axon0._waitClonesReady(timeout=2))
 
             iden = axon0.alloc(100)
-            blob = axon0.chunk(iden,b'V'*100)
+            blob = axon0.chunk(iden, b'V' * 100)
 
             self.nn(blob)
 
-            self.true( axon0.has( 'md5', blob[1].get('hash:md5') ) )
-            self.true( axon0.has( 'sha1', blob[1].get('hash:sha1') ) )
-            self.true( axon0.has( 'sha256', blob[1].get('hash:sha256') ) )
+            self.true(axon0.has('md5', blob[1].get('hash:md5')))
+            self.true(axon0.has('sha1', blob[1].get('hash:sha1')))
+            self.true(axon0.has('sha256', blob[1].get('hash:sha256')))
 
             axon0.fini()
 
@@ -184,42 +184,42 @@ class AxonTest(SynTest):
 
         with self.getTestDir() as datadir:
 
-            dir0 = gendir(datadir,'host0')
-            dir1 = gendir(datadir,'host1')
-            dir2 = gendir(datadir,'host2')
+            dir0 = gendir(datadir, 'host0')
+            dir1 = gendir(datadir, 'host1')
+            dir2 = gendir(datadir, 'host2')
 
             opts = {
-                'axonbus':busurl,
+                'axonbus': busurl,
             }
 
-            host0 = s_axon.AxonHost(dir0,hostname='host0',**opts)
-            host1 = s_axon.AxonHost(dir1,hostname='host1',**opts)
-            host2 = s_axon.AxonHost(dir2,hostname='host2',**opts)
+            host0 = s_axon.AxonHost(dir0, hostname='host0', **opts)
+            host1 = s_axon.AxonHost(dir1, hostname='host1', **opts)
+            host2 = s_axon.AxonHost(dir2, hostname='host2', **opts)
 
             props = {
-                'clones':2,
-                'syncmax':s_axon.megabyte,
-                'bytemax':s_axon.megabyte,
+                'clones': 2,
+                'syncmax': s_axon.megabyte,
+                'bytemax': s_axon.megabyte,
             }
 
             axfo0 = host0.add(**props)
 
-            axon0 = s_telepath.openlink( axfo0[1].get('link') )
+            axon0 = s_telepath.openlink(axfo0[1].get('link'))
 
             # wait for clones to come online
-            self.true( axon0._waitClonesReady(timeout=2) )
+            self.true(axon0._waitClonesReady(timeout=2))
 
             #self.nn( usage.get('total') )
             #axon = host.axons.get(iden)
 
             iden = axon0.alloc(100)
-            blob = axon0.chunk(iden,b'V'*100)
+            blob = axon0.chunk(iden, b'V' * 100)
 
             self.nn(blob)
 
-            self.true( axon0.has( 'md5', blob[1].get('hash:md5') ) )
-            self.true( axon0.has( 'sha1', blob[1].get('hash:sha1') ) )
-            self.true( axon0.has( 'sha256', blob[1].get('hash:sha256') ) )
+            self.true(axon0.has('md5', blob[1].get('hash:md5')))
+            self.true(axon0.has('sha1', blob[1].get('hash:sha1')))
+            self.true(axon0.has('sha256', blob[1].get('hash:sha256')))
 
             axon0.fini()
 
@@ -239,44 +239,43 @@ class AxonTest(SynTest):
         dmon.listen(busurl)
 
         dmon.share('axons', s_service.SvcBus(), fini=True)
-        svcprox = s_service.openurl( busurl )
+        svcprox = s_service.openurl(busurl)
 
         axcluster = s_axon.AxonCluster(svcprox)
 
         with self.getTestDir() as datadir:
 
-            dir0 = gendir(datadir,'host0')
-            dir1 = gendir(datadir,'host1')
-            dir2 = gendir(datadir,'host2')
+            dir0 = gendir(datadir, 'host0')
+            dir1 = gendir(datadir, 'host1')
+            dir2 = gendir(datadir, 'host2')
 
             opts = {
-                'axonbus':busurl,
+                'axonbus': busurl,
             }
 
-            host0 = s_axon.AxonHost(dir0,hostname='host0',**opts)
-            host1 = s_axon.AxonHost(dir1,hostname='host1',**opts)
-            host2 = s_axon.AxonHost(dir2,hostname='host2',**opts)
-
+            host0 = s_axon.AxonHost(dir0, hostname='host0', **opts)
+            host1 = s_axon.AxonHost(dir1, hostname='host1', **opts)
+            host2 = s_axon.AxonHost(dir2, hostname='host2', **opts)
 
             props = {
-                'clones':1,
-                'syncmax':s_axon.megabyte,
-                'bytemax':s_axon.megabyte,
+                'clones': 1,
+                'syncmax': s_axon.megabyte,
+                'bytemax': s_axon.megabyte,
             }
 
             axfo0 = host0.add(**props)
 
             axcluster._waitWrAxons(1, 4)
 
-            self.false( axcluster.has('md5',craphash) )
-            self.false( axcluster.has('md5',asdfhash) )
+            self.false(axcluster.has('md5', craphash))
+            self.false(axcluster.has('md5', asdfhash))
 
             buf = b'asdfasdf'
             iden = axcluster.alloc(len(buf))
-            self.nn( axcluster.chunk(iden, buf) )
+            self.nn(axcluster.chunk(iden, buf))
 
-            self.false( axcluster.has('md5',craphash) )
-            self.true( axcluster.has('md5',asdfhash) )
+            self.false(axcluster.has('md5', craphash))
+            self.true(axcluster.has('md5', asdfhash))
 
             blobs = axcluster.find('md5', craphash)
             self.eq(len(blobs), 0)
@@ -285,11 +284,11 @@ class AxonTest(SynTest):
             self.eq(len(blobs), 1)
 
             blob = blobs[0]
-            byts = b''.join( axcluster.iterblob(blob) )
+            byts = b''.join(axcluster.iterblob(blob))
             self.eq(byts, buf)
 
             blob[1].pop('.axon')
-            byts = b''.join( axcluster.iterblob(blob) )
+            byts = b''.join(axcluster.iterblob(blob))
             self.eq(byts, buf)
 
             self.nn(axcluster.wants('md5', craphash, len(buf)))
@@ -308,12 +307,12 @@ class AxonTest(SynTest):
         with self.getTestDir() as dirname:
 
             opts = {
-                'autorun':2,
-                'syncmax':s_axon.megabyte,
-                'bytemax':s_axon.megabyte,
+                'autorun': 2,
+                'syncmax': s_axon.megabyte,
+                'bytemax': s_axon.megabyte,
             }
-            host = s_axon.AxonHost(dirname,**opts)
-            self.eq( len(host.axons), 2 )
+            host = s_axon.AxonHost(dirname, **opts)
+            self.eq(len(host.axons), 2)
             host.fini()
 
     def test_axon_eatbytes(self):
@@ -333,10 +332,10 @@ class AxonTest(SynTest):
                     with io.BytesIO(b'durr') as fd:
                         blob3 = prox.eatfd(fd)
 
-        self.eq( blob0[1].get('axon:blob'), '442f602ecf8230b2a59a44b4f845be27' )
-        self.eq( blob1[1].get('axon:blob'), 'd4552906c1f6966b96d27e6fc79441b5' )
-        self.eq( blob2[1].get('axon:blob'), '0d60960570ef6da0a15f68c24b420334' )
-        self.eq( blob3[1].get('axon:blob'), '97c11d1057f75c9c0b79090131709f62' )
+        self.eq(blob0[1].get('axon:blob'), '442f602ecf8230b2a59a44b4f845be27')
+        self.eq(blob1[1].get('axon:blob'), 'd4552906c1f6966b96d27e6fc79441b5')
+        self.eq(blob2[1].get('axon:blob'), '0d60960570ef6da0a15f68c24b420334')
+        self.eq(blob3[1].get('axon:blob'), '97c11d1057f75c9c0b79090131709f62')
 
     #def test_axon_proxy(self):
 
@@ -380,7 +379,7 @@ class AxonTest(SynTest):
                 self.gt(actual['st_ctime'], 1000000000)
                 self.gt(actual['st_mtime'], 1000000000)
 
-                nlink = axon.fs_getxattr('/','st_nlink')
+                nlink = axon.fs_getxattr('/', 'st_nlink')
                 self.eq(nlink, actual['st_nlink'])
                 self.raises(NoSuchData, axon.fs_getxattr, '/', 'zzz')
                 self.raises(NoSuchData, axon.fs_getxattr, '/haha', 'st_nlink')
@@ -403,7 +402,6 @@ class AxonTest(SynTest):
                 #self.raises(NoSuchDir, axon.fs_mkdir, 'noparent', 16893)
 
                 self.raises(FileExists, axon.fs_mkdir, '/foo', 0x1FD)
-
 
     def test_axon_fs_read(self, *args, **kwargs):
         with self.getTestDir() as dirname:
@@ -470,7 +468,7 @@ class AxonTest(SynTest):
                 axon.fs_rename('/dir/a', '/dir/b')
 
                 actual = axon.fs_readdir('/dir')
-                self.eq(sorted(actual), ['.','..','b'])
+                self.eq(sorted(actual), ['.', '..', 'b'])
 
                 # source doesnt exist
                 self.raises(NoSuchEntity, axon.fs_rename, 'fake', 'other')
@@ -531,19 +529,18 @@ class AxonTest(SynTest):
                 self.nn(axon.fs_getattr('/nest/nest2/nest3'))
                 self.nn(axon.fs_getattr('/nest/nest2/nest3/reg'))
 
-
     def test_axon_fs_truncate(self, *args, **kwargs):
         with self.getTestDir() as dirname:
             with s_axon.Axon(dirname) as axon:
 
                 axon.fs_create('/foofile', 33204)
-                tufo = axon.core.getTufoByProp('axon:path','/foofile')
-                axon.core.setTufoProps(tufo, st_size=100, blob=32*'a')
+                tufo = axon.core.getTufoByProp('axon:path', '/foofile')
+                axon.core.setTufoProps(tufo, st_size=100, blob=32 * 'a')
                 self.eq(tufo[1].get('axon:path:st_size'), 100)
-                self.eq(tufo[1].get('axon:path:blob'), 32*'a')
+                self.eq(tufo[1].get('axon:path:blob'), 32 * 'a')
 
                 axon.fs_truncate('/foofile')
-                tufo = axon.core.getTufoByProp('axon:path','/foofile')
+                tufo = axon.core.getTufoByProp('axon:path', '/foofile')
                 self.eq(tufo[1].get('axon:path:st_size'), 0)
                 self.eq(tufo[1].get('axon:path:blob'), None)
 
@@ -627,10 +624,10 @@ class AxonTest(SynTest):
                 port = link[1].get('port')
 
                 with s_axon.Axon(dirname) as axon:
-                    dmon.share('axon',axon)
+                    dmon.share('axon', axon)
 
                     prox = s_telepath.openurl('tcp://127.0.0.1/axon', port=port)
 
                     with io.BytesIO(b'vertex') as fd:
                         blob = prox.eatfd(fd)
-                        self.eq( blob[1]['axon:blob:sha256'], 'e1b683e26a3aad218df6aa63afe9cf57fdb5dfaf5eb20cddac14305d67f48a02' )
+                        self.eq(blob[1]['axon:blob:sha256'], 'e1b683e26a3aad218df6aa63afe9cf57fdb5dfaf5eb20cddac14305d67f48a02')

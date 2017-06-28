@@ -29,7 +29,7 @@ class TcpRelay(LinkRelay):
     def _listen(self):
         host = self.link[1].get('host')
         port = self.link[1].get('port')
-        sock = s_socket.listen((host,port))
+        sock = s_socket.listen((host, port))
         self.link[1]['port'] = sock.getsockname()[1]
         return sock
 
@@ -38,7 +38,7 @@ class TcpRelay(LinkRelay):
 
             host = self.link[1].get('host')
             port = self.link[1].get('port')
-            return s_socket.connect((host,port))
+            return s_socket.connect((host, port))
 
         except s_compat.sockerrs as e:
-            raiseSockError(self.link,e)
+            raiseSockError(self.link, e)

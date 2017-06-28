@@ -1,4 +1,4 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import os
 import time
@@ -24,14 +24,14 @@ def iden():
     return threading.currentThread().ident
 
 def isfini():
-    return getattr(current(),'isfini',False)
+    return getattr(current(), 'isfini', False)
 
 def withlock(lock):
     def decor(f):
         @wraps(f)
-        def wrap(*args,**kwargs):
+        def wrap(*args, **kwargs):
             with lock:
-                return f(*args,**kwargs)
+                return f(*args, **kwargs)
         return wrap
     return decor
 
@@ -54,19 +54,19 @@ class cancelable:
 
     def __call__(self):
         try:
-            self.func(*self.args,**self.kwargs)
+            self.func(*self.args, **self.kwargs)
         except Exception as e:
             traceback.print_exc()
 
     def __enter__(self):
-        current().cancels.append( self )
+        current().cancels.append(self)
         return self
 
     def __exit__(self, exc, cls, tb):
         current().cancels.pop()
         return
 
-class Thread(threading.Thread,EventBus):
+class Thread(threading.Thread, EventBus):
     '''
     A thread / EventBus to allow fini() etc.
     '''
@@ -77,31 +77,31 @@ class Thread(threading.Thread,EventBus):
         self.setDaemon(True)
 
         self.iden = guid()
-        self.task = (func,args,kwargs)
+        self.task = (func, args, kwargs)
 
         self.cancels = []
 
-        self.onfini( self._onThrFini )
+        self.onfini(self._onThrFini)
 
     def run(self):
-        func,args,kwargs = self.task
-        ret = func(*args,**kwargs)
+        func, args, kwargs = self.task
+        ret = func(*args, **kwargs)
         self.fire('thread:done', thread=self, ret=ret)
         self.fini()
 
     def _onThrFini(self):
-        [ cancel() for cancel in self.cancels ]
+        [cancel() for cancel in self.cancels]
 
-def worker(func,*args,**kwargs):
+def worker(func, *args, **kwargs):
     '''
     Fire a worker thread to run the given func(*args,**kwargs)
     '''
-    thr = Thread(func,*args,**kwargs)
+    thr = Thread(func, *args, **kwargs)
     thr.start()
     return thr
 
 def newtask(func, *args, **kwargs):
-    return (func,args,kwargs)
+    return (func, args, kwargs)
 
 class Pool(EventBus):
     '''
@@ -136,10 +136,10 @@ class Pool(EventBus):
 
         self._pool_threads = {}
 
-        self.onfini( self._onPoolFini )
+        self.onfini(self._onPoolFini)
 
         for i in range(size):
-            self._fire_thread( self._run_work )
+            self._fire_thread(self._run_work)
 
     def wrap(self, func):
         '''
@@ -152,15 +152,15 @@ class Pool(EventBus):
             bus.on('foo', pool.wrap( doFooThing ) )
 
         '''
-        def poolcall(*args,**kwargs):
-            self.call(func,*args,**kwargs)
+        def poolcall(*args, **kwargs):
+            self.call(func, *args, **kwargs)
         return poolcall
 
     def call(self, func, *args, **kwargs):
         '''
         Call the given func(*args,**kwargs) in the pool.
         '''
-        self.task( newtask(func,*args,**kwargs) )
+        self.task(newtask(func, *args, **kwargs))
 
     def task(self, task, jid=None):
         '''
@@ -191,28 +191,28 @@ class Pool(EventBus):
 
             # got any breathing room?
             if self._pool_maxsize > len(self._pool_threads):
-                self._fire_thread( self._run_work )
+                self._fire_thread(self._run_work)
                 self.workq.put(work)
                 return
 
             # got *all* the breathing room?
             if self._pool_maxsize == -1:
-                self._fire_thread( self._run_work )
+                self._fire_thread(self._run_work)
                 self.workq.put(work)
                 return
 
             self.workq.put(work)
 
     def _fire_thread(self, func, *args, **kwargs):
-        thr = Thread( func, *args, **kwargs)
-        thr.link( self.dist )
+        thr = Thread(func, *args, **kwargs)
+        thr.link(self.dist)
 
-        thr.name = 'SynPool(%d):%s' % (id(self),thr.iden)
+        thr.name = 'SynPool(%d):%s' % (id(self), thr.iden)
 
-        self._pool_threads[ thr.iden ] = thr
+        self._pool_threads[thr.iden] = thr
 
         def onfini():
-            self._pool_threads.pop(thr.iden,None)
+            self._pool_threads.pop(thr.iden, None)
 
         thr.onfini(onfini)
 
@@ -234,31 +234,31 @@ class Pool(EventBus):
 
             self.fire('pool:work:init', work=work)
 
-            task,info = work
+            task, info = work
 
             jid = info.get('jid')
             try:
 
-                func,args,kwargs = task
-                ret = func(*args,**kwargs)
+                func, args, kwargs = task
+                ret = func(*args, **kwargs)
 
                 # optionally generate a job event
                 if jid != None:
-                    self.fire('job:done',jid=jid,ret=ret)
+                    self.fire('job:done', jid=jid, ret=ret)
 
             except Exception as e:
 
                 if jid != None:
-                    self.fire('job:done',jid=jid,**excinfo(e))
+                    self.fire('job:done', jid=jid, **excinfo(e))
 
             self.fire('pool:work:fini', work=work)
 
     def _onPoolFini(self):
         threads = list(self._pool_threads.values())
 
-        [ self.workq.put(None) for i in range(len(threads)) ]
+        [self.workq.put(None) for i in range(len(threads))]
 
-        [ t.fini() for t in threads ]
+        [t.fini() for t in threads]
         #[ t.join() for t in threads ]
 
 class RWLock:
@@ -287,7 +287,7 @@ class RWLock:
                 dowrites()
         '''
         # use thread locals with our GUID for holder ident
-        holder = getThreadLocal(self.ident,RWWith,self)
+        holder = getThreadLocal(self.ident, RWWith, self)
 
         holder.event.clear()
         holder.writer = False
@@ -296,7 +296,7 @@ class RWLock:
 
             # if there's no rw holder, off we go!
             if not self.rw_holder and not self.rw_waiters:
-                self.ro_holders.add( holder )
+                self.ro_holders.add(holder)
                 return holder
 
             self.ro_waiters.append(holder)
@@ -315,7 +315,7 @@ class RWLock:
                 # no readers or other writers but us!
                 dowrites()
         '''
-        holder = getThreadLocal(self.ident,RWWith,self)
+        holder = getThreadLocal(self.ident, RWWith, self)
 
         holder.event.clear()
         holder.writer = True
@@ -326,7 +326,7 @@ class RWLock:
                 self.rw_holder = holder
                 return holder
 
-            self.rw_waiters.append( holder )
+            self.rw_waiters.append(holder)
 
         holder.event.wait() # FIXME timeout
         return holder
@@ -345,7 +345,7 @@ class RWLock:
                 if self.ro_waiters:
                     while self.ro_waiters:
                         nexthold = self.ro_waiters.popleft()
-                        self.ro_holders.add( nexthold )
+                        self.ro_holders.add(nexthold)
                         hexthold.event.set()
                     return
 
@@ -358,7 +358,7 @@ class RWLock:
                 return
 
             # releasing a read hold from here down...
-            self.ro_holders.remove( holder )
+            self.ro_holders.remove(holder)
             if self.ro_holders:
                 return
 
@@ -417,7 +417,7 @@ def iWillWait():
             waitForThing()
 
     '''
-    if getattr(threading.currentThread(),'_syn_cantwait',False):
+    if getattr(threading.currentThread(), '_syn_cantwait', False):
         name = threading.currentThread().name
         raise MustNotWait(name)
 
@@ -434,4 +434,4 @@ def iMayWait():
             waitForThing()
 
     '''
-    return not getattr(threading.currentThread(),'_syn_cantwait',False)
+    return not getattr(threading.currentThread(), '_syn_cantwait', False)

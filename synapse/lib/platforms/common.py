@@ -1,4 +1,4 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import os
 import socket
@@ -31,16 +31,16 @@ def getVolInfo(*paths):
     total = st.f_blocks * st.f_frsize
 
     return {
-        'free':free,
-        'used':total - free,
-        'total':total,
+        'free': free,
+        'used': total - free,
+        'total': total,
     }
 
-def inet_pton(afam,text):
-    return socket.inet_pton(afam,text)
+def inet_pton(afam, text):
+    return socket.inet_pton(afam, text)
 
-def inet_ntop(afam,byts):
-    return socket.inet_ntop(afam,byts)
+def inet_ntop(afam, byts):
+    return socket.inet_ntop(afam, byts)
 
 def daemonize():
     '''
@@ -55,7 +55,7 @@ def getLibC():
     '''
     Return a ctypes reference to libc
     '''
-    return ctypes.CDLL( c_util.find_library('c') )
+    return ctypes.CDLL(c_util.find_library('c'))
 
 def initHostInfo():
     return {}

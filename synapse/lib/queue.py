@@ -1,4 +1,4 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import time
 import threading
@@ -20,7 +20,7 @@ class Queue(EventBus):
         self.event = threading.Event()
 
         self._que_done = False
-        self.onfini( self.event.set )
+        self.onfini(self.event.set)
 
     def __exit__(self, exc, cls, tb):
         self.done()
@@ -105,7 +105,7 @@ class Queue(EventBus):
 
                 ret = []
                 while len(ret) < size and self.deq:
-                    ret.append( self.deq.popleft() )
+                    ret.append(self.deq.popleft())
 
                 if ret:
                     return ret

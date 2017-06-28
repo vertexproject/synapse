@@ -9,10 +9,10 @@ from synapse.eventbus import EventBus
 
 from synapse.common import *
 
-class NoSuchProto(Exception):pass
+class NoSuchProto(Exception): pass
 
-class TooManyTries(Exception):pass
-class ImplementMe(Exception):pass
+class TooManyTries(Exception): pass
+class ImplementMe(Exception): pass
 
 class LinkRelay:
 
@@ -40,7 +40,7 @@ class LinkRelay:
         if sock.get('listen'):
             return
 
-        rc4key = self.link[1].get('rc4key',b'')
+        rc4key = self.link[1].get('rc4key', b'')
         zerosig = self.link[1].get('zerosig')
         if rc4key or zerosig != None:
             xform = s_crypto.Rc4Xform(rc4key)
@@ -52,17 +52,17 @@ class LinkRelay:
         '''
         sock = self._listen()
 
-        sock.set('relay',self)
-        sock.set('link',self.link)
+        sock.set('relay', self)
+        sock.set('link', self.link)
 
-        sock.set('listen',True)
+        sock.set('listen', True)
         self._prepLinkSock(sock)
 
         return sock
 
     def _connloop(self):
 
-        retry = self.link[1].get('retry',0)
+        retry = self.link[1].get('retry', 0)
 
         try:
             return self._connect()
@@ -94,15 +94,15 @@ class LinkRelay:
         '''
         sock = self._connloop()
 
-        sock.set('relay',self)
-        sock.set('link',self.link)
+        sock.set('relay', self)
+        sock.set('link', self.link)
 
-        sock.set('connect',True)
+        sock.set('connect', True)
         self._prepLinkSock(sock)
 
         return sock
 
-def raiseSockError(link,e):
+def raiseSockError(link, e):
     url = link[1].get('url')
     if e.errno == errno.ECONNREFUSED:
         raise LinkRefused(link)

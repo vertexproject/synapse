@@ -52,7 +52,7 @@ class TufoCreateTests(SynTest):
         '''
         Ensure that tufos' can be created via **kwargs.
         '''
-        tuf0 = s_tufo.tufo('bar', **{'baz': 'faz', 'derp': 20,})
+        tuf0 = s_tufo.tufo('bar', **{'baz': 'faz', 'derp': 20, })
         r = s_tufo.equal(tuf0, self.tuf0)
         self.true(r)
 
@@ -84,4 +84,3 @@ class TestTufoProps(SynTest):
         self.eq(r, {'sound': 'quack', 'stype': 'duck'})
         r = s_tufo.props(self.t3, pref='geo')
         self.eq(r, {})
-

@@ -81,7 +81,7 @@ class FqdnType(DataType):
         else:
             subs['sfx'] = 1
 
-        return valu,subs
+        return valu, subs
 
     def repr(self, valu):
         return valu.encode('utf8').decode('idna')

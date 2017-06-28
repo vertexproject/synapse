@@ -1,4 +1,4 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import os
 import ssl
@@ -46,7 +46,7 @@ class SslRelay(LinkRelay):
         port = self.link[1].get('port')
 
         sock = socket.socket()
-        sock.bind( (host,port) )
+        sock.bind((host, port))
 
         sock.listen(100)
 
@@ -87,7 +87,7 @@ class SslRelay(LinkRelay):
         wrap = ssl.wrap_socket(sock, **sslopts)
 
         sock = s_socket.Socket(wrap)
-        sock.on('link:sock:accept', self._onSslAccept )
+        sock.on('link:sock:accept', self._onSslAccept)
 
         return sock
 
@@ -98,9 +98,9 @@ class SslRelay(LinkRelay):
 
         # setup non-blocking, preread, and do_handshake
         sock.setblocking(0)
-        sock.set('preread',True)
+        sock.set('preread', True)
 
-        sock.on('link:sock:preread', self._onServPreRead )
+        sock.on('link:sock:preread', self._onServPreRead)
 
         # this fails on purpose ( but we must prompt the server to send )
         try:
@@ -127,11 +127,11 @@ class SslRelay(LinkRelay):
             sock.do_handshake()
 
             # handshake completed! no more pre-read!
-            sock.set('preread',False)
+            sock.set('preread', False)
 
             user = self._getCommonName(sock)
             if user != None:
-                sock.set('syn:user',user)
+                sock.set('syn:user', user)
 
         except ssl.SSLError as e:
 
@@ -156,7 +156,7 @@ class SslRelay(LinkRelay):
 
         try:
 
-            info = dict( x[0] for x in subj )
+            info = dict(x[0] for x in subj)
             return info.get('commonName')
 
         except Exception as e:
@@ -176,16 +176,16 @@ class SslRelay(LinkRelay):
         certdir = self.link[1].get('certdir')
 
         cdir = s_certdir.CertDir(path=certdir)
-        certuser = cdir.getUserForHost(user,host)
+        certuser = cdir.getUserForHost(user, host)
 
         if certuser != None:
             cafile = cdir.getUserCaPath(certuser)
             keyfile = cdir.getUserKeyPath(certuser)
             certfile = cdir.getUserCertPath(certuser)
 
-        cafile = self.link[1].get('cafile',cafile)
-        keyfile = self.link[1].get('keyfile',keyfile)
-        certfile = self.link[1].get('certfile',certfile)
+        cafile = self.link[1].get('cafile', cafile)
+        keyfile = self.link[1].get('keyfile', keyfile)
+        certfile = self.link[1].get('certfile', certfile)
 
         sslopts = dict(ca_certs=cafile,
                        keyfile=keyfile,
@@ -197,15 +197,15 @@ class SslRelay(LinkRelay):
             sslopts['cert_reqs'] = ssl.CERT_NONE
 
         try:
-            sock.connect( (host,port) )
+            sock.connect((host, port))
         except s_compat.sockerrs as e:
             sock.close()
-            raiseSockError(self.link,e)
+            raiseSockError(self.link, e)
 
         try:
             wrap = ssl.wrap_socket(sock, **sslopts)
         except ssl.SSLError as e:
             sock.close()
-            raise LinkErr(self.link,str(e))
+            raise LinkErr(self.link, str(e))
 
         return s_socket.Socket(wrap)

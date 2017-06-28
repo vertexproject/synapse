@@ -9,37 +9,37 @@ class GeneTest(SynTest):
         def baz(x):
             return x + 20
 
-        syms = {'foo:bar':10,'foo:baz':baz,'foo:faz':'woot'}
+        syms = {'foo:bar': 10, 'foo:baz': baz, 'foo:faz': 'woot'}
 
-        self.eq( s_gene.eval('foo:bar & 1', syms=syms), 0 )
-        self.eq( s_gene.eval('foo:bar ^ 2', syms=syms), 8 )
-        self.eq( s_gene.eval('foo:bar | 1', syms=syms), 11 )
+        self.eq(s_gene.eval('foo:bar & 1', syms=syms), 0)
+        self.eq(s_gene.eval('foo:bar ^ 2', syms=syms), 8)
+        self.eq(s_gene.eval('foo:bar | 1', syms=syms), 11)
 
-        self.eq( s_gene.eval('foo:bar', syms=syms), 10 )
-        self.eq( s_gene.eval('foo:bar + 0x0a', syms=syms), 20 )
-        self.eq( s_gene.eval('foo:baz(0x0a)', syms=syms), 30 )
+        self.eq(s_gene.eval('foo:bar', syms=syms), 10)
+        self.eq(s_gene.eval('foo:bar + 0x0a', syms=syms), 20)
+        self.eq(s_gene.eval('foo:baz(0x0a)', syms=syms), 30)
 
-        self.eq( s_gene.eval('20 == foo:bar + 0x0a', syms=syms), 1 )
-        self.eq( s_gene.eval('foo:faz == "woot"', syms=syms), 1 )
-        self.eq( s_gene.eval("foo:faz == 'woot'", syms=syms), 1 )
+        self.eq(s_gene.eval('20 == foo:bar + 0x0a', syms=syms), 1)
+        self.eq(s_gene.eval('foo:faz == "woot"', syms=syms), 1)
+        self.eq(s_gene.eval("foo:faz == 'woot'", syms=syms), 1)
 
-        self.eq( s_gene.eval('foo:baz(10) + 10', syms=syms), 40 )
+        self.eq(s_gene.eval('foo:baz(10) + 10', syms=syms), 40)
 
-        self.eq( s_gene.eval('foo:baz(10) < 100', syms=syms), 1 )
-        self.eq( s_gene.eval('foo:baz(10) <= 100', syms=syms), 1 )
+        self.eq(s_gene.eval('foo:baz(10) < 100', syms=syms), 1)
+        self.eq(s_gene.eval('foo:baz(10) <= 100', syms=syms), 1)
 
-        self.eq( s_gene.eval('foo:baz(10) > 1', syms=syms), 1 )
-        self.eq( s_gene.eval('foo:baz(10) >= 1', syms=syms), 1 )
+        self.eq(s_gene.eval('foo:baz(10) > 1', syms=syms), 1)
+        self.eq(s_gene.eval('foo:baz(10) >= 1', syms=syms), 1)
 
-        self.eq( s_gene.eval('foo:bar + 0x0a == 20', syms=syms), 1 )
+        self.eq(s_gene.eval('foo:bar + 0x0a == 20', syms=syms), 1)
 
     def test_gene_bool(self):
         # Ensure we can handle values in syms which are True / False
         syms = {'foo:baz': True, 'bar:duck': False}
-        self.eq( s_gene.eval('foo:baz == 1', syms=syms), 1)
-        self.eq( s_gene.eval('bar:duck == 0', syms=syms), 1)
-        self.eq( s_gene.eval('foo:baz != 0', syms=syms), 1)
-        self.eq( s_gene.eval('bar:duck != 1', syms=syms), 1)
+        self.eq(s_gene.eval('foo:baz == 1', syms=syms), 1)
+        self.eq(s_gene.eval('bar:duck == 0', syms=syms), 1)
+        self.eq(s_gene.eval('foo:baz != 0', syms=syms), 1)
+        self.eq(s_gene.eval('bar:duck != 1', syms=syms), 1)
         # TODO Add / change tests depending on how we choose to support boolean operators.
         # self.eq( s_gene.eval('foo:baz == True', syms=syms), 1)
         # self.eq( s_gene.eval('bar:duck == False', syms=syms), 1)
@@ -58,74 +58,74 @@ class GeneTest(SynTest):
         # self.eq(s_gene.eval('foo:baz == None', syms=syms), 1)
 
     def test_gene_prec(self):
-        self.eq( s_gene.eval('5 + 3 * 2'), 11 )
-        self.eq( s_gene.eval('(5 + 3) * 2'), 16 )
-        self.eq( s_gene.eval('9 / 3 <= 1 + 2'), 1)
+        self.eq(s_gene.eval('5 + 3 * 2'), 11)
+        self.eq(s_gene.eval('(5 + 3) * 2'), 16)
+        self.eq(s_gene.eval('9 / 3 <= 1 + 2'), 1)
 
     def test_gene_comp(self):
-        self.eq( s_gene.eval('5 < 4 + 4'), 1 )
-        self.eq( s_gene.eval('5 <= 4 + 4'), 1 )
-        self.eq( s_gene.eval('5 > 8 - 4 - 2'), 1 )
-        self.eq( s_gene.eval('5 >= 8 - 4 - 2'), 1 )
+        self.eq(s_gene.eval('5 < 4 + 4'), 1)
+        self.eq(s_gene.eval('5 <= 4 + 4'), 1)
+        self.eq(s_gene.eval('5 > 8 - 4 - 2'), 1)
+        self.eq(s_gene.eval('5 >= 8 - 4 - 2'), 1)
 
     def test_gene_call(self):
 
-        def foo(x,y,z):
+        def foo(x, y, z):
             return x + y + z
 
-        syms = { 'foo':foo }
+        syms = {'foo': foo}
 
-        self.eq( s_gene.eval('foo(1,2,3)',syms=syms), 6 )
-        self.eq( s_gene.eval('foo(foo(1,2,3),9+9,3>2)',syms=syms), 25 )
+        self.eq(s_gene.eval('foo(1,2,3)', syms=syms), 6)
+        self.eq(s_gene.eval('foo(foo(1,2,3),9+9,3>2)', syms=syms), 25)
 
     def test_gene_pow(self):
-        self.eq( s_gene.eval(' 5 + 2**3 '), 13 )
+        self.eq(s_gene.eval(' 5 + 2**3 '), 13)
 
     def test_gene_landlor(self):
-        self.eq( s_gene.eval(' 10 > 3 && 10 + 10 > 19 '), 1 )
-        self.eq( s_gene.eval(' 10 < 3 || 10 + 10 > 19 '), 1 )
+        self.eq(s_gene.eval(' 10 > 3 && 10 + 10 > 19 '), 1)
+        self.eq(s_gene.eval(' 10 < 3 || 10 + 10 > 19 '), 1)
 
-        self.eq( s_gene.eval(' 10 < 3 && 10 + 10 > 19 '), 0 )
-        self.eq( s_gene.eval(' 10 < 3 || 10 + 10 < 19 '), 0 )
+        self.eq(s_gene.eval(' 10 < 3 && 10 + 10 > 19 '), 0)
+        self.eq(s_gene.eval(' 10 < 3 || 10 + 10 < 19 '), 0)
 
     def test_gene_shift(self):
-        self.eq( s_gene.eval(' 1 << 2 + 1'), 8 )
-        self.eq( s_gene.eval(' 0x80 >> 0x00000004'), 8 )
+        self.eq(s_gene.eval(' 1 << 2 + 1'), 8)
+        self.eq(s_gene.eval(' 0x80 >> 0x00000004'), 8)
 
     def test_gene_lab(self):
         glab = s_gene.GeneLab()
         expr0 = glab.getGeneExpr('foo == 10')
         expr1 = glab.getGeneExpr('foo == 10')
-        self.eq( id(expr0), id(expr1) )
-        self.eq( expr0({'foo':10}), 1 )
+        self.eq(id(expr0), id(expr1))
+        self.eq(expr0({'foo': 10}), 1)
 
     def test_gene_empty_value(self):
         self.eq(s_gene.eval('empty', syms={'empty': None}), None)
 
     def test_gene_noname(self):
-        self.raises( NoSuchName, s_gene.eval, 'x + 20' )
+        self.raises(NoSuchName, s_gene.eval, 'x + 20')
 
     def test_gene_notoks(self):
-        self.raises( SyntaxError, s_gene.eval, '$' )
+        self.raises(SyntaxError, s_gene.eval, '$')
 
     def test_gene_hangcall(self):
-        self.raises( SyntaxError, s_gene.eval, 'foo(' )
+        self.raises(SyntaxError, s_gene.eval, 'foo(')
 
     def test_gene_borkcall(self):
-        self.raises( SyntaxError, s_gene.eval, 'foo($)' )
+        self.raises(SyntaxError, s_gene.eval, 'foo($)')
 
     def test_gene_borkparn(self):
-        self.raises( SyntaxError, s_gene.eval, '(10' )
+        self.raises(SyntaxError, s_gene.eval, '(10')
 
     def test_gene_newpparn(self):
-        self.raises( SyntaxError, s_gene.eval, '(' )
+        self.raises(SyntaxError, s_gene.eval, '(')
 
     def test_gene_call_noargs(self):
         def foo():
             return 20
 
-        syms = {'foo':foo}
-        self.eq( s_gene.eval('foo()',syms=syms), 20 )
+        syms = {'foo': foo}
+        self.eq(s_gene.eval('foo()', syms=syms), 20)
 
     def test_gene_callcall(self):
 
@@ -135,5 +135,5 @@ class GeneTest(SynTest):
         def bar():
             return foo
 
-        syms = {'bar':bar}
-        self.eq( s_gene.eval('bar()()',syms=syms), 20 )
+        syms = {'bar': bar}
+        self.eq(s_gene.eval('bar()()', syms=syms), 20)

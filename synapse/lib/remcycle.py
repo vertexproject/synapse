@@ -551,7 +551,7 @@ class Hypnos(s_config.Config):
     def _registerWebApi(self, name, obj):
         '''
         Register a Nyx API with Hypnos.
-        
+
         Args:
             name (str): API Name  
             obj (Nyx): Nyx object contianing spec and gest data.
@@ -841,7 +841,7 @@ class Hypnos(s_config.Config):
         'errinfo' key.  It mimics the synapse excinfo output, but without
         investigating a stack trace for performance reasons.  It contains
         the following information:
- 
+
             * err: The Exception class raised during the request.
             * errmsg: The str() representation of the exception.
             * errfile: Empty string.

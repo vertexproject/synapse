@@ -19,18 +19,17 @@ def openDatFile(datpath):
           embedded within pyz files, and datfiles included in
           mindmeld code bundles.
     '''
-    pkgname,filename = datpath.split('/',1)
+    pkgname, filename = datpath.split('/', 1)
 
     pkgmod = s_dyndeps.getDynMod(pkgname)
 
-    loader = getattr(pkgmod,'__loader__',None)
+    loader = getattr(pkgmod, '__loader__', None)
     if isinstance(loader, s_mindmeld.MindMeld):
         return loader.openDatFile(datpath)
 
     # are we a regular file?
-    pkgfile = os.path.abspath( pkgmod.__file__ )
+    pkgfile = os.path.abspath(pkgmod.__file__)
     if os.path.isfile(pkgfile):
         dirname = os.path.dirname(pkgfile)
         datname = os.path.join(dirname, filename)
-        return open(datname,'rb')
-
+        return open(datname, 'rb')

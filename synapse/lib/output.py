@@ -53,4 +53,3 @@ class OutPutStr(OutPut):
 
     #def _rawOutPut(self, mesg):
         #self.fire('output:print', mesg=mesg)
-

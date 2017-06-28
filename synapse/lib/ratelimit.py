@@ -1,4 +1,4 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import time
 
@@ -42,7 +42,7 @@ class RateLimit:
         tick = time.time()
         passed = tick - self.lasttick
 
-        self.allowance = min( self.rate, self.allowance + (passed * self.persec) )
+        self.allowance = min(self.rate, self.allowance + (passed * self.persec))
 
         self.lasttick = tick
 

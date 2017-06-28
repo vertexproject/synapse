@@ -13,8 +13,8 @@ class QueueTest(SynTest):
         q = s_queue.Queue()
         q.put('woot')
 
-        self.eq( q.get(), 'woot' )
-        self.none( q.get(timeout=0.1) )
+        self.eq(q.get(), 'woot')
+        self.none(q.get(timeout=0.1))
 
         q.fini()
 
@@ -31,9 +31,9 @@ class QueueTest(SynTest):
         retn = []
 
         for slic in q.slices(2):
-            retn.append( tuple(slic) )
+            retn.append(tuple(slic))
 
-        self.eq( tuple(retn), ( (1,2) , (3,4) ) )
+        self.eq(tuple(retn), ((1, 2), (3, 4)))
 
     def test_queue_timeout(self):
         q = s_queue.Queue()
@@ -51,7 +51,7 @@ class QueueTest(SynTest):
         q.put(3)
         q.done()
         self.eq(q.get(), 1)
-        self.eq(q.slice(2), [2,3])
+        self.eq(q.slice(2), [2, 3])
         self.eq(q.get(), None)
         self.eq(q.slice(1), None)
 
