@@ -66,6 +66,9 @@ class BadMesgVers(SynErr):pass
 class BadInfoValu(SynErr):pass
 class BadStorValu(SynErr):pass
 class BadRevValu(SynErr):pass
+class BadCoreStore(SynErr):
+    '''The storage layer has encountered an error'''
+    pass
 
 class NotGuidForm(SynErr):pass
 
@@ -113,6 +116,9 @@ class PropNotFound(Exception):pass
 
 class HitMaxTime(Exception):pass
 class HitMaxRetry(Exception):pass
+class HitCoreLimit(SynErr):
+    ''' You've reached some limit of the storage layer.'''
+    pass
 
 class NotEnoughFree(Exception):pass
 class NoWritableAxons(Exception):pass
@@ -125,19 +131,13 @@ class FileExists(SynErr):pass
 class NotEmpty(SynErr):pass
 class NotSupported(SynErr):pass
 
-class DatabaseInconsistent(SynErr):
-    ''' If you get this Exception, that means the database is corrupt '''
-    pass
 
-class DatabaseLimitReached(SynErr):
-    ''' You've reached some limit of the database '''
-    pass
 
 class IsFini(Exception):pass
 
 class JobErr(Exception):
     '''
-    Used for remote exception propigation.
+    Used for remote exception propagation.
     '''
     def __init__(self, job):
         self.job = job
