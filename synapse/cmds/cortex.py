@@ -27,6 +27,7 @@ class AskCmd(s_cli.Cmd):
     )
 
     def runCmdOpts(self, opts):
+
         ques = opts.get('query')
         if ques == None:
             self.printf(self.__doc__)
@@ -85,6 +86,10 @@ class AskCmd(s_cli.Cmd):
             self.printf(json.dumps(nodes, sort_keys=True, indent=2))
             self.printf('(%d results)' % (len(nodes),))
             return resp
+
+        show = resp.get('show')
+        if show is not None:
+            for col in show.get('columns')
 
         for node in nodes:
             form = node[1].get('tufo:form')

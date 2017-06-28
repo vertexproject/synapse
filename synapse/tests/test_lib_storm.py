@@ -5,6 +5,7 @@ import synapse.cores.common as s_common
 from synapse.tests.common import *
 
 class StormTest(SynTest):
+
     def test_storm_cmpr_norm(self):
         with s_cortex.openurl('ram:///') as core:
             core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
@@ -464,6 +465,39 @@ class StormTest(SynTest):
     def test_storm_edit_end(self):
         with s_cortex.openurl('ram:///') as core:
             self.eq( len(core.eval(' [ inet:dns:a="woot.com/1.2.3.4" ] +:seen:min >= "2014" ')), 0)
+
+    def test_storm_show_help(self):
+
+        show0 = {
+            'columns':[ 'inet:ipv4', ':cc', '#foo.*' ],
+        }
+
+        with s_cortex.openurl('ram:///') as core:
+
+            node0 = core.eval('[inet:ipv4=111.111.111.111 :cc=vv #foo.bar #hehe.haha ]')[0]
+            node1 = core.eval('[inet:ipv4=1.2.3.4 :cc=kd #foo.bar #hehe.haha ]')[0]
+
+            nodes = core.eval('inet:ipv4')
+
+            shlp = s_storm.ShowHelp(core,show0)
+
+            self.eq( shlp._getShowFunc('#')(node1), '#foo.bar #hehe.haha' )
+
+            self.eq( shlp._getShowFunc(':cc')(node1), 'kd' )
+            self.eq( shlp._getShowFunc('#foo.*')(node1), '#foo.bar' )
+            self.eq( shlp._getShowFunc('inet:ipv4')(node1), '1.2.3.4' )
+
+            rows = list(sorted(shlp.rows(nodes)))
+            self.eq(rows, [
+                ['1.2.3.4','kd','#foo.bar'],
+                ['111.111.111.111','vv','#foo.bar'],
+            ])
+
+            rows = list(sorted(shlp.pad(rows)))
+            self.eq(rows, [
+                ['1.2.3.4','kd','#foo.bar'],
+                ['111.111.111.111','vv','#foo.bar'],
+            ])
 
 class LimitTest(SynTest):
 

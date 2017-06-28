@@ -1,5 +1,6 @@
 import re
 import time
+import fnmatch
 import logging
 import collections
 
@@ -8,6 +9,7 @@ import synapse.eventbus as s_eventbus
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
+import synapse.lib.compat as s_compat
 import synapse.lib.syntax as s_syntax
 import synapse.lib.threads as s_threads
 
@@ -43,6 +45,120 @@ class LimitHelp:
 
         self.limit = max(self.limit-size,0)
         return self.limit == 0
+
+class ShowHelp:
+    '''
+    The ShowHelp class implements routines for formatting storm
+    query output based on the embedded "show" directive within
+    the query results.
+    '''
+    def __init__(self, core, show):
+        self.core = core
+        self.show = show
+
+    def _relPropFunc(self, prop):
+
+        def get(node):
+
+            form = node[1].get('tufo:form')
+            full = form + prop
+
+            valu = node[1].get(full)
+            if valu is None:
+                return ''
+
+            return self.core.getPropRepr(full,valu)
+
+        return get
+
+    def _tagGlobFunc(self, ptrn):
+
+        # do they want all tags?
+        if ptrn == '#':
+
+            def alltags(node):
+                tags = [ '#' + t for t in sorted(s_tufo.tags(node, leaf=True)) ]
+                return ' '.join(tags)
+
+            return alltags
+
+        ptrn = ptrn[1:]
+
+        def get(node):
+
+            tags = []
+
+            for tag in list(sorted(s_tufo.tags(node, leaf=True))):
+
+                if not fnmatch.fnmatch(tag,ptrn):
+                    continue
+
+                tags.append('#' + tag)
+
+            return ' '.join(tags)
+
+        return get
+
+    def _fullPropFunc(self, prop):
+
+        def get(node):
+
+            valu = node[1].get(prop)
+            if valu == None:
+                return ''
+
+            return self.core.getPropRepr(prop,valu)
+
+        return get
+
+    def _getShowFunc(self, col):
+
+        col = col.strip()
+
+        if col.startswith('#'):
+            return self._tagGlobFunc(col)
+
+        if col.startswith(':'):
+            return self._relPropFunc(col)
+
+        return self._fullPropFunc(col)
+
+    def _getShowFuncs(self):
+        cols = self.show.get('columns')
+        return [ self._getShowFunc(c) for c in cols ]
+
+    def rows(self, nodes):
+        '''
+        Return a list of display columns for the given nodes.
+
+        Args:
+            nodes (((str,dict),...)):   A list of nodes in tuple form.
+
+        Returns:
+            ( [(str,...), ...] ): A list of column lists containing strings
+
+        '''
+        funcs = self._getShowFuncs()
+
+        rows = []
+        for node in nodes:
+            rows.append( [ func(node) for func in funcs ] )
+
+        return rows
+
+    def pad(self, rows):
+        '''
+        Pad a series of column values for aligned display.
+        '''
+        widths = []
+        for i in range(len(rows[0])):
+            widths.append( max( [ len(r[i]) for r in rows ] ) )
+
+        retn = []
+        for row in rows:
+            retn.append([ row.ljust(size) for row,size in s_compat.iterzip(row,widths) ])
+
+        return retn
 
 class OperWith:
 
