@@ -19,7 +19,7 @@ class CryptoTest(SynTest):
         link = dmon.listen('tcp://127.0.0.1:0/foo?rc4key=asdfasdf')
         prox = s_telepath.openlink(link)
 
-        self.assertEqual( prox.bar(), 'baz' )
+        self.eq( prox.bar(), 'baz' )
 
         prox.fini()
         dmon.fini()
@@ -32,7 +32,7 @@ class CryptoTest(SynTest):
         link = dmon.listen('tcp://127.0.0.1:0/foo?zerosig=1')
         prox = s_telepath.openlink(link)
 
-        self.assertEqual( prox.bar(), 'baz' )
+        self.eq( prox.bar(), 'baz' )
 
         prox.fini()
         dmon.fini()

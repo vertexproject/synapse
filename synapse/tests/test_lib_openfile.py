@@ -29,4 +29,4 @@ class OpenFileTest(SynTest):
     def test_openfile_http(self):
         self.skipIfNoInternet()
         with s_openfile.openfd('http://data.iana.org/TLD/tlds-alpha-by-domain.txt') as fd:
-            self.assertTrue( fd.read().find(b'LINK') != -1 )
+            self.true( fd.read().find(b'LINK') != -1 )

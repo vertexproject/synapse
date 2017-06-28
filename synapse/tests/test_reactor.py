@@ -13,4 +13,4 @@ class ReactorTest(SynTest):
             return x + y
             
         reac.act('foo',actfoo)
-        self.assertEqual( reac.react( tufo('foo', x=10, y=20)), 30 )
+        self.eq( reac.react( tufo('foo', x=10, y=20)), 30 )

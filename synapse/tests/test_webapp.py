@@ -43,20 +43,20 @@ class WebAppTest(AsyncTestCase, SynTest):
         resp = yield client.fetch('http://127.0.0.1:%d/v1/addup/30?y=40' % port)
         resp = json.loads(resp.body.decode('utf-8'))
 
-        self.assertEqual( resp.get('ret'), 70 )
-        self.assertEqual( resp.get('status'), 'ok' )
+        self.eq( resp.get('ret'), 70 )
+        self.eq( resp.get('status'), 'ok' )
 
         resp = yield client.fetch('http://127.0.0.1:%d/v1/addup/20' % port)
         resp = json.loads(resp.body.decode('utf-8'))
 
-        self.assertEqual( resp.get('ret'), 20 )
-        self.assertEqual( resp.get('status'), 'ok' )
+        self.eq( resp.get('ret'), 20 )
+        self.eq( resp.get('status'), 'ok' )
 
         resp = yield client.fetch('http://127.0.0.1:%d/v1/horked' % port)
         resp = json.loads(resp.body.decode('utf-8'))
 
-        self.assertEqual( resp.get('err'), 'Horked' )
-        self.assertEqual( resp.get('status'), 'err' )
+        self.eq( resp.get('err'), 'Horked' )
+        self.eq( resp.get('status'), 'err' )
 
         wapp.fini()
 
@@ -80,10 +80,10 @@ class WebAppTest(AsyncTestCase, SynTest):
 
         resp = yield client.fetch('http://127.0.0.1:%d/v1/haha/bar/visi' % port, headers=headers, body='GRONK', allow_nonstandard_methods=True)
         resp = json.loads(resp.body.decode('utf-8'))
-        self.assertEqual( tuple(resp.get('ret')), ('visi','GRONK') )
+        self.eq( tuple(resp.get('ret')), ('visi','GRONK') )
 
         resp = yield client.fetch('http://127.0.0.1:%d/v1/haha/bar/visi' % port, method='POST', headers=headers, body='GRONK')
         resp = json.loads(resp.body.decode('utf-8'))
-        self.assertEqual( tuple(resp.get('ret')), ('visi','GRONK') )
+        self.eq( tuple(resp.get('ret')), ('visi','GRONK') )
 
         wapp.fini()

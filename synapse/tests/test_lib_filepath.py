@@ -78,7 +78,7 @@ class TestFilePath(SynTest):
         for fd in f:
             buf = fd.read()
             self.eq(len(buf), 20)
-            self.assertIn(buf, [f0, f1, f2])
+            self.isin(buf, [f0, f1, f2])
             fd.close()
             fd_ct += 1
         self.eq(fd_ct, 3)
@@ -142,7 +142,7 @@ class TestFilePath(SynTest):
             fd.seek(0)
             self.eq(len(buf), 20)
             self.eq(buf, fd.read())
-            self.assertIn(buf, [f0, f1, f2])
+            self.isin(buf, [f0, f1, f2])
             fd.close()
             count += 1
         self.eq(count, 3)

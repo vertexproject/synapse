@@ -31,13 +31,13 @@ class SvcTest(SynTest):
 
                 svcs = prox.getSynSvcs()
 
-                self.assertEqual( len(svcs), 1 )
-                self.assertEqual( svcs[0][1].get('name'), 'syn.woot' )
+                self.eq( len(svcs), 1 )
+                self.eq( svcs[0][1].get('name'), 'syn.woot' )
 
                 dyntask = s_async.newtask('foo',10,y=30)
 
                 job = prox.callx(svcs[0][0], dyntask)
-                self.assertEqual( prox.syncjob(job), 40 )
+                self.eq( prox.syncjob(job), 40 )
 
     def test_service_proxy(self):
 
@@ -64,17 +64,17 @@ class SvcTest(SynTest):
                 woots = svcp.getTagProxy('woots')
 
                 vals = tuple( sorted( foos.foo(20,y=20) ) )
-                self.assertEqual( vals, (40,) )
+                self.eq( vals, (40,) )
 
                 vals = tuple( sorted( woots.foo(10,y=20) ) )
-                self.assertEqual( vals, (30,30) )
+                self.eq( vals, (30,30) )
 
                 def runNewpMeth():
                     for foo in woots.newp(44,y=33):
                         pass
 
-                self.assertEqual( 2, len(svcp.getSynSvcs()) )
-                self.assertEqual( 2, len(svcp.getSynSvcsByTag('woots')) )
+                self.eq( 2, len(svcp.getSynSvcs()) )
+                self.eq( 2, len(svcp.getSynSvcsByTag('woots')) )
 
                 woots = svcp.getTagProxy('class.synapse.tests.test_service.Woot')
 
@@ -102,8 +102,8 @@ class SvcTest(SynTest):
 
                 res = list( prox['foo0'].foo(90) )
 
-                self.assertEqual( len(res), 1 )
-                self.assertEqual( res[0], 100 )
+                self.eq( len(res), 1 )
+                self.eq( res[0], 100 )
 
     def test_service_byname(self):
         sbus = s_service.SvcBus()
@@ -122,7 +122,7 @@ class SvcTest(SynTest):
 
                 iden = prox.runSynSvc('foo0', woot0)
 
-                self.assertEqual( prox.callByName('foo0', gentask('foo',20)), 30 )
+                self.eq( prox.callByName('foo0', gentask('foo',20)), 30 )
 
     def test_service_getNameProxy(self):
 
@@ -142,7 +142,7 @@ class SvcTest(SynTest):
                 prox.runSynSvc('foo0', woot0)
 
                 nameprox = prox.getNameProxy('foo0')
-                self.assertEqual(nameprox.foo(20), 30)
+                self.eq(nameprox.foo(20), 30)
 
     def test_service_getTagProxy(self):
 
@@ -162,7 +162,7 @@ class SvcTest(SynTest):
                 prox.runSynSvc('foo0', woot0, tags=['bar0'])
 
                 tagprox = prox.getTagProxy('bar0')
-                self.assertEqual(next(tagprox.foo(20), None), 30)
+                self.eq(next(tagprox.foo(20), None), 30)
 
     def test_service_dmon_conf(self):
 

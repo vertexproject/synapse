@@ -68,9 +68,9 @@ class TelePathTest(SynTest):
 
         e = time.time()
 
-        self.assertEqual( foo.bar(10,20), 30 )
-        self.assertRaises( NoSuchMeth, foo.faz, 10, 20 )
-        self.assertRaises( SynErr, foo.baz, 10, 20 )
+        self.eq( foo.bar(10,20), 30 )
+        self.raises( NoSuchMeth, foo.faz, 10, 20 )
+        self.raises( SynErr, foo.baz, 10, 20 )
 
         foo.fini()
         env.fini()
@@ -83,7 +83,7 @@ class TelePathTest(SynTest):
 
         foo = s_telepath.openurl('tcp://localhost:%d/foo' % (port,))
 
-        self.assertEqual( foo.bar(10,20), 30 )
+        self.eq( foo.bar(10,20), 30 )
 
         foo.fini()
         dmon.fini()
@@ -93,7 +93,7 @@ class TelePathTest(SynTest):
         port = link[1].get('port')
 
         newp = s_telepath.openurl('tcp://localhost:%d/newp' % (port,))
-        self.assertRaises( SynErr, newp.foo )
+        self.raises( SynErr, newp.foo )
 
         dmon.fini()
 
@@ -103,9 +103,9 @@ class TelePathTest(SynTest):
         foo = s_telepath.openlink(link)
 
         job = foo.call('bar', 10, 20)
-        self.assertIsNotNone( job )
+        self.nn( job )
 
-        self.assertEqual( foo.syncjob(job), 30 )
+        self.eq( foo.syncjob(job), 30 )
 
         foo.fini()
         dmon.fini()
@@ -152,12 +152,12 @@ class TelePathTest(SynTest):
         foo = s_telepath.openurl('tcp://127.0.0.1/foo', port=port)
 
         # make sure proxy is working normally...
-        self.assertEqual( foo.bar(10,20), 30 )
+        self.eq( foo.bar(10,20), 30 )
 
         # carry out a cross item task
         job = foo.callx( 'baz', ('faz', (30,), {'y':40}), )
 
-        self.assertEqual( foo.syncjob(job), '30:40' )
+        self.eq( foo.syncjob(job), '30:40' )
 
     def test_telepath_fakesync(self):
         env = self.getFooEnv()
@@ -188,7 +188,7 @@ class TelePathTest(SynTest):
 
         evt.wait(timeout=2)
 
-        self.assertEqual( data.get('foobar'), 30 )
+        self.eq( data.get('foobar'), 30 )
 
         prox.fini()
         dead.fini()
@@ -206,7 +206,7 @@ class TelePathTest(SynTest):
         port = env1.link[1].get('port')
         prox1 = s_telepath.openurl('tcp://127.0.0.1/bar', port=port)
 
-        self.assertEqual( prox1.bar(33,44), 77 )
+        self.eq( prox1.bar(33,44), 77 )
 
         env0.fini()
         env1.fini()
@@ -214,13 +214,13 @@ class TelePathTest(SynTest):
     def test_telepath_eval(self):
 
         foo = s_telepath.evalurl('ctor://synapse.tests.test_telepath.Foo()')
-        self.assertEqual( foo.bar(10,20), 30 )
+        self.eq( foo.bar(10,20), 30 )
 
         env0 = self.getFooEnv()
         port = env0.link[1].get('port')
 
         foo = s_telepath.evalurl('tcp://127.0.0.1/foo', port=port)
-        self.assertEqual( foo.bar(10,20), 30 )
+        self.eq( foo.bar(10,20), 30 )
 
         foo.fini()
         env0.fini()
@@ -232,7 +232,7 @@ class TelePathTest(SynTest):
         prox = s_telepath.openurl('tcp://127.0.0.1/foo', port=port)
 
         url = 'tcp://127.0.0.1:%d/foo' % (port,)
-        self.assertEqual( prox.bar(10,20), 30 )
+        self.eq( prox.bar(10,20), 30 )
 
         waiter = self.getTestWait(prox, 1, 'tele:sock:init')
 
@@ -245,7 +245,7 @@ class TelePathTest(SynTest):
 
         waiter.wait()
 
-        self.assertEqual( prox.bar(10,20), 30 )
+        self.eq( prox.bar(10,20), 30 )
 
         prox.fini()
         dmon.fini()
@@ -272,9 +272,9 @@ class TelePathTest(SynTest):
         for item in prox.woot():
             items.append(item)
 
-        self.assertEqual( tuple(items), (10,20,30) )
+        self.eq( tuple(items), (10,20,30) )
 
-        self.assertEqual( len(dmon._dmon_yields), 0 )
+        self.eq( len(dmon._dmon_yields), 0 )
 
         prox.fini()
         dmon.fini()
@@ -342,16 +342,16 @@ class TelePathTest(SynTest):
                 url = 'ssl://localhost/foo'
 
                 with s_telepath.openurl('tcp://localhost/foo', port=port0) as foo:
-                    self.assertRaises( NoAuthUser, foo.bar, 20, 30 )
+                    self.raises( NoAuthUser, foo.bar, 20, 30 )
 
                 with s_telepath.openurl(url, port=port1, cafile=cafile, keyfile=userkey, certfile=usercert) as foo:
-                    self.assertRaises( NoSuchUser, foo.bar, 20, 30 )
+                    self.raises( NoSuchUser, foo.bar, 20, 30 )
 
                 auth.addUser('user@localhost')
 
                 # even with the user added we should fail
                 with s_telepath.openurl(url, port=port1, cafile=cafile, keyfile=userkey, certfile=usercert) as foo:
-                    self.assertRaises( NoSuchRule, foo.bar, 20, 30 )
+                    self.raises( NoSuchRule, foo.bar, 20, 30 )
 
                 auth.addUserRule('user@localhost','tele:call:foo:bar')
 
@@ -361,7 +361,7 @@ class TelePathTest(SynTest):
 
                 # but echo should still fail
                 with s_telepath.openurl(url, port=port1, cafile=cafile, keyfile=userkey, certfile=usercert) as foo:
-                    self.assertRaises( NoSuchRule, foo.echo, 'woot' )
+                    self.raises( NoSuchRule, foo.echo, 'woot' )
 
                 # until we add a * rule
                 auth.addUserRule('user@localhost','tele:call:foo:*')

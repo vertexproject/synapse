@@ -16,11 +16,11 @@ class TestOutPut(SynTest):
         outp.printf('bar')
 
         outp.fd.seek(0)
-        self.assertEqual( outp.fd.read(), b'foo\nbar\n')
+        self.eq( outp.fd.read(), b'foo\nbar\n')
 
     def test_output_str(self):
         outp = s_output.OutPutStr()
         outp.printf('foo')
         outp.printf('bar')
 
-        self.assertEqual( str(outp), 'foo\nbar\n' )
+        self.eq( str(outp), 'foo\nbar\n' )

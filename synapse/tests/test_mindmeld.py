@@ -17,7 +17,7 @@ class Foo:
     def bar(self, x, y):
         return x + y
 
-class MindMeldTests(unittest.TestCase):
+class MindMeldTests(SynTest):
 
     def test_mindmeld_loader(self):
         meld = s_mindmeld.MindMeld()
@@ -27,18 +27,18 @@ class MindMeldTests(unittest.TestCase):
         s_mindmeld.loadMindMeld(meldinfo)
 
         import hehehahahoho
-        self.assertEqual( hehehahahoho.x, 30 )
+        self.eq( hehehahahoho.x, 30 )
 
     def test_mindmeld_pkgwalk(self):
         meld = s_mindmeld.MindMeld()
         meld.addPyPath(syndir)
 
         moddef = meld.getMeldMod('synapse.tests.test_mindmeld')
-        self.assertIsNotNone( moddef )
+        self.nn( moddef )
 
     def test_mindmeld_nosuch(self):
         meld = s_mindmeld.MindMeld()
-        self.assertRaises( NoSuchPath, meld.addPyPath, '/newp')
+        self.raises( NoSuchPath, meld.addPyPath, '/newp')
 
     def test_mindmeld_base64(self):
         meld = s_mindmeld.MindMeld()
@@ -47,36 +47,36 @@ class MindMeldTests(unittest.TestCase):
         s_mindmeld.loadMeldBase64( meld.getMeldBase64() )
 
         import hehehahaaaa
-        self.assertEqual( hehehahaaaa.x, 40 )
+        self.eq( hehehahaaaa.x, 40 )
 
     def test_mindmeld_badsrc(self):
         meld = s_mindmeld.MindMeld()
         badsrc = 'some --<<== shit'
-        self.assertRaises( s_mindmeld.BadPySource, meld.addPySource, 'woot', badsrc)
+        self.raises( s_mindmeld.BadPySource, meld.addPySource, 'woot', badsrc)
 
     def test_mindmeld_call(self):
         foo = Foo()
         meld = s_mindmeld.getCallMeld( foo.bar )
-        self.assertIsNone( meld.getMeldMod('newp') )
-        self.assertIsNone( meld.getMeldMod('binascii') )
-        self.assertIsNotNone( meld.getMeldMod('synapse') )
-        self.assertIsNotNone( meld.getMeldMod('synapse.mindmeld') )
+        self.none( meld.getMeldMod('newp') )
+        self.none( meld.getMeldMod('binascii') )
+        self.nn( meld.getMeldMod('synapse') )
+        self.nn( meld.getMeldMod('synapse.mindmeld') )
 
     def test_mindmeld_pycall(self):
 
         meld = s_mindmeld.MindMeld()
         meld.addPyCall( foobar )
 
-        self.assertIsNone( meld.getMeldMod('newp') )
-        self.assertIsNone( meld.getMeldMod('binascii') )
-        self.assertIsNotNone( meld.getMeldMod('synapse') )
-        self.assertIsNotNone( meld.getMeldMod('synapse.mindmeld') )
+        self.none( meld.getMeldMod('newp') )
+        self.none( meld.getMeldMod('binascii') )
+        self.nn( meld.getMeldMod('synapse') )
+        self.nn( meld.getMeldMod('synapse.mindmeld') )
 
     def test_mindmeld_addpymod(self):
         meld = s_mindmeld.MindMeld()
         meld.addPyMod('synapse')
 
-        self.assertIsNone( meld.getMeldMod('newp') )
-        self.assertIsNone( meld.getMeldMod('binascii') )
-        self.assertIsNotNone( meld.getMeldMod('synapse') )
-        self.assertIsNotNone( meld.getMeldMod('synapse.mindmeld') )
+        self.none( meld.getMeldMod('newp') )
+        self.none( meld.getMeldMod('binascii') )
+        self.nn( meld.getMeldMod('synapse') )
+        self.nn( meld.getMeldMod('synapse.mindmeld') )

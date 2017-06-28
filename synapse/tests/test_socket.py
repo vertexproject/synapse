@@ -29,14 +29,14 @@ class SocketTest(SynTest):
 
         sock1.sendall(b'woot')
 
-        self.assertEqual( sock2.recvall(4), b'woot' )
+        self.eq( sock2.recvall(4), b'woot' )
 
         xform = Xor()
         sock1.addSockXform(xform)
         sock2.addSockXform(xform)
 
         sock1.sendall(b'woot')
-        self.assertEqual( sock2.recvall(4), b'woot' )
+        self.eq( sock2.recvall(4), b'woot' )
 
     def test_sock_plex(self):
 
@@ -60,7 +60,7 @@ class SocketTest(SynTest):
         ret = s1.recvobj()
         mesg = ret[1].get('mesg')
 
-        self.assertEqual( ret[0], 'hi:got' )
+        self.eq( ret[0], 'hi:got' )
 
         s1.fini()
         plex.fini()
@@ -87,30 +87,30 @@ class SocketTest(SynTest):
 
         s2.tx( t0 )
         m0 = s1.recvobj()
-        self.assertEqual( m0[0], 'hi' )
+        self.eq( m0[0], 'hi' )
 
         # So this is pushing a large message which is going to be
         # transmitted in parts - hence the NEXT assertion statement
         s2.tx( t1 )
 
-        self.assertIsNotNone( s2.txbuf )
+        self.nn( s2.txbuf )
 
         s2.tx( t2 )
 
-        self.assertEqual( len(s2.txque), 1 )
+        self.eq( len(s2.txque), 1 )
 
         m1 = s1.recvobj()
         m2 = s1.recvobj()
 
-        self.assertEqual( len(m1[1].get('y')), 409000 )
-        self.assertEqual( m2[0], 'foo' )
+        self.eq( len(m1[1].get('y')), 409000 )
+        self.eq( m2[0], 'foo' )
 
         s1.fini()
         s2.fini()
         plex.fini()
 
     def test_socket_hostaddr(self):
-        self.assertIsNotNone( s_socket.hostaddr() )
+        self.nn( s_socket.hostaddr() )
 
     def test_socket_glob_plex(self):
         plex0 = s_scope.get('plex')

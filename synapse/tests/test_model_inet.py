@@ -63,9 +63,9 @@ class InetModelTest(SynTest):
             self.eq( t0[1].get('inet:asnet4:net4:min'), 0x01020304 )
             self.eq( t0[1].get('inet:asnet4:net4:max'), 0x05060708 )
 
-            self.assertIsNotNone( core.getTufoByProp('inet:asn', 54959) )
-            self.assertIsNotNone( core.getTufoByProp('inet:ipv4', 0x01020304) )
-            self.assertIsNotNone( core.getTufoByProp('inet:ipv4', 0x05060708) )
+            self.nn( core.getTufoByProp('inet:asn', 54959) )
+            self.nn( core.getTufoByProp('inet:ipv4', 0x01020304) )
+            self.nn( core.getTufoByProp('inet:ipv4', 0x05060708) )
 
     def test_model_inet_fqdn(self):
         with s_cortex.openurl('ram:///') as core:
@@ -347,5 +347,5 @@ class InetModelTest(SynTest):
             self.eq(fqdn,'www.xn--heilpdagogik-wiki-uqb.de')
             self.eq(core.getTypeRepr('inet:fqdn',fqdn), 'www.heilpädagogik-wiki.de')
 
-            self.assertRaises(BadTypeValu, core.getTypeNorm, 'inet:fqdn', '!@#$%')
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:fqdn', '!@#$%')
 

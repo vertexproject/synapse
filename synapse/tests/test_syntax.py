@@ -7,13 +7,13 @@ class StormSyntaxTest(SynTest):
     def test_storm_syntax_basic(self):
         insts = s_syntax.parse('foo("lol",bar=20) baz(10,faz="lol")')
 
-        self.assertEqual( insts[0][0], 'foo' )
-        self.assertEqual( insts[0][1]['args'][0], 'lol' )
-        self.assertEqual( insts[0][1]['kwlist'][0], ('bar',20) )
+        self.eq( insts[0][0], 'foo' )
+        self.eq( insts[0][1]['args'][0], 'lol' )
+        self.eq( insts[0][1]['kwlist'][0], ('bar',20) )
 
-        self.assertEqual( insts[1][0], 'baz' )
-        self.assertEqual( insts[1][1]['args'][0], 10 )
-        self.assertEqual( insts[1][1]['kwlist'][0], ('faz','lol') )
+        self.eq( insts[1][0], 'baz' )
+        self.eq( insts[1][1]['args'][0], 10 )
+        self.eq( insts[1][1]['kwlist'][0], ('faz','lol') )
 
     def test_storm_syntax_uppercase_and_underscore(self):
         insts = s_syntax.parse('foo_Foo("lol",bar_Bar=20)')

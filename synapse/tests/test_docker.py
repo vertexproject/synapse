@@ -36,7 +36,7 @@ class DockerTest(SynTest):
         job02 = prox.call('getTufoByProp', 'inet:fqdn', 'foo.com')
         tufo02 = prox.syncjob(job02)
 
-        self.assertEqual(tufo00[0], tufo02[0])
+        self.eq(tufo00[0], tufo02[0])
 
         prox.fini()
 

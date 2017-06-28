@@ -816,10 +816,10 @@ class IngTest(SynTest):
             gest.ingest(core,data=data)
 
             node = core.getTufoByProp('inet:fqdn','boosh.vertex.link')
-            self.assertIsNotNone(node)
+            self.nn(node)
 
             node = core.getTufoByProp('inet:fqdn','woot.foo.bario')
-            self.assertIsNotNone(node)
+            self.nn(node)
 
     def test_ingest_iter_objectish_array(self):
         data = {
@@ -854,10 +854,10 @@ class IngTest(SynTest):
             gest.ingest(core,data=data)
 
             node = core.getTufoByProp('inet:fqdn','boosh.vertex.link')
-            self.assertIsNotNone(node)
+            self.nn(node)
 
             node = core.getTufoByProp('inet:fqdn','woot.foo.bario')
-            self.assertIsNotNone(node)
+            self.nn(node)
 
     def test_ingest_savevar(self):
         data = {'foo': [{'md5': '9e107d9d372bb6826bd81d3542a419d6',

@@ -140,6 +140,25 @@ class SynTest(unittest.TestCase):
     def sorteq(self, x, y):
         return self.eq( sorted(x), sorted(y) )
 
+    def isinstance(self, obj, cls):
+        self.assertIsInstance(obj, cls)
+
+    def isin(self, member, container):
+        self.assertIn(member, container)
+
+    def gt(self, x, y):
+        self.assertGreater(x, y)
+
+    def ge(self, x, y):
+        self.assertGreaterEqual(x, y)
+
+    def lt(self, x, y):
+        self.assertLess(x, y)
+
+    def le(self, x, y):
+        self.assertLessEqual(x, y)
+
+
 testdir = os.path.dirname(__file__)
 def getTestPath(*paths):
     return os.path.join(testdir,*paths)

@@ -280,7 +280,7 @@ class SwarmRunTest(SwarmRunBase):
     def test_swarm_runtime_maxtime(self):
 
         env = self.getSwarmEnv()
-        self.assertRaises(HitStormLimit, env.runt.eval, 'foo:bar', timeout=0)
+        self.raises(HitStormLimit, env.runt.eval, 'foo:bar', timeout=0)
         env.fini()
 
     def test_swarm_runtime_by(self):

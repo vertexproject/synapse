@@ -48,12 +48,12 @@ class EventBusTest(SynTest):
         bus.link(woot)
 
         bus.fire('haha')
-        self.assertEqual( len(mesgs), 1 )
+        self.eq( len(mesgs), 1 )
 
         bus.unlink(woot)
 
         bus.fire('haha')
-        self.assertEqual( len(mesgs), 1 )
+        self.eq( len(mesgs), 1 )
 
         bus.fini()
 
@@ -66,7 +66,7 @@ class EventBusTest(SynTest):
         with s_eventbus.EventBus() as bus:
             bus.onfini(onfini)
 
-        self.assertEqual( data['count'], 1 )
+        self.eq( data['count'], 1 )
 
     def test_eventbus_finionce(self):
 
@@ -80,7 +80,7 @@ class EventBusTest(SynTest):
         bus.fini()
         bus.fini()
 
-        self.assertEqual( data['count'], 1 )
+        self.eq( data['count'], 1 )
 
     def test_eventbus_consume(self):
         bus = s_eventbus.EventBus()
@@ -111,7 +111,7 @@ class EventBusTest(SynTest):
 
         bus.fini()
 
-        self.assertEqual( data['count'], 1 )
+        self.eq( data['count'], 1 )
 
     def test_eventbus_waiter(self):
         bus0 = s_eventbus.EventBus()
@@ -127,7 +127,7 @@ class EventBusTest(SynTest):
 
         wait1 = bus0.waiter(3,'foo:baz')
         evts = wait1.wait(timeout=0.1)
-        self.assertIsNone( evts )
+        self.none( evts )
 
     def test_eventbus_filt(self):
 

@@ -14,11 +14,11 @@ class PersistTest(SynTest):
 
         off0,size0 = pers.add(foo0)
 
-        self.assertEqual( off0, 0 )
+        self.eq( off0, 0 )
 
         off1,size1 = pers.add(foo1)
 
-        self.assertEqual( off0 + size0, off1 )
+        self.eq( off0 + size0, off1 )
 
         pers.fini()
 
@@ -59,17 +59,17 @@ class PersistTest(SynTest):
 
             ev0.wait(timeout=3)
 
-            self.assertTrue( ev0.is_set() )
+            self.true( ev0.is_set() )
 
             pdir.add(b'VISI')
             ev1.wait(timeout=3)
 
-            self.assertTrue(ev1.is_set())
+            self.true(ev1.is_set())
 
             pdir.fini()
 
-            self.assertEqual( items[3][1], b'VISI' )
-            self.assertEqual( items[0][1], b'V' * 2000 )
+            self.eq( items[3][1], b'VISI' )
+            self.eq( items[0][1], b'V' * 2000 )
 
     def test_persist_offset(self):
 
@@ -78,14 +78,14 @@ class PersistTest(SynTest):
             poff = s_persist.Offset(dirname,'test0.off')
             poff.set(200)
 
-            self.assertEqual( poff.get(), 200 )
+            self.eq( poff.get(), 200 )
 
             poff.set(201)
 
             poff.fini()
 
             poff = s_persist.Offset(dirname,'test0.off')
-            self.assertEqual( poff.get(), 201 )
+            self.eq( poff.get(), 201 )
 
             poff.fini()
 
@@ -112,6 +112,6 @@ class PersistTest(SynTest):
             pdir.add( ('haha',{}) )
 
             wait.wait(timeout=2)
-            self.assertTrue( wait.is_set() )
+            self.true( wait.is_set() )
 
             pdir.fini()

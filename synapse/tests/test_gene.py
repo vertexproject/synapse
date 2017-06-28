@@ -103,22 +103,22 @@ class GeneTest(SynTest):
         self.eq(s_gene.eval('empty', syms={'empty': None}), None)
 
     def test_gene_noname(self):
-        self.assertRaises( NoSuchName, s_gene.eval, 'x + 20' )
+        self.raises( NoSuchName, s_gene.eval, 'x + 20' )
 
     def test_gene_notoks(self):
-        self.assertRaises( SyntaxError, s_gene.eval, '$' )
+        self.raises( SyntaxError, s_gene.eval, '$' )
 
     def test_gene_hangcall(self):
-        self.assertRaises( SyntaxError, s_gene.eval, 'foo(' )
+        self.raises( SyntaxError, s_gene.eval, 'foo(' )
 
     def test_gene_borkcall(self):
-        self.assertRaises( SyntaxError, s_gene.eval, 'foo($)' )
+        self.raises( SyntaxError, s_gene.eval, 'foo($)' )
 
     def test_gene_borkparn(self):
-        self.assertRaises( SyntaxError, s_gene.eval, '(10' )
+        self.raises( SyntaxError, s_gene.eval, '(10' )
 
     def test_gene_newpparn(self):
-        self.assertRaises( SyntaxError, s_gene.eval, '(' )
+        self.raises( SyntaxError, s_gene.eval, '(' )
 
     def test_gene_call_noargs(self):
         def foo():

@@ -22,7 +22,7 @@ class CacheTest(SynTest):
         c.put('woot',10)
 
         e.wait(timeout=2)
-        self.assertIsNotNone( data.get('event') )
+        self.nn( data.get('event') )
 
     def test_cache_set_maxtime(self):
         c = s_cache.Cache()
@@ -39,7 +39,7 @@ class CacheTest(SynTest):
         c.put('woot',10)
 
         e.wait(timeout=2)
-        self.assertIsNotNone( data.get('event') )
+        self.nn( data.get('event') )
 
     def test_cache_miss(self):
         c = s_cache.Cache()
@@ -48,7 +48,7 @@ class CacheTest(SynTest):
 
         c.setOnMiss( onmiss )
         self.false('woot' in c)
-        self.assertEqual( c.get('woot'), 10 )
+        self.eq( c.get('woot'), 10 )
         self.true('woot' in c)
 
     def test_cache_tufo(self):
@@ -59,8 +59,8 @@ class CacheTest(SynTest):
 
         newfo = cache.get(tufo[0])
 
-        self.assertIsNotNone(newfo)
-        self.assertEqual(newfo[1].get('woot:lolol'), 10)
+        self.nn(newfo)
+        self.eq(newfo[1].get('woot:lolol'), 10)
 
     def test_cache_tufo_prop(self):
         core = s_cortex.openurl('ram:///')
@@ -70,8 +70,8 @@ class CacheTest(SynTest):
 
         newfo = cache.get('haha')
 
-        self.assertIsNotNone(newfo)
-        self.assertEqual(newfo[1].get('woot:lolol'), 10)
+        self.nn(newfo)
+        self.eq(newfo[1].get('woot:lolol'), 10)
 
     def test_ondem_add(self):
 
@@ -83,9 +83,9 @@ class CacheTest(SynTest):
         od = s_cache.OnDem()
         od.add('foo', getfoo, 10, y=20 )
 
-        self.assertEqual( od.get('foo'), 30 )
-        self.assertEqual( od.get('foo'), 30 )
-        self.assertEqual( data.get('count'), 1 )
+        self.eq( od.get('foo'), 30 )
+        self.eq( od.get('foo'), 30 )
+        self.eq( data.get('count'), 1 )
 
     def test_ondem_class(self):
 
@@ -100,9 +100,9 @@ class CacheTest(SynTest):
 
         woot = Woot()
 
-        self.assertEqual( woot.get('foobar'), 'hi there' )
-        self.assertEqual( woot.get('foobar'), 'hi there' )
-        self.assertEqual( data.get('count'), 1 )
+        self.eq( woot.get('foobar'), 'hi there' )
+        self.eq( woot.get('foobar'), 'hi there' )
+        self.eq( data.get('count'), 1 )
 
     def test_keycache_lookup(self):
 
@@ -113,7 +113,7 @@ class CacheTest(SynTest):
 
         cache = s_cache.KeyCache(getfoo)
 
-        self.assertEqual( cache[10], 'asdf' )
+        self.eq( cache[10], 'asdf' )
         # Ensure put/pop methods work.
         cache.put(20, 'wasd')
         self.eq(cache[20], 'wasd')

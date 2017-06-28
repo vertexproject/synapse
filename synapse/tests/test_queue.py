@@ -13,8 +13,8 @@ class QueueTest(SynTest):
         q = s_queue.Queue()
         q.put('woot')
 
-        self.assertEqual( q.get(), 'woot' )
-        self.assertIsNone( q.get(timeout=0.1) )
+        self.eq( q.get(), 'woot' )
+        self.none( q.get(timeout=0.1) )
 
         q.fini()
 

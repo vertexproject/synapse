@@ -33,7 +33,7 @@ class DaemonTest(SynTest):
         relay = s_link.getLinkRelay(link)
         sock = relay.connect()
 
-        self.assertEqual( sock.recvobj(),None)
+        self.eq( sock.recvobj(),None)
 
         sock.fini()
         daemon.fini()
@@ -71,7 +71,7 @@ class DaemonTest(SynTest):
 
         fprox.off('woot', woot)
 
-        self.assertTrue( evt.is_set() )
+        self.true( evt.is_set() )
 
     def test_daemon_conf(self):
 
@@ -117,7 +117,7 @@ class DaemonTest(SynTest):
         dmon = s_daemon.Daemon()
         dmon.loadDmonConf(conf)
         dmon.fini()
-        self.assertTrue(dmon.shared.get('fini').isfini)
+        self.true(dmon.shared.get('fini').isfini)
 
     def test_daemon_conf_fork(self):
         self.thisHostMustNot(platform='windows')
@@ -146,7 +146,7 @@ class DaemonTest(SynTest):
         prox = s_telepath.openurl('local://%s/haha?retry=6' % (iden,))
 
         pid0 = prox.pid()
-        self.assertNotEqual( pid0, os.getpid() )
+        self.ne( pid0, os.getpid() )
 
         prox.fini()
 
@@ -207,12 +207,12 @@ class DaemonTest(SynTest):
         }
 
         with s_daemon.Daemon() as dmon:
-            self.assertRaises(NoSuchConf, dmon.loadDmonConf, conf )
+            self.raises(NoSuchConf, dmon.loadDmonConf, conf )
 
         conf['configs']['blah'] = {'newp':1}
 
         with s_daemon.Daemon() as dmon:
-            self.assertRaises(NoSuchOpt, dmon.loadDmonConf, conf )
+            self.raises(NoSuchOpt, dmon.loadDmonConf, conf )
 
         conf['configs']['blah'].pop('newp',None)
         conf['configs']['blah']['caching'] = 'TRUE'

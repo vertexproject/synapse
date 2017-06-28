@@ -19,23 +19,23 @@ class TestArgParser(SynTest):
 
     def test_getArgParser_logLevel_exception(self):
         for level in ['all', 'notice']:
-            with self.assertRaises(SystemExit):
+            with self.raises(SystemExit):
                 p = getArgParser()
                 p.parse_args(['--log-level', level])
 
     def test_getArgParser_bools(self):
         p = getArgParser()
         args = p.parse_args(['--lsboot'])
-        self.assertTrue(args.lsboot)
+        self.true(args.lsboot)
 
         args = p.parse_args(['--onboot'])
-        self.assertTrue(args.onboot)
+        self.true(args.onboot)
 
         args = p.parse_args(['--noboot'])
-        self.assertTrue(args.noboot)
+        self.true(args.noboot)
 
         args = p.parse_args(['--asboot'])
-        self.assertTrue(args.asboot)
+        self.true(args.asboot)
 
 class TestMain(SynTest):
 

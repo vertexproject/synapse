@@ -68,7 +68,7 @@ class FileModelTest(SynTest):
             core.formTufoByProp('file:base', 'baz.quux')
             self.nn(core.getTufoByProp('file:base', 'baz.quux'))
 
-            self.assertRaises(BadTypeValu, core.formTufoByProp, 'file:base', '/haha')
+            self.raises(BadTypeValu, core.formTufoByProp, 'file:base', '/haha')
 
     def test_model_files_imgof(self):
 

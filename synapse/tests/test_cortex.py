@@ -454,22 +454,22 @@ class CortexTest(SynTest):
             (guid(),'rg',lmdb.MAX_INT_VAL,99),
         ]
         core.addRows( rows )
-        self.assertEqual( core.getSizeBy('range','rg',(lmdb.MIN_INT_VAL+1,-42)), 0 )
-        self.assertEqual( core.getSizeBy('range','rg',(lmdb.MIN_INT_VAL,-42)), 1 )
-        self.assertEqual( core.getSizeBy('le','rg',-42), 2 )
+        self.eq( core.getSizeBy('range','rg',(lmdb.MIN_INT_VAL+1,-42)), 0 )
+        self.eq( core.getSizeBy('range','rg',(lmdb.MIN_INT_VAL,-42)), 1 )
+        self.eq( core.getSizeBy('le','rg',-42), 2 )
         # TODO: Need to implement lt for all the cores
         if 0:
-            self.assertEqual( core.getSizeBy('lt','rg',-42), 1 )
-        self.assertEqual( core.getSizeBy('range','rg',(-42, 0)), 2 )
-        self.assertEqual( core.getSizeBy('range','rg',(-1, 2)), 3 )
+            self.eq( core.getSizeBy('lt','rg',-42), 1 )
+        self.eq( core.getSizeBy('range','rg',(-42, 0)), 2 )
+        self.eq( core.getSizeBy('range','rg',(-1, 2)), 3 )
         if 0:
-            self.assertEqual( core.getSizeBy('lt','rg',0), 3 )
-        self.assertEqual( core.getSizeBy('le','rg',0), 4 )
+            self.eq( core.getSizeBy('lt','rg',0), 3 )
+        self.eq( core.getSizeBy('le','rg',0), 4 )
         # This is broken for RAM and SQLite
         if 0:
-            self.assertEqual( core.getSizeBy('ge','rg',-1, limit=3), 3 )
-        self.assertEqual( core.getSizeBy('ge','rg',30), 2 )
-        self.assertEqual( core.getSizeBy('ge','rg',lmdb.MAX_INT_VAL), 1 )
+            self.eq( core.getSizeBy('ge','rg',-1, limit=3), 3 )
+        self.eq( core.getSizeBy('ge','rg',30), 2 )
+        self.eq( core.getSizeBy('ge','rg',lmdb.MAX_INT_VAL), 1 )
 
     def runjson(self, core):
 
@@ -669,7 +669,7 @@ class CortexTest(SynTest):
         core0 = s_cortex.openurl('ram:///foobar')
         core1 = s_cortex.openurl('ram:///bazfaz')
 
-        self.assertNotEqual( id(core0), id(core1) )
+        self.ne( id(core0), id(core1) )
 
         core0.fini()
         core1.fini()
@@ -677,7 +677,7 @@ class CortexTest(SynTest):
         core0 = s_cortex.openurl('ram:///')
         core1 = s_cortex.openurl('ram:///')
 
-        self.assertNotEqual( id(core0), id(core1) )
+        self.ne( id(core0), id(core1) )
 
         core0.fini()
         core1.fini()
@@ -685,7 +685,7 @@ class CortexTest(SynTest):
         core0 = s_cortex.openurl('ram://')
         core1 = s_cortex.openurl('ram://')
 
-        self.assertNotEqual( id(core0), id(core1) )
+        self.ne( id(core0), id(core1) )
 
         core0.fini()
         core1.fini()
@@ -740,7 +740,7 @@ class CortexTest(SynTest):
         histo = core.getStatByProp('histo','foo:bar')
         self.eq( histo.get(13), 1 )
 
-        self.assertRaises( NoSuchStat, core.getStatByProp, 'derp', 'inet:ipv4' )
+        self.raises( NoSuchStat, core.getStatByProp, 'derp', 'inet:ipv4' )
 
     def test_cortex_fire_set(self):
 
@@ -843,7 +843,7 @@ class CortexTest(SynTest):
         core0.delTufoTag(tufo0,'hehe')
         tufo1 = core1.getTufoByProp('foo','bar')
 
-        self.assertFalse( s_tags.tufoHasTag(tufo1,'hehe') )
+        self.false( s_tags.tufoHasTag(tufo1,'hehe') )
 
         core0.setTufoProp(tufo0,'baz','lol')
         tufo1 = core1.getTufoByProp('foo','bar')
@@ -903,7 +903,7 @@ class CortexTest(SynTest):
 
             cofo = core.getTufoByProp('syn:core','self')
             self.nn( cofo )
-            self.assertFalse( core.enforce )
+            self.false( core.enforce )
 
             core.setConfOpt('enforce',True)
 
@@ -1280,11 +1280,11 @@ class CortexTest(SynTest):
             tufo1 = core.formTufoByProp('foo','bar')
 
             self.true(tufo0[1].get('.new'))
-            self.assertFalse(tufo1[1].get('.new'))
+            self.false(tufo1[1].get('.new'))
 
     def test_cortex_reqstor(self):
         with s_cortex.openurl('ram://') as core:
-            self.assertRaises( BadPropValu, core.formTufoByProp, 'foo:bar', True )
+            self.raises( BadPropValu, core.formTufoByProp, 'foo:bar', True )
 
     def test_cortex_events(self):
         with s_cortex.openurl('ram://') as core:

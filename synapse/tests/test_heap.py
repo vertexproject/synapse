@@ -29,8 +29,8 @@ class HeapTest(SynTest):
         heap.writeoff(off0+4, b'qwer')
         heap.writeoff(off1+4, b'haha')
 
-        self.assertEqual( heap.readoff(off0,8), b'asdfqwer' )
-        self.assertEqual( heap.readoff(off1,8), b'hehehaha' )
+        self.eq( heap.readoff(off0,8), b'asdfqwer' )
+        self.eq( heap.readoff(off1,8), b'hehehaha' )
 
         heap.fini()
 
@@ -41,14 +41,14 @@ class HeapTest(SynTest):
         with s_heap.Heap(fd) as heap:
 
             pagesize = heap.pagesize
-            self.assertEqual( heap.size(), heap.pagesize )
+            self.eq( heap.size(), heap.pagesize )
 
             blocks = []
             while heap.size() == heap.pagesize:
                 # NOTE test assumes pages are at least 1k
                 blocks.append( heap.alloc(1024) )
 
-            self.assertEqual( heap.size(), heap.pagesize * 2 )
+            self.eq( heap.size(), heap.pagesize * 2 )
 
     def test_heap_save(self):
 
@@ -76,8 +76,8 @@ class HeapTest(SynTest):
 
         heap1.syncs( msgs )
 
-        self.assertEqual( heap0.readoff(off0,8), heap1.readoff(off0,8) )
-        self.assertEqual( heap0.readoff(off1,8), heap1.readoff(off1,8) )
+        self.eq( heap0.readoff(off0,8), heap1.readoff(off0,8) )
+        self.eq( heap0.readoff(off1,8), heap1.readoff(off1,8) )
 
         heap0.fini()
         heap1.fini()
@@ -96,4 +96,4 @@ class HeapTest(SynTest):
             blocks = [ b for b in heap.readiter(off,2048, itersize=9) ]
             byts = b''.join(blocks)
 
-            self.assertEqual( rand, byts )
+            self.eq( rand, byts )

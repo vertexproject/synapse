@@ -31,7 +31,7 @@ class ConfTest(SynTest):
             conf.setConfOpts({'fooval':0x30})
             self.eq(conf.getConfOpt('fooval'), 0x30)
 
-            self.assertRaises( NoSuchOpt, conf.setConfOpts, {'newp':'hehe'} )
+            self.raises( NoSuchOpt, conf.setConfOpts, {'newp':'hehe'} )
 
     def test_conf_asloc(self):
         with s_config.Config() as conf:

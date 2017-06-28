@@ -29,10 +29,10 @@ class GeneTest(SynTest):
 
         with s_scope.enter({'woot':10}):
             self.eq( s_scope.get('woot'), 10 )
-            self.assertIsNone( s_scope.get('newp') )
+            self.none( s_scope.get('newp') )
 
-        self.assertIsNone( s_scope.get('woot') )
-        self.assertIsNone( s_scope.get('newp') )
+        self.none( s_scope.get('woot') )
+        self.none( s_scope.get('newp') )
 
     def test_lib_scope_get_defval(self):
         syms = {'foo': None, 'bar': 123}
