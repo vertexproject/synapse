@@ -421,7 +421,7 @@ class Cortex(s_cores_common.Cortex):
                 pk_enc = memToBytes(value)
 
                 if not cursor.delete():
-                    raise Exception('Delete failure')
+                    raise s_exc.DatabaseInconsistent('Delete failure')
                 self._delRowAndIndices(txn, pk_enc, i_enc=i_enc, p_enc=p_enc,
                                        delete_ip=False)
 
@@ -450,7 +450,7 @@ class Cortex(s_cores_common.Cortex):
                         raise s_exc.DatabaseInconsistent(mesg='Missing sentinel')
                 else:
                     if not cursor.delete():
-                        raise Exception('Delete failure')
+                        raise s_exc.DatabaseInconsistent(mesg='Delete failure')
 
     def _delRowAndIndices(self, txn, pk_enc, i_enc=None, p_enc=None, v_key_enc=None, t_enc=None,
                           delete_ip=True, delete_pvt=True, delete_pt=True, only_if_val=None):
@@ -574,7 +574,7 @@ class Cortex(s_cores_common.Cortex):
                                           only_if_val=(valu if v_is_hashed else None)):
                     # Delete did go through: delete entry at cursor
                     if not cursor.delete():
-                        raise Exception('Delete failure')
+                        raise s_exc.DatabaseInconsistent(mesg='Delete failure')
                 else:
                     # Delete didn't go through:  advance to next
                     if not cursor.next():
