@@ -30,23 +30,23 @@ Synapse was not developed as a mathematical abstraction. Instead, Synapse grew o
 The developers and analysts who worked on early Synapse prototypes came from a variety of government and commercial backgrounds but shared a common goal: the desire to record, annotate, and track cyber threat activity (specifically, Advanced Persistent Threat activity) both reliably and at scale. At a time when government and industry were beginning to grasp the scope and scale of the problem, “tracking” this complex activity was largely being done using long-form reports, spreadsheets, or domain knowledge residing in an analyst’s mind. There was no way to effectively store and analyze large amounts of data, and critical analytical decisions – such as attribution – were either impossible, or being made based on loose correlation, analysts’ recollection, or generally accepted “truths” - and not on concrete, verifiable data whose source and analysis could be traced and either verified or questioned.
 
 In contrast, Synapse and its predecessors were designed from the beginning to support the following critical elements:
-* The use of a shared analytical workspace to give all analysts access to the same data in real time (as noted above).
-* The concept that the analysis captured within the system should “speak for itself”: that is, to the extent possible, data and analytical findings must be represented in such a way that relationships and conclusions should be self-evident.
+- The use of a shared analytical workspace to give all analysts access to the same data in real time (as noted above).
+- The concept that the analysis captured within the system should “speak for itself”: that is, to the extent possible, data and analytical findings must be represented in such a way that relationships and conclusions should be self-evident.
 
 These features provide the following benefits:
-* It allows (and requires) analysts to “show their work” in a reasonably concise manner. Analysts should not have to refer to long-form reporting (or rely on the unquestioned word of a subject matter expert) to trace an analytical line of reasoning.
-* It allows analysts to better vet and verify each other’s findings. Conflicting analytical lines are highlighted through the structure of the data itself. Analysis can readily be questioned, reviewed, and deconflicted.
+- It allows (and requires) analysts to “show their work” in a reasonably concise manner. Analysts should not have to refer to long-form reporting (or rely on the unquestioned word of a subject matter expert) to trace an analytical line of reasoning.
+- It allows analysts to better vet and verify each other’s findings. Conflicting analytical lines are highlighted through the structure of the data itself. Analysis can readily be questioned, reviewed, and deconflicted.
 
 The original Synapse prototype was designed to store a broad range of threat data, including:
-* Network infrastructure
-* Malware and malware behavior
-* Host- and network-based incident response data
-* Detection signatures and signature hits
-* Decoded network packet captures
-* Targeting of organizations, individuals, and data
-* Threat groups and threat actors
-* People and personas
-* Newsfeeds and reference materials
+- Network infrastructure
+- Malware and malware behavior
+- Host- and network-based incident response data
+- Detection signatures and signature hits
+- Decoded network packet captures
+- Targeting of organizations, individuals, and data
+- Threat groups and threat actors
+- People and personas
+- Newsfeeds and reference materials
 
 Prototype systems eventually stored **nearly one billion** nodes, edges, and analyst annotations. Data modeled by this system was used to produce some of the most groundbreaking public reporting on APT activity to date.
 
