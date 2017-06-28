@@ -91,7 +91,7 @@ class AskCmd(s_cli.Cmd):
             form = node[1].get('tufo:form')
             valu = node[1].get(form)
 
-            leafs = set(sorted(s_tufo.tags(node,leaf=True)))
+            leafs = set(s_tufo.tags(node,leaf=True))
 
             taglines = []
             for tag in sorted(s_tufo.tags(node)):
