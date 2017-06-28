@@ -59,7 +59,7 @@ def tags(tufo,leaf=False):
 
 def ival(tufo,name):
     '''
-    Return a min,max inerval tuple or None for the node.
+    Return a min,max interval tuple or None for the node.
 
     Args:
         tufo ((str,dict)):  A node in tuple form
