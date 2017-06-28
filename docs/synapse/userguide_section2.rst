@@ -6,20 +6,25 @@
 Synapse offers several advantages:
 
 **Free and Open Source**
+
 Unlike costly commercial analysis systems, Synapse is available on Github under the Apache License 2.0.
 
 **Performance**
+
 Synapse was designed to address the performance limitations that constrain many large-scale analysis systems and eventually make them unworkable in practice. Synapse supports multiple storage and indexing options (RAM, LMDB, Postgres) that can be tailored to support the type and volume of data stored, as well as the proportion of read (query / retrieval) vs. write (node creation and deconfliction) operations. For detailed performance benchmarks, see `Synapse Performance`_ in readthedocs.
 
 **Extensible Comprehensive Data Model**
+
 Synapse’s hypergraph framework allows for representation of more disparate data types and complex relationships. The extensible data model can be adapted to any knowledge domain.
 
 **Powerful Analysis Framework**
+
 Synapse provides a shared analytical workspace that consolidates research and prevents “stovepiping” of findings. Analytical knowledge is preserved in a central representational framework instead of residing solely within a specialized research team or with an individual “subject matter expert” who may leave the organization.
 
 Synapse’s shared workspace allows real-time annotation of data with analytical observations; the work of one analyst is immediately visible to all others in the same workspace. The ability to “analyze once, record for all” means that analysts no longer need to waste effort independently reviewing the same data to come to the same conclusions. Finally, the incorporation of new data or new analytical findings dynamically highlights supporting or conflicting analysis, allowing assessments and hypotheses to be revisited as needed.
 
 **Proven Methodology Informed by Real-World Experience**
+
 Synapse was not developed as a mathematical abstraction. Instead, Synapse grew out of a real-world need to track a complex, diverse, and very large data set: namely, cyber threat data.
 
 The developers and analysts who worked on early Synapse prototypes came from a variety of government and commercial backgrounds but shared a common goal: the desire to record, annotate, and track cyber threat activity (specifically, Advanced Persistent Threat activity) both reliably and at scale. At a time when government and industry were beginning to grasp the scope and scale of the problem, “tracking” this complex activity was largely being done using long-form reports, spreadsheets, or domain knowledge residing in an analyst’s mind. There was no way to effectively store and analyze large amounts of data, and critical analytical decisions – such as attribution – were either impossible, or being made based on loose correlation, analysts’ recollection, or generally accepted “truths” - and not on concrete, verifiable data whose source and analysis could be traced and either verified or questioned.
