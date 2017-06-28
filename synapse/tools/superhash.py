@@ -13,8 +13,8 @@ import json
 import logging
 import argparse
 # Custom Code
-import synapse.axon as s_axon
 import synapse.lib.output as s_output
+import synapse.lib.hashset as s_hashset
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def compute_hashes(fp):
     :param fp: Path to compute
     :return: Tuple containing the superhash (guid) and other hashes for the file.
     """
-    hs = s_axon.HashSet()
+    hs = s_hashset.HashSet()
     with open(fp, 'rb') as f:
         guid, hashd = hs.eatfd(fd=f)
     return guid, hashd
@@ -48,15 +48,15 @@ def main(argv, outp=None):
             results.append((fp, guid, hashd))
 
     if opts.ingest:
-        l = []
+        results = []
         for fp, guid, hashd in results:
             hashd['name'] = os.path.basename(fp)
             d = {"props": hashd}
             hl = [guid, d]
-            l.append(hl)
-        if len(l) == 1:
-            l = l[0]
-        outp.printf(json.dumps(l, sort_keys=True, indent=2))
+            results.append(hl)
+        if len(results) == 1:
+            results = results[0]
+        outp.printf(json.dumps(results, sort_keys=True, indent=2))
     else:
         for fp, guid, hashd in results:
             outp.printf('Superhash for: {}'.format(fp))
