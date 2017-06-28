@@ -922,7 +922,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
 
         attr = Axon._fs_new_dir_attrs(ppath, mode)
         tufo = self.core.formTufoByProp('axon:path', path, **attr)
-        if tufo and tufo[1].get('.new') != True:
+        if tufo and not tufo[1].get('.new'):
             raise FileExists()
 
         if dirn is not None:
@@ -1053,7 +1053,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
             # all pre-checks complete
 
             # if a new file was created, increment its parents link count
-            if dstfo[1].get('.new') == True:
+            if dstfo[1].get('.new'):
                 self.core.incTufoProp(pdstfo, 'st_nlink', 1)
 
             # set dst props to what src props were

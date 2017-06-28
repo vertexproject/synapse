@@ -107,7 +107,7 @@ class Sched(EventBus):
             try:
 
                 ret = func(*args, **kwargs)
-                if ret == False:
+                if ret is False:
                     return
 
             except Exception as e:
