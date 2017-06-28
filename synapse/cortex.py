@@ -23,9 +23,9 @@ import synapse.telepath as s_telepath
 import synapse.lib.sched as s_sched
 
 import synapse.cores.ram
+import synapse.cores.lmdb
 import synapse.cores.sqlite
 import synapse.cores.postgres
-import synapse.cores.lmdb
 
 from synapse.common import *
 from synapse.eventbus import EventBus
@@ -38,10 +38,10 @@ class InvalidParam(Exception):
         self.param = name
 
 corctors = {
-    'ram':synapse.cores.ram.initRamCortex,
+    'lmdb': synapse.cores.lmdb.Cortex,
     'sqlite':synapse.cores.sqlite.Cortex,
+    'ram':synapse.cores.ram.initRamCortex,
     'postgres':synapse.cores.postgres.Cortex,
-    'lmdb': synapse.cores.lmdb.Cortex
 }
 
 def openurl(url, **opts):

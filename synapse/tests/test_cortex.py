@@ -12,13 +12,14 @@ import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
+import synapse.cores.lmdb as lmdb
+
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
 import synapse.lib.threads as s_threads
 
 import synapse.models.syn as s_models_syn
-import synapse.cores.lmdb as lmdb
 
 from synapse.tests.common import *
 
@@ -114,27 +115,24 @@ class CortexTest(SynTest):
         self.runsnaps( core )
         self.rundarks(core)
 
-    lmdb_file = 'test.lmdb'
-    lmdb_url = 'lmdb:///%s' % lmdb_file
     def test_cortex_lmdb(self):
-        core = s_cortex.openurl(CortexTest.lmdb_url)
-        self.runcore( core )
-        self.runjson( core )
-        self.runrange( core )
-        self.runidens( core )
-        self.rundsets( core )
-        self.runsnaps( core )
-        self.rundarks(core)
+        with self.getTestDir() as path:
+            fn = 'test.lmdb'
+            fp = os.path.join(path, fn)
+            lmdb_url = 'lmdb:///%s' % fp
 
-        # Test load an existing db
-        core = s_cortex.openurl(CortexTest.lmdb_url)
+            with s_cortex.openurl(lmdb_url) as core:
+                self.runcore(core)
+                self.runjson(core)
+                self.runrange(core)
+                self.runidens(core)
+                self.rundsets(core)
+                self.runsnaps(core)
+                self.rundarks(core)
 
-    def tearDown(self):
-        try:
-            os.remove(CortexTest.lmdb_file)
-            os.remove(CortexTest.lmdb_file + '-lock')
-        except OSError:
-            pass
+            # Test load an existing db
+            core = s_cortex.openurl(lmdb_url)
+            self.false(core.isnew)
 
     def test_cortex_postgres(self):
         with self.getPgCore() as core:
