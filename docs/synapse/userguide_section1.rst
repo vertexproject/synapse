@@ -1,7 +1,7 @@
 0. Synapse User Guide – Introduction
 ====================================
 
-This User Guide is written by and for Synapse users. Additional technical documentation can be found elsewhere in _readthedocs.
+This User Guide is written by and for Synapse users. Additional technical documentation can be found elsewhere in readthedocs_.
 
 The User Guide is a living document and will continue to be updated and expanded. The current sections are:
 
