@@ -20,10 +20,10 @@ class TcpRelay(LinkRelay):
         host = self.link[1].get('host')
         port = self.link[1].get('port')
 
-        if host == None:
+        if host is None:
             raise PropNotFound('host')
 
-        if port == None:
+        if port is None:
             raise PropNotFound('port')
 
     def _listen(self):

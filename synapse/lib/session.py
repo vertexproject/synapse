@@ -88,7 +88,7 @@ class Curator(EventBus):
         iden = event[1].get('key')
         sess = event[1].get('val')
 
-        if sess == None:
+        if sess is None:
             return
 
         sess.fini()
@@ -127,12 +127,12 @@ class Curator(EventBus):
     def _getSessByIden(self, iden):
 
         # If we have no cortex, we have no session storage
-        if self.core == None:
+        if self.core is None:
             return None
 
         # look up the tufo and construct a Sess()
         sefo = self.core.getTufoByProp('syn:sess', iden)
-        if sefo == None:
+        if sefo is None:
             return None
 
         props = s_tufo.props(sefo)
@@ -141,7 +141,7 @@ class Curator(EventBus):
     def _saveSessProp(self, iden, prop, valu):
 
         # if we have a cortex to persist into
-        if self.core == None:
+        if self.core is None:
             return
 
         sefo = self.core.formTufoByProp('syn:sess', iden)

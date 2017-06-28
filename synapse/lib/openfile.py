@@ -37,14 +37,14 @@ def openfd(*paths, **opts):
 
         # allow relative opens from a base directory
         dirn = opts.get('file:basedir')
-        if dirn != None and not os.path.isabs(paths[0]):
+        if dirn is not None and not os.path.isabs(paths[0]):
             paths = (dirn,) + paths
 
         path = genpath(*paths)
         fd = io.open(path, 'rb')
 
     ncod = opts.get('encoding')
-    if ncod != None:
+    if ncod is not None:
         fd = codecs.getreader(ncod)(fd)
 
     return fd

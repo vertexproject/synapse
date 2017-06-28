@@ -58,7 +58,7 @@ def decode(name, byts, **opts):
             continue
 
         func = decoders.get(name)
-        if func == None:
+        if func is None:
             raise NoSuchDecoder(name=name)
 
         byts = func(byts, **opts)
@@ -74,7 +74,7 @@ def encode(name, item, **opts):
             continue
 
         func = encoders.get(name)
-        if func == None:
+        if func is None:
             raise NoSuchEncoder(name=name)
 
         item = func(item, **opts)

@@ -43,7 +43,7 @@ class Sched(EventBus):
         with self.lock:
 
             # if no root, we're it!
-            if self.root == None:
+            if self.root is None:
                 self.root = mine
                 self.wake.set()
                 return mine
@@ -60,7 +60,7 @@ class Sched(EventBus):
             while True:
 
                 # if no next, we're it!
-                if step[2] == None:
+                if step[2] is None:
                     step[2] = mine
                     return mine
 
@@ -178,18 +178,18 @@ class Sched(EventBus):
                     item = self.root[1]
                     self.root = self.root[2]
 
-            if item != None:
+            if item is not None:
                 yield item
 
 def getGlobSched():
     '''
     Retrieve a reference to a global scheduler.
     '''
-    if s_glob.sched != None:
+    if s_glob.sched is not None:
         return s_glob.sched
 
     with s_glob.lock:
-        if s_glob.sched == None:
+        if s_glob.sched is None:
             s_glob.sched = Sched()
             atexit.register(s_glob.sched.fini)
 

@@ -76,7 +76,7 @@ class Cmd:
             snam = synt[0].strip('-')
 
             defval = synt[1].get('defval')
-            if defval != None:
+            if defval is not None:
                 opts[snam] = defval
 
             if synt[1].get('type') in ('list', 'kwlist'):
@@ -90,7 +90,7 @@ class Cmd:
 
             name, x = s_syntax.meh(t, o, s_syntax.whites)
             swit = switches.get(name)
-            if swit == None:
+            if swit is None:
                 return None, o
 
             return swit, x
@@ -100,7 +100,7 @@ class Cmd:
             _, off = s_syntax.nom(text, off, s_syntax.whites)
 
             swit, off = atswitch(text, off)
-            if swit != None:
+            if swit is not None:
 
                 styp = swit[1].get('type', 'flag')
                 snam = swit[0].strip('-')
@@ -188,7 +188,7 @@ class Cli(EventBus):
     def __init__(self, item, outp=None, **locs):
         EventBus.__init__(self)
 
-        if outp == None:
+        if outp is None:
             outp = s_output.OutPut()
 
         self.outp = outp
@@ -279,7 +279,7 @@ class Cli(EventBus):
         name = line.split(None, 1)[0]
 
         cmdo = self.getCmdByName(name)
-        if cmdo == None:
+        if cmdo is None:
             self.printf('cmd not found: %s' % (name,))
             return
 
@@ -352,7 +352,7 @@ class CmdHelp(Cmd):
         for name in cmds:
 
             cmdo = self._cmd_cli.getCmdByName(name)
-            if cmdo == None:
+            if cmdo is None:
                 self.printf('=== NOT FOUND: %s' % (name,))
                 continue
 

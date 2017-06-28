@@ -21,10 +21,10 @@ def normitem(item):
     return item
 
 def normdict(item):
-    return list(sorted([(normitem(key), normitem(val)) for key, val in item.items() if val != None]))
+    return list(sorted([(normitem(key), normitem(val)) for key, val in item.items() if val is not None]))
 
 def normiter(item):
-    return list([normitem(i) for i in item if i != None])
+    return list([normitem(i) for i in item if i is not None])
 
 normers = {
     dict: normdict,

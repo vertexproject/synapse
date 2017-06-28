@@ -65,7 +65,7 @@ class Cortex(s_cores_common.Cortex):
         # HACK: for speed
         ret = [r for r in self.rowsbyprop.get(prop, ()) if isint(r[2]) and r[2] >= minval and r[2] < maxval]
 
-        if limit != None:
+        if limit is not None:
             ret = ret[:limit]
 
         return ret
@@ -94,7 +94,7 @@ class Cortex(s_cores_common.Cortex):
             self._delRawRow(row)
 
     def _delRowsByIdProp(self, iden, prop, valu=None):
-        if valu == None:
+        if valu is None:
             rows = [row for row in self.rowsbyid.get(iden, ()) if row[1] == prop]
             [self._delRawRow(row) for row in rows]
             return
@@ -104,7 +104,7 @@ class Cortex(s_cores_common.Cortex):
         return
 
     def _getRowsByIdProp(self, iden, prop, valu=None):
-        if valu == None:
+        if valu is None:
             return [row for row in self.rowsbyid.get(iden, ()) if row[1] == prop]
 
         return [row for row in self.rowsbyid.get(iden, ()) if row[1] == prop and row[2] == valu]
@@ -116,7 +116,7 @@ class Cortex(s_cores_common.Cortex):
     def _delRawRow(self, row):
 
         byid = self.rowsbyid.get(row[0])
-        if byid != None:
+        if byid is not None:
             byid.discard(row)
 
         byprop = self.rowsbyprop[row[1]]
@@ -136,41 +136,41 @@ class Cortex(s_cores_common.Cortex):
 
     def _getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
 
-        if valu == None:
+        if valu is None:
             rows = self.rowsbyprop.get(prop)
         else:
             rows = self.rowsbyvalu.get((prop, valu))
 
-        if rows == None:
+        if rows is None:
             return
 
         c = 0
         for row in rows:
-            if mintime != None and row[3] < mintime:
+            if mintime is not None and row[3] < mintime:
                 continue
 
-            if maxtime != None and row[3] >= maxtime:
+            if maxtime is not None and row[3] >= maxtime:
                 continue
 
             yield row
 
             c += 1
-            if limit != None and c >= limit:
+            if limit is not None and c >= limit:
                 break
 
     def _getSizeByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        if valu == None:
+        if valu is None:
             rows = self.rowsbyprop.get(prop)
         else:
             rows = self.rowsbyvalu.get((prop, valu))
 
-        if rows == None:
+        if rows is None:
             return 0
 
-        if mintime != None:
+        if mintime is not None:
             rows = [row for row in rows if row[3] >= mintime]
 
-        if maxtime != None:
+        if maxtime is not None:
             rows = [row for row in rows if row[3] < maxtime]
 
         return len(rows)
@@ -190,7 +190,7 @@ def initRamCortex(link):
         return Cortex(link)
 
     core = ramcores.get(path)
-    if core == None:
+    if core is None:
         core = Cortex(link)
 
         ramcores[path] = core

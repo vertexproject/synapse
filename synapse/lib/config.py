@@ -18,7 +18,7 @@ class Configable:
 
         self.addConfDefs(defs)
 
-        if opts != None:
+        if opts is not None:
             self.setConfOpts(opts)
 
     def addConfDefs(self, defs):
@@ -44,7 +44,7 @@ class Configable:
         self._conf_opts.setdefault(name, defval)
 
         asloc = info.get('asloc')
-        if asloc != None:
+        if asloc is not None:
             self.__dict__.setdefault(asloc, defval)
 
     def reqConfOk(self, opts):
@@ -59,7 +59,7 @@ class Configable:
 
     def getConfDef(self, name):
         cdef = self._conf_defs.get(name)
-        if cdef == None:
+        if cdef is None:
             raise NoSuchOpt(name=name)
         return cdef
 
@@ -83,7 +83,7 @@ class Configable:
         '''
         cdef = self.getConfDef(name)
         ctype = cdef[1].get('type')
-        if ctype == None:
+        if ctype is None:
             return valu, {}
         return getTypeNorm(ctype, valu)
 
@@ -96,14 +96,14 @@ class Configable:
         cdef = self.getConfDef(name)
 
         ctype = cdef[1].get('type')
-        if ctype != None:
+        if ctype is not None:
             valu, _ = getTypeNorm(ctype, valu)
 
         if valu == oldval:
             return False
 
         asloc = cdef[1].get('asloc')
-        if asloc != None:
+        if asloc is not None:
             setattr(self, asloc, valu)
 
         self._conf_opts[name] = valu

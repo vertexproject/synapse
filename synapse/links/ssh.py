@@ -18,22 +18,22 @@ class SshRelay(LinkRelay):
 
     def _reqValidLink(self):
 
-        if paramiko == None:
+        if paramiko is None:
             raise Exception('paramiko module not installed')
 
-        if self.link[1].get('port') == None:
+        if self.link[1].get('port') is None:
             self.link[1]['port'] = 22
 
         host = self.link[1].get('host')
-        if host == None:
+        if host is None:
             raise PropNotFound('host')
 
         fwdstr = self.link[1].get('forward')
-        if fwdstr == None:
+        if fwdstr is None:
             raise PropNotFound('forward=<host:port>')
 
         keyfile = self.link[1].get('keyfile')
-        if keyfile != None and not os.path.isfile(keyfile):
+        if keyfile is not None and not os.path.isfile(keyfile):
             raise Exception('keyfile not found: %s' % (keyfile,))
 
         fwdhost, fwdport = fwdstr.split(':')

@@ -64,7 +64,7 @@ def tufoHasTag(tufo, tag):
             dostuff()
 
     '''
-    return tufo[1].get('#' + tag) != None
+    return tufo[1].get('#' + tag) is not None
 
 class ByTag:
     '''
@@ -99,7 +99,7 @@ class ByTag:
 
         '''
         vals = self.bytag.get(tag)
-        if vals == None:
+        if vals is None:
             return ()
 
         return list(vals)
@@ -109,13 +109,13 @@ class ByTag:
         Remove an item previously added to the ByTag.
         '''
         tags = self.byval.pop(item, None)
-        if tags == None:
+        if tags is None:
             return
 
         for tag in tags:
             for name in iterTagDown(tag):
                 s = self.bytag.get(name)
-                if s == None:
+                if s is None:
                     continue
 
                 s.discard(item)

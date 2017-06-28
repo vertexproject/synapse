@@ -36,11 +36,11 @@ class LimitHelp:
         return self.limit
 
     def reached(self):
-        return self.limit != None and self.limit == 0
+        return self.limit is not None and self.limit == 0
 
     def dec(self, size=1):
 
-        if self.limit == None:
+        if self.limit is None:
             return False
 
         if size < 0:
@@ -107,7 +107,7 @@ class ShowHelp:
         def get(node):
 
             valu = node[1].get(prop)
-            if valu == None:
+            if valu is None:
                 return ''
 
             return self.core.getPropRepr(prop, valu)
@@ -188,7 +188,7 @@ class OperWith:
             'took': now() - self.stime
         }
 
-        if exc != None:
+        if exc is not None:
             info['excinfo'] = excinfo(exc)
             self.query.clear()
 
@@ -270,7 +270,7 @@ class Query:
 
         form = tufo[1].get('tufo:form')
 
-        if tufo[0] != None and self.results['options'].get('uniq'):
+        if tufo[0] is not None and self.results['options'].get('uniq'):
             if self.uniq.get(tufo[0]):
                 return False
 
@@ -329,11 +329,11 @@ class Query:
             raise QueryCancelled()
 
         nowtime = time.time()
-        if self.maxtime != None and nowtime >= self.maxtime:
+        if self.maxtime is not None and nowtime >= self.maxtime:
             raise HitStormLimit(name='maxtime', limit=self.maxtime, valu=nowtime)
 
         self.touched += touch
-        if self.maxtouch != None and self.touched > self.maxtouch:
+        if self.maxtouch is not None and self.touched > self.maxtouch:
             raise HitStormLimit(name='maxtouch', limit=self.maxtouch, valu=self.touched)
 
 class QueryKilled(Exception): pass
@@ -536,7 +536,7 @@ class Runtime(Configable):
 
             def _get_full_norm(f, p, v):
                 retfull = fulls.get(f)
-                if retfull == None:
+                if retfull is None:
                     retfull = fulls[f] = (f + p)
 
                 retnorm, _ = core.getPropNorm(retfull, v)
@@ -557,7 +557,7 @@ class Runtime(Configable):
         '''
         name = oper[1].get('cmp', 'eq')
         ctor = self.cmprctors.get(name)
-        if ctor == None:
+        if ctor is None:
             raise NoSuchCmpr(name=name)
         return ctor(oper)
 
@@ -596,7 +596,7 @@ class Runtime(Configable):
 
         '''
         maxtime = None
-        if timeout != None:
+        if timeout is not None:
             maxtime = time.time() + timeout
 
         # FIXME overall time per user goes here
@@ -629,7 +629,7 @@ class Runtime(Configable):
 
         excinfo = answ['oplog'][-1].get('excinfo')
         #if excinfo.get('errinfo') != None:
-        if excinfo != None:
+        if excinfo is not None:
             errname = excinfo.get('err')
             errinfo = excinfo.get('errinfo', {})
             errinfo['errfile'] = excinfo.get('errfile')
@@ -640,14 +640,15 @@ class Runtime(Configable):
 
     def _reqOperArg(self, oper, name):
         valu = oper[1].get(name)
-        if valu == None:
+        if valu is None:
             raise BadOperArg(oper=oper, name=name, mesg='not found')
         return valu
 
     def _cmprCtorHas(self, oper):
         prop = self._reqOperArg(oper, 'prop')
         def cmpr(tufo):
-            return tufo[1].get(prop) != None
+            return tufo[1].get(prop) is not None
+
         return cmpr
 
     def _cmprCtorIn(self, oper):
@@ -674,10 +675,10 @@ class Runtime(Configable):
                 full = tufo[1].get('tufo:form') + prop
 
             valu = tufo[1].get(full)
-            if valu == None:
+            if valu is None:
                 return False
 
-            return reobj.search(valu) != None
+            return reobj.search(valu) is not None
 
         return cmpr
 
@@ -753,7 +754,7 @@ class Runtime(Configable):
             return glob_cmpr
 
         def reg_cmpr(tufo):
-            return tufo[1].get('#' + tag) != None
+            return tufo[1].get('#' + tag) is not None
 
         return reg_cmpr
 
@@ -768,7 +769,7 @@ class Runtime(Configable):
         seenprops = {}
         def getseen(form):
             stup = seenprops.get(form)
-            if stup == None:
+            if stup is None:
                 stup = seenprops[form] = (form + ':seen:min', form + ':seen:max')
             return stup
 
@@ -781,7 +782,7 @@ class Runtime(Configable):
             smin = tufo[1].get(minprop)
             smax = tufo[1].get(maxprop)
 
-            if smin == None or smax == None:
+            if smin is None or smax is None:
                 return False
 
             for valu in vals:
@@ -815,7 +816,7 @@ class Runtime(Configable):
                 full = form + prop
 
             valu = tufo[1].get(full)
-            if valu == None:
+            if valu is None:
                 return False
 
             minval, maxval = norms.get(full)
@@ -875,7 +876,7 @@ class Runtime(Configable):
             query.tick()
 
             func = self.operfuncs.get(oper[0])
-            if func == None:
+            if func is None:
                 raise NoSuchOper(name=oper[0])
 
             try:
@@ -912,7 +913,7 @@ class Runtime(Configable):
             valu = args[1]
 
         by = opts.get('by', 'has')
-        if by == 'has' and valu != None:
+        if by == 'has' and valu is not None:
             by = 'eq'
 
         limt0 = opts.get('limit')
@@ -933,16 +934,16 @@ class Runtime(Configable):
             srcp = args[1]
 
         # do we have a relative source property?
-        relsrc = srcp != None and srcp.startswith(':')
+        relsrc = srcp is not None and srcp.startswith(':')
 
         vals = set()
         tufs = query.take()
 
-        if srcp != None and not relsrc:
+        if srcp is not None and not relsrc:
 
             for tufo in tufs:
                 valu = tufo[1].get(srcp)
-                if valu != None:
+                if valu is not None:
                     vals.add(valu)
 
         elif not relsrc:
@@ -950,7 +951,7 @@ class Runtime(Configable):
             for tufo in tufs:
                 form = tufo[1].get('tufo:form')
                 valu = tufo[1].get(form)
-                if valu != None:
+                if valu is not None:
                     vals.add(valu)
 
         else:
@@ -958,7 +959,7 @@ class Runtime(Configable):
             for tufo in tufs:
                 form = tufo[1].get('tufo:form')
                 valu = tufo[1].get(form + srcp)
-                if valu != None:
+                if valu is not None:
                     vals.add(valu)
 
         [query.add(t)for t in self.stormTufosBy('in', dstp, list(vals), limit=opts.get('limit'))]
@@ -996,7 +997,7 @@ class Runtime(Configable):
             srcp = args[1]
 
         # use the more optimal "in" mechanism once we have the pivot vals
-        vals = list({t[1].get(srcp) for t in query.data() if t != None})
+        vals = list({t[1].get(srcp) for t in query.data() if t is not None})
         [query.add(tufo) for tufo in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit'))]
 
     def _stormOperAddXref(self, query, oper):
@@ -1071,7 +1072,7 @@ class Runtime(Configable):
                 for prop, info in core.getSubProps(form):
 
                     valu = node[1].get(prop)
-                    if valu == None:
+                    if valu is None:
                         continue
 
                     # ensure that the prop's type is also a form
@@ -1151,7 +1152,7 @@ class Runtime(Configable):
 
             [query.add(node) for node in nodes]
 
-            if limit != None:
+            if limit is not None:
                 limit -= len(nodes)
                 if limit <= 0:
                     break

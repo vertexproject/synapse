@@ -21,7 +21,7 @@ class DockerTest(SynTest):
 
     def test_mapped_core(self):
         dcker = os.getenv('SYN_DOCKER')
-        if dcker == None:
+        if dcker is None:
             raise unittest.SkipTest('no SYN_DOCKER')
         if sys.version_info < (3, 4):
             raise unittest.SkipTest('not python 3')

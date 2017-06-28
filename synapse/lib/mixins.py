@@ -19,7 +19,7 @@ def addSynMixin(subsys, name, cname=None):
         s_mixins.addSynMixin('foo','synapse.foo.FooMixin')
 
     '''
-    if cname == None:
+    if cname is None:
         cname = name
     mixins[subsys][name].append(cname)
 

@@ -74,7 +74,7 @@ def openlink(link):
     Open a cortex via a link tuple.
     '''
     ctor = corctors.get(link[0])
-    if ctor == None:
+    if ctor is None:
         return s_telepath.openlink(link)
 
     return ctor(link)
@@ -88,7 +88,7 @@ def choptag(tag):
 
 def _ctor_cortex(conf):
     url = conf.pop('url', None)
-    if url == None:
+    if url is None:
         raise BadInfoValu(name='url', valu=None, mesg='cortex ctor requires "url":<url> option')
 
     core = openurl(url)

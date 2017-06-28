@@ -58,7 +58,7 @@ class Cortex(s_c_sqlite.Cortex):
 
         db = None
         tries = 0
-        while db == None:
+        while db is None:
             try:
                 db = psycopg2.connect(**dbinfo)
             except Exception as e:
@@ -106,19 +106,19 @@ class Cortex(s_c_sqlite.Cortex):
                 dbinfo['database'] = parts[0]
 
         host = self._link[1].get('host')
-        if host != None:
+        if host is not None:
             dbinfo['host'] = host
 
         port = self._link[1].get('port')
-        if port != None:
+        if port is not None:
             dbinfo['port'] = port
 
         user = self._link[1].get('user')
-        if user != None:
+        if user is not None:
             dbinfo['user'] = user
 
         passwd = self._link[1].get('passwd')
-        if passwd != None:
+        if passwd is not None:
             dbinfo['password'] = passwd
 
         return dbinfo

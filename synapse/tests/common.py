@@ -33,7 +33,7 @@ class TestEnv:
 
     def __getattr__(self, prop):
         item = self.items.get(prop)
-        if item == None:
+        if item is None:
             raise AttributeError(prop)
         return item
 
@@ -76,7 +76,7 @@ class SynTest(unittest.TestCase):
 
     def getPgCore(self):
         url = os.getenv('SYN_TEST_PG_URL')
-        if url != None:
+        if url is not None:
             return s_cortex.openurl(url)
 
         db = os.getenv('SYN_TEST_PG_DB')
@@ -164,7 +164,7 @@ def getTestPath(*paths):
     return os.path.join(testdir, *paths)
 
 def getIngestCore(path, core=None):
-    if core == None:
+    if core is None:
         core = s_cortex.openurl('ram:///')
 
     gest = s_ingest.loadfile(path)

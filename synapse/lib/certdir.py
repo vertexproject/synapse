@@ -7,7 +7,7 @@ import synapse.lib.tags as s_tags
 from synapse.common import *
 
 defdir = os.getenv('SYN_CERT_DIR')
-if defdir == None:
+if defdir is None:
     defdir = '~/.syn/certs'
 
 def iterFqdnUp(fqdn):
@@ -19,7 +19,7 @@ class CertDir:
 
     def __init__(self, path=None):
 
-        if path == None:
+        if path is None:
             path = defdir
 
         gendir(path, 'cas')
@@ -50,21 +50,21 @@ class CertDir:
         return self._loadKeyPath(self.getUserKeyPath(name))
 
     def _loadKeyPath(self, path):
-        if path == None:
+        if path is None:
             return None
 
         byts = getbytes(path)
-        if byts == None:
+        if byts is None:
             return None
 
         return crypto.load_privatekey(crypto.FILETYPE_PEM, byts)
 
     def _loadCertPath(self, path):
-        if path == None:
+        if path is None:
             return None
 
         byts = getbytes(path)
-        if byts == None:
+        if byts is None:
             return None
 
         return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
@@ -77,7 +77,7 @@ class CertDir:
 
     def _genBasePkeyCert(self, name, pkey=None):
 
-        if pkey == None:
+        if pkey is None:
             pkey = crypto.PKey()
             pkey.generate_key(crypto.TYPE_RSA, 2048)
 
@@ -114,17 +114,17 @@ class CertDir:
         ext0 = crypto.X509Extension(b'basicConstraints', False, b'CA:TRUE')
         cert.add_extensions([ext0])
 
-        if signas != None:
+        if signas is not None:
             self.signCertAs(cert, signas)
         else:
             self.selfSignCert(cert, pkey)
 
         keypath = self._savePkeyTo(pkey, 'cas', '%s.key' % name)
-        if outp != None:
+        if outp is not None:
             outp.printf('key saved: %s' % (keypath,))
 
         crtpath = self._saveCertTo(cert, 'cas', '%s.crt' % name)
-        if outp != None:
+        if outp is not None:
             outp.printf('cert saved: %s' % (crtpath,))
 
         return pkey, cert
@@ -145,18 +145,18 @@ class CertDir:
 
         cert.add_extensions([ext0, ext1, ext2, ext3])
 
-        if signas != None:
+        if signas is not None:
             self.signCertAs(cert, signas)
         else:
             self.selfSignCert(cert, pkey)
 
         if not pkey._only_public:
             keypath = self._savePkeyTo(pkey, 'hosts', '%s.key' % name)
-            if outp != None:
+            if outp is not None:
                 outp.printf('key saved: %s' % (keypath,))
 
         crtpath = self._saveCertTo(cert, 'hosts', '%s.crt' % name)
-        if outp != None:
+        if outp is not None:
             outp.printf('cert saved: %s' % (crtpath,))
 
         return pkey, cert
@@ -178,25 +178,25 @@ class CertDir:
 
         cert.add_extensions([ext0, ext1, ext2, ext3])
 
-        if signas != None:
+        if signas is not None:
             self.signCertAs(cert, signas)
         else:
             self.selfSignCert(cert, pkey)
 
         if not pkey._only_public:
             keypath = self._savePkeyTo(pkey, 'users', '%s.key' % name)
-            if outp != None:
+            if outp is not None:
                 outp.printf('key saved: %s' % (keypath,))
 
         crtpath = self._saveCertTo(cert, 'users', '%s.crt' % name)
-        if outp != None:
+        if outp is not None:
             outp.printf('cert saved: %s' % (crtpath,))
 
         return pkey, cert
 
     def _loadCsrPath(self, path):
         byts = getbytes(path)
-        if byts == None:
+        if byts is None:
             return None
         return crypto.load_certificate_request(crypto.FILETYPE_PEM, byts)
 
@@ -227,7 +227,7 @@ class CertDir:
         xcsr.sign(pkey, 'sha256')
 
         keypath = self._savePkeyTo(pkey, mode, '%s.key' % name)
-        if outp != None:
+        if outp is not None:
             outp.printf('key saved: %s' % (keypath,))
 
         csrpath = self.getPathJoin(mode, '%s.csr' % name)
@@ -237,7 +237,7 @@ class CertDir:
         with genfile(csrpath) as fd:
             fd.write(crypto.dump_certificate_request(crypto.FILETYPE_PEM, xcsr))
 
-        if outp != None:
+        if outp is not None:
             outp.printf('csr saved: %s' % (csrpath,))
 
     def signCertAs(self, cert, signas):
@@ -295,7 +295,7 @@ class CertDir:
 
     def getUserCaPath(self, name):
         cert = self.getUserCert(name)
-        if cert == None:
+        if cert is None:
             return None
 
         subj = cert.get_issuer()
@@ -308,7 +308,7 @@ class CertDir:
 
     def getHostCaPath(self, name):
         cert = self.getHostCert(name)
-        if cert == None:
+        if cert is None:
             return None
 
         subj = cert.get_issuer()

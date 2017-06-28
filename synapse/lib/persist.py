@@ -104,7 +104,7 @@ class Dir(s_eventbus.EventBus):
         if self.files:
             self.last = self.files[-1]
 
-        if self.last == None:
+        if self.last is None:
             self.last = self._addPersFile(0)
 
         self.onfini(self._onDirFini)
@@ -254,7 +254,7 @@ class Dir(s_eventbus.EventBus):
                 byts = pers.readoff(foff, blocksize)
 
                 # file has been closed...
-                if byts == None:
+                if byts is None:
                     return
 
                 # check if we're at the edge
@@ -269,7 +269,7 @@ class Dir(s_eventbus.EventBus):
                         # if there are byts now, we whiffed
                         # the check/set race.  Go around again.
                         byts = pers.readoff(foff, blocksize)
-                        if byts == None:
+                        if byts is None:
                             return
 
                         if not byts:
@@ -310,7 +310,7 @@ class File(s_eventbus.EventBus):
     def __init__(self, fd=None, **opts):
         s_eventbus.EventBus.__init__(self)
 
-        if fd == None:
+        if fd is None:
             fd = s_compat.BytesIO()
 
         fd.seek(0, os.SEEK_END)

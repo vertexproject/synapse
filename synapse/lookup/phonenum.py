@@ -338,7 +338,7 @@ phonetree = (None, {}, {})
 
 def formPhoneNode(node, valu):
     retn = node[2].get(valu)
-    if retn == None:
+    if retn is None:
         retn = phnode(valu)
         node[2][valu] = retn
     return retn
@@ -373,7 +373,7 @@ def getPhoneInfo(numb):
     # nodes where it's populated) and return the last info
     for c in text:
         chld = node[2].get(c)
-        if chld == None:
+        if chld is None:
             break
 
         if chld[1]:

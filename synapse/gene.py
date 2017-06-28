@@ -11,7 +11,7 @@ class GeneLab:
 
     def __init__(self, globs=None):
 
-        if globs == None:
+        if globs is None:
             globs = {}
 
         self.globs = globs
@@ -22,7 +22,7 @@ class GeneLab:
 
     def getGeneExpr(self, text):
         expr = self.exprcache.get(text)
-        if expr == None:
+        if expr is None:
             toks = tokenize(text)
             node, off = expression(toks)
             self.exprcache[text] = expr = node.eval
@@ -267,7 +267,7 @@ def istokoper(toks, off):
     '''
     if off >= len(toks):
         return False
-    return opers.get(toks[off][0]) != None
+    return opers.get(toks[off][0]) is not None
 
 #def istokin(toks,off,vals):
     #'''
@@ -302,7 +302,7 @@ def exprlist(toks, off=0):
 
     while True:
         node, off = expression(toks, off)
-        if node == None:
+        if node is None:
             raisetok(tok0, 'Expected expression list')
 
         kids.append(node)
@@ -340,7 +340,7 @@ def exprbase(toks, off=0):
     if tokn[0] == '(':
 
         node, off = expression(toks, off)
-        if node == None:
+        if node is None:
             raisetok(tokn, 'expected (<expression>)')
 
         node.tokn[1]['prec'] = 2 #NOTE: (<expr>) is precedence 2
@@ -407,7 +407,7 @@ def eval(text, syms=None):
         eval('foo:bar <= baz + 10', syms=tufo[1])
 
     '''
-    if syms == None:
+    if syms is None:
         syms = {}
 
     toks = tokenize(text)

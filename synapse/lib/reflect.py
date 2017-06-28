@@ -51,7 +51,7 @@ def getItemInfo(item):
           return explicit values (for example, telepath proxy)
     '''
     func = getattr(item, '_syn_reflect', None)
-    if func != None:
+    if func is not None:
         return func()
 
     return {

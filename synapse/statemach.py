@@ -23,7 +23,7 @@ class StateMachine:
     '''
     def __init__(self, statefd=None, load=True):
         self.statefd = None
-        if statefd != None and load:
+        if statefd is not None and load:
             self._loadStateFd(statefd)
         self.statefd = statefd
 
@@ -36,7 +36,7 @@ class StateMachine:
         unpk = msgpack.Unpacker(fd, use_list=0, encoding='utf8')
         for name, args, kwargs in unpk:
             meth = getattr(self, name, None)
-            if meth == None:
+            if meth is None:
                 raise Exception('StateMachine Method Missing: %s' % (name,))
 
             try:
@@ -45,7 +45,7 @@ class StateMachine:
                 raise Exception('StateMachine Method Error (%s): %s' % (name, e))
 
     def addStateDelta(self, name, args, kwargs):
-        if self.statefd == None:
+        if self.statefd is None:
             return
 
         self.statefd.write(msgpack.dumps((name, args, kwargs), use_bin_type=True))

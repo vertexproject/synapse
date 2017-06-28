@@ -280,7 +280,7 @@ class FpTar(FpFile):
         pparts = path.split('/')
         dstruct = self.dstruct
         for p in pparts:
-            if dstruct == None:
+            if dstruct is None:
                 return None
             dstruct = dstruct.get(p)
 
@@ -399,7 +399,7 @@ class FpTar(FpFile):
             maxpath = checkpath
             cidx += 1
 
-        if maxpath == None:
+        if maxpath is None:
             self.close()
             raise s_exc.NoSuchPath(path=os.path.join(*self.pparts))
         self.maxidx = cidx

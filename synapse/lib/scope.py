@@ -36,7 +36,7 @@ class Scope:
         '''
         Add an additional scope frame.
         '''
-        if vals == None:
+        if vals is None:
             vals = {}
         return self.frames.append(vals)
 
@@ -68,7 +68,7 @@ class Scope:
                 return valu
 
         task = self.ctors.get(name)
-        if task != None:
+        if task is not None:
             func, args, kwargs = task
             item = func(*args, **kwargs)
             self.frames[-1][name] = item
@@ -81,7 +81,7 @@ class Scope:
         Add values as iter() compatible items in the current scope frame.
         '''
         item = self.frames[-1].get(name)
-        if item == None:
+        if item is None:
             self.frames[-1][name] = item = []
         item.extend(vals)
 
@@ -104,7 +104,7 @@ class Scope:
         '''
         for frame in self.frames:
             vals = frame.get(name)
-            if vals == None:
+            if vals is None:
                 continue
             for valu in vals:
                 yield valu
@@ -122,7 +122,7 @@ def _thr_scope():
     scope = getattr(thrd, '_syn_scope', None)
 
     # no need to lock because it's per-thread...
-    if scope == None:
+    if scope is None:
         scope = Scope(globscope)
         thrd._syn_scope = scope
 

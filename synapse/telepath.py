@@ -67,13 +67,13 @@ def openlink(link):
     if link[0] == 'dmon':
 
         dmon = s_scope.get('dmon')
-        if dmon == None:
+        if dmon is None:
             raise NoSuchName(name='dmon', link=link, mesg='no dmon instance in current scope')
 
         # the "host" part is really a dmon local
         host = link[1].get('host')
         item = dmon.locs.get(host)
-        if item == None:
+        if item is None:
             raise NoSuchName(name=host, link=link, mesg='dmon instance has no local with that name')
 
         return item
@@ -175,14 +175,14 @@ class Method:
     def __call__(self, *args, **kwargs):
 
         # check if we have a cached client-side function
-        if self.cside != None:
+        if self.cside is not None:
             return self.cside(self.proxy, *args, **kwargs)
 
         ondone = kwargs.pop('ondone', None)
         task = (self.meth, args, kwargs)
 
         job = self.proxy._tx_call(task, ondone=ondone)
-        if ondone != None:
+        if ondone is not None:
             return job
 
         return self.proxy.syncjob(job)
@@ -215,7 +215,7 @@ class Proxy(s_eventbus.EventBus):
         self._tele_q = s_queue.Queue()
         self._tele_pushed = {}
 
-        if plex == None:
+        if plex is None:
             plex = s_socket.Plex()
 
         self._tele_plex = plex
@@ -247,7 +247,7 @@ class Proxy(s_eventbus.EventBus):
         # obj name is path minus leading "/"
         self._tele_name = relay.link[1].get('path')[1:]
 
-        if sock == None:
+        if sock is None:
             sock = self._tele_relay.connect()
 
         self._initTeleSock(sock=sock)
@@ -269,7 +269,7 @@ class Proxy(s_eventbus.EventBus):
     def _onTeleYieldItem(self, mesg):
         iden = mesg[1].get('iden')
         que = self._tele_yields.get(iden)
-        if que == None:
+        if que is None:
             self._txTeleSock('tele:yield:fini', iden=iden)
             return
 
@@ -278,7 +278,7 @@ class Proxy(s_eventbus.EventBus):
     def _onTeleYieldFini(self, mesg):
         iden = mesg[1].get('iden')
         que = self._tele_yields.get(iden)
-        if que != None:
+        if que is not None:
             que.done()
 
     def _raw_on(self, name, func):
@@ -408,12 +408,12 @@ class Proxy(s_eventbus.EventBus):
         # which continues to consume events until a job
         # has been completed.
         maxtime = None
-        if timeout != None:
+        if timeout is not None:
             maxtime = time.time() + timeout
 
         while not job[1].get('done'):
 
-            if maxtime != None and time.time() >= maxtime:
+            if maxtime is not None and time.time() >= maxtime:
                 raise HitMaxTime()
 
             mesg = self._tele_q.get()
@@ -421,7 +421,7 @@ class Proxy(s_eventbus.EventBus):
 
     def _initTeleSock(self, sock=None):
 
-        if sock == None:
+        if sock is None:
             sock = self._tele_relay.connect()
 
         # generated on the socket by the multiplexor ( and queued )
@@ -478,12 +478,12 @@ class Proxy(s_eventbus.EventBus):
         try:
 
             item = self._tele_pushed.get(name)
-            if item == None:
+            if item is None:
                 return self._txTeleSock('tele:retn', err='NoSuchObj', errmsg=name, **retinfo)
 
             meth, args, kwargs = task
             func = getattr(item, meth, None)
-            if func == None:
+            if func is None:
                 return self._txTeleSock('tele:retn', err='NoSuchMeth', errmsg=meth, **retinfo)
 
             self._txTeleSock('tele:retn', ret=func(*args, **kwargs), **retinfo)
@@ -548,14 +548,14 @@ class Proxy(s_eventbus.EventBus):
         '''
         msginfo['sid'] = self._tele_sid
         sock = self._getTeleSock()
-        if sock != None:
+        if sock is not None:
             sock.tx((msg, msginfo))
 
     def _onProxyFini(self):
 
         [que.fini() for que in self._tele_yields.values()]
 
-        if self._tele_sock != None:
+        if self._tele_sock is not None:
             self._tele_sock.fini()
 
         self._tele_boss.fini()
@@ -590,7 +590,7 @@ def teleSynAck(sock, name=None, sid=None):
 
     synack = sock.get('tele:synack')
 
-    if synack == None:
+    if synack is None:
 
         opts = {'sock:can:gzip': 1}
         info = {
@@ -642,7 +642,7 @@ def getClientSides(item):
             continue
 
         path = s_reflect.getMethName(valu)
-        if path == None:
+        if path is None:
             continue
 
         retn[name] = path

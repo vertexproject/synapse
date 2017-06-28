@@ -52,7 +52,7 @@ class RstHelp:
 
 def main(argv, outp=None):
 
-    if outp == None:
+    if outp is None:
         outp = s_output.OutPut()
 
     pars = argparse.ArgumentParser(prog='autodoc', description=descr)
@@ -110,13 +110,13 @@ def main(argv, outp=None):
             ex = inst.get('ex')
             doc = inst.get('doc')
 
-            if doc != None:
+            if doc is not None:
                 rst.addLines(doc)
 
             bases = core.getTypeBases(name)
             rst.addLines('', 'Type Hierarchy: %s' % (' -> '.join(bases),), '')
 
-            if ex != None:
+            if ex is not None:
 
                 #valu = core.getTypeParse(name,ex)
                 #vrep = reprvalu(valu)
@@ -132,7 +132,7 @@ def main(argv, outp=None):
             if core.isSubType(name, 'str'):
 
                 regex = inst.get('regex')
-                if regex != None:
+                if regex is not None:
                     cons.append('- regex: %s' % (regex,))
 
                 lower = inst.get('lower')
@@ -140,29 +140,29 @@ def main(argv, outp=None):
                     xforms.append('- case: lower')
 
                 restrip = inst.get('restrip')
-                if restrip != None:
+                if restrip is not None:
                     xforms.append('- regex strip: %s' % (restrip,))
 
                 nullval = inst.get('nullval')
-                if nullval != None:
+                if nullval is not None:
                     cons.append('- null value: %s' % (nullval,))
 
             if core.isSubType(name, 'int'):
 
                 minval = inst.get('min')
-                if minval != None:
+                if minval is not None:
                     cons.append('- min value: %d (0x%x)' % (minval, minval))
 
                 maxval = inst.get('max')
-                if maxval != None:
+                if maxval is not None:
                     cons.append('- max value: %d (0x%x)' % (maxval, maxval))
 
                 ismin = inst.get('ismin')
-                if ismin != None:
+                if ismin is not None:
                     xforms.append('- is minimum: True')
 
                 ismax = inst.get('ismax')
-                if ismax != None:
+                if ismax is not None:
                     xforms.append('- is maximum: True')
 
             if core.isSubType(name, 'sepr'):
@@ -193,7 +193,7 @@ def main(argv, outp=None):
             rst.addHead('%s = <%s>' % (name, ftype), lvl=2)
 
             doc = core.getPropInfo(name, 'doc')
-            if doc != None:
+            if doc is not None:
                 rst.addLines(doc)
 
             rst.addLines('', 'Properties:', '')
@@ -209,7 +209,7 @@ def main(argv, outp=None):
                 pline = '\t- %s = <%s>' % (prop, ptype)
 
                 defval = pnfo.get('defval')
-                if defval != None:
+                if defval is not None:
                     pline += ' (default: %r)' % (defval,)
 
                 rst.addLines(pline)

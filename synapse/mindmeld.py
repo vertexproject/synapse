@@ -62,7 +62,7 @@ class MindMeld:
 
         '''
         byts = self.info['datfiles'].get(datpath)
-        if byts != None:
+        if byts is not None:
             return io.BytesIO(byts)
 
     def addModDef(self, moddef, dat=False, src=True):
@@ -95,7 +95,7 @@ class MindMeld:
     def _addModDef(self, moddef, dat=False, src=True):
         mods = self.info.get('modules')
 
-        if src and moddef[1].get('src') == None:
+        if src and moddef[1].get('src') is None:
             moddef[1]['src'] = s_moddef.getModDefSrc(moddef)
 
         # if asked, gather up dat file bytes
@@ -122,7 +122,7 @@ class MindMeld:
 
         '''
         moddef = s_moddef.getModDef(name)
-        if moddef == None:
+        if moddef is None:
             raise NoSuchMod(name=name)
 
         self.addModDef(moddef)
@@ -159,7 +159,7 @@ class MindMeld:
 
         '''
         if os.path.isfile(path):
-            if name == None:
+            if name is None:
                 name = os.path.basename(path).rsplit('.', 1)[0]
 
             with open(path, 'rb') as fd:
@@ -296,19 +296,19 @@ class MindMeld:
 
     def find_module(self, name, path=None):
         #print('FIND: %r %r' % (name,path))
-        if self.info['modules'].get(name) != None:
+        if self.info['modules'].get(name) is not None:
             return self
 
     def load_module(self, fullname):
         #print('LOAD: %r' % (fullname,))
         mod = sys.modules.get(fullname)
-        if mod != None:
+        if mod is not None:
             return mod
 
         try:
 
             moddef = self.info['modules'].get(fullname)
-            if moddef == None:
+            if moddef is None:
                 raise ImportError(fullname)
 
             modcode = None
@@ -320,11 +320,11 @@ class MindMeld:
 
             modsrc = moddef[1].get('src')
             # fall back on src if present
-            if modcode == None and modsrc:
+            if modcode is None and modsrc:
                 modcode = compile(modsrc)
 
             # still None? bail...
-            if modcode == None:
+            if modcode is None:
                 raise ImportError(fullname)
 
             mod = imp.new_module(fullname)

@@ -29,7 +29,7 @@ class Queue(EventBus):
     def __iter__(self):
         while not self.isfini:
             ret = self.get()
-            if ret == None:
+            if ret is None:
                 return
 
             yield ret
@@ -131,6 +131,6 @@ class Queue(EventBus):
 
         '''
         ret = self.slice(size, timeout=timeout)
-        while ret != None:
+        while ret is not None:
             yield ret
             ret = self.slice(size, timeout=timeout)

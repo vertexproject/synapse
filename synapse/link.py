@@ -44,7 +44,7 @@ def getLinkRelay(link):
     '''
     proto = link[0]
     ctor = protos.get(proto)
-    if ctor == None:
+    if ctor is None:
         raise NoSuchProto(proto)
     return ctor(link)
 
@@ -77,27 +77,27 @@ def chopLinkUrl(url):
     query = urlinfo.get('query', {})
 
     timeout = query.pop('timeout', None)
-    if timeout != None:
+    if timeout is not None:
         link[1]['timeout'] = float(timeout)
 
     poolmax = query.pop('poolmax', None)
-    if poolmax != None:
+    if poolmax is not None:
         link[1]['poolmax'] = int(poolmax)
 
     poolsize = query.pop('poolsize', None)
-    if poolsize != None:
+    if poolsize is not None:
         link[1]['poolsize'] = int(poolsize)
 
     rc4key = query.pop('rc4key', None)
-    if rc4key != None:
+    if rc4key is not None:
         link[1]['rc4key'] = rc4key.encode('utf8')
 
     zerosig = query.pop('zerosig', None)
-    if zerosig != None:
+    if zerosig is not None:
         link[1]['zerosig'] = True
 
     retry = query.pop('retry', None)
-    if retry != None:
+    if retry is not None:
         link[1]['retry'] = int(retry, 0)
 
     link[1].update(query)

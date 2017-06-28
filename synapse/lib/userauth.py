@@ -47,7 +47,7 @@ class Rules:
         '''
         ret = self.cache.get(perm)
 
-        if ret == None:
+        if ret is None:
             ret = False
             for rule in self.rules:
                 if fnmatch.fnmatch(perm, rule):
@@ -86,7 +86,7 @@ class UserAuth(EventBus):
         '''
         Add a user to the UserAuth cortex.
         '''
-        if self.users.get(user) != None:
+        if self.users.get(user) is not None:
             raise DupUser(user)
 
         usfo = self.core.formTufoByProp('syn:auth:user', user, **props)
@@ -195,7 +195,7 @@ class UserAuth(EventBus):
         '''
         Add a new role to the UserAuth cortex.
         '''
-        if self.roles.get(role) != None:
+        if self.roles.get(role) is not None:
             raise DupRole(role)
 
         rofo = self.core.formTufoByProp('syn:auth:role', role, **props)
@@ -268,13 +268,13 @@ class UserAuth(EventBus):
 
     def _reqUserTufo(self, user):
         usfo = self.users.get(user)
-        if usfo == None:
+        if usfo is None:
             raise NoSuchUser(user)
         return usfo
 
     def _reqRoleTufo(self, role):
         rofo = self.roles.get(role)
-        if rofo == None:
+        if rofo is None:
             raise NoSuchRole(role)
         return rofo
 
@@ -322,13 +322,13 @@ def amIAllowed(rule, onnone=False):
 
     '''
     auth = getSynAuth()
-    if auth == None:
+    if auth is None:
         return onnone
 
     # if we have an auth and user is None, deny.
     # ( it's probably a code / scope error )
     user = getSynUser()
-    if user == None:
+    if user is None:
         return False
 
     return auth.isUserAllowed(user, rule)

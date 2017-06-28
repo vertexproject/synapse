@@ -14,9 +14,9 @@ libc = s_thisplat.getLibC()
 
 ptrsize = s_thishost.get('ptrsize')
 # TODO figure out how to use windows mmap for this
-haspriv = getattr(mmap, 'MAP_PRIVATE', None) != None
-haspread = getattr(os, 'pread', None) != None
-hasremap = getattr(libc, 'mremap', None) != None
+haspriv = getattr(mmap, 'MAP_PRIVATE', None) is not None
+haspread = getattr(os, 'pread', None) is not None
+hasremap = getattr(libc, 'mremap', None) is not None
 
 def getAtomFile(fd, memok=True):
     '''

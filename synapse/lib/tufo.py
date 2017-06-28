@@ -32,7 +32,7 @@ def props(tufo, pref=None):
         # info = {'stype': 'duck', 'sound': 'quack'}
 
     '''
-    if pref == None:
+    if pref is None:
         pref = tufo[1].get('tufo:form')
 
     pref = '%s:' % (pref,)
@@ -70,7 +70,7 @@ def ival(tufo, name):
 
     '''
     minv = tufo[1].get('>' + name)
-    if minv == None:
+    if minv is None:
         return None
     return minv, tufo[1].get('<' + name)
 
@@ -113,7 +113,7 @@ def ephem(form, fval, **props):
     return (None, props)
 
 def tagged(tufo, tag):
-    return tufo[1].get('#' + tag) != None
+    return tufo[1].get('#' + tag) is not None
 
 def ndef(tufo):
     '''

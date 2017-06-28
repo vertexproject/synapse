@@ -78,14 +78,14 @@ if version < (3, 0, 0):
     def to_bytes(valu, size):
         fmt = fmts.get(size)
 
-        if fmt == None:
+        if fmt is None:
             raise Exception('to_bytes size not supported: %d' % (size,))
 
         return struct.pack(fmt, valu)
 
     def to_int(byts):
         fmt = fmts.get(len(byts))
-        if fmt == None:
+        if fmt is None:
             raise Exception('to_int size not supported: %d' % (len(byts),))
 
         return struct.unpack(fmt, byts)[0]

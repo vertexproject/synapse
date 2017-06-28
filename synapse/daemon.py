@@ -89,10 +89,10 @@ class DmonConf:
         '''
         item = self.locs.get(url)
 
-        if item == None:
+        if item is None:
             item = self.evalcache.get(url)
 
-        if item == None:
+        if item is None:
             item = s_telepath.evalurl(url, locs=self.locs)
             self.evalcache[url] = item
 
@@ -104,7 +104,7 @@ class DmonConf:
 
     def _addConfValu(self, conf, prop):
         valu = conf.get(prop)
-        if valu != None:
+        if valu is not None:
             self.setDmonConf(prop, valu)
 
     def setDmonConf(self, prop, valu):
@@ -139,7 +139,7 @@ class DmonConf:
         self.forkperm[name] = perm
 
         proc = self.forks.get(name)
-        if proc != None:
+        if proc is not None:
             proc.terminate()
 
     def loadDmonConf(self, conf):
@@ -199,13 +199,13 @@ class DmonConf:
             self._fireDmonFork(name, subconf)
 
         title = conf.get('title')
-        if title != None:
+        if title is not None:
             s_thisplat.setProcName('dmon: %s' % title)
 
         # handle explicit module load requests
         for name, info in conf.get('modules', ()):
             modu = s_dyndeps.getDynMod(name)
-            if modu == None:
+            if modu is None:
                 logger.warning('dmon mod not loaded: %s', name)
 
         # handle includes next
@@ -238,19 +238,19 @@ class DmonConf:
 
             # check for a ctor opt that wants us to load a config dict by name
             cfgname = copts.get('config')
-            if cfgname != None:
+            if cfgname is not None:
                 if not isinstance(item, s_config.Configable):
                     raise Exception('dmon ctor: %s does not support configs' % name)
 
                 opts = configs.get(cfgname)
-                if opts == None:
+                if opts is None:
                     raise NoSuchConf(name=cfgname)
 
                 item.setConfOpts(opts)
 
             # check for a ctor opt that wants us to "flatten" several configs in order
             cfgnames = copts.get('configs')
-            if cfgnames != None:
+            if cfgnames is not None:
 
                 if not isinstance(item, s_config.Configable):
                     raise Exception('dmon ctor: %s does not support configs' % name)
@@ -259,7 +259,7 @@ class DmonConf:
                 for cfgname in cfgnames:
 
                     cfgopts = configs.get(cfgname)
-                    if cfgopts == None:
+                    if cfgopts is None:
                         raise NoSuchConf(name=cfgname)
 
                     opts.update(cfgopts)
@@ -268,7 +268,7 @@ class DmonConf:
 
             # check for a match between config and ctor names
             opts = configs.get(name)
-            if opts != None:
+            if opts is not None:
                 item.setConfOpts(opts)
 
             self.fire('dmon:conf:ctor', name=name, item=item)
@@ -276,13 +276,13 @@ class DmonConf:
         for busname, svcruns in conf.get('services', ()):
 
             svcbus = self.dmoneval(busname)
-            if svcbus == None:
+            if svcbus is None:
                 raise NoSuchObj(name)
 
             for svcname, svcopts in svcruns:
 
                 item = self.locs.get(svcname)
-                if item == None:
+                if item is None:
                     raise NoSuchObj(svcname)
 
                 svcname = svcopts.get('name', svcname)
@@ -322,7 +322,7 @@ class OnHelp:
     def delOnInst(self, sock, iden):
 
         filts = self.ons.get(sock)
-        if filts == None:
+        if filts is None:
             return
 
         filts.pop(iden, None)
@@ -358,7 +358,7 @@ class Daemon(EventBus, DmonConf):
         self._dmon_links = []   # list of listen links
         self._dmon_yields = set()
 
-        if pool == None:
+        if pool is None:
             pool = s_threads.Pool(size=8, maxsize=-1)
 
         self.pool = pool
@@ -440,7 +440,7 @@ class Daemon(EventBus, DmonConf):
             asname = opts.get('name', name)
 
             item = self.locs.get(name)
-            if item == None:
+            if item is None:
                 raise NoSuchObj(name)
 
             # keeping as "onfini" for backward compat
@@ -450,7 +450,7 @@ class Daemon(EventBus, DmonConf):
 
         # process the sessions config info
         sessinfo = conf.get('sessions')
-        if sessinfo != None:
+        if sessinfo is not None:
             self._loadSessConf(sessinfo)
 
         # process a few daemon specific options
@@ -467,15 +467,15 @@ class Daemon(EventBus, DmonConf):
         curaname = info.get('curator')
 
         # If it's a local, go with it...
-        if curaname != None:
+        if curaname is not None:
             self.cura = self.dmoneval(curaname)
 
         maxtime = info.get('maxtime')
-        if maxtime != None:
+        if maxtime is not None:
             self.cura.setMaxTime(maxtime)
 
         savefile = info.get('savefile')
-        if savefile != None:
+        if savefile is not None:
             core = s_cortex.openurl('sqlite:///%s' % savefile)
             self.cura.setSessCore(core)
 
@@ -508,11 +508,11 @@ class Daemon(EventBus, DmonConf):
     def _onTeleRetnMesg(self, sock, mesg):
         # tele:retn - used to pump a job:done to a client
         suid = mesg[1].get('suid')
-        if suid == None:
+        if suid is None:
             return
 
         dest = self.socks.get(suid)
-        if dest == None:
+        if dest is None:
             return
 
         dest.tx(tufo('job:done', **mesg[1]))
@@ -546,7 +546,7 @@ class Daemon(EventBus, DmonConf):
     def _distSockMesg(self, sock, mesg):
 
         func = self.mesgfuncs.get(mesg[0])
-        if func == None:
+        if func is None:
             return
 
         try:
@@ -562,11 +562,11 @@ class Daemon(EventBus, DmonConf):
         Generate a sign info for the chal ( if any ) in mesg.
         '''
         chal = mesg[1].get('chal')
-        if chal == None:
+        if chal is None:
             return {}
 
         host = mesg[1].get('host')
-        if host == None:
+        if host is None:
             return {}
 
         return {}
@@ -598,10 +598,10 @@ class Daemon(EventBus, DmonConf):
         sess = None
 
         iden = mesg[1].get('sess')
-        if iden != None:
+        if iden is not None:
             sess = self.getSessByIden(iden)
 
-        if sess == None:
+        if sess is None:
             sess = self.getNewSess()
 
         ret = {
@@ -610,7 +610,7 @@ class Daemon(EventBus, DmonConf):
             'opts': {'sock:can:gzip': True},
         }
 
-        if name != None:
+        if name is not None:
             ret['csides'] = self.csides.get(name)
             ret['reflect'] = self.reflect.get(name)
 
@@ -626,7 +626,7 @@ class Daemon(EventBus, DmonConf):
     def _getOnHelp(self, name, evnt):
         okey = (name, evnt)
         onhelp = self._dmon_ons.get(okey)
-        if onhelp == None:
+        if onhelp is None:
             self._dmon_ons[okey] = onhelp = OnHelp()
             return onhelp, True
 
@@ -641,13 +641,13 @@ class Daemon(EventBus, DmonConf):
             name = mesg[1].get('name')
 
             item = self.shared.get(name)
-            if item == None:
+            if item is None:
                 raise NoSuchObj(name=name)
 
             user = sock.get('syn:user')
 
             func = getattr(item, 'on', None)
-            if func == None:
+            if func is None:
                 return sock.tx(tufo('job:done', jid=jid, ret=False))
 
             self._reqUserAllowed(user, 'tele:call', name, 'on')
@@ -675,7 +675,7 @@ class Daemon(EventBus, DmonConf):
             iden = mesg[1].get('iden')
 
             item = self.shared.get(name)
-            if item == None:
+            if item is None:
                 raise NoSuchObj(name=name)
 
             onhelp, new = self._getOnHelp(name, evnt)
@@ -693,11 +693,11 @@ class Daemon(EventBus, DmonConf):
             raise NoSuchRule(user=user, perm=perm)
 
     def _isUserAllowed(self, user, *perms):
-        if self.auth == None:
+        if self.auth is None:
             return True
 
         # If they have no user raise
-        if user == None:
+        if user is None:
             raise NoAuthUser()
 
         perm = ':'.join(perms)
@@ -722,10 +722,10 @@ class Daemon(EventBus, DmonConf):
                 name = mesg[1].get('name')
 
                 item = self.shared.get(name)
-                if item == None:
+                if item is None:
                     # is it a pushed object?
                     pushsock = self.pushed.get(name)
-                    if pushsock != None:
+                    if pushsock is not None:
                         # pass along how to reply
                         mesg[1]['suid'] = sock.iden
                         return pushsock.tx(mesg)
@@ -737,7 +737,7 @@ class Daemon(EventBus, DmonConf):
                 self._reqUserAllowed(user, 'tele:call', name, meth)
 
                 func = getattr(item, meth, None)
-                if func == None:
+                if func is None:
                     raise NoSuchMeth(meth)
 
                 if getattr(func, '_tele_clientside', False):

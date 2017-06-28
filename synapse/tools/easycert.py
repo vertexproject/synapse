@@ -16,7 +16,7 @@ Command line tool to generate simple x509 certs
 
 def main(argv, outp=None):
 
-    if outp == None:
+    if outp is None:
         outp = s_output.OutPut()
 
     pars = argparse.ArgumentParser(prog='easycert', description=descr)
@@ -37,12 +37,12 @@ def main(argv, outp=None):
 
         if opts.sign_csr:
 
-            if opts.signas == None:
+            if opts.signas is None:
                 outp.printf('--sign-csr requires --signas')
                 return -1
 
             xcsr = cdir._loadCsrPath(opts.name)
-            if xcsr == None:
+            if xcsr is None:
                 outp.printf('csr not found: %s' % (opts.name,))
                 return -1
 

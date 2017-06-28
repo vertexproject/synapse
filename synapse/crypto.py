@@ -24,7 +24,7 @@ class Rc4Xform(s_socket.SockXform):
             sock._raw_sendall(txnonce)
 
             rxnonce = sock._raw_recvall(16)
-            if rxnonce == None:
+            if rxnonce is None:
                 return
 
             txkey = hashlib.sha256(txnonce + self.rc4key).digest()

@@ -202,7 +202,7 @@ class Socket(EventBus):
         Transmit a mesg tufo ( type, info ) via the socket using msgpack.
         If present this API is safe for use with a socket in a Plex().
         '''
-        if self.plex != None:
+        if self.plex is not None:
             return self.plex._txSockMesg(self, mesg)
 
         try:
@@ -240,7 +240,7 @@ class Socket(EventBus):
 
         byts = self.recv(102400)
         # special case for non-blocking recv with no data ready
-        if byts == None:
+        if byts is None:
             return
 
         try:
@@ -287,7 +287,7 @@ class Socket(EventBus):
         sock = Socket(sock, accept=True)
 
         relay = self.get('relay')
-        if relay != None:
+        if relay is not None:
             relay._prepLinkSock(sock)
 
         self.fire('link:sock:accept', sock=sock)
@@ -379,7 +379,7 @@ class Plex(EventBus):
 
     def _popPlexSock(self, iden):
         sock = self._plex_socks.pop(iden, None)
-        if sock == None:
+        if sock is None:
             return
 
         # try/wrap these because list has no discard()
@@ -441,7 +441,7 @@ class Plex(EventBus):
         with self._plex_lock:
 
             # we have no backlog!
-            if sock.txbuf == None:
+            if sock.txbuf is None:
 
                 byts = sock._tx_xform(byts)
 
@@ -542,7 +542,7 @@ class Plex(EventBus):
                     # if he's a listen sock... accept()
                     if rxsock.get('listen'):
                         connsock, connaddr = rxsock.accept()
-                        if connsock != None:
+                        if connsock is not None:
                             rxsock.fire('link:sock:init', sock=connsock)
 
                         continue

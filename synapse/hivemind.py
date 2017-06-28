@@ -84,7 +84,7 @@ class Queen(EventBus):
 
     def fireHiveFini(self, iden):
         hive = self.hives.pop(iden, None)
-        if hive == None:
+        if hive is None:
             return
 
         self.fire('hive:hive:fini', hive=hive)
@@ -93,7 +93,7 @@ class Queen(EventBus):
 
     def fireDroneFini(self, iden):
         drone = self.drones.pop(iden, None)
-        if drone == None:
+        if drone is None:
             return
 
         self.fire('hive:drone:fini', drone=drone)
@@ -102,15 +102,15 @@ class Queen(EventBus):
 
     def fireSlotFini(self, iden):
         slot = self.slots.pop(iden, None)
-        if slot == None:
+        if slot is None:
             return
 
         hive = slot[1].get('hive')
-        if hive != None:
+        if hive is not None:
             self.tell(hive, 'hive:slot:fini', slot=slot)
 
         drone = slot[1].get('drone')
-        if drone != None:
+        if drone is not None:
             self.tell(drone, 'hive:slot:fini', slot=slot)
 
     def getWorkSlot(self, hive):
@@ -130,7 +130,7 @@ class Queen(EventBus):
 
                 iden = self.slotq.popleft()
                 slot = self.slots.get(iden)
-                if slot == None:
+                if slot is None:
                     continue
 
                 slot[1]['hive'] = hive
@@ -180,7 +180,7 @@ class Hive(s_async.Boss):
         self.onfini(self._tellQueenFini)
 
     def genHiveMeld(self):
-        if self.meld == None:
+        if self.meld is None:
             self.meld = s_mindmeld.MindMeld()
         return self.meld
 
@@ -197,7 +197,7 @@ class Hive(s_async.Boss):
     def _getWorkSlot(self, timeout=None):
         #FIXME TIMEOUT
         slot = self.queen.getWorkSlot(self.iden)
-        while slot == None:
+        while slot is None:
             # FIXME wait on event from queen?
             time.sleep(2)
             slot = self.queen.getWorkSlot(self.iden)
@@ -217,7 +217,7 @@ class Hive(s_async.Boss):
             'timeout': timeout,
         }
 
-        if self.meld != None:
+        if self.meld is not None:
             jobinfo['meld'] = self.meld.getMeldDict()
 
         job = self.initJob(**jobinfo)
@@ -274,7 +274,7 @@ class Drone(EventBus):
         sloc = self.slocs.pop(iden, None)
 
         proc = sloc.get('proc')
-        if proc != None:
+        if proc is not None:
             proc.terminate()
 
         # add a new work slot for the lost one
@@ -320,7 +320,7 @@ class Drone(EventBus):
             timeout = job[1].get('timeout')
             proc.join(timeout)
 
-            if proc.exitcode == None:
+            if proc.exitcode is None:
                 proc.terminate()
 
             sloc['proc'] = None
@@ -334,7 +334,7 @@ def subtask(job):
     slot = job[1].get('slot')
 
     meld = job[1].get('meld')
-    if meld != None:
+    if meld is not None:
         s_mindmeld.loadMindMeld(meld)
 
     hive = slot[1].get('hive')

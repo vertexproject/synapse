@@ -93,7 +93,7 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         self._syn_mrevs = collections.defaultdict(list)
         for name, meth in s_reflect.getItemLocals(self):
             mrev = getattr(meth, '_syn_mrev', None)
-            if mrev == None:
+            if mrev is None:
                 continue
 
             name, vers = mrev

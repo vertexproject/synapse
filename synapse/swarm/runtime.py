@@ -37,7 +37,7 @@ class Runtime(s_storm.Runtime, EventBus):
 
     def _getTufosByFrom(self, by, prop, valu=None, limit=None, fromtag=None):
 
-        if fromtag == None:
+        if fromtag is None:
             fromtag = self.deftag
 
         ret = []
@@ -87,7 +87,7 @@ class Runtime(s_storm.Runtime, EventBus):
         fromtag = opts.get('from')
 
         # use the more optimal "in" mechanism once we have the pivot vals
-        vals = list({t[1].get(srcp) for t in query.take() if t != None})
+        vals = list({t[1].get(srcp) for t in query.take() if t is not None})
         for tufo in self._getTufosByFrom('in', dstp, vals, limit=limit, fromtag=fromtag):
             query.add(tufo)
 
@@ -106,7 +106,7 @@ class Runtime(s_storm.Runtime, EventBus):
         fromtag = opts.get('from')
 
         # use the more optimal "in" mechanism once we have the pivot vals
-        vals = list({t[1].get(srcp) for t in query.data() if t != None})
+        vals = list({t[1].get(srcp) for t in query.data() if t is not None})
         for tufo in self._getTufosByFrom('in', dstp, vals, limit=limit, fromtag=fromtag):
             query.add(tufo)
 

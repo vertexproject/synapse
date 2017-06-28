@@ -27,7 +27,7 @@ def now():
     return int(time.time() * 1000)
 
 def guid(valu=None):
-    if valu == None:
+    if valu is None:
         return hexlify(os.urandom(16)).decode('utf8')
     # Generate a "stable" guid from the given item
     byts = msgenpack(valu)
@@ -108,7 +108,7 @@ def reqlines(*paths, **opts):
         bufr = fd.read(10000000)
         while bufr:
 
-            if rem != None:
+            if rem is not None:
                 bufr = rem + bufr
 
             lines = bufr.split('\n')
@@ -119,7 +119,7 @@ def reqlines(*paths, **opts):
 
             bufr = fd.read(10000000)
 
-            if rem != None:
+            if rem is not None:
                 bufr = rem + bufr
 
 def getfile(*paths, **opts):
@@ -131,7 +131,7 @@ def getfile(*paths, **opts):
 
 def getbytes(*paths, **opts):
     fd = getfile(*paths, **opts)
-    if fd == None:
+    if fd is None:
         return None
 
     with fd:

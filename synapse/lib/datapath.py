@@ -46,12 +46,12 @@ class DataElem:
         for step in self._parse_path(path):
 
             spec = base._d_special.get(step)
-            if spec != None:
+            if spec is not None:
                 base = spec
                 continue
 
             base = base._elem_step(step)
-            if base == None:
+            if base is None:
                 return None
 
         return base
@@ -64,7 +64,7 @@ class DataElem:
             return self._elem_valu()
 
         elem = self.step(path)
-        if elem == None:
+        if elem is None:
             return None
 
         return elem._elem_valu()
@@ -244,7 +244,7 @@ class XmlDataElem(DataElem):
         # attributes and sub elements.
         if step.startswith('$'):
             item = self._d_item.attrib.get(step[1:])
-            if item == None:
+            if item is None:
                 return None
 
             return initelem(item, name=step, parent=self)
@@ -254,7 +254,7 @@ class XmlDataElem(DataElem):
                 return XmlDataElem(xmli, name=step, parent=self)
 
         item = self._d_item.attrib.get(step)
-        if item != None:
+        if item is not None:
             return initelem(item, name=step, parent=self)
 
     def _elem_valu(self):

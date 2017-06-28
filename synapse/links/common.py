@@ -34,7 +34,7 @@ class LinkRelay:
         sock.set('link', self.link)
 
         timeout = self.link[1].get('timeout')
-        if timeout != None:
+        if timeout is not None:
             sock.settimeout(timeout)
 
         if sock.get('listen'):
@@ -42,7 +42,7 @@ class LinkRelay:
 
         rc4key = self.link[1].get('rc4key', b'')
         zerosig = self.link[1].get('zerosig')
-        if rc4key or zerosig != None:
+        if rc4key or zerosig is not None:
             xform = s_crypto.Rc4Xform(rc4key)
             sock.addSockXform(xform)
 

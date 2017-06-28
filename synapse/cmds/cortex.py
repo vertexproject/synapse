@@ -30,7 +30,7 @@ class AskCmd(s_cli.Cmd):
     def runCmdOpts(self, opts):
 
         ques = opts.get('query')
-        if ques == None:
+        if ques is None:
             self.printf(self.__doc__)
             return
 
@@ -162,7 +162,7 @@ class NextSeqCmd(s_cli.Cmd):
 
     def runCmdOpts(self, opts):
         name = opts.get('name')
-        if name == None:
+        if name is None:
             self.printf(self.__doc__)
             return
 

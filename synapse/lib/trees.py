@@ -88,7 +88,7 @@ class IntervalTree:
 
         node = self.root
 
-        while node != None:
+        while node is not None:
 
             # heading left?
             if valu < node[0]:

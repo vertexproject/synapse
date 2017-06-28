@@ -71,7 +71,7 @@ class Heap(s_eventbus.EventBus):
         self.fd = fd
         self.atom = opts.get('atom')
 
-        if self.atom == None:
+        if self.atom is None:
             self.atom = s_atomfile.getAtomFile(fd)
 
         self.used = s_compat.to_int(self.readoff(32, 8))

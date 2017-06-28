@@ -44,7 +44,7 @@ class Cache(EventBus):
 
         self.onfini(self._onCacheFini)
 
-        if maxtime != None:
+        if maxtime is not None:
             self.setMaxTime(maxtime)
 
     def setOnMiss(self, onmiss):
@@ -64,7 +64,7 @@ class Cache(EventBus):
     def setMaxTime(self, valu):
         oldm = self.maxtime
         self.maxtime = valu
-        if oldm == None:
+        if oldm is None:
             self._checkCacheTimes()
 
     def _checkCacheTimes(self):
@@ -73,7 +73,7 @@ class Cache(EventBus):
             hits = [k for (k, t) in self.lasthit.items() if t < mintime]
             [self.pop(k) for k in hits]
         finally:
-            if not self.isfini and self.maxtime != None:
+            if not self.isfini and self.maxtime is not None:
                 ival = self.maxtime / 10.0
                 self.schevt = self.sched.insec(ival, self._checkCacheTimes)
 
@@ -99,7 +99,7 @@ class Cache(EventBus):
             self.lasthit[key] = time.time()
             return val
 
-        if self.onmiss == None:
+        if self.onmiss is None:
             return None
 
         with self.cachelock:
@@ -185,7 +185,7 @@ class Cache(EventBus):
         for key in self.keys():
             self.pop(key)
 
-        if self.schevt != None:
+        if self.schevt is not None:
             self.sched.cancel(self.schevt)
 
 class FixedCache(EventBus):
@@ -263,7 +263,7 @@ class TufoCache(Cache):
         tufo0 = event[1].get('val')
 
         tufo1 = self.core.getTufoByIden(iden)
-        if tufo1 == None:
+        if tufo1 is None:
             return
 
         self.core.setTufoProps(tufo1, **tufo0[1])
@@ -314,14 +314,14 @@ class OnDem(collections.defaultdict):
         for name in dir(self):
             attr = getattr(self, name, None)
             keyn = getattr(attr, '_keycache_name', None)
-            if keyn == None:
+            if keyn is None:
                 continue
 
             self._key_funcs[keyn] = attr
 
     def __missing__(self, name):
         func = self._key_funcs.get(name)
-        if func == None:
+        if func is None:
             raise KeyError(name)
 
         valu = func()

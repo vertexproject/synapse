@@ -32,7 +32,7 @@ def compute_hashes(fp):
 
 
 def main(argv, outp=None):
-    if outp == None:  # pragma: no cover
+    if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
 
     p = makeargpaser()

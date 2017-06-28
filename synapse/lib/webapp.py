@@ -36,10 +36,10 @@ class BaseHand(tornado.web.RequestHandler):
         func = self.globs.get('func')
 
         perm = self.globs.get('perm')
-        if perm != None:
+        if perm is not None:
 
             iden = self.get_cookie('synsess', None)
-            if iden == None:
+            if iden is None:
                 # FIXME redirect to login? Other status?
                 self.sendHttpResp(403, {}, 'Forbidden')
                 return
@@ -66,7 +66,7 @@ class BaseHand(tornado.web.RequestHandler):
         """Format job results into a standard response envelope."""
         ret = {'status': 'ok'}
         err = job[1].get('err')
-        if err != None:
+        if err is not None:
             ret['status'] = 'err'
             ret['err'] = job[1].get('err')
         else:
@@ -273,11 +273,11 @@ class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf):
             name, meth = methname.split('.', 1)
 
             item = self.locs.get(name)
-            if item == None:
+            if item is None:
                 raise NoSuchObj(name)
 
             func = getattr(item, meth, None)
-            if func == None:
+            if func is None:
                 raise NoSuchMeth(meth)
 
             self.addApiPath(path, func)

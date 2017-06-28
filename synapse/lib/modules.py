@@ -42,7 +42,7 @@ def call(name, *args, **kwargs):
     ret = []
     for sname, smod in modlist:
         func = getattr(smod, name, None)
-        if func == None:
+        if func is None:
             continue
 
         try:
@@ -76,7 +76,7 @@ def load(name):
         The loaded module is returned.
     '''
     smod = synmods.get(name)
-    if smod == None:
+    if smod is None:
         logger.info('loading syn mod: %s', name)
         smod = s_dyndeps.tryDynMod(name)
         synmods[name] = smod
@@ -114,7 +114,7 @@ def load_ctor(name, opts):
     import synapse.lib.module as s_module
     modpath, ctor = name.rsplit('.', 1)
     smod = ctors.get(name)
-    if smod == None:
+    if smod is None:
         smod = s_dyndeps.tryDynMod(modpath)
         cls = getattr(smod, ctor, None)
         if cls is None:

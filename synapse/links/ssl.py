@@ -22,22 +22,22 @@ class SslRelay(LinkRelay):
         host = self.link[1].get('host')
         port = self.link[1].get('port')
 
-        if host == None:
+        if host is None:
             raise PropNotFound('host')
 
-        if port == None:
+        if port is None:
             raise PropNotFound('port')
 
         cafile = self.link[1].get('cafile')
-        if cafile != None:
+        if cafile is not None:
             self.link[1]['cafile'] = reqpath(cafile)
 
         keyfile = self.link[1].get('keyfile')
-        if keyfile != None:
+        if keyfile is not None:
             self.link[1]['keyfile'] = reqpath(keyfile)
 
         certfile = self.link[1].get('certfile')
-        if certfile != None:
+        if certfile is not None:
             self.link[1]['certfile'] = reqpath(certfile)
 
     def _listen(self):
@@ -58,17 +58,17 @@ class SslRelay(LinkRelay):
         hostname = socket.gethostname()
 
         cafile = self.link[1].get('cafile')
-        if cafile == None:
+        if cafile is None:
             caname = self.link[1].get('ca')
-            if caname != None:
+            if caname is not None:
                 cafile = cdir.getCaCertPath(caname)
 
         certfile = self.link[1].get('certfile')
-        if certfile == None:
+        if certfile is None:
             certfile = cdir.getHostCertPath(hostname)
 
         keyfile = self.link[1].get('keyfile')
-        if keyfile == None:
+        if keyfile is None:
             keyfile = cdir.getHostKeyPath(hostname)
 
         sslopts = dict(server_side=True,
@@ -81,7 +81,7 @@ class SslRelay(LinkRelay):
                   )
 
         # if they give a cafile to the server, require client certs
-        if cafile != None:
+        if cafile is not None:
             sslopts['cert_reqs'] = ssl.CERT_REQUIRED
 
         wrap = ssl.wrap_socket(sock, **sslopts)
@@ -130,7 +130,7 @@ class SslRelay(LinkRelay):
             sock.set('preread', False)
 
             user = self._getCommonName(sock)
-            if user != None:
+            if user is not None:
                 sock.set('syn:user', user)
 
         except ssl.SSLError as e:
@@ -151,7 +151,7 @@ class SslRelay(LinkRelay):
             return None
 
         subj = cert.get('subject')
-        if subj == None:
+        if subj is None:
             return None
 
         try:
@@ -178,7 +178,7 @@ class SslRelay(LinkRelay):
         cdir = s_certdir.CertDir(path=certdir)
         certuser = cdir.getUserForHost(user, host)
 
-        if certuser != None:
+        if certuser is not None:
             cafile = cdir.getUserCaPath(certuser)
             keyfile = cdir.getUserKeyPath(certuser)
             certfile = cdir.getUserCertPath(certuser)

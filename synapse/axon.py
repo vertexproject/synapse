@@ -86,7 +86,7 @@ class AxonHost(s_eventbus.EventBus):
 
         opts = dict(self.opts)
         jsopts = jsload(axondir, 'axon.opts')
-        if jsopts != None:
+        if jsopts is not None:
             opts.update(jsopts)
 
         self.axons[iden] = Axon(axondir, **opts)
@@ -175,7 +175,7 @@ class AxonMixin:
         iden, props = hset.eatfd(fd)
 
         blob = self.byiden(iden)
-        if blob != None:
+        if blob is not None:
             return blob
 
         fd.seek(0)
@@ -204,7 +204,7 @@ class AxonMixin:
         hset.update(byts)
         iden, props = hset.guid()
         blob = self.byiden(iden)
-        if blob != None:
+        if blob is not None:
             return blob
 
         sess = self.alloc(props.get('size'))
@@ -244,14 +244,14 @@ class AxonCluster(AxonMixin):
     def _getSvcAxon(self, iden):
 
         svcfo = self.svcprox.getSynSvc(iden)
-        if svcfo == None:
+        if svcfo is None:
             return None
 
         axon = self.axons.get(iden)
-        if axon == None:
+        if axon is None:
 
             link = svcfo[1].get('link')
-            if link == None:
+            if link is None:
                 return None
 
             def onfini():
@@ -292,7 +292,7 @@ class AxonCluster(AxonMixin):
             try:
 
                 axon = self._getSvcAxon(svcfo[0])
-                if axon == None:
+                if axon is None:
                     continue
 
                 [b[1].__setitem__('.axon', svcfo[0]) for b in blobs]
@@ -310,7 +310,7 @@ class AxonCluster(AxonMixin):
         iden = blob[1].get('.axon')
         axon = self._getSvcAxon(iden)
 
-        if axon == None:
+        if axon is None:
             valu = blob[1].get('axon:blob:sha256')
             for byts in self.bytes('sha256', valu):
                 yield byts
@@ -328,7 +328,7 @@ class AxonCluster(AxonMixin):
                 continue
 
             axon = self._getSvcAxon(svcfo[0])
-            if axon == None:
+            if axon is None:
                 continue
 
             for byts in axon.bytes(htype, hvalu):
@@ -361,12 +361,12 @@ class AxonCluster(AxonMixin):
 
     def chunk(self, iden, byts):
         info = self.saves.get(iden)
-        if info == None:
+        if info is None:
             NoSuchIden(iden)
 
         axon = info.get('axon')
         retn = axon.chunk(iden, byts)
-        if retn != None:
+        if retn is not None:
             self.saves.pop(iden, None)
 
         return retn
@@ -383,7 +383,7 @@ class AxonCluster(AxonMixin):
                 continue
 
             axon = self._getSvcAxon(svcfo[0])
-            if axon == None:
+            if axon is None:
                 continue
 
             wraxons.append(axon)
@@ -588,7 +588,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
             try:
 
                 axfo = self._findAxonClone()
-                if axfo == None:
+                if axfo is None:
                     time.sleep(1)
                     continue
 
@@ -652,7 +652,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
                     svcfo = self.axonbus.getSynSvcByName(iden)
 
                     link = svcfo[1].get('link')
-                    if link == None:
+                    if link is None:
                         raise Exception('NoLinkFor: %s' % (iden,))
 
                     with s_telepath.openlink(link) as axon:
@@ -772,7 +772,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
     def _onAxonFini(self):
         # join clone threads
         [thr.join(timeout=2) for thr in list(self.axthrs)]
-        if self.axcthr != None:
+        if self.axcthr is not None:
             self.axcthr.join(timeout=2)
 
     def alloc(self, size):
@@ -803,7 +803,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
         '''
         info = self.inprog.get(iden)
 
-        if info == None:
+        if info is None:
             raise NoSuchIden(iden)
 
         cur = info.get('cur')
@@ -838,7 +838,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
             tufo = self.core.getTufoByProp('axon:blob', hvalu)
         else:
             tufo = self.core.getTufoByProp('axon:blob:%s' % htype, hvalu)
-        return tufo != None
+        return tufo is not None
 
     def byiden(self, iden):
         return self.core.getTufoByProp('axon:blob', iden)
@@ -865,7 +865,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
         attr = Axon._fs_new_file_attrs(ppath, mode)
         filefo = self.core.formTufoByProp('axon:path', path, **attr)
 
-        if filefo[1].get('.new') and dirn != None:
+        if filefo[1].get('.new') and dirn is not None:
             self.core.incTufoProp(dirn, 'st_nlink', 1)
 
         return 0
@@ -925,13 +925,13 @@ class Axon(s_eventbus.EventBus, AxonMixin):
         if tufo and tufo[1].get('.new') != True:
             raise FileExists()
 
-        if dirn != None:
+        if dirn is not None:
             self.core.incTufoProp(dirn, 'st_nlink', 1)
 
     def _getDirNode(self, path):
 
         node = self.core.getTufoByProp('axon:path', path)
-        if node == None:
+        if node is None:
             raise NoSuchDir()
 
         if not Axon._fs_isdir(node[1].get('axon:path:st_mode')):
@@ -1169,7 +1169,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
         attrs = {}
         for attr in _fs_attrs:
             val = tufo[1].get('axon:path:%s' % attr)
-            if val != None:
+            if val is not None:
                 attrs[attr] = val
 
         return attrs
@@ -1217,7 +1217,7 @@ def _ctor_axon(opts):
     A function to allow terse/clean construction of an axon from a dmon ctor.
     '''
     datadir = opts.pop('datadir', None)
-    if datadir == None:
+    if datadir is None:
         raise BadInfoValu(name='datadir', valu=None, mesg='axon ctor requires "datadir":<path> option')
 
     return Axon(datadir, **opts)

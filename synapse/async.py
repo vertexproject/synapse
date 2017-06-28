@@ -30,10 +30,10 @@ def jobret(job):
 
     # populate errinfo into SynErr
     info = job[1].get('errinfo')
-    if info == None:
+    if info is None:
         info = {}
 
-    if err != None:
+    if err is not None:
         if err != 'NameErr':
             try:
                 info = job[1].get('errinfo', {})
@@ -54,7 +54,7 @@ def jobDoneMesg(job):
 
     '''
     info = {'jid': job[0], 'ret': job[1].get('ret')}
-    if job[1].get('err') != None:
+    if job[1].get('err') is not None:
         info['err'] = job[1].get('err'),
         info['errmsg'] = job[1].get('errmsg'),
         info['errfile'] = job[1].get('errfile'),
@@ -119,11 +119,11 @@ class Boss(EventBus):
     def _onJobDone(self, event):
         # used to *trigger* job done processing
         jid = event[1].get('jid')
-        if jid == None:
+        if jid is None:
             return
 
         job = self._boss_jobs.get(jid)
-        if job == None:
+        if job is None:
             return
 
         job[1].update(event[1])
@@ -180,7 +180,7 @@ class Boss(EventBus):
         if self.isfini:
             raise IsFini()
 
-        if jid == None:
+        if jid is None:
             jid = guid()
 
         info['done'] = False
@@ -199,12 +199,12 @@ class Boss(EventBus):
 
         self._addJobTime(job, 'init')
 
-        if self.pool != None:
+        if self.pool is not None:
             self.pool.call(self._runJob, job)
 
         # if we have a timeout, setup a sched callback
         timeout = job[1].get('timeout')
-        if timeout != None:
+        if timeout is not None:
 
             def hitmax():
                 joblocal.pop('schedevt', None)
@@ -235,7 +235,7 @@ class Boss(EventBus):
         Actually execute the given job with the caller thread.
         '''
         task = job[1].get('task')
-        if task == None:
+        if task is None:
             # TODO This attribute is not set, a bad tufo
             # sent to _runJob will have unexpected behavior.
             self.setJobErr(job[0], 'NoJobTask')
@@ -260,15 +260,15 @@ class Boss(EventBus):
             joblocal = self.joblocal.pop(jid, None)
 
             schedevt = joblocal.get('schedevt')
-            if schedevt != None:
+            if schedevt is not None:
                 self.sched.cancel(schedevt)
 
             evt = joblocal.get('waitevt')
-            if evt != None:
+            if evt is not None:
                 evt.set()
 
             ondone = joblocal.get('ondone')
-            if ondone != None:
+            if ondone is not None:
                 try:
                     ondone(job)
                 except Exception as e:
@@ -285,17 +285,17 @@ class Boss(EventBus):
         '''
         s_threads.iWillWait()
 
-        if timeout == None:
+        if timeout is None:
             timeout = s_scope.get('syntimeout')
 
         with self.joblock:
             job = self._boss_jobs.get(jid)
-            if job == None:
+            if job is None:
                 return True
 
             joblocal = self.joblocal.get(jid)
             evt = joblocal.get('waitevt')
-            if evt == None:
+            if evt is None:
                 evt = threading.Event()
                 joblocal['waitevt'] = evt
 

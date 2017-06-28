@@ -34,7 +34,7 @@ def on(name, **filt):
     '''
     def wrap(f):
         ons = getattr(f, '_ebus_ons', None)
-        if ons == None:
+        if ons is None:
             ons = f._ebus_ons = []
         ons.append((name, filt))
         return f
@@ -165,7 +165,7 @@ class EventBus(object):
 
         '''
         funcs = self._syn_funcs.get(name)
-        if funcs != None:
+        if funcs is not None:
 
             for i in range(len(funcs)):
 
@@ -303,7 +303,7 @@ class EventBus(object):
 
         '''
         for e in gtor:
-            if e == None:
+            if e is None:
                 break
 
             self.dist(e)

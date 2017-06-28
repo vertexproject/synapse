@@ -56,17 +56,17 @@ def _fmt_csv(fd, gest):
     dial = gest.get('format:csv:dialect')
     delm = gest.get('format:csv:delimiter')
 
-    if dial != None:
+    if dial is not None:
         opts['dialect'] = dial
 
-    if delm != None:
+    if delm is not None:
         opts['delimiter'] = delm
 
-    if quot != None:
+    if quot is not None:
         opts['quotechar'] = quot
 
     # do we need to strip a comment char?
-    if cmnt != None:
+    if cmnt is not None:
 
         # use this if we need to strip comments
         # (but avoid it otherwise for perf )
@@ -88,11 +88,11 @@ def _fmt_lines(fd, gest):
     cmnt = gest.get('format:lines:comment', '#')
 
     skipstr = gest.get('format:lines:skipre')
-    if skipstr != None:
+    if skipstr is not None:
         skipre = re.compile(skipstr)
 
     muststr = gest.get('format:lines:mustre')
-    if muststr != None:
+    if muststr is not None:
         mustre = re.compile(muststr)
 
     for line in fd:
@@ -108,10 +108,10 @@ def _fmt_lines(fd, gest):
         if lowr:
             line = line.lower()
 
-        if skipre != None and skipre.match(line) != None:
+        if skipre is not None and skipre.match(line) is not None:
             continue
 
-        if mustre != None and mustre.match(line) == None:
+        if mustre is not None and mustre.match(line) is None:
             continue
 
         yield line
@@ -180,11 +180,11 @@ def iterdata(fd, close_fd=True, **opts):
         opts.setdefault(opt, val)
 
     ncod = opts.get('encoding')
-    if ncod != None:
+    if ncod is not None:
         fd = codecs.getreader(ncod)(fd)
 
     fmtr = fmtyielders.get(fmt)
-    if fmtr == None:
+    if fmtr is None:
         raise NoSuchImpl(name=fmt, knowns=fmtyielders.keys())
 
     for item in fmtr(fd, opts):
@@ -214,12 +214,12 @@ class IngestApi:
     def _addDefFromTufo(self, tufo):
 
         name = tufo[1].get('syn:ingest')
-        if name == None:
+        if name is None:
             logger.warning('_addDefFromTufo syn:ingest == None')
             return
 
         text = tufo[1].get('syn:ingest:text')
-        if text == None:
+        if text is None:
             logger.warning('_addDefFromTufo syn:ingest:text == None')
             return
 
@@ -234,12 +234,12 @@ class IngestApi:
 
     def _onDelSynIngest(self, mesg):
         node = mesg[1].get('node')
-        if node == None:
+        if node is None:
             logger.warning('_onDelSynIngest node == None')
             return
 
         name = node[1].get('syn:ingest')
-        if name == None:
+        if name is None:
             logger.warning('_onDelSynIngest syn:ingest == None')
             return
 
@@ -280,7 +280,7 @@ class IngestApi:
 
         '''
         gest = self._gest_cache.get(name)
-        if gest == None:
+        if gest is None:
             raise NoSuchTufo(prop='syn:ingest', valu=name)
 
         gest.ingest(self._gest_core, data=data)
@@ -307,7 +307,7 @@ class Ingest(EventBus):
 
     def _re_compile(self, regex):
         ret = self._i_res.get(regex)
-        if ret == None:
+        if ret is None:
             self._i_res[regex] = ret = re.compile(regex)
         return ret
 
@@ -339,7 +339,7 @@ class Ingest(EventBus):
         Ingest the data from this definition into the specified cortex.
         '''
         scope = s_scope.Scope()
-        if data != None:
+        if data is not None:
             root = s_datapath.initelem(data)
             gest = self._i_info.get('ingest')
             self._ingDataInfo(core, root, gest, scope)
@@ -355,10 +355,10 @@ class Ingest(EventBus):
             scope.add('tags', *info.get('tags', ()))
 
             gest = info.get('ingest')
-            if gest == None:
+            if gest is None:
                 gest = self._i_info.get('ingest')
 
-            if gest == None:
+            if gest is None:
                 raise Exception('Ingest Info Not Found: %s' % (path,))
 
             for datasorc in self._iterDataSorc(path, info):
@@ -490,10 +490,10 @@ class Ingest(EventBus):
         '''
 
         vard = info.get('vars')
-        if vard != None:
+        if vard is not None:
             for varn, vnfo in vard:
                 valu = self._get_prop(core, data, vnfo, scope)
-                if valu != None:
+                if valu is not None:
                     scope.set(varn, valu)
 
         for tagv in info.get('tags', ()):
@@ -515,7 +515,7 @@ class Ingest(EventBus):
             self._ingMergScope(core, data, info, scope)
 
             cond = info.get('cond')
-            if cond != None and not self._isCondTrue(cond, scope):
+            if cond is not None and not self._isCondTrue(cond, scope):
                 return
 
             path = info.get('path')
@@ -523,7 +523,7 @@ class Ingest(EventBus):
             byts = data.valu(path)
 
             dcod = info.get('decode')
-            if dcod != None:
+            if dcod is not None:
                 byts = s_encoding.decode(dcod, byts)
 
             hset = s_hashset.HashSet()
@@ -532,7 +532,7 @@ class Ingest(EventBus):
             iden, props = hset.guid()
 
             mime = info.get('mime')
-            if mime != None:
+            if mime is not None:
                 props['mime'] = mime
 
             tufo = core.formTufoByProp('file:bytes', iden, **props)
@@ -557,15 +557,15 @@ class Ingest(EventBus):
                 self._ingMergScope(core, data, info, scope)
 
                 cond = info.get('cond')
-                if cond != None and not self._isCondTrue(cond, scope):
+                if cond is not None and not self._isCondTrue(cond, scope):
                     return
 
                 valu = self._get_prop(core, data, info, scope)
-                if valu == None:
+                if valu is None:
                     return
 
                 tufo = core.formTufoByProp(form, valu)
-                if tufo == None:
+                if tufo is None:
                     return
 
                 self.fire('gest:prog', act='form')
@@ -573,7 +573,7 @@ class Ingest(EventBus):
                 props = {}
                 for prop, pnfo in info.get('props', {}).items():
                     valu = self._get_prop(core, data, pnfo, scope)
-                    if valu == None:
+                    if valu is None:
                         continue
 
                     props[prop] = valu
@@ -603,7 +603,7 @@ class Ingest(EventBus):
             self._ingMergScope(core, data, info, scope)
 
             cond = info.get('cond')
-            if cond != None and not self._isCondTrue(cond, scope):
+            if cond is not None and not self._isCondTrue(cond, scope):
                 return
 
             self.fire('gest:prog', act='data')
@@ -634,15 +634,15 @@ class Ingest(EventBus):
     def _iter_prop(self, core, data, info, scope):
 
         cond = info.get('cond')
-        if cond != None and not self._isCondTrue(cond, scope):
+        if cond is not None and not self._isCondTrue(cond, scope):
             return
 
         path = info.get('iter')
 
-        if path == None:
+        if path is None:
 
             valu = self._get_prop(core, data, info, scope)
-            if valu != None:
+            if valu is not None:
                 yield valu
 
             return
@@ -653,59 +653,59 @@ class Ingest(EventBus):
 
                 self._ingMergScope(core, base, info, scope)
                 valu = self._get_prop(core, base, info, scope)
-                if valu == None:
+                if valu is None:
                     continue
 
                 yield valu
 
     def _getTmplVars(self, text):
         ret = self._tvar_cache.get(text)
-        if ret == None:
+        if ret is None:
             self._tvar_cache[text] = ret = self._tvar_regex.findall(text)
         return ret
 
     def _get_prop(self, core, base, info, scope):
 
         cond = info.get('cond')
-        if cond != None and not self._isCondTrue(cond, scope):
+        if cond is not None and not self._isCondTrue(cond, scope):
             return
 
         valu = info.get('value')
-        if valu != None:
+        if valu is not None:
             return valu
 
-        if valu == None:
+        if valu is None:
             varn = info.get('var')
-            if varn != None:
+            if varn is not None:
                 valu = scope.get(varn)
 
         template = info.get('template')
-        if template != None:
+        if template is not None:
 
             valu = template
 
             for tvar in self._getTmplVars(template):
                 tval = scope.get(tvar)
-                if tval == None:
+                if tval is None:
                     return None
 
                 # FIXME optimize away the following format string
                 valu = valu.replace('{{%s}}' % tvar, str(tval))
 
-        if valu == None:
+        if valu is None:
             path = info.get('path')
             valu = base.valu(path)
 
-        if valu == None:
+        if valu is None:
             return None
 
         # If we have a regex field, use it to extract valu from the
         # first grouping
         rexs = info.get('regex')
-        if rexs != None:
+        if rexs is not None:
             rexo = self._re_compile(rexs)
             match = rexo.search(valu)
-            if match == None:
+            if match is None:
                 return None
 
             groups = match.groups()
@@ -714,20 +714,20 @@ class Ingest(EventBus):
 
         # allow type based normalization here
         cast = info.get('cast')
-        if cast != None:
+        if cast is not None:
             valu = core.getTypeCast(cast, valu)
-            if valu == None:
+            if valu is None:
                 return None
 
         # FIXME make a mechanism here for field translation based
         # on an included translation table within the ingest def
 
         pivot = info.get('pivot')
-        if pivot != None:
+        if pivot is not None:
             pivf, pivt = pivot
 
             pivo = core.getTufoByProp(pivf, valu)
-            if pivo == None:
+            if pivo is None:
                 return None
 
             valu = pivo[1].get(pivt)

@@ -46,7 +46,7 @@ def reqiden(tufo):
     '''
     Raise an exception if the given tufo is ephemeral.
     '''
-    if tufo[0] == None:
+    if tufo[0] is None:
         raise NoSuchTufo(iden=None)
     return tufo[0]
 
@@ -181,11 +181,11 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         # process a savefile/savefd if we have one
         savefd = link[1].get('savefd')
-        if savefd != None:
+        if savefd is not None:
             self.setSaveFd(savefd)
 
         savefile = link[1].get('savefile')
-        if savefile != None:
+        if savefile is not None:
             savefd = genfile(savefile)
             self.setSaveFd(savefd, fini=True)
 
@@ -218,7 +218,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         # allow modules a shot at hooking cortex events for model ctors
         for name, ret, exc in s_modules.call('addCoreOns', self):
-            if exc != None:
+            if exc is not None:
                 logger.warning('%s.addCoreOns: %s' % (name, exc))
 
         self.onfini(self._finiCoreMods)
@@ -314,7 +314,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             # allow the revision function to optionally return the
             # revision he jumped to ( to allow initial override )
             retn = func()
-            if retn != None:
+            if retn is not None:
                 vers = retn
 
             curv = self.setModlVers(name, vers)
@@ -337,12 +337,12 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         return self
 
     def _getAxonWants(self, htype, hvalu, size):
-        if self.axon == None:
+        if self.axon is None:
             raise NoSuchOpt(name='axon:url', mesg='The cortex does not have an axon configured')
         return self.axon.wants(htype, hvalu, size)
 
     def _addAxonChunk(self, iden, byts):
-        if self.axon == None:
+        if self.axon is None:
             raise NoSuchOpt(name='axon:url', mesg='The cortex does not have an axon configured')
         return self.axon.chunk(iden, byts)
 
@@ -363,7 +363,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         '''
         node = self.seqs.get(name)
-        if node == None:
+        if node is None:
             raise NoSuchSeq(name=name)
 
         #FIXME perms
@@ -431,7 +431,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         for form, fnfo, props in modl.get('forms', ()):
 
             # allow forms declared without ptype if their name *is* one
-            if fnfo.get('ptype') == None:
+            if fnfo.get('ptype') is None:
                 fnfo['ptype'] = form
 
             tufo = self.formTufoByProp('syn:form', form, **fnfo)
@@ -452,7 +452,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         # check for this exact query...
         # ( (prop,valu,limit), answ )
         answ = self.cache_bykey.get(ckey)
-        if answ != None:
+        if answ is not None:
             return list(answ.values())
 
         # check for same prop
@@ -462,7 +462,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
             hprop, hvalu, hlimit = hkey
             # if there's a hit that's either bigger than us *or* unlimited, use it
-            if hlimit == None or (limit != None and limit < hlimit):
+            if hlimit is None or (limit is not None and limit < hlimit):
                 answ = self.cache_bykey.get(hkey)
                 return list(answ.values())[:limit]
 
@@ -492,12 +492,12 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         answ = self.cache_bykey.pop(ckey, None)
 
         # decref our cached tuples
-        if answ != None:
+        if answ is not None:
             [self.cache_byiden.pop(t[0]) for t in answ.values()]
 
         pkey = (ckey[0], ckey[1])
         phits = self.cache_byprop.get(pkey)
-        if phits != None:
+        if phits is not None:
             phits.pop(ckey, None)
             if not phits:
                 self.cache_byprop.pop(pkey)
@@ -514,27 +514,27 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         newkey = (prop, newv)
 
         cachfo = self.cache_byiden.get(tufo[0])
-        if cachfo != None:
-            if newv == None:
+        if cachfo is not None:
+            if newv is None:
                 cachfo[1].pop(prop, None)
             else:
                 cachfo[1][prop] = newv
 
         # remove ourselves from old ones..
-        if oldv != None:
+        if oldv is not None:
 
             # remove ourselves from any cached results for prop=oldv
             for ckey in tuple(self.cache_byprop.get(oldkey, ())):
 
                 answ = self.cache_bykey.get(ckey)
-                if answ == None:
+                if answ is None:
                     continue
 
                 atlim = len(answ) == ckey[2]
 
                 # ok... if we're not in the result, no bigs...
                 ctup = answ.pop(tufo[0], None)
-                if ctup == None:
+                if ctup is None:
                     continue
 
                 # removing it, we must decref the byiden cache.
@@ -545,10 +545,10 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                     self._delCacheKey(ckey)
 
         # add ourselves to any cached results for the new value
-        if newv != None:
+        if newv is not None:
             for ckey in tuple(self.cache_byprop.get(newkey, ())):
                 answ = self.cache_bykey.get(ckey)
-                if answ == None:
+                if answ is None:
                     continue
 
                 # If it's at it's limit, no need to add us...
@@ -559,10 +559,10 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                 self.cache_byiden.put(tufo[0], tufo)
 
         # check for add prop and add us to (prop,None) pkey
-        if oldv == None and newv != None:
+        if oldv is None and newv is not None:
             for ckey in tuple(self.cache_byprop.get((prop, None), ())):
                 answ = self.cache_bykey.get(ckey)
-                if answ == None:
+                if answ is None:
                     continue
 
                 # If it's at it's limit, no need to add us...
@@ -573,17 +573,17 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                 self.cache_byiden.put(tufo[0], tufo)
 
         # check for del prop and del us from the (prop,None) pkey
-        if oldv != None and newv == None:
+        if oldv is not None and newv is None:
 
             for ckey in tuple(self.cache_byprop.get((prop, None), ())):
                 answ = self.cache_bykey.get(ckey)
-                if answ == None:
+                if answ is None:
                     continue
 
                 atlim = len(answ) == ckey[2]
 
                 ctup = answ.pop(tufo[0], None)
-                if ctup == None:
+                if ctup is None:
                     continue
 
                 if atlim:
@@ -605,7 +605,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         try:
 
             oldm = self.coremods.pop(ctor, None)
-            if oldm != None:
+            if oldm is not None:
                 oldm.fini()
 
             modu = s_dyndeps.tryDynFunc(ctor, self, conf)
@@ -717,7 +717,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
     def _reqSpliceInfo(self, act, info, prop):
         valu = info.get(prop)
-        if prop == None:
+        if prop is None:
             raise Exception('Splice: %s requires %s' % (act, prop))
         return valu
 
@@ -737,7 +737,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         valu = mesg[1].get('valu')
 
         node = self.getTufoByProp(form, valu=valu)
-        if node == None:
+        if node is None:
             return
 
         self.delTufo(node)
@@ -1021,7 +1021,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         prop = '%s:list:%s' % (tufo[0], name)
 
         haslist = 'tufo:list:%s' % name
-        if tufo[1].get(haslist) == None:
+        if tufo[1].get(haslist) is None:
             tufo[1][haslist] = 1
             rows.append((tufo[0], haslist, 1, tick))
 
@@ -1282,7 +1282,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         '''
         if self.caching:
             tufo = self.cache_byiden.get(iden)
-            if tufo != None:
+            if tufo is not None:
                 return tufo
 
         rows = self.getRowsById(iden)
@@ -1307,7 +1307,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         ret = []
         for iden in idens:
             tufo = self.getTufoByIden(iden)
-            if tufo == None:
+            if tufo is None:
                 continue
             ret.append(tufo)
         return ret
@@ -1325,7 +1325,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             * This must be used only for rows added with formTufoByProp!
 
         '''
-        if valu != None:
+        if valu is not None:
             valu, subs = self.getPropNorm(prop, valu)
 
         if self.caching:
@@ -1362,12 +1362,12 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         '''
         norm = None
-        if valu != None:
+        if valu is not None:
             norm, subs = self.getPropNorm(prop, valu)
-            if norm == None:
+            if norm is None:
                 raise BadPropValu(prop=prop, valu=valu)
 
-        if self.caching and mintime == None and maxtime == None:
+        if self.caching and mintime is None and maxtime is None:
             return self._getTufosByCache(prop, norm, limit)
 
         return self._getTufosByProp(prop, valu=norm, mintime=mintime, maxtime=maxtime, limit=limit)
@@ -1395,7 +1395,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             pres = self.getTufosByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
             ret.extend(pres)
 
-            if limit != None:
+            if limit is not None:
                 limit -= len(pres)
                 if limit <= 0:
                     break
@@ -1531,7 +1531,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             for subprop in subprops:
 
                 asof = tufo[1].pop(subprop, None)
-                if asof == None:
+                if asof is None:
                     continue
 
                 subtag = subprop[1:]
@@ -1732,7 +1732,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         '''
         statfunc = self.statfuncs.get(stat)
-        if statfunc == None:
+        if statfunc is None:
             knowns = self.statfuncs.keys()
             raise NoSuchStat(name=stat, knowns=knowns)
 
@@ -1766,7 +1766,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             core.addJsonItems('foo', foolist)
 
         '''
-        if tstamp == None:
+        if tstamp is None:
             tstamp = now()
 
         for chunk in chunked(100, items):
@@ -1857,7 +1857,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         doneadd = set()
         tname = self.getPropTypeName(form)
-        if tname == None and self.enforce:
+        if tname is None and self.enforce:
             raise NoSuchForm(name=form)
 
         if tname and not self.isSubType(tname, 'guid'):
@@ -1950,14 +1950,14 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         '''
         ctor = self.seedctors.get(prop)
-        if ctor != None:
+        if ctor is not None:
             return ctor(prop, valu, **props)
 
         # special case for adding nodes with a guid primary property
         # if the value None is specified, generate a new guid and skip
         # deconfliction ( allows highly performant "event" ingest )
         deconf = True
-        if valu == None:
+        if valu is None:
             tname = self.getPropTypeName(prop)
             if tname and self.isSubType(tname, 'guid'):
                 valu = guid()
@@ -1969,7 +1969,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
             if deconf:
                 tufo = self.getTufoByProp(prop, valu=valu)
-                if tufo != None:
+                if tufo is not None:
                     return tufo
 
             tick = now()
@@ -2126,7 +2126,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         Get the next block of tufos for the given snapshot.
         '''
         x = self.snaps.get(snap)
-        if x == None:
+        if x is None:
             return None
 
         idens = x.popleft()
@@ -2154,7 +2154,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         valu, _ = self.getPropNorm(form, valu)
 
         item = self.getTufoByProp(form, valu)
-        if item != None:
+        if item is not None:
             self.delTufo(item)
 
         return item
@@ -2227,7 +2227,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             for sname, svalu in subs.items():
 
                 subprop = prop + ':' + sname
-                if self.getPropDef(subprop) == None:
+                if self.getPropDef(subprop) is None:
                     continue
 
                 props[subprop] = svalu
@@ -2287,7 +2287,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             size = props.get('size')
             upid = self._getAxonWants('guid', iden, size)
 
-            if upid != None:
+            if upid is not None:
                 for chun in chunks(byts, 10000000):
                     self._addAxonChunk(upid, chun)
 
@@ -2315,13 +2315,13 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             upid = self._getAxonWants('guid', iden, size)
 
             # time to send it!
-            if upid != None:
+            if upid is not None:
                 for byts in iterfd(fd):
                     self._addAxonChunk(upid, byts)
 
         node = self.formTufoByProp('file:bytes', iden, **props)
 
-        if node[1].get('file:bytes:size') == None:
+        if node[1].get('file:bytes:size') is None:
             self.setTufoProp(node, 'size', info.get('size'))
 
         return node
@@ -2331,7 +2331,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         if not self.enforce:
             return True
 
-        return self.getPropDef(prop) != None
+        return self.getPropDef(prop) is not None
 
     def setTufoProps(self, tufo, **props):
         '''
@@ -2477,13 +2477,13 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
     def _reqSizeByMeth(self, name):
         meth = self.sizebymeths.get(name)
-        if meth == None:
+        if meth is None:
             raise NoSuchGetBy(name=name)
         return meth
 
     def _reqRowsByMeth(self, name):
         meth = self.rowsbymeths.get(name)
-        if meth == None:
+        if meth is None:
             raise NoSuchGetBy(name=name)
         return meth
 
@@ -2529,7 +2529,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             res = self.getTufosByProp(prop, valu=valu, limit=limit)
             ret.extend(res)
 
-            if limit != None:
+            if limit is not None:
                 limit -= len(res)
                 if limit <= 0:
                     break
@@ -2547,21 +2547,21 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
     def _onTufoAddSynType(self, mesg):
         tufo = mesg[1].get('node')
-        if tufo == None:
+        if tufo is None:
             return
 
         self._initTypeTufo(tufo)
 
     def _onTufoAddSynForm(self, mesg):
         tufo = mesg[1].get('node')
-        if tufo == None:
+        if tufo is None:
             return
 
         self._initFormTufo(tufo)
 
     def _onTufoAddSynProp(self, mesg):
         tufo = mesg[1].get('node')
-        if tufo == None:
+        if tufo is None:
             return
 
         self._initPropTufo(tufo)
@@ -2695,7 +2695,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         iden = s_threads.iden()
 
         xact = self._core_xacts.get(iden)
-        if xact != None:
+        if xact is not None:
             return xact
 
         xact = self._getCoreXact(size)
@@ -2851,7 +2851,7 @@ class CoreXact:
         form = info.get('form')
 
         pdef = self.core.getPropDef(form)
-        if pdef != None and pdef[1].get('local'):
+        if pdef is not None and pdef[1].get('local'):
             return
 
         info['act'] = act
@@ -2920,7 +2920,7 @@ class CoreXact:
         '''
         self.events.append((name, props))
 
-        if self.size != None and len(self.events) >= self.size:
+        if self.size is not None and len(self.events) >= self.size:
             self.sync()
             self.cedetime()
             self.begin()

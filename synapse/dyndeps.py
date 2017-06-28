@@ -64,7 +64,7 @@ def getDynLocal(name):
 
     modname, objname = name.rsplit('.', 1)
     mod = getDynMod(modname)
-    if mod == None:
+    if mod is None:
         return None
 
     return getattr(mod, objname, None)
@@ -124,7 +124,7 @@ def runDynTask(task):
 
     '''
     func = getDynLocal(task[0])
-    if func == None:
+    if func is None:
         raise NoSuchFunc(name=task[0])
     return func(*task[1], **task[2])
 
@@ -151,7 +151,7 @@ def runDynEval(text, locs=None):
     name = text[:off]
     args = text[off:]
 
-    if locs == None:
+    if locs is None:
         locs = {}
 
     capt = CallCapt()

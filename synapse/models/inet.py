@@ -155,7 +155,7 @@ class Srv6Type(DataType):
 
         valu = valu.lower()
         m = srv6re.match(valu)
-        if m == None:
+        if m is None:
             self._raiseBadValu(valu, ex='[af::2]:80')
 
         host, portstr = m.groups()
@@ -229,7 +229,7 @@ class UrlType(DataType):
             user = resauth
             passwd = None
 
-            if user.find(':') != None:
+            if user.find(':') is not None:
                 user, passwd = user.rsplit(':', 1)
 
             if user:
@@ -249,10 +249,10 @@ class UrlType(DataType):
             port = self.tlib.getTypeParse('inet:port', portstr)[0]
 
         # try for a default iana protocol lookup
-        if port == None:
+        if port is None:
             port = s_l_iana.services.get(proto)
 
-        if port != None:
+        if port is not None:
             subs['port'] = port
 
         if resauth:

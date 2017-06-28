@@ -23,7 +23,7 @@ def getItemCmdr(item, outp=None, **opts):
     cmdr = s_cli.Cli(item, outp=outp)
 
     refl = s_reflect.getItemInfo(item)
-    if refl == None:
+    if refl is None:
         return cmdr
 
     for name in refl.get('inherits', ()):

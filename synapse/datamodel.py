@@ -213,7 +213,7 @@ class DataModel(s_types.TypeLib):
 
         '''
         pdef = self.getPropDef(form)
-        if pdef == None:
+        if pdef is None:
             raise NoSuchForm(name=form)
 
         if info.get('glob'):
@@ -242,7 +242,7 @@ class DataModel(s_types.TypeLib):
 
         '''
         pdef = self.getPropDef(prop)
-        if pdef == None:
+        if pdef is None:
             raise NoSuchProp(name=prop)
 
         return pdef[1].get('form'), pdef[1].get('base')
@@ -260,7 +260,7 @@ class DataModel(s_types.TypeLib):
             DupPropName: If the property name is already present in the data model.
 
         '''
-        if self.props.get(prop) != None:
+        if self.props.get(prop) is not None:
             raise DupPropName(name=prop)
 
         info.setdefault('doc', None)
@@ -276,13 +276,13 @@ class DataModel(s_types.TypeLib):
 
         defval = info.get('defval')
 
-        if defval != None:
+        if defval is not None:
             self.defvals[form].append((prop, defval))
 
         pdef = (prop, info)
 
         ptype = info.get('ptype')
-        if ptype != None:
+        if ptype is not None:
             self.reqDataType(ptype)
             self.propsbytype[ptype].append(pdef)
 
@@ -342,7 +342,7 @@ class DataModel(s_types.TypeLib):
         ret = {}
         for pdef in self.getSubProps(prop):
             valu = pdef[1].get('defval')
-            if valu == None:
+            if valu is None:
                 continue
 
             ret[pdef[0]] = valu
@@ -359,14 +359,14 @@ class DataModel(s_types.TypeLib):
 
         '''
         dtype = self.getPropType(prop)
-        if dtype == None:
+        if dtype is None:
             return str(valu)
 
         return dtype.repr(valu)
 
     def getPropTypeName(self, prop):
         pdef = self.getPropDef(prop)
-        if pdef == None:
+        if pdef is None:
             return None
 
         return pdef[1].get('ptype')
@@ -381,7 +381,7 @@ class DataModel(s_types.TypeLib):
 
         '''
         dtype = self.getPropType(prop)
-        if dtype == None:
+        if dtype is None:
             return valu, {}
 
         return dtype.norm(valu, oldval=oldval)
@@ -396,7 +396,7 @@ class DataModel(s_types.TypeLib):
 
         '''
         dtype = self.getPropType(prop)
-        if dtype == None:
+        if dtype is None:
             return valu
 
         return dtype.parse(valu)
@@ -411,7 +411,7 @@ class DataModel(s_types.TypeLib):
 
         '''
         pdef = self.props.get(prop)
-        if pdef != None:
+        if pdef is not None:
             return pdef
 
         if not glob:
@@ -419,7 +419,7 @@ class DataModel(s_types.TypeLib):
 
         # check the cache
         pdef = self.cache.get(prop)
-        if pdef != None:
+        if pdef is not None:
             return pdef
 
         # no match, lets check the globs...
@@ -438,7 +438,7 @@ class DataModel(s_types.TypeLib):
             ptype = model.getPropType('foo:bar')
         '''
         pdef = self.getPropDef(prop)
-        if pdef == None:
+        if pdef is None:
             return None
 
         return self.getDataType(pdef[1].get('ptype'))
@@ -455,15 +455,15 @@ class DataModel(s_types.TypeLib):
 
         '''
         pdef = self.getPropDef(prop)
-        if pdef == None:
+        if pdef is None:
             return None
 
         valu = pdef[1].get(name)
-        if valu != None:
+        if valu is not None:
             return valu
 
         ptype = pdef[1].get('ptype')
-        if ptype == None:
+        if ptype is None:
             return None
 
         return self.getTypeInfo(ptype, name)

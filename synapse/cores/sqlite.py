@@ -229,7 +229,7 @@ class Cortex(s_cores_common.Cortex):
         return CoreXact(self, size=size)
 
     def _getDbLimit(self, limit):
-        if limit != None:
+        if limit is not None:
             return limit
         return self.dblim
 
@@ -311,7 +311,7 @@ class Cortex(s_cores_common.Cortex):
         self.initTufosBy('lt', self._tufosByLt)
 
         self.dbpool = self._link[1].get('dbpool')
-        if self.dbpool == None:
+        if self.dbpool is None:
             pool = int(self._link[1].get('pool', 1))
             self.dbpool = DbPool(pool, self._initDbConn)
 
@@ -540,7 +540,7 @@ class Cortex(s_cores_common.Cortex):
         ret = []
         for iden, prop, intval, strval, tstamp in rows:
 
-            if intval != None:
+            if intval is not None:
                 ret.append((iden, prop, intval, tstamp))
             else:
                 ret.append((iden, prop, strval, tstamp))
@@ -597,7 +597,7 @@ class Cortex(s_cores_common.Cortex):
         qkey = (s_compat.typeof(valu), s_compat.typeof(mintime), s_compat.typeof(maxtime))
 
         qstr = self.qbuild[name][qkey]
-        if meth == None:
+        if meth is None:
             meth = self.select
 
         rows = meth(qstr, prop=prop, valu=valu, limit=limit, mintime=mintime, maxtime=maxtime)
@@ -605,7 +605,7 @@ class Cortex(s_cores_common.Cortex):
         return rows
 
     def _delRowsByIdProp(self, iden, prop, valu=None):
-        if valu == None:
+        if valu is None:
             return self.delete(self._q_delrows_by_iden_prop, iden=iden, prop=prop)
 
         if s_compat.isint(valu):
@@ -614,7 +614,7 @@ class Cortex(s_cores_common.Cortex):
             return self.delete(self._q_delrows_by_iden_prop_strval, iden=iden, prop=prop, valu=valu)
 
     def _getRowsByIdProp(self, iden, prop, valu=None):
-        if valu == None:
+        if valu is None:
             rows = self.select(self._q_getrows_by_iden_prop, iden=iden, prop=prop)
             return self._foldTypeCols(rows)
 

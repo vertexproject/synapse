@@ -15,7 +15,7 @@ def getArgParser():
 
 def main(argv, outp=None):
 
-    if outp == None:
+    if outp is None:
         outp = s_output.OutPut()
 
     p = getArgParser()

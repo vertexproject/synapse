@@ -16,7 +16,7 @@ from synapse.common import *
 
 def main(argv, outp=None):
 
-    if outp == None:
+    if outp is None:
         outp = s_output.OutPut()
 
     pars = argparse.ArgumentParser(prog='ingest', description='Command line tool for ingesting data into a cortex')
@@ -79,11 +79,11 @@ def main(argv, outp=None):
         proglast['total'] += 1
 
         progtick = proglocs.get('tick')
-        if progtick == None:
+        if progtick is None:
             proglocs['tick'] = time.time()
             return
 
-        if progtick != None:
+        if progtick is not None:
 
             now = time.time()
             delta = now - progtick
@@ -124,7 +124,7 @@ def main(argv, outp=None):
         core.on('node:tag:add', _print_tufo_tag_add)
 
     pump = None
-    if opts.sync != None:
+    if opts.sync is not None:
         sync = s_cortex.openurl(opts.sync)
         pump = core.getSplicePump(sync)
 
@@ -149,7 +149,7 @@ def main(argv, outp=None):
     if opts.debug:
         s_cmdr.runItemCmdr(core)
 
-    if pump != None:
+    if pump is not None:
         pump.done()
         outp.printf('waiting on sync pump...')
         pump.waitfini()

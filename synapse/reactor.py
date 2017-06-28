@@ -50,7 +50,7 @@ class Reactor:
             name = mesg[0]
 
         func = self.actfuncs.get(name)
-        if func == None:
+        if func is None:
             raise NoSuchAct(name=name)
 
         return func(mesg)

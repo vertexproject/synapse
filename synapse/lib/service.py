@@ -60,7 +60,7 @@ class SvcBus(s_eventbus.EventBus):
         svcfo = (iden, props)
 
         sock = s_scope.get('sock')
-        if sock != None:
+        if sock is not None:
             def onfini():
                 oldsvc = self.services.pop(iden, None)
                 self.bytag.pop(iden)
@@ -90,7 +90,7 @@ class SvcBus(s_eventbus.EventBus):
             within the service object.
         '''
         svcfo = self.services.get(iden)
-        if svcfo != None:
+        if svcfo is not None:
             svcfo[1]['checkin'] = int(time.time())
 
     def getSynSvcs(self):
@@ -149,7 +149,7 @@ class SvcProxy(s_eventbus.EventBus):
 
     def _onSynSvcInit(self, mesg):
         svcfo = mesg[1].get('svcfo')
-        if svcfo == None:
+        if svcfo is None:
             return
 
         self._addSvcTufo(svcfo)
@@ -236,7 +236,7 @@ class SvcProxy(s_eventbus.EventBus):
 
         '''
         svcfo = self.byiden.get(iden)
-        if svcfo == None:
+        if svcfo is None:
             raise NoSuchObj(iden)
 
         dyntask = (func, args, kwargs)
@@ -259,11 +259,11 @@ class SvcProxy(s_eventbus.EventBus):
             ret = svcprox.callByName('foo0', dyntask)
 
         '''
-        if timeout == None:
+        if timeout is None:
             timeout = self.timeout
 
         svcfo = self.getSynSvcByName(name)
-        if svcfo == None:
+        if svcfo is None:
             raise NoSuchObj(name)
 
         job = self.sbus.callx(svcfo[0], dyntask)
@@ -283,7 +283,7 @@ class SvcProxy(s_eventbus.EventBus):
 
         '''
         prox = self.nameprox.get(name)
-        if prox == None:
+        if prox is None:
             prox = SvcNameProxy(self, name)
             self.nameprox[name] = prox
         return prox
@@ -301,7 +301,7 @@ class SvcProxy(s_eventbus.EventBus):
 
         '''
         jobs = []
-        if timeout == None:
+        if timeout is None:
             timeout = self.timeout
 
         for iden in self.bytag.get(tag):
@@ -329,7 +329,7 @@ class SvcProxy(s_eventbus.EventBus):
 
         '''
         prox = self.tagprox.get(tag)
-        if prox == None:
+        if prox is None:
             prox = SvcTagProxy(self, tag)
             self.tagprox[tag] = prox
         return prox

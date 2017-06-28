@@ -129,7 +129,7 @@ class Pool(EventBus):
         self._pool_lock = threading.Lock()
         self._pool_avail = 0
 
-        if maxsize == None:
+        if maxsize is None:
             maxsize = size
 
         self._pool_maxsize = maxsize
@@ -229,7 +229,7 @@ class Pool(EventBus):
 
             self._pool_avail -= 1
 
-            if work == None:
+            if work is None:
                 return
 
             self.fire('pool:work:init', work=work)
@@ -243,12 +243,12 @@ class Pool(EventBus):
                 ret = func(*args, **kwargs)
 
                 # optionally generate a job event
-                if jid != None:
+                if jid is not None:
                     self.fire('job:done', jid=jid, ret=ret)
 
             except Exception as e:
 
-                if jid != None:
+                if jid is not None:
                     self.fire('job:done', jid=jid, **excinfo(e))
 
             self.fire('pool:work:fini', work=work)
@@ -403,7 +403,7 @@ def iCantWait(name=None):
     curthr = threading.currentThread()
     curthr._syn_cantwait = True
 
-    if name != None:
+    if name is not None:
         curthr.name = name
 
 def iWillWait():

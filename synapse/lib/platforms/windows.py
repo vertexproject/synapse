@@ -15,7 +15,7 @@ class sockaddr(ctypes.Structure):
         ("_p2", ctypes.c_ulong)
     ]
 
-if getattr(socket, 'inet_pton', None) == None:
+if getattr(socket, 'inet_pton', None) is None:
 
     WSAStringToAddressA = ctypes.windll.ws2_32.WSAStringToAddressA
 
@@ -40,7 +40,7 @@ if getattr(socket, 'inet_pton', None) == None:
         else:
             raise socket.error('Unknown Address Family: %s' % (fam,))
 
-if getattr(socket, 'inet_ntop', None) == None:
+if getattr(socket, 'inet_ntop', None) is None:
 
     WSAAddressToStringA = ctypes.windll.ws2_32.WSAAddressToStringA
 

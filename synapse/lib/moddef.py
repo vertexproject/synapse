@@ -65,7 +65,7 @@ def getPyStdLib():
     Get a {name:moddef} dict for python stdlib.
     '''
     global pymods
-    if pymods == None:
+    if pymods is None:
         pylib = sysconfig.get_python_lib(standard_lib=True)
         pymods = getModsByPath(pylib)
         # get the compiled in modules
@@ -96,11 +96,11 @@ def getModDef(name):
 
     '''
     mod = s_dyndeps.getDynMod(name)
-    if mod == None:
+    if mod is None:
         return None
 
     modpath = getattr(mod, '__file__', None)
-    if modpath == None:
+    if modpath is None:
         return None
 
     if modpath.endswith('.pyc'):
@@ -109,7 +109,7 @@ def getModDef(name):
     modbase = os.path.basename(modpath)
     modinfo = _getModInfo(modbase)
 
-    if modinfo != None:
+    if modinfo is not None:
         return tufo(name, path=modpath, **modinfo)
 
     # hrm...  what now smart guy?!?!
@@ -132,7 +132,7 @@ def getModDefSrc(moddef):
     fmt = moddef[1].get('fmt')
     path = moddef[1].get('path')
 
-    if fmt == 'src' and path != None and os.path.isfile(path):
+    if fmt == 'src' and path is not None and os.path.isfile(path):
         with open(path, 'rb') as fd:
             return fd.read()
 
@@ -145,7 +145,7 @@ def getModDefCode(moddef):
 
     path = moddef[1].get('path')
     modsrc = getModDefSrc(moddef)
-    if modsrc == None:
+    if modsrc is None:
         return None
 
     return compile(modsrc, path, 'exec')
@@ -160,7 +160,7 @@ def getCallModDef(func):
 
     '''
     modname = getattr(func, '__module__', None)
-    if modname != None:
+    if modname is not None:
         return getModDef(modname)
 
 def getModsByPath(path, modtree=None):
@@ -175,7 +175,7 @@ def getModsByPath(path, modtree=None):
 
     '''
     path = abspath(path)
-    if modtree == None:
+    if modtree is None:
         modtree = []
 
     if not os.path.isdir(path):
@@ -212,7 +212,7 @@ def getModsByPath(path, modtree=None):
                 continue
 
             modinfo = _getModInfo(name)
-            if modinfo != None:
+            if modinfo is not None:
                 # fmt=None for unhandled module types
                 if not modinfo.get('fmt'):
                     continue
@@ -222,11 +222,11 @@ def getModsByPath(path, modtree=None):
 
             # add dat files to our pkg moddef
             pmod = mods.get(pkgname)
-            if pmod == None:
+            if pmod is None:
                 continue
 
             dats = pmod[1].get('dats')
-            if dats == None:
+            if dats is None:
                 dats = {}
                 pmod[1]['dats'] = dats
 
@@ -240,7 +240,7 @@ def getModDefImps(moddef):
     modules imported by moddef.
     '''
     modcode = getModDefCode(moddef)
-    if modcode == None:
+    if modcode is None:
         return ()
 
     i = 0
@@ -315,7 +315,7 @@ def getSiteDeps(moddef):
                 continue
 
             depmod = getModDef(imp)
-            if depmod == None:
+            if depmod is None:
                 continue
 
             addtodo(depmod)
