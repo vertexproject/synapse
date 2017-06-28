@@ -125,6 +125,14 @@ class FileExists(SynErr):pass
 class NotEmpty(SynErr):pass
 class NotSupported(SynErr):pass
 
+class DatabaseInconsistent(SynErr):
+    ''' If you get this Exception, that means the database is corrupt '''
+    pass
+
+class DatabaseLimitReached(SynErr):
+    ''' You've reached some limit of the database '''
+    pass
+
 class IsFini(Exception):pass
 
 class JobErr(Exception):
