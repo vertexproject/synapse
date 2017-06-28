@@ -13,8 +13,8 @@ import synapse.lib.threads as s_threads
 import synapse.cores.common as s_cores_common
 from synapse.common import genpath, msgenpack, msgunpack
 
-import xxhash
 import lmdb
+import xxhash
 
 # File conventions:
 # i, p, v, t: iden, prop, value, timestamp
