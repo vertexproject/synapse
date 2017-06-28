@@ -418,7 +418,7 @@ class Cortex(s_cores_common.Cortex):
                 pk_enc = s_compat.memToBytes(value)
 
                 if not cursor.delete():
-                    raise s_exc.BadCoreStore('Delete failure')
+                    raise s_exc.BadCoreStore(store='lmdb', mesg='Delete failure')
                 self._delRowAndIndices(txn, pk_enc, i_enc=i_enc, p_enc=p_enc,
                                        delete_ip=False)
 
