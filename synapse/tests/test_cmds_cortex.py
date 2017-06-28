@@ -91,6 +91,21 @@ class SynCmdCoreTest(SynTest):
             for term in terms:
                 self.nn(re.search(term, outp))
 
+    def test_cmds_ask_tagtime(self):
+
+        with self.getDmonCore() as core:
+
+            outp = s_output.OutPutStr()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+
+            resp = cmdr.runCmdLine('ask [ inet:ipv4=1.2.3.4 #foo.bar@2011-2016 #baz.faz ]')
+            self.eq( len(resp['data']), 1 )
+
+            lines = [ s.strip() for s in str(outp).split('\n') ]
+
+            self.true( any([ re.search('^#baz.faz \(added [0-9/: \.]+\)$', l) for l in lines ]) )
+            self.true( any([ re.search('^#foo.bar \(added [0-9/: \.]+\) 2011/01/01 00:00:00.000  -  2016/01/01 00:00:00.000$', l) for l in lines ]) )
+
     def test_cmds_ask_mutual_exclusive(self):
         with self.getDmonCore() as core:
             outp = s_output.OutPutStr()
