@@ -237,7 +237,7 @@ class FixedCache(EventBus):
             return valu
 
     def clear(self):
-        ''' 
+        '''
         Remove all entries from the FixedCache.
         '''
         with self.cachelock:

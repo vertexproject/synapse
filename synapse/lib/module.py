@@ -215,7 +215,7 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         will be able to set properties on the node prior to construction.
 
         Args:
-            form (str): The name of the node creation 
+            form (str): The name of the node creation
             func (function): A callback
 
         Returns:

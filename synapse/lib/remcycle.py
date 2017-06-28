@@ -85,7 +85,7 @@ class Nyx(object):
         * api_optargs: This is a dictionary of URL parameters which are
           are optional for the user to provide when calling buildHttpRequest.
           This dictionary represents the parameter names and default values
-          for them.  A user may provide alternative values when calling 
+          for them.  A user may provide alternative values when calling
           buildHttpRequest, but sensible defaults should be provided here.
         * http: A dictionary of key/value items which can provide per-api
           specific arguements for the creation of HTTPRequest objects. These
@@ -553,7 +553,7 @@ class Hypnos(s_config.Config):
         Register a Nyx API with Hypnos.
 
         Args:
-            name (str): API Name  
+            name (str): API Name
             obj (Nyx): Nyx object contianing spec and gest data.
 
         Returns:
@@ -665,7 +665,7 @@ class Hypnos(s_config.Config):
             pass across threads.
 
         Args:
-            resp (t_http.HTTPResponse): HTTP Response to flatten. 
+            resp (t_http.HTTPResponse): HTTP Response to flatten.
 
         Returns:
             dict: Dictionary containing the request (url and headers), as well
@@ -693,11 +693,11 @@ class Hypnos(s_config.Config):
         Notes:
             This should be called by the IO thread consuming the response
             data, not the thread responsible for actually retrieving the web
-            data. 
+            data.
 
         Args:
             resp_dict (dict) : Dictionary which has been flattened with the
-                               _webFlattenHttpResponse function. 
+                               _webFlattenHttpResponse function.
 
         Returns:
             None
@@ -730,7 +730,7 @@ class Hypnos(s_config.Config):
         Notes:
             This should be called by the IO thread consuming the response
             data, not the thread responsible for actually retrieving the web
-            data. 
+            data.
 
         Args:
             resp_dict (dict): Reponse dictionary. It will have the 'data' field
@@ -767,7 +767,7 @@ class Hypnos(s_config.Config):
           data, preparing it for a ingest or other consumption.
 
         Args:
-            f: Function to wrap. 
+            f: Function to wrap.
 
         Returns:
             Wrapped function.
@@ -1024,7 +1024,7 @@ class Hypnos(s_config.Config):
         Retrieve the cached web response for a given job id.
 
         Args:
-            jid (str): Job ID to retrieve. 
+            jid (str): Job ID to retrieve.
 
         Returns:
             dict: A dictionary containing the job response data. It will have

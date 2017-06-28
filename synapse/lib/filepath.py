@@ -161,7 +161,7 @@ class FpFile(object):
     def next(self):
         '''
         This is the workhorse method that can contain path specific processing of children.
-        The object should consume as much as possible of the path before creating the 
+        The object should consume as much as possible of the path before creating the
         child class
 
         NOTE: Override for container formats
