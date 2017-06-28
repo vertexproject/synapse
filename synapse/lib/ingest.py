@@ -590,8 +590,7 @@ class Ingest(EventBus):
                     _savevar = tufo[1].get(tufo[1].get('tufo:form'))
 
             except Exception as e:
-                traceback.print_exc()
-                core.logCoreExc(e,subsys='ingest')
+                core.exc(e)
 
         savevarn = info.get('savevar')
         if savevarn and _savevar:

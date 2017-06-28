@@ -119,7 +119,7 @@ Additional secondary properties may be specified as kwargs to formTufoByProp::
 
 Tufos may also be created for non-deconflicted forms which represent a unique occurrence or
 observation in time.  Tufos which are not meant to be deconflicted are declared with a GUID
-as their primary property and may be formed using the addTufoEvent API::
+as their primary property and may be formed using the the value None.
 
     tuf0 = core.addTufoEvent('hurr:durr', blah=30, gronk='lol')
 

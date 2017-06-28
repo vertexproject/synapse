@@ -497,3 +497,11 @@ class DataTypesTest(SynTest):
             self.eq( len( core.eval('ou:org=$vertex')), 1 )
             self.eq( len( core.eval('ou:user:org=$vertex')), 1 )
 
+    def test_types_tagtime(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            valu,subs = core.getTypeNorm('syn:tag','Foo.Bar@20161217-20171217')
+
+            self.eq(valu, 'foo.bar')
+            self.eq( subs['seen:min'], 1481932800000 )
+            self.eq( subs['seen:max'], 1513468800000 )

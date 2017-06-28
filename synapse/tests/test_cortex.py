@@ -1,10 +1,11 @@
 from __future__ import absolute_import,unicode_literals
 
-import binascii
 import os
+import binascii
 import tempfile
 import unittest
 
+import synapse.link as s_link
 import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.cortex as s_cortex
@@ -12,6 +13,7 @@ import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.lib.tags as s_tags
+import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
 import synapse.lib.threads as s_threads
 
@@ -572,23 +574,19 @@ class CortexTest(SynTest):
         foob = core.formTufoByProp('foo','bar',baz='faz')
         core.addTufoTag(foob,'zip.zap')
 
-        self.nn( foob[1].get('*|foo|zip') )
-        self.nn( foob[1].get('*|foo|zip.zap') )
+        self.nn( foob[1].get('#zip') )
+        self.nn( foob[1].get('#zip.zap') )
 
-        self.eq( len(core.getTufosByTag('foo','zip')), 1 )
-        self.eq( len(core.getTufosByTag('foo','zip.zap')), 1 )
-        self.eq(len(core.getTufosByDark('tag', 'zip')), 1)
-        self.eq(len(core.getTufosByDark('tag', 'zip.zap')), 1)
+        self.eq( len(core.getTufosByTag('zip', form='foo')), 1 )
+        self.eq( len(core.getTufosByTag('zip.zap', form='foo')), 1 )
 
         core.delTufoTag(foob,'zip')
 
-        self.none( foob[1].get('*|foo|zip') )
-        self.none( foob[1].get('*|foo|zip.zap') )
+        self.none( foob[1].get('#zip') )
+        self.none( foob[1].get('#zip.zap') )
 
-        self.eq( len(core.getTufosByTag('foo','zip')), 0 )
-        self.eq( len(core.getTufosByTag('foo','zip.zap')), 0 )
-        self.eq(len(core.getTufosByDark('tag', 'zip')), 0)
-        self.eq(len(core.getTufosByDark('tag', 'zip.zap')), 0)
+        self.eq( len(core.getTufosByTag('zip', form='foo')), 0 )
+        self.eq( len(core.getTufosByTag('zip.zap', form='foo')), 0 )
 
     def test_cortex_tufo_setprops(self):
         core = s_cortex.openurl('ram://')
@@ -783,6 +781,10 @@ class CortexTest(SynTest):
         core.addTufoTag(hehe,'lulz.rofl.zebr')
         wait.wait(timeout=2)
 
+        wait = self.getTestWait(core, 1, 'node:tag:add')
+        core.addTufoTag(hehe, 'duck.quack.rofl')
+        wait.wait(timeout=2)
+
         lulz = core.getTufoByProp('syn:tag','lulz')
 
         self.none( lulz[1].get('syn:tag:up') )
@@ -802,7 +804,7 @@ class CortexTest(SynTest):
 
         tags = core.getTufosByProp('syn:tag:base', 'rofl')
 
-        self.eq(len(tags), 1)
+        self.eq(len(tags), 2)
 
         wait = core.waiter(2, 'node:tag:del')
         core.delTufoTag(hehe,'lulz.rofl')
@@ -817,9 +819,9 @@ class CortexTest(SynTest):
         self.none( core.getTufoByProp('syn:tag','lulz.rofl') )
         self.none( core.getTufoByProp('syn:tag','lulz.rofl.zebr') )
 
-        self.eq( len(core.getTufosByTag('foo','lulz')), 0 )
-        self.eq( len(core.getTufosByTag('foo','lulz.rofl')), 0 )
-        self.eq( len(core.getTufosByTag('foo','lulz.rofl.zebr')), 0 )
+        self.eq( len(core.getTufosByTag('lulz', form='foo')), 0 )
+        self.eq( len(core.getTufosByTag('lulz.rofl', form='foo')), 0 )
+        self.eq( len(core.getTufosByTag('lulz.rofl.zebr', form='foo')), 0 )
 
         core.fini()
 
@@ -1052,11 +1054,11 @@ class CortexTest(SynTest):
             tufo0 = core.formTufoByProp('foo','bar')
             tufo0 = core.addTufoTag(tufo0,'hehe')
 
-            self.eq( len( core.getTufosByTag('foo','hehe') ), 1 )
+            self.eq( len( core.getTufosByTag('hehe', form='foo') ), 1 )
             core.delTufoTag(tufo0,'hehe')
 
             tufo0 = core.getTufoByProp('foo','bar')
-            self.noprop( tufo0[1], '*|foo|hehe')
+            self.noprop( tufo0[1], '#hehe')
 
     def test_cortex_caching_set(self):
 
@@ -1258,16 +1260,16 @@ class CortexTest(SynTest):
 
             core.setConfOpt('caching',1)
 
-            tufs0 = core.getTufosByTag('foo','hehe')
+            tufs0 = core.getTufosByTag('hehe', form='foo')
 
             core.addTufoTag(tufo1,'hehe')
 
-            tufs1 = core.getTufosByTag('foo','hehe')
+            tufs1 = core.getTufosByTag('hehe', form='foo')
             self.eq( len(tufs1), 2 )
 
             core.delTufoTag(tufo0,'hehe')
 
-            tufs2 = core.getTufosByTag('foo','hehe')
+            tufs2 = core.getTufosByTag('hehe', form='foo')
             self.eq( len(tufs2), 1 )
 
     def test_cortex_caching_new(self):
@@ -1343,8 +1345,8 @@ class CortexTest(SynTest):
                     self.none( core.getTufoByProp('inet:fqdn','newp.com') )
                     self.nn( core.getTufoByProp('inet:fqdn','woot.com') )
 
-                    self.eq( len(core.getTufosByTag('inet:fqdn', 'foo.bar')), 0 )
-                    self.eq( len(core.getTufosByTag('inet:fqdn', 'foo')), 1)
+                    self.eq( len(core.getTufosByTag('foo.bar', form='inet:fqdn')), 0 )
+                    self.eq( len(core.getTufosByTag('foo', form='inet:fqdn')), 1)
 
     def test_cortex_addmodel(self):
         with s_cortex.openurl('ram://') as core:
@@ -1444,35 +1446,6 @@ class CortexTest(SynTest):
 
             wait.wait()
             pool.fini()
-
-    def test_coretex_logging(self):
-
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('log:save',1)
-
-            try:
-                raise NoSuchPath(path='foo/bar')
-            except NoSuchPath as exc:
-                core.logCoreExc(exc,subsys='hehe')
-
-            print(repr(core.getTufosByProp('syn:log')))
-
-            tufo = core.getTufoByProp('syn:log:subsys',valu='hehe')
-
-            self.eq( tufo[1].get('syn:log:subsys'), 'hehe' )
-            self.eq( tufo[1].get('syn:log:exc'), 'synapse.exc.NoSuchPath' )
-            self.eq( tufo[1].get('syn:log:info:path'), 'foo/bar' )
-
-            self.nn( tufo[1].get('syn:log:time') )
-
-            core.setConfOpt('log:level', logging.ERROR)
-
-            try:
-                raise NoSuchPath(path='foo/bar')
-            except NoSuchPath as exc:
-                core.logCoreExc(exc,subsys='haha', level=logging.WARNING)
-
-            self.none( core.getTufoByProp('syn:log:subsys', valu='haha') )
 
     def test_cortex_seed(self):
 
@@ -1687,6 +1660,80 @@ class CortexTest(SynTest):
         with s_cortex.openurl('ram:///') as core:
 
             self.raises( NotGuidForm, core.addTufoEvents, 'inet:fqdn', [{}])
+
+    def test_cortex_getbytag(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            node0 = core.formTufoByProp('inet:user', 'visi')
+            node1 = core.formTufoByProp('inet:ipv4', 0x01020304)
+
+            core.addTufoTag(node0,'foo')
+            core.addTufoTag(node1,'foo')
+
+            self.eq( len(core.getTufosByTag('foo') ), 2 )
+            self.eq( len(core.getTufosByTag('foo', form='inet:user') ), 1 )
+            self.eq( len(core.getTufosByTag('foo', form='inet:ipv4') ), 1 )
+
+    def test_cortex_tag_ival(self):
+
+        splices = []
+        with s_cortex.openurl('ram:///') as core:
+
+            core.on('splice',splices.append)
+
+            node = core.eval('[ inet:ipv4=1.2.3.4 +#foo.bar@20171217 ]')[0]
+            self.eq( s_tufo.ival(node,'#foo.bar'), (1513468800000, 1513468800000) )
+
+            node = core.eval('[ inet:ipv4=1.2.3.4 +#foo.bar@2018 ]')[0]
+            self.eq( s_tufo.ival(node,'#foo.bar'), (1513468800000, 1514764800000) )
+
+            node = core.eval('[ inet:ipv4=1.2.3.4 +#foo.bar@2011-2018 ]')[0]
+            self.eq( s_tufo.ival(node,'#foo.bar'), (1293840000000, 1514764800000) )
+
+            node = core.eval('[ inet:ipv4=1.2.3.4 +#foo.bar@2012 ]')[0]
+            self.eq( s_tufo.ival(node,'#foo.bar'), (1293840000000, 1514764800000) )
+
+            node = core.eval('[ inet:ipv4=1.2.3.4 +#foo.bar@2012-2013 ]')[0]
+            self.eq( s_tufo.ival(node,'#foo.bar'), (1293840000000, 1514764800000) )
+
+        with s_cortex.openurl('ram:///') as core:
+            core.splices(splices)
+            core.on('splice',splices.append)
+            node = core.eval('inet:ipv4=1.2.3.4')[0]
+            self.eq( s_tufo.ival(node,'#foo.bar'), (1293840000000, 1514764800000) )
+            core.eval('inet:ipv4=1.2.3.4 [ -#foo.bar ]')
+
+        with s_cortex.openurl('ram:///') as core:
+            core.splices(splices)
+            node = core.eval('inet:ipv4=1.2.3.4')[0]
+            self.eq( s_tufo.ival(node,'#foo.bar'), None)
+
+    def test_cortex_rev0(self):
+
+        path = getTestPath('rev0.db')
+        with open(path,'rb') as fd:
+            byts = fd.read()
+
+        with self.getTestDir() as temp:
+
+            finl = os.path.join(temp,'test.db')
+
+            with open(finl,'wb') as fd:
+                fd.write(byts)
+
+            with s_cortex.openurl('sqlite:///%s' % finl) as core:
+
+                node = core.eval('inet:ipv4=1.2.3.4')[0]
+
+                self.nn( node[1].get('#foo.bar') )
+                self.eq( len(core.eval('inet:ipv4*tag=foo.bar')), 1)
+
+                self.eq( len( core.getRowsByProp('_:dark:tag')), 0)
+                self.eq( len( core.getRowsByProp('_:*inet:ipv4#foo.bar')), 1)
+
+                self.eq( len(core.eval('inet:ipv4*tag=foo.bar.baz')), 1)
+                self.eq( len(core.eval('#foo.bar.baz')), 1)
 
     def test_cortex_module_datamodel_migration(self):
 

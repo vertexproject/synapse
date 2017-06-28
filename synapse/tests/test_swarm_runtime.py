@@ -67,24 +67,24 @@ class SwarmRunTest(SwarmRunBase):
         answ = tenv.runt.ask('foo:bar="baz"')
         data = answ.get('data')
 
-        self.assertEqual( data[0][0], tenv.tufo0[0] )
+        self.eq( data[0][0], tenv.tufo0[0] )
 
         # FIXME check for other expected results info!
 
         answ = tenv.runt.ask('foo:bar:vvv')
         data = answ.get('data')
 
-        self.assertEqual( len(data), 4 )
+        self.eq( len(data), 4 )
 
         answ = tenv.runt.ask('hehe.haha/foo:bar:vvv')
         data = answ.get('data')
 
-        self.assertEqual( len(data), 2 )
+        self.eq( len(data), 2 )
 
         answ = tenv.runt.ask('hehe.haha/foo:bar:vvv="visi"')
         data = answ.get('data')
 
-        self.assertEqual( len(data), 2 )
+        self.eq( len(data), 2 )
 
         tenv.fini()
 
@@ -93,7 +93,7 @@ class SwarmRunTest(SwarmRunBase):
 
         data = tenv.runt.eval('foo:bar="baz" foo:bar:vvv->foo:bar:vvv')
 
-        self.assertEqual( len(data), 4 )
+        self.eq( len(data), 4 )
 
         tenv.fini()
 
@@ -101,19 +101,19 @@ class SwarmRunTest(SwarmRunBase):
         tenv = self.getSwarmEnv()
 
         answ = tenv.runt.ask('%foo')
-        self.assertEqual( answ['options'].get('foo'), 1 )
+        self.eq( answ['options'].get('foo'), 1 )
 
         answ = tenv.runt.ask('opts(foo=10)')
-        self.assertEqual( answ['options'].get('foo'), 10 )
+        self.eq( answ['options'].get('foo'), 10 )
 
         answ = tenv.runt.ask('%foo=10')
-        self.assertEqual( answ['options'].get('foo'), 10 )
+        self.eq( answ['options'].get('foo'), 10 )
 
         answ = tenv.runt.ask('opts(foo="bar")')
-        self.assertEqual( answ['options'].get('foo'), 'bar' )
+        self.eq( answ['options'].get('foo'), 'bar' )
 
         answ = tenv.runt.ask('%foo="bar"')
-        self.assertEqual( answ['options'].get('foo'), 'bar' )
+        self.eq( answ['options'].get('foo'), 'bar' )
 
         tenv.fini()
 
@@ -121,10 +121,10 @@ class SwarmRunTest(SwarmRunBase):
         tenv = self.getSwarmEnv()
 
         answ = tenv.runt.ask('%uniq foo:bar="baz" foo:bar="baz"')
-        self.assertEqual( len(answ['data']), 1 )
+        self.eq( len(answ['data']), 1 )
 
         answ = tenv.runt.ask('%uniq=0 foo:bar="baz" foo:bar="baz"')
-        self.assertEqual( len(answ['data']), 2 )
+        self.eq( len(answ['data']), 2 )
 
         tenv.fini()
 
@@ -134,12 +134,12 @@ class SwarmRunTest(SwarmRunBase):
         answ = tenv.runt.ask('foo:bar="baz" join("foo:bar:vvv")')
         data = answ.get('data')
 
-        self.assertEqual( len(data), 4 )
+        self.eq( len(data), 4 )
 
         answ = tenv.runt.ask('foo:bar="baz" join("zzz:woot:vvv","foo:bar:vvv")')
         data = answ.get('data')
 
-        self.assertEqual( len(data), 2 )
+        self.eq( len(data), 2 )
 
         tenv.fini()
 
@@ -149,41 +149,41 @@ class SwarmRunTest(SwarmRunBase):
         answ = env.runt.ask('zzz:woot>=11')
 
         data = answ.get('data')
-        self.assertEqual( len(data), 1 )
-        self.assertEqual( data[0][1].get('zzz:woot'), 12 )
+        self.eq( len(data), 1 )
+        self.eq( data[0][1].get('zzz:woot'), 12 )
 
         answ = env.runt.ask('zzz:woot>10')
 
         data = answ.get('data')
-        self.assertEqual( len(data), 1 )
-        self.assertEqual( data[0][1].get('zzz:woot'), 12 )
+        self.eq( len(data), 1 )
+        self.eq( data[0][1].get('zzz:woot'), 12 )
 
         answ = env.runt.ask('zzz:woot>=10')
 
         data = answ.get('data')
-        self.assertEqual( len(data), 2 )
+        self.eq( len(data), 2 )
 
         answ = env.runt.ask('zzz:woot<=11')
 
         data = answ.get('data')
-        self.assertEqual( len(data), 1 )
-        self.assertEqual( data[0][1].get('zzz:woot'), 10 )
+        self.eq( len(data), 1 )
+        self.eq( data[0][1].get('zzz:woot'), 10 )
 
         answ = env.runt.ask('zzz:woot<12')
 
         data = answ.get('data')
-        self.assertEqual( len(data), 1 )
-        self.assertEqual( data[0][1].get('zzz:woot'), 10 )
+        self.eq( len(data), 1 )
+        self.eq( data[0][1].get('zzz:woot'), 10 )
 
         answ = env.runt.ask('zzz:woot<=13')
 
         data = answ.get('data')
-        self.assertEqual( len(data), 2 )
+        self.eq( len(data), 2 )
 
         answ = env.runt.ask('zzz:woot -zzz:woot<=11')
 
         data = answ.get('data')
-        self.assertEqual( len(data), 1 )
+        self.eq( len(data), 1 )
 
         env.fini()
 
@@ -192,16 +192,16 @@ class SwarmRunTest(SwarmRunBase):
         answ = env.runt.ask('foo:bar +foo:bar~="^l"')
 
         data = answ.get('data')
-        self.assertEqual( data[0][1].get('foo:bar'), 'lol')
+        self.eq( data[0][1].get('foo:bar'), 'lol')
 
         answ = env.runt.ask('foo:bar +foo:bar~="^Q"')
-        self.assertEqual( len(answ.get('data')), 0)
+        self.eq( len(answ.get('data')), 0)
 
         answ = env.runt.ask('foo:bar +foo:bar~="^Q"')
-        self.assertEqual( len(answ.get('data')), 0)
+        self.eq( len(answ.get('data')), 0)
 
         answ = env.runt.ask('foo:bar -foo:bar~="^[a-z]{3}$"')
-        self.assertEqual( len(answ.get('data')), 0)
+        self.eq( len(answ.get('data')), 0)
 
         env.fini()
 
@@ -215,7 +215,7 @@ class SwarmRunTest(SwarmRunBase):
         foobars = [ t[1].get('foo:bar') for t in tufos ]
         foobars.sort()
 
-        self.assertEqual( foobars, ['baz','faz'] )
+        self.eq( foobars, ['baz','faz'] )
 
         env.fini()
 
@@ -231,7 +231,7 @@ class SwarmRunTest(SwarmRunBase):
 
             foobars.sort()
 
-            self.assertEqual( foobars, ['baz','faz','hai','lol'] )
+            self.eq( foobars, ['baz','faz','hai','lol'] )
 
     def test_swarm_runtime_clear(self):
 
@@ -239,7 +239,7 @@ class SwarmRunTest(SwarmRunBase):
         answ = env.runt.ask('foo:bar clear()')
 
         tufos = answ.get('data')
-        self.assertEqual( len(tufos), 0 )
+        self.eq( len(tufos), 0 )
 
         env.fini()
 
@@ -250,8 +250,8 @@ class SwarmRunTest(SwarmRunBase):
 
         tufos = answ.get('data')
 
-        self.assertEqual( len(tufos), 1 )
-        self.assertEqual( tufos[0][1].get('foo:bar'), 'baz' )
+        self.eq( len(tufos), 1 )
+        self.eq( tufos[0][1].get('foo:bar'), 'baz' )
 
         env.fini()
 
@@ -264,16 +264,16 @@ class SwarmRunTest(SwarmRunBase):
 
         tufos = answ.get('data')
 
-        self.assertEqual( len(tufos), 4 )
-        self.assertEqual( tufos[0][1].get('tufo:form'), 'foo:bar' )
+        self.eq( len(tufos), 4 )
+        self.eq( tufos[0][1].get('tufo:form'), 'foo:bar' )
 
         # use the filter code for has()
         answ = env.runt.ask('tufo:form +foo:bar')
 
         tufos = answ.get('data')
 
-        self.assertEqual( len(tufos), 4 )
-        self.assertEqual( tufos[0][1].get('tufo:form'), 'foo:bar' )
+        self.eq( len(tufos), 4 )
+        self.eq( tufos[0][1].get('tufo:form'), 'foo:bar' )
 
         env.fini()
 
@@ -297,7 +297,7 @@ class SwarmRunTest(SwarmRunBase):
 
         self.eq( len(tufos), 1 )
 
-        answ = env.runt.ask('zzz:woot#1*range=(10,13)')
+        answ = env.runt.ask('zzz:woot^1*range=(10,13)')
         tufos = answ.get('data')
 
         self.eq( len(tufos), 2 )
@@ -310,16 +310,16 @@ class SwarmRunTest(SwarmRunBase):
 
         env.core0.formTufoByProp('inet:ipv4', 0x01020304)
 
-        answ = env.runt.ask('inet:ipv4="1.2.3.4"') #foo:bar="baz" save("woot") clear() load("woot")')
+        answ = env.runt.ask('inet:ipv4="1.2.3.4"')
 
         tufos = answ.get('data')
-        self.assertEqual( len(tufos), 1 )
-        self.assertEqual( tufos[0][1].get('inet:ipv4'), 0x01020304 )
+        self.eq( len(tufos), 1 )
+        self.eq( tufos[0][1].get('inet:ipv4'), 0x01020304 )
 
         answ = env.runt.ask('inet:ipv4=0x01020304')
 
         tufos = answ.get('data')
-        self.assertEqual( len(tufos), 1 )
-        self.assertEqual( tufos[0][1].get('inet:ipv4'), 0x01020304 )
+        self.eq( len(tufos), 1 )
+        self.eq( tufos[0][1].get('inet:ipv4'), 0x01020304 )
 
         env.fini()

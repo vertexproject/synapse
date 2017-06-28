@@ -41,7 +41,7 @@ def props(tufo,pref=None):
 
 def tags(tufo,leaf=False):
 
-    fulltags = [ p.split('|',2)[2] for p in tufo[1].keys() if p.startswith('*|') ]
+    fulltags = [ p[1:] for p in tufo[1].keys() if p[0] == '#' ]
     if not leaf:
         return fulltags
 
@@ -56,6 +56,23 @@ def tags(tufo,leaf=False):
         retn.append(tag)
 
     return retn
+
+def ival(tufo,name):
+    '''
+    Return a min,max interval tuple or None for the node.
+
+    Args:
+        tufo ((str,dict)):  A node in tuple form
+        name (str):         The name of the interval to return
+
+    Returns:
+        (int,int)   An interval value ( or None )
+
+    '''
+    minv = tufo[1].get('>'+name)
+    if minv == None:
+        return None
+    return minv,tufo[1].get('<'+name)
 
 def equal(tuf0,tuf1):
     '''
@@ -96,5 +113,18 @@ def ephem(form,fval,**props):
     return (None,props)
 
 def tagged(tufo,tag):
-    prop = '*|%s|%s' % (tufo[1].get('tufo:form'),tag)
-    return tufo[1].get(prop) != None
+    return tufo[1].get('#'+tag) != None
+
+def ndef(tufo):
+    '''
+    Return a node definition (<form>,<valu> tuple from the tufo.
+
+    Args:
+        tufo ((str,dict)):  A node in tuple form
+
+    Returns:
+        ((str,obj)):    The (<form>,<valu>) tuple for the node
+
+    '''
+    form = tufo[1].get('tufo:form')
+    return form,tufo[1][form]

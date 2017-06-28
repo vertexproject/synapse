@@ -67,8 +67,11 @@ class FqdnType(DataType):
             self._raiseBadValu(valu)
 
         try:
-            valu = valu.encode('idna').decode('idna').lower()
+            valu = valu.encode('idna').decode('utf8').lower()
         except UnicodeError as e:
+            self._raiseBadValu(valu)
+
+        if not fqdnre.match(valu):
             self._raiseBadValu(valu)
 
         parts = valu.split('.', 1)
@@ -77,7 +80,11 @@ class FqdnType(DataType):
             subs['domain'] = parts[1]
         else:
             subs['sfx'] = 1
-        return valu, subs
+
+        return valu,subs
+
+    def repr(self, valu):
+        return valu.encode('utf8').decode('idna')
 
 # RFC5952 compatible
 def ipv6norm(text):

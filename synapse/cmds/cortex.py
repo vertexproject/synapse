@@ -103,15 +103,37 @@ class AskCmd(s_cli.Cmd):
         else:
 
             for node in nodes:
+
                 form = node[1].get('tufo:form')
                 valu = node[1].get(form)
 
-                tags = sorted(s_tufo.tags(node,leaf=True))
-                tags = [ '#'+tag for tag in tags ]
+                leafs = set(s_tufo.tags(node,leaf=True))
+
+                taglines = []
+                for tag in sorted(s_tufo.tags(node)):
+
+                    prop = '#' + tag
+                    asof = node[1].get(prop)
+
+                    ival = s_tufo.ival(node, prop)
+                    if ival is None and tag not in leafs:
+                        continue
+
+                    mesg = '%s (added %s)' % (prop, core.getTypeRepr('time',asof))
+                    if ival is not None:
+                        mins = core.getTypeRepr('time',ival[0])
+                        maxs = core.getTypeRepr('time',ival[1])
+                        mesg += ' %s  -  %s' % (mins,maxs)
+
+                    taglines.append(mesg)
 
                 # FIXME local typelib and datamodel
                 disp = core.getPropRepr(form,valu)
-                self.printf('%s = %s - %s' % (form.ljust(fsize),disp,' '.join(tags)))
+
+                self.printf('%s = %s' % (form.ljust(fsize),disp))
+                for line in taglines:
+                    self.printf('    %s' % (line,))
+
                 if opts.get('props'):
                     pref = form + ':'
                     flen = len(form)
@@ -123,147 +145,6 @@ class AskCmd(s_cli.Cmd):
         self.printf('(%d results)' % (len(nodes),))
 
         return resp
-
-class AddNodeCmd(s_cli.Cmd):
-    '''
-    Form a node in the cortex.
-
-    Examples:
-
-        addnode <prop> <valu> [<secprop>=<valu>...]
-
-        addnode inet:ipv4 0.0.0.0
-        addnode inet:ipv4 0x01020304
-        addnode inet:ipv4 1
-
-        # add a node and specify secondary props
-        addnode syn:seq woot width=8
-    '''
-
-    _cmd_name = 'addnode'
-    _cmd_syntax = (
-        ('--tags',{'type':'valu'}),
-        ('prop',{'type':'valu'}),
-        ('valu',{'type':'valu'}),
-        ('props',{'type':'kwlist'}),
-    )
-
-    def runCmdOpts(self, opts):
-
-        prop = opts.get('prop')
-        valu = opts.get('valu')
-        if prop == None or valu == None:
-            self.printf(self.__doc__)
-            return
-
-        tags = ()
-
-        tstr = opts.get('tags')
-        if tstr != None:
-            tags = tstr.split(',')
-
-        kwlist = opts.get('props')
-        props = dict( opts.get('props') )
-
-        core = self.getCmdItem()
-
-        node = core.formTufoByProp(prop,valu,**props)
-        if tags:
-            node = core.addTufoTags(node,tags)
-
-        self.printf('formed: %r' % (node,))
-
-class AddTagCmd(s_cli.Cmd):
-    '''
-    Add a tag by query.
-
-    Examples:
-
-        addtag <tag> <query>
-
-        addtag cooltag inet:ipv4="127.0.0.1"
-    '''
-
-    _cmd_name = 'addtag'
-    _cmd_syntax = (
-        ('tag',{'type':'valu'}),
-        ('query',{'type':'glob'}),
-    )
-
-    def runCmdOpts(self, opts):
-
-        tag = opts.get('tag')
-        if tag == None:
-            self.printf(self.__doc__)
-            return
-
-        core = self.getCmdItem()
-
-        nodes = core.eval( opts.get('query') )
-        if not nodes:
-            self.printf('0 nodes...')
-            return
-
-        self.printf('adding %s to %d nodes...' % (tag,len(nodes)))
-
-        for node in nodes:
-
-            node = core.addTufoTag(node,tag)
-
-            form = node[1].get('tufo:form')
-            valu = node[1].get(form)
-
-            tags = s_tufo.tags(node)
-
-            # FIXME local typelib and datamodel
-            disp = core.getPropRepr(form,valu)
-            self.printf('%s - %s' % (disp,','.join(tags)))
-
-class DelTagCmd(s_cli.Cmd):
-    '''
-    Delete tags by query.
-
-    Examples:
-
-        deltag <tag> <query>
-
-        deltag cooltag inet:ipv4="127.0.0.1"
-    '''
-
-    _cmd_name = 'deltag'
-    _cmd_syntax = (
-        ('tag',{'type':'valu'}),
-        ('query',{'type':'glob'}),
-    )
-
-    def runCmdOpts(self, opts):
-
-        tag = opts.get('tag')
-        if tag == None:
-            self.printf(self.__doc__)
-            return
-
-        core = self.getCmdItem()
-
-        nodes = core.eval( opts.get('query') )
-        if not nodes:
-            self.printf('0 nodes...')
-            return
-
-        self.printf('removing %s from %d nodes...' % (tag,len(nodes)))
-
-        for node in nodes:
-
-            node = core.delTufoTag(node,tag)
-
-            form = node[1].get('tufo:form')
-            valu = node[1].get(form)
-
-            tags = s_tufo.tags(node)
-
-            # FIXME local typelib and datamodel
-            disp = core.getPropRepr(form,valu)
-            self.printf('%s - %s' % (disp,','.join(tags)))
 
 class NextSeqCmd(s_cli.Cmd):
     '''

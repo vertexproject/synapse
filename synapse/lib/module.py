@@ -116,6 +116,7 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
 
         self.initCoreModule()
         self.setConfOpts(conf)
+        self.postCoreModule()
 
     def form(self, form, valu, **props):
         '''
@@ -146,6 +147,17 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
               if this module implements Cortex data models.
         '''
         self.revCoreModl()
+
+    def postCoreModule(self):
+        '''
+        Module implementers may over-ride this method to initialize the module
+        *after* the configuration data has been loaded.
+
+        Returns:
+            (None)
+
+        '''
+        pass
 
     def revCoreModl(self):
         '''

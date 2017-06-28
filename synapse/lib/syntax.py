@@ -1,5 +1,6 @@
 import re
 
+import synapse.lib.time as s_time
 import synapse.lib.sched as s_sched
 import synapse.lib.service as s_service
 
@@ -17,7 +18,7 @@ intset = set('01234567890abcdefx')
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 propset = set(':abcdefghijklmnopqrstuvwxyz_0123456789')
 starset = varset.union({'*'})
-whenset = set('0123456789abcdefghijklmnopqrstuvwxyz+,')
+tagfilt = varset.union({'#','*','@'})
 alphaset = set('abcdefghijklmnopqrstuvwxyz')
 
 def nom(txt,off,cset,trim=True):
@@ -183,19 +184,35 @@ def parse_string(text,off,trim=True):
 
 def parse_macro_filt(text,off=0,trim=True, mode='must'):
 
-    if trim:
-        _,off = nom(text,off,whites)
+    _,off = nom(text,off,whites)
 
     # special + #tag (without prop) based filter syntax
     if nextchar(text,off,'#'):
+
         _,off = nom(text,off,whites)
-        tag,off = nom(text,off+1,starset,trim=True)
-        oper = ('filt',{'cmp':'tag','mode':mode,'valu':tag})
-        return oper,off
+        prop,off = nom(text, off, tagfilt, trim=True)
+
+        parts = prop.split('@', 1)
+        if len(parts) == 1:
+            inst = ('filt',{'cmp':'tag','mode':mode,'valu':prop[1:]})
+            return inst,off
+
+        prop,istr = parts
+
+        if istr.find('-') == -1:
+            tick = s_time.parse(istr)
+            inst = ('filt',{'cmp':'ival', 'mode':mode, 'valu':(prop,tick)})
+            return inst,off
+
+        ival = s_interval.parsetime(istr)
+        inst = ('filt',{'cmp':'ivalival','mode':mode,'valu':(prop,ival)})
+
+        return inst,off
 
     # check for non-macro syntax
     name,xoff = nom(text,off,varset)
     _,xoff = nom(text,xoff,whites)
+
     if nextchar(text,xoff,'('):
         inst,off = parse_oper(text,off)
 
@@ -365,12 +382,8 @@ def parse_ques(text,off=0,trim=True):
         if len(text) == off:
             return ques,off
 
-        if text[off] == '#':
+        if text[off] == '^':
             ques['limit'],off = parse_int(text,off+1,trim=True)
-            continue
-
-        if text[off] == '@':
-            ques['when'],off = parse_when(text,off+1,trim=True)
             continue
 
         # NOTE: "by" macro syntax only supports eq so we eat and run
@@ -395,8 +408,6 @@ def parse_ques(text,off=0,trim=True):
             ques['cmp'] = 'eq'
             ques['valu'],off = parse_macro_valu(text,off)
             break
-
-        # TODO: handle "by" syntax
 
         textpart = text[off:]
         for ctxt,cmpr in macrocmps:
@@ -434,14 +445,6 @@ def parse_macro_valu(text,off=0):
         pass
 
     return valu,off
-
-
-def parse_when(text,off,trim=True):
-    whenstr,off = nom(text,off,whenset)
-    # FIXME validate syntax
-    if whenstr.find(',') != -1:
-        return tuple(whenstr.split(',',1)),off
-    return (whenstr,None),off
 
 def parse_cmd_kwarg(text, off=0):
     '''
