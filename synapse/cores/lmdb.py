@@ -3,8 +3,7 @@ from __future__ import absolute_import
 import sys
 import struct
 from binascii import unhexlify
-if sys.version_info > (3, 0):
-    from functools import lru_cache
+
 from contextlib import contextmanager
 from threading import Lock
 
@@ -85,20 +84,9 @@ class DatabaseLimitReached(Exception):
     ''' You've reached some limit of the database '''
     pass
 
-# Python 2.7 version of lmdb buffers=True functions return buffer objects.  Python 3 version returns
-# memoryview objects
-if sys.version_info > (3, 0):
-    def _memToBytes(x):
-        return x.tobytes()
-else:
-    def _memToBytes(x):
-        return str(x)
-
-    def lru_cache(maxsize):
-        ''' A dumb passthrough.  Python 2 impl is just going to be a tad slower '''
-        def actual_decorator(wrappee):
-            return wrappee
-        return actual_decorator
+# Python 2.7 version of lmdb buffers=True functions return buffer objects.
+# Python 3 version returns memoryview objects
+memToBytes = s_compat.memToBytes
 
 def _encValKey(v):
     '''
@@ -123,13 +111,13 @@ def _encValKey(v):
 
 # Really just want to memoize the last iden encoded, but there might be some multithreading, so keep
 # a few more (8)
-@lru_cache(maxsize=8)
+@s_compat.lru_cache(maxsize=8)
 def _encIden(iden):
     ''' Encode an iden '''
     return unhexlify(iden)
 
 # Try to memoize most of the prop names we get
-@lru_cache(maxsize=1024)
+@s_compat.lru_cache(maxsize=1024)
 def _encProp(prop):
     return msgenpack(prop)
 
@@ -435,9 +423,9 @@ class Cortex(s_cores_common.Cortex):
                 key, value = cursor.item()
                 if key[:len(i_enc)] != i_enc:
                     return
-                p_enc = _memToBytes(key[len(i_enc):])
+                p_enc = memToBytes(key[len(i_enc):])
                 # Need to copy out with tobytes because we're deleting
-                pk_enc = _memToBytes(value)
+                pk_enc = memToBytes(value)
 
                 if not cursor.delete():
                     raise Exception('Delete failure')
@@ -460,7 +448,7 @@ class Cortex(s_cores_common.Cortex):
                 if key[:len(first_key)] != first_key:
                     return
                 # Need to copy out with tobytes because we're deleting
-                pk_enc = _memToBytes(value)
+                pk_enc = memToBytes(value)
 
                 # Delete the row and the other indices
                 if not self._delRowAndIndices(txn, pk_enc, i_enc=i_enc, p_enc=p_enc,
@@ -525,7 +513,7 @@ class Cortex(s_cores_common.Cortex):
             if not cursor.set_range(first_key):
                 raise DatabaseInconsistent("Missing sentinel")
             for key, value in cursor:
-                if _memToBytes(key) != first_key:
+                if memToBytes(key) != first_key:
                     return ret
                 row = self._getRowByPkValEnc(txn, value)
                 if valu is not None and row[2] != valu:
@@ -554,7 +542,7 @@ class Cortex(s_cores_common.Cortex):
                     if key[:len(first_key)] != first_key:
                         break
                 else:
-                    if _memToBytes(key) >= last_key:
+                    if memToBytes(key) >= last_key:
                         break
                 if v_is_hashed or not do_count_only:
                     row = self._getRowByPkValEnc(txn, pk_enc)
@@ -584,7 +572,7 @@ class Cortex(s_cores_common.Cortex):
                     if key[:len(first_key)] != first_key:
                         break
                 else:
-                    if _memToBytes(key) >= last_key:
+                    if memToBytes(key) >= last_key:
                         break
 
                 if self._delRowAndIndices(txn, pk_enc,
@@ -678,7 +666,7 @@ class Cortex(s_cores_common.Cortex):
             if am_going_backwards:
                 # set_range sets the cursor at the first key >= first_key, if we're going backwards
                 # we actually want the first key <= first_key
-                if _memToBytes(cursor.key()[:len(first_key)]) > first_key:
+                if memToBytes(cursor.key()[:len(first_key)]) > first_key:
                     if not cursor.prev():
                         raise DatabaseInconsistent("Missing sentinel")
                 it = cursor.iterprev(keys=True, values=True)
@@ -686,7 +674,7 @@ class Cortex(s_cores_common.Cortex):
                 it = cursor.iternext(keys=True, values=True)
 
             for key, value in it:
-                if term_cmp(_memToBytes(key[:len(last_key)]), last_key):
+                if term_cmp(memToBytes(key[:len(last_key)]), last_key):
                     break
                 count += 1
                 if not do_count_only:

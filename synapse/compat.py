@@ -20,12 +20,11 @@ version = (major,minor,micro)
 
 if version < (3,0,0):
     import select
+    import urllib
 
     import Queue as queue
 
     from cStringIO import StringIO as BytesIO
-
-    import urllib
 
     # since py27 is aparently incapable of interning
     # unicode strings, we will simply nop this optimization 
@@ -100,16 +99,30 @@ if version < (3,0,0):
     def url_quote_plus(s):
         return urllib.quote_plus(s)
 
+    def lru_cache(maxsize):
+        '''
+        Simple passthrough wrapper.
+
+        Would have to rewrite a true LRU cache implementation for Python2, since
+        we can't directly pull the py3 stdlib implementation from functools.py.
+        '''
+        def actual_decorator(wrappee):
+            return wrappee
+        return actual_decorator
+
+    def memToBytes(x):
+        '''Convert a buffer to str (bytes)'''
+        return str(x)
 
 else:
 
     import sys
     import queue
     import builtins
+    import urllib.parse
 
     from io import BytesIO
-
-    import urllib.parse
+    from functools import lru_cache
 
     intern = sys.intern
 
@@ -156,3 +169,7 @@ else:
 
     def url_quote_plus(s):
         return urllib.parse.quote_plus(s)
+
+    def memToBytes(x):
+        '''Convert a memoryview to bytes'''
+        return x.tobytes()
