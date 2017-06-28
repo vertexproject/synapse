@@ -3,6 +3,7 @@ import json
 import synapse.lib.cli as s_cli
 import synapse.lib.tufo as s_tufo
 import synapse.lib.scope as s_scope
+import synapse.lib.storm as s_storm
 
 class AskCmd(s_cli.Cmd):
     '''
@@ -27,6 +28,7 @@ class AskCmd(s_cli.Cmd):
     )
 
     def runCmdOpts(self, opts):
+
         ques = opts.get('query')
         if ques == None:
             self.printf(self.__doc__)
@@ -86,45 +88,59 @@ class AskCmd(s_cli.Cmd):
             self.printf('(%d results)' % (len(nodes),))
             return resp
 
-        for node in nodes:
+        show = resp.get('show',{})
+        cols = show.get('columns')
 
-            form = node[1].get('tufo:form')
-            valu = node[1].get(form)
+        if cols is not None:
 
-            leafs = set(s_tufo.tags(node,leaf=True))
+            shlp = s_storm.ShowHelp(core,show)
+            rows = shlp.rows(nodes)
+            pads = shlp.pad(rows)
 
-            taglines = []
-            for tag in sorted(s_tufo.tags(node)):
+            for pad in pads:
+                self.printf(' '.join(pad))
 
-                prop = '#' + tag
-                asof = node[1].get(prop)
+        else:
 
-                ival = s_tufo.ival(node, prop)
-                if ival is None and tag not in leafs:
-                    continue
+            for node in nodes:
 
-                mesg = '%s (added %s)' % (prop, core.getTypeRepr('time',asof))
-                if ival is not None:
-                    mins = core.getTypeRepr('time',ival[0])
-                    maxs = core.getTypeRepr('time',ival[1])
-                    mesg += ' %s  -  %s' % (mins,maxs)
+                form = node[1].get('tufo:form')
+                valu = node[1].get(form)
 
-                taglines.append(mesg)
+                leafs = set(s_tufo.tags(node,leaf=True))
 
-            # FIXME local typelib and datamodel
-            disp = core.getPropRepr(form,valu)
+                taglines = []
+                for tag in sorted(s_tufo.tags(node)):
 
-            self.printf('%s = %s' % (form.ljust(fsize),disp))
-            for line in taglines:
-                self.printf('    %s' % (line,))
+                    prop = '#' + tag
+                    asof = node[1].get(prop)
 
-            if opts.get('props'):
-                pref = form + ':'
-                flen = len(form)
-                for prop in sorted([ k for k in node[1].keys() if k.startswith(pref) ]):
-                    valu = node[1].get(prop)
-                    disp = core.getPropRepr(prop,valu)
-                    self.printf('    %s = %s' % (prop[flen:],disp))
+                    ival = s_tufo.ival(node, prop)
+                    if ival is None and tag not in leafs:
+                        continue
+
+                    mesg = '%s (added %s)' % (prop, core.getTypeRepr('time',asof))
+                    if ival is not None:
+                        mins = core.getTypeRepr('time',ival[0])
+                        maxs = core.getTypeRepr('time',ival[1])
+                        mesg += ' %s  -  %s' % (mins,maxs)
+
+                    taglines.append(mesg)
+
+                # FIXME local typelib and datamodel
+                disp = core.getPropRepr(form,valu)
+
+                self.printf('%s = %s' % (form.ljust(fsize),disp))
+                for line in taglines:
+                    self.printf('    %s' % (line,))
+
+                if opts.get('props'):
+                    pref = form + ':'
+                    flen = len(form)
+                    for prop in sorted([ k for k in node[1].keys() if k.startswith(pref) ]):
+                        valu = node[1].get(prop)
+                        disp = core.getPropRepr(prop,valu)
+                        self.printf('    %s = %s' % (prop[flen:],disp))
 
         self.printf('(%d results)' % (len(nodes),))
 

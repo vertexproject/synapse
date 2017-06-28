@@ -2,10 +2,12 @@ import datetime
 import collections
 
 import synapse.exc as s_exc
-import synapse.lib.config as s_config
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
+
+import synapse.lib.config as s_config
 import synapse.lib.reflect as s_reflect
+
 import synapse.cores.common as s_cores_common
 
 MODEL_REV_FORMAT = '%Y%m%d%H%M'
