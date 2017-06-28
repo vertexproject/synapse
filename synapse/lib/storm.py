@@ -4,12 +4,12 @@ import fnmatch
 import logging
 import collections
 
+import synapse.compat as s_compat
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
-import synapse.lib.compat as s_compat
 import synapse.lib.syntax as s_syntax
 import synapse.lib.threads as s_threads
 
@@ -156,7 +156,7 @@ class ShowHelp:
 
         retn = []
         for row in rows:
-            retn.append([ row.ljust(size) for row,size in s_compat.iterzip(row,widths) ])
+            retn.append([ r.rjust(size) for r,size in s_compat.iterzip(row,widths) ])
 
         return retn
 

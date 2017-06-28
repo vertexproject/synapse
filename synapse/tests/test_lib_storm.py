@@ -495,7 +495,7 @@ class StormTest(SynTest):
 
             rows = list(sorted(shlp.pad(rows)))
             self.eq(rows, [
-                ['1.2.3.4','kd','#foo.bar'],
+                ['        1.2.3.4','kd','#foo.bar'],
                 ['111.111.111.111','vv','#foo.bar'],
             ])
 
