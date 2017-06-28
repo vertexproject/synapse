@@ -224,7 +224,7 @@ def chunks(item, size):
     Divide an iterable into chunks.
     '''
     # use islice if it's a generator
-    if type(item) == types.GeneratorType:
+    if isinstance(item, types.GeneratorType):
 
         while True:
 
