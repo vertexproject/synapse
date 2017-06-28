@@ -1,4 +1,5 @@
 import synapse.cortex as s_cortex
+import synapse.lib.tufo as s_tufo
 import synapse.lib.storm as s_storm
 import synapse.cores.common as s_common
 
@@ -81,8 +82,8 @@ class StormTest(SynTest):
 
             self.eq( node[1].get('inet:fqdn'), 'vertex.link' )
 
-            self.nn( node[1].get('*|inet:fqdn|baz') )
-            self.nn( node[1].get('*|inet:fqdn|foo.bar') )
+            self.nn( node[1].get('#baz') )
+            self.nn( node[1].get('#foo.bar') )
 
     def test_storm_addtag(self):
         with s_cortex.openurl('ram:///') as core:
@@ -93,10 +94,10 @@ class StormTest(SynTest):
 
             self.eq(node[1].get('inet:fqdn'), 'vertex.link')
 
-            self.nn(node[1].get('*|inet:fqdn|foo'))
-            self.nn(node[1].get('*|inet:fqdn|foo.bar'))
-            self.nn(node[1].get('*|inet:fqdn|baz'))
-            self.nn(node[1].get('*|inet:fqdn|baz.faz'))
+            self.nn(node[1].get('#foo'))
+            self.nn(node[1].get('#foo.bar'))
+            self.nn(node[1].get('#baz'))
+            self.nn(node[1].get('#baz.faz'))
 
     def test_storm_deltag(self):
         with s_cortex.openurl('ram:///') as core:
@@ -110,11 +111,10 @@ class StormTest(SynTest):
 
             self.eq(node[1].get('inet:fqdn'), 'vertex.link')
 
-            self.nn(node[1].get('*|inet:fqdn|baz'))
-
-            self.none(node[1].get('*|inet:fqdn|foo'))
-            self.none(node[1].get('*|inet:fqdn|foo.bar'))
-            self.none(node[1].get('*|inet:fqdn|baz.faz'))
+            self.nn(node[1].get('#baz'))
+            self.none(node[1].get('#foo'))
+            self.none(node[1].get('#foo.bar'))
+            self.none(node[1].get('#baz.faz'))
 
     def test_storm_refs(self):
 
@@ -240,7 +240,9 @@ class StormTest(SynTest):
             self.eq(len(nodes), 1)
 
     def test_storm_tag_jointag(self):
+
         with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
@@ -266,7 +268,7 @@ class StormTest(SynTest):
             self.eq(len(nodes), 1)
             self.eq(nodes[0][1].get('tufo:form'), 'inet:fqdn')
 
-            nodes = core.eval('inet:dns:a jointags(ps:tokn, inet:fqdn)')
+            nodes = core.eval('inet:dns:a jointags(ps:tokn,inet:fqdn)')
             self.eq(len(nodes), 1)
             self.eq(nodes[0][1].get('tufo:form'), 'inet:fqdn')
 
@@ -389,12 +391,18 @@ class StormTest(SynTest):
             self.eq(1, len(core.eval('lift(inet:ipv4, 2.0.0.0, by=lt)')))
 
     def test_storm_lifts_by(self):
+
         # Test various lifts by handlers
         with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
             node4 = core.formTufoByProp('inet:netuser', 'clowntown.link/pennywise')
+
+            core.addTufoDark(node1, 'hehe', 'haha')
+            core.addTufoDark(node2, 'hehe', 'haha')
+            core.addTufoDark(node3, 'hehe', 'haha')
 
             core.addTufoTags(node1, ['aka.foo.bar.baz', 'aka.duck.quack.loud', 'src.clowntown'])
             core.addTufoTags(node2, ['aka.foo.duck.baz', 'aka.duck.quack.loud', 'src.clowntown'])
@@ -413,17 +421,8 @@ class StormTest(SynTest):
             self.eq(len(nodes), 1)
 
             # Lift by dark
-            nodes = core.eval('tag*dark=aka')
+            nodes = core.eval('hehe*dark=haha')
             self.eq(len(nodes), 3)
-
-            nodes = core.eval('tag*dark=aka.duck.quack')
-            self.eq(len(nodes), 2)
-
-            nodes = core.eval('tag*dark=aka.foo.bar.knight')
-            self.eq(len(nodes), 1)
-
-            nodes = core.eval('tag*dark=loc')
-            self.eq(len(nodes), 0)
 
     def test_storm_addnode(self):
         with s_cortex.openurl('ram:///') as core:
@@ -460,6 +459,26 @@ class StormTest(SynTest):
 
             node = core.eval('inet:ipv4=5.6.7.8')[0]
             self.eq( node[1].get('inet:ipv4:cc'), 'us' )
+
+    def test_storm_tag_ival(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            node = core.eval('[ inet:ipv4=1.2.3.4  +#foo.bar@2016-2017 ] ')[0]
+
+            minv = node[1].get('>#foo.bar')
+            maxv = node[1].get('<#foo.bar')
+            self.eq((minv, maxv), (1451606400000, 1483228800000))
+
+            node = core.eval('[ inet:ipv4=5.6.7.8 +#foo.bar@2016 ] ')[0]
+
+            self.eq(s_tufo.ival(node,'#foo.bar'), (1451606400000, 1451606400000))
+
+            nodes = core.eval('inet:ipv4 +#foo.bar@201606')
+            self.eq( nodes[0][1].get('inet:ipv4'), 0x01020304 )
+
+            nodes = core.eval('inet:ipv4 -#foo.bar@201606')
+            self.eq( nodes[0][1].get('inet:ipv4'), 0x05060708)
 
     def test_storm_edit_end(self):
         with s_cortex.openurl('ram:///') as core:

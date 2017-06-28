@@ -1,3 +1,5 @@
+from __future__ import absolute_import,unicode_literals
+
 import re
 import time
 import logging
@@ -10,6 +12,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
 import synapse.lib.threads as s_threads
+import synapse.lib.interval as s_interval
 
 from synapse.common import *
 from synapse.lib.config import Configable
@@ -269,6 +272,9 @@ class Runtime(Configable):
         self.setCmprCtor('tag', self._cmprCtorTag )
         self.setCmprCtor('seen', self._cmprCtorSeen)
         self.setCmprCtor('range', self._cmprCtorRange)
+
+        # interval and interval-interval comparisons
+        self.setCmprCtor('ival', self._cmprCtorIval)
 
         self.setCmprCtor('in', self._cmprCtorIn )
         self.setCmprCtor('re', self._cmprCtorRe )
@@ -600,24 +606,20 @@ class Runtime(Configable):
             reobj = self._rt_regexcache.get(tag_regex)
 
             def getIsHit(prop):
-                _tag = prop.split('|', 2)[2]
-                return reobj.search(_tag)
+                #_tag = prop.split('|', 2)[2]
+                #_tag = prop.split('|', 2)[2]
+                # prop will be like "#foo.bar"
+                return reobj.search(prop[1:])
 
             glob_props = s_cache.KeyCache(getIsHit)
 
             def glob_cmpr(tufo):
-                return any((glob_props.get(p) for p in tufo[1] if p.startswith('*|')))
+                return any((glob_props.get(p) for p in tufo[1] if p[0] == '#'))
 
             return glob_cmpr
 
         def reg_cmpr(tufo):
-            form = tufo[1].get('tufo:form')
-
-            prop = reg_props.get(form)
-            if prop == None:
-                prop = reg_props[form] = '*|%s|%s' % (form,tag)
-
-            return tufo[1].get(prop) != None
+            return tufo[1].get('#'+tag) != None
 
         return reg_cmpr
 
@@ -688,6 +690,26 @@ class Runtime(Configable):
 
         return cmpr
 
+    def _cmprCtorIval(self, oper):
+
+        name,tick = oper[1].get('valu')
+
+        minp = '>' + name
+        maxp = '<' + name
+
+        def cmpr(tufo):
+
+            minv = tufo[1].get(minp)
+            if minv is None or minv > tick:
+                return False
+
+            maxv = tufo[1].get(maxp)
+            if maxv is None or maxv <= tick:
+                return False
+
+            return True
+
+        return cmpr
 
     def _stormOperAnd(self, query, oper):
         funcs = [ self.getCmprFunc(op) for op in oper[1].get('args') ]
@@ -990,7 +1012,8 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         for tag in tags:
-            nodes = core.getTufosByDark('tag', tag, limit=limit)
+
+            nodes = core.getTufosByTag(tag, limit=limit)
 
             [query.add(node) for node in nodes]
 
@@ -1020,12 +1043,14 @@ class Runtime(Configable):
             [ core.delTufoTag(node,tag) for node in nodes ]
 
     def _stormOperJoinTags(self, query, oper):
-        args = oper[1].get('args')
+
+        args = oper[1].get('args',())
         opts = dict(oper[1].get('kwlist'))
         core = self.getStormCore()
 
-        forms = {arg for arg in args}
+        forms = set(args)
         keep_nodes = opts.get('keep_nodes', False)
+
         limt = LimitHelp(opts.get('limit'))
 
         nodes = query.data()
@@ -1035,16 +1060,32 @@ class Runtime(Configable):
         tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=True)}
 
         if not forms:
-            forms = set(core.getModelDict().get('forms'))
 
-        for tag in tags:
-            lqs = query.size()
-            tufos = core.getTufosByDark('tag', tag, limit=limt.get())
-            [query.add(tufo) for tufo in tufos if tufo[1].get('tufo:form') in forms]
-            if tufos:
-                lq = query.size()
-                nnewnodes = lq - lqs
-                if limt.dec(nnewnodes):
+            for tag in tags:
+
+                nodes = core.getTufosByTag(tag, limit=limt.get())
+
+                limt.dec(len(nodes))
+                [ query.add(n) for n in nodes ]
+
+                if limt.reached():
+                    break
+
+            return
+
+        for form in forms:
+
+            if limt.reached():
+                break
+
+            for tag in tags:
+
+                nodes = core.getTufosByTag(tag, form=form, limit=limt.get())
+
+                limt.dec(len(nodes))
+                [ query.add(n) for n in nodes ]
+
+                if limt.reached():
                     break
 
     def _stormOperToTags(self, query, oper):
@@ -1054,7 +1095,8 @@ class Runtime(Configable):
 
         leaf = opts.get('leaf', True)
         tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=leaf)}
-        [query.add(tufo) for tufo in core.getTufosBy('in', 'syn:tag', list(tags))]
+
+        [ query.add(tufo) for tufo in core.getTufosBy('in', 'syn:tag', list(tags)) ]
 
     def _stormOperFromTags(self, query, oper):
         args = oper[1].get('args')
@@ -1063,6 +1105,7 @@ class Runtime(Configable):
         nodes = query.take()
 
         forms = {arg for arg in args}
+
         limt = LimitHelp(opts.get('limit'))
 
         tags = {node[1].get('syn:tag') for node in nodes if node[1].get('tufo:form') == 'syn:tag'}
@@ -1070,14 +1113,32 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         if not forms:
-            forms = set(core.getModelDict().get('forms'))
 
-        for tag in tags:
-            lqs = query.size()
-            tufos = core.getTufosByDark('tag', tag, limit=limt.get())
-            [query.add(tufo) for tufo in tufos if tufo[1].get('tufo:form') in forms]
-            if tufos:
-                lq = query.size()
-                nnewnodes = lq - lqs
-                if limt.dec(nnewnodes):
+            for tag in tags:
+
+                nodes = core.getTufosByTag(tag, limit=limt.get())
+                limt.dec(len(nodes))
+
+                [ query.add(n) for n in nodes ]
+
+                if limt.reached():
                     break
+
+            return
+
+        for form in forms:
+
+            if limt.reached():
+                break
+
+            for tag in tags:
+
+                if limt.reached():
+                    break
+
+                nodes = core.getTufosByTag(tag, form=form, limit=limt.get())
+
+                limt.dec(len(nodes))
+                [ query.add(n) for n in nodes ]
+
+        return

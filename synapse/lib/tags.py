@@ -36,44 +36,23 @@ def iterTagUp(tag,div='.'):
 def getTufoSubs(tufo, tag):
     '''
     Return a list of tufo props for the given tag (and down).
+
+    Args:
+        tufo ((str,dict)):  A node in tuple form
+        tag (str):          A tag name
+
+    Returns:
+
     '''
-    props = []
-    form = tufo[1].get('tufo:form')
+    prop = '#' + tag
+    if not tufo[1].get(prop):
+        return ()
 
-    prop = '*|%s|%s' % (form,tag)
-    if tufo[1].get(prop):
-        props.append(prop)
-    else:
-        return props
-
+    props = [prop]
     pref = prop + '.'
 
-    props.extend([ p for p in tufo[1].keys() if p.startswith(pref) ])
+    props.extend( p for p in tufo[1].keys() if p.startswith(pref) )
     return props
-
-def genTufoRows(tufo, tag, valu=None):
-    '''
-    Return a list of (tag,row) tuples for the given tag (and down).
-    '''
-    tick = s_common.now()
-    if valu == None:
-        valu = tick
-
-    iden = tufo[0]
-    form = tufo[1].get('tufo:form')
-    props = [ (tag,'*|%s|%s' % (form,tag)) for tag in iterTagDown(tag) ]
-    return [ (tag, (iden,prop,valu,tick)) for tag, prop in props if tufo[1].get(prop) == None ]
-
-def getTufoTags(tufo):
-    '''
-    Return a dict of tag:val for tags on tufo.
-
-    Example:
-
-        tags = getTufoTags(tufo)
-
-    '''
-    return { choptag(p):v for (p,v) in tufo[1].items() if p[0] == '*' }
 
 def tufoHasTag(tufo,tag):
     '''
@@ -85,20 +64,7 @@ def tufoHasTag(tufo,tag):
             dostuff()
 
     '''
-    form = tufo[1].get('tufo:form')
-    prop = '*|%s|%s' % (form,tag)
-    return tufo[1].get(prop) != None
-
-def choptag(prop):
-    '''
-    Chop a tag property to return tag.
-
-    Example:
-
-        bazfaz = choptag('*|foo:bar|baz.faz')
-
-    '''
-    return prop.split('|',2)[2]
+    return tufo[1].get('#'+tag) != None
 
 class ByTag:
     '''
