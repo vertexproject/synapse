@@ -38,7 +38,7 @@ From a user perspective, you need to know that every node consists of the follow
 
 - A **globally unique identifier** (GUID, identifier, or ID) that is **unique across all nodes in a given hypergraph** (e.g., a given Cortex). The way that node GUIDs are generated makes them “Cortex specific”: this means that the same node (e.g., ``inet:fqdn=woot.com``) in two different Cortexes could have a different GUID in each.
 
-- One more more **universal properties** created automatically by Synapse whenever a new node is generated. The most important universal property for our purpose is the property ``tufo:form=<form>`` that lists the **primary property type** for that node. For example, a node representing an Internet domain (``inet:fqdn``) would have the universal property ``tufo:form=inet:fqdn``.
+- One or more **universal properties** created automatically by Synapse whenever a new node is generated. The most important universal property for our purpose is the property ``tufo:form=<form>`` that lists the **primary property type** for that node. For example, a node representing an Internet domain (``inet:fqdn``) would have the universal property ``tufo:form=inet:fqdn``.
 
 - A single **primary property** that consists of the **form** of the node plus its specific value.
 
