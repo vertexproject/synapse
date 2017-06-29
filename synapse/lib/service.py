@@ -1,10 +1,12 @@
+from __future__ import absolute_import, unicode_literals
+
 import time
-import inspect
 import logging
 
 logger = logging.getLogger(__name__)
 
 import synapse.async as s_async
+import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
@@ -13,8 +15,6 @@ import synapse.lib.sched as s_sched
 import synapse.lib.scope as s_scope
 import synapse.lib.reflect as s_reflect
 import synapse.lib.thishost as s_thishost
-
-from synapse.common import *
 
 def openurl(url, **opts):
     '''
@@ -25,7 +25,7 @@ def openurl(url, **opts):
         svcprox = openbus('tcp://svcbus.com/mybus')
 
     '''
-    svcbus = s_telepath.openurl(url,**opts)
+    svcbus = s_telepath.openurl(url, **opts)
     return SvcProxy(svcbus)
 
 class SvcBus(s_eventbus.EventBus):
@@ -55,22 +55,22 @@ class SvcBus(s_eventbus.EventBus):
         '''
         props['iden'] = iden
 
-        svcfo = (iden,props)
+        svcfo = (iden, props)
 
         sock = s_scope.get('sock')
-        if sock != None:
+        if sock is not None:
             def onfini():
-                oldsvc = self.services.pop(iden,None)
+                oldsvc = self.services.pop(iden, None)
                 self.bytag.pop(iden)
                 self.fire('syn:svc:fini', svcfo=oldsvc)
 
             sock.onfini(onfini)
-            
+
         self.services[iden] = svcfo
 
-        tags = props.get('tags',())
+        tags = props.get('tags', ())
 
-        self.bytag.put(iden,tags)
+        self.bytag.put(iden, tags)
 
         self.fire('syn:svc:init', svcfo=svcfo)
 
@@ -88,7 +88,7 @@ class SvcBus(s_eventbus.EventBus):
             within the service object.
         '''
         svcfo = self.services.get(iden)
-        if svcfo != None:
+        if svcfo is not None:
             svcfo[1]['checkin'] = int(time.time())
 
     def getSynSvcs(self):
@@ -114,7 +114,7 @@ class SvcBus(s_eventbus.EventBus):
 
         '''
         idens = self.bytag.get(tag)
-        return [ self.services.get(iden) for iden in idens ]
+        return [self.services.get(iden) for iden in idens]
 
 class SvcProxy(s_eventbus.EventBus):
     '''
@@ -129,11 +129,11 @@ class SvcProxy(s_eventbus.EventBus):
         self.sbus = sbus
         self.timeout = timeout
 
-        self.onfini( self.sbus.fini )
+        self.onfini(self.sbus.fini)
 
         # FIXME set a reconnect handler for sbus
-        self.sbus.on('syn:svc:init', self._onSynSvcInit )
-        self.sbus.on('syn:svc:fini', self._onSynSvcFini )
+        self.sbus.on('syn:svc:init', self._onSynSvcInit)
+        self.sbus.on('syn:svc:fini', self._onSynSvcFini)
 
         self.byiden = {}
         self.byname = {}
@@ -143,11 +143,11 @@ class SvcProxy(s_eventbus.EventBus):
         self.nameprox = {}
         self.tagprox = {}
 
-        [ self._addSvcTufo(svcfo) for svcfo in sbus.getSynSvcs() ]
+        [self._addSvcTufo(svcfo) for svcfo in sbus.getSynSvcs()]
 
     def _onSynSvcInit(self, mesg):
         svcfo = mesg[1].get('svcfo')
-        if svcfo == None:
+        if svcfo is None:
             return
 
         self._addSvcTufo(svcfo)
@@ -155,28 +155,28 @@ class SvcProxy(s_eventbus.EventBus):
     def _addSvcTufo(self, svcfo):
         iden = svcfo[0]
 
-        tags = svcfo[1].get('tags',())
-        name = svcfo[1].get('name',iden)
+        tags = svcfo[1].get('tags', ())
+        name = svcfo[1].get('name', iden)
 
         self.byiden[iden] = svcfo
         self.byname[name] = svcfo
 
-        self.idenprox[iden] = IdenProxy(self,svcfo)
+        self.idenprox[iden] = IdenProxy(self, svcfo)
 
-        self.bytag.put(iden,tags)
-        self.bytag.put(iden,(name,))
+        self.bytag.put(iden, tags)
+        self.bytag.put(iden, (name,))
 
     def _onSynSvcFini(self, mesg):
         svcfo = mesg[1].get('svcfo')
 
         iden = svcfo[0]
-        name = svcfo[1].get('name',iden)
+        name = svcfo[1].get('name', iden)
 
         self.bytag.pop(svcfo[0])
-        self.idenprox.pop(svcfo[0],None)
+        self.idenprox.pop(svcfo[0], None)
 
-        self.byname.pop(name,None)
-        self.byiden.pop(iden,None)
+        self.byname.pop(name, None)
+        self.byiden.pop(iden, None)
 
     def setSynSvcTimeout(self, timeout):
         self.timeout = timeout
@@ -216,7 +216,7 @@ class SvcProxy(s_eventbus.EventBus):
                 dostuff(svcfo)
 
         '''
-        return [ self.byiden.get(i) for i in self.bytag.get(tag) ]
+        return [self.byiden.get(i) for i in self.bytag.get(tag)]
 
     def __getitem__(self, name):
         '''
@@ -234,11 +234,11 @@ class SvcProxy(s_eventbus.EventBus):
 
         '''
         svcfo = self.byiden.get(iden)
-        if svcfo == None:
-            raise NoSuchObj(iden)
+        if svcfo is None:
+            raise s_common.NoSuchObj(iden)
 
-        dyntask = (func,args,kwargs)
-        job = self.sbus.callx(iden,dyntask)
+        dyntask = (func, args, kwargs)
+        job = self.sbus.callx(iden, dyntask)
         self.sbus._waitTeleJob(job, timeout=self.timeout)
         return s_async.jobret(job)
 
@@ -257,14 +257,14 @@ class SvcProxy(s_eventbus.EventBus):
             ret = svcprox.callByName('foo0', dyntask)
 
         '''
-        if timeout == None:
+        if timeout is None:
             timeout = self.timeout
 
         svcfo = self.getSynSvcByName(name)
-        if svcfo == None:
-            raise NoSuchObj(name)
+        if svcfo is None:
+            raise s_common.NoSuchObj(name)
 
-        job = self.sbus.callx(svcfo[0],dyntask)
+        job = self.sbus.callx(svcfo[0], dyntask)
         self.sbus._waitTeleJob(job, timeout=timeout)
         return s_async.jobret(job)
 
@@ -281,8 +281,8 @@ class SvcProxy(s_eventbus.EventBus):
 
         '''
         prox = self.nameprox.get(name)
-        if prox == None:
-            prox = SvcNameProxy(self,name)
+        if prox is None:
+            prox = SvcNameProxy(self, name)
             self.nameprox[name] = prox
         return prox
 
@@ -299,18 +299,18 @@ class SvcProxy(s_eventbus.EventBus):
 
         '''
         jobs = []
-        if timeout == None:
+        if timeout is None:
             timeout = self.timeout
 
         for iden in self.bytag.get(tag):
             job = self.sbus.callx(iden, dyntask)
-            jobs.append( (iden,job) )
+            jobs.append((iden, job))
 
-        for iden,job in jobs:
+        for iden, job in jobs:
             self.sbus._waitTeleJob(job, timeout=timeout)
             svcfo = self.byiden.get(iden)
             try:
-               yield svcfo,s_async.jobret(job)
+                yield svcfo, s_async.jobret(job)
             except Exception as e:
                 logger.warning('callByTag (%s): %s() on %s %s', tag, dyntask[0], iden, e)
 
@@ -327,8 +327,8 @@ class SvcProxy(s_eventbus.EventBus):
 
         '''
         prox = self.tagprox.get(tag)
-        if prox == None:
-            prox = SvcTagProxy(self,tag)
+        if prox is None:
+            prox = SvcTagProxy(self, tag)
             self.tagprox[tag] = prox
         return prox
 
@@ -354,12 +354,12 @@ class SvcNameProxy:
         self.svcprox = svcprox
 
     def _callSvcApi(self, name, *args, **kwargs):
-        dyntask = (name,args,kwargs)
+        dyntask = (name, args, kwargs)
         return self.svcprox.callByName(self.name, dyntask)
 
     def __getattr__(self, name):
-        item = SvcNameMeth(self,name)
-        setattr(self,name,item)
+        item = SvcNameMeth(self, name)
+        setattr(self, name, item)
         return item
 
 class SvcNameMeth:
@@ -380,12 +380,12 @@ class SvcTagProxy:
         self.svcprox = svcprox
 
     def _callSvcApi(self, name, *args, **kwargs):
-        dyntask = (name,args,kwargs)
+        dyntask = (name, args, kwargs)
         return self.svcprox.callByTag(self.tag, dyntask)
 
     def __getattr__(self, name):
-        item = SvcTagMeth(self,name)
-        setattr(self,name,item)
+        item = SvcTagMeth(self, name)
+        setattr(self, name, item)
         return item
 
 class SvcTagMeth:
@@ -395,7 +395,7 @@ class SvcTagMeth:
         self.tagprox = tagprox
 
     def __call__(self, *args, **kwargs):
-        for name,ret in self.tagprox._callSvcApi(self.name, *args, **kwargs):
+        for name, ret in self.tagprox._callSvcApi(self.name, *args, **kwargs):
             yield ret
 
 # FIXME UNIFY WITH ABOVE WHEN BACKWARD BREAK IS OK
@@ -405,11 +405,11 @@ class SvcBase:
         self.svcprox = svcprox
 
     def _callSvcMeth(self, name, *args, **kwargs):
-        raise NoSuchImpl(name='_callSvcMethod')
+        raise s_common.NoSuchImpl(name='_callSvcMethod')
 
     def __getattr__(self, name):
-        item = SvcMeth(self,name)
-        setattr(self,name,item)
+        item = SvcMeth(self, name)
+        setattr(self, name, item)
         return item
 
 class SvcMeth:
@@ -419,7 +419,7 @@ class SvcMeth:
         self.svcbase = svcbase
 
     def __call__(self, *args, **kwargs):
-        return self.svcbase._callSvcMeth(self.name,*args,**kwargs)
+        return self.svcbase._callSvcMeth(self.name, *args, **kwargs)
 
 class IdenProxy(SvcBase):
 
@@ -442,10 +442,10 @@ def runSynSvc(name, item, sbus, tags=(), **props):
         runSynSvc('syn.woot', woot, sbus)
 
     '''
-    iden = guid()
+    iden = s_common.guid()
 
-    sbus.push(iden,item)
-    sbus.push(name,item)
+    sbus.push(iden, item)
+    sbus.push(name, item)
 
     sched = s_sched.getGlobSched()
     hostinfo = s_thishost.hostinfo
@@ -453,7 +453,7 @@ def runSynSvc(name, item, sbus, tags=(), **props):
     tags = list(tags)
 
     names = s_reflect.getClsNames(item)
-    tags.extend( [ 'class.%s' % n for n in names ] )
+    tags.extend(['class.%s' % n for n in names])
 
     tags.append(name)
 
@@ -470,7 +470,7 @@ def runSynSvc(name, item, sbus, tags=(), **props):
         if sbus.isfini:
             return
 
-        sbus.call('iAmAlive',iden)
+        sbus.call('iAmAlive', iden)
         sched.insec(30, svcHeartBeat)
 
     svcHeartBeat()

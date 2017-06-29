@@ -21,9 +21,9 @@ class DockerTest(SynTest):
 
     def test_mapped_core(self):
         dcker = os.getenv('SYN_DOCKER')
-        if dcker == None:
+        if dcker is None:
             raise unittest.SkipTest('no SYN_DOCKER')
-        if sys.version_info < (3,4):
+        if sys.version_info < (3, 4):
             raise unittest.SkipTest('not python 3')
 
         prox = s_telepath.openurl('tcp://127.0.0.1/core', port=47322)
@@ -36,7 +36,6 @@ class DockerTest(SynTest):
         job02 = prox.call('getTufoByProp', 'inet:fqdn', 'foo.com')
         tufo02 = prox.syncjob(job02)
 
-        self.assertEqual(tufo00[0], tufo02[0])
+        self.eq(tufo00[0], tufo02[0])
 
         prox.fini()
-

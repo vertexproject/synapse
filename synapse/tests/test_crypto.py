@@ -14,12 +14,12 @@ class CryptoTest(SynTest):
     def test_crypto_rc4(self):
 
         dmon = s_daemon.Daemon()
-        dmon.share('foo',Foo())
+        dmon.share('foo', Foo())
 
         link = dmon.listen('tcp://127.0.0.1:0/foo?rc4key=asdfasdf')
         prox = s_telepath.openlink(link)
 
-        self.assertEqual( prox.bar(), 'baz' )
+        self.eq(prox.bar(), 'baz')
 
         prox.fini()
         dmon.fini()
@@ -27,12 +27,12 @@ class CryptoTest(SynTest):
     def test_crypto_zerosig(self):
 
         dmon = s_daemon.Daemon()
-        dmon.share('foo',Foo())
+        dmon.share('foo', Foo())
 
         link = dmon.listen('tcp://127.0.0.1:0/foo?zerosig=1')
         prox = s_telepath.openlink(link)
 
-        self.assertEqual( prox.bar(), 'baz' )
+        self.eq(prox.bar(), 'baz')
 
         prox.fini()
         dmon.fini()

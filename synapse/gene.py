@@ -1,6 +1,6 @@
 import operator
 
-import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.lib.syntax as s_syntax
 
 
@@ -11,7 +11,7 @@ class GeneLab:
 
     def __init__(self, globs=None):
 
-        if globs == None:
+        if globs is None:
             globs = {}
 
         self.globs = globs
@@ -22,9 +22,9 @@ class GeneLab:
 
     def getGeneExpr(self, text):
         expr = self.exprcache.get(text)
-        if expr == None:
+        if expr is None:
             toks = tokenize(text)
-            node,off = expression(toks)
+            node, off = expression(toks)
             self.exprcache[text] = expr = node.eval
         return expr
 
@@ -61,8 +61,8 @@ tokstrs = [
 ]
 
 def asint(f):
-    def oper(x,y):
-        return int(f(x,y))
+    def oper(x, y):
+        return int(f(x, y))
     return oper
 
 def bint(x):
@@ -72,40 +72,40 @@ def bint(x):
     '''
     return int(x != 0)
 
-def logical_and(x,y):
+def logical_and(x, y):
     return bint(x) & bint(y)
 
-def logical_or(x,y):
+def logical_or(x, y):
     return bint(x) | bint(y)
 
 opers = {
-    '==':asint(operator.eq),
-    '!=':asint(operator.ne),
-    '<=':asint(operator.le),
-    '>=':asint(operator.ge),
+    '==': asint(operator.eq),
+    '!=': asint(operator.ne),
+    '<=': asint(operator.le),
+    '>=': asint(operator.ge),
 
     #'~=':
 
-    '<':asint(operator.lt),
-    '>':asint(operator.gt),
+    '<': asint(operator.lt),
+    '>': asint(operator.gt),
 
-    '**':operator.pow,
+    '**': operator.pow,
 
-    '^':operator.xor,
-    '&':operator.and_,
-    '|':operator.or_,
-    '!':operator.not_,
+    '^': operator.xor,
+    '&': operator.and_,
+    '|': operator.or_,
+    '!': operator.not_,
 
-    '<<':operator.lshift,
-    '>>':operator.rshift,
+    '<<': operator.lshift,
+    '>>': operator.rshift,
 
-    '+':operator.add,
-    '-':operator.sub,
-    '*':operator.mul,
-    '/':operator.truediv,
+    '+': operator.add,
+    '-': operator.sub,
+    '*': operator.mul,
+    '/': operator.truediv,
 
-    '&&':logical_and,
-    '||':logical_or,
+    '&&': logical_and,
+    '||': logical_or,
 
 }
 
@@ -120,32 +120,32 @@ tokninfo = {
 
     #'!':{'prec':3}, # R
 
-    '**':{'prec':4}, # not in cpp
+    '**': {'prec': 4}, # not in cpp
 
-    '*':{'prec':5},
-    '/':{'prec':5},
+    '*': {'prec': 5},
+    '/': {'prec': 5},
 
-    '+':{'prec':6},
-    '-':{'prec':6},
+    '+': {'prec': 6},
+    '-': {'prec': 6},
 
-    '<<':{'prec':7},
-    '>>':{'prec':7},
+    '<<': {'prec': 7},
+    '>>': {'prec': 7},
 
-    '<=':{'prec':8,'rtol':1},
-    '>=':{'prec':8,'rtol':1},
+    '<=': {'prec': 8, 'rtol': 1},
+    '>=': {'prec': 8, 'rtol': 1},
 
-    '<':{'prec':8,'rtol':1},
-    '>':{'prec':8,'rtol':1},
+    '<': {'prec': 8, 'rtol': 1},
+    '>': {'prec': 8, 'rtol': 1},
 
-    '==':{'prec':9,'rtol':1},
-    '!=':{'prec':9,'rtol':1},
+    '==': {'prec': 9, 'rtol': 1},
+    '!=': {'prec': 9, 'rtol': 1},
 
-    '&':{'prec':10},
-    '^':{'prec':11},
-    '|':{'prec':12},
+    '&': {'prec': 10},
+    '^': {'prec': 11},
+    '|': {'prec': 12},
 
-    '&&':{'prec':13},
-    '||':{'prec':14},
+    '&&': {'prec': 13},
+    '||': {'prec': 14},
 }
 
 class GeneNode:
@@ -168,7 +168,7 @@ class VarNode(GeneNode):
         name = self.tokn[1].get('name')
         valu = syms.get(name, undefined)
         if valu is undefined:
-            raise s_exc.NoSuchName(name=name)
+            raise s_common.NoSuchName(name=name)
         return valu
 
 class CallNode(GeneNode):
@@ -179,12 +179,12 @@ class CallNode(GeneNode):
 
 class ListNode(GeneNode):
     def _eval(self, syms):
-        return [ k.eval(syms) for k in self.kids ]
+        return [k.eval(syms) for k in self.kids]
 
 class OperNode(GeneNode):
     def _eval(self, syms):
         func = opers.get(self.tokn[0])
-        return func( self.kids[0].eval(syms), self.kids[1].eval(syms) )
+        return func(self.kids[0].eval(syms), self.kids[1].eval(syms))
 
 varset = set(':abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678910')
 
@@ -201,22 +201,22 @@ def tokenize(text):
 
     while off < tlen:
 
-        _,off = s_syntax.nom_whitespace(text,off)
+        _, off = s_syntax.nom_whitespace(text, off)
         if off >= tlen:
             break
 
-        if s_syntax.nextin(text,off,'"\''):
-            tokn =('valu',{'off':off,'type':'str'})
-            tokn[1]['valu'],off = s_syntax.parse_string(text,off,trim=False)
+        if s_syntax.nextin(text, off, '"\''):
+            tokn = ('valu', {'off': off, 'type': 'str'})
+            tokn[1]['valu'], off = s_syntax.parse_string(text, off, trim=False)
 
             tokn[1]['end'] = off
             toks.append(tokn)
 
             continue
 
-        if s_syntax.nextin(text,off,'0123456789'):
-            tokn =('valu',{'off':off,'type':'int'})
-            tokn[1]['valu'],off = s_syntax.parse_int(text,off)
+        if s_syntax.nextin(text, off, '0123456789'):
+            tokn = ('valu', {'off': off, 'type': 'int'})
+            tokn[1]['valu'], off = s_syntax.parse_int(text, off)
 
             tokn[1]['end'] = off
             toks.append(tokn)
@@ -226,8 +226,8 @@ def tokenize(text):
         tokdone = False
         for tok in tokstrs:
 
-            if text.startswith(tok,off):
-                tokn = (tok,{'off':off})
+            if text.startswith(tok, off):
+                tokn = (tok, {'off': off})
 
                 off += len(tok)
                 tokn[1]['end'] = off
@@ -240,20 +240,20 @@ def tokenize(text):
         if tokdone:
             continue
 
-        if not s_syntax.nextin(text,off,varset):
-            raise s_exc.SyntaxError(at=off,mesg='no valid tokens found')
+        if not s_syntax.nextin(text, off, varset):
+            raise s_common.BadSyntaxError(at=off, mesg='no valid tokens found')
 
-        tokn = ('var',{'off':off})
-        tokn[1]['name'],off = s_syntax.nom(text,off,varset,trim=False)
+        tokn = ('var', {'off': off})
+        tokn[1]['name'], off = s_syntax.nom(text, off, varset, trim=False)
 
         toks.append(tokn)
 
     for tokn in toks:
-        tokn[1].update( tokninfo.get(tokn[0],{}) )
+        tokn[1].update(tokninfo.get(tokn[0], {}))
 
     return toks
 
-def istok(toks,off,c):
+def istok(toks, off, c):
     '''
     Returns True if the tokn at offset is c.
     '''
@@ -261,13 +261,13 @@ def istok(toks,off,c):
         return False
     return toks[off][0] == c
 
-def istokoper(toks,off):
+def istokoper(toks, off):
     '''
     Returns True if the tokn at offset is an oper.
     '''
     if off >= len(toks):
         return False
-    return opers.get(toks[off][0]) != None
+    return opers.get(toks[off][0]) is not None
 
 #def istokin(toks,off,vals):
     #'''
@@ -277,49 +277,49 @@ def istokoper(toks,off):
         #return False
     #return toks[off][0] in vals
 
-def nexttok(toks,off):
+def nexttok(toks, off):
     '''
     Return the next tokn,off (or None,off) from toks at off.
     '''
     if off >= len(toks):
-        raisetok(toks[-1],'End of Input')
-    return toks[off],off+1
+        raisetok(toks[-1], 'End of Input')
+    return toks[off], off + 1
 
-def exprlist(toks,off=0):
+def exprlist(toks, off=0):
     '''
     Parse an expression list from the token stream.
     Returns a list of expression nodes and offset.
     '''
     kids = []
 
-    tok0,off = nexttok(toks,off)
+    tok0, off = nexttok(toks, off)
     if tok0[0] != '(':
-        raisetok(tok0,'Expected ([expr, ...])')
+        raisetok(tok0, 'Expected ([expr, ...])')
 
-    if istok(toks,off,')'):
-        _,off = nexttok(toks,off)
-        return ListNode(tok0,kids=[]),off
+    if istok(toks, off, ')'):
+        _, off = nexttok(toks, off)
+        return ListNode(tok0, kids=[]), off
 
     while True:
-        node,off = expression(toks,off)
-        if node == None:
-            raisetok(tok0,'Expected expression list')
+        node, off = expression(toks, off)
+        if node is None:
+            raisetok(tok0, 'Expected expression list')
 
         kids.append(node)
 
-        if istok(toks,off,')'):
-            tend,off = nexttok(toks,off)
+        if istok(toks, off, ')'):
+            tend, off = nexttok(toks, off)
             break
 
-        tokn,off = nexttok(toks,off)
+        tokn, off = nexttok(toks, off)
         if tokn[0] != ',':
-            raisetok(tokn,'Expected , or )')
+            raisetok(tokn, 'Expected , or )')
 
-    return ListNode(tok0,kids=kids),off
+    return ListNode(tok0, kids=kids), off
 
-def raisetok(tokn,mesg):
+def raisetok(tokn, mesg):
     off = tokn[1].get('off')
-    raise s_exc.SyntaxError(mesg=mesg,off=off)
+    raise s_common.BadSyntaxError(mesg=mesg, off=off)
 
 def exprbase(toks, off=0):
     '''
@@ -331,74 +331,74 @@ def exprbase(toks, off=0):
     <var> (...)
     '''
 
-    tokn,off = nexttok(toks,off)
+    tokn, off = nexttok(toks, off)
 
     if tokn[0] == 'valu':
-        return ValuNode(tokn),off
+        return ValuNode(tokn), off
 
     # right recurse based on (<expr>)
     if tokn[0] == '(':
 
-        node,off = expression(toks,off)
-        if node == None:
-            raisetok(tokn,'expected (<expression>)')
+        node, off = expression(toks, off)
+        if node is None:
+            raisetok(tokn, 'expected (<expression>)')
 
         node.tokn[1]['prec'] = 2 #NOTE: (<expr>) is precedence 2
 
-        junk,off = nexttok(toks,off)
+        junk, off = nexttok(toks, off)
         if junk[0] != ')':
-            raisetok(junk,'expected )')
+            raisetok(junk, 'expected )')
 
-        return node,off
+        return node, off
 
     if tokn[0] != 'var':
-        raisetok(tokn,'Expected var, valu, or (<expr>)')
+        raisetok(tokn, 'Expected var, valu, or (<expr>)')
 
     node = VarNode(tokn)
 
     # CallNode: <var> ( [<expr> [,...] ] )
-    if istok(toks,off,'('):
-        argv,off = exprlist(toks,off)
-        node = CallNode(tokn,kids=[node,argv])
+    if istok(toks, off, '('):
+        argv, off = exprlist(toks, off)
+        node = CallNode(tokn, kids=[node, argv])
 
-    return node,off
+    return node, off
 
 def expression(toks, off=0):
     '''
     Parse an expression from the token stream.
     Returns node,off.
     '''
-    node,off = exprbase(toks,off)
+    node, off = exprbase(toks, off)
 
     while off < len(toks):
 
         # CallNode: <expr> ( [<expr> [,...] ] )
-        if istok(toks,off,'('):
+        if istok(toks, off, '('):
             tokn = toks[off]
-            argv,off = exprlist(toks,off)
-            node = CallNode(tokn,kids=[node,argv])
+            argv, off = exprlist(toks, off)
+            node = CallNode(tokn, kids=[node, argv])
             continue
 
         #FIXME subscript ( foo[x] ) goes here.
 
         # If it's not a valid 2 part oper, we're at the end
-        if not istokoper(toks,off):
+        if not istokoper(toks, off):
             break
 
         # this should be an operator now...
-        tokn,off = nexttok(toks,off)
+        tokn, off = nexttok(toks, off)
 
         # classic left recursion
-        nod1,off = exprbase(toks,off)
-        if isinstance(node,OperNode) and node.getNodePrec() > tokn[1].get('prec'):
+        nod1, off = exprbase(toks, off)
+        if isinstance(node, OperNode) and node.getNodePrec() > tokn[1].get('prec'):
             # classic tree rotate
-            node.kids[1] = OperNode(tokn,kids=[node.kids[1],nod1])
+            node.kids[1] = OperNode(tokn, kids=[node.kids[1], nod1])
         else:
-            node = OperNode(tokn,kids=[node,nod1])
+            node = OperNode(tokn, kids=[node, nod1])
 
-    return node,off
+    return node, off
 
-def eval(text,syms=None):
+def eval(text, syms=None):
     '''
     Evaluate the given expression (with specified symbols).
 
@@ -407,13 +407,13 @@ def eval(text,syms=None):
         eval('foo:bar <= baz + 10', syms=tufo[1])
 
     '''
-    if syms == None:
+    if syms is None:
         syms = {}
 
     toks = tokenize(text)
-    node,off = expression(toks)
+    node, off = expression(toks)
 
     if off < len(toks):
-        raisetok(toks[off],'trailing text')
+        raisetok(toks[off], 'trailing text')
 
     return node.eval(syms)

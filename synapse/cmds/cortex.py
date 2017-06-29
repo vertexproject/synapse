@@ -2,7 +2,7 @@ import json
 
 import synapse.lib.cli as s_cli
 import synapse.lib.tufo as s_tufo
-import synapse.lib.scope as s_scope
+import synapse.lib.storm as s_storm
 
 class AskCmd(s_cli.Cmd):
     '''
@@ -20,15 +20,16 @@ class AskCmd(s_cli.Cmd):
 
     _cmd_name = 'ask'
     _cmd_syntax = (
-        ('--debug',{}),
-        ('--props',{}),
+        ('--debug', {}),
+        ('--props', {}),
         ('--raw', {}),
-        ('query',{'type':'glob'}),
+        ('query', {'type': 'glob'}),
     )
 
     def runCmdOpts(self, opts):
+
         ques = opts.get('query')
-        if ques == None:
+        if ques is None:
             self.printf(self.__doc__)
             return
 
@@ -51,34 +52,34 @@ class AskCmd(s_cli.Cmd):
             for opfo in resp.get('oplog'):
                 mnem = opfo.get('mnem')
                 took = opfo.get('took')
-                self.printf('    %s (took:%d) %r' % (mnem,took,opfo))
+                self.printf('    %s (took:%d) %r' % (mnem, took, opfo))
 
             self.printf('')
 
             self.printf('options:')
-            for name,valu in sorted(resp.get('options').items()):
-                self.printf('    %s = %s' % (name,valu))
+            for name, valu in sorted(resp.get('options').items()):
+                self.printf('    %s = %s' % (name, valu))
 
             self.printf('')
 
             self.printf('limits:')
-            for name,valu in sorted(resp.get('limits').items()):
-                self.printf('    %s = %s' % (name,valu))
+            for name, valu in sorted(resp.get('limits').items()):
+                self.printf('    %s = %s' % (name, valu))
 
             self.printf('')
 
         def nodevalu(t):
-            return repr( t[1].get( t[1].get('tufo:form') ) )
+            return repr(t[1].get(t[1].get('tufo:form')))
 
-        nodes = list(sorted( resp.get('data'), key=nodevalu))
+        nodes = list(sorted(resp.get('data'), key=nodevalu))
 
         if len(nodes) == 0:
             self.printf('(0 results)')
             return
 
-        forms = set([ node[1].get('tufo:form') for node in nodes ])
+        forms = set([node[1].get('tufo:form') for node in nodes])
 
-        fsize = max([ len(f) for f in forms ])
+        fsize = max([len(f) for f in forms])
 
         # Short circuit any fancy formatting and dump the raw node content as json
         if opts.get('raw'):
@@ -86,168 +87,63 @@ class AskCmd(s_cli.Cmd):
             self.printf('(%d results)' % (len(nodes),))
             return resp
 
-        for node in nodes:
-            form = node[1].get('tufo:form')
-            valu = node[1].get(form)
+        show = resp.get('show', {})
+        cols = show.get('columns')
 
-            tags = sorted(s_tufo.tags(node,leaf=True))
-            tags = [ '#'+tag for tag in tags ]
+        if cols is not None:
 
-            # FIXME local typelib and datamodel
-            disp = core.getPropRepr(form,valu)
-            self.printf('%s = %s - %s' % (form.ljust(fsize),disp,' '.join(tags)))
-            if opts.get('props'):
-                pref = form + ':'
-                flen = len(form)
-                for prop in sorted([ k for k in node[1].keys() if k.startswith(pref) ]):
-                    valu = node[1].get(prop)
-                    disp = core.getPropRepr(prop,valu)
-                    self.printf('    %s = %s' % (prop[flen:],disp))
+            shlp = s_storm.ShowHelp(core, show)
+            rows = shlp.rows(nodes)
+            pads = shlp.pad(rows)
+
+            for pad in pads:
+                self.printf(' '.join(pad))
+
+        else:
+
+            for node in nodes:
+
+                form = node[1].get('tufo:form')
+                valu = node[1].get(form)
+
+                leafs = set(s_tufo.tags(node, leaf=True))
+
+                taglines = []
+                for tag in sorted(s_tufo.tags(node)):
+
+                    prop = '#' + tag
+                    asof = node[1].get(prop)
+
+                    ival = s_tufo.ival(node, prop)
+                    if ival is None and tag not in leafs:
+                        continue
+
+                    mesg = '%s (added %s)' % (prop, core.getTypeRepr('time', asof))
+                    if ival is not None:
+                        mins = core.getTypeRepr('time', ival[0])
+                        maxs = core.getTypeRepr('time', ival[1])
+                        mesg += ' %s  -  %s' % (mins, maxs)
+
+                    taglines.append(mesg)
+
+                # FIXME local typelib and datamodel
+                disp = core.getPropRepr(form, valu)
+
+                self.printf('%s = %s' % (form.ljust(fsize), disp))
+                for line in taglines:
+                    self.printf('    %s' % (line,))
+
+                if opts.get('props'):
+                    pref = form + ':'
+                    flen = len(form)
+                    for prop in sorted([k for k in node[1].keys() if k.startswith(pref)]):
+                        valu = node[1].get(prop)
+                        disp = core.getPropRepr(prop, valu)
+                        self.printf('    %s = %s' % (prop[flen:], disp))
 
         self.printf('(%d results)' % (len(nodes),))
 
         return resp
-
-class AddNodeCmd(s_cli.Cmd):
-    '''
-    Form a node in the cortex.
-
-    Examples:
-
-        addnode <prop> <valu> [<secprop>=<valu>...]
-
-        addnode inet:ipv4 0.0.0.0
-        addnode inet:ipv4 0x01020304
-        addnode inet:ipv4 1
-
-        # add a node and specify secondary props
-        addnode syn:seq woot width=8
-    '''
-
-    _cmd_name = 'addnode'
-    _cmd_syntax = (
-        ('--tags',{'type':'valu'}),
-        ('prop',{'type':'valu'}),
-        ('valu',{'type':'valu'}),
-        ('props',{'type':'kwlist'}),
-    )
-
-    def runCmdOpts(self, opts):
-
-        prop = opts.get('prop')
-        valu = opts.get('valu')
-        if prop == None or valu == None:
-            self.printf(self.__doc__)
-            return
-
-        tags = ()
-
-        tstr = opts.get('tags')
-        if tstr != None:
-            tags = tstr.split(',')
-
-        kwlist = opts.get('props')
-        props = dict( opts.get('props') )
-
-        core = self.getCmdItem()
-
-        node = core.formTufoByProp(prop,valu,**props)
-        if tags:
-            node = core.addTufoTags(node,tags)
-
-        self.printf('formed: %r' % (node,))
-
-class AddTagCmd(s_cli.Cmd):
-    '''
-    Add a tag by query.
-
-    Examples:
-
-        addtag <tag> <query>
-
-        addtag cooltag inet:ipv4="127.0.0.1"
-    '''
-
-    _cmd_name = 'addtag'
-    _cmd_syntax = (
-        ('tag',{'type':'valu'}),
-        ('query',{'type':'glob'}),
-    )
-
-    def runCmdOpts(self, opts):
-
-        tag = opts.get('tag')
-        if tag == None:
-            self.printf(self.__doc__)
-            return
-
-        core = self.getCmdItem()
-
-        nodes = core.eval( opts.get('query') )
-        if not nodes:
-            self.printf('0 nodes...')
-            return
-
-        self.printf('adding %s to %d nodes...' % (tag,len(nodes)))
-
-        for node in nodes:
-
-            node = core.addTufoTag(node,tag)
-
-            form = node[1].get('tufo:form')
-            valu = node[1].get(form)
-
-            tags = s_tufo.tags(node)
-
-            # FIXME local typelib and datamodel
-            disp = core.getPropRepr(form,valu)
-            self.printf('%s - %s' % (disp,','.join(tags)))
-
-class DelTagCmd(s_cli.Cmd):
-    '''
-    Delete tags by query.
-
-    Examples:
-
-        deltag <tag> <query>
-
-        deltag cooltag inet:ipv4="127.0.0.1"
-    '''
-
-    _cmd_name = 'deltag'
-    _cmd_syntax = (
-        ('tag',{'type':'valu'}),
-        ('query',{'type':'glob'}),
-    )
-
-    def runCmdOpts(self, opts):
-
-        tag = opts.get('tag')
-        if tag == None:
-            self.printf(self.__doc__)
-            return
-
-        core = self.getCmdItem()
-
-        nodes = core.eval( opts.get('query') )
-        if not nodes:
-            self.printf('0 nodes...')
-            return
-
-        self.printf('removing %s from %d nodes...' % (tag,len(nodes)))
-
-        for node in nodes:
-
-            node = core.delTufoTag(node,tag)
-
-            form = node[1].get('tufo:form')
-            valu = node[1].get(form)
-
-            tags = s_tufo.tags(node)
-
-            # FIXME local typelib and datamodel
-            disp = core.getPropRepr(form,valu)
-            self.printf('%s - %s' % (disp,','.join(tags)))
 
 class NextSeqCmd(s_cli.Cmd):
     '''
@@ -260,16 +156,15 @@ class NextSeqCmd(s_cli.Cmd):
     '''
     _cmd_name = 'nextseq'
     _cmd_syntax = (
-        ('name',{'type':'valu'}),
+        ('name', {'type': 'valu'}),
     )
 
     def runCmdOpts(self, opts):
         name = opts.get('name')
-        if name == None:
+        if name is None:
             self.printf(self.__doc__)
             return
 
         core = self.getCmdItem()
         valu = core.nextSeqValu(name)
-        self.printf('next in sequence (%s): %s' % (name,valu))
-
+        self.printf('next in sequence (%s): %s' % (name, valu))

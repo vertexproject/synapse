@@ -9,7 +9,7 @@ class TestAutoDoc(SynTest):
 
         with self.getTestDir() as path:
 
-            save = os.path.join(path,'model.rst')
+            save = os.path.join(path, 'model.rst')
             outp = self.getTestOutp()
-            argv = ['--doc-model','--savefile',save]
-            self.eq( s_autodoc.main(argv,outp=outp), 0)
+            argv = ['--doc-model', '--savefile', save]
+            self.eq(s_autodoc.main(argv, outp=outp), 0)

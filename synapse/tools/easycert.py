@@ -1,14 +1,10 @@
-import os
 import sys
-import time
 import argparse
 
-from OpenSSL import crypto
+import synapse.common as s_common
 
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
-
-from synapse.common import *
 
 descr = '''
 Command line tool to generate simple x509 certs
@@ -16,7 +12,7 @@ Command line tool to generate simple x509 certs
 
 def main(argv, outp=None):
 
-    if outp == None:
+    if outp is None:
         outp = s_output.OutPut()
 
     pars = argparse.ArgumentParser(prog='easycert', description=descr)
@@ -37,12 +33,12 @@ def main(argv, outp=None):
 
         if opts.sign_csr:
 
-            if opts.signas == None:
+            if opts.signas is None:
                 outp.printf('--sign-csr requires --signas')
                 return -1
 
             xcsr = cdir._loadCsrPath(opts.name)
-            if xcsr == None:
+            if xcsr is None:
                 outp.printf('csr not found: %s' % (opts.name,))
                 return -1
 
@@ -77,7 +73,7 @@ def main(argv, outp=None):
         cdir.genUserCert(opts.name, signas=opts.signas, outp=outp)
         return 0
 
-    except DupFileName as e:
+    except s_common.DupFileName as e:
         outp.printf('file exists: %s' % (e.errinfo.get('path'),))
         return -1
 

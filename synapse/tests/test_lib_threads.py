@@ -18,21 +18,21 @@ from synapse.tests.common import *
     #def __call__(self):
         #return self.func( *self.args, **self.kwargs )
 
-def newtask(func,*args,**kwargs):
-    return(func,args,kwargs)
+def newtask(func, *args, **kwargs):
+    return(func, args, kwargs)
 
-class ThreadsTest(unittest.TestCase):
+class ThreadsTest(SynTest):
 
     def test_threads_pool(self):
 
         pool = s_threads.Pool()
 
-        wait = s_eventbus.Waiter( pool, 1, 'pool:work:fini' )
+        wait = s_eventbus.Waiter(pool, 1, 'pool:work:fini')
 
-        def woot(x,y):
+        def woot(x, y):
             return x + y
 
-        pool.task(newtask(woot,20,30))
+        pool.task(newtask(woot, 20, 30))
 
         wait.wait()
         pool.fini()
@@ -41,12 +41,12 @@ class ThreadsTest(unittest.TestCase):
 
         pool = s_threads.Pool()
 
-        wait = s_eventbus.Waiter( pool, 1, 'pool:work:fini' )
+        wait = s_eventbus.Waiter(pool, 1, 'pool:work:fini')
 
-        def woot(x,y):
+        def woot(x, y):
             return x + y
 
-        pool.wrap(woot)(20,30)
+        pool.wrap(woot)(20, 30)
 
         wait.wait()
         pool.fini()
@@ -64,7 +64,7 @@ class ThreadsTest(unittest.TestCase):
         thr = s_threads.worker(echoloop)
 
         sock2.sendall(b'hi')
-        self.assertEqual( sock2.recv(1024), b'hi')
+        self.eq(sock2.recv(1024), b'hi')
 
         thr.fini()
         thr.join()
@@ -74,13 +74,13 @@ class ThreadsTest(unittest.TestCase):
 
     def test_threads_cantwait(self):
 
-        self.assertTrue( s_threads.iMayWait() )
+        self.true(s_threads.iMayWait())
 
         s_threads.iCantWait()
 
-        self.assertFalse( s_threads.iMayWait() )
-        self.assertRaises(MustNotWait, s_threads.iWillWait)
+        self.false(s_threads.iMayWait())
+        self.raises(MustNotWait, s_threads.iWillWait)
 
         del threading.currentThread()._syn_cantwait
 
-        self.assertTrue( s_threads.iMayWait() )
+        self.true(s_threads.iMayWait())

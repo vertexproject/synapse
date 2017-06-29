@@ -8,7 +8,6 @@ import synapse.lib.remcycle as s_remcycle
 from synapse.tests.common import *
 
 
-
 def get_vertex_global_config():
     gconfig = {
         'apis': [

@@ -67,8 +67,11 @@ class FqdnType(DataType):
             self._raiseBadValu(valu)
 
         try:
-            valu = valu.encode('idna').decode('idna').lower()
+            valu = valu.encode('idna').decode('utf8').lower()
         except UnicodeError as e:
+            self._raiseBadValu(valu)
+
+        if not fqdnre.match(valu):
             self._raiseBadValu(valu)
 
         parts = valu.split('.', 1)
@@ -77,7 +80,11 @@ class FqdnType(DataType):
             subs['domain'] = parts[1]
         else:
             subs['sfx'] = 1
+
         return valu, subs
+
+    def repr(self, valu):
+        return valu.encode('utf8').decode('idna')
 
 # RFC5952 compatible
 def ipv6norm(text):
@@ -148,7 +155,7 @@ class Srv6Type(DataType):
 
         valu = valu.lower()
         m = srv6re.match(valu)
-        if m == None:
+        if m is None:
             self._raiseBadValu(valu, ex='[af::2]:80')
 
         host, portstr = m.groups()
@@ -222,7 +229,7 @@ class UrlType(DataType):
             user = resauth
             passwd = None
 
-            if user.find(':') != None:
+            if user.find(':') is not None:
                 user, passwd = user.rsplit(':', 1)
 
             if user:
@@ -242,10 +249,10 @@ class UrlType(DataType):
             port = self.tlib.getTypeParse('inet:port', portstr)[0]
 
         # try for a default iana protocol lookup
-        if port == None:
+        if port is None:
             port = s_l_iana.services.get(proto)
 
-        if port != None:
+        if port is not None:
             subs['port'] = port
 
         if resauth:

@@ -3,7 +3,9 @@ import unittest
 
 from synapse.statemach import StateMachine, keepstate
 
-class StateMachTest(unittest.TestCase):
+from synapse.tests.common import *
+
+class StateMachTest(SynTest):
 
     def getFooMachine(self, fd):
         class Foo(StateMachine):
@@ -24,15 +26,15 @@ class StateMachTest(unittest.TestCase):
         fd = io.BytesIO()
         foo = self.getFooMachine(fd)
 
-        foo.setthing('woot',20)
+        foo.setthing('woot', 20)
 
-        self.assertEqual( foo.stuff.get('woot'), 20 )
+        self.eq(foo.stuff.get('woot'), 20)
 
         fd.seek(0)
 
         foo = self.getFooMachine(fd)
-        self.assertEqual( foo.stuff.get('woot'), 20 )
+        self.eq(foo.stuff.get('woot'), 20)
 
     def test_statemach_nofd(self):
         foo = self.getFooMachine(None)
-        self.assertEqual( foo.setthing('foo',20), 20 )
+        self.eq(foo.setthing('foo', 20), 20)

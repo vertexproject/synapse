@@ -10,13 +10,13 @@ class OuMod(CoreModule):
 
     def seedOrgName(self, prop, valu, **props):
         node = self.core.getTufoByProp('ou:org:name', valu)
-        if node == None:
+        if node is None:
             node = self.core.formTufoByProp('ou:org', guid(), name=valu, **props)
         return node
 
     def seedOrgAlias(self, prop, valu, **props):
         node = self.core.getTufoByProp('ou:org:alias', valu)
-        if node == None:
+        if node is None:
             node = self.core.formTufoByProp('ou:org', guid(), alias=valu, **props)
         return node
 

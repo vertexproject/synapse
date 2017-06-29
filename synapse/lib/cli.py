@@ -1,4 +1,3 @@
-import sys
 import traceback
 import collections
 
@@ -59,66 +58,66 @@ class Cmd:
         '''
         off = 0
 
-        _,off = s_syntax.nom(text,off,s_syntax.whites)
+        _, off = s_syntax.nom(text, off, s_syntax.whites)
 
-        name,off = s_syntax.meh(text,off,s_syntax.whites)
+        name, off = s_syntax.meh(text, off, s_syntax.whites)
 
-        _,off = s_syntax.nom(text,off,s_syntax.whites)
+        _, off = s_syntax.nom(text, off, s_syntax.whites)
 
         opts = {}
 
-        args = collections.deque([ synt for synt in self._cmd_syntax if not synt[0].startswith('-') ])
+        args = collections.deque([synt for synt in self._cmd_syntax if not synt[0].startswith('-')])
 
-        switches = { synt[0]:synt for synt in self._cmd_syntax if synt[0].startswith('-') }
+        switches = {synt[0]: synt for synt in self._cmd_syntax if synt[0].startswith('-')}
 
         # populate defaults and lists
         for synt in self._cmd_syntax:
             snam = synt[0].strip('-')
 
             defval = synt[1].get('defval')
-            if defval != None:
+            if defval is not None:
                 opts[snam] = defval
 
-            if synt[1].get('type') in ('list','kwlist'):
+            if synt[1].get('type') in ('list', 'kwlist'):
                 opts[snam] = []
 
-        def atswitch(t,o):
+        def atswitch(t, o):
             # check if we are at a recognized switch.  if not
             # assume the data is part of regular arguments.
-            if not text.startswith('-',o):
-                return None,o
+            if not text.startswith('-', o):
+                return None, o
 
-            name,x = s_syntax.meh(t,o,s_syntax.whites)
+            name, x = s_syntax.meh(t, o, s_syntax.whites)
             swit = switches.get(name)
-            if swit == None:
-                return None,o
+            if swit is None:
+                return None, o
 
-            return swit,x
+            return swit, x
 
         while off < len(text):
 
-            _,off = s_syntax.nom(text,off,s_syntax.whites)
+            _, off = s_syntax.nom(text, off, s_syntax.whites)
 
-            swit,off = atswitch(text,off)
-            if swit != None:
+            swit, off = atswitch(text, off)
+            if swit is not None:
 
-                styp = swit[1].get('type','flag')
+                styp = swit[1].get('type', 'flag')
                 snam = swit[0].strip('-')
 
                 if styp == 'valu':
-                    valu,off = s_syntax.parse_cmd_string(text,off)
+                    valu, off = s_syntax.parse_cmd_string(text, off)
                     opts[snam] = valu
 
                 elif styp == 'list':
-                    valu,off = s_syntax.parse_cmd_string(text,off)
+                    valu, off = s_syntax.parse_cmd_string(text, off)
                     vals = valu.split(',')
                     opts[snam].extend(vals)
 
                 elif styp == 'enum':
                     vals = synt[1].get('enum:vals')
-                    valu,off = s_syntax.parse_cmd_string(text,off)
+                    valu, off = s_syntax.parse_cmd_string(text, off)
                     if valu not in vals:
-                        raise Exception('%s (%s)' % (synt[0],'|'.join(vals)))
+                        raise Exception('%s (%s)' % (synt[0], '|'.join(vals)))
 
                     opts[snam] = valu
 
@@ -131,7 +130,7 @@ class Cmd:
                 raise Exception('trailing text: %s' % (text[off:],))
 
             synt = args.popleft()
-            styp = synt[1].get('type','valu')
+            styp = synt[1].get('type', 'valu')
 
             #print('SYNT: %r' % (synt,))
 
@@ -145,18 +144,18 @@ class Cmd:
                 valu = []
 
                 while off < len(text):
-                    item,off = s_syntax.parse_cmd_string(text,off)
+                    item, off = s_syntax.parse_cmd_string(text, off)
                     valu.append(item)
 
                 opts[synt[0]] = valu
                 break
 
             if styp == 'kwlist':
-                kwlist,off = s_syntax.parse_cmd_kwlist(text,off)
+                kwlist, off = s_syntax.parse_cmd_kwlist(text, off)
                 opts[snam] = kwlist
                 break
 
-            valu,off = s_syntax.parse_cmd_string(text,off)
+            valu, off = s_syntax.parse_cmd_string(text, off)
             opts[synt[0]] = valu
 
         return opts
@@ -165,7 +164,7 @@ class Cmd:
         '''
         Return the single-line description for this command.
         '''
-        return self.getCmdDoc().strip().split('\n',1)[0].strip()
+        return self.getCmdDoc().strip().split('\n', 1)[0].strip()
 
     def getCmdName(self):
         return self._cmd_name
@@ -179,7 +178,7 @@ class Cmd:
         return self.__doc__
 
     def printf(self, mesg, addnl=True):
-        return self._cmd_cli.printf(mesg,addnl=addnl)
+        return self._cmd_cli.printf(mesg, addnl=addnl)
 
 class Cli(EventBus):
     '''
@@ -188,7 +187,7 @@ class Cli(EventBus):
     def __init__(self, item, outp=None, **locs):
         EventBus.__init__(self)
 
-        if outp == None:
+        if outp is None:
             outp = s_output.OutPut()
 
         self.outp = outp
@@ -198,17 +197,17 @@ class Cli(EventBus):
         self.cmds = {}
         self.cmdprompt = 'cli> '
 
-        self.addCmdClass( CmdHelp )
-        self.addCmdClass( CmdQuit )
+        self.addCmdClass(CmdHelp)
+        self.addCmdClass(CmdQuit)
 
     def get(self, name, defval=None):
-        return self.locs.get(name,defval)
+        return self.locs.get(name, defval)
 
     def set(self, name, valu):
         self.locs[name] = valu
 
     def printf(self, mesg, addnl=True):
-        return self.outp.printf(mesg,addnl=addnl)
+        return self.outp.printf(mesg, addnl=addnl)
 
     def addCmdClass(self, ctor, **opts):
         '''
@@ -276,10 +275,10 @@ class Cli(EventBus):
         '''
         ret = None
 
-        name = line.split(None,1)[0]
+        name = line.split(None, 1)[0]
 
         cmdo = self.getCmdByName(name)
-        if cmdo == None:
+        if cmdo is None:
             self.printf('cmd not found: %s' % (name,))
             return
 
@@ -328,7 +327,7 @@ class CmdHelp(Cmd):
     '''
     _cmd_name = 'help'
     _cmd_syntax = [
-        ('cmds',{'type':'list'})
+        ('cmds', {'type': 'list'})
     ]
 
     def runCmdOpts(self, opts):
@@ -339,24 +338,24 @@ class CmdHelp(Cmd):
             cmds = self._cmd_cli.getCmdNames()
             cmds.sort()
 
-            padsize = max( [ len(n) for n in cmds ] )
+            padsize = max([len(n) for n in cmds])
 
             for name in cmds:
                 padname = name.ljust(padsize)
                 cmdo = self._cmd_cli.getCmdByName(name)
                 brief = cmdo.getCmdBrief()
-                self.printf('%s - %s' % (padname,brief))
+                self.printf('%s - %s' % (padname, brief))
 
             return
 
         for name in cmds:
 
             cmdo = self._cmd_cli.getCmdByName(name)
-            if cmdo == None:
+            if cmdo is None:
                 self.printf('=== NOT FOUND: %s' % (name,))
                 continue
 
             self.printf('=== %s' % (name,))
-            self.printf( cmdo.getCmdDoc() )
+            self.printf(cmdo.getCmdDoc())
 
         return

@@ -1,11 +1,13 @@
 import datetime
 import collections
 
-import synapse.exc as s_exc
-import synapse.lib.config as s_config
+import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
+
+import synapse.lib.config as s_config
 import synapse.lib.reflect as s_reflect
+
 import synapse.cores.common as s_cores_common
 
 MODEL_REV_FORMAT = '%Y%m%d%H%M'
@@ -39,7 +41,7 @@ def validate_revnumber(revision):
         if revision != 0:
             datetime.datetime.strptime(str(revision), MODEL_REV_FORMAT)
     except ValueError as e:
-        raise s_exc.BadRevValu(valu=revision, mesg='CoreModule model revision must be a timestamp.')
+        raise s_common.BadRevValu(valu=revision, mesg='CoreModule model revision must be a timestamp.')
 
 class CoreModule(s_eventbus.EventBus, s_config.Configable):
     '''
@@ -91,7 +93,7 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         self._syn_mrevs = collections.defaultdict(list)
         for name, meth in s_reflect.getItemLocals(self):
             mrev = getattr(meth, '_syn_mrev', None)
-            if mrev == None:
+            if mrev is None:
                 continue
 
             name, vers = mrev
@@ -114,6 +116,7 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
 
         self.initCoreModule()
         self.setConfOpts(conf)
+        self.postCoreModule()
 
     def form(self, form, valu, **props):
         '''
@@ -144,6 +147,17 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
               if this module implements Cortex data models.
         '''
         self.revCoreModl()
+
+    def postCoreModule(self):
+        '''
+        Module implementers may over-ride this method to initialize the module
+        *after* the configuration data has been loaded.
+
+        Returns:
+            (None)
+
+        '''
+        pass
 
     def revCoreModl(self):
         '''
@@ -201,7 +215,7 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         will be able to set properties on the node prior to construction.
 
         Args:
-            form (str): The name of the node creation 
+            form (str): The name of the node creation
             func (function): A callback
 
         Returns:

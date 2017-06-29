@@ -1,8 +1,9 @@
+import os
+
 import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
 import synapse.lib.socket as s_socket
 
-from synapse.common import *
 from synapse.links.common import *
 
 paramiko = s_dyndeps.getDynMod('paramiko')
@@ -18,27 +19,27 @@ class SshRelay(LinkRelay):
 
     def _reqValidLink(self):
 
-        if paramiko == None:
+        if paramiko is None:
             raise Exception('paramiko module not installed')
 
-        if self.link[1].get('port') == None:
+        if self.link[1].get('port') is None:
             self.link[1]['port'] = 22
 
         host = self.link[1].get('host')
-        if host == None:
-            raise PropNotFound('host')
+        if host is None:
+            raise s_common.PropNotFound('host')
 
         fwdstr = self.link[1].get('forward')
-        if fwdstr == None:
-            raise PropNotFound('forward=<host:port>')
+        if fwdstr is None:
+            raise s_common.PropNotFound('forward=<host:port>')
 
         keyfile = self.link[1].get('keyfile')
-        if keyfile != None and not os.path.isfile(keyfile):
+        if keyfile is not None and not os.path.isfile(keyfile):
             raise Exception('keyfile not found: %s' % (keyfile,))
 
-        fwdhost,fwdport = fwdstr.split(':')
+        fwdhost, fwdport = fwdstr.split(':')
         try:
-            fwdport = int(fwdport,0)
+            fwdport = int(fwdport, 0)
         except ValueError as e:
             raise Exception('Bad Forward Port: %r' % (fwdport,))
 
@@ -71,12 +72,11 @@ class SshRelay(LinkRelay):
 
             s = trns.open_channel('direct-tcpip', (fwdhost, fwdport), ('127.0.0.1', 0))
 
-            return s_socket.Socket(s,ssh=ssh)
+            return s_socket.Socket(s, ssh=ssh)
 
         except s_compat.sockerrs as e:
-            raiseSockError(self.link,e)
+            raiseSockError(self.link, e)
 
         except Exception as e:
             ssh.close()
             raise
-

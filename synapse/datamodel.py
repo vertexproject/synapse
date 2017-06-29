@@ -1,21 +1,17 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 '''
 An API to assist with the creation and enforcement of cortex data models.
 '''
 import re
-import time
-import socket
-import struct
 import fnmatch
-import datetime
 import functools
 import collections
 import logging
 
+import synapse.common as s_common
+
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
-
-from synapse.common import *
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +78,8 @@ def parsetypes(*atypes, **kwtypes):
         def runfunc(self, *args, **kwargs):
 
             try:
-                args = [ getTypeParse(atypes[i],args[i])[0] for i in range(len(args)) ]
-                kwargs = { k:getTypeParse(kwtypes[k],v)[0] for (k,v) in kwargs.items() }
+                args = [getTypeParse(atypes[i], args[i])[0] for i in range(len(args))]
+                kwargs = {k: getTypeParse(kwtypes[k], v)[0] for (k, v) in kwargs.items()}
 
             except IndexError as e:
                 raise Exception('parsetypes() too many args in: %s' % (f.__name__,))
@@ -93,14 +89,14 @@ def parsetypes(*atypes, **kwtypes):
 
             return f(self, *args, **kwargs)
 
-        functools.update_wrapper(runfunc,f)
+        functools.update_wrapper(runfunc, f)
         return runfunc
 
     return wrapfunc
 
 class DataModel(s_types.TypeLib):
 
-    def __init__(self,load=True):
+    def __init__(self, load=True):
         self.props = {}
         self.forms = set()
 
@@ -111,35 +107,35 @@ class DataModel(s_types.TypeLib):
         self.globs = []
         self.cache = {} # for globs
         self.model = {
-            'ver':(0,0,0),
-            'enums':{},
-            'props':{},
-            'globs':{},
-            'forms':[],
+            'ver': (0, 0, 0),
+            'enums': {},
+            'props': {},
+            'globs': {},
+            'forms': [],
         }
 
-        s_types.TypeLib.__init__(self,load=load)
+        s_types.TypeLib.__init__(self, load=load)
 
         self.addTufoForm('syn:core')
 
-        self.addTufoForm('syn:form',ptype='syn:prop')
-        self.addTufoProp('syn:form','doc', ptype='str', doc='basic form definition')
-        self.addTufoProp('syn:form','ver', ptype='int', doc='form version within the model')
-        self.addTufoProp('syn:form','model', ptype='str', doc='which model defines a given form')
+        self.addTufoForm('syn:form', ptype='syn:prop')
+        self.addTufoProp('syn:form', 'doc', ptype='str', doc='basic form definition')
+        self.addTufoProp('syn:form', 'ver', ptype='int', doc='form version within the model')
+        self.addTufoProp('syn:form', 'model', ptype='str', doc='which model defines a given form')
 
-        self.addTufoForm('syn:prop',ptype='syn:prop')
-        self.addTufoProp('syn:prop','doc',ptype='str',req=1,doc='Description of the property definition')
-        self.addTufoProp('syn:prop','form',ptype='syn:prop',req=1,doc='Synapse form which contains this property')
-        self.addTufoProp('syn:prop','ptype',ptype='syn:type',req=1,doc='Synapse type for this field')
-        self.addTufoProp('syn:prop','req',ptype='bool',defval=0,doc='Set to 1 if this property is required')
-        self.addTufoProp('syn:prop','glob',ptype='bool',defval=0,doc='Set to 1 if this property defines a glob')
-        self.addTufoProp('syn:prop','defval',doc='Set to the default value for this property')
+        self.addTufoForm('syn:prop', ptype='syn:prop')
+        self.addTufoProp('syn:prop', 'doc', ptype='str', req=1, doc='Description of the property definition')
+        self.addTufoProp('syn:prop', 'form', ptype='syn:prop', req=1, doc='Synapse form which contains this property')
+        self.addTufoProp('syn:prop', 'ptype', ptype='syn:type', req=1, doc='Synapse type for this field')
+        self.addTufoProp('syn:prop', 'req', ptype='bool', defval=0, doc='Set to 1 if this property is required')
+        self.addTufoProp('syn:prop', 'glob', ptype='bool', defval=0, doc='Set to 1 if this property defines a glob')
+        self.addTufoProp('syn:prop', 'defval', doc='Set to the default value for this property')
 
         self.addTufoForm('syn:tag', ptype='syn:tag')
-        self.addTufoProp('syn:tag','up',ptype='syn:tag')
-        self.addTufoProp('syn:tag','doc',defval='',ptype='str')
-        self.addTufoProp('syn:tag','depth',defval=0,ptype='int')
-        self.addTufoProp('syn:tag','title',defval='',ptype='str')
+        self.addTufoProp('syn:tag', 'up', ptype='syn:tag')
+        self.addTufoProp('syn:tag', 'doc', defval='', ptype='str')
+        self.addTufoProp('syn:tag', 'depth', defval=0, ptype='int')
+        self.addTufoProp('syn:tag', 'title', defval='', ptype='str')
         self.addTufoProp('syn:tag', 'base', ptype='str', ro=1)
 
         self.addType('syn:tagform', subof='comp', fields='tag,syn:tag|form,syn:prop', ex="(foo.bar,baz:faz)")
@@ -148,20 +144,23 @@ class DataModel(s_types.TypeLib):
         self.addTufoProp('syn:tagform', 'tag', ptype='syn:tag', ro=1, doc='The tag being documented')
         self.addTufoProp('syn:tagform', 'form', ptype='syn:prop', ro=1, doc='The the form that the tag applies to.')
 
-        self.addTufoProp('syn:tagform', 'doc', ptype='str:txt', defval='??', doc='The long form description for what the tag means on the given node form')
-        self.addTufoProp('syn:tagform', 'title', ptype='str:txt', defval='??', doc='The short name for what the tag means on the given node form')
+        self.addTufoProp('syn:tagform', 'doc', ptype='str:txt', defval='??',
+                         doc='The long form description for what the tag means on the given node form')
+        self.addTufoProp('syn:tagform', 'title', ptype='str:txt', defval='??',
+                         doc='The short name for what the tag means on the given node form')
 
-        self.addTufoForm('syn:model',ptype='str', doc='prefix for all forms within the model')
-        self.addTufoProp('syn:model','hash', ptype='guid', doc='version hash for the current model')
-        self.addTufoProp('syn:model','prefix', ptype='syn:prop', doc='prefix used by types/forms in the model')
+        self.addTufoForm('syn:model', ptype='str', doc='prefix for all forms within the model')
+        self.addTufoProp('syn:model', 'hash', ptype='guid', doc='version hash for the current model')
+        self.addTufoProp('syn:model', 'prefix', ptype='syn:prop', doc='prefix used by types/forms in the model')
 
-        self.addTufoForm('syn:type',ptype='syn:type')
-        self.addTufoProp('syn:type','*',glob=1)
+        self.addTufoForm('syn:type', ptype='syn:type')
+        self.addTufoProp('syn:type', '*', glob=1)
 
         # used most commonly for sequential tag generation
-        self.addTufoForm('syn:seq',ptype='str:lwr',doc='A sequential id generation tracker')
-        self.addTufoProp('syn:seq','width', ptype='int', defval=0, doc='How many digits to use to represent the number')
-        self.addTufoProp('syn:seq','nextvalu', ptype='int', defval=0, doc='The next sequential value')
+        self.addTufoForm('syn:seq', ptype='str:lwr', doc='A sequential id generation tracker')
+        self.addTufoProp('syn:seq', 'width', ptype='int', defval=0,
+                         doc='How many digits to use to represent the number')
+        self.addTufoProp('syn:seq', 'nextvalu', ptype='int', defval=0, doc='The next sequential value')
 
     def getModelDict(self):
         '''
@@ -182,7 +181,7 @@ class DataModel(s_types.TypeLib):
             BadPropName: If the property name is poorly formed.
         '''
         if not propre.match(form):
-            raise BadPropName(name=form)
+            raise s_common.BadPropName(name=form)
 
         self.forms.add(form)
 
@@ -213,18 +212,18 @@ class DataModel(s_types.TypeLib):
 
         '''
         pdef = self.getPropDef(form)
-        if pdef == None:
-            raise NoSuchForm(name=form)
+        if pdef is None:
+            raise s_common.NoSuchForm(name=form)
 
         if info.get('glob'):
-            self._addPropGlob(form,prop,**info)
+            self._addPropGlob(form, prop, **info)
             return
 
         info['form'] = form
-        fullprop = '%s:%s' % (form,prop)
+        fullprop = '%s:%s' % (form, prop)
 
         if not propre.match(fullprop):
-            raise BadPropName(name=fullprop)
+            raise s_common.BadPropName(name=fullprop)
 
         self.addPropDef(fullprop, **info)
 
@@ -242,10 +241,10 @@ class DataModel(s_types.TypeLib):
 
         '''
         pdef = self.getPropDef(prop)
-        if pdef == None:
-            raise NoSuchProp(name=prop)
+        if pdef is None:
+            raise s_common.NoSuchProp(name=prop)
 
-        return pdef[1].get('form'),pdef[1].get('base')
+        return pdef[1].get('form'), pdef[1].get('base')
 
     def addPropDef(self, prop, **info):
         '''
@@ -260,34 +259,34 @@ class DataModel(s_types.TypeLib):
             DupPropName: If the property name is already present in the data model.
 
         '''
-        if self.props.get(prop) != None:
-            raise DupPropName(name=prop)
+        if self.props.get(prop) is not None:
+            raise s_common.DupPropName(name=prop)
 
-        info.setdefault('doc',None)
-        info.setdefault('uniq',False)
-        info.setdefault('ptype',None)
-        info.setdefault('title',None)
-        info.setdefault('defval',None)
+        info.setdefault('doc', None)
+        info.setdefault('uniq', False)
+        info.setdefault('ptype', None)
+        info.setdefault('title', None)
+        info.setdefault('defval', None)
 
         form = info.get('form')
-        base = prop[len(form)+1:]
+        base = prop[len(form) + 1:]
 
         info['base'] = base
 
         defval = info.get('defval')
 
-        if defval != None:
-            self.defvals[form].append( (prop,defval) )
+        if defval is not None:
+            self.defvals[form].append((prop, defval))
 
-        pdef = (prop,info)
+        pdef = (prop, info)
 
         ptype = info.get('ptype')
-        if ptype != None:
+        if ptype is not None:
             self.reqDataType(ptype)
             self.propsbytype[ptype].append(pdef)
 
-        self.props[ prop ] = pdef
-        self.props[ (form,base) ] = pdef
+        self.props[prop] = pdef
+        self.props[(form, base)] = pdef
 
         self.model['props'][prop] = pdef
 
@@ -297,11 +296,11 @@ class DataModel(s_types.TypeLib):
         '''
         Return a list of (prop,valu) tuples for the default values of a form.
         '''
-        return self.defvals.get(form,())
+        return self.defvals.get(form, ())
 
     def _addSubRefs(self, pdef):
         name = pdef[0]
-        for prop in s_tags.iterTagUp(pdef[0],div=':'):
+        for prop in s_tags.iterTagUp(pdef[0], div=':'):
             if prop == pdef[0]:
                 continue
             self.subprops[prop].append(pdef)
@@ -316,12 +315,12 @@ class DataModel(s_types.TypeLib):
                 dostuff()
 
         '''
-        return self.propsbytype.get(name,())
+        return self.propsbytype.get(name, ())
 
     def _addPropGlob(self, form, prop, **info):
-        prop = '%s:%s' % (form,prop)
+        prop = '%s:%s' % (form, prop)
         info['form'] = form
-        self.globs.append( (prop,info) )
+        self.globs.append((prop, info))
 
     def getSubProps(self, prop):
         '''
@@ -333,7 +332,7 @@ class DataModel(s_types.TypeLib):
                 dostuff(pdef)
 
         '''
-        return self.subprops.get(prop,())
+        return self.subprops.get(prop, ())
 
     def getSubPropDefs(self, prop):
         '''
@@ -342,10 +341,10 @@ class DataModel(s_types.TypeLib):
         ret = {}
         for pdef in self.getSubProps(prop):
             valu = pdef[1].get('defval')
-            if valu == None:
+            if valu is None:
                 continue
 
-            ret[ pdef[0] ] = valu
+            ret[pdef[0]] = valu
 
         return ret
 
@@ -359,14 +358,14 @@ class DataModel(s_types.TypeLib):
 
         '''
         dtype = self.getPropType(prop)
-        if dtype == None:
+        if dtype is None:
             return str(valu)
 
         return dtype.repr(valu)
 
     def getPropTypeName(self, prop):
         pdef = self.getPropDef(prop)
-        if pdef == None:
+        if pdef is None:
             return None
 
         return pdef[1].get('ptype')
@@ -381,10 +380,10 @@ class DataModel(s_types.TypeLib):
 
         '''
         dtype = self.getPropType(prop)
-        if dtype == None:
-            return valu,{}
+        if dtype is None:
+            return valu, {}
 
-        return dtype.norm(valu,oldval=oldval)
+        return dtype.norm(valu, oldval=oldval)
 
     def getPropParse(self, prop, valu):
         '''
@@ -396,7 +395,7 @@ class DataModel(s_types.TypeLib):
 
         '''
         dtype = self.getPropType(prop)
-        if dtype == None:
+        if dtype is None:
             return valu
 
         return dtype.parse(valu)
@@ -411,7 +410,7 @@ class DataModel(s_types.TypeLib):
 
         '''
         pdef = self.props.get(prop)
-        if pdef != None:
+        if pdef is not None:
             return pdef
 
         if not glob:
@@ -419,13 +418,13 @@ class DataModel(s_types.TypeLib):
 
         # check the cache
         pdef = self.cache.get(prop)
-        if pdef != None:
+        if pdef is not None:
             return pdef
 
         # no match, lets check the globs...
-        for glob,pinfo in self.globs:
-            if fnmatch.fnmatch(prop,glob):
-                pdef = (prop,dict(pinfo))
+        for glob, pinfo in self.globs:
+            if fnmatch.fnmatch(prop, glob):
+                pdef = (prop, dict(pinfo))
                 self.cache[prop] = pdef
                 return pdef
 
@@ -438,10 +437,10 @@ class DataModel(s_types.TypeLib):
             ptype = model.getPropType('foo:bar')
         '''
         pdef = self.getPropDef(prop)
-        if pdef == None:
+        if pdef is None:
             return None
 
-        return self.getDataType( pdef[1].get('ptype') )
+        return self.getDataType(pdef[1].get('ptype'))
 
     def getPropInfo(self, prop, name):
         '''
@@ -455,15 +454,15 @@ class DataModel(s_types.TypeLib):
 
         '''
         pdef = self.getPropDef(prop)
-        if pdef == None:
+        if pdef is None:
             return None
 
         valu = pdef[1].get(name)
-        if valu != None:
+        if valu is not None:
             return valu
 
         ptype = pdef[1].get('ptype')
-        if ptype == None:
+        if ptype is None:
             return None
 
-        return self.getTypeInfo(ptype,name)
+        return self.getTypeInfo(ptype, name)

@@ -19,10 +19,10 @@ class CacheTest(SynTest):
             e.set()
 
         c.on('cache:flush', onflush)
-        c.put('woot',10)
+        c.put('woot', 10)
 
         e.wait(timeout=2)
-        self.assertIsNotNone( data.get('event') )
+        self.nn(data.get('event'))
 
     def test_cache_set_maxtime(self):
         c = s_cache.Cache()
@@ -36,60 +36,60 @@ class CacheTest(SynTest):
             e.set()
 
         c.on('cache:flush', onflush)
-        c.put('woot',10)
+        c.put('woot', 10)
 
         e.wait(timeout=2)
-        self.assertIsNotNone( data.get('event') )
+        self.nn(data.get('event'))
 
     def test_cache_miss(self):
         c = s_cache.Cache()
         def onmiss(key):
             return 10
 
-        c.setOnMiss( onmiss )
+        c.setOnMiss(onmiss)
         self.false('woot' in c)
-        self.assertEqual( c.get('woot'), 10 )
+        self.eq(c.get('woot'), 10)
         self.true('woot' in c)
 
     def test_cache_tufo(self):
         core = s_cortex.openurl('ram:///')
         cache = s_cache.TufoCache(core)
 
-        tufo = core.formTufoByProp('woot','haha', lolol=10)
+        tufo = core.formTufoByProp('woot', 'haha', lolol=10)
 
         newfo = cache.get(tufo[0])
 
-        self.assertIsNotNone(newfo)
-        self.assertEqual(newfo[1].get('woot:lolol'), 10)
+        self.nn(newfo)
+        self.eq(newfo[1].get('woot:lolol'), 10)
 
     def test_cache_tufo_prop(self):
         core = s_cortex.openurl('ram:///')
-        cache = s_cache.TufoPropCache(core,'woot')
+        cache = s_cache.TufoPropCache(core, 'woot')
 
-        tufo = core.formTufoByProp('woot','haha', lolol=10)
+        tufo = core.formTufoByProp('woot', 'haha', lolol=10)
 
         newfo = cache.get('haha')
 
-        self.assertIsNotNone(newfo)
-        self.assertEqual(newfo[1].get('woot:lolol'), 10)
+        self.nn(newfo)
+        self.eq(newfo[1].get('woot:lolol'), 10)
 
     def test_ondem_add(self):
 
-        data = {'count':0}
-        def getfoo(x,y=0):
+        data = {'count': 0}
+        def getfoo(x, y=0):
             data['count'] += 1
             return x + y
 
         od = s_cache.OnDem()
-        od.add('foo', getfoo, 10, y=20 )
+        od.add('foo', getfoo, 10, y=20)
 
-        self.assertEqual( od.get('foo'), 30 )
-        self.assertEqual( od.get('foo'), 30 )
-        self.assertEqual( data.get('count'), 1 )
+        self.eq(od.get('foo'), 30)
+        self.eq(od.get('foo'), 30)
+        self.eq(data.get('count'), 1)
 
     def test_ondem_class(self):
 
-        data = {'count':0}
+        data = {'count': 0}
 
         class Woot(s_cache.OnDem):
 
@@ -100,20 +100,20 @@ class CacheTest(SynTest):
 
         woot = Woot()
 
-        self.assertEqual( woot.get('foobar'), 'hi there' )
-        self.assertEqual( woot.get('foobar'), 'hi there' )
-        self.assertEqual( data.get('count'), 1 )
+        self.eq(woot.get('foobar'), 'hi there')
+        self.eq(woot.get('foobar'), 'hi there')
+        self.eq(data.get('count'), 1)
 
     def test_keycache_lookup(self):
 
-        foo = {10:'asdf'}
+        foo = {10: 'asdf'}
 
         def getfoo(x):
             return foo.get(x)
 
         cache = s_cache.KeyCache(getfoo)
 
-        self.assertEqual( cache[10], 'asdf' )
+        self.eq(cache[10], 'asdf')
         # Ensure put/pop methods work.
         cache.put(20, 'wasd')
         self.eq(cache[20], 'wasd')
@@ -128,30 +128,30 @@ class CacheTest(SynTest):
 
         cache = s_cache.FixedCache(maxsize=3, onmiss=getfoo)
         self.false(30 in cache)
-        self.eq( cache.get(30), 50 )
+        self.eq(cache.get(30), 50)
         self.eq(len(cache), 1)
         self.true(30 in cache)
-        self.eq( cache.get(30), 50 )
-        self.eq( cache.get(30), 50 )
-        self.eq( cache.get(30), 50 )
+        self.eq(cache.get(30), 50)
+        self.eq(cache.get(30), 50)
+        self.eq(cache.get(30), 50)
 
-        self.eq( data[30], 1 )
+        self.eq(data[30], 1)
 
-        self.eq( cache.get(40), 60 )
-        self.eq( cache.get(50), 70 )
-        self.eq( cache.get(60), 80 )
+        self.eq(cache.get(40), 60)
+        self.eq(cache.get(50), 70)
+        self.eq(cache.get(60), 80)
 
-        self.eq( data[30], 1 )
+        self.eq(data[30], 1)
 
-        self.eq( cache.get(30), 50 )
+        self.eq(cache.get(30), 50)
 
-        self.eq( data[30], 2 )
+        self.eq(data[30], 2)
 
         cache.clear()
 
-        self.eq( cache.get(30), 50 )
+        self.eq(cache.get(30), 50)
 
-        self.eq( data[30], 3 )
+        self.eq(data[30], 3)
 
     def test_cache_magic(self):
         c = s_cache.Cache()

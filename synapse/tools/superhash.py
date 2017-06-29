@@ -13,11 +13,10 @@ import json
 import logging
 import argparse
 # Custom Code
-import synapse.axon as s_axon
 import synapse.lib.output as s_output
+import synapse.lib.hashset as s_hashset
 
 log = logging.getLogger(__name__)
-
 
 def compute_hashes(fp):
     """
@@ -25,14 +24,13 @@ def compute_hashes(fp):
     :param fp: Path to compute
     :return: Tuple containing the superhash (guid) and other hashes for the file.
     """
-    hs = s_axon.HashSet()
+    hs = s_hashset.HashSet()
     with open(fp, 'rb') as f:
         guid, hashd = hs.eatfd(fd=f)
     return guid, hashd
 
-
 def main(argv, outp=None):
-    if outp == None:  # pragma: no cover
+    if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
 
     p = makeargpaser()
@@ -48,15 +46,15 @@ def main(argv, outp=None):
             results.append((fp, guid, hashd))
 
     if opts.ingest:
-        l = []
+        ret = []
         for fp, guid, hashd in results:
             hashd['name'] = os.path.basename(fp)
             d = {"props": hashd}
             hl = [guid, d]
-            l.append(hl)
-        if len(l) == 1:
-            l = l[0]
-        outp.printf(json.dumps(l, sort_keys=True, indent=2))
+            ret.append(hl)
+        if len(ret) == 1:
+            ret = ret[0]
+        outp.printf(json.dumps(ret, sort_keys=True, indent=2))
     else:
         for fp, guid, hashd in results:
             outp.printf('Superhash for: {}'.format(fp))
@@ -69,7 +67,6 @@ def main(argv, outp=None):
 
     return 0
 
-
 def makeargpaser():
     parser = argparse.ArgumentParser(description="Compute the guid and hashes for a file.")
     parser.add_argument('-i', '--input', dest='input', required=True, type=str, action='append',
@@ -78,12 +75,10 @@ def makeargpaser():
                         help='Display the data in a format that can be placed into a ingest definition.')
     return parser
 
-
 def _main():  # pragma: no cover
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s]')
     main(sys.argv[1:])
-
 
 if __name__ == '__main__':  # pragma: no cover
     _main()

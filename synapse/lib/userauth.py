@@ -1,11 +1,11 @@
-import hashlib
 import fnmatch
 import contextlib
+
+import synapse.common as s_common
 
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 
-from synapse.common import *
 from synapse.eventbus import EventBus
 
 class Rules:
@@ -19,10 +19,10 @@ class Rules:
         self.user = user
         self.auth = auth
 
-        self.auth.on('syn:auth:bump:%s' % user, self._onBumpUser )
+        self.auth.on('syn:auth:bump:%s' % user, self._onBumpUser)
 
         # only triggered if auth is a proxy and reconnects
-        self.auth.on('tele:sock:init', self._onTeleSock )
+        self.auth.on('tele:sock:init', self._onTeleSock)
 
         self.cache = {}
         self.rules = auth.getUserRules(user)
@@ -47,10 +47,10 @@ class Rules:
         '''
         ret = self.cache.get(perm)
 
-        if ret == None:
+        if ret is None:
             ret = False
             for rule in self.rules:
-                if fnmatch.fnmatch(perm,rule):
+                if fnmatch.fnmatch(perm, rule):
                     ret = True
                     break
 
@@ -68,17 +68,17 @@ class UserAuth(EventBus):
         self.core = core
 
         self.core.addTufoForm('syn:auth:user')
-        self.core.addTufoProp('syn:auth:user','apikey', defval='')
-        self.core.addTufoProp('syn:auth:user','shadow:sha256', defval='')
+        self.core.addTufoProp('syn:auth:user', 'apikey', defval='')
+        self.core.addTufoProp('syn:auth:user', 'shadow:sha256', defval='')
 
         self.core.addTufoForm('syn:auth:role')
 
         self.core.addTufoForm('syn:auth:userrole')
-        self.core.addTufoProp('syn:auth:userrole','user')
-        self.core.addTufoProp('syn:auth:userrole','role')
+        self.core.addTufoProp('syn:auth:userrole', 'user')
+        self.core.addTufoProp('syn:auth:userrole', 'role')
 
-        self.users = s_cache.TufoPropCache(core,'syn:auth:user')
-        self.roles = s_cache.TufoPropCache(core,'syn:auth:role')
+        self.users = s_cache.TufoPropCache(core, 'syn:auth:user')
+        self.roles = s_cache.TufoPropCache(core, 'syn:auth:role')
 
         self.rules = s_cache.KeyCache(self._getUserRulesCache)
 
@@ -86,11 +86,11 @@ class UserAuth(EventBus):
         '''
         Add a user to the UserAuth cortex.
         '''
-        if self.users.get(user) != None:
-            raise DupUser(user)
+        if self.users.get(user) is not None:
+            raise s_common.DupUser(user)
 
         usfo = self.core.formTufoByProp('syn:auth:user', user, **props)
-        self.users.put(user,usfo)
+        self.users.put(user, usfo)
 
         return usfo
 
@@ -131,8 +131,8 @@ class UserAuth(EventBus):
         Return a list of the roles for the given user.
         '''
         usfo = self._reqUserTufo(user)
-        userroles = self.core.getTufosByProp('syn:auth:userrole:user',user)
-        return [ u[1].get('syn:auth:userrole:role') for u in userroles ]
+        userroles = self.core.getTufosByProp('syn:auth:userrole:user', user)
+        return [u[1].get('syn:auth:userrole:role') for u in userroles]
 
     def addUserRole(self, user, role):
         '''
@@ -141,8 +141,8 @@ class UserAuth(EventBus):
         usfo = self._reqUserTufo(user)
         rofo = self._reqRoleTufo(role)
 
-        props = {'user':user,'role':role}
-        self.core.formTufoByProp('syn:auth:userrole', '%s:%s' % (user,role), **props)
+        props = {'user': user, 'role': role}
+        self.core.formTufoByProp('syn:auth:userrole', '%s:%s' % (user, role), **props)
 
         self._bumpUserRules(user)
 
@@ -157,7 +157,7 @@ class UserAuth(EventBus):
         usfo = self._reqUserTufo(user)
         rofo = self._reqRoleTufo(role)
 
-        self.core.delTufoByProp('syn:auth:userrole', '%s:%s' % (user,role))
+        self.core.delTufoByProp('syn:auth:userrole', '%s:%s' % (user, role))
 
         self._bumpUserRules(user)
 
@@ -166,9 +166,9 @@ class UserAuth(EventBus):
         Add a rule glob for the given role.
         '''
         rofo = self._reqRoleTufo(role)
-        self.core.addTufoList(rofo,'auth:rules',rule)
+        self.core.addTufoList(rofo, 'auth:rules', rule)
 
-        for userrole in self.core.getTufosByProp('syn:auth:userrole:role',role):
+        for userrole in self.core.getTufosByProp('syn:auth:userrole:role', role):
             user = userrole[1].get('syn:auth:userrole:user')
             self._bumpUserRules(user)
 
@@ -177,9 +177,9 @@ class UserAuth(EventBus):
         Delete a rule for the given role.
         '''
         rofo = self._reqRoleTufo(role)
-        self.core.delTufoListValu(rofo,'auth:rules',rule)
+        self.core.delTufoListValu(rofo, 'auth:rules', rule)
 
-        for userrole in self.core.getTufosByProp('syn:auth:userrole:role',role):
+        for userrole in self.core.getTufosByProp('syn:auth:userrole:role', role):
             user = userrole[1].get('syn:auth:userrole:user')
             self._bumpUserRules(user)
 
@@ -188,18 +188,18 @@ class UserAuth(EventBus):
         Delete a rule for the given user.
         '''
         usfo = self._reqUserTufo(user)
-        self.core.delTufoListValu(usfo,'auth:rules',rule)
+        self.core.delTufoListValu(usfo, 'auth:rules', rule)
         self._bumpUserRules(user)
 
     def addRole(self, role, **props):
         '''
         Add a new role to the UserAuth cortex.
         '''
-        if self.roles.get(role) != None:
-            raise DupRole(role)
+        if self.roles.get(role) is not None:
+            raise s_common.DupRole(role)
 
         rofo = self.core.formTufoByProp('syn:auth:role', role, **props)
-        self.roles.put(role,rofo)
+        self.roles.put(role, rofo)
         return rofo
 
     def delUser(self, user):
@@ -213,7 +213,7 @@ class UserAuth(EventBus):
         '''
         usfo = self._reqUserTufo(user)
         self.core.delTufoByProp('syn:auth:user', user)
-        self.core.delTufosByProp('syn:auth:userrole:user',user)
+        self.core.delTufosByProp('syn:auth:userrole:user', user)
 
         self.users.pop(user)
         self.rules.pop(user)
@@ -230,21 +230,21 @@ class UserAuth(EventBus):
         rofo = self._reqRoleTufo(role)
         userroles = self.core.getTufosByProp('syn:auth:userrole:role', role)
 
-        users = [ u[1].get('syn:auth:userrole:user') for u in userroles ]
+        users = [u[1].get('syn:auth:userrole:user') for u in userroles]
 
         self.core.delTufosByProp('syn:auth:role', role)
         self.core.delTufosByProp('syn:auth:userrole:role', role)
 
         self.roles.pop(role)
-        [ self._bumpUserRules(user) for user in users ]
+        [self._bumpUserRules(user) for user in users]
 
     def getUserRules(self, user):
         usfo = self._reqUserTufo(user)
-        rules = self.core.getTufoList(usfo,'auth:rules')
+        rules = self.core.getTufoList(usfo, 'auth:rules')
 
         for userrole in self.core.getTufosByProp('syn:auth:userrole:user', user):
-            rofo = self.roles.get( userrole[1].get('syn:auth:userrole:role') )
-            rules.extend( self.core.getTufoList(rofo,'auth:rules') )
+            rofo = self.roles.get(userrole[1].get('syn:auth:userrole:role'))
+            rules.extend(self.core.getTufoList(rofo, 'auth:rules'))
 
         return rules
 
@@ -268,22 +268,22 @@ class UserAuth(EventBus):
 
     def _reqUserTufo(self, user):
         usfo = self.users.get(user)
-        if usfo == None:
-            raise NoSuchUser(user)
+        if usfo is None:
+            raise s_common.NoSuchUser(user)
         return usfo
 
     def _reqRoleTufo(self, role):
         rofo = self.roles.get(role)
-        if rofo == None:
-            raise NoSuchRole(role)
+        if rofo is None:
+            raise s_common.NoSuchRole(role)
         return rofo
 
-def opencore(url,**opts):
+def opencore(url, **opts):
     '''
     Construct a UserAuth object around the given cortex URL.
     '''
     import synapse.cortex as s_cortex
-    core = s_cortex.openurl(url,**opts)
+    core = s_cortex.openurl(url, **opts)
     return UserAuth(core)
 
 def getSynUser():
@@ -322,16 +322,16 @@ def amIAllowed(rule, onnone=False):
 
     '''
     auth = getSynAuth()
-    if auth == None:
+    if auth is None:
         return onnone
 
     # if we have an auth and user is None, deny.
     # ( it's probably a code / scope error )
     user = getSynUser()
-    if user == None:
+    if user is None:
         return False
 
-    return auth.isUserAllowed(user,rule)
+    return auth.isUserAllowed(user, rule)
 
 @contextlib.contextmanager
 def asSynUser(user, auth=None, **locs):
@@ -349,5 +349,5 @@ def asSynUser(user, auth=None, **locs):
             dostuff()
 
     '''
-    with s_scope.enter({'syn:user':user,'syn:auth':auth}):
+    with s_scope.enter({'syn:user': user, 'syn:auth': auth}):
         yield

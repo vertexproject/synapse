@@ -1,18 +1,13 @@
 import time
 import errno
-import threading
 
+import synapse.common as s_common
 import synapse.crypto as s_crypto
-import synapse.lib.threads as s_threads
 
-from synapse.eventbus import EventBus
+class NoSuchProto(Exception): pass
 
-from synapse.common import *
-
-class NoSuchProto(Exception):pass
-
-class TooManyTries(Exception):pass
-class ImplementMe(Exception):pass
+class TooManyTries(Exception): pass
+class ImplementMe(Exception): pass
 
 class LinkRelay:
 
@@ -34,15 +29,15 @@ class LinkRelay:
         sock.set('link', self.link)
 
         timeout = self.link[1].get('timeout')
-        if timeout != None:
+        if timeout is not None:
             sock.settimeout(timeout)
 
         if sock.get('listen'):
             return
 
-        rc4key = self.link[1].get('rc4key',b'')
+        rc4key = self.link[1].get('rc4key', b'')
         zerosig = self.link[1].get('zerosig')
-        if rc4key or zerosig != None:
+        if rc4key or zerosig is not None:
             xform = s_crypto.Rc4Xform(rc4key)
             sock.addSockXform(xform)
 
@@ -52,21 +47,21 @@ class LinkRelay:
         '''
         sock = self._listen()
 
-        sock.set('relay',self)
-        sock.set('link',self.link)
+        sock.set('relay', self)
+        sock.set('link', self.link)
 
-        sock.set('listen',True)
+        sock.set('listen', True)
         self._prepLinkSock(sock)
 
         return sock
 
     def _connloop(self):
 
-        retry = self.link[1].get('retry',0)
+        retry = self.link[1].get('retry', 0)
 
         try:
             return self._connect()
-        except LinkErr as e:
+        except s_common.LinkErr as e:
             if retry == 0:
                 raise
 
@@ -79,7 +74,7 @@ class LinkRelay:
 
                 return self._connect()
 
-            except LinkErr as e:
+            except s_common.LinkErr as e:
 
                 if not e.retry:
                     raise
@@ -94,20 +89,20 @@ class LinkRelay:
         '''
         sock = self._connloop()
 
-        sock.set('relay',self)
-        sock.set('link',self.link)
+        sock.set('relay', self)
+        sock.set('link', self.link)
 
-        sock.set('connect',True)
+        sock.set('connect', True)
         self._prepLinkSock(sock)
 
         return sock
 
-def raiseSockError(link,e):
+def raiseSockError(link, e):
     url = link[1].get('url')
     if e.errno == errno.ECONNREFUSED:
-        raise LinkRefused(link)
+        raise s_common.LinkRefused(link)
 
     if e.errno == errno.ENOENT:
-        raise LinkRefused(link)
+        raise s_common.LinkRefused(link)
 
-    raise LinkErr(link)
+    raise s_common.LinkErr(link)

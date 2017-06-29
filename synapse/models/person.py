@@ -42,7 +42,7 @@ class PsMod(CoreModule):
 
     def seedPersonGuidName(self, prop, valu, **props):
         node = self.core.getTufoByProp('ps:person:guidname', valu)
-        if node == None:
+        if node is None:
             # trigger GUID auto-creation
             node = self.core.formTufoByProp('ps:person', None, guidname=valu, **props)
         return node

@@ -1,14 +1,14 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import time
 import atexit
 import threading
+import traceback
 
+import synapse.common as s_common
 import synapse.glob as s_glob
 
 from synapse.eventbus import EventBus
-
-from synapse.common import *
 
 class Sched(EventBus):
 
@@ -22,7 +22,7 @@ class Sched(EventBus):
         self.wake = threading.Event()
 
         self.thr = self._runSchedMain()
-        self.onfini( self._onSchedFini )
+        self.onfini(self._onSchedFini)
 
     def _onSchedFini(self):
         self.wake.set()
@@ -38,12 +38,12 @@ class Sched(EventBus):
             sched.at(ts, foo, bar, baz=10)
 
         '''
-        task = (func,args,kwargs)
-        mine = [ ts, task, None ]
+        task = (func, args, kwargs)
+        mine = [ts, task, None]
         with self.lock:
 
             # if no root, we're it!
-            if self.root == None:
+            if self.root is None:
                 self.root = mine
                 self.wake.set()
                 return mine
@@ -60,7 +60,7 @@ class Sched(EventBus):
             while True:
 
                 # if no next, we're it!
-                if step[2] == None:
+                if step[2] is None:
                     step[2] = mine
                     return mine
 
@@ -88,7 +88,7 @@ class Sched(EventBus):
             # woot will be called in 10 seconds..
 
         '''
-        return self.at( time.time() + delay, func, *args, **kwargs)
+        return self.at(time.time() + delay, func, *args, **kwargs)
 
     def persec(self, count, func, *args, **kwargs):
         '''
@@ -106,15 +106,15 @@ class Sched(EventBus):
         def cb():
             try:
 
-                ret = func(*args,**kwargs)
-                if ret == False:
+                ret = func(*args, **kwargs)
+                if ret is False:
                     return
 
             except Exception as e:
                 self.fire('err:exc', exc=e, msg='persec fail: %s' % (func,))
 
             if not self.isfini:
-                self.insec(dt,cb)
+                self.insec(dt, cb)
 
         cb()
 
@@ -135,13 +135,13 @@ class Sched(EventBus):
         '''
         item[1] = None
 
-    @firethread
+    @s_common.firethread
     def _runSchedMain(self):
         for task in self.yieldTimeTasks():
             try:
                 self.running = task
-                func,args,kwargs = task
-                func(*args,**kwargs)
+                func, args, kwargs = task
+                func(*args, **kwargs)
                 self.running = None
             except Exception as e:
                 traceback.format_exc()
@@ -178,19 +178,19 @@ class Sched(EventBus):
                     item = self.root[1]
                     self.root = self.root[2]
 
-            if item != None:
+            if item is not None:
                 yield item
 
 def getGlobSched():
     '''
     Retrieve a reference to a global scheduler.
     '''
-    if s_glob.sched != None:
+    if s_glob.sched is not None:
         return s_glob.sched
 
     with s_glob.lock:
-        if s_glob.sched == None:
+        if s_glob.sched is None:
             s_glob.sched = Sched()
-            atexit.register( s_glob.sched.fini )
-    
+            atexit.register(s_glob.sched.fini)
+
     return s_glob.sched

@@ -1,4 +1,4 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import ctypes
 import socket
@@ -15,21 +15,21 @@ class sockaddr(ctypes.Structure):
         ("_p2", ctypes.c_ulong)
     ]
 
-if getattr(socket,'inet_pton',None) == None:
+if getattr(socket, 'inet_pton', None) is None:
 
     WSAStringToAddressA = ctypes.windll.ws2_32.WSAStringToAddressA
 
-    def inet_pton(fam,text):
+    def inet_pton(fam, text):
         sa = sockaddr()
         sa.sa_family = fam
 
-        size = ctypes.c_int( ctypes.sizeof(sa) )
+        size = ctypes.c_int(ctypes.sizeof(sa))
 
         saref = ctypes.byref(sa)
         szref = ctypes.byref(size)
 
         if WSAStringToAddressA(text, fam, None, saref, szref):
-            raise socket.error('Invalid Address (fam:%d) %s' % (fam,text))
+            raise socket.error('Invalid Address (fam:%d) %s' % (fam, text))
 
         if fam == socket.AF_INET:
             return sa.ipv4
@@ -40,11 +40,11 @@ if getattr(socket,'inet_pton',None) == None:
         else:
             raise socket.error('Unknown Address Family: %s' % (fam,))
 
-if getattr(socket,'inet_ntop',None) == None:
+if getattr(socket, 'inet_ntop', None) is None:
 
     WSAAddressToStringA = ctypes.windll.ws2_32.WSAAddressToStringA
 
-    def inet_ntop(fam,byts):
+    def inet_ntop(fam, byts):
         sa = sockaddr()
         sa.sa_family = fam
 
@@ -64,7 +64,7 @@ if getattr(socket,'inet_ntop',None) == None:
         szref = ctypes.byref(size)
 
         if WSAAddressToStringA(saref, ctypes.sizeof(sa), None, text, szref):
-            raise socket.error('Invalid Address (fam:%d) %s' % (fam,text))
+            raise socket.error('Invalid Address (fam:%d) %s' % (fam, text))
 
         return text.value
 
@@ -78,8 +78,8 @@ def getLibC():
 
 def initHostInfo():
     return {
-        'format':'pe',
-        'platform':'windows',
+        'format': 'pe',
+        'platform': 'windows',
     }
 
 def daemonize():

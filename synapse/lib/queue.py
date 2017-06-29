@@ -1,8 +1,8 @@
-import time
+from __future__ import absolute_import, unicode_literals
+
 import threading
 import collections
 
-from synapse.common import *
 from synapse.eventbus import EventBus
 
 class QueueShutdown(Exception): pass
@@ -18,7 +18,7 @@ class Queue(EventBus):
         self.event = threading.Event()
 
         self._que_done = False
-        self.onfini( self.event.set )
+        self.onfini(self.event.set)
 
     def __exit__(self, exc, cls, tb):
         self.done()
@@ -27,7 +27,7 @@ class Queue(EventBus):
     def __iter__(self):
         while not self.isfini:
             ret = self.get()
-            if ret == None:
+            if ret is None:
                 return
 
             yield ret
@@ -103,7 +103,7 @@ class Queue(EventBus):
 
                 ret = []
                 while len(ret) < size and self.deq:
-                    ret.append( self.deq.popleft() )
+                    ret.append(self.deq.popleft())
 
                 if ret:
                     return ret
@@ -129,6 +129,6 @@ class Queue(EventBus):
 
         '''
         ret = self.slice(size, timeout=timeout)
-        while ret != None:
+        while ret is not None:
             yield ret
             ret = self.slice(size, timeout=timeout)

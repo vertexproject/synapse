@@ -2,10 +2,11 @@ import unittest
 
 import synapse.lib.tufo as s_tufo
 
+from synapse.tests.common import *
+
 # Unittests for synapse/lib/tufo.py
 
-
-class TufoEqualityTest(unittest.TestCase):
+class TufoEqualityTest(SynTest):
     def setUp(self):
         self.t1 = s_tufo.tufo('bar', baz='faz', derp=20)
         self.t2 = s_tufo.tufo('bar', derp=20, baz='faz')
@@ -19,23 +20,23 @@ class TufoEqualityTest(unittest.TestCase):
         Ensure that tufo equality works where expected.
         '''
         r = s_tufo.equal(tuf0=self.t1, tuf1=self.t2)
-        self.assertTrue(r)
+        self.true(r)
         r = s_tufo.equal(tuf0=self.t1, tuf1=self.t6)
-        self.assertTrue(r)
+        self.true(r)
 
     def test_not_equals(self):
         '''
         Ensure that tufo equality works where expected.
         '''
         r = s_tufo.equal(tuf0=self.t1, tuf1=self.t3)
-        self.assertFalse(r)
+        self.false(r)
         r = s_tufo.equal(tuf0=self.t1, tuf1=self.t4)
-        self.assertFalse(r)
+        self.false(r)
         r = s_tufo.equal(tuf0=self.t1, tuf1=self.t5)
-        self.assertFalse(r)
+        self.false(r)
 
 
-class TufoCreateTests(unittest.TestCase):
+class TufoCreateTests(SynTest):
     def setUp(self):
         self.tuf0 = ('bar', {'baz': 'faz', 'derp': 20})
 
@@ -45,18 +46,18 @@ class TufoCreateTests(unittest.TestCase):
         '''
         tuf0 = s_tufo.tufo('bar', baz='faz', derp=20)
         r = s_tufo.equal(tuf0, self.tuf0)
-        self.assertTrue(r)
+        self.true(r)
 
     def test_kwargs_tufo_creation(self):
         '''
         Ensure that tufos' can be created via **kwargs.
         '''
-        tuf0 = s_tufo.tufo('bar', **{'baz': 'faz', 'derp': 20,})
+        tuf0 = s_tufo.tufo('bar', **{'baz': 'faz', 'derp': 20, })
         r = s_tufo.equal(tuf0, self.tuf0)
-        self.assertTrue(r)
+        self.true(r)
 
 
-class TestTufoProps(unittest.TestCase):
+class TestTufoProps(SynTest):
     def setUp(self):
         self.t1 = s_tufo.tufo('bar', baz='faz', derp=20)
         self.t2 = s_tufo.tufo('bar', **{'baz': 'faz', 'derp': 20, 'namespace:sound': 'quack'})
@@ -67,20 +68,19 @@ class TestTufoProps(unittest.TestCase):
         Ensure that when no prefix is provided, the properties are taken from the form.
         '''
         r = s_tufo.props(self.t1)
-        self.assertEqual(r, {})
+        self.eq(r, {})
         r = s_tufo.props(self.t2)
-        self.assertEqual(r, {})
+        self.eq(r, {})
         r = s_tufo.props(self.t3)
-        self.assertEqual(r, {'sound': 'quack', 'stype': 'duck'})
+        self.eq(r, {'sound': 'quack', 'stype': 'duck'})
 
     def test_named_props(self):
         '''
         Ensure that provided prefixes are used.
         '''
         r = s_tufo.props(self.t2, pref='namespace')
-        self.assertEqual(r, {'sound': 'quack'})
+        self.eq(r, {'sound': 'quack'})
         r = s_tufo.props(self.t3, pref='animal')
-        self.assertEqual(r, {'sound': 'quack', 'stype': 'duck'})
+        self.eq(r, {'sound': 'quack', 'stype': 'duck'})
         r = s_tufo.props(self.t3, pref='geo')
-        self.assertEqual(r, {})
-
+        self.eq(r, {})

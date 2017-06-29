@@ -23,7 +23,7 @@ from synapse.common import *
 # to avoid "leaked resource" when a test triggers creation
 s_scope.get('plex')
 
-class TooFewEvents(Exception):pass
+class TooFewEvents(Exception): pass
 
 class TestEnv:
 
@@ -33,7 +33,7 @@ class TestEnv:
 
     def __getattr__(self, prop):
         item = self.items.get(prop)
-        if item == None:
+        if item is None:
             raise AttributeError(prop)
         return item
 
@@ -58,7 +58,7 @@ class TestOutPut(s_output.OutPutStr):
     def expect(self, substr):
         outs = str(self)
         if outs.find(substr) == -1:
-            raise Exception('TestOutPut.expect(%s) not in %s' % (substr,outs))
+            raise Exception('TestOutPut.expect(%s) not in %s' % (substr, outs))
 
 class SynTest(unittest.TestCase):
 
@@ -76,7 +76,7 @@ class SynTest(unittest.TestCase):
 
     def getPgCore(self):
         url = os.getenv('SYN_TEST_PG_URL')
-        if url != None:
+        if url is not None:
             return s_cortex.openurl(url)
 
         db = os.getenv('SYN_TEST_PG_DB')
@@ -97,14 +97,14 @@ class SynTest(unittest.TestCase):
         return TestOutPut()
 
     def thisHostMust(self, **props):
-        for k,v in props.items():
+        for k, v in props.items():
             if s_thishost.get(k) != v:
-                raise unittest.SkipTest('skip thishost: %s!=%r' % (k,v))
+                raise unittest.SkipTest('skip thishost: %s!=%r' % (k, v))
 
     def thisHostMustNot(self, **props):
-        for k,v in props.items():
+        for k, v in props.items():
             if s_thishost.get(k) == v:
-                raise unittest.SkipTest('skip thishost: %s==%r' % (k,v))
+                raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
     @contextlib.contextmanager
     def getTestDir(self):
@@ -113,10 +113,10 @@ class SynTest(unittest.TestCase):
         shutil.rmtree(tempdir, ignore_errors=True)
 
     def eq(self, x, y):
-        self.assertEqual(x,y)
+        self.assertEqual(x, y)
 
     def ne(self, x, y):
-        self.assertNotEqual(x,y)
+        self.assertNotEqual(x, y)
 
     def true(self, x):
         self.assertTrue(x)
@@ -131,21 +131,40 @@ class SynTest(unittest.TestCase):
         self.assertIsNone(x)
 
     def noprop(self, info, prop):
-        valu = info.get(prop,novalu)
-        self.eq(valu,novalu)
+        valu = info.get(prop, novalu)
+        self.eq(valu, novalu)
 
     def raises(self, *args, **kwargs):
-        return self.assertRaises(*args,**kwargs)
+        return self.assertRaises(*args, **kwargs)
 
     def sorteq(self, x, y):
-        return self.eq( sorted(x), sorted(y) )
+        return self.eq(sorted(x), sorted(y))
+
+    def isinstance(self, obj, cls):
+        self.assertIsInstance(obj, cls)
+
+    def isin(self, member, container):
+        self.assertIn(member, container)
+
+    def gt(self, x, y):
+        self.assertGreater(x, y)
+
+    def ge(self, x, y):
+        self.assertGreaterEqual(x, y)
+
+    def lt(self, x, y):
+        self.assertLess(x, y)
+
+    def le(self, x, y):
+        self.assertLessEqual(x, y)
+
 
 testdir = os.path.dirname(__file__)
 def getTestPath(*paths):
-    return os.path.join(testdir,*paths)
+    return os.path.join(testdir, *paths)
 
 def getIngestCore(path, core=None):
-    if core == None:
+    if core is None:
         core = s_cortex.openurl('ram:///')
 
     gest = s_ingest.loadfile(path)

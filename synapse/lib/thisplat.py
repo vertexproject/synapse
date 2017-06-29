@@ -1,4 +1,4 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import ctypes
 import platform
@@ -15,5 +15,5 @@ elif sysname == 'linux':
 elif sysname == 'freebsd':
     from synapse.lib.platforms.freebsd import *
 
-elif getattr(ctypes,'windll',None):
+elif getattr(ctypes, 'windll', None):
     from synapse.lib.platforms.windows import *

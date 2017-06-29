@@ -70,7 +70,7 @@ class PhoneType(DataType):
             info = s_l_phone.getPhoneInfo(valu)
 
             cc = info.get('cc')
-            if cc != None:
+            if cc is not None:
                 subs['cc'] = cc
 
             # TODO prefix based validation?

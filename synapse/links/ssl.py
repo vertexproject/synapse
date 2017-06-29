@@ -1,18 +1,19 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 
-import os
 import ssl
 import socket
 import logging
 
-logger = logging.getLogger(__name__)
-
 import synapse.compat as s_compat
+
 import synapse.lib.socket as s_socket
 import synapse.lib.certdir as s_certdir
 
-from OpenSSL import crypto
 from synapse.links.common import *
+
+from OpenSSL import crypto
+
+logger = logging.getLogger(__name__)
 
 class SslRelay(LinkRelay):
 
@@ -22,23 +23,23 @@ class SslRelay(LinkRelay):
         host = self.link[1].get('host')
         port = self.link[1].get('port')
 
-        if host == None:
-            raise PropNotFound('host')
+        if host is None:
+            raise s_common.PropNotFound('host')
 
-        if port == None:
-            raise PropNotFound('port')
+        if port is None:
+            raise s_common.PropNotFound('port')
 
         cafile = self.link[1].get('cafile')
-        if cafile != None:
-            self.link[1]['cafile'] = reqpath(cafile)
+        if cafile is not None:
+            self.link[1]['cafile'] = s_common.reqpath(cafile)
 
         keyfile = self.link[1].get('keyfile')
-        if keyfile != None:
-            self.link[1]['keyfile'] = reqpath(keyfile)
+        if keyfile is not None:
+            self.link[1]['keyfile'] = s_common.reqpath(keyfile)
 
         certfile = self.link[1].get('certfile')
-        if certfile != None:
-            self.link[1]['certfile'] = reqpath(certfile)
+        if certfile is not None:
+            self.link[1]['certfile'] = s_common.reqpath(certfile)
 
     def _listen(self):
 
@@ -46,7 +47,7 @@ class SslRelay(LinkRelay):
         port = self.link[1].get('port')
 
         sock = socket.socket()
-        sock.bind( (host,port) )
+        sock.bind((host, port))
 
         sock.listen(100)
 
@@ -58,17 +59,17 @@ class SslRelay(LinkRelay):
         hostname = socket.gethostname()
 
         cafile = self.link[1].get('cafile')
-        if cafile == None:
+        if cafile is None:
             caname = self.link[1].get('ca')
-            if caname != None:
+            if caname is not None:
                 cafile = cdir.getCaCertPath(caname)
 
         certfile = self.link[1].get('certfile')
-        if certfile == None:
+        if certfile is None:
             certfile = cdir.getHostCertPath(hostname)
 
         keyfile = self.link[1].get('keyfile')
-        if keyfile == None:
+        if keyfile is None:
             keyfile = cdir.getHostKeyPath(hostname)
 
         sslopts = dict(server_side=True,
@@ -81,13 +82,13 @@ class SslRelay(LinkRelay):
                   )
 
         # if they give a cafile to the server, require client certs
-        if cafile != None:
+        if cafile is not None:
             sslopts['cert_reqs'] = ssl.CERT_REQUIRED
 
         wrap = ssl.wrap_socket(sock, **sslopts)
 
         sock = s_socket.Socket(wrap)
-        sock.on('link:sock:accept', self._onSslAccept )
+        sock.on('link:sock:accept', self._onSslAccept)
 
         return sock
 
@@ -98,9 +99,9 @@ class SslRelay(LinkRelay):
 
         # setup non-blocking, preread, and do_handshake
         sock.setblocking(0)
-        sock.set('preread',True)
+        sock.set('preread', True)
 
-        sock.on('link:sock:preread', self._onServPreRead )
+        sock.on('link:sock:preread', self._onServPreRead)
 
         # this fails on purpose ( but we must prompt the server to send )
         try:
@@ -127,11 +128,11 @@ class SslRelay(LinkRelay):
             sock.do_handshake()
 
             # handshake completed! no more pre-read!
-            sock.set('preread',False)
+            sock.set('preread', False)
 
             user = self._getCommonName(sock)
-            if user != None:
-                sock.set('syn:user',user)
+            if user is not None:
+                sock.set('syn:user', user)
 
         except ssl.SSLError as e:
 
@@ -151,12 +152,12 @@ class SslRelay(LinkRelay):
             return None
 
         subj = cert.get('subject')
-        if subj == None:
+        if subj is None:
             return None
 
         try:
 
-            info = dict( x[0] for x in subj )
+            info = dict(x[0] for x in subj)
             return info.get('commonName')
 
         except Exception as e:
@@ -176,16 +177,16 @@ class SslRelay(LinkRelay):
         certdir = self.link[1].get('certdir')
 
         cdir = s_certdir.CertDir(path=certdir)
-        certuser = cdir.getUserForHost(user,host)
+        certuser = cdir.getUserForHost(user, host)
 
-        if certuser != None:
+        if certuser is not None:
             cafile = cdir.getUserCaPath(certuser)
             keyfile = cdir.getUserKeyPath(certuser)
             certfile = cdir.getUserCertPath(certuser)
 
-        cafile = self.link[1].get('cafile',cafile)
-        keyfile = self.link[1].get('keyfile',keyfile)
-        certfile = self.link[1].get('certfile',certfile)
+        cafile = self.link[1].get('cafile', cafile)
+        keyfile = self.link[1].get('keyfile', keyfile)
+        certfile = self.link[1].get('certfile', certfile)
 
         sslopts = dict(ca_certs=cafile,
                        keyfile=keyfile,
@@ -197,15 +198,15 @@ class SslRelay(LinkRelay):
             sslopts['cert_reqs'] = ssl.CERT_NONE
 
         try:
-            sock.connect( (host,port) )
+            sock.connect((host, port))
         except s_compat.sockerrs as e:
             sock.close()
-            raiseSockError(self.link,e)
+            raiseSockError(self.link, e)
 
         try:
             wrap = ssl.wrap_socket(sock, **sslopts)
         except ssl.SSLError as e:
             sock.close()
-            raise LinkErr(self.link,str(e))
+            raise s_common.LinkErr(self.link, str(e))
 
         return s_socket.Socket(wrap)

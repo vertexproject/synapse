@@ -15,10 +15,10 @@ class EventBusTest(SynTest):
             y = event[1].get('y')
             event[1]['ret'] = x + y
 
-        bus.on('woot',foo)
+        bus.on('woot', foo)
 
-        event = bus.fire('woot',x=3,y=5,ret=[])
-        self.eq( event[1]['ret'], 8 )
+        event = bus.fire('woot', x=3, y=5, ret=[])
+        self.eq(event[1]['ret'], 8)
 
     def test_eventbus_link(self):
 
@@ -31,11 +31,11 @@ class EventBusTest(SynTest):
         def woot(event):
             data['woot'] = True
 
-        bus2.on('woot',woot)
+        bus2.on('woot', woot)
 
         bus1.fire('woot')
 
-        self.true( data.get('woot') )
+        self.true(data.get('woot'))
 
     def test_evenbus_unlink(self):
 
@@ -48,29 +48,29 @@ class EventBusTest(SynTest):
         bus.link(woot)
 
         bus.fire('haha')
-        self.assertEqual( len(mesgs), 1 )
+        self.eq(len(mesgs), 1)
 
         bus.unlink(woot)
 
         bus.fire('haha')
-        self.assertEqual( len(mesgs), 1 )
+        self.eq(len(mesgs), 1)
 
         bus.fini()
 
     def test_eventbus_withfini(self):
 
-        data = {'count':0}
+        data = {'count': 0}
         def onfini():
             data['count'] += 1
 
         with s_eventbus.EventBus() as bus:
             bus.onfini(onfini)
 
-        self.assertEqual( data['count'], 1 )
+        self.eq(data['count'], 1)
 
     def test_eventbus_finionce(self):
 
-        data = {'count':0}
+        data = {'count': 0}
         def onfini():
             data['count'] += 1
 
@@ -80,23 +80,22 @@ class EventBusTest(SynTest):
         bus.fini()
         bus.fini()
 
-        self.assertEqual( data['count'], 1 )
+        self.eq(data['count'], 1)
 
     def test_eventbus_consume(self):
         bus = s_eventbus.EventBus()
-        wait = self.getTestWait(bus,2,'woot')
+        wait = self.getTestWait(bus, 2, 'woot')
 
-        bus.consume( [ ('haha',{}), ('hehe',{}), ('woot',{}), ('woot',{}) ] )
+        bus.consume([('haha', {}), ('hehe', {}), ('woot', {}), ('woot', {})])
 
         wait.wait()
 
         bus.fini()
 
-
     def test_eventbus_off(self):
         bus = s_eventbus.EventBus()
 
-        data = {'count':0}
+        data = {'count': 0}
 
         def woot(mesg):
             data['count'] += 1
@@ -111,23 +110,23 @@ class EventBusTest(SynTest):
 
         bus.fini()
 
-        self.assertEqual( data['count'], 1 )
+        self.eq(data['count'], 1)
 
     def test_eventbus_waiter(self):
         bus0 = s_eventbus.EventBus()
 
-        wait0 = bus0.waiter(3,'foo:bar')
+        wait0 = bus0.waiter(3, 'foo:bar')
 
         bus0.fire('foo:bar')
         bus0.fire('foo:bar')
         bus0.fire('foo:bar')
 
         evts = wait0.wait(timeout=3)
-        self.eq( len(evts), 3 )
+        self.eq(len(evts), 3)
 
-        wait1 = bus0.waiter(3,'foo:baz')
+        wait1 = bus0.waiter(3, 'foo:baz')
         evts = wait1.wait(timeout=0.1)
-        self.assertIsNone( evts )
+        self.none(evts)
 
     def test_eventbus_filt(self):
 
@@ -138,19 +137,19 @@ class EventBusTest(SynTest):
 
         bus.on('lol', wootfunc)
 
-        bus.on('rofl', wootfunc, foo=10 )
+        bus.on('rofl', wootfunc, foo=10)
 
         mesg = bus.fire('lol')
-        self.true( mesg[1].get('woot') )
+        self.true(mesg[1].get('woot'))
 
         mesg = bus.fire('rofl')
-        self.false( mesg[1].get('woot') )
+        self.false(mesg[1].get('woot'))
 
         mesg = bus.fire('rofl', foo=20)
-        self.false( mesg[1].get('woot') )
+        self.false(mesg[1].get('woot'))
 
         mesg = bus.fire('rofl', foo=10)
-        self.true( mesg[1].get('woot') )
+        self.true(mesg[1].get('woot'))
 
     def test_eventbus_decor(self):
 
@@ -171,18 +170,45 @@ class EventBusTest(SynTest):
                 self.finid = True
 
         woot = Woot()
-        self.false( woot.hit )
+        self.false(woot.hit)
 
         woot.fire('hehe:haha')
-        self.false( woot.hit )
+        self.false(woot.hit)
 
         woot.fire('hehe:haha', woot=1)
-        self.true( woot.hit )
+        self.true(woot.hit)
 
         woot.hit = False
         woot.fire('hehe:hoho')
-        self.true( woot.hit )
+        self.true(woot.hit)
 
         woot.fini()
         self.true(woot.finid)
 
+    def test_eventbus_log(self):
+
+        logs = []
+        with s_eventbus.EventBus() as ebus:
+            ebus.on('log', logs.append)
+
+            ebus.log(100, 'omg woot', foo=10)
+
+        mesg = logs[0]
+        self.eq(mesg[0], 'log')
+        self.eq(mesg[1].get('foo'), 10)
+        self.eq(mesg[1].get('mesg'), 'omg woot')
+        self.eq(mesg[1].get('level'), 100)
+
+    def test_eventbus_exc(self):
+
+        logs = []
+        with s_eventbus.EventBus() as ebus:
+            ebus.on('log', logs.append)
+
+            try:
+                raise NoSuchObj(name='hehe')
+            except Exception as e:
+                ebus.exc(e)
+
+        mesg = logs[0]
+        self.eq(mesg[1].get('err'), 'NoSuchObj')

@@ -1,12 +1,11 @@
-import fnmatch
 import threading
+
+import synapse.common as s_common
 
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
-import synapse.lib.sched as s_sched
 
 from synapse.eventbus import EventBus
-from synapse.common import *
 
 sesslocal = threading.local()
 
@@ -30,7 +29,7 @@ class Sess(EventBus):
         self.cura = cura
         self.props = props
 
-        self.on('sess:log', self.cura.dist )
+        self.on('sess:log', self.cura.dist)
 
     def get(self, prop):
         '''
@@ -44,7 +43,7 @@ class Sess(EventBus):
         '''
         self.props[prop] = valu
         if save:
-            self.cura._saveSessProp(self.iden,prop,valu)
+            self.cura._saveSessProp(self.iden, prop, valu)
 
     def log(self, level, mesg, **info):
         info['mesg'] = mesg
@@ -72,12 +71,12 @@ class Curator(EventBus):
         self.core = core
 
         self.cache = s_cache.Cache(maxtime=maxtime)
-        self.cache.setOnMiss( self._getSessByIden )
-        self.cache.on('cache:pop', self._onSessCachePop )
+        self.cache.setOnMiss(self._getSessByIden)
+        self.cache.on('cache:pop', self._onSessCachePop)
 
-        self.onfini( self.cache.fini )
+        self.onfini(self.cache.fini)
 
-    def setMaxTime(self,valu):
+    def setMaxTime(self, valu):
         return self.cache.setMaxTime(valu)
 
     def setSessCore(self, core):
@@ -88,7 +87,7 @@ class Curator(EventBus):
         iden = event[1].get('key')
         sess = event[1].get('val')
 
-        if sess == None:
+        if sess is None:
             return
 
         sess.fini()
@@ -105,9 +104,9 @@ class Curator(EventBus):
             sess = cura.new()
 
         '''
-        iden = guid()
+        iden = s_common.guid()
         sess = Sess(self, iden)
-        self.cache.put(iden,sess)
+        self.cache.put(iden, sess)
         self.fire('sess:init', sess=sess)
         return sess
 
@@ -127,22 +126,22 @@ class Curator(EventBus):
     def _getSessByIden(self, iden):
 
         # If we have no cortex, we have no session storage
-        if self.core == None:
+        if self.core is None:
             return None
 
         # look up the tufo and construct a Sess()
-        sefo = self.core.getTufoByProp('syn:sess',iden)
-        if sefo == None:
+        sefo = self.core.getTufoByProp('syn:sess', iden)
+        if sefo is None:
             return None
 
         props = s_tufo.props(sefo)
-        return Sess(self,iden,**props)
+        return Sess(self, iden, **props)
 
     def _saveSessProp(self, iden, prop, valu):
 
         # if we have a cortex to persist into
-        if self.core == None:
+        if self.core is None:
             return
 
         sefo = self.core.formTufoByProp('syn:sess', iden)
-        self.core.setTufoProp(sefo,prop,valu)
+        self.core.setTufoProp(sefo, prop, valu)

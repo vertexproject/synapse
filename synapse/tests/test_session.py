@@ -15,17 +15,17 @@ class SessTest(SynTest):
 
         iden = sess.iden
 
-        sess.put('woot',10)
+        sess.put('woot', 10)
 
         with sess:
 
             woot = s_session.current()
 
-            self.eq(sess.iden,woot.iden)
-            self.eq( woot.get('woot'), 10 )
+            self.eq(sess.iden, woot.iden)
+            self.eq(woot.get('woot'), 10)
 
-            sess.put('haha',30,save=False)
-            self.eq( woot.get('haha'), 30 )
+            sess.put('haha', 30, save=False)
+            self.eq(woot.get('haha'), 30)
 
         cura.fini()
 
@@ -40,6 +40,6 @@ class SessTest(SynTest):
 
     def test_sess_log(self):
         cura = s_session.Curator()
-        watr = cura.waiter(1,'sess:log')
+        watr = cura.waiter(1, 'sess:log')
         sess = cura.new()
-        sess.log(0,"woot")
+        sess.log(0, "woot")
