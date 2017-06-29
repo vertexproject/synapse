@@ -241,7 +241,7 @@ def tokenize(text):
             continue
 
         if not s_syntax.nextin(text, off, varset):
-            raise s_common.SyntaxError(at=off, mesg='no valid tokens found')
+            raise s_common.BadSyntaxError(at=off, mesg='no valid tokens found')
 
         tokn = ('var', {'off': off})
         tokn[1]['name'], off = s_syntax.nom(text, off, varset, trim=False)
@@ -319,7 +319,7 @@ def exprlist(toks, off=0):
 
 def raisetok(tokn, mesg):
     off = tokn[1].get('off')
-    raise s_common.SyntaxError(mesg=mesg, off=off)
+    raise s_common.BadSyntaxError(mesg=mesg, off=off)
 
 def exprbase(toks, off=0):
     '''

@@ -901,7 +901,7 @@ class Runtime(Configable):
         opts = dict(oper[1].get('kwlist'))
 
         if len(args) not in (1, 2):
-            raise s_common.SyntaxError(mesg='lift(<prop> [,<valu>, by=<by>, limit=<limit>])')
+            raise s_common.BadSyntaxError(mesg='lift(<prop> [,<valu>, by=<by>, limit=<limit>])')
 
         valu = None
         prop = args[0]
@@ -970,7 +970,7 @@ class Runtime(Configable):
         name = kwargs.get('core')
 
         if len(args) != 1:
-            raise s_common.SyntaxError(mesg='nexttag(<tagname>,doc=<doc>)')
+            raise s_common.BadSyntaxError(mesg='nexttag(<tagname>,doc=<doc>)')
 
         tag = args[0]
 
@@ -1000,7 +1000,7 @@ class Runtime(Configable):
 
         args = oper[1].get('args')
         if len(args) != 3:
-            raise s_common.SyntaxError(mesg='addxref(<type>,<form>,<valu>)')
+            raise s_common.BadSyntaxError(mesg='addxref(<type>,<form>,<valu>)')
 
         xref, form, valu = args
 
@@ -1093,7 +1093,7 @@ class Runtime(Configable):
         # addnode(<form>,<valu>,**props)
         args = oper[1].get('args')
         if len(args) != 2:
-            raise s_common.SyntaxError(mesg='addnode(<form>,<valu>,[<prop>=<pval>, ...])')
+            raise s_common.BadSyntaxError(mesg='addnode(<form>,<valu>,[<prop>=<pval>, ...])')
 
         kwlist = oper[1].get('kwlist')
 

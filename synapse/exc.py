@@ -79,13 +79,12 @@ class NoAuthUser(SynErr): pass
 
 class WebAppErr(SynErr): pass
 
-class SyntaxError(SynErr): pass
-
 class BadUrl(Exception): pass
 class BadJson(Exception): pass
 class BadMesgResp(Exception): pass
 class BadPropValu(SynErr): pass
 class BadPySource(Exception): pass
+class BadSyntaxError(SynErr): pass
 
 class TeleClientSide(SynErr): pass
 
