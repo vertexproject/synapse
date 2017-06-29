@@ -6,7 +6,6 @@ Additional technical documentation can be found elsewhere in the doc index_.
 
 The User Guide is a living document and will continue to be updated and expanded. The current sections are:
 
-#. Introduction
 #. `Why Synapse? <why_synapse_>`_
 #. `Graphs and Hypergraphs <graphs_hypergraphs_>`_
 #. `Data Model – Basics <datamodel_basics_>`_
