@@ -107,12 +107,12 @@ class WebApp(EventBus,tornado.web.Application,s_daemon.DmonConf):
         wapp.main()
 
     '''
-    def __init__(self, **settings):
+    def __init__(self, io_loop=None, **settings):
         EventBus.__init__(self)
         s_daemon.DmonConf.__init__(self)
         tornado.web.Application.__init__(self, **settings)
 
-        self.loop = tornado.ioloop.IOLoop()
+        self.loop = io_loop or tornado.ioloop.IOLoop(make_current=True)
         self.serv = tornado.httpserver.HTTPServer(self)
 
         self.boss = s_async.Boss()
@@ -120,9 +120,9 @@ class WebApp(EventBus,tornado.web.Application,s_daemon.DmonConf):
         # FIXME options
         self.boss.runBossPool(8, maxsize=128)
 
-        self.iothr = self._runWappLoop()
-
-        self.onfini( self._onWappFini )
+        if not io_loop:
+            self.iothr = self._runWappLoop()
+            self.onfini(self._onWappFini)
 
     def listen(self, port, host='0.0.0.0'):
         '''
