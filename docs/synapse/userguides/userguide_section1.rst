@@ -11,7 +11,7 @@ Unlike costly commercial analysis systems, Synapse is available on Github under 
 
 **Performance**
 
-Synapse was designed to address the performance limitations that constrain many large-scale analysis systems and eventually make them unworkable in practice. Synapse supports multiple storage and indexing options (RAM, LMDB, Postgres) that can be tailored to support the type and volume of data stored, as well as the proportion of read (query / retrieval) vs. write (node creation and deconfliction) operations. For detailed performance benchmarks, see `Synapse Performance`_ for more information.
+Synapse was designed to address the performance limitations that constrain many large-scale analysis systems and eventually make them unworkable in practice. Synapse supports multiple storage and indexing options (RAM, LMDB, PostgreSQL, SQLite) that can be tailored to support the type and volume of data stored, as well as the proportion of read (query / retrieval) vs. write (node creation and deconfliction) operations. For detailed performance benchmarks, see `Synapse Performance`_ for more information.
 
 **Extensible Comprehensive Data Model**
 
