@@ -39,13 +39,29 @@ class CertDirTest(SynTest):
     def test_certdir_host(self):
         with self.getCertDir() as cdir:
             cdir.genCaCert('syntest')
-            cdir.genHostCert('visi.vertex.link', signas='syntest')
+            cdir.genHostCert('visi.vertex.link', signas='syntest', sans='DNS:vertex.link,DNS:visi.vertex.link,DNS:vertex.link')
 
-            self.nn(cdir.getHostCert('visi.vertex.link'))
             self.none(cdir.getHostCert('newpnewp'))
+            self.false(cdir.isHostCert('newpnewp'))
 
             self.true(cdir.isHostCert('visi.vertex.link'))
-            self.false(cdir.isHostCert('newpnewp'))
+            cert = cdir.getHostCert('visi.vertex.link')
+            self.nn(cert)
+            self.eq(cert.get_extension_count(), 5)
+            self.eq(cert.get_extension(4).get_short_name(), b'subjectAltName')
+            self.eq(cert.get_extension(4).get_data(), b'0\x1f\x82\x0bvertex.link\x82\x10visi.vertex.link')  # ASN.1 encoded subjectAltName data
+
+        # Test SAN is valid when not specified in kwargs
+        with self.getCertDir() as cdir:
+            cdir.genCaCert('syntest')
+            cdir.genHostCert('visi.vertex.link', signas='syntest')
+
+            self.true(cdir.isHostCert('visi.vertex.link'))
+            cert = cdir.getHostCert('visi.vertex.link')
+            self.nn(cert)
+            self.eq(cert.get_extension_count(), 5)
+            self.eq(cert.get_extension(4).get_short_name(), b'subjectAltName')
+            self.eq(cert.get_extension(4).get_data(), b'0\x12\x82\x10visi.vertex.link')  # ASN.1 encoded subjectAltName data
 
     def test_certdir_hostca(self):
         with self.getCertDir() as cdir:

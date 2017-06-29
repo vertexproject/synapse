@@ -21,6 +21,7 @@ def main(argv, outp=None):
     pars.add_argument('--signas', help='sign the new cert with the given cert name')
     pars.add_argument('--ca', default=False, action='store_true', help='mark the certificate as a CA/CRL signer')
     pars.add_argument('--server', default=False, action='store_true', help='mark the certificate as a server')
+    pars.add_argument('--server-sans', help='server cert subject alternate names')
     pars.add_argument('--csr', default=False, action='store_true', help='generate a cert signing request')
     pars.add_argument('--sign-csr', default=False, action='store_true', help='sign a cert signing request')
     pars.add_argument('name', help='common name for the certificate (or filename for CSR signing)')
@@ -53,7 +54,7 @@ def main(argv, outp=None):
 
             if opts.ca:
                 cdir.genCaCsr(opts.name, outp=outp)
-                raise Exception('CSR for CA cert not supporte (yet)')
+                raise Exception('CSR for CA cert not supported (yet)')
 
             if opts.server:
                 cdir.genHostCsr(opts.name, outp=outp)
@@ -67,7 +68,7 @@ def main(argv, outp=None):
             return 0
 
         if opts.server:
-            cdir.genHostCert(opts.name, signas=opts.signas, outp=outp)
+            cdir.genHostCert(opts.name, signas=opts.signas, outp=outp, sans=opts.server_sans)
             return 0
 
         cdir.genUserCert(opts.name, signas=opts.signas, outp=outp)
