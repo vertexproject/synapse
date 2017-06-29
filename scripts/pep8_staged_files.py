@@ -44,7 +44,7 @@ def main():
 
     args = ['autopep8', '--in-place']
     if select_codes and ignore_codes:
-        print(u'Error: select and ignore codes are mutually exclusive')
+        print('Error: select and ignore codes are mutually exclusive')
         sys.exit(1)
     elif select_codes:
         args.extend(('--select', ','.join(select_codes)))
