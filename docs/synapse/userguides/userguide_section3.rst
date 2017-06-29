@@ -1,5 +1,5 @@
-Synapse User Guide - Data Model - Basics
-========================================
+Data Model - Basics
+===================
 
 This section covers the basic “building blocks” of the Synapse hypergraph data model. It is intended to provide an overview of the fundamentals to get you started. Model elements are discussed in greater detail in the next section.
 
@@ -180,7 +180,7 @@ Note that tags can use a dotted “hierarchical” notation that allows analytic
 Nodes, properties, and tags are discussed in greater detail in the next section.
 
 
-.. _Data Model: ./datamodel.html
-.. _tufos: ./cortex.html#introducing-the-tufo
+.. _Data Model: ../datamodel.html
+.. _tufos: ../cortex.html#introducing-the-tufo
 .. _inet_source: https://github.com/vertexproject/synapse/blob/master/synapse/models/inet.py
 .. _datamodel.py: https://github.com/vertexproject/synapse/blob/master/synapse/datamodel.py
