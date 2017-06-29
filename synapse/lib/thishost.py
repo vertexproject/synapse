@@ -1,13 +1,12 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import ctypes
 import socket
-import platform
 
 import synapse.lib.thisplat as s_thisplat
 
 hostinfo = s_thisplat.initHostInfo()
-hostinfo['ptrsize'] = ctypes.sizeof( ctypes.c_void_p )
+hostinfo['ptrsize'] = ctypes.sizeof(ctypes.c_void_p)
 hostinfo['hostname'] = socket.gethostname()
 
 def get(prop):

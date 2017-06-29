@@ -1,12 +1,7 @@
-import re
+import synapse.common as s_common
 
 import synapse.lib.time as s_time
-import synapse.lib.sched as s_sched
-import synapse.lib.service as s_service
-
-import synapse.exc
-from synapse.common import *
-from synapse.eventbus import EventBus
+import synapse.lib.interval as s_interval
 
 '''
 This module implements syntax parsing for the storm runtime.
@@ -18,10 +13,10 @@ intset = set('01234567890abcdefx')
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 propset = set(':abcdefghijklmnopqrstuvwxyz_0123456789')
 starset = varset.union({'*'})
-tagfilt = varset.union({'#','*','@'})
+tagfilt = varset.union({'#', '*', '@'})
 alphaset = set('abcdefghijklmnopqrstuvwxyz')
 
-def nom(txt,off,cset,trim=True):
+def nom(txt, off, cset, trim=True):
     '''
     Consume chars in set from the string and return (subtxt,offset).
 
@@ -46,43 +41,43 @@ def nom(txt,off,cset,trim=True):
         while len(txt) > off and txt[off] in whites:
             off += 1
 
-    return r,off
+    return r, off
 
-def meh(txt,off,cset):
+def meh(txt, off, cset):
     r = ''
     while len(txt) > off and txt[off] not in cset:
         r += txt[off]
         off += 1
-    return r,off
+    return r, off
 
-def is_literal(text,off):
+def is_literal(text, off):
     return text[off] in '("0123456789'
 
-def parse_literal(text, off,trim=True):
+def parse_literal(text, off, trim=True):
     if text[off] == '(':
-        return parse_cmd_list(text,off,trim=trim)
+        return parse_cmd_list(text, off, trim=trim)
 
     if text[off] == '"':
-        return parse_string(text,off,trim=trim)
+        return parse_string(text, off, trim=trim)
 
-    return parse_int(text,off,trim=trim)
+    return parse_int(text, off, trim=trim)
 
-def parse_int(text,off,trim=True):
-    numstr,off = nom(text,off,intset,trim=trim)
+def parse_int(text, off, trim=True):
+    numstr, off = nom(text, off, intset, trim=trim)
     try:
-        return int(numstr,0),off
+        return int(numstr, 0), off
     except Exception as e:
-        raise synapse.exc.SyntaxError(expected='Literal', at=off, got=text[off:off+10])
+        raise s_common.BadSyntaxError(expected='Literal', at=off, got=text[off:off + 10])
 
-def parse_list(text,off,trim=True):
+def parse_list(text, off, trim=True):
     if text[off] != '(':
-        raise synapse.exc.SyntaxError(expected='List', at=off)
+        raise s_common.BadSyntaxError(expected='List', at=off)
 
     off += 1
     valus = []
     while True:
 
-        valu,off = parse_literal(text,off,trim=trim)
+        valu, off = parse_literal(text, off, trim=trim)
 
         valus.append(valu)
 
@@ -90,77 +85,77 @@ def parse_list(text,off,trim=True):
             return valus, off + 1
 
         if text[off] != ',':
-            raise synapse.exc.SyntaxError(invalid='List Syntax', at=off)
+            raise s_common.BadSyntaxError(invalid='List Syntax', at=off)
 
         off += 1
 
-def nom_whitespace(text,off):
-    return nom(text,off,whites)
+def nom_whitespace(text, off):
+    return nom(text, off, whites)
 
-def isquote(text,off):
-    return nextin(text,off,(",",'"'))
+def isquote(text, off):
+    return nextin(text, off, (",", '"'))
 
-def parse_cmd_list(text,off=0,trim=True):
+def parse_cmd_list(text, off=0, trim=True):
     '''
     Parse a list (likely for comp type) coming from a command line input.
 
     The string elements within the list may optionally be quoted.
     '''
 
-    if not nextchar(text,off,'('):
-        raise synapse.exc.SyntaxError(at=off,mesg='expected open paren for list')
+    if not nextchar(text, off, '('):
+        raise s_common.BadSyntaxError(at=off, mesg='expected open paren for list')
 
     off += 1
 
     valus = []
     while off < len(text):
 
-        _,off = nom_whitespace(text,off)
+        _, off = nom_whitespace(text, off)
 
-        if isquote(text,off):
-            valu,off = parse_string(text,off,trim=trim)
+        if isquote(text, off):
+            valu, off = parse_string(text, off, trim=trim)
         else:
-            valu,off = meh(text,off,',)')
+            valu, off = meh(text, off, ',)')
             valu = valu.strip()
 
         valus.append(valu)
 
-        _,off = nom_whitespace(text,off)
+        _, off = nom_whitespace(text, off)
 
-        if nextchar(text,off,')'):
+        if nextchar(text, off, ')'):
             return valus, off + 1
 
-        if not nextchar(text,off,','):
-            raise synapse.exc.SyntaxError(at=off,mesg='expected comma in list')
+        if not nextchar(text, off, ','):
+            raise s_common.BadSyntaxError(at=off, mesg='expected comma in list')
 
         off += 1
 
-    raise synapse.exc.SyntaxError(at=off,mesg='unexpected and of text during list')
+    raise s_common.BadSyntaxError(at=off, mesg='unexpected and of text during list')
 
-def parse_cmd_string(text,off,trim=True):
+def parse_cmd_string(text, off, trim=True):
     '''
     Parse in a command line string which may be quoted.
     '''
     if trim:
-        _,off = nom(text,off,whites)
+        _, off = nom(text, off, whites)
 
-    if isquote(text,off):
-        return parse_string(text,off,trim=trim)
+    if isquote(text, off):
+        return parse_string(text, off, trim=trim)
 
-    if nextchar(text,off,'('):
-        return parse_cmd_list(text,off)
+    if nextchar(text, off, '('):
+        return parse_cmd_list(text, off)
 
-    return meh(text,off,whites)
+    return meh(text, off, whites)
 
-def parse_string(text,off,trim=True):
+def parse_string(text, off, trim=True):
 
-    if text[off] not in ('"',"'"): # lulz...
-        raise synapse.exc.SyntaxError(expected='String Literal', at=off)
+    if text[off] not in ('"', "'"): # lulz...
+        raise s_common.BadSyntaxError(expected='String Literal', at=off)
 
     quot = text[off]
 
     if trim:
-        _,off = nom(text,off,whites)
+        _, off = nom(text, off, whites)
 
     off += 1
     vals = []
@@ -178,60 +173,60 @@ def parse_string(text,off,trim=True):
     off += 1
 
     if trim:
-        _,off = nom(text,off,whites)
+        _, off = nom(text, off, whites)
 
-    return ''.join(vals),off
+    return ''.join(vals), off
 
-def parse_macro_filt(text,off=0,trim=True, mode='must'):
+def parse_macro_filt(text, off=0, trim=True, mode='must'):
 
-    _,off = nom(text,off,whites)
+    _, off = nom(text, off, whites)
 
     # special + #tag (without prop) based filter syntax
-    if nextchar(text,off,'#'):
+    if nextchar(text, off, '#'):
 
-        _,off = nom(text,off,whites)
-        prop,off = nom(text, off, tagfilt, trim=True)
+        _, off = nom(text, off, whites)
+        prop, off = nom(text, off, tagfilt, trim=True)
 
         parts = prop.split('@', 1)
         if len(parts) == 1:
-            inst = ('filt',{'cmp':'tag','mode':mode,'valu':prop[1:]})
-            return inst,off
+            inst = ('filt', {'cmp': 'tag', 'mode': mode, 'valu': prop[1:]})
+            return inst, off
 
-        prop,istr = parts
+        prop, istr = parts
 
         if istr.find('-') == -1:
             tick = s_time.parse(istr)
-            inst = ('filt',{'cmp':'ival', 'mode':mode, 'valu':(prop,tick)})
-            return inst,off
+            inst = ('filt', {'cmp': 'ival', 'mode': mode, 'valu': (prop, tick)})
+            return inst, off
 
         ival = s_interval.parsetime(istr)
-        inst = ('filt',{'cmp':'ivalival','mode':mode,'valu':(prop,ival)})
+        inst = ('filt', {'cmp': 'ivalival', 'mode': mode, 'valu': (prop, ival)})
 
-        return inst,off
+        return inst, off
 
     # check for non-macro syntax
-    name,xoff = nom(text,off,varset)
-    _,xoff = nom(text,xoff,whites)
+    name, xoff = nom(text, off, varset)
+    _, xoff = nom(text, xoff, whites)
 
-    if nextchar(text,xoff,'('):
-        inst,off = parse_oper(text,off)
+    if nextchar(text, xoff, '('):
+        inst, off = parse_oper(text, off)
 
-        opfo = {'cmp':inst[0],'mode':mode}
+        opfo = {'cmp': inst[0], 'mode': mode}
 
-        opfo['args'] = inst[1].get('args',())
-        opfo['kwlist'] = inst[1].get('kwlist',())
+        opfo['args'] = inst[1].get('args', ())
+        opfo['kwlist'] = inst[1].get('kwlist', ())
 
-        return ('filt',opfo),off
+        return ('filt', opfo), off
 
-    ques,off = parse_ques(text,off,trim=trim)
+    ques, off = parse_ques(text, off, trim=trim)
     ques['mode'] = mode
-    return ('filt',ques),off
+    return ('filt', ques), off
 
-def parse_macro_lift(text,off=0,trim=True):
+def parse_macro_lift(text, off=0, trim=True):
     '''
     Parse a "lift" macro and return an inst,off tuple.
     '''
-    ques,off = parse_ques(text,off,trim=trim)
+    ques, off = parse_ques(text, off, trim=trim)
 
     prop = ques.get('prop')
     valu = ques.get('valu')
@@ -251,28 +246,28 @@ def parse_macro_lift(text,off=0,trim=True):
         kwargs['from'] = fromtag
 
     inst = oper('lift', prop, valu, **kwargs)
-    return inst,off
+    return inst, off
 
-def parse_opts(text,off=0):
-    inst = ('opts',{'args':[],'kwlist':[]})
+def parse_opts(text, off=0):
+    inst = ('opts', {'args': [], 'kwlist': []})
     valu = 1
-    name,off = nom(text,off,varset,trim=True)
+    name, off = nom(text, off, varset, trim=True)
 
-    if nextchar(text,off,'='):
-        valu,off = parse_literal(text,off+1,trim=True)
+    if nextchar(text, off, '='):
+        valu, off = parse_literal(text, off + 1, trim=True)
 
-    inst[1]['kwlist'].append((name,valu))
-    return inst,off
+    inst[1]['kwlist'].append((name, valu))
+    return inst, off
 
-def nextchar(text,off,valu):
+def nextchar(text, off, valu):
     if len(text) <= off:
         return False
     return text[off] == valu
 
-def nextstr(text,off,valu):
-    return text.startswith(valu,off)
+def nextstr(text, off, valu):
+    return text.startswith(valu, off)
 
-def nextin(text,off,vals):
+def nextin(text, off, vals):
     if len(text) <= off:
         return False
     return text[off] in vals
@@ -306,163 +301,163 @@ def nextin(text,off,vals):
 
     #return inst,off
 
-def parse_macro_join(text,off=0):
+def parse_macro_join(text, off=0):
     '''
     &foo:bar
     &foo:bar=baz:faz
     &hehe.haha/foo:bar=baz:faz
     '''
-    inst = ('join',{'args':[],'kwlist':[]})
+    inst = ('join', {'args': [], 'kwlist': []})
 
-    prop,off = nom(text,off,varset,trim=True)
+    prop, off = nom(text, off, varset, trim=True)
 
     if len(text) == off:
         inst[1]['args'].append(prop)
-        return inst,off
+        return inst, off
 
     if text[off] == '/':
-        inst[1]['kwlist'].append( ('from',prop) )
-        prop,off = nom(text,off+1,varset,trim=True)
+        inst[1]['kwlist'].append(('from', prop))
+        prop, off = nom(text, off + 1, varset, trim=True)
 
-    inst[1]['args'].append( prop )
+    inst[1]['args'].append(prop)
 
     if len(text) == off:
-        return inst,off
+        return inst, off
 
-    if nextchar(text,off,'='):
-        prop,off = nom(text,off+1,varset,trim=True)
-        inst[1]['args'].append( prop )
+    if nextchar(text, off, '='):
+        prop, off = nom(text, off + 1, varset, trim=True)
+        inst[1]['args'].append(prop)
 
-    return inst,off
+    return inst, off
 
 macrocmps = [
-    ('<=','le'),
-    ('>=','ge'),
-    ('~=','re'),
-    ('!=','ne'),
-    ('<','lt'),
-    ('>','gt'),
-    ('=','eq'),
+    ('<=', 'le'),
+    ('>=', 'ge'),
+    ('~=', 're'),
+    ('!=', 'ne'),
+    ('<', 'lt'),
+    ('>', 'gt'),
+    ('=', 'eq'),
 ]
 
-def parse_ques(text,off=0,trim=True):
+def parse_ques(text, off=0, trim=True):
     '''
     Parse "query" syntax: tag/prop[@<timewin>][#<limit>][*<by>][=valu]
     '''
     ques = {}
 
-    name,off = nom(text,off,varset,trim=True)
+    name, off = nom(text, off, varset, trim=True)
 
     if not name:
-        raise SyntaxError(text=text, off=off, mesg='expected name')
+        raise s_common.BadSyntaxError(text=text, off=off, mesg='expected name')
 
     ques['cmp'] = 'has'
     ques['prop'] = name
 
-    _,off = nom(text,off,whites)
+    _, off = nom(text, off, whites)
 
     if len(text) == off:
-        return ques,off
+        return ques, off
 
     if text[off] == '/':
 
         ques['from'] = name
 
         off += 1
-        name,off = nom(text,off,varset,trim=True)
+        name, off = nom(text, off, varset, trim=True)
 
         ques['prop'] = name
 
-    _,off = nom(text,off,whites)
+    _, off = nom(text, off, whites)
 
     while True:
 
-        _,off = nom(text,off,whites)
+        _, off = nom(text, off, whites)
 
         if len(text) == off:
-            return ques,off
+            return ques, off
 
         if text[off] == '^':
-            ques['limit'],off = parse_int(text,off+1,trim=True)
+            ques['limit'], off = parse_int(text, off + 1, trim=True)
             continue
 
         # NOTE: "by" macro syntax only supports eq so we eat and run
-        if nextchar(text,off,'*'):
-            _,off = nom(text,off+1,whites)
+        if nextchar(text, off, '*'):
+            _, off = nom(text, off + 1, whites)
 
-            ques['cmp'],off = nom(text,off,varset,trim=True)
+            ques['cmp'], off = nom(text, off, varset, trim=True)
             if len(text) == off:
-                return ques,off
+                return ques, off
 
-            if not nextchar(text,off,'='):
-                raise SyntaxError(text=text, off=off, mesg='expected equals for by syntax')
+            if not nextchar(text, off, '='):
+                raise s_common.BadSyntaxError(text=text, off=off, mesg='expected equals for by syntax')
 
-            _,off = nom(text,off+1,whites)
+            _, off = nom(text, off + 1, whites)
 
-            ques['valu'],off = parse_macro_valu(text,off)
-            return ques,off
+            ques['valu'], off = parse_macro_valu(text, off)
+            return ques, off
 
-        if nextchar(text,off,'='):
-            _,off = nom(text,off+1,whites)
+        if nextchar(text, off, '='):
+            _, off = nom(text, off + 1, whites)
 
             ques['cmp'] = 'eq'
-            ques['valu'],off = parse_macro_valu(text,off)
+            ques['valu'], off = parse_macro_valu(text, off)
             break
 
         textpart = text[off:]
-        for ctxt,cmpr in macrocmps:
+        for ctxt, cmpr in macrocmps:
 
             if textpart.startswith(ctxt):
                 ques['cmp'] = cmpr
-                ques['valu'],off = parse_oarg(text,off+len(ctxt))
+                ques['valu'], off = parse_oarg(text, off + len(ctxt))
                 break
 
         break
 
-    return ques,off
+    return ques, off
 
-def parse_macro_valu(text,off=0):
+def parse_macro_valu(text, off=0):
     '''
     Special syntax for the right side of equals in a macro
     '''
-    if nextchar(text,off,'('):
-        return parse_cmd_list(text,off)
+    if nextchar(text, off, '('):
+        return parse_cmd_list(text, off)
 
-    if isquote(text,off):
-        return parse_string(text,off)
+    if isquote(text, off):
+        return parse_string(text, off)
 
     # since it's not quoted, we can assume we are white
     # space bound ( only during macro syntax )
-    valu,off =  meh(text,off,whites)
+    valu, off = meh(text, off, whites)
 
     # for now, give it a shot as an int...  maybe eventually
     # we'll be able to disable this completely, but for now
     # lets maintain backward compatibility...
     try:
         # NOTE: this is ugly, but faster than parsing the string
-        valu = int(valu,0)
+        valu = int(valu, 0)
     except ValueError as e:
         pass
 
-    return valu,off
+    return valu, off
 
 def parse_cmd_kwarg(text, off=0):
     '''
     Parse a foo:bar=<valu> kwarg into (prop,valu),off
     '''
-    _,off = nom(text,off,whites)
+    _, off = nom(text, off, whites)
 
-    prop,off = nom(text,off,varset)
+    prop, off = nom(text, off, varset)
 
-    _,off = nom(text,off,whites)
+    _, off = nom(text, off, whites)
 
-    if not nextchar(text,off,'='):
-        raise synapse.exc.SyntaxError(expected='= for kwarg ' + prop, at=off)
+    if not nextchar(text, off, '='):
+        raise s_common.BadSyntaxError(expected='= for kwarg ' + prop, at=off)
 
-    _,off = nom(text,off+1,whites)
+    _, off = nom(text, off + 1, whites)
 
-    valu,off = parse_cmd_string(text,off)
-    return (prop,valu),off
+    valu, off = parse_cmd_string(text, off)
+    return (prop, valu), off
 
 def parse_cmd_kwlist(text, off=0):
     '''
@@ -470,20 +465,20 @@ def parse_cmd_kwlist(text, off=0):
     '''
     kwlist = []
 
-    _,off = nom(text,off,whites)
+    _, off = nom(text, off, whites)
 
     while off < len(text):
 
-        (p,v),off = parse_cmd_kwarg(text,off=off)
+        (p, v), off = parse_cmd_kwarg(text, off=off)
 
-        kwlist.append( (p,v) )
+        kwlist.append((p, v))
 
-        _,off = nom(text,off,whites)
-        if not nextchar(text,off,','):
+        _, off = nom(text, off, whites)
+        if not nextchar(text, off, ','):
             break
 
-    _,off = nom(text,off,whites)
-    return kwlist,off
+    _, off = nom(text, off, whites)
+    return kwlist, off
 
 def parse_oarg(text, off=0):
     '''
@@ -491,21 +486,21 @@ def parse_oarg(text, off=0):
     a kwarg name, *or* an unadorned literal string
     ( which may not use any context sensitive chars )
     '''
-    _,off = nom(text,off,whites)
+    _, off = nom(text, off, whites)
 
-    if nextchar(text,off,'"'):
-        valu,off = parse_string(text,off)
-        _,off = nom(text,off,whites)
+    if nextchar(text, off, '"'):
+        valu, off = parse_string(text, off)
+        _, off = nom(text, off, whites)
 
     else:
-        valu,off = meh(text,off,'=,)')
+        valu, off = meh(text, off, '=,)')
         valu = valu.strip()
         try:
-            valu = int(valu,0)
+            valu = int(valu, 0)
         except ValueError as e:
             pass
 
-    return valu,off
+    return valu, off
 
 def parse_oper(text, off=0):
     '''
@@ -516,44 +511,44 @@ def parse_oper(text, off=0):
         inst,off = parse_oper('foo("bar",baz=20)')
 
     '''
-    name,off = nom(text,off,varset)
+    name, off = nom(text, off, varset)
 
-    inst = (name,{'args':[],'kwlist':[]})
+    inst = (name, {'args': [], 'kwlist': []})
 
-    _,off = nom(text,off,whites)
+    _, off = nom(text, off, whites)
 
     #if text[off] != '(':
-    if not nextchar(text,off,'('):
-        raise synapse.exc.SyntaxError(expected='( for operator ' + name, at=off)
+    if not nextchar(text, off, '('):
+        raise s_common.BadSyntaxError(expected='( for operator ' + name, at=off)
 
     off += 1
 
     while True:
 
-        _,off = nom(text,off,whites)
+        _, off = nom(text, off, whites)
 
-        if nextchar(text,off,')'):
+        if nextchar(text, off, ')'):
             off += 1
-            return inst,off
+            return inst, off
 
-        oarg,off = parse_oarg(text,off)
+        oarg, off = parse_oarg(text, off)
 
-        if nextchar(text,off,'='):
+        if nextchar(text, off, '='):
             off += 1
-            valu,off = parse_oarg(text,off)
-            inst[1]['kwlist'].append( (oarg,valu) )
+            valu, off = parse_oarg(text, off)
+            inst[1]['kwlist'].append((oarg, valu))
         else:
             inst[1]['args'].append(oarg)
 
-        if not nextin(text,off,[',',')']):
-            raise synapse.exc.SyntaxError(mesg='Unexpected Token: ' + text[off], at=off)
+        if not nextin(text, off, [',', ')']):
+            raise s_common.BadSyntaxError(mesg='Unexpected Token: ' + text[off], at=off)
 
-        if nextchar(text,off,','):
+        if nextchar(text, off, ','):
             off += 1
 
-def oper(name,*args,**kwargs):
+def oper(name, *args, **kwargs):
     kwlist = list(sorted(kwargs.items()))
-    return (name,{'args':args,'kwlist':kwlist})
+    return (name, {'args': args, 'kwlist': kwlist})
 
 def parse(text, off=0):
     '''
@@ -564,7 +559,7 @@ def parse(text, off=0):
     while True:
 
         # leading whitespace is irrelevant
-        _,off = nom(text,off,whites)
+        _, off = nom(text, off, whites)
         if off >= len(text):
             break
 
@@ -576,77 +571,77 @@ def parse(text, off=0):
         # [ :asn=10 ]  == setprop(asn=10)
         # [ #foo.bar ]  or [ +#foo.bar ] == addtag(foo.bar)
         # [ -#foo.bar ] == deltag(foo.bar)
-        if nextchar(text,off,'['):
+        if nextchar(text, off, '['):
 
             off += 1
 
             while True:
 
-                _,off = nom(text,off,whites)
-                if nextchar(text,off,']'):
+                _, off = nom(text, off, whites)
+                if nextchar(text, off, ']'):
                     off += 1
                     break
 
                 if off == len(text):
-                    raise SyntaxError(mesg='unexpected end of text in edit mode')
+                    raise s_common.BadSyntaxError(mesg='unexpected end of text in edit mode')
 
-                if nextstr(text,off,'+#'):
-                    valu,off = parse_macro_valu(text,off+2)
-                    ret.append( oper('addtag',valu) )
+                if nextstr(text, off, '+#'):
+                    valu, off = parse_macro_valu(text, off + 2)
+                    ret.append(oper('addtag', valu))
                     continue
 
-                if nextstr(text,off,'-#'):
-                    valu,off = parse_macro_valu(text,off+2)
-                    ret.append( oper('deltag',valu) )
+                if nextstr(text, off, '-#'):
+                    valu, off = parse_macro_valu(text, off + 2)
+                    ret.append(oper('deltag', valu))
                     continue
 
-                if nextchar(text,off,'#'):
-                    valu,off = parse_macro_valu(text,off+1)
-                    ret.append( oper('addtag',valu) )
+                if nextchar(text, off, '#'):
+                    valu, off = parse_macro_valu(text, off + 1)
+                    ret.append(oper('addtag', valu))
                     continue
 
                 # otherwise, it should be a prop=valu (maybe relative)
-                prop,off = nom(text,off,propset)
+                prop, off = nom(text, off, propset)
                 if not prop:
-                    raise SyntaxError(mesg='edit macro expected prop=valu syntax')
+                    raise s_common.BadSyntaxError(mesg='edit macro expected prop=valu syntax')
 
-                _,off = nom(text,off,whites)
-                if not nextchar(text,off,'='):
-                    raise SyntaxError(mesg='edit macro expected prop=valu syntax')
+                _, off = nom(text, off, whites)
+                if not nextchar(text, off, '='):
+                    raise s_common.BadSyntaxError(mesg='edit macro expected prop=valu syntax')
 
-                valu,off = parse_macro_valu(text,off+1)
+                valu, off = parse_macro_valu(text, off + 1)
                 if prop[0] == ':':
-                    kwargs = {prop[1:]:valu}
-                    ret.append( oper('setprop',**kwargs) )
+                    kwargs = {prop[1:]: valu}
+                    ret.append(oper('setprop', **kwargs))
                     continue
 
-                ret.append( oper('addnode',prop,valu) )
+                ret.append(oper('addnode', prop, valu))
 
             continue
 
         # pivot() macro with no src prop:   -> foo:bar
-        if nextstr(text,off,'->'):
-            _,off = nom(text,off+2,whites)
-            name,off = nom(text,off,varset)
-            ret.append(oper('pivot',name))
+        if nextstr(text, off, '->'):
+            _, off = nom(text, off + 2, whites)
+            name, off = nom(text, off, varset)
+            ret.append(oper('pivot', name))
             continue
 
         # lift by tag alone macro
-        if nextstr(text,off,'#'):
-            _,off = nom(text,off+1,whites)
-            name,off = nom(text,off,varset)
-            ret.append(oper('alltag',name))
+        if nextstr(text, off, '#'):
+            _, off = nom(text, off + 1, whites)
+            name, off = nom(text, off, varset)
+            ret.append(oper('alltag', name))
             continue
 
         # must() macro syntax: +foo:bar="woot"
-        if nextchar(text,off,'+'):
-            inst,off = parse_macro_filt(text,off+1,mode='must')
+        if nextchar(text, off, '+'):
+            inst, off = parse_macro_filt(text, off + 1, mode='must')
             ret.append(inst)
             continue
 
         # cant() macro syntax: -foo:bar=10
-        if nextchar(text,off,'-'):
-            inst,off = parse_macro_filt(text,off+1,mode='cant')
+        if nextchar(text, off, '-'):
+            inst, off = parse_macro_filt(text, off + 1, mode='cant')
             ret.append(inst)
             continue
 
@@ -654,18 +649,18 @@ def parse(text, off=0):
         if text[off] == '&':
 
             if len(ret) == 0:
-                raise synapse.exc.SyntaxError(mesg='logical and with no previous operator')
+                raise s_common.BadSyntaxError(mesg='logical and with no previous operator')
 
             prev = ret[-1]
 
             if prev[0] != 'filt':
-                raise synapse.exc.SyntaxError(mesg='prev oper must be filter not: %r' % prev)
+                raise s_common.BadSyntaxError(mesg='prev oper must be filter not: %r' % prev)
 
             mode = prev[1].get('mode')
-            inst,off = parse_macro_filt(text,off+1,mode=mode)
+            inst, off = parse_macro_filt(text, off + 1, mode=mode)
 
             if prev[1].get('cmp') != 'and':
-                prev = ('filt',{'args':[prev,],'kwlist':[],'cmp':'and','mode':mode})
+                prev = ('filt', {'args': [prev, ], 'kwlist': [], 'cmp': 'and', 'mode': mode})
                 ret[-1] = prev
 
             prev[1]['args'].append(inst)
@@ -675,18 +670,18 @@ def parse(text, off=0):
         if text[off] == '|':
 
             if len(ret) == 0:
-                raise synapse.exc.SyntaxError(mesg='logical or with no previous operator')
+                raise s_common.BadSyntaxError(mesg='logical or with no previous operator')
 
             prev = ret[-1]
 
             if prev[0] != 'filt':
-                raise synapse.exc.SyntaxError(mesg='prev oper must be filter not: %r' % prev)
+                raise s_common.BadSyntaxError(mesg='prev oper must be filter not: %r' % prev)
 
             mode = prev[1].get('mode')
-            inst,off = parse_macro_filt(text,off+1,mode=mode)
+            inst, off = parse_macro_filt(text, off + 1, mode=mode)
 
             if prev[1].get('cmp') != 'or':
-                prev = ('filt',{'args':[prev,],'kwlist':[],'cmp':'or','mode':mode})
+                prev = ('filt', {'args': [prev, ], 'kwlist': [], 'cmp': 'or', 'mode': mode})
                 ret[-1] = prev
 
             prev[1]['args'].append(inst)
@@ -694,31 +689,31 @@ def parse(text, off=0):
 
         # opts() macro syntax: %uniq=0 %limit=30
         if text[off] == '%':
-            inst,off = parse_opts(text,off+1)
+            inst, off = parse_opts(text, off + 1)
             ret.append(inst)
             continue
 
         origoff = off
 
-        name,off = nom(text,off,varset)
-        _,off = nom(text,off,whites)
+        name, off = nom(text, off, varset)
+        _, off = nom(text, off, whites)
 
         # mop up in the case where we end with a macro
         if len(text) == off:
-            inst,off = parse_macro_lift(text,origoff)
+            inst, off = parse_macro_lift(text, origoff)
             ret.append(inst)
             continue
 
         # macro foo:bar->baz:faz prop pivot
-        if nextstr(text,off,'->'):
+        if nextstr(text, off, '->'):
 
-            pivn,off = nom(text,off+2,varset)
-            inst = ('pivot',{'args':[name],'kwlist':[]})
+            pivn, off = nom(text, off + 2, varset)
+            inst = ('pivot', {'args': [name], 'kwlist': []})
 
             # FIXME make a parser for foo.bar/baz:faz*blah#40
-            if nextchar(text,off,'/'):
-                inst[1]['kwlist'].append( ('from',pivn) )
-                pivn,off = nom(text,off+1,varset)
+            if nextchar(text, off, '/'):
+                inst[1]['kwlist'].append(('from', pivn))
+                pivn, off = nom(text, off + 1, varset)
 
             inst[1]['args'].insert(0, pivn)
 
@@ -727,12 +722,12 @@ def parse(text, off=0):
 
         # standard foo() oper syntax
         if text[off] == '(':
-            inst,off = parse_oper(text,origoff)
+            inst, off = parse_oper(text, origoff)
             ret.append(inst)
             continue
 
         # only macro lift syntax remains
-        inst,off = parse_macro_lift(text,origoff)
+        inst, off = parse_macro_lift(text, origoff)
         ret.append(inst)
 
     #[ i[1]['kwlist'].sort() for i in ret ]

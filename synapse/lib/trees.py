@@ -30,8 +30,8 @@ class IntervalTree:
         Recursively construct the data structures for the tree
         given the input set of interval tufos.
         '''
-        xmin = min( [ ival[0][0] for ival in ivals ] )
-        xmax = max( [ ival[0][1] for ival in ivals ] )
+        xmin = min([ival[0][0] for ival in ivals])
+        xmax = max([ival[0][1] for ival in ivals])
 
         delta = xmax - xmin
         center = xmin + (delta / 2)
@@ -59,12 +59,12 @@ class IntervalTree:
             return x[0][0]
 
         s_center_mins = list(s_center)
-        s_center_mins.sort( key=minkey )
+        s_center_mins.sort(key=minkey)
 
         s_center_maxs = list(s_center)
-        s_center_maxs.sort( key=maxkey, reverse=True )
+        s_center_maxs.sort(key=maxkey, reverse=True)
 
-        node = (center, {'center_bymax':s_center_maxs,'center_bymin':s_center_mins})
+        node = (center, {'center_bymax': s_center_maxs, 'center_bymin': s_center_mins})
 
         if s_left:
             node[1]['lnode'] = self._calc_nodes(s_left)
@@ -88,7 +88,7 @@ class IntervalTree:
 
         node = self.root
 
-        while node != None:
+        while node is not None:
 
             # heading left?
             if valu < node[0]:
@@ -122,7 +122,7 @@ class IntervalTree:
 
             # hitting a center directly means we're compltely done
             # doesn't matter if we use center_bymin or _bymax
-            ret.extend( node[1].get('center_bymin') )
+            ret.extend(node[1].get('center_bymin'))
             break
 
         return ret

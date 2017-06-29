@@ -18,6 +18,7 @@ consumption of the data to multiple worker threads.
 '''
 # Stdlib
 import cgi
+import json
 import logging
 import tempfile
 import collections
@@ -27,14 +28,13 @@ import tornado.httpclient as t_http
 # Custom Code
 import synapse.axon as s_axon
 import synapse.async as s_async
+import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.lib.cache as s_cache
 import synapse.lib.ingest as s_ingest
 import synapse.lib.config as s_config
 import synapse.lib.threads as s_threads
-
-from synapse.common import *
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ class Nyx(object):
         * api_optargs: This is a dictionary of URL parameters which are
           are optional for the user to provide when calling buildHttpRequest.
           This dictionary represents the parameter names and default values
-          for them.  A user may provide alternative values when calling 
+          for them.  A user may provide alternative values when calling
           buildHttpRequest, but sensible defaults should be provided here.
         * http: A dictionary of key/value items which can provide per-api
           specific arguements for the creation of HTTPRequest objects. These
@@ -212,7 +212,7 @@ class Nyx(object):
         for key in self.required_keys:
             if key not in self._raw_config:
                 logger.error('Remcycle config is missing a required value %s.', key)
-                raise NoSuchName(name=key, mesg='Missing required key.')
+                raise s_common.NoSuchName(name=key, mesg='Missing required key.')
         self.url_template = self._raw_config.get('url')
         self.doc = self._raw_config.get('doc')
         self.url_vars.update(self._raw_config.get('vars', {}))
@@ -233,9 +233,9 @@ class Nyx(object):
         self.gest = s_ingest.Ingest(gestdef)
         # Blow up on missing data early
         if not self.gest_name:
-            raise NoSuchName(name='name', mesg='API Ingest definition is missing its name.')
+            raise s_common.NoSuchName(name='name', mesg='API Ingest definition is missing its name.')
         if not self.gest_open:
-            raise NoSuchName(name='open', mesg='Ingest definition is missing a open directive.')
+            raise s_common.NoSuchName(name='open', mesg='Ingest definition is missing a open directive.')
 
     def buildHttpRequest(self,
                          api_args=None):
@@ -256,10 +256,10 @@ class Nyx(object):
 
         t_args = {}
         for argn in self.api_args:
-            argv = api_args.get(argn, novalu)
-            if argv is novalu:
+            argv = api_args.get(argn, s_common.novalu)
+            if argv is s_common.novalu:
                 logger.error('Missing argument: %s', argn)
-                raise NoSuchName(name=argn, mesg='Missing an expected argument')
+                raise s_common.NoSuchName(name=argn, mesg='Missing an expected argument')
             t_args[argn] = s_compat.url_quote_plus(str(argv))
         for argn, defval in self.api_kwargs.items():
             t_args[argn] = s_compat.url_quote_plus(str(api_args.get(argn, defval)))
@@ -359,7 +359,7 @@ class Hypnos(s_config.Config):
         s = '<{name} at {loc}, namespaces: {ns}, core: {core}>'.format(**d)
         return s
 
-    @s_threads.firethread
+    @s_common.firethread
     def _runIoLoop(self):
         self.web_loop.start()
 
@@ -520,7 +520,7 @@ class Hypnos(s_config.Config):
         for key in self._web_required_keys:
             if key not in config:
                 logger.error('Remcycle config is missing a required value %s.', key)
-                raise NoSuchName(name=key, mesg='Missing required key.')
+                raise s_common.NoSuchName(name=key, mesg='Missing required key.')
 
         _apis = config.get('apis')
         _namespace = config.get('namespace')
@@ -551,9 +551,9 @@ class Hypnos(s_config.Config):
     def _registerWebApi(self, name, obj):
         '''
         Register a Nyx API with Hypnos.
-        
+
         Args:
-            name (str): API Name  
+            name (str): API Name
             obj (Nyx): Nyx object contianing spec and gest data.
 
         Returns:
@@ -607,7 +607,7 @@ class Hypnos(s_config.Config):
             NoSuchName: If the namespace requested does not exist.
         '''
         if namespace not in self._web_namespaces:
-            raise NoSuchName('Namespace is not registered.')
+            raise s_common.NoSuchName('Namespace is not registered.')
 
         self._web_namespaces.remove(namespace)
         self._web_docs.pop(namespace, None)
@@ -626,7 +626,7 @@ class Hypnos(s_config.Config):
 
     def _delWebApi(self, name):
         if name not in self._web_apis:
-            raise NoSuchName(name=name, mesg='API name not registered.')
+            raise s_common.NoSuchName(name=name, mesg='API name not registered.')
 
         self._web_apis.pop(name, None)
         self._web_api_gest_opens.pop(name, None)
@@ -665,7 +665,7 @@ class Hypnos(s_config.Config):
             pass across threads.
 
         Args:
-            resp (t_http.HTTPResponse): HTTP Response to flatten. 
+            resp (t_http.HTTPResponse): HTTP Response to flatten.
 
         Returns:
             dict: Dictionary containing the request (url and headers), as well
@@ -693,11 +693,11 @@ class Hypnos(s_config.Config):
         Notes:
             This should be called by the IO thread consuming the response
             data, not the thread responsible for actually retrieving the web
-            data. 
+            data.
 
         Args:
             resp_dict (dict) : Dictionary which has been flattened with the
-                               _webFlattenHttpResponse function. 
+                               _webFlattenHttpResponse function.
 
         Returns:
             None
@@ -730,7 +730,7 @@ class Hypnos(s_config.Config):
         Notes:
             This should be called by the IO thread consuming the response
             data, not the thread responsible for actually retrieving the web
-            data. 
+            data.
 
         Args:
             resp_dict (dict): Reponse dictionary. It will have the 'data' field
@@ -767,7 +767,7 @@ class Hypnos(s_config.Config):
           data, preparing it for a ingest or other consumption.
 
         Args:
-            f: Function to wrap. 
+            f: Function to wrap.
 
         Returns:
             Wrapped function.
@@ -841,7 +841,7 @@ class Hypnos(s_config.Config):
         'errinfo' key.  It mimics the synapse excinfo output, but without
         investigating a stack trace for performance reasons.  It contains
         the following information:
- 
+
             * err: The Exception class raised during the request.
             * errmsg: The str() representation of the exception.
             * errfile: Empty string.
@@ -899,7 +899,7 @@ class Hypnos(s_config.Config):
         # Fail fast on a bad name before creating a reference in the self.boss
         # for the job.
         if nyx is None:
-            raise NoSuchName(name=name, mesg='Invalid API name')
+            raise s_common.NoSuchName(name=name, mesg='Invalid API name')
 
         # Grab things out of kwargs
         callback = kwargs.pop('callback', None)
@@ -1024,7 +1024,7 @@ class Hypnos(s_config.Config):
         Retrieve the cached web response for a given job id.
 
         Args:
-            jid (str): Job ID to retrieve. 
+            jid (str): Job ID to retrieve.
 
         Returns:
             dict: A dictionary containing the job response data. It will have

@@ -13,17 +13,17 @@ Command line tool to generate various synapse documentation
 '''
 
 rstlvls = [
-    ('#',{'over':True}),
-    ('*',{'over':True}),
-    ('=',{}),
-    ('-',{}),
-    ('^',{}),
+    ('#', {'over': True}),
+    ('*', {'over': True}),
+    ('=', {}),
+    ('-', {}),
+    ('^', {}),
 ]
 
 def reprvalu(valu):
     if s_compat.isstr(valu):
         return repr(valu)
-    return '%d (0x%x)' % (valu,valu)
+    return '%d (0x%x)' % (valu, valu)
 
 class RstHelp:
 
@@ -31,7 +31,7 @@ class RstHelp:
         self.lines = []
 
     def addHead(self, name, lvl=0):
-        char,info = rstlvls[lvl]
+        char, info = rstlvls[lvl]
         under = char * len(name)
 
         self.lines.append('')
@@ -52,7 +52,7 @@ class RstHelp:
 
 def main(argv, outp=None):
 
-    if outp == None:
+    if outp is None:
         outp = s_output.OutPut()
 
     pars = argparse.ArgumentParser(prog='autodoc', description=descr)
@@ -64,7 +64,7 @@ def main(argv, outp=None):
 
     opts = pars.parse_args(argv)
     if opts.savefile:
-        fd = open(opts.savefile,'wb')
+        fd = open(opts.savefile, 'wb')
         outp = s_output.OutPutFd(fd)
 
     core = s_cortex.openurl(opts.cortex)
@@ -79,30 +79,30 @@ def main(argv, outp=None):
         for tufo in core.getTufosByProp('syn:type'):
             name = tufo[1].get('syn:type')
             info = s_tufo.props(tufo)
-            types.append( (name,info) )
+            types.append((name, info))
 
         for tufo in core.getTufosByProp('syn:form'):
             name = tufo[1].get('syn:form')
             info = s_tufo.props(tufo)
-            forms.append( (name,info) )
+            forms.append((name, info))
 
         for tufo in core.getTufosByProp('syn:prop'):
             prop = tufo[1].get('syn:prop')
             form = tufo[1].get('syn:prop:form')
             info = s_tufo.props(tufo)
-            props[form].append( (prop,info) )
+            props[form].append((prop, info))
 
         types.sort()
         forms.sort()
 
-        [ v.sort() for v in props.values() ]
+        [v.sort() for v in props.values()]
 
         rst = RstHelp()
         rst.addHead('Synapse Data Model', lvl=0)
 
-        rst.addHead('Types',lvl=1)
+        rst.addHead('Types', lvl=1)
 
-        for name,info in types:
+        for name, info in types:
 
             rst.addHead(name, lvl=2)
             inst = core.getTypeInst(name)
@@ -110,18 +110,18 @@ def main(argv, outp=None):
             ex = inst.get('ex')
             doc = inst.get('doc')
 
-            if doc != None:
-                rst.addLines( doc )
+            if doc is not None:
+                rst.addLines(doc)
 
             bases = core.getTypeBases(name)
-            rst.addLines('','Type Hierarchy: %s' % (' -> '.join(bases),),'')
+            rst.addLines('', 'Type Hierarchy: %s' % (' -> '.join(bases),), '')
 
-            if ex != None:
+            if ex is not None:
 
                 #valu = core.getTypeParse(name,ex)
                 #vrep = reprvalu(valu)
 
-                rst.addLines('','Examples:','')
+                rst.addLines('', 'Examples:', '')
                 rst.addLines('- repr mode: %s' % (repr(ex),))
                 #rst.addLines('- system mode: %s' % (vrep,))
                 rst.addLines('')
@@ -129,10 +129,10 @@ def main(argv, outp=None):
             cons = []
             xforms = []
 
-            if core.isSubType(name,'str'):
+            if core.isSubType(name, 'str'):
 
                 regex = inst.get('regex')
-                if regex != None:
+                if regex is not None:
                     cons.append('- regex: %s' % (regex,))
 
                 lower = inst.get('lower')
@@ -140,76 +140,76 @@ def main(argv, outp=None):
                     xforms.append('- case: lower')
 
                 restrip = inst.get('restrip')
-                if restrip != None:
+                if restrip is not None:
                     xforms.append('- regex strip: %s' % (restrip,))
 
                 nullval = inst.get('nullval')
-                if nullval != None:
+                if nullval is not None:
                     cons.append('- null value: %s' % (nullval,))
 
-            if core.isSubType(name,'int'):
+            if core.isSubType(name, 'int'):
 
                 minval = inst.get('min')
-                if minval != None:
-                    cons.append('- min value: %d (0x%x)' % (minval,minval))
+                if minval is not None:
+                    cons.append('- min value: %d (0x%x)' % (minval, minval))
 
                 maxval = inst.get('max')
-                if maxval != None:
-                    cons.append('- max value: %d (0x%x)' % (maxval,maxval))
+                if maxval is not None:
+                    cons.append('- max value: %d (0x%x)' % (maxval, maxval))
 
                 ismin = inst.get('ismin')
-                if ismin != None:
+                if ismin is not None:
                     xforms.append('- is minimum: True')
 
                 ismax = inst.get('ismax')
-                if ismax != None:
+                if ismax is not None:
                     xforms.append('- is maximum: True')
 
-            if core.isSubType(name,'sepr'):
+            if core.isSubType(name, 'sepr'):
 
                 sep = inst.get('sep')
                 fields = inst.get('fields')
 
                 parts = []
                 for part in fields.split('|'):
-                    name,stype = part.split(',')
+                    name, stype = part.split(',')
                     parts.append(stype)
 
-                seprs = sep.join( [ '<%s>' % p for p in parts ])
-                rst.addLines('','Sepr Fields: %s' % (seprs,))
+                seprs = sep.join(['<%s>' % p for p in parts])
+                rst.addLines('', 'Sepr Fields: %s' % (seprs,))
 
             if cons:
                 cons.append('')
-                rst.addLines('','Type Constraints:', '', *cons)
+                rst.addLines('', 'Type Constraints:', '', *cons)
 
             if xforms:
                 xforms.append('')
-                rst.addLines('','Type Transforms:', '', *xforms)
+                rst.addLines('', 'Type Transforms:', '', *xforms)
 
-        rst.addHead('Forms',lvl=1)
+        rst.addHead('Forms', lvl=1)
 
-        for name,info in forms:
-            ftype = info.get('ptype','str')
-            rst.addHead('%s = <%s>' % (name,ftype), lvl=2)
+        for name, info in forms:
+            ftype = info.get('ptype', 'str')
+            rst.addHead('%s = <%s>' % (name, ftype), lvl=2)
 
-            doc = core.getPropInfo(name,'doc')
-            if doc != None:
+            doc = core.getPropInfo(name, 'doc')
+            if doc is not None:
                 rst.addLines(doc)
 
-            rst.addLines('','Properties:','')
+            rst.addLines('', 'Properties:', '')
 
-            for prop,pnfo in props.get(name,()):
+            for prop, pnfo in props.get(name, ()):
 
                 # use the resolver funcs that will recurse upward
-                pex = core.getPropInfo(prop,'ex')
-                pdoc = core.getPropInfo(prop,'doc')
+                pex = core.getPropInfo(prop, 'ex')
+                pdoc = core.getPropInfo(prop, 'doc')
 
                 ptype = pnfo.get('ptype')
 
-                pline = '\t- %s = <%s>' % (prop,ptype)
+                pline = '\t- %s = <%s>' % (prop, ptype)
 
                 defval = pnfo.get('defval')
-                if defval != None:
+                if defval is not None:
                     pline += ' (default: %r)' % (defval,)
 
                 rst.addLines(pline)
@@ -217,7 +217,7 @@ def main(argv, outp=None):
                 if pdoc:
                     rst.addLines('\t\t- %s' % (pdoc,))
 
-        outp.printf( rst.getRstText() )
+        outp.printf(rst.getRstText())
         return 0
 
 if __name__ == '__main__':

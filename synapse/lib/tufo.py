@@ -2,7 +2,7 @@
 Some common utility functions for dealing with tufos.
 '''
 
-def tufo(name,**props):
+def tufo(name, **props):
     '''
     Convenience / syntax sugar for tufo construction.
 
@@ -12,9 +12,9 @@ def tufo(name,**props):
         # tuf0 = ('bar',{'baz':'faz', 'derp':20})
 
     '''
-    return (name,props)
+    return (name, props)
 
-def props(tufo,pref=None):
+def props(tufo, pref=None):
     '''
     Return the relative props from the given tufo prefix.
     ( or from the form name by default )
@@ -32,16 +32,16 @@ def props(tufo,pref=None):
         # info = {'stype': 'duck', 'sound': 'quack'}
 
     '''
-    if pref == None:
+    if pref is None:
         pref = tufo[1].get('tufo:form')
 
     pref = '%s:' % (pref,)
     plen = len(pref)
-    return { p[plen:]:v for (p,v) in tufo[1].items() if p.startswith(pref) }
+    return {p[plen:]: v for (p, v) in tufo[1].items() if p.startswith(pref)}
 
-def tags(tufo,leaf=False):
+def tags(tufo, leaf=False):
 
-    fulltags = [ p[1:] for p in tufo[1].keys() if p[0] == '#' ]
+    fulltags = [p[1:] for p in tufo[1].keys() if p[0] == '#']
     if not leaf:
         return fulltags
 
@@ -49,15 +49,15 @@ def tags(tufo,leaf=False):
     retn = []
 
     # brute force rather than build a tree.  faster in small sets.
-    for size,tag in sorted([ (len(t),t) for t in fulltags ], reverse=True):
+    for size, tag in sorted([(len(t), t) for t in fulltags], reverse=True):
         look = tag + '.'
-        if any([ r.startswith(look) for r in retn]):
+        if any([r.startswith(look) for r in retn]):
             continue
         retn.append(tag)
 
     return retn
 
-def ival(tufo,name):
+def ival(tufo, name):
     '''
     Return a min,max interval tuple or None for the node.
 
@@ -69,12 +69,12 @@ def ival(tufo,name):
         (int,int)   An interval value ( or None )
 
     '''
-    minv = tufo[1].get('>'+name)
-    if minv == None:
+    minv = tufo[1].get('>' + name)
+    if minv is None:
         return None
-    return minv,tufo[1].get('<'+name)
+    return minv, tufo[1].get('<' + name)
 
-def equal(tuf0,tuf1):
+def equal(tuf0, tuf1):
     '''
     Since dicts are not comparible, this implements equality comparison
     for a given tufo by comparing and orders list of (prop,valu) pairs.
@@ -98,22 +98,22 @@ def equal(tuf0,tuf1):
     if tuf0[0] != tuf1[0]:
         return False
 
-    props0 = list( tuf0[1].items() )
-    props1 = list( tuf1[1].items() )
+    props0 = list(tuf0[1].items())
+    props1 = list(tuf1[1].items())
 
     props0.sort()
     props1.sort()
 
     return props0 == props1
 
-def ephem(form,fval,**props):
-    props = { '%s:%s' % (form,p):v for (p,v) in props.items() }
+def ephem(form, fval, **props):
+    props = {'%s:%s' % (form, p): v for (p, v) in props.items()}
     props[form] = fval
     props['tufo:form'] = form
-    return (None,props)
+    return (None, props)
 
-def tagged(tufo,tag):
-    return tufo[1].get('#'+tag) != None
+def tagged(tufo, tag):
+    return tufo[1].get('#' + tag) is not None
 
 def ndef(tufo):
     '''
@@ -127,4 +127,4 @@ def ndef(tufo):
 
     '''
     form = tufo[1].get('tufo:form')
-    return form,tufo[1][form]
+    return form, tufo[1][form]

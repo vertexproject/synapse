@@ -4,7 +4,7 @@ Time related utilities for synapse "epoch millis" time values.
 
 import datetime
 
-from synapse.exc import BadTypeValu
+import synapse.common as s_common
 
 def parse(text, base=None):
     '''
@@ -12,7 +12,7 @@ def parse(text, base=None):
     '''
     #TODO: use base to facilitate relative time offsets
     text = text.strip().lower()
-    text = (''.join([ c for c in text if c.isdigit() ]))
+    text = (''.join([c for c in text if c.isdigit()]))
 
     # TODO: support relative time offsets here...
 
@@ -35,13 +35,13 @@ def parse(text, base=None):
     elif tlen == 14:
         dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S')
 
-    elif tlen in (15,16,17):
+    elif tlen in (15, 16, 17):
         dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S%f')
 
     else:
-        raise BadTypeValu(mesg='Unknown time format')
+        raise s_common.BadTypeValu(mesg='Unknown time format')
 
-    epoch = datetime.datetime(1970,1,1)
+    epoch = datetime.datetime(1970, 1, 1)
     return int((dt - epoch).total_seconds() * 1000)
 
 def repr(tick):

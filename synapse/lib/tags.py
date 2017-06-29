@@ -1,12 +1,10 @@
 import collections
 
-import synapse.common as s_common
-
 '''
 Tools to help implement a hierarchical tagging system.
 '''
 
-def iterTagDown(tag,div='.'):
+def iterTagDown(tag, div='.'):
     '''
     Yield tags from top to bottom.
 
@@ -17,9 +15,9 @@ def iterTagDown(tag,div='.'):
     '''
     parts = tag.split(div)
     for i in range(len(parts)):
-        yield div.join(parts[0:i+1])
+        yield div.join(parts[0:i + 1])
 
-def iterTagUp(tag,div='.'):
+def iterTagUp(tag, div='.'):
     '''
     Yield tags from top to bottom.
 
@@ -31,7 +29,7 @@ def iterTagUp(tag,div='.'):
     parts = tag.split(div)
     psize = len(parts)
     for i in range(psize):
-        yield div.join( parts[:psize-i] )
+        yield div.join(parts[:psize - i])
 
 def getTufoSubs(tufo, tag):
     '''
@@ -51,10 +49,10 @@ def getTufoSubs(tufo, tag):
     props = [prop]
     pref = prop + '.'
 
-    props.extend( p for p in tufo[1].keys() if p.startswith(pref) )
+    props.extend(p for p in tufo[1].keys() if p.startswith(pref))
     return props
 
-def tufoHasTag(tufo,tag):
+def tufoHasTag(tufo, tag):
     '''
     Returns True if the tufo has the given tag.
 
@@ -64,7 +62,7 @@ def tufoHasTag(tufo,tag):
             dostuff()
 
     '''
-    return tufo[1].get('#'+tag) != None
+    return tufo[1].get('#' + tag) is not None
 
 class ByTag:
     '''
@@ -99,7 +97,7 @@ class ByTag:
 
         '''
         vals = self.bytag.get(tag)
-        if vals == None:
+        if vals is None:
             return ()
 
         return list(vals)
@@ -108,16 +106,16 @@ class ByTag:
         '''
         Remove an item previously added to the ByTag.
         '''
-        tags = self.byval.pop(item,None)
-        if tags == None:
+        tags = self.byval.pop(item, None)
+        if tags is None:
             return
 
         for tag in tags:
             for name in iterTagDown(tag):
                 s = self.bytag.get(name)
-                if s == None:
+                if s is None:
                     continue
 
                 s.discard(item)
                 if not s:
-                    self.bytag.pop(name,None)
+                    self.bytag.pop(name, None)

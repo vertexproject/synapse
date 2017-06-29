@@ -1,6 +1,6 @@
-import synapse.lib.cli as s_cli
+import synapse.common as s_common
 
-from synapse.common import *
+import synapse.lib.cli as s_cli
 
 class GuidCmd(s_cli.Cmd):
     '''
@@ -16,7 +16,7 @@ class GuidCmd(s_cli.Cmd):
     _cmd_syntax = ()
 
     def runCmdOpts(self, opts):
-        self.printf('new guid: %r' % (guid(),))
+        self.printf('new guid: %r' % (s_common.guid(),))
 
 class PyCmd(s_cli.Cmd):
     '''
@@ -30,12 +30,12 @@ class PyCmd(s_cli.Cmd):
 
     _cmd_name = 'py'
     _cmd_syntax = (
-        ('expr',{'type':'glob'}),
+        ('expr', {'type': 'glob'}),
     )
 
     def runCmdOpts(self, opts):
         expr = opts.get('expr')
         item = self.getCmdItem()
 
-        retn = eval(expr,{'item':item,'cmd':self})
+        retn = eval(expr, {'item': item, 'cmd': self})
         self.printf('returned: %r' % (retn,))

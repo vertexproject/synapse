@@ -1,7 +1,8 @@
 import synapse.common as s_common
+
 import synapse.lib.datfile as s_datfile
 
-def get(name,defval=None):
+def get(name, defval=None):
     '''
     Return an object from the embedded synapse data folder.
 
@@ -13,5 +14,4 @@ def get(name,defval=None):
     NOTE: Files are named synapse/data/<name>.mpk
     '''
     with s_datfile.openDatFile('synapse.data/%s.mpk' % name) as fd:
-        return s_common.msgunpack( fd.read() )
-
+        return s_common.msgunpack(fd.read())

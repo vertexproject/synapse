@@ -1,19 +1,16 @@
-
 import os
 import fnmatch
 import tarfile
 import zipfile
 import tempfile
-import traceback
 
-import synapse.exc as s_exc
-from synapse.compat import queue
-from synapse.common import genpath
+import synapse.common as s_common
+import synapse.compat as s_compat
 
 # 10 MB
-read_chunk_sz = 1048576*10
+read_chunk_sz = 1048576 * 10
 # 100 MB
-max_temp_sz = 1048576*100
+max_temp_sz = 1048576 * 100
 
 '''
 Provide a generic opener API for paths that cross into supported container files.
@@ -50,7 +47,7 @@ def subpaths(path):
 
     for i in range(len(path_parts)):
 
-        ipath = os.path.join(*path_parts[:i+1])
+        ipath = os.path.join(*path_parts[:i + 1])
         yield ipath
 
 class FpOpener(object):
@@ -76,7 +73,7 @@ class FpFile(object):
         self.fd = fd
         self.idx = idx
         self.end = False
-        self.maxidx = idx+1
+        self.maxidx = idx + 1
         self.pparts = pparts
         self._isfile = True
 
@@ -90,7 +87,7 @@ class FpFile(object):
             return None
 
         if not self.fd:
-            self.fd = open(genpath(*self.pparts[:self.maxidx]), mode=mode)
+            self.fd = open(s_common.genpath(*self.pparts[:self.maxidx]), mode=mode)
 
         return self.fd
 
@@ -108,26 +105,26 @@ class FpFile(object):
         return self._isfile
 
     def path(self):
-        return genpath(*self.pparts[:self.maxidx])
+        return s_common.genpath(*self.pparts[:self.maxidx])
 
     def nexts(self):
         # pparts up to *our* index should be discrete, anything after may still be a glob
 
         maxidx = self.idx
-        spath = genpath(*self.pparts[:self.idx+1])
+        spath = s_common.genpath(*self.pparts[:self.idx + 1])
 
         # if itsa regular file
         if os.path.isfile(spath):
-            if self.idx+1 == len(self.pparts)-1:
+            if self.idx + 1 == len(self.pparts) - 1:
                 self.end = True
                 yield self
-            return 
+            return
 
         spaths = [spath]
 
         ends = []
         nexts = []
-        for idx in range(self.idx+1, len(self.pparts)):
+        for idx in range(self.idx + 1, len(self.pparts)):
             cpaths = []
             for spath in spaths:
                 match = self.pparts[idx]
@@ -135,14 +132,14 @@ class FpFile(object):
                 for member in os.listdir(spath):
                     if not fnmatch.fnmatch(member, match):
                         continue
-                    tpath = genpath(spath, member)
+                    tpath = s_common.genpath(spath, member)
 
                     # discrete path with remaining wildcards
                     eparts = getPathParts(spath)
                     eparts.append(member)
-                    eparts.extend(self.pparts[idx+1:])
+                    eparts.extend(self.pparts[idx + 1:])
 
-                    if idx == len(self.pparts)-1:
+                    if idx == len(self.pparts) - 1:
                         cls = _pathClass(tpath)
                         if cls:
                             fp = cls(eparts, idx, parent=self)
@@ -155,13 +152,13 @@ class FpFile(object):
                             fp = cls(eparts, idx, parent=self)
                             yield fp
                         else:
-                            cpaths.append(genpath(spath, member))
+                            cpaths.append(s_common.genpath(spath, member))
             spaths = cpaths
 
     def next(self):
         '''
         This is the workhorse method that can contain path specific processing of children.
-        The object should consume as much as possible of the path before creating the 
+        The object should consume as much as possible of the path before creating the
         child class
 
         NOTE: Override for container formats
@@ -170,17 +167,17 @@ class FpFile(object):
         # get longest consistent path
         partlen = len(self.pparts)
         # the end of the line
-        if self.idx == partlen-1:
-            if os.path.isdir(genpath(*self.pparts[:self.idx+1])):
+        if self.idx == partlen - 1:
+            if os.path.isdir(s_common.genpath(*self.pparts[:self.idx + 1])):
                 self._isfile = False
             return
 
         maxpath = None
-        checkpath = genpath(*self.pparts[:self.idx+1])
+        checkpath = s_common.genpath(*self.pparts[:self.idx + 1])
         cidx = self.idx + 1
 
         while cidx < partlen:
-            checkpath = genpath(*self.pparts[:cidx+1])
+            checkpath = s_common.genpath(*self.pparts[:cidx + 1])
             if not os.path.exists(checkpath):
                 break
             maxpath = checkpath
@@ -194,7 +191,7 @@ class FpFile(object):
 
             if self.maxidx != partlen:
                 self.close()
-                raise s_exc.NoSuchPath(path=os.path.join(*self.pparts))
+                raise s_common.NoSuchPath(path=os.path.join(*self.pparts))
 
         # if end of the path we're finished
         if self.maxidx == partlen:
@@ -202,7 +199,7 @@ class FpFile(object):
 
         # supported container file
         cls = _pathClass(*self.pparts[:self.maxidx])
-        return cls(self.pparts, self.maxidx-1, parent=self)
+        return cls(self.pparts, self.maxidx - 1, parent=self)
 
 class FpTar(FpFile):
     def __init__(self, pparts, idx, parent=None, fd=None):
@@ -210,7 +207,7 @@ class FpTar(FpFile):
         self.inner_fd = None
 
         if not self.fd:
-            self.fd = open(genpath(*pparts[:idx+1]), 'rb')
+            self.fd = open(s_common.genpath(*pparts[:idx + 1]), 'rb')
         self._init()
 
         self.innrEnum()
@@ -256,7 +253,7 @@ class FpTar(FpFile):
                 self.files.add(info.name)
 
                 dstruct = self.dstruct
-                endidx = len(pparts)-1
+                endidx = len(pparts) - 1
                 for i, elem in enumerate(pparts):
                     if i == endidx:
                         dstruct[elem] = 1
@@ -280,7 +277,7 @@ class FpTar(FpFile):
         pparts = path.split('/')
         dstruct = self.dstruct
         for p in pparts:
-            if dstruct == None:
+            if dstruct is None:
                 return None
             dstruct = dstruct.get(p)
 
@@ -313,8 +310,8 @@ class FpTar(FpFile):
         if self.maxidx != len(self.pparts):
             return None
 
-        inner_pparts = self.pparts[self.idx+1:self.maxidx]
-        self.inner_fd = self.innrOpen(*inner_pparts) 
+        inner_pparts = self.pparts[self.idx + 1:self.maxidx]
+        self.inner_fd = self.innrOpen(*inner_pparts)
         return self.inner_fd
 
     def close(self):
@@ -338,7 +335,7 @@ class FpTar(FpFile):
 
         ends = []
         nexts = []
-        for idx in range(self.idx+1, len(self.pparts)):
+        for idx in range(self.idx + 1, len(self.pparts)):
             cpaths = []
             for spath in spaths:
                 match = self.pparts[idx]
@@ -358,11 +355,11 @@ class FpTar(FpFile):
                         continue
 
                     eparts = getPathParts(tempfd.name)
-                    eidx = len(eparts)-1
-                    eparts.extend(self.pparts[idx+1:])
+                    eidx = len(eparts) - 1
+                    eparts.extend(self.pparts[idx + 1:])
                     fp = cls(eparts, eidx, parent=self, fd=tempfd)
 
-                    if idx == len(self.pparts)-1:
+                    if idx == len(self.pparts) - 1:
                         fp.next()
                         fp.end = True
                     yield fp
@@ -384,7 +381,7 @@ class FpTar(FpFile):
         partlen = len(self.pparts)
 
         # the end of the line
-        if self.idx == partlen-1:
+        if self.idx == partlen - 1:
             return
 
         # since it's a container we only care about the "inner path"
@@ -393,15 +390,15 @@ class FpTar(FpFile):
         cidx = self.idx + 1
 
         while cidx < partlen:
-            checkpath = normpath(*self.pparts[self.idx+1:cidx+1])
+            checkpath = normpath(*self.pparts[self.idx + 1:cidx + 1])
             if not self.innrExists(checkpath):
                 break
             maxpath = checkpath
             cidx += 1
 
-        if maxpath == None:
+        if maxpath is None:
             self.close()
-            raise s_exc.NoSuchPath(path=os.path.join(*self.pparts))
+            raise s_common.NoSuchPath(path=os.path.join(*self.pparts))
         self.maxidx = cidx
 
         # if the max path is a dir, we're finished
@@ -410,7 +407,7 @@ class FpTar(FpFile):
 
             if self.maxidx != partlen:
                 self.close()
-                raise s_exc.NoSuchPath(path=os.path.join(*self.pparts))
+                raise s_common.NoSuchPath(path=os.path.join(*self.pparts))
 
         # if end of the path we're finished
         if self.maxidx == partlen:
@@ -424,7 +421,7 @@ class FpTar(FpFile):
             return
         tempfd.seek(0)
 
-        return cls(self.pparts, self.maxidx-1, parent=self, fd=tempfd)
+        return cls(self.pparts, self.maxidx - 1, parent=self, fd=tempfd)
 
 class FpZip(FpTar):
     def __init__(self, pparts, idx, parent=None, fd=None):
@@ -452,7 +449,7 @@ class FpZip(FpTar):
 
             dstruct = self.dstruct
             pparts = cpath.split('/')
-            endidx = len(pparts)-1
+            endidx = len(pparts) - 1
             for i, elem in enumerate(pparts):
                 if i == endidx:
                     dstruct[elem] = 1
@@ -465,9 +462,9 @@ def _pathClass(*paths):
     Returns the class to handle the type of item located at path.  This function
     only operates on regular os.accessible paths
     '''
-    path = genpath(*paths)
+    path = s_common.genpath(*paths)
     if not os.path.exists(path):
-        raise s_exc.NoSuchPath(path=path)
+        raise s_common.NoSuchPath(path=path)
 
     if os.path.isdir(path):
         return path_ctors.get('fs.reg.file')
@@ -519,8 +516,8 @@ def parsePaths(*paths):
 
     '''
     if None in paths:
-        return 
-    path = genpath(*paths)
+        return
+    path = s_common.genpath(*paths)
 
     pparts = getPathParts(path)
     cls = _pathClass('/')
@@ -528,7 +525,7 @@ def parsePaths(*paths):
 
     ends_ct = 0
 
-    bases = queue.Queue()
+    bases = s_compat.queue.Queue()
     bases.put(base)
 
     try:
@@ -546,11 +543,11 @@ def parsePaths(*paths):
                     yield nex
                     ends_ct += 1
                 base.close()
-            except queue.Empty as e:
+            except s_compat.queue.Empty as e:
                 break
 
-    except s_exc.NoSuchPath as e:
-        return 
+    except s_common.NoSuchPath as e:
+        return
 
 def parsePath(*paths):
     '''
@@ -560,7 +557,7 @@ def parsePath(*paths):
     if None in paths:
         return None
 
-    path = genpath(*paths)
+    path = s_common.genpath(*paths)
 
     path_parts = getPathParts(path)
 
@@ -577,7 +574,7 @@ def parsePath(*paths):
             if nbase:
                 oldbases.append(base)
 
-    except s_exc.NoSuchPath as e:
+    except s_common.NoSuchPath as e:
         return None
     finally:
         [b.close() for b in oldbases]
@@ -608,10 +605,10 @@ def openfiles(*paths, **kwargs):
             if not reqd:
                 continue
             fpath.close()
-            raise s_exc.NoSuchPath(path=fpath.path())
+            raise s_common.NoSuchPath(path=fpath.path())
         yield FpOpener(fpath)
     if nopaths and reqd:
-        raise s_exc.NoSuchPath(path='/'.join(paths))
+        raise s_common.NoSuchPath(path='/'.join(paths))
 
 def openfile(*paths, **kwargs):
     '''
@@ -636,12 +633,12 @@ def openfile(*paths, **kwargs):
 
     if not fpath:
         if reqd:
-            raise s_exc.NoSuchPath(path='/'.join(paths))
+            raise s_common.NoSuchPath(path='/'.join(paths))
         return None
     if not fpath.isfile():
         if reqd:
             fpath.close()
-            raise s_exc.NoSuchPath(path=fpath.path())
+            raise s_common.NoSuchPath(path=fpath.path())
         return None
 
     return FpOpener(fpath)

@@ -1,8 +1,4 @@
-import os
 import logging
-import traceback
-import collections
-
 '''
 A synapse cortex is a data storage and indexing abstraction
 which is designed to be used as a prop/valu index on various
@@ -16,32 +12,28 @@ insertion, and provide for atomic deconfliction if needed.
 
 '''
 import synapse.link as s_link
-import synapse.async as s_async
+import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 
-import synapse.lib.sched as s_sched
 
 import synapse.cores.ram
 import synapse.cores.lmdb
 import synapse.cores.sqlite
 import synapse.cores.postgres
 
-from synapse.common import *
-from synapse.eventbus import EventBus
-
 logger = logging.getLogger(__name__)
 
 class InvalidParam(Exception):
     def __init__(self, name, msg):
-        Exception.__init__(self, '%s invalid: %s' % (name,msg))
+        Exception.__init__(self, '%s invalid: %s' % (name, msg))
         self.param = name
 
 corctors = {
     'lmdb': synapse.cores.lmdb.Cortex,
-    'sqlite':synapse.cores.sqlite.Cortex,
-    'ram':synapse.cores.ram.initRamCortex,
-    'postgres':synapse.cores.postgres.Cortex,
+    'sqlite': synapse.cores.sqlite.Cortex,
+    'ram': synapse.cores.ram.initRamCortex,
+    'postgres': synapse.cores.postgres.Cortex,
 }
 
 def openurl(url, **opts):
@@ -74,7 +66,7 @@ def openlink(link):
     Open a cortex via a link tuple.
     '''
     ctor = corctors.get(link[0])
-    if ctor == None:
+    if ctor is None:
         return s_telepath.openlink(link)
 
     return ctor(link)
@@ -84,23 +76,22 @@ def choptag(tag):
     Chop a tag into hierarchal levels.
     '''
     parts = tag.split('.')
-    return [ '.'.join(parts[:x+1]) for x in range(len(parts)) ]
+    return ['.'.join(parts[:x + 1]) for x in range(len(parts))]
 
 def _ctor_cortex(conf):
-    url = conf.pop('url',None)
-    if url == None:
-        raise BadInfoValu(name='url',valu=None,mesg='cortex ctor requires "url":<url> option')
+    url = conf.pop('url', None)
+    if url is None:
+        raise s_common.BadInfoValu(name='url', valu=None, mesg='cortex ctor requires "url":<url> option')
 
     core = openurl(url)
     core.setConfOpts(conf)
 
     return core
 
-s_dyndeps.addDynAlias('syn:cortex',_ctor_cortex)
+s_dyndeps.addDynAlias('syn:cortex', _ctor_cortex)
 
 if __name__ == '__main__':  # pragma: no cover
     import sys
-    import code
 
     import synapse.lib.cmdr as s_cmdr
 

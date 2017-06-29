@@ -18,44 +18,44 @@ class SwarmRunBase(SynTest):
         core0 = s_cortex.openurl('ram://')
         core1 = s_cortex.openurl('ram://')
 
-        tenv.add('core0',core0,fini=True)
-        tenv.add('core1',core1,fini=True)
+        tenv.add('core0', core0, fini=True)
+        tenv.add('core1', core1, fini=True)
 
-        tufo0 = core0.formTufoByProp('foo:bar','baz',vvv='visi')
-        tufo1 = core0.formTufoByProp('foo:bar','faz',vvv='visi')
-        tufo2 = core1.formTufoByProp('foo:bar','lol',vvv='visi')
-        tufo3 = core1.formTufoByProp('foo:bar','hai',vvv='visi')
+        tufo0 = core0.formTufoByProp('foo:bar', 'baz', vvv='visi')
+        tufo1 = core0.formTufoByProp('foo:bar', 'faz', vvv='visi')
+        tufo2 = core1.formTufoByProp('foo:bar', 'lol', vvv='visi')
+        tufo3 = core1.formTufoByProp('foo:bar', 'hai', vvv='visi')
 
-        tufo4 = core0.formTufoByProp('zzz:woot',10,vvv='visi')
-        tufo5 = core1.formTufoByProp('zzz:woot',12,vvv='romp')
+        tufo4 = core0.formTufoByProp('zzz:woot', 10, vvv='visi')
+        tufo5 = core1.formTufoByProp('zzz:woot', 12, vvv='romp')
 
-        tenv.add('tufo0',tufo0)
-        tenv.add('tufo1',tufo1)
-        tenv.add('tufo2',tufo2)
-        tenv.add('tufo3',tufo3)
+        tenv.add('tufo0', tufo0)
+        tenv.add('tufo1', tufo1)
+        tenv.add('tufo2', tufo2)
+        tenv.add('tufo3', tufo3)
 
         dmon = s_daemon.Daemon()
         link = dmon.listen('tcp://127.0.0.1:0')
 
-        tenv.add('link',link)
-        tenv.add('dmon',dmon,fini=True)
+        tenv.add('link', link)
+        tenv.add('dmon', dmon, fini=True)
 
         port = link[1].get('port')
 
         svcbus = s_service.SvcBus()
-        tenv.add('svcbus',svcbus,fini=True)
+        tenv.add('svcbus', svcbus, fini=True)
 
-        dmon.share('syn.svcbus',svcbus)
+        dmon.share('syn.svcbus', svcbus)
 
         svcrmi = s_telepath.openurl('tcp://127.0.0.1/syn.svcbus', port=port)
-        tenv.add('svcrmi',svcrmi,fini=True)
+        tenv.add('svcrmi', svcrmi, fini=True)
 
-        s_service.runSynSvc('cortex',core0,svcrmi,tags=('hehe.haha',))
-        s_service.runSynSvc('cortex',core1,svcrmi,tags=('hehe.hoho',))
+        s_service.runSynSvc('cortex', core0, svcrmi, tags=('hehe.haha',))
+        s_service.runSynSvc('cortex', core1, svcrmi, tags=('hehe.hoho',))
 
         runt = s_runtime.Runtime(svcrmi)
 
-        tenv.add('runt',runt,fini=True)
+        tenv.add('runt', runt, fini=True)
 
         return tenv
 
@@ -67,24 +67,24 @@ class SwarmRunTest(SwarmRunBase):
         answ = tenv.runt.ask('foo:bar="baz"')
         data = answ.get('data')
 
-        self.eq( data[0][0], tenv.tufo0[0] )
+        self.eq(data[0][0], tenv.tufo0[0])
 
         # FIXME check for other expected results info!
 
         answ = tenv.runt.ask('foo:bar:vvv')
         data = answ.get('data')
 
-        self.eq( len(data), 4 )
+        self.eq(len(data), 4)
 
         answ = tenv.runt.ask('hehe.haha/foo:bar:vvv')
         data = answ.get('data')
 
-        self.eq( len(data), 2 )
+        self.eq(len(data), 2)
 
         answ = tenv.runt.ask('hehe.haha/foo:bar:vvv="visi"')
         data = answ.get('data')
 
-        self.eq( len(data), 2 )
+        self.eq(len(data), 2)
 
         tenv.fini()
 
@@ -93,7 +93,7 @@ class SwarmRunTest(SwarmRunBase):
 
         data = tenv.runt.eval('foo:bar="baz" foo:bar:vvv->foo:bar:vvv')
 
-        self.eq( len(data), 4 )
+        self.eq(len(data), 4)
 
         tenv.fini()
 
@@ -101,19 +101,19 @@ class SwarmRunTest(SwarmRunBase):
         tenv = self.getSwarmEnv()
 
         answ = tenv.runt.ask('%foo')
-        self.eq( answ['options'].get('foo'), 1 )
+        self.eq(answ['options'].get('foo'), 1)
 
         answ = tenv.runt.ask('opts(foo=10)')
-        self.eq( answ['options'].get('foo'), 10 )
+        self.eq(answ['options'].get('foo'), 10)
 
         answ = tenv.runt.ask('%foo=10')
-        self.eq( answ['options'].get('foo'), 10 )
+        self.eq(answ['options'].get('foo'), 10)
 
         answ = tenv.runt.ask('opts(foo="bar")')
-        self.eq( answ['options'].get('foo'), 'bar' )
+        self.eq(answ['options'].get('foo'), 'bar')
 
         answ = tenv.runt.ask('%foo="bar"')
-        self.eq( answ['options'].get('foo'), 'bar' )
+        self.eq(answ['options'].get('foo'), 'bar')
 
         tenv.fini()
 
@@ -121,10 +121,10 @@ class SwarmRunTest(SwarmRunBase):
         tenv = self.getSwarmEnv()
 
         answ = tenv.runt.ask('%uniq foo:bar="baz" foo:bar="baz"')
-        self.eq( len(answ['data']), 1 )
+        self.eq(len(answ['data']), 1)
 
         answ = tenv.runt.ask('%uniq=0 foo:bar="baz" foo:bar="baz"')
-        self.eq( len(answ['data']), 2 )
+        self.eq(len(answ['data']), 2)
 
         tenv.fini()
 
@@ -134,12 +134,12 @@ class SwarmRunTest(SwarmRunBase):
         answ = tenv.runt.ask('foo:bar="baz" join("foo:bar:vvv")')
         data = answ.get('data')
 
-        self.eq( len(data), 4 )
+        self.eq(len(data), 4)
 
         answ = tenv.runt.ask('foo:bar="baz" join("zzz:woot:vvv","foo:bar:vvv")')
         data = answ.get('data')
 
-        self.eq( len(data), 2 )
+        self.eq(len(data), 2)
 
         tenv.fini()
 
@@ -149,41 +149,41 @@ class SwarmRunTest(SwarmRunBase):
         answ = env.runt.ask('zzz:woot>=11')
 
         data = answ.get('data')
-        self.eq( len(data), 1 )
-        self.eq( data[0][1].get('zzz:woot'), 12 )
+        self.eq(len(data), 1)
+        self.eq(data[0][1].get('zzz:woot'), 12)
 
         answ = env.runt.ask('zzz:woot>10')
 
         data = answ.get('data')
-        self.eq( len(data), 1 )
-        self.eq( data[0][1].get('zzz:woot'), 12 )
+        self.eq(len(data), 1)
+        self.eq(data[0][1].get('zzz:woot'), 12)
 
         answ = env.runt.ask('zzz:woot>=10')
 
         data = answ.get('data')
-        self.eq( len(data), 2 )
+        self.eq(len(data), 2)
 
         answ = env.runt.ask('zzz:woot<=11')
 
         data = answ.get('data')
-        self.eq( len(data), 1 )
-        self.eq( data[0][1].get('zzz:woot'), 10 )
+        self.eq(len(data), 1)
+        self.eq(data[0][1].get('zzz:woot'), 10)
 
         answ = env.runt.ask('zzz:woot<12')
 
         data = answ.get('data')
-        self.eq( len(data), 1 )
-        self.eq( data[0][1].get('zzz:woot'), 10 )
+        self.eq(len(data), 1)
+        self.eq(data[0][1].get('zzz:woot'), 10)
 
         answ = env.runt.ask('zzz:woot<=13')
 
         data = answ.get('data')
-        self.eq( len(data), 2 )
+        self.eq(len(data), 2)
 
         answ = env.runt.ask('zzz:woot -zzz:woot<=11')
 
         data = answ.get('data')
-        self.eq( len(data), 1 )
+        self.eq(len(data), 1)
 
         env.fini()
 
@@ -192,16 +192,16 @@ class SwarmRunTest(SwarmRunBase):
         answ = env.runt.ask('foo:bar +foo:bar~="^l"')
 
         data = answ.get('data')
-        self.eq( data[0][1].get('foo:bar'), 'lol')
+        self.eq(data[0][1].get('foo:bar'), 'lol')
 
         answ = env.runt.ask('foo:bar +foo:bar~="^Q"')
-        self.eq( len(answ.get('data')), 0)
+        self.eq(len(answ.get('data')), 0)
 
         answ = env.runt.ask('foo:bar +foo:bar~="^Q"')
-        self.eq( len(answ.get('data')), 0)
+        self.eq(len(answ.get('data')), 0)
 
         answ = env.runt.ask('foo:bar -foo:bar~="^[a-z]{3}$"')
-        self.eq( len(answ.get('data')), 0)
+        self.eq(len(answ.get('data')), 0)
 
         env.fini()
 
@@ -212,10 +212,10 @@ class SwarmRunTest(SwarmRunBase):
 
         tufos = answ.get('data')
 
-        foobars = [ t[1].get('foo:bar') for t in tufos ]
+        foobars = [t[1].get('foo:bar') for t in tufos]
         foobars.sort()
 
-        self.eq( foobars, ['baz','faz'] )
+        self.eq(foobars, ['baz', 'faz'])
 
         env.fini()
 
@@ -227,11 +227,11 @@ class SwarmRunTest(SwarmRunBase):
 
             tufos = answ.get('data')
 
-            foobars = [ t[1].get('foo:bar') for t in tufos ]
+            foobars = [t[1].get('foo:bar') for t in tufos]
 
             foobars.sort()
 
-            self.eq( foobars, ['baz','faz','hai','lol'] )
+            self.eq(foobars, ['baz', 'faz', 'hai', 'lol'])
 
     def test_swarm_runtime_clear(self):
 
@@ -239,7 +239,7 @@ class SwarmRunTest(SwarmRunBase):
         answ = env.runt.ask('foo:bar clear()')
 
         tufos = answ.get('data')
-        self.eq( len(tufos), 0 )
+        self.eq(len(tufos), 0)
 
         env.fini()
 
@@ -250,8 +250,8 @@ class SwarmRunTest(SwarmRunBase):
 
         tufos = answ.get('data')
 
-        self.eq( len(tufos), 1 )
-        self.eq( tufos[0][1].get('foo:bar'), 'baz' )
+        self.eq(len(tufos), 1)
+        self.eq(tufos[0][1].get('foo:bar'), 'baz')
 
         env.fini()
 
@@ -264,23 +264,23 @@ class SwarmRunTest(SwarmRunBase):
 
         tufos = answ.get('data')
 
-        self.eq( len(tufos), 4 )
-        self.eq( tufos[0][1].get('tufo:form'), 'foo:bar' )
+        self.eq(len(tufos), 4)
+        self.eq(tufos[0][1].get('tufo:form'), 'foo:bar')
 
         # use the filter code for has()
         answ = env.runt.ask('tufo:form +foo:bar')
 
         tufos = answ.get('data')
 
-        self.eq( len(tufos), 4 )
-        self.eq( tufos[0][1].get('tufo:form'), 'foo:bar' )
+        self.eq(len(tufos), 4)
+        self.eq(tufos[0][1].get('tufo:form'), 'foo:bar')
 
         env.fini()
 
     def test_swarm_runtime_maxtime(self):
 
         env = self.getSwarmEnv()
-        self.assertRaises(HitStormLimit, env.runt.eval, 'foo:bar', timeout=0)
+        self.raises(HitStormLimit, env.runt.eval, 'foo:bar', timeout=0)
         env.fini()
 
     def test_swarm_runtime_by(self):
@@ -290,17 +290,17 @@ class SwarmRunTest(SwarmRunBase):
         answ = env.runt.ask('zzz:woot*range=(10,13)')
         tufos = answ.get('data')
 
-        self.eq( len(tufos), 2 )
+        self.eq(len(tufos), 2)
 
         answ = env.runt.ask('zzz:woot*range=(10,12)')
         tufos = answ.get('data')
 
-        self.eq( len(tufos), 1 )
+        self.eq(len(tufos), 1)
 
         answ = env.runt.ask('zzz:woot^1*range=(10,13)')
         tufos = answ.get('data')
 
-        self.eq( len(tufos), 2 )
+        self.eq(len(tufos), 2)
 
         env.fini()
 
@@ -313,13 +313,13 @@ class SwarmRunTest(SwarmRunBase):
         answ = env.runt.ask('inet:ipv4="1.2.3.4"')
 
         tufos = answ.get('data')
-        self.eq( len(tufos), 1 )
-        self.eq( tufos[0][1].get('inet:ipv4'), 0x01020304 )
+        self.eq(len(tufos), 1)
+        self.eq(tufos[0][1].get('inet:ipv4'), 0x01020304)
 
         answ = env.runt.ask('inet:ipv4=0x01020304')
 
         tufos = answ.get('data')
-        self.eq( len(tufos), 1 )
-        self.eq( tufos[0][1].get('inet:ipv4'), 0x01020304 )
+        self.eq(len(tufos), 1)
+        self.eq(tufos[0][1].get('inet:ipv4'), 0x01020304)
 
         env.fini()

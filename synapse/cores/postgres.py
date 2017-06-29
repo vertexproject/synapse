@@ -1,15 +1,15 @@
 import time
 import hashlib
 
-import synapse.cores.sqlite as s_c_sqlite
-
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
+
+import synapse.cores.sqlite as s_cores_sqlite
 
 def md5(x):
     return hashlib.md5(x.encode('utf8')).hexdigest()
 
-class Cortex(s_c_sqlite.Cortex):
+class Cortex(s_cores_sqlite.Cortex):
 
     dblim = None
 
@@ -52,13 +52,13 @@ class Cortex(s_c_sqlite.Cortex):
     def _initDbConn(self):
         import psycopg2
 
-        retry = self._link[1].get('retry',0)
+        retry = self._link[1].get('retry', 0)
 
         dbinfo = self._initDbInfo()
 
         db = None
         tries = 0
-        while db == None:
+        while db is None:
             try:
                 db = psycopg2.connect(**dbinfo)
             except Exception as e:
@@ -68,8 +68,8 @@ class Cortex(s_c_sqlite.Cortex):
 
                 time.sleep(1)
 
-        seqscan = self._link[1].get('pg:seqscan',0)
-        seqscan,_ = s_datamodel.getTypeNorm('bool',seqscan)
+        seqscan = self._link[1].get('pg:seqscan', 0)
+        seqscan, _ = s_datamodel.getTypeNorm('bool', seqscan)
 
         c = db.cursor()
         c.execute('SET enable_seqscan=%s', (seqscan,))
@@ -82,7 +82,7 @@ class Cortex(s_c_sqlite.Cortex):
         if not path:
             return 'syncortex'
 
-        parts = [ p for p in path.split('/') if p ]
+        parts = [p for p in path.split('/') if p]
         if len(parts) <= 1:
             return 'syncortex'
 
@@ -101,24 +101,24 @@ class Cortex(s_c_sqlite.Cortex):
 
         path = self._link[1].get('path')
         if path:
-            parts = [ p for p in path.split('/') if p ]
+            parts = [p for p in path.split('/') if p]
             if parts:
                 dbinfo['database'] = parts[0]
 
         host = self._link[1].get('host')
-        if host != None:
+        if host is not None:
             dbinfo['host'] = host
 
         port = self._link[1].get('port')
-        if port != None:
+        if port is not None:
             dbinfo['port'] = port
 
         user = self._link[1].get('user')
-        if user != None:
+        if user is not None:
             dbinfo['user'] = user
 
         passwd = self._link[1].get('passwd')
-        if passwd != None:
+        if passwd is not None:
             dbinfo['password'] = passwd
 
         return dbinfo
@@ -133,19 +133,19 @@ class Cortex(s_c_sqlite.Cortex):
             q = self._q_getjoin_by_in_int
         else:
             q = self._q_getjoin_by_in_str
-            valus = [ md5(v) for v in valus ]
+            valus = [md5(v) for v in valus]
 
-        rows = self.select(q,prop=prop, valu=tuple(valus), limit=limit)
+        rows = self.select(q, prop=prop, valu=tuple(valus), limit=limit)
         rows = self._foldTypeCols(rows)
         return self._rowsToTufos(rows)
 
     def _getTufosByIdens(self, idens):
-        rows = self.select( self._q_getrows_by_idens, valu=tuple(idens) )
+        rows = self.select(self._q_getrows_by_idens, valu=tuple(idens))
         rows = self._foldTypeCols(rows)
         return self._rowsToTufos(rows)
 
     def _initCorQueries(self):
-        s_c_sqlite.Cortex._initCorQueries(self)
+        s_cores_sqlite.Cortex._initCorQueries(self)
 
         self._q_getrows_by_idens = self._prepQuery(self._t_getrows_by_idens)
         self._q_getjoin_by_in_int = self._prepQuery(self._t_getjoin_by_in_int)

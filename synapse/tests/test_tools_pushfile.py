@@ -12,9 +12,9 @@ class TestPushFile(SynTest):
 
         with self.getTestDir() as path:
 
-            visipath = os.path.join(path,'visi.txt')
+            visipath = os.path.join(path, 'visi.txt')
 
-            with open(visipath,'wb') as fd:
+            with open(visipath, 'wb') as fd:
                 fd.write(b'visi')
 
             outp = self.getTestOutp()
@@ -26,24 +26,24 @@ class TestPushFile(SynTest):
                 port = link[1].get('port')
 
                 core = s_cortex.openurl('ram:///')
-                dmon.onfini( core.fini )
+                dmon.onfini(core.fini)
 
-                axon = s_axon.Axon(os.path.join(path,'axon00'))
-                dmon.onfini( axon.fini )
+                axon = s_axon.Axon(os.path.join(path, 'axon00'))
+                dmon.onfini(axon.fini)
 
                 dmon.share('axon00', axon)
                 dmon.share('core00', core)
 
                 core.setConfOpt('axon:url', 'tcp://127.0.0.1:%d/axon00' % port)
 
-                s_pushfile.main(['--tags','foo.bar,baz.faz','tcp://127.0.0.1:%d/core00' % port, visipath], outp=outp)
+                s_pushfile.main(['--tags', 'foo.bar,baz.faz', 'tcp://127.0.0.1:%d/core00' % port, visipath], outp=outp)
 
                 node = core.getTufoByProp('file:bytes')
 
-                self.eq( node[1].get('file:bytes'), '442f602ecf8230b2a59a44b4f845be27' )
-                self.eq( node[1].get('file:bytes:size'), 4 )
+                self.eq(node[1].get('file:bytes'), '442f602ecf8230b2a59a44b4f845be27')
+                self.eq(node[1].get('file:bytes:size'), 4)
 
-                self.nn( node[1].get('#foo') )
-                self.nn( node[1].get('#foo.bar') )
-                self.nn( node[1].get('#baz') )
-                self.nn( node[1].get('#baz.faz') )
+                self.nn(node[1].get('#foo'))
+                self.nn(node[1].get('#foo.bar'))
+                self.nn(node[1].get('#baz'))
+                self.nn(node[1].get('#baz.faz'))

@@ -34,24 +34,24 @@ class AsyncTests(SynTest):
         job1 = boss.initJob(jid1, task=task1, name='job1', ondone=jobdone)
         job2 = boss.initJob(jid2, task=task2, name='job2', ondone=jobdone)
 
-        self.assertEqual( job1[0], jid1 )
+        self.eq(job1[0], jid1)
 
-        self.assertEqual( len(boss.jobs()), 2 )
+        self.eq(len(boss.jobs()), 2)
 
         boss._runJob(job1)
-        self.assertEqual( len(boss.jobs()), 1 )
+        self.eq(len(boss.jobs()), 1)
 
         boss._runJob(job2)
-        self.assertEqual( len(boss.jobs()), 0 )
+        self.eq(len(boss.jobs()), 0)
 
         ret1 = data.get('job1')
 
-        self.assertIsNotNone(ret1)
-        self.assertEqual( ret1[1]['ret'], 23 )
+        self.nn(ret1)
+        self.eq(ret1[1]['ret'], 23)
 
         ret2 = data.get('job2')
-        self.assertIsNotNone(ret2)
-        self.assertEqual( ret2[1]['err'], 'Exception' )
+        self.nn(ret2)
+        self.eq(ret2[1]['err'], 'Exception')
 
         boss.fini()
 
@@ -79,20 +79,20 @@ class AsyncTests(SynTest):
         job1 = boss.initJob(jid1, task=task1, name='job1', ondone=jobdone)
         job2 = boss.initJob(jid2, task=task2, name='job2', ondone=jobdone)
 
-        self.assertEqual( job1[0], jid1 )
+        self.eq(job1[0], jid1)
 
         boss.wait(jid1, timeout=1)
         boss.wait(jid2, timeout=1)
 
         ret1 = data.get('job1')
 
-        self.assertIsNotNone(ret1)
-        self.assertEqual( ret1[1]['ret'], 23 )
+        self.nn(ret1)
+        self.eq(ret1[1]['ret'], 23)
 
         ret2 = data.get('job2')
-        self.assertIsNotNone(ret2)
-        self.assertEqual( ret2[1]['err'], 'Exception' )
-        self.assertEqual( ret2[1]['errmsg'], 'hi' )
+        self.nn(ret2)
+        self.eq(ret2[1]['err'], 'Exception')
+        self.eq(ret2[1]['errmsg'], 'hi')
 
         boss.fini()
 
@@ -107,11 +107,11 @@ class AsyncTests(SynTest):
             time.sleep(2.0)
 
         jid = s_async.jobid()
-        job = boss.initJob(jid, task=(myjob,(),{}), timeout=0.01)
+        job = boss.initJob(jid, task=(myjob, (), {}), timeout=0.01)
 
         boss.wait(jid)
 
-        self.eq( job[1]['err'], 'HitMaxTime' )
+        self.eq(job[1]['err'], 'HitMaxTime')
 
         # Ensure the boss.sync() fails as well
         jid = s_async.jobid()
@@ -162,10 +162,10 @@ class AsyncTests(SynTest):
         task = s_async.newtask(woot)
         boss.initJob(jid, task=task, ondone=ondone)
 
-        self.assertTrue( evt.wait(timeout=1) )
+        self.true(evt.wait(timeout=1))
         job = data.get('job')
 
-        self.assertEqual( job[1].get('ret'), 10 )
+        self.eq(job[1].get('ret'), 10)
 
         boss.fini()
 
@@ -182,9 +182,9 @@ class AsyncTests(SynTest):
 
         boss.initJob(jid, task=task)
 
-        self.assertFalse( boss.wait(jid,timeout=0.01) )
+        self.false(boss.wait(jid, timeout=0.01))
 
-        self.assertTrue( boss.wait(jid,timeout=1) )
+        self.true(boss.wait(jid, timeout=1))
 
         boss.fini()
 
@@ -201,10 +201,10 @@ class AsyncTests(SynTest):
 
         boss.initJob(jid, task=task)
 
-        with s_scope.enter({'syntimeout':0.01}):
-            self.assertFalse( boss.wait(jid) )
+        with s_scope.enter({'syntimeout': 0.01}):
+            self.false(boss.wait(jid))
 
-        self.assertTrue( boss.wait(jid,timeout=1) )
+        self.true(boss.wait(jid, timeout=1))
 
         boss.fini()
 
@@ -214,11 +214,11 @@ class AsyncTests(SynTest):
 
         job = boss.initJob()
 
-        boss.done(job[0],5)
+        boss.done(job[0], 5)
 
         boss.wait(job[0])
 
-        self.assertEqual( job[1].get('ret'), 5 )
+        self.eq(job[1].get('ret'), 5)
 
         boss.fini()
 
@@ -255,7 +255,6 @@ class AsyncTests(SynTest):
         jobs = [job for job in boss]
         self.eq(len(jobs), 2)
 
-
         my_pool.call(boss._runJob, job1)
         my_pool.call(boss._runJob, job2)
 
@@ -265,7 +264,7 @@ class AsyncTests(SynTest):
         ret1 = data.get('job1')
 
         self.nn(ret1)
-        self.eq( ret1[1]['ret'], 23 )
+        self.eq(ret1[1]['ret'], 23)
 
         ret2 = data.get('job2')
         self.nn(ret2)

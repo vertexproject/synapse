@@ -50,12 +50,12 @@ class SuperhashTest(SynTest):
 
     def check_json_blob(self, obj, fn, edict):
         self.eq(len(obj), 2)
-        self.assertIsInstance(obj, list)
+        self.isinstance(obj, list)
         rd = obj[1]
-        self.assertIsInstance(rd, dict)
+        self.isinstance(rd, dict)
         self.true('props' in rd)
         rd = rd.get('props')
-        self.assertIsInstance(rd, dict)
+        self.isinstance(rd, dict)
         self.eq(obj[0], edict.get('guid'))
         self.eq(rd.get('name'), fn)
         for htype in ['md5', 'sha1', 'sha256', 'sha512']:
@@ -78,7 +78,7 @@ class SuperhashTest(SynTest):
             s_superhash.main(argv=args, outp=outp)
             r = outp.mesgs[0]
             obj = json.loads(r)
-            self.assertIsInstance(obj, list)
+            self.isinstance(obj, list)
             self.eq(len(obj), 3)
             for blob, (fn, edict) in zip(obj, test_data):
                 self.check_json_blob(obj=blob, fn=fn, edict=edict)

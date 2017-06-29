@@ -95,7 +95,7 @@ class FileMod(CoreModule):
         # records that reference this file guid?
 
         tufo = self.core.getTufoByProp(prop, valu)
-        if tufo != None:
+        if tufo is not None:
             # add more hashes if we know them...
             tufo = self.core.setTufoProps(tufo, **props)
             return tufo

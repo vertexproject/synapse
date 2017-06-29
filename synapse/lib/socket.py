@@ -1,6 +1,5 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 
-import os
 import ssl
 import zlib
 import errno
@@ -9,6 +8,7 @@ import select
 import socket
 import logging
 import msgpack
+import threading
 import collections
 
 logger = logging.getLogger(__name__)
@@ -20,13 +20,11 @@ import synapse.lib.thisplat as s_thisplat
 
 from synapse.eventbus import EventBus
 
-from synapse.common import *
-
 def sockgzip(byts):
     blen = len(byts)
     byts = zlib.compress(byts)
     #print('GZIP DELTA: %d -> %d' % (blen,len(byts)))
-    return msgenpack(('sock:gzip',{'data':byts}))
+    return s_common.msgenpack(('sock:gzip', {'data': byts}))
 
 class SockXform:
     '''
@@ -68,7 +66,7 @@ class Socket(EventBus):
         self.txbuf = None
         self.txsize = 0
 
-        if self.info.get('nodelay',True):
+        if self.info.get('nodelay', True):
             self._tryTcpNoDelay()
 
         self.txque = collections.deque()
@@ -148,7 +146,6 @@ class Socket(EventBus):
 
         return byts
 
-
     def _tx_xform(self, byts):
         '''
         '''
@@ -196,23 +193,23 @@ class Socket(EventBus):
             return mesg
 
     def fireobj(self, msg, **msginfo):
-        return self.tx( (msg,msginfo) )
+        return self.tx((msg, msginfo))
 
     def tx(self, mesg):
         '''
         Transmit a mesg tufo ( type, info ) via the socket using msgpack.
         If present this API is safe for use with a socket in a Plex().
         '''
-        if self.plex != None:
-            return self.plex._txSockMesg(self,mesg)
+        if self.plex is not None:
+            return self.plex._txSockMesg(self, mesg)
 
         try:
-            byts = msgenpack(mesg)
+            byts = s_common.msgenpack(mesg)
 
             if len(byts) > 50000 and self.get('sock:can:gzip'):
                 byts = sockgzip(byts)
 
-            self.sendall( byts )
+            self.sendall(byts)
             return True
 
         except socket.error as e:
@@ -241,7 +238,7 @@ class Socket(EventBus):
 
         byts = self.recv(102400)
         # special case for non-blocking recv with no data ready
-        if byts == None:
+        if byts is None:
             return
 
         try:
@@ -280,24 +277,24 @@ class Socket(EventBus):
 
         try:
 
-            sock,addr = self.sock.accept()
+            sock, addr = self.sock.accept()
 
         except Exception as e:
-            return None,None
+            return None, None
 
         sock = Socket(sock, accept=True)
 
         relay = self.get('relay')
-        if relay != None:
+        if relay is not None:
             relay._prepLinkSock(sock)
 
         self.fire('link:sock:accept', sock=sock)
 
         # check if the link:sock:accept callback fini()d the sock.
         if sock.isfini:
-            return None,None
+            return None, None
 
-        return sock,addr
+        return sock, addr
 
     def close(self):
         '''
@@ -368,19 +365,19 @@ class Plex(EventBus):
 
         self._plex_wake, self._plex_s2 = socketpair()
 
-        self._plex_s2.set('wake',True)
-        self.addPlexSock( self._plex_s2 )
+        self._plex_s2.set('wake', True)
+        self.addPlexSock(self._plex_s2)
 
         self._plex_thr = self._plexMainLoop()
 
-        self.onfini( self._onPlexFini )
+        self.onfini(self._onPlexFini)
 
     def __len__(self):
         return len(self._plex_socks)
 
     def _popPlexSock(self, iden):
-        sock = self._plex_socks.pop(iden,None)
-        if sock == None:
+        sock = self._plex_socks.pop(iden, None)
+        if sock is None:
             return
 
         # try/wrap these because list has no discard()
@@ -420,7 +417,7 @@ class Plex(EventBus):
 
         sock.plex = self
 
-        self._plex_socks[ sock.iden ] = sock
+        self._plex_socks[sock.iden] = sock
 
         # we monitor all socks for rx and xx
         self._plex_rxsocks.append(sock)
@@ -430,21 +427,21 @@ class Plex(EventBus):
             self.fire('link:sock:fini', sock=sock)
             self._popPlexSock(iden)
 
-        sock.onfini( finisock )
+        sock.onfini(finisock)
         self._plexWake()
 
     def _txSockMesg(self, sock, mesg):
         # handle the need to send on a socket in the plex
-        byts = msgenpack(mesg)
+        byts = s_common.msgenpack(mesg)
         if len(byts) > 50000 and sock.get('sock:can:gzip'):
             byts = sockgzip(byts)
 
         with self._plex_lock:
 
             # we have no backlog!
-            if sock.txbuf == None:
+            if sock.txbuf is None:
 
-                byts = sock._tx_xform( byts )
+                byts = sock._tx_xform(byts)
 
                 try:
 
@@ -487,7 +484,7 @@ class Plex(EventBus):
         # ( this is *always* run by plexMainLoop() )
         with self._plex_lock:
 
-            sent = sock.send( sock.txbuf )
+            sent = sock.send(sock.txbuf)
 
             sock.txsize -= sent
             sock.fire('sock:tx:size', size=sock.txsize)
@@ -511,7 +508,7 @@ class Plex(EventBus):
 
             # more msgs! lets serialize the next!
             byts = sock.txque.popleft()
-            sock.txbuf = sock._tx_xform( byts )
+            sock.txbuf = sock._tx_xform(byts)
 
     def _plexWake(self):
         try:
@@ -519,7 +516,7 @@ class Plex(EventBus):
         except socket.error as e:
             return
 
-    @s_threads.firethread
+    @s_common.firethread
     def _plexMainLoop(self):
 
         s_threads.iCantWait(name='SynPlexMain')
@@ -527,7 +524,7 @@ class Plex(EventBus):
         while not self.isfini:
 
             try:
-                rxlist,txlist,xxlist = select.select(self._plex_rxsocks,self._plex_txsocks,self._plex_xxsocks,0.2)
+                rxlist, txlist, xxlist = select.select(self._plex_rxsocks, self._plex_txsocks, self._plex_xxsocks, 0.2)
             # mask "bad file descriptor" race and go around again...
             except Exception as e:
                 continue
@@ -542,8 +539,8 @@ class Plex(EventBus):
 
                     # if he's a listen sock... accept()
                     if rxsock.get('listen'):
-                        connsock,connaddr = rxsock.accept()
-                        if connsock != None:
+                        connsock, connaddr = rxsock.accept()
+                        if connsock is not None:
                             rxsock.fire('link:sock:init', sock=connsock)
 
                         continue
@@ -555,7 +552,7 @@ class Plex(EventBus):
                 for txsock in txlist:
                     self._runSockTx(txsock)
 
-                [ sock.fini() for sock in xxlist ]
+                [sock.fini() for sock in xxlist]
 
             except Exception as e:
                 logger.warning('plexMainLoop: %s', e)
@@ -563,13 +560,13 @@ class Plex(EventBus):
     def _onPlexFini(self):
 
         socks = list(self._plex_socks.values())
-        [ s.fini() for s in socks ]
+        [s.fini() for s in socks]
 
         self._plex_wake.fini()
 
         self._plex_thr.join()
 
-def listen(sockaddr,**sockinfo):
+def listen(sockaddr, **sockinfo):
     '''
     Simplified listening socket contructor.
     '''
@@ -578,13 +575,13 @@ def listen(sockaddr,**sockinfo):
     try:
         sock.bind(sockaddr)
         sock.listen(120)
-        return Socket(sock,listen=True,**sockinfo)
+        return Socket(sock, listen=True, **sockinfo)
 
     except socket.error as e:
         sock.close()
         raise
 
-def connect(sockaddr,**sockinfo):
+def connect(sockaddr, **sockinfo):
     '''
     Simplified connected TCP socket constructor.
     '''
@@ -592,7 +589,7 @@ def connect(sockaddr,**sockinfo):
 
     try:
         sock.connect(sockaddr)
-        return Socket(sock,**sockinfo)
+        return Socket(sock, **sockinfo)
 
     except Exception as e:
         sock.close()
@@ -600,38 +597,38 @@ def connect(sockaddr,**sockinfo):
 
 def _sockpair():
     s = socket.socket()
-    s.bind(('127.0.0.1',0))
+    s.bind(('127.0.0.1', 0))
     s.listen(1)
 
     s1 = socket.socket()
-    s1.connect( s.getsockname() )
+    s1.connect(s.getsockname())
 
     s2 = s.accept()[0]
 
     s.close()
-    return Socket(s1),Socket(s2)
+    return Socket(s1), Socket(s2)
 
 def socketpair():
     '''
     Standard sockepair() on posix systems, and pure shinanegans on windows.
     '''
     try:
-        s1,s2 = socket.socketpair()
-        return Socket(s1),Socket(s2)
+        s1, s2 = socket.socketpair()
+        return Socket(s1), Socket(s2)
     except AttributeError as e:
         return _sockpair()
 
-def inet_pton(afam,text):
+def inet_pton(afam, text):
     '''
     Implements classic socket.inet_pton regardless of platform. (aka windows)
     '''
-    return s_thisplat.inet_pton(afam,text)
+    return s_thisplat.inet_pton(afam, text)
 
-def inet_ntop(afam,byts):
+def inet_ntop(afam, byts):
     '''
     Implements classic socket.inet_ntop regardless of platform. (aka windows)
     '''
-    return s_thisplat.inet_ntop(afam,byts)
+    return s_thisplat.inet_ntop(afam, byts)
 
 def hostaddr(dest='8.8.8.8'):
     '''
@@ -642,11 +639,11 @@ def hostaddr(dest='8.8.8.8'):
         addr = s_socket.hostaddr()
 
     '''
-    sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     # doesn't actually send any packets!
-    sock.connect( (dest,80) )
-    addr,port = sock.getsockname()
+    sock.connect((dest, 80))
+    addr, port = sock.getsockname()
 
     sock.close()
 
@@ -655,8 +652,8 @@ def hostaddr(dest='8.8.8.8'):
 # make a plex and register an atexit handler.
 def _plex_ctor():
     plex = Plex()
-    atexit.register( plex.fini )
+    atexit.register(plex.fini)
     return plex
 
 # add a Plex constructor to the global scope
-s_scope.ctor('plex',_plex_ctor)
+s_scope.ctor('plex', _plex_ctor)

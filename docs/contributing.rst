@@ -152,7 +152,7 @@ The following items should be considered when contributing to Synapse:
   by alphabetical order (when lengths match). Imports should be ordered
   starting from the Python standard library first, then any third party
   packages, then any Synapse specific imports. The following example shows the
-  reccomended styling for imports:
+  recommended styling for imports:
 
   ::
 
@@ -163,11 +163,29 @@ The following items should be considered when contributing to Synapse:
     import barlib.duck as b_duck
     import foolib.thing as f_thing
     # Synapse Code
+    import synapse.common as s_common
     import synapse.compat as s_compat
     import synapse.cortex as s_cortex
     import synapse.lib.config as s_config
 
-    from synapse.common import *
+* Previously we used * imports in the Synapse codebase (especially around synapse.exc and synapse.common). If common
+  functions or exceptions are needed, import synapse.common as noted above, and both the common functions and the
+  entirety of synapse.exc exceptions will be available.  This provides a consistent manner for referencing common
+  functions and Synapse specific exception classes. New code should generally not use * imports.  Here is an example:
+
+  ::
+
+     # Do this
+     import synapse.common as s_common
+     tick = s_common.now()
+     if tick < 1000000000:
+        raise s_common.HitMaxTime(mesg='We have gone too far!')
+
+     # NOT this
+     from synapse.common import *
+     tick = now()
+     if tick < 1000000000:
+        raise HitMaxTime(mesg='We have gone too far!')
 
 * Function names should follow the mixedCase format for anything which is
   exposed as a externally facing API on a object or module.

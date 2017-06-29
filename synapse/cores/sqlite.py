@@ -1,13 +1,12 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import re
 import sqlite3
 
+import synapse.common as s_common
 import synapse.compat as s_compat
-import synapse.cores.common as s_cores_common
 
-from synapse.compat import queue
-from synapse.common import now,genpath
+import synapse.cores.common as s_cores_common
 
 stashre = re.compile('{{([A-Z]+)}}')
 
@@ -33,7 +32,7 @@ class CoreXact(s_cores_common.CoreXact):
 
     def _coreXactRelease(self):
         self.cursor.close()
-        self.core.dbpool.put( self.db )
+        self.core.dbpool.put(self.db)
 
         self.db = None
         self.cursor = None
@@ -57,11 +56,11 @@ class DbPool:
         # TODO: high/low water marks
         self.size = size
         self.ctor = ctor
-        self.dbque = queue.Queue()
+        self.dbque = s_compat.queue.Queue()
 
         for i in range(size):
             db = ctor()
-            self.put( db )
+            self.put(db)
 
     def put(self, db):
         '''
@@ -221,15 +220,15 @@ class Cortex(s_cores_common.Cortex):
             raise Exception('No Path Specified!')
 
         if name.find(':') == -1:
-            name = genpath(name)
+            name = s_common.genpath(name)
 
-        return {'name':name}
+        return {'name': name}
 
     def _getCoreXact(self, size=None):
         return CoreXact(self, size=size)
 
     def _getDbLimit(self, limit):
-        if limit != None:
+        if limit is not None:
             return limit
         return self.dblim
 
@@ -238,8 +237,8 @@ class Cortex(s_cores_common.Cortex):
 
         q = self._q_getrows_by_range
 
-        minvalu = int(self.getPropNorm(prop,valu[0])[0])
-        maxvalu = int(self.getPropNorm(prop,valu[1])[0])
+        minvalu = int(self.getPropNorm(prop, valu[0])[0])
+        maxvalu = int(self.getPropNorm(prop, valu[1])[0])
 
         rows = self.select(q, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)
         return self._foldTypeCols(rows)
@@ -260,20 +259,20 @@ class Cortex(s_cores_common.Cortex):
     def _sizeByRange(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getsize_by_range
-        minvalu = int(self.getPropNorm(prop,valu[0])[0])
-        maxvalu = int(self.getPropNorm(prop,valu[1])[0])
-        return self.select(q,prop=prop,minvalu=minvalu,maxvalu=maxvalu,limit=limit)[0][0]
+        minvalu = int(self.getPropNorm(prop, valu[0])[0])
+        maxvalu = int(self.getPropNorm(prop, valu[1])[0])
+        return self.select(q, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)[0][0]
 
     def _sizeByGe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getsize_by_ge
-        return self.select(q,prop=prop,valu=valu,limit=limit)[0][0]
+        return self.select(q, prop=prop, valu=valu, limit=limit)[0][0]
 
     def _sizeByLe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getsize_by_le
-        args = [ prop, valu, limit ]
-        return self.select(q,prop=prop,valu=valu,limit=limit)[0][0]
+        args = [prop, valu, limit]
+        return self.select(q, prop=prop, valu=valu, limit=limit)[0][0]
 
     def _initDbConn(self):
         dbinfo = self._initDbInfo()
@@ -293,40 +292,40 @@ class Cortex(s_cores_common.Cortex):
 
     def _initCortex(self):
 
-        self.initSizeBy('ge',self._sizeByGe)
-        self.initRowsBy('ge',self._rowsByGe)
+        self.initSizeBy('ge', self._sizeByGe)
+        self.initRowsBy('ge', self._rowsByGe)
 
-        self.initSizeBy('le',self._sizeByLe)
-        self.initRowsBy('le',self._rowsByLe)
+        self.initSizeBy('le', self._sizeByLe)
+        self.initRowsBy('le', self._rowsByLe)
 
-        self.initSizeBy('range',self._sizeByRange)
-        self.initRowsBy('range',self._rowsByRange)
+        self.initSizeBy('range', self._sizeByRange)
+        self.initRowsBy('range', self._rowsByRange)
 
         self.initTufosBy('ge', self._tufosByGe)
         self.initTufosBy('le', self._tufosByLe)
-        self.initTufosBy('range',self._tufosByRange)
+        self.initTufosBy('range', self._tufosByRange)
 
         # borrow the helpers from common
         self.initTufosBy('gt', self._tufosByGt)
         self.initTufosBy('lt', self._tufosByLt)
 
         self.dbpool = self._link[1].get('dbpool')
-        if self.dbpool == None:
-            pool = int( self._link[1].get('pool',1) )
+        if self.dbpool is None:
+            pool = int(self._link[1].get('pool', 1))
             self.dbpool = DbPool(pool, self._initDbConn)
 
         table = self._getTableName()
 
         self._initCorQueries()
 
-        if not self._checkForTable( table ):
-            self._initCorTable( table )
+        if not self._checkForTable(table):
+            self._initCorTable(table)
 
     def _prepQuery(self, query):
         # prep query strings by replacing all %s with table name
         # and all ? with db specific variable token
         table = self._getTableName()
-        query = query.replace('{{TABLE}}',table)
+        query = query.replace('{{TABLE}}', table)
 
         for name in stashre.findall(query):
             query = query.replace('{{%s}}' % name, self._addVarDecor(name.lower()))
@@ -398,85 +397,85 @@ class Cortex(s_cores_common.Cortex):
         ###################################################################################
 
         self.qbuild = {
-            'rowsbyprop':{
-                (none_t,none_t,none_t):self._q_getrows_by_prop,
-                (none_t,int_t,none_t):self._q_getrows_by_prop_wmin,
-                (none_t,none_t,int_t):self._q_getrows_by_prop_wmax,
-                (none_t,int_t,int_t):self._q_getrows_by_prop_wminmax,
+            'rowsbyprop': {
+                (none_t, none_t, none_t): self._q_getrows_by_prop,
+                (none_t, int_t, none_t): self._q_getrows_by_prop_wmin,
+                (none_t, none_t, int_t): self._q_getrows_by_prop_wmax,
+                (none_t, int_t, int_t): self._q_getrows_by_prop_wminmax,
 
-                (int_t,none_t,none_t):self._q_getrows_by_prop_int,
-                (int_t,int_t,none_t):self._q_getrows_by_prop_int_wmin,
-                (int_t,none_t,int_t):self._q_getrows_by_prop_int_wmax,
-                (int_t,int_t,int_t):self._q_getrows_by_prop_int_wminmax,
+                (int_t, none_t, none_t): self._q_getrows_by_prop_int,
+                (int_t, int_t, none_t): self._q_getrows_by_prop_int_wmin,
+                (int_t, none_t, int_t): self._q_getrows_by_prop_int_wmax,
+                (int_t, int_t, int_t): self._q_getrows_by_prop_int_wminmax,
 
-                (str_t,none_t,none_t):self._q_getrows_by_prop_str,
-                (str_t,int_t,none_t):self._q_getrows_by_prop_str_wmin,
-                (str_t,none_t,int_t):self._q_getrows_by_prop_str_wmax,
-                (str_t,int_t,int_t):self._q_getrows_by_prop_str_wminmax,
+                (str_t, none_t, none_t): self._q_getrows_by_prop_str,
+                (str_t, int_t, none_t): self._q_getrows_by_prop_str_wmin,
+                (str_t, none_t, int_t): self._q_getrows_by_prop_str_wmax,
+                (str_t, int_t, int_t): self._q_getrows_by_prop_str_wminmax,
             },
-            'joinbyprop':{
-                (none_t,none_t,none_t):self._q_getjoin_by_prop,
-                (none_t,int_t,none_t):self._q_getjoin_by_prop_wmin,
-                (none_t,none_t,int_t):self._q_getjoin_by_prop_wmax,
-                (none_t,int_t,int_t):self._q_getjoin_by_prop_wminmax,
+            'joinbyprop': {
+                (none_t, none_t, none_t): self._q_getjoin_by_prop,
+                (none_t, int_t, none_t): self._q_getjoin_by_prop_wmin,
+                (none_t, none_t, int_t): self._q_getjoin_by_prop_wmax,
+                (none_t, int_t, int_t): self._q_getjoin_by_prop_wminmax,
 
-                (int_t,none_t,none_t):self._q_getjoin_by_prop_int,
-                (int_t,int_t,none_t):self._q_getjoin_by_prop_int_wmin,
-                (int_t,none_t,int_t):self._q_getjoin_by_prop_int_wmax,
-                (int_t,int_t,int_t):self._q_getjoin_by_prop_int_wminmax,
+                (int_t, none_t, none_t): self._q_getjoin_by_prop_int,
+                (int_t, int_t, none_t): self._q_getjoin_by_prop_int_wmin,
+                (int_t, none_t, int_t): self._q_getjoin_by_prop_int_wmax,
+                (int_t, int_t, int_t): self._q_getjoin_by_prop_int_wminmax,
 
-                (str_t,none_t,none_t):self._q_getjoin_by_prop_str,
-                (str_t,int_t,none_t):self._q_getjoin_by_prop_str_wmin,
-                (str_t,none_t,int_t):self._q_getjoin_by_prop_str_wmax,
-                (str_t,int_t,int_t):self._q_getjoin_by_prop_str_wminmax,
+                (str_t, none_t, none_t): self._q_getjoin_by_prop_str,
+                (str_t, int_t, none_t): self._q_getjoin_by_prop_str_wmin,
+                (str_t, none_t, int_t): self._q_getjoin_by_prop_str_wmax,
+                (str_t, int_t, int_t): self._q_getjoin_by_prop_str_wminmax,
             },
-            'sizebyprop':{
-                (none_t,none_t,none_t):self._q_getsize_by_prop,
-                (none_t,int_t,none_t):self._q_getsize_by_prop_wmin,
-                (none_t,none_t,int_t):self._q_getsize_by_prop_wmax,
-                (none_t,int_t,int_t):self._q_getsize_by_prop_wminmax,
+            'sizebyprop': {
+                (none_t, none_t, none_t): self._q_getsize_by_prop,
+                (none_t, int_t, none_t): self._q_getsize_by_prop_wmin,
+                (none_t, none_t, int_t): self._q_getsize_by_prop_wmax,
+                (none_t, int_t, int_t): self._q_getsize_by_prop_wminmax,
 
-                (int_t,none_t,none_t):self._q_getsize_by_prop_int,
-                (int_t,int_t,none_t):self._q_getsize_by_prop_int_wmin,
-                (int_t,none_t,int_t):self._q_getsize_by_prop_int_wmax,
-                (int_t,int_t,int_t):self._q_getsize_by_prop_int_wminmax,
+                (int_t, none_t, none_t): self._q_getsize_by_prop_int,
+                (int_t, int_t, none_t): self._q_getsize_by_prop_int_wmin,
+                (int_t, none_t, int_t): self._q_getsize_by_prop_int_wmax,
+                (int_t, int_t, int_t): self._q_getsize_by_prop_int_wminmax,
 
-                (str_t,none_t,none_t):self._q_getsize_by_prop_str,
-                (str_t,int_t,none_t):self._q_getsize_by_prop_str_wmin,
-                (str_t,none_t,int_t):self._q_getsize_by_prop_str_wmax,
-                (str_t,int_t,int_t):self._q_getsize_by_prop_str_wminmax,
+                (str_t, none_t, none_t): self._q_getsize_by_prop_str,
+                (str_t, int_t, none_t): self._q_getsize_by_prop_str_wmin,
+                (str_t, none_t, int_t): self._q_getsize_by_prop_str_wmax,
+                (str_t, int_t, int_t): self._q_getsize_by_prop_str_wminmax,
             },
-            'delrowsbyprop':{
-                (none_t,none_t,none_t):self._prepQuery(self._t_delrows_by_prop),
-                (none_t,int_t,none_t):self._prepQuery(self._t_delrows_by_prop_wmin),
-                (none_t,none_t,int_t):self._prepQuery(self._t_delrows_by_prop_wmax),
-                (none_t,int_t,int_t):self._prepQuery(self._t_delrows_by_prop_wminmax),
+            'delrowsbyprop': {
+                (none_t, none_t, none_t): self._prepQuery(self._t_delrows_by_prop),
+                (none_t, int_t, none_t): self._prepQuery(self._t_delrows_by_prop_wmin),
+                (none_t, none_t, int_t): self._prepQuery(self._t_delrows_by_prop_wmax),
+                (none_t, int_t, int_t): self._prepQuery(self._t_delrows_by_prop_wminmax),
 
-                (int_t,none_t,none_t):self._prepQuery(self._t_delrows_by_prop_int),
-                (int_t,int_t,none_t):self._prepQuery(self._t_delrows_by_prop_int_wmin),
-                (int_t,none_t,int_t):self._prepQuery(self._t_delrows_by_prop_int_wmax),
-                (int_t,int_t,int_t):self._prepQuery(self._t_delrows_by_prop_int_wminmax),
+                (int_t, none_t, none_t): self._prepQuery(self._t_delrows_by_prop_int),
+                (int_t, int_t, none_t): self._prepQuery(self._t_delrows_by_prop_int_wmin),
+                (int_t, none_t, int_t): self._prepQuery(self._t_delrows_by_prop_int_wmax),
+                (int_t, int_t, int_t): self._prepQuery(self._t_delrows_by_prop_int_wminmax),
 
-                (str_t,none_t,none_t):self._prepQuery(self._t_delrows_by_prop_str),
-                (str_t,int_t,none_t):self._prepQuery(self._t_delrows_by_prop_str_wmin),
-                (str_t,none_t,int_t):self._prepQuery(self._t_delrows_by_prop_str_wmax),
-                (str_t,int_t,int_t):self._prepQuery(self._t_delrows_by_prop_str_wminmax),
+                (str_t, none_t, none_t): self._prepQuery(self._t_delrows_by_prop_str),
+                (str_t, int_t, none_t): self._prepQuery(self._t_delrows_by_prop_str_wmin),
+                (str_t, none_t, int_t): self._prepQuery(self._t_delrows_by_prop_str_wmax),
+                (str_t, int_t, int_t): self._prepQuery(self._t_delrows_by_prop_str_wminmax),
             },
-            'deljoinbyprop':{
-                (none_t,none_t,none_t):self._prepQuery(self._t_deljoin_by_prop),
-                (none_t,int_t,none_t):self._prepQuery(self._t_deljoin_by_prop_wmin),
-                (none_t,none_t,int_t):self._prepQuery(self._t_deljoin_by_prop_wmax),
-                (none_t,int_t,int_t):self._prepQuery(self._t_deljoin_by_prop_wminmax),
+            'deljoinbyprop': {
+                (none_t, none_t, none_t): self._prepQuery(self._t_deljoin_by_prop),
+                (none_t, int_t, none_t): self._prepQuery(self._t_deljoin_by_prop_wmin),
+                (none_t, none_t, int_t): self._prepQuery(self._t_deljoin_by_prop_wmax),
+                (none_t, int_t, int_t): self._prepQuery(self._t_deljoin_by_prop_wminmax),
 
-                (int_t,none_t,none_t):self._prepQuery(self._t_deljoin_by_prop_int),
-                (int_t,int_t,none_t):self._prepQuery(self._t_deljoin_by_prop_int_wmin),
-                (int_t,none_t,int_t):self._prepQuery(self._t_deljoin_by_prop_int_wmax),
-                (int_t,int_t,int_t):self._prepQuery(self._t_deljoin_by_prop_int_wminmax),
+                (int_t, none_t, none_t): self._prepQuery(self._t_deljoin_by_prop_int),
+                (int_t, int_t, none_t): self._prepQuery(self._t_deljoin_by_prop_int_wmin),
+                (int_t, none_t, int_t): self._prepQuery(self._t_deljoin_by_prop_int_wmax),
+                (int_t, int_t, int_t): self._prepQuery(self._t_deljoin_by_prop_int_wminmax),
 
-                (str_t,none_t,none_t):self._prepQuery(self._t_deljoin_by_prop_str),
-                (str_t,int_t,none_t):self._prepQuery(self._t_deljoin_by_prop_str_wmin),
-                (str_t,none_t,int_t):self._prepQuery(self._t_deljoin_by_prop_str_wmax),
-                (str_t,int_t,int_t):self._prepQuery(self._t_deljoin_by_prop_str_wminmax),
+                (str_t, none_t, none_t): self._prepQuery(self._t_deljoin_by_prop_str),
+                (str_t, int_t, none_t): self._prepQuery(self._t_deljoin_by_prop_str_wmin),
+                (str_t, none_t, int_t): self._prepQuery(self._t_deljoin_by_prop_str_wmax),
+                (str_t, int_t, int_t): self._prepQuery(self._t_deljoin_by_prop_str_wminmax),
             }
         }
 
@@ -513,50 +512,50 @@ class Cortex(s_cores_common.Cortex):
 
     def _addRows(self, rows):
         args = []
-        for i,p,v,t in rows:
+        for i, p, v, t in rows:
             if s_compat.isint(v):
-                args.append( {'iden':i, 'prop':p, 'intval':v, 'strval':None, 'tstamp':t} )
+                args.append({'iden': i, 'prop': p, 'intval': v, 'strval': None, 'tstamp': t})
             else:
-                args.append( {'iden':i, 'prop':p, 'intval':None, 'strval':v, 'tstamp':t} )
+                args.append({'iden': i, 'prop': p, 'intval': None, 'strval': v, 'tstamp': t})
 
         with self.getCoreXact() as xact:
-            xact.cursor.executemany( self._q_addrows, args )
+            xact.cursor.executemany(self._q_addrows, args)
 
     def update(self, q, **args):
         with self.getCoreXact() as xact:
-            xact.cursor.execute(q,args)
+            xact.cursor.execute(q, args)
             return xact.cursor.rowcount
 
     def select(self, q, **args):
         with self.getCoreXact() as xact:
-            xact.cursor.execute(q,args)
+            xact.cursor.execute(q, args)
             return xact.cursor.fetchall()
 
     def delete(self, q, **args):
         with self.getCoreXact() as xact:
-            xact.cursor.execute(q,args)
+            xact.cursor.execute(q, args)
 
     def _foldTypeCols(self, rows):
         ret = []
-        for iden,prop,intval,strval,tstamp in rows:
+        for iden, prop, intval, strval, tstamp in rows:
 
-            if intval != None:
-                ret.append( (iden,prop,intval,tstamp) )
+            if intval is not None:
+                ret.append((iden, prop, intval, tstamp))
             else:
-                ret.append( (iden,prop,strval,tstamp) )
+                ret.append((iden, prop, strval, tstamp))
 
         return ret
 
     def _getRowsById(self, iden):
-        rows = self.select(self._q_getrows_by_iden,iden=iden)
+        rows = self.select(self._q_getrows_by_iden, iden=iden)
         return self._foldTypeCols(rows)
 
     def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
-        rows = self._runPropQuery('sizebyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
+        rows = self._runPropQuery('sizebyprop', prop, valu=valu, limit=limit, mintime=mintime, maxtime=maxtime)
         return rows[0][0]
 
     def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
-        rows = self._runPropQuery('rowsbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
+        rows = self._runPropQuery('rowsbyprop', prop, valu=valu, limit=limit, mintime=mintime, maxtime=maxtime)
         return self._foldTypeCols(rows)
 
     def _tufosByRange(self, prop, valu, limit=None):
@@ -564,8 +563,8 @@ class Cortex(s_cores_common.Cortex):
         if len(valu) != 2:
             return []
 
-        minvalu = int(self.getPropNorm(prop,valu[0])[0])
-        maxvalu = int(self.getPropNorm(prop,valu[1])[0])
+        minvalu = int(self.getPropNorm(prop, valu[0])[0])
+        maxvalu = int(self.getPropNorm(prop, valu[1])[0])
 
         limit = self._getDbLimit(limit)
 
@@ -574,7 +573,7 @@ class Cortex(s_cores_common.Cortex):
         return self._rowsToTufos(rows)
 
     def _tufosByLe(self, prop, valu, limit=None):
-        valu,_ = self.getPropNorm(prop,valu)
+        valu, _ = self.getPropNorm(prop, valu)
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_le_int, prop=prop, valu=valu, limit=limit)
@@ -583,7 +582,7 @@ class Cortex(s_cores_common.Cortex):
         return self._rowsToTufos(rows)
 
     def _tufosByGe(self, prop, valu, limit=None):
-        valu,_ = self.getPropNorm(prop,valu)
+        valu, _ = self.getPropNorm(prop, valu)
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_ge_int, prop=prop, valu=valu, limit=limit)
@@ -594,10 +593,10 @@ class Cortex(s_cores_common.Cortex):
     def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None, nolim=False):
         limit = self._getDbLimit(limit)
 
-        qkey = (s_compat.typeof(valu),s_compat.typeof(mintime),s_compat.typeof(maxtime))
+        qkey = (s_compat.typeof(valu), s_compat.typeof(mintime), s_compat.typeof(maxtime))
 
         qstr = self.qbuild[name][qkey]
-        if meth == None:
+        if meth is None:
             meth = self.select
 
         rows = meth(qstr, prop=prop, valu=valu, limit=limit, mintime=mintime, maxtime=maxtime)
@@ -605,46 +604,46 @@ class Cortex(s_cores_common.Cortex):
         return rows
 
     def _delRowsByIdProp(self, iden, prop, valu=None):
-        if valu == None:
-            return self.delete( self._q_delrows_by_iden_prop, iden=iden, prop=prop )
+        if valu is None:
+            return self.delete(self._q_delrows_by_iden_prop, iden=iden, prop=prop)
 
         if s_compat.isint(valu):
-            return self.delete( self._q_delrows_by_iden_prop_intval, iden=iden, prop=prop, valu=valu )
+            return self.delete(self._q_delrows_by_iden_prop_intval, iden=iden, prop=prop, valu=valu)
         else:
-            return self.delete( self._q_delrows_by_iden_prop_strval, iden=iden, prop=prop, valu=valu )
+            return self.delete(self._q_delrows_by_iden_prop_strval, iden=iden, prop=prop, valu=valu)
 
     def _getRowsByIdProp(self, iden, prop, valu=None):
-        if valu == None:
-            rows = self.select( self._q_getrows_by_iden_prop, iden=iden, prop=prop)
+        if valu is None:
+            rows = self.select(self._q_getrows_by_iden_prop, iden=iden, prop=prop)
             return self._foldTypeCols(rows)
 
         if s_compat.isint(valu):
-            rows = self.select( self._q_getrows_by_iden_prop_intval, iden=iden, prop=prop, valu=valu)
+            rows = self.select(self._q_getrows_by_iden_prop_intval, iden=iden, prop=prop, valu=valu)
             return self._foldTypeCols(rows)
 
         else:
-            rows = self.select( self._q_getrows_by_iden_prop_strval, iden=iden, prop=prop, valu=valu)
+            rows = self.select(self._q_getrows_by_iden_prop_strval, iden=iden, prop=prop, valu=valu)
             return self._foldTypeCols(rows)
 
     def _setRowsByIdProp(self, iden, prop, valu):
         if s_compat.isint(valu):
-            count = self.update( self._q_uprows_by_iden_prop_int, iden=iden, prop=prop, valu=valu )
+            count = self.update(self._q_uprows_by_iden_prop_int, iden=iden, prop=prop, valu=valu)
         else:
-            count = self.update( self._q_uprows_by_iden_prop_str, iden=iden, prop=prop, valu=valu )
+            count = self.update(self._q_uprows_by_iden_prop_str, iden=iden, prop=prop, valu=valu)
 
         if count == 0:
-            rows = [ (iden,prop,valu,now()), ]
+            rows = [(iden, prop, valu, s_common.now()), ]
             self._addRows(rows)
 
     def _delRowsById(self, iden):
         self.delete(self._q_delrows_by_iden, iden=iden)
 
     def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        self._runPropQuery('deljoinbyprop',prop,valu=valu,mintime=mintime,maxtime=maxtime,meth=self.delete, nolim=True)
+        self._runPropQuery('deljoinbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete, nolim=True)
 
     def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
-        rows = self._runPropQuery('joinbyprop',prop,valu=valu,limit=limit,mintime=mintime,maxtime=maxtime)
+        rows = self._runPropQuery('joinbyprop', prop, valu=valu, limit=limit, mintime=mintime, maxtime=maxtime)
         return self._foldTypeCols(rows)
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        self._runPropQuery('delrowsbyprop',prop,valu=valu,mintime=mintime,maxtime=maxtime,meth=self.delete, nolim=True)
+        self._runPropQuery('delrowsbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete, nolim=True)

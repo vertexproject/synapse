@@ -1,6 +1,7 @@
 '''
 Tools for persisting msgpack compatible objects.
 '''
+import os
 import time
 import struct
 import msgpack
@@ -8,14 +9,11 @@ import logging
 import threading
 import collections
 
+import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.eventbus as s_eventbus
-import synapse.telepath as s_telepath
 
 import synapse.lib.queue as s_queue
-import synapse.lib.urlhelp as s_urlhelp
-
-from synapse.common import *
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +21,8 @@ def opendir(*paths, **opts):
     '''
     Open a persistance directory by path name with options.
     '''
-    path = gendir(*paths)
-    return Dir(path,**opts)
+    path = s_common.gendir(*paths)
+    return Dir(path, **opts)
 
 megabyte = 1024000
 gigabyte = 1024000000
@@ -47,14 +45,14 @@ class Offset(s_eventbus.EventBus):
     def __init__(self, *paths):
         s_eventbus.EventBus.__init__(self)
 
-        self.fd = genfile(*paths)
+        self.fd = s_common.genfile(*paths)
         self.valu = 0
 
         byts = self.fd.read(8)
         if len(byts):
             self.valu, = struct.unpack('<Q', byts)
 
-        self.onfini( self.fd.close )
+        self.onfini(self.fd.close)
 
     def set(self, valu):
         '''
@@ -63,7 +61,7 @@ class Offset(s_eventbus.EventBus):
         self.valu = valu
 
         self.fd.seek(0)
-        self.fd.write( struct.pack('<Q',valu) )
+        self.fd.write(struct.pack('<Q', valu))
 
         self.fire('pers:off', valu=valu)
 
@@ -85,14 +83,14 @@ class Dir(s_eventbus.EventBus):
         self.size = 0
         self.opts = opts
         self.last = None
-        self.path = gendir(path)
+        self.path = s_common.gendir(path)
         self.lock = threading.Lock()
 
         self.window = collections.deque()
 
-        self.opts.setdefault('filemax',gigabyte) 
+        self.opts.setdefault('filemax', gigabyte)
 
-        self.baseoff = opts.get('base',0)  # base address of this file
+        self.baseoff = opts.get('base', 0)  # base address of this file
 
         self.files = []
         self.pumps = {}
@@ -104,10 +102,10 @@ class Dir(s_eventbus.EventBus):
         if self.files:
             self.last = self.files[-1]
 
-        if self.last == None:
+        if self.last is None:
             self.last = self._addPersFile(0)
 
-        self.onfini( self._onDirFini )
+        self.onfini(self._onDirFini)
 
     def pump(self, iden, func):
         '''
@@ -119,13 +117,13 @@ class Dir(s_eventbus.EventBus):
 
         '''
         if self.isfini:
-            raise IsFini()
+            raise s_common.IsFini()
 
         with self.lock:
             if self.pumps.get(iden):
                 raise Exception('Duplicate Pump Iden: %s' % (iden,))
 
-        self._runPumpThread(iden,func)
+        self._runPumpThread(iden, func)
 
     def getPumpOffs(self):
         '''
@@ -137,17 +135,17 @@ class Dir(s_eventbus.EventBus):
                 dostuff()
 
         '''
-        return [ (iden,poff.get()) for (iden,poff) in self.pumps ]
+        return [(iden, poff.get()) for (iden, poff) in self.pumps]
 
     def getIdenOffset(self, iden):
         return Offset(self.path, '%s.off' % iden)
 
-    @firethread
+    @s_common.firethread
     def _runPumpThread(self, iden, func):
         '''
         Fire a mirror thread to push persist events to a function.
         '''
-        self.pumpers.append( threading.currentThread() )
+        self.pumpers.append(threading.currentThread())
 
         with self.getIdenOffset(iden) as poff:
 
@@ -156,7 +154,7 @@ class Dir(s_eventbus.EventBus):
                 self.pumps[iden] = noff
                 try:
 
-                    for noff,item in self.items(noff):
+                    for noff, item in self.items(noff):
 
                         func(item)
 
@@ -168,25 +166,25 @@ class Dir(s_eventbus.EventBus):
 
                 except Exception as e:
                     if not self.isfini:
-                        logger.warning('_runPumpThread (%s): %e' % (iden,e))
+                        logger.warning('_runPumpThread (%s): %e' % (iden, e))
                         time.sleep(1)
 
     def _onDirFini(self):
-        [ q.fini() for q in self.queues ]
-        [ f.fini() for f in self.files ]
-        [ p.join(timeout=1) for p in self.pumpers ]
+        [q.fini() for q in self.queues]
+        [f.fini() for f in self.files]
+        [p.join(timeout=1) for p in self.pumpers]
 
     def _initPersFiles(self):
         # initialize the individual persist files we already have...
-        names = [ n for n in os.listdir(self.path) if n.endswith('.cyto') ]
+        names = [n for n in os.listdir(self.path) if n.endswith('.cyto')]
         for name in sorted(names):
-            off = int(name.split('.',1)[0],16)
+            off = int(name.split('.', 1)[0], 16)
             pers = self._addPersFile(off)
 
     def _addPersFile(self, baseoff):
         # MUST BE CALLED WITH LOCK OR IN CTOR
-        fd = genfile(self.path,'%.16x.cyto' % baseoff)
-        pers = File(fd,baseoff=baseoff)
+        fd = s_common.genfile(self.path, '%.16x.cyto' % baseoff)
+        pers = File(fd, baseoff=baseoff)
         self.files.append(pers)
         return pers
 
@@ -202,14 +200,14 @@ class Dir(s_eventbus.EventBus):
         '''
         with self.lock:
             base = self.last.opts.get('baseoff')
-            soff,size = self.last.add(item)
+            soff, size = self.last.add(item)
 
             self.size = base + self.last.size
 
             if self.last.size >= self.opts.get('filemax'):
                 self.last = self._addPersFile(self.size)
 
-            [ q.put((self.size,item)) for q in self.queues ]
+            [q.put((self.size, item)) for q in self.queues]
 
             return (base + soff, size)
 
@@ -228,13 +226,13 @@ class Dir(s_eventbus.EventBus):
 
         '''
         que = s_queue.Queue()
-        unpk = msgpack.Unpacker(use_list=0,encoding='utf8')
+        unpk = msgpack.Unpacker(use_list=0, encoding='utf8')
 
         if self.files[0].opts.get('baseoff') > off:
             raise Exception('Too Far Back') # FIXME
 
         # a bit of a hack to get lengths from msgpack Unpacker
-        data = {'next':0}
+        data = {'next': 0}
         def calcsize(b):
             data['next'] += len(b)
 
@@ -251,10 +249,10 @@ class Dir(s_eventbus.EventBus):
 
                 foff = off - base
 
-                byts = pers.readoff(foff,blocksize)
+                byts = pers.readoff(foff, blocksize)
 
                 # file has been closed...
-                if byts == None:
+                if byts is None:
                     return
 
                 # check if we're at the edge
@@ -268,21 +266,21 @@ class Dir(s_eventbus.EventBus):
 
                         # if there are byts now, we whiffed
                         # the check/set race.  Go around again.
-                        byts = pers.readoff(foff,blocksize)
-                        if byts == None:
+                        byts = pers.readoff(foff, blocksize)
+                        if byts is None:
                             return
 
                         if not byts:
                             self.queues.append(que)
                             break
 
-                unpk.feed( byts )
+                unpk.feed(byts)
 
                 try:
 
                     while True:
                         item = unpk.unpack(write_bytes=calcsize)
-                        yield data['next'],item
+                        yield data['next'], item
 
                 except msgpack.exceptions.OutOfData:
                     pass
@@ -310,10 +308,10 @@ class File(s_eventbus.EventBus):
     def __init__(self, fd=None, **opts):
         s_eventbus.EventBus.__init__(self)
 
-        if fd == None:
+        if fd is None:
             fd = s_compat.BytesIO()
 
-        fd.seek(0,os.SEEK_END)
+        fd.seek(0, os.SEEK_END)
 
         self.fd = fd
 
@@ -324,7 +322,7 @@ class File(s_eventbus.EventBus):
         self.opts = opts
         self.fdlock = threading.Lock()
 
-        self.onfini( self._onFileFini )
+        self.onfini(self._onFileFini)
 
     def _onFileFini(self):
         with self.fdlock:
@@ -334,16 +332,16 @@ class File(s_eventbus.EventBus):
         '''
         Add an item to the persistance storage.
         '''
-        byts = msgenpack(item)
+        byts = s_common.msgenpack(item)
         size = len(byts)
 
         with self.fdlock:
 
             if self.isfini:
-                raise IsFini()
+                raise s_common.IsFini()
 
             if self.fdoff != self.size:
-                self.fd.seek(0,os.SEEK_END)
+                self.fd.seek(0, os.SEEK_END)
 
             off = self.size
 
@@ -352,7 +350,7 @@ class File(s_eventbus.EventBus):
             self.size += len(byts)
             self.fdoff = self.size
 
-            return (off,size)
+            return (off, size)
 
     def readoff(self, off, size):
         '''

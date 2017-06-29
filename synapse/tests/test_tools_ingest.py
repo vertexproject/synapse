@@ -16,19 +16,19 @@ class TestIngest(SynTest):
 
             with s_cortex.openurl('ram:///') as core:
 
-                dmon.share('core',core)
+                dmon.share('core', core)
 
                 curl = 'tcp://127.0.0.1:%d/core' % link[1].get('port')
 
                 with self.getTestDir() as dirn:
 
-                    csvpath = os.path.join(dirn,'woot.csv')
-                    jsonpath = os.path.join(dirn,'ingest.json')
-                    syncpath = os.path.join(dirn,'woot.sync')
+                    csvpath = os.path.join(dirn, 'woot.csv')
+                    jsonpath = os.path.join(dirn, 'ingest.json')
+                    syncpath = os.path.join(dirn, 'woot.sync')
 
                     gest = {
-                        'sources':[
-                            [csvpath,{ 'open':{'format':'csv'}, 'ingest':{'forms':[ ['inet:ipv4',{'path':'1'} ] ] } } ],
+                        'sources': [
+                            [csvpath, {'open': {'format': 'csv'}, 'ingest': {'forms': [['inet:ipv4', {'path': '1'}]]}}],
                         ],
                     }
 
@@ -37,13 +37,12 @@ class TestIngest(SynTest):
                         fd.write(b'bar.com,4.5.6.7\n')
 
                     with genfile(jsonpath) as fd:
-                        fd.write( json.dumps(gest).encode('utf8') )
+                        fd.write(json.dumps(gest).encode('utf8'))
 
                     outp = self.getTestOutp()
                     argv = ['--sync', curl, '--save', syncpath, '--verbose', '--progress', jsonpath]
-                    self.eq( s_ingest.main(argv,outp=outp), 0)
+                    self.eq(s_ingest.main(argv, outp=outp), 0)
 
-                    tufo = core.getTufoByProp('inet:ipv4',0x01020304)
+                    tufo = core.getTufoByProp('inet:ipv4', 0x01020304)
 
-                    self.eq( tufo[1].get('inet:ipv4'), 0x01020304 )
-
+                    self.eq(tufo[1].get('inet:ipv4'), 0x01020304)

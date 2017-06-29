@@ -33,7 +33,7 @@ class EpochType(DataType):
         if not s_compat.isint(valu):
             self._raiseBadValu(valu)
 
-        if oldval != None and self.minmax:
+        if oldval is not None and self.minmax:
             valu = self.minmax(valu, oldval)
 
         return valu, {}
@@ -68,7 +68,7 @@ class EpochType(DataType):
         epoch = datetime.datetime(1970, 1, 1)
 
         valu = int((dt - epoch).total_seconds())
-        if oldval != None and self.minmax:
+        if oldval is not None and self.minmax:
             valu = self.minmax(valu, oldval)
 
         return valu, {}

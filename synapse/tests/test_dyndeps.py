@@ -14,38 +14,38 @@ def woot(x, y=30):
 class DynDepsTest(SynTest):
 
     def test_dyndeps_dynmod(self):
-        self.none( s_dyndeps.getDynMod('- -') )
-        self.nn( s_dyndeps.getDynMod('sys') )
+        self.none(s_dyndeps.getDynMod('- -'))
+        self.nn(s_dyndeps.getDynMod('sys'))
 
     def test_dyndeps_dynloc(self):
-        self.none( s_dyndeps.getDynLocal('synapse.tests.test_dyndeps.gronk') )
-        self.nn( s_dyndeps.getDynLocal('synapse.tests.test_dyndeps.hehe') )
+        self.none(s_dyndeps.getDynLocal('synapse.tests.test_dyndeps.gronk'))
+        self.nn(s_dyndeps.getDynLocal('synapse.tests.test_dyndeps.hehe'))
 
     def test_dyndeps_dyntask(self):
         task = ('synapse.tests.test_dyndeps.Foo', (), {})
         foo = s_dyndeps.runDynTask(task)
-        self.eq( foo.bar(), 'baz' )
+        self.eq(foo.bar(), 'baz')
 
     def test_dyndeps_eval(self):
         valu = s_dyndeps.runDynEval('synapse.tests.test_dyndeps.woot(40,y=10)')
-        self.eq( valu, 50 )
+        self.eq(valu, 50)
 
     def test_dyndeps_nosuchdyn(self):
-        self.raises( NoSuchDyn, s_dyndeps.tryDynMod, 'newpnewp' )
-        self.raises( NoSuchDyn, s_dyndeps.tryDynLocal, 'sys.newpnewp' )
+        self.raises(NoSuchDyn, s_dyndeps.tryDynMod, 'newpnewp')
+        self.raises(NoSuchDyn, s_dyndeps.tryDynLocal, 'sys.newpnewp')
 
     def test_dyndeps_alias(self):
 
-        s_dyndeps.addDynAlias('unit_test_woot',woot)
+        s_dyndeps.addDynAlias('unit_test_woot', woot)
 
-        self.eq( s_dyndeps.getDynLocal('unit_test_woot'), woot )
-        self.eq( s_dyndeps.tryDynFunc('unit_test_woot', 20, y=40 ), 60 )
+        self.eq(s_dyndeps.getDynLocal('unit_test_woot'), woot)
+        self.eq(s_dyndeps.tryDynFunc('unit_test_woot', 20, y=40), 60)
 
-        self.eq( s_dyndeps.delDynAlias('unit_test_woot'), woot )
-        self.none( s_dyndeps.getDynLocal('unit_test_woot') )
+        self.eq(s_dyndeps.delDynAlias('unit_test_woot'), woot)
+        self.none(s_dyndeps.getDynLocal('unit_test_woot'))
 
-        self.raises( NoSuchDyn, s_dyndeps.tryDynFunc, 'unit_test_woot', 20, y=40 )
+        self.raises(NoSuchDyn, s_dyndeps.tryDynFunc, 'unit_test_woot', 20, y=40)
 
     def test_dyndeps_meth(self):
-        self.nn( s_dyndeps.getDynMeth('synapse.telepath.Proxy.on') )
-        self.none( s_dyndeps.getDynMeth('synapse.telepath.Proxy.newp') )
+        self.nn(s_dyndeps.getDynMeth('synapse.telepath.Proxy.on'))
+        self.none(s_dyndeps.getDynMeth('synapse.telepath.Proxy.newp'))

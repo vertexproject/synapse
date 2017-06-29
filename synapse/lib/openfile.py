@@ -8,9 +8,9 @@ import os
 import codecs
 import tornado.httpclient as t_http
 
-from synapse.common import genpath
+import synapse.common as s_common
 
-def _open_http(*paths,**opts):
+def _open_http(*paths, **opts):
     # all URLs use /
     purl = '/'.join(paths)
     http = t_http.HTTPClient()
@@ -31,20 +31,20 @@ def openfd(*paths, **opts):
 
     '''
     if paths[0].startswith('http://') or paths[0].startswith('https://'):
-        fd = _open_http(*paths,**opts)
+        fd = _open_http(*paths, **opts)
 
     else:
 
         # allow relative opens from a base directory
         dirn = opts.get('file:basedir')
-        if dirn != None and not os.path.isabs(paths[0]):
+        if dirn is not None and not os.path.isabs(paths[0]):
             paths = (dirn,) + paths
 
-        path = genpath(*paths)
-        fd = io.open(path,'rb')
+        path = s_common.genpath(*paths)
+        fd = io.open(path, 'rb')
 
     ncod = opts.get('encoding')
-    if ncod != None:
+    if ncod is not None:
         fd = codecs.getreader(ncod)(fd)
 
     return fd

@@ -23,4 +23,3 @@ while True:
 
 print('initializing dmon main')
 s_dmon.main(['/syndata/dmon.json'])
-

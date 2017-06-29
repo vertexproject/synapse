@@ -1,7 +1,8 @@
 import os
 import threading
 import contextlib
-from synapse.common import novalu
+
+import synapse.common as s_common
 
 class Scope:
     '''
@@ -26,19 +27,17 @@ class Scope:
         if vals:
             self.frames.append(vals)
 
-
     def __enter__(self):
         return self.enter()
 
     def __exit__(self, exc, cls, tb):
         self.leave()
 
-    def enter(self,vals=None):
-
+    def enter(self, vals=None):
         '''
         Add an additional scope frame.
         '''
-        if vals == None:
+        if vals is None:
             vals = {}
         return self.frames.append(vals)
 
@@ -65,14 +64,14 @@ class Scope:
         Retrieve a value from the closest scope frame.
         '''
         for frame in reversed(self.frames):
-            valu = frame.get(name, novalu)
-            if valu != novalu:
+            valu = frame.get(name, s_common.novalu)
+            if valu != s_common.novalu:
                 return valu
 
         task = self.ctors.get(name)
-        if task != None:
-            func,args,kwargs = task
-            item = func(*args,**kwargs)
+        if task is not None:
+            func, args, kwargs = task
+            item = func(*args, **kwargs)
             self.frames[-1][name] = item
             return item
 
@@ -83,7 +82,7 @@ class Scope:
         Add values as iter() compatible items in the current scope frame.
         '''
         item = self.frames[-1].get(name)
-        if item == None:
+        if item is None:
             self.frames[-1][name] = item = []
         item.extend(vals)
 
@@ -98,7 +97,7 @@ class Scope:
             foo = scope.get('foo')
 
         '''
-        self.ctors[name] = (func,args,kwargs)
+        self.ctors[name] = (func, args, kwargs)
 
     def iter(self, name):
         '''
@@ -106,7 +105,7 @@ class Scope:
         '''
         for frame in self.frames:
             vals = frame.get(name)
-            if vals == None:
+            if vals is None:
                 continue
             for valu in vals:
                 yield valu
@@ -121,10 +120,10 @@ globscope = Scope(envr)
 def _thr_scope():
 
     thrd = threading.currentThread()
-    scope = getattr(thrd,'_syn_scope',None)
+    scope = getattr(thrd, '_syn_scope', None)
 
     # no need to lock because it's per-thread...
-    if scope == None:
+    if scope is None:
         scope = Scope(globscope)
         thrd._syn_scope = scope
 
@@ -137,22 +136,22 @@ def get(name):
     scope = _thr_scope()
     return scope.get(name)
 
-def set(name,valu):
+def set(name, valu):
     '''
     Set a value in the current frame of the local thread scope.
     '''
     scope = _thr_scope()
-    scope.set(name,valu)
+    scope.set(name, valu)
 
 def update(vals):
     scope = _thr_scope()
     scope.update(vals)
 
-def ctor(name,func,*args,**kwargs):
+def ctor(name, func, *args, **kwargs):
     '''
     Add a ctor callback to the global scope.
     '''
-    return globscope.ctor(name,func,*args,**kwargs)
+    return globscope.ctor(name, func, *args, **kwargs)
 
 @contextlib.contextmanager
 def enter(vals=None):

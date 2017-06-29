@@ -2,7 +2,6 @@ import json
 
 import synapse.lib.cli as s_cli
 import synapse.lib.tufo as s_tufo
-import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 
 class AskCmd(s_cli.Cmd):
@@ -21,16 +20,16 @@ class AskCmd(s_cli.Cmd):
 
     _cmd_name = 'ask'
     _cmd_syntax = (
-        ('--debug',{}),
-        ('--props',{}),
+        ('--debug', {}),
+        ('--props', {}),
         ('--raw', {}),
-        ('query',{'type':'glob'}),
+        ('query', {'type': 'glob'}),
     )
 
     def runCmdOpts(self, opts):
 
         ques = opts.get('query')
-        if ques == None:
+        if ques is None:
             self.printf(self.__doc__)
             return
 
@@ -53,34 +52,34 @@ class AskCmd(s_cli.Cmd):
             for opfo in resp.get('oplog'):
                 mnem = opfo.get('mnem')
                 took = opfo.get('took')
-                self.printf('    %s (took:%d) %r' % (mnem,took,opfo))
+                self.printf('    %s (took:%d) %r' % (mnem, took, opfo))
 
             self.printf('')
 
             self.printf('options:')
-            for name,valu in sorted(resp.get('options').items()):
-                self.printf('    %s = %s' % (name,valu))
+            for name, valu in sorted(resp.get('options').items()):
+                self.printf('    %s = %s' % (name, valu))
 
             self.printf('')
 
             self.printf('limits:')
-            for name,valu in sorted(resp.get('limits').items()):
-                self.printf('    %s = %s' % (name,valu))
+            for name, valu in sorted(resp.get('limits').items()):
+                self.printf('    %s = %s' % (name, valu))
 
             self.printf('')
 
         def nodevalu(t):
-            return repr( t[1].get( t[1].get('tufo:form') ) )
+            return repr(t[1].get(t[1].get('tufo:form')))
 
-        nodes = list(sorted( resp.get('data'), key=nodevalu))
+        nodes = list(sorted(resp.get('data'), key=nodevalu))
 
         if len(nodes) == 0:
             self.printf('(0 results)')
             return
 
-        forms = set([ node[1].get('tufo:form') for node in nodes ])
+        forms = set([node[1].get('tufo:form') for node in nodes])
 
-        fsize = max([ len(f) for f in forms ])
+        fsize = max([len(f) for f in forms])
 
         # Short circuit any fancy formatting and dump the raw node content as json
         if opts.get('raw'):
@@ -88,12 +87,12 @@ class AskCmd(s_cli.Cmd):
             self.printf('(%d results)' % (len(nodes),))
             return resp
 
-        show = resp.get('show',{})
+        show = resp.get('show', {})
         cols = show.get('columns')
 
         if cols is not None:
 
-            shlp = s_storm.ShowHelp(core,show)
+            shlp = s_storm.ShowHelp(core, show)
             rows = shlp.rows(nodes)
             pads = shlp.pad(rows)
 
@@ -107,7 +106,7 @@ class AskCmd(s_cli.Cmd):
                 form = node[1].get('tufo:form')
                 valu = node[1].get(form)
 
-                leafs = set(s_tufo.tags(node,leaf=True))
+                leafs = set(s_tufo.tags(node, leaf=True))
 
                 taglines = []
                 for tag in sorted(s_tufo.tags(node)):
@@ -119,28 +118,28 @@ class AskCmd(s_cli.Cmd):
                     if ival is None and tag not in leafs:
                         continue
 
-                    mesg = '%s (added %s)' % (prop, core.getTypeRepr('time',asof))
+                    mesg = '%s (added %s)' % (prop, core.getTypeRepr('time', asof))
                     if ival is not None:
-                        mins = core.getTypeRepr('time',ival[0])
-                        maxs = core.getTypeRepr('time',ival[1])
-                        mesg += ' %s  -  %s' % (mins,maxs)
+                        mins = core.getTypeRepr('time', ival[0])
+                        maxs = core.getTypeRepr('time', ival[1])
+                        mesg += ' %s  -  %s' % (mins, maxs)
 
                     taglines.append(mesg)
 
                 # FIXME local typelib and datamodel
-                disp = core.getPropRepr(form,valu)
+                disp = core.getPropRepr(form, valu)
 
-                self.printf('%s = %s' % (form.ljust(fsize),disp))
+                self.printf('%s = %s' % (form.ljust(fsize), disp))
                 for line in taglines:
                     self.printf('    %s' % (line,))
 
                 if opts.get('props'):
                     pref = form + ':'
                     flen = len(form)
-                    for prop in sorted([ k for k in node[1].keys() if k.startswith(pref) ]):
+                    for prop in sorted([k for k in node[1].keys() if k.startswith(pref)]):
                         valu = node[1].get(prop)
-                        disp = core.getPropRepr(prop,valu)
-                        self.printf('    %s = %s' % (prop[flen:],disp))
+                        disp = core.getPropRepr(prop, valu)
+                        self.printf('    %s = %s' % (prop[flen:], disp))
 
         self.printf('(%d results)' % (len(nodes),))
 
@@ -157,16 +156,15 @@ class NextSeqCmd(s_cli.Cmd):
     '''
     _cmd_name = 'nextseq'
     _cmd_syntax = (
-        ('name',{'type':'valu'}),
+        ('name', {'type': 'valu'}),
     )
 
     def runCmdOpts(self, opts):
         name = opts.get('name')
-        if name == None:
+        if name is None:
             self.printf(self.__doc__)
             return
 
         core = self.getCmdItem()
         valu = core.nextSeqValu(name)
-        self.printf('next in sequence (%s): %s' % (name,valu))
-
+        self.printf('next in sequence (%s): %s' % (name, valu))

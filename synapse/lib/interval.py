@@ -14,10 +14,10 @@ def fold(*vals):
         ((int,int)):    A (min,max) interval tuple or None
 
     '''
-    vals = [ v for v in vals if v is not None ]
+    vals = [v for v in vals if v is not None]
     if not vals:
         return None
-    return min(vals),max(vals)
+    return min(vals), max(vals)
 
 def overlap(ival0, ival1):
     '''
@@ -31,8 +31,8 @@ def overlap(ival0, ival1):
         (bool): True if the intervals overlap, otherwise False
 
     '''
-    min0,max0 = ival0
-    min1,max1 = ival1
+    min0, max0 = ival0
+    min1, max1 = ival1
     return max(0, min(max0, max1) - max(min0, min1)) > 0
 
 def parsetime(text):
@@ -46,7 +46,7 @@ def parsetime(text):
         ((int,int)):    A epoch millis epoch time string
 
     '''
-    mins,maxs = text.split('-',1)
+    mins, maxs = text.split('-', 1)
     minv = s_time.parse(mins)
     maxv = s_time.parse(maxs, base=minv)
-    return minv,maxv
+    return minv, maxv

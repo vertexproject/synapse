@@ -4,12 +4,14 @@ import threading
 
 import synapse.lib.sched as s_sched
 
-class SchedTest(unittest.TestCase):
+from synapse.tests.common import *
+
+class SchedTest(SynTest):
 
     def test_sched_base(self):
 
         evt = threading.Event()
-        data = {'woot':[]}
+        data = {'woot': []}
         def woot1(x):
             data['woot'].append(x)
 
@@ -19,14 +21,14 @@ class SchedTest(unittest.TestCase):
 
         sched = s_sched.Sched()
 
-        sched.insec( 0.02, woot2, 20 )
-        sched.insec( 0.01, woot1, 10 )
+        sched.insec(0.02, woot2, 20)
+        sched.insec(0.01, woot1, 10)
 
         evt.wait(timeout=2)
 
-        self.assertTrue( evt.is_set() )
+        self.true(evt.is_set())
 
-        self.assertListEqual( data['woot'], [10,20] )
+        self.eq(data['woot'], [10, 20])
 
         sched.fini()
 
@@ -36,7 +38,7 @@ class SchedTest(unittest.TestCase):
         def woot2(x):
             pass
 
-        eid = sched.insec( 20, woot2, 20 )
+        eid = sched.insec(20, woot2, 20)
         sched.cancel(eid)
 
         sched.fini()
@@ -46,8 +48,8 @@ class SchedTest(unittest.TestCase):
 
         evt = threading.Event()
 
-        data = {'count':0}
-        def woot(x,y=None):
+        data = {'count': 0}
+        def woot(x, y=None):
             data['x'] = x
             data['y'] = y
             data['count'] += 1
@@ -60,14 +62,14 @@ class SchedTest(unittest.TestCase):
         sched.persec(10, woot, 10, y='hehe')
         evt.wait(timeout=0.5)
 
-        self.assertTrue( evt.is_set() )
+        self.true(evt.is_set())
 
         elapsed = time.time() - s
-        self.assertTrue( elapsed > 0.2 and elapsed < 0.3 )
+        self.true(elapsed > 0.2 and elapsed < 0.3)
 
-        self.assertEqual( data['x'], 10 )
-        self.assertEqual( data['y'], 'hehe' )
-        self.assertEqual( data['count'], 3 )
+        self.eq(data['x'], 10)
+        self.eq(data['y'], 'hehe')
+        self.eq(data['count'], 3)
 
         sched.fini()
 
@@ -81,8 +83,7 @@ class SchedTest(unittest.TestCase):
             data['woot'] = 'woot'
             evt.set()
 
-        sched.insec( 0.01, woot )
+        sched.insec(0.01, woot)
 
         evt.wait(timeout=3)
-        self.assertEqual( data.get('woot'), 'woot' )
-
+        self.eq(data.get('woot'), 'woot')

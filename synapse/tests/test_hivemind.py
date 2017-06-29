@@ -53,7 +53,7 @@ class HiveTest(SynTest):
 
     def test_hivemind_basic(self):
         env = self.getHiveEnv()
-        waiter = self.getTestWait(env.drone,1,'hive:slot:fini')
+        waiter = self.getTestWait(env.drone, 1, 'hive:slot:fini')
 
         data = {}
         def ondone(job):
@@ -65,28 +65,28 @@ class HiveTest(SynTest):
 
         waiter.wait()
 
-        self.assertEqual( data.get('ret'), 40 )
+        self.eq(data.get('ret'), 40)
 
         env.fini()
 
     def test_hivemind_meld(self):
         env = self.getHiveEnv()
-        waiter = self.getTestWait(env.drone,1,'hive:slot:fini')
+        waiter = self.getTestWait(env.drone, 1, 'hive:slot:fini')
 
         data = {}
         def ondone(job):
             data['ret'] = s_async.jobret(job)
 
-        dyntask = ('derpderp.hurrdurr', (20,), {'y':30})
+        dyntask = ('derpderp.hurrdurr', (20,), {'y': 30})
 
         meld = env.hive.genHiveMeld()
-        meld.addPySource('derpderp',derpsrc)
+        meld.addPySource('derpderp', derpsrc)
 
         env.hive.task(dyntask, ondone=ondone)
 
         waiter.wait()
 
-        self.assertEqual( data.get('ret'), 50 )
+        self.eq(data.get('ret'), 50)
 
         env.fini()
 
@@ -96,26 +96,26 @@ class HiveTest(SynTest):
         hives = env.qprox.getHives()
         drones = env.qprox.getDrones()
 
-        self.assertEqual( len(hives), 1 )
-        self.assertEqual( len(drones), 1 )
+        self.eq(len(hives), 1)
+        self.eq(len(drones), 1)
 
-        hslots = env.qprox.getSlotsByHive( hives[0][0] )
-        dslots = env.qprox.getSlotsByDrone( drones[0][0] )
+        hslots = env.qprox.getSlotsByHive(hives[0][0])
+        dslots = env.qprox.getSlotsByDrone(drones[0][0])
 
-        self.assertEqual( len(hslots), 0 )
-        self.assertEqual( len(dslots), 2 )
+        self.eq(len(hslots), 0)
+        self.eq(len(dslots), 2)
 
-        slot = env.qprox.getWorkSlot( hives[0][0] )
+        slot = env.qprox.getWorkSlot(hives[0][0])
 
-        self.assertEqual( slot[1].get('hive'), hives[0][0] )
-        self.assertEqual( slot[1].get('drone'), drones[0][0] )
+        self.eq(slot[1].get('hive'), hives[0][0])
+        self.eq(slot[1].get('drone'), drones[0][0])
 
-        hslots = env.qprox.getSlotsByHive( hives[0][0] )
-        self.assertEqual( len(hslots), 1 )
+        hslots = env.qprox.getSlotsByHive(hives[0][0])
+        self.eq(len(hslots), 1)
 
-        env.qprox.fireSlotFini( hslots[0][0] )
+        env.qprox.fireSlotFini(hslots[0][0])
 
-        hslots = env.qprox.getSlotsByHive( hives[0][0] )
-        self.assertEqual( len(hslots), 0 )
+        hslots = env.qprox.getSlotsByHive(hives[0][0])
+        self.eq(len(hslots), 0)
 
         env.fini()

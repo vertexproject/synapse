@@ -1,22 +1,20 @@
+'''
+Provides access to the synapse link protocols.
+'''
+import synapse.common as s_common
+
+import synapse.lib.urlhelp as s_urlhelp
+
 import synapse.links.ssl as s_ssl
 import synapse.links.ssh as s_ssh
 import synapse.links.tcp as s_tcp
 import synapse.links.local as s_local
-import synapse.lib.urlhelp as s_urlhelp
-
-from synapse.common import *
-from synapse.links.common import *
-from synapse.eventbus import EventBus
-
-'''
-Provides access to the synapse link protocols.
-'''
 
 protos = {
-    'tcp':s_tcp.TcpRelay,
-    'ssl':s_ssl.SslRelay,
-    'ssh':s_ssh.SshRelay,
-    'local':s_local.LocalRelay,
+    'tcp': s_tcp.TcpRelay,
+    'ssl': s_ssl.SslRelay,
+    'ssh': s_ssh.SshRelay,
+    'local': s_local.LocalRelay,
 }
 
 def addLinkProto(name, ctor):
@@ -44,8 +42,8 @@ def getLinkRelay(link):
     '''
     proto = link[0]
     ctor = protos.get(proto)
-    if ctor == None:
-        raise NoSuchProto(proto)
+    if ctor is None:
+        raise s_common.NoSuchProto(proto)
     return ctor(link)
 
 def chopLinkUrl(url):
@@ -66,7 +64,7 @@ def chopLinkUrl(url):
 
     scheme = urlinfo.get('scheme')
 
-    link = (scheme,{})
+    link = (scheme, {})
     link[1]['url'] = url
     link[1]['host'] = urlinfo.get('host')
     link[1]['port'] = urlinfo.get('port')
@@ -74,32 +72,31 @@ def chopLinkUrl(url):
     link[1]['user'] = urlinfo.get('user')
     link[1]['passwd'] = urlinfo.get('passwd')
 
-    query = urlinfo.get('query',{})
+    query = urlinfo.get('query', {})
 
-    timeout = query.pop('timeout',None)
-    if timeout != None:
+    timeout = query.pop('timeout', None)
+    if timeout is not None:
         link[1]['timeout'] = float(timeout)
 
-    poolmax = query.pop('poolmax',None)
-    if poolmax != None:
+    poolmax = query.pop('poolmax', None)
+    if poolmax is not None:
         link[1]['poolmax'] = int(poolmax)
 
-    poolsize = query.pop('poolsize',None)
-    if poolsize != None:
+    poolsize = query.pop('poolsize', None)
+    if poolsize is not None:
         link[1]['poolsize'] = int(poolsize)
 
-    rc4key = query.pop('rc4key',None)
-    if rc4key != None:
+    rc4key = query.pop('rc4key', None)
+    if rc4key is not None:
         link[1]['rc4key'] = rc4key.encode('utf8')
 
-    zerosig = query.pop('zerosig',None)
-    if zerosig != None:
+    zerosig = query.pop('zerosig', None)
+    if zerosig is not None:
         link[1]['zerosig'] = True
 
-    retry = query.pop('retry',None)
-    if retry != None:
-        link[1]['retry'] = int(retry,0)
+    retry = query.pop('retry', None)
+    if retry is not None:
+        link[1]['retry'] = int(retry, 0)
 
     link[1].update(query)
     return link
-

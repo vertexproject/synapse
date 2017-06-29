@@ -1,28 +1,24 @@
-from __future__ import absolute_import,unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import re
 import time
 import fnmatch
 import logging
-import collections
 
+import synapse.common as s_common
 import synapse.compat as s_compat
-import synapse.eventbus as s_eventbus
 
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
-import synapse.lib.threads as s_threads
-import synapse.lib.interval as s_interval
 
-from synapse.common import *
 from synapse.lib.config import Configable
 
 logger = logging.getLogger(__name__)
 
 def minlim(*vals):
-    vals = [ v for v in vals if v is not None and v > 0 ]
+    vals = [v for v in vals if v is not None and v > 0]
     if not vals:
         return None
     return min(vals)
@@ -36,17 +32,17 @@ class LimitHelp:
         return self.limit
 
     def reached(self):
-        return self.limit != None and self.limit == 0
+        return self.limit is not None and self.limit == 0
 
     def dec(self, size=1):
 
-        if self.limit == None:
+        if self.limit is None:
             return False
 
         if size < 0:
             size = 0
 
-        self.limit = max(self.limit-size,0)
+        self.limit = max(self.limit - size, 0)
         return self.limit == 0
 
 class ShowHelp:
@@ -70,7 +66,7 @@ class ShowHelp:
             if valu is None:
                 return ''
 
-            return self.core.getPropRepr(full,valu)
+            return self.core.getPropRepr(full, valu)
 
         return get
 
@@ -80,7 +76,7 @@ class ShowHelp:
         if ptrn == '#':
 
             def alltags(node):
-                tags = [ '#' + t for t in sorted(s_tufo.tags(node, leaf=True)) ]
+                tags = ['#' + t for t in sorted(s_tufo.tags(node, leaf=True))]
                 return ' '.join(tags)
 
             return alltags
@@ -93,7 +89,7 @@ class ShowHelp:
 
             for tag in list(sorted(s_tufo.tags(node, leaf=True))):
 
-                if not fnmatch.fnmatch(tag,ptrn):
+                if not fnmatch.fnmatch(tag, ptrn):
                     continue
 
                 tags.append('#' + tag)
@@ -107,10 +103,10 @@ class ShowHelp:
         def get(node):
 
             valu = node[1].get(prop)
-            if valu == None:
+            if valu is None:
                 return ''
 
-            return self.core.getPropRepr(prop,valu)
+            return self.core.getPropRepr(prop, valu)
 
         return get
 
@@ -128,7 +124,7 @@ class ShowHelp:
 
     def _getShowFuncs(self):
         cols = self.show.get('columns')
-        return [ self._getShowFunc(c) for c in cols ]
+        return [self._getShowFunc(c) for c in cols]
 
     def rows(self, nodes):
         '''
@@ -149,7 +145,7 @@ class ShowHelp:
 
         rows = []
         for node in nodes:
-            rows.append( [ func(node) for func in funcs ] )
+            rows.append([func(node) for func in funcs])
 
         return rows
 
@@ -159,11 +155,11 @@ class ShowHelp:
         '''
         widths = []
         for i in range(len(rows[0])):
-            widths.append( max( [ len(r[i]) for r in rows ] ) )
+            widths.append(max([len(r[i]) for r in rows]))
 
         retn = []
         for row in rows:
-            retn.append([ r.rjust(size) for r,size in s_compat.iterzip(row,widths) ])
+            retn.append([r.rjust(size) for r, size in s_compat.iterzip(row, widths)])
 
         return retn
 
@@ -175,7 +171,7 @@ class OperWith:
         self.stime = None
 
     def __enter__(self):
-        self.stime = now()
+        self.stime = s_common.now()
         self.query.added = 0
         self.query.subed = 0
         return self
@@ -183,13 +179,13 @@ class OperWith:
     def __exit__(self, exc, cls, tb):
 
         info = {
-            'sub':self.query.subed,
-            'add':self.query.added,
-            'took':now() - self.stime
+            'sub': self.query.subed,
+            'add': self.query.added,
+            'took': s_common.now() - self.stime
         }
 
-        if exc != None:
-            info['excinfo'] = excinfo(exc)
+        if exc is not None:
+            info['excinfo'] = s_common.excinfo(exc)
             self.query.clear()
 
         self.query.log(**info)
@@ -212,21 +208,21 @@ class Query:
 
         self.results = {
 
-            'options':{
-                'uniq':1,
-                'limit':None,
+            'options': {
+                'uniq': 1,
+                'limit': None,
             },
 
-            'limits':{
-                'lift':None,
-                'time':None,
-                'touch':None,
+            'limits': {
+                'lift': None,
+                'time': None,
+                'touch': None,
             },
 
-            'oplog':[], # [ <dict>, ... ] ( one dict for each oper )
+            'oplog': [], # [ <dict>, ... ] ( one dict for each oper )
 
-            'data':list(data),
-            'show':{},
+            'data': list(data),
+            'show': {},
 
         }
 
@@ -257,7 +253,7 @@ class Query:
         self.saved[name] = data
 
     def load(self, name):
-        return self.saved.get(name,())
+        return self.saved.get(name, ())
 
     def add(self, tufo):
         '''
@@ -270,11 +266,11 @@ class Query:
 
         form = tufo[1].get('tufo:form')
 
-        if tufo[0] != None and self.results['options'].get('uniq'):
-            if self.uniq.get( tufo[0] ):
+        if tufo[0] is not None and self.results['options'].get('uniq'):
+            if self.uniq.get(tufo[0]):
                 return False
 
-            self.uniq[ tufo[0] ] = True
+            self.uniq[tufo[0]] = True
 
         self.results['data'].append(tufo)
 
@@ -286,7 +282,7 @@ class Query:
         '''
         self.results['options'][name] = valu
 
-    def opt(self,name):
+    def opt(self, name):
         '''
         Return the current value of a query option.
         '''
@@ -313,8 +309,8 @@ class Query:
         self.take()
 
     def withop(self, oper):
-        self.results['oplog'].append({'mnem':oper[0]})
-        return OperWith(self,oper)
+        self.results['oplog'].append({'mnem': oper[0]})
+        return OperWith(self, oper)
 
     def cancel(self):
         '''
@@ -329,44 +325,44 @@ class Query:
             raise QueryCancelled()
 
         nowtime = time.time()
-        if self.maxtime != None and nowtime >= self.maxtime:
-            raise HitStormLimit(name='maxtime', limit=self.maxtime, valu=nowtime)
+        if self.maxtime is not None and nowtime >= self.maxtime:
+            raise s_common.HitStormLimit(name='maxtime', limit=self.maxtime, valu=nowtime)
 
         self.touched += touch
-        if self.maxtouch != None and self.touched > self.maxtouch:
-            raise HitStormLimit(name='maxtouch', limit=self.maxtouch, valu=self.touched)
+        if self.maxtouch is not None and self.touched > self.maxtouch:
+            raise s_common.HitStormLimit(name='maxtouch', limit=self.maxtouch, valu=self.touched)
 
-class QueryKilled(Exception):pass
-class QueryCancelled(QueryKilled):pass
-class QueryLimitTime(QueryKilled):pass
-class QueryLimitTouch(QueryKilled):pass
+class QueryKilled(Exception): pass
+class QueryCancelled(QueryKilled): pass
+class QueryLimitTime(QueryKilled): pass
+class QueryLimitTouch(QueryKilled): pass
 
 def invert(func):
-    def invfunc(*args,**kwargs):
-        return not func(*args,**kwargs)
+    def invfunc(*args, **kwargs):
+        return not func(*args, **kwargs)
     return invfunc
 
-def eq(x,y):
+def eq(x, y):
     if x is None or y is None:
         return False
     return x == y
 
-def lt(x,y):
+def lt(x, y):
     if x is None or y is None:
         return False
     return x < y
 
-def gt(x,y):
+def gt(x, y):
     if x is None or y is None:
         return False
     return x > y
 
-def le(x,y):
+def le(x, y):
     if x is None or y is None:
         return False
     return x <= y
 
-def ge(x,y):
+def ge(x, y):
     if x is None or y is None:
         return False
     return x >= y
@@ -389,25 +385,25 @@ class Runtime(Configable):
         self.setCmprFunc('le', le)
         self.setCmprFunc('ge', ge)
 
-        self.setCmprCtor('or', self._cmprCtorOr )
-        self.setCmprCtor('and', self._cmprCtorAnd )
-        self.setCmprCtor('tag', self._cmprCtorTag )
+        self.setCmprCtor('or', self._cmprCtorOr)
+        self.setCmprCtor('and', self._cmprCtorAnd)
+        self.setCmprCtor('tag', self._cmprCtorTag)
         self.setCmprCtor('seen', self._cmprCtorSeen)
         self.setCmprCtor('range', self._cmprCtorRange)
 
         # interval and interval-interval comparisons
         self.setCmprCtor('ival', self._cmprCtorIval)
 
-        self.setCmprCtor('in', self._cmprCtorIn )
-        self.setCmprCtor('re', self._cmprCtorRe )
-        self.setCmprCtor('has', self._cmprCtorHas )
+        self.setCmprCtor('in', self._cmprCtorIn)
+        self.setCmprCtor('re', self._cmprCtorRe)
+        self.setCmprCtor('has', self._cmprCtorHas)
 
         self.setOperFunc('filt', self._stormOperFilt)
         self.setOperFunc('opts', self._stormOperOpts)
 
-        self.setOperFunc('save', self._stormOperSave )
-        self.setOperFunc('load', self._stormOperLoad )
-        self.setOperFunc('clear', self._stormOperClear )
+        self.setOperFunc('save', self._stormOperSave)
+        self.setOperFunc('load', self._stormOperLoad)
+        self.setOperFunc('clear', self._stormOperClear)
 
         self.setOperFunc('join', self._stormOperJoin)
         self.setOperFunc('lift', self._stormOperLift)
@@ -440,7 +436,7 @@ class Runtime(Configable):
         return self._getStormCore(name=name)
 
     def _getStormCore(self, name=None):
-        raise NoSuchImpl(name='getStormCore')
+        raise s_common.NoSuchImpl(name='getStormCore')
 
     def getLiftLimit(self, *limits):
         '''
@@ -456,7 +452,7 @@ class Runtime(Configable):
 
         '''
         limt0 = s_scope.get('storm:limit:lift')
-        return minlim( self.limlift, limt0, *limits )
+        return minlim(self.limlift, limt0, *limits)
 
     def stormTufosBy(self, by, prop, valu=None, limit=None):
         '''
@@ -465,10 +461,10 @@ class Runtime(Configable):
         operators like lift/join/pivot.
         '''
         limit = self.getLiftLimit(limit)
-        return self._stormTufosBy(by,prop,valu=valu,limit=limit)
+        return self._stormTufosBy(by, prop, valu=valu, limit=limit)
 
     def _stormTufosBy(self, by, prop, valu=None, limit=None):
-        raise NoSuchImpl(name='_stormTufosBy')
+        raise s_common.NoSuchImpl(name='_stormTufosBy')
 
     def setCmprCtor(self, name, func):
         '''
@@ -524,9 +520,9 @@ class Runtime(Configable):
             # generate a slightly different function for rel / non-rel
             if not isrel:
 
-                valu,subs = core.getPropNorm(prop,valu)
+                valu, subs = core.getPropNorm(prop, valu)
                 def cmpr(tufo):
-                    return func(tufo[1].get(prop),valu)
+                    return func(tufo[1].get(prop), valu)
 
                 return cmpr
 
@@ -534,31 +530,31 @@ class Runtime(Configable):
             fulls = {}
             norms = {}
 
-            def _get_full_norm(f,p,v):
+            def _get_full_norm(f, p, v):
                 retfull = fulls.get(f)
-                if retfull == None:
-                    retfull = fulls[f] = (f+p)
+                if retfull is None:
+                    retfull = fulls[f] = (f + p)
 
-                retnorm,_ = core.getPropNorm(retfull,v)
-                return retfull,retnorm
+                retnorm, _ = core.getPropNorm(retfull, v)
+                return retfull, retnorm
 
             def cmpr(tufo):
                 form = tufo[1].get('tufo:form')
-                full,norm = _get_full_norm(form,prop,valu)
-                return func(tufo[1].get(full),norm)
+                full, norm = _get_full_norm(form, prop, valu)
+                return func(tufo[1].get(full), norm)
 
             return cmpr
 
-        self.setCmprCtor(name,cmprctor)
+        self.setCmprCtor(name, cmprctor)
 
     def getCmprFunc(self, oper):
         '''
         Return a comparison function for the given operator.
         '''
-        name = oper[1].get('cmp','eq')
+        name = oper[1].get('cmp', 'eq')
         ctor = self.cmprctors.get(name)
-        if ctor == None:
-            raise NoSuchCmpr(name=name)
+        if ctor is None:
+            raise s_common.NoSuchCmpr(name=name)
         return ctor(oper)
 
     def setOperFunc(self, name, func):
@@ -596,16 +592,16 @@ class Runtime(Configable):
 
         '''
         maxtime = None
-        if timeout != None:
+        if timeout is not None:
             maxtime = time.time() + timeout
 
         # FIXME overall time per user goes here
 
-        query = Query(data=data,maxtime=maxtime)
+        query = Query(data=data, maxtime=maxtime)
 
         try:
 
-            self._runOperFuncs(query,opers)
+            self._runOperFuncs(query, opers)
 
         except Exception as e:
             logger.exception(e)
@@ -625,34 +621,35 @@ class Runtime(Configable):
                 dostuff(tufo)
 
         '''
-        answ = self.ask(text,data=data,timeout=timeout)
+        answ = self.ask(text, data=data, timeout=timeout)
 
         excinfo = answ['oplog'][-1].get('excinfo')
         #if excinfo.get('errinfo') != None:
-        if excinfo != None:
+        if excinfo is not None:
             errname = excinfo.get('err')
-            errinfo = excinfo.get('errinfo',{})
+            errinfo = excinfo.get('errinfo', {})
             errinfo['errfile'] = excinfo.get('errfile')
             errinfo['errline'] = excinfo.get('errline')
-            raise synerr(errname,**errinfo)
+            raise s_common.synerr(errname, **errinfo)
 
         return answ.get('data')
 
     def _reqOperArg(self, oper, name):
         valu = oper[1].get(name)
-        if valu == None:
-            raise BadOperArg(oper=oper, name=name, mesg='not found')
+        if valu is None:
+            raise s_common.BadOperArg(oper=oper, name=name, mesg='not found')
         return valu
 
     def _cmprCtorHas(self, oper):
-        prop = self._reqOperArg(oper,'prop')
+        prop = self._reqOperArg(oper, 'prop')
         def cmpr(tufo):
-            return tufo[1].get(prop) != None
+            return tufo[1].get(prop) is not None
+
         return cmpr
 
     def _cmprCtorIn(self, oper):
-        prop = self._reqOperArg(oper,'prop')
-        valus = self._reqOperArg(oper,'valu')
+        prop = self._reqOperArg(oper, 'prop')
+        valus = self._reqOperArg(oper, 'valu')
         if len(valus) > 12: # TODO opt value?
             valus = set(valus)
 
@@ -674,10 +671,10 @@ class Runtime(Configable):
                 full = tufo[1].get('tufo:form') + prop
 
             valu = tufo[1].get(full)
-            if valu == None:
+            if valu is None:
                 return False
 
-            return reobj.search(valu) != None
+            return reobj.search(valu) is not None
 
         return cmpr
 
@@ -696,30 +693,30 @@ class Runtime(Configable):
         if oper[1].get('mode') == 'cant':
             cmpr = invert(cmpr)
 
-        [ query.add(t) for t in query.take() if cmpr(t) ]
+        [query.add(t) for t in query.take() if cmpr(t)]
 
     def _stormOperOr(self, query, oper):
-        funcs = [ self.getCmprFunc(op) for op in oper[1].get('args') ]
+        funcs = [self.getCmprFunc(op) for op in oper[1].get('args')]
         for tufo in query.take():
-            if any([ func(tufo) for func in funcs ]):
+            if any([func(tufo) for func in funcs]):
                 query.add(tufo)
 
     def _cmprCtorOr(self, oper):
-        args = self._reqOperArg(oper,'args')
-        funcs = [ self.getCmprFunc(op) for op in args ]
+        args = self._reqOperArg(oper, 'args')
+        funcs = [self.getCmprFunc(op) for op in args]
         def cmpr(tufo):
-            return any([ func(tufo) for func in funcs ])
+            return any([func(tufo) for func in funcs])
         return cmpr
 
     def _cmprCtorAnd(self, oper):
-        args = self._reqOperArg(oper,'args')
-        funcs = [ self.getCmprFunc(op) for op in args ]
+        args = self._reqOperArg(oper, 'args')
+        funcs = [self.getCmprFunc(op) for op in args]
         def cmpr(tufo):
-            return all([ func(tufo) for func in funcs ])
+            return all([func(tufo) for func in funcs])
         return cmpr
 
     def _cmprCtorTag(self, oper):
-        tag = self._reqOperArg(oper,'valu')
+        tag = self._reqOperArg(oper, 'valu')
         reg_props = {}
 
         # Glob helpers
@@ -753,35 +750,35 @@ class Runtime(Configable):
             return glob_cmpr
 
         def reg_cmpr(tufo):
-            return tufo[1].get('#'+tag) != None
+            return tufo[1].get('#' + tag) is not None
 
         return reg_cmpr
 
     def _cmprCtorSeen(self, oper):
 
-        args = [ str(v) for v in oper[1].get('args') ]
+        args = [str(v) for v in oper[1].get('args')]
 
         core = self.getStormCore()
 
-        vals = [ core.getTypeNorm('time',t)[0] for t in args ]
+        vals = [core.getTypeNorm('time', t)[0] for t in args]
 
         seenprops = {}
         def getseen(form):
             stup = seenprops.get(form)
-            if stup == None:
-                stup = seenprops[form] = (form+':seen:min',form+':seen:max')
+            if stup is None:
+                stup = seenprops[form] = (form + ':seen:min', form + ':seen:max')
             return stup
 
         def cmpr(tufo):
 
             form = tufo[1].get('tufo:form')
 
-            minprop,maxprop = getseen(form)
+            minprop, maxprop = getseen(form)
 
             smin = tufo[1].get(minprop)
             smax = tufo[1].get(maxprop)
 
-            if smin == None or smax == None:
+            if smin is None or smax is None:
                 return False
 
             for valu in vals:
@@ -792,8 +789,8 @@ class Runtime(Configable):
 
     def _cmprCtorRange(self, oper):
 
-        prop = self._reqOperArg(oper,'prop')
-        valu = self._reqOperArg(oper,'valu')
+        prop = self._reqOperArg(oper, 'prop')
+        valu = self._reqOperArg(oper, 'valu')
 
         #TODO unified syntax plumbing with in-band help
 
@@ -801,11 +798,11 @@ class Runtime(Configable):
         isrel = prop.startswith(':')
 
         def initMinMax(key):
-            xmin,_ = core.getPropNorm(key,valu[0])
-            xmax,_ = core.getPropNorm(key,valu[1])
-            return int(xmin),int(xmax)
+            xmin, _ = core.getPropNorm(key, valu[0])
+            xmax, _ = core.getPropNorm(key, valu[1])
+            return int(xmin), int(xmax)
 
-        norms = s_cache.KeyCache( initMinMax )
+        norms = s_cache.KeyCache(initMinMax)
 
         def cmpr(tufo):
 
@@ -815,10 +812,10 @@ class Runtime(Configable):
                 full = form + prop
 
             valu = tufo[1].get(full)
-            if valu == None:
+            if valu is None:
                 return False
 
-            minval,maxval = norms.get(full)
+            minval, maxval = norms.get(full)
 
             return valu >= minval and valu <= maxval
 
@@ -826,7 +823,7 @@ class Runtime(Configable):
 
     def _cmprCtorIval(self, oper):
 
-        name,tick = oper[1].get('valu')
+        name, tick = oper[1].get('valu')
 
         minp = '>' + name
         maxp = '<' + name
@@ -846,27 +843,27 @@ class Runtime(Configable):
         return cmpr
 
     def _stormOperAnd(self, query, oper):
-        funcs = [ self.getCmprFunc(op) for op in oper[1].get('args') ]
+        funcs = [self.getCmprFunc(op) for op in oper[1].get('args')]
         for tufo in query.take():
-            if any([ func(tufo) for func in funcs ]):
+            if any([func(tufo) for func in funcs]):
                 query.add(tufo)
 
     def _stormOperSave(self, query, oper):
         data = query.data()
         for name in oper[1].get('args'):
-            query.save(name,data)
+            query.save(name, data)
 
     def _stormOperLoad(self, query, oper):
         names = oper[1].get('args')
         for name in names:
-            [ query.add(t) for t in query.load(name) ]
+            [query.add(t) for t in query.load(name)]
 
     def _stormOperClear(self, query, oper):
         query.take()
 
     def _stormOperOpts(self, query, oper):
-        for name,valu in oper[1].get('kwlist'):
-            query.setOpt(name,valu)
+        for name, valu in oper[1].get('kwlist'):
+            query.setOpt(name, valu)
 
     def _runOperFunc(self, query, oper):
 
@@ -874,13 +871,13 @@ class Runtime(Configable):
 
             query.tick()
 
-            func = self.operfuncs.get( oper[0] )
-            if func == None:
-                raise NoSuchOper(name=oper[0])
+            func = self.operfuncs.get(oper[0])
+            if func is None:
+                raise s_common.NoSuchOper(name=oper[0])
 
             try:
 
-                func(query,oper)
+                func(query, oper)
 
             except Exception as e:
                 logger.exception(e)
@@ -892,39 +889,39 @@ class Runtime(Configable):
         '''
         try:
 
-            [ self._runOperFunc(query,oper) for oper in opers ]
+            [self._runOperFunc(query, oper) for oper in opers]
 
         except Exception as e:
             query.clear()
-            query.log( excinfo=excinfo(e) )
+            query.log(excinfo=s_common.excinfo(e))
 
     def _stormOperLift(self, query, oper):
 
         args = oper[1].get('args')
-        opts = dict( oper[1].get('kwlist') )
+        opts = dict(oper[1].get('kwlist'))
 
-        if len(args) not in (1,2):
-            raise SyntaxError('lift(<prop> [,<valu>, by=<by>, limit=<limit>])')
+        if len(args) not in (1, 2):
+            raise s_common.BadSyntaxError(mesg='lift(<prop> [,<valu>, by=<by>, limit=<limit>])')
 
         valu = None
         prop = args[0]
         if len(args) == 2:
             valu = args[1]
 
-        by = opts.get('by','has')
-        if by == 'has' and valu != None:
+        by = opts.get('by', 'has')
+        if by == 'has' and valu is not None:
             by = 'eq'
 
         limt0 = opts.get('limit')
         limt1 = query.opt('limit')
 
-        limit = minlim(limt0,limt1)
+        limit = minlim(limt0, limt1)
 
-        [ query.add(tufo) for tufo in self.stormTufosBy(by, prop, valu, limit=limit) ]
+        [query.add(tufo) for tufo in self.stormTufosBy(by, prop, valu, limit=limit)]
 
     def _stormOperPivot(self, query, oper):
         args = oper[1].get('args')
-        opts = dict( oper[1].get('kwlist') )
+        opts = dict(oper[1].get('kwlist'))
 
         srcp = None
         dstp = args[0]
@@ -933,16 +930,16 @@ class Runtime(Configable):
             srcp = args[1]
 
         # do we have a relative source property?
-        relsrc = srcp != None and srcp.startswith(':')
+        relsrc = srcp is not None and srcp.startswith(':')
 
         vals = set()
         tufs = query.take()
 
-        if srcp != None and not relsrc:
+        if srcp is not None and not relsrc:
 
             for tufo in tufs:
                 valu = tufo[1].get(srcp)
-                if valu != None:
+                if valu is not None:
                     vals.add(valu)
 
         elif not relsrc:
@@ -950,15 +947,15 @@ class Runtime(Configable):
             for tufo in tufs:
                 form = tufo[1].get('tufo:form')
                 valu = tufo[1].get(form)
-                if valu != None:
+                if valu is not None:
                     vals.add(valu)
 
         else:
 
             for tufo in tufs:
                 form = tufo[1].get('tufo:form')
-                valu = tufo[1].get(form+srcp)
-                if valu != None:
+                valu = tufo[1].get(form + srcp)
+                if valu is not None:
                     vals.add(valu)
 
         [query.add(t)for t in self.stormTufosBy('in', dstp, list(vals), limit=opts.get('limit'))]
@@ -967,27 +964,27 @@ class Runtime(Configable):
         name = None
 
         args = oper[1].get('args')
-        kwargs = dict( oper[1].get('kwlist') )
+        kwargs = dict(oper[1].get('kwlist'))
 
         doc = kwargs.get('doc')
         name = kwargs.get('core')
 
         if len(args) != 1:
-            raise SyntaxError('nexttag(<tagname>,doc=<doc>)')
+            raise s_common.BadSyntaxError(mesg='nexttag(<tagname>,doc=<doc>)')
 
         tag = args[0]
 
         core = self.getStormCore(name=name)
         valu = core.nextSeqValu(tag)
 
-        node = core.formTufoByProp('syn:tag',valu,doc=doc)
+        node = core.formTufoByProp('syn:tag', valu, doc=doc)
 
         query.add(node)
 
     def _stormOperJoin(self, query, oper):
 
         args = oper[1].get('args')
-        opts = dict( oper[1].get('kwlist') )
+        opts = dict(oper[1].get('kwlist'))
 
         dstp = args[0]
         srcp = args[0]
@@ -996,31 +993,31 @@ class Runtime(Configable):
             srcp = args[1]
 
         # use the more optimal "in" mechanism once we have the pivot vals
-        vals = list({ t[1].get(srcp) for t in query.data() if t != None })
+        vals = list({t[1].get(srcp) for t in query.data() if t is not None})
         [query.add(tufo) for tufo in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit'))]
 
     def _stormOperAddXref(self, query, oper):
 
         args = oper[1].get('args')
         if len(args) != 3:
-            raise SyntaxError('addxref(<type>,<form>,<valu>)')
+            raise s_common.BadSyntaxError(mesg='addxref(<type>,<form>,<valu>)')
 
-        xref,form,valu = args
+        xref, form, valu = args
 
         core = self.getStormCore()
 
         # TODO clearer error handling
         for node in query.take():
-            sorc = node[1].get( node[1].get('tufo:form') )
-            node = core.formTufoByProp(xref,(sorc,form,valu))
+            sorc = node[1].get(node[1].get('tufo:form'))
+            node = core.formTufoByProp(xref, (sorc, form, valu))
             query.add(node)
 
     def _stormOperRefs(self, query, oper):
         args = oper[1].get('args')
-        opts = dict( oper[1].get('kwlist') )
+        opts = dict(oper[1].get('kwlist'))
 
         #TODO opts.get('degrees')
-        limt = LimitHelp( opts.get('limit') )
+        limt = LimitHelp(opts.get('limit'))
 
         core = self.getStormCore()
 
@@ -1039,23 +1036,23 @@ class Runtime(Configable):
                 form = node[1].get('tufo:form')
                 valu = node[1].get(form)
 
-                dkey = (form,valu)
+                dkey = (form, valu)
                 if dkey in done:
                     continue
 
                 done.add(dkey)
 
-                for prop,info in core.getPropsByType(form):
+                for prop, info in core.getPropsByType(form):
 
-                    pkey = (prop,valu)
+                    pkey = (prop, valu)
                     if pkey in done:
                         continue
 
                     done.add(pkey)
 
-                    news = core.getTufosByProp(prop,valu=valu, limit=limt.get())
+                    news = core.getTufosByProp(prop, valu=valu, limit=limt.get())
 
-                    [ query.add(n) for n in news ]
+                    [query.add(n) for n in news]
 
                     if limt.dec(len(news)):
                         break
@@ -1068,10 +1065,10 @@ class Runtime(Configable):
                     break
 
                 form = node[1].get('tufo:form')
-                for prop,info in core.getSubProps(form):
+                for prop, info in core.getSubProps(form):
 
                     valu = node[1].get(prop)
-                    if valu == None:
+                    if valu is None:
                         continue
 
                     # ensure that the prop's type is also a form
@@ -1079,15 +1076,15 @@ class Runtime(Configable):
                     if not core.isTufoForm(name):
                         continue
 
-                    pkey = (prop,valu)
+                    pkey = (prop, valu)
                     if pkey in done:
                         continue
 
                     done.add(pkey)
 
-                    news = core.getTufosByProp(name,valu=valu,limit=limt.get())
+                    news = core.getTufosByProp(name, valu=valu, limit=limt.get())
 
-                    [ query.add(n) for n in news ]
+                    [query.add(n) for n in news]
 
                     if limt.dec(len(news)):
                         break
@@ -1096,7 +1093,7 @@ class Runtime(Configable):
         # addnode(<form>,<valu>,**props)
         args = oper[1].get('args')
         if len(args) != 2:
-            raise SyntaxError('addnode(<form>,<valu>,[<prop>=<pval>, ...])')
+            raise s_common.BadSyntaxError(mesg='addnode(<form>,<valu>,[<prop>=<pval>, ...])')
 
         kwlist = oper[1].get('kwlist')
 
@@ -1104,20 +1101,20 @@ class Runtime(Configable):
 
         props = dict(kwlist)
 
-        node = self.formTufoByProp(args[0],args[1],**props)
+        node = self.formTufoByProp(args[0], args[1], **props)
         query.add(node)
 
     def _stormOperDelNode(self, query, oper):
         # delnode()
-        opts = dict( oper[1].get('kwlist') )
+        opts = dict(oper[1].get('kwlist'))
 
         core = self.getStormCore()
 
-        force,_ = core.getTypeNorm('bool', opts.get('force',0))
+        force, _ = core.getTypeNorm('bool', opts.get('force', 0))
 
         nodes = query.take()
         if force:
-            [ core.delTufo(n) for n in nodes ]
+            [core.delTufo(n) for n in nodes]
             return
 
         # TODO: users and perms
@@ -1125,16 +1122,16 @@ class Runtime(Configable):
 
     def _stormOperSetProp(self, query, oper):
         args = oper[1].get('args')
-        props = dict( oper[1].get('kwlist') )
+        props = dict(oper[1].get('kwlist'))
 
         core = self.getStormCore()
 
-        [ core.setTufoProps(node,**props) for node in query.data() ]
+        [core.setTufoProps(node, **props) for node in query.data()]
 
     def _iterPropTags(self, props, tags):
         for prop in props:
             for tag in tags:
-                yield prop,tag
+                yield prop, tag
 
     def _stormOperAllTag(self, query, oper):
 
@@ -1151,7 +1148,7 @@ class Runtime(Configable):
 
             [query.add(node) for node in nodes]
 
-            if limit != None:
+            if limit is not None:
                 limit -= len(nodes)
                 if limit <= 0:
                     break
@@ -1164,7 +1161,7 @@ class Runtime(Configable):
         nodes = query.data()
 
         for tag in tags:
-            [ core.addTufoTag(node,tag) for node in nodes ]
+            [core.addTufoTag(node, tag) for node in nodes]
 
     def _stormOperDelTag(self, query, oper):
         tags = oper[1].get('args')
@@ -1174,11 +1171,11 @@ class Runtime(Configable):
         nodes = query.data()
 
         for tag in tags:
-            [ core.delTufoTag(node,tag) for node in nodes ]
+            [core.delTufoTag(node, tag) for node in nodes]
 
     def _stormOperJoinTags(self, query, oper):
 
-        args = oper[1].get('args',())
+        args = oper[1].get('args', ())
         opts = dict(oper[1].get('kwlist'))
         core = self.getStormCore()
 
@@ -1200,7 +1197,7 @@ class Runtime(Configable):
                 nodes = core.getTufosByTag(tag, limit=limt.get())
 
                 limt.dec(len(nodes))
-                [ query.add(n) for n in nodes ]
+                [query.add(n) for n in nodes]
 
                 if limt.reached():
                     break
@@ -1217,7 +1214,7 @@ class Runtime(Configable):
                 nodes = core.getTufosByTag(tag, form=form, limit=limt.get())
 
                 limt.dec(len(nodes))
-                [ query.add(n) for n in nodes ]
+                [query.add(n) for n in nodes]
 
                 if limt.reached():
                     break
@@ -1230,7 +1227,7 @@ class Runtime(Configable):
         leaf = opts.get('leaf', True)
         tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=leaf)}
 
-        [ query.add(tufo) for tufo in core.getTufosBy('in', 'syn:tag', list(tags)) ]
+        [query.add(tufo) for tufo in core.getTufosBy('in', 'syn:tag', list(tags))]
 
     def _stormOperFromTags(self, query, oper):
         args = oper[1].get('args')
@@ -1253,7 +1250,7 @@ class Runtime(Configable):
                 nodes = core.getTufosByTag(tag, limit=limt.get())
                 limt.dec(len(nodes))
 
-                [ query.add(n) for n in nodes ]
+                [query.add(n) for n in nodes]
 
                 if limt.reached():
                     break
@@ -1273,6 +1270,6 @@ class Runtime(Configable):
                 nodes = core.getTufosByTag(tag, form=form, limit=limt.get())
 
                 limt.dec(len(nodes))
-                [ query.add(n) for n in nodes ]
+                [query.add(n) for n in nodes]
 
         return
