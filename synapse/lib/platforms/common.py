@@ -4,11 +4,8 @@ import os
 import socket
 import ctypes
 import logging
-import threading
 
 import ctypes.util as c_util
-
-from synapse.exc import *
 
 logger = logging.getLogger(__name__)
 

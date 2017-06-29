@@ -1,12 +1,11 @@
-import fnmatch
 import threading
+
+import synapse.common as s_common
 
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
-import synapse.lib.sched as s_sched
 
 from synapse.eventbus import EventBus
-from synapse.common import *
 
 sesslocal = threading.local()
 
@@ -105,7 +104,7 @@ class Curator(EventBus):
             sess = cura.new()
 
         '''
-        iden = guid()
+        iden = s_common.guid()
         sess = Sess(self, iden)
         self.cache.put(iden, sess)
         self.fire('sess:init', sess=sess)

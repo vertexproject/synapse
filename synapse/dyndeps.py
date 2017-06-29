@@ -1,6 +1,6 @@
 import importlib
 
-from synapse.common import *
+import synapse.common as s_common
 
 aliases = {}
 
@@ -54,8 +54,8 @@ def getDynLocal(name):
         blah = cls()
 
     '''
-    item = aliases.get(name, novalu)
-    if item is not novalu:
+    item = aliases.get(name, s_common.novalu)
+    if item is not s_common.novalu:
         return item
 
     # this is probably a whiffd alias
@@ -88,24 +88,24 @@ def tryDynMod(name):
     try:
         return importlib.import_module(name)
     except ImportError as e:
-        raise NoSuchDyn(name=name)
+        raise s_common.NoSuchDyn(name=name)
 
 def tryDynLocal(name):
     '''
     Dynamically import a module and return a module local or raise an exception.
     '''
-    item = aliases.get(name, novalu)
-    if item is not novalu:
+    item = aliases.get(name, s_common.novalu)
+    if item is not s_common.novalu:
         return item
 
     if name.find('.') == -1:
-        raise NoSuchDyn(name=name)
+        raise s_common.NoSuchDyn(name=name)
 
     modname, objname = name.rsplit('.', 1)
     mod = tryDynMod(modname)
-    item = getattr(mod, objname, novalu)
-    if item is novalu:
-        raise NoSuchDyn(name=name)
+    item = getattr(mod, objname, s_common.novalu)
+    if item is s_common.novalu:
+        raise s_common.NoSuchDyn(name=name)
     return item
 
 def tryDynFunc(name, *args, **kwargs):
@@ -125,7 +125,7 @@ def runDynTask(task):
     '''
     func = getDynLocal(task[0])
     if func is None:
-        raise NoSuchFunc(name=task[0])
+        raise s_common.NoSuchFunc(name=task[0])
     return func(*task[1], **task[2])
 
 class CallCapt:

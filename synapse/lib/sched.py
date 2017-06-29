@@ -3,12 +3,12 @@ from __future__ import absolute_import, unicode_literals
 import time
 import atexit
 import threading
+import traceback
 
+import synapse.common as s_common
 import synapse.glob as s_glob
 
 from synapse.eventbus import EventBus
-
-from synapse.common import *
 
 class Sched(EventBus):
 
@@ -135,7 +135,7 @@ class Sched(EventBus):
         '''
         item[1] = None
 
-    @firethread
+    @s_common.firethread
     def _runSchedMain(self):
         for task in self.yieldTimeTasks():
             try:

@@ -1,15 +1,14 @@
+import os
 import dis
 import sys
 import collections
 import distutils.sysconfig as sysconfig
 
+import synapse.common as s_common
+import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
 
 import synapse.lib.tags as s_tags
-
-from synapse.common import *
-from synapse.compat import iterbytes
-from os.path import isdir, isfile, abspath
 
 '''
 A set of utilities for locating/inspecting python modules.
@@ -19,10 +18,10 @@ IMPORT_NAME = dis.opname.index('IMPORT_NAME')
 IMPORT_FROM = dis.opname.index('IMPORT_FROM')
 
 modtypes = (
-    tufo('.py', fmt='src'),
-    tufo('.pyd', fmt=None),
-    tufo('.pyo', fmt=None),
-    tufo('.pyc', fmt=None),
+    s_common.tufo('.py', fmt='src'),
+    s_common.tufo('.pyd', fmt=None),
+    s_common.tufo('.pyo', fmt=None),
+    s_common.tufo('.pyc', fmt=None),
 )
 
 
@@ -70,7 +69,7 @@ def getPyStdLib():
         pymods = getModsByPath(pylib)
         # get the compiled in modules
         bins = sys.builtin_module_names
-        pymods.update({n: tufo(n, fmt='bin') for n in bins})
+        pymods.update({n: s_common.tufo(n, fmt='bin') for n in bins})
     return pymods
 
 def isPyStdLib(name):
@@ -110,11 +109,11 @@ def getModDef(name):
     modinfo = _getModInfo(modbase)
 
     if modinfo is not None:
-        return tufo(name, path=modpath, **modinfo)
+        return s_common.tufo(name, path=modpath, **modinfo)
 
     # hrm...  what now smart guy?!?!
     if name in sys.builtin_module_names:
-        return tufo(name, fmt='bin')
+        return s_common.tufo(name, fmt='bin')
 
 def getModDefSrc(moddef):
     '''
@@ -174,12 +173,12 @@ def getModsByPath(path, modtree=None):
             dostuff(mods)
 
     '''
-    path = abspath(path)
+    path = os.path.abspath(path)
     if modtree is None:
         modtree = []
 
     if not os.path.isdir(path):
-        raise NoSuchDir(path=path)
+        raise s_common.NoSuchDir(path=path)
 
     mods = {}
     todo = [(path, modtree)]
@@ -198,14 +197,14 @@ def getModsByPath(path, modtree=None):
             modname = '.'.join(subtree)
 
             # check for a pkg dir...
-            if isdir(subpath):
+            if os.path.isdir(subpath):
 
                 pkgfile = os.path.join(subpath, '__init__.py')
-                if not isfile(pkgfile):
+                if not os.path.isfile(pkgfile):
                     continue
 
                 # pkg dir found!
-                mods[modname] = tufo(modname, fmt='src', path=pkgfile, pkg=True)
+                mods[modname] = s_common.tufo(modname, fmt='src', path=pkgfile, pkg=True)
 
                 todo.append((subpath, subtree))
 
@@ -217,7 +216,7 @@ def getModsByPath(path, modtree=None):
                 if not modinfo.get('fmt'):
                     continue
 
-                mods[modname] = tufo(modname, path=subpath, **modinfo)
+                mods[modname] = s_common.tufo(modname, path=subpath, **modinfo)
                 continue
 
             # add dat files to our pkg moddef
@@ -244,7 +243,7 @@ def getModDefImps(moddef):
         return ()
 
     i = 0
-    ops = list(iterbytes(modcode.co_code))
+    ops = list(s_compat.iterbytes(modcode.co_code))
 
     names = modcode.co_names
     lastname = None

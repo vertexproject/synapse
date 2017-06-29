@@ -2,7 +2,6 @@ from __future__ import absolute_import, unicode_literals
 
 import ctypes
 import socket
-import platform
 
 import synapse.lib.thisplat as s_thisplat
 

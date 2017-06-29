@@ -3,10 +3,10 @@ from __future__ import absolute_import, unicode_literals
 import re
 import json
 import base64
-import hashlib
 import logging
 import collections
 
+import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
 
@@ -15,8 +15,6 @@ import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
 
 import synapse.lookup.iso3166 as s_l_iso3166
-
-from synapse.common import *
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +30,10 @@ class DataType:
         self.tlib = tlib
         self.name = name
         self.info = info
-        reqStorDict(info)
+        s_common.reqStorDict(info)
 
     def _raiseBadValu(self, valu, **info):
-        raise BadTypeValu(name=self.name, valu=valu, **info)
+        raise s_common.BadTypeValu(name=self.name, valu=valu, **info)
 
     def get(self, prop, defval=None):
         '''
@@ -92,7 +90,7 @@ class GuidType(DataType):
 
         # generate me one.  we dont care.
         if valu == '*':
-            return guid(), {}
+            return s_common.guid(), {}
 
         if valu[0] != '$':
             retn = valu.lower().replace('-', '')
@@ -235,11 +233,11 @@ class IntType(DataType):
 def enMsgB64(item):
     # FIXME find a way to go directly from binary bytes to
     # base64 *string* to avoid the extra decode pass..
-    return base64.b64encode(msgenpack(item)).decode('utf8')
+    return base64.b64encode(s_common.msgenpack(item)).decode('utf8')
 
 def deMsgB64(text):
     # FIXME see above
-    return msgunpack(base64.b64decode(text.encode('utf8')))
+    return s_common.msgunpack(base64.b64decode(text.encode('utf8')))
 
 jsseps = (',', ':')
 
@@ -306,7 +304,7 @@ class MultiFieldType(DataType):
             self.flen = len(ftypes)
 
             if len(fnames) != self.flen:
-                raise BadInfoValu(name='types', valu=ftstr, mesg='len(names) != len(types)')
+                raise s_common.BadInfoValu(name='types', valu=ftstr, mesg='len(names) != len(types)')
 
             for i in range(self.flen):
                 item = self.tlib.getTypeInst(ftypes[i])
@@ -338,11 +336,11 @@ class CompType(MultiFieldType):
 
             vals, subs = self._norm_fields(text.split('|'))
 
-        return guid(vals), subs
+        return s_common.guid(vals), subs
 
     def _norm_list(self, valu, oldval=None):
         valu, subs = self._norm_fields(valu)
-        return guid(valu), subs
+        return s_common.guid(valu), subs
 
     def norm(self, valu, oldval=None):
 
@@ -376,7 +374,7 @@ class XrefType(DataType):
         if sorc is not None:
             parts = sorc.split(',')
             if len(parts) != 2:
-                raise BadInfoValu(name='source', valu=sorc, mesg='expected source=<name>,<type>')
+                raise s_common.BadInfoValu(name='source', valu=sorc, mesg='expected source=<name>,<type>')
 
             self._sorc_name = parts[0]
             self._sorc_type = parts[1]
@@ -410,7 +408,7 @@ class XrefType(DataType):
         valu, vsub = self.tlib.getTypeNorm(self._sorc_type, valu)
         tval, tsub = self.tlib.getTypeNorm(tstr, tval)
 
-        iden = guid((valu, tstr, tval))
+        iden = s_common.guid((valu, tstr, tval))
 
         subs = {
             self._sorc_name: valu,
@@ -568,10 +566,14 @@ class TypeLib:
         self.addType('json', ctor='synapse.lib.types.JsonType', doc='A json type (stored as str)')
 
         self.addType('guid', ctor='synapse.lib.types.GuidType', doc='A Globally Unique Identifier type')
-        self.addType('sepr', ctor='synapse.lib.types.SeprType', doc='A multi-field composite type which uses separated repr values')
-        self.addType('comp', ctor='synapse.lib.types.CompType', doc='A multi-field composite type which generates a stable guid from normalized fields')
-        self.addType('xref', ctor='synapse.lib.types.XrefType', doc='A multi-field composite type which can be used to link a known form to an unknown form')
-        self.addType('time', ctor='synapse.lib.types.TimeType', doc='Timestamp in milliseconds since epoch', ex='20161216084632')
+        self.addType('sepr', ctor='synapse.lib.types.SeprType',
+                     doc='A multi-field composite type which uses separated repr values')
+        self.addType('comp', ctor='synapse.lib.types.CompType',
+                     doc='A multi-field composite type which generates a stable guid from normalized fields')
+        self.addType('xref', ctor='synapse.lib.types.XrefType',
+                     doc='A multi-field composite type which can be used to link a known form to an unknown form')
+        self.addType('time', ctor='synapse.lib.types.TimeType',
+                     doc='Timestamp in milliseconds since epoch', ex='20161216084632')
 
         self.addType('syn:tag', ctor='synapse.lib.types.TagType', doc='A synapse tag', ex='foo.bar')
 
@@ -598,7 +600,7 @@ class TypeLib:
         return s_l_iso3166.country2iso.get(valu)
 
     def _castMakeGuid(self, valu):
-        return guid(valu)
+        return s_common.guid(valu)
 
     def getTypeInst(self, name):
         '''
@@ -705,7 +707,7 @@ class TypeLib:
         '''
         item = self.getDataType(name)
         if item is None:
-            raise NoSuchType(name=name)
+            raise s_common.NoSuchType(name=name)
         return item
 
     def addType(self, name, **info):
@@ -726,7 +728,7 @@ class TypeLib:
 
         '''
         if self.types.get(name) is not None:
-            raise DupTypeName(name=name)
+            raise s_common.DupTypeName(name=name)
 
         ctor = info.get('ctor')
         subof = info.get('subof')
@@ -760,7 +762,7 @@ class TypeLib:
             self.subscache.clear()
             return True
 
-        except NoSuchType as e:
+        except s_common.NoSuchType as e:
             tnam = e.errinfo.get('name')
             self.typeinfo.pop(name, None)
             self.pended[tnam].append((name, info))

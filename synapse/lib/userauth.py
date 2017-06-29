@@ -1,11 +1,11 @@
-import hashlib
 import fnmatch
 import contextlib
+
+import synapse.common as s_common
 
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 
-from synapse.common import *
 from synapse.eventbus import EventBus
 
 class Rules:
@@ -87,7 +87,7 @@ class UserAuth(EventBus):
         Add a user to the UserAuth cortex.
         '''
         if self.users.get(user) is not None:
-            raise DupUser(user)
+            raise s_common.DupUser(user)
 
         usfo = self.core.formTufoByProp('syn:auth:user', user, **props)
         self.users.put(user, usfo)
@@ -196,7 +196,7 @@ class UserAuth(EventBus):
         Add a new role to the UserAuth cortex.
         '''
         if self.roles.get(role) is not None:
-            raise DupRole(role)
+            raise s_common.DupRole(role)
 
         rofo = self.core.formTufoByProp('syn:auth:role', role, **props)
         self.roles.put(role, rofo)
@@ -269,13 +269,13 @@ class UserAuth(EventBus):
     def _reqUserTufo(self, user):
         usfo = self.users.get(user)
         if usfo is None:
-            raise NoSuchUser(user)
+            raise s_common.NoSuchUser(user)
         return usfo
 
     def _reqRoleTufo(self, role):
         rofo = self.roles.get(role)
         if rofo is None:
-            raise NoSuchRole(role)
+            raise s_common.NoSuchRole(role)
         return rofo
 
 def opencore(url, **opts):

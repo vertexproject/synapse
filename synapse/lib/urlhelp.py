@@ -1,5 +1,4 @@
-
-from synapse.exc import *
+import synapse.common as s_common
 
 def chopurl(url):
     '''
@@ -11,7 +10,7 @@ def chopurl(url):
     '''
     ret = {}
     if url.find('://') == -1:
-        raise BadUrl(':// not found in [{}]!'.format(url))
+        raise s_common.BadUrl(':// not found in [{}]!'.format(url))
 
     scheme, remain = url.split('://', 1)
     ret['scheme'] = scheme.lower()

@@ -2,11 +2,8 @@ import os
 import mmap
 import threading
 
-import ctypes
-import ctypes.util
-
-import synapse.lib.thisplat as s_thisplat
 import synapse.lib.thishost as s_thishost
+import synapse.lib.thisplat as s_thisplat
 
 from synapse.eventbus import EventBus
 

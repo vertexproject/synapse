@@ -2,7 +2,6 @@ import json
 
 import synapse.lib.cli as s_cli
 import synapse.lib.tufo as s_tufo
-import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 
 class AskCmd(s_cli.Cmd):

@@ -1,6 +1,6 @@
 import operator
 
-import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.lib.syntax as s_syntax
 
 
@@ -168,7 +168,7 @@ class VarNode(GeneNode):
         name = self.tokn[1].get('name')
         valu = syms.get(name, undefined)
         if valu is undefined:
-            raise s_exc.NoSuchName(name=name)
+            raise s_common.NoSuchName(name=name)
         return valu
 
 class CallNode(GeneNode):
@@ -241,7 +241,7 @@ def tokenize(text):
             continue
 
         if not s_syntax.nextin(text, off, varset):
-            raise s_exc.SyntaxError(at=off, mesg='no valid tokens found')
+            raise s_common.SyntaxError(at=off, mesg='no valid tokens found')
 
         tokn = ('var', {'off': off})
         tokn[1]['name'], off = s_syntax.nom(text, off, varset, trim=False)
@@ -319,7 +319,7 @@ def exprlist(toks, off=0):
 
 def raisetok(tokn, mesg):
     off = tokn[1].get('off')
-    raise s_exc.SyntaxError(mesg=mesg, off=off)
+    raise s_common.SyntaxError(mesg=mesg, off=off)
 
 def exprbase(toks, off=0):
     '''

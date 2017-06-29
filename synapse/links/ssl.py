@@ -1,18 +1,19 @@
 from __future__ import absolute_import, unicode_literals
 
-import os
 import ssl
 import socket
 import logging
 
-logger = logging.getLogger(__name__)
-
 import synapse.compat as s_compat
+
 import synapse.lib.socket as s_socket
 import synapse.lib.certdir as s_certdir
 
-from OpenSSL import crypto
 from synapse.links.common import *
+
+from OpenSSL import crypto
+
+logger = logging.getLogger(__name__)
 
 class SslRelay(LinkRelay):
 
@@ -23,22 +24,22 @@ class SslRelay(LinkRelay):
         port = self.link[1].get('port')
 
         if host is None:
-            raise PropNotFound('host')
+            raise s_common.PropNotFound('host')
 
         if port is None:
-            raise PropNotFound('port')
+            raise s_common.PropNotFound('port')
 
         cafile = self.link[1].get('cafile')
         if cafile is not None:
-            self.link[1]['cafile'] = reqpath(cafile)
+            self.link[1]['cafile'] = s_common.reqpath(cafile)
 
         keyfile = self.link[1].get('keyfile')
         if keyfile is not None:
-            self.link[1]['keyfile'] = reqpath(keyfile)
+            self.link[1]['keyfile'] = s_common.reqpath(keyfile)
 
         certfile = self.link[1].get('certfile')
         if certfile is not None:
-            self.link[1]['certfile'] = reqpath(certfile)
+            self.link[1]['certfile'] = s_common.reqpath(certfile)
 
     def _listen(self):
 
@@ -206,6 +207,6 @@ class SslRelay(LinkRelay):
             wrap = ssl.wrap_socket(sock, **sslopts)
         except ssl.SSLError as e:
             sock.close()
-            raise LinkErr(self.link, str(e))
+            raise s_common.LinkErr(self.link, str(e))
 
         return s_socket.Socket(wrap)

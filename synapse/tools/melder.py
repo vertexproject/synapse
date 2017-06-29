@@ -1,10 +1,10 @@
+import os
 import sys
 import msgpack
 import argparse
 
+import synapse.common as s_common
 import synapse.mindmeld as s_mindmeld
-
-from synapse.common import *
 
 def main(argv):
     '''
@@ -32,7 +32,7 @@ def main(argv):
     meld = s_mindmeld.MindMeld(**meldinfo)
 
     if opts.version:
-        meld.setVersion(vertup(opts.version))
+        meld.setVersion(s_common.vertup(opts.version))
 
     if opts.name:
         meld.setName(opts.name)

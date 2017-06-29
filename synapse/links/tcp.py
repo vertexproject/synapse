@@ -1,8 +1,6 @@
-import time
-import errno
-import socket
-
+import synapse.common as s_common
 import synapse.compat as s_compat
+
 import synapse.lib.socket as s_socket
 
 from synapse.links.common import *
@@ -21,10 +19,10 @@ class TcpRelay(LinkRelay):
         port = self.link[1].get('port')
 
         if host is None:
-            raise PropNotFound('host')
+            raise s_common.PropNotFound('host')
 
         if port is None:
-            raise PropNotFound('port')
+            raise s_common.PropNotFound('port')
 
     def _listen(self):
         host = self.link[1].get('host')

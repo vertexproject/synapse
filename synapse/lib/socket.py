@@ -1,6 +1,5 @@
 from __future__ import absolute_import, unicode_literals
 
-import os
 import ssl
 import zlib
 import errno
@@ -9,6 +8,7 @@ import select
 import socket
 import logging
 import msgpack
+import threading
 import collections
 
 logger = logging.getLogger(__name__)
@@ -20,13 +20,11 @@ import synapse.lib.thisplat as s_thisplat
 
 from synapse.eventbus import EventBus
 
-from synapse.common import *
-
 def sockgzip(byts):
     blen = len(byts)
     byts = zlib.compress(byts)
     #print('GZIP DELTA: %d -> %d' % (blen,len(byts)))
-    return msgenpack(('sock:gzip', {'data': byts}))
+    return s_common.msgenpack(('sock:gzip', {'data': byts}))
 
 class SockXform:
     '''
@@ -206,7 +204,7 @@ class Socket(EventBus):
             return self.plex._txSockMesg(self, mesg)
 
         try:
-            byts = msgenpack(mesg)
+            byts = s_common.msgenpack(mesg)
 
             if len(byts) > 50000 and self.get('sock:can:gzip'):
                 byts = sockgzip(byts)
@@ -434,7 +432,7 @@ class Plex(EventBus):
 
     def _txSockMesg(self, sock, mesg):
         # handle the need to send on a socket in the plex
-        byts = msgenpack(mesg)
+        byts = s_common.msgenpack(mesg)
         if len(byts) > 50000 and sock.get('sock:can:gzip'):
             byts = sockgzip(byts)
 
@@ -518,7 +516,7 @@ class Plex(EventBus):
         except socket.error as e:
             return
 
-    @s_threads.firethread
+    @s_common.firethread
     def _plexMainLoop(self):
 
         s_threads.iCantWait(name='SynPlexMain')

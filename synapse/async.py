@@ -1,21 +1,17 @@
 import time
 import traceback
 import threading
-import collections
 
-from synapse.compat import queue
+import synapse.common as s_common
 
-import synapse.dyndeps as s_dyndeps
 import synapse.lib.sched as s_sched
 import synapse.lib.scope as s_scope
-import synapse.lib.queue as s_queue
 import synapse.lib.threads as s_threads
 
-from synapse.common import *
 from synapse.eventbus import EventBus
 
 def jobid():
-    return guid()
+    return s_common.guid()
 
 def jobret(job):
     '''
@@ -37,10 +33,10 @@ def jobret(job):
         if err != 'NameErr':
             try:
                 info = job[1].get('errinfo', {})
-                raise synerr(err, **info)
+                raise s_common.synerr(err, **info)
             except NameError as e:
                 pass
-        raise JobErr(job)
+        raise s_common.JobErr(job)
     return job[1].get('ret')
 
 def jobDoneMesg(job):
@@ -60,7 +56,7 @@ def jobDoneMesg(job):
         info['errfile'] = job[1].get('errfile'),
         info['errline'] = job[1].get('errline'),
 
-    return tufo('job:done', **info)
+    return s_common.tufo('job:done', **info)
 
 def newtask(meth, *args, **kwargs):
     return (meth, args, kwargs)
@@ -178,10 +174,10 @@ class Boss(EventBus):
 
         '''
         if self.isfini:
-            raise IsFini()
+            raise s_common.IsFini()
 
         if jid is None:
-            jid = guid()
+            jid = s_common.guid()
 
         info['done'] = False
         info['times'] = []
@@ -220,7 +216,7 @@ class Boss(EventBus):
         Wait and return the value for the job.
         '''
         if not self.wait(job[0], timeout=timeout):
-            raise HitMaxTime(timeout)
+            raise s_common.HitMaxTime(timeout)
 
         return jobret(job)
 
@@ -248,7 +244,7 @@ class Boss(EventBus):
             self.fire('job:done', jid=job[0], ret=ret)
 
         except Exception as e:
-            self.fire('job:done', jid=job[0], **excinfo(e))
+            self.fire('job:done', jid=job[0], **s_common.excinfo(e))
 
     def _onJobFini(self, event):
 

@@ -4,25 +4,21 @@ import csv
 import json
 import codecs
 import logging
-import traceback
 
 import xml.etree.ElementTree as x_etree
 
-from synapse.common import *
-from synapse.eventbus import EventBus
+import synapse.common as s_common
 
 import synapse.gene as s_gene
 import synapse.compat as s_compat
-import synapse.dyndeps as s_dyndeps
 
 import synapse.lib.scope as s_scope
-import synapse.lib.syntax as s_syntax
-import synapse.lib.scrape as s_scrape
 import synapse.lib.hashset as s_hashset
 import synapse.lib.datapath as s_datapath
 import synapse.lib.encoding as s_encoding
 import synapse.lib.filepath as s_filepath
-import synapse.lib.openfile as s_openfile
+
+from synapse.eventbus import EventBus
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +181,7 @@ def iterdata(fd, close_fd=True, **opts):
 
     fmtr = fmtyielders.get(fmt)
     if fmtr is None:
-        raise NoSuchImpl(name=fmt, knowns=fmtyielders.keys())
+        raise s_common.NoSuchImpl(name=fmt, knowns=fmtyielders.keys())
 
     for item in fmtr(fd, opts):
         yield item
@@ -257,7 +253,7 @@ class IngestApi:
 
         '''
         props = {
-            'time': now(),
+            'time': s_common.now(),
             'text': json.dumps(idef),
         }
 
@@ -281,7 +277,7 @@ class IngestApi:
         '''
         gest = self._gest_cache.get(name)
         if gest is None:
-            raise NoSuchTufo(prop='syn:ingest', valu=name)
+            raise s_common.NoSuchTufo(prop='syn:ingest', valu=name)
 
         gest.ingest(self._gest_core, data=data)
 
@@ -742,11 +738,11 @@ def loadfile(*paths):
     for adding runtime info to the ingest json to facilitate path
     relative file opening etc...
     '''
-    path = genpath(*paths)
+    path = s_common.genpath(*paths)
 
     # FIXME universal open
 
-    with reqfile(path) as fd:
+    with s_common.reqfile(path) as fd:
         jsfo = json.loads(fd.read().decode('utf8'))
 
     gest = Ingest(jsfo)

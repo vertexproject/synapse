@@ -1,12 +1,12 @@
 from __future__ import absolute_import, unicode_literals
 
 import time
-import inspect
 import logging
 
 logger = logging.getLogger(__name__)
 
 import synapse.async as s_async
+import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
@@ -15,8 +15,6 @@ import synapse.lib.sched as s_sched
 import synapse.lib.scope as s_scope
 import synapse.lib.reflect as s_reflect
 import synapse.lib.thishost as s_thishost
-
-from synapse.common import *
 
 def openurl(url, **opts):
     '''
@@ -237,7 +235,7 @@ class SvcProxy(s_eventbus.EventBus):
         '''
         svcfo = self.byiden.get(iden)
         if svcfo is None:
-            raise NoSuchObj(iden)
+            raise s_common.NoSuchObj(iden)
 
         dyntask = (func, args, kwargs)
         job = self.sbus.callx(iden, dyntask)
@@ -264,7 +262,7 @@ class SvcProxy(s_eventbus.EventBus):
 
         svcfo = self.getSynSvcByName(name)
         if svcfo is None:
-            raise NoSuchObj(name)
+            raise s_common.NoSuchObj(name)
 
         job = self.sbus.callx(svcfo[0], dyntask)
         self.sbus._waitTeleJob(job, timeout=timeout)
@@ -407,7 +405,7 @@ class SvcBase:
         self.svcprox = svcprox
 
     def _callSvcMeth(self, name, *args, **kwargs):
-        raise NoSuchImpl(name='_callSvcMethod')
+        raise s_common.NoSuchImpl(name='_callSvcMethod')
 
     def __getattr__(self, name):
         item = SvcMeth(self, name)
@@ -444,7 +442,7 @@ def runSynSvc(name, item, sbus, tags=(), **props):
         runSynSvc('syn.woot', woot, sbus)
 
     '''
-    iden = guid()
+    iden = s_common.guid()
 
     sbus.push(iden, item)
     sbus.push(name, item)

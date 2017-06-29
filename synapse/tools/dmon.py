@@ -8,7 +8,6 @@ import subprocess
 import synapse.compat as s_compat
 import synapse.daemon as s_daemon
 
-import synapse.lib.cli as s_cli
 import synapse.lib.output as s_output
 import synapse.lib.thishost as s_thishost
 

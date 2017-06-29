@@ -1,9 +1,10 @@
 '''
 Central API for configurable objects within synapse.
 '''
-from synapse.exc import *
+import synapse.common as s_common
+import synapse.datamodel as s_datamodel
+
 from synapse.eventbus import EventBus
-from synapse.datamodel import getTypeNorm
 
 class Configable:
 
@@ -60,7 +61,7 @@ class Configable:
     def getConfDef(self, name):
         cdef = self._conf_defs.get(name)
         if cdef is None:
-            raise NoSuchOpt(name=name)
+            raise s_common.NoSuchOpt(name=name)
         return cdef
 
     def getConfDefs(self):
@@ -71,7 +72,7 @@ class Configable:
 
     def getConfNorm(self, name, valu):
         '''
-        Return a normalized version of valu based on type knowledge for name.
+        Return a no.rmalized version of valu based on type knowledge for name.
 
         Args:
             name (str): The name of the config option
@@ -85,7 +86,7 @@ class Configable:
         ctype = cdef[1].get('type')
         if ctype is None:
             return valu, {}
-        return getTypeNorm(ctype, valu)
+        return s_datamodel.getTypeNorm(ctype, valu)
 
     def setConfOpt(self, name, valu):
         '''
@@ -97,7 +98,7 @@ class Configable:
 
         ctype = cdef[1].get('type')
         if ctype is not None:
-            valu, _ = getTypeNorm(ctype, valu)
+            valu, _ = s_datamodel.getTypeNorm(ctype, valu)
 
         if valu == oldval:
             return False

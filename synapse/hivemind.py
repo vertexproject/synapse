@@ -10,15 +10,14 @@ import multiprocessing as mproc
 
 import synapse.async as s_async
 import synapse.daemon as s_daemon
+import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.mindmeld as s_mindmeld
 import synapse.telepath as s_telepath
 
 import synapse.lib.sched as s_sched
 import synapse.lib.scope as s_scope
-import synapse.lib.threads as s_threads
 
-from synapse.common import *
 from synapse.eventbus import EventBus
 
 logger = logging.getLogger(__name__)
@@ -165,7 +164,7 @@ class Hive(s_async.Boss):
         s_async.Boss.__init__(self)
 
         self.meld = None
-        self.iden = guid()
+        self.iden = s_common.guid()
 
         self.queen = queen
 
@@ -233,7 +232,7 @@ class Drone(EventBus):
 
         EventBus.__init__(self)
 
-        self.iden = guid()
+        self.iden = s_common.guid()
 
         self.slots = {}
         self.slocs = {}
@@ -288,8 +287,8 @@ class Drone(EventBus):
             self._addWorkSlot()
 
     def _addWorkSlot(self):
-        iden = guid()
-        slot = tufo(iden, drone=self.iden)
+        iden = s_common.guid()
+        slot = s_common.tufo(iden, drone=self.iden)
 
         self.slots[iden] = slot
         self.slocs[iden] = {}
@@ -300,7 +299,7 @@ class Drone(EventBus):
         job = mesg[1].get('job')
         self._runHiveJob(job)
 
-    @s_threads.firethread
+    @s_common.firethread
     def _runHiveJob(self, job):
         '''
         Fire a thread to run a job in a seperate Process.
@@ -350,4 +349,4 @@ def subtask(job):
         queen.tell(hive, 'job:done', jid=jid, ret=ret)
 
     except Exception as e:
-        queen.tell(hive, 'job:done', jid=jid, **excinfo(e))
+        queen.tell(hive, 'job:done', jid=jid, **s_common.excinfo(e))

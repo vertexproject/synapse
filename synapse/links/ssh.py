@@ -1,8 +1,9 @@
+import os
+
 import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
 import synapse.lib.socket as s_socket
 
-from synapse.common import *
 from synapse.links.common import *
 
 paramiko = s_dyndeps.getDynMod('paramiko')
@@ -26,11 +27,11 @@ class SshRelay(LinkRelay):
 
         host = self.link[1].get('host')
         if host is None:
-            raise PropNotFound('host')
+            raise s_common.PropNotFound('host')
 
         fwdstr = self.link[1].get('forward')
         if fwdstr is None:
-            raise PropNotFound('forward=<host:port>')
+            raise s_common.PropNotFound('forward=<host:port>')
 
         keyfile = self.link[1].get('keyfile')
         if keyfile is not None and not os.path.isfile(keyfile):

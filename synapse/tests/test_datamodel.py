@@ -1,6 +1,3 @@
-import unittest
-
-import synapse.cortex as s_cortex
 import synapse.datamodel as s_datamodel
 
 from synapse.tests.common import *
@@ -46,7 +43,7 @@ class DataModelTest(SynTest):
         model = s_datamodel.DataModel()
 
         model.addTufoForm('foo')
-        self.raises(s_datamodel.NoSuchType, model.addTufoProp, 'foo', 'bar', ptype='hehe')
+        self.raises(NoSuchType, model.addTufoProp, 'foo', 'bar', ptype='hehe')
 
     def test_datamodel_fail_noprop(self):
         model = s_datamodel.DataModel()
@@ -213,10 +210,10 @@ class DataModelTest(SynTest):
     def test_datamodel_badprop(self):
         model = s_datamodel.DataModel()
 
-        self.raises(s_datamodel.BadPropName, model.addTufoForm, 'foo.bar')
+        self.raises(BadPropName, model.addTufoForm, 'foo.bar')
 
         model.addTufoForm('foo:bar')
-        self.raises(s_datamodel.BadPropName, model.addTufoProp, 'foo:bar', 'b*z')
+        self.raises(BadPropName, model.addTufoProp, 'foo:bar', 'b*z')
 
     def test_datatype_syn_prop(self):
         model = s_datamodel.DataModel()
@@ -270,7 +267,7 @@ class DataModelTest(SynTest):
         self.eq(s_datamodel.getTypeNorm('inet:ipv4', 0x01020304), (16909060, {}))
         self.eq(s_datamodel.getTypeNorm('inet:ipv4', '1.2.3.4'), (16909060, {}))
 
-        self.raises(s_datamodel.BadTypeValu, s_datamodel.getTypeNorm, 'inet:ipv4', 'hahaha')
+        self.raises(BadTypeValu, s_datamodel.getTypeNorm, 'inet:ipv4', 'hahaha')
 
         self.eq(s_datamodel.getTypeParse('str', 'haha'), ('haha', {}))
         self.eq(s_datamodel.getTypeParse('inet:ipv4', '1.2.3.4'), (16909060, {}))
@@ -320,8 +317,8 @@ class DataModelTest(SynTest):
 
         bads = (None, [], {}, 1, '/teehee', 'hoho/haha')
         for bad in bads:
-            self.raises(s_datamodel.BadTypeValu, model.getTypeNorm, prop, bad)
-            self.raises(s_datamodel.BadTypeValu, model.getTypeParse, prop, bad)
+            self.raises(BadTypeValu, model.getTypeNorm, prop, bad)
+            self.raises(BadTypeValu, model.getTypeParse, prop, bad)
 
     def test_datamodel_formbase(self):
 

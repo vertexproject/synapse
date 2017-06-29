@@ -1,6 +1,5 @@
 import msgpack
 import functools
-import threading
 
 def keepstate(f):
     name = f.__name__

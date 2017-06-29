@@ -1,18 +1,15 @@
 import sys
 import time
 import argparse
-import cProfile
 import collections
 
+import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.tufo as s_tufo
 import synapse.lib.ingest as s_ingest
 import synapse.lib.output as s_output
-import synapse.lib.scrape as s_scrape
-
-from synapse.common import *
 
 def main(argv, outp=None):
 
@@ -117,7 +114,7 @@ def main(argv, outp=None):
 
     if opts.save:
         outp.printf('saving sync events to: %s' % (opts.save,))
-        core.addSpliceFd(genfile(opts.save))
+        core.addSpliceFd(s_common.genfile(opts.save))
 
     if opts.verbose:
         core.on('node:add', _print_tufo_add)

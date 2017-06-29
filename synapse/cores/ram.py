@@ -1,8 +1,8 @@
 import collections
 
-import synapse.cores.common as s_cores_common
-
 from synapse.compat import isint, intern
+
+import synapse.cores.common as s_cores_common
 
 class CoreXact(s_cores_common.CoreXact):
 

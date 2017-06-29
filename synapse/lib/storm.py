@@ -4,19 +4,15 @@ import re
 import time
 import fnmatch
 import logging
-import collections
 
+import synapse.common as s_common
 import synapse.compat as s_compat
-import synapse.eventbus as s_eventbus
 
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
-import synapse.lib.threads as s_threads
-import synapse.lib.interval as s_interval
 
-from synapse.common import *
 from synapse.lib.config import Configable
 
 logger = logging.getLogger(__name__)
@@ -175,7 +171,7 @@ class OperWith:
         self.stime = None
 
     def __enter__(self):
-        self.stime = now()
+        self.stime = s_common.now()
         self.query.added = 0
         self.query.subed = 0
         return self
@@ -185,11 +181,11 @@ class OperWith:
         info = {
             'sub': self.query.subed,
             'add': self.query.added,
-            'took': now() - self.stime
+            'took': s_common.now() - self.stime
         }
 
         if exc is not None:
-            info['excinfo'] = excinfo(exc)
+            info['excinfo'] = s_common.excinfo(exc)
             self.query.clear()
 
         self.query.log(**info)
@@ -330,11 +326,11 @@ class Query:
 
         nowtime = time.time()
         if self.maxtime is not None and nowtime >= self.maxtime:
-            raise HitStormLimit(name='maxtime', limit=self.maxtime, valu=nowtime)
+            raise s_common.HitStormLimit(name='maxtime', limit=self.maxtime, valu=nowtime)
 
         self.touched += touch
         if self.maxtouch is not None and self.touched > self.maxtouch:
-            raise HitStormLimit(name='maxtouch', limit=self.maxtouch, valu=self.touched)
+            raise s_common.HitStormLimit(name='maxtouch', limit=self.maxtouch, valu=self.touched)
 
 class QueryKilled(Exception): pass
 class QueryCancelled(QueryKilled): pass
@@ -440,7 +436,7 @@ class Runtime(Configable):
         return self._getStormCore(name=name)
 
     def _getStormCore(self, name=None):
-        raise NoSuchImpl(name='getStormCore')
+        raise s_common.NoSuchImpl(name='getStormCore')
 
     def getLiftLimit(self, *limits):
         '''
@@ -468,7 +464,7 @@ class Runtime(Configable):
         return self._stormTufosBy(by, prop, valu=valu, limit=limit)
 
     def _stormTufosBy(self, by, prop, valu=None, limit=None):
-        raise NoSuchImpl(name='_stormTufosBy')
+        raise s_common.NoSuchImpl(name='_stormTufosBy')
 
     def setCmprCtor(self, name, func):
         '''
@@ -558,7 +554,7 @@ class Runtime(Configable):
         name = oper[1].get('cmp', 'eq')
         ctor = self.cmprctors.get(name)
         if ctor is None:
-            raise NoSuchCmpr(name=name)
+            raise s_common.NoSuchCmpr(name=name)
         return ctor(oper)
 
     def setOperFunc(self, name, func):
@@ -634,14 +630,14 @@ class Runtime(Configable):
             errinfo = excinfo.get('errinfo', {})
             errinfo['errfile'] = excinfo.get('errfile')
             errinfo['errline'] = excinfo.get('errline')
-            raise synerr(errname, **errinfo)
+            raise s_common.synerr(errname, **errinfo)
 
         return answ.get('data')
 
     def _reqOperArg(self, oper, name):
         valu = oper[1].get(name)
         if valu is None:
-            raise BadOperArg(oper=oper, name=name, mesg='not found')
+            raise s_common.BadOperArg(oper=oper, name=name, mesg='not found')
         return valu
 
     def _cmprCtorHas(self, oper):
@@ -877,7 +873,7 @@ class Runtime(Configable):
 
             func = self.operfuncs.get(oper[0])
             if func is None:
-                raise NoSuchOper(name=oper[0])
+                raise s_common.NoSuchOper(name=oper[0])
 
             try:
 
@@ -897,7 +893,7 @@ class Runtime(Configable):
 
         except Exception as e:
             query.clear()
-            query.log(excinfo=excinfo(e))
+            query.log(excinfo=s_common.excinfo(e))
 
     def _stormOperLift(self, query, oper):
 
@@ -905,7 +901,7 @@ class Runtime(Configable):
         opts = dict(oper[1].get('kwlist'))
 
         if len(args) not in (1, 2):
-            raise SyntaxError('lift(<prop> [,<valu>, by=<by>, limit=<limit>])')
+            raise s_common.SyntaxError(mesg='lift(<prop> [,<valu>, by=<by>, limit=<limit>])')
 
         valu = None
         prop = args[0]
@@ -974,7 +970,7 @@ class Runtime(Configable):
         name = kwargs.get('core')
 
         if len(args) != 1:
-            raise SyntaxError('nexttag(<tagname>,doc=<doc>)')
+            raise s_common.SyntaxError(mesg='nexttag(<tagname>,doc=<doc>)')
 
         tag = args[0]
 
@@ -1004,7 +1000,7 @@ class Runtime(Configable):
 
         args = oper[1].get('args')
         if len(args) != 3:
-            raise SyntaxError('addxref(<type>,<form>,<valu>)')
+            raise s_common.SyntaxError(mesg='addxref(<type>,<form>,<valu>)')
 
         xref, form, valu = args
 
@@ -1097,7 +1093,7 @@ class Runtime(Configable):
         # addnode(<form>,<valu>,**props)
         args = oper[1].get('args')
         if len(args) != 2:
-            raise SyntaxError('addnode(<form>,<valu>,[<prop>=<pval>, ...])')
+            raise s_common.SyntaxError(mesg='addnode(<form>,<valu>,[<prop>=<pval>, ...])')
 
         kwlist = oper[1].get('kwlist')
 

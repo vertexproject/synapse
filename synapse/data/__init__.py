@@ -1,4 +1,5 @@
 import synapse.common as s_common
+
 import synapse.lib.datfile as s_datfile
 
 def get(name, defval=None):

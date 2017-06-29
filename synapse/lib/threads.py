@@ -1,20 +1,16 @@
 from __future__ import absolute_import, unicode_literals
 
 import os
-import time
-import sched
-import atexit
-import functools
 import threading
 import traceback
 import collections
 
 from functools import wraps
 
-import synapse.glob as s_glob
+import synapse.common as s_common
+
 import synapse.lib.queue as s_queue
 
-from synapse.common import *
 from synapse.eventbus import EventBus
 
 def current():
@@ -76,7 +72,7 @@ class Thread(threading.Thread, EventBus):
         threading.Thread.__init__(self)
         self.setDaemon(True)
 
-        self.iden = guid()
+        self.iden = s_common.guid()
         self.task = (func, args, kwargs)
 
         self.cancels = []
@@ -175,11 +171,11 @@ class Pool(EventBus):
             * Specify jid=<iden> to generate job:done events.
 
         '''
-        work = tufo(task, jid=jid)
+        work = s_common.tufo(task, jid=jid)
         with self._pool_lock:
 
             if self.isfini:
-                raise IsFini(self.__class__.__name__)
+                raise s_common.IsFini(self.__class__.__name__)
 
             # we're about to put work into the queue
             # lets see if we should also fire another worker
@@ -249,7 +245,7 @@ class Pool(EventBus):
             except Exception as e:
 
                 if jid is not None:
-                    self.fire('job:done', jid=jid, **excinfo(e))
+                    self.fire('job:done', jid=jid, **s_common.excinfo(e))
 
             self.fire('pool:work:fini', work=work)
 
@@ -419,7 +415,7 @@ def iWillWait():
     '''
     if getattr(threading.currentThread(), '_syn_cantwait', False):
         name = threading.currentThread().name
-        raise MustNotWait(name)
+        raise s_common.MustNotWait(name)
 
 def iMayWait():
     '''

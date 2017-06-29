@@ -9,14 +9,9 @@ import tornado.ioloop
 import tornado.httpserver
 
 import synapse.async as s_async
+import synapse.common as s_common
 import synapse.daemon as s_daemon
-import synapse.dyndeps as s_dyndeps
-import synapse.telepath as s_telepath
-import synapse.datamodel as s_datamodel
 
-import synapse.lib.threads as s_threads
-
-from synapse.common import *
 from synapse.eventbus import EventBus
 
 # TODO:
@@ -183,7 +178,7 @@ class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf):
         globs = {'path': path}
         self.add_handlers(host, [(regex, tornado.web.StaticFileHandler, globs)])
 
-    @s_threads.firethread
+    @s_common.firethread
     def _runWappLoop(self):
         self.loop.start()
 
@@ -274,11 +269,11 @@ class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf):
 
             item = self.locs.get(name)
             if item is None:
-                raise NoSuchObj(name)
+                raise s_common.NoSuchObj(name)
 
             func = getattr(item, meth, None)
             if func is None:
-                raise NoSuchMeth(meth)
+                raise s_common.NoSuchMeth(meth)
 
             self.addApiPath(path, func)
 

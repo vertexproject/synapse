@@ -1,32 +1,24 @@
 '''
 An RMI framework for synapse.
 '''
-import copy
 import time
 import zlib
 import logging
-import getpass
 import threading
-import threading
-import traceback
 import collections
 
 import synapse.link as s_link
 import synapse.async as s_async
-import synapse.crypto as s_crypto
+import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.queue as s_queue
 import synapse.lib.sched as s_sched
 import synapse.lib.scope as s_scope
-import synapse.lib.mixins as s_mixins
 import synapse.lib.socket as s_socket
 import synapse.lib.reflect as s_reflect
 import synapse.lib.threads as s_threads
-
-from synapse.common import *
-from synapse.compat import queue
 
 logger = logging.getLogger(__name__)
 
@@ -68,13 +60,13 @@ def openlink(link):
 
         dmon = s_scope.get('dmon')
         if dmon is None:
-            raise NoSuchName(name='dmon', link=link, mesg='no dmon instance in current scope')
+            raise s_common.NoSuchName(name='dmon', link=link, mesg='no dmon instance in current scope')
 
         # the "host" part is really a dmon local
         host = link[1].get('host')
         item = dmon.locs.get(host)
         if item is None:
-            raise NoSuchName(name=host, link=link, mesg='dmon instance has no local with that name')
+            raise s_common.NoSuchName(name=host, link=link, mesg='dmon instance has no local with that name')
 
         return item
 
@@ -102,7 +94,7 @@ def evalurl(url, **opts):
 
     '''
     if url.find('://') == -1:
-        raise BadUrl(url)
+        raise s_common.BadUrl(url)
 
     scheme, therest = url.split('://', 1)
     if scheme == 'ctor':
@@ -140,7 +132,7 @@ def reqIsProxy(item):
 
     '''
     if not isProxy(item):
-        raise MustBeProxy(item=item)
+        raise s_common.MustBeProxy(item=item)
 
 def reqNotProxy(item):
     '''
@@ -159,7 +151,7 @@ def reqNotProxy(item):
 
     '''
     if isProxy(item):
-        raise MustBeLocal(item=item)
+        raise s_common.MustBeLocal(item=item)
 
 class Method:
 
@@ -292,7 +284,7 @@ class Proxy(s_eventbus.EventBus):
         # create a separate record for each so the dmon
         # can potentially create an "any" filter for us
         if evnt not in telelocal:
-            iden = guid()
+            iden = s_common.guid()
             filt = tuple(filts.items())
 
             onit = (iden, filt)
@@ -401,7 +393,7 @@ class Proxy(s_eventbus.EventBus):
             return self._fakeConsWait(job, timeout=timeout)
 
         if not self._tele_boss.wait(job[0], timeout=timeout):
-            raise HitMaxTime()
+            raise s_common.HitMaxTime()
 
     def _fakeConsWait(self, job, timeout=None):
         # a wait like function for the consumer thread
@@ -414,7 +406,7 @@ class Proxy(s_eventbus.EventBus):
         while not job[1].get('done'):
 
             if maxtime is not None and time.time() >= maxtime:
-                raise HitMaxTime()
+                raise s_common.HitMaxTime()
 
             mesg = self._tele_q.get()
             self.dist(mesg)
@@ -454,7 +446,7 @@ class Proxy(s_eventbus.EventBus):
 
         try:
             self._initTeleSock()
-        except LinkErr as e:
+        except s_common.LinkErr as e:
             sched = s_sched.getGlobSched()
             sched.insec(1, self._runSockFini)
 
@@ -464,7 +456,7 @@ class Proxy(s_eventbus.EventBus):
 
     def _onSockGzip(self, mesg):
         data = zlib.decompress(mesg[1].get('data'))
-        self.dist(msgunpack(data))
+        self.dist(s_common.msgunpack(data))
 
     def _runTeleCall(self, mesg):
 
@@ -489,12 +481,12 @@ class Proxy(s_eventbus.EventBus):
             self._txTeleSock('tele:retn', ret=func(*args, **kwargs), **retinfo)
 
         except Exception as e:
-            retinfo.update(excinfo(e))
+            retinfo.update(s_common.excinfo(e))
             return self._txTeleSock('tele:retn', **retinfo)
 
     def _getTeleSock(self):
         if self.isfini:
-            raise IsFini()
+            raise s_common.IsFini()
 
         return self._tele_sock
 
@@ -609,7 +601,7 @@ def teleSynAck(sock, name=None, sid=None):
 
         vers = synack.get('vers', (0, 0))
         if vers[0] != telever[0]:
-            raise BadMesgVers(myver=telever, hisver=vers)
+            raise s_common.BadMesgVers(myver=telever, hisver=vers)
 
     return synack
 

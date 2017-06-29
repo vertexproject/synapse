@@ -3,11 +3,10 @@ from __future__ import absolute_import, unicode_literals
 import re
 import sqlite3
 
+import synapse.common as s_common
 import synapse.compat as s_compat
-import synapse.cores.common as s_cores_common
 
-from synapse.compat import queue
-from synapse.common import now, genpath
+import synapse.cores.common as s_cores_common
 
 stashre = re.compile('{{([A-Z]+)}}')
 
@@ -57,7 +56,7 @@ class DbPool:
         # TODO: high/low water marks
         self.size = size
         self.ctor = ctor
-        self.dbque = queue.Queue()
+        self.dbque = s_compat.queue.Queue()
 
         for i in range(size):
             db = ctor()
@@ -221,7 +220,7 @@ class Cortex(s_cores_common.Cortex):
             raise Exception('No Path Specified!')
 
         if name.find(':') == -1:
-            name = genpath(name)
+            name = s_common.genpath(name)
 
         return {'name': name}
 
@@ -633,7 +632,7 @@ class Cortex(s_cores_common.Cortex):
             count = self.update(self._q_uprows_by_iden_prop_str, iden=iden, prop=prop, valu=valu)
 
         if count == 0:
-            rows = [(iden, prop, valu, now()), ]
+            rows = [(iden, prop, valu, s_common.now()), ]
             self._addRows(rows)
 
     def _delRowsById(self, iden):

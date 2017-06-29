@@ -1,7 +1,8 @@
 import os
 import threading
 import contextlib
-from synapse.common import novalu
+
+import synapse.common as s_common
 
 class Scope:
     '''
@@ -63,8 +64,8 @@ class Scope:
         Retrieve a value from the closest scope frame.
         '''
         for frame in reversed(self.frames):
-            valu = frame.get(name, novalu)
-            if valu != novalu:
+            valu = frame.get(name, s_common.novalu)
+            if valu != s_common.novalu:
                 return valu
 
         task = self.ctors.get(name)

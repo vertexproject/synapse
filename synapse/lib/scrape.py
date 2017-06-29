@@ -1,8 +1,6 @@
 import re
-
+import json
 import synapse.data as s_data
-import synapse.lib.datfile as s_datfile
-
 import synapse.common as s_common
 
 tldlist = list(s_data.get('iana.tlds'))
@@ -64,7 +62,7 @@ if __name__ == '__main__':
     data = {}
 
     for path in sys.argv[1:]:
-        byts = reqbytes(path)
+        byts = s_common.reqbytes(path)
         text = byts.decode('utf8')
         data = scrape(text, data=data)
 

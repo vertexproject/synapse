@@ -3,14 +3,13 @@ import threading
 import traceback
 import collections
 
+import synapse.common as s_common
+
 import synapse.lib.reflect as s_reflect
-
-finlock = threading.RLock()
-logger = logging.getLogger(__name__)
-
 import synapse.lib.thishost as s_thishost
 
-from synapse.common import *
+logger = logging.getLogger(__name__)
+finlock = threading.RLock()
 
 def on(name, **filt):
     '''
@@ -292,7 +291,7 @@ class EventBus(object):
         '''
         [self.dist(evt) for evt in events]
 
-    @firethread
+    @s_common.firethread
     def consume(self, gtor):
         '''
         Feed the event bus from a generator.
@@ -344,7 +343,7 @@ class EventBus(object):
             **info:       Additional log metadata
 
         '''
-        info['time'] = now()
+        info['time'] = s_common.now()
         info['host'] = s_thishost.get('hostname')
 
         info['level'] = level
@@ -363,7 +362,7 @@ class EventBus(object):
         Returns:
             None
         '''
-        info.update(excinfo(exc))
+        info.update(s_common.excinfo(exc))
         self.log(logging.ERROR, str(exc), **info)
 
 class Waiter:

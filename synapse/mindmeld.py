@@ -6,9 +6,10 @@ import marshal
 import traceback
 import collections
 
+import synapse.common as s_common
+
 import synapse.lib.moddef as s_moddef
 
-from synapse.common import *
 from synapse.compat import majmin
 
 '''
@@ -123,7 +124,7 @@ class MindMeld:
         '''
         moddef = s_moddef.getModDef(name)
         if moddef is None:
-            raise NoSuchMod(name=name)
+            raise s_common.NoSuchMod(name=name)
 
         self.addModDef(moddef)
 
@@ -217,7 +218,7 @@ class MindMeld:
 
             return
 
-        raise NoSuchPath(path=path)
+        raise s_common.NoSuchPath(path=path)
 
     def addPySource(self, name, sorc):
         '''
@@ -231,7 +232,7 @@ class MindMeld:
         try:
             code = compile(sorc, '', 'exec')
         except Exception as e:
-            raise BadPySource('%s: %s' % (name, e))
+            raise s_common.BadPySource('%s: %s' % (name, e))
 
         byts = marshal.dumps(code)
         self.addMeldMod(name, byts)
@@ -252,7 +253,7 @@ class MindMeld:
         modinfo['bytes'] = byts
         modinfo['pyver'] = majmin
 
-        self.info['modules'][name] = tufo(name, **modinfo)
+        self.info['modules'][name] = s_common.tufo(name, **modinfo)
 
     def getMeldMod(self, name):
         '''
@@ -284,13 +285,13 @@ class MindMeld:
         '''
         Return a msgpack packed copy of the MindMeld dictionary.
         '''
-        return msgenpack(self.info)
+        return s_common.msgenpack(self.info)
 
     def getMeldBase64(self):
         '''
         Return a base64 encoded msgpack packed MindMeld dictionary.
         '''
-        return enbase64(self.getMeldBytes())
+        return s_common.enbase64(self.getMeldBytes())
 
     # Implement the "loader" interface
 
@@ -360,14 +361,14 @@ def loadMeldBytes(byts):
     '''
     Load a MindMeld instance from msgpack bytes.
     '''
-    info = msgunpack(byts)
+    info = s_common.msgunpack(byts)
     return loadMindMeld(info)
 
 def loadMeldBase64(b64):
     '''
     Load a MindMeld instance from base64 encoded msgpack bytes.
     '''
-    byts = debase64(b64)
+    byts = s_common.debase64(b64)
     return loadMeldBytes(byts)
 
 def addMindMeld(meld):

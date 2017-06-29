@@ -2,6 +2,7 @@
 Utilities for handling data files embedded within python packages.
 '''
 import os
+
 import synapse.dyndeps as s_dyndeps
 import synapse.mindmeld as s_mindmeld
 

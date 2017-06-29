@@ -1,8 +1,8 @@
-from synapse.common import *
+import synapse.common as s_common
 
 class Reactor:
     '''
-    A class for registraction of one-to-one callbacks.
+    A class for registration of one-to-one callbacks.
     ( much like a switch-case in C )
     Unlike an EventBus, only one action may be registered
     for a given mesg type and the function is expected to
@@ -51,6 +51,6 @@ class Reactor:
 
         func = self.actfuncs.get(name)
         if func is None:
-            raise NoSuchAct(name=name)
+            raise s_common.NoSuchAct(name=name)
 
         return func(mesg)

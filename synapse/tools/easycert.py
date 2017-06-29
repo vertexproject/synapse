@@ -1,14 +1,10 @@
-import os
 import sys
-import time
 import argparse
 
-from OpenSSL import crypto
+import synapse.common as s_common
 
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
-
-from synapse.common import *
 
 descr = '''
 Command line tool to generate simple x509 certs
@@ -77,7 +73,7 @@ def main(argv, outp=None):
         cdir.genUserCert(opts.name, signas=opts.signas, outp=outp)
         return 0
 
-    except DupFileName as e:
+    except s_common.DupFileName as e:
         outp.printf('file exists: %s' % (e.errinfo.get('path'),))
         return -1
 

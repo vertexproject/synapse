@@ -1,7 +1,6 @@
 import synapse.lib.cli as s_cli
 import synapse.lib.mixins as s_mixins
 import synapse.lib.reflect as s_reflect
-#import synapse.cmds.cortex as s_cmds_cortex
 
 # Add our commands to the mixins registry
 s_mixins.addSynMixin('cmdr', 'synapse.eventbus.EventBus', 'synapse.cmds.common.PyCmd')

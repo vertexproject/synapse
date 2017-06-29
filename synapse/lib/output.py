@@ -2,6 +2,7 @@
 Tools for easily hookable output from cli-like tools.
 '''
 import sys
+
 import synapse.compat as s_compat
 
 class OutPut:

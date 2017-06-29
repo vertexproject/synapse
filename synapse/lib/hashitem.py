@@ -7,7 +7,7 @@ import synapse.common as s_common
 
 def hashitem(item):
     '''
-    Generate a uniq hash for the JSON compatible primitve data structure.
+    Generate a uniq hash for the JSON compatible primitive data structure.
     '''
     norm = normitem(item)
     byts = s_common.msgenpack(norm)

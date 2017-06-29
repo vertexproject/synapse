@@ -4,7 +4,7 @@ Time related utilities for synapse "epoch millis" time values.
 
 import datetime
 
-from synapse.exc import BadTypeValu
+import synapse.common as s_common
 
 def parse(text, base=None):
     '''
@@ -39,7 +39,7 @@ def parse(text, base=None):
         dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S%f')
 
     else:
-        raise BadTypeValu(mesg='Unknown time format')
+        raise s_common.BadTypeValu(mesg='Unknown time format')
 
     epoch = datetime.datetime(1970, 1, 1)
     return int((dt - epoch).total_seconds() * 1000)

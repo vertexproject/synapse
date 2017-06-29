@@ -18,7 +18,6 @@ import synapse.lib.hashset as s_hashset
 
 log = logging.getLogger(__name__)
 
-
 def compute_hashes(fp):
     """
     Compute the superhash information for a file path
@@ -29,7 +28,6 @@ def compute_hashes(fp):
     with open(fp, 'rb') as f:
         guid, hashd = hs.eatfd(fd=f)
     return guid, hashd
-
 
 def main(argv, outp=None):
     if outp is None:  # pragma: no cover
@@ -69,7 +67,6 @@ def main(argv, outp=None):
 
     return 0
 
-
 def makeargpaser():
     parser = argparse.ArgumentParser(description="Compute the guid and hashes for a file.")
     parser.add_argument('-i', '--input', dest='input', required=True, type=str, action='append',
@@ -78,12 +75,10 @@ def makeargpaser():
                         help='Display the data in a format that can be placed into a ingest definition.')
     return parser
 
-
 def _main():  # pragma: no cover
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s]')
     main(sys.argv[1:])
-
 
 if __name__ == '__main__':  # pragma: no cover
     _main()

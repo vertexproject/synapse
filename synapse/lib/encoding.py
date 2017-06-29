@@ -1,8 +1,7 @@
 import base64
 
+import synapse.common as s_common
 import synapse.compat as s_compat
-
-from synapse.common import *
 
 def _de_base64(item, **opts):
 
@@ -59,7 +58,7 @@ def decode(name, byts, **opts):
 
         func = decoders.get(name)
         if func is None:
-            raise NoSuchDecoder(name=name)
+            raise s_common.NoSuchDecoder(name=name)
 
         byts = func(byts, **opts)
 
@@ -75,7 +74,7 @@ def encode(name, item, **opts):
 
         func = encoders.get(name)
         if func is None:
-            raise NoSuchEncoder(name=name)
+            raise s_common.NoSuchEncoder(name=name)
 
         item = func(item, **opts)
 

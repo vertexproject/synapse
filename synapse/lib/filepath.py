@@ -1,14 +1,11 @@
-
 import os
 import fnmatch
 import tarfile
 import zipfile
 import tempfile
-import traceback
 
-import synapse.exc as s_exc
-from synapse.compat import queue
-from synapse.common import genpath
+import synapse.common as s_common
+import synapse.compat as s_compat
 
 # 10 MB
 read_chunk_sz = 1048576 * 10
@@ -90,7 +87,7 @@ class FpFile(object):
             return None
 
         if not self.fd:
-            self.fd = open(genpath(*self.pparts[:self.maxidx]), mode=mode)
+            self.fd = open(s_common.genpath(*self.pparts[:self.maxidx]), mode=mode)
 
         return self.fd
 
@@ -108,13 +105,13 @@ class FpFile(object):
         return self._isfile
 
     def path(self):
-        return genpath(*self.pparts[:self.maxidx])
+        return s_common.genpath(*self.pparts[:self.maxidx])
 
     def nexts(self):
         # pparts up to *our* index should be discrete, anything after may still be a glob
 
         maxidx = self.idx
-        spath = genpath(*self.pparts[:self.idx + 1])
+        spath = s_common.genpath(*self.pparts[:self.idx + 1])
 
         # if itsa regular file
         if os.path.isfile(spath):
@@ -135,7 +132,7 @@ class FpFile(object):
                 for member in os.listdir(spath):
                     if not fnmatch.fnmatch(member, match):
                         continue
-                    tpath = genpath(spath, member)
+                    tpath = s_common.genpath(spath, member)
 
                     # discrete path with remaining wildcards
                     eparts = getPathParts(spath)
@@ -155,7 +152,7 @@ class FpFile(object):
                             fp = cls(eparts, idx, parent=self)
                             yield fp
                         else:
-                            cpaths.append(genpath(spath, member))
+                            cpaths.append(s_common.genpath(spath, member))
             spaths = cpaths
 
     def next(self):
@@ -171,16 +168,16 @@ class FpFile(object):
         partlen = len(self.pparts)
         # the end of the line
         if self.idx == partlen - 1:
-            if os.path.isdir(genpath(*self.pparts[:self.idx + 1])):
+            if os.path.isdir(s_common.genpath(*self.pparts[:self.idx + 1])):
                 self._isfile = False
             return
 
         maxpath = None
-        checkpath = genpath(*self.pparts[:self.idx + 1])
+        checkpath = s_common.genpath(*self.pparts[:self.idx + 1])
         cidx = self.idx + 1
 
         while cidx < partlen:
-            checkpath = genpath(*self.pparts[:cidx + 1])
+            checkpath = s_common.genpath(*self.pparts[:cidx + 1])
             if not os.path.exists(checkpath):
                 break
             maxpath = checkpath
@@ -194,7 +191,7 @@ class FpFile(object):
 
             if self.maxidx != partlen:
                 self.close()
-                raise s_exc.NoSuchPath(path=os.path.join(*self.pparts))
+                raise s_common.NoSuchPath(path=os.path.join(*self.pparts))
 
         # if end of the path we're finished
         if self.maxidx == partlen:
@@ -210,7 +207,7 @@ class FpTar(FpFile):
         self.inner_fd = None
 
         if not self.fd:
-            self.fd = open(genpath(*pparts[:idx + 1]), 'rb')
+            self.fd = open(s_common.genpath(*pparts[:idx + 1]), 'rb')
         self._init()
 
         self.innrEnum()
@@ -401,7 +398,7 @@ class FpTar(FpFile):
 
         if maxpath is None:
             self.close()
-            raise s_exc.NoSuchPath(path=os.path.join(*self.pparts))
+            raise s_common.NoSuchPath(path=os.path.join(*self.pparts))
         self.maxidx = cidx
 
         # if the max path is a dir, we're finished
@@ -410,7 +407,7 @@ class FpTar(FpFile):
 
             if self.maxidx != partlen:
                 self.close()
-                raise s_exc.NoSuchPath(path=os.path.join(*self.pparts))
+                raise s_common.NoSuchPath(path=os.path.join(*self.pparts))
 
         # if end of the path we're finished
         if self.maxidx == partlen:
@@ -465,9 +462,9 @@ def _pathClass(*paths):
     Returns the class to handle the type of item located at path.  This function
     only operates on regular os.accessible paths
     '''
-    path = genpath(*paths)
+    path = s_common.genpath(*paths)
     if not os.path.exists(path):
-        raise s_exc.NoSuchPath(path=path)
+        raise s_common.NoSuchPath(path=path)
 
     if os.path.isdir(path):
         return path_ctors.get('fs.reg.file')
@@ -520,7 +517,7 @@ def parsePaths(*paths):
     '''
     if None in paths:
         return
-    path = genpath(*paths)
+    path = s_common.genpath(*paths)
 
     pparts = getPathParts(path)
     cls = _pathClass('/')
@@ -528,7 +525,7 @@ def parsePaths(*paths):
 
     ends_ct = 0
 
-    bases = queue.Queue()
+    bases = s_compat.queue.Queue()
     bases.put(base)
 
     try:
@@ -546,10 +543,10 @@ def parsePaths(*paths):
                     yield nex
                     ends_ct += 1
                 base.close()
-            except queue.Empty as e:
+            except s_compat.queue.Empty as e:
                 break
 
-    except s_exc.NoSuchPath as e:
+    except s_common.NoSuchPath as e:
         return
 
 def parsePath(*paths):
@@ -560,7 +557,7 @@ def parsePath(*paths):
     if None in paths:
         return None
 
-    path = genpath(*paths)
+    path = s_common.genpath(*paths)
 
     path_parts = getPathParts(path)
 
@@ -577,7 +574,7 @@ def parsePath(*paths):
             if nbase:
                 oldbases.append(base)
 
-    except s_exc.NoSuchPath as e:
+    except s_common.NoSuchPath as e:
         return None
     finally:
         [b.close() for b in oldbases]
@@ -608,10 +605,10 @@ def openfiles(*paths, **kwargs):
             if not reqd:
                 continue
             fpath.close()
-            raise s_exc.NoSuchPath(path=fpath.path())
+            raise s_common.NoSuchPath(path=fpath.path())
         yield FpOpener(fpath)
     if nopaths and reqd:
-        raise s_exc.NoSuchPath(path='/'.join(paths))
+        raise s_common.NoSuchPath(path='/'.join(paths))
 
 def openfile(*paths, **kwargs):
     '''
@@ -636,12 +633,12 @@ def openfile(*paths, **kwargs):
 
     if not fpath:
         if reqd:
-            raise s_exc.NoSuchPath(path='/'.join(paths))
+            raise s_common.NoSuchPath(path='/'.join(paths))
         return None
     if not fpath.isfile():
         if reqd:
             fpath.close()
-            raise s_exc.NoSuchPath(path=fpath.path())
+            raise s_common.NoSuchPath(path=fpath.path())
         return None
 
     return FpOpener(fpath)

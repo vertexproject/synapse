@@ -1,15 +1,15 @@
 import time
 import hashlib
 
-import synapse.cores.sqlite as s_c_sqlite
-
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
+
+import synapse.cores.sqlite as s_cores_sqlite
 
 def md5(x):
     return hashlib.md5(x.encode('utf8')).hexdigest()
 
-class Cortex(s_c_sqlite.Cortex):
+class Cortex(s_cores_sqlite.Cortex):
 
     dblim = None
 
@@ -145,7 +145,7 @@ class Cortex(s_c_sqlite.Cortex):
         return self._rowsToTufos(rows)
 
     def _initCorQueries(self):
-        s_c_sqlite.Cortex._initCorQueries(self)
+        s_cores_sqlite.Cortex._initCorQueries(self)
 
         self._q_getrows_by_idens = self._prepQuery(self._t_getrows_by_idens)
         self._q_getjoin_by_in_int = self._prepQuery(self._t_getjoin_by_in_int)

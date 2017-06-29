@@ -1,8 +1,6 @@
 import os
 import mmap
 import struct
-import hashlib
-import tempfile
 import threading
 
 from binascii import unhexlify as unhex
@@ -10,10 +8,7 @@ from binascii import unhexlify as unhex
 import synapse.compat as s_compat
 import synapse.reactor as s_reactor
 import synapse.eventbus as s_eventbus
-import synapse.telepath as s_telepath
 import synapse.lib.atomfile as s_atomfile
-
-from synapse.common import *
 
 magic_v1 = unhex(b'265343eb3092ce626cdb731ef68bde83')
 

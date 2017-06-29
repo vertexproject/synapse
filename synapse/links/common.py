@@ -1,13 +1,8 @@
 import time
 import errno
-import threading
 
+import synapse.common as s_common
 import synapse.crypto as s_crypto
-import synapse.lib.threads as s_threads
-
-from synapse.eventbus import EventBus
-
-from synapse.common import *
 
 class NoSuchProto(Exception): pass
 
@@ -66,7 +61,7 @@ class LinkRelay:
 
         try:
             return self._connect()
-        except LinkErr as e:
+        except s_common.LinkErr as e:
             if retry == 0:
                 raise
 
@@ -79,7 +74,7 @@ class LinkRelay:
 
                 return self._connect()
 
-            except LinkErr as e:
+            except s_common.LinkErr as e:
 
                 if not e.retry:
                     raise
@@ -105,9 +100,9 @@ class LinkRelay:
 def raiseSockError(link, e):
     url = link[1].get('url')
     if e.errno == errno.ECONNREFUSED:
-        raise LinkRefused(link)
+        raise s_common.LinkRefused(link)
 
     if e.errno == errno.ENOENT:
-        raise LinkRefused(link)
+        raise s_common.LinkRefused(link)
 
-    raise LinkErr(link)
+    raise s_common.LinkErr(link)

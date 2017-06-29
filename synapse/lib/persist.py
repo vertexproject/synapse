@@ -1,6 +1,7 @@
 '''
 Tools for persisting msgpack compatible objects.
 '''
+import os
 import time
 import struct
 import msgpack
@@ -8,14 +9,11 @@ import logging
 import threading
 import collections
 
+import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.eventbus as s_eventbus
-import synapse.telepath as s_telepath
 
 import synapse.lib.queue as s_queue
-import synapse.lib.urlhelp as s_urlhelp
-
-from synapse.common import *
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +21,7 @@ def opendir(*paths, **opts):
     '''
     Open a persistance directory by path name with options.
     '''
-    path = gendir(*paths)
+    path = s_common.gendir(*paths)
     return Dir(path, **opts)
 
 megabyte = 1024000
@@ -47,7 +45,7 @@ class Offset(s_eventbus.EventBus):
     def __init__(self, *paths):
         s_eventbus.EventBus.__init__(self)
 
-        self.fd = genfile(*paths)
+        self.fd = s_common.genfile(*paths)
         self.valu = 0
 
         byts = self.fd.read(8)
@@ -85,7 +83,7 @@ class Dir(s_eventbus.EventBus):
         self.size = 0
         self.opts = opts
         self.last = None
-        self.path = gendir(path)
+        self.path = s_common.gendir(path)
         self.lock = threading.Lock()
 
         self.window = collections.deque()
@@ -119,7 +117,7 @@ class Dir(s_eventbus.EventBus):
 
         '''
         if self.isfini:
-            raise IsFini()
+            raise s_common.IsFini()
 
         with self.lock:
             if self.pumps.get(iden):
@@ -142,7 +140,7 @@ class Dir(s_eventbus.EventBus):
     def getIdenOffset(self, iden):
         return Offset(self.path, '%s.off' % iden)
 
-    @firethread
+    @s_common.firethread
     def _runPumpThread(self, iden, func):
         '''
         Fire a mirror thread to push persist events to a function.
@@ -185,7 +183,7 @@ class Dir(s_eventbus.EventBus):
 
     def _addPersFile(self, baseoff):
         # MUST BE CALLED WITH LOCK OR IN CTOR
-        fd = genfile(self.path, '%.16x.cyto' % baseoff)
+        fd = s_common.genfile(self.path, '%.16x.cyto' % baseoff)
         pers = File(fd, baseoff=baseoff)
         self.files.append(pers)
         return pers
@@ -334,13 +332,13 @@ class File(s_eventbus.EventBus):
         '''
         Add an item to the persistance storage.
         '''
-        byts = msgenpack(item)
+        byts = s_common.msgenpack(item)
         size = len(byts)
 
         with self.fdlock:
 
             if self.isfini:
-                raise IsFini()
+                raise s_common.IsFini()
 
             if self.fdoff != self.size:
                 self.fd.seek(0, os.SEEK_END)

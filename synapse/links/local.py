@@ -1,6 +1,8 @@
+import os
 import socket
 import tempfile
 
+import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.lib.socket as s_socket
 
@@ -20,7 +22,7 @@ class LocalRelay(LinkRelay):
         # we use the "host" part as the local name
         host = self.link[1].get('host')
         if not host:
-            raise BadUrl('local://<name>/<path>')
+            raise s_common.BadUrl('local://<name>/<path>')
 
         self.link[1]['sockpath'] = self._getTempPath()
 

@@ -3,16 +3,15 @@ import time
 import logging
 import itertools
 import threading
-import traceback
 import collections
 
 import synapse.compat as s_compat
+import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.reactor as s_reactor
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
-import synapse.lib.dark as s_dark
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
@@ -25,7 +24,6 @@ import synapse.lib.hashitem as s_hashitem
 import synapse.lib.interval as s_interval
 import synapse.lib.userauth as s_userauth
 
-from synapse.common import *
 from synapse.eventbus import EventBus, on, onfini
 from synapse.lib.storm import Runtime
 from synapse.datamodel import DataModel
@@ -47,7 +45,7 @@ def reqiden(tufo):
     Raise an exception if the given tufo is ephemeral.
     '''
     if tufo[0] is None:
-        raise NoSuchTufo(iden=None)
+        raise s_common.NoSuchTufo(iden=None)
     return tufo[0]
 
 def reqstor(name, valu):
@@ -55,7 +53,7 @@ def reqstor(name, valu):
     Raise BadPropValue if valu is not cortex storable.
     '''
     if not s_compat.canstor(valu):
-        raise BadPropValu(name=name, valu=valu)
+        raise s_common.BadPropValu(name=name, valu=valu)
     return valu
 
 class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
@@ -77,20 +75,24 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         self.noauto = {'syn:form', 'syn:type', 'syn:prop'}
 
-        self.addConfDef('autoadd', type='bool', asloc='autoadd', defval=1, doc='Automatically add forms for props where type is form')
+        self.addConfDef('autoadd', type='bool', asloc='autoadd', defval=1, 
+                        doc='Automatically add forms for props where type is form')
         self.addConfDef('enforce', type='bool', asloc='enforce', defval=0, doc='Enables data model enforcement')
         self.addConfDef('caching', type='bool', asloc='caching', defval=0, doc='Enables caching layer in the cortex')
-        self.addConfDef('cache:maxsize', type='int', asloc='cache_maxsize', defval=1000, doc='Enables caching layer in the cortex')
+        self.addConfDef('cache:maxsize', type='int', asloc='cache_maxsize', defval=1000, 
+                        doc='Enables caching layer in the cortex')
 
         self.addConfDef('rev:model', type='bool', defval=1, doc='Set to 0 to disallow model version updates')
         self.addConfDef('rev:storage', type='bool', defval=1, doc='Set to 0 to disallow storage version updates')
 
         self.addConfDef('axon:url', type='str', doc='Allows cortex to be aware of an axon blob store')
 
-        self.addConfDef('log:save', type='bool', asloc='logsave', defval=0, doc='Enables saving exceptions to the cortex as syn:log nodes')
+        self.addConfDef('log:save', type='bool', asloc='logsave', defval=0, 
+                        doc='Enables saving exceptions to the cortex as syn:log nodes')
         self.addConfDef('log:level', type='int', asloc='loglevel', defval=0, doc='Filters log events to >= level')
 
-        self.addConfDef('modules', defval=(), doc='An optional list of (pypath,conf) tuples for synapse modules to load')
+        self.addConfDef('modules', defval=(), 
+                        doc='An optional list of (pypath,conf) tuples for synapse modules to load')
 
         self.onConfOptSet('modules', self._onSetMods)
         self.onConfOptSet('caching', self._onSetCaching)
@@ -186,7 +188,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         savefile = link[1].get('savefile')
         if savefile is not None:
-            savefd = genfile(savefile)
+            savefd = s_common.genfile(savefile)
             self.setSaveFd(savefd, fini=True)
 
         self.myfo = self.formTufoByProp('syn:core', 'self')
@@ -262,7 +264,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             if rows:
                 iden = rows[0][0]
             else:
-                iden = guid()
+                iden = s_common.guid()
 
             self.setRowsByIdProp(iden, prop, vers)
             return vers
@@ -304,7 +306,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             return
 
         if not self.getConfOpt('rev:model'):
-            raise NoRevAllow(name=name, mesg='add rev:model=1 to cortex url to allow model updates')
+            raise s_common.NoRevAllow(name=name, mesg='add rev:model=1 to cortex url to allow model updates')
 
         for vers, func in sorted(revs):
 
@@ -338,12 +340,12 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
     def _getAxonWants(self, htype, hvalu, size):
         if self.axon is None:
-            raise NoSuchOpt(name='axon:url', mesg='The cortex does not have an axon configured')
+            raise s_common.NoSuchOpt(name='axon:url', mesg='The cortex does not have an axon configured')
         return self.axon.wants(htype, hvalu, size)
 
     def _addAxonChunk(self, iden, byts):
         if self.axon is None:
-            raise NoSuchOpt(name='axon:url', mesg='The cortex does not have an axon configured')
+            raise s_common.NoSuchOpt(name='axon:url', mesg='The cortex does not have an axon configured')
         return self.axon.chunk(iden, byts)
 
     def getSeqNode(self, name):
@@ -364,7 +366,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         '''
         node = self.seqs.get(name)
         if node is None:
-            raise NoSuchSeq(name=name)
+            raise s_common.NoSuchSeq(name=name)
 
         #FIXME perms
 
@@ -672,19 +674,19 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         for tufo in self.getTufosByProp('syn:type'):
             try:
                 self._initTypeTufo(tufo)
-            except DupTypeName as e:
+            except s_common.DupTypeName as e:
                 continue
 
         for tufo in self.getTufosByProp('syn:form'):
             try:
                 self._initFormTufo(tufo)
-            except DupPropName as e:
+            except s_common.DupPropName as e:
                 continue
 
         for tufo in self.getTufosByProp('syn:prop'):
             try:
                 self._initPropTufo(tufo)
-            except DupPropName as e:
+            except s_common.DupPropName as e:
                 continue
 
         self.modelrevlist = []
@@ -806,7 +808,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                 except Exception as e:
                     logger.exception(e)
                     logger.warning('splice err: %s %r' % (e, mesg))
-                    errs.append((mesg, excinfo(e)))
+                    errs.append((mesg, s_common.excinfo(e)))
 
         return errs
 
@@ -847,7 +849,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             core.addSpliceFd(fd)
         '''
         def save(mesg):
-            fd.write(msgenpack(mesg))
+            fd.write(s_common.msgenpack(mesg))
         self.on('splice', save)
 
     def eatSpliceFd(self, fd):
@@ -861,7 +863,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             core.eatSyncFd(fd)
 
         '''
-        for chnk in chunks(msgpackfd(fd), 1000):
+        for chnk in s_common.chunks(s_common.msgpackfd(fd), 1000):
             self.splices(chnk)
 
     @on('node:del', form='syn:tag')
@@ -910,7 +912,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         '''
         if load:
-            for mesg in msgpackfd(fd):
+            for mesg in s_common.msgpackfd(fd):
                 self.loadbus.dist(mesg)
 
         self.onfini(fd.flush)
@@ -918,7 +920,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             self.onfini(fd.close)
 
         def savemesg(mesg):
-            fd.write(msgenpack(mesg))
+            fd.write(s_common.msgenpack(mesg))
 
         self.savebus.link(savemesg)
 
@@ -978,8 +980,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             core.addListRows('foo:bar',[ 1, 2, 3, 4])
 
         '''
-        tick = millinow()
-        rows = [(guid(), prop, valu, tick) for valu in vals]
+        tick = s_common.now()
+        rows = [(s_common.guid(), prop, valu, tick) for valu in vals]
         self.addRows(rows)
         return rows
 
@@ -1017,7 +1019,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         reqiden(tufo)
 
         rows = []
-        tick = now()
+        tick = s_common.now()
         prop = '%s:list:%s' % (tufo[0], name)
 
         haslist = 'tufo:list:%s' % name
@@ -1025,7 +1027,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             tufo[1][haslist] = 1
             rows.append((tufo[0], haslist, 1, tick))
 
-        [rows.append((guid(), prop, v, tick)) for v in vals]
+        [rows.append((s_common.guid(), prop, v, tick)) for v in vals]
 
         self.addRows(rows)
 
@@ -1365,7 +1367,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         if valu is not None:
             norm, subs = self.getPropNorm(prop, valu)
             if norm is None:
-                raise BadPropValu(prop=prop, valu=valu)
+                raise s_common.BadPropValu(prop=prop, valu=valu)
 
         if self.caching and mintime is None and maxtime is None:
             return self._getTufosByCache(prop, norm, limit)
@@ -1734,7 +1736,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         statfunc = self.statfuncs.get(stat)
         if statfunc is None:
             knowns = self.statfuncs.keys()
-            raise NoSuchStat(name=stat, knowns=knowns)
+            raise s_common.NoSuchStat(name=stat, knowns=knowns)
 
         rows = self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
         return statfunc(rows)
@@ -1767,12 +1769,12 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         '''
         if tstamp is None:
-            tstamp = now()
+            tstamp = s_common.now()
 
         for chunk in chunked(100, items):
 
             for item in chunk:
-                iden = guid()
+                iden = s_common.guid()
 
                 props = self._primToProps(form, item)
                 props = [(p, self.getPropNorm(p, v)[0]) for (p, v) in props]
@@ -1858,10 +1860,10 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         doneadd = set()
         tname = self.getPropTypeName(form)
         if tname is None and self.enforce:
-            raise NoSuchForm(name=form)
+            raise s_common.NoSuchForm(name=form)
 
         if tname and not self.isSubType(tname, 'guid'):
-            raise NotGuidForm(name=form)
+            raise s_common.NotGuidForm(name=form)
 
         with self.getCoreXact() as xact:
 
@@ -1876,7 +1878,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
                 for props in chunk:
 
-                    iden = guid()
+                    iden = s_common.guid()
 
                     fulls, toadd = self._normTufoProps(form, props)
 
@@ -1960,7 +1962,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         if valu is None:
             tname = self.getPropTypeName(prop)
             if tname and self.isSubType(tname, 'guid'):
-                valu = guid()
+                valu = s_common.guid()
                 deconf = False
 
         valu, subs = self.getPropNorm(prop, valu)
@@ -1972,8 +1974,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                 if tufo is not None:
                     return tufo
 
-            tick = now()
-            iden = guid()
+            tick = s_common.now()
+            iden = s_common.guid()
 
             props.update(subs)
 
@@ -2056,7 +2058,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         if self.getRowsByIdProp(dark, '_:dset', valu=name):
             return
 
-        rows = [(dark, '_:dset', name, now())]
+        rows = [(dark, '_:dset', name, s_common.now())]
 
         self.addRows(rows)
         self.fire('syn:dset:add', name=name, node=tufo)
@@ -2087,7 +2089,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         idens = [r[0][::-1] for r in rows]
 
         ret = []
-        for part in chunks(idens, 1000):
+        for part in s_common.chunks(idens, 1000):
             ret.extend(self.getTufosByIdens(part))
 
         return ret
@@ -2104,14 +2106,14 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
     def _initTufoSnap(self, idens):
 
-        snap = guid()
+        snap = s_common.guid()
 
         if not idens:
             return {'snap': snap, 'tufos': (), 'count': 0}
 
         count = len(idens)
 
-        x = collections.deque(chunks(idens, 1000))
+        x = collections.deque(s_common.chunks(idens, 1000))
 
         rets = x.popleft()
         tufos = self.getTufosByIdens(rets)
@@ -2288,7 +2290,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             upid = self._getAxonWants('guid', iden, size)
 
             if upid is not None:
-                for chun in chunks(byts, 10000000):
+                for chun in s_common.chunks(byts, 10000000):
                     self._addAxonChunk(upid, chun)
 
         return self.formTufoByProp('file:bytes', iden, **props)
@@ -2316,7 +2318,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
             # time to send it!
             if upid is not None:
-                for byts in iterfd(fd):
+                for byts in s_common.iterfd(fd):
                     self._addAxonChunk(upid, byts)
 
         node = self.formTufoByProp('file:bytes', iden, **props)
@@ -2412,7 +2414,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         with self.inclock:
             rows = self._getRowsByIdProp(iden, prop)
             if len(rows) == 0:
-                raise NoSuchTufo(iden=iden, prop=prop)
+                raise s_common.NoSuchTufo(iden=iden, prop=prop)
 
             oldv = rows[0][2]
             newv = oldv + incval
@@ -2478,19 +2480,19 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
     def _reqSizeByMeth(self, name):
         meth = self.sizebymeths.get(name)
         if meth is None:
-            raise NoSuchGetBy(name=name)
+            raise s_common.NoSuchGetBy(name=name)
         return meth
 
     def _reqRowsByMeth(self, name):
         meth = self.rowsbymeths.get(name)
         if meth is None:
-            raise NoSuchGetBy(name=name)
+            raise s_common.NoSuchGetBy(name=name)
         return meth
 
     def _setRowsByIdProp(self, iden, prop, valu):
         # base case is delete and add
         self._delRowsByIdProp(iden, prop)
-        rows = [(iden, prop, valu, now())]
+        rows = [(iden, prop, valu, s_common.now())]
         self.addRows(rows)
 
     def _calcStatSum(self, rows):
@@ -2707,7 +2709,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self._core_xacts.pop(s_threads.iden(), None)
 
     def _getCoreXact(self, size):
-        raise NoSuchImpl(name='_getCoreXact')
+        raise s_common.NoSuchImpl(name='_getCoreXact')
 
     def addTufoDark(self, tufo, name, valu):
         '''
@@ -2730,7 +2732,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         if self.getRowsByIdProp(dark, dark_name, valu=valu):
             return
 
-        rows = [(dark, dark_name, valu, now())]
+        rows = [(dark, dark_name, valu, s_common.now())]
         self.addRows(rows)
 
     def delTufoDark(self, tufo, name, valu=None):
@@ -2807,7 +2809,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         idens = list(set([r[0][::-1] for r in rows]))  # Unique the idens we pull.
 
         ret = []
-        for part in chunks(idens, 1000):
+        for part in s_common.chunks(idens, 1000):
             ret.extend(self.getTufosByIdens(part))
 
         return ret
@@ -2838,7 +2840,7 @@ class CoreXact:
         self.core = core
         self.size = size
 
-        self.tick = now()
+        self.tick = s_common.now()
 
         self.refs = 0
         self.ready = False
@@ -2877,10 +2879,10 @@ class CoreXact:
         pass
 
     def _coreXactBegin(self):
-        raise NoSuchImpl(name='_coreXactBegin')
+        raise s_common.NoSuchImpl(name='_coreXactBegin')
 
     def _coreXactCommit(self):
-        raise NoSuchImpl(name='_coreXactCommit')
+        raise s_common.NoSuchImpl(name='_coreXactCommit')
 
     def acquire(self):
         self._coreXactAcquire()

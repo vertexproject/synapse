@@ -1,8 +1,3 @@
-import os
-import unittest
-
-from binascii import hexlify
-
 import synapse
 import synapse.mindmeld as s_mindmeld
 
@@ -52,7 +47,7 @@ class MindMeldTests(SynTest):
     def test_mindmeld_badsrc(self):
         meld = s_mindmeld.MindMeld()
         badsrc = 'some --<<== shit'
-        self.raises(s_mindmeld.BadPySource, meld.addPySource, 'woot', badsrc)
+        self.raises(BadPySource, meld.addPySource, 'woot', badsrc)
 
     def test_mindmeld_call(self):
         foo = Foo()

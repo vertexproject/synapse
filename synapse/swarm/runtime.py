@@ -1,13 +1,10 @@
 import synapse.common as s_common
 import synapse.cortex as s_cortex
-import synapse.telepath as s_telepath
 
-import synapse.lib.tufo as s_tufo
 import synapse.lib.storm as s_storm
 import synapse.lib.service as s_service
 
 from synapse.eventbus import EventBus
-from synapse.lib.config import Configable
 
 deftag = 'class.synapse.cores.common.Cortex'
 

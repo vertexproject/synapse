@@ -1,15 +1,21 @@
+import os
 import sys
 import json
 import zlib
 import types
 import logging
+import threading
 import traceback
 import collections
 import multiprocessing
 
 import synapse.link as s_link
 import synapse.compat as s_compat
+import synapse.cortex as s_cortex
+import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
+import synapse.telepath as s_telepath
+
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.socket as s_socket
@@ -19,13 +25,7 @@ import synapse.lib.session as s_session
 import synapse.lib.threads as s_threads
 import synapse.lib.thisplat as s_thisplat
 
-import synapse.cortex as s_cortex
-import synapse.crypto as s_crypto
-import synapse.telepath as s_telepath
-
 from synapse.eventbus import EventBus
-
-from synapse.common import *
 
 # TODO: bumpDmonFork(self, name, fini=True)
 
@@ -59,7 +59,7 @@ def checkConfFile(path):
         try:
             conf = json.loads(fd.read().decode('utf8'))
         except Exception as e:
-            raise BadJson('(%s): %s' % (path, e))
+            raise s_common.BadJson('(%s): %s' % (path, e))
 
     return checkConfDict(conf)
 
@@ -112,7 +112,7 @@ class DmonConf:
         self.fire('dmon:conf:set', prop=prop, valu=valu)
         self.fire('dmon:conf:set:%s' % (prop,), prop=prop, valu=valu)
 
-    @firethread
+    @s_common.firethread
     def _joinDmonFork(self, name, conf, proc):
         proc.join()
 
@@ -244,7 +244,7 @@ class DmonConf:
 
                 opts = configs.get(cfgname)
                 if opts is None:
-                    raise NoSuchConf(name=cfgname)
+                    raise s_common.NoSuchConf(name=cfgname)
 
                 item.setConfOpts(opts)
 
@@ -260,7 +260,7 @@ class DmonConf:
 
                     cfgopts = configs.get(cfgname)
                     if cfgopts is None:
-                        raise NoSuchConf(name=cfgname)
+                        raise s_common.NoSuchConf(name=cfgname)
 
                     opts.update(cfgopts)
 
@@ -277,13 +277,13 @@ class DmonConf:
 
             svcbus = self.dmoneval(busname)
             if svcbus is None:
-                raise NoSuchObj(name)
+                raise s_common.NoSuchObj(name)
 
             for svcname, svcopts in svcruns:
 
                 item = self.locs.get(svcname)
                 if item is None:
-                    raise NoSuchObj(svcname)
+                    raise s_common.NoSuchObj(svcname)
 
                 svcname = svcopts.get('name', svcname)
                 s_service.runSynSvc(svcname, item, svcbus, **svcopts)
@@ -441,7 +441,7 @@ class Daemon(EventBus, DmonConf):
 
             item = self.locs.get(name)
             if item is None:
-                raise NoSuchObj(name)
+                raise s_common.NoSuchObj(name)
 
             # keeping as "onfini" for backward compat
             # FIXME CHANGE WITH MAJOR REV
@@ -490,7 +490,7 @@ class Daemon(EventBus, DmonConf):
 
         user = sock.get('syn:user')
         if not self._isUserAllowed(user, 'tele:push:' + name):
-            return sock.tx(tufo('job:done', err='NoSuchRule', jid=jid))
+            return sock.tx(s_common.tufo('job:done', err='NoSuchRule', jid=jid))
 
         def onfini():
             self.fire('tele:push:fini', name=name)
@@ -503,7 +503,7 @@ class Daemon(EventBus, DmonConf):
         self.csides[name] = csides
         self.reflect[name] = reflect
 
-        return sock.tx(tufo('job:done', jid=jid))
+        return sock.tx(s_common.tufo('job:done', jid=jid))
 
     def _onTeleRetnMesg(self, sock, mesg):
         # tele:retn - used to pump a job:done to a client
@@ -515,7 +515,7 @@ class Daemon(EventBus, DmonConf):
         if dest is None:
             return
 
-        dest.tx(tufo('job:done', **mesg[1]))
+        dest.tx(s_common.tufo('job:done', **mesg[1]))
 
     def setMesgFunc(self, name, func):
         self.mesgfuncs[name] = func
@@ -573,7 +573,7 @@ class Daemon(EventBus, DmonConf):
 
     def _onSockGzipMesg(self, sock, mesg):
         data = zlib.decompress(mesg[1].get('data'))
-        mesg = msgunpack(data)
+        mesg = s_common.msgunpack(data)
         self._distSockMesg(sock, mesg)
 
     def _onTeleSynMesg(self, sock, mesg):
@@ -592,8 +592,8 @@ class Daemon(EventBus, DmonConf):
             sock.set('sock:can:gzip', True)
 
         if vers[0] != s_telepath.telever[0]:
-            info = errinfo('BadMesgVers', 'server %r != client %r' % (s_telepath.telever, vers))
-            return sock.tx(tufo('job:done', jid=jid, **info))
+            info = s_common.errinfo('BadMesgVers', 'server %r != client %r' % (s_telepath.telever, vers))
+            return sock.tx(s_common.tufo('job:done', jid=jid, **info))
 
         sess = None
 
@@ -617,11 +617,11 @@ class Daemon(EventBus, DmonConf):
         # send a nonce along for the ride in case
         # they want to authenticate for the session
         if not sess.get('user'):
-            nonce = guid()
+            nonce = s_common.guid()
             ret['nonce'] = nonce
             sess.put('nonce', nonce)
 
-        return sock.tx(tufo('job:done', jid=jid, ret=ret))
+        return sock.tx(s_common.tufo('job:done', jid=jid, ret=ret))
 
     def _getOnHelp(self, name, evnt):
         okey = (name, evnt)
@@ -642,13 +642,13 @@ class Daemon(EventBus, DmonConf):
 
             item = self.shared.get(name)
             if item is None:
-                raise NoSuchObj(name=name)
+                raise s_common.NoSuchObj(name=name)
 
             user = sock.get('syn:user')
 
             func = getattr(item, 'on', None)
             if func is None:
-                return sock.tx(tufo('job:done', jid=jid, ret=False))
+                return sock.tx(s_common.tufo('job:done', jid=jid, ret=False))
 
             self._reqUserAllowed(user, 'tele:call', name, 'on')
 
@@ -660,10 +660,10 @@ class Daemon(EventBus, DmonConf):
                 for iden, filt in ontups:
                     onhelp.addOnInst(sock, iden, filt)
 
-            return sock.tx(tufo('job:done', jid=jid, ret=True))
+            return sock.tx(s_common.tufo('job:done', jid=jid, ret=True))
 
         except Exception as e:
-            sock.tx(tufo('job:done', jid=jid, **excinfo(e)))
+            sock.tx(s_common.tufo('job:done', jid=jid, **s_common.excinfo(e)))
 
     def _onTeleOffMesg(self, sock, mesg):
         # set the socket tx method as the callback
@@ -676,21 +676,21 @@ class Daemon(EventBus, DmonConf):
 
             item = self.shared.get(name)
             if item is None:
-                raise NoSuchObj(name=name)
+                raise s_common.NoSuchObj(name=name)
 
             onhelp, new = self._getOnHelp(name, evnt)
             onhelp.delOnInst(sock, iden)
 
-            return sock.tx(tufo('job:done', jid=jid, ret=True))
+            return sock.tx(s_common.tufo('job:done', jid=jid, ret=True))
 
         except Exception as e:
-            return sock.tx(tufo('job:done', jid=jid, **excinfo(e)))
+            return sock.tx(s_common.tufo('job:done', jid=jid, **s_common.excinfo(e)))
 
     def _reqUserAllowed(self, user, *perms):
         if not self._isUserAllowed(user, *perms):
             perm = ':'.join(perms)
             logger.warning('userauth denied: %s %s' % (user, perm))
-            raise NoSuchRule(user=user, perm=perm)
+            raise s_common.NoSuchRule(user=user, perm=perm)
 
     def _isUserAllowed(self, user, *perms):
         if self.auth is None:
@@ -698,7 +698,7 @@ class Daemon(EventBus, DmonConf):
 
         # If they have no user raise
         if user is None:
-            raise NoAuthUser()
+            raise s_common.NoAuthUser()
 
         perm = ':'.join(perms)
 
@@ -729,7 +729,7 @@ class Daemon(EventBus, DmonConf):
                         # pass along how to reply
                         mesg[1]['suid'] = sock.iden
                         return pushsock.tx(mesg)
-                    raise NoSuchObj(name)
+                    raise s_common.NoSuchObj(name)
 
                 task = mesg[1].get('task')
                 meth, args, kwargs = task
@@ -738,25 +738,25 @@ class Daemon(EventBus, DmonConf):
 
                 func = getattr(item, meth, None)
                 if func is None:
-                    raise NoSuchMeth(meth)
+                    raise s_common.NoSuchMeth(meth)
 
                 if getattr(func, '_tele_clientside', False):
                     name = s_reflect.getMethName(func)
-                    raise TeleClientSide(name=name)
+                    raise s_common.TeleClientSide(name=name)
 
                 ret = func(*args, **kwargs)
 
                 # handle generator returns specially
                 if isinstance(ret, types.GeneratorType):
 
-                    iden = guid()
+                    iden = s_common.guid()
 
                     txwait = threading.Event()
                     # start off set...
                     txwait.set()
 
                     self._dmon_yields.add(iden)
-                    sock.tx(tufo('tele:yield:init', jid=jid, iden=iden))
+                    sock.tx(s_common.tufo('tele:yield:init', jid=jid, iden=iden))
 
                     # FIXME opt
                     maxsize = 100000000
@@ -780,21 +780,21 @@ class Daemon(EventBus, DmonConf):
                             if sock.isfini:
                                 break
 
-                            sock.tx(tufo('tele:yield:item', iden=iden, item=item))
+                            sock.tx(s_common.tufo('tele:yield:item', iden=iden, item=item))
                             if iden not in self._dmon_yields:
                                 break
 
                     finally:
                         sock.off('sock:tx:size', ontxsize)
                         self._dmon_yields.discard(iden)
-                        sock.tx(tufo('tele:yield:fini', iden=iden))
+                        sock.tx(s_common.tufo('tele:yield:fini', iden=iden))
 
                     return
 
-                sock.tx(tufo('job:done', jid=jid, ret=ret))
+                sock.tx(s_common.tufo('job:done', jid=jid, ret=ret))
 
             except Exception as e:
-                sock.tx(tufo('job:done', jid=jid, **excinfo(e)))
+                sock.tx(s_common.tufo('job:done', jid=jid, **s_common.excinfo(e)))
 
     def listen(self, linkurl, **opts):
         '''

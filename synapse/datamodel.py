@@ -3,19 +3,15 @@ from __future__ import absolute_import, unicode_literals
 An API to assist with the creation and enforcement of cortex data models.
 '''
 import re
-import time
-import socket
-import struct
 import fnmatch
-import datetime
 import functools
 import collections
 import logging
 
+import synapse.common as s_common
+
 import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
-
-from synapse.common import *
 
 logger = logging.getLogger(__name__)
 
@@ -148,8 +144,10 @@ class DataModel(s_types.TypeLib):
         self.addTufoProp('syn:tagform', 'tag', ptype='syn:tag', ro=1, doc='The tag being documented')
         self.addTufoProp('syn:tagform', 'form', ptype='syn:prop', ro=1, doc='The the form that the tag applies to.')
 
-        self.addTufoProp('syn:tagform', 'doc', ptype='str:txt', defval='??', doc='The long form description for what the tag means on the given node form')
-        self.addTufoProp('syn:tagform', 'title', ptype='str:txt', defval='??', doc='The short name for what the tag means on the given node form')
+        self.addTufoProp('syn:tagform', 'doc', ptype='str:txt', defval='??',
+                         doc='The long form description for what the tag means on the given node form')
+        self.addTufoProp('syn:tagform', 'title', ptype='str:txt', defval='??',
+                         doc='The short name for what the tag means on the given node form')
 
         self.addTufoForm('syn:model', ptype='str', doc='prefix for all forms within the model')
         self.addTufoProp('syn:model', 'hash', ptype='guid', doc='version hash for the current model')
@@ -160,7 +158,8 @@ class DataModel(s_types.TypeLib):
 
         # used most commonly for sequential tag generation
         self.addTufoForm('syn:seq', ptype='str:lwr', doc='A sequential id generation tracker')
-        self.addTufoProp('syn:seq', 'width', ptype='int', defval=0, doc='How many digits to use to represent the number')
+        self.addTufoProp('syn:seq', 'width', ptype='int', defval=0,
+                         doc='How many digits to use to represent the number')
         self.addTufoProp('syn:seq', 'nextvalu', ptype='int', defval=0, doc='The next sequential value')
 
     def getModelDict(self):
@@ -182,7 +181,7 @@ class DataModel(s_types.TypeLib):
             BadPropName: If the property name is poorly formed.
         '''
         if not propre.match(form):
-            raise BadPropName(name=form)
+            raise s_common.BadPropName(name=form)
 
         self.forms.add(form)
 
@@ -214,7 +213,7 @@ class DataModel(s_types.TypeLib):
         '''
         pdef = self.getPropDef(form)
         if pdef is None:
-            raise NoSuchForm(name=form)
+            raise s_common.NoSuchForm(name=form)
 
         if info.get('glob'):
             self._addPropGlob(form, prop, **info)
@@ -224,7 +223,7 @@ class DataModel(s_types.TypeLib):
         fullprop = '%s:%s' % (form, prop)
 
         if not propre.match(fullprop):
-            raise BadPropName(name=fullprop)
+            raise s_common.BadPropName(name=fullprop)
 
         self.addPropDef(fullprop, **info)
 
@@ -243,7 +242,7 @@ class DataModel(s_types.TypeLib):
         '''
         pdef = self.getPropDef(prop)
         if pdef is None:
-            raise NoSuchProp(name=prop)
+            raise s_common.NoSuchProp(name=prop)
 
         return pdef[1].get('form'), pdef[1].get('base')
 
@@ -261,7 +260,7 @@ class DataModel(s_types.TypeLib):
 
         '''
         if self.props.get(prop) is not None:
-            raise DupPropName(name=prop)
+            raise s_common.DupPropName(name=prop)
 
         info.setdefault('doc', None)
         info.setdefault('uniq', False)

@@ -8,7 +8,7 @@ import os
 import codecs
 import tornado.httpclient as t_http
 
-from synapse.common import genpath
+import synapse.common as s_common
 
 def _open_http(*paths, **opts):
     # all URLs use /
@@ -40,7 +40,7 @@ def openfd(*paths, **opts):
         if dirn is not None and not os.path.isabs(paths[0]):
             paths = (dirn,) + paths
 
-        path = genpath(*paths)
+        path = s_common.genpath(*paths)
         fd = io.open(path, 'rb')
 
     ncod = opts.get('encoding')

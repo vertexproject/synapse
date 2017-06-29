@@ -1,16 +1,14 @@
+'''
+Provides access to the synapse link protocols.
+'''
+import synapse.common as s_common
+
+import synapse.lib.urlhelp as s_urlhelp
+
 import synapse.links.ssl as s_ssl
 import synapse.links.ssh as s_ssh
 import synapse.links.tcp as s_tcp
 import synapse.links.local as s_local
-import synapse.lib.urlhelp as s_urlhelp
-
-from synapse.common import *
-from synapse.links.common import *
-from synapse.eventbus import EventBus
-
-'''
-Provides access to the synapse link protocols.
-'''
 
 protos = {
     'tcp': s_tcp.TcpRelay,
@@ -45,7 +43,7 @@ def getLinkRelay(link):
     proto = link[0]
     ctor = protos.get(proto)
     if ctor is None:
-        raise NoSuchProto(proto)
+        raise s_common.NoSuchProto(proto)
     return ctor(link)
 
 def chopLinkUrl(url):

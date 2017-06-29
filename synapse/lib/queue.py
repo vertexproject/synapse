@@ -1,10 +1,8 @@
 from __future__ import absolute_import, unicode_literals
 
-import time
 import threading
 import collections
 
-from synapse.common import *
 from synapse.eventbus import EventBus
 
 class QueueShutdown(Exception): pass

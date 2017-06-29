@@ -1,7 +1,7 @@
 import datetime
 import collections
 
-import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
@@ -41,7 +41,7 @@ def validate_revnumber(revision):
         if revision != 0:
             datetime.datetime.strptime(str(revision), MODEL_REV_FORMAT)
     except ValueError as e:
-        raise s_exc.BadRevValu(valu=revision, mesg='CoreModule model revision must be a timestamp.')
+        raise s_common.BadRevValu(valu=revision, mesg='CoreModule model revision must be a timestamp.')
 
 class CoreModule(s_eventbus.EventBus, s_config.Configable):
     '''

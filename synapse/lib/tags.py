@@ -1,7 +1,5 @@
 import collections
 
-import synapse.common as s_common
-
 '''
 Tools to help implement a hierarchical tagging system.
 '''

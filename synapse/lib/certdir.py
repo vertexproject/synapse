@@ -1,10 +1,9 @@
 import os
+import time
+
+import synapse.common as s_common
 
 from OpenSSL import crypto
-
-import synapse.lib.tags as s_tags
-
-from synapse.common import *
 
 defdir = os.getenv('SYN_CERT_DIR')
 if defdir is None:
@@ -22,14 +21,14 @@ class CertDir:
         if path is None:
             path = defdir
 
-        gendir(path, 'cas')
-        gendir(path, 'hosts')
-        gendir(path, 'users')
+        s_common.gendir(path, 'cas')
+        s_common.gendir(path, 'hosts')
+        s_common.gendir(path, 'users')
 
-        self.certdir = reqdir(path)
+        self.certdir = s_common.reqdir(path)
 
     def getPathJoin(self, *paths):
-        return genpath(self.certdir, *paths)
+        return s_common.genpath(self.certdir, *paths)
 
     def getCaCert(self, name):
         return self._loadCertPath(self.getCaCertPath(name))
@@ -53,7 +52,7 @@ class CertDir:
         if path is None:
             return None
 
-        byts = getbytes(path)
+        byts = s_common.getbytes(path)
         if byts is None:
             return None
 
@@ -63,7 +62,7 @@ class CertDir:
         if path is None:
             return None
 
-        byts = getbytes(path)
+        byts = s_common.getbytes(path)
         if byts is None:
             return None
 
@@ -94,18 +93,18 @@ class CertDir:
     def _saveCertTo(self, cert, *paths):
         path = self.getPathJoin(*paths)
         if os.path.isfile(path):
-            raise DupFileName(path=path)
+            raise s_common.DupFileName(path=path)
 
-        with genfile(path) as fd:
+        with s_common.genfile(path) as fd:
             fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
         return path
 
     def _savePkeyTo(self, pkey, *paths):
         path = self.getPathJoin(*paths)
         if os.path.isfile(path):
-            raise DupFileName(path=path)
+            raise s_common.DupFileName(path=path)
 
-        with genfile(path) as fd:
+        with s_common.genfile(path) as fd:
             fd.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
         return path
 
@@ -195,7 +194,7 @@ class CertDir:
         return pkey, cert
 
     def _loadCsrPath(self, path):
-        byts = getbytes(path)
+        byts = s_common.getbytes(path)
         if byts is None:
             return None
         return crypto.load_certificate_request(crypto.FILETYPE_PEM, byts)
@@ -232,9 +231,9 @@ class CertDir:
 
         csrpath = self.getPathJoin(mode, '%s.csr' % name)
         if os.path.isfile(csrpath):
-            raise DupFileName(path=csrpath)
+            raise s_common.DupFileName(path=csrpath)
 
-        with genfile(csrpath) as fd:
+        with s_common.genfile(csrpath) as fd:
             fd.write(crypto.dump_certificate_request(crypto.FILETYPE_PEM, xcsr))
 
         if outp is not None:
@@ -258,37 +257,37 @@ class CertDir:
                 return usercert
 
     def getCaCertPath(self, name):
-        path = genpath(self.certdir, 'cas', '%s.crt' % name)
+        path = s_common.genpath(self.certdir, 'cas', '%s.crt' % name)
         if not os.path.isfile(path):
             return None
         return path
 
     def getCaKeyPath(self, name):
-        path = genpath(self.certdir, 'cas', '%s.key' % name)
+        path = s_common.genpath(self.certdir, 'cas', '%s.key' % name)
         if not os.path.isfile(path):
             return None
         return path
 
     def getHostCertPath(self, name):
-        path = genpath(self.certdir, 'hosts', '%s.crt' % name)
+        path = s_common.genpath(self.certdir, 'hosts', '%s.crt' % name)
         if not os.path.isfile(path):
             return None
         return path
 
     def getHostKeyPath(self, name):
-        path = genpath(self.certdir, 'hosts', '%s.key' % name)
+        path = s_common.genpath(self.certdir, 'hosts', '%s.key' % name)
         if not os.path.isfile(path):
             return None
         return path
 
     def getUserCertPath(self, name):
-        path = genpath(self.certdir, 'users', '%s.crt' % name)
+        path = s_common.genpath(self.certdir, 'users', '%s.crt' % name)
         if not os.path.isfile(path):
             return None
         return path
 
     def getUserKeyPath(self, name):
-        path = genpath(self.certdir, 'users', '%s.key' % name)
+        path = s_common.genpath(self.certdir, 'users', '%s.key' % name)
         if not os.path.isfile(path):
             return None
         return path

@@ -1,12 +1,7 @@
-import re
+import synapse.common as s_common
 
 import synapse.lib.time as s_time
-import synapse.lib.sched as s_sched
-import synapse.lib.service as s_service
-
-import synapse.exc
-from synapse.common import *
-from synapse.eventbus import EventBus
+import synapse.lib.interval as s_interval
 
 '''
 This module implements syntax parsing for the storm runtime.
@@ -72,11 +67,11 @@ def parse_int(text, off, trim=True):
     try:
         return int(numstr, 0), off
     except Exception as e:
-        raise synapse.exc.SyntaxError(expected='Literal', at=off, got=text[off:off + 10])
+        raise s_common.SyntaxError(expected='Literal', at=off, got=text[off:off + 10])
 
 def parse_list(text, off, trim=True):
     if text[off] != '(':
-        raise synapse.exc.SyntaxError(expected='List', at=off)
+        raise s_common.SyntaxError(expected='List', at=off)
 
     off += 1
     valus = []
@@ -90,7 +85,7 @@ def parse_list(text, off, trim=True):
             return valus, off + 1
 
         if text[off] != ',':
-            raise synapse.exc.SyntaxError(invalid='List Syntax', at=off)
+            raise s_common.SyntaxError(invalid='List Syntax', at=off)
 
         off += 1
 
@@ -108,7 +103,7 @@ def parse_cmd_list(text, off=0, trim=True):
     '''
 
     if not nextchar(text, off, '('):
-        raise synapse.exc.SyntaxError(at=off, mesg='expected open paren for list')
+        raise s_common.SyntaxError(at=off, mesg='expected open paren for list')
 
     off += 1
 
@@ -131,11 +126,11 @@ def parse_cmd_list(text, off=0, trim=True):
             return valus, off + 1
 
         if not nextchar(text, off, ','):
-            raise synapse.exc.SyntaxError(at=off, mesg='expected comma in list')
+            raise s_common.SyntaxError(at=off, mesg='expected comma in list')
 
         off += 1
 
-    raise synapse.exc.SyntaxError(at=off, mesg='unexpected and of text during list')
+    raise s_common.SyntaxError(at=off, mesg='unexpected and of text during list')
 
 def parse_cmd_string(text, off, trim=True):
     '''
@@ -155,7 +150,7 @@ def parse_cmd_string(text, off, trim=True):
 def parse_string(text, off, trim=True):
 
     if text[off] not in ('"', "'"): # lulz...
-        raise synapse.exc.SyntaxError(expected='String Literal', at=off)
+        raise s_common.SyntaxError(expected='String Literal', at=off)
 
     quot = text[off]
 
@@ -354,7 +349,7 @@ def parse_ques(text, off=0, trim=True):
     name, off = nom(text, off, varset, trim=True)
 
     if not name:
-        raise SyntaxError(text=text, off=off, mesg='expected name')
+        raise s_common.SyntaxError(text=text, off=off, mesg='expected name')
 
     ques['cmp'] = 'has'
     ques['prop'] = name
@@ -395,7 +390,7 @@ def parse_ques(text, off=0, trim=True):
                 return ques, off
 
             if not nextchar(text, off, '='):
-                raise SyntaxError(text=text, off=off, mesg='expected equals for by syntax')
+                raise s_common.SyntaxError(text=text, off=off, mesg='expected equals for by syntax')
 
             _, off = nom(text, off + 1, whites)
 
@@ -457,7 +452,7 @@ def parse_cmd_kwarg(text, off=0):
     _, off = nom(text, off, whites)
 
     if not nextchar(text, off, '='):
-        raise synapse.exc.SyntaxError(expected='= for kwarg ' + prop, at=off)
+        raise s_common.SyntaxError(expected='= for kwarg ' + prop, at=off)
 
     _, off = nom(text, off + 1, whites)
 
@@ -524,7 +519,7 @@ def parse_oper(text, off=0):
 
     #if text[off] != '(':
     if not nextchar(text, off, '('):
-        raise synapse.exc.SyntaxError(expected='( for operator ' + name, at=off)
+        raise s_common.SyntaxError(expected='( for operator ' + name, at=off)
 
     off += 1
 
@@ -546,7 +541,7 @@ def parse_oper(text, off=0):
             inst[1]['args'].append(oarg)
 
         if not nextin(text, off, [',', ')']):
-            raise synapse.exc.SyntaxError(mesg='Unexpected Token: ' + text[off], at=off)
+            raise s_common.SyntaxError(mesg='Unexpected Token: ' + text[off], at=off)
 
         if nextchar(text, off, ','):
             off += 1
@@ -588,7 +583,7 @@ def parse(text, off=0):
                     break
 
                 if off == len(text):
-                    raise SyntaxError(mesg='unexpected end of text in edit mode')
+                    raise s_common.SyntaxError(mesg='unexpected end of text in edit mode')
 
                 if nextstr(text, off, '+#'):
                     valu, off = parse_macro_valu(text, off + 2)
@@ -608,11 +603,11 @@ def parse(text, off=0):
                 # otherwise, it should be a prop=valu (maybe relative)
                 prop, off = nom(text, off, propset)
                 if not prop:
-                    raise SyntaxError(mesg='edit macro expected prop=valu syntax')
+                    raise s_common.SyntaxError(mesg='edit macro expected prop=valu syntax')
 
                 _, off = nom(text, off, whites)
                 if not nextchar(text, off, '='):
-                    raise SyntaxError(mesg='edit macro expected prop=valu syntax')
+                    raise s_common.SyntaxError(mesg='edit macro expected prop=valu syntax')
 
                 valu, off = parse_macro_valu(text, off + 1)
                 if prop[0] == ':':
@@ -654,12 +649,12 @@ def parse(text, off=0):
         if text[off] == '&':
 
             if len(ret) == 0:
-                raise synapse.exc.SyntaxError(mesg='logical and with no previous operator')
+                raise s_common.SyntaxError(mesg='logical and with no previous operator')
 
             prev = ret[-1]
 
             if prev[0] != 'filt':
-                raise synapse.exc.SyntaxError(mesg='prev oper must be filter not: %r' % prev)
+                raise s_common.SyntaxError(mesg='prev oper must be filter not: %r' % prev)
 
             mode = prev[1].get('mode')
             inst, off = parse_macro_filt(text, off + 1, mode=mode)
@@ -675,12 +670,12 @@ def parse(text, off=0):
         if text[off] == '|':
 
             if len(ret) == 0:
-                raise synapse.exc.SyntaxError(mesg='logical or with no previous operator')
+                raise s_common.SyntaxError(mesg='logical or with no previous operator')
 
             prev = ret[-1]
 
             if prev[0] != 'filt':
-                raise synapse.exc.SyntaxError(mesg='prev oper must be filter not: %r' % prev)
+                raise s_common.SyntaxError(mesg='prev oper must be filter not: %r' % prev)
 
             mode = prev[1].get('mode')
             inst, off = parse_macro_filt(text, off + 1, mode=mode)
