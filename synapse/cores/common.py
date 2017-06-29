@@ -75,11 +75,11 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         self.noauto = {'syn:form', 'syn:type', 'syn:prop'}
 
-        self.addConfDef('autoadd', type='bool', asloc='autoadd', defval=1, 
+        self.addConfDef('autoadd', type='bool', asloc='autoadd', defval=1,
                         doc='Automatically add forms for props where type is form')
         self.addConfDef('enforce', type='bool', asloc='enforce', defval=0, doc='Enables data model enforcement')
         self.addConfDef('caching', type='bool', asloc='caching', defval=0, doc='Enables caching layer in the cortex')
-        self.addConfDef('cache:maxsize', type='int', asloc='cache_maxsize', defval=1000, 
+        self.addConfDef('cache:maxsize', type='int', asloc='cache_maxsize', defval=1000,
                         doc='Enables caching layer in the cortex')
 
         self.addConfDef('rev:model', type='bool', defval=1, doc='Set to 0 to disallow model version updates')
@@ -87,11 +87,11 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         self.addConfDef('axon:url', type='str', doc='Allows cortex to be aware of an axon blob store')
 
-        self.addConfDef('log:save', type='bool', asloc='logsave', defval=0, 
+        self.addConfDef('log:save', type='bool', asloc='logsave', defval=0,
                         doc='Enables saving exceptions to the cortex as syn:log nodes')
         self.addConfDef('log:level', type='int', asloc='loglevel', defval=0, doc='Filters log events to >= level')
 
-        self.addConfDef('modules', defval=(), 
+        self.addConfDef('modules', defval=(),
                         doc='An optional list of (pypath,conf) tuples for synapse modules to load')
 
         self.onConfOptSet('modules', self._onSetMods)

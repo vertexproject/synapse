@@ -21,6 +21,7 @@ from synapse.exc import *
 from synapse.compat import enbase64, debase64, canstor
 
 class NoValu: pass
+
 novalu = NoValu()
 
 def now():
@@ -268,10 +269,12 @@ def firethread(f):
     '''
     A decorator for making a function fire a thread.
     '''
+
     @functools.wraps(f)
     def callmeth(*args, **kwargs):
         thr = worker(f, *args, **kwargs)
         return thr
+
     return callmeth
 
 def worker(meth, *args, **kwargs):
