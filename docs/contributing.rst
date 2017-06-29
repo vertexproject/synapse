@@ -280,7 +280,7 @@ In order to do local doc generation you can do the following steps:
 
    ::
 
-      pip install sphinx==1.5.3 Pygments==2.2.0 setuptools==28.8.0 docutils==0.13.1 mkdocs==0.15.0 mock==1.0.1 pillow==2.6.1 git+https://github.com/rtfd/readthedocs-sphinx-ext.git@0.6-alpha#egg=readthedocs-sphinx-ext alabaster>=0.7,<0.8,!=0.7.5 commonmark==0.5.4 recommonmark==0.4.0
+      pip install sphinx==1.5.3 Pygments==2.2.0 setuptools==28.8.0 docutils==0.13.1 mkdocs==0.15.0 mock==1.0.1 pillow==2.6.1 git+https://github.com/rtfd/readthedocs-sphinx-ext.git@0.6-alpha#egg=readthedocs-sphinx-ext sphinx_rtd_theme commonmark==0.5.4 recommonmark==0.4.0
 
 #. Build the docs using sphinx.  A makefile is provided which makes this
    painless.

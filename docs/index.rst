@@ -6,6 +6,7 @@ Contents:
 .. toctree::
     :maxdepth: 2
 
+    synapse/userguide_section0
     synapse/cortex
     synapse/eventbus
     synapse/telepath
