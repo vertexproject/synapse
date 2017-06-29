@@ -1,129 +1,181 @@
-2. Graphs and Hypergraphs
-=========================
+3. Synapse Data Model - Basics
+==============================
 
-To understand the power of Synapse, it helps to have some additional background. Without delving into mathematical definitions, this section introduces key concepts related to a **hypergraph,** and contrasts them with those of a **graph** or a **directed graph.** Most people should be familiar with the concept of a graph – even if not in the strict mathematical sense – or with data that can be visually represented in graph form.
+This section covers the basic “building blocks” of the Synapse hypergraph data model. It is intended to provide an overview of the fundamentals to get you started. Model elements are discussed in greater detail in the next section.
 
-**Graphs**
+(**Note:** This documentation presents the data model from a User or Analyst perspective; for detailed information, see the `Data Model`_ section of readthedocs or the Synapse source code.)
 
-A **graph** is a mathematical structure used to model pairwise relations between objects. Graphs consist of **vertices** (or **nodes**) that represent objects, and **edges** that connect two vertices in some type of relationship. Note that edges are specifically pairwise or **two-dimensional:** an edge connects exactly two nodes. Both nodes and edges may have **properties** that describe their relevant features. In this sense both nodes and edges can be thought of as representational objects within the graph, with nodes typically representing things (“nouns”) and edges representing relationships (“verbs”).
+**Background**
 
-A simple example of data that can be represented by a graph are cities connected by roads. If abstracted into graph format, each city would be a vertex or node, and a road connecting two cities would be an edge. Since you can travel from City A to City B or from City B to City A on the same road, the graph is “directionless” (or “undirected”).
+Recall that **Synapse is a distributed key-value hypergraph analysis framework.** That is, Synapse is a particular implementation of a hypergraph model, where an instance of a hypergraph is called a Cortex. In our brief discussion of graphs and hypergraphs, we pointed out some fundamental concepts related to the Synapse hypergraph implementation:
 
-Another example would be social networks based on “connections”, such as Facebook or LinkedIn. In this case, each person would be a node, and the connection between two people would be an edge. Because basic connections in these networks are mutual (you can’t “friend” someone on Facebook without them agreeing to “friend” you in return), it can be considered a directionless graph. (This is a bit of a simplification, but serves our purpose as an example.)
+- **Everything is a node.** There are no pairwise (“two-dimensional”) edges in a hypergraph the way there are in a directed graph.
 
-**Directed Graphs**
+- **Tags act as “hyperedges”.** In a directed graph, an edge connects exactly two nodes. In Synapse, tags are labels that can be applied to an arbitrary number of nodes. These tags effectively act as an n-dimensional edge that can connect any number of nodes – a hyperedge.
 
-A **directed graph** is a graph where the edges have a direction associated with them. In other words, the relationship represented by the edge is “one-way”. Where an edge in an undirected graph is often represented by a straight line, an edge in a directed graph is represented by an arrow.
+- **Every navigation of the graph is a pivot.** Since there are no pairwise edges in a hypergraph, you can’t query or explore the graph by navigating (traversing) its edges. Instead, every navigation is a pivot from the properties of one node or set of nodes to the properties of another set of nodes. (Technically, selecting a set of nodes based on tag could be considered “navigating” along a hyperedge. But mostly everything is a pivot.)
 
-In our cities-and-roads example, the graph would be a directed graph if the roads were all one-way streets; in such a case you can use a particular road to go from City A to City B, but not from City B to City A.
+To start building on those concepts, you need to understand the basic elements of the Synapse data model.
 
-In our social networks example, networks that support a “follows” relationship (such as Twitter) can be represented as directed graphs. Each person is still a node, but the “follows” relationship is one way – I can “follow” you, but you don’t have to follow me. If you choose to follow me, that would be a second, independent one-way edge in the opposite direction. (Again, this is a bit of a simplification but works for a basic illustration.)
+**Data Model Terminology**
 
-Many other types of data can be represented with nodes and directed edges.  In information security, for example, you can represent data and relationships such as:
+The fundamental concepts you should be familiar with are:
 
-``<malware_file> -- <performed DNS lookup for> --> <domain>``
+- Node
+- Form
+- Type
+- Tag
 
-or
+Synapse uses a query language called **Storm** to interact with data in the hypergraph. Storm allows a user to ask about, filter, and pivot around data based in large part on node properties, values, and tags. **Understanding these structures will significantly improve your ability to use Storm and interact with Synapse data.**
 
-``<domain> -- <has DNS A record for> --> <IP_address>``
+**Node**
 
-In those cases, files, domains and IP addresses are nodes and “performed DNS lookup” or “has DNS A record” (e.g., “resolved to”) are edges (relationships). The edges are directed because a malware binary can contain programming to resolve a domain name, but a domain can’t “perform a lookup” for a malware binary; the relationship (edge) is one-way or directional.
+A node can be thought of as an “object” within the hypergraph; although that is a bit of a misnomer, as nodes in Synapse can represent both “objects” (IP addresses, files, people, bank accounts, chemical formulas) and “relationships” (remember, what would have been an edge in a directed graph is now also a node in Synapse). It may be better to think of a node generically as a “thing”: any “thing” you want to model within Synapse (object, relationship, event) is represented as a node.
 
-In addition to nodes and edges, some directed graph implementations may allow labeling or tagging of nodes and / or edges with additional information. These tags can act as metadata for various purposes, such as to create analytically relevant groupings.
+Nodes are represented by data structures called “tufos” (short for “tuple form”; a **form** is described below). While “tufo” is used in the Synapse technical documentation and source code, “node” is more familiar and intuitive to most people, so this User Guide uses that term. However, the terms “tufo” and “node” are roughly interchangeable. (A high-level overview of tufos_ is provided in readthedocs.)
 
-Many tools exist to visually represent various types of data in a directed graph format; Maltego (which bills itself as a “visual link analysis tool” that can represent information in a directed graph) is a well-known example.
+From a user perspective, you need to know that every node consists of the following components:
 
-**Analysis with Graphs**
+- A **globally unique identifier** (GUID, identifier, or ID) that is **unique across all nodes in a given hypergraph** (e.g., a given Cortex). The way that node GUIDs are generated makes them “Cortex specific”: this means that the same node (e.g., ``inet:fqdn=woot.com``) in two different Cortexes could have a different GUID in each.
 
-Directed graphs have become increasingly popular for representing and conducting analysis across large data sets. Analysis using a directed graph can be highly generalized into four methods for interacting with the data:
+- One more more **universal properties** created automatically by Synapse whenever a new node is generated. The most important universal property for our purpose is the property ``tufo:form=<form>`` that lists the **primary property type** for that node. For example, a node representing an Internet domain (``inet:fqdn``) would have the universal property ``tufo:form=inet:fqdn``.
 
-- **Lifting** or retrieving data. This simply asks about and returns specific nodes or edges from the graph. For example, you can ask about the node representing your Twitter account, or about the node representing IP address 1.2.3.4. You can also ask about sets of nodes that share some common feature – for example, all of the Twitter users who signed up for the service in January 2014, or all the PE executables whose compile date is 6/19/1992.
+- A single **primary property** that consists of the **form** of the node plus its specific value.
+  
+  All primary properties (``<form>=<value>``) **must be unique for a given form** (node type). For example, the primary property of the node representing the domain “woot.com” would be ``inet:fqdn=woot.com``. The uniqueness of the ``<form>=<value>`` pair ensures there can be only one node that represents the domain “woot.com”.
+  
+  Where the object represented by the node does not have a characteristic that is sufficiently unique to act as a primary property value – that is, any object where the possibility of a collision exists – the primary property is a machine-generated GUID. For example, in Synapse objects such as people, companies / organizations, or files (e.g., specific sets of bytes) are represented by GUIDs. Note that the GUID used as the **primary property** for some nodes is different from the GUID assigned to each node as its **identifier.**
 
-- **Filtering** the results. Once you’ve asked about (lifted) an initial data set (a node or set of nodes), filtering allows you to further refine your results by either including or excluding data based on some criteria. For example, once you have your list of Twitter users who signed up in January 2014, you may decide to exclude users who list their location as the United States. Similarly, once you have your list of files compiled on 6/19/1992, you can filter those results to only include files whose size is greater than 26576 bytes.
+- Various **secondary properties** that are specific to that form. A node representing an Internet domain will have different secondary properties than a node representing a person, which will have different secondary properties than a node representing a bank account.
 
-- **Traversing** the graph structure. Once you’ve asked about an initial data set, you can ask about relationships between your data set and other nodes by pathing (traversing) along the edges (relationships) that connect those nodes. For example, if you retrieve the node for your Twitter account, you can identify all of the accounts you are following on Twitter by traversing all of the “follows” edges from your node to the nodes of accounts that you follow. Similarly, if you retrieve the node for IP address 1.2.3.4, you can retrieve all of the domains that resolve to that IP by pathing backwards (remember, edges are directional) along the all of the “resolves to” edges that point to that IP.
+  Some secondary properties (and their values) are generated and set automatically when a node is created. Other secondary properties may be added or modified at a later time, unless they are defined as “read only” in the form definition.
 
-- **Pivoting** across like properties. Once you’ve asked about an initial data set, pivoting allows you to retrieve additional nodes or edges that share some property in common with your original data. For example, you can retrieve the node representing a PE executable, and then pivot to any other PE executables that share the same PE import hash or the same PE compile time.
+  Secondary properties form a **relative namespace** beneath the namespace of the node’s form. That is, if the node’s form type is ``tufo:form=foo:bar`` (e.g., this is a ``foo:bar`` node), then all secondary properties will be named in the format ``foo:bar:<secondary_prop>``. In some circumstances (e.g., where the namespace context is clear) secondary properties can be referenced as **relative properties** – that is, as ``:<secondary_prop>`` as opposed to the fully qualified ``foo:bar:<secondary_prop>``. So a secondary property ``foo:bar:baz`` can be referenced by its relative name ``:baz`` in some circumstances.
 
-Despite their utility and increased use, directed graphs have certain limitations, most notably the “two-dimensionality” inherent in the concept of an edge. The fact that an edge can only connect exactly two nodes leads to a variety of consequences, including:
+- Optional **ephemeral properties** that may exist temporarily for some special purpose, and do not represent data stored permanently about that node. Ephemeral property names are preceded by a dot ( ``.`` ) to indicate they are ephemeral. The most common ephemeral property is ``.new``, which indicates that a node is newly created.
 
-- **Performance.** Even though a directed graph edge can only join two nodes, in theory there is no limit to the total number of edges to or from a given node – you can have 100,000 followers on Twitter, connected to you by 100,000 edges. However, these “edge dense” or “heavy” nodes represent a potential performance limitation when attempting to conduct analysis across a large or complex directed graph. The computational resources required to traverse all of those edges, hold the resulting set of nodes in memory, and then perform additional operations on the results (filtering, pivoting, additional traversals, etc.) can become prohibitive.
+*Example*
 
-- **Data Representation.** Some relationships involve more than two objects, which may require some creativity (or at the very least, additional overhead) to force them into a two-dimensional directed graph model. One side effect may be a multiplication of edges, as noted above; another may be the need to continually create specialized node types to represent arbitrary “clusters” of data or objects (basically combining what would normally be two or more nodes into a single node, simply so the cluster can be associated with another node via a single edge).
+An example will help to illustrate the concepts above. The command below adds a node for the domain “woowoo.com” to a Cortex and displays the detailed properties of the newly-created node::
 
-**Hypergraphs**
+  cli> ask --raw addnode(inet:fqdn,woowoo.com)
+  [
+    [
+      "159eb804de045a47220dbde76984f2f4",
+      {
+        ".new": true,
+        "inet:fqdn": "woowoo.com",
+        "inet:fqdn:domain": "com",
+        "inet:fqdn:host": "woowoo",
+        "inet:fqdn:sfx": 0,
+        "inet:fqdn:zone": 1,
+        "tufo:form": "inet:fqdn"
+      }
+    ]
+  ]
+  (1 results)
 
-A **hypergraph** is a generalization of a graph in which an edge can join any number of nodes. Because an edge is no longer limited to joining exactly two nodes, edges in a hypergraph are often called **hyperedges**. If a directed graph where edges join exactly two nodes is “two-dimensional”, then a hypergraph where a hyperedge can join any number (n-number) of nodes can be considered **“n-dimensional”**.
+In the output above:
 
-Looked at another way, they key features of a hypergraph are:
+- ``159eb804de045a47220dbde76984f2f4`` is the GUID (identifier) for the node.
+- ``".new": True`` is the ephemeral property showing this is a newly created node.
+- ``"tufo:form": "inet:fqdn"`` lists the type of node (the form for the node).
+- ``"inet:fqdn": "woowoo.com"`` is the primary property of the node (``<form>=<value>``).
 
-- **Everything is a node.** “Things” (“nouns”) are still nodes in a hypergraph, similar to a regular graph. However, relationships (“verbs”) are now also represented as nodes. Looked at another way, where an edge in a graph consists of three objects (two nodes and the edge connecting them), in a hypergraph the same data is represented as a single multi-dimensional node.
+The remaining entries are various node-specific secondary properties and their values (``inet:fqdn:zone``, ``inet:fqdn:domain``, etc.)
 
-- **Hyperedges connect arbitrary sets of nodes.** An edge in a regular graph connects two nodes, and can be easily visualized in two dimensions as a line or arrow connecting two points. A hyperedge can connect an arbitrary number of nodes; one way to attempt to visualize this is as a “shape” (though this doesn’t entirely escape the “nodes and edges” concept, and becomes increasingly difficult to visualize beyond three dimensions). The standard “visualization” for a hyperedge is as a set of disconnected nodes encircled by a boundary; the boundary represents the hyperedge “joining” the nodes into a related group. Just as there is no limit to the number of edges to or from a node in a directed graph, a node in a hypergraph can be joined by any number of hyperedges (e.g., be part of any number of “groups”).
+**Forms**
 
-In Synapse, hyperedges are represented by **tags,** which can be thought of as labels applied to nodes.
+A form is the definition of a Synapse hypergraph node. A form consists of the declaration of the primary property and its **type**, along with the form’s secondary properties (and their types). A form can be thought of as a template: if you want to create an ``inet:fqdn`` node in Synapse, the ``inet:fqdn`` form tells you the proper structure for the node and the properties it can contain.
 
-**Analysis with a Synapse Hypergraph**
+Forms are defined within the Synapse data model, and are declared within the model as tufos – that is, form definitions are themselves nodes in the hypergraph. Form definitions can be found within the `Data Model`_ section of readthedocs; those definitions are auto-generated from the Synapse source code. Forms are also documented within the source code of the appropriate Python module itself. (For example, the ``inet:fqdn`` form is defined within the ``inet.py`` module).
 
-Synapse is a specific implementation of a hypergraph model. Within Synapse, an individual hypergraph is called a **Cortex.** A Cortex is a scalable hypergraph implementation which also includes key/value-based node properties and a data model which facilitates normalization.
+The data model can be extended to include new forms or to modify existing forms (e.g., to add or change the secondary properties of a form) by:
 
-Analysis of data using a Cortex leverages some of the same methods as a directed graph: **lifting** nodes and **filtering** results are still part of the process. However, as noted above, in the absence of pairwise edges there is no **traversal.** Instead, all navigation is based on a **pivot.** (Technically, selecting a set of nodes from Synapse based on a tag could be considered “navigating” along a hyperedge. But mostly everything is a pivot.)
+- creating new form nodes directly within the hypergraph to describe the updated data model; or
+- updating or extending the relevant Synapse source code.
 
-Synapse optimizes this ability to pivot across properties through two key design features: **type safety** and **property normalization.**
+Because forms are nodes within the Synapse hypergraph, they can be created or modified directly within the Cortex, without the need to modify the Synapse source code. However, because the Synapse source code supports features such as model versioning and migration paths, it is preferable to maintain long-term or official model changes within the Synapse source.
 
-- **Type safety** ensures that node property types are explicitly declared and enforced across the data model. Where a property value is an IP address, for example, that IP address is declared and stored as an integer for consistency (as opposed to being stored as an integer in some instances and a dotted-decimal string in others).
+Below are examples of how a form (``inet:fqdn``) is represented and documented in both readthedocs_ and the `Synapse source code`_ (in this case, ``inet.py``).
 
-- **Property normalization** ensures that properties are represented in a consistent manner for both storage and display purposes, regardless of the format in which they are received. Synapse takes a “do what I mean” approach to input where possible, attempting to recognize common formats and normalize them on the user’s behalf. This allows users to work with data in a way that should feel “natural”. For example, a user can enter an IP address as an integer, a hex string, or a dotted decimal notation; Synapse will automatically store the IP as an integer and represent it back to the user as a dotted-decimal string. Similarly, a user can enter a directory path using either Windows (``C:\foo\bar\baz.exe``) or Linux (``/home/user/foo/bar``) format and using any combination of upper and lowercase letters; Synapse will automatically enforce normalization such as the use of forward slashes for directory separators and the use of all lower-case letters for drive, path, and file names.
+*inet:fqdn - readthedocs (auto-generated from source code)*
+::
+    **inet:fqdn = <inet:fqdn>**
+    A Fully Qualified Domain Name (FQDN)
 
-These features make pivoting highly effective because they ensure that data of the same type and / or with the same value is represented consistently throughout the Synapse hypergraph. In contrast, lack of consistency can cause analysts to miss relevant correlations - either because the same data is represented in multiple forms, or because the burden is placed on the analyst to “correctly” normalize their input when querying the system.
+    Properties:
+        inet:fqdn:created = <time:min>
+        * Minimum time in millis since epoch
+        inet:fqdn:domain = <inet:fqdn>
+        * The parent FQDN of the FQDN
+        inet:fqdn:expires = <time:max>
+        * Maximum time in millis since epoch
+        inet:fqdn:host = <str>
+        * The hostname of the FQDN
+        inet:fqdn:sfx = <bool> (default: 0)
+        * Set to 1 if this FQDN is considered a “suffix”
+        inet:fqdn:updated = <time:max>
+        * Maximum time in millis since epoch
+        inet:fqdn:zone = <bool> (default: 0)
+        * Set to 1 if this FQDN is a logical zone (under a suffix)
 
-Synapse’s optimized use of pivots, combined with the ability to represent relationships (including complex “multi-dimensional” relationships) as nodes, provides some significant advantages over a directed graph. These include:
+*Synapse source code (inet.py)*
+::
+  ('inet:fqdn',{'ptype':'inet:fqdn'},[
+    ('sfx',{'ptype':'bool','defval':0,'doc':'Set to 1 if this FQDN is considered a "suffix"'}),
+    ('zone',{'ptype':'bool','defval':0,'doc':'Set to 1 if this FQDN is a logical zone (under a suffix)'}),
+    ('domain',{'ptype':'inet:fqdn','doc':'The parent FQDN of the FQDN'}),
+    ('host',{'ptype':'str','doc':'The hostname of the FQDN'}),
+    ('created',{'ptype':'time:min'}),
+    ('updated',{'ptype':'time:max'}),
+    ('expires',{'ptype':'time:max'}),
+  ]),
 
-*Performance*
 
-“Asking questions” of a hypergraph may be less computationally intensive than in a directed graph. As a simple example, let’s say you want to know all of the domains that have resolved to a particular IP address. “Resolves to” (“has a DNS A record for”) is a relationship (edge) in a directed graph, so to answer this question you first need to **lift** the node for the IP address and then **traverse** an arbitrary number of edges to return the set of nodes represented by the endpoints of all those edges. For a handful of edges (domains), this traversal is not very difficult; but if thousands of domains have resolved to that IP, traversing all of those edges becomes more computationally intensive.
+**Note** that there are some minor differences between the the auto-generated documentation in readthedocs and the Synapse source code. Since either (or both together) can be helpful for analysts working with Synapse data, it helps to be aware of these differences.
 
-Viewed another way - and depending on the specific implementation of the directed graph - a traversal may represent two pivots “under the hood”. Assume a generic representation of an edge as a tuple comprised of two nodes and the specific edge relationship ({n1,edge,n2}). “Traversing” from one set of nodes, along a specified edge, to a second set of nodes can be viewed as an initial pivot from a set of nodes to that set of edges where those nodes represent n1 of the edge; and then a second pivot from the set of n2s of those edges to the nodes that correspond to those n2s.
+- **Default values.** Some nodes have properties that are automatically set to a specific value unless otherwise specified. If a property has a default value, it will be noted in both readthedocs and the source code.
 
-In a Cortex, a single node represents the “resolves to” relationship, with the domain and IP address involved in the relationship both stored as properties on that node. So you simply need to **lift** the set of “resolves to” nodes where the value of the IP address property is the IP you are interested in. Once you have the relevant set of “resolves to” nodes, you simply **pivot** from the set of “domain” properties to the set of nodes representing those domains.
+- **Read-only properties.** Primary properties are unique and cannot be changed. Some secondary properties (typically those derived from the primary property) should also not be modified and are therefore implicitly read-only. In some cases, secondary properties are explicitly defined as read-only in the Synapse source code via the definition ``'ro':1``. However, these designations are not carried over to readthedocs. (An example is the ``:port`` property of an ``inet:url`` node. A port number is generally not included in a URL that uses standard ports for a given protocol (e.g., ``https://www.foo.com/bar/baz.html``). Based on the presence of an “https” prefix in a URL, Synapse will set ``:port=443`` as a read-only property, as specified in the source.)
 
-*No Loss of Granularity*
+- **Readability.** While readthedocs is a bit more readable for the general user, the auto-generation process sorts and displays types, forms, and form secondary properties in alphabetical order. However, alphabetical order may not be the most intuitive order for grouping either forms or form-specific properties, based on how an analyst would typically view or work with the data.
 
-As noted above, the pairwise nature of edges in a directed graph may result in a loss of granularity for complex relationships that realistically involve three or more elements as opposed to the two elements supported by a directed edge. In order to “fit” those relationships into a directed graph model, one solution is to arbitrarily combine some of those elements into a single node in order to force the relationship to be pairwise. This results in some loss of detail as elements that should rightly be treated as independent components are artificially conflated.
+  In contrast, the Synapse source code lists forms and form properties in an order that may be more “sensical” for the given node type. The source code also tends to list secondary properties that can be automatically set by Synapse first in the source code (e.g., secondary properties that can be derived from the primary property’s value). For example, when creating the node ``inet:fqdn=woowoo.com``, Synapse can parse that ``<property>=<value>`` and automatically set the secondary properties ``inet:fqdn:domain=com`` and ``inet:fqdn:host=woowoo``. Secondary properties that require that an additional value be provided (e.g., ``inet:fqdn:created``) are listed later in the source code.
 
-*Discovery*
+**Types**
 
-“Asking questions of” or “exploring” a directed graph has some inherent limitations. First, since relationships are represented by edges, an analyst is limited to asking about (traversing) “known relationships” (that is, edges that are already defined in the model). This may limit the discovery of new or unexpected patterns or correlations.
+A **type** is the definition of an element within the data model, describing what the element is and how it should be normalized (if necessary) and structured to conform to the model. Synapse supports standard types (such as integers and strings) as well as extensions of these types. From a user standpoint, types are important primarily as they define the primary and secondary properties of forms.
 
-Similarly, while directed graphs may support some navigation via pivots, analysts are often limited to pivoting via the same property / value on the same node type – for example, I can ask about all PE file nodes that have the same PE import hash value as a given PE file node because I am asking about the same value for the same property across the same node type. As noted above, Synapse’s type enforcement and property normalization remove this restriction.
+The data model can be extended to define new types by updating or extending the relevant Synapse source code.
 
-In a directed graph it is harder to ask about a value that may be present in different properties on different node types. For example, let’s say you have a malicious domain and you determine the set of IP addresses that the domain has resolved to. You want to know if any of those IP addresses have also been used to send spear phishing email messages. Speaking generically, there is no readily apparent relationship between an IP address as the resolution of a domain, and an IP address as the source of an email message, other than the fact that they are both IP addresses. This lack of an apparent relationship (edge) implies that you can’t get your answer using a few simple traversals.
+**Tags**
 
-How you answer this question will vary depending on the specific implementation of the directed graph. However, if you assume an implementation with the following defined edges:
+Tags are annotations applied to nodes. Broadly speaking, nodes represent “things” (objects, relationships, events – generally things that are “facts” or “observables”) while tags represent analytical observations – annotations that **could** change if the data or the assessment of the data changes.
 
-``<domain> -- <has DNS A record> --> <IP address>``
+Tags can be applied to any number of relevant nodes, so in this sense tags act as **hyperedges** within the Synapse hypergraph, joining an arbitrary number of nodes in an “n-dimensional” relationship.
 
-and 
+A tag – like every other object in the Synapse data model – is also a form (``syn:tag``) that is declared in the Synapse data model (in `datamodel.py`_) and represented within the hypergraph as a node. However, since the form (“template”) of a tag already exists within the data model, creating new tags does not require any changes to the Synapse source code. Analysts can create new tags “on the fly” to record their analytical observations. Creating a new tag simply creates a new node of form ``syn:tag`` just as creating a new Internet domain creates a new node of form ``inet:fqdn``.
 
-``<IP address> -- <was source IP for> --> <RFC822 file>``
+Tags can represent any observation that is analytically relevant to the knowledge domain modeled within the Synapse hypergraph. For example, in the knowledge domain of cyber threat data, analysts may wish to annotate observations such as:
 
-Then you may be able to obtain an answer through a multi-part query similar to the following:
+- “This malware binary is part of the threat cluster we track as Foobar Group.” (``syn:tag=tc.foobar``)
+- “This IP address is a TOR exit node.” (``syn:tag=net.tor.exit``)
+- “This domain has been sinkholed.” (``syn:tag=cno.sink.hole``)
+- “FooCorp Security says this indicator is part of activity they call Vicious Wombat.” (``syn:tag=aka.foocorp.viciouswombat``)
+- “This malware persists as a Windows service.” (``syn:tag=persist.winreg.service``)
 
-1. Traverse the set of “has DNS A record” edges from the domain to obtain the set of IP addresses.
-2. Traverse the set of “was source IP” edges from the resulting set of IP addresses to the set of RFC822 messages to get the messages (if any) associated with the IPs.
-3. Traverse **back** along the “was source IP” edges from the RFC822 messages to get the IP addresses that were used to send email messages.
+Note that tags can use a dotted “hierarchical” notation that allows analytical observations to be grouped by increasing levels of specificity. For example:
 
-If the above sounds messy and a bit redundant, it’s because to an extent, it is. There may be slightly more “elegant” solutions given alternate directed graph implementations (for example, if the source IP of an email message was stored as a property on the email message node as opposed to being associated with the message via an edge). But it still requires some creative navigation amongst nodes, edges, and properties to find the answer.
+- ``syn:tag=persist`` (malware persistence methods)
+- ``syn:tag=persist.winreg`` (malware persistence methods using the Windows registry)
+- ``syn:tag=persist.winreg.service`` (malware persistence methods using the Service keys of the Windows registry)
 
-In a Synapse hypergraph Cortex, the IP addresses appear as properties on both the set of “domain has DNS A record” nodes (as the “resolved to” property, for example) and the set of “spear phishing email nodes” (as the “source IP” property, for example). You can simply pivot between the two node types based on the value of those properties to find your answer. Not only is the navigation itself significantly easier, but you are able to readily ask questions across disparate or arbitrary data types (DNS records and email messages), as long as they share some value in common – even if that value represents a different property in each case.
+Nodes, properties, and tags are discussed in greater detail in the next section.
 
-**Conclusions**
 
-Though hypergraphs may be less familiar conceptually than traditional graphs, they offer distinct performance and analytical advantages over directed graph models, addressing historical shortcomings in representation, navigation, and analytical capability. Synapse, as a specific implementation of a hypergraph model, incorporates additional design features (type safety, property normalization, and a robust query language, in addition to storage and indexing optimization for performance) that further enhance its power and flexibility as an analysis tool.
-
-
-
-
-
-
-
+.. _Data Model: https://vertexprojectsynapse.readthedocs.io/en/latest/synapse/datamodel.html
+.. _tufos: https://vertexprojectsynapse.readthedocs.io/en/latest/synapse/cortex.html#introducing-the-tufo
+.. _readthedocs: https://vertexprojectsynapse.readthedocs.io/en/latest/synapse/datamodel.html#inet-fqdn-inet-fqdn
+.. _Synapse source code: https://github.com/vertexproject/synapse/blob/master/synapse/models/inet.py
+.. _datamodel.py: https://github.com/vertexproject/synapse/blob/master/synapse/datamodel.py
