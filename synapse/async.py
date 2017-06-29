@@ -2,6 +2,7 @@ import time
 import traceback
 import threading
 import collections
+import multiprocessing
 
 from synapse.compat import queue
 
@@ -9,6 +10,7 @@ import synapse.dyndeps as s_dyndeps
 import synapse.lib.sched as s_sched
 import synapse.lib.scope as s_scope
 import synapse.lib.queue as s_queue
+import synapse.lib.process as s_process
 import synapse.lib.threads as s_threads
 
 from synapse.common import *
@@ -204,7 +206,8 @@ class Boss(EventBus):
 
         # if we have a timeout, setup a sched callback
         timeout = job[1].get('timeout')
-        if timeout != None:
+        subprocess = job[1].get('subprocess')
+        if timeout != None and subprocess == None:
 
             def hitmax():
                 joblocal.pop('schedevt',None)
@@ -242,13 +245,31 @@ class Boss(EventBus):
             return
 
         try:
-
-            func,args,kwargs = task
-            ret = func(*args,**kwargs)
-            self.fire('job:done', jid=job[0], ret=ret)
+            if job[1].get('subprocess', False):
+                result = self._runTaskAsProcess(job)
+                self.fire('job:done', jid=job[0], **result)
+            else:
+                func, args, kwargs = task
+                ret = func(*args,**kwargs)
+                self.fire('job:done', jid=job[0], ret=ret)
 
         except Exception as e:
             self.fire('job:done', jid=job[0], **excinfo(e))
+
+    def _runTaskAsProcess(self, job):
+        # allow Process to handle error conditions
+        opts = job[1]
+        procOpts = opts.copy()
+        opts.pop('timeout', None)
+        process = s_process.Process(**procOpts)
+        opts['proc'] = process
+        def firejobtick(boss, event):
+            boss.fire('job:tick', jid=job[0], **opts)
+        process.on('proc:tick', functools.partial(firejobtick, self))
+        result = {'ret': process.run()}
+        if process.error():
+            result.update(process.error())
+        return result
 
     def _onJobFini(self, event):
 
