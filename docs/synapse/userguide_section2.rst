@@ -1,5 +1,5 @@
-2. Graphs and Hypergraphs
-=========================
+Synapse User Guide - Graphs and Hypergraphs
+===========================================
 
 To understand the power of Synapse, it helps to have some additional background. Without delving into mathematical definitions, this section introduces key concepts related to a **hypergraph,** and contrasts them with those of a **graph** or a **directed graph.** Most people should be familiar with the concept of a graph – even if not in the strict mathematical sense – or with data that can be visually represented in graph form.
 
@@ -120,10 +120,3 @@ In a Synapse hypergraph Cortex, the IP addresses appear as properties on both th
 **Conclusions**
 
 Though hypergraphs may be less familiar conceptually than traditional graphs, they offer distinct performance and analytical advantages over directed graph models, addressing historical shortcomings in representation, navigation, and analytical capability. Synapse, as a specific implementation of a hypergraph model, incorporates additional design features (type safety, property normalization, and a robust query language, in addition to storage and indexing optimization for performance) that further enhance its power and flexibility as an analysis tool.
-
-
-
-
-
-
-
