@@ -1,5 +1,5 @@
-1. Why Synapse?
-===============
+Synapse User Guide - Why Synapse?
+=================================
 
 **Synapse is a distributed key-value hypergraph analysis framework.** Synapse is designed to support analysis conducted over very large and disparate data sets. Analysis is predicated on the representation of data from a given knowledge domain in a structured data model that allows analysts to represent, annotate, and query across the collected data.
 
@@ -11,7 +11,7 @@ Unlike costly commercial analysis systems, Synapse is available on Github under 
 
 **Performance**
 
-Synapse was designed to address the performance limitations that constrain many large-scale analysis systems and eventually make them unworkable in practice. Synapse supports multiple storage and indexing options (RAM, LMDB, Postgres) that can be tailored to support the type and volume of data stored, as well as the proportion of read (query / retrieval) vs. write (node creation and deconfliction) operations. For detailed performance benchmarks, see `Synapse Performance`_ in readthedocs.
+Synapse was designed to address the performance limitations that constrain many large-scale analysis systems and eventually make them unworkable in practice. Synapse supports multiple storage and indexing options (RAM, LMDB, Postgres) that can be tailored to support the type and volume of data stored, as well as the proportion of read (query / retrieval) vs. write (node creation and deconfliction) operations. For detailed performance benchmarks, see `Synapse Performance`_ for more information.
 
 **Extensible Comprehensive Data Model**
 
@@ -55,4 +55,4 @@ Prototype systems eventually stored **nearly one billion** nodes, edges, and ana
 
 Synapse is the next generation of technology built on approximately five years of technical and analytical lessons learned. The new hypergraph design addresses many of the shortcomings identified with earlier directed graph systems. And because the experience of working with threat data taught us the power of a flexible analysis platform over *any* large and disparate data set, Synapse has been designed to be flexible, modular, and adaptable to any knowledge domain. Many of the real-world examples in this User Guide reference data from the field of information technology or threat tracking, given Synapse’s history; **but the structures, processes, and queries can be applied to other domains and data sets as well.** The intent of Synapse is that any data that could be represented in a spreadsheet, database, or graph database, could be represented in a Synapse hypergraph using an appropriate data model.
 
-.. _`Synapse Performance`: https://vertexprojectsynapse.readthedocs.io/en/latest/performance.html
+.. _`Synapse Performance`: ../performance.html
