@@ -15,10 +15,10 @@ Contents:
     synapse/api/synapse
     synapse/datamodel
     synapse/storm
+    synapse/userguide_section0
     synapse/userguide_section1
     synapse/userguide_section2
     synapse/userguide_section3
-    synapse/userguide_section4
     synapse/model_format
     performance
     contributing
