@@ -28,10 +28,10 @@ effect of making a cortex typically become faster as it ingests more data.  This
 increase is especially true when ingesting data with many recurrent nodes.
 
 Test Data Sets
-==============
+--------------
 
 Majestic Million
-----------------
+````````````````
 
 The Majestic Million is a ranked list of a million FQDNs which is freely
 available at http://downloads.majestic.com/majestic_million.csv .  
@@ -44,7 +44,7 @@ FQDNs within the Majestic Million dataset are already deconflicted, meaning each
 once within the dataset.  This causes every record to deconflict and create new nodes.
 
 Non-Deconflicted
-----------------
+````````````````
 
 A synapse cortex is also capable of ingestion and indexing of "instance knowledge" which is not
 typically deconflicted.  The primary property for such nodes is typically a system generated GUID
@@ -53,7 +53,7 @@ where node insertion is not being atomically deconflicted and node properties ar
 to extensive normalization rules.
 
 Cortex Configurations
-=====================
+---------------------
 
 Each of the supported storage technologies used by a synapse cortex are tested.  Where possible,
 tests are executed with minimal or no specialized configuration in an attempt to show performance
@@ -63,39 +63,44 @@ caching subsystem.  A production cortex configured with caches is likely to perf
 faster than these results.
 
 ram-1
-----------------------
+`````
+
 The RAM storage backing provides cortex storage and indexing using native python data structures
 such as dictionaries and lists.  This configuration is a highly performant cortex typically used
 for hypergraph data which can fit in system memory.  For these tests, the RAM cortex is initialized
 with default configuration options.
 
 lmdb-1
---------------------------
+``````
+
 The LMDB storage backing provides cortex storage and indexing using the Symas Lightning DB
 available here: https://symas.com/lightning-memory-mapped-database/
 For these tests, the lmdb cortex is initialized with default configuration options.
 
 sqlite-1
----------
+````````
+
 The sqlite storage layer provides cortex storage and indexing using the SQLite embedded database
 library which is built into the python interpreter.  For these tests, the sqlite-1 cortex
 is intitialized with default values.
 
 postgres-1
----------------------------
+``````````
+
 The Postgres storage layer provides cortex storage and indexing using the Postgresql Database
 available here: https://www.postgresql.org/.  For these tests, the Postgresql cortex is initialized
 with default values communicating with a default Postgresql 9.5 database on Ubuntu 16.04 LTS.
 
 telepath-x3
-----------------
+```````````
+
 The Telepath cluster test is designed to measure the scalability of a multi-cortex federation which
 is operating with the assumption of shard-based division of node creation across several cortex
 hypergraphs.  The primary purpose of the test is to determine the expected overhead of cluster
 logic and network protocol efficiency.  The remote cortexes are simple RAM cortexes.
 
 Test Systems
-============
+------------
 
 The current benchmark testing environment is a cluster of 3 hosts with the following hardware:
 
@@ -105,7 +110,7 @@ The current benchmark testing environment is a cluster of 3 hosts with the follo
 * 8x 7200 RPM Seagate ST8000NM0055-1RM112 disks
 
 Results
-=======
+-------
 
 Each of the test results below shows how the various test configurations perform under the different
 benchmark tests.  In sections below, we discuss results for individual configurations and what that
@@ -125,7 +130,7 @@ means when selecting how to select a cortex configuration for a given purpose.
 +----------------------------+-------------+------------+-------------+------------------+----------------+
 
 ram-1
------
+`````
 
 As expected, the ram-1 cortex has the advantage of speed.  In instances where it is possible to dedicate
 enough memory to a Cortex, this configuration can be deployed to achieve maximum deconfliction performance
@@ -138,13 +143,13 @@ current state.
 Further testing will profile how much ram is expected for use by a cortex with a given population of nodes.
 
 lmdb-1
-------
+``````
 
 The lmdb-1 configuration strikes a powerful balance between performance and persistence.  It is highly likely
 that this configuration will become the recommended default configuration for production deployments.
 
 sqlite-1
---------
+````````
 
 The sqlite-1 configuration demonstrates the powerful query speed of the underlying sqlite db backend.
 However, transactional limits and insert speeds are quite a bit slower.  This makes an sqlite Cortex
@@ -152,7 +157,7 @@ most ideal for use with large datasets which grow a bit more slowly but are expe
 quickly.
 
 postgres-1
-----------
+``````````
 
 The postgres-1 configuration is the only test configuration which uses a storage mechanism which resides
 outside the python process running the Cortex.  This requires the use of Inter Process Communication (IPC)
@@ -162,7 +167,7 @@ However, future testing of parallel query execution is expected to demonstrate p
 parallel query platform, potentially making it more attractive for use with a larger number of querying clients.
 
 telepath x3
------------
+```````````
 
 Current results show highly efficient scale gains when using multiple cortexes in a federated configuration.
 However, the current testing environment involves the use of only 3 systems.  Future scale testing
@@ -174,7 +179,7 @@ That being said, current results are promising.
 Future testing of parallel query execution is expected to achieve even higher levels of efficiency.
 
 Additional Tests
-================
+----------------
 
 Over the course of subsequent releases, a table will be added here showing the performance of releases
 over time using line graphs showing the various test results over time.  Additionally, tests which measure

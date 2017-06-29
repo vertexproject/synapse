@@ -1,5 +1,5 @@
-Synapse User Guide - Graphs and Hypergraphs
-===========================================
+Graphs and Hypergraphs
+======================
 
 To understand the power of Synapse, it helps to have some additional background. Without delving into mathematical definitions, this section introduces key concepts related to a **hypergraph,** and contrasts them with those of a **graph** or a **directed graph.** Most people should be familiar with the concept of a graph – even if not in the strict mathematical sense – or with data that can be visually represented in graph form.
 
