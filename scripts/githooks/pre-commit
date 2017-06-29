@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 """
+Copy this file to .git/hooks/pre-commit in order to have the hooks run when doing a git commit action.
+
+Currently it does not cause a commit to fail; but will generate warnings.
+
 Requires pycodestyle to be installed.
 
 Forked from https://gist.github.com/810399
