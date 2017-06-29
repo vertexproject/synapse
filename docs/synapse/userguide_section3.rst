@@ -153,7 +153,7 @@ Below are examples of how a form (``inet:fqdn``) is represented and documented i
 
 A **type** is the definition of an element within the data model, describing what the element is and how it should be normalized (if necessary) and structured to conform to the model. Synapse supports standard types (such as integers and strings) as well as extensions of these types. From a user standpoint, types are important primarily as they define the primary and secondary properties of forms.
 
-The data model can be extended to define new types by updating or extending the relevant Synapse source code.
+Like forms, types are also nodes within the Synapse hypergraph. Types within the data model can be modified or extended with new types by either creating new type nodes directly within the hypergraph or by updating or extending the relevant Synapse source code.
 
 **Tags**
 
