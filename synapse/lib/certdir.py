@@ -85,8 +85,8 @@ class CertDir:
         cert.set_pubkey(pkey)
         cert.gmtime_adj_notBefore(0)
         cert.gmtime_adj_notAfter(10 * 365 * 24 * 60 * 60)
-        cert.set_serial_number(int(time.time()))
 
+        cert.set_serial_number(int(s_common.guid(), 16))
         cert.get_subject().CN = name
 
         return pkey, cert
@@ -129,21 +129,21 @@ class CertDir:
 
         return pkey, cert
 
-    def genHostCert(self, name, signas=None, outp=None, pkey=None):
+    def genHostCert(self, name, signas=None, outp=None, pkey=None, sans=None):
         pkey, cert = self._genBasePkeyCert(name, pkey=pkey)
 
-        certtype = b'server'
-        extuse = [b'serverAuth']
-        keyuse = [b'digitalSignature', b'keyEncipherment']
+        ext_sans = {'DNS:' + name}
+        if isinstance(sans, str):
+            ext_sans = ext_sans.union(sans.split(','))
+        ext_sans = ','.join(sorted(ext_sans))
 
-        ext0 = crypto.X509Extension(b'nsCertType', False, certtype)
-        ext1 = crypto.X509Extension(b'keyUsage', False, b','.join(keyuse))
-
-        extuse = b','.join(extuse)
-        ext2 = crypto.X509Extension(b'extendedKeyUsage', False, extuse)
-        ext3 = crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE')
-
-        cert.add_extensions([ext0, ext1, ext2, ext3])
+        cert.add_extensions([
+            crypto.X509Extension(b'nsCertType', False, b'server'),
+            crypto.X509Extension(b'keyUsage', False, b'digitalSignature,keyEncipherment'),
+            crypto.X509Extension(b'extendedKeyUsage', False, b'serverAuth'),
+            crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE'),
+            crypto.X509Extension(b'subjectAltName', False, ext_sans.encode('utf-8')),
+        ])
 
         if signas is not None:
             self.signCertAs(cert, signas)
@@ -211,10 +211,10 @@ class CertDir:
         name = xcsr.get_subject().CN
         return self.genUserCert(name, pkey=pkey, signas=signas, outp=outp)
 
-    def signHostCsr(self, xcsr, signas, outp=None):
+    def signHostCsr(self, xcsr, signas, outp=None, sans=None):
         pkey = xcsr.get_pubkey()
         name = xcsr.get_subject().CN
-        return self.genHostCert(name, pkey=pkey, signas=signas, outp=outp)
+        return self.genHostCert(name, pkey=pkey, signas=signas, outp=outp, sans=sans)
 
     def _genPkeyCsr(self, name, mode, outp=None):
         pkey = crypto.PKey()
