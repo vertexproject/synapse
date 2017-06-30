@@ -2862,7 +2862,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         idens = list(set([r[0][::-1] for r in rows]))  # Unique the idens we pull.
         return self._initTufoSnap(idens)
 
-    def _getAdminValu(self, key):
+    def _getAdminValu(self, key, default):
         raise s_common.NoSuchImpl(name='_getAdminValu', mesg='Core does not implement _getAdminValu')
 
     def _setAdminValu(self, key, valu):
@@ -2875,11 +2875,61 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         return self._getCoreType()
 
     # TODO: Wrap this in a userauth layer
-    def getAdminValu(self, key):
-        return self._getAdminValu(key)
+    def getAdminValu(self, key, default=s_common.novalu):
+        '''
+        Get a value from the admin key/value (KV) store.
+
+        This resides below the tufo storage layer and is Cortex implementation
+        dependent. In purely memory backed cortexes, this KV store may not be
+        persistent, even if the tufo-layer is persistent, through something
+        such as the savefile mechanism.
+
+        Notes:
+            Data which is retrieved from the KV store is msgpacked, so caveats
+            with that apply.
+
+        Args:
+            key (str): Value to retrieve
+            default: Optional Value to return if the key is not present in the
+                     KV store.  By convention, the Cortex implementation should
+                     not set the requested value to the default upon a missing
+                     key, as this mechanism may be used to provide for
+                     bootstrapping changes at the storage layer of a Cortex.
+
+        Returns:
+            The value from the KV store or the default valu if set.
+
+        Raises:
+            NoSuchImpl: If the storage layer does not implement the admin KV
+                        store.
+            NoSuchName: If the KV store does not contain the requested key and
+                        no default is provided.
+
+        '''
+        return self._getAdminValu(key, default)
 
     # TODO: Wrap this in a userauth layer
     def setAdminValu(self, key, valu):
+        '''
+        Set a value from the admin key/value (KV) store.
+
+         This resides below the tufo storage layer and is Cortex implementation
+        dependent. In purely memory backed cortexes, this KV store may not be
+        persistent, even if the tufo-layer is persistent, through something
+        such as the savefile mechanism.
+
+        Notes:
+            Data which is stored in the KV store is msgpacked, so caveats with
+            that apply.
+
+
+        Args:
+            key (str): Name of the value to store.
+            valu: Value to store in the KV store.
+
+        Returns:
+            The input value, unchanged.
+        '''
         return self._setAdminValu(key, valu)
 
 class CoreXact:

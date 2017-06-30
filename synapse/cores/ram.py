@@ -183,16 +183,20 @@ class Cortex(s_cores_common.Cortex):
     def _getCoreType(self):
         return 'ram'
 
-    def _getAdminValu(self, key):
-        v = self._admin_store.get(key, s_common.novalu)
+    def _getAdminValu(self, key, default):
+        v = self._admin_store.get(key, default)
         if v is s_common.novalu:
             raise s_common.NoSuchName(name=key, mesg='Admin store has no such key present.')
-        return s_common.msgunpack(v)
+        if v == default:
+            return v
+        ret = s_common.msgunpack(v)
+        return ret
 
     def _setAdminValu(self, key, valu):
         mesg = 'Setting admin value in ram cortex [{}]. Not a persistent action.'.format(self.myfo[0])
         self.log(logging.WARNING, mesg=mesg, key=key, valu=valu)
         self._admin_store[key] = s_common.msgenpack(valu)
+        return valu
 
 ramcores = {}
 

@@ -330,8 +330,7 @@ class Cortex(s_cores_common.Cortex):
 
         self._initCorQueries()
 
-        if not self._checkForTable(table):
-            self._initCorTable(table)
+        self._initCorTables(table)
 
     def _prepQuery(self, query):
         # prep query strings by replacing all %s with table name
@@ -532,6 +531,76 @@ class Cortex(s_cores_common.Cortex):
     def _checkForTable(self, name):
         return len(self.select(self._q_istable, name=name))
 
+    def _initCorTables(self, table):
+
+        revs = [
+            (0, self._rev0)
+        ]
+
+        max_rev = max([rev for rev, func in revs])
+        vsn_str = 'syn:core:{}:version'.format(self.getCoreType())
+
+        if not self._checkForTable(table):
+            # We are a new cortex, stamp in tables and set
+            # admin values and move along.
+            self._initCorTable(table)
+            self.setAdminValu(vsn_str, max_rev)
+            self.setAdminValu('syn:core:type', self.getCoreType())
+            return
+
+        self._revCorVers(revs)
+
+    def _rev0(self):
+        table = self._getTableName()
+        admin_table = table + '_admin'
+
+        if self._checkForTable(admin_table):
+            return
+
+        with self.getCoreXact() as xact:
+            xact.cursor.execute(self._q_init_admintable)
+            xact.cursor.execute(self._q_init_admintable_idx)
+
+        self.setAdminValu('syn:core:type', self.getCoreType())
+
+    def _revCorVers(self, revs):
+        '''
+        Update a the storage layer with a list of (vers,func) tuples.
+
+        Args:
+            revs ([(int,function)]):  List of (vers,func) revision tuples.
+
+        Returns:
+            (None)
+
+        Each specified function is expected to update the strage layer including data migration.
+        '''
+        if not revs:
+            return
+        vsn_str = 'syn:core:{}:version'.format(self.getCoreType())
+        curv = self.getAdminValu(vsn_str, -1)
+
+        maxver = revs[-1][0]
+        if maxver == curv:
+            return
+
+        if not self.getConfOpt('rev:storage'):
+            raise s_common.NoRevAllow(name='rev:storage',
+                                      mesg='add rev:storage=1 to cortex url to allow storage updates')
+
+        for vers, func in sorted(revs):
+
+            if vers <= curv:
+                continue
+
+            # allow the revision function to optionally return the
+            # revision he jumped to ( to allow initial override )
+            retn = func()
+            if retn is not None:
+                vers = retn
+
+            curv = self.setAdminValu(vsn_str, vers)
+
     def _initCorTable(self, name):
         with self.getCoreXact() as xact:
             xact.cursor.execute(self._q_inittable)
@@ -683,13 +752,32 @@ class Cortex(s_cores_common.Cortex):
     def _getCoreType(self):
         return 'sqlite'
 
-    def _getAdminValu(self, key):
-        rows = self.select(self._q_admin_get, key=key)
+        if v == default:
+            return v
+
+    def _getAdminValu(self, key, default):
+        rows = self._getAdminValuRows(key)
+
         if not rows:
-            raise s_common.NoSuchName(name=key, mesg='Admin store has no such key present.')
+            if default is s_common.novalu:
+                raise s_common.NoSuchName(name=key, mesg='Admin store has no such key present.')
+            return default
+
         if len(rows) > 1:  # pragma: no cover
             raise s_common.BadCoreStore(store=self.getCoreType(), mesg='Too many admin rows received.')
-        return self._unpackAdminValu(rows[0][0])
+
+        ret = self._unpackAdminValu(rows[0][0])
+        return ret
+
+    def _getAdminValuRows(self, key):
+        '''Eat specific exceptions in order to return the default value'''
+        try:
+            rows = self.select(self._q_admin_get, key=key)
+        except sqlite3.OperationalError as e:
+            if 'no such table' in str(e):
+                return
+            raise
+        return rows
 
     def _packAdminValu(self, valu):
         v = s_common.msgenpack(valu)
@@ -701,3 +789,4 @@ class Cortex(s_cores_common.Cortex):
     def _setAdminValu(self, key, valu):
         v = self._packAdminValu(valu)
         self.update(self._q_admin_set, key=key, valu=v)
+        return valu

@@ -505,14 +505,19 @@ class CortexTest(SynTest):
 
     def runadmin(self, core):
 
-        kvs = (('syn:meta', 1),
-              ('foobar:thing', 'a string',),
-              ('storage:sekrit', {'oh': 'my!'}),
-              ('knight:weight', 1.234),
+        kvs = (
+            ('syn:meta', 1),
+            ('foobar:thing', 'a string',),
+            ('storage:sekrit', {'oh': 'my!', 'key': (1, 2)}),
+            ('knight:weight', 1.234),
+            ('knight:saidni', False),
+            ('knight:has:fleshwound', True),
+            ('knight:has:current_queue', None),
         )
 
         for k, v in kvs:
-            core.setAdminValu(k, v)
+            r = core.setAdminValu(k, v)
+            self.eq(v, r)
 
         for k, v in kvs:
             self.eq(core.getAdminValu(k), v)
@@ -533,6 +538,8 @@ class CortexTest(SynTest):
 
         # Ensure that trying to get a value which doesn't exist fails.
         self.raises(NoSuchName, core.getAdminValu, 'test:bad')
+        # but does work is a default value is provided!
+        self.eq(core.getAdminValu('test:bad', 123456), 123456)
 
     def test_pg_encoding(self):
         with self.getPgCore() as core:
@@ -1802,6 +1809,13 @@ class CortexTest(SynTest):
 
                 self.eq(len(core.eval('inet:ipv4*tag=foo.bar.baz')), 1)
                 self.eq(len(core.eval('#foo.bar.baz')), 1)
+
+                # sqlite storage layer versioning checks go below
+                table = core._getTableName()
+                admin_table = table + '_admin'
+                self.eq(core.getAdminValu('syn:core:sqlite:version'), 0)
+                self.true(core._checkForTable(admin_table))
+                self.runadmin(core)
 
     def test_cortex_module_datamodel_migration(self):
 

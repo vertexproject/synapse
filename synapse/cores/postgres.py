@@ -169,6 +169,16 @@ class Cortex(s_cores_sqlite.Cortex):
     def _getCoreType(self):
         return 'postgres'
 
+    def _getAdminValuRows(self, key):
+        '''Eat specific exceptions in order to return the default value'''
+        try:
+            rows = self.select(self._q_admin_get, key=key)
+        except Exception as e:
+            if 'does not exist' in str(e):
+                return
+            raise
+        return rows
+
     def _packAdminValu(self, valu):
         v = s_common.msgenpack(valu)
         v = s_compat.bytesToMem(v)
