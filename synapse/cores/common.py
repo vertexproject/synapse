@@ -227,6 +227,10 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         s_ingest.IngestApi.__init__(self, self)
 
+    def _initCortex(self):
+        '''Perform storage layer initializations.'''
+        raise s_common.NoSuchImpl(name='_initCortex', mesg='Storage layer must implement _initCortex')
+
     def getModlVers(self, name):
         '''
         Retrieve the model version for the given model name.
