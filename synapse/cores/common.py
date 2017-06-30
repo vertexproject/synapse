@@ -275,7 +275,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         Args:
             name (str): The name of the model
-            refs ([(int,function)]):  List of (vers,func) revision tuples.
+            revs ([(int,function)]):  List of (vers,func) revision tuples.
 
         Returns:
             (None)
@@ -2857,6 +2857,26 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         rows = self.getRowsByProp('_:dark:' + name, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
         idens = list(set([r[0][::-1] for r in rows]))  # Unique the idens we pull.
         return self._initTufoSnap(idens)
+
+    def _getAdminValu(self, key):
+        raise s_common.NoSuchImpl(name='_getAdminValu', mesg='Core does not implement _getAdminValu')
+
+    def _setAdminValu(self, key, valu):
+        raise s_common.NoSuchImpl(name='_setAdminValu', mesg='Core does not implement _setAdminValu')
+
+    def _getCoreType(self):
+        raise s_common.NoSuchImpl(name='getCoreType', mesg='Core does not implement getCoreType')
+
+    def getCoreType(self):
+        return self._getCoreType()
+
+    # TODO: Wrap this in a userauth layer
+    def getAdminValu(self, key):
+        return self._getAdminValu(key)
+
+    # TODO: Wrap this in a userauth layer
+    def setAdminValu(self, key, valu):
+        return self._setAdminValu(key, valu)
 
 class CoreXact:
     '''

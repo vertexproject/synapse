@@ -1,4 +1,7 @@
+import logging
 import collections
+
+import synapse.common as s_common
 
 from synapse.compat import isint, intern
 
@@ -37,6 +40,8 @@ class Cortex(s_cores_common.Cortex):
 
         self.initSizeBy('range', self._sizeByRange)
         self.initRowsBy('range', self._rowsByRange)
+
+        self._admin_store = {}
 
     def _getCoreXact(self, size=None):
         return CoreXact(self, size=size)
@@ -174,6 +179,20 @@ class Cortex(s_cores_common.Cortex):
             rows = [row for row in rows if row[3] < maxtime]
 
         return len(rows)
+
+    def _getCoreType(self):
+        return 'ram'
+
+    def _getAdminValu(self, key):
+        v = self._admin_store.get(key, s_common.novalu)
+        if v is s_common.novalu:
+            raise s_common.NoSuchName(name=key, mesg='Admin store has no such key present.')
+        return s_common.msgunpack(v)
+
+    def _setAdminValu(self, key, valu):
+        mesg = 'Setting admin value in ram cortex [{}]. Not a persistent action.'.format(self.myfo[0])
+        self.log(logging.WARNING, mesg=mesg, key=key, valu=valu)
+        self._admin_store[key] = s_common.msgenpack(valu)
 
 ramcores = {}
 

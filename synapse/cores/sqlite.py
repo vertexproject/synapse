@@ -96,10 +96,18 @@ class Cortex(s_cores_common.Cortex):
     );
     '''
 
+    _t_init_admintable = '''
+    CREATE TABLE {{ADMIN_TABLE}} (
+         k VARCHAR,
+         v BLOB
+    );
+    '''
+
     _t_init_iden_idx = 'CREATE INDEX {{TABLE}}_iden_idx ON {{TABLE}} (iden,prop)'
     _t_init_prop_idx = 'CREATE INDEX {{TABLE}}_prop_time_idx ON {{TABLE}} (prop,tstamp)'
     _t_init_strval_idx = 'CREATE INDEX {{TABLE}}_strval_idx ON {{TABLE}} (prop,strval,tstamp)'
     _t_init_intval_idx = 'CREATE INDEX {{TABLE}}_intval_idx ON {{TABLE}} (prop,intval,tstamp)'
+    _t_init_admintable_idx = 'CREATE UNIQUE INDEX {{ADMIN_TABLE}}_indx ON {{ADMIN_TABLE}} (k)'
 
     _t_addrows = 'INSERT INTO {{TABLE}} (iden,prop,strval,intval,tstamp) VALUES ({{IDEN}},{{PROP}},{{STRVAL}},{{INTVAL}},{{TSTAMP}})'
     _t_getrows_by_iden = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}}'
@@ -109,6 +117,10 @@ class Cortex(s_cores_common.Cortex):
     _t_getrows_by_iden_prop = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}}'
     _t_getrows_by_iden_prop_intval = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND intval={{VALU}}'
     _t_getrows_by_iden_prop_strval = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND strval={{VALU}}'
+
+    ################################################################################
+    _t_admin_set = 'INSERT OR REPLACE INTO {{ADMIN_TABLE}} (k, v) VALUES ({{KEY}}, {{VALU}})'
+    _t_admin_get = 'SELECT v FROM {{ADMIN_TABLE}} WHERE k={{KEY}}'
 
     ################################################################################
     _t_getrows_by_prop = 'SELECT * FROM {{TABLE}} WHERE prop={{PROP}} LIMIT {{LIMIT}}'
@@ -332,13 +344,28 @@ class Cortex(s_cores_common.Cortex):
 
         return query
 
+    def _prepAdminQuery(self, query):
+        # prep query strings by replacing all %s with table name
+        # and all ? with db specific variable token
+        table = self._getTableName()
+        table = table + '_admin'
+        query = query.replace('{{ADMIN_TABLE}}', table)
+
+        for name in stashre.findall(query):
+            query = query.replace('{{%s}}' % name, self._addVarDecor(name.lower()))
+
+        return query
+
     def _initCorQueries(self):
         self._q_istable = self._prepQuery(self._t_istable)
         self._q_inittable = self._prepQuery(self._t_inittable)
+        self._q_init_admintable = self._prepAdminQuery(self._t_init_admintable)
+
         self._q_init_iden_idx = self._prepQuery(self._t_init_iden_idx)
         self._q_init_prop_idx = self._prepQuery(self._t_init_prop_idx)
         self._q_init_strval_idx = self._prepQuery(self._t_init_strval_idx)
         self._q_init_intval_idx = self._prepQuery(self._t_init_intval_idx)
+        self._q_init_admintable_idx = self._prepAdminQuery(self._t_init_admintable_idx)
 
         self._q_addrows = self._prepQuery(self._t_addrows)
         self._q_getrows_by_iden = self._prepQuery(self._t_getrows_by_iden)
@@ -348,6 +375,9 @@ class Cortex(s_cores_common.Cortex):
         self._q_getrows_by_iden_prop = self._prepQuery(self._t_getrows_by_iden_prop)
         self._q_getrows_by_iden_prop_intval = self._prepQuery(self._t_getrows_by_iden_prop_intval)
         self._q_getrows_by_iden_prop_strval = self._prepQuery(self._t_getrows_by_iden_prop_strval)
+
+        self._q_admin_get = self._prepAdminQuery(self._t_admin_get)
+        self._q_admin_set = self._prepAdminQuery(self._t_admin_set)
 
         ###################################################################################
         self._q_getrows_by_prop = self._prepQuery(self._t_getrows_by_prop)
@@ -509,6 +539,8 @@ class Cortex(s_cores_common.Cortex):
             xact.cursor.execute(self._q_init_prop_idx)
             xact.cursor.execute(self._q_init_strval_idx)
             xact.cursor.execute(self._q_init_intval_idx)
+            xact.cursor.execute(self._q_init_admintable)
+            xact.cursor.execute(self._q_init_admintable_idx)
 
     def _addRows(self, rows):
         args = []
@@ -647,3 +679,25 @@ class Cortex(s_cores_common.Cortex):
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         self._runPropQuery('delrowsbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete, nolim=True)
+
+    def _getCoreType(self):
+        return 'sqlite'
+
+    def _getAdminValu(self, key):
+        rows = self.select(self._q_admin_get, key=key)
+        if not rows:
+            raise s_common.NoSuchName(name=key, mesg='Admin store has no such key present.')
+        if len(rows) > 1:  # pragma: no cover
+            raise s_common.BadCoreStore(store=self.getCoreType(), mesg='Too many admin rows received.')
+        return self._unpackAdminValu(rows[0][0])
+
+    def _packAdminValu(self, valu):
+        v = s_common.msgenpack(valu)
+        return sqlite3.Binary(v)
+
+    def _unpackAdminValu(self, valu):
+        return s_common.msgunpack(valu)
+
+    def _setAdminValu(self, key, valu):
+        v = self._packAdminValu(valu)
+        self.update(self._q_admin_set, key=key, valu=v)

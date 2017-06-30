@@ -98,6 +98,7 @@ class CortexTest(SynTest):
     def test_cortex_ram(self):
         core = s_cortex.openurl('ram://')
         self.true(hasattr(core.link, '__call__'))
+        self.eq(core.getCoreType(), 'ram')
         self.runcore(core)
         self.runjson(core)
         self.runrange(core)
@@ -105,9 +106,11 @@ class CortexTest(SynTest):
         self.rundsets(core)
         self.runsnaps(core)
         self.rundarks(core)
+        self.runadmin(core)
 
     def test_cortex_sqlite3(self):
         core = s_cortex.openurl('sqlite:///:memory:')
+        self.eq(core.getCoreType(), 'sqlite')
         self.runcore(core)
         self.runjson(core)
         self.runrange(core)
@@ -115,6 +118,7 @@ class CortexTest(SynTest):
         self.rundsets(core)
         self.runsnaps(core)
         self.rundarks(core)
+        self.runadmin(core)
 
     def test_cortex_lmdb(self):
         with self.getTestDir() as path:
@@ -123,6 +127,7 @@ class CortexTest(SynTest):
             lmdb_url = 'lmdb:///%s' % fp
 
             with s_cortex.openurl(lmdb_url) as core:
+                self.eq(core.getCoreType(), 'lmdb')
                 self.runcore(core)
                 self.runjson(core)
                 self.runrange(core)
@@ -130,6 +135,7 @@ class CortexTest(SynTest):
                 self.rundsets(core)
                 self.runsnaps(core)
                 self.rundarks(core)
+                # self.runadmin(core)
 
             # Test load an existing db
             core = s_cortex.openurl(lmdb_url)
@@ -137,6 +143,7 @@ class CortexTest(SynTest):
 
     def test_cortex_postgres(self):
         with self.getPgCore() as core:
+            self.eq(core.getCoreType(), 'postgres')
             self.runcore(core)
             self.runjson(core)
             self.runrange(core)
@@ -144,6 +151,7 @@ class CortexTest(SynTest):
             self.rundsets(core)
             self.runsnaps(core)
             self.rundarks(core)
+            self.runadmin(core)
 
     def rundsets(self, core):
         tufo = core.formTufoByProp('lol:zonk', 1)
@@ -494,6 +502,37 @@ class CortexTest(SynTest):
         for iden, item in core.getJsonItems('hehe:foo:bar', valu='faz'):
 
             self.eq(item['foo']['blah'][0], 99)
+
+    def runadmin(self, core):
+
+        kvs = (('syn:meta', 1),
+              ('foobar:thing', 'a string',),
+              ('storage:sekrit', {'oh': 'my!'}),
+              ('knight:weight', 1.234),
+        )
+
+        for k, v in kvs:
+            core.setAdminValu(k, v)
+
+        for k, v in kvs:
+            self.eq(core.getAdminValu(k), v)
+
+        # update a value and get the updated value back
+        self.eq(core.getAdminValu('syn:meta'), 1)
+        core.setAdminValu('syn:meta', 2)
+        self.eq(core.getAdminValu('syn:meta'), 2)
+
+        # msgpack'd output expected
+        testv = [1, 2, 3]
+        core.setAdminValu('test:list', testv)
+        self.eq(core.getAdminValu('test:list'), tuple(testv))
+
+        # Cannot store invalid items
+        for obj in [object, set(testv), self.eq]:
+            self.raises(TypeError, core.setAdminValu, 'test:bad', obj)
+
+        # Ensure that trying to get a value which doesn't exist fails.
+        self.raises(NoSuchName, core.getAdminValu, 'test:bad')
 
     def test_pg_encoding(self):
         with self.getPgCore() as core:

@@ -114,6 +114,10 @@ if version < (3, 0, 0):
         '''Convert a buffer to str (bytes)'''
         return str(x)
 
+    def bytesToMem(x):
+        '''Convert bytes to buffer'''
+        return buffer(x)
+
 else:
 
     import sys
@@ -173,3 +177,7 @@ else:
     def memToBytes(x):
         '''Convert a memoryview to bytes'''
         return x.tobytes()
+
+    def bytesToMem(x):
+        '''Convert bytes to menmoryview'''
+        return memoryview(x)

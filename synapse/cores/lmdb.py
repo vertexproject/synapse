@@ -671,3 +671,6 @@ class Cortex(s_cores_common.Cortex):
                 if limit is not None and count >= limit:
                     break
         return count if do_count_only else ret
+
+    def _getCoreType(self):
+        return 'lmdb'

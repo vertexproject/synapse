@@ -1,6 +1,7 @@
 import time
 import hashlib
 
+import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
 
@@ -12,6 +13,17 @@ def md5(x):
 class Cortex(s_cores_sqlite.Cortex):
 
     dblim = None
+
+    # postgres uses BYTEA instead of BLOB
+    _t_init_admintable = '''
+    CREATE TABLE {{ADMIN_TABLE}} (
+         k VARCHAR,
+         v BYTEA
+    );
+    '''
+    # postgres upsert!
+    _t_admin_set = 'INSERT INTO {{ADMIN_TABLE}} (k, v) VALUES ({{KEY}}, {{VALU}}) ON CONFLICT (k) DO UPDATE SET ' \
+                   'v={{VALU}}'
 
     # postgres over-rides for md5() based indexing
     _t_init_strval_idx = 'CREATE INDEX {{TABLE}}_strval_idx ON {{TABLE}} (prop,MD5(strval),tstamp)'
@@ -153,3 +165,11 @@ class Cortex(s_cores_sqlite.Cortex):
 
     def _addVarDecor(self, name):
         return '%%(%s)s' % (name,)
+
+    def _getCoreType(self):
+        return 'postgres'
+
+    def _packAdminValu(self, valu):
+        v = s_common.msgenpack(valu)
+        v = s_compat.bytesToMem(v)
+        return v
