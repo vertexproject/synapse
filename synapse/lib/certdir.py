@@ -96,8 +96,16 @@ class CertDir:
         if os.path.isfile(path):
             raise s_common.DupFileName(path=path)
 
-        with s_common.genfile(path) as fd:
-            fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+        data = None
+        if isinstance(cert, crypto.X509):
+            data = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
+        elif isinstance(cert, crypto.PKCS12):
+            data = cert.export()
+
+        if data:
+            with s_common.genfile(path) as fd:
+                fd.write(data)
+
         return path
 
     def _savePkeyTo(self, pkey, *paths):
@@ -165,18 +173,12 @@ class CertDir:
 
         pkey, cert = self._genBasePkeyCert(name, pkey=pkey)
 
-        keyuse = [b'digitalSignature']
-        extuse = [b'clientAuth']
-        certtype = b'client'
-
-        ext0 = crypto.X509Extension(b'nsCertType', False, certtype)
-        ext1 = crypto.X509Extension(b'keyUsage', False, b','.join(keyuse))
-
-        extuse = b','.join(extuse)
-        ext2 = crypto.X509Extension(b'extendedKeyUsage', False, extuse)
-        ext3 = crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE')
-
-        cert.add_extensions([ext0, ext1, ext2, ext3])
+        cert.add_extensions([
+            crypto.X509Extension(b'nsCertType', False, b'client'),
+            crypto.X509Extension(b'keyUsage', False, b'digitalSignature'),
+            crypto.X509Extension(b'extendedKeyUsage', False, b'clientAuth'),
+            crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE'),
+        ])
 
         if signas is not None:
             self.signCertAs(cert, signas)
@@ -191,6 +193,19 @@ class CertDir:
         crtpath = self._saveCertTo(cert, 'users', '%s.crt' % name)
         if outp is not None:
             outp.printf('cert saved: %s' % (crtpath,))
+
+        ccert = crypto.PKCS12()
+        ccert.set_friendlyname(name.encode('utf-8'))
+        ccert.set_certificate(cert)
+        ccert.set_privatekey(pkey)
+
+        if signas:
+            cacert = self.getCaCert(signas)
+            ccert.set_ca_certificates([cacert])
+
+        crtpath = self._saveCertTo(ccert, 'users', '%s.p12' % name)
+        if outp is not None:
+            outp.printf('client cert saved: %s' % (crtpath,))
 
         return pkey, cert
 
