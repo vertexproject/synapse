@@ -44,13 +44,25 @@ class StormTest(SynTest):
         with s_cortex.openurl('ram:///') as core:
             core.setConfOpt('enforce', 1)
 
+            # kwlist key/val syntax
             node = core.formTufoByProp('inet:fqdn', 'vertex.link')
-
             node = core.eval('inet:fqdn=vertex.link setprop(created="2016-05-05",updated="2017/05/05")')[0]
 
             self.eq(node[1].get('inet:fqdn'), 'vertex.link')
             self.eq(node[1].get('inet:fqdn:created'), 1462406400000)
             self.eq(node[1].get('inet:fqdn:updated'), 1493942400000)
+
+            # Another relative key/val syntax, explicitly relative vals
+            node = core.formTufoByProp('inet:netuser', 'vertex.link/pennywise')
+            node = core.eval('inet:netuser=vertex.link/pennywise setprop(:realname="Robert Gray")')[0]
+
+            self.eq(node[1].get('inet:netuser'), 'vertex.link/pennywise')
+            self.eq(node[1].get('inet:netuser:realname'), 'robert gray')
+
+            # Full prop val syntax
+            node = core.eval('inet:netuser=vertex.link/pennywise setprop(inet:netuser:signup="1970-01-01")')[0]
+            self.eq(node[1].get('inet:netuser'), 'vertex.link/pennywise')
+            self.eq(node[1].get('inet:netuser:signup'), 0)
 
     def test_storm_filt_regex(self):
 
