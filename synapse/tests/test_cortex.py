@@ -1143,12 +1143,17 @@ class CortexTest(SynTest):
             tufs1 = core.getTufosByProp('foo:qwer', valu=10)
             tufs2 = core.getTufosByProp('foo:qwer', valu=11)
 
+            # Ensure we have cached the tufos we're deleting.
+            self.nn(core.cache_byiden.get(tufo0[0]))
+            self.nn(core.cache_byiden.get(tufo1[0]))
+
             self.eq(len(tufs0), 2)
             self.eq(len(tufs1), 2)
             self.eq(len(tufs2), 0)
 
+            # Delete an uncached object - here the tufo contents was cached
+            # during lifts but the object itself is a different tuple id()
             core.delTufo(tufo0)
-            #tufo2 = core.formTufoByProp('foo','lol', qwer=10)
 
             tufs0 = core.getTufosByProp('foo:qwer')
             tufs1 = core.getTufosByProp('foo:qwer', valu=10)
@@ -1157,6 +1162,11 @@ class CortexTest(SynTest):
             self.eq(len(tufs0), 1)
             self.eq(len(tufs1), 1)
             self.eq(len(tufs2), 0)
+
+            # Delete an object which was actually cached during lift
+            core.delTufo(tufs0[0])
+            tufs0 = core.getTufosByProp('foo:qwer')
+            self.eq(len(tufs0), 0)
 
     def test_cortex_caching_atlimit(self):
 
