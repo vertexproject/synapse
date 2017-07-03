@@ -439,6 +439,15 @@ class StormTest(SynTest):
             core.eval('inet:ipv4=1.2.3.4 delnode(force=1)')
             self.none(core.getTufoByProp('inet:ipv4', 0x01020304))
 
+    def test_storm_delnode_caching(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('caching', True)
+            node = core.formTufoByProp('inet:ipv4', 0x01020304)
+            core.eval('inet:ipv4=1.2.3.4 delnode()')
+            self.nn(core.getTufoByProp('inet:ipv4', 0x01020304))
+            core.eval('inet:ipv4=1.2.3.4 delnode(force=1)')
+            self.none(core.getTufoByProp('inet:ipv4', 0x01020304))
+
     def test_storm_editmode(self):
         with s_cortex.openurl('ram:///') as core:
             node = core.formTufoByProp('inet:ipv4', 0x01020304)
