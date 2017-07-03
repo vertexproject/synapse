@@ -1279,6 +1279,26 @@ class CortexTest(SynTest):
             self.true(tufo0[1].get('.new'))
             self.false(tufo1[1].get('.new'))
 
+    def test_cortex_caching_disable(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            core.setConfOpt('caching', 1)
+
+            tufo = core.formTufoByProp('foo', 'bar')
+
+            self.nn(core.cache_byiden.get(tufo[0]))
+            self.nn(core.cache_bykey.get(('foo', 'bar', 1)))
+            self.nn(core.cache_byprop.get(('foo', 'bar')))
+            self.eq(len(core.cache_fifo), 1)
+
+            core.setConfOpt('caching', 0)
+
+            self.none(core.cache_byiden.get(tufo[0]))
+            self.none(core.cache_bykey.get(('foo', 'bar', 1)))
+            self.none(core.cache_byprop.get(('foo', 'bar')))
+            self.eq(len(core.cache_fifo), 0)
+
     def test_cortex_reqstor(self):
         with s_cortex.openurl('ram://') as core:
             self.raises(BadPropValu, core.formTufoByProp, 'foo:bar', True)
