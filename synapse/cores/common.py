@@ -2207,15 +2207,9 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
             valu = inprops.get(name)
 
-            if name.startswith(form):
-                prop = name
-            else:
-                if name.startswith(':'):
-                    # Relative prop - strip colon
-                    name = name[1:]
-                prop = form + ':' + name
+            prop = form + ':' + name
 
-            if not self._okSetProp(prop):
+            if not self.isSetPropOk(prop):
                 inprops.pop(name, None)
                 continue
 
@@ -2335,7 +2329,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         return node
 
-    def _okSetProp(self, prop):
+    def isSetPropOk(self, prop):
         # check for enforcement and validity of a full prop name
         if not self.enforce:
             return True
@@ -2405,7 +2399,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         form = tufo[1].get('tufo:form')
         prop = form + ':' + prop
 
-        if not self._okSetProp(prop):
+        if not self.isSetPropOk(prop):
             return tufo
 
         return self._incTufoProp(tufo, prop, incval=incval)
