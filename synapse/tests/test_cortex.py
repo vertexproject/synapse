@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 
 import os
+import hashlib
 import binascii
 import tempfile
 import unittest
@@ -1704,10 +1705,14 @@ class CortexTest(SynTest):
             self.eq(s_tufo.ival(node, '#foo.bar'), None)
 
     def test_cortex_rev0(self):
-
         path = getTestPath('rev0.db')
         with open(path, 'rb') as fd:
             byts = fd.read()
+
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = '50cae022b296e0c2b61fd6b101c4fdaf'
+        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
 
         with self.getTestDir() as temp:
 
