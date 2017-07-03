@@ -1126,6 +1126,14 @@ class Runtime(Configable):
 
         core = self.getStormCore()
 
+        forms = tuple(core.getModelDict().get('forms'))
+        for prop, valu in props.items():
+            if prop.startswith(':'):
+                continue
+            if prop.startswith(forms):
+                continue
+            raise s_common.BadSyntaxError(name=prop, mesg='Setprop requires props to start with relative or full prop names.')
+
         [core.setTufoProps(node, **props) for node in query.data()]
 
     def _iterPropTags(self, props, tags):

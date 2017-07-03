@@ -44,15 +44,12 @@ class StormTest(SynTest):
         with s_cortex.openurl('ram:///') as core:
             core.setConfOpt('enforce', 1)
 
-            # kwlist key/val syntax
+            # kwlist key/val syntax is no longer valid in setprop()
             node = core.formTufoByProp('inet:fqdn', 'vertex.link')
-            node = core.eval('inet:fqdn=vertex.link setprop(created="2016-05-05",updated="2017/05/05")')[0]
+            bad_cmd = 'inet:fqdn=vertex.link setprop(created="2016-05-05",updated="2017/05/05")'
+            self.raises(BadSyntaxError, core.eval, bad_cmd)
 
-            self.eq(node[1].get('inet:fqdn'), 'vertex.link')
-            self.eq(node[1].get('inet:fqdn:created'), 1462406400000)
-            self.eq(node[1].get('inet:fqdn:updated'), 1493942400000)
-
-            # Another relative key/val syntax, explicitly relative vals
+            # relative key/val syntax, explicitly relative vals
             node = core.formTufoByProp('inet:netuser', 'vertex.link/pennywise')
             node = core.eval('inet:netuser=vertex.link/pennywise setprop(:realname="Robert Gray")')[0]
 
