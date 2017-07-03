@@ -2208,7 +2208,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             valu = inprops.get(name)
 
             prop = form + ':' + name
-
             if not self.isSetPropOk(prop):
                 inprops.pop(name, None)
                 continue
@@ -2330,7 +2329,26 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         return node
 
     def isSetPropOk(self, prop):
-        # check for enforcement and validity of a full prop name
+        '''
+        Check for enforcement and validity of a full prop name.
+
+        This can be used to determine if a property name may be set on a node,
+        given the data models currently loaded in a Cortex.
+
+        Args:
+            prop (str): Full property name to check.
+
+        Examples:
+            Check if a value is valid before calling a function.::
+
+                prop = 'foo:bar:baz'
+                if core.isSetPropOk(prop):
+                    doSomething(...)
+
+        Returns:
+            bool: True if the property can be set on the node; False if it cannot be set.
+        '''
+        #
         if not self.enforce:
             return True
 

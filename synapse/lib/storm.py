@@ -1173,9 +1173,8 @@ class Runtime(Configable):
             raise s_common.BadSyntaxError(name=prop, mesg=mesg)
 
         for form, nodes in formnodes.items():
-            props = formprops.get(form)
-            for node in nodes:
-                core.setTufoProps(node, **props)
+            props = formprops.get(form, {})
+            [core.setTufoProps(node, **props) for node in nodes]
 
     def _iterPropTags(self, props, tags):
         for prop in props:
