@@ -2208,14 +2208,13 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             valu = inprops.get(name)
 
             if name.startswith(form):
-                # Possibly a full prop - strip name off
-                name = name[len(form):]
+                prop = name
+            else:
+                if name.startswith(':'):
+                    # Relative prop - strip colon
+                    name = name[1:]
+                prop = form + ':' + name
 
-            if name.startswith(':'):
-                # Relative prop - strip and form
-                name = name[1:]
-
-            prop = form + ':' + name
             if not self._okSetProp(prop):
                 inprops.pop(name, None)
                 continue
