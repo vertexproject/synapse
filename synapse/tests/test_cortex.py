@@ -1819,9 +1819,15 @@ class CortexTest(SynTest):
 
     def test_cortex_rev0_psql(self):
 
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = 'ae42eb7e2bfb4aeb87dbe584bc4b89c5'
         path = getTestPath('rev0.psql')
         statements = []
         with open(path, 'rb') as fd:
+            byts = fd.read()
+            self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
+            fd.seek(0)
             for line in fd.readlines():
                 line = line.decode().strip()
                 if not line or line.startswith('--'):
