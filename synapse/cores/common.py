@@ -2358,10 +2358,17 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         '''
         Set ( with de-duplication ) the given tufo props.
 
-        Example:
+        Args:
+            tufo ((str, dict)): The tufo to set properties on.
+            **props:  Properties to set on the tufo.
 
-            tufo = core.setTufoProps(tufo, woot='hehe', blah=10)
+        Examples:
+            ::
 
+                tufo = core.setTufoProps(tufo, woot='hehe', blah=10)
+
+        Returns:
+            ((str, dict)): The source tufo, with any updated properties.
         '''
         reqiden(tufo)
         # add tufo form prefix to props
