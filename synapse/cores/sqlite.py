@@ -1,12 +1,15 @@
 from __future__ import absolute_import, unicode_literals
 
 import re
+import logging
 import sqlite3
 
 import synapse.common as s_common
 import synapse.compat as s_compat
 
 import synapse.cores.common as s_cores_common
+
+logger = logging.getLogger(__name__)
 
 stashre = re.compile('{{([A-Z]+)}}')
 
@@ -595,7 +598,10 @@ class Cortex(s_cores_common.Cortex):
 
             # allow the revision function to optionally return the
             # revision he jumped to ( to allow initial override )
+            mesg = 'Warning - storage layer update occuring. Do not interrupt. [{}] => [{}]'.format(curv, vers)
+            logger.warning(mesg)
             retn = func()
+            logger.warning('Storage layer update completed.')
             if retn is not None:
                 vers = retn
 
