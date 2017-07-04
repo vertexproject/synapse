@@ -179,5 +179,5 @@ else:
         return x.tobytes()
 
     def bytesToMem(x):
-        '''Convert bytes to menmoryview'''
+        '''Convert bytes to memoryview'''
         return memoryview(x)
