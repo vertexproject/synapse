@@ -169,7 +169,7 @@ class Cortex(s_cores_sqlite.Cortex):
         except Exception as e:
             if 'does not exist' in str(e):
                 return
-            raise
+            raise  # pragma: no cover
         return rows
 
     def _packAdminValu(self, valu):

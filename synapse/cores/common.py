@@ -227,7 +227,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         s_ingest.IngestApi.__init__(self, self)
 
-    def _initCortex(self):
+    def _initCortex(self):  # pragma: no cover
         '''Perform storage layer initializations.'''
         raise s_common.NoSuchImpl(name='_initCortex', mesg='Storage layer must implement _initCortex')
 
@@ -2862,13 +2862,13 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         idens = list(set([r[0][::-1] for r in rows]))  # Unique the idens we pull.
         return self._initTufoSnap(idens)
 
-    def _getAdminValu(self, key, default):
+    def _getAdminValu(self, key, default):  # pragma: no cover
         raise s_common.NoSuchImpl(name='_getAdminValu', mesg='Core does not implement _getAdminValu')
 
-    def _setAdminValu(self, key, valu):
+    def _setAdminValu(self, key, valu):  # pragma: no cover
         raise s_common.NoSuchImpl(name='_setAdminValu', mesg='Core does not implement _setAdminValu')
 
-    def _getCoreType(self):
+    def _getCoreType(self):  # pragma: no cover
         raise s_common.NoSuchImpl(name='getCoreType', mesg='Core does not implement getCoreType')
 
     def getCoreType(self):

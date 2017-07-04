@@ -752,9 +752,6 @@ class Cortex(s_cores_common.Cortex):
     def _getCoreType(self):
         return 'sqlite'
 
-        if v == default:
-            return v
-
     def _getAdminValu(self, key, default):
         rows = self._getAdminValuRows(key)
 
@@ -776,7 +773,7 @@ class Cortex(s_cores_common.Cortex):
         except sqlite3.OperationalError as e:
             if 'no such table' in str(e):
                 return
-            raise
+            raise  # pragma: no cover
         return rows
 
     def _packAdminValu(self, valu):
