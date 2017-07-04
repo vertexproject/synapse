@@ -11,6 +11,7 @@ import contextlib
 
 logging.basicConfig(level=logging.WARNING)
 
+import synapse.link as s_link
 import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.eventbus as s_eventbus
@@ -85,23 +86,102 @@ class SynTest(unittest.TestCase):
         if os.getenv('SYN_TEST_NO_INTERNET'):
             raise unittest.SkipTest('no internet access')
 
-    def getPgCore(self):
-        url = os.getenv('SYN_TEST_PG_URL')
-        if url is not None:
-            return s_cortex.openurl(url)
+    def getPgConn(self):
+        '''
+        Get a psycopg2 connection object.
 
+        The PG database connected to is derived from the SYN_TEST_PG_DB
+        environmental variable.
+
+        Returns:
+            psycopg2.connection: Raw psycopg2 connection object.
+
+        '''
         db = os.getenv('SYN_TEST_PG_DB')
         if not db:
-            raise unittest.SkipTest('no SYN_TEST_PG_DB or SYN_TEST_PG_URL')
+            raise unittest.SkipTest('no SYN_TEST_PG_DB envar')
+        try:
+            import psycopg2
+        except ImportError:
+            raise unittest.SkipTest('psycopg2 not installed.')
 
-        table = 'syn_test_%s' % guid()
+        url = 'postgres://%s' % db
+        link = s_link.chopLinkUrl(url)
+
+        def _initDbInfo(link):
+
+            dbinfo = {}
+
+            path = link[1].get('path')
+            if path:
+                parts = [p for p in path.split('/') if p]
+                if parts:
+                    dbinfo['database'] = parts[0]
+
+            host = link[1].get('host')
+            if host is not None:
+                dbinfo['host'] = host
+
+            port = link[1].get('port')
+            if port is not None:
+                dbinfo['port'] = port
+
+            user = link[1].get('user')
+            if user is not None:
+                dbinfo['user'] = user
+
+            passwd = link[1].get('passwd')
+            if passwd is not None:
+                dbinfo['password'] = passwd
+
+            return dbinfo
+
+        dbinfo = _initDbInfo(link)
+        conn = psycopg2.connect(**dbinfo)
+        return conn
+
+    def getPgCore(self, table='', persist=False):
+        '''
+        Get a Postgresql backed Cortex.
+
+        This will grab the SYN_TEST_PG_DB environmental variable, and use it to construct
+        a string to connect to a PSQL server and create a Cortex. By default, the Cortex
+        DB tables will be dropped when onfini() is called on the Cortex.
+
+        Some example values for this evnar are shown below::
+
+            # From our .drone.yml file
+            root@database:5432/syn_test
+            # An example which may be used with a local docker image
+            # after having created the syn_test database
+            postgres:1234@localhost:5432/syn_test
+
+        Args:
+            table (str): The PSQL table name to use.  If the table name is not provided
+                         by URL or argument; a random table name will be created.
+            persist (bool): If set to True, keep the tables created by the Cortex creation.
+
+        Returns:
+            A PSQL backed cortex.
+
+        Raises:
+            unittest.SkipTest: if there is no SYN_TEST_PG_DB envar set.
+        '''
+        db = os.getenv('SYN_TEST_PG_DB')
+        if not db:
+            raise unittest.SkipTest('no SYN_TEST_PG_DB envar')
+
+        if not table:
+            table = 'syn_test_%s' % guid()
         core = s_cortex.openurl('postgres://%s/%s' % (db, table))
 
         def droptable():
             with core.getCoreXact() as xact:
                 xact.cursor.execute('DROP TABLE %s' % (table,))
+                xact.cursor.execute('DROP TABLE IF EXISTS %s' % (table + '_admin',))
 
-        core.onfini(droptable)
+        if not persist:
+            core.onfini(droptable)
         return core
 
     def getTestOutp(self):

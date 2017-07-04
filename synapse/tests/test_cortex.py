@@ -1817,6 +1817,53 @@ class CortexTest(SynTest):
                 self.true(core._checkForTable(admin_table))
                 self.runadmin(core)
 
+    def test_cortex_rev0_psql(self):
+
+        path = getTestPath('rev0.psql')
+        statements = []
+        with open(path, 'rb') as fd:
+            for line in fd.readlines():
+                line = line.decode().strip()
+                if not line or line.startswith('--'):
+                    continue
+                statements.append(line)
+
+        # Load up the data into the PG core
+        with self.getPgConn() as conn:
+            # Clean up any existing rev0 database tables if a previous test did not cleanup properly.
+            with conn.cursor() as cur:
+                stmt = '''select table_name from information_schema.tables where table_name like 'syn_test_rev0%';'''
+                cur.execute(stmt)
+                rows = cur.fetchall()
+                for row in rows:
+                    stmt = 'DROP TABLE IF EXISTS {}'.format(row[0])
+                    cur.execute(stmt)
+            conn.commit()
+            # Now slam the data into the DB from the .psql file.
+            with conn.cursor() as cur:
+                for stmt in statements:
+                    cur.execute(stmt)
+            conn.commit()
+
+        with self.getPgCore(table='syn_test_rev0') as core:
+            node = core.eval('inet:ipv4=1.2.3.4')[0]
+
+            self.nn(node[1].get('#foo.bar'))
+            self.eq(len(core.eval('inet:ipv4*tag=foo.bar')), 1)
+
+            self.eq(len(core.getRowsByProp('_:dark:tag')), 0)
+            self.eq(len(core.getRowsByProp('_:*inet:ipv4#foo.bar')), 1)
+
+            self.eq(len(core.eval('inet:ipv4*tag=foo.bar.baz')), 1)
+            self.eq(len(core.eval('#foo.bar.baz')), 1)
+
+            # sqlite storage layer versioning checks go below
+            table = core._getTableName()
+            admin_table = table + '_admin'
+            self.eq(core.getAdminValu('syn:core:postgres:version'), 0)
+            self.true(core._checkForTable(admin_table))
+            self.runadmin(core)
+
     def test_cortex_module_datamodel_migration(self):
 
         with s_cortex.openurl('ram:///') as core:
