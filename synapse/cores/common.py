@@ -2913,7 +2913,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         '''
         Set a value from the admin key/value (KV) store.
 
-         This resides below the tufo storage layer and is Cortex implementation
+        This resides below the tufo storage layer and is Cortex implementation
         dependent. In purely memory backed cortexes, this KV store may not be
         persistent, even if the tufo-layer is persistent, through something
         such as the savefile mechanism.
