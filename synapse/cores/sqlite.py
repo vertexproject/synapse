@@ -96,8 +96,8 @@ class Cortex(s_cores_common.Cortex):
     );
     '''
 
-    _t_init_admintable = '''
-    CREATE TABLE {{ADMIN_TABLE}} (
+    _t_init_blobtable = '''
+    CREATE TABLE {{BLOB_TABLE}} (
          k VARCHAR,
          v BLOB
     );
@@ -107,7 +107,7 @@ class Cortex(s_cores_common.Cortex):
     _t_init_prop_idx = 'CREATE INDEX {{TABLE}}_prop_time_idx ON {{TABLE}} (prop,tstamp)'
     _t_init_strval_idx = 'CREATE INDEX {{TABLE}}_strval_idx ON {{TABLE}} (prop,strval,tstamp)'
     _t_init_intval_idx = 'CREATE INDEX {{TABLE}}_intval_idx ON {{TABLE}} (prop,intval,tstamp)'
-    _t_init_admintable_idx = 'CREATE UNIQUE INDEX {{ADMIN_TABLE}}_indx ON {{ADMIN_TABLE}} (k)'
+    _t_init_blobtable_idx = 'CREATE UNIQUE INDEX {{BLOB_TABLE}}_indx ON {{BLOB_TABLE}} (k)'
 
     _t_addrows = 'INSERT INTO {{TABLE}} (iden,prop,strval,intval,tstamp) VALUES ({{IDEN}},{{PROP}},{{STRVAL}},{{INTVAL}},{{TSTAMP}})'
     _t_getrows_by_iden = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}}'
@@ -119,8 +119,8 @@ class Cortex(s_cores_common.Cortex):
     _t_getrows_by_iden_prop_strval = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND strval={{VALU}}'
 
     ################################################################################
-    _t_admin_set = 'INSERT OR REPLACE INTO {{ADMIN_TABLE}} (k, v) VALUES ({{KEY}}, {{VALU}})'
-    _t_admin_get = 'SELECT v FROM {{ADMIN_TABLE}} WHERE k={{KEY}}'
+    _t_blob_set = 'INSERT OR REPLACE INTO {{BLOB_TABLE}} (k, v) VALUES ({{KEY}}, {{VALU}})'
+    _t_blob_get = 'SELECT v FROM {{BLOB_TABLE}} WHERE k={{KEY}}'
 
     ################################################################################
     _t_getrows_by_prop = 'SELECT * FROM {{TABLE}} WHERE prop={{PROP}} LIMIT {{LIMIT}}'
@@ -343,12 +343,12 @@ class Cortex(s_cores_common.Cortex):
 
         return query
 
-    def _prepAdminQuery(self, query):
+    def _prepBlobQuery(self, query):
         # prep query strings by replacing all %s with table name
         # and all ? with db specific variable token
         table = self._getTableName()
-        table = table + '_admin'
-        query = query.replace('{{ADMIN_TABLE}}', table)
+        table = table + '_blob'
+        query = query.replace('{{BLOB_TABLE}}', table)
 
         for name in stashre.findall(query):
             query = query.replace('{{%s}}' % name, self._addVarDecor(name.lower()))
@@ -358,13 +358,13 @@ class Cortex(s_cores_common.Cortex):
     def _initCorQueries(self):
         self._q_istable = self._prepQuery(self._t_istable)
         self._q_inittable = self._prepQuery(self._t_inittable)
-        self._q_init_admintable = self._prepAdminQuery(self._t_init_admintable)
+        self._q_init_blobtable = self._prepBlobQuery(self._t_init_blobtable)
 
         self._q_init_iden_idx = self._prepQuery(self._t_init_iden_idx)
         self._q_init_prop_idx = self._prepQuery(self._t_init_prop_idx)
         self._q_init_strval_idx = self._prepQuery(self._t_init_strval_idx)
         self._q_init_intval_idx = self._prepQuery(self._t_init_intval_idx)
-        self._q_init_admintable_idx = self._prepAdminQuery(self._t_init_admintable_idx)
+        self._q_init_blobtable_idx = self._prepBlobQuery(self._t_init_blobtable_idx)
 
         self._q_addrows = self._prepQuery(self._t_addrows)
         self._q_getrows_by_iden = self._prepQuery(self._t_getrows_by_iden)
@@ -375,8 +375,8 @@ class Cortex(s_cores_common.Cortex):
         self._q_getrows_by_iden_prop_intval = self._prepQuery(self._t_getrows_by_iden_prop_intval)
         self._q_getrows_by_iden_prop_strval = self._prepQuery(self._t_getrows_by_iden_prop_strval)
 
-        self._q_admin_get = self._prepAdminQuery(self._t_admin_get)
-        self._q_admin_set = self._prepAdminQuery(self._t_admin_set)
+        self._q_blob_get = self._prepBlobQuery(self._t_blob_get)
+        self._q_blob_set = self._prepBlobQuery(self._t_blob_set)
 
         ###################################################################################
         self._q_getrows_by_prop = self._prepQuery(self._t_getrows_by_prop)
@@ -542,26 +542,26 @@ class Cortex(s_cores_common.Cortex):
 
         if not self._checkForTable(table):
             # We are a new cortex, stamp in tables and set
-            # admin values and move along.
+            # blob values and move along.
             self._initCorTable(table)
-            self.setAdminValu(vsn_str, max_rev)
-            self.setAdminValu('syn:core:type', self.getCoreType())
+            self.setBlobValu(vsn_str, max_rev)
+            self.setBlobValu('syn:core:type', self.getCoreType())
             return
 
         self._revCorVers(revs)
 
     def _rev0(self):
         table = self._getTableName()
-        admin_table = table + '_admin'
+        blob_table = table + '_blob'
 
-        if self._checkForTable(admin_table):
+        if self._checkForTable(blob_table):
             return
 
         with self.getCoreXact() as xact:
-            xact.cursor.execute(self._q_init_admintable)
-            xact.cursor.execute(self._q_init_admintable_idx)
+            xact.cursor.execute(self._q_init_blobtable)
+            xact.cursor.execute(self._q_init_blobtable_idx)
 
-        self.setAdminValu('syn:core:type', self.getCoreType())
+        self.setBlobValu('syn:core:type', self.getCoreType())
 
     def _revCorVers(self, revs):
         '''
@@ -578,7 +578,7 @@ class Cortex(s_cores_common.Cortex):
         if not revs:
             return
         vsn_str = 'syn:core:{}:version'.format(self.getCoreType())
-        curv = self.getAdminValu(vsn_str, -1)
+        curv = self.getBlobValu(vsn_str, -1)
 
         maxver = revs[-1][0]
         if maxver == curv:
@@ -599,7 +599,7 @@ class Cortex(s_cores_common.Cortex):
             if retn is not None:
                 vers = retn
 
-            curv = self.setAdminValu(vsn_str, vers)
+            curv = self.setBlobValu(vsn_str, vers)
 
     def _initCorTable(self, name):
         with self.getCoreXact() as xact:
@@ -608,8 +608,8 @@ class Cortex(s_cores_common.Cortex):
             xact.cursor.execute(self._q_init_prop_idx)
             xact.cursor.execute(self._q_init_strval_idx)
             xact.cursor.execute(self._q_init_intval_idx)
-            xact.cursor.execute(self._q_init_admintable)
-            xact.cursor.execute(self._q_init_admintable_idx)
+            xact.cursor.execute(self._q_init_blobtable)
+            xact.cursor.execute(self._q_init_blobtable_idx)
 
     def _addRows(self, rows):
         args = []
@@ -752,38 +752,38 @@ class Cortex(s_cores_common.Cortex):
     def _getCoreType(self):
         return 'sqlite'
 
-    def _getAdminValu(self, key, default):
-        rows = self._getAdminValuRows(key)
+    def _getBlobValu(self, key, default):
+        rows = self._getBlobValuRows(key)
 
         if not rows:
             if default is s_common.novalu:
-                raise s_common.NoSuchName(name=key, mesg='Admin store has no such key present.')
+                raise s_common.NoSuchName(name=key, mesg='Blob store has no such key present.')
             return default
 
         if len(rows) > 1:  # pragma: no cover
-            raise s_common.BadCoreStore(store=self.getCoreType(), mesg='Too many admin rows received.')
+            raise s_common.BadCoreStore(store=self.getCoreType(), mesg='Too many blob rows received.')
 
-        ret = self._unpackAdminValu(rows[0][0])
+        ret = self._unpackBlobValu(rows[0][0])
         return ret
 
-    def _getAdminValuRows(self, key):
+    def _getBlobValuRows(self, key):
         '''Eat specific exceptions in order to return the default value'''
         try:
-            rows = self.select(self._q_admin_get, key=key)
+            rows = self.select(self._q_blob_get, key=key)
         except sqlite3.OperationalError as e:
             if 'no such table' in str(e):
                 return
             raise  # pragma: no cover
         return rows
 
-    def _packAdminValu(self, valu):
+    def _packBlobValu(self, valu):
         v = s_common.msgenpack(valu)
         return sqlite3.Binary(v)
 
-    def _unpackAdminValu(self, valu):
+    def _unpackBlobValu(self, valu):
         return s_common.msgunpack(valu)
 
-    def _setAdminValu(self, key, valu):
-        v = self._packAdminValu(valu)
-        self.update(self._q_admin_set, key=key, valu=v)
+    def _setBlobValu(self, key, valu):
+        v = self._packBlobValu(valu)
+        self.update(self._q_blob_set, key=key, valu=v)
         return valu

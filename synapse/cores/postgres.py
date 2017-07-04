@@ -15,14 +15,14 @@ class Cortex(s_cores_sqlite.Cortex):
     dblim = None
 
     # postgres uses BYTEA instead of BLOB
-    _t_init_admintable = '''
-    CREATE TABLE {{ADMIN_TABLE}} (
+    _t_init_blobtable = '''
+    CREATE TABLE {{BLOB_TABLE}} (
          k VARCHAR,
          v BYTEA
     );
     '''
     # postgres upsert!
-    _t_admin_set = 'INSERT INTO {{ADMIN_TABLE}} (k, v) VALUES ({{KEY}}, {{VALU}}) ON CONFLICT (k) DO UPDATE SET ' \
+    _t_blob_set = 'INSERT INTO {{BLOB_TABLE}} (k, v) VALUES ({{KEY}}, {{VALU}}) ON CONFLICT (k) DO UPDATE SET ' \
                    'v={{VALU}}'
 
     # postgres over-rides for md5() based indexing
@@ -162,17 +162,17 @@ class Cortex(s_cores_sqlite.Cortex):
     def _getCoreType(self):
         return 'postgres'
 
-    def _getAdminValuRows(self, key):
+    def _getBlobValuRows(self, key):
         '''Eat specific exceptions in order to return the default value'''
         try:
-            rows = self.select(self._q_admin_get, key=key)
+            rows = self.select(self._q_blob_get, key=key)
         except Exception as e:
             if 'does not exist' in str(e):
                 return
             raise  # pragma: no cover
         return rows
 
-    def _packAdminValu(self, valu):
+    def _packBlobValu(self, valu):
         v = s_common.msgenpack(valu)
         v = s_compat.bytesToMem(v)
         return v

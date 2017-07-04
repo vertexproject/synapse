@@ -178,7 +178,7 @@ class SynTest(unittest.TestCase):
         def droptable():
             with core.getCoreXact() as xact:
                 xact.cursor.execute('DROP TABLE %s' % (table,))
-                xact.cursor.execute('DROP TABLE IF EXISTS %s' % (table + '_admin',))
+                xact.cursor.execute('DROP TABLE IF EXISTS %s' % (table + '_blob',))
 
         if not persist:
             core.onfini(droptable)

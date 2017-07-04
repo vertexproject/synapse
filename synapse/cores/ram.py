@@ -41,7 +41,7 @@ class Cortex(s_cores_common.Cortex):
         self.initSizeBy('range', self._sizeByRange)
         self.initRowsBy('range', self._rowsByRange)
 
-        self._admin_store = {}
+        self._blob_store = {}
 
     def _getCoreXact(self, size=None):
         return CoreXact(self, size=size)
@@ -183,19 +183,19 @@ class Cortex(s_cores_common.Cortex):
     def _getCoreType(self):
         return 'ram'
 
-    def _getAdminValu(self, key, default):
-        v = self._admin_store.get(key, default)
+    def _getBlobValu(self, key, default):
+        v = self._blob_store.get(key, default)
         if v is s_common.novalu:
-            raise s_common.NoSuchName(name=key, mesg='Admin store has no such key present.')
+            raise s_common.NoSuchName(name=key, mesg='Blob store has no such key present.')
         if v == default:
             return v
         ret = s_common.msgunpack(v)
         return ret
 
-    def _setAdminValu(self, key, valu):
-        mesg = 'Setting admin value in ram cortex [{}]. Not a persistent action.'.format(self.myfo[0])
+    def _setBlobValu(self, key, valu):
+        mesg = 'Setting blob value in ram cortex [{}]. Not a persistent action.'.format(self.myfo[0])
         self.log(logging.WARNING, mesg=mesg, key=key, valu=valu)
-        self._admin_store[key] = s_common.msgenpack(valu)
+        self._blob_store[key] = s_common.msgenpack(valu)
         return valu
 
 ramcores = {}

@@ -2862,11 +2862,11 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         idens = list(set([r[0][::-1] for r in rows]))  # Unique the idens we pull.
         return self._initTufoSnap(idens)
 
-    def _getAdminValu(self, key, default):  # pragma: no cover
-        raise s_common.NoSuchImpl(name='_getAdminValu', mesg='Core does not implement _getAdminValu')
+    def _getBlobValu(self, key, default):  # pragma: no cover
+        raise s_common.NoSuchImpl(name='_getBlobValu', mesg='Core does not implement _getBlobValu')
 
-    def _setAdminValu(self, key, valu):  # pragma: no cover
-        raise s_common.NoSuchImpl(name='_setAdminValu', mesg='Core does not implement _setAdminValu')
+    def _setBlobValu(self, key, valu):  # pragma: no cover
+        raise s_common.NoSuchImpl(name='_setBlobValu', mesg='Core does not implement _setBlobValu')
 
     def _getCoreType(self):  # pragma: no cover
         raise s_common.NoSuchImpl(name='getCoreType', mesg='Core does not implement getCoreType')
@@ -2875,9 +2875,9 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         return self._getCoreType()
 
     # TODO: Wrap this in a userauth layer
-    def getAdminValu(self, key, default=s_common.novalu):
+    def getBlobValu(self, key, default=s_common.novalu):
         '''
-        Get a value from the admin key/value (KV) store.
+        Get a value from the blob key/value (KV) store.
 
         This resides below the tufo storage layer and is Cortex implementation
         dependent. In purely memory backed cortexes, this KV store may not be
@@ -2900,18 +2900,18 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             The value from the KV store or the default valu if set.
 
         Raises:
-            NoSuchImpl: If the storage layer does not implement the admin KV
+            NoSuchImpl: If the storage layer does not implement the blob KV
                         store.
             NoSuchName: If the KV store does not contain the requested key and
                         no default is provided.
 
         '''
-        return self._getAdminValu(key, default)
+        return self._getBlobValu(key, default)
 
     # TODO: Wrap this in a userauth layer
-    def setAdminValu(self, key, valu):
+    def setBlobValu(self, key, valu):
         '''
-        Set a value from the admin key/value (KV) store.
+        Set a value from the blob key/value (KV) store.
 
         This resides below the tufo storage layer and is Cortex implementation
         dependent. In purely memory backed cortexes, this KV store may not be
@@ -2930,7 +2930,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         Returns:
             The input value, unchanged.
         '''
-        return self._setAdminValu(key, valu)
+        return self._setBlobValu(key, valu)
 
 class CoreXact:
     '''

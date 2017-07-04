@@ -106,7 +106,7 @@ class CortexTest(SynTest):
         self.rundsets(core)
         self.runsnaps(core)
         self.rundarks(core)
-        self.runadmin(core)
+        self.runblob(core)
 
     def test_cortex_sqlite3(self):
         core = s_cortex.openurl('sqlite:///:memory:')
@@ -118,7 +118,7 @@ class CortexTest(SynTest):
         self.rundsets(core)
         self.runsnaps(core)
         self.rundarks(core)
-        self.runadmin(core)
+        self.runblob(core)
 
     def test_cortex_lmdb(self):
         with self.getTestDir() as path:
@@ -135,7 +135,7 @@ class CortexTest(SynTest):
                 self.rundsets(core)
                 self.runsnaps(core)
                 self.rundarks(core)
-                # self.runadmin(core)
+                # self.runblob(core)
 
             # Test load an existing db
             core = s_cortex.openurl(lmdb_url)
@@ -151,7 +151,7 @@ class CortexTest(SynTest):
             self.rundsets(core)
             self.runsnaps(core)
             self.rundarks(core)
-            self.runadmin(core)
+            self.runblob(core)
 
     def rundsets(self, core):
         tufo = core.formTufoByProp('lol:zonk', 1)
@@ -503,7 +503,7 @@ class CortexTest(SynTest):
 
             self.eq(item['foo']['blah'][0], 99)
 
-    def runadmin(self, core):
+    def runblob(self, core):
 
         kvs = (
             ('syn:meta', 1),
@@ -516,30 +516,30 @@ class CortexTest(SynTest):
         )
 
         for k, v in kvs:
-            r = core.setAdminValu(k, v)
+            r = core.setBlobValu(k, v)
             self.eq(v, r)
 
         for k, v in kvs:
-            self.eq(core.getAdminValu(k), v)
+            self.eq(core.getBlobValu(k), v)
 
         # update a value and get the updated value back
-        self.eq(core.getAdminValu('syn:meta'), 1)
-        core.setAdminValu('syn:meta', 2)
-        self.eq(core.getAdminValu('syn:meta'), 2)
+        self.eq(core.getBlobValu('syn:meta'), 1)
+        core.setBlobValu('syn:meta', 2)
+        self.eq(core.getBlobValu('syn:meta'), 2)
 
         # msgpack'd output expected
         testv = [1, 2, 3]
-        core.setAdminValu('test:list', testv)
-        self.eq(core.getAdminValu('test:list'), tuple(testv))
+        core.setBlobValu('test:list', testv)
+        self.eq(core.getBlobValu('test:list'), tuple(testv))
 
         # Cannot store invalid items
         for obj in [object, set(testv), self.eq]:
-            self.raises(TypeError, core.setAdminValu, 'test:bad', obj)
+            self.raises(TypeError, core.setBlobValu, 'test:bad', obj)
 
         # Ensure that trying to get a value which doesn't exist fails.
-        self.raises(NoSuchName, core.getAdminValu, 'test:bad')
+        self.raises(NoSuchName, core.getBlobValu, 'test:bad')
         # but does work is a default value is provided!
-        self.eq(core.getAdminValu('test:bad', 123456), 123456)
+        self.eq(core.getBlobValu('test:bad', 123456), 123456)
 
     def test_pg_encoding(self):
         with self.getPgCore() as core:
@@ -1812,10 +1812,10 @@ class CortexTest(SynTest):
 
                 # sqlite storage layer versioning checks go below
                 table = core._getTableName()
-                admin_table = table + '_admin'
-                self.eq(core.getAdminValu('syn:core:sqlite:version'), 0)
-                self.true(core._checkForTable(admin_table))
-                self.runadmin(core)
+                blob_table = table + '_blob'
+                self.eq(core.getBlobValu('syn:core:sqlite:version'), 0)
+                self.true(core._checkForTable(blob_table))
+                self.runblob(core)
 
     def test_cortex_rev0_psql(self):
 
@@ -1865,10 +1865,10 @@ class CortexTest(SynTest):
 
             # sqlite storage layer versioning checks go below
             table = core._getTableName()
-            admin_table = table + '_admin'
-            self.eq(core.getAdminValu('syn:core:postgres:version'), 0)
-            self.true(core._checkForTable(admin_table))
-            self.runadmin(core)
+            blob_table = table + '_blob'
+            self.eq(core.getBlobValu('syn:core:postgres:version'), 0)
+            self.true(core._checkForTable(blob_table))
+            self.runblob(core)
 
     def test_cortex_module_datamodel_migration(self):
 
