@@ -573,8 +573,6 @@ def parse(text, off=0):
         # [ -#foo.bar ] == deltag(foo.bar)
         if nextchar(text, off, '['):
 
-            added_props = set()
-
             off += 1
 
             while True:
@@ -612,20 +610,12 @@ def parse(text, off=0):
                     raise s_common.BadSyntaxError(mesg='edit macro expected prop=valu syntax')
 
                 valu, off = parse_macro_valu(text, off + 1)
-                # Relative property syntax parsing
                 if prop[0] == ':':
                     kwargs = {prop: valu}
                     ret.append(oper('setprop', **kwargs))
                     continue
 
-                # Full property syntax parsing
-                if added_props and prop.startswith(tuple(added_props)):
-                    kwargs = {prop: valu}
-                    ret.append(oper('setprop', **kwargs))
-                    continue
-
                 ret.append(oper('addnode', prop, valu))
-                added_props.add(prop)
 
             continue
 

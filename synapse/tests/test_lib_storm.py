@@ -487,10 +487,6 @@ class StormTest(SynTest):
             node = core.eval('inet:ipv4=5.6.7.8')[0]
             self.eq(node[1].get('inet:ipv4:cc'), 'us')
 
-            core.eval(' [ inet:ipv4=5.6.7.8 inet:ipv4:asn=666 ]')
-            node = core.eval('inet:ipv4=5.6.7.8')[0]
-            self.eq(node[1].get('inet:ipv4:asn'), 666)
-
     def test_storm_tag_ival(self):
 
         with s_cortex.openurl('ram:///') as core:
