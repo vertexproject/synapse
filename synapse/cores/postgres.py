@@ -100,13 +100,6 @@ class Cortex(s_cores_sqlite.Cortex):
 
         return parts[1]
 
-    #def select(self, q, **args):
-        #if q.find('strval') != -1:
-            #print('EXPLAIN: %r' % (q,))
-            #for row in s_c_sqlite.Cortex.select(self, 'EXPLAIN ANALYZE ' + q, **args):
-                #print(row)
-        #return s_c_sqlite.Cortex.select(self, q, **args)
-
     def _initDbInfo(self):
 
         dbinfo = {}
