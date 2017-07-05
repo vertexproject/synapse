@@ -1132,9 +1132,7 @@ class Runtime(Configable):
         formnodes = collections.defaultdict(list)
         formprops = collections.defaultdict(dict)
 
-        nodes = query.data()
-
-        for node in nodes:
+        for node in query.data():
             formnodes[node[1].get('tufo:form')].append(node)
 
         forms = tuple(formnodes.keys())
@@ -1173,8 +1171,9 @@ class Runtime(Configable):
             raise s_common.BadSyntaxError(name=prop, mesg=mesg)
 
         for form, nodes in formnodes.items():
-            props = formprops.get(form, {})
-            [core.setTufoProps(node, **props) for node in nodes]
+            props = formprops.get(form)
+            if props:
+                [core.setTufoProps(node, **props) for node in nodes]
 
     def _iterPropTags(self, props, tags):
         for prop in props:
