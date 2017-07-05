@@ -30,13 +30,18 @@ class CertDirTest(SynTest):
             cdir.genCaCert('syntest')
             cdir.genUserCert('visi@vertex.link', signas='syntest')
 
-            self.nn(cdir.getUserCert('visi@vertex.link'))
             self.none(cdir.getUserCert('newpnewp'))
+            self.none(cdir.getUserKey('newpnewp'))
+            self.none(cdir.getClientCert('newpnewp'))
+            self.false(cdir.isUserCert('newpnewp'))
+            self.false(cdir.isClientCert('newpnewp'))
+
+            self.nn(cdir.getUserCert('visi@vertex.link'))
+            self.nn(cdir.getUserKey('visi@vertex.link'))
+            self.nn(cdir.getClientCert('visi@vertex.link'))
 
             self.true(cdir.isUserCert('visi@vertex.link'))
             self.true(cdir.isClientCert('visi@vertex.link'))
-            self.false(cdir.isUserCert('newpnewp'))
-            self.false(cdir.isClientCert('newpnewp'))
 
     def test_certdir_host(self):
         with self.getCertDir() as cdir:

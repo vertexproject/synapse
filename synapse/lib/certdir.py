@@ -40,6 +40,9 @@ class CertDir:
     def getUserCert(self, name):
         return self._loadCertPath(self.getUserCertPath(name))
 
+    def getClientCert(self, name):
+        return self._loadP12Path(self.getClientCertPath(name))
+
     def getCaKey(self, name):
         return self._loadKeyPath(self.getCaKeyPath(name))
 
@@ -68,6 +71,16 @@ class CertDir:
             return None
 
         return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+
+    def _loadP12Path(self, path):
+        if path is None:
+            return None
+
+        byts = s_common.getbytes(path)
+        if byts is None:
+            return None
+
+        return crypto.load_pkcs12(byts)
 
     #def saveCaCert(self, cert):
     #def saveUserCert(self, cert):
@@ -301,6 +314,12 @@ class CertDir:
 
     def getUserCertPath(self, name):
         path = s_common.genpath(self.certdir, 'users', '%s.crt' % name)
+        if not os.path.isfile(path):
+            return None
+        return path
+
+    def getClientCertPath(self, name):
+        path = s_common.genpath(self.certdir, 'users', '%s.p12' % name)
         if not os.path.isfile(path):
             return None
         return path
