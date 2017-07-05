@@ -41,6 +41,18 @@ class CertDir:
         return self._loadCertPath(self.getUserCertPath(name))
 
     def getClientCert(self, name):
+        '''
+        Loads the PKCS12 object for a given client certificate.
+
+        Example:
+            mypkcs12 = cdir.getClientCert('mycert')
+
+        Args:
+            name (str): The name of the client certificate.
+
+        Returns:
+            OpenSSL.crypto.PKCS12: The certificate if exists.
+        '''
         return self._loadP12Path(self.getClientCertPath(name))
 
     def getCaKey(self, name):
@@ -319,6 +331,18 @@ class CertDir:
         return path
 
     def getClientCertPath(self, name):
+        '''
+        Gets the path to a client certificate.
+
+        Example:
+            mypath = cdir.getClientCertPath('mycert')
+
+        Args:
+            name (str): The name of the client certificate.
+
+        Returns:
+            str: The path if exists.
+        '''
         path = s_common.genpath(self.certdir, 'users', '%s.p12' % name)
         if not os.path.isfile(path):
             return None
@@ -369,5 +393,17 @@ class CertDir:
         return os.path.isfile(crtpath)
 
     def isClientCert(self, name):
+        '''
+        Checks if a client certificate exists.
+
+        Example:
+            exists = cdir.isClientCert('mycert')
+
+        Args:
+            name (str): The name of the client certificate.
+
+        Returns:
+            bool: True if the certificate is present, False otherwise.
+        '''
         crtpath = self.getPathJoin('users', '%s.p12' % name)
         return os.path.isfile(crtpath)
