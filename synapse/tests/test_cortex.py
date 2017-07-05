@@ -1328,6 +1328,9 @@ class CortexTest(SynTest):
             self.eq(tufo1[1].get('foo:baz:haha'), 21)
             self.eq(tufo1[1].get('foo:baz:fqdn'), 'visi.com')
 
+             # Prevent enforce from allowing the cortex to store new types it does not know about
+            self.raises(NoSuchForm, core.formTufoByProp, 'foo:duck', 'something')
+
     def test_cortex_minmax(self):
 
         with s_cortex.openurl('ram://') as core:
