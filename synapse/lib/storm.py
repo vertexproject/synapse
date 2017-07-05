@@ -1159,7 +1159,7 @@ class Runtime(Configable):
             if prop.startswith(forms):
                 valid = False
                 for form in forms:
-                    if prop.startswith(form) and core.isSetPropOk(prop):
+                    if prop.startswith(form + ':') and core.isSetPropOk(prop):
                         _prop = prop[len(form) + 1:]
                         formprops[form][_prop] = valu
                         valid = True
