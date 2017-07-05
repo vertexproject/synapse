@@ -78,6 +78,29 @@ class StormTest(SynTest):
             bad_cmd = 'inet:fqdn=vertex.link setprop(:typocreated="2016-05-05")'
             self.raises(BadSyntaxError, core.eval, bad_cmd)
 
+            # test  possible form confusion
+            modl = {
+                'types': (
+                    ('foo:bar', {'subof': 'str'}),
+                    ('foo:barbaz', {'subof': 'str'})
+                ),
+                'forms': (
+                    ('foo:bar', {'ptype': 'str'}, [
+                        ('blah', {'ptype': 'str'})
+                    ]),
+                    ('foo:barbaz', {'ptype': 'str'}, [
+                        ('blah', {'ptype': 'str'})
+                    ]),
+                )
+            }
+            core.addDataModel('form_confusion', modl)
+            node = core.formTufoByProp('foo:bar', 'hehe')
+            core.addTufoTag(node, 'confusion')
+            node = core.formTufoByProp('foo:barbaz', 'haha')
+            core.addTufoTag(node, 'confusion')
+            node = core.eval('''#confusion setprop(foo:barbaz:blah=duck) +foo:barbaz''')[0]
+            self.eq(node[1].get('foo:barbaz:blah'), 'duck')
+
     def test_storm_filt_regex(self):
 
         with s_cortex.openurl('ram:///') as core:
