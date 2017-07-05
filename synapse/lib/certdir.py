@@ -348,3 +348,7 @@ class CertDir:
     def isHostCert(self, name):
         crtpath = self.getPathJoin('hosts', '%s.crt' % name)
         return os.path.isfile(crtpath)
+
+    def isClientCert(self, name):
+        crtpath = self.getPathJoin('users', '%s.p12' % name)
+        return os.path.isfile(crtpath)
