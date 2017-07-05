@@ -96,15 +96,18 @@ class CertDir:
         if os.path.isfile(path):
             raise s_common.DupFileName(path=path)
 
-        data = None
-        if isinstance(cert, crypto.X509):
-            data = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
-        elif isinstance(cert, crypto.PKCS12):
-            data = cert.export()
+        with s_common.genfile(path) as fd:
+            fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
 
-        if data:
-            with s_common.genfile(path) as fd:
-                fd.write(data)
+        return path
+
+    def _saveP12To(self, cert, *paths):
+        path = self.getPathJoin(*paths)
+        if os.path.isfile(path):
+            raise s_common.DupFileName(path=path)
+
+        with s_common.genfile(path) as fd:
+            fd.write(cert.export())
 
         return path
 
@@ -203,7 +206,7 @@ class CertDir:
             cacert = self.getCaCert(signas)
             ccert.set_ca_certificates([cacert])
 
-        crtpath = self._saveCertTo(ccert, 'users', '%s.p12' % name)
+        crtpath = self._saveP12To(ccert, 'users', '%s.p12' % name)
         if outp is not None:
             outp.printf('client cert saved: %s' % (crtpath,))
 
