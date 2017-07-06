@@ -444,10 +444,21 @@ class StormTest(SynTest):
             self.eq(len(nodes), 3)
 
     def test_storm_addnode(self):
+
         with s_cortex.openurl('ram:///') as core:
-            node = core.eval('addnode(inet:ipv4,1.2.3.4,asn=0xf0f0f0f0)')[0]
+
+            # add a node with addnode(<form>,<valu>) syntax
+            node = core.eval('addnode(inet:ipv4,1.2.3.4)')[0]
+
             self.eq(node[1].get('inet:ipv4'), 0x01020304)
+            self.eq(node[1].get('inet:ipv4:asn'), -1)
+
+            # confirm that addnode() updates props on existing nodes
+            node = core.eval('addnode(inet:ipv4, 1.2.3.4, :asn=0xf0f0f0f0)')[0]
             self.eq(node[1].get('inet:ipv4:asn'), 0xf0f0f0f0)
+
+            # confirm that addnode() requires : prefix on relative props
+            self.raises(BadSyntaxError, core.eval, 'addnode(inet:ipv4, 1.2.3.4, asn=20)')
 
     def test_storm_delnode(self):
         with s_cortex.openurl('ram:///') as core:
