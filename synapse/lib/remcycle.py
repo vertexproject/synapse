@@ -493,6 +493,37 @@ class Hypnos(s_config.Config):
               for creating HTTPRequest objects. These values should conform to
               the Tornado HTTPRequest constructor.
 
+
+        An example of a generic configuration for getting arbitrary endpoints is shown below:
+
+        ::
+
+            {
+              "apis": [
+                [
+                  "fqdn",
+                  {
+                    "api_args": [
+                      "fqdn"
+                    ],
+                    "api_optargs": {
+                      "endpoint": ""
+                    },
+                    "doc": "Get arbitrary domain name.",
+                    "http": {
+                      "validate_cert": false
+                    },
+                    "url": "https://{{fqdn}}/{{endpoint}}"
+                  }
+                ]
+              ],
+              "doc": "Definition for getting an arbitrary domain.",
+              "http": {
+                "user_agent": "Some.UserAgent"
+              },
+              "namespace": "generic"
+            }
+
         Args:
             config (dict): Dictionary containing the configuration information.
             reload_config (bool): If true and the namespace is already registered,
