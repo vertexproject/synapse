@@ -777,9 +777,7 @@ class Cortex(s_cores_common.Cortex):
         try:
             rows = self.select(self._q_blob_get, key=key)
         except sqlite3.OperationalError as e:
-            if 'no such table' in str(e):
-                return
-            raise  # pragma: no cover
+            return None
         return rows
 
     def _packBlobValu(self, valu):

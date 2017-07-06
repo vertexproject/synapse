@@ -63,6 +63,7 @@ class Cortex(s_cores_sqlite.Cortex):
 
     def _initDbConn(self):
         import psycopg2
+        self._psycopg2 = psycopg2
 
         retry = self._link[1].get('retry', 0)
 
@@ -166,10 +167,8 @@ class Cortex(s_cores_sqlite.Cortex):
         '''Eat specific exceptions in order to return the default value'''
         try:
             rows = self.select(self._q_blob_get, key=key)
-        except Exception as e:
-            if 'does not exist' in str(e):
-                return
-            raise  # pragma: no cover
+        except self._psycopg2.ProgrammingError as e:
+            return None
         return rows
 
     def _packBlobValu(self, valu):
