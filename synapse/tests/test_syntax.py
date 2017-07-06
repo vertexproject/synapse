@@ -83,3 +83,13 @@ class StormSyntaxTest(SynTest):
     def test_storm_syntax_whites(self):
         insts = s_syntax.parse('inet:fqdn     =      "1.2.3.4"')
         self.eq(insts[0], s_syntax.oper('lift', 'inet:fqdn', '1.2.3.4', by='eq'))
+
+    def test_storm_syntax_comp_opts(self):
+        valu,off = s_syntax.parse_valu('(foo,bar,baz=faz)')
+        self.eq( valu, ['foo','bar',('baz','faz')] )
+
+        valu,off = s_syntax.parse_valu('(foo, bar, baz=faz)')
+        self.eq( valu, ['foo','bar',('baz','faz')] )
+
+        valu,off = s_syntax.parse_valu('(   foo   ,    bar   ,   baz    =     faz    )')
+        self.eq( valu, ['foo','bar',('baz','faz')] )

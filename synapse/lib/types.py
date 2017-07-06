@@ -312,35 +312,95 @@ class MultiFieldType(DataType):
 
         return self.fields
 
-class CompType(MultiFieldType):
+def _splitpairs(text, sep0, sep1):
+    '''
+    Split parts via sep0 and then pairs by sep2
+    '''
+    for part in text.split(sep0):
+        k,v = part.split(sep1)
+        yield k.strip(),v.strip()
+
+class CompType(DataType):
 
     def __init__(self, tlib, name, **info):
-        MultiFieldType.__init__(self, tlib, name, **info)
+        DataType.__init__(self, tlib, name, **info)
+
+        self.fields = []
+        self.optfields = []
+
+        fstr = self.info.get('fields')
+        if fstr:
+
+            if fstr.find('=') != -1:
+                self.fields.extend( _splitpairs(fstr, ',', '='))
+
+            else:
+                self.fields.extend( _splitpairs(fstr, '|', ','))
+
+        self.fsize = len(self.fields)
+
+        ostr = self.info.get('optfields')
+        if ostr:
+            self.optfields.extend( _splitpairs(ostr, ',', '='))
+            # stabilize order to alphabetical since it effects
+            # the eventual guid generation
+            self.optfields.sort()
 
     def _norm_str(self, text, oldval=None):
 
         text = text.strip()
 
-        if len(text) == 32 and text.find('|') == -1 and text[0] != '(':
+        if not text:
+            self._raiseBadValu(text)
+
+        if text[0] != '(':
             return self.tlib.getTypeNorm('guid', text)
 
-        if text[0] == '(':
+        vals, off = s_syntax.parse_list(text)
+        if off != len(text):
+            self._raiseBadValu(text)
 
-            vals, off = s_syntax.parse_cmd_list(text)
-            if off != len(text):
-                self._raiseBadValu(text)
-
-            vals, subs = self._norm_fields(vals)
-
-        else:
-
-            vals, subs = self._norm_fields(text.split('|'))
-
-        return s_common.guid(vals), subs
+        return self._norm_list(vals)
 
     def _norm_list(self, valu, oldval=None):
-        valu, subs = self._norm_fields(valu)
-        return s_common.guid(valu), subs
+
+        opts = {}
+        subs = {}
+        retn = []
+
+        vlen = len(valu)
+
+        if vlen < self.fsize:
+            self._raiseBadValu(valu, mesg='Expected %d fields and got %d' % (self.fsize,len(valu)))
+
+        for k,v in valu[self.fsize:]:
+            opts[k] = v
+
+        vals = valu[:self.fsize]
+        for v,(name,tname) in s_compat.iterzip(vals,self.fields):
+
+            norm,ssubs = self.tlib.getTypeNorm(tname,v)
+
+            subs[name] = norm
+            for subkey,subval in ssubs.items():
+                subs[name + ':' + subkey] = subval
+            retn.append(norm)
+
+        for name,tname in self.optfields:
+
+            v = opts.get(name)
+            if v is None:
+                continue
+
+            norm,ssubs = self.tlib.getTypeNorm(tname,v)
+
+            subs[name] = norm
+            for subkey,subval in ssubs.items():
+                subs[name + ':' + subkey] = subval
+
+            retn.append( (name,norm) )
+
+        return s_common.guid(retn), subs
 
     def norm(self, valu, oldval=None):
 
