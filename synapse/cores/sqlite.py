@@ -580,7 +580,7 @@ class Cortex(s_cores_common.Cortex):
         if not revs:
             return
         vsn_str = 'syn:core:{}:version'.format(self._getCoreType())
-        curv = self._getBlobValu(vsn_str, -1)
+        curv = self.getBlobValu(vsn_str, -1)
 
         maxver = revs[-1][0]
         if maxver == curv:
@@ -604,7 +604,7 @@ class Cortex(s_cores_common.Cortex):
             if retn is not None:
                 vers = retn
 
-            curv = self._setBlobValu(vsn_str, vers)
+            curv = self.setBlobValu(vsn_str, vers)
 
     def _initCorTable(self, name):
         with self.getCoreXact() as xact:
