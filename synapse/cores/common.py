@@ -2957,8 +2957,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             Content in the blob store for a given key.
 
         Raises:
-            NoSuclhName: If the key is not present in the store.
-
+            NoSuchName: If the key is not present in the store.
         '''
         if not self.hasBlobValu(key):
             raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
