@@ -59,7 +59,7 @@ class StandaloneTestServer(s_eventbus.EventBus):
             wapp.fini()
         self.onfini(onfini)
 
-        wapp.listen(self.port, host='localhost')
+        wapp.listen(self.port, host='127.0.0.1')
         wapp.addApiPath('/v1/ip(\?format=[\w]+)?', fake.random_ip)
         self.running = True
 

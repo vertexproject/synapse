@@ -40,6 +40,7 @@ pipeline:
       - SYN_TEST_PG_DB=${PG_DB}
     commands:
       - if [ -n "${SLEEP}" ]; then sleep ${SLEEP}; fi;
+      - python --version
       - python setup.py install
       - nosetests --verbosity=3 ${COVERAGE_ARGS}
       - if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${IMAGE_VERSION} --required; fi;
