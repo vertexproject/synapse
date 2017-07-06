@@ -611,7 +611,7 @@ def parse(text, off=0):
 
                 valu, off = parse_macro_valu(text, off + 1)
                 if prop[0] == ':':
-                    kwargs = {prop[1:]: valu}
+                    kwargs = {prop: valu}
                     ret.append(oper('setprop', **kwargs))
                     continue
 

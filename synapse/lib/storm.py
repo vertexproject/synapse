@@ -4,6 +4,7 @@ import re
 import time
 import fnmatch
 import logging
+import collections
 
 import synapse.common as s_common
 import synapse.compat as s_compat
@@ -1121,12 +1122,58 @@ class Runtime(Configable):
         # TODO: use edits here for requested delete
 
     def _stormOperSetProp(self, query, oper):
+        # Coverage of this function is affected by the following issue:
+        # https://bitbucket.org/ned/coveragepy/issues/198/continue-marked-as-not-covered
         args = oper[1].get('args')
         props = dict(oper[1].get('kwlist'))
 
         core = self.getStormCore()
 
-        [core.setTufoProps(node, **props) for node in query.data()]
+        formnodes = collections.defaultdict(list)
+        formprops = collections.defaultdict(dict)
+
+        for node in query.data():
+            formnodes[node[1].get('tufo:form')].append(node)
+
+        forms = tuple(formnodes.keys())
+
+        for prop, valu in props.items():
+
+            if prop.startswith(':'):
+                valid = False
+                _prop = prop[1:]
+                # Check against every lifted form, since we may have a relative prop
+                # Which is valid against
+                for form in forms:
+                    _fprop = form + prop
+                    if core.isSetPropOk(_fprop):
+                        formprops[form][_prop] = valu
+                        valid = True
+                if not valid:
+                    mesg = 'Relative prop is not valid on any lifted forms.'
+                    raise s_common.BadSyntaxError(name=prop, mesg=mesg)
+                continue  # pragma: no cover
+
+            if prop.startswith(forms):
+                valid = False
+                for form in forms:
+                    if prop.startswith(form + ':') and core.isSetPropOk(prop):
+                        _prop = prop[len(form) + 1:]
+                        formprops[form][_prop] = valu
+                        valid = True
+                        break
+                if not valid:
+                    mesg = 'Full prop is not valid on any lifted forms.'
+                    raise s_common.BadSyntaxError(name=prop, mesg=mesg)
+                continue  # pragma: no cover
+
+            mesg = 'setprop operator requires props to start with relative or full prop names.'
+            raise s_common.BadSyntaxError(name=prop, mesg=mesg)
+
+        for form, nodes in formnodes.items():
+            props = formprops.get(form)
+            if props:
+                [core.setTufoProps(node, **props) for node in nodes]
 
     def _iterPropTags(self, props, tags):
         for prop in props:

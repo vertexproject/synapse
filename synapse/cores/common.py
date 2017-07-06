@@ -2208,7 +2208,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             valu = inprops.get(name)
 
             prop = form + ':' + name
-            if not self._okSetProp(prop):
+            if not self.isSetPropOk(prop):
                 inprops.pop(name, None)
                 continue
 
@@ -2328,8 +2328,27 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         return node
 
-    def _okSetProp(self, prop):
-        # check for enforcement and validity of a full prop name
+    def isSetPropOk(self, prop):
+        '''
+        Check for enforcement and validity of a full prop name.
+
+        This can be used to determine if a property name may be set on a node,
+        given the data models currently loaded in a Cortex.
+
+        Args:
+            prop (str): Full property name to check.
+
+        Examples:
+            Check if a value is valid before calling a function.::
+
+                prop = 'foo:bar:baz'
+                if core.isSetPropOk(prop):
+                    doSomething(...)
+
+        Returns:
+            bool: True if the property can be set on the node; False if it cannot be set.
+        '''
+        #
         if not self.enforce:
             return True
 
@@ -2339,10 +2358,17 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         '''
         Set ( with de-duplication ) the given tufo props.
 
-        Example:
+        Args:
+            tufo ((str, dict)): The tufo to set properties on.
+            **props:  Properties to set on the tufo.
 
-            tufo = core.setTufoProps(tufo, woot='hehe', blah=10)
+        Examples:
+            ::
 
+                tufo = core.setTufoProps(tufo, woot='hehe', blah=10)
+
+        Returns:
+            ((str, dict)): The source tufo, with any updated properties.
         '''
         reqiden(tufo)
         # add tufo form prefix to props
@@ -2398,7 +2424,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         form = tufo[1].get('tufo:form')
         prop = form + ':' + prop
 
-        if not self._okSetProp(prop):
+        if not self.isSetPropOk(prop):
             return tufo
 
         return self._incTufoProp(tufo, prop, incval=incval)
