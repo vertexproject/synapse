@@ -1094,15 +1094,27 @@ class Runtime(Configable):
         # addnode(<form>,<valu>,**props)
         args = oper[1].get('args')
         if len(args) != 2:
-            raise s_common.BadSyntaxError(mesg='addnode(<form>,<valu>,[<prop>=<pval>, ...])')
+            raise s_common.BadSyntaxError(mesg='addnode(<form>,<valu>,[:<prop>=<pval>, ...])')
 
         kwlist = oper[1].get('kwlist')
 
         core = self.getStormCore()
 
-        props = dict(kwlist)
+        props = {}
+        for k,v in kwlist:
+
+            if not k[0] == ':':
+                raise s_common.BadSyntaxError(mesg='addnode() expects relative props with : prefix')
+
+            prop = k[1:]
+            props[prop] = v
 
         node = self.formTufoByProp(args[0], args[1], **props)
+
+        # call set props if the node is not new...
+        if not node[1].get('.new'):
+            self.setTufoProps(node, **props)
+
         query.add(node)
 
     def _stormOperDelNode(self, query, oper):
