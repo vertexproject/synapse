@@ -18,7 +18,7 @@ class CoreXact(s_cores_common.CoreXact):
 
 class Cortex(s_cores_common.Cortex):
 
-    def _initCortex(self):
+    def _initCoreStor(self):
         self.rowsbyid = collections.defaultdict(set)
         self.rowsbyprop = collections.defaultdict(set)
         self.rowsbyvalu = collections.defaultdict(set)

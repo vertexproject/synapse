@@ -157,7 +157,7 @@ class CoreXact(s_cores_common.CoreXact):
 
 class Cortex(s_cores_common.Cortex):
 
-    def _initCortex(self):
+    def _initCoreStor(self):
         self._initDbConn()
 
         self.initSizeBy('ge', self._sizeByGe)

@@ -167,7 +167,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.addStatFunc('count', self._calcStatCount)
         self.addStatFunc('histo', self._calcStatHisto)
 
-        self._initCortex()
+        self._initCoreStor()
 
         DataModel.__init__(self, load=False)
 
@@ -227,9 +227,9 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         s_ingest.IngestApi.__init__(self, self)
 
-    def _initCortex(self):  # pragma: no cover
+    def _initCoreStor(self):  # pragma: no cover
         '''Perform storage layer initializations.'''
-        raise s_common.NoSuchImpl(name='_initCortex', mesg='Storage layer must implement _initCortex')
+        raise s_common.NoSuchImpl(name='_initCoreStor', mesg='Storage layer must implement _initCoreStor')
 
     def getModlVers(self, name):
         '''

@@ -305,7 +305,7 @@ class Cortex(s_cores_common.Cortex):
     def _addVarDecor(self, name):
         return ':%s' % (name,)
 
-    def _initCortex(self):
+    def _initCoreStor(self):
 
         self.initSizeBy('ge', self._sizeByGe)
         self.initRowsBy('ge', self._rowsByGe)
