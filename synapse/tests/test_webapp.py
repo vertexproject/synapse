@@ -139,7 +139,7 @@ class WebAppTest(AsyncTestCase, SynTest):
 
             # Assert that the request fails w/ no client SSL config, even if client does not validate cert
             # (server must also validate client cert)
-            with self.raises(ssl.SSLError):
+            with self.raises(TestSSLInvalidClientCert):
                 resp = yield client.fetch(url, validate_cert=False)
 
             resp = yield client.fetch(url, **client_opts)

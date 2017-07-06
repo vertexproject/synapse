@@ -1,6 +1,8 @@
 import os
+import ssl
 import sys
 import shutil
+import socket
 import logging
 import tempfile
 import unittest
@@ -9,6 +11,7 @@ import contextlib
 
 logging.basicConfig(level=logging.WARNING)
 
+import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.eventbus as s_eventbus
 
@@ -24,6 +27,10 @@ from synapse.common import *
 s_scope.get('plex')
 
 class TooFewEvents(Exception): pass
+
+TestSSLInvalidClientCert = ssl.SSLError
+if s_compat.version < (3, 0, 0):
+    TestSSLInvalidClientCert = socket.error
 
 class TestEnv:
 
