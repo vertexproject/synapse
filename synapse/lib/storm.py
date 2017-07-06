@@ -1154,20 +1154,7 @@ class Runtime(Configable):
                     raise s_common.BadSyntaxError(name=prop, mesg=mesg)
                 continue  # pragma: no cover
 
-            if prop.startswith(forms):
-                valid = False
-                for form in forms:
-                    if prop.startswith(form + ':') and core.isSetPropOk(prop):
-                        _prop = prop[len(form) + 1:]
-                        formprops[form][_prop] = valu
-                        valid = True
-                        break
-                if not valid:
-                    mesg = 'Full prop is not valid on any lifted forms.'
-                    raise s_common.BadSyntaxError(name=prop, mesg=mesg)
-                continue  # pragma: no cover
-
-            mesg = 'setprop operator requires props to start with relative or full prop names.'
+            mesg = 'setprop operator requires props to start with relative prop names.'
             raise s_common.BadSyntaxError(name=prop, mesg=mesg)
 
         for form, nodes in formnodes.items():
