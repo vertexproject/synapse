@@ -511,6 +511,7 @@ class CortexTest(SynTest):
             ('syn:meta', 1),
             ('foobar:thing', 'a string',),
             ('storage:sekrit', {'oh': 'my!', 'key': (1, 2)}),
+            ('syn:bytes', b'0xdeadb33f'),
             ('knight:weight', 1.234),
             ('knight:saidni', False),
             ('knight:has:fleshwound', True),
@@ -550,6 +551,7 @@ class CortexTest(SynTest):
         # Ensure we can delete items from the store
         self.eq(core.delBlobValu('test:list'), tuple(testv))
         self.false(core.hasBlobValu('test:list'))
+        self.eq(core.getBlobValu('test:list'), None)
         # And deleting a value which doesn't exist raises a NoSuchName
         self.raises(NoSuchName, core.delBlobValu, 'test:deleteme')
 

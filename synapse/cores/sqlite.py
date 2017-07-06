@@ -761,32 +761,26 @@ class Cortex(s_cores_common.Cortex):
     def _getCoreType(self):
         return 'sqlite'
 
-    def _getBlobValu(self, key, default):
+    def _getBlobValu(self, key):
         rows = self._getBlobValuRows(key)
 
         if not rows:
-            self.log(logging.WARNING, mesg='Blob store has no such key present, returning default.', name=key)
-            return default
+            return None
 
         if len(rows) > 1:  # pragma: no cover
             raise s_common.BadCoreStore(store=self.getCoreType(), mesg='Too many blob rows received.')
 
-        ret = self._unpackBlobValu(rows[0][0])
-        return ret
+        return rows[0][0]
 
     def _getBlobValuRows(self, key):
         rows = self.select(self._q_blob_get, key=key)
         return rows
 
-    def _packBlobValu(self, valu):
-        v = s_common.msgenpack(valu)
-        return sqlite3.Binary(v)
-
-    def _unpackBlobValu(self, valu):
-        return s_common.msgunpack(valu)
+    def _prepBlobValu(self, valu):
+        return sqlite3.Binary(valu)
 
     def _setBlobValu(self, key, valu):
-        v = self._packBlobValu(valu)
+        v = self._prepBlobValu(valu)
         self.update(self._q_blob_set, key=key, valu=v)
         return valu
 
@@ -801,8 +795,8 @@ class Cortex(s_cores_common.Cortex):
         return True
 
     def _delBlobValu(self, key):
-        ret = self._getBlobValu(key, s_common.novalu)
-        if ret is s_common.novalu:  # pragma: no cover
+        ret = self._getBlobValu(key)
+        if ret is None:  # pragma: no cover
             # We should never get here, but if we do, throw an exception.
             raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
         self.delete(self._q_blob_del, key=key)

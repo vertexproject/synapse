@@ -163,7 +163,5 @@ class Cortex(s_cores_sqlite.Cortex):
     def _getCoreType(self):
         return 'postgres'
 
-    def _packBlobValu(self, valu):
-        v = s_common.msgenpack(valu)
-        v = s_compat.bytesToMem(v)
-        return v
+    def _prepBlobValu(self, valu):
+        return s_compat.bytesToMem(valu)

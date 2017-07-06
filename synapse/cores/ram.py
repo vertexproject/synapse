@@ -183,26 +183,20 @@ class Cortex(s_cores_common.Cortex):
     def _getCoreType(self):
         return 'ram'
 
-    def _getBlobValu(self, key, default):
-        v = self._blob_store.get(key, s_common.novalu)
-        if v is s_common.novalu:
-            self.log(logging.WARNING, mesg='Requested key not present in blob store', name=key)
-            return default
-        ret = s_common.msgunpack(v)
+    def _getBlobValu(self, key):
+        ret = self._blob_store.get(key)
         return ret
 
     def _setBlobValu(self, key, valu):
         mesg = 'Setting blob value in ram cortex [{}]. Not a persistent action.'.format(self.myfo[0])
         self.log(logging.WARNING, mesg=mesg, key=key, valu=valu)
-        self._blob_store[key] = s_common.msgenpack(valu)
-        return valu
+        self._blob_store[key] = valu
 
     def _hasBlobValu(self, key):
         return key in self._blob_store
 
     def _delBlobValu(self, key):
-        v = self._blob_store.pop(key)
-        ret = s_common.msgunpack(v)
+        ret = self._blob_store.pop(key)
         return ret
 
 ramcores = {}

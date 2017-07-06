@@ -2862,7 +2862,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         idens = list(set([r[0][::-1] for r in rows]))  # Unique the idens we pull.
         return self._initTufoSnap(idens)
 
-    def _getBlobValu(self, key, default):  # pragma: no cover
+    def _getBlobValu(self, key):  # pragma: no cover
         self.log(logging.ERROR, mesg='Core does not implement _getBlobValu', name='_getBlobValu')
         return None
 
@@ -2870,11 +2870,11 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.log(logging.ERROR, mesg='Core does not implement _setBlobValu', name='_setBlobValu')
         return None
 
-    def _hasBlobValu(self, key):
+    def _hasBlobValu(self, key):  # pragma: no cover
         self.log(logging.ERROR, mesg='Core does not implement _hasBlobValue', name='_hasBlobValue')
         return None
 
-    def _delBlobValu(self, key):
+    def _delBlobValu(self, key):  # pragma: no cover
         self.log(logging.ERROR, mesg='Core does not implement _delBlobValu', name='_delBlobValu')
         return None
 
@@ -2906,7 +2906,11 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             The value from the KV store or the default valu (None).
 
         '''
-        return self._getBlobValu(key, default)
+        buf = self._getBlobValu(key)
+        if buf is None:
+            self.log(logging.WARNING, mesg='Requested key not present in blob store, returning default', name=key)
+            return default
+        return s_common.msgunpack(buf)
 
     # TODO: Wrap this in a userauth layer
     def setBlobValu(self, key, valu):
@@ -2929,7 +2933,9 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         Returns:
             The input value, unchanged.
         '''
-        return self._setBlobValu(key, valu)
+        buf = s_common.msgenpack(valu)
+        self._setBlobValu(key, buf)
+        return valu
 
     # TODO: Wrap this in a userauth layer
     def hasBlobValu(self, key):
@@ -2961,7 +2967,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         '''
         if not self.hasBlobValu(key):
             raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
-        return self._delBlobValu(key)
+        buf = self._delBlobValu(key)
+        return s_common.msgunpack(buf)
 
 class CoreXact:
     '''
