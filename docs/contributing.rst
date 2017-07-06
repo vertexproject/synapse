@@ -226,7 +226,7 @@ The following items should be considered when contributing to Synapse:
     # Not this
     foo(a='a', b='b', duck='quacker')
 
-* Avoid the use of @property decorators. They do not reliable work over the
+* Avoid the use of @property decorators. They do not reliably work over the
   telepath RMI.
 * Logging should be setup on a per-module basis, with loggers created using
   calls to logging.getLogger(__name__).  This allows for module level control

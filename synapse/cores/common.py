@@ -2036,7 +2036,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             self.delTufoDset(tufo, name)
 
         if self.caching:
-            for prop, valu in tufo[1].items():
+            for prop, valu in list(tufo[1].items()):
                 self._bumpTufoCache(tufo, prop, valu, None)
 
         iden = tufo[0]

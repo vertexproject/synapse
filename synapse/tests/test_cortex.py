@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 
 import os
+import hashlib
 import binascii
 import tempfile
 import unittest
@@ -1143,12 +1144,17 @@ class CortexTest(SynTest):
             tufs1 = core.getTufosByProp('foo:qwer', valu=10)
             tufs2 = core.getTufosByProp('foo:qwer', valu=11)
 
+            # Ensure we have cached the tufos we're deleting.
+            self.nn(core.cache_byiden.get(tufo0[0]))
+            self.nn(core.cache_byiden.get(tufo1[0]))
+
             self.eq(len(tufs0), 2)
             self.eq(len(tufs1), 2)
             self.eq(len(tufs2), 0)
 
+            # Delete an uncached object - here the tufo contents was cached
+            # during lifts but the object itself is a different tuple id()
             core.delTufo(tufo0)
-            #tufo2 = core.formTufoByProp('foo','lol', qwer=10)
 
             tufs0 = core.getTufosByProp('foo:qwer')
             tufs1 = core.getTufosByProp('foo:qwer', valu=10)
@@ -1157,6 +1163,11 @@ class CortexTest(SynTest):
             self.eq(len(tufs0), 1)
             self.eq(len(tufs1), 1)
             self.eq(len(tufs2), 0)
+
+            # Delete an object which was actually cached during lift
+            core.delTufo(tufs0[0])
+            tufs0 = core.getTufosByProp('foo:qwer')
+            self.eq(len(tufs0), 0)
 
     def test_cortex_caching_atlimit(self):
 
@@ -1278,6 +1289,26 @@ class CortexTest(SynTest):
 
             self.true(tufo0[1].get('.new'))
             self.false(tufo1[1].get('.new'))
+
+    def test_cortex_caching_disable(self):
+
+        with s_cortex.openurl('ram://') as core:
+
+            core.setConfOpt('caching', 1)
+
+            tufo = core.formTufoByProp('foo', 'bar')
+
+            self.nn(core.cache_byiden.get(tufo[0]))
+            self.nn(core.cache_bykey.get(('foo', 'bar', 1)))
+            self.nn(core.cache_byprop.get(('foo', 'bar')))
+            self.eq(len(core.cache_fifo), 1)
+
+            core.setConfOpt('caching', 0)
+
+            self.none(core.cache_byiden.get(tufo[0]))
+            self.none(core.cache_bykey.get(('foo', 'bar', 1)))
+            self.none(core.cache_byprop.get(('foo', 'bar')))
+            self.eq(len(core.cache_fifo), 0)
 
     def test_cortex_reqstor(self):
         with s_cortex.openurl('ram://') as core:
@@ -1704,10 +1735,14 @@ class CortexTest(SynTest):
             self.eq(s_tufo.ival(node, '#foo.bar'), None)
 
     def test_cortex_rev0(self):
-
         path = getTestPath('rev0.db')
         with open(path, 'rb') as fd:
             byts = fd.read()
+
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = '50cae022b296e0c2b61fd6b101c4fdaf'
+        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
 
         with self.getTestDir() as temp:
 

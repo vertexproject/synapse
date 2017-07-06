@@ -40,6 +40,21 @@ class CertDir:
     def getUserCert(self, name):
         return self._loadCertPath(self.getUserCertPath(name))
 
+    def getClientCert(self, name):
+        '''
+        Loads the PKCS12 object for a given client certificate.
+
+        Example:
+            mypkcs12 = cdir.getClientCert('mycert')
+
+        Args:
+            name (str): The name of the client certificate.
+
+        Returns:
+            OpenSSL.crypto.PKCS12: The certificate if exists.
+        '''
+        return self._loadP12Path(self.getClientCertPath(name))
+
     def getCaKey(self, name):
         return self._loadKeyPath(self.getCaKeyPath(name))
 
@@ -68,6 +83,16 @@ class CertDir:
             return None
 
         return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+
+    def _loadP12Path(self, path):
+        if path is None:
+            return None
+
+        byts = s_common.getbytes(path)
+        if byts is None:
+            return None
+
+        return crypto.load_pkcs12(byts)
 
     #def saveCaCert(self, cert):
     #def saveUserCert(self, cert):
@@ -98,6 +123,17 @@ class CertDir:
 
         with s_common.genfile(path) as fd:
             fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+
+        return path
+
+    def _saveP12To(self, cert, *paths):
+        path = self.getPathJoin(*paths)
+        if os.path.isfile(path):
+            raise s_common.DupFileName(path=path)
+
+        with s_common.genfile(path) as fd:
+            fd.write(cert.export())
+
         return path
 
     def _savePkeyTo(self, pkey, *paths):
@@ -165,18 +201,12 @@ class CertDir:
 
         pkey, cert = self._genBasePkeyCert(name, pkey=pkey)
 
-        keyuse = [b'digitalSignature']
-        extuse = [b'clientAuth']
-        certtype = b'client'
-
-        ext0 = crypto.X509Extension(b'nsCertType', False, certtype)
-        ext1 = crypto.X509Extension(b'keyUsage', False, b','.join(keyuse))
-
-        extuse = b','.join(extuse)
-        ext2 = crypto.X509Extension(b'extendedKeyUsage', False, extuse)
-        ext3 = crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE')
-
-        cert.add_extensions([ext0, ext1, ext2, ext3])
+        cert.add_extensions([
+            crypto.X509Extension(b'nsCertType', False, b'client'),
+            crypto.X509Extension(b'keyUsage', False, b'digitalSignature'),
+            crypto.X509Extension(b'extendedKeyUsage', False, b'clientAuth'),
+            crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE'),
+        ])
 
         if signas is not None:
             self.signCertAs(cert, signas)
@@ -191,6 +221,19 @@ class CertDir:
         crtpath = self._saveCertTo(cert, 'users', '%s.crt' % name)
         if outp is not None:
             outp.printf('cert saved: %s' % (crtpath,))
+
+        ccert = crypto.PKCS12()
+        ccert.set_friendlyname(name.encode('utf-8'))
+        ccert.set_certificate(cert)
+        ccert.set_privatekey(pkey)
+
+        if signas:
+            cacert = self.getCaCert(signas)
+            ccert.set_ca_certificates([cacert])
+
+        crtpath = self._saveP12To(ccert, 'users', '%s.p12' % name)
+        if outp is not None:
+            outp.printf('client cert saved: %s' % (crtpath,))
 
         return pkey, cert
 
@@ -287,6 +330,24 @@ class CertDir:
             return None
         return path
 
+    def getClientCertPath(self, name):
+        '''
+        Gets the path to a client certificate.
+
+        Example:
+            mypath = cdir.getClientCertPath('mycert')
+
+        Args:
+            name (str): The name of the client certificate.
+
+        Returns:
+            str: The path if exists.
+        '''
+        path = s_common.genpath(self.certdir, 'users', '%s.p12' % name)
+        if not os.path.isfile(path):
+            return None
+        return path
+
     def getUserKeyPath(self, name):
         path = s_common.genpath(self.certdir, 'users', '%s.key' % name)
         if not os.path.isfile(path):
@@ -329,4 +390,20 @@ class CertDir:
 
     def isHostCert(self, name):
         crtpath = self.getPathJoin('hosts', '%s.crt' % name)
+        return os.path.isfile(crtpath)
+
+    def isClientCert(self, name):
+        '''
+        Checks if a client certificate exists.
+
+        Example:
+            exists = cdir.isClientCert('mycert')
+
+        Args:
+            name (str): The name of the client certificate.
+
+        Returns:
+            bool: True if the certificate is present, False otherwise.
+        '''
+        crtpath = self.getPathJoin('users', '%s.p12' % name)
         return os.path.isfile(crtpath)
