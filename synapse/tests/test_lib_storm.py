@@ -52,54 +52,23 @@ class StormTest(SynTest):
             self.eq(node[1].get('inet:netuser'), 'vertex.link/pennywise')
             self.eq(node[1].get('inet:netuser:realname'), 'robert gray')
 
-            # Full prop val syntax
-            node = core.eval('inet:netuser=vertex.link/pennywise setprop(inet:netuser:signup="1970-01-01")')[0]
-            self.eq(node[1].get('inet:netuser'), 'vertex.link/pennywise')
-            self.eq(node[1].get('inet:netuser:signup'), 0)
-
-            # Combined syntax using both relative props and full props together
-            cmd = 'inet:netuser=vertex.link/pennywise setprop(:seen:min="2000", :seen:max="2017", ' \
-                  'inet:netuser:email=pennywise@vertex.link, inet:netuser:signup:ipv4="127.0.0.1")'
+            # Can set multiple props at once
+            cmd = 'inet:netuser=vertex.link/pennywise setprop(:seen:min="2000", :seen:max="2017")'
             node = core.eval(cmd)[0]
             self.nn(node[1].get('inet:netuser:seen:min'))
             self.nn(node[1].get('inet:netuser:seen:max'))
-            self.nn(node[1].get('inet:netuser:signup:ipv4'))
-            self.eq(node[1].get('inet:netuser:email'), 'pennywise@vertex.link')
 
             # old / bad syntax fails
             # kwlist key/val syntax is no longer valid in setprop()
             node = core.formTufoByProp('inet:fqdn', 'vertex.link')
             bad_cmd = 'inet:fqdn=vertex.link setprop(created="2016-05-05",updated="2017/05/05")'
             self.raises(BadSyntaxError, core.eval, bad_cmd)
-            # a full prop which isn't valid for the node is bad
-            bad_cmd = 'inet:fqdn=vertex.link setprop(inet:fqdn:typocreated="2016-05-05")'
-            self.raises(BadSyntaxError, core.eval, bad_cmd)
             # a rel prop which isn't valid for the node is bad
             bad_cmd = 'inet:fqdn=vertex.link setprop(:typocreated="2016-05-05")'
             self.raises(BadSyntaxError, core.eval, bad_cmd)
-
-            # test  possible form confusion
-            modl = {
-                'types': (
-                    ('foo:bar', {'subof': 'str'}),
-                    ('foo:barbaz', {'subof': 'str'})
-                ),
-                'forms': (
-                    ('foo:bar', {'ptype': 'str'}, [
-                        ('blah', {'ptype': 'str'})
-                    ]),
-                    ('foo:barbaz', {'ptype': 'str'}, [
-                        ('blah', {'ptype': 'str'})
-                    ]),
-                )
-            }
-            core.addDataModel('form_confusion', modl)
-            node = core.formTufoByProp('foo:bar', 'hehe')
-            core.addTufoTag(node, 'confusion')
-            node = core.formTufoByProp('foo:barbaz', 'haha')
-            core.addTufoTag(node, 'confusion')
-            node = core.eval('''#confusion setprop(foo:barbaz:blah=duck) +foo:barbaz''')[0]
-            self.eq(node[1].get('foo:barbaz:blah'), 'duck')
+            # full prop syntax is not acceptable
+            bad_cmd = 'inet:netuser=vertex.link/pennywise setprop(inet:netuser:signup="1970-01-01")'
+            self.raises(BadSyntaxError, core.eval, bad_cmd)
 
     def test_storm_filt_regex(self):
 
