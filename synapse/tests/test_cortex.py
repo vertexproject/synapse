@@ -504,6 +504,8 @@ class CortexTest(SynTest):
             self.eq(item['foo']['blah'][0], 99)
 
     def runblob(self, core):
+        # Do we have default cortex blob values?
+        self.true(core.hasBlobValu('syn:core:type'))
 
         kvs = (
             ('syn:meta', 1),
@@ -515,12 +517,16 @@ class CortexTest(SynTest):
             ('knight:has:current_queue', None),
         )
 
+        # Basic store / retrieve tests
         for k, v in kvs:
             r = core.setBlobValu(k, v)
             self.eq(v, r)
-
+            self.true(core.hasBlobValu(k))
         for k, v in kvs:
             self.eq(core.getBlobValu(k), v)
+
+        # Missing a value
+        self.false(core.hasBlobValu('syn:totallyfake'))
 
         # update a value and get the updated value back
         self.eq(core.getBlobValu('syn:meta'), 1)
@@ -536,10 +542,16 @@ class CortexTest(SynTest):
         for obj in [object, set(testv), self.eq]:
             self.raises(TypeError, core.setBlobValu, 'test:bad', obj)
 
-        # Ensure that trying to get a value which doesn't exist fails.
-        self.raises(NoSuchName, core.getBlobValu, 'test:bad')
+        # Ensure that trying to get a value which doesn't exist returns None.
+        self.true(core.getBlobValu('test:bad') is None)
         # but does work is a default value is provided!
         self.eq(core.getBlobValu('test:bad', 123456), 123456)
+
+        # Ensure we can delete items from the store
+        self.eq(core.delBlobValu('test:list'), tuple(testv))
+        self.false(core.hasBlobValu('test:list'))
+        # And deleting a value which doesn't exist raises a NoSuchName
+        self.raises(NoSuchName, core.delBlobValu, 'test:deleteme')
 
     def test_pg_encoding(self):
         with self.getPgCore() as core:

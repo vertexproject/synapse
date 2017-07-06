@@ -163,14 +163,6 @@ class Cortex(s_cores_sqlite.Cortex):
     def _getCoreType(self):
         return 'postgres'
 
-    def _getBlobValuRows(self, key):
-        '''Eat specific exceptions in order to return the default value'''
-        try:
-            rows = self.select(self._q_blob_get, key=key)
-        except self._psycopg2.ProgrammingError as e:
-            return None
-        return rows
-
     def _packBlobValu(self, valu):
         v = s_common.msgenpack(valu)
         v = s_compat.bytesToMem(v)

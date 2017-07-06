@@ -41,7 +41,7 @@ class Cortex(s_cores_common.Cortex):
         self.initSizeBy('range', self._sizeByRange)
         self.initRowsBy('range', self._rowsByRange)
 
-        self._blob_store = {}
+        self._blob_store = {'syn:core:type': self._getCoreType()}
 
     def _getCoreXact(self, size=None):
         return CoreXact(self, size=size)
@@ -184,11 +184,10 @@ class Cortex(s_cores_common.Cortex):
         return 'ram'
 
     def _getBlobValu(self, key, default):
-        v = self._blob_store.get(key, default)
+        v = self._blob_store.get(key, s_common.novalu)
         if v is s_common.novalu:
-            raise s_common.NoSuchName(name=key, mesg='Blob store has no such key present.')
-        if v == default:
-            return v
+            self.log(logging.WARNING, mesg='Requested key not present in blob store', name=key)
+            return default
         ret = s_common.msgunpack(v)
         return ret
 
@@ -197,6 +196,14 @@ class Cortex(s_cores_common.Cortex):
         self.log(logging.WARNING, mesg=mesg, key=key, valu=valu)
         self._blob_store[key] = s_common.msgenpack(valu)
         return valu
+
+    def _hasBlobValu(self, key):
+        return key in self._blob_store
+
+    def _delBlobValu(self, key):
+        v = self._blob_store.pop(key)
+        ret = s_common.msgunpack(v)
+        return ret
 
 ramcores = {}
 

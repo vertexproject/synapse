@@ -124,6 +124,7 @@ class Cortex(s_cores_common.Cortex):
     ################################################################################
     _t_blob_set = 'INSERT OR REPLACE INTO {{BLOB_TABLE}} (k, v) VALUES ({{KEY}}, {{VALU}})'
     _t_blob_get = 'SELECT v FROM {{BLOB_TABLE}} WHERE k={{KEY}}'
+    _t_blob_del = 'DELETE FROM {{BLOB_TABLE}} WHERE k={{KEY}}'
 
     ################################################################################
     _t_getrows_by_prop = 'SELECT * FROM {{TABLE}} WHERE prop={{PROP}} LIMIT {{LIMIT}}'
@@ -380,6 +381,7 @@ class Cortex(s_cores_common.Cortex):
 
         self._q_blob_get = self._prepBlobQuery(self._t_blob_get)
         self._q_blob_set = self._prepBlobQuery(self._t_blob_set)
+        self._q_blob_del = self._prepBlobQuery(self._t_blob_del)
 
         ###################################################################################
         self._q_getrows_by_prop = self._prepQuery(self._t_getrows_by_prop)
@@ -551,20 +553,17 @@ class Cortex(s_cores_common.Cortex):
             self.setBlobValu('syn:core:type', self.getCoreType())
             return
 
-        self._revCorVers(revs)
-
-    def _rev0(self):
-        table = self._getTableName()
+        # Strap in the blobstore if it doesn't exist - this allows us to have
+        # a helper which doesn't have to care about queries agianst a table
+        # which may not exist.
         blob_table = table + '_blob'
+        if not self._checkForTable(blob_table):
+            with self.getCoreXact() as xact:
+                xact.cursor.execute(self._q_init_blobtable)
+                xact.cursor.execute(self._q_init_blobtable_idx)
 
-        if self._checkForTable(blob_table):
-            return
-
-        with self.getCoreXact() as xact:
-            xact.cursor.execute(self._q_init_blobtable)
-            xact.cursor.execute(self._q_init_blobtable_idx)
-
-        self.setBlobValu('syn:core:type', self.getCoreType())
+        # Apply storage layer revisions
+        self._revCorVers(revs)
 
     def _revCorVers(self, revs):
         '''
@@ -580,8 +579,8 @@ class Cortex(s_cores_common.Cortex):
         '''
         if not revs:
             return
-        vsn_str = 'syn:core:{}:version'.format(self.getCoreType())
-        curv = self.getBlobValu(vsn_str, -1)
+        vsn_str = 'syn:core:{}:version'.format(self._getCoreType())
+        curv = self._getBlobValu(vsn_str, -1)
 
         maxver = revs[-1][0]
         if maxver == curv:
@@ -598,14 +597,14 @@ class Cortex(s_cores_common.Cortex):
 
             # allow the revision function to optionally return the
             # revision he jumped to ( to allow initial override )
-            mesg = 'Warning - storage layer update occuring. Do not interrupt. [{}] => [{}]'.format(curv, vers)
+            mesg = 'Warning - storage layer update occurring. Do not interrupt. [{}] => [{}]'.format(curv, vers)
             logger.warning(mesg)
             retn = func()
             logger.warning('Storage layer update completed.')
             if retn is not None:
                 vers = retn
 
-            curv = self.setBlobValu(vsn_str, vers)
+            curv = self._setBlobValu(vsn_str, vers)
 
     def _initCorTable(self, name):
         with self.getCoreXact() as xact:
@@ -616,6 +615,10 @@ class Cortex(s_cores_common.Cortex):
             xact.cursor.execute(self._q_init_intval_idx)
             xact.cursor.execute(self._q_init_blobtable)
             xact.cursor.execute(self._q_init_blobtable_idx)
+
+    def _rev0(self):
+        # Simple rev0 function stub.
+        self.setBlobValu('syn:core:type', self._getCoreType())
 
     def _addRows(self, rows):
         args = []
@@ -762,8 +765,7 @@ class Cortex(s_cores_common.Cortex):
         rows = self._getBlobValuRows(key)
 
         if not rows:
-            if default is s_common.novalu:
-                raise s_common.NoSuchName(name=key, mesg='Blob store has no such key present.')
+            self.log(logging.WARNING, mesg='Blob store has no such key present, returning default.', name=key)
             return default
 
         if len(rows) > 1:  # pragma: no cover
@@ -773,11 +775,7 @@ class Cortex(s_cores_common.Cortex):
         return ret
 
     def _getBlobValuRows(self, key):
-        '''Eat specific exceptions in order to return the default value'''
-        try:
-            rows = self.select(self._q_blob_get, key=key)
-        except sqlite3.OperationalError as e:
-            return None
+        rows = self.select(self._q_blob_get, key=key)
         return rows
 
     def _packBlobValu(self, valu):
@@ -791,3 +789,21 @@ class Cortex(s_cores_common.Cortex):
         v = self._packBlobValu(valu)
         self.update(self._q_blob_set, key=key, valu=v)
         return valu
+
+    def _hasBlobValu(self, key):
+        rows = self._getBlobValuRows(key)
+
+        if len(rows) > 1:  # pragma: no cover
+            raise s_common.BadCoreStore(store=self.getCoreType(), mesg='Too many blob rows received.')
+
+        if not rows:
+            return False
+        return True
+
+    def _delBlobValu(self, key):
+        ret = self._getBlobValu(key, s_common.novalu)
+        if ret is s_common.novalu:  # pragma: no cover
+            # We should never get here, but if we do, throw an exception.
+            raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
+        self.delete(self._q_blob_del, key=key)
+        return ret

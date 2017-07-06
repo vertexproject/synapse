@@ -2863,10 +2863,20 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         return self._initTufoSnap(idens)
 
     def _getBlobValu(self, key, default):  # pragma: no cover
-        raise s_common.NoSuchImpl(name='_getBlobValu', mesg='Core does not implement _getBlobValu')
+        self.log(logging.ERROR, mesg='Core does not implement _getBlobValu', name='_getBlobValu')
+        return None
 
     def _setBlobValu(self, key, valu):  # pragma: no cover
-        raise s_common.NoSuchImpl(name='_setBlobValu', mesg='Core does not implement _setBlobValu')
+        self.log(logging.ERROR, mesg='Core does not implement _setBlobValu', name='_setBlobValu')
+        return None
+
+    def _hasBlobValu(self, key):
+        self.log(logging.ERROR, mesg='Core does not implement _hasBlobValue', name='_hasBlobValue')
+        return None
+
+    def _delBlobValu(self, key):
+        self.log(logging.ERROR, mesg='Core does not implement _delBlobValu', name='_delBlobValu')
+        return None
 
     def _getCoreType(self):  # pragma: no cover
         raise s_common.NoSuchImpl(name='getCoreType', mesg='Core does not implement getCoreType')
@@ -2875,7 +2885,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         return self._getCoreType()
 
     # TODO: Wrap this in a userauth layer
-    def getBlobValu(self, key, default=s_common.novalu):
+    def getBlobValu(self, key, default=None):
         '''
         Get a value from the blob key/value (KV) store.
 
@@ -2890,20 +2900,10 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         Args:
             key (str): Value to retrieve
-            default: Optional Value to return if the key is not present in the
-                     KV store.  By convention, the Cortex implementation should
-                     not set the requested value to the default upon a missing
-                     key, as this mechanism may be used to provide for
-                     bootstrapping changes at the storage layer of a Cortex.
+            default: Value returned if the key is not present in the blob store.
 
         Returns:
-            The value from the KV store or the default valu if set.
-
-        Raises:
-            NoSuchImpl: If the storage layer does not implement the blob KV
-                        store.
-            NoSuchName: If the KV store does not contain the requested key and
-                        no default is provided.
+            The value from the KV store or the default valu (None).
 
         '''
         return self._getBlobValu(key, default)
@@ -2922,7 +2922,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             Data which is stored in the KV store is msgpacked, so caveats with
             that apply.
 
-
         Args:
             key (str): Name of the value to store.
             valu: Value to store in the KV store.
@@ -2931,6 +2930,39 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             The input value, unchanged.
         '''
         return self._setBlobValu(key, valu)
+
+    # TODO: Wrap this in a userauth layer
+    def hasBlobValu(self, key):
+        '''
+        Check the blob store to see if a key is present.
+
+        Args:
+            key (str): Key to check
+
+        Returns:
+            bool: If the key is present, returns True, otherwise False.
+
+        '''
+        return self._hasBlobValu(key)
+
+    # TODO: Wrap this in a userauth layer
+    def delBlobValu(self, key):
+        '''
+        Remove and return a value from the blob store.
+
+        Args:
+            key (str): Key to remove.
+
+        Returns:
+            Content in the blob store for a given key.
+
+        Raises:
+            NoSuclhName: If the key is not present in the store.
+
+        '''
+        if not self.hasBlobValu(key):
+            raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
+        return self._delBlobValu(key)
 
 class CoreXact:
     '''
