@@ -28,9 +28,13 @@ s_scope.get('plex')
 
 class TooFewEvents(Exception): pass
 
-TestSSLInvalidClientCert = ssl.SSLError
-if s_compat.version < (3, 0, 0):
-    TestSSLInvalidClientCert = socket.error
+# Py2/3 SSL Exception Compat
+if s_compat.version >= (3, 0, 0):
+    TestSSLInvalidClientCertErr = ssl.SSLError
+    TestSSLConnectionResetErr = ConnectionResetError
+else:
+    TestSSLInvalidClientCertErr = socket.error
+    TestSSLConnectionResetErr = socket.error
 
 class TestEnv:
 

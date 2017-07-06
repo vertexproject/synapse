@@ -124,7 +124,8 @@ class WebAppTest(AsyncTestCase, SynTest):
 
             client = AsyncHTTPClient(self.io_loop)
             port = wapp.getServBinds()[0][1]
-            url = 'https://127.0.0.1:%d/v1/bar' % port
+            http_url = 'http://127.0.0.1:%d/v1/bar' % port
+            https_url = 'https://127.0.0.1:%d/v1/bar' % port
             user_key = cdir.getUserKeyPath('visi@vertex.link')
             user_cert = cdir.getUserCertPath('visi@vertex.link')
             client_opts = {
@@ -133,16 +134,20 @@ class WebAppTest(AsyncTestCase, SynTest):
                 'client_cert': user_cert
             }
 
+            # Assert that the request fails w/ http protocol
+            with self.raises(TestSSLConnectionResetErr):
+                resp = yield client.fetch(http_url)
+
             # Assert that the request fails w/ no client SSL config
             with self.raises(ssl.SSLError):
-                resp = yield client.fetch(url)
+                resp = yield client.fetch(https_url)
 
             # Assert that the request fails w/ no client SSL config, even if client does not validate cert
             # (server must also validate client cert)
-            with self.raises(TestSSLInvalidClientCert):
-                resp = yield client.fetch(url, validate_cert=False)
+            with self.raises(TestSSLInvalidClientCertErr):
+                resp = yield client.fetch(https_url, validate_cert=False)
 
-            resp = yield client.fetch(url, **client_opts)
+            resp = yield client.fetch(https_url, **client_opts)
             resp = json.loads(resp.body.decode('utf-8'))
 
             self.eq(resp.get('ret'), 'baz')
