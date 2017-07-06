@@ -1,12 +1,13 @@
-
+import ssl
 import json
 
 from tornado.httpclient import HTTPError
 from tornado.testing import gen_test, AsyncTestCase, AsyncHTTPClient
 
 import synapse.cortex
-import synapse.datamodel as s_datamodel
 import synapse.lib.webapp as s_webapp
+import synapse.datamodel as s_datamodel
+import synapse.lib.certdir as s_certdir
 
 from synapse.tests.common import *
 
@@ -63,6 +64,9 @@ class WebAppTest(AsyncTestCase, SynTest):
     @gen_test
     def test_webapp_body(self):
 
+        # tornado does not support windows (yet)
+        self.thisHostMustNot(platform='windows')
+
         class Haha:
             def bar(self, hehe, body=None):
                 return (hehe, body.decode('utf8'))
@@ -87,3 +91,61 @@ class WebAppTest(AsyncTestCase, SynTest):
         self.eq(tuple(resp.get('ret')), ('visi', 'GRONK'))
 
         wapp.fini()
+
+    @gen_test
+    def test_webapp_ssl(self):
+
+        # tornado does not support windows (yet)
+        self.thisHostMustNot(platform='windows')
+
+        foo = Foo()
+
+        with self.getTestDir() as dirname:
+
+            cdir = s_certdir.CertDir(path=dirname)
+
+            cdir.genCaCert('syntest') # Generate a new CA
+            cdir.genUserCert('visi@vertex.link', signas='syntest')  # Generate a new user cert and key, signed by the new CA
+            cdir.genHostCert('localhost', signas='syntest')  # Generate a new server cert and key, signed by the new CA
+
+            ca_cert = cdir.getCaCertPath('syntest')
+            host_key = cdir.getHostKeyPath('localhost')
+            host_cert = cdir.getHostCertPath('localhost')
+
+            ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            ssl_ctx.verify_mode = ssl.CERT_REQUIRED
+            ssl_ctx.load_cert_chain(host_cert, host_key)
+            ssl_ctx.load_verify_locations(ca_cert)
+            srv_config = {'ssl_options': ssl_ctx}
+
+            wapp = s_webapp.WebApp(srv_config=srv_config)
+            wapp.listen(0, host='127.0.0.1')
+            wapp.addApiPath('/v1/bar', foo.bar)
+
+            client = AsyncHTTPClient(self.io_loop)
+            port = wapp.getServBinds()[0][1]
+            url = 'https://127.0.0.1:%d/v1/bar' % port
+            user_key = cdir.getUserKeyPath('visi@vertex.link')
+            user_cert = cdir.getUserCertPath('visi@vertex.link')
+            client_opts = {
+                'ca_certs': ca_cert,
+                'client_key': user_key,
+                'client_cert': user_cert
+            }
+
+            # Assert that the request fails w/ no client SSL config
+            with self.raises(ssl.SSLError):
+                resp = yield client.fetch(url)
+
+            # Assert that the request fails w/ no client SSL config, even if client does not validate cert
+            # (server must also validate client cert)
+            with self.raises(ssl.SSLError):
+                resp = yield client.fetch(url, validate_cert=False)
+
+            resp = yield client.fetch(url, **client_opts)
+            resp = json.loads(resp.body.decode('utf-8'))
+
+            self.eq(resp.get('ret'), 'baz')
+            self.eq(resp.get('status'), 'ok')
+
+            wapp.fini()

@@ -102,14 +102,14 @@ class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf):
         wapp.main()
 
     '''
-    def __init__(self, **settings):
+    def __init__(self, app_config={}, srv_config={}):
+
         EventBus.__init__(self)
         s_daemon.DmonConf.__init__(self)
-        tornado.web.Application.__init__(self, **settings)
+        tornado.web.Application.__init__(self, **app_config)
 
         self.loop = tornado.ioloop.IOLoop()
-        self.serv = tornado.httpserver.HTTPServer(self)
-
+        self.serv = tornado.httpserver.HTTPServer(self, **srv_config)
         self.boss = s_async.Boss()
 
         # FIXME options
