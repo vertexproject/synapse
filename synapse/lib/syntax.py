@@ -17,7 +17,7 @@ tagfilt = varset.union({'#', '*', '@'})
 alphaset = set('abcdefghijklmnopqrstuvwxyz')
 
 # this may be used to meh() potentially unquoted values
-valmeh = whites.union({'(',')','=',','})
+valmeh = whites.union({'(',')','=',',','[',']'})
 
 def nom(txt, off, cset, trim=True):
     '''

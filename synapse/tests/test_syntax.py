@@ -93,3 +93,8 @@ class StormSyntaxTest(SynTest):
 
         valu,off = s_syntax.parse_valu('(   foo   ,    bar   ,   baz    =     faz    )')
         self.eq( valu, ['foo','bar',('baz','faz')] )
+
+    def test_storm_syntax_edit(self):
+        inst0 = s_syntax.parse('[inet:ipv4=127.0.0.1 inet:ipv4=127.0.0.2]')
+        inst1 = s_syntax.parse('   [   inet:ipv4   =    127.0.0.1  inet:ipv4   =   127.0.0.2   ]   ')
+        self.eq(inst0,inst1)
