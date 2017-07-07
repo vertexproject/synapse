@@ -1847,6 +1847,77 @@ class CortexTest(SynTest):
             node = core.eval('inet:ipv4=1.2.3.4')[0]
             self.eq(s_tufo.ival(node, '#foo.bar'), None)
 
+    def test_cortex_rev0_savefd(self):
+        path = getTestPath('rev0.msgpk')
+
+        with open(path, 'rb') as fd:
+            byts = fd.read()
+
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = '5f724ba09c719e1f83454431b516e429'
+        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
+
+        with self.getTestDir() as temp:
+
+            savefp = os.path.join(temp, 'test.msgpk')
+            with open(savefp, 'wb') as f:
+                f.write(byts)
+
+            with s_cortex.openurl('ram:///', savefile=savefp) as core:
+                node = core.formTufoByProp('inet:ipv4', '1.2.3.4')
+                self.notin('.new', node[1])
+                self.true(core.hasBlobValu('syn:core:created'))
+                self.false(core.isnew)
+
+    def test_cortex_rev0_savefd_sqlite(self):
+        path = getTestPath('rev0.msgpk')
+
+        with open(path, 'rb') as fd:
+            byts = fd.read()
+
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = '5f724ba09c719e1f83454431b516e429'
+        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
+
+        with self.getTestDir() as temp:
+
+            savefp = os.path.join(temp, 'test.msgpk')
+            with open(savefp, 'wb') as f:
+                f.write(byts)
+
+            with s_cortex.openurl('sqlite://:memory:', savefile=savefp) as core:
+                node = core.formTufoByProp('inet:ipv4', '1.2.3.4')
+                self.notin('.new', node[1])
+                self.true(core.hasBlobValu('syn:core:created'))
+                self.true(core.hasBlobValu('syn:core:sqlite:version'))
+                self.false(core.isnew)
+
+    def test_cortex_rev0_savefd_psql(self):
+        path = getTestPath('rev0.msgpk')
+
+        with open(path, 'rb') as fd:
+            byts = fd.read()
+
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = '5f724ba09c719e1f83454431b516e429'
+        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
+
+        with self.getTestDir() as temp:
+
+            savefp = os.path.join(temp, 'test.msgpk')
+            with open(savefp, 'wb') as f:
+                f.write(byts)
+
+            with self.getPgCore(savefile=savefp) as core:
+                node = core.formTufoByProp('inet:ipv4', '1.2.3.4')
+                self.notin('.new', node[1])
+                self.true(core.hasBlobValu('syn:core:created'))
+                self.true(core.hasBlobValu('syn:core:postgres:version'))
+                self.false(core.isnew)
+
     def test_cortex_rev0(self):
         path = getTestPath('rev0.db')
         with open(path, 'rb') as fd:
@@ -1865,7 +1936,6 @@ class CortexTest(SynTest):
                 fd.write(byts)
 
             with s_cortex.openurl('sqlite:///%s' % finl) as core:
-
                 node = core.eval('inet:ipv4=1.2.3.4')[0]
 
                 self.nn(node[1].get('#foo.bar'))

@@ -194,6 +194,9 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         for evtname, info in _blobMesgCache:
             self.loadbus.fire(evtname, **info)
 
+        if not self.hasBlobValu('syn:core:created'):
+            self.setBlobValu('syn:core:created', s_common.now())
+
         self.isok = True
 
         DataModel.__init__(self, load=False)
@@ -208,8 +211,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         self.myfo = self.formTufoByProp('syn:core', 'self')
         self.isnew = self.myfo[1].get('.new', False)
-        if self.isnew and not self.hasBlobValu('syn:core:created'):
-            self.setBlobValu('syn:core:created', s_common.now())
 
         self.modelrevlist = []
         with self.getCoreXact() as xact:

@@ -140,7 +140,7 @@ class SynTest(unittest.TestCase):
         conn = psycopg2.connect(**dbinfo)
         return conn
 
-    def getPgCore(self, table='', persist=False):
+    def getPgCore(self, table='', persist=False, **opts):
         '''
         Get a Postgresql backed Cortex.
 
@@ -160,6 +160,7 @@ class SynTest(unittest.TestCase):
             table (str): The PSQL table name to use.  If the table name is not provided
                          by URL or argument; a random table name will be created.
             persist (bool): If set to True, keep the tables created by the Cortex creation.
+            opts: Additional options passed to openlink call.
 
         Returns:
             A PSQL backed cortex.
@@ -173,7 +174,7 @@ class SynTest(unittest.TestCase):
 
         if not table:
             table = 'syn_test_%s' % guid()
-        core = s_cortex.openurl('postgres://%s/%s' % (db, table))
+        core = s_cortex.openurl('postgres://%s/%s' % (db, table), **opts)
 
         def droptable():
             with core.getCoreXact() as xact:
