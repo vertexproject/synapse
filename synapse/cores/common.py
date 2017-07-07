@@ -915,6 +915,13 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
               If you want to store cortex splice events, use addSpliceFd().
 
         '''
+        self._setSaveFd(fd, load, fini)
+
+    def _setSaveFd(self, fd, load=True, fini=False):
+        '''
+        The default implementation of savefile for a Cortex.
+        This may be overridden by a storage layer.
+        '''
         if load:
             for mesg in s_common.msgpackfd(fd):
                 self.loadbus.dist(mesg)

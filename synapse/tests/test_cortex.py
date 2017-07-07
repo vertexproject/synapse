@@ -754,23 +754,57 @@ class CortexTest(SynTest):
         fd = s_compat.BytesIO()
         core0 = s_cortex.openurl('ram://', savefd=fd)
 
+        self.true(core0.isnew)
+        myfo0 = core0.myfo[0]
+
         t0 = core0.formTufoByProp('foo', 'one', baz='faz')
         t1 = core0.formTufoByProp('foo', 'two', baz='faz')
 
         core0.setTufoProps(t0, baz='gronk')
 
         core0.delTufoByProp('foo', 'two')
+        # Try persisting an blob store value
+        core0.setBlobValu('syn:test', 1234)
+        self.eq(core0.getBlobValu('syn:test'), 1234)
         core0.fini()
 
         fd.seek(0)
 
         core1 = s_cortex.openurl('ram://', savefd=fd)
+
+        self.false(core1.isnew)
+        myfo1 = core1.myfo[0]
+        self.eq(myfo0, myfo1)
+
         self.none(core1.getTufoByProp('foo', 'two'))
 
         t0 = core1.getTufoByProp('foo', 'one')
         self.nn(t0)
 
         self.eq(t0[1].get('foo:baz'), 'gronk')
+
+        # Retreive the stored blob value
+        self.eq(core1.getBlobValu('syn:test'), 1234)
+
+        fd.seek(0)
+
+        core2 = s_cortex.openurl('sqlite:///:memory:', savefd=fd)
+
+        self.false(core2.isnew)
+        myfo2 = core2.myfo[0]
+        self.eq(myfo0, myfo2)
+
+        self.none(core2.getTufoByProp('foo', 'two'))
+
+        t0 = core2.getTufoByProp('foo', 'one')
+        self.nn(t0)
+
+        self.eq(t0[1].get('foo:baz'), 'gronk')
+
+        # The blob valu from the ram savefile should not be moved to the sqlite cortex
+        self.none(core2.getBlobValu('syn:test'))
+
+        core2.fini()
 
     def test_cortex_stats(self):
         rows = [
