@@ -34,7 +34,9 @@ class WebAppTest(AsyncTestCase, SynTest):
         self.thisHostMustNot(platform='windows')
         foo = Foo()
 
-        wapp = s_webapp.WebApp()
+        wapp = s_webapp.WebApp(boss_minsize=13, boss_maxsize=37)
+        self.eq(wapp.boss.pool._pool_maxsize, 37)
+
         wapp.listen(0, host='127.0.0.1')
         wapp.addApiPath('/v1/horked', foo.horked)
         wapp.addApiPath('/v1/addup/([0-9]+)', foo.addup)

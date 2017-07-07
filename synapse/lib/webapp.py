@@ -102,7 +102,7 @@ class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf):
         wapp.main()
 
     '''
-    def __init__(self, app_config=None, srv_config=None):
+    def __init__(self, app_config=None, srv_config=None, **settings):
 
         if not app_config:
             app_config = {}
@@ -118,8 +118,9 @@ class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf):
         self.serv = tornado.httpserver.HTTPServer(self, **srv_config)
         self.boss = s_async.Boss()
 
-        # FIXME options
-        self.boss.runBossPool(8, maxsize=128)
+        boss_minsize = settings.get('boss_minsize', 8)
+        boss_maxsize = settings.get('boss_maxsize', 128)
+        self.boss.runBossPool(boss_minsize, maxsize=boss_maxsize)
 
         self.iothr = self._runWappLoop()
 
