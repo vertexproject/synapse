@@ -36,12 +36,12 @@ class WebAppTest(AsyncTestCase, SynTest):
 
         conf = {
             'boss': {
-                'minsize': 13,
-                'maxsize': 37
+                'minsize': 1,
+                'maxsize': 2
             }
         }
         wapp = s_webapp.WebApp(**conf)
-        self.eq(wapp.boss.pool._pool_maxsize, 37)
+        self.eq(wapp.boss.pool._pool_maxsize, 2)
 
         wapp.listen(0, host='127.0.0.1')
         wapp.addApiPath('/v1/horked', foo.horked)

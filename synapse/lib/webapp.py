@@ -83,7 +83,7 @@ class BaseHand(tornado.web.RequestHandler):
         self.write(retinfo)
         self.finish()
 
-class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf, s_config.Configable):
+class WebApp(tornado.web.Application, s_daemon.DmonConf, s_config.Config):
     '''
     The WebApp class allows easy publishing of python methods as HTTP APIs.
 
@@ -104,9 +104,8 @@ class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf, s_config.Conf
 
     '''
     def __init__(self, **conf):
-        EventBus.__init__(self)
+        s_config.Config.__init__(self)
         s_daemon.DmonConf.__init__(self)
-        s_config.Configable.__init__(self)
 
         app_config = conf.get('app', {})
         srv_config = conf.get('server', {})
