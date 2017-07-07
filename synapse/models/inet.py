@@ -332,7 +332,7 @@ class InetMod(CoreModule):
                     'inet:cidr4',
                     {'ctor': 'synapse.models.inet.CidrType', 'doc': 'An IPv4 CIDR type', 'ex': '1.2.3.0/24'}),
 
-                ('inet:urlfile', {'subof': 'comp', 'types': 'inet:url,file:bytes', 'names': 'url,file',
+                ('inet:urlfile', {'subof': 'comp', 'fields':'url=inet:url,file=file:bytes',
                                   'doc': 'A File at a Universal Resource Locator (URL)'}),
                 ('inet:net4',
                  {'subof': 'sepr', 'sep': '-', 'fields': 'min,inet:ipv4|max,inet:ipv4', 'doc': 'An IPv4 address range',

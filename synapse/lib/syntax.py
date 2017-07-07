@@ -56,6 +56,15 @@ def meh(txt, off, cset):
 def is_literal(text, off):
     return text[off] in '("0123456789'
 
+def parse_literal(text, off, trim=True):
+    if text[off] == '(':
+        return parse_list(text, off, trim=trim)
+
+    if text[off] == '"':
+        return parse_string(text, off, trim=trim)
+
+    return parse_int(text, off, trim=trim)
+
 def parse_int(text, off, trim=True):
     numstr, off = nom(text, off, intset, trim=trim)
     try:
@@ -238,7 +247,7 @@ def parse_opts(text, off=0):
     name, off = nom(text, off, varset, trim=True)
 
     if nextchar(text, off, '='):
-        valu, off = parse_valu(text, off + 1, trim=True)
+        valu, off = parse_valu(text, off + 1)
 
     inst[1]['kwlist'].append((name, valu))
     return inst, off
@@ -375,6 +384,8 @@ def parse_valu(text, off=0):
     '''
     Special syntax for the right side of equals in a macro
     '''
+    _, off = nom(text,off,whites)
+
     if nextchar(text, off, '('):
         return parse_list(text, off)
 
