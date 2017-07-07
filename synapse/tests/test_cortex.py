@@ -829,7 +829,7 @@ class CortexTest(SynTest):
 
         # Ensure the storage layer init events persisted across savefile reload
         core3 = s_cortex.openurl('ram://', savefd=fd)
-        core3.hasBlobValu('syn:core:sqlite:version')
+        self.ge(core3.hasBlobValu('syn:core:sqlite:version'), 0)
 
     def test_cortex_stats(self):
         rows = [
