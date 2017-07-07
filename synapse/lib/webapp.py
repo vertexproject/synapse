@@ -102,7 +102,13 @@ class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf):
         wapp.main()
 
     '''
-    def __init__(self, app_config={}, srv_config={}):
+    def __init__(self, app_config=None, srv_config=None):
+
+        if not app_config:
+            app_config = {}
+
+        if not srv_config:
+            srv_config = {}
 
         EventBus.__init__(self)
         s_daemon.DmonConf.__init__(self)
