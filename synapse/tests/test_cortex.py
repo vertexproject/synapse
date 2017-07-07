@@ -1887,7 +1887,7 @@ class CortexTest(SynTest):
             with open(savefp, 'wb') as f:
                 f.write(byts)
 
-            with s_cortex.openurl('sqlite://:memory:', savefile=savefp) as core:
+            with s_cortex.openurl('sqlite:///:memory:', savefile=savefp) as core:
                 node = core.formTufoByProp('inet:ipv4', '1.2.3.4')
                 self.notin('.new', node[1])
                 self.true(core.hasBlobValu('syn:core:created'))
