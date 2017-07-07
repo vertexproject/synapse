@@ -169,11 +169,15 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.addStatFunc('count', self._calcStatCount)
         self.addStatFunc('histo', self._calcStatHisto)
 
+        # Cache blob save mesgs which may be fired during storage layer init
+        _blobMesgCache = []
+        self.savebus.on('syn:core:blob:set', _blobMesgCache.append)
+        self.savebus.on('syn:core:blob:del', _blobMesgCache.append)
+        # Initialize the storage layer
         self._initCoreStor()
-
-        DataModel.__init__(self, load=False)
-
-        self.isok = True
+        # Disable the blob message caching
+        self.savebus.off('syn:core:blob:set', _blobMesgCache.append)
+        self.savebus.off('syn:core:blob:del', _blobMesgCache.append)
 
         # process a savefile/savefd if we have one
         savefd = link[1].get('savefd')
@@ -185,7 +189,14 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             savefd = s_common.genfile(savefile)
             self.setSaveFd(savefd, fini=True)
 
-        # Replay KV here?
+        # The storage layer initialization blob events then trump anything
+        # which may have been set during the savefile load
+        for evtname, info in _blobMesgCache:
+            self.loadbus.fire(evtname, **info)
+
+        self.isok = True
+
+        DataModel.__init__(self, load=False)
 
         self.initTufosBy('eq', self._tufosByEq)
         self.initTufosBy('in', self._tufosByIn)
@@ -197,7 +208,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         self.myfo = self.formTufoByProp('syn:core', 'self')
         self.isnew = self.myfo[1].get('.new', False)
-        if self.isnew:
+        if self.isnew and not self.hasBlobValu('syn:core:created'):
             self.setBlobValu('syn:core:created', s_common.now())
 
         self.modelrevlist = []

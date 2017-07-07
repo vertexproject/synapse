@@ -819,6 +819,12 @@ class CortexTest(SynTest):
 
         core2.fini()
 
+        fd.seek(0)
+
+        # Ensure the storage layer init events persisted across savefile reload
+        core3 = s_cortex.openurl('ram://', savefd=fd)
+        core3.hasBlobValu('syn:core:sqlite:version')
+
     def test_cortex_stats(self):
         rows = [
             (guid(), 'foo:bar', 1, 99),
@@ -1874,7 +1880,7 @@ class CortexTest(SynTest):
                 # sqlite storage layer versioning checks go below
                 table = core._getTableName()
                 blob_table = table + '_blob'
-                self.eq(core.getBlobValu('syn:core:sqlite:version'), 0)
+                self.ge(core.getBlobValu('syn:core:sqlite:version'), 0)
                 self.true(core._checkForTable(blob_table))
                 self.runblob(core)
 

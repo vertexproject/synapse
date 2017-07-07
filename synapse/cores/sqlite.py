@@ -552,7 +552,6 @@ class Cortex(s_cores_common.Cortex):
             # blob values and move along.
             self._initCorTable(table)
             self.setBlobValu(vsn_str, max_rev)
-            self.setBlobValu('syn:core:type', self.getCoreType())
             return
 
         # Strap in the blobstore if it doesn't exist - this allows us to have
@@ -620,7 +619,9 @@ class Cortex(s_cores_common.Cortex):
 
     def _rev0(self):
         # Simple rev0 function stub.
-        self.setBlobValu('syn:core:type', self._getCoreType())
+        # If we're here, we're clearly an existing cortex and
+        #  we need to have this valu set.
+        self.setBlobValu('syn:core:created', s_common.now())
 
     def _addRows(self, rows):
         args = []
