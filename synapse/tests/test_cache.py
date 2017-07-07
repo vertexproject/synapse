@@ -1,9 +1,6 @@
-import unittest
-import threading
 import collections
 
 import synapse.lib.cache as s_cache
-import synapse.cortex as s_cortex
 
 from synapse.tests.common import *
 
@@ -220,3 +217,54 @@ class CacheTest(SynTest):
         od = s_cache.OnDem()
         with self.raises(KeyError) as cm:
             od.get('foo')
+
+    def test_refdict(self):
+        rd = s_cache.RefDict()
+        # puts, pop, get, clear
+        # Put an item in a few times
+        self.eq(rd.put('syn:val', 123), 123)
+        self.true('syn:val' in rd.vals)
+        self.eq(rd.refs.get('syn:val'), 1)
+        rd.put('syn:val', 123)
+        self.true('syn:val' in rd.vals)
+        self.eq(rd.refs.get('syn:val'), 2)
+        # Get values out, ensure defaults of None are returned
+        self.eq(rd.get('syn:val'), 123)
+        self.none(rd.get('syn:noval'))
+        # Pop an item out until its gone from the refdict
+        # XXX Unclear if the following none() is a desired behavior
+        # XXX for pop on a existing value which still has refs > 0
+        self.none(rd.pop('syn:val'))
+        self.eq(rd.refs.get('syn:val'), 1)
+        self.eq(rd.pop('syn:val'), 123)
+        self.false('syn:val' in rd.refs)
+        self.false('syn:val' in rd.vals)
+
+        kvs = (
+            ('foo', 'bar'),
+            ('knight', 'ni'),
+            ('clown', 'pennywise'),
+            ('inet:netuser', 'vertex.link/pennywise')
+        )
+        # puts
+        rd.puts(kvs)
+        # validate setdefault behavior
+        self.eq(rd.put('foo', 'baz'), 'bar')
+        self.eq(rd.refs.get('foo'), 2)
+        # __len__
+        self.eq(len(rd), 4)
+        # __contains__
+        self.true('clown' in rd)
+        self.false('badger' in rd)
+        # gets
+        r = rd.pops(['foo', 'knight', 'syn:novalu'])
+        # self.eq(r, ['bar', 'ni', None])
+        # XXX This is None, ni, None because of the weird pop() behavior.
+        self.eq(r, [None, 'ni', None])
+        self.true('foo' in rd)
+        self.true('knight' not in rd)
+        self.eq(len(rd), 3)
+        # Clear
+        rd.clear()
+        self.eq(len(rd), 0)
+        self.eq(len(rd.refs), 0)

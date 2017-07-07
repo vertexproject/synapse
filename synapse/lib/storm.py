@@ -4,6 +4,7 @@ import re
 import time
 import fnmatch
 import logging
+import collections
 
 import synapse.common as s_common
 import synapse.compat as s_compat
@@ -1093,15 +1094,27 @@ class Runtime(Configable):
         # addnode(<form>,<valu>,**props)
         args = oper[1].get('args')
         if len(args) != 2:
-            raise s_common.BadSyntaxError(mesg='addnode(<form>,<valu>,[<prop>=<pval>, ...])')
+            raise s_common.BadSyntaxError(mesg='addnode(<form>,<valu>,[:<prop>=<pval>, ...])')
 
         kwlist = oper[1].get('kwlist')
 
         core = self.getStormCore()
 
-        props = dict(kwlist)
+        props = {}
+        for k,v in kwlist:
+
+            if not k[0] == ':':
+                raise s_common.BadSyntaxError(mesg='addnode() expects relative props with : prefix')
+
+            prop = k[1:]
+            props[prop] = v
 
         node = self.formTufoByProp(args[0], args[1], **props)
+
+        # call set props if the node is not new...
+        if not node[1].get('.new'):
+            self.setTufoProps(node, **props)
+
         query.add(node)
 
     def _stormOperDelNode(self, query, oper):
@@ -1121,12 +1134,45 @@ class Runtime(Configable):
         # TODO: use edits here for requested delete
 
     def _stormOperSetProp(self, query, oper):
+        # Coverage of this function is affected by the following issue:
+        # https://bitbucket.org/ned/coveragepy/issues/198/continue-marked-as-not-covered
         args = oper[1].get('args')
         props = dict(oper[1].get('kwlist'))
 
         core = self.getStormCore()
 
-        [core.setTufoProps(node, **props) for node in query.data()]
+        formnodes = collections.defaultdict(list)
+        formprops = collections.defaultdict(dict)
+
+        for node in query.data():
+            formnodes[node[1].get('tufo:form')].append(node)
+
+        forms = tuple(formnodes.keys())
+
+        for prop, valu in props.items():
+
+            if prop.startswith(':'):
+                valid = False
+                _prop = prop[1:]
+                # Check against every lifted form, since we may have a relative prop
+                # Which is valid against
+                for form in forms:
+                    _fprop = form + prop
+                    if core.isSetPropOk(_fprop):
+                        formprops[form][_prop] = valu
+                        valid = True
+                if not valid:
+                    mesg = 'Relative prop is not valid on any lifted forms.'
+                    raise s_common.BadSyntaxError(name=prop, mesg=mesg)
+                continue  # pragma: no cover
+
+            mesg = 'setprop operator requires props to start with relative prop names.'
+            raise s_common.BadSyntaxError(name=prop, mesg=mesg)
+
+        for form, nodes in formnodes.items():
+            props = formprops.get(form)
+            if props:
+                [core.setTufoProps(node, **props) for node in nodes]
 
     def _iterPropTags(self, props, tags):
         for prop in props:

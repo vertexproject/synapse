@@ -428,5 +428,15 @@ class RefDict:
         with self.lock:
             return [self._pop(k) for k in keys]
 
+    def clear(self):
+        with self.lock:
+            self.vals.clear()
+            self.refs.clear()
+
+    def __contains__(self, item):
+        with self.lock:
+            return item in self.vals
+
     def __len__(self):
-        return len(self.vals)
+        with self.lock:
+            return len(self.vals)

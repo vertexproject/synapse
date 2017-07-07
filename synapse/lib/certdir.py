@@ -40,6 +40,21 @@ class CertDir:
     def getUserCert(self, name):
         return self._loadCertPath(self.getUserCertPath(name))
 
+    def getClientCert(self, name):
+        '''
+        Loads the PKCS12 object for a given client certificate.
+
+        Example:
+            mypkcs12 = cdir.getClientCert('mycert')
+
+        Args:
+            name (str): The name of the client certificate.
+
+        Returns:
+            OpenSSL.crypto.PKCS12: The certificate if exists.
+        '''
+        return self._loadP12Path(self.getClientCertPath(name))
+
     def getCaKey(self, name):
         return self._loadKeyPath(self.getCaKeyPath(name))
 
@@ -69,6 +84,16 @@ class CertDir:
 
         return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
 
+    def _loadP12Path(self, path):
+        if path is None:
+            return None
+
+        byts = s_common.getbytes(path)
+        if byts is None:
+            return None
+
+        return crypto.load_pkcs12(byts)
+
     #def saveCaCert(self, cert):
     #def saveUserCert(self, cert):
     #def saveHostCert(self, cert):
@@ -85,8 +110,8 @@ class CertDir:
         cert.set_pubkey(pkey)
         cert.gmtime_adj_notBefore(0)
         cert.gmtime_adj_notAfter(10 * 365 * 24 * 60 * 60)
-        cert.set_serial_number(int(time.time()))
 
+        cert.set_serial_number(int(s_common.guid(), 16))
         cert.get_subject().CN = name
 
         return pkey, cert
@@ -98,6 +123,17 @@ class CertDir:
 
         with s_common.genfile(path) as fd:
             fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+
+        return path
+
+    def _saveP12To(self, cert, *paths):
+        path = self.getPathJoin(*paths)
+        if os.path.isfile(path):
+            raise s_common.DupFileName(path=path)
+
+        with s_common.genfile(path) as fd:
+            fd.write(cert.export())
+
         return path
 
     def _savePkeyTo(self, pkey, *paths):
@@ -129,21 +165,21 @@ class CertDir:
 
         return pkey, cert
 
-    def genHostCert(self, name, signas=None, outp=None, pkey=None):
+    def genHostCert(self, name, signas=None, outp=None, pkey=None, sans=None):
         pkey, cert = self._genBasePkeyCert(name, pkey=pkey)
 
-        certtype = b'server'
-        extuse = [b'serverAuth']
-        keyuse = [b'digitalSignature', b'keyEncipherment']
+        ext_sans = {'DNS:' + name}
+        if isinstance(sans, str):
+            ext_sans = ext_sans.union(sans.split(','))
+        ext_sans = ','.join(sorted(ext_sans))
 
-        ext0 = crypto.X509Extension(b'nsCertType', False, certtype)
-        ext1 = crypto.X509Extension(b'keyUsage', False, b','.join(keyuse))
-
-        extuse = b','.join(extuse)
-        ext2 = crypto.X509Extension(b'extendedKeyUsage', False, extuse)
-        ext3 = crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE')
-
-        cert.add_extensions([ext0, ext1, ext2, ext3])
+        cert.add_extensions([
+            crypto.X509Extension(b'nsCertType', False, b'server'),
+            crypto.X509Extension(b'keyUsage', False, b'digitalSignature,keyEncipherment'),
+            crypto.X509Extension(b'extendedKeyUsage', False, b'serverAuth'),
+            crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE'),
+            crypto.X509Extension(b'subjectAltName', False, ext_sans.encode('utf-8')),
+        ])
 
         if signas is not None:
             self.signCertAs(cert, signas)
@@ -165,18 +201,12 @@ class CertDir:
 
         pkey, cert = self._genBasePkeyCert(name, pkey=pkey)
 
-        keyuse = [b'digitalSignature']
-        extuse = [b'clientAuth']
-        certtype = b'client'
-
-        ext0 = crypto.X509Extension(b'nsCertType', False, certtype)
-        ext1 = crypto.X509Extension(b'keyUsage', False, b','.join(keyuse))
-
-        extuse = b','.join(extuse)
-        ext2 = crypto.X509Extension(b'extendedKeyUsage', False, extuse)
-        ext3 = crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE')
-
-        cert.add_extensions([ext0, ext1, ext2, ext3])
+        cert.add_extensions([
+            crypto.X509Extension(b'nsCertType', False, b'client'),
+            crypto.X509Extension(b'keyUsage', False, b'digitalSignature'),
+            crypto.X509Extension(b'extendedKeyUsage', False, b'clientAuth'),
+            crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE'),
+        ])
 
         if signas is not None:
             self.signCertAs(cert, signas)
@@ -191,6 +221,19 @@ class CertDir:
         crtpath = self._saveCertTo(cert, 'users', '%s.crt' % name)
         if outp is not None:
             outp.printf('cert saved: %s' % (crtpath,))
+
+        ccert = crypto.PKCS12()
+        ccert.set_friendlyname(name.encode('utf-8'))
+        ccert.set_certificate(cert)
+        ccert.set_privatekey(pkey)
+
+        if signas:
+            cacert = self.getCaCert(signas)
+            ccert.set_ca_certificates([cacert])
+
+        crtpath = self._saveP12To(ccert, 'users', '%s.p12' % name)
+        if outp is not None:
+            outp.printf('client cert saved: %s' % (crtpath,))
 
         return pkey, cert
 
@@ -211,10 +254,10 @@ class CertDir:
         name = xcsr.get_subject().CN
         return self.genUserCert(name, pkey=pkey, signas=signas, outp=outp)
 
-    def signHostCsr(self, xcsr, signas, outp=None):
+    def signHostCsr(self, xcsr, signas, outp=None, sans=None):
         pkey = xcsr.get_pubkey()
         name = xcsr.get_subject().CN
-        return self.genHostCert(name, pkey=pkey, signas=signas, outp=outp)
+        return self.genHostCert(name, pkey=pkey, signas=signas, outp=outp, sans=sans)
 
     def _genPkeyCsr(self, name, mode, outp=None):
         pkey = crypto.PKey()
@@ -287,6 +330,24 @@ class CertDir:
             return None
         return path
 
+    def getClientCertPath(self, name):
+        '''
+        Gets the path to a client certificate.
+
+        Example:
+            mypath = cdir.getClientCertPath('mycert')
+
+        Args:
+            name (str): The name of the client certificate.
+
+        Returns:
+            str: The path if exists.
+        '''
+        path = s_common.genpath(self.certdir, 'users', '%s.p12' % name)
+        if not os.path.isfile(path):
+            return None
+        return path
+
     def getUserKeyPath(self, name):
         path = s_common.genpath(self.certdir, 'users', '%s.key' % name)
         if not os.path.isfile(path):
@@ -329,4 +390,20 @@ class CertDir:
 
     def isHostCert(self, name):
         crtpath = self.getPathJoin('hosts', '%s.crt' % name)
+        return os.path.isfile(crtpath)
+
+    def isClientCert(self, name):
+        '''
+        Checks if a client certificate exists.
+
+        Example:
+            exists = cdir.isClientCert('mycert')
+
+        Args:
+            name (str): The name of the client certificate.
+
+        Returns:
+            bool: True if the certificate is present, False otherwise.
+        '''
+        crtpath = self.getPathJoin('users', '%s.p12' % name)
         return os.path.isfile(crtpath)
