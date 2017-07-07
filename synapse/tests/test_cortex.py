@@ -1911,6 +1911,11 @@ class CortexTest(SynTest):
                 for row in rows:
                     stmt = 'DROP TABLE IF EXISTS {}'.format(row[0])
                     cur.execute(stmt)
+                # Sanity check on PSQL
+                cur.execute(stmt)
+                rows = cur.fetchall()
+                if rows:
+                    self.fail('PSQL DB contains syn_test_rev0 tables after dropping them')
             conn.commit()
             # Now slam the data into the DB from the .psql file.
             with conn.cursor() as cur:
