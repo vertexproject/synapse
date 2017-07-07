@@ -11,6 +11,7 @@ import tornado.httpserver
 import synapse.async as s_async
 import synapse.common as s_common
 import synapse.daemon as s_daemon
+import synapse.lib.config as s_config
 
 from synapse.eventbus import EventBus
 
@@ -82,7 +83,7 @@ class BaseHand(tornado.web.RequestHandler):
         self.write(retinfo)
         self.finish()
 
-class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf):
+class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf, s_config.Configable):
     '''
     The WebApp class allows easy publishing of python methods as HTTP APIs.
 
@@ -102,24 +103,22 @@ class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf):
         wapp.main()
 
     '''
-    def __init__(self, app_config=None, srv_config=None, **settings):
-
-        if not app_config:
-            app_config = {}
-
-        if not srv_config:
-            srv_config = {}
-
+    def __init__(self, **conf):
         EventBus.__init__(self)
         s_daemon.DmonConf.__init__(self)
-        tornado.web.Application.__init__(self, **app_config)
+        s_config.Configable.__init__(self)
 
+        app_config = conf.get('app', {})
+        srv_config = conf.get('server', {})
+        boss_config = conf.get('boss', {})
+        boss_minsize = boss_config.get('minsize', 8)
+        boss_maxsize = boss_config.get('maxsize', 128)
+
+        tornado.web.Application.__init__(self, **app_config)
         self.loop = tornado.ioloop.IOLoop()
         self.serv = tornado.httpserver.HTTPServer(self, **srv_config)
-        self.boss = s_async.Boss()
 
-        boss_minsize = settings.get('boss_minsize', 8)
-        boss_maxsize = settings.get('boss_maxsize', 128)
+        self.boss = s_async.Boss()
         self.boss.runBossPool(boss_minsize, maxsize=boss_maxsize)
 
         self.iothr = self._runWappLoop()

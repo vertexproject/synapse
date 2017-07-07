@@ -34,7 +34,13 @@ class WebAppTest(AsyncTestCase, SynTest):
         self.thisHostMustNot(platform='windows')
         foo = Foo()
 
-        wapp = s_webapp.WebApp(boss_minsize=13, boss_maxsize=37)
+        conf = {
+            'boss': {
+                'minsize': 13,
+                'maxsize': 37
+            }
+        }
+        wapp = s_webapp.WebApp(**conf)
         self.eq(wapp.boss.pool._pool_maxsize, 37)
 
         wapp.listen(0, host='127.0.0.1')
@@ -118,9 +124,13 @@ class WebAppTest(AsyncTestCase, SynTest):
             ssl_ctx.verify_mode = ssl.CERT_REQUIRED
             ssl_ctx.load_cert_chain(host_cert, host_key)
             ssl_ctx.load_verify_locations(ca_cert)
-            srv_config = {'ssl_options': ssl_ctx}
 
-            wapp = s_webapp.WebApp(srv_config=srv_config)
+            conf = {
+                'server': {
+                    'ssl_options': ssl_ctx
+                }
+            }
+            wapp = s_webapp.WebApp(**conf)
             wapp.listen(0, host='127.0.0.1')
             wapp.addApiPath('/v1/bar', foo.bar)
 
