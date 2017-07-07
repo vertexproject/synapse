@@ -797,6 +797,10 @@ class CortexTest(SynTest):
         self.eq(core1.getBlobValu('syn:test'), 1234)
         self.eq(core1.getBlobValu('syn:core:created'), created)
 
+        # Persist a value which will be overwritten by a storage layer event
+        core1.setBlobValu('syn:core:sqlite:version', -2)
+        core1.hasBlobValu('syn:core:sqlite:version')
+
         fd.seek(0)
         time.sleep(1)
 
@@ -816,6 +820,8 @@ class CortexTest(SynTest):
         # blobstores persist across storage types with savefiles
         self.eq(core2.getBlobValu('syn:test'), 1234)
         self.eq(core2.getBlobValu('syn:core:created'), created)
+        # Ensure that storage layer values may trump whatever was in a savefile
+        self.ge(core2.getBlobValu('syn:core:sqlite:version'), 0)
 
         core2.fini()
 
