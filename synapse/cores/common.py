@@ -141,6 +141,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.loadbus.on('core:save:del:rows:by:prop', self._loadDelRowsByProp)
         self.loadbus.on('core:save:set:rows:by:idprop', self._loadSetRowsByIdProp)
         self.loadbus.on('core:save:del:rows:by:idprop', self._loadDelRowsByIdProp)
+        self.loadbus.on('syn:core:blob:set', self._onSetBlobValu)
+        self.loadbus.on('syn:core:blob:del', self._onDelBlobValu)
 
         #############################################################
         # Handlers for each splice event action
@@ -173,14 +175,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         self.isok = True
 
-        self.initTufosBy('eq', self._tufosByEq)
-        self.initTufosBy('in', self._tufosByIn)
-        self.initTufosBy('has', self._tufosByHas)
-        self.initTufosBy('tag', self._tufosByTag)
-        self.initTufosBy('type', self._tufosByType)
-        self.initTufosBy('inet:cidr', self._tufosByInetCidr)
-        self.initTufosBy('dark', self._tufosByDark)
-
         # process a savefile/savefd if we have one
         savefd = link[1].get('savefd')
         if savefd is not None:
@@ -191,8 +185,20 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             savefd = s_common.genfile(savefile)
             self.setSaveFd(savefd, fini=True)
 
+        # Replay KV here?
+
+        self.initTufosBy('eq', self._tufosByEq)
+        self.initTufosBy('in', self._tufosByIn)
+        self.initTufosBy('has', self._tufosByHas)
+        self.initTufosBy('tag', self._tufosByTag)
+        self.initTufosBy('type', self._tufosByType)
+        self.initTufosBy('inet:cidr', self._tufosByInetCidr)
+        self.initTufosBy('dark', self._tufosByDark)
+
         self.myfo = self.formTufoByProp('syn:core', 'self')
         self.isnew = self.myfo[1].get('.new', False)
+        if self.isnew:
+            self.setBlobValu('syn:core:created', s_common.now())
 
         self.modelrevlist = []
         with self.getCoreXact() as xact:
@@ -2885,6 +2891,10 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.log(logging.ERROR, mesg='Core does not implement _delBlobValu', name='_delBlobValu')
         return None
 
+    def _getBlobKeys(self):
+        self.log(logging.ERROR, mesg='Core does not implement _getBlobKeys', name='_getBlobKeys')
+        return None
+
     def _getCoreType(self):  # pragma: no cover
         raise s_common.NoSuchImpl(name='getCoreType', mesg='Core does not implement getCoreType')
 
@@ -2919,6 +2929,15 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             return default
         return s_common.msgunpack(buf)
 
+    def getBlobKeys(self):
+        '''
+        Get a list of keys in the blob key/value store.
+
+        Returns:
+            list: List of keys in the store.
+        '''
+        return self._getBlobKeys()
+
     # TODO: Wrap this in a userauth layer
     def setBlobValu(self, key, valu):
         '''
@@ -2941,6 +2960,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             The input value, unchanged.
         '''
         buf = s_common.msgenpack(valu)
+        self.savebus.fire('syn:core:blob:set', key=key, valu=buf)
         self._setBlobValu(key, buf)
         return valu
 
@@ -2974,8 +2994,19 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         '''
         if not self.hasBlobValu(key):
             raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
+        self.savebus.fire('syn:core:blob:del', key=key)
         buf = self._delBlobValu(key)
         return s_common.msgunpack(buf)
+
+    def _onSetBlobValu(self, mesg):
+        key = mesg[1].get('key')
+        valu = mesg[1].get('valu')
+        self._setBlobValu(key, valu)
+
+    def _onDelBlobValu(self, mesg):
+        key = mesg[1].get('key')
+        self._delBlobValu(key)
+
 
 class CoreXact:
     '''

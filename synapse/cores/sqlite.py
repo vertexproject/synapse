@@ -125,6 +125,7 @@ class Cortex(s_cores_common.Cortex):
     _t_blob_set = 'INSERT OR REPLACE INTO {{BLOB_TABLE}} (k, v) VALUES ({{KEY}}, {{VALU}})'
     _t_blob_get = 'SELECT v FROM {{BLOB_TABLE}} WHERE k={{KEY}}'
     _t_blob_del = 'DELETE FROM {{BLOB_TABLE}} WHERE k={{KEY}}'
+    _t_blob_get_keys = 'SELECT k FROM {{BLOB_TABLE}}'
 
     ################################################################################
     _t_getrows_by_prop = 'SELECT * FROM {{TABLE}} WHERE prop={{PROP}} LIMIT {{LIMIT}}'
@@ -382,6 +383,7 @@ class Cortex(s_cores_common.Cortex):
         self._q_blob_get = self._prepBlobQuery(self._t_blob_get)
         self._q_blob_set = self._prepBlobQuery(self._t_blob_set)
         self._q_blob_del = self._prepBlobQuery(self._t_blob_del)
+        self._q_blob_get_keys = self._prepBlobQuery(self._t_blob_get_keys)
 
         ###################################################################################
         self._q_getrows_by_prop = self._prepQuery(self._t_getrows_by_prop)
@@ -800,4 +802,9 @@ class Cortex(s_cores_common.Cortex):
             # We should never get here, but if we do, throw an exception.
             raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
         self.delete(self._q_blob_del, key=key)
+        return ret
+
+    def _getBlobKeys(self):
+        rows = self.select(self._q_blob_get_keys)
+        ret = [row[0] for row in rows]
         return ret

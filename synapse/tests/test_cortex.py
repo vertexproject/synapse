@@ -505,7 +505,7 @@ class CortexTest(SynTest):
 
     def runblob(self, core):
         # Do we have default cortex blob values?
-        self.true(core.hasBlobValu('syn:core:type'))
+        self.true(core.hasBlobValu('syn:core:created'))
 
         kvs = (
             ('syn:meta', 1),
@@ -528,6 +528,14 @@ class CortexTest(SynTest):
 
         # Missing a value
         self.false(core.hasBlobValu('syn:totallyfake'))
+
+        # getkeys
+        keys = core.getBlobKeys()
+        self.isinstance(keys, list)
+        self.isin('syn:core:created', keys)
+        self.isin('syn:meta', keys)
+        self.isin('knight:has:current_queue', keys)
+        self.notin('totally-false', keys)
 
         # update a value and get the updated value back
         self.eq(core.getBlobValu('syn:meta'), 1)
@@ -757,6 +765,8 @@ class CortexTest(SynTest):
         self.true(core0.isnew)
         myfo0 = core0.myfo[0]
 
+        created = core0.getBlobValu('syn:core:created')
+
         t0 = core0.formTufoByProp('foo', 'one', baz='faz')
         t1 = core0.formTufoByProp('foo', 'two', baz='faz')
 
@@ -783,10 +793,12 @@ class CortexTest(SynTest):
 
         self.eq(t0[1].get('foo:baz'), 'gronk')
 
-        # Retreive the stored blob value
+        # Retrieve the stored blob value
         self.eq(core1.getBlobValu('syn:test'), 1234)
+        self.eq(core1.getBlobValu('syn:core:created'), created)
 
         fd.seek(0)
+        time.sleep(1)
 
         core2 = s_cortex.openurl('sqlite:///:memory:', savefd=fd)
 
@@ -801,8 +813,9 @@ class CortexTest(SynTest):
 
         self.eq(t0[1].get('foo:baz'), 'gronk')
 
-        # The blob valu from the ram savefile should not be moved to the sqlite cortex
-        self.none(core2.getBlobValu('syn:test'))
+        # blobstores persist across storage types with savefiles
+        self.eq(core2.getBlobValu('syn:test'), 1234)
+        self.eq(core2.getBlobValu('syn:core:created'), created)
 
         core2.fini()
 

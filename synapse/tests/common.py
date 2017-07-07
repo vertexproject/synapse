@@ -237,6 +237,9 @@ class SynTest(unittest.TestCase):
     def isin(self, member, container):
         self.assertIn(member, container)
 
+    def notin(self, member, container):
+        self.assertNotIn(member, container)
+
     def gt(self, x, y):
         self.assertGreater(x, y)
 

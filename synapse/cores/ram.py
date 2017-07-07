@@ -43,16 +43,7 @@ class Cortex(s_cores_common.Cortex):
         self.initSizeBy('range', self._sizeByRange)
         self.initRowsBy('range', self._rowsByRange)
 
-        self._blob_store = {'syn:core:type': self._getCoreType()}
-        self._blob_loadbus = EventBus()
-        self._blob_savebus = EventBus()
-        self._blob_loadbus.on('syn:core:{}:blob:set'.format(self._getCoreType()), self._onSetBlobValu)
-        self._blob_loadbus.on('syn:core:{}:blob:del'.format(self._getCoreType()), self._onDelBlobValu)
-        self.onfini(self._onRamFini)
-
-    def _onRamFini(self):
-        self._blob_savebus.fini()
-        self._blob_loadbus.fini()
+        self._blob_store = {}
 
     def _getCoreXact(self, size=None):
         return CoreXact(self, size=size)
@@ -200,48 +191,17 @@ class Cortex(s_cores_common.Cortex):
 
     def _setBlobValu(self, key, valu):
         self._blob_store[key] = valu
-        self._blob_savebus.fire('syn:core:{}:blob:set'.format(self._getCoreType()), key=key, valu=valu)
 
     def _hasBlobValu(self, key):
         return key in self._blob_store
 
     def _delBlobValu(self, key):
         ret = self._blob_store.pop(key)
-        self._blob_savebus.fire('syn:core:{}:blob:del'.format(self._getCoreType()), key=key)
         return ret
 
-    def _onSetBlobValu(self, mesg):
-        key = mesg[1].get('key')
-        valu = mesg[1].get('valu')
-        self._setBlobValu(key, valu)
-
-    def _onDelBlobValu(self, mesg):
-        key = mesg[1].get('key')
-        self._delBlobValu(key)
-
-    def _setSaveFd(self, fd, load=True, fini=False):
-        '''
-        Ram cortex specific implementation of _setSaveFd
-
-        This persists the ram blob storage to the same fd used to persist cortex events.
-        '''
-        blob_mesg_type = 'syn:core:{}:blob:'.format(self._getCoreType())
-        if load:
-            for mesg in s_common.msgpackfd(fd):
-                if mesg[0].startswith(blob_mesg_type):
-                    self._blob_loadbus.dist(mesg)
-                    continue
-                self.loadbus.dist(mesg)
-
-        self.onfini(fd.flush)
-        if fini:
-            self.onfini(fd.close)
-
-        def savemesg(mesg):
-            fd.write(s_common.msgenpack(mesg))
-
-        self.savebus.link(savemesg)
-        self._blob_savebus.link(savemesg)
+    def _getBlobKeys(self):
+        ret = list(self._blob_store.keys())
+        return ret
 
 ramcores = {}
 
