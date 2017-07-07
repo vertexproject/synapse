@@ -252,9 +252,9 @@ class Cortex(s_cores_common.Cortex):
         map_slack = self._link[1].get('lmdb:mapslack', 2 ** 30)
         self._map_slack, _ = s_datamodel.getTypeNorm('int', map_slack)
 
-        # Maximum number of 'databases', really tables.  We use 4 different tables (1 main plus
-        # 3 indices)
-        MAX_DBS = 4
+        # Maximum number of 'databases', really tables.  We use 5 different tables (1 main plus
+        # 3 indices and a blob store)
+        MAX_DBS = 5
 
         # flush system buffers to disk only once per transaction.  Set to False can lead to last
         # transaction loss, but not corruption
@@ -310,6 +310,9 @@ class Cortex(s_cores_common.Cortex):
 
         # Make the prop-timestamp index table, with value being a pk
         self.index_pt = self.dbenv.open_db(key=b'pt', dupsort=True)  # p, t -> pk
+
+        # Make the blob key/val index table, with the
+        self.blob_store = self.dbenv.open_db(key=b'blob')  # k -> v
 
         # Put 1 max key sentinel at the end of each index table.  This avoids unfortunate behavior
         # where the cursor moves backwards after deleting the final record.
@@ -674,3 +677,43 @@ class Cortex(s_cores_common.Cortex):
 
     def _getCoreType(self):
         return 'lmdb'
+
+    def _getBlobValu(self, key):
+        key_buf = s_common.msgenpack(key)
+
+        with self._getTxn() as txn:
+            cur = txn.cursor(db=self.blob_store)  # type: lmdb.Cursor
+            ret = cur.get(key_buf, default=None)
+        return ret
+
+    def _setBlobValu(self, key, valu):
+        key_buf = s_common.msgenpack(key)
+
+        with self._getTxn(write=True) as txn:
+            cur = txn.cursor(db=self.blob_store)  # type: lmdb.Cursor
+            cur.put(key_buf, valu, overwrite=True)
+
+    def _hasBlobValu(self, key):
+        ret = self._getBlobValu(key)
+        if ret is None:
+            return False
+        return True
+
+    def _delBlobValu(self, key):
+        key_buf = s_common.msgenpack(key)
+
+        with self._getTxn(write=True) as txn:
+            cur = txn.cursor(db=self.blob_store)  # type: lmdb.Cursor
+            ret = cur.pop(key_buf)
+
+            if ret is None:  # pragma: no cover
+                # We should never get here, but if we do, throw an exception.
+                raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
+        return ret
+
+    def _getBlobKeys(self):
+        with self._getTxn(write=True) as txn:
+            cur = txn.cursor(db=self.blob_store)  # type: lmdb.Cursor
+            cur.first()
+            ret = [s_common.msgunpack(key) for key in cur.iternext(values=False)]
+        return ret

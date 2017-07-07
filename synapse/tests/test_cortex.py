@@ -135,7 +135,7 @@ class CortexTest(SynTest):
                 self.rundsets(core)
                 self.runsnaps(core)
                 self.rundarks(core)
-                # self.runblob(core)
+                self.runblob(core)
 
             # Test load an existing db
             core = s_cortex.openurl(lmdb_url)
