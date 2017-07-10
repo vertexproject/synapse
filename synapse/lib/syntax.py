@@ -16,6 +16,9 @@ starset = varset.union({'*'})
 tagfilt = varset.union({'#', '*', '@'})
 alphaset = set('abcdefghijklmnopqrstuvwxyz')
 
+# this may be used to meh() potentially unquoted values
+valmeh = whites.union({'(',')','=',',','[',']'})
+
 def nom(txt, off, cset, trim=True):
     '''
     Consume chars in set from the string and return (subtxt,offset).
@@ -55,7 +58,7 @@ def is_literal(text, off):
 
 def parse_literal(text, off, trim=True):
     if text[off] == '(':
-        return parse_cmd_list(text, off, trim=trim)
+        return parse_list(text, off, trim=trim)
 
     if text[off] == '"':
         return parse_string(text, off, trim=trim)
@@ -69,33 +72,13 @@ def parse_int(text, off, trim=True):
     except Exception as e:
         raise s_common.BadSyntaxError(expected='Literal', at=off, got=text[off:off + 10])
 
-def parse_list(text, off, trim=True):
-    if text[off] != '(':
-        raise s_common.BadSyntaxError(expected='List', at=off)
-
-    off += 1
-    valus = []
-    while True:
-
-        valu, off = parse_literal(text, off, trim=trim)
-
-        valus.append(valu)
-
-        if text[off] == ')':
-            return valus, off + 1
-
-        if text[off] != ',':
-            raise s_common.BadSyntaxError(invalid='List Syntax', at=off)
-
-        off += 1
-
 def nom_whitespace(text, off):
     return nom(text, off, whites)
 
 def isquote(text, off):
     return nextin(text, off, (",", '"'))
 
-def parse_cmd_list(text, off=0, trim=True):
+def parse_list(text, off=0, trim=True):
     '''
     Parse a list (likely for comp type) coming from a command line input.
 
@@ -110,13 +93,23 @@ def parse_cmd_list(text, off=0, trim=True):
     valus = []
     while off < len(text):
 
-        _, off = nom_whitespace(text, off)
+        _, off = nom(text, off, whites)
 
-        if isquote(text, off):
-            valu, off = parse_string(text, off, trim=trim)
-        else:
-            valu, off = meh(text, off, ',)')
-            valu = valu.strip()
+        valu,off = parse_valu(text, off)
+
+        _, off = nom(text, off, whites)
+
+
+        # check for foo=bar kw tuple syntax
+        if nextchar(text, off, '='):
+
+            _, off = nom(text, off+1, whites)
+
+            vval, off = parse_valu(text, off)
+
+            _, off = nom(text, off, whites)
+
+            valu = (valu, vval)
 
         valus.append(valu)
 
@@ -126,7 +119,7 @@ def parse_cmd_list(text, off=0, trim=True):
             return valus, off + 1
 
         if not nextchar(text, off, ','):
-            raise s_common.BadSyntaxError(at=off, mesg='expected comma in list')
+            raise s_common.BadSyntaxError(at=off, text=text, mesg='expected comma in list')
 
         off += 1
 
@@ -143,7 +136,7 @@ def parse_cmd_string(text, off, trim=True):
         return parse_string(text, off, trim=trim)
 
     if nextchar(text, off, '('):
-        return parse_cmd_list(text, off)
+        return parse_list(text, off)
 
     return meh(text, off, whites)
 
@@ -254,7 +247,7 @@ def parse_opts(text, off=0):
     name, off = nom(text, off, varset, trim=True)
 
     if nextchar(text, off, '='):
-        valu, off = parse_literal(text, off + 1, trim=True)
+        valu, off = parse_valu(text, off + 1)
 
     inst[1]['kwlist'].append((name, valu))
     return inst, off
@@ -271,35 +264,6 @@ def nextin(text, off, vals):
     if len(text) <= off:
         return False
     return text[off] in vals
-
-#def parse_pivot(text,off=0):
-    #'''
-    #^foo:bar
-    #^foo:bar=baz:faz
-    #^hehe.haha/foo:bar=baz:faz
-    #'''
-    #inst = ('pivot',{'args':[],'kwlist':[]})
-
-    #prop,off = nom(text,off,varset,trim=True)
-
-    #if len(text) == off:
-        #inst[1]['args'].append(prop)
-        #return inst,off
-
-    #if text[off] == '/':
-        #inst[1]['kwlist'].append( ('from',prop) )
-        #prop,off = nom(text,off+1,varset,trim=True)
-
-    #inst[1]['args'].append( prop )
-
-    #if len(text) == off:
-        #return inst,off
-
-    #if nextchar(text,off,'='):
-        #prop,off = nom(text,off+1,varset,trim=True)
-        #inst[1]['args'].append( prop )
-
-    #return inst,off
 
 def parse_macro_join(text, off=0):
     '''
@@ -394,14 +358,14 @@ def parse_ques(text, off=0, trim=True):
 
             _, off = nom(text, off + 1, whites)
 
-            ques['valu'], off = parse_macro_valu(text, off)
+            ques['valu'], off = parse_valu(text, off)
             return ques, off
 
         if nextchar(text, off, '='):
             _, off = nom(text, off + 1, whites)
 
             ques['cmp'] = 'eq'
-            ques['valu'], off = parse_macro_valu(text, off)
+            ques['valu'], off = parse_valu(text, off)
             break
 
         textpart = text[off:]
@@ -416,19 +380,21 @@ def parse_ques(text, off=0, trim=True):
 
     return ques, off
 
-def parse_macro_valu(text, off=0):
+def parse_valu(text, off=0):
     '''
     Special syntax for the right side of equals in a macro
     '''
+    _, off = nom(text,off,whites)
+
     if nextchar(text, off, '('):
-        return parse_cmd_list(text, off)
+        return parse_list(text, off)
 
     if isquote(text, off):
         return parse_string(text, off)
 
-    # since it's not quoted, we can assume we are white
-    # space bound ( only during macro syntax )
-    valu, off = meh(text, off, whites)
+    # since it's not quoted, we can assume we are bound by both
+    # white space and storm syntax chars ( ) , =
+    valu, off = meh(text, off, valmeh)
 
     # for now, give it a shot as an int...  maybe eventually
     # we'll be able to disable this completely, but for now
@@ -586,17 +552,17 @@ def parse(text, off=0):
                     raise s_common.BadSyntaxError(mesg='unexpected end of text in edit mode')
 
                 if nextstr(text, off, '+#'):
-                    valu, off = parse_macro_valu(text, off + 2)
+                    valu, off = parse_valu(text, off + 2)
                     ret.append(oper('addtag', valu))
                     continue
 
                 if nextstr(text, off, '-#'):
-                    valu, off = parse_macro_valu(text, off + 2)
+                    valu, off = parse_valu(text, off + 2)
                     ret.append(oper('deltag', valu))
                     continue
 
                 if nextchar(text, off, '#'):
-                    valu, off = parse_macro_valu(text, off + 1)
+                    valu, off = parse_valu(text, off + 1)
                     ret.append(oper('addtag', valu))
                     continue
 
@@ -609,7 +575,7 @@ def parse(text, off=0):
                 if not nextchar(text, off, '='):
                     raise s_common.BadSyntaxError(mesg='edit macro expected prop=valu syntax')
 
-                valu, off = parse_macro_valu(text, off + 1)
+                valu, off = parse_valu(text, off + 1)
                 if prop[0] == ':':
                     kwargs = {prop: valu}
                     ret.append(oper('setprop', **kwargs))
