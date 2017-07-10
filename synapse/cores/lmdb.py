@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 import sys
 import struct
+import logging
 from binascii import unhexlify
 
 from contextlib import contextmanager
@@ -15,6 +16,8 @@ import synapse.cores.common as s_cores_common
 
 import lmdb
 import xxhash
+
+logger = logging.getLogger(__name__)
 
 # File conventions:
 # i, p, v, t: iden, prop, value, timestamp
@@ -174,6 +177,8 @@ class Cortex(s_cores_common.Cortex):
         self.initSizeBy('range', self._sizeByRange)
         self.initRowsBy('range', self._rowsByRange)
 
+        self._initCorTables()
+
     def _initDbInfo(self):
         name = self._link[1].get('path')[1:]
         if not name:
@@ -192,6 +197,120 @@ class Cortex(s_cores_common.Cortex):
             if not cursor.last():
                 return 0  # db is empty
             return _decPk(cursor.key())
+
+    def _checkForTable(self, table):
+        with self._getTxn() as txn:
+            ret = txn.get(table)
+        if ret:
+            return True
+        return False
+
+    def _initCorTables(self):
+
+        revs = [
+          (0, self._rev0)
+        ]
+
+        max_rev = max([rev for rev, func in revs])
+        vsn_str = 'syn:core:{}:version'.format(self.getCoreType())
+
+        if not self._checkForTable(b'rows'):
+            # We are a new cortex, stamp in tables and set
+            # blob values and move along.
+            self._initCorTable()
+            self.setBlobValu(vsn_str, max_rev)
+            return
+
+        # Strap in the blobstore if it doesn't exist - this allows us to have
+        # a helper which doesn't have to care about queries agianst a table
+        # which may not exist.
+        if not self._checkForTable(b'blob_store'):
+            self.blob_store = self.dbenv.open_db(key=b'blob_store')
+
+        # Apply storage layer revisions
+        self._revCorVers(revs)
+
+    def _revCorVers(self, revs):
+        '''
+        Update a the storage layer with a list of (vers,func) tuples.
+
+        Args:
+            revs ([(int,function)]):  List of (vers,func) revision tuples.
+
+        Returns:
+            (None)
+
+        Each specified function is expected to update the strage layer including data migration.
+        '''
+        if not revs:
+            return
+        vsn_str = 'syn:core:{}:version'.format(self._getCoreType())
+        curv = self.getBlobValu(vsn_str, -1)
+
+        maxver = revs[-1][0]
+        if maxver == curv:
+            return
+
+        if not self.getConfOpt('rev:storage'):
+            raise s_common.NoRevAllow(name='rev:storage',
+                                      mesg='add rev:storage=1 to cortex url to allow storage updates')
+
+        for vers, func in sorted(revs):
+
+            if vers <= curv:
+                continue
+
+            # allow the revision function to optionally return the
+            # revision he jumped to ( to allow initial override )
+            mesg = 'Warning - storage layer update occurring. Do not interrupt. [{}] => [{}]'.format(curv, vers)
+            logger.warning(mesg)
+            retn = func()
+            logger.warning('Storage layer update completed.')
+            if retn is not None:
+                vers = retn
+
+            curv = self.setBlobValu(vsn_str, vers)
+
+    def _initCorTable(self):
+        # Make the main storage table, keyed by an incrementing counter, pk
+        # LMDB has an optimization (integerkey) if all the keys in a table are unsigned size_t.
+        self.rows = self.dbenv.open_db(key=b'rows', integerkey=True)  # pk -> i,p,v,t
+
+        # Note there's another LMDB optimization ('dupfixed') we're not using that we could
+        # in the index tables.  It would pay off if a large proportion of keys are duplicates.
+
+        # Make the iden-prop index table, keyed by iden-prop, with value being a pk
+        self.index_ip = self.dbenv.open_db(key=b'ip', dupsort=True)  # i,p -> pk
+
+        # Make the prop-val-timestamp index table, with value being a pk
+        self.index_pvt = self.dbenv.open_db(key=b'pvt', dupsort=True)  # p,v,t -> pk
+
+        # Make the prop-timestamp index table, with value being a pk
+        self.index_pt = self.dbenv.open_db(key=b'pt', dupsort=True)  # p, t -> pk
+
+        # Make the blob key/val index table, with the
+        self.blob_store = self.dbenv.open_db(key=b'blob_store')  # k -> v
+
+        # Put 1 max key sentinel at the end of each index table.  This avoids unfortunate behavior
+        # where the cursor moves backwards after deleting the final record.
+        with self._getTxn(write=True) as txn:
+            for db in (self.index_ip, self.index_pvt, self.index_pt):
+                txn.put(MAX_INDEX_KEY, b'', db=db)
+                # One more sentinel for going backwards through the pvt table.
+                txn.put(b'\x00', b'', db=self.index_pvt)
+
+        # Find the largest stored pk.  We just track this in memory from now on.
+        largest_pk = self._getLargestPk()
+        if largest_pk == MAX_PK:
+            raise s_common.HitCoreLimit(name='MAX_PK', size=MAX_PK, mesg='Out of primary key values')
+
+        self.next_pk = largest_pk + 1
+
+    def _rev0(self):
+        # Simple rev0 function stub.
+        # If we're here, we're clearly an existing cortex and
+        #  we need to have this valu set.
+        self.setBlobValu('syn:core:created', s_common.now())
 
     @contextmanager
     def _getTxn(self, write=False):
@@ -294,40 +413,6 @@ class Cortex(s_cores_common.Cortex):
 
         # Ensure we have enough room in the map for expansion
         self._ensure_map_slack()
-
-        # Make the main storage table, keyed by an incrementing counter, pk
-        # LMDB has an optimization (integerkey) if all the keys in a table are unsigned size_t.
-        self.rows = self.dbenv.open_db(key=b'rows', integerkey=True)  # pk -> i,p,v,t
-
-        # Note there's another LMDB optimization ('dupfixed') we're not using that we could
-        # in the index tables.  It would pay off if a large proportion of keys are duplicates.
-
-        # Make the iden-prop index table, keyed by iden-prop, with value being a pk
-        self.index_ip = self.dbenv.open_db(key=b'ip', dupsort=True)  # i,p -> pk
-
-        # Make the prop-val-timestamp index table, with value being a pk
-        self.index_pvt = self.dbenv.open_db(key=b'pvt', dupsort=True)  # p,v,t -> pk
-
-        # Make the prop-timestamp index table, with value being a pk
-        self.index_pt = self.dbenv.open_db(key=b'pt', dupsort=True)  # p, t -> pk
-
-        # Make the blob key/val index table, with the
-        self.blob_store = self.dbenv.open_db(key=b'blob')  # k -> v
-
-        # Put 1 max key sentinel at the end of each index table.  This avoids unfortunate behavior
-        # where the cursor moves backwards after deleting the final record.
-        with self._getTxn(write=True) as txn:
-            for db in (self.index_ip, self.index_pvt, self.index_pt):
-                txn.put(MAX_INDEX_KEY, b'', db=db)
-                # One more sentinel for going backwards through the pvt table.
-                txn.put(b'\x00', b'', db=self.index_pvt)
-
-        # Find the largest stored pk.  We just track this in memory from now on.
-        largest_pk = self._getLargestPk()
-        if largest_pk == MAX_PK:
-            raise s_common.HitCoreLimit(name='MAX_PK', size=MAX_PK, mesg='Out of primary key values')
-
-        self.next_pk = largest_pk + 1
 
         def onfini():
             self.dbenv.close()
