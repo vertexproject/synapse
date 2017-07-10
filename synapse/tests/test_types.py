@@ -539,3 +539,25 @@ class DataTypesTest(SynTest):
         self.eq(subs, tuple(sorted(s1.items())))
         self.eq(subs, tuple(sorted(s2.items())))
         self.eq(subs, tuple(sorted(s3.items())))
+
+    def test_types_comp_opt_only(self):
+
+        tlib = s_types.TypeLib()
+
+        tlib.addType('foo:bar', subof='comp', optfields='baz=str,faz=int')
+
+        subs = (('baz','asdf'),('faz',30))
+
+        v0,s0 = tlib.getTypeNorm('foo:bar', (('baz','asdf'),('faz',30)))
+        v1,s1 = tlib.getTypeNorm('foo:bar', (('faz',30),('baz','asdf')))
+        v2,s2 = tlib.getTypeNorm('foo:bar', '(baz=asdf,faz=30)')
+        v3,s3 = tlib.getTypeNorm('foo:bar', '(faz=30,baz=asdf)')
+
+        self.eq(v0,v1)
+        self.eq(v1,v2)
+        self.eq(v2,v3)
+
+        self.eq(subs, tuple(sorted(s0.items())))
+        self.eq(subs, tuple(sorted(s1.items())))
+        self.eq(subs, tuple(sorted(s2.items())))
+        self.eq(subs, tuple(sorted(s3.items())))
