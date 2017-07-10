@@ -12,6 +12,8 @@ import synapse.async as s_async
 import synapse.common as s_common
 import synapse.daemon as s_daemon
 
+import synapse.lib.config as s_config
+
 from synapse.eventbus import EventBus
 
 # TODO:
@@ -82,7 +84,7 @@ class BaseHand(tornado.web.RequestHandler):
         self.write(retinfo)
         self.finish()
 
-class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf):
+class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf, s_config.Configable):
     '''
     The WebApp class allows easy publishing of python methods as HTTP APIs.
 
@@ -194,7 +196,7 @@ class WebApp(EventBus, tornado.web.Application, s_daemon.DmonConf):
         '''
         return [s.getsockname() for s in self.serv._sockets.values()]
 
-    def loadDmonConf(self, conf):
+    def setConfOpts(self, conf):
         '''
         Load API publishing info from the given config dict.
 
