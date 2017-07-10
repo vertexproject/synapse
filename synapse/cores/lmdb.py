@@ -372,8 +372,8 @@ class Cortex(s_cores_common.Cortex):
         self._map_slack, _ = s_datamodel.getTypeNorm('int', map_slack)
 
         # Maximum number of 'databases', really tables.  We use 5 different tables (1 main plus
-        # 3 indices and a blob store)
-        MAX_DBS = 5
+        # 3 indices and a blob store), + 1 table for possible migration use cases.
+        MAX_DBS = 5 + 1
 
         # flush system buffers to disk only once per transaction.  Set to False can lead to last
         # transaction loss, but not corruption
