@@ -403,9 +403,15 @@ class Cortex(s_cores_common.Cortex):
         if max_readers == 1:
             lock = False
 
-        self.dbenv = lmdb.Environment(dbname, map_size=self._map_size, subdir=SUBDIR,
-                                      metasync=metasync, writemap=WRITEMAP, max_readers=max_readers,
-                                      max_dbs=MAX_DBS, sync=sync, lock=lock)
+        self.dbenv = lmdb.Environment(dbname,
+                                      map_size=self._map_size,
+                                      subdir=SUBDIR,
+                                      metasync=metasync,
+                                      writemap=WRITEMAP,
+                                      max_readers=max_readers,
+                                      max_dbs=MAX_DBS,
+                                      sync=sync,
+                                      lock=lock)
 
         # Check we're not running a weird version of LMDB
         if self.dbenv.stat()['psize'] != 4096:
