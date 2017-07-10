@@ -199,91 +199,92 @@ class WebApp(tornado.web.Application, s_daemon.DmonConf, s_config.Config):
         '''
         return [s.getsockname() for s in self.serv._sockets.values()]
 
-    def loadDmonConf(self, conf):
-        '''
-        Load API publishing info from the given config dict.
-
-        Entries in the config define a set of objects to construct
-        and methods to share via the specified URLs.
-
-        Format:
-
-            config = {
-
-                'ctors':(
-                    (<name>,<evalurl>),
-                ),
-
-                'http:apis':(
-                    ( <regex>, <name>.<meth>, <props> )
-                ),
-
-                'http:paths':(
-                    ( <regex>, <path>, <props> ),
-                ),
-
-                'http:listen':(
-                    (<host>,<port>),
-                ),
-            }
-
-        Example:
-
-            The following example creates an instance of the
-            class mypkg.mymod.Woot (named "woot") and shares
-            the method woot.getByFoo(foo) at /v1/woot/by/foo/<foo>
-
-            config = {
-
-                'ctors':(
-                    ( 'woot', 'tcp://telepath.kenshoto.com/woot' ),
-                    ( 'blah', 'ctor://mypkg.mymod.Blah("haha")' ),
-                ),
-
-                'http:apis':(
-                    ( '/v1/woot/by/foo/(.*)', 'woot.getByFoo', {} ),
-                ),
-
-                'http:paths':(
-                    ( '/static/(.*)', '/path/to/static', {}),
-                )
-
-                'http:listen':(
-                    ('0.0.0.0',8080),
-                ),
-            }
-
-        Notes:
-
-            ctor:// based urls may use previous ctor names as vars
-
-            Example:
-
-            'ctors':(
-                ( 'woot', 'ctor://synapse.cortex.openurl("ram:///")' ),
-                ( 'blah', 'ctor://thing.needs.a.cortex(woot)' ),
-            )
-
-        '''
-        # add our API paths...
-        s_daemon.DmonConf.loadDmonConf(self, conf)
-
-        for path, methname, props in conf.get('http:apis', ()):
-
-            name, meth = methname.split('.', 1)
-
-            item = self.locs.get(name)
-            if item is None:
-                raise s_common.NoSuchObj(name)
-
-            func = getattr(item, meth, None)
-            if func is None:
-                raise s_common.NoSuchMeth(meth)
-
-            self.addApiPath(path, func)
-
-        for regx, path in conf.get('http:paths', ()):
-            self.addFilePath(regx, path)
-
-        for host, port in conf.get('http:listen', ()):
-            self.listen(port, host=host)
+# FIXME This function is untested and does not currently work. Commenting out and adding an issue to make WebApp configable.
+#    def loadDmonConf(self, conf):
+#        '''
+#        Load API publishing info from the given config dict.
+#
+#        Entries in the config define a set of objects to construct
+#        and methods to share via the specified URLs.
+#
+#        Format:
+#
+#            config = {
+#
+#                'ctors':(
+#                    (<name>,<evalurl>),
+#                ),
+#
+#                'http:apis':(
+#                    ( <regex>, <name>.<meth>, <props> )
+#                ),
+#
+#                'http:paths':(
+#                    ( <regex>, <path>, <props> ),
+#                ),
+#
+#                'http:listen':(
+#                    (<host>,<port>),
+#                ),
+#            }
+#
+#        Example:
+#
+#           The following example creates an instance of the
+#           class mypkg.mymod.Woot (named "woot") and shares
+#           the method woot.getByFoo(foo) at /v1/woot/by/foo/<foo>
+#
+#           config = {
+#
+#               'ctors':(
+#                   ( 'woot', 'tcp://telepath.kenshoto.com/woot' ),
+#                   ( 'blah', 'ctor://mypkg.mymod.Blah("haha")' ),
+#               ),
+#
+#               'http:apis':(
+#                   ( '/v1/woot/by/foo/(.*)', 'woot.getByFoo', {} ),
+#               ),
+#
+#               'http:paths':(
+#                   ( '/static/(.*)', '/path/to/static', {}),
+#               )
+#
+#               'http:listen':(
+#                   ('0.0.0.0',8080),
+#               ),
+#           }
+#
+#        Notes:
+#
+#            ctor:// based urls may use previous ctor names as vars
+#
+#            Example:
+#
+#            'ctors':(
+#                ( 'woot', 'ctor://synapse.cortex.openurl("ram:///")' ),
+#                ( 'blah', 'ctor://thing.needs.a.cortex(woot)' ),
+#            )
+#
+#        '''
+#        # add our API paths...
+#       s_daemon.DmonConf.loadDmonConf(self, conf)
+#
+#       for path, methname, props in conf.get('http:apis', ()):
+#
+#           name, meth = methname.split('.', 1)
+#
+#           item = self.locs.get(name)
+#           if item is None:
+#               raise s_common.NoSuchObj(name)
+#
+#           func = getattr(item, meth, None)
+#           if func is None:
+#               raise s_common.NoSuchMeth(meth)
+#
+#           self.addApiPath(path, func)
+#
+#       for regx, path in conf.get('http:paths', ()):
+#           self.addFilePath(regx, path)
+#
+#       for host, port in conf.get('http:listen', ()):
+#            self.listen(port, host=host)
