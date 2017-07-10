@@ -192,9 +192,10 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         # The storage layer initialization blob events then trump anything
         # which may have been set during the savefile load and make sure they
         # get saved as well
-        for evtname, info in _blobMesgCache:
-            self.savebus.fire(evtname, **info)
-            self.loadbus.fire(evtname, **info)
+        if 'savefd' in link[1] or 'savefile' in link[1]:
+            for evtname, info in _blobMesgCache:
+                self.savebus.fire(evtname, **info)
+                self.loadbus.fire(evtname, **info)
 
         if not self.hasBlobValu('syn:core:created'):
             self.setBlobValu('syn:core:created', s_common.now())
