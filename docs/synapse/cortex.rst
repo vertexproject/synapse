@@ -202,3 +202,22 @@ postgres://
 ~~~~~~~~~~~
 The PostgreSQL storage backing implements storage for a Cortex as a single table within
 a PostgreSQL database.  While slower than a ram:// Cortex, a PostgreSQL
+
+lmdb://
+~~~~~~~
+A cortex backed by the Symas Lightning DB (lmdb).
+
+Cortex Storage Compatibility Notes
+----------------------------------
+
+Due to issues with Python serialization, the data stored and accessed from a Cortex is not
+gauranteed across Cortexes created in Python 2.7 and Python 3.x.  In short, if a Cortex or
+savefile was created in Python 2.7; its use in a Python3 environment isn't gauarnteed. The
+inverse is also true; a Cortex created in 3.x may not work in Python2.7 as expected.
+
+This is known to affect the LMDB Cortex implementation, which heavily relies on using msgpack
+for doing key/value serialization, which has issues across python 2/3 with string handling.
+
+If there is a need for doing a data migration in order to ensure that your able to access a
+Cortex created on 2.7 with python 3.x, we have plans to provide a row level dump/backup tool
+in the near future that can be used to migrate data.
