@@ -7,6 +7,7 @@ import binascii
 import tempfile
 import unittest
 
+import synapse.axon as s_axon
 import synapse.link as s_link
 import synapse.common as s_common
 import synapse.compat as s_compat
@@ -2359,3 +2360,27 @@ class CortexTest(SynTest):
             # Try a /16
             nodes = core.eval('inet:ipv4*inet:cidr=192.168.0.0/16')
             self.eq(len(nodes), 256 * 3)
+
+    def test_cortex_formNodeByBytes_deconfliction(self):
+        with self.getTestDir() as dirn:
+            byts = b'hehehohohaha'
+            prop = 'file:bytes:sha256'
+            valu = 'b4f8fa9cc8555e8673cdef8c308cf2abe0eb7366fbd0a40cee03078635c5ea9a'
+
+            axon = s_axon.Axon(dirn)
+            core = s_cortex.openurl('ram://')
+            core.axon = axon
+
+            core.formTufoByProp(prop, valu)
+            core.eval('%s=%s addtag(wat.even)' % (prop, valu))
+            core.formNodeByBytes(byts)
+
+            tufos = core.getTufosByProp(prop, valu)
+            print('core.getTufosByProp(\'%s\', \'%s\') returned %d tufos -->' % (prop, valu, len(tufos)))
+            for tufo in tufos:
+                iden = tufo[0]
+                sha256val = tufo[1]['file:bytes:sha256']
+                tags = s_tufo.tags(tufo)
+                print('iden: %s sha256: %s tags: %s' % (iden, sha256val, tags))
+
+            self.eq(len(tufos), 1)
