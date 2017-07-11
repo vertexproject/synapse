@@ -1926,6 +1926,7 @@ class CortexTest(SynTest):
                 self.false(core.isnew)
 
     def test_cortex_rev0_savefd_lmdb(self):
+        self.skipIfOldPython()
         path = getTestPath('rev0.msgpk')
 
         with open(path, 'rb') as fd:
@@ -1990,6 +1991,7 @@ class CortexTest(SynTest):
                 self.runblob(core)
 
     def test_cortex_rev0_lmdb(self):
+        self.skipIfOldPython()
         path = getTestPath('rev0.lmdb.gz')
         with open(path, 'rb') as fd:
             byts = fd.read()
