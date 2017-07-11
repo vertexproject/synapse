@@ -807,19 +807,19 @@ class Cortex(s_cores_common.Cortex):
         return 'lmdb'
 
     def _getBlobValu(self, key):
-        key_buf = s_common.msgenpack(key)
+        key_byts = s_common.msgenpack(key.encode('utf-8'))
         db = self._dbs.get(BLOB_STORE)
         with self._getTxn() as txn:
             cur = txn.cursor(db=db)  # type: lmdb.Cursor
-            ret = cur.get(key_buf, default=None)
+            ret = cur.get(key_byts, default=None)
         return ret
 
     def _setBlobValu(self, key, valu):
-        key_buf = s_common.msgenpack(key)
+        key_byts = s_common.msgenpack(key.encode('utf-8'))
         db = self._dbs.get(BLOB_STORE)
         with self._getTxn(write=True) as txn:
             cur = txn.cursor(db=db)  # type: lmdb.Cursor
-            cur.put(key_buf, valu, overwrite=True)
+            cur.put(key_byts, valu, overwrite=True)
 
     def _hasBlobValu(self, key):
         ret = self._getBlobValu(key)
@@ -828,11 +828,11 @@ class Cortex(s_cores_common.Cortex):
         return True
 
     def _delBlobValu(self, key):
-        key_buf = s_common.msgenpack(key)
+        key_byts = s_common.msgenpack(key.encode('utf-8'))
         db = self._dbs.get(BLOB_STORE)
         with self._getTxn(write=True) as txn:
             cur = txn.cursor(db=db)  # type: lmdb.Cursor
-            ret = cur.pop(key_buf)
+            ret = cur.pop(key_byts)
 
             if ret is None:  # pragma: no cover
                 # We should never get here, but if we do, throw an exception.
@@ -844,5 +844,5 @@ class Cortex(s_cores_common.Cortex):
         with self._getTxn(write=True) as txn:
             cur = txn.cursor(db=db)  # type: lmdb.Cursor
             cur.first()
-            ret = [s_common.msgunpack(key) for key in cur.iternext(values=False)]
+            ret = [s_common.msgunpack(key).decode('utf-8') for key in cur.iternext(values=False)]
         return ret
