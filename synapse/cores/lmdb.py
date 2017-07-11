@@ -227,7 +227,6 @@ class Cortex(s_cores_common.Cortex):
             # We are a new cortex, stamp in tables and set
             # blob values and move along.
             self._initCorTable()
-            self._setMaxKey()
             self.setBlobValu(vsn_str, max_rev)
             return
         # We're an existing cortex, strap in all currently required tables,
@@ -302,6 +301,9 @@ class Cortex(s_cores_common.Cortex):
 
         # Make the blob key/val index table, with the
         self._dbs[BLOB_STORE] = self.dbenv.open_db(key=BLOB_STORE)  # k -> v
+
+        # Set max values for dbs
+        self._setMaxKey()
 
     def _setMaxKey(self):
         '''

@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 
 import os
+import gzip
 import hashlib
 import binascii
 import tempfile
@@ -1957,6 +1958,50 @@ class CortexTest(SynTest):
                 table = core._getTableName()
                 blob_table = table + '_blob'
                 self.ge(core.getBlobValu('syn:core:sqlite:version'), 0)
+                self.true(core._checkForTable(blob_table))
+                self.runblob(core)
+
+    def test_cortex_rev0_lmdb(self):
+        path = getTestPath('rev0.lmdb.gz')
+        with open(path, 'rb') as fd:
+            byts = fd.read()
+
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = '06c05fa1ed9c9c195e060905357caef6'
+        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
+
+        buf = s_compat.BytesIO(byts)
+
+        with self.getTestDir() as temp:
+
+            finl = os.path.join(temp, 'test.db')
+
+            sz = 1024 * 1024 * 4
+            with open(finl, 'wb') as fd:
+                with gzip.GzipFile(fileobj=buf) as gzfd:
+                    while True:
+                        _byts = gzfd.read(sz)
+                        if not _byts:
+                            break
+                        fd.write(_byts)
+
+            with s_cortex.openurl('lmdb:///%s' % finl) as core:
+                self.false(core.isnew)
+                node = core.eval('inet:ipv4=1.2.3.4')[0]
+
+                self.nn(node[1].get('#foo.bar'))
+                self.eq(len(core.eval('inet:ipv4*tag=foo.bar')), 1)
+
+                self.eq(len(core.getRowsByProp('_:dark:tag')), 0)
+                self.eq(len(core.getRowsByProp('_:*inet:ipv4#foo.bar')), 1)
+
+                self.eq(len(core.eval('inet:ipv4*tag=foo.bar.baz')), 1)
+                self.eq(len(core.eval('#foo.bar.baz')), 1)
+
+                # lmdb storage layer versioning checks go below
+                blob_table = b'blob_store'
+                self.ge(core.getBlobValu('syn:core:lmdb:version'), 0)
                 self.true(core._checkForTable(blob_table))
                 self.runblob(core)
 
