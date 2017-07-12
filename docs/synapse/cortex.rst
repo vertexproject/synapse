@@ -211,8 +211,8 @@ Cortex Storage Compatibility Notes
 ----------------------------------
 
 Due to issues with Python serialization, the data stored and accessed from a Cortex is not
-gauranteed across Cortexes created in Python 2.7 and Python 3.x.  In short, if a Cortex or
-savefile was created in Python 2.7; its use in a Python3 environment isn't gauarnteed. The
+guaranteed across Cortexes created in Python 2.7 and Python 3.x.  In short, if a Cortex or
+savefile was created in Python 2.7; its use in a Python3 environment isn't guaranteed. The
 inverse is also true; a Cortex created in 3.x may not work in Python2.7 as expected.
 
 This is known to affect the LMDB Cortex implementation, which heavily relies on using msgpack
