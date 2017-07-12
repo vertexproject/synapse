@@ -566,47 +566,6 @@ class Cortex(s_cores_common.Cortex):
         # Apply storage layer revisions
         self._revCorVers(revs)
 
-    def _revCorVers(self, revs):
-        '''
-        Update a the storage layer with a list of (vers,func) tuples.
-
-        Args:
-            revs ([(int,function)]):  List of (vers,func) revision tuples.
-
-        Returns:
-            (None)
-
-        Each specified function is expected to update the storage layer including data migration.
-        '''
-        if not revs:
-            return
-        vsn_str = 'syn:core:{}:version'.format(self._getCoreType())
-        curv = self.getBlobValu(vsn_str, -1)
-
-        maxver = revs[-1][0]
-        if maxver == curv:
-            return
-
-        if not self.getConfOpt('rev:storage'):
-            raise s_common.NoRevAllow(name='rev:storage',
-                                      mesg='add rev:storage=1 to cortex url to allow storage updates')
-
-        for vers, func in sorted(revs):
-
-            if vers <= curv:
-                continue
-
-            # allow the revision function to optionally return the
-            # revision he jumped to ( to allow initial override )
-            mesg = 'Warning - storage layer update occurring. Do not interrupt. [{}] => [{}]'.format(curv, vers)
-            logger.warning(mesg)
-            retn = func()
-            logger.warning('Storage layer update completed.')
-            if retn is not None:
-                vers = retn
-
-            curv = self.setBlobValu(vsn_str, vers)
-
     def _initCorTable(self, name):
         with self.getCoreXact() as xact:
             xact.cursor.execute(self._q_inittable)
