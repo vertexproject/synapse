@@ -1,13 +1,8 @@
-import logging
 import collections
-
-import synapse.common as s_common
-
-from synapse.compat import isint, intern
 
 import synapse.cores.common as s_cores_common
 
-from synapse.eventbus import EventBus
+from synapse.compat import isint, intern
 
 class CoreXact(s_cores_common.CoreXact):
 
