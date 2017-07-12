@@ -2975,8 +2975,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             The input value, unchanged.
         '''
         buf = s_common.msgenpack(valu)
-        self.savebus.fire('syn:core:blob:set', key=key, valu=buf)
         self._setBlobValu(key, buf)
+        self.savebus.fire('syn:core:blob:set', key=key, valu=buf)
         return valu
 
     # TODO: Wrap this in a userauth layer
@@ -3009,8 +3009,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         '''
         if not self.hasBlobValu(key):
             raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
-        self.savebus.fire('syn:core:blob:del', key=key)
         buf = self._delBlobValu(key)
+        self.savebus.fire('syn:core:blob:del', key=key)
         return s_common.msgunpack(buf)
 
     def _onSetBlobValu(self, mesg):
