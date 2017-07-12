@@ -286,10 +286,10 @@ class Hypnos(s_config.Config):
         object behavior:
 
         * ioloop: Tornado ioloop used by the IO thread. This would normally
-                  be left unset, and an ioloop will be created for the io
-                  thread. This is provided as a helper for testing.
+          be left unset, and an ioloop will be created for the io thread.
+          This is provided as a helper for testing.
         * content_type_skip: A list of content-type values which will not have
-                             any attempts to decode data done on them.
+          any attempts to decode data done on them.
 
         The following values may be passed via configable opts:
 
@@ -306,8 +306,7 @@ class Hypnos(s_config.Config):
           made at one time.
 
     Args:
-        core (synapse.cores.common.Cortex): A cortex used to store ingest data.
-                                            By default a ram cortex is used.
+        core (synapse.cores.common.Cortex): A cortex used to store ingest data. By default a ram cortex is used.
         opts (dict): Optional configuration data for the Config mixin.
     '''
 
