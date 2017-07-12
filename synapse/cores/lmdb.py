@@ -247,7 +247,7 @@ class Cortex(s_cores_common.Cortex):
         Returns:
             (None)
 
-        Each specified function is expected to update the strage layer including data migration.
+        Each specified function is expected to update the storage layer including data migration.
         '''
         if not revs:
             return
