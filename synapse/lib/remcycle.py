@@ -38,14 +38,15 @@ import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__name__)
 
-MIN_WORKER_THREADS = 'web_min_worker_threads'
-MAX_WORKER_THREADS = 'web_max_worker_threads'
-MAX_SPOOL_FILESIZE = 'web_max_spool_file_size'
-CACHE_ENABLED = 'web_result_cache_enable'
-CACHE_TIMEOUT = 'web_result_cache_timeout'
+MIN_WORKER_THREADS = 'web:worker:threads:min'
+MAX_WORKER_THREADS = 'web:worker:threads:max'
+MAX_SPOOL_FILESIZE = 'web:index:max_spool_size'
+CACHE_ENABLED = 'web:cache:enable'
+CACHE_TIMEOUT = 'web:cache:timeout'
+MAX_CLIENTS = 'web:tornado:max_clients'
 HYPNOS_BASE_DEFS = (
-    (MIN_WORKER_THREADS, {'type': 'int', 'doc': 'Minimum number of worker threads to spawn', 'defval': 8}),
-    (MAX_WORKER_THREADS, {'type': 'int', 'doc': 'Maximum number of worker threads to spawn', 'defval': 64}),
+    (MIN_WORKER_THREADS, {'type': 'int', 'doc': 'Minimum number of worker threads to spawn.', 'defval': 8}),
+    (MAX_WORKER_THREADS, {'type': 'int', 'doc': 'Maximum number of worker threads to spawn.', 'defval': 64}),
     (MAX_SPOOL_FILESIZE, {'type': 'int',
                           'doc': 'Maximum spoolfile size, in bytes, to use for storing responses associated with '
                                  'APIs that have ingest definitions.',
@@ -55,7 +56,10 @@ HYPNOS_BASE_DEFS = (
                      'defval': False}),
     (CACHE_TIMEOUT, {'type': 'int',
                      'doc': 'Timeout value, in seconds, that the results will persist in the cache.',
-                     'defval': 300})
+                     'defval': 300}),
+    (MAX_CLIENTS, {'type': 'int',
+                   'doc': 'Maximum number of concurrent requests which can be made at one time.',
+                   'defval': 10}),
 )
 
 class Nyx(object):
@@ -287,22 +291,45 @@ class Hypnos(s_config.Config):
         * content_type_skip: A list of content-type values which will not have
                              any attempts to decode data done on them.
 
+        The following values may be passed via configable opts:
+
+        * web_min_worker_threads: Minimum number of worker threads to spawn.
+        * web_max_worker_threads:  Maximum number of worker threads to spawn.
+        * web_max_spool_file_size:  Maximum spoolfile size, in bytes, to use
+          for storing responses associated withAPIs that have ingest
+          definitions.
+        * web_result_cache_enable: Enable caching of job results for a period
+          of time, retrievable by jobid.
+        * web_result_cache_timeout: Timeout value, in seconds, that the
+          results will persist in the cache.
+        * web_max_clients: Maximum number of concurrent requests which can be
+          made at one time.
+
     Args:
         core (synapse.cores.common.Cortex): A cortex used to store ingest data.
                                             By default a ram cortex is used.
         opts (dict): Optional configuration data for the Config mixin.
-        defs (tuple): Default configuration data for the Config mixin.
     '''
 
     def __init__(self,
                  core=None,
                  opts=None,
-                 defs=HYPNOS_BASE_DEFS,
                  *args,
                  **kwargs):
-        s_config.Config.__init__(self,
-                                 opts,
-                                 defs)
+        s_config.Config.__init__(self)
+        for optname, optconf in HYPNOS_BASE_DEFS:
+            self.addConfDef(optname, **optconf)
+        # Runtime-settable options
+        self.onConfOptSet(CACHE_ENABLED, self._onSetWebCache)
+        self.onConfOptSet(CACHE_TIMEOUT, self._onSetWebCacheTimeout)
+
+        # Things we need prior to loading in conf values
+        self.web_boss = s_async.Boss()
+        self.web_cache = s_cache.Cache()
+        self.web_cache_enabled = False
+
+        if opts:
+            self.setConfOpts(opts)
 
         self._web_required_keys = ('namespace', 'doc', 'apis')
 
@@ -311,22 +338,32 @@ class Hypnos(s_config.Config):
         self._web_docs = {}
         self._web_default_http_args = {}  # Global request headers per namespace
 
-        # Check configable options before we spin up any resources
+        # Check configable options before we spin up any more resources
+        max_clients = self.getConfOpt(MAX_CLIENTS)
         pool_min = self.getConfOpt(MIN_WORKER_THREADS)
         pool_max = self.getConfOpt(MAX_WORKER_THREADS)
-        if pool_min < 1 or pool_max < pool_min:
-            raise ValueError('Bad pool configuration provided.')
-
+        if pool_min < 1:
+            raise s_common.BadConfValu(name=MIN_WORKER_THREADS,
+                                       valu=pool_min,
+                                       mesg='web_min_worker_threads must be greater than 1')
+        if pool_max < pool_min:
+            raise s_common.BadConfValu(name=MAX_WORKER_THREADS,
+                                       valu=pool_max,
+                                       mesg='web_max_worker_threads must be greater than the web_min_worker_threads')
+        if max_clients < 1:
+            raise s_common.BadConfValu(name=MAX_CLIENTS,
+                                       valu=max_clients,
+                                       mesg='web_max_clients must be greater than 1')
         # Tornado Async
         loop = kwargs.get('ioloop')
         if loop is None:
             loop = t_ioloop.IOLoop()
         self.web_loop = loop
-        self.web_client = t_http.AsyncHTTPClient(io_loop=self.web_loop)
+        self.web_client = t_http.AsyncHTTPClient(io_loop=self.web_loop,
+                                                 max_clients=max_clients)
         self.web_iothr = self._runIoLoop()
 
         # Synapse Async and thread pool
-        self.web_boss = s_async.Boss()
         self.web_pool = s_threads.Pool(pool_min, pool_max)
 
         # Synapse Core and ingest tracking
@@ -337,14 +374,10 @@ class Hypnos(s_config.Config):
         self._web_api_ingests = collections.defaultdict(list)
         self._web_api_gest_opens = {}
 
-        self.web_cache = s_cache.Cache()
-        self.web_cache_enabled = self.getConfOpt(CACHE_ENABLED)
-        if self.web_cache_enabled:
-            self.webCacheEnable()
         # Setup Fini handlers
         self.onfini(self._onHypoFini)
 
-        # List of content-type headers to skip processing on
+        # List of content-type headers to skip automatic decoding
         self._web_content_type_skip = set([])
         self.webContentTypeSkipAdd('application/octet-stream')
         for ct in kwargs.get('content_type_skip', []):
@@ -373,6 +406,43 @@ class Hypnos(s_config.Config):
         self.web_pool.fini()
         # Stop the web cache
         self.web_cache.fini()
+
+    def _onSetWebCache(self, valu):
+        '''
+        Enable or disable caching of results from fireWebApi.
+        When caching is diabled, all cached data is cleared.
+
+        Args:
+            valu (bool): True or False to enable or disable the caching.
+
+        Returns:
+
+        '''
+        if valu:
+            if self.web_cache_enabled:
+                return
+            self.web_cache_enabled = True
+            self.web_cache.setMaxTime(self.getConfOpt(CACHE_TIMEOUT))
+            self.web_boss.on('job:fini', self._cacheRequestResults)
+        else:
+            if not self.web_cache_enabled:
+                return
+            self.web_boss.off('job:fini', self._cacheRequestResults)
+            self.webCacheClear()
+            self.web_cache_enabled = False
+
+    def _onSetWebCacheTimeout(self, valu):
+        '''
+        Set the cache timeout value.
+
+        Args:
+            valu (int):
+
+        Returns:
+
+        '''
+        if self.web_cache_enabled:
+            self.web_cache.setMaxTime(valu)
 
     def getWebDescription(self):
         '''
@@ -1086,24 +1156,6 @@ class Hypnos(s_config.Config):
         if not self.web_cache_enabled:
             logger.warning('Cache deletion requested but cache not enabled.')
         return self.web_cache.pop(jid)
-
-    def webCacheEnable(self):
-        '''
-        Enable caching of results from fireWebApi.
-        '''
-        self.web_cache_enabled = True
-        self.setConfOpt(CACHE_ENABLED, True)
-        self.web_cache.setMaxTime(self.getConfOpt(CACHE_TIMEOUT))
-        self.web_boss.on('job:fini', self._cacheRequestResults)
-
-    def webCacheDisable(self):
-        '''
-        Disable caching of results from fireWebApi and clear all data from the cache.
-        '''
-        self.web_boss.off('job:fini', self._cacheRequestResults)
-        self.webCacheClear()
-        self.setConfOpt(CACHE_ENABLED, False)
-        self.web_cache_enabled = False
 
     def webCacheClear(self):
         '''

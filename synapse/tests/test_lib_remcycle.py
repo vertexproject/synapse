@@ -366,16 +366,20 @@ class HypnosTest(SynTest, AsyncTestCase):
 
     def test_hypnos_config_bounds(self):
         self.thisHostMustNot(platform='windows')
-        with self.raises(ValueError) as cm:
+        with self.raises(s_common.BadConfValu) as cm:
             hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 0},
                                          ioloop=self.io_loop)
-        self.true('Bad pool configuration provided' in str(cm.exception))
+        self.isin('web_min_worker_threads must be greater than 1', str(cm.exception))
 
-        with self.raises(ValueError) as cm:
+        with self.raises(s_common.BadConfValu) as cm:
             hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MAX_WORKER_THREADS: 1,
                                                s_remcycle.MIN_WORKER_THREADS: 2},
                                          ioloop=self.io_loop)
-        self.true('Bad pool configuration provided' in str(cm.exception))
+        self.isin('web_max_worker_threads must be greater than the web_min_worker_threads', str(cm.exception))
+        with self.raises(s_common.BadConfValu) as cm:
+            hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MAX_CLIENTS: 0, },
+                                         ioloop=self.io_loop)
+        self.isin('web_max_clients must be greater than 1', str(cm.exception))
 
     def test_hypnos_fini(self):
         # Ensure we call fini on all objects created by the core.
@@ -867,7 +871,8 @@ class HypnosTest(SynTest, AsyncTestCase):
         # testserver = Foo()
 
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 2,
-                                     s_remcycle.CACHE_ENABLED: True},
+                                     s_remcycle.CACHE_ENABLED: True,
+                                     },
                                ioloop=self.io_loop) as hypo_obj:  # type: s_remcycle.Hypnos
             hypo_obj.addWebConfig(config=gconf)
 
@@ -888,7 +893,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.eq(cached_data, cached_data2)
             self.false(jid1 in hypo_obj.web_cache)
             # Disable the cache and ensure the responses are cleared and no longer cached.
-            hypo_obj.webCacheDisable()
+            hypo_obj.setConfOpt(s_remcycle.CACHE_ENABLED, False)
             self.false(jid1 in hypo_obj.web_cache)
             jid2 = hypo_obj.fireWebApi('fakeipify:jsonip')
             hypo_obj.web_boss.wait(jid=jid1)
