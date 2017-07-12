@@ -80,8 +80,8 @@ MAX_TIME_ENC = s_common.msgenpack(MAX_INT_VAL)
 BLOB_STORE = b'blob_store'
 ROWS = b'rows'
 IDEN_PROP_INDEX = b'ip'
-PROP_VAL_INDEX = b'pvt'
-PROP_INDEX = b'pt'
+PROP_VAL_TIME_INDEX = b'pvt'
+PROP_TIME_INDEX = b'pt'
 
 def _round_up(val, modulus):
     return val - val % -modulus
@@ -184,7 +184,6 @@ class Cortex(s_cores_common.Cortex):
         self.initSizeBy('range', self._sizeByRange)
         self.initRowsBy('range', self._rowsByRange)
 
-        self._dbs = {}
         self._initCorTables()
 
     def _initDbInfo(self):
@@ -201,8 +200,7 @@ class Cortex(s_cores_common.Cortex):
         return CoreXact(self, size=size)
 
     def _getLargestPk(self):
-        rows_db = self._dbs.get(ROWS)
-        with self._getTxn() as txn, txn.cursor(rows_db) as cursor:
+        with self._getTxn() as txn, txn.cursor(self.rows) as cursor:
             if not cursor.last():
                 return 0  # db is empty
             return _decPk(cursor.key())
@@ -244,22 +242,22 @@ class Cortex(s_cores_common.Cortex):
         '''
         # Make the main storage table, keyed by an incrementing counter, pk
         # LMDB has an optimization (integerkey) if all the keys in a table are unsigned size_t.
-        self._dbs[ROWS] = self.dbenv.open_db(key=ROWS, integerkey=True)  # pk -> i,p,v,t
+        self.rows = self.dbenv.open_db(key=ROWS, integerkey=True)  # pk -> i,p,v,t
 
         # Note there's another LMDB optimization ('dupfixed') we're not using that we could
         # in the index tables.  It would pay off if a large proportion of keys are duplicates.
 
         # Make the iden-prop index table, keyed by iden-prop, with value being a pk
-        self._dbs[IDEN_PROP_INDEX] = self.dbenv.open_db(key=IDEN_PROP_INDEX, dupsort=True)  # i,p -> pk
+        self.index_ip = self.dbenv.open_db(key=IDEN_PROP_INDEX, dupsort=True)  # i,p -> pk
 
         # Make the prop-val-timestamp index table, with value being a pk
-        self._dbs[PROP_VAL_INDEX] = self.dbenv.open_db(key=PROP_VAL_INDEX, dupsort=True)  # p,v,t -> pk
+        self.index_pvt = self.dbenv.open_db(key=PROP_VAL_TIME_INDEX, dupsort=True)  # p,v,t -> pk
 
         # Make the prop-timestamp index table, with value being a pk
-        self._dbs[PROP_INDEX] = self.dbenv.open_db(key=PROP_INDEX, dupsort=True)  # p, t -> pk
+        self.index_pt = self.dbenv.open_db(key=PROP_TIME_INDEX, dupsort=True)  # p, t -> pk
 
         # Make the blob key/val index table, with the
-        self._dbs[BLOB_STORE] = self.dbenv.open_db(key=BLOB_STORE)  # k -> v
+        self.blob_store = self.dbenv.open_db(key=BLOB_STORE)  # k -> v
 
         # Set max values for dbs
         self._setMaxKey()
@@ -270,12 +268,10 @@ class Cortex(s_cores_common.Cortex):
         where the cursor moves backwards after deleting the final record.
         '''
         with self._getTxn(write=True) as txn:
-            for dbname in (IDEN_PROP_INDEX, PROP_VAL_INDEX, PROP_INDEX):
-                db = self._dbs.get(dbname)
+            for db in (self.index_ip, self.index_pvt, self.index_pt):
                 txn.put(MAX_INDEX_KEY, b'', db=db)
-                if dbname is PROP_VAL_INDEX:
-                    # One more sentinel for going backwards through the pvt table.
-                    txn.put(b'\x00', b'', db=db)
+            # One more sentinel for going backwards through the pvt table.
+            txn.put(b'\x00', b'', db=self.index_pvt)
 
         # Find the largest stored pk.  We just track this in memory from now on.
         largest_pk = self._getLargestPk()
@@ -435,30 +431,25 @@ class Cortex(s_cores_common.Cortex):
             kvs = ((x[5], x[2]) for x in encs)
 
             # Shove it all in at once
-            rows_db = self._dbs.get(ROWS)
-            consumed, added = txn.cursor(rows_db).putmulti(kvs, overwrite=False, append=True)
+            consumed, added = txn.cursor(self.rows).putmulti(kvs, overwrite=False, append=True)
             if consumed != added or consumed != len(encs):
                 # Will only fail if record already exists, which should never happen
                 raise s_common.BadCoreStore(store='lmdb', mesg='unexpected pk in DB')
 
             # Update the indices for all rows
-            index_pt = self._dbs.get(PROP_INDEX)
-            index_pvt = self._dbs.get(PROP_VAL_INDEX)
-            index_ip = self._dbs.get(IDEN_PROP_INDEX)
             kvs = ((x[0] + x[1], x[5]) for x in encs)
-            txn.cursor(index_ip).putmulti(kvs, dupdata=True)
+            txn.cursor(self.index_ip).putmulti(kvs, dupdata=True)
             kvs = ((x[1] + x[4] + x[3], x[5]) for x in encs)
-            txn.cursor(index_pvt).putmulti(kvs, dupdata=True)
+            txn.cursor(self.index_pvt).putmulti(kvs, dupdata=True)
             kvs = ((x[1] + x[3], x[5]) for x in encs)
-            txn.cursor(index_pt).putmulti(kvs, dupdata=True)
+            txn.cursor(self.index_pt).putmulti(kvs, dupdata=True)
 
             # self.next_pk should be protected from multiple writers. Luckily lmdb write lock does
             # that for us.
             self.next_pk = next_pk
 
     def _getRowByPkValEnc(self, txn, pk_enc):
-        rows_db = self._dbs.get(ROWS)
-        row = txn.get(pk_enc, db=rows_db)
+        row = txn.get(pk_enc, db=self.rows)
         if row is None:
             raise s_common.BadCoreStore(store='lmdb', mesg='Index val has no corresponding row')
         return s_common.msgunpack(row)
@@ -466,8 +457,7 @@ class Cortex(s_cores_common.Cortex):
     def _getRowsById(self, iden):
         iden_enc = _encIden(iden)
         rows = []
-        db = self._dbs.get(IDEN_PROP_INDEX)
-        with self._getTxn() as txn, txn.cursor(db) as cursor:
+        with self._getTxn() as txn, txn.cursor(self.index_ip) as cursor:
             if not cursor.set_range(iden_enc):
                 raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
             for key, pk_enc in cursor:
@@ -480,8 +470,7 @@ class Cortex(s_cores_common.Cortex):
     def _delRowsById(self, iden):
         i_enc = _encIden(iden)
 
-        db = self._dbs.get(IDEN_PROP_INDEX)
-        with self._getTxn(write=True) as txn, txn.cursor(db) as cursor:
+        with self._getTxn(write=True) as txn, txn.cursor(self.index_ip) as cursor:
             # Get the first record >= i_enc
             if not cursor.set_range(i_enc):
                 raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
@@ -505,8 +494,7 @@ class Cortex(s_cores_common.Cortex):
         p_enc = _encProp(prop)
         first_key = i_enc + p_enc
 
-        db = self._dbs.get(IDEN_PROP_INDEX)
-        with self._getTxn(write=True) as txn, txn.cursor(db) as cursor:
+        with self._getTxn(write=True) as txn, txn.cursor(self.index_ip) as cursor:
             # Retrieve and delete I-P index
             if not cursor.set_range(first_key):
                 raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
@@ -531,8 +519,7 @@ class Cortex(s_cores_common.Cortex):
     def _delRowAndIndices(self, txn, pk_enc, i_enc=None, p_enc=None, v_key_enc=None, t_enc=None,
                           delete_ip=True, delete_pvt=True, delete_pt=True, only_if_val=None):
         ''' Deletes the row corresponding to pk_enc and the indices pointing to it '''
-        rows_db = self._dbs.get(ROWS)
-        with txn.cursor(rows_db) as cursor:
+        with txn.cursor(self.rows) as cursor:
             if not cursor.set_key(pk_enc):
                 raise s_common.BadCoreStore(store='lmdb', mesg='Missing PK')
             i, p, v, t = s_common.msgunpack(cursor.value())
@@ -555,20 +542,17 @@ class Cortex(s_cores_common.Cortex):
 
         if delete_ip:
             # Delete I-P index entry
-            db = self._dbs.get(IDEN_PROP_INDEX)
-            if not txn.delete(i_enc + p_enc, value=pk_enc, db=db):
+            if not txn.delete(i_enc + p_enc, value=pk_enc, db=self.index_ip):
                 raise s_common.BadCoreStore(store='lmdb', mesg='Missing I-P index')
 
         if delete_pvt:
             # Delete P-V-T index entry
-            db = self._dbs.get(PROP_VAL_INDEX)
-            if not txn.delete(p_enc + v_key_enc + t_enc, value=pk_enc, db=db):
+            if not txn.delete(p_enc + v_key_enc + t_enc, value=pk_enc, db=self.index_pvt):
                 raise s_common.BadCoreStore(store='lmdb', mesg='Missing P-V-T index')
 
         if delete_pt:
             # Delete P-T index entry
-            db = self._dbs.get(PROP_INDEX)
-            if not txn.delete(p_enc + t_enc, value=pk_enc, db=db):
+            if not txn.delete(p_enc + t_enc, value=pk_enc, db=self.index_pt):
                 raise s_common.BadCoreStore(store='lmdb', mesg='Missing P-T index')
 
         return True
@@ -581,8 +565,7 @@ class Cortex(s_cores_common.Cortex):
         first_key = iden_enc + prop_enc
 
         ret = []
-        indx = self._dbs.get(IDEN_PROP_INDEX)
-        with self._getTxn() as txn, txn.cursor(indx) as cursor:
+        with self._getTxn() as txn, txn.cursor(self.index_ip) as cursor:
             if not cursor.set_range(first_key):
                 raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
             for key, value in cursor:
@@ -599,9 +582,7 @@ class Cortex(s_cores_common.Cortex):
 
     def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None,
                        do_count_only=False):
-        indx = self._dbs.get(PROP_VAL_INDEX)
-        if valu is None:
-            indx = self._dbs.get(PROP_INDEX)
+        indx = self.index_pt if valu is None else self.index_pvt
         first_key, last_key, v_is_hashed, do_fast_compare = _calcFirstLastKeys(prop, valu,
                                                                                mintime, maxtime)
 
@@ -635,9 +616,7 @@ class Cortex(s_cores_common.Cortex):
         return count if do_count_only else rows
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        indx = self._dbs.get(PROP_VAL_INDEX)
-        if valu is None:
-            indx = self._dbs.get(PROP_INDEX)
+        indx = self.index_pt if valu is None else self.index_pvt
         first_key, last_key, v_is_hashed, do_fast_compare = _calcFirstLastKeys(prop, valu,
                                                                                mintime, maxtime)
         with self._getTxn(write=True) as txn, txn.cursor(indx) as cursor:
@@ -731,15 +710,13 @@ class Cortex(s_cores_common.Cortex):
         ret = []
         count = 0
 
-        index_pvt = self._dbs.get(PROP_VAL_INDEX)
-
         # Figure out the terminating condition of the loop
         if am_going_backwards:
             term_cmp = bytes.__lt__ if right_closed else bytes.__le__
         else:
             term_cmp = bytes.__gt__ if right_closed else bytes.__ge__
 
-        with self._getTxn() as txn, txn.cursor(index_pvt) as cursor:
+        with self._getTxn() as txn, txn.cursor(self.index_pvt) as cursor:
             if not cursor.set_range(first_key):
                 raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
             if am_going_backwards:
@@ -767,18 +744,14 @@ class Cortex(s_cores_common.Cortex):
 
     def _getBlobValu(self, key):
         key_byts = s_common.msgenpack(key.encode('utf-8'))
-        db = self._dbs.get(BLOB_STORE)
-        with self._getTxn() as txn:
-            cur = txn.cursor(db)  # type: lmdb.Cursor
-            ret = cur.get(key_byts, default=None)
+        with self._getTxn() as txn:  # type: lmdb.Transaction
+            ret = txn.get(key_byts, default=None, db=self.blob_store)
         return ret
 
     def _setBlobValu(self, key, valu):
         key_byts = s_common.msgenpack(key.encode('utf-8'))
-        db = self._dbs.get(BLOB_STORE)
-        with self._getTxn(write=True) as txn:
-            cur = txn.cursor(db)  # type: lmdb.Cursor
-            cur.put(key_byts, valu, overwrite=True)
+        with self._getTxn(write=True) as txn:  # type: lmdb.Transaction
+            txn.put(key_byts, valu, overwrite=True, db=self.blob_store)
 
     def _hasBlobValu(self, key):
         ret = self._getBlobValu(key)
@@ -788,10 +761,8 @@ class Cortex(s_cores_common.Cortex):
 
     def _delBlobValu(self, key):
         key_byts = s_common.msgenpack(key.encode('utf-8'))
-        db = self._dbs.get(BLOB_STORE)
-        with self._getTxn(write=True) as txn:
-            cur = txn.cursor(db)  # type: lmdb.Cursor
-            ret = cur.pop(key_byts)
+        with self._getTxn(write=True) as txn:  # type: lmdb.Transaction
+            ret = txn.pop(key_byts, db=self.blob_store)
 
             if ret is None:  # pragma: no cover
                 # We should never get here, but if we do, throw an exception.
@@ -799,9 +770,8 @@ class Cortex(s_cores_common.Cortex):
         return ret
 
     def _getBlobKeys(self):
-        db = self._dbs.get(BLOB_STORE)
-        with self._getTxn(write=True) as txn:
-            cur = txn.cursor(db)  # type: lmdb.Cursor
+        with self._getTxn(write=True) as txn:  # type: lmdb.Transaction
+            cur = txn.cursor(self.blob_store)  # type: lmdb.Cursor
             cur.first()
             ret = [s_common.msgunpack(key).decode('utf-8') for key in cur.iternext(values=False)]
         return ret
