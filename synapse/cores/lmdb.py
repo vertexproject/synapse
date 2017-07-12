@@ -477,7 +477,7 @@ class Cortex(s_cores_common.Cortex):
 
             # Shove it all in at once
             rows_db = self._dbs.get(ROWS)
-            consumed, added = txn.cursor(db=rows_db).putmulti(kvs, overwrite=False, append=True)
+            consumed, added = txn.cursor(rows_db).putmulti(kvs, overwrite=False, append=True)
             if consumed != added or consumed != len(encs):
                 # Will only fail if record already exists, which should never happen
                 raise s_common.BadCoreStore(store='lmdb', mesg='unexpected pk in DB')
@@ -487,11 +487,11 @@ class Cortex(s_cores_common.Cortex):
             index_pvt = self._dbs.get(PROP_VAL_INDEX)
             index_ip = self._dbs.get(IDEN_PROP_INDEX)
             kvs = ((x[0] + x[1], x[5]) for x in encs)
-            txn.cursor(db=index_ip).putmulti(kvs, dupdata=True)
+            txn.cursor(index_ip).putmulti(kvs, dupdata=True)
             kvs = ((x[1] + x[4] + x[3], x[5]) for x in encs)
-            txn.cursor(db=index_pvt).putmulti(kvs, dupdata=True)
+            txn.cursor(index_pvt).putmulti(kvs, dupdata=True)
             kvs = ((x[1] + x[3], x[5]) for x in encs)
-            txn.cursor(db=index_pt).putmulti(kvs, dupdata=True)
+            txn.cursor(index_pt).putmulti(kvs, dupdata=True)
 
             # self.next_pk should be protected from multiple writers. Luckily lmdb write lock does
             # that for us.
@@ -573,7 +573,7 @@ class Cortex(s_cores_common.Cortex):
                           delete_ip=True, delete_pvt=True, delete_pt=True, only_if_val=None):
         ''' Deletes the row corresponding to pk_enc and the indices pointing to it '''
         rows_db = self._dbs.get(ROWS)
-        with txn.cursor(db=rows_db) as cursor:
+        with txn.cursor(rows_db) as cursor:
             if not cursor.set_key(pk_enc):
                 raise s_common.BadCoreStore(store='lmdb', mesg='Missing PK')
             i, p, v, t = s_common.msgunpack(cursor.value())
@@ -810,7 +810,7 @@ class Cortex(s_cores_common.Cortex):
         key_byts = s_common.msgenpack(key.encode('utf-8'))
         db = self._dbs.get(BLOB_STORE)
         with self._getTxn() as txn:
-            cur = txn.cursor(db=db)  # type: lmdb.Cursor
+            cur = txn.cursor(db)  # type: lmdb.Cursor
             ret = cur.get(key_byts, default=None)
         return ret
 
@@ -818,7 +818,7 @@ class Cortex(s_cores_common.Cortex):
         key_byts = s_common.msgenpack(key.encode('utf-8'))
         db = self._dbs.get(BLOB_STORE)
         with self._getTxn(write=True) as txn:
-            cur = txn.cursor(db=db)  # type: lmdb.Cursor
+            cur = txn.cursor(db)  # type: lmdb.Cursor
             cur.put(key_byts, valu, overwrite=True)
 
     def _hasBlobValu(self, key):
@@ -831,7 +831,7 @@ class Cortex(s_cores_common.Cortex):
         key_byts = s_common.msgenpack(key.encode('utf-8'))
         db = self._dbs.get(BLOB_STORE)
         with self._getTxn(write=True) as txn:
-            cur = txn.cursor(db=db)  # type: lmdb.Cursor
+            cur = txn.cursor(db)  # type: lmdb.Cursor
             ret = cur.pop(key_byts)
 
             if ret is None:  # pragma: no cover
@@ -842,7 +842,7 @@ class Cortex(s_cores_common.Cortex):
     def _getBlobKeys(self):
         db = self._dbs.get(BLOB_STORE)
         with self._getTxn(write=True) as txn:
-            cur = txn.cursor(db=db)  # type: lmdb.Cursor
+            cur = txn.cursor(db)  # type: lmdb.Cursor
             cur.first()
             ret = [s_common.msgunpack(key).decode('utf-8') for key in cur.iternext(values=False)]
         return ret
