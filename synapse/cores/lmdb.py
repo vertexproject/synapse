@@ -223,7 +223,7 @@ class Cortex(s_cores_common.Cortex):
         max_rev = max([rev for rev, func in revs])
         vsn_str = 'syn:core:{}:version'.format(self.getCoreType())
 
-        if not self._checkForTable(b'rows'):
+        if not self._checkForTable(ROWS):
             # We are a new cortex, stamp in tables and set
             # blob values and move along.
             self._initCorTable()
