@@ -56,6 +56,7 @@ class ConfTest(SynTest):
         def callback(v):
             data['woot'] = v
 
+        self.true(issubclass(Foo, s_config.Configable))
         self.true(hasattr(Foo.foodefs, '_syn_config'))
         foo_config = Foo.foodefs()
         self.isinstance(foo_config, tuple)
