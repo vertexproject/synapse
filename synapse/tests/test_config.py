@@ -2,6 +2,17 @@ from synapse.tests.common import *
 
 import synapse.lib.config as s_config
 
+class Foo(s_config.Config):
+
+    @staticmethod
+    @s_config.confdef()
+    def foodefs():
+        defs = (
+            ('fooval', {'type': 'int', 'doc': 'what is foo val?', 'defval': 99}),
+            ('enabled', {'type': 'bool', 'doc': 'is thing enabled?', 'defval': 0}),
+        )
+        return defs
+
 class ConfTest(SynTest):
 
     def test_conf_base(self):
@@ -39,3 +50,30 @@ class ConfTest(SynTest):
             self.eq(conf._foo_valu, 0)
             conf.setConfOpt('foo', '0x20')
             self.eq(conf._foo_valu, 0x20)
+
+    def test_confdef_decorator(self):
+        data = {}
+        def callback(v):
+            data['woot'] = v
+
+        self.true(hasattr(Foo.foodefs, '_syn_config'))
+        foo_config = Foo.foodefs()
+        self.isinstance(foo_config, tuple)
+
+        with Foo() as conf:
+            self.eq(conf.getConfOpt('enabled'), 0)
+            self.eq(conf.getConfOpt('fooval'), 99)
+
+            conf.onConfOptSet('enabled', callback)
+
+            conf.setConfOpt('enabled', 'true')
+
+            self.eq(data.get('woot'), 1)
+
+            conf.setConfOpts({'fooval': '0x20'})
+            self.eq(conf.getConfOpt('fooval'), 0x20)
+
+            conf.setConfOpts({'fooval': 0x30})
+            self.eq(conf.getConfOpt('fooval'), 0x30)
+
+            self.raises(NoSuchOpt, conf.setConfOpts, {'newp': 'hehe'})

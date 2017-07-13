@@ -1,10 +1,30 @@
 '''
 Central API for configurable objects within synapse.
 '''
+import collections
+
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.reflect as s_reflect
+
 from synapse.eventbus import EventBus
+
+# XXX Docstring
+def confdef():
+    '''
+    A decorator used to flag configable definition functions.
+
+    Examples:
+        Stub out example!
+
+    Returns:
+    '''
+    def wrap(f):
+        f._syn_config = True
+        return f
+
+    return wrap
 
 class Configable:
 
@@ -16,11 +36,24 @@ class Configable:
     def __init__(self, opts=None, defs=()):
         self._conf_defs = {}
         self._conf_opts = {}
+        self._syn_confs = []
 
         self.addConfDefs(defs)
 
         if opts is not None:
             self.setConfOpts(opts)
+        self._loadDecoratedFuncs()
+
+    def _loadDecoratedFuncs(self):
+
+        for name, meth in s_reflect.getItemLocals(self):
+            name = getattr(meth, '_syn_config', None)
+            if name is None:
+                continue
+            self._syn_confs.append(meth)
+
+        for meth in self._syn_confs:
+            self.addConfDefs(meth())
 
     def addConfDefs(self, defs):
         '''
