@@ -32,6 +32,16 @@ class FakeIpify():
             ret = {'ip': ip}
         return ret
 
+class BytsNommer():
+    def __init__(self):
+        self.nommed = False
+
+    def noms(self, *args, **kwargs):
+        body = kwargs.get('body')
+        if body:
+            self.nommed = True
+        return True
+
 class StandaloneTestServer(s_eventbus.EventBus):
     '''
     Creates a Synapse webapp in its own thread, so there is no
@@ -42,6 +52,8 @@ class StandaloneTestServer(s_eventbus.EventBus):
         s_eventbus.EventBus.__init__(self)
         self.port = port
         self.running = False
+        self.fake = FakeIpify()
+        self.nommer = BytsNommer()
         self.wapp_thr = self.dostuff()
         while self.running is False:
             time.sleep(0.05)
@@ -52,7 +64,6 @@ class StandaloneTestServer(s_eventbus.EventBus):
 
     @s_common.firethread
     def dostuff(self):
-        fake = FakeIpify()
         wapp = s_webapp.WebApp()
 
         def onfini():
@@ -60,7 +71,8 @@ class StandaloneTestServer(s_eventbus.EventBus):
         self.onfini(onfini)
 
         wapp.listen(self.port, host='127.0.0.1')
-        wapp.addApiPath('/v1/ip(\?format=[\w]+)?', fake.random_ip)
+        wapp.addApiPath('/v1/ip(\?format=[\w]+)?', self.fake.random_ip)
+        wapp.addApiPath('/v1/bytes', self.nommer.noms)
         self.running = True
 
 def get_vertex_global_config():
@@ -208,6 +220,19 @@ def get_fake_ipify_global_config(port=40000):
                         'validate_cert': False
                     },
                     'url': 'http://localhost:{PORT}/v1/ip',
+                    'vars': {
+                        'PORT': port,
+                    }
+                }
+            ],
+            [
+                'byts',
+                {
+                    'doc': 'nom some bytes',
+                    'http': {
+                        'method': 'POST',
+                    },
+                    'url': 'http://localhost:{PORT}/v1/bytes',
                     'vars': {
                         'PORT': port,
                     }
@@ -993,3 +1018,25 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('errfile' in cached_data)
             self.true('errline' in cached_data)
             self.true('errmsg' in cached_data)
+
+    def test_hypnos_post_byts(self):
+        self.thisHostMustNot(platform='windows')
+        self.skipIfNoInternet()
+
+        testserver = self.env.testserver  # type: StandaloneTestServer
+        self.false(testserver.nommer.nommed)
+        byts = json.dumps({'foo': 'bar', 'baz': [1, 2, 3]}).encode()
+        gconf = get_fake_ipify_global_config(port=self.port)
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1,
+                                     },
+                               ioloop=self.io_loop) as hypo_obj:  # type: s_remcycle.Hypnos
+            hypo_obj.addWebConfig(config=gconf)
+
+            jid = hypo_obj.fireWebApi(name='fakeipify:byts', api_args={'req_body': byts})
+            job = hypo_obj.web_boss.job(jid=jid)[1]  # type: dict
+            hypo_obj.web_boss.wait(jid)
+            # Did the server actually nom a POST body?
+            self.true(testserver.nommer.nommed)
+            resp = job.get('task')[2].get('resp')  # type: dict
+            self.eq(resp.get('code'), 200)
+            self.true(resp.get('data').get('ret'))
