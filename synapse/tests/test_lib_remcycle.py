@@ -56,26 +56,24 @@ class StandaloneTestServer(s_eventbus.EventBus):
         self.running = False
         self.fake = FakeIpify()
         self.nommer = BytsNommer()
-        self.wapp_thr = self.dostuff()
+        self.wapp_thr = self.fireWebApp()
         while self.running is False:
             time.sleep(0.05)
-        self.onfini(self._onFooFini)
+        self.onfini(self.onServerFini)
 
-    def _onFooFini(self):
+    def onServerFini(self):
         self.running = False
+        self.wapp.fini()
+        self.wapp_thr.join()
 
     @s_common.firethread
-    def dostuff(self):
-        wapp = s_webapp.WebApp()
-
-        def onfini():
-            wapp.fini()
-        self.onfini(onfini)
-
-        wapp.listen(self.port, host='127.0.0.1')
-        wapp.addApiPath('/v1/ip(\?format=[\w]+)?', self.fake.random_ip)
-        wapp.addApiPath('/v1/bytes', self.nommer.noms)
+    def fireWebApp(self):
+        self.wapp = s_webapp.WebApp()
+        self.wapp.listen(self.port, host='127.0.0.1')
+        self.wapp.addApiPath('/v1/ip(\?format=[\w]+)?', self.fake.random_ip)
+        self.wapp.addApiPath('/v1/bytes', self.nommer.noms)
         self.running = True
+
 
 def get_vertex_global_config():
     gconfig = {
