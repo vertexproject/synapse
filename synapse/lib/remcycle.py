@@ -67,7 +67,7 @@ class Nyx(object):
     Configuration parser & request generator for a REST service.
 
     This class is responsible for doing the actual HTTPRequest generation
-    in a parameterized fashion for a given input.
+    in a parametrized fashion for a given input.
 
     The API configuration is expected to be a dictionary with the expected
     values:
@@ -104,6 +104,16 @@ class Nyx(object):
           ingest iterdata() function to process the API data prior to ingest.
         * vars: This is a dictionary of items which are stamped into the url
           template during the construction of the Nyx object using format().
+
+    Some API endpoints (typically PUT/POST/PATCH) may require additional
+    content which is provided via the HTTP body. The api_arg value "req_body"
+    is reserved in order to support passing body data when making the
+    HTTPRequest object. A consequence of pulling the body from the api_args
+    is that the 'body' argument is not allowed to be present in the "http"
+    kv dictionary used when constructing the non-URL portions of the
+    HTTPRequest  For use cases where a caller needs to make body requests
+    with a default set of content, they are responsible for provided that
+    content in the req_body api_args value when calling buildHttpRequest.
 
     See a complete example below:
 
@@ -257,6 +267,10 @@ class Nyx(object):
         Args:
             api_args (dict): Arguments support either required or optional URL
                              values.
+
+        Notes:
+            A HTTP body can be provided to the request by passing its contents
+            in by adding the "req_body" value to api_args argument.
 
         Returns:
             tornado.httpclient.HTTPRequest: HTTPRequest object with the
@@ -990,6 +1004,10 @@ class Hypnos(s_config.Config):
                   responsibility of any event handlers or the provided callback
                   function.  The fast failure behavior is handled by boss.err()
                   on the job associated with the API call.
+
+            A HTTP body can be provided to the request by passing its contents
+            in by adding the “req_body” value to api_args argument.  See the
+            Nyx object documentation for more details.
 
         Args:
             name (str): Name of the API to send a request for.
