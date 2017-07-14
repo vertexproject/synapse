@@ -257,6 +257,26 @@ class NyxTest(SynTest):
             "api_args": ["someplace"],
             "api_optargs": {"domore": 0}
         }
+        self.post_config = {
+            "url": "http://vertex.link/api/v4/geoloc/{{someplace}}/postendpoint",
+
+            "http": {
+                "method": "POST",  # this defaults to GET obvs, just making an example
+                "headers": {
+                    "x-notes-log": "stardate 1234",
+                    "token-goodness": "sekrit token"
+                },
+                "user_agent": "Totally Not a Python application."
+            },
+
+            "doc": "api example",
+            "api_args": ["someplace"],
+        }
+        self.bad_config = {
+            "url": "http://vertex.link/api/v4/geoloc/{{req_body}}/postendpoint",
+            "doc": "api example",
+            "api_args": ["req_body"],
+        }
 
     def test_nyx_tornado_http_check(self):
         self.thisHostMustNot(platform='windows')
@@ -309,6 +329,12 @@ class NyxTest(SynTest):
         desc.get('api_optargs')['domore'] = '1'
         self.true(nyx.api_kwargs['domore'] == 0)
 
+        with self.raises(BadConfValu) as cm:
+            nyx = s_remcycle.Nyx(self.bad_config)
+        self.eq(cm.exception.get('name'), 'req_body')
+        self.eq(cm.exception.get('valu'), None)
+        self.isin('Reserved api_arg used', cm.exception.get('mesg'))
+
     def test_nyx_make_request(self):
         self.thisHostMustNot(platform='windows')
         nyx = s_remcycle.Nyx(config=self.config)
@@ -348,6 +374,25 @@ class NyxTest(SynTest):
                                              'domore': 'eeep@foo.bar'})
         e_url = 'http://vertex.link/api/v4/geoloc/foo+bar/info?domore=eeep%40foo.bar&apikey=8675309'
         self.eq(req.url, e_url)
+
+    def test_hypnos_make_body(self):
+        self.thisHostMustNot(platform='windows')
+        nyx = s_remcycle.Nyx(config=self.post_config)
+        byts = json.dumps({'foo': 'bar', 'baz': [1, 2, 3]}).encode()
+        req = nyx.buildHttpRequest(api_args={'someplace': 'Derry'})
+        e_url = 'http://vertex.link/api/v4/geoloc/Derry/postendpoint'
+        self.eq(req.method, 'POST')
+        self.eq(req.url, e_url)
+        self.eq(req.body, None)
+        body_req = nyx.buildHttpRequest(api_args={'req_body': byts, 'someplace': 'Derry'})
+        self.eq(body_req.url, e_url)
+        self.eq(body_req.body, byts)
+        # Ensure the req_body can be put onto a GET for badly shaped APIs
+        put_nyx = s_remcycle.Nyx(config=self.config)
+        put_req = nyx.buildHttpRequest(api_args={'someplace': 'foo bar',
+                                                 'domore': 'eeep@foo.bar',
+                                                 'req_body': byts})
+        self.eq(put_req.body, byts)
 
 class HypnosTest(SynTest, AsyncTestCase):
 

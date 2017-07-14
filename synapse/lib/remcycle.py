@@ -183,6 +183,9 @@ class Nyx(object):
         self.required_keys = ['url',
                               'doc'
                               ]
+        self.reserved_api_args = [
+            'req_body'
+        ]
         self.doc = ''
         self.url_template = ''
         self.url_vars = {}
@@ -223,12 +226,17 @@ class Nyx(object):
         self.request_defaults = self._raw_config.get('http', {})
         self._parseGestConfig(self._raw_config.get('ingest'))
         self.api_args.extend(self._raw_config.get('api_args', []))
+        for key in self.reserved_api_args:
+            if key in self.api_args:
+                raise s_common.BadConfValu(name=key,
+                                           valu=None,
+                                           mesg='Reserved api_arg used.')
         self.api_kwargs.update(self._raw_config.get('api_optargs', {}))
 
         # Set effective url
         self.effective_url = self.url_template.format(**self.url_vars)
 
-    def _parseGestConfig(self, gest_data):
+    def _parseGestConfig(self, gest_data=None):  # type: (dict) -> None
         if gest_data is None:
             return
         self.gest_name = gest_data.get('name')
@@ -242,7 +250,7 @@ class Nyx(object):
             raise s_common.NoSuchName(name='open', mesg='Ingest definition is missing a open directive.')
 
     def buildHttpRequest(self,
-                         api_args=None):
+                         api_args=None):  # type: (dict) -> t_http.HttpRequest
         '''
         Build the HTTPRequest object for a given configuration and arguments.
 
@@ -257,8 +265,10 @@ class Nyx(object):
         Raises:
             NoSuchName: If the api_args is missing a required API value.
         '''
-
+        body = None
         t_args = {}
+        if api_args:
+            body = api_args.pop('req_body', None)
         for argn in self.api_args:
             argv = api_args.get(argn, s_common.novalu)
             if argv is s_common.novalu:
@@ -268,7 +278,7 @@ class Nyx(object):
         for argn, defval in self.api_kwargs.items():
             t_args[argn] = s_compat.url_quote_plus(str(api_args.get(argn, defval)))
         url = self.effective_url.format(**t_args)
-        req = t_http.HTTPRequest(url, **self.request_defaults)
+        req = t_http.HTTPRequest(url, body=body, **self.request_defaults)
         return req
 
 class Hypnos(s_config.Config):

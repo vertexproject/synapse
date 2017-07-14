@@ -59,7 +59,7 @@ class BadConfValu(SynErr):
     '''
     The configable value provided is not valid.
 
-    This should contain the config name, value and mesg.
+    This should contain the config name, valu and mesg.
     '''
     pass
 class BadTypeValu(SynErr): pass
