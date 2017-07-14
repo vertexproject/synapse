@@ -1010,7 +1010,6 @@ class HypnosTest(SynTest, AsyncTestCase):
             hypo_obj.addWebConfig(config=gconf)
 
             jid = hypo_obj.fireWebApi(name='fakeipify:fake_endpoint')
-            job = hypo_obj.web_boss.job(jid=jid)[1]  # type: dict
             hypo_obj.web_boss.wait(jid)
             # Ensure that we have error information cached for the job
             cached_data = hypo_obj.webCacheGet(jid=jid)
