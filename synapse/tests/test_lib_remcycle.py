@@ -30,6 +30,7 @@ class FakeIpify():
         ret = ip
         if fmt:
             ret = {'ip': ip}
+        time.sleep(0.025)
         return ret
 
 class BytsNommer():
@@ -40,6 +41,7 @@ class BytsNommer():
         body = kwargs.get('body')
         if body:
             self.nommed = True
+        time.sleep(0.025)
         return True
 
 class StandaloneTestServer(s_eventbus.EventBus):
@@ -509,6 +511,7 @@ class HypnosTest(SynTest, AsyncTestCase):
 
             job = hypo_obj.web_boss.job(jid)
             hypo_obj.web_boss.wait(jid)
+
             self.true(jid in data)
             self.true(job[1].get('done'))
 
@@ -632,7 +635,6 @@ class HypnosTest(SynTest, AsyncTestCase):
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 2},
                                ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addWebConfig(config=gconf)
-
             d = {'set': False,
                  'keys': set([])}
 
@@ -677,6 +679,7 @@ class HypnosTest(SynTest, AsyncTestCase):
 
             job = hypo_obj.web_boss.job(jid)
             hypo_obj.web_boss.wait(jid)
+
             self.true(job[1].get('done'))
 
     def test_hypnos_default_callback_null(self):
@@ -696,6 +699,7 @@ class HypnosTest(SynTest, AsyncTestCase):
 
             job = hypo_obj.web_boss.job(jid)
             hypo_obj.web_boss.wait(jid)
+
             self.true(job[1].get('done'))
             self.eq(job[1].get('task')[2].get('resp').get('code'), 200)
 
@@ -810,7 +814,6 @@ class HypnosTest(SynTest, AsyncTestCase):
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addWebConfig(config=gconf)
-
             data = {}
 
             def ondone(job_tufo):
@@ -871,21 +874,21 @@ class HypnosTest(SynTest, AsyncTestCase):
                 ]
             ],
             'listen': [
-                'tcp://127.0.0.1:50000'
+                'tcp://127.0.0.1:50001'
             ]
         }
 
         dmon = s_daemon.Daemon()
         dmon.loadDmonConf(dconf)
 
-        hypnos_proxy = s_telepath.openurl('tcp://127.0.0.1:50000/hypnos')
-        core_proxy = s_telepath.openurl('tcp://127.0.0.1:50000/core')
+        hypnos_proxy = s_telepath.openurl('tcp://127.0.0.1:50001/hypnos')
+        core_proxy = s_telepath.openurl('tcp://127.0.0.1:50001/core')
         # Lets do a remote config load!
         hypnos_proxy.addWebConfig(config=gconf)
 
         description = hypnos_proxy.getWebDescription()
         self.true('fakeipify' in description)
-        # Fire the
+        # Fire the web api
         jid = hypnos_proxy.fireWebApi(name='fakeipify:jsonip')
         self.nn(jid)
         hypnos_proxy.webJobWait(jid)
@@ -987,7 +990,6 @@ class HypnosTest(SynTest, AsyncTestCase):
             jid = hypo_obj.fireWebApi(name='fakeipify:jsonip')
             job = hypo_obj.web_boss.job(jid=jid)
             hypo_obj.web_boss.wait(jid)
-            time.sleep(0.01)
             cached_data = hypo_obj.webCacheGet(jid=jid)
             self.nn(cached_data)
             # Ensure the cached data can be msgpacked as needed.
@@ -1011,7 +1013,6 @@ class HypnosTest(SynTest, AsyncTestCase):
             job = hypo_obj.web_boss.job(jid=jid)[1]  # type: dict
             hypo_obj.web_boss.wait(jid)
             # Ensure that we have error information cached for the job
-            time.sleep(0.01)
             cached_data = hypo_obj.webCacheGet(jid=jid)
             self.true('err' in cached_data)
             self.eq(cached_data.get('err'), 'HTTPError')

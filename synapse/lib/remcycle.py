@@ -351,6 +351,9 @@ class Hypnos(s_config.Config):
         self.web_cache = s_cache.Cache()
         self.web_cache_enabled = False
 
+        # Link the Boss events up to Hypnos
+        self.web_boss.link(self.dist)
+
         if opts:
             self.setConfOpts(opts)
 
