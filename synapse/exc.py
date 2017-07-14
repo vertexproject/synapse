@@ -57,7 +57,7 @@ class NoSuchEncoder(SynErr): pass
 class BadOperArg(SynErr): pass
 class BadConfValu(SynErr):
     '''
-    The configable value provided is not valid.
+    The configuration value provided is not valid.
 
     This should contain the config name, valu and mesg.
     '''
