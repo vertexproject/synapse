@@ -212,3 +212,25 @@ class EventBusTest(SynTest):
 
         mesg = logs[0]
         self.eq(mesg[1].get('err'), 'NoSuchObj')
+
+    def test_eventbus_preemption(self):
+
+        results = []
+
+        def f1(event):
+            results.append('f1')
+
+        def f2(event):
+            results.append('f2')
+
+        def f3(event):
+            results.append('f3')
+
+        with s_eventbus.EventBus() as bus:
+            bus.on('foo', f1)
+            bus.on('foo', f2)
+            bus.preemptive_on('foo', f3)
+
+            bus.fire('foo')
+
+        self.eq(results, ['f3', 'f1', 'f2'])
