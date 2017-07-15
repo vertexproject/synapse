@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 MIN_WORKER_THREADS = 'web:worker:threads:min'
 MAX_WORKER_THREADS = 'web:worker:threads:max'
-MAX_SPOOL_FILESIZE = 'web:index:max_spool_size'
+MAX_SPOOL_FILESIZE = 'web:ingest:max_spool_size'
 CACHE_ENABLED = 'web:cache:enable'
 CACHE_TIMEOUT = 'web:cache:timeout'
 MAX_CLIENTS = 'web:tornado:max_clients'
@@ -317,17 +317,17 @@ class Hypnos(s_config.Config):
 
         The following values may be passed via configable opts:
 
-        * web_min_worker_threads: Minimum number of worker threads to spawn.
-        * web_max_worker_threads:  Maximum number of worker threads to spawn.
-        * web_max_spool_file_size:  Maximum spoolfile size, in bytes, to use
+        * web:worker:threads:min: Minimum number of worker threads to spawn.
+        * web:worker:threads:max:  Maximum number of worker threads to spawn.
+        * web:ingest:max_spool_size:  Maximum spoolfile size, in bytes, to use
           for storing responses associated withAPIs that have ingest
           definitions.
-        * web_result_cache_enable: Enable caching of job results for a period
+        * web:cache:enable: Enable caching of job results for a period
           of time, retrievable by jobid.
-        * web_result_cache_timeout: Timeout value, in seconds, that the
+        * web:cache:timeout: Timeout value, in seconds, that the
           results will persist in the cache.
-        * web_max_clients: Maximum number of concurrent requests which can be
-          made at one time.
+        * web:tornado:max_clients: Maximum number of concurrent requests which
+          can be made at one time.
 
     Args:
         core (synapse.cores.common.Cortex): A cortex used to store ingest data. By default a ram cortex is used.
@@ -368,15 +368,15 @@ class Hypnos(s_config.Config):
         if pool_min < 1:
             raise s_common.BadConfValu(name=MIN_WORKER_THREADS,
                                        valu=pool_min,
-                                       mesg='web_min_worker_threads must be greater than 1')
+                                       mesg='web:worker:threads:min must be greater than 1')
         if pool_max < pool_min:
             raise s_common.BadConfValu(name=MAX_WORKER_THREADS,
                                        valu=pool_max,
-                                       mesg='web_max_worker_threads must be greater than the web_min_worker_threads')
+                                       mesg='web:worker:threads:max must be greater than the web:worker:threads:min')
         if max_clients < 1:
             raise s_common.BadConfValu(name=MAX_CLIENTS,
                                        valu=max_clients,
-                                       mesg='web_max_clients must be greater than 1')
+                                       mesg='web:tornado:max_clients must be greater than 1')
         # Tornado Async
         loop = kwargs.get('ioloop')
         if loop is None:

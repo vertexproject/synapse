@@ -439,17 +439,17 @@ class HypnosTest(SynTest, AsyncTestCase):
         with self.raises(s_common.BadConfValu) as cm:
             hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 0},
                                          ioloop=self.io_loop)
-        self.isin('web_min_worker_threads must be greater than 1', str(cm.exception))
+        self.isin('web:worker:threads:min must be greater than 1', str(cm.exception))
 
         with self.raises(s_common.BadConfValu) as cm:
             hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MAX_WORKER_THREADS: 1,
                                                s_remcycle.MIN_WORKER_THREADS: 2},
                                          ioloop=self.io_loop)
-        self.isin('web_max_worker_threads must be greater than the web_min_worker_threads', str(cm.exception))
+        self.isin('web:worker:threads:max must be greater than the web:worker:threads:min', str(cm.exception))
         with self.raises(s_common.BadConfValu) as cm:
             hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MAX_CLIENTS: 0, },
                                          ioloop=self.io_loop)
-        self.isin('web_max_clients must be greater than 1', str(cm.exception))
+        self.isin('web:tornado:max_clients must be greater than 1', str(cm.exception))
 
     def test_hypnos_fini(self):
         # Ensure we call fini on all objects created by the core.
