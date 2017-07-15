@@ -351,9 +351,6 @@ class Hypnos(s_config.Config):
         self.web_cache = s_cache.Cache()
         self.web_cache_enabled = False
 
-        # Link the Boss events up to Hypnos
-        self.web_boss.link(self.dist)
-
         if opts:
             self.setConfOpts(opts)
 
@@ -449,7 +446,7 @@ class Hypnos(s_config.Config):
                 return
             self.web_cache_enabled = True
             self.web_cache.setMaxTime(self.getConfOpt(CACHE_TIMEOUT))
-            self.web_boss.on('job:fini', self._cacheRequestResults)
+            self.web_boss.preemptive_on('job:fini', self._cacheRequestResults)
         else:
             if not self.web_cache_enabled:
                 return

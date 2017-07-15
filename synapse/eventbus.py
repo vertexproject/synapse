@@ -124,6 +124,41 @@ class EventBus(object):
         if func in self._syn_links:
             self._syn_links.remove(func)
 
+    def preemptive_on(self, name, func, **filts):
+        '''
+        Add an event bus callback for a specific event with optional filtering.
+
+        This differs from the on() function by inserting the function to the
+        beginning of the list of functions to be called on a event.
+
+        Args:
+            name (str):         An event name
+            func (function):    A callback function to receive event tufo
+            **filts:            Optional positive filter values for the event tuple.
+
+        Returns:
+            (None)
+
+        Example:
+
+            def baz(event):
+                x = event[1].get('x')
+                y = event[1].get('y')
+                return x + y
+
+            def print_event(event):
+                print(event)
+
+            d.on('foo', baz)
+
+            d.preemptive_on('foo', print_event)
+
+            # this fire triggers print_event then baz ...
+            d.fire('foo', x=10, y=20)
+
+        '''
+        self._syn_funcs[name].insert(0, (func, tuple(filts.items())))
+
     def on(self, name, func, **filts):
         '''
         Add an event bus callback for a specific event with optional filtering.
@@ -143,7 +178,7 @@ class EventBus(object):
                 y = event[1].get('y')
                 return x + y
 
-            d.on('woot', baz, x=10)
+            d.on('foo', baz, x=10)
 
             # this fire triggers baz...
             d.fire('foo', x=10, y=20)
