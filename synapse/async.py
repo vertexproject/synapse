@@ -259,16 +259,16 @@ class Boss(EventBus):
             if schedevt is not None:
                 self.sched.cancel(schedevt)
 
-            evt = joblocal.get('waitevt')
-            if evt is not None:
-                evt.set()
-
             ondone = joblocal.get('ondone')
             if ondone is not None:
                 try:
                     ondone(job)
                 except Exception as e:
                     traceback.print_exc()
+
+            evt = joblocal.get('waitevt')
+            if evt is not None:
+                evt.set()
 
     def wait(self, jid, timeout=None):
         '''
