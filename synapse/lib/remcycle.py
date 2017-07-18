@@ -38,14 +38,15 @@ import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__name__)
 
-MIN_WORKER_THREADS = 'web_min_worker_threads'
-MAX_WORKER_THREADS = 'web_max_worker_threads'
-MAX_SPOOL_FILESIZE = 'web_max_spool_file_size'
-CACHE_ENABLED = 'web_result_cache_enable'
-CACHE_TIMEOUT = 'web_result_cache_timeout'
+MIN_WORKER_THREADS = 'web:worker:threads:min'
+MAX_WORKER_THREADS = 'web:worker:threads:max'
+MAX_SPOOL_FILESIZE = 'web:ingest:max_spool_size'
+CACHE_ENABLED = 'web:cache:enable'
+CACHE_TIMEOUT = 'web:cache:timeout'
+MAX_CLIENTS = 'web:tornado:max_clients'
 HYPNOS_BASE_DEFS = (
-    (MIN_WORKER_THREADS, {'type': 'int', 'doc': 'Minimum number of worker threads to spawn', 'defval': 8}),
-    (MAX_WORKER_THREADS, {'type': 'int', 'doc': 'Maximum number of worker threads to spawn', 'defval': 64}),
+    (MIN_WORKER_THREADS, {'type': 'int', 'doc': 'Minimum number of worker threads to spawn.', 'defval': 8}),
+    (MAX_WORKER_THREADS, {'type': 'int', 'doc': 'Maximum number of worker threads to spawn.', 'defval': 64}),
     (MAX_SPOOL_FILESIZE, {'type': 'int',
                           'doc': 'Maximum spoolfile size, in bytes, to use for storing responses associated with '
                                  'APIs that have ingest definitions.',
@@ -55,7 +56,10 @@ HYPNOS_BASE_DEFS = (
                      'defval': False}),
     (CACHE_TIMEOUT, {'type': 'int',
                      'doc': 'Timeout value, in seconds, that the results will persist in the cache.',
-                     'defval': 300})
+                     'defval': 300}),
+    (MAX_CLIENTS, {'type': 'int',
+                   'doc': 'Maximum number of concurrent requests which can be made at one time.',
+                   'defval': 10}),
 )
 
 class Nyx(object):
@@ -63,7 +67,7 @@ class Nyx(object):
     Configuration parser & request generator for a REST service.
 
     This class is responsible for doing the actual HTTPRequest generation
-    in a parameterized fashion for a given input.
+    in a parametrized fashion for a given input.
 
     The API configuration is expected to be a dictionary with the expected
     values:
@@ -100,6 +104,16 @@ class Nyx(object):
           ingest iterdata() function to process the API data prior to ingest.
         * vars: This is a dictionary of items which are stamped into the url
           template during the construction of the Nyx object using format().
+
+    Some API endpoints (typically PUT/POST/PATCH) may require additional
+    content which is provided via the HTTP body. The api_arg value "req_body"
+    is reserved in order to support passing body data when making the
+    HTTPRequest object. A consequence of pulling the body from the api_args
+    is that the 'body' argument is not allowed to be present in the "http"
+    kv dictionary used when constructing the non-URL portions of the
+    HTTPRequest  For use cases where a caller needs to make body requests
+    with a default set of content, they are responsible for provided that
+    content in the req_body api_args value when calling buildHttpRequest.
 
     See a complete example below:
 
@@ -179,6 +193,9 @@ class Nyx(object):
         self.required_keys = ['url',
                               'doc'
                               ]
+        self.reserved_api_args = [
+            'req_body'
+        ]
         self.doc = ''
         self.url_template = ''
         self.url_vars = {}
@@ -219,12 +236,17 @@ class Nyx(object):
         self.request_defaults = self._raw_config.get('http', {})
         self._parseGestConfig(self._raw_config.get('ingest'))
         self.api_args.extend(self._raw_config.get('api_args', []))
+        for key in self.reserved_api_args:
+            if key in self.api_args:
+                raise s_common.BadConfValu(name=key,
+                                           valu=None,
+                                           mesg='Reserved api_arg used.')
         self.api_kwargs.update(self._raw_config.get('api_optargs', {}))
 
         # Set effective url
         self.effective_url = self.url_template.format(**self.url_vars)
 
-    def _parseGestConfig(self, gest_data):
+    def _parseGestConfig(self, gest_data=None):  # type: (dict) -> None
         if gest_data is None:
             return
         self.gest_name = gest_data.get('name')
@@ -238,13 +260,17 @@ class Nyx(object):
             raise s_common.NoSuchName(name='open', mesg='Ingest definition is missing a open directive.')
 
     def buildHttpRequest(self,
-                         api_args=None):
+                         api_args=None):  # type: (dict) -> t_http.HttpRequest
         '''
         Build the HTTPRequest object for a given configuration and arguments.
 
         Args:
             api_args (dict): Arguments support either required or optional URL
                              values.
+
+        Notes:
+            A HTTP body can be provided to the request by passing its contents
+            in by adding the "req_body" value to api_args argument.
 
         Returns:
             tornado.httpclient.HTTPRequest: HTTPRequest object with the
@@ -253,8 +279,10 @@ class Nyx(object):
         Raises:
             NoSuchName: If the api_args is missing a required API value.
         '''
-
+        body = None
         t_args = {}
+        if api_args:
+            body = api_args.pop('req_body', None)
         for argn in self.api_args:
             argv = api_args.get(argn, s_common.novalu)
             if argv is s_common.novalu:
@@ -264,7 +292,7 @@ class Nyx(object):
         for argn, defval in self.api_kwargs.items():
             t_args[argn] = s_compat.url_quote_plus(str(api_args.get(argn, defval)))
         url = self.effective_url.format(**t_args)
-        req = t_http.HTTPRequest(url, **self.request_defaults)
+        req = t_http.HTTPRequest(url, body=body, **self.request_defaults)
         return req
 
 class Hypnos(s_config.Config):
@@ -282,27 +310,49 @@ class Hypnos(s_config.Config):
         object behavior:
 
         * ioloop: Tornado ioloop used by the IO thread. This would normally
-                  be left unset, and an ioloop will be created for the io
-                  thread. This is provided as a helper for testing.
+          be left unset, and an ioloop will be created for the io thread.
+          This is provided as a helper for testing.
         * content_type_skip: A list of content-type values which will not have
-                             any attempts to decode data done on them.
+          any attempts to decode data done on them.
+
+        The following values may be passed via configable opts:
+
+        * web:worker:threads:min: Minimum number of worker threads to spawn.
+        * web:worker:threads:max:  Maximum number of worker threads to spawn.
+        * web:ingest:max_spool_size:  Maximum spoolfile size, in bytes, to use
+          for storing responses associated withAPIs that have ingest
+          definitions.
+        * web:cache:enable: Enable caching of job results for a period
+          of time, retrievable by jobid.
+        * web:cache:timeout: Timeout value, in seconds, that the
+          results will persist in the cache.
+        * web:tornado:max_clients: Maximum number of concurrent requests which
+          can be made at one time.
 
     Args:
-        core (synapse.cores.common.Cortex): A cortex used to store ingest data.
-                                            By default a ram cortex is used.
+        core (synapse.cores.common.Cortex): A cortex used to store ingest data. By default a ram cortex is used.
         opts (dict): Optional configuration data for the Config mixin.
-        defs (tuple): Default configuration data for the Config mixin.
     '''
 
     def __init__(self,
                  core=None,
                  opts=None,
-                 defs=HYPNOS_BASE_DEFS,
                  *args,
                  **kwargs):
-        s_config.Config.__init__(self,
-                                 opts,
-                                 defs)
+        s_config.Config.__init__(self)
+        for optname, optconf in HYPNOS_BASE_DEFS:
+            self.addConfDef(optname, **optconf)
+        # Runtime-settable options
+        self.onConfOptSet(CACHE_ENABLED, self._onSetWebCache)
+        self.onConfOptSet(CACHE_TIMEOUT, self._onSetWebCacheTimeout)
+
+        # Things we need prior to loading in conf values
+        self.web_boss = s_async.Boss()
+        self.web_cache = s_cache.Cache()
+        self.web_cache_enabled = False
+
+        if opts:
+            self.setConfOpts(opts)
 
         self._web_required_keys = ('namespace', 'doc', 'apis')
 
@@ -311,22 +361,32 @@ class Hypnos(s_config.Config):
         self._web_docs = {}
         self._web_default_http_args = {}  # Global request headers per namespace
 
-        # Check configable options before we spin up any resources
+        # Check configable options before we spin up any more resources
+        max_clients = self.getConfOpt(MAX_CLIENTS)
         pool_min = self.getConfOpt(MIN_WORKER_THREADS)
         pool_max = self.getConfOpt(MAX_WORKER_THREADS)
-        if pool_min < 1 or pool_max < pool_min:
-            raise ValueError('Bad pool configuration provided.')
-
+        if pool_min < 1:
+            raise s_common.BadConfValu(name=MIN_WORKER_THREADS,
+                                       valu=pool_min,
+                                       mesg='web:worker:threads:min must be greater than 1')
+        if pool_max < pool_min:
+            raise s_common.BadConfValu(name=MAX_WORKER_THREADS,
+                                       valu=pool_max,
+                                       mesg='web:worker:threads:max must be greater than the web:worker:threads:min')
+        if max_clients < 1:
+            raise s_common.BadConfValu(name=MAX_CLIENTS,
+                                       valu=max_clients,
+                                       mesg='web:tornado:max_clients must be greater than 1')
         # Tornado Async
         loop = kwargs.get('ioloop')
         if loop is None:
             loop = t_ioloop.IOLoop()
         self.web_loop = loop
-        self.web_client = t_http.AsyncHTTPClient(io_loop=self.web_loop)
+        self.web_client = t_http.AsyncHTTPClient(io_loop=self.web_loop,
+                                                 max_clients=max_clients)
         self.web_iothr = self._runIoLoop()
 
         # Synapse Async and thread pool
-        self.web_boss = s_async.Boss()
         self.web_pool = s_threads.Pool(pool_min, pool_max)
 
         # Synapse Core and ingest tracking
@@ -337,14 +397,10 @@ class Hypnos(s_config.Config):
         self._web_api_ingests = collections.defaultdict(list)
         self._web_api_gest_opens = {}
 
-        self.web_cache = s_cache.Cache()
-        self.web_cache_enabled = self.getConfOpt(CACHE_ENABLED)
-        if self.web_cache_enabled:
-            self.webCacheEnable()
         # Setup Fini handlers
         self.onfini(self._onHypoFini)
 
-        # List of content-type headers to skip processing on
+        # List of content-type headers to skip automatic decoding
         self._web_content_type_skip = set([])
         self.webContentTypeSkipAdd('application/octet-stream')
         for ct in kwargs.get('content_type_skip', []):
@@ -373,6 +429,41 @@ class Hypnos(s_config.Config):
         self.web_pool.fini()
         # Stop the web cache
         self.web_cache.fini()
+
+    def _onSetWebCache(self, valu):
+        '''
+        Enable or disable caching of results from fireWebApi.
+        When caching is diabled, all cached data is cleared.
+
+        Args:
+            valu (bool): True or False to enable or disable the caching.
+
+        Returns:
+
+        '''
+        if valu:
+            if self.web_cache_enabled:
+                return
+            self.web_cache_enabled = True
+            self.web_cache.setMaxTime(self.getConfOpt(CACHE_TIMEOUT))
+        else:
+            if not self.web_cache_enabled:
+                return
+            self.webCacheClear()
+            self.web_cache_enabled = False
+
+    def _onSetWebCacheTimeout(self, valu):
+        '''
+        Set the cache timeout value.
+
+        Args:
+            valu (int):
+
+        Returns:
+
+        '''
+        if self.web_cache_enabled:
+            self.web_cache.setMaxTime(valu)
 
     def getWebDescription(self):
         '''
@@ -492,6 +583,37 @@ class Hypnos(s_config.Config):
             * http: Global HTTP Request arguments which will be the basis
               for creating HTTPRequest objects. These values should conform to
               the Tornado HTTPRequest constructor.
+
+
+        An example of a generic configuration for getting arbitrary endpoints is shown below:
+
+        ::
+
+            {
+              "apis": [
+                [
+                  "fqdn",
+                  {
+                    "api_args": [
+                      "fqdn"
+                    ],
+                    "api_optargs": {
+                      "endpoint": ""
+                    },
+                    "doc": "Get arbitrary domain name.",
+                    "http": {
+                      "validate_cert": false
+                    },
+                    "url": "https://{{fqdn}}/{{endpoint}}"
+                  }
+                ]
+              ],
+              "doc": "Definition for getting an arbitrary domain.",
+              "http": {
+                "user_agent": "Some.UserAgent"
+              },
+              "namespace": "generic"
+            }
 
         Args:
             config (dict): Dictionary containing the configuration information.
@@ -755,9 +877,9 @@ class Hypnos(s_config.Config):
         resp_dict['data'] = buf
         resp_dict['ingdata'] = ingdata
 
-    def _webRespWrapper(self, f):
+    def _webFailRespWrapper(self, func):
         '''
-        Decorator for wrapping callback functions.
+        Decorates a function for wrapping callback functions.
 
         The decorator performs two functions:
 
@@ -767,11 +889,10 @@ class Hypnos(s_config.Config):
           data, preparing it for a ingest or other consumption.
 
         Args:
-            f: Function to wrap.
+            func: Function to wrap.
 
         Returns:
             Wrapped function.
-
         '''
 
         def check_job_fail(*fargs, **fkwargs):
@@ -786,9 +907,44 @@ class Hypnos(s_config.Config):
                 self._webProcessResponseGest(fkwargs.get('resp'), _gest_opens)
             else:
                 self._webProcessResponseFlatten(fkwargs.get('resp'))
-            f(*fargs, **fkwargs)
+            func(*fargs, **fkwargs)
 
         return check_job_fail
+
+    def _webCacheRespWrapper(self, func):
+        '''
+        Decorates a function for performing caching of web responses.
+
+        If used, this would be the first function unwrapped by a worker
+        thread, as such, the actual data cached by the response has NOT
+        been processed so it is the cache user's responsibility to decode
+        any data present in the cache.
+
+        Args:
+            func: Function to wrap.
+
+        Returns:
+            Wrapped function.
+        '''
+
+        def cache_job_results(*fargs, **fkwargs):
+            jid = fkwargs.get('jid')
+            resp = fkwargs.get('resp', {}).copy()
+            d = {'web_api_name': fkwargs.get('web_api_name'),
+                 'resp': resp,
+                 'api_args': fkwargs.get('api_args', {})}
+            _excinfo = fkwargs.get('excinfo')
+            if _excinfo:
+                d['err'] = _excinfo['err']
+                d['errmsg'] = _excinfo['errmsg']
+                d['errfile'] = _excinfo['errfile']
+                d['errline'] = _excinfo['errline']
+            # Store the data in the cache
+            self.web_cache.put(jid, d)
+            # Now call the wrappee
+            func(*fargs, **fkwargs)
+
+        return cache_job_results
 
     def fireWebApi(self, name, *args, **kwargs):
         '''
@@ -881,6 +1037,14 @@ class Hypnos(s_config.Config):
                   function.  The fast failure behavior is handled by boss.err()
                   on the job associated with the API call.
 
+            A HTTP body can be provided to the request by passing its contents
+            in by adding the “req_body” value to api_args argument.  See the
+            Nyx object documentation for more details.
+
+            If caching is enabled, the caching will be performed as the first
+            thing done by the worker thread handling the response data. This
+            is done separately from the wrap_callback step mentioned above.
+
         Args:
             name (str): Name of the API to send a request for.
             *args: Additional args passed to the callback functions.
@@ -916,7 +1080,11 @@ class Hypnos(s_config.Config):
             callback = default_callback
         # Wrap the callback so that it will fail fast in the case of a request error.
         if wrap_callback:
-            callback = self._webRespWrapper(callback)
+            callback = self._webFailRespWrapper(callback)
+        # If the cache is enabled, wrap the callback so we cache the result before
+        # The job is executed.
+        if self.web_cache_enabled:
+            callback = self._webCacheRespWrapper(callback)
 
         # Construct the job tufo
         jid = s_async.jobid()
@@ -926,7 +1094,7 @@ class Hypnos(s_config.Config):
         # Create our Async callback function - it enjoys the locals().
         def response_nommer(resp):
             job_kwargs = job[1]['task'][2]
-            # Stamp the job id and the web_api_name into the kwargs dictiionary.
+            # Stamp the job id and the web_api_name into the kwargs dictionary.
             job_kwargs['web_api_name'] = name
             job_kwargs['jid'] = job[0]
             if resp.error:
@@ -984,41 +1152,6 @@ class Hypnos(s_config.Config):
         if content_type in self._web_content_type_skip:
             self._web_content_type_skip.remove(content_type)
 
-    def _cacheRequestResults(self, event):
-        '''
-        Cache the request response/errors.
-
-        Ideally, the cached results will be msgpack serializable.  If the
-        api_args provided were not msgpack serializable, attempts to get
-        cached results over Telepath may fail.
-
-        Args:
-            event ((str, dict)): job:fini event.
-
-        Returns:
-            None: Returns None.
-        '''
-        jid, job = event[1].get('job')
-        task_kwargs = job['task'][2]  # type: dict
-        # Cache items which are likely going to
-        resp = task_kwargs.get('resp', {}).copy()
-        if 'ingdata' in resp:
-            resp.pop('ingdata', None)
-            # Convert the spooled temporary file back into a bytes object
-            data = resp.pop('data')
-            data.seek(0)
-            data = data.read()
-            resp['data'] = data
-        d = {'web_api_name': task_kwargs.get('web_api_name'),
-             'resp': resp,
-             'api_args': task_kwargs.get('api_args', {})}
-        if 'err' in job:
-            d['err'] = job['err']
-            d['errmsg'] = job['errmsg']
-            d['errfile'] = job['errfile']
-            d['errline'] = job['errline']
-        self.web_cache.put(jid, d)
-
     def webCacheGet(self, jid):
         '''
         Retrieve the cached web response for a given job id.
@@ -1031,7 +1164,9 @@ class Hypnos(s_config.Config):
             the following keys:
 
             * web_api_name: Name of the API
-            * resp: Dictionary containing response data
+            * resp: Dictionary containing response data.  The raw data is not
+              decoded or processed in any fashion, and is available in the
+              'data' key of this dictionary (if present).
             * api_args: Args used when crafting the HTTPRequest with Nyx
             * err (optional): Error type if a error is encountered.
             * errmsg (optional): Error message if a error is encountered.
@@ -1055,24 +1190,6 @@ class Hypnos(s_config.Config):
         if not self.web_cache_enabled:
             logger.warning('Cache deletion requested but cache not enabled.')
         return self.web_cache.pop(jid)
-
-    def webCacheEnable(self):
-        '''
-        Enable caching of results from fireWebApi.
-        '''
-        self.web_cache_enabled = True
-        self.setConfOpt(CACHE_ENABLED, True)
-        self.web_cache.setMaxTime(self.getConfOpt(CACHE_TIMEOUT))
-        self.web_boss.on('job:fini', self._cacheRequestResults)
-
-    def webCacheDisable(self):
-        '''
-        Disable caching of results from fireWebApi and clear all data from the cache.
-        '''
-        self.web_boss.off('job:fini', self._cacheRequestResults)
-        self.webCacheClear()
-        self.setConfOpt(CACHE_ENABLED, False)
-        self.web_cache_enabled = False
 
     def webCacheClear(self):
         '''

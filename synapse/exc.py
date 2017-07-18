@@ -55,6 +55,13 @@ class NoSuchDecoder(SynErr): pass
 class NoSuchEncoder(SynErr): pass
 
 class BadOperArg(SynErr): pass
+class BadConfValu(SynErr):
+    '''
+    The configuration value provided is not valid.
+
+    This should contain the config name, valu and mesg.
+    '''
+    pass
 class BadTypeValu(SynErr): pass
 class DupTypeName(SynErr): pass
 class DupPropName(SynErr): pass

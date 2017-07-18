@@ -141,6 +141,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.loadbus.on('core:save:del:rows:by:prop', self._loadDelRowsByProp)
         self.loadbus.on('core:save:set:rows:by:idprop', self._loadSetRowsByIdProp)
         self.loadbus.on('core:save:del:rows:by:idprop', self._loadDelRowsByIdProp)
+        self.loadbus.on('syn:core:blob:set', self._onSetBlobValu)
+        self.loadbus.on('syn:core:blob:del', self._onDelBlobValu)
 
         #############################################################
         # Handlers for each splice event action
@@ -168,19 +170,15 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.addStatFunc('count', self._calcStatCount)
         self.addStatFunc('histo', self._calcStatHisto)
 
-        self._initCortex()
-
-        DataModel.__init__(self, load=False)
-
-        self.isok = True
-
-        self.initTufosBy('eq', self._tufosByEq)
-        self.initTufosBy('in', self._tufosByIn)
-        self.initTufosBy('has', self._tufosByHas)
-        self.initTufosBy('tag', self._tufosByTag)
-        self.initTufosBy('type', self._tufosByType)
-        self.initTufosBy('inet:cidr', self._tufosByInetCidr)
-        self.initTufosBy('dark', self._tufosByDark)
+        # Cache blob save mesgs which may be fired during storage layer init
+        _blobMesgCache = []
+        self.savebus.on('syn:core:blob:set', _blobMesgCache.append)
+        self.savebus.on('syn:core:blob:del', _blobMesgCache.append)
+        # Initialize the storage layer
+        self._initCoreStor()
+        # Disable the blob message caching
+        self.savebus.off('syn:core:blob:set', _blobMesgCache.append)
+        self.savebus.off('syn:core:blob:del', _blobMesgCache.append)
 
         # process a savefile/savefd if we have one
         savefd = link[1].get('savefd')
@@ -191,6 +189,29 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         if savefile is not None:
             savefd = s_common.genfile(savefile)
             self.setSaveFd(savefd, fini=True)
+
+        # The storage layer initialization blob events then trump anything
+        # which may have been set during the savefile load and make sure they
+        # get saved as well
+        if 'savefd' in link[1] or 'savefile' in link[1]:
+            for evtname, info in _blobMesgCache:
+                self.savebus.fire(evtname, **info)
+                self.loadbus.fire(evtname, **info)
+
+        if not self.hasBlobValu('syn:core:created'):
+            self.setBlobValu('syn:core:created', s_common.now())
+
+        self.isok = True
+
+        DataModel.__init__(self, load=False)
+
+        self.initTufosBy('eq', self._tufosByEq)
+        self.initTufosBy('in', self._tufosByIn)
+        self.initTufosBy('has', self._tufosByHas)
+        self.initTufosBy('tag', self._tufosByTag)
+        self.initTufosBy('type', self._tufosByType)
+        self.initTufosBy('inet:cidr', self._tufosByInetCidr)
+        self.initTufosBy('dark', self._tufosByDark)
 
         self.myfo = self.formTufoByProp('syn:core', 'self')
         self.isnew = self.myfo[1].get('.new', False)
@@ -227,6 +248,10 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.onfini(self._finiCoreMods)
 
         s_ingest.IngestApi.__init__(self, self)
+
+    def _initCoreStor(self):  # pragma: no cover
+        '''Perform storage layer initializations.'''
+        raise s_common.NoSuchImpl(name='_initCoreStor', mesg='Storage layer must implement _initCoreStor')
 
     def getModlVers(self, name):
         '''
@@ -276,7 +301,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         Args:
             name (str): The name of the model
-            refs ([(int,function)]):  List of (vers,func) revision tuples.
+            revs ([(int,function)]):  List of (vers,func) revision tuples.
 
         Returns:
             (None)
@@ -921,6 +946,13 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         NOTE: This save file is allowed to be storage layer specific.
               If you want to store cortex splice events, use addSpliceFd().
 
+        '''
+        self._setSaveFd(fd, load, fini)
+
+    def _setSaveFd(self, fd, load=True, fini=False):
+        '''
+        The default implementation of savefile for a Cortex.
+        This may be overridden by a storage layer.
         '''
         if load:
             for mesg in s_common.msgpackfd(fd):
@@ -2906,6 +2938,180 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         rows = self.getRowsByProp('_:dark:' + name, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
         idens = list(set([r[0][::-1] for r in rows]))  # Unique the idens we pull.
         return self._initTufoSnap(idens)
+
+    def _getBlobValu(self, key):  # pragma: no cover
+        self.log(logging.ERROR, mesg='Core does not implement _getBlobValu', name='_getBlobValu')
+        return None
+
+    def _setBlobValu(self, key, valu):  # pragma: no cover
+        self.log(logging.ERROR, mesg='Core does not implement _setBlobValu', name='_setBlobValu')
+        return None
+
+    def _hasBlobValu(self, key):  # pragma: no cover
+        self.log(logging.ERROR, mesg='Core does not implement _hasBlobValue', name='_hasBlobValue')
+        return None
+
+    def _delBlobValu(self, key):  # pragma: no cover
+        self.log(logging.ERROR, mesg='Core does not implement _delBlobValu', name='_delBlobValu')
+        return None
+
+    def _getBlobKeys(self):
+        self.log(logging.ERROR, mesg='Core does not implement _getBlobKeys', name='_getBlobKeys')
+        return None
+
+    def _getCoreType(self):  # pragma: no cover
+        raise s_common.NoSuchImpl(name='getCoreType', mesg='Core does not implement getCoreType')
+
+    def getCoreType(self):
+        return self._getCoreType()
+
+    # TODO: Wrap this in a userauth layer
+    def getBlobValu(self, key, default=None):
+        '''
+        Get a value from the blob key/value (KV) store.
+
+        This resides below the tufo storage layer and is Cortex implementation
+        dependent. In purely memory backed cortexes, this KV store may not be
+        persistent, even if the tufo-layer is persistent, through something
+        such as the savefile mechanism.
+
+        Notes:
+            Data which is retrieved from the KV store is msgpacked, so caveats
+            with that apply.
+
+        Args:
+            key (str): Value to retrieve
+            default: Value returned if the key is not present in the blob store.
+
+        Returns:
+            The value from the KV store or the default valu (None).
+
+        '''
+        buf = self._getBlobValu(key)
+        if buf is None:
+            self.log(logging.WARNING, mesg='Requested key not present in blob store, returning default', name=key)
+            return default
+        return s_common.msgunpack(buf)
+
+    def getBlobKeys(self):
+        '''
+        Get a list of keys in the blob key/value store.
+
+        Returns:
+            list: List of keys in the store.
+        '''
+        return self._getBlobKeys()
+
+    # TODO: Wrap this in a userauth layer
+    def setBlobValu(self, key, valu):
+        '''
+        Set a value from the blob key/value (KV) store.
+
+        This resides below the tufo storage layer and is Cortex implementation
+        dependent. In purely memory backed cortexes, this KV store may not be
+        persistent, even if the tufo-layer is persistent, through something
+        such as the savefile mechanism.
+
+        Notes:
+            Data which is stored in the KV store is msgpacked, so caveats with
+            that apply.
+
+        Args:
+            key (str): Name of the value to store.
+            valu: Value to store in the KV store.
+
+        Returns:
+            The input value, unchanged.
+        '''
+        buf = s_common.msgenpack(valu)
+        self._setBlobValu(key, buf)
+        self.savebus.fire('syn:core:blob:set', key=key, valu=buf)
+        return valu
+
+    # TODO: Wrap this in a userauth layer
+    def hasBlobValu(self, key):
+        '''
+        Check the blob store to see if a key is present.
+
+        Args:
+            key (str): Key to check
+
+        Returns:
+            bool: If the key is present, returns True, otherwise False.
+
+        '''
+        return self._hasBlobValu(key)
+
+    # TODO: Wrap this in a userauth layer
+    def delBlobValu(self, key):
+        '''
+        Remove and return a value from the blob store.
+
+        Args:
+            key (str): Key to remove.
+
+        Returns:
+            Content in the blob store for a given key.
+
+        Raises:
+            NoSuchName: If the key is not present in the store.
+        '''
+        if not self.hasBlobValu(key):
+            raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
+        buf = self._delBlobValu(key)
+        self.savebus.fire('syn:core:blob:del', key=key)
+        return s_common.msgunpack(buf)
+
+    def _onSetBlobValu(self, mesg):
+        key = mesg[1].get('key')
+        valu = mesg[1].get('valu')
+        self._setBlobValu(key, valu)
+
+    def _onDelBlobValu(self, mesg):
+        key = mesg[1].get('key')
+        self._delBlobValu(key)
+
+    # Note:This will eventually live in a storage layer base implementation.st co
+    def _revCorVers(self, revs):
+        '''
+        Update a the storage layer with a list of (vers,func) tuples.
+
+        Args:
+            revs ([(int,function)]):  List of (vers,func) revision tuples.
+
+        Returns:
+            (None)
+
+        Each specified function is expected to update the storage layer including data migration.
+        '''
+        if not revs:
+            return
+        vsn_str = 'syn:core:{}:version'.format(self._getCoreType())
+        curv = self.getBlobValu(vsn_str, -1)
+
+        maxver = revs[-1][0]
+        if maxver == curv:
+            return
+
+        if not self.getConfOpt('rev:storage'):
+            raise s_common.NoRevAllow(name='rev:storage',
+                                      mesg='add rev:storage=1 to cortex url to allow storage updates')
+
+        for vers, func in sorted(revs):
+
+            if vers <= curv:
+                continue
+
+            # allow the revision function to optionally return the
+            # revision he jumped to ( to allow initial override )
+            mesg = 'Warning - storage layer update occurring. Do not interrupt. [{}] => [{}]'.format(curv, vers)
+            logger.warning(mesg)
+            retn = func()
+            logger.warning('Storage layer update completed.')
+            if retn is not None:
+                vers = retn
+
+            curv = self.setBlobValu(vsn_str, vers)
 
 class CoreXact:
     '''
