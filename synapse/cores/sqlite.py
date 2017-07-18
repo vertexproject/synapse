@@ -1,12 +1,15 @@
 from __future__ import absolute_import, unicode_literals
 
 import re
+import logging
 import sqlite3
 
 import synapse.common as s_common
 import synapse.compat as s_compat
 
 import synapse.cores.common as s_cores_common
+
+logger = logging.getLogger(__name__)
 
 stashre = re.compile('{{([A-Z]+)}}')
 
@@ -96,10 +99,18 @@ class Cortex(s_cores_common.Cortex):
     );
     '''
 
+    _t_init_blobtable = '''
+    CREATE TABLE {{BLOB_TABLE}} (
+         k VARCHAR,
+         v BLOB
+    );
+    '''
+
     _t_init_iden_idx = 'CREATE INDEX {{TABLE}}_iden_idx ON {{TABLE}} (iden,prop)'
     _t_init_prop_idx = 'CREATE INDEX {{TABLE}}_prop_time_idx ON {{TABLE}} (prop,tstamp)'
     _t_init_strval_idx = 'CREATE INDEX {{TABLE}}_strval_idx ON {{TABLE}} (prop,strval,tstamp)'
     _t_init_intval_idx = 'CREATE INDEX {{TABLE}}_intval_idx ON {{TABLE}} (prop,intval,tstamp)'
+    _t_init_blobtable_idx = 'CREATE UNIQUE INDEX {{BLOB_TABLE}}_indx ON {{BLOB_TABLE}} (k)'
 
     _t_addrows = 'INSERT INTO {{TABLE}} (iden,prop,strval,intval,tstamp) VALUES ({{IDEN}},{{PROP}},{{STRVAL}},{{INTVAL}},{{TSTAMP}})'
     _t_getrows_by_iden = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}}'
@@ -109,6 +120,12 @@ class Cortex(s_cores_common.Cortex):
     _t_getrows_by_iden_prop = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}}'
     _t_getrows_by_iden_prop_intval = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND intval={{VALU}}'
     _t_getrows_by_iden_prop_strval = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND strval={{VALU}}'
+
+    ################################################################################
+    _t_blob_set = 'INSERT OR REPLACE INTO {{BLOB_TABLE}} (k, v) VALUES ({{KEY}}, {{VALU}})'
+    _t_blob_get = 'SELECT v FROM {{BLOB_TABLE}} WHERE k={{KEY}}'
+    _t_blob_del = 'DELETE FROM {{BLOB_TABLE}} WHERE k={{KEY}}'
+    _t_blob_get_keys = 'SELECT k FROM {{BLOB_TABLE}}'
 
     ################################################################################
     _t_getrows_by_prop = 'SELECT * FROM {{TABLE}} WHERE prop={{PROP}} LIMIT {{LIMIT}}'
@@ -290,7 +307,7 @@ class Cortex(s_cores_common.Cortex):
     def _addVarDecor(self, name):
         return ':%s' % (name,)
 
-    def _initCortex(self):
+    def _initCoreStor(self):
 
         self.initSizeBy('ge', self._sizeByGe)
         self.initRowsBy('ge', self._rowsByGe)
@@ -318,8 +335,7 @@ class Cortex(s_cores_common.Cortex):
 
         self._initCorQueries()
 
-        if not self._checkForTable(table):
-            self._initCorTable(table)
+        self._initCorTables(table)
 
     def _prepQuery(self, query):
         # prep query strings by replacing all %s with table name
@@ -332,13 +348,28 @@ class Cortex(s_cores_common.Cortex):
 
         return query
 
+    def _prepBlobQuery(self, query):
+        # prep query strings by replacing all %s with table name
+        # and all ? with db specific variable token
+        table = self._getTableName()
+        table = table + '_blob'
+        query = query.replace('{{BLOB_TABLE}}', table)
+
+        for name in stashre.findall(query):
+            query = query.replace('{{%s}}' % name, self._addVarDecor(name.lower()))
+
+        return query
+
     def _initCorQueries(self):
         self._q_istable = self._prepQuery(self._t_istable)
         self._q_inittable = self._prepQuery(self._t_inittable)
+        self._q_init_blobtable = self._prepBlobQuery(self._t_init_blobtable)
+
         self._q_init_iden_idx = self._prepQuery(self._t_init_iden_idx)
         self._q_init_prop_idx = self._prepQuery(self._t_init_prop_idx)
         self._q_init_strval_idx = self._prepQuery(self._t_init_strval_idx)
         self._q_init_intval_idx = self._prepQuery(self._t_init_intval_idx)
+        self._q_init_blobtable_idx = self._prepBlobQuery(self._t_init_blobtable_idx)
 
         self._q_addrows = self._prepQuery(self._t_addrows)
         self._q_getrows_by_iden = self._prepQuery(self._t_getrows_by_iden)
@@ -348,6 +379,11 @@ class Cortex(s_cores_common.Cortex):
         self._q_getrows_by_iden_prop = self._prepQuery(self._t_getrows_by_iden_prop)
         self._q_getrows_by_iden_prop_intval = self._prepQuery(self._t_getrows_by_iden_prop_intval)
         self._q_getrows_by_iden_prop_strval = self._prepQuery(self._t_getrows_by_iden_prop_strval)
+
+        self._q_blob_get = self._prepBlobQuery(self._t_blob_get)
+        self._q_blob_set = self._prepBlobQuery(self._t_blob_set)
+        self._q_blob_del = self._prepBlobQuery(self._t_blob_del)
+        self._q_blob_get_keys = self._prepBlobQuery(self._t_blob_get_keys)
 
         ###################################################################################
         self._q_getrows_by_prop = self._prepQuery(self._t_getrows_by_prop)
@@ -502,6 +538,34 @@ class Cortex(s_cores_common.Cortex):
     def _checkForTable(self, name):
         return len(self.select(self._q_istable, name=name))
 
+    def _initCorTables(self, table):
+
+        revs = [
+            (0, self._rev0)
+        ]
+
+        max_rev = max([rev for rev, func in revs])
+        vsn_str = 'syn:core:{}:version'.format(self.getCoreType())
+
+        if not self._checkForTable(table):
+            # We are a new cortex, stamp in tables and set
+            # blob values and move along.
+            self._initCorTable(table)
+            self.setBlobValu(vsn_str, max_rev)
+            return
+
+        # Strap in the blobstore if it doesn't exist - this allows us to have
+        # a helper which doesn't have to care about queries agianst a table
+        # which may not exist.
+        blob_table = table + '_blob'
+        if not self._checkForTable(blob_table):
+            with self.getCoreXact() as xact:
+                xact.cursor.execute(self._q_init_blobtable)
+                xact.cursor.execute(self._q_init_blobtable_idx)
+
+        # Apply storage layer revisions
+        self._revCorVers(revs)
+
     def _initCorTable(self, name):
         with self.getCoreXact() as xact:
             xact.cursor.execute(self._q_inittable)
@@ -509,6 +573,14 @@ class Cortex(s_cores_common.Cortex):
             xact.cursor.execute(self._q_init_prop_idx)
             xact.cursor.execute(self._q_init_strval_idx)
             xact.cursor.execute(self._q_init_intval_idx)
+            xact.cursor.execute(self._q_init_blobtable)
+            xact.cursor.execute(self._q_init_blobtable_idx)
+
+    def _rev0(self):
+        # Simple rev0 function stub.
+        # If we're here, we're clearly an existing cortex and
+        #  we need to have this valu set.
+        self.setBlobValu('syn:core:created', s_common.now())
 
     def _addRows(self, rows):
         args = []
@@ -647,3 +719,52 @@ class Cortex(s_cores_common.Cortex):
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         self._runPropQuery('delrowsbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete, nolim=True)
+
+    def _getCoreType(self):
+        return 'sqlite'
+
+    def _getBlobValu(self, key):
+        rows = self._getBlobValuRows(key)
+
+        if not rows:
+            return None
+
+        if len(rows) > 1:  # pragma: no cover
+            raise s_common.BadCoreStore(store=self.getCoreType(), mesg='Too many blob rows received.')
+
+        return rows[0][0]
+
+    def _getBlobValuRows(self, key):
+        rows = self.select(self._q_blob_get, key=key)
+        return rows
+
+    def _prepBlobValu(self, valu):
+        return sqlite3.Binary(valu)
+
+    def _setBlobValu(self, key, valu):
+        v = self._prepBlobValu(valu)
+        self.update(self._q_blob_set, key=key, valu=v)
+        return valu
+
+    def _hasBlobValu(self, key):
+        rows = self._getBlobValuRows(key)
+
+        if len(rows) > 1:  # pragma: no cover
+            raise s_common.BadCoreStore(store=self.getCoreType(), mesg='Too many blob rows received.')
+
+        if not rows:
+            return False
+        return True
+
+    def _delBlobValu(self, key):
+        ret = self._getBlobValu(key)
+        if ret is None:  # pragma: no cover
+            # We should never get here, but if we do, throw an exception.
+            raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
+        self.delete(self._q_blob_del, key=key)
+        return ret
+
+    def _getBlobKeys(self):
+        rows = self.select(self._q_blob_get_keys)
+        ret = [row[0] for row in rows]
+        return ret

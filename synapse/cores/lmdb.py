@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 import sys
 import struct
+import logging
 from binascii import unhexlify
 
 from contextlib import contextmanager
@@ -15,6 +16,8 @@ import synapse.cores.common as s_cores_common
 
 import lmdb
 import xxhash
+
+logger = logging.getLogger(__name__)
 
 # File conventions:
 # i, p, v, t: iden, prop, value, timestamp
@@ -72,6 +75,13 @@ MIN_INT_VAL = -1 * (2 ** 63)
 
 # The maximum possible timestamp.  Probably a bit overkill
 MAX_TIME_ENC = s_common.msgenpack(MAX_INT_VAL)
+
+# Index Names
+BLOB_STORE = b'blob_store'
+ROWS = b'rows'
+IDEN_PROP_INDEX = b'ip'
+PROP_VAL_TIME_INDEX = b'pvt'
+PROP_TIME_INDEX = b'pt'
 
 def _round_up(val, modulus):
     return val - val % -modulus
@@ -157,7 +167,7 @@ class CoreXact(s_cores_common.CoreXact):
 
 class Cortex(s_cores_common.Cortex):
 
-    def _initCortex(self):
+    def _initCoreStor(self):
         self._initDbConn()
 
         self.initSizeBy('ge', self._sizeByGe)
@@ -173,6 +183,8 @@ class Cortex(s_cores_common.Cortex):
 
         self.initSizeBy('range', self._sizeByRange)
         self.initRowsBy('range', self._rowsByRange)
+
+        self._initCorTables()
 
     def _initDbInfo(self):
         name = self._link[1].get('path')[1:]
@@ -192,6 +204,87 @@ class Cortex(s_cores_common.Cortex):
             if not cursor.last():
                 return 0  # db is empty
             return _decPk(cursor.key())
+
+    def _checkForTable(self, table):
+        with self._getTxn() as txn:
+            ret = txn.get(table)
+        if ret:
+            return True
+        return False
+
+    def _initCorTables(self):
+
+        revs = [
+          (0, self._rev0)
+        ]
+
+        max_rev = max([rev for rev, func in revs])
+        vsn_str = 'syn:core:{}:version'.format(self.getCoreType())
+
+        if not self._checkForTable(ROWS):
+            # We are a new cortex, stamp in tables and set
+            # blob values and move along.
+            self._initCorTable()
+            self.setBlobValu(vsn_str, max_rev)
+            return
+        # We're an existing cortex, strap in all currently required tables,
+        # then start applying revision functions. The revision functions will
+        # then be responsible for creating handles to any indexes/tables that
+        # they will need in order to do their jobs.
+        self._initCorTable()
+        # Apply storage layer revisions
+        self._revCorVers(revs)
+
+    def _initCorTable(self):
+        '''
+        Makes the core LMDB tables.  This should always create the tables needed for
+        operation of the LMDB cortex for the current storage version.
+        '''
+        # Make the main storage table, keyed by an incrementing counter, pk
+        # LMDB has an optimization (integerkey) if all the keys in a table are unsigned size_t.
+        self.rows = self.dbenv.open_db(key=ROWS, integerkey=True)  # pk -> i,p,v,t
+
+        # Note there's another LMDB optimization ('dupfixed') we're not using that we could
+        # in the index tables.  It would pay off if a large proportion of keys are duplicates.
+
+        # Make the iden-prop index table, keyed by iden-prop, with value being a pk
+        self.index_ip = self.dbenv.open_db(key=IDEN_PROP_INDEX, dupsort=True)  # i,p -> pk
+
+        # Make the prop-val-timestamp index table, with value being a pk
+        self.index_pvt = self.dbenv.open_db(key=PROP_VAL_TIME_INDEX, dupsort=True)  # p,v,t -> pk
+
+        # Make the prop-timestamp index table, with value being a pk
+        self.index_pt = self.dbenv.open_db(key=PROP_TIME_INDEX, dupsort=True)  # p, t -> pk
+
+        # Make the blob key/val index table, with the
+        self.blob_store = self.dbenv.open_db(key=BLOB_STORE)  # k -> v
+
+        # Set max values for dbs
+        self._setMaxKey()
+
+    def _setMaxKey(self):
+        '''
+        Put 1 max key sentinel at the end of each index table.  This avoids unfortunate behavior
+        where the cursor moves backwards after deleting the final record.
+        '''
+        with self._getTxn(write=True) as txn:
+            for db in (self.index_ip, self.index_pvt, self.index_pt):
+                txn.put(MAX_INDEX_KEY, b'', db=db)
+            # One more sentinel for going backwards through the pvt table.
+            txn.put(b'\x00', b'', db=self.index_pvt)
+
+        # Find the largest stored pk.  We just track this in memory from now on.
+        largest_pk = self._getLargestPk()
+        if largest_pk == MAX_PK:
+            raise s_common.HitCoreLimit(name='MAX_PK', size=MAX_PK, mesg='Out of primary key values')
+
+        self.next_pk = largest_pk + 1
+
+    def _rev0(self):
+        # Simple rev0 function stub.
+        # If we're here, we're clearly an existing
+        # cortex and we need to have this valu set.
+        self.setBlobValu('syn:core:created', s_common.now())
 
     @contextmanager
     def _getTxn(self, write=False):
@@ -252,9 +345,9 @@ class Cortex(s_cores_common.Cortex):
         map_slack = self._link[1].get('lmdb:mapslack', 2 ** 30)
         self._map_slack, _ = s_datamodel.getTypeNorm('int', map_slack)
 
-        # Maximum number of 'databases', really tables.  We use 4 different tables (1 main plus
-        # 3 indices)
-        MAX_DBS = 4
+        # Maximum number of 'databases', really tables.  We use 5 different tables (1 main plus
+        # 3 indices and a blob store), + 10 tables for possible migration use cases.
+        MAX_DBS = 5 + 10
 
         # flush system buffers to disk only once per transaction.  Set to False can lead to last
         # transaction loss, but not corruption
@@ -284,9 +377,15 @@ class Cortex(s_cores_common.Cortex):
         if max_readers == 1:
             lock = False
 
-        self.dbenv = lmdb.Environment(dbname, map_size=self._map_size, subdir=SUBDIR,
-                                      metasync=metasync, writemap=WRITEMAP, max_readers=max_readers,
-                                      max_dbs=MAX_DBS, sync=sync, lock=lock)
+        self.dbenv = lmdb.Environment(dbname,
+                                      map_size=self._map_size,
+                                      subdir=SUBDIR,
+                                      metasync=metasync,
+                                      writemap=WRITEMAP,
+                                      max_readers=max_readers,
+                                      max_dbs=MAX_DBS,
+                                      sync=sync,
+                                      lock=lock)
 
         # Check we're not running a weird version of LMDB
         if self.dbenv.stat()['psize'] != 4096:
@@ -294,37 +393,6 @@ class Cortex(s_cores_common.Cortex):
 
         # Ensure we have enough room in the map for expansion
         self._ensure_map_slack()
-
-        # Make the main storage table, keyed by an incrementing counter, pk
-        # LMDB has an optimization (integerkey) if all the keys in a table are unsigned size_t.
-        self.rows = self.dbenv.open_db(key=b'rows', integerkey=True)  # pk -> i,p,v,t
-
-        # Note there's another LMDB optimization ('dupfixed') we're not using that we could
-        # in the index tables.  It would pay off if a large proportion of keys are duplicates.
-
-        # Make the iden-prop index table, keyed by iden-prop, with value being a pk
-        self.index_ip = self.dbenv.open_db(key=b'ip', dupsort=True)  # i,p -> pk
-
-        # Make the prop-val-timestamp index table, with value being a pk
-        self.index_pvt = self.dbenv.open_db(key=b'pvt', dupsort=True)  # p,v,t -> pk
-
-        # Make the prop-timestamp index table, with value being a pk
-        self.index_pt = self.dbenv.open_db(key=b'pt', dupsort=True)  # p, t -> pk
-
-        # Put 1 max key sentinel at the end of each index table.  This avoids unfortunate behavior
-        # where the cursor moves backwards after deleting the final record.
-        with self._getTxn(write=True) as txn:
-            for db in (self.index_ip, self.index_pvt, self.index_pt):
-                txn.put(MAX_INDEX_KEY, b'', db=db)
-                # One more sentinel for going backwards through the pvt table.
-                txn.put(b'\x00', b'', db=self.index_pvt)
-
-        # Find the largest stored pk.  We just track this in memory from now on.
-        largest_pk = self._getLargestPk()
-        if largest_pk == MAX_PK:
-            raise s_common.HitCoreLimit(name='MAX_PK', size=MAX_PK, mesg='Out of primary key values')
-
-        self.next_pk = largest_pk + 1
 
         def onfini():
             self.dbenv.close()
@@ -363,18 +431,18 @@ class Cortex(s_cores_common.Cortex):
             kvs = ((x[5], x[2]) for x in encs)
 
             # Shove it all in at once
-            consumed, added = txn.cursor(db=self.rows).putmulti(kvs, overwrite=False, append=True)
+            consumed, added = txn.cursor(self.rows).putmulti(kvs, overwrite=False, append=True)
             if consumed != added or consumed != len(encs):
                 # Will only fail if record already exists, which should never happen
                 raise s_common.BadCoreStore(store='lmdb', mesg='unexpected pk in DB')
 
             # Update the indices for all rows
             kvs = ((x[0] + x[1], x[5]) for x in encs)
-            txn.cursor(db=self.index_ip).putmulti(kvs, dupdata=True)
+            txn.cursor(self.index_ip).putmulti(kvs, dupdata=True)
             kvs = ((x[1] + x[4] + x[3], x[5]) for x in encs)
-            txn.cursor(db=self.index_pvt).putmulti(kvs, dupdata=True)
+            txn.cursor(self.index_pvt).putmulti(kvs, dupdata=True)
             kvs = ((x[1] + x[3], x[5]) for x in encs)
-            txn.cursor(db=self.index_pt).putmulti(kvs, dupdata=True)
+            txn.cursor(self.index_pt).putmulti(kvs, dupdata=True)
 
             # self.next_pk should be protected from multiple writers. Luckily lmdb write lock does
             # that for us.
@@ -451,7 +519,7 @@ class Cortex(s_cores_common.Cortex):
     def _delRowAndIndices(self, txn, pk_enc, i_enc=None, p_enc=None, v_key_enc=None, t_enc=None,
                           delete_ip=True, delete_pvt=True, delete_pt=True, only_if_val=None):
         ''' Deletes the row corresponding to pk_enc and the indices pointing to it '''
-        with txn.cursor(db=self.rows) as cursor:
+        with txn.cursor(self.rows) as cursor:
             if not cursor.set_key(pk_enc):
                 raise s_common.BadCoreStore(store='lmdb', mesg='Missing PK')
             i, p, v, t = s_common.msgunpack(cursor.value())
@@ -497,7 +565,6 @@ class Cortex(s_cores_common.Cortex):
         first_key = iden_enc + prop_enc
 
         ret = []
-
         with self._getTxn() as txn, txn.cursor(self.index_ip) as cursor:
             if not cursor.set_range(first_key):
                 raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
@@ -671,3 +738,40 @@ class Cortex(s_cores_common.Cortex):
                 if limit is not None and count >= limit:
                     break
         return count if do_count_only else ret
+
+    def _getCoreType(self):
+        return 'lmdb'
+
+    def _getBlobValu(self, key):
+        key_byts = s_common.msgenpack(key.encode('utf-8'))
+        with self._getTxn() as txn:  # type: lmdb.Transaction
+            ret = txn.get(key_byts, default=None, db=self.blob_store)
+        return ret
+
+    def _setBlobValu(self, key, valu):
+        key_byts = s_common.msgenpack(key.encode('utf-8'))
+        with self._getTxn(write=True) as txn:  # type: lmdb.Transaction
+            txn.put(key_byts, valu, overwrite=True, db=self.blob_store)
+
+    def _hasBlobValu(self, key):
+        ret = self._getBlobValu(key)
+        if ret is None:
+            return False
+        return True
+
+    def _delBlobValu(self, key):
+        key_byts = s_common.msgenpack(key.encode('utf-8'))
+        with self._getTxn(write=True) as txn:  # type: lmdb.Transaction
+            ret = txn.pop(key_byts, db=self.blob_store)
+
+            if ret is None:  # pragma: no cover
+                # We should never get here, but if we do, throw an exception.
+                raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
+        return ret
+
+    def _getBlobKeys(self):
+        with self._getTxn(write=True) as txn:  # type: lmdb.Transaction
+            cur = txn.cursor(self.blob_store)  # type: lmdb.Cursor
+            cur.first()
+            ret = [s_common.msgunpack(key).decode('utf-8') for key in cur.iternext(values=False)]
+        return ret
