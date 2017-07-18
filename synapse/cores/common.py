@@ -449,6 +449,14 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                                 ),
                               })
         '''
+        tufo = self.formTufoByProp('syn:model', name)
+
+        # use the normalized hash of the model dict to short
+        # circuit loading if it is unchanged.
+        mhas = s_hashitem.hashitem(modl)
+        if tufo[1].get('syn:model:hash') == mhas:
+            return
+
 
         # FIXME handle type/form/prop removal
         for name, tnfo in modl.get('types', ()):
