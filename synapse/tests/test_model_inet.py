@@ -229,9 +229,13 @@ class InetModelTest(SynTest):
             self.eq(node[1].get('inet:url:port'), 9999)
             self.eq(node[1].get('inet:url:user'), 'visi')
             self.eq(node[1].get('inet:url:passwd'), 'hehe')
+            self.eq(node[1].get('inet:url:fqdn'), 'www.vertex.link')
 
             node = core.formTufoByProp('inet:url', 'HTTP://www.vertex.link/')
             self.eq(node[1].get('inet:url:port'), 80)
+
+            node = core.formTufoByProp('inet:url', 'HTTP://1.2.3.4/')
+            self.eq(node[1].get('inet:url:ipv4'), 0x01020304)
 
     def test_model_inet_netpost(self):
 
@@ -336,6 +340,7 @@ class InetModelTest(SynTest):
     def test_model_fqdn_punycode(self):
 
         with s_cortex.openurl('ram:///') as core:
+
             core.setConfOpt('enforce', 1)
 
             node = core.formTufoByProp('inet:fqdn', 'www.xn--heilpdagogik-wiki-uqb.de')
@@ -346,3 +351,20 @@ class InetModelTest(SynTest):
             self.eq(core.getTypeRepr('inet:fqdn', fqdn), 'www.heilpädagogik-wiki.de')
 
             self.raises(BadTypeValu, core.getTypeNorm, 'inet:fqdn', '!@#$%')
+
+    def test_model_inet_201706121318(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            # create fake old-style url nodes by rows alone...
+            tick = now()
+            iden0 = guid()
+            iden1 = guid()
+
+            rows = (
+                (iden0, 'tufo:form', 'inet:url', tick),
+                (iden0, 'inet:url', 'http://www.woot.com/', tick),
+
+                (iden1, 'tufo:form', 'inet:url', tick),
+                (iden1, 'inet:url', 'http://1.2.3.4/', tick),
+            )
