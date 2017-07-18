@@ -2206,3 +2206,75 @@ class CortexTest(SynTest):
                 self.eq(node[1].get('foo:bar:duck'), 'mallard')
                 node2 = core.formTufoByProp('foo:bar', 'I am a robot', duck='mandarin')
                 self.eq(node2[1].get('foo:bar:duck'), 'mandarin')
+
+    def test_cortex_lift_by_cidr(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            # Add a bunch of nodes
+            for n in range(0, 256):
+                r = core.formTufoByProp('inet:ipv4', '192.168.1.{}'.format(n))
+                r = core.formTufoByProp('inet:ipv4', '192.168.2.{}'.format(n))
+                r = core.formTufoByProp('inet:ipv4', '192.168.200.{}'.format(n))
+
+            # Confirm we have nodes
+            self.eq(len(core.eval('inet:ipv4="192.168.1.0"')), 1)
+            self.eq(len(core.eval('inet:ipv4="192.168.1.255"')), 1)
+            self.eq(len(core.eval('inet:ipv4="192.168.2.0"')), 1)
+            self.eq(len(core.eval('inet:ipv4="192.168.2.255"')), 1)
+            self.eq(len(core.eval('inet:ipv4="192.168.200.0"')), 1)
+
+            # Do cidr lifts
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.2.0/24')
+            nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+            self.eq(len(nodes), 256)
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[10][1].get('inet:ipv4'))
+            self.eq(test_repr, '192.168.2.10')
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
+            self.eq(test_repr, '192.168.2.0')
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
+            self.eq(test_repr, '192.168.2.255')
+
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.200.0/24')
+            self.eq(len(nodes), 256)
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[10][1].get('inet:ipv4'))
+            self.true(test_repr.startswith('192.168.200.'))
+
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.1.0/24')
+            self.eq(len(nodes), 256)
+            nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[10][1].get('inet:ipv4'))
+            self.eq(test_repr, '192.168.1.10')
+
+            # Try a complicated /24
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.1.1/24')
+            self.eq(len(nodes), 256)
+            nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
+            self.eq(test_repr, '192.168.1.0')
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[255][1].get('inet:ipv4'))
+            self.eq(test_repr, '192.168.1.255')
+
+            # Try a /23
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.0.0/23')
+            self.eq(len(nodes), 256)
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[10][1].get('inet:ipv4'))
+            self.true(test_repr.startswith('192.168.1.'))
+
+            # Try a /25
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.1.0/25')
+            nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+            self.eq(len(nodes), 128)
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
+            self.true(test_repr.startswith('192.168.1.127'))
+
+            # Try a /25
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.1.128/25')
+            nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+            self.eq(len(nodes), 128)
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
+            self.true(test_repr.startswith('192.168.1.128'))
+
+            # Try a /16
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.0.0/16')
+            self.eq(len(nodes), 256 * 3)

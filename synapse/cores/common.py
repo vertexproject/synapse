@@ -2600,8 +2600,9 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         ipv4str, cidr = valu.split('/', 1)
         ipv4addr, _ = s_datamodel.getTypeParse('inet:ipv4', ipv4str)
-        mask = (2 ** (32 - int(cidr)))
-        ipv4addr &= ~mask
+        shift = 32 - int(cidr)
+        ipv4addr = ipv4addr >> shift << shift
+        mask = (2 ** shift)
 
         return self.getTufosBy('range', prop, (ipv4addr, ipv4addr + mask), limit=limit)
 
