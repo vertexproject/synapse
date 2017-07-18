@@ -1,8 +1,8 @@
 import collections
 
-from synapse.compat import isint, intern
-
 import synapse.cores.common as s_cores_common
+
+from synapse.compat import isint, intern
 
 class CoreXact(s_cores_common.CoreXact):
 
@@ -15,7 +15,7 @@ class CoreXact(s_cores_common.CoreXact):
 
 class Cortex(s_cores_common.Cortex):
 
-    def _initCortex(self):
+    def _initCoreStor(self):
         self.rowsbyid = collections.defaultdict(set)
         self.rowsbyprop = collections.defaultdict(set)
         self.rowsbyvalu = collections.defaultdict(set)
@@ -37,6 +37,8 @@ class Cortex(s_cores_common.Cortex):
 
         self.initSizeBy('range', self._sizeByRange)
         self.initRowsBy('range', self._rowsByRange)
+
+        self._blob_store = {}
 
     def _getCoreXact(self, size=None):
         return CoreXact(self, size=size)
@@ -174,6 +176,27 @@ class Cortex(s_cores_common.Cortex):
             rows = [row for row in rows if row[3] < maxtime]
 
         return len(rows)
+
+    def _getCoreType(self):
+        return 'ram'
+
+    def _getBlobValu(self, key):
+        ret = self._blob_store.get(key)
+        return ret
+
+    def _setBlobValu(self, key, valu):
+        self._blob_store[key] = valu
+
+    def _hasBlobValu(self, key):
+        return key in self._blob_store
+
+    def _delBlobValu(self, key):
+        ret = self._blob_store.pop(key)
+        return ret
+
+    def _getBlobKeys(self):
+        ret = list(self._blob_store.keys())
+        return ret
 
 ramcores = {}
 

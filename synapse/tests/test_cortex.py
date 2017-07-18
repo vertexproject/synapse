@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 
 import os
+import gzip
 import hashlib
 import binascii
 import tempfile
@@ -98,6 +99,7 @@ class CortexTest(SynTest):
     def test_cortex_ram(self):
         core = s_cortex.openurl('ram://')
         self.true(hasattr(core.link, '__call__'))
+        self.eq(core.getCoreType(), 'ram')
         self.runcore(core)
         self.runjson(core)
         self.runrange(core)
@@ -105,9 +107,11 @@ class CortexTest(SynTest):
         self.rundsets(core)
         self.runsnaps(core)
         self.rundarks(core)
+        self.runblob(core)
 
     def test_cortex_sqlite3(self):
         core = s_cortex.openurl('sqlite:///:memory:')
+        self.eq(core.getCoreType(), 'sqlite')
         self.runcore(core)
         self.runjson(core)
         self.runrange(core)
@@ -115,6 +119,7 @@ class CortexTest(SynTest):
         self.rundsets(core)
         self.runsnaps(core)
         self.rundarks(core)
+        self.runblob(core)
 
     def test_cortex_lmdb(self):
         with self.getTestDir() as path:
@@ -123,6 +128,7 @@ class CortexTest(SynTest):
             lmdb_url = 'lmdb:///%s' % fp
 
             with s_cortex.openurl(lmdb_url) as core:
+                self.eq(core.getCoreType(), 'lmdb')
                 self.runcore(core)
                 self.runjson(core)
                 self.runrange(core)
@@ -130,6 +136,7 @@ class CortexTest(SynTest):
                 self.rundsets(core)
                 self.runsnaps(core)
                 self.rundarks(core)
+                self.runblob(core)
 
             # Test load an existing db
             core = s_cortex.openurl(lmdb_url)
@@ -137,6 +144,7 @@ class CortexTest(SynTest):
 
     def test_cortex_postgres(self):
         with self.getPgCore() as core:
+            self.eq(core.getCoreType(), 'postgres')
             self.runcore(core)
             self.runjson(core)
             self.runrange(core)
@@ -144,6 +152,7 @@ class CortexTest(SynTest):
             self.rundsets(core)
             self.runsnaps(core)
             self.rundarks(core)
+            self.runblob(core)
 
     def rundsets(self, core):
         tufo = core.formTufoByProp('lol:zonk', 1)
@@ -495,6 +504,66 @@ class CortexTest(SynTest):
 
             self.eq(item['foo']['blah'][0], 99)
 
+    def runblob(self, core):
+        # Do we have default cortex blob values?
+        self.true(core.hasBlobValu('syn:core:created'))
+
+        kvs = (
+            ('syn:meta', 1),
+            ('foobar:thing', 'a string',),
+            ('storage:sekrit', {'oh': 'my!', 'key': (1, 2)}),
+            ('syn:bytes', b'0xdeadb33f'),
+            ('knight:weight', 1.234),
+            ('knight:saidni', False),
+            ('knight:has:fleshwound', True),
+            ('knight:has:current_queue', None),
+        )
+
+        # Basic store / retrieve tests
+        for k, v in kvs:
+            r = core.setBlobValu(k, v)
+            self.eq(v, r)
+            self.true(core.hasBlobValu(k))
+        for k, v in kvs:
+            self.eq(core.getBlobValu(k), v)
+
+        # Missing a value
+        self.false(core.hasBlobValu('syn:totallyfake'))
+
+        # getkeys
+        keys = core.getBlobKeys()
+        self.isinstance(keys, list)
+        self.isin('syn:core:created', keys)
+        self.isin('syn:meta', keys)
+        self.isin('knight:has:current_queue', keys)
+        self.notin('totally-false', keys)
+
+        # update a value and get the updated value back
+        self.eq(core.getBlobValu('syn:meta'), 1)
+        core.setBlobValu('syn:meta', 2)
+        self.eq(core.getBlobValu('syn:meta'), 2)
+
+        # msgpack'd output expected
+        testv = [1, 2, 3]
+        core.setBlobValu('test:list', testv)
+        self.eq(core.getBlobValu('test:list'), tuple(testv))
+
+        # Cannot store invalid items
+        for obj in [object, set(testv), self.eq]:
+            self.raises(TypeError, core.setBlobValu, 'test:bad', obj)
+
+        # Ensure that trying to get a value which doesn't exist returns None.
+        self.true(core.getBlobValu('test:bad') is None)
+        # but does work is a default value is provided!
+        self.eq(core.getBlobValu('test:bad', 123456), 123456)
+
+        # Ensure we can delete items from the store
+        self.eq(core.delBlobValu('test:list'), tuple(testv))
+        self.false(core.hasBlobValu('test:list'))
+        self.eq(core.getBlobValu('test:list'), None)
+        # And deleting a value which doesn't exist raises a NoSuchName
+        self.raises(NoSuchName, core.delBlobValu, 'test:deleteme')
+
     def test_pg_encoding(self):
         with self.getPgCore() as core:
             res = core.select('SHOW SERVER_ENCODING')[0][0]
@@ -694,23 +763,74 @@ class CortexTest(SynTest):
         fd = s_compat.BytesIO()
         core0 = s_cortex.openurl('ram://', savefd=fd)
 
+        self.true(core0.isnew)
+        myfo0 = core0.myfo[0]
+
+        created = core0.getBlobValu('syn:core:created')
+
         t0 = core0.formTufoByProp('foo', 'one', baz='faz')
         t1 = core0.formTufoByProp('foo', 'two', baz='faz')
 
         core0.setTufoProps(t0, baz='gronk')
 
         core0.delTufoByProp('foo', 'two')
+        # Try persisting an blob store value
+        core0.setBlobValu('syn:test', 1234)
+        self.eq(core0.getBlobValu('syn:test'), 1234)
         core0.fini()
 
         fd.seek(0)
 
         core1 = s_cortex.openurl('ram://', savefd=fd)
+
+        self.false(core1.isnew)
+        myfo1 = core1.myfo[0]
+        self.eq(myfo0, myfo1)
+
         self.none(core1.getTufoByProp('foo', 'two'))
 
         t0 = core1.getTufoByProp('foo', 'one')
         self.nn(t0)
 
         self.eq(t0[1].get('foo:baz'), 'gronk')
+
+        # Retrieve the stored blob value
+        self.eq(core1.getBlobValu('syn:test'), 1234)
+        self.eq(core1.getBlobValu('syn:core:created'), created)
+
+        # Persist a value which will be overwritten by a storage layer event
+        core1.setBlobValu('syn:core:sqlite:version', -2)
+        core1.hasBlobValu('syn:core:sqlite:version')
+
+        fd.seek(0)
+        time.sleep(1)
+
+        core2 = s_cortex.openurl('sqlite:///:memory:', savefd=fd)
+
+        self.false(core2.isnew)
+        myfo2 = core2.myfo[0]
+        self.eq(myfo0, myfo2)
+
+        self.none(core2.getTufoByProp('foo', 'two'))
+
+        t0 = core2.getTufoByProp('foo', 'one')
+        self.nn(t0)
+
+        self.eq(t0[1].get('foo:baz'), 'gronk')
+
+        # blobstores persist across storage types with savefiles
+        self.eq(core2.getBlobValu('syn:test'), 1234)
+        self.eq(core2.getBlobValu('syn:core:created'), created)
+        # Ensure that storage layer values may trump whatever was in a savefile
+        self.ge(core2.getBlobValu('syn:core:sqlite:version'), 0)
+
+        core2.fini()
+
+        fd.seek(0)
+
+        # Ensure the storage layer init events persisted across savefile reload
+        core3 = s_cortex.openurl('ram://', savefd=fd)
+        self.ge(core3.hasBlobValu('syn:core:sqlite:version'), 0)
 
     def test_cortex_stats(self):
         rows = [
@@ -1734,6 +1854,106 @@ class CortexTest(SynTest):
             node = core.eval('inet:ipv4=1.2.3.4')[0]
             self.eq(s_tufo.ival(node, '#foo.bar'), None)
 
+    def test_cortex_rev0_savefd(self):
+        path = getTestPath('rev0.msgpk')
+
+        with open(path, 'rb') as fd:
+            byts = fd.read()
+
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = '5f724ba09c719e1f83454431b516e429'
+        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
+
+        with self.getTestDir() as temp:
+
+            savefp = os.path.join(temp, 'test.msgpk')
+            with open(savefp, 'wb') as f:
+                f.write(byts)
+
+            with s_cortex.openurl('ram:///', savefile=savefp) as core:
+                node = core.formTufoByProp('inet:ipv4', '1.2.3.4')
+                self.notin('.new', node[1])
+                self.true(core.hasBlobValu('syn:core:created'))
+                self.false(core.isnew)
+
+    def test_cortex_rev0_savefd_sqlite(self):
+        path = getTestPath('rev0.msgpk')
+
+        with open(path, 'rb') as fd:
+            byts = fd.read()
+
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = '5f724ba09c719e1f83454431b516e429'
+        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
+
+        with self.getTestDir() as temp:
+
+            savefp = os.path.join(temp, 'test.msgpk')
+            with open(savefp, 'wb') as f:
+                f.write(byts)
+
+            with s_cortex.openurl('sqlite:///:memory:', savefile=savefp) as core:
+                node = core.formTufoByProp('inet:ipv4', '1.2.3.4')
+                self.notin('.new', node[1])
+                self.true(core.hasBlobValu('syn:core:created'))
+                self.true(core.hasBlobValu('syn:core:sqlite:version'))
+                self.false(core.isnew)
+
+    def test_cortex_rev0_savefd_psql(self):
+        path = getTestPath('rev0.msgpk')
+
+        with open(path, 'rb') as fd:
+            byts = fd.read()
+
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = '5f724ba09c719e1f83454431b516e429'
+        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
+
+        with self.getTestDir() as temp:
+
+            savefp = os.path.join(temp, 'test.msgpk')
+            with open(savefp, 'wb') as f:
+                f.write(byts)
+
+            with self.getPgCore(savefile=savefp) as core:
+                node = core.formTufoByProp('inet:ipv4', '1.2.3.4')
+                self.notin('.new', node[1])
+                self.true(core.hasBlobValu('syn:core:created'))
+                self.true(core.hasBlobValu('syn:core:postgres:version'))
+                self.false(core.isnew)
+
+    def test_cortex_rev0_savefd_lmdb(self):
+        self.skipIfOldPython()
+        path = getTestPath('rev0.msgpk')
+
+        with open(path, 'rb') as fd:
+            byts = fd.read()
+
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = '5f724ba09c719e1f83454431b516e429'
+        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
+
+        with self.getTestDir() as temp:
+
+            savefp = os.path.join(temp, 'test.msgpk')
+            with open(savefp, 'wb') as f:
+                f.write(byts)
+
+            fn = 'test.lmdb'
+            fp = os.path.join(temp, fn)
+            lmdb_url = 'lmdb:///%s' % fp
+
+            with s_cortex.openurl(lmdb_url, savefile=savefp) as core:
+                node = core.formTufoByProp('inet:ipv4', '1.2.3.4')
+                self.notin('.new', node[1])
+                self.true(core.hasBlobValu('syn:core:created'))
+                self.true(core.hasBlobValu('syn:core:lmdb:version'))
+                self.false(core.isnew)
+
     def test_cortex_rev0(self):
         path = getTestPath('rev0.db')
         with open(path, 'rb') as fd:
@@ -1752,7 +1972,6 @@ class CortexTest(SynTest):
                 fd.write(byts)
 
             with s_cortex.openurl('sqlite:///%s' % finl) as core:
-
                 node = core.eval('inet:ipv4=1.2.3.4')[0]
 
                 self.nn(node[1].get('#foo.bar'))
@@ -1763,6 +1982,116 @@ class CortexTest(SynTest):
 
                 self.eq(len(core.eval('inet:ipv4*tag=foo.bar.baz')), 1)
                 self.eq(len(core.eval('#foo.bar.baz')), 1)
+
+                # sqlite storage layer versioning checks go below
+                table = core._getTableName()
+                blob_table = table + '_blob'
+                self.ge(core.getBlobValu('syn:core:sqlite:version'), 0)
+                self.true(core._checkForTable(blob_table))
+                self.runblob(core)
+
+    def test_cortex_rev0_lmdb(self):
+        self.skipIfOldPython()
+        path = getTestPath('rev0.lmdb.gz')
+        with open(path, 'rb') as fd:
+            byts = fd.read()
+
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = '06c05fa1ed9c9c195e060905357caef6'
+        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
+
+        buf = s_compat.BytesIO(byts)
+
+        with self.getTestDir() as temp:
+
+            finl = os.path.join(temp, 'test.db')
+
+            sz = 1024 * 1024 * 4
+            with open(finl, 'wb') as fd:
+                with gzip.GzipFile(fileobj=buf) as gzfd:
+                    while True:
+                        _byts = gzfd.read(sz)
+                        if not _byts:
+                            break
+                        fd.write(_byts)
+
+            with s_cortex.openurl('lmdb:///%s' % finl) as core:
+                self.false(core.isnew)
+                node = core.eval('inet:ipv4=1.2.3.4')[0]
+
+                self.nn(node[1].get('#foo.bar'))
+                self.eq(len(core.eval('inet:ipv4*tag=foo.bar')), 1)
+
+                self.eq(len(core.getRowsByProp('_:dark:tag')), 0)
+                self.eq(len(core.getRowsByProp('_:*inet:ipv4#foo.bar')), 1)
+
+                self.eq(len(core.eval('inet:ipv4*tag=foo.bar.baz')), 1)
+                self.eq(len(core.eval('#foo.bar.baz')), 1)
+
+                # lmdb storage layer versioning checks go below
+                blob_table = b'blob_store'
+                self.ge(core.getBlobValu('syn:core:lmdb:version'), 0)
+                self.true(core._checkForTable(blob_table))
+                self.runblob(core)
+
+    def test_cortex_rev0_psql(self):
+
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = 'ae42eb7e2bfb4aeb87dbe584bc4b89c5'
+        path = getTestPath('rev0.psql')
+        statements = []
+        with open(path, 'rb') as fd:
+            byts = fd.read()
+            self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
+            fd.seek(0)
+            for line in fd.readlines():
+                line = line.decode().strip()
+                if not line or line.startswith('--'):
+                    continue
+                statements.append(line)
+
+        # Load up the data into the PG core
+        with self.getPgConn() as conn:
+            # Clean up any existing rev0 database tables if a previous test did not cleanup properly.
+            with conn.cursor() as cur:
+                stmt = '''select table_name from information_schema.tables where table_name like 'syn_test_rev0%';'''
+                cur.execute(stmt)
+                rows = cur.fetchall()
+                for row in rows:
+                    stmt = 'DROP TABLE IF EXISTS {}'.format(row[0])
+                    cur.execute(stmt)
+                # Sanity check on PSQL
+                cur.execute(stmt)
+                rows = cur.fetchall()
+                if rows:
+                    self.fail('PSQL DB contains syn_test_rev0 tables after dropping them')
+            conn.commit()
+            # Now slam the data into the DB from the .psql file.
+            with conn.cursor() as cur:
+                for stmt in statements:
+                    cur.execute(stmt)
+            conn.commit()
+
+        with self.getPgCore(table='syn_test_rev0') as core:
+            node = core.eval('inet:ipv4=1.2.3.4')[0]
+
+            self.nn(node[1].get('#foo.bar'))
+            self.eq(len(core.eval('inet:ipv4*tag=foo.bar')), 1)
+
+            self.eq(len(core.getRowsByProp('_:dark:tag')), 0)
+            self.eq(len(core.getRowsByProp('_:*inet:ipv4#foo.bar')), 1)
+
+            self.eq(len(core.eval('inet:ipv4*tag=foo.bar.baz')), 1)
+            self.eq(len(core.eval('#foo.bar.baz')), 1)
+
+            # sqlite storage layer versioning checks go below
+            table = core._getTableName()
+            blob_table = table + '_blob'
+            self.eq(core.getBlobValu('syn:core:postgres:version'), 0)
+            self.true(core._checkForTable(blob_table))
+            self.runblob(core)
 
     def test_cortex_module_datamodel_migration(self):
 

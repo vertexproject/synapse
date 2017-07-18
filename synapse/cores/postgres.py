@@ -1,6 +1,7 @@
 import time
 import hashlib
 
+import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
 
@@ -12,6 +13,17 @@ def md5(x):
 class Cortex(s_cores_sqlite.Cortex):
 
     dblim = None
+
+    # postgres uses BYTEA instead of BLOB
+    _t_init_blobtable = '''
+    CREATE TABLE {{BLOB_TABLE}} (
+         k VARCHAR,
+         v BYTEA
+    );
+    '''
+    # postgres upsert!
+    _t_blob_set = 'INSERT INTO {{BLOB_TABLE}} (k, v) VALUES ({{KEY}}, {{VALU}}) ON CONFLICT (k) DO UPDATE SET ' \
+                   'v={{VALU}}'
 
     # postgres over-rides for md5() based indexing
     _t_init_strval_idx = 'CREATE INDEX {{TABLE}}_strval_idx ON {{TABLE}} (prop,MD5(strval),tstamp)'
@@ -51,6 +63,7 @@ class Cortex(s_cores_sqlite.Cortex):
 
     def _initDbConn(self):
         import psycopg2
+        self._psycopg2 = psycopg2
 
         retry = self._link[1].get('retry', 0)
 
@@ -87,13 +100,6 @@ class Cortex(s_cores_sqlite.Cortex):
             return 'syncortex'
 
         return parts[1]
-
-    #def select(self, q, **args):
-        #if q.find('strval') != -1:
-            #print('EXPLAIN: %r' % (q,))
-            #for row in s_c_sqlite.Cortex.select(self, 'EXPLAIN ANALYZE ' + q, **args):
-                #print(row)
-        #return s_c_sqlite.Cortex.select(self, q, **args)
 
     def _initDbInfo(self):
 
@@ -153,3 +159,9 @@ class Cortex(s_cores_sqlite.Cortex):
 
     def _addVarDecor(self, name):
         return '%%(%s)s' % (name,)
+
+    def _getCoreType(self):
+        return 'postgres'
+
+    def _prepBlobValu(self, valu):
+        return s_compat.bytesToMem(valu)
