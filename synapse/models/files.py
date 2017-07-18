@@ -116,7 +116,7 @@ class FileMod(CoreModule):
     def seedFileSha1(self, prop, valu, **props):
         valu, _ = self.core.getPropNorm('file:bytes:sha1', valu)
         props['sha1'] = valu
-        valu = guid(valu.lower())
+        valu = guid(valu)
         return self.core.formTufoByProp('file:bytes', valu, **props)
 
     @staticmethod
