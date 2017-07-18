@@ -446,11 +446,9 @@ class Hypnos(s_config.Config):
                 return
             self.web_cache_enabled = True
             self.web_cache.setMaxTime(self.getConfOpt(CACHE_TIMEOUT))
-            self.web_boss.preemptive_on('job:fini', self._cacheRequestResults)
         else:
             if not self.web_cache_enabled:
                 return
-            self.web_boss.off('job:fini', self._cacheRequestResults)
             self.webCacheClear()
             self.web_cache_enabled = False
 
@@ -879,9 +877,9 @@ class Hypnos(s_config.Config):
         resp_dict['data'] = buf
         resp_dict['ingdata'] = ingdata
 
-    def _webRespWrapper(self, f):
+    def _webFailRespWrapper(self, func):
         '''
-        Decorator for wrapping callback functions.
+        Decorates a function for wrapping callback functions.
 
         The decorator performs two functions:
 
@@ -891,11 +889,10 @@ class Hypnos(s_config.Config):
           data, preparing it for a ingest or other consumption.
 
         Args:
-            f: Function to wrap.
+            func: Function to wrap.
 
         Returns:
             Wrapped function.
-
         '''
 
         def check_job_fail(*fargs, **fkwargs):
@@ -910,9 +907,44 @@ class Hypnos(s_config.Config):
                 self._webProcessResponseGest(fkwargs.get('resp'), _gest_opens)
             else:
                 self._webProcessResponseFlatten(fkwargs.get('resp'))
-            f(*fargs, **fkwargs)
+            func(*fargs, **fkwargs)
 
         return check_job_fail
+
+    def _webCacheRespWrapper(self, func):
+        '''
+        Decorates a function for performing caching of web responses.
+
+        If used, this would be the first function unwrapped by a worker
+        thread, as such, the actual data cached by the response has NOT
+        been processed so it is the cache user's responsibility to decode
+        any data present in the cache.
+
+        Args:
+            func: Function to wrap.
+
+        Returns:
+            Wrapped function.
+        '''
+
+        def cache_job_results(*fargs, **fkwargs):
+            jid = fkwargs.get('jid')
+            resp = fkwargs.get('resp', {}).copy()
+            d = {'web_api_name': fkwargs.get('web_api_name'),
+                 'resp': resp,
+                 'api_args': fkwargs.get('api_args', {})}
+            _excinfo = fkwargs.get('excinfo')
+            if _excinfo:
+                d['err'] = _excinfo['err']
+                d['errmsg'] = _excinfo['errmsg']
+                d['errfile'] = _excinfo['errfile']
+                d['errline'] = _excinfo['errline']
+            # Store the data in the cache
+            self.web_cache.put(jid, d)
+            # Now call the wrappee
+            func(*fargs, **fkwargs)
+
+        return cache_job_results
 
     def fireWebApi(self, name, *args, **kwargs):
         '''
@@ -1009,6 +1041,10 @@ class Hypnos(s_config.Config):
             in by adding the “req_body” value to api_args argument.  See the
             Nyx object documentation for more details.
 
+            If caching is enabled, the caching will be performed as the first
+            thing done by the worker thread handling the response data. This
+            is done separately from the wrap_callback step mentioned above.
+
         Args:
             name (str): Name of the API to send a request for.
             *args: Additional args passed to the callback functions.
@@ -1044,7 +1080,11 @@ class Hypnos(s_config.Config):
             callback = default_callback
         # Wrap the callback so that it will fail fast in the case of a request error.
         if wrap_callback:
-            callback = self._webRespWrapper(callback)
+            callback = self._webFailRespWrapper(callback)
+        # If the cache is enabled, wrap the callback so we cache the result before
+        # The job is executed.
+        if self.web_cache_enabled:
+            callback = self._webCacheRespWrapper(callback)
 
         # Construct the job tufo
         jid = s_async.jobid()
@@ -1054,7 +1094,7 @@ class Hypnos(s_config.Config):
         # Create our Async callback function - it enjoys the locals().
         def response_nommer(resp):
             job_kwargs = job[1]['task'][2]
-            # Stamp the job id and the web_api_name into the kwargs dictiionary.
+            # Stamp the job id and the web_api_name into the kwargs dictionary.
             job_kwargs['web_api_name'] = name
             job_kwargs['jid'] = job[0]
             if resp.error:
@@ -1112,41 +1152,6 @@ class Hypnos(s_config.Config):
         if content_type in self._web_content_type_skip:
             self._web_content_type_skip.remove(content_type)
 
-    def _cacheRequestResults(self, event):
-        '''
-        Cache the request response/errors.
-
-        Ideally, the cached results will be msgpack serializable.  If the
-        api_args provided were not msgpack serializable, attempts to get
-        cached results over Telepath may fail.
-
-        Args:
-            event ((str, dict)): job:fini event.
-
-        Returns:
-            None: Returns None.
-        '''
-        jid, job = event[1].get('job')
-        task_kwargs = job['task'][2]  # type: dict
-        # Cache items which are likely going to
-        resp = task_kwargs.get('resp', {}).copy()
-        if 'ingdata' in resp:
-            resp.pop('ingdata', None)
-            # Convert the spooled temporary file back into a bytes object
-            data = resp.pop('data')
-            data.seek(0)
-            data = data.read()
-            resp['data'] = data
-        d = {'web_api_name': task_kwargs.get('web_api_name'),
-             'resp': resp,
-             'api_args': task_kwargs.get('api_args', {})}
-        if 'err' in job:
-            d['err'] = job['err']
-            d['errmsg'] = job['errmsg']
-            d['errfile'] = job['errfile']
-            d['errline'] = job['errline']
-        self.web_cache.put(jid, d)
-
     def webCacheGet(self, jid):
         '''
         Retrieve the cached web response for a given job id.
@@ -1159,7 +1164,9 @@ class Hypnos(s_config.Config):
             the following keys:
 
             * web_api_name: Name of the API
-            * resp: Dictionary containing response data
+            * resp: Dictionary containing response data.  The raw data is not
+              decoded or processed in any fashion, and is available in the
+              'data' key of this dictionary (if present).
             * api_args: Args used when crafting the HTTPRequest with Nyx
             * err (optional): Error type if a error is encountered.
             * errmsg (optional): Error message if a error is encountered.

@@ -956,7 +956,8 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true(isinstance(cached_data, dict))
             resp = cached_data.get('resp')
             self.true('data' in resp)
-            data = resp.get('data')
+            # Cached response data is a bytes object
+            data = json.loads(resp.get('data').decode())
             # This is expected data from the API endpoint.
             self.true('ret' in data)
             self.true('ip' in data.get('ret'))
@@ -996,7 +997,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             # Ensure that the existing job tufo is untouched when caching.
             self.true('ingdata' in job[1].get('task')[2].get('resp'))
 
-    def test_hypnos_cached_failure(self):
+    def test_hypnos_cache_with_failure(self):
         # Test a simple failure case
         self.thisHostMustNot(platform='windows')
         self.skipIfNoInternet()
