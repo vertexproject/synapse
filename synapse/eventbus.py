@@ -143,7 +143,7 @@ class EventBus(object):
                 y = event[1].get('y')
                 return x + y
 
-            d.on('woot', baz, x=10)
+            d.on('foo', baz, x=10)
 
             # this fire triggers baz...
             d.fire('foo', x=10, y=20)
