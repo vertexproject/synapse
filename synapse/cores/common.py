@@ -147,7 +147,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.spliceact = s_reactor.Reactor()
         self.spliceact.act('node:add', self._actNodeAdd)
         self.spliceact.act('node:del', self._actNodeDel)
-        self.spliceact.act('node:set', self._actNodeSet)
+        self.spliceact.act('node:prop:set', self._actNodePropSet)
+        self.spliceact.act('node:prop:del', self._actNodePropDel)
         self.spliceact.act('node:tag:add', self._actNodeTagAdd)
         self.spliceact.act('node:tag:del', self._actNodeTagDel)
         self.spliceact.act('node:ival:set', self._actNodeIvalSet)
@@ -401,6 +402,13 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         '''
         Store all types/forms/props from the given data model in the cortex.
 
+        Args:
+            name (str): The name of the model ( depricated/ignored )
+            modl (dict):A data model definition dictionary
+
+        Returns:
+            (None)
+
         Example:
 
             core.addDataModel('synapse.models.foo',
@@ -416,13 +424,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                                 ),
                               })
         '''
-        tufo = self.formTufoByProp('syn:model', name)
-
-        # use the normalized hash of the model dict to short
-        # circuit loading if it is unchanged.
-        mhas = s_hashitem.hashitem(modl)
-        if tufo[1].get('syn:model:hash') == mhas:
-            return
 
         # FIXME handle type/form/prop removal
         for name, tnfo in modl.get('types', ()):
@@ -666,6 +667,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         # load each of the configured (and base) modules.
         for ctor, conf in self.modules:
             self.initCoreModule(ctor, conf)
+
         # Sort the model revlist
         self.modelrevlist.sort(key=lambda x: x[:2])
         for revision, name, func in self.modelrevlist:
@@ -744,13 +746,22 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         self.delTufo(node)
 
-    def _actNodeSet(self, mesg):
+    def _actNodePropSet(self, mesg):
         form = mesg[1].get('form')
         valu = mesg[1].get('valu')
         props = mesg[1].get('props')
 
         node = self.formTufoByProp(form, valu)
         self.setTufoProps(node, **props)
+
+    def _actNodePropDel(self, mesg):
+        form = mesg[1].get('form')
+        valu = mesg[1].get('valu')
+        props = mesg[1].get('props')
+
+        for prop in props:
+            node = self.formTufoByProp(form, valu)
+            self.delTufoProp(node,prop)
 
     def _actNodeTagAdd(self, mesg):
 
@@ -2352,7 +2363,45 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         if not self.enforce:
             return True
 
-        return self.getPropDef(prop) is not None
+        pdef = self.getPropDef(prop)
+        if pdef is None:
+            return False
+
+        if pdef[1].get('ro'):
+            return False
+
+        return True
+
+    def delTufoProp(self, tufo, name):
+        '''
+        Delete a property from a node in tufo format.
+
+        Args:
+            tufo ((str,dict)):  The node in tufo form
+            name (str): The relative property name to delete
+
+        Returns:
+            ((str,dict))    The updated node in tufo form
+
+        '''
+        form = tufo[1].get('tufo:form')
+        prop = form + ':' + name
+
+        pdef = self.getPropDef(prop)
+
+        if pdef is not None:
+
+            # if the prop is read only, it may not be deleted
+            if pdef[1].get('ro'):
+                raise CantDelProp(name=prop, mesg='property is read only')
+
+            # if the prop has a default value, it may not be deleted
+            if pdef[1].get('defval') is not None:
+                raise CantDelProp(name=prop, mesg='property has default value')
+
+        valu = tufo[1].pop(prop,None)
+        if valu is None:
+            return tufo
 
     def setTufoProps(self, tufo, **props):
         '''
@@ -2394,9 +2443,9 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                     self._bumpTufoCache(tufo, p, oldv, v)
 
                 # fire notification event
-                xact.fire('node:set', form=form, valu=valu, prop=p, newv=v, oldv=oldv, node=tufo)
+                xact.fire('node:prop:set', form=form, valu=valu, prop=p, newv=v, oldv=oldv, node=tufo)
 
-            xact.spliced('node:set', form=form, valu=valu, props=props)
+            xact.spliced('node:prop:set', form=form, valu=valu, props=props)
 
         return tufo
 
@@ -2448,7 +2497,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             self.setRowsByIdProp(iden, prop, newv)
 
             tufo[1][prop] = newv
-            self.fire('node:set', form=form, valu=valu, prop=prop, newv=newv, oldv=oldv, node=tufo)
+            self.fire('node:prop:set', form=form, valu=valu, prop=prop, newv=newv, oldv=oldv, node=tufo)
 
         return tufo
 

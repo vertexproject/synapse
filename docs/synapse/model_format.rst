@@ -143,7 +143,7 @@ An example of extending the previous example is shown below (minus migration fun
                 props['foo:knight:court'] = 'round table'
 
         # Use an eventhandler to do an action during the property set.
-        @s_eventbus.on('node:set', prop='foo:bar:duck')
+        @s_eventbus.on('node:prop:set', prop='foo:bar:duck')
         def onTufoSetDuck(self, mesg):
             newv = mesg[1].get('newv')
             for tufo in self.core.getTufosByProp('foo:bar:duck', newv):

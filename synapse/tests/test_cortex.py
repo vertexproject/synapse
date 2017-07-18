@@ -748,13 +748,13 @@ class CortexTest(SynTest):
 
         tufo = core.formTufoByProp('foo', 'hehe', bar='lol')
 
-        msgs = wait = core.waiter(1, 'node:set')
+        msgs = wait = core.waiter(1, 'node:prop:set')
 
         core.setTufoProps(tufo, bar='hah')
 
         evts = wait.wait(timeout=2)
 
-        self.eq(evts[0][0], 'node:set')
+        self.eq(evts[0][0], 'node:prop:set')
         self.eq(evts[0][1]['node'][0], tufo[0])
         self.eq(evts[0][1]['form'], 'foo')
         self.eq(evts[0][1]['valu'], 'hehe')
