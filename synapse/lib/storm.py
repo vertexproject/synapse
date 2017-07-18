@@ -406,6 +406,7 @@ class Runtime(Configable):
         self.setOperFunc('load', self._stormOperLoad)
         self.setOperFunc('clear', self._stormOperClear)
 
+        self.setOperFunc('guid', self._stormOperGuid)
         self.setOperFunc('join', self._stormOperJoin)
         self.setOperFunc('lift', self._stormOperLift)
         self.setOperFunc('refs', self._stormOperRefs)
@@ -1101,7 +1102,7 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         props = {}
-        for k,v in kwlist:
+        for k, v in kwlist:
 
             if not k[0] == ':':
                 raise s_common.BadSyntaxError(mesg='addnode() expects relative props with : prefix')
@@ -1319,3 +1320,12 @@ class Runtime(Configable):
                 [query.add(n) for n in nodes]
 
         return
+
+    def _stormOperGuid(self, query, oper):
+        args = oper[1].get('args')
+        core = self.getStormCore()
+
+        for iden in args:
+            node = core.getTufoByIden(iden)
+            if node:
+                query.add(node)
