@@ -1931,7 +1931,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
                     iden = s_common.guid()
 
-                    fulls, toadd = self._normTufoProps(form, props)
+                    fulls, toadd = self._normTufoProps(form, props, isadd=True)
 
                     self._addDefProps(form, fulls)
 
@@ -2030,7 +2030,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
             props.update(subs)
 
-            fulls, toadd = self._normTufoProps(prop, props)
+            fulls, toadd = self._normTufoProps(prop, props, isadd=True)
 
             # create a "full" props dict which includes defaults
             self._addDefProps(prop, fulls)
@@ -2245,7 +2245,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         for k, v in self.getFormDefs(form):
             fulls.setdefault(k, v)
 
-    def _normTufoProps(self, form, inprops, tufo=None):
+    def _normTufoProps(self, form, inprops, tufo=None, isadd=False):
         '''
         This will both return a set of fully qualified props as a dict
         as well as modify inprops inband as a normalized set or relatives.
@@ -2259,7 +2259,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             valu = inprops.get(name)
 
             prop = form + ':' + name
-            if not self.isSetPropOk(prop):
+            if not self.isSetPropOk(prop, isadd=isadd):
                 inprops.pop(name, None)
                 continue
 
@@ -2379,7 +2379,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         return node
 
-    def isSetPropOk(self, prop):
+    def isSetPropOk(self, prop, isadd=False):
         '''
         Check for enforcement and validity of a full prop name.
 
@@ -2407,7 +2407,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         if pdef is None:
             return False
 
-        if pdef[1].get('ro'):
+        if not isadd and pdef[1].get('ro'):
             return False
 
         return True
