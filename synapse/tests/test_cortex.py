@@ -612,7 +612,7 @@ class CortexTest(SynTest):
             ipint, _ = tlib.getTypeParse('inet:ipv4', ip)
             ipc = core.formTufoByProp('inet:ipv4', ipint)
 
-            # Validate the content we get from cidr lookups is correctly bounded
+        # Validate the content we get from cidr lookups is correctly bounded
         nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.4/32')
         self.eq(len(nodes), 1)
         nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
