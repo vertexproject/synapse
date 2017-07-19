@@ -118,6 +118,18 @@ if version < (3, 0, 0):
         '''Convert bytes to buffer'''
         return buffer(x)
 
+    def user_input(text):
+        '''
+        Get input from a user via stdin.
+
+        Args:
+            text (str): Text displayed prior to the input prompt.
+
+        Returns:
+            str: String of text from the user.
+        '''
+        return raw_input(text)
+
 else:
 
     import sys
@@ -181,3 +193,16 @@ else:
     def bytesToMem(x):
         '''Convert bytes to memoryview'''
         return memoryview(x)
+
+    def user_input(text):
+        '''
+        Get input from a user via stdin.
+
+        Args:
+            text (str): Text displayed prior to the input prompt.
+
+        Returns:
+            str: String of text from the user.
+        '''
+
+        return input(text)
