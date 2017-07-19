@@ -12,6 +12,8 @@ import synapse.reactor as s_reactor
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
+import synapse.cores.storage as s_storage
+
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
@@ -65,6 +67,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         Runtime.__init__(self)
         EventBus.__init__(self)
         Configable.__init__(self)
+
+        self.store = s_storage.Storage()
 
         # a cortex may have a ref to an axon
         self.axon = None
@@ -2963,31 +2967,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         idens = list(set([r[0][::-1] for r in rows]))  # Unique the idens we pull.
         return self._initTufoSnap(idens)
 
-    def _getBlobValu(self, key):  # pragma: no cover
-        self.log(logging.ERROR, mesg='Core does not implement _getBlobValu', name='_getBlobValu')
-        return None
-
-    def _setBlobValu(self, key, valu):  # pragma: no cover
-        self.log(logging.ERROR, mesg='Core does not implement _setBlobValu', name='_setBlobValu')
-        return None
-
-    def _hasBlobValu(self, key):  # pragma: no cover
-        self.log(logging.ERROR, mesg='Core does not implement _hasBlobValue', name='_hasBlobValue')
-        return None
-
-    def _delBlobValu(self, key):  # pragma: no cover
-        self.log(logging.ERROR, mesg='Core does not implement _delBlobValu', name='_delBlobValu')
-        return None
-
-    def _getBlobKeys(self):
-        self.log(logging.ERROR, mesg='Core does not implement _getBlobKeys', name='_getBlobKeys')
-        return None
-
-    def _getCoreType(self):  # pragma: no cover
-        raise s_common.NoSuchImpl(name='getCoreType', mesg='Core does not implement getCoreType')
-
-    def getCoreType(self):
-        return self._getCoreType()
+    def getStoreType(self):
+        return self.store._getStoreType()
 
     # TODO: Wrap this in a userauth layer
     def getBlobValu(self, key, default=None):
@@ -3024,7 +3005,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         Returns:
             list: List of keys in the store.
         '''
-        return self._getBlobKeys()
+        return self.store._getBlobKeys()
 
     # TODO: Wrap this in a userauth layer
     def setBlobValu(self, key, valu):
@@ -3048,7 +3029,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             The input value, unchanged.
         '''
         buf = s_common.msgenpack(valu)
-        self._setBlobValu(key, buf)
+        self.store._setBlobValu(key, buf)
         self.savebus.fire('syn:core:blob:set', key=key, valu=buf)
         return valu
 
@@ -3064,7 +3045,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             bool: If the key is present, returns True, otherwise False.
 
         '''
-        return self._hasBlobValu(key)
+        return self.store._hasBlobValu(key)
 
     # TODO: Wrap this in a userauth layer
     def delBlobValu(self, key):
@@ -3082,7 +3063,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         '''
         if not self.hasBlobValu(key):
             raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
-        buf = self._delBlobValu(key)
+        buf = self.store._delBlobValu(key)
         self.savebus.fire('syn:core:blob:del', key=key)
         return s_common.msgunpack(buf)
 
@@ -3095,47 +3076,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         key = mesg[1].get('key')
         self._delBlobValu(key)
 
-    # Note:This will eventually live in a storage layer base implementation.st co
-    def _revCorVers(self, revs):
-        '''
-        Update a the storage layer with a list of (vers,func) tuples.
-
-        Args:
-            revs ([(int,function)]):  List of (vers,func) revision tuples.
-
-        Returns:
-            (None)
-
-        Each specified function is expected to update the storage layer including data migration.
-        '''
-        if not revs:
-            return
-        vsn_str = 'syn:core:{}:version'.format(self._getCoreType())
-        curv = self.getBlobValu(vsn_str, -1)
-
-        maxver = revs[-1][0]
-        if maxver == curv:
-            return
-
-        if not self.getConfOpt('rev:storage'):
-            raise s_common.NoRevAllow(name='rev:storage',
-                                      mesg='add rev:storage=1 to cortex url to allow storage updates')
-
-        for vers, func in sorted(revs):
-
-            if vers <= curv:
-                continue
-
-            # allow the revision function to optionally return the
-            # revision he jumped to ( to allow initial override )
-            mesg = 'Warning - storage layer update occurring. Do not interrupt. [{}] => [{}]'.format(curv, vers)
-            logger.warning(mesg)
-            retn = func()
-            logger.warning('Storage layer update completed.')
-            if retn is not None:
-                vers = retn
-
-            curv = self.setBlobValu(vsn_str, vers)
 
 class CoreXact:
     '''
