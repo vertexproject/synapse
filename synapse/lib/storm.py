@@ -1325,7 +1325,4 @@ class Runtime(Configable):
         args = oper[1].get('args')
         core = self.getStormCore()
 
-        for iden in args:
-            node = core.getTufoByIden(iden)
-            if node:
-                query.add(node)
+        [query.add(node) for node in core.getTufosByIdens(args)]
