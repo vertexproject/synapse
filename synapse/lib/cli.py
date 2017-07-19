@@ -1,6 +1,7 @@
 import traceback
 import collections
 
+import synapse.compat as s_compat
 import synapse.lib.output as s_output
 import synapse.lib.syntax as s_syntax
 
@@ -9,10 +10,15 @@ from synapse.eventbus import EventBus
 
 def get_input(text):  # pragma: no cover
     '''
-    Wrapper for input() function for testing runCmdLoop.
-    :param text: Banner to display.
+    Wrapper for s_compat.user_input() function for testing runCmdLoop.
+
+    Args:
+        text (str): Banner to display
+
+    Returns:
+        str: User provided string.
     '''
-    return input(text)
+    return s_compat.user_input(text)
 
 
 class CliFini(Exception): pass
