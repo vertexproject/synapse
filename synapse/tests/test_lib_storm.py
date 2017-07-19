@@ -563,6 +563,29 @@ class StormTest(SynTest):
                 ['1.2.3.4', 'vv', '#foo.bar'],
             ])
 
+    def test_storm_guid(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            node0 = core.formTufoByProp('inet:ipv4', '1.2.3.4')
+            node1 = core.formTufoByProp('inet:ipv4', '4.5.6.7')
+
+            nodes = core.eval('guid()')
+            self.eq(len(nodes), 0)
+
+            nodes = core.eval('guid(%s)' % node0[0])
+            self.eq(nodes[0][1].get('inet:ipv4'), 0x01020304)
+
+            nodes = core.eval('guid(%s,%s)' % (node0[0], node1[0]))
+            vals = list(sorted(v[1].get('inet:ipv4') for v in nodes))
+            self.eq(vals, [0x01020304, 0x04050607])
+
+            # We can lift dark rows using guid() but kind of an easter egg.
+            core.addTufoDark(node0, 'foo:bar', 'duck:knight')
+            nodes = core.eval('guid(%s)' % node0[0][::-1])
+            self.eq(len(nodes), 1)
+            self.eq(node0[0], nodes[0][0][::-1])
+
 class LimitTest(SynTest):
 
     def test_limit_default(self):
