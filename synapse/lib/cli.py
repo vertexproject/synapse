@@ -10,8 +10,13 @@ from synapse.eventbus import EventBus
 
 def get_input(text):  # pragma: no cover
     '''
-    Wrapper for input() function for testing runCmdLoop.
-    :param text: Banner to display.
+    Wrapper for s_compat.user_input() function for testing runCmdLoop.
+
+    Args:
+        text (str): Banner to display
+
+    Returns:
+        str: User provided string.
     '''
     return s_compat.user_input(text)
 
