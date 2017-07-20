@@ -8,6 +8,7 @@ import synapse.common as s_common
 import synapse.compat as s_compat
 
 import synapse.cores.common as s_cores_common
+import synapse.cores.storage as s_cores_storage
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ int_t = s_compat.typeof(0)
 str_t = s_compat.typeof('visi')
 none_t = s_compat.typeof(None)
 
-class CoreXact(s_cores_common.CoreXact):
+class SqlXact(s_cores_storage.StoreXact):
 
     def _coreXactInit(self):
         self.db = None

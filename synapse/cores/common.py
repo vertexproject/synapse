@@ -62,13 +62,11 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
     '''
     Top level Cortex key/valu storage object.
     '''
-    def __init__(self, link, **conf):
+    def __init__(self, link, store, **conf):
 
         Runtime.__init__(self)
         EventBus.__init__(self)
         Configable.__init__(self)
-
-        self.store = s_storage.Storage()
 
         # a cortex may have a ref to an axon
         self.axon = None
@@ -107,10 +105,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self._link = link
 
         self.lock = threading.Lock()
-        self.inclock = threading.Lock()
-        self.xlock = threading.Lock()
-
-        self._core_xacts = {}
 
         self.coremods = {}  # name:module ( CoreModule() )
         self.statfuncs = {}
@@ -125,8 +119,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self._core_tags = s_cache.FixedCache(maxsize=10000, onmiss=self._getFormFunc('syn:tag'))
         self._core_tagforms = s_cache.FixedCache(maxsize=10000, onmiss=self._getFormFunc('syn:tagform'))
 
-        self.sizebymeths = {}
-        self.rowsbymeths = {}
         self.tufosbymeths = {}
 
         self.cache_fifo = collections.deque()               # [ ((prop,valu,limt), {
@@ -179,7 +171,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.savebus.on('syn:core:blob:set', _blobMesgCache.append)
         self.savebus.on('syn:core:blob:del', _blobMesgCache.append)
         # Initialize the storage layer
-        self._initCoreStor()
+        # self._initCoreStor()
+        self.store = store(link, self)  # type: s_storage.Storage()
         # Disable the blob message caching
         self.savebus.off('syn:core:blob:set', _blobMesgCache.append)
         self.savebus.off('syn:core:blob:del', _blobMesgCache.append)
@@ -252,10 +245,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.onfini(self._finiCoreMods)
 
         s_ingest.IngestApi.__init__(self, self)
-
-    def _initCoreStor(self):  # pragma: no cover
-        '''Perform storage layer initializations.'''
-        raise s_common.NoSuchImpl(name='_initCoreStor', mesg='Storage layer must implement _initCoreStor')
 
     def getModlVers(self, name):
         '''
@@ -1024,10 +1013,10 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         '''
         [reqstor(p, v) for (i, p, v, t) in rows]
         self.savebus.fire('core:save:add:rows', rows=rows)
-        self._addRows(rows)
+        self.store._addRows(rows)
 
     def _loadAddRows(self, mesg):
-        self._addRows(mesg[1].get('rows'))
+        self.store._addRows(mesg[1].get('rows'))
 
     def addListRows(self, prop, *vals):
         '''
@@ -1099,7 +1088,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                 stuff()
 
         '''
-        return self._getRowsById(iden)
+        return self.store._getRowsById(iden)
 
     def getRowsByIdProp(self, iden, prop, valu=None):
         '''
@@ -1111,7 +1100,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                 dostuff(row)
 
         '''
-        return self._getRowsByIdProp(iden, prop, valu=valu)
+        return self.store._getRowsByIdProp(iden, prop, valu=valu)
 
     def delRowsById(self, iden):
         '''
@@ -1123,7 +1112,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         '''
         self.savebus.fire('core:save:del:rows:by:iden', iden=iden)
-        self._delRowsById(iden)
+        self.store._delRowsById(iden)
 
     def _loadDelRowsById(self, mesg):
         self._delRowsById(mesg[1].get('iden'))
@@ -1138,7 +1127,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         '''
         self.savebus.fire('core:save:del:rows:by:idprop', iden=iden, prop=prop, valu=valu)
-        return self._delRowsByIdProp(iden, prop, valu=valu)
+        return self.store._delRowsByIdProp(iden, prop, valu=valu)
 
     def _loadDelRowsByIdProp(self, mesg):
         iden = mesg[1].get('iden')
@@ -1162,7 +1151,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         '''
         reqstor(prop, valu)
         self.savebus.fire('core:save:set:rows:by:idprop', iden=iden, prop=prop, valu=valu)
-        self._setRowsByIdProp(iden, prop, valu)
+        self.store._setRowsByIdProp(iden, prop, valu)
 
     def getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         '''
@@ -1180,7 +1169,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             * Specify maxtime=<time> in epoch to filter rows
 
         '''
-        return tuple(self._getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit))
+        return tuple(self.store._getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit))
 
     def getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         '''
@@ -1195,7 +1184,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             * See getRowsByProp for options
 
         '''
-        return tuple(self._getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit))
+        return tuple(self.store._getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit))
 
     def getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, limit=None):
         '''
@@ -1222,7 +1211,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                 stuff()
 
         '''
-        return self._getSizeByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
+        return self.store._getSizeByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
 
     def getTufosBy(self, name, prop, valu, limit=None):
         '''
@@ -1297,39 +1286,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             * Used by Cortex implementers to facilitate getTufosBy(...)
         '''
         self.tufosbymeths[name] = meth
-
-    def initRowsBy(self, name, meth):
-        '''
-        Initialize a "rows by" handler for the Cortex.
-
-        Example:
-
-            def getbywoot(prop,valu,limit=None):
-                return stuff() # list of rows
-
-            core.initRowsBy('woot',getbywoot)
-
-        Notes:
-
-            * Used by Cortex implementors to facilitate
-              getRowsBy(...)
-
-        '''
-        self.rowsbymeths[name] = meth
-
-    def initSizeBy(self, name, meth):
-        '''
-        Initialize a "size by" handler for the Cortex.
-
-        Example:
-
-            def sizebywoot(prop,valu,limit=None):
-                return stuff() # size of rows
-
-            core.initSizeBy('woot',meth)
-
-        '''
-        self.sizebymeths[name] = meth
 
     def getTufoByIden(self, iden):
         '''
@@ -2544,27 +2500,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         return self._incTufoProp(tufo, prop, incval=incval)
 
     def _incTufoProp(self, tufo, prop, incval=1):
-
-        # to allow storage layer optimization
-        iden = tufo[0]
-
-        form = tufo[1].get('tufo:form')
-        valu = tufo[1].get(form)
-
-        with self.inclock:
-            rows = self._getRowsByIdProp(iden, prop)
-            if len(rows) == 0:
-                raise s_common.NoSuchTufo(iden=iden, prop=prop)
-
-            oldv = rows[0][2]
-            newv = oldv + incval
-
-            self.setRowsByIdProp(iden, prop, newv)
-
-            tufo[1][prop] = newv
-            self.fire('node:prop:set', form=form, valu=valu, prop=prop, newv=newv, oldv=oldv, node=tufo)
-
-        return tufo
+        return self.store._incTufoProp(tufo, prop, incval=incval)
 
     def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         '''
@@ -2576,14 +2512,14 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         '''
         self.savebus.fire('core:save:del:rows:by:prop', prop=prop, valu=valu, mintime=mintime, maxtime=maxtime)
-        return self._delRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
+        return self.store._delRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
 
     def _loadDelRowsByProp(self, mesg):
         prop = mesg[1].get('prop')
         valu = mesg[1].get('valu')
         mint = mesg[1].get('mintime')
         maxt = mesg[1].get('maxtime')
-        self._delRowsByProp(prop, valu=valu, mintime=mint, maxtime=maxt)
+        self.store._delRowsByProp(prop, valu=valu, mintime=mint, maxtime=maxt)
 
     def delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
         '''
@@ -2594,28 +2530,12 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             core.delJoinByProp('foo',valu=10)
 
         '''
-        return self._delJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
-
-    def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
-        for irow in self._getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit):
-            for jrow in self._getRowsById(irow[0]):
-                yield jrow
+        return self.store._delJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
 
     def _getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, limit=None):
         for irow in self._getRowsByProp(byprop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit):
             for jrow in self._getRowsByIdProp(irow[0], prop):
                 yield jrow
-
-    def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        rows = self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
-        done = set()
-        for row in rows:
-            iden = row[0]
-            if iden in done:
-                continue
-
-            self.delRowsById(iden)
-            done.add(iden)
 
     def _reqSizeByMeth(self, name):
         meth = self.sizebymeths.get(name)
@@ -2628,12 +2548,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         if meth is None:
             raise s_common.NoSuchGetBy(name=name)
         return meth
-
-    def _setRowsByIdProp(self, iden, prop, valu):
-        # base case is delete and add
-        self._delRowsByIdProp(iden, prop)
-        rows = [(iden, prop, valu, s_common.now())]
-        self.addRows(rows)
 
     def _calcStatSum(self, rows):
         return sum([r[2] for r in rows])
@@ -2766,25 +2680,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
     def _tufosByDark(self, prop, valu, limit=None):
         return self.getTufosByDark(name=prop, valu=valu, limit=limit)
 
-    # these helpers allow a storage layer to simply implement
-    # and register _getTufosByGe and _getTufosByLe
-
-    def _rowsByLt(self, prop, valu, limit=None):
-        valu, _ = self.getPropNorm(prop, valu)
-        return self._rowsByLe(prop, valu - 1, limit=limit)
-
-    def _rowsByGt(self, prop, valu, limit=None):
-        valu, _ = self.getPropNorm(prop, valu)
-        return self._rowsByGe(prop, valu + 1, limit=limit)
-
-    def _tufosByLt(self, prop, valu, limit=None):
-        valu, _ = self.getPropNorm(prop, valu)
-        return self._tufosByLe(prop, valu - 1, limit=limit)
-
-    def _tufosByGt(self, prop, valu, limit=None):
-        valu, _ = self.getPropNorm(prop, valu)
-        return self._tufosByGe(prop, valu + 1, limit=limit)
-
     def getSplicePump(self, core):
         '''
         Return a splice pump for the remote cortex.
@@ -2829,6 +2724,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                 core.dostuff()
 
         '''
+        return self.store.getCoreXact()
         iden = s_threads.iden()
 
         xact = self._core_xacts.get(iden)
@@ -2998,6 +2894,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             return default
         return s_common.msgunpack(buf)
 
+    # TODO: Wrap this in a userauth layer
     def getBlobKeys(self):
         '''
         Get a list of keys in the blob key/value store.
@@ -3075,137 +2972,3 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
     def _onDelBlobValu(self, mesg):
         key = mesg[1].get('key')
         self._delBlobValu(key)
-
-
-class CoreXact:
-    '''
-    A context manager for a cortex "transaction".
-    '''
-    def __init__(self, core, size=None):
-        self.core = core
-        self.size = size
-
-        self.tick = s_common.now()
-
-        self.refs = 0
-        self.ready = False
-        self.exiting = False
-
-        self.events = []
-
-    def spliced(self, act, **info):
-
-        form = info.get('form')
-
-        pdef = self.core.getPropDef(form)
-        if pdef is not None and pdef[1].get('local'):
-            return
-
-        info['act'] = act
-        info['time'] = self.tick
-        info['user'] = s_userauth.getSynUser()
-
-        self.fire('splice', **info)
-
-    def _coreXactAcquire(self):
-        # allow implementors to acquire any synchronized resources
-        pass
-
-    def _coreXactRelease(self):
-        # allow implementors to release any synchronized resources
-        pass
-
-    def _coreXactInit(self):
-        # called once during the first __enter__
-        pass
-
-    def _coreXactFini(self):
-        # called once during the last __exit__
-        pass
-
-    def _coreXactBegin(self):
-        raise s_common.NoSuchImpl(name='_coreXactBegin')
-
-    def _coreXactCommit(self):
-        raise s_common.NoSuchImpl(name='_coreXactCommit')
-
-    def acquire(self):
-        self._coreXactAcquire()
-        self.core.xlock.acquire()
-
-    def release(self):
-        self.core.xlock.release()
-        self._coreXactRelease()
-
-    def begin(self):
-        self._coreXactBegin()
-
-    def commit(self):
-        '''
-        Commit the results thus far ( without closing / releasing )
-        '''
-        self._coreXactCommit()
-
-    def fireall(self):
-
-        events = self.events
-        self.events = []
-
-        [self.core.fire(name, **props) for (name, props) in events]
-
-    def cedetime(self):
-        # release and re acquire the form lock to allow others a shot
-        # give up our scheduler quanta to allow acquire() priority to go
-        # to any existing waiters.. ( or come back almost immediately if none )
-        self.release()
-        time.sleep(0)
-        self.acquire()
-
-    def fire(self, name, **props):
-        '''
-        Pend an event to fire when the transaction next commits.
-        '''
-        self.events.append((name, props))
-
-        if self.size is not None and len(self.events) >= self.size:
-            self.sync()
-            self.cedetime()
-            self.begin()
-
-    def sync(self):
-        '''
-        Loop commiting and syncing events until there are no more
-        events that need to fire.
-        '''
-        self.commit()
-
-        # odd thing during exit... we need to fire events
-        # ( possibly causing more xact uses ) until there are
-        # no more events left to fire.
-        while self.events:
-            self.begin()
-            self.fireall()
-            self.commit()
-
-    def __enter__(self):
-        self.refs += 1
-        if self.refs == 1 and not self.ready:
-            self._coreXactInit()
-            self.acquire()
-            self.begin()
-            self.ready = True
-
-        return self
-
-    def __exit__(self, exc, cls, tb):
-        # FIXME handle rollback on exc not None
-        self.refs -= 1
-        if self.refs > 0 or self.exiting:
-            return
-
-        self.exiting = True
-
-        self.sync()
-        self.release()
-        self._coreXactFini()
-        self.core._popCoreXact()

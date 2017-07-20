@@ -13,6 +13,7 @@ import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
 import synapse.lib.threads as s_threads
 import synapse.cores.common as s_cores_common
+import synapse.cores.storage as s_cores_storage
 
 import lmdb
 import xxhash
@@ -147,7 +148,7 @@ def _calcFirstLastKeys(prop, valu, mintime, maxtime):
     last_key = p_enc + v_key_enc + maxtime_enc
     return (first_key, last_key, v_is_hashed, False)
 
-class CoreXact(s_cores_common.CoreXact):
+class LmdbXact(s_cores_storage.StoreXact):
 
     def _coreXactInit(self, size=None):
         self.txn = None

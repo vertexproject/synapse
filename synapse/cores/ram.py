@@ -1,10 +1,11 @@
 import collections
 
-import synapse.cores.common as s_cores_common
-
 from synapse.compat import isint, intern
 
-class CoreXact(s_cores_common.CoreXact):
+import synapse.cores.common as s_cores_common
+import synapse.cores.storage as s_cores_storage
+
+class RamXact(s_cores_storage.StoreXact):
 
     # Ram Cortex fakes out the idea of xact...
     def _coreXactBegin(self):
@@ -13,35 +14,16 @@ class CoreXact(s_cores_common.CoreXact):
     def _coreXactCommit(self):
         pass
 
-class Cortex(s_cores_common.Cortex):
+class RamStorage(s_cores_storage.Storage):
 
     def _initCoreStor(self):
         self.rowsbyid = collections.defaultdict(set)
         self.rowsbyprop = collections.defaultdict(set)
         self.rowsbyvalu = collections.defaultdict(set)
-
-        self.initSizeBy('ge', self._sizeByGe)
-        self.initRowsBy('ge', self._rowsByGe)
-
-        self.initSizeBy('le', self._sizeByLe)
-        self.initRowsBy('le', self._rowsByLe)
-
-        self.initTufosBy('ge', self._tufosByGe)
-        self.initTufosBy('le', self._tufosByLe)
-
-        # use helpers from base class
-        self.initRowsBy('gt', self._rowsByGt)
-        self.initRowsBy('lt', self._rowsByLt)
-        self.initTufosBy('gt', self._tufosByGt)
-        self.initTufosBy('lt', self._tufosByLt)
-
-        self.initSizeBy('range', self._sizeByRange)
-        self.initRowsBy('range', self._rowsByRange)
-
         self._blob_store = {}
 
     def _getCoreXact(self, size=None):
-        return CoreXact(self, size=size)
+        return RamXact(self, size=size)
 
     def _tufosByGe(self, prop, valu, limit=None):
         # FIXME sortedcontainers optimizations go here
@@ -91,8 +73,8 @@ class Cortex(s_cores_common.Cortex):
             self.rowsbyprop[row[1]].add(row)
             self.rowsbyvalu[(row[1], row[2])].add(row)
 
-    def _delRowsById(self, ident):
-        for row in self.rowsbyid.pop(ident, ()):
+    def _delRowsById(self, iden):
+        for row in self.rowsbyid.pop(iden, ()):
             self._delRawRow(row)
 
     def _delRowsByIdProp(self, iden, prop, valu=None):
@@ -112,7 +94,7 @@ class Cortex(s_cores_common.Cortex):
         return [row for row in self.rowsbyid.get(iden, ()) if row[1] == prop and row[2] == valu]
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        for row in self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime):
+        for row in self._getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime):
             self._delRawRow(row)
 
     def _delRawRow(self, row):
@@ -177,7 +159,7 @@ class Cortex(s_cores_common.Cortex):
 
         return len(rows)
 
-    def _getCoreType(self):
+    def _getStoreType(self):
         return 'ram'
 
     def _getBlobValu(self, key):
@@ -210,11 +192,11 @@ def initRamCortex(link):
     '''
     path = link[1].get('path').strip('/')
     if not path:
-        return Cortex(link)
+        return s_cores_common.Cortex(link, store=RamStorage)
 
     core = ramcores.get(path)
     if core is None:
-        core = Cortex(link)
+        core = s_cores_common.Cortex(link, store=RamStorage)
 
         ramcores[path] = core
         def onfini():

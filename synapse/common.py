@@ -55,6 +55,9 @@ def addpref(pref, info):
     '''
     return {'%s:%s' % (pref, k): v for (k, v) in info.items()}
 
+# XXX Tufo-type for type annotation
+tufotype = ('', {})
+
 def tufo(typ, **kwargs):
     return (typ, kwargs)
 
