@@ -43,6 +43,9 @@ class InetModelTest(SynTest):
             self.eq(t0[1].get('inet:ipv6'), '::1')
             self.eq(t0[1].get('inet:ipv6:asn'), -1)
 
+            self.eq(core.getTypeRepr('inet:ipv6', '0:0:0:0:0:0:0:1'), '::1')
+            self.eq(core.getTypeRepr('inet:ipv6', '::1'), '::1')
+
     def test_model_inet_cidr4(self):
 
         with s_cortex.openurl('ram:///') as core:
