@@ -147,7 +147,7 @@ class Srv4Type(DataType):
 
         addr = ipv4int(astr)
         port = int(pstr, 0)
-        return (addr << 16) | port, {}
+        return (addr << 16) | port, {'port': port, 'ipv4': addr}
 
 srv6re = re.compile('^\[([a-f0-9:]+)\]:(\d+)$')
 
