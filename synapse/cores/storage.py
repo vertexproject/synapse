@@ -248,6 +248,18 @@ class Storage(s_config.Config):
         '''
         self.sizebymeths[name] = meth
 
+    def reqSizeByMeth(self, name):
+        meth = self.sizebymeths.get(name)
+        if meth is None:
+            raise s_common.NoSuchGetBy(name=name)
+        return meth
+
+    def reqRowsByMeth(self, name):
+        meth = self.rowsbymeths.get(name)
+        if meth is None:
+            raise s_common.NoSuchGetBy(name=name)
+        return meth
+
     def _defaultFiniCoreStor(self):
         # Remove refs to the parent Cortex object for GC purposes
         delattr(self, 'getPropDef')
@@ -388,7 +400,7 @@ class Storage(s_config.Config):
             oldv = rows[0][2]
             newv = oldv + incval
 
-            self.setRowsByIdProp(iden, prop, newv)
+            self._setRowsByIdProp(iden, prop, newv)
 
             tufo[1][prop] = newv
             self.fire('node:prop:set', form=form, valu=valu, prop=prop, newv=newv, oldv=oldv, node=tufo)
@@ -449,14 +461,14 @@ class Storage(s_config.Config):
         self._addRows(rows)
 
     def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        rows = self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
+        rows = self._getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
         done = set()
         for row in rows:
             iden = row[0]
             if iden in done:
                 continue
 
-            self.delRowsById(iden)
+            self._delRowsById(iden)
             done.add(iden)
 
     # these helpers allow a storage layer to simply implement

@@ -129,7 +129,9 @@ class RamStorage(s_cores_storage.Storage):
             return
 
         c = 0
-        for row in rows:
+        # This was originally a set, but sets are mutable and throw
+        # runtimeerrors if their size changes during iteration
+        for row in tuple(rows):
             if mintime is not None and row[3] < mintime:
                 continue
 

@@ -1243,7 +1243,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             * most commonly used to facilitate range searches
 
         '''
-        meth = self._reqRowsByMeth(name)
+        meth = self.store.reqRowsByMeth(name)
         return meth(prop, valu, limit=limit)
 
     def getSizeBy(self, name, prop, valu, limit=None):
@@ -1256,7 +1256,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             print('there are %d rows where 20 <= foo < 30 ' % (size,))
 
         '''
-        meth = self._reqSizeByMeth(name)
+        meth = self.store.reqSizeByMeth(name)
         return meth(prop, valu, limit=limit)
 
     def initTufosBy(self, name, meth):
@@ -2533,21 +2533,9 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         return self.store._delJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
 
     def _getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, limit=None):
-        for irow in self._getRowsByProp(byprop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit):
-            for jrow in self._getRowsByIdProp(irow[0], prop):
+        for irow in self.store._getRowsByProp(byprop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit):
+            for jrow in self.store._getRowsByIdProp(irow[0], prop):
                 yield jrow
-
-    def _reqSizeByMeth(self, name):
-        meth = self.sizebymeths.get(name)
-        if meth is None:
-            raise s_common.NoSuchGetBy(name=name)
-        return meth
-
-    def _reqRowsByMeth(self, name):
-        meth = self.rowsbymeths.get(name)
-        if meth is None:
-            raise s_common.NoSuchGetBy(name=name)
-        return meth
 
     def _calcStatSum(self, rows):
         return sum([r[2] for r in rows])
@@ -2888,7 +2876,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             The value from the KV store or the default valu (None).
 
         '''
-        buf = self._getBlobValu(key)
+        buf = self.store._getBlobValu(key)
         if buf is None:
             self.log(logging.WARNING, mesg='Requested key not present in blob store, returning default', name=key)
             return default
