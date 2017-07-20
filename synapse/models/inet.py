@@ -109,6 +109,9 @@ def ipv6norm(text):
     return s_socket.inet_ntop(socket.AF_INET6, s_socket.inet_pton(socket.AF_INET6, text))
 
 class IPv6Type(DataType):
+    def repr(self, valu):
+        return self.norm(valu)[0]
+
     def norm(self, valu, oldval=None):
         try:
             return ipv6norm(valu), {}
@@ -159,6 +162,9 @@ class Srv6Type(DataType):
         ('port', {'ptype': 'inet:port'}),
         ('ipv6', {'ptype': 'inet:ipv6'}),
     )
+
+    def repr(self, valu):
+        return self.norm(valu)[0]
 
     def norm(self, valu, oldval=None):
 
