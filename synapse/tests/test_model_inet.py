@@ -107,6 +107,31 @@ class InetModelTest(SynTest):
             self.eq(t3[1].get('inet:udp4:port'), 8443)
             self.eq(t3[1].get('inet:udp4:ipv4'), core.getTypeNorm('inet:ipv4', '1.2.3.4')[0])
 
+    def test_model_inet_srv6_types(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+            t0 = core.formTufoByProp('inet:tcp6', '[0:0:0:0:0:0:0:1]:80')
+            form, pprop = s_tufo.ndef(t0)
+            self.eq(pprop, '[::1]:80')
+            self.eq(t0[1].get('inet:tcp6:port'), 80)
+            self.eq(t0[1].get('inet:tcp6:ipv6'), '::1')
+
+            t1 = core.formTufoByProp('inet:tcp6', '[0:0:0:0:0:3:2:1]:443')
+            form, pprop = s_tufo.ndef(t1)
+            self.eq(pprop, '[::3:2:1]:443')
+            self.eq(t1[1].get('inet:tcp6:port'), 443)
+            self.eq(t1[1].get('inet:tcp6:ipv6'), '::3:2:1')
+
+            t2 = core.formTufoByProp('inet:udp6', '[0:0:0:0:0:3:2:1]:5000')
+            form, pprop = s_tufo.ndef(t2)
+            self.eq(pprop, '[::3:2:1]:5000')
+            self.eq(t2[1].get('inet:udp6:port'), 5000)
+            self.eq(t2[1].get('inet:udp6:ipv6'), '::3:2:1')
+
+            self.eq(core.getTypeRepr('inet:tcp6', '[0:0:0:0:0:0:0:1]:80'), '[::1]:80')
+            self.eq(core.getTypeRepr('inet:tcp6', '[::1]:80'), '[::1]:80')
+            self.eq(core.getTypeRepr('inet:tcp6', '[0:0:0:0:0:3:2:1]:5000'), '[::3:2:1]:5000')
+
     def test_model_inet_fqdn_unicode(self):
 
         with s_cortex.openurl('ram:///') as core:
