@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 from __future__ import absolute_import, unicode_literals
 
-import synapse.cortex as s_cortex
+import synapse.lib.tufo as s_tufo
 
 from synapse.tests.common import *
 
@@ -81,6 +81,31 @@ class InetModelTest(SynTest):
             self.eq(t1[1].get('inet:fqdn:domain'), 'com')
             self.eq(t1[1].get('inet:fqdn:sfx'), 0)
             self.eq(t1[1].get('inet:fqdn:zone'), 1)
+
+    def test_model_inet_srv4_types(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+            t0 = core.formTufoByProp('inet:tcp4', '8.8.8.8:80')
+            form, pprop = s_tufo.ndef(t0)
+            self.eq(pprop, 8830587502672)
+            self.eq(t0[1].get('inet:tcp4:port'), 80)
+            self.eq(t0[1].get('inet:tcp4:ipv4'), core.getTypeNorm('inet:ipv4', '8.8.8.8')[0])
+
+            # 1.2.3.4:8443
+            t1 = core.formTufoByProp('inet:tcp4', 1108152164603)
+            self.eq(t1[1].get('inet:tcp4:port'), 8443)
+            self.eq(t1[1].get('inet:tcp4:ipv4'), core.getTypeNorm('inet:ipv4', '1.2.3.4')[0])
+
+            t2 = core.formTufoByProp('inet:udp4', '8.8.8.8:80')
+            form, pprop = s_tufo.ndef(t2)
+            self.eq(pprop, 8830587502672)
+            self.eq(t2[1].get('inet:udp4:port'), 80)
+            self.eq(t2[1].get('inet:udp4:ipv4'), core.getTypeNorm('inet:ipv4', '8.8.8.8')[0])
+
+            # 1.2.3.4:8443
+            t3 = core.formTufoByProp('inet:udp4', 1108152164603)
+            self.eq(t3[1].get('inet:udp4:port'), 8443)
+            self.eq(t3[1].get('inet:udp4:ipv4'), core.getTypeNorm('inet:ipv4', '1.2.3.4')[0])
 
     def test_model_inet_fqdn_unicode(self):
 
