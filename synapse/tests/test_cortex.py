@@ -2149,6 +2149,16 @@ class CortexTest(SynTest):
             node = core.formTufoByProp('foo:bar', 'I am a robot', duck='mandarin')
             self.eq(node[1].get('foo:bar:duck'), 'mandarin')
 
+    def test_cortex_splice_propdel(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            tufo = core.formTufoByProp('hehe','haha', foo='bar', baz='faz')
+            splice = ('splice', {'act':'node:prop:del', 'form':'hehe', 'valu':'haha', 'prop':'foo'})
+            core.splice(splice)
+
+            self.eq(len(core.eval('hehe:foo')), 0)
+            self.eq(len(core.eval('hehe:baz')), 1)
+
     def test_cortex_module_datamodel_migration_persistent(self):
         with self.getTestDir() as dirn:
 

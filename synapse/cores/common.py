@@ -790,11 +790,10 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
     def _actNodePropDel(self, mesg):
         form = mesg[1].get('form')
         valu = mesg[1].get('valu')
-        props = mesg[1].get('props')
+        prop = mesg[1].get('prop')
 
-        for prop in props:
-            node = self.formTufoByProp(form, valu)
-            self.delTufoProp(node,prop)
+        node = self.formTufoByProp(form, valu)
+        self.delTufoProp(node,prop)
 
     def _actNodeTagAdd(self, mesg):
 
@@ -2424,7 +2423,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             ((str,dict))    The updated node in tufo form
 
         '''
-        form = tufo[1].get('tufo:form')
+        form,valu = s_tufo.ndef(tufo)
+
         prop = form + ':' + name
 
         pdef = self.getPropDef(prop)
@@ -2439,16 +2439,25 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             if pdef[1].get('defval') is not None:
                 raise CantDelProp(name=prop, mesg='property has default value')
 
-        valu = tufo[1].pop(prop,None)
-        if valu is None:
+        oldv = tufo[1].pop(prop,None)
+        if oldv is None:
             return tufo
 
-        # update the cache if present...
-        if self.caching:
-            self._bumpTufoCache(tufo, prop, valu, None)
+        with self.getCoreXact() as xact:
 
-        # delete the rows from the storage layer...
-        self.delRowsByIdProp(tufo[0], prop)
+            # update the tufo cache if present
+            if self.caching:
+                self._bumpTufoCache(tufo, prop, oldv, None)
+
+            # delete the rows from the storage layer...
+            self.delRowsByIdProp(tufo[0], prop)
+
+            # fire notification event
+            xact.fire('node:prop:del', form=form, valu=valu, prop=prop, oldv=oldv, node=tufo)
+
+            # fire the splice event
+            xact.spliced('node:prop:del', form=form, valu=valu, prop=prop)
+
         return tufo
 
     def setTufoProps(self, tufo, **props):
