@@ -392,7 +392,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         wid = node[1].get('syn:seq:width')
         valu = node[1].get('syn:seq:nextvalu')
 
-        self._incTufoProp(node, 'syn:seq:nextvalu')
+        self.store._incTufoProp(node, 'syn:seq:nextvalu')
 
         return name + str(valu).rjust(wid, '0')
 

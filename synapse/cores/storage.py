@@ -531,7 +531,7 @@ class Storage(s_config.Config):
         '''
         if not revs:
             return
-        vsn_str = 'syn:core:{}:version'.format(self._getCoreType())
+        vsn_str = 'syn:core:{}:version'.format(self._getStoreType())
         curv = self.getBlobValu(vsn_str, -1)
 
         maxver = revs[-1][0]
