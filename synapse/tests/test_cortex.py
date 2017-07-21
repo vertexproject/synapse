@@ -431,6 +431,17 @@ class CortexTest(SynTest):
         self.eq(tufo[1].get('zoot:suit:bar'), bigstr)
         self.eq(len(core.getTufosByProp('zoot:suit:bar', valu=bigstr)), 1)
 
+        tufo = core.formTufoByProp('hehe', 'haha', foo='bar', baz='faz')
+        self.eq(tufo[1].get('hehe'), 'haha')
+        self.eq(tufo[1].get('hehe:foo'), 'bar')
+        self.eq(tufo[1].get('hehe:baz'), 'faz')
+
+        tufo = core.delTufoProp(tufo,'foo')
+        self.none(tufo[1].get('hehe:foo'))
+
+        self.eq(len(core.eval('hehe:foo')), 0)
+        self.eq(len(core.eval('hehe:baz')), 1)
+
     def runrange(self, core):
 
         rows = [

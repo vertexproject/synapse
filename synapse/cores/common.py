@@ -2443,6 +2443,14 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         if valu is None:
             return tufo
 
+        # update the cache if present...
+        if self.caching:
+            self._bumpTufoCache(tufo, prop, valu, None)
+
+        # delete the rows from the storage layer...
+        self.delRowsByIdProp(tufo[0], prop)
+        return tufo
+
     def setTufoProps(self, tufo, **props):
         '''
         Set ( with de-duplication ) the given tufo props.
