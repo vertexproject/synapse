@@ -2876,11 +2876,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             The value from the KV store or the default valu (None).
 
         '''
-        buf = self.store._getBlobValu(key)
-        if buf is None:
-            self.log(logging.WARNING, mesg='Requested key not present in blob store, returning default', name=key)
-            return default
-        return s_common.msgunpack(buf)
+        return self.store.getBlobValu(key, default)
 
     # TODO: Wrap this in a userauth layer
     def getBlobKeys(self):
@@ -2890,7 +2886,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         Returns:
             list: List of keys in the store.
         '''
-        return self.store._getBlobKeys()
+        return self.store.getBlobKeys()
 
     # TODO: Wrap this in a userauth layer
     def setBlobValu(self, key, valu):
@@ -2913,10 +2909,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         Returns:
             The input value, unchanged.
         '''
-        buf = s_common.msgenpack(valu)
-        self.store._setBlobValu(key, buf)
-        self.savebus.fire('syn:core:blob:set', key=key, valu=buf)
-        return valu
+        return self.store.setBlobValu(key, valu)
 
     # TODO: Wrap this in a userauth layer
     def hasBlobValu(self, key):
@@ -2930,7 +2923,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             bool: If the key is present, returns True, otherwise False.
 
         '''
-        return self.store._hasBlobValu(key)
+        return self.store.hasBlobValu(key)
 
     # TODO: Wrap this in a userauth layer
     def delBlobValu(self, key):
@@ -2946,11 +2939,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         Raises:
             NoSuchName: If the key is not present in the store.
         '''
-        if not self.hasBlobValu(key):
-            raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
-        buf = self.store._delBlobValu(key)
-        self.savebus.fire('syn:core:blob:del', key=key)
-        return s_common.msgunpack(buf)
+        return self.store.delBlobValu(key)
 
     def _onSetBlobValu(self, mesg):
         key = mesg[1].get('key')

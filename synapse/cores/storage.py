@@ -218,7 +218,7 @@ class Storage(s_config.Config):
 
         self.onfini(self._finiCoreStore)
 
-    # Handlers which should be untouched
+    # Handlers which should be untouched!!!
     def initRowsBy(self, name, meth):
         '''
         Initialize a "rows by" handler for the Cortex.
@@ -295,6 +295,106 @@ class Storage(s_config.Config):
     def _popCoreXact(self):
         # Used by the CoreXact fini routine
         self._core_xacts.pop(s_threads.iden(), None)
+
+    # TODO: Wrap this in a userauth layer
+    def getBlobValu(self, key, default=None):
+        '''
+        Get a value from the blob key/value (KV) store.
+
+        This resides below the tufo storage layer and is Cortex implementation
+        dependent. In purely memory backed cortexes, this KV store may not be
+        persistent, even if the tufo-layer is persistent, through something
+        such as the savefile mechanism.
+
+        Notes:
+            Data which is retrieved from the KV store is msgpacked, so caveats
+            with that apply.
+
+        Args:
+            key (str): Value to retrieve
+            default: Value returned if the key is not present in the blob store.
+
+        Returns:
+            The value from the KV store or the default valu (None).
+
+        '''
+        buf = self._getBlobValu(key)
+        if buf is None:
+            self.log(logging.WARNING, mesg='Requested key not present in blob store, returning default', name=key)
+            return default
+        return s_common.msgunpack(buf)
+
+    # TODO: Wrap this in a userauth layer
+    def getBlobKeys(self):
+        '''
+        Get a list of keys in the blob key/value store.
+
+        Returns:
+            list: List of keys in the store.
+        '''
+        return self._getBlobKeys()
+
+    # TODO: Wrap this in a userauth layer
+    def setBlobValu(self, key, valu):
+        '''
+        Set a value from the blob key/value (KV) store.
+
+        This resides below the tufo storage layer and is Cortex implementation
+        dependent. In purely memory backed cortexes, this KV store may not be
+        persistent, even if the tufo-layer is persistent, through something
+        such as the savefile mechanism.
+
+        Notes:
+            Data which is stored in the KV store is msgpacked, so caveats with
+            that apply.
+
+        Args:
+            key (str): Name of the value to store.
+            valu: Value to store in the KV store.
+
+        Returns:
+            The input value, unchanged.
+        '''
+        buf = s_common.msgenpack(valu)
+        self._setBlobValu(key, buf)
+        # XXX Figure out how to handle savebus/loadbus events across storage layers
+        # self.savebus.fire('syn:core:blob:set', key=key, valu=buf)
+        return valu
+
+    # TODO: Wrap this in a userauth layer
+    def hasBlobValu(self, key):
+        '''
+        Check the blob store to see if a key is present.
+
+        Args:
+            key (str): Key to check
+
+        Returns:
+            bool: If the key is present, returns True, otherwise False.
+
+        '''
+        return self._hasBlobValu(key)
+
+    # TODO: Wrap this in a userauth layer
+    def delBlobValu(self, key):
+        '''
+        Remove and return a value from the blob store.
+
+        Args:
+            key (str): Key to remove.
+
+        Returns:
+            Content in the blob store for a given key.
+
+        Raises:
+            NoSuchName: If the key is not present in the store.
+        '''
+        if not self.hasBlobValu(key):
+            raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
+        buf = self._delBlobValu(key)
+        # XXX Figure out how to handle savebus/loadbus events across storage layers
+        # self.savebus.fire('syn:core:blob:del', key=key)
+        return s_common.msgunpack(buf)
 
     # The following MUST be implemented by the storage layer in order to
     # support the basic idea of a cortex
