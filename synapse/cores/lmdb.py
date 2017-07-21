@@ -172,21 +172,6 @@ class LmdbStorage(s_cores_storage.Storage):
 
     def _initCoreStor(self):
         self._initDbConn()
-
-        # self.initSizeBy('ge', self._sizeByGe)
-        # self.initRowsBy('ge', self._rowsByGe)
-        #
-        # self.initSizeBy('le', self._sizeByLe)
-        # self.initRowsBy('le', self._rowsByLe)
-        # self.initSizeBy('lt', self._sizeByLt)
-        #
-        # # use helpers from base class
-        # self.initRowsBy('gt', self._rowsByGt)
-        # self.initRowsBy('lt', self._rowsByLt)
-        #
-        # self.initSizeBy('range', self._sizeByRange)
-        # self.initRowsBy('range', self._rowsByRange)
-
         self._initCorTables()
 
     def _initDbInfo(self):
