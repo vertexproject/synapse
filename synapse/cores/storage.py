@@ -171,10 +171,15 @@ class Storage(s_config.Config):
 
     It is intended that storage layer implementations may override many of the functions provided here.
     '''
-    def __init__(self, link, core, **conf):
+    def __init__(self,
+                 link,
+                 core,
+                 **conf):
         s_config.Config.__init__(self)
         self._link = link # XXX ???
 
+        # link events from the Storage back to the core Eventbus
+        self.link(core.dist)
         # XXX Can we eliminate this prop normalization need?
         # We do need to know how to do prop normalization/defs for some helpers.
         self.getPropNorm = core.getPropNorm
