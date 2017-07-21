@@ -30,10 +30,10 @@ class InvalidParam(Exception):
         self.param = name
 
 corctors = {
-    'lmdb': synapse.cores.lmdb.Cortex,
+    'lmdb': synapse.cores.lmdb.initLmdbCortex,
     'sqlite': synapse.cores.sqlite.initSqliteCortex,
     'ram': synapse.cores.ram.initRamCortex,
-    'postgres': synapse.cores.postgres.Cortex,
+    'postgres': synapse.cores.postgres.initPsqlCortex,
 }
 
 def openurl(url, **opts):

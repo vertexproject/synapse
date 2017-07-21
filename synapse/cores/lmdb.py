@@ -11,9 +11,11 @@ from threading import Lock
 import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
-import synapse.lib.threads as s_threads
+
 import synapse.cores.common as s_cores_common
 import synapse.cores.storage as s_cores_storage
+
+import synapse.lib.threads as s_threads
 
 import lmdb
 import xxhash
@@ -157,33 +159,33 @@ class LmdbXact(s_cores_storage.StoreXact):
         self.txn.commit()
 
     def _coreXactBegin(self):
-        self.core._ensure_map_slack()
-        self.txn = self.core.dbenv.begin(buffers=True, write=True)
+        self.store._ensure_map_slack()
+        self.txn = self.store.dbenv.begin(buffers=True, write=True)
 
     def _coreXactAcquire(self):
-        self.core._write_lock.acquire()
+        self.store._write_lock.acquire()
 
     def _coreXactRelease(self):
-        self.core._write_lock.release()
+        self.store._write_lock.release()
 
-class Cortex(s_cores_common.Cortex):
+class LmdbStorage(s_cores_storage.Storage):
 
     def _initCoreStor(self):
         self._initDbConn()
 
-        self.initSizeBy('ge', self._sizeByGe)
-        self.initRowsBy('ge', self._rowsByGe)
-
-        self.initSizeBy('le', self._sizeByLe)
-        self.initRowsBy('le', self._rowsByLe)
-        self.initSizeBy('lt', self._sizeByLt)
-
-        # use helpers from base class
-        self.initRowsBy('gt', self._rowsByGt)
-        self.initRowsBy('lt', self._rowsByLt)
-
-        self.initSizeBy('range', self._sizeByRange)
-        self.initRowsBy('range', self._rowsByRange)
+        # self.initSizeBy('ge', self._sizeByGe)
+        # self.initRowsBy('ge', self._rowsByGe)
+        #
+        # self.initSizeBy('le', self._sizeByLe)
+        # self.initRowsBy('le', self._rowsByLe)
+        # self.initSizeBy('lt', self._sizeByLt)
+        #
+        # # use helpers from base class
+        # self.initRowsBy('gt', self._rowsByGt)
+        # self.initRowsBy('lt', self._rowsByLt)
+        #
+        # self.initSizeBy('range', self._sizeByRange)
+        # self.initRowsBy('range', self._rowsByRange)
 
         self._initCorTables()
 
@@ -198,7 +200,7 @@ class Cortex(s_cores_common.Cortex):
         return {'name': name}
 
     def _getCoreXact(self, size=None):
-        return CoreXact(self, size=size)
+        return LmdbXact(self, size=size)
 
     def _getLargestPk(self):
         with self._getTxn() as txn, txn.cursor(self.rows) as cursor:
@@ -220,7 +222,7 @@ class Cortex(s_cores_common.Cortex):
         ]
 
         max_rev = max([rev for rev, func in revs])
-        vsn_str = 'syn:core:{}:version'.format(self.getCoreType())
+        vsn_str = 'syn:core:{}:version'.format(self._getStoreType())
 
         if not self._checkForTable(ROWS):
             # We are a new cortex, stamp in tables and set
@@ -740,7 +742,7 @@ class Cortex(s_cores_common.Cortex):
                     break
         return count if do_count_only else ret
 
-    def _getCoreType(self):
+    def _getStoreType(self):
         return 'lmdb'
 
     def _getBlobValu(self, key):
@@ -776,3 +778,6 @@ class Cortex(s_cores_common.Cortex):
             cur.first()
             ret = [s_common.msgunpack(key).decode('utf-8') for key in cur.iternext(values=False)]
         return ret
+
+def initLmdbCortex(link):
+    return s_cores_common.Cortex(link, store=LmdbStorage)

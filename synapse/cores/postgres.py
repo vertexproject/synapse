@@ -5,12 +5,13 @@ import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
 
+import synapse.cores.common as s_cores_common
 import synapse.cores.sqlite as s_cores_sqlite
 
 def md5(x):
     return hashlib.md5(x.encode('utf8')).hexdigest()
 
-class Cortex(s_cores_sqlite.SqliteStorage):
+class PsqlStorage(s_cores_sqlite.SqliteStorage):
 
     dblim = None
 
@@ -165,3 +166,6 @@ class Cortex(s_cores_sqlite.SqliteStorage):
 
     def _prepBlobValu(self, valu):
         return s_compat.bytesToMem(valu)
+
+def initPsqlCortex(link):
+    return s_cores_common.Cortex(link, store=PsqlStorage)
