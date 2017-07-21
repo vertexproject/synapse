@@ -759,6 +759,22 @@ class Storage(s_config.Config):
 
         self.savebus.link(savemesg)
 
+    def getTufosByIdens(self, idens):
+        # storage layers may optimize here!
+        ret = []
+        for iden in idens:
+            tufo = self.getTufoByIden(iden)
+            if tufo is None:
+                continue
+            ret.append(tufo)
+        return ret
+
+    def getTufoByIden(self, iden):
+        rows = self.getRowsById(iden)
+        if not rows:
+            return None
+        return (iden, {p: v for (i, p, v, t) in rows})
+
     # these helpers allow a storage layer to simply implement
     # and register _getTufosByGe and _getTufosByLe
 

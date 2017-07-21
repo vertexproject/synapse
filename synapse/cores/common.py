@@ -1206,12 +1206,9 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             tufo = self.cache_byiden.get(iden)
             if tufo is not None:
                 return tufo
-
-        rows = self.getRowsById(iden)
-        if not rows:
-            return None
-
-        return (iden, {p: v for (i, p, v, t) in rows})
+        tufo = self.store.getTufoByIden(iden)
+        # XXX This does not cache the the result?
+        return tufo
 
     def getTufosByIdens(self, idens):
         '''
@@ -1222,17 +1219,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             tufos = core.getTufosByIdens(idens)
 
         '''
-        return self._getTufosByIdens(idens)
-
-    def _getTufosByIdens(self, idens):
-        # storage layers may optimize here!
-        ret = []
-        for iden in idens:
-            tufo = self.getTufoByIden(iden)
-            if tufo is None:
-                continue
-            ret.append(tufo)
-        return ret
+        return self.store.getTufosByIdens(idens)
 
     def getTufoByProp(self, prop, valu=None):
         '''

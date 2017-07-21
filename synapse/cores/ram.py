@@ -52,13 +52,13 @@ class RamStorage(s_cores_storage.Storage):
     def tufosByGe(self, prop, valu, limit=None):
         # FIXME sortedcontainers optimizations go here
         valu, _ = self.getPropNorm(prop, valu)
-        rows = self._rowsByGe(prop, valu, limit=limit)
+        rows = self.rowsByGe(prop, valu, limit=limit)
         return self.getTufosByIdens([r[0] for r in rows])
 
     def tufosByLe(self, prop, valu, limit=None):
         # FIXME sortedcontainers optimizations go here
         valu, _ = self.getPropNorm(prop, valu)
-        rows = self._rowsByLe(prop, valu, limit=limit)
+        rows = self.rowsByLe(prop, valu, limit=limit)
         return self.getTufosByIdens([r[0] for r in rows])
 
     def sizeByRange(self, prop, valu, limit=None):
