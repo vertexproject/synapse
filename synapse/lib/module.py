@@ -112,7 +112,7 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
             self._syn_mrevs[name].append((0, rev0))
 
         # ensure the revs are in sequential order
-        [v.sort() for v in self._syn_mrevs.values()]
+        [v.sort(key=lambda x: x[0]) for v in self._syn_mrevs.values()]
 
         self.initCoreModule()
         self.setConfOpts(conf)

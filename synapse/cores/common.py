@@ -149,7 +149,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.spliceact = s_reactor.Reactor()
         self.spliceact.act('node:add', self._actNodeAdd)
         self.spliceact.act('node:del', self._actNodeDel)
-        self.spliceact.act('node:set', self._actNodeSet)
+        self.spliceact.act('node:prop:set', self._actNodePropSet)
+        self.spliceact.act('node:prop:del', self._actNodePropDel)
         self.spliceact.act('node:tag:add', self._actNodeTagAdd)
         self.spliceact.act('node:tag:del', self._actNodeTagDel)
         self.spliceact.act('node:ival:set', self._actNodeIvalSet)
@@ -426,6 +427,13 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         '''
         Store all types/forms/props from the given data model in the cortex.
 
+        Args:
+            name (str): The name of the model ( depricated/ignored )
+            modl (dict):A data model definition dictionary
+
+        Returns:
+            (None)
+
         Example:
 
             core.addDataModel('synapse.models.foo',
@@ -448,6 +456,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         mhas = s_hashitem.hashitem(modl)
         if tufo[1].get('syn:model:hash') == mhas:
             return
+
 
         # FIXME handle type/form/prop removal
         for name, tnfo in modl.get('types', ()):
@@ -691,6 +700,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         # load each of the configured (and base) modules.
         for ctor, conf in self.modules:
             self.initCoreModule(ctor, conf)
+
         # Sort the model revlist
         self.modelrevlist.sort(key=lambda x: x[:2])
         for revision, name, func in self.modelrevlist:
@@ -769,13 +779,21 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         self.delTufo(node)
 
-    def _actNodeSet(self, mesg):
+    def _actNodePropSet(self, mesg):
         form = mesg[1].get('form')
         valu = mesg[1].get('valu')
         props = mesg[1].get('props')
 
         node = self.formTufoByProp(form, valu)
         self.setTufoProps(node, **props)
+
+    def _actNodePropDel(self, mesg):
+        form = mesg[1].get('form')
+        valu = mesg[1].get('valu')
+        prop = mesg[1].get('prop')
+
+        node = self.formTufoByProp(form, valu)
+        self.delTufoProp(node,prop)
 
     def _actNodeTagAdd(self, mesg):
 
@@ -1912,7 +1930,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
                     iden = s_common.guid()
 
-                    fulls, toadd = self._normTufoProps(form, props)
+                    fulls, toadd = self._normTufoProps(form, props, isadd=True)
 
                     self._addDefProps(form, fulls)
 
@@ -2011,7 +2029,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
             props.update(subs)
 
-            fulls, toadd = self._normTufoProps(prop, props)
+            fulls, toadd = self._normTufoProps(prop, props, isadd=True)
 
             # create a "full" props dict which includes defaults
             self._addDefProps(prop, fulls)
@@ -2226,7 +2244,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         for k, v in self.getFormDefs(form):
             fulls.setdefault(k, v)
 
-    def _normTufoProps(self, form, inprops, tufo=None):
+    def _normTufoProps(self, form, inprops, tufo=None, isadd=False):
         '''
         This will both return a set of fully qualified props as a dict
         as well as modify inprops inband as a normalized set or relatives.
@@ -2240,7 +2258,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             valu = inprops.get(name)
 
             prop = form + ':' + name
-            if not self.isSetPropOk(prop):
+            if not self.isSetPropOk(prop, isadd=isadd):
                 inprops.pop(name, None)
                 continue
 
@@ -2360,7 +2378,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         return node
 
-    def isSetPropOk(self, prop):
+    def isSetPropOk(self, prop, isadd=False):
         '''
         Check for enforcement and validity of a full prop name.
 
@@ -2384,7 +2402,63 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         if not self.enforce:
             return True
 
-        return self.getPropDef(prop) is not None
+        pdef = self.getPropDef(prop)
+        if pdef is None:
+            return False
+
+        if not isadd and pdef[1].get('ro'):
+            return False
+
+        return True
+
+    def delTufoProp(self, tufo, name):
+        '''
+        Delete a property from a node in tufo format.
+
+        Args:
+            tufo ((str,dict)):  The node in tufo form
+            name (str): The relative property name to delete
+
+        Returns:
+            ((str,dict))    The updated node in tufo form
+
+        '''
+        form,valu = s_tufo.ndef(tufo)
+
+        prop = form + ':' + name
+
+        pdef = self.getPropDef(prop)
+
+        if pdef is not None:
+
+            # if the prop is read only, it may not be deleted
+            if pdef[1].get('ro'):
+                raise CantDelProp(name=prop, mesg='property is read only')
+
+            # if the prop has a default value, it may not be deleted
+            if pdef[1].get('defval') is not None:
+                raise CantDelProp(name=prop, mesg='property has default value')
+
+        oldv = tufo[1].pop(prop,None)
+        if oldv is None:
+            return tufo
+
+        with self.getCoreXact() as xact:
+
+            # update the tufo cache if present
+            if self.caching:
+                self._bumpTufoCache(tufo, prop, oldv, None)
+
+            # delete the rows from the storage layer...
+            self.delRowsByIdProp(tufo[0], prop)
+
+            # fire notification event
+            xact.fire('node:prop:del', form=form, valu=valu, prop=prop, oldv=oldv, node=tufo)
+
+            # fire the splice event
+            xact.spliced('node:prop:del', form=form, valu=valu, prop=prop)
+
+        return tufo
 
     def setTufoProps(self, tufo, **props):
         '''
@@ -2426,9 +2500,9 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                     self._bumpTufoCache(tufo, p, oldv, v)
 
                 # fire notification event
-                xact.fire('node:set', form=form, valu=valu, prop=p, newv=v, oldv=oldv, node=tufo)
+                xact.fire('node:prop:set', form=form, valu=valu, prop=p, newv=v, oldv=oldv, node=tufo)
 
-            xact.spliced('node:set', form=form, valu=valu, props=props)
+            xact.spliced('node:prop:set', form=form, valu=valu, props=props)
 
         return tufo
 
@@ -2480,7 +2554,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             self.setRowsByIdProp(iden, prop, newv)
 
             tufo[1][prop] = newv
-            self.fire('node:set', form=form, valu=valu, prop=prop, newv=newv, oldv=oldv, node=tufo)
+            self.fire('node:prop:set', form=form, valu=valu, prop=prop, newv=newv, oldv=oldv, node=tufo)
 
         return tufo
 

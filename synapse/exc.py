@@ -77,6 +77,9 @@ class BadCoreStore(SynErr):
     '''The storage layer has encountered an error'''
     pass
 
+class CantDelProp(SynErr): pass
+class CantSetProp(SynErr): pass
+
 class NotGuidForm(SynErr): pass
 
 class MustBeLocal(SynErr): pass
