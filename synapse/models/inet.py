@@ -3,6 +3,7 @@ import socket
 import struct
 import hashlib
 
+import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
 import synapse.lib.socket as s_socket
@@ -342,6 +343,34 @@ class InetMod(CoreModule):
         fqdn = mesg[1].get('valu')
         for tufo in self.core.getTufosByProp('inet:fqdn:domain', fqdn):
             self.core.setTufoProp(tufo, 'zone', sfx)
+
+    @modelrev('inet', '201704201837')
+    def _retModl201704201837(self):
+        '''
+        Add :port and :ipv4 to inet:tcp4 and inet:udp4 nodes.
+        '''
+        tick = s_common.now()
+
+        forms = ('inet:tcp4', 'inet:udp4')
+        for form in forms:
+            adds = []
+            portprop = '{}:port'.format(form)
+            ipv4prop = '{}:ipv4'.format(form)
+
+            rows = self.core.getRowsByProp(form)
+            for i, p, v, _ in rows:
+                norm, subs = self.core.getTypeNorm(form, v)
+
+                port = subs.get('port')
+                if port:
+                    adds.append((i, portprop, port, tick))
+
+                ipv4 = subs.get('ipv4')
+                if ipv4:
+                    adds.append((i, ipv4prop, ipv4, tick))
+
+            if adds:
+                self.core.addRows(adds)
 
     @staticmethod
     def getBaseModels():
