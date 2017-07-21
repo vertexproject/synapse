@@ -344,7 +344,7 @@ class InetMod(CoreModule):
         for tufo in self.core.getTufosByProp('inet:fqdn:domain', fqdn):
             self.core.setTufoProp(tufo, 'zone', sfx)
 
-    @modelrev('inet', '201704201837')
+    @modelrev('inet', 201704201837)
     def _retModl201704201837(self):
         '''
         Add :port and :ipv4 to inet:tcp4 and inet:udp4 nodes.
