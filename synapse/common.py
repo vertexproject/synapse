@@ -300,3 +300,11 @@ def worker(meth, *args, **kwargs):
     thr.setDaemon(True)
     thr.start()
     return thr
+
+def reqstor(name, valu):
+    '''
+    Raise BadPropValue if valu is not cortex storable.
+    '''
+    if not canstor(valu):
+        raise BadPropValu(name=name, valu=valu)
+    return valu

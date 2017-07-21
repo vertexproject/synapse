@@ -21,10 +21,13 @@ import threading
 
 import synapse.common as s_common
 import synapse.compat as s_compat
+import synapse.eventbus as s_eventbus
 
 import synapse.lib.config as s_config
 import synapse.lib.threads as s_threads
 import synapse.lib.userauth as s_userauth
+
+from synapse.common import reqstor
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +179,13 @@ class Storage(s_config.Config):
                  core,
                  **conf):
         s_config.Config.__init__(self)
+
+        #############################################################
+        # buses to save/load *raw* save events
+        #############################################################
+        self.savebus = s_eventbus.EventBus()
+        self.loadbus = s_eventbus.EventBus()
+
         self._link = link # XXX ???
 
         # link events from the Storage back to the core Eventbus
@@ -203,23 +213,63 @@ class Storage(s_config.Config):
         self.rowsbymeths = {}
 
         # Register handlers for lifting rows/siexes
-        self.initRowsBy('gt', self._rowsByGt)
-        self.initRowsBy('lt', self._rowsByLt)
-        self.initRowsBy('ge', self._rowsByGe)
-        self.initRowsBy('le', self._rowsByLe)
-        self.initRowsBy('range', self._rowsByRange)
+        self.initRowsBy('gt', self.rowsByGt)
+        self.initRowsBy('lt', self.rowsByLt)
+        self.initRowsBy('ge', self.rowsByGe)
+        self.initRowsBy('le', self.rowsByLe)
+        self.initRowsBy('range', self.rowsByRange)
 
-        self.initSizeBy('ge', self._sizeByGe)
-        self.initSizeBy('le', self._sizeByLe)
-        self.initSizeBy('range', self._sizeByRange)
+        self.initSizeBy('ge', self.sizeByGe)
+        self.initSizeBy('le', self.sizeByLe)
+        self.initSizeBy('range', self.sizeByRange)
 
-        self.initTufosBy('ge', self._tufosByGe)
-        self.initTufosBy('le', self._tufosByLe)
-        self.initTufosBy('gt', self._tufosByGt)
-        self.initTufosBy('lt', self._tufosByLt)
+        self.initTufosBy('in', self.tufosByIn)
+        self.initTufosBy('ge', self.tufosByGe)
+        self.initTufosBy('le', self.tufosByLe)
+        self.initTufosBy('gt', self.tufosByGt)
+        self.initTufosBy('lt', self.tufosByLt)
+
+        # Events for handling savefile loads/saves
+        self.loadbus.on('core:save:add:rows', self._loadAddRows)
+        self.loadbus.on('core:save:del:rows:by:iden', self._loadDelRowsById)
+        self.loadbus.on('core:save:del:rows:by:prop', self._loadDelRowsByProp)
+        self.loadbus.on('core:save:set:rows:by:idprop', self._loadSetRowsByIdProp)
+        self.loadbus.on('core:save:del:rows:by:idprop', self._loadDelRowsByIdProp)
+        self.loadbus.on('syn:core:blob:set', self._onSetBlobValu)
+        self.loadbus.on('syn:core:blob:del', self._onDelBlobValu)
+
+        # Cache blob save mesgs which may be fired during storage layer init
+        _blobMesgCache = []
+        self.savebus.on('syn:core:blob:set', _blobMesgCache.append)
+        self.savebus.on('syn:core:blob:del', _blobMesgCache.append)
 
         # Perform storage layer initializations
         self._initCoreStor()
+
+        # Disable the blob message caching
+        self.savebus.off('syn:core:blob:set', _blobMesgCache.append)
+        self.savebus.off('syn:core:blob:del', _blobMesgCache.append)
+
+        # process a savefile/savefd if we have one (but only one of the two)
+        savefd = self._link[1].get('savefd')
+        if savefd is not None:
+            self.setSaveFd(savefd)
+        else:
+            savefile = self._link[1].get('savefile')
+            if savefile is not None:
+                savefd = s_common.genfile(savefile)
+                self.setSaveFd(savefd, fini=True)
+
+        # The storage layer initialization blob events then trump anything
+        # which may have been set during the savefile load and make sure they
+        # get saved as well
+        if 'savefd' in link[1] or 'savefile' in link[1]:
+            for evtname, info in _blobMesgCache:
+                self.savebus.fire(evtname, **info)
+                self.loadbus.fire(evtname, **info)
+
+        if not self.hasBlobValu('syn:core:created'):
+            self.setBlobValu('syn:core:created', s_common.now())
 
         self.onfini(self._finiCoreStore)
 
@@ -274,6 +324,8 @@ class Storage(s_config.Config):
         delattr(self, 'getPropDef')
         delattr(self, 'getPropNorm')
         delattr(self, 'initTufosBy')
+        self.savebus.fini()
+        self.loadbus.fini()
 
     def getCoreXact(self, size=1000):
         '''
@@ -293,7 +345,7 @@ class Storage(s_config.Config):
         if xact is not None:
             return xact
 
-        xact = self._getCoreXact(size)
+        xact = self.getStoreXact(size)
         self._core_xacts[iden] = xact
         return xact
 
@@ -401,29 +453,125 @@ class Storage(s_config.Config):
         # self.savebus.fire('syn:core:blob:del', key=key)
         return s_common.msgunpack(buf)
 
+    def _onSetBlobValu(self, mesg):
+        key = mesg[1].get('key')
+        valu = mesg[1].get('valu')
+        self._setBlobValu(key, valu)
+
+    def _onDelBlobValu(self, mesg):
+        key = mesg[1].get('key')
+        self._delBlobValu(key)
+
+    def addSaveLink(self, func):
+        '''
+        Add an event callback to receive save events for this cortex.
+
+        Example:
+
+            def savemesg(mesg):
+                dostuff()
+
+            core.addSaveLink(savemesg)
+
+        '''
+        self.savebus.link(func)
+
+    def setSaveFd(self, fd, load=True, fini=False):
+        '''
+        Set a save fd for the cortex and optionally load.
+
+        Args:
+            fd (file):  A file like object to save splice events to using msgpack
+            load (bool):    If True, load splice event from fd before starting to record
+            fini (bool):    If True, close() the fd automatically on cortex fini()
+
+        Returns:
+            (None)
+
+        Example:
+
+            core.setSaveFd(fd)
+
+        NOTE: This save file is allowed to be storage layer specific.
+              If you want to store cortex splice events, use addSpliceFd().
+
+        '''
+        self._setSaveFd(fd, load, fini)
+
+    def addrows(self, rows):
+        [reqstor(p, v) for (i, p, v, t) in rows]
+        self.savebus.fire('core:save:add:rows', rows=rows)
+        self._addRows(rows)
+
+    def _loadAddRows(self, mesg):
+        self._addRows(mesg[1].get('rows'))
+
+    def delRowsById(self, iden):
+        self.savebus.fire('core:save:del:rows:by:iden', iden=iden)
+        self._delRowsById(iden)
+
+    def _loadDelRowsById(self, mesg):
+        self._delRowsById(mesg[1].get('iden'))
+
+    def delRowsByIdProp(self, iden, prop, valu=None):
+        self.savebus.fire('core:save:del:rows:by:idprop', iden=iden, prop=prop, valu=valu)
+        return self._delRowsByIdProp(iden, prop, valu=valu)
+
+    def _loadDelRowsByIdProp(self, mesg):
+        iden = mesg[1].get('iden')
+        prop = mesg[1].get('prop')
+        self._delRowsByIdProp(iden, prop)
+
+    def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
+        '''
+        Delete rows with a given prop[=valu].
+        Example:
+            core.delRowsByProp('foo',valu=10)
+        '''
+        self.savebus.fire('core:save:del:rows:by:prop', prop=prop, valu=valu, mintime=mintime, maxtime=maxtime)
+        return self._delRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
+
+    def _loadDelRowsByProp(self, mesg):
+        prop = mesg[1].get('prop')
+        valu = mesg[1].get('valu')
+        mint = mesg[1].get('mintime')
+        maxt = mesg[1].get('maxtime')
+        self._delRowsByProp(prop, valu=valu, mintime=mint, maxtime=maxt)
+
+    def setRowsByIdProp(self, iden, prop, valu):
+        reqstor(prop, valu)
+        self.savebus.fire('core:save:set:rows:by:idprop', iden=iden, prop=prop, valu=valu)
+        self._setRowsByIdProp(iden, prop, valu)
+
+    def _loadSetRowsByIdProp(self, mesg):
+        iden = mesg[1].get('iden')
+        prop = mesg[1].get('prop')
+        valu = mesg[1].get('valu')
+        self._setRowsByIdProp(iden, prop, valu)
+
     # The following MUST be implemented by the storage layer in order to
     # support the basic idea of a cortex
 
     def _initCoreStor(self):
         raise s_common.NoSuchImpl(name='_initCoreStor', mesg='Store does not implement _initCoreStor')
 
-    def _getStoreType(self):  # pragma: no cover
-        raise s_common.NoSuchImpl(name='_getStoreType', mesg='Store does not implement getCoreType')
+    def getStoreType(self):  # pragma: no cover
+        raise s_common.NoSuchImpl(name='getStoreType', mesg='Store does not implement getStoreType')
 
-    def _getCoreXact(self, size=None):
-        raise s_common.NoSuchImpl(name='_getCoreXact', mesg='Store does not implement _getCoreXact')
+    def getStoreXact(self, size=None):
+        raise s_common.NoSuchImpl(name='getStoreXact', mesg='Store does not implement getStoreXact')
 
     def _addRows(self, rows):
         raise s_common.NoSuchImpl(name='_addRows', mesg='Store does not implement _addRows')
 
-    def _getRowsById(self, iden):
-        raise s_common.NoSuchImpl(name='_getRowsById', mesg='Store does not implement _getRowsById')
+    def getRowsById(self, iden):
+        raise s_common.NoSuchImpl(name='getRowsById', mesg='Store does not implement getRowsById')
 
-    def _getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
-        raise s_common.NoSuchImpl(name='_getRowsByProp', mesg='Store does not implement _getRowsByProp')
+    def getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+        raise s_common.NoSuchImpl(name='getRowsByProp', mesg='Store does not implement getRowsByProp')
 
-    def _getRowsByIdProp(self, iden, prop, valu=None):
-        raise s_common.NoSuchImpl(name='_getRowsByIdProp', mesg='Store does not implement _getRowsByIdProp')
+    def getRowsByIdProp(self, iden, prop, valu=None):
+        raise s_common.NoSuchImpl(name='getRowsByIdProp', mesg='Store does not implement _getRowsBgetRowsByIdPropyIdProp')
 
     def _delRowsById(self, iden):
         raise s_common.NoSuchImpl(name='_delRowsById', mesg='Store does not implement _delRowsById')
@@ -434,32 +582,32 @@ class Storage(s_config.Config):
     def _delRowsByIdProp(self, iden, prop, valu=None):
         raise s_common.NoSuchImpl(name='_delRowsByIdProp', mesg='Store does not implement _delRowsByIdProp')
 
-    def _getSizeByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        raise s_common.NoSuchImpl(name='_getSizeByProp', mesg='Store does not implement _getSizeByProp')
+    def getSizeByProp(self, prop, valu=None, mintime=None, maxtime=None):
+        raise s_common.NoSuchImpl(name='getSizeByProp', mesg='Store does not implement getSizeByProp')
 
-    def _rowsByRange(self, prop, valu, limit=None):
-        raise s_common.NoSuchImpl(name='_rowsByRange', mesg='Store does not implement _rowsByRange')
+    def rowsByRange(self, prop, valu, limit=None):
+        raise s_common.NoSuchImpl(name='rowsByRange', mesg='Store does not implement rowsByRange')
 
-    def _sizeByGe(self, prop, valu, limit=None):
-        raise s_common.NoSuchImpl(name='_sizeByGe', mesg='Store does not implement _sizeByGe')
+    def sizeByGe(self, prop, valu, limit=None):
+        raise s_common.NoSuchImpl(name='sizeByGe', mesg='Store does not implement sizeByGe')
 
-    def _rowsByGe(self, prop, valu, limit=None):
-        raise s_common.NoSuchImpl(name='_rowsByGe', mesg='Store does not implement _rowsByGe')
+    def rowsByGe(self, prop, valu, limit=None):
+        raise s_common.NoSuchImpl(name='rowsByGe', mesg='Store does not implement rowsByGe')
 
-    def _sizeByLe(self, prop, valu, limit=None):
-        raise s_common.NoSuchImpl(name='_sizeByLe', mesg='Store does not implement _sizeByLe')
+    def sizeByLe(self, prop, valu, limit=None):
+        raise s_common.NoSuchImpl(name='sizeByLe', mesg='Store does not implement sizeByLe')
 
-    def _rowsByLe(self, prop, valu, limit=None):
-        raise s_common.NoSuchImpl(name='_rowsByLe', mesg='Store does not implement _rowsByLe')
+    def rowsByLe(self, prop, valu, limit=None):
+        raise s_common.NoSuchImpl(name='rowsByLe', mesg='Store does not implement rowsByLe')
 
-    def _sizeByRange(self, prop, valu, limit=None):
-        raise s_common.NoSuchImpl(name='_sizeByRange', mesg='Store does not implement _sizeByRange')
+    def sizeByRange(self, prop, valu, limit=None):
+        raise s_common.NoSuchImpl(name='sizeByRange', mesg='Store does not implement sizeByRange')
 
-    def _tufosByGe(self, prop, valu, limit=None):
-        raise s_common.NoSuchImpl(name='_tufosByGe', mesg='Store does not implement _tufosByGe')
+    def tufosByGe(self, prop, valu, limit=None):
+        raise s_common.NoSuchImpl(name='tufosByGe', mesg='Store does not implement tufosByGe')
 
-    def _tufosByLe(self, prop, valu, limit=None):
-        raise s_common.NoSuchImpl(name='_tufosByLe', mesg='Store does not implement _tufosByLe')
+    def tufosByLe(self, prop, valu, limit=None):
+        raise s_common.NoSuchImpl(name='tufosByLe', mesg='Store does not implement tufosByLe')
 
     # The following are things which SHOULD be overridden in order to provide
     # cortex features which are kind of optional
@@ -502,7 +650,7 @@ class Storage(s_config.Config):
         valu = tufo[1].get(form)
 
         with self.inclock:
-            rows = self._getRowsByIdProp(iden, prop)
+            rows = self.getRowsByIdProp(iden, prop)
             if len(rows) == 0:
                 raise s_common.NoSuchTufo(iden=iden, prop=prop)
 
@@ -516,10 +664,24 @@ class Storage(s_config.Config):
 
         return tufo
 
-    def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
-        for irow in self._getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit):
-            for jrow in self._getRowsById(irow[0]):
+    def getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+        for irow in self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit):
+            for jrow in self.getRowsById(irow[0]):
                 yield jrow
+
+    def tufosByIn(self, prop, valus, limit=None):
+        ret = []
+
+        for valu in valus:
+            res = self.getTufosByProp(prop, valu=valu, limit=limit)
+            ret.extend(res)
+
+            if limit is not None:
+                limit -= len(res)
+                if limit <= 0:
+                    break
+
+        return ret
 
     # Blobstore interface isn't clean to seperate
     def _revCorVers(self, revs):
@@ -536,7 +698,7 @@ class Storage(s_config.Config):
         '''
         if not revs:
             return
-        vsn_str = 'syn:core:{}:version'.format(self._getStoreType())
+        vsn_str = 'syn:core:{}:version'.format(self.getStoreType())
         curv = self.getBlobValu(vsn_str, -1)
 
         maxver = revs[-1][0]
@@ -570,7 +732,7 @@ class Storage(s_config.Config):
         self._addRows(rows)
 
     def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        rows = self._getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
+        rows = self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
         done = set()
         for row in rows:
             iden = row[0]
@@ -580,21 +742,39 @@ class Storage(s_config.Config):
             self._delRowsById(iden)
             done.add(iden)
 
+    def _setSaveFd(self, fd, load=True, fini=False):
+        '''
+        The default implementation of savefile for a Cortex.
+        This may be overridden by a storage layer.
+        '''
+        if load:
+            for mesg in s_common.msgpackfd(fd):
+                self.loadbus.dist(mesg)
+
+        self.onfini(fd.flush)
+        if fini:
+            self.onfini(fd.close)
+
+        def savemesg(mesg):
+            fd.write(s_common.msgenpack(mesg))
+
+        self.savebus.link(savemesg)
+
     # these helpers allow a storage layer to simply implement
     # and register _getTufosByGe and _getTufosByLe
 
-    def _rowsByLt(self, prop, valu, limit=None):
+    def rowsByLt(self, prop, valu, limit=None):
         valu, _ = self.getPropNorm(prop, valu)
-        return self._rowsByLe(prop, valu - 1, limit=limit)
+        return self.rowsByLe(prop, valu - 1, limit=limit)
 
-    def _rowsByGt(self, prop, valu, limit=None):
+    def rowsByGt(self, prop, valu, limit=None):
         valu, _ = self.getPropNorm(prop, valu)
-        return self._rowsByGe(prop, valu + 1, limit=limit)
+        return self.rowsByGe(prop, valu + 1, limit=limit)
 
-    def _tufosByLt(self, prop, valu, limit=None):
+    def tufosByLt(self, prop, valu, limit=None):
         valu, _ = self.getPropNorm(prop, valu)
-        return self._tufosByLe(prop, valu - 1, limit=limit)
+        return self.tufosByLe(prop, valu - 1, limit=limit)
 
-    def _tufosByGt(self, prop, valu, limit=None):
+    def tufosByGt(self, prop, valu, limit=None):
         valu, _ = self.getPropNorm(prop, valu)
-        return self._tufosByGe(prop, valu + 1, limit=limit)
+        return self.tufosByGe(prop, valu + 1, limit=limit)

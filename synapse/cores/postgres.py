@@ -11,6 +11,9 @@ import synapse.cores.sqlite as s_cores_sqlite
 def md5(x):
     return hashlib.md5(x.encode('utf8')).hexdigest()
 
+def initPsqlCortex(link):
+    return s_cores_common.Cortex(link, store=PsqlStorage)
+
 class PsqlStorage(s_cores_sqlite.SqliteStorage):
 
     dblim = None
@@ -130,7 +133,7 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
 
         return dbinfo
 
-    def _tufosByIn(self, prop, valus, limit=None):
+    def tufosByIn(self, prop, valus, limit=None):
         if len(valus) == 0:
             return []
 
@@ -146,7 +149,7 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
         rows = self._foldTypeCols(rows)
         return self._rowsToTufos(rows)
 
-    def _getTufosByIdens(self, idens):
+    def getTufosByIdens(self, idens):
         rows = self.select(self._q_getrows_by_idens, valu=tuple(idens))
         rows = self._foldTypeCols(rows)
         return self._rowsToTufos(rows)
@@ -161,11 +164,8 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
     def _addVarDecor(self, name):
         return '%%(%s)s' % (name,)
 
-    def _getCoreType(self):
+    def getStoreType(self):
         return 'postgres'
 
     def _prepBlobValu(self, valu):
         return s_compat.bytesToMem(valu)
-
-def initPsqlCortex(link):
-    return s_cores_common.Cortex(link, store=PsqlStorage)

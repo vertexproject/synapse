@@ -150,6 +150,9 @@ def _calcFirstLastKeys(prop, valu, mintime, maxtime):
     last_key = p_enc + v_key_enc + maxtime_enc
     return (first_key, last_key, v_is_hashed, False)
 
+def initLmdbCortex(link):
+    return s_cores_common.Cortex(link, store=LmdbStorage)
+
 class LmdbXact(s_cores_storage.StoreXact):
 
     def _coreXactInit(self, size=None):
@@ -184,7 +187,7 @@ class LmdbStorage(s_cores_storage.Storage):
 
         return {'name': name}
 
-    def _getCoreXact(self, size=None):
+    def getStoreXact(self, size=None):
         return LmdbXact(self, size=size)
 
     def _getLargestPk(self):
@@ -207,7 +210,7 @@ class LmdbStorage(s_cores_storage.Storage):
         ]
 
         max_rev = max([rev for rev, func in revs])
-        vsn_str = 'syn:core:{}:version'.format(self._getStoreType())
+        vsn_str = 'syn:core:{}:version'.format(self.getStoreType())
 
         if not self._checkForTable(ROWS):
             # We are a new cortex, stamp in tables and set
@@ -442,7 +445,7 @@ class LmdbStorage(s_cores_storage.Storage):
             raise s_common.BadCoreStore(store='lmdb', mesg='Index val has no corresponding row')
         return s_common.msgunpack(row)
 
-    def _getRowsById(self, iden):
+    def getRowsById(self, iden):
         iden_enc = _encIden(iden)
         rows = []
         with self._getTxn() as txn, txn.cursor(self.index_ip) as cursor:
@@ -545,7 +548,7 @@ class LmdbStorage(s_cores_storage.Storage):
 
         return True
 
-    def _getRowsByIdProp(self, iden, prop, valu=None):
+    def getRowsByIdProp(self, iden, prop, valu=None):
         # For now not making a ipv index because multiple v for a given i,p are probably rare
         iden_enc = _encIden(iden)
         prop_enc = _encProp(prop)
@@ -565,10 +568,10 @@ class LmdbStorage(s_cores_storage.Storage):
                 ret.append(row)
         raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
 
-    def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
-        return self._getRowsByProp(prop, valu, limit, mintime, maxtime, do_count_only=True)
+    def getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
+        return self.getRowsByProp(prop, valu, limit, mintime, maxtime, do_count_only=True)
 
-    def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None,
+    def getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None,
                        do_count_only=False):
         indx = self.index_pt if valu is None else self.index_pvt
         first_key, last_key, v_is_hashed, do_fast_compare = _calcFirstLastKeys(prop, valu,
@@ -631,28 +634,28 @@ class LmdbStorage(s_cores_storage.Storage):
                     if not cursor.next():
                         raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
 
-    def _sizeByGe(self, prop, valu, limit=None):
+    def sizeByGe(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit, right_closed=True,
                                   do_count_only=True)
 
-    def _rowsByGe(self, prop, valu, limit=None):
+    def rowsByGe(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit, right_closed=True)
 
-    def _sizeByLe(self, prop, valu, limit=None):
+    def sizeByLe(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, right_closed=True,
                                   do_count_only=True)
 
-    def _sizeByLt(self, prop, valu, limit=None):
+    def sizeByLt(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, right_closed=False,
                                   do_count_only=True)
 
-    def _rowsByLe(self, prop, valu, limit=None):
+    def rowsByLe(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, right_closed=True)
 
-    def _sizeByRange(self, prop, valu, limit=None):
+    def sizeByRange(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, valu[0], valu[1], limit, do_count_only=True)
 
-    def _rowsByRange(self, prop, valu, limit=None):
+    def rowsByRange(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, valu[0], valu[1], limit)
 
     def _rowsByMinmax(self, prop, minval, maxval, limit, right_closed=False, do_count_only=False):
@@ -727,7 +730,7 @@ class LmdbStorage(s_cores_storage.Storage):
                     break
         return count if do_count_only else ret
 
-    def _getStoreType(self):
+    def getStoreType(self):
         return 'lmdb'
 
     def _getBlobValu(self, key):
@@ -763,6 +766,3 @@ class LmdbStorage(s_cores_storage.Storage):
             cur.first()
             ret = [s_common.msgunpack(key).decode('utf-8') for key in cur.iternext(values=False)]
         return ret
-
-def initLmdbCortex(link):
-    return s_cores_common.Cortex(link, store=LmdbStorage)

@@ -18,6 +18,9 @@ int_t = s_compat.typeof(0)
 str_t = s_compat.typeof('visi')
 none_t = s_compat.typeof(None)
 
+def initSqliteCortex(link):
+    return s_cores_common.Cortex(link, store=SqliteStorage)
+
 class SqlXact(s_cores_storage.StoreXact):
 
     def _coreXactInit(self):
@@ -242,7 +245,7 @@ class SqliteStorage(s_cores_storage.Storage):
 
         return {'name': name}
 
-    def _getCoreXact(self, size=None):
+    def getStoreXact(self, size=None):
         return SqlXact(self, size=size)
 
     def _getDbLimit(self, limit):
@@ -250,7 +253,7 @@ class SqliteStorage(s_cores_storage.Storage):
             return limit
         return self.dblim
 
-    def _rowsByRange(self, prop, valu, limit=None):
+    def rowsByRange(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
 
         q = self._q_getrows_by_range
@@ -261,32 +264,32 @@ class SqliteStorage(s_cores_storage.Storage):
         rows = self.select(q, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)
         return self._foldTypeCols(rows)
 
-    def _rowsByGe(self, prop, valu, limit=None):
+    def rowsByGe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getrows_by_ge
 
         rows = self.select(q, prop=prop, valu=valu, limit=limit)
         return self._foldTypeCols(rows)
 
-    def _rowsByLe(self, prop, valu, limit=None):
+    def rowsByLe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getrows_by_le
         rows = self.select(q, prop=prop, valu=valu, limit=limit)
         return self._foldTypeCols(rows)
 
-    def _sizeByRange(self, prop, valu, limit=None):
+    def sizeByRange(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getsize_by_range
         minvalu = int(self.getPropNorm(prop, valu[0])[0])
         maxvalu = int(self.getPropNorm(prop, valu[1])[0])
         return self.select(q, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)[0][0]
 
-    def _sizeByGe(self, prop, valu, limit=None):
+    def sizeByGe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getsize_by_ge
         return self.select(q, prop=prop, valu=valu, limit=limit)[0][0]
 
-    def _sizeByLe(self, prop, valu, limit=None):
+    def sizeByLe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getsize_by_le
         args = [prop, valu, limit]
@@ -534,7 +537,7 @@ class SqliteStorage(s_cores_storage.Storage):
         ]
 
         max_rev = max([rev for rev, func in revs])
-        vsn_str = 'syn:core:{}:version'.format(self._getStoreType())
+        vsn_str = 'syn:core:{}:version'.format(self.getStoreType())
 
         if not self._checkForTable(table):
             # We are a new cortex, stamp in tables and set
@@ -607,15 +610,15 @@ class SqliteStorage(s_cores_storage.Storage):
 
         return ret
 
-    def _getRowsById(self, iden):
+    def getRowsById(self, iden):
         rows = self.select(self._q_getrows_by_iden, iden=iden)
         return self._foldTypeCols(rows)
 
-    def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
+    def getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
         rows = self._runPropQuery('sizebyprop', prop, valu=valu, limit=limit, mintime=mintime, maxtime=maxtime)
         return rows[0][0]
 
-    def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
+    def getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
         rows = self._runPropQuery('rowsbyprop', prop, valu=valu, limit=limit, mintime=mintime, maxtime=maxtime)
         return self._foldTypeCols(rows)
 
@@ -633,7 +636,7 @@ class SqliteStorage(s_cores_storage.Storage):
         rows = self._foldTypeCols(rows)
         return self._rowsToTufos(rows)
 
-    def _tufosByLe(self, prop, valu, limit=None):
+    def tufosByLe(self, prop, valu, limit=None):
         valu, _ = self.getPropNorm(prop, valu)
         limit = self._getDbLimit(limit)
 
@@ -642,7 +645,7 @@ class SqliteStorage(s_cores_storage.Storage):
 
         return self._rowsToTufos(rows)
 
-    def _tufosByGe(self, prop, valu, limit=None):
+    def tufosByGe(self, prop, valu, limit=None):
         valu, _ = self.getPropNorm(prop, valu)
         limit = self._getDbLimit(limit)
 
@@ -673,7 +676,7 @@ class SqliteStorage(s_cores_storage.Storage):
         else:
             return self.delete(self._q_delrows_by_iden_prop_strval, iden=iden, prop=prop, valu=valu)
 
-    def _getRowsByIdProp(self, iden, prop, valu=None):
+    def getRowsByIdProp(self, iden, prop, valu=None):
         if valu is None:
             rows = self.select(self._q_getrows_by_iden_prop, iden=iden, prop=prop)
             return self._foldTypeCols(rows)
@@ -702,14 +705,14 @@ class SqliteStorage(s_cores_storage.Storage):
     def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
         self._runPropQuery('deljoinbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete, nolim=True)
 
-    def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+    def getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         rows = self._runPropQuery('joinbyprop', prop, valu=valu, limit=limit, mintime=mintime, maxtime=maxtime)
         return self._foldTypeCols(rows)
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         self._runPropQuery('delrowsbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete, nolim=True)
 
-    def _getStoreType(self):
+    def getStoreType(self):
         return 'sqlite'
 
     def _getBlobValu(self, key):
@@ -757,6 +760,3 @@ class SqliteStorage(s_cores_storage.Storage):
         rows = self.select(self._q_blob_get_keys)
         ret = [row[0] for row in rows]
         return ret
-
-def initSqliteCortex(link):
-    return s_cores_common.Cortex(link, store=SqliteStorage)

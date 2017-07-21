@@ -50,14 +50,6 @@ def reqiden(tufo):
         raise s_common.NoSuchTufo(iden=None)
     return tufo[0]
 
-def reqstor(name, valu):
-    '''
-    Raise BadPropValue if valu is not cortex storable.
-    '''
-    if not s_compat.canstor(valu):
-        raise s_common.BadPropValu(name=name, valu=valu)
-    return valu
-
 class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
     '''
     Top level Cortex key/valu storage object.
@@ -127,20 +119,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.cache_byprop = collections.defaultdict(dict)   # (<prop>,<valu>):[ ((prop, valu, limt),  answ), ... ]
 
         #############################################################
-        # buses to save/load *raw* save events
-        #############################################################
-        self.savebus = EventBus()
-        self.loadbus = EventBus()
-
-        self.loadbus.on('core:save:add:rows', self._loadAddRows)
-        self.loadbus.on('core:save:del:rows:by:iden', self._loadDelRowsById)
-        self.loadbus.on('core:save:del:rows:by:prop', self._loadDelRowsByProp)
-        self.loadbus.on('core:save:set:rows:by:idprop', self._loadSetRowsByIdProp)
-        self.loadbus.on('core:save:del:rows:by:idprop', self._loadDelRowsByIdProp)
-        self.loadbus.on('syn:core:blob:set', self._onSetBlobValu)
-        self.loadbus.on('syn:core:blob:del', self._onDelBlobValu)
-
-        #############################################################
         # Handlers for each splice event action
         self.spliceact = s_reactor.Reactor()
         self.spliceact.act('node:add', self._actNodeAdd)
@@ -154,9 +132,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         #############################################################
 
-        self.onfini(self.savebus.fini)
-        self.onfini(self.loadbus.fini)
-
         self.addStatFunc('any', self._calcStatAny)
         self.addStatFunc('all', self._calcStatAll)
         self.addStatFunc('min', self._calcStatMin)
@@ -166,44 +141,15 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.addStatFunc('count', self._calcStatCount)
         self.addStatFunc('histo', self._calcStatHisto)
 
-        # Cache blob save mesgs which may be fired during storage layer init
-        _blobMesgCache = []
-        self.savebus.on('syn:core:blob:set', _blobMesgCache.append)
-        self.savebus.on('syn:core:blob:del', _blobMesgCache.append)
         # Initialize the storage layer
-        # self._initCoreStor()
         self.store = store(link, self)  # type: s_storage.Storage()
-        # Disable the blob message caching
-        self.savebus.off('syn:core:blob:set', _blobMesgCache.append)
-        self.savebus.off('syn:core:blob:del', _blobMesgCache.append)
-
-        # process a savefile/savefd if we have one
-        savefd = link[1].get('savefd')
-        if savefd is not None:
-            self.setSaveFd(savefd)
-
-        savefile = link[1].get('savefile')
-        if savefile is not None:
-            savefd = s_common.genfile(savefile)
-            self.setSaveFd(savefd, fini=True)
-
-        # The storage layer initialization blob events then trump anything
-        # which may have been set during the savefile load and make sure they
-        # get saved as well
-        if 'savefd' in link[1] or 'savefile' in link[1]:
-            for evtname, info in _blobMesgCache:
-                self.savebus.fire(evtname, **info)
-                self.loadbus.fire(evtname, **info)
-
-        if not self.hasBlobValu('syn:core:created'):
-            self.setBlobValu('syn:core:created', s_common.now())
 
         self.isok = True
 
         DataModel.__init__(self, load=False)
 
         self.initTufosBy('eq', self._tufosByEq)
-        self.initTufosBy('in', self._tufosByIn)
+        # self.initTufosBy('in', self._tufosByIn)
         self.initTufosBy('has', self._tufosByHas)
         self.initTufosBy('tag', self._tufosByTag)
         self.initTufosBy('type', self._tufosByType)
@@ -951,25 +897,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
               If you want to store cortex splice events, use addSpliceFd().
 
         '''
-        self._setSaveFd(fd, load, fini)
-
-    def _setSaveFd(self, fd, load=True, fini=False):
-        '''
-        The default implementation of savefile for a Cortex.
-        This may be overridden by a storage layer.
-        '''
-        if load:
-            for mesg in s_common.msgpackfd(fd):
-                self.loadbus.dist(mesg)
-
-        self.onfini(fd.flush)
-        if fini:
-            self.onfini(fd.close)
-
-        def savemesg(mesg):
-            fd.write(s_common.msgenpack(mesg))
-
-        self.savebus.link(savemesg)
+        self.store.setSaveFd(fd, load, fini)
 
     def isOk(self):
         '''
@@ -1011,12 +939,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             core.addRows(rows)
 
         '''
-        [reqstor(p, v) for (i, p, v, t) in rows]
-        self.savebus.fire('core:save:add:rows', rows=rows)
         self.store._addRows(rows)
-
-    def _loadAddRows(self, mesg):
-        self.store._addRows(mesg[1].get('rows'))
 
     def addListRows(self, prop, *vals):
         '''
@@ -1088,7 +1011,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                 stuff()
 
         '''
-        return self.store._getRowsById(iden)
+        return self.store.getRowsById(iden)
 
     def getRowsByIdProp(self, iden, prop, valu=None):
         '''
@@ -1100,7 +1023,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                 dostuff(row)
 
         '''
-        return self.store._getRowsByIdProp(iden, prop, valu=valu)
+        return self.store.getRowsByIdProp(iden, prop, valu=valu)
 
     def delRowsById(self, iden):
         '''
@@ -1111,11 +1034,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             core.delRowsById(iden)
 
         '''
-        self.savebus.fire('core:save:del:rows:by:iden', iden=iden)
-        self.store._delRowsById(iden)
-
-    def _loadDelRowsById(self, mesg):
-        self._delRowsById(mesg[1].get('iden'))
+        self.store.delRowsById(iden)
 
     def delRowsByIdProp(self, iden, prop, valu=None):
         '''
@@ -1126,19 +1045,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             core.delRowsByIdProp(id, 'foo')
 
         '''
-        self.savebus.fire('core:save:del:rows:by:idprop', iden=iden, prop=prop, valu=valu)
-        return self.store._delRowsByIdProp(iden, prop, valu=valu)
-
-    def _loadDelRowsByIdProp(self, mesg):
-        iden = mesg[1].get('iden')
-        prop = mesg[1].get('prop')
-        self._delRowsByIdProp(iden, prop)
-
-    def _loadSetRowsByIdProp(self, mesg):
-        iden = mesg[1].get('iden')
-        prop = mesg[1].get('prop')
-        valu = mesg[1].get('valu')
-        self._setRowsByIdProp(iden, prop, valu)
+        return self.store.delRowsByIdProp(iden, prop, valu=valu)
 
     def setRowsByIdProp(self, iden, prop, valu):
         '''
@@ -1149,9 +1056,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             core.setRowsByIdProp(iden,'foo',10)
 
         '''
-        reqstor(prop, valu)
-        self.savebus.fire('core:save:set:rows:by:idprop', iden=iden, prop=prop, valu=valu)
-        self.store._setRowsByIdProp(iden, prop, valu)
+        self.store.setRowsByIdProp(iden, prop, valu)
 
     def getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         '''
@@ -1169,7 +1074,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             * Specify maxtime=<time> in epoch to filter rows
 
         '''
-        return tuple(self.store._getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit))
+        return tuple(self.store.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit))
 
     def getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         '''
@@ -1184,7 +1089,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             * See getRowsByProp for options
 
         '''
-        return tuple(self.store._getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit))
+        return tuple(self.store.getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit))
 
     def getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, limit=None):
         '''
@@ -1211,7 +1116,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                 stuff()
 
         '''
-        return self.store._getSizeByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
+        return self.store.getSizeByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
 
     def getTufosBy(self, name, prop, valu, limit=None):
         '''
@@ -2269,7 +2174,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             core.addSaveLink(savemesg)
 
         '''
-        self.savebus.link(func)
+        self.store.addSaveLink(func)
 
     @s_telepath.clientside
     def formNodeByBytes(self, byts, stor=True, **props):
@@ -2511,15 +2416,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             core.delRowsByProp('foo',valu=10)
 
         '''
-        self.savebus.fire('core:save:del:rows:by:prop', prop=prop, valu=valu, mintime=mintime, maxtime=maxtime)
-        return self.store._delRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
-
-    def _loadDelRowsByProp(self, mesg):
-        prop = mesg[1].get('prop')
-        valu = mesg[1].get('valu')
-        mint = mesg[1].get('mintime')
-        maxt = mesg[1].get('maxtime')
-        self.store._delRowsByProp(prop, valu=valu, mintime=mint, maxtime=maxt)
+        return self.store.delRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
 
     def delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
         '''
@@ -2533,8 +2430,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         return self.store._delJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
 
     def _getPivotRows(self, prop, byprop, valu=None, mintime=None, maxtime=None, limit=None):
-        for irow in self.store._getRowsByProp(byprop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit):
-            for jrow in self.store._getRowsByIdProp(irow[0], prop):
+        for irow in self.store.getRowsByProp(byprop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit):
+            for jrow in self.store.getRowsByIdProp(irow[0], prop):
                 yield jrow
 
     def _calcStatSum(self, rows):
@@ -2565,20 +2462,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
     def _calcStatAll(self, rows):
         return all([r[2] for r in rows])
-
-    def _tufosByIn(self, prop, valus, limit=None):
-        ret = []
-
-        for valu in valus:
-            res = self.getTufosByProp(prop, valu=valu, limit=limit)
-            ret.extend(res)
-
-            if limit is not None:
-                limit -= len(res)
-                if limit <= 0:
-                    break
-
-        return ret
 
     def _tufosByInetCidr(self, prop, valu, limit=None):
         lowerbound, upperbound = self.getTypeCast('inet:ipv4:cidr', valu)
@@ -2719,7 +2602,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         if xact is not None:
             return xact
 
-        xact = self._getCoreXact(size)
+        xact = self.getStoreXact(size)
         self._core_xacts[iden] = xact
         return xact
 
@@ -2852,7 +2735,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         return self._initTufoSnap(idens)
 
     def getStoreType(self):
-        return self.store._getStoreType()
+        return self.store.getStoreType()
 
     # TODO: Wrap this in a userauth layer
     def getBlobValu(self, key, default=None):
@@ -2940,12 +2823,3 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             NoSuchName: If the key is not present in the store.
         '''
         return self.store.delBlobValu(key)
-
-    def _onSetBlobValu(self, mesg):
-        key = mesg[1].get('key')
-        valu = mesg[1].get('valu')
-        self._setBlobValu(key, valu)
-
-    def _onDelBlobValu(self, mesg):
-        key = mesg[1].get('key')
-        self._delBlobValu(key)
