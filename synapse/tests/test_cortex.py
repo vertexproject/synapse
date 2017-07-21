@@ -111,7 +111,7 @@ class CortexTest(SynTest):
 
     def test_cortex_sqlite3(self):
         core = s_cortex.openurl('sqlite:///:memory:')
-        self.eq(core.getCoreType(), 'sqlite')
+        self.eq(core.getStoreType(), 'sqlite')
         self.runcore(core)
         self.runjson(core)
         self.runrange(core)
@@ -128,7 +128,7 @@ class CortexTest(SynTest):
             lmdb_url = 'lmdb:///%s' % fp
 
             with s_cortex.openurl(lmdb_url) as core:
-                self.eq(core.getCoreType(), 'lmdb')
+                self.eq(core.getStoreType(), 'lmdb')
                 self.runcore(core)
                 self.runjson(core)
                 self.runrange(core)
@@ -144,7 +144,7 @@ class CortexTest(SynTest):
 
     def test_cortex_postgres(self):
         with self.getPgCore() as core:
-            self.eq(core.getCoreType(), 'postgres')
+            self.eq(core.getStoreType(), 'postgres')
             self.runcore(core)
             self.runjson(core)
             self.runrange(core)

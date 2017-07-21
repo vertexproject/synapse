@@ -31,7 +31,7 @@ class InvalidParam(Exception):
 
 corctors = {
     'lmdb': synapse.cores.lmdb.Cortex,
-    'sqlite': synapse.cores.sqlite.Cortex,
+    'sqlite': synapse.cores.sqlite.initSqliteCortex,
     'ram': synapse.cores.ram.initRamCortex,
     'postgres': synapse.cores.postgres.Cortex,
 }

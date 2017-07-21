@@ -10,7 +10,7 @@ import synapse.cores.sqlite as s_cores_sqlite
 def md5(x):
     return hashlib.md5(x.encode('utf8')).hexdigest()
 
-class Cortex(s_cores_sqlite.Cortex):
+class Cortex(s_cores_sqlite.SqliteStorage):
 
     dblim = None
 

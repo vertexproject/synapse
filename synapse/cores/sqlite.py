@@ -31,12 +31,12 @@ class SqlXact(s_cores_storage.StoreXact):
         self.cursor.execute('BEGIN TRANSACTION')
 
     def _coreXactAcquire(self):
-        self.db = self.core.dbpool.get()
+        self.db = self.store.dbpool.get()
         self.cursor = self.db.cursor()
 
     def _coreXactRelease(self):
         self.cursor.close()
-        self.core.dbpool.put(self.db)
+        self.store.dbpool.put(self.db)
 
         self.db = None
         self.cursor = None
@@ -75,7 +75,7 @@ class DbPool:
     def get(self):
         return self.dbque.get()
 
-class Cortex(s_cores_common.Cortex):
+class SqliteStorage(s_cores_storage.Storage):
 
     dblim = -1
 
@@ -243,7 +243,7 @@ class Cortex(s_cores_common.Cortex):
         return {'name': name}
 
     def _getCoreXact(self, size=None):
-        return CoreXact(self, size=size)
+        return SqlXact(self, size=size)
 
     def _getDbLimit(self, limit):
         if limit is not None:
@@ -310,22 +310,10 @@ class Cortex(s_cores_common.Cortex):
 
     def _initCoreStor(self):
 
-        self.initSizeBy('ge', self._sizeByGe)
-        self.initRowsBy('ge', self._rowsByGe)
-
-        self.initSizeBy('le', self._sizeByLe)
-        self.initRowsBy('le', self._rowsByLe)
-
-        self.initSizeBy('range', self._sizeByRange)
-        self.initRowsBy('range', self._rowsByRange)
-
-        self.initTufosBy('ge', self._tufosByGe)
-        self.initTufosBy('le', self._tufosByLe)
+        # XXX This optimization for 'range' only exists for sqlite/psql
+        # We should move this into the storage layer and add
+        # ram / lmdb implementations if possible
         self.initTufosBy('range', self._tufosByRange)
-
-        # borrow the helpers from common
-        self.initTufosBy('gt', self._tufosByGt)
-        self.initTufosBy('lt', self._tufosByLt)
 
         self.dbpool = self._link[1].get('dbpool')
         if self.dbpool is None:
@@ -546,7 +534,7 @@ class Cortex(s_cores_common.Cortex):
         ]
 
         max_rev = max([rev for rev, func in revs])
-        vsn_str = 'syn:core:{}:version'.format(self.getCoreType())
+        vsn_str = 'syn:core:{}:version'.format(self._getStoreType())
 
         if not self._checkForTable(table):
             # We are a new cortex, stamp in tables and set
@@ -556,7 +544,7 @@ class Cortex(s_cores_common.Cortex):
             return
 
         # Strap in the blobstore if it doesn't exist - this allows us to have
-        # a helper which doesn't have to care about queries agianst a table
+        # a helper which doesn't have to care about queries against a table
         # which may not exist.
         blob_table = table + '_blob'
         if not self._checkForTable(blob_table):
@@ -721,7 +709,7 @@ class Cortex(s_cores_common.Cortex):
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         self._runPropQuery('delrowsbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete, nolim=True)
 
-    def _getCoreType(self):
+    def _getStoreType(self):
         return 'sqlite'
 
     def _getBlobValu(self, key):
@@ -769,3 +757,6 @@ class Cortex(s_cores_common.Cortex):
         rows = self.select(self._q_blob_get_keys)
         ret = [row[0] for row in rows]
         return ret
+
+def initSqliteCortex(link):
+    return s_cores_common.Cortex(link, store=SqliteStorage)

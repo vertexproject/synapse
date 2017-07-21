@@ -173,13 +173,17 @@ class Storage(s_config.Config):
     '''
     def __init__(self, link, core, **conf):
         s_config.Config.__init__(self)
-        self.link = link # XXX ???
+        self._link = link # XXX ???
 
         # XXX Can we eliminate this prop normalization need?
         # We do need to know how to do prop normalization/defs for some helpers.
         self.getPropNorm = core.getPropNorm
         self.getPropDef = core.getPropDef
-        # We need to be able to regisrter
+        # We need to be able to register tufosBy helpers
+        # which are storage helpers
+        # XXX Alternatively, provided a way for the cortex
+        # XXX to call into the storage layer and ask it
+        # To provide the tufo helper funcs?
         self.initTufosBy = core.initTufosBy
         self.onfini(self._defaultFiniCoreStor)
 
