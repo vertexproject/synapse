@@ -1530,7 +1530,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
             for prop, newv, oldv in props:
                 self._bumpTufoCache(tufo, prop, oldv, newv)
-                self._setRowsByIdProp(iden, prop, newv)
+                self.store.setRowsByIdProp(iden, prop, newv)
 
             ival = (tufo[1].get(minp), tufo[1].get(maxp))
 
