@@ -939,7 +939,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             core.addRows(rows)
 
         '''
-        self.store._addRows(rows)
+        self.store.addRows(rows)
 
     def addListRows(self, prop, *vals):
         '''

@@ -498,7 +498,7 @@ class Storage(s_config.Config):
         '''
         self._setSaveFd(fd, load, fini)
 
-    def addrows(self, rows):
+    def addRows(self, rows):
         [reqstor(p, v) for (i, p, v, t) in rows]
         self.savebus.fire('core:save:add:rows', rows=rows)
         self._addRows(rows)
