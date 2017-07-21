@@ -595,19 +595,18 @@ class CortexTest(SynTest):
 
     def runtufobydefault(self, core):
         # BY IN
-        fooa = core.formTufoByProp('foo', 'bar', p0=4)
-        foob = core.formTufoByProp('foo', 'baz', p0=5)
+        fooa = core.formTufoByProp('default_foo', 'bar', p0=4)
+        foob = core.formTufoByProp('default_foo', 'baz', p0=5)
+        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [4])), 1)
 
-        self.eq(len(core.getTufosBy('in', 'foo:p0', [4])), 1)
-
-        fooc = core.formTufoByProp('foo', 'faz', p0=5)
-        food = core.formTufoByProp('foo', 'haz', p0=6)
-        fooe = core.formTufoByProp('foo', 'gaz', p0=7)
-        self.eq(len(core.getTufosBy('in', 'foo:p0', [5])), 2)
-        self.eq(len(core.getTufosBy('in', 'foo:p0', [4, 5])), 3)
-        self.eq(len(core.getTufosBy('in', 'foo:p0', [4, 5, 6, 7], limit=4)), 4)
-        self.eq(len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
-        self.eq(len(core.getTufosBy('in', 'foo:p0', [], limit=1)), 0)
+        fooc = core.formTufoByProp('default_foo', 'faz', p0=5)
+        food = core.formTufoByProp('default_foo', 'haz', p0=6)
+        fooe = core.formTufoByProp('default_foo', 'gaz', p0=7)
+        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [5])), 2)
+        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [4, 5])), 3)
+        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [4, 5, 6, 7], limit=4)), 4)
+        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [5], limit=1)), 1)
+        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [], limit=1)), 0)
 
         # BY CIDR
         tlib = s_types.TypeLib()
