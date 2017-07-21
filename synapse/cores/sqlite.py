@@ -317,6 +317,12 @@ class SqliteStorage(s_cores_storage.Storage):
         # We should move this into the storage layer and add
         # ram / lmdb implementations if possible
         self.initTufosBy('range', self._tufosByRange)
+        # XXX This is a hack since sqlite doesn't have a built in IN statement
+        # and I don't want to currently figure out an alternative to make a
+        # sqlite _tufosByIn, make the PostgresStorage _initCoreStor do weird
+        # magic
+        if hasattr(self, '_tufosByIn'):
+            self.initTufosBy('in', self._tufosByIn)
 
         self.dbpool = self._link[1].get('dbpool')
         if self.dbpool is None:
@@ -634,7 +640,7 @@ class SqliteStorage(s_cores_storage.Storage):
 
         rows = self.select(self._q_getjoin_by_range_int, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)
         rows = self._foldTypeCols(rows)
-        return self._rowsToTufos(rows)
+        return self.rowsToTufos(rows)
 
     def tufosByLe(self, prop, valu, limit=None):
         valu, _ = self.getPropNorm(prop, valu)
@@ -643,7 +649,7 @@ class SqliteStorage(s_cores_storage.Storage):
         rows = self.select(self._q_getjoin_by_le_int, prop=prop, valu=valu, limit=limit)
         rows = self._foldTypeCols(rows)
 
-        return self._rowsToTufos(rows)
+        return self.rowsToTufos(rows)
 
     def tufosByGe(self, prop, valu, limit=None):
         valu, _ = self.getPropNorm(prop, valu)
@@ -652,7 +658,7 @@ class SqliteStorage(s_cores_storage.Storage):
         rows = self.select(self._q_getjoin_by_ge_int, prop=prop, valu=valu, limit=limit)
         rows = self._foldTypeCols(rows)
 
-        return self._rowsToTufos(rows)
+        return self.rowsToTufos(rows)
 
     def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None, nolim=False):
         limit = self._getDbLimit(limit)

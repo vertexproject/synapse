@@ -133,7 +133,7 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
 
         return dbinfo
 
-    def tufosByIn(self, prop, valus, limit=None):
+    def _tufosByIn(self, prop, valus, limit=None):
         if len(valus) == 0:
             return []
 

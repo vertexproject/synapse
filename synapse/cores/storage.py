@@ -15,6 +15,7 @@ import time
 import argparse
 import logging
 import threading
+import collections
 
 # Third Party Code
 # Custom Code
@@ -223,7 +224,6 @@ class Storage(s_config.Config):
         self.initSizeBy('le', self.sizeByLe)
         self.initSizeBy('range', self.sizeByRange)
 
-        self.initTufosBy('in', self.tufosByIn)
         self.initTufosBy('ge', self.tufosByGe)
         self.initTufosBy('le', self.tufosByLe)
         self.initTufosBy('gt', self.tufosByGt)
@@ -549,6 +549,19 @@ class Storage(s_config.Config):
         valu = mesg[1].get('valu')
         self._setRowsByIdProp(iden, prop, valu)
 
+    def rowsToTufos(self, rows):
+        '''
+        Convert rows into tufos
+        Args:
+            rows:
+
+        Returns:
+
+        '''
+        res = collections.defaultdict(dict)
+        [res[i].__setitem__(p, v) for (i, p, v, t) in rows]
+        return list(res.items())
+
     # The following MUST be implemented by the storage layer in order to
     # support the basic idea of a cortex
 
@@ -668,20 +681,6 @@ class Storage(s_config.Config):
         for irow in self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit):
             for jrow in self.getRowsById(irow[0]):
                 yield jrow
-
-    def tufosByIn(self, prop, valus, limit=None):
-        ret = []
-
-        for valu in valus:
-            res = self.getTufosByProp(prop, valu=valu, limit=limit)
-            ret.extend(res)
-
-            if limit is not None:
-                limit -= len(res)
-                if limit <= 0:
-                    break
-
-        return ret
 
     # Blobstore interface isn't clean to seperate
     def _revCorVers(self, revs):

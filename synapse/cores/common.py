@@ -141,20 +141,21 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.addStatFunc('count', self._calcStatCount)
         self.addStatFunc('histo', self._calcStatHisto)
 
+        # Strap in default initTufosBy functions - Storage layer may override these.
+        self.initTufosBy('eq', self._tufosByEq)
+        self.initTufosBy('in', self._tufosByIn)
+        self.initTufosBy('has', self._tufosByHas)
+        self.initTufosBy('tag', self._tufosByTag)
+        self.initTufosBy('type', self._tufosByType)
+        self.initTufosBy('inet:cidr', self._tufosByInetCidr)
+        self.initTufosBy('dark', self._tufosByDark)
+
         # Initialize the storage layer
         self.store = store(link, self)  # type: s_storage.Storage()
 
         self.isok = True
 
         DataModel.__init__(self, load=False)
-
-        self.initTufosBy('eq', self._tufosByEq)
-        # self.initTufosBy('in', self._tufosByIn)
-        self.initTufosBy('has', self._tufosByHas)
-        self.initTufosBy('tag', self._tufosByTag)
-        self.initTufosBy('type', self._tufosByType)
-        self.initTufosBy('inet:cidr', self._tufosByInetCidr)
-        self.initTufosBy('dark', self._tufosByDark)
 
         self.myfo = self.formTufoByProp('syn:core', 'self')
         self.isnew = self.myfo[1].get('.new', False)
@@ -1267,11 +1268,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         return tufo
 
-    def _rowsToTufos(self, rows):
-        res = collections.defaultdict(dict)
-        [res[i].__setitem__(p, v) for (i, p, v, t) in rows]
-        return list(res.items())
-
     def getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         '''
         Return a list of tufos by property.
@@ -1295,7 +1291,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
     def _getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         rows = self.getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
-        return self._rowsToTufos(rows)
+        return self.store.rowsToTufos(rows)
 
     def getTufosByPropType(self, name, valu=None, mintime=None, maxtime=None, limit=None):
         '''
@@ -2462,6 +2458,20 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
     def _calcStatAll(self, rows):
         return all([r[2] for r in rows])
+
+    def _tufosByIn(self, prop, valus, limit=None):
+        ret = []
+
+        for valu in valus:
+            res = self.getTufosByProp(prop, valu=valu, limit=limit)
+            ret.extend(res)
+
+            if limit is not None:
+                limit -= len(res)
+                if limit <= 0:
+                    break
+
+        return ret
 
     def _tufosByInetCidr(self, prop, valu, limit=None):
         lowerbound, upperbound = self.getTypeCast('inet:ipv4:cidr', valu)
