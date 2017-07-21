@@ -104,6 +104,7 @@ class CortexTest(SynTest):
         self.runjson(core)
         self.runrange(core)
         self.runidens(core)
+        self.runtufobydefault(core)
         self.rundsets(core)
         self.runsnaps(core)
         self.rundarks(core)
@@ -116,6 +117,7 @@ class CortexTest(SynTest):
         self.runjson(core)
         self.runrange(core)
         self.runidens(core)
+        self.runtufobydefault(core)
         self.rundsets(core)
         self.runsnaps(core)
         self.rundarks(core)
@@ -133,6 +135,7 @@ class CortexTest(SynTest):
                 self.runjson(core)
                 self.runrange(core)
                 self.runidens(core)
+                self.runtufobydefault(core)
                 self.rundsets(core)
                 self.runsnaps(core)
                 self.rundarks(core)
@@ -149,6 +152,7 @@ class CortexTest(SynTest):
             self.runjson(core)
             self.runrange(core)
             self.runidens(core)
+            self.runtufobydefault(core)
             self.rundsets(core)
             self.runsnaps(core)
             self.rundarks(core)
@@ -589,9 +593,7 @@ class CortexTest(SynTest):
         self.eq(t1, ('foo', 'foo.bar'))
         self.eq(t2, ('foo', 'foo.bar', 'foo.bar.baz'))
 
-    def test_cortex_tufo_by_default(self):
-        core = s_cortex.openurl('sqlite:///:memory:')
-
+    def runtufobydefault(self, core):
         # BY IN
         fooa = core.formTufoByProp('foo', 'bar', p0=4)
         foob = core.formTufoByProp('foo', 'baz', p0=5)
@@ -691,21 +693,6 @@ class CortexTest(SynTest):
         self.eq(test_repr, '192.168.0.1')
         test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
         self.eq(test_repr, '192.168.255.254')
-
-    def test_cortex_tufo_by_postgres(self):
-
-        with self.getPgCore() as core:
-
-            fooa = core.formTufoByProp('foo', 'bar', p0=4)
-            foob = core.formTufoByProp('foo', 'baz', p0=5)
-
-            self.eq(len(core.getTufosBy('in', 'foo:p0', [4])), 1)
-
-            fooc = core.formTufoByProp('foo', 'faz', p0=5)
-
-            self.eq(len(core.getTufosBy('in', 'foo:p0', [5])), 2)
-            self.eq(len(core.getTufosBy('in', 'foo:p0', [4, 5])), 3)
-            self.eq(len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
 
     def test_cortex_tufo_tag(self):
         core = s_cortex.openurl('ram://')
