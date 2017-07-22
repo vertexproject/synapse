@@ -2063,10 +2063,10 @@ class CortexTest(SynTest):
                 self.eq(len(core.eval('#foo.bar.baz')), 1)
 
                 # sqlite storage layer versioning checks go below
-                table = core._getTableName()
+                table = core.store._getTableName()
                 blob_table = table + '_blob'
                 self.ge(core.getBlobValu('syn:core:sqlite:version'), 0)
-                self.true(core._checkForTable(blob_table))
+                self.true(core.store._checkForTable(blob_table))
                 self.runblob(core)
 
     def test_cortex_rev0_lmdb(self):
@@ -2111,7 +2111,7 @@ class CortexTest(SynTest):
                 # lmdb storage layer versioning checks go below
                 blob_table = b'blob_store'
                 self.ge(core.getBlobValu('syn:core:lmdb:version'), 0)
-                self.true(core._checkForTable(blob_table))
+                self.true(core.store._checkForTable(blob_table))
                 self.runblob(core)
 
     def test_cortex_rev0_psql(self):
@@ -2166,10 +2166,10 @@ class CortexTest(SynTest):
             self.eq(len(core.eval('#foo.bar.baz')), 1)
 
             # sqlite storage layer versioning checks go below
-            table = core._getTableName()
+            table = core.store._getTableName()
             blob_table = table + '_blob'
             self.eq(core.getBlobValu('syn:core:postgres:version'), 0)
-            self.true(core._checkForTable(blob_table))
+            self.true(core.store._checkForTable(blob_table))
             self.runblob(core)
 
     def test_cortex_module_datamodel_migration(self):
