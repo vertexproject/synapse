@@ -166,9 +166,19 @@ class StoreXact:
         self.store._popCoreXact()
 
 
-# XXX
-# This is the base class for a cortex Storage object which storage layers must
-# implement
+class FakeCore(s_eventbus.EventBus):
+
+    def getPropDef(self, *args, **kwargs):
+        # raise s_common.NoSuchImpl(name='getPropDef', mesg='Fake Core does not implement getPropDef')
+        pass
+
+    def getPropNorm(self, *args, **kwargs):
+        # raise s_common.NoSuchImpl(name='getPropNorm', mesg='Fake Core does not implement getPropNorm')
+        pass
+
+    def initTufosBy(self, *args, **kwargs):
+        # raise s_common.NoSuchImpl(name='initTufosBy', mesg='Fake Core does not implement initTufosBy')
+        pass
 
 class StorageBase(s_config.Config):
     '''
@@ -177,10 +187,13 @@ class StorageBase(s_config.Config):
     '''
     def __init__(self,
                  link,
-                 core,
+                 core=None,
                  **conf):
         s_config.Config.__init__(self)
         self.addConfDef('rev:storage', type='bool', defval=1, doc='Set to 0 to disallow storage version updates')
+
+        if not core:
+            core = FakeCore()
 
         #############################################################
         # buses to save/load *raw* save events

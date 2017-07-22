@@ -15,6 +15,8 @@ import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.cores.lmdb as lmdb
+import synapse.cores.sqlite as s_cores_sqlite
+import synapse.cores.storage as s_cores_storage
 
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
@@ -440,7 +442,7 @@ class CortexTest(SynTest):
         self.eq(tufo[1].get('hehe:foo'), 'bar')
         self.eq(tufo[1].get('hehe:baz'), 'faz')
 
-        tufo = core.delTufoProp(tufo,'foo')
+        tufo = core.delTufoProp(tufo, 'foo')
         self.none(tufo[1].get('hehe:foo'))
 
         self.eq(len(core.eval('hehe:foo')), 0)
@@ -2220,8 +2222,8 @@ class CortexTest(SynTest):
     def test_cortex_splice_propdel(self):
 
         with s_cortex.openurl('ram:///') as core:
-            tufo = core.formTufoByProp('hehe','haha', foo='bar', baz='faz')
-            splice = ('splice', {'act':'node:prop:del', 'form':'hehe', 'valu':'haha', 'prop':'foo'})
+            tufo = core.formTufoByProp('hehe', 'haha', foo='bar', baz='faz')
+            splice = ('splice', {'act': 'node:prop:del', 'form': 'hehe', 'valu': 'haha', 'prop': 'foo'})
             core.splice(splice)
 
             self.eq(len(core.eval('hehe:foo')), 0)
@@ -2367,3 +2369,39 @@ class CortexTest(SynTest):
             # Try a /16
             nodes = core.eval('inet:ipv4*inet:cidr=192.168.0.0/16')
             self.eq(len(nodes), 256 * 3)
+
+class StorageTest(SynTest):
+
+    def test_storage_sqlite(self):
+        path = getTestPath('rev0.db')
+        with open(path, 'rb') as fd:
+            byts = fd.read()
+
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = '50cae022b296e0c2b61fd6b101c4fdaf'
+        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
+
+        with self.getTestDir() as temp:
+            finl = os.path.join(temp, 'test.db')
+            url = 'sqlite:///%s' % finl
+
+            with open(finl, 'wb') as fd:
+                fd.write(byts)
+
+            link = s_link.chopLinkUrl(url)
+            with s_cores_sqlite.SqliteStorage(link) as store:
+                self.isinstance(store, s_cores_storage.Storage)
+                # Add rows directly to the storage object
+                rows = []
+                tick = s_common.now()
+                rows.append(('1234', 'foo:bar:baz', 'yes', tick))
+                rows.append(('1234', 'tufo:form', 'foo:bar', tick))
+                store.addRows(rows)
+
+            # Retrieve the node via the Cortex interface
+            with s_cortex.openurl(url) as core:
+                node = core.getTufoByIden('1234')
+                self.nn(node)
+                self.eq(node[1].get('tufo:form'), 'foo:bar')
+                self.eq(node[1].get('foo:bar:baz'), 'yes')
