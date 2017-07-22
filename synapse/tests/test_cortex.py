@@ -581,7 +581,7 @@ class CortexTest(SynTest):
 
     def test_pg_encoding(self):
         with self.getPgCore() as core:
-            res = core.select('SHOW SERVER_ENCODING')[0][0]
+            res = core.store.select('SHOW SERVER_ENCODING')[0][0]
             self.eq(res, 'UTF8')
 
     def test_cortex_choptag(self):

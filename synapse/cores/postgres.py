@@ -147,15 +147,15 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
 
         rows = self.select(q, prop=prop, valu=tuple(valus), limit=limit)
         rows = self._foldTypeCols(rows)
-        return self._rowsToTufos(rows)
+        return self.rowsToTufos(rows)
 
     def getTufosByIdens(self, idens):
         rows = self.select(self._q_getrows_by_idens, valu=tuple(idens))
         rows = self._foldTypeCols(rows)
-        return self._rowsToTufos(rows)
+        return self.rowsToTufos(rows)
 
     def _initCorQueries(self):
-        s_cores_sqlite.Cortex._initCorQueries(self)
+        s_cores_sqlite.SqliteStorage._initCorQueries(self)
 
         self._q_getrows_by_idens = self._prepQuery(self._t_getrows_by_idens)
         self._q_getjoin_by_in_int = self._prepQuery(self._t_getjoin_by_in_int)
