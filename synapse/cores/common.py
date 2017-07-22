@@ -77,7 +77,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
                         doc='Enables caching layer in the cortex')
 
         self.addConfDef('rev:model', type='bool', defval=1, doc='Set to 0 to disallow model version updates')
-        self.addConfDef('rev:storage', type='bool', defval=1, doc='Set to 0 to disallow storage version updates')
 
         self.addConfDef('axon:url', type='str', doc='Allows cortex to be aware of an axon blob store')
 

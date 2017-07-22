@@ -180,6 +180,7 @@ class StorageBase(s_config.Config):
                  core,
                  **conf):
         s_config.Config.__init__(self)
+        self.addConfDef('rev:storage', type='bool', defval=1, doc='Set to 0 to disallow storage version updates')
 
         #############################################################
         # buses to save/load *raw* save events
