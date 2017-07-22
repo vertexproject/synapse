@@ -415,8 +415,7 @@ class StorageBase(s_config.Config):
         '''
         buf = s_common.msgenpack(valu)
         self._setBlobValu(key, buf)
-        # XXX Figure out how to handle savebus/loadbus events across storage layers
-        # self.savebus.fire('syn:core:blob:set', key=key, valu=buf)
+        self.savebus.fire('syn:core:blob:set', key=key, valu=buf)
         return valu
 
     # TODO: Wrap this in a userauth layer
@@ -450,8 +449,7 @@ class StorageBase(s_config.Config):
         if not self.hasBlobValu(key):
             raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
         buf = self._delBlobValu(key)
-        # XXX Figure out how to handle savebus/loadbus events across storage layers
-        # self.savebus.fire('syn:core:blob:del', key=key)
+        self.savebus.fire('syn:core:blob:del', key=key)
         return s_common.msgunpack(buf)
 
     def _onSetBlobValu(self, mesg):
