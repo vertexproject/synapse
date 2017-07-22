@@ -432,7 +432,6 @@ class AxonTest(SynTest):
                 self.eq(actual, b'')
 
     def test_axon_fs_readdir(self, *args, **kwargs):
-        raise unittest.SkipTest('FIXME file path norm breakage')
         with self.getTestDir() as dirname:
             with s_axon.Axon(dirname) as axon:
 
@@ -443,7 +442,6 @@ class AxonTest(SynTest):
                 self.raises(NotSupported, axon.fs_readdir, '/foofile')
 
     def test_axon_fs_rmdir(self, *args, **kwargs):
-        raise unittest.SkipTest('FIXME file path norm breakage')
         with self.getTestDir() as dirname:
             with s_axon.Axon(dirname) as axon:
 
@@ -459,7 +457,6 @@ class AxonTest(SynTest):
                 self.raises(NoSuchEntity, axon.fs_rmdir, '/foo')
 
     def test_axon_fs_rename(self, *args, **kwargs):
-        raise unittest.SkipTest('FIXME file path norm breakage')
         with self.getTestDir() as dirname:
             with s_axon.Axon(dirname) as axon:
 
@@ -544,7 +541,7 @@ class AxonTest(SynTest):
                 self.eq(tufo[1].get('axon:path:st_size'), 0)
                 self.eq(tufo[1].get('axon:path:blob'), None)
 
-                axon.fs_truncate('/notthere')  # FIXME - should this raise exception?
+                axon.fs_truncate('/notthere')
 
     def test_axon_fs_unlink(self, *args, **kwargs):
         with self.getTestDir() as dirname:
