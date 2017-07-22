@@ -169,11 +169,11 @@ class StoreXact:
 # XXX
 # This is the base class for a cortex Storage object which storage layers must
 # implement
-class Storage(s_config.Config):
-    '''
-    Base class for storage layer backends for a Synapse Cortex.
 
-    It is intended that storage layer implementations may override many of the functions provided here.
+class StorageBase(s_config.Config):
+    '''
+    Base class for storage layer backends.  This implements functionality
+    which should be untouched by the storage layer implementer.
     '''
     def __init__(self,
                  link,
@@ -562,6 +562,52 @@ class Storage(s_config.Config):
         [res[i].__setitem__(p, v) for (i, p, v, t) in rows]
         return list(res.items())
 
+    # Blobstore interface isn't clean to seperate
+    def _revCorVers(self, revs):
+        '''
+        Update a the storage layer with a list of (vers,func) tuples.
+
+        Args:
+            revs ([(int,function)]):  List of (vers,func) revision tuples.
+
+        Returns:
+            (None)
+
+        Each specified function is expected to update the storage layer including data migration.
+        '''
+        if not revs:
+            return
+        vsn_str = 'syn:core:{}:version'.format(self.getStoreType())
+        curv = self.getBlobValu(vsn_str, -1)
+
+        maxver = revs[-1][0]
+        if maxver == curv:
+            return
+
+        if not self.getConfOpt('rev:storage'):
+            raise s_common.NoRevAllow(name='rev:storage',
+                                      mesg='add rev:storage=1 to cortex url to allow storage updates')
+
+        for vers, func in sorted(revs):
+
+            if vers <= curv:
+                continue
+
+            # allow the revision function to optionally return the
+            # revision he jumped to ( to allow initial override )
+            mesg = 'Warning - storage layer update occurring. Do not interrupt. [{}] => [{}]'.format(curv, vers)
+            logger.warning(mesg)
+            retn = func()
+            logger.warning('Storage layer update completed.')
+            if retn is not None:
+                vers = retn
+
+            curv = self.setBlobValu(vsn_str, vers)
+
+class Storage(StorageBase):
+    '''
+    It is intended that storage layer implementations may override many of the functions provided here.
+    '''
     # The following MUST be implemented by the storage layer in order to
     # support the basic idea of a cortex
 
@@ -681,48 +727,6 @@ class Storage(s_config.Config):
         for irow in self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit):
             for jrow in self.getRowsById(irow[0]):
                 yield jrow
-
-    # Blobstore interface isn't clean to seperate
-    def _revCorVers(self, revs):
-        '''
-        Update a the storage layer with a list of (vers,func) tuples.
-
-        Args:
-            revs ([(int,function)]):  List of (vers,func) revision tuples.
-
-        Returns:
-            (None)
-
-        Each specified function is expected to update the storage layer including data migration.
-        '''
-        if not revs:
-            return
-        vsn_str = 'syn:core:{}:version'.format(self.getStoreType())
-        curv = self.getBlobValu(vsn_str, -1)
-
-        maxver = revs[-1][0]
-        if maxver == curv:
-            return
-
-        if not self.getConfOpt('rev:storage'):
-            raise s_common.NoRevAllow(name='rev:storage',
-                                      mesg='add rev:storage=1 to cortex url to allow storage updates')
-
-        for vers, func in sorted(revs):
-
-            if vers <= curv:
-                continue
-
-            # allow the revision function to optionally return the
-            # revision he jumped to ( to allow initial override )
-            mesg = 'Warning - storage layer update occurring. Do not interrupt. [{}] => [{}]'.format(curv, vers)
-            logger.warning(mesg)
-            retn = func()
-            logger.warning('Storage layer update completed.')
-            if retn is not None:
-                vers = retn
-
-            curv = self.setBlobValu(vsn_str, vers)
 
     def _setRowsByIdProp(self, iden, prop, valu):
         # base case is delete and add
