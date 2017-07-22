@@ -7,7 +7,6 @@ import json
 import time
 import types
 import hashlib
-import msgpack
 import functools
 import itertools
 import threading
@@ -19,6 +18,8 @@ import synapse.exc as s_exc
 
 from synapse.exc import *
 from synapse.compat import enbase64, debase64, canstor
+
+import msgpack
 
 class NoValu: pass
 
