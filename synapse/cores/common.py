@@ -152,6 +152,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         # Initialize the storage layer
         self.store = store(link, self)  # type: s_storage.Storage()
+        self.onfini(self.store.fini)
 
         self.isok = True
 
