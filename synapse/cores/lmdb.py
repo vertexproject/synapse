@@ -730,6 +730,26 @@ class LmdbStorage(s_cores_storage.Storage):
                     break
         return count if do_count_only else ret
 
+    def _genStoreRows(self, **kwargs):
+        gsize = kwargs.get('gsize', 1000)
+        lifted = 0
+        with self._getTxn() as txn:  # type: lmdb.Transaction
+            with txn.cursor(db=self.rows) as cur:  # type: lmdb.Cursor
+                cur.first()
+                gen = cur.iternext(keys=False, values=True)
+                while True:
+                    rows = []
+                    for row in gen:
+                        row = s_common.msgunpack(row)
+                        rows.append(row)
+                        if len(rows) == gsize:
+                            break
+                    if rows:
+                        lifted = lifted + len(rows)
+                        yield rows
+                    else:
+                        break
+
     def getStoreType(self):
         return 'lmdb'
 

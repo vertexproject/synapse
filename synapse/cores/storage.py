@@ -710,6 +710,9 @@ class Storage(StorageBase):
         # raise s_common.NoSuchImpl(name='_finiCoreStore', mesg='Store does not implement _finiCoreStore')
         pass
 
+    def _genStoreRows(self, **kwargs):
+        raise s_common.NoSuchImpl(name='_genStoreRows', mesg='Store does not implement _genStoreRows')
+
     # The following are default implementations that may be overridden by
     # a storage layer for various reasons.
     def _incTufoProp(self, tufo, prop, incval=1):
@@ -790,6 +793,10 @@ class Storage(StorageBase):
         if not rows:
             return None
         return (iden, {p: v for (i, p, v, t) in rows})
+
+    def genStoreRows(self, **kwargs):
+        for rows in self._genStoreRows(**kwargs):
+            yield rows
 
     # these helpers allow a storage layer to simply implement
     # and register _getTufosByGe and _getTufosByLe

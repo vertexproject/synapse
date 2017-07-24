@@ -206,4 +206,8 @@ class RamStorage(s_cores_storage.Storage):
         ret = list(self._blob_store.keys())
         return ret
 
+    def _genStoreRows(self):
+        for iden, rows in self.rowsbyid.items():
+            yield list(rows)
+
 ramcores = {}

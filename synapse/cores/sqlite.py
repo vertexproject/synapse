@@ -124,6 +124,7 @@ class SqliteStorage(s_cores_storage.Storage):
     _t_getrows_by_iden_prop = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}}'
     _t_getrows_by_iden_prop_intval = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND intval={{VALU}}'
     _t_getrows_by_iden_prop_strval = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND strval={{VALU}}'
+    _t_getrows_by_offset_limit = 'SELECT * FROM {{TABLE}} LIMIT {{LIMIT}} OFFSET {{OFFSET}}'
 
     ################################################################################
     _t_blob_set = 'INSERT OR REPLACE INTO {{BLOB_TABLE}} (k, v) VALUES ({{KEY}}, {{VALU}})'
@@ -377,6 +378,7 @@ class SqliteStorage(s_cores_storage.Storage):
         self._q_getrows_by_iden_prop = self._prepQuery(self._t_getrows_by_iden_prop)
         self._q_getrows_by_iden_prop_intval = self._prepQuery(self._t_getrows_by_iden_prop_intval)
         self._q_getrows_by_iden_prop_strval = self._prepQuery(self._t_getrows_by_iden_prop_strval)
+        self._q_getrows_by_offset_limit = self._prepQuery(self._t_getrows_by_offset_limit)
 
         self._q_blob_get = self._prepBlobQuery(self._t_blob_get)
         self._q_blob_set = self._prepBlobQuery(self._t_blob_set)
@@ -717,6 +719,17 @@ class SqliteStorage(s_cores_storage.Storage):
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         self._runPropQuery('delrowsbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete, nolim=True)
+
+    def _genStoreRows(self, **kwargs):
+        offset = 0
+        gsize = kwargs.get('gsize', 1000)
+        while True:
+            rows = self.select(self._q_getrows_by_offset_limit, limit=gsize, offset=offset)
+            if not rows:
+                break
+            rows = self._foldTypeCols(rows)
+            yield rows
+            offset = offset + len(rows)
 
     def getStoreType(self):
         return 'sqlite'

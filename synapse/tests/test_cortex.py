@@ -14,9 +14,11 @@ import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
-import synapse.cores.lmdb as lmdb
+import synapse.cores.ram as s_cores_ram
+import synapse.cores.lmdb as s_cores_lmdb
 import synapse.cores.sqlite as s_cores_sqlite
 import synapse.cores.storage as s_cores_storage
+import synapse.cores.postgres as s_cores_postgres
 
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
@@ -476,12 +478,12 @@ class CortexTest(SynTest):
             (guid(), 'rg', -1, 99),
             (guid(), 'rg', 0, 99),
             (guid(), 'rg', 1, 99),
-            (guid(), 'rg', lmdb.MIN_INT_VAL, 99),
-            (guid(), 'rg', lmdb.MAX_INT_VAL, 99),
+            (guid(), 'rg', s_cores_lmdb.MIN_INT_VAL, 99),
+            (guid(), 'rg', s_cores_lmdb.MAX_INT_VAL, 99),
         ]
         core.addRows(rows)
-        self.eq(core.getSizeBy('range', 'rg', (lmdb.MIN_INT_VAL + 1, -42)), 0)
-        self.eq(core.getSizeBy('range', 'rg', (lmdb.MIN_INT_VAL, -42)), 1)
+        self.eq(core.getSizeBy('range', 'rg', (s_cores_lmdb.MIN_INT_VAL + 1, -42)), 0)
+        self.eq(core.getSizeBy('range', 'rg', (s_cores_lmdb.MIN_INT_VAL, -42)), 1)
         self.eq(core.getSizeBy('le', 'rg', -42), 2)
         # TODO: Need to implement lt for all the cores
         if 0:
@@ -2405,3 +2407,55 @@ class StorageTest(SynTest):
                 self.nn(node)
                 self.eq(node[1].get('tufo:form'), 'foo:bar')
                 self.eq(node[1].get('foo:bar:baz'), 'yes')
+
+    def test_storage_genrows(self):
+        url = 'ram:///'
+        link = s_link.chopLinkUrl(url)
+        rows = []
+        with s_cores_ram.RamStorage(link) as store:
+            for _rows in store.genStoreRows():
+                rows.extend(_rows)
+        self.eq(rows, [])
+
+        with s_cortex.openurl(url) as core:
+            for _rows in core.store.genStoreRows():
+                rows.extend(_rows)
+        self.gt(len(rows), 1000)
+        self.eq(len(rows[0]), 4)
+
+    def test_storage_genrows_sqlite(self):
+        url = 'sqlite:///:memory:'
+        link = s_link.chopLinkUrl(url)
+        rows = []
+        with s_cores_sqlite.SqliteStorage(link) as store:
+            for _rows in store.genStoreRows():
+                rows.extend(_rows)
+        self.eq(rows, [])
+
+        with s_cortex.openurl(url) as core:
+            for _rows in core.store.genStoreRows():
+                rows.extend(_rows)
+        self.gt(len(rows), 1000)
+        self.isinstance(rows[0], tuple)
+        self.eq(len(rows[0]), 4)
+
+    def test_storage_genrows_lmdb(self):
+        with self.getTestDir() as temp:
+
+            fn = 'test.lmdb'
+            fp = os.path.join(temp, fn)
+            url = 'lmdb:///%s' % fp
+            link = s_link.chopLinkUrl(url)
+            rows = []
+
+            with s_cores_lmdb.LmdbStorage(link) as store:
+                for _rows in store.genStoreRows():
+                    rows.extend(_rows)
+            self.eq(rows, [])
+
+            with s_cortex.openurl(url) as core:
+                for _rows in core.store.genStoreRows():
+                    rows.extend(_rows)
+            self.gt(len(rows), 1000)
+            self.isinstance(rows[0], tuple)
+            self.eq(len(rows[0]), 4)
