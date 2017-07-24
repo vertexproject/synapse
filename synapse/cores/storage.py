@@ -8,20 +8,12 @@ Created on 7/19/17.
 
 """
 # Stdlib
-import os
-import sys
-import json
 import time
-import argparse
 import logging
 import threading
 import collections
-
-# Third Party Code
 # Custom Code
-
 import synapse.common as s_common
-import synapse.compat as s_compat
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.config as s_config
@@ -191,6 +183,8 @@ class StorageBase(s_config.Config):
                  **conf):
         s_config.Config.__init__(self)
         self.addConfDef('rev:storage', type='bool', defval=1, doc='Set to 0 to disallow storage version updates')
+        if conf:
+            self.setConfOpts(conf)
 
         if not core:
             core = FakeCore()
