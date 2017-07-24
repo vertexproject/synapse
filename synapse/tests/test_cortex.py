@@ -497,7 +497,7 @@ class CortexTest(SynTest):
         if 0:
             self.eq(core.getSizeBy('ge', 'rg', -1, limit=3), 3)
         self.eq(core.getSizeBy('ge', 'rg', 30), 2)
-        self.eq(core.getSizeBy('ge', 'rg', lmdb.MAX_INT_VAL), 1)
+        self.eq(core.getSizeBy('ge', 'rg', s_cores_lmdb.MAX_INT_VAL), 1)
 
     def runjson(self, core):
 
