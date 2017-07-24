@@ -277,13 +277,13 @@ class DataModelTest(SynTest):
         prop = 'file:path'
 
         data = (
-            ('/', ('/', {'dir': '', 'depth': 0}), '/'),
-            ('//', ('/', {'dir': '', 'depth': 0}), '//'),
-            ('////////////', ('/', {'dir': '', 'depth': 0}), '////////////'),
+            ('/', ('/', {'dir': '/', 'depth': 0}), '/'),
+            ('//', ('/', {'dir': '/', 'depth': 0}), '//'),
+            ('////////////', ('/', {'dir': '/', 'depth': 0}), '////////////'),
             ('weirD', ('weird', {'base': 'weird', 'dir': '', 'depth': 1}), 'weirD'),
 
             ('foo1', ('foo1', {'base': 'foo1', 'dir': '', 'depth': 1}), 'foo1'),
-            ('/foo2', ('/foo2', {'base': 'foo2', 'dir': '', 'depth': 1}), '/foo2'),
+            ('/foo2', ('/foo2', {'base': 'foo2', 'dir': '/', 'depth': 1}), '/foo2'),
             ('/foo/bar3', ('/foo/bar3', {'base': 'bar3', 'dir': '/foo', 'depth': 2}), '/foo/bar3'),
             ('/foo/bar4    ', ('/foo/bar4    ', {'base': 'bar4    ', 'dir': '/foo', 'depth': 2}), '/foo/bar4    '),  # These are valid filepaths
             ('/foo/bar5/', ('/foo/bar5', {'base': 'bar5', 'dir': '/foo', 'depth': 2}), '/foo/bar5/'),

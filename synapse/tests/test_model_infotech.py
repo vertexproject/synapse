@@ -75,7 +75,7 @@ class InfoTechTest(SynTest):
             self.nn(node)
             self.none(node[1].get('file:path:ext'))
 
-            self.eq(node[1].get('file:path:dir'), '')
+            self.eq(node[1].get('file:path:dir'), '/')
             self.eq(node[1].get('file:path:base'), 'foo')
 
             node = core.formTufoByProp('file:path', r'c:\Windows\system32\Kernel32.dll')
