@@ -5,21 +5,36 @@ from synapse.compat import isint, intern
 import synapse.cores.common as s_cores_common
 import synapse.cores.storage as s_cores_storage
 
-def initRamCortex(link):
+def initRamCortex(link, conf=None, storconf=None):
     '''
     Initialize a RAM based Cortex from a link tufo.
 
-    NOTE: the "path" element of the link tufo is used to
-          potentially return an existing cortex instance.
+    The path element of the link tufo, if present, is used to cache the Cortex
+    instance.  Subsequent calls with the same path will return the existing
+    Cortex instance.
 
+    Args:
+        link ((str, dict)): Link tufo.
+        conf (dict): Configable opts for the Cortex object.
+        storconf (dict): Configable opts for the storage object.
+
+    Returns:
+        s_cores_common.Cortex: Cortex created from the link tufo.
     '''
+    if not conf:
+        conf = {}
+    if not storconf:
+        storconf = {}
+
     path = link[1].get('path').strip('/')
     if not path:
-        return s_cores_common.Cortex(link, store=RamStorage)
+        store = RamStorage(link, **storconf)
+        return s_cores_common.Cortex(link, store, **conf)
 
     core = ramcores.get(path)
     if core is None:
-        core = s_cores_common.Cortex(link, store=RamStorage)
+        store = RamStorage(link, **storconf)
+        core = s_cores_common.Cortex(link, store, **conf)
 
         ramcores[path] = core
         def onfini():

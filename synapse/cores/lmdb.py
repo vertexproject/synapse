@@ -150,8 +150,25 @@ def _calcFirstLastKeys(prop, valu, mintime, maxtime):
     last_key = p_enc + v_key_enc + maxtime_enc
     return (first_key, last_key, v_is_hashed, False)
 
-def initLmdbCortex(link):
-    return s_cores_common.Cortex(link, store=LmdbStorage)
+def initLmdbCortex(link, conf=None, storconf=None):
+    '''
+    Initialize a LMDB based Cortex from a link tufo.
+
+    Args:
+        link ((str, dict)): Link tufo.
+        conf (dict): Configable opts for the Cortex object.
+        storconf (dict): Configable opts for the storage object.
+
+    Returns:
+        s_cores_common.Cortex: Cortex created from the link tufo.
+    '''
+    if not conf:
+        conf = {}
+    if not storconf:
+        storconf = {}
+
+    store = LmdbStorage(link, **storconf)
+    return s_cores_common.Cortex(link, store, **conf)
 
 class LmdbXact(s_cores_storage.StoreXact):
 

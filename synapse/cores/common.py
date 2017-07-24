@@ -150,7 +150,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.initTufosBy('dark', self._tufosByDark)
 
         # Initialize the storage layer
-        self.store = store(link, self)  # type: s_storage.Storage()
+        self.store = store  # type: s_storage.Storage()
+        self.store.register_cortex(self)
         self.onfini(self.store.fini)
 
         self.isok = True
@@ -396,7 +397,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         mhas = s_hashitem.hashitem(modl)
         if tufo[1].get('syn:model:hash') == mhas:
             return
-
 
         # FIXME handle type/form/prop removal
         for name, tnfo in modl.get('types', ()):
@@ -733,7 +733,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         prop = mesg[1].get('prop')
 
         node = self.formTufoByProp(form, valu)
-        self.delTufoProp(node,prop)
+        self.delTufoProp(node, prop)
 
     def _actNodeTagAdd(self, mesg):
 
@@ -2275,7 +2275,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             ((str,dict))    The updated node in tufo form
 
         '''
-        form,valu = s_tufo.ndef(tufo)
+        form, valu = s_tufo.ndef(tufo)
 
         prop = form + ':' + name
 
@@ -2291,7 +2291,7 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
             if pdef[1].get('defval') is not None:
                 raise CantDelProp(name=prop, mesg='property has default value')
 
-        oldv = tufo[1].pop(prop,None)
+        oldv = tufo[1].pop(prop, None)
         if oldv is None:
             return tufo
 

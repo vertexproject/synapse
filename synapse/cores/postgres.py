@@ -11,8 +11,25 @@ import synapse.cores.sqlite as s_cores_sqlite
 def md5(x):
     return hashlib.md5(x.encode('utf8')).hexdigest()
 
-def initPsqlCortex(link):
-    return s_cores_common.Cortex(link, store=PsqlStorage)
+def initPsqlCortex(link, conf=None, storconf=None):
+    '''
+    Initialize a Sqlite based Cortex from a link tufo.
+
+    Args:
+        link ((str, dict)): Link tufo.
+        conf (dict): Configable opts for the Cortex object.
+        storconf (dict): Configable opts for the storage object.
+
+    Returns:
+        s_cores_common.Cortex: Cortex created from the link tufo.
+    '''
+    if not conf:
+        conf = {}
+    if not storconf:
+        storconf = {}
+
+    store = PsqlStorage(link, **storconf)
+    return s_cores_common.Cortex(link, store, **conf)
 
 class PsqlStorage(s_cores_sqlite.SqliteStorage):
 

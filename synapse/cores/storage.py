@@ -157,21 +157,6 @@ class StoreXact:
         self._coreXactFini()
         self.store._popCoreXact()
 
-
-class FakeCore(s_eventbus.EventBus):
-
-    def getPropDef(self, *args, **kwargs):
-        # raise s_common.NoSuchImpl(name='getPropDef', mesg='Fake Core does not implement getPropDef')
-        pass
-
-    def getPropNorm(self, *args, **kwargs):
-        # raise s_common.NoSuchImpl(name='getPropNorm', mesg='Fake Core does not implement getPropNorm')
-        pass
-
-    def initTufosBy(self, *args, **kwargs):
-        # raise s_common.NoSuchImpl(name='initTufosBy', mesg='Fake Core does not implement initTufosBy')
-        pass
-
 class StorageBase(s_config.Config):
     '''
     Base class for storage layer backends.  This implements functionality
@@ -179,15 +164,11 @@ class StorageBase(s_config.Config):
     '''
     def __init__(self,
                  link,
-                 core=None,
                  **conf):
         s_config.Config.__init__(self)
         self.addConfDef('rev:storage', type='bool', defval=1, doc='Set to 0 to disallow storage version updates')
         if conf:
             self.setConfOpts(conf)
-
-        if not core:
-            core = FakeCore()
 
         #############################################################
         # buses to save/load *raw* save events
@@ -197,18 +178,16 @@ class StorageBase(s_config.Config):
 
         self._link = link # XXX ???
 
-        # link events from the Storage back to the core Eventbus
-        self.link(core.dist)
         # XXX Can we eliminate this prop normalization need?
         # We do need to know how to do prop normalization/defs for some helpers.
-        self.getPropNorm = core.getPropNorm
-        self.getPropDef = core.getPropDef
+        self.getPropNorm = None
+        self.getPropDef = None
         # We need to be able to register tufosBy helpers
         # which are storage helpers
         # XXX Alternatively, provided a way for the cortex
         # XXX to call into the storage layer and ask it
         # To provide the tufo helper funcs?
-        self.initTufosBy = core.initTufosBy
+        self.initTufosBy = None
         self.onfini(self._defaultFiniCoreStor)
 
         # Various locks
@@ -231,11 +210,6 @@ class StorageBase(s_config.Config):
         self.initSizeBy('ge', self.sizeByGe)
         self.initSizeBy('le', self.sizeByLe)
         self.initSizeBy('range', self.sizeByRange)
-
-        self.initTufosBy('ge', self.tufosByGe)
-        self.initTufosBy('le', self.tufosByLe)
-        self.initTufosBy('gt', self.tufosByGt)
-        self.initTufosBy('lt', self.tufosByLt)
 
         # Events for handling savefile loads/saves
         self.loadbus.on('core:save:add:rows', self._loadAddRows)
@@ -280,6 +254,36 @@ class StorageBase(s_config.Config):
             self.setBlobValu('syn:core:created', s_common.now())
 
         self.onfini(self._finiCoreStore)
+
+    def register_cortex(self, core):
+        '''
+        Register a cortex with a storage layer.
+
+        This sets various prop handlers and tufo helpers which may be needed.
+        This also links the storage layer event bus to the cortex event bus.
+
+        Args:
+            core: Cortex to register.
+
+        Returns:
+            None
+        '''
+        # We do need to know how to do prop normalization/defs for some helpers.
+        self.getPropNorm = core.getPropNorm
+        self.getPropDef = core.getPropDef
+        # Register tufo-level APIs which may have storage layer specific implementations
+        self.initTufosBy = core.initTufosBy
+        self.initTufosBy('ge', self.tufosByGe)
+        self.initTufosBy('le', self.tufosByLe)
+        self.initTufosBy('gt', self.tufosByGt)
+        self.initTufosBy('lt', self.tufosByLt)
+        # link events from the Storage back to the core Eventbus
+        self.link(core.dist)
+        def linkfini():
+            self.unlink(core.dist)
+        self.onfini(linkfini)
+        # Give the storage layers a change to hook anything else they may optimize
+        self._postCoreRegistration(core)
 
     # Handlers which should be untouched!!!
     def initRowsBy(self, name, meth):
@@ -332,6 +336,7 @@ class StorageBase(s_config.Config):
         delattr(self, 'getPropDef')
         delattr(self, 'getPropNorm')
         delattr(self, 'initTufosBy')
+        # Close out savefile buses
         self.savebus.fini()
         self.loadbus.fini()
 
@@ -792,6 +797,10 @@ class Storage(StorageBase):
         for rows in self._genStoreRows(**kwargs):
             yield rows
 
+    # XXX Docstring here!
+    def _postCoreRegistration(self, core):
+        self.log(level=logging.debug,
+                 mesg='Storage layer does not implement _postCortexRegistration')
     # these helpers allow a storage layer to simply implement
     # and register _getTufosByGe and _getTufosByLe
 

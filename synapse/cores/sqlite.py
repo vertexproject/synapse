@@ -18,8 +18,25 @@ int_t = s_compat.typeof(0)
 str_t = s_compat.typeof('visi')
 none_t = s_compat.typeof(None)
 
-def initSqliteCortex(link):
-    return s_cores_common.Cortex(link, store=SqliteStorage)
+def initSqliteCortex(link, conf=None, storconf=None):
+    '''
+    Initialize a Sqlite based Cortex from a link tufo.
+
+    Args:
+        link ((str, dict)): Link tufo.
+        conf (dict): Configable opts for the Cortex object.
+        storconf (dict): Configable opts for the storage object.
+
+    Returns:
+        s_cores_common.Cortex: Cortex created from the link tufo.
+    '''
+    if not conf:
+        conf = {}
+    if not storconf:
+        storconf = {}
+
+    store = SqliteStorage(link, **storconf)
+    return s_cores_common.Cortex(link, store, **conf)
 
 class SqlXact(s_cores_storage.StoreXact):
 
@@ -313,18 +330,6 @@ class SqliteStorage(s_cores_storage.Storage):
         return ':%s' % (name,)
 
     def _initCoreStor(self):
-
-        # XXX This optimization for 'range' only exists for sqlite/psql
-        # We should move this into the storage layer and add
-        # ram / lmdb implementations if possible
-        self.initTufosBy('range', self._tufosByRange)
-        # XXX This is a hack since sqlite doesn't have a built in IN statement
-        # and I don't want to currently figure out an alternative to make a
-        # sqlite _tufosByIn, make the PostgresStorage _initCoreStor do weird
-        # magic
-        if hasattr(self, '_tufosByIn'):
-            self.initTufosBy('in', self._tufosByIn)
-
         self.dbpool = self._link[1].get('dbpool')
         if self.dbpool is None:
             pool = int(self._link[1].get('pool', 1))
@@ -335,6 +340,24 @@ class SqliteStorage(s_cores_storage.Storage):
         self._initCorQueries()
 
         self._initCorTables(table)
+
+    def _postCoreRegistration(self, core):
+        # XXX This optimization for 'range' only exists for sqlite/psql
+        # We should move this into the storage layer and add
+        # ram / lmdb implementations if possible
+        self.initTufosBy('range', self._tufosByRange)
+        def rangefini():
+            core.tufosbymeths.pop('range', None)
+        core.onfini(rangefini)
+        # XXX This is a hack since sqlite doesn't have a built in IN statement
+        # and I don't want to currently figure out an alternative to make a
+        # sqlite _tufosByIn, make the PostgresStorage _initCoreStor do weird
+        # magic
+        if hasattr(self, '_tufosByIn'):
+            self.initTufosBy('in', self._tufosByIn)
+            def infini():
+                core.tufosbymeths.pop('in', None)
+            core.onfini(infini)
 
     def _prepQuery(self, query):
         # prep query strings by replacing all %s with table name
