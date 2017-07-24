@@ -66,14 +66,46 @@ class FileModelTest(SynTest):
 
             core.formTufoByProp('file:path', '/foo/bar/baz/faz/')
 
-            self.nn(core.getTufoByProp('file:path', '/foo/bar/baz/faz'))
+            tufo = core.getTufoByProp('file:path', '/foo/bar/baz/faz/')
+            self.nn(tufo)
+            self.eq(tufo[1].get('file:path'), '/foo/bar/baz/faz')
+            self.eq(tufo[1].get('file:path:dir'), '/foo/bar/baz')
+            self.eq(tufo[1].get('file:path:base'), 'faz')
+            self.eq(tufo[1].get('file:path:depth'), 4)
             self.nn(core.getTufoByProp('file:base', 'faz'))
-            self.nn(core.getTufoByProp('file:path', '/foo/bar/baz'))
+
+            tufo = core.getTufoByProp('file:path', '/foo/bar/baz/')
+            self.nn(tufo)
+            self.eq(tufo[1].get('file:path'), '/foo/bar/baz')
+            self.eq(tufo[1].get('file:path:dir'), '/foo/bar')
+            self.eq(tufo[1].get('file:path:base'), 'baz')
+            self.eq(tufo[1].get('file:path:depth'), 3)
             self.nn(core.getTufoByProp('file:base', 'baz'))
-            self.nn(core.getTufoByProp('file:path', '/foo/bar'))
+
+            tufo = core.getTufoByProp('file:path', '/foo/bar/')
+            self.nn(tufo)
+            self.eq(tufo[1].get('file:path'), '/foo/bar')
+            self.eq(tufo[1].get('file:path:dir'), '/foo')
+            self.eq(tufo[1].get('file:path:base'), 'bar')
+            self.eq(tufo[1].get('file:path:depth'), 2)
             self.nn(core.getTufoByProp('file:base', 'bar'))
-            self.nn(core.getTufoByProp('file:path', '/foo'))
+
+            tufo = core.getTufoByProp('file:path', '/foo/')
+            self.nn(tufo)
+            self.eq(tufo[1].get('file:path'), '/foo')
+            self.eq(tufo[1].get('file:path:dir'), '/')
+            self.eq(tufo[1].get('file:path:base'), 'foo')
+            self.eq(tufo[1].get('file:path:depth'), 1)
             self.nn(core.getTufoByProp('file:base', 'foo'))
+
+            tufo = core.getTufoByProp('file:path', '/')
+            self.nn(tufo)
+            self.eq(tufo[1].get('file:path'), '/')
+            self.eq(tufo[1].get('file:path:dir'), '/')
+            self.eq(tufo[1].get('file:path:base'), None)
+            self.eq(tufo[1].get('file:path:depth'), 0)
+
+            self.raises(BadTypeValu, core.formTufoByProp, 'file:base', '/')
             self.none(core.getTufoByProp('file:base', ''))
 
     def test_filebase(self):

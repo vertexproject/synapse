@@ -43,7 +43,7 @@ class FilePathType(DataType):
 
             fins.append(v)
 
-        subs = {'dir': '', 'depth': len(fins)}
+        subs = {'dir': lead, 'depth': len(fins)}
         valu = lead + ('/'.join(fins))
 
         if fins:
@@ -54,8 +54,7 @@ class FilePathType(DataType):
             if len(pext) > 1:
                 subs['ext'] = pext[1]
 
-            if len(fins) > 1:
-                subs['dir'] = lead + ('/'.join(fins[:-1]))
+            subs['dir'] += '/'.join(fins[:-1])
 
         return valu, subs
 
