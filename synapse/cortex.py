@@ -16,10 +16,10 @@ import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 
-
 import synapse.cores.ram
 import synapse.cores.lmdb
 import synapse.cores.sqlite
+import synapse.cores.storage
 import synapse.cores.postgres
 
 logger = logging.getLogger(__name__)
@@ -29,12 +29,53 @@ class InvalidParam(Exception):
         Exception.__init__(self, '%s invalid: %s' % (name, msg))
         self.param = name
 
+storectors = {
+    'lmdb': synapse.cores.lmdb.LmdbStorage,
+    'sqlite': synapse.cores.sqlite.SqliteStorage,
+    'ram': synapse.cores.ram.RamStorage,
+    'postgres': synapse.cores.postgres.PsqlStorage,
+}
+
 corctors = {
     'lmdb': synapse.cores.lmdb.initLmdbCortex,
     'sqlite': synapse.cores.sqlite.initSqliteCortex,
     'ram': synapse.cores.ram.initRamCortex,
     'postgres': synapse.cores.postgres.initPsqlCortex,
 }
+
+def openstore(url, conf=None, **opts):
+    '''
+    Opens or creates a Cortex Storage object by URL.
+
+    This does not attempt to open Storage objects over telepath.
+
+    Args:
+        url (str): URL which is parsed in order to connect to.
+        conf (dict): Configable options passed to the storage layer.
+        **opts (dict): Additional options added to the link tufo from the parsed URL.
+
+    Example:
+        Opening a object and adding a row::
+
+            tick = s_common.now()
+            url = 'sqlite:///./derry.db'
+            store = openstore(url)
+            store.addRows([('1234', 'syn:test', 'what', tick)])
+
+    Returns:
+        synapse.cores.storage.Storage: A storage object implementing a specific backend.
+
+    Raises:
+        NoSuchImpl: If the requested protocol has no storage implementation.
+    '''
+    link = s_link.chopLinkUrl(url)
+    link[1].update(opts)
+
+    ctor = storectors.get(link[0])
+    if ctor is None:
+        raise s_common.NoSuchImpl(name=link[0], mesg='No storage ctor registered for {}'.format(link[0]))
+
+    return ctor(link, conf=conf)
 
 def openurl(url, **opts):
     '''

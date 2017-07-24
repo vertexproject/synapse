@@ -2374,6 +2374,9 @@ class CortexTest(SynTest):
 
 class StorageTest(SynTest):
 
+    def test_nonexist_ctor(self):
+        self.raises(NoSuchImpl, s_cortex.openstore, 'delaylinememory:///')
+
     def test_storage_sqlite(self):
         path = getTestPath('rev0.db')
         with open(path, 'rb') as fd:
@@ -2391,8 +2394,7 @@ class StorageTest(SynTest):
             with open(finl, 'wb') as fd:
                 fd.write(byts)
 
-            link = s_link.chopLinkUrl(url)
-            with s_cores_sqlite.SqliteStorage(link) as store:
+            with s_cortex.openstore(url) as store:
                 self.isinstance(store, s_cores_storage.Storage)
                 # Add rows directly to the storage object
                 rows = []
@@ -2410,9 +2412,9 @@ class StorageTest(SynTest):
 
     def test_storage_genrows(self):
         url = 'ram:///'
-        link = s_link.chopLinkUrl(url)
+
         rows = []
-        with s_cores_ram.RamStorage(link) as store:
+        with s_cortex.openstore(url) as store:
             for _rows in store.genStoreRows():
                 rows.extend(_rows)
         self.eq(rows, [])
@@ -2425,9 +2427,9 @@ class StorageTest(SynTest):
 
     def test_storage_genrows_sqlite(self):
         url = 'sqlite:///:memory:'
-        link = s_link.chopLinkUrl(url)
+
         rows = []
-        with s_cores_sqlite.SqliteStorage(link) as store:
+        with s_cortex.openstore(url) as store:
             for _rows in store.genStoreRows():
                 rows.extend(_rows)
         self.eq(rows, [])
@@ -2445,10 +2447,9 @@ class StorageTest(SynTest):
             fn = 'test.lmdb'
             fp = os.path.join(temp, fn)
             url = 'lmdb:///%s' % fp
-            link = s_link.chopLinkUrl(url)
             rows = []
 
-            with s_cores_lmdb.LmdbStorage(link) as store:
+            with s_cortex.openstore(url) as store:
                 for _rows in store.genStoreRows():
                     rows.extend(_rows)
             self.eq(rows, [])
@@ -2463,16 +2464,7 @@ class StorageTest(SynTest):
     def test_storage_genrows_psql(self):
         with self.getTestDir() as temp:
 
-            # fn = 'test.lmdb'
-            # fp = os.path.join(temp, fn)
-            # url = 'lmdb:///%s' % fp
-            # link = s_link.chopLinkUrl(url)
             rows = []
-            #
-            # with s_cores_lmdb.LmdbStorage(link) as store:
-            #     for _rows in store.genStoreRows():
-            #         rows.extend(_rows)
-            # self.eq(rows, [])
 
             with self.getPgCore() as core:
                 for _rows in core.store.genStoreRows():
