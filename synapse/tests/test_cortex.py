@@ -2459,3 +2459,24 @@ class StorageTest(SynTest):
             self.gt(len(rows), 1000)
             self.isinstance(rows[0], tuple)
             self.eq(len(rows[0]), 4)
+
+    def test_storage_genrows_psql(self):
+        with self.getTestDir() as temp:
+
+            # fn = 'test.lmdb'
+            # fp = os.path.join(temp, fn)
+            # url = 'lmdb:///%s' % fp
+            # link = s_link.chopLinkUrl(url)
+            rows = []
+            #
+            # with s_cores_lmdb.LmdbStorage(link) as store:
+            #     for _rows in store.genStoreRows():
+            #         rows.extend(_rows)
+            # self.eq(rows, [])
+
+            with self.getPgCore() as core:
+                for _rows in core.store.genStoreRows():
+                    rows.extend(_rows)
+            self.gt(len(rows), 1000)
+            self.isinstance(rows[0], tuple)
+            self.eq(len(rows[0]), 4)
