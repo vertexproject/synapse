@@ -21,6 +21,7 @@ verstring = '.'.join([str(x) for x in version])
 # the built-in cortex modules...
 BASE_MODULES = (
     ('synapse.models.syn.SynMod', {}),
+    ('synapse.models.axon.AxonMod', {}),
     ('synapse.models.dns.DnsMod', {}),
     ('synapse.models.orgs.OuMod', {}),
     ('synapse.models.inet.InetMod', {}),
