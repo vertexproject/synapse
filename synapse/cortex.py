@@ -43,7 +43,7 @@ corctors = {
     'postgres': synapse.cores.postgres.initPsqlCortex,
 }
 
-def openstore(url, conf=None, **opts):
+def openstore(url, storconf=None, **opts):
     '''
     Opens or creates a Cortex Storage object by URL.
 
@@ -68,6 +68,9 @@ def openstore(url, conf=None, **opts):
     Raises:
         NoSuchImpl: If the requested protocol has no storage implementation.
     '''
+    if not storconf:
+        storconf = {}
+
     link = s_link.chopLinkUrl(url)
     link[1].update(opts)
 
@@ -75,7 +78,7 @@ def openstore(url, conf=None, **opts):
     if ctor is None:
         raise s_common.NoSuchImpl(name=link[0], mesg='No storage ctor registered for {}'.format(link[0]))
 
-    return ctor(link, conf=conf)
+    return ctor(link, **storconf)
 
 def openurl(url, **opts):
     '''
