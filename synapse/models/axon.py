@@ -41,7 +41,7 @@ class AxonMod(CoreModule):
             ),
         }
 
-        return(('axon', model),)
+        return (('axon', model), )
 
 class AxonPathType(DataType):
 
