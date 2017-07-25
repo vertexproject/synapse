@@ -18,7 +18,7 @@ import synapse.lib.service as s_service
 import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
 
-from synapse.models.axon import AxonMod as axon_model
+import synapse.models.axon as s_models_axon
 
 # for backward compat (HashSet moved from this module to synapse.lib.hashset )
 from synapse.lib.hashset import *
@@ -453,8 +453,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
 
         corepath = os.path.join(self.axondir, 'axon.db')
         self.core = s_cortex.openurl('sqlite:///%s' % corepath)
-        for name, model in axon_model.getBaseModels():
-            self.core.addDataModel(name, model)
+        self.core.setConfOpt('modules', (('synapse.models.axon.AxonMod', {}),) )
 
         self._fs_mkdir_root()  # create the fs root
         self.flock = threading.Lock()
