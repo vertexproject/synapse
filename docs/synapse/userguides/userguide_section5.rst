@@ -2,7 +2,7 @@
 Data Model - Node Concepts
 ==========================
 
-Recall from `Data Model – Basics`_ that the key data model components within Synapse are **nodes** and **tags.** Broadly speaking:
+Recall from Data Model – Basics_ that the key data model components within Synapse are **nodes** and **tags.** Broadly speaking:
 
 - Nodes commonly represent "facts" or "observables": things that are objectively true or verifiable.
 
