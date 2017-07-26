@@ -595,9 +595,15 @@ class StorageBase(s_config.Config):
         if maxver == curv:
             return
 
-        if not self.getConfOpt('rev:storage'):
-            raise s_common.NoRevAllow(name='rev:storage',
-                                      mesg='add rev:storage=1 to cortex url to allow storage updates')
+        name = 'rev:storage'
+        if not self.getConfOpt(name):
+            # XXX Raise may not be the correct action here.
+            # raise s_common.NoRevAllow(name='rev:storage',
+            #                           mesg='add rev:storage=1 to cortex url to allow storage updates')
+            mesg = 'add rev:storage=1 to cortex url to allow storage updates'
+            self.log(level=logging.WARNING, mesg=mesg, name=name,)
+            logger.warning(mesg)
+            return
 
         for vers, func in sorted(revs):
 
