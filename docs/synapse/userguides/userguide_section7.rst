@@ -11,7 +11,7 @@ A "simple" node is one that represents an atomic object or entity. "Simple" is a
 
 Even for simple nodes, it may still be possible (and desirable) to break the node's "basic" primary property into component parts so that those components are queryable or pivotable within the hypergraph. If Synapse can parse relevant subcomponents from the primary property, the associated secondary properties can be created automatically during node creation.
 
-In cases where these paresed secondary properties are themselves forms, Synapse will also automatically create nodes for those forms if they do not already exist. For example, for an ``inet:fqdn`` node, secondary properties include the ``inet:fqdn:host`` (the hostname of the fqdn, stored as a string) and ``inet:fqdn:domain`` (the parent fqdn of the fqdn, which is also an ``inet:fqdn`` form.). If you create the node inet:fqdn=foo.woot.com, Synapse will create:
+In cases where these paresed secondary properties are themselves forms, Synapse will also automatically create nodes for those forms if they do not already exist. For example, for an ``inet:fqdn`` node, secondary properties include the ``inet:fqdn:host`` (the hostname of the fqdn, stored as a string) and ``inet:fqdn:domain`` (the parent fqdn of the fqdn, which is also an ``inet:fqdn`` form.). If you create the node ``inet:fqdn=foo.woot.com``, Synapse will create:
 
 - an ``inet:fqdn`` node for ``foo.woot.com``.
 - secondary proeprties ``inet:fqdn:host=foo`` and ``inet:fqdn:domain=woot.com`` (these do not need to be manually defined when creating the node).
