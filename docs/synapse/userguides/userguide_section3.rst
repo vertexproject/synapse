@@ -5,7 +5,8 @@ This section covers the basic “building blocks” of the Synapse hypergraph da
 
 (**Note:** This documentation presents the data model from a User or Analyst perspective; for detailed information, see the `Data Model`_ section or the Synapse source code.)
 
-**Background**
+Background
+----------
 
 Recall that **Synapse is a distributed key-value hypergraph analysis framework.** That is, Synapse is a particular implementation of a hypergraph model, where an instance of a hypergraph is called a Cortex. In our brief discussion of graphs and hypergraphs, we pointed out some fundamental concepts related to the Synapse hypergraph implementation:
 
@@ -17,7 +18,8 @@ Recall that **Synapse is a distributed key-value hypergraph analysis framework.*
 
 To start building on those concepts, you need to understand the basic elements of the Synapse data model.
 
-**Data Model Terminology**
+Data Model Terminology
+----------------------
 
 The fundamental concepts you should be familiar with are:
 
@@ -28,7 +30,8 @@ The fundamental concepts you should be familiar with are:
 
 Synapse uses a query language called **Storm** to interact with data in the hypergraph. Storm allows a user to ask about, filter, and pivot around data based in large part on node properties, values, and tags. **Understanding these structures will significantly improve your ability to use Storm and interact with Synapse data.**
 
-**Node**
+Nodes
+-----
 
 A node can be thought of as an “object” within the hypergraph; although that is a bit of a misnomer, as nodes in Synapse can represent both “objects” (IP addresses, files, people, bank accounts, chemical formulas) and “relationships” (remember, what would have been an edge in a directed graph is now also a node in Synapse). It may be better to think of a node generically as a “thing”: any “thing” you want to model within Synapse (object, relationship, event) is represented as a node.
 
@@ -54,7 +57,7 @@ From a user perspective, you need to know that every node consists of the follow
 
 - Optional **ephemeral properties** that may exist temporarily for some special purpose, and do not represent data stored permanently about that node. Ephemeral property names are preceded by a dot ( ``.`` ) to indicate they are ephemeral. The most common ephemeral property is ``.new``, which indicates that a node is newly created.
 
-*Example*
+**Example**
 
 An example will help to illustrate the concepts above. The command below adds a node for the domain “woowoo.com” to a Cortex and displays the detailed properties of the newly-created node::
 
@@ -84,7 +87,8 @@ In the output above:
 
 The remaining entries are various node-specific secondary properties and their values (``inet:fqdn:zone``, ``inet:fqdn:domain``, etc.)
 
-**Forms**
+Forms
+-----
 
 A form is the definition of a Synapse hypergraph node. A form consists of the declaration of the primary property and its **type**, along with the form’s secondary properties (and their types). A form can be thought of as a template: if you want to create an ``inet:fqdn`` node in Synapse, the ``inet:fqdn`` form tells you the proper structure for the node and the properties it can contain.
 
@@ -142,20 +146,21 @@ Below are examples of how a form (``inet:fqdn``) is represented and documented i
 
 - **Default values.** Some nodes have properties that are automatically set to a specific value unless otherwise specified. If a property has a default value, it will be noted in both docs and the source code.
 
-- **Read-only properties.** Primary properties are unique and cannot be changed. Some secondary properties (typically those derived from the primary property) should also not be modified and are therefore implicitly read-only. In some cases, secondary properties are explicitly defined as read-only in the Synapse source code via the definition ``'ro':1``. However, these designations are not carried over to docs. (An
- example is the ``:port`` property of an ``inet:url`` node. A port number is generally not included in a URL that uses standard ports for a given protocol (e.g., ``https://www.foo.com/bar/baz.html``). Based on the presence of an “https” prefix in a URL, Synapse will set ``:port=443`` as a read-only property, as specified in the source.)
+- **Read-only properties.** Primary properties are unique and cannot be changed. Some secondary properties (typically those derived from the primary property) should also not be modified and are therefore implicitly read-only. In some cases, secondary properties are explicitly defined as read-only in the Synapse source code via the definition ``'ro':1``. However, these designations are not carried over to docs. (An example is the ``:port`` property of an ``inet:url`` node. A port number is generally not included in a URL that uses standard ports for a given protocol (e.g., ``https://www.foo.com/bar/baz.html``). Based on the presence of an “https” prefix in a URL, Synapse will set ``:port=443`` as a read-only property, as specified in the source.)
 
 - **Readability.** While automatic docs are a bit more readable for the general user, the auto-generation process sorts and displays types, forms, and form secondary properties in alphabetical order. However, alphabetical order may not be the most intuitive order for grouping either forms or form-specific properties, based on how an analyst would typically view or work with the data.
 
   In contrast, the Synapse source code lists forms and form properties in an order that may be more “sensical” for the given node type. The source code also tends to list secondary properties that can be automatically set by Synapse first in the source code (e.g., secondary properties that can be derived from the primary property’s value). For example, when creating the node ``inet:fqdn=woowoo.com``, Synapse can parse that ``<property>=<value>`` and automatically set the secondary properties ``inet:fqdn:domain=com`` and ``inet:fqdn:host=woowoo``. Secondary properties that require that an additional value be provided (e.g., ``inet:fqdn:created``) are listed later in the source code.
 
-**Types**
+Types
+-----
 
 A **type** is the definition of an element within the data model, describing what the element is and how it should be normalized (if necessary) and structured to conform to the model. Synapse supports standard types (such as integers and strings) as well as extensions of these types. From a user standpoint, types are important primarily as they define the primary and secondary properties of forms.
 
 Like forms, types are also nodes within the Synapse hypergraph. Types within the data model can be modified or extended with new types by either creating new type nodes directly within the hypergraph or by updating or extending the relevant Synapse source code.
 
-**Tags**
+Tags
+----
 
 Tags are annotations applied to nodes. Broadly speaking, nodes represent “things” (objects, relationships, events – generally things that are “facts” or “observables”) while tags represent analytical observations – annotations that **could** change if the data or the assessment of the data changes.
 
