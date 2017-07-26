@@ -18,6 +18,8 @@ import synapse.lib.service as s_service
 import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
 
+import synapse.models.axon as s_models_axon
+
 # for backward compat (HashSet moved from this module to synapse.lib.hashset )
 from synapse.lib.hashset import *
 
@@ -451,6 +453,8 @@ class Axon(s_eventbus.EventBus, AxonMixin):
 
         corepath = os.path.join(self.axondir, 'axon.db')
         self.core = s_cortex.openurl('sqlite:///%s' % corepath)
+        self.core.setConfOpt('modules', (('synapse.models.axon.AxonMod', {}),) )
+
         self._fs_mkdir_root()  # create the fs root
         self.flock = threading.Lock()
 
@@ -481,29 +485,6 @@ class Axon(s_eventbus.EventBus, AxonMixin):
         # wrap core/heap sync events as axon:sync events
         self.core.on('splice', self._fireAxonSync)
         self.heap.on('heap:sync', self._fireAxonSync)
-
-        # model details for the actual byte blobs
-        self.core.addTufoForm('axon:blob', ptype='guid')
-        self.core.addTufoProp('axon:blob', 'off', ptype='int', req=True)
-        self.core.addTufoProp('axon:blob', 'size', ptype='int', req=True)
-
-        self.core.addTufoProp('axon:blob', 'md5', ptype='hash:md5', req=True)
-        self.core.addTufoProp('axon:blob', 'sha1', ptype='hash:sha1', req=True)
-        self.core.addTufoProp('axon:blob', 'sha256', ptype='hash:sha256', req=True)
-        self.core.addTufoProp('axon:blob', 'sha512', ptype='hash:sha512', req=True)
-
-        self.core.addTufoForm('axon:path', ptype='file:path')
-        self.core.addTufoProp('axon:path', 'dir', ptype='file:path', req=False)
-        self.core.addTufoProp('axon:path', 'base', ptype='file:base', req=True)
-        self.core.addTufoProp('axon:path', 'blob', ptype='guid', req=False)
-        self.core.addTufoProp('axon:path', 'st_mode', ptype='int', req=True)
-        self.core.addTufoProp('axon:path', 'st_nlink', ptype='int', req=True)
-        self.core.addTufoProp('axon:path', 'st_atime', ptype='int', req=False)
-        self.core.addTufoProp('axon:path', 'st_ctime', ptype='int', req=False)
-        self.core.addTufoProp('axon:path', 'st_mtime', ptype='int', req=False)
-        self.core.addTufoProp('axon:path', 'st_size', ptype='int', req=False)
-
-        self.core.addTufoForm('axon:clone', ptype='guid')
 
         dirname = s_common.gendir(axondir, 'sync')
         syncopts = self.opts.get('syncopts', {})
@@ -983,7 +964,8 @@ class Axon(s_eventbus.EventBus, AxonMixin):
         for tufo in tufos:
             fpath = tufo[1].get('axon:path')
             fname = fpath.split('/')[-1]
-            files.append(fname)
+            if fname:
+                files.append(fname)
 
         return files
 
@@ -1004,7 +986,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
         if nlinks != 2:
             raise s_common.NotEmpty()
 
-        parent = tufo[1].get('axon:path:parent')
+        parent = tufo[1].get('axon:path:dir')
         if parent:
             parentfo = self.core.getTufoByProp('axon:path', parent)
             self.core.incTufoProp(parentfo, 'st_nlink', -1)
@@ -1054,7 +1036,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
 
             # set dst props to what src props were
             dstprops = Axon._get_renameprops(srcfo)
-            dstprops.update({'parent': dstppath})
+            dstprops.update({'dir': dstppath})
             self.core.setTufoProps(dstfo, **dstprops)
 
             # if overwriting a regular file with a dir, remove its st_size
@@ -1095,7 +1077,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
         if not tufo:
             raise s_common.NoSuchFile()
 
-        ppath = tufo[1].get('axon:path:parent')
+        ppath = tufo[1].get('axon:path:dir')
         self.core.delTufo(tufo)
 
         parentfo = self.core.getTufoByProp('axon:path', ppath)
@@ -1126,14 +1108,14 @@ class Axon(s_eventbus.EventBus, AxonMixin):
 
     def _fs_reroot_kids(self, oldroot, newroot):
 
-        for child in self.core.getTufosByProp('axon:path:parent', oldroot):
+        for child in self.core.getTufosByProp('axon:path:dir', oldroot):
 
             normed, props = self.core.getPropNorm('axon:path', child[1].get('axon:path'))
             cpath, cfname = props.get('dir'), props.get('base')
             cmode = child[1].get('axon:path:st_mode')
 
             newdst = '%s%s%s' % (newroot, '/', cfname)
-            self.core.setTufoProp(child, 'parent', newroot)
+            self.core.setTufoProp(child, 'dir', newroot)
             self.core.setRowsByIdProp(child[0], 'axon:path', newdst)
 
             # move the kids
@@ -1153,7 +1135,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
     def _fs_mkdir_root(self):
 
         attr = Axon._fs_new_dir_attrs(None, 0x1FD)
-        del attr['parent']
+        del attr['dir']
         self.core.formTufoByProp('axon:path', '/', **attr)
 
     @staticmethod
@@ -1200,13 +1182,13 @@ class Axon(s_eventbus.EventBus, AxonMixin):
     def _fs_new_file_attrs(parent, mode):
 
         now = int(time.time())
-        return {'st_ctime': now, 'st_mtime': now, 'st_atime': now, 'st_nlink': 1, 'st_size': 0, 'st_mode': (stat.S_IFREG | mode), 'parent': parent}
+        return {'st_ctime': now, 'st_mtime': now, 'st_atime': now, 'st_nlink': 1, 'st_size': 0, 'st_mode': (stat.S_IFREG | mode), 'dir': parent}
 
     @staticmethod
     def _fs_new_dir_attrs(parent, mode):
 
         now = int(time.time())
-        return {'st_ctime': now, 'st_mtime': now, 'st_atime': now, 'st_nlink': 2, 'st_mode': (stat.S_IFDIR | mode), 'parent': parent}
+        return {'st_ctime': now, 'st_mtime': now, 'st_atime': now, 'st_nlink': 2, 'st_mode': (stat.S_IFDIR | mode), 'dir': parent}
 
 def _ctor_axon(opts):
     '''

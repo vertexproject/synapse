@@ -199,7 +199,7 @@ class IngestApi:
 
         self._gest_core.on('node:del', self._onDelSynIngest, form='syn:ingest')
         self._gest_core.on('node:add', self._onAddSynIngest, form='syn:ingest')
-        self._gest_core.on('node:set', self._onAddSynIngest, prop='syn:ingest:text')
+        self._gest_core.on('node:prop:set', self._onAddSynIngest, prop='syn:ingest:text')
 
         for node in self._gest_core.getTufosByProp('syn:ingest'):
             self._addDefFromTufo(node)

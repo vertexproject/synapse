@@ -313,7 +313,7 @@ class InetMod(CoreModule):
         props['inet:passwd:sha1'] = hashlib.sha1(valu.encode('utf8')).hexdigest()
         props['inet:passwd:sha256'] = hashlib.sha256(valu.encode('utf8')).hexdigest()
 
-    @on('node:set', prop='inet:fqdn:sfx')
+    @on('node:prop:set', prop='inet:fqdn:sfx')
     def onTufoSetFqdnSfx(self, mesg):
         sfx = mesg[1].get('newv')
         fqdn = mesg[1].get('valu')

@@ -431,6 +431,17 @@ class CortexTest(SynTest):
         self.eq(tufo[1].get('zoot:suit:bar'), bigstr)
         self.eq(len(core.getTufosByProp('zoot:suit:bar', valu=bigstr)), 1)
 
+        tufo = core.formTufoByProp('hehe', 'haha', foo='bar', baz='faz')
+        self.eq(tufo[1].get('hehe'), 'haha')
+        self.eq(tufo[1].get('hehe:foo'), 'bar')
+        self.eq(tufo[1].get('hehe:baz'), 'faz')
+
+        tufo = core.delTufoProp(tufo,'foo')
+        self.none(tufo[1].get('hehe:foo'))
+
+        self.eq(len(core.eval('hehe:foo')), 0)
+        self.eq(len(core.eval('hehe:baz')), 1)
+
     def runrange(self, core):
 
         rows = [
@@ -928,13 +939,13 @@ class CortexTest(SynTest):
 
         tufo = core.formTufoByProp('foo', 'hehe', bar='lol')
 
-        msgs = wait = core.waiter(1, 'node:set')
+        msgs = wait = core.waiter(1, 'node:prop:set')
 
         core.setTufoProps(tufo, bar='hah')
 
         evts = wait.wait(timeout=2)
 
-        self.eq(evts[0][0], 'node:set')
+        self.eq(evts[0][0], 'node:prop:set')
         self.eq(evts[0][1]['node'][0], tufo[0])
         self.eq(evts[0][1]['form'], 'foo')
         self.eq(evts[0][1]['valu'], 'hehe')
@@ -2197,6 +2208,16 @@ class CortexTest(SynTest):
             self.eq(node[1].get('foo:bar:duck'), 'mallard')
             node = core.formTufoByProp('foo:bar', 'I am a robot', duck='mandarin')
             self.eq(node[1].get('foo:bar:duck'), 'mandarin')
+
+    def test_cortex_splice_propdel(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            tufo = core.formTufoByProp('hehe','haha', foo='bar', baz='faz')
+            splice = ('splice', {'act':'node:prop:del', 'form':'hehe', 'valu':'haha', 'prop':'foo'})
+            core.splice(splice)
+
+            self.eq(len(core.eval('hehe:foo')), 0)
+            self.eq(len(core.eval('hehe:baz')), 1)
 
     def test_cortex_module_datamodel_migration_persistent(self):
         with self.getTestDir() as dirn:
