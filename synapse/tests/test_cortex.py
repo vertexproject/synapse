@@ -2430,12 +2430,12 @@ class StorageTest(SynTest):
 
         rows = []
         with s_cortex.openstore(url) as store:
-            for _rows in store.genStoreRows():
+            for _rows in store.genStoreRows(slicebytes=1, incvalu=2):
                 rows.extend(_rows)
         self.eq(rows, [])
 
         with s_cortex.openurl(url) as core:
-            for _rows in core.store.genStoreRows():
+            for _rows in core.store.genStoreRows(slicebytes=2):
                 rows.extend(_rows)
         self.gt(len(rows), 1000)
         self.isinstance(rows[0], tuple)
@@ -2467,7 +2467,7 @@ class StorageTest(SynTest):
             rows = []
 
             with self.getPgCore() as core:
-                for _rows in core.store.genStoreRows():
+                for _rows in core.store.genStoreRows(slicebytes=2):
                     rows.extend(_rows)
             self.gt(len(rows), 1000)
             self.isinstance(rows[0], tuple)

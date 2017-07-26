@@ -141,7 +141,10 @@ class SqliteStorage(s_cores_storage.Storage):
     _t_getrows_by_iden_prop = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}}'
     _t_getrows_by_iden_prop_intval = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND intval={{VALU}}'
     _t_getrows_by_iden_prop_strval = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND strval={{VALU}}'
-    _t_getrows_by_offset_limit = 'SELECT * FROM {{TABLE}} LIMIT {{LIMIT}} OFFSET {{OFFSET}}'
+
+    _t_getrows_by_iden_range = 'SELECT * FROM {{TABLE}} WHERE iden >= {{LOWERBOUND}} and iden < {{UPPERBOUND}}'
+    _t_getiden_max = 'SELECT MAX(iden) FROM {{TABLE}}'
+    _t_getiden_min = 'SELECT MIN(iden) FROM {{TABLE}}'
 
     ################################################################################
     _t_blob_set = 'INSERT OR REPLACE INTO {{BLOB_TABLE}} (k, v) VALUES ({{KEY}}, {{VALU}})'
@@ -401,7 +404,10 @@ class SqliteStorage(s_cores_storage.Storage):
         self._q_getrows_by_iden_prop = self._prepQuery(self._t_getrows_by_iden_prop)
         self._q_getrows_by_iden_prop_intval = self._prepQuery(self._t_getrows_by_iden_prop_intval)
         self._q_getrows_by_iden_prop_strval = self._prepQuery(self._t_getrows_by_iden_prop_strval)
-        self._q_getrows_by_offset_limit = self._prepQuery(self._t_getrows_by_offset_limit)
+
+        self._q_getrows_by_iden_range = self._prepQuery(self._t_getrows_by_iden_range)
+        self._q_getiden_max = self._prepQuery(self._t_getiden_max)
+        self._q_getiden_min = self._prepQuery(self._t_getiden_min)
 
         self._q_blob_get = self._prepBlobQuery(self._t_blob_get)
         self._q_blob_set = self._prepBlobQuery(self._t_blob_set)
@@ -744,15 +750,89 @@ class SqliteStorage(s_cores_storage.Storage):
         self._runPropQuery('delrowsbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete, nolim=True)
 
     def _genStoreRows(self, **kwargs):
-        offset = 0
-        gsize = kwargs.get('gsize', 1000)
+        '''
+        Generator which yields lists of rows from the DB in tuple form.
+
+        This works by performing range lookups on iden prefixes over the range
+        of 00000000000000000000000000000000 to ffffffffffffffffffffffffffffffff.
+        The runtime of this is dependent on the number of rows in the DB,
+        but is generally the fastest approach to getting rows out of the DB
+        in a linear time fashion.
+
+        Args:
+            **kwargs: Optional args.
+
+        Notes:
+            The following values may be passed in as kwargs in order to
+            impact the performance of _genStoreRows:
+
+            * slicebytes: The number of bytes to use when generating the iden
+              prefix values.  This defaults to 4.
+            * incvalu (int): The amount in which to increase the internal
+              counter used to generate the prefix by on each pass.  This value
+              determines the width of the iden range looked up at a single
+              time.  This defaults to 4.
+
+            The number of queries which are executed by this generator is
+            equal to (16 ** slicebytes) / incvalu.  This defaults to 16384
+            queries.
+
+        Returns:
+            list: List of tuples, each containing an iden, property, value and timestamp.
+        '''
+        slicebytes = kwargs.get('slicebytes', 4)
+        incvalu = kwargs.get('incvalu', 4)
+
+        # Compute upper and lower bounds up front
+        lowest_iden = '00000000000000000000000000000000'
+        highst_iden = 'ffffffffffffffffffffffffffffffff'
+
+        highest_core_iden = self.select(self._q_getiden_max)[0][0]
+        if not highest_core_iden:
+            # No rows present at all - return early
+            return
+
+        fmt = '{{:0={}x}}'.format(slicebytes)
+        maxv = 16 ** slicebytes
+        num_queries = int(maxv / incvalu)
+        q_count = 0
+        percentaged = {}
+        if num_queries > 128:
+            percentaged = {int((num_queries * i) / 100): i for i in range(100)}
+
+        # Setup lower bound and first upper bound
+        lowerbound = lowest_iden[:slicebytes]
+        c = int(lowerbound, 16) + incvalu
+        upperbound = fmt.format(c)
+
+        logger.info('Dumping rows - slicebytes %s, incvalu %s', slicebytes, incvalu)
+        logger.info('Will perform %s SQL queries given the slicebytes/incvalu calculations.', num_queries)
         while True:
-            rows = self.select(self._q_getrows_by_offset_limit, limit=gsize, offset=offset)
-            if not rows:
+            # Check to see if maxv is reached
+            if c >= maxv:
+                upperbound = highst_iden
+            rows = self.select(self._q_getrows_by_iden_range, lowerbound=lowerbound, upperbound=upperbound)
+            q_count += 1
+            completed_rate = percentaged.get(q_count)
+            if completed_rate:
+                logger.info('Completed %s%% queries', completed_rate)
+            if rows:
+                rows = self._foldTypeCols(rows)
+                # print(len(rows), lowerbound, upperbound)
+                yield rows
+            if c >= maxv:
                 break
+            # Increment and continue
+            c += incvalu
+            lowerbound = upperbound
+            upperbound = fmt.format(c)
+            continue
+
+        # Edge case because _q_getrows_by_iden_range is exclusive on the upper bound.
+        if highest_core_iden == highst_iden:
+            rows = self.select(self._q_getrows_by_iden, iden=highest_core_iden)
             rows = self._foldTypeCols(rows)
             yield rows
-            offset = offset + len(rows)
 
     def getStoreType(self):
         return 'sqlite'
