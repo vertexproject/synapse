@@ -38,5 +38,5 @@ For performance purposes, Synapse supports the use of both **deconflicted** and 
 
 **Non-deconflicted nodes** are known or assumed to be unique *a priori*; as such there is no need to check for the node's prior existence. Synapse skips any deconfliction check (read operation) and simply creates the node. Many “event” nodes are non-deconflicted nodes because they are assumed to be sufficiently high-resolution to represent data from a single, non-re-encounterable point in time. Some high-volume data types (e.g., streaming records, such as event logs) may be purposely designed as non-deconflicted to make the ingest of such data more performant. In addition, data that is deconflicted in advance (e.g., external to Synapse) and therefore known to be unique can be ingested as non-deconflicted data.
 
-.. _Basics: ../userguide_section3.html
+.. _Basics: ../userguides/userguide_section3.html
 __ Basics_
