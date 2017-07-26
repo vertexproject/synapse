@@ -66,7 +66,20 @@ class StormSyntaxTest(SynTest):
         insts = s_syntax.parse('+foo:bar~="hehe" -foo:bar~="hoho"')
         self.eq(insts[0], ('filt', {'prop': 'foo:bar', 'mode': 'must', 'cmp': 're', 'valu': 'hehe'}))
         self.eq(insts[1], ('filt', {'prop': 'foo:bar', 'mode': 'cant', 'cmp': 're', 'valu': 'hoho'}))
-        self.eq({'woot': 10}, {'woot': 10})
+        # Real world example with and without quotes around the regex valu
+        insts = s_syntax.parse('#sig.mal.pennywise totags() +syn:tag~="bhv.aka" fromtags()')
+        self.eq(len(insts), 4)
+        self.eq(insts[0], ('alltag', {'args': ('sig.mal.pennywise',), 'kwlist': []}))
+        self.eq(insts[1], ('totags', {'args': [], 'kwlist': []}))
+        self.eq(insts[2], ('filt', {'cmp': 're', 'prop': 'syn:tag', 'mode': 'must', 'valu': 'bhv.aka'}))
+        self.eq(insts[3], ('fromtags', {'args': [], 'kwlist': []}))
+        # And without quotes
+        insts = s_syntax.parse('#sig.mal.pennywise totags() +syn:tag~=bhv.aka fromtags()')
+        self.eq(len(insts), 4)
+        self.eq(insts[0], ('alltag', {'args': ('sig.mal.pennywise',), 'kwlist': []}))
+        self.eq(insts[1], ('totags', {'args': [], 'kwlist': []}))
+        self.eq(insts[2], ('filt', {'cmp': 're', 'prop': 'syn:tag', 'mode': 'must', 'valu': 'bhv.aka'}))
+        self.eq(insts[3], ('fromtags', {'args': [], 'kwlist': []}))
 
     def test_storm_syntax_by(self):
         insts = s_syntax.parse('woot/foo:bar*baz="hehe"')
