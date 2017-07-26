@@ -2671,13 +2671,8 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         return ret
 
     def _tufosByInetCidr(self, prop, valu, limit=None):
-
-        ipv4str, cidr = valu.split('/', 1)
-        ipv4addr, _ = s_datamodel.getTypeParse('inet:ipv4', ipv4str)
-        mask = (2 ** (32 - int(cidr)))
-        ipv4addr &= ~mask
-
-        return self.getTufosBy('range', prop, (ipv4addr, ipv4addr + mask), limit=limit)
+        lowerbound, upperbound = self.getTypeCast('inet:ipv4:cidr', valu)
+        return self.getTufosBy('range', prop, (lowerbound, upperbound), limit=limit)
 
     def _onTufoAddSynType(self, mesg):
         tufo = mesg[1].get('node')
