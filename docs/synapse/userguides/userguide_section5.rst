@@ -2,7 +2,7 @@
 Data Model - Node Concepts
 ==========================
 
-Recall from Data Model – Basics_ that the key data model components within Synapse are **nodes** and **tags.** Broadly speaking:
+Recall from `Data Model – Basics`__ that the key data model components within Synapse are **nodes** and **tags.** Broadly speaking:
 
 - Nodes commonly represent "facts" or "observables": things that are objectively true or verifiable.
 
@@ -30,7 +30,8 @@ Nodes, however, can represent a number of different types of observables:
   
   Similarly, with environmental observations (temperature, humidity, barometric pressure, etc.) it may be sufficient to know that in a given location (city, latitude / longitude), the recorded temperature has varied between two upper and lower bounds; in other circumstances, it may be important to know the specific temperature observation at a specific point in time.
   
-*Deconflicted vs. Non-Deconflicted Nodes*
+Deconflicted vs. Non-Deconflicted Nodes
+---------------------------------------
 
 For performance purposes, Synapse supports the use of both **deconflicted** and **non-deconflicted** nodes. **Deconflicted nodes** must be unique within the hypergraph; if you ask Synapse to create a node whose type must be deconflicted, Synapse will first check to see whether the node already exists. This initial read operation slightly delays node creation (write operation) where the node does not yet exist, but avoids the overhead of a full write if the node is already present. Most "object" and "relationship" nodes are deconflicted nodes.
 
@@ -38,4 +39,5 @@ For performance purposes, Synapse supports the use of both **deconflicted** and 
 
 **Non-deconflicted nodes** are known or assumed to be unique *a priori*; as such there is no need to check for the node's prior existence. Synapse skips any deconfliction check (read operation) and simply creates the node. Many “event” nodes are non-deconflicted nodes because they are assumed to be sufficiently high-resolution to represent data from a single, non-re-encounterable point in time. Some high-volume data types (e.g., streaming records, such as event logs) may be purposely designed as non-deconflicted to make the ingest of such data more performant. In addition, data that is deconflicted in advance (e.g., external to Synapse) and therefore known to be unique can be ingested as non-deconflicted data.
 
-.. _Data Model - Basics: ../userguides/userguide_section3.html
+.. _Basics: ../userguides/userguide_section3.html
+__ Basics_
