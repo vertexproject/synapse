@@ -27,7 +27,7 @@ ROWDUMP = 'syn:cortex:rowdump:info'
 # noinspection PyMissingOrEmptyDocstring
 def main(argv, outp=None):
 
-    if outp is None:
+    if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
     parser = makeargpaser()
     opts = parser.parse_args(argv)
@@ -49,11 +49,11 @@ def main(argv, outp=None):
                 outp.printf('Gzip row compression enabled.')
         else:
             outp.printf('Restoring from a savefile')
-    # No longer need that generator around with the dangler to fd
-    del gen
+        # No longer need that generator around with the dangler to fd
+        del gen
 
     storconf = {'rev:storage': False}
-    if opts.revstorage:
+    if opts.revstorage:  # pragma: no cover
         storconf['rev:storage'] = True
 
     with open(opts.input, 'rb') as fd:
