@@ -2,7 +2,8 @@
 Data Model - Node Properties
 ============================
 
-*Primary Properties*
+Primary Properties
+------------------
 
 In `Data Model – Basics`__, we noted that a node's **primary property** consisted of the node's **form** (its type or "template") plus its specific value. More importantly, we noted that a primary property **must be unique for a given form.** From this standpoint, the design of a form and selection of its primary property are critical.
 
@@ -10,7 +11,8 @@ Looked at another way, when creating a form (node type) for a given knowledge do
 
 Once defined, the primary property of a form cannot be changed. To modify a form's primary property, you would need to create a new node type and then migrate any existing nodes to use the new form.
 
-*Secondary Properties*
+Secondary Properties
+--------------------
 
 Secondary properties are those characteristics that are not necessarily unique for a given form, but that provide relevant detail to help describe an individual node. Once you have determined the primary property for a given form, consider what additional details about that form should be captured as secondary properties. Since much navigation and analysis within a Synapse hypergraph is based on querying and pivoting across properties and / or values, a basic rule of thumb is that any piece of data that you might want to search on, pivot across, or otherwise correlate should be broken out as a secondary property (if not already a primary property).
 
@@ -27,7 +29,7 @@ One of the difficulties in designing an effective data model is making effective
 
 A few examples will help to better illustrate these concepts.
 
-*Example 1 - People and Email Addresses*
+**Example 1 - People and Email Addresses**
 
 An email address is a common piece of data associated with a person. In creating a person node (``ps:person``), one’s first thought may be to include the email address as a secondary property on the node (``ps:person:email``). However, it is common for people to have more than one email address, such as a work email and and a personal email. One option would be to create multiple secondary properties: ``ps:person:wemail`` for a work email and ``ps:person:pemail`` for a personal email. This is also problematic, for several reasons: first, an individual may have multiple work or personal email addresses. Also, those email addresses may change (for example, if the person changes jobs). This would potentially require creating an unlimited number of secondary properties (``ps:person:wemail1, ps:person:wemail2...ps:person:wemailn``), and also makes querying and pivoting extremely difficult if you have to account for dozens of differently-named secondary properties that may contain the data you're looking for.
 
@@ -39,7 +41,7 @@ Because “person” and “email address” is typically a **one-to-many relati
 
 - While the data may change over time (a person may obtain a new email address), you likely don’t want to lose the historical knowledge of a previously used address. You can capture both current and historical email address associations in multiple relationship nodes (and time-bound the nodes with secondary ``seen:min`` and ``seen:max`` dates if necessary).
 
-*Example 2 - Threat Group Indicators*
+**Example 2 - Threat Group Indicators**
 
 The ability to identify and correlate activity with a specific threat group, often to aid in the detection of malicious activity or to drive incident response, is central to the knowledge domain of cyber threat data. We refer to the process of associating indicators (domains, IP addresses, files representing tools or malware binaries) with threat groups as “threat clustering”, though others may refer to it as “attribution”.
 
