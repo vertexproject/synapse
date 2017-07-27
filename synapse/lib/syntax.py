@@ -373,7 +373,7 @@ def parse_ques(text, off=0, trim=True):
 
             if textpart.startswith(ctxt):
                 ques['cmp'] = cmpr
-                ques['valu'], off = parse_oarg(text, off + len(ctxt))
+                ques['valu'], off = parse_valu(text, off + len(ctxt))
                 break
 
         break
