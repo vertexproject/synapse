@@ -3,7 +3,8 @@ Graphs and Hypergraphs
 
 To understand the power of Synapse, it helps to have some additional background. Without delving into mathematical definitions, this section introduces key concepts related to a **hypergraph,** and contrasts them with those of a **graph** or a **directed graph.** Most people should be familiar with the concept of a graph – even if not in the strict mathematical sense – or with data that can be visually represented in graph form.
 
-**Graphs**
+Graphs
+------
 
 A **graph** is a mathematical structure used to model pairwise relations between objects. Graphs consist of **vertices** (or **nodes**) that represent objects, and **edges** that connect two vertices in some type of relationship. Note that edges are specifically pairwise or **two-dimensional:** an edge connects exactly two nodes. Both nodes and edges may have **properties** that describe their relevant features. In this sense both nodes and edges can be thought of as representational objects within the graph, with nodes typically representing things (“nouns”) and edges representing relationships (“verbs”).
 
@@ -11,7 +12,8 @@ A simple example of data that can be represented by a graph are cities connected
 
 Another example would be social networks based on “connections”, such as Facebook or LinkedIn. In this case, each person would be a node, and the connection between two people would be an edge. Because basic connections in these networks are mutual (you can’t “friend” someone on Facebook without them agreeing to “friend” you in return), it can be considered a directionless graph. (This is a bit of a simplification, but serves our purpose as an example.)
 
-**Directed Graphs**
+Directed Graphs
+---------------
 
 A **directed graph** is a graph where the edges have a direction associated with them. In other words, the relationship represented by the edge is “one-way”. Where an edge in an undirected graph is often represented by a straight line, an edge in a directed graph is represented by an arrow.
 
@@ -33,7 +35,8 @@ In addition to nodes and edges, some directed graph implementations may allow la
 
 Many tools exist to visually represent various types of data in a directed graph format; Maltego (which bills itself as a “visual link analysis tool” that can represent information in a directed graph) is a well-known example.
 
-**Analysis with Graphs**
+Analysis with Graphs
+--------------------
 
 Directed graphs have become increasingly popular for representing and conducting analysis across large data sets. Analysis using a directed graph can be highly generalized into four methods for interacting with the data:
 
@@ -51,7 +54,8 @@ Despite their utility and increased use, directed graphs have certain limitation
 
 - **Data Representation.** Some relationships involve more than two objects, which may require some creativity (or at the very least, additional overhead) to force them into a two-dimensional directed graph model. One side effect may be a multiplication of edges, as noted above; another may be the need to continually create specialized node types to represent arbitrary “clusters” of data or objects (basically combining what would normally be two or more nodes into a single node, simply so the cluster can be associated with another node via a single edge).
 
-**Hypergraphs**
+Hypergraphs
+-----------
 
 A **hypergraph** is a generalization of a graph in which an edge can join any number of nodes. Because an edge is no longer limited to joining exactly two nodes, edges in a hypergraph are often called **hyperedges**. If a directed graph where edges join exactly two nodes is “two-dimensional”, then a hypergraph where a hyperedge can join any number (n-number) of nodes can be considered **“n-dimensional”**.
 
@@ -63,7 +67,8 @@ Looked at another way, they key features of a hypergraph are:
 
 In Synapse, hyperedges are represented by **tags,** which can be thought of as labels applied to nodes.
 
-**Analysis with a Synapse Hypergraph**
+Analysis with a Synapse Hypergraph
+----------------------------------
 
 Synapse is a specific implementation of a hypergraph model. Within Synapse, an individual hypergraph is called a **Cortex.** A Cortex is a scalable hypergraph implementation which also includes key/value-based node properties and a data model which facilitates normalization.
 
@@ -79,7 +84,7 @@ These features make pivoting highly effective because they ensure that data of t
 
 Synapse’s optimized use of pivots, combined with the ability to represent relationships (including complex “multi-dimensional” relationships) as nodes, provides some significant advantages over a directed graph. These include:
 
-*Performance*
+**Performance**
 
 “Asking questions” of a hypergraph may be less computationally intensive than in a directed graph. As a simple example, let’s say you want to know all of the domains that have resolved to a particular IP address. “Resolves to” (“has a DNS A record for”) is a relationship (edge) in a directed graph, so to answer this question you first need to **lift** the node for the IP address and then **traverse** an arbitrary number of edges to return the set of nodes represented by the endpoints of all those edges. For a handful of edges (domains), this traversal is not very difficult; but if thousands of domains have resolved to that IP, traversing all of those edges becomes more computationally intensive.
 
@@ -87,11 +92,11 @@ Viewed another way - and depending on the specific implementation of the directe
 
 In a Cortex, a single node represents the “resolves to” relationship, with the domain and IP address involved in the relationship both stored as properties on that node. So you simply need to **lift** the set of “resolves to” nodes where the value of the IP address property is the IP you are interested in. Once you have the relevant set of “resolves to” nodes, you simply **pivot** from the set of “domain” properties to the set of nodes representing those domains.
 
-*No Loss of Granularity*
+**No Loss of Granularity**
 
 As noted above, the pairwise nature of edges in a directed graph may result in a loss of granularity for complex relationships that realistically involve three or more elements as opposed to the two elements supported by a directed edge. In order to “fit” those relationships into a directed graph model, one solution is to arbitrarily combine some of those elements into a single node in order to force the relationship to be pairwise. This results in some loss of detail as elements that should rightly be treated as independent components are artificially conflated.
 
-*Discovery*
+**Discovery**
 
 “Asking questions of” or “exploring” a directed graph has some inherent limitations. First, since relationships are represented by edges, an analyst is limited to asking about (traversing) “known relationships” (that is, edges that are already defined in the model). This may limit the discovery of new or unexpected patterns or correlations.
 
@@ -117,6 +122,7 @@ If the above sounds messy and a bit redundant, it’s because to an extent, it i
 
 In a Synapse hypergraph Cortex, the IP addresses appear as properties on both the set of “domain has DNS A record” nodes (as the “resolved to” property, for example) and the set of “spear phishing email nodes” (as the “source IP” property, for example). You can simply pivot between the two node types based on the value of those properties to find your answer. Not only is the navigation itself significantly easier, but you are able to readily ask questions across disparate or arbitrary data types (DNS records and email messages), as long as they share some value in common – even if that value represents a different property in each case.
 
-**Conclusions**
+Conclusions
+-----------
 
 Though hypergraphs may be less familiar conceptually than traditional graphs, they offer distinct performance and analytical advantages over directed graph models, addressing historical shortcomings in representation, navigation, and analytical capability. Synapse, as a specific implementation of a hypergraph model, incorporates additional design features (type safety, property normalization, and a robust query language, in addition to storage and indexing optimization for performance) that further enhance its power and flexibility as an analysis tool.
