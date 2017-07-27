@@ -6,7 +6,7 @@ Recall from `Data Model – Basics`__ that the key data model components within 
 
 - Nodes commonly represent "facts" or "observables": things that are objectively true or verifiable.
 
-- Tags commonly represent information that may be more changeable over time. Most commonly, tags represent "analytical assessments": conclusions drawn from observables that may change if data or the assessment of the data changes. In some cases, tags represent “facts” that may change over time, such as the geolocation of an IP address (represented by a location tag [``#loc``]) or the association of an IP address with a specialized service, such as a TOR exit node or a VPN provider.
+- Tags commonly represent information that may be more changeable over time. Most commonly, tags represent "analytical assessments": conclusions drawn from observables that may change if data or the assessment of the data changes. In some cases, tags represent “facts” that may change over time, such as the geolocation of an IP address (represented by a location tag ``#loc``) or the association of an IP address with a specialized service, such as a TOR exit node or a VPN provider.
 
 Nodes, however, can represent a number of different types of observables:
 
