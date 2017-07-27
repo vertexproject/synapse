@@ -66,7 +66,20 @@ class StormSyntaxTest(SynTest):
         insts = s_syntax.parse('+foo:bar~="hehe" -foo:bar~="hoho"')
         self.eq(insts[0], ('filt', {'prop': 'foo:bar', 'mode': 'must', 'cmp': 're', 'valu': 'hehe'}))
         self.eq(insts[1], ('filt', {'prop': 'foo:bar', 'mode': 'cant', 'cmp': 're', 'valu': 'hoho'}))
-        self.eq({'woot': 10}, {'woot': 10})
+        # Real world example with and without quotes around the regex valu
+        insts = s_syntax.parse('#sig.mal.pennywise totags() +syn:tag~="bhv.aka" fromtags()')
+        self.eq(len(insts), 4)
+        self.eq(insts[0], ('alltag', {'args': ('sig.mal.pennywise',), 'kwlist': []}))
+        self.eq(insts[1], ('totags', {'args': [], 'kwlist': []}))
+        self.eq(insts[2], ('filt', {'cmp': 're', 'prop': 'syn:tag', 'mode': 'must', 'valu': 'bhv.aka'}))
+        self.eq(insts[3], ('fromtags', {'args': [], 'kwlist': []}))
+        # And without quotes
+        insts = s_syntax.parse('#sig.mal.pennywise totags() +syn:tag~=bhv.aka fromtags()')
+        self.eq(len(insts), 4)
+        self.eq(insts[0], ('alltag', {'args': ('sig.mal.pennywise',), 'kwlist': []}))
+        self.eq(insts[1], ('totags', {'args': [], 'kwlist': []}))
+        self.eq(insts[2], ('filt', {'cmp': 're', 'prop': 'syn:tag', 'mode': 'must', 'valu': 'bhv.aka'}))
+        self.eq(insts[3], ('fromtags', {'args': [], 'kwlist': []}))
 
     def test_storm_syntax_by(self):
         insts = s_syntax.parse('woot/foo:bar*baz="hehe"')
@@ -85,16 +98,16 @@ class StormSyntaxTest(SynTest):
         self.eq(insts[0], s_syntax.oper('lift', 'inet:fqdn', '1.2.3.4', by='eq'))
 
     def test_storm_syntax_comp_opts(self):
-        valu,off = s_syntax.parse_valu('(foo,bar,baz=faz)')
-        self.eq( valu, ['foo','bar',('baz','faz')] )
+        valu, off = s_syntax.parse_valu('(foo,bar,baz=faz)')
+        self.eq(valu, ['foo', 'bar', ('baz', 'faz')])
 
-        valu,off = s_syntax.parse_valu('(foo, bar, baz=faz)')
-        self.eq( valu, ['foo','bar',('baz','faz')] )
+        valu, off = s_syntax.parse_valu('(foo, bar, baz=faz)')
+        self.eq(valu, ['foo', 'bar', ('baz', 'faz')])
 
-        valu,off = s_syntax.parse_valu('(   foo   ,    bar   ,   baz    =     faz    )')
-        self.eq( valu, ['foo','bar',('baz','faz')] )
+        valu, off = s_syntax.parse_valu('(   foo   ,    bar   ,   baz    =     faz    )')
+        self.eq(valu, ['foo', 'bar', ('baz', 'faz')])
 
     def test_storm_syntax_edit(self):
         inst0 = s_syntax.parse('[inet:ipv4=127.0.0.1 inet:ipv4=127.0.0.2]')
         inst1 = s_syntax.parse('   [   inet:ipv4   =    127.0.0.1  inet:ipv4   =   127.0.0.2   ]   ')
-        self.eq(inst0,inst1)
+        self.eq(inst0, inst1)

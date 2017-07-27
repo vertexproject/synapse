@@ -17,7 +17,7 @@ tagfilt = varset.union({'#', '*', '@'})
 alphaset = set('abcdefghijklmnopqrstuvwxyz')
 
 # this may be used to meh() potentially unquoted values
-valmeh = whites.union({'(',')','=',',','[',']'})
+valmeh = whites.union({'(', ')', '=', ',', '[', ']'})
 
 def nom(txt, off, cset, trim=True):
     '''
@@ -95,15 +95,14 @@ def parse_list(text, off=0, trim=True):
 
         _, off = nom(text, off, whites)
 
-        valu,off = parse_valu(text, off)
+        valu, off = parse_valu(text, off)
 
         _, off = nom(text, off, whites)
-
 
         # check for foo=bar kw tuple syntax
         if nextchar(text, off, '='):
 
-            _, off = nom(text, off+1, whites)
+            _, off = nom(text, off + 1, whites)
 
             vval, off = parse_valu(text, off)
 
@@ -373,7 +372,7 @@ def parse_ques(text, off=0, trim=True):
 
             if textpart.startswith(ctxt):
                 ques['cmp'] = cmpr
-                ques['valu'], off = parse_oarg(text, off + len(ctxt))
+                ques['valu'], off = parse_valu(text, off + len(ctxt))
                 break
 
         break
@@ -384,7 +383,7 @@ def parse_valu(text, off=0):
     '''
     Special syntax for the right side of equals in a macro
     '''
-    _, off = nom(text,off,whites)
+    _, off = nom(text, off, whites)
 
     if nextchar(text, off, '('):
         return parse_list(text, off)
