@@ -35,14 +35,13 @@ Examples of simple nodes include:
 
 GUIDs are used as primary properties for forms which are not easily deconflictable (that is, which do not have readily identified characteristics that can serve as a unique primary property). For commonly used node types that are represented by GUIDs (such as organizations or people), it is impractical for an analyst to have to type (or even copy / paste) a GUID at the CLI every time they want to reference a given node. While nodes can be retrieved based on a more "human-friendly" secondary ``<prop>=<value>`` (e.g., ``ou:org:alias=vertex``), even the need to enter a full secondary property / value may be inconvenient.
 
-Synapse allows an **alias** to be defined as part of the type for the form's primary property. The alias is typically one of the form's secondary properties. For example, the Synapse data model defines the property ``ps:person:guidname`` as an alias for a person, and ``ou:org:alias`` as an alias for an organization. An example of the alias definition can be seen in this snippet of source code that defines the ``ou:org`` type (from ``orgs.py`` - emphasis added):
+Synapse allows an **alias** to be defined as part of the type for the form's primary property. The alias is typically one of the form's secondary properties. For example, the Synapse data model defines the property ``ps:person:guidname`` as an alias for a person, and ``ou:org:alias`` as an alias for an organization. An example of the alias definition can be seen in this snippet of source code that defines the ``ou:org`` type (from ``orgs.py``):
 ::
   def getBaseModels():
     modl = {
       'types': (
-        ('ou:org', {'subof': 'guid', **'alias': 'ou:org:alias',**
-              'doc': 'A GUID for a human organization such
-              as a company or military unit'
+        ('ou:org', {'subof': 'guid', 'alias': 'ou:org:alias',
+              'doc': 'A GUID for a human organization such as a company or military unit'
         }),
 
 Once defined in the data model, the alias property’s value preceded by a dollar sign ( ``$`` ) can be used as shorthand to refer to the node. As such, the following statements are equivalent:
