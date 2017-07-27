@@ -23,7 +23,7 @@ Examples of simple nodes include:
 
 - **Domains.** Similarly, an Internet domain must be globally unique (the same domain cannot be registered by two different entities) and can be defined by the domain string (``inet:fqdn=woot.com``). Additional secondary properties may include whether the domain is a top-level domain (TLD).
 
-- **Files.** Files are unique based on their content. Instead of doing a byte-by-byte comparison of content, files are typically "compared" by generating a hash of the file and comparing the hash of one file with the hash of another file; if the hashes match, the files are considered to be the same. However, improvements in both cryptanalysis and computational power have made hash collisions more likely – that is, it is possible to not only find but in some cases to deliberately generate two files with different content that nonetheless result in the same hash. Thus, some hash algorithms (MD5, and increasingly SHA1) that were once considered unique no longer are, and there is no guarantee that this trend will not eventually hold true for additional hash algorithms. Because no hash can be considered reliably unique, the primary property of a file is represented by a GUID (``file:bytes=<guid>``). Specifically, if known, Synapse stores four hashes (MD5, SHA1, SHA256, SHA512) as secondary properties and generates a stable (deterministic) GUID from those hashes. For this reason a Synapse file:bytes GUID is sometimes referred to as a “superhash”.
+- **Files.** Files are unique based on their content. Instead of doing a byte-by-byte comparison of content, files are typically "compared" by generating a hash of the file and comparing the hash of one file with the hash of another file; if the hashes match, the files are considered to be the same. However, improvements in both cryptanalysis and computational power have made hash collisions more likely – that is, it is possible to not only find but in some cases to deliberately generate two files with different content that nonetheless result in the same hash. Thus, some hash algorithms (MD5, and increasingly SHA1) that were once considered unique no longer are, and there is no guarantee that this trend will not eventually hold true for additional hash algorithms. Because no hash can be considered reliably unique, the primary property of a file is represented by a GUID (``file:bytes=<guid>``). Specifically, if known, Synapse stores four hashes (MD5, SHA1, SHA256, SHA512) as secondary properties and generates a stable (deterministic) GUID from those hashes. For this reason a Synapse ``file:bytes`` GUID is sometimes referred to as a “superhash”.
 
   Additional secondary properties may include the file size in bytes or the file type (PE executable, plain text, GIF, etc.). Depending on analytical need, file type-specific secondary properties may also be defined (e.g., a compile date for PE executable, file-specific metadata for a JPEG or Word document, etc.)
   
@@ -147,8 +147,8 @@ A better solution is the xref node, which provides the flexibility to “referen
  
 The Synapse data model currently includes two predefined xref-type nodes:
 
-- file:imgof (a file contains an image of something)
-- file:txtref (a file contains a "text reference" to something)
+- ``file:imgof`` (a file contains an image of something)
+- ``file:txtref`` (a file contains a "text reference" to something)
 
 Similar to comp nodes, the elements of an xref node’s primary property are specified as a comma-separated ordered list within parentheses (e.g., ``<form>=(<element_1>,<element_2>,<element_3>)``).
 
