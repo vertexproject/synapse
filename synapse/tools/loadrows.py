@@ -64,6 +64,7 @@ def main(argv, outp=None):
             outp.printf('Starting row level restore')
             tick = time.time()
             i = 0
+            nrows = 0
             for event in gen:
                 if decompress and 'rows' in event[1]:
                     event[1]['rows'] = s_common.msgunpack(gzip.decompress(event[1].get('rows')))
@@ -71,6 +72,10 @@ def main(argv, outp=None):
                 if i % 250 == 0:
                     outp.printf('Loaded {} events'.format(i))
                 store.loadbus.dist(event)
+                _nrows = len(event[1].get('rows', 0))
+                nrows += _nrows
+                if _nrows and i % 10 == 0:
+                    logger.debug('Loaded %s rows', nrows)
 
             tock = time.time()
             outp.printf('Done loading events - took {} seconds.'.format(tock - tick))
