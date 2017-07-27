@@ -37,12 +37,19 @@ GUIDs are used as primary properties for forms which are not easily deconflictab
 
 Synapse allows an **alias** to be defined as part of the type for the form's primary property. The alias is typically one of the form's secondary properties. For example, the Synapse data model defines the property ``ps:person:guidname`` as an alias for a person, and ``ou:org:alias`` as an alias for an organization. An example of the alias definition can be seen in this snippet of source code that defines the ``ou:org`` type (from ``orgs.py``):
 ::
-  def getBaseModels():
-    modl = {
-      'types': (
-        ('ou:org', {'subof': 'guid', 'alias': 'ou:org:alias',
-              'doc': 'A GUID for a human organization such as a company or military unit'
-        }),
+    def getBaseModels():
+        modl = {
+            'types': (
+                ('ou:org',
+                 {'subof': 'guid',
+                  'alias': 'ou:org:alias',
+                  'doc': 'A GUID for a human organization such as a company or military unit'
+                  }
+                 ),
+                ...
+            ),
+            ...
+        }
 
 Once defined in the data model, the alias property’s value preceded by a dollar sign ( ``$`` ) can be used as shorthand to refer to the node. As such, the following statements are equivalent:
 ::
