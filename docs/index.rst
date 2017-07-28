@@ -8,8 +8,8 @@ Contents:
 
     synapse/userguide_section0
     synapse/devopsguide
-    synapse/api/synapse
     synapse/datamodel
+    synapse/api/synapse
     performance
     contributing
 
