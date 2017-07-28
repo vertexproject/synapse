@@ -1,4 +1,4 @@
-eventbus: Synapse Event Distribution
+Eventbus: Synapse Event Distribution
 ####################################
 
 EventBus Quick Start
@@ -12,7 +12,4 @@ Event Bus Linking
 
 Async Event Bus Consumer
 ------------------------
-
-EventBus Weak Refs
-------------------
 

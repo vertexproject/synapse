@@ -1,4 +1,4 @@
-telepath: Synapse Remote Method Invocation
+Telepath: Synapse Remote Method Invocation
 ##########################################
 
 Telepath Quick Start
