@@ -104,11 +104,11 @@ class CortexTest(SynTest):
     def test_cortex_ram(self):
         core = s_cortex.openurl('ram://')
         self.true(hasattr(core.link, '__call__'))
-        self.run_basic_tests(core, 'ram')
+        self.basic_core_expectations(core, 'ram')
 
     def test_cortex_sqlite3(self):
         core = s_cortex.openurl('sqlite:///:memory:')
-        self.run_basic_tests(core, 'sqlite')
+        self.basic_core_expectations(core, 'sqlite')
 
     def test_cortex_lmdb(self):
         with self.getTestDir() as path:
@@ -117,7 +117,7 @@ class CortexTest(SynTest):
             lmdb_url = 'lmdb:///%s' % fp
 
             with s_cortex.openurl(lmdb_url) as core:
-                self.run_basic_tests(core, 'lmdb')
+                self.basic_core_expectations(core, 'lmdb')
 
             # Test load an existing db
             core = s_cortex.openurl(lmdb_url)
@@ -125,9 +125,9 @@ class CortexTest(SynTest):
 
     def test_cortex_postgres(self):
         with self.getPgCore() as core:
-            self.run_basic_tests(core, 'postgres')
+            self.basic_core_expectations(core, 'postgres')
 
-    def run_basic_tests(self, core, storetype):
+    def basic_core_expectations(self, core, storetype):
         '''
         Run basic tests against a Cortex instance.
 
