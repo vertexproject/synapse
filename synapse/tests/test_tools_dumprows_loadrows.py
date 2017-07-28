@@ -6,8 +6,6 @@ Created on 7/26/17.
 
 Unittests for the dumprows and loadrows tools.
 """
-import gzip
-
 import synapse.axon as s_axon
 
 import synapse.tools.dumprows as s_dumprows
@@ -96,7 +94,7 @@ class DumpRowsTest(SynTest):
                     self.isin('rows', evt[1])
                     rows = evt[1].get('rows')
                     # we decode the rows blob not in place but separately here
-                    rows = msgunpack(gzip.decompress(rows))
+                    rows = msgunpack(s_compat.gzip_decompress(rows))
                     self.isinstance(rows, tuple)
                     self.isinstance(rows[0], tuple)
                     self.eq(len(rows[0]), 4)
