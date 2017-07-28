@@ -679,28 +679,26 @@ class Storage(s_config.Config):
     def tufosByLe(self, prop, valu, limit=None):
         raise s_common.NoSuchImpl(name='tufosByLe', mesg='Store does not implement tufosByLe')
 
-    # The following are things which SHOULD be overridden in order to provide
-    # cortex features which are kind of optional
-
     def _getBlobValu(self, key):  # pragma: no cover
-        self.log(logging.ERROR, mesg='Store does not implement _getBlobValu', name='_getBlobValu')
-        return None
+        raise s_common.NoSuchImpl(name='_getBlobValu', mesg='Store does not implement _getBlobValu')
 
     def _setBlobValu(self, key, valu):  # pragma: no cover
-        self.log(logging.ERROR, mesg='Store does not implement _setBlobValu', name='_setBlobValu')
-        return None
+        raise s_common.NoSuchImpl(name='_setBlobValu', mesg='Store does not implement _setBlobValu')
 
     def _hasBlobValu(self, key):  # pragma: no cover
-        self.log(logging.ERROR, mesg='Store does not implement _hasBlobValue', name='_hasBlobValue')
-        return None
+        raise s_common.NoSuchImpl(name='_hasBlobValu', mesg='Store does not implement _hasBlobValu')
 
     def _delBlobValu(self, key):  # pragma: no cover
-        self.log(logging.ERROR, mesg='Store does not implement _delBlobValu', name='_delBlobValu')
-        return None
+        raise s_common.NoSuchImpl(name='_delBlobValu', mesg='Store does not implement _delBlobValu')
 
     def _getBlobKeys(self):
-        self.log(logging.ERROR, mesg='Store does not implement _getBlobKeys', name='_getBlobKeys')
-        return None
+        raise s_common.NoSuchImpl(name='_getBlobKeys', mesg='Store does not implement _getBlobKeys')
+
+    def _genStoreRows(self, **kwargs):
+        raise s_common.NoSuchImpl(name='_genStoreRows', mesg='Store does not implement _genStoreRows')
+
+    # The following are things which SHOULD be overridden in order to provide
+    # cortex features which are kind of optional
 
     def _finiCoreStore(self):
         '''
@@ -708,9 +706,6 @@ class Storage(s_config.Config):
         '''
         # raise s_common.NoSuchImpl(name='_finiCoreStore', mesg='Store does not implement _finiCoreStore')
         pass
-
-    def _genStoreRows(self, **kwargs):
-        raise s_common.NoSuchImpl(name='_genStoreRows', mesg='Store does not implement _genStoreRows')
 
     # The following are default implementations that may be overridden by
     # a storage layer for various reasons.
