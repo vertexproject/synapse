@@ -1,29 +1,28 @@
-##########################
-devops: Synapse Deployment
-##########################
+Synapse Deployment Scenarios
+============================
 
-********
 Hardware
-********
+--------
 Currently Synapse may be run either natively or in a docker container.  Both options will be covered.
-If performance is a consideration in testing please do not use a virtual machine and  make sure
+If performance is a consideration in testing please do not use a virtual machine and make sure
 the resources allocated are appropriate for the performance needed.
 
 Experimental Hardware
-=====================
+#####################
 For an experimental setup we recommend at least 8GB ram and several terabytes of disk space.
-Performance will drop considerably if the hardware resources are out paced by the data
-being loaded.
+Performance of the Synapse Hypergraph will drop considerably if the hardware resources are
+out paced by the data being loaded.
 
-
-*******
 Install
-*******
+-------
 Ubuntu 16.04 LTS is the recommended platform for installation. Installation via Docker is also
-supported. Synapse is available at https://github.com/vertexproject/synapse.git
+supported. Synapse is available at the following places:
+    #. PyPi https://pypi.python.org/pypi/synapse
+    #. Github https://github.com/vertexproject/synapse
+    #. DockerHub https://hub.docker.com/r/vertexproject/synapse/
 
 Ubuntu
-======
+######
 Install the following prerequisites prior to using Synapse::
 
     $ sudo apt update
@@ -42,12 +41,12 @@ The following commands assume your Synapse checkout will be in '~/synapse'::
     $ cd synapse
     $ sudo python3 setup.py develop
 
-An exmplar dmon configuration file is located at synapse/docker/cortex/sqlite_dmon.json::
+An exemplar dmon configuration file is located at synapse/docker/cortex/sqlite_dmon.json::
 
     $ python3 -m synapse.tools.dmon synapse/docker/cortex/sqlite_dmon.json
 
 Docker
-======
+######
 Synapse docker images are also based on Ubuntu 16.04 and install all relevant dependencies.
 
 Unless otherwise stated Synapse tracks the latest stable release of Docker engine for Ubuntu 16.04
@@ -60,7 +59,7 @@ General steps:
 #. Start Synapse
 
 Synapse image
--------------
+~~~~~~~~~~~~~
 This image is intended to serve 2 functions
 
 #. Provide a simple sandbox to get started with synapse
@@ -78,7 +77,7 @@ This image is intended to serve 2 functions
     - no ports are exposed by default
 
 Cortex image - Postgresql
--------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~
 This image will provide a synapse daemon config driven cortex backed into a postgres(9.5) database
 by default.
 It is the general image used for experimentation as it can also be easily configured to start
@@ -102,13 +101,13 @@ configured to expose a Cortex object.
         $ docker run vertexproject/core_pg
 
 Start Docker Cortex
--------------------
+~~~~~~~~~~~~~~~~~~~
 Start a container using the Posgresql Cortex image just created::
 
     $ docker run vertexproject/core_pg
 
 General Cortex Use
-==================
+##################
 Connecting to a Cortex will be a variant of::
 
     import synapse.telepath as s_telepath
@@ -135,13 +134,12 @@ The normal Cortex apis can now be called::
 
     print('formed, stored and retrieved a form: %r' % (new_tufo[0] == ret_tufo[0],))
 
-**************************
 Other Cortex Docker images
-**************************
+--------------------------
 The other Docker images listed below are simpler examples of running a more basic Cortex without Postgresql.
 
 core_ram
-========
+########
 Provides a synapse daemon config driven cortex backed into ram.
 
 - build
@@ -163,7 +161,7 @@ Provides a synapse daemon config driven cortex backed into ram.
         $ docker run vertexproject/core_ram
 
 core_sqlite
-===========
+###########
 Provides a synapse daemon config driven cortex backed into a sqlite database by default.
 
 - build
