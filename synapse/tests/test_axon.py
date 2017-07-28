@@ -1,15 +1,9 @@
-import io
-import hashlib
-import tempfile
-
 import synapse.axon as s_axon
 import synapse.daemon as s_daemon
-import synapse.lib.heap as s_heap
-import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
+
 import synapse.lib.service as s_service
 
-from synapse.exc import *
 from synapse.tests.common import *
 
 craphash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
