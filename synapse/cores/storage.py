@@ -157,10 +157,11 @@ class StoreXact:
         self._coreXactFini()
         self.store._popCoreXact()
 
-class StorageBase(s_config.Config):
+class Storage(s_config.Config):
     '''
     Base class for storage layer backends.  This implements functionality
-    which should be untouched by the storage layer implementer.
+    which is neccesary for a storage layer to operate, as well as providing
+    stubs for the storage layer implementations to override.
     '''
     def __init__(self,
                  link,
@@ -618,10 +619,6 @@ class StorageBase(s_config.Config):
 
             curv = self.setBlobValu(vsn_str, vers)
 
-class Storage(StorageBase):
-    '''
-    It is intended that storage layer implementations may override many of the functions provided here.
-    '''
     # The following MUST be implemented by the storage layer in order to
     # support the basic idea of a cortex
 
