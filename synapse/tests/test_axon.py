@@ -1,15 +1,9 @@
-import io
-import hashlib
-import tempfile
-
 import synapse.axon as s_axon
 import synapse.daemon as s_daemon
-import synapse.lib.heap as s_heap
-import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
+
 import synapse.lib.service as s_service
 
-from synapse.exc import *
 from synapse.tests.common import *
 
 craphash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
@@ -152,7 +146,7 @@ class AxonTest(SynTest):
             axfo0 = host0.add(**props)
 
             axon0 = s_telepath.openlink(axfo0[1].get('link'))
-            self.true(axon0._waitClonesReady(timeout=2))
+            self.true(axon0._waitClonesReady(timeout=8))
 
             iden = axon0.alloc(100)
             blob = axon0.chunk(iden, b'V' * 100)
@@ -207,7 +201,7 @@ class AxonTest(SynTest):
             axon0 = s_telepath.openlink(axfo0[1].get('link'))
 
             # wait for clones to come online
-            self.true(axon0._waitClonesReady(timeout=2))
+            self.true(axon0._waitClonesReady(timeout=8))
 
             #self.nn( usage.get('total') )
             #axon = host.axons.get(iden)
