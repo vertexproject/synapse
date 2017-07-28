@@ -6,9 +6,12 @@ Created on 7/26/17.
 
 Unittests for the dumprows and loadrows tools.
 """
+import gzip
+
+import synapse.axon as s_axon
+
 import synapse.tools.dumprows as s_dumprows
 import synapse.tools.loadrows as s_loadrows
-
 
 from synapse.tests.common import *
 
@@ -24,19 +27,193 @@ class DumpRowsTest(SynTest):
     def test_simple_use(self):
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
-            fp = os.path.join(temp, 'savefile.msgpk')
-            with s_cortex.openurl(fp, savefile=fp) as core:
+            fp = os.path.join(temp, 'dumpfile.msgpk')
+            new_db = os.path.join(temp, 'test.db')
+            sqlite_url = 'sqlite:///{}'.format(new_db)
+            with s_cortex.openurl(sqlite_url) as core:
                 self.true(core.isnew)
+                core.setBlobValu('syn:test:tel', 8675309)
+                core.formTufoByProp('inet:ipv4', 0x01020304)
+            # Now dump that sqlite core
+            argv = ['-s', sqlite_url, '-o', fp]
+            ret = s_dumprows.main(argv, outp)
+            self.eq(ret, 0)
+
+            # Now ensure our .msgpk file is correct
+            with open(fp, 'rb') as fd:
+                gen = msgpackfd(fd)
+                evt = next(gen)
+                self.eq(evt[0], s_dumprows.ROWDUMP)
+                self.eq(evt[1].get('rows:compress'), False)
+                self.eq(evt[1].get('synapse:rows:output'), fp)
+                self.eq(evt[1].get('synapse:cortex:input'), sqlite_url)
+                self.eq(evt[1].get('synapse:cortex:blob_store'), False)
+                self.eq(evt[1].get('synapse:cortex:revstore'), False)
+                self.eq(evt[1].get('python:version'), s_compat.version)
+                self.isin('synapse:version', evt[1])
+                evt = next(gen)
+                self.eq(evt[0], s_dumprows.ADDROWS)
+                self.isin('rows', evt[1])
+                rows = evt[1].get('rows')
+                self.isinstance(rows, tuple)
+                self.isinstance(rows[0], tuple)
+                self.eq(len(rows[0]), 4)
+                # Expensive but worth checking
+                event_types = set()
+                event_types.add(evt[0])
+                total_rows = 0
+                for evt in gen:
+                    event_types.add(evt[0])
+                    if 'rows' in evt[1]:
+                        total_rows = total_rows + len(evt[1].get('rows'))
+                self.gt(total_rows, 1000)
+                self.eq(event_types, {s_dumprows.ADDROWS})
 
     def test_simple_compress(self):
-        outp = self.getTestOutp()
+            outp = self.getTestOutp()
+            with self.getTestDir() as temp:
+                fp = os.path.join(temp, 'dumpfile.msgpk')
+                new_db = os.path.join(temp, 'test.db')
+                sqlite_url = 'sqlite:///{}'.format(new_db)
+                with s_cortex.openurl(sqlite_url) as core:
+                    self.true(core.isnew)
+                    core.setBlobValu('syn:test:tel', 8675309)
+                    core.formTufoByProp('inet:ipv4', 0x01020304)
+                # Now dump that sqlite core
+                argv = ['-s', sqlite_url, '-o', fp, '--compress']
+                ret = s_dumprows.main(argv, outp)
+                self.eq(ret, 0)
+
+                # Now ensure our .msgpk file is correct
+                with open(fp, 'rb') as fd:
+                    gen = msgpackfd(fd)
+                    evt = next(gen)
+                    self.eq(evt[0], s_dumprows.ROWDUMP)
+                    # XXX Validate options?
+                    self.eq(evt[1].get('rows:compress'), True)
+                    evt = next(gen)
+                    self.eq(evt[0], s_dumprows.ADDROWS)
+                    self.isin('rows', evt[1])
+                    rows = evt[1].get('rows')
+                    # we decode the rows blob not in place but separately here
+                    rows = msgunpack(gzip.decompress(rows))
+                    self.isinstance(rows, tuple)
+                    self.isinstance(rows[0], tuple)
+                    self.eq(len(rows[0]), 4)
+                    # Expensive but worth checking
+                    event_types = set()
+                    event_types.add(evt[0])
+                    for evt in gen:
+                        event_types.add(evt[0])
+                    self.eq(event_types, {s_dumprows.ADDROWS})
 
     def test_blob_dump(self):
         outp = self.getTestOutp()
+        with self.getTestDir() as temp:
+            fp = os.path.join(temp, 'dumpfile.msgpk')
+            new_db = os.path.join(temp, 'test.db')
+            sqlite_url = 'sqlite:///{}'.format(new_db)
+            with s_cortex.openurl(sqlite_url) as core:
+                self.true(core.isnew)
+                core.setBlobValu('syn:test:tel', 8675309)
+                core.formTufoByProp('inet:ipv4', 0x01020304)
+
+            # Now dump that sqlite core
+            argv = ['-s', sqlite_url, '-o', fp, '--dump-blobstore']
+            ret = s_dumprows.main(argv, outp)
+            self.eq(ret, 0)
+
+            # Now ensure our .msgpk file is correct
+            with open(fp, 'rb') as fd:
+                gen = msgpackfd(fd)
+                evt = next(gen)
+                self.eq(evt[0], s_dumprows.ROWDUMP)
+                # XXX Validate options?
+                self.eq(evt[1].get('synapse:cortex:blob_store'), True)
+                evt = next(gen)
+                self.eq(evt[0], s_dumprows.ADDROWS)
+                self.isin('rows', evt[1])
+                rows = evt[1].get('rows')
+                self.isinstance(rows, tuple)
+                self.isinstance(rows[0], tuple)
+                self.eq(len(rows[0]), 4)
+                # Expensive but worth checking
+                event_types = set()
+                event_types.add(evt[0])
+                for evt in gen:
+                    event_types.add(evt[0])
+                self.eq(event_types, {s_dumprows.ADDROWS, s_dumprows.ADDBLOB})
 
     def test_revstore_use(self):
         outp = self.getTestOutp()
 
+    #XXX Write test
+    def test_dump_force(self):
+        outp = self.getTestOutp()
+        with self.getTestDir() as temp:
+            fp = os.path.join(temp, 'dumpfile.msgpk')
+            new_db = os.path.join(temp, 'test.db')
+            sqlite_url = 'sqlite:///{}'.format(new_db)
+            with s_cortex.openurl(sqlite_url) as core:
+                self.true(core.isnew)
+                core.setBlobValu('syn:test:tel', 8675309)
+                core.formTufoByProp('inet:ipv4', 0x01020304)
+
+            # Now dump that sqlite core
+            argv = ['-s', sqlite_url, '-o', fp]
+            ret = s_dumprows.main(argv, outp)
+            self.eq(ret, 0)
+
+            outp = self.getTestOutp()
+            argv = ['-s', sqlite_url, '-o', fp]
+            ret = s_dumprows.main(argv, outp)
+            self.eq(ret, 1)
+            self.true('Cannot overwrite a backup.' in str(outp))
+
+            outp = self.getTestOutp()
+            # Now dump that sqlite core
+            argv = ['-s', sqlite_url, '-o', fp, '-f']
+            ret = s_dumprows.main(argv, outp)
+            self.eq(ret, 0)
+
+    def test_dump_largecore(self):
+        # This ensure we're executing the "dump rows
+        # when we have N number of bytes cached codepath.
+        # Unfortunately this is a bit slow (2-4 seconds).
+        ntufos = 40000
+        outp = self.getTestOutp()
+        with self.getTestDir() as temp:
+            fp = os.path.join(temp, 'dumpfile.msgpk')
+            new_db = os.path.join(temp, 'test.db')
+            sqlite_url = 'sqlite:///{}'.format(new_db)
+            with s_cortex.openurl(sqlite_url) as core:
+                self.true(core.isnew)
+                rows = []
+                tick = now()
+                for i in range(1, ntufos):
+                    iden = guid()
+                    rows.append((iden, 'tufo:form', 'inet:asn', tick))
+                    rows.append((iden, 'inet:asn', i, tick))
+                    rows.append((iden, 'inet:asn:name', '??', tick))
+                core.addRows(rows)
+                q = 'SELECT count(1) from {}'.format(core.store._getTableName())
+                num_core_rows = core.store.select(q)[0][0]
+
+            # Now dump that sqlite core
+            argv = ['-s', sqlite_url, '-o', fp]
+            ret = s_dumprows.main(argv, outp)
+            self.eq(ret, 0)
+
+            stat = os.stat(fp)
+            self.gt(stat.st_size, s_axon.megabyte * 4)
+
+            # Now ensure our .msgpk file is correct
+            with open(fp, 'rb') as fd:
+                msgpk_rows = 0
+                for evt in msgpackfd(fd):
+                    if 'rows' in evt[1]:
+                        msgpk_rows = msgpk_rows + len(evt[1].get('rows'))
+            self.eq(num_core_rows, msgpk_rows)
 
 class LoadRowsTest(SynTest):
 

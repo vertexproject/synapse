@@ -72,7 +72,7 @@ def main(argv, outp=None):
                 if i % 250 == 0:
                     outp.printf('Loaded {} events'.format(i))
                 store.loadbus.dist(event)
-                _nrows = len(event[1].get('rows', 0))
+                _nrows = len(event[1].get('rows', ()))
                 nrows += _nrows
                 if _nrows and i % 10 == 0:
                     logger.debug('Loaded %s rows', nrows)

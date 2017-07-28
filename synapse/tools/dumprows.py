@@ -87,6 +87,16 @@ def dump_rows(outp, fd, store, compress=False, genrows_kwargs=None):
     outp.printf('Done dumping rows - took {} seconds.'.format(tock - tick))
     outp.printf('Dumped {} rows'.format(i))
 
+def dump_blobs(outp, fd, store):
+    i = 0
+    outp.printf('Dumping blobstore')
+    for key in store.getBlobKeys():
+        valu = store.getBlobValu(key)
+        tufo = s_tufo.tufo(ADDBLOB, key=key, valu=s_common.msgenpack(valu))
+        byts = s_common.msgenpack(tufo)
+        fd.write(byts)
+        i += 1
+    outp.printf('Done dumping {} keys from blobstore.'.format(i))
 
 def dump_store(outp, fd, store,
                compress=False,
@@ -95,21 +105,13 @@ def dump_store(outp, fd, store,
     outp.printf('Starting data dump from storage object.')
     dump_rows(outp, fd, store, compress=compress, genrows_kwargs=genrows_kwargs)
     if dump_blobstore:
-        i = 0
-        outp.printf('Dumping blobstore')
-        for key in store.getBlobKeys():
-            valu = store.getBlobValu(key)
-            tufo = s_tufo.tufo(ADDBLOB, key=key, valu=s_common.msgenpack(valu))
-            byts = s_common.msgenpack(tufo)
-            fd.write(byts)
-            i += 1
-        outp.printf('Done dumping {} keys from blobstore.'.format(i))
+        dump_blobs(outp, fd, store)
     outp.printf('Done dumping data from the store.')
 
 # noinspection PyMissingOrEmptyDocstring
 def main(argv, outp=None):
 
-    if outp is None:
+    if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
     parser = makeargpaser()
     opts = parser.parse_args(argv)
@@ -118,8 +120,8 @@ def main(argv, outp=None):
         logging.disable(logging.DEBUG)
 
     if os.path.isfile(opts.output) and not opts.force:
-        logger.error('Cannot overwrite a backup.')
-        sys.exit(1)
+        outp.printf('Cannot overwrite a backup.')
+        return 1
 
     genrows_kwargs = {}
     if opts.extra_args:
