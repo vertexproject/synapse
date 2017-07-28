@@ -1,5 +1,5 @@
-Cortex: The Synapse Hypergraph
-##############################
+Cortex: Synapse Hypergraph
+==========================
 
 Introduction
 ------------
@@ -183,4 +183,8 @@ Cortex Storage Details
 ----------------------
 
 The Cortex can be back by one of several different storage layers. Detail information about
-storage layers can be found here XXX Link.
+storage layers which are available for Cortex can be found here `Cortex Storage Types`_.
+Additional information about the Storage layer API itself can be found here `Cortex Storage Details`_.
+
+.. _`Cortex Storage Types`: ./cortex_storage_types.html
+.. _`Cortex Storage Details`: ./cortex_storage_details.html

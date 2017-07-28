@@ -1,8 +1,14 @@
-Built In Cortex Storage Layers
-==============================
+Cortex: Built-In Storage Layers
+===============================
+
+There are multiple different storage layers available for use with the Cortex hypgeraph.
+The choice of storage layer may affect performance characteristics of Cortex.
+
+XXX Notes about open_* handlers in cortex.py
+XXX Notes about cortex ctor helper in each storage definition.
 
 ram://
-~~~~~~~
+------
 The ram:// storage implementation is implemented in put python data structures resulting in
 a mind bending level of performance.  However, this storage backing is only appropriate for
 data which does not cause the Cortex to exceed the available amount of memory on the system.
@@ -13,17 +19,17 @@ all changes since the beginning and may take a long time to start up and apply a
 before the Cortex comes online.
 
 sqlite://
-~~~~~~~~~
+---------
 The SQLite3 storage implementation uses a single SQLite3 db file to store a Cortex.  They
 are reasonably fast for medium sized data sets and very simple to create and manage.
 
 postgres://
-~~~~~~~~~~~
+-----------
 The PostgreSQL storage backing implements storage for a Cortex as a single table within
 a PostgreSQL database.  While slower than a ram:// Cortex, a PostgreSQL
 
 lmdb://
-~~~~~~~
+-------
 A cortex backed by the Symas Lightning DB (lmdb).
 
 Cortex Storage Compatibility Notes
@@ -36,6 +42,8 @@ inverse is also true; a Cortex created in 3.x may not work in Python2.7 as expec
 
 This is known to affect the LMDB Cortex implementation, which heavily relies on using msgpack
 for doing key/value serialization, which has issues across python 2/3 with string handling.
+The Blob store APIs may also be affected by this, since the stored data is stored as a
+ sgpack'd object.
 
 If there is a need for doing a data migration in order to ensure that your able to access a
 Cortex created on 2.7 with python 3.x, we have plans to provide a row level dump/backup tool
