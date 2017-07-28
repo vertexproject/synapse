@@ -17,6 +17,7 @@ import synapse.telepath as s_telepath
 import synapse.cores.ram as s_cores_ram
 import synapse.cores.lmdb as s_cores_lmdb
 import synapse.cores.sqlite as s_cores_sqlite
+import synapse.cores.common as s_cores_common
 import synapse.cores.storage as s_cores_storage
 import synapse.cores.postgres as s_cores_postgres
 
@@ -103,29 +104,11 @@ class CortexTest(SynTest):
     def test_cortex_ram(self):
         core = s_cortex.openurl('ram://')
         self.true(hasattr(core.link, '__call__'))
-        self.eq(core.getStoreType(), 'ram')
-        self.runcore(core)
-        self.runjson(core)
-        self.runrange(core)
-        self.runidens(core)
-        self.runtufobydefault(core)
-        self.rundsets(core)
-        self.runsnaps(core)
-        self.rundarks(core)
-        self.runblob(core)
+        self.run_basic_tests(core, 'ram')
 
     def test_cortex_sqlite3(self):
         core = s_cortex.openurl('sqlite:///:memory:')
-        self.eq(core.getStoreType(), 'sqlite')
-        self.runcore(core)
-        self.runjson(core)
-        self.runrange(core)
-        self.runidens(core)
-        self.runtufobydefault(core)
-        self.rundsets(core)
-        self.runsnaps(core)
-        self.rundarks(core)
-        self.runblob(core)
+        self.run_basic_tests(core, 'sqlite')
 
     def test_cortex_lmdb(self):
         with self.getTestDir() as path:
@@ -134,16 +117,7 @@ class CortexTest(SynTest):
             lmdb_url = 'lmdb:///%s' % fp
 
             with s_cortex.openurl(lmdb_url) as core:
-                self.eq(core.getStoreType(), 'lmdb')
-                self.runcore(core)
-                self.runjson(core)
-                self.runrange(core)
-                self.runidens(core)
-                self.runtufobydefault(core)
-                self.rundsets(core)
-                self.runsnaps(core)
-                self.rundarks(core)
-                self.runblob(core)
+                self.run_basic_tests(core, 'lmdb')
 
             # Test load an existing db
             core = s_cortex.openurl(lmdb_url)
@@ -151,16 +125,28 @@ class CortexTest(SynTest):
 
     def test_cortex_postgres(self):
         with self.getPgCore() as core:
-            self.eq(core.getStoreType(), 'postgres')
-            self.runcore(core)
-            self.runjson(core)
-            self.runrange(core)
-            self.runidens(core)
-            self.runtufobydefault(core)
-            self.rundsets(core)
-            self.runsnaps(core)
-            self.rundarks(core)
-            self.runblob(core)
+            self.run_basic_tests(core, 'postgres')
+
+    def run_basic_tests(self, core, storetype):
+        '''
+        Run basic tests against a Cortex instance.
+
+        This should be a minimal test too ensure that a Storage and Cortex combination is working properly.
+
+        Args:
+            core (s_cores_common.Cortex): Cortex instance to test.
+            storetype (str): String to check the getStoreType api against.
+        '''
+        self.eq(core.getStoreType(), storetype)
+        self.runcore(core)
+        self.runjson(core)
+        self.runrange(core)
+        self.runidens(core)
+        self.runtufobydefault(core)
+        self.rundsets(core)
+        self.runsnaps(core)
+        self.rundarks(core)
+        self.runblob(core)
 
     def rundsets(self, core):
         tufo = core.formTufoByProp('lol:zonk', 1)
