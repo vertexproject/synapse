@@ -597,9 +597,6 @@ class StorageBase(s_config.Config):
 
         name = 'rev:storage'
         if not self.getConfOpt(name):
-            # XXX Raise may not be the correct action here.
-            # raise s_common.NoRevAllow(name='rev:storage',
-            #                           mesg='add rev:storage=1 to cortex url to allow storage updates')
             mesg = 'add rev:storage=1 to cortex url to allow storage updates'
             self.log(level=logging.WARNING, mesg=mesg, name=name,)
             logger.warning(mesg)
