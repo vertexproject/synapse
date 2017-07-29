@@ -37,8 +37,8 @@ Overriding Required Storage APIs
 
 The following APIs must be implemented:
 
-Initializtion / State APIs
-**************************
+Initializtion Type APIs
+***********************
 
 
   - _initCoreStor(self):
@@ -97,19 +97,48 @@ The following APIs must be overridden:
   - _coreXactBegin(self):
   - _coreXactCommit(self):
 
-Optional APIs to Override
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Optional Storage APIs to Override
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Some of the APIs provided in the Storage and StoreXact classes provide default implementations which will generically
 work but may not be the best choice for a given storage layer.
 
-Optional Storage APIs
-*********************
+Initializtion Type APIs
+***********************
 
-words
+These allow for the the storage layer to close resources on teardown and allow it to do custom function/helper
+registration when a Cortex class is registered with a Storage object.
+
+  - _finiCoreStore(self):
+  - _postCoreRegistration(self, core):
+  - _setSaveFd(self, fd, load=True, fini=False):
+
+Row Level APIs
+**************
+
+These are row level APIs which may be overridden.
+
+  - _setRowsByIdProp(self, iden, prop, valu):
+  - _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
+  - getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+  - rowsByLt(self, prop, valu, limit=None):
+  - rowsByGt(self, prop, valu, limit=None):
+
+Tufo Level APIs
+***************
+
+There are some tufo-level APIs which are provided at the storage layer for optimization purposes. These may be
+overridden to provide better implementations than would be provided otherwise.
+
+  - _incTufoProp(self, tufo, prop, incval=1):
+  - getTufosByIdens(self, idens):
+  - getTufoByIden(self, iden):
+  - tufosByLt(self, prop, valu, limit=None):
+  - tufosByGt(self, prop, valu, limit=None):
+
 
 Optional StorXact APIs
-**********************
+~~~~~~~~~~~~~~~~~~~~~~
 
 These APIs may be used to acquire/release resources needed for the transaction:
 

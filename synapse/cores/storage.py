@@ -619,6 +619,10 @@ class Storage(s_config.Config):
 
             curv = self.setBlobValu(vsn_str, vers)
 
+    def genStoreRows(self, **kwargs):
+        for rows in self._genStoreRows(**kwargs):
+            yield rows
+
     # The following MUST be implemented by the storage layer in order to
     # support the basic idea of a cortex
 
@@ -784,10 +788,6 @@ class Storage(s_config.Config):
         if not rows:
             return None
         return (iden, {p: v for (i, p, v, t) in rows})
-
-    def genStoreRows(self, **kwargs):
-        for rows in self._genStoreRows(**kwargs):
-            yield rows
 
     # XXX Docstring here!
     def _postCoreRegistration(self, core):
