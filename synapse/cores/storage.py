@@ -256,6 +256,7 @@ class Storage(s_config.Config):
 
         self.onfini(self._finiCoreStore)
 
+    # Handlers which should be untouched!!!
     def register_cortex(self, core):
         '''
         Register a cortex with a storage layer.
@@ -286,7 +287,6 @@ class Storage(s_config.Config):
         # Give the storage layers a change to hook anything else they may optimize
         self._postCoreRegistration(core)
 
-    # Handlers which should be untouched!!!
     def initRowsBy(self, name, meth):
         '''
         Initialize a "rows by" handler for the Cortex.
@@ -505,7 +505,7 @@ class Storage(s_config.Config):
             core.setSaveFd(fd)
 
         NOTE: This save file is allowed to be storage layer specific.
-              If you want to store cortex splice events, use addSpliceFd().
+              If you want to store cortex splice events, use addSpliceFd() from the Cortex class.
 
         '''
         self._setSaveFd(fd, load, fini)
@@ -697,18 +697,15 @@ class Storage(s_config.Config):
     def _genStoreRows(self, **kwargs):
         raise s_common.NoSuchImpl(name='_genStoreRows', mesg='Store does not implement _genStoreRows')
 
-    # The following are things which SHOULD be overridden in order to provide
-    # cortex features which are kind of optional
+    # The following are default implementations that may be overridden by
+    # a storage layer for various reasons.
 
     def _finiCoreStore(self):
         '''
 
         '''
-        # raise s_common.NoSuchImpl(name='_finiCoreStore', mesg='Store does not implement _finiCoreStore')
         pass
 
-    # The following are default implementations that may be overridden by
-    # a storage layer for various reasons.
     def _incTufoProp(self, tufo, prop, incval=1):
 
         # to allow storage layer optimization

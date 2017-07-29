@@ -38,17 +38,21 @@ Overriding Required Storage APIs
 The following APIs must be implemented:
 
 Initializtion / State APIs
+**************************
+
 
   - _initCoreStor(self):
   - getStoreType(self):
 
 Transaction APIs
+****************
 
 These are used to provide transaction safety around a Storage object.
 
   - getStoreXact(self, size=None):
 
 Blob Storage APIs
+*****************
 
   - _getBlobValu(self, key):
   - _setBlobValu(self, key, valu):
@@ -57,16 +61,19 @@ Blob Storage APIs
   - _getBlobKeys(self):
 
 Adding Data to the Store
+************************
 
   - _addRows(self, rows):
 
 Deleting  Data from the Store
+*****************************
 
   - _delRowsById(self, iden):
   - _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
   - _delRowsByIdProp(self, iden, prop, valu=None):
 
 Getting Data From the Store
+***************************
 
   - getRowsById(self, iden):
   - getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
@@ -95,6 +102,24 @@ Optional APIs to Override
 
 Some of the APIs provided in the Storage and StoreXact classes provide default implementations which will generically
 work but may not be the best choice for a given storage layer.
+
+Optional Storage APIs
+*********************
+
+words
+
+Optional StorXact APIs
+**********************
+
+These APIs may be used to acquire/release resources needed for the transaction:
+
+  - _coreXactAcquire(self):
+  - _coreXactRelease(self):
+
+These APIs may be used to perform work during __enter__ and __exit__ calls:
+
+  - _coreXactInit(self):
+  - _coreXactFini(self):
 
 
 Implementing a helper function
