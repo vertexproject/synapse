@@ -159,9 +159,16 @@ class StoreXact:
 
 class Storage(s_config.Config):
     '''
-    Base class for storage layer backends.  This implements functionality
-    which is neccesary for a storage layer to operate, as well as providing
-    stubs for the storage layer implementations to override.
+    Base class for Cortex storage layer backends.
+
+    This implements functionality which is neccesary for a storage layer to
+    operate, as well as providing stubs for the storage layer implementations
+    to override.  See the Synapse Documentation for more details.
+
+    Args:
+        link ((str, dict)): Link tufo containing information for creating the Storage object.  This may include path
+                            information, authentication information, etc.
+        **conf (dict):  Additional configible options for the storage layer.
     '''
     def __init__(self,
                  link,
@@ -177,7 +184,7 @@ class Storage(s_config.Config):
         self.savebus = s_eventbus.EventBus()
         self.loadbus = s_eventbus.EventBus()
 
-        self._link = link # XXX ???
+        self._link = link
 
         # XXX Can we eliminate this prop normalization need?
         # We do need to know how to do prop normalization/defs for some helpers.
