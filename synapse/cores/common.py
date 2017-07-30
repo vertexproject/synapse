@@ -29,7 +29,7 @@ import synapse.lib.userauth as s_userauth
 from synapse.eventbus import EventBus, on, onfini
 from synapse.lib.storm import Runtime
 from synapse.datamodel import DataModel
-from synapse.lib.config import Configable
+from synapse.lib.config import Configable, confdef
 
 logger = logging.getLogger(__name__)
 
@@ -68,24 +68,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.modsdone = False
 
         self.noauto = {'syn:form', 'syn:type', 'syn:prop'}
-
-        self.addConfDef('autoadd', type='bool', asloc='autoadd', defval=1,
-                        doc='Automatically add forms for props where type is form')
-        self.addConfDef('enforce', type='bool', asloc='enforce', defval=0, doc='Enables data model enforcement')
-        self.addConfDef('caching', type='bool', asloc='caching', defval=0, doc='Enables caching layer in the cortex')
-        self.addConfDef('cache:maxsize', type='int', asloc='cache_maxsize', defval=1000,
-                        doc='Enables caching layer in the cortex')
-
-        self.addConfDef('rev:model', type='bool', defval=1, doc='Set to 0 to disallow model version updates')
-
-        self.addConfDef('axon:url', type='str', doc='Allows cortex to be aware of an axon blob store')
-
-        self.addConfDef('log:save', type='bool', asloc='logsave', defval=0,
-                        doc='Enables saving exceptions to the cortex as syn:log nodes')
-        self.addConfDef('log:level', type='int', asloc='loglevel', defval=0, doc='Filters log events to >= level')
-
-        self.addConfDef('modules', defval=(),
-                        doc='An optional list of (pypath,conf) tuples for synapse modules to load')
 
         self.onConfOptSet('modules', self._onSetMods)
         self.onConfOptSet('caching', self._onSetCaching)
@@ -193,6 +175,27 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         self.onfini(self._finiCoreMods)
 
         s_ingest.IngestApi.__init__(self, self)
+
+    @staticmethod
+    @confdef()
+    def _cortex_condefs():
+        confdefs = (
+            ('autoadd', {'type': 'bool', 'asloc': 'autoadd', 'defval': 1,
+                         'doc': 'Automatically add forms for props where type is form'}),
+            ('enforce', {'type': 'bool', 'asloc': 'enforce', 'defval': 0, 'doc': 'Enables data model enforcement'}),
+            ('caching', {'type': 'bool', 'asloc': 'caching', 'defval': 0,
+                         'doc': 'Enables caching layer in the cortex'}),
+            ('cache:maxsize', {'type': 'int', 'asloc': 'cache_maxsize', 'defval': 1000,
+                               'doc': 'Enables caching layer in the cortex'}),
+            ('rev:model', {'type': 'bool', 'defval': 1, 'doc': 'Set to 0 to disallow model version updates'}),
+            ('rev:storage', {'type': 'bool', 'defval': 1, 'doc': 'Set to 0 to disallow storage version updates'}),
+            ('axon:url', {'type': 'str', 'doc': 'Allows cortex to be aware of an axon blob store'}),
+            ('log:save', {'type': 'bool', 'asloc': 'logsave', 'defval': 0,
+                          'doc': 'Enables saving exceptions to the cortex as syn:log nodes'}),
+            ('log:level', {'type': 'int', 'asloc': 'loglevel', 'defval': 0, 'doc': 'Filters log events to >= level'}),
+            ('modules', {'defval': (), 'doc': 'An optional list of (pypath,conf) tuples for synapse modules to load'})
+        )
+        return confdefs
 
     def getModlVers(self, name):
         '''
