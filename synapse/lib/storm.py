@@ -14,7 +14,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
 
-from synapse.lib.config import Configable
+from synapse.lib.config import Configable, confdef
 
 logger = logging.getLogger(__name__)
 
@@ -393,8 +393,6 @@ class Runtime(Configable):
     def __init__(self, **opts):
         Configable.__init__(self)
 
-        self.addConfDef('storm:limit:lift', asloc='limlift', defval=None, doc='Global lift limit')
-
         self.setConfOpts(opts)
 
         self.operfuncs = {}
@@ -450,6 +448,14 @@ class Runtime(Configable):
 
         # Cache compiled regex objects.
         self._rt_regexcache = s_cache.FixedCache(1024, re.compile)
+
+    @staticmethod
+    @confdef()
+    def _storm_runtime_confdefs():
+        confdefs = (
+            ('storm:limit:lift', {'asloc': 'limlift', 'defval': None, 'doc': 'Global lift limit'}),
+        )
+        return confdefs
 
     def getStormCore(self, name=None):
         '''
