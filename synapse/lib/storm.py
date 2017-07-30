@@ -450,7 +450,7 @@ class Runtime(Configable):
         self._rt_regexcache = s_cache.FixedCache(1024, re.compile)
 
     @staticmethod
-    @confdef()
+    @confdef(name='storm_runtime')
     def _storm_runtime_confdefs():
         confdefs = (
             ('storm:limit:lift', {'asloc': 'limlift', 'defval': None, 'doc': 'Global lift limit'}),

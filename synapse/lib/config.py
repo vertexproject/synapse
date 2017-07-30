@@ -11,7 +11,7 @@ import synapse.lib.reflect as s_reflect
 from synapse.eventbus import EventBus
 
 # XXX Docstring
-def confdef():
+def confdef(name):
     '''
     A decorator used to flag configable definition functions.
 
@@ -21,7 +21,7 @@ def confdef():
     Returns:
     '''
     def wrap(f):
-        f._syn_config = True
+        f._syn_config = name
         return f
 
     return wrap
@@ -37,6 +37,7 @@ class Configable:
         self._conf_defs = {}
         self._conf_opts = {}
         self._syn_confs = []
+        self._syn_loaded_confs = set([])
 
         self.addConfDefs(defs)
 
@@ -47,13 +48,16 @@ class Configable:
     def _loadDecoratedFuncs(self):
 
         for name, meth in s_reflect.getItemLocals(self):
-            name = getattr(meth, '_syn_config', None)
-            if name is None:
+            attr = getattr(meth, '_syn_config', None)
+            if attr is None:
                 continue
-            self._syn_confs.append(meth)
+            self._syn_confs.append((attr, meth))
 
-        for meth in self._syn_confs:
+        for attr, meth in self._syn_confs:
+            if attr in self._syn_loaded_confs:
+                continue
             self.addConfDefs(meth())
+            self._syn_loaded_confs.add(attr)
 
     def addConfDefs(self, defs):
         '''

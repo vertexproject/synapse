@@ -176,7 +176,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         s_ingest.IngestApi.__init__(self, self)
 
     @staticmethod
-    @confdef()
+    @confdef(name='common_cortex')
     def _cortex_condefs():
         confdefs = (
             ('autoadd', {'type': 'bool', 'asloc': 'autoadd', 'defval': 1,

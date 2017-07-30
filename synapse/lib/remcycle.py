@@ -429,7 +429,7 @@ class Hypnos(s_config.Config):
         self.web_cache.fini()
 
     @staticmethod
-    @s_config.confdef()
+    @s_config.confdef(name='hypnos')
     def _getHyposBaseDefs():
         return HYPNOS_BASE_DEFS
 

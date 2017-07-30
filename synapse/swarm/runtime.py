@@ -2,6 +2,7 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.lib.storm as s_storm
+import synapse.lib.config as s_config
 import synapse.lib.service as s_service
 
 from synapse.eventbus import EventBus
