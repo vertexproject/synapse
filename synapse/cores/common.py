@@ -28,8 +28,8 @@ import synapse.lib.userauth as s_userauth
 
 from synapse.eventbus import EventBus, on, onfini
 from synapse.lib.storm import Runtime
+from synapse.lib.config import confdef
 from synapse.datamodel import DataModel
-from synapse.lib.config import Configable, confdef
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ def reqiden(tufo):
         raise s_common.NoSuchTufo(iden=None)
     return tufo[0]
 
-class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
+class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     '''
     Top level Cortex key/valu storage object.
     '''
@@ -58,7 +58,6 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
 
         Runtime.__init__(self)
         EventBus.__init__(self)
-        Configable.__init__(self)
 
         # a cortex may have a ref to an axon
         self.axon = None
