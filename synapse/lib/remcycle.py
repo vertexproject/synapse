@@ -340,8 +340,6 @@ class Hypnos(s_config.Config):
                  *args,
                  **kwargs):
         s_config.Config.__init__(self)
-        for optname, optconf in HYPNOS_BASE_DEFS:
-            self.addConfDef(optname, **optconf)
         # Runtime-settable options
         self.onConfOptSet(CACHE_ENABLED, self._onSetWebCache)
         self.onConfOptSet(CACHE_TIMEOUT, self._onSetWebCacheTimeout)
@@ -429,6 +427,11 @@ class Hypnos(s_config.Config):
         self.web_pool.fini()
         # Stop the web cache
         self.web_cache.fini()
+
+    @staticmethod
+    @s_config.confdef()
+    def _getHyposBaseDefs():
+        return HYPNOS_BASE_DEFS
 
     def _onSetWebCache(self, valu):
         '''
