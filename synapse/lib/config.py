@@ -15,10 +15,30 @@ def confdef(name):
     '''
     A decorator used to flag configable definition functions.
 
-    Examples:
-        Stub out example!
+    The options returned by the decorated functions are automatically loaded
+    into the class upon initialization of the Configable mixin. This decorator
+    must be used AFTER a @staticmethod decorator for autodoc generation to
+    work properly.
 
-    Returns:
+    Args:
+        name (str): Identifier for a given function. This is used to prevent
+            reloading configable options multiple times in the case
+            of multi-class inheritance or mixin use.
+
+    Examples:
+        Example class using the confdef decorator to define and (automatically
+        load) a set of options into a Configable class::
+
+            class Foo(s_config.Config):
+
+            @staticmethod
+            @s_config.confdef(name='foo')
+            def foodefs():
+                defs = (
+                    ('fooval', {'type': 'int', 'doc': 'what is foo val?', 'defval': 99}),
+                    ('enabled', {'type': 'bool', 'doc': 'is thing enabled?', 'defval': 0}),
+                )
+                return defs
     '''
     def wrap(f):
         f._syn_config = name
