@@ -201,7 +201,7 @@ class Storage(s_config.Config):
         self.inclock = threading.Lock()
         self.xlock = threading.Lock()
         # Transactions are a storage-layer concept
-        self._core_xacts = {}
+        self._store_xacts = {}
 
         # Dicts for storing retrieval methods
         self.sizebymeths = {}
@@ -303,83 +303,135 @@ class Storage(s_config.Config):
 
     def initRowsBy(self, name, meth):
         '''
-        Initialize a "rows by" handler for the Cortex.
+        Initialize a "rows by" handler for the Storage layer.
 
-        Example:
+        These helpers are used by the Cortex to do special types of lifts.
+        This allows different Storage layers to implement certain lifts in a optimized fashion.
 
-            def getbywoot(prop,valu,limit=None):
-                return stuff() # list of rows
+        Args:
+            name (str): Named handler to register.
+            meth (func): Function to register.
 
-            core.initRowsBy('woot',getbywoot)
+        Examples:
+            Registering a 'woot' handler::
 
-        Notes:
+                def getbywoot(prop,valu,limit=None):
+                    return stuff() # list of rows
 
-            * Used by Cortex implementors to facilitate
-              getRowsBy(...)
+                core.initRowsBy('woot',getbywoot)
 
+        Returns:
+            None
         '''
         self.rowsbymeths[name] = meth
 
     def initSizeBy(self, name, meth):
         '''
-        Initialize a "size by" handler for the Cortex.
+        Initialize a "size by" handler for the Storage layer.
 
-        Example:
+        These helpers are used by the Cortex to do size by lifts.
+        This allows different Storage layers to implement certain lifts in a optimized fashion.
 
-            def sizebywoot(prop,valu,limit=None):
-                return stuff() # size of rows
+        Args:
+            name (str): Named handler to register.
+            meth (func): Function to register.
 
-            core.initSizeBy('woot',meth)
+        Examples:
+            Registering a 'woot' handler::
 
+                def sizebywoot(prop,valu,limit=None):
+                    return stuff() # size of rows
+
+                core.initSizeBy('woot',meth)
+
+        Returns:
+            None
         '''
         self.sizebymeths[name] = meth
 
     def reqSizeByMeth(self, name):
+        '''
+        Get a handler for a SizeBy lift.
+
+        Args:
+            name (str): Name of the registered handler to retrieve.
+
+        Returns:
+            Function used to lift by size.
+
+        Raises:
+            NoSuchGetBy: If the named handler does not exist.
+        '''
         meth = self.sizebymeths.get(name)
         if meth is None:
             raise s_common.NoSuchGetBy(name=name)
         return meth
 
     def reqRowsByMeth(self, name):
+        '''
+        Get a handler for a RowsBy lift.
+
+        Args:
+            name (str): Name of the registered handler to retrieve.
+
+        Returns:
+            Function used to lift by rows.
+
+        Raises:
+            NoSuchGetBy: If the named handler does not exist.
+        '''
         meth = self.rowsbymeths.get(name)
         if meth is None:
             raise s_common.NoSuchGetBy(name=name)
         return meth
 
     def _defaultFiniCoreStor(self):
+        '''
+        Default fini handler
+        '''
         # Remove refs to the parent Cortex object for GC purposes
-        delattr(self, 'getPropDef')
-        delattr(self, 'getPropNorm')
-        delattr(self, 'initTufosBy')
+        attrs = ('getPropDef', 'getPropNorm', 'initTufosBy')
+        for attr in attrs:
+            try:
+                delattr(self, attr)
+            except AttributeError:
+                pass
         # Close out savefile buses
         self.savebus.fini()
         self.loadbus.fini()
 
     def getCoreXact(self, size=1000):
         '''
-        Get a cortex transaction context for use in a with block.
-        This object allows bulk storage layer optimization and
-        proper ordering of events.
+        Get a Storage transaction context for use in a with block.
 
-        Example:
+        This object allows bulk storage layer optimization and proper ordering
+        of events.
 
-            with core.getCoreXact() as xact:
-                core.dostuff()
+        Args:
+            size (int): Number of trans
 
+        Examples:
+            Get a StoreXact object and use it::
+
+                with store.getCoreXact() as xact:
+                    store.dostuff()
+
+        Returns:
+            StoreXact: A StoreXact object for the current thread.
         '''
         iden = s_threads.iden()
 
-        xact = self._core_xacts.get(iden)
+        xact = self._store_xacts.get(iden)
         if xact is not None:
             return xact
 
         xact = self.getStoreXact(size)
-        self._core_xacts[iden] = xact
+        self._store_xacts[iden] = xact
         return xact
 
     def _popCoreXact(self):
         # Used by the CoreXact fini routine
-        self._core_xacts.pop(s_threads.iden(), None)
+        self._store_xacts.pop(s_threads.iden(), None)
 
     # TODO: Wrap this in a userauth layer
     def getBlobValu(self, key, default=None):
@@ -490,15 +542,21 @@ class Storage(s_config.Config):
 
     def addSaveLink(self, func):
         '''
-        Add an event callback to receive save events for this cortex.
+        Add an event callback to receive save events for this Storage object.
 
-        Example:
+        Args:
+            func: Function to receive events from the Storage savebus.
 
-            def savemesg(mesg):
-                dostuff()
+        Examples:
+            Register a function to receive events::
 
-            core.addSaveLink(savemesg)
+                def savemesg(mesg):
+                    dostuff()
 
+                core.addSaveLink(savemesg)
+
+        Returns:
+            None
         '''
         self.savebus.link(func)
 
@@ -516,15 +574,48 @@ class Storage(s_config.Config):
 
         Example:
 
-            core.setSaveFd(fd)
+            store.setSaveFd(fd)
 
         NOTE: This save file is allowed to be storage layer specific.
               If you want to store cortex splice events, use addSpliceFd() from the Cortex class.
-
         '''
         self._setSaveFd(fd, load, fini)
 
     def addRows(self, rows):
+        '''
+        Add (iden, prop, valu, time) rows to the Storage object.
+
+        Args:
+            rows (list): List of rows contianing 4-value tuples.
+
+        Examples:
+            Adding a pair of rows to the storage object::
+
+                import time
+                tick = now()
+
+                rows = [
+                    (id1,'baz',30,tick),
+                    (id1,'foo','bar',tick),
+                ]
+
+                store.addRows(rows)
+
+        Notes:
+            The general convention for the iden value is a 16 byte hex string,
+            such as "e190d108bdd30a035a15764313f4c397". These can be made with
+            the synapse.common.guid() function.  While the storage layer is
+            free to STORE these idens however it sees fit, some tools may
+            expect that, at the public row level APIs, idens may conform to
+            that shape. If other types of idens are put into the system, that
+            could cause unintentional issues.
+
+            This does fire a "core:save:add:rows" event on the savebus to save
+            the raw rows which are being send to the storage layer.
+
+        Returns:
+            None
+        '''
         [reqstor(p, v) for (i, p, v, t) in rows]
         self.savebus.fire('core:save:add:rows', rows=rows)
         self._addRows(rows)
@@ -533,6 +624,24 @@ class Storage(s_config.Config):
         self._addRows(mesg[1].get('rows'))
 
     def delRowsById(self, iden):
+        '''
+        Delete all the rows for a given iden.
+
+        Args:
+            iden (str): Iden to delete rows for.
+
+        Examples:
+            Delete the rows for a given iden::
+
+                store.delRowsById(iden)
+
+        Notes:
+            This does fire a "core:save:del:rows:by:iden" event on the savebus
+            to record which rows were deleted.
+
+        Returns:
+            None
+        '''
         self.savebus.fire('core:save:del:rows:by:iden', iden=iden)
         self._delRowsById(iden)
 
@@ -540,6 +649,27 @@ class Storage(s_config.Config):
         self._delRowsById(mesg[1].get('iden'))
 
     def delRowsByIdProp(self, iden, prop, valu=None):
+        '''
+        Delete rows with the given combination of iden and prop[=valu].
+
+        Args:
+            iden (str): Iden to delete rows for.
+            prop (str): Prop to delete rows for.
+            valu: Optional value to check. If present, only delete iden/prop
+                rows with this value.
+
+        Examples:
+            Delete all 'foo' rows for a given iden::
+
+                store.delRowsByIdProp(iden, 'foo')
+
+        Notes:
+            This does fire a "core:save:del:rows:by:idprop" event on the
+            savebus to record which rows were deleted.
+
+        Returns:
+            None
+        '''
         self.savebus.fire('core:save:del:rows:by:idprop', iden=iden, prop=prop, valu=valu)
         return self._delRowsByIdProp(iden, prop, valu=valu)
 
@@ -550,9 +680,27 @@ class Storage(s_config.Config):
 
     def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         '''
-        Delete rows with a given prop[=valu].
-        Example:
-            core.delRowsByProp('foo',valu=10)
+        Delete rows with a given property (and optional valu) combination.
+
+        Args:
+            prop (str): Property to delete.
+            valu: Optional value to constrain the property deletion by.
+            mintime (int): Optional, minimum time in which to constrain the
+                deletion by.
+            maxtime (int): Optional, maximum time in which to constrain the
+                deletion by.
+
+        Examples:
+            Delete all 'foo' rows with the valu=10::
+
+                store.delRowsByProp('foo',valu=10)
+
+        Notes:
+            This does fire a "core:save:del:rows:by:prop" event on the
+            savebus to record which rows were deleted.
+
+        Returns:
+            None
         '''
         self.savebus.fire('core:save:del:rows:by:prop', prop=prop, valu=valu, mintime=mintime, maxtime=maxtime)
         return self._delRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime)
@@ -565,6 +713,27 @@ class Storage(s_config.Config):
         self._delRowsByProp(prop, valu=valu, mintime=mint, maxtime=maxt)
 
     def setRowsByIdProp(self, iden, prop, valu):
+        '''
+        Update or insert the value of the row(s) with iden and prop to valu.
+
+        Args:
+            iden (str): Iden to update.
+            prop (str): Property to update.
+            valu: Value to set.
+
+        Examples:
+            Set the foo=10 value on a given iden::
+
+
+
+        Notes:
+            This does fire a "core:save:set:rows:by:idprop" event on the
+            savebus to save the changes which are being sent to the storage
+            layer.
+
+        Returns:
+            None
+        '''
         reqstor(prop, valu)
         self.savebus.fire('core:save:set:rows:by:idprop', iden=iden, prop=prop, valu=valu)
         self._setRowsByIdProp(iden, prop, valu)
@@ -577,12 +746,13 @@ class Storage(s_config.Config):
 
     def rowsToTufos(self, rows):
         '''
-        Convert rows into tufos
+        Convert rows into tufos.
+
         Args:
-            rows:
+            rows (list): List of rows.
 
         Returns:
-
+            list: List of tufos.
         '''
         res = collections.defaultdict(dict)
         [res[i].__setitem__(p, v) for (i, p, v, t) in rows]
@@ -634,6 +804,21 @@ class Storage(s_config.Config):
             curv = self.setBlobValu(vsn_str, vers)
 
     def genStoreRows(self, **kwargs):
+        '''
+        A generator which yields raw rows from the storage layer.
+
+        Args:
+            **kwargs: Arguments which are passed to the storage layer
+                implementation of _genStoreRows().
+
+        Notes:
+            Since this is intended for use as a backup mechanism for a Storage
+            object, it is not to be considered a performant API.
+
+        Yields:
+            list: List of rows.  The number of rows and contents
+            will vary by implementation.
+        '''
         for rows in self._genStoreRows(**kwargs):
             yield rows
 
@@ -644,21 +829,74 @@ class Storage(s_config.Config):
         raise s_common.NoSuchImpl(name='_initCoreStor', mesg='Store does not implement _initCoreStor')
 
     def getStoreType(self):  # pragma: no cover
+        '''
+        Get the Store type.
+
+        This may be used by the Cortex to determine what its backing
+        store is.
+
+        Returns:
+            str: String indicating what the backing storage layer is.
+        '''
         raise s_common.NoSuchImpl(name='getStoreType', mesg='Store does not implement getStoreType')
 
     def getStoreXact(self, size=None):
+        '''
+        Get a StoreXact object.
+
+        This is normally called by the getCoreXact function.
+
+        Args:
+            size (int): Number of events to cache in the transaction before
+                executing them.
+
+        Returns:
+            StoreXact: A storage layer specific StoreXact object.
+        '''
         raise s_common.NoSuchImpl(name='getStoreXact', mesg='Store does not implement getStoreXact')
 
     def _addRows(self, rows):
         raise s_common.NoSuchImpl(name='_addRows', mesg='Store does not implement _addRows')
 
     def getRowsById(self, iden):
+        '''
+        Return all the rows for a given iden.
+
+        Args:
+            iden (str): Iden to get rows from the storage object for.
+
+        Examples:
+            Getting rows by iden and doing stuff::
+
+                for row in store.getRowsById(iden):
+                    stuff()
+
+        Returns:
+            list: List of rows for a given iden.
+        '''
         raise s_common.NoSuchImpl(name='getRowsById', mesg='Store does not implement getRowsById')
 
     def getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         raise s_common.NoSuchImpl(name='getRowsByProp', mesg='Store does not implement getRowsByProp')
 
     def getRowsByIdProp(self, iden, prop, valu=None):
+        '''
+        Return rows with the given <iden>,<prop>.
+
+        Args:
+            iden (str): Iden to get rows from the storage object for.
+            prop (str): Prop to constrain the lift by.
+            valu: Optional, value to constrain the lift by.
+
+        Examples:
+            Getting rows by iden, prop and doing stuff::
+
+                for row in core.getRowsByIdProp(iden,'foo:bar'):
+                    dostuff(row)
+
+        Returns:
+            list: List of rows for a given iden, prop, value comtination.
+        '''
         raise s_common.NoSuchImpl(name='getRowsByIdProp', mesg='Store does not implement _getRowsBgetRowsByIdPropyIdProp')
 
     def _delRowsById(self, iden):

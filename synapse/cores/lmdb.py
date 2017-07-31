@@ -304,7 +304,7 @@ class LmdbStorage(s_cores_storage.Storage):
         transaction, this doesn't close it after leaving the context.  If we made one and the
         context is exited without exception, the transaction is committed.
         '''
-        existing_xact = self._core_xacts.get(s_threads.iden())
+        existing_xact = self._store_xacts.get(s_threads.iden())
         if existing_xact is not None:
             yield existing_xact.txn
         else:
