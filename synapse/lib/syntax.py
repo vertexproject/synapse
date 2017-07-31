@@ -305,7 +305,7 @@ macrocmps = [
 
 def parse_ques(text, off=0, trim=True):
     '''
-    Parse "query" syntax: tag/prop[@<timewin>][#<limit>][*<by>][=valu]
+    Parse "query" syntax: tag/prop[@<timewin>][^<limit>][*<by>][=valu]
     '''
     ques = {}
 
