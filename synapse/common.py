@@ -301,7 +301,17 @@ def worker(meth, *args, **kwargs):
 
 def reqstor(name, valu):
     '''
-    Raise BadPropValue if valu is not cortex storable.
+    Check to see if a value can be stored in a Cortex.
+
+    Args:
+        name (str): Property name.
+        valu: Value to check.
+
+    Returns:
+        The valu is returned if it can be stored in a Cortex.
+
+    Raises:
+        BadPropValu if the value is not Cortex storable.
     '''
     if not canstor(valu):
         raise BadPropValu(name=name, valu=valu)
