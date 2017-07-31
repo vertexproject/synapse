@@ -174,7 +174,6 @@ class Storage(s_config.Config):
                  link,
                  **conf):
         s_config.Config.__init__(self)
-        self.addConfDef('rev:storage', type='bool', defval=1, doc='Set to 0 to disallow storage version updates')
         if conf:
             self.setConfOpts(conf)
 
@@ -262,6 +261,14 @@ class Storage(s_config.Config):
             self.setBlobValu('syn:core:created', s_common.now())
 
         self.onfini(self._finiCoreStore)
+
+    @staticmethod
+    @s_config.confdef(name='storage')
+    def _storage_confdefs():
+        confdefs = (
+            ('rev:storage', {'type': 'bool', 'defval': 1, 'doc': 'Set to 0 to disallow storage version updates'}),
+        )
+        return confdefs
 
     # Handlers which should be untouched!!!
     def register_cortex(self, core):

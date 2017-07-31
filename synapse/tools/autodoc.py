@@ -25,6 +25,10 @@ dir_skips = ('/tests',
 fn_skips = ('__init__.py',
             )
 
+obj_path_skips = ('synapse.cores.common.Runtime',
+                  'synapse.cores.storage.Storage',
+                  )
+
 descr = '''
 Command line tool to generate various synapse documentation
 '''
@@ -291,6 +295,8 @@ def main(argv, outp=None):
             for detail in details:
                 modattr, name, results = detail
                 obj_path = '.'.join([modpath, modattr])
+                if obj_path in obj_path_skips:
+                    continue
                 for rslt in results:
                     if not rslt:
                         continue
