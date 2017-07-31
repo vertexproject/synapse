@@ -27,7 +27,7 @@ class Runtime(s_storm.Runtime, EventBus):
         self.svcprox = s_service.SvcProxy(svcbus, self.svctime)
 
     @staticmethod
-    @s_config.confdef(name='swarm_runtime')
+    @s_config.confdef(name='swarm')
     def _swarm_runtime_confdefs():
         defs = (
             ('svcbus:deftag', {'asloc': 'deftag', 'type': 'syn:tag', 'defval': deftag,
