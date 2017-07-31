@@ -25,7 +25,7 @@ class DumpRowsTest(SynTest):
     def test_simple_use(self):
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
-            fp = os.path.join(temp, 'dumpfile.msgpk')
+            fp = os.path.join(temp, 'dumpfile.mpk')
             new_db = os.path.join(temp, 'test.db')
             sqlite_url = 'sqlite:///{}'.format(new_db)
             with s_cortex.openurl(sqlite_url) as core:
@@ -37,7 +37,7 @@ class DumpRowsTest(SynTest):
             ret = s_dumprows.main(argv, outp)
             self.eq(ret, 0)
 
-            # Now ensure our .msgpk file is correct
+            # Now ensure our .mpk file is correct
             with open(fp, 'rb') as fd:
                 gen = msgpackfd(fd)
                 evt = next(gen)
@@ -70,7 +70,7 @@ class DumpRowsTest(SynTest):
     def test_simple_compress(self):
             outp = self.getTestOutp()
             with self.getTestDir() as temp:
-                fp = os.path.join(temp, 'dumpfile.msgpk')
+                fp = os.path.join(temp, 'dumpfile.mpk')
                 new_db = os.path.join(temp, 'test.db')
                 sqlite_url = 'sqlite:///{}'.format(new_db)
                 with s_cortex.openurl(sqlite_url) as core:
@@ -82,7 +82,7 @@ class DumpRowsTest(SynTest):
                 ret = s_dumprows.main(argv, outp)
                 self.eq(ret, 0)
 
-                # Now ensure our .msgpk file is correct
+                # Now ensure our .mpk file is correct
                 with open(fp, 'rb') as fd:
                     gen = msgpackfd(fd)
                     evt = next(gen)
@@ -108,7 +108,7 @@ class DumpRowsTest(SynTest):
     def test_blob_dump(self):
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
-            fp = os.path.join(temp, 'dumpfile.msgpk')
+            fp = os.path.join(temp, 'dumpfile.mpk')
             new_db = os.path.join(temp, 'test.db')
             sqlite_url = 'sqlite:///{}'.format(new_db)
             with s_cortex.openurl(sqlite_url) as core:
@@ -121,7 +121,7 @@ class DumpRowsTest(SynTest):
             ret = s_dumprows.main(argv, outp)
             self.eq(ret, 0)
 
-            # Now ensure our .msgpk file is correct
+            # Now ensure our .mpk file is correct
             with open(fp, 'rb') as fd:
                 gen = msgpackfd(fd)
                 evt = next(gen)
@@ -149,7 +149,7 @@ class DumpRowsTest(SynTest):
     def test_dump_force(self):
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
-            fp = os.path.join(temp, 'dumpfile.msgpk')
+            fp = os.path.join(temp, 'dumpfile.mpk')
             new_db = os.path.join(temp, 'test.db')
             sqlite_url = 'sqlite:///{}'.format(new_db)
             with s_cortex.openurl(sqlite_url) as core:
@@ -181,7 +181,7 @@ class DumpRowsTest(SynTest):
         ntufos = 40000
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
-            fp = os.path.join(temp, 'dumpfile.msgpk')
+            fp = os.path.join(temp, 'dumpfile.mpk')
             new_db = os.path.join(temp, 'test.db')
             sqlite_url = 'sqlite:///{}'.format(new_db)
             with s_cortex.openurl(sqlite_url) as core:
@@ -205,7 +205,7 @@ class DumpRowsTest(SynTest):
             stat = os.stat(fp)
             self.gt(stat.st_size, s_axon.megabyte * 4)
 
-            # Now ensure our .msgpk file is correct
+            # Now ensure our .mpk file is correct
             with open(fp, 'rb') as fd:
                 msgpk_rows = 0
                 for evt in msgpackfd(fd):
@@ -224,7 +224,7 @@ class LoadRowsTest(SynTest):
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
             # Prepare a savefile to load from a ram core
-            fp = os.path.join(temp, 'savefile.msgpk')
+            fp = os.path.join(temp, 'savefile.mpk')
             new_db = os.path.join(temp, 'test.db')
             sqlite_url = 'sqlite:///{}'.format(new_db)
             with s_cortex.openurl('ram:///', savefile=fp) as core:
@@ -249,7 +249,7 @@ class LoadRowsTest(SynTest):
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
             # Make a sqlite cortex and the associated dupmfile for it
-            fp = os.path.join(temp, 'dumpfile.msgpk')
+            fp = os.path.join(temp, 'dumpfile.mpk')
             genrows_json_fp = os.path.join(temp, 'genrows.json')
             self.make_sql_genrows_json(genrows_json_fp)
             old_db = os.path.join(temp, 'old.db')
@@ -284,7 +284,7 @@ class LoadRowsTest(SynTest):
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
             # Make a sqlite cortex and the associated dupmfile for it
-            fp = os.path.join(temp, 'dumpfile.msgpk')
+            fp = os.path.join(temp, 'dumpfile.mpk')
             genrows_json_fp = os.path.join(temp, 'genrows.json')
             self.make_sql_genrows_json(genrows_json_fp)
             old_db = os.path.join(temp, 'old.db')

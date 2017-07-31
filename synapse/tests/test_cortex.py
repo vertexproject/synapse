@@ -1924,7 +1924,7 @@ class CortexTest(SynTest):
             self.eq(s_tufo.ival(node, '#foo.bar'), None)
 
     def test_cortex_rev0_savefd(self):
-        path = getTestPath('rev0.msgpk')
+        path = getTestPath('rev0.mpk')
 
         with open(path, 'rb') as fd:
             byts = fd.read()
@@ -1936,7 +1936,7 @@ class CortexTest(SynTest):
 
         with self.getTestDir() as temp:
 
-            savefp = os.path.join(temp, 'test.msgpk')
+            savefp = os.path.join(temp, 'test.mpk')
             with open(savefp, 'wb') as f:
                 f.write(byts)
 
@@ -1947,7 +1947,7 @@ class CortexTest(SynTest):
                 self.false(core.isnew)
 
     def test_cortex_rev0_savefd_sqlite(self):
-        path = getTestPath('rev0.msgpk')
+        path = getTestPath('rev0.mpk')
 
         with open(path, 'rb') as fd:
             byts = fd.read()
@@ -1959,7 +1959,7 @@ class CortexTest(SynTest):
 
         with self.getTestDir() as temp:
 
-            savefp = os.path.join(temp, 'test.msgpk')
+            savefp = os.path.join(temp, 'test.mpk')
             with open(savefp, 'wb') as f:
                 f.write(byts)
 
@@ -1971,7 +1971,7 @@ class CortexTest(SynTest):
                 self.false(core.isnew)
 
     def test_cortex_rev0_savefd_psql(self):
-        path = getTestPath('rev0.msgpk')
+        path = getTestPath('rev0.mpk')
 
         with open(path, 'rb') as fd:
             byts = fd.read()
@@ -1983,7 +1983,7 @@ class CortexTest(SynTest):
 
         with self.getTestDir() as temp:
 
-            savefp = os.path.join(temp, 'test.msgpk')
+            savefp = os.path.join(temp, 'test.mpk')
             with open(savefp, 'wb') as f:
                 f.write(byts)
 
@@ -1996,7 +1996,7 @@ class CortexTest(SynTest):
 
     def test_cortex_rev0_savefd_lmdb(self):
         self.skipIfOldPython()
-        path = getTestPath('rev0.msgpk')
+        path = getTestPath('rev0.mpk')
 
         with open(path, 'rb') as fd:
             byts = fd.read()
@@ -2008,7 +2008,7 @@ class CortexTest(SynTest):
 
         with self.getTestDir() as temp:
 
-            savefp = os.path.join(temp, 'test.msgpk')
+            savefp = os.path.join(temp, 'test.mpk')
             with open(savefp, 'wb') as f:
                 f.write(byts)
 
