@@ -5,7 +5,7 @@ import synapse.lib.config as s_config
 class Foo(s_config.Config):
 
     @staticmethod
-    @s_config.confdef()
+    @s_config.confdef(name='foo')
     def foodefs():
         defs = (
             ('fooval', {'type': 'int', 'doc': 'what is foo val?', 'defval': 99}),
