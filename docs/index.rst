@@ -10,6 +10,7 @@ Contents:
     synapse/devopsguide
     synapse/datamodel
     synapse/api/synapse
+    synapse/configables
     performance
     contributing
 
