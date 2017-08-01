@@ -55,7 +55,6 @@ class Storage(s_config.Config):
         self.onfini(self._defaultFiniCoreStor)
 
         # Various locks
-        self.inclock = threading.Lock()
         self.xlock = threading.Lock()
         # Transactions are a storage-layer concept
         self._store_xacts = {}
@@ -794,29 +793,6 @@ class Storage(s_config.Config):
         This should be overriden to close out any storge layer specifc resources.
         '''
         pass
-
-    def _incTufoProp(self, tufo, prop, incval=1):
-
-        # to allow storage layer optimization
-        iden = tufo[0]
-
-        form = tufo[1].get('tufo:form')
-        valu = tufo[1].get(form)
-
-        with self.inclock:
-            rows = self.getRowsByIdProp(iden, prop)
-            if len(rows) == 0:
-                raise s_common.NoSuchTufo(iden=iden, prop=prop)
-
-            oldv = rows[0][2]
-            newv = oldv + incval
-
-            self._setRowsByIdProp(iden, prop, newv)
-
-            tufo[1][prop] = newv
-            self.fire('node:prop:set', form=form, valu=valu, prop=prop, newv=newv, oldv=oldv, node=tufo)
-
-        return tufo
 
     def getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         for irow in self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit):

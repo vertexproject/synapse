@@ -76,6 +76,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self._link = link
 
         self.lock = threading.Lock()
+        self.inclock = threading.Lock()
 
         self.coremods = {}  # name:module ( CoreModule() )
         self.statfuncs = {}
@@ -365,7 +366,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         wid = node[1].get('syn:seq:width')
         valu = node[1].get('syn:seq:nextvalu')
 
-        self.store._incTufoProp(node, 'syn:seq:nextvalu')
+        self._incTufoProp(node, 'syn:seq:nextvalu')
 
         return name + str(valu).rjust(wid, '0')
 
@@ -2434,7 +2435,27 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         return self._incTufoProp(tufo, prop, incval=incval)
 
     def _incTufoProp(self, tufo, prop, incval=1):
-        return self.store._incTufoProp(tufo, prop, incval=incval)
+
+        # to allow storage layer optimization
+        iden = tufo[0]
+
+        form = tufo[1].get('tufo:form')
+        valu = tufo[1].get(form)
+
+        with self.inclock:
+            rows = self.getRowsByIdProp(iden, prop)
+            if len(rows) == 0:
+                raise s_common.NoSuchTufo(iden=iden, prop=prop)
+
+            oldv = rows[0][2]
+            newv = oldv + incval
+
+            self.setRowsByIdProp(iden, prop, newv)
+
+            tufo[1][prop] = newv
+            self.fire('node:prop:set', form=form, valu=valu, prop=prop, newv=newv, oldv=oldv, node=tufo)
+
+        return tufo
 
     def delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         '''
