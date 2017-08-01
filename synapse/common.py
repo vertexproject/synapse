@@ -316,3 +316,31 @@ def reqstor(name, valu):
     if not canstor(valu):
         raise BadPropValu(name=name, valu=valu)
     return valu
+
+def nopropnorm():
+    '''
+    Decorator used to skip property normalization on a lift method.
+
+    This is a helper for get*By() methods used in a Cortext which are
+    registered with init handlers.  This is helpful for methods which
+    may use typecasts.
+
+    Examples:
+        Wrap a function which lifts tufos which does its own prop norming::
+
+            @nopropnorm()
+            def tufosByStuff(prop, valu, limit=None):
+                # do stuff with valu normalization
+                # Return a list of tufos
+
+            core.initTufosBy('stuff', tufosByStuff)
+
+    Returns:
+        Wrapped function.
+    '''
+
+    def wrap(f):
+        f._syn_nopropnorm = True
+        return f
+
+    return wrap

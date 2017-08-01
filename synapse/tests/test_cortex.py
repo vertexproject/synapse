@@ -102,13 +102,13 @@ class CoreTestDataModelModuleV1(s_module.CoreModule):
 class CortexTest(SynTest):
 
     def test_cortex_ram(self):
-        core = s_cortex.openurl('ram://')
-        self.true(hasattr(core.link, '__call__'))
-        self.basic_core_expectations(core, 'ram')
+        with s_cortex.openurl('ram://') as core:
+            self.true(hasattr(core.link, '__call__'))
+            self.basic_core_expectations(core, 'ram')
 
     def test_cortex_sqlite3(self):
-        core = s_cortex.openurl('sqlite:///:memory:')
-        self.basic_core_expectations(core, 'sqlite')
+        with s_cortex.openurl('sqlite:///:memory:') as core:
+            self.basic_core_expectations(core, 'sqlite')
 
     def test_cortex_lmdb(self):
         with self.getTestDir() as path:
@@ -141,8 +141,8 @@ class CortexTest(SynTest):
         self.runcore(core)
         self.runjson(core)
         self.runrange(core)
-        self.runidens(core)
         self.runtufobydefault(core)
+        self.runidens(core)
         self.rundsets(core)
         self.runsnaps(core)
         self.rundarks(core)
@@ -436,6 +436,10 @@ class CortexTest(SynTest):
         self.eq(len(core.eval('hehe:foo')), 0)
         self.eq(len(core.eval('hehe:baz')), 1)
 
+        # Disable on() events registered in the test.
+        core.off('node:form', formtufo)
+        core.off('node:form', formfqdn)
+
     def runrange(self, core):
 
         rows = [
@@ -598,6 +602,87 @@ class CortexTest(SynTest):
         self.eq(len(core.getTufosBy('in', 'default_foo:p0', [5], limit=1)), 1)
         self.eq(len(core.getTufosBy('in', 'default_foo:p0', [], limit=1)), 0)
 
+        # By IN requiring type normalization
+        foof = core.formTufoByProp('inet:ipv4', '10.2.3.6')
+
+        self.eq(len(core.getTufosBy('in', 'inet:ipv4', [0x0a020306])), 1)
+        self.eq(len(core.getTufosBy('in', 'inet:ipv4', [0x0a020305, 0x0a020307])), 0)
+        self.eq(len(core.getTufosBy('in', 'inet:ipv4', [0x0a020305, 0x0a020306, 0x0a020307])), 1)
+        self.eq(len(core.getTufosBy('in', 'inet:ipv4', ['10.2.3.6'])), 1)
+        self.eq(len(core.getTufosBy('in', 'inet:ipv4', ['10.2.3.5', '10.2.3.7'])), 0)
+        self.eq(len(core.getTufosBy('in', 'inet:ipv4', ['10.2.3.5', '10.2.3.6', '10.2.3.7'])), 1)
+
+        # By LT/LE/GE/GT
+        self.eq(len(core.getTufosBy('lt', 'default_foo:p0', 6)), 3)
+        self.eq(len(core.getTufosBy('le', 'default_foo:p0', 6)), 4)
+        self.eq(len(core.getTufosBy('le', 'default_foo:p0', 7)), 5)
+        self.eq(len(core.getTufosBy('gt', 'default_foo:p0', 6)), 1)
+        self.eq(len(core.getTufosBy('ge', 'default_foo:p0', 6)), 2)
+        self.eq(len(core.getTufosBy('ge', 'default_foo:p0', 5)), 4)
+
+        # By LT/LE/GE/GT requiring type normalization
+        foog = core.formTufoByProp('inet:ipv4', '10.2.3.5')
+        fooh = core.formTufoByProp('inet:ipv4', '10.2.3.7')
+        fooi = core.formTufoByProp('inet:ipv4', '10.2.3.8')
+        fooj = core.formTufoByProp('inet:ipv4', '10.2.3.9')
+
+        self.eq(len(core.getTufosBy('lt', 'inet:ipv4', 0x0a020306)), 1)
+        self.eq(len(core.getTufosBy('le', 'inet:ipv4', 0x0a020306)), 2)
+        self.eq(len(core.getTufosBy('le', 'inet:ipv4', 0x0a020307)), 3)
+        self.eq(len(core.getTufosBy('gt', 'inet:ipv4', 0x0a020306)), 3)
+        self.eq(len(core.getTufosBy('ge', 'inet:ipv4', 0x0a020306)), 4)
+        self.eq(len(core.getTufosBy('ge', 'inet:ipv4', 0x0a020305)), 5)
+
+        self.eq(len(core.getTufosBy('lt', 'inet:ipv4', '10.2.3.6')), 1)
+        self.eq(len(core.getTufosBy('le', 'inet:ipv4', '10.2.3.6')), 2)
+        self.eq(len(core.getTufosBy('le', 'inet:ipv4', '10.2.3.7')), 3)
+        self.eq(len(core.getTufosBy('gt', 'inet:ipv4', '10.2.3.6')), 3)
+        self.eq(len(core.getTufosBy('ge', 'inet:ipv4', '10.2.3.6')), 4)
+        self.eq(len(core.getTufosBy('ge', 'inet:ipv4', '10.2.3.5')), 5)
+
+        # By HAS - the valu is dropped by the _tufosByHas handler.
+        self.eq(len(core.getTufosBy('has', 'default_foo:p0', valu=None)), 5)
+        self.eq(len(core.getTufosBy('has', 'default_foo:p0', valu=5)), 5)
+        self.eq(len(core.getTufosBy('has', 'default_foo', valu='foo')), 5)
+        self.eq(len(core.getTufosBy('has', 'default_foo', valu='knight')), 5)
+
+        self.eq(len(core.getTufosBy('has', 'inet:ipv4', valu=None)), 5)
+        self.eq(len(core.getTufosBy('has', 'syn:tag', valu=None)), 0)
+
+        # By TAG
+        core.addTufoTag(fooa, 'color.white')
+        core.addTufoTag(fooa, 'color.black')
+        core.addTufoTag(foog, 'color.green')
+        core.addTufoTag(foog, 'color.blue')
+        core.addTufoTag(fooh, 'color.green')
+        core.addTufoTag(fooh, 'color.red')
+        core.addTufoTag(fooi, 'color.white')
+
+        self.eq(len(core.getTufosBy('tag', 'inet:ipv4', 'color')), 3)
+        self.eq(len(core.getTufosBy('tag', None, 'color')), 4)
+        self.eq(len(core.getTufosBy('tag', 'default_foo', 'color.white')), 1)
+        self.eq(len(core.getTufosBy('tag', 'default_foo', 'color.black')), 1)
+        self.eq(len(core.getTufosBy('tag', 'inet:ipv4', 'color.green')), 2)
+        self.eq(len(core.getTufosBy('tag', 'inet:ipv4', 'color.white')), 1)
+        self.eq(len(core.getTufosBy('tag', None, 'color.white')), 2)
+
+        # By EQ
+        self.eq(len(core.getTufosBy('eq', 'default_foo', 'bar')), 1)
+        self.eq(len(core.getTufosBy('eq', 'default_foo', 'blah')), 0)
+        self.eq(len(core.getTufosBy('eq', 'default_foo:p0', 5)), 2)
+        self.eq(len(core.getTufosBy('eq', 'inet:ipv4', 0x0a020306)), 1)
+        self.eq(len(core.getTufosBy('eq', 'inet:ipv4', '10.2.3.6')), 1)
+        self.eq(len(core.getTufosBy('eq', 'inet:ipv4:asn', -1)), 5)
+        self.eq(len(core.getTufosBy('eq', 'inet:ipv4', 0x0)), 0)
+        self.eq(len(core.getTufosBy('eq', 'inet:ipv4', '0.0.0.0')), 0)
+
+        # By TYPE - this requires data model introspection
+        fook = core.formTufoByProp('inet:dns:a', 'derry.vertex.link/10.2.3.6')
+        fool = core.formTufoByProp('inet:url', 'https://derry.vertex.link/clowntown.html', ipv4='10.2.3.6')
+        # self.eq(len(core.getTufosBy('type', 'inet:ipv4', None)), 7)
+        self.eq(len(core.getTufosBy('type', 'inet:ipv4', '10.2.3.6')), 3)
+        self.eq(len(core.getTufosBy('type', 'inet:ipv4', 0x0a020306)), 3)
+
         # BY CIDR
         tlib = s_types.TypeLib()
 
@@ -701,6 +786,26 @@ class CortexTest(SynTest):
 
         self.eq(len(core.getTufosByTag('zip', form='foo')), 0)
         self.eq(len(core.getTufosByTag('zip.zap', form='foo')), 0)
+
+        # By RANGE
+        # t0/t1 came in from the old test_cortex_ramtyperange test
+        t0 = core.formTufoByProp('foo:bar', 10)
+        t1 = core.formTufoByProp('foo:bar', 'baz')
+        tufs = core.getTufosBy('range', 'foo:bar', (5, 15))
+        self.eq(len(tufs), 1)
+        self.eq(tufs[0][0], t0[0])
+        # Do a range lift requiring prop normalization (using a built-in data type) to work
+        t2 = core.formTufoByProp('inet:ipv4', '1.2.3.3')
+        tufs = core.getTufosBy('range', 'inet:ipv4', (0x01020301, 0x01020309))
+        self.eq(len(tufs), 1)
+        self.eq(t2[0], tufs[0][0])
+        tufs = core.getTufosBy('range', 'inet:ipv4', ('1.2.3.1', '1.2.3.9'))
+        self.eq(len(tufs), 1)
+        self.eq(t2[0], tufs[0][0])
+        # range cleanup
+        for tufo in [t0, t1, t2]:
+            if tufo[1].get('.new'):
+                core.delTufo(tufo)
 
     def test_cortex_tufo_setprops(self):
         core = s_cortex.openurl('ram://')
@@ -1123,16 +1228,6 @@ class CortexTest(SynTest):
 
             self.eq(tufo1[1].get('foo:baz:haha'), 21)
             self.eq(tufo1[1].get('foo:baz:fqdn'), 'visi.com')
-
-    def test_cortex_ramtyperange(self):
-        with s_cortex.openurl('ram://') as core:
-
-            core.formTufoByProp('foo:bar', 10)
-            core.formTufoByProp('foo:bar', 'baz')
-
-            tufs = core.getTufosBy('range', 'foo:bar', (5, 15))
-
-            self.eq(len(tufs), 1)
 
     def test_cortex_minmax(self):
 
@@ -2363,6 +2458,49 @@ class StorageTest(SynTest):
     def test_nonexist_ctor(self):
         self.raises(NoSuchImpl, s_cortex.openstore, 'delaylinememory:///')
 
+    def test_storage_xact_spliced(self):
+
+        # Ensure that spliced events don't get fired through a
+        # StoreXct without a Cortex
+        eventd = {}
+
+        def foo(event):
+            eventd[event[0]] = eventd.get(event[0], 0) + 1
+
+        with s_cortex.openstore('ram:///') as store:
+            store.on('foo', foo)
+            store.on('splice', foo)
+            with store.getCoreXact() as xact:
+                xact.fire('foo', key='valu')
+                xact.fire('bar', key='valu')
+                xact.spliced('foo', key='valu')
+        self.eq(eventd, {'foo': 1})
+
+    def test_storage_confopts(self):
+        conf = {'rev:storage': 0}
+
+        path = getTestPath('rev0.db')
+        with open(path, 'rb') as fd:
+            byts = fd.read()
+
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = '50cae022b296e0c2b61fd6b101c4fdaf'
+        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
+
+        with self.getTestDir() as temp:
+            finl = os.path.join(temp, 'test.db')
+            url = 'sqlite:///%s' % finl
+
+            with open(finl, 'wb') as fd:
+                fd.write(byts)
+
+            with s_cortex.openstore(url, storconf=conf) as store:
+                self.eq(store.getConfOpt('rev:storage'), 0)
+                # Ensure our node is still using the old tag syntax
+                node = store.tufosByLe('inet:ipv4', 0x01020304)[0]
+                self.isin('*|inet:ipv4|foo.bar', node[1])
+
     def test_storage_sqlite(self):
         path = getTestPath('rev0.db')
         with open(path, 'rb') as fd:
@@ -2412,20 +2550,33 @@ class StorageTest(SynTest):
         self.eq(len(rows[0]), 4)
 
     def test_storage_genrows_sqlite(self):
-        url = 'sqlite:///:memory:'
+        with self.getTestDir() as temp:
+            fn = 'test.db'
+            fp = os.path.join(temp, fn)
+            url = 'sqlite:///%s' % fp
+            rows = []
 
-        rows = []
-        with s_cortex.openstore(url) as store:
-            for _rows in store.genStoreRows(slicebytes=1, incvalu=2):
-                rows.extend(_rows)
-        self.eq(rows, [])
+            with s_cortex.openstore(url) as store:
+                for _rows in store.genStoreRows(slicebytes=1, incvalu=2):
+                    rows.extend(_rows)
+            self.eq(rows, [])
 
-        with s_cortex.openurl(url) as core:
-            for _rows in core.store.genStoreRows(slicebytes=2):
-                rows.extend(_rows)
-        self.gt(len(rows), 1000)
-        self.isinstance(rows[0], tuple)
-        self.eq(len(rows[0]), 4)
+            with s_cortex.openurl(url) as core:
+                tick = now()
+                newrows = [
+                    ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
+                    ('00000000000000000000000000000000', 'inet:asn', 1, tick),
+                    ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
+                    ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
+                    ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
+                    ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick)
+                ]
+                core.addRows(newrows)
+                for _rows in core.store.genStoreRows(slicebytes=2):
+                    rows.extend(_rows)
+            self.gt(len(rows), 1000)
+            self.isinstance(rows[0], tuple)
+            self.eq(len(rows[0]), 4)
 
     def test_storage_genrows_lmdb(self):
         with self.getTestDir() as temp:
@@ -2443,7 +2594,7 @@ class StorageTest(SynTest):
             with s_cortex.openurl(url) as core:
                 # Add some rows at the top and bottom of the db table from a iden perspective.
                 tick = now()
-                rows = [
+                newrows = [
                     ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
                     ('00000000000000000000000000000000', 'inet:asn', 1, tick),
                     ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
@@ -2451,7 +2602,7 @@ class StorageTest(SynTest):
                     ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
                     ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick)
                 ]
-                core.addRows(rows)
+                core.addRows(newrows)
                 for _rows in core.store.genStoreRows():
                     rows.extend(_rows)
             self.gt(len(rows), 1000)
@@ -2478,7 +2629,7 @@ class StorageTest(SynTest):
             with self.getPgCore() as core:
                 # Add some rows at the top and bottom of the db table from a iden perspective.
                 tick = now()
-                rows = [
+                newrows = [
                     ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
                     ('00000000000000000000000000000000', 'inet:asn', 1, tick),
                     ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
@@ -2486,7 +2637,7 @@ class StorageTest(SynTest):
                     ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
                     ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick)
                 ]
-                core.addRows(rows)
+                core.addRows(newrows)
                 for _rows in core.store.genStoreRows():
                     rows.extend(_rows)
             self.gt(len(rows), 1000)

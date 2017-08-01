@@ -12,6 +12,7 @@ import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
 
+import synapse.cores.xact as s_xact
 import synapse.cores.common as s_cores_common
 import synapse.cores.storage as s_cores_storage
 
@@ -170,7 +171,7 @@ def initLmdbCortex(link, conf=None, storconf=None):
     store = LmdbStorage(link, **storconf)
     return s_cores_common.Cortex(link, store, **conf)
 
-class LmdbXact(s_cores_storage.StoreXact):
+class LmdbXact(s_xact.StoreXact):
 
     def _coreXactInit(self, size=None):
         self.txn = None
@@ -204,8 +205,8 @@ class LmdbStorage(s_cores_storage.Storage):
 
         return {'name': name}
 
-    def getStoreXact(self, size=None):
-        return LmdbXact(self, size=size)
+    def getStoreXact(self, size=None, core=None):
+        return LmdbXact(self, size=size, core=core)
 
     def _getLargestPk(self):
         with self._getTxn() as txn, txn.cursor(self.rows) as cursor:
@@ -675,6 +676,14 @@ class LmdbStorage(s_cores_storage.Storage):
     def rowsByRange(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, valu[0], valu[1], limit)
 
+    def tufosByLe(self, prop, valu, limit=None):
+        rows = self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, right_closed=True)
+        return self.rowsToTufos(rows)
+
+    def tufosByGe(self, prop, valu, limit=None):
+        rows = self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit, right_closed=True)
+        return self.rowsToTufos(rows)
+
     def _rowsByMinmax(self, prop, minval, maxval, limit, right_closed=False, do_count_only=False):
         ''' Returns either count or actual rows for a range of prop vals where both min and max
             may be closed (included) or open (not included) '''
@@ -762,7 +771,7 @@ class LmdbStorage(s_cores_storage.Storage):
                         if len(rows) == gsize:
                             break
                     if rows:
-                        lifted = lifted + len(rows)
+                        lifted += len(rows)
                         yield rows
                     else:
                         break

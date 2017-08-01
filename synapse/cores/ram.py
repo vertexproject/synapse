@@ -2,6 +2,7 @@ import collections
 
 from synapse.compat import isint, intern
 
+import synapse.cores.xact as s_xact
 import synapse.cores.common as s_cores_common
 import synapse.cores.storage as s_cores_storage
 
@@ -44,7 +45,7 @@ def initRamCortex(link, conf=None, storconf=None):
 
     return core
 
-class RamXact(s_cores_storage.StoreXact):
+class RamXact(s_xact.StoreXact):
 
     # Ram Cortex fakes out the idea of xact...
     def _coreXactBegin(self):
@@ -61,30 +62,25 @@ class RamStorage(s_cores_storage.Storage):
         self.rowsbyvalu = collections.defaultdict(set)
         self._blob_store = {}
 
-    def getStoreXact(self, size=None):
-        return RamXact(self, size=size)
+    def getStoreXact(self, size=None, core=None):
+        return RamXact(self, size=size, core=core)
 
     def tufosByGe(self, prop, valu, limit=None):
         # FIXME sortedcontainers optimizations go here
-        valu, _ = self.getPropNorm(prop, valu)
         rows = self.rowsByGe(prop, valu, limit=limit)
         return self.getTufosByIdens([r[0] for r in rows])
 
     def tufosByLe(self, prop, valu, limit=None):
         # FIXME sortedcontainers optimizations go here
-        valu, _ = self.getPropNorm(prop, valu)
         rows = self.rowsByLe(prop, valu, limit=limit)
         return self.getTufosByIdens([r[0] for r in rows])
 
     def sizeByRange(self, prop, valu, limit=None):
-        minval = int(self.getPropNorm(prop, valu[0])[0])
-        maxval = int(self.getPropNorm(prop, valu[1])[0])
+        minval, maxval = valu[0], valu[1]
         return sum(1 for r in self.rowsbyprop.get(prop, ()) if isint(r[2]) and r[2] >= minval and r[2] < maxval)
 
     def rowsByRange(self, prop, valu, limit=None):
-        minval = int(self.getPropNorm(prop, valu[0])[0])
-        maxval = int(self.getPropNorm(prop, valu[1])[0])
-
+        minval, maxval = valu[0], valu[1]
         # HACK: for speed
         ret = [r for r in self.rowsbyprop.get(prop, ()) if isint(r[2]) and r[2] >= minval and r[2] < maxval]
 

@@ -1,5 +1,4 @@
 import json
-import time
 import logging
 import itertools
 import threading
@@ -132,8 +131,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         # Initialize the storage layer
         self.store = store  # type: s_storage.Storage()
-        self.store.register_cortex(self)
-        self.onfini(self.store.fini)
+        self._registerStore()
 
         self.isok = True
 
@@ -195,6 +193,31 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             ('modules', {'defval': (), 'doc': 'An optional list of (pypath,conf) tuples for synapse modules to load'})
         )
         return confdefs
+
+    def _registerStore(self):
+        '''
+        Register the cores Storage object with the Cortex.
+
+        This ensures that when we fini() the Cortex, we've removed references
+        between the two objects so garbage collection can remove objects.
+        '''
+        # link events from the Storage back to the Cortex Eventbus
+        self.store.link(self.dist)
+
+        # Register tufo helpers and fini handlers to pop references
+        tufo_meths = []
+        for name, meth in self.store.tufosbymeths.items():
+            self.initTufosBy(name, meth)
+            tufo_meths.append(name)
+
+        # Ensure we clean up any Storage refs and call fini on the Storage obj
+        def finiStore():
+            self.store.unlink(self.dist)
+            for name in tufo_meths:
+                self.tufosbymeths.pop(name, None)
+            self.store.fini()
+
+        self.onfini(finiStore)
 
     def getModlVers(self, name):
         '''
@@ -1137,6 +1160,19 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             rows = self.getRowsBy(name, prop, valu, limit=limit)
             return [self.getTufoByIden(row[0]) for row in rows]
 
+        if not getattr(meth, '_syn_nopropnorm', False):
+            if isinstance(valu, (list, tuple)):
+                _valu = []
+                for v in valu:
+                    nv = self.getPropNorm(prop, v)
+                    if isinstance(nv[0], (list, tuple)):
+                        _valu.extend(nv[0])
+                        continue
+                    _valu.append(nv[0])
+                valu = _valu
+            else:
+                valu, _ = self.getPropNorm(prop, valu)
+
         return meth(prop, valu, limit=limit)
 
     def getRowsBy(self, name, prop, valu, limit=None):
@@ -1151,6 +1187,13 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             * most commonly used to facilitate range searches
 
         '''
+
+        # Norm valus
+        if isinstance(valu, (list, tuple)):
+            valu = [self.getPropNorm(prop, v)[0] for v in valu]
+        else:
+            valu, _ = self.getPropNorm(prop, valu)
+
         meth = self.store.reqRowsByMeth(name)
         return meth(prop, valu, limit=limit)
 
@@ -1677,6 +1720,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         for chunk in chunked(100, items):
 
+            rows = []
             for item in chunk:
                 iden = s_common.guid()
 
@@ -2287,11 +2331,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             # if the prop is read only, it may not be deleted
             if pdef[1].get('ro'):
-                raise CantDelProp(name=prop, mesg='property is read only')
+                raise s_common.CantDelProp(name=prop, mesg='property is read only')
 
             # if the prop has a default value, it may not be deleted
             if pdef[1].get('defval') is not None:
-                raise CantDelProp(name=prop, mesg='property has default value')
+                raise s_common.CantDelProp(name=prop, mesg='property has default value')
 
         oldv = tufo[1].pop(prop, None)
         if oldv is None:
@@ -2462,6 +2506,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         return ret
 
+    @s_common.nopropnorm()
     def _tufosByInetCidr(self, prop, valu, limit=None):
         lowerbound, upperbound = self.getTypeCast('inet:ipv4:cidr', valu)
         return self.getTufosBy('range', prop, (lowerbound, upperbound), limit=limit)
@@ -2534,17 +2579,17 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
     # some helpers to allow *all* queries to be processed via getTufosBy()
     def _tufosByEq(self, prop, valu, limit=None):
-        valu, _ = self.getPropNorm(prop, valu)
         return self.getTufosByProp(prop, valu=valu, limit=limit)
 
+    @s_common.nopropnorm()
     def _tufosByHas(self, prop, valu, limit=None):
         return self.getTufosByProp(prop, limit=limit)
 
+    @s_common.nopropnorm()
     def _tufosByTag(self, prop, valu, limit=None):
         return self.getTufosByTag(valu, form=prop, limit=limit)
 
     def _tufosByType(self, prop, valu, limit=None):
-        valu, _ = self.getTypeNorm(prop, valu)
         return self.getTufosByPropType(prop, valu=valu, limit=limit)
 
     def _tufosByDark(self, prop, valu, limit=None):
@@ -2584,26 +2629,27 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
     def getCoreXact(self, size=1000):
         '''
-        Get a cortex transaction context for use in a with block.
-        This object allows bulk storage layer optimization and
-        proper ordering of events.
+        Get a Storage transaction context for use in a with block.
 
-        Example:
+        This object allows bulk storage layer optimization and proper ordering
+        of events.  The context manager created through this function supports
+        firing splice events.
 
-            with core.getCoreXact() as xact:
-                core.dostuff()
+        Args:
+            size (int): Number of transactions to cache before starting to
+                execute storage layer events.
 
+        Examples:
+            Get a context manager, use it to do stuff and fire splices::
+
+                with core.getCoreXact() as xact:
+                    result = dostuff()
+                    xact.spliced('some:slice:evt', **result)
+
+        Returns:
+            s_xact.StoreXact: Transaction context manager.
         '''
-        return self.store.getCoreXact()
-        iden = s_threads.iden()
-
-        xact = self._core_xacts.get(iden)
-        if xact is not None:
-            return xact
-
-        xact = self.getStoreXact(size)
-        self._core_xacts[iden] = xact
-        return xact
+        return self.store.getCoreXact(size=size, core=self)
 
     def _popCoreXact(self):
         # Used by the CoreXact fini routine

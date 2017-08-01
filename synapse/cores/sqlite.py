@@ -7,6 +7,7 @@ import sqlite3
 import synapse.common as s_common
 import synapse.compat as s_compat
 
+import synapse.cores.xact as s_xact
 import synapse.cores.common as s_cores_common
 import synapse.cores.storage as s_cores_storage
 
@@ -38,7 +39,7 @@ def initSqliteCortex(link, conf=None, storconf=None):
     store = SqliteStorage(link, **storconf)
     return s_cores_common.Cortex(link, store, **conf)
 
-class SqlXact(s_cores_storage.StoreXact):
+class SqlXact(s_xact.StoreXact):
 
     def _coreXactInit(self):
         self.db = None
@@ -266,8 +267,8 @@ class SqliteStorage(s_cores_storage.Storage):
 
         return {'name': name}
 
-    def getStoreXact(self, size=None):
-        return SqlXact(self, size=size)
+    def getStoreXact(self, size=None, core=None):
+        return SqlXact(self, size=size, core=core)
 
     def _getDbLimit(self, limit):
         if limit is not None:
@@ -279,8 +280,7 @@ class SqliteStorage(s_cores_storage.Storage):
 
         q = self._q_getrows_by_range
 
-        minvalu = int(self.getPropNorm(prop, valu[0])[0])
-        maxvalu = int(self.getPropNorm(prop, valu[1])[0])
+        minvalu, maxvalu = valu[0], valu[1]
 
         rows = self.select(q, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)
         return self._foldTypeCols(rows)
@@ -301,8 +301,7 @@ class SqliteStorage(s_cores_storage.Storage):
     def sizeByRange(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getsize_by_range
-        minvalu = int(self.getPropNorm(prop, valu[0])[0])
-        maxvalu = int(self.getPropNorm(prop, valu[1])[0])
+        minvalu, maxvalu = valu[0], valu[1]
         return self.select(q, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)[0][0]
 
     def sizeByGe(self, prop, valu, limit=None):
@@ -341,26 +340,16 @@ class SqliteStorage(s_cores_storage.Storage):
         table = self._getTableName()
 
         self._initCorQueries()
-
         self._initCorTables(table)
 
-    def _postCoreRegistration(self, core):
-        # XXX This optimization for 'range' only exists for sqlite/psql
-        # We should move this into the storage layer and add
-        # ram / lmdb implementations if possible
-        self.initTufosBy('range', self._tufosByRange)
-        def rangefini():
-            core.tufosbymeths.pop('range', None)
-        core.onfini(rangefini)
-        # XXX This is a hack since sqlite doesn't have a built in IN statement
-        # and I don't want to currently figure out an alternative to make a
-        # sqlite _tufosByIn, make the PostgresStorage _initCoreStor do weird
-        # magic
+        # Add our range handlers to the tufos helpers
+        self.tufosbymeths['range'] = self._tufosByRange
+        # TODO - Investigate if we can implement a _tufosByIn handler for
+        # SQLite. It does not have a native IN statement like PSQL does, but
+        # it may be possible to use a nested query and gain performance
+        # benefits from using single transaction over N transactions.
         if hasattr(self, '_tufosByIn'):
-            self.initTufosBy('in', self._tufosByIn)
-            def infini():
-                core.tufosbymeths.pop('in', None)
-            core.onfini(infini)
+            self.tufosbymeths['in'] = self._tufosByIn
 
     def _prepQuery(self, query):
         # prep query strings by replacing all %s with table name
@@ -377,7 +366,7 @@ class SqliteStorage(s_cores_storage.Storage):
         # prep query strings by replacing all %s with table name
         # and all ? with db specific variable token
         table = self._getTableName()
-        table = table + '_blob'
+        table += '_blob'
         query = query.replace('{{BLOB_TABLE}}', table)
 
         for name in stashre.findall(query):
@@ -664,8 +653,7 @@ class SqliteStorage(s_cores_storage.Storage):
         if len(valu) != 2:
             return []
 
-        minvalu = int(self.getPropNorm(prop, valu[0])[0])
-        maxvalu = int(self.getPropNorm(prop, valu[1])[0])
+        minvalu, maxvalu = valu[0], valu[1]
 
         limit = self._getDbLimit(limit)
 
@@ -674,7 +662,6 @@ class SqliteStorage(s_cores_storage.Storage):
         return self.rowsToTufos(rows)
 
     def tufosByLe(self, prop, valu, limit=None):
-        valu, _ = self.getPropNorm(prop, valu)
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_le_int, prop=prop, valu=valu, limit=limit)
@@ -683,7 +670,6 @@ class SqliteStorage(s_cores_storage.Storage):
         return self.rowsToTufos(rows)
 
     def tufosByGe(self, prop, valu, limit=None):
-        valu, _ = self.getPropNorm(prop, valu)
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_ge_int, prop=prop, valu=valu, limit=limit)
