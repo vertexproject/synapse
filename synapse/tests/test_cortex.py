@@ -1862,6 +1862,28 @@ class CortexTest(SynTest):
 
             self.eq(core.getModlVers('grok'), 3)
 
+    def test_cortex_coremodule_telepath(self):
+        port = 0
+        link_template = 'tcp://127.0.0.1:%d/remote_core'
+        mods = (('synapse.tests.test_cortex.CoreTestModule', {'foobar': True}), )
+
+        with s_cortex.openurl('ram:///') as remote_core:
+            with s_daemon.Daemon() as dmon:
+
+                dmon.share('remote_core', remote_core)
+                link = dmon.listen(link_template % port)
+                port = link[1]['port']
+                link_url = link_template % port
+
+                self.eq(remote_core.getModlVers('test'), -1)
+                with s_cortex.openurl(link_url) as core:
+                    core.setConfOpt('rev:model', 1)
+                    core.setConfOpt('modules', mods)
+                    core.setConfOpt('rev:model', 0)
+                    self.eq(core.getModlVers('test'), 201707210101)
+
+                self.eq(remote_core.getModlVers('test'), 201707210101)
+
     def test_cortex_isnew(self):
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'test.db')
