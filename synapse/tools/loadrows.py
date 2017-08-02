@@ -22,8 +22,6 @@ import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
 
-ROWDUMP = 'syn:cortex:rowdump:info'
-
 # noinspection PyMissingOrEmptyDocstring
 def main(argv, outp=None):
 
@@ -41,7 +39,7 @@ def main(argv, outp=None):
     with open(opts.input, 'rb') as fd:
         gen = s_common.msgpackfd(fd)
         tufo0 = next(gen)
-        if tufo0[0] == ROWDUMP:
+        if tufo0[0] == 'syn:cortex:rowdump:info':
             outp.printf('Restoring from a dumprows file.')
             discard_first_event = True
             decompress = tufo0[1].get('rows:compress')

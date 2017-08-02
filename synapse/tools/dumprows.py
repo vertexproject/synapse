@@ -27,10 +27,6 @@ import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
 
-ADDROWS = 'core:save:add:rows'
-ADDBLOB = 'syn:core:blob:set'
-ROWDUMP = 'syn:cortex:rowdump:info'
-
 def gen_backup_tufo(options):
     d = {'rows:compress': options.compress,
          'synapse:version': synapse.version,
@@ -41,7 +37,7 @@ def gen_backup_tufo(options):
          'time:created': s_common.now(),
          'python:version': s_compat.version
          }
-    tufo = s_tufo.tufo(ROWDUMP, **d)
+    tufo = s_tufo.tufo('syn:cortex:rowdump:info', **d)
     return tufo
 
 preset_args = {
@@ -65,7 +61,7 @@ def dump_rows(outp, fd, store, compress=False, genrows_kwargs=None):
     for rows in store.genStoreRows(**kwargs):
         j += len(rows)
         i += len(rows)
-        tufo = s_tufo.tufo(ADDROWS, rows=rows)
+        tufo = s_tufo.tufo('core:save:add:rows', rows=rows)
         if compress:
             tufo[1]['rows'] = s_compat.gzip_compress(s_common.msgenpack(rows))
         byts = s_common.msgenpack(tufo)
@@ -91,7 +87,7 @@ def dump_blobs(outp, fd, store):
     outp.printf('Dumping blobstore')
     for key in store.getBlobKeys():
         valu = store.getBlobValu(key)
-        tufo = s_tufo.tufo(ADDBLOB, key=key, valu=s_common.msgenpack(valu))
+        tufo = s_tufo.tufo('syn:core:blob:set', key=key, valu=s_common.msgenpack(valu))
         byts = s_common.msgenpack(tufo)
         fd.write(byts)
         i += 1

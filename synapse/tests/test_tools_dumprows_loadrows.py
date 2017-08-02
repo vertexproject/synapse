@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# XXX Update Docstring
 """
 synapse - test_tools_dumprows_loadrows.py
 Created on 7/26/17.
@@ -41,7 +40,7 @@ class DumpRowsTest(SynTest):
             with open(fp, 'rb') as fd:
                 gen = msgpackfd(fd)
                 evt = next(gen)
-                self.eq(evt[0], s_dumprows.ROWDUMP)
+                self.eq(evt[0], 'syn:cortex:rowdump:info')
                 self.eq(evt[1].get('rows:compress'), False)
                 self.eq(evt[1].get('synapse:rows:output'), fp)
                 self.eq(evt[1].get('synapse:cortex:input'), sqlite_url)
@@ -50,7 +49,7 @@ class DumpRowsTest(SynTest):
                 self.eq(evt[1].get('python:version'), s_compat.version)
                 self.isin('synapse:version', evt[1])
                 evt = next(gen)
-                self.eq(evt[0], s_dumprows.ADDROWS)
+                self.eq(evt[0], 'core:save:add:rows')
                 self.isin('rows', evt[1])
                 rows = evt[1].get('rows')
                 self.isinstance(rows, tuple)
@@ -65,7 +64,7 @@ class DumpRowsTest(SynTest):
                     if 'rows' in evt[1]:
                         total_rows = total_rows + len(evt[1].get('rows'))
                 self.gt(total_rows, 1000)
-                self.eq(event_types, {s_dumprows.ADDROWS})
+                self.eq(event_types, {'core:save:add:rows'})
 
     def test_simple_compress(self):
             outp = self.getTestOutp()
@@ -86,11 +85,11 @@ class DumpRowsTest(SynTest):
                 with open(fp, 'rb') as fd:
                     gen = msgpackfd(fd)
                     evt = next(gen)
-                    self.eq(evt[0], s_dumprows.ROWDUMP)
+                    self.eq(evt[0], 'syn:cortex:rowdump:info')
                     # XXX Validate options?
                     self.eq(evt[1].get('rows:compress'), True)
                     evt = next(gen)
-                    self.eq(evt[0], s_dumprows.ADDROWS)
+                    self.eq(evt[0], 'core:save:add:rows')
                     self.isin('rows', evt[1])
                     rows = evt[1].get('rows')
                     # we decode the rows blob not in place but separately here
@@ -103,7 +102,7 @@ class DumpRowsTest(SynTest):
                     event_types.add(evt[0])
                     for evt in gen:
                         event_types.add(evt[0])
-                    self.eq(event_types, {s_dumprows.ADDROWS})
+                    self.eq(event_types, {'core:save:add:rows'})
 
     def test_blob_dump(self):
         outp = self.getTestOutp()
@@ -125,11 +124,11 @@ class DumpRowsTest(SynTest):
             with open(fp, 'rb') as fd:
                 gen = msgpackfd(fd)
                 evt = next(gen)
-                self.eq(evt[0], s_dumprows.ROWDUMP)
+                self.eq(evt[0], 'syn:cortex:rowdump:info')
                 # XXX Validate options?
                 self.eq(evt[1].get('synapse:cortex:blob_store'), True)
                 evt = next(gen)
-                self.eq(evt[0], s_dumprows.ADDROWS)
+                self.eq(evt[0], 'core:save:add:rows')
                 self.isin('rows', evt[1])
                 rows = evt[1].get('rows')
                 self.isinstance(rows, tuple)
@@ -140,7 +139,7 @@ class DumpRowsTest(SynTest):
                 event_types.add(evt[0])
                 for evt in gen:
                     event_types.add(evt[0])
-                self.eq(event_types, {s_dumprows.ADDROWS, s_dumprows.ADDBLOB})
+                self.eq(event_types, {'core:save:add:rows', 'syn:core:blob:set'})
 
     def test_revstore_use(self):
         outp = self.getTestOutp()
