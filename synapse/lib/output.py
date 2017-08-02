@@ -30,6 +30,12 @@ class OutPutFd(OutPut):
     def _rawOutPut(self, mesg):
         self.fd.write(mesg.encode(self.enc))
 
+    def __del__(self):
+        try:
+            self.fd.close()
+        except:
+            pass
+
 class OutPutBytes(OutPutFd):
 
     def __init__(self):
