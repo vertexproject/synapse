@@ -368,7 +368,7 @@ def ge(x, y):
         return False
     return x >= y
 
-def setkw(oper,name,valu):
+def setkw(oper, name, valu):
     '''
     Set a keyword argument in a given operator.
 
@@ -384,8 +384,8 @@ def setkw(oper,name,valu):
     if kwlist is None:
         kwlist = []
 
-    kwlist = [ (k,v) for (k,v) in kwlist if k != name ]
-    kwlist.append((name,valu))
+    kwlist = [(k, v) for (k, v) in kwlist if k != name]
+    kwlist.append((name, valu))
     oper[1]['kwlist'] = kwlist
 
 class Runtime(Configable):
@@ -972,7 +972,7 @@ class Runtime(Configable):
         [query.add(tufo) for tufo in self.stormTufosBy(by, prop, valu, limit=limit)]
 
     def _stormOperLimit(self, query, oper):
-        args = oper[1].get('args',())
+        args = oper[1].get('args', ())
         if len(args) != 1:
             raise s_common.BadSyntaxError(mesg='limit(<size>)')
 
