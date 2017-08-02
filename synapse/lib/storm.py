@@ -368,6 +368,26 @@ def ge(x, y):
         return False
     return x >= y
 
+def setkw(oper,name,valu):
+    '''
+    Set a keyword argument in a given operator.
+
+    Args:
+        oper ((str,dict)): A storm operator tufo
+        name (str): A kwarg name
+        valu (obj): A kwarg value
+
+    Returns:
+        (None)
+    '''
+    kwlist = oper[1].get('kwlist')
+    if kwlist is None:
+        kwlist = []
+
+    kwlist = [ (k,v) for (k,v) in kwlist if k != name ]
+    kwlist.append((name,valu))
+    oper[1]['kwlist'] = kwlist
+
 class Runtime(Configable):
 
     def __init__(self, **opts):
@@ -410,6 +430,7 @@ class Runtime(Configable):
         self.setOperFunc('join', self._stormOperJoin)
         self.setOperFunc('lift', self._stormOperLift)
         self.setOperFunc('refs', self._stormOperRefs)
+        self.setOperFunc('limit', self._stormOperLimit)
         self.setOperFunc('pivot', self._stormOperPivot)
         self.setOperFunc('alltag', self._stormOperAllTag)
         self.setOperFunc('addtag', self._stormOperAddTag)
@@ -582,6 +603,32 @@ class Runtime(Configable):
         opers = s_syntax.parse(text)
         return self.run(opers, data=data, timeout=timeout)
 
+    def plan(self, opers):
+        '''
+        Review a list of opers and return a potentially optimized list.
+
+        Args:
+            opers ([(str,dict),]):  List of opers in tufo form
+
+        Returns:
+            ([(str,dict),]): Optimized list
+
+        '''
+        retn = []
+
+        for oper in opers:
+
+            # specify a limit backward from limit oper...
+            if oper[0] == 'limit' and len(retn):
+                limt = oper[1].get('args')[0]
+                setkw(retn[-1], 'limit', limt)
+
+            # TODO look for a form lift + tag filter and optimize
+
+            retn.append(oper)
+
+        return retn
+
     def run(self, opers, data=(), timeout=None):
         '''
         Execute a pre-parsed set of opers.
@@ -593,6 +640,8 @@ class Runtime(Configable):
             res0 = runt.run(opers)
 
         '''
+        opers = self.plan(opers)
+
         maxtime = None
         if timeout is not None:
             maxtime = time.time() + timeout
@@ -625,14 +674,15 @@ class Runtime(Configable):
         '''
         answ = self.ask(text, data=data, timeout=timeout)
 
-        excinfo = answ['oplog'][-1].get('excinfo')
-        #if excinfo.get('errinfo') != None:
-        if excinfo is not None:
-            errname = excinfo.get('err')
-            errinfo = excinfo.get('errinfo', {})
-            errinfo['errfile'] = excinfo.get('errfile')
-            errinfo['errline'] = excinfo.get('errline')
-            raise s_common.synerr(errname, **errinfo)
+        oplog = answ.get('oplog')
+        if oplog:
+            excinfo = oplog[-1].get('excinfo')
+            if excinfo is not None:
+                errname = excinfo.get('err')
+                errinfo = excinfo.get('errinfo', {})
+                errinfo['errfile'] = excinfo.get('errfile')
+                errinfo['errline'] = excinfo.get('errline')
+                raise s_common.synerr(errname, **errinfo)
 
         return answ.get('data')
 
@@ -920,6 +970,15 @@ class Runtime(Configable):
         limit = minlim(limt0, limt1)
 
         [query.add(tufo) for tufo in self.stormTufosBy(by, prop, valu, limit=limit)]
+
+    def _stormOperLimit(self, query, oper):
+        args = oper[1].get('args',())
+        if len(args) != 1:
+            raise s_common.BadSyntaxError(mesg='limit(<size>)')
+
+        size = int(args[0])
+        if query.size() > size:
+            [ query.add(node) for node in query.take()[:size] ]
 
     def _stormOperPivot(self, query, oper):
         args = oper[1].get('args')

@@ -453,8 +453,10 @@ def parse_oarg(text, off=0):
     '''
     _, off = nom(text, off, whites)
 
-    if nextchar(text, off, '"'):
-        valu, off = parse_string(text, off)
+    valu, off = parse_valu(text, off)
+
+    if is_literal(text,off):
+        valu, off = parse_literal(text, off)
         _, off = nom(text, off, whites)
 
     else:
@@ -482,7 +484,6 @@ def parse_oper(text, off=0):
 
     _, off = nom(text, off, whites)
 
-    #if text[off] != '(':
     if not nextchar(text, off, '('):
         raise s_common.BadSyntaxError(expected='( for operator ' + name, at=off)
 
@@ -496,14 +497,17 @@ def parse_oper(text, off=0):
             off += 1
             return inst, off
 
-        oarg, off = parse_oarg(text, off)
+        valu, off = parse_valu(text, off)
+        _, off = nom(text, off, whites)
 
         if nextchar(text, off, '='):
-            off += 1
-            valu, off = parse_oarg(text, off)
-            inst[1]['kwlist'].append((oarg, valu))
+
+            vval, off = parse_valu(text, off+1)
+            inst[1]['kwlist'].append((valu,vval))
+
         else:
-            inst[1]['args'].append(oarg)
+
+            inst[1]['args'].append(valu)
 
         if not nextin(text, off, [',', ')']):
             raise s_common.BadSyntaxError(mesg='Unexpected Token: ' + text[off], at=off)
@@ -686,7 +690,7 @@ def parse(text, off=0):
             continue
 
         # standard foo() oper syntax
-        if text[off] == '(':
+        if nextchar(text, off, '('):
             inst, off = parse_oper(text, origoff)
             ret.append(inst)
             continue

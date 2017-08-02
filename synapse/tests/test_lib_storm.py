@@ -97,12 +97,33 @@ class StormTest(SynTest):
             core.addTufoTag(node, 'foo.bar')
             core.addTufoTag(node, 'baz.faz')
 
+            # test alltag macro syntax
             node = core.eval('#foo.bar')[0]
 
             self.eq(node[1].get('inet:fqdn'), 'vertex.link')
 
             self.nn(node[1].get('#baz'))
             self.nn(node[1].get('#foo.bar'))
+
+            # test alltag macro syntax with limit
+            core.eval('[ inet:fqdn=hehe.com inet:fqdn=haha.com #lol ]')
+            self.eq(len(core.eval('#lol limit(1)')), 1)
+
+    def test_storm_limit(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+
+            # test that the limit operator correctly handles being first (no opers[-1])
+            # and will subsequently filter down to the correct number of nodes
+            nodes = core.eval('[ inet:ipv4=1.2.3.4 inet:ipv4=3.4.5.6 ]')
+            self.eq(len(core.eval(' limit(1) ', data=nodes)), 1 )
+
+            # test that the limit() operator reaches backward to limit a previous oper
+            # during the planning pass...
+            oper = core.plan( core.parse(' inet:ipv4 limit(1) ') )[0]
+            opts = dict(oper[1].get('kwlist'))
+            self.eq(opts.get('limit'), 1 )
 
     def test_storm_addtag(self):
         with s_cortex.openurl('ram:///') as core:
