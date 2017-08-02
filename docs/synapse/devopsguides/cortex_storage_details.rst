@@ -110,7 +110,6 @@ These allow for the the storage layer to close resources on teardown and allow i
 registration when a Cortex class is registered with a Storage object.
 
   - _finiCoreStore(self):
-  - _postCoreRegistration(self, core):
   - _setSaveFd(self, fd, load=True, fini=False):
 
 Row Level APIs
@@ -130,7 +129,6 @@ Tufo Level APIs
 There are some tufo-level APIs which are provided at the storage layer for optimization purposes. These may be
 overridden to provide better implementations than would be provided otherwise.
 
-  - _incTufoProp(self, tufo, prop, incval=1):
   - getTufosByIdens(self, idens):
   - getTufoByIden(self, iden):
   - tufosByLt(self, prop, valu, limit=None):
