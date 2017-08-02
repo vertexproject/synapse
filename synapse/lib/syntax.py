@@ -445,30 +445,6 @@ def parse_cmd_kwlist(text, off=0):
     _, off = nom(text, off, whites)
     return kwlist, off
 
-def parse_oarg(text, off=0):
-    '''
-    Parse something that might be a literal *or*
-    a kwarg name, *or* an unadorned literal string
-    ( which may not use any context sensitive chars )
-    '''
-    _, off = nom(text, off, whites)
-
-    valu, off = parse_valu(text, off)
-
-    if is_literal(text,off):
-        valu, off = parse_literal(text, off)
-        _, off = nom(text, off, whites)
-
-    else:
-        valu, off = meh(text, off, '=,)')
-        valu = valu.strip()
-        try:
-            valu = int(valu, 0)
-        except ValueError as e:
-            pass
-
-    return valu, off
-
 def parse_oper(text, off=0):
     '''
     Returns an inst,off tuple by parsing an operator expression.
