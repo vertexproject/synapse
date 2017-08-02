@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 """
-Copy this file to .git/hooks/pre-commit in order to have the hooks run when doing a git commit action.
-
-Currently it does not cause a commit to fail; but will generate warnings.
+Run lint checks for Synapse.
 
 Requires pycodestyle to be installed.
 
@@ -11,20 +9,17 @@ Updated from https://github.com/cbrueffer/pep8-git-hook
 """
 from __future__ import print_function
 import os
-import re
-import shutil
 import subprocess
 import sys
-import tempfile
 
 # don't fill in both of these
 # good codes
 select_codes = ["E111", "E101",
                 "E201", "E202", "E203", "E221", "E222", "E223", "E224", "E225",
-                "E226", "E227", "E228", "E231",  "E241", "E242", "E251",
+                "E226", "E227", "E228", "E231", "E241", "E242", "E251",
                 "E303", "E304",
                 "E502",
-                "E711",  "E712", "E713", "E714", "E721",
+                "E711", "E712", "E713", "E714", "E721",
                 "E741", "E742", "E743",
                 "W191",
                 "W291", "W293", "W292",
@@ -37,7 +32,6 @@ overrides = ["--max-line-length=120",
              '--format=pylint',
              ]
 
-
 def system(*args, **kwargs):
     kwargs.setdefault('stdout', subprocess.PIPE)
     proc = subprocess.Popen(args, **kwargs)
@@ -45,21 +39,6 @@ def system(*args, **kwargs):
     return out
 
 def main():
-    files = system('git', 'diff', '--cached', '--name-only').decode("utf-8")
-    files = [file.strip() for file in files.split('\n') if file.strip().endswith('.py')]
-
-    if not files:
-        sys.exit(0)
-
-    tempdir = tempfile.mkdtemp()
-    for name in files:
-        filename = os.path.join(tempdir, name)
-        filepath = os.path.dirname(filename)
-
-        if not os.path.exists(filepath):
-            os.makedirs(filepath)
-        with open(filename, 'w') as f:
-            system('git', 'show', ':' + name, stdout=f)
 
     args = ['pycodestyle']
     if select_codes and ignore_codes:
@@ -71,11 +50,9 @@ def main():
         args.extend(('--ignore', ','.join(ignore_codes)))
     args.extend(overrides)
     args.append('.')
-    output = system(*args, cwd=tempdir)
-    shutil.rmtree(tempdir)
+    output = system(*args)
     if output:
-        print('PEP8 style violations have been detected.  Please fix them\n'
-              'or force the commit with "git commit --no-verify".\n')
+        print('PEP8 style violations have been detected.\n')
         print(output.decode("utf-8"),)
         sys.exit(1)
     sys.exit(0)
