@@ -2577,6 +2577,22 @@ class StorageTest(SynTest):
             self.gt(len(rows), 1000)
             self.isinstance(rows[0], tuple)
             self.eq(len(rows[0]), 4)
+            # Sort rows by idens
+            rows.sort(key=lambda x: x[0])
+            bottom_rows = rows[:3]
+            bottom_rows.sort(key=lambda x: x[1])
+            self.eq(bottom_rows, [
+                ('00000000000000000000000000000000', 'inet:asn', 1, tick),
+                ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
+                ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
+            ])
+            top_rows = rows[-3:]
+            top_rows.sort(key=lambda x: x[1])
+            self.eq(top_rows, [
+                ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
+                ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick),
+                ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
+            ])
 
     def test_storage_genrows_lmdb(self):
         with self.getTestDir() as temp:
@@ -2610,15 +2626,19 @@ class StorageTest(SynTest):
             self.eq(len(rows[0]), 4)
             # Sort rows by idens
             rows.sort(key=lambda x: x[0])
-            self.eq(rows[:3], [
-                ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
+            bottom_rows = rows[:3]
+            bottom_rows.sort(key=lambda x: x[1])
+            self.eq(bottom_rows, [
                 ('00000000000000000000000000000000', 'inet:asn', 1, tick),
                 ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
+                ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
             ])
-            self.eq(rows[-3:], [
-                ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
+            top_rows = rows[-3:]
+            top_rows.sort(key=lambda x: x[1])
+            self.eq(top_rows, [
                 ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
-                ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick)
+                ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick),
+                ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
             ])
 
     def test_storage_genrows_psql(self):
@@ -2645,13 +2665,17 @@ class StorageTest(SynTest):
             self.eq(len(rows[0]), 4)
             # Sort rows by idens
             rows.sort(key=lambda x: x[0])
-            self.eq(rows[:3], [
-                ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
+            bottom_rows = rows[:3]
+            bottom_rows.sort(key=lambda x: x[1])
+            self.eq(bottom_rows, [
                 ('00000000000000000000000000000000', 'inet:asn', 1, tick),
                 ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
+                ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
             ])
-            self.eq(rows[-3:], [
-                ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
+            top_rows = rows[-3:]
+            top_rows.sort(key=lambda x: x[1])
+            self.eq(top_rows, [
                 ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
-                ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick)
+                ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick),
+                ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
             ])
