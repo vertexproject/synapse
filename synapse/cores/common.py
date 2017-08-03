@@ -1280,7 +1280,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if not rows:
             return None
         tufo = (iden, {p: v for (i, p, v, t) in rows})
-        # XXX This does not cache the the result?
         return tufo
 
     def getTufosByIdens(self, idens):

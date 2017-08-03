@@ -10,7 +10,6 @@ import synapse.lib.reflect as s_reflect
 
 from synapse.eventbus import EventBus
 
-# XXX Docstring
 def confdef(name):
     '''
     A decorator used to flag configable definition functions.

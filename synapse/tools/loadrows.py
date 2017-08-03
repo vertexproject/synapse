@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# XXX Update Docstring
 """
 synapse - loadrows.py
 Created on 7/26/17.
@@ -82,8 +81,7 @@ def main(argv, outp=None):
 
 # noinspection PyMissingOrEmptyDocstring
 def makeargpaser():  # pragma: no cover
-    # XXX Fill in description
-    parser = argparse.ArgumentParser(description="Description.")
+    parser = argparse.ArgumentParser(description="Load a savefile into a Cortex.")
     parser.add_argument('-s', '--store', dest='store', required=True, type=str, action='store',
                         help='Cortex Storage URL to load data too.')
     parser.add_argument('-i', '--input', dest='input', required=True, type=str, action='store',

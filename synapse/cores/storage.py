@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# XXX Update Docstring
 """
 synapse - storage.py
 Created on 7/19/17.
 
-
+Base storage layer implementation for Synapse Cortex class.
+See Storage class for more information.
 """
 # Stdlib
 import logging
