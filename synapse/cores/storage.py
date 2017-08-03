@@ -410,7 +410,7 @@ class Storage(s_config.Config):
         Add (iden, prop, valu, time) rows to the Storage object.
 
         Args:
-            rows (list): List of rows contianing 4-value tuples.
+            rows (list): List of rows containing (i, p, v, t) tuples.
 
         Examples:
             Adding a pair of rows to the storage object::

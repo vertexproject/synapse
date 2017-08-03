@@ -10,12 +10,14 @@ layer backings to be implemented.
 What is a Storage Row
 ---------------------
 
-Most fundamentally, the Storage layer implements a way to store rows of data with simple prop/valu indexing.  A row consists of four values::
+Most fundamentally, the Storage layer implements a way to store rows of data
+with simple prop/valu indexing.  A row consists of four values::
 
     iden | prop | valu | time
 
-These rows values are what we call a row from an API perspective. The field definitions are
-the following:
+These rows values are what we call a row from an API perspective. The field
+definitions are the following:
+
   - iden: This is a ``str`` value which acts as unique identifer for a given
     collection of related rows. A lift of all the rows with the same iden in
     a Storage layer is considered a join operation; and the resulting rows may
@@ -50,10 +52,10 @@ going in and coming out.  For example the SQL based stores stores these rows
 in a five column table, with a separate columns for valus which are strings
 and valus which are integers.
 
-Heading
--------
+Storage Layer APIs
+------------------
 
-Knights who say ni
+The complete list of Storage layer APIs can be found at `Cortex Storage API`_.
 
 Implementing a Storage Layer
 ----------------------------
@@ -292,3 +294,6 @@ Cortex works properly::
 
     python -m unittest synapse.tests.test_cortex.CortexTest.test_cortex_mystore
 
+
+
+.. _`Cortex Storage API`: ../api/synapse.cores.html#synapse.cores.storage.Storage
