@@ -10,7 +10,6 @@ Created on 7/19/17.
 # Stdlib
 import logging
 import threading
-import collections
 # Custom Code
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
@@ -28,7 +27,7 @@ class Storage(s_config.Config):
     '''
     Base class for Cortex storage layer backends.
 
-    This implements functionality which is neccesary for a storage layer to
+    This implements functionality which is needed for a storage layer to
     operate, as well as providing stubs for the storage layer implementations
     to override.  See the Synapse Documentation for more details.
 
@@ -76,12 +75,12 @@ class Storage(s_config.Config):
 
         # Provide a dictionary of by / meth values a storage layer
         # can add too and a Cortex can pull from
-        self.tufosbymeths = {
-            'le': self.tufosByLe,
-            'lt': self.tufosByLt,
-            'gt': self.tufosByGt,
-            'ge': self.tufosByGe,
-        }
+        self.joinsbymeths = [
+            ('le', self.joinsByLe),
+            ('lt', self.joinsByLt),
+            ('gt', self.joinsByGt),
+            ('ge', self.joinsByGe),
+        ]
 
         # Events for handling savefile loads/saves
         self.loadbus.on('core:save:add:rows', self._loadAddRows)
@@ -263,7 +262,6 @@ class Storage(s_config.Config):
         # Used by the CoreXact fini routine
         self._store_xacts.pop(s_threads.iden(), None)
 
-    # TODO: Wrap this in a userauth layer
     def getBlobValu(self, key, default=None):
         '''
         Get a value from the blob key/value (KV) store.
@@ -291,7 +289,6 @@ class Storage(s_config.Config):
             return default
         return s_common.msgunpack(buf)
 
-    # TODO: Wrap this in a userauth layer
     def getBlobKeys(self):
         '''
         Get a list of keys in the blob key/value store.
@@ -301,7 +298,6 @@ class Storage(s_config.Config):
         '''
         return self._getBlobKeys()
 
-    # TODO: Wrap this in a userauth layer
     def setBlobValu(self, key, valu):
         '''
         Set a value from the blob key/value (KV) store.
@@ -327,7 +323,6 @@ class Storage(s_config.Config):
         self.savebus.fire('syn:core:blob:set', key=key, valu=buf)
         return valu
 
-    # TODO: Wrap this in a userauth layer
     def hasBlobValu(self, key):
         '''
         Check the blob store to see if a key is present.
@@ -341,7 +336,6 @@ class Storage(s_config.Config):
         '''
         return self._hasBlobValu(key)
 
-    # TODO: Wrap this in a userauth layer
     def delBlobValu(self, key):
         '''
         Remove and return a value from the blob store.
@@ -574,20 +568,6 @@ class Storage(s_config.Config):
         valu = mesg[1].get('valu')
         self._setRowsByIdProp(iden, prop, valu)
 
-    def rowsToTufos(self, rows):
-        '''
-        Convert rows into tufos.
-
-        Args:
-            rows (list): List of rows.
-
-        Returns:
-            list: List of tufos.
-        '''
-        res = collections.defaultdict(dict)
-        [res[i].__setitem__(p, v) for (i, p, v, t) in rows]
-        return list(res.items())
-
     # Blobstore interface isn't clean to seperate
     def _revCorVers(self, revs):
         '''
@@ -655,7 +635,20 @@ class Storage(s_config.Config):
     # The following MUST be implemented by the storage layer in order to
     # support the basic idea of a cortex
 
-    def _initCoreStor(self):
+    def _initCoreStor(self):  # pragma: no cover
+        '''
+        This is called to initialize any implementation specific resources.
+
+        This is where things like filesystem allocations, DB connections,
+        et cetera should be stood up.
+
+        If the Storage layer has additional joinBy* handlers which it needs
+        to register (for the purpose of the Cortex.getTufosBy() function),
+        it should add them in this function.
+
+        Returns:
+            None
+        '''
         raise s_common.NoSuchImpl(name='_initCoreStor', mesg='Store does not implement _initCoreStor')
 
     def getStoreType(self):  # pragma: no cover
@@ -670,7 +663,7 @@ class Storage(s_config.Config):
         '''
         raise s_common.NoSuchImpl(name='getStoreType', mesg='Store does not implement getStoreType')
 
-    def getStoreXact(self, size=None, core=None):
+    def getStoreXact(self, size=None, core=None):  # pragma: no cover
         '''
         Get a StoreXact object.
 
@@ -687,10 +680,19 @@ class Storage(s_config.Config):
         '''
         raise s_common.NoSuchImpl(name='getStoreXact', mesg='Store does not implement getStoreXact')
 
-    def _addRows(self, rows):
+    def _addRows(self, rows):  # pragma: no cover
+        '''
+        This should perform the actual addition of rows to the storage layer.
+
+        Args:
+            rows (list): Rows to add to the Storage layer.
+
+        Returns:
+            None
+        '''
         raise s_common.NoSuchImpl(name='_addRows', mesg='Store does not implement _addRows')
 
-    def getRowsById(self, iden):
+    def getRowsById(self, iden):  # pragma: no cover
         '''
         Return all the rows for a given iden.
 
@@ -703,15 +705,34 @@ class Storage(s_config.Config):
                 for row in store.getRowsById(iden):
                     stuff()
 
+            Getting rows by iden and making a tufo out of them::
+
+                rows = store.getRowsById(iden)
+                tufo = (iden, {p: v for (i, p, v, t) in rows})
+
         Returns:
             list: List of rows for a given iden.
         '''
         raise s_common.NoSuchImpl(name='getRowsById', mesg='Store does not implement getRowsById')
 
-    def getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+    def getRowsByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):  # pragma: no cover
+        '''
+        Get rows from the Storage layer based on their property value
+        and other, optional, constraints.
+
+        Args:
+            prop (str): Property to retrieve rows based on.
+            valu: Optional, str or integer value to constrain the retrieval by.
+            mintime (int): Optional, minimum (inclusive) time to constrain the retrieval by.
+            maxtime (int): Optiona, maximum (exclusive) time to constrain the retrieval by.
+            limit (int): Maximum number of rows to return.
+
+        Returns:
+            list: List of (i, p, v, t) rows.
+        '''
         raise s_common.NoSuchImpl(name='getRowsByProp', mesg='Store does not implement getRowsByProp')
 
-    def getRowsByIdProp(self, iden, prop, valu=None):
+    def getRowsByIdProp(self, iden, prop, valu=None):  # pragma: no cover
         '''
         Return rows with the given <iden>,<prop>.
 
@@ -731,41 +752,52 @@ class Storage(s_config.Config):
         '''
         raise s_common.NoSuchImpl(name='getRowsByIdProp', mesg='Store does not implement _getRowsBgetRowsByIdPropyIdProp')
 
-    def _delRowsById(self, iden):
+    def _delRowsById(self, iden):  # pragma: no cover
+        '''
+        Delete rows from the storage layer with a given iden.
+        '''
         raise s_common.NoSuchImpl(name='_delRowsById', mesg='Store does not implement _delRowsById')
 
-    def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
+    def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):  # pragma: no cover
+        '''
+        Delete rows from the storage layer with a given prop and other,
+        optional, constraints.
+        '''
         raise s_common.NoSuchImpl(name='_delRowsByProp', mesg='Store does not implement _delRowsByProp')
 
-    def _delRowsByIdProp(self, iden, prop, valu=None):
+    def _delRowsByIdProp(self, iden, prop, valu=None):  # pragma: no cover
+        '''
+        Delete rows from the storage layer with a given iden & prop, with an
+        optional valu constraint.
+        '''
         raise s_common.NoSuchImpl(name='_delRowsByIdProp', mesg='Store does not implement _delRowsByIdProp')
 
-    def getSizeByProp(self, prop, valu=None, mintime=None, maxtime=None):
+    def getSizeByProp(self, prop, valu=None, mintime=None, maxtime=None):  # pragma: no cover
         raise s_common.NoSuchImpl(name='getSizeByProp', mesg='Store does not implement getSizeByProp')
 
-    def rowsByRange(self, prop, valu, limit=None):
+    def rowsByRange(self, prop, valu, limit=None):  # pragma: no cover
         raise s_common.NoSuchImpl(name='rowsByRange', mesg='Store does not implement rowsByRange')
 
-    def sizeByGe(self, prop, valu, limit=None):
+    def sizeByGe(self, prop, valu, limit=None):  # pragma: no cover
         raise s_common.NoSuchImpl(name='sizeByGe', mesg='Store does not implement sizeByGe')
 
-    def rowsByGe(self, prop, valu, limit=None):
+    def rowsByGe(self, prop, valu, limit=None):  # pragma: no cover
         raise s_common.NoSuchImpl(name='rowsByGe', mesg='Store does not implement rowsByGe')
 
-    def sizeByLe(self, prop, valu, limit=None):
+    def sizeByLe(self, prop, valu, limit=None):  # pragma: no cover
         raise s_common.NoSuchImpl(name='sizeByLe', mesg='Store does not implement sizeByLe')
 
-    def rowsByLe(self, prop, valu, limit=None):
+    def rowsByLe(self, prop, valu, limit=None):  # pragma: no cover
         raise s_common.NoSuchImpl(name='rowsByLe', mesg='Store does not implement rowsByLe')
 
-    def sizeByRange(self, prop, valu, limit=None):
+    def sizeByRange(self, prop, valu, limit=None):  # pragma: no cover
         raise s_common.NoSuchImpl(name='sizeByRange', mesg='Store does not implement sizeByRange')
 
-    def tufosByGe(self, prop, valu, limit=None):
-        raise s_common.NoSuchImpl(name='tufosByGe', mesg='Store does not implement tufosByGe')
+    def joinsByGe(self, prop, valu, limit=None):  # pragma: no cover
+        raise s_common.NoSuchImpl(name='joinsByGe', mesg='Store does not implement joinsByGe')
 
-    def tufosByLe(self, prop, valu, limit=None):
-        raise s_common.NoSuchImpl(name='tufosByLe', mesg='Store does not implement tufosByLe')
+    def joinsByLe(self, prop, valu, limit=None):  # pragma: no cover
+        raise s_common.NoSuchImpl(name='joinsByLe', mesg='Store does not implement joinsByLe')
 
     def _getBlobValu(self, key):  # pragma: no cover
         raise s_common.NoSuchImpl(name='_getBlobValu', mesg='Store does not implement _getBlobValu')
@@ -795,6 +827,9 @@ class Storage(s_config.Config):
         pass
 
     def getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+        return [row for row in self.genJoinByProp(prop, valu, mintime, maxtime, limit)]
+
+    def genJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         for irow in self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit):
             for jrow in self.getRowsById(irow[0]):
                 yield jrow
@@ -834,21 +869,32 @@ class Storage(s_config.Config):
 
         self.savebus.link(savemesg)
 
-    def getTufosByIdens(self, idens):
-        # storage layers may optimize here!
+    def getRowsByIdens(self, idens):
+        '''
+        Return all the rows for a given list of idens.
+
+        Args:
+            idens (list): Idens to get rows from the storage object for.
+
+        Examples:
+            Getting rows by idens and doing stuff::
+
+                for row in store.getRowsByIdens(idens):
+                    stuff(row)
+
+            Getting rows by idens and making a tufos out of them::
+
+                rows = store.getRowsById(iden)
+                tufos = s_common.rowstotufos(rows)
+
+        Returns:
+            list: List of rows for the given idens.
+        '''
         ret = []
         for iden in idens:
-            tufo = self.getTufoByIden(iden)
-            if tufo is None:
-                continue
-            ret.append(tufo)
+            rows = self.getRowsById(iden)
+            ret.extend(rows)
         return ret
-
-    def getTufoByIden(self, iden):
-        rows = self.getRowsById(iden)
-        if not rows:
-            return None
-        return (iden, {p: v for (i, p, v, t) in rows})
 
     # these helpers allow a storage layer to simply implement
     # and register _getTufosByGe and _getTufosByLe
@@ -859,8 +905,8 @@ class Storage(s_config.Config):
     def rowsByGt(self, prop, valu, limit=None):
         return self.rowsByGe(prop, valu + 1, limit=limit)
 
-    def tufosByLt(self, prop, valu, limit=None):
-        return self.tufosByLe(prop, valu - 1, limit=limit)
+    def joinsByLt(self, prop, valu, limit=None):
+        return self.joinsByLe(prop, valu - 1, limit=limit)
 
-    def tufosByGt(self, prop, valu, limit=None):
-        return self.tufosByGe(prop, valu + 1, limit=limit)
+    def joinsByGt(self, prop, valu, limit=None):
+        return self.joinsByGe(prop, valu + 1, limit=limit)

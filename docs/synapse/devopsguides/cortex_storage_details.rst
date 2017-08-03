@@ -22,7 +22,7 @@ When implementing a new storage layer five things must be done.
 
     #. The Storage class from synapse/cores/storage.py must be subclassed and multiple methods overridden.
        Some of these are private methods since they are wrapped by public APIs or called by other functions.
-    #. The StoreXact class from synapse/cores/storage.py must be subclassed and multiple methods overridden.
+    #. The StoreXact class from synapse/cores/xact.py must be subclassed and multiple methods overridden.
     #. Additional Storage and StoreXact optional methods may be overridden to provided storage layer specific
        functionality for these objects which overrides default behaviors.
     #. The Storage class should implement a helper function to allow creating a Cortex with the Storage
@@ -85,8 +85,8 @@ Getting Data From the Store
   - sizeByGe(self, prop, valu, limit=None):
   - sizeByLe(self, prop, valu, limit=None):
   - sizeByRange(self, prop, valu, limit=None):
-  - tufosByGe(self, prop, valu, limit=None):
-  - tufosByLe(self, prop, valu, limit=None):
+  - joinsByGe(self, prop, valu, limit=None):
+  - joinsByLe(self, prop, valu, limit=None):
   - _genStoreRows(self, **kwargs):
 
 Override the StoreXact APIs
@@ -123,16 +123,19 @@ These are row level APIs which may be overridden.
   - rowsByLt(self, prop, valu, limit=None):
   - rowsByGt(self, prop, valu, limit=None):
 
-Tufo Level APIs
+Join Level APIs
 ***************
 
-There are some tufo-level APIs which are provided at the storage layer for optimization purposes. These may be
-overridden to provide better implementations than would be provided otherwise.
+These APIs return rows which can be turned into complete tufos. They are broken out so that the Storage layer can
+provide optimized methods which may be quicker than the default implementations.  These are expected to return lists
+of rows which the Cortex can turn into tufos as needed.
 
-  - getTufosByIdens(self, idens):
-  - getTufoByIden(self, iden):
-  - tufosByLt(self, prop, valu, limit=None):
-  - tufosByGt(self, prop, valu, limit=None):
+  - getRowsById(self, iden):
+  - getRowsByIdens(self, idens):
+
+The default implementations of these functions are just wrappers for joinsByLe / joinsByGt, respectively.
+  - joinsByLt(self, prop, valu, limit=None):
+  - joinsByGt(self, prop, valu, limit=None):
 
 
 Optional StorXact APIs

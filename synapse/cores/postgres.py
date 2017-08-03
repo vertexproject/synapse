@@ -1,7 +1,6 @@
 import time
 import hashlib
 
-import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
 
@@ -150,7 +149,7 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
 
         return dbinfo
 
-    def _tufosByIn(self, prop, valus, limit=None):
+    def _joinsByIn(self, prop, valus, limit=None):
         if len(valus) == 0:
             return []
 
@@ -163,8 +162,7 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
             valus = [md5(v) for v in valus]
 
         rows = self.select(q, prop=prop, valu=tuple(valus), limit=limit)
-        rows = self._foldTypeCols(rows)
-        return self.rowsToTufos(rows)
+        return self._foldTypeCols(rows)
 
     def getTufosByIdens(self, idens):
         rows = self.select(self._q_getrows_by_idens, valu=tuple(idens))

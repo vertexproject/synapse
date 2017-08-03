@@ -2498,7 +2498,7 @@ class StorageTest(SynTest):
             with s_cortex.openstore(url, storconf=conf) as store:
                 self.eq(store.getConfOpt('rev:storage'), 0)
                 # Ensure our node is still using the old tag syntax
-                node = store.tufosByLe('inet:ipv4', 0x01020304)[0]
+                node = rowstotufos(store.getJoinByProp('inet:ipv4', 0x01020304))[0]
                 self.isin('*|inet:ipv4|foo.bar', node[1])
 
     def test_storage_sqlite(self):

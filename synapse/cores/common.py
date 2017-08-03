@@ -49,6 +49,28 @@ def reqiden(tufo):
         raise s_common.NoSuchTufo(iden=None)
     return tufo[0]
 
+
+def joinmethtotufos(func):
+    '''
+    Decorator to wrap a Storage layer join* function to return tufos.
+
+    Args:
+        func:  Method to wrap.
+
+    Notes:
+        This helper is normally used during Storage layer registration
+        within a Cortex.
+
+    Returns:
+        Wrapped function.
+    '''
+
+    def wrapped(*args, **kwargs):
+        rows = func(*args, **kwargs)
+        return s_common.rowstotufos(rows)
+
+    return wrapped
+
 class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     '''
     Top level Cortex key/valu storage object.
@@ -207,7 +229,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         # Register tufo helpers and fini handlers to pop references
         tufo_meths = []
-        for name, meth in self.store.tufosbymeths.items():
+        for name, meth in self.store.joinsbymeths:
+
+            meth = joinmethtotufos(meth)
             self.initTufosBy(name, meth)
             tufo_meths.append(name)
 
@@ -1252,7 +1276,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             tufo = self.cache_byiden.get(iden)
             if tufo is not None:
                 return tufo
-        tufo = self.store.getTufoByIden(iden)
+        rows = self.store.getRowsById(iden)
+        if not rows:
+            return None
+        tufo = (iden, {p: v for (i, p, v, t) in rows})
         # XXX This does not cache the the result?
         return tufo
 
@@ -1265,7 +1292,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             tufos = core.getTufosByIdens(idens)
 
         '''
-        return self.store.getTufosByIdens(idens)
+        rows = self.store.getRowsByIdens(idens)
+        return s_common.rowstotufos(rows)
 
     def getTufoByProp(self, prop, valu=None):
         '''
@@ -1324,7 +1352,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
     def _getTufosByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         rows = self.getJoinByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
-        return self.store.rowsToTufos(rows)
+        return s_common.rowstotufos(rows)
 
     def getTufosByPropType(self, name, valu=None, mintime=None, maxtime=None, limit=None):
         '''

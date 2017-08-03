@@ -172,7 +172,7 @@ Cortex Rows
 A row level API exists within the Cortex API to allow access to the underlying storage
 abstraction for individual properties.
 
-INPROG
+These APIs are detailed in `Cortex Storage Details`_.
 
 Calculating Statistics
 ----------------------

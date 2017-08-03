@@ -11,6 +11,7 @@ import functools
 import itertools
 import threading
 import traceback
+import collections
 
 from binascii import hexlify
 
@@ -344,3 +345,17 @@ def nopropnorm():
         return f
 
     return wrap
+
+def rowstotufos(rows):
+        '''
+        Convert rows into tufos.
+
+        Args:
+            rows (list): List of rows containing (i, p, v, t) tuples.
+
+        Returns:
+            list: List of tufos.
+        '''
+        res = collections.defaultdict(dict)
+        [res[i].__setitem__(p, v) for (i, p, v, t) in rows]
+        return list(res.items())

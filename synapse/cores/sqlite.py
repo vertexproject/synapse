@@ -343,13 +343,13 @@ class SqliteStorage(s_cores_storage.Storage):
         self._initCorTables(table)
 
         # Add our range handlers to the tufos helpers
-        self.tufosbymeths['range'] = self._tufosByRange
+        self.joinsbymeths.append(('range', self._joinsByRange))
         # TODO - Investigate if we can implement a _tufosByIn handler for
         # SQLite. It does not have a native IN statement like PSQL does, but
         # it may be possible to use a nested query and gain performance
         # benefits from using single transaction over N transactions.
-        if hasattr(self, '_tufosByIn'):
-            self.tufosbymeths['in'] = self._tufosByIn
+        if hasattr(self, '_joinsByIn'):
+            self.joinsbymeths.append(('in', self._joinsByIn))
 
     def _prepQuery(self, query):
         # prep query strings by replacing all %s with table name
@@ -648,7 +648,7 @@ class SqliteStorage(s_cores_storage.Storage):
         rows = self._runPropQuery('rowsbyprop', prop, valu=valu, limit=limit, mintime=mintime, maxtime=maxtime)
         return self._foldTypeCols(rows)
 
-    def _tufosByRange(self, prop, valu, limit=None):
+    def _joinsByRange(self, prop, valu, limit=None):
 
         if len(valu) != 2:
             return []
@@ -658,24 +658,19 @@ class SqliteStorage(s_cores_storage.Storage):
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_range_int, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)
-        rows = self._foldTypeCols(rows)
-        return self.rowsToTufos(rows)
+        return self._foldTypeCols(rows)
 
-    def tufosByLe(self, prop, valu, limit=None):
+    def joinsByLe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_le_int, prop=prop, valu=valu, limit=limit)
-        rows = self._foldTypeCols(rows)
+        return self._foldTypeCols(rows)
 
-        return self.rowsToTufos(rows)
-
-    def tufosByGe(self, prop, valu, limit=None):
+    def joinsByGe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_ge_int, prop=prop, valu=valu, limit=limit)
-        rows = self._foldTypeCols(rows)
-
-        return self.rowsToTufos(rows)
+        return self._foldTypeCols(rows)
 
     def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None, nolim=False):
         limit = self._getDbLimit(limit)

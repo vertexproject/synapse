@@ -676,13 +676,13 @@ class LmdbStorage(s_cores_storage.Storage):
     def rowsByRange(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, valu[0], valu[1], limit)
 
-    def tufosByLe(self, prop, valu, limit=None):
+    def joinsByLe(self, prop, valu, limit=None):
         rows = self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, right_closed=True)
-        return self.rowsToTufos(rows)
+        return rows
 
-    def tufosByGe(self, prop, valu, limit=None):
+    def joinsByGe(self, prop, valu, limit=None):
         rows = self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit, right_closed=True)
-        return self.rowsToTufos(rows)
+        return rows
 
     def _rowsByMinmax(self, prop, minval, maxval, limit, right_closed=False, do_count_only=False):
         ''' Returns either count or actual rows for a range of prop vals where both min and max
