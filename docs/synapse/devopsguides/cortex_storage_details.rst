@@ -1,14 +1,54 @@
 Cortex: Storage Layer Details
 =============================
 
-The storage layer for a Cortex is a standalone object which can be instantiated on its own. This allows the creation
-of empty Cortex's, raw data manipulation or reuse of the Storage object for other purposes.  In addition, the clean API
-separation between the Cortex and Storage classes allows for additional storage layer backings to be implemented.
+The storage layer for a Cortex is a standalone object which can be instantiated
+on its own. This allows the creation of empty Cortex's, raw data manipulation
+or reuse of the Storage object for other purposes.  In addition, the clean API
+separation between the Cortex and Storage classes allows for additional storage
+layer backings to be implemented.
 
-Heading
--------
+What is a Storage Row
+---------------------
 
-Words
+Most fundamentally, the Storage layer implements a way to store rows of data with simple prop/valu indexing.  A row consists of four values::
+
+    iden | prop | valu | time
+
+These rows values are what we call a row from an API perspective. The field definitions are
+the following:
+  - iden: This is a ``str`` value which acts as unique identifer for a given
+    collection of related rows. A lift of all the rows with the same iden in
+    a Storage layer is considered a join operation; and the resulting rows may
+    be then converted into a tufo object by the Cortex or an external caller.
+    By convention, the iden is typically a random, 16 byte guid value.  An
+    example is the following: "e2ac3afddab9394490d55f37a21f013d" (with
+    lowercase characters). While it is possible to create and add rows with
+    arbitrary iden values, tools and code made by the Vertex Project may not
+    support them in all use cases. Suitable iden values can be made using the
+    synapse.common.guid() function.
+  - prop: This is a ``str`` value which represents a property.  When rows
+    are lifted together by a join operation and folder into a tufo, these
+    become the keys of the tufo dictionary.
+  - valu: This is either a ``str`` or ``int`` value which is associated
+    with the prop. When rows are folded into a tufo, this valu becomes the
+    value of the corresponding prop in the tufo dictionary. If the storage
+    implementation allows for multiple values for the same prop the tufos
+    may be inconsistent. The storage layer should enforce iden/prop/valu
+    combination uniqueness.
+  - time: This is a ``int`` containing the epoch timestamp in milliseconds.
+    This should record when row was created.  Suitable time values can be made
+    using the synapse.common.time() function.
+
+Through synapse documentation, when row level API is referenced, it is
+referring to either adding or retrieving rows in this (iden, prop, valu, time)
+format. In many cases this is shortened to (i, p, v, t) in both documentation
+and code.
+
+It is possible for a storage implementation to store these rows across multiple
+columns, DBs or indices, as long as they adhere to the (i, p, v, t) format
+going in and coming out.  For example the SQL based stores stores these rows
+in a five column table, with a separate columns for valus which are strings
+and valus which are integers.
 
 Heading
 -------
@@ -20,14 +60,20 @@ Implementing a Storage Layer
 
 When implementing a new storage layer five things must be done.
 
-    #. The Storage class from synapse/cores/storage.py must be subclassed and multiple methods overridden.
-       Some of these are private methods since they are wrapped by public APIs or called by other functions.
-    #. The StoreXact class from synapse/cores/xact.py must be subclassed and multiple methods overridden.
-    #. Additional Storage and StoreXact optional methods may be overridden to provided storage layer specific
-       functionality for these objects which overrides default behaviors.
-    #. The Storage class should implement a helper function to allow creating a Cortex with the Storage
-       implementation as the backing store.
-    #. The Cortex should pass the basic Cortex tests provided in the test_cortex.py test suite.
+    #. The Storage class from synapse/cores/storage.py must be subclassed and
+       multiple methods overridden. Some of these are private methods since
+       they are wrapped by public APIs or called by other functions.
+    #. The StoreXact class from synapse/cores/xact.py must be subclassed and
+       multiple methods overridden.
+    #. Additional Storage and StoreXact optional methods may be overridden to
+       provided storage layer specific functionality for these objects which
+       overrides default behaviors.  This may be the case where a storage layer
+       may have a more optimized way to do something, such as via a specific
+       type of query or lift.
+    #. The Storage class should implement a helper function to allow creating
+       a Cortex with the Storage implementation as the backing store.
+    #. The Cortex should pass the basic Cortex tests provided in the
+       test_cortex.py test suite.
 
 Each of these is actions is detailed below.
 
@@ -100,14 +146,16 @@ The following APIs must be overridden:
 Optional Storage APIs to Override
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Some of the APIs provided in the Storage and StoreXact classes provide default implementations which will generically
-work but may not be the best choice for a given storage layer.
+Some of the APIs provided in the Storage and StoreXact classes provide default
+implementations which will generically work but may not be the best choice for
+a given storage layer.
 
 Initializtion Type APIs
 ***********************
 
-These allow for the the storage layer to close resources on teardown and allow it to do custom function/helper
-registration when a Cortex class is registered with a Storage object.
+These allow for the the storage layer to close resources on teardown and allow
+it to do custom function/helper registration when a Cortex class is registered
+with a Storage object.
 
   - _finiCoreStore(self):
   - _setSaveFd(self, fd, load=True, fini=False):
@@ -126,14 +174,16 @@ These are row level APIs which may be overridden.
 Join Level APIs
 ***************
 
-These APIs return rows which can be turned into complete tufos. They are broken out so that the Storage layer can
-provide optimized methods which may be quicker than the default implementations.  These are expected to return lists
+These APIs return rows which can be turned into complete tufos. They are broken
+out so that the Storage layer can provide optimized methods which may be
+quicker than the default implementations.  These are expected to return lists
 of rows which the Cortex can turn into tufos as needed.
 
   - getRowsById(self, iden):
   - getRowsByIdens(self, idens):
 
-The default implementations of these functions are just wrappers for joinsByLe / joinsByGt, respectively.
+The default implementations of these functions are just wrappers for
+joinsByLe / joinsByGt, respectively.
   - joinsByLt(self, prop, valu, limit=None):
   - joinsByGt(self, prop, valu, limit=None):
 
@@ -155,8 +205,10 @@ These APIs may be used to perform work during __enter__ and __exit__ calls:
 Implementing a helper function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A helper function for making a Cortex with your storage layer should be provided. It should match the following call
-signature and return a Cortex class which uses your storage layer for backing.  A simple example is seen below::
+A helper function for making a Cortex with your storage layer should be
+provided. It should match the following call signature and return a Cortex
+class which uses your storage layer for backing.  A simple example is seen
+below::
 
     def initMyStorageCortex(link, conf=None, storconf=None):
         '''
@@ -178,12 +230,14 @@ signature and return a Cortex class which uses your storage layer for backing.  
         store = MyStorage(link, **storconf)
         return s_cores_common.Cortex(link, store, **conf)
 
-Then, in synapse/cortex.py, a few changes need to be made.  We have to import the file containing the Storage object
-implementation and the helper function, as well as updating a pair of dictionaries to register URL handlers for
-making either raw Storage objects or making a Cortex backed by the new Storage implementation.  The storectors
-dictionary should contain the path of your Storage class implementation, and the corctors should contain the path to
-the helper function. Assuming the storage object was implemented in synaspe/cores/mystorage.py, these would look like
-the following::
+Then, in synapse/cortex.py, a few changes need to be made.  We have to import
+the file containing the Storage object implementation and the helper function,
+as well as updating a pair of dictionaries to register URL handlers for
+making either raw Storage objects or making a Cortex backed by the new Storage
+implementation.  The storectors dictionary should contain the path of your
+Storage class implementation, and the corctors should contain the path to the
+helper function. Assuming the storage object was implemented in
+synaspe/cores/mystorage.py, these would look like the following::
 
     import synapse.cores.ram
     import synapse.cores.lmdb
@@ -209,8 +263,9 @@ the following::
         'mystorage': synapse.cores.mystorage.initMyStorageCortex,
     }
 
-With these registered, users can easily make raw storage objects or Cortexs using the openstorage() and openurl()
-functions provided in synapse/cortex.py.  Examples of that are below::
+With these registered, users can easily make raw storage objects or Cortexs
+using the openstorage() and openurl() functions provided in synapse/cortex.py.
+Examples of that are below::
 
     import synapse.cortex as s_cortex
     stor = s_cortex.openstore('mystorage:///./some/path')
@@ -223,15 +278,17 @@ functions provided in synapse/cortex.py.  Examples of that are below::
 Basic Cortex Test Suite
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Adding a new storage layer implementation to the test suite is fairly straightforward.  In the
-synapse/tests/test_cortex.py file, add the following test to the CortexTest class (this assumes you registered the
-handler as "mystore")::
+Adding a new storage layer implementation to the test suite is fairly
+straightforward.  In the synapse/tests/test_cortex.py file, add the following
+test to the CortexTest class (this assumes you registered the handler as
+"mystore")::
 
     def test_cortex_mystore(self):
         with s_cortex.openurl('mystore:///./store/path') as core:
             self.basic_core_expectations(core, 'mystoretype')
 
-Then you can run the Cortex tests using the following command to ensure your Cortex works properly::
+Then you can run the Cortex tests using the following command to ensure your
+Cortex works properly::
 
     python -m unittest synapse.tests.test_cortex.CortexTest.test_cortex_mystore
 

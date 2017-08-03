@@ -27,9 +27,36 @@ class NoValu: pass
 novalu = NoValu()
 
 def now():
+    '''
+    Get the current epoch time in milliseconds.
+
+    This relies on time.time(), which is system-dependent in terms of resolution.
+
+    Examples:
+        Get the current time and make a row for a Cortex::
+
+            tick = now()
+            row = (someiden, 'foo:prop', 1, tick)
+            core.addRows([row])
+
+    Returns:
+        int: Epoch time in milliseconds.
+    '''
     return int(time.time() * 1000)
 
 def guid(valu=None):
+    '''
+    Get a 16 byte guid value.
+
+    By default, this is a random guid value.
+
+    Args:
+        valu: Object used to construct the guid valu from.  This must be able
+            to be msgpack'd.
+
+    Returns:
+        str: 32 character, lowercase ascii string.
+    '''
     if valu is None:
         return hexlify(os.urandom(16)).decode('utf8')
     # Generate a "stable" guid from the given item
