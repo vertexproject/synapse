@@ -919,6 +919,10 @@ class Cortex(EventBus, DataModel, Runtime, Configable, s_ingest.IngestApi):
         # do the (possibly very heavy) removal of the tag from all known forms.
         [self.delTufoTag(t, valu) for t in self.getTufosByTag(valu)]
 
+        # Flush the tag caches
+        self._core_tags.clear()
+        self._core_tagforms.clear()
+
     @on('node:form', form='syn:tag')
     def _onFormSynTag(self, mesg):
         valu = mesg[1].get('valu')
