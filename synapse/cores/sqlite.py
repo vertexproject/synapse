@@ -701,11 +701,9 @@ class SqliteStorage(s_cores_storage.Storage):
 
         if s_compat.isint(valu):
             rows = self.select(self._q_getrows_by_iden_prop_intval, iden=iden, prop=prop, valu=valu)
-            return self._foldTypeCols(rows)
-
         else:
             rows = self.select(self._q_getrows_by_iden_prop_strval, iden=iden, prop=prop, valu=valu)
-            return self._foldTypeCols(rows)
+        return self._foldTypeCols(rows)
 
     def _setRowsByIdProp(self, iden, prop, valu):
         if s_compat.isint(valu):

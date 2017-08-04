@@ -330,6 +330,10 @@ class CortexTest(SynTest):
         tufo = core.getTufoByProp('baz', 'faz1')
 
         self.eq(len(core.getRowsByIdProp(id1, 'baz')), 1)
+        self.eq(len(core.getRowsByIdProp(id1, 'baz', 'faz1')), 1)
+        self.eq(len(core.getRowsByIdProp(id1, 'baz', 'faz2')), 0)
+        self.eq(len(core.getRowsByIdProp(id1, 'gronk', 80)), 1)
+        self.eq(len(core.getRowsByIdProp(id1, 'gronk', 8080)), 0)
 
         #pivo = core.getPivotByProp('baz','foo', valu='bar')
         #self.eq( tuple(sorted([r[2] for r in pivo])), ('faz1','faz2'))
