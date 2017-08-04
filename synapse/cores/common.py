@@ -2699,13 +2699,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         return self.store.getCoreXact(size=size, core=self)
 
-    def _popCoreXact(self):
-        # Used by the CoreXact fini routine
-        self._core_xacts.pop(s_threads.iden(), None)
-
-    def _getCoreXact(self, size):
-        raise s_common.NoSuchImpl(name='_getCoreXact')
-
     def addTufoDark(self, tufo, name, valu):
         '''
         Add a dark row to a tufo with a given name and value.
