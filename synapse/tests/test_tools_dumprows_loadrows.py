@@ -86,7 +86,6 @@ class DumpRowsTest(SynTest):
                     gen = msgpackfd(fd)
                     evt = next(gen)
                     self.eq(evt[0], 'syn:cortex:rowdump:info')
-                    # XXX Validate options?
                     self.eq(evt[1].get('rows:compress'), True)
                     evt = next(gen)
                     self.eq(evt[0], 'core:save:add:rows')
@@ -125,7 +124,6 @@ class DumpRowsTest(SynTest):
                 gen = msgpackfd(fd)
                 evt = next(gen)
                 self.eq(evt[0], 'syn:cortex:rowdump:info')
-                # XXX Validate options?
                 self.eq(evt[1].get('synapse:cortex:blob_store'), True)
                 evt = next(gen)
                 self.eq(evt[0], 'core:save:add:rows')
