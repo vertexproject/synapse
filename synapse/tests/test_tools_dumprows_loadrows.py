@@ -67,41 +67,41 @@ class DumpRowsTest(SynTest):
                 self.eq(event_types, {'core:save:add:rows'})
 
     def test_simple_compress(self):
-            outp = self.getTestOutp()
-            with self.getTestDir() as temp:
-                fp = os.path.join(temp, 'dumpfile.mpk')
-                new_db = os.path.join(temp, 'test.db')
-                sqlite_url = 'sqlite:///{}'.format(new_db)
-                with s_cortex.openurl(sqlite_url) as core:
-                    self.true(core.isnew)
-                    core.setBlobValu('syn:test:tel', 8675309)
-                    core.formTufoByProp('inet:ipv4', 0x01020304)
-                # Now dump that sqlite core
-                argv = ['-s', sqlite_url, '-o', fp, '--compress']
-                ret = s_dumprows.main(argv, outp)
-                self.eq(ret, 0)
+        outp = self.getTestOutp()
+        with self.getTestDir() as temp:
+            fp = os.path.join(temp, 'dumpfile.mpk')
+            new_db = os.path.join(temp, 'test.db')
+            sqlite_url = 'sqlite:///{}'.format(new_db)
+            with s_cortex.openurl(sqlite_url) as core:
+                self.true(core.isnew)
+                core.setBlobValu('syn:test:tel', 8675309)
+                core.formTufoByProp('inet:ipv4', 0x01020304)
+            # Now dump that sqlite core
+            argv = ['-s', sqlite_url, '-o', fp, '--compress']
+            ret = s_dumprows.main(argv, outp)
+            self.eq(ret, 0)
 
-                # Now ensure our .mpk file is correct
-                with open(fp, 'rb') as fd:
-                    gen = msgpackfd(fd)
-                    evt = next(gen)
-                    self.eq(evt[0], 'syn:cortex:rowdump:info')
-                    self.eq(evt[1].get('rows:compress'), True)
-                    evt = next(gen)
-                    self.eq(evt[0], 'core:save:add:rows')
-                    self.isin('rows', evt[1])
-                    rows = evt[1].get('rows')
-                    # we decode the rows blob not in place but separately here
-                    rows = msgunpack(s_compat.gzip_decompress(rows))
-                    self.isinstance(rows, tuple)
-                    self.isinstance(rows[0], tuple)
-                    self.eq(len(rows[0]), 4)
-                    # Expensive but worth checking
-                    event_types = set()
+            # Now ensure our .mpk file is correct
+            with open(fp, 'rb') as fd:
+                gen = msgpackfd(fd)
+                evt = next(gen)
+                self.eq(evt[0], 'syn:cortex:rowdump:info')
+                self.eq(evt[1].get('rows:compress'), True)
+                evt = next(gen)
+                self.eq(evt[0], 'core:save:add:rows')
+                self.isin('rows', evt[1])
+                rows = evt[1].get('rows')
+                # we decode the rows blob not in place but separately here
+                rows = msgunpack(s_compat.gzip_decompress(rows))
+                self.isinstance(rows, tuple)
+                self.isinstance(rows[0], tuple)
+                self.eq(len(rows[0]), 4)
+                # Expensive but worth checking
+                event_types = set()
+                event_types.add(evt[0])
+                for evt in gen:
                     event_types.add(evt[0])
-                    for evt in gen:
-                        event_types.add(evt[0])
-                    self.eq(event_types, {'core:save:add:rows'})
+                self.eq(event_types, {'core:save:add:rows'})
 
     def test_blob_dump(self):
         outp = self.getTestOutp()
@@ -142,7 +142,54 @@ class DumpRowsTest(SynTest):
     def test_revstore_use(self):
         outp = self.getTestOutp()
 
-    #XXX Write test
+        byts = self.getRev0DbByts()
+
+        with self.getTestDir() as temp:
+
+            new_db = os.path.join(temp, 'rev0.db')
+            with open(new_db, 'wb') as fd:
+                fd.write(byts)
+            # First ensure that we are dumping the DB as it is on disk!
+            sqlite_url = 'sqlite:///{}'.format(new_db)
+            # Now dump that sqlite core
+            fp = os.path.join(temp, 'dumpfile.mpk')
+            argv = ['-s', sqlite_url, '-o', fp]
+            ret = s_dumprows.main(argv, outp)
+            self.eq(ret, 0)
+
+            revkey = 'syn:core:sqlite:version'
+
+            # Now ensure our .mpk file is correct
+            with open(fp, 'rb') as fd:
+                gen = msgpackfd(fd)
+                evt = next(gen)
+                self.eq(evt[0], 'syn:cortex:rowdump:info')
+                self.eq(evt[1].get('synapse:cortex:revstore'), False)
+
+            # Open the storage object and ensure the rev0 function did not run
+            with s_cortex.openstore(sqlite_url, storconf={'rev:storage': False}) as store:
+                self.false(store.hasBlobValu(revkey))
+
+            os.unlink(fp)
+
+            # Now ensure when we set the rev:storage flag to true
+            # that it auto-updates DBs first
+            fp = os.path.join(temp, 'dumpfile.mpk')
+            argv = ['-s', sqlite_url, '-o', fp, '--enable-revstorage']
+            ret = s_dumprows.main(argv, outp)
+            self.eq(ret, 0)
+
+            # Now ensure our .mpk file is correct
+            with open(fp, 'rb') as fd:
+                gen = msgpackfd(fd)
+                evt = next(gen)
+                self.eq(evt[0], 'syn:cortex:rowdump:info')
+                self.eq(evt[1].get('synapse:cortex:revstore'), True)
+
+            # Open the storage object and ensure the revisioning did run
+            with s_cortex.openstore(sqlite_url, storconf={'rev:storage': False}) as store:
+                self.true(store.hasBlobValu(revkey))
+
     def test_dump_force(self):
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
