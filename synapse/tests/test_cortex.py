@@ -147,6 +147,7 @@ class CortexTest(SynTest):
         self.runsnaps(core)
         self.rundarks(core)
         self.runblob(core)
+        self.runstore(core)
 
     def rundsets(self, core):
         tufo = core.formTufoByProp('lol:zonk', 1)
@@ -572,6 +573,46 @@ class CortexTest(SynTest):
         self.eq(core.getBlobValu('test:list'), None)
         # And deleting a value which doesn't exist raises a NoSuchName
         self.raises(NoSuchName, core.delBlobValu, 'test:deleteme')
+
+    def runstore(self, core):
+        '''
+        Run generic storage layer tests on the core.store object
+        '''
+
+        # Ensure that genStoreRows() is implemented and generates boundary rows based on idens.
+        rows = []
+        tick = now()
+        newrows = [
+            ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
+            ('00000000000000000000000000000000', 'inet:asn', 1, tick),
+            ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
+            ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
+            ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
+            ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick)
+        ]
+        core.addRows(newrows)
+        for _rows in core.store.genStoreRows(slicebytes=2):
+            rows.extend(_rows)
+        # A default cortex may have a few thousand rows in it - ensure we get at least 1000 rows here.
+        self.gt(len(rows), 1000)
+        self.isinstance(rows[0], tuple)
+        self.eq(len(rows[0]), 4)
+        # Sort rows by idens
+        rows.sort(key=lambda x: x[0])
+        bottom_rows = rows[:3]
+        bottom_rows.sort(key=lambda x: x[1])
+        self.eq(bottom_rows, [
+            ('00000000000000000000000000000000', 'inet:asn', 1, tick),
+            ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
+            ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
+        ])
+        top_rows = rows[-3:]
+        top_rows.sort(key=lambda x: x[1])
+        self.eq(top_rows, [
+            ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
+            ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick),
+            ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
+        ])
 
     def test_pg_encoding(self):
         with self.getPgCore() as core:
@@ -2533,149 +2574,3 @@ class StorageTest(SynTest):
                 self.nn(node)
                 self.eq(node[1].get('tufo:form'), 'foo:bar')
                 self.eq(node[1].get('foo:bar:baz'), 'yes')
-
-    def test_storage_genrows(self):
-        url = 'ram:///'
-
-        rows = []
-        with s_cortex.openstore(url) as store:
-            for _rows in store.genStoreRows():
-                rows.extend(_rows)
-        self.eq(rows, [])
-
-        with s_cortex.openurl(url) as core:
-            for _rows in core.store.genStoreRows():
-                rows.extend(_rows)
-        self.gt(len(rows), 1000)
-        self.eq(len(rows[0]), 4)
-
-    def test_storage_genrows_sqlite(self):
-        with self.getTestDir() as temp:
-            fn = 'test.db'
-            fp = os.path.join(temp, fn)
-            url = 'sqlite:///%s' % fp
-            rows = []
-
-            with s_cortex.openstore(url) as store:
-                for _rows in store.genStoreRows(slicebytes=1, incvalu=2):
-                    rows.extend(_rows)
-            self.eq(rows, [])
-
-            with s_cortex.openurl(url) as core:
-                tick = now()
-                newrows = [
-                    ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
-                    ('00000000000000000000000000000000', 'inet:asn', 1, tick),
-                    ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
-                    ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
-                    ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
-                    ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick)
-                ]
-                core.addRows(newrows)
-                for _rows in core.store.genStoreRows(slicebytes=2):
-                    rows.extend(_rows)
-            self.gt(len(rows), 1000)
-            self.isinstance(rows[0], tuple)
-            self.eq(len(rows[0]), 4)
-            # Sort rows by idens
-            rows.sort(key=lambda x: x[0])
-            bottom_rows = rows[:3]
-            bottom_rows.sort(key=lambda x: x[1])
-            self.eq(bottom_rows, [
-                ('00000000000000000000000000000000', 'inet:asn', 1, tick),
-                ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
-                ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
-            ])
-            top_rows = rows[-3:]
-            top_rows.sort(key=lambda x: x[1])
-            self.eq(top_rows, [
-                ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
-                ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick),
-                ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
-            ])
-
-    def test_storage_genrows_lmdb(self):
-        with self.getTestDir() as temp:
-
-            fn = 'test.lmdb'
-            fp = os.path.join(temp, fn)
-            url = 'lmdb:///%s' % fp
-            rows = []
-
-            with s_cortex.openstore(url) as store:
-                for _rows in store.genStoreRows():
-                    rows.extend(_rows)
-            self.eq(rows, [])
-
-            with s_cortex.openurl(url) as core:
-                # Add some rows at the top and bottom of the db table from a iden perspective.
-                tick = now()
-                newrows = [
-                    ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
-                    ('00000000000000000000000000000000', 'inet:asn', 1, tick),
-                    ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
-                    ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
-                    ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
-                    ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick)
-                ]
-                core.addRows(newrows)
-                for _rows in core.store.genStoreRows():
-                    rows.extend(_rows)
-            self.gt(len(rows), 1000)
-            self.isinstance(rows[0], tuple)
-            self.eq(len(rows[0]), 4)
-            # Sort rows by idens
-            rows.sort(key=lambda x: x[0])
-            bottom_rows = rows[:3]
-            bottom_rows.sort(key=lambda x: x[1])
-            self.eq(bottom_rows, [
-                ('00000000000000000000000000000000', 'inet:asn', 1, tick),
-                ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
-                ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
-            ])
-            top_rows = rows[-3:]
-            top_rows.sort(key=lambda x: x[1])
-            self.eq(top_rows, [
-                ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
-                ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick),
-                ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
-            ])
-
-    def test_storage_genrows_psql(self):
-        with self.getTestDir() as temp:
-
-            rows = []
-
-            with self.getPgCore() as core:
-                # Add some rows at the top and bottom of the db table from a iden perspective.
-                tick = now()
-                newrows = [
-                    ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
-                    ('00000000000000000000000000000000', 'inet:asn', 1, tick),
-                    ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
-                    ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
-                    ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
-                    ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick)
-                ]
-                core.addRows(newrows)
-                for _rows in core.store.genStoreRows():
-                    rows.extend(_rows)
-            self.gt(len(rows), 1000)
-            self.isinstance(rows[0], tuple)
-            self.eq(len(rows[0]), 4)
-            # Sort rows by idens
-            rows.sort(key=lambda x: x[0])
-            bottom_rows = rows[:3]
-            bottom_rows.sort(key=lambda x: x[1])
-            self.eq(bottom_rows, [
-                ('00000000000000000000000000000000', 'inet:asn', 1, tick),
-                ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
-                ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
-            ])
-            top_rows = rows[-3:]
-            top_rows.sort(key=lambda x: x[1])
-            self.eq(top_rows, [
-                ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
-                ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick),
-                ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
-            ])

@@ -222,7 +222,7 @@ class RamStorage(s_cores_storage.Storage):
         ret = list(self._blob_store.keys())
         return ret
 
-    def _genStoreRows(self):
+    def _genStoreRows(self, **kwargs):
         for iden, rows in self.rowsbyid.items():
             yield list(rows)
 
