@@ -99,7 +99,7 @@ def main(argv, outp=None):
     #pars.add_argument('--format', default='rst')
     pars.add_argument('--cortex', default='ram://', help='Cortex URL for model inspection')
     pars.add_argument('--doc-model', action='store_true', default=False, help='Generate RST docs for the DataModel within a cortex')
-    pars.add_argument('--configable-opts', action='store_true', default=False, help='Generate RST docs ofr the Configable classes in Synapse.')
+    pars.add_argument('--configable-opts', action='store_true', default=False, help='Generate RST docs of the Configable classes in Synapse.')
     pars.add_argument('--savefile', default=None, help='Save output to the given file')
 
     opts = pars.parse_args(argv)
