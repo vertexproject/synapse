@@ -460,9 +460,22 @@ class CortexTest(SynTest):
 
         self.eq(core.getSizeBy('ge', 'rg', 20), 1)
         self.eq(core.getRowsBy('ge', 'rg', 20)[0][2], 30)
+        self.eq(len(core.getRowsBy('ge', 'rg', 10)), 2)
+        self.eq(len(core.getRowsBy('ge', 'rg', 20)), 1)
+        self.eq(len(core.getRowsBy('gt', 'rg', 31)), 0)
+        self.eq(len(core.getRowsBy('gt', 'rg', 10)), 1)
+        self.eq(len(core.getRowsBy('gt', 'rg', 9)), 2)
+        self.eq(core.getRowsBy('gt', 'rg', 20)[0][2], 30)
 
         self.eq(core.getSizeBy('le', 'rg', 20), 1)
         self.eq(core.getRowsBy('le', 'rg', 20)[0][2], 10)
+        self.eq(len(core.getRowsBy('le', 'rg', 10)), 1)
+        self.eq(len(core.getRowsBy('le', 'rg', 30)), 2)
+        self.eq(len(core.getRowsBy('lt', 'rg', 31)), 2)
+        self.eq(len(core.getRowsBy('lt', 'rg', 11)), 1)
+        self.eq(len(core.getRowsBy('lt', 'rg', 10)), 0)
+        self.eq(len(core.getRowsBy('lt', 'rg', 9)), 0)
+        self.eq(core.getRowsBy('lt', 'rg', 20)[0][2], 10)
 
         rows = [
             (guid(), 'rg', -42, 99),
