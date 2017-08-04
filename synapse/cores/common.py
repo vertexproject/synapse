@@ -1279,8 +1279,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         rows = self.store.getRowsById(iden)
         if not rows:
             return None
-        tufo = (iden, {p: v for (i, p, v, t) in rows})
-        return tufo
+        return (iden, {p: v for (i, p, v, t) in rows})
 
     def getTufosByIdens(self, idens):
         '''
