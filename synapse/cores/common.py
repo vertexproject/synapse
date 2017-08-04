@@ -2693,6 +2693,13 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                     result = dostuff()
                     xact.spliced('some:slice:evt', **result)
 
+        Notes:
+            This API does **not** work over a Telepath proxy object and it
+            will raise an exception. Managing a transaction with from a remote
+            caller is inherently difficult since the transaction can be
+            opened, the caller then go away, unfortunately leaving the system
+            in a weird state.
+
         Returns:
             s_xact.StoreXact: Transaction context manager.
         '''
