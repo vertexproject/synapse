@@ -26,7 +26,9 @@ are reasonably fast for medium sized data sets and very simple to create and man
 postgres://
 -----------
 The PostgreSQL storage backing implements storage for a Cortex as a single table within
-a PostgreSQL database.  While slower than a ram:// Cortex, a PostgreSQL
+a PostgreSQL database. While slower than a ram:// Cortex, a PostgreSQL core has the
+advantage of being backed by PSQL and having associated PSQL management tools available
+for administrators to use.
 
 lmdb://
 -------
