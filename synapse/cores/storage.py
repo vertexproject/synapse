@@ -811,16 +811,16 @@ class Storage(s_config.Config):
     def _delBlobValu(self, key):  # pragma: no cover
         raise s_common.NoSuchImpl(name='_delBlobValu', mesg='Store does not implement _delBlobValu')
 
-    def _getBlobKeys(self):
+    def _getBlobKeys(self):  # pragma: no cover
         raise s_common.NoSuchImpl(name='_getBlobKeys', mesg='Store does not implement _getBlobKeys')
 
-    def _genStoreRows(self, **kwargs):
+    def _genStoreRows(self, **kwargs):  # pragma: no cover
         raise s_common.NoSuchImpl(name='_genStoreRows', mesg='Store does not implement _genStoreRows')
 
     # The following are default implementations that may be overridden by
     # a storage layer for various reasons.
 
-    def _finiCoreStore(self):
+    def _finiCoreStore(self):  # pragma: no cover
         '''
         This should be overriden to close out any storge layer specifc resources.
         '''
