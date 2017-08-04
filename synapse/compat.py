@@ -4,12 +4,11 @@ A module to isolate python version compatibility filth.
 '''
 import os
 import sys
-import time
+import gzip
 import base64
 import socket
 import struct
 import itertools
-import collections
 
 major = sys.version_info.major
 minor = sys.version_info.minor
@@ -19,7 +18,6 @@ majmin = (major, minor)
 version = (major, minor, micro)
 
 if version < (3, 0, 0):
-    import gzip
     import select
     import urllib
 
@@ -164,7 +162,6 @@ if version < (3, 0, 0):
 else:
 
     import sys
-    import gzip
     import queue
     import builtins
     import urllib.parse
