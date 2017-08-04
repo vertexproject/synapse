@@ -592,8 +592,8 @@ class Storage(s_config.Config):
 
         name = 'rev:storage'
         if not self.getConfOpt(name):
-            mesg = 'add rev:storage=1 to cortex url to allow storage updates'
-            self.log(level=logging.WARNING, mesg=mesg, name=name,)
+            mesg = 'add rev:storage=1 to storage confs to allow storage updates'
+            self.log(level=logging.WARNING, mesg=mesg, name=name)
             logger.warning(mesg)
             return
 
