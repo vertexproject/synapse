@@ -148,7 +148,7 @@ class SynTest(unittest.TestCase):
         a string to connect to a PSQL server and create a Cortex. By default, the Cortex
         DB tables will be dropped when onfini() is called on the Cortex.
 
-        Some example values for this evnar are shown below::
+        Some example values for this envar are shown below::
 
             # From our .drone.yml file
             root@database:5432/syn_test

@@ -379,11 +379,26 @@ class CortexTest(SynTest):
         self.eq(len(core.getRowsByProp('lolint', 80)), 0)
         self.eq(len(core.getRowsByProp('lolint', 99)), 1)
 
+        # Run delRowsByIdProp without the valu set
         core.delRowsByIdProp(id4, 'lolint')
         core.delRowsByIdProp(id4, 'lolstr')
 
         self.eq(len(core.getRowsByProp('lolint')), 0)
         self.eq(len(core.getRowsByProp('lolstr')), 0)
+
+        # Now run delRowsByIdProp with valu set
+        core.setRowsByIdProp(id4, 'lolstr', 'haha')
+        core.setRowsByIdProp(id4, 'lolint', 99)
+
+        core.delRowsByIdProp(id4, 'lolint', 80)
+        self.eq(len(core.getRowsByProp('lolint', 99)), 1)
+        core.delRowsByIdProp(id4, 'lolint', 99)
+        self.eq(len(core.getRowsByProp('lolint', 99)), 0)
+
+        core.delRowsByIdProp(id4, 'lolstr', 'hehe')
+        self.eq(len(core.getRowsByProp('lolstr', 'haha')), 1)
+        core.delRowsByIdProp(id4, 'lolstr', 'haha')
+        self.eq(len(core.getRowsByProp('lolstr', 'haha')), 0)
 
         core.delRowsById(id1)
 

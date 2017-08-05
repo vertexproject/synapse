@@ -94,7 +94,7 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
         while db is None:
             try:
                 db = psycopg2.connect(**dbinfo)
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 tries += 1
                 if tries > retry:
                     raise
@@ -164,10 +164,9 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
         rows = self.select(q, prop=prop, valu=tuple(valus), limit=limit)
         return self._foldTypeCols(rows)
 
-    def getTufosByIdens(self, idens):
+    def getRowsByIdens(self, idens):
         rows = self.select(self._q_getrows_by_idens, valu=tuple(idens))
-        rows = self._foldTypeCols(rows)
-        return self.rowsToTufos(rows)
+        return self._foldTypeCols(rows)
 
     def _initCorQueries(self):
         s_cores_sqlite.SqliteStorage._initCorQueries(self)

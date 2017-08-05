@@ -30,14 +30,14 @@ def confdef(name):
 
             class Foo(s_config.Config):
 
-            @staticmethod
-            @s_config.confdef(name='foo')
-            def foodefs():
-                defs = (
-                    ('fooval', {'type': 'int', 'doc': 'what is foo val?', 'defval': 99}),
-                    ('enabled', {'type': 'bool', 'doc': 'is thing enabled?', 'defval': 0}),
-                )
-                return defs
+                @staticmethod
+                @s_config.confdef(name='foo')
+                def foodefs():
+                    defs = (
+                        ('fooval', {'type': 'int', 'doc': 'what is foo val?', 'defval': 99}),
+                        ('enabled', {'type': 'bool', 'doc': 'is thing enabled?', 'defval': 0}),
+                    )
+                    return defs
     '''
     def wrap(f):
         f._syn_config = name

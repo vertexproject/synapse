@@ -33,7 +33,7 @@ class OutPutFd(OutPut):
     def __del__(self):
         try:
             self.fd.close()
-        except:
+        except:  # pragma: no cover
             pass
 
 class OutPutBytes(OutPutFd):
