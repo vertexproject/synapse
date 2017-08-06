@@ -649,10 +649,6 @@ class SqliteStorage(s_cores_storage.Storage):
         return self._foldTypeCols(rows)
 
     def _joinsByRange(self, prop, valu, limit=None):
-
-        if len(valu) != 2:
-            return []
-
         minvalu, maxvalu = valu[0], valu[1]
 
         limit = self._getDbLimit(limit)
