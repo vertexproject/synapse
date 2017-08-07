@@ -436,7 +436,7 @@ class CortexTest(SynTest):
         self.eq(tufo[1].get('hehe:foo'), 'bar')
         self.eq(tufo[1].get('hehe:baz'), 'faz')
 
-        tufo = core.delTufoProp(tufo,'foo')
+        tufo = core.delTufoProp(tufo, 'foo')
         self.none(tufo[1].get('hehe:foo'))
 
         self.eq(len(core.eval('hehe:foo')), 0)
@@ -1884,6 +1884,28 @@ class CortexTest(SynTest):
 
             self.eq(core.getModlVers('grok'), 3)
 
+    def test_cortex_coremodule_telepath(self):
+        port = 0
+        link_template = 'tcp://127.0.0.1:%d/remote_core'
+        mods = (('synapse.tests.test_cortex.CoreTestModule', {'foobar': True}), )
+
+        with s_cortex.openurl('ram:///') as remote_core:
+            with s_daemon.Daemon() as dmon:
+
+                dmon.share('remote_core', remote_core)
+                link = dmon.listen(link_template % port)
+                port = link[1]['port']
+                link_url = link_template % port
+
+                self.eq(remote_core.getModlVers('test'), -1)
+                with s_cortex.openurl(link_url) as core:
+                    core.setConfOpt('rev:model', 1)
+                    core.setConfOpt('modules', mods)
+                    core.setConfOpt('rev:model', 0)
+                    self.eq(core.getModlVers('test'), 201707210101)
+
+                self.eq(remote_core.getModlVers('test'), 201707210101)
+
     def test_cortex_isnew(self):
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'test.db')
@@ -2234,8 +2256,8 @@ class CortexTest(SynTest):
     def test_cortex_splice_propdel(self):
 
         with s_cortex.openurl('ram:///') as core:
-            tufo = core.formTufoByProp('hehe','haha', foo='bar', baz='faz')
-            splice = ('splice', {'act':'node:prop:del', 'form':'hehe', 'valu':'haha', 'prop':'foo'})
+            tufo = core.formTufoByProp('hehe', 'haha', foo='bar', baz='faz')
+            splice = ('splice', {'act': 'node:prop:del', 'form': 'hehe', 'valu': 'haha', 'prop': 'foo'})
             core.splice(splice)
 
             self.eq(len(core.eval('hehe:foo')), 0)
