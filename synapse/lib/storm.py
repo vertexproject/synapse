@@ -981,7 +981,7 @@ class Runtime(Configable):
 
         size = s_common.intify(args[0])
         if size is None:
-            raise s_common.BadSyntaxError(mesg='limit(<int>)')
+            raise s_common.BadSyntaxError(mesg='limit(<size>)')
 
         if query.size() > size:
             [ query.add(node) for node in query.take()[:size] ]
