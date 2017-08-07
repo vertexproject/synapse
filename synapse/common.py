@@ -18,7 +18,7 @@ from binascii import hexlify
 import synapse.exc as s_exc
 
 from synapse.exc import *
-from synapse.compat import enbase64, debase64, canstor, isint
+from synapse.compat import enbase64, debase64, canstor
 
 class NoValu: pass
 
