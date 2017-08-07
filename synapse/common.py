@@ -36,7 +36,7 @@ def guid(valu=None):
 
 def intify(x):
     '''
-    Ensure ( or frob ) a value into being an integer or None.
+    Ensure ( or coerce ) a value into being an integer or None.
 
     Args:
         x (obj):    An object to intify
