@@ -125,6 +125,10 @@ class StormTest(SynTest):
             opts = dict(oper[1].get('kwlist'))
             self.eq(opts.get('limit'), 1 )
 
+            self.raises(BadSyntaxError, core.eval, 'inet:ipv4 limit()')
+            self.raises(BadSyntaxError, core.eval, 'inet:ipv4 limit(nodes=10)')
+            self.raises(BadSyntaxError, core.eval, 'inet:ipv4 limit(woot)')
+
     def test_storm_addtag(self):
         with s_cortex.openurl('ram:///') as core:
             iden = guid()

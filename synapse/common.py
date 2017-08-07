@@ -18,7 +18,7 @@ from binascii import hexlify
 import synapse.exc as s_exc
 
 from synapse.exc import *
-from synapse.compat import enbase64, debase64, canstor
+from synapse.compat import enbase64, debase64, canstor, isint
 
 class NoValu: pass
 
@@ -33,6 +33,21 @@ def guid(valu=None):
     # Generate a "stable" guid from the given item
     byts = msgenpack(valu)
     return hashlib.md5(byts).hexdigest()
+
+def intify(x):
+    '''
+    Ensure ( or frob ) a value into being an integer or None.
+
+    Args:
+        x (obj):    An object to intify
+
+    Returns:
+        (int):  The int value ( or None )
+    '''
+    try:
+        return int(x)
+    except (TypeError, ValueError) as e:
+        return None
 
 def addpref(pref, info):
     '''

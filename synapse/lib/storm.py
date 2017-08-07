@@ -619,9 +619,12 @@ class Runtime(Configable):
         for oper in opers:
 
             # specify a limit backward from limit oper...
-            if oper[0] == 'limit' and len(retn):
-                limt = oper[1].get('args')[0]
-                setkw(retn[-1], 'limit', limt)
+            if oper[0] == 'limit' and retn:
+                args = oper[1].get('args',())
+                if args:
+                    limt = s_common.intify(args[0])
+                    if limt is not None:
+                        setkw(retn[-1], 'limit', limt)
 
             # TODO look for a form lift + tag filter and optimize
 
@@ -976,7 +979,10 @@ class Runtime(Configable):
         if len(args) != 1:
             raise s_common.BadSyntaxError(mesg='limit(<size>)')
 
-        size = int(args[0])
+        size = s_common.intify(args[0])
+        if size is None:
+            raise s_common.BadSyntaxError(mesg='limit(<int>)')
+
         if query.size() > size:
             [ query.add(node) for node in query.take()[:size] ]
 
