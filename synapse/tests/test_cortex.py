@@ -1012,6 +1012,28 @@ class CortexTest(SynTest):
         self.eq(len(core.getTufosByTag('lulz.rofl', form='foo')), 0)
         self.eq(len(core.getTufosByTag('lulz.rofl.zebr', form='foo')), 0)
 
+        # Now we need to retag a node, ensure that the tag is on the node and the syn:tag nodes exist again
+        wait = core.waiter(1, 'node:tag:add')
+        node = core.addTufoTag(hehe, 'lulz.rofl.zebr')
+        wait.wait(timeout=2)
+
+        self.isin('#lulz.rofl.zebr', node[1])
+        self.nn(core.getTufoByProp('syn:tag', 'lulz'))
+        self.nn(core.getTufoByProp('syn:tag', 'lulz.rofl'))
+        self.nn(core.getTufoByProp('syn:tag', 'lulz.rofl.zebr'))
+
+        # Recreate expected results from #320 to ensure
+        # we're also doing the same via storm
+        self.eq(len(core.eval('[inet:fqdn=w00t.com +#some.tag]')), 1)
+        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0)')), 2)
+        self.eq(len(core.eval('syn:tag=some')), 1)
+        self.eq(len(core.eval('syn:tag=some.tag')), 1)
+        self.eq(len(core.eval('syn:tag=some delnode(force=1)')), 0)
+        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0)')), 0)
+        self.eq(len(core.eval('inet:fqdn=w00t.com [ +#some.tag ]')), 1)
+        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0)')), 2)
+        self.eq(len(core.eval('syn:tag=some')), 1)
+        self.eq(len(core.eval('syn:tag=some.tag')), 1)
         core.fini()
 
     def test_cortex_splices(self):
