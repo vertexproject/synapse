@@ -20,6 +20,7 @@ import synapse.lib.threads as s_threads
 
 import lmdb
 import xxhash
+import msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,7 @@ def _encIden(iden):
 # Try to memoize most of the prop names we get
 @s_compat.lru_cache(maxsize=1024)
 def _encProp(prop):
-    return s_common.msgenpack(prop)
+    return msgpack.dumps(prop, encoding='utf-8')
 
 # The precompiled struct parser for native size_t
 _SIZET_ST = struct.Struct('@Q' if sys.maxsize > 2**32 else '@L')
