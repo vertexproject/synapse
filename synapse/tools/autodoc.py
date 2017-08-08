@@ -103,6 +103,7 @@ def main(argv, outp=None):
     pars.add_argument('--savefile', default=None, help='Save output to the given file')
 
     opts = pars.parse_args(argv)
+    fd = None
     if opts.savefile:
         fd = open(opts.savefile, 'wb')
         outp = s_output.OutPutFd(fd)
@@ -320,6 +321,8 @@ def main(argv, outp=None):
                     rst.addLines(line)
 
         outp.printf(rst.getRstText())
+        if fd:
+            fd.close()
         return 0
 
 if __name__ == '__main__':
