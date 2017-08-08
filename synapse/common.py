@@ -345,44 +345,16 @@ def reqstor(name, valu):
         raise BadPropValu(name=name, valu=valu)
     return valu
 
-def nopropnorm():
+def rowstotufos(rows):
     '''
-    Decorator used to skip property normalization on a lift method.
+    Convert rows into tufos.
 
-    This is a helper for get*By() methods used in a Cortext which are
-    registered with init handlers.  This is helpful for methods which
-    may use typecasts.
-
-    Examples:
-        Wrap a function which lifts tufos which does its own prop norming::
-
-            @nopropnorm()
-            def tufosByStuff(prop, valu, limit=None):
-                # do stuff with valu normalization
-                # Return a list of tufos
-
-            core.initTufosBy('stuff', tufosByStuff)
+    Args:
+        rows (list): List of rows containing (i, p, v, t) tuples.
 
     Returns:
-        Wrapped function.
+        list: List of tufos.
     '''
-
-    def wrap(f):
-        f._syn_nopropnorm = True
-        return f
-
-    return wrap
-
-def rowstotufos(rows):
-        '''
-        Convert rows into tufos.
-
-        Args:
-            rows (list): List of rows containing (i, p, v, t) tuples.
-
-        Returns:
-            list: List of tufos.
-        '''
-        res = collections.defaultdict(dict)
-        [res[i].__setitem__(p, v) for (i, p, v, t) in rows]
-        return list(res.items())
+    res = collections.defaultdict(dict)
+    [res[i].__setitem__(p, v) for (i, p, v, t) in rows]
+    return list(res.items())

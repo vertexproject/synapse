@@ -685,6 +685,17 @@ class CortexTest(SynTest):
         self.eq(len(core.getTufosBy('in', 'inet:ipv4', ['10.2.3.5', '10.2.3.7'])), 0)
         self.eq(len(core.getTufosBy('in', 'inet:ipv4', ['10.2.3.5', '10.2.3.6', '10.2.3.7'])), 1)
 
+        # By IN using COMP type nodes
+        nmb1 = core.formTufoByProp('inet:netmemb', '(vertex.link/pennywise,vertex.link/eldergods)')
+        nmb2 = core.formTufoByProp('inet:netmemb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))
+        nmb3 = core.formTufoByProp('inet:netmemb', ['vertex.link/pennywise', 'vertex.link/clowns'])
+
+        self.eq(len(core.getTufosBy('in', 'inet:netmemb', ['(vertex.link/pennywise,vertex.link/eldergods)'])), 1)
+        self.eq(len(core.getTufosBy('in', 'inet:netmemb:group', ['vertex.link/eldergods'])), 2)
+        self.eq(len(core.getTufosBy('in', 'inet:netmemb:group', ['vertex.link/eldergods'])), 2)
+        self.eq(len(core.getTufosBy('in', 'inet:netmemb:group', ['vertex.link/eldergods', 'vertex.link/clowns'])), 3)
+        self.eq(len(core.getTufosBy('in', 'inet:netmemb', ['(vertex.link/pennywise,vertex.link/eldergods)', ('vertex.link/pennywise', 'vertex.link/clowns')])), 2)
+
         # By LT/LE/GE/GT
         self.eq(len(core.getTufosBy('lt', 'default_foo:p0', 6)), 3)
         self.eq(len(core.getTufosBy('le', 'default_foo:p0', 6)), 4)
@@ -712,6 +723,26 @@ class CortexTest(SynTest):
         self.eq(len(core.getTufosBy('gt', 'inet:ipv4', '10.2.3.6')), 3)
         self.eq(len(core.getTufosBy('ge', 'inet:ipv4', '10.2.3.6')), 4)
         self.eq(len(core.getTufosBy('ge', 'inet:ipv4', '10.2.3.5')), 5)
+
+        # By RANGE
+        # t0/t1 came in from the old test_cortex_ramtyperange test
+        t0 = core.formTufoByProp('foo:bar', 10)
+        t1 = core.formTufoByProp('foo:bar', 'baz')
+        tufs = core.getTufosBy('range', 'foo:bar', (5, 15))
+        self.eq(len(tufs), 1)
+        self.eq(tufs[0][0], t0[0])
+        # Do a range lift requiring prop normalization (using a built-in data type) to work
+        t2 = core.formTufoByProp('inet:ipv4', '1.2.3.3')
+        tufs = core.getTufosBy('range', 'inet:ipv4', (0x01020301, 0x01020309))
+        self.eq(len(tufs), 1)
+        self.eq(t2[0], tufs[0][0])
+        tufs = core.getTufosBy('range', 'inet:ipv4', ('1.2.3.1', '1.2.3.9'))
+        self.eq(len(tufs), 1)
+        self.eq(t2[0], tufs[0][0])
+        # RANGE test cleanup
+        for tufo in [t0, t1, t2]:
+            if tufo[1].get('.new'):
+                core.delTufo(tufo)
 
         # By HAS - the valu is dropped by the _tufosByHas handler.
         self.eq(len(core.getTufosBy('has', 'default_foo:p0', valu=None)), 5)
@@ -748,6 +779,8 @@ class CortexTest(SynTest):
         self.eq(len(core.getTufosBy('eq', 'inet:ipv4:asn', -1)), 5)
         self.eq(len(core.getTufosBy('eq', 'inet:ipv4', 0x0)), 0)
         self.eq(len(core.getTufosBy('eq', 'inet:ipv4', '0.0.0.0')), 0)
+        self.eq(len(core.getTufosBy('eq', 'inet:netmemb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
+        self.eq(len(core.getTufosBy('eq', 'inet:netmemb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
 
         # By TYPE - this requires data model introspection
         fook = core.formTufoByProp('inet:dns:a', 'derry.vertex.link/10.2.3.6')
@@ -755,6 +788,11 @@ class CortexTest(SynTest):
         # self.eq(len(core.getTufosBy('type', 'inet:ipv4', None)), 7)
         self.eq(len(core.getTufosBy('type', 'inet:ipv4', '10.2.3.6')), 3)
         self.eq(len(core.getTufosBy('type', 'inet:ipv4', 0x0a020306)), 3)
+
+        # By TYPE using COMP nodes
+        self.eq(len(core.getTufosBy('type', 'inet:netmemb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
+        self.eq(len(core.getTufosBy('type', 'inet:netmemb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
+        self.eq(len(core.getTufosBy('type', 'inet:netuser', 'vertex.link/invisig0th')), 2)
 
         # BY CIDR
         tlib = s_types.TypeLib()
@@ -859,26 +897,6 @@ class CortexTest(SynTest):
 
         self.eq(len(core.getTufosByTag('zip', form='foo')), 0)
         self.eq(len(core.getTufosByTag('zip.zap', form='foo')), 0)
-
-        # By RANGE
-        # t0/t1 came in from the old test_cortex_ramtyperange test
-        t0 = core.formTufoByProp('foo:bar', 10)
-        t1 = core.formTufoByProp('foo:bar', 'baz')
-        tufs = core.getTufosBy('range', 'foo:bar', (5, 15))
-        self.eq(len(tufs), 1)
-        self.eq(tufs[0][0], t0[0])
-        # Do a range lift requiring prop normalization (using a built-in data type) to work
-        t2 = core.formTufoByProp('inet:ipv4', '1.2.3.3')
-        tufs = core.getTufosBy('range', 'inet:ipv4', (0x01020301, 0x01020309))
-        self.eq(len(tufs), 1)
-        self.eq(t2[0], tufs[0][0])
-        tufs = core.getTufosBy('range', 'inet:ipv4', ('1.2.3.1', '1.2.3.9'))
-        self.eq(len(tufs), 1)
-        self.eq(t2[0], tufs[0][0])
-        # range cleanup
-        for tufo in [t0, t1, t2]:
-            if tufo[1].get('.new'):
-                core.delTufo(tufo)
 
     def test_cortex_tufo_setprops(self):
         core = s_cortex.openurl('ram://')

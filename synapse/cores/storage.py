@@ -73,15 +73,6 @@ class Storage(s_config.Config):
         self.initSizeBy('le', self.sizeByLe)
         self.initSizeBy('range', self.sizeByRange)
 
-        # Provide a dictionary of by / meth values a storage layer
-        # can add too and a Cortex can pull from
-        self.joinsbymeths = [
-            ('le', self.joinsByLe),
-            ('lt', self.joinsByLt),
-            ('gt', self.joinsByGt),
-            ('ge', self.joinsByGe),
-        ]
-
         # Events for handling savefile loads/saves
         self.loadbus.on('core:save:add:rows', self._loadAddRows)
         self.loadbus.on('core:save:del:rows:by:iden', self._loadDelRowsById)
@@ -833,6 +824,52 @@ class Storage(s_config.Config):
         for irow in self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit):
             for jrow in self.getRowsById(irow[0]):
                 yield jrow
+
+    def joinsByRange(self, prop, valu, limit=None):
+        '''
+        Default implementation of a 'range' handler for joining rows together
+        by.
+
+        Args:
+            prop (str): Prop to select joins by.
+            valu (list): A list (or tuple) of two items. These should be a
+            minvalu, maxvalue pair. These serve as the bound for doing the
+            range lift by.
+            limit (int): Limit on the umber of rows to lift by range.
+
+        Returns:
+            list: List of (i, p, v, t) rows.
+        '''
+        rows = self.rowsByRange(prop, valu, limit=limit)
+        return self.getRowsByIdens({i for i, p, v, t in rows})
+
+    def joinsByIn(self, prop, valus, limit=None):
+        '''
+        Default implementation of a 'in' handler for joining rows together by.
+
+        Args:
+            prop (str): Prop to select joins by.
+            valu (list): A list (or tuple) of values to query a Storage object
+                for.  If a empty list is provided, an empty list is returned.
+            limit (int): Limit on the number of joined idens to return.
+
+        Returns:
+            list: List of (i, p, v, t) rows.
+
+        '''
+        if len(valus) == 0:
+            return []
+
+        rows = []
+        for valu in valus:
+            _rows = list(self.getJoinByProp(prop, valu, limit=limit))
+            rows.extend(_rows)
+            if limit is not None:
+                rowidens = {i for (i, p, v, t) in _rows}
+                limit -= len(rowidens)
+                if limit <= 0:
+                    break
+        return rows
 
     def _setRowsByIdProp(self, iden, prop, valu):
         # base case is delete and add

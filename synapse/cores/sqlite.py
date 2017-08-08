@@ -342,15 +342,6 @@ class SqliteStorage(s_cores_storage.Storage):
         self._initCorQueries()
         self._initCorTables(table)
 
-        # Add our range handlers to the tufos helpers
-        self.joinsbymeths.append(('range', self._joinsByRange))
-        # TODO - Investigate if we can implement a _tufosByIn handler for
-        # SQLite. It does not have a native IN statement like PSQL does, but
-        # it may be possible to use a nested query and gain performance
-        # benefits from using single transaction over N transactions.
-        if hasattr(self, '_joinsByIn'):
-            self.joinsbymeths.append(('in', self._joinsByIn))
-
     def _prepQuery(self, query):
         # prep query strings by replacing all %s with table name
         # and all ? with db specific variable token
@@ -648,7 +639,7 @@ class SqliteStorage(s_cores_storage.Storage):
         rows = self._runPropQuery('rowsbyprop', prop, valu=valu, limit=limit, mintime=mintime, maxtime=maxtime)
         return self._foldTypeCols(rows)
 
-    def _joinsByRange(self, prop, valu, limit=None):
+    def joinsByRange(self, prop, valu, limit=None):
         minvalu, maxvalu = valu[0], valu[1]
 
         limit = self._getDbLimit(limit)

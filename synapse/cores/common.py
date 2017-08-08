@@ -49,28 +49,6 @@ def reqiden(tufo):
         raise s_common.NoSuchTufo(iden=None)
     return tufo[0]
 
-
-def joinmethtotufos(func):
-    '''
-    Decorator to wrap a Storage layer join* function to return tufos.
-
-    Args:
-        func:  Method to wrap.
-
-    Notes:
-        This helper is normally used during Storage layer registration
-        within a Cortex.
-
-    Returns:
-        Wrapped function.
-    '''
-
-    def wrapped(*args, **kwargs):
-        rows = func(*args, **kwargs)
-        return s_common.rowstotufos(rows)
-
-    return wrapped
-
 class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     '''
     Top level Cortex key/valu storage object.
@@ -145,15 +123,20 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         # Strap in default initTufosBy functions - Storage layer may override these.
         self.initTufosBy('eq', self._tufosByEq)
+        self.initTufosBy('ge', self._tufosByGe)
+        self.initTufosBy('gt', self._tufosByGt)
         self.initTufosBy('in', self._tufosByIn)
+        self.initTufosBy('le', self._tufosByLe)
+        self.initTufosBy('lt', self._tufosByLt)
         self.initTufosBy('has', self._tufosByHas)
         self.initTufosBy('tag', self._tufosByTag)
         self.initTufosBy('type', self._tufosByType)
-        self.initTufosBy('inet:cidr', self._tufosByInetCidr)
         self.initTufosBy('dark', self._tufosByDark)
+        self.initTufosBy('range', self._tufosByRange)
+        self.initTufosBy('inet:cidr', self._tufosByInetCidr)
 
         # Initialize the storage layer
-        self.store = store  # type: s_storage.Storage()
+        self.store = store  # type: s_storage.Storage
         self._registerStore()
 
         self.isok = True
@@ -227,19 +210,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         # link events from the Storage back to the Cortex Eventbus
         self.store.link(self.dist)
 
-        # Register tufo helpers and fini handlers to pop references
-        tufo_meths = []
-        for name, meth in self.store.joinsbymeths:
-
-            meth = joinmethtotufos(meth)
-            self.initTufosBy(name, meth)
-            tufo_meths.append(name)
-
         # Ensure we clean up any Storage refs and call fini on the Storage obj
         def finiStore():
             self.store.unlink(self.dist)
-            for name in tufo_meths:
-                self.tufosbymeths.pop(name, None)
             self.store.fini()
 
         self.onfini(finiStore)
@@ -1180,24 +1153,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         '''
         meth = self.tufosbymeths.get(name)
-
-        if not meth:
-            rows = self.getRowsBy(name, prop, valu, limit=limit)
-            return [self.getTufoByIden(row[0]) for row in rows]
-
-        if not getattr(meth, '_syn_nopropnorm', False):
-            if isinstance(valu, (list, tuple)):
-                _valu = []
-                for v in valu:
-                    nv = self.getPropNorm(prop, v)
-                    if isinstance(nv[0], (list, tuple)):
-                        _valu.extend(nv[0])
-                        continue
-                    _valu.append(nv[0])
-                valu = _valu
-            else:
-                valu, _ = self.getPropNorm(prop, valu)
-
         return meth(prop, valu, limit=limit)
 
     def getRowsBy(self, name, prop, valu, limit=None):
@@ -1212,13 +1167,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             * most commonly used to facilitate range searches
 
         '''
-
-        # Norm valus
-        if isinstance(valu, (list, tuple)):
-            valu = [self.getPropNorm(prop, v)[0] for v in valu]
-        else:
-            valu, _ = self.getPropNorm(prop, valu)
-
         meth = self.store.reqRowsByMeth(name)
         return meth(prop, valu, limit=limit)
 
@@ -1377,6 +1325,36 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                     break
 
         return ret
+
+    def _tufosByLe(self, prop, valu, limit=None):
+        valu, _ = self.getPropNorm(prop, valu)
+        rows = self.store.joinsByLe(prop, valu, limit=limit)
+        return s_common.rowstotufos(rows)
+
+    def _tufosByGe(self, prop, valu, limit=None):
+        valu, _ = self.getPropNorm(prop, valu)
+        rows = self.store.joinsByGe(prop, valu, limit=limit)
+        return s_common.rowstotufos(rows)
+
+    def _tufosByLt(self, prop, valu, limit=None):
+        valu, _ = self.getPropNorm(prop, valu)
+        rows = self.store.joinsByLt(prop, valu, limit=limit)
+        return s_common.rowstotufos(rows)
+
+    def _tufosByGt(self, prop, valu, limit=None):
+        valu, _ = self.getPropNorm(prop, valu)
+        rows = self.store.joinsByGt(prop, valu, limit=limit)
+        return s_common.rowstotufos(rows)
+
+    def _tufosByRange(self, prop, valu, limit=None):
+        if len(valu) != 2:
+            raise s_common.SynErr(mesg='Excepted a valu object with a len of 2', valu=valu)
+        minvalu, maxvalu = valu[0], valu[1]
+        minvalu, _ = self.getPropNorm(prop, minvalu)
+        maxvalu, _ = self.getPropNorm(prop, maxvalu)
+        valu = minvalu, maxvalu
+        rows = self.store.joinsByRange(prop, valu, limit=limit)
+        return s_common.rowstotufos(rows)
 
     def _genTagForm(self, tag, form):
         self._core_tags.get(tag)
@@ -2540,20 +2518,17 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         return all([r[2] for r in rows])
 
     def _tufosByIn(self, prop, valus, limit=None):
-        ret = []
+        if len(valus) == 0:
+            return []
 
+        _valus = []
         for valu in valus:
-            res = self.getTufosByProp(prop, valu=valu, limit=limit)
-            ret.extend(res)
+            nv, _ = self.getPropNorm(prop, valu)
+            _valus.append(nv)
 
-            if limit is not None:
-                limit -= len(res)
-                if limit <= 0:
-                    break
+        rows = self.store.joinsByIn(prop, _valus, limit=limit)
+        return s_common.rowstotufos(rows)
 
-        return ret
-
-    @s_common.nopropnorm()
     def _tufosByInetCidr(self, prop, valu, limit=None):
         lowerbound, upperbound = self.getTypeCast('inet:ipv4:cidr', valu)
         return self.getTufosBy('range', prop, (lowerbound, upperbound), limit=limit)
@@ -2628,11 +2603,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _tufosByEq(self, prop, valu, limit=None):
         return self.getTufosByProp(prop, valu=valu, limit=limit)
 
-    @s_common.nopropnorm()
     def _tufosByHas(self, prop, valu, limit=None):
         return self.getTufosByProp(prop, limit=limit)
 
-    @s_common.nopropnorm()
     def _tufosByTag(self, prop, valu, limit=None):
         return self.getTufosByTag(valu, form=prop, limit=limit)
 
