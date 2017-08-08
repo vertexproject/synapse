@@ -34,6 +34,21 @@ def guid(valu=None):
     byts = msgenpack(valu)
     return hashlib.md5(byts).hexdigest()
 
+def intify(x):
+    '''
+    Ensure ( or coerce ) a value into being an integer or None.
+
+    Args:
+        x (obj):    An object to intify
+
+    Returns:
+        (int):  The int value ( or None )
+    '''
+    try:
+        return int(x)
+    except (TypeError, ValueError) as e:
+        return None
+
 def addpref(pref, info):
     '''
     Add the given prefix to all elements in the info dict.

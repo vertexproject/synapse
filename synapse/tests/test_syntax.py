@@ -111,3 +111,18 @@ class StormSyntaxTest(SynTest):
         inst0 = s_syntax.parse('[inet:ipv4=127.0.0.1 inet:ipv4=127.0.0.2]')
         inst1 = s_syntax.parse('   [   inet:ipv4   =    127.0.0.1  inet:ipv4   =   127.0.0.2   ]   ')
         self.eq(inst0, inst1)
+
+    def test_storm_syntax_oper_args(self):
+
+        oper = s_syntax.parse(' woot( (1,2), lol, "hehe haha", one=(3,4), two=5, three=whee) ')[0]
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        self.eq(args[0], [1,2])
+        self.eq(args[1], 'lol')
+        self.eq(args[2], 'hehe haha')
+
+        self.eq(opts.get('one'), [3,4])
+        self.eq(opts.get('two'), 5)
+        self.eq(opts.get('three'), 'whee')
+
