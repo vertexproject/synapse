@@ -61,8 +61,9 @@ class Storage(s_config.Config):
         # Dicts for storing retrieval methods
         self.sizebymeths = {}
         self.rowsbymeths = {}
+        self.joinsbymeths = {}
 
-        # Register handlers for lifting rows/siexes
+        # Register handlers for lifting rows/sizes/joins
         self.initRowsBy('gt', self.rowsByGt)
         self.initRowsBy('lt', self.rowsByLt)
         self.initRowsBy('ge', self.rowsByGe)
@@ -72,6 +73,13 @@ class Storage(s_config.Config):
         self.initSizeBy('ge', self.sizeByGe)
         self.initSizeBy('le', self.sizeByLe)
         self.initSizeBy('range', self.sizeByRange)
+
+        self.initJoinsBy('ge', self._joinsByGe)
+        self.initJoinsBy('gt', self._joinsByGt)
+        self.initJoinsBy('le', self._joinsByLe)
+        self.initJoinsBy('lt', self._joinsByLt)
+        self.initJoinsBy('in', self._joinsByIn)
+        self.initJoinsBy('range', self._joinsByRange)
 
         # Events for handling savefile loads/saves
         self.loadbus.on('core:save:add:rows', self._loadAddRows)
@@ -173,6 +181,30 @@ class Storage(s_config.Config):
         '''
         self.sizebymeths[name] = meth
 
+    def initJoinsBy(self, name, meth):
+        '''
+        Initialize a "joins by" handler for the Storage layer.
+
+        These helpers are used by the Cortex to do special types of lifts.
+        This allows different Storage layers to implement certain lifts in a optimized fashion.
+
+        Args:
+            name (str): Named handler to register.
+            meth (func): Function to register.
+
+        Examples:
+            Registering a 'woot' handler::
+
+                def getbywoot(prop,valu,limit=None):
+                    return stuff() # list of rows
+
+                core.initJoinsBy('woot',getbywoot)
+
+        Returns:
+            None
+        '''
+        self.joinsbymeths[name] = meth
+
     def reqSizeByMeth(self, name):
         '''
         Get a handler for a SizeBy lift.
@@ -208,6 +240,47 @@ class Storage(s_config.Config):
         if meth is None:
             raise s_common.NoSuchGetBy(name=name)
         return meth
+
+    def reqJoinByMeth(self, name):
+        '''
+        Get a handler for a JoinBy lift.
+
+        Args:
+            name (str): Name of the registered handler to retrieve.
+
+        Returns:
+            Function used to lift joined rows.
+
+        Raises:
+            NoSuchGetBy: If the named handler does not exist.
+        '''
+        meth = self.joinsbymeths.get(name)
+        if meth is None:
+            raise s_common.NoSuchGetBy(name=name)
+        return meth
+
+    def getJoinsBy(self, name, prop, valu, limit=None):
+        '''
+        Retrieve joined rows by either a sepecified method or by falling back
+        to the rowsBy handlers. Specialized methods will be dependent on the
+        storage backind and the data indexed.
+
+        Args:
+            name (str): Name of the method to look up.
+            prop (str): Prop to filter by.
+            valu: Value (or values) to pass to the helper method.
+            limit (int): Limit on the join.  Limit meaning may vary by
+                implementation or named helper.
+
+        Returns:
+
+        '''
+        meth = self.joinsbymeths.get(name)
+        if not meth:
+            meth = self.reqRowsByMeth(name)
+            rows = meth(prop, valu, limit=limit)
+            return self.getRowsByIdens({i for (i, p, v, t) in rows})
+        return meth(prop, valu, limit=limit)
 
     def _defaultFiniCoreStor(self):
         '''
@@ -784,10 +857,10 @@ class Storage(s_config.Config):
     def sizeByRange(self, prop, valu, limit=None):  # pragma: no cover
         raise s_common.NoSuchImpl(name='sizeByRange', mesg='Store does not implement sizeByRange')
 
-    def joinsByGe(self, prop, valu, limit=None):  # pragma: no cover
+    def _joinsByGe(self, prop, valu, limit=None):  # pragma: no cover
         raise s_common.NoSuchImpl(name='joinsByGe', mesg='Store does not implement joinsByGe')
 
-    def joinsByLe(self, prop, valu, limit=None):  # pragma: no cover
+    def _joinsByLe(self, prop, valu, limit=None):  # pragma: no cover
         raise s_common.NoSuchImpl(name='joinsByLe', mesg='Store does not implement joinsByLe')
 
     def _getBlobValu(self, key):  # pragma: no cover
@@ -825,7 +898,7 @@ class Storage(s_config.Config):
             for jrow in self.getRowsById(irow[0]):
                 yield jrow
 
-    def joinsByRange(self, prop, valu, limit=None):
+    def _joinsByRange(self, prop, valu, limit=None):
         '''
         Default implementation of a 'range' handler for joining rows together
         by.
@@ -843,7 +916,7 @@ class Storage(s_config.Config):
         rows = self.rowsByRange(prop, valu, limit=limit)
         return self.getRowsByIdens({i for i, p, v, t in rows})
 
-    def joinsByIn(self, prop, valus, limit=None):
+    def _joinsByIn(self, prop, valus, limit=None):
         '''
         Default implementation of a 'in' handler for joining rows together by.
 
@@ -942,8 +1015,8 @@ class Storage(s_config.Config):
     def rowsByGt(self, prop, valu, limit=None):
         return self.rowsByGe(prop, valu + 1, limit=limit)
 
-    def joinsByLt(self, prop, valu, limit=None):
-        return self.joinsByLe(prop, valu - 1, limit=limit)
+    def _joinsByLt(self, prop, valu, limit=None):
+        return self._joinsByLe(prop, valu - 1, limit=limit)
 
-    def joinsByGt(self, prop, valu, limit=None):
-        return self.joinsByGe(prop, valu + 1, limit=limit)
+    def _joinsByGt(self, prop, valu, limit=None):
+        return self._joinsByGe(prop, valu + 1, limit=limit)

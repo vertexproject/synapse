@@ -639,7 +639,7 @@ class SqliteStorage(s_cores_storage.Storage):
         rows = self._runPropQuery('rowsbyprop', prop, valu=valu, limit=limit, mintime=mintime, maxtime=maxtime)
         return self._foldTypeCols(rows)
 
-    def joinsByRange(self, prop, valu, limit=None):
+    def _joinsByRange(self, prop, valu, limit=None):
         minvalu, maxvalu = valu[0], valu[1]
 
         limit = self._getDbLimit(limit)
@@ -647,13 +647,13 @@ class SqliteStorage(s_cores_storage.Storage):
         rows = self.select(self._q_getjoin_by_range_int, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)
         return self._foldTypeCols(rows)
 
-    def joinsByLe(self, prop, valu, limit=None):
+    def _joinsByLe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_le_int, prop=prop, valu=valu, limit=limit)
         return self._foldTypeCols(rows)
 
-    def joinsByGe(self, prop, valu, limit=None):
+    def _joinsByGe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_ge_int, prop=prop, valu=valu, limit=limit)

@@ -121,7 +121,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.addStatFunc('count', self._calcStatCount)
         self.addStatFunc('histo', self._calcStatHisto)
 
-        # Strap in default initTufosBy functions - Storage layer may override these.
+        # Strap in default initTufosBy functions
         self.initTufosBy('eq', self._tufosByEq)
         self.initTufosBy('ge', self._tufosByGe)
         self.initTufosBy('gt', self._tufosByGt)
@@ -1153,6 +1153,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         '''
         meth = self.tufosbymeths.get(name)
+        if not meth:
+            rows = self.getRowsBy(name, prop, valu, limit=limit)
+            return self.getTufosByIdens({i for (i, p, v, t) in rows})
         return meth(prop, valu, limit=limit)
 
     def getRowsBy(self, name, prop, valu, limit=None):
@@ -1328,22 +1331,22 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
     def _tufosByLe(self, prop, valu, limit=None):
         valu, _ = self.getPropNorm(prop, valu)
-        rows = self.store.joinsByLe(prop, valu, limit=limit)
+        rows = self.store.getJoinsBy('le', prop, valu, limit=limit)
         return s_common.rowstotufos(rows)
 
     def _tufosByGe(self, prop, valu, limit=None):
         valu, _ = self.getPropNorm(prop, valu)
-        rows = self.store.joinsByGe(prop, valu, limit=limit)
+        rows = self.store.getJoinsBy('ge', prop, valu, limit=limit)
         return s_common.rowstotufos(rows)
 
     def _tufosByLt(self, prop, valu, limit=None):
         valu, _ = self.getPropNorm(prop, valu)
-        rows = self.store.joinsByLt(prop, valu, limit=limit)
+        rows = self.store.getJoinsBy('lt', prop, valu, limit=limit)
         return s_common.rowstotufos(rows)
 
     def _tufosByGt(self, prop, valu, limit=None):
         valu, _ = self.getPropNorm(prop, valu)
-        rows = self.store.joinsByGt(prop, valu, limit=limit)
+        rows = self.store.getJoinsBy('gt', prop, valu, limit=limit)
         return s_common.rowstotufos(rows)
 
     def _tufosByRange(self, prop, valu, limit=None):
@@ -1353,7 +1356,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         minvalu, _ = self.getPropNorm(prop, minvalu)
         maxvalu, _ = self.getPropNorm(prop, maxvalu)
         valu = minvalu, maxvalu
-        rows = self.store.joinsByRange(prop, valu, limit=limit)
+        rows = self.store.getJoinsBy('range', prop, valu, limit=limit)
         return s_common.rowstotufos(rows)
 
     def _genTagForm(self, tag, form):
@@ -2526,7 +2529,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             nv, _ = self.getPropNorm(prop, valu)
             _valus.append(nv)
 
-        rows = self.store.joinsByIn(prop, _valus, limit=limit)
+        rows = self.store.getJoinsBy('in', prop, _valus, limit=limit)
         return s_common.rowstotufos(rows)
 
     def _tufosByInetCidr(self, prop, valu, limit=None):

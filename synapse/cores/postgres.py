@@ -149,7 +149,7 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
 
         return dbinfo
 
-    def joinsByIn(self, prop, valus, limit=None):
+    def _joinsByIn(self, prop, valus, limit=None):
         if len(valus) == 0:
             return []
 

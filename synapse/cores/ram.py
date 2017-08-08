@@ -65,12 +65,12 @@ class RamStorage(s_cores_storage.Storage):
     def getStoreXact(self, size=None, core=None):
         return RamXact(self, size=size, core=core)
 
-    def joinsByGe(self, prop, valu, limit=None):
+    def _joinsByGe(self, prop, valu, limit=None):
         # FIXME sortedcontainers optimizations go here
         rows = self.rowsByGe(prop, valu, limit=limit)
         return self.getRowsByIdens([r[0] for r in rows])
 
-    def joinsByLe(self, prop, valu, limit=None):
+    def _joinsByLe(self, prop, valu, limit=None):
         # FIXME sortedcontainers optimizations go here
         rows = self.rowsByLe(prop, valu, limit=limit)
         return self.getRowsByIdens([r[0] for r in rows])

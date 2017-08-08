@@ -676,11 +676,11 @@ class LmdbStorage(s_cores_storage.Storage):
     def rowsByRange(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, valu[0], valu[1], limit)
 
-    def joinsByLe(self, prop, valu, limit=None):
+    def _joinsByLe(self, prop, valu, limit=None):
         rows = self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, right_closed=True)
         return rows
 
-    def joinsByGe(self, prop, valu, limit=None):
+    def _joinsByGe(self, prop, valu, limit=None):
         rows = self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit, right_closed=True)
         return rows
 

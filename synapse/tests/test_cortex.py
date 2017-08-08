@@ -661,6 +661,9 @@ class CortexTest(SynTest):
         self.eq(t2, ('foo', 'foo.bar', 'foo.bar.baz'))
 
     def runtufobydefault(self, core):
+        # Failures should be expected for unknown names
+        self.raises(NoSuchGetBy, core.getTufosBy, 'clowns', 'inet:ipv4', 0x01020304)
+
         # BY IN
         fooa = core.formTufoByProp('default_foo', 'bar', p0=4)
         foob = core.formTufoByProp('default_foo', 'baz', p0=5)
@@ -2565,3 +2568,16 @@ class StorageTest(SynTest):
                 self.nn(node)
                 self.eq(node[1].get('tufo:form'), 'foo:bar')
                 self.eq(node[1].get('foo:bar:baz'), 'yes')
+
+    def test_storage_handler_misses(self):
+        with s_cortex.openstore('ram:///') as store:
+            self.raises(NoSuchGetBy, store.getJoinsBy, 'clowns', 'inet:ipv4', 0x01020304)
+            self.raises(NoSuchGetBy, store.reqJoinByMeth, 'clowns')
+            self.raises(NoSuchGetBy, store.reqRowsByMeth, 'clowns')
+            self.raises(NoSuchGetBy, store.reqSizeByMeth, 'clowns')
+
+    def test_storage_handler_defaults(self):
+        with s_cortex.openstore('ram:///') as store:
+            self.nn(store.reqJoinByMeth('range'))
+            self.nn(store.reqRowsByMeth('range'))
+            self.nn(store.reqSizeByMeth('range'))
