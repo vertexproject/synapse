@@ -27,9 +27,17 @@ def ipv4int(valu):
         raise BadTypeValu(valu=valu, type='inet:ipv4', mesg=str(e))
 
 masks = [(0xffffffff - (2 ** (32 - i) - 1)) for i in range(33)]
+cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 
 def ipv4mask(ipv4, mask):
     return ipv4 & masks[mask]
+
+def ipv4cidr(valu):
+    _ipv4str, cidr = valu.split('/', 1)
+    _ipv4addr = ipv4int(_ipv4str)
+    mask = cidrmasks[int(cidr)]
+    lowerbound = _ipv4addr & mask[0]
+    return lowerbound, lowerbound + mask[1]
 
 class IPv4Type(DataType):
     def norm(self, valu, oldval=None):
@@ -287,6 +295,7 @@ class InetMod(CoreModule):
     def initCoreModule(self):
         # add an inet:defang cast to swap [.] to .
         self.core.addTypeCast('inet:defang', castInetDeFang)
+        self.core.addTypeCast('inet:ipv4:cidr', ipv4cidr)
         self.onFormNode('inet:fqdn', self.onTufoFormFqdn)
         self.onFormNode('inet:passwd', self.onTufoFormPasswd)
         self.revCoreModl()
@@ -304,7 +313,7 @@ class InetMod(CoreModule):
         props['inet:passwd:sha1'] = hashlib.sha1(valu.encode('utf8')).hexdigest()
         props['inet:passwd:sha256'] = hashlib.sha256(valu.encode('utf8')).hexdigest()
 
-    @on('node:set', prop='inet:fqdn:sfx')
+    @on('node:prop:set', prop='inet:fqdn:sfx')
     def onTufoSetFqdnSfx(self, mesg):
         sfx = mesg[1].get('newv')
         fqdn = mesg[1].get('valu')
@@ -332,7 +341,7 @@ class InetMod(CoreModule):
                     'inet:cidr4',
                     {'ctor': 'synapse.models.inet.CidrType', 'doc': 'An IPv4 CIDR type', 'ex': '1.2.3.0/24'}),
 
-                ('inet:urlfile', {'subof': 'comp', 'types': 'inet:url,file:bytes', 'names': 'url,file',
+                ('inet:urlfile', {'subof': 'comp', 'fields': 'url=inet:url,file=file:bytes',
                                   'doc': 'A File at a Universal Resource Locator (URL)'}),
                 ('inet:net4',
                  {'subof': 'sepr', 'sep': '-', 'fields': 'min,inet:ipv4|max,inet:ipv4', 'doc': 'An IPv4 address range',

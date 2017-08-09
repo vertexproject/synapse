@@ -1,10 +1,10 @@
 from __future__ import absolute_import, unicode_literals
 
 import synapse.axon as s_axon
-import synapse.compat as s_compat
-import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
+
+import synapse.lib.tufo as s_tufo
 
 from synapse.tests.common import *
 
@@ -43,6 +43,22 @@ class FileModelTest(SynTest):
 
             self.ne(t0[0], core.formTufoByProp('file:bytes:sha1', props.get('sha1'))[0])
             self.ne(t0[0], core.formTufoByProp('file:bytes:md5', props.get('md5'))[0])
+
+    def test_model_file_seeds_capitalization(self):
+        fhash = '6ACC29BFC5F8F772FA7AAF4A705F91CB68DC88CB22F4EF5101281DC42109A104'
+        fhash_lower = fhash.lower()
+        stable_guid = 'ed73917b1dc4011627f7a101ace491c8'
+
+        with s_cortex.openurl('ram:///') as core:
+
+            n1 = core.formTufoByProp('file:bytes:sha256', fhash)
+            n2 = core.formTufoByProp('file:bytes:sha256', fhash_lower)
+            # Sha256 should be lowercase since the prop type is lowercased
+            n1def = s_tufo.ndef(n1)
+            n2def = s_tufo.ndef(n2)
+            self.eq(n1def[1], stable_guid)
+            self.eq(n2def[1], stable_guid)
+            self.eq(n1[0], n2[0])
 
     def test_filepath(self):
 

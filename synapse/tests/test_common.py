@@ -11,6 +11,12 @@ class CommonTest(SynTest):
             fd = genfile(testdir, 'woot', 'foo.bin')
             fd.close()
 
+    def test_common_intify(self):
+        self.eq(intify(20), 20)
+        self.eq(intify("20"), 20)
+        self.none(intify(None))
+        self.none(intify("woot"))
+
     def test_common_guid(self):
         iden0 = guid()
         iden1 = guid('foo bar baz')

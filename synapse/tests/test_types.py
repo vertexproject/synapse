@@ -236,16 +236,12 @@ class DataTypesTest(SynTest):
 
     def test_type_comp(self):
         tlib = s_types.TypeLib()
-        tlib.addType('foo:bar', subof='comp', types='inet:fqdn,inet:ipv4', names='hehe,haha')
+        tlib.addType('foo:bar', subof='comp', fields='hehe=inet:fqdn,haha=inet:ipv4')
 
         valu, subs = tlib.getTypeNorm('foo:bar', ('WOOT.COM', 0x01020304))
         self.eq(valu, '47e2e1c0f894266153f836a75440f803')
         self.eq(subs.get('hehe'), 'woot.com')
         self.eq(subs.get('haha'), 0x01020304)
-
-    #def test_type_comp_err(self):
-        #tlib = s_types.TypeLib()
-        #self.raises( BadInfoValu, tlib.addType, 'fake:newp', subof='comp',fields='asdfqwer')
 
     def test_datatype_int_minmax(self):
         tlib = s_types.TypeLib()
@@ -504,3 +500,64 @@ class DataTypesTest(SynTest):
             self.eq(valu, 'foo.bar')
             self.eq(subs['seen:min'], 1481932800000)
             self.eq(subs['seen:max'], 1513468800000)
+
+    def test_types_comp_optfields(self):
+
+        tlib = s_types.TypeLib()
+
+        tlib.addType('foo:bar', subof='comp', fields='foo=str,bar=int', optfields='baz=str,faz=int')
+
+        subs = (('bar',20),('baz','asdf'),('faz',30),('foo','qwer'))
+
+        v0,s0 = tlib.getTypeNorm('foo:bar', ('qwer',20,('baz','asdf'),('faz',30)))
+        v1,s1 = tlib.getTypeNorm('foo:bar', ('qwer',20,('faz',30),('baz','asdf')))
+        v2,s2 = tlib.getTypeNorm('foo:bar', '(qwer,20,baz=asdf,faz=30)')
+        v3,s3 = tlib.getTypeNorm('foo:bar', '(qwer,20,faz=30,baz=asdf)')
+
+        self.eq(v0,v1)
+        self.eq(v1,v2)
+        self.eq(v2,v3)
+
+        self.eq(subs, tuple(sorted(s0.items())))
+        self.eq(subs, tuple(sorted(s1.items())))
+        self.eq(subs, tuple(sorted(s2.items())))
+        self.eq(subs, tuple(sorted(s3.items())))
+
+
+        subs = (('bar',20),('baz','asdf'),('foo','qwer'))
+
+        v0,s0 = tlib.getTypeNorm('foo:bar', ('qwer',20,('baz','asdf')))
+        v1,s1 = tlib.getTypeNorm('foo:bar', ('qwer',20,('baz','asdf')))
+        v2,s2 = tlib.getTypeNorm('foo:bar', '(qwer,20,baz=asdf)')
+        v3,s3 = tlib.getTypeNorm('foo:bar', '(qwer,20,baz=asdf)')
+
+        self.eq(v0,v1)
+        self.eq(v1,v2)
+        self.eq(v2,v3)
+
+        self.eq(subs, tuple(sorted(s0.items())))
+        self.eq(subs, tuple(sorted(s1.items())))
+        self.eq(subs, tuple(sorted(s2.items())))
+        self.eq(subs, tuple(sorted(s3.items())))
+
+    def test_types_comp_opt_only(self):
+
+        tlib = s_types.TypeLib()
+
+        tlib.addType('foo:bar', subof='comp', optfields='baz=str,faz=int')
+
+        subs = (('baz','asdf'),('faz',30))
+
+        v0,s0 = tlib.getTypeNorm('foo:bar', (('baz','asdf'),('faz',30)))
+        v1,s1 = tlib.getTypeNorm('foo:bar', (('faz',30),('baz','asdf')))
+        v2,s2 = tlib.getTypeNorm('foo:bar', '(baz=asdf,faz=30)')
+        v3,s3 = tlib.getTypeNorm('foo:bar', '(faz=30,baz=asdf)')
+
+        self.eq(v0,v1)
+        self.eq(v1,v2)
+        self.eq(v2,v3)
+
+        self.eq(subs, tuple(sorted(s0.items())))
+        self.eq(subs, tuple(sorted(s1.items())))
+        self.eq(subs, tuple(sorted(s2.items())))
+        self.eq(subs, tuple(sorted(s3.items())))

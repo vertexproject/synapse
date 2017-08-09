@@ -2,6 +2,7 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.lib.storm as s_storm
+import synapse.lib.config as s_config
 import synapse.lib.service as s_service
 
 from synapse.eventbus import EventBus
@@ -20,14 +21,20 @@ class Runtime(s_storm.Runtime, EventBus):
         self.onfini(self.core.fini)
 
         s_storm.Runtime.__init__(self)
-
-        self.addConfDef('svcbus:deftag', asloc='deftag', type='syn:tag', defval=deftag, doc='Default tag for cores')
-        self.addConfDef('svcbus:timeout', asloc='svctime', type='int', doc='SvcBus Telepath Link Tufo')
-
         self.setConfOpts(opts)
 
         self.svcbus = svcbus
         self.svcprox = s_service.SvcProxy(svcbus, self.svctime)
+
+    @staticmethod
+    @s_config.confdef(name='swarm')
+    def _swarm_runtime_confdefs():
+        defs = (
+            ('svcbus:deftag', {'asloc': 'deftag', 'type': 'syn:tag', 'defval': deftag,
+                               'doc': 'Default tag for cores'}),
+            ('svcbus:timeout', {'asloc': 'svctime', 'type': 'int', 'doc': 'SvcBus Telepath Link Tufo'})
+        )
+        return defs
 
     def _getStormCore(self, name=None):
         return self.core

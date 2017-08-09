@@ -4,12 +4,11 @@ A module to isolate python version compatibility filth.
 '''
 import os
 import sys
-import time
+import gzip
 import base64
 import socket
 import struct
 import itertools
-import collections
 
 major = sys.version_info.major
 minor = sys.version_info.minor
@@ -114,6 +113,52 @@ if version < (3, 0, 0):
         '''Convert a buffer to str (bytes)'''
         return str(x)
 
+    def bytesToMem(x):
+        '''Convert bytes to buffer'''
+        return buffer(x)
+
+    def user_input(text):
+        '''
+        Get input from a user via stdin.
+
+        Args:
+            text (str): Text displayed prior to the input prompt.
+
+        Returns:
+            str: String of text from the user.
+        '''
+        return raw_input(text)
+
+    def gzip_compress(byts, compresslevel=9):
+        '''
+        Compress a str object using gzip compression.
+
+        Args:
+            byts (str): Str containing a bytestream to compress.
+            compresslevel (int): Compression level to use (0-9).
+
+        Returns:
+            str: Gzip compressed str.
+        '''
+        buf = BytesIO()
+        with gzip.GzipFile(fileobj=buf, mode='wb', compresslevel=compresslevel) as gz:
+            gz.write(byts)
+        buf.seek(0)
+        return buf.read()
+
+    def gzip_decompress(byts):
+        '''
+        Decompress a str object using gzip compression.
+
+        Args:
+            byts (str): The str to decompress.
+        Returns:
+            str: A Gzip decompressed str.
+        '''
+        io = BytesIO(byts)
+        with gzip.GzipFile(fileobj=io, mode='rb') as gz:
+            return gz.read()
+
 else:
 
     import sys
@@ -173,3 +218,45 @@ else:
     def memToBytes(x):
         '''Convert a memoryview to bytes'''
         return x.tobytes()
+
+    def bytesToMem(x):
+        '''Convert bytes to memoryview'''
+        return memoryview(x)
+
+    def user_input(text):
+        '''
+        Get input from a user via stdin.
+
+        Args:
+            text (str): Text displayed prior to the input prompt.
+
+        Returns:
+            str: String of text from the user.
+        '''
+
+        return input(text)
+
+    def gzip_compress(byts, compresslevel=9):
+        '''
+        Compress a bytes object using gzip compression.
+
+        Args:
+            byts (bytes): Bytestream to compress.
+            compresslevel (int): Compression level to use (0-9).
+
+        Returns:
+            bytes: Gzip compressed bytes.
+        '''
+        return gzip.compress(byts, compresslevel)
+
+    def gzip_decompress(byts):
+        '''
+        Decompress a bytes object using gzip compression.
+
+        Args:
+            byts (bytes): The bytestream to decompress.
+
+        Returns:
+            bytes: A Gzip decompressed bytestream.
+        '''
+        return gzip.decompress(byts)

@@ -1,11 +1,78 @@
-from tornado.testing import AsyncTestCase
+import time
+import random
+
+import synapse.common as s_common
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
-import synapse.models.inet as s_inet
+
+import synapse.lib.webapp as s_webapp
 import synapse.lib.remcycle as s_remcycle
 
+import synapse.models.inet as s_inet
+
+from tornado.testing import AsyncTestCase
 
 from synapse.tests.common import *
+
+class FakeIpify():
+    IPS = ['1.2.3.4',
+           '8.8.8.8',
+           '10.0.0.1',
+           '127.0.0.1',
+           '192.168.1.1',
+           '255.255.255.255',
+           ]
+
+    def random_ip(self, *args, **kwargs):
+        '''Get a random IP'''
+        fmt = kwargs.get('format')
+        ip = random.choice(self.IPS)
+        ret = ip
+        if fmt:
+            ret = {'ip': ip}
+        time.sleep(0.025)
+        return ret
+
+class BytsNommer():
+    def __init__(self):
+        self.nommed = False
+
+    def noms(self, *args, **kwargs):
+        body = kwargs.get('body')
+        if body:
+            self.nommed = True
+        time.sleep(0.025)
+        return True
+
+class StandaloneTestServer(s_eventbus.EventBus):
+    '''
+    Creates a Synapse webapp in its own thread, so there is no
+    conflict between the AsyncTestCase ioloop and the ioloop
+    used by the webapp.
+    '''
+    def __init__(self, port=40000):
+        s_eventbus.EventBus.__init__(self)
+        self.port = port
+        self.running = False
+        self.fake = FakeIpify()
+        self.nommer = BytsNommer()
+        self.wapp_thr = self.fireWebApp()
+        while self.running is False:
+            time.sleep(0.05)
+        self.onfini(self.onServerFini)
+
+    def onServerFini(self):
+        self.running = False
+        self.wapp.fini()
+        self.wapp_thr.join()
+
+    @s_common.firethread
+    def fireWebApp(self):
+        self.wapp = s_webapp.WebApp()
+        self.wapp.listen(self.port, host='127.0.0.1')
+        self.wapp.addApiPath('/v1/ip(\?format=[\w]+)?', self.fake.random_ip)
+        self.wapp.addApiPath('/v1/bytes', self.nommer.noms)
+        self.running = True
 
 
 def get_vertex_global_config():
@@ -30,19 +97,7 @@ def get_vertex_global_config():
                         'validate_cert': False
                     }
                 }
-            ]
-        ],
-        'doc': 'Grab Vertex.link stuff',
-        'http': {
-            'user_agent': 'ClownBrowser'
-        },
-        'namespace': 'vertexproject',
-    }
-    return gconfig
-
-def get_bad_vertex_global_config():
-    gconfig = {
-        'apis': [
+            ],
             [
                 'fake_endpoint',
                 {
@@ -62,29 +117,7 @@ def get_bad_vertex_global_config():
     }
     return gconfig
 
-def get_ipify_global_config():
-    gconfig = {
-        'apis': [
-            [
-                'jsonip',
-                {
-                    'doc': 'Get IP in a JSON blob',
-                    'http': {
-                        'validate_cert': False
-                    },
-                    'url': 'https://api.ipify.org/?format=json',
-                }
-            ]
-        ],
-        'doc': 'API for getting calling IP address',
-        'http': {
-            'user_agent': 'SynapseTest'
-        },
-        'namespace': 'ipify',
-    }
-    return gconfig
-
-def get_ipify_ingest_global_config():
+def get_fake_ipify_ingest_global_config(port=40000):
     gconfig = {
         'apis': [
             [
@@ -111,7 +144,7 @@ def get_ipify_ingest_global_config():
                                         [
                                             "ip",
                                             {
-                                                "path": "ip"
+                                                "path": "ret/ip"
                                             }
                                         ]
                                     ]
@@ -121,39 +154,110 @@ def get_ipify_ingest_global_config():
                                 }
                             }
                     },
-                    'url': 'https://api.ipify.org/?format=json',
+                    'url': 'http://localhost:{PORT}/v1/ip?format=json',
+                    'vars': {
+                        'PORT': port,
+                    }
+                }
+            ],
+            [
+                'rawip',
+                {
+                    'doc': 'Get IP in a string',
+                    'http': {
+                        'validate_cert': False
+                    },
+                    'url': 'http://localhost:{PORT}/v1/ip',
+                    'vars': {
+                        'PORT': port,
+                    }
+                }
+            ],
+            [
+                'fake_endpoint',
+                {
+                    'doc': 'Fake endpoint',
+                    'http': {
+                        'validate_cert': False
+                    },
+                    'url': 'http://localhost:{{}}/foo/bar/duck',
+                    'vars': {
+                        'PORT': port,
+                    }
                 }
             ]
         ],
         'doc': 'API for getting calling IP address',
         'http': {
-            'user_agent': 'SynapseTest'
+            'user_agent': 'SynapseTest',
+            'request_timeout': 30
         },
-        'namespace': 'ipify',
+        'namespace': 'fakeipify',
     }
     return gconfig
 
-def get_generic_domain_global_config():
+def get_fake_ipify_global_config(port=40000):
     gconfig = {
         'apis': [
             [
-                'fqdn',
+                'jsonip',
                 {
-                    'doc': 'Get arbitrary domain name.',
+                    'doc': 'Get IP in a JSON blob',
                     'http': {
                         'validate_cert': False
                     },
-                    'url': 'https://{{fqdn}}/{{endpoint}}',
-                    'api_args': ['fqdn'],
-                    'api_optargs': {'endpoint': ''}
+                    'url': 'http://localhost:{PORT}/v1/ip?format=json',
+                    'vars': {
+                        'PORT': port,
+                    }
+                }
+            ],
+            [
+                'rawip',
+                {
+                    'doc': 'Get IP in a string',
+                    'http': {
+                        'validate_cert': False
+                    },
+                    'url': 'http://localhost:{PORT}/v1/ip',
+                    'vars': {
+                        'PORT': port,
+                    }
+                }
+            ],
+            [
+                'byts',
+                {
+                    'doc': 'nom some bytes',
+                    'http': {
+                        'method': 'POST',
+                    },
+                    'url': 'http://localhost:{PORT}/v1/bytes',
+                    'vars': {
+                        'PORT': port,
+                    }
+                }
+            ],
+            [
+                'fake_endpoint',
+                {
+                    'doc': 'Fake endpoint',
+                    'http': {
+                        'validate_cert': False
+                    },
+                    'url': 'http://localhost:{PORT}/foo/bar/duck',
+                    'vars': {
+                        'PORT': port,
+                    }
                 }
             ]
         ],
-        'doc': 'Definition for getting an arbitrary domain.',
+        'doc': 'API for getting calling IP address',
         'http': {
-            'user_agent': 'SynapseTest.RemCycle'
+            'user_agent': 'SynapseTest',
+            'request_timeout': 30
         },
-        'namespace': 'generic',
+        'namespace': 'fakeipify',
     }
     return gconfig
 
@@ -178,8 +282,29 @@ class NyxTest(SynTest):
             "api_args": ["someplace"],
             "api_optargs": {"domore": 0}
         }
+        self.post_config = {
+            "url": "http://vertex.link/api/v4/geoloc/{{someplace}}/postendpoint",
+
+            "http": {
+                "method": "POST",  # this defaults to GET obvs, just making an example
+                "headers": {
+                    "x-notes-log": "stardate 1234",
+                    "token-goodness": "sekrit token"
+                },
+                "user_agent": "Totally Not a Python application."
+            },
+
+            "doc": "api example",
+            "api_args": ["someplace"],
+        }
+        self.bad_config = {
+            "url": "http://vertex.link/api/v4/geoloc/{{req_body}}/postendpoint",
+            "doc": "api example",
+            "api_args": ["req_body"],
+        }
 
     def test_nyx_tornado_http_check(self):
+        self.thisHostMustNot(platform='windows')
         nyx = s_remcycle.Nyx(config=self.config)
 
         good_dict = {'method': 'PUT',
@@ -206,6 +331,7 @@ class NyxTest(SynTest):
         self.true('unexpected keyword argument' in str(cm.exception))
 
     def test_nyx_simple_config(self):
+        self.thisHostMustNot(platform='windows')
         nyx = s_remcycle.Nyx(config=self.config)
         e_url = 'http://vertex.link/api/v4/geoloc/{someplace}/info?domore={domore}&apikey=8675309'
         self.eq(nyx.effective_url, e_url)
@@ -228,7 +354,14 @@ class NyxTest(SynTest):
         desc.get('api_optargs')['domore'] = '1'
         self.true(nyx.api_kwargs['domore'] == 0)
 
+        with self.raises(BadConfValu) as cm:
+            nyx = s_remcycle.Nyx(self.bad_config)
+        self.eq(cm.exception.get('name'), 'req_body')
+        self.eq(cm.exception.get('valu'), None)
+        self.isin('Reserved api_arg used', cm.exception.get('mesg'))
+
     def test_nyx_make_request(self):
+        self.thisHostMustNot(platform='windows')
         nyx = s_remcycle.Nyx(config=self.config)
         e_url = 'http://vertex.link/api/v4/geoloc/{someplace}/info?domore={domore}&apikey=8675309'
         self.eq(nyx.effective_url, e_url)
@@ -260,29 +393,67 @@ class NyxTest(SynTest):
         self.eq(req.request_timeout, 1000)  # Default value for the object itself
 
     def test_nyx_quoted_values(self):
+        self.thisHostMustNot(platform='windows')
         nyx = s_remcycle.Nyx(config=self.config)
         req = nyx.buildHttpRequest(api_args={'someplace': 'foo bar',
                                              'domore': 'eeep@foo.bar'})
         e_url = 'http://vertex.link/api/v4/geoloc/foo+bar/info?domore=eeep%40foo.bar&apikey=8675309'
         self.eq(req.url, e_url)
 
+    def test_hypnos_make_body(self):
+        self.thisHostMustNot(platform='windows')
+        nyx = s_remcycle.Nyx(config=self.post_config)
+        byts = json.dumps({'foo': 'bar', 'baz': [1, 2, 3]}).encode()
+        req = nyx.buildHttpRequest(api_args={'someplace': 'Derry'})
+        e_url = 'http://vertex.link/api/v4/geoloc/Derry/postendpoint'
+        self.eq(req.method, 'POST')
+        self.eq(req.url, e_url)
+        self.eq(req.body, None)
+        body_req = nyx.buildHttpRequest(api_args={'req_body': byts, 'someplace': 'Derry'})
+        self.eq(body_req.url, e_url)
+        self.eq(body_req.body, byts)
+        # Ensure the req_body can be put onto a GET for badly shaped APIs
+        put_nyx = s_remcycle.Nyx(config=self.config)
+        put_req = nyx.buildHttpRequest(api_args={'someplace': 'foo bar',
+                                                 'domore': 'eeep@foo.bar',
+                                                 'req_body': byts})
+        self.eq(put_req.body, byts)
+
 class HypnosTest(SynTest, AsyncTestCase):
 
-    def test_hypnos_config_bounds(self):
+    @classmethod
+    def setUpClass(cls):
+        '''Spin up the fake ipify server on a random port'''
+        cls.env = TestEnv()
+        cls.port = random.randint(20000, 50000)
+        cls.env.add('testserver',
+                    StandaloneTestServer(port=cls.port),
+                    fini=True)
 
-        with self.raises(ValueError) as cm:
+    @classmethod
+    def tearDownClass(cls):
+        cls.env.fini()
+
+    def test_hypnos_config_bounds(self):
+        self.thisHostMustNot(platform='windows')
+        with self.raises(s_common.BadConfValu) as cm:
             hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 0},
                                          ioloop=self.io_loop)
-        self.true('Bad pool configuration provided' in str(cm.exception))
+        self.isin('web:worker:threads:min must be greater than 1', str(cm.exception))
 
-        with self.raises(ValueError) as cm:
+        with self.raises(s_common.BadConfValu) as cm:
             hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MAX_WORKER_THREADS: 1,
                                                s_remcycle.MIN_WORKER_THREADS: 2},
                                          ioloop=self.io_loop)
-        self.true('Bad pool configuration provided' in str(cm.exception))
+        self.isin('web:worker:threads:max must be greater than the web:worker:threads:min', str(cm.exception))
+        with self.raises(s_common.BadConfValu) as cm:
+            hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MAX_CLIENTS: 0, },
+                                         ioloop=self.io_loop)
+        self.isin('web:tornado:max_clients must be greater than 1', str(cm.exception))
 
     def test_hypnos_fini(self):
         # Ensure we call fini on all objects created by the core.
+        self.thisHostMustNot(platform='windows')
         hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                      ioloop=self.io_loop)
         hypo_obj.fini()
@@ -293,6 +464,7 @@ class HypnosTest(SynTest, AsyncTestCase):
 
     def test_hypnos_fini_core(self):
         # Ensure we don't tear down a Cortex provided to us by the constructor.
+        self.thisHostMustNot(platform='windows')
         core = s_cortex.openurl('ram:///')
         hypo_obj = s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                      ioloop=self.io_loop, core=core)
@@ -305,13 +477,17 @@ class HypnosTest(SynTest, AsyncTestCase):
         self.true(hypo_obj.web_core.isfini)
 
     def test_hypnos_callback_ondone(self):
+        self.thisHostMustNot(platform='windows')
         self.skipIfNoInternet()
-        gconf = get_ipify_global_config()
+
+        # testserver = Foo()
+        gconf = get_fake_ipify_global_config(port=self.port)
+
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addWebConfig(config=gconf)
 
-            self.true('ipify:jsonip' in hypo_obj._web_apis)
+            self.true('fakeipify:jsonip' in hypo_obj._web_apis)
 
             data = {}
 
@@ -322,22 +498,25 @@ class HypnosTest(SynTest, AsyncTestCase):
             def cb(*args, **kwargs):
                 resp = kwargs.get('resp')
                 self.true(resp.get('code') == 200)
-                body = resp.get('body')
-                body = json.loads(body)
-                self.true('ip' in body)
+                data = resp.get('data')
+                self.true('ret' in data)
+                ret = data.get('ret')
+                self.true('ip' in ret)
 
-            jid = hypo_obj.fireWebApi('ipify:jsonip',
+            jid = hypo_obj.fireWebApi('fakeipify:jsonip',
                                       callback=cb,
                                       ondone=ondone)
 
             job = hypo_obj.web_boss.job(jid)
             hypo_obj.web_boss.wait(jid)
+
             self.true(jid in data)
             self.true(job[1].get('done'))
 
     def test_hypnos_config_register_deregister(self):
+        self.thisHostMustNot(platform='windows')
         vertex_conf = get_vertex_global_config()
-        ipify_conf = get_ipify_ingest_global_config()
+        ipify_conf = get_fake_ipify_ingest_global_config()
 
         data = set([])
 
@@ -356,7 +535,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             hypo_obj.addWebConfig(config=vertex_conf)
             self.true('vertexproject' in hypo_obj._web_namespaces)
             self.true('vertexproject' in hypo_obj._web_docs)
-            self.true(len(hypo_obj._web_apis) == 2)
+            self.true(len(hypo_obj._web_apis) == 3)
             self.true('vertexproject:http' in hypo_obj._web_apis)
             self.true('vertexproject:https' in hypo_obj._web_apis)
             self.eq(dict(hypo_obj._web_api_ingests), {})
@@ -370,32 +549,32 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('doc' in d['vertexproject']['vertexproject:http'])
 
             hypo_obj.addWebConfig(config=ipify_conf)
-            self.true('ipify' in hypo_obj._web_namespaces)
-            self.true('ipify' in hypo_obj._web_docs)
-            self.true(len(hypo_obj._web_namespaces) == 2)
-            self.true(len(hypo_obj._web_apis) == 3)
-            self.true('ipify:jsonip' in hypo_obj._web_apis)
-            self.true('ipify:jsonip' in hypo_obj._web_api_ingests)
-            self.true('ipify:jsonip' in hypo_obj._syn_funcs)
-            self.true('ipify:jsonip:ipv4' in hypo_obj.web_core._syn_funcs)
+            self.true('fakeipify' in hypo_obj._web_namespaces)
+            self.true('fakeipify' in hypo_obj._web_docs)
+            self.eq(len(hypo_obj._web_namespaces), 2)
+            self.eq(len(hypo_obj._web_apis), 6)
+            self.true('fakeipify:jsonip' in hypo_obj._web_apis)
+            self.true('fakeipify:jsonip' in hypo_obj._web_api_ingests)
+            self.true('fakeipify:jsonip' in hypo_obj._syn_funcs)
+            self.true('fakeipify:jsonip:ipv4' in hypo_obj.web_core._syn_funcs)
 
             # Check repr!
             r = repr(hypo_obj)
             self.true('Hypnos' in r)
             self.true('vertexproject' in r)
-            self.true('ipify' in r)
-            self.true('synapse.cores.ram.Cortex' in r)
+            self.true('fakeipify' in r)
+            self.true('synapse.cores.common.Cortex' in r)
 
             # Ensure that if we remove everything when we dereregister a namespace
-            hypo_obj.delWebConf(namespace='ipify')
-            self.true('ipify' not in hypo_obj._web_namespaces)
-            self.true('ipify' not in hypo_obj._web_docs)
-            self.true(len(hypo_obj._web_namespaces) == 1)
-            self.true(len(hypo_obj._web_apis) == 2)
-            self.true('ipify:jsonip' not in hypo_obj._web_apis)
-            self.true('ipify:jsonip' not in hypo_obj._web_api_ingests)
-            self.true('ipify:jsonip' not in hypo_obj._syn_funcs)
-            self.true('ipify:jsonip:ipv4' not in hypo_obj.web_core._syn_funcs)
+            hypo_obj.delWebConf(namespace='fakeipify')
+            self.true('fakeipify' not in hypo_obj._web_namespaces)
+            self.true('fakeipify' not in hypo_obj._web_docs)
+            self.eq(len(hypo_obj._web_namespaces), 1)
+            self.eq(len(hypo_obj._web_apis), 3)
+            self.true('fakeipify:jsonip' not in hypo_obj._web_apis)
+            self.true('fakeipify:jsonip' not in hypo_obj._web_api_ingests)
+            self.true('fakeipify:jsonip' not in hypo_obj._syn_funcs)
+            self.true('fakeipify:jsonip:ipv4' not in hypo_obj.web_core._syn_funcs)
 
             # Trying to re-register a present namespace should fail
             with self.raises(NameError) as cm:
@@ -404,15 +583,15 @@ class HypnosTest(SynTest, AsyncTestCase):
 
             # Register ipfy again
             hypo_obj.addWebConfig(config=ipify_conf)
-            self.true('ipify' in hypo_obj._web_namespaces)
-            self.true('ipify' in hypo_obj._web_docs)
-            self.true(len(hypo_obj._web_namespaces) == 2)
-            self.true(len(hypo_obj._web_apis) == 3)
-            self.true('ipify:jsonip' in hypo_obj._web_apis)
-            self.true('ipify:jsonip' in hypo_obj._web_api_ingests)
-            self.true('ipify:jsonip' in hypo_obj._syn_funcs)
-            self.true('ipify:jsonip:ipv4' in hypo_obj.web_core._syn_funcs)
-            self.true('ipify:jsonip' in hypo_obj._web_api_gest_opens)
+            self.true('fakeipify' in hypo_obj._web_namespaces)
+            self.true('fakeipify' in hypo_obj._web_docs)
+            self.eq(len(hypo_obj._web_namespaces), 2)
+            self.eq(len(hypo_obj._web_apis), 6)
+            self.true('fakeipify:jsonip' in hypo_obj._web_apis)
+            self.true('fakeipify:jsonip' in hypo_obj._web_api_ingests)
+            self.true('fakeipify:jsonip' in hypo_obj._syn_funcs)
+            self.true('fakeipify:jsonip:ipv4' in hypo_obj.web_core._syn_funcs)
+            self.true('fakeipify:jsonip' in hypo_obj._web_api_gest_opens)
 
             # Now change something with ipify, register it and force a reload to occur
             api_def = ipify_conf['apis'].pop(0)
@@ -422,20 +601,20 @@ class HypnosTest(SynTest, AsyncTestCase):
 
             hypo_obj.addWebConfig(config=ipify_conf)
 
-            self.true('ipify' in hypo_obj._web_namespaces)
-            self.true('ipify' in hypo_obj._web_docs)
-            self.true(len(hypo_obj._web_namespaces) == 2)
-            self.true(len(hypo_obj._web_apis) == 3)
-            self.true('ipify:jsonip' not in hypo_obj._web_apis)
-            self.true('ipify:jsonip' not in hypo_obj._web_api_ingests)
-            self.true('ipify:jsonip' not in hypo_obj._syn_funcs)
-            self.true('ipify:jsonip:ipv4' not in hypo_obj.web_core._syn_funcs)
-            self.true('ipify:jsonip' not in hypo_obj._web_api_gest_opens)
-            self.true('ipify:duckip' in hypo_obj._web_apis)
-            self.true('ipify:duckip' in hypo_obj._web_api_ingests)
-            self.true('ipify:duckip' in hypo_obj._syn_funcs)
-            self.true('ipify:duckip:foobar' in hypo_obj.web_core._syn_funcs)
-            self.true('ipify:duckip' in hypo_obj._web_api_gest_opens)
+            self.true('fakeipify' in hypo_obj._web_namespaces)
+            self.true('fakeipify' in hypo_obj._web_docs)
+            self.eq(len(hypo_obj._web_namespaces), 2)
+            self.eq(len(hypo_obj._web_apis), 6)
+            self.true('fakeipify:jsonip' not in hypo_obj._web_apis)
+            self.true('fakeipify:jsonip' not in hypo_obj._web_api_ingests)
+            self.true('fakeipify:jsonip' not in hypo_obj._syn_funcs)
+            self.true('fakeipify:jsonip:ipv4' not in hypo_obj.web_core._syn_funcs)
+            self.true('fakeipify:jsonip' not in hypo_obj._web_api_gest_opens)
+            self.true('fakeipify:duckip' in hypo_obj._web_apis)
+            self.true('fakeipify:duckip' in hypo_obj._web_api_ingests)
+            self.true('fakeipify:duckip' in hypo_obj._syn_funcs)
+            self.true('fakeipify:duckip:foobar' in hypo_obj.web_core._syn_funcs)
+            self.true('fakeipify:duckip' in hypo_obj._web_api_gest_opens)
 
         # ensure all the expected events fired during testing
         self.true('hypnos:register:namespace:add' in data)
@@ -445,12 +624,15 @@ class HypnosTest(SynTest, AsyncTestCase):
 
     def test_hypnos_fire_api_callback(self):
         # Ensure that the provided callback is fired and args are passed to the callbacks.
+        self.thisHostMustNot(platform='windows')
         self.skipIfNoInternet()
-        gconf = get_vertex_global_config()
+
+        # testserver = Foo()
+        gconf = get_fake_ipify_global_config(port=self.port)
+
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 2},
                                ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addWebConfig(config=gconf)
-
             d = {'set': False,
                  'keys': set([])}
 
@@ -464,8 +646,8 @@ class HypnosTest(SynTest, AsyncTestCase):
                 d['set'] = True
                 d['keys'].add(kwargs.get('key'))
 
-            jid1 = hypo_obj.fireWebApi('vertexproject:http', 'foo', 'bar', key='12345', callback=cb)
-            jid2 = hypo_obj.fireWebApi('vertexproject:http', 'foo', 'bar', key='67890', callback=cb)
+            jid1 = hypo_obj.fireWebApi('fakeipify:rawip', 'foo', 'bar', key='12345', callback=cb)
+            jid2 = hypo_obj.fireWebApi('fakeipify:rawip', 'foo', 'bar', key='67890', callback=cb)
 
             hypo_obj.web_boss.wait(jid=jid1)
             hypo_obj.web_boss.wait(jid=jid2)
@@ -474,12 +656,14 @@ class HypnosTest(SynTest, AsyncTestCase):
 
     def test_hypnos_default_callback(self):
         # Ensure that the default callback, of firing an event handler, works.
+        self.thisHostMustNot(platform='windows')
         self.skipIfNoInternet()
-        gconf = get_ipify_global_config()
+        # testserver = Foo()
+        gconf = get_fake_ipify_global_config(port=self.port)
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1}, ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addWebConfig(config=gconf)
 
-            self.true('ipify:jsonip' in hypo_obj._web_apis)
+            self.true('fakeipify:jsonip' in hypo_obj._web_apis)
 
             def func(event_tufo):
                 event_name, argdata = event_tufo
@@ -487,40 +671,48 @@ class HypnosTest(SynTest, AsyncTestCase):
                 resp = kwargs.get('resp')
                 self.eq(resp.get('code'), 200)
 
-            hypo_obj.on('ipify:jsonip', func=func)
+            hypo_obj.on('fakeipify:jsonip', func=func)
 
-            jid = hypo_obj.fireWebApi('ipify:jsonip')
+            jid = hypo_obj.fireWebApi('fakeipify:jsonip')
 
             job = hypo_obj.web_boss.job(jid)
             hypo_obj.web_boss.wait(jid)
+
             self.true(job[1].get('done'))
 
     def test_hypnos_default_callback_null(self):
         # Ensure the Job is complete even if we have no explicit callback or
         # listening event handlers.
+        self.thisHostMustNot(platform='windows')
         self.skipIfNoInternet()
-        gconf = get_ipify_global_config()
+        gconf = get_fake_ipify_global_config(port=self.port)
+        # testserver = Foo()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addWebConfig(config=gconf)
 
-            self.true('ipify:jsonip' in hypo_obj._web_apis)
+            self.true('fakeipify:jsonip' in hypo_obj._web_apis)
 
-            jid = hypo_obj.fireWebApi('ipify:jsonip')
+            jid = hypo_obj.fireWebApi('fakeipify:jsonip')
 
             job = hypo_obj.web_boss.job(jid)
             hypo_obj.web_boss.wait(jid)
+
             self.true(job[1].get('done'))
             self.eq(job[1].get('task')[2].get('resp').get('code'), 200)
 
     def test_hypnos_manual_ingest_via_eventbus(self):
         # This is a manual setup of the core / ingest type of action.
+        self.thisHostMustNot(platform='windows')
         self.skipIfNoInternet()
-        gconf = get_ipify_global_config()
+
+        core = s_cortex.openurl('ram://')
+
+        gconf = get_fake_ipify_global_config(port=self.port)
+        # testserver = Foo()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addWebConfig(config=gconf)
-            core = s_cortex.openurl('ram://')
 
             data = {}
 
@@ -538,14 +730,14 @@ class HypnosTest(SynTest, AsyncTestCase):
                         [
                             "ip",
                             {
-                                "path": "ip"
+                                "path": "ret/ip"
                             }
                         ]
                     ]
                 }
             }
 
-            name = 'ipify:jsonip'
+            name = 'fakeipify:jsonip'
             core_name = ':'.join([name, 'ingest'])
 
             gest = s_ingest.Ingest(info=ingest_def)
@@ -563,7 +755,8 @@ class HypnosTest(SynTest, AsyncTestCase):
 
             def ondone(job_tufo):
                 _jid, jobd = job_tufo
-                ip = jobd.get('task')[2].get('resp', {}).get('data', {}).get('ip', '')
+                _data = jobd.get('task')[2].get('resp', {}).get('data', {})
+                ip = _data.get('ret', {}).get('ip', '')
                 data[_jid] = ip
 
             hypo_obj.on(name=name, func=glue)
@@ -580,14 +773,16 @@ class HypnosTest(SynTest, AsyncTestCase):
 
     def test_hypnos_automatic_ingest(self):
         # Ensure that a configuration object with a ingest definition is automatically parsed.
+        self.thisHostMustNot(platform='windows')
         self.skipIfNoInternet()
-        gconf = get_ipify_ingest_global_config()
+        gconf = get_fake_ipify_ingest_global_config(port=self.port)
+        # testserver = Foo()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addWebConfig(config=gconf)
 
-            self.true('ipify:jsonip' in hypo_obj._syn_funcs)
-            self.true('ipify:jsonip:ipv4' in hypo_obj.web_core._syn_funcs)
+            self.true('fakeipify:jsonip' in hypo_obj._syn_funcs)
+            self.true('fakeipify:jsonip:ipv4' in hypo_obj.web_core._syn_funcs)
 
             data = {}
 
@@ -596,9 +791,9 @@ class HypnosTest(SynTest, AsyncTestCase):
                 _data = jobd.get('task')[2].get('resp', {}).get('data')
                 _bytez = _data.read()
                 _d = json.loads(_bytez.decode())
-                data[_jid] = _d.get('ip')
+                data[_jid] = _d.get('ret').get('ip')
 
-            jid = hypo_obj.fireWebApi(name='ipify:jsonip', ondone=ondone)
+            jid = hypo_obj.fireWebApi(name='fakeipify:jsonip', ondone=ondone)
             hypo_obj.web_boss.wait(jid)
 
             tufos = hypo_obj.web_core.getTufosByProp('inet:ipv4')
@@ -607,77 +802,28 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.nn(data[jid])
             self.eq(s_inet.ipv4str(tufos[0][1].get('inet:ipv4')), data[jid])
 
-    def test_hypnos_throw_timeouts(self):
-        # Run a test scenario which will generate hundreds of jobs which will timeout.
-        self.skipTest(reason='This test can periodically cause coverage.py failures and even then may not run '
-                             'sucessfully.')
-        self.skipIfNoInternet()
-        gconf = get_ipify_ingest_global_config()
-        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
-                               ioloop=self.io_loop) as hypo_obj:
-            hypo_obj.addWebConfig(config=gconf)
-
-            data = {}
-
-            def ondone(job_tufo):
-                _jid, jobd = job_tufo
-                data[_jid] = jobd
-
-            n = 500
-
-            jids = []
-            for i in range(n):
-                jid = hypo_obj.fireWebApi(name='ipify:jsonip',
-                                          ondone=ondone,
-                                          request_args={'request_timeout': 0.6,
-                                                     'connect_timeout': 0.3})
-                jids.append(jid)
-            for jid in jids:
-                hypo_obj.web_boss.wait(jid)
-
-            completed_jobs = {jid: d for jid, d in data.items() if 'ret' in d}
-            error_jobs = {jid: d for jid, d in data.items() if 'ret' not in d}
-            self.true(len(completed_jobs) > 1)
-            self.true(len(error_jobs) > 1)
-            bad_job = list(error_jobs.values())[0]
-            # Ensure that we have error information propogated up to the job
-            self.true('err' in bad_job)
-            self.true('errfile' in bad_job)
-            self.true('errline' in bad_job)
-            self.true('errmsg' in bad_job)
-
-            # The following are error messages which are expected
-            e_messages = ['HTTP 599: Timeout in request queue',
-                          'HTTP 599: Timeout while connecting',
-                          'HTTP 599: Timeout during request']
-            error_messages = {d.get('errmsg') for d in error_jobs.values()}
-            i = 0
-            for msg in e_messages:
-                if msg in error_messages:
-                    i = i + 1
-            # Expect 2-3 of the error messages to exist.
-            self.true(0 < i < 4)
-
     def test_hypnos_simple_fail(self):
         # Test a simple failure case
+        self.thisHostMustNot(platform='windows')
         self.skipIfNoInternet()
-        gconf = get_bad_vertex_global_config()
+        gconf = get_fake_ipify_global_config(port=self.port)
+        # testserver = Foo()
+
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addWebConfig(config=gconf)
-
             data = {}
 
             def ondone(job_tufo):
                 _jid, jobd = job_tufo
                 data[_jid] = jobd
 
-            jid = hypo_obj.fireWebApi(name='vertexproject:fake_endpoint',
+            jid = hypo_obj.fireWebApi(name='fakeipify:fake_endpoint',
                                       ondone=ondone)
             hypo_obj.web_boss.wait(jid)
             job = data.get(jid)
 
-            # Ensure that we have error information propogated up to the job
+            # Ensure that we have error information propagated up to the job
             self.true('err' in job)
             self.eq(job.get('err'), 'HTTPError')
             self.true('errfile' in job)
@@ -689,62 +835,14 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('request' in resp)
             self.true('headers' in resp)
 
-    def test_hypnos_generic_config(self):
-        # Test hypnos with a generic config which allows the user to request
-        # arbitrary fqdns and paths. This is really example code.
-        self.skipIfNoInternet()
-
-        fqdns = [('www.google.com', ''),
-                 ('www.cnn.com', ''),
-                 ('www.vertex.link', ''),
-                 ('www.reddit.com', ''),
-                 ('www.foxnews.com', ''),
-                 ('www.msnbc.com', ''),
-                 ('www.bbc.co.uk', ''),
-                 ('www.amazon.com', ''),
-                 ('www.paypal.com', ''),
-                 ]
-
-        outp = s_output.OutPutStr()
-
-        def func(event_tufo):
-            event_name, argdata = event_tufo
-            kwargs = argdata.get('kwargs')
-            resp = kwargs.get('resp')
-            msg = 'Asked for [{}], got [{}] with code {}'.format(resp.get('request').get('url'),
-                                                                 resp.get('effective_url'),
-                                                                 resp.get('code')
-                                                                 )
-            outp.printf(msg)
-
-        gconf = get_generic_domain_global_config()
-        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 4},
-                               ioloop=self.io_loop) as hypo_obj:
-            hypo_obj.addWebConfig(config=gconf)
-            hypo_obj.on('generic:fqdn', func)
-
-            job_ids = []
-            for fqdn, endpoint in fqdns:
-                jid = hypo_obj.fireWebApi('generic:fqdn',
-                                          api_args={'fqdn': fqdn, 'endpoint': endpoint},
-                                          )
-                job_ids.append(jid)
-
-            for jid in job_ids:
-                hypo_obj.web_boss.wait(jid)
-
-            mesgs = str(outp)
-            for fqdn, _ in fqdns:
-                self.true(fqdn in mesgs)
-
     def test_hypnos_with_telepath(self):
         # Setup the Hypnos object using telepath, then get the proxy object and
         # issue the fireWebApi calls via telepath, validate that they worked
         # against ingested tufo in the hypnos cortex. Use daemon to handle
         # telepath proxying.
+        self.thisHostMustNot(platform='windows')
         self.skipIfNoInternet()
-
-        gconf = get_ipify_ingest_global_config()
+        gconf = get_fake_ipify_ingest_global_config(port=self.port)
         dconf = {
             'vars': {
                 'hopts': {
@@ -774,22 +872,22 @@ class HypnosTest(SynTest, AsyncTestCase):
                 ]
             ],
             'listen': [
-                'tcp://127.0.0.1:50000'
+                'tcp://127.0.0.1:50001'
             ]
         }
 
         dmon = s_daemon.Daemon()
         dmon.loadDmonConf(dconf)
 
-        hypnos_proxy = s_telepath.openurl('tcp://127.0.0.1:50000/hypnos')
-        core_proxy = s_telepath.openurl('tcp://127.0.0.1:50000/core')
+        hypnos_proxy = s_telepath.openurl('tcp://127.0.0.1:50001/hypnos')
+        core_proxy = s_telepath.openurl('tcp://127.0.0.1:50001/core')
         # Lets do a remote config load!
         hypnos_proxy.addWebConfig(config=gconf)
 
         description = hypnos_proxy.getWebDescription()
-        self.true('ipify' in description)
-        # Fire the
-        jid = hypnos_proxy.fireWebApi(name='ipify:jsonip')
+        self.true('fakeipify' in description)
+        # Fire the web api
+        jid = hypnos_proxy.fireWebApi(name='fakeipify:jsonip')
         self.nn(jid)
         hypnos_proxy.webJobWait(jid)
         tufos = core_proxy.getTufosByProp('inet:ipv4')
@@ -798,13 +896,15 @@ class HypnosTest(SynTest, AsyncTestCase):
         self.true(len(ip) >= 7)
 
     def test_hypnos_content_type_skips(self):
+        self.thisHostMustNot(platform='windows')
         self.skipIfNoInternet()
-        gconf = get_ipify_global_config()
+        gconf = get_fake_ipify_global_config(port=self.port)
+        # testserver = Foo()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
                                ioloop=self.io_loop) as hypo_obj:
             hypo_obj.addWebConfig(config=gconf)
 
-            self.true('ipify:jsonip' in hypo_obj._web_apis)
+            self.true('fakeipify:jsonip' in hypo_obj._web_apis)
 
             data = {}
 
@@ -813,17 +913,17 @@ class HypnosTest(SynTest, AsyncTestCase):
                 resp_data = jobd.get('task')[2].get('resp').get('data')
                 data[_jid] = type(resp_data)
 
-            jid1 = hypo_obj.fireWebApi('ipify:jsonip',
+            jid1 = hypo_obj.fireWebApi('fakeipify:jsonip',
                                        ondone=ondone)
             hypo_obj.web_boss.wait(jid1)
 
             hypo_obj.webContentTypeSkipAdd('application/json')
-            jid2 = hypo_obj.fireWebApi('ipify:jsonip',
+            jid2 = hypo_obj.fireWebApi('fakeipify:jsonip',
                                        ondone=ondone)
             hypo_obj.web_boss.wait(jid2)
 
             hypo_obj.webContentTypeSkipDel('application/json')
-            jid3 = hypo_obj.fireWebApi('ipify:jsonip',
+            jid3 = hypo_obj.fireWebApi('fakeipify:jsonip',
                                        ondone=ondone)
             hypo_obj.web_boss.wait(jid3)
 
@@ -836,14 +936,18 @@ class HypnosTest(SynTest, AsyncTestCase):
 
     def test_hypnos_cache_job(self):
         # Ensure that job results are available via cache when caching is enabled.
+        self.thisHostMustNot(platform='windows')
         self.skipIfNoInternet()
-        gconf = get_ipify_global_config()
+        gconf = get_fake_ipify_global_config(port=self.port)
+        # testserver = Foo()
+
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 2,
-                                     s_remcycle.CACHE_ENABLED: True},
+                                     s_remcycle.CACHE_ENABLED: True,
+                                     },
                                ioloop=self.io_loop) as hypo_obj:  # type: s_remcycle.Hypnos
             hypo_obj.addWebConfig(config=gconf)
 
-            jid1 = hypo_obj.fireWebApi('ipify:jsonip')
+            jid1 = hypo_obj.fireWebApi('fakeipify:jsonip')
             self.false(jid1 in hypo_obj.web_cache)
             hypo_obj.web_boss.wait(jid=jid1)
             time.sleep(0.01)
@@ -852,16 +956,18 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true(isinstance(cached_data, dict))
             resp = cached_data.get('resp')
             self.true('data' in resp)
-            data = resp.get('data')
+            # Cached response data is a bytes object
+            data = json.loads(resp.get('data').decode())
             # This is expected data from the API endpoint.
-            self.true('ip' in data)
+            self.true('ret' in data)
+            self.true('ip' in data.get('ret'))
             cached_data2 = hypo_obj.webCachePop(jid=jid1)
             self.eq(cached_data, cached_data2)
             self.false(jid1 in hypo_obj.web_cache)
             # Disable the cache and ensure the responses are cleared and no longer cached.
-            hypo_obj.webCacheDisable()
+            hypo_obj.setConfOpt(s_remcycle.CACHE_ENABLED, False)
             self.false(jid1 in hypo_obj.web_cache)
-            jid2 = hypo_obj.fireWebApi('ipify:jsonip')
+            jid2 = hypo_obj.fireWebApi('fakeipify:jsonip')
             hypo_obj.web_boss.wait(jid=jid1)
             time.sleep(0.01)
             self.false(jid2 in hypo_obj.web_cache)
@@ -870,17 +976,19 @@ class HypnosTest(SynTest, AsyncTestCase):
 
     def test_hypnos_cache_with_ingest(self):
         # Ensure that the cached data from a result with a ingest definition is msgpack serializable.
+        self.thisHostMustNot(platform='windows')
         self.skipIfNoInternet()
-        gconf = get_ipify_ingest_global_config()
+        # testserver = Foo()
+        gconf = get_fake_ipify_ingest_global_config(port=self.port)
+
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1,
                                      s_remcycle.CACHE_ENABLED: True},
                                ioloop=self.io_loop) as hypo_obj:  # type: s_remcycle.Hypnos
             hypo_obj.addWebConfig(config=gconf)
 
-            jid = hypo_obj.fireWebApi(name='ipify:jsonip')
+            jid = hypo_obj.fireWebApi(name='fakeipify:jsonip')
             job = hypo_obj.web_boss.job(jid=jid)
             hypo_obj.web_boss.wait(jid)
-            time.sleep(0.01)
             cached_data = hypo_obj.webCacheGet(jid=jid)
             self.nn(cached_data)
             # Ensure the cached data can be msgpacked as needed.
@@ -889,23 +997,45 @@ class HypnosTest(SynTest, AsyncTestCase):
             # Ensure that the existing job tufo is untouched when caching.
             self.true('ingdata' in job[1].get('task')[2].get('resp'))
 
-    def test_hypnos_cached_failure(self):
+    def test_hypnos_cache_with_failure(self):
         # Test a simple failure case
+        self.thisHostMustNot(platform='windows')
         self.skipIfNoInternet()
-        gconf = get_bad_vertex_global_config()
+
+        gconf = get_fake_ipify_global_config(port=self.port)
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1,
                                      s_remcycle.CACHE_ENABLED: True},
                                ioloop=self.io_loop) as hypo_obj:  # type: s_remcycle.Hypnos
             hypo_obj.addWebConfig(config=gconf)
 
-            jid = hypo_obj.fireWebApi(name='vertexproject:fake_endpoint')
-            job = hypo_obj.web_boss.job(jid=jid)[1]  # type: dict
+            jid = hypo_obj.fireWebApi(name='fakeipify:fake_endpoint')
             hypo_obj.web_boss.wait(jid)
             # Ensure that we have error information cached for the job
-            time.sleep(0.01)
             cached_data = hypo_obj.webCacheGet(jid=jid)
             self.true('err' in cached_data)
             self.eq(cached_data.get('err'), 'HTTPError')
             self.true('errfile' in cached_data)
             self.true('errline' in cached_data)
             self.true('errmsg' in cached_data)
+
+    def test_hypnos_post_byts(self):
+        self.thisHostMustNot(platform='windows')
+        self.skipIfNoInternet()
+
+        testserver = self.env.testserver  # type: StandaloneTestServer
+        self.false(testserver.nommer.nommed)
+        byts = json.dumps({'foo': 'bar', 'baz': [1, 2, 3]}).encode()
+        gconf = get_fake_ipify_global_config(port=self.port)
+        with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1,
+                                     },
+                               ioloop=self.io_loop) as hypo_obj:  # type: s_remcycle.Hypnos
+            hypo_obj.addWebConfig(config=gconf)
+
+            jid = hypo_obj.fireWebApi(name='fakeipify:byts', api_args={'req_body': byts})
+            job = hypo_obj.web_boss.job(jid=jid)[1]  # type: dict
+            hypo_obj.web_boss.wait(jid)
+            # Did the server actually nom a POST body?
+            self.true(testserver.nommer.nommed)
+            resp = job.get('task')[2].get('resp')  # type: dict
+            self.eq(resp.get('code'), 200)
+            self.true(resp.get('data').get('ret'))

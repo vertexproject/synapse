@@ -1,5 +1,5 @@
-cortex: The Synapse Hypergraph
-##############################
+Cortex: Synapse Hypergraph
+==========================
 
 Introduction
 ------------
@@ -18,7 +18,7 @@ to be intersected and fused as one.
 
 Cortex Quick Start
 ------------------
-A quick example of forming a RAM cortex and creating a few nodes::
+A quick example of forming a RAM Cortex and creating a few nodes::
 
     import synapse.cortex as s_cortex
 
@@ -172,7 +172,7 @@ Cortex Rows
 A row level API exists within the Cortex API to allow access to the underlying storage
 abstraction for individual properties.
 
-INPROG
+These APIs are detailed in `Cortex Storage Details`_.
 
 Calculating Statistics
 ----------------------
@@ -182,23 +182,9 @@ INPROG
 Cortex Storage Details
 ----------------------
 
-ram://
-~~~~~~~
-The ram:// storage implementation is implemented in put python data structures resulting in
-a mind bending level of performance.  However, this storage backing is only appropriate for
-data which does not cause the Cortex to exceed the available amount of memory on the system.
+The Cortex can be back by one of several different storage layers. Detail information about
+storage layers which are available for Cortex can be found here `Cortex Storage Types`_.
+Additional information about the Storage layer API itself can be found here `Cortex Storage Details`_.
 
-With the addition of the savefile=<path> URL parameter, a RAM cortex can persist to disk.
-However, for large or frequently changed data this savefile can grow very large due to storing
-all changes since the beginning and may take a long time to start up and apply all changes
-before the Cortex comes online.
-
-sqlite://
-~~~~~~~~~
-The SQLite3 storage implementation uses a single SQLite3 db file to store a Cortex.  They
-are reasonably fast for medium sized data sets and very simple to create and manage.
-
-postgres://
-~~~~~~~~~~~
-The PostgreSQL storage backing implements storage for a Cortex as a single table within
-a PostgreSQL database.  While slower than a ram:// Cortex, a PostgreSQL
+.. _`Cortex Storage Types`: ./cortex_storage_types.html
+.. _`Cortex Storage Details`: ./cortex_storage_details.html

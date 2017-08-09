@@ -1,10 +1,49 @@
 '''
 Central API for configurable objects within synapse.
 '''
+import collections
+
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.reflect as s_reflect
+
 from synapse.eventbus import EventBus
+
+def confdef(name):
+    '''
+    A decorator used to flag configable definition functions.
+
+    The options returned by the decorated functions are automatically loaded
+    into the class upon initialization of the Configable mixin. This decorator
+    must be used AFTER a @staticmethod decorator for autodoc generation to
+    work properly.
+
+    Args:
+        name (str): Identifier for a given function. This is used to prevent
+            reloading configable options multiple times in the case
+            of multi-class inheritance or mixin use.
+
+    Examples:
+        Example class using the confdef decorator to define and (automatically
+        load) a set of options into a Configable class::
+
+            class Foo(s_config.Config):
+
+                @staticmethod
+                @s_config.confdef(name='foo')
+                def foodefs():
+                    defs = (
+                        ('fooval', {'type': 'int', 'doc': 'what is foo val?', 'defval': 99}),
+                        ('enabled', {'type': 'bool', 'doc': 'is thing enabled?', 'defval': 0}),
+                    )
+                    return defs
+    '''
+    def wrap(f):
+        f._syn_config = name
+        return f
+
+    return wrap
 
 class Configable:
 
@@ -16,11 +55,28 @@ class Configable:
     def __init__(self, opts=None, defs=()):
         self._conf_defs = {}
         self._conf_opts = {}
+        self._syn_confs = []
+        self._syn_loaded_confs = set([])
 
         self.addConfDefs(defs)
 
         if opts is not None:
             self.setConfOpts(opts)
+        self._loadDecoratedFuncs()
+
+    def _loadDecoratedFuncs(self):
+
+        for name, meth in s_reflect.getItemLocals(self):
+            attr = getattr(meth, '_syn_config', None)
+            if attr is None:
+                continue
+            self._syn_confs.append((attr, meth))
+
+        for attr, meth in self._syn_confs:
+            if attr in self._syn_loaded_confs:
+                continue
+            self.addConfDefs(meth())
+            self._syn_loaded_confs.add(attr)
 
     def addConfDefs(self, defs):
         '''

@@ -87,6 +87,8 @@ class FileMod(CoreModule):
         Hashes that we consider "cardinal enough" to pivot.
         '''
         name = prop.rsplit(':', 1)[-1]
+        # Normalize the valu before we go any further
+        valu, _ = self.core.getPropNorm(prop, valu)
         props[name] = valu
 
         # FIXME could we update additional hashes here and
@@ -107,10 +109,12 @@ class FileMod(CoreModule):
         return tufo
 
     def seedFileMd5(self, prop, valu, **props):
+        valu, _ = self.core.getPropNorm('file:bytes:md5', valu)
         props['md5'] = valu
         return self.core.formTufoByProp('file:bytes', valu, **props)
 
     def seedFileSha1(self, prop, valu, **props):
+        valu, _ = self.core.getPropNorm('file:bytes:sha1', valu)
         props['sha1'] = valu
         valu = guid(valu)
         return self.core.formTufoByProp('file:bytes', valu, **props)

@@ -1,15 +1,9 @@
-import io
-import hashlib
-import tempfile
-
 import synapse.axon as s_axon
 import synapse.daemon as s_daemon
-import synapse.lib.heap as s_heap
-import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
+
 import synapse.lib.service as s_service
 
-from synapse.exc import *
 from synapse.tests.common import *
 
 craphash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
@@ -152,7 +146,7 @@ class AxonTest(SynTest):
             axfo0 = host0.add(**props)
 
             axon0 = s_telepath.openlink(axfo0[1].get('link'))
-            self.true(axon0._waitClonesReady(timeout=2))
+            self.true(axon0._waitClonesReady(timeout=8))
 
             iden = axon0.alloc(100)
             blob = axon0.chunk(iden, b'V' * 100)
@@ -207,7 +201,7 @@ class AxonTest(SynTest):
             axon0 = s_telepath.openlink(axfo0[1].get('link'))
 
             # wait for clones to come online
-            self.true(axon0._waitClonesReady(timeout=2))
+            self.true(axon0._waitClonesReady(timeout=8))
 
             #self.nn( usage.get('total') )
             #axon = host.axons.get(iden)
@@ -432,7 +426,6 @@ class AxonTest(SynTest):
                 self.eq(actual, b'')
 
     def test_axon_fs_readdir(self, *args, **kwargs):
-        raise unittest.SkipTest('FIXME file path norm breakage')
         with self.getTestDir() as dirname:
             with s_axon.Axon(dirname) as axon:
 
@@ -443,7 +436,6 @@ class AxonTest(SynTest):
                 self.raises(NotSupported, axon.fs_readdir, '/foofile')
 
     def test_axon_fs_rmdir(self, *args, **kwargs):
-        raise unittest.SkipTest('FIXME file path norm breakage')
         with self.getTestDir() as dirname:
             with s_axon.Axon(dirname) as axon:
 
@@ -459,7 +451,6 @@ class AxonTest(SynTest):
                 self.raises(NoSuchEntity, axon.fs_rmdir, '/foo')
 
     def test_axon_fs_rename(self, *args, **kwargs):
-        raise unittest.SkipTest('FIXME file path norm breakage')
         with self.getTestDir() as dirname:
             with s_axon.Axon(dirname) as axon:
 
@@ -544,7 +535,7 @@ class AxonTest(SynTest):
                 self.eq(tufo[1].get('axon:path:st_size'), 0)
                 self.eq(tufo[1].get('axon:path:blob'), None)
 
-                axon.fs_truncate('/notthere')  # FIXME - should this raise exception?
+                axon.fs_truncate('/notthere')
 
     def test_axon_fs_unlink(self, *args, **kwargs):
         with self.getTestDir() as dirname:
@@ -603,7 +594,7 @@ class AxonTest(SynTest):
 
     def test_axon_get_renameprops(self, *args, **kwargs):
         tufo = ('99ac9490ad2e1d4669de1c005a4ec666',
-            {'tufo:form': 'axon:path', 'axon:path:st_ctime': 1491191818, 'axon:path:st_mode': 16893, 'axon:path:parent': '/',
+            {'tufo:form': 'axon:path', 'axon:path:st_ctime': 1491191818, 'axon:path:st_mode': 16893,
             'axon:path:st_atime': 1491191818, 'axon:path': '/dir', 'axon:path:base': 'dir', 'axon:path:dir': '/',
             'axon:path:st_nlink': 3, 'axon:path:st_mtime': 1491191818, 'axon:path:blob': 32 * 'a'})
         actual = s_axon.Axon._get_renameprops(tufo)

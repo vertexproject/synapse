@@ -143,7 +143,7 @@ class DaemonTest(SynTest):
         dmon = s_daemon.Daemon()
         dmon.loadDmonConf(conf)
 
-        prox = s_telepath.openurl('local://%s/haha?retry=6' % (iden,))
+        prox = s_telepath.openurl('local://%s/haha?retry=20' % (iden,))
 
         pid0 = prox.pid()
         self.ne(pid0, os.getpid())

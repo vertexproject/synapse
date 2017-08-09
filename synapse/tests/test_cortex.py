@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 
 import os
+import gzip
 import hashlib
 import binascii
 import tempfile
@@ -13,7 +14,12 @@ import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
-import synapse.cores.lmdb as lmdb
+import synapse.cores.ram as s_cores_ram
+import synapse.cores.lmdb as s_cores_lmdb
+import synapse.cores.sqlite as s_cores_sqlite
+import synapse.cores.common as s_cores_common
+import synapse.cores.storage as s_cores_storage
+import synapse.cores.postgres as s_cores_postgres
 
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
@@ -96,25 +102,13 @@ class CoreTestDataModelModuleV1(s_module.CoreModule):
 class CortexTest(SynTest):
 
     def test_cortex_ram(self):
-        core = s_cortex.openurl('ram://')
-        self.true(hasattr(core.link, '__call__'))
-        self.runcore(core)
-        self.runjson(core)
-        self.runrange(core)
-        self.runidens(core)
-        self.rundsets(core)
-        self.runsnaps(core)
-        self.rundarks(core)
+        with s_cortex.openurl('ram://') as core:
+            self.true(hasattr(core.link, '__call__'))
+            self.basic_core_expectations(core, 'ram')
 
     def test_cortex_sqlite3(self):
-        core = s_cortex.openurl('sqlite:///:memory:')
-        self.runcore(core)
-        self.runjson(core)
-        self.runrange(core)
-        self.runidens(core)
-        self.rundsets(core)
-        self.runsnaps(core)
-        self.rundarks(core)
+        with s_cortex.openurl('sqlite:///:memory:') as core:
+            self.basic_core_expectations(core, 'sqlite')
 
     def test_cortex_lmdb(self):
         with self.getTestDir() as path:
@@ -123,13 +117,7 @@ class CortexTest(SynTest):
             lmdb_url = 'lmdb:///%s' % fp
 
             with s_cortex.openurl(lmdb_url) as core:
-                self.runcore(core)
-                self.runjson(core)
-                self.runrange(core)
-                self.runidens(core)
-                self.rundsets(core)
-                self.runsnaps(core)
-                self.rundarks(core)
+                self.basic_core_expectations(core, 'lmdb')
 
             # Test load an existing db
             core = s_cortex.openurl(lmdb_url)
@@ -137,13 +125,29 @@ class CortexTest(SynTest):
 
     def test_cortex_postgres(self):
         with self.getPgCore() as core:
-            self.runcore(core)
-            self.runjson(core)
-            self.runrange(core)
-            self.runidens(core)
-            self.rundsets(core)
-            self.runsnaps(core)
-            self.rundarks(core)
+            self.basic_core_expectations(core, 'postgres')
+
+    def basic_core_expectations(self, core, storetype):
+        '''
+        Run basic tests against a Cortex instance.
+
+        This should be a minimal test too ensure that a Storage and Cortex combination is working properly.
+
+        Args:
+            core (s_cores_common.Cortex): Cortex instance to test.
+            storetype (str): String to check the getStoreType api against.
+        '''
+        self.eq(core.getStoreType(), storetype)
+        self.runcore(core)
+        self.runjson(core)
+        self.runrange(core)
+        self.runtufobydefault(core)
+        self.runidens(core)
+        self.rundsets(core)
+        self.runsnaps(core)
+        self.rundarks(core)
+        self.runblob(core)
+        self.runstore(core)
 
     def rundsets(self, core):
         tufo = core.formTufoByProp('lol:zonk', 1)
@@ -326,6 +330,10 @@ class CortexTest(SynTest):
         tufo = core.getTufoByProp('baz', 'faz1')
 
         self.eq(len(core.getRowsByIdProp(id1, 'baz')), 1)
+        self.eq(len(core.getRowsByIdProp(id1, 'baz', 'faz1')), 1)
+        self.eq(len(core.getRowsByIdProp(id1, 'baz', 'faz2')), 0)
+        self.eq(len(core.getRowsByIdProp(id1, 'gronk', 80)), 1)
+        self.eq(len(core.getRowsByIdProp(id1, 'gronk', 8080)), 0)
 
         #pivo = core.getPivotByProp('baz','foo', valu='bar')
         #self.eq( tuple(sorted([r[2] for r in pivo])), ('faz1','faz2'))
@@ -371,11 +379,26 @@ class CortexTest(SynTest):
         self.eq(len(core.getRowsByProp('lolint', 80)), 0)
         self.eq(len(core.getRowsByProp('lolint', 99)), 1)
 
+        # Run delRowsByIdProp without the valu set
         core.delRowsByIdProp(id4, 'lolint')
         core.delRowsByIdProp(id4, 'lolstr')
 
         self.eq(len(core.getRowsByProp('lolint')), 0)
         self.eq(len(core.getRowsByProp('lolstr')), 0)
+
+        # Now run delRowsByIdProp with valu set
+        core.setRowsByIdProp(id4, 'lolstr', 'haha')
+        core.setRowsByIdProp(id4, 'lolint', 99)
+
+        core.delRowsByIdProp(id4, 'lolint', 80)
+        self.eq(len(core.getRowsByProp('lolint', 99)), 1)
+        core.delRowsByIdProp(id4, 'lolint', 99)
+        self.eq(len(core.getRowsByProp('lolint', 99)), 0)
+
+        core.delRowsByIdProp(id4, 'lolstr', 'hehe')
+        self.eq(len(core.getRowsByProp('lolstr', 'haha')), 1)
+        core.delRowsByIdProp(id4, 'lolstr', 'haha')
+        self.eq(len(core.getRowsByProp('lolstr', 'haha')), 0)
 
         core.delRowsById(id1)
 
@@ -422,6 +445,21 @@ class CortexTest(SynTest):
         self.eq(tufo[1].get('zoot:suit:bar'), bigstr)
         self.eq(len(core.getTufosByProp('zoot:suit:bar', valu=bigstr)), 1)
 
+        tufo = core.formTufoByProp('hehe', 'haha', foo='bar', baz='faz')
+        self.eq(tufo[1].get('hehe'), 'haha')
+        self.eq(tufo[1].get('hehe:foo'), 'bar')
+        self.eq(tufo[1].get('hehe:baz'), 'faz')
+
+        tufo = core.delTufoProp(tufo, 'foo')
+        self.none(tufo[1].get('hehe:foo'))
+
+        self.eq(len(core.eval('hehe:foo')), 0)
+        self.eq(len(core.eval('hehe:baz')), 1)
+
+        # Disable on() events registered in the test.
+        core.off('node:form', formtufo)
+        core.off('node:form', formfqdn)
+
     def runrange(self, core):
 
         rows = [
@@ -441,21 +479,34 @@ class CortexTest(SynTest):
 
         self.eq(core.getSizeBy('ge', 'rg', 20), 1)
         self.eq(core.getRowsBy('ge', 'rg', 20)[0][2], 30)
+        self.eq(len(core.getRowsBy('ge', 'rg', 10)), 2)
+        self.eq(len(core.getRowsBy('ge', 'rg', 20)), 1)
+        self.eq(len(core.getRowsBy('gt', 'rg', 31)), 0)
+        self.eq(len(core.getRowsBy('gt', 'rg', 10)), 1)
+        self.eq(len(core.getRowsBy('gt', 'rg', 9)), 2)
+        self.eq(core.getRowsBy('gt', 'rg', 20)[0][2], 30)
 
         self.eq(core.getSizeBy('le', 'rg', 20), 1)
         self.eq(core.getRowsBy('le', 'rg', 20)[0][2], 10)
+        self.eq(len(core.getRowsBy('le', 'rg', 10)), 1)
+        self.eq(len(core.getRowsBy('le', 'rg', 30)), 2)
+        self.eq(len(core.getRowsBy('lt', 'rg', 31)), 2)
+        self.eq(len(core.getRowsBy('lt', 'rg', 11)), 1)
+        self.eq(len(core.getRowsBy('lt', 'rg', 10)), 0)
+        self.eq(len(core.getRowsBy('lt', 'rg', 9)), 0)
+        self.eq(core.getRowsBy('lt', 'rg', 20)[0][2], 10)
 
         rows = [
             (guid(), 'rg', -42, 99),
             (guid(), 'rg', -1, 99),
             (guid(), 'rg', 0, 99),
             (guid(), 'rg', 1, 99),
-            (guid(), 'rg', lmdb.MIN_INT_VAL, 99),
-            (guid(), 'rg', lmdb.MAX_INT_VAL, 99),
+            (guid(), 'rg', s_cores_lmdb.MIN_INT_VAL, 99),
+            (guid(), 'rg', s_cores_lmdb.MAX_INT_VAL, 99),
         ]
         core.addRows(rows)
-        self.eq(core.getSizeBy('range', 'rg', (lmdb.MIN_INT_VAL + 1, -42)), 0)
-        self.eq(core.getSizeBy('range', 'rg', (lmdb.MIN_INT_VAL, -42)), 1)
+        self.eq(core.getSizeBy('range', 'rg', (s_cores_lmdb.MIN_INT_VAL + 1, -42)), 0)
+        self.eq(core.getSizeBy('range', 'rg', (s_cores_lmdb.MIN_INT_VAL, -42)), 1)
         self.eq(core.getSizeBy('le', 'rg', -42), 2)
         # TODO: Need to implement lt for all the cores
         if 0:
@@ -469,7 +520,7 @@ class CortexTest(SynTest):
         if 0:
             self.eq(core.getSizeBy('ge', 'rg', -1, limit=3), 3)
         self.eq(core.getSizeBy('ge', 'rg', 30), 2)
-        self.eq(core.getSizeBy('ge', 'rg', lmdb.MAX_INT_VAL), 1)
+        self.eq(core.getSizeBy('ge', 'rg', s_cores_lmdb.MAX_INT_VAL), 1)
 
     def runjson(self, core):
 
@@ -495,9 +546,109 @@ class CortexTest(SynTest):
 
             self.eq(item['foo']['blah'][0], 99)
 
+    def runblob(self, core):
+        # Do we have default cortex blob values?
+        self.true(core.hasBlobValu('syn:core:created'))
+
+        kvs = (
+            ('syn:meta', 1),
+            ('foobar:thing', 'a string',),
+            ('storage:sekrit', {'oh': 'my!', 'key': (1, 2)}),
+            ('syn:bytes', b'0xdeadb33f'),
+            ('knight:weight', 1.234),
+            ('knight:saidni', False),
+            ('knight:has:fleshwound', True),
+            ('knight:has:current_queue', None),
+        )
+
+        # Basic store / retrieve tests
+        for k, v in kvs:
+            r = core.setBlobValu(k, v)
+            self.eq(v, r)
+            self.true(core.hasBlobValu(k))
+        for k, v in kvs:
+            self.eq(core.getBlobValu(k), v)
+
+        # Missing a value
+        self.false(core.hasBlobValu('syn:totallyfake'))
+
+        # getkeys
+        keys = core.getBlobKeys()
+        self.isinstance(keys, list)
+        self.isin('syn:core:created', keys)
+        self.isin('syn:meta', keys)
+        self.isin('knight:has:current_queue', keys)
+        self.notin('totally-false', keys)
+
+        # update a value and get the updated value back
+        self.eq(core.getBlobValu('syn:meta'), 1)
+        core.setBlobValu('syn:meta', 2)
+        self.eq(core.getBlobValu('syn:meta'), 2)
+
+        # msgpack'd output expected
+        testv = [1, 2, 3]
+        core.setBlobValu('test:list', testv)
+        self.eq(core.getBlobValu('test:list'), tuple(testv))
+
+        # Cannot store invalid items
+        for obj in [object, set(testv), self.eq]:
+            self.raises(TypeError, core.setBlobValu, 'test:bad', obj)
+
+        # Ensure that trying to get a value which doesn't exist returns None.
+        self.true(core.getBlobValu('test:bad') is None)
+        # but does work is a default value is provided!
+        self.eq(core.getBlobValu('test:bad', 123456), 123456)
+
+        # Ensure we can delete items from the store
+        self.eq(core.delBlobValu('test:list'), tuple(testv))
+        self.false(core.hasBlobValu('test:list'))
+        self.eq(core.getBlobValu('test:list'), None)
+        # And deleting a value which doesn't exist raises a NoSuchName
+        self.raises(NoSuchName, core.delBlobValu, 'test:deleteme')
+
+    def runstore(self, core):
+        '''
+        Run generic storage layer tests on the core.store object
+        '''
+
+        # Ensure that genStoreRows() is implemented and generates boundary rows based on idens.
+        rows = []
+        tick = now()
+        newrows = [
+            ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
+            ('00000000000000000000000000000000', 'inet:asn', 1, tick),
+            ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
+            ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
+            ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
+            ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick)
+        ]
+        core.addRows(newrows)
+        for _rows in core.store.genStoreRows(slicebytes=2):
+            rows.extend(_rows)
+        # A default cortex may have a few thousand rows in it - ensure we get at least 1000 rows here.
+        self.gt(len(rows), 1000)
+        self.isinstance(rows[0], tuple)
+        self.eq(len(rows[0]), 4)
+        # Sort rows by idens
+        rows.sort(key=lambda x: x[0])
+        bottom_rows = rows[:3]
+        bottom_rows.sort(key=lambda x: x[1])
+        self.eq(bottom_rows, [
+            ('00000000000000000000000000000000', 'inet:asn', 1, tick),
+            ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
+            ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
+        ])
+        top_rows = rows[-3:]
+        top_rows.sort(key=lambda x: x[1])
+        self.eq(top_rows, [
+            ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
+            ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick),
+            ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
+        ])
+
     def test_pg_encoding(self):
         with self.getPgCore() as core:
-            res = core.select('SHOW SERVER_ENCODING')[0][0]
+            res = core.store.select('SHOW SERVER_ENCODING')[0][0]
             self.eq(res, 'UTF8')
 
     def test_cortex_choptag(self):
@@ -509,23 +660,142 @@ class CortexTest(SynTest):
         self.eq(t1, ('foo', 'foo.bar'))
         self.eq(t2, ('foo', 'foo.bar', 'foo.bar.baz'))
 
-    def test_cortex_tufo_by_default(self):
-        core = s_cortex.openurl('sqlite:///:memory:')
+    def runtufobydefault(self, core):
+        # Failures should be expected for unknown names
+        self.raises(NoSuchGetBy, core.getTufosBy, 'clowns', 'inet:ipv4', 0x01020304)
 
         # BY IN
-        fooa = core.formTufoByProp('foo', 'bar', p0=4)
-        foob = core.formTufoByProp('foo', 'baz', p0=5)
+        fooa = core.formTufoByProp('default_foo', 'bar', p0=4)
+        foob = core.formTufoByProp('default_foo', 'baz', p0=5)
+        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [4])), 1)
 
-        self.eq(len(core.getTufosBy('in', 'foo:p0', [4])), 1)
+        fooc = core.formTufoByProp('default_foo', 'faz', p0=5)
+        food = core.formTufoByProp('default_foo', 'haz', p0=6)
+        fooe = core.formTufoByProp('default_foo', 'gaz', p0=7)
+        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [5])), 2)
+        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [4, 5])), 3)
+        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [4, 5, 6, 7], limit=4)), 4)
+        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [5], limit=1)), 1)
+        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [], limit=1)), 0)
 
-        fooc = core.formTufoByProp('foo', 'faz', p0=5)
-        food = core.formTufoByProp('foo', 'haz', p0=6)
-        fooe = core.formTufoByProp('foo', 'gaz', p0=7)
-        self.eq(len(core.getTufosBy('in', 'foo:p0', [5])), 2)
-        self.eq(len(core.getTufosBy('in', 'foo:p0', [4, 5])), 3)
-        self.eq(len(core.getTufosBy('in', 'foo:p0', [4, 5, 6, 7], limit=4)), 4)
-        self.eq(len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
-        self.eq(len(core.getTufosBy('in', 'foo:p0', [], limit=1)), 0)
+        # By IN requiring type normalization
+        foof = core.formTufoByProp('inet:ipv4', '10.2.3.6')
+
+        self.eq(len(core.getTufosBy('in', 'inet:ipv4', [0x0a020306])), 1)
+        self.eq(len(core.getTufosBy('in', 'inet:ipv4', [0x0a020305, 0x0a020307])), 0)
+        self.eq(len(core.getTufosBy('in', 'inet:ipv4', [0x0a020305, 0x0a020306, 0x0a020307])), 1)
+        self.eq(len(core.getTufosBy('in', 'inet:ipv4', ['10.2.3.6'])), 1)
+        self.eq(len(core.getTufosBy('in', 'inet:ipv4', ['10.2.3.5', '10.2.3.7'])), 0)
+        self.eq(len(core.getTufosBy('in', 'inet:ipv4', ['10.2.3.5', '10.2.3.6', '10.2.3.7'])), 1)
+
+        # By IN using COMP type nodes
+        nmb1 = core.formTufoByProp('inet:netmemb', '(vertex.link/pennywise,vertex.link/eldergods)')
+        nmb2 = core.formTufoByProp('inet:netmemb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))
+        nmb3 = core.formTufoByProp('inet:netmemb', ['vertex.link/pennywise', 'vertex.link/clowns'])
+
+        self.eq(len(core.getTufosBy('in', 'inet:netmemb', ['(vertex.link/pennywise,vertex.link/eldergods)'])), 1)
+        self.eq(len(core.getTufosBy('in', 'inet:netmemb:group', ['vertex.link/eldergods'])), 2)
+        self.eq(len(core.getTufosBy('in', 'inet:netmemb:group', ['vertex.link/eldergods'])), 2)
+        self.eq(len(core.getTufosBy('in', 'inet:netmemb:group', ['vertex.link/eldergods', 'vertex.link/clowns'])), 3)
+        self.eq(len(core.getTufosBy('in', 'inet:netmemb', ['(vertex.link/pennywise,vertex.link/eldergods)', ('vertex.link/pennywise', 'vertex.link/clowns')])), 2)
+
+        # By LT/LE/GE/GT
+        self.eq(len(core.getTufosBy('lt', 'default_foo:p0', 6)), 3)
+        self.eq(len(core.getTufosBy('le', 'default_foo:p0', 6)), 4)
+        self.eq(len(core.getTufosBy('le', 'default_foo:p0', 7)), 5)
+        self.eq(len(core.getTufosBy('gt', 'default_foo:p0', 6)), 1)
+        self.eq(len(core.getTufosBy('ge', 'default_foo:p0', 6)), 2)
+        self.eq(len(core.getTufosBy('ge', 'default_foo:p0', 5)), 4)
+
+        # By LT/LE/GE/GT requiring type normalization
+        foog = core.formTufoByProp('inet:ipv4', '10.2.3.5')
+        fooh = core.formTufoByProp('inet:ipv4', '10.2.3.7')
+        fooi = core.formTufoByProp('inet:ipv4', '10.2.3.8')
+        fooj = core.formTufoByProp('inet:ipv4', '10.2.3.9')
+
+        self.eq(len(core.getTufosBy('lt', 'inet:ipv4', 0x0a020306)), 1)
+        self.eq(len(core.getTufosBy('le', 'inet:ipv4', 0x0a020306)), 2)
+        self.eq(len(core.getTufosBy('le', 'inet:ipv4', 0x0a020307)), 3)
+        self.eq(len(core.getTufosBy('gt', 'inet:ipv4', 0x0a020306)), 3)
+        self.eq(len(core.getTufosBy('ge', 'inet:ipv4', 0x0a020306)), 4)
+        self.eq(len(core.getTufosBy('ge', 'inet:ipv4', 0x0a020305)), 5)
+
+        self.eq(len(core.getTufosBy('lt', 'inet:ipv4', '10.2.3.6')), 1)
+        self.eq(len(core.getTufosBy('le', 'inet:ipv4', '10.2.3.6')), 2)
+        self.eq(len(core.getTufosBy('le', 'inet:ipv4', '10.2.3.7')), 3)
+        self.eq(len(core.getTufosBy('gt', 'inet:ipv4', '10.2.3.6')), 3)
+        self.eq(len(core.getTufosBy('ge', 'inet:ipv4', '10.2.3.6')), 4)
+        self.eq(len(core.getTufosBy('ge', 'inet:ipv4', '10.2.3.5')), 5)
+
+        # By RANGE
+        # t0/t1 came in from the old test_cortex_ramtyperange test
+        t0 = core.formTufoByProp('foo:bar', 10)
+        t1 = core.formTufoByProp('foo:bar', 'baz')
+        tufs = core.getTufosBy('range', 'foo:bar', (5, 15))
+        self.eq(len(tufs), 1)
+        self.eq(tufs[0][0], t0[0])
+        # Do a range lift requiring prop normalization (using a built-in data type) to work
+        t2 = core.formTufoByProp('inet:ipv4', '1.2.3.3')
+        tufs = core.getTufosBy('range', 'inet:ipv4', (0x01020301, 0x01020309))
+        self.eq(len(tufs), 1)
+        self.eq(t2[0], tufs[0][0])
+        tufs = core.getTufosBy('range', 'inet:ipv4', ('1.2.3.1', '1.2.3.9'))
+        self.eq(len(tufs), 1)
+        self.eq(t2[0], tufs[0][0])
+        # RANGE test cleanup
+        for tufo in [t0, t1, t2]:
+            if tufo[1].get('.new'):
+                core.delTufo(tufo)
+
+        # By HAS - the valu is dropped by the _tufosByHas handler.
+        self.eq(len(core.getTufosBy('has', 'default_foo:p0', valu=None)), 5)
+        self.eq(len(core.getTufosBy('has', 'default_foo:p0', valu=5)), 5)
+        self.eq(len(core.getTufosBy('has', 'default_foo', valu='foo')), 5)
+        self.eq(len(core.getTufosBy('has', 'default_foo', valu='knight')), 5)
+
+        self.eq(len(core.getTufosBy('has', 'inet:ipv4', valu=None)), 5)
+        self.eq(len(core.getTufosBy('has', 'syn:tag', valu=None)), 0)
+
+        # By TAG
+        core.addTufoTag(fooa, 'color.white')
+        core.addTufoTag(fooa, 'color.black')
+        core.addTufoTag(foog, 'color.green')
+        core.addTufoTag(foog, 'color.blue')
+        core.addTufoTag(fooh, 'color.green')
+        core.addTufoTag(fooh, 'color.red')
+        core.addTufoTag(fooi, 'color.white')
+
+        self.eq(len(core.getTufosBy('tag', 'inet:ipv4', 'color')), 3)
+        self.eq(len(core.getTufosBy('tag', None, 'color')), 4)
+        self.eq(len(core.getTufosBy('tag', 'default_foo', 'color.white')), 1)
+        self.eq(len(core.getTufosBy('tag', 'default_foo', 'color.black')), 1)
+        self.eq(len(core.getTufosBy('tag', 'inet:ipv4', 'color.green')), 2)
+        self.eq(len(core.getTufosBy('tag', 'inet:ipv4', 'color.white')), 1)
+        self.eq(len(core.getTufosBy('tag', None, 'color.white')), 2)
+
+        # By EQ
+        self.eq(len(core.getTufosBy('eq', 'default_foo', 'bar')), 1)
+        self.eq(len(core.getTufosBy('eq', 'default_foo', 'blah')), 0)
+        self.eq(len(core.getTufosBy('eq', 'default_foo:p0', 5)), 2)
+        self.eq(len(core.getTufosBy('eq', 'inet:ipv4', 0x0a020306)), 1)
+        self.eq(len(core.getTufosBy('eq', 'inet:ipv4', '10.2.3.6')), 1)
+        self.eq(len(core.getTufosBy('eq', 'inet:ipv4:asn', -1)), 5)
+        self.eq(len(core.getTufosBy('eq', 'inet:ipv4', 0x0)), 0)
+        self.eq(len(core.getTufosBy('eq', 'inet:ipv4', '0.0.0.0')), 0)
+        self.eq(len(core.getTufosBy('eq', 'inet:netmemb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
+        self.eq(len(core.getTufosBy('eq', 'inet:netmemb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
+
+        # By TYPE - this requires data model introspection
+        fook = core.formTufoByProp('inet:dns:a', 'derry.vertex.link/10.2.3.6')
+        fool = core.formTufoByProp('inet:url', 'https://derry.vertex.link/clowntown.html', ipv4='10.2.3.6')
+        # self.eq(len(core.getTufosBy('type', 'inet:ipv4', None)), 7)
+        self.eq(len(core.getTufosBy('type', 'inet:ipv4', '10.2.3.6')), 3)
+        self.eq(len(core.getTufosBy('type', 'inet:ipv4', 0x0a020306)), 3)
+
+        # By TYPE using COMP nodes
+        self.eq(len(core.getTufosBy('type', 'inet:netmemb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
+        self.eq(len(core.getTufosBy('type', 'inet:netmemb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
+        self.eq(len(core.getTufosBy('type', 'inet:netuser', 'vertex.link/invisig0th')), 2)
 
         # BY CIDR
         tlib = s_types.TypeLib()
@@ -543,29 +813,74 @@ class CortexTest(SynTest):
             ipint, _ = tlib.getTypeParse('inet:ipv4', ip)
             ipc = core.formTufoByProp('inet:ipv4', ipint)
 
-        self.eq(len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.4/32')), 1)
-        self.eq(len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.4/31')), 2)
-        self.eq(len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/30')), 4)
-        self.eq(len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.2/30')), 4)
-        self.eq(len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/29')), 8)
-        self.eq(len(core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/28')), 16)
+        # Validate the content we get from cidr lookups is correctly bounded
+        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.4/32')
+        self.eq(len(nodes), 1)
+        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
+        self.eq(test_repr, '10.2.1.4')
 
-        self.eq(len(core.getTufosBy('inet:cidr', 'inet:ipv4', '192.168.0.0/16')), 2)
+        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.4/31')
+        self.eq(len(nodes), 2)
+        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
+        self.eq(test_repr, '10.2.1.4')
+        test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
+        self.eq(test_repr, '10.2.1.5')
 
-    def test_cortex_tufo_by_postgres(self):
+        # 10.2.1.1/30 is 10.2.1.0 -> 10.2.1.3 but we don't have 10.2.1.0 in the core
+        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/30')
+        self.eq(len(nodes), 3)
+        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
+        self.eq(test_repr, '10.2.1.1')
+        test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
+        self.eq(test_repr, '10.2.1.3')
 
-        with self.getPgCore() as core:
+        # 10.2.1.2/30 is 10.2.1.0 -> 10.2.1.3 but we don't have 10.2.1.0 in the core
+        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.2/30')
+        self.eq(len(nodes), 3)
+        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
+        self.eq(test_repr, '10.2.1.1')
+        test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
+        self.eq(test_repr, '10.2.1.3')
 
-            fooa = core.formTufoByProp('foo', 'bar', p0=4)
-            foob = core.formTufoByProp('foo', 'baz', p0=5)
+        # 10.2.1.1/29 is 10.2.1.0 -> 10.2.1.7 but we don't have 10.2.1.0 in the core
+        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/29')
+        self.eq(len(nodes), 7)
+        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
+        self.eq(test_repr, '10.2.1.1')
+        test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
+        self.eq(test_repr, '10.2.1.7')
 
-            self.eq(len(core.getTufosBy('in', 'foo:p0', [4])), 1)
+        # 10.2.1.8/29 is 10.2.1.8 -> 10.2.1.15
+        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.8/29')
+        self.eq(len(nodes), 8)
+        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
+        self.eq(test_repr, '10.2.1.8')
+        test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
+        self.eq(test_repr, '10.2.1.15')
 
-            fooc = core.formTufoByProp('foo', 'faz', p0=5)
+        # 10.2.1.1/28 is 10.2.1.0 -> 10.2.1.15 but we don't have 10.2.1.0 in the core
+        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/28')
+        self.eq(len(nodes), 15)
+        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
+        self.eq(test_repr, '10.2.1.1')
+        test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
+        self.eq(test_repr, '10.2.1.15')
 
-            self.eq(len(core.getTufosBy('in', 'foo:p0', [5])), 2)
-            self.eq(len(core.getTufosBy('in', 'foo:p0', [4, 5])), 3)
-            self.eq(len(core.getTufosBy('in', 'foo:p0', [5], limit=1)), 1)
+        # 192.168.0.0/16 is 192.168.0.0 -> 192.168.255.255 but we only have two nodes in this range
+        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '192.168.0.0/16')
+        self.eq(len(nodes), 2)
+        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
+        self.eq(test_repr, '192.168.0.1')
+        test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
+        self.eq(test_repr, '192.168.255.254')
 
     def test_cortex_tufo_tag(self):
         core = s_cortex.openurl('ram://')
@@ -694,23 +1009,74 @@ class CortexTest(SynTest):
         fd = s_compat.BytesIO()
         core0 = s_cortex.openurl('ram://', savefd=fd)
 
+        self.true(core0.isnew)
+        myfo0 = core0.myfo[0]
+
+        created = core0.getBlobValu('syn:core:created')
+
         t0 = core0.formTufoByProp('foo', 'one', baz='faz')
         t1 = core0.formTufoByProp('foo', 'two', baz='faz')
 
         core0.setTufoProps(t0, baz='gronk')
 
         core0.delTufoByProp('foo', 'two')
+        # Try persisting an blob store value
+        core0.setBlobValu('syn:test', 1234)
+        self.eq(core0.getBlobValu('syn:test'), 1234)
         core0.fini()
 
         fd.seek(0)
 
         core1 = s_cortex.openurl('ram://', savefd=fd)
+
+        self.false(core1.isnew)
+        myfo1 = core1.myfo[0]
+        self.eq(myfo0, myfo1)
+
         self.none(core1.getTufoByProp('foo', 'two'))
 
         t0 = core1.getTufoByProp('foo', 'one')
         self.nn(t0)
 
         self.eq(t0[1].get('foo:baz'), 'gronk')
+
+        # Retrieve the stored blob value
+        self.eq(core1.getBlobValu('syn:test'), 1234)
+        self.eq(core1.getBlobValu('syn:core:created'), created)
+
+        # Persist a value which will be overwritten by a storage layer event
+        core1.setBlobValu('syn:core:sqlite:version', -2)
+        core1.hasBlobValu('syn:core:sqlite:version')
+
+        fd.seek(0)
+        time.sleep(1)
+
+        core2 = s_cortex.openurl('sqlite:///:memory:', savefd=fd)
+
+        self.false(core2.isnew)
+        myfo2 = core2.myfo[0]
+        self.eq(myfo0, myfo2)
+
+        self.none(core2.getTufoByProp('foo', 'two'))
+
+        t0 = core2.getTufoByProp('foo', 'one')
+        self.nn(t0)
+
+        self.eq(t0[1].get('foo:baz'), 'gronk')
+
+        # blobstores persist across storage types with savefiles
+        self.eq(core2.getBlobValu('syn:test'), 1234)
+        self.eq(core2.getBlobValu('syn:core:created'), created)
+        # Ensure that storage layer values may trump whatever was in a savefile
+        self.ge(core2.getBlobValu('syn:core:sqlite:version'), 0)
+
+        core2.fini()
+
+        fd.seek(0)
+
+        # Ensure the storage layer init events persisted across savefile reload
+        core3 = s_cortex.openurl('ram://', savefd=fd)
+        self.ge(core3.hasBlobValu('syn:core:sqlite:version'), 0)
 
     def test_cortex_stats(self):
         rows = [
@@ -748,13 +1114,13 @@ class CortexTest(SynTest):
 
         tufo = core.formTufoByProp('foo', 'hehe', bar='lol')
 
-        msgs = wait = core.waiter(1, 'node:set')
+        msgs = wait = core.waiter(1, 'node:prop:set')
 
         core.setTufoProps(tufo, bar='hah')
 
         evts = wait.wait(timeout=2)
 
-        self.eq(evts[0][0], 'node:set')
+        self.eq(evts[0][0], 'node:prop:set')
         self.eq(evts[0][1]['node'][0], tufo[0])
         self.eq(evts[0][1]['form'], 'foo')
         self.eq(evts[0][1]['valu'], 'hehe')
@@ -821,6 +1187,28 @@ class CortexTest(SynTest):
         self.eq(len(core.getTufosByTag('lulz.rofl', form='foo')), 0)
         self.eq(len(core.getTufosByTag('lulz.rofl.zebr', form='foo')), 0)
 
+        # Now we need to retag a node, ensure that the tag is on the node and the syn:tag nodes exist again
+        wait = core.waiter(1, 'node:tag:add')
+        node = core.addTufoTag(hehe, 'lulz.rofl.zebr')
+        wait.wait(timeout=2)
+
+        self.isin('#lulz.rofl.zebr', node[1])
+        self.nn(core.getTufoByProp('syn:tag', 'lulz'))
+        self.nn(core.getTufoByProp('syn:tag', 'lulz.rofl'))
+        self.nn(core.getTufoByProp('syn:tag', 'lulz.rofl.zebr'))
+
+        # Recreate expected results from #320 to ensure
+        # we're also doing the same via storm
+        self.eq(len(core.eval('[inet:fqdn=w00t.com +#some.tag]')), 1)
+        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0)')), 2)
+        self.eq(len(core.eval('syn:tag=some')), 1)
+        self.eq(len(core.eval('syn:tag=some.tag')), 1)
+        self.eq(len(core.eval('syn:tag=some delnode(force=1)')), 0)
+        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0)')), 0)
+        self.eq(len(core.eval('inet:fqdn=w00t.com [ +#some.tag ]')), 1)
+        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0)')), 2)
+        self.eq(len(core.eval('syn:tag=some')), 1)
+        self.eq(len(core.eval('syn:tag=some.tag')), 1)
         core.fini()
 
     def test_cortex_splices(self):
@@ -934,16 +1322,6 @@ class CortexTest(SynTest):
 
             self.eq(tufo1[1].get('foo:baz:haha'), 21)
             self.eq(tufo1[1].get('foo:baz:fqdn'), 'visi.com')
-
-    def test_cortex_ramtyperange(self):
-        with s_cortex.openurl('ram://') as core:
-
-            core.formTufoByProp('foo:bar', 10)
-            core.formTufoByProp('foo:bar', 'baz')
-
-            tufs = core.getTufosBy('range', 'foo:bar', (5, 15))
-
-            self.eq(len(tufs), 1)
 
     def test_cortex_minmax(self):
 
@@ -1734,15 +2112,61 @@ class CortexTest(SynTest):
             node = core.eval('inet:ipv4=1.2.3.4')[0]
             self.eq(s_tufo.ival(node, '#foo.bar'), None)
 
-    def test_cortex_rev0(self):
-        path = getTestPath('rev0.db')
-        with open(path, 'rb') as fd:
-            byts = fd.read()
+    def test_cortex_rev0_savefd(self):
+        byts = self.getRev0DbBytsMpk()
 
-        # Hash of the rev0 file on initial commit prevent
-        # commits which overwrite this accidentally from passing.
-        known_hash = '50cae022b296e0c2b61fd6b101c4fdaf'
-        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
+        with self.getTestDir() as temp:
+
+            savefp = os.path.join(temp, 'test.mpk')
+            with open(savefp, 'wb') as f:
+                f.write(byts)
+
+            with s_cortex.openurl('ram:///', savefile=savefp) as core:
+                self.runrev0savefile(core)
+
+    def test_cortex_rev0_savefd_sqlite(self):
+        byts = self.getRev0DbBytsMpk()
+
+        with self.getTestDir() as temp:
+
+            savefp = os.path.join(temp, 'test.mpk')
+            with open(savefp, 'wb') as f:
+                f.write(byts)
+
+            with s_cortex.openurl('sqlite:///:memory:', savefile=savefp) as core:
+                self.runrev0savefile(core)
+
+    def test_cortex_rev0_savefd_psql(self):
+        byts = self.getRev0DbBytsMpk()
+
+        with self.getTestDir() as temp:
+
+            savefp = os.path.join(temp, 'test.mpk')
+            with open(savefp, 'wb') as f:
+                f.write(byts)
+
+            with self.getPgCore(savefile=savefp) as core:
+                self.runrev0savefile(core)
+
+    def test_cortex_rev0_savefd_lmdb(self):
+        self.skipIfOldPython()
+        byts = self.getRev0DbBytsMpk()
+
+        with self.getTestDir() as temp:
+
+            savefp = os.path.join(temp, 'test.mpk')
+            with open(savefp, 'wb') as f:
+                f.write(byts)
+
+            fn = 'test.lmdb'
+            fp = os.path.join(temp, fn)
+            lmdb_url = 'lmdb:///%s' % fp
+
+            with s_cortex.openurl(lmdb_url, savefile=savefp) as core:
+                self.runrev0savefile(core)
+
+    def test_cortex_rev0(self):
+        byts = self.getRev0DbByts()
 
         with self.getTestDir() as temp:
 
@@ -1752,17 +2176,112 @@ class CortexTest(SynTest):
                 fd.write(byts)
 
             with s_cortex.openurl('sqlite:///%s' % finl) as core:
+                self.runrev0basic(core)
 
-                node = core.eval('inet:ipv4=1.2.3.4')[0]
+                # sqlite storage layer versioning checks go below
+                table = core.store._getTableName()
+                blob_table = table + '_blob'
+                self.ge(core.getBlobValu('syn:core:sqlite:version'), 0)
+                self.true(core.store._checkForTable(blob_table))
+                self.runblob(core)
 
-                self.nn(node[1].get('#foo.bar'))
-                self.eq(len(core.eval('inet:ipv4*tag=foo.bar')), 1)
+    def test_cortex_rev0_lmdb(self):
+        self.skipIfOldPython()
+        byts = self.getRev0DbBytsLmdbGz()
 
-                self.eq(len(core.getRowsByProp('_:dark:tag')), 0)
-                self.eq(len(core.getRowsByProp('_:*inet:ipv4#foo.bar')), 1)
+        buf = s_compat.BytesIO(byts)
 
-                self.eq(len(core.eval('inet:ipv4*tag=foo.bar.baz')), 1)
-                self.eq(len(core.eval('#foo.bar.baz')), 1)
+        with self.getTestDir() as temp:
+
+            finl = os.path.join(temp, 'test.db')
+
+            sz = 1024 * 1024 * 4
+            with open(finl, 'wb') as fd:
+                with gzip.GzipFile(fileobj=buf) as gzfd:
+                    while True:
+                        _byts = gzfd.read(sz)
+                        if not _byts:
+                            break
+                        fd.write(_byts)
+
+            with s_cortex.openurl('lmdb:///%s' % finl) as core:
+                self.runrev0basic(core)
+                # lmdb storage layer versioning checks go below
+                blob_table = b'blob_store'
+                self.ge(core.getBlobValu('syn:core:lmdb:version'), 0)
+                self.true(core.store._checkForTable(blob_table))
+                self.runblob(core)
+
+    def test_cortex_rev0_psql(self):
+
+        # Hash of the rev0 file on initial commit prevent
+        # commits which overwrite this accidentally from passing.
+        known_hash = 'ae42eb7e2bfb4aeb87dbe584bc4b89c5'
+        path = getTestPath('rev0.psql')
+        statements = []
+        with open(path, 'rb') as fd:
+            byts = fd.read()
+            self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
+            fd.seek(0)
+            for line in fd.readlines():
+                line = line.decode().strip()
+                if not line or line.startswith('--'):
+                    continue
+                statements.append(line)
+
+        # Load up the data into the PG core
+        with self.getPgConn() as conn:
+            # Clean up any existing rev0 database tables if a previous test did not cleanup properly.
+            with conn.cursor() as cur:
+                stmt = '''select table_name from information_schema.tables where table_name like 'syn_test_rev0%';'''
+                cur.execute(stmt)
+                rows = cur.fetchall()
+                for row in rows:
+                    stmt = 'DROP TABLE IF EXISTS {}'.format(row[0])
+                    cur.execute(stmt)
+                # Sanity check on PSQL
+                cur.execute(stmt)
+                rows = cur.fetchall()
+                if rows:
+                    self.fail('PSQL DB contains syn_test_rev0 tables after dropping them')
+            conn.commit()
+            # Now slam the data into the DB from the .psql file.
+            with conn.cursor() as cur:
+                for stmt in statements:
+                    cur.execute(stmt)
+            conn.commit()
+
+        with self.getPgCore(table='syn_test_rev0') as core:
+            self.runrev0basic(core)
+            # sqlite storage layer versioning checks go below
+            table = core.store._getTableName()
+            blob_table = table + '_blob'
+            self.eq(core.getBlobValu('syn:core:postgres:version'), 0)
+            self.true(core.store._checkForTable(blob_table))
+            self.runblob(core)
+
+    def runrev0basic(self, core):
+        # Basic things we should expect to have happened on the rev0 cortex (updates, etc)
+        self.false(core.isnew)
+        node = core.eval('inet:ipv4=1.2.3.4')[0]
+
+        self.nn(node[1].get('#foo.bar'))
+        self.eq(len(core.eval('inet:ipv4*tag=foo.bar')), 1)
+
+        self.eq(len(core.getRowsByProp('_:dark:tag')), 0)
+        self.eq(len(core.getRowsByProp('_:*inet:ipv4#foo.bar')), 1)
+
+        self.eq(len(core.eval('inet:ipv4*tag=foo.bar.baz')), 1)
+        self.eq(len(core.eval('#foo.bar.baz')), 1)
+
+    def runrev0savefile(self, core):
+        self.false(core.isnew)
+        node = core.formTufoByProp('inet:ipv4', '1.2.3.4')
+        self.notin('.new', node[1])
+        self.true(core.hasBlobValu('syn:core:created'))
+        # Ram store does not have model versions to apply to it.
+        if core.getStoreType() != 'ram':
+            self.true(core.hasBlobValu('syn:core:{}:version'.format(core.getStoreType())))
 
     def test_cortex_module_datamodel_migration(self):
 
@@ -1808,6 +2327,16 @@ class CortexTest(SynTest):
             self.eq(node[1].get('foo:bar:duck'), 'mallard')
             node = core.formTufoByProp('foo:bar', 'I am a robot', duck='mandarin')
             self.eq(node[1].get('foo:bar:duck'), 'mandarin')
+
+    def test_cortex_splice_propdel(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            tufo = core.formTufoByProp('hehe', 'haha', foo='bar', baz='faz')
+            splice = ('splice', {'act': 'node:prop:del', 'form': 'hehe', 'valu': 'haha', 'prop': 'foo'})
+            core.splice(splice)
+
+            self.eq(len(core.eval('hehe:foo')), 0)
+            self.eq(len(core.eval('hehe:baz')), 1)
 
     def test_cortex_module_datamodel_migration_persistent(self):
         with self.getTestDir() as dirn:
@@ -1877,3 +2406,178 @@ class CortexTest(SynTest):
                 self.eq(node[1].get('foo:bar:duck'), 'mallard')
                 node2 = core.formTufoByProp('foo:bar', 'I am a robot', duck='mandarin')
                 self.eq(node2[1].get('foo:bar:duck'), 'mandarin')
+
+    def test_cortex_lift_by_cidr(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            # Add a bunch of nodes
+            for n in range(0, 256):
+                r = core.formTufoByProp('inet:ipv4', '192.168.1.{}'.format(n))
+                r = core.formTufoByProp('inet:ipv4', '192.168.2.{}'.format(n))
+                r = core.formTufoByProp('inet:ipv4', '192.168.200.{}'.format(n))
+
+            # Confirm we have nodes
+            self.eq(len(core.eval('inet:ipv4="192.168.1.0"')), 1)
+            self.eq(len(core.eval('inet:ipv4="192.168.1.255"')), 1)
+            self.eq(len(core.eval('inet:ipv4="192.168.2.0"')), 1)
+            self.eq(len(core.eval('inet:ipv4="192.168.2.255"')), 1)
+            self.eq(len(core.eval('inet:ipv4="192.168.200.0"')), 1)
+
+            # Do cidr lifts
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.2.0/24')
+            nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+            self.eq(len(nodes), 256)
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[10][1].get('inet:ipv4'))
+            self.eq(test_repr, '192.168.2.10')
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
+            self.eq(test_repr, '192.168.2.0')
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
+            self.eq(test_repr, '192.168.2.255')
+
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.200.0/24')
+            self.eq(len(nodes), 256)
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[10][1].get('inet:ipv4'))
+            self.true(test_repr.startswith('192.168.200.'))
+
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.1.0/24')
+            self.eq(len(nodes), 256)
+            nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[10][1].get('inet:ipv4'))
+            self.eq(test_repr, '192.168.1.10')
+
+            # Try a complicated /24
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.1.1/24')
+            self.eq(len(nodes), 256)
+            nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
+            self.eq(test_repr, '192.168.1.0')
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[255][1].get('inet:ipv4'))
+            self.eq(test_repr, '192.168.1.255')
+
+            # Try a /23
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.0.0/23')
+            self.eq(len(nodes), 256)
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[10][1].get('inet:ipv4'))
+            self.true(test_repr.startswith('192.168.1.'))
+
+            # Try a /25
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.1.0/25')
+            nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+            self.eq(len(nodes), 128)
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
+            self.true(test_repr.startswith('192.168.1.127'))
+
+            # Try a /25
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.1.128/25')
+            nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
+            self.eq(len(nodes), 128)
+            test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
+            self.true(test_repr.startswith('192.168.1.128'))
+
+            # Try a /16
+            nodes = core.eval('inet:ipv4*inet:cidr=192.168.0.0/16')
+            self.eq(len(nodes), 256 * 3)
+
+class StorageTest(SynTest):
+
+    def test_nonexist_ctor(self):
+        self.raises(NoSuchImpl, s_cortex.openstore, 'delaylinememory:///')
+
+    def test_storage_xact_spliced(self):
+
+        # Ensure that spliced events don't get fired through a
+        # StoreXct without a Cortex
+        eventd = {}
+
+        def foo(event):
+            eventd[event[0]] = eventd.get(event[0], 0) + 1
+
+        with s_cortex.openstore('ram:///') as store:
+            store.on('foo', foo)
+            store.on('splice', foo)
+            with store.getCoreXact() as xact:
+                xact.fire('foo', key='valu')
+                xact.fire('bar', key='valu')
+                xact.spliced('foo', key='valu')
+        self.eq(eventd, {'foo': 1})
+
+    def test_storage_confopts(self):
+        conf = {'rev:storage': 0}
+
+        byts = self.getRev0DbByts()
+
+        with self.getTestDir() as temp:
+            finl = os.path.join(temp, 'test.db')
+            url = 'sqlite:///%s' % finl
+
+            with open(finl, 'wb') as fd:
+                fd.write(byts)
+
+            with s_cortex.openstore(url, storconf=conf) as store:
+                self.eq(store.getConfOpt('rev:storage'), 0)
+                # Ensure we have no revisioning key
+                revkey = 'syn:core:{}:version'.format(store.getStoreType())
+                self.false(store.hasBlobValu(revkey))
+
+    def test_storage_rev0_rowmanipulation(self):
+        # Add rows to an existing cortex db
+        byts = self.getRev0DbByts()
+
+        with self.getTestDir() as temp:
+            finl = os.path.join(temp, 'test.db')
+            url = 'sqlite:///%s' % finl
+
+            with open(finl, 'wb') as fd:
+                fd.write(byts)
+
+            with s_cortex.openstore(url) as store:
+                self.isinstance(store, s_cores_storage.Storage)
+                # Add rows directly to the storage object
+                rows = []
+                tick = s_common.now()
+                rows.append(('1234', 'foo:bar:baz', 'yes', tick))
+                rows.append(('1234', 'tufo:form', 'foo:bar', tick))
+                store.addRows(rows)
+
+            # Retrieve the node via the Cortex interface
+            with s_cortex.openurl(url) as core:
+                node = core.getTufoByIden('1234')
+                self.nn(node)
+                self.eq(node[1].get('tufo:form'), 'foo:bar')
+                self.eq(node[1].get('foo:bar:baz'), 'yes')
+
+    def test_storage_row_manipulation(self):
+        # Add rows to an new cortex db
+        with self.getTestDir() as temp:
+            finl = os.path.join(temp, 'test.db')
+            url = 'sqlite:///%s' % finl
+
+            with s_cortex.openstore(url) as store:
+                self.isinstance(store, s_cores_storage.Storage)
+                # Add rows directly to the storage object
+                rows = []
+                tick = s_common.now()
+                rows.append(('1234', 'foo:bar:baz', 'yes', tick))
+                rows.append(('1234', 'tufo:form', 'foo:bar', tick))
+                store.addRows(rows)
+
+            # Retrieve the node via the Cortex interface
+            with s_cortex.openurl(url) as core:
+                node = core.getTufoByIden('1234')
+                self.nn(node)
+                self.eq(node[1].get('tufo:form'), 'foo:bar')
+                self.eq(node[1].get('foo:bar:baz'), 'yes')
+
+    def test_storage_handler_misses(self):
+        with s_cortex.openstore('ram:///') as store:
+            self.raises(NoSuchGetBy, store.getJoinsBy, 'clowns', 'inet:ipv4', 0x01020304)
+            self.raises(NoSuchGetBy, store.reqJoinByMeth, 'clowns')
+            self.raises(NoSuchGetBy, store.reqRowsByMeth, 'clowns')
+            self.raises(NoSuchGetBy, store.reqSizeByMeth, 'clowns')
+
+    def test_storage_handler_defaults(self):
+        with s_cortex.openstore('ram:///') as store:
+            self.nn(store.reqJoinByMeth('range'))
+            self.nn(store.reqRowsByMeth('range'))
+            self.nn(store.reqSizeByMeth('range'))

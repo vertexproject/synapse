@@ -44,13 +44,31 @@ class StormTest(SynTest):
         with s_cortex.openurl('ram:///') as core:
             core.setConfOpt('enforce', 1)
 
+            # relative key/val syntax, explicitly relative vals
+            node = core.formTufoByProp('inet:netuser', 'vertex.link/pennywise')
+            node = core.formTufoByProp('inet:netuser', 'vertex.link/visi')
+            node = core.eval('inet:netuser=vertex.link/pennywise setprop(:realname="Robert Gray")')[0]
+
+            self.eq(node[1].get('inet:netuser'), 'vertex.link/pennywise')
+            self.eq(node[1].get('inet:netuser:realname'), 'robert gray')
+
+            # Can set multiple props at once
+            cmd = 'inet:netuser=vertex.link/pennywise setprop(:seen:min="2000", :seen:max="2017")'
+            node = core.eval(cmd)[0]
+            self.nn(node[1].get('inet:netuser:seen:min'))
+            self.nn(node[1].get('inet:netuser:seen:max'))
+
+            # old / bad syntax fails
+            # kwlist key/val syntax is no longer valid in setprop()
             node = core.formTufoByProp('inet:fqdn', 'vertex.link')
-
-            node = core.eval('inet:fqdn=vertex.link setprop(created="2016-05-05",updated="2017/05/05")')[0]
-
-            self.eq(node[1].get('inet:fqdn'), 'vertex.link')
-            self.eq(node[1].get('inet:fqdn:created'), 1462406400000)
-            self.eq(node[1].get('inet:fqdn:updated'), 1493942400000)
+            bad_cmd = 'inet:fqdn=vertex.link setprop(created="2016-05-05",updated="2017/05/05")'
+            self.raises(BadSyntaxError, core.eval, bad_cmd)
+            # a rel prop which isn't valid for the node is bad
+            bad_cmd = 'inet:fqdn=vertex.link setprop(:typocreated="2016-05-05")'
+            self.raises(BadSyntaxError, core.eval, bad_cmd)
+            # full prop syntax is not acceptable
+            bad_cmd = 'inet:netuser=vertex.link/pennywise setprop(inet:netuser:signup="1970-01-01")'
+            self.raises(BadSyntaxError, core.eval, bad_cmd)
 
     def test_storm_filt_regex(self):
 
@@ -79,12 +97,37 @@ class StormTest(SynTest):
             core.addTufoTag(node, 'foo.bar')
             core.addTufoTag(node, 'baz.faz')
 
+            # test alltag macro syntax
             node = core.eval('#foo.bar')[0]
 
             self.eq(node[1].get('inet:fqdn'), 'vertex.link')
 
             self.nn(node[1].get('#baz'))
             self.nn(node[1].get('#foo.bar'))
+
+            # test alltag macro syntax with limit
+            core.eval('[ inet:fqdn=hehe.com inet:fqdn=haha.com #lol ]')
+            self.eq(len(core.eval('#lol limit(1)')), 1)
+
+    def test_storm_limit(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+
+            # test that the limit operator correctly handles being first (no opers[-1])
+            # and will subsequently filter down to the correct number of nodes
+            nodes = core.eval('[ inet:ipv4=1.2.3.4 inet:ipv4=3.4.5.6 ]')
+            self.eq(len(core.eval(' limit(1) ', data=nodes)), 1 )
+
+            # test that the limit() operator reaches backward to limit a previous oper
+            # during the planning pass...
+            oper = core.plan( core.parse(' inet:ipv4 limit(1) ') )[0]
+            opts = dict(oper[1].get('kwlist'))
+            self.eq(opts.get('limit'), 1 )
+
+            self.raises(BadSyntaxError, core.eval, 'inet:ipv4 limit()')
+            self.raises(BadSyntaxError, core.eval, 'inet:ipv4 limit(nodes=10)')
+            self.raises(BadSyntaxError, core.eval, 'inet:ipv4 limit(woot)')
 
     def test_storm_addtag(self):
         with s_cortex.openurl('ram:///') as core:
@@ -426,10 +469,21 @@ class StormTest(SynTest):
             self.eq(len(nodes), 3)
 
     def test_storm_addnode(self):
+
         with s_cortex.openurl('ram:///') as core:
-            node = core.eval('addnode(inet:ipv4,1.2.3.4,asn=0xf0f0f0f0)')[0]
+
+            # add a node with addnode(<form>,<valu>) syntax
+            node = core.eval('addnode(inet:ipv4,1.2.3.4)')[0]
+
             self.eq(node[1].get('inet:ipv4'), 0x01020304)
+            self.eq(node[1].get('inet:ipv4:asn'), -1)
+
+            # confirm that addnode() updates props on existing nodes
+            node = core.eval('addnode(inet:ipv4, 1.2.3.4, :asn=0xf0f0f0f0)')[0]
             self.eq(node[1].get('inet:ipv4:asn'), 0xf0f0f0f0)
+
+            # confirm that addnode() requires : prefix on relative props
+            self.raises(BadSyntaxError, core.eval, 'addnode(inet:ipv4, 1.2.3.4, asn=20)')
 
     def test_storm_delnode(self):
         with s_cortex.openurl('ram:///') as core:
@@ -533,6 +587,29 @@ class StormTest(SynTest):
                 ['108.111.118.101', 'kd', '#foo.bar'],
                 ['1.2.3.4', 'vv', '#foo.bar'],
             ])
+
+    def test_storm_guid(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            node0 = core.formTufoByProp('inet:ipv4', '1.2.3.4')
+            node1 = core.formTufoByProp('inet:ipv4', '4.5.6.7')
+
+            nodes = core.eval('guid()')
+            self.eq(len(nodes), 0)
+
+            nodes = core.eval('guid(%s)' % node0[0])
+            self.eq(nodes[0][1].get('inet:ipv4'), 0x01020304)
+
+            nodes = core.eval('guid(%s,%s)' % (node0[0], node1[0]))
+            vals = list(sorted(v[1].get('inet:ipv4') for v in nodes))
+            self.eq(vals, [0x01020304, 0x04050607])
+
+            # We can lift dark rows using guid() but kind of an easter egg.
+            core.addTufoDark(node0, 'foo:bar', 'duck:knight')
+            nodes = core.eval('guid(%s)' % node0[0][::-1])
+            self.eq(len(nodes), 1)
+            self.eq(node0[0], nodes[0][0][::-1])
 
 class LimitTest(SynTest):
 

@@ -12,10 +12,14 @@ The User Guide is a living document and will continue to be updated and expanded
     userguides/userguide_section1
     userguides/userguide_section2
     userguides/userguide_section3
+    userguides/userguide_section4
+    userguides/userguide_section5
+    userguides/userguide_section6
+    userguides/userguide_section7
 
 The following sections are still under development:
 
-- Data Model – In Depth
+- Data Model – Tag Concepts
 - Synapse Commands
 - The Storm Query Language
 - Storm Operators and Syntax - Reference

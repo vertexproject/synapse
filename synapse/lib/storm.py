@@ -4,6 +4,7 @@ import re
 import time
 import fnmatch
 import logging
+import collections
 
 import synapse.common as s_common
 import synapse.compat as s_compat
@@ -13,7 +14,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
 
-from synapse.lib.config import Configable
+from synapse.lib.config import Configable, confdef
 
 logger = logging.getLogger(__name__)
 
@@ -367,12 +368,30 @@ def ge(x, y):
         return False
     return x >= y
 
+def setkw(oper, name, valu):
+    '''
+    Set a keyword argument in a given operator.
+
+    Args:
+        oper ((str,dict)): A storm operator tufo
+        name (str): A kwarg name
+        valu (obj): A kwarg value
+
+    Returns:
+        (None)
+    '''
+    kwlist = oper[1].get('kwlist')
+    if kwlist is None:
+        kwlist = []
+
+    kwlist = [(k, v) for (k, v) in kwlist if k != name]
+    kwlist.append((name, valu))
+    oper[1]['kwlist'] = kwlist
+
 class Runtime(Configable):
 
     def __init__(self, **opts):
         Configable.__init__(self)
-
-        self.addConfDef('storm:limit:lift', asloc='limlift', defval=None, doc='Global lift limit')
 
         self.setConfOpts(opts)
 
@@ -405,9 +424,11 @@ class Runtime(Configable):
         self.setOperFunc('load', self._stormOperLoad)
         self.setOperFunc('clear', self._stormOperClear)
 
+        self.setOperFunc('guid', self._stormOperGuid)
         self.setOperFunc('join', self._stormOperJoin)
         self.setOperFunc('lift', self._stormOperLift)
         self.setOperFunc('refs', self._stormOperRefs)
+        self.setOperFunc('limit', self._stormOperLimit)
         self.setOperFunc('pivot', self._stormOperPivot)
         self.setOperFunc('alltag', self._stormOperAllTag)
         self.setOperFunc('addtag', self._stormOperAddTag)
@@ -427,6 +448,14 @@ class Runtime(Configable):
 
         # Cache compiled regex objects.
         self._rt_regexcache = s_cache.FixedCache(1024, re.compile)
+
+    @staticmethod
+    @confdef(name='storm')
+    def _storm_runtime_confdefs():
+        confdefs = (
+            ('storm:limit:lift', {'asloc': 'limlift', 'defval': None, 'doc': 'Global lift limit'}),
+        )
+        return confdefs
 
     def getStormCore(self, name=None):
         '''
@@ -580,6 +609,35 @@ class Runtime(Configable):
         opers = s_syntax.parse(text)
         return self.run(opers, data=data, timeout=timeout)
 
+    def plan(self, opers):
+        '''
+        Review a list of opers and return a potentially optimized list.
+
+        Args:
+            opers ([(str,dict),]):  List of opers in tufo form
+
+        Returns:
+            ([(str,dict),]): Optimized list
+
+        '''
+        retn = []
+
+        for oper in opers:
+
+            # specify a limit backward from limit oper...
+            if oper[0] == 'limit' and retn:
+                args = oper[1].get('args',())
+                if args:
+                    limt = s_common.intify(args[0])
+                    if limt is not None:
+                        setkw(retn[-1], 'limit', limt)
+
+            # TODO look for a form lift + tag filter and optimize
+
+            retn.append(oper)
+
+        return retn
+
     def run(self, opers, data=(), timeout=None):
         '''
         Execute a pre-parsed set of opers.
@@ -591,6 +649,8 @@ class Runtime(Configable):
             res0 = runt.run(opers)
 
         '''
+        opers = self.plan(opers)
+
         maxtime = None
         if timeout is not None:
             maxtime = time.time() + timeout
@@ -623,14 +683,15 @@ class Runtime(Configable):
         '''
         answ = self.ask(text, data=data, timeout=timeout)
 
-        excinfo = answ['oplog'][-1].get('excinfo')
-        #if excinfo.get('errinfo') != None:
-        if excinfo is not None:
-            errname = excinfo.get('err')
-            errinfo = excinfo.get('errinfo', {})
-            errinfo['errfile'] = excinfo.get('errfile')
-            errinfo['errline'] = excinfo.get('errline')
-            raise s_common.synerr(errname, **errinfo)
+        oplog = answ.get('oplog')
+        if oplog:
+            excinfo = oplog[-1].get('excinfo')
+            if excinfo is not None:
+                errname = excinfo.get('err')
+                errinfo = excinfo.get('errinfo', {})
+                errinfo['errfile'] = excinfo.get('errfile')
+                errinfo['errline'] = excinfo.get('errline')
+                raise s_common.synerr(errname, **errinfo)
 
         return answ.get('data')
 
@@ -919,6 +980,18 @@ class Runtime(Configable):
 
         [query.add(tufo) for tufo in self.stormTufosBy(by, prop, valu, limit=limit)]
 
+    def _stormOperLimit(self, query, oper):
+        args = oper[1].get('args', ())
+        if len(args) != 1:
+            raise s_common.BadSyntaxError(mesg='limit(<size>)')
+
+        size = s_common.intify(args[0])
+        if size is None:
+            raise s_common.BadSyntaxError(mesg='limit(<size>)')
+
+        if query.size() > size:
+            [ query.add(node) for node in query.take()[:size] ]
+
     def _stormOperPivot(self, query, oper):
         args = oper[1].get('args')
         opts = dict(oper[1].get('kwlist'))
@@ -1093,15 +1166,27 @@ class Runtime(Configable):
         # addnode(<form>,<valu>,**props)
         args = oper[1].get('args')
         if len(args) != 2:
-            raise s_common.BadSyntaxError(mesg='addnode(<form>,<valu>,[<prop>=<pval>, ...])')
+            raise s_common.BadSyntaxError(mesg='addnode(<form>,<valu>,[:<prop>=<pval>, ...])')
 
         kwlist = oper[1].get('kwlist')
 
         core = self.getStormCore()
 
-        props = dict(kwlist)
+        props = {}
+        for k, v in kwlist:
+
+            if not k[0] == ':':
+                raise s_common.BadSyntaxError(mesg='addnode() expects relative props with : prefix')
+
+            prop = k[1:]
+            props[prop] = v
 
         node = self.formTufoByProp(args[0], args[1], **props)
+
+        # call set props if the node is not new...
+        if not node[1].get('.new'):
+            self.setTufoProps(node, **props)
+
         query.add(node)
 
     def _stormOperDelNode(self, query, oper):
@@ -1121,12 +1206,45 @@ class Runtime(Configable):
         # TODO: use edits here for requested delete
 
     def _stormOperSetProp(self, query, oper):
+        # Coverage of this function is affected by the following issue:
+        # https://bitbucket.org/ned/coveragepy/issues/198/continue-marked-as-not-covered
         args = oper[1].get('args')
         props = dict(oper[1].get('kwlist'))
 
         core = self.getStormCore()
 
-        [core.setTufoProps(node, **props) for node in query.data()]
+        formnodes = collections.defaultdict(list)
+        formprops = collections.defaultdict(dict)
+
+        for node in query.data():
+            formnodes[node[1].get('tufo:form')].append(node)
+
+        forms = tuple(formnodes.keys())
+
+        for prop, valu in props.items():
+
+            if prop.startswith(':'):
+                valid = False
+                _prop = prop[1:]
+                # Check against every lifted form, since we may have a relative prop
+                # Which is valid against
+                for form in forms:
+                    _fprop = form + prop
+                    if core.isSetPropOk(_fprop):
+                        formprops[form][_prop] = valu
+                        valid = True
+                if not valid:
+                    mesg = 'Relative prop is not valid on any lifted forms.'
+                    raise s_common.BadSyntaxError(name=prop, mesg=mesg)
+                continue  # pragma: no cover
+
+            mesg = 'setprop operator requires props to start with relative prop names.'
+            raise s_common.BadSyntaxError(name=prop, mesg=mesg)
+
+        for form, nodes in formnodes.items():
+            props = formprops.get(form)
+            if props:
+                [core.setTufoProps(node, **props) for node in nodes]
 
     def _iterPropTags(self, props, tags):
         for prop in props:
@@ -1273,3 +1391,9 @@ class Runtime(Configable):
                 [query.add(n) for n in nodes]
 
         return
+
+    def _stormOperGuid(self, query, oper):
+        args = oper[1].get('args')
+        core = self.getStormCore()
+
+        [query.add(node) for node in core.getTufosByIdens(args)]

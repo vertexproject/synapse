@@ -7,11 +7,11 @@ import json
 import time
 import types
 import hashlib
-import msgpack
 import functools
 import itertools
 import threading
 import traceback
+import collections
 
 from binascii import hexlify
 
@@ -20,19 +20,63 @@ import synapse.exc as s_exc
 from synapse.exc import *
 from synapse.compat import enbase64, debase64, canstor
 
+import msgpack
+
 class NoValu: pass
 
 novalu = NoValu()
 
 def now():
+    '''
+    Get the current epoch time in milliseconds.
+
+    This relies on time.time(), which is system-dependent in terms of resolution.
+
+    Examples:
+        Get the current time and make a row for a Cortex::
+
+            tick = now()
+            row = (someiden, 'foo:prop', 1, tick)
+            core.addRows([row])
+
+    Returns:
+        int: Epoch time in milliseconds.
+    '''
     return int(time.time() * 1000)
 
 def guid(valu=None):
+    '''
+    Get a 16 byte guid value.
+
+    By default, this is a random guid value.
+
+    Args:
+        valu: Object used to construct the guid valu from.  This must be able
+            to be msgpack'd.
+
+    Returns:
+        str: 32 character, lowercase ascii string.
+    '''
     if valu is None:
         return hexlify(os.urandom(16)).decode('utf8')
     # Generate a "stable" guid from the given item
     byts = msgenpack(valu)
     return hashlib.md5(byts).hexdigest()
+
+def intify(x):
+    '''
+    Ensure ( or coerce ) a value into being an integer or None.
+
+    Args:
+        x (obj):    An object to intify
+
+    Returns:
+        (int):  The int value ( or None )
+    '''
+    try:
+        return int(x)
+    except (TypeError, ValueError) as e:
+        return None
 
 def addpref(pref, info):
     '''
@@ -282,3 +326,35 @@ def worker(meth, *args, **kwargs):
     thr.setDaemon(True)
     thr.start()
     return thr
+
+def reqstor(name, valu):
+    '''
+    Check to see if a value can be stored in a Cortex.
+
+    Args:
+        name (str): Property name.
+        valu: Value to check.
+
+    Returns:
+        The valu is returned if it can be stored in a Cortex.
+
+    Raises:
+        BadPropValu if the value is not Cortex storable.
+    '''
+    if not canstor(valu):
+        raise BadPropValu(name=name, valu=valu)
+    return valu
+
+def rowstotufos(rows):
+    '''
+    Convert rows into tufos.
+
+    Args:
+        rows (list): List of rows containing (i, p, v, t) tuples.
+
+    Returns:
+        list: List of tufos.
+    '''
+    res = collections.defaultdict(dict)
+    [res[i].__setitem__(p, v) for (i, p, v, t) in rows]
+    return list(res.items())

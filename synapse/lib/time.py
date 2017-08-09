@@ -6,13 +6,16 @@ import datetime
 
 import synapse.common as s_common
 
-def parse(text, base=None):
+def parse(text, base=None, chop=False):
     '''
     Parse a time string into an epoch millis value.
     '''
     #TODO: use base to facilitate relative time offsets
     text = text.strip().lower()
     text = (''.join([c for c in text if c.isdigit()]))
+
+    if chop:
+        text = text[:17]
 
     # TODO: support relative time offsets here...
 
@@ -44,7 +47,7 @@ def parse(text, base=None):
     epoch = datetime.datetime(1970, 1, 1)
     return int((dt - epoch).total_seconds() * 1000)
 
-def repr(tick):
+def repr(tick, pack=False):
     '''
     Return a date string for an epoch-millis timestamp.
 
@@ -56,4 +59,6 @@ def repr(tick):
     '''
     dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=tick)
     millis = dt.microsecond / 1000
+    if pack:
+        return '%d%.2d%.2d%.2d%.2d%.2d%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
     return '%d/%.2d/%.2d %.2d:%.2d:%.2d.%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)

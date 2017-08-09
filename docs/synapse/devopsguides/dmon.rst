@@ -1,4 +1,4 @@
-dmon: Synapse Deployment
+Dmon: Synapse Deployment
 ########################
 
 purpose / deployment arch as data
