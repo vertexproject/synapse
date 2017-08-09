@@ -453,7 +453,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
 
         corepath = os.path.join(self.axondir, 'axon.db')
         self.core = s_cortex.openurl('sqlite:///%s' % corepath)
-        self.core.setConfOpt('modules', (('synapse.models.axon.AxonMod', {}),) )
+        self.core.setConfOpt('modules', (('synapse.models.axon.AxonMod', {}),))
 
         self._fs_mkdir_root()  # create the fs root
         self.flock = threading.Lock()

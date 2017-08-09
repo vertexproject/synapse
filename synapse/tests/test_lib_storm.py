@@ -117,13 +117,13 @@ class StormTest(SynTest):
             # test that the limit operator correctly handles being first (no opers[-1])
             # and will subsequently filter down to the correct number of nodes
             nodes = core.eval('[ inet:ipv4=1.2.3.4 inet:ipv4=3.4.5.6 ]')
-            self.eq(len(core.eval(' limit(1) ', data=nodes)), 1 )
+            self.eq(len(core.eval(' limit(1) ', data=nodes)), 1)
 
             # test that the limit() operator reaches backward to limit a previous oper
             # during the planning pass...
-            oper = core.plan( core.parse(' inet:ipv4 limit(1) ') )[0]
+            oper = core.plan(core.parse(' inet:ipv4 limit(1) '))[0]
             opts = dict(oper[1].get('kwlist'))
-            self.eq(opts.get('limit'), 1 )
+            self.eq(opts.get('limit'), 1)
 
             self.raises(BadSyntaxError, core.eval, 'inet:ipv4 limit()')
             self.raises(BadSyntaxError, core.eval, 'inet:ipv4 limit(nodes=10)')

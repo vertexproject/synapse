@@ -19,6 +19,7 @@ import synapse.lookup.iso3166 as s_l_iso3166
 logger = logging.getLogger(__name__)
 
 guidre = re.compile('^[0-9a-f]{32}$')
+
 def isguid(text):
     return guidre.match(text) is not None
 
@@ -188,7 +189,7 @@ class IntType(DataType):
         DataType.__init__(self, tlib, name, **info)
 
         self.fmt = info.get('fmt', '%d')
-        #self.modval = info.get('mod',None)
+        # self.modval = info.get('mod',None)
         self.minval = info.get('min', None)
         self.maxval = info.get('max', None)
 
@@ -317,8 +318,8 @@ def _splitpairs(text, sep0, sep1):
     Split parts via sep0 and then pairs by sep2
     '''
     for part in text.split(sep0):
-        k,v = part.split(sep1)
-        yield k.strip(),v.strip()
+        k, v = part.split(sep1)
+        yield k.strip(), v.strip()
 
 class CompType(DataType):
 
@@ -332,16 +333,16 @@ class CompType(DataType):
         if fstr:
 
             if fstr.find('=') != -1:
-                self.fields.extend( _splitpairs(fstr, ',', '='))
+                self.fields.extend(_splitpairs(fstr, ',', '='))
 
             else:
-                self.fields.extend( _splitpairs(fstr, '|', ','))
+                self.fields.extend(_splitpairs(fstr, '|', ','))
 
         self.fsize = len(self.fields)
 
         ostr = self.info.get('optfields')
         if ostr:
-            self.optfields.extend( _splitpairs(ostr, ',', '='))
+            self.optfields.extend(_splitpairs(ostr, ',', '='))
             # stabilize order to alphabetical since it effects
             # the eventual guid generation
             self.optfields.sort()
@@ -371,34 +372,34 @@ class CompType(DataType):
         vlen = len(valu)
 
         if vlen < self.fsize:
-            self._raiseBadValu(valu, mesg='Expected %d fields and got %d' % (self.fsize,len(valu)))
+            self._raiseBadValu(valu, mesg='Expected %d fields and got %d' % (self.fsize, len(valu)))
 
-        for k,v in valu[self.fsize:]:
+        for k, v in valu[self.fsize:]:
             opts[k] = v
 
         vals = valu[:self.fsize]
-        for v,(name,tname) in s_compat.iterzip(vals,self.fields):
+        for v, (name, tname) in s_compat.iterzip(vals, self.fields):
 
-            norm,ssubs = self.tlib.getTypeNorm(tname,v)
+            norm, ssubs = self.tlib.getTypeNorm(tname, v)
 
             subs[name] = norm
-            for subkey,subval in ssubs.items():
+            for subkey, subval in ssubs.items():
                 subs[name + ':' + subkey] = subval
             retn.append(norm)
 
-        for name,tname in self.optfields:
+        for name, tname in self.optfields:
 
             v = opts.get(name)
             if v is None:
                 continue
 
-            norm,ssubs = self.tlib.getTypeNorm(tname,v)
+            norm, ssubs = self.tlib.getTypeNorm(tname, v)
 
             subs[name] = norm
-            for subkey,subval in ssubs.items():
+            for subkey, subval in ssubs.items():
                 subs[name + ':' + subkey] = subval
 
-            retn.append( (name,norm) )
+            retn.append((name, norm))
 
         return s_common.guid(retn), subs
 
@@ -562,7 +563,6 @@ class SeprType(MultiFieldType):
         return s_compat.iterzip(vals, self._get_fields())
 
 class BoolType(DataType):
-
     def norm(self, valu, oldval=None):
         if s_compat.isstr(valu):
             valu = valu.lower()
@@ -580,6 +580,7 @@ class BoolType(DataType):
         return repr(bool(valu))
 
 tagre = re.compile(r'^([\w]+\.)*[\w]+$')
+
 class TagType(DataType):
 
     def norm(self, valu, oldval=None):
@@ -589,7 +590,6 @@ class TagType(DataType):
         subs = {}
 
         if len(parts) == 2:
-
             strs = parts[1].split('-')
             tims = [self.tlib.getTypeNorm('time', s)[0] for s in strs]
 

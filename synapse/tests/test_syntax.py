@@ -118,11 +118,10 @@ class StormSyntaxTest(SynTest):
         args = oper[1].get('args')
         opts = dict(oper[1].get('kwlist'))
 
-        self.eq(args[0], [1,2])
+        self.eq(args[0], [1, 2])
         self.eq(args[1], 'lol')
         self.eq(args[2], 'hehe haha')
 
-        self.eq(opts.get('one'), [3,4])
+        self.eq(opts.get('one'), [3, 4])
         self.eq(opts.get('two'), 5)
         self.eq(opts.get('three'), 'whee')
-
