@@ -4,6 +4,7 @@ import struct
 import hashlib
 
 import synapse.compat as s_compat
+import synapse.datamodel as s_datamodel
 import synapse.lib.socket as s_socket
 import synapse.lookup.iana as s_l_iana
 
@@ -248,13 +249,29 @@ class UrlType(DataType):
 
         port = None
         proto = proto.lower()
-        hostpart = resloc.lower()
+        hostpart = resloc.lower().replace('[.]', '.')
 
         subs['proto'] = proto
 
+        host = hostpart
         if hostpart.find(':') != -1:
             host, portstr = hostpart.rsplit(':', 1)
             port = self.tlib.getTypeParse('inet:port', portstr)[0]
+
+        # use of exception handling logic here is fastest way to both
+        # validate and convert the data...  normally wouldnt use....
+
+        ipv4 = None
+        try:
+
+            ipv4 = ipv4int(host)
+            subs['ipv4'] = ipv4
+
+        except BadTypeValu as e:
+            pass
+
+        if ipv4 is None and fqdnre.match(host):
+            subs['fqdn'] = host
 
         # try for a default iana protocol lookup
         if port is None:
@@ -665,3 +682,24 @@ class InetMod(CoreModule):
         }
         name = 'inet'
         return ((name, modl), )
+
+    @modelrev('inet', 201706121318)
+    def _revModl201706121318(self):
+
+        # account for the updated sub-property extraction for inet:url nodes
+        adds = []
+        rows = self.core.getRowsByProp('inet:url')
+
+        for i, p, v, t in rows:
+            norm, subs = s_datamodel.tlib.getTypeNorm('inet:url', v)
+
+            fqdn = subs.get('fqdn')
+            if fqdn is not None:
+                adds.append((i, 'inet:url:fqdn', fqdn, t))
+
+            ipv4 = subs.get('ipv4')
+            if ipv4 is not None:
+                adds.append((i, 'inet:url:ipv4', ipv4, t))
+
+        if adds:
+            self.core.addRows(adds)

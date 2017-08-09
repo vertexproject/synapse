@@ -101,7 +101,7 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         # Generate rev0 functions for new Cortex instances.
         for name, modl in self.getBaseModels():
             revision = 0
-            if name in self._syn_mrevs:
+            if core.isnew and name in self._syn_mrevs:
                 _vers = [vers for vers, meth in self._syn_mrevs.get(name)]
                 revision = max(_vers)
 
