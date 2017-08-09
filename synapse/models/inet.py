@@ -4,6 +4,7 @@ import struct
 import hashlib
 
 import synapse.compat as s_compat
+import synapse.datamodel as s_datamodel
 import synapse.lib.socket as s_socket
 import synapse.lookup.iana as s_l_iana
 
@@ -248,7 +249,7 @@ class UrlType(DataType):
 
         port = None
         proto = proto.lower()
-        hostpart = resloc.lower().replace('[.]','.')
+        hostpart = resloc.lower().replace('[.]', '.')
 
         subs['proto'] = proto
 
@@ -682,24 +683,23 @@ class InetMod(CoreModule):
         name = 'inet'
         return ((name, modl), )
 
-        @modelrev('inet',201706121318)
-        def _revModl201706121318(self):
+    @modelrev('inet', 201706121318)
+    def _revModl201706121318(self):
 
-            # account for the updated sub-property extraction for inet:url nodes
-            adds = []
-            rows = self.core.getRowsByProp('inet:url')
+        # account for the updated sub-property extraction for inet:url nodes
+        adds = []
+        rows = self.core.getRowsByProp('inet:url')
 
-            for i,p,v,t in rows:
-                norm,subs = self.core.getTypeNorm('inet:url', v)
+        for i, p, v, t in rows:
+            norm, subs = s_datamodel.tlib.getTypeNorm('inet:url', v)
 
-                fqdn = subs.get('fqdn')
-                if fqdn is not None:
-                    adds.append((i, 'inet:url:fqdn', fqdn, t))
+            fqdn = subs.get('fqdn')
+            if fqdn is not None:
+                adds.append((i, 'inet:url:fqdn', fqdn, t))
 
-                ipv4 = subs.get('ipv4')
-                if ipv4 is not None:
-                    adds.append((i, 'inet:url:ipv4', ipv4, t))
+            ipv4 = subs.get('ipv4')
+            if ipv4 is not None:
+                adds.append((i, 'inet:url:ipv4', ipv4, t))
 
-            if adds:
-                self.core.addRows(adds)
-
+        if adds:
+            self.core.addRows(adds)

@@ -354,17 +354,36 @@ class InetModelTest(SynTest):
 
     def test_model_inet_201706121318(self):
 
-        with s_cortex.openurl('ram:///') as core:
+        byts = self.getRev0DbByts()
 
-            # create fake old-style url nodes by rows alone...
-            tick = now()
-            iden0 = guid()
-            iden1 = guid()
+        # Fake some nodes
+        iden0 = guid()
+        iden1 = guid()
+        tick = now()
+        rows = (
+            (iden0, 'tufo:form', 'inet:url', tick),
+            (iden0, 'inet:url', 'http://www.woot.com/', tick),
+            (iden1, 'tufo:form', 'inet:url', tick),
+            (iden1, 'inet:url', 'http://1.2.3.4/', tick),
+        )
 
-            rows = (
-                (iden0, 'tufo:form', 'inet:url', tick),
-                (iden0, 'inet:url', 'http://www.woot.com/', tick),
+        with self.getTestDir() as temp:
+            finl = os.path.join(temp, 'test.db')
 
-                (iden1, 'tufo:form', 'inet:url', tick),
-                (iden1, 'inet:url', 'http://1.2.3.4/', tick),
-            )
+            with open(finl, 'wb') as fd:
+                fd.write(byts)
+
+            url = 'sqlite:///%s' % finl
+
+            # Add the nodes into the storage object
+            with s_cortex.openstore(url) as store:
+                store.addRows(rows)
+
+            with s_cortex.openurl(url) as core:
+                self.ge(core.getModlVers('inet'), 201706121318)
+
+                t0 = core.getTufoByIden(iden0)
+                self.eq(t0[1].get('inet:url:fqdn'), 'www.woot.com')
+
+                t1 = core.getTufoByIden(iden1)
+                self.eq(t1[1].get('inet:url:ipv4'), 0x01020304)
