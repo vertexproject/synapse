@@ -1,5 +1,5 @@
-Model Definitions
-#################
+CoreModule: Model Definitions
+#############################
 
 Quick Start
 -----------

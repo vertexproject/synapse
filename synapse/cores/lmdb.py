@@ -11,11 +11,16 @@ from threading import Lock
 import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
-import synapse.lib.threads as s_threads
+
+import synapse.cores.xact as s_xact
 import synapse.cores.common as s_cores_common
+import synapse.cores.storage as s_cores_storage
+
+import synapse.lib.threads as s_threads
 
 import lmdb
 import xxhash
+import msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +122,7 @@ def _encIden(iden):
 # Try to memoize most of the prop names we get
 @s_compat.lru_cache(maxsize=1024)
 def _encProp(prop):
-    return s_common.msgenpack(prop)
+    return msgpack.dumps(prop, encoding='utf-8')
 
 # The precompiled struct parser for native size_t
 _SIZET_ST = struct.Struct('@Q' if sys.maxsize > 2**32 else '@L')
@@ -147,7 +152,27 @@ def _calcFirstLastKeys(prop, valu, mintime, maxtime):
     last_key = p_enc + v_key_enc + maxtime_enc
     return (first_key, last_key, v_is_hashed, False)
 
-class CoreXact(s_cores_common.CoreXact):
+def initLmdbCortex(link, conf=None, storconf=None):
+    '''
+    Initialize a LMDB based Cortex from a link tufo.
+
+    Args:
+        link ((str, dict)): Link tufo.
+        conf (dict): Configable opts for the Cortex object.
+        storconf (dict): Configable opts for the storage object.
+
+    Returns:
+        s_cores_common.Cortex: Cortex created from the link tufo.
+    '''
+    if not conf:
+        conf = {}
+    if not storconf:
+        storconf = {}
+
+    store = LmdbStorage(link, **storconf)
+    return s_cores_common.Cortex(link, store, **conf)
+
+class LmdbXact(s_xact.StoreXact):
 
     def _coreXactInit(self, size=None):
         self.txn = None
@@ -156,34 +181,19 @@ class CoreXact(s_cores_common.CoreXact):
         self.txn.commit()
 
     def _coreXactBegin(self):
-        self.core._ensure_map_slack()
-        self.txn = self.core.dbenv.begin(buffers=True, write=True)
+        self.store._ensure_map_slack()
+        self.txn = self.store.dbenv.begin(buffers=True, write=True)
 
     def _coreXactAcquire(self):
-        self.core._write_lock.acquire()
+        self.store._write_lock.acquire()
 
     def _coreXactRelease(self):
-        self.core._write_lock.release()
+        self.store._write_lock.release()
 
-class Cortex(s_cores_common.Cortex):
+class LmdbStorage(s_cores_storage.Storage):
 
     def _initCoreStor(self):
         self._initDbConn()
-
-        self.initSizeBy('ge', self._sizeByGe)
-        self.initRowsBy('ge', self._rowsByGe)
-
-        self.initSizeBy('le', self._sizeByLe)
-        self.initRowsBy('le', self._rowsByLe)
-        self.initSizeBy('lt', self._sizeByLt)
-
-        # use helpers from base class
-        self.initRowsBy('gt', self._rowsByGt)
-        self.initRowsBy('lt', self._rowsByLt)
-
-        self.initSizeBy('range', self._sizeByRange)
-        self.initRowsBy('range', self._rowsByRange)
-
         self._initCorTables()
 
     def _initDbInfo(self):
@@ -196,8 +206,8 @@ class Cortex(s_cores_common.Cortex):
 
         return {'name': name}
 
-    def _getCoreXact(self, size=None):
-        return CoreXact(self, size=size)
+    def getStoreXact(self, size=None, core=None):
+        return LmdbXact(self, size=size, core=core)
 
     def _getLargestPk(self):
         with self._getTxn() as txn, txn.cursor(self.rows) as cursor:
@@ -219,7 +229,7 @@ class Cortex(s_cores_common.Cortex):
         ]
 
         max_rev = max([rev for rev, func in revs])
-        vsn_str = 'syn:core:{}:version'.format(self.getCoreType())
+        vsn_str = 'syn:core:{}:version'.format(self.getStoreType())
 
         if not self._checkForTable(ROWS):
             # We are a new cortex, stamp in tables and set
@@ -296,7 +306,7 @@ class Cortex(s_cores_common.Cortex):
         transaction, this doesn't close it after leaving the context.  If we made one and the
         context is exited without exception, the transaction is committed.
         '''
-        existing_xact = self._core_xacts.get(s_threads.iden())
+        existing_xact = self._store_xacts.get(s_threads.iden())
         if existing_xact is not None:
             yield existing_xact.txn
         else:
@@ -454,7 +464,7 @@ class Cortex(s_cores_common.Cortex):
             raise s_common.BadCoreStore(store='lmdb', mesg='Index val has no corresponding row')
         return s_common.msgunpack(row)
 
-    def _getRowsById(self, iden):
+    def getRowsById(self, iden):
         iden_enc = _encIden(iden)
         rows = []
         with self._getTxn() as txn, txn.cursor(self.index_ip) as cursor:
@@ -557,7 +567,7 @@ class Cortex(s_cores_common.Cortex):
 
         return True
 
-    def _getRowsByIdProp(self, iden, prop, valu=None):
+    def getRowsByIdProp(self, iden, prop, valu=None):
         # For now not making a ipv index because multiple v for a given i,p are probably rare
         iden_enc = _encIden(iden)
         prop_enc = _encProp(prop)
@@ -577,10 +587,10 @@ class Cortex(s_cores_common.Cortex):
                 ret.append(row)
         raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
 
-    def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
-        return self._getRowsByProp(prop, valu, limit, mintime, maxtime, do_count_only=True)
+    def getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
+        return self.getRowsByProp(prop, valu, limit, mintime, maxtime, do_count_only=True)
 
-    def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None,
+    def getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None,
                        do_count_only=False):
         indx = self.index_pt if valu is None else self.index_pvt
         first_key, last_key, v_is_hashed, do_fast_compare = _calcFirstLastKeys(prop, valu,
@@ -643,29 +653,37 @@ class Cortex(s_cores_common.Cortex):
                     if not cursor.next():
                         raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
 
-    def _sizeByGe(self, prop, valu, limit=None):
+    def sizeByGe(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit, right_closed=True,
                                   do_count_only=True)
 
-    def _rowsByGe(self, prop, valu, limit=None):
+    def rowsByGe(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit, right_closed=True)
 
-    def _sizeByLe(self, prop, valu, limit=None):
+    def sizeByLe(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, right_closed=True,
                                   do_count_only=True)
 
-    def _sizeByLt(self, prop, valu, limit=None):
+    def sizeByLt(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, right_closed=False,
                                   do_count_only=True)
 
-    def _rowsByLe(self, prop, valu, limit=None):
+    def rowsByLe(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, right_closed=True)
 
-    def _sizeByRange(self, prop, valu, limit=None):
+    def sizeByRange(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, valu[0], valu[1], limit, do_count_only=True)
 
-    def _rowsByRange(self, prop, valu, limit=None):
+    def rowsByRange(self, prop, valu, limit=None):
         return self._rowsByMinmax(prop, valu[0], valu[1], limit)
+
+    def _joinsByLe(self, prop, valu, limit=None):
+        rows = self._rowsByMinmax(prop, MIN_INT_VAL, valu, limit, right_closed=True)
+        return rows
+
+    def _joinsByGe(self, prop, valu, limit=None):
+        rows = self._rowsByMinmax(prop, valu, MAX_INT_VAL, limit, right_closed=True)
+        return rows
 
     def _rowsByMinmax(self, prop, minval, maxval, limit, right_closed=False, do_count_only=False):
         ''' Returns either count or actual rows for a range of prop vals where both min and max
@@ -739,7 +757,27 @@ class Cortex(s_cores_common.Cortex):
                     break
         return count if do_count_only else ret
 
-    def _getCoreType(self):
+    def _genStoreRows(self, **kwargs):
+        gsize = kwargs.get('gsize', 1000)
+        lifted = 0
+        with self._getTxn() as txn:  # type: lmdb.Transaction
+            with txn.cursor(db=self.rows) as cur:  # type: lmdb.Cursor
+                cur.first()
+                gen = cur.iternext(keys=False, values=True)
+                while True:
+                    rows = []
+                    for row in gen:
+                        row = s_common.msgunpack(row)
+                        rows.append(row)
+                        if len(rows) == gsize:
+                            break
+                    if rows:
+                        lifted += len(rows)
+                        yield rows
+                    else:
+                        break
+
+    def getStoreType(self):
         return 'lmdb'
 
     def _getBlobValu(self, key):

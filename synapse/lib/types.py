@@ -741,7 +741,7 @@ class TypeLib:
             try:
                 self.addType(name, **info)
             except Exception as e:
-                logger.exception('pended: addType %s' % (name,), e)
+                logger.exception('pended: addType %s' % name)
 
     def getDataType(self, name):
         '''

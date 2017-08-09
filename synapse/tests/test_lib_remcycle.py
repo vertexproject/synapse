@@ -563,7 +563,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('Hypnos' in r)
             self.true('vertexproject' in r)
             self.true('fakeipify' in r)
-            self.true('synapse.cores.ram.Cortex' in r)
+            self.true('synapse.cores.common.Cortex' in r)
 
             # Ensure that if we remove everything when we dereregister a namespace
             hypo_obj.delWebConf(namespace='fakeipify')

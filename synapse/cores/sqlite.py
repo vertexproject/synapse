@@ -7,7 +7,9 @@ import sqlite3
 import synapse.common as s_common
 import synapse.compat as s_compat
 
+import synapse.cores.xact as s_xact
 import synapse.cores.common as s_cores_common
+import synapse.cores.storage as s_cores_storage
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +19,27 @@ int_t = s_compat.typeof(0)
 str_t = s_compat.typeof('visi')
 none_t = s_compat.typeof(None)
 
-class CoreXact(s_cores_common.CoreXact):
+def initSqliteCortex(link, conf=None, storconf=None):
+    '''
+    Initialize a Sqlite based Cortex from a link tufo.
+
+    Args:
+        link ((str, dict)): Link tufo.
+        conf (dict): Configable opts for the Cortex object.
+        storconf (dict): Configable opts for the storage object.
+
+    Returns:
+        s_cores_common.Cortex: Cortex created from the link tufo.
+    '''
+    if not conf:
+        conf = {}
+    if not storconf:
+        storconf = {}
+
+    store = SqliteStorage(link, **storconf)
+    return s_cores_common.Cortex(link, store, **conf)
+
+class SqlXact(s_xact.StoreXact):
 
     def _coreXactInit(self):
         self.db = None
@@ -30,12 +52,12 @@ class CoreXact(s_cores_common.CoreXact):
         self.cursor.execute('BEGIN TRANSACTION')
 
     def _coreXactAcquire(self):
-        self.db = self.core.dbpool.get()
+        self.db = self.store.dbpool.get()
         self.cursor = self.db.cursor()
 
     def _coreXactRelease(self):
         self.cursor.close()
-        self.core.dbpool.put(self.db)
+        self.store.dbpool.put(self.db)
 
         self.db = None
         self.cursor = None
@@ -74,7 +96,7 @@ class DbPool:
     def get(self):
         return self.dbque.get()
 
-class Cortex(s_cores_common.Cortex):
+class SqliteStorage(s_cores_storage.Storage):
 
     dblim = -1
 
@@ -120,6 +142,10 @@ class Cortex(s_cores_common.Cortex):
     _t_getrows_by_iden_prop = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}}'
     _t_getrows_by_iden_prop_intval = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND intval={{VALU}}'
     _t_getrows_by_iden_prop_strval = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND strval={{VALU}}'
+
+    _t_getrows_by_iden_range = 'SELECT * FROM {{TABLE}} WHERE iden >= {{LOWERBOUND}} and iden < {{UPPERBOUND}}'
+    _t_getiden_max = 'SELECT MAX(iden) FROM {{TABLE}}'
+    _t_getiden_min = 'SELECT MIN(iden) FROM {{TABLE}}'
 
     ################################################################################
     _t_blob_set = 'INSERT OR REPLACE INTO {{BLOB_TABLE}} (k, v) VALUES ({{KEY}}, {{VALU}})'
@@ -241,51 +267,49 @@ class Cortex(s_cores_common.Cortex):
 
         return {'name': name}
 
-    def _getCoreXact(self, size=None):
-        return CoreXact(self, size=size)
+    def getStoreXact(self, size=None, core=None):
+        return SqlXact(self, size=size, core=core)
 
     def _getDbLimit(self, limit):
         if limit is not None:
             return limit
         return self.dblim
 
-    def _rowsByRange(self, prop, valu, limit=None):
+    def rowsByRange(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
 
         q = self._q_getrows_by_range
 
-        minvalu = int(self.getPropNorm(prop, valu[0])[0])
-        maxvalu = int(self.getPropNorm(prop, valu[1])[0])
+        minvalu, maxvalu = valu[0], valu[1]
 
         rows = self.select(q, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)
         return self._foldTypeCols(rows)
 
-    def _rowsByGe(self, prop, valu, limit=None):
+    def rowsByGe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getrows_by_ge
 
         rows = self.select(q, prop=prop, valu=valu, limit=limit)
         return self._foldTypeCols(rows)
 
-    def _rowsByLe(self, prop, valu, limit=None):
+    def rowsByLe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getrows_by_le
         rows = self.select(q, prop=prop, valu=valu, limit=limit)
         return self._foldTypeCols(rows)
 
-    def _sizeByRange(self, prop, valu, limit=None):
+    def sizeByRange(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getsize_by_range
-        minvalu = int(self.getPropNorm(prop, valu[0])[0])
-        maxvalu = int(self.getPropNorm(prop, valu[1])[0])
+        minvalu, maxvalu = valu[0], valu[1]
         return self.select(q, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)[0][0]
 
-    def _sizeByGe(self, prop, valu, limit=None):
+    def sizeByGe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getsize_by_ge
         return self.select(q, prop=prop, valu=valu, limit=limit)[0][0]
 
-    def _sizeByLe(self, prop, valu, limit=None):
+    def sizeByLe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
         q = self._q_getsize_by_le
         args = [prop, valu, limit]
@@ -308,24 +332,6 @@ class Cortex(s_cores_common.Cortex):
         return ':%s' % (name,)
 
     def _initCoreStor(self):
-
-        self.initSizeBy('ge', self._sizeByGe)
-        self.initRowsBy('ge', self._rowsByGe)
-
-        self.initSizeBy('le', self._sizeByLe)
-        self.initRowsBy('le', self._rowsByLe)
-
-        self.initSizeBy('range', self._sizeByRange)
-        self.initRowsBy('range', self._rowsByRange)
-
-        self.initTufosBy('ge', self._tufosByGe)
-        self.initTufosBy('le', self._tufosByLe)
-        self.initTufosBy('range', self._tufosByRange)
-
-        # borrow the helpers from common
-        self.initTufosBy('gt', self._tufosByGt)
-        self.initTufosBy('lt', self._tufosByLt)
-
         self.dbpool = self._link[1].get('dbpool')
         if self.dbpool is None:
             pool = int(self._link[1].get('pool', 1))
@@ -334,7 +340,6 @@ class Cortex(s_cores_common.Cortex):
         table = self._getTableName()
 
         self._initCorQueries()
-
         self._initCorTables(table)
 
     def _prepQuery(self, query):
@@ -352,7 +357,7 @@ class Cortex(s_cores_common.Cortex):
         # prep query strings by replacing all %s with table name
         # and all ? with db specific variable token
         table = self._getTableName()
-        table = table + '_blob'
+        table += '_blob'
         query = query.replace('{{BLOB_TABLE}}', table)
 
         for name in stashre.findall(query):
@@ -379,6 +384,10 @@ class Cortex(s_cores_common.Cortex):
         self._q_getrows_by_iden_prop = self._prepQuery(self._t_getrows_by_iden_prop)
         self._q_getrows_by_iden_prop_intval = self._prepQuery(self._t_getrows_by_iden_prop_intval)
         self._q_getrows_by_iden_prop_strval = self._prepQuery(self._t_getrows_by_iden_prop_strval)
+
+        self._q_getrows_by_iden_range = self._prepQuery(self._t_getrows_by_iden_range)
+        self._q_getiden_max = self._prepQuery(self._t_getiden_max)
+        self._q_getiden_min = self._prepQuery(self._t_getiden_min)
 
         self._q_blob_get = self._prepBlobQuery(self._t_blob_get)
         self._q_blob_set = self._prepBlobQuery(self._t_blob_set)
@@ -545,7 +554,7 @@ class Cortex(s_cores_common.Cortex):
         ]
 
         max_rev = max([rev for rev, func in revs])
-        vsn_str = 'syn:core:{}:version'.format(self.getCoreType())
+        vsn_str = 'syn:core:{}:version'.format(self.getStoreType())
 
         if not self._checkForTable(table):
             # We are a new cortex, stamp in tables and set
@@ -555,7 +564,7 @@ class Cortex(s_cores_common.Cortex):
             return
 
         # Strap in the blobstore if it doesn't exist - this allows us to have
-        # a helper which doesn't have to care about queries agianst a table
+        # a helper which doesn't have to care about queries against a table
         # which may not exist.
         blob_table = table + '_blob'
         if not self._checkForTable(blob_table):
@@ -618,49 +627,37 @@ class Cortex(s_cores_common.Cortex):
 
         return ret
 
-    def _getRowsById(self, iden):
+    def getRowsById(self, iden):
         rows = self.select(self._q_getrows_by_iden, iden=iden)
         return self._foldTypeCols(rows)
 
-    def _getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
+    def getSizeByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
         rows = self._runPropQuery('sizebyprop', prop, valu=valu, limit=limit, mintime=mintime, maxtime=maxtime)
         return rows[0][0]
 
-    def _getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
+    def getRowsByProp(self, prop, valu=None, limit=None, mintime=None, maxtime=None):
         rows = self._runPropQuery('rowsbyprop', prop, valu=valu, limit=limit, mintime=mintime, maxtime=maxtime)
         return self._foldTypeCols(rows)
 
-    def _tufosByRange(self, prop, valu, limit=None):
-
-        if len(valu) != 2:
-            return []
-
-        minvalu = int(self.getPropNorm(prop, valu[0])[0])
-        maxvalu = int(self.getPropNorm(prop, valu[1])[0])
+    def _joinsByRange(self, prop, valu, limit=None):
+        minvalu, maxvalu = valu[0], valu[1]
 
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_range_int, prop=prop, minvalu=minvalu, maxvalu=maxvalu, limit=limit)
-        rows = self._foldTypeCols(rows)
-        return self._rowsToTufos(rows)
+        return self._foldTypeCols(rows)
 
-    def _tufosByLe(self, prop, valu, limit=None):
-        valu, _ = self.getPropNorm(prop, valu)
+    def _joinsByLe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_le_int, prop=prop, valu=valu, limit=limit)
-        rows = self._foldTypeCols(rows)
+        return self._foldTypeCols(rows)
 
-        return self._rowsToTufos(rows)
-
-    def _tufosByGe(self, prop, valu, limit=None):
-        valu, _ = self.getPropNorm(prop, valu)
+    def _joinsByGe(self, prop, valu, limit=None):
         limit = self._getDbLimit(limit)
 
         rows = self.select(self._q_getjoin_by_ge_int, prop=prop, valu=valu, limit=limit)
-        rows = self._foldTypeCols(rows)
-
-        return self._rowsToTufos(rows)
+        return self._foldTypeCols(rows)
 
     def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None, nolim=False):
         limit = self._getDbLimit(limit)
@@ -684,18 +681,16 @@ class Cortex(s_cores_common.Cortex):
         else:
             return self.delete(self._q_delrows_by_iden_prop_strval, iden=iden, prop=prop, valu=valu)
 
-    def _getRowsByIdProp(self, iden, prop, valu=None):
+    def getRowsByIdProp(self, iden, prop, valu=None):
         if valu is None:
             rows = self.select(self._q_getrows_by_iden_prop, iden=iden, prop=prop)
             return self._foldTypeCols(rows)
 
         if s_compat.isint(valu):
             rows = self.select(self._q_getrows_by_iden_prop_intval, iden=iden, prop=prop, valu=valu)
-            return self._foldTypeCols(rows)
-
         else:
             rows = self.select(self._q_getrows_by_iden_prop_strval, iden=iden, prop=prop, valu=valu)
-            return self._foldTypeCols(rows)
+        return self._foldTypeCols(rows)
 
     def _setRowsByIdProp(self, iden, prop, valu):
         if s_compat.isint(valu):
@@ -713,14 +708,99 @@ class Cortex(s_cores_common.Cortex):
     def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
         self._runPropQuery('deljoinbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete, nolim=True)
 
-    def _getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
+    def getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         rows = self._runPropQuery('joinbyprop', prop, valu=valu, limit=limit, mintime=mintime, maxtime=maxtime)
         return self._foldTypeCols(rows)
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         self._runPropQuery('delrowsbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete, nolim=True)
 
-    def _getCoreType(self):
+    def _genStoreRows(self, **kwargs):
+        '''
+        Generator which yields lists of rows from the DB in tuple form.
+
+        This works by performing range lookups on iden prefixes over the range
+        of 00000000000000000000000000000000 to ffffffffffffffffffffffffffffffff.
+        The runtime of this is dependent on the number of rows in the DB,
+        but is generally the fastest approach to getting rows out of the DB
+        in a linear time fashion.
+
+        Args:
+            **kwargs: Optional args.
+
+        Notes:
+            The following values may be passed in as kwargs in order to
+            impact the performance of _genStoreRows:
+
+            * slicebytes: The number of bytes to use when generating the iden
+              prefix values.  This defaults to 4.
+            * incvalu (int): The amount in which to increase the internal
+              counter used to generate the prefix by on each pass.  This value
+              determines the width of the iden range looked up at a single
+              time.  This defaults to 4.
+
+            The number of queries which are executed by this generator is
+            equal to (16 ** slicebytes) / incvalu.  This defaults to 16384
+            queries.
+
+        Returns:
+            list: List of tuples, each containing an iden, property, value and timestamp.
+        '''
+        slicebytes = kwargs.get('slicebytes', 4)
+        incvalu = kwargs.get('incvalu', 4)
+
+        # Compute upper and lower bounds up front
+        lowest_iden = '00000000000000000000000000000000'
+        highst_iden = 'ffffffffffffffffffffffffffffffff'
+
+        highest_core_iden = self.select(self._q_getiden_max)[0][0]
+        if not highest_core_iden:
+            # No rows present at all - return early
+            return
+
+        fmt = '{{:0={}x}}'.format(slicebytes)
+        maxv = 16 ** slicebytes
+        num_queries = int(maxv / incvalu)
+        q_count = 0
+        percentaged = {}
+        if num_queries > 128:
+            percentaged = {int((num_queries * i) / 100): i for i in range(100)}
+
+        # Setup lower bound and first upper bound
+        lowerbound = lowest_iden[:slicebytes]
+        c = int(lowerbound, 16) + incvalu
+        upperbound = fmt.format(c)
+
+        logger.info('Dumping rows - slicebytes %s, incvalu %s', slicebytes, incvalu)
+        logger.info('Will perform %s SQL queries given the slicebytes/incvalu calculations.', num_queries)
+        while True:
+            # Check to see if maxv is reached
+            if c >= maxv:
+                upperbound = highst_iden
+            rows = self.select(self._q_getrows_by_iden_range, lowerbound=lowerbound, upperbound=upperbound)
+            q_count += 1
+            completed_rate = percentaged.get(q_count)
+            if completed_rate:
+                logger.info('Completed %s%% queries', completed_rate)
+            if rows:
+                rows = self._foldTypeCols(rows)
+                # print(len(rows), lowerbound, upperbound)
+                yield rows
+            if c >= maxv:
+                break
+            # Increment and continue
+            c += incvalu
+            lowerbound = upperbound
+            upperbound = fmt.format(c)
+            continue
+
+        # Edge case because _q_getrows_by_iden_range is exclusive on the upper bound.
+        if highest_core_iden == highst_iden:
+            rows = self.select(self._q_getrows_by_iden, iden=highest_core_iden)
+            rows = self._foldTypeCols(rows)
+            yield rows
+
+    def getStoreType(self):
         return 'sqlite'
 
     def _getBlobValu(self, key):

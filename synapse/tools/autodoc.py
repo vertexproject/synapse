@@ -1,12 +1,33 @@
+import os
 import sys
 import argparse
+import importlib
 import collections
+
+import synapse
 
 import synapse.cortex as s_cortex
 import synapse.compat as s_compat
 
 import synapse.lib.tufo as s_tufo
+import synapse.lib.config as s_config
 import synapse.lib.output as s_output
+import synapse.lib.reflect as s_reflect
+
+base_synaspe_dir = os.path.split(synapse.__file__)[0]
+
+dir_skips = ('/tests',
+             '/tools',
+             '/__pycache__',
+             'synapse/docker',
+             )
+
+fn_skips = ('__init__.py',
+            )
+
+obj_path_skips = ('synapse.cores.common.Runtime',
+                  'synapse.cores.storage.Storage',
+                  )
 
 descr = '''
 Command line tool to generate various synapse documentation
@@ -24,6 +45,24 @@ def reprvalu(valu):
     if s_compat.isstr(valu):
         return repr(valu)
     return '%d (0x%x)' % (valu, valu)
+
+def inspect_mod(mod, cls):
+    '''Find Config classes in a module which has @confdef decorated functions in them.'''
+    for modname in dir(mod):
+        valu = getattr(mod, modname)
+        try:
+            is_cls = issubclass(valu, cls)
+        except TypeError:
+            continue
+        if not is_cls:
+            continue
+        # Snag configable defs
+        for name, meth in s_reflect.getItemLocals(valu):
+            attr = getattr(meth, '_syn_config', None)
+            if attr is None:
+                continue
+            yield modname, valu, name, meth()
+
 
 class RstHelp:
 
@@ -60,9 +99,11 @@ def main(argv, outp=None):
     #pars.add_argument('--format', default='rst')
     pars.add_argument('--cortex', default='ram://', help='Cortex URL for model inspection')
     pars.add_argument('--doc-model', action='store_true', default=False, help='Generate RST docs for the DataModel within a cortex')
+    pars.add_argument('--configable-opts', action='store_true', default=False, help='Generate RST docs of the Configable classes in Synapse.')
     pars.add_argument('--savefile', default=None, help='Save output to the given file')
 
     opts = pars.parse_args(argv)
+    fd = None
     if opts.savefile:
         fd = open(opts.savefile, 'wb')
         outp = s_output.OutPutFd(fd)
@@ -218,6 +259,70 @@ def main(argv, outp=None):
                     rst.addLines('\t\t- %s' % (pdoc,))
 
         outp.printf(rst.getRstText())
+        return 0
+
+    if opts.configable_opts:
+        rst = RstHelp()
+        rst.addHead('Synapse Configable Classes', lvl=0)
+        rst.addLines('The following objects are Configable objects. They have'
+                     ' settings which may be provided at runtime or during object'
+                     ' initialization which may change their behavior.')
+        basename = 'synapse'
+        confdetails = collections.defaultdict(list)
+
+        for root, dirs, files in os.walk(base_synaspe_dir):
+
+            if any([v for v in dir_skips if v in root]):
+                continue
+
+            for fn in files:
+                if fn in fn_skips:
+                    continue
+                if not fn.endswith('.py'):
+                    continue
+
+                modname = fn.rsplit('.', 1)[0]
+                _modpath = root[len(base_synaspe_dir) + 1:].replace(os.sep, '.')
+                modpath = '.'.join([v for v in [basename, _modpath, modname] if v])
+
+                mod = importlib.import_module(modpath)
+                for modattr, valu, name, results in inspect_mod(mod, cls=s_config.Configable):
+                    confdetails[modpath].append((modattr, name, results))
+
+        # Collapse details into a modpath -> Details struct
+        detaildict = collections.defaultdict(list)
+
+        for modpath, details in confdetails.items():
+            for detail in details:
+                modattr, name, results = detail
+                obj_path = '.'.join([modpath, modattr])
+                if obj_path in obj_path_skips:
+                    continue
+                for rslt in results:
+                    if not rslt:
+                        continue
+                    detaildict[obj_path].append(rslt)
+
+        # Now make the RST proper like
+        keys = list(detaildict.keys())
+        keys.sort()
+        for obj_path in keys:
+            details = detaildict.get(obj_path, [])
+            details.sort(key=lambda x: x[0])
+            rst.addHead(name=obj_path, lvl=1)
+            for detail in details:
+                confvalu, confdict = detail[0], detail[1]
+                rst.addHead(confvalu, lvl=2)
+                _keys = list(confdict.keys())
+                _keys.sort()
+                for _key in _keys:
+                    v = confdict.get(_key)
+                    line = '  - {}: {}'.format(_key, v)
+                    rst.addLines(line)
+
+        outp.printf(rst.getRstText())
+        if fd:
+            fd.close()
         return 0
 
 if __name__ == '__main__':

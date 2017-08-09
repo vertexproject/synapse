@@ -7,16 +7,10 @@ Contents:
     :maxdepth: 2
 
     synapse/userguide_section0
-    synapse/cortex
-    synapse/eventbus
-    synapse/telepath
-    synapse/dmon
-    synapse/axon
-    synapse/devops
-    synapse/api/synapse
+    synapse/devopsguide
     synapse/datamodel
-    synapse/storm
-    synapse/model_format
+    synapse/api/synapse
+    synapse/configables
     performance
     contributing
 

@@ -8,6 +8,7 @@ docs/_build
 # sphinx API doc dir
 docs/synapse/api
 docs/synapse/datamodel.rst
+docs/synapse/configables.rst
 
 # C extensions
 *.so

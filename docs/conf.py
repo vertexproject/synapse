@@ -354,7 +354,8 @@ def run_apidoc(_):
 
 def run_autodoc(_):
     import synapse.tools.autodoc as s_autodoc
-    s_autodoc.main(['--doc-model','--savefile','synapse/datamodel.rst'])
+    s_autodoc.main(['--doc-model', '--savefile', 'synapse/datamodel.rst'])
+    s_autodoc.main(['--configable-opts', '--savefile', 'synapse/configables.rst'])
 
 def setup(app):
     app.connect('builder-inited', run_apidoc)
