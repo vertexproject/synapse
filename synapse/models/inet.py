@@ -344,8 +344,8 @@ class InetMod(CoreModule):
         for tufo in self.core.getTufosByProp('inet:fqdn:domain', fqdn):
             self.core.setTufoProp(tufo, 'zone', sfx)
 
-    @modelrev('inet', 201704201837)
-    def _retModl201704201837(self):
+    @modelrev('inet', 201706201837)
+    def _revModl201706201837(self):
         '''
         Add :port and :ipv4 to inet:tcp4 and inet:udp4 nodes.
         '''
@@ -371,6 +371,27 @@ class InetMod(CoreModule):
 
             if adds:
                 self.core.addRows(adds)
+
+    @modelrev('inet', 201706121318)
+    def _revModl201706121318(self):
+
+        # account for the updated sub-property extraction for inet:url nodes
+        adds = []
+        rows = self.core.getRowsByProp('inet:url')
+
+        for i, p, v, t in rows:
+            norm, subs = s_datamodel.tlib.getTypeNorm('inet:url', v)
+
+            fqdn = subs.get('fqdn')
+            if fqdn is not None:
+                adds.append((i, 'inet:url:fqdn', fqdn, t))
+
+            ipv4 = subs.get('ipv4')
+            if ipv4 is not None:
+                adds.append((i, 'inet:url:ipv4', ipv4, t))
+
+        if adds:
+            self.core.addRows(adds)
 
     @staticmethod
     def getBaseModels():
@@ -717,24 +738,3 @@ class InetMod(CoreModule):
         }
         name = 'inet'
         return ((name, modl), )
-
-    @modelrev('inet', 201706121318)
-    def _revModl201706121318(self):
-
-        # account for the updated sub-property extraction for inet:url nodes
-        adds = []
-        rows = self.core.getRowsByProp('inet:url')
-
-        for i, p, v, t in rows:
-            norm, subs = s_datamodel.tlib.getTypeNorm('inet:url', v)
-
-            fqdn = subs.get('fqdn')
-            if fqdn is not None:
-                adds.append((i, 'inet:url:fqdn', fqdn, t))
-
-            ipv4 = subs.get('ipv4')
-            if ipv4 is not None:
-                adds.append((i, 'inet:url:ipv4', ipv4, t))
-
-        if adds:
-            self.core.addRows(adds)

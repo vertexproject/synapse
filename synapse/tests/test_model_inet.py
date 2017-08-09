@@ -440,7 +440,7 @@ class InetModelTest(SynTest):
                 t1 = core.getTufoByIden(iden1)
                 self.eq(t1[1].get('inet:url:ipv4'), 0x01020304)
 
-    def test_modelrev_201704201837(self):
+    def test_model_inet_201706201837(self):
 
         byts = self.getRev0DbByts()
 
@@ -471,7 +471,7 @@ class InetModelTest(SynTest):
             # Validate our nodes now have the correct data
             with s_cortex.openurl(url) as core:
                 modlrev = core.getModlVers('inet')
-                self.ge(modlrev, 201704201837)
+                self.ge(modlrev, 201706201837)
 
                 t1 = core.getTufoByIden(iden1)
                 self.eq(t1[1].get('inet:tcp4:port'), 80)
