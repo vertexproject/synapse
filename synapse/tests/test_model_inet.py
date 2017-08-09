@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 from __future__ import absolute_import, unicode_literals
 
-import synapse.cortex as s_cortex
+import synapse.lib.tufo as s_tufo
 
 from synapse.tests.common import *
 
@@ -43,6 +43,9 @@ class InetModelTest(SynTest):
             self.eq(t0[1].get('inet:ipv6'), '::1')
             self.eq(t0[1].get('inet:ipv6:asn'), -1)
 
+            self.eq(core.getTypeRepr('inet:ipv6', '0:0:0:0:0:0:0:1'), '::1')
+            self.eq(core.getTypeRepr('inet:ipv6', '::1'), '::1')
+
     def test_model_inet_cidr4(self):
 
         with s_cortex.openurl('ram:///') as core:
@@ -81,6 +84,56 @@ class InetModelTest(SynTest):
             self.eq(t1[1].get('inet:fqdn:domain'), 'com')
             self.eq(t1[1].get('inet:fqdn:sfx'), 0)
             self.eq(t1[1].get('inet:fqdn:zone'), 1)
+
+    def test_model_inet_srv4_types(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+            t0 = core.formTufoByProp('inet:tcp4', '8.8.8.8:80')
+            form, pprop = s_tufo.ndef(t0)
+            self.eq(pprop, 8830587502672)
+            self.eq(t0[1].get('inet:tcp4:port'), 80)
+            self.eq(t0[1].get('inet:tcp4:ipv4'), core.getTypeNorm('inet:ipv4', '8.8.8.8')[0])
+
+            # 1.2.3.4:8443
+            t1 = core.formTufoByProp('inet:tcp4', 1108152164603)
+            self.eq(t1[1].get('inet:tcp4:port'), 8443)
+            self.eq(t1[1].get('inet:tcp4:ipv4'), core.getTypeNorm('inet:ipv4', '1.2.3.4')[0])
+
+            t2 = core.formTufoByProp('inet:udp4', '8.8.8.8:80')
+            form, pprop = s_tufo.ndef(t2)
+            self.eq(pprop, 8830587502672)
+            self.eq(t2[1].get('inet:udp4:port'), 80)
+            self.eq(t2[1].get('inet:udp4:ipv4'), core.getTypeNorm('inet:ipv4', '8.8.8.8')[0])
+
+            # 1.2.3.4:8443
+            t3 = core.formTufoByProp('inet:udp4', 1108152164603)
+            self.eq(t3[1].get('inet:udp4:port'), 8443)
+            self.eq(t3[1].get('inet:udp4:ipv4'), core.getTypeNorm('inet:ipv4', '1.2.3.4')[0])
+
+    def test_model_inet_srv6_types(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+            t0 = core.formTufoByProp('inet:tcp6', '[0:0:0:0:0:0:0:1]:80')
+            form, pprop = s_tufo.ndef(t0)
+            self.eq(pprop, '[::1]:80')
+            self.eq(t0[1].get('inet:tcp6:port'), 80)
+            self.eq(t0[1].get('inet:tcp6:ipv6'), '::1')
+
+            t1 = core.formTufoByProp('inet:tcp6', '[0:0:0:0:0:3:2:1]:443')
+            form, pprop = s_tufo.ndef(t1)
+            self.eq(pprop, '[::3:2:1]:443')
+            self.eq(t1[1].get('inet:tcp6:port'), 443)
+            self.eq(t1[1].get('inet:tcp6:ipv6'), '::3:2:1')
+
+            t2 = core.formTufoByProp('inet:udp6', '[0:0:0:0:0:3:2:1]:5000')
+            form, pprop = s_tufo.ndef(t2)
+            self.eq(pprop, '[::3:2:1]:5000')
+            self.eq(t2[1].get('inet:udp6:port'), 5000)
+            self.eq(t2[1].get('inet:udp6:ipv6'), '::3:2:1')
+
+            self.eq(core.getTypeRepr('inet:tcp6', '[0:0:0:0:0:0:0:1]:80'), '[::1]:80')
+            self.eq(core.getTypeRepr('inet:tcp6', '[::1]:80'), '[::1]:80')
+            self.eq(core.getTypeRepr('inet:tcp6', '[0:0:0:0:0:3:2:1]:5000'), '[::3:2:1]:5000')
 
     def test_model_inet_fqdn_unicode(self):
 
@@ -356,7 +409,6 @@ class InetModelTest(SynTest):
 
         byts = self.getRev0DbByts()
 
-        # Fake some nodes
         iden0 = guid()
         iden1 = guid()
         tick = now()
@@ -387,3 +439,44 @@ class InetModelTest(SynTest):
 
                 t1 = core.getTufoByIden(iden1)
                 self.eq(t1[1].get('inet:url:ipv4'), 0x01020304)
+
+    def test_model_inet_201706201837(self):
+
+        byts = self.getRev0DbByts()
+
+        # Fake some nodes
+        iden1 = guid()
+        iden2 = guid()
+        tick = now()
+        rows = [
+            (iden1, 'tufo:form', 'inet:tcp4', tick),
+            (iden1, 'inet:tcp4', '1.2.3.4:80', tick),
+            (iden2, 'tufo:form', 'inet:udp4', tick),
+            (iden2, 'inet:udp4', '1.2.3.4:443', tick),
+        ]
+
+        with self.getTestDir() as temp:
+            finl = os.path.join(temp, 'test.db')
+
+            with open(finl, 'wb') as fd:
+                fd.write(byts)
+
+            url = 'sqlite:///%s' % finl
+
+            # Add the nodes into the storage object
+            with s_cortex.openstore(url) as store:
+                store.addRows(rows)
+
+            # Open the cortex, applying the data model updates
+            # Validate our nodes now have the correct data
+            with s_cortex.openurl(url) as core:
+                modlrev = core.getModlVers('inet')
+                self.ge(modlrev, 201706201837)
+
+                t1 = core.getTufoByIden(iden1)
+                self.eq(t1[1].get('inet:tcp4:port'), 80)
+                self.eq(t1[1].get('inet:tcp4:ipv4'), 0x01020304)
+
+                t2 = core.getTufoByIden(iden2)
+                self.eq(t2[1].get('inet:udp4:port'), 443)
+                self.eq(t2[1].get('inet:udp4:ipv4'), 0x01020304)

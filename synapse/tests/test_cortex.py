@@ -63,7 +63,12 @@ class CoreTestDataModelModuleV0(s_module.CoreModule):
             'types': (
                 ('foo:bar', {'subof': 'str', 'doc': 'A foo bar!'}),
             ),
-            'forms': (),
+            'forms': (
+                ('foo:bar',
+                 {'ptype': 'foo:bar'},
+                 []
+                 ),
+            ),
         }
         name = 'test'
         return ((name, modl),)
@@ -78,7 +83,7 @@ class CoreTestDataModelModuleV1(s_module.CoreModule):
             ),
             'forms': (
                 ('foo:bar',
-                 {'ptype': 'str'},
+                 {'ptype': 'foo:bar'},
                  [('duck', {'defval': 'mallard', 'ptype': 'str', 'doc': 'Duck value!'})]
                  ),
             ),

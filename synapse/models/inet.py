@@ -3,6 +3,7 @@ import socket
 import struct
 import hashlib
 
+import synapse.common as s_common
 import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
 import synapse.lib.socket as s_socket
@@ -109,6 +110,9 @@ def ipv6norm(text):
     return s_socket.inet_ntop(socket.AF_INET6, s_socket.inet_pton(socket.AF_INET6, text))
 
 class IPv6Type(DataType):
+    def repr(self, valu):
+        return self.norm(valu)[0]
+
     def norm(self, valu, oldval=None):
         try:
             return ipv6norm(valu), {}
@@ -147,7 +151,7 @@ class Srv4Type(DataType):
 
         addr = ipv4int(astr)
         port = int(pstr, 0)
-        return (addr << 16) | port, {}
+        return (addr << 16) | port, {'port': port, 'ipv4': addr}
 
 srv6re = re.compile('^\[([a-f0-9:]+)\]:(\d+)$')
 
@@ -159,6 +163,9 @@ class Srv6Type(DataType):
         ('port', {'ptype': 'inet:port'}),
         ('ipv6', {'ptype': 'inet:ipv6'}),
     )
+
+    def repr(self, valu):
+        return self.norm(valu)[0]
 
     def norm(self, valu, oldval=None):
 
@@ -336,6 +343,55 @@ class InetMod(CoreModule):
         fqdn = mesg[1].get('valu')
         for tufo in self.core.getTufosByProp('inet:fqdn:domain', fqdn):
             self.core.setTufoProp(tufo, 'zone', sfx)
+
+    @modelrev('inet', 201706201837)
+    def _revModl201706201837(self):
+        '''
+        Add :port and :ipv4 to inet:tcp4 and inet:udp4 nodes.
+        '''
+        tick = s_common.now()
+
+        forms = ('inet:tcp4', 'inet:udp4')
+        for form in forms:
+            adds = []
+            portprop = '{}:port'.format(form)
+            ipv4prop = '{}:ipv4'.format(form)
+
+            rows = self.core.getRowsByProp(form)
+            for i, p, v, _ in rows:
+                norm, subs = s_datamodel.tlib.getTypeNorm(form, v)
+
+                port = subs.get('port')
+                if port:
+                    adds.append((i, portprop, port, tick))
+
+                ipv4 = subs.get('ipv4')
+                if ipv4:
+                    adds.append((i, ipv4prop, ipv4, tick))
+
+            if adds:
+                self.core.addRows(adds)
+
+    @modelrev('inet', 201706121318)
+    def _revModl201706121318(self):
+
+        # account for the updated sub-property extraction for inet:url nodes
+        adds = []
+        rows = self.core.getRowsByProp('inet:url')
+
+        for i, p, v, t in rows:
+            norm, subs = s_datamodel.tlib.getTypeNorm('inet:url', v)
+
+            fqdn = subs.get('fqdn')
+            if fqdn is not None:
+                adds.append((i, 'inet:url:fqdn', fqdn, t))
+
+            ipv4 = subs.get('ipv4')
+            if ipv4 is not None:
+                adds.append((i, 'inet:url:ipv4', ipv4, t))
+
+        if adds:
+            self.core.addRows(adds)
 
     @staticmethod
     def getBaseModels():
@@ -682,24 +738,3 @@ class InetMod(CoreModule):
         }
         name = 'inet'
         return ((name, modl), )
-
-    @modelrev('inet', 201706121318)
-    def _revModl201706121318(self):
-
-        # account for the updated sub-property extraction for inet:url nodes
-        adds = []
-        rows = self.core.getRowsByProp('inet:url')
-
-        for i, p, v, t in rows:
-            norm, subs = s_datamodel.tlib.getTypeNorm('inet:url', v)
-
-            fqdn = subs.get('fqdn')
-            if fqdn is not None:
-                adds.append((i, 'inet:url:fqdn', fqdn, t))
-
-            ipv4 = subs.get('ipv4')
-            if ipv4 is not None:
-                adds.append((i, 'inet:url:ipv4', ipv4, t))
-
-        if adds:
-            self.core.addRows(adds)
