@@ -507,33 +507,32 @@ class DataTypesTest(SynTest):
 
         tlib.addType('foo:bar', subof='comp', fields='foo=str,bar=int', optfields='baz=str,faz=int')
 
-        subs = (('bar',20),('baz','asdf'),('faz',30),('foo','qwer'))
+        subs = (('bar', 20), ('baz', 'asdf'), ('faz', 30), ('foo', 'qwer'))
 
-        v0,s0 = tlib.getTypeNorm('foo:bar', ('qwer',20,('baz','asdf'),('faz',30)))
-        v1,s1 = tlib.getTypeNorm('foo:bar', ('qwer',20,('faz',30),('baz','asdf')))
-        v2,s2 = tlib.getTypeNorm('foo:bar', '(qwer,20,baz=asdf,faz=30)')
-        v3,s3 = tlib.getTypeNorm('foo:bar', '(qwer,20,faz=30,baz=asdf)')
+        v0, s0 = tlib.getTypeNorm('foo:bar', ('qwer', 20, ('baz', 'asdf'), ('faz', 30)))
+        v1, s1 = tlib.getTypeNorm('foo:bar', ('qwer', 20, ('faz', 30), ('baz', 'asdf')))
+        v2, s2 = tlib.getTypeNorm('foo:bar', '(qwer,20,baz=asdf,faz=30)')
+        v3, s3 = tlib.getTypeNorm('foo:bar', '(qwer,20,faz=30,baz=asdf)')
 
-        self.eq(v0,v1)
-        self.eq(v1,v2)
-        self.eq(v2,v3)
+        self.eq(v0, v1)
+        self.eq(v1, v2)
+        self.eq(v2, v3)
 
         self.eq(subs, tuple(sorted(s0.items())))
         self.eq(subs, tuple(sorted(s1.items())))
         self.eq(subs, tuple(sorted(s2.items())))
         self.eq(subs, tuple(sorted(s3.items())))
 
+        subs = (('bar', 20), ('baz', 'asdf'), ('foo', 'qwer'))
 
-        subs = (('bar',20),('baz','asdf'),('foo','qwer'))
+        v0, s0 = tlib.getTypeNorm('foo:bar', ('qwer', 20, ('baz', 'asdf')))
+        v1, s1 = tlib.getTypeNorm('foo:bar', ('qwer', 20, ('baz', 'asdf')))
+        v2, s2 = tlib.getTypeNorm('foo:bar', '(qwer,20,baz=asdf)')
+        v3, s3 = tlib.getTypeNorm('foo:bar', '(qwer,20,baz=asdf)')
 
-        v0,s0 = tlib.getTypeNorm('foo:bar', ('qwer',20,('baz','asdf')))
-        v1,s1 = tlib.getTypeNorm('foo:bar', ('qwer',20,('baz','asdf')))
-        v2,s2 = tlib.getTypeNorm('foo:bar', '(qwer,20,baz=asdf)')
-        v3,s3 = tlib.getTypeNorm('foo:bar', '(qwer,20,baz=asdf)')
-
-        self.eq(v0,v1)
-        self.eq(v1,v2)
-        self.eq(v2,v3)
+        self.eq(v0, v1)
+        self.eq(v1, v2)
+        self.eq(v2, v3)
 
         self.eq(subs, tuple(sorted(s0.items())))
         self.eq(subs, tuple(sorted(s1.items())))
@@ -546,16 +545,16 @@ class DataTypesTest(SynTest):
 
         tlib.addType('foo:bar', subof='comp', optfields='baz=str,faz=int')
 
-        subs = (('baz','asdf'),('faz',30))
+        subs = (('baz', 'asdf'), ('faz', 30))
 
-        v0,s0 = tlib.getTypeNorm('foo:bar', (('baz','asdf'),('faz',30)))
-        v1,s1 = tlib.getTypeNorm('foo:bar', (('faz',30),('baz','asdf')))
-        v2,s2 = tlib.getTypeNorm('foo:bar', '(baz=asdf,faz=30)')
-        v3,s3 = tlib.getTypeNorm('foo:bar', '(faz=30,baz=asdf)')
+        v0, s0 = tlib.getTypeNorm('foo:bar', (('baz', 'asdf'), ('faz', 30)))
+        v1, s1 = tlib.getTypeNorm('foo:bar', (('faz', 30), ('baz', 'asdf')))
+        v2, s2 = tlib.getTypeNorm('foo:bar', '(baz=asdf,faz=30)')
+        v3, s3 = tlib.getTypeNorm('foo:bar', '(faz=30,baz=asdf)')
 
-        self.eq(v0,v1)
-        self.eq(v1,v2)
-        self.eq(v2,v3)
+        self.eq(v0, v1)
+        self.eq(v1, v2)
+        self.eq(v2, v3)
 
         self.eq(subs, tuple(sorted(s0.items())))
         self.eq(subs, tuple(sorted(s1.items())))

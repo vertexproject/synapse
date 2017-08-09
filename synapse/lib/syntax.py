@@ -478,8 +478,8 @@ def parse_oper(text, off=0):
 
         if nextchar(text, off, '='):
 
-            vval, off = parse_valu(text, off+1)
-            inst[1]['kwlist'].append((valu,vval))
+            vval, off = parse_valu(text, off + 1)
+            inst[1]['kwlist'].append((valu, vval))
 
         else:
 

@@ -626,7 +626,7 @@ class Runtime(Configable):
 
             # specify a limit backward from limit oper...
             if oper[0] == 'limit' and retn:
-                args = oper[1].get('args',())
+                args = oper[1].get('args', ())
                 if args:
                     limt = s_common.intify(args[0])
                     if limt is not None:
@@ -990,7 +990,7 @@ class Runtime(Configable):
             raise s_common.BadSyntaxError(mesg='limit(<size>)')
 
         if query.size() > size:
-            [ query.add(node) for node in query.take()[:size] ]
+            [query.add(node) for node in query.take()[:size]]
 
     def _stormOperPivot(self, query, oper):
         args = oper[1].get('args')
