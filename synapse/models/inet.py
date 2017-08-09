@@ -359,7 +359,7 @@ class InetMod(CoreModule):
 
             rows = self.core.getRowsByProp(form)
             for i, p, v, _ in rows:
-                norm, subs = self.core.getTypeNorm(form, v)
+                norm, subs = s_datamodel.tlib.getTypeNorm(form, v)
 
                 port = subs.get('port')
                 if port:

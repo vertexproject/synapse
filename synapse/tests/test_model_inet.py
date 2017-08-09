@@ -409,7 +409,6 @@ class InetModelTest(SynTest):
 
         byts = self.getRev0DbByts()
 
-        # Fake some nodes
         iden0 = guid()
         iden1 = guid()
         tick = now()
@@ -440,3 +439,44 @@ class InetModelTest(SynTest):
 
                 t1 = core.getTufoByIden(iden1)
                 self.eq(t1[1].get('inet:url:ipv4'), 0x01020304)
+
+    def test_modelrev_201704201837(self):
+
+        byts = self.getRev0DbByts()
+
+        # Fake some nodes
+        iden1 = guid()
+        iden2 = guid()
+        tick = now()
+        rows = [
+            (iden1, 'tufo:form', 'inet:tcp4', tick),
+            (iden1, 'inet:tcp4', '1.2.3.4:80', tick),
+            (iden2, 'tufo:form', 'inet:udp4', tick),
+            (iden2, 'inet:udp4', '1.2.3.4:443', tick),
+        ]
+
+        with self.getTestDir() as temp:
+            finl = os.path.join(temp, 'test.db')
+
+            with open(finl, 'wb') as fd:
+                fd.write(byts)
+
+            url = 'sqlite:///%s' % finl
+
+            # Add the nodes into the storage object
+            with s_cortex.openstore(url) as store:
+                store.addRows(rows)
+
+            # Open the cortex, applying the data model updates
+            # Validate our nodes now have the correct data
+            with s_cortex.openurl(url) as core:
+                modlrev = core.getModlVers('inet')
+                self.ge(modlrev, 201704201837)
+
+                t1 = core.getTufoByIden(iden1)
+                self.eq(t1[1].get('inet:tcp4:port'), 80)
+                self.eq(t1[1].get('inet:tcp4:ipv4'), 0x01020304)
+
+                t2 = core.getTufoByIden(iden2)
+                self.eq(t2[1].get('inet:udp4:port'), 443)
+                self.eq(t2[1].get('inet:udp4:ipv4'), 0x01020304)
