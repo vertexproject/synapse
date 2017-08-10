@@ -85,9 +85,9 @@ In the output above, timestamp associated with ``"#hurr.derp"`` is the time the 
 Tags - Data Model
 -----------------
 
-Tags can be thought of as "labels" applied to nodes. However, tags themselves are **also** nodes – that is, every tag is represented by a node (of form ``syn:tag``) within the hypergraph. For a ``syn:tag`` node, the primary property (``<form>=<value>``) is the name of the tag; so for the tag ``foo.bar``, the node’s primary property is ``syn:tag=foo.bar``.
+Tags can be thought of as labels applied to nodes. However, tags themselves are **also** nodes – that is, every tag is represented by a node (of form ``syn:tag``) within the hypergraph. For a ``syn:tag`` node, the primary property (``<form>=<value>``) is the name of the tag; so for the tag ``foo.bar``, the node’s primary property is ``syn:tag=foo.bar``.
 
-Tag nodes can be created manually just like any other node; however, most often the creation of tag nodes is transparent to the user> That is, Synapse will create a ``syn:tag`` node on the fly when a tag is applied to a node for the first time. For example, applying the tag ``hurr.derp`` to the node ``inet:fqdn=woot.com`` will automatically create the node ``syn:tag=hurr.derp`` if it does not already exist.
+Tag nodes can be created manually just like any other node; however, most often the creation of tag nodes is transparent to the user. That is, Synapse will create a ``syn:tag`` node on the fly when a tag is applied to a node for the first time. For example, applying the tag ``hurr.derp`` to the node ``inet:fqdn=woot.com`` will automatically create the node ``syn:tag=hurr.derp`` if it does not already exist.
 
 Note that if you delete the **node** associated with a tag (``syn:tag=foo.bar.baz``, as opposed to deleting the tag ``foo.bar.baz`` from a node) then not only is the ``syn:tag`` node itself removed from the Cortex, but the corresponding tag is **removed from all nodes** to which it was previously applied.
 
@@ -128,7 +128,7 @@ Tags and tagforms are fundamental components of the Synapse data model (hence th
    syn:tagform:doc = <str>
      The long form description for what the tag means when applied to the given node form.
 
-The ``:base``, ``:up``, and ``:depth`` properties of a ``syn:tag`` node facilitate analysis using the Storm query language <link> by supporting:
+The ``:base``, ``:up``, and ``:depth`` properties of a ``syn:tag`` node facilitate analysis using the `Storm query language`__ by supporting:
 
 * querying or filtering at arbitrary depth;
 * traversing the tag hierarchy;
@@ -147,3 +147,6 @@ __ Compare_
 __ Data_
 
 .. _datamodel.py: https://github.com/vertexproject/synapse/blob/master/synapse/datamodel.py
+
+.. _Storm: ../userguides/userguide_section11.html
+__ Storm_
