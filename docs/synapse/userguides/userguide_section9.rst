@@ -58,7 +58,78 @@ The structure of a tag hierarchy is an important consideration, as the “order�
 
 For example, let’s say you are storing copies of articles from various news feeds within a Synapse Cortex. You want to use tags to annotate the subject matter of the articles. Two possible options would be:
 
+*Hierarchy #1* ::
+  
+  <country>.<topic>.<subtopic>.<subtopic>:
+    us.economics.trade.gdp
+    us.economics.trade.deficit
+    us.economics.banking.lending
+    us.economics.banking.regulatory
+    us.politics.elections.national
+    france.politics.elections.national
+    france.politics.elections.local
+    china.economics.banking.lending
+  
+*Hierarchy #2* ::
+  
+  <topic>.<subtopic>.<subtopic>.<country>:
+    economics.trade.gdp.us
+    economics.trade.deficit.us
+    economics.banking.lending.us
+    economics.banking.regulatory.us
+    politics.elections.national.us
+    politics.elections.national.france
+    politics.elections.local.france
+    economics.banking.lending.china
+  
+Using Synapse's Storm_ query language, it is easy to ask about nodes that have a specific tag (``ask #<tag>``). Storm also allows you to ask about tag nodes (``syn:tag`` forms) that share a common base element (``:base`` secondary property) and then locate all nodes that have any of those tags. While this is a slightly more complex query, it is not overly difficult (``ask syn:tag:base=<value> fromtags()``).
+
+Based on this, you can see how the choice of hierarchy makes it easier (or harder) to ask certain questions. (**Note:** examples simplified for discussion purposes. See the Storm reference and Storm tutorial for detailed information on using Storm.)
+
+“Show me all the articles related to France”:
+
+* Hierarchy #1: ``ask #france``
+* Hierarchy #2: ``ask syn:tag:base=france fromtags()``
+
+“Show me all the articles on to banking within the US”:
+
+* Hierarchy #1: ``ask #us.economics.banking``
+* Hierarchy #2: ``ask syn:tag:base=us fromtags() +#economics.banking``
+(Alternatlely, it is possible to use a regular expression to filter for tags containing "banking", for example, before calling the ``fromtags()`` operators: ``ask syn:tag:base=us +syn:tag~=banking fromtags()``.)
+
+“Show me all the articles about global trade”:
+
+* Hierarchy #1: ``ask syn:tag:base=trade fromtags()``
+* Hierarchy #2: ``ask #economics.trade``
+
+“Show me all the articles about national elections”:
+
+* Hierarchy #1: ``ask syn:tag:base=national fromtags()``
+* Hierarchy #2: ``ask #politics.elections.national``
+
+Hierarchy #1 makes it easier to ask the first two questions; Hierarchy #2 makes it easier to ask the last two questions. As you can see, choosing one hierarchy over the other doesn’t necessarily **prevent** you from asking certain questions – if you choose the first hierarchy, you can still ask about global trade issues. However, asking that question (structuring an appropriate Storm query) is a bit harder, and the potential complexity of a query across a poorly-structured set of tags increases as both the tag depth and the total number of tags increases.
+
+While the differences in query structure may seem relatively minor, structuring your tags to make it “easier” to ask questions has two important effects:
+
+* **More efficient / performant for Synapse to return the requested data:** in general, lifting data by tag will be more efficient than lifting nodes by property and then pivoting from tag nodes to nodes that have those tags. Efficiency may be further impacted if additional operations (filtering, additional pivots) are performed on the results. While these performance impacts may be measured in fractions of seconds or seconds at most, they still impact an analyst’s workflow.
+* **Simpler for analysts to remember:** you want analysts to spend their time analyzing data, not figuring out how to ask the right question to retrieve the data in the first place. This has a much bigger impact on an analyst’s workflow.
+
+Neither hierarchy is right or wrong; which is more **suitable** depends on the types of questions you want to answer. If your analysis focuses primarily on news content within a particular geography, the first option (which places "country" at the root of the hierarchy) is probably more suitable. If your analysis focuses more on global geopolitical topics, the second hierarchy is probably better. As a general rule, **the analytical focus that you "care about most" should generally go at the top of the hierarchy in order to make it “easier” to ask those questions.**
+
+**Tag Definitions**
+
+The form of a tag (``syn:tag``) allows both short-form and long-form definitions to be stored directly on the tag's node. Consistently using these definition fields to clearly define a tag's meaning is extremely helpful for analysis.
+
+Recall from `Data Model – Concepts`__ that a well-designed Synapse data model should be "self-evident": the structure of the hypergraph (data model) combined with the set of associated tags (analytical model) is able to convey key relationships and assessments in a concise way. In other words, understanding nodes and tags is meant to be simpler (and faster) than reading a long form report about why an analyst interprets X to mean Y.
+
+That said, a data model is still an abstraction: it trades the precision and detail of long-form reporting for the power of a consistent model and programmatic access to data and analysis. Within this framework, tags are the "shorthand" for analytical observations and annotations. Nuances of meaning that may be essential for proper analysis get lost if a complex observation is reduced to the tag ``foo.bar.baz``. There is a risk that different analysts may interpret and use the same tag in different ways, particularly as the number of analysts using the system increases. The risk also increases as the number of tags increases, as there may be hundreds or even thousands of tags being used to annotate the data.
+
+By convention, the ``:title`` secondary property has been used for a "short" definition for the tag – a phrase or sentence at most – while ``:doc`` has been used for a detailed definition to more completely explain the meaning of a given tag. The idea is that ``:title`` would be suitable to be exposed via an API or UI as a simple definition (such as a label or hover-over), while ``:doc`` would be suitable for display on request by a user who wanted more detailed information or clarification.
 
 
 
->> _Storm: ../userguides/userguide_section11.html
+_Storm: ../userguides/userguide_section11.html
+_Storm: ../userguides/userguide_section11.html
+
+.. _Concepts: ../userguides/userguide_section4.html
+__ Concepts_
