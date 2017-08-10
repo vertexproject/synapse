@@ -10,7 +10,7 @@ While the Synapse data model related to tags is straightforward (consisting of o
 In short, effective use of Synapse to conduct analysis is dependent on:
 
 * the **data model** (how you define forms to represent data within your knowledge domain).
-* the **analytical model** (how you design an effective set of tags to annotate data within your knowledge domain).
+* the **analytical model** (how you design a set of tags to annotate data within your knowledge domain).
 
 A well-designed tag structure should:
 
@@ -26,11 +26,15 @@ If a tag represents the outcome of an assessment, then every tag can be consider
 
 Hypotheses may be simple or complex; most often individual tags represent relatively simple concepts that are then used collectively to support (or refute) more complex theories. Because the concept of encoding assessments, judgments, or analytical conclusions within a graph or hypergraph may be unfamiliar to some, a few examples may be helpful.
 
+*Example 1*
+
 A common concept in tracking cyber threat data is the idea of determining whether an indicator (a file, domain, IP address, email address, etc.) is part of a "threat cluster" associated with a particular threat group or set of malicious actors. For something to be part of a threat cluster, it must be considered to be **unique** to that threat group – that is, if the indicator (such as a domain) is observed on a network, it can be considered a sure sign that the threat group is present in that network.
 
 An analyst reviewing new threat data – say a piece of malware containing a never-before-observed domain – will try to determine whether the activity can be associated with any known threat group. The broad question "can this be associated with any known group?" can be thought of as comprised of *n* number of individual hypotheses based on the number of known threat groups ("This activity is associated with the threat cluster for Threat Group 1...for Threat Group 2...for Threat Group *n*").
 
 Let's say the analyst determines the activity is related to Threat Group 12 and therefore applies the tag ``tc.t12`` (``tc`` to indicate the “threat cluster” name space, ``t12`` to indicate Threat Group 12) to the malicious domain (``inet:fqdn``). The presence of that tag indicates that the hypothesis "This domain is associated with the threat cluster for Threat Group 12" has been assessed to be true, based on the available data.
+
+*Example 2*
 
 The criteria used to evaluate whether an indicator is part of a threat cluster may be complex. Tags (and their underlying hypotheses) can also represent concepts that are much simpler (easier to evaluate).
 
@@ -40,7 +44,7 @@ An analyst evaluating whether a domain mimics the name of a legitimate company o
 
 More complex hypotheses may not be explicitly annotated within the graph (that is, as individual tags), but may be supported (or refuted) by the presence of other tags or combinations of tags. For example, if your hypothesis is "Threat Group 12 frequently registers domains that imitate technology companies", you could ask Synapse to show you all the domains (``inet:fqdn`` nodes) associated with Threat Group 12 (tagged with ``tc.t12``) and then show you which of those domains have a ``mimic`` tag:
 
-* Comparing the number of mimic domains to the total number of Threat Group 12 domains can indicate how often the group attempts to imitate other services.
+* Comparing the number of ``mimic`` domains to the total number of Threat Group 12 domains can indicate how often the group attempts to imitate other services.
 * The companies or services reflected in the ``mimic`` tags can indicate the types of organizations the group imitates.
 
 This information will help you evaluate whether or not your hypothesis is true based on currently available data. A corresponding Storm_ query to help evaluate the above would be:
@@ -132,11 +136,11 @@ The same principle applies to ``syn:tagform`` ("tagform") nodes, which were crea
 
 **Tag Governance**
 
-Because tags are simply nodes, any user with the ability to create nodes can create a new tag. On one hand, this ability to create tags "on the fly" makes tags extremely powerful, flexible, and convenient for analysts – they can create annotations to reflect their observations as they are conducting analysis, without the need to wait for code changes or approval cycles.
+Because tags are simply nodes, any user with the ability to create nodes can create a new tag. On one hand, this ability to create tags on the fly makes tags extremely powerful, flexible, and convenient for analysts – they can create annotations to reflect their observations as they are conducting analysis, without the need to wait for code changes or approval cycles.
 
 However, there is also risk to this approach, particularly with large numbers of analysts, as analysts may create tags in an uncoordinated and haphazard fashion. The creation of arbitrary (and potentially duplicative or contradictory) tags can work against effective analysis.
 
-A middle ground between tag free-for-all and tight restrictions ("no new tags without prior approval") is usually the best approach. It is useful for an analyst to be able to create a tag on demand to record an observation in the moment. However, it is also helpful to have some type of regular governance or review process to ensure the tags are being used in a consistent manner and that any newly created tags fit appropriately into the overall analytical model.
+A middle ground between tag free-for-all and tight tag restrictions ("no new tags without prior approval") is usually the best approach. It is useful for an analyst to be able to create a tag on demand to record an observation in the moment. However, it is also helpful to have some type of regular governance or review process to ensure the tags are being used in a consistent manner and that any newly created tags fit appropriately into the overall analytical model.
 
 This governance and consistency is important across all analysts using a specific instance of Synapse, but is especially important within a broader community. If you plan to exchange data, analysis, or annotations with other groups with their own instances of Synapse, you should use an agreed-upon, consistent data model as well as an agreed-upon set of tags.
 
@@ -146,7 +150,7 @@ Tag hierarchies can be arbitrarily deep. If one function of hierarchies is to re
 
 More detail is often better; however, tag hierarchies should reflect the level of detail that is relevant for your analysis, and no more. That is, the analysis being performed should drive the set of tags being used and the level of detail they support. (Contrast that approach with taking an arbitrary taxonomy and using it to create tags without consideration for the taxonomy's relevance or applicability.) Not only is an excess of detail potentially unnecessary to the analysis at hand, it can actually create more work and be detrimental to the analysis you are trying to conduct.
 
-Tags typically represent an analytical assertion, which means in most cases a human analyst needs to evaluate the data, make an assessment, and subsequently annotate data with the appropriate tag(s). Use of an excessive number of tags or of excessively detailed tags means an analyst needs to do more work (keystrokes or mouse clicks) to annotate the data. There is also a certain amount of overhead associated with tag creation itself, particularly if newly created tags need to be reviewed for governance, or if administrative tasks (such as ensuring tags have associated definitions) need to be performed.
+Tags typically represent an analytical assertion, which means in most cases a human analyst needs to evaluate the data, make an assessment, and subsequently annotate data with the appropriate tag(s). Using an excessive number of tags or excessively detailed tags means an analyst needs to do more work (keystrokes or mouse clicks) to annotate the data. There is also a certain amount of overhead associated with tag creation itself, particularly if newly created tags need to be reviewed for governance, or if administrative tasks (such as ensuring tags have associated definitions) need to be performed.
 
 More importantly, while the physical act of applying a tag to a node may be "easy", the analytical decision to apply the tag often requires careful review and evaluation of the evidence. If tags are overly detailed, representing shades of meaning that aren't really relevant, analysts may get bogged down splitting hairs – worrying about whether tag A or tag B is more precise or appropriate. In that situation, the analysis is being driven by the overly detailed tags, instead of the tag structure being driven by the analytical need. Where detail is necessary or helpful it should be used; but beware of becoming overly detailed where it isn't relevant, as the act of annotating can take over from real analysis.
 
@@ -158,7 +162,7 @@ Note that it is relatively easy to "bulk change" tags (to decide a tag should ha
 
 For example, if you decide that ``foo.bar.baz.hurr`` and ``foo.bar.baz.derp`` provide too much granularity and should both be rolled up into ``foo.bar.baz``, the change is relatively easy. Similarly, if you create the tag ``foo.bar`` and later decide that tag should reside under a top-level tag ``wut``, you can rename ``foo.bar`` to ``wut.foo.bar`` and re-tag the relevant nodes. (**Note:** Changing the tags is still a manual process as Synapse does not currently support “mass renaming” of tags. However, it is relatively straightforward to lift all nodes that have a given tag, apply the new “renamed” tag to all the nodes, and then delete the ``syn:tag`` node for the original tag, which will also remove the old tag from any nodes.)
 
-This flexibility provides a "safety net" when designing tag hierarchies, as it allows some freedom to "not get it right" the first time. Particularly when implementing a new tag or set of tags, it can be helpful to test them out on real-world data before finalizing the tags or tag structure. The ability to say "if we don't get it quite right we can rename it later" can free up analysts or developers to experiment.
+This flexibility provides a safety net when designing tag hierarchies, as it allows some freedom to "not get it right" the first time. Particularly when implementing a new tag or set of tags, it can be helpful to test them out on real-world data before finalizing the tags or tag structure. The ability to say "if we don't get it quite right we can rename it later" can free up analysts or developers to experiment.
 
 It is harder to modify tags through means such as "splitting" tags. For example, if you create the tag ``foo.bar`` and later decide that ``bar`` should really be tracked as two variants (``foo.bar.um`` and ``foo.bar.wut``), it can be painstaking to separate those out, particularly if the set of nodes currently tagged ``foo.bar`` is large. For the sake of flexibility it is often preferable to err on the side of "more detail", particularly during early testing.
 
@@ -176,11 +180,11 @@ As the scope of analysis within a given instance of Synapse increases, it is ess
 
 It may be helpful to walk through an example of designing a tag structure. While somewhat simplified, it illustrates some of the considerations taken into account.
 
-Internet domains (``inet:fqdn``) used for malicious activity are often taken over by security researchers in a process known as "sinkholing". The security firm takes control of the domain, either after it expires or in coordination with a domain registrar, and updates the domain's DNS A record to point to the IP address or a server controlled by the security firm. This allows the security firm to help identify (and ideally notify) victims who are attempting to communicate with the malicious domain. It may also provide insight into the individuals or organizations being targeted by the malicious actors.
+Internet domains (``inet:fqdn``) used for malicious activity are often taken over by security researchers in a process known as "sinkholing". The security firm takes control of the domain, either after it expires or in coordination with a domain registrar, and updates the domain's DNS A record to point to the IP address of a server controlled by the security firm. This allows the security firm to help identify (and ideally notify) victims who are attempting to communicate with the malicious domain. It may also provide insight into the individuals or organizations being targeted by the malicious actors.
 
 The process of sinkholing also requires supporting infrastructure used by the security firm. This typically includes (at minimum):
 
-* The name servers (``inet:fqdn``) used to resolve the sinkholed domains.
+* The DNS name servers (``inet:fqdn``) used to resolve the sinkholed domains.
 * The IP address(es) (``inet:ipv4``) the name servers resolve to.
 * The IP address(es) that the sinkholed domains resolve to.
 * Any email address(es) (``inet:email``) used by the security firm to register the sinkholed domains.
@@ -207,7 +211,7 @@ Another consideration is the "order" in which to structure these elements. Does 
 
 Placing ``dom`` (and ``ns`` and ``reg``) first makes sense if, in your analysis, you are most interested in domains (in general) followed by sinkholed domains (in particular). In this case, the purpose is to track sinkhole operations (in general) and then to be able to distinguish among the different types of infrastructure associated with these operations; so ``sink.dom`` makes more sense to allow you to go from "more general" to "more specific". As a small tweak, because the term "sinkhole" is widely recognized within the security community, changing ``sink.dom`` to ``sink.hole`` may be a bit more intuitive.
 
-Additional information that may be interesting to note is the specific organization responsible for the sinkholed domains and associated infrastructure. In some cases it may be possible to identify the responsible organization (through domain registration records or reverse-IP lookups). An additional optional element ``<org_name>`` could be placed at the end of the tag for cases where the organization is known (e.g., ``sink.hole.kaspersky`` for Kaspersky Lab).
+Additional information that may be interesting to note is the specific organization responsible for the sinkholed domains and associated infrastructure. In some cases it may be possible to identify the responsible organization (through domain registration records or reverse IP lookups). An additional optional element ``<org_name>`` could be placed at the end of the tag for cases where the organization is known (e.g., ``sink.hole.kaspersky`` for Kaspersky Lab).
 
 That gives you the following tag structure::
   
