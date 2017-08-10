@@ -103,7 +103,7 @@ Retrieve (“lift”) the node representing the domain ``woot.com``. Note that t
 
 ::
   
-    cli> ask --debug inet:fqdn=woot.com
+  cli> ask --debug inet:fqdn=woot.com
   
   oplog:
       lift (took:0) {'sub': 0, 'took': 0, 'mnem': 'lift', 'add': 1}
