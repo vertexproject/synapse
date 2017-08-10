@@ -122,6 +122,7 @@ class DataModel(s_types.TypeLib):
         self.addTufoProp('syn:form', 'doc', ptype='str', doc='basic form definition')
         self.addTufoProp('syn:form', 'ver', ptype='int', doc='form version within the model')
         self.addTufoProp('syn:form', 'model', ptype='str', doc='which model defines a given form')
+        self.addTufoProp('syn:form', 'ptype', ptype='syn:type', req=1, doc='Synapse type for this form')
 
         self.addTufoForm('syn:prop', ptype='syn:prop')
         self.addTufoProp('syn:prop', 'doc', ptype='str', req=1, doc='Description of the property definition')
