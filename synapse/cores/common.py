@@ -1920,7 +1920,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         # deconfliction ( allows highly performant "event" ingest )
         deconf = True
         if valu is None:
-            tname = self.getPropTypeName(prop)
             if tname and self.isSubType(tname, 'guid'):
                 valu = s_common.guid()
                 deconf = False
