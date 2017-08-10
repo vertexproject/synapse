@@ -49,8 +49,8 @@ For example::
   cli> ask inet:fqdn=woot.com
 
   inet:fqdn = woot.com
-      #foo.bar (added 2017/06/20 19:59:02.854)
-      #hurr.derp (added 2017/08/02 21:11:37.866) 2017/05/23 00:00:00.000  -  2017/08/03 00:00:00.000
+    #foo.bar (added 2017/06/20 19:59:02.854)
+    #hurr.derp (added 2017/08/02 21:11:37.866) 2017/05/23 00:00:00.000  -  2017/08/03 00:00:00.000
   (1 results)
 
 In the output above, the timestamps in parentheses represent when the tags ``foo.bar`` and ``hurr.derp`` were applied to the node. The additional timestamps associated with ``hurr.derp`` show the minimum / maximum range when the tag was applicable or relevant for this node.
