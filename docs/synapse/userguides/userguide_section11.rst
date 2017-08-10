@@ -6,13 +6,13 @@ Background
 
 **Storm** is the query language used to interact with data in a Synapse hypergraph. Storm allows you to ask about, retrieve, annotate, add, modify, and delete data from a Cortex.
 
-Most Synapse users (e.g., those conducting analysis on the data) will access Storm via the command-line interface (CLI), using the ``ask`` command to invoke a Storm query. The Synapse CLI can invoke Storm functions directly – that is, calling the function and passing appropriate parameters:
+Most Synapse users (e.g., those conducting analysis on the data) will access Storm via the command-line interface (CLI), using the ``ask`` command to invoke a Storm query. The Synapse CLI can invoke Storm operators directly – that is, calling the operator and passing appropriate parameters:
 
-``cli> ask <function>(<param_1>,<param_2>...<param_n>)``
+``cli> ask <operator>(<param_1>,<param_2>...<param_n>)``
 
 ``cli> ask lift(inet:fqdn,woot.com)``
 
-That said, Storm is meant to be usable by analysts from a variety of knowledge domains who are not necessarily programmers and who may not be comfortable using functions in what feels like a “programming language”. For this reason, Storm has been designed to mask some of the underlying programmatic complexity. The intent is for Storm to act more like a “data language”, allowing knowledge domain users to:
+That said, Storm is meant to be usable by analysts from a variety of knowledge domains who are not necessarily programmers and who may not be comfortable using operators in what feels like a “programming language”. For this reason, Storm has been designed to mask some of the underlying programmatic complexity. The intent is for Storm to act more like a “data language”, allowing knowledge domain users to:
 
 * **Reference data and data types in an intuitive form.** Through features such as type safety and property normalization, Storm tries to take a “do what I mean” approach, removing the burden of translating or standardizing data from the user where possible.
 * **Use a simplified syntax to run Storm queries.** In addition to the standard operator-based Storm syntax, most common operators support the use of a short-form **macro syntax** to make queries both more intuitive and more efficient (by allowing common queries to be executed with fewer keystrokes).
@@ -44,7 +44,7 @@ Storm queries can be as simple as asking to lift a single node:
 
 ``cli> ask inet:fqdn=woot.com``
 
-Alternately, they can be highly complex, chaining a series of operators to lift a set of nodes and perform a series of additional filter and pivot operations that follow a line of analysis across the data.
+Alternately, they can be highly complex, chaining a series of operators to lift a set of nodes and perform a series of additional filter and pivot operations that follow a line of analysis across the data:
 
 ``cli> ask inet:fqdn*tag=tc.t12 -> inet:dns:a:fqdn inet:dns:a:ipv4 -> inet:ipv4 -#anon.tor -#anon.vpn -> inet:dns:a:ipv4 inet:dns:a:fqdn -> inet:fqdn``
 
@@ -63,7 +63,7 @@ Operator Categories
 
 Storm operators can be divided into broad categories based on their typical use:
 
-* **Data modification** – add, modify, annotate, and delete nodes from the Cortex.
+* **Data modification** – add, modify, annotate, and delete nodes from a Cortex.
 * **Lift (query) operators** – retrieve data based on specified criteria.
 * **Filter operators** – take a set of lifted nodes and refine your results by including or excluding a subset of nodes based on specified criteria.
 * **Pivot operators** -  take a set of lifted nodes and identify other nodes that share one or more properties or property values with the lifted set.
@@ -87,8 +87,6 @@ Working with Synapse data commonly involves three broad types of operations:
 * **Filtering** data (down-selecting a subset of nodes from an existing set of nodes).
 * **Pivoting** across data ("navigating" the hypergraph by moving from an existing set of nodes to another set of nodes that share some property and / or value with the original set).
 
-These operations are discussed in more detail (and with examples) elsewhere in this documentation.
-
 Whether lifting, filtering, or pivoting across data in a Cortex, you need to be able to clearly specify the data you’re interested in – your selection criteria. In most cases, the criteria you specify will be based on one or more of the following:
 
 * A **property** (primary or secondary) on a node.
@@ -100,11 +98,11 @@ All of the above elements – nodes, properties, values, and tags – are the fu
 "Good" and "Bad" Queries
 ------------------------
 
-Storm is meant to be flexible as well as performant across large and diverse data sets. There is no single "right" way to use Storm to ask a question of the hypergraph data. However, there are definitely "better" (more efficient or more performant) ways to ask a question. Given that there is typically more than one "path" to an answer (more than one way to ask the question), analysts should consider which path may be more optimal – or at least consider which path is not at all optimal – when formulating a Storm query.
+Storm is meant to be flexible as well as performant across large and diverse data sets. There is no single "right" way to use Storm to ask a question of the hypergraph data. However, there are definitely "better" (more efficient or more performant) ways to ask a question. Given that there is typically more than one "path" to an answer (more than one way to ask the question), analysts should consider which path may be more optimal (or at least consider which path is **not** optimal) when formulating a Storm query.
 
 Crafting an optimal query can mean the difference between quickly receiving a meaningful response and waiting for Synapse to return a response because it is processing an excessive amount of data. Synapse currently has no built-in timeouts or other limits (such as total number of nodes lifted) on Storm queries, though these "safety nets" are planned for a future release. Asking a "bad" (non-performant) question will not harm Synapse, but it may frustrate analysts waiting for their CLI to return a response.
 
-As a simple example of a "bad" vs "good" query, let's say you want to lift all of the IP addresses that are part of the threat cluster (the set of associated indicators) for Threat Group 12. There are two key components to the data you want to ask about: IP addresses (``inet:ipv4``), represented by a set of nodes; and the Threat Group 12 threat cluster, represented by a tag (``tc.t12``) applied to those nodes.
+As a simple example of a "bad" vs "good" query, let's say you want to lift all of the IP addresses that are part of the threat cluster (the set of associated indicators) for Threat Group 12. There are two key components to the data you want to ask about: IP addresses (``inet:ipv4``), represented by a set of nodes; and the Threat Group 12 threat cluster, represented by a tag (``tc.t12``) applied to the relevant nodes.
 
 Two ways to ask that question using Storm are:
 
@@ -116,15 +114,15 @@ Two ways to ask that question using Storm are:
 
 ``cli> ask #tc.t12 +inet:ipv4``
 
-The first query is problematic because it first asks Storm to return all ``inet:ipv4`` nodes within the hypergraph – potentially hundreds of thousands, or even millions of nodes, depending on how densely populated the hypergraph is (mathematically speaking, there are over four billion possible IPv4 addresses). Synapse has to lift all of those ``inet:ipv4`` nodes into memory and then select only those nodes with the ``tc.t12`` tag. The query is likely to take an extremely long time to return or to time out entirely (at least until query limits are incorporated into Synapse), and therefore represents a "bad" query.
+The first query is problematic because it first asks Storm to return **all** ``inet:ipv4`` nodes within the hypergraph – potentially hundreds of thousands, or even millions of nodes, depending on how densely populated the hypergraph is (mathematically speaking, there are over four billion possible IPv4 addresses). Synapse has to lift **all** of those ``inet:ipv4`` nodes into memory and then select only those nodes with the ``tc.t12`` tag. The query is likely to take an extremely long time to return or to time out entirely (at least until query limits are incorporated into Synapse), and therefore represents a "bad" query.
 
-The second query first asks Storm to return all nodes tagged with ``tc.t12``. This may still be a large number depending on how much analysis and annotation has been performed related to Threat Group 12. However, the number of nodes tagged ``tc.t12`` will still be much smaller than the number of ``inet:ipv4`` nodes within a hypergraph. As such, the second query is more efficient or performant, and represents a "good" (or at least "better" query).
+The second query first asks Storm to return **all** nodes tagged with ``tc.t12``. This may still be a large number depending on how much analysis and annotation has been performed related to Threat Group 12. However, the number of nodes tagged ``tc.t12`` will still be much smaller than the number of ``inet:ipv4`` nodes within a hypergraph. As such, the second query is more efficient or performant, and represents a "good" (or at least "better" query).
 
 (**Note:** The previous example is used for simple illustrative purposes. Technically, the "best" way to ask this particular question would be to use what is called a Storm "by" handler (represented by the asterisk ( ``*`` ) to "lift by tag":
 
 ``cli> ask inet:ipv4*tag=tc.t12``
 
-"By" handlers are specifically designed to further optimize certain queries by lifting and filtering nodes concurrently, as opposed to lifting nodes and then filtering the results. "By" handlers are discussed in greater detail elsewhere in this documentation.)
+"By" handlers are specifically designed to further optimize certain queries by lifting and filtering nodes concurrently, as opposed to lifting nodes and then filtering the results.)
 
 .. _blocks: ../userguides/userguide_section3.html
 __ blocks_
