@@ -1298,9 +1298,19 @@ class CortexTest(SynTest):
             self.nn(cofo)
             self.false(core.enforce)
 
+            self.true(core.isSetPropOk('foo:bar:customprop'))
+            self.true(core.isSetPropOk('foo:baz:fqdn'))
+            self.true(core.isSetPropOk('foo:baz:haha'))
+            self.true(core.isSetPropOk('foo:baz:duck'))
+
             core.setConfOpt('enforce', True)
 
             self.true(core.enforce)
+
+            self.false(core.isSetPropOk('foo:bar:customprop'))
+            self.true(core.isSetPropOk('foo:baz:fqdn'))
+            self.true(core.isSetPropOk('foo:baz:haha'))
+            self.false(core.isSetPropOk('foo:baz:duck'))
 
             tufo0 = core.formTufoByProp('foo:bar', 'foo@bar.com', hehe=10, haha=20)
             tufo1 = core.formTufoByProp('foo:baz', 'foo@bar.com', hehe=10, haha=20)
@@ -1328,7 +1338,7 @@ class CortexTest(SynTest):
             self.eq(tufo1[1].get('foo:baz:haha'), 21)
             self.eq(tufo1[1].get('foo:baz:fqdn'), 'visi.com')
 
-             # Prevent enforce from allowing the cortex to store new types it does not know about
+            # Prevent the core from storing new types it does not know about
             self.raises(NoSuchForm, core.formTufoByProp, 'foo:duck', 'something')
 
     def test_cortex_minmax(self):
