@@ -94,8 +94,8 @@ Based on this, you can see how the choice of hierarchy makes it easier (or harde
 “Show me all the articles on to banking within the US”:
 
 * Hierarchy #1: ``ask #us.economics.banking``
-* Hierarchy #2: ``ask syn:tag:base=us fromtags() +#economics.banking``
-(Alternatlely, it is possible to use a regular expression to filter for tags containing "banking", for example, before calling the ``fromtags()`` operators: ``ask syn:tag:base=us +syn:tag~=banking fromtags()``.)
+* Hierarchy #2: ``ask syn:tag:base=us fromtags() +#economics.banking`` or
+  ``ask syn:tag:base=us +syn:tag~=banking fromtags()``
 
 “Show me all the articles about global trade”:
 
@@ -126,10 +126,143 @@ That said, a data model is still an abstraction: it trades the precision and det
 
 By convention, the ``:title`` secondary property has been used for a "short" definition for the tag – a phrase or sentence at most – while ``:doc`` has been used for a detailed definition to more completely explain the meaning of a given tag. The idea is that ``:title`` would be suitable to be exposed via an API or UI as a simple definition (such as a label or hover-over), while ``:doc`` would be suitable for display on request by a user who wanted more detailed information or clarification.
 
+Storing a tag's definition directly within the Synapse data model helps to make Synapse "self-documenting": an analyst can view the tag’s definition at any time directly within Synapse simply by viewing the tag node’s properties (``ask --props syn:tag=<tag>``). There is no need to refer to an external application or dictionary to look up a tag's precise meaning and appropriate use.
+
+The same principle applies to ``syn:tagform`` ("tagform") nodes, which were created to document the precise meaning of a tag **when it is applied to a specific form** (node type). Tagforms support use cases where a tag embodying a particular concept may still have subtle differences in meaning when the tag is applied to different node types – say an ``inet:ipv4`` vs. an ``inet:fqdn``. While these nuances could be documented on the ``syn:tag`` node itself, it could make for a very lengthy definition. In those cases it may be preferable to create ``syn:tagform`` nodes to separately document the various meanings for a given tag / form combination.
+
+**Tag Governance**
+
+Because tags are simply nodes, any user with the ability to create nodes can create a new tag. On one hand, this ability to create tags "on the fly" makes tags extremely powerful, flexible, and convenient for analysts – they can create annotations to reflect their observations as they are conducting analysis, without the need to wait for code changes or approval cycles.
+
+However, there is also risk to this approach, particularly with large numbers of analysts, as analysts may create tags in an uncoordinated and haphazard fashion. The creation of arbitrary (and potentially duplicative or contradictory) tags can work against effective analysis.
+
+A middle ground between tag free-for-all and tight restrictions ("no new tags without prior approval") is usually the best approach. It is useful for an analyst to be able to create a tag on demand to record an observation in the moment. However, it is also helpful to have some type of regular governance or review process to ensure the tags are being used in a consistent manner and that any newly created tags fit appropriately into the overall analytical model.
+
+This governance and consistency is important across all analysts using a specific instance of Synapse, but is especially important within a broader community. If you plan to exchange data, analysis, or annotations with other groups with their own instances of Synapse, you should use an agreed-upon, consistent data model as well as an agreed-upon set of tags.
+
+**Level of Detail**
+
+Tag hierarchies can be arbitrarily deep. If one function of hierarchies is to represent an increasing level of detail, then deep hierarchies have the potential to represent extremely fine-grained analytical observations.
+
+More detail is often better; however, tag hierarchies should reflect the level of detail that is relevant for your analysis, and no more. That is, the analysis being performed should drive the set of tags being used and the level of detail they support. (Contrast that approach with taking an arbitrary taxonomy and using it to create tags without consideration for the taxonomy's relevance or applicability.) Not only is an excess of detail potentially unnecessary to the analysis at hand, it can actually create more work and be detrimental to the analysis you are trying to conduct.
+
+Tags typically represent an analytical assertion, which means in most cases a human analyst needs to evaluate the data, make an assessment, and subsequently annotate data with the appropriate tag(s). Use of an excessive number of tags or of excessively detailed tags means an analyst needs to do more work (keystrokes or mouse clicks) to annotate the data. There is also a certain amount of overhead associated with tag creation itself, particularly if newly created tags need to be reviewed for governance, or if administrative tasks (such as ensuring tags have associated definitions) need to be performed.
+
+More importantly, while the physical act of applying a tag to a node may be "easy", the analytical decision to apply the tag often requires careful review and evaluation of the evidence. If tags are overly detailed, representing shades of meaning that aren't really relevant, analysts may get bogged down splitting hairs – worrying about whether tag A or tag B is more precise or appropriate. In that situation, the analysis is being driven by the overly detailed tags, instead of the tag structure being driven by the analytical need. Where detail is necessary or helpful it should be used; but beware of becoming overly detailed where it isn't relevant, as the act of annotating can take over from real analysis.
+
+**Flexibility**
+
+Just as a good data model will evolve and adapt to meet changing analytical needs, the analytical model represented by a set of tags or tag hierarchies should be able to evolve and adapt. No matter how well-thought-out your tag structure is, you will identify exceptions, edge cases, and observations you didn't realize you wanted to capture. To the extent possible, your tag structure should be flexible enough to account for future changes.
+
+Note that it is relatively easy to "bulk change" tags (to decide a tag should have a different name or structure, and to re-tag existing nodes with the new tag) as long as the change is one-to-one. That is, while the tag name may change, the meaning of the tag does not, so that everything tagged with the old name should remain tagged with the new name.
+
+For example, if you decide that ``foo.bar.baz.hurr`` and ``foo.bar.baz.derp`` provide too much granularity and should both be rolled up into ``foo.bar.baz``, the change is relatively easy. Similarly, if you create the tag ``foo.bar`` and later decide that tag should reside under a top-level tag ``wut``, you can rename ``foo.bar`` to ``wut.foo.bar`` and re-tag the relevant nodes. (**Note:** Changing the tags is still a manual process as Synapse does not currently support “mass renaming” of tags. However, it is relatively straightforward to lift all nodes that have a given tag, apply the new “renamed” tag to all the nodes, and then delete the ``syn:tag`` node for the original tag, which will also remove the old tag from any nodes.)
+
+This flexibility provides a "safety net" when designing tag hierarchies, as it allows some freedom to "not get it right" the first time. Particularly when implementing a new tag or set of tags, it can be helpful to test them out on real-world data before finalizing the tags or tag structure. The ability to say "if we don't get it quite right we can rename it later" can free up analysts or developers to experiment.
+
+It is harder to modify tags through means such as "splitting" tags. For example, if you create the tag ``foo.bar`` and later decide that ``bar`` should really be tracked as two variants (``foo.bar.um`` and ``foo.bar.wut``), it can be painstaking to separate those out, particularly if the set of nodes currently tagged ``foo.bar`` is large. For the sake of flexibility it is often preferable to err on the side of "more detail", particularly during early testing.
+
+**Consistency of Use**
+
+Creating a well-thought out set of tags to support your analytical model is ineffective if those tags aren't used consistently – that is, by a majority of analysts across a majority of relevant data. 100% visibility into a given data set and 100% analyst review and annotation of that data is an unrealistic goal; but for data and annotations that represent your most pressing analytical questions, you should strive for as much completeness as possible. Looked at another way, inconsistent use of tags can result in gaps that can skew your assessment of the data. At best, this can lead to the inability to draw conclusions; at worst, to faulty analysis.
+
+This inconsistency often occurs as both the number of analysts and the number of tags used for analysis increase. The larger the team of analysts, the more difficult it is for that team to work closely and consistently together. Similarly, the more tags available to represent different assessments, the fewer tags an analyst can work with and apply within a given time frame. In both cases, analysts may tend to "drift" towards analytical tasks that are most immediately relevant to their work, or most interesting to them – thus losing sight of the collective analytical goals of the entire team.
+
+Consider the example above of tracking Internet domains that mimic legitimate companies. If some analysts are annotating this data but others are not, your ability to answer questions about this data is skewed. Let’s say Threat Group 12 has registered 200 domains, and 173 of them imitate real companies, but only 42 have been annotated with ``mimic`` tags. If you try to use the data to answer the question "does Threat Group 12 consistently register domains that imitate valid companies?", your assessment is likely to be "no" based on the incompletely annotated data. There are gaps in your analysis because the information to answer this question has only been partially recorded.
+
+As the scope of analysis within a given instance of Synapse increases, it is essential to recognize these gaps as a potential shortcoming that may need to be addressed. Options include establishing policy around which analytical tasks (and associated observations) are essential (perhaps even required) and which are secondary ("as time allows"); or designating individual analysts to be responsible for particular analytical tasks.
+
+**Tag Example**
+
+It may be helpful to walk through an example of designing a tag structure. While somewhat simplified, it illustrates some of the considerations taken into account.
+
+Internet domains (``inet:fqdn``) used for malicious activity are often taken over by security researchers in a process known as "sinkholing". The security firm takes control of the domain, either after it expires or in coordination with a domain registrar, and updates the domain's DNS A record to point to the IP address or a server controlled by the security firm. This allows the security firm to help identify (and ideally notify) victims who are attempting to communicate with the malicious domain. It may also provide insight into the individuals or organizations being targeted by the malicious actors.
+
+The process of sinkholing also requires supporting infrastructure used by the security firm. This typically includes (at minimum):
+
+* The name servers (``inet:fqdn``) used to resolve the sinkholed domains.
+* The IP address(es) (``inet:ipv4``) the name servers resolve to.
+* The IP address(es) that the sinkholed domains resolve to.
+* Any email address(es) (``inet:email``) used by the security firm to register the sinkholed domains.
+
+For cyber threat data purposes, it is useful to know when a domain has been "sinkholed" and is no longer under direct control of a threat group. It is also useful to identify sinkhole infrastructure, which can then be used to identify other sinkholed domains.
+
+All of the objects listed above are associated with sinkhole operations, so one option would be to simply use a single tag ``sinkhole`` (or ``sink`` for short, if you want to save on keystrokes) to denote they are associated with this activity. However, a single tag is not useful if you want to be able to distinguish (and ask about) sinkholed domains separately from legitimate domains associated with the security firm's sinkhole name servers.
+
+A second set of tag elements can be used in combination with ``sink`` to distinguish these different components:
+
+* ``dom`` – the sinkholed domain
+* ``ns`` – the name server used to resolve the domain
+* ``nsip`` – the name server IP address
+* ``domip`` – the sinkhole domain IP address
+* ``reg`` – the email used to register the sinkhole domain
+
+Use of a second tag element helps draw better distinctions among the different components, but creates a larger number of tags. However, the sinkholed domain and its IP (as well as the sinkhole name server and its IP) can be considered two aspects of the same concept (“sinkhole domain” and “sinkhole name server”). This could allow you to consolidate some of the tags because the combination of tag plus form allows you to distinguish between "sinkholed domains" (``inet:fqdn``) and "IP addresses hosting sinkholed domains" (``inet:ipv4``) even if you use the same tag for both:
+
+* ``dom`` – a sinkholed domain or the IP address the domain resolves to
+* ``ns`` – a sinkhole name server or the IP address the name server resolves to
+* ``reg`` – the email used to register the sinkhole domain
+
+Another consideration is the "order" in which to structure these elements. Does ``dom.sink`` make more sense, or ``sink.dom``?
+
+Placing ``dom`` (and ``ns`` and ``reg``) first makes sense if, in your analysis, you are most interested in domains (in general) followed by sinkholed domains (in particular). In this case, the purpose is to track sinkhole operations (in general) and then to be able to distinguish among the different types of infrastructure associated with these operations; so ``sink.dom`` makes more sense to allow you to go from "more general" to "more specific". As a small tweak, because the term "sinkhole" is widely recognized within the security community, changing ``sink.dom`` to ``sink.hole`` may be a bit more intuitive.
+
+Additional information that may be interesting to note is the specific organization responsible for the sinkholed domains and associated infrastructure. In some cases it may be possible to identify the responsible organization (through domain registration records or reverse-IP lookups). An additional optional element ``<org_name>`` could be placed at the end of the tag for cases where the organization is known (e.g., ``sink.hole.kaspersky`` for Kaspersky Lab).
+
+That gives you the following tag structure::
+  
+  sink
+  sink.hole
+  sink.ns
+  sink.reg
+  sink.hole.kaspersky
+  sink.hole.microsoft
+  sink.ns.microsoft
+  
+...etc.
+
+This structure allows you to use Storm to ask questions such as:
+
+“Show me all of the domains sinkholed by Kaspersky”:
+
+* ``ask inet:fqdn*tag=sink.hole.kaspersky``
+
+“Show me all of the IP addresses associated with sinkhole name servers”:
+
+* ``ask inet:ipv4*tag=sink.ns``
+
+“Show me all of the Threat Group 12 domains sinkholed by Microsoft”:
+
+* ``ask inet:fqdn*tag=sink.hole.microsoft +#tc.t12``
+
+For each of these tags, the corresponding ``syn:tag`` nodes can be given a definition (secondary property ``:title`` and / or ``:doc``) within Synapse. Since we are using ``sink.hole`` and ``sink.ns`` with two different node types (``inet:fqdn`` and ``inet:ipv4``), we can also optionally create ``syn:tagform`` nodes with custom definitions for the meaning of the tag when used on each type of node.
+
+A ``syn:tag`` node might look like this::
+  
+  cli> ask --props syn:tag=sink.hole
+  
+  syn:tag = sink.hole
+      :base = hole
+      :depth = 1
+      :doc = A malicious domain that has been sinkholed, or an IP address to which sinkholed domains resolve.
+      :title = A sinkholed domain or associated IP address
+      :up = sink
+  (1 results)
+
+An optional ``syn:tagform`` node representing ``sink.hole`` specifically when applied to ``inet:ipv4`` nodes might look like this::
+  
+  cli> ask --props syn:tagform:tag=sink.hole +syn:tagform:form=inet:ipv4
+  
+   syn:tagform = 6343cfbdb736d988a72801be48ea07e2
+      :doc = An IP address used as the DNS A record for a sinkholed domain.
+      :form = inet:ipv4
+      :tag = sink.hole
+      :title = IP address of a sinkholed domain
+  (1 results)
 
 
-_Storm: ../userguides/userguide_section11.html
-_Storm: ../userguides/userguide_section11.html
+.. _Storm: ../userguides/userguide_section11.html
 
 .. _Concepts: ../userguides/userguide_section4.html
 __ Concepts_
+
