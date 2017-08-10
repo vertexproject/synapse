@@ -9,7 +9,7 @@ Recall from `Data Model – Basics`__ that the key data model components within 
 
 (See the section on `Secondary Properties vs. Relationship Nodes vs. Tags`__ for some general considerations when determining whether something should be represented as a node, a node property, or a tag.)
 
-Tags can be thought of as labels applied to nodes; within the Synapse hypergraph, a given tag can be applied to any number of nodes. As such, a tag is a hyperedge that joins any number of arbitrary nodes into a set. Grouping nodes together in Synapse using tags is typically done to further some analytical goal.
+Tags can be thought of as labels applied to nodes; within the Synapse hypergraph, a given tag can be applied to any number of nodes. As such, a tag is a **hyperedge** that joins any number of arbitrary nodes into a set. Grouping nodes together in Synapse using tags is typically done to further some analytical goal.
 
 Conversely, a node can have any number of tags applied to it, thus having any number of hyperedges or belonging to any number of analytical sets.
 
@@ -18,7 +18,7 @@ Tag Structure
 
 Tags use a dotted naming convention, with the period ( . ) used as a separator character to delimit individual "components" of a tag if necessary. This dotted notation means it is possible to create **tag hierarchies** of arbitrary depth that support increasingly detailed or specific observations. For example, the top level tag ``foo`` can represent a broad set of observations, while ``foo.bar`` and ``foo.baz`` could represent subsets of ``foo`` or more specific observations related to ``foo``.
 
-In a tag hierarchy, the full tag (down through and including the lowest or rightmost element) is known as the **leaf** tag for that hierarchy. For the tag ``foo.bar.baz``, ``foo.bar.baz`` is the leaf. The “top” or leftmost component ``foo`` may be informally referred to as the **root** of that hierarchy. The lowest (rightmost) element in a tag hierarchy is known as the **base** of the tag.
+In a tag hierarchy, the full tag (down through and including the lowest or rightmost element) is known as the **leaf** tag for that hierarchy. For the tag ``foo.bar.baz``, ``foo.bar.baz`` is the leaf. The “top” or leftmost component ``foo`` may be informally referred to as the **root** of that hierarchy. The lowest (rightmost) element in a tag hierarchy is known as the **base** of the tag; for tag ``foo.bar.baz``, ``baz`` is the base.
 
 When you apply a tag to a node, all of the tags in the tag hierarchy are applied; that is, if you apply tag ``foo.bar.baz`` to a node, Synapse automatically applies the tags ``foo.bar`` and ``foo`` as well.
 
@@ -87,14 +87,14 @@ Tags - Data Model
 
 Tags can be thought of as "labels" applied to nodes. However, tags themselves are **also** nodes – that is, every tag is represented by a node (of form ``syn:tag``) within the hypergraph. For a ``syn:tag`` node, the primary property (``<form>=<value>``) is the name of the tag; so for the tag ``foo.bar``, the node’s primary property is ``syn:tag=foo.bar``.
 
-Tag nodes can be created manually just like any other node. However, most often the creation of tag nodes is transparent to the user; that is, Synapse will create a ``syn:tag`` node on the fly when a tag is applied to a node for the first time. For example, applying the tag ``hurr.derp`` to the node ``inet:fqdn=woot.com`` will automatically create the node ``syn:tag=hurr.derp`` if it does not already exist.
+Tag nodes can be created manually just like any other node; however, most often the creation of tag nodes is transparent to the user> That is, Synapse will create a ``syn:tag`` node on the fly when a tag is applied to a node for the first time. For example, applying the tag ``hurr.derp`` to the node ``inet:fqdn=woot.com`` will automatically create the node ``syn:tag=hurr.derp`` if it does not already exist.
 
 Note that if you delete the **node** associated with a tag (``syn:tag=foo.bar.baz``, as opposed to deleting the tag ``foo.bar.baz`` from a node) then not only is the ``syn:tag`` node itself removed from the Cortex, but the corresponding tag is **removed from all nodes** to which it was previously applied.
 
 From a strict data model perspective, tags are very simple since there is only one form (``syn:tag``) and one "helper" form (``syn:tagform``, the meaning of a tag when applied to a specific form) used to represent tags within the Synapse hypergraph. Any number of tags across any number of knowledge domains can be created based on those predefined forms.
 
-Tags and tagforms are fundamental components of the Synapse data model (hence the ``syn`` prefix in ``syn:tag`` and ``syn:tagform``), independent of model elements that may be specific to a particular knowledge domain. These fundamental components are defined within the core Synapse source code (as opposed to source code for domain-specific data models). This means they are not covered by the Synapse automated document generation process, and do not appear in the standard `data model documentation`__. The form structures can be found in the source code of ``datamodel.py`` and are documented here (in simplified format) for reference::
-
+Tags and tagforms are fundamental components of the Synapse data model (hence the ``syn`` prefix in ``syn:tag`` and ``syn:tagform``), independent of model elements that may be specific to a particular knowledge domain. These fundamental components are defined within the core Synapse source code (as opposed to source code for domain-specific data models). This means they are not covered by the Synapse automated document generation process, and do not appear in the standard `data model documentation`__. The form structures can be found in the source code of datamodel.py_ and are documented here (in simplified format) for reference::
+   
   syn:tag
 
   syn:tag = <syn:tag>
@@ -143,5 +143,7 @@ __ Basics_
 .. _Compare: ../userguide_section6.html#secondary-properties-vs-relationship-nodes-vs-tags
 __ Compare_
 
-.. _Datamodel: ../datamodel.html
-__ Datamodel_
+.. _Data: ../datamodel.html
+__ Data_
+
+.. _datamodel.py: https://github.com/vertexproject/synapse/blob/master/synapse/datamodel.py
