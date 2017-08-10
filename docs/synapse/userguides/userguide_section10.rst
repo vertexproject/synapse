@@ -5,19 +5,19 @@ Synapse includes a command line interface (CLI) for interacting with a Synapse C
 
 To connect to a remote Cortex, pass the path to the Cortex as an argument to the ``cmdr`` module:
 
-  ``python.exe -m synapse.tools.cmdr <path_to_cortex>``
+* ``python.exe -m synapse.tools.cmdr <path_to_cortex>``
 
 Where ``<path_to_cortex>`` should look similar to:
 
-  ``<protocol>://<server>:<port>/<cortex>``
+* ``<protocol>://<server>:<port>/<cortex>``
 
 For example:
 
-  ``tcp://synapse.woot.com:1234/cortex01``
+* ``tcp://synapse.woot.com:1234/cortex01``
 
 or
 
-  ``ssh://user@synapse.woot.com:1234/cortex01``
+* ``ssh://user@synapse.woot.com:1234/cortex01``
 
 Once you connect to the Cortex, you should have a Synapse command prompt:
 
