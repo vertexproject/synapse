@@ -5,19 +5,19 @@ Synapse includes a command line interface (CLI) for interacting with a Synapse C
 
 To connect to a remote Cortex, pass the path to the Cortex as an argument to the ``cmdr`` module:
 
-* ``python.exe -m synapse.tools.cmdr <path_to_cortex>``
+``python.exe -m synapse.tools.cmdr <path_to_cortex>``
 
 Where ``<path_to_cortex>`` should look similar to:
 
-* ``<protocol>://<server>:<port>/<cortex>``
+``<protocol>://<server>:<port>/<cortex>``
 
 For example:
 
-* ``tcp://synapse.woot.com:1234/cortex01``
+``tcp://synapse.woot.com:1234/cortex01``
 
 or
 
-* ``ssh://user@synapse.woot.com:1234/cortex01``
+``ssh://user@synapse.woot.com:1234/cortex01``
 
 Once you connect to the Cortex, you should have a Synapse command prompt:
 
@@ -42,17 +42,17 @@ Storm is the query language used to interact with data in a Synapse hypergraph. 
 
 *Syntax:*
 
-  ``ask [--debug --[props|raw]] <query>``
+``ask [--debug --[props|raw]] <query>``
 
-  * Running ``ask`` with no arguments will display help and usage information.
+* Running ``ask`` with no arguments will display help and usage information.
 
-  * ``ask`` displays the set of nodes returned by ``<query>`` in ``<primary_property>=<value>`` form, along with their associated tags, if any. For hierarchical (dotted) tags, only the final (leaf) tags are displayed.
+* ``ask`` displays the set of nodes returned by ``<query>`` in ``<primary_property>=<value>`` form, along with their associated tags, if any. For hierarchical (dotted) tags, only the final (leaf) tags are displayed.
 
-  * ``--debug`` displays the same data as ask with the addition of informational / diagnostic data about the execution of ``<query>``
+* ``--debug`` displays the same data as ask with the addition of informational / diagnostic data about the execution of ``<query>``
 
-  * ``--props`` displays the same data as ``ask`` with the addition of the ``<secondary_property>=<value>`` properties from each node. Output is formatted for readability (e.g., epoch timestamps are displayed in ``YYYY/MM/DD hh:mm:ss.mmmm`` format, IPv4 addresses are displayed as dotted-decimal strings).
+* ``--props`` displays the same data as ``ask`` with the addition of the ``<secondary_property>=<value>`` properties from each node. Output is formatted for readability (e.g., epoch timestamps are displayed in ``YYYY/MM/DD hh:mm:ss.mmmm`` format, IPv4 addresses are displayed as dotted-decimal strings).
 
-  * ``--raw`` displays all properties and tags associated with the node in JSON format, including universal properties (e.g., ``tufo:form=<form>``), ephemeral properties (if any), and all tags (not simply leaf tags).
+* ``--raw`` displays all properties and tags associated with the node in JSON format, including universal properties (e.g., ``tufo:form=<form>``), ephemeral properties (if any), and all tags (not simply leaf tags).
   
 *Examples:*
 
@@ -63,8 +63,9 @@ Retrieve (“lift”) the node representing the domain ``woot.com``. Note that t
   inet:fqdn = woot.com
       #foo.bar (added 2017/06/20 19:59:02.854)
   (1 results)
-  
-- - - - - - - - - - - - - - - - - - - - - - - ::
+
+
+::
   
   cli> ask --props inet:fqdn=woot.com
   
@@ -77,7 +78,8 @@ Retrieve (“lift”) the node representing the domain ``woot.com``. Note that t
       :zone = True
   (1 results)
 
-- - - - - - - - - - - - - - - - - - - - - - - - ::
+
+::
   
   cli> ask --raw inet:fqdn=woot.com
   
@@ -99,7 +101,7 @@ Retrieve (“lift”) the node representing the domain ``woot.com``. Note that t
   ]
   (1 results)
 
-- - - - - - - - - - - - - - - - - - - - - - - - ::
+::
   
     cli> ask --debug inet:fqdn=woot.com
   
