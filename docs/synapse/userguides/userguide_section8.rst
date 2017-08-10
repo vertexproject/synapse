@@ -140,7 +140,7 @@ The ``:title`` and ``:doc`` properties allow definitions for the tag and tagform
 .. _Basics: ../userguides/userguide_section3.html
 __ Basics_
 
-.. _Compare: ../userguide_section6.html#secondary-properties-vs-relationship-nodes-vs-tags
+.. _Compare: ../userguides/userguide_section6.html#secondary-properties-vs-relationship-nodes-vs-tags
 __ Compare_
 
 .. _Data: ../datamodel.html
