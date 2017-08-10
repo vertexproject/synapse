@@ -13,6 +13,7 @@ Contents:
     synapse/configables
     performance
     contributing
+    release_process
 
 Indices and tables
 ==================
