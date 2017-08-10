@@ -53,10 +53,95 @@ For example::
       #hurr.derp (added 2017/08/02 21:11:37.866) 2017/05/23 00:00:00.000  -  2017/08/03 00:00:00.000
   (1 results)
 
-blah
+In the output above, the timestamps in parentheses represent when the tags ``foo.bar`` and ``hurr.derp`` were applied to the node. The additional timestamps associated with ``hurr.derp`` show the minimum / maximum range when the tag was applicable or relevant for this node.
+
+Using the ``--raw`` option will display all tags (not just leaf tags) and properties in JSON format (timestamps are in Unix epoch time)::
+
+  cli> ask --raw inet:fqdn=woot.com
+  [
+    [
+      "a4d82cf025323796617ff57e884a4738",
+      {
+        "#foo": 1497988742854,
+        "#foo.bar": 1497988742854,
+        "#hurr": 1501707978035,
+        "#hurr.derp": 1501708038579,
+        "<#hurr.derp": 1501718400000,
+        ">#hurr.derp": 1495497600000,
+        "inet:fqdn": "woot.com",
+        "inet:fqdn:created": 1433680424000,
+        "inet:fqdn:domain": "com",
+        "inet:fqdn:host": "woot",
+        "inet:fqdn:sfx": 0,
+        "inet:fqdn:zone": 1,
+        "tufo:form": "inet:fqdn"
+      }
+    ]
+  ]
+  (1 results)
+
+In the output above, timestamp associated with ``"#hurr.derp"`` is the time the tag was applied; the timestamps associated with ``"<#hurr.derp"`` and ``">#hurr.derp"`` are the maximum and minimum timestamps associated with the tag.
+
+Tags - Data Model
+-----------------
+
+Tags can be thought of as "labels" applied to nodes. However, tags themselves are **also** nodes – that is, every tag is represented by a node (of form ``syn:tag``) within the hypergraph. For a ``syn:tag`` node, the primary property (``<form>=<value>``) is the name of the tag; so for the tag ``foo.bar``, the node’s primary property is ``syn:tag=foo.bar``.
+
+Tag nodes can be created manually just like any other node. However, most often the creation of tag nodes is transparent to the user; that is, Synapse will create a ``syn:tag`` node on the fly when a tag is applied to a node for the first time. For example, applying the tag ``hurr.derp`` to the node ``inet:fqdn=woot.com`` will automatically create the node ``syn:tag=hurr.derp`` if it does not already exist.
+
+Note that if you delete the **node** associated with a tag (``syn:tag=foo.bar.baz``, as opposed to deleting the tag ``foo.bar.baz`` from a node) then not only is the ``syn:tag`` node itself removed from the Cortex, but the corresponding tag is **removed from all nodes** to which it was previously applied.
+
+From a strict data model perspective, tags are very simple since there is only one form (``syn:tag``) and one "helper" form (``syn:tagform``, the meaning of a tag when applied to a specific form) used to represent tags within the Synapse hypergraph. Any number of tags across any number of knowledge domains can be created based on those predefined forms.
+
+Tags and tagforms are fundamental components of the Synapse data model (hence the ``syn`` prefix in ``syn:tag`` and ``syn:tagform``), independent of model elements that may be specific to a particular knowledge domain. These fundamental components are defined within the core Synapse source code (as opposed to source code for domain-specific data models). This means they are not covered by the Synapse automated document generation process, and do not appear in the standard `data model documentation`__. The form structures can be found in the source code of ``datamodel.py`` and are documented here (in simplified format) for reference::
+
+  syn:tag
+
+  syn:tag = <syn:tag>
+    A tag or label that can be applied to one or more nodes; acts as a hyperedge to join any number of nodes into a related set.
+  
+  Properties:
+   syn:tag:base = <str>
+     The base element of the tag (right-most element; to the right of the final dot, if any. For tag foo.bar.baz, :base=baz.)
+   syn:tag:up = <syn:tag>
+     The portion of the tag excluding the base (all content to the left of the final dot, if any. For tag foo.bar.baz, :up=foo.bar)
+   syn:tag:depth = <int>
+     Number of levels down from the "top" of the tag. For tag foo.bar.baz, :depth=2. For tag foo, :depth=0.
+   syn:tag:title = <str>
+     The short name or definition of what the tag means.
+   syn:tag:doc = <str>
+     The long form description of what the tag means.
+  
+  
+  syn:tagform
+  
+  syn:tagform = <syn:tagform>
+    A multi-field composite type which generates a stable GUID from normalized fields. The composite type consists of the tag (syn:tag) and the form to which the tag applies (syn:prop).
+  
+  Properties:
+   syn:tagform:tag = <syn:tag>
+     The tag being documented
+   syn:tagform:form = <syn:prop>
+     The form that the tag applies to
+   syn:tagform:title = <str>
+     The short name for what the tag means when applied to the given node form.
+   syn:tagform:doc = <str>
+     The long form description for what the tag means when applied to the given node form.
+
+The ``:base``, ``:up``, and ``:depth`` properties of a ``syn:tag`` node facilitate analysis using the Storm query language <link> by supporting:
+
+* querying or filtering at arbitrary depth;
+* traversing the tag hierarchy;
+* pivoting between nodes and tags.
+
+The ``:title`` and ``:doc`` properties allow definitions for the tag and tagform to be documented on the tag node itself.
+
 
 .. _Basics: ../userguides/userguide_section3.html
 __ Basics_
 
 .. _Compare: ../userguide_section6.html#secondary-properties-vs-relationship-nodes-vs-tags
 __ Compare_
+
+.. _Datamodel: ../datamodel.html
+__ Datamodel_
