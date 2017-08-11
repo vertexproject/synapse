@@ -49,7 +49,7 @@ Storm queries can be as simple as asking to lift a single node:
 Alternately, they can be highly complex, chaining a series of operators to lift a set of nodes and perform a series of additional filter and pivot operations that follow a line of analysis across the data::
 
     cli> ask inet:fqdn*tag=tc.t12 -> inet:dns:a:fqdn inet:dns:a:ipv4 -> inet:ipv4
-        -#anon.tor -#anon.vpn -> inet:dns:a:ipv4 inet:dns:a:fqdn -> inet:fqdd
+        -#anon.tor -#anon.vpn -> inet:dns:a:ipv4 inet:dns:a:fqdn -> inet:fqdn
 
 The second query above represents a common analytical workflow to research potentially malicious infrastructure. It takes a set of “known bad” domains, moves to the IP addresses those domains have resolved to, excludes some potentially irrelevant IPs, and then moves to other domains that have resolved to those IPs. Domains that resolved to the same IP address(es) as our “known bad” domains during the same time period may also be associated with our threat group. The query is broken down below; note how each new component builds on the previous query to follow a line of analysis and refine results:
 
