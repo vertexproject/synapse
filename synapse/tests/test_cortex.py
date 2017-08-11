@@ -1340,6 +1340,9 @@ class CortexTest(SynTest):
 
             # Prevent the core from storing new types it does not know about
             self.raises(NoSuchForm, core.formTufoByProp, 'foo:duck', 'something')
+            # Ensure that we cannot form nodes from Types alone - we must use forms
+            self.raises(NoSuchForm, core.formTufoByProp, 'str', 'we all float down here')
+            self.raises(NoSuchForm, core.formTufoByProp, 'inet:srv4', '1.2.3.4:8080')
 
     def test_cortex_minmax(self):
 
