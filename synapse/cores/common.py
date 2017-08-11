@@ -303,11 +303,21 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             if vers <= curv:
                 continue
 
+            if vers and curv != -1:
+                mesg = 'Updating model [{}] from [{}] => [{}] - do *not* interrupt.'.format(name, curv, vers)
+                logger.warning(mesg)
+                self.log(logging.WARNING, mesg=mesg, name=name, curv=curv, vers=vers)
+
             # allow the revision function to optionally return the
             # revision he jumped to ( to allow initial override )
             retn = func()
             if retn is not None:
                 vers = retn
+
+            if vers and curv != -1:
+                mesg = 'Updated model [{}] from [{}] => [{}]'.format(name, curv, vers)
+                logger.warning(mesg)
+                self.log(logging.WARNING, mesg=mesg, name=name, curv=curv, vers=vers)
 
             curv = self.setModlVers(name, vers)
 
