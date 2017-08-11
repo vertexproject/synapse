@@ -1,3 +1,5 @@
+.. highlight:: none
+
 Data Model - Tag Concepts
 =========================
 

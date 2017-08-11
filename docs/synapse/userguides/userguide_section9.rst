@@ -1,3 +1,5 @@
+.. highlight:: none
+
 Tags - Analytical Model
 =======================
 

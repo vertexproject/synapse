@@ -1,3 +1,5 @@
+.. highlight:: none
+
 Using Synapse - Commands
 ========================
 
