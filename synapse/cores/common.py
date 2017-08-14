@@ -291,7 +291,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             ('auth:url', {'type': 'inet:url', 'doc': 'Optional remote auth cortex (restart required)'}),
 
-            ('enforce', {'type': 'bool', 'asloc': 'enforce', 'defval': 0, 'doc': 'Enables data model enforcement'}),
+            ('enforce', {'type': 'bool', 'asloc': 'enforce', 'defval': 1, 'doc': 'Enables data model enforcement'}),
             ('caching', {'type': 'bool', 'asloc': 'caching', 'defval': 0,
                          'doc': 'Enables caching layer in the cortex'}),
             ('cache:maxsize', {'type': 'int', 'asloc': 'cache_maxsize', 'defval': 1000,
