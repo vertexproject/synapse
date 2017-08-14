@@ -480,3 +480,35 @@ class InetModelTest(SynTest):
                 t2 = core.getTufoByIden(iden2)
                 self.eq(t2[1].get('inet:udp4:port'), 443)
                 self.eq(t2[1].get('inet:udp4:ipv4'), 0x01020304)
+
+    def test_model_inet_201708141516(self):
+
+        byts = self.getRev0DbByts()
+
+        with self.getTestDir() as temp:
+            finl = os.path.join(temp, 'test.db')
+
+            with open(finl, 'wb') as fd:
+                fd.write(byts)
+
+            url = 'sqlite:///%s' % finl
+
+            # Open the cortex, applying the data model updates
+            # Validate our nodes now have the correct data
+            with s_cortex.openurl(url) as core:
+                modlrev = core.getModlVers('inet')
+                self.ge(modlrev, 201708141516)
+
+                tdef = core.getTufoByProp('syn:type', 'inet:urlfile')
+                self.nn(tdef)
+                self.notin('syn:type:names', tdef[1])
+                self.notin('syn:type:names', tdef[1])
+                self.isin('syn:type:fields', tdef[1])
+                self.eq(tdef[1].get('syn:type:fields'), 'url=inet:url,file=file:bytes')
+
+                # Now make a node
+                tufo = core.formTufoByProp('inet:urlfile',
+                                           ['https://vertex.link/hello.html', '5b4d61f7402c315480bfbb8259307131'])
+                self.nn(tufo)
+                self.eq(tufo[1].get('inet:urlfile:url'), 'https://vertex.link/hello.html')
+                self.eq(tufo[1].get('inet:urlfile:file'), '5b4d61f7402c315480bfbb8259307131')
