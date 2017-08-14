@@ -2,6 +2,7 @@ import re
 import socket
 import struct
 import hashlib
+import logging
 
 import synapse.common as s_common
 import synapse.compat as s_compat
@@ -13,6 +14,8 @@ from synapse.eventbus import on
 from synapse.exc import BadTypeValu
 from synapse.lib.types import DataType
 from synapse.lib.module import CoreModule, modelrev
+
+logger = logging.getLogger(__name__)
 
 def castInetDeFang(valu):
     return valu.replace('[.]', '.')
@@ -392,6 +395,21 @@ class InetMod(CoreModule):
 
         if adds:
             self.core.addRows(adds)
+
+    @modelrev('inet', 201708141516)
+    def _revModl201708141516(self):
+        node = self.core.formTufoByProp('syn:type', 'inet:urlfile')  # type: list
+        if not node:
+            # Its possible someone deleted their syn:type=inet:urlfile node :(
+            mesg = 'No syn:type="inet:urlfile" node found during model revision.'
+            logger.warn(mesg)
+            self.core.log(logging.WARNING, mesg=mesg)
+            return
+        self.core.delRowsByIdProp(node[0], 'syn:type:names')
+        self.core.delRowsByIdProp(node[0], 'syn:type:types')
+        # Add in the new fields type if it does not exist.
+        if 'syn:type:fields' not in node[1]:
+            self.core.addRows([(node[0], 'syn:type:fields', 'url=inet:url,file=file:bytes', s_common.now())])
 
     @staticmethod
     def getBaseModels():
