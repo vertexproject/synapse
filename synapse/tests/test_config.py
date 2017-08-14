@@ -1,5 +1,6 @@
 from synapse.tests.common import *
 
+import synapse.daemon as s_daemon
 import synapse.lib.config as s_config
 
 class Foo(s_config.Config):
@@ -78,3 +79,21 @@ class ConfTest(SynTest):
             self.eq(conf.getConfOpt('fooval'), 0x30)
 
             self.raises(NoSuchOpt, conf.setConfOpts, {'newp': 'hehe'})
+
+    def test_configable_proxymethod(self):
+
+        class CoolClass(s_config.Configable):
+
+            def __init__(self, proxy):
+                self.proxy = proxy
+                s_config.Configable.__init__(self)
+
+        with s_cortex.openurl('ram:///') as core:
+            with s_daemon.Daemon() as dmon:
+                dmon.share('core', core)
+                link = dmon.listen('tcp://127.0.0.1:0/core')
+                with s_cortex.openurl('tcp://127.0.0.1:%d/core' % link[1]['port']) as prox:
+                    cool = CoolClass(prox)
+                    tufo = cool.proxy.formTufoByProp('inet:ipv4', 0)
+                    self.eq(tufo[1]['tufo:form'], 'inet:ipv4')
+                    self.eq(tufo[1]['inet:ipv4'], 0)
