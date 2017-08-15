@@ -916,6 +916,15 @@ class CortexTest(SynTest):
         self.eq(len(core.getTufosByProp('foo:baz', valu='zap')), 1)
         self.eq(len(core.getTufosByProp('foo:faz', valu='zap')), 1)
 
+        # Try using setprops with an built-in model which type subprops
+        t0 = core.formTufoByProp('inet:netuser', 'vertex.link/pennywise')
+        self.notin('inet:netuser:email', t0[1])
+        props = {'email': 'pennywise@vertex.link'}
+        core.setTufoProps(t0, **props)
+        self.isin('inet:netuser:email', t0[1])
+        t1 = core.getTufoByProp('inet:email', 'pennywise@vertex.link')
+        self.nn(t1)
+
     def test_cortex_tufo_pop(self):
         with s_cortex.openurl('ram://') as core:
             foo0 = core.formTufoByProp('foo', 'bar', woot='faz')
