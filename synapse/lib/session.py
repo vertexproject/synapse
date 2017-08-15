@@ -76,6 +76,11 @@ class Curator(EventBus):
 
         self.onfini(self.cache.fini)
 
+        if self.core:
+            pdef = self.core.getPropDef('syn:sess')
+            if not pdef:
+                self.core.addTufoForm('syn:sess', ptype='guid')
+
     def setMaxTime(self, valu):
         return self.cache.setMaxTime(valu)
 

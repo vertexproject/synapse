@@ -227,7 +227,7 @@ class IngTest(SynTest):
             "ipv4": "192.168.1.1",
             "aliases": ["foo", "bar", "baz"]
         }'''
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             with self.getTestDir() as path:
                 xpth = os.path.join(path, 'woot.json')
 
@@ -247,7 +247,7 @@ class IngTest(SynTest):
                                               'forms': [('inet:ipv4', {})]
                                           }],
                                           ['aliases/*', {
-                                              'forms': [('str:lwr', {})]
+                                              'forms': [('strform', {})]
                                           }]
                                       ]}})]}
                 gest = s_ingest.Ingest(info)
@@ -255,9 +255,9 @@ class IngTest(SynTest):
 
                 self.nn(core.getTufoByProp('inet:fqdn', 'spooky.com'))
                 self.nn(core.getTufoByProp('inet:ipv4', '192.168.1.1'))
-                self.nn(core.getTufoByProp('str:lwr', 'foo'))
-                self.nn(core.getTufoByProp('str:lwr', 'bar'))
-                self.nn(core.getTufoByProp('str:lwr', 'baz'))
+                self.nn(core.getTufoByProp('strform', 'foo'))
+                self.nn(core.getTufoByProp('strform', 'bar'))
+                self.nn(core.getTufoByProp('strform', 'baz'))
 
     def test_ingest_jsonl(self):
         testjsonl = b'''{"fqdn": "spooky.com", "ipv4": "192.168.1.1"}
@@ -410,12 +410,12 @@ class IngTest(SynTest):
 
     def test_ingest_cast(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             info = {
                 'ingest': {
                     'iters': [
                         ('foo/*', {
-                            'forms': [('hehe:haha', {'path': '1', 'cast': 'str:lwr'})]
+                            'forms': [('strform', {'path': '1', 'cast': 'str:lwr'})]
                         }),
                     ]
                 }
@@ -426,7 +426,7 @@ class IngTest(SynTest):
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
-            self.nn(core.getTufoByProp('hehe:haha', 'lulz'))
+            self.nn(core.getTufoByProp('strform', 'lulz'))
 
     def test_ingest_lines(self):
         with s_cortex.openurl('ram://') as core:

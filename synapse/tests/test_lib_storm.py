@@ -353,7 +353,6 @@ class StormTest(SynTest):
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
             node4 = core.formTufoByProp('inet:netuser', 'clowntown.link/pennywise')
-            node5 = core.formTufoByProp('geo:loc', 'derry')
 
             core.addTufoTags(node1, ['aka.bar.baz',
                                      'aka.duck.quack.loud',
