@@ -2423,6 +2423,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             xact.spliced('node:prop:set', form=form, valu=valu, props=props)
 
+            if self.autoadd:
+                self._runAutoAdd(toadd)
+
         return tufo
 
     def setTufoProp(self, tufo, prop, valu):
