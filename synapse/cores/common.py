@@ -1901,7 +1901,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         return self.formTufoByProp(form, valu, **props)
 
-    def formTufosByItems(self, items):
+    def formTufosByProps(self, items):
         '''
         Forms tufos by prop, given a tuple of (form, valu, props) tuples.
 
@@ -1910,12 +1910,13 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             items (tuple): A tuple of tuples of (form, valu, props)
 
         Returns:
+
             tuple: Tuple containing tufos, either with the node or error data
 
         Example:
 
             items = ( ('foo:thing', 'hehe', {'a': 1}), ('bar:thing', 'haha', {'b': 2}), )
-            results = core.formTufoByItems(items)
+            results = core.formTufosByProps(items)
         '''
         retval = []
 
@@ -1924,7 +1925,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 try:
                     retval.append(self.formTufoByProp(form, valu, **props))
                 except Exception as e:
-                    retval.append(('error', s_common.excinfo(e)),)
+                    excinfo = s_common.excinfo(e)
+                    excval = excinfo.pop('err')
+                    retval.append(s_tufo.ephem('syn:err', excval, **excinfo))
 
         return tuple(retval)
 

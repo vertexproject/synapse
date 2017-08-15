@@ -2509,7 +2509,7 @@ class CortexTest(SynTest):
             nodes = core.eval('inet:ipv4*inet:cidr=192.168.0.0/16')
             self.eq(len(nodes), 256 * 3)
 
-    def test_cortex_formtufosbyitems(self):
+    def test_cortex_formtufosbyprops(self):
 
         with s_cortex.openurl('ram:///') as core:
             core.setConfOpt('enforce', 1)
@@ -2522,7 +2522,7 @@ class CortexTest(SynTest):
                         ('inet:url', 'bad', {}),
                         ('bad', 'good', {'wat': 3}),
                     )
-                    actual = prox.formTufosByItems(items)
+                    actual = prox.formTufosByProps(items)
 
                     self.isinstance(actual, tuple)
                     self.eq(len(actual), 3)
@@ -2534,16 +2534,18 @@ class CortexTest(SynTest):
                     self.eq(actual[0][1]['inet:fqdn:zone'], 1)
 
                     self.isinstance(actual[1], tuple)
-                    self.eq(actual[1][0], 'error')
-                    self.eq(actual[1][1]['err'], 'BadTypeValu')
+                    self.eq(actual[1][0], None)
+                    self.eq(actual[1][1]['tufo:form'], 'syn:err')
+                    self.eq(actual[1][1]['syn:err'], 'BadTypeValu')
                     for s in ['BadTypeValu', 'name=', 'inet:url', 'valu=', 'bad']:
-                        self.isin(s, actual[1][1]['errmsg'])
+                        self.isin(s, actual[1][1]['syn:err:errmsg'])
 
                     self.isinstance(actual[2], tuple)
-                    self.eq(actual[2][0], 'error')
-                    self.eq(actual[2][1]['err'], 'NoSuchForm')
+                    self.eq(actual[2][0], None)
+                    self.eq(actual[2][1]['tufo:form'], 'syn:err')
+                    self.eq(actual[2][1]['syn:err'], 'NoSuchForm')
                     for s in ['NoSuchForm', 'name=', 'bad']:
-                        self.isin(s, actual[2][1]['errmsg'])
+                        self.isin(s, actual[2][1]['syn:err:errmsg'])
 
 class StorageTest(SynTest):
 
