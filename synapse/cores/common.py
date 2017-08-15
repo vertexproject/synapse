@@ -62,7 +62,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.axon = None
         self.seedctors = {}
 
-        self.modules = [(ctor, conf) for ctor, smod, conf in s_modules.ctorlist]
+        self.modules = [(ctor, modconf) for ctor, smod, modconf in s_modules.ctorlist]
         self.modsdone = False
 
         self.noauto = {'syn:form', 'syn:type', 'syn:prop'}
