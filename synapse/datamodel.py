@@ -184,6 +184,10 @@ class DataModel(s_types.TypeLib):
         if not propre.match(form):
             raise s_common.BadPropName(name=form)
 
+        # default ptype to the form name if it's unpsec and valid
+        if info.get('ptype') is None and self.isDataType(form):
+            info['ptype'] = form
+
         self.forms.add(form)
 
         info['form'] = form

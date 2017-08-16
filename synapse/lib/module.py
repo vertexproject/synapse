@@ -98,6 +98,7 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
 
             name, vers = mrev
             self._syn_mrevs[name].append((vers, meth))
+
         # Generate rev0 functions for new Cortex instances.
         for name, modl in self.getBaseModels():
             revision = 0
