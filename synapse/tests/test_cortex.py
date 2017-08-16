@@ -2509,6 +2509,44 @@ class CortexTest(SynTest):
             nodes = core.eval('inet:ipv4*inet:cidr=192.168.0.0/16')
             self.eq(len(nodes), 256 * 3)
 
+    def test_cortex_formtufosbyprops(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+            with s_daemon.Daemon() as dmon:
+                dmon.share('core', core)
+                link = dmon.listen('tcp://127.0.0.1:0/core')
+                with s_cortex.openurl('tcp://127.0.0.1:%d/core' % link[1]['port']) as prox:
+                    items = (
+                        ('inet:fqdn', 'vertex.link', {'zone': 1}),
+                        ('inet:url', 'bad', {}),
+                        ('bad', 'good', {'wat': 3}),
+                    )
+                    actual = prox.formTufosByProps(items)
+
+                    self.isinstance(actual, tuple)
+                    self.eq(len(actual), 3)
+
+                    self.isinstance(actual[0], tuple)
+                    self.eq(len(actual[0]), 2)
+                    self.eq(actual[0][1]['tufo:form'], 'inet:fqdn')
+                    self.eq(actual[0][1]['inet:fqdn'], 'vertex.link')
+                    self.eq(actual[0][1]['inet:fqdn:zone'], 1)
+
+                    self.isinstance(actual[1], tuple)
+                    self.eq(actual[1][0], None)
+                    self.eq(actual[1][1]['tufo:form'], 'syn:err')
+                    self.eq(actual[1][1]['syn:err'], 'BadTypeValu')
+                    for s in ['BadTypeValu', 'name=', 'inet:url', 'valu=', 'bad']:
+                        self.isin(s, actual[1][1]['syn:err:errmsg'])
+
+                    self.isinstance(actual[2], tuple)
+                    self.eq(actual[2][0], None)
+                    self.eq(actual[2][1]['tufo:form'], 'syn:err')
+                    self.eq(actual[2][1]['syn:err'], 'NoSuchForm')
+                    for s in ['NoSuchForm', 'name=', 'bad']:
+                        self.isin(s, actual[2][1]['syn:err:errmsg'])
+
 class StorageTest(SynTest):
 
     def test_nonexist_ctor(self):

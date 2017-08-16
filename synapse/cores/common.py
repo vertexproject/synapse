@@ -1901,6 +1901,36 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         return self.formTufoByProp(form, valu, **props)
 
+    def formTufosByProps(self, items):
+        '''
+        Forms tufos by prop, given a tuple of (form, valu, props) tuples.
+
+        Args:
+
+            items (tuple): A tuple of tuples of (form, valu, props)
+
+        Returns:
+
+            tuple: Tuple containing tufos, either with the node or error data
+
+        Example:
+
+            items = ( ('foo:thing', 'hehe', {'a': 1}), ('bar:thing', 'haha', {'b': 2}), )
+            results = core.formTufosByProps(items)
+        '''
+        retval = []
+
+        with self.getCoreXact() as xact:
+            for form, valu, props in items:
+                try:
+                    retval.append(self.formTufoByProp(form, valu, **props))
+                except Exception as e:
+                    excinfo = s_common.excinfo(e)
+                    excval = excinfo.pop('err')
+                    retval.append(s_tufo.ephem('syn:err', excval, **excinfo))
+
+        return tuple(retval)
+
     def formTufoByProp(self, prop, valu, **props):
         '''
         Form an (iden,info) tuple by atomically deconflicting
