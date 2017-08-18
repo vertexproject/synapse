@@ -638,4 +638,4 @@ Todo
 .. _`Synapse User Guide`: ../userguide_section0.html
 .. _`Data Model`: ../datamodel.html
 .. _`csv`: https://docs.python.org/3/library/csv.html
-.. _`json`: https://docs.python.org/3/library/csv.html
+.. _`json`: https://docs.python.org/3/library/json.html
