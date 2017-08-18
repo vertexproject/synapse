@@ -403,63 +403,41 @@ class InetMod(CoreModule):
     @modelrev('inet', 201708172326)
     def _revModl201708141516(self):
 
-        tick = s_common.now()
-
-        types = [('inet:netlogon', {'subof': 'comp',
-                                    'fields': 'user,inet:netuser|time,time|status,bool',
-                                    'doc': 'An instance of a user account authenticating to a service.',
-                                    'ex': '(vertex.link/pennywise,1503068162551,1)'})]
-
-        forms = [
-            ('inet:netlogon', {'syn:form': 'inet:netlogon',
-                               'syn:form:ptype': 'inet:netlogon'})
-        ]
-
         props = [
-            ('inet:netlogon', {'ptype': 'inet:netlogon'}, [
-                    ('user', {'ptype': 'inet:netuser', 'doc': 'The netuser associated with the logon event.', 'ro': 1, 'glob': 0, 'req': 0}),
-                    ('time', {'ptype': 'time', 'doc': 'The time the netuser logged into the service', 'ro': 1, 'glob': 0, 'req': 0}),
-                    ('status', {'ptype': 'bool', 'ro': 1,
-                                'doc': 'The status of the logon action, denoting if it was successful or not.', 'glob': 0, 'req': 0}),
-                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the logon.', 'glob': 0, 'req': 0}),
-                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the logon.', 'glob': 0, 'req': 0}),
-                    ('logout', {'ptype': 'time', 'doc': 'The time the netuser logged out of the service.', 'glob': 0, 'req': 0})
-                ])
+            ('user',
+             {'ptype': 'inet:netuser', 'doc': 'The netuser associated with the logon event.', 'ro': 1,
+              'form': 'inet:netlogon'}),
+            ('time',
+             {'ptype': 'time', 'doc': 'The time the netuser logged into the service', 'ro': 1,
+              'form': 'inet:netlogon'}),
+            ('status', {'ptype': 'bool', 'ro': 1,
+                        'doc': 'The status of the logon action, denoting if it was successful or not.',
+                        'form': 'inet:netlogon'}),
+            ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the logon.', 'form': 'inet:netlogon'}),
+            ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the logon.', 'form': 'inet:netlogon'}),
+            ('logout', {'ptype': 'time', 'doc': 'The time the netuser logged out of the service.',
+                        'form': 'inet:netlogon'})
         ]
 
-        rows = self.core.getRowsByProp('syn:type', 'inet:netlogon')
-        if rows:
+        ttufo = self.core.formTufoByProp('syn:type', 'inet:netlogon',
+                                         **{'subof': 'comp',
+                                            'fields': 'user,inet:netuser|time,time|status,bool',
+                                            'doc': 'An instance of a user account authenticating to a service.',
+                                            'ex': '(vertex.link/pennywise,1503068162551,1)'})
+
+        if not ttufo[1].get('.new'):
             mesg = 'inet:netlogon rows already present. Skipping model update'
             self.log(logging.WARNING, mesg=mesg)
             logger.warning(mesg)
             return
 
-        adds = []
+        ftufo = self.core.formTufoByProp('syn:form', 'inet:netlogon', ptype='inet:netlogon')
+        ptufos = []
+        for prop, pnfo in props:
+            ptufo = self.core.formTufoByProp('syn:prop', ':'.join(['inet:netlogon', prop]), **pnfo)
+            ptufos.append(ptufo)
 
-        for typ, tnfo in types:
-            iden = s_common.guid()
-            adds.append((iden, 'tufo:form', 'syn:type', tick))
-            adds.append((iden, 'syn:type', typ, tick))
-            for k, v in tnfo.items():
-                adds.append((iden, ':'.join(['syn:type', k]), v, tick))
-
-        for form, fnfo in forms:
-            iden = s_common.guid()
-            adds.append((iden, 'tufo:form', 'syn:form', tick))
-            for k, v in fnfo.items():
-                adds.append((iden, k, v, tick))
-
-        for form, fnfo, subs in props:
-            for prop, pnfo in subs:
-                iden = s_common.guid()
-                adds.append((iden, 'tufo:form', 'syn:prop', tick))
-                adds.append((iden, 'syn:prop', ':'.join([form, prop]), tick))
-                adds.append((iden, 'syn:prop:form', form, tick))
-                for k, v in pnfo.items():
-                    adds.append((iden, ':'.join(['syn:prop', k]), v, tick))
-
-        if adds:
-            self.core.addRows(adds)
+        return
 
     @staticmethod
     def getBaseModels():
