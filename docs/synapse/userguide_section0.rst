@@ -9,17 +9,17 @@ The User Guide is a living document and will continue to be updated and expanded
 .. toctree::
     :titlesonly:
 
-    userguides/userguide_section1
-    userguides/userguide_section2
-    userguides/userguide_section3
-    userguides/userguide_section4
-    userguides/userguide_section5
-    userguides/userguide_section6
-    userguides/userguide_section7
-    userguides/userguide_section8
-    userguides/userguide_section9
-    userguides/userguide_section10
-    userguides/userguide_section11
+    userguides/ug001_synapse
+    userguides/ug002_graphintro
+    userguides/ug003_dm_basics
+    userguides/ug004_dm_concepts
+    userguides/ug005_dm_nodesconcepts
+    userguides/ug006_dm_nodeprops
+    userguides/ug007_dm_nodetypes
+    userguides/ug008_dm_tagconcepts
+    userguides/ug009_dm_tagmodel
+    userguides/ug010_cmdr_cortex
+    userguides/ug011_storm_basics
 
 The following sections are still under development:
 
