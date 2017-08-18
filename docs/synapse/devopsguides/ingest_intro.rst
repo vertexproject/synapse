@@ -4,13 +4,13 @@ Ingest Subsystem
 Introduction to Ingest
 ----------------------
 
-The Synapse Ingest subsystem was designed in order to assist users load data into the Synapse hypergraph (Cortex). The
-design principals around the ingest system were that users should be able to load data into a Cortex without needing
-to write code in order to do so. The Ingest system can also be used to parse data from structured data sources; for
+The Synapse Ingest subsystem was designed to help users load data into the Synapse hypergraph (Cortex). The
+design principle of the ingest system was that users should be able to load data into a Cortex without needing
+to write code to do so. The Ingest system can also be used to parse data from structured data sources; for
 example, it can be used to parse data from web APIs and store the results in Cortex. Since Ingest is designed to be
-non-programmer friendly, Ingest definitions are typically written in JSON.
+friendly to non-programmers, Ingest definitions are typically written in JSON.
 
-Writing an Ingest definition, either for a static set of data or for parsing data several times over, does require
+Writing an Ingest definition, either for a static set of data or for parsing data several times over, requires
 familiarity with the Synapse model. Documentation on the built in models can be found at `Data Model`_.
 Additional modeling documentation can be found at the `Synapse User Guide`_.
 
@@ -48,16 +48,16 @@ If invoked with the --help flag, the following options are listed::
       --debug      Drop to interactive prompt to inspect cortex
       --verbose    Show changes to local cortex incrementally
 
-These options control what we are ingesting, where it is going too, and various logging details.
+These options control what we are ingesting, where it is going, and various logging details.
 
 ``--core``
 
-    This specifies which Cortex to connect to and add the ingest data too. By default, this is a ram cortex
+    This specifies which Cortex to connect to and add the ingest data to. By default, this is a ram cortex
     (``ram://``), but could be any supported Cortex url or a Telepath url to a Cortex.
 
 ``--progress``
 
-    Display the progress of the ingest process every second.  This expects no arguments.
+    Display the progress of the ingest process every second. This expects no arguments.
 
 ``--sync``
 
@@ -84,17 +84,17 @@ Embed Directives
 
 The simplest example is ingesting static data which is located in the ingest file itself. This is done via an
 "embed" directive. It allows us to embed nodes directly into a ingest file. We can also include secondary properties
-in the files as well.
+in the files.
 
 Here is a brief example showing an ingest containing two inet:fqdn nodes:
 
 .. literalinclude:: examples/ingest_embed1.json
     :language: json
 
-The items in the "nodes" key is a list of two-value pairs.  The first item in the form we are creating. The second
-item is a list of objects of that will be used to make the nodes.  In this case, simple have two ``inet:fqdn``'s listed.
-If we ingest this file, if would be the equivalent of either adding nodes via storm
-(`ask [inet:fqdn=vertex.link inet:fqdn=woot.com]` or if we had used the Cortex formTufoByProp() API.
+The items in the "nodes" key are a list of two-value pairs.  The first item is the form we are creating. The second
+item is a list of objects that will be used to make the nodes. In this case, we simply have two ``inet:fqdn``'s listed.
+If we ingest this file, if would be the equivalent of either adding nodes via Storm
+(`ask [inet:fqdn=vertex.link inet:fqdn=woot.com]` or via the Cortex formTufoByProp() API.
 
 We can use the ingest tool (located at synapse.tools.ingest) to ingest this into a Cortex::
 
@@ -130,8 +130,8 @@ Then we can open up the Cortex and see that we have made those nodes::
        :zone = True
     (1 results)
 
-Expanding on the previous example, we can add additional types in the embed directive - we are not limited to just a
-single node type.  Here is an example showing the addition of two ``inet:netuser`` nodes - one with a single primary
+Expanding on the previous example, we can add additional forms in the embed directive - we are not limited to just a
+single type of node.  Here is an example showing the addition of two ``inet:netuser`` nodes - one with a single primary
 property, and one with multiple secondary properties:
 
 .. literalinclude:: examples/ingest_embed2.json
@@ -171,10 +171,10 @@ our example core::
           :zone = 1
     ingest took: 0.021549463272094727 sec
 
-Since we are using verbose mode we can see the ``inet:netuser`` nodes were created; while the already existing
+Since we are using verbose mode we can see the ``inet:netuser`` nodes were created; while the existing
 `inet:fqdn`` nodes were not. The default behavior for creating new nodes is to also create nodes for secondary
-properties if they are also a node type.  In the example above we also saw the creation of the ``inet:email``,
-``inet:netuser`` and other nodes which were not explicitly defined in the ingest definition. We can also confirm those
+properties if they are also a node type.  In the example above we saw the creation of the ``inet:email``,
+``inet:netuser`` and other nodes which were not explicitly defined in the ingest definition. We can confirm those
 via the cmdr interface as well::
 
     ~/synapse$ python -m synapse.Cortex sqlite:///ingest_examples.db
@@ -198,9 +198,9 @@ via the cmdr interface as well::
        :user = bobtheuser
     (4 results)
 
-In addition to adding properties, we can also add tags <link to tag userguide> to the ingest files. An example below
-shows adding some tags to the nodes in the embed directive. These tags can apply to either then entire set of
-nodes in the embed directive (``#story.bob``) or specific to those of a single node (the one ``#src.commercial`` tag).
+Besides adding properties, we can also add tags <link to tag userguide> to the ingest files. An example below
+shows adding some tags to the nodes in the embed directive. These tags can apply to either the entire set of
+nodes in the embed directive (``#story.bob``) or to a single node (the one ``#src.commercial`` tag).
 
 .. literalinclude:: examples/ingest_embed3.json
     :language: json
@@ -259,7 +259,7 @@ doing a one-time load of data into a Cortex.
 .. literalinclude:: examples/ingest_embed4.json
     :language: json
 
-This can at the file path ``docs/synapse/devopsguides/examples/ingest_embed4.json`` and ingested like the
+This can be found at the file path ``docs/synapse/devopsguides/examples/ingest_embed4.json`` and ingested like the
 previous examples were.  However, since there is nothing new to add here, there will be no new nodes created as a
 result of ingesting it into ``sqlite:///ingest_examples.db``.
 
@@ -282,16 +282,16 @@ how to do that:
 .. literalinclude:: examples/ingest_structured_tlds1.json
     :language: json
 
-The structure of this ingest file difers from the previous example showing the "embed" directive.  This uses the
-"sources" directive. This direct specifies a source file and a dictionary continaing a "open" and "ingest" directive.
-The open direct is below and tells us how to open the file and how it is shaped:
+The structure of this ingest file differs from the previous example showing the "embed" directive.  This uses the
+"sources" directive. This directive specifies a source file and a dictionary continaing "open" and "ingest" directives.
+The open directive is below and tells us how to open the file and how it is shaped:
 
 .. literalinclude:: examples/ingest_structured_tlds1.json
     :lines: 6-9
 
-It specifies the file "encoding" (``utf-8``) and the "format" of the file (``lines``).  There are a few file formats
+It specifies the file encoding (``utf-8``) and the format of the file (``lines``). There are a few file formats
 which Synapse will natively parse; they are noted below.  The formats are extensible at runtime as well, so an API user
-could register their own formats as well.  By default, the lines starting with ``#`` are ignored, as comment lines.
+could register their own formats. By default, the lines starting with ``#`` are ignored as comment lines.
 
 The ingest directive is below and tells us how to process each line within the file:
 
@@ -301,7 +301,7 @@ The ingest directive is below and tells us how to process each line within the f
 This definition includes a "forms" directive.  This instructs ingest on which types of nodes to make as it processes
 the lines of data. In this flat file example, each line of text is a single item. Without any other directive, that
 line of text is used as the primary property for creating the ``inet:fqdn`` node. The "props" dictionary specifies
-additional properties which will be added to the node as well; here we are setting the ``sfx`` property to equal ``1``.
+additional properties which will be added to the node; here we are setting the ``sfx`` property to equal ``1``.
 
 This ingest can be run via the ingest tool::
 
@@ -334,10 +334,10 @@ doing that:
 .. literalinclude:: examples/ingest_structured_dnsa1.json
     :language: json
 
-This ingest adds in a "vars" section, which denotes variables which are extracted out of the data as we iterate over
+This ingest adds a "vars" section, which denotes variables which are extracted out of the data as we iterate over
 the CSV file. The CSV data is just a list of values, and we denote which element of the list to associate with which
 variable. That is done with the "path" directive - it can be used to extract specific items out of the data we are
-iterating over.  Since we do not have a single string we can use as the primary property to make a node, we've added the
+iterating over. Since we do not have a single string we can use as the primary property to make a node, we've added the
 "template" directive to the "forms" section.  This allows us to construct the primary property using a string template.
 The vars we extracted are substituted into the ``{{domain}}`` and ``{{ipv4}}`` fields using ``str.replace``, after
 calling ``str()`` on the vars.
@@ -372,11 +372,11 @@ The data we want to ingest can be seen below:
 .. literalinclude:: examples/ingest_structured_nested_data.json
     :language: json
 
-There are several nodes we can create here from this data.  First, the site and user can be made into a ``inet:netuser``
-form, and we can set some time-based properties there. We have some friendship which are noted, which we'll consider as
-bidirectional relationships, which we can use the ``inet:follows`` node type to represent. Similarly, the user has some
+There are several nodes we can create here from this data. First, the site and user can be made into a ``inet:netuser``
+form, and we can set some time-based properties there. We have some friendships which are noted, which we'll consider to be
+bidirectional relationships, and which we can use the ``inet:follows`` node type to represent. Similarly, the user has some
 organizations they are a part of on the site which can be treated as ``inet:netmemb`` nodes. Lastly, there is some post
-information from the user which we can use to make ``inet:netpost`` nodes from.  We'll look at each of these
+information from the user which we can use to make ``inet:netpost`` nodes.  We'll look at each of these
 separately, then together as a single document.
 
 .. literalinclude:: examples/ingest_structured_nested_def.json
@@ -388,8 +388,8 @@ the variables ``domain``, ``user``, ``account_created`` and ``last_login``.  Tho
 
 The following sections require the "iter" directive, which is used to iterate over a set of data which is structured
 in a object.  This allows us to handle nested data structures in a clean fashion. There is one important concept to
-consdier when dealing with "iter" directives - variable scope.  When a iter is encounted, the Ingest process enters
-into a new scope and the variables set in the parent section are available to the child scopes.  When a iter is
+consider when dealing with "iter" directives - variable scope.  When an iter is encounted, the Ingest process enters
+into a new scope and the variables set in the parent section are available to the child scopes.  When an iter is
 exhausted, it leaves the scope and the variables it set are no longer available.
 
 A simple iter, going over the user's organizations, can be seen below:
@@ -420,7 +420,7 @@ Next, we need to iterate over the dictionary objects containing the users posts.
 .. literalinclude:: examples/ingest_structured_nested_def.json
     :lines: 102-133
 
-The big difference in this section is that, unlike the previous two, is that we are accessing variables like in the
+The big difference in this section is that, unlike the previous two, we are accessing variables like in the
 parent scope (using key names). We then create the ``inet:netpost`` in a similar manner to other sections, in order to
 make those nodes.
 
@@ -467,7 +467,7 @@ After ingesting this, we can see the various nodes have been added to our Cortex
         :time = 2017/08/01 02:03:04.000
     (3 results)
 
-When ingesting data like this format, its not uncommon to also apply tags to a ingest definition. This can be useful
+When ingesting data in this format, it is common to also apply tags to a ingest definition. This can be useful
 for adding additional analytical data or categorization to the nodes as they are created in the Cortex. This can be done
 by adding a "tags" directive in line with other ingest directives.  An example of modifying the above ingest to add a
 ``#src.socialnetwork`` tag can be seen highlighted below:
@@ -569,7 +569,7 @@ resides. This basedir is where the full file path for source files made with, us
 Builtin Ingest Format Helpers
 -----------------------------
 
-The following format options are built into the Ingest system by default. These common formats allow for users to
+The following format options are built into the Ingest system by default. These common formats allow users to
 quickly get started with Ingest in order to start parsing content into a Cortex.
 
 csv
