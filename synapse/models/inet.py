@@ -407,8 +407,8 @@ class InetMod(CoreModule):
 
         types = [('inet:netlogon', {'subof': 'comp',
                                     'fields': 'user,inet:netuser|time,time|status,bool',
-                                    'doc': 'WORDS',
-                                    'ex': 'WORDS'})]
+                                    'doc': 'An instance of a user account authenticating to a service.',
+                                    'ex': '(vertex.link/pennywise,1503068162551,1)'})]
 
         forms = [
             ('inet:netlogon', {'syn:form': 'inet:netlogon',
