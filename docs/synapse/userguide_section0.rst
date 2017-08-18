@@ -20,6 +20,18 @@ The User Guide is a living document and will continue to be updated and expanded
     userguides/ug009_dm_tagmodel
     userguides/ug010_cmdr_cortex
     userguides/ug011_storm_basics
+    userguides/ug050_ing_intro
+    userguides/ug051_ing_tool
+    userguides/ug052_ing_embed
+    userguides/ug053_ing_lines
+    userguides/ug054_ing_csv
+    userguides/ug055_ing_json
+    userguides/ug056_ing_jsonl
+    userguides/ug057_ing_xml
+    userguides/ug058_ing_filebytes
+    userguides/ug059_ing_sync
+    userguides/ug060_ing_format
+    userguides/ug061_ing_conditional
 
 The following sections are still under development:
 
