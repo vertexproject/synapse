@@ -13,7 +13,7 @@ Here is a brief example showing an ingest containing two inet:fqdn nodes:
 The items in the "nodes" key are a list of two-value pairs.  The first item is the form we are creating. The second
 item is a list of objects that will be used to make the nodes. In this case, we simply have two ``inet:fqdn``'s listed.
 If we ingest this file, if would be the equivalent of either adding nodes via Storm
-(`ask [inet:fqdn=vertex.link inet:fqdn=woot.com]` or via the Cortex formTufoByProp() API.
+(``ask [inet:fqdn=vertex.link inet:fqdn=woot.com]`` or via the Cortex formTufoByProp() API.
 
 We can use the ingest tool (located at synapse.tools.ingest) to ingest this into a Cortex::
 
@@ -40,7 +40,7 @@ We can use the ingest tool (located at synapse.tools.ingest) to ingest this into
 
 Then we can open up the Cortex and see that we have made those nodes::
 
-    ~/synapse$ python -m synapse.Cortex sqlite:///ingest_examples.db
+    ~/synapse$ python -m synapse.cortex sqlite:///ingest_examples.db
     cli> ask --props inet:fqdn=vertex.link
     inet:fqdn = vertex.link
        :domain = link
@@ -96,7 +96,7 @@ properties if they are also a node type.  In the example above we saw the creati
 ``inet:netuser`` and other nodes which were not explicitly defined in the ingest definition. We can confirm those
 via the cmdr interface as well::
 
-    ~/synapse$ python -m synapse.Cortex sqlite:///ingest_examples.db
+    ~/synapse$ python -m synapse.cortex sqlite:///ingest_examples.db
     cli> ask inet:netuser
     inet:netuser = github.com/bobtheuser
     inet:netuser = google.com/bobtheuser
@@ -130,7 +130,7 @@ We can then apply this ingest with the following command (output omitted - it is
 
 Back in cmdr we can lift the nodes via the tags we just added::
 
-    ~/synapse$ python -m synapse.Cortex sqlite:///ingest_examples.db
+    ~/synapse$ python -m synapse.cortex sqlite:///ingest_examples.db
     cli> ask #src.osint
     inet:netuser = github.com/bobtheuser
        #src.osint (added 2017/08/16 02:16:35.409)

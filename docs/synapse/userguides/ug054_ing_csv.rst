@@ -24,11 +24,11 @@ calling ``str()`` on the vars.
 
 This ingest can be run via the ingest tool::
 
-    python -m synapse.tools.ingest --verbose  --core sqlite:///embed_examples.db  docs/synapse/examples/ingest_structured_dnsa1.json
+    python -m synapse.tools.ingest --verbose  --core sqlite:///ingest_examples.db  docs/synapse/examples/ingest_structured_dnsa1.json
 
 After ingesting this, we can see the ``inet:dns:a`` nodes have been added to our Cortex::
 
-    ~/synapse$ python -m synapse.cortex sqlite:///embed_examples.db
+    ~/synapse$ python -m synapse.cortex sqlite:///ingest_examples.db
     /cli> ask --props inet:dns:a limit(1)
     inet:dns:a = vertex.link/127.0.0.1
         :fqdn = vertex.link

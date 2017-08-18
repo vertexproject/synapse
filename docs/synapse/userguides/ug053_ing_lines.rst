@@ -40,11 +40,11 @@ additional properties which will be added to the node; here we are setting the `
 
 This ingest can be run via the ingest tool::
 
-    python -m synapse.tools.ingest --core sqlite:///embed_examples.db docs/synapse/examples/ingest_structured_tlds1.json
+    python -m synapse.tools.ingest --core sqlite:///ingest_examples.db docs/synapse/examples/ingest_structured_tlds1.json
 
 After ingesting this, we can see the ``inet:fqdn`` nodes have been added to our Cortex::
 
-    ~/synapse$ python -m synapse.cortex sqlite:///embed_examples.db
+    ~/synapse$ python -m synapse.cortex sqlite:///ingest_examples.db
     cli> ask --props inet:fqdn=ninja
     inet:fqdn = ninja
         :host = ninja

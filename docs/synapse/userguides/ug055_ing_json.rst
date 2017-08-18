@@ -69,11 +69,11 @@ Putting this all together gives us the following ingest document:
 
 This ingest can be run via the ingest tool::
 
-    python -m synapse.tools.ingest --verbose  --core sqlite:///embed_examples.db  docs/synapse/examples/ingest_structured_nested_def.json
+    python -m synapse.tools.ingest --verbose  --core sqlite:///ingest_examples.db  docs/synapse/examples/ingest_structured_nested_def.json
 
 After ingesting this, we can see the various nodes have been added to our Cortex::
 
-    ~/synapse$ python -m synapse.cortex sqlite:///embed_examples.db
+    ~/synapse$ python -m synapse.cortex sqlite:///ingest_examples.db
     cli> ask inet:netuser:site=socialnetwork.ninja
     inet:netuser = socialnetwork.ninja/alicethefriend
     inet:netuser = socialnetwork.ninja/bobtheuser
@@ -117,12 +117,12 @@ by adding a "tags" directive in line with other ingest directives.  An example o
 This will add the ``#src.socialnetwork`` tag to all of the nodes created directly by the ingest process. This ingest
 can be run via the ingest tool::
 
-    python -m synapse.tools.ingest --verbose  --core sqlite:///embed_examples.db  docs/synapse/examples/ingest_structured_nested_def2.json
+    python -m synapse.tools.ingest --verbose --core sqlite:///ingest_examples.db  docs/synapse/examples/ingest_structured_nested_def2.json
 
 Then we can lift nodes from this ingest via tags. The following example shows lifting all of the ``inet:netuser`` nodes
 made with this ingest::
 
-    ~/synapse$ python -m synapse.cortex sqlite:///embed_examples.db
+    ~/synapse$ python -m synapse.cortex sqlite:///ingest_examples.db
     cli> ask inet:netuser*tag=src.socialnetwork
     inet:netuser = socialnetwork.ninja/bobtheuser
         #src.socialnetwork (added 2017/08/17 23:53:30.024)
@@ -141,11 +141,11 @@ as a result of creating the ``inet:netfollows`` nodes. If we wanted to be thorou
 This updated ingest will make the ``inet:netuser`` nodes for the friends and tag them prior to making the
 ``inet:netfollows`` nodes.  It can be run via the ingest tool::
 
-    python -m synapse.tools.ingest --verbose  --core sqlite:///embed_examples.db  docs/synapse/examples/ingest_structured_nested_def3.json
+    python -m synapse.tools.ingest --verbose --core sqlite:///ingest_examples.db  docs/synapse/examples/ingest_structured_nested_def3.json
 
 Repeating our earlier Storm query gives us all three ``inet:netuser`` nodes::
 
-    ~/synapse$ python -m synapse.cortex sqlite:///embed_examples.db
+    ~/synapse$ python -m synapse.cortex sqlite:///ingest_examples.db
     cli> ask inet:netuser*tag=src.socialnetwork
     inet:netuser = socialnetwork.ninja/alicethefriend
         #src.socialnetwork (added 2017/08/17 23:59:57.797)
