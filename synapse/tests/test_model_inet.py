@@ -405,6 +405,53 @@ class InetModelTest(SynTest):
 
             self.raises(BadTypeValu, core.getTypeNorm, 'inet:fqdn', '!@#$%')
 
+    def test_model_inet_netlogon(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+            tick = now()
+            # Form via list
+            t0 = core.formTufoByProp('inet:netlogon', ['vertex.link/pennywise',
+                                                       tick,
+                                                       False])
+            t1 = core.formTufoByProp('inet:netlogon', ['vertex.link/pennywise',
+                                                       tick,
+                                                       True])
+            # form via string
+            tick = tick + 1
+            t2 = core.formTufoByProp('inet:netlogon', '(vertex.link/pennywise,{},0)'.format(tick))
+            t3 = core.formTufoByProp('inet:netlogon', '(vertex.link/pennywise,{},1)'.format(tick))
+
+            self.nn(t0)
+            self.nn(t1)
+            self.nn(t2)
+            self.nn(t3)
+
+            self.eq(t0[1].get('inet:netlogon:user'), 'vertex.link/pennywise')
+            self.eq(t0[1].get('inet:netlogon:time'), tick - 1)
+            self.eq(t0[1].get('inet:netlogon:status'), 0)
+
+            self.eq(t1[1].get('inet:netlogon:status'), 1)
+
+            # Pivot from a netuser to the netlogon forms via storm
+            self.nn(core.getTufoByProp('inet:netuser', 'vertex.link/pennywise'))
+            nodes = core.eval('inet:netuser=vertex.link/pennywise inet:netuser -> inet:netlogon:user')
+            self.eq(len(nodes), 4)
+            self.eq(list({s_tufo.ndef(node)[0] for node in nodes}), ['inet:netlogon'])
+
+            # Cannot set ro props
+            _t0 = core.setTufoProps(t0, user='vertex.link/invisig0th', time=0, status=1)
+            self.eq(_t0[1].get('inet:netlogon:user'), 'vertex.link/pennywise')
+            self.eq(_t0[1].get('inet:netlogon:time'), tick - 1)
+            self.eq(_t0[1].get('inet:netlogon:status'), 0)
+
+            # Can set mutable props
+            t0 = core.setTufoProps(t0, ipv4=0x01020304, logout=tick + 1, ipv6='0:0:0:0:0:0:0:1')
+            self.eq(t0[1].get('inet:netlogon:ipv4'), 0x01020304)
+            self.eq(t0[1].get('inet:netlogon:logout'), tick + 1)
+            self.eq(t0[1].get('inet:netlogon:logout') - t0[1].get('inet:netlogon:time'), 2)
+            self.eq(t0[1].get('inet:netlogon:ipv6'), '::1')
+
     def test_model_inet_201706121318(self):
 
         iden0 = guid()

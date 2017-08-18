@@ -320,7 +320,6 @@ class CidrType(DataType):
         return valu
 
 class InetMod(CoreModule):
-
     def initCoreModule(self):
         # add an inet:defang cast to swap [.] to .
         self.core.addTypeCast('inet:defang', castInetDeFang)
@@ -401,6 +400,67 @@ class InetMod(CoreModule):
     def _revModl201708231646(self):
         pass # for legacy/backward compat
 
+    @modelrev('inet', 201708172326)
+    def _revModl201708141516(self):
+
+        tick = s_common.now()
+
+        types = [('inet:netlogon', {'subof': 'comp',
+                                    'fields': 'user,inet:netuser|time,time|status,bool',
+                                    'doc': 'WORDS',
+                                    'ex': 'WORDS'})]
+
+        forms = [
+            ('inet:netlogon', {'syn:form': 'inet:netlogon',
+                               'syn:form:ptype': 'inet:netlogon'})
+        ]
+
+        props = [
+            ('inet:netlogon', {'ptype': 'inet:netlogon'}, [
+                    ('user', {'ptype': 'inet:netuser', 'doc': 'The netuser associated with the logon event.', 'ro': 1, 'glob': 0, 'req': 0}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the netuser logged into the service', 'ro': 1, 'glob': 0, 'req': 0}),
+                    ('status', {'ptype': 'bool', 'ro': 1,
+                                'doc': 'The status of the logon action, denoting if it was successful or not.', 'glob': 0, 'req': 0}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the logon.', 'glob': 0, 'req': 0}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the logon.', 'glob': 0, 'req': 0}),
+                    ('logout', {'ptype': 'time', 'doc': 'The time the netuser logged out of the service.', 'glob': 0, 'req': 0})
+                ])
+        ]
+
+        rows = self.core.getRowsByProp('syn:type', 'inet:netlogon')
+        if rows:
+            mesg = 'inet:netlogon rows already present. Skipping model update'
+            self.log(logging.WARNING, mesg=mesg)
+            logger.warning(mesg)
+            return
+
+        adds = []
+
+        for typ, tnfo in types:
+            iden = s_common.guid()
+            adds.append((iden, 'tufo:form', 'syn:type', tick))
+            adds.append((iden, 'syn:type', typ, tick))
+            for k, v in tnfo.items():
+                adds.append((iden, ':'.join(['syn:type', k]), v, tick))
+
+        for form, fnfo in forms:
+            iden = s_common.guid()
+            adds.append((iden, 'tufo:form', 'syn:form', tick))
+            for k, v in fnfo.items():
+                adds.append((iden, k, v, tick))
+
+        for form, fnfo, subs in props:
+            for prop, pnfo in subs:
+                iden = s_common.guid()
+                adds.append((iden, 'tufo:form', 'syn:prop', tick))
+                adds.append((iden, 'syn:prop', ':'.join([form, prop]), tick))
+                adds.append((iden, 'syn:prop:form', form, tick))
+                for k, v in pnfo.items():
+                    adds.append((iden, ':'.join(['syn:prop', k]), v, tick))
+
+        if adds:
+            self.core.addRows(adds)
+
     @staticmethod
     def getBaseModels():
         modl = {
@@ -454,6 +514,10 @@ class InetMod(CoreModule):
 
                 ('inet:netuser', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|user,inet:user',
                                   'doc': 'A user account at a given web address', 'ex': 'twitter.com/invisig0th'}),
+                ('inet:netlogon', {'subof': 'comp',
+                                   'fields': 'user,inet:netuser|time,time|status,bool',
+                                   'doc': 'WORDS',
+                                   'ex': 'WORDS'}),
 
                 ('inet:netgroup', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|name,ou:name',
                                    'doc': 'A group within an online community'}),
@@ -663,6 +727,16 @@ class InetMod(CoreModule):
                     ('seen:max', {'ptype': 'time:max'}),
                 ]),
 
+                ('inet:netlogon', {'ptype': 'inet:netlogon'}, [
+                    ('user', {'ptype': 'inet:netuser', 'doc': 'The netuser associated with the logon event.', 'ro': 1}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the netuser logged into the service', 'ro': 1}),
+                    ('status', {'ptype': 'bool', 'ro': 1,
+                                'doc': 'The status of the logon action, denoting if it was successful or not.'}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the logon.'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the logon.'}),
+                    ('logout', {'ptype': 'time', 'doc': 'The time the netuser logged out of the service.'})
+                ]),
+
                 ('inet:netgroup', {}, [
                     ('site', {'ptype': 'inet:fqdn', 'ro': 1}),
                     ('name', {'ptype': 'ou:name', 'ro': 1}),
@@ -797,4 +871,4 @@ class InetMod(CoreModule):
             ),
         }
         name = 'inet'
-        return ((name, modl), )
+        return ((name, modl),)
