@@ -1229,33 +1229,48 @@ class CortexTest(SynTest):
         core0 = s_cortex.openurl('ram://')
         core1 = s_cortex.openurl('ram://')
 
+        # Form a tufo before we start sending splices
+        tufo_before1 = core0.formTufoByProp('foo', 'before1')
+        tufo_before2 = core0.formTufoByProp('foo', 'before2')
+        core0.addTufoTag(tufo_before2, 'hoho')  # this will not be synced
         core0.on('splice', core1.splice)
+        core0.delTufo(tufo_before1)
 
+        # Add node by forming it
         tufo0 = core0.formTufoByProp('foo', 'bar', baz='faz')
         tufo1 = core1.getTufoByProp('foo', 'bar')
-
         self.eq(tufo1[1].get('foo'), 'bar')
         self.eq(tufo1[1].get('foo:baz'), 'faz')
 
+        # Add tag to existing node
         tufo0 = core0.addTufoTag(tufo0, 'hehe')
         tufo1 = core1.getTufoByProp('foo', 'bar')
-
         self.true(s_tags.tufoHasTag(tufo1, 'hehe'))
 
+        # Del tag from existing node
         core0.delTufoTag(tufo0, 'hehe')
         tufo1 = core1.getTufoByProp('foo', 'bar')
-
         self.false(s_tags.tufoHasTag(tufo1, 'hehe'))
 
+        # Set prop on existing node
         core0.setTufoProp(tufo0, 'baz', 'lol')
         tufo1 = core1.getTufoByProp('foo', 'bar')
-
         self.eq(tufo1[1].get('foo:baz'), 'lol')
 
+        # Del existing node
         core0.delTufo(tufo0)
         tufo1 = core1.getTufoByProp('foo', 'bar')
-
         self.none(tufo1)
+
+        # Tag a node in first core, assert it was formed and tagged in second core
+        core0.addTufoTag(tufo_before2, 'hehe')
+        tufo1 = core1.getTufoByProp('foo', 'before2')
+        self.true(s_tags.tufoHasTag(tufo1, 'hehe'))
+        self.false(s_tags.tufoHasTag(tufo1, 'hoho'))
+        core0.delTufoTag(tufo_before2, 'hehe')
+        tufo1 = core1.getTufoByProp('foo', 'before2')
+        self.false(s_tags.tufoHasTag(tufo1, 'hehe'))
+        self.false(s_tags.tufoHasTag(tufo1, 'hoho'))
 
     def test_cortex_dict(self):
         core = s_cortex.openurl('ram://')

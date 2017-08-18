@@ -725,22 +725,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             self.cache_byiden.clear()
             self.cache_byprop.clear()
 
-    def _reqSpliceInfo(self, act, info, prop):
-        valu = info.get(prop)
-        if prop is None:
-            raise Exception('Splice: %s requires %s' % (act, prop))
-        return valu
-
     def _actNodeAdd(self, mesg):
         form = mesg[1].get('form')
         valu = mesg[1].get('valu')
-        tags = mesg[1].get('tags', ())
         props = mesg[1].get('props', {})
 
         node = self.formTufoByProp(form, valu, **props)
-
-        if tags:
-            self.addTufoTags(node, tags)
 
     def _actNodeDel(self, mesg):
         form = mesg[1].get('form')
@@ -755,10 +745,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _actNodePropSet(self, mesg):
         form = mesg[1].get('form')
         valu = mesg[1].get('valu')
-        props = mesg[1].get('props')
+        prop = mesg[1].get('prop')
+        newv = mesg[1].get('newv')
 
         node = self.formTufoByProp(form, valu)
-        self.setTufoProps(node, **props)
+        self.setTufoProp(node, prop, newv)
 
     def _actNodePropDel(self, mesg):
         form = mesg[1].get('form')
@@ -771,8 +762,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _actNodeTagAdd(self, mesg):
 
         tag = mesg[1].get('tag')
-        # TODO make these operate on multiple tags?
-        #tags = mesg[1].get('tags',())
         form = mesg[1].get('form')
         valu = mesg[1].get('valu')
 
@@ -2451,7 +2440,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 # fire notification event
                 xact.fire('node:prop:set', form=form, valu=valu, prop=p, newv=v, oldv=oldv, node=tufo)
 
-            xact.spliced('node:prop:set', form=form, valu=valu, props=props)
+                # fire the splice event
+                xact.spliced('node:prop:set', form=form, valu=valu, prop=p[len(form)+1:], newv=v, oldv=oldv, node=tufo)
 
             if self.autoadd:
                 self._runAutoAdd(toadd)
