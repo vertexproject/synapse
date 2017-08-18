@@ -407,8 +407,8 @@ class InetMod(CoreModule):
 
         types = [('inet:netlogon', {'subof': 'comp',
                                     'fields': 'user,inet:netuser|time,time|status,bool',
-                                    'doc': 'WORDS',
-                                    'ex': 'WORDS'})]
+                                    'doc': 'An instance of a user account authenticating to a service.',
+                                    'ex': '(vertex.link/pennywise,1503068162551,1)'})]
 
         forms = [
             ('inet:netlogon', {'syn:form': 'inet:netlogon',
@@ -516,8 +516,8 @@ class InetMod(CoreModule):
                                   'doc': 'A user account at a given web address', 'ex': 'twitter.com/invisig0th'}),
                 ('inet:netlogon', {'subof': 'comp',
                                    'fields': 'user,inet:netuser|time,time|status,bool',
-                                   'doc': 'WORDS',
-                                   'ex': 'WORDS'}),
+                                   'doc': 'An instance of a user account authenticating to a service.',
+                                   'ex': '(vertex.link/pennywise,1503068162551,1)'}),
 
                 ('inet:netgroup', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|name,ou:name',
                                    'doc': 'A group within an online community'}),
