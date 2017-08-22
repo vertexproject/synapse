@@ -1,9 +1,6 @@
 Ingest - Introduction
 ====================
 
-Introduction to Ingest
-----------------------
-
 The Synapse Ingest subsystem was designed to help users load data into the Synapse hypergraph (Cortex). The
 design principle of the ingest system was that users should be able to load data into a Cortex without needing
 to write code to do so. The Ingest system can also be used to parse data from structured data sources; for

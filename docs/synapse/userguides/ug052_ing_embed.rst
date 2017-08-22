@@ -1,5 +1,5 @@
 Ingest - Embed Directives
-========================
+=========================
 
 The simplest example is ingesting static data which is located in the ingest file itself. This is done via an
 "embed" directive. It allows us to embed nodes directly into a ingest file. We can also include secondary properties

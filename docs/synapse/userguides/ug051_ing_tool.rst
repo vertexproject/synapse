@@ -1,5 +1,5 @@
 Ingest - Commandline Ingest Tool
-===============================
+================================
 
 While the Ingest subsystem in Synapse lives at synapse.lib.ingest, most users may use the standalone ingest tool
 directly.  This can be invoked with the following command: ``python -m synapse.tools.ingest <options> <ingest files>``.
@@ -38,8 +38,7 @@ These options control what we are ingesting, where it is going, and various logg
 ``--sync``
 
     This can be used to sync events from the Cortex specified in the ``--core`` option with a remote Cortex via a
-    splice pump. See the <syncing data> section below for more details.
-    XXX Link
+    splice pump. See the `Syncing Data`_ section below for more details.
 
 ``--save``
 
@@ -65,3 +64,5 @@ The Ingest subsystem uses a helper (``loadfile``) which sets a "basedir" value w
 resides. This basedir is where the full file path for source files made with, using ``os.path.join()``. In other words,
 the path to the source file in a Ingest definition is relative to the path of the definition file loaded by the Ingest
 tool.
+
+.. _`Syncing Data`: ./ug059_ing_sync.html
