@@ -13,7 +13,7 @@ Here is a brief example showing an ingest containing two inet:fqdn nodes:
 The items in the "nodes" key are a list of two-value pairs.  The first item is the form we are creating. The second
 item is a list of objects that will be used to make the nodes. In this case, we simply have two ``inet:fqdn``'s listed.
 If we ingest this file, if would be the equivalent of either adding nodes via Storm
-(``ask [inet:fqdn=vertex.link inet:fqdn=woot.com]`` or via the Cortex formTufoByProp() API.
+(``ask [inet:fqdn=vertex.link inet:fqdn=woot.com]``) or via the Cortex formTufoByProp() API.
 
 We can use the ingest tool (located at synapse.tools.ingest) to ingest this into a Cortex::
 
@@ -117,7 +117,7 @@ via the cmdr interface as well::
        :user = bobtheuser
     (4 results)
 
-Besides adding properties, we can also add tags <link to tag userguide> to the ingest files. An example below
+Besides adding properties, we can also add `Tags`_ to the ingest files. An example below
 shows adding some tags to the nodes in the embed directive. These tags can apply to either the entire set of
 nodes in the embed directive (``#story.bob``) or to a single node (the one ``#src.commercial`` tag).
 
@@ -181,3 +181,5 @@ doing a one-time load of data into a Cortex.
 This can be found at the file path ``docs/synapse/examples/ingest_embed4.json`` and ingested like the
 previous examples were. However, since there is nothing new to add here, there will be no new nodes created as a
 result of ingesting it into ``sqlite:///ingest_examples.db``.
+
+.. _`Tags`: ./ug008_dm_tagconcepts.html
