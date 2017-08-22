@@ -93,6 +93,34 @@ Todo
 * All nodes specified within the brackets that do not already exist will be created. For nodes that already exist, Synapse will return data for that node.
 
 
+addxref()
+---------
+
+Create one or more cross-reference (`xref`__) nodes that reference a specified ``<form>=<valu>``.
+
+**Operator Syntax:**
+
+.. parsed-literal::
+  *<query>* **addxref(** *<type>* **,** *<form>* **,** *<valu>* **)**
+
+**Macro Syntax:**
+
+None.
+
+**Examples:**
+
+``file:bytes = d41d8cd98f00b204e9800998ecf8427e addxref( file:txtref , inet:fqdn , woot.com )``
+
+**Usage Notes:**
+
+* ``addxref()`` operates on the output of a previous Storm query.
+* There are currently two valid ``<type>`` values, ``file:txtref`` and ``file:imgof``. For both of those types, the Storm query should return one or more ``file:bytes`` nodes.
+* Xref nodes can also be created with ``addnode()`` using the syntax for creating a comp node type (e.g., ``addnode( file:txtref , ( <file_guid> , <form> , <valu> ) )``). Note that ``addnode()`` can only create one xref node at a time (e.g., from a single ``file:bytes`` node to a single ``<form>=<valu>``).
+* ``addxref()`` may be useful if you want to create multiple xref nodes from multiple ``file:bytes`` nodes to the same ``<form>=<valu>`` at once (e.g., if you have eight photographs of the same object).
+
+
+
+
 .. _storm.py: ../../../synapse/lib/storm.py
 __ storm.py_
 
@@ -101,3 +129,7 @@ __ conventions_
 
 .. _ingest: ../userguides/ug050_ing_intro.rst
 __ ingest_
+
+
+.. _xref: ../userguides/ug007_dm_nodetypes.rst#cross-reference-xref-nodes
+__ xref_
