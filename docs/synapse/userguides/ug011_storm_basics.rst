@@ -25,7 +25,7 @@ For example:
 That said, Storm is meant to be usable by analysts from a variety of knowledge domains who are not necessarily programmers and who may not be comfortable using operators in what feels like a “programming language”. For this reason, Storm has been designed to mask some of the underlying programmatic complexity. The intent is for Storm to act more like a “data language”, allowing knowledge domain users to:
 
 * **Reference data and data types in an intuitive form.** Through features such as type safety and property normalization, Storm tries to take a “do what I mean” approach, removing the burden of translating or standardizing data from the user where possible.
-* **Use a simplified syntax to run Storm queries.** In addition to the standard operator-based Storm syntax, most common operators support the use of a short-form **macro syntax** to make queries both more intuitive and more efficient (by allowing common queries to be executed with fewer keystrokes).
+* **Use a simplified syntax to run Storm queries.** In addition to the standard operator-based Storm syntax (**operator syntax**), most common operators support the use of a short-form **macro syntax** to make queries both more intuitive and more efficient (by allowing common queries to be executed with fewer keystrokes).
 
 As an example of this simplification, analysts can ask Synapse about a node simply by specifying the node’s form and primary property value (``<form>=<valu>``):
 
@@ -40,7 +40,7 @@ Finally – and most importantly – giving analysts direct access to Storm to a
 Storm Operators
 ---------------
 
-Operators implement the various Storm functions such as retrieving nodes, applying tags, or pivoting across data. Operators can be divided into broad categories based on their typical use:
+Operators implement various Storm functions such as retrieving nodes, applying tags, or pivoting across data. Operators can be divided into broad categories based on their typical use:
 
 * **Data modification** – add, modify, annotate, and delete nodes from a Cortex.
 * **Lift (query) operators** – retrieve data based on specified criteria.
@@ -50,7 +50,7 @@ Operators implement the various Storm functions such as retrieving nodes, applyi
 * **Statistical operators** – specialized operators to calculate statistics over a set of nodes.
 * **Miscellaneous operators** – various special purpose operators that do not fit into one of the above categories.
 
-Most operators (other than those used solely to lift or retrieve data) require an existing data set on which to operate. This data set is typically the output of a previous Storm query whose results are the nodes you want to modify or otherwise work with.
+Most operators (other than those used solely to lift data) require an existing data set on which to operate. This data set is typically the output of a previous Storm query whose results are the nodes you want to modify or otherwise work with.
 
 Lift, Filter, and Pivot Criteria
 --------------------------------
@@ -64,7 +64,7 @@ Working with Synapse data commonly involves three broad types of operations:
 Whether lifting, filtering, or pivoting across data in a Cortex, you need to be able to clearly specify the data you’re interested in – your selection criteria. In most cases, the criteria you specify will be based on one or more of the following:
 
 * A **property** (primary or secondary) on a node.
-* A **specific value** for a property (``<form>=<value>`` or ``<prop>=<value>``) on a node.
+* A **specific value** for a property (``<form>=<valu>`` or ``<prop>=<pval>``) on a node.
 * A **tag** on a node.
 
 All of the above elements – nodes, properties, values, and tags – are the fundamental `building blocks`__ of the Synapse data model. **As such, an understanding of the Synapse data model is essential to effective use of Storm.**
@@ -76,21 +76,23 @@ Storm allows multiple operators to be chained together to form increasingly comp
 
 From an analysis standpoint, this feature means that Storm can parallel an analyst's natural thought process: "show me X data...that's interesting, show me the Y data that relates to X...hm, take only this subset of results from Y and show me any relationship to Z data…" and so on.
 
-From a practical standpoint, it means that "order matters" when constructing a Storm query. A lengthy Storm query is not evaluated "as a whole"; instead Synapse parses each component of the query in order, evaluating each component individually as it goes. The Cortex runtime(s) executing the Storm query keep a list of lifted nodes in memory while performing lifts, pivots, data modification, and so on. Various operators may add or remove nodes from this "working set", or clear the set entirely; as such the in-memory set is continually changing based on the last-used operator. Particularly when first learning Storm, users are encouraged to break down complex queries into their component parts, and to validate the output (results) after the addition of each operator to the overall query.
+From a practical standpoint, it means that **order matters** when constructing a Storm query. A lengthy Storm query is not evaluated as a whole. Instead, Synapse parses each component of the query in order, evaluating each component individually as it goes. The Cortex runtime(s) executing the Storm query keep a list of lifted nodes in memory while performing the requested lifts, pivots, data modification, and so on. The operators used may add or remove nodes from this "working set", or clear the set entirely; as such the in-memory set is continually changing based on the last-used operator. Particularly when first learning Storm, users are encouraged to break down complex queries into their component parts, and to validate the output (results) after the addition of each operator to the overall query.
 
 Syntax Conventions
 ------------------
 
-The Synapse documentation provides numerous examples of both abstract syntax (usage statements) and specific queries. The following conventions are used for Storm usage statements:
+The Synapse documentation provides numerous examples of both abstract Storm syntax (usage statements) and specific Storm queries. The following conventions are used for Storm usage statements:
 
 * Items that must be entered literally on the command line are in **bold.** These items include the command name and literal characters.
 * Items representing variables that must be replaced by a name are in *italics*.
 * **Bold** brackets are literal characters. Parameters enclosed in non-bolded brackets are optional.
-* Parameters not enclosed in brackets are required.
+* Parameters **not** enclosed in brackets are required.
 * A vertical bar signifies that you choose only one parameter. For example, ``[ a | b ]`` indicates that you can choose a, b, or nothing.
 * Ellipses ( ``...`` ) signify the parameter can be repeated on the command line.
 
-Whitespace may be used in the examples for formatting and readability. Synapse will parse Storm input with or without whitespace (e.g., the Synapse parser will strip / ignore whitespace in Storm queries; the exception is that whitespace within double-quoted strings is preserved, such as the timestamp in the example below). For example, the following are equivalent:
+Whitespace may be used in the examples for formatting and readability. Synapse will parse Storm input with or without whitespace (e.g., the Synapse parser will strip / ignore whitespace in Storm queries; the exception is that whitespace within double-quoted strings is preserved, such as the timestamp in the example below). 
+
+For example, the following Storm queries are equivalent to the Synapse parser:
 
 ``addnode( inet:fqdn , woot.com , : created = "2017-08-15 01:23" )``
 
@@ -103,7 +105,7 @@ Examples of **specific** queries represent fully literal input, but are not show
 .. parsed-literal::
   **addnode(** *<form>* **,** *<valu>* **,** [ **:** *<prop>* **=** *<pval>* **,** ...] **)**
 
-*Specific example:*
+*Specific query:*
 
 ``addnode(inet:fqdn,woot.com)``
 
@@ -112,10 +114,10 @@ Operator Syntax vs. Macro Syntax
 
 Storm operators function similar to a programming language, where the operator acts as a function and the operator's parameters act as input to that function. With very few exceptions, all Storm operators can be used at the Synapse command line by invoking the Synapse ``ask`` command, calling the appropriate Storm operator, and passing appropriate parameters to the operator; this is known as **operator syntax** and provides the most complete access to Storm's functionality.
 
-While operator syntax is both detailed and complete, it has a few drawbacks:
+While Storm's operator syntax is both detailed and complete, it has a few drawbacks:
 
 * It can feel very "code-like", particularly to analysts or other Synapse users who are not programmers.
-* It has few optimizations, meaning that every operator and its associated parameters must be typed in full; this can become tedious for users who interact heavily with Synapse using Storm.
+* It has few optimizations, meaning that every operator and its associated parameters must be typed in full. This can become tedious for users who interact heavily with Synapse using Storm.
 
 To address these issues, Storm also supports what is known as **macro syntax.** Macro syntax acts as a sort of "shorthand" through techniques such as:
 
@@ -142,13 +144,13 @@ Note that in macro syntax, the ``lift()`` operator – the most fundamental Stor
 
 *Example 2*
 
-The usefulness of macro syntax is even more apparent with longer, more complex queries. Storm is designed to allow users to chain operators together to lift a set of nodes and perform a series of additional filter and pivot operations that follow a line of analysis across the data.
+The usefulness of macro syntax is even more apparent with longer, more complex queries. Storm allows users to chain operators together to lift a set of nodes and perform a series of additional filter and pivot operations that follow a line of analysis across the data.
 
-In the knowledge domain of cyber threat data, a common analytical workflow to research potentially malicious infrastructure takes a set of “known bad” domains (for example, those associated with a known threat cluster), identifies the IP addresses those domains have resolved to, excludes some potentially irrelevant IPs, and then identifies other domains that have resolved to those IPs. Domains that resolved to the same IP address(es) as the “known bad” domains during the same time period may also be associated with the same threat.
+In the knowledge domain of cyber threat data, there is a common analytical workflow used to research potentially malicious infrastructure. This line of analysis takes a set of “known bad” domains (for example, those associated with a known threat cluster), identifies the IP addresses those domains have resolved to, excludes some potentially irrelevant IPs, and then identifies other domains that have resolved to those IPs. Domains that resolved to the same IP address(es) as the “known bad” domains during the same time period may be associated with the same threat.
 
 The full query for this line of analytical reasoning using operator syntax would be::
 
-  cli> **ask lift(inet:fqdn,by=tag,tc.t12) pivot(inet:dns:a:fqdn,inet:fqdn) 
+  cli> ask lift(inet:fqdn,by=tag,tc.t12) pivot(inet:dns:a:fqdn,inet:fqdn) 
     pivot(inet:ipv4,inet:dns:a:ipv4) -#anon.tor -#anon.vpn 
     pivot(inet:dns:a:ipv4,inet:ipv4) pivot(inet:fqdn,inet:dns:a:fqdn)
 
@@ -159,54 +161,54 @@ The same query using macro syntax would be::
   
 The components of the query are broken down below; note how each new component builds on the previous query to follow the line of analysis and refine results:
 
-+-------------------+------------------------------------+--------------------------------+-------------------------------+ 
-| Request           | Operator Syntax                    | Macro Syntax                   | Macro Syntax Notes            |
-+===================+====================================+================================+===============================+
-| Lift all nodes    |``lift(inet:fqdn,by=tag,tc.t12)``   |``inet:fqdn*tag=tc.12``         | Omit "lift"                   |
-| tagged as part of |                                    |                                | Asterisk ( ``*``) substitutes |
-| Threat Group 12   |                                    |                                | for "by" parameter            |
-+-------------------+------------------------------------+--------------------------------+-------------------------------+ 
-| Pivot from those  |``pivot(inet:dns:a:fqdn,inet:fqdn)``|``-> inet:dns:a:fqdn``          | Omit "from" parameter in      |
-| domains to DNS A  |                                    |                                | pivot (``inet:fqdn``) as it is|
-| record nodes that |                                    |                                | the primary property of our   |
-| have those domains|                                    |                                | working result set (default   |
-|                   |                                    |                                | input value)                  |
-|                   |                                    |                                | Arrow ( ``->`` ) substitutes  |
-|                   |                                    |                                | for "pivot" operator          |
-+-------------------+------------------------------------+--------------------------------+-------------------------------+
-| Pivot from those  |``pivot(inet:ipv4,inet:dns:a:ipv4)``|``inet:dns:a:ipv4 -> inet:ipv4``| Arrow ( ``->`` ) substitutes  |
-| DNS A record nodes|                                    |                                | for "pivot" operator          |
-| to the IP         |                                    |                                |                               |
-| addresses those   |                                    |                                |                               |
-| domains have      |                                    |                                |                               |
-| resolved to       |                                    |                                |                               |
-+-------------------+------------------------------------+--------------------------------+-------------------------------+ 
-| Remove any IP     | n/a                                |``-#anon.tor``                  | Filter operation; the minus   |
-| addresses tagged  |                                    |                                | ( ``-`` ) represents an       |
-| as TOR exit nodes |                                    |                                | exclusion filter              |
-|                   |                                    |                                | Hashtag ( ``#`` ) substitutes |
-|                   |                                    |                                | for "tag"                     |
-+-------------------+------------------------------------+--------------------------------+-------------------------------+ 
-| Remove any IP es  | n/a                                |``-#anon.vpn``                  | Filter operation; the minus   |
-| addresses tagged  |                                    |                                | ( ``-`` ) represents an       |
-| as anonymous VPN  |                                    |                                | exclusion filter              |
-| infrastructure    |                                    |                                | Hashtag ( ``#`` ) substitutes |
-|                   |                                    |                                | for "tag"                     |
-+-------------------+------------------------------------+--------------------------------+-------------------------------+ 
-| Pivot from those  |``pivot(inet:dns:a:ipv4,inet:ipv4)``|``-> inet:dns:a:ipv4``          | Omit "from" parameter in      |
-| remaining IP es   |                                    |                                | pivot (``inet:ipv4``) as it is|
-| addresses to any  |                                    |                                | the primary property of our   |
-| DNS A records     |                                    |                                | working result set (default   |
-| where those IPs   |                                    |                                | input value)                  |
-| were present      |                                    |                                | Arrow ( ``->`` ) substitutes  |
-|                   |                                    |                                | for "pivot" operator          |
-+-------------------+------------------------------------+--------------------------------+-------------------------------+ 
-| Pivot from those  |``pivot(inet:fqdn,inet:dns:a:fqdn)``|``inet:dns:a:fqdn -> inet:fqdn``| Arrow ( ``->`` ) substitutes  |
-| DNS A records to  |                                    |                                | for "pivot" operator          |
-| the domains se    |                                    |                                |                               |
-| associated with   |                                    |                                |                               |
-| those records     |                                    |                                |                               |
-+-------------------+------------------------------------+--------------------------------+-------------------------------+ 
++-------------------+------------------------------------+--------------------------------+---------------------------------+ 
+| Request           | Operator Syntax                    | Macro Syntax                   | Macro Syntax Notes              |
++===================+====================================+================================+=================================+
+| Lift all nodes    |``lift(inet:fqdn,by=tag,tc.t12)``   |``inet:fqdn*tag=tc.12``         | - Omit "lift"                   |
+| tagged as part of |                                    |                                | - Asterisk ( ``*``) substitutes |
+| Threat Group 12   |                                    |                                | for "by" parameter              |
++-------------------+------------------------------------+--------------------------------+---------------------------------+ 
+| Pivot from those  |``pivot(inet:dns:a:fqdn,inet:fqdn)``|``-> inet:dns:a:fqdn``          | - Omit "from" parameter in      |
+| domains to DNS A  |                                    |                                |   pivot (``inet:fqdn``) as it is|
+| record nodes that |                                    |                                |   the primary property of our   |
+| have those domains|                                    |                                |   working result set (default   |
+|                   |                                    |                                |   input value)                  |
+|                   |                                    |                                | - Arrow ( ``->`` ) substitutes  |
+|                   |                                    |                                |   for "pivot" operator          |
++-------------------+------------------------------------+--------------------------------+---------------------------------+
+| Pivot from those  |``pivot(inet:ipv4,inet:dns:a:ipv4)``|``inet:dns:a:ipv4 -> inet:ipv4``| - Arrow ( ``->`` ) substitutes  |
+| DNS A record nodes|                                    |                                |   for "pivot" operator          |
+| to the IP         |                                    |                                |                                 |
+| addresses those   |                                    |                                |                                 |
+| domains have      |                                    |                                |                                 |
+| resolved to       |                                    |                                |                                 |
++-------------------+------------------------------------+--------------------------------+---------------------------------+ 
+| Remove any IP     | n/a                                |``-#anon.tor``                  | - Filter operation; the minus   |
+| addresses tagged  |                                    |                                |   ( ``-`` ) represents an       |
+| as TOR exit nodes |                                    |                                |   exclusion filter              |
+|                   |                                    |                                | - Hashtag ( ``#`` ) substitutes |
+|                   |                                    |                                | for "tag"                       |
++-------------------+------------------------------------+--------------------------------+---------------------------------+ 
+| Remove any IP es  | n/a                                |``-#anon.vpn``                  | - Filter operation; the minus   |
+| addresses tagged  |                                    |                                |   ( ``-`` ) represents an       |
+| as anonymous VPN  |                                    |                                |   exclusion filter              |
+| infrastructure    |                                    |                                | - Hashtag ( ``#`` ) substitutes |
+|                   |                                    |                                |   for "tag"                     |
++-------------------+------------------------------------+--------------------------------+---------------------------------+ 
+| Pivot from those  |``pivot(inet:dns:a:ipv4,inet:ipv4)``|``-> inet:dns:a:ipv4``          | - Omit "from" parameter in      |
+| remaining IP es   |                                    |                                |   pivot (``inet:ipv4``) as it is|
+| addresses to any  |                                    |                                |   the primary property of our   |
+| DNS A records     |                                    |                                |   working result set (default   |
+| where those IPs   |                                    |                                |   input value)                  |
+| were present      |                                    |                                | - Arrow ( ``->`` ) substitutes  |
+|                   |                                    |                                |   for "pivot" operator          |
++-------------------+------------------------------------+--------------------------------+---------------------------------+ 
+| Pivot from those  |``pivot(inet:fqdn,inet:dns:a:fqdn)``|``inet:dns:a:fqdn -> inet:fqdn``| - Arrow ( ``->`` ) substitutes  |
+| DNS A records to  |                                    |                                |   for "pivot" operator          |
+| the domains se    |                                    |                                |                                 |
+| associated with   |                                    |                                |                                 |
+| those records     |                                    |                                |                                 |
++-------------------+------------------------------------+--------------------------------+---------------------------------+ 
 
 **Note:** Filtering (including or excluding a subset of results) is a common operation in Storm, supported by the ``filter()`` operator. Storm supports an extensive and flexible set of filtering criteria, and as a result the full operator syntax for filtering is generally complex and therefore impractical to use at the CLI. For this reason, filter operations at the CLI are generally performed using the macro syntax, as shown above.
 
@@ -231,11 +233,11 @@ Two ways to ask that question using Storm are:
 
 ``cli> ask #tc.t12 +inet:ipv4``
 
-The first query is problematic because it first asks Storm to return **all** ``inet:ipv4`` nodes within the hypergraph – potentially hundreds of thousands, or even millions of nodes, depending on how densely populated the hypergraph is (mathematically speaking, there are over four billion possible IPv4 addresses). Synapse has to lift **all** of those ``inet:ipv4`` nodes into memory and then select only those nodes with the ``tc.t12`` tag. The query is likely to take an extremely long time to return or to time out entirely (at least until query limits are incorporated into Synapse), and therefore represents a "bad" query.
+The first query is problematic because it first asks Storm to return **all** ``inet:ipv4`` nodes within the hypergraph – potentially hundreds of thousands, or even millions of nodes, depending on how densely populated the hypergraph is (mathematically speaking, there are over four billion possible IPv4 addresses). Synapse has to lift **all** of those ``inet:ipv4`` nodes into memory and then select only those nodes with the ``tc.t12`` tag. The query is likely to take an extremely long time to return (at least until query limits are incorporated into Synapse), and therefore represents a "bad" query.
 
 The second query first asks Storm to return **all** nodes tagged with ``tc.t12``. This may still be a large number depending on how much analysis and annotation has been performed related to Threat Group 12. However, the number of nodes tagged ``tc.t12`` will still be much smaller than the number of ``inet:ipv4`` nodes within a hypergraph. As such, the second query is more efficient or performant, and represents a "good" (or at least "better" query).
 
-(**Note:** The previous example is used for simple illustrative purposes. Technically, the "best" way to ask this particular question would be to use what is called a Storm "by" handler (represented by the asterisk ( ``*`` ) to "lift by tag":
+(**Note:** The previous example is used for simple illustrative purposes. Technically, the "best" way to ask this particular question would be to use what is called a Storm "by" handler (represented by the asterisk ( ``*`` )) to "lift by tag":
 
 ``cli> ask inet:ipv4*tag=tc.t12``
 
