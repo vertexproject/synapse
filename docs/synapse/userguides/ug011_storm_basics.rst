@@ -159,39 +159,61 @@ The same query using macro syntax would be::
   
 The components of the query are broken down below; note how each new component builds on the previous query to follow the line of analysis and refine results:
 
++-------------------+------------------------------------+--------------------------------+-------------------------------+ 
+| Request           | Operator Syntax                    | Macro Syntax                   | Macro Syntax Notes            |
++===================+====================================+================================+===============================+
+| Lift all nodes    |``lift(inet:fqdn,by=tag,tc.t12)``   |``inet:fqdn*tag=tc.12``         | Omit "lift"                   |
+| tagged as part of |                                    |                                | Asterisk ( ``*``) substitutes |
+| Threat Group 12   |                                    |                                | for "by" parameter            |
++-------------------+------------------------------------+--------------------------------+-------------------------------+ 
+| Pivot from those  |``pivot(inet:dns:a:fqdn,inet:fqdn)``|``-> inet:dns:a:fqdn``          | Omit "from" parameter in      |
+| domains to DNS A  |                                    |                                | pivot (``inet:fqdn``) as it is|
+| record nodes that |                                    |                                | the primary property of our   |
+| have those domains|                                    |                                | working result set (default   |
+|                   |                                    |                                | input value)                  |
+|                   |                                    |                                | Arrow ( ``->`` ) substitutes  |
+|                   |                                    |                                | for "pivot" operator          |
++-------------------+------------------------------------+--------------------------------+-------------------------------+
+| Pivot from those  |``pivot(inet:ipv4,inet:dns:a:ipv4)``|``inet:dns:a:ipv4 -> inet:ipv4``| Arrow ( ``->`` ) substitutes  |
+| DNS A record nodes|                                    |                                | for "pivot" operator          |
+| to the IP         |                                    |                                |                               |
+| addresses those   |                                    |                                |                               |
+| domains have      |                                    |                                |                               |
+| resolved to       |                                    |                                |                               |
++-------------------+------------------------------------+--------------------------------+-------------------------------+ 
+| Remove any IP     | n/a                                |``-#anon.tor``                  | Filter operation; the minus   |
+| addresses tagged  |                                    |                                | ( ``-`` ) represents an       |
+| as TOR exit nodes |                                    |                                | exclusion filter              |
+|                   |                                    |                                | Hashtag ( ``#`` ) substitutes |
+|                   |                                    |                                | for "tag"                     |
++-------------------+------------------------------------+--------------------------------+-------------------------------+ 
+| Remove any IP es  | n/a                                |``-#anon.vpn``                  | Filter operation; the minus   |
+| addresses tagged  |                                    |                                | ( ``-`` ) represents an       |
+| as anonymous VPN  |                                    |                                | exclusion filter              |
+| infrastructure    |                                    |                                | Hashtag ( ``#`` ) substitutes |
+|                   |                                    |                                | for "tag"                     |
++-------------------+------------------------------------+--------------------------------+-------------------------------+ 
+| Pivot from those  |``pivot(inet:dns:a:ipv4,inet:ipv4)``|``-> inet:dns:a:ipv4``          | Omit "from" parameter in      |
+| remaining IP es   |                                    |                                | pivot (``inet:ipv4``) as it is|
+| addresses to any  |                                    |                                | the primary property of our   |
+| DNS A records     |                                    |                                | working result set (default   |
+| where those IPs   |                                    |                                | input value)                  |
+| were present      |                                    |                                | Arrow ( ``->`` ) substitutes  |
+|                   |                                    |                                | for "pivot" operator          |
++-------------------+------------------------------------+--------------------------------+-------------------------------+ 
+| Pivot from those  |``pivot(inet:fqdn,inet:dns:a:fqdn)``|``inet:dns:a:fqdn -> inet:fqdn``| Arrow ( ``->`` ) substitutes  |
+| DNS A records to  |                                    |                                | for "pivot" operator          |
+| the domains se    |                                    |                                |                               |
+| associated with   |                                    |                                |                               |
+| those records     |                                    |                                |                               |
++-------------------+------------------------------------+--------------------------------+-------------------------------+ 
 
+**Note:** Filtering (including or excluding a subset of results) is a common operation in Storm, supported by the ``filter()`` operator. Storm supports an extensive and flexible set of filtering criteria, and as a result the full operator syntax for filtering is generally complex and therefore impractical to use at the CLI. For this reason, filter operations at the CLI are generally performed using the macro syntax, as shown above.
 
+See the Storm reference guides <link> for a detailed discussion of individual operators and their operator (full) vs. macro syntax.
 
-
-All Storm operators can be accessed from the Synapse command line interface via the ``ask`` command, using either operator syntax or the shortened macro syntax where available. Most operators (other than ``lift()`` and a few others used to select or retrieve data) require an existing data set on which to operate. This data set is typically the output of a previous Storm query whose results are the nodes you want to modify or otherwise work with. Operators may also require one or more parameters to further specify what you want to do with the result set.
-
-Storm queries can be as simple as asking to lift a single node:
-
-``cli> ask inet:fqdn=woot.com``
-
-Alternately, they can be highly complex, chaining a series of operators to lift a set of nodes and perform a series of additional filter and pivot operations that follow a line of analysis across the data::
-
-    cli> ask inet:fqdn*tag=tc.t12 -> inet:dns:a:fqdn inet:dns:a:ipv4 -> inet:ipv4
-        -#anon.tor -#anon.vpn -> inet:dns:a:ipv4 inet:dns:a:fqdn -> inet:fqdn
-
-The second query above represents a common analytical workflow to research potentially malicious infrastructure. It takes a set of “known bad” domains, moves to the IP addresses those domains have resolved to, excludes some potentially irrelevant IPs, and then moves to other domains that have resolved to those IPs. Domains that resolved to the same IP address(es) as our “known bad” domains during the same time period may also be associated with our threat group. The query is broken down below; note how each new component builds on the previous query to follow a line of analysis and refine results:
-
-* Lift all domains tagged as part of Threat Group 12 (``inet:fqdn*tag=tc.t12``)
-* Pivot from those domains to DNS A record nodes that have those domains (``-> inet:dns:a:fqdn``)
-* Pivot from those DNS A record nodes to the IP addresses those domains have resolved to (``inet:dns:a:ipv4 -> inet:ipv4``)
-* Remove any IP addresses tagged as TOR exit nodes (``-#anon.tor``)
-* Remove any IP addresses tagged as anonymous VPN infrastructure (``-#anon.vpn``)
-* Pivot from those remaining IP addresses to any DNS A records where those IPs were present (``-> inet:dns:a:ipv4``)
-* Pivot from those DNS A records to the domains associated with those records (``inet:dns:a:fqdn -> inet:fqdn``)
-
-
-
-
-
-
-
-"Good" and "Bad" Queries
-------------------------
+Query Optimization - "Good" and "Bad" Queries
+---------------------------------------------
 
 Storm is meant to be flexible as well as performant across large and diverse data sets. There is no single "right" way to use Storm to ask a question of the hypergraph data. However, there are definitely "better" (more efficient or more performant) ways to ask a question. Given that there is typically more than one "path" to an answer (more than one way to ask the question), analysts should consider which path may be more optimal (or at least consider which path is **not** optimal) when formulating a Storm query.
 
