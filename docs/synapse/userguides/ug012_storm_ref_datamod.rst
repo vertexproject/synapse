@@ -24,3 +24,59 @@ __ storm.py_
 
 .. _conventions: ../userguides/ug011_storm_basics.rst#syntax-conventions
 __ conventions_
+
+addnode()
+---------
+Adds the specified node(s) to a Cortex.
+
+**Operator Syntax:**
+
+.. parsed-literal::
+  
+  **addnode(** *<form>* **,** *<valu>* **,** [ **:** *<prop>* **=** *<pval>* **,** ...] **)**
+  
+  **addnode(** *<form>* **, (** *<valu_1>* **,** *<valu_2>* **,** ... **) ,** [ **:** *<prop>* **=** *<pval>* **,** ...] **)**
+
+**Macro Syntax:**
+
+.. parsed-literal::
+  
+  **[** *<form>* **=** *<valu>* ... [ **:** *<prop>* **=** *<pval>* ...] **]**
+  
+  **[** *<form>* **= (** *<valu_1>* **,** *<valu_2>* **,** ... **)** [ **:** *<prop>* **=** *<pval>* ...] **]**
+
+**Examples:**
+
+*Simple Node:*
+
+``addnode( inet:fqdn , woot.com )``
+
+``[ inet:fqdn = woot.com ]``
+
+*Separator (sepr) Node:*
+
+``addnode( inet:dns:a , ( woot.com , 1.2.3.4 ) )``
+
+``[ inet:dns:a = ( woot.com , 1.2.3.4 ) ]``
+
+*Composite (comp) Node:*
+
+``addnode( inet:follows , (twitter.com/ernie , twitter.com/bert ) )``
+
+``[ inet:follows = ( twitter.com/ernie , twitter.com/bert ) ]``
+
+*Comp Node with Optional Values:*
+
+Todo
+
+*Cross-reference (xref) Node:*
+
+``addnode( file:txtref , ( d41d8cd98f00b204e9800998ecf8427e , inet:fqdn , woot.com ) )``
+
+``[ file:txtref = ( d41d8cd98f00b204e9800998ecf8427e , inet:fqdn , woot.com ) ]``
+
+*Node with Properties:*
+
+``addnode( inet:dns:a , ( woot.com , 1.2.3.4 ) , :seen:min = "2017-08-01 01:23" , :seen:max = "2017-08-10 04:56" )``
+
+``[ inet:dns:a = ( woot.com , 1.2.3.4 ) :seen:min = "2017-08-01 01:23" :seen:max = "2017-08-10 04:56" ]``
