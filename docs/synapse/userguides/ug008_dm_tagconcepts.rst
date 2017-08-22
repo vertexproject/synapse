@@ -139,10 +139,10 @@ The ``:base``, ``:up``, and ``:depth`` properties of a ``syn:tag`` node facilita
 The ``:title`` and ``:doc`` properties allow definitions for the tag and tagform to be documented on the tag node itself.
 
 
-.. _Basics: ../userguides/userguide_section3.html
+.. _Basics: ../userguides/ug003_dm_basics.html
 __ Basics_
 
-.. _Compare: ../userguides/userguide_section6.html#secondary-properties-vs-relationship-nodes-vs-tags
+.. _Compare: ../userguides/ug006_dm_nodeprops.html#secondary-properties-vs-relationship-nodes-vs-tags
 __ Compare_
 
 .. _Data: ../datamodel.html
@@ -150,5 +150,5 @@ __ Data_
 
 .. _datamodel.py: https://github.com/vertexproject/synapse/blob/master/synapse/datamodel.py
 
-.. _Storm: ../userguides/userguide_section11.html
+.. _Storm: ../userguides/ug011_storm_basics.html
 __ Storm_
