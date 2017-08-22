@@ -1,4 +1,5 @@
 import synapse.cortex as s_cortex
+import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
 import synapse.lib.storm as s_storm
 import synapse.cores.common as s_common
@@ -610,6 +611,24 @@ class StormTest(SynTest):
             nodes = core.eval('guid(%s)' % node0[0][::-1])
             self.eq(len(nodes), 1)
             self.eq(node0[0], nodes[0][0][::-1])
+
+    def test_storm_task(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.formTufoByProp('inet:ipv4', 0x01020304)
+            core.formTufoByProp('inet:ipv4', 0x05060708)
+
+            # XXX Cortex does not currently support tasking so there isn't anything
+            # to validate with here.  Using tags to show the operator does work.
+
+            nodes = core.eval('inet:ipv4 task(foo, bar, baz, sekrit.priority1, key=valu)')
+            for node in nodes:
+                s_tags.tufoHasTag(node, 'task.foo')
+                s_tags.tufoHasTag(node, 'task.bar')
+                s_tags.tufoHasTag(node, 'task.baz')
+                s_tags.tufoHasTag(node, 'task.sekrit.priority1')
+
+            # We have to know queue names to add nodes too
+            self.raises(BadSyntaxError, core.eval, 'inet:ipv4 task()')
 
 class LimitTest(SynTest):
 

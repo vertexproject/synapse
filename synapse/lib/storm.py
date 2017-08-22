@@ -426,6 +426,7 @@ class Runtime(Configable):
 
         self.setOperFunc('guid', self._stormOperGuid)
         self.setOperFunc('join', self._stormOperJoin)
+        self.setOperFunc('task', self._stormOperTask)
         self.setOperFunc('lift', self._stormOperLift)
         self.setOperFunc('refs', self._stormOperRefs)
         self.setOperFunc('limit', self._stormOperLimit)
@@ -1397,3 +1398,21 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         [query.add(node) for node in core.getTufosByIdens(args)]
+
+    def _stormOperTask(self, query, oper):
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        if not args:
+            mesg = 'task(<queuname1>, ..., [kwarg1=val1, ...])'
+            raise s_common.BadSyntaxError(mesg=mesg)
+
+        nodes = query.data()
+
+        core = self.getStormCore()
+
+        for qname in args:
+            # XXX Cortex does not yet support a persistent tasking mechanism.
+            # [core.taskTufo(node, task, **opts) for node in nodes]
+            tag = '.'.join(['task', qname])
+            [core.addTufoTag(node, tag) for node in nodes]
