@@ -127,5 +127,5 @@ The second query first asks Storm to return **all** nodes tagged with ``tc.t12``
 
 "By" handlers are specifically designed to further optimize certain queries by lifting and filtering nodes concurrently, as opposed to lifting nodes and then filtering the results.)
 
-.. _blocks: ../userguides/userguide_section3.html
+.. _blocks: ../userguides/ug003_dm_basics.html
 __ blocks_

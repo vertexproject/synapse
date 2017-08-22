@@ -267,8 +267,8 @@ An optional ``syn:tagform`` node representing ``sink.hole`` specifically when ap
   (1 results)
 
 
-.. _Storm: ../userguides/userguide_section11.html
+.. _Storm: ../userguides/ug011_storm_basics.html
 
-.. _Concepts: ../userguides/userguide_section4.html
+.. _Concepts: ../userguides/ug004_dm_nodesconcepts.html
 __ Concepts_
 
