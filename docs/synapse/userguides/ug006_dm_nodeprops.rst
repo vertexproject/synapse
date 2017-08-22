@@ -60,8 +60,8 @@ In this case, use of a tag is a better option for the following reasons:
 - Recording threat clustering data as a property (``<prop>=<value>``, or ``:tc=t12``) means you would need to ask about this data by lifting and / or pivoting. In particular if you wanted to ask the question “what are all the things associated with Threat Group 12?”, you would need to lift data where the secondary property on multiple node types (domains, files, IP addresses, email addresses) had a value of ``t12``. “Lift by value” (as opposed to “lift by <prop>=<value>”) is a computationally intense action. If the threat cluster data is stored as a tag (``#tc.t12``), it is much easier to lift the set of nodes that have that tag. The use of a tag better supports the ability to ask analytically relevant questions.
 
 
-.. _Basics: ../userguides/userguide_section3.html
+.. _Basics: ../userguides/ug003_dm_basics.html
 __ Basics_
 
-.. _Types: ../userguides/userguide_section7.html
+.. _Types: ../userguides/ug007_dm_nodetypes.html
 __ Types_

@@ -35,8 +35,8 @@ Examples of simple nodes include:
 
 GUIDs are used as primary properties for forms which are not easily deconflictable (that is, which do not have readily identified characteristics that can serve as a unique primary property). For commonly used node types that are represented by GUIDs (such as organizations or people), it is impractical for an analyst to have to type (or even copy / paste) a GUID at the CLI every time they want to reference a given node. While nodes can be retrieved based on a more "human-friendly" secondary ``<prop>=<value>`` (e.g., ``ou:org:alias=vertex``), even the need to enter a full secondary property / value may be inconvenient.
 
-Synapse allows an **alias** to be defined as part of the type for the form's primary property. The alias is typically one of the form's secondary properties. For example, the Synapse data model defines the property ``ps:person:guidname`` as an alias for a person, and ``ou:org:alias`` as an alias for an organization. An example of the alias definition can be seen in this snippet of source code that defines the ``ou:org`` type (from ``orgs.py``):
-::
+Synapse allows an **alias** to be defined as part of the type for the form's primary property. The alias is typically one of the form's secondary properties. For example, the Synapse data model defines the property ``ps:person:guidname`` as an alias for a person, and ``ou:org:alias`` as an alias for an organization. An example of the alias definition can be seen in this snippet of source code that defines the ``ou:org`` type (from ``orgs.py``)::
+
     def getBaseModels():
         modl = {
             'types': (
@@ -51,11 +51,11 @@ Synapse allows an **alias** to be defined as part of the type for the form's pri
             ...
         }
 
-Once defined in the data model, the alias property’s value preceded by a dollar sign ( ``$`` ) can be used as shorthand to refer to the node. As such, the following statements are equivalent:
-::
-  ou:org=2f92bc913918f6598bcf310972ebf32e
-  ou:org:alias=vertex
-  ou:org=$vertex
+Once defined in the data model, the alias property’s value preceded by a dollar sign ( ``$`` ) can be used as shorthand to refer to the node. As such, the following statements are equivalent::
+
+    ou:org=2f92bc913918f6598bcf310972ebf32e
+    ou:org:alias=vertex
+    ou:org=$vertex
 
 Composite (Comp) Nodes
 ----------------------
@@ -185,5 +185,5 @@ Examples of sepr nodes include:
   Other secondary properties may depend on the types of account(s) being tracked and the specific analytical need. User profile data available from a given service may vary widely depending on the service purpose (software development vs. cloud storage service vs. social media) or on geography or culture. For example, some Asian web sites allow users to post their blood type, while western web sites may allow users to post their zodiacal sign; within different cultures, both are believed to reflect an individual's personality.
 
 
-.. _Concepts: ../userguides/userguide_section4.html
+.. _Concepts: ../userguides/ug004_dm_concepts.html
 __ Concepts_
