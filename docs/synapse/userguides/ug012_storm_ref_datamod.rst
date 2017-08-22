@@ -18,13 +18,6 @@ See the `Storm Syntax Conventions`__ for an explanation of the usage format used
 
 Where specific query examples are given, they are commonly provided in pairs using operator syntax followed by the equivalent macro syntax (if available).
 
-
-.. _storm.py: ../../../synapse/lib/storm.py
-__ storm.py_
-
-.. _conventions: ../userguides/ug011_storm_basics.rst#syntax-conventions
-__ conventions_
-
 addnode()
 ---------
 Adds the specified node(s) to a Cortex.
@@ -80,3 +73,31 @@ Todo
 ``addnode( inet:dns:a , ( woot.com , 1.2.3.4 ) , :seen:min = "2017-08-01 01:23" , :seen:max = "2017-08-10 04:56" )``
 
 ``[ inet:dns:a = ( woot.com , 1.2.3.4 ) :seen:min = "2017-08-01 01:23" :seen:max = "2017-08-10 04:56" ]``
+
+**Usage Notes:**
+
+* ``addnode()`` used at the Synapse CLI is most suitable for adding a relatively small number of nodes. For larger amounts of data, it is preferable to use the Synapse `ingest`__ subsystem to automate the process.
+* When creating a <form> whose <valu> consists of multiple components, the components must be passed as a comma-separated list enclosed in parentheses.
+* ``addnode()`` will create non-deconflictable node types.
+* ``addnode()`` will check whether a deconflictable node type already exists and either create it or return information on the existing node.
+* Secondary properties must be specified by their relative property name (``:baz`` instead of ``foo:bar:baz``).
+* Specifying one or more secondary properties will set the ``<prop>=<pval>`` if it does not exist, or modify (overwrite) the ``<prop>=<pval>`` if it already exists.
+
+**Operator Syntax Notes:**
+
+* The operator syntax can only create only one node at a time.
+
+**Macro Syntax Notes:**
+
+* The macro syntax can create as many nodes as are specified within the brackets.
+* All nodes specified within the brackets that do not already exist will be created. For nodes that already exist, Synapse will return data for that node.
+
+
+.. _storm.py: ../../../synapse/lib/storm.py
+__ storm.py_
+
+.. _conventions: ../userguides/ug011_storm_basics.rst#syntax-conventions
+__ conventions_
+
+.. _ingest: ../userguides/ug050_ing_intro.rst
+__ ingest_
