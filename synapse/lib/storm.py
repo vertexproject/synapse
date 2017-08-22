@@ -1410,6 +1410,9 @@ class Runtime(Configable):
         nodes = query.data()
 
         core = self.getStormCore()
+        mesg = 'task() operator is currently a WIP operator. Use at own risk.'
+        logger.warning(mesg)
+        core.log(logging.warning, mesg='task() operator is currently an unstable operator. Use at own risk.')
 
         for qname in args:
             # XXX Cortex does not yet support a persistent tasking mechanism.
