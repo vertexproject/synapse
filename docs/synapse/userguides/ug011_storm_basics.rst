@@ -8,9 +8,17 @@ Background
 
 **Storm** is the query language used to interact with data in a Synapse hypergraph. Storm allows you to ask about, retrieve, annotate, add, modify, and delete data from a Cortex.
 
-Most Synapse users (e.g., those conducting analysis on the data) will access Storm via the command-line interface (CLI), using the ``ask`` command to invoke a Storm query. The Synapse CLI can invoke Storm operators directly – that is, calling the operator and passing appropriate parameters:
+Most Synapse users (e.g., those conducting analysis on the data) will access Storm via the command-line interface (CLI), using the Synapse ``ask`` command to invoke a Storm query:
 
-``cli> ask <operator>(<param_1>,<param_2>...<param_n>)``
+.. parsed-literal::
+  cli> **ask** *<query>*
+
+Storm is based on an underlying set of **operators** that allow interaction with a Synapse Cortex and its data. The Synapse CLI can invoke Storm operators directly – that is, calling the operator and passing appropriate parameters:
+
+.. parsed-literal::
+  cli> **ask** *<operator>* **(** *<param_1>* **,** *<param_2>* ... *<param_n>* **)**
+  
+For example:
 
 ``cli> ask lift(inet:fqdn,woot.com)``
 
@@ -19,28 +27,143 @@ That said, Storm is meant to be usable by analysts from a variety of knowledge d
 * **Reference data and data types in an intuitive form.** Through features such as type safety and property normalization, Storm tries to take a “do what I mean” approach, removing the burden of translating or standardizing data from the user where possible.
 * **Use a simplified syntax to run Storm queries.** In addition to the standard operator-based Storm syntax, most common operators support the use of a short-form **macro syntax** to make queries both more intuitive and more efficient (by allowing common queries to be executed with fewer keystrokes).
 
-As an example of this simplification, analysts can ask Synapse about a node simply by specifying the node’s form and primary property value (``<form>=<value>``):
+As an example of this simplification, analysts can ask Synapse about a node simply by specifying the node’s form and primary property value (``<form>=<valu>``):
 
 ``cli> ask inet:ipv4=1.2.3.4``
 
-Note that Storm accepts the IP address in its “intuitive” form (dotted decimal notation), even though Synapse stores IP addresses as integers (IP ``1.2.3.4`` is stored as integer ``16909060``). The analyst does not need to convert the IP to integer form to run the query, nor do they need to escape the IP with quotes (``“1.2.3.4”``) to indicate it is a string representation of the data. (Generally speaking, double quotes only need to be used when input contains characters that would otherwise be interpreted as "end of data" (space, comma) or other specialized input (e.g, escape characters) by the Synapse parser.)
+Note that Storm accepts the IP address in its “intuitive” form (dotted decimal notation), even though Synapse stores IP addresses as integers (IP ``1.2.3.4`` is stored as integer ``16909060``). The analyst does not need to convert the IP to integer form to run the query, nor do they need to escape the IP with quotes (``"1.2.3.4"``) to indicate it is a string representation of the data. (Generally speaking, double quotes only need to be used when input contains characters that would otherwise be interpreted as "end of data" (space, comma) or other specialized input (e.g, escape characters) by the Synapse parser.)
 
-In addition, the Storm syntax should feel intuitive to the user, like asking a question: “Tell me about (ask about) the IP address 1.2.3.4”. In reality, Storm translates that simplified syntax into the correct syntax for the underlying ``lift()`` operator, which actually retrieves the data:
-
-``cli> ask inet:ipv4=1.2.3.4``
-
-is equivalent to:
-
-``cli> ask lift(inet:ipv4,1.2.3.4)``
-
-Analysts still need to learn the Storm “language” and master enough command-line syntax to perform tasks and find help when necessary. However, the intent is for Storm to function more like “how do I ask this question of the data?” and not “how do I write a program to get the data I need?”
+In addition, the Storm syntax should feel intuitive to the user, like asking a question: “Tell me about (ask about) the IP address 1.2.3.4”. Analysts still need to learn the Storm “language” and master enough command-line syntax to perform tasks and find help when necessary. However, the intent is for Storm to function more like “how do I ask this question of the data?” and not “how do I write a program to get the data I need?”
 
 Finally – and most importantly – giving analysts direct access to Storm to allow them to create arbitrary queries provides them with an extraordinarily powerful analytical tool. Analysts are not constrained by working with a set of predefined queries provided to them through a GUI or an API. Instead, they can follow their analysis wherever it takes them, creating queries as needed and working with the data in whatever manner is most appropriate to their research.
 
 Storm Operators
 ---------------
 
-Storm is based on an underlying set of **operators** that allow interaction with a Synapse Cortex and its data. All Storm operators can be accessed from the Synapse command line interface via the ``ask`` command, using either operator syntax or the shortened macro syntax where available. Most operators (other than ``lift()`` and a few others used to select or retrieve data) require an existing data set on which to operate. This data set is typically the output of a previous Storm query whose results are the nodes you want to modify or otherwise work with. Operators may also require one or more parameters to further specify what you want to do with the result set.
+Operators implement the various Storm functions such as retrieving nodes, applying tags, or pivoting across data. Operators can be divided into broad categories based on their typical use:
+
+* **Data modification** – add, modify, annotate, and delete nodes from a Cortex.
+* **Lift (query) operators** – retrieve data based on specified criteria.
+* **Filter operators** – take a set of lifted nodes and refine your results by including or excluding a subset of nodes based on specified criteria.
+* **Pivot operators** -  take a set of lifted nodes and identify other nodes that share one or more properties or property values with the lifted set.
+* **Lift and filter (“by” handlers)** – optimize certain queries by lifting and filtering nodes concurrently.
+* **Statistical operators** – specialized operators to calculate statistics over a set of nodes.
+* **Miscellaneous operators** – various special purpose operators that do not fit into one of the above categories.
+
+Most operators (other than those used solely to lift or retrieve data) require an existing data set on which to operate. This data set is typically the output of a previous Storm query whose results are the nodes you want to modify or otherwise work with.
+
+Lift, Filter, and Pivot Criteria
+--------------------------------
+
+Working with Synapse data commonly involves three broad types of operations:
+
+* **Lifting** data (selecting a set of nodes).
+* **Filtering** data (down-selecting a subset of nodes from an existing set of nodes).
+* **Pivoting** across data ("navigating" the hypergraph by moving from an existing set of nodes to another set of nodes that share some property and / or value with the original set).
+
+Whether lifting, filtering, or pivoting across data in a Cortex, you need to be able to clearly specify the data you’re interested in – your selection criteria. In most cases, the criteria you specify will be based on one or more of the following:
+
+* A **property** (primary or secondary) on a node.
+* A **specific value** for a property (``<form>=<value>`` or ``<prop>=<value>``) on a node.
+* A **tag** on a node.
+
+All of the above elements – nodes, properties, values, and tags – are the fundamental `building blocks`__ of the Synapse data model. **As such, an understanding of the Synapse data model is essential to effective use of Storm.**
+
+Operator Chaining
+-----------------
+
+Storm allows multiple operators to be chained together to form increasingly complex queries. Storm operators are processed **in order from left to right** with each operator acting on the current result set (e.g., the output of the previous operator).
+
+From an analysis standpoint, this feature means that Storm can parallel an analyst's natural thought process: "show me X data...that's interesting, show me the Y data that relates to X...hm, take only this subset of results from Y and show me any relationship to Z data…" and so on.
+
+From a practical standpoint, it means that "order matters" when constructing a Storm query. A lengthy Storm query is not evaluated "as a whole"; instead Synapse parses each component of the query in order, evaluating each component individually as it goes. The Cortex runtime(s) executing the Storm query keep a list of lifted nodes in memory while performing lifts, pivots, data modification, and so on. Various operators may add or remove nodes from this "working set", or clear the set entirely; as such the in-memory set is continually changing based on the last-used operator. Particularly when first learning Storm, users are encouraged to break down complex queries into their component parts, and to validate the output (results) after the addition of each operator to the overall query.
+
+Syntax Conventions
+------------------
+
+The Synapse documentation provides numerous examples of both abstract syntax (usage statements) and specific queries. The following conventions are used for Storm usage statements:
+
+* Items that must be entered literally on the command line are in **bold.** These items include the command name and literal characters.
+* Items representing variables that must be replaced by a name are in *italics*.
+* **Bold** brackets are literal characters. Parameters enclosed in non-bolded brackets are optional.
+* Parameters not enclosed in brackets are required.
+* A vertical bar signifies that you choose only one parameter. For example, ``[ a | b ]`` indicates that you can choose a, b, or nothing.
+* Ellipses ( ``...`` ) signify the parameter can be repeated on the command line.
+
+Whitespace may be used in the examples for formatting and readability. Synapse will parse Storm input with or without whitespace (e.g., the Synapse parser will strip / ignore whitespace in Storm queries; the exception is that whitespace within double-quoted strings is preserved, such as the timestamp in the example below). For example, the following are equivalent:
+
+``addnode( inet:fqdn , woot.com , : created = "2017-08-15 01:23" )``
+
+``addnode(inet:fqdn,woot.com,:created="2017-08-15 01:23")``
+
+Examples of **specific** queries represent fully literal input, but are not shown in bold for readability. For example:
+
+*Usage statement:*
+
+.. parsed-literal::
+  **addnode(** *<form>* **,** *<valu>* **,** [ **:** *<prop>* **=** *<pval>* **,** ...] **)**
+
+*Specific example:*
+
+``addnode(inet:fqdn,woot.com)``
+
+Operator Syntax vs. Macro Syntax
+--------------------------------
+
+Storm operators function similar to a programming language, where the operator acts as a function and the operator's parameters act as input to that function. With very few exceptions, all Storm operators can be used at the Synapse command line by invoking the Synapse ``ask`` command, calling the appropriate Storm operator, and passing appropriate parameters to the operator; this is known as **operator syntax** and provides the most complete access to Storm's functionality.
+
+While operator syntax is both detailed and complete, it has a few drawbacks:
+
+* It can feel very "code-like", particularly to analysts or other Synapse users who are not programmers.
+* It has few optimizations, meaning that every operator and its associated parameters must be typed in full; this can become tedious for users who interact heavily with Synapse using Storm.
+
+To address these issues, Storm also supports what is known as **macro syntax.** Macro syntax acts as a sort of "shorthand" through techniques such as:
+
+* Replacing operators with equivalent intuitive symbols.
+* Allowing the omission of explicit operator names or parameters where there is an obvious default value.
+
+The macro syntax is meant to be both more efficient (requiring fewer keystrokes) and more intuitive, a "data language" for asking questions of the data as opposed to a programming language for retrieving data from a data store.
+
+While not every operator has a macro syntax equivalent, the most commonly used operators have been implemented both ways. When Storm macro syntax is used at the CLI, Synapse automatically "translates" the macro syntax to the equivalent operator syntax in order to execute the requested query.
+
+Two examples – one simple, one more complex – illustrate the differences between the two.
+
+*Example 1*
+
+The most basic Storm query simply lifts (retrieves) a single node (such as the domain ``woot.com``) using the ``lift()`` operator:
+
+``cli> ask lift(inet:fqdn,woot.com)``
+
+The same query can be executed as follows using macro syntax:
+
+``cli> ask inet:fqdn=woot.com``
+
+Note that in macro syntax, the ``lift()`` operator – the most fundamental Storm operator – is eliminated entirely; macro syntax assumes you want to retrieve (lift) nodes unless you specify otherwise. Similarly, instead of entering comma-separated parameters as input to the operator, macro syntax supports the use of the simple ``<form>=<valu>`` pattern to ask about the node in question.
+
+*Example 2*
+
+The usefulness of macro syntax is even more apparent with longer, more complex queries. Storm is designed to allow users to chain operators together to lift a set of nodes and perform a series of additional filter and pivot operations that follow a line of analysis across the data.
+
+In the knowledge domain of cyber threat data, a common analytical workflow to research potentially malicious infrastructure takes a set of “known bad” domains (for example, those associated with a known threat cluster), identifies the IP addresses those domains have resolved to, excludes some potentially irrelevant IPs, and then identifies other domains that have resolved to those IPs. Domains that resolved to the same IP address(es) as the “known bad” domains during the same time period may also be associated with the same threat.
+
+The full query for this line of analytical reasoning using operator syntax would be::
+
+  cli> **ask lift(inet:fqdn,by=tag,tc.t12) pivot(inet:dns:a:fqdn,inet:fqdn) 
+    pivot(inet:ipv4,inet:dns:a:ipv4) -#anon.tor -#anon.vpn 
+    pivot(inet:dns:a:ipv4,inet:ipv4) pivot(inet:fqdn,inet:dns:a:fqdn)
+
+The same query using macro syntax would be::
+
+  cli> ask inet:fqdn*tag=tc.t12 -> inet:dns:a:fqdn inet:dns:a:ipv4 -> inet:ipv4 -#anon.tor -#anon.vpn
+    -> inet:dns:a:ipv4 inet:dns:a:fqdn -> inet:fqdn
+  
+The components of the query are broken down below; note how each new component builds on the previous query to follow the line of analysis and refine results:
+
+
+
+
+
+All Storm operators can be accessed from the Synapse command line interface via the ``ask`` command, using either operator syntax or the shortened macro syntax where available. Most operators (other than ``lift()`` and a few others used to select or retrieve data) require an existing data set on which to operate. This data set is typically the output of a previous Storm query whose results are the nodes you want to modify or otherwise work with. Operators may also require one or more parameters to further specify what you want to do with the result set.
 
 Storm queries can be as simple as asking to lift a single node:
 
@@ -61,42 +184,11 @@ The second query above represents a common analytical workflow to research poten
 * Pivot from those remaining IP addresses to any DNS A records where those IPs were present (``-> inet:dns:a:ipv4``)
 * Pivot from those DNS A records to the domains associated with those records (``inet:dns:a:fqdn -> inet:fqdn``)
 
-Operator Categories
--------------------
 
-Storm operators can be divided into broad categories based on their typical use:
 
-* **Data modification** – add, modify, annotate, and delete nodes from a Cortex.
-* **Lift (query) operators** – retrieve data based on specified criteria.
-* **Filter operators** – take a set of lifted nodes and refine your results by including or excluding a subset of nodes based on specified criteria.
-* **Pivot operators** -  take a set of lifted nodes and identify other nodes that share one or more properties or property values with the lifted set.
-* **Lift and filter (“by” handlers)** – optimize certain queries by lifting and filtering nodes concurrently.
-* **Statistical operators** – specialized operators to calculate statistics over a set of nodes.
-* **Miscellaneous operators** – various special purpose operators that do not fit into one of the above categories.
 
-Storm and the Synapse CLI
--------------------------
 
-Recall that when accessing Storm from the Synapse command line, the ``ask`` command indicates that subsequent input represents a Storm query. Storm queries executed from the Synapse CLI must all be preceded by the ``ask`` command:
 
-``cli> ask <query>``
-
-Lift, Filter, and Pivot Criteria
---------------------------------
-
-Working with Synapse data commonly involves three broad types of operations:
-
-* **Lifting** data (selecting a set of nodes).
-* **Filtering** data (down-selecting a subset of nodes from an existing set of nodes).
-* **Pivoting** across data ("navigating" the hypergraph by moving from an existing set of nodes to another set of nodes that share some property and / or value with the original set).
-
-Whether lifting, filtering, or pivoting across data in a Cortex, you need to be able to clearly specify the data you’re interested in – your selection criteria. In most cases, the criteria you specify will be based on one or more of the following:
-
-* A **property** (primary or secondary) on a node.
-* A **specific value** for a property (``<form>=<value>`` or ``<prop>=<value>``) on a node.
-* A **tag** on a node.
-
-All of the above elements – nodes, properties, values, and tags – are the fundamental `building blocks`__ of the Synapse data model. **As such, an understanding of the Synapse data model is essential to effective use of Storm.**
 
 "Good" and "Bad" Queries
 ------------------------
