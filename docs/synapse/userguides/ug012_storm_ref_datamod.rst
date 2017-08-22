@@ -119,6 +119,54 @@ None.
 * ``addxref()`` may be useful if you want to create multiple xref nodes from multiple ``file:bytes`` nodes to the same ``<form>=<valu>`` at once (e.g., if you have eight photographs of the same object).
 
 
+setprop()
+---------
+
+Sets one or more property values on the specified node(s).
+
+**Operator Syntax:**
+
+.. parsed-literal::
+  *<query>* **setprop( :** *<prop>* **=** *<pval>* **,** ... **)**
+
+**Macro Syntax:**
+
+.. parsed-literal::
+  *<query>* **[ :** *<prop>* **=** *<pval>* ... **]**
+
+**Examples:**
+
+``inet:dns:a = woot.com/1.2.3.4 setprop( :seen:min = "2017-08-01 01:23" , :seen:max = "2017-08-10 04:56" )``
+
+``inet:dns:a = woot.com/1.2.3.4 [ :seen:min = "2017-08-01 01:23" :seen:max = "2017-08-10 04:56" ]``
+
+**Usage Notes:**
+
+* ``setprop()`` operates on the output of a previous Storm query.
+* Secondary properties must be specified by their relative property name. For the form ``foo:bar`` and the property ``baz`` (e.g., ``foo:bar:baz``) the relative property name is specified as ``:baz``.
+* Synapse will set the secondary propert(ies) for all nodes returned by `<query>` for which that secondary property is a valid property. Nodes for which that property is not a valid secondary property will be ignored.
+* ``setprop()`` will create and set the property if it does not exist, or overwrite the existing ``<prop>=<pval>`` if it does exist.
+* ``setprop()`` can set or modify any property not explicitly defined as read only (``'ro' : 1``) in the data model. Attempts to modify read only properties will fail silently (e.g., the property value will not be overwritten, but the user will not be notified that the request failed).
+* ``setprop()`` cannot be used to remove (delete) a property entirely.
+
+**Operator Syntax Notes:**
+
+* N/A
+
+**Macro Syntax Notes:**
+
+* Synapse will attempt to set the specified propert(ies) for all previously referenced nodes (e.g., to the left of the ``<prop>=<pval>`` statement) for which that property is valid, **whether those nodes are within or outside of the macro syntax brackets.**
+
+
+
+
+
+
+
+
+
+
+
 
 
 .. _storm.py: ../../../synapse/lib/storm.py
