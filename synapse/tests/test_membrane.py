@@ -402,9 +402,9 @@ class MembraneTest(SynTest):
                     link = dmon.listen('tcp://127.0.0.1:0/remotecore')
 
                     waiter = ourcore.waiter(hitcount, 'splice')
-                    with s_cortex.openurl('tcp://127.0.0.1:%d/remotecore' % link[1]['port']) as remoteprox:
-                        m = Membrane(remoteprox, ourcore, rules=rules)
-                        self._filter_add_nodes(remoteprox)
+                    with s_cortex.openurl('tcp://127.0.0.1:%d/remotecore' % link[1]['port']) as prox:
+                        m = Membrane(src=prox, dst=ourcore, rules=rules)
+                        self._filter_add_nodes(prox)
                         waiter.wait(timeout=10)  # give enough time for events to propagate
                         self._filter_run_assertions(ourcore)
 
@@ -428,11 +428,11 @@ class MembraneTest(SynTest):
                     link = dmon.listen('tcp://127.0.0.1:0/remotecore')
 
                     waiter = remotecore.waiter(hitcount, 'splice')
-                    with s_cortex.openurl('tcp://127.0.0.1:%d/remotecore' % link[1]['port']) as remoteprox:
-                        m = Membrane(ourcore, remoteprox, rules=rules)
+                    with s_cortex.openurl('tcp://127.0.0.1:%d/remotecore' % link[1]['port']) as prox:
+                        m = Membrane(src=ourcore, dst=prox, rules=rules)
                         self._filter_add_nodes(ourcore)
                         waiter.wait(timeout=10)  # give enough time for events to propagate
-                        self._filter_run_assertions(remoteprox)
+                        self._filter_run_assertions(prox)
 
     def test_filter_inbound_from_unshared(self):
 
@@ -453,19 +453,40 @@ class MembraneTest(SynTest):
                 with s_daemon.Daemon() as dmon:
                     remotemembrane = Membrane(src=remotecore, rules=rules)
                     dmon.share('remotemembrane', remotemembrane)
-                    link = dmon.listen('tcp://127.0.0.1:0/remotecore')
+                    link = dmon.listen('tcp://127.0.0.1:0/remotemembrane')
 
                     waiter = ourcore.waiter(hitcount, 'splice')
-                    with s_cortex.openurl('tcp://127.0.0.1:%d/remotemembrane' % link[1]['port']) as remotemembrane:
-                        remotemembrane.on('splice', ourcore.splice)  # FIXME not sure how to do this in dmon conf
+                    with s_cortex.openurl('tcp://127.0.0.1:%d/remotemembrane' % link[1]['port']) as prox:
+                        prox.on('splice', ourcore.splice)  # FIXME not sure how to do this in dmon conf
                         self._filter_add_nodes(remotecore)
                         waiter.wait(timeout=10)  # give enough time for events to propagate
                         self._filter_run_assertions(ourcore)
 
     def test_filter_outbound_to_unshared(self):
+
         # remotecore: the core we want to sync splices to, not shared
         # remotemembrane: the membrane attached to remote core, shared over telepath
         # ourcore: the core we want to sync splices from, just a local ramcore
         # ourmembrane: our membrane
         # prox: our telepath proxy to remotemembrane
-        raise NotImplementedError()
+
+        hitcount = 1
+        rules = {
+            'node:add': [
+                {'query': '+inet:ipv4=1337'}
+            ]
+        }
+
+        with s_cortex.openurl('ram:///') as ourcore:
+            with s_cortex.openurl('ram:///') as remotecore:
+                with s_daemon.Daemon() as dmon:
+                    remotemembrane = Membrane(dst=remotecore, rules=rules)
+                    dmon.share('remotemembrane', remotemembrane)
+                    link = dmon.listen('tcp://127.0.0.1:0/remotemembrane')
+
+                    waiter = ourcore.waiter(hitcount, 'splice')
+                    with s_cortex.openurl('tcp://127.0.0.1:%d/remotemembrane' % link[1]['port']) as prox:
+                        ourmembrane = Membrane(src=ourcore, dst=prox, rules=rules)
+                        self._filter_add_nodes(ourcore)
+                        waiter.wait(timeout=10)  # give enough time for events to propagate
+                        self._filter_run_assertions(remotecore)

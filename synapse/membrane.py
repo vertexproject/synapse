@@ -57,10 +57,13 @@ class Membrane(EventBus):
             self.default = default
 
         self.src = src
+        self.dst = dst
+        if not(self.src or self.dst):
+            raise Exception('need a src or dst')
+
         if not self.src:
             self.src = self
 
-        self.dst = dst
         if not self.dst:
             self.dst = self
 
