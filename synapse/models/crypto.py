@@ -33,7 +33,7 @@ class CryptoMod(CoreModule):
                 ('hash:sha384', {'ptype': 'hash:sha384'}, []),
                 ('hash:sha512', {'ptype': 'hash:sha512'}, []),
                 ('rsa:key', {'ptype': 'rsa:key'}, [
-                    ('mod', {'pytpe': 'str:hex', 'doc': 'The modulus'}),
+                    ('mod', {'ptype': 'str:hex', 'doc': 'The modulus'}),
                     ('bits', {'ptype': 'int', 'doc': 'The length of the modulus in bits'}),
                     ('pub:exp', {'ptype': 'str:hex', 'doc': 'The public exponent'}),
                     ('priv:exp', {'ptype': 'str:hex', 'doc': 'The private exponent'}),
