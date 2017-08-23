@@ -157,6 +157,41 @@ Sets one or more property values on the specified node(s).
 
 * Synapse will attempt to set the specified propert(ies) for all previously referenced nodes (e.g., to the left of the ``<prop>=<pval>`` statement) for which that property is valid, **whether those nodes are within or outside of the macro syntax brackets.**
 
+addtag()
+--------
+
+Adds one or more tags to the specified node(s).
+
+**Operator Syntax:**
+
+.. parsed-literal::
+  *<query>* **addtag(** *<tag>* [ **,** ... ] **)**
+
+**Macro Syntax:**
+
+.. parsed-literal::
+  *<query>* **[** **#** *<tag>* ... **]**
+
+**Examples:**
+
+``inet:fqdn = woot.com addtag( foo.bar , baz.faz )``
+
+``inet:fqdn = woot.com [ #foo.bar #baz.faz ]``
+
+**Usage Notes:**
+
+* ``addtag()`` operates on the output of a previous Storm query.
+* Synapse will apply the specified tag(s) to all nodes returned by ``<query>``.
+
+**Operator Syntax Notes:**
+
+* N/A
+
+**Macro Syntax Notes:**
+
+* Synapse will set the specified tag(s) for all previously referenced nodes (e.g., to the left of the ``<tag>`` statement) **whether those nodes are within or outside of the macro syntax brackets.**
+
+
 
 
 
