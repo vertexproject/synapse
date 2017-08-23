@@ -77,7 +77,7 @@ Todo
 **Usage Notes:**
 
 * ``addnode()`` used at the Synapse CLI is most suitable for adding a relatively small number of nodes. For larger amounts of data, it is preferable to use the Synapse `ingest`__ subsystem to automate the process.
-* When creating a <form> whose <valu> consists of multiple components, the components must be passed as a comma-separated list enclosed in parentheses.
+* When creating a ``<form>`` whose ``<valu>`` consists of multiple components, the components must be passed as a comma-separated list enclosed in parentheses.
 * ``addnode()`` will create non-deconflictable node types.
 * ``addnode()`` will check whether a deconflictable node type already exists and either create it or return information on the existing node.
 * Secondary properties must be specified by their relative property name (``:baz`` instead of ``foo:bar:baz``).
@@ -144,7 +144,7 @@ Sets one or more property values on the specified node(s).
 
 * ``setprop()`` operates on the output of a previous Storm query.
 * Secondary properties must be specified by their relative property name. For the form ``foo:bar`` and the property ``baz`` (e.g., ``foo:bar:baz``) the relative property name is specified as ``:baz``.
-* Synapse will set the secondary propert(ies) for all nodes returned by `<query>` for which that secondary property is a valid property. Nodes for which that property is not a valid secondary property will be ignored.
+* Synapse will set the secondary propert(ies) for all nodes returned by ``<query>`` for which that secondary property is a valid property. Nodes for which that property is not a valid secondary property will be ignored.
 * ``setprop()`` will create and set the property if it does not exist, or overwrite the existing ``<prop>=<pval>`` if it does exist.
 * ``setprop()`` can set or modify any property not explicitly defined as read only (``'ro' : 1``) in the data model. Attempts to modify read only properties will fail silently (e.g., the property value will not be overwritten, but the user will not be notified that the request failed).
 * ``setprop()`` cannot be used to remove (delete) a property entirely.
@@ -155,7 +155,7 @@ Sets one or more property values on the specified node(s).
 
 **Macro Syntax Notes:**
 
-* Synapse will attempt to set the specified propert(ies) for all previously referenced nodes (e.g., to the left of the ``<prop>=<pval>`` statement) for which that property is valid, **whether those nodes are within or outside of the macro syntax brackets.**
+* Synapse will attempt to set the specified propert(ies) for all previously referenced nodes (e.g., to the left of the ``<prop>=<pval>`` statement) for which that property is valid, **whether those nodes are within or outside of the macro syntax brackets.** See `Special Note on Macro Syntax`_.
 
 addtag()
 --------
@@ -189,7 +189,7 @@ Adds one or more tags to the specified node(s).
 
 **Macro Syntax Notes:**
 
-* Synapse will set the specified tag(s) for all previously referenced nodes (e.g., to the left of the ``<tag>`` statement) **whether those nodes are within or outside of the macro syntax brackets.**
+* Synapse will set the specified tag(s) for all previously referenced nodes (e.g., to the left of the ``<tag>`` statement) **whether those nodes are within or outside of the macro syntax brackets.** See `Special Note on Macro Syntax`_.
 
 delnode()
 ---------
@@ -253,7 +253,7 @@ Deletes one or more tags from the specified node(s).
 
 **Macro Syntax Notes:**
 
-* Synapse will delete the specified tag(s) from all previously referenced nodes (e.g., to the left of the ``<tag>`` statement), **whether those nodes are within or outside of the macro syntax brackets.**
+* Synapse will delete the specified tag(s) from all previously referenced nodes (e.g., to the left of the ``<tag>`` statement), **whether those nodes are within or outside of the macro syntax brackets.** See `Special Note on Macro Syntax`_.
 
 Special Note on Macro Syntax
 ----------------------------
@@ -268,15 +268,17 @@ The square brackets ( ``[ ]`` ) used for the Storm macro syntax indicate “perf
 
 This means that all of the above directives can be specified within a single set of macro syntax brackets, in any combination and in any order.
 
-However, it is important to keep in mind that **the brackets are NOT a boundary that segregates nodes.** The brackets simply indicate the start and end of data modification shorthand. They do **NOT** separate "nodes these modifications should apply to" from "nodes they should not apply to". The Storm `operator chaining`__ with left-to-right processing order still applies. Any modification request that operates on previous Storm output will operate on the output of everything “leftwards” of the modifier, regardless of whether that content is within or outside of the brackets. For example:
+However, it is important to keep in mind that **the brackets are NOT a boundary that segregates nodes.** The brackets simply indicate the start and end of data modification shorthand. They do **NOT** separate "nodes these modifications should apply to" from "nodes they should not apply to". The Storm `operator chaining`__ with left-to-right processing order still applies. Any modification request that operates on previous Storm output will operate on the output of everything “leftwards” of the modifier, regardless of whether that content is within or outside of the macro syntax brackets. For example:
 
-``inet:ipv4 = 12.34.56.78 inet:fqdn = woot.com [ inet:ipv4 = 1.2.3.4 inet:fqdn = woowoo.com #my.tag ]``
+``inet:ipv4 = 12.34.56.78 inet:fqdn = woot.com [ inet:ipv4 = 1.2.3.4 :created = "2016-12-18 00:35" inet:fqdn = woowoo.com #my.tag ]``
 
 The above statement will:
 
 * Lift the nodes for IP ``12.34.56.78`` and domain ``woot.com`` (if they exist);
-* Create the nodes for IP ``1.2.3.4`` and domain ``woowoo.com`` (if they don’t exist), or retrieve them if they do;
-* Apply the tag ``my.tag`` to IP ``1.2.3.4`` and domain ``woowoo.com``, and to IP ``12.34.56.78`` and domain ``woot.com`` (if they exist).
+* Create the node for IP ``1.2.3.4`` (if it does not exist), or retrieve it if it does;
+* Set the ``:created`` property for domain ``woot.com``;
+* Create the node for domain ``woowoo.com`` (if it does not exist), or retrieve it if it does;
+* Apply the tag ``my.tag`` to IP ``12.34.56.78`` and domain ``woot.com`` (if they exist) and to IP ``1.2.3.4`` and domain ``woowoo.com``.
 
 
 
@@ -290,10 +292,8 @@ __ conventions_
 .. _ingest: ../userguides/ug050_ing_intro.rst
 __ ingest_
 
-
 .. _xref: ../userguides/ug007_dm_nodetypes.rst#cross-reference-xref-nodes
 __ xref_
-
 
 .. _chaining: ../userguides/ug011_storm_basics.rst#operator-chaining
 __ chaining_
