@@ -23,8 +23,9 @@ class CryptoMod(CoreModule):
             logger.warning(mesg)
             self.core.log(logging.WARNING, mesg=mesg)
             return
+        self.core.delRowsByIdProp(node[0], 'syn:prop:pytpe')
         if 'syn:prop:ptype' not in node[1]:
-            self.core.addRows([(node[0], 'rsa:key:mod', 'str:hex', s_common.now())])
+            self.core.addRows([(node[0], 'syn:prop:ptype', 'str:hex', s_common.now())])
 
     @staticmethod
     def getBaseModels():

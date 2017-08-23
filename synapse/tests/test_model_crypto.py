@@ -52,6 +52,16 @@ class CryptoModelTest(SynTest):
 
             url = 'sqlite:///%s' % finl
 
+            with s_cortex.openstore(url) as store:
+                prop = '.:modl:vers:crypto'
+                valu = 0
+                rows = store.getRowsByProp(prop)
+                if rows:
+                    iden = rows[0][0]
+                else:
+                    iden = guid()
+                store.setRowsByIdProp(iden, prop, valu)
+
             # Open the cortex, applying the data model updates
             # Validate our nodes now have the correct data
             with s_cortex.openurl(url) as core:
@@ -60,3 +70,4 @@ class CryptoModelTest(SynTest):
 
                 pdef = core.getTufoByProp('syn:prop', 'rsa:key:mod')
                 self.eq(pdef[1].get('syn:prop:ptype'), 'str:hex')
+                self.notin('syn:prop:pytpe', pdef[1])

@@ -431,6 +431,16 @@ class InetModelTest(SynTest):
             with s_cortex.openstore(url) as store:
                 store.addRows(rows)
 
+                # Set revision 0
+                prop = '.:modl:vers:inet'
+                valu = 0
+                rows = store.getRowsByProp(prop)
+                if rows:
+                    iden = rows[0][0]
+                else:
+                    iden = guid()
+                store.setRowsByIdProp(iden, prop, valu)
+
             with s_cortex.openurl(url) as core:
                 self.ge(core.getModlVers('inet'), 201706121318)
 
@@ -467,6 +477,16 @@ class InetModelTest(SynTest):
             with s_cortex.openstore(url) as store:
                 store.addRows(rows)
 
+                # Set revision 0
+                prop = '.:modl:vers:inet'
+                valu = 0
+                rows = store.getRowsByProp(prop)
+                if rows:
+                    iden = rows[0][0]
+                else:
+                    iden = guid()
+                store.setRowsByIdProp(iden, prop, valu)
+
             # Open the cortex, applying the data model updates
             # Validate our nodes now have the correct data
             with s_cortex.openurl(url) as core:
@@ -492,6 +512,16 @@ class InetModelTest(SynTest):
                 fd.write(byts)
 
             url = 'sqlite:///%s' % finl
+
+            with s_cortex.openstore(url) as store:
+                prop = '.:modl:vers:inet'
+                valu = 0
+                rows = store.getRowsByProp(prop)
+                if rows:
+                    iden = rows[0][0]
+                else:
+                    iden = guid()
+                store.setRowsByIdProp(iden, prop, valu)
 
             # Open the cortex, applying the data model updates
             # Validate our nodes now have the correct data
@@ -524,6 +554,16 @@ class InetModelTest(SynTest):
                 fd.write(byts)
 
             url = 'sqlite:///%s' % finl
+
+            with s_cortex.openstore(url) as store:
+                prop = '.:modl:vers:inet'
+                valu = 0
+                rows = store.getRowsByProp(prop)
+                if rows:
+                    iden = rows[0][0]
+                else:
+                    iden = guid()
+                store.setRowsByIdProp(iden, prop, valu)
 
             # Open the cortex, applying the data model updates
             # Validate our nodes now have the correct data
