@@ -191,15 +191,92 @@ Adds one or more tags to the specified node(s).
 
 * Synapse will set the specified tag(s) for all previously referenced nodes (e.g., to the left of the ``<tag>`` statement) **whether those nodes are within or outside of the macro syntax brackets.**
 
+delnode()
+---------
 
+Deletes the specified node(s) from a Cortex.
 
+**Operator Syntax:**
 
+.. parsed-literal::
+  *<query>* **delnode( force=1 )**
 
+**Macro Syntax:**
 
+None.
 
+**Examples:**
 
+``inet:fqdn = woot.com delnode( force=1 )``
 
+**Usage Notes:**
 
+* ``delnode()`` operates on the output of a previous Storm query.
+* Use of the ``force=1`` parameter is meant to require the user to think about what they're doing before executing the ``delnode()`` command (there is no "are you sure?" prompt). Future releases of Synapse will support a permissions structure that will limit the users who are able to execute this operator.
+* ``delnode()`` has the potential to be destructive if executed on an incorrect, badly formed, or mistyped query. Users are strongly encouraged to validate their query by first executing it on its own to confirm it returns the expected nodes before executing ``delnode()``. (Picture accidentally running ``inet:fqdn delnode( force=1 )`` instead of ``inet:fqdn = woot.com delnode( force=1 )``.)
+
+delprop()
+---------
+
+Todo
+
+deltag()
+--------
+
+Deletes one or more tags from the specified node(s).
+
+**Operator Syntax:**
+
+.. parsed-literal::
+  *<query>* **deltag(** *<tag>* [ **,** ... ] **)**
+
+**Macro Syntax:**
+
+.. parsed-literal::
+  *<query>* **[ -#** *<tag>* ... **]**
+
+**Examples:**
+
+``inet:fqdn = woot.com deltag( baz.faz )``
+
+``inet:fqdn = woot.com [ -#baz.faz ]``
+
+**Usage Notes:**
+
+* ``deltag()`` operates on the output of a previous query.
+* Deleting a leaf tag deletes **only** the leaf tag.
+* Deleting a non-leaf tag deletes that tag and all tags below it in the tag hierarchy.
+
+**Operator Syntax Notes:**
+
+* N/A
+
+**Macro Syntax Notes:**
+
+* Synapse will delete the specified tag(s) from all previously referenced nodes (e.g., to the left of the ``<tag>`` statement), **whether those nodes are within or outside of the macro syntax brackets.**
+
+Special Note on Macro Syntax
+----------------------------
+
+The square brackets ( ``[ ]`` ) used for the Storm macro syntax indicate “perform the enclosed data modifications” in a generic way. As such, the brackets are shorthand to request any of the following:
+
+* Add nodes (``addnode()``).
+* Add or modify properties (``setprop()``).
+* Delete properties (once ``delprop()`` is implemented).
+* Add tags (``addtag()``).
+* Delete tags (``deltag()``).
+
+This means that all of the above directives can be specified within a single set of macro syntax brackets, in any combination and in any order.
+
+However, it is important to keep in mind that **the brackets are NOT a boundary that segregates nodes.** The brackets simply indicate the start and end of data modification shorthand. They do **NOT** separate "nodes these modifications should apply to" from "nodes they should not apply to". The Storm `operator chaining`__ with left-to-right processing order still applies. Any modification request that operates on previous Storm output will operate on the output of everything “leftwards” of the modifier, regardless of whether that content is within or outside of the brackets. For example:
+
+``inet:ipv4 = 12.34.56.78 inet:fqdn = woot.com [ inet:ipv4 = 1.2.3.4 inet:fqdn = woowoo.com #my.tag ]``
+
+The above statement will:
+
+* Lift the nodes for IP ``12.34.56.78`` and domain ``woot.com`` (if they exist);
+* Create the nodes for IP ``1.2.3.4`` and domain ``woowoo.com`` (if they don’t exist), or retrieve them if they do;
+* Apply the tag ``my.tag`` to IP ``1.2.3.4`` and domain ``woowoo.com``, and to IP ``12.34.56.78`` and domain ``woot.com`` (if they exist).
 
 
 
@@ -216,3 +293,7 @@ __ ingest_
 
 .. _xref: ../userguides/ug007_dm_nodetypes.rst#cross-reference-xref-nodes
 __ xref_
+
+
+.. _chaining: ../userguides/ug011_storm_basics.rst#operator-chaining
+__ chaining_
