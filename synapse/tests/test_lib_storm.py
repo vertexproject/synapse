@@ -694,8 +694,27 @@ class StormTest(SynTest):
 
             nodes = core.eval('syn:tag=foo tree(syn:tag:up, syn:tag)')
             self.eq(len(nodes), 6)
+
             nodes = core.eval('syn:tag=foo tree(syn:tag:up, syn:tag, recurlim=1)')
-            self.eq(len(nodes), 1)
+            self.eq(len(nodes), 3)
+
+            nodes = core.eval('syn:tag=foo.bar tree(syn:tag:up, syn:tag)')
+            self.eq(len(nodes), 3)
+
+            nodes = core.eval('syn:tag=foo.baz tree(syn:tag:up, syn:tag)')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('syn:tag=blah tree(syn:tag:up, syn:tag)')
+            self.eq(len(nodes), 3)
+
+            nodes = core.eval('syn:tag=blah tree(syn:tag:up, syn:tag, recurlim=1)')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('syn:tag=foo tree(syn:tag:up)')
+            self.eq(len(nodes), 6)
+
+            nodes = core.eval('syn:tag=foo tree(:up)')
+            self.eq(len(nodes), 6)
 
 class LimitTest(SynTest):
 
