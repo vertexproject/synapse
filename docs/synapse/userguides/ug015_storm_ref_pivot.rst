@@ -10,7 +10,7 @@ See the `Storm Syntax Conventions`__ for an explanation of the usage format used
 Where specific query examples are given, they are commonly provided in pairs using operator syntax followed by the equivalent macro syntax (if available).
 
 pivot()
-------
+-------
 Todo
 
 join()
