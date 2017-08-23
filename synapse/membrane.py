@@ -20,7 +20,7 @@ class Membrane(EventBus):
         #'node:ival:set',
         #'node:ival:del',
     )
-    _DEFAULT_RULE = [{'query': ''}]
+    _DEFAULT_RULE = [{'query': '', 'insts': []}]
     _OPERS = {
         'eq': operator.eq,
         'ne': operator.ne,
@@ -56,10 +56,7 @@ class Membrane(EventBus):
 
         self.rules = {'': {k: copy.deepcopy(Membrane._DEFAULT_RULE) for k in Membrane._SPLICE_NAMES}}
         if rules:
-            for key in rules:
-                for rule in rules[key]:
-                    if self._is_valid_rule(rule):
-                        self.rules[''][key].append(rule)
+            self._prep_rules(rules)
 
         self.default = default
 
@@ -90,12 +87,15 @@ class Membrane(EventBus):
         '''
         return self.fire('splice', **mesg[1])
 
-    def _is_valid_rule(self, rule):
-        for inst in s_syntax.parse(rule.get('query', '')):
-            if inst[0] != 'filt':
-                print('invalid inst: %s' % inst[0])
-                return False
-        return True
+    def _prep_rules(self, rules):
+        for key in rules:
+            for rule in rules[key]:
+                insts = s_syntax.parse(rule.get('query', ''))
+                for inst in insts:
+                    if inst[0] != 'filt':
+                        raise Exception('invalid inst: %s' % inst[0])  # FIXME exception type
+                rule['insts'] = insts
+                self.rules[''][key].append(rule)
 
     def _eval_rules(self, splice):
         act = splice.get('act')
@@ -103,8 +103,7 @@ class Membrane(EventBus):
         if user is None: user = ''  # "no user" comes in as None, we want empty string
 
         for rule in self.rules.get(user, {}).get(act, []):
-            query = rule.get('query', '')
-            insts = s_syntax.parse(query)
+            insts = rule.get('insts')
             if not insts:
                 print('nothing to do')
                 continue

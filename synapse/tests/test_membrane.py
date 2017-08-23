@@ -351,10 +351,7 @@ class MembraneTest(SynTest):
         rules = {'node:add': [{'query': 'foo'}]}
         src = MockCore()
         dst = MockCore()
-        m = Membrane(src, dst, rules=rules, default=False)
-
-        self.eq(m.filter(splice), False)
-        self.eq(dst._splicecount, 0)
+        self.raises(Exception, Membrane, src, dst, rules=rules, default=False)
 
     def test_invalid_splice(self):
         badsplice = ('splice', {'act': 'node:add'})
