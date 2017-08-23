@@ -10,6 +10,28 @@ import synapse.lib.syntax as s_syntax
 
 class Membrane(EventBus):
 
+    _SPLICE_NAMES = (
+        'node:add',
+        'node:del',
+        'node:prop:set',
+        'node:prop:del',
+        'node:tag:add',
+        'node:tag:del',
+        #'node:ival:set',
+        #'node:ival:del',
+    )
+    _DEFAULT_RULE = [{'query': ''}]
+    _OPERS = {
+        'eq': operator.eq,
+        'ne': operator.ne,
+        'le': operator.le,
+        'ge': operator.ge,
+        'lt': operator.lt,
+        'gt': operator.gt,
+        'has': operator.eq,
+        'tag': fnmatch.fnmatch,
+    }
+
     def __init__(self, src=None, dst=None, rules=None, default=None):
         '''
         Filters Cortex splices based on rules and forwards to destination Cortex if rules allow.
@@ -20,37 +42,12 @@ class Membrane(EventBus):
         '''
         EventBus.__init__(self)
 
-        _SPLICE_NAMES = (
-            'node:add',
-            'node:del',
-            'node:prop:set',
-            'node:prop:del',
-            'node:tag:add',
-            'node:tag:del',
-            #'node:ival:set',
-            #'node:ival:del',
-        )
-        _DEFAULT_RULE = [{'query': ''}]
-        _DEFAULT_RULES = {'': {k: copy.deepcopy(_DEFAULT_RULE) for k in _SPLICE_NAMES}}
-
-        self.rules = copy.deepcopy(_DEFAULT_RULES)
+        self.rules = {'': {k: copy.deepcopy(Membrane._DEFAULT_RULE) for k in Membrane._SPLICE_NAMES}}
         if rules:
             for key in rules:
                 for rule in rules[key]:
                     if self._is_valid_rule(rule):
                         self.rules[''][key].append(rule)
-
-        self.opers = {
-            'eq': operator.eq,
-            'ne': operator.ne,
-            'le': operator.le,
-            'ge': operator.ge,
-            'lt': operator.lt,
-            'gt': operator.gt,
-
-            'has': operator.eq,
-            'tag': fnmatch.fnmatch,
-        }
 
         self.default = False
         if default in (True, False):
@@ -155,7 +152,7 @@ class Membrane(EventBus):
                         print('rprop is not fullprop')
                         continue
 
-                cmpfn = self.opers.get(rcmp)
+                cmpfn = Membrane._OPERS.get(rcmp)
                 cmpa, cmpb = valu, rvalu
                 if rcmp == 'has':
                     cmpa, cmpb = fullprop, rprop
