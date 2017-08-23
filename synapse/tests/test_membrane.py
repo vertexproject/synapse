@@ -343,7 +343,7 @@ class MembraneTest(SynTest):
     def test_bad_msg(self):
         mc = MockCore()
         m = Membrane(mc, None, default=True)
-        self.eq(m.filter('why'), None)
+        self.raises(AttributeError, m.filter, 'why')
         self.eq(mc._splicecount, 0)
 
     def test_bad_rule(self):

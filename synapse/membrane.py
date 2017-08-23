@@ -45,6 +45,7 @@ class Membrane(EventBus):
         self.src = src
         self.dst = dst
         if not(self.src or self.dst):
+            # FIXME create exception type for this
             raise Exception('need a src or dst')
 
         if not self.src:
@@ -69,15 +70,11 @@ class Membrane(EventBus):
         Runs the filter on a given splice message.
 
         Args:
-            mesg: a synapse splice message
+            mesg (str, dict): a synapse splice message
 
         Returns:
-            result: boolean
+            (boolean): True if the splice was forwarded
         '''
-        if not(isinstance(mesg, tuple) and len(mesg) == 2 and mesg[0] == 'splice' and isinstance(mesg[1], dict)):
-            print('invalid message: %s' % mesg)
-            return
-
         result = self._eval_rules(mesg[1])
         if result is None:
             result = self.default
@@ -91,10 +88,6 @@ class Membrane(EventBus):
         '''
         Refire a splice message
         '''
-        if not(isinstance(mesg, tuple) and len(mesg) == 2 and mesg[0] == 'splice' and isinstance(mesg[1], dict)):
-            print('invalid message: %s' % mesg)
-            return
-
         return self.fire('splice', **mesg[1])
 
     def _is_valid_rule(self, rule):
