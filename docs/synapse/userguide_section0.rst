@@ -20,6 +20,13 @@ The User Guide is a living document and will continue to be updated and expanded
     userguides/ug009_dm_tagmodel
     userguides/ug010_cmdr_cortex
     userguides/ug011_storm_basics
+    userguides/ug012_storm_ref_datamod
+    userguides/ug013_storm_ref_lift
+    userguides/ug014_storm_ref_filter
+    userguides/ug015_storm_ref_pivot
+    userguides/ug016_storm_ref_byhandlers
+    userguides/ug017_storm_ref_stats
+    userguides/ug018_storm_ref_misc
     userguides/ug050_ing_intro
     userguides/ug051_ing_tool
     userguides/ug052_ing_embed
