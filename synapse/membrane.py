@@ -3,10 +3,13 @@
 
 import copy
 import fnmatch
+import logging
 import operator
 
 from synapse.eventbus import EventBus
 import synapse.lib.syntax as s_syntax
+
+logger = logging.getLogger(__name__)
 
 class Membrane(EventBus):
 
@@ -94,6 +97,7 @@ class Membrane(EventBus):
                 for inst in insts:
                     if inst[0] != 'filt':
                         raise Exception('invalid inst: %s' % inst[0])  # FIXME exception type
+
                 rule['insts'] = insts
                 self.rules[''][key].append(rule)
 
@@ -105,7 +109,6 @@ class Membrane(EventBus):
         for rule in self.rules.get(user, {}).get(act, []):
             insts = rule.get('insts')
             if not insts:
-                print('nothing to do')
                 continue
 
             ret = self._eval_insts(splice, insts)
@@ -134,12 +137,9 @@ class Membrane(EventBus):
                     if prop:
                         fullprop += ':' + prop
 
-                    if rmode == 'must' and rprop != fullprop:
-                        print('if filt is in must mode, props must match')
-                        return False
-
                     if rprop != fullprop:
-                        print('rprop is not fullprop')
+                        if rmode == 'must':
+                            return False  # FIXME I think we should actually just continue on this
                         continue
 
                 cmpfn = Membrane._OPERS.get(rcmp)
