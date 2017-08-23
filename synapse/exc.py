@@ -121,7 +121,7 @@ class NoInitCore(Exception): pass # API disabled because no cortex
 class NoCurrSess(Exception): pass # API requires a current session
 
 class SidNotFound(Exception): pass
-class PropNotFound(Exception): pass
+class PropNotFound(SynErr): pass
 
 class HitMaxTime(Exception): pass
 class HitMaxRetry(Exception): pass
