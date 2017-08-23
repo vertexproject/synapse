@@ -32,7 +32,7 @@ class Membrane(EventBus):
         'tag': fnmatch.fnmatch,
     }
 
-    def __init__(self, src=None, dst=None, rules=None, default=None):
+    def __init__(self, src=None, dst=None, rules=None, default=False):
         '''
         Filters Cortex splices based on rules and forwards to destination Cortex if rules allow.
 
@@ -41,17 +41,6 @@ class Membrane(EventBus):
             rules: the filter rules
         '''
         EventBus.__init__(self)
-
-        self.rules = {'': {k: copy.deepcopy(Membrane._DEFAULT_RULE) for k in Membrane._SPLICE_NAMES}}
-        if rules:
-            for key in rules:
-                for rule in rules[key]:
-                    if self._is_valid_rule(rule):
-                        self.rules[''][key].append(rule)
-
-        self.default = False
-        if default in (True, False):
-            self.default = default
 
         self.src = src
         self.dst = dst
@@ -63,6 +52,15 @@ class Membrane(EventBus):
 
         if not self.dst:
             self.dst = self
+
+        self.rules = {'': {k: copy.deepcopy(Membrane._DEFAULT_RULE) for k in Membrane._SPLICE_NAMES}}
+        if rules:
+            for key in rules:
+                for rule in rules[key]:
+                    if self._is_valid_rule(rule):
+                        self.rules[''][key].append(rule)
+
+        self.default = default
 
         self.src.on('splice', self.filter)
 
