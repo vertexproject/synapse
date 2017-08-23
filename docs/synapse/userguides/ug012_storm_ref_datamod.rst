@@ -12,7 +12,7 @@ The operators below can be used to modify the Synapse hypergraph by:
 
 All of these operators are defined in `storm.py`__.
 
-**IMPORTANT:** Synapse does not have an "are you sure?" prompt. Caution should be used with operators that can modify Synapse data, especially when used on the output of complex queries that may modify (or delete) large numbers of nodes. It is **strongly recommended** that you validate the output of a query (does the query return the expected results?) by first running the query on its own before applying any operator that will modify that data.
+**IMPORTANT:** Synapse does not have an "are you sure?" prompt. Caution should be used with operators that can modify Synapse data, especially when used on the output of complex queries that may modify (or delete) large numbers of nodes. It is **strongly recommended** that you validate the output of a query by first running the query on its own to ensure it returns the expected results before applying any operator that will modify that data.
 
 See the `Storm Syntax Conventions`__ for an explanation of the usage format used below.
 
@@ -80,7 +80,7 @@ Todo
 * When creating a ``<form>`` whose ``<valu>`` consists of multiple components, the components must be passed as a comma-separated list enclosed in parentheses.
 * ``addnode()`` will create non-deconflictable node types.
 * ``addnode()`` will check whether a deconflictable node type already exists and either create it or return information on the existing node.
-* Secondary properties must be specified by their relative property name (``:baz`` instead of ``foo:bar:baz``).
+* Secondary properties must be specified by their relative property name. For the form ``foo:bar`` and the property ``baz`` (e.g., ``foo:bar:baz``) the relative property name is specified as ``:baz``.
 * Specifying one or more secondary properties will set the ``<prop>=<pval>`` if it does not exist, or modify (overwrite) the ``<prop>=<pval>`` if it already exists.
 
 **Operator Syntax Notes:**
