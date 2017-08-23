@@ -10,6 +10,9 @@ class MockCore():
     def __init__(self):
         self._splicecount = 0
 
+    def on(self, name, mesg):
+        pass
+
     def splice(self, msg):
         self._splicecount += 1
 
@@ -318,11 +321,12 @@ class MembraneTest(SynTest):
 
     def _run_basic_tests(self, tests):
         for msg, rules, default, expected, explanation in tests:
-            mc = MockCore()
-            m = Membrane(mc, rules, default=default)
+            src = MockCore()
+            dst = MockCore()
+            m = Membrane(src, dst, rules=rules, default=default)
             try:
                 self.eq(m.filter(msg), expected)
-                self.eq(mc._splicecount, int(expected))
+                self.eq(dst._splicecount, int(expected))
             except Exception as e:
                 print(explanation)
                 raise e
@@ -345,78 +349,102 @@ class MembraneTest(SynTest):
     def test_bad_rule(self):
         splice = copy.deepcopy(splice_add)
         rules = {'node:add': [{'query': 'foo'}]}
-        mc = MockCore()
-        m = Membrane(mc, rules, default=False)
+        src = MockCore()
+        dst = MockCore()
+        m = Membrane(src, dst, rules=rules, default=False)
 
         self.eq(m.filter(splice), False)
-        self.eq(mc._splicecount, 0)
+        self.eq(dst._splicecount, 0)
 
     def test_invalid_splice(self):
         badsplice = ('splice', {'act': 'node:add'})
-        mc = MockCore()
-        m = Membrane(mc, None, default=True)
+        src = MockCore()
+        dst = MockCore()
+        m = Membrane(src, dst, default=True)
 
         self.eq(m.filter(badsplice), True)
-        self.eq(mc._splicecount, 1)
+        self.eq(dst._splicecount, 1)
 
         m.default = False
         self.eq(m.filter(badsplice), False)
-        self.eq(mc._splicecount, 1)
+        self.eq(dst._splicecount, 1)
 
-    def test_inbound_filter(self):
+    def _filter_add_nodes(self, core):
+        core.formTufoByProp('inet:ipv4', 1337)
+        core.formTufoByProp('inet:ipv4', 7331)
 
-        # spin up and share a core
-        with s_cortex.openurl('ram:///') as core:
-            with s_daemon.Daemon() as dmon:
-                dmon.share('core', core)
-                link = dmon.listen('tcp://127.0.0.1:0/core')
+    def _filter_run_assertions(self, core):
 
-                # form a proxy to the core we created, spin up a membrane and point it out our proxy
-                with s_cortex.openurl('tcp://127.0.0.1:%d/core' % link[1]['port']) as prox:
-                    rules = {'node:add': [{'query': '+foo'}]}
-                    m = Membrane(prox, rules)
+        tufo = core.getTufoByProp('inet:ipv4', 1337)
+        self.nn(tufo)
+        self.eq(tufo[1]['inet:ipv4'], 1337)
 
-                    # fire some messages at the membrane then perform assertions on nodes in our code
-                    msg = copy.deepcopy(splice_add)
-                    m.filter(msg)
-                    tufos = core.getTufosByProp('foo')
-                    self.eq(len(tufos), 1)
-                    self.eq(tufos[0][1]['foo:baz'], 'faz')
+        tufo = core.getTufoByProp('inet:ipv4', 7331)
+        self.none(tufo)
 
-                    msg[1]['form'] = 'goo'
-                    m.filter(msg)
-                    tufos = core.getTufosByProp('goo')
-                    self.eq(len(tufos), 0)
+    def test_filter_inbound_from_shared(self):
 
-    def test_outbound_filter(self):
+        # remotecore: the core we want to get splices from, shared over telepath via dmon
+        # ourcore: the core we want to sync splices to, just a local ramcore
+        # prox: our telepath proxy to remotecore
 
-        # spin up a "local" and "remote" core, don't share either.
-        # "remote" core is not directly accessible by "local" by any means.
-        with s_cortex.openurl('ram:///') as remotecore:
-            with s_cortex.openurl('ram:///') as mycore:
+        hitcount = 1
+        rules = {
+            'node:add': [
+                {'query': '+inet:ipv4=1337'}
+            ]
+        }
+
+        with s_cortex.openurl('ram:///') as ourcore:
+            with s_cortex.openurl('ram:///') as remotecore:
                 with s_daemon.Daemon() as dmon:
+                    dmon.share('remotecore', remotecore)
+                    link = dmon.listen('tcp://127.0.0.1:0/remotecore')
 
-                    # spin up and share a membrane pointed at our "local" core
-                    rules = {'node:add': [{'query': '+inet:ipv4=1337'}]}
-                    m = Membrane(mycore, rules)
-                    dmon.share('membrane', m)
-                    link = dmon.listen('tcp://127.0.0.1:0/membrane')
+                    waiter = ourcore.waiter(hitcount, 'splice')
+                    with s_cortex.openurl('tcp://127.0.0.1:%d/remotecore' % link[1]['port']) as remoteprox:
+                        m = Membrane(remoteprox, ourcore, rules=rules)
+                        self._filter_add_nodes(remoteprox)
+                        waiter.wait(timeout=10)  # give enough time for events to propagate
+                        self._filter_run_assertions(ourcore)
 
-                    # form a proxy to our membrane
-                    with s_cortex.openurl('tcp://127.0.0.1:%d/membrane' % link[1]['port']) as prox:
+    def test_filter_outbound_from_shared(self):
 
-                        # set the "remote" core to fire splices at our telepath proxy to our membrane
-                        remotecore.on('splice', prox.filter)
+        # remotecore: the core we want to sync splices to, shared over telepath via dmon
+        # ourcore: the core we want to sync splices from, just a local ramcore
+        # prox: our telepath proxy to remotecore
 
-                        # form some nodes in the remote core, operating on it directly
-                        remotecore.formTufoByProp('inet:ipv4', 1337)
-                        remotecore.formTufoByProp('inet:ipv4', 7331)
+        hitcount = 1
+        rules = {
+            'node:add': [
+                {'query': '+inet:ipv4=1337'}
+            ]
+        }
 
-                # assert that nodes matching our rules are present in our local core, operating on it directly
-                tufo = mycore.getTufoByProp('inet:ipv4', 1337)
-                self.nn(tufo)
-                self.eq(tufo[1]['inet:ipv4'], 1337)
+        with s_cortex.openurl('ram:///') as ourcore:
+            with s_cortex.openurl('ram:///') as remotecore:
+                with s_daemon.Daemon() as dmon:
+                    dmon.share('remotecore', remotecore)
+                    link = dmon.listen('tcp://127.0.0.1:0/remotecore')
 
-                # assert that filtered nodes are not present
-                tufo = mycore.getTufoByProp('inet:ipv4', 7331)
-                self.none(tufo)
+                    waiter = remotecore.waiter(hitcount, 'splice')
+                    with s_cortex.openurl('tcp://127.0.0.1:%d/remotecore' % link[1]['port']) as remoteprox:
+                        m = Membrane(ourcore, remoteprox, rules=rules)
+                        self._filter_add_nodes(ourcore)
+                        waiter.wait(timeout=10)  # give enough time for events to propagate
+                        self._filter_run_assertions(remoteprox)
+
+    def test_filter_inbound_from_unshared(self):
+        # remotecore: the core we want to sync splices to, not shared
+        # remotemembrane: the membrane attached to remote core, shared over telepath
+        # ourcore: the core we want to sync splices from, just a local ramcore
+        # prox: our telepath proxy to remotemembrane
+        raise NotImplementedError()
+
+    def test_filter_outbound_from_unshared(self):
+        # remotecore: the core we want to sync splices to, not shared
+        # remotemembrane: the membrane attached to remote core, shared over telepath
+        # ourcore: the core we want to sync splices from, just a local ramcore
+        # ourmembrane: our membrane
+        # prox: our telepath proxy to remotemembrane
+        raise NotImplementedError()

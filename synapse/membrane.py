@@ -10,7 +10,7 @@ import synapse.lib.syntax as s_syntax
 
 class Membrane(EventBus):
 
-    def __init__(self, dst, rules, default=None):
+    def __init__(self, src, dst, rules=None, default=None):
         '''
         Filters Cortex splices based on rules and forwards to destination Cortex if rules allow.
 
@@ -31,7 +31,7 @@ class Membrane(EventBus):
         _DEFAULT_RULE = [{'query': ''}]
         _DEFAULT_RULES = {'': {k: copy.deepcopy(_DEFAULT_RULE) for k in _SPLICE_NAMES}}
 
-        EventBus.__init__(self)
+        self.src = src
         self.dst = dst
 
         self.rules = copy.deepcopy(_DEFAULT_RULES)
@@ -57,8 +57,7 @@ class Membrane(EventBus):
         if default in (True, False):
             self.default = default
 
-        for name in _SPLICE_NAMES:
-            self.on(name, self.filter)
+        self.src.on('splice', self.filter)
 
     def _is_valid_rule(self, rule):
         for inst in s_syntax.parse(rule.get('query', '')):
@@ -77,7 +76,6 @@ class Membrane(EventBus):
         Returns:
             result: boolean
         '''
-
         if not(isinstance(mesg, tuple) and len(mesg) == 2 and mesg[0] == 'splice' and isinstance(mesg[1], dict)):
             print('invalid message: %s' % mesg)
             return
