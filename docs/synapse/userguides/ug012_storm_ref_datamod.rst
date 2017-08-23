@@ -199,7 +199,7 @@ Deletes the specified node(s) from a Cortex.
 **Operator Syntax:**
 
 .. parsed-literal::
-  *<query>* **delnode( force=1 )**
+  *<query>* **delnode(force=1)**
 
 **Macro Syntax:**
 
@@ -207,7 +207,7 @@ None.
 
 **Examples:**
 
-``inet:fqdn = woot.com delnode( force=1 )``
+``inet:fqdn = woot.com delnode(force=1)``
 
 **Usage Notes:**
 
