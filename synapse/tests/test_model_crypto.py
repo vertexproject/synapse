@@ -39,3 +39,24 @@ class CryptoModelTest(SynTest):
         self.eq(tufo[1].get('rsa:key:priv:exp'), HEXSTR_PRIVATE_EXPONENT)
         self.eq(tufo[1].get('rsa:key:priv:p'), HEXSTR_PRIVATE_PRIME_P)
         self.eq(tufo[1].get('rsa:key:priv:q'), HEXSTR_PRIVATE_PRIME_Q)
+
+    def test_model_crypto_201708231712(self):
+
+        byts = self.getRev0DbByts()
+
+        with self.getTestDir() as temp:
+            finl = os.path.join(temp, 'test.db')
+
+            with open(finl, 'wb') as fd:
+                fd.write(byts)
+
+            url = 'sqlite:///%s' % finl
+
+            # Open the cortex, applying the data model updates
+            # Validate our nodes now have the correct data
+            with s_cortex.openurl(url) as core:
+                modlrev = core.getModlVers('crypto')
+                self.ge(modlrev, 201708231712)
+
+                pdef = core.getTufoByProp('syn:prop', 'rsa:key:mod')
+                self.eq(pdef[1].get('syn:prop:ptype'), 'str:hex')
