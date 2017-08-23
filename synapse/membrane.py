@@ -122,19 +122,19 @@ class Membrane(EventBus):
         for inst in insts:
             oper = inst[0]
 
-            if oper is 'filt':
+            if oper == 'filt':
                 rcmp = inst[1].get('cmp')
                 rmode = inst[1].get('mode')
                 rprop = inst[1].get('prop')
                 rvalu = inst[1].get('valu')
                 rtag = inst[1].get('tag')
 
-                if rcmp is not 'tag':
+                if rcmp != 'tag':
                     fullprop = form
                     if prop:
                         fullprop += ':' + prop
 
-                    if rmode is 'must' and rprop != fullprop:
+                    if rmode == 'must' and rprop != fullprop:
                         print('if filt is in must mode, props must match')
                         return False
 
@@ -146,11 +146,11 @@ class Membrane(EventBus):
                 cmpa, cmpb = valu, rvalu
                 if rcmp == 'has':
                     cmpa, cmpb = fullprop, rprop
-                elif rcmp is 'tag':
+                elif rcmp == 'tag':
                     cmpa, cmpb = tag, rvalu
 
                 matched = cmpfn(cmpa, cmpb)
-                if rmode is 'must':
+                if rmode == 'must':
                     return matched
-                elif matched is True and rmode is 'cant':
+                elif matched is True and rmode == 'cant':
                     return False
