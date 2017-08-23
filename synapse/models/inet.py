@@ -500,7 +500,8 @@ class InetMod(CoreModule):
 
                 ('inet:ipv4', {'ptype': 'inet:ipv4'}, [
                     ('cc', {'ptype': 'pol:iso2', 'defval': '??'}),
-                    ('type', {'defval': '??', 'doc': 'what type of ipv4 address ( uni, multi, priv )'}),
+                    ('type', {'ptype': 'str', 'defval': '??',
+                              'doc': 'what type of ipv4 address ( uni, multi, priv )'}),
                     ('asn', {'ptype': 'inet:asn', 'defval': -1}),
                 ]),
 
