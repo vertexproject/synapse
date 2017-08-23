@@ -10,7 +10,7 @@ import synapse.lib.syntax as s_syntax
 
 class Membrane(EventBus):
 
-    def __init__(self, src, dst, rules=None, default=None):
+    def __init__(self, src=None, dst=None, rules=None, default=None):
         '''
         Filters Cortex splices based on rules and forwards to destination Cortex if rules allow.
 
@@ -18,6 +18,8 @@ class Membrane(EventBus):
             dst: the destination Cortex to forward messages to
             rules: the filter rules
         '''
+        EventBus.__init__(self)
+
         _SPLICE_NAMES = (
             'node:add',
             'node:del',
@@ -30,9 +32,6 @@ class Membrane(EventBus):
         )
         _DEFAULT_RULE = [{'query': ''}]
         _DEFAULT_RULES = {'': {k: copy.deepcopy(_DEFAULT_RULE) for k in _SPLICE_NAMES}}
-
-        self.src = src
-        self.dst = dst
 
         self.rules = copy.deepcopy(_DEFAULT_RULES)
         if rules:
@@ -57,14 +56,15 @@ class Membrane(EventBus):
         if default in (True, False):
             self.default = default
 
-        self.src.on('splice', self.filter)
+        self.src = src
+        if not self.src:
+            self.src = self
 
-    def _is_valid_rule(self, rule):
-        for inst in s_syntax.parse(rule.get('query', '')):
-            if inst[0] != 'filt':
-                print('invalid inst: %s' % inst[0])
-                return False
-        return True
+        self.dst = dst
+        if not self.dst:
+            self.dst = self
+
+        self.src.on('splice', self.filter)
 
     def filter(self, mesg):
         '''
@@ -88,6 +88,23 @@ class Membrane(EventBus):
             self.dst.splice(mesg)
 
         return result
+
+    def splice(self, mesg):
+        '''
+        Refire a splice message
+        '''
+        if not(isinstance(mesg, tuple) and len(mesg) == 2 and mesg[0] == 'splice' and isinstance(mesg[1], dict)):
+            print('invalid message: %s' % mesg)
+            return
+
+        return self.fire('splice', **mesg[1])
+
+    def _is_valid_rule(self, rule):
+        for inst in s_syntax.parse(rule.get('query', '')):
+            if inst[0] != 'filt':
+                print('invalid inst: %s' % inst[0])
+                return False
+        return True
 
     def _eval_rules(self, splice):
         act = splice.get('act')

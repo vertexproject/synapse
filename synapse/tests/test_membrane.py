@@ -408,7 +408,7 @@ class MembraneTest(SynTest):
                         waiter.wait(timeout=10)  # give enough time for events to propagate
                         self._filter_run_assertions(ourcore)
 
-    def test_filter_outbound_from_shared(self):
+    def test_filter_outbound_to_shared(self):
 
         # remotecore: the core we want to sync splices to, shared over telepath via dmon
         # ourcore: the core we want to sync splices from, just a local ramcore
@@ -435,13 +435,34 @@ class MembraneTest(SynTest):
                         self._filter_run_assertions(remoteprox)
 
     def test_filter_inbound_from_unshared(self):
+
         # remotecore: the core we want to sync splices to, not shared
         # remotemembrane: the membrane attached to remote core, shared over telepath
         # ourcore: the core we want to sync splices from, just a local ramcore
         # prox: our telepath proxy to remotemembrane
-        raise NotImplementedError()
 
-    def test_filter_outbound_from_unshared(self):
+        hitcount = 1
+        rules = {
+            'node:add': [
+                {'query': '+inet:ipv4=1337'}
+            ]
+        }
+
+        with s_cortex.openurl('ram:///') as ourcore:
+            with s_cortex.openurl('ram:///') as remotecore:
+                with s_daemon.Daemon() as dmon:
+                    remotemembrane = Membrane(src=remotecore, rules=rules)
+                    dmon.share('remotemembrane', remotemembrane)
+                    link = dmon.listen('tcp://127.0.0.1:0/remotecore')
+
+                    waiter = ourcore.waiter(hitcount, 'splice')
+                    with s_cortex.openurl('tcp://127.0.0.1:%d/remotemembrane' % link[1]['port']) as remotemembrane:
+                        remotemembrane.on('splice', ourcore.splice)  # FIXME not sure how to do this in dmon conf
+                        self._filter_add_nodes(remotecore)
+                        waiter.wait(timeout=10)  # give enough time for events to propagate
+                        self._filter_run_assertions(ourcore)
+
+    def test_filter_outbound_to_unshared(self):
         # remotecore: the core we want to sync splices to, not shared
         # remotemembrane: the membrane attached to remote core, shared over telepath
         # ourcore: the core we want to sync splices from, just a local ramcore
