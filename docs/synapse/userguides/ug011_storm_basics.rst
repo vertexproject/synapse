@@ -187,7 +187,7 @@ The components of the query are broken down below; note how each new component b
 | addresses tagged  |                                    |                                |   ( ``-`` ) represents an       |
 | as TOR exit nodes |                                    |                                |   exclusion filter              |
 |                   |                                    |                                | - Hashtag ( ``#`` ) substitutes |
-|                   |                                    |                                | for "tag"                       |
+|                   |                                    |                                |   for "tag"                     |
 +-------------------+------------------------------------+--------------------------------+---------------------------------+ 
 | Remove any IP es  | n/a                                |``-#anon.vpn``                  | - Filter operation; the minus   |
 | addresses tagged  |                                    |                                |   ( ``-`` ) represents an       |
