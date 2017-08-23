@@ -1,5 +1,5 @@
 Storm Reference - Pivot Operators
-================================
+=================================
 
 The operators below can be used to pivot from one set of nodes to another set of nodes within a Synapse hypergraph based on a set of specified criteria.
 
