@@ -429,6 +429,7 @@ class Runtime(Configable):
         self.setOperFunc('task', self._stormOperTask)
         self.setOperFunc('lift', self._stormOperLift)
         self.setOperFunc('refs', self._stormOperRefs)
+        self.setOperFunc('tree', self._stormOperTree)
         self.setOperFunc('limit', self._stormOperLimit)
         self.setOperFunc('pivot', self._stormOperPivot)
         self.setOperFunc('alltag', self._stormOperAllTag)
@@ -1414,3 +1415,62 @@ class Runtime(Configable):
         for tname in args:
             evt = ':'.join(['task', tname])
             [core.fire(evt, node=node, storm=True, **opts) for node in nodes]
+
+    def _stormOperTree(self, query, oper):
+
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        # Prevent bad recursions????
+        recurlim = opts.get('recurlim', 20)
+
+        srcp = None
+        dstp = args[0]
+
+        if len(args) > 1:
+            srcp = args[1]
+
+        # do we have a relative source property?
+        relsrc = srcp is not None and srcp.startswith(':')
+
+        tufs = query.data()
+
+        n = len(tufs)
+        while True:
+
+            vals = set()
+
+            if srcp is not None and not relsrc:
+
+                for tufo in tufs:
+                    valu = tufo[1].get(srcp)
+                    if valu is not None:
+                        vals.add(valu)
+
+            elif not relsrc:
+
+                for tufo in tufs:
+                    form, valu = s_tufo.ndef(tufo)
+                    if valu is not None:
+                        vals.add(valu)
+
+            else:
+                for tufo in tufs:
+                    form, valu = s_tufo.ndef(tufo)
+                    if valu is not None:
+                        vals.add(valu)
+
+            vals = list(vals)
+
+            [query.add(t) for t in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit'))]
+
+            if recurlim:
+                recurlim = recurlim - 1
+                if not recurlim:
+                    break
+            _n = len(query.data())
+            if _n <= n:
+                break
+            n = _n
+
+            tufs = query.data()

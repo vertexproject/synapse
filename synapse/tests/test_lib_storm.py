@@ -678,6 +678,25 @@ class StormTest(SynTest):
             # We have to know queue names to add nodes too
             self.raises(BadSyntaxError, core.eval, 'inet:ipv4 task()')
 
+    def test_storm_tree(self):
+        with s_cortex.openurl('ram:///') as core:
+            node0 = core.formTufoByProp('inet:ipv4', '1.2.3.4')
+            node1 = core.formTufoByProp('inet:ipv4', '4.5.6.7')
+            core.addTufoTags(node0,
+                             ['foo.bar.baz',
+                              'foo.bar.duck',
+                              'blah.blah.blah'])
+            core.addTufoTags(node1,
+                             ['foo.bar.baz',
+                              'foo.baz.knight',
+                              'blah.blah.blah',
+                              'knights.ni'])
+
+            nodes = core.eval('syn:tag=foo tree(syn:tag:up, syn:tag)')
+            self.eq(len(nodes), 6)
+            nodes = core.eval('syn:tag=foo tree(syn:tag:up, syn:tag, recurlim=1)')
+            self.eq(len(nodes), 1)
+
 class LimitTest(SynTest):
 
     def test_limit_default(self):
