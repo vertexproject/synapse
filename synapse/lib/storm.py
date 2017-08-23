@@ -1404,7 +1404,7 @@ class Runtime(Configable):
         opts = dict(oper[1].get('kwlist'))
 
         if not args:
-            mesg = 'task(<queuname1>, ..., [kwarg1=val1, ...])'
+            mesg = 'task(<queuename1>, <queuename2>, ..., [kwarg1=val1, ...])'
             raise s_common.BadSyntaxError(mesg=mesg)
 
         nodes = query.data()
