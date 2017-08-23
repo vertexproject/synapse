@@ -6,4 +6,4 @@ class ChemMod(CoreModule):
     def getBaseModels():
         modl = {}
         name = 'chem'
-        return ((name, modl),)
+        return ((name, 0, modl), )

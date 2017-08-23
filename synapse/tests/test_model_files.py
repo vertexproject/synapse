@@ -161,3 +161,19 @@ class FileModelTest(SynTest):
 
                 self.eq(node[1].get('file:bytes:size'), 6)
                 self.eq(node[1].get('file:bytes:name'), 'foobar.exe')
+
+    def test_model_file_filepath(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+
+            byts = guid()
+            node = core.formTufoByProp('file:filepath', (byts, r'c:\Windows\System32\woot.exe'))
+
+            self.eq(node[1].get('file:filepath:bytes'), byts)
+            self.eq(node[1].get('file:filepath:path'), r'c:\windows\system32\woot.exe')
+            self.eq(node[1].get('file:filepath:path:dir'), r'c:\windows\system32')
+            self.eq(node[1].get('file:filepath:path:base'), 'woot.exe')
+
+            self.nn(core.getTufoByProp('file:path', r'c:\Windows\System32\woot.exe'))
+            self.nn(core.getTufoByProp('file:bytes', guid))
+

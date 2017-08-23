@@ -25,4 +25,4 @@ class GeoMod(CoreModule):
 
         }
         name = 'geo'
-        return ((name, modl), )
+        return ((name, 0, modl), )

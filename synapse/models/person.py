@@ -124,4 +124,4 @@ class PsMod(CoreModule):
             ),
         }
         name = 'ps'
-        return ((name, modl), )
+        return ((name, 0, modl), )

@@ -754,5 +754,4 @@ class InetMod(CoreModule):
                 ]),
             ),
         }
-        name = 'inet'
-        return ((name, modl), )
+        return (('inet', 0, modl), )

@@ -43,4 +43,4 @@ class CryptoMod(CoreModule):
             ),
         }
         name = 'crypto'
-        return ((name, modl), )
+        return ((name, 0, modl), )

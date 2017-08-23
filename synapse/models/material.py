@@ -39,4 +39,4 @@ class MatMod(CoreModule):
             ),
         }
         name = 'mat'
-        return ((name, modl), )
+        return ((name, 0, modl), )

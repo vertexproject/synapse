@@ -40,4 +40,4 @@ class MediaMod(CoreModule):
             ),
         }
         name = 'media'
-        return ((name, modl), )
+        return ((name, 0, modl), )

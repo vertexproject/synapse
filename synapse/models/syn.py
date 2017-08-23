@@ -23,4 +23,4 @@ class SynMod(CoreModule):
             ),
         }
         name = 'syn'
-        return ((name, modl), )
+        return ((name, 0, modl), )

@@ -129,4 +129,4 @@ class OuMod(CoreModule):
             ),
         }
         name = 'ou'
-        return ((name, modl), )
+        return ((name, 0, modl), )

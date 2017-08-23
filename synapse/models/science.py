@@ -6,4 +6,4 @@ class SciMod(CoreModule):
     def getBaseModels():
         modl = {}
         name = 'sci'
-        return ((name, modl),)
+        return ((name, 0, modl), )

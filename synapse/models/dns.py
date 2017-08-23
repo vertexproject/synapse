@@ -72,4 +72,4 @@ class DnsMod(CoreModule):
             ),
         }
         name = 'inet:dns'
-        return ((name, modl), )
+        return ((name, 0, modl), )

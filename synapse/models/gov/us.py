@@ -30,4 +30,4 @@ class GovUsMod(CoreModule):
             ),
         }
         name = 'gov:us'
-        return ((name, modl), )
+        return ((name, 0, modl), )

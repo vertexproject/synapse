@@ -97,4 +97,4 @@ class TimeMod(CoreModule):
                 ('time:epoch:max', {'subof': 'time:epoch', 'ismax': 1, 'doc': 'Maximum time in seconds (depricated)'}),
             ), }
         name = 'time'
-        return ((name, modl), )
+        return ((name, 0, modl), )

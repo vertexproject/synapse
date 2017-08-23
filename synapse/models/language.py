@@ -45,4 +45,4 @@ class LangMod(CoreModule):
             ),
         }
         name = 'lang'
-        return ((name, modl), )
+        return ((name, 0, modl), )

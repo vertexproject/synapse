@@ -6,4 +6,4 @@ class MimeMod(CoreModule):
     def getBaseModels():
         modl = {}
         name = 'mime'
-        return ((name, modl),)
+        return ((name, 0, modl),)

@@ -118,4 +118,4 @@ class TelMod(CoreModule):
             ),
         }
         name = 'tel'
-        return ((name, modl), )
+        return ((name, 0, modl), )

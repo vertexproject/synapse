@@ -121,73 +121,95 @@ class FileMod(CoreModule):
 
     @staticmethod
     def getBaseModels():
-        modl = {
-            'types': (
-                ('file:bytes', {'subof': 'guid', 'doc': 'A unique file identifier'}),
-                ('file:sub', {'subof': 'sepr', 'sep': '/', 'fields': 'parent,file:bytes|child,file:bytes'}),
-                ('file:rawpath', {'ctor': 'synapse.models.files.FileRawPathType', 'doc': 'A file path'}),
-                ('file:base', {'ctor': 'synapse.models.files.FileBaseType', 'doc': 'A file basename such as foo.exe'}),
+        models = (
 
-                ('file:path', {'ctor': 'synapse.models.files.FilePathType', 'doc': 'A normalized file path'}),
+            ('file', 0, {
 
-                ('file:imgof', {'subof': 'xref', 'source': 'file,file:bytes',
-                                'doc': 'The file is an image file which shows the referenced node'}),
-                ('file:txtref',
-                 {'subof': 'xref', 'source': 'file,file:bytes', 'doc': 'The file content refereneces the given node'}),
+                'types': (
+                    ('file:bytes', {'subof': 'guid', 'doc': 'A unique file identifier'}),
+                    ('file:sub', {'subof': 'sepr', 'sep': '/', 'fields': 'parent,file:bytes|child,file:bytes'}),
+                    ('file:rawpath', {'ctor': 'synapse.models.files.FileRawPathType', 'doc': 'A file path'}),
+                    ('file:base', {'ctor': 'synapse.models.files.FileBaseType', 'doc': 'A file basename such as foo.exe'}),
 
-            ),
+                    ('file:path', {'ctor': 'synapse.models.files.FilePathType', 'doc': 'A normalized file path'}),
 
-            'forms': (
+                    ('file:imgof', {'subof': 'xref', 'source': 'file,file:bytes',
+                                    'doc': 'The file is an image file which shows the referenced node'}),
+                    ('file:txtref',
+                     {'subof': 'xref', 'source': 'file,file:bytes', 'doc': 'The file content refereneces the given node'}),
 
-                ('file:imgof', {}, [
-                    ('file', {'ptype': 'file:bytes'}),
-                    ('xref:*', {'glob': 1}),
-                ]),
+                ),
 
-                ('file:txtref', {}, [
-                    ('file', {'ptype': 'file:bytes'}),
-                    ('xref:*', {'glob': 1}),
-                ]),
+                'forms': (
 
-                ('file:path', {}, (
-                    ('dir', {'ptype': 'file:path', 'doc': 'The parent directory for this path.'}),
-                    ('ext', {'ptype': 'str:lwr', 'doc': 'The file extension ( if present ).'}),
-                    ('base',
-                     {'ptype': 'file:base', 'doc': 'The final path component, such as the filename, of this path.'}),
-                )),
+                    ('file:imgof', {}, [
+                        ('file', {'ptype': 'file:bytes'}),
+                        ('xref:*', {'glob': 1}),
+                    ]),
 
-                ('file:base', {'ptype': 'file:base', 'doc': 'A final path component, such as the filename.'}, ()),
+                    ('file:txtref', {}, [
+                        ('file', {'ptype': 'file:bytes'}),
+                        ('xref:*', {'glob': 1}),
+                    ]),
 
-                ('file:bytes', {'ptype': 'file:bytes'}, (
-                    ('size', {'ptype': 'int'}),
-                    ('md5', {'ptype': 'hash:md5'}),
-                    ('sha1', {'ptype': 'hash:sha1'}),
-                    ('sha256', {'ptype': 'hash:sha256'}),
-                    ('sha512', {'ptype': 'hash:sha512'}),
-                    ('name', {'ptype': 'file:base', 'doc': 'For display purposes only'}),
-                    ('mime', {'ptype': 'str', 'defval': '??', 'doc': 'Mime type for the file bytes'}),
+                    ('file:path', {}, (
+                        ('dir', {'ptype': 'file:path', 'doc': 'The parent directory for this path.'}),
+                        ('ext', {'ptype': 'str:lwr', 'doc': 'The file extension ( if present ).'}),
+                        ('base',
+                         {'ptype': 'file:base', 'doc': 'The final path component, such as the filename, of this path.'}),
+                    )),
 
-                    # FIXME could another model define props for this form?
-                    ('mime:x509:cn', {'ptype': 'str', 'doc': 'X509 Subject Common Name'}),
+                    ('file:base', {'ptype': 'file:base', 'doc': 'A final path component, such as the filename.'}, ()),
 
-                    ('mime:pe:size', {'ptype': 'int', 'doc': 'Size of the executable according to headers'}),
-                    ('mime:pe:imphash', {'ptype': 'guid', 'doc': 'PE Import hash as calculated by vivisect'}),
-                    ('mime:pe:compiled', {'ptype': 'time', 'doc': 'Compile time from the PE header'}),
+                    ('file:bytes', {'ptype': 'file:bytes'}, (
+                        ('size', {'ptype': 'int'}),
+                        ('md5', {'ptype': 'hash:md5'}),
+                        ('sha1', {'ptype': 'hash:sha1'}),
+                        ('sha256', {'ptype': 'hash:sha256'}),
+                        ('sha512', {'ptype': 'hash:sha512'}),
+                        ('name', {'ptype': 'file:base', 'doc': 'For display purposes only'}),
+                        ('mime', {'ptype': 'str', 'defval': '??', 'doc': 'Mime type for the file bytes'}),
 
-                    # once we have dark prop based text token indexes...
-                    # ('mime:pe:imports',{'ptype':'time','doc':'Compile time from the PE header'}),
+                        # FIXME could another model define props for this form?
+                        ('mime:x509:cn', {'ptype': 'str', 'doc': 'X509 Subject Common Name'}),
 
-                    ('mime:*', {'glob': 1, 'doc': 'Namespace for high-value mime details'})
-                )),
+                        ('mime:pe:size', {'ptype': 'int', 'doc': 'Size of the executable according to headers'}),
+                        ('mime:pe:imphash', {'ptype': 'guid', 'doc': 'PE Import hash as calculated by vivisect'}),
+                        ('mime:pe:compiled', {'ptype': 'time', 'doc': 'Compile time from the PE header'}),
 
-                ('file:subfile', {'ptype': 'file:sub'}, (
-                    ('parent', {'ptype': 'file:bytes'}),
-                    ('child', {'ptype': 'file:bytes'}),
-                    ('name', {'ptype': 'file:base'}),
-                    # TODO others....
-                )),
+                        # once we have dark prop based text token indexes...
+                        # ('mime:pe:imports',{'ptype':'time','doc':'Compile time from the PE header'}),
 
-            ),
-        }
-        name = 'file'
-        return ((name, modl), )
+                        ('mime:*', {'glob': 1, 'doc': 'Namespace for high-value mime details'})
+                    )),
+
+                    ('file:subfile', {'ptype': 'file:sub'}, (
+                        ('parent', {'ptype': 'file:bytes'}),
+                        ('child', {'ptype': 'file:bytes'}),
+                        ('name', {'ptype': 'file:base'}),
+                        # TODO others....
+                    )),
+
+                ),
+            }),
+
+            ('file', 201708181505, {
+
+                'types':(
+                    ('file:filepath', {'subof':'comp', 'fields':'file=file:bytes,path=file:path',
+                                       'doc':'The unique occurance of a file at a given path'}),
+                ),
+
+                'forms':(
+                    ('file:filepath', {}, (
+                        ('file', {'ptype':'file:bytes', 'ro':1, 'doc':'The file that occured at the given path'}),
+                        ('path', {'ptype':'file:bytes', 'ro':1, 'doc':'The path that the file was observed at'}),
+                        ('path:dir', {'ptype':'file:path', 'ro':1, 'doc':'The dir name for the file path'}),
+                        ('path:base', {'ptype':'file:base', 'ro':1, 'doc':'The base name for the file path'}),
+                    )),
+                ),
+
+            }),
+        )
+
+        return models
