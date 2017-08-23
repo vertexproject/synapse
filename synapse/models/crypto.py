@@ -16,7 +16,7 @@ class CryptoMod(CoreModule):
 
     @modelrev('crypto', 201708231712)
     def _revModl201708231712(self):
-        node = self.core.formTufoByProp('syn:prop', 'rsa:key:mod')
+        node = self.core.getTufoByProp('syn:prop', 'rsa:key:mod')
         if not node:  # pragma: no cover
             # Its possible someone deleted their syn:prop=inet:ipv4:type node :(
             mesg = 'No syn:prop="rsa:key:mod" node found during model revision.'
