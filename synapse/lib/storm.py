@@ -1000,7 +1000,8 @@ class Runtime(Configable):
         dstp = args[0]
 
         if len(args) > 1:
-            srcp = args[1]
+            srcp = args[0]
+            dstp = args[1]
 
         # do we have a relative source property?
         relsrc = srcp is not None and srcp.startswith(':')
