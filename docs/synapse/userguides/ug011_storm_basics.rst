@@ -191,7 +191,7 @@ The components of the query are broken down below; note how each new component b
 |                         |   ``-#anon.vpn``                       |                                                  |
 +-------------------------+----------------------------------------+--------------------------------------------------+
 | Pivot from those        | Operator                               | - Omit "from" parameter in pivot (``inet:ipv4``) |
-| remaining IP addresses  |   ``pivot(inet:dns:a:ipv4,inet:ipv4)`` |   as it is the primary property of our working   |
+| remaining IP addresses  |   ``pivot(inet:ipv4,inet:dns:a:ipv4)`` |   as it is the primary property of our working   |
 | to any DNS A records    | Macro                                  |   result set.                                    |
 | where those IPs were    |   ``-> inet:dns:a:ipv4``               | - Arrow ( ``->`` ) substitutes for "pivot"       |
 | present                 |                                        |   operator                                       |
