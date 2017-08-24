@@ -203,7 +203,7 @@ The components of the query are broken down below; note how each new component b
 | were present      |                                    |                                | - Arrow ( ``->`` ) substitutes  |
 |                   |                                    |                                |   for "pivot" operator          |
 +-------------------+------------------------------------+--------------------------------+---------------------------------+ 
-| Pivot from those  |``pivot(inet:fqdn,inet:dns:a:fqdn)``|``inet:dns:a:fqdn -> inet:fqdn``| - "From" property provided as   |
+| Pivot from those  |``pivot(inet:fqdn,inet:dns:a:fqdn)``|``:fqdn -> inet:fqdn``          | - "From" property provided as   |
 | DNS A records to  |                                    |                                |   relative property (``:fqdn``  |
 | the domains se    |                                    |                                |   vs. ``inet:dns:a:fqdn``)      |
 | associated with   |                                    |                                | - Arrow ( ``->`` ) substitutes  |
