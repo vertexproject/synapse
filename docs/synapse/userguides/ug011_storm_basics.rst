@@ -210,9 +210,9 @@ The components of the query are broken down below; note how each new component b
 | those records     |                                    |                                |                                 |
 +-------------------+------------------------------------+--------------------------------+---------------------------------+ 
 
-**Note:** Filtering (including or excluding a subset of results) is a common operation in Storm, supported by the ``filter()`` operator. Storm supports an extensive and flexible set of filtering criteria, and as a result the full operator syntax for filtering is generally complex and therefore impractical to use at the CLI. For this reason, filter operations at the CLI are generally performed using the macro syntax, as shown above.
+**Note:** Filter operations at the command line (CLI) are performed using macro syntax; there is no equivalent operator syntax.
 
-See the Storm reference guides <link> for a detailed discussion of individual operators and their operator (full) vs. macro syntax.
+See the Storm reference guides or a detailed discussion of individual operators and their operator and / or macro syntax.
 
 Query Optimization - "Good" and "Bad" Queries
 ---------------------------------------------
