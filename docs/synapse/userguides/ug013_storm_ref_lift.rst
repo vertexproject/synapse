@@ -3,7 +3,7 @@ Storm Reference - Lift Operators
 
 The operators below can be used to retrieve a set of nodes from a Synapse hypergraph based on a set of specified criteria.
 
-All of these operators are defined in `storm.py`__.
+All of these operators are defined in storm.py_.
 
 See the `Storm Syntax Conventions`__ for an explanation of the usage format used below.
 
@@ -21,8 +21,7 @@ alltag()
 --------
 Todo
 
-.. _storm.py: ../../../synapse/lib/storm.py
-__ storm.py_
+.. _storm.py: https://github.com/vertexproject/synapse/blob/master/synapse/lib/storm.py
 
-.. _conventions: ../userguides/ug011_storm_basics.rst#syntax-conventions
+.. _conventions: ../userguides/ug011_storm_basics.html#syntax-conventions
 __ conventions_
