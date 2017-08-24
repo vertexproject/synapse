@@ -165,41 +165,41 @@ The components of the query are broken down below; note how each new component b
 | Request                 | Operator & Macro Syntax                | Macro Syntax Notes                               |
 +=========================+========================================+==================================================+
 | List all nodes tagged as| Operator                               | - Omit "lift(...)" operator                      |
-| part of Threat Cluster  |   ``lift(inet:fqdn,by=tag,tc.t12)``    | - Asterisk (``*``) substitus for "by" paramerter |
-| 12                      | Macro                                  |                                                  |
+| part of Threat Cluster  |   ``lift(inet:fqdn,by=tag,tc.t12)``    | - Asterisk ( ``*`` ) substitutes for "by"        |
+| 12                      | Macro                                  |   parameter                                      |
 |                         |   ``inet:fqdn*tag=tc.12``              |                                                  |
 +-------------------------+----------------------------------------+--------------------------------------------------+
-| Pivot from these domains| Operator                               | - Omit the "form" parameter in pivot             |
-| to DNS A record nodes   |   ``pivot(inet:fqdn,inet:dns:a:fqdn)`` |   (``inet:fqdn``) as it is the primary property  |
-| that haves those domains| Macro                                  |   of our working result set (ie. default input   |
-|                         |   ``-> inet:dns:a:fqdn``               |   value).                                        |
-|                         |                                        | - Arrow (``->``) substitutes for "pivot" operator|
+| Pivot from these domains| Operator                               | - Omit "from" parameter in pivot (``inet:fqdn``) |
+| to DNS A record nodes   |   ``pivot(inet:fqdn,inet:dns:a:fqdn)`` |   as it is the primary property of our working   |
+| that have those domains | Macro                                  |   result set (i.e., default input value)         |
+|                         |   ``-> inet:dns:a:fqdn``               | - Arrow ( ``->`` ) substitutes for "pivot"       |
+|                         |                                        |   operator                                       |
 +-------------------------+----------------------------------------+--------------------------------------------------+
-| Pivot from those DNA A  | Operator                               | - Arrow ( ``->`` ) substitutes for "pivot"       |
-| record nodes to the IP  |   ``pivot(inet:dns:a:ipv4,inet:ipv4)`` |   operator                                       |
-| addresses those domains | Macro                                  |                                                  |
-| have resolved too       |   ``:ipv4 -> inet:ipv4``               |                                                  |
+| Pivot from those DNS A  | Operator                               | - "From" parameter specified as relative vs full |
+| record nodes to the IP  |   ``pivot(inet:dns:a:ipv4,inet:ipv4)`` |   property (``:ipv4`` vs ``inet:dns:a:ipv4``)    |
+| addresses those domains | Macro                                  | - Arrow ( ``->`` ) substitutes for "pivot"       |
+| have resolved too       |   ``:ipv4 -> inet:ipv4``               |   operator                                       |
 +-------------------------+----------------------------------------+--------------------------------------------------+
-| Remove any IP addresses | Operator                               | - Filter operation; this minus (``-``) represents|
-| tagged as TOR exit nodes|   No Operator syntax available         |   an exclusion filter.                           |
-|                         | Macro                                  | - Hash (``#``) substitutes for "tag"             |
+| Remove any IP addresses | Operator                               | - Filter operation; the minus ( ``-`` )          |
+| tagged as TOR exit nodes|   No Operator syntax available         |   represents an exclusion filter                 |
+|                         | Macro                                  | - Hash ( ``#`` ) substitutes for "tag"           |
 |                         |   ``-#anon.tor``                       |                                                  |
 +-------------------------+----------------------------------------+--------------------------------------------------+
-| Remove any IP addresses | Operator                               | - Filter operation; this minus (``-``) represents|
-| tagged as anonymous VPN |   No Operator syntax available         |   an exclusion filter.                           |
-| infrastructure.         | Macro                                  | - Hash (``#``) substitutes for "tag"             |
+| Remove any IP addresses | Operator                               | - Filter operation; the minus ( ``-`` )          |
+| tagged as anonymous VPN |   No Operator syntax available         |   represents an exclusion filter                 |
+| infrastructure.         | Macro                                  | - Hash ( ``#`` ) substitutes for "tag"           |
 |                         |   ``-#anon.vpn``                       |                                                  |
 +-------------------------+----------------------------------------+--------------------------------------------------+
 | Pivot from those        | Operator                               | - Omit "from" parameter in pivot (``inet:ipv4``) |
 | remaining IP addresses  |   ``pivot(inet:ipv4,inet:dns:a:ipv4)`` |   as it is the primary property of our working   |
-| to any DNS A records    | Macro                                  |   result set.                                    |
+| to any DNS A records    | Macro                                  |   result set (i.e., default input value)         |
 | where those IPs were    |   ``-> inet:dns:a:ipv4``               | - Arrow ( ``->`` ) substitutes for "pivot"       |
 | present                 |                                        |   operator                                       |
 +-------------------------+----------------------------------------+--------------------------------------------------+
-| Pivot from those DNS A  | Operator                               | - Arrow ( ``->`` ) substitutes for "pivot"       |
-| records to the domains  |   ``pivot(inet:dns:a:fqdn,inet:fqdn)`` |   operator                                       |
-| associated with those   | Macro                                  |                                                  |
-| records                 |   ``:fqdn -> inet:fqdn``               |                                                  |
+| Pivot from those DNS A  | Operator                               | - "From" parameter specified as relative vs full |
+| records to the domains  |   ``pivot(inet:dns:a:fqdn,inet:fqdn)`` |   property (``:fqdn`` vs ``inet:dns:a:fqdn``)    |
+| associated with those   | Macro                                  | - Arrow ( ``->`` ) substitutes for "pivot"       |
+| records                 |   ``:fqdn -> inet:fqdn``               |   operator                                       |
 +-------------------------+----------------------------------------+--------------------------------------------------+
 
 **Note:** Filter operations at the command line (CLI) are performed using macro syntax; there is no equivalent operator syntax.
