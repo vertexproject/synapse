@@ -150,9 +150,9 @@ In the knowledge domain of cyber threat data, there is a common analytical workf
 
 The full query for this line of analytical reasoning using operator syntax would be::
 
-  cli> ask lift(inet:fqdn,by=tag,tc.t12) pivot(inet:dns:a:fqdn,inet:fqdn) 
-    pivot(inet:ipv4,inet:dns:a:ipv4) -#anon.tor -#anon.vpn 
-    pivot(inet:dns:a:ipv4,inet:ipv4) pivot(inet:fqdn,inet:dns:a:fqdn)
+  cli> ask lift(inet:fqdn,by=tag,tc.t12) pivot(inet:fqdn,inet:dns:a:fqdn) 
+    pivot(inet:dns:a:ipv4,inet:ipv4) -#anon.tor -#anon.vpn 
+    pivot(inet:ipv4,inet:dns:a:ipv4) pivot(inet:dns:a:fqdn,inet:fqdn)
 
 The same query using macro syntax would be::
 
@@ -168,7 +168,7 @@ The components of the query are broken down below; note how each new component b
 | tagged as part of |                                    |                                | - Asterisk ( ``*``) substitutes |
 | Threat Cluster 12 |                                    |                                | for "by" parameter              |
 +-------------------+------------------------------------+--------------------------------+---------------------------------+ 
-| Pivot from those  |``pivot(inet:dns:a:fqdn,inet:fqdn)``|``-> inet:dns:a:fqdn``          | - Omit "from" parameter in      |
+| Pivot from those  |``pivot(inet:fqdn,inet:dns:a:fqdn)``|``-> inet:dns:a:fqdn``          | - Omit "from" parameter in      |
 | domains to DNS A  |                                    |                                |   pivot (``inet:fqdn``) as it is|
 | record nodes that |                                    |                                |   the primary property of our   |
 | have those domains|                                    |                                |   working result set (default   |
@@ -176,7 +176,7 @@ The components of the query are broken down below; note how each new component b
 |                   |                                    |                                | - Arrow ( ``->`` ) substitutes  |
 |                   |                                    |                                |   for "pivot" operator          |
 +-------------------+------------------------------------+--------------------------------+---------------------------------+
-| Pivot from those  |``pivot(inet:ipv4,inet:dns:a:ipv4)``|``:ipv4 -> inet:ipv4``          | - "From" property provided as   |
+| Pivot from those  |``pivot(inet:dns:a:ipv4,inet:ipv4)``|``:ipv4 -> inet:ipv4``          | - "From" property provided as   |
 | DNS A record nodes|                                    |                                |   relative property (``:ipv4``  |
 | to the IP         |                                    |                                |   vs. ``inet:dns:a:ipv4``)      |
 | addresses those   |                                    |                                | - Arrow ( ``->`` ) substitutes  |
@@ -195,7 +195,7 @@ The components of the query are broken down below; note how each new component b
 | infrastructure    |                                    |                                | - Hashtag ( ``#`` ) substitutes |
 |                   |                                    |                                |   for "tag"                     |
 +-------------------+------------------------------------+--------------------------------+---------------------------------+ 
-| Pivot from those  |``pivot(inet:dns:a:ipv4,inet:ipv4)``|``-> inet:dns:a:ipv4``          | - Omit "from" parameter in      |
+| Pivot from those  |``pivot(inet:ipv4,inet:dns:a:ipv4)``|``-> inet:dns:a:ipv4``          | - Omit "from" parameter in      |
 | remaining IP es   |                                    |                                |   pivot (``inet:ipv4``) as it is|
 | addresses to any  |                                    |                                |   the primary property of our   |
 | DNS A records     |                                    |                                |   working result set (default   |
@@ -203,7 +203,7 @@ The components of the query are broken down below; note how each new component b
 | were present      |                                    |                                | - Arrow ( ``->`` ) substitutes  |
 |                   |                                    |                                |   for "pivot" operator          |
 +-------------------+------------------------------------+--------------------------------+---------------------------------+ 
-| Pivot from those  |``pivot(inet:fqdn,inet:dns:a:fqdn)``|``:fqdn -> inet:fqdn``          | - "From" property provided as   |
+| Pivot from those  |``pivot(inet:dns:a:fqdn,inet:fqdn)``|``:fqdn -> inet:fqdn``          | - "From" property provided as   |
 | DNS A records to  |                                    |                                |   relative property (``:fqdn``  |
 | the domains se    |                                    |                                |   vs. ``inet:dns:a:fqdn``)      |
 | associated with   |                                    |                                | - Arrow ( ``->`` ) substitutes  |
