@@ -1,4 +1,4 @@
-Storm Reference - Fitler Operators and Comparators
+Storm Reference - Filter Operators and Comparators
 ==================================================
 
 Todo
