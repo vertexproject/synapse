@@ -156,8 +156,8 @@ The full query for this line of analytical reasoning using operator syntax would
 
 The same query using macro syntax would be::
 
-  cli> ask inet:fqdn*tag=tc.t12 -> inet:dns:a:fqdn inet:dns:a:ipv4 -> inet:ipv4 -#anon.tor -#anon.vpn
-    -> inet:dns:a:ipv4 inet:dns:a:fqdn -> inet:fqdn
+  cli> ask inet:fqdn*tag=tc.t12 -> inet:dns:a:fqdn :ipv4 -> inet:ipv4 -#anon.tor -#anon.vpn
+    -> inet:dns:a:ipv4 :fqdn -> inet:fqdn
   
 The components of the query are broken down below; note how each new component builds on the previous query to follow the line of analysis and refine results:
 
@@ -176,11 +176,11 @@ The components of the query are broken down below; note how each new component b
 |                   |                                    |                                | - Arrow ( ``->`` ) substitutes  |
 |                   |                                    |                                |   for "pivot" operator          |
 +-------------------+------------------------------------+--------------------------------+---------------------------------+
-| Pivot from those  |``pivot(inet:ipv4,inet:dns:a:ipv4)``|``inet:dns:a:ipv4 -> inet:ipv4``| - Arrow ( ``->`` ) substitutes  |
-| DNS A record nodes|                                    |                                |   for "pivot" operator          |
-| to the IP         |                                    |                                |                                 |
-| addresses those   |                                    |                                |                                 |
-| domains have      |                                    |                                |                                 |
+| Pivot from those  |``pivot(inet:ipv4,inet:dns:a:ipv4)``|``:ipv4 -> inet:ipv4``          | - "From" property provided as   |
+| DNS A record nodes|                                    |                                |   relative property (``:ipv4``  |
+| to the IP         |                                    |                                |   vs. ``inet:dns:a:ipv4``)      |
+| addresses those   |                                    |                                | - Arrow ( ``->`` ) substitutes  |
+| domains have      |                                    |                                |   for "pivot" operator          |
 | resolved to       |                                    |                                |                                 |
 +-------------------+------------------------------------+--------------------------------+---------------------------------+ 
 | Remove any IP     | n/a                                |``-#anon.tor``                  | - Filter operation; the minus   |
@@ -203,11 +203,11 @@ The components of the query are broken down below; note how each new component b
 | were present      |                                    |                                | - Arrow ( ``->`` ) substitutes  |
 |                   |                                    |                                |   for "pivot" operator          |
 +-------------------+------------------------------------+--------------------------------+---------------------------------+ 
-| Pivot from those  |``pivot(inet:fqdn,inet:dns:a:fqdn)``|``inet:dns:a:fqdn -> inet:fqdn``| - Arrow ( ``->`` ) substitutes  |
-| DNS A records to  |                                    |                                |   for "pivot" operator          |
-| the domains se    |                                    |                                |                                 |
-| associated with   |                                    |                                |                                 |
-| those records     |                                    |                                |                                 |
+| Pivot from those  |``pivot(inet:fqdn,inet:dns:a:fqdn)``|``inet:dns:a:fqdn -> inet:fqdn``| - "From" property provided as   |
+| DNS A records to  |                                    |                                |   relative property (``:fqdn``  |
+| the domains se    |                                    |                                |   vs. ``inet:dns:a:fqdn``)      |
+| associated with   |                                    |                                | - Arrow ( ``->`` ) substitutes  |
+| those records     |                                    |                                |   for "pivot" operator          |
 +-------------------+------------------------------------+--------------------------------+---------------------------------+ 
 
 **Note:** Filter operations at the command line (CLI) are performed using macro syntax; there is no equivalent operator syntax.
