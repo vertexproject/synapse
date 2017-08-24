@@ -221,21 +221,21 @@ Storm is meant to be flexible as well as performant across large and diverse dat
 
 Crafting an optimal query can mean the difference between quickly receiving a meaningful response and waiting for Synapse to return a response because it is processing an excessive amount of data. Synapse currently has no built-in timeouts or other limits (such as total number of nodes lifted) on Storm queries, though these "safety nets" are planned for a future release. Asking a "bad" (non-performant) question will not harm Synapse, but it may frustrate analysts waiting for their CLI to return a response.
 
-As a simple example of a "bad" vs "good" query, let's say you want to lift all of the IP addresses that are part of the threat cluster (the set of associated indicators) for Threat Group 12. There are two key components to the data you want to ask about: IP addresses (``inet:ipv4``), represented by a set of nodes; and the Threat Group 12 threat cluster, represented by a tag (``tc.t12``) applied to the relevant nodes.
+As a simple example of a "bad" vs "good" query, let's say you want to lift all of the IP addresses that are associated with Threat Cluster 12. There are two key components to the data you want to ask about: IP addresses (``inet:ipv4``), represented by a set of nodes; and the activity (set of related indicators) known as Threat Cluster 12, represented by a tag (``tc.t12``) applied to the relevant nodes.
 
 Two ways to ask that question using Storm are:
 
-* Lift all of the IP addresses in Synapse, then filter down to only those tagged as part of the Threat Group 12 threat cluster:
+* Lift all of the IP addresses in Synapse, then filter down to only those tagged as part of Threat Cluster 12:
 
 ``cli> ask inet:ipv4 +#tc.t12``
 
-* Lift all of the nodes tagged as part of the Threat Group 12 threat cluster, then filter down to only IP address nodes:
+* Lift all of the nodes tagged as part of Threat Cluster 12, then filter down to only IP address nodes:
 
 ``cli> ask #tc.t12 +inet:ipv4``
 
 The first query is problematic because it first asks Storm to return **all** ``inet:ipv4`` nodes within the hypergraph – potentially hundreds of thousands, or even millions of nodes, depending on how densely populated the hypergraph is (mathematically speaking, there are over four billion possible IPv4 addresses). Synapse has to lift **all** of those ``inet:ipv4`` nodes into memory and then select only those nodes with the ``tc.t12`` tag. The query is likely to take an extremely long time to return (at least until query limits are incorporated into Synapse), and therefore represents a "bad" query.
 
-The second query first asks Storm to return **all** nodes tagged with ``tc.t12``. This may still be a large number depending on how much analysis and annotation has been performed related to Threat Group 12. However, the number of nodes tagged ``tc.t12`` will still be much smaller than the number of ``inet:ipv4`` nodes within a hypergraph. As such, the second query is more efficient or performant, and represents a "good" (or at least "better" query).
+The second query first asks Storm to return **all** nodes tagged with ``tc.t12``. This may still be a large number depending on how much analysis and annotation has been performed related to Threat Cluster 12. However, the number of nodes tagged ``tc.t12`` will still be much smaller than the number of ``inet:ipv4`` nodes within a hypergraph. As such, the second query is more efficient or performant, and represents a "good" (or at least "better" query).
 
 (**Note:** The previous example is used for simple illustrative purposes. Technically, the "best" way to ask this particular question would be to use what is called a Storm "by" handler (represented by the asterisk ( ``*`` )) to "lift by tag":
 
