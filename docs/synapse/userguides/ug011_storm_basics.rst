@@ -166,7 +166,7 @@ The components of the query are broken down below; note how each new component b
 +===================+====================================+================================+=================================+
 | Lift all nodes    |``lift(inet:fqdn,by=tag,tc.t12)``   |``inet:fqdn*tag=tc.12``         | - Omit "lift"                   |
 | tagged as part of |                                    |                                | - Asterisk ( ``*``) substitutes |
-| Threat Group 12   |                                    |                                | for "by" parameter              |
+| Threat Cluster 12 |                                    |                                | for "by" parameter              |
 +-------------------+------------------------------------+--------------------------------+---------------------------------+ 
 | Pivot from those  |``pivot(inet:dns:a:fqdn,inet:fqdn)``|``-> inet:dns:a:fqdn``          | - Omit "from" parameter in      |
 | domains to DNS A  |                                    |                                |   pivot (``inet:fqdn``) as it is|
