@@ -575,7 +575,7 @@ class InetModelTest(SynTest):
                 self.eq(pdef[1].get('syn:prop:ptype'), 'str')
 
                 # Now make a node
-                tufo = core.formTufoByProp('inet:ipv4', '192.168.1.1', type='uni')
+                tufo = core.formTufoByProp('inet:ipv4', '192.168.1.1', type='priv')
                 self.nn(tufo)
-                self.eq(tufo[1].get('inet:ipv4:type'), 'uni')
+                self.eq(tufo[1].get('inet:ipv4:type'), 'priv')
                 self.raises(BadTypeValu, core.formTufoByProp, 'inet:ipv4', '192.168.1.2', type=1)
