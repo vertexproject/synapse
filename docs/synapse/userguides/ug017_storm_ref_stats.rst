@@ -12,5 +12,5 @@ stat()
 Todo
 
 
-.. _conventions: ../userguides/ug011_storm_basics.rst#syntax-conventions
+.. _conventions: ../userguides/ug011_storm_basics.html#syntax-conventions
 __ conventions_
