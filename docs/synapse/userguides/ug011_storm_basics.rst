@@ -50,7 +50,7 @@ Operators implement various Storm functions such as retrieving nodes, applying t
 * **Statistical operators** – specialized operators to calculate statistics over a set of nodes.
 * **Miscellaneous operators** – various special purpose operators that do not fit into one of the above categories.
 
-Most operators (other than those used solely to lift data) require an existing data set on which to operate. This data set is typically the output of a previous Storm query whose results are the nodes you want to modify or otherwise work with.
+Most operators (other than those used solely to lift data) require an existing data set on which to operate. This data set is typically the output of a previous Storm operator whose results are the nodes you want to modify or otherwise work with.
 
 Lift, Filter, and Pivot Criteria
 --------------------------------
