@@ -10,9 +10,10 @@ The operators below can be used to modify the Synapse hypergraph by:
 
 (**Note:** currently there is no operator for deleting properties from nodes (e.g., ``delprop()``). This is planned for a future release.)
 
-All of these operators are defined in `storm.py`__.
+All of these operators are defined in storm.py_.
 
-**IMPORTANT:** Synapse does not have an "are you sure?" prompt. Caution should be used with operators that can modify Synapse data, especially when used on the output of complex queries that may modify (or delete) large numbers of nodes. It is **strongly recommended** that you validate the output of a query by first running the query on its own to ensure it returns the expected results before applying any operator that will modify that data.
+.. WARNING::
+  Synapse does not have an "are you sure?" prompt. Caution should be used with operators that can modify Synapse data, especially when used on the output of complex queries that may modify (or delete) large numbers of nodes. It is **strongly recommended** that you validate the output of a query by first running the query on its own to ensure it returns the expected results before applying any operator that will modify that data.
 
 See the `Storm Syntax Conventions`__ for an explanation of the usage format used below.
 
@@ -212,8 +213,9 @@ None.
 **Usage Notes:**
 
 * ``delnode()`` operates on the output of a previous Storm query.
-* Use of the ``force=1`` parameter is meant to require the user to think about what they're doing before executing the ``delnode()`` command (there is no "are you sure?" prompt). Future releases of Synapse will support a permissions structure that will limit the users who are able to execute this operator.
-* ``delnode()`` has the potential to be destructive if executed on an incorrect, badly formed, or mistyped query. Users are strongly encouraged to validate their query by first executing it on its own to confirm it returns the expected nodes before executing ``delnode()``. (Picture accidentally running ``inet:fqdn delnode( force=1 )`` instead of ``inet:fqdn = woot.com delnode( force=1 )``.)
+* Executing ``delnode()`` with no parameters (without ``force=1``) has no effect (e.g., ``delnode()`` will consume input, but not actually delete the nodes).
+* Use of the ``force=1`` parameter will delete the nodes input to the operator. The need to enter ``force=1`` is meant to require the user to think about what they're doing before executing the ``delnode()`` command (there is no "are you sure?" prompt). Future releases of Synapse will support a permissions structure that will limit the users who are able to execute this operator.
+* ``delnode()`` has the potential to be destructive if executed on an incorrect, badly formed, or mistyped query. Users are strongly encouraged to validate their query by first executing it on its own to confirm it returns the expected nodes before executing ``delnode()``. Consider the difference between running ``inet:fqdn=woot.com delnode(force=1)`` (which deletes the single node for the domain ``woot.com`` and accidentally running ``inet:fqdn delnode(force=1)`` (which deletes **ALL** ``inet:fqdn`` nodes).
 
 delprop()
 ---------
@@ -283,17 +285,16 @@ The above statement will:
 
 
 
-.. _storm.py: ../../../synapse/lib/storm.py
-__ storm.py_
+.. _storm.py: https://github.com/vertexproject/synapse/blob/master/synapse/lib/storm.py
 
-.. _conventions: ../userguides/ug011_storm_basics.rst#syntax-conventions
+.. _conventions: ../userguides/ug011_storm_basics.html#syntax-conventions
 __ conventions_
 
-.. _ingest: ../userguides/ug050_ing_intro.rst
+.. _ingest: ../userguides/ug050_ing_intro.html
 __ ingest_
 
-.. _xref: ../userguides/ug007_dm_nodetypes.rst#cross-reference-xref-nodes
+.. _xref: ../userguides/ug007_dm_nodetypes.html#cross-reference-xref-nodes
 __ xref_
 
-.. _chaining: ../userguides/ug011_storm_basics.rst#operator-chaining
+.. _chaining: ../userguides/ug011_storm_basics.html#operator-chaining
 __ chaining_
