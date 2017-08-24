@@ -76,7 +76,7 @@ Storm allows multiple operators to be chained together to form increasingly comp
 
 From an analysis standpoint, this feature means that Storm can parallel an analyst's natural thought process: "show me X data...that's interesting, show me the Y data that relates to X...hm, take only this subset of results from Y and show me any relationship to Z data…" and so on.
 
-From a practical standpoint, it means that **order matters** when constructing a Storm query. A lengthy Storm query is not evaluated as a whole. Instead, Synapse parses each component of the query in order, evaluating each component individually as it goes. The Cortex runtime(s) executing the Storm query keep a list of lifted nodes in memory while performing the requested lifts, pivots, data modification, and so on. The operators used may add or remove nodes from this "working set", or clear the set entirely; as such the in-memory set is continually changing based on the last-used operator. Particularly when first learning Storm, users are encouraged to break down complex queries into their component parts, and to validate the output (results) after the addition of each operator to the overall query.
+From a practical standpoint, it means that **order matters** when constructing a Storm query. A lengthy Storm query is not evaluated as a whole. Instead, Synapse parses each component of the query in order, evaluating each component individually as it goes. The Storm runtime(s) executing the query keep a list of lifted nodes in memory while performing the requested lifts, pivots, data modification, and so on. The operators used may add or remove nodes from this "working set", or clear the set entirely; as such the in-memory set is continually changing based on the last-used operator. Particularly when first learning Storm, users are encouraged to break down complex queries into their component parts, and to validate the output (results) after the addition of each operator to the overall query.
 
 Syntax Conventions
 ------------------
@@ -140,7 +140,7 @@ The same query can be executed as follows using macro syntax:
 
 ``cli> ask inet:fqdn=woot.com``
 
-Note that in macro syntax, the ``lift()`` operator – the most fundamental Storm operator – is eliminated entirely; macro syntax assumes you want to retrieve (lift) nodes unless you specify otherwise. Similarly, instead of entering comma-separated parameters as input to the operator, macro syntax supports the use of the simple ``<form>=<valu>`` pattern to ask about the node in question.
+Note that in macro syntax, the ``lift()`` operator – the most fundamental Storm operator – is eliminated entirely; macro syntax assumes you want to retrieve (lift) nodes unless you specify otherwise. Similarly, instead of entering comma-separated parameters as input to the operator, macro syntax supports the use of the simple ``<prop>=<valu>`` pattern to ask about the node in question.
 
 *Example 2*
 
