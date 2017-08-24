@@ -9,9 +9,11 @@ Where specific query examples are given, they are commonly provided in pairs usi
 
 show:cols()
 -----------
+Todo
 
 limit()
 -------
+Todo
 
 opts()
 ------
@@ -39,5 +41,5 @@ Todo
 
 
 
-.. _conventions: ../userguides/ug011_storm_basics.rst#syntax-conventions
+.. _conventions: ../userguides/ug011_storm_basics.html#syntax-conventions
 __ conventions_
