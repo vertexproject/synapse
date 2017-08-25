@@ -1886,15 +1886,20 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             return
 
         props = self.getFormReqs(form)
-        if props and fulls.get('syn:prop:glob'):
-            # Special case for handling syn:prop:glob=1 on will not have a ptype
-            # despite the model requiring a ptype to be present.
+
+        # Return fast for perf
+        if not props:
+            return
+
+        # Special case for handling syn:prop:glob=1 on will not have a ptype
+        # despite the model requiring a ptype to be present.
+        if fulls.get('syn:prop:glob'):
             props.pop('syn:prop:ptype', None)
 
-        for prop in props:
-            if prop not in fulls:
-                raise s_common.PropNotFound(mesg='Node is missing required a prop during formation',
-                                            prop=prop, form=form)
+        missing = set(props) - set(fulls)
+        if missing:
+            raise s_common.PropNotFound(mesg='Node is missing required a prop during formation',
+                                        prop=list(missing)[0], form=form)
 
     def formTufoByTufo(self, tufo):
         '''
