@@ -629,6 +629,45 @@ class StormTest(SynTest):
             self.eq(len(nodes), 1)
             self.eq(node0[0], nodes[0][0][::-1])
 
+    def test_storm_delprop(self):
+        with s_cortex.openurl('ram:///') as core:
+            t0 = core.formTufoByProp('inet:fqdn', 'vertex.link', created="20170101")
+            self.isin('inet:fqdn:created', t0[1])
+            # Operator syntax requires force=1
+            core.eval('inet:fqdn=vertex.link delprop(:created)')
+            t0 = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.isin('inet:fqdn:created', t0[1])
+
+            core.eval('inet:fqdn=vertex.link delprop(:created, force=1)')
+            t0 = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.notin('inet:fqdn:created', t0[1])
+
+            # Re-add the prop and delete the prop via the macro syntax directly
+            t0 = core.setTufoProps(t0, created="20170101")
+            self.isin('inet:fqdn:created', t0[1])
+            core.eval('inet:fqdn=vertex.link [ -:created ]')
+            t0 = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.notin('inet:fqdn:created', t0[1])
+
+            # Cannot delete "ro" props via delprop
+            t1 = core.formTufoByProp('inet:netuser', 'vertex.link/pennywise')
+            self.isin('inet:netuser:user', t1[1])
+            # Operator syntax requires force=1
+            result = core.ask('inet:netuser [ -:user ]')
+            self.eq(result.get('data'), [])
+            self.eq(result.get('oplog')[1].get('excinfo').get('err'), 'CantDelProp')
+            t1 = core.getTufoByProp('inet:netuser', 'vertex.link/pennywise')
+            self.isin('inet:netuser:user', t1[1])
+
+            # Syntax errors
+            self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link delprop()')
+            self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link delprop(host)')
+            self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link delprop(force=1)')
+            self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link delprop(host, force=1)')
+            self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link delprop(host, created)')
+            self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link [ -: ]')
+            self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link [ -: host]')
+
 class LimitTest(SynTest):
 
     def test_limit_default(self):

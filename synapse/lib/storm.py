@@ -437,6 +437,7 @@ class Runtime(Configable):
 
         self.setOperFunc('addnode', self._stormOperAddNode)
         self.setOperFunc('delnode', self._stormOperDelNode)
+        self.setOperFunc('delprop', self._stormOperDelProp)
 
         self.setOperFunc('nexttag', self._stormOperNextSeq)
         self.setOperFunc('setprop', self._stormOperSetProp)
@@ -1191,7 +1192,6 @@ class Runtime(Configable):
         query.add(node)
 
     def _stormOperDelNode(self, query, oper):
-        # delnode()
         opts = dict(oper[1].get('kwlist'))
 
         core = self.getStormCore()
@@ -1398,3 +1398,29 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         [query.add(node) for node in core.getTufosByIdens(args)]
+
+    def _stormOperDelProp(self, query, oper):
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        core = self.getStormCore()
+
+        if not args:
+            raise s_common.BadSyntaxError('blah blah blah')
+
+        prop = args[0]
+
+        if prop[0] != ':':
+            raise s_common.BadSyntaxError('blah blah blah')
+
+        prop = prop.lstrip(':')
+        if not prop:
+            raise s_common.BadSyntaxError(mesg='delprop(<prop>, [force=1]>')
+
+        force, _ = core.getTypeNorm('bool', opts.get('force', 0))
+
+        if not force:
+            return
+
+        nodes = query.take()
+        [query.add(core.delTufoProp(n, prop)) for n in nodes]
