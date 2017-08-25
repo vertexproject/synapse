@@ -145,7 +145,8 @@ Sets one or more property values on the specified node(s).
   inet:dns:a = woot.com/1.2.3.4 setprop( :seen:min = "2017-08-01 01:23" , 
       :seen:max = "2017-08-10 04:56" )
   
-  inet:dns:a = woot.com/1.2.3.4 [ :seen:min = "2017-08-01 01:23" :seen:max = "2017-08-10 04:56" ]
+  inet:dns:a = woot.com/1.2.3.4 [ :seen:min = "2017-08-01 01:23" 
+      :seen:max = "2017-08-10 04:56" ]
 
 **Usage Notes:**
 
