@@ -200,7 +200,7 @@ Deletes the specified node(s) from a Cortex.
 **Operator Syntax:**
 
 .. parsed-literal::
-  *<query>* **delnode(force=1)**
+  *<query>* **delnode(** [ **force=1** ] **)**
 
 **Macro Syntax:**
 
@@ -208,14 +208,18 @@ None.
 
 **Examples:**
 
+``inet:fqdn = woot.com delnode()``
+
 ``inet:fqdn = woot.com delnode(force=1)``
 
 **Usage Notes:**
 
 * ``delnode()`` operates on the output of a previous Storm query.
-* Executing ``delnode()`` with no parameters (without ``force=1``) has no effect (e.g., ``delnode()`` will consume input, but not actually delete the nodes).
+* ``delnode()`` can be executed with no parameters, although this effectively does nothing (i.e., the operator will consume input, but not actually delete the nodes).
 * Use of the ``force=1`` parameter will delete the nodes input to the operator. The need to enter ``force=1`` is meant to require the user to think about what they're doing before executing the ``delnode()`` command (there is no "are you sure?" prompt). Future releases of Synapse will support a permissions structure that will limit the users who are able to execute this operator.
-* ``delnode()`` has the potential to be destructive if executed on an incorrect, badly formed, or mistyped query. Users are strongly encouraged to validate their query by first executing it on its own to confirm it returns the expected nodes before executing ``delnode()``. Consider the difference between running ``inet:fqdn=woot.com delnode(force=1)`` (which deletes the single node for the domain ``woot.com`` and accidentally running ``inet:fqdn delnode(force=1)`` (which deletes **ALL** ``inet:fqdn`` nodes).
+
+.. WARNING::
+  ``delnode()`` has the potential to be destructive if executed on an incorrect, badly formed, or mistyped query. Users are strongly encouraged to validate their query by first executing it on its own to confirm it returns the expected nodes before executing ``delnode()``. Consider the difference between running ``inet:fqdn=woot.com delnode(force=1)`` (which deletes the single node for the domain ``woot.com`` and accidentally running ``inet:fqdn delnode(force=1)`` (which deletes **ALL** ``inet:fqdn`` nodes).
 
 delprop()
 ---------
