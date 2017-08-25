@@ -1,3 +1,5 @@
+.. highlight:: none
+
 Storm Reference - Data Modification Operators
 =============================================
 
