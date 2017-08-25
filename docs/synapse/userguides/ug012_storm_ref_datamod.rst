@@ -32,7 +32,7 @@ Adds the specified node(s) to a Cortex.
   **addnode(** *<form>* **,** *<valu>* **,** [ **:** *<prop>* **=** *<pval>* **,** ...] **)**
   
   **addnode(** *<form>* **, (** *<valu_1>* **,** *<valu_2>* **,** ... **) ,** 
-    [ **:** *<prop>* **=** *<pval>* **,** ...] **)**
+      [ **:** *<prop>* **=** *<pval>* **,** ...] **)**
 
 **Macro Syntax:**
 
@@ -75,10 +75,10 @@ Todo
 *Node with Properties:*
 ::
   addnode( inet:dns:a , ( woot.com , 1.2.3.4 ) , :seen:min = "2017-08-01 01:23" , 
-    :seen:max = "2017-08-10 04:56" )
+      :seen:max = "2017-08-10 04:56" )
   
   [ inet:dns:a = ( woot.com , 1.2.3.4 ) :seen:min = "2017-08-01 01:23" 
-    :seen:max = "2017-08-10 04:56" ]
+      :seen:max = "2017-08-10 04:56" ]
 
 **Usage Notes:**
 
@@ -143,7 +143,7 @@ Sets one or more property values on the specified node(s).
 **Examples:**
 ::
   inet:dns:a = woot.com/1.2.3.4 setprop( :seen:min = "2017-08-01 01:23" , 
-    :seen:max = "2017-08-10 04:56" )
+      :seen:max = "2017-08-10 04:56" )
   
   inet:dns:a = woot.com/1.2.3.4 [ :seen:min = "2017-08-01 01:23" :seen:max = "2017-08-10 04:56" ]
 
@@ -308,7 +308,7 @@ This means that all of the above directives can be specified within a single set
 However, it is important to keep in mind that **the brackets are NOT a boundary that segregates nodes.** The brackets simply indicate the start and end of data modification shorthand. They do **NOT** separate "nodes these modifications should apply to" from "nodes they should not apply to". The Storm `operator chaining`__ with left-to-right processing order still applies. Any modification request that operates on previous Storm output will operate on the output of everything “leftwards” of the modifier, regardless of whether that content is within or outside of the macro syntax brackets. For example::
   
   inet:ipv4 = 12.34.56.78 inet:fqdn = woot.com [ inet:ipv4 = 1.2.3.4 
-    :created = "2016-12-18 00:35" inet:fqdn = woowoo.com #my.tag ]
+      :created = "2016-12-18 00:35" inet:fqdn = woowoo.com #my.tag ]
 
 The above statement will:
 
