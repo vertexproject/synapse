@@ -171,11 +171,12 @@ Adds one or more tags to the specified node(s).
 **Macro Syntax:**
 
 .. parsed-literal::
-  *<query>* **[** **#** *<tag>* **@** *<yyyymmddhhmmss>-<yyyymmddhhmmss>* ... **]**
+  *<query>* **[ #** *<tag>* **@** *<yyyymmddhhmmss>-<yyyymmddhhmmss>* ... **]**
 
 **Examples:**
 
 *Add Tags*
+
 ``inet:fqdn = woot.com addtag( foo.bar , baz.faz )``
 
 ``inet:fqdn = woot.com [ #foo.bar #baz.faz ]``
@@ -197,14 +198,17 @@ Adds one or more tags to the specified node(s).
 
 * ``addtag()`` operates on the output of a previous Storm query.
 * Synapse will apply the specified tag(s) to all nodes returned by ``<query>``.
-* Timestamps (in the format YYYYMMDDHHMMSS) can be added to a tag to show a point in time or a range during which the tag was known to be valid (equivalent to ``:seen:min`` and ``:seen:max`` for the tag).
+* Timestamps_ (in the format YYYYMMDDHHMMSS) can be added to a tag to show a point in time or a range during which the tag was known to be valid (equivalent to ``:seen:min`` and ``:seen:max`` for the tag).
+* Timestamps must have a minimum resolution of YYYY.
 * If one timestamp is provided and no timestamps currently exist on the tag, Synapse will set both the minimum and maximum timestamps as specified.
 * If a two timestamps are provided and no timestamps currently exist on the tag, Synapse will set the minimum and maximum timestamps as specified.
-* If timestamps already exist on the tag, Synapse will check the timestamp argument(s) provided against the existing timestamp:
+* If timestamps already exist on the tag, Synapse will check the timestamp argument(s) provided against the existing timestamps:
+
   * If a timestamp argument is **earlier** than the current minimum timestamp, Synapse will update the minimum time with the new value.
   * If a timestamp argument is **later** than the current maximum timestamp, Synapse will update the maximum time with the new value.
   * If timestamp arguments fall **between** the existing minimum and maximum, no updates will be made.
-* In short, the timestamp window on a given tag can be updated by being "pushed out" from the current values, but there is currently no way to "decrease" the window.
+
+* In short, the timestamp window on a given tag can be updated by being "pushed out" from the current values, but there is currently no way to "decrease" the window (other than deleting the tag from the node and recreating it).
 
 **Operator Syntax Notes:**
 
@@ -321,6 +325,8 @@ __ ingest_
 
 .. _xref: ../userguides/ug007_dm_nodetypes.html#cross-reference-xref-nodes
 __ xref_
+
+.. _timestamps: ../userguides/ug008_dm_tagconcepts.html#tag-timestamps
 
 .. _chaining: ../userguides/ug011_storm_basics.html#operator-chaining
 __ chaining_
