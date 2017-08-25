@@ -51,7 +51,6 @@ Adds the specified node(s) to a Cortex.
 
 *Separator (sepr) Node:*
 ::
-
   addnode( inet:dns:a , ( woot.com , 1.2.3.4 ) )
   
   [ inet:dns:a = ( woot.com , 1.2.3.4 ) ]
@@ -114,8 +113,8 @@ Create one or more cross-reference (`xref`__) nodes that reference a specified `
 None.
 
 **Examples:**
-
-``file:bytes = d41d8cd98f00b204e9800998ecf8427e addxref( file:txtref , inet:fqdn , woot.com )``
+::
+  file:bytes = d41d8cd98f00b204e9800998ecf8427e addxref( file:txtref , inet:fqdn , woot.com )
 
 **Usage Notes:**
 
@@ -141,10 +140,11 @@ Sets one or more property values on the specified node(s).
   *<query>* **[ :** *<prop>* **=** *<pval>* ... **]**
 
 **Examples:**
-
-``inet:dns:a = woot.com/1.2.3.4 setprop( :seen:min = "2017-08-01 01:23" , :seen:max = "2017-08-10 04:56" )``
-
-``inet:dns:a = woot.com/1.2.3.4 [ :seen:min = "2017-08-01 01:23" :seen:max = "2017-08-10 04:56" ]``
+::
+  inet:dns:a = woot.com/1.2.3.4 setprop( :seen:min = "2017-08-01 01:23" , 
+    :seen:max = "2017-08-10 04:56" )
+  
+  inet:dns:a = woot.com/1.2.3.4 [ :seen:min = "2017-08-01 01:23" :seen:max = "2017-08-10 04:56" ]
 
 **Usage Notes:**
 
@@ -181,23 +181,22 @@ Adds one or more tags to the specified node(s).
 **Examples:**
 
 *Add Tags*
-
-``inet:fqdn = woot.com addtag( foo.bar , baz.faz )``
-
-``inet:fqdn = woot.com [ #foo.bar #baz.faz ]``
+::
+  inet:fqdn = woot.com addtag( foo.bar , baz.faz )
+  
+  inet:fqdn = woot.com [ #foo.bar #baz.faz ]
 
 *Add Tag with Single Timestamp*
-
-``inet:fqdn = woot.com addtag( baz.faz@201708151330 )``
-
-``inet:fqdn = woot.com [ #baz.faz@201708151330 ]``
+::
+  inet:fqdn = woot.com addtag( baz.faz@201708151330 )
+  
+  inet:fqdn = woot.com [ #baz.faz@201708151330 ]
 
 *Add Tag with Time Boundaries*
-
-``inet:fqdn = woot.com addtag( baz.faz@20160101-20160131 )``
-
-``inet:fqdn = woot.com [ #baz.faz@20160101-20160131 ]``
-
+::
+  inet:fqdn = woot.com addtag( baz.faz@20160101-20160131 )
+  
+  inet:fqdn = woot.com [ #baz.faz@20160101-20160131 ]
 
 **Usage Notes:**
 
@@ -238,10 +237,10 @@ Deletes the specified node(s) from a Cortex.
 None.
 
 **Examples:**
-
-``inet:fqdn = woot.com delnode()``
-
-``inet:fqdn = woot.com delnode(force=1)``
+::
+  inet:fqdn = woot.com delnode()
+  
+  inet:fqdn = woot.com delnode(force=1)
 
 **Usage Notes:**
 
@@ -273,10 +272,10 @@ Deletes one or more tags from the specified node(s).
   *<query>* **[ -#** *<tag>* ... **]**
 
 **Examples:**
-
-``inet:fqdn = woot.com deltag( baz.faz )``
-
-``inet:fqdn = woot.com [ -#baz.faz ]``
+::
+  inet:fqdn = woot.com deltag( baz.faz )
+  
+  inet:fqdn = woot.com [ -#baz.faz ]
 
 **Usage Notes:**
 
@@ -305,9 +304,10 @@ The square brackets ( ``[ ]`` ) used for the Storm macro syntax indicate “perf
 
 This means that all of the above directives can be specified within a single set of macro syntax brackets, in any combination and in any order.
 
-However, it is important to keep in mind that **the brackets are NOT a boundary that segregates nodes.** The brackets simply indicate the start and end of data modification shorthand. They do **NOT** separate "nodes these modifications should apply to" from "nodes they should not apply to". The Storm `operator chaining`__ with left-to-right processing order still applies. Any modification request that operates on previous Storm output will operate on the output of everything “leftwards” of the modifier, regardless of whether that content is within or outside of the macro syntax brackets. For example:
-
-``inet:ipv4 = 12.34.56.78 inet:fqdn = woot.com [ inet:ipv4 = 1.2.3.4 :created = "2016-12-18 00:35" inet:fqdn = woowoo.com #my.tag ]``
+However, it is important to keep in mind that **the brackets are NOT a boundary that segregates nodes.** The brackets simply indicate the start and end of data modification shorthand. They do **NOT** separate "nodes these modifications should apply to" from "nodes they should not apply to". The Storm `operator chaining`__ with left-to-right processing order still applies. Any modification request that operates on previous Storm output will operate on the output of everything “leftwards” of the modifier, regardless of whether that content is within or outside of the macro syntax brackets. For example::
+  
+  inet:ipv4 = 12.34.56.78 inet:fqdn = woot.com [ inet:ipv4 = 1.2.3.4 :created = "2016-12-18 00:35" 
+    inet:fqdn = woowoo.com #my.tag ]
 
 The above statement will:
 
