@@ -64,7 +64,7 @@ Working with Synapse data commonly involves three broad types of operations:
 Whether lifting, filtering, or pivoting across data in a Cortex, you need to be able to clearly specify the data you’re interested in – your selection criteria. In most cases, the criteria you specify will be based on one or more of the following:
 
 * A **property** (primary or secondary) on a node.
-* A **specific value** for a property (``<form>=<valu>`` or ``<prop>=<pval>``) on a node.
+* A **specific value** for a property (``<prop>=<valu>``) on a node.
 * A **tag** on a node.
 
 All of the above elements – nodes, properties, values, and tags – are the fundamental `building blocks`__ of the Synapse data model. **As such, an understanding of the Synapse data model is essential to effective use of Storm.**
