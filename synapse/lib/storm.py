@@ -1404,18 +1404,12 @@ class Runtime(Configable):
         opts = dict(oper[1].get('kwlist'))
 
         if not args:
-            mesg = 'task(<queuename1>, <queuename2>, ..., [kwarg1=val1, ...])'
+            mesg = 'task(<taskname1>, <taskname2>, ..., [kwarg1=val1, ...])'
             raise s_common.BadSyntaxError(mesg=mesg)
 
         nodes = query.data()
-
         core = self.getStormCore()
-        mesg = 'task() operator is currently a WIP operator. Use at own risk.'
-        logger.warning(mesg)
-        core.log(logging.warning, mesg='task() operator is currently an unstable operator. Use at own risk.')
 
-        for qname in args:
-            # XXX Cortex does not yet support a persistent tasking mechanism.
-            # [core.taskTufo(node, task, **opts) for node in nodes]
-            tag = '.'.join(['task', qname])
-            [core.addTufoTag(node, tag) for node in nodes]
+        for tname in args:
+            evt = ':'.join(['task', tname])
+            [core.fire(evt, node=node, storm=True, **opts) for node in nodes]

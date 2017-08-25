@@ -614,18 +614,48 @@ class StormTest(SynTest):
 
     def test_storm_task(self):
         with s_cortex.openurl('ram:///') as core:
+
+            foo = []
+            bar = []
+            baz = []
+            sekrit = []
+
+            def make_handler(store):
+                def handler(evt):
+                    store.append(evt)
+                return handler
+
+            core.on('task:foo', foo.append)
+            core.on('task:bar', bar.append)
+            core.on('task:baz', baz.append)
+            core.on('task:sekrit:priority1', sekrit.append)
+
             core.formTufoByProp('inet:ipv4', 0x01020304)
             core.formTufoByProp('inet:ipv4', 0x05060708)
 
-            # XXX Cortex does not currently support tasking so there isn't anything
-            # to validate with here.  Using tags to show the operator does work.
+            nodes = core.eval('inet:ipv4 task(foo, bar, baz, sekrit:priority1, key=valu)')
 
-            nodes = core.eval('inet:ipv4 task(foo, bar, baz, sekrit.priority1, key=valu)')
-            for node in nodes:
-                s_tags.tufoHasTag(node, 'task.foo')
-                s_tags.tufoHasTag(node, 'task.bar')
-                s_tags.tufoHasTag(node, 'task.baz')
-                s_tags.tufoHasTag(node, 'task.sekrit.priority1')
+            # We don't consume nodes when tasking
+            self.eq(len(nodes), 2)
+
+            # Events were fired
+            self.eq(len(foo), 2)
+            self.eq(len(bar), 2)
+            self.eq(len(baz), 2)
+            self.eq(len(sekrit), 2)
+
+            # Events contained data we expected
+            evt = foo[0]
+            self.eq(evt[0], 'task:foo')
+            self.isinstance(evt[1].get('node'), tuple)
+            self.eq(evt[1].get('storm'), True)
+            self.eq(evt[1].get('key'), 'valu')
+
+            evt = sekrit[0]
+            self.eq(evt[0], 'task:sekrit:priority1')
+            self.isinstance(evt[1].get('node'), tuple)
+            self.eq(evt[1].get('storm'), True)
+            self.eq(evt[1].get('key'), 'valu')
 
             # We have to know queue names to add nodes too
             self.raises(BadSyntaxError, core.eval, 'inet:ipv4 task()')
