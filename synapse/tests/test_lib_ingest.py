@@ -1115,3 +1115,61 @@ class IngTest(SynTest):
             xrefnode = nodes3[0]
             self.eq(xrefnode[1].get('file:txtref:file'), nodes1[0][1].get('file:bytes'))
             self.eq(xrefnode[1].get('file:txtref:xref:inet:ipv4'), nodes2[0][1].get('inet:ipv4'))
+
+    def test_ingest_reqprops(self):
+
+        tick = now()
+
+        ingdef = {
+            "ingest": {
+                "forms": [
+                    [
+                        "inet:dns:look",
+                        {
+                            "props": {
+                                "time": {
+                                    "var": "time"
+                                },
+                                "a": {
+                                    "template": "{{fqdn}}/{{ipv4}}"
+                                }
+                            },
+                            "value": "*"
+                        }
+                    ]
+                ],
+                "vars": [
+                    [
+                        "time",
+                        {
+                            "path": "time"
+                        }
+                    ],
+                    [
+                        "fqdn",
+                        {
+                            "path": "fqdn"
+                        }
+                    ],
+                    [
+                        "ipv4",
+                        {
+                            "path": "ipv4"
+                        }
+                    ]
+                ]
+            }
+        }
+
+        data = {"time": tick, "ipv4": "1.2.3.4", "fqdn": "vertex.link"}
+
+        with s_cortex.openurl('ram://') as core:
+            core.setConfOpt('enforce', 1)
+            ingest = s_ingest.Ingest(info=ingdef)
+            ingest.ingest(core=core, data=data)
+
+            nodes = core.eval('inet:dns:look')
+            self.eq(len(nodes), 1)
+            node = nodes[0]
+            self.eq(node[1].get('inet:dns:look:time'), tick)
+            self.eq(node[1].get('inet:dns:look:a'), 'vertex.link/1.2.3.4')
