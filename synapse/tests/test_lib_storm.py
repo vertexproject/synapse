@@ -692,22 +692,22 @@ class StormTest(SynTest):
                               'blah.blah.blah',
                               'knights.ni'])
 
-            nodes = core.eval('syn:tag=foo tree(syn:tag:up, syn:tag)')
+            nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up)')
             self.eq(len(nodes), 6)
 
-            nodes = core.eval('syn:tag=foo tree(syn:tag:up, syn:tag, recurlim=1)')
+            nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=1)')
             self.eq(len(nodes), 3)
 
-            nodes = core.eval('syn:tag=foo.bar tree(syn:tag:up, syn:tag)')
+            nodes = core.eval('syn:tag=foo.bar tree(syn:tag, syn:tag:up)')
             self.eq(len(nodes), 3)
 
-            nodes = core.eval('syn:tag=foo.baz tree(syn:tag:up, syn:tag)')
+            nodes = core.eval('syn:tag=foo.baz tree(syn:tag, syn:tag:up)')
             self.eq(len(nodes), 2)
 
-            nodes = core.eval('syn:tag=blah tree(syn:tag:up, syn:tag)')
+            nodes = core.eval('syn:tag=blah tree(syn:tag, syn:tag:up)')
             self.eq(len(nodes), 3)
 
-            nodes = core.eval('syn:tag=blah tree(syn:tag:up, syn:tag, recurlim=1)')
+            nodes = core.eval('syn:tag=blah tree(syn:tag, syn:tag:up, recurlim=1)')
             self.eq(len(nodes), 2)
 
             nodes = core.eval('syn:tag=foo tree(syn:tag:up)')
