@@ -398,11 +398,11 @@ class InetMod(CoreModule):
 
     @modelrev('inet', 201708141516)
     def _revModl201708141516(self):
-        node = self.core.formTufoByProp('syn:type', 'inet:urlfile')  # type: list
-        if not node:
+        node = self.core.getTufoByProp('syn:type', 'inet:urlfile')
+        if not node:  # pragma: no cover
             # Its possible someone deleted their syn:type=inet:urlfile node :(
             mesg = 'No syn:type="inet:urlfile" node found during model revision.'
-            logger.warn(mesg)
+            logger.warning(mesg)
             self.core.log(logging.WARNING, mesg=mesg)
             return
         self.core.delRowsByIdProp(node[0], 'syn:type:names')
@@ -410,6 +410,18 @@ class InetMod(CoreModule):
         # Add in the new fields type if it does not exist.
         if 'syn:type:fields' not in node[1]:
             self.core.addRows([(node[0], 'syn:type:fields', 'url=inet:url,file=file:bytes', s_common.now())])
+
+    @modelrev('inet', 201708231646)
+    def _revModl201708231646(self):
+        node = self.core.getTufoByProp('syn:prop', 'inet:ipv4:type')
+        if not node:  # pragma: no cover
+            # Its possible someone deleted their syn:prop=inet:ipv4:type node :(
+            mesg = 'No syn:prop="inet:ipv4:type" node found during model revision.'
+            logger.warning(mesg)
+            self.core.log(logging.WARNING, mesg=mesg)
+            return
+        if 'syn:prop:ptype' not in node[1]:
+            self.core.addRows([(node[0], 'syn:prop:ptype', 'str', s_common.now())])
 
     @staticmethod
     def getBaseModels():
@@ -500,7 +512,8 @@ class InetMod(CoreModule):
 
                 ('inet:ipv4', {'ptype': 'inet:ipv4'}, [
                     ('cc', {'ptype': 'pol:iso2', 'defval': '??'}),
-                    ('type', {'defval': '??', 'doc': 'what type of ipv4 address ( uni, multi, priv )'}),
+                    ('type', {'ptype': 'str', 'defval': '??',
+                              'doc': 'what type of ipv4 address ( uni, multi, priv )'}),
                     ('asn', {'ptype': 'inet:asn', 'defval': -1}),
                 ]),
 

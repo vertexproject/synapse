@@ -431,6 +431,16 @@ class InetModelTest(SynTest):
             with s_cortex.openstore(url) as store:
                 store.addRows(rows)
 
+                # Set revision 0
+                prop = '.:modl:vers:inet'
+                valu = 0
+                rows = store.getRowsByProp(prop)
+                if rows:
+                    iden = rows[0][0]
+                else:
+                    iden = guid()
+                store.setRowsByIdProp(iden, prop, valu)
+
             with s_cortex.openurl(url) as core:
                 self.ge(core.getModlVers('inet'), 201706121318)
 
@@ -467,6 +477,16 @@ class InetModelTest(SynTest):
             with s_cortex.openstore(url) as store:
                 store.addRows(rows)
 
+                # Set revision 0
+                prop = '.:modl:vers:inet'
+                valu = 0
+                rows = store.getRowsByProp(prop)
+                if rows:
+                    iden = rows[0][0]
+                else:
+                    iden = guid()
+                store.setRowsByIdProp(iden, prop, valu)
+
             # Open the cortex, applying the data model updates
             # Validate our nodes now have the correct data
             with s_cortex.openurl(url) as core:
@@ -493,6 +513,16 @@ class InetModelTest(SynTest):
 
             url = 'sqlite:///%s' % finl
 
+            with s_cortex.openstore(url) as store:
+                prop = '.:modl:vers:inet'
+                valu = 0
+                rows = store.getRowsByProp(prop)
+                if rows:
+                    iden = rows[0][0]
+                else:
+                    iden = guid()
+                store.setRowsByIdProp(iden, prop, valu)
+
             # Open the cortex, applying the data model updates
             # Validate our nodes now have the correct data
             with s_cortex.openurl(url) as core:
@@ -512,3 +542,40 @@ class InetModelTest(SynTest):
                 self.nn(tufo)
                 self.eq(tufo[1].get('inet:urlfile:url'), 'https://vertex.link/hello.html')
                 self.eq(tufo[1].get('inet:urlfile:file'), '5b4d61f7402c315480bfbb8259307131')
+
+    def test_model_inet_201708231646(self):
+
+        byts = self.getRev0DbByts()
+
+        with self.getTestDir() as temp:
+            finl = os.path.join(temp, 'test.db')
+
+            with open(finl, 'wb') as fd:
+                fd.write(byts)
+
+            url = 'sqlite:///%s' % finl
+
+            with s_cortex.openstore(url) as store:
+                prop = '.:modl:vers:inet'
+                valu = 0
+                rows = store.getRowsByProp(prop)
+                if rows:
+                    iden = rows[0][0]
+                else:
+                    iden = guid()
+                store.setRowsByIdProp(iden, prop, valu)
+
+            # Open the cortex, applying the data model updates
+            # Validate our nodes now have the correct data
+            with s_cortex.openurl(url) as core:
+                modlrev = core.getModlVers('inet')
+                self.ge(modlrev, 201708231646)
+
+                pdef = core.getTufoByProp('syn:prop', 'inet:ipv4:type')
+                self.eq(pdef[1].get('syn:prop:ptype'), 'str')
+
+                # Now make a node
+                tufo = core.formTufoByProp('inet:ipv4', '192.168.1.1', type='priv')
+                self.nn(tufo)
+                self.eq(tufo[1].get('inet:ipv4:type'), 'priv')
+                self.raises(BadTypeValu, core.formTufoByProp, 'inet:ipv4', '192.168.1.2', type=1)
