@@ -294,7 +294,8 @@ class DmonConf:
 
     def loadDmonFile(self, path):
         checkConfFile(path)
-        text = open(path, 'rb').read().decode('utf8')
+        with open(path, 'rb') as f:
+            text = f.read().decode('utf8')
         return self.loadDmonJson(text)
 
 _onhelp_lock = threading.Lock()
