@@ -105,7 +105,8 @@ class MindMeld:
             for name, path in dats.items():
                 # FIXME: path sep
                 datpath = os.path.join(moddef[0], name)
-                datbyts = open(path, 'rb').read()
+                with open(path, 'rb') as fd:
+                    datbyts = fd.read()
                 self.info['datfiles'][datpath] = datbyts
 
         mods[moddef[0]] = moddef

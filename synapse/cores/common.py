@@ -1839,6 +1839,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
                     self._addDefProps(form, fulls)
 
+                    # Ensure we have ALL the required props
+                    self._reqProps(form, fulls)
+
                     fulls[form] = iden
                     fulls['tufo:form'] = form
 
@@ -1877,6 +1880,26 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             if form in self.noauto:
                 continue
             self.formTufoByProp(form, valu)
+
+    def _reqProps(self, form, fulls):
+        if not self.enforce:
+            return
+
+        props = self.getFormReqs(form)
+
+        # Return fast for perf
+        if not props:
+            return
+
+        # Special case for handling syn:prop:glob=1 on will not have a ptype
+        # despite the model requiring a ptype to be present.
+        if fulls.get('syn:prop:glob'):
+            props.pop('syn:prop:ptype', None)
+
+        missing = set(props) - set(fulls)
+        if missing:
+            raise s_common.PropNotFound(mesg='Node is missing required a prop during formation',
+                                        prop=list(missing)[0], form=form)
 
     def formTufoByTufo(self, tufo):
         '''
@@ -1971,6 +1994,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             # create a "full" props dict which includes defaults
             self._addDefProps(prop, fulls)
+
+            # Ensure we have ALL the required props
+            self._reqProps(prop, fulls)
 
             fulls[prop] = valu
             fulls['tufo:form'] = prop
@@ -2441,7 +2467,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 xact.fire('node:prop:set', form=form, valu=valu, prop=p, newv=v, oldv=oldv, node=tufo)
 
                 # fire the splice event
-                xact.spliced('node:prop:set', form=form, valu=valu, prop=p[len(form)+1:], newv=v, oldv=oldv, node=tufo)
+                xact.spliced('node:prop:set', form=form, valu=valu, prop=p[len(form) + 1:], newv=v, oldv=oldv, node=tufo)
 
             if self.autoadd:
                 self._runAutoAdd(toadd)

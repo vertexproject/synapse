@@ -255,7 +255,7 @@ class DataModelTest(SynTest):
         model.addTufoForm('foo')
         model.addTufoProp('foo', 'meow', ptype='int')
 
-        self.eq(model.getPropDef('foo:meow'), ('foo:meow', {'doc': None, 'title': None, 'defval': None, 'form': 'foo', 'base': 'meow', 'uniq': False, 'ptype': 'int'}))
+        self.eq(model.getPropDef('foo:meow'), ('foo:meow', {'doc': None, 'title': None, 'defval': None, 'form': 'foo', 'base': 'meow', 'uniq': False, 'ptype': 'int', 'req': False}))
         self.eq(model.getPropDef('foo:meow:nonexistent'), None)
         self.eq(model.getPropDef('foo:meow:nonexistent', glob=False), None)
 

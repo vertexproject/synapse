@@ -560,23 +560,19 @@ class Ingest(EventBus):
                 if valu is None:
                     return
 
-                tufo = core.formTufoByProp(form, valu)
+                props = {}
+                for prop, pnfo in info.get('props', {}).items():
+                    pvalu = self._get_prop(core, data, pnfo, scope)
+                    if pvalu is None:
+                        continue
+
+                    props[prop] = pvalu
+
+                tufo = core.formTufoByProp(form, valu, **props)
                 if tufo is None:
                     return
 
                 self.fire('gest:prog', act='form')
-
-                props = {}
-                for prop, pnfo in info.get('props', {}).items():
-                    valu = self._get_prop(core, data, pnfo, scope)
-                    if valu is None:
-                        continue
-
-                    props[prop] = valu
-
-                if props:
-                    core.setTufoProps(tufo, **props)
-                    self.fire('gest:prog', act='set')
 
                 for tag in scope.iter('tags'):
                     core.addTufoTag(tufo, tag)

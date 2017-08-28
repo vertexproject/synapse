@@ -2562,6 +2562,27 @@ class CortexTest(SynTest):
                     for s in ['NoSuchForm', 'name=', 'bad']:
                         self.isin(s, actual[2][1]['syn:err:errmsg'])
 
+    def test_cortex_reqprops(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            # TODO - We will have to invert the logic here slightly when enforce=1 is merged.
+
+            # Required prop "time" not provided but enforce=0.
+            t0 = core.addTufoEvent('inet:dns:look', a='WOOT.com/1.2.3.4')
+            self.nn(t0)
+
+            # enable enforce
+            core.setConfOpt('enforce', 1)
+
+            # fails without required prop present
+            self.raises(PropNotFound, core.addTufoEvent, 'inet:dns:look', a='WOOT.com/1.2.3.5', )
+
+            # Works with required prop present
+            tick = now()
+            t1 = core.addTufoEvent('inet:dns:look', a='WOOT.com/1.2.3.4', time=tick)
+            self.eq(t1[1].get('inet:dns:look:time'), tick)
+            self.ne(t0[0], t1[0])
+
 class StorageTest(SynTest):
 
     def test_nonexist_ctor(self):
