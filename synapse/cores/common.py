@@ -1891,12 +1891,14 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if not props:
             return
 
+        props = set(props)
+
         # Special case for handling syn:prop:glob=1 on will not have a ptype
         # despite the model requiring a ptype to be present.
-        if fulls.get('syn:prop:glob'):
-            props.pop('syn:prop:ptype', None)
+        if fulls.get('syn:prop:glob') and 'syn:prop:ptype' in props:
+            props.remove('syn:prop:ptype')
 
-        missing = set(props) - set(fulls)
+        missing = props - set(fulls)
         if missing:
             raise s_common.PropNotFound(mesg='Node is missing required a prop during formation',
                                         prop=list(missing)[0], form=form)
