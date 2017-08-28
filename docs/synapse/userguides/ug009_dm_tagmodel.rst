@@ -30,11 +30,11 @@ Hypotheses may be simple or complex; most often individual tags represent relati
 
 *Example 1*
 
-A common concept in tracking cyber threat data is the idea of determining whether an indicator (a file, domain, IP address, email address, etc.) is part of a "threat cluster" associated with a particular threat group or set of malicious actors. For something to be part of a threat cluster, it must be considered to be **unique** to that threat group – that is, if the indicator (such as a domain) is observed on a network, it can be considered a sure sign that the threat group is present in that network.
+A common concept in tracking cyber threat data is the idea of determining whether an indicator (a file, domain, IP address, email address, etc.) is part of a "threat cluster" - that is, whether the indicator is associated with a set of related activity presumed to be carried out by some (generally unknown) set of malicious actors. For something to be part of a threat cluster, it must be considered to be **unique** to that threat cluster – that is, if the indicator (such as a domain) is observed on a network, it can be considered a sure sign that activity associated with the threat cluster is occurring in that network.
 
-An analyst reviewing new threat data – say a piece of malware containing a never-before-observed domain – will try to determine whether the activity can be associated with any known threat group. The broad question "can this be associated with any known group?" can be thought of as comprised of *n* number of individual hypotheses based on the number of known threat groups ("This activity is associated with the threat cluster for Threat Group 1...for Threat Group 2...for Threat Group *n*").
+An analyst reviewing new threat data – say a piece of malware containing a never-before-observed domain – will try to determine whether the activity can be associated with any known threat cluster. The broad question "can this be associated with any known cluster?" can be thought of as comprised of *n* number of individual hypotheses based on the number of known threat clusters ("This activity is associated with Threat Cluster 1...with Threat Cluster 2...with Threat Cluster *n*").
 
-Let's say the analyst determines the activity is related to Threat Group 12 and therefore applies the tag ``tc.t12`` (``tc`` to indicate the “threat cluster” name space, ``t12`` to indicate Threat Group 12) to the malicious domain (``inet:fqdn``). The presence of that tag indicates that the hypothesis "This domain is associated with the threat cluster for Threat Group 12" has been assessed to be true, based on the available data.
+Let's say the analyst determines the activity is related to Threat Cluster 12 and therefore applies the tag ``tc.t12`` (``tc`` to indicate the “threat cluster” name space, ``t12`` to indicate Threat Cluster 12) to the malicious domain (``inet:fqdn``). The presence of that tag indicates that the hypothesis "This domain is associated with Threat Cluster 12" has been assessed to be true, based on the available data.
 
 *Example 2*
 
@@ -42,12 +42,12 @@ The criteria used to evaluate whether an indicator is part of a threat cluster m
 
 In tracking cyber threat data, let's say that you want to know how often malicious domains (e.g., domains used in malware communications, or to host phishing or exploit sites) mimic the names of legitimate companies or services, and which companies or services are imitated most often. A tag such as ``mimic.<name_of_company>`` could be used to indicate this.
 
-An analyst evaluating whether a domain mimics the name of a legitimate company or service may first identify some similarity with a known company, and then determine whether the domain is legitimately registered to that company. For example, if the analyst determines that the domain ``g00gle.com`` is **not** a legitimate domain registered to Google, they may apply the tag ``mimic.google`` to the domain. The hypothesis "This domain mimics Google" has been assessed to be true.
+An analyst evaluating whether a domain mimics the name of a legitimate company or service may first identify some similarity with a known company, and then determine whether the domain is legitimately registered to that company. For example, if the analyst determines that the domain ``g00gle.com`` bears a resemblance to ``google.com`` but is **not** a legitimate domain registered to Google, they may apply the tag ``mimic.google`` to the domain. The hypothesis "This domain mimics Google" has been assessed to be true.
 
-More complex hypotheses may not be explicitly annotated within the graph (that is, as individual tags), but may be supported (or refuted) by the presence of other tags or combinations of tags. For example, if your hypothesis is "Threat Group 12 frequently registers domains that imitate technology companies", you could ask Synapse to show you all the domains (``inet:fqdn`` nodes) associated with Threat Group 12 (tagged with ``tc.t12``) and then show you which of those domains have a ``mimic`` tag:
+More complex hypotheses may not be explicitly annotated within the graph (that is, as individual tags), but may be supported (or refuted) by the presence of other tags or combinations of tags. For example, if your hypothesis is "Threat Cluster 12 frequently registers domains that imitate technology companies", you could ask Synapse to show you all the domains (``inet:fqdn`` nodes) associated with Threat Cluster 12 (tagged with ``tc.t12``) and then show you which of those domains have a ``mimic`` tag:
 
-* Comparing the number of ``mimic`` domains to the total number of Threat Group 12 domains can indicate how often the group attempts to imitate other services.
-* The companies or services reflected in the ``mimic`` tags can indicate the types of organizations the group imitates.
+* Comparing the number of ``mimic`` domains to the total number of Threat Cluster 12 domains can indicate how often the actors associated with this activity attempt to imitate other services.
+* The companies or services reflected in the ``mimic`` tags can indicate the types of organizations imitated.
 
 This information will help you evaluate whether or not your hypothesis is true based on currently available data. A corresponding Storm_ query to help evaluate the above would be:
 
@@ -90,7 +90,7 @@ For example, let’s say you are storing copies of articles from various news fe
   
 Using Synapse's Storm_ query language, it is easy to ask about nodes that have a specific tag (``ask #<tag>``). Storm also allows you to ask about tag nodes (``syn:tag`` forms) that share a common base element (``:base`` secondary property) and then locate all nodes that have any of those tags. While this is a slightly more complex query, it is not overly difficult (``ask syn:tag:base=<value> fromtags()``).
 
-Based on this, you can see how the choice of hierarchy makes it easier (or harder) to ask certain questions. (**Note:** examples simplified for discussion purposes. See the Storm reference and Storm tutorial for detailed information on using Storm.)
+Based on this, you can see how the choice of hierarchy makes it easier (or harder) to ask certain questions. (**Note:** examples are simplified for discussion purposes. See the Storm reference and Storm tutorial for detailed information on using Storm.)
 
 “Show me all the articles related to France”:
 
@@ -154,7 +154,7 @@ More detail is often better; however, tag hierarchies should reflect the level o
 
 Tags typically represent an analytical assertion, which means in most cases a human analyst needs to evaluate the data, make an assessment, and subsequently annotate data with the appropriate tag(s). Using an excessive number of tags or excessively detailed tags means an analyst needs to do more work (keystrokes or mouse clicks) to annotate the data. There is also a certain amount of overhead associated with tag creation itself, particularly if newly created tags need to be reviewed for governance, or if administrative tasks (such as ensuring tags have associated definitions) need to be performed.
 
-More importantly, while the physical act of applying a tag to a node may be "easy", the analytical decision to apply the tag often requires careful review and evaluation of the evidence. If tags are overly detailed, representing shades of meaning that aren't really relevant, analysts may get bogged down splitting hairs – worrying about whether tag A or tag B is more precise or appropriate. In that situation, the analysis is being driven by the overly detailed tags, instead of the tag structure being driven by the analytical need. Where detail is necessary or helpful it should be used; but beware of becoming overly detailed where it isn't relevant, as the act of annotating can take over from real analysis.
+More importantly, while the physical act of applying a tag to a node may be "easy", the analytical decision to apply the tag often requires careful review and evaluation of the evidence. If tags are overly detailed, representing shades of meaning that aren't really relevant, analysts may get bogged down splitting hairs – worrying about whether tag A or tag B is more precise or appropriate when that distiction doesn't matter to the analysis at hand. In that situation, the analysis is being driven by the overly detailed tags, instead of the tag structure being driven by the analytical need. Where detail is necessary or helpful it should be used; but beware of becoming overly detailed where it isn't relevant, as the act of annotating can take over from real analysis.
 
 **Flexibility**
 
@@ -170,11 +170,11 @@ It is harder to modify tags through means such as "splitting" tags. For example,
 
 **Consistency of Use**
 
-Creating a well-thought out set of tags to support your analytical model is ineffective if those tags aren't used consistently – that is, by a majority of analysts across a majority of relevant data. 100% visibility into a given data set and 100% analyst review and annotation of that data is an unrealistic goal; but for data and annotations that represent your most pressing analytical questions, you should strive for as much completeness as possible. Looked at another way, inconsistent use of tags can result in gaps that can skew your assessment of the data. At best, this can lead to the inability to draw conclusions; at worst, to faulty analysis.
+Creating a well-thought out set of tags to support your analytical model is ineffective if those tags aren't used consistently – that is, by a majority of analysts across a majority of relevant data. It's true that 100% visibility into a given data set and 100% analyst review and annotation of that data is an unrealistic goal. However, for data and annotations that represent your most pressing analytical questions, you should strive for as much completeness as possible. Looked at another way, inconsistent use of tags can result in gaps that can skew your assessment of the data. At best, this can lead to the inability to draw conclusions; at worst, to faulty analysis.
 
 This inconsistency often occurs as both the number of analysts and the number of tags used for analysis increase. The larger the team of analysts, the more difficult it is for that team to work closely and consistently together. Similarly, the more tags available to represent different assessments, the fewer tags an analyst can work with and apply within a given time frame. In both cases, analysts may tend to "drift" towards analytical tasks that are most immediately relevant to their work, or most interesting to them – thus losing sight of the collective analytical goals of the entire team.
 
-Consider the example above of tracking Internet domains that mimic legitimate companies. If some analysts are annotating this data but others are not, your ability to answer questions about this data is skewed. Let’s say Threat Group 12 has registered 200 domains, and 173 of them imitate real companies, but only 42 have been annotated with ``mimic`` tags. If you try to use the data to answer the question "does Threat Group 12 consistently register domains that imitate valid companies?", your assessment is likely to be "no" based on the incompletely annotated data. There are gaps in your analysis because the information to answer this question has only been partially recorded.
+Consider the example above of tracking Internet domains that mimic legitimate companies. If some analysts are annotating this data but others are not, your ability to answer questions about this data is skewed. Let’s say Threat Cluster 12 is associated with 200 domains, and 173 of them imitate real companies, but only 42 have been annotated with ``mimic`` tags. If you try to use the data to answer the question "does Threat Cluster 12 consistently register domains that imitate valid companies?", your assessment is likely to be "no" based on the incompletely annotated data. There are gaps in your analysis because the information to answer this question has only been partially recorded.
 
 As the scope of analysis within a given instance of Synapse increases, it is essential to recognize these gaps as a potential shortcoming that may need to be addressed. Options include establishing policy around which analytical tasks (and associated observations) are essential (perhaps even required) and which are secondary ("as time allows"); or designating individual analysts to be responsible for particular analytical tasks.
 
@@ -267,8 +267,8 @@ An optional ``syn:tagform`` node representing ``sink.hole`` specifically when ap
   (1 results)
 
 
-.. _Storm: ../userguides/userguide_section11.html
+.. _Storm: ../userguides/ug011_storm_basics.html
 
-.. _Concepts: ../userguides/userguide_section4.html
+.. _Concepts: ../userguides/ug004_dm_nodesconcepts.html
 __ Concepts_
 

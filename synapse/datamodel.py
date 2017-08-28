@@ -100,6 +100,7 @@ class DataModel(s_types.TypeLib):
         self.props = {}
         self.forms = set()
 
+        self.reqprops = collections.defaultdict(list)
         self.defvals = collections.defaultdict(list)
         self.subprops = collections.defaultdict(list)
         self.propsbytype = collections.defaultdict(list)
@@ -125,10 +126,11 @@ class DataModel(s_types.TypeLib):
         self.addTufoProp('syn:form', 'ptype', ptype='syn:type', req=1, doc='Synapse type for this form')
 
         self.addTufoForm('syn:prop', ptype='syn:prop')
-        self.addTufoProp('syn:prop', 'doc', ptype='str', req=1, doc='Description of the property definition')
+        # TODO - Re-enable syn:prop:doc req = 1 after cleaning up property docstrings.
+        self.addTufoProp('syn:prop', 'doc', ptype='str', req=0, doc='Description of the property definition')
         self.addTufoProp('syn:prop', 'form', ptype='syn:prop', req=1, doc='Synapse form which contains this property')
         self.addTufoProp('syn:prop', 'ptype', ptype='syn:type', req=1, doc='Synapse type for this field')
-        self.addTufoProp('syn:prop', 'req', ptype='bool', defval=0, doc='Set to 1 if this property is required')
+        self.addTufoProp('syn:prop', 'req', ptype='bool', defval=0, doc='Set to 1 if this property is required to form the node.')
         self.addTufoProp('syn:prop', 'glob', ptype='bool', defval=0, doc='Set to 1 if this property defines a glob')
         self.addTufoProp('syn:prop', 'defval', doc='Set to the default value for this property')
 
@@ -268,6 +270,7 @@ class DataModel(s_types.TypeLib):
             raise s_common.DupPropName(name=prop)
 
         info.setdefault('doc', None)
+        info.setdefault('req', False)
         info.setdefault('uniq', False)
         info.setdefault('ptype', None)
         info.setdefault('title', None)
@@ -282,6 +285,10 @@ class DataModel(s_types.TypeLib):
 
         if defval is not None:
             self.defvals[form].append((prop, defval))
+
+        req = info.get('req')
+        if req:
+            self.reqprops[form].append(prop)
 
         pdef = (prop, info)
 
@@ -302,6 +309,18 @@ class DataModel(s_types.TypeLib):
         Return a list of (prop,valu) tuples for the default values of a form.
         '''
         return self.defvals.get(form, ())
+
+    def getFormReqs(self, form):
+        '''
+        Return a list of prop values which are required form a form.
+
+        Args:
+            form (str): Form to request values for.
+
+        Returns:
+            list: List of required properties needed for making the given form.
+        '''
+        return self.reqprops.get(form, ())
 
     def _addSubRefs(self, pdef):
         name = pdef[0]

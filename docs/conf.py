@@ -358,5 +358,6 @@ def run_autodoc(_):
     s_autodoc.main(['--configable-opts', '--savefile', 'synapse/configables.rst'])
 
 def setup(app):
+    app.add_stylesheet('theme_overrides.css')
     app.connect('builder-inited', run_apidoc)
     app.connect('builder-inited', run_autodoc)

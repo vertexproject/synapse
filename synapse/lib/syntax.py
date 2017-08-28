@@ -660,7 +660,7 @@ def parse(text, off=0):
                 inst[1]['kwlist'].append(('from', pivn))
                 pivn, off = nom(text, off + 1, varset)
 
-            inst[1]['args'].insert(0, pivn)
+            inst[1]['args'].append(pivn)
 
             ret.append(inst)
             continue

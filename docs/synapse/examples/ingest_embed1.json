@@ -1,0 +1,15 @@
+{
+  "embed": [
+    {
+      "nodes": [
+        [
+          "inet:fqdn",
+          [
+            "woot.com",
+            "vertex.link"
+          ]
+        ]
+      ]
+    }
+  ]
+}

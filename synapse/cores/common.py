@@ -741,22 +741,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             self.cache_byiden.clear()
             self.cache_byprop.clear()
 
-    def _reqSpliceInfo(self, act, info, prop):
-        valu = info.get(prop)
-        if prop is None:
-            raise Exception('Splice: %s requires %s' % (act, prop))
-        return valu
-
     def _actNodeAdd(self, mesg):
         form = mesg[1].get('form')
         valu = mesg[1].get('valu')
-        tags = mesg[1].get('tags', ())
         props = mesg[1].get('props', {})
 
         node = self.formTufoByProp(form, valu, **props)
-
-        if tags:
-            self.addTufoTags(node, tags)
 
     def _actNodeDel(self, mesg):
         form = mesg[1].get('form')
@@ -771,10 +761,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _actNodePropSet(self, mesg):
         form = mesg[1].get('form')
         valu = mesg[1].get('valu')
-        props = mesg[1].get('props')
+        prop = mesg[1].get('prop')
+        newv = mesg[1].get('newv')
 
         node = self.formTufoByProp(form, valu)
-        self.setTufoProps(node, **props)
+        self.setTufoProp(node, prop, newv)
 
     def _actNodePropDel(self, mesg):
         form = mesg[1].get('form')
@@ -787,8 +778,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _actNodeTagAdd(self, mesg):
 
         tag = mesg[1].get('tag')
-        # TODO make these operate on multiple tags?
-        #tags = mesg[1].get('tags',())
         form = mesg[1].get('form')
         valu = mesg[1].get('valu')
 
@@ -1866,6 +1855,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
                     self._addDefProps(form, fulls)
 
+                    # Ensure we have ALL the required props
+                    self._reqProps(form, fulls)
+
                     fulls[form] = iden
                     fulls['tufo:form'] = form
 
@@ -1904,6 +1896,28 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             if form in self.noauto:
                 continue
             self.formTufoByProp(form, valu)
+
+    def _reqProps(self, form, fulls):
+        if not self.enforce:
+            return
+
+        props = self.getFormReqs(form)
+
+        # Return fast for perf
+        if not props:
+            return
+
+        props = set(props)
+
+        # Special case for handling syn:prop:glob=1 on will not have a ptype
+        # despite the model requiring a ptype to be present.
+        if fulls.get('syn:prop:glob') and 'syn:prop:ptype' in props:
+            props.remove('syn:prop:ptype')
+
+        missing = props - set(fulls)
+        if missing:
+            raise s_common.PropNotFound(mesg='Node is missing required a prop during formation',
+                                        prop=list(missing)[0], form=form)
 
     def formTufoByTufo(self, tufo):
         '''
@@ -1998,6 +2012,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             # create a "full" props dict which includes defaults
             self._addDefProps(prop, fulls)
+
+            # Ensure we have ALL the required props
+            self._reqProps(prop, fulls)
 
             fulls[prop] = valu
             fulls['tufo:form'] = prop
@@ -2467,7 +2484,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 # fire notification event
                 xact.fire('node:prop:set', form=form, valu=valu, prop=p, newv=v, oldv=oldv, node=tufo)
 
-            xact.spliced('node:prop:set', form=form, valu=valu, props=props)
+                # fire the splice event
+                xact.spliced('node:prop:set', form=form, valu=valu, prop=p[len(form) + 1:], newv=v, oldv=oldv, node=tufo)
 
             if self.autoadd:
                 self._runAutoAdd(toadd)
