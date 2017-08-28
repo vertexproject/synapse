@@ -1,9 +1,43 @@
+import stat
+
+import synapse.axon as s_axon
 import synapse.compat as s_compat
 from synapse.lib.types import DataType
 from synapse.lib.module import CoreModule, modelrev
 
 
 class AxonMod(CoreModule):
+
+    def initCoreModule(self):
+        self.onFormNode('axon:path', self.onFormAxonPath)
+        self.revCoreModl()
+
+    def onFormAxonPath(self, form, valu, props, mesg):
+        from pprint import pprint
+        if valu != '/':
+            pprint(mesg)
+
+        # Early return for root nodes
+        if valu == '/':
+            return
+
+        # Check to see if parent exists
+        pval = props.get('axon:path:dir')
+        ppfo = self.core.getTufoByProp('axon:path', pval)
+
+        # If the parent node exists, return. otherwise make the parent node
+        # with a default mode and nlinks value.
+        if ppfo:
+            return
+
+        pval, psubs = self.core.getTypeNorm('axon:path', pval)
+        # XXX Private static method should be promoted to a standalone method.
+        pprops = s_axon.Axon._fs_new_dir_attrs(psubs.get('dir'), 0)
+        children = self.core.getTufosByProp('axon:path:dir', pval)
+        pprops['st_nlink'] += len(children) + 1 # XXX Is this correct?
+
+        # Form the new dir node
+        self.core.formTufoByProp('axon:path', pval, **pprops)
 
     @staticmethod
     def getBaseModels():
