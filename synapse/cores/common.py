@@ -1839,9 +1839,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
                     self._addDefProps(form, fulls)
 
-                    # Ensure we have ALL the required props
-                    self._reqProps(form, fulls)
-
                     fulls[form] = iden
                     fulls['tufo:form'] = form
 
@@ -1850,7 +1847,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                     alladd.update(toadd)
                     doneadd.update(toadd)
 
+                    # fire these immediately since we need them to potentially fill
+                    # in values before we generate rows for the new tufo
                     self.fire('node:form', form=form, valu=iden, props=fulls)
+
+                    # Ensure we have ALL the required props after node:form is fired.
+                    self._reqProps(form, fulls)
 
                     rows.extend([(iden, p, v, xact.tick) for (p, v) in fulls.items()])
 
@@ -1997,9 +1999,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             # create a "full" props dict which includes defaults
             self._addDefProps(prop, fulls)
 
-            # Ensure we have ALL the required props
-            self._reqProps(prop, fulls)
-
             fulls[prop] = valu
             fulls['tufo:form'] = prop
 
@@ -2009,6 +2008,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             # fire these immediately since we need them to potentially fill
             # in values before we generate rows for the new tufo
             self.fire('node:form', form=prop, valu=valu, props=fulls)
+
+            # Ensure we have ALL the required props after node:form is fired.
+            self._reqProps(prop, fulls)
 
             rows = [(iden, p, v, tick) for (p, v) in fulls.items()]
 
