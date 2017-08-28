@@ -2415,8 +2415,8 @@ class CortexTest(SynTest):
 
     def test_cortex_reqprops(self):
 
-        with s_cortex.openurl('ram:///') as core:
-
+        with self.getRamCore() as core:
+            core.setConfOpt('enforce', 0)
             core.addDataModel('woot', {
                 'forms': (
                     ('hehe:haha', {'ptype': 'str'}, (
