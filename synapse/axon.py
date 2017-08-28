@@ -1136,6 +1136,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
 
         attr = Axon._fs_new_dir_attrs(None, 0x1FD)
         del attr['dir']
+        attr['base'] = ''
         self.core.formTufoByProp('axon:path', '/', **attr)
 
     @staticmethod
