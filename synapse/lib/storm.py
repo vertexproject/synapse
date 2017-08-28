@@ -1422,12 +1422,12 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         if not args:
-            raise s_common.BadSyntaxError('blah blah blah')
+            raise s_common.BadSyntaxError(mesg='delprop(<prop>, [force=1]>')
 
         prop = args[0]
 
         if prop[0] != ':':
-            raise s_common.BadSyntaxError('blah blah blah')
+            raise s_common.BadSyntaxError(mesg='delprop(<prop>, [force=1]>')
 
         prop = prop.lstrip(':')
         if not prop:
