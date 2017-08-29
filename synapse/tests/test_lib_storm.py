@@ -713,9 +713,6 @@ class StormTest(SynTest):
             nodes = core.eval('syn:tag=foo tree(syn:tag:up)')
             self.eq(len(nodes), 6)
 
-            nodes = core.eval('syn:tag=foo tree(:up)')
-            self.eq(len(nodes), 6)
-
             o0 = core.formTufoByProp('ou:org:alias', 'master')
             o1 = core.formTufoByProp('ou:org:alias', 's1')
             o2 = core.formTufoByProp('ou:org:alias', 's2')
