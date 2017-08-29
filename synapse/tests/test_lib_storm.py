@@ -751,6 +751,33 @@ class StormTest(SynTest):
             nodes = core.eval('ou:org:alias=s6 -> ou:suborg:sub tree(ou:suborg:org, ou:suborg:sub) :org-> ou:org')
             self.eq(len(nodes), 3)
 
+            # fqdn tests
+            f0 = core.formTufoByProp('inet:fqdn', 'woohoo.wow.vertex.link')
+            f1 = core.formTufoByProp('inet:fqdn', 'woot.woot.vertex.link')
+            f2 = core.formTufoByProp('inet:fqdn', 'wow.ohmy.clowntown.vertex.link')
+
+            nodes = core.eval('inet:fqdn=vertex.link tree(inet:fqdn, inet:fqdn:domain)')
+            self.eq(len(nodes), 8)
+
+            nodes = core.eval('inet:fqdn=vertex.link tree(inet:fqdn:domain)')
+            self.eq(len(nodes), 8)
+
+            nodes = core.eval('inet:fqdn=vertex.link tree(inet:fqdn:domain, recurlim=1)')
+            self.eq(len(nodes), 4)
+
+            nodes = core.eval('inet:fqdn=vertex.link tree(inet:fqdn:domain, recurlim=2)')
+            self.eq(len(nodes), 7)
+
+            # tree up
+            nodes = core.eval('inet:fqdn=vertex.link tree(inet:fqdn:domain, inet:fqdn)')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('inet:fqdn=woot.woot.vertex.link tree(inet:fqdn:domain, inet:fqdn)')
+            self.eq(len(nodes), 4)
+
+            nodes = core.eval('inet:fqdn=wow.ohmy.clowntown.vertex.link tree(inet:fqdn:domain, inet:fqdn)')
+            self.eq(len(nodes), 5)
+
 class LimitTest(SynTest):
 
     def test_limit_default(self):
