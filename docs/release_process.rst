@@ -29,6 +29,29 @@ Release notes should break things out by the following categories:
 Short text form is fine for describing these.  These notes will be posted up on github on the releases page for
 consumption.
 
+Markdown Template
+*****************
+
+The following can be used as a markdown template for Github release notes::
+
+    # Synapse <version number> Release Notes
+
+    ## New Features
+    - item 1
+    - item 2
+
+    ## Enhancements
+    - item 1
+    - item 2
+
+    ## Bugs
+    - item 1
+    - item 2
+
+    ## Documentation
+    - item 1
+    - item 2
+
 Cutting the Release
 -------------------
 
