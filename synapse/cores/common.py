@@ -2471,7 +2471,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 xact.fire('node:prop:set', form=form, valu=valu, prop=p, newv=v, oldv=oldv, node=tufo)
 
                 # fire the splice event
-                xact.spliced('node:prop:set', form=form, valu=valu, prop=p[len(form) + 1:], newv=v, oldv=oldv, node=tufo)
+                xact.spliced('node:prop:set', form=form, valu=valu, prop=p[len(form) + 1:], newv=v, oldv=oldv,
+                             node=tufo)
 
             if self.autoadd:
                 self._runAutoAdd(toadd)
