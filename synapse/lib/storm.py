@@ -426,6 +426,7 @@ class Runtime(Configable):
 
         self.setOperFunc('guid', self._stormOperGuid)
         self.setOperFunc('join', self._stormOperJoin)
+        self.setOperFunc('task', self._stormOperTask)
         self.setOperFunc('lift', self._stormOperLift)
         self.setOperFunc('refs', self._stormOperRefs)
         self.setOperFunc('limit', self._stormOperLimit)
@@ -1398,3 +1399,18 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         [query.add(node) for node in core.getTufosByIdens(args)]
+
+    def _stormOperTask(self, query, oper):
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        if not args:
+            mesg = 'task(<taskname1>, <taskname2>, ..., [kwarg1=val1, ...])'
+            raise s_common.BadSyntaxError(mesg=mesg)
+
+        nodes = query.data()
+        core = self.getStormCore()
+
+        for tname in args:
+            evt = ':'.join(['task', tname])
+            [core.fire(evt, node=node, storm=True, **opts) for node in nodes]
