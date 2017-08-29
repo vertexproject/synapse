@@ -261,7 +261,7 @@ Delete a property from the specified node(s).
 **Operator Syntax:**
 
 .. parsed-literal::
-  *<query>* **delprop(** *<prop>*, [ *force=<n>* ] **)**
+  *<query>* **delprop(** *: <prop>*, [ **force=1** ] **)**
 
 **Macro Syntax:**
 
@@ -284,12 +284,14 @@ Delete a property from the specified node(s).
 
 **Usage Notes:**
 
-* ``delprop()`` operates on the output of a previous query.  It does not consume the tufos from the query.
 * Props which are read-only (``ro=1``) or have a default value (``defval``) on them cannot be deleted.
 
 **Operator Syntax Notes:**
 
-* The ``force`` keyword argument is required in order to delete props using the operator syntax.
+* Use of the ``force=1`` parameter will delete the prop on the input nodes to the operator. The need to enter
+  ``force=1`` is meant to require the user to think about what they're doing before executing the ``delprop()``
+  command (there is no "are you sure?" prompt). Future releases of Synapse will support a permissions structure
+  that will limit the users who are able to execute this operator. This is only required when using the operator syntax.
 
 **Macro Syntax Notes:**
 
@@ -300,8 +302,8 @@ Delete a property from the specified node(s).
 .. WARNING::
   ``delprop()`` has the potential to be destructive if executed on an incorrect, badly formed, or mistyped query. Users
   are strongly encouraged to validate their query by first executing it on its own to confirm it returns the expected
-  nodes before executing ``delprop()`` or using the macro delprop syntx. While this cannot remove a node from the graph,
-  it is possible that a bad ``delprop`` call can irreversibly damage graph traversal.
+  nodes before executing ``delprop()`` or using the macro delprop syntax. While this cannot remove a node from the
+  graph, it is possible that a bad ``delprop`` call can irreversibly damage graph traversal.
 
 deltag()
 --------
@@ -345,7 +347,7 @@ The square brackets ( ``[ ]`` ) used for the Storm macro syntax indicate “perf
 
 * Add nodes (``addnode()``).
 * Add or modify properties (``setprop()``).
-* Delete properties (once ``delprop()`` is implemented).
+* Delete properties (``delprop()``).
 * Add tags (``addtag()``).
 * Delete tags (``deltag()``).
 
