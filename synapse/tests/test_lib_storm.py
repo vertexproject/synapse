@@ -734,6 +734,9 @@ class StormTest(SynTest):
             nodes = core.eval('ou:org:alias=master -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org) :sub-> ou:org')
             self.eq(len(nodes), 6)
 
+            nodes = core.eval('ou:org:alias=master -> ou:suborg:org tree(:sub, ou:suborg:org) :sub-> ou:org')
+            self.eq(len(nodes), 6)
+
             nodes = core.eval('ou:org:alias=s2 -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org) :sub-> ou:org')
             self.eq(len(nodes), 0)
 

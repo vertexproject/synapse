@@ -1458,7 +1458,8 @@ class Runtime(Configable):
 
             else:
                 for tufo in tufs:
-                    form, valu = s_tufo.ndef(tufo)
+                    form, _ = s_tufo.ndef(tufo)
+                    valu = tufo[1].get(form + srcp)
                     if valu is not None:
                         vals.add(valu)
 
@@ -1471,7 +1472,7 @@ class Runtime(Configable):
             queried_vals = queried_vals.union(vals)
 
             if recurlim:
-                recurlim = recurlim - 1
+                recurlim -= 1
                 if not recurlim:
                     break
 
