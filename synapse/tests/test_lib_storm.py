@@ -716,6 +716,41 @@ class StormTest(SynTest):
             nodes = core.eval('syn:tag=foo tree(:up)')
             self.eq(len(nodes), 6)
 
+            o0 = core.formTufoByProp('ou:org:alias', 'master')
+            o1 = core.formTufoByProp('ou:org:alias', 's1')
+            o2 = core.formTufoByProp('ou:org:alias', 's2')
+            o3 = core.formTufoByProp('ou:org:alias', 's3')
+            o4 = core.formTufoByProp('ou:org:alias', 's4')
+            o5 = core.formTufoByProp('ou:org:alias', 's5')
+            o6 = core.formTufoByProp('ou:org:alias', 's6')
+
+            s01 = core.formTufoByProp('ou:suborg', [o0[1].get('ou:org'), o1[1].get('ou:org')])
+            s02 = core.formTufoByProp('ou:suborg', [o0[1].get('ou:org'), o2[1].get('ou:org')])
+            s13 = core.formTufoByProp('ou:suborg', [o1[1].get('ou:org'), o3[1].get('ou:org')])
+            s14 = core.formTufoByProp('ou:suborg', [o1[1].get('ou:org'), o4[1].get('ou:org')])
+            s45 = core.formTufoByProp('ou:suborg', [o4[1].get('ou:org'), o5[1].get('ou:org')])
+            s46 = core.formTufoByProp('ou:suborg', [o4[1].get('ou:org'), o6[1].get('ou:org')])
+
+            nodes = core.eval('ou:org:alias=master -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org) :sub-> ou:org')
+            self.eq(len(nodes), 6)
+
+            nodes = core.eval('ou:org:alias=s2 -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org) :sub-> ou:org')
+            self.eq(len(nodes), 0)
+
+            nodes = core.eval('ou:org:alias=s1 -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org) :sub-> ou:org')
+            self.eq(len(nodes), 4)
+
+            nodes = core.eval('ou:org:alias=s4 -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org) :sub-> ou:org')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('ou:org:alias=master -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org, recurlim=1) '
+                              ':sub-> ou:org')
+            self.eq(len(nodes), 4)
+
+            # Tree up instead of down
+            nodes = core.eval('ou:org:alias=s6 -> ou:suborg:sub tree(ou:suborg:org, ou:suborg:sub) :org-> ou:org')
+            self.eq(len(nodes), 3)
+
 class LimitTest(SynTest):
 
     def test_limit_default(self):
