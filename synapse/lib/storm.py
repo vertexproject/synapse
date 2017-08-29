@@ -1436,7 +1436,8 @@ class Runtime(Configable):
 
         tufs = query.data()
 
-        n = len(tufs)
+        queried_vals = set()
+
         while True:
 
             vals = set()
@@ -1461,17 +1462,17 @@ class Runtime(Configable):
                     if valu is not None:
                         vals.add(valu)
 
-            vals = list(vals)
+            qvals = list(vals - queried_vals)
+            if not qvals:
+                break
 
-            [query.add(t) for t in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit'))]
+            [query.add(t) for t in self.stormTufosBy('in', dstp, qvals, limit=opts.get('limit'))]
+
+            queried_vals = queried_vals.union(vals)
 
             if recurlim:
                 recurlim = recurlim - 1
                 if not recurlim:
                     break
-            _n = len(query.data())
-            if _n <= n:
-                break
-            n = _n
 
             tufs = query.data()
