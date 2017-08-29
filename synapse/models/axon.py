@@ -13,10 +13,6 @@ class AxonMod(CoreModule):
         self.revCoreModl()
 
     def onFormAxonPath(self, form, valu, props, mesg):
-        from pprint import pprint
-        if valu != '/':
-            pprint(mesg)
-
         # Early return for root nodes
         if valu == '/':
             return
