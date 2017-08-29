@@ -39,7 +39,7 @@ pipeline:
     commands:
       - if [ -n "${SLEEP1}" ]; then sleep ${SLEEP1}; fi;
       - python setup.py install
-      - nosetests --verbosity=3 ${COVERAGE_ARGS2}
+      - nosetests --verbosity=3 ${COVERAGE_ARGS1}
       - if [ -n "${COVERAGE_ARGS1}" ]; then codecov --name ${IMAGE_VERSION1} --required; fi;
 
   build2:
