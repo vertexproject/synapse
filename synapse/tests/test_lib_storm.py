@@ -787,6 +787,10 @@ class StormTest(SynTest):
             t0 = core.getTufoByProp('inet:fqdn', 'vertex.link')
             self.isin('inet:fqdn:created', t0[1])
 
+            core.eval('inet:fqdn=vertex.link delprop(:created, force=0)')
+            t0 = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.isin('inet:fqdn:created', t0[1])
+
             core.eval('inet:fqdn=vertex.link delprop(:created, force=1)')
             t0 = core.getTufoByProp('inet:fqdn', 'vertex.link')
             self.notin('inet:fqdn:created', t0[1])
@@ -797,6 +801,15 @@ class StormTest(SynTest):
             core.eval('inet:fqdn=vertex.link [ -:created ]')
             t0 = core.getTufoByProp('inet:fqdn', 'vertex.link')
             self.notin('inet:fqdn:created', t0[1])
+
+            # Delete muliple props via macro syntax
+            t0 = core.setTufoProps(t0, created="20170101", updated="20170201")
+            self.isin('inet:fqdn:created', t0[1])
+            self.isin('inet:fqdn:updated', t0[1])
+            core.eval('inet:fqdn=vertex.link [ -:created  -:updated]')
+            t0 = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.notin('inet:fqdn:created', t0[1])
+            self.notin('inet:fqdn:updated', t0[1])
 
             # Cannot delete "ro" props via delprop
             t1 = core.formTufoByProp('inet:netuser', 'vertex.link/pennywise')

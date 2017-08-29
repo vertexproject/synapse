@@ -256,7 +256,52 @@ None.
 delprop()
 ---------
 
-Todo
+Delete a property from the specified node(s).
+
+**Operator Syntax:**
+
+.. parsed-literal::
+  *<query>* **delprop(** *<prop>*, [ *force=<n>* ] **)**
+
+**Macro Syntax:**
+
+.. parsed-literal::
+  *<query>* **[ -:** *<prop>* ... **]**
+
+**Examples:**
+::
+  # Operator examples
+
+  inet:fqdn = vertex.link delprop(:created)
+
+  inet:fqdn = vertex.link delprop(:created, force=1)
+
+  # Macro examples
+
+  inet:fqdn = vertex.link [ -:created ]
+
+  inet:fqdn = vertex.link [ -:created -:updated ]
+
+**Usage Notes:**
+
+* ``delprop()`` operates on the output of a previous query.  It does not consume the tufos from the query.
+* Props which are read-only (``ro=1``) or have a default value (``defval``) on them cannot be deleted.
+
+**Operator Syntax Notes:**
+
+* The ``force`` keyword argument is required in order to delete props using the operator syntax.
+
+**Macro Syntax Notes:**
+
+* Synapse will delete the specified props(s) from all previously referenced nodes (e.g., to the left of the
+  ``-:<prop>`` statement), **whether those nodes are within or outside of the macro syntax brackets.** See
+  `Special Note on Macro Syntax`_.
+
+.. WARNING::
+  ``delprop()`` has the potential to be destructive if executed on an incorrect, badly formed, or mistyped query. Users
+  are strongly encouraged to validate their query by first executing it on its own to confirm it returns the expected
+  nodes before executing ``delprop()`` or using the macro delprop syntx. While this cannot remove a node from the graph,
+  it is possible that a bad ``delprop`` call can irreversibly damage graph traversal.
 
 deltag()
 --------
