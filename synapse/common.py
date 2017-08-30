@@ -1,24 +1,40 @@
 import io
 import os
 import sys
+import gzip
 import json
 import time
+import queue
 import types
+import base64
+import socket
+import struct
 import hashlib
+import builtins
 import functools
 import itertools
 import threading
 import traceback
 import collections
+import urllib.parse
+
+from io import BytesIO
+from functools import lru_cache
 
 from binascii import hexlify
 
 import synapse.exc as s_exc
 
 from synapse.exc import *
-from synapse.compat import enbase64, debase64, canstor
 
 import msgpack
+
+major = sys.version_info.major
+minor = sys.version_info.minor
+micro = sys.version_info.micro
+
+majmin = (major, minor)
+version = (major, minor, micro)
 
 class NoValu: pass
 
@@ -356,3 +372,95 @@ def rowstotufos(rows):
     res = collections.defaultdict(dict)
     [res[i].__setitem__(p, v) for (i, p, v, t) in rows]
     return list(res.items())
+
+intern = sys.intern
+
+numtypes = (int,)
+strtypes = (str,)
+
+sockerrs = (builtins.ConnectionError, builtins.FileNotFoundError)
+
+def to_bytes(valu, size):
+    return valu.to_bytes(size, byteorder='little')
+
+def to_int(byts):
+    return int.from_bytes(byts, 'little')
+
+def enbase64(b):
+    return base64.b64encode(b).decode('utf8')
+
+def debase64(b):
+    return base64.b64decode(b.encode('utf8'))
+
+def isstr(s):
+    return isinstance(s, str)
+
+def isint(s):
+    return isinstance(s, int)
+
+def canstor(s):
+    return type(s) in (int, str)
+
+def typeof(x):
+    return type(x)
+
+def iterbytes(byts):
+    return iter(byts)
+
+def makedirs(path, mode=0o777):
+    os.makedirs(path, mode=mode, exist_ok=True)
+
+def iterzip(*args):
+    return itertools.zip_longest(*args)
+
+def url_quote(s):
+    return urllib.parse.quote(s)
+
+def url_quote_plus(s):
+    return urllib.parse.quote_plus(s)
+
+def memToBytes(x):
+    '''Convert a memoryview to bytes'''
+    return x.tobytes()
+
+def bytesToMem(x):
+    '''Convert bytes to memoryview'''
+    return memoryview(x)
+
+def user_input(text):
+    '''
+    Get input from a user via stdin.
+
+    Args:
+        text (str): Text displayed prior to the input prompt.
+
+    Returns:
+        str: String of text from the user.
+    '''
+
+    return input(text)
+
+def gzip_compress(byts, compresslevel=9):
+    '''
+    Compress a bytes object using gzip compression.
+
+    Args:
+        byts (bytes): Bytestream to compress.
+        compresslevel (int): Compression level to use (0-9).
+
+    Returns:
+        bytes: Gzip compressed bytes.
+    '''
+    return gzip.compress(byts, compresslevel)
+
+def gzip_decompress(byts):
+    '''
+    Decompress a bytes object using gzip compression.
+
+    Args:
+        byts (bytes): The bytestream to decompress.
+
+    Returns:
+        bytes: A Gzip decompressed bytestream.
+    '''
+    return gzip.decompress(byts)
