@@ -7,10 +7,8 @@ The operators below can be used to modify the Synapse hypergraph by:
 
 * adding or deleting nodes
 * adding cross-reference (xref) nodes
-* setting or modifying properties on nodes
+* setting, modifying, or deleting properties on nodes
 * adding or deleting tags from nodes
-
-(**Note:** currently there is no operator for deleting properties from nodes (e.g., ``delprop()``). This is planned for a future release.)
 
 All of these operators are defined in storm.py_.
 
