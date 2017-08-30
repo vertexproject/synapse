@@ -11,7 +11,10 @@ import contextlib
 
 import unittest.mock as mock
 
-logging.basicConfig(level=logging.WARNING)
+
+loglevel = int(os.getenv('SYN_TEST_LOG_LEVEL', logging.WARNING))
+logging.basicConfig(level=loglevel,
+                    format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s]')
 
 import synapse.link as s_link
 import synapse.cortex as s_cortex
@@ -80,6 +83,10 @@ class SynTest(unittest.TestCase):
     def skipIfNoInternet(self):
         if bool(int(os.getenv('SYN_TEST_SKIP_INTERNET', 0))):
             raise unittest.SkipTest('SYN_TEST_SKIP_INTERNET envar set')
+
+    def skipLongTests(self):
+        if not os.getenv('SYN_RUN_LONG_TESTS'):
+            raise unittest.SkipTest('no SYN_RUN_LONG_TESTS envar')
 
     def getPgConn(self):
         '''

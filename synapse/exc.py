@@ -136,8 +136,17 @@ class HitCoreLimit(SynErr):
     ''' You've reached some limit of the storage layer.'''
     pass
 
-class NotEnoughFree(Exception): pass
-class NoWritableAxons(Exception): pass
+class NotEnoughFree(SynErr):
+    '''
+    There is not enough disk space free for the required operation.
+    '''
+    pass
+
+class NoWritableAxons(SynErr):
+    '''
+    There are no writable axons available for the required operation.
+    '''
+    pass
 
 class MustNotWait(Exception): pass   # blocking function called by no-wait thread
 
@@ -147,6 +156,11 @@ class FileExists(SynErr): pass
 class NotEmpty(SynErr): pass
 class NotSupported(SynErr): pass
 
+class BadAtomFile(SynErr):
+    '''
+    Raised when there is a internal issue with an atomfile.
+    '''
+    pass
 
 class IsFini(Exception): pass
 

@@ -17,6 +17,7 @@ matrix:
       PG_DB: root@database:5432/syn_test
       COVERAGE_ARGS: --cov synapse --no-cov-on-fail
       SLEEP: 6
+      SYN_RUN_LONG_TESTS: 1
     - TEST_NAME: "Python 37 without coverage."
       IMAGE_VERSION: py37
       PG_DB: root@database:5432/syn_test
@@ -40,7 +41,7 @@ pipeline:
     commands:
       - if [ -n "${SLEEP}" ]; then sleep ${SLEEP}; fi;
       - python setup.py install
-      - pytest -v -s --durations 6 ${COVERAGE_ARGS}
+      - pytest -v -s -rs --durations 6 ${COVERAGE_ARGS}
       - if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${IMAGE_VERSION} --required; fi;
 
 services:

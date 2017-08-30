@@ -609,14 +609,36 @@ def clientside(f):
     A function decorator which causes the given function to be run on
     the telepath client side.
 
+    Args:
+        f: The function being decorated.
+
+    Notes:
+        A decorated function **must** use APIs within the function to access
+        object locals, variables, etc. In other words, the method must be able
+        to have **self** be a Telepath Proxy object.
+
     Example:
+        A class with a decorated clientside function::
 
-        @s_telepath.clientside
-        def foo(self, bar):
-            dostuff()
+            class Foob:
+                def __init__(self, data):
+                    self.locals = data
 
-    NOTE: you *must* use APIs within the function to access locals etc.
-          ( ie, the method must be able to have self be a telepath proxy )
+                def getLocals():
+                    return self.locals
+
+                @s_telepath.clientside
+                def foo(self, bar):
+
+                    # We use an API to get data from self.locals instead
+                    # accessing it directly, since that would cause failures.
+                    object_locals = self.getLocals()
+
+                    # Now do stuff on the client side.
+                    dostuff(object_locals)
+
+    Returns:
+        The decorated function.
     '''
     f._tele_clientside = True
     return f

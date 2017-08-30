@@ -1722,6 +1722,15 @@ class CortexTest(SynTest):
             tufs0 = core.getTufosByProp('strform:baz')
             self.eq(len(tufs0), 0)
 
+    def test_cortex_caching_del_tufo_prop(self):
+        with self.getRamCore() as core:
+            core.setConfOpt('caching', 1)
+            t0 = core.formTufoByProp('strform', 'stuff', baz=10)
+            self.eq(t0[1].get('strform:baz'), 10)
+            core.delTufoProp(t0, 'baz')
+            t0 = core.getTufoByProp('strform', 'stuff')
+            self.eq(t0[1].get('strform:baz'), None)
+
     def test_cortex_caching_atlimit(self):
 
         with self.getRamCore() as core:
@@ -2667,6 +2676,28 @@ class CortexTest(SynTest):
 
             self.raises(NoSuchUser, core.addUserRule, 'fred@woot.com', ('stuff', {}))
             self.raises(NoSuchRole, core.addRoleRule, 'root', ('stuff', {}))
+
+    def test_cortex_formtufobytufo(self):
+        with self.getRamCore() as core:
+            _t0iden = guid()
+            _t0 = (_t0iden, {'tufo:form': 'inet:ipv4', 'inet:ipv4': '1.2.3.4', 'inet:ipv4:asn': 1024})
+            t0 = core.formTufoByTufo(_t0)
+            form, valu = s_tufo.ndef(t0)
+            self.eq(form, 'inet:ipv4')
+            self.eq(valu, 0x01020304)
+            self.eq(t0[1].get('inet:ipv4:asn'), 1024)
+            self.eq(t0[1].get('inet:ipv4:cc'), '??')
+            self.ne(t0[0], _t0iden)
+
+            t1 = core.formTufoByTufo((None, {'tufo:form': 'strform', 'strform': 'oh hai',
+                                             'strform:haha': 1234, 'strform:foo': 'sup'}))
+            form, valu = s_tufo.ndef(t1)
+            self.eq(form, 'strform')
+            self.eq(valu, 'oh hai')
+            self.eq(t1[1].get('strform:foo'), 'sup')
+            self.none(t1[1].get('strform:bar'))
+            self.none(t1[1].get('strform:baz'))
+            self.none(t1[1].get('strform:haha'))
 
 class StorageTest(SynTest):
 
