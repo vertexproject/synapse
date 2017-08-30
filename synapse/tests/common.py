@@ -12,7 +12,6 @@ import contextlib
 logging.basicConfig(level=logging.WARNING)
 
 import synapse.link as s_link
-import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.eventbus as s_eventbus
 
@@ -31,13 +30,8 @@ s_scope.get('plex')
 
 class TooFewEvents(Exception): pass
 
-# Py2/3 SSL Exception Compat
-if s_compat.version >= (3, 0, 0):
-    TstSSLInvalidClientCertErr = ssl.SSLError
-    TstSSLConnectionResetErr = ConnectionResetError
-else:
-    TstSSLInvalidClientCertErr = socket.error
-    TstSSLConnectionResetErr = socket.error
+TestSSLInvalidClientCertErr = socket.error
+TestSSLConnectionResetErr = socket.error
 
 class TstEnv:
 

@@ -1,7 +1,7 @@
 import time
 import hashlib
 
-import synapse.compat as s_compat
+import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
 import synapse.cores.common as s_cores_common
@@ -155,7 +155,7 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
 
         limit = self._getDbLimit(limit)
 
-        if s_compat.isint(valus[0]):
+        if s_common.isint(valus[0]):
             q = self._q_getjoin_by_in_int
         else:
             q = self._q_getjoin_by_in_str
@@ -182,4 +182,4 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
         return 'postgres'
 
     def _prepBlobValu(self, valu):
-        return s_compat.bytesToMem(valu)
+        return s_common.bytesToMem(valu)

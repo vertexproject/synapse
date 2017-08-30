@@ -10,7 +10,6 @@ import threading
 import collections
 
 import synapse.common as s_common
-import synapse.compat as s_compat
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.queue as s_queue
@@ -309,7 +308,7 @@ class File(s_eventbus.EventBus):
         s_eventbus.EventBus.__init__(self)
 
         if fd is None:
-            fd = s_compat.BytesIO()
+            fd = s_common.BytesIO()
 
         fd.seek(0, os.SEEK_END)
 

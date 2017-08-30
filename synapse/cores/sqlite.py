@@ -3,7 +3,6 @@ import logging
 import sqlite3
 
 import synapse.common as s_common
-import synapse.compat as s_compat
 
 import synapse.cores.xact as s_xact
 import synapse.cores.common as s_cores_common
@@ -13,9 +12,9 @@ logger = logging.getLogger(__name__)
 
 stashre = re.compile('{{([A-Z]+)}}')
 
-int_t = s_compat.typeof(0)
-str_t = s_compat.typeof('visi')
-none_t = s_compat.typeof(None)
+int_t = s_common.typeof(0)
+str_t = s_common.typeof('visi')
+none_t = s_common.typeof(None)
 
 def initSqliteCortex(link, conf=None, storconf=None):
     '''
@@ -79,7 +78,7 @@ class DbPool:
         # TODO: high/low water marks
         self.size = size
         self.ctor = ctor
-        self.dbque = s_compat.queue.Queue()
+        self.dbque = s_common.queue.Queue()
 
         for i in range(size):
             db = ctor()
@@ -592,7 +591,7 @@ class SqliteStorage(s_cores_storage.Storage):
     def _addRows(self, rows):
         args = []
         for i, p, v, t in rows:
-            if s_compat.isint(v):
+            if s_common.isint(v):
                 args.append({'iden': i, 'prop': p, 'intval': v, 'strval': None, 'tstamp': t})
             else:
                 args.append({'iden': i, 'prop': p, 'intval': None, 'strval': v, 'tstamp': t})
@@ -660,7 +659,7 @@ class SqliteStorage(s_cores_storage.Storage):
     def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None, nolim=False):
         limit = self._getDbLimit(limit)
 
-        qkey = (s_compat.typeof(valu), s_compat.typeof(mintime), s_compat.typeof(maxtime))
+        qkey = (s_common.typeof(valu), s_common.typeof(mintime), s_common.typeof(maxtime))
 
         qstr = self.qbuild[name][qkey]
         if meth is None:
@@ -674,7 +673,7 @@ class SqliteStorage(s_cores_storage.Storage):
         if valu is None:
             return self.delete(self._q_delrows_by_iden_prop, iden=iden, prop=prop)
 
-        if s_compat.isint(valu):
+        if s_common.isint(valu):
             return self.delete(self._q_delrows_by_iden_prop_intval, iden=iden, prop=prop, valu=valu)
         else:
             return self.delete(self._q_delrows_by_iden_prop_strval, iden=iden, prop=prop, valu=valu)
@@ -684,14 +683,14 @@ class SqliteStorage(s_cores_storage.Storage):
             rows = self.select(self._q_getrows_by_iden_prop, iden=iden, prop=prop)
             return self._foldTypeCols(rows)
 
-        if s_compat.isint(valu):
+        if s_common.isint(valu):
             rows = self.select(self._q_getrows_by_iden_prop_intval, iden=iden, prop=prop, valu=valu)
         else:
             rows = self.select(self._q_getrows_by_iden_prop_strval, iden=iden, prop=prop, valu=valu)
         return self._foldTypeCols(rows)
 
     def _setRowsByIdProp(self, iden, prop, valu):
-        if s_compat.isint(valu):
+        if s_common.isint(valu):
             count = self.update(self._q_uprows_by_iden_prop_int, iden=iden, prop=prop, valu=valu)
         else:
             count = self.update(self._q_uprows_by_iden_prop_str, iden=iden, prop=prop, valu=valu)

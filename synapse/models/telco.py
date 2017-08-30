@@ -1,6 +1,7 @@
 import logging
 
-import synapse.compat as s_compat
+import synapse.common as s_common
+
 import synapse.lookup.phonenum as s_l_phone
 from synapse.lib.types import DataType
 from synapse.lib.module import CoreModule, modelrev
@@ -61,7 +62,7 @@ def digits(text):
 class PhoneType(DataType):
     def norm(self, valu, oldval=None):
 
-        if s_compat.isstr(valu):
+        if s_common.isstr(valu):
             valu = int(digits(valu))
 
         subs = {}

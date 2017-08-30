@@ -1,5 +1,4 @@
 import synapse.common as s_common
-import synapse.compat as s_compat
 
 from synapse.lib.types import DataType
 from synapse.common import addpref, guid
@@ -7,7 +6,7 @@ from synapse.lib.module import CoreModule, modelrev
 
 class FileBaseType(DataType):
     def norm(self, valu, oldval=None):
-        if not (s_compat.isstr(valu) and not valu.find('/') > -1):
+        if not (s_common.isstr(valu) and not valu.find('/') > -1):
             self._raiseBadValu(valu)
 
         return valu.lower(), {}
@@ -18,7 +17,7 @@ class FileBaseType(DataType):
 class FilePathType(DataType):
     def norm(self, valu, oldval=None):
 
-        if not s_compat.isstr(valu):
+        if not s_common.isstr(valu):
             self._raiseBadValu(valu)
 
         lead = ''
@@ -62,7 +61,7 @@ class FilePathType(DataType):
 
 class FileRawPathType(DataType):
     def norm(self, valu, oldval=None):
-        if not s_compat.isstr(valu):
+        if not s_common.isstr(valu):
             self._raiseBadValu(valu)
 
         subs = {}

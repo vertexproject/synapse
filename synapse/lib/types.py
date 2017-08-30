@@ -5,7 +5,6 @@ import logging
 import collections
 
 import synapse.common as s_common
-import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
 
 import synapse.lib.time as s_time
@@ -84,7 +83,7 @@ class GuidType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if not s_compat.isstr(valu) or len(valu) < 1:
+        if not s_common.isstr(valu) or len(valu) < 1:
             self._raiseBadValu(valu)
 
         # generate me one.  we dont care.
@@ -144,10 +143,10 @@ class StrType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if self.frobintfmt and s_compat.isint(valu):
+        if self.frobintfmt and s_common.isint(valu):
             valu = self.frobintfmt % valu
 
-        if not s_compat.isstr(valu):
+        if not s_common.isstr(valu):
             self._raiseBadValu(valu)
 
         if self.info.get('lower'):
@@ -174,7 +173,7 @@ class JsonType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if not s_compat.isstr(valu):
+        if not s_common.isstr(valu):
             return json.dumps(valu, separators=(',', ':')), {}
 
         try:
@@ -210,13 +209,13 @@ class IntType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if s_compat.isstr(valu):
+        if s_common.isstr(valu):
             try:
                 valu = int(valu, 0)
             except ValueError as e:
                 self._raiseBadValu(valu)
 
-        if not s_compat.isint(valu):
+        if not s_common.isint(valu):
             self._raiseBadValu(valu)
 
         if oldval is not None and self.minmax:
@@ -260,7 +259,7 @@ class MultiFieldType(DataType):
         vals = []
         subs = {}
 
-        for valu, (name, item) in s_compat.iterzip(valu, fields):
+        for valu, (name, item) in s_common.iterzip(valu, fields):
 
             norm, fubs = item.norm(valu)
 
@@ -378,7 +377,7 @@ class CompType(DataType):
             opts[k] = v
 
         vals = valu[:self.fsize]
-        for v, (name, tname) in s_compat.iterzip(vals, self.fields):
+        for v, (name, tname) in s_common.iterzip(vals, self.fields):
 
             norm, ssubs = self.tlib.getTypeNorm(tname, v)
 
@@ -406,7 +405,7 @@ class CompType(DataType):
     def norm(self, valu, oldval=None):
 
         # if it's already a guid, we have nothing to normalize...
-        if s_compat.isstr(valu):
+        if s_common.isstr(valu):
             return self._norm_str(valu, oldval=oldval)
 
         if not islist(valu):
@@ -442,7 +441,7 @@ class XrefType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if s_compat.isstr(valu):
+        if s_common.isstr(valu):
             return self._norm_str(valu, oldval=oldval)
 
         if not islist(valu):
@@ -517,7 +516,7 @@ class TimeType(DataType):
         subs = {}
 
         # make the string into int form then apply our min/max
-        if s_compat.isstr(valu):
+        if s_common.isstr(valu):
             valu, subs = self._norm_str(valu, oldval=oldval)
 
         if oldval is not None and self.minmax:
@@ -542,7 +541,7 @@ class SeprType(MultiFieldType):
         subs = {}
         reprs = []
 
-        if s_compat.isstr(valu):
+        if s_common.isstr(valu):
             valu = self._split_str(valu)
 
         # only other possiblity should be that it was a list
@@ -576,11 +575,11 @@ class SeprType(MultiFieldType):
         return parts
 
     def _zipvals(self, vals):
-        return s_compat.iterzip(vals, self._get_fields())
+        return s_common.iterzip(vals, self._get_fields())
 
 class BoolType(DataType):
     def norm(self, valu, oldval=None):
-        if s_compat.isstr(valu):
+        if s_common.isstr(valu):
             valu = valu.lower()
             if valu in ('true', 't', 'y', 'yes', '1', 'on'):
                 return 1, {}

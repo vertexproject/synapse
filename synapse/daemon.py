@@ -10,7 +10,6 @@ import collections
 import multiprocessing
 
 import synapse.link as s_link
-import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
@@ -456,7 +455,7 @@ class Daemon(EventBus, DmonConf):
 
         # process a few daemon specific options
         for url in conf.get('listen', ()):
-            if s_compat.isstr(url):
+            if s_common.isstr(url):
                 self.listen(url)
                 continue
 

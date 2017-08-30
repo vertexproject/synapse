@@ -7,7 +7,6 @@ import unittest
 
 import synapse.link as s_link
 import synapse.common as s_common
-import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
@@ -1096,7 +1095,7 @@ class CortexTest(SynTest):
         core1.fini()
 
     def test_cortex_savefd(self):
-        fd = s_compat.BytesIO()
+        fd = s_common.BytesIO()
         core0 = s_cortex.openurl('ram://', savefd=fd)
         self.addTstForms(core0)
 

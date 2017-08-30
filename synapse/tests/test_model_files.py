@@ -115,7 +115,7 @@ class FileModelTest(SynTest):
 
     def test_model_file_bytes_axon(self):
 
-        fd = s_compat.BytesIO(b'foobar')
+        fd = BytesIO(b'foobar')
 
         # create an cortex with access to an axon
         with self.getTestDir() as dirname:

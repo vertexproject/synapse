@@ -2,8 +2,6 @@ import os
 import socket
 import tempfile
 
-import synapse.common as s_common
-import synapse.compat as s_compat
 import synapse.lib.socket as s_socket
 
 from synapse.links.common import *
@@ -54,6 +52,6 @@ class LocalRelay(LinkRelay):
             s.connect(path)
             return s_socket.Socket(s)
 
-        except s_compat.sockerrs as e:
+        except s_common.sockerrs as e:
             s.close()
             raiseSockError(self.link, e)

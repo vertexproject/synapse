@@ -5,7 +5,6 @@ import hashlib
 import logging
 
 import synapse.common as s_common
-import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
 import synapse.lib.socket as s_socket
 import synapse.lookup.iana as s_l_iana
@@ -47,10 +46,10 @@ def ipv4cidr(valu):
 class IPv4Type(DataType):
 
     def norm(self, valu, oldval=None):
-        if s_compat.isstr(valu):
+        if s_common.isstr(valu):
             return self._norm_str(valu, oldval=oldval)
 
-        if not s_compat.isint(valu):
+        if not s_common.isint(valu):
             self._raiseBadValu(valu)
 
         return valu & 0xffffffff, {}
@@ -141,7 +140,7 @@ class Srv4Type(DataType):
         return '%s:%d' % (ipv4str(addr), port)
 
     def norm(self, valu, oldval=None):
-        if s_compat.isstr(valu):
+        if s_common.isstr(valu):
             return self._norm_str(valu, oldval=oldval)
 
         addr = valu >> 16

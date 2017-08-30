@@ -19,7 +19,6 @@ import argparse
 import synapse
 import synapse.axon as s_axon
 import synapse.common as s_common
-import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 
 import synapse.lib.tufo as s_tufo
@@ -35,7 +34,7 @@ def gen_backup_tufo(options):
          'synapse:cortex:blob_store': options.dump_blobstore,
          'synapse:cortex:revstore': options.revstorage,
          'time:created': s_common.now(),
-         'python:version': s_compat.version
+         'python:version': s_common.version
          }
     tufo = s_tufo.tufo('syn:cortex:rowdump:info', **d)
     return tufo
@@ -63,7 +62,7 @@ def dump_rows(outp, fd, store, compress=False, genrows_kwargs=None):
         i += len(rows)
         tufo = s_tufo.tufo('core:save:add:rows', rows=rows)
         if compress:
-            tufo[1]['rows'] = s_compat.gzip_compress(s_common.msgenpack(rows))
+            tufo[1]['rows'] = s_common.gzip_compress(s_common.msgenpack(rows))
         byts = s_common.msgenpack(tufo)
         bufs.append(byts)
         cur_bytes += len(byts)

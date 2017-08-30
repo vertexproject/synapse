@@ -3,7 +3,7 @@ Tools for easily hookable output from cli-like tools.
 '''
 import sys
 
-import synapse.compat as s_compat
+import synapse.common as s_common
 
 class OutPut:
 
@@ -33,7 +33,7 @@ class OutPutFd(OutPut):
 class OutPutBytes(OutPutFd):
 
     def __init__(self):
-        OutPutFd.__init__(self, s_compat.BytesIO())
+        OutPutFd.__init__(self, s_common.BytesIO())
 
 class OutPutStr(OutPut):
 

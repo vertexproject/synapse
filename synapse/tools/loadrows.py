@@ -14,7 +14,6 @@ import argparse
 
 # Custom Code
 import synapse.common as s_common
-import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 
 import synapse.lib.output as s_output
@@ -64,7 +63,7 @@ def main(argv, outp=None):
             nrows = 0
             for event in gen:
                 if decompress and 'rows' in event[1]:
-                    event[1]['rows'] = s_common.msgunpack(s_compat.gzip_decompress(event[1].get('rows')))
+                    event[1]['rows'] = s_common.msgunpack(s_common.gzip_decompress(event[1].get('rows')))
                 i += 1
                 if i % 250 == 0:
                     outp.printf('Loaded {} events'.format(i))

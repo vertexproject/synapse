@@ -1,6 +1,6 @@
 import collections
 
-from synapse.compat import isint, intern
+from synapse.common import isint, intern
 
 import synapse.cores.xact as s_xact
 import synapse.cores.common as s_cores_common

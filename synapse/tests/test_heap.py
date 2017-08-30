@@ -2,7 +2,6 @@ import os
 import tempfile
 
 import synapse.axon as s_axon
-import synapse.compat as s_compat
 import synapse.lib.heap as s_heap
 
 from synapse.tests.common import *

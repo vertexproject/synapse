@@ -5,7 +5,6 @@ import logging
 import collections
 
 import synapse.common as s_common
-import synapse.compat as s_compat
 
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
@@ -153,7 +152,7 @@ class ShowHelp:
 
         retn = []
         for row in rows:
-            retn.append([r.rjust(size) for r, size in s_compat.iterzip(row, widths)])
+            retn.append([r.rjust(size) for r, size in s_common.iterzip(row, widths)])
 
         return retn
 

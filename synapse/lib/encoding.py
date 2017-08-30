@@ -1,12 +1,11 @@
 import base64
 
 import synapse.common as s_common
-import synapse.compat as s_compat
 
 def _de_base64(item, **opts):
 
     # transparently handle the strings/bytes issue...
-    wasstr = s_compat.isstr(item)
+    wasstr = s_common.isstr(item)
     if wasstr:
         item = item.encode('utf8')
 

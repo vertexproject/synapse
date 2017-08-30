@@ -10,8 +10,6 @@ import synapse.common as s_common
 
 import synapse.lib.moddef as s_moddef
 
-from synapse.compat import majmin
-
 '''
 The synapse mindmeld subsystem provides a mechanism for the
 serialization and synchronization of code between processes.
@@ -252,7 +250,7 @@ class MindMeld:
         '''
         modinfo['fmt'] = 'pyc'
         modinfo['bytes'] = byts
-        modinfo['pyver'] = majmin
+        modinfo['pyver'] = s_common.majmin
 
         self.info['modules'][name] = s_common.tufo(name, **modinfo)
 
@@ -317,7 +315,7 @@ class MindMeld:
 
             # try bytecode first ( save on compile cycles )
             byts = moddef[1].get('bytes')
-            if byts and moddef[1].get('pyver') == majmin:
+            if byts and moddef[1].get('pyver') == s_common.majmin:
                 modcode = marshal.loads(byts)
 
             modsrc = moddef[1].get('src')

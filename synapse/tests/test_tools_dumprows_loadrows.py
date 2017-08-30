@@ -50,7 +50,7 @@ class DumpRowsTest(SynTest):
                 self.eq(evt[1].get('synapse:cortex:input'), sqlite_url)
                 self.eq(evt[1].get('synapse:cortex:blob_store'), False)
                 self.eq(evt[1].get('synapse:cortex:revstore'), False)
-                self.eq(evt[1].get('python:version'), s_compat.version)
+                self.eq(evt[1].get('python:version'), version)
                 self.isin('synapse:version', evt[1])
                 evt = next(gen)
                 self.eq(evt[0], 'core:save:add:rows')
@@ -96,7 +96,7 @@ class DumpRowsTest(SynTest):
                 self.isin('rows', evt[1])
                 rows = evt[1].get('rows')
                 # we decode the rows blob not in place but separately here
-                rows = msgunpack(s_compat.gzip_decompress(rows))
+                rows = msgunpack(gzip_decompress(rows))
                 self.isinstance(rows, tuple)
                 self.isinstance(rows[0], tuple)
                 self.eq(len(rows[0]), 4)
