@@ -78,7 +78,7 @@ From an analysis standpoint, this feature means that Storm can parallel an analy
 
 From a practical standpoint, it means that **order matters** when constructing a Storm query. A lengthy Storm query is not evaluated as a whole. Instead, Synapse parses each component of the query in order, evaluating each component individually as it goes. The Storm runtime(s) executing the query keep a list of lifted nodes in memory while performing the requested operations (lifts, pivots, data modification, and so on.) 
 
-Most Storm operators **"consume"** nodes upon input. That is, the set of nodes input into a particular Storm operator is typically transformed by that operator in some way. With few exceptions, the nodes input to the operator are **not** retained after processing - they are consumed - and the operator outputs and retains in memory **only** those nodes that result from carrying out the specified operation.
+Most Storm operators **"consume"** nodes upon input. That is, the set of nodes input into a particular Storm operator is typically transformed by that operator in some way. With few exceptions, the nodes input to the operator are **not** retained - they are **consumed** during processing. Storm outputs and retains in memory **only** those nodes that result from carrying out the specified operation.
 
 In this way the operators used may add or remove nodes from Storm's in-memory "working set", or clear the set entirely; as such this set is continually changing based on the last-used operator. Particularly when first learning Storm, users are encouraged to break down complex queries into their component parts, and to validate the output (results) after the addition of each operator to the overall query.
 
@@ -168,9 +168,9 @@ The components of the query are broken down below; note how each new component b
 +-------------------------+----------------------------------------+--------------------------------------------------+
 | Request                 | Operator & Macro Syntax                | Macro Syntax Notes                               |
 +=========================+========================================+==================================================+
-| List all nodes tagged as| Operator                               | - Omit "lift(...)" operator                      |
-| part of Threat Cluster  |   ``lift(inet:fqdn,by=tag,tc.t12)``    | - Asterisk ( ``*`` ) substitutes for "by"        |
-| 12                      | Macro                                  |   parameter                                      |
+| List all domains tagged | Operator                               | - Omit "lift(...)" operator                      |
+| as Threat Cluster 12    |   ``lift(inet:fqdn,by=tag,tc.t12)``    | - Asterisk ( ``*`` ) substitutes for "by"        |
+|                         | Macro                                  |   parameter                                      |
 |                         |   ``inet:fqdn*tag=tc.12``              |                                                  |
 +-------------------------+----------------------------------------+--------------------------------------------------+
 | Pivot from these domains| Operator                               | - Omit "from" parameter in pivot (``inet:fqdn``) |
@@ -229,9 +229,9 @@ Two ways to ask that question using Storm are:
 
 ``cli> ask #tc.t12 +inet:ipv4``
 
-The first query is problematic because it first asks Storm to return **all** ``inet:ipv4`` nodes within the hypergraph – potentially hundreds of thousands, or even millions of nodes, depending on how densely populated the hypergraph is (mathematically speaking, there are over four billion possible IPv4 addresses). Synapse has to lift **all** of those ``inet:ipv4`` nodes into memory and then select only those nodes with the ``tc.t12`` tag. The query is likely to take an extremely long time to return (at least until query limits are incorporated into Synapse), and therefore represents a "bad" query.
+The first query is problematic because it asks Storm to return **all** ``inet:ipv4`` nodes within the hypergraph – potentially hundreds of thousands, or even millions of nodes, depending on how densely populated the hypergraph is (mathematically speaking, there are over four billion possible IPv4 addresses). Synapse has to lift **all** of those ``inet:ipv4`` nodes into memory and then select only those nodes with the ``tc.t12`` tag. The query is likely to take an extremely long time to return (at least until query limits are incorporated into Synapse), and therefore represents a "bad" query.
 
-The second query first asks Storm to return **all** nodes tagged with ``tc.t12``. This may still be a large number depending on how much analysis and annotation has been performed related to Threat Cluster 12. However, the number of nodes tagged ``tc.t12`` will still be much smaller than the number of ``inet:ipv4`` nodes within a hypergraph. As such, the second query is more efficient or performant, and represents a "good" (or at least "better" query).
+The second query asks Storm to return **all** nodes tagged with ``tc.t12``. This may still be a large number depending on how much analysis and annotation has been performed related to Threat Cluster 12. However, the number of nodes tagged ``tc.t12`` will still be much smaller than the number of ``inet:ipv4`` nodes within a hypergraph. As such, the second query is more efficient or performant, and represents a "good" (or at least "better" query).
 
 (**Note:** The previous example is used for simple illustrative purposes. Technically, the "best" way to ask this particular question would be to use what is called a Storm "by" handler (represented by the asterisk ( ``*`` )) to "lift by tag":
 
