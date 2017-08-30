@@ -1,5 +1,3 @@
-from __future__ import absolute_import, unicode_literals
-
 import synapse.axon as s_axon
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath

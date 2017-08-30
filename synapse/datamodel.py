@@ -1,4 +1,3 @@
-from __future__ import absolute_import, unicode_literals
 '''
 An API to assist with the creation and enforcement of cortex data models.
 '''
