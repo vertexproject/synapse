@@ -31,7 +31,7 @@ As an example of this simplification, analysts can ask Synapse about a node simp
 
 ``cli> ask inet:ipv4=1.2.3.4``
 
-Note that Storm accepts the IP address in its “intuitive” form (dotted decimal notation), even though Synapse stores IP addresses as integers (IP ``1.2.3.4`` is stored as integer ``16909060``). The analyst does not need to convert the IP to integer form to run the query, nor do they need to escape the IP with quotes (``"1.2.3.4"``) to indicate it is a string representation of the data. (Generally speaking, double quotes only need to be used when input contains characters that would otherwise be interpreted as "end of data" (space, comma) or other specialized input (e.g, escape characters) by the Synapse parser.)
+Note that Storm accepts the IP address in its “intuitive” form (dotted decimal notation), even though Synapse stores IP addresses as integers (IP ``1.2.3.4`` is stored as integer ``16909060``). The analyst does not need to convert the IP to integer form to run the query, nor do they need to escape the IP with quotes (``"1.2.3.4"``) to indicate it is a string representation of the data. (Generally speaking, double quotes only need to be used in limited situations, such as numeric strings that may be interpreted as integers, or when input contains characters that may be interpreted as specialized input (escape characters or characters such as a space or comma that otherwise indicate "end of data") by the Synapse parser.)
 
 In addition, the Storm syntax should feel intuitive to the user, like asking a question: “Tell me about (ask about) the IP address 1.2.3.4”. Analysts still need to learn the Storm “language” and master enough command-line syntax to perform tasks and find help when necessary. However, the intent is for Storm to function more like “how do I ask this question of the data?” and not “how do I write a program to get the data I need?”
 
@@ -69,14 +69,18 @@ Whether lifting, filtering, or pivoting across data in a Cortex, you need to be 
 
 All of the above elements – nodes, properties, values, and tags – are the fundamental `building blocks`__ of the Synapse data model. **As such, an understanding of the Synapse data model is essential to effective use of Storm.**
 
-Operator Chaining
------------------
+Operator Chaining and Node Consumption
+--------------------------------------
 
 Storm allows multiple operators to be chained together to form increasingly complex queries. Storm operators are processed **in order from left to right** with each operator acting on the current result set (e.g., the output of the previous operator).
 
 From an analysis standpoint, this feature means that Storm can parallel an analyst's natural thought process: "show me X data...that's interesting, show me the Y data that relates to X...hm, take only this subset of results from Y and show me any relationship to Z data…" and so on.
 
-From a practical standpoint, it means that **order matters** when constructing a Storm query. A lengthy Storm query is not evaluated as a whole. Instead, Synapse parses each component of the query in order, evaluating each component individually as it goes. The Storm runtime(s) executing the query keep a list of lifted nodes in memory while performing the requested lifts, pivots, data modification, and so on. The operators used may add or remove nodes from this "working set", or clear the set entirely; as such the in-memory set is continually changing based on the last-used operator. Particularly when first learning Storm, users are encouraged to break down complex queries into their component parts, and to validate the output (results) after the addition of each operator to the overall query.
+From a practical standpoint, it means that **order matters** when constructing a Storm query. A lengthy Storm query is not evaluated as a whole. Instead, Synapse parses each component of the query in order, evaluating each component individually as it goes. The Storm runtime(s) executing the query keep a list of lifted nodes in memory while performing the requested operations (lifts, pivots, data modification, and so on.) 
+
+Most Storm operators **"consume"** nodes upon input. That is, the set of nodes input into a particular Storm operator is typically transformed by that operator in some way. With few exceptions, the nodes input to the operator are **not** retained after processing - they are consumed - and the operator outputs and retains in memory **only** those nodes that result from carrying out the specified operation.
+
+In this way the operators used may add or remove nodes from Storm's in-memory "working set", or clear the set entirely; as such this set is continually changing based on the last-used operator. Particularly when first learning Storm, users are encouraged to break down complex queries into their component parts, and to validate the output (results) after the addition of each operator to the overall query.
 
 Syntax Conventions
 ------------------
