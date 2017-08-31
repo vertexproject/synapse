@@ -820,6 +820,11 @@ class StormTest(SynTest):
             self.eq(result.get('oplog')[1].get('excinfo').get('err'), 'CantDelProp')
             t1 = core.getTufoByProp('inet:netuser', 'vertex.link/pennywise')
             self.isin('inet:netuser:user', t1[1])
+            result = core.ask('inet:netuser delprop(:user, force=1)')
+            self.eq(result.get('data'), [])
+            self.eq(result.get('oplog')[1].get('excinfo').get('err'), 'CantDelProp')
+            t1 = core.getTufoByProp('inet:netuser', 'vertex.link/pennywise')
+            self.isin('inet:netuser:user', t1[1])
 
             # Syntax errors
             self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link delprop()')
