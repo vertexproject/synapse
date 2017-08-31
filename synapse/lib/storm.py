@@ -1421,8 +1421,13 @@ class Runtime(Configable):
         args = oper[1].get('args')
         opts = dict(oper[1].get('kwlist'))
 
-        # Prevent bad recursions????
-        recurlim = opts.get('recurlim', 20)
+        if not args:
+            raise s_common.BadSyntaxError(mesg='tree([<srcprop>], <destprop>, [recurlim=<limit>])')
+
+        core = self.getStormCore()
+
+        # Prevent infinite pivots
+        recurlim, _ = core.getTypeNorm('int', opts.get('recurlim', 20))
 
         srcp = None
         dstp = args[0]
@@ -1473,7 +1478,7 @@ class Runtime(Configable):
 
             if recurlim:
                 recurlim -= 1
-                if not recurlim:
+                if recurlim < 1:
                     break
 
             tufs = query.data()
