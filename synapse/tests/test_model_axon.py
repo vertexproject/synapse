@@ -10,10 +10,10 @@ class AxonModelTest(SynTest):
 
     def test_axonpath(self):
 
-        defmode = 0
-
         with self.getTestDir() as axondir:
             axon = s_axon.Axon(axondir)
+
+            defmode = axon.core.getConfOpt('axon:dirmode')
 
             mode = (stat.S_IFDIR | defmode)
             nlinks = 1

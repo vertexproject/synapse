@@ -28,7 +28,8 @@ class AxonMod(CoreModule):
 
         pval, psubs = self.core.getTypeNorm('axon:path', pval)
         # XXX Private static method should be promoted to a standalone method.
-        pprops = s_axon.Axon._fs_new_dir_attrs(psubs.get('dir'), 0)
+        mode = self.core.getConfOpt('axon:dirmode')
+        pprops = s_axon.Axon._fs_new_dir_attrs(psubs.get('dir'), mode)
         children = self.core.getTufosByProp('axon:path:dir', pval)
         pprops['st_nlink'] += len(children) + 1 # XXX Is this correct?
 
