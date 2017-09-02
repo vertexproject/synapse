@@ -545,6 +545,11 @@ def parse(text, off=0):
                     ret.append(oper('addtag', valu))
                     continue
 
+                if nextstr(text, off, '-:'):
+                    valu, off = parse_valu(text, off + 1)
+                    ret.append(oper('delprop', valu, force=1))
+                    continue
+
                 # otherwise, it should be a prop=valu (maybe relative)
                 prop, off = nom(text, off, propset)
                 if not prop:
