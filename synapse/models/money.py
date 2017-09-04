@@ -6,4 +6,4 @@ class MoneyMod(CoreModule):
     def getBaseModels():
         modl = {}
         name = 'money'
-        return ((name, modl),)
+        return ((name, 0, modl), )

@@ -18,7 +18,7 @@ class GovCnMod(CoreModule):
             ),
         }
         name = 'gov:cn'
-        return ((name, modl), )
+        return ((name, 0, modl), )
 
     @on('node:add', form='gov:cn:mucd')
     def _onFormMucd(self, mesg):

@@ -9,5 +9,4 @@ class GovIntlMod(CoreModule):
                 ('gov:intl:un:m49', {'subof': 'int', 'doc': 'UN M4 Numeric Country Code'}),
             ),
         }
-        name = 'gov:intl'
-        return ((name, modl), )
+        return (('gov:intl', 0, modl), )

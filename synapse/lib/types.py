@@ -716,11 +716,21 @@ class TypeLib:
 
     def loadDataModels(self, modtups):
         '''
-        Load a list of (name,model) tuples into the TypeLib.
+        Load a list of (name,vers,model) tuples into the TypeLib.
+
+        Args:
+            modtups ((str,int,dict)):   The list of model definitions
+
+        Returns:
+            (None)
+
         '''
         subtodo = []
 
-        for modname, moddict in modtups:
+        modtups = list(modtups)
+        modtups.sort(key=lambda x: x[1])
+
+        for modname, modver, moddict in modtups:
             # add all base types first to simplify deps
             for name, info in moddict.get('types', ()):
                 try:
@@ -731,8 +741,14 @@ class TypeLib:
     def loadModModels(self):
 
         dynmodls = s_modules.call_ctor('getBaseModels')
+        models = []
+        for mname, mods, exc in dynmodls:
 
-        models = [(modname, modl) for name, modls, excp in dynmodls for modname, modl in modls if modls]
+            if exc:
+                logger.exception('getBaseModels (%s): %s' % (mname, exc))
+                continue
+
+            models.extend(mods)
 
         self.loadDataModels(models)
 

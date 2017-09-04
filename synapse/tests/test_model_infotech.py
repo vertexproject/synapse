@@ -99,26 +99,9 @@ class InfoTechTest(SynTest):
             self.nn(node)
             self.eq(node[1].get('file:path'), '/foo/baz.json')
 
-    def test_model_infotech_hostfile(self):
-
+    def test_model_infotech_exec(self):
+        # test host execution model elements
         with s_cortex.openurl('ram:///') as core:
             core.setConfOpt('enforce', 1)
-
-            host = core.formTufoByProp('it:host', None)
-            byts = core.formTufoByProp('file:bytes', None)
-
-            hiden = host[1].get('it:host')
-            fiden = byts[1].get('file:bytes')
-
-            hostfile = core.formTufoByProp('it:hostfile', (hiden, r'c:\Windows\system32\foo.exe', fiden), ctime='20501217')
-
-            self.nn(hostfile)
-
-            self.eq(hostfile[1].get('it:hostfile:host'), hiden)
-            self.eq(hostfile[1].get('it:hostfile:path'), 'c:/windows/system32/foo.exe')
-            self.eq(hostfile[1].get('it:hostfile:path:dir'), 'c:/windows/system32')
-            self.eq(hostfile[1].get('it:hostfile:path:ext'), 'exe')
-            self.eq(hostfile[1].get('it:hostfile:path:base'), 'foo.exe')
-            self.eq(hostfile[1].get('it:hostfile:file'), fiden)
-
-            self.eq(hostfile[1].get('it:hostfile:ctime'), 2554848000000)
+            node = core.eval('[ it:exec:url=(*,"http://woot.com/haha",time="2016")  ]')
+            # TODO lots more here...

@@ -303,7 +303,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             if vers <= curv:
                 continue
 
-            if vers and curv != -1:
+            if not self.isnew:
                 mesg = 'Updating model [{}] from [{}] => [{}] - do *not* interrupt.'.format(name, curv, vers)
                 logger.warning(mesg)
                 self.log(logging.WARNING, mesg=mesg, name=name, curv=curv, vers=vers)
@@ -314,10 +314,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             if retn is not None:
                 vers = retn
 
-            if vers and curv != -1:
-                mesg = 'Updated model [{}] from [{}] => [{}]'.format(name, curv, vers)
-                logger.warning(mesg)
-                self.log(logging.WARNING, mesg=mesg, name=name, curv=curv, vers=vers)
+            #if vers and curv != -1:
+                #mesg = 'Updated model [{}] from [{}] => [{}]'.format(name, curv, vers)
+                #logger.warning(mesg)
+                #self.log(logging.WARNING, mesg=mesg, name=name, curv=curv, vers=vers)
 
             curv = self.setModlVers(name, vers)
 
@@ -431,9 +431,23 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if tufo[1].get('syn:model:hash') == mhas:
             return
 
-        # FIXME handle type/form/prop removal
-        for name, tnfo in modl.get('types', ()):
+        self.loadDataModel(modl)
 
+    def loadDataModel(self, modl):
+        '''
+        Load and initialize nodes from a data model dict.
+
+        This API may also be used to update existing data model defs/props but
+        will *not* delete properties.
+
+        Args:
+            modl (dict):    A data model definition dictionary.
+
+        Returns:
+            (None)
+
+        '''
+        for name, tnfo in modl.get('types', ()):
             tufo = self.formTufoByProp('syn:type', name, **tnfo)
             tufo = self.setTufoProps(tufo, **tnfo)
 
@@ -450,6 +464,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 fullprop = form + ':' + prop
                 tufo = self.formTufoByProp('syn:prop', fullprop, form=form, **pnfo)
                 tufo = self.setTufoProps(tufo, **pnfo)
+
 
     def addDataModels(self, modtups):
         [self.addDataModel(name, modl) for (name, modl) in modtups]
@@ -709,6 +724,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         # dynamically load modules if we are already done loading
         for ctor, conf in mods:
             self.initCoreModule(ctor, conf)
+
         if not self.modelrevlist:
             return
 

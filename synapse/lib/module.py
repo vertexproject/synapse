@@ -98,18 +98,14 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
 
             name, vers = mrev
             self._syn_mrevs[name].append((vers, meth))
-        # Generate rev0 functions for new Cortex instances.
-        for name, modl in self.getBaseModels():
-            revision = 0
-            if core.isnew and name in self._syn_mrevs:
-                _vers = [vers for vers, meth in self._syn_mrevs.get(name)]
-                revision = max(_vers)
 
-            def rev0():
-                self.core.addDataModel(name, modl)
-                return revision
+        # Generate rev functions for new Cortex instances.
+        for name, vers, modl in self.getBaseModels():
 
-            self._syn_mrevs[name].append((0, rev0))
+            def rev():
+                self.core.loadDataModel(modl)
+
+            self._syn_mrevs[name].append((vers, rev))
 
         # ensure the revs are in sequential order
         [v.sort(key=lambda x: x[0]) for v in self._syn_mrevs.values()]

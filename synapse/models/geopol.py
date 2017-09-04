@@ -39,4 +39,4 @@ class PolMod(CoreModule):
             ),
         }
         name = 'pol'
-        return ((name, modl), )
+        return ((name, 0, modl), )
