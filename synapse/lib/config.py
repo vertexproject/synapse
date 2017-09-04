@@ -1,7 +1,7 @@
 '''
 Central API for configurable objects within synapse.
 '''
-import collections
+import copy
 
 import synapse.common as s_common
 import synapse.telepath as s_telepath
@@ -103,7 +103,7 @@ class Configable:
         self._conf_defs[name] = (name, dict(info))
 
         defval = info.get('defval')
-        self._conf_opts.setdefault(name, defval)
+        self._conf_opts.setdefault(name, copy.deepcopy(defval))
 
         asloc = info.get('asloc')
         if asloc is not None:
