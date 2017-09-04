@@ -51,7 +51,7 @@ class ConfTest(SynTest):
             self.isin('fooval', instance_defs)
             edict = instance_defs.get('enabled')
             self.eq(edict.get('type'), 'bool')
-            self.eq(edict.get('defval'), '99')
+            self.eq(edict.get('defval'), 0)
             self.eq(edict.get('doc'), 'is thing enabled?')
 
     def test_conf_defval(self):

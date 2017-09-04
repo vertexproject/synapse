@@ -129,7 +129,7 @@ class Configable:
         '''
         Returns the configuration definitions for this object.
         '''
-        return {name: dict(info) for (name, info) in self._conf_defs.items()}
+        return {name: dict(info[1]) for (name, info) in self._conf_defs.items()}
 
     def getConfNorm(self, name, valu):
         '''
