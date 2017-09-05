@@ -1776,8 +1776,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             core.addTufoEvents('woot',propss)
 
         '''
-
-        #doneadd = set()
         tname = self.getPropTypeName(form)
         if tname is None and self.enforce:
             raise s_common.NoSuchForm(name=form)
@@ -1794,8 +1792,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 adds = []
                 rows = []
 
-                #alladd = set()
-
                 for props in chunk:
 
                     iden = s_common.guid()
@@ -1809,10 +1805,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
                     if self.autoadd:
                         self._runToAdd(fulls)
-                    #toadd = [t for t in toadd if t not in doneadd]
-
-                    #alladd.update(toadd)
-                    #doneadd.update(toadd)
 
                     # fire these immediately since we need them to potentially fill
                     # in values before we generate rows for the new tufo
@@ -1831,10 +1823,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                     ret.append(node)
                     adds.append((form, iden, props, node))
 
-                # add "toadd" nodes *first* (for tree/parent issues )
-                #if self.autoadd:
-                    #self._runAutoAdd(alladd)
-
                 self.addRows(rows)
 
                 # fire splice events
@@ -1843,12 +1831,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                     xact.spliced('node:add', form=form, valu=valu, props=props)
 
         return ret
-
-    #def _runAutoAdd(self, toadd):
-        ##for form, valu in toadd:
-            #if form in self.noauto:
-                #continue
-            #self.formTufoByProp(form, valu)
 
     def _reqProps(self, form, fulls):
         if not self.enforce:
@@ -2201,8 +2183,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         as well as modify props inband as a normalized set or relatives.
         '''
 
-        #toadd = set()
-
         fulls = {}
         for name in list(props.keys()):
 
@@ -2222,12 +2202,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 props.pop(name, None)
                 continue
 
-            #ptype = self.getPropTypeName(prop)
-            #for stype in self.getTypeOfs(ptype):
-                #print('PTYPE: %s STYPE: %s' % (ptype,stype))
-                #if self.isTufoForm(stype):
-                    #toadd.add((stype, valu))
-
             # any sub-properties to populate?
             for sname, svalu in subs.items():
 
@@ -2237,14 +2211,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
                 fulls[subprop] = svalu
 
-                #ptype = self.getPropTypeName(subprop)
-                #if self.isTufoForm(ptype):
-                    #toadd.add((ptype, svalu))
-
             fulls[prop] = valu
             props[name] = valu
 
-        return fulls#, toadd
+        return fulls
 
     def addSaveLink(self, func):
         '''
