@@ -24,3 +24,15 @@ class SynMod(CoreModule):
         }
         name = 'syn'
         return ((name, modl), )
+
+    @modelrev('syn', 201709051630)
+    def _delOldModelNodes(self):
+
+        types = self.core.getRowsByProp('syn:type')
+        forms = self.core.getRowsByProp('syn:form')
+        props = self.core.getRowsByProp('syn:prop')
+
+        with self.core.getCoreXact():
+            [self.core.delRowsById(r[0]) for r in types]
+            [self.core.delRowsById(r[0]) for r in forms]
+            [self.core.delRowsById(r[0]) for r in props]

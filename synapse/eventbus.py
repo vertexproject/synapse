@@ -11,7 +11,7 @@ import synapse.lib.thishost as s_thishost
 logger = logging.getLogger(__name__)
 finlock = threading.RLock()
 
-def on(name, **filt):
+def on(evnt, **filt):
     '''
     A decorator to register a method for EventBus.on() callbacks.
 
@@ -35,7 +35,7 @@ def on(name, **filt):
         ons = getattr(f, '_ebus_ons', None)
         if ons is None:
             ons = f._ebus_ons = []
-        ons.append((name, filt))
+        ons.append((evnt, filt))
         return f
     return wrap
 
@@ -124,12 +124,12 @@ class EventBus(object):
         if func in self._syn_links:
             self._syn_links.remove(func)
 
-    def on(self, name, func, **filts):
+    def on(self, evnt, func, **filts):
         '''
         Add an event bus callback for a specific event with optional filtering.
 
         Args:
-            name (str):         An event name
+            evnt (str):         An event name
             func (function):    A callback function to receive event tufo
             **filts:            Optional positive filter values for the event tuple.
 
@@ -152,9 +152,9 @@ class EventBus(object):
             d.fire('foo', x=30, y=20)
 
         '''
-        self._syn_funcs[name].append((func, tuple(filts.items())))
+        self._syn_funcs[evnt].append((func, tuple(filts.items())))
 
-    def off(self, name, func):
+    def off(self, evnt, func):
         '''
         Remove a previously registered event handler function.
 
@@ -163,7 +163,7 @@ class EventBus(object):
             bus.off( 'foo', onFooFunc )
 
         '''
-        funcs = self._syn_funcs.get(name)
+        funcs = self._syn_funcs.get(evnt)
         if funcs is not None:
 
             for i in range(len(funcs)):
@@ -173,7 +173,7 @@ class EventBus(object):
                     break
 
             if not funcs:
-                self._syn_funcs.pop(name, None)
+                self._syn_funcs.pop(evnt, None)
 
     def fire(self, evtname, **info):
         '''

@@ -283,19 +283,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             (None)
 
         '''
-        prop = '.:modl:vers:' + name
-
-        with self.getCoreXact() as xact:
-
-            rows = self.getRowsByProp(prop)
-
-            if rows:
-                iden = rows[0][0]
-            else:
-                iden = s_common.guid()
-
-            self.setRowsByIdProp(iden, prop, vers)
-            return vers
+        self.store.setModlVers(name, vers)
 
     def _addDataModels(self, modtups):
 
@@ -340,6 +328,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         mesg = 'Updating model [{}] from [{}] => [{}] - do *not* interrupt.'.format(name, curv, vers)
         logger.warning(mesg)
         self.log(logging.WARNING, mesg=mesg, name=name, curv=curv, vers=vers)
+
+        # fire a pre-revision event into the storage layer to allow
+        # tests to "hook" prior to migration callbacks to insert rows.
+        self.store.fire('modl:vers:rev', name=name, vers=vers)
 
         func()
 

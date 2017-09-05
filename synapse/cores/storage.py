@@ -133,6 +133,32 @@ class Storage(s_config.Config):
         )
         return confdefs
 
+    def setModlVers(self, name, vers):
+        '''
+        Set the version number for a specific model.
+
+        Args:
+            name (str): The name of the model
+            vers (int): The new (linear) version number
+
+        Returns:
+            (None)
+
+        '''
+        prop = '.:modl:vers:' + name
+        with self.getCoreXact() as xact:
+
+            rows = tuple(self.getRowsByProp(prop))
+
+            if rows:
+                iden = rows[0][0]
+            else:
+                iden = s_common.guid()
+
+            self.fire('modl:vers:set', name=name, vers=vers)
+            self.setRowsByIdProp(iden, prop, vers)
+            return vers
+
     def initRowsBy(self, name, meth):
         '''
         Initialize a "rows by" handler for the Storage layer.
