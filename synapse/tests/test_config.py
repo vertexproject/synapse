@@ -45,6 +45,31 @@ class ConfTest(SynTest):
 
             self.raises(NoSuchOpt, conf.setConfOpts, {'newp': 'hehe'})
 
+            instance_defs = conf.getConfDefs()
+            self.eq(len(instance_defs), 2)
+            self.isin('enabled', instance_defs)
+            self.isin('fooval', instance_defs)
+            edict = instance_defs.get('enabled')
+            self.eq(edict.get('type'), 'bool')
+            self.eq(edict.get('defval'), 0)
+            self.eq(edict.get('doc'), 'is thing enabled?')
+
+    def test_conf_defval(self):
+        defs = (
+            ('mutable:dict', {'doc': 'some dictionary', 'defval': {}}),
+        )
+
+        with s_config.Config(defs=defs) as conf:
+            md = conf.getConfOpt('mutable:dict')
+            md['key'] = 1
+            md = conf.getConfOpt('mutable:dict')
+            self.eq(md.get('key'), 1)
+
+        # Ensure the mutable:dict defval content is not changed
+        with s_config.Config(defs=defs) as conf2:
+            md = conf2.getConfOpt('mutable:dict')
+            self.eq(md, {})
+
     def test_conf_asloc(self):
         with s_config.Config() as conf:
             conf.addConfDef('foo', type='int', defval=0, asloc='_foo_valu')

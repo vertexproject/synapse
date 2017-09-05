@@ -7,10 +7,8 @@ The operators below can be used to modify the Synapse hypergraph by:
 
 * adding or deleting nodes
 * adding cross-reference (xref) nodes
-* setting or modifying properties on nodes
+* setting, modifying, or deleting properties on nodes
 * adding or deleting tags from nodes
-
-(**Note:** currently there is no operator for deleting properties from nodes (e.g., ``delprop()``). This is planned for a future release.)
 
 All of these operators are defined in storm.py_.
 
@@ -256,7 +254,54 @@ None.
 delprop()
 ---------
 
-Todo
+Delete a property from the specified node(s).
+
+**Operator Syntax:**
+
+.. parsed-literal::
+  *<query>* **delprop(** *: <prop>*, [ **force=1** ] **)**
+
+**Macro Syntax:**
+
+.. parsed-literal::
+  *<query>* **[ -:** *<prop>* ... **]**
+
+**Examples:**
+::
+  # Operator examples
+
+  inet:fqdn = vertex.link delprop(:created)
+
+  inet:fqdn = vertex.link delprop(:created, force=1)
+
+  # Macro examples
+
+  inet:fqdn = vertex.link [ -:created ]
+
+  inet:fqdn = vertex.link [ -:created -:updated ]
+
+**Usage Notes:**
+
+* Props which are read-only (``ro=1``) or have a default value (``defval``) on them cannot be deleted.
+
+**Operator Syntax Notes:**
+
+* Use of the ``force=1`` parameter will delete the prop on the input nodes to the operator. The need to enter
+  ``force=1`` is meant to require the user to think about what they're doing before executing the ``delprop()``
+  command (there is no "are you sure?" prompt). Future releases of Synapse will support a permissions structure
+  that will limit the users who are able to execute this operator. This is only required when using the operator syntax.
+
+**Macro Syntax Notes:**
+
+* Synapse will delete the specified props(s) from all previously referenced nodes (e.g., to the left of the
+  ``-:<prop>`` statement), **whether those nodes are within or outside of the macro syntax brackets.** See
+  `Special Note on Macro Syntax`_.
+
+.. WARNING::
+  ``delprop()`` has the potential to be destructive if executed on an incorrect, badly formed, or mistyped query. Users
+  are strongly encouraged to validate their query by first executing it on its own to confirm it returns the expected
+  nodes before executing ``delprop()`` or using the macro delprop syntax. While this cannot remove a node from the
+  graph, it is possible that a bad ``delprop`` call can irreversibly damage graph traversal.
 
 deltag()
 --------
@@ -300,7 +345,7 @@ The square brackets ( ``[ ]`` ) used for the Storm macro syntax indicate “perf
 
 * Add nodes (``addnode()``).
 * Add or modify properties (``setprop()``).
-* Delete properties (once ``delprop()`` is implemented).
+* Delete properties (``delprop()``).
 * Add tags (``addtag()``).
 * Delete tags (``deltag()``).
 

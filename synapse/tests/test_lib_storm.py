@@ -1,4 +1,5 @@
 import synapse.cortex as s_cortex
+import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
 import synapse.lib.storm as s_storm
 import synapse.cores.common as s_common
@@ -628,6 +629,211 @@ class StormTest(SynTest):
             nodes = core.eval('guid(%s)' % node0[0][::-1])
             self.eq(len(nodes), 1)
             self.eq(node0[0], nodes[0][0][::-1])
+
+    def test_storm_task(self):
+        with s_cortex.openurl('ram:///') as core:
+
+            foo = []
+            bar = []
+            baz = []
+            sekrit = []
+
+            def make_handler(store):
+                def handler(evt):
+                    store.append(evt)
+                return handler
+
+            core.on('task:foo', foo.append)
+            core.on('task:bar', bar.append)
+            core.on('task:baz', baz.append)
+            core.on('task:sekrit:priority1', sekrit.append)
+
+            core.formTufoByProp('inet:ipv4', 0x01020304)
+            core.formTufoByProp('inet:ipv4', 0x05060708)
+
+            nodes = core.eval('inet:ipv4 task(foo, bar, baz, sekrit:priority1, key=valu)')
+
+            # We don't consume nodes when tasking
+            self.eq(len(nodes), 2)
+
+            # Events were fired
+            self.eq(len(foo), 2)
+            self.eq(len(bar), 2)
+            self.eq(len(baz), 2)
+            self.eq(len(sekrit), 2)
+
+            # Events contained data we expected
+            evt = foo[0]
+            self.eq(evt[0], 'task:foo')
+            self.isinstance(evt[1].get('node'), tuple)
+            self.eq(evt[1].get('storm'), True)
+            self.eq(evt[1].get('key'), 'valu')
+
+            evt = sekrit[0]
+            self.eq(evt[0], 'task:sekrit:priority1')
+            self.isinstance(evt[1].get('node'), tuple)
+            self.eq(evt[1].get('storm'), True)
+            self.eq(evt[1].get('key'), 'valu')
+
+            # We have to know queue names to add nodes too
+            self.raises(BadSyntaxError, core.eval, 'inet:ipv4 task()')
+
+    def test_storm_tree(self):
+        with s_cortex.openurl('ram:///') as core:
+            node0 = core.formTufoByProp('inet:ipv4', '1.2.3.4')
+            node1 = core.formTufoByProp('inet:ipv4', '4.5.6.7')
+            core.addTufoTags(node0,
+                             ['foo.bar.baz',
+                              'foo.bar.duck',
+                              'blah.blah.blah'])
+            core.addTufoTags(node1,
+                             ['foo.bar.baz',
+                              'foo.baz.knight',
+                              'blah.blah.blah',
+                              'knights.ni'])
+
+            nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up)')
+            self.eq(len(nodes), 6)
+
+            nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=1)')
+            self.eq(len(nodes), 3)
+
+            nodes = core.eval('syn:tag=foo.bar tree(syn:tag, syn:tag:up)')
+            self.eq(len(nodes), 3)
+
+            nodes = core.eval('syn:tag=foo.baz tree(syn:tag, syn:tag:up)')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('syn:tag=blah tree(syn:tag, syn:tag:up)')
+            self.eq(len(nodes), 3)
+
+            nodes = core.eval('syn:tag=blah tree(syn:tag, syn:tag:up, recurlim=1)')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('syn:tag=foo tree(syn:tag:up)')
+            self.eq(len(nodes), 6)
+
+            o0 = core.formTufoByProp('ou:org:alias', 'master')
+            o1 = core.formTufoByProp('ou:org:alias', 's1')
+            o2 = core.formTufoByProp('ou:org:alias', 's2')
+            o3 = core.formTufoByProp('ou:org:alias', 's3')
+            o4 = core.formTufoByProp('ou:org:alias', 's4')
+            o5 = core.formTufoByProp('ou:org:alias', 's5')
+            o6 = core.formTufoByProp('ou:org:alias', 's6')
+
+            s01 = core.formTufoByProp('ou:suborg', [o0[1].get('ou:org'), o1[1].get('ou:org')])
+            s02 = core.formTufoByProp('ou:suborg', [o0[1].get('ou:org'), o2[1].get('ou:org')])
+            s13 = core.formTufoByProp('ou:suborg', [o1[1].get('ou:org'), o3[1].get('ou:org')])
+            s14 = core.formTufoByProp('ou:suborg', [o1[1].get('ou:org'), o4[1].get('ou:org')])
+            s45 = core.formTufoByProp('ou:suborg', [o4[1].get('ou:org'), o5[1].get('ou:org')])
+            s46 = core.formTufoByProp('ou:suborg', [o4[1].get('ou:org'), o6[1].get('ou:org')])
+
+            nodes = core.eval('ou:org:alias=master -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org) :sub-> ou:org')
+            self.eq(len(nodes), 6)
+
+            nodes = core.eval('ou:org:alias=master -> ou:suborg:org tree(:sub, ou:suborg:org) :sub-> ou:org')
+            self.eq(len(nodes), 6)
+
+            nodes = core.eval('ou:org:alias=s2 -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org) :sub-> ou:org')
+            self.eq(len(nodes), 0)
+
+            nodes = core.eval('ou:org:alias=s1 -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org) :sub-> ou:org')
+            self.eq(len(nodes), 4)
+
+            nodes = core.eval('ou:org:alias=s4 -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org) :sub-> ou:org')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('ou:org:alias=master -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org, recurlim=1) '
+                              ':sub-> ou:org')
+            self.eq(len(nodes), 4)
+
+            # Tree up instead of down
+            nodes = core.eval('ou:org:alias=s6 -> ou:suborg:sub tree(ou:suborg:org, ou:suborg:sub) :org-> ou:org')
+            self.eq(len(nodes), 3)
+
+            # fqdn tests
+            f0 = core.formTufoByProp('inet:fqdn', 'woohoo.wow.vertex.link')
+            f1 = core.formTufoByProp('inet:fqdn', 'woot.woot.vertex.link')
+            f2 = core.formTufoByProp('inet:fqdn', 'wow.ohmy.clowntown.vertex.link')
+
+            nodes = core.eval('inet:fqdn=vertex.link tree(inet:fqdn, inet:fqdn:domain)')
+            self.eq(len(nodes), 8)
+
+            nodes = core.eval('inet:fqdn=vertex.link tree(inet:fqdn:domain)')
+            self.eq(len(nodes), 8)
+
+            nodes = core.eval('inet:fqdn=vertex.link tree(inet:fqdn:domain, recurlim=1)')
+            self.eq(len(nodes), 4)
+
+            nodes = core.eval('inet:fqdn=vertex.link tree(inet:fqdn:domain, recurlim=2)')
+            self.eq(len(nodes), 7)
+
+            # tree up
+            nodes = core.eval('inet:fqdn=vertex.link tree(inet:fqdn:domain, inet:fqdn)')
+            self.eq(len(nodes), 2)
+
+            nodes = core.eval('inet:fqdn=woot.woot.vertex.link tree(inet:fqdn:domain, inet:fqdn)')
+            self.eq(len(nodes), 4)
+
+            nodes = core.eval('inet:fqdn=wow.ohmy.clowntown.vertex.link tree(inet:fqdn:domain, inet:fqdn)')
+            self.eq(len(nodes), 5)
+
+    def test_storm_delprop(self):
+        with s_cortex.openurl('ram:///') as core:
+            t0 = core.formTufoByProp('inet:fqdn', 'vertex.link', created="20170101")
+            self.isin('inet:fqdn:created', t0[1])
+            # Operator syntax requires force=1
+            core.eval('inet:fqdn=vertex.link delprop(:created)')
+            t0 = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.isin('inet:fqdn:created', t0[1])
+
+            core.eval('inet:fqdn=vertex.link delprop(:created, force=0)')
+            t0 = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.isin('inet:fqdn:created', t0[1])
+
+            core.eval('inet:fqdn=vertex.link delprop(:created, force=1)')
+            t0 = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.notin('inet:fqdn:created', t0[1])
+
+            # Re-add the prop and delete the prop via the macro syntax directly
+            t0 = core.setTufoProps(t0, created="20170101")
+            self.isin('inet:fqdn:created', t0[1])
+            core.eval('inet:fqdn=vertex.link [ -:created ]')
+            t0 = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.notin('inet:fqdn:created', t0[1])
+
+            # Delete muliple props via macro syntax
+            t0 = core.setTufoProps(t0, created="20170101", updated="20170201")
+            self.isin('inet:fqdn:created', t0[1])
+            self.isin('inet:fqdn:updated', t0[1])
+            core.eval('inet:fqdn=vertex.link [ -:created  -:updated]')
+            t0 = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.notin('inet:fqdn:created', t0[1])
+            self.notin('inet:fqdn:updated', t0[1])
+
+            # Cannot delete "ro" props via delprop
+            t1 = core.formTufoByProp('inet:netuser', 'vertex.link/pennywise')
+            self.isin('inet:netuser:user', t1[1])
+            # Operator syntax requires force=1
+            result = core.ask('inet:netuser [ -:user ]')
+            self.eq(result.get('data'), [])
+            self.eq(result.get('oplog')[1].get('excinfo').get('err'), 'CantDelProp')
+            t1 = core.getTufoByProp('inet:netuser', 'vertex.link/pennywise')
+            self.isin('inet:netuser:user', t1[1])
+            result = core.ask('inet:netuser delprop(:user, force=1)')
+            self.eq(result.get('data'), [])
+            self.eq(result.get('oplog')[1].get('excinfo').get('err'), 'CantDelProp')
+            t1 = core.getTufoByProp('inet:netuser', 'vertex.link/pennywise')
+            self.isin('inet:netuser:user', t1[1])
+
+            # Syntax errors
+            self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link delprop()')
+            self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link delprop(host)')
+            self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link delprop(force=1)')
+            self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link delprop(host, force=1)')
+            self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link delprop(host, created)')
+            self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link [ -: ]')
+            self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link [ -: host]')
 
 class LimitTest(SynTest):
 

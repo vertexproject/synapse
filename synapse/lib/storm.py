@@ -426,8 +426,10 @@ class Runtime(Configable):
 
         self.setOperFunc('guid', self._stormOperGuid)
         self.setOperFunc('join', self._stormOperJoin)
+        self.setOperFunc('task', self._stormOperTask)
         self.setOperFunc('lift', self._stormOperLift)
         self.setOperFunc('refs', self._stormOperRefs)
+        self.setOperFunc('tree', self._stormOperTree)
         self.setOperFunc('limit', self._stormOperLimit)
         self.setOperFunc('pivot', self._stormOperPivot)
         self.setOperFunc('alltag', self._stormOperAllTag)
@@ -437,6 +439,7 @@ class Runtime(Configable):
 
         self.setOperFunc('addnode', self._stormOperAddNode)
         self.setOperFunc('delnode', self._stormOperDelNode)
+        self.setOperFunc('delprop', self._stormOperDelProp)
 
         self.setOperFunc('nexttag', self._stormOperNextSeq)
         self.setOperFunc('setprop', self._stormOperSetProp)
@@ -1191,7 +1194,6 @@ class Runtime(Configable):
         query.add(node)
 
     def _stormOperDelNode(self, query, oper):
-        # delnode()
         opts = dict(oper[1].get('kwlist'))
 
         core = self.getStormCore()
@@ -1398,3 +1400,111 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         [query.add(node) for node in core.getTufosByIdens(args)]
+
+    def _stormOperTask(self, query, oper):
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        if not args:
+            mesg = 'task(<taskname1>, <taskname2>, ..., [kwarg1=val1, ...])'
+            raise s_common.BadSyntaxError(mesg=mesg)
+
+        nodes = query.data()
+        core = self.getStormCore()
+
+        for tname in args:
+            evt = ':'.join(['task', tname])
+            [core.fire(evt, node=node, storm=True, **opts) for node in nodes]
+
+    def _stormOperTree(self, query, oper):
+
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        if not args:
+            raise s_common.BadSyntaxError(mesg='tree([<srcprop>], <destprop>, [recurlim=<limit>])')
+
+        core = self.getStormCore()
+
+        # Prevent infinite pivots
+        recurlim, _ = core.getTypeNorm('int', opts.get('recurlim', 20))
+
+        srcp = None
+        dstp = args[0]
+
+        if len(args) > 1:
+            srcp = args[0]
+            dstp = args[1]
+
+        # do we have a relative source property?
+        relsrc = srcp is not None and srcp.startswith(':')
+
+        tufs = query.data()
+
+        queried_vals = set()
+
+        while True:
+
+            vals = set()
+
+            if srcp is not None and not relsrc:
+
+                for tufo in tufs:
+                    valu = tufo[1].get(srcp)
+                    if valu is not None:
+                        vals.add(valu)
+
+            elif not relsrc:
+
+                for tufo in tufs:
+                    form, valu = s_tufo.ndef(tufo)
+                    if valu is not None:
+                        vals.add(valu)
+
+            else:
+                for tufo in tufs:
+                    form, _ = s_tufo.ndef(tufo)
+                    valu = tufo[1].get(form + srcp)
+                    if valu is not None:
+                        vals.add(valu)
+
+            qvals = list(vals - queried_vals)
+            if not qvals:
+                break
+
+            [query.add(t) for t in self.stormTufosBy('in', dstp, qvals, limit=opts.get('limit'))]
+
+            queried_vals = queried_vals.union(vals)
+
+            if recurlim:
+                recurlim -= 1
+                if recurlim < 1:
+                    break
+
+            tufs = query.data()
+
+    def _stormOperDelProp(self, query, oper):
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        core = self.getStormCore()
+
+        if not args:
+            raise s_common.BadSyntaxError(mesg='delprop(<prop>, [force=1]>')
+
+        prop = args[0]
+
+        if prop[0] != ':':
+            raise s_common.BadSyntaxError(mesg='delprop(<prop>, [force=1]>')
+
+        prop = prop.lstrip(':')
+        if not prop:
+            raise s_common.BadSyntaxError(mesg='delprop(<prop>, [force=1]>')
+
+        force, _ = core.getTypeNorm('bool', opts.get('force', 0))
+
+        if not force:
+            return
+
+        nodes = query.take()
+        [query.add(core.delTufoProp(n, prop)) for n in nodes]
