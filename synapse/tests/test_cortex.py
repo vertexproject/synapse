@@ -49,9 +49,9 @@ class CoreTestModule(s_module.CoreModule):
     def getBaseModels():
         return (
             ('test', {
-                'types':(
-                    ('test:type1', {'subof':'str'}),
-                    ('test:type2', {'subof':'str'}),
+                'types': (
+                    ('test:type1', {'subof': 'str'}),
+                    ('test:type2', {'subof': 'str'}),
                 ),
             }),
         )
@@ -943,8 +943,7 @@ class CortexTest(SynTest):
 
         self.nn(foob[1].get('tufo:list:hehe'))
 
-        vals = core.getTufoList(foob, 'hehe')
-        vals.sort()
+        vals = sorted(core.getTufoList(foob, 'hehe'))
 
         self.eq(tuple(vals), (1, 2, 3))
 
@@ -2045,8 +2044,8 @@ class CortexTest(SynTest):
 
             core.setConfOpt('rev:model', 1)
 
-            self.true( core.revModlVers('grok', 0, v0) )
-            self.true( core.revModlVers('grok', 1, v1) )
+            self.true(core.revModlVers('grok', 0, v0))
+            self.true(core.revModlVers('grok', 1, v1))
 
             self.nn(core.getTufoByProp('inet:fqdn', 'foo.com'))
             self.nn(core.getTufoByProp('inet:fqdn', 'bar.com'))
@@ -2054,7 +2053,7 @@ class CortexTest(SynTest):
 
             self.eq(core.getModlVers('grok'), 1)
 
-            core.setModlVers('grok',2)
+            core.setModlVers('grok', 2)
             core.revModlVers('grok', 2, v2)
 
             self.none(core.getTufoByProp('inet:fqdn', 'baz.com'))
@@ -2342,9 +2341,9 @@ class CortexTest(SynTest):
         with s_cortex.openurl('ram:///') as core:
 
             core.addDataModel('woot', {
-                'forms':(
-                    ('hehe:haha', {'ptype':'str'}, (
-                        ('hoho', {'ptype':'str', 'req':1}),
+                'forms': (
+                    ('hehe:haha', {'ptype': 'str'}, (
+                        ('hoho', {'ptype': 'str', 'req': 1}),
                     )),
                 ),
             })
@@ -2352,7 +2351,7 @@ class CortexTest(SynTest):
             core.setConfOpt('enforce', 0)
 
             # Required prop not provided but enforce=0.
-            t0 = core.formTufoByProp('hehe:haha','lulz')
+            t0 = core.formTufoByProp('hehe:haha', 'lulz')
             self.nn(t0)
 
             # enable enforce
@@ -2362,16 +2361,16 @@ class CortexTest(SynTest):
             self.raises(PropNotFound, core.formTufoByProp, 'hehe:haha', 'rofl')
 
             # Works with required prop present
-            t0 = core.formTufoByProp('hehe:haha','rofl', hoho='wonk')
+            t0 = core.formTufoByProp('hehe:haha', 'rofl', hoho='wonk')
             self.nn(t0)
 
     def test_cortex_runts(self):
 
         with s_cortex.openurl('ram:///') as core:
 
-            core.addDataModel('hehe', {'forms':(
-                ('hehe:haha', {'ptype':'str'}, (
-                    ('hoho', {'ptype':'int'}),
+            core.addDataModel('hehe', {'forms': (
+                ('hehe:haha', {'ptype': 'str'}, (
+                    ('hoho', {'ptype': 'int'}),
                 )),
             )})
 
@@ -2380,7 +2379,7 @@ class CortexTest(SynTest):
             # test that nothing hit the storage layer...
             self.eq(len(core.getRowsByProp('hehe:haha')), 0)
 
-            node = core.getTufoByProp('hehe:haha','woot')
+            node = core.getTufoByProp('hehe:haha', 'woot')
             self.nn(node)
 
             # check that it is ephemeral
@@ -2496,4 +2495,3 @@ class StorageTest(SynTest):
             self.nn(store.reqJoinByMeth('range'))
             self.nn(store.reqRowsByMeth('range'))
             self.nn(store.reqSizeByMeth('range'))
-

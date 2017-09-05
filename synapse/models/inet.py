@@ -444,7 +444,7 @@ class InetMod(CoreModule):
                 ('inet:tcp6', {'subof': 'inet:srv6', 'doc': 'A TCP server listening on IPv6:port'}),
                 ('inet:udp6', {'subof': 'inet:srv6', 'doc': 'A UDP server listening on IPv6:port'}),
 
-                ('inet:flow', {'subof': 'guid', 'doc':'An individual network connection'}),
+                ('inet:flow', {'subof': 'guid', 'doc': 'An individual network connection'}),
 
                 ('inet:port', {'subof': 'int', 'min': 0, 'max': 0xffff, 'ex': '80'}),
                 (
@@ -588,50 +588,50 @@ class InetMod(CoreModule):
 
                 ('inet:flow', {}, (
 
-                    ('time', {'ptype':'time', 'doc':'The time the connection was initiated'}),
-                    ('duration', {'ptype':'int', 'doc':'The duration of the flow in seconds'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the connection was initiated'}),
+                    ('duration', {'ptype': 'int', 'doc': 'The duration of the flow in seconds'}),
 
-                    ('dst:host', {'ptype':'it:host', 'doc':'The destination host guid'}),
-                    ('dst:proc', {'ptype':'it:exec:proc', 'doc':'The destination proc guid'}),
-                    ('dst:txbytes', {'ptype':'int', 'doc':'The number of bytes sent by the destination'}),
+                    ('dst:host', {'ptype': 'it:host', 'doc': 'The destination host guid'}),
+                    ('dst:proc', {'ptype': 'it:exec:proc', 'doc': 'The destination proc guid'}),
+                    ('dst:txbytes', {'ptype': 'int', 'doc': 'The number of bytes sent by the destination'}),
 
-                    ('dst:tcp4', {'ptype':'inet:tcp4'}),
-                    ('dst:tcp4:ipv4', {'ptype':'inet:ipv4', 'ro':1}),
-                    ('dst:tcp4:port', {'ptype':'inet:port', 'ro':1}),
+                    ('dst:tcp4', {'ptype': 'inet:tcp4'}),
+                    ('dst:tcp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
+                    ('dst:tcp4:port', {'ptype': 'inet:port', 'ro': 1}),
 
-                    ('dst:udp4', {'ptype':'inet:udp4'}),
-                    ('dst:udp4:ipv4', {'ptype':'inet:ipv4', 'ro':1}),
-                    ('dst:udp4:port', {'ptype':'inet:port', 'ro':1}),
+                    ('dst:udp4', {'ptype': 'inet:udp4'}),
+                    ('dst:udp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
+                    ('dst:udp4:port', {'ptype': 'inet:port', 'ro': 1}),
 
-                    ('dst:tcp6', {'ptype':'inet:tcp6'}),
-                    ('dst:tcp6:ipv6', {'ptype':'inet:ipv6', 'ro':1}),
-                    ('dst:tcp6:port', {'ptype':'inet:port', 'ro':1}),
+                    ('dst:tcp6', {'ptype': 'inet:tcp6'}),
+                    ('dst:tcp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
+                    ('dst:tcp6:port', {'ptype': 'inet:port', 'ro': 1}),
 
-                    ('dst:udp6', {'ptype':'inet:udp6'}),
-                    ('dst:udp6:ipv6', {'ptype':'inet:ipv6', 'ro':1}),
-                    ('dst:udp6:port', {'ptype':'inet:port', 'ro':1}),
+                    ('dst:udp6', {'ptype': 'inet:udp6'}),
+                    ('dst:udp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
+                    ('dst:udp6:port', {'ptype': 'inet:port', 'ro': 1}),
 
-                    ('src:host', {'ptype':'it:host', 'doc':'The source host guid'}),
-                    ('src:proc', {'ptype':'it:exec:proc', 'doc':'The source proc guid'}),
-                    ('src:txbytes', {'ptype':'int', 'doc':'The number of bytes sent by the source'}),
+                    ('src:host', {'ptype': 'it:host', 'doc': 'The source host guid'}),
+                    ('src:proc', {'ptype': 'it:exec:proc', 'doc': 'The source proc guid'}),
+                    ('src:txbytes', {'ptype': 'int', 'doc': 'The number of bytes sent by the source'}),
 
-                    ('src:tcp4', {'ptype':'inet:tcp4'}),
-                    ('src:tcp4:ipv4', {'ptype':'inet:ipv4', 'ro':1}),
-                    ('src:tcp4:port', {'ptype':'inet:port', 'ro':1}),
+                    ('src:tcp4', {'ptype': 'inet:tcp4'}),
+                    ('src:tcp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
+                    ('src:tcp4:port', {'ptype': 'inet:port', 'ro': 1}),
 
-                    ('src:udp4', {'ptype':'inet:udp4'}),
-                    ('src:udp4:ipv4', {'ptype':'inet:ipv4', 'ro':1}),
-                    ('src:udp4:port', {'ptype':'inet:port', 'ro':1}),
+                    ('src:udp4', {'ptype': 'inet:udp4'}),
+                    ('src:udp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
+                    ('src:udp4:port', {'ptype': 'inet:port', 'ro': 1}),
 
-                    ('src:tcp6', {'ptype':'inet:tcp6'}),
-                    ('src:tcp6:ipv6', {'ptype':'inet:ipv6', 'ro':1}),
-                    ('src:tcp6:port', {'ptype':'inet:port', 'ro':1}),
+                    ('src:tcp6', {'ptype': 'inet:tcp6'}),
+                    ('src:tcp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
+                    ('src:tcp6:port', {'ptype': 'inet:port', 'ro': 1}),
 
-                    ('src:udp6', {'ptype':'inet:udp6'}),
-                    ('src:udp6:ipv6', {'ptype':'inet:ipv6', 'ro':1}),
-                    ('src:udp6:port', {'ptype':'inet:port', 'ro':1}),
+                    ('src:udp6', {'ptype': 'inet:udp6'}),
+                    ('src:udp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
+                    ('src:udp6:port', {'ptype': 'inet:port', 'ro': 1}),
 
-                    ('from', {'ptype':'guid', 'doc':'The ingest source file/iden.  Used for reparsing'}),
+                    ('from', {'ptype': 'guid', 'doc': 'The ingest source file/iden.  Used for reparsing'}),
 
                 )),
 

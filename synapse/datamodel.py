@@ -183,10 +183,10 @@ class DataModel(s_types.TypeLib):
 
         for name, modl in modtups:
 
-            for form, info, props in modl.get('forms',()):
+            for form, info, props in modl.get('forms', ()):
                 self.addTufoForm(form, **info)
 
-                for prop,pnfo in props:
+                for prop, pnfo in props:
                     self.addTufoProp(form, prop, **pnfo)
 
     def addTufoForm(self, form, **info):
@@ -436,7 +436,7 @@ class DataModel(s_types.TypeLib):
         retn = []
         while name is not None:
             retn.append(name)
-            name = self.getTypeInfo(name,'subof')
+            name = self.getTypeInfo(name, 'subof')
         return retn
 
     def getPropNorm(self, prop, valu, oldval=None):

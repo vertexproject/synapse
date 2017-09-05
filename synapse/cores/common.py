@@ -152,7 +152,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         self.modelrevlist = []
         with self.getCoreXact() as xact:
-            mods = [ (ctor,modconf) for ctor, smod, modconf in s_modules.ctorlist ]
+            mods = [(ctor, modconf) for ctor, smod, modconf in s_modules.ctorlist]
             self.addCoreMods(mods)
 
         self.addTufoForm('syn:log', ptype='guid', local=1)
@@ -195,25 +195,25 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         TODO: properties which are modeled/indexed do not currently support modification
 
         '''
-        node = (None,{})
-        norm,subs = self.getPropNorm(form,valu)
+        node = (None, {})
+        norm, subs = self.getPropNorm(form, valu)
 
         node[1][form] = norm
         node[1]['tufo:form'] = form
 
-        self.runt_props[(form,None)].append(node)
-        self.runt_props[(form,norm)].append(node)
+        self.runt_props[(form, None)].append(node)
+        self.runt_props[(form, norm)].append(node)
 
-        for prop,pval in props.items():
+        for prop, pval in props.items():
 
             full = form + ':' + prop
-            norm,subs = self.getPropNorm(full,pval)
+            norm, subs = self.getPropNorm(full, pval)
 
             node[1][full] = norm
-            self.runt_props[(full,None)].append(node)
+            self.runt_props[(full, None)].append(node)
 
             if self.getPropDef(full) is not None:
-                self.runt_props[(full,norm)].append(node)
+                self.runt_props[(full, norm)].append(node)
 
         return node
 
@@ -303,15 +303,15 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         for name, modl in modtups:
 
-            for tnam,tnfo in modl.get('types',()):
+            for tnam, tnfo in modl.get('types', ()):
                 self.addRuntNode('syn:type', tnam, **tnfo)
 
-            for fnam,fnfo,props in modl.get('forms',()):
+            for fnam, fnfo, props in modl.get('forms', ()):
 
                 self.addRuntNode('syn:form', fnam, **fnfo)
                 self.addRuntNode('syn:prop', fnam, **fnfo)
 
-                for pnam,pnfo in props:
+                for pnam, pnfo in props:
                     full = fnam + ':' + pnam
                     self.addRuntNode('syn:prop', full, **pnfo)
 
@@ -652,7 +652,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
                 # make sure the module's modl dict is loaded
                 if not self.isDataModl(name):
-                    toadd.append((name,modl))
+                    toadd.append((name, modl))
 
                 # set the model version to 0 if it's -1
                 if self.getModlVers(name) == -1:
@@ -669,7 +669,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             self.addDataModels(toadd)
 
         # if we didn't have it at all, forward wind...
-        for name,vals in maxvers.items():
+        for name, vals in maxvers.items():
             if name in isnew:
                 self.setModlVers(name, max(vals))
 
@@ -1215,7 +1215,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             valu, subs = self.getPropNorm(prop, valu)
 
         # check our runt/ephemeral nodes...
-        answ = self.runt_props.get((prop,valu))
+        answ = self.runt_props.get((prop, valu))
         if answ is not None:
             return answ[0]
 
@@ -1254,7 +1254,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 raise s_common.BadPropValu(prop=prop, valu=valu)
 
         # check our runt/ephemeral nodes...
-        answ = self.runt_props.get((prop,norm))
+        answ = self.runt_props.get((prop, norm))
         if answ is not None:
             return answ
 
@@ -1950,7 +1950,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         valu, subs = self.getPropNorm(prop, valu)
 
         # dont allow formation of nodes which are runts
-        if self.runt_props.get((prop,None) is not None):
+        if self.runt_props.get((prop, None) is not None):
             raise NoSuchForm(name=prop)
 
         with self.getCoreXact() as xact:
@@ -2193,7 +2193,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                     toadd.add((stype, valu))
 
         for form, valu in toadd:
-            self.formTufoByProp(form,valu)
+            self.formTufoByProp(form, valu)
 
     def _normTufoProps(self, form, props, tufo=None, isadd=False):
         '''

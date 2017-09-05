@@ -33,7 +33,7 @@ class DumpRowsTest(SynTest):
                 with core.getCoreXact():
                     core.formTufoByProp('inet:ipv4', 0x01020304)
                     for i in range(1000):
-                        core.formTufoByProp('inet:ipv4',i)
+                        core.formTufoByProp('inet:ipv4', i)
 
             # Now dump that sqlite core
             argv = ['-s', sqlite_url, '-o', fp]

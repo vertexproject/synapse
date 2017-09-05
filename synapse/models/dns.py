@@ -54,20 +54,20 @@ class DnsMod(CoreModule):
                     ('time', {'ptype': 'time'}),
 
                     ('a', {'ptype': 'inet:dns:a'}),
-                    ('a:fqdn', {'ptype': 'inet:fqdn', 'ro':1}),
-                    ('a:ipv4', {'ptype': 'inet:ipv4', 'ro':1}),
+                    ('a:fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
+                    ('a:ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
 
                     ('ns', {'ptype': 'inet:dns:ns'}),
-                    ('ns:ns', {'ptype': 'inet:fqdn', 'ro':1}),
-                    ('ns:zone', {'ptype': 'inet:fqdn', 'ro':1}),
+                    ('ns:ns', {'ptype': 'inet:fqdn', 'ro': 1}),
+                    ('ns:zone', {'ptype': 'inet:fqdn', 'ro': 1}),
 
                     ('rev', {'ptype': 'inet:dns:rev'}),
-                    ('rev:ipv4', {'ptype': 'inet:ipv4', 'ro':1}),
-                    ('rev:fqdn', {'ptype': 'inet:fqdn', 'ro':1}),
+                    ('rev:ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
+                    ('rev:fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
 
                     ('aaaa', {'ptype': 'inet:dns:aaaa'}),
-                    ('aaaa:fqdn', {'ptype': 'inet:fqdn', 'ro':1}),
-                    ('aaaa:ipv6', {'ptype': 'inet:ipv6', 'ro':1}),
+                    ('aaaa:fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
+                    ('aaaa:ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
 
                 ]),
             ),

@@ -733,7 +733,7 @@ class TypeLib:
         return self._addDataModels(modtups)
 
     def addDataModel(self, name, modl):
-        return self.addDataModels([(name,modl)])
+        return self.addDataModels([(name, modl)])
 
     def isDataModl(self, name):
         '''

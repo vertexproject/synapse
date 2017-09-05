@@ -21,96 +21,96 @@ class ItMod(CoreModule):
                                'fields': 'org,ou:alias|sig,str:lwr', 'doc': 'An antivirus signature'}),
                 ('it:av:filehit', {'subof': 'sepr', 'sep': '/', 'fields': 'file,file:bytes|sig,it:av:sig', 'doc': 'An antivirus hit'}),
 
-                ('it:dev:str', {'subof':'str', 'doc':'A developer selected string'}),
-                ('it:dev:int', {'subof':'int', 'doc':'A developer selected int constant'}),
+                ('it:dev:str', {'subof': 'str', 'doc': 'A developer selected string'}),
+                ('it:dev:int', {'subof': 'int', 'doc': 'A developer selected int constant'}),
 
                 #TODO
                 #('it:dev:encbin', {'subof':'comp', 'fields':'enc=it:dev:str,blob=file:bytes'})
                 #('it:dev:encstr', {'subof':'comp', 'fields':'enc=it:dev:str,dec=it:dev:str,codec=str'})
 
-                ('it:exec:proc', {'subof':'guid', 'doc':'A unique process execution on a host'}),
-                ('it:exec:subproc', {'subof':'comp', 'fields':'proc=it:exec:proc,child=it:exec:proc'}),
+                ('it:exec:proc', {'subof': 'guid', 'doc': 'A unique process execution on a host'}),
+                ('it:exec:subproc', {'subof': 'comp', 'fields': 'proc=it:exec:proc,child=it:exec:proc'}),
 
-                ('it:dev:pipe', {'subof':'it:dev:str', 'doc':'A  named pipe string'}),
-                ('it:dev:mutex', {'subof':'it:dev:str', 'doc':'A named mutex string'}),
-                ('it:dev:regkey', {'subof':'it:dev:str', 'doc':'A windows registry key string'}),
+                ('it:dev:pipe', {'subof': 'it:dev:str', 'doc': 'A  named pipe string'}),
+                ('it:dev:mutex', {'subof': 'it:dev:str', 'doc': 'A named mutex string'}),
+                ('it:dev:regkey', {'subof': 'it:dev:str', 'doc': 'A windows registry key string'}),
 
-                ('it:dev:regval', {'subof':'comp', 'fields':'key=it:dev:regkey',
-                                   'optfields':'str=it:dev:str,int=int,bytes=file:bytes',
-                                   'doc':'A windows registry key/val pair'}),
+                ('it:dev:regval', {'subof': 'comp', 'fields': 'key=it:dev:regkey',
+                                   'optfields': 'str=it:dev:str,int=int,bytes=file:bytes',
+                                   'doc': 'A windows registry key/val pair'}),
 
                 # TODO filesystem specific metadata... ( it:fs:ntfs:file )
-                ('it:fs:file', {'subof':'comp', 'fields':'host=it:host',
-                                  'optfields':'path=file:path,file=file:bytes',
-                                  'doc':'A file instance on a host filesystem'}),
+                ('it:fs:file', {'subof': 'comp', 'fields': 'host=it:host',
+                                  'optfields': 'path=file:path,file=file:bytes',
+                                  'doc': 'A file instance on a host filesystem'}),
 
-                ('it:exec:file:add', {'subof':'comp', 'fields':'host=it:host',
-                                  'optfields':'path=file:path,file=file:bytes,time=time,exe=file:bytes,proc=it:exec:proc',
-                                  'doc':'A file create event on a host'}),
+                ('it:exec:file:add', {'subof': 'comp', 'fields': 'host=it:host',
+                                  'optfields': 'path=file:path,file=file:bytes,time=time,exe=file:bytes,proc=it:exec:proc',
+                                  'doc': 'A file create event on a host'}),
 
-                ('it:exec:file:del', {'subof':'comp', 'fields':'host=it:host',
-                                  'optfields':'path=file:path,file=file:bytes,time=time,exe=file:bytes,proc=it:exec:proc',
-                                  'doc':'A file delete event on a host'}),
+                ('it:exec:file:del', {'subof': 'comp', 'fields': 'host=it:host',
+                                  'optfields': 'path=file:path,file=file:bytes,time=time,exe=file:bytes,proc=it:exec:proc',
+                                  'doc': 'A file delete event on a host'}),
 
-                ('it:exec:file:read', {'subof':'comp', 'fields':'host=it:host',
-                                  'optfields':'path=file:path,file=file:bytes,time=time,exe=file:bytes,proc=it:exec:proc',
-                                  'doc':'A file read event on a host'}),
+                ('it:exec:file:read', {'subof': 'comp', 'fields': 'host=it:host',
+                                  'optfields': 'path=file:path,file=file:bytes,time=time,exe=file:bytes,proc=it:exec:proc',
+                                  'doc': 'A file read event on a host'}),
 
-                ('it:exec:file:write', {'subof':'comp', 'fields':'host=it:host',
-                                  'optfields':'path=file:path,file=file:bytes,time=time,exe=file:bytes,proc=it:exec:proc',
-                                  'doc':'A file write event on a host'}),
+                ('it:exec:file:write', {'subof': 'comp', 'fields': 'host=it:host',
+                                  'optfields': 'path=file:path,file=file:bytes,time=time,exe=file:bytes,proc=it:exec:proc',
+                                  'doc': 'A file write event on a host'}),
 
-                ('it:exec:pipe', {'subof':'comp', 'fields':'host=it:host,name=it:dev:pipe',
-                                   'optfields':'exe=file:bytes,proc=it:exec:proc,time=time',
-                                  'doc':'A named pipe instance created on a host'}),
+                ('it:exec:pipe', {'subof': 'comp', 'fields': 'host=it:host,name=it:dev:pipe',
+                                   'optfields': 'exe=file:bytes,proc=it:exec:proc,time=time',
+                                  'doc': 'A named pipe instance created on a host'}),
 
-                ('it:exec:mutex', {'subof':'comp', 'fields':'host=it:host,name=it:dev:mutex',
-                                   'optfields':'exe=file:bytes,proc=it:exec:proc,time=time',
-                                   'doc':'A named mutex instance created on a host'}),
+                ('it:exec:mutex', {'subof': 'comp', 'fields': 'host=it:host,name=it:dev:mutex',
+                                   'optfields': 'exe=file:bytes,proc=it:exec:proc,time=time',
+                                   'doc': 'A named mutex instance created on a host'}),
 
-                ('it:exec:url', {'subof':'comp', 'fields':'host=it:host,url=inet:url',
-                                 'optfields':'exe=file:bytes,proc=it:exec:proc,time=time',
-                                 'doc':'A IPv4/TCP session made by a host'}),
+                ('it:exec:url', {'subof': 'comp', 'fields': 'host=it:host,url=inet:url',
+                                 'optfields': 'exe=file:bytes,proc=it:exec:proc,time=time',
+                                 'doc': 'A IPv4/TCP session made by a host'}),
 
-                ('it:exec:dns:a', {'subof':'comp', 'fields':'host=it:host,fqdn=inet:fqdn',
-                                 'optfields':'answ=inet:ipv4,exe=file:bytes,proc=it:exec:proc,time=time',
-                                 'doc':'A DNS A lookup made by a host'}),
+                ('it:exec:dns:a', {'subof': 'comp', 'fields': 'host=it:host,fqdn=inet:fqdn',
+                                 'optfields': 'answ=inet:ipv4,exe=file:bytes,proc=it:exec:proc,time=time',
+                                 'doc': 'A DNS A lookup made by a host'}),
 
-                ('it:exec:dns:mx', {'subof':'comp', 'fields':'host=it:host,fqdn=inet:fqdn',
-                                 'optfields':'answ=inet:fqdn,exe=file:bytes,proc=it:exec:proc,time=time',
-                                 'doc':'A DNS MX lookup made by a host'}),
+                ('it:exec:dns:mx', {'subof': 'comp', 'fields': 'host=it:host,fqdn=inet:fqdn',
+                                 'optfields': 'answ=inet:fqdn,exe=file:bytes,proc=it:exec:proc,time=time',
+                                 'doc': 'A DNS MX lookup made by a host'}),
 
-                ('it:exec:dns:ns', {'subof':'comp', 'fields':'host=it:host,fqdn=inet:fqdn',
-                                 'optfields':'answ=inet:fqdn,exe=file:bytes,proc=it:exec:proc,time=time',
-                                 'doc':'A DNS NS lookup made by a host'}),
+                ('it:exec:dns:ns', {'subof': 'comp', 'fields': 'host=it:host,fqdn=inet:fqdn',
+                                 'optfields': 'answ=inet:fqdn,exe=file:bytes,proc=it:exec:proc,time=time',
+                                 'doc': 'A DNS NS lookup made by a host'}),
 
-                ('it:exec:dns:rev4', {'subof':'comp', 'fields':'host=it:host,ipv4=inet:ipv4',
-                                 'optfields':'answ=inet:fqdn,exe=file:bytes,proc=it:exec:proc,time=time',
-                                 'doc':'A normalized PTR lookup made by a host'}),
+                ('it:exec:dns:rev4', {'subof': 'comp', 'fields': 'host=it:host,ipv4=inet:ipv4',
+                                 'optfields': 'answ=inet:fqdn,exe=file:bytes,proc=it:exec:proc,time=time',
+                                 'doc': 'A normalized PTR lookup made by a host'}),
 
-                ('it:exec:conn', {'subof':'comp', 'fields':'host=it:host',
-                                  'optfields':'tcp4=inet:tcp4,udp4=inet:udp4,tcp6=inet:tcp6,udp6=inet:udp6,exe=file:bytes,proc=it:exec:proc,time=time',
-                                  'doc':'A network connection created by a host'}),
+                ('it:exec:conn', {'subof': 'comp', 'fields': 'host=it:host',
+                                  'optfields': 'tcp4=inet:tcp4,udp4=inet:udp4,tcp6=inet:tcp6,udp6=inet:udp6,exe=file:bytes,proc=it:exec:proc,time=time',
+                                  'doc': 'A network connection created by a host'}),
 
-                ('it:exec:bind:tcp', {'subof':'comp', 'fields':'host=it:host,port=inet:port',
-                                  'optfields':'ipv4=inet:ipv4,ipv6=inet:ipv6,exe=file:bytes,proc=it:exec:proc,time=time',
-                                  'doc':'A TCP bound listener on a host'}),
+                ('it:exec:bind:tcp', {'subof': 'comp', 'fields': 'host=it:host,port=inet:port',
+                                  'optfields': 'ipv4=inet:ipv4,ipv6=inet:ipv6,exe=file:bytes,proc=it:exec:proc,time=time',
+                                  'doc': 'A TCP bound listener on a host'}),
 
-                ('it:exec:bind:udp', {'subof':'comp', 'fields':'host=it:host,port=inet:port',
-                                  'optfields':'ipv4=inet:ipv4,ipv6=inet:ipv6,exe=file:bytes,proc=it:exec:proc,time=time',
-                                  'doc':'A UDP bound listener on a host'}),
+                ('it:exec:bind:udp', {'subof': 'comp', 'fields': 'host=it:host,port=inet:port',
+                                  'optfields': 'ipv4=inet:ipv4,ipv6=inet:ipv6,exe=file:bytes,proc=it:exec:proc,time=time',
+                                  'doc': 'A UDP bound listener on a host'}),
 
-                ('it:exec:reg:get', {'subof':'comp', 'fields':'host=it:host,reg=it:dev:regval',
-                                    'optfields':'exe=file:bytes,proc=it:exec:proc,time=time',
-                                    'doc':'A registry value read on a host'}),
+                ('it:exec:reg:get', {'subof': 'comp', 'fields': 'host=it:host,reg=it:dev:regval',
+                                    'optfields': 'exe=file:bytes,proc=it:exec:proc,time=time',
+                                    'doc': 'A registry value read on a host'}),
 
-                ('it:exec:reg:set', {'subof':'comp', 'fields':'host=it:host,reg=it:dev:regval',
-                                    'optfields':'exe=file:bytes,proc=it:exec:proc,time=time',
-                                    'doc':'A registry value set on a host'}),
+                ('it:exec:reg:set', {'subof': 'comp', 'fields': 'host=it:host,reg=it:dev:regval',
+                                    'optfields': 'exe=file:bytes,proc=it:exec:proc,time=time',
+                                    'doc': 'A registry value set on a host'}),
 
-                ('it:exec:reg:del', {'subof':'comp', 'fields':'host=it:host,reg=it:dev:regval',
-                                    'optfields':'exe=file:bytes,proc=it:exec:proc,time=time',
-                                    'doc':'A registry value deleted on a host'}),
+                ('it:exec:reg:del', {'subof': 'comp', 'fields': 'host=it:host,reg=it:dev:regval',
+                                    'optfields': 'exe=file:bytes,proc=it:exec:proc,time=time',
+                                    'doc': 'A registry value deleted on a host'}),
             ),
 
             'forms': (
@@ -166,7 +166,7 @@ class ItMod(CoreModule):
 
                 ('it:dev:str', {}, (
                     # TODO make hex str based file:bytes ctor
-                    ('norm', {'ptype':'str', 'ro':1, 'lower':1, 'doc':'Lower case normalized version of it:dev:str'}),
+                    ('norm', {'ptype': 'str', 'ro': 1, 'lower': 1, 'doc': 'Lower case normalized version of it:dev:str'}),
                 )),
 
                 ('it:dev:int', {}, (
@@ -177,51 +177,51 @@ class ItMod(CoreModule):
                 ('it:dev:regkey', {}, ()),
 
                 ('it:dev:regval', {}, (
-                    ('key', {'ptype':'it:dev:regkey', 'ro':1}),
-                    ('str', {'ptype':'it:dev:str', 'ro':1}),
-                    ('int', {'ptype':'int', 'ro':1}),
-                    ('bytes', {'ptype':'file:bytes', 'ro':1}),
+                    ('key', {'ptype': 'it:dev:regkey', 'ro': 1}),
+                    ('str', {'ptype': 'it:dev:str', 'ro': 1}),
+                    ('int', {'ptype': 'int', 'ro': 1}),
+                    ('bytes', {'ptype': 'file:bytes', 'ro': 1}),
                 )),
 
                 ('it:exec:pipe', {}, (
-                    ('time', {'ptype':'time', 'ro':1}),
-                    ('host', {'ptype':'it:host', 'ro':1}),
-                    ('name', {'ptype':'it:dev:pipe', 'ro':1}),
-                    ('proc', {'ptype':'it:exec:proc', 'ro':1}),
-                    ('exe', {'ptype':'file:bytes', 'doc':'The file containing code which created the pipe'}),
+                    ('time', {'ptype': 'time', 'ro': 1}),
+                    ('host', {'ptype': 'it:host', 'ro': 1}),
+                    ('name', {'ptype': 'it:dev:pipe', 'ro': 1}),
+                    ('proc', {'ptype': 'it:exec:proc', 'ro': 1}),
+                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing code which created the pipe'}),
                 )),
 
                 ('it:exec:mutex', {}, (
-                    ('time', {'ptype':'time', 'ro':1}),
-                    ('host', {'ptype':'it:host', 'ro':1}),
-                    ('name', {'ptype':'it:dev:mutex', 'ro':1}),
-                    ('proc', {'ptype':'it:exec:proc', 'ro':1}),
-                    ('exe', {'ptype':'file:bytes', 'doc':'The file containing code which created the mutex'}),
+                    ('time', {'ptype': 'time', 'ro': 1}),
+                    ('host', {'ptype': 'it:host', 'ro': 1}),
+                    ('name', {'ptype': 'it:dev:mutex', 'ro': 1}),
+                    ('proc', {'ptype': 'it:exec:proc', 'ro': 1}),
+                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing code which created the mutex'}),
                 )),
 
                 ('it:exec:proc', {}, (
-                    ('pid', {'ptype':'int', 'doc':'The process ID'}),
-                    ('time', {'ptype':'time', 'doc':'The start time for the process'}),
-                    ('host', {'ptype':'it:host', 'doc':'The host which executed the process'}),
-                    ('user', {'ptype':'inet:user', 'doc':'The user name of the process owner'}),
-                    ('exe', {'ptype':'file:bytes', 'doc':'The file considered the "main" executable for the process'}),
+                    ('pid', {'ptype': 'int', 'doc': 'The process ID'}),
+                    ('time', {'ptype': 'time', 'doc': 'The start time for the process'}),
+                    ('host', {'ptype': 'it:host', 'doc': 'The host which executed the process'}),
+                    ('user', {'ptype': 'inet:user', 'doc': 'The user name of the process owner'}),
+                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file considered the "main" executable for the process'}),
                 )),
 
                 ('it:exec:subproc', {}, (
-                    ('proc', {'ptype':'it:exec:proc', 'ro':1, 'doc':'The parent process'}),
-                    ('child', {'ptype':'it:exec:proc', 'ro':1, 'doc':'The child process'}),
-                    ('host', {'ptype':'it:host', 'doc':'The host which executed the process'}),
+                    ('proc', {'ptype': 'it:exec:proc', 'ro': 1, 'doc': 'The parent process'}),
+                    ('child', {'ptype': 'it:exec:proc', 'ro': 1, 'doc': 'The child process'}),
+                    ('host', {'ptype': 'it:host', 'doc': 'The host which executed the process'}),
                 )),
 
                 ('it:exec:url', {}, (
-                    ('url', {'ptype':'inet:url', 'ro':1}),
-                    ('host', {'ptype':'it:host', 'ro':1}),
-                    ('proc', {'ptype':'it:exec:proc', 'ro':1}),
-                    ('time', {'ptype':'time', 'ro':1}),
+                    ('url', {'ptype': 'inet:url', 'ro': 1}),
+                    ('host', {'ptype': 'it:host', 'ro': 1}),
+                    ('proc', {'ptype': 'it:exec:proc', 'ro': 1}),
+                    ('time', {'ptype': 'time', 'ro': 1}),
 
-                    ('exe', {'ptype':'file:bytes', 'doc':'The file containing code which retrieved the URL'}),
-                    ('ipv4', {'ptype':'inet:ipv4', 'doc':'The IPv4 address of the host during URL retrieval'}),
-                    ('ipv6', {'ptype':'inet:ipv6', 'doc':'The IPv6 address of the host during URL retrieval'}),
+                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing code which retrieved the URL'}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The IPv4 address of the host during URL retrieval'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The IPv6 address of the host during URL retrieval'}),
                 )),
 
                 #('it:exec:conn', {}, (
@@ -259,27 +259,27 @@ class ItMod(CoreModule):
                 #)),
 
                 ('it:exec:bind:tcp', {}, (
-                    ('port', {'ptype':'inet:port', 'ro':1, 'doc':'The bound TCP port'}),
+                    ('port', {'ptype': 'inet:port', 'ro': 1, 'doc': 'The bound TCP port'}),
 
-                    ('ipv4', {'ptype':'inet:ipv4', 'ro':1, 'doc':'The (optional) IPv4 specified to bind()'}),
-                    ('ipv6', {'ptype':'inet:ipv6', 'ro':1, 'doc':'The (optional) IPv6 specified to bind()'}),
-                    ('host', {'ptype':'it:host', 'ro':1}),
-                    ('proc', {'ptype':'it:exec:proc', 'ro':1}),
-                    ('time', {'ptype':'time', 'ro':1}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1, 'doc': 'The (optional) IPv4 specified to bind()'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1, 'doc': 'The (optional) IPv6 specified to bind()'}),
+                    ('host', {'ptype': 'it:host', 'ro': 1}),
+                    ('proc', {'ptype': 'it:exec:proc', 'ro': 1}),
+                    ('time', {'ptype': 'time', 'ro': 1}),
 
-                    ('exe', {'ptype':'file:bytes', 'doc':'The file containing code which bound the listener'}),
+                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing code which bound the listener'}),
                 )),
 
                 ('it:exec:bind:udp', {}, (
-                    ('port', {'ptype':'inet:port', 'ro':1, 'doc':'The bound UDP port'}),
+                    ('port', {'ptype': 'inet:port', 'ro': 1, 'doc': 'The bound UDP port'}),
 
-                    ('ipv4', {'ptype':'inet:ipv4', 'ro':1, 'doc':'The (optional) IPv4 specified to bind()'}),
-                    ('ipv6', {'ptype':'inet:ipv6', 'ro':1, 'doc':'The (optional) IPv6 specified to bind()'}),
-                    ('host', {'ptype':'it:host', 'ro':1}),
-                    ('proc', {'ptype':'it:exec:proc', 'ro':1}),
-                    ('time', {'ptype':'time', 'ro':1}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1, 'doc': 'The (optional) IPv4 specified to bind()'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1, 'doc': 'The (optional) IPv6 specified to bind()'}),
+                    ('host', {'ptype': 'it:host', 'ro': 1}),
+                    ('proc', {'ptype': 'it:exec:proc', 'ro': 1}),
+                    ('time', {'ptype': 'time', 'ro': 1}),
 
-                    ('exe', {'ptype':'file:bytes', 'doc':'The file containing code which bound the listener'}),
+                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing code which bound the listener'}),
                 )),
 
                 ('it:fs:file', {}, (
@@ -296,104 +296,104 @@ class ItMod(CoreModule):
                     ('mtime', {'ptype': 'time', 'doc': 'File modification time'}),
                     ('atime', {'ptype': 'time', 'doc': 'File access time'}),
 
-                    ('user', {'ptype':'inet:user', 'doc':'The owner of the file'}),
-                    ('group', {'ptype':'inet:user', 'doc':'The group owner of the file'}),
+                    ('user', {'ptype': 'inet:user', 'doc': 'The owner of the file'}),
+                    ('group', {'ptype': 'inet:user', 'doc': 'The group owner of the file'}),
                 )),
 
                 # FIXME seed for hex file bytes
                 ('it:exec:file:add', {}, (
-                    ('host', {'ptype':'it:host', 'ro':1}),
-                    ('path', {'ptype':'file:path', 'ro':1}),
+                    ('host', {'ptype': 'it:host', 'ro': 1}),
+                    ('path', {'ptype': 'file:path', 'ro': 1}),
                     ('path:dir', {'ptype': 'file:path', 'ro': 1}),
                     ('path:ext', {'ptype': 'str:lwr', 'ro': 1}),
                     ('path:base', {'ptype': 'file:base', 'ro': 1}),
-                    ('file', {'ptype':'file:bytes', 'ro':1}),
-                    ('time', {'ptype':'time', 'ro':1}),
-                    ('proc', {'ptype':'it:exec:proc', 'ro':1}),
-                    ('exe', {'ptype': 'file:bytes', 'ro':1, 'doc':'The file containing the code that created the file'}),
+                    ('file', {'ptype': 'file:bytes', 'ro': 1}),
+                    ('time', {'ptype': 'time', 'ro': 1}),
+                    ('proc', {'ptype': 'it:exec:proc', 'ro': 1}),
+                    ('exe', {'ptype': 'file:bytes', 'ro': 1, 'doc': 'The file containing the code that created the file'}),
 
                 )),
 
                 ('it:exec:file:del', {}, (
-                    ('host', {'ptype':'it:host', 'ro':1}),
-                    ('path', {'ptype':'file:path', 'ro':1}),
+                    ('host', {'ptype': 'it:host', 'ro': 1}),
+                    ('path', {'ptype': 'file:path', 'ro': 1}),
                     ('path:dir', {'ptype': 'file:path', 'ro': 1}),
                     ('path:ext', {'ptype': 'str:lwr', 'ro': 1}),
                     ('path:base', {'ptype': 'file:base', 'ro': 1}),
-                    ('file', {'ptype':'file:bytes', 'ro':1}),
-                    ('time', {'ptype':'time', 'ro':1}),
-                    ('proc', {'ptype':'it:exec:proc', 'ro':1}),
-                    ('exe', {'ptype': 'file:bytes', 'ro':1, 'doc':'The file containing the code that deleted the file'}),
+                    ('file', {'ptype': 'file:bytes', 'ro': 1}),
+                    ('time', {'ptype': 'time', 'ro': 1}),
+                    ('proc', {'ptype': 'it:exec:proc', 'ro': 1}),
+                    ('exe', {'ptype': 'file:bytes', 'ro': 1, 'doc': 'The file containing the code that deleted the file'}),
 
                 )),
 
                 ('it:exec:file:read', {}, (
-                    ('host', {'ptype':'it:host', 'ro':1}),
-                    ('path', {'ptype':'file:path', 'ro':1}),
+                    ('host', {'ptype': 'it:host', 'ro': 1}),
+                    ('path', {'ptype': 'file:path', 'ro': 1}),
                     ('path:dir', {'ptype': 'file:path', 'ro': 1}),
                     ('path:ext', {'ptype': 'str:lwr', 'ro': 1}),
                     ('path:base', {'ptype': 'file:base', 'ro': 1}),
-                    ('file', {'ptype':'file:bytes', 'ro':1}),
-                    ('time', {'ptype':'time', 'ro':1}),
-                    ('proc', {'ptype':'it:exec:proc', 'ro':1}),
-                    ('exe', {'ptype': 'file:bytes', 'ro':1, 'doc':'The file containing the code that read the file'}),
+                    ('file', {'ptype': 'file:bytes', 'ro': 1}),
+                    ('time', {'ptype': 'time', 'ro': 1}),
+                    ('proc', {'ptype': 'it:exec:proc', 'ro': 1}),
+                    ('exe', {'ptype': 'file:bytes', 'ro': 1, 'doc': 'The file containing the code that read the file'}),
 
                 )),
 
                 ('it:exec:file:write', {}, (
-                    ('host', {'ptype':'it:host', 'ro':1}),
-                    ('path', {'ptype':'file:path', 'ro':1}),
+                    ('host', {'ptype': 'it:host', 'ro': 1}),
+                    ('path', {'ptype': 'file:path', 'ro': 1}),
                     ('path:dir', {'ptype': 'file:path', 'ro': 1}),
                     ('path:ext', {'ptype': 'str:lwr', 'ro': 1}),
                     ('path:base', {'ptype': 'file:base', 'ro': 1}),
-                    ('file', {'ptype':'file:bytes', 'ro':1}),
-                    ('time', {'ptype':'time', 'ro':1}),
-                    ('proc', {'ptype':'it:exec:proc', 'ro':1}),
-                    ('exe', {'ptype': 'file:bytes', 'ro':1, 'doc':'The file containing the code that wrote to the file'}),
+                    ('file', {'ptype': 'file:bytes', 'ro': 1}),
+                    ('time', {'ptype': 'time', 'ro': 1}),
+                    ('proc', {'ptype': 'it:exec:proc', 'ro': 1}),
+                    ('exe', {'ptype': 'file:bytes', 'ro': 1, 'doc': 'The file containing the code that wrote to the file'}),
 
                 )),
 
                 ('it:exec:reg:get', {}, (
-                    ('host', {'ptype':'it:host', 'ro':1}),
-                    ('reg', {'ptype':'it:dev:regval', 'ro':1}),
-                    ('reg:key', {'ptype':'it:dev:regkey', 'ro':1}),
-                    ('reg:int', {'ptype':'it:dev:int', 'ro':1}),
-                    ('reg:str', {'ptype':'it:dev:str', 'ro':1}),
-                    ('reg:bytes', {'ptype':'file:bytes', 'ro':1}),
-                    ('exe', {'ptype':'file:bytes', 'ro':1}),
-                    ('proc', {'ptype':'it:exec:proc', 'ro':1}),
-                    ('time', {'ptype':'time', 'ro':1}),
+                    ('host', {'ptype': 'it:host', 'ro': 1}),
+                    ('reg', {'ptype': 'it:dev:regval', 'ro': 1}),
+                    ('reg:key', {'ptype': 'it:dev:regkey', 'ro': 1}),
+                    ('reg:int', {'ptype': 'it:dev:int', 'ro': 1}),
+                    ('reg:str', {'ptype': 'it:dev:str', 'ro': 1}),
+                    ('reg:bytes', {'ptype': 'file:bytes', 'ro': 1}),
+                    ('exe', {'ptype': 'file:bytes', 'ro': 1}),
+                    ('proc', {'ptype': 'it:exec:proc', 'ro': 1}),
+                    ('time', {'ptype': 'time', 'ro': 1}),
                 )),
 
                 ('it:exec:reg:set', {}, (
-                    ('host', {'ptype':'it:host', 'ro':1}),
-                    ('reg', {'ptype':'it:dev:regval', 'ro':1}),
-                    ('reg:key', {'ptype':'it:dev:regkey', 'ro':1}),
-                    ('reg:int', {'ptype':'it:dev:int', 'ro':1}),
-                    ('reg:str', {'ptype':'it:dev:str', 'ro':1}),
-                    ('reg:bytes', {'ptype':'file:bytes', 'ro':1}),
-                    ('exe', {'ptype':'file:bytes', 'ro':1}),
-                    ('proc', {'ptype':'it:exec:proc', 'ro':1}),
-                    ('time', {'ptype':'time', 'ro':1}),
+                    ('host', {'ptype': 'it:host', 'ro': 1}),
+                    ('reg', {'ptype': 'it:dev:regval', 'ro': 1}),
+                    ('reg:key', {'ptype': 'it:dev:regkey', 'ro': 1}),
+                    ('reg:int', {'ptype': 'it:dev:int', 'ro': 1}),
+                    ('reg:str', {'ptype': 'it:dev:str', 'ro': 1}),
+                    ('reg:bytes', {'ptype': 'file:bytes', 'ro': 1}),
+                    ('exe', {'ptype': 'file:bytes', 'ro': 1}),
+                    ('proc', {'ptype': 'it:exec:proc', 'ro': 1}),
+                    ('time', {'ptype': 'time', 'ro': 1}),
                 )),
 
                 ('it:exec:reg:del', {}, (
-                    ('host', {'ptype':'it:host', 'ro':1}),
-                    ('reg', {'ptype':'it:dev:regval', 'ro':1}),
-                    ('reg:key', {'ptype':'it:dev:regkey', 'ro':1}),
-                    ('reg:int', {'ptype':'it:dev:int', 'ro':1}),
-                    ('reg:str', {'ptype':'it:dev:str', 'ro':1}),
-                    ('reg:bytes', {'ptype':'file:bytes', 'ro':1}),
-                    ('exe', {'ptype':'file:bytes', 'ro':1}),
-                    ('proc', {'ptype':'it:exec:proc', 'ro':1}),
-                    ('time', {'ptype':'time', 'ro':1}),
+                    ('host', {'ptype': 'it:host', 'ro': 1}),
+                    ('reg', {'ptype': 'it:dev:regval', 'ro': 1}),
+                    ('reg:key', {'ptype': 'it:dev:regkey', 'ro': 1}),
+                    ('reg:int', {'ptype': 'it:dev:int', 'ro': 1}),
+                    ('reg:str', {'ptype': 'it:dev:str', 'ro': 1}),
+                    ('reg:bytes', {'ptype': 'file:bytes', 'ro': 1}),
+                    ('exe', {'ptype': 'file:bytes', 'ro': 1}),
+                    ('proc', {'ptype': 'it:exec:proc', 'ro': 1}),
+                    ('time', {'ptype': 'time', 'ro': 1}),
                 )),
             ),
 
         }
 
         models = (
-            ('it',modl),
+            ('it', modl),
         )
 
         return models
