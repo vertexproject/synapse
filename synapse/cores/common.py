@@ -2179,8 +2179,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
     def _normTufoProps(self, form, props, tufo=None, isadd=False):
         '''
-        This will both return a set of fully qualified props as a dict
-        as well as modify props inband as a normalized set or relatives.
+        This will both return a dict of fully qualified props as
+        well as modify the given props dict inband to normalize
+        the values.
         '''
 
         fulls = {}
