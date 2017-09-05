@@ -38,7 +38,6 @@ class PsMod(CoreModule):
 
     def initCoreModule(self):
         self.core.addSeedCtor('ps:person:guidname', self.seedPersonGuidName)
-        self.revCoreModl()
 
     def seedPersonGuidName(self, prop, valu, **props):
         node = self.core.getTufoByProp('ps:person:guidname', valu)

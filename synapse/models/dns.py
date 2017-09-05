@@ -49,25 +49,26 @@ class DnsMod(CoreModule):
                      ('seen:max', {'ptype': 'time:max'}),
                  ]),
 
-                ('inet:dns:look', {'ptype': 'inet:dns:look', 'doc': 'Occurance knowledge of a DNS record lookup'}, [
-                    ('time', {'ptype': 'time', 'req': 1}),
-                    # one of the following should be set...
-                    # FIXME define a way to add subfields to prop decl so we dont have to declare them all
+                ('inet:dns:look', {'doc': 'Occurance knowledge of a DNS record lookup'}, [
+
+                    ('time', {'ptype': 'time'}),
+
                     ('a', {'ptype': 'inet:dns:a'}),
-                    ('a:fqdn', {'ptype': 'inet:fqdn'}),
-                    ('a:ipv4', {'ptype': 'inet:ipv4'}),
+                    ('a:fqdn', {'ptype': 'inet:fqdn', 'ro':1}),
+                    ('a:ipv4', {'ptype': 'inet:ipv4', 'ro':1}),
 
                     ('ns', {'ptype': 'inet:dns:ns'}),
-                    ('ns:ns', {'ptype': 'inet:fqdn'}),
-                    ('ns:zone', {'ptype': 'inet:fqdn'}),
+                    ('ns:ns', {'ptype': 'inet:fqdn', 'ro':1}),
+                    ('ns:zone', {'ptype': 'inet:fqdn', 'ro':1}),
 
                     ('rev', {'ptype': 'inet:dns:rev'}),
-                    ('rev:ipv4', {'ptype': 'inet:ipv4'}),
-                    ('rev:fqdn', {'ptype': 'inet:fqdn'}),
+                    ('rev:ipv4', {'ptype': 'inet:ipv4', 'ro':1}),
+                    ('rev:fqdn', {'ptype': 'inet:fqdn', 'ro':1}),
 
                     ('aaaa', {'ptype': 'inet:dns:aaaa'}),
-                    ('aaaa:fqdn', {'ptype': 'inet:fqdn'}),
-                    ('aaaa:ipv6', {'ptype': 'inet:ipv6'}),
+                    ('aaaa:fqdn', {'ptype': 'inet:fqdn', 'ro':1}),
+                    ('aaaa:ipv6', {'ptype': 'inet:ipv6', 'ro':1}),
+
                 ]),
             ),
         }

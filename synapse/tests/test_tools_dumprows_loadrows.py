@@ -30,7 +30,11 @@ class DumpRowsTest(SynTest):
             with s_cortex.openurl(sqlite_url) as core:
                 self.true(core.isnew)
                 core.setBlobValu('syn:test:tel', 8675309)
-                core.formTufoByProp('inet:ipv4', 0x01020304)
+                with core.getCoreXact():
+                    core.formTufoByProp('inet:ipv4', 0x01020304)
+                    for i in range(1000):
+                        core.formTufoByProp('inet:ipv4',i)
+
             # Now dump that sqlite core
             argv = ['-s', sqlite_url, '-o', fp]
             ret = s_dumprows.main(argv, outp)

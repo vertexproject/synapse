@@ -45,6 +45,7 @@ def ipv4cidr(valu):
     return lowerbound, lowerbound + mask[1]
 
 class IPv4Type(DataType):
+
     def norm(self, valu, oldval=None):
         if s_compat.isstr(valu):
             return self._norm_str(valu, oldval=oldval)
@@ -75,6 +76,7 @@ class FqdnType(DataType):
     )
 
     def norm(self, valu, oldval=None):
+
         valu = valu.replace('[.]', '.')
         if not fqdnre.match(valu):
             self._raiseBadValu(valu)
@@ -325,7 +327,6 @@ class InetMod(CoreModule):
         self.core.addTypeCast('inet:ipv4:cidr', ipv4cidr)
         self.onFormNode('inet:fqdn', self.onTufoFormFqdn)
         self.onFormNode('inet:passwd', self.onTufoFormPasswd)
-        self.revCoreModl()
 
     def onTufoFormFqdn(self, form, valu, props, mesg):
         parts = valu.split('.', 1)
@@ -396,32 +397,9 @@ class InetMod(CoreModule):
         if adds:
             self.core.addRows(adds)
 
-    @modelrev('inet', 201708141516)
-    def _revModl201708141516(self):
-        node = self.core.getTufoByProp('syn:type', 'inet:urlfile')
-        if not node:  # pragma: no cover
-            # Its possible someone deleted their syn:type=inet:urlfile node :(
-            mesg = 'No syn:type="inet:urlfile" node found during model revision.'
-            logger.warning(mesg)
-            self.core.log(logging.WARNING, mesg=mesg)
-            return
-        self.core.delRowsByIdProp(node[0], 'syn:type:names')
-        self.core.delRowsByIdProp(node[0], 'syn:type:types')
-        # Add in the new fields type if it does not exist.
-        if 'syn:type:fields' not in node[1]:
-            self.core.addRows([(node[0], 'syn:type:fields', 'url=inet:url,file=file:bytes', s_common.now())])
-
     @modelrev('inet', 201708231646)
     def _revModl201708231646(self):
-        node = self.core.getTufoByProp('syn:prop', 'inet:ipv4:type')
-        if not node:  # pragma: no cover
-            # Its possible someone deleted their syn:prop=inet:ipv4:type node :(
-            mesg = 'No syn:prop="inet:ipv4:type" node found during model revision.'
-            logger.warning(mesg)
-            self.core.log(logging.WARNING, mesg=mesg)
-            return
-        if 'syn:prop:ptype' not in node[1]:
-            self.core.addRows([(node[0], 'syn:prop:ptype', 'str', s_common.now())])
+        pass # for legacy/backward compat
 
     @staticmethod
     def getBaseModels():
@@ -429,10 +407,10 @@ class InetMod(CoreModule):
             'types': (
                 ('inet:url', {'ctor': 'synapse.models.inet.UrlType', 'doc': 'A Universal Resource Locator (URL)'}),
                 ('inet:ipv4', {'ctor': 'synapse.models.inet.IPv4Type', 'doc': 'An IPv4 Address', 'ex': '1.2.3.4'}),
-                ('inet:ipv6',
-                 {'ctor': 'synapse.models.inet.IPv6Type', 'doc': 'An IPv6 Address', 'ex': '2607:f8b0:4004:809::200e'}),
-                ('inet:srv4',
-                 {'ctor': 'synapse.models.inet.Srv4Type', 'doc': 'An IPv4 Address and Port', 'ex': '1.2.3.4:80'}),
+                ('inet:ipv6', {'ctor': 'synapse.models.inet.IPv6Type', 'doc': 'An IPv6 Address',
+                               'ex': '2607:f8b0:4004:809::200e'}),
+                ('inet:srv4', {'ctor': 'synapse.models.inet.Srv4Type', 'doc': 'An IPv4 Address and Port',
+                               'ex': '1.2.3.4:80'}),
                 ('inet:srv6', {'ctor': 'synapse.models.inet.Srv6Type', 'doc': 'An IPv6 Address and Port',
                                'ex': '[2607:f8b0:4004:809::200e]:80'}),
                 ('inet:email',
@@ -465,6 +443,8 @@ class InetMod(CoreModule):
                 ('inet:udp4', {'subof': 'inet:srv4', 'doc': 'A UDP server listening on IPv4:port'}),
                 ('inet:tcp6', {'subof': 'inet:srv6', 'doc': 'A TCP server listening on IPv6:port'}),
                 ('inet:udp6', {'subof': 'inet:srv6', 'doc': 'A UDP server listening on IPv6:port'}),
+
+                ('inet:flow', {'subof': 'guid', 'doc':'An individual network connection'}),
 
                 ('inet:port', {'subof': 'int', 'min': 0, 'max': 0xffff, 'ex': '80'}),
                 (
@@ -605,6 +585,55 @@ class InetMod(CoreModule):
                     ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
                     ('port', {'ptype': 'inet:port', 'ro': 1}),
                 ]),
+
+                ('inet:flow', {}, (
+
+                    ('time', {'ptype':'time', 'doc':'The time the connection was initiated'}),
+                    ('duration', {'ptype':'int', 'doc':'The duration of the flow in seconds'}),
+
+                    ('dst:host', {'ptype':'it:host', 'doc':'The destination host guid'}),
+                    ('dst:proc', {'ptype':'it:exec:proc', 'doc':'The destination proc guid'}),
+                    ('dst:txbytes', {'ptype':'int', 'doc':'The number of bytes sent by the destination'}),
+
+                    ('dst:tcp4', {'ptype':'inet:tcp4'}),
+                    ('dst:tcp4:ipv4', {'ptype':'inet:ipv4', 'ro':1}),
+                    ('dst:tcp4:port', {'ptype':'inet:port', 'ro':1}),
+
+                    ('dst:udp4', {'ptype':'inet:udp4'}),
+                    ('dst:udp4:ipv4', {'ptype':'inet:ipv4', 'ro':1}),
+                    ('dst:udp4:port', {'ptype':'inet:port', 'ro':1}),
+
+                    ('dst:tcp6', {'ptype':'inet:tcp6'}),
+                    ('dst:tcp6:ipv6', {'ptype':'inet:ipv6', 'ro':1}),
+                    ('dst:tcp6:port', {'ptype':'inet:port', 'ro':1}),
+
+                    ('dst:udp6', {'ptype':'inet:udp6'}),
+                    ('dst:udp6:ipv6', {'ptype':'inet:ipv6', 'ro':1}),
+                    ('dst:udp6:port', {'ptype':'inet:port', 'ro':1}),
+
+                    ('src:host', {'ptype':'it:host', 'doc':'The source host guid'}),
+                    ('src:proc', {'ptype':'it:exec:proc', 'doc':'The source proc guid'}),
+                    ('src:txbytes', {'ptype':'int', 'doc':'The number of bytes sent by the source'}),
+
+                    ('src:tcp4', {'ptype':'inet:tcp4'}),
+                    ('src:tcp4:ipv4', {'ptype':'inet:ipv4', 'ro':1}),
+                    ('src:tcp4:port', {'ptype':'inet:port', 'ro':1}),
+
+                    ('src:udp4', {'ptype':'inet:udp4'}),
+                    ('src:udp4:ipv4', {'ptype':'inet:ipv4', 'ro':1}),
+                    ('src:udp4:port', {'ptype':'inet:port', 'ro':1}),
+
+                    ('src:tcp6', {'ptype':'inet:tcp6'}),
+                    ('src:tcp6:ipv6', {'ptype':'inet:ipv6', 'ro':1}),
+                    ('src:tcp6:port', {'ptype':'inet:port', 'ro':1}),
+
+                    ('src:udp6', {'ptype':'inet:udp6'}),
+                    ('src:udp6:ipv6', {'ptype':'inet:ipv6', 'ro':1}),
+                    ('src:udp6:port', {'ptype':'inet:port', 'ro':1}),
+
+                    ('from', {'ptype':'guid', 'doc':'The ingest source file/iden.  Used for reparsing'}),
+
+                )),
 
                 ('inet:netuser', {'ptype': 'inet:netuser'}, [
                     ('site', {'ptype': 'inet:fqdn', 'ro': 1}),

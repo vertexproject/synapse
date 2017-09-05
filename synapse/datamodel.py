@@ -157,6 +157,9 @@ class DataModel(s_types.TypeLib):
         self.addTufoProp('syn:model', 'prefix', ptype='syn:prop', doc='prefix used by types/forms in the model')
 
         self.addTufoForm('syn:type', ptype='syn:type')
+        self.addTufoProp('syn:type', 'ctor', ptype='str')
+        self.addTufoProp('syn:type', 'subof', ptype='syn:type')
+
         self.addTufoProp('syn:type', '*', glob=1)
 
         # used most commonly for sequential tag generation
@@ -170,6 +173,21 @@ class DataModel(s_types.TypeLib):
         Returns a dictionary which represents the data model.
         '''
         return dict(self.model)
+
+    def _addDataModels(self, modtups):
+        '''
+        Load a list of (name,modl) tuples into the DataModel.
+        '''
+        # first load all the types...
+        s_types.TypeLib._addDataModels(self, modtups)
+
+        for name, modl in modtups:
+
+            for form, info, props in modl.get('forms',()):
+                self.addTufoForm(form, **info)
+
+                for prop,pnfo in props:
+                    self.addTufoProp(form, prop, **pnfo)
 
     def addTufoForm(self, form, **info):
         '''
@@ -185,6 +203,12 @@ class DataModel(s_types.TypeLib):
         '''
         if not propre.match(form):
             raise s_common.BadPropName(name=form)
+
+        if info.get('ptype') is None:
+            if self.isDataType(form):
+                info['ptype'] = form
+            else:
+                info['ptype'] = 'str'
 
         self.forms.add(form)
 
@@ -384,11 +408,36 @@ class DataModel(s_types.TypeLib):
         return dtype.repr(valu)
 
     def getPropTypeName(self, prop):
+        '''
+        Retrieve the name of the type for the given property.
+
+        Args:
+            prop (str): The property
+
+        Returns:
+            (str):  The type name (or None)
+        '''
         pdef = self.getPropDef(prop)
         if pdef is None:
             return None
 
         return pdef[1].get('ptype')
+
+    def getTypeOfs(self, name):
+        '''
+        Return a list of type inheritence (including specified name).
+
+        Args:
+            name (str): The name of a type
+
+        Returns:
+            ([str, ...]):   The list of type names it inherits from
+        '''
+        retn = []
+        while name is not None:
+            retn.append(name)
+            name = self.getTypeInfo(name,'subof')
+        return retn
 
     def getPropNorm(self, prop, valu, oldval=None):
         '''

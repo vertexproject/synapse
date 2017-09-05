@@ -24,7 +24,7 @@ class PolMod(CoreModule):
                     ('isonum', {'ptype': 'pol:isonum'}),
                     ('pop', {'ptype': 'int', 'defval': 0}),
                     ('founded', {'ptype': 'time', 'defval': 0}),
-                    ('tld', {'ptype': 'inet:fqdn', 'defval': '??'}),
+                    ('tld', {'ptype': 'inet:fqdn'}),
                 ]),
 
                 ('pol:flag', {'ptype': 'file:bytes', 'doc': 'The flag image SHA256'}, [

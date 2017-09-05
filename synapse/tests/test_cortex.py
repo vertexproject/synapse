@@ -45,15 +45,26 @@ class CoreTestModule(s_module.CoreModule):
         self.onFormNode('inet:ipv4', formipv4)
         self.addConfDef('foobar', defval=False, asloc='foobar')
 
-        self.revCoreModl()
+    @staticmethod
+    def getBaseModels():
+        return (
+            ('test', {
+                'types':(
+                    ('test:type1', {'subof':'str'}),
+                    ('test:type2', {'subof':'str'}),
+                ),
+            }),
+        )
 
     @s_module.modelrev('test', 201707200101)
     def _testRev0(self):
-        self.core.addType('test:type1', subof='str')
+        self.core.formTufoByProp('inet:fqdn', 'rev0.com')
+        #self.core.addType('test:type1', subof='str')
 
     @s_module.modelrev('test', 201707210101)
     def _testRev1(self):
-        self.core.addType('test:type2', subof='str')
+        self.core.formTufoByProp('inet:fqdn', 'rev1.com')
+        #self.core.addType('test:type2', subof='str')
 
 class CoreTestDataModelModuleV0(s_module.CoreModule):
 
@@ -64,10 +75,9 @@ class CoreTestDataModelModuleV0(s_module.CoreModule):
                 ('foo:bar', {'subof': 'str', 'doc': 'A foo bar!'}),
             ),
             'forms': (
-                ('foo:bar',
-                 {'ptype': 'foo:bar'},
-                 []
-                 ),
+                ('foo:bar', {}, (
+                    ('duck', {'defval': 'mallard', 'ptype': 'str', 'doc': 'Duck value!'}),
+                )),
             ),
         }
         name = 'test'
@@ -75,29 +85,11 @@ class CoreTestDataModelModuleV0(s_module.CoreModule):
 
 class CoreTestDataModelModuleV1(s_module.CoreModule):
 
-    @staticmethod
-    def getBaseModels():
-        modl = {
-            'types': (
-                ('foo:bar', {'subof': 'str', 'doc': 'A foo bar!'}),
-            ),
-            'forms': (
-                ('foo:bar',
-                 {'ptype': 'foo:bar'},
-                 [('duck', {'defval': 'mallard', 'ptype': 'str', 'doc': 'Duck value!'})]
-                 ),
-            ),
-        }
-        name = 'test'
-        return ((name, modl),)
-
     @s_module.modelrev('test', 201707210101)
     def _testRev1(self):
         '''
         This revision adds the 'duck' property to our foo:bar nodes with its default value.
         '''
-        self.core.addPropDef('foo:bar:duck', form='foo:bar', defval='mallard', ptype='str', doc='Duck value!')
-        # Now lets migrate existing nodes to accommodate model changes.
         rows = []
         tick = s_common.now()
         for iden, p, v, t in self.core.getRowsByProp('foo:bar'):
@@ -1147,6 +1139,7 @@ class CortexTest(SynTest):
     def test_cortex_tags(self):
         core = s_cortex.openurl('ram://')
 
+        core.addType('foo', subof='str')
         core.addTufoForm('foo')
 
         hehe = core.formTufoByProp('foo', 'hehe')
@@ -1372,7 +1365,7 @@ class CortexTest(SynTest):
 
         with s_cortex.openurl('ram://') as core:
 
-            core.addTufoForm('foo')
+            core.addTufoForm('foo', ptype='str')
             core.addTufoProp('foo', 'min', ptype='int:min')
             core.addTufoProp('foo', 'max', ptype='int:max')
 
@@ -1395,7 +1388,7 @@ class CortexTest(SynTest):
 
         with s_cortex.openurl('ram://') as core:
 
-            core.addTufoForm('foo')
+            core.addTufoForm('foo', ptype='str')
             core.addTufoProp('foo', 'min', ptype='time:epoch:min')
             core.addTufoProp('foo', 'max', ptype='time:epoch:max')
 
@@ -1418,15 +1411,15 @@ class CortexTest(SynTest):
 
         with s_cortex.openurl('ram://') as core:
 
-            core.addTufoForm('foo')
+            core.addTufoForm('foo', ptype='str')
             core.addTufoProp('foo', 'min', ptype='time:epoch:min')
             core.addTufoProp('foo', 'max', ptype='time:epoch:max')
 
-            core.addTufoForm('bar')
+            core.addTufoForm('bar', ptype='str')
             core.addTufoProp('bar', 'min', ptype='time:epoch:min')
             core.addTufoProp('bar', 'max', ptype='time:epoch:max')
 
-            core.addTufoForm('baz')
+            core.addTufoForm('baz', ptype='str')
             core.addTufoProp('baz', 'min', ptype='time:epoch')
             core.addTufoProp('baz', 'max', ptype='time:epoch')
 
@@ -1753,23 +1746,6 @@ class CortexTest(SynTest):
             self.true(rows[0][-1] >= tick)
             self.true(rows[0][-1] <= tock)
 
-    def test_cortex_tlib_persistence(self):
-        with self.getTestDir() as path:
-
-            savefile = genpath(path, 'savefile.mpk')
-
-            with s_cortex.openurl('ram://', savefile=savefile) as core:
-
-                core.formTufoByProp('syn:type', 'foo', subof='bar')
-                core.formTufoByProp('syn:type', 'bar', ctor='synapse.tests.test_cortex.FakeType')
-
-                self.eq(core.getTypeParse('foo', '30')[0], 30)
-                self.eq(core.getTypeParse('bar', '30')[0], 30)
-
-            with s_cortex.openurl('ram://', savefile=savefile) as core:
-                self.eq(core.getTypeParse('foo', '30')[0], 30)
-                self.eq(core.getTypeParse('bar', '30')[0], 30)
-
     def test_cortex_splicefd(self):
         with self.getTestDir() as path:
             with genfile(path, 'savefile.mpk') as fd:
@@ -1798,7 +1774,9 @@ class CortexTest(SynTest):
                     self.eq(len(core.getTufosByTag('foo', form='inet:fqdn')), 1)
 
     def test_cortex_addmodel(self):
+
         with s_cortex.openurl('ram://') as core:
+
             core.addDataModel('a.foo.module',
                 {
                     'prefix': 'foo',
@@ -1827,7 +1805,7 @@ class CortexTest(SynTest):
             self.eq(tuf0[1].get('foo:baz'), 'aaa')
             self.eq(tuf0[1].get('foo:baz:faz'), 'bbb')
 
-            self.nn(core.getTufoByProp('syn:model', 'a.foo.module'))
+            #self.nn(core.getTufoByProp('syn:model', 'a.foo.module'))
             self.nn(core.getTufoByProp('syn:type', 'foo:bar'))
             self.nn(core.getTufoByProp('syn:form', 'foo:baz'))
             self.nn(core.getTufoByProp('syn:prop', 'foo:baz:faz'))
@@ -1853,7 +1831,7 @@ class CortexTest(SynTest):
             self.eq(tuf0[1].get('foo:baz'), 'aaa')
             self.eq(tuf0[1].get('foo:baz:faz'), 'bbb')
 
-            self.nn(core.getTufoByProp('syn:model', 'a.foo.module'))
+            #self.nn(core.getTufoByProp('syn:model', 'a.foo.module'))
             self.nn(core.getTufoByProp('syn:type', 'foo:bar'))
             self.nn(core.getTufoByProp('syn:form', 'foo:baz'))
             self.nn(core.getTufoByProp('syn:prop', 'foo:baz:faz'))
@@ -2061,19 +2039,14 @@ class CortexTest(SynTest):
 
             def v2():
                 core.formTufoByProp('inet:fqdn', 'baz.com')
-                return 3
-
-            def v3():
-                core.formTufoByProp('inet:fqdn', 'newp.com')
-
-            revs = [(0, v0), (1, v1)]
 
             core.setConfOpt('rev:model', 0)
-            self.raises(NoRevAllow, core.revModlVers, 'grok', revs)
+            self.raises(NoRevAllow, core.revModlVers, 'grok', 0, v0)
 
             core.setConfOpt('rev:model', 1)
 
-            core.revModlVers('grok', revs)
+            self.true( core.revModlVers('grok', 0, v0) )
+            self.true( core.revModlVers('grok', 1, v1) )
 
             self.nn(core.getTufoByProp('inet:fqdn', 'foo.com'))
             self.nn(core.getTufoByProp('inet:fqdn', 'bar.com'))
@@ -2081,18 +2054,10 @@ class CortexTest(SynTest):
 
             self.eq(core.getModlVers('grok'), 1)
 
-            core.delTufo(core.getTufoByProp('inet:fqdn', 'foo.com'))
-            core.delTufo(core.getTufoByProp('inet:fqdn', 'bar.com'))
+            core.setModlVers('grok',2)
+            core.revModlVers('grok', 2, v2)
 
-            revs.extend(((2, v2), (3, v3)))
-            core.revModlVers('grok', revs)
-
-            self.none(core.getTufoByProp('inet:fqdn', 'newp.com'))
-            self.none(core.getTufoByProp('inet:fqdn', 'foo.com'))
-            self.none(core.getTufoByProp('inet:fqdn', 'bar.com'))
-            self.nn(core.getTufoByProp('inet:fqdn', 'baz.com'))
-
-            self.eq(core.getModlVers('grok'), 3)
+            self.none(core.getTufoByProp('inet:fqdn', 'baz.com'))
 
     def test_cortex_isnew(self):
         with self.getTestDir() as dirn:
@@ -2210,115 +2175,6 @@ class CortexTest(SynTest):
             with s_cortex.openurl(lmdb_url, savefile=savefp) as core:
                 self.runrev0savefile(core)
 
-    def test_cortex_rev0(self):
-        byts = self.getRev0DbByts()
-
-        with self.getTestDir() as temp:
-
-            finl = os.path.join(temp, 'test.db')
-
-            with open(finl, 'wb') as fd:
-                fd.write(byts)
-
-            with s_cortex.openurl('sqlite:///%s' % finl) as core:
-                self.runrev0basic(core)
-
-                # sqlite storage layer versioning checks go below
-                table = core.store._getTableName()
-                blob_table = table + '_blob'
-                self.ge(core.getBlobValu('syn:core:sqlite:version'), 0)
-                self.true(core.store._checkForTable(blob_table))
-                self.runblob(core)
-
-    def test_cortex_rev0_lmdb(self):
-        self.skipIfOldPython()
-        byts = self.getRev0DbBytsLmdbGz()
-
-        buf = s_compat.BytesIO(byts)
-
-        with self.getTestDir() as temp:
-
-            finl = os.path.join(temp, 'test.db')
-
-            sz = 1024 * 1024 * 4
-            with open(finl, 'wb') as fd:
-                with gzip.GzipFile(fileobj=buf) as gzfd:
-                    while True:
-                        _byts = gzfd.read(sz)
-                        if not _byts:
-                            break
-                        fd.write(_byts)
-
-            with s_cortex.openurl('lmdb:///%s' % finl) as core:
-                self.runrev0basic(core)
-                # lmdb storage layer versioning checks go below
-                blob_table = b'blob_store'
-                self.ge(core.getBlobValu('syn:core:lmdb:version'), 0)
-                self.true(core.store._checkForTable(blob_table))
-                self.runblob(core)
-
-    def test_cortex_rev0_psql(self):
-
-        # Hash of the rev0 file on initial commit prevent
-        # commits which overwrite this accidentally from passing.
-        known_hash = 'ae42eb7e2bfb4aeb87dbe584bc4b89c5'
-        path = getTestPath('rev0.psql')
-        statements = []
-        with open(path, 'rb') as fd:
-            byts = fd.read()
-            self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
-            fd.seek(0)
-            for line in fd.readlines():
-                line = line.decode().strip()
-                if not line or line.startswith('--'):
-                    continue
-                statements.append(line)
-
-        # Load up the data into the PG core
-        with self.getPgConn() as conn:
-            # Clean up any existing rev0 database tables if a previous test did not cleanup properly.
-            with conn.cursor() as cur:
-                stmt = '''select table_name from information_schema.tables where table_name like 'syn_test_rev0%';'''
-                cur.execute(stmt)
-                rows = cur.fetchall()
-                for row in rows:
-                    stmt = 'DROP TABLE IF EXISTS {}'.format(row[0])
-                    cur.execute(stmt)
-                # Sanity check on PSQL
-                cur.execute(stmt)
-                rows = cur.fetchall()
-                if rows:
-                    self.fail('PSQL DB contains syn_test_rev0 tables after dropping them')
-            conn.commit()
-            # Now slam the data into the DB from the .psql file.
-            with conn.cursor() as cur:
-                for stmt in statements:
-                    cur.execute(stmt)
-            conn.commit()
-
-        with self.getPgCore(table='syn_test_rev0') as core:
-            self.runrev0basic(core)
-            # sqlite storage layer versioning checks go below
-            table = core.store._getTableName()
-            blob_table = table + '_blob'
-            self.eq(core.getBlobValu('syn:core:postgres:version'), 0)
-            self.true(core.store._checkForTable(blob_table))
-            self.runblob(core)
-
-    def runrev0basic(self, core):
-        # Basic things we should expect to have happened on the rev0 cortex (updates, etc)
-        self.false(core.isnew)
-        node = core.eval('inet:ipv4=1.2.3.4')[0]
-
-        self.nn(node[1].get('#foo.bar'))
-        self.eq(len(core.eval('inet:ipv4*tag=foo.bar')), 1)
-
-        self.eq(len(core.getRowsByProp('_:dark:tag')), 0)
-        self.eq(len(core.getRowsByProp('_:*inet:ipv4#foo.bar')), 1)
-
-        self.eq(len(core.eval('inet:ipv4*tag=foo.bar.baz')), 1)
-        self.eq(len(core.eval('#foo.bar.baz')), 1)
-
     def runrev0savefile(self, core):
         self.false(core.isnew)
         node = core.formTufoByProp('inet:ipv4', '1.2.3.4')
@@ -2331,6 +2187,7 @@ class CortexTest(SynTest):
     def test_cortex_module_datamodel_migration(self):
 
         with s_cortex.openurl('ram:///') as core:
+
             # Enforce data model consistency.
             core.setConfOpt('enforce', 1)
 
@@ -2344,32 +2201,19 @@ class CortexTest(SynTest):
             self.eq(node[1].get('tufo:form'), 'foo:bar')
             self.eq(node[1].get('foo:bar'), 'I am a bar foo.')
 
+            # delete the defavl rows for :duck
+            core.delRowsByProp('foo:bar:duck')
+
             # Test a module which will bump the module version and do a
             # migration as well as add a property type.
             mods = (('synapse.tests.test_cortex.CoreTestDataModelModuleV1', {}),)
             core.setConfOpt('modules', mods)
 
             self.eq(core.getModlVers('test'), 201707210101)
-            self.true('foo:bar:duck' in core.props)
 
             node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
             self.eq(node[1].get('foo:bar:duck'), 'mallard')
-            node2 = core.formTufoByProp('foo:bar', 'I am a robot', duck='mandarin')
-            self.eq(node2[1].get('foo:bar:duck'), 'mandarin')
 
-        # Ensure that when we create a new cortex and add a versioned model it loads correctly
-        with s_cortex.openurl('ram:///') as core:
-            # Enforce data model consistency.
-            core.setConfOpt('enforce', 1)
-
-            mods = (('synapse.tests.test_cortex.CoreTestDataModelModuleV1', {}),)
-            core.setConfOpt('modules', mods)
-
-            self.eq(core.getModlVers('test'), 201707210101)
-            self.nn(core.getTypeInst('foo:bar'))
-
-            node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
-            self.eq(node[1].get('foo:bar:duck'), 'mallard')
             node = core.formTufoByProp('foo:bar', 'I am a robot', duck='mandarin')
             self.eq(node[1].get('foo:bar:duck'), 'mandarin')
 
@@ -2382,75 +2226,6 @@ class CortexTest(SynTest):
 
             self.eq(len(core.eval('hehe:foo')), 0)
             self.eq(len(core.eval('hehe:baz')), 1)
-
-    def test_cortex_module_datamodel_migration_persistent(self):
-        with self.getTestDir() as dirn:
-
-            # Test with a safefile based ram cortex
-            savefile = os.path.join(dirn, 'savefile.mpk')
-            with s_cortex.openurl('ram://', savefile=savefile) as core:
-                # Enforce data model consistency.
-                core.setConfOpt('enforce', 1)
-
-                mods = (('synapse.tests.test_cortex.CoreTestDataModelModuleV0', {}),)
-                core.setConfOpt('modules', mods)
-
-                self.eq(core.getModlVers('test'), 0)
-                self.nn(core.getTypeInst('foo:bar'))
-
-                node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
-                self.eq(node[1].get('tufo:form'), 'foo:bar')
-                self.eq(node[1].get('foo:bar'), 'I am a bar foo.')
-
-            with s_cortex.openurl('ram://', savefile=savefile) as core:
-                self.nn(core.getTypeInst('foo:bar'))
-                self.eq(core.getModlVers('test'), 0)
-                node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
-                self.false(node[1].get('.new'))
-
-                mods = (('synapse.tests.test_cortex.CoreTestDataModelModuleV1', {}),)
-                core.setConfOpt('modules', mods)
-
-                self.eq(core.getModlVers('test'), 201707210101)
-                self.true('foo:bar:duck' in core.props)
-
-                node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
-                self.eq(node[1].get('foo:bar:duck'), 'mallard')
-                node2 = core.formTufoByProp('foo:bar', 'I am a robot', duck='mandarin')
-                self.eq(node2[1].get('foo:bar:duck'), 'mandarin')
-
-            # Test with a SQLite backed cortex
-            path = os.path.join(dirn, 'test-model-migration.db')
-            with s_cortex.openurl('sqlite:///%s' % (path,)) as core:
-                # Enforce data model consistency.
-                core.setConfOpt('enforce', 1)
-
-                mods = (('synapse.tests.test_cortex.CoreTestDataModelModuleV0', {}),)
-                core.setConfOpt('modules', mods)
-
-                self.eq(core.getModlVers('test'), 0)
-                self.nn(core.getTypeInst('foo:bar'))
-
-                node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
-                self.eq(node[1].get('tufo:form'), 'foo:bar')
-                self.eq(node[1].get('foo:bar'), 'I am a bar foo.')
-
-            with s_cortex.openurl('sqlite:///%s' % (path,)) as core:
-                self.nn(core.getTypeInst('foo:bar'))
-                self.eq(core.getModlVers('test'), 0)
-                node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
-                self.false(node[1].get('.new'))
-
-                mods = (('synapse.tests.test_cortex.CoreTestDataModelModuleV1', {}),)
-                core.setConfOpt('modules', mods)
-
-                self.eq(core.getModlVers('test'), 201707210101)
-                self.true('foo:bar:duck' in core.props)
-
-                node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
-                self.eq(node[1].get('foo:bar:duck'), 'mallard')
-                node2 = core.formTufoByProp('foo:bar', 'I am a robot', duck='mandarin')
-                self.eq(node2[1].get('foo:bar:duck'), 'mandarin')
 
     def test_cortex_lift_by_cidr(self):
 
@@ -2565,23 +2340,59 @@ class CortexTest(SynTest):
     def test_cortex_reqprops(self):
 
         with s_cortex.openurl('ram:///') as core:
-            # TODO - We will have to invert the logic here slightly when enforce=1 is merged.
 
-            # Required prop "time" not provided but enforce=0.
-            t0 = core.addTufoEvent('inet:dns:look', a='WOOT.com/1.2.3.4')
+            core.addDataModel('woot', {
+                'forms':(
+                    ('hehe:haha', {'ptype':'str'}, (
+                        ('hoho', {'ptype':'str', 'req':1}),
+                    )),
+                ),
+            })
+
+            core.setConfOpt('enforce', 0)
+
+            # Required prop not provided but enforce=0.
+            t0 = core.formTufoByProp('hehe:haha','lulz')
             self.nn(t0)
 
             # enable enforce
             core.setConfOpt('enforce', 1)
 
             # fails without required prop present
-            self.raises(PropNotFound, core.addTufoEvent, 'inet:dns:look', a='WOOT.com/1.2.3.5', )
+            self.raises(PropNotFound, core.formTufoByProp, 'hehe:haha', 'rofl')
 
             # Works with required prop present
-            tick = now()
-            t1 = core.addTufoEvent('inet:dns:look', a='WOOT.com/1.2.3.4', time=tick)
-            self.eq(t1[1].get('inet:dns:look:time'), tick)
-            self.ne(t0[0], t1[0])
+            t0 = core.formTufoByProp('hehe:haha','rofl', hoho='wonk')
+            self.nn(t0)
+
+    def test_cortex_runts(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            core.addDataModel('hehe', {'forms':(
+                ('hehe:haha', {'ptype':'str'}, (
+                    ('hoho', {'ptype':'int'}),
+                )),
+            )})
+
+            core.addRuntNode('hehe:haha', 'woot', hoho=20, lulz='rofl')
+
+            # test that nothing hit the storage layer...
+            self.eq(len(core.getRowsByProp('hehe:haha')), 0)
+
+            node = core.getTufoByProp('hehe:haha','woot')
+            self.nn(node)
+
+            # check that it is ephemeral
+            self.none(node[0])
+
+            # check that all props made it in
+            self.eq(node[1].get('hehe:haha:hoho'), 20)
+            self.eq(node[1].get('hehe:haha:lulz'), 'rofl')
+
+            # check that only model'd props are indexed
+            self.nn(core.getTufoByProp('hehe:haha:hoho', 20))
+            self.none(core.getTufoByProp('hehe:haha:lulz', 'rofl'))
 
 class StorageTest(SynTest):
 
@@ -2685,3 +2496,4 @@ class StorageTest(SynTest):
             self.nn(store.reqJoinByMeth('range'))
             self.nn(store.reqRowsByMeth('range'))
             self.nn(store.reqSizeByMeth('range'))
+
