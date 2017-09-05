@@ -2424,7 +2424,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             if self.autoadd:
                 self._runToAdd(fulls)
-                #self._runAutoAdd(toadd)
 
         return tufo
 
