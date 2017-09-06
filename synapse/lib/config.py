@@ -91,8 +91,8 @@ class Configable:
             Set a pair of options definitions related to caching on a object::
 
                 defs = (
-                    ('caching',{'type':'bool','doc':'Enable caching on this object'}),
-                    ('cache:expiretime', {'type':'int', 'doc': 'Time to expire data', 'defval':60})
+                    ('caching', {'type': 'bool', 'doc': 'Enable caching on this object'}),
+                    ('cache:expiretime', {'type': 'int', 'doc': 'Time to expire data', 'defval': 60})
                 )
                 item.addConfDefs(defs)
 
@@ -155,7 +155,7 @@ class Configable:
         Args:
             opts (dict): Dictionary containing name, valu pairs to validate.
 
-        Returns:
+        Raises:
             NoSuchType: If the specified type of the option is non-existent.
             BadTypeValu: If a bad valu is encountered during type normalization.
         '''
@@ -270,8 +270,8 @@ class Configable:
             Set a pair of keys on a object using a dictionary::
 
                 opts = {
-                    'foo:enabled':True,
-                    'foo:size':1000
+                    'foo:enabled': True,
+                    'foo:size': 1000
                 }
                 item.setConfOpts(opts)
 
@@ -295,7 +295,7 @@ class Configable:
 
                 def setCacheEnabled(self, en):
                     dostuff()
-                item.onConfOptSet('caching',setCacheEnabled)
+                item.onConfOptSet('caching', setCacheEnabled)
 
         Notes:
             The callback is fired using the ``syn:conf:set:<name>`` event. Many places through Synapse (or third party
