@@ -14,7 +14,7 @@ import synapse.lib.output as s_output
 
 def main(argv, outp=None):
 
-    if outp is None:
+    if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
 
     pars = argparse.ArgumentParser(prog='ingest', description='Command line tool for ingesting data into a cortex')
@@ -37,7 +37,7 @@ def main(argv, outp=None):
         raise
     core.setConfOpt('enforce', 1)
 
-    if opts.debug:
+    if opts.debug:  # pragma: no cover
         core.setConfOpt('log:save', 1)
 
     # FIXME check for telepath proxy and bitch.
@@ -149,7 +149,7 @@ def main(argv, outp=None):
 
     outp.printf('ingest took: %s sec' % (tock - tick,))
 
-    if opts.debug:
+    if opts.debug:  # pragma: no cover
         s_cmdr.runItemCmdr(core)
 
     if pump is not None:
@@ -159,5 +159,5 @@ def main(argv, outp=None):
 
     return 0
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     sys.exit(main(sys.argv[1:]))

@@ -28,7 +28,11 @@ class TestIngest(SynTest):
 
                     gest = {
                         'sources': [
-                            [csvpath, {'open': {'format': 'csv'}, 'ingest': {'forms': [['inet:ipv4', {'path': '1'}]]}}],
+                            [csvpath, {'open': {'format': 'csv'},
+                                       'ingest': {'forms': [['inet:ipv4', {'path': '1'}]]},
+                                       'tags': ['haha']
+                                       }
+                             ],
                         ],
                     }
 
@@ -43,6 +47,17 @@ class TestIngest(SynTest):
                     argv = ['--sync', curl, '--save', syncpath, '--verbose', '--progress', jsonpath]
                     self.eq(s_ingest.main(argv, outp=outp), 0)
 
-                    tufo = core.getTufoByProp('inet:ipv4', 0x01020304)
+                    self.isin('add: inet:ipv4=', str(outp))
+                    self.isin('add: syn:tag=haha', str(outp))
 
+                    tufo = core.getTufoByProp('inet:ipv4', 0x01020304)
                     self.eq(tufo[1].get('inet:ipv4'), 0x01020304)
+
+                    tag = core.getTufoByProp('syn:tag', 'haha')
+                    self.nn(tag)
+
+                    # Ensure we cannot ingest into the remote core directly
+                    outp = self.getTestOutp()
+                    argv = ['--core', curl, jsonpath]
+                    self.raises(MustBeLocal, s_ingest.main, argv, outp=outp)
+                    self.isin('Ingest requires a local cortex to deconflict against, not a Telepath proxy', str(outp))
