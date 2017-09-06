@@ -59,12 +59,10 @@ class CoreTestModule(s_module.CoreModule):
     @s_module.modelrev('test', 201707200101)
     def _testRev0(self):
         self.core.formTufoByProp('inet:fqdn', 'rev0.com')
-        #self.core.addType('test:type1', subof='str')
 
     @s_module.modelrev('test', 201707210101)
     def _testRev1(self):
         self.core.formTufoByProp('inet:fqdn', 'rev1.com')
-        #self.core.addType('test:type2', subof='str')
 
 class CoreTestDataModelModuleV0(s_module.CoreModule):
 
@@ -346,9 +344,6 @@ class CortexTest(SynTest):
         self.eq(len(core.getRowsByIdProp(id1, 'baz', 'faz2')), 0)
         self.eq(len(core.getRowsByIdProp(id1, 'gronk', 80)), 1)
         self.eq(len(core.getRowsByIdProp(id1, 'gronk', 8080)), 0)
-
-        #pivo = core.getPivotByProp('baz','foo', valu='bar')
-        #self.eq( tuple(sorted([r[2] for r in pivo])), ('faz1','faz2'))
 
         self.eq(tufo[0], id1)
         self.eq(tufo[1].get('foo'), 'bar')
@@ -1819,7 +1814,6 @@ class CortexTest(SynTest):
             self.eq(tuf0[1].get('foo:baz'), 'aaa')
             self.eq(tuf0[1].get('foo:baz:faz'), 'bbb')
 
-            #self.nn(core.getTufoByProp('syn:model', 'a.foo.module'))
             self.nn(core.getTufoByProp('syn:type', 'foo:bar'))
             self.nn(core.getTufoByProp('syn:form', 'foo:baz'))
             self.nn(core.getTufoByProp('syn:prop', 'foo:baz:faz'))
@@ -1845,7 +1839,6 @@ class CortexTest(SynTest):
             self.eq(tuf0[1].get('foo:baz'), 'aaa')
             self.eq(tuf0[1].get('foo:baz:faz'), 'bbb')
 
-            #self.nn(core.getTufoByProp('syn:model', 'a.foo.module'))
             self.nn(core.getTufoByProp('syn:type', 'foo:bar'))
             self.nn(core.getTufoByProp('syn:form', 'foo:baz'))
             self.nn(core.getTufoByProp('syn:prop', 'foo:baz:faz'))

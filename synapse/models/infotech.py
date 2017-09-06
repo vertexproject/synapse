@@ -34,7 +34,7 @@ class ItMod(CoreModule):
                 ('it:dev:regkey', {'subof': 'it:dev:str', 'doc': 'A windows registry key string'}),
 
                 ('it:dev:regval', {'subof': 'comp', 'fields': 'key=it:dev:regkey',
-                                   'optfields': 'str=it:dev:str,int=int,bytes=file:bytes',
+                                   'optfields': 'str=it:dev:str,int=it:dev:int,bytes=file:bytes',
                                    'doc': 'A windows registry key/val pair'}),
             ),
 
@@ -82,7 +82,7 @@ class ItMod(CoreModule):
                 ('it:dev:regval', {}, (
                     ('key', {'ptype': 'it:dev:regkey', 'ro': 1}),
                     ('str', {'ptype': 'it:dev:str', 'ro': 1}),
-                    ('int', {'ptype': 'int', 'ro': 1}),
+                    ('int', {'ptype': 'it:dev:int', 'ro': 1}),
                     ('bytes', {'ptype': 'file:bytes', 'ro': 1}),
                 )),
 
