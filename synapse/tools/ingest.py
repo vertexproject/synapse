@@ -5,6 +5,7 @@ import collections
 
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.tufo as s_tufo
@@ -29,6 +30,11 @@ def main(argv, outp=None):
     opts = pars.parse_args(argv)
 
     core = s_cortex.openurl(opts.core)
+    try:
+        s_telepath.reqNotProxy(core)
+    except s_common.MustBeLocal:
+        outp.printf('Ingest requires a local cortex to deconflict against, not a Telepath proxy')
+        raise
     core.setConfOpt('enforce', 1)
 
     if opts.debug:
