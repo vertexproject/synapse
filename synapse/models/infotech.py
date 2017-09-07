@@ -103,6 +103,7 @@ class ItMod(CoreModule):
                     ('host', {'ptype': 'it:host', 'doc': 'The host which executed the process'}),
                     ('user', {'ptype': 'inet:user', 'doc': 'The user name of the process owner'}),
                     ('exe', {'ptype': 'file:bytes', 'doc': 'The file considered the "main" executable for the process'}),
+                    ('cmd', {'ptype': 'str', 'doc': 'The command string for the process'}),
                 )),
 
                 ('it:exec:subproc', {}, (
