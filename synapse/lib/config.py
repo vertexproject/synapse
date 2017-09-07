@@ -1,5 +1,5 @@
 '''
-Central API for configurable objects within synapse.
+Tools for providing a central API for configurable objects within Synapse.
 '''
 import copy
 
@@ -22,8 +22,8 @@ def confdef(name):
 
     Args:
         name (str): Identifier for a given function. This is used to prevent
-            reloading configable options multiple times in the case
-            of multi-class inheritance or mixin use.
+                    reloading configable options multiple times in the case
+                    of multi-class inheritance or mixin use.
 
     Examples:
         Example class using the confdef decorator to define and (automatically
@@ -49,9 +49,7 @@ def confdef(name):
 class Configable:
 
     '''
-    Config object base mixin to allow addition to objects which already inherit
-    from the EventBus.
-
+    Config object base mixin to allow addition to objects which already inherit from the EventBus.
     '''
     def __init__(self, opts=None, defs=()):
         self._conf_defs = {}
@@ -66,7 +64,6 @@ class Configable:
         self._loadDecoratedFuncs()
 
     def _loadDecoratedFuncs(self):
-
         for name, meth in s_reflect.getItemLocals(self):
             # Telepath will attempt to give you callable Method for any attr
             # you ask for which will end poorly for us when we try to call it
@@ -85,21 +82,63 @@ class Configable:
 
     def addConfDefs(self, defs):
         '''
-        Add configuration definitions for this object.
+        Add multiple configuration definitions for this object via addConfDef().
 
-        Example:
+        Args:
+            defs ((str, dict),): A tuple containing multiple configuration definitions.
 
-            defs = (
-                ('caching',{'type':'bool','doc':'Enable caching on this object'}),
-            )
+        Examples:
+            Set a pair of options definitions related to caching on a object::
 
-            item.addConfDefs(defs)
+                defs = (
+                    ('caching', {'type': 'bool', 'doc': 'Enable caching on this object'}),
+                    ('cache:expiretime', {'type': 'int', 'doc': 'Time to expire data', 'defval': 60})
+                )
+                item.addConfDefs(defs)
 
+        Notes:
+            This does not have to be explicitly called if the @confdef decorator is used to define the options for a
+            class.
+
+        Returns:
+            None
         '''
         for name, info in defs:
             self.addConfDef(name, **info)
 
     def addConfDef(self, name, **info):
+        '''
+        Add a configable option to the object.
+
+        Args:
+            name (str): Name of configuration option to set.
+            **info: A list of options for the Configable option. The following options have specific meanings:
+              - type: A Synapse type which is used to normalize the value.
+              - doc: A docstring (used for doing automatic document generation within Synapse)
+              - defval: A default value for the option.  This must be copyable using copy.deepcopy(). This is done to
+                avoid mutable default values from being changed.
+              - asloc: A string, if present, will set the a local object attribute to the name of the string which is
+                equal to the valu of the configuration option.
+
+        Examples:
+            Add a definition for a option to a object with a local attribute::
+
+                item.addConfDef('cache:expiretime', type='int',
+                                doc='Time to expire data', defval=60,
+                                asloc='cache_expiretime')
+
+            Add a untype option definition to a object with a mutable defval. This sets the value to a copy of the
+            defval, leaving the default object untouched::
+
+                item.addConfDef('foobars', defval=[], doc='A list of foobars we care about.')
+
+        Notes:
+            This does not have to be explicitly called if the @confdef decorator is used to define the options for a
+            class.
+
+        Returns:
+            None
+        '''
         self._conf_defs[name] = (name, dict(info))
 
         defval = info.get('defval')
@@ -112,14 +151,42 @@ class Configable:
     def reqConfOk(self, opts):
         '''
         Check that that config values pass validation or raise.
+
+        Args:
+            opts (dict): Dictionary containing name, valu pairs to validate.
+
+        Raises:
+            NoSuchType: If the specified type of the option is non-existent.
+            BadTypeValu: If a bad valu is encountered during type normalization.
         '''
         for name, valu in opts.items():
             valu, _ = self.getConfNorm(name, valu)
 
     def getConfOpt(self, name):
+        '''
+        Get the configured value for a given option.
+
+        Args:
+            name (str): Name of the option to retrieve.
+
+        Returns:
+            Value stored in the configuration dict, or None if the name is not present.
+        '''
         return self._conf_opts.get(name)
 
     def getConfDef(self, name):
+        '''
+        Get the defitition for a given
+
+        Args:
+            name (str): Name to get the definition of.
+
+        Returns:
+            dict: Dictionary containing the configuration definition for the given named option.
+
+        Raises:
+            NoSuchOpt: If the name is not a valid option.
+        '''
         cdef = self._conf_defs.get(name)
         if cdef is None:
             raise s_common.NoSuchOpt(name=name)
@@ -127,13 +194,16 @@ class Configable:
 
     def getConfDefs(self):
         '''
-        Returns the configuration definitions for this object.
+        Get the configuration definitions for this object.
+
+        Returns:
+            dict: Dictionary of option, values for the object.
         '''
         return {name: dict(info[1]) for (name, info) in self._conf_defs.items()}
 
     def getConfNorm(self, name, valu):
         '''
-        Return a no.rmalized version of valu based on type knowledge for name.
+        Return a normalized version of valu based on type knowledge for name.
 
         Args:
             name (str): The name of the config option
@@ -141,7 +211,6 @@ class Configable:
 
         Returns:
             (obj):  The normalized form for valu
-
         '''
         cdef = self.getConfDef(name)
         ctype = cdef[1].get('type')
@@ -152,6 +221,22 @@ class Configable:
     def setConfOpt(self, name, valu):
         '''
         Set a single config option for the object.
+
+        This will perform type normalization if the configration option has a 'type' value set.
+
+        Args:
+            name (str): Configuration name
+            valu: Value to set to the configuration option.
+
+        Notes:
+            This fires the following events, so that the EventBus can react to configuration changes. Each event
+            includes the name, new valu and oldvalu.
+
+            - ``syn:conf:set``
+            - ``syn:conf:set:<name>``
+
+        Returns:
+            None
         '''
         oldval = self._conf_opts.get(name)
 
@@ -178,14 +263,20 @@ class Configable:
         '''
         Use settings from the given dict to update the object config.
 
-        Example:
+        Args:
+            opts (dict):
 
-            opts = {
-                'foo:enabled':True,
-                'foo:size':1000
-            }
+        Examples:
+            Set a pair of keys on a object using a dictionary::
 
-            item.setConfOpts(opts)
+                opts = {
+                    'foo:enabled': True,
+                    'foo:size': 1000
+                }
+                item.setConfOpts(opts)
+
+        Returns:
+            None
         '''
         self.reqConfOk(opts)
         for name, valu in opts.items():
@@ -195,13 +286,27 @@ class Configable:
         '''
         Utility function for dynamically handling updates to config options.
 
-        Example:
+        Args:
+            name (str): Option name to respond too.
+            func: Function to execute.  This should take one parameter, the changed value.
 
-            def setCacheEnabled(self, en):
-                dostuff()
+        Examples:
+            React to a (arbitrary) cache configuration option change::
 
-            item.onConfOptSet('caching',setCacheEnabled)
+                def setCacheEnabled(self, en):
+                    dostuff()
+                item.onConfOptSet('caching', setCacheEnabled)
 
+        Notes:
+            The callback is fired using the ``syn:conf:set:<name>`` event. Many places through Synapse (or third party
+            applications which use Synapse) may set multiple opts at once using the setConfOpts() API, typically during
+            a objects ``__init__`` function.  This sets values in a random order, due to dictionary iteration; and
+            relying on other options being set during these callbacks can cause race conditions, leading to differences
+            between expected and observed behaviors. In order to ensure that callbacks are free of such race conditions,
+            do not write callback functions which rely on other Configable options being set to a particular value.
+
+        Returns:
+            None
         '''
         def callback(mesg):
             valu = mesg[1].get('valu')
@@ -210,6 +315,9 @@ class Configable:
         self.on('syn:conf:set:%s' % name, callback)
 
 class Config(Configable, EventBus):
+    '''
+    A EventBus classs which has the Configable mixin already added.
+    '''
     def __init__(self, opts=None, defs=()):
         EventBus.__init__(self)
         Configable.__init__(self, opts=opts, defs=defs)
