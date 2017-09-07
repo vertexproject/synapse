@@ -143,57 +143,6 @@ class DumpRowsTest(SynTest):
                     event_types.add(evt[0])
                 self.eq(event_types, {'core:save:add:rows', 'syn:core:blob:set'})
 
-    def test_revstore_use(self):
-        outp = self.getTestOutp()
-
-        byts = self.getRev0DbByts()
-
-        with self.getTestDir() as temp:
-
-            new_db = os.path.join(temp, 'rev0.db')
-            with open(new_db, 'wb') as fd:
-                fd.write(byts)
-            # First ensure that we are dumping the DB as it is on disk!
-            sqlite_url = 'sqlite:///{}'.format(new_db)
-            # Now dump that sqlite core
-            fp = os.path.join(temp, 'dumpfile.mpk')
-            argv = ['-s', sqlite_url, '-o', fp]
-            ret = s_dumprows.main(argv, outp)
-            self.eq(ret, 0)
-
-            revkey = 'syn:core:sqlite:version'
-
-            # Now ensure our .mpk file is correct
-            with open(fp, 'rb') as fd:
-                gen = msgpackfd(fd)
-                evt = next(gen)
-                self.eq(evt[0], 'syn:cortex:rowdump:info')
-                self.eq(evt[1].get('synapse:cortex:revstore'), False)
-
-            # Open the storage object and ensure the rev0 function did not run
-            with s_cortex.openstore(sqlite_url, storconf={'rev:storage': False}) as store:
-                self.false(store.hasBlobValu(revkey))
-
-            os.unlink(fp)
-
-            # Now ensure when we set the rev:storage flag to true
-            # that it auto-updates DBs first
-            fp = os.path.join(temp, 'dumpfile.mpk')
-            argv = ['-s', sqlite_url, '-o', fp, '--enable-revstorage']
-            ret = s_dumprows.main(argv, outp)
-            self.eq(ret, 0)
-
-            # Now ensure our .mpk file is correct
-            with open(fp, 'rb') as fd:
-                gen = msgpackfd(fd)
-                evt = next(gen)
-                self.eq(evt[0], 'syn:cortex:rowdump:info')
-                self.eq(evt[1].get('synapse:cortex:revstore'), True)
-
-            # Open the storage object and ensure the revisioning did run
-            with s_cortex.openstore(sqlite_url, storconf={'rev:storage': False}) as store:
-                self.true(store.hasBlobValu(revkey))
-
     def test_dump_force(self):
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
