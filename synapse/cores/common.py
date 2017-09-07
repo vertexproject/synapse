@@ -192,8 +192,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         Returns:
             ((None,dict)):  The ephemeral node
 
-        TODO: properties which are modeled/indexed do not currently support modification
-
         '''
         node = (None, {})
         norm, subs = self.getPropNorm(form, valu)

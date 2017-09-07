@@ -22,10 +22,6 @@ class ItMod(CoreModule):
                 ('it:dev:str', {'subof': 'str', 'doc': 'A developer selected string'}),
                 ('it:dev:int', {'subof': 'int', 'doc': 'A developer selected int constant'}),
 
-                #TODO
-                #('it:dev:encbin', {'subof':'comp', 'fields':'enc=it:dev:str,blob=file:bytes'})
-                #('it:dev:encstr', {'subof':'comp', 'fields':'enc=it:dev:str,dec=it:dev:str,codec=str'})
-
                 ('it:exec:proc', {'subof': 'guid', 'doc': 'A unique process execution on a host'}),
                 ('it:exec:subproc', {'subof': 'comp', 'fields': 'proc=it:exec:proc,child=it:exec:proc'}),
 
@@ -68,7 +64,6 @@ class ItMod(CoreModule):
                 ]),
 
                 ('it:dev:str', {}, (
-                    # TODO make hex str based file:bytes ctor
                     ('norm', {'ptype': 'str', 'ro': 1, 'lower': 1, 'doc': 'Lower case normalized version of it:dev:str'}),
                 )),
 
