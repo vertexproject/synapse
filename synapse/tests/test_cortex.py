@@ -2129,68 +2129,6 @@ class CortexTest(SynTest):
             node = core.eval('inet:ipv4=1.2.3.4')[0]
             self.eq(s_tufo.ival(node, '#foo.bar'), None)
 
-    def test_cortex_rev0_savefd(self):
-        byts = self.getRev0DbBytsMpk()
-
-        with self.getTestDir() as temp:
-
-            savefp = os.path.join(temp, 'test.mpk')
-            with open(savefp, 'wb') as f:
-                f.write(byts)
-
-            with s_cortex.openurl('ram:///', savefile=savefp) as core:
-                self.runrev0savefile(core)
-
-    def test_cortex_rev0_savefd_sqlite(self):
-        byts = self.getRev0DbBytsMpk()
-
-        with self.getTestDir() as temp:
-
-            savefp = os.path.join(temp, 'test.mpk')
-            with open(savefp, 'wb') as f:
-                f.write(byts)
-
-            with s_cortex.openurl('sqlite:///:memory:', savefile=savefp) as core:
-                self.runrev0savefile(core)
-
-    def test_cortex_rev0_savefd_psql(self):
-        byts = self.getRev0DbBytsMpk()
-
-        with self.getTestDir() as temp:
-
-            savefp = os.path.join(temp, 'test.mpk')
-            with open(savefp, 'wb') as f:
-                f.write(byts)
-
-            with self.getPgCore(savefile=savefp) as core:
-                self.runrev0savefile(core)
-
-    def test_cortex_rev0_savefd_lmdb(self):
-        self.skipIfOldPython()
-        byts = self.getRev0DbBytsMpk()
-
-        with self.getTestDir() as temp:
-
-            savefp = os.path.join(temp, 'test.mpk')
-            with open(savefp, 'wb') as f:
-                f.write(byts)
-
-            fn = 'test.lmdb'
-            fp = os.path.join(temp, fn)
-            lmdb_url = 'lmdb:///%s' % fp
-
-            with s_cortex.openurl(lmdb_url, savefile=savefp) as core:
-                self.runrev0savefile(core)
-
-    def runrev0savefile(self, core):
-        self.false(core.isnew)
-        node = core.formTufoByProp('inet:ipv4', '1.2.3.4')
-        self.notin('.new', node[1])
-        self.true(core.hasBlobValu('syn:core:created'))
-        # Ram store does not have model versions to apply to it.
-        if core.getStoreType() != 'ram':
-            self.true(core.hasBlobValu('syn:core:{}:version'.format(core.getStoreType())))
-
     def test_cortex_module_datamodel_migration(self):
         self.skipTest('Needs global model registry available')
         with s_cortex.openurl('ram:///') as core:
@@ -2509,31 +2447,13 @@ class StorageTest(SynTest):
     def test_storage_confopts(self):
         conf = {'rev:storage': 0}
 
-        byts = self.getRev0DbByts()
+        with s_cortex.openstore('ram:///', storconf=conf) as stor:
+            self.eq(stor.getConfOpt('rev:storage'), 0)
 
+    def test_storage_rowmanipulation(self):
         with self.getTestDir() as temp:
             finl = os.path.join(temp, 'test.db')
             url = 'sqlite:///%s' % finl
-
-            with open(finl, 'wb') as fd:
-                fd.write(byts)
-
-            with s_cortex.openstore(url, storconf=conf) as store:
-                self.eq(store.getConfOpt('rev:storage'), 0)
-                # Ensure we have no revisioning key
-                revkey = 'syn:core:{}:version'.format(store.getStoreType())
-                self.false(store.hasBlobValu(revkey))
-
-    def test_storage_rev0_rowmanipulation(self):
-        # Add rows to an existing cortex db
-        byts = self.getRev0DbByts()
-
-        with self.getTestDir() as temp:
-            finl = os.path.join(temp, 'test.db')
-            url = 'sqlite:///%s' % finl
-
-            with open(finl, 'wb') as fd:
-                fd.write(byts)
 
             with s_cortex.openstore(url) as store:
                 self.isinstance(store, s_cores_storage.Storage)
