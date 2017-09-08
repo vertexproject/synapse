@@ -1,6 +1,11 @@
 
 from synapse.tests.common import *
 
+def initcomp(*args, **kwargs):
+    retn = list(args)
+    retn.extend(kwargs.items())
+    return retn
+
 class InfoTechTest(SynTest):
 
     def test_model_infotech_host(self):
@@ -99,26 +104,144 @@ class InfoTechTest(SynTest):
             self.nn(node)
             self.eq(node[1].get('file:path'), '/foo/baz.json')
 
-    def test_model_infotech_hostfile(self):
+    def test_model_infotech_itdev(self):
 
         with s_cortex.openurl('ram:///') as core:
             core.setConfOpt('enforce', 1)
 
-            host = core.formTufoByProp('it:host', None)
-            byts = core.formTufoByProp('file:bytes', None)
+            node = core.formTufoByProp('it:dev:str', 'He He Ha Ha')
+            self.nn(node)
+            self.eq(node[1].get('it:dev:str'), 'He He Ha Ha')
+            self.eq(node[1].get('it:dev:str:norm'), 'he he ha ha')
 
-            hiden = host[1].get('it:host')
-            fiden = byts[1].get('file:bytes')
+            node = core.formTufoByProp('it:dev:pipe', 'mypipe')
+            self.eq(node[1].get('it:dev:pipe'), 'mypipe')
+            self.nn(core.getTufoByProp('it:dev:str', 'mypipe'))
 
-            hostfile = core.formTufoByProp('it:hostfile', (hiden, r'c:\Windows\system32\foo.exe', fiden), ctime='20501217')
+            node = core.formTufoByProp('it:dev:mutex', 'mymutex')
+            self.eq(node[1].get('it:dev:mutex'), 'mymutex')
+            self.nn(core.getTufoByProp('it:dev:str', 'mymutex'))
 
-            self.nn(hostfile)
+            node = core.formTufoByProp('it:dev:regkey', 'myregkey')
+            self.eq(node[1].get('it:dev:regkey'), 'myregkey')
+            self.nn(core.getTufoByProp('it:dev:str', 'myregkey'))
 
-            self.eq(hostfile[1].get('it:hostfile:host'), hiden)
-            self.eq(hostfile[1].get('it:hostfile:path'), 'c:/windows/system32/foo.exe')
-            self.eq(hostfile[1].get('it:hostfile:path:dir'), 'c:/windows/system32')
-            self.eq(hostfile[1].get('it:hostfile:path:ext'), 'exe')
-            self.eq(hostfile[1].get('it:hostfile:path:base'), 'foo.exe')
-            self.eq(hostfile[1].get('it:hostfile:file'), fiden)
+            node = core.eval(r'[ it:dev:regval=("HKEY_LOCAL_MACHINE\\Foo\\Bar", str=hehe) ]')[0]
+            self.eq(node[1].get('it:dev:regval:key'), r'HKEY_LOCAL_MACHINE\Foo\Bar')
+            self.eq(node[1].get('it:dev:regval:str'), 'hehe')
 
-            self.eq(hostfile[1].get('it:hostfile:ctime'), 2554848000000)
+            node = core.eval(r'[ it:dev:regval=("HKEY_LOCAL_MACHINE\\Foo\\Bar", int=20) ]')[0]
+            self.eq(node[1].get('it:dev:regval:key'), r'HKEY_LOCAL_MACHINE\Foo\Bar')
+            self.eq(node[1].get('it:dev:regval:int'), 20)
+
+            iden = guid()
+            node = core.eval(r'[ it:dev:regval=("HKEY_LOCAL_MACHINE\\Foo\\Bar", bytes=%s) ]' % iden)[0]
+            self.eq(node[1].get('it:dev:regval:key'), r'HKEY_LOCAL_MACHINE\Foo\Bar')
+            self.eq(node[1].get('it:dev:regval:bytes'), iden)
+
+    def test_model_infotech_hostexec(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+
+            exe = guid()
+            port = 80
+            tick = now()
+            host = guid()
+            proc = guid()
+            file = guid()
+            ipv4 = 0x01020304
+            ipv6 = 'ff::1'
+            srv4 = (0x010203040 << 16) + port
+            path = r'c:\Windows\System32\rar.exe'
+            norm = r'c:/windows/system32/rar.exe'
+
+            core.formTufoByProp('it:host', host)
+            core.formTufoByProp('file:bytes', exe)
+
+            # host execution process model
+            #core.formTufoByProp('it:exec:proc',
+            node = core.formTufoByProp('it:exec:proc', proc, pid=20, time=tick, host=host, user='visi', exe=exe)
+            self.eq(node[1].get('it:exec:proc:exe'), exe)
+            self.eq(node[1].get('it:exec:proc:pid'), 20)
+            self.eq(node[1].get('it:exec:proc:time'), tick)
+            self.eq(node[1].get('it:exec:proc:host'), host)
+            self.eq(node[1].get('it:exec:proc:user'), 'visi')
+
+            p0 = guid()
+            p1 = guid()
+
+            node = core.formTufoByProp('it:exec:subproc', (p0, p1), host=host)
+            self.eq(node[1].get('it:exec:subproc:proc'), p0)
+            self.eq(node[1].get('it:exec:subproc:child'), p1)
+            self.eq(node[1].get('it:exec:subproc:host'), host)
+
+            node = core.formTufoByProp('it:exec:mutex', '*', host=host, exe=exe, proc=proc, time=tick)
+            self.eq(node[1].get('it:exec:mutex:exe'), exe)
+            self.eq(node[1].get('it:exec:mutex:host'), host)
+            self.eq(node[1].get('it:exec:mutex:proc'), proc)
+
+            node = core.formTufoByProp('it:exec:pipe', '*', host=host, exe=exe, proc=proc, time=tick)
+            self.eq(node[1].get('it:exec:pipe:exe'), exe)
+            self.eq(node[1].get('it:exec:pipe:host'), host)
+            self.eq(node[1].get('it:exec:pipe:proc'), proc)
+
+            node = core.formTufoByProp('it:exec:file:add', '*', host=host, path=path, file=file, exe=exe, proc=proc, time=tick)
+            self.eq(node[1].get('it:exec:file:add:exe'), exe)
+            self.eq(node[1].get('it:exec:file:add:host'), host)
+            self.eq(node[1].get('it:exec:file:add:proc'), proc)
+            self.eq(node[1].get('it:exec:file:add:file'), file)
+            self.eq(node[1].get('it:exec:file:add:path'), norm)
+
+            node = core.formTufoByProp('it:exec:file:del', '*', host=host, path=path, file=file, exe=exe, proc=proc, time=tick)
+            self.eq(node[1].get('it:exec:file:del:exe'), exe)
+            self.eq(node[1].get('it:exec:file:del:host'), host)
+            self.eq(node[1].get('it:exec:file:del:proc'), proc)
+            self.eq(node[1].get('it:exec:file:del:file'), file)
+            self.eq(node[1].get('it:exec:file:del:path'), norm)
+            self.eq(node[1].get('it:exec:file:del:time'), tick)
+
+            node = core.formTufoByProp('it:exec:bind:tcp', '*', host=host, port=port, ipv4=ipv4, ipv6=ipv6, exe=exe, proc=proc, time=tick)
+            self.eq(node[1].get('it:exec:bind:tcp:exe'), exe)
+            self.eq(node[1].get('it:exec:bind:tcp:host'), host)
+            self.eq(node[1].get('it:exec:bind:tcp:port'), port)
+            self.eq(node[1].get('it:exec:bind:tcp:ipv4'), ipv4)
+            self.eq(node[1].get('it:exec:bind:tcp:ipv6'), ipv6)
+            self.eq(node[1].get('it:exec:bind:tcp:proc'), proc)
+            self.eq(node[1].get('it:exec:bind:tcp:time'), tick)
+
+            node = core.formTufoByProp('it:exec:bind:udp', '*', host=host, port=port, ipv4=ipv4, ipv6=ipv6, exe=exe, proc=proc, time=tick)
+            self.eq(node[1].get('it:exec:bind:udp:exe'), exe)
+            self.eq(node[1].get('it:exec:bind:udp:host'), host)
+            self.eq(node[1].get('it:exec:bind:udp:port'), port)
+            self.eq(node[1].get('it:exec:bind:udp:ipv4'), ipv4)
+            self.eq(node[1].get('it:exec:bind:udp:ipv6'), ipv6)
+            self.eq(node[1].get('it:exec:bind:udp:proc'), proc)
+            self.eq(node[1].get('it:exec:bind:udp:time'), tick)
+
+            regval = initcomp('foo/bar', int=20)
+            node = core.formTufoByProp('it:exec:reg:del', '*', host=host, reg=regval, exe=exe, proc=proc, time=tick)
+            self.eq(node[1].get('it:exec:reg:del:reg:int'), 20)
+            self.eq(node[1].get('it:exec:reg:del:reg:key'), 'foo/bar')
+            self.eq(node[1].get('it:exec:reg:del:exe'), exe)
+            self.eq(node[1].get('it:exec:reg:del:host'), host)
+            self.eq(node[1].get('it:exec:reg:del:proc'), proc)
+            self.eq(node[1].get('it:exec:reg:del:time'), tick)
+
+            regval = initcomp('foo/bar', str='hehe')
+            node = core.formTufoByProp('it:exec:reg:set', '*', host=host, reg=regval, exe=exe, proc=proc, time=tick)
+            self.eq(node[1].get('it:exec:reg:set:reg:str'), 'hehe')
+            self.eq(node[1].get('it:exec:reg:set:reg:key'), 'foo/bar')
+            self.eq(node[1].get('it:exec:reg:set:exe'), exe)
+            self.eq(node[1].get('it:exec:reg:set:host'), host)
+            self.eq(node[1].get('it:exec:reg:set:proc'), proc)
+            self.eq(node[1].get('it:exec:reg:set:time'), tick)
+
+            regval = initcomp('foo/bar', int=20)
+            node = core.formTufoByProp('it:exec:reg:get', '*', host=host, reg=regval, exe=exe, proc=proc, time=tick)
+            self.eq(node[1].get('it:exec:reg:get:reg:int'), 20)
+            self.eq(node[1].get('it:exec:reg:get:reg:key'), 'foo/bar')
+            self.eq(node[1].get('it:exec:reg:get:exe'), exe)
+            self.eq(node[1].get('it:exec:reg:get:host'), host)
+            self.eq(node[1].get('it:exec:reg:get:proc'), proc)
+            self.eq(node[1].get('it:exec:reg:get:time'), tick)

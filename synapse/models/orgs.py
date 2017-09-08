@@ -6,7 +6,6 @@ class OuMod(CoreModule):
     def initCoreModule(self):
         self.core.addSeedCtor('ou:org:name', self.seedOrgName)
         self.core.addSeedCtor('ou:org:alias', self.seedOrgAlias)
-        self.revCoreModl()
 
     def seedOrgName(self, prop, valu, **props):
         node = self.core.getTufoByProp('ou:org:name', valu)

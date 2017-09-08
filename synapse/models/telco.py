@@ -99,8 +99,6 @@ class TelMod(CoreModule):
         for iso2, cc, idd, size in intls:
             self.core.addTypeCast('tel:loc:%s' % iso2, genTelLocCast(iso2, cc, idd, size))
 
-        self.revCoreModl()
-
     @staticmethod
     def getBaseModels():
         modl = {

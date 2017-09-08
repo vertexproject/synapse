@@ -18,6 +18,7 @@ import synapse.telepath as s_telepath
 
 import synapse.cores.ram
 import synapse.cores.lmdb
+import synapse.cores.common
 import synapse.cores.sqlite
 import synapse.cores.storage
 import synapse.cores.postgres
@@ -42,6 +43,20 @@ corctors = {
     'ram': synapse.cores.ram.initRamCortex,
     'postgres': synapse.cores.postgres.initPsqlCortex,
 }
+
+def fromstore(stor, **conf):
+    '''
+    Create and return a Cortex for the given Storage layer object.
+
+    Args:
+        stor (Storage): A synapse.cores.storage.Storage instance.
+        conf (dict):    A cortex config dictionary
+
+    Returns:
+        (synapse.cores.common.Cortex):  The Cortex hypergraph instance.
+
+    '''
+    return synapse.cores.common.Cortex(None, stor, **conf)
 
 def openstore(url, storconf=None, **opts):
     '''
