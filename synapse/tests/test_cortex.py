@@ -148,7 +148,6 @@ class CortexTest(SynTest):
             storetype (str): String to check the getStoreType api against.
         '''
         self.eq(core.getStoreType(), storetype)
-        self.addTstForms(core)
         self.runcore(core)
         self.runjson(core)
         self.runrange(core)
@@ -736,8 +735,10 @@ class CortexTest(SynTest):
         self.eq(len(core.getTufosBy('ge', 'inet:ipv4', '10.2.3.5')), 5)
 
         # By RANGE
-        t0 = core.formTufoByProp('intform', 10)
-        tufs = core.getTufosBy('range', 'intform', (5, 15))
+        # t0/t1 came in from the old test_cortex_ramtyperange test
+        t0 = core.formTufoByProp('foo:bar', 10)
+        t1 = core.formTufoByProp('foo:bar', 'baz')
+        tufs = core.getTufosBy('range', 'foo:bar', (5, 15))
         self.eq(len(tufs), 1)
         self.eq(tufs[0][0], t0[0])
         # Do a range lift requiring prop normalization (using a built-in data type) to work
@@ -749,7 +750,7 @@ class CortexTest(SynTest):
         self.eq(len(tufs), 1)
         self.eq(t2[0], tufs[0][0])
         # RANGE test cleanup
-        for tufo in [t0, t2]:
+        for tufo in [t0, t1, t2]:
             if tufo[1].get('.new'):
                 core.delTufo(tufo)
 
@@ -889,23 +890,23 @@ class CortexTest(SynTest):
         self.eq(test_repr, '192.168.255.254')
 
     def test_cortex_tufo_tag(self):
-        with self.getRamCore() as core:
-            foob = core.formTufoByProp('strform', 'bar', foo='faz')
-            core.addTufoTag(foob, 'zip.zap')
+        core = s_cortex.openurl('ram://')
+        foob = core.formTufoByProp('foo', 'bar', baz='faz')
+        core.addTufoTag(foob, 'zip.zap')
 
-            self.nn(foob[1].get('#zip'))
-            self.nn(foob[1].get('#zip.zap'))
+        self.nn(foob[1].get('#zip'))
+        self.nn(foob[1].get('#zip.zap'))
 
-            self.eq(len(core.getTufosByTag('zip', form='strform')), 1)
-            self.eq(len(core.getTufosByTag('zip.zap', form='strform')), 1)
+        self.eq(len(core.getTufosByTag('zip', form='foo')), 1)
+        self.eq(len(core.getTufosByTag('zip.zap', form='foo')), 1)
 
-            core.delTufoTag(foob, 'zip')
+        core.delTufoTag(foob, 'zip')
 
-            self.none(foob[1].get('#zip'))
-            self.none(foob[1].get('#zip.zap'))
+        self.none(foob[1].get('#zip'))
+        self.none(foob[1].get('#zip.zap'))
 
-            self.eq(len(core.getTufosByTag('zip', form='strform')), 0)
-            self.eq(len(core.getTufosByTag('zip.zap', form='strform')), 0)
+        self.eq(len(core.getTufosByTag('zip', form='foo')), 0)
+        self.eq(len(core.getTufosByTag('zip.zap', form='foo')), 0)
 
     def test_cortex_tufo_setprops(self):
         core = s_cortex.openurl('ram://')
@@ -1145,134 +1146,133 @@ class CortexTest(SynTest):
         core.fini()
 
     def test_cortex_tags(self):
+        core = s_cortex.openurl('ram://')
 
-        with self.getRamCore() as core:
+        core.addType('foo', subof='str')
+        core.addTufoForm('foo')
 
-            hehe = core.formTufoByProp('strform', 'hehe')
+        hehe = core.formTufoByProp('foo', 'hehe')
 
-            wait = core.waiter(2, 'node:tag:add')
-            core.addTufoTag(hehe, 'lulz.rofl')
-            wait.wait(timeout=2)
+        wait = core.waiter(2, 'node:tag:add')
+        core.addTufoTag(hehe, 'lulz.rofl')
+        wait.wait(timeout=2)
 
-            wait = core.waiter(1, 'node:tag:add')
-            core.addTufoTag(hehe, 'lulz.rofl.zebr')
-            wait.wait(timeout=2)
+        wait = core.waiter(1, 'node:tag:add')
+        core.addTufoTag(hehe, 'lulz.rofl.zebr')
+        wait.wait(timeout=2)
 
-            wait = self.getTestWait(core, 1, 'node:tag:add')
-            core.addTufoTag(hehe, 'duck.quack.rofl')
-            wait.wait(timeout=2)
+        wait = self.getTestWait(core, 1, 'node:tag:add')
+        core.addTufoTag(hehe, 'duck.quack.rofl')
+        wait.wait(timeout=2)
 
-            lulz = core.getTufoByProp('syn:tag', 'lulz')
+        lulz = core.getTufoByProp('syn:tag', 'lulz')
 
-            self.none(lulz[1].get('syn:tag:up'))
-            self.eq(lulz[1].get('syn:tag:doc'), '')
-            self.eq(lulz[1].get('syn:tag:title'), '')
-            self.eq(lulz[1].get('syn:tag:depth'), 0)
-            self.eq(lulz[1].get('syn:tag:base'), 'lulz')
+        self.none(lulz[1].get('syn:tag:up'))
+        self.eq(lulz[1].get('syn:tag:doc'), '')
+        self.eq(lulz[1].get('syn:tag:title'), '')
+        self.eq(lulz[1].get('syn:tag:depth'), 0)
+        self.eq(lulz[1].get('syn:tag:base'), 'lulz')
 
-            rofl = core.getTufoByProp('syn:tag', 'lulz.rofl')
+        rofl = core.getTufoByProp('syn:tag', 'lulz.rofl')
 
-            self.eq(rofl[1].get('syn:tag:doc'), '')
-            self.eq(rofl[1].get('syn:tag:title'), '')
-            self.eq(rofl[1].get('syn:tag:up'), 'lulz')
+        self.eq(rofl[1].get('syn:tag:doc'), '')
+        self.eq(rofl[1].get('syn:tag:title'), '')
+        self.eq(rofl[1].get('syn:tag:up'), 'lulz')
 
-            self.eq(rofl[1].get('syn:tag:depth'), 1)
-            self.eq(rofl[1].get('syn:tag:base'), 'rofl')
+        self.eq(rofl[1].get('syn:tag:depth'), 1)
+        self.eq(rofl[1].get('syn:tag:base'), 'rofl')
 
-            tags = core.getTufosByProp('syn:tag:base', 'rofl')
+        tags = core.getTufosByProp('syn:tag:base', 'rofl')
 
-            self.eq(len(tags), 2)
+        self.eq(len(tags), 2)
 
-            wait = core.waiter(2, 'node:tag:del')
-            core.delTufoTag(hehe, 'lulz.rofl')
-            wait.wait(timeout=2)
+        wait = core.waiter(2, 'node:tag:del')
+        core.delTufoTag(hehe, 'lulz.rofl')
+        wait.wait(timeout=2)
 
-            wait = core.waiter(1, 'node:tag:del')
-            core.delTufo(lulz)
-            wait.wait(timeout=2)
-            # tag and subs should be wiped
+        wait = core.waiter(1, 'node:tag:del')
+        core.delTufo(lulz)
+        wait.wait(timeout=2)
+        # tag and subs should be wiped
 
-            self.none(core.getTufoByProp('syn:tag', 'lulz'))
-            self.none(core.getTufoByProp('syn:tag', 'lulz.rofl'))
-            self.none(core.getTufoByProp('syn:tag', 'lulz.rofl.zebr'))
+        self.none(core.getTufoByProp('syn:tag', 'lulz'))
+        self.none(core.getTufoByProp('syn:tag', 'lulz.rofl'))
+        self.none(core.getTufoByProp('syn:tag', 'lulz.rofl.zebr'))
 
-            self.eq(len(core.getTufosByTag('lulz', form='foo')), 0)
-            self.eq(len(core.getTufosByTag('lulz.rofl', form='foo')), 0)
-            self.eq(len(core.getTufosByTag('lulz.rofl.zebr', form='foo')), 0)
+        self.eq(len(core.getTufosByTag('lulz', form='foo')), 0)
+        self.eq(len(core.getTufosByTag('lulz.rofl', form='foo')), 0)
+        self.eq(len(core.getTufosByTag('lulz.rofl.zebr', form='foo')), 0)
 
-            # Now we need to retag a node, ensure that the tag is on the node and the syn:tag nodes exist again
-            wait = core.waiter(1, 'node:tag:add')
-            node = core.addTufoTag(hehe, 'lulz.rofl.zebr')
-            wait.wait(timeout=2)
+        # Now we need to retag a node, ensure that the tag is on the node and the syn:tag nodes exist again
+        wait = core.waiter(1, 'node:tag:add')
+        node = core.addTufoTag(hehe, 'lulz.rofl.zebr')
+        wait.wait(timeout=2)
 
-            self.isin('#lulz.rofl.zebr', node[1])
-            self.nn(core.getTufoByProp('syn:tag', 'lulz'))
-            self.nn(core.getTufoByProp('syn:tag', 'lulz.rofl'))
-            self.nn(core.getTufoByProp('syn:tag', 'lulz.rofl.zebr'))
+        self.isin('#lulz.rofl.zebr', node[1])
+        self.nn(core.getTufoByProp('syn:tag', 'lulz'))
+        self.nn(core.getTufoByProp('syn:tag', 'lulz.rofl'))
+        self.nn(core.getTufoByProp('syn:tag', 'lulz.rofl.zebr'))
 
-            # Recreate expected results from #320 to ensure
-            # we're also doing the same via storm
-            self.eq(len(core.eval('[inet:fqdn=w00t.com +#some.tag]')), 1)
-            self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0)')), 2)
-            self.eq(len(core.eval('syn:tag=some')), 1)
-            self.eq(len(core.eval('syn:tag=some.tag')), 1)
-            self.eq(len(core.eval('syn:tag=some delnode(force=1)')), 0)
-            self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0)')), 0)
-            self.eq(len(core.eval('inet:fqdn=w00t.com [ +#some.tag ]')), 1)
-            self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0)')), 2)
-            self.eq(len(core.eval('syn:tag=some')), 1)
-            self.eq(len(core.eval('syn:tag=some.tag')), 1)
+        # Recreate expected results from #320 to ensure
+        # we're also doing the same via storm
+        self.eq(len(core.eval('[inet:fqdn=w00t.com +#some.tag]')), 1)
+        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0)')), 2)
+        self.eq(len(core.eval('syn:tag=some')), 1)
+        self.eq(len(core.eval('syn:tag=some.tag')), 1)
+        self.eq(len(core.eval('syn:tag=some delnode(force=1)')), 0)
+        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0)')), 0)
+        self.eq(len(core.eval('inet:fqdn=w00t.com [ +#some.tag ]')), 1)
+        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0)')), 2)
+        self.eq(len(core.eval('syn:tag=some')), 1)
+        self.eq(len(core.eval('syn:tag=some.tag')), 1)
+        core.fini()
 
     def test_cortex_splices(self):
+        core0 = s_cortex.openurl('ram://')
+        core1 = s_cortex.openurl('ram://')
 
-        with self.getRamCore() as core0, self.getRamCore() as core1:
+        # Form a tufo before we start sending splices
+        tufo_before1 = core0.formTufoByProp('foo', 'before1')
+        tufo_before2 = core0.formTufoByProp('foo', 'before2')
+        core0.addTufoTag(tufo_before2, 'hoho')  # this will not be synced
+        core0.on('splice', core1.splice)
+        core0.delTufo(tufo_before1)
 
-            # Form a tufo before we start sending splices
-            tufo_before1 = core0.formTufoByProp('strform', 'before1')
-            tufo_before2 = core0.formTufoByProp('strform', 'before2')
-            core0.addTufoTag(tufo_before2, 'hoho')  # this will not be synced
+        # Add node by forming it
+        tufo0 = core0.formTufoByProp('foo', 'bar', baz='faz')
+        tufo1 = core1.getTufoByProp('foo', 'bar')
+        self.eq(tufo1[1].get('foo'), 'bar')
+        self.eq(tufo1[1].get('foo:baz'), 'faz')
 
-            # Start sending splices
-            core0.on('splice', core1.splice)
-            core0.delTufo(tufo_before1)
+        # Add tag to existing node
+        tufo0 = core0.addTufoTag(tufo0, 'hehe')
+        tufo1 = core1.getTufoByProp('foo', 'bar')
+        self.true(s_tags.tufoHasTag(tufo1, 'hehe'))
 
-            # Add node by forming it
-            tufo0 = core0.formTufoByProp('strform', 'bar', foo='faz')
-            tufo1 = core1.getTufoByProp('strform', 'bar')
+        # Del tag from existing node
+        core0.delTufoTag(tufo0, 'hehe')
+        tufo1 = core1.getTufoByProp('foo', 'bar')
+        self.false(s_tags.tufoHasTag(tufo1, 'hehe'))
 
-            self.eq(tufo1[1].get('strform'), 'bar')
-            self.eq(tufo1[1].get('strform:foo'), 'faz')
+        # Set prop on existing node
+        core0.setTufoProp(tufo0, 'baz', 'lol')
+        tufo1 = core1.getTufoByProp('foo', 'bar')
+        self.eq(tufo1[1].get('foo:baz'), 'lol')
 
-            # Add tag to existing node
-            tufo0 = core0.addTufoTag(tufo0, 'hehe')
-            tufo1 = core1.getTufoByProp('strform', 'bar')
+        # Del existing node
+        core0.delTufo(tufo0)
+        tufo1 = core1.getTufoByProp('foo', 'bar')
+        self.none(tufo1)
 
-            self.true(s_tags.tufoHasTag(tufo1, 'hehe'))
-
-            # Del tag from existing node
-            core0.delTufoTag(tufo0, 'hehe')
-            tufo1 = core1.getTufoByProp('strform', 'bar')
-            self.false(s_tags.tufoHasTag(tufo1, 'hehe'))
-
-            # Set prop on existing node
-            core0.setTufoProp(tufo0, 'foo', 'lol')
-            tufo1 = core1.getTufoByProp('strform', 'bar')
-            self.eq(tufo1[1].get('strform:foo'), 'lol')
-
-            # Del existing node
-            core0.delTufo(tufo0)
-            tufo1 = core1.getTufoByProp('strform', 'bar')
-            self.none(tufo1)
-
-            # Tag a node in first core, assert it was formed and tagged in second core
-            core0.addTufoTag(tufo_before2, 'hehe')
-            tufo1 = core1.getTufoByProp('strform', 'before2')
-            self.true(s_tags.tufoHasTag(tufo1, 'hehe'))
-            self.false(s_tags.tufoHasTag(tufo1, 'hoho'))
-            core0.delTufoTag(tufo_before2, 'hehe')
-            tufo1 = core1.getTufoByProp('strform', 'before2')
-            self.false(s_tags.tufoHasTag(tufo1, 'hehe'))
-            self.false(s_tags.tufoHasTag(tufo1, 'hoho'))
+        # Tag a node in first core, assert it was formed and tagged in second core
+        core0.addTufoTag(tufo_before2, 'hehe')
+        tufo1 = core1.getTufoByProp('foo', 'before2')
+        self.true(s_tags.tufoHasTag(tufo1, 'hehe'))
+        self.false(s_tags.tufoHasTag(tufo1, 'hoho'))
+        core0.delTufoTag(tufo_before2, 'hehe')
+        tufo1 = core1.getTufoByProp('foo', 'before2')
+        self.false(s_tags.tufoHasTag(tufo1, 'hehe'))
+        self.false(s_tags.tufoHasTag(tufo1, 'hoho'))
 
     def test_cortex_dict(self):
         core = s_cortex.openurl('ram://')
@@ -1445,13 +1445,13 @@ class CortexTest(SynTest):
 
     def test_cortex_caching(self):
 
-        with self.getRamCore() as core:
+        with s_cortex.openurl('ram://') as core:
 
-            tufo0 = core.formTufoByProp('strform', 'bar', baz=2)
-            tufo1 = core.formTufoByProp('strform', 'baz', baz=2)
+            tufo0 = core.formTufoByProp('foo', 'bar', asdf=2)
+            tufo1 = core.formTufoByProp('foo', 'baz', asdf=2)
 
-            answ0 = core.getTufosByProp('strform')
-            answ1 = core.getTufosByProp('strform', valu='bar')
+            answ0 = core.getTufosByProp('foo')
+            answ1 = core.getTufosByProp('foo', valu='bar')
 
             self.eq(len(answ0), 2)
             self.eq(len(answ1), 1)
@@ -1465,7 +1465,7 @@ class CortexTest(SynTest):
 
             self.eq(core.caching, 1)
 
-            answ0 = core.getTufosByProp('strform')
+            answ0 = core.getTufosByProp('foo')
 
             self.eq(len(answ0), 2)
             self.eq(len(core.cache_fifo), 1)
@@ -1473,13 +1473,13 @@ class CortexTest(SynTest):
             self.eq(len(core.cache_byiden), 2)
             self.eq(len(core.cache_byprop), 1)
 
-            tufo0 = core.formTufoByProp('strform', 'bar')
+            tufo0 = core.formTufoByProp('foo', 'bar')
             tufo0 = core.addTufoTag(tufo0, 'hehe')
 
-            self.eq(len(core.getTufosByTag('hehe', form='strform')), 1)
+            self.eq(len(core.getTufosByTag('hehe', form='foo')), 1)
             core.delTufoTag(tufo0, 'hehe')
 
-            tufo0 = core.getTufoByProp('strform', 'bar')
+            tufo0 = core.getTufoByProp('foo', 'bar')
             self.noprop(tufo0[1], '#hehe')
 
     def test_cortex_caching_set(self):
@@ -1682,25 +1682,25 @@ class CortexTest(SynTest):
 
     def test_cortex_caching_tags(self):
 
-        with self.getRamCore() as core:
+        with s_cortex.openurl('ram://') as core:
 
-            tufo0 = core.formTufoByProp('strform', 'bar')
-            tufo1 = core.formTufoByProp('strform', 'baz')
+            tufo0 = core.formTufoByProp('foo', 'bar')
+            tufo1 = core.formTufoByProp('foo', 'baz')
 
             core.addTufoTag(tufo0, 'hehe')
 
             core.setConfOpt('caching', 1)
 
-            tufs0 = core.getTufosByTag('hehe', form='strform')
+            tufs0 = core.getTufosByTag('hehe', form='foo')
 
             core.addTufoTag(tufo1, 'hehe')
 
-            tufs1 = core.getTufosByTag('hehe', form='strform')
+            tufs1 = core.getTufosByTag('hehe', form='foo')
             self.eq(len(tufs1), 2)
 
             core.delTufoTag(tufo0, 'hehe')
 
-            tufs2 = core.getTufosByTag('hehe', form='strform')
+            tufs2 = core.getTufosByTag('hehe', form='foo')
             self.eq(len(tufs2), 1)
 
     def test_cortex_caching_new(self):
@@ -2420,9 +2420,6 @@ class CortexTest(SynTest):
             # check that only model'd props are indexed
             self.nn(core.getTufoByProp('hehe:haha:hoho', 20))
             self.none(core.getTufoByProp('hehe:haha:lulz', 'rofl'))
-
-            # Ensure we cannot create a runt via formTufoByProp
-            self.raises(BadPropName, core.formTufoByProp, 'syn:prop', 'foo:bar')
 
 class StorageTest(SynTest):
 

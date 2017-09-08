@@ -16,8 +16,6 @@ import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.eventbus as s_eventbus
 
-import synapse.cores.common as s_cores_common
-
 import synapse.lib.scope as s_scope
 import synapse.lib.ingest as s_ingest
 import synapse.lib.output as s_output
@@ -199,69 +197,6 @@ class SynTest(unittest.TestCase):
         for k, v in props.items():
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
-
-    @staticmethod
-    def addTstForms(core):
-        '''
-        Add test forms to the cortex.
-        Args:
-            core (s_cores_common.Cortex): Core to prep.
-        Returns:
-            None
-        '''
-        # Some custom type machinations for later test use
-        modl = {
-            'types': (
-                ('strform', {'subof': 'str'},),
-                ('intform', {'subof': 'int'},),
-                ('default_foo', {'subof': 'str'},),
-                ('guidform', {'subof': 'guid'},)
-            ),
-            'forms': (
-                (
-                    'strform', {'ptype': 'str'},
-                    (
-                        ('foo', {'ptype': 'str'}),
-                        ('bar', {'ptype': 'str'}),
-                        ('baz', {'ptype': 'int'}),
-                    )
-                ),
-                (
-                    'intform', {'ptype': 'int'},
-                    (
-                        ('foo', {'ptype': 'str'}),
-                        ('baz', {'ptype': 'int'}),
-                    )
-                ),
-                (
-                    'default_foo', {'ptype': 'str'},
-                    (
-                        ('p0', {'ptype': 'int'}),
-                    )
-                ),
-                (
-                    'guidform', {'ptype': 'guid'},
-                    (
-                        ('foo', {'ptype': 'str'}),
-                        ('baz', {'ptype': 'int'}),
-                    )
-                ),
-            )
-        }
-        core.addDataModel('tst', modl)
-        core.addTufoProp('inet:fqdn', 'inctest', ptype='int', defval=0)
-
-    @contextlib.contextmanager
-    def getRamCore(self):
-        '''
-        Context manager to make a ram:/// cortex which has test models
-        loaded into it.
-        Yields:
-            s_cores_common.Cortex: Ram backed cortex with test models.
-        '''
-        with s_cortex.openurl('ram:///') as core:
-            self.addTstForms(core)
-            yield core
 
     @contextlib.contextmanager
     def getTestDir(self):
