@@ -193,6 +193,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             ((None,dict)):  The ephemeral node
 
         '''
+        self.runt_forms.add(form)
+
         node = (None, {})
         norm, subs = self.getPropNorm(form, valu)
 
@@ -214,6 +216,18 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 self.runt_props[(full, norm)].append(node)
 
         return node
+
+    def isRuntForm(self, prop):
+        '''
+        Returns True if the given property name is a runtime node form.
+
+        Args:
+            prop (str):  The property name
+
+        Returns:
+            (boolean):  True if the property is a runtime node form.
+        '''
+        return prop in self.runt_forms
 
     @staticmethod
     @confdef(name='common_cortex')
@@ -1922,8 +1936,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         valu, subs = self.getPropNorm(prop, valu)
 
         # dont allow formation of nodes which are runts
-        if self.runt_props.get((prop, None) is not None):
-            raise NoSuchForm(name=prop)
+        if self.isRuntForm(prop):
+            raise s_common.IsRuntProp(form=prop, valu=valu,
+                  mesg='Runtime nodes may not be created with formTufoByProp')
 
         with self.getCoreXact() as xact:
 
@@ -2161,6 +2176,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         for prop, valu in fulls.items():
             ptype = self.getPropTypeName(prop)
             for stype in self.getTypeOfs(ptype):
+
+                if self.isRuntForm(stype):
+                    continue
+
                 if self.isTufoForm(stype):
                     toadd.add((stype, valu))
 
