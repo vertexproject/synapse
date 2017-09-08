@@ -5,6 +5,7 @@ import collections
 
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.tufo as s_tufo
@@ -13,7 +14,7 @@ import synapse.lib.output as s_output
 
 def main(argv, outp=None):
 
-    if outp is None:
+    if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
 
     pars = argparse.ArgumentParser(prog='ingest', description='Command line tool for ingesting data into a cortex')
@@ -29,9 +30,14 @@ def main(argv, outp=None):
     opts = pars.parse_args(argv)
 
     core = s_cortex.openurl(opts.core)
+    try:
+        s_telepath.reqNotProxy(core)
+    except s_common.MustBeLocal:
+        outp.printf('Ingest requires a local cortex to deconflict against, not a Telepath proxy')
+        raise
     core.setConfOpt('enforce', 1)
 
-    if opts.debug:
+    if opts.debug:  # pragma: no cover
         core.setConfOpt('log:save', 1)
 
     # FIXME check for telepath proxy and bitch.
@@ -143,7 +149,7 @@ def main(argv, outp=None):
 
     outp.printf('ingest took: %s sec' % (tock - tick,))
 
-    if opts.debug:
+    if opts.debug:  # pragma: no cover
         s_cmdr.runItemCmdr(core)
 
     if pump is not None:
@@ -153,5 +159,5 @@ def main(argv, outp=None):
 
     return 0
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     sys.exit(main(sys.argv[1:]))
