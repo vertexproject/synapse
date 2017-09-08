@@ -1886,16 +1886,17 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         valu, subs = self.getPropNorm(prop, valu)
 
-        # dont allow formation of nodes which are runts
-        if self.runt_props.get((prop, None) is not None):
-            raise NoSuchForm(name=prop)
-
         with self.getCoreXact() as xact:
 
             if deconf:
                 tufo = self.getTufoByProp(prop, valu=valu)
                 if tufo is not None:
                     return tufo
+
+            # dont allow formation of nodes which are runts
+            if self.runt_props.get((prop, None)):
+                raise s_common.BadPropName(mesg='Cannot form a node via formTufoByProp for a runt prop.',
+                                           name=prop, valu=valu)
 
             tick = s_common.now()
             iden = s_common.guid()
