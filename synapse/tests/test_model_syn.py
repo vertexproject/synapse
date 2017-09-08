@@ -15,6 +15,7 @@ class SynModelTest(SynTest):
             tden = guid()
             fden = guid()
             pden = guid()
+            mden = guid()
 
             tick = now()
 
@@ -28,6 +29,8 @@ class SynModelTest(SynTest):
 
                     (pden, 'syn:prop', 'hehe', tick),
                     (pden, 'syn:prop:lulz', 'newp', tick),
+
+                    (mden, '.:modl:vers:syn:core', 0, tick)
                 )
                 stor.addRows(rows)
                 data['added'] = True
@@ -39,3 +42,4 @@ class SynModelTest(SynTest):
                 self.eq(len(core.getRowsById(tden)), 0)
                 self.eq(len(core.getRowsById(fden)), 0)
                 self.eq(len(core.getRowsById(pden)), 0)
+                self.eq(len(core.getRowsById(mden)), 0)
