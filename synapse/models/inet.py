@@ -400,45 +400,6 @@ class InetMod(CoreModule):
     def _revModl201708231646(self):
         pass # for legacy/backward compat
 
-    @modelrev('inet', 201708172326)
-    def _revModl201708141516(self):
-
-        props = [
-            ('user',
-             {'ptype': 'inet:netuser', 'doc': 'The netuser associated with the logon event.', 'ro': 1,
-              'form': 'inet:netlogon'}),
-            ('time',
-             {'ptype': 'time', 'doc': 'The time the netuser logged into the service', 'ro': 1,
-              'form': 'inet:netlogon'}),
-            ('status', {'ptype': 'bool', 'ro': 1,
-                        'doc': 'The status of the logon action, denoting if it was successful or not.',
-                        'form': 'inet:netlogon'}),
-            ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the logon.', 'form': 'inet:netlogon'}),
-            ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the logon.', 'form': 'inet:netlogon'}),
-            ('logout', {'ptype': 'time', 'doc': 'The time the netuser logged out of the service.',
-                        'form': 'inet:netlogon'})
-        ]
-
-        ttufo = self.core.formTufoByProp('syn:type', 'inet:netlogon',
-                                         **{'subof': 'comp',
-                                            'fields': 'user,inet:netuser|time,time|status,bool',
-                                            'doc': 'An instance of a user account authenticating to a service.',
-                                            'ex': '(vertex.link/pennywise,1503068162551,1)'})
-
-        if not ttufo[1].get('.new'):
-            mesg = 'inet:netlogon rows already present. Skipping model update'
-            self.log(logging.WARNING, mesg=mesg)
-            logger.warning(mesg)
-            return
-
-        ftufo = self.core.formTufoByProp('syn:form', 'inet:netlogon', ptype='inet:netlogon')
-        ptufos = []
-        for prop, pnfo in props:
-            ptufo = self.core.formTufoByProp('syn:prop', ':'.join(['inet:netlogon', prop]), **pnfo)
-            ptufos.append(ptufo)
-
-        return
-
     @staticmethod
     def getBaseModels():
         modl = {
