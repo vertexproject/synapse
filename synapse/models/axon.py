@@ -10,7 +10,6 @@ class AxonMod(CoreModule):
 
     def initCoreModule(self):
         self.onFormNode('axon:path', self.onFormAxonPath)
-        self.revCoreModl()
 
     def onFormAxonPath(self, form, valu, props, mesg):
         # Early return for root nodes
