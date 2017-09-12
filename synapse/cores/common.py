@@ -1760,6 +1760,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
                 adds = []
                 rows = []
+                allfulls = []
 
                 for props in chunk:
 
@@ -1773,7 +1774,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                     fulls['tufo:form'] = form
 
                     if self.autoadd:
-                        self._runToAdd(fulls)
+                        allfulls.append(fulls)
 
                     # fire these immediately since we need them to potentially fill
                     # in values before we generate rows for the new tufo
@@ -1798,6 +1799,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 for form, valu, props, node in adds:
                     xact.fire('node:add', form=form, valu=valu, node=node)
                     xact.spliced('node:add', form=form, valu=valu, props=props)
+
+                if self.autoadd:
+                    for fulls in allfulls:
+                        self._runToAdd(fulls)
 
         return ret
 
