@@ -418,6 +418,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
 
         self.inprog = {}
         self.axondir = s_common.gendir(axondir)
+        self.clonedir = s_common.gendir(axondir, 'clones')
 
         self.clones = {}
         self.cloneinfo = {}
@@ -485,6 +486,9 @@ class Axon(s_eventbus.EventBus, AxonMixin):
         self.core.on('splice', self._fireAxonSync)
         self.heap.on('heap:sync', self._fireAxonSync)
 
+        dirname = s_common.gendir(axondir, 'sync')
+        syncopts = self.opts.get('syncopts', {})
+
         self.syncdir = None
 
         self.onfini(self._onAxonFini)
@@ -495,8 +499,6 @@ class Axon(s_eventbus.EventBus, AxonMixin):
 
         # if we're not a clone, create a sync dir
         if not self.opts.get('clone'):
-            dirname = s_common.gendir(axondir, 'sync')
-            syncopts = self.opts.get('syncopts', {})
             self.syncdir = s_persist.Dir(dirname, **syncopts)
             self.onfini(self.syncdir.fini)
 
