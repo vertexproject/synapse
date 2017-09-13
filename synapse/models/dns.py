@@ -37,7 +37,7 @@ class DnsMod(CoreModule):
                     'fields': 'fqdn,inet:fqdn|ipv6,inet:ipv6',
                     'doc': 'The result of a DNS AAAA record lookup',
                     'ex': 'vertex.link/2607:f8b0:4004:809::200e'}),
-                
+
                 ('inet:dns:cname', {
                      'subof': 'sepr',
                      'sep': '/',
@@ -99,7 +99,7 @@ class DnsMod(CoreModule):
                                       'doc': 'The most recent observed time for the data in the PTR record'}),
                  ]),
 
-                ('inet:dns:aaaa', 
+                ('inet:dns:aaaa',
                    {'ptype': 'inet:dns:aaaa', 'doc': 'Fused knowledge of a DNS AAAA record'}, [
                       ('fqdn', {'ptype': 'inet:fqdn', 'doc': 'The domain queried for its DNS AAAA record', 'ro': 1}),
                       ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The IPv6 address returned in the AAAA record', 'ro': 1}),
@@ -108,7 +108,7 @@ class DnsMod(CoreModule):
                       ('seen:max', {'ptype': 'time:max',
                                       'doc': 'The most recent observed time for the data in the AAAA record'}),
                  ]),
-                
+
                 ('inet:dns:cname',
                    {'ptype': 'inet:dns:cname', 'doc': 'Consolidated knowledge of a DNS CNAME record'}, [
                       ('fqdn', {'ptype': 'inet:fqdn', 'doc': 'The domain queried for its CNAME record', 'ro': 1}),
@@ -133,7 +133,7 @@ class DnsMod(CoreModule):
                 #Based on third party data it seems that there may be different seen:min / seen:max values for
                 #each, so propose creating individual inet:dns:soa records for fqdn + soafqdn or fqdn + soaemail,
                 #but not a single consolidated record for fqdn + soafqdn + soaemail.
-                
+
                 ('inet:dns:soa',
                    {'ptype': 'inet:dns:soa', 'doc': 'Consolidated knowledge of a DNS SOA record'}, [
                       ('fqdn', {'ptype': 'inet:fqdn', 'doc': 'The domain queried for its SOA record', 'ro': 1}),
@@ -157,7 +157,7 @@ class DnsMod(CoreModule):
                       ('seen:max', {'ptype': 'time:max',
                                       'doc': 'The most recent observed time for the data in the TXT record'}),
                 ]),
-                
+
                 ('inet:dns:look', {'ptype': 'inet:dns:look', 'doc': 'Instance knowledge of a DNS record lookup'}, [
                     ('time', {'ptype': 'time', 'req': 1, 'ro': 1}),
                     # one of the following should be set...
@@ -177,7 +177,7 @@ class DnsMod(CoreModule):
                     ('aaaa', {'ptype': 'inet:dns:aaaa', 'doc': 'The DNS AAAA record returned by the lookup', 'ro': 1}),
                     ('aaaa:fqdn', {'ptype': 'inet:fqdn', 'doc': 'The domain queried for its AAAA record', 'ro': 1}),
                     ('aaaa:ipv6', {'ptype': 'inet:ipv6', 'doc': 'The IPv6 address returned in the AAAA record', 'ro': 1}),
-                    
+
                     ('cname', {'ptype': 'inet:dns:cname', 'doc': 'The DNS CNAME record returned by the lookup', 'ro': 1}),
                     ('cname:fqdn', {'ptype': 'inet:fqdn', 'doc': 'The domain queried for its CNAME record', 'ro': 1}),
                     ('cname:cname', {'ptype': 'inet:fqdn', 'doc': 'The domain returned in the CNAME record', 'ro': 1}),
