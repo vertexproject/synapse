@@ -424,7 +424,7 @@ class HypnosTest(SynTest, AsyncTestCase):
     @classmethod
     def setUpClass(cls):
         '''Spin up the fake ipify server on a random port'''
-        cls.env = TestEnv()
+        cls.env = TstEnv()
         cls.port = random.randint(20000, 50000)
         cls.env.add('testserver',
                     StandaloneTestServer(port=cls.port),

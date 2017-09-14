@@ -8,7 +8,7 @@ matrix:
     - TEST_NAME: "Python 2.7 with coverage."
       IMAGE_VERSION: py27
       PG_DB: root@database:5432/syn_test
-      COVERAGE_ARGS: --with-coverage --cover-erase --cover-package=synapse
+      COVERAGE_ARGS: --cov synapse --no-cov-on-fail
     - TEST_NAME: "Python 34 without coverage."
       IMAGE_VERSION: py34
       PG_DB: root@database:5432/syn_test
@@ -20,7 +20,7 @@ matrix:
     - TEST_NAME: "Python 36 with coverage."
       IMAGE_VERSION: py36
       PG_DB: root@database:5432/syn_test
-      COVERAGE_ARGS: --with-coverage --cover-erase --cover-package=synapse
+      COVERAGE_ARGS: --cov synapse --no-cov-on-fail
       SLEEP: 15
 
 pipeline:
@@ -41,7 +41,7 @@ pipeline:
     commands:
       - if [ -n "${SLEEP}" ]; then sleep ${SLEEP}; fi;
       - python setup.py install
-      - nosetests --verbosity=3 ${COVERAGE_ARGS}
+      - pytest -v -s --durations 6 ${COVERAGE_ARGS}
       - if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${IMAGE_VERSION} --required; fi;
 
 services:

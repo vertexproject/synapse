@@ -149,7 +149,7 @@ class WebAppTest(AsyncTestCase, SynTest):
             }
 
             # Assert that the request fails w/ http protocol
-            with self.raises(TestSSLConnectionResetErr):
+            with self.raises(TstSSLConnectionResetErr):
                 resp = yield client.fetch(http_url)
 
             # Assert that the request fails w/ no client SSL config
@@ -158,7 +158,7 @@ class WebAppTest(AsyncTestCase, SynTest):
 
             # Assert that the request fails w/ no client SSL config, even if client does not validate cert
             # (server must also validate client cert)
-            with self.raises(TestSSLInvalidClientCertErr):
+            with self.raises(TstSSLInvalidClientCertErr):
                 resp = yield client.fetch(https_url, validate_cert=False)
 
             resp = yield client.fetch(https_url, **client_opts)

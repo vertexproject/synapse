@@ -31,13 +31,13 @@ class TooFewEvents(Exception): pass
 
 # Py2/3 SSL Exception Compat
 if s_compat.version >= (3, 0, 0):
-    TestSSLInvalidClientCertErr = ssl.SSLError
-    TestSSLConnectionResetErr = ConnectionResetError
+    TstSSLInvalidClientCertErr = ssl.SSLError
+    TstSSLConnectionResetErr = ConnectionResetError
 else:
-    TestSSLInvalidClientCertErr = socket.error
-    TestSSLConnectionResetErr = socket.error
+    TstSSLInvalidClientCertErr = socket.error
+    TstSSLConnectionResetErr = socket.error
 
-class TestEnv:
+class TstEnv:
 
     def __init__(self):
         self.items = {}
@@ -65,7 +65,7 @@ class TestEnv:
             bus.fini()
 
 
-class TestOutPut(s_output.OutPutStr):
+class TstOutPut(s_output.OutPutStr):
 
     def expect(self, substr):
         outs = str(self)
@@ -186,7 +186,7 @@ class SynTest(unittest.TestCase):
         return core
 
     def getTestOutp(self):
-        return TestOutPut()
+        return TstOutPut()
 
     def thisHostMust(self, **props):
         for k, v in props.items():
