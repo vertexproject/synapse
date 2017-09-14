@@ -45,7 +45,7 @@ class TelePathTest(SynTest):
         return dmon, link
 
     def getFooEnv(self, url='tcp://127.0.0.1:0/foo'):
-        env = TestEnv()
+        env = TstEnv()
         env.add('dmon', s_daemon.Daemon(), fini=True)
         env.add('link', env.dmon.listen(url))
 
