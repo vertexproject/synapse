@@ -109,8 +109,18 @@ class CoreTestDataModelModuleV1(s_module.CoreModule):
             rows.append((iden, 'foo:bar:duck', 'mallard', tick))
         self.core.addRows(rows)
 
-class CortexTest(SynTest):
+##############################################################################
+# Test Cortex's backed by different storage layers
+#
+# These are broken out to facilitate easy testing of issues which may be
+# related to a specific storage layer implementation, so the entire CortexTest
+# test suite does not have to be run at once.
+#
+# Additional tests may be added to the basic_core_expectations function to
+# run them across all Cortex types.
+##############################################################################
 
+class CortexBaseTest(SynTest):
     def test_cortex_ram(self):
         with s_cortex.openurl('ram://') as core:
             self.true(hasattr(core.link, '__call__'))
@@ -653,20 +663,6 @@ class CortexTest(SynTest):
             ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
         ])
 
-    def test_pg_encoding(self):
-        with self.getPgCore() as core:
-            res = core.store.select('SHOW SERVER_ENCODING')[0][0]
-            self.eq(res, 'UTF8')
-
-    def test_cortex_choptag(self):
-        t0 = tuple(s_cortex.choptag('foo'))
-        t1 = tuple(s_cortex.choptag('foo.bar'))
-        t2 = tuple(s_cortex.choptag('foo.bar.baz'))
-
-        self.eq(t0, ('foo',))
-        self.eq(t1, ('foo', 'foo.bar'))
-        self.eq(t2, ('foo', 'foo.bar', 'foo.bar.baz'))
-
     def runtufobydefault(self, core):
         # Failures should be expected for unknown names
         self.raises(NoSuchGetBy, core.getTufosBy, 'clowns', 'inet:ipv4', 0x01020304)
@@ -888,6 +884,29 @@ class CortexTest(SynTest):
         self.eq(test_repr, '192.168.0.1')
         test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
         self.eq(test_repr, '192.168.255.254')
+
+##############################################################################
+# Test Cortex APIs which are not exercised in the CortexBaseTests.
+#
+# This is appropriate for things which are not going to be storage-layer
+# dependent.
+##############################################################################
+
+class CortexTest(SynTest):
+
+    def test_pg_encoding(self):
+        with self.getPgCore() as core:
+            res = core.store.select('SHOW SERVER_ENCODING')[0][0]
+            self.eq(res, 'UTF8')
+
+    def test_cortex_choptag(self):
+        t0 = tuple(s_cortex.choptag('foo'))
+        t1 = tuple(s_cortex.choptag('foo.bar'))
+        t2 = tuple(s_cortex.choptag('foo.bar.baz'))
+
+        self.eq(t0, ('foo',))
+        self.eq(t1, ('foo', 'foo.bar'))
+        self.eq(t2, ('foo', 'foo.bar', 'foo.bar.baz'))
 
     def test_cortex_tufo_tag(self):
         core = s_cortex.openurl('ram://')
