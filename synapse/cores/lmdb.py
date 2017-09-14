@@ -364,10 +364,12 @@ class LmdbStorage(s_cores_storage.Storage):
 
         metasync_val = self._link[1].get('lmdb:metasync', False)
         metasync, _ = s_datamodel.getTypeNorm('bool', metasync_val)
+        metasync = (metasync == 1)
 
         # If sync is False, could lead to database corruption on power loss
         sync_val = self._link[1].get('lmdb:sync', True)
         sync, _ = s_datamodel.getTypeNorm('bool', sync_val)
+        sync = (sync == 1)
 
         # Write data directly to mapped memory
         WRITEMAP = True
@@ -379,6 +381,7 @@ class LmdbStorage(s_cores_storage.Storage):
         DEFAULT_LOCK = True
         lock_val = self._link[1].get('lmdb:lock', DEFAULT_LOCK)
         lock, _ = s_datamodel.getTypeNorm('bool', lock_val)
+        lock = (lock == 1)
 
         # Maximum simultaneous readers.
         MAX_READERS = 4
