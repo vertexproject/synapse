@@ -52,15 +52,11 @@ class DnsMod(CoreModule):
                      'doc': 'The result of a DNS MX record lookup',
                      'ex': 'vertex.link/mail.vertex.link'}),
 
-                #An SOA record may return a domain or email address or both. RFC1035.
-
                 ('inet:dns:soa', {
                      'subof': 'comp',
                      'fields': 'fqdn=inet:fqdn',
-                     'optfields': 'soafqdn=inet:fqdn,soaemail=inet:email',
+                     'optfields': 'ns=inet:fqdn,email=inet:email',
                      'doc': 'The result of a DNS SOA record lookup'}),
-
-                #A TXT record returns one or more strings. RFC1035, RFC1464
 
                 ('inet:dns:txt', {
                      'subof': 'comp',
@@ -129,16 +125,11 @@ class DnsMod(CoreModule):
                                       'doc': 'The most recent observed time for the data in the MX record'}),
                 ]),
 
-                #An SOA record may return an fqdn or an email address or both.
-                #Based on third party data it seems that there may be different seen:min / seen:max values for
-                #each, so propose creating individual inet:dns:soa records for fqdn + soafqdn or fqdn + soaemail,
-                #but not a single consolidated record for fqdn + soafqdn + soaemail.
-
                 ('inet:dns:soa',
                    {'ptype': 'inet:dns:soa', 'doc': 'Consolidated knowledge of a DNS SOA record'}, [
                       ('fqdn', {'ptype': 'inet:fqdn', 'doc': 'The domain queried for its SOA record', 'ro': 1}),
-                      ('soafqdn', {'ptype': 'inet:fqdn', 'doc': 'The domain returned in the SOA record', 'ro': 1}),
-                      ('soaemail', {'ptype': 'inet:email', 'doc': 'The email address returned in the SOA record', 'ro': 1}),
+                      ('ns', {'ptype': 'inet:fqdn', 'doc': 'The domain (MNAME) returned in the SOA record', 'ro': 1}),
+                      ('email', {'ptype': 'inet:email', 'doc': 'The email address (RNAME) returned in the SOA record', 'ro': 1}),
                       ('seen:min', {'ptype': 'time:min',
                                       'doc': 'The earliest observed time for the data in the SOA record'}),
                       ('seen:max', {'ptype': 'time:max',
@@ -188,8 +179,13 @@ class DnsMod(CoreModule):
 
                     ('soa', {'ptype': 'inet:dns:soa', 'doc': 'The DNS SOA record returned by the lookup', 'ro': 1}),
                     ('soa:fqdn', {'ptype': 'inet:fqdn', 'doc': 'The domain queried for its SOA record', 'ro': 1}),
-                    ('soa:soafqdn', {'ptype': 'inet:fqdn', 'doc': 'The domain returned in the SOA record', 'ro': 1}),
-                    ('soa:soaemail', {'ptype': 'inet:email', 'doc': 'The email address returned in the SOA record', 'ro': 1}),
+                    ('soa:ns', {'ptype': 'inet:fqdn', 'doc': 'The domain (MNAME) returned in the SOA record', 'ro': 1}),
+                    ('soa:email', {'ptype': 'inet:email', 'doc': 'The normalized email address (RNAME) returned in the SOA record', 'ro': 1}),
+                    ('soa:serial', {'ptype': 'int', 'doc': 'The SERIAL value returned in the SOA record', 'ro': 1}),
+                    ('soa:refresh', {'ptype': 'time', 'doc': 'The REFRESH value returned in the SOA record', 'ro': 1}),
+                    ('soa:retry', {'ptype': 'time', 'doc': 'The RETRY value returned in the SOA record', 'ro': 1}),
+                    ('soa:expire', {'ptype': 'time', 'doc': 'The EXPIRE value returned in the SOA record', 'ro': 1}),
+                    ('soa:min', {'ptype': 'time', 'doc': 'The MINIMUM value returned in the SOA record', 'ro': 1}),
 
                     ('txt', {'ptype': 'inet:dns:txt', 'doc': 'The DNS TXT record returned by the lookup', 'ro': 1}),
                     ('txt:fqdn', {'ptype': 'inet:fqdn', 'doc': 'The domain queried for its TXT record', 'ro': 1}),
