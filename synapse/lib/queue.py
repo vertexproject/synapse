@@ -118,9 +118,9 @@ class Queue(EventBus):
                            to the queue before returning.
 
         Examples:
-            Return 3 items on a 30 second timeout from the queue::
+            Return up to 3 items on a 30 second timeout from the queue::
 
-                item = q.slice(3, timeout=30)
+                items = q.slice(3, timeout=30)
 
         Notes:
             This will block if the queue is empty and no timeout value is
