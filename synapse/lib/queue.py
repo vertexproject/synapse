@@ -34,8 +34,14 @@ class Queue(EventBus):
 
     def done(self):
         '''
-        Gracefully mark this Queue as done
-        ( but allow consumers to finish consuming it )
+        Gracefully mark this Queue as done.
+
+        This still allows a Queue consumer to finish consuming it. The Queue
+        functions ``get()``, ``slice()`` and ``slices()`` will not block when
+        .done() has been called on a Queue.
+
+        Returns:
+            None
         '''
         self._que_done = True
         self.event.set()
@@ -44,12 +50,22 @@ class Queue(EventBus):
         '''
         Get the next item from the queue.
 
-        This API will return None on timeout or fini()
+        Args:
+            timeout (int): Duration, in seconds, to wait for items to be available
+                           to the queue before returning.
 
-        Example:
+        Notes:
+            This will block if the queue is empty and no timeout value is
+            specified, or .done() has not been called on the Queue.
 
-            item = q.get(timeout=30)
+        Examples:
+            Get an item and do stuff with it::
 
+                item = q.get(timeout=30)
+                dostuff(item)
+
+        Returns:
+            Item from the queue, or None if the queue is fini() or timeout occurs.
         '''
         while not self.isfini:
 
@@ -75,12 +91,18 @@ class Queue(EventBus):
 
     def put(self, item):
         '''
-        Add an item to the queue and wake the sleeper.
+        Add an item to the queue and wake any consumers waiting on the queue.
 
-        Example:
+        Args:
+            item: Item to add to the queue.
 
-            q.put('woot')
+        Examples:
+            Put a string in a queue::
 
+                q.put('woot')
+
+        Returns:
+            None
         '''
         with self.lock:
             self.deq.append(item)
@@ -90,12 +112,23 @@ class Queue(EventBus):
         '''
         Get a slice of the next items from the queue.
 
-        This API will return None on timeout or fini()
+        Args:
+            size (int): Maximum number of items to get from the queue.
+            timeout (int): Duration, in seconds, to wait for items to be available
+                           to the queue before returning.
 
-        Example:
+        Examples:
+            Return 3 items on a 30 second timeout from the queue::
 
-            item = q.slice(3, timeout=30)
+                item = q.slice(3, timeout=30)
 
+        Notes:
+            This will block if the queue is empty and no timeout value is
+            specified, or .done() has not been called on the Queue.
+
+        Returns:
+            list: A list of items from the queue. This will return None on
+                  fini() or timeout.
         '''
         while not self.isfini:
 
@@ -122,11 +155,24 @@ class Queue(EventBus):
         '''
         Yields slices of items from the queue.
 
-        Example:
+        Args:
+            size (int): Maximum number of items to yield at a time.
+            timeout (int): Duration, in seconds, to wait for items to be added
+                           to the queue before exiting.
 
-            for item in q.slices(2, timeout=1):
-                dostuff(item)
+        Examples:
+            Yield 2 items at a time with a 1 second time::
 
+                for items in q.slices(2, timeout=1):
+                    dostuff(items)
+
+        Notes:
+            This will block if the queue is empty and no timeout value is
+            specified, or .done() has not been called on the Queue.
+
+
+        Yields:
+            list: This generator yields a list of items.
         '''
         ret = self.slice(size, timeout=timeout)
         while ret is not None:
