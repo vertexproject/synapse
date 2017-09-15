@@ -1089,7 +1089,9 @@ class IngTest(SynTest):
             self.eq(len(nodes3), 1)
             xrefnode = nodes3[0]
             self.eq(xrefnode[1].get('file:txtref:file'), nodes1[0][1].get('file:bytes'))
-            self.eq(xrefnode[1].get('file:txtref:xref:inet:ipv4'), nodes2[0][1].get('inet:ipv4'))
+            self.eq(xrefnode[1].get('file:txtref:xtype'), 'inet:ipv4')
+            self.eq(xrefnode[1].get('file:txtref:xref'), 'inet:ipv4=8.8.8.8')
+            self.eq(xrefnode[1].get('file:txtref:xref:intval'), nodes2[0][1].get('inet:ipv4'))
 
     def test_ingest_reqprops(self):
 

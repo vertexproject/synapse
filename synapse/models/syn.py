@@ -1,3 +1,4 @@
+import synapse.common as s_common
 from synapse.lib.module import CoreModule, modelrev
 
 class SynMod(CoreModule):
@@ -116,3 +117,42 @@ class SynMod(CoreModule):
             [self.core.delRowsById(r[0]) for r in forms]
             [self.core.delRowsById(r[0]) for r in props]
             [self.core.delRowsById(r[0]) for r in syncore]
+
+    @modelrev('syn', 201709191412)
+    def _revModl201709191412(self):
+        '''
+        Migrate the XREF types to use the propvalu syntax.
+        '''
+        tick = s_common.now()
+        adds = []
+        dels = set()
+
+        nforms = set()
+
+        for form in self.core.getModelDict().get('forms'):
+            sforms = self.core.getTypeOfs(form)
+            if 'xref' in sforms:
+                nforms.add(form)
+
+        for ntyp in nforms:
+            nodes = self.core.getTufosByProp(ntyp)
+            xtyp = '{}:xtype'.format(ntyp)
+            xrefp = '{}:xref'.format(ntyp)
+            xrefpint = '{}:xref:intval'.format(ntyp)
+            xrefpstr = '{}:xref:strval'.format(ntyp)
+            for node in nodes:
+                iden = node[0]
+                srcvtype = node[1].get(xtyp)
+                srcprp = '{}:xref:{}'.format(ntyp, srcvtype)
+                srcv = node[1].get(srcprp)
+                valu, subs = self.core.getPropNorm(xrefp, [srcvtype, srcv])
+                adds.append((iden, xrefp, valu, tick))
+                if 'intval' in subs:
+                    adds.append((iden, xrefpint, subs.get('intval'), tick))
+                else:
+                    adds.append((iden, xrefpstr, subs.get('strval'), tick))
+                dels.add(srcprp)
+        with self.core.getCoreXact():
+            self.core.addRows(adds)
+            for prop in dels:
+                self.core.delRowsByProp(prop)

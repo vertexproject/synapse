@@ -102,7 +102,10 @@ class FileModelTest(SynTest):
 
             self.eq(img0[0], img1[0])
             self.eq(img0[1].get('file:imgof:file'), fiden)
-            self.eq(img0[1].get('file:imgof:xref:ps:person'), piden)
+            self.eq(img0[1].get('file:imgof:xtype'), 'ps:person')
+            self.eq(img0[1].get('file:imgof:xref'), 'ps:person=' + piden)
+            self.eq(img0[1].get('file:imgof:xref:strval'), piden)
+            self.eq(img0[1].get('file:imgof:xref:intval'), None)
 
     def test_model_files_txtref(self):
 
@@ -116,7 +119,10 @@ class FileModelTest(SynTest):
 
             self.eq(img0[0], img1[0])
             self.eq(img0[1].get('file:txtref:file'), iden)
-            self.eq(img0[1].get('file:txtref:xref:inet:email'), 'visi@vertex.link')
+            self.eq(img0[1].get('file:txtref:xref'), 'inet:email=visi@vertex.link')
+            self.eq(img0[1].get('file:txtref:xtype'), 'inet:email')
+            self.eq(img0[1].get('file:txtref:xref:strval'), 'visi@vertex.link')
+            self.eq(img0[1].get('file:txtref:xref:intval'), None)
 
     def test_model_file_bytes_axon(self):
 
