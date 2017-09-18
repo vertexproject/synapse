@@ -492,7 +492,7 @@ class InetMod(CoreModule):
 
                 ('inet:netuser', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|user,inet:user',
                                   'doc': 'A user account at a given web address', 'ex': 'twitter.com/invisig0th'}),
-                ('inet:netlogon', {'subof': 'guid',
+                ('inet:web:logon', {'subof': 'guid',
                                    'doc': 'An instance of a user account authenticating to a service.', }),
 
                 ('inet:netgroup', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|name,ou:name',
@@ -706,7 +706,7 @@ class InetMod(CoreModule):
                     ('seen:max', {'ptype': 'time:max'}),
                 ]),
 
-                ('inet:netlogon', {'ptype': 'inet:netlogon'}, [
+                ('inet:web:logon', {'ptype': 'inet:web:logon'}, [
                     ('netuser', {'ptype': 'inet:netuser', 'doc': 'The netuser associated with the logon event.', }),
                     ('netuser:site', {'ptype': 'inet:fqdn', }),
                     ('netuser:user', {'ptype': 'inet:user', }),

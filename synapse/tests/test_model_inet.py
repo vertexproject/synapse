@@ -433,27 +433,27 @@ class InetModelTest(SynTest):
             core.setConfOpt('enforce', 1)
             tick = now()
 
-            t0 = core.formTufoByProp('inet:netlogon', '*',
+            t0 = core.formTufoByProp('inet:web:logon', '*',
                                      netuser='vertex.link/pennywise',
                                      time=tick)
 
             self.nn(t0)
 
-            self.eq(t0[1].get('inet:netlogon:time'), tick)
-            self.eq(t0[1].get('inet:netlogon:netuser'), 'vertex.link/pennywise')
-            self.eq(t0[1].get('inet:netlogon:netuser:user'), 'pennywise')
-            self.eq(t0[1].get('inet:netlogon:netuser:site'), 'vertex.link')
+            self.eq(t0[1].get('inet:web:logon:time'), tick)
+            self.eq(t0[1].get('inet:web:logon:netuser'), 'vertex.link/pennywise')
+            self.eq(t0[1].get('inet:web:logon:netuser:user'), 'pennywise')
+            self.eq(t0[1].get('inet:web:logon:netuser:site'), 'vertex.link')
 
             # Pivot from a netuser to the netlogon forms via storm
             self.nn(core.getTufoByProp('inet:netuser', 'vertex.link/pennywise'))
-            nodes = core.eval('inet:netuser=vertex.link/pennywise inet:netuser -> inet:netlogon:netuser')
+            nodes = core.eval('inet:netuser=vertex.link/pennywise inet:netuser -> inet:web:logon:netuser')
             self.eq(len(nodes), 1)
 
             t0 = core.setTufoProps(t0, ipv4=0x01020304, logout=tick + 1, ipv6='0:0:0:0:0:0:0:1')
-            self.eq(t0[1].get('inet:netlogon:ipv4'), 0x01020304)
-            self.eq(t0[1].get('inet:netlogon:logout'), tick + 1)
-            self.eq(t0[1].get('inet:netlogon:logout') - t0[1].get('inet:netlogon:time'), 1)
-            self.eq(t0[1].get('inet:netlogon:ipv6'), '::1')
+            self.eq(t0[1].get('inet:web:logon:ipv4'), 0x01020304)
+            self.eq(t0[1].get('inet:web:logon:logout'), tick + 1)
+            self.eq(t0[1].get('inet:web:logon:logout') - t0[1].get('inet:web:logon:time'), 1)
+            self.eq(t0[1].get('inet:web:logon:ipv6'), '::1')
 
     def test_model_inet_201706121318(self):
 
