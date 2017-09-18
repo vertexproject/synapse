@@ -399,6 +399,19 @@ class InetModelTest(SynTest):
             self.eq(len(core.eval('inet:whois:rec="woot.com@20501217"')), 1)
             self.eq(len(core.eval('inet:whois:contact:rec="woot.com@20501217"')), 1)
 
+    def test_model_inet_whois_nsrec(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+
+            node = core.formTufoByProp('inet:whois:rec', 'woot.com@20501217')
+            form, pprop = s_tufo.ndef(node)
+            node = core.formTufoByProp('inet:whois:nsrec', ['ns1.woot.com', pprop])
+            nodes = core.eval('inet:whois:nsrec:rec:fqdn=woot.com')
+            self.eq(node[0], nodes[0][0])
+            nodes = core.eval('inet:whois:rec:fqdn=woot.com inet:whois:rec->inet:whois:nsrec:rec')
+            self.eq(len(nodes), 1)
+            self.eq(node[0], nodes[0][0])
+
     def test_model_fqdn_punycode(self):
 
         with s_cortex.openurl('ram:///') as core:
@@ -525,3 +538,46 @@ class InetModelTest(SynTest):
                 t2 = core.getTufoByIden(iden1)
                 self.eq(t2[1].get('inet:udp4:port'), 443)
                 self.eq(t2[1].get('inet:udp4:ipv4'), 0x01020304)
+
+    def test_model_inet_201709181501(self):
+        data = {}
+        iden0 = guid()
+        tick = now()
+        rows = [
+            (iden0, 'tufo:form', 'inet:whois:rec', tick),
+            (iden0, 'inet:whois:rec', 'vertex.link@2017/09/18 15:01:00.000', tick),  # 1505746860000,
+            (iden0, 'inet:whois:rec:ns1', 'ns1.vertex.link', tick),
+            (iden0, 'inet:whois:rec:ns2', 'ns2.vertex.link', tick),
+            (iden0, 'inet:whois:rec:ns3', 'ns3.vertex.link', tick),
+            (iden0, 'inet:whois:rec:ns4', 'ns4.vertex.link', tick),
+        ]
+
+        with s_cortex.openstore('ram:///') as stor:
+
+            # force model migration callbacks
+            stor.setModlVers('inet', 0)
+
+            def addrows(mesg):
+                stor.addRows(rows)
+                data['added'] = True
+            stor.on('modl:vers:rev', addrows, name='inet', vers=201709181501)
+
+            with s_cortex.fromstore(stor) as core:
+
+                t_guid, _ = core.getTypeNorm('inet:whois:nsrec', ['ns1.vertex.link',
+                                                                  'vertex.link@2017/09/18 15:01:00.000'])
+
+                node = core.eval('inet:whois:rec')[0]
+                self.notin('inet:whois:rec:ns1', node[1])
+                self.notin('inet:whois:rec:ns2', node[1])
+                self.notin('inet:whois:rec:ns3', node[1])
+                self.notin('inet:whois:rec:ns4', node[1])
+
+                nodes = core.eval('inet:whois:nsrec')
+                self.eq(len(nodes), 4)
+
+                nodes = core.eval('inet:whois:nsrec={}'.format(t_guid))
+                self.eq(len(nodes), 1)
+                node = nodes[0]
+                self.eq(node[1].get('inet:whois:nsrec:ns'), 'ns1.vertex.link')
+                self.eq(node[1].get('inet:whois:nsrec:rec:fqdn'), 'vertex.link')

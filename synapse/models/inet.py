@@ -400,6 +400,45 @@ class InetMod(CoreModule):
     def _revModl201708231646(self):
         pass # for legacy/backward compat
 
+    @modelrev('inet', 201709181501)
+    def _revModl201709181501(self):
+        '''
+        Replace inet:whois:rec:ns<int> rows with inet:whos:nsrec nodes.
+        '''
+        adds = []
+        srcprops = ('inet:whois:rec:ns1', 'inet:whois:rec:ns2', 'inet:whois:rec:ns3', 'inet:whois:rec:ns4')
+        delprops = set()
+
+        tick = s_common.now()
+
+        # We could use the joins API but we would have to still fold rows into tufos for the purpose of migration.
+        nodes = self.core.getTufosByProp('inet:whois:rec')
+
+        for node in nodes:
+            rec = node[1].get('inet:whois:rec')
+            for prop in srcprops:
+                ns = node[1].get(prop)
+                if not ns:
+                    continue
+                delprops.add(prop)
+                iden = s_common.guid()
+                pprop = s_common.guid([ns, rec])
+                fqdn = rec.split('@', 1)[0]
+                rows = [
+                    (iden, 'tufo:form', 'inet:whois:nsrec', tick),
+                    (iden, 'inet:whois:nsrec', pprop, tick),
+                    (iden, 'inet:whois:nsrec:ns', ns, tick),
+                    (iden, 'inet:whois:nsrec:rec', rec, tick),
+                    (iden, 'inet:whois:nsrec:rec:fqdn', fqdn, tick),
+                ]
+                adds.extend(rows)
+
+        if adds:
+            self.core.addRows(adds)
+
+        for prop in delprops:
+            self.core.delRowsByProp(prop)
+
     @staticmethod
     def getBaseModels():
         modl = {
@@ -481,6 +520,8 @@ class InetMod(CoreModule):
                 ('inet:whois:rec',
                  {'subof': 'sepr', 'sep': '@', 'fields': 'fqdn,inet:fqdn|asof,time', 'doc': 'A whois record',
                   'ex': ''}),
+                ('inet:whois:nsrec', {'subof': 'comp', 'fields': 'ns,inet:fqdn|rec,inet:whois:rec',
+                                      'doc': 'A nameserver associated with a given WHOIS record.'}),
 
                 ('inet:whois:contact', {'subof': 'comp', 'fields': 'rec,inet:whois:rec|type,str:lwr',
                                         'doc': 'A whois contact for a specific record'}),
@@ -774,10 +815,12 @@ class InetMod(CoreModule):
                     ('expires', {'ptype': 'time', 'doc': 'The "expires" time from the whois record'}),
                     ('registrar', {'ptype': 'inet:whois:rar', 'defval': '??'}),
                     ('registrant', {'ptype': 'inet:whois:reg', 'defval': '??'}),
-                    ('ns1', {'ptype': 'inet:fqdn'}),
-                    ('ns2', {'ptype': 'inet:fqdn'}),
-                    ('ns3', {'ptype': 'inet:fqdn'}),
-                    ('ns4', {'ptype': 'inet:fqdn'}),
+                ]),
+
+                ('inet:whois:nsrec', {}, [
+                    ('ns', {'ptype': 'inet:fqdn', 'ro': 1, 'doct': 'Nameserver for a given FQDN'}),
+                    ('rec', {'ptype': 'inet:whois:rec', 'ro': 1}),
+                    ('rec:fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
                 ]),
 
                 ('inet:whois:contact', {}, [
