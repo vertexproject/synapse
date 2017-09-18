@@ -70,6 +70,15 @@ class InetModelTest(SynTest):
             self.nn(core.getTufoByProp('inet:ipv4', 0x01020304))
             self.nn(core.getTufoByProp('inet:ipv4', 0x05060708))
 
+            t1 = core.formTufoByProp('inet:asn', 12345)
+            self.none(t1[1].get('inet:asn:owner'))
+            t1 = core.setTufoProps(t1, owner='vertex')
+            self.eq(t1[1].get('inet:asn:owner'), 'vertex')
+            # TODO: Uncomment when we have a global alias resolver in place.
+            # self.nn(core.getTufoByProp('ou:alias', 'vertex'))
+            t2 = core.formTufoByProp('inet:asn', 12346, owner='vertex')
+            self.eq(t2[1].get('inet:asn:owner'), 'vertex')
+
     def test_model_inet_fqdn(self):
         with s_cortex.openurl('ram:///') as core:
             t0 = core.formTufoByProp('inet:fqdn', 'com', sfx=1)

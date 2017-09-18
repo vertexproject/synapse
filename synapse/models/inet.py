@@ -528,6 +528,7 @@ class InetMod(CoreModule):
 
                 ('inet:asn', {'ptype': 'inet:asn', 'doc': 'An Autonomous System'}, (
                     ('name', {'ptype': 'str:lwr', 'defval': '??'}),
+                    ('owner', {'ptype': 'ou:name', 'doc': 'Organization which controls an ASN'}),
                 )),
 
                 ('inet:asnet4',
