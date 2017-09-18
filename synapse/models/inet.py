@@ -492,10 +492,8 @@ class InetMod(CoreModule):
 
                 ('inet:netuser', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|user,inet:user',
                                   'doc': 'A user account at a given web address', 'ex': 'twitter.com/invisig0th'}),
-                ('inet:netlogon', {'subof': 'comp',
-                                   'fields': 'user,inet:netuser|time,time|status,bool',
-                                   'doc': 'An instance of a user account authenticating to a service.',
-                                   'ex': '(vertex.link/pennywise,1503068162551,1)'}),
+                ('inet:netlogon', {'subof': 'guid',
+                                   'doc': 'An instance of a user account authenticating to a service.', }),
 
                 ('inet:netgroup', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|name,ou:name',
                                    'doc': 'A group within an online community'}),
@@ -709,10 +707,10 @@ class InetMod(CoreModule):
                 ]),
 
                 ('inet:netlogon', {'ptype': 'inet:netlogon'}, [
-                    ('user', {'ptype': 'inet:netuser', 'doc': 'The netuser associated with the logon event.', 'ro': 1}),
-                    ('time', {'ptype': 'time', 'doc': 'The time the netuser logged into the service', 'ro': 1}),
-                    ('status', {'ptype': 'bool', 'ro': 1,
-                                'doc': 'The status of the logon action, denoting if it was successful or not.'}),
+                    ('netuser', {'ptype': 'inet:netuser', 'doc': 'The netuser associated with the logon event.', }),
+                    ('netuser:site', {'ptype': 'inet:fqdn', }),
+                    ('netuser:user', {'ptype': 'inet:user', }),
+                    ('time', {'ptype': 'time', 'doc': 'The time the netuser logged into the service', }),
                     ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the logon.'}),
                     ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the logon.'}),
                     ('logout', {'ptype': 'time', 'doc': 'The time the netuser logged out of the service.'})
