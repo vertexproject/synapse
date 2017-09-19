@@ -42,32 +42,11 @@ class CryptoModelTest(SynTest):
 
     def test_model_crypto_201708231712(self):
 
-        byts = self.getRev0DbByts()
+        with s_cortex.openstore('ram:///') as stor:
 
-        with self.getTestDir() as temp:
-            finl = os.path.join(temp, 'test.db')
+            # force model migration callbacks
+            stor.setModlVers('crypto', 0)
 
-            with open(finl, 'wb') as fd:
-                fd.write(byts)
-
-            url = 'sqlite:///%s' % finl
-
-            with s_cortex.openstore(url) as store:
-                prop = '.:modl:vers:crypto'
-                valu = 0
-                rows = store.getRowsByProp(prop)
-                if rows:
-                    iden = rows[0][0]
-                else:
-                    iden = guid()
-                store.setRowsByIdProp(iden, prop, valu)
-
-            # Open the cortex, applying the data model updates
-            # Validate our nodes now have the correct data
-            with s_cortex.openurl(url) as core:
+            with s_cortex.fromstore(stor) as core:
                 modlrev = core.getModlVers('crypto')
                 self.ge(modlrev, 201708231712)
-
-                pdef = core.getTufoByProp('syn:prop', 'rsa:key:mod')
-                self.eq(pdef[1].get('syn:prop:ptype'), 'str:hex')
-                self.notin('syn:prop:pytpe', pdef[1])

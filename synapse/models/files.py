@@ -80,8 +80,6 @@ class FileMod(CoreModule):
         self.core.addSeedCtor('file:bytes:sha256', self.seedFileGoodHash)
         self.core.addSeedCtor('file:bytes:sha512', self.seedFileGoodHash)
 
-        self.revCoreModl()
-
     def seedFileGoodHash(self, prop, valu, **props):
         '''
         Hashes that we consider "cardinal enough" to pivot.

@@ -81,7 +81,6 @@ class TimeMod(CoreModule):
 
     def initCoreModule(self):
         self.core.addTypeCast('from:unix:epoch', fromUnixEpoch)
-        self.revCoreModl()
 
     @staticmethod
     def getBaseModels():

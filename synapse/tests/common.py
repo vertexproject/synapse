@@ -31,13 +31,13 @@ class TooFewEvents(Exception): pass
 
 # Py2/3 SSL Exception Compat
 if s_compat.version >= (3, 0, 0):
-    TestSSLInvalidClientCertErr = ssl.SSLError
-    TestSSLConnectionResetErr = ConnectionResetError
+    TstSSLInvalidClientCertErr = ssl.SSLError
+    TstSSLConnectionResetErr = ConnectionResetError
 else:
-    TestSSLInvalidClientCertErr = socket.error
-    TestSSLConnectionResetErr = socket.error
+    TstSSLInvalidClientCertErr = socket.error
+    TstSSLConnectionResetErr = socket.error
 
-class TestEnv:
+class TstEnv:
 
     def __init__(self):
         self.items = {}
@@ -65,7 +65,7 @@ class TestEnv:
             bus.fini()
 
 
-class TestOutPut(s_output.OutPutStr):
+class TstOutPut(s_output.OutPutStr):
 
     def expect(self, substr):
         outs = str(self)
@@ -185,52 +185,8 @@ class SynTest(unittest.TestCase):
             core.onfini(droptable)
         return core
 
-    def getRev0DbByts(self):
-        '''
-        Get the bytes for the rev0.db SQLIte Cortex.
-        '''
-        path = getTestPath('rev0.db')
-        with open(path, 'rb') as fd:
-            byts = fd.read()
-
-        # Hash of the rev0 file on initial commit prevent
-        # commits which overwrite this accidentally from passing.
-        known_hash = '50cae022b296e0c2b61fd6b101c4fdaf'
-        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
-        return byts
-
-    def getRev0DbBytsMpk(self):
-        '''
-        Get the bytes for the rev0.db Cortex savefile.
-        '''
-        path = getTestPath('rev0.mpk')
-
-        with open(path, 'rb') as fd:
-            byts = fd.read()
-
-        # Hash of the rev0 file on initial commit prevent
-        # commits which overwrite this accidentally from passing.
-        known_hash = '5f724ba09c719e1f83454431b516e429'
-        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
-        return byts
-
-    def getRev0DbBytsLmdbGz(self):
-        '''
-        Get the bytes for the rev0.db Cortex in lmdb form.
-        This bytestream has been gzip.compressed.
-        '''
-        path = getTestPath('rev0.lmdb.gz')
-        with open(path, 'rb') as fd:
-            byts = fd.read()
-
-        # Hash of the rev0 file on initial commit prevent
-        # commits which overwrite this accidentally from passing.
-        known_hash = '06c05fa1ed9c9c195e060905357caef6'
-        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
-        return byts
-
     def getTestOutp(self):
-        return TestOutPut()
+        return TstOutPut()
 
     def thisHostMust(self, **props):
         for k, v in props.items():

@@ -16,16 +16,7 @@ class CryptoMod(CoreModule):
 
     @modelrev('crypto', 201708231712)
     def _revModl201708231712(self):
-        node = self.core.getTufoByProp('syn:prop', 'rsa:key:mod')
-        if not node:  # pragma: no cover
-            # Its possible someone deleted their syn:prop=rsa:key:mod node :(
-            mesg = 'No syn:prop="rsa:key:mod" node found during model revision.'
-            logger.warning(mesg)
-            self.core.log(logging.WARNING, mesg=mesg)
-            return
-        self.core.delRowsByIdProp(node[0], 'syn:prop:pytpe')
-        if 'syn:prop:ptype' not in node[1]:
-            self.core.addRows([(node[0], 'syn:prop:ptype', 'str:hex', s_common.now())])
+        pass # here from legacy for backward compat
 
     @staticmethod
     def getBaseModels():

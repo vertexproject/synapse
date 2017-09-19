@@ -35,6 +35,29 @@ class QueueTest(SynTest):
 
         self.eq(tuple(retn), ((1, 2), (3, 4)))
 
+    def test_queue_multislice(self):
+        # run a queue for several items with a timeout.
+        q = s_queue.Queue()
+        retn = []
+
+        q.put(1)
+        q.put(2)
+        q.put(3)
+        q.put(4)
+
+        for slic in q.slices(2, timeout=0.1):
+            retn.append(tuple(slic))
+
+        q.put(1)
+        q.put(2)
+        q.put(3)
+        q.put(4)
+
+        for slic in q.slices(2, timeout=0.1):
+            retn.append(tuple(slic))
+
+        self.eq(tuple(retn), ((1, 2), (3, 4), (1, 2), (3, 4)))
+
     def test_queue_timeout(self):
         q = s_queue.Queue()
         q.put(1)

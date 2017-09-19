@@ -108,6 +108,8 @@ class DupOpt(Exception): pass
 class DupUser(Exception): pass
 class DupRole(Exception): pass
 
+class IsRuntProp(SynErr): pass
+
 class NoSuch(Exception): pass
 class NoSuchJob(Exception): pass
 class NoSuchObj(SynErr): pass

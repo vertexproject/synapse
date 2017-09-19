@@ -12,7 +12,7 @@ from synapse.tests.common import *
 class SwarmRunBase(SynTest):
 
     def getSwarmEnv(self):
-        tenv = TestEnv()
+        tenv = TstEnv()
 
         core0 = s_cortex.openurl('ram://')
         core1 = s_cortex.openurl('ram://')

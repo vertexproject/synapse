@@ -90,29 +90,15 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         self.onfini(fini)
 
         # check for decorated functions for model rev
-        self._syn_mrevs = collections.defaultdict(list)
+        self._syn_mrevs = []
+
         for name, meth in s_reflect.getItemLocals(self):
             mrev = getattr(meth, '_syn_mrev', None)
             if mrev is None:
                 continue
 
             name, vers = mrev
-            self._syn_mrevs[name].append((vers, meth))
-        # Generate rev0 functions for new Cortex instances.
-        for name, modl in self.getBaseModels():
-            revision = 0
-            if core.isnew and name in self._syn_mrevs:
-                _vers = [vers for vers, meth in self._syn_mrevs.get(name)]
-                revision = max(_vers)
-
-            def rev0():
-                self.core.addDataModel(name, modl)
-                return revision
-
-            self._syn_mrevs[name].append((0, rev0))
-
-        # ensure the revs are in sequential order
-        [v.sort(key=lambda x: x[0]) for v in self._syn_mrevs.values()]
+            self._syn_mrevs.append((name, vers, meth))
 
         self.initCoreModule()
         self.setConfOpts(conf)
@@ -141,12 +127,8 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
 
         Returns:
             (None)
-
-        NOTE: If this method is implemented in a subclass, the subclass is
-              responsible for calling the base implementation or revCoreModl()
-              if this module implements Cortex data models.
         '''
-        self.revCoreModl()
+        pass
 
     def postCoreModule(self):
         '''
@@ -158,21 +140,6 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
 
         '''
         pass
-
-    def revCoreModl(self):
-        '''
-        Use modelrev decorated functions within this module to update the cortex's
-        list of name, revision, and update functions.
-
-        Returns:
-            None
-        '''
-        tups = []
-        for name, revs in self.genModlRevs():
-            for revision, func in revs:
-                validate_revnumber(revision)
-                tups.append((revision, name, func))
-        self.core.modelrevlist.extend(tups)
 
     @staticmethod
     def getBaseModels():
@@ -191,23 +158,19 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         '''
         return ()
 
-    def genModlRevs(self):
+    def getModlRevs(self):
         '''
-        Generate a list of ( name, revs ) tuples for model revisions in this module.
+        Generate a list of ( name, vers, func ) tuples for model revisions in this module.
 
         Returns:
-            ([ (str,[ (int,func), ... ]), ... ])
+            ([ (str, int, func), ... ])
 
         Example:
 
-            for name,revs in modu.genModlRevs():
+            for name, vers, func in modu.getModlRevs():
                 core.revModlVers(name,revs)
-
         '''
-        retn = []
-        for name, revs in self._syn_mrevs.items():
-            retn.append((name, tuple(revs)))
-        return retn
+        return list(self._syn_mrevs)
 
     def onFormNode(self, form, func):
         '''

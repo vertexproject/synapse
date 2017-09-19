@@ -136,6 +136,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         self.tufosbymeths = {}
 
+        # we keep an in-ram set of "ephemeral" nodes which are runtime-only ( non-persistent )
+        self.runt_forms = set()
+        self.runt_props = collections.defaultdict(list)
+
         self.cache_fifo = collections.deque()               # [ ((prop,valu,limt), {
         self.cache_bykey = {}                               # (prop,valu,limt):( (prop,valu,limt), {iden:tufo,...} )
         self.cache_byiden = s_cache.RefDict()
@@ -184,7 +188,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         self.isok = True
 
-        DataModel.__init__(self, load=False)
+        DataModel.__init__(self)
 
         self._loadTrigNodes()
 
@@ -193,12 +197,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         self.modelrevlist = []
         with self.getCoreXact() as xact:
-            self._initCoreMods()
-
-        # and finally, strap in our event handlers...
-        self.on('node:add', self._onTufoAddSynType, form='syn:type')
-        self.on('node:add', self._onTufoAddSynForm, form='syn:form')
-        self.on('node:add', self._onTufoAddSynProp, form='syn:prop')
+            mods = [(ctor, modconf) for ctor, smod, modconf in s_modules.ctorlist]
+            self.addCoreMods(mods)
 
         self.on('node:add', self._loadTrigNodes, form='syn:trigger')
         self.on('node:del', self._loadTrigNodes, form='syn:trigger')
@@ -227,6 +227,56 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.onfini(self._finiCoreMods)
 
         s_ingest.IngestApi.__init__(self, self)
+
+    def addRuntNode(self, form, valu, **props):
+        '''
+        Add a "runtime" node which does not persist.
+        This is used for ephemeral node "look aside" registration.
+
+        Args:
+            form (str): The primary property for the node
+            valu (obj): The primary value for the node
+            **props:    The node secondary properties ( if modeled, they will be indexed )
+
+        Returns:
+            ((None,dict)):  The ephemeral node
+
+        '''
+        self.runt_forms.add(form)
+
+        node = (None, {})
+        norm, subs = self.getPropNorm(form, valu)
+
+        node[1][form] = norm
+        node[1]['tufo:form'] = form
+
+        self.runt_props[(form, None)].append(node)
+        self.runt_props[(form, norm)].append(node)
+
+        for prop, pval in props.items():
+
+            full = form + ':' + prop
+            norm, subs = self.getPropNorm(full, pval)
+
+            node[1][full] = norm
+            self.runt_props[(full, None)].append(node)
+
+            if self.getPropDef(full) is not None:
+                self.runt_props[(full, norm)].append(node)
+
+        return node
+
+    def isRuntForm(self, prop):
+        '''
+        Returns True if the given property name is a runtime node form.
+
+        Args:
+            prop (str):  The property name
+
+        Returns:
+            (boolean):  True if the property is a runtime node form.
+        '''
+        return prop in self.runt_forms
 
     @staticmethod
     @confdef(name='common_cortex')
@@ -392,81 +442,60 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             (None)
 
         '''
-        prop = '.:modl:vers:' + name
+        self.store.setModlVers(name, vers)
 
-        with self.getCoreXact() as xact:
+    def _addDataModels(self, modtups):
 
-            rows = self.getRowsByProp(prop)
+        DataModel._addDataModels(self, modtups)
 
-            if rows:
-                iden = rows[0][0]
-            else:
-                iden = s_common.guid()
+        for name, modl in modtups:
 
-            self.setRowsByIdProp(iden, prop, vers)
-            return vers
+            for tnam, tnfo in modl.get('types', ()):
+                self.addRuntNode('syn:type', tnam, **tnfo)
 
-    def revModlVers(self, name, revs):
+            for fnam, fnfo, props in modl.get('forms', ()):
+
+                self.addRuntNode('syn:form', fnam, **fnfo)
+                self.addRuntNode('syn:prop', fnam, **fnfo)
+
+                for pnam, pnfo in props:
+                    full = fnam + ':' + pnam
+                    self.addRuntNode('syn:prop', full, **pnfo)
+
+    def revModlVers(self, name, vers, func):
         '''
-        Update a model using a list of (vers,func) tuples.
+        Update and track a model version using a callback function.
 
         Args:
             name (str): The name of the model
-            revs ([(int,function)]):  List of (vers,func) revision tuples.
+            vers (int): The version int ( in YYYYMMDDHHMM int format )
+            func (function):  The version update function
 
         Returns:
             (None)
 
-        Example:
-
-            with s_cortex.openurl('ram:///') as core:
-
-                def v0():
-                    addModelStuff(core)
-
-                def v1():
-                    addMoarStuff(core)
-
-                revs = [ (0,v0), (1,v1) ]
-
-                core.revModlVers('foo', revs)
 
         Each specified function is expected to update the cortex including data migration.
         '''
-        if not revs:
-            return
+        if not self.getConfOpt('rev:model'):
+            raise s_common.NoRevAllow(name=name, vers=vers)
 
         curv = self.getModlVers(name)
+        if curv >= vers:
+            return False
 
-        maxver = revs[-1][0]
-        if maxver == curv:
-            return
+        mesg = 'Updating model [{}] from [{}] => [{}] - do *not* interrupt.'.format(name, curv, vers)
+        logger.warning(mesg)
+        self.log(logging.WARNING, mesg=mesg, name=name, curv=curv, vers=vers)
 
-        if not self.getConfOpt('rev:model'):
-            raise s_common.NoRevAllow(name=name, mesg='add rev:model=1 to cortex url to allow model updates')
+        # fire a pre-revision event into the storage layer to allow
+        # tests to "hook" prior to migration callbacks to insert rows.
+        self.store.fire('modl:vers:rev', name=name, vers=vers)
 
-        for vers, func in sorted(revs):
+        func()
 
-            if vers <= curv:
-                continue
-
-            if vers and curv != -1:
-                mesg = 'Updating model [{}] from [{}] => [{}] - do *not* interrupt.'.format(name, curv, vers)
-                logger.warning(mesg)
-                self.log(logging.WARNING, mesg=mesg, name=name, curv=curv, vers=vers)
-
-            # allow the revision function to optionally return the
-            # revision he jumped to ( to allow initial override )
-            retn = func()
-            if retn is not None:
-                vers = retn
-
-            if vers and curv != -1:
-                mesg = 'Updated model [{}] from [{}] => [{}]'.format(name, curv, vers)
-                logger.warning(mesg)
-                self.log(logging.WARNING, mesg=mesg, name=name, curv=curv, vers=vers)
-
-            curv = self.setModlVers(name, vers)
+        self.setModlVers(name, vers)
+        return True
 
     def getUserAuth(self, user):
         '''
@@ -911,63 +940,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         self.seedctors[name] = func
 
-    def addDataModel(self, name, modl):
-        '''
-        Store all types/forms/props from the given data model in the cortex.
-
-        Args:
-            name (str): The name of the model ( depricated/ignored )
-            modl (dict):A data model definition dictionary
-
-        Returns:
-            (None)
-
-        Example:
-
-            core.addDataModel('synapse.models.foo',
-                              {
-
-                                'types':( ('foo:g',{'subof':'guid'}), ),
-
-                                'forms':(
-                                    ('foo:f',{'ptype':'foo:g','doc':'a foo'},[
-                                        ('a',{'ptype':'str:lwr'}),
-                                        ('b',{'ptype':'int'}),
-                                    ]),
-                                ),
-                              })
-        '''
-        tufo = self.formTufoByProp('syn:model', name)
-
-        # use the normalized hash of the model dict to short
-        # circuit loading if it is unchanged.
-        mhas = s_hashitem.hashitem(modl)
-        if tufo[1].get('syn:model:hash') == mhas:
-            return
-
-        # FIXME handle type/form/prop removal
-        for name, tnfo in modl.get('types', ()):
-
-            tufo = self.formTufoByProp('syn:type', name, **tnfo)
-            tufo = self.setTufoProps(tufo, **tnfo)
-
-        for form, fnfo, props in modl.get('forms', ()):
-
-            # allow forms declared without ptype if their name *is* one
-            if fnfo.get('ptype') is None:
-                fnfo['ptype'] = form
-
-            tufo = self.formTufoByProp('syn:form', form, **fnfo)
-            tufo = self.setTufoProps(tufo, **fnfo)
-
-            for prop, pnfo in props:
-                fullprop = form + ':' + prop
-                tufo = self.formTufoByProp('syn:prop', fullprop, form=form, **pnfo)
-                tufo = self.setTufoProps(tufo, **pnfo)
-
-    def addDataModels(self, modtups):
-        [self.addDataModel(name, modl) for (name, modl) in modtups]
-
     def _getTufosByCache(self, prop, valu, limit):
         # only used if self.caching = 1
         ckey = (prop, valu, limit) # cache key
@@ -1135,102 +1107,62 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             self.coremods[ctor] = modu
 
-            return True
+            return modu
 
         except Exception as e:
             logger.exception(e)
             logger.warning('mod load fail: %s %s' % (ctor, e))
-            return False
+            return None
 
-    def _synTagsVers0(self):
+    def addCoreMods(self, mods):
+        '''
+        Add a list of (name,conf) tuples to the cortex.
+        '''
+        revs = []
 
-        # nothing to do...
-        if self.isnew:
-            return
+        maxvers = collections.defaultdict(list)
 
-        # we must transition tags from *|<form>|<tag> to #<tag>
-        tags = [n[1].get('syn:tag') for n in self.eval('syn:tag')]
-        forms = [n[1].get('syn:form') for n in self.eval('syn:form')]
+        toadd = []
+        isnew = set()
 
-        logger.warning('syn:core updating... do *not* interrupt')
+        for ctor, conf in mods:
 
-        for form in forms:
-
-            for tag in tags:
-
-                prop = '#' + tag
-
-                oldp = '*|' + form + '|' + tag
-                rows = self.getRowsByProp(oldp)
-                if not rows:
-                    continue
-
-                logger.warning('syn:core updating #%s on %s' % (tag, form))
-
-                newd = '_:*' + form + prop
-
-                news = [(i, prop, v, t) for (i, p, v, t) in rows]
-                darks = [(i[::-1], newd, v, t) for (i, p, v, t) in rows]
-
-                self.addRows(news + darks)
-
-                self.delRowsByProp(oldp)
-                self.delRowsByProp('_:dark:tag', valu=tag)
-
-    def _initCoreMods(self):
-        # call our interal model revision functions
-        revs = [
-            (0, self._synTagsVers0),
-        ]
-        self.revModlVers('syn:core', revs)
-
-        # load each of the configured (and base) modules.
-        for ctor, conf in self.modules:
-            self.initCoreModule(ctor, conf)
-
-        # Sort the model revlist
-        self.modelrevlist.sort(key=lambda x: x[:2])
-        for revision, name, func in self.modelrevlist:
-            self.revModlVers(name, ((revision, func),))
-
-        for tufo in self.getTufosByProp('syn:type'):
-            try:
-                self._initTypeTufo(tufo)
-            except s_common.DupTypeName as e:
+            modu = self.initCoreModule(ctor, conf)
+            if modu is None:
                 continue
 
-        for tufo in self.getTufosByProp('syn:form'):
-            try:
-                self._initFormTufo(tufo)
-            except s_common.DupPropName as e:
-                continue
+            for name, modl in modu.getBaseModels():
 
-        for tufo in self.getTufosByProp('syn:prop'):
-            try:
-                self._initPropTufo(tufo)
-            except s_common.DupPropName as e:
-                continue
+                # make sure the module's modl dict is loaded
+                if not self.isDataModl(name):
+                    toadd.append((name, modl))
 
-        self.modelrevlist = []
-        self.modsdone = True
+                # set the model version to 0 if it's -1
+                if self.getModlVers(name) == -1:
+                    isnew.add(name)
+                    self.setModlVers(name, 0)
+
+            # group up versions by name so we can get max
+            for name, vers, func in modu.getModlRevs():
+                maxvers[name].append(vers)
+
+                revs.append((vers, name, func))
+
+        if toadd:
+            self.addDataModels(toadd)
+
+        # if we didn't have it at all, forward wind...
+        for name, vals in maxvers.items():
+            if name in isnew:
+                self.setModlVers(name, max(vals))
+
+        revs.sort()
+
+        for vers, name, func in revs:
+            self.revModlVers(name, vers, func)
 
     def _onSetMods(self, mods):
-
-        self.modules.extend(mods)
-        if not self.modsdone:
-            return
-
-        # dynamically load modules if we are already done loading
-        for ctor, conf in mods:
-            self.initCoreModule(ctor, conf)
-        if not self.modelrevlist:
-            return
-
-        self.modelrevlist.sort(key=lambda x: x[:2])
-        for revision, name, func in self.modelrevlist:
-            self.revModlVers(name, ((revision, func),))
-
-        self.modelrevlist = []
+        self.addCoreMods(mods)
 
     def _onSetCaching(self, valu):
         if not valu:
@@ -1349,15 +1281,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         act = mesg[1].get('act')
         self.spliceact.react(mesg, name=act)
 
-    # TODO
-    #def setSyncDir(self, path):
-        #'''
-        #Set the given directory as the archive of core:sync events
-        #for this cortex.  The sync dir may then be used to populate
-        #and synchronize other cortexes.
-        #'''
-
-    #@s_telepath.clientside
+    @s_telepath.clientside
     def addSpliceFd(self, fd):
         '''
         Write all cortex splice events to the specified file-like object.
@@ -1773,6 +1697,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if valu is not None:
             valu, subs = self.getPropNorm(prop, valu)
 
+        # check our runt/ephemeral nodes...
+        answ = self.runt_props.get((prop, valu))
+        if answ is not None:
+            return answ[0]
+
         if self.caching:
             answ = self._getTufosByCache(prop, valu, 1)
             if answ:
@@ -1806,6 +1735,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             norm, subs = self.getPropNorm(prop, valu)
             if norm is None:
                 raise s_common.BadPropValu(prop=prop, valu=valu)
+
+        # check our runt/ephemeral nodes...
+        answ = self.runt_props.get((prop, norm))
+        if answ is not None:
+            return answ
 
         if self.caching and mintime is None and maxtime is None:
             return self._getTufosByCache(prop, norm, limit)
@@ -2329,8 +2263,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             core.addTufoEvents('woot',propss)
 
         '''
-
-        doneadd = set()
         tname = self.getPropTypeName(form)
         if tname is None and self.enforce:
             raise s_common.NoSuchForm(name=form)
@@ -2346,24 +2278,21 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
                 adds = []
                 rows = []
-
-                alladd = set()
+                allfulls = []
 
                 for props in chunk:
 
                     iden = s_common.guid()
 
-                    fulls, toadd = self._normTufoProps(form, props, isadd=True)
+                    fulls = self._normTufoProps(form, props, isadd=True)
 
                     self._addDefProps(form, fulls)
 
                     fulls[form] = iden
                     fulls['tufo:form'] = form
 
-                    toadd = [t for t in toadd if t not in doneadd]
-
-                    alladd.update(toadd)
-                    doneadd.update(toadd)
+                    if self.autoadd:
+                        allfulls.append(fulls)
 
                     # fire these immediately since we need them to potentially fill
                     # in values before we generate rows for the new tufo
@@ -2382,10 +2311,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                     ret.append(node)
                     adds.append((form, iden, props, node))
 
-                # add "toadd" nodes *first* (for tree/parent issues )
-                if self.autoadd:
-                    self._runAutoAdd(alladd)
-
                 self.addRows(rows)
 
                 # fire splice events
@@ -2394,13 +2319,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                     xact.spliced('node:add', form=form, valu=valu, props=props)
                     xact.trigger(node, 'node:add', form=form)
 
-        return ret
+                if self.autoadd:
+                    for fulls in allfulls:
+                        self._runToAdd(fulls)
 
-    def _runAutoAdd(self, toadd):
-        for form, valu in toadd:
-            if form in self.noauto:
-                continue
-            self.formTufoByProp(form, valu)
+        return ret
 
     def _reqProps(self, form, fulls):
         if not self.enforce:
@@ -2501,6 +2424,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         valu, subs = self.getPropNorm(prop, valu)
 
+        # dont allow formation of nodes which are runts
+        if self.isRuntForm(prop):
+            raise s_common.IsRuntProp(form=prop, valu=valu,
+                  mesg='Runtime nodes may not be created with formTufoByProp')
+
         with self.getCoreXact() as xact:
 
             if deconf:
@@ -2513,7 +2441,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             props.update(subs)
 
-            fulls, toadd = self._normTufoProps(prop, props, isadd=True)
+            fulls = self._normTufoProps(prop, props, isadd=True)
 
             # create a "full" props dict which includes defaults
             self._addDefProps(prop, fulls)
@@ -2549,7 +2477,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             xact.trigger(tufo, 'node:add', form=prop)
 
             if self.autoadd:
-                self._runAutoAdd(toadd)
+                self._runToAdd(fulls)
 
         tufo[1]['.new'] = True
         return tufo
@@ -2733,22 +2661,37 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         for k, v in self.getFormDefs(form):
             fulls.setdefault(k, v)
 
-    def _normTufoProps(self, form, inprops, tufo=None, isadd=False):
-        '''
-        This will both return a set of fully qualified props as a dict
-        as well as modify inprops inband as a normalized set or relatives.
-        '''
-
+    def _runToAdd(self, fulls):
         toadd = set()
 
-        props = {}
-        for name in list(inprops.keys()):
+        for prop, valu in fulls.items():
+            ptype = self.getPropTypeName(prop)
+            for stype in self.getTypeOfs(ptype):
 
-            valu = inprops.get(name)
+                if self.isRuntForm(stype):
+                    continue
+
+                if self.isTufoForm(stype):
+                    toadd.add((stype, valu))
+
+        for form, valu in toadd:
+            self.formTufoByProp(form, valu)
+
+    def _normTufoProps(self, form, props, tufo=None, isadd=False):
+        '''
+        This will both return a dict of fully qualified props as
+        well as modify the given props dict inband to normalize
+        the values.
+        '''
+
+        fulls = {}
+        for name in list(props.keys()):
+
+            valu = props.get(name)
 
             prop = form + ':' + name
             if not self.isSetPropOk(prop, isadd=isadd):
-                inprops.pop(name, None)
+                props.pop(name, None)
                 continue
 
             oldv = None
@@ -2757,12 +2700,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             valu, subs = self.getPropNorm(prop, valu, oldval=oldv)
             if tufo is not None and tufo[1].get(prop) == valu:
-                inprops.pop(name, None)
+                props.pop(name, None)
                 continue
-
-            ptype = self.getPropTypeName(prop)
-            if self.isTufoForm(ptype):
-                toadd.add((ptype, valu))
 
             # any sub-properties to populate?
             for sname, svalu in subs.items():
@@ -2771,16 +2710,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 if self.getPropDef(subprop) is None:
                     continue
 
-                props[subprop] = svalu
+                fulls[subprop] = svalu
 
-                ptype = self.getPropTypeName(subprop)
-                if self.isTufoForm(ptype):
-                    toadd.add((ptype, svalu))
+            fulls[prop] = valu
+            props[name] = valu
 
-            props[prop] = valu
-            inprops[name] = valu
-
-        return props, toadd
+        return fulls
 
     def addSaveLink(self, func):
         '''
@@ -2969,7 +2904,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         reqiden(tufo)
         # add tufo form prefix to props
         form = tufo[1].get('tufo:form')
-        fulls, toadd = self._normTufoProps(form, props, tufo=tufo)
+        fulls = self._normTufoProps(form, props, tufo=tufo)
         if not fulls:
             return tufo
 
@@ -2999,7 +2934,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 xact.trigger(tufo, 'node:prop:set', form=form, prop=p)
 
             if self.autoadd:
-                self._runAutoAdd(toadd)
+                self._runToAdd(fulls)
 
         return tufo
 
@@ -3126,57 +3061,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _tufosByInetCidr(self, prop, valu, limit=None):
         lowerbound, upperbound = self.getTypeCast('inet:ipv4:cidr', valu)
         return self.getTufosBy('range', prop, (lowerbound, upperbound), limit=limit)
-
-    def _onTufoAddSynType(self, mesg):
-        tufo = mesg[1].get('node')
-        if tufo is None:
-            return
-
-        self._initTypeTufo(tufo)
-
-    def _onTufoAddSynForm(self, mesg):
-        tufo = mesg[1].get('node')
-        if tufo is None:
-            return
-
-        self._initFormTufo(tufo)
-
-    def _onTufoAddSynProp(self, mesg):
-        tufo = mesg[1].get('node')
-        if tufo is None:
-            return
-
-        self._initPropTufo(tufo)
-
-    def _initTypeTufo(self, tufo):
-        '''
-        Initialize a TypeLib Type from syn:type tufo
-        '''
-        name = tufo[1].get('syn:type')
-        info = s_tufo.props(tufo)
-        self.addType(name, **info)
-
-    def _initFormTufo(self, tufo):
-        '''
-        Initialize a DataModel Form from syn:form tufo
-        '''
-        name = tufo[1].get('syn:form')
-        info = s_tufo.props(tufo)
-        # add the tufo definition to the DataModel
-        self.addTufoForm(name, **info)
-
-    def _initPropTufo(self, tufo):
-        '''
-        Initialize a DataModel Prop from syn:prop tufo
-        '''
-        name = tufo[1].get('syn:prop')
-        info = s_tufo.props(tufo)
-
-        form = info.pop('form')
-        prop = name[len(form) + 1:]
-
-        self.addTufoProp(form, prop, **info)
-        return
 
     def _stormOperStat(self, query, oper):
 

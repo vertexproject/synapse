@@ -629,6 +629,7 @@ class TypeLib:
         self.typeinfo = {}
         self.typetree = {}
         self.subscache = {}
+        self.modlnames = set()
 
         # pend creation of subtypes for non-existant base types
         # until the base type gets loaded.
@@ -654,6 +655,7 @@ class TypeLib:
         self.addType('syn:storm', ctor='synapse.lib.types.StormType', doc='A synapse storm query string')
 
         # add base synapse types
+        self.addType('syn:core', subof='str')
         self.addType('syn:prop', subof='str', regex=r'^([\w]+:)*([\w]+|\*)$', lower=1)
         self.addType('syn:type', subof='str', regex=r'^([\w]+:)*[\w]+$', lower=1)
         self.addType('syn:glob', subof='str', regex=r'^([\w]+:)*[\w]+:\*$', lower=1)
@@ -730,13 +732,40 @@ class TypeLib:
 
         return ret
 
-    def loadDataModels(self, modtups):
+    def addDataModels(self, modtups):
         '''
-        Load a list of (name,model) tuples into the TypeLib.
-        '''
-        subtodo = []
+        Load a list of (name,model) tuples.
 
+        Args:
+            modtups ([(str,dict)]): A list of (name,modl) tuples.
+
+        Returns:
+            (None)
+
+        NOTE: This API loads all types first and may therefor be used to
+              prevent type dependency ordering issues between multiple models.
+
+        '''
+        return self._addDataModels(modtups)
+
+    def addDataModel(self, name, modl):
+        return self.addDataModels([(name, modl)])
+
+    def isDataModl(self, name):
+        '''
+        Return True if the given data model name exists.
+
+        Args:
+            name (str): The name of the data model
+
+        Returns:
+            (boolean):  True if the model exists
+        '''
+        return name in self.modlnames
+
+    def _addDataModels(self, modtups):
         for modname, moddict in modtups:
+            self.modlnames.add(modname)
             # add all base types first to simplify deps
             for name, info in moddict.get('types', ()):
                 try:
@@ -750,7 +779,7 @@ class TypeLib:
 
         models = [(modname, modl) for name, modls, excp in dynmodls for modname, modl in modls if modls]
 
-        self.loadDataModels(models)
+        self.addDataModels(models)
 
     def _bumpBasePend(self, name):
         for name, info in self.pended.pop(name, ()):
@@ -843,6 +872,15 @@ class TypeLib:
             self.typeinfo.pop(name, None)
             self.pended[tnam].append((name, info))
             return False
+
+    def getTypeDefs(self):
+        '''
+        Return a list of (name,info) tuples for all the types.
+
+        Returns:
+            ([(name,info)]):    The loaded types
+        '''
+        return list(self.typeinfo.items())
 
     def getTypeInfo(self, name, prop, defval=None):
         '''
