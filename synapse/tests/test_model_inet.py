@@ -411,6 +411,10 @@ class InetModelTest(SynTest):
             node = core.formTufoByProp('inet:whois:rec', 'woot.com@20501217')
             form, pprop = s_tufo.ndef(node)
             node = core.formTufoByProp('inet:whois:recns', ['ns1.woot.com', pprop])
+            self.eq(node[1].get('inet:whois:recns:ns'), 'ns1.woot.com')
+            self.eq(node[1].get('inet:whois:recns:rec'), pprop)
+            self.eq(node[1].get('inet:whois:recns:rec:fqdn'), 'woot.com')
+            self.eq(node[1].get('inet:whois:recns:rec:asof'), 2554848000000)
             nodes = core.eval('inet:whois:recns:rec:fqdn=woot.com')
             self.eq(node[0], nodes[0][0])
             nodes = core.eval('inet:whois:rec:fqdn=woot.com inet:whois:rec->inet:whois:recns:rec')
@@ -532,6 +536,8 @@ class InetModelTest(SynTest):
         rows = [
             (iden0, 'tufo:form', 'inet:whois:rec', tick),
             (iden0, 'inet:whois:rec', 'vertex.link@2017/09/18 15:01:00.000', tick),  # 1505746860000,
+            (iden0, 'inet:whois:rec:fqdn', 'vertex.link', tick),
+            (iden0, 'inet:whois:rec:asof', 1505746860000, tick),
             (iden0, 'inet:whois:rec:ns1', 'ns1.vertex.link', tick),
             (iden0, 'inet:whois:rec:ns2', 'ns2.vertex.link', tick),
             (iden0, 'inet:whois:rec:ns3', 'ns3.vertex.link', tick),
@@ -567,3 +573,4 @@ class InetModelTest(SynTest):
                 node = nodes[0]
                 self.eq(node[1].get('inet:whois:recns:ns'), 'ns1.vertex.link')
                 self.eq(node[1].get('inet:whois:recns:rec:fqdn'), 'vertex.link')
+                self.eq(node[1].get('inet:whois:recns:rec:asof'), 1505746860000)

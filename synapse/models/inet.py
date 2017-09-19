@@ -423,13 +423,15 @@ class InetMod(CoreModule):
                 delprops.add(prop)
                 iden = s_common.guid()
                 pprop = s_common.guid([ns, rec])
-                fqdn = rec.split('@', 1)[0]
+                fqdn = node[1].get('inet:whois:rec:fqdn')
+                asof = node[1].get('inet:whois:rec:asof')
                 rows = [
                     (iden, 'tufo:form', 'inet:whois:recns', tick),
                     (iden, 'inet:whois:recns', pprop, tick),
                     (iden, 'inet:whois:recns:ns', ns, tick),
                     (iden, 'inet:whois:recns:rec', rec, tick),
                     (iden, 'inet:whois:recns:rec:fqdn', fqdn, tick),
+                    (iden, 'inet:whois:recns:rec:asof', asof, tick),
                 ]
                 adds.extend(rows)
 
@@ -819,6 +821,7 @@ class InetMod(CoreModule):
                     ('ns', {'ptype': 'inet:fqdn', 'ro': 1, 'doct': 'Nameserver for a given FQDN'}),
                     ('rec', {'ptype': 'inet:whois:rec', 'ro': 1}),
                     ('rec:fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
+                    ('rec:asof', {'ptype': 'time', 'ro': 1}),
                 ]),
 
                 ('inet:whois:contact', {}, [
