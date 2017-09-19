@@ -62,7 +62,7 @@ def whoami():
 
     Example:
 
-        name = s_userauth.whoami()
+        name = s_auth.whoami()
 
     '''
     return s_scope.get('syn:user', 'root@localhost')
