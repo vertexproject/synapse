@@ -645,6 +645,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         auth = self.getUserAuth(user)
         auth['rules'] = rules
 
+        self._bumpAuthUser(user)
         self._syncUserAuth(user, auth)
 
     def getRoleRules(self, role):
@@ -797,13 +798,17 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         auth['rules'] = rules
 
-        for user in self.getRoleUsers(role):
-            self._bumpAuthUser(user)
-
+        self._bumpAuthRole(role)
         self._syncRoleAuth(role, auth)
 
     def _bumpAuthUser(self, user):
         self._auth_rules.pop(user)
+        self._auth_users.pop(user)
+
+    def _bumpAuthRole(self, role):
+        self._auth_roles.pop(role)
+        for user in self.getRoleUsers(role):
+            self._bumpAuthUser(user)
 
     def delRoleRule(self, role, indx):
         '''
@@ -825,19 +830,18 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         auth['rules'] = rules
 
-        for user in self.getRoleUsers(role):
-            self._bumpAuthUser(user)
-
+        self._bumpAuthRole(role)
         self._syncRoleAuth(role, auth)
 
     @on('node:del', form='syn:auth:role')
     def _onDelAuthRole(self, mesg):
         role = mesg[1].get('valu')
 
+        self._bumpAuthRole(role)
         self._syncRoleAuth(role, {})
 
         # removing these will pop user rule caches
-        for userrole in self.core.getTufosByProp('syn:auth:userrole:role', role):
+        for userrole in self.getTufosByProp('syn:auth:userrole:role', role):
             self.delTufo(userrole)
 
     @on('node:del', form='syn:auth:user')
@@ -847,7 +851,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self._bumpAuthUser(user)
         self._syncUserAuth(user, {})
 
-        for userrole in self.core.getTufosByProp('syn:auth:userrole:user', user):
+        for userrole in self.getTufosByProp('syn:auth:userrole:user', user):
             self.delTufo(userrole)
 
     @on('node:add', form='syn:auth:userrole')

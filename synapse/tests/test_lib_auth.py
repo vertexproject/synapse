@@ -19,6 +19,7 @@ class AuthTest(SynTest):
         self.true(rulz.allow(('foo:bar', {'baz': 'faz'})))
 
         self.false(rulz.allow(('foo:bar', {'baz': 'wootwoot'})))
+        self.false(rulz.allow(('newp:newp', {}))
 
     def test_auth_runas(self):
         self.eq(s_auth.whoami(), 'root@localhost')

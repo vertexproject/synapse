@@ -2487,6 +2487,11 @@ class CortexTest(SynTest):
                 core.addUserRule('fred@woot.com', rule)
 
                 self.true(core.allowed(('node:add', {'form': 'ou:org'})))
+                self.eq(len(core.getUserRules('fred@woot.com')), 1)
+
+                core.setUserRules('fred@woot.com', ())
+                self.eq(len(core.getUserRules('fred@woot.com')), 0)
+                self.false(core.allowed(('node:add', {'form': 'ou:org'})))
 
             with s_auth.runas('root@localhost'):
                 self.true(core.allowed(('fake', {})))
@@ -2498,8 +2503,13 @@ class CortexTest(SynTest):
                 node = core.formTufoByProp('syn:auth:userrole', ('visi@vertex.link', 'root'))
                 self.true(core.allowed(('fake', {})))
 
-                core.delTufo(node)
+                core.delTufo(core.getTufoByProp('syn:auth:role', 'root'))
                 self.false(core.allowed(('fake', {})))
+
+            core.delTufo(core.getTufoByProp('syn:auth:user', 'fred@woot.com'))
+
+            self.raises(NoSuchUser, core.addUserRule, 'fred@woot.com', ('stuff', {}))
+            self.raises(NoSuchRole, core.addRoleRule, 'root', ('stuff', {}))
 
 class StorageTest(SynTest):
 
