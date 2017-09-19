@@ -608,7 +608,10 @@ class TagType(DataType):
 class StormType(DataType):
 
     def norm(self, valu, oldval=None):
-        opers = s_syntax.parse(valu)
+        try:
+            s_syntax.parse(valu)
+        except Exception as e:
+            self._raiseBadValu(valu)
         return valu, {}
 
 class PermType(DataType):
@@ -616,7 +619,14 @@ class PermType(DataType):
     Enforce that the permission string and options are known.
     '''
     def norm(self, valu, oldval=None):
-        pnfo = s_syntax.parse_perm(valu)
+
+        try:
+            pnfo, off = s_syntax.parse_perm(valu)
+        except Exception as e:
+            self._raiseBadValu(valu)
+
+        if off != len(valu):
+            self._raiseBadValu(valu)
         return valu, {}
 
 class TypeLib:

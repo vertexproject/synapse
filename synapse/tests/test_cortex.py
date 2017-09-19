@@ -2446,12 +2446,15 @@ class CortexTest(SynTest):
         with s_cortex.openurl('ram:///') as core:
 
             node = core.formTufoByProp('syn:trigger', '*', on='node:add form=inet:fqdn', run='[ #foo ]', en=1)
-
             self.eq(node[1].get('syn:trigger:on'), 'node:add form=inet:fqdn')
             self.eq(node[1].get('syn:trigger:run'), '[ #foo ]')
 
+            node = core.formTufoByProp('syn:trigger', '*', on='node:tag:add form=inet:fqdn tag=foo', run='[ #baz ]', en=1)
+
             node = core.formTufoByProp('inet:fqdn', 'vertex.link')
+
             self.nn(node[1].get('#foo'))
+            self.nn(node[1].get('#baz'))
 
     def test_cortex_auth(self):
 
