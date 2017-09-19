@@ -5,7 +5,6 @@ import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 import synapse.lib.service as s_service
-import synapse.lib.userauth as s_userauth
 import synapse.swarm.runtime as s_runtime
 
 from synapse.tests.common import *
@@ -212,8 +211,7 @@ class SwarmRunTest(SwarmRunBase):
 
         tufos = answ.get('data')
 
-        foobars = [t[1].get('foo:bar') for t in tufos]
-        foobars.sort()
+        foobars = sorted([t[1].get('foo:bar') for t in tufos])
 
         self.eq(foobars, ['baz', 'faz'])
 
@@ -227,9 +225,7 @@ class SwarmRunTest(SwarmRunBase):
 
             tufos = answ.get('data')
 
-            foobars = [t[1].get('foo:bar') for t in tufos]
-
-            foobars.sort()
+            foobars = sorted([t[1].get('foo:bar') for t in tufos])
 
             self.eq(foobars, ['baz', 'faz', 'hai', 'lol'])
 

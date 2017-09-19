@@ -21,6 +21,7 @@ import synapse.cores.common as s_cores_common
 import synapse.cores.storage as s_cores_storage
 import synapse.cores.postgres as s_cores_postgres
 
+import synapse.lib.auth as s_auth
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
@@ -2439,6 +2440,99 @@ class CortexTest(SynTest):
             # check that only model'd props are indexed
             self.nn(core.getTufoByProp('hehe:haha:hoho', 20))
             self.none(core.getTufoByProp('hehe:haha:lulz', 'rofl'))
+
+    def test_cortex_trigger(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            node = core.formTufoByProp('syn:trigger', '*', on='node:add form=inet:fqdn', run='[ #foo ]', en=1)
+            self.eq(node[1].get('syn:trigger:on'), 'node:add form=inet:fqdn')
+            self.eq(node[1].get('syn:trigger:run'), '[ #foo ]')
+
+            node = core.formTufoByProp('syn:trigger', '*', on='node:tag:add form=inet:fqdn tag=foo', run='[ #baz ]', en=1)
+
+            node = core.formTufoByProp('inet:fqdn', 'vertex.link')
+
+            self.nn(node[1].get('#foo'))
+            self.nn(node[1].get('#baz'))
+
+    def test_cortex_auth(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            core.formTufoByProp('syn:auth:user', 'visi@vertex.link')
+            core.formTufoByProp('syn:auth:user', 'fred@woot.com')
+            core.formTufoByProp('syn:auth:user', 'root@localhost')
+
+            core.formTufoByProp('syn:auth:role', 'root')
+            core.formTufoByProp('syn:auth:role', 'newb')
+
+            rule = (True, ('*', {}))
+            core.addRoleRule('root', rule)
+            core.addUserRule('root@localhost', rule)
+            core.addUserRule('root@localhost', (True, ('rm:me', {})))
+
+            self.nn(core.getRoleAuth('root'))
+            self.nn(core.getUserAuth('root@localhost'))
+
+            self.raises(NoSuchUser, core.getUserAuth, 'newp')
+            self.raises(NoSuchRole, core.getRoleAuth, 'newp')
+
+            self.eq(len(core.getUserRules('root@localhost')), 2)
+
+            core.delUserRule('root@localhost', 1)
+            self.eq(len(core.getUserRules('root@localhost')), 1)
+
+            rule = (True, ('node:add', {'form': 'inet:*'}))
+
+            core.addRoleRule('newb', rule)
+            self.eq(len(core.getRoleRules('newb')), 1)
+
+            core.delRoleRule('newb', 0)
+            self.eq(len(core.getRoleRules('newb')), 0)
+
+            core.setRoleRules('newb', ())
+            self.eq(len(core.getRoleRules('newb')), 0)
+
+            # test the short circuit before auth is enabled
+            self.true(core.allowed(('node:add', {'form': 'inet:fqdn'}), user='newp'))
+
+            core.setConfOpt('auth:en', 1)
+
+            self.raises(NoSuchUser, core.addUserRule, 'hehe', ('stuff', {}))
+            self.raises(NoSuchRole, core.addRoleRule, 'hehe', ('stuff', {}))
+
+            with s_auth.runas('fred@woot.com'):
+
+                self.false(core.allowed(('node:add', {'form': 'ou:org'})))
+
+                rule = (True, ('node:add', {'form': 'ou:org'}))
+                core.addUserRule('fred@woot.com', rule)
+
+                self.true(core.allowed(('node:add', {'form': 'ou:org'})))
+                self.eq(len(core.getUserRules('fred@woot.com')), 1)
+
+                core.setUserRules('fred@woot.com', ())
+                self.eq(len(core.getUserRules('fred@woot.com')), 0)
+                self.false(core.allowed(('node:add', {'form': 'ou:org'})))
+
+            with s_auth.runas('root@localhost'):
+                self.true(core.allowed(('fake', {})))
+
+            with s_auth.runas('visi@vertex.link'):
+
+                self.false(core.allowed(('fake', {})))
+
+                node = core.formTufoByProp('syn:auth:userrole', ('visi@vertex.link', 'root'))
+                self.true(core.allowed(('fake', {})))
+
+                core.delTufo(core.getTufoByProp('syn:auth:role', 'root'))
+                self.false(core.allowed(('fake', {})))
+
+            core.delTufo(core.getTufoByProp('syn:auth:user', 'fred@woot.com'))
+
+            self.raises(NoSuchUser, core.addUserRule, 'fred@woot.com', ('stuff', {}))
+            self.raises(NoSuchRole, core.addRoleRule, 'root', ('stuff', {}))
 
 class StorageTest(SynTest):
 

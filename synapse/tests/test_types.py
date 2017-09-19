@@ -560,3 +560,16 @@ class DataTypesTest(SynTest):
         self.eq(subs, tuple(sorted(s1.items())))
         self.eq(subs, tuple(sorted(s2.items())))
         self.eq(subs, tuple(sorted(s3.items())))
+
+    def test_types_storm(self):
+        tlib = s_types.TypeLib()
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'syn:storm', 'foo((')
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'syn:storm', ',foo')
+        tlib.getTypeNorm('syn:storm', 'foo:bar +baz=faz')
+
+    def test_types_perm(self):
+        tlib = s_types.TypeLib()
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'syn:perm', 'foo bar baz')
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'syn:perm', 'foo bar=(bar,baz)')
+        tlib.getTypeNorm('syn:perm', 'foo:bar baz=faz')
+        tlib.getTypeNorm('syn:perm', 'foo:bar   baz=faz     hehe=haha')

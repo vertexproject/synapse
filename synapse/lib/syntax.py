@@ -1,4 +1,5 @@
 import synapse.common as s_common
+import synapse.compat as s_compat
 
 import synapse.lib.time as s_time
 import synapse.lib.interval as s_interval
@@ -490,6 +491,42 @@ def parse_oper(text, off=0):
 
         if nextchar(text, off, ','):
             off += 1
+
+def parse_perm(text, off=0):
+    '''
+    Parse a permission string
+        <name> [<opt>=<match>...]
+    '''
+    _, off = nom(text, off, whites)
+
+    name, off = nom(text, off, varset)
+    if not name:
+        raise s_common.BadSyntaxError(mesg='perm str expected name')
+
+    retn = (name, {})
+
+    _, off = nom(text, off, whites)
+
+    while len(text) > off:
+
+        _, off = nom(text, off, whites)
+        meta, off = nom(text, off, varset)
+        _, off = nom(text, off, whites)
+
+        if not nextchar(text, off, '='):
+            raise s_common.BadSyntaxError(mesg='perm opt expected =')
+
+        _, off = nom(text, off + 1, whites)
+
+        valu, off = parse_valu(text, off)
+        if not s_compat.isstr(valu):
+            raise s_common.BadSyntaxError(mesg='perm opt %s= expected string' % meta)
+
+        _, off = nom(text, off, whites)
+
+        retn[1][meta] = valu
+
+    return retn, off
 
 def oper(name, *args, **kwargs):
     kwlist = list(sorted(kwargs.items()))
