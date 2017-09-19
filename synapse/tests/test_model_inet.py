@@ -70,14 +70,19 @@ class InetModelTest(SynTest):
             self.nn(core.getTufoByProp('inet:ipv4', 0x01020304))
             self.nn(core.getTufoByProp('inet:ipv4', 0x05060708))
 
+            o1 = core.formTufoByProp('ou:org', '*', alias='vertex')
+            _, o1pprop = s_tufo.ndef(o1)
             t1 = core.formTufoByProp('inet:asn', 12345)
             self.none(t1[1].get('inet:asn:owner'))
-            t1 = core.setTufoProps(t1, owner='vertex')
-            self.eq(t1[1].get('inet:asn:owner'), 'vertex')
+            t1 = core.setTufoProps(t1, owner='$vertex')
+            self.eq(t1[1].get('inet:asn:owner'), o1pprop)
             # TODO: Uncomment when we have a global alias resolver in place.
             # self.nn(core.getTufoByProp('ou:alias', 'vertex'))
-            t2 = core.formTufoByProp('inet:asn', 12346, owner='vertex')
-            self.eq(t2[1].get('inet:asn:owner'), 'vertex')
+            t2 = core.formTufoByProp('inet:asn', 12346, owner='$vertex')
+            self.eq(t2[1].get('inet:asn:owner'), o1pprop)
+            # Lift asn's by owner with guid resolver syntax
+            nodes = core.eval('inet:asn:owner=$vertex')
+            self.eq(len(nodes), 2)
 
     def test_model_inet_fqdn(self):
         with s_cortex.openurl('ram:///') as core:
@@ -405,10 +410,10 @@ class InetModelTest(SynTest):
 
             node = core.formTufoByProp('inet:whois:rec', 'woot.com@20501217')
             form, pprop = s_tufo.ndef(node)
-            node = core.formTufoByProp('inet:whois:nsrec', ['ns1.woot.com', pprop])
-            nodes = core.eval('inet:whois:nsrec:rec:fqdn=woot.com')
+            node = core.formTufoByProp('inet:whois:recns', ['ns1.woot.com', pprop])
+            nodes = core.eval('inet:whois:recns:rec:fqdn=woot.com')
             self.eq(node[0], nodes[0][0])
-            nodes = core.eval('inet:whois:rec:fqdn=woot.com inet:whois:rec->inet:whois:nsrec:rec')
+            nodes = core.eval('inet:whois:rec:fqdn=woot.com inet:whois:rec->inet:whois:recns:rec')
             self.eq(len(nodes), 1)
             self.eq(node[0], nodes[0][0])
 
@@ -427,7 +432,7 @@ class InetModelTest(SynTest):
 
             self.raises(BadTypeValu, core.getTypeNorm, 'inet:fqdn', '!@#$%')
 
-    def test_model_inet_netlogon(self):
+    def test_model_inet_weblogon(self):
 
         with s_cortex.openurl('ram:///') as core:
             core.setConfOpt('enforce', 1)
@@ -545,7 +550,7 @@ class InetModelTest(SynTest):
 
             with s_cortex.fromstore(stor) as core:
 
-                t_guid, _ = core.getTypeNorm('inet:whois:nsrec', ['ns1.vertex.link',
+                t_guid, _ = core.getTypeNorm('inet:whois:recns', ['ns1.vertex.link',
                                                                   'vertex.link@2017/09/18 15:01:00.000'])
 
                 node = core.eval('inet:whois:rec')[0]
@@ -554,11 +559,11 @@ class InetModelTest(SynTest):
                 self.notin('inet:whois:rec:ns3', node[1])
                 self.notin('inet:whois:rec:ns4', node[1])
 
-                nodes = core.eval('inet:whois:nsrec')
+                nodes = core.eval('inet:whois:recns')
                 self.eq(len(nodes), 4)
 
-                nodes = core.eval('inet:whois:nsrec={}'.format(t_guid))
+                nodes = core.eval('inet:whois:recns={}'.format(t_guid))
                 self.eq(len(nodes), 1)
                 node = nodes[0]
-                self.eq(node[1].get('inet:whois:nsrec:ns'), 'ns1.vertex.link')
-                self.eq(node[1].get('inet:whois:nsrec:rec:fqdn'), 'vertex.link')
+                self.eq(node[1].get('inet:whois:recns:ns'), 'ns1.vertex.link')
+                self.eq(node[1].get('inet:whois:recns:rec:fqdn'), 'vertex.link')

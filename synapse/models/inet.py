@@ -425,11 +425,11 @@ class InetMod(CoreModule):
                 pprop = s_common.guid([ns, rec])
                 fqdn = rec.split('@', 1)[0]
                 rows = [
-                    (iden, 'tufo:form', 'inet:whois:nsrec', tick),
-                    (iden, 'inet:whois:nsrec', pprop, tick),
-                    (iden, 'inet:whois:nsrec:ns', ns, tick),
-                    (iden, 'inet:whois:nsrec:rec', rec, tick),
-                    (iden, 'inet:whois:nsrec:rec:fqdn', fqdn, tick),
+                    (iden, 'tufo:form', 'inet:whois:recns', tick),
+                    (iden, 'inet:whois:recns', pprop, tick),
+                    (iden, 'inet:whois:recns:ns', ns, tick),
+                    (iden, 'inet:whois:recns:rec', rec, tick),
+                    (iden, 'inet:whois:recns:rec:fqdn', fqdn, tick),
                 ]
                 adds.extend(rows)
 
@@ -518,7 +518,7 @@ class InetMod(CoreModule):
                 ('inet:whois:rec',
                  {'subof': 'sepr', 'sep': '@', 'fields': 'fqdn,inet:fqdn|asof,time', 'doc': 'A whois record',
                   'ex': ''}),
-                ('inet:whois:nsrec', {'subof': 'comp', 'fields': 'ns,inet:fqdn|rec,inet:whois:rec',
+                ('inet:whois:recns', {'subof': 'comp', 'fields': 'ns,inet:fqdn|rec,inet:whois:rec',
                                       'doc': 'A nameserver associated with a given WHOIS record.'}),
 
                 ('inet:whois:contact', {'subof': 'comp', 'fields': 'rec,inet:whois:rec|type,str:lwr',
@@ -567,7 +567,7 @@ class InetMod(CoreModule):
 
                 ('inet:asn', {'ptype': 'inet:asn', 'doc': 'An Autonomous System'}, (
                     ('name', {'ptype': 'str:lwr', 'defval': '??'}),
-                    ('owner', {'ptype': 'ou:name', 'doc': 'Organization which controls an ASN'}),
+                    ('owner', {'ptype': 'ou:org', 'doc': 'Organization which controls an ASN'}),
                 )),
 
                 ('inet:asnet4',
@@ -815,7 +815,7 @@ class InetMod(CoreModule):
                     ('registrant', {'ptype': 'inet:whois:reg', 'defval': '??'}),
                 ]),
 
-                ('inet:whois:nsrec', {}, [
+                ('inet:whois:recns', {}, [
                     ('ns', {'ptype': 'inet:fqdn', 'ro': 1, 'doct': 'Nameserver for a given FQDN'}),
                     ('rec', {'ptype': 'inet:whois:rec', 'ro': 1}),
                     ('rec:fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
