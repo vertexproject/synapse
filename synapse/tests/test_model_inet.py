@@ -404,7 +404,7 @@ class InetModelTest(SynTest):
             self.eq(len(core.eval('inet:whois:rec="woot.com@20501217"')), 1)
             self.eq(len(core.eval('inet:whois:contact:rec="woot.com@20501217"')), 1)
 
-    def test_model_inet_whois_nsrec(self):
+    def test_model_inet_whois_recns(self):
         with s_cortex.openurl('ram:///') as core:
             core.setConfOpt('enforce', 1)
 

@@ -403,7 +403,7 @@ class InetMod(CoreModule):
     @modelrev('inet', 201709181501)
     def _revModl201709181501(self):
         '''
-        Replace inet:whois:rec:ns<int> rows with inet:whos:nsrec nodes.
+        Replace inet:whois:rec:ns<int> rows with inet:whos:recns nodes.
         '''
         adds = []
         srcprops = ('inet:whois:rec:ns1', 'inet:whois:rec:ns2', 'inet:whois:rec:ns3', 'inet:whois:rec:ns4')
