@@ -2470,9 +2470,29 @@ class CortexTest(SynTest):
             rule = (True, ('*', {}))
             core.addRoleRule('root', rule)
             core.addUserRule('root@localhost', rule)
+            core.addUserRule('root@localhost', (True, ('rm:me', {})))
+
+            self.nn(core.getRoleAuth('root'))
+            self.nn(core.getUserAuth('root@localhost'))
+
+            self.raises(NoSuchUser, core.getUserAuth, 'newp')
+            self.raises(NoSuchRole, core.getRoleAuth, 'newp')
+
+            self.eq(len(core.getUserRules('root@localhost')), 2)
+
+            core.delUserRule('root@localhost', 1)
+            self.eq(len(core.getUserRules('root@localhost')), 1)
 
             rule = (True, ('node:add', {'form': 'inet:*'}))
+
             core.addRoleRule('newb', rule)
+            self.eq(len(core.getRoleRules('newb')), 1)
+
+            core.delRoleRule('newb', 0)
+            self.eq(len(core.getRoleRules('newb')), 0)
+
+            core.setRoleRules('newb', ())
+            self.eq(len(core.getRoleRules('newb')), 0)
 
             # test the short circuit before auth is enabled
             self.true(core.allowed(('node:add', {'form': 'inet:fqdn'}), user='newp'))
