@@ -201,14 +201,7 @@ def parse_macro_filt(text, off=0, trim=True, mode='must'):
             return inst, off
 
         tock, off = parse_time(text, off + 1)
-        print('IVALIVAL')
         inst = ('filt', {'cmp': 'ivalival', 'mode': mode, 'valu': (prop, (tick, tock))})
-        return inst, off
-
-        ival = s_interval.parsetime(istr)
-        print('ivalival')
-        inst = ('filt', {'cmp': 'ivalival', 'mode': mode, 'valu': (prop, ival)})
-
         return inst, off
 
     # check for non-macro syntax
