@@ -109,7 +109,8 @@ class GuidType(DataType):
         # ( sigh... eventually everything will be a cortex... )
         node = self._getTufoByProp(self._guid_alias, valu[1:])
         if node is None:
-            self._raiseBadValu(valu, mesg='no result for guid resolver')
+            self._raiseBadValu(valu, mesg='no result for guid resolver',
+                               alias=self._guid_alias)
 
         iden = node[1].get(node[1].get('tufo:form'))
         return iden, {}

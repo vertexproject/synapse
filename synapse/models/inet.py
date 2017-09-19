@@ -320,7 +320,6 @@ class CidrType(DataType):
         return valu
 
 class InetMod(CoreModule):
-
     def initCoreModule(self):
         # add an inet:defang cast to swap [.] to .
         self.core.addTypeCast('inet:defang', castInetDeFang)
@@ -401,6 +400,47 @@ class InetMod(CoreModule):
     def _revModl201708231646(self):
         pass # for legacy/backward compat
 
+    @modelrev('inet', 201709181501)
+    def _revModl201709181501(self):
+        '''
+        Replace inet:whois:rec:ns<int> rows with inet:whos:recns nodes.
+        '''
+        adds = []
+        srcprops = ('inet:whois:rec:ns1', 'inet:whois:rec:ns2', 'inet:whois:rec:ns3', 'inet:whois:rec:ns4')
+        delprops = set()
+
+        tick = s_common.now()
+
+        # We could use the joins API but we would have to still fold rows into tufos for the purpose of migration.
+        nodes = self.core.getTufosByProp('inet:whois:rec')
+
+        for node in nodes:
+            rec = node[1].get('inet:whois:rec')
+            for prop in srcprops:
+                ns = node[1].get(prop)
+                if not ns:
+                    continue
+                delprops.add(prop)
+                iden = s_common.guid()
+                pprop = s_common.guid([ns, rec])
+                fqdn = node[1].get('inet:whois:rec:fqdn')
+                asof = node[1].get('inet:whois:rec:asof')
+                rows = [
+                    (iden, 'tufo:form', 'inet:whois:recns', tick),
+                    (iden, 'inet:whois:recns', pprop, tick),
+                    (iden, 'inet:whois:recns:ns', ns, tick),
+                    (iden, 'inet:whois:recns:rec', rec, tick),
+                    (iden, 'inet:whois:recns:rec:fqdn', fqdn, tick),
+                    (iden, 'inet:whois:recns:rec:asof', asof, tick),
+                ]
+                adds.extend(rows)
+
+        if adds:
+            self.core.addRows(adds)
+
+        for prop in delprops:
+            self.core.delRowsByProp(prop)
+
     @staticmethod
     def getBaseModels():
         modl = {
@@ -454,6 +494,8 @@ class InetMod(CoreModule):
 
                 ('inet:netuser', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|user,inet:user',
                                   'doc': 'A user account at a given web address', 'ex': 'twitter.com/invisig0th'}),
+                ('inet:web:logon', {'subof': 'guid',
+                                   'doc': 'An instance of a user account authenticating to a service.', }),
 
                 ('inet:netgroup', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|name,ou:name',
                                    'doc': 'A group within an online community'}),
@@ -478,6 +520,8 @@ class InetMod(CoreModule):
                 ('inet:whois:rec',
                  {'subof': 'sepr', 'sep': '@', 'fields': 'fqdn,inet:fqdn|asof,time', 'doc': 'A whois record',
                   'ex': ''}),
+                ('inet:whois:recns', {'subof': 'comp', 'fields': 'ns,inet:fqdn|rec,inet:whois:rec',
+                                      'doc': 'A nameserver associated with a given WHOIS record.'}),
 
                 ('inet:whois:contact', {'subof': 'comp', 'fields': 'rec,inet:whois:rec|type,str:lwr',
                                         'doc': 'A whois contact for a specific record'}),
@@ -525,6 +569,7 @@ class InetMod(CoreModule):
 
                 ('inet:asn', {'ptype': 'inet:asn', 'doc': 'An Autonomous System'}, (
                     ('name', {'ptype': 'str:lwr', 'defval': '??'}),
+                    ('owner', {'ptype': 'ou:org', 'doc': 'Organization which controls an ASN'}),
                 )),
 
                 ('inet:asnet4',
@@ -663,6 +708,16 @@ class InetMod(CoreModule):
                     ('seen:max', {'ptype': 'time:max'}),
                 ]),
 
+                ('inet:web:logon', {'ptype': 'inet:web:logon'}, [
+                    ('netuser', {'ptype': 'inet:netuser', 'doc': 'The netuser associated with the logon event.', }),
+                    ('netuser:site', {'ptype': 'inet:fqdn', }),
+                    ('netuser:user', {'ptype': 'inet:user', }),
+                    ('time', {'ptype': 'time', 'doc': 'The time the netuser logged into the service', }),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the logon.'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the logon.'}),
+                    ('logout', {'ptype': 'time', 'doc': 'The time the netuser logged out of the service.'})
+                ]),
+
                 ('inet:netgroup', {}, [
                     ('site', {'ptype': 'inet:fqdn', 'ro': 1}),
                     ('name', {'ptype': 'ou:name', 'ro': 1}),
@@ -760,10 +815,13 @@ class InetMod(CoreModule):
                     ('expires', {'ptype': 'time', 'doc': 'The "expires" time from the whois record'}),
                     ('registrar', {'ptype': 'inet:whois:rar', 'defval': '??'}),
                     ('registrant', {'ptype': 'inet:whois:reg', 'defval': '??'}),
-                    ('ns1', {'ptype': 'inet:fqdn'}),
-                    ('ns2', {'ptype': 'inet:fqdn'}),
-                    ('ns3', {'ptype': 'inet:fqdn'}),
-                    ('ns4', {'ptype': 'inet:fqdn'}),
+                ]),
+
+                ('inet:whois:recns', {}, [
+                    ('ns', {'ptype': 'inet:fqdn', 'ro': 1, 'doct': 'Nameserver for a given FQDN'}),
+                    ('rec', {'ptype': 'inet:whois:rec', 'ro': 1}),
+                    ('rec:fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
+                    ('rec:asof', {'ptype': 'time', 'ro': 1}),
                 ]),
 
                 ('inet:whois:contact', {}, [
@@ -797,4 +855,4 @@ class InetMod(CoreModule):
             ),
         }
         name = 'inet'
-        return ((name, modl), )
+        return ((name, modl),)

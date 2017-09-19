@@ -70,6 +70,20 @@ class InetModelTest(SynTest):
             self.nn(core.getTufoByProp('inet:ipv4', 0x01020304))
             self.nn(core.getTufoByProp('inet:ipv4', 0x05060708))
 
+            o1 = core.formTufoByProp('ou:org', '*', alias='vertex')
+            _, o1pprop = s_tufo.ndef(o1)
+            t1 = core.formTufoByProp('inet:asn', 12345)
+            self.none(t1[1].get('inet:asn:owner'))
+            t1 = core.setTufoProps(t1, owner='$vertex')
+            self.eq(t1[1].get('inet:asn:owner'), o1pprop)
+            # TODO: Uncomment when we have a global alias resolver in place.
+            # self.nn(core.getTufoByProp('ou:alias', 'vertex'))
+            t2 = core.formTufoByProp('inet:asn', 12346, owner='$vertex')
+            self.eq(t2[1].get('inet:asn:owner'), o1pprop)
+            # Lift asn's by owner with guid resolver syntax
+            nodes = core.eval('inet:asn:owner=$vertex')
+            self.eq(len(nodes), 2)
+
     def test_model_inet_fqdn(self):
         with s_cortex.openurl('ram:///') as core:
             t0 = core.formTufoByProp('inet:fqdn', 'com', sfx=1)
@@ -390,6 +404,23 @@ class InetModelTest(SynTest):
             self.eq(len(core.eval('inet:whois:rec="woot.com@20501217"')), 1)
             self.eq(len(core.eval('inet:whois:contact:rec="woot.com@20501217"')), 1)
 
+    def test_model_inet_whois_recns(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+
+            node = core.formTufoByProp('inet:whois:rec', 'woot.com@20501217')
+            form, pprop = s_tufo.ndef(node)
+            node = core.formTufoByProp('inet:whois:recns', ['ns1.woot.com', pprop])
+            self.eq(node[1].get('inet:whois:recns:ns'), 'ns1.woot.com')
+            self.eq(node[1].get('inet:whois:recns:rec'), pprop)
+            self.eq(node[1].get('inet:whois:recns:rec:fqdn'), 'woot.com')
+            self.eq(node[1].get('inet:whois:recns:rec:asof'), 2554848000000)
+            nodes = core.eval('inet:whois:recns:rec:fqdn=woot.com')
+            self.eq(node[0], nodes[0][0])
+            nodes = core.eval('inet:whois:rec:fqdn=woot.com inet:whois:rec->inet:whois:recns:rec')
+            self.eq(len(nodes), 1)
+            self.eq(node[0], nodes[0][0])
+
     def test_model_fqdn_punycode(self):
 
         with s_cortex.openurl('ram:///') as core:
@@ -404,6 +435,34 @@ class InetModelTest(SynTest):
             self.eq(core.getTypeRepr('inet:fqdn', fqdn), 'www.heilpädagogik-wiki.de')
 
             self.raises(BadTypeValu, core.getTypeNorm, 'inet:fqdn', '!@#$%')
+
+    def test_model_inet_weblogon(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+            tick = now()
+
+            t0 = core.formTufoByProp('inet:web:logon', '*',
+                                     netuser='vertex.link/pennywise',
+                                     time=tick)
+
+            self.nn(t0)
+
+            self.eq(t0[1].get('inet:web:logon:time'), tick)
+            self.eq(t0[1].get('inet:web:logon:netuser'), 'vertex.link/pennywise')
+            self.eq(t0[1].get('inet:web:logon:netuser:user'), 'pennywise')
+            self.eq(t0[1].get('inet:web:logon:netuser:site'), 'vertex.link')
+
+            # Pivot from a netuser to the netlogon forms via storm
+            self.nn(core.getTufoByProp('inet:netuser', 'vertex.link/pennywise'))
+            nodes = core.eval('inet:netuser=vertex.link/pennywise inet:netuser -> inet:web:logon:netuser')
+            self.eq(len(nodes), 1)
+
+            t0 = core.setTufoProps(t0, ipv4=0x01020304, logout=tick + 1, ipv6='0:0:0:0:0:0:0:1')
+            self.eq(t0[1].get('inet:web:logon:ipv4'), 0x01020304)
+            self.eq(t0[1].get('inet:web:logon:logout'), tick + 1)
+            self.eq(t0[1].get('inet:web:logon:logout') - t0[1].get('inet:web:logon:time'), 1)
+            self.eq(t0[1].get('inet:web:logon:ipv6'), '::1')
 
     def test_model_inet_201706121318(self):
 
@@ -469,3 +528,49 @@ class InetModelTest(SynTest):
                 t2 = core.getTufoByIden(iden1)
                 self.eq(t2[1].get('inet:udp4:port'), 443)
                 self.eq(t2[1].get('inet:udp4:ipv4'), 0x01020304)
+
+    def test_model_inet_201709181501(self):
+        data = {}
+        iden0 = guid()
+        tick = now()
+        rows = [
+            (iden0, 'tufo:form', 'inet:whois:rec', tick),
+            (iden0, 'inet:whois:rec', 'vertex.link@2017/09/18 15:01:00.000', tick),  # 1505746860000,
+            (iden0, 'inet:whois:rec:fqdn', 'vertex.link', tick),
+            (iden0, 'inet:whois:rec:asof', 1505746860000, tick),
+            (iden0, 'inet:whois:rec:ns1', 'ns1.vertex.link', tick),
+            (iden0, 'inet:whois:rec:ns2', 'ns2.vertex.link', tick),
+            (iden0, 'inet:whois:rec:ns3', 'ns3.vertex.link', tick),
+            (iden0, 'inet:whois:rec:ns4', 'ns4.vertex.link', tick),
+        ]
+
+        with s_cortex.openstore('ram:///') as stor:
+
+            # force model migration callbacks
+            stor.setModlVers('inet', 0)
+
+            def addrows(mesg):
+                stor.addRows(rows)
+                data['added'] = True
+            stor.on('modl:vers:rev', addrows, name='inet', vers=201709181501)
+
+            with s_cortex.fromstore(stor) as core:
+
+                t_guid, _ = core.getTypeNorm('inet:whois:recns', ['ns1.vertex.link',
+                                                                  'vertex.link@2017/09/18 15:01:00.000'])
+
+                node = core.eval('inet:whois:rec')[0]
+                self.notin('inet:whois:rec:ns1', node[1])
+                self.notin('inet:whois:rec:ns2', node[1])
+                self.notin('inet:whois:rec:ns3', node[1])
+                self.notin('inet:whois:rec:ns4', node[1])
+
+                nodes = core.eval('inet:whois:recns')
+                self.eq(len(nodes), 4)
+
+                nodes = core.eval('inet:whois:recns={}'.format(t_guid))
+                self.eq(len(nodes), 1)
+                node = nodes[0]
+                self.eq(node[1].get('inet:whois:recns:ns'), 'ns1.vertex.link')
+                self.eq(node[1].get('inet:whois:recns:rec:fqdn'), 'vertex.link')
+                self.eq(node[1].get('inet:whois:recns:rec:asof'), 1505746860000)
