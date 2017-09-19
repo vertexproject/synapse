@@ -12,9 +12,10 @@ This module implements syntax parsing for the storm runtime.
 whites = set(' \t\n')
 intset = set('01234567890abcdefx')
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+timeset = set('01234567890')
 propset = set(':abcdefghijklmnopqrstuvwxyz_0123456789')
 starset = varset.union({'*'})
-tagfilt = varset.union({'#', '*', '@'})
+tagfilt = varset.union({'#', '*'})
 alphaset = set('abcdefghijklmnopqrstuvwxyz')
 
 # this may be used to meh() potentially unquoted values
@@ -170,6 +171,11 @@ def parse_string(text, off, trim=True):
 
     return ''.join(vals), off
 
+def parse_time(text, off):
+    tstr, off = nom(text, off, timeset)
+    valu = s_time.parse(tstr)
+    return valu, off
+
 def parse_macro_filt(text, off=0, trim=True, mode='must'):
 
     _, off = nom(text, off, whites)
@@ -180,21 +186,22 @@ def parse_macro_filt(text, off=0, trim=True, mode='must'):
         _, off = nom(text, off, whites)
         prop, off = nom(text, off, tagfilt, trim=True)
 
-        parts = prop.split('@', 1)
-        if len(parts) == 1:
+        _, off = nom(text, off, whites)
+
+        if not nextchar(text, off, '@'):
             inst = ('filt', {'cmp': 'tag', 'mode': mode, 'valu': prop[1:]})
             return inst, off
 
-        prop, istr = parts
+        tick, off = parse_time(text, off + 1)
 
-        if istr.find('-') == -1:
-            tick = s_time.parse(istr)
+        _, off = nom(text, off, whites)
+
+        if not nextchar(text, off, '-'):
             inst = ('filt', {'cmp': 'ival', 'mode': mode, 'valu': (prop, tick)})
             return inst, off
 
-        ival = s_interval.parsetime(istr)
-        inst = ('filt', {'cmp': 'ivalival', 'mode': mode, 'valu': (prop, ival)})
-
+        tock, off = parse_time(text, off + 1)
+        inst = ('filt', {'cmp': 'ivalival', 'mode': mode, 'valu': (prop, (tick, tock))})
         return inst, off
 
     # check for non-macro syntax

@@ -553,14 +553,24 @@ class StormTest(SynTest):
             maxv = node[1].get('<#foo.bar')
             self.eq((minv, maxv), (1451606400000, 1483228800000))
 
-            node = core.eval('[ inet:ipv4=5.6.7.8 +#foo.bar@2016 ] ')[0]
+            node = core.eval('[ inet:ipv4=5.6.7.8 +#foo.bar@2014 ] ')[0]
 
-            self.eq(s_tufo.ival(node, '#foo.bar'), (1451606400000, 1451606400000))
+            self.eq(s_tufo.ival(node, '#foo.bar'), (1388534400000, 1388534400000))
 
             nodes = core.eval('inet:ipv4 +#foo.bar@201606')
+            self.eq(len(nodes), 1)
+            self.eq(nodes[0][1].get('inet:ipv4'), 0x01020304)
+
+            nodes = core.eval('inet:ipv4 +#foo.bar@201602-2019')
+            self.eq(len(nodes), 1)
             self.eq(nodes[0][1].get('inet:ipv4'), 0x01020304)
 
             nodes = core.eval('inet:ipv4 -#foo.bar@201606')
+            self.eq(len(nodes), 1)
+            self.eq(nodes[0][1].get('inet:ipv4'), 0x05060708)
+
+            nodes = core.eval('inet:ipv4 -#foo.bar@2015-201606')
+            self.eq(len(nodes), 1)
             self.eq(nodes[0][1].get('inet:ipv4'), 0x05060708)
 
     def test_storm_edit_end(self):
