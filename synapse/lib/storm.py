@@ -13,6 +13,7 @@ import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
+import synapse.lib.interval as s_interval
 
 from synapse.lib.config import Configable, confdef
 
@@ -412,6 +413,7 @@ class Runtime(Configable):
 
         # interval and interval-interval comparisons
         self.setCmprCtor('ival', self._cmprCtorIval)
+        self.setCmprCtor('ivalival', self._cmprCtorIvalIval)
 
         self.setCmprCtor('in', self._cmprCtorIn)
         self.setCmprCtor('re', self._cmprCtorRe)
@@ -903,6 +905,27 @@ class Runtime(Configable):
                 return False
 
             return True
+
+        return cmpr
+
+    def _cmprCtorIvalIval(self, oper):
+
+        name, ival = oper[1].get('valu')
+
+        minp = '>' + name
+        maxp = '<' + name
+
+        def cmpr(tufo):
+
+            minv = tufo[1].get(minp)
+            if minv is None:
+                return False
+
+            maxv = tufo[1].get(maxp)
+            if maxv is None:
+                return False
+
+            return s_interval.overlap(ival, (minv, maxv))
 
         return cmpr
 
