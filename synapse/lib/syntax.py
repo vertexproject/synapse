@@ -491,6 +491,38 @@ def parse_oper(text, off=0):
         if nextchar(text, off, ','):
             off += 1
 
+def parse_perm(text, off=0):
+    '''
+    Parse a permission string
+        <name> [<opt>=<match>...]
+    '''
+    _, off = nom(text, off, whites)
+
+    name, off = nom(text, off, varset)
+    if not name:
+        raise s_common.BadSyntaxError(mesg='perm str expected name')
+
+    retn = (name, {})
+
+    _, off = nom(text, off, whites)
+
+    while nextchar(text, off, ','):
+
+        _, off = nom(text, off + 1, whites)
+        meta, off = nom(text, off, varset)
+        _, off = nom(text, off, whites)
+
+        if not nextchar(text, off, '='):
+            raise s_common.BadSyntaxError(mesg='perm opt expected =')
+
+        _, off = nom(text, off + 1, whites)
+        valu, off = parse_string(text, off)
+        _, off = nom(text, off, whites)
+
+        retn[1][meta] = valu
+
+    return retn, off
+
 def oper(name, *args, **kwargs):
     kwlist = list(sorted(kwargs.items()))
     return (name, {'args': args, 'kwlist': kwlist})

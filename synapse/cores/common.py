@@ -13,17 +13,19 @@ import synapse.datamodel as s_datamodel
 
 import synapse.cores.storage as s_storage
 
+import synapse.lib.auth as s_auth
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 import synapse.lib.ingest as s_ingest
+import synapse.lib.syntax as s_syntax
 import synapse.lib.hashset as s_hashset
 import synapse.lib.threads as s_threads
 import synapse.lib.modules as s_modules
+import synapse.lib.trigger as s_trigger
 import synapse.lib.hashitem as s_hashitem
 import synapse.lib.interval as s_interval
-import synapse.lib.userauth as s_userauth
 
 from synapse.eventbus import EventBus, on, onfini
 from synapse.lib.storm import Runtime
@@ -84,6 +86,47 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.auth = None
         self.snaps = s_cache.Cache(maxtime=60)
 
+        self._core_triggers = s_trigger.Triggers()
+
+        self._auth_perms = {}
+        self._auth_roles = s_cache.Cache(onmiss=self._onAuthRolesMiss)
+        self._auth_users = s_cache.Cache(onmiss=self._onAuthUsersMiss)
+        self._auth_rules = s_cache.Cache(onmiss=self._onAuthRulesMiss)
+
+        # perm defs are also used to define trigger metadata
+        self.addPermDefs((
+            ('node:add', {'doc': 'Permission to add a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+            )),
+            ('node:del', {'doc': 'Permission to delete a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+            )),
+            ('node:tag:add', {'doc': 'Permission to add a tag to a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+                ('tag', {'doc': 'The tag being removed from the node'}),
+            )),
+            ('node:tag:del', {'doc': 'Permission to delete a tag from a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+                ('tag', {'doc': 'The tag being removed from the node'}),
+            )),
+            ('node:prop:set', {'doc': 'Permission to set a property on a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+                ('prop', {'doc': 'The property name being set on the node'}),
+            )),
+            ('node:prop:del', {'doc': 'Permission to delete a property from a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+                ('prop', {'doc': 'The property name being removed from the node'}),
+            )),
+            ('node:ival:set', {'doc': 'Permission to set an interval on a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+                ('name', {'doc': 'The interval name being set on the node'}),
+            )),
+            ('node:ival:del', {'doc': 'Permission to delete an interval from a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+                ('name', {'doc': 'The interval name being removed from the node'}),
+            )),
+        ))
+
         self.seqs = s_cache.KeyCache(self.getSeqNode)
 
         self.formed = collections.defaultdict(int)      # count tufos formed since startup
@@ -143,6 +186,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         DataModel.__init__(self, load=False)
 
+        self._loadTrigNodes()
+
         self.myfo = self.formTufoByProp('syn:core', 'self')
         self.isnew = self.myfo[1].get('.new', False)
 
@@ -154,6 +199,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.on('node:add', self._onTufoAddSynType, form='syn:type')
         self.on('node:add', self._onTufoAddSynForm, form='syn:form')
         self.on('node:add', self._onTufoAddSynProp, form='syn:prop')
+
+        self.on('node:add', self._loadTrigNodes, form='syn:trigger')
+        self.on('node:del', self._loadTrigNodes, form='syn:trigger')
+        self.on('node:prop:set', self._loadTrigNodes, form='syn:trigger')
 
         self.addTufoForm('syn:log', ptype='guid', local=1)
         self.addTufoProp('syn:log', 'subsys', defval='??', help='Named subsystem which originated the log event')
@@ -183,8 +232,15 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     @confdef(name='common_cortex')
     def _cortex_condefs():
         confdefs = (
+
             ('autoadd', {'type': 'bool', 'asloc': 'autoadd', 'defval': 1,
                          'doc': 'Automatically add forms for props where type is form'}),
+
+            ('auth:en', {'type': 'bool', 'asloc': '_auth_en', 'defval': 0,
+                         'doc': 'Enable auth/perm enforcement for splicing/storm'}),
+
+            ('auth:url', {'type': 'inet:url', 'doc': 'Optional remote auth cortex (restart required)'}),
+
             ('enforce', {'type': 'bool', 'asloc': 'enforce', 'defval': 0, 'doc': 'Enables data model enforcement'}),
             ('caching', {'type': 'bool', 'asloc': 'caching', 'defval': 0,
                          'doc': 'Enables caching layer in the cortex'}),
@@ -199,6 +255,97 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             ('modules', {'defval': (), 'doc': 'An optional list of (pypath,conf) tuples for synapse modules to load'})
         )
         return confdefs
+
+    def addPermDefs(self, defs):
+        '''
+        Add a set of permission definitions for use with the cortex auth subsystem.
+
+        A perm definition tuple consists of:
+
+        (perm, info, fields)
+
+        ex:
+
+        ('node:add', {'doc': 'The permission to add nodes'}, (
+            ('form', {'doc': 'The form of the node being created'}),
+        )
+
+        Args:
+            defs (list):    A list of permission defs
+
+        Returns:
+            (None)
+
+        '''
+        for pdef in defs:
+            self._auth_perms[pdef[0]] = pdef
+
+    def _loadTrigNodes(self, *args):
+
+        self._core_triggers.clear()
+
+        for node in self.getTufosByProp('syn:trigger'):
+            try:
+
+                if not node[1].get('syn:trigger:en'):
+                    continue
+
+                self._trigFromTufo(node)
+
+            except Exception as e:
+                logger.warning('failed to load trigger: %r' % (node,))
+                logger.exception(e)
+
+    def _trigFromTufo(self, tufo):
+
+        text = tufo[1].get('syn:trigger:on')
+        perm, _ = s_syntax.parse_perm(text)
+
+        text = tufo[1].get('syn:trigger:run')
+        opers = s_syntax.parse(text)
+
+        user = tufo[1].get('syn:trigger:user')
+
+        def func(node):
+            self.run(opers, data=(node,))
+
+        self._core_triggers.add(func, perm)
+
+    def _fireNodeTrig(self, node, perm):
+        # this is called by the xact handler
+        self._core_triggers.trigger(perm, node)
+
+    def getPermDef(self, name):
+        '''
+        Return a permission definition tuple for the given perm name.
+
+        Args:
+            name (str): The permission name
+
+        Returns:
+            (tuple):    A (name,info,fields) tuple for the perm.
+
+        '''
+        return self._auth_perms.get(name)
+
+    def reqPermDef(self, name):
+        '''
+        Require (or raise) a permission definition tuple
+
+        Args:
+            name (str): The permission name
+
+        Returns:
+            (tuple):    A (name,info,fields) tuple for the perm.
+
+        Raises:
+            (NoSuchPerm):   The permission name was not found
+
+        '''
+        retn = self._auth_perms.get(name)
+        if retn is None:
+            raise s_common.NoSuchPerm(perm=name)
+        return retn
 
     def _registerStore(self):
         '''
@@ -320,6 +467,373 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 self.log(logging.WARNING, mesg=mesg, name=name, curv=curv, vers=vers)
 
             curv = self.setModlVers(name, vers)
+
+    def getUserAuth(self, user):
+        '''
+        Get the auth information for the given user.
+
+        Args:
+            user (str): The user name
+
+        Returns:
+            (dict): The auth info dict
+
+        '''
+        return self._auth_users.get(user)
+
+    def getRoleAuth(self, role):
+        '''
+        Get the auth information for the given role.
+
+        Args:
+            role (str): The role name
+
+        Returns:
+            (dict): The auth info dict
+
+        '''
+        return self._auth_roles.get(user)
+
+    def allowed(self, perm, user=None):
+        '''
+        Returns True if the user is allowed the given perms/info.
+
+        Args:
+            perm (str): The permission tufo
+            user (str): The user name (or None for "current user")
+
+        Returns:
+            (bool):  True if the user is allowed
+
+        '''
+        if not self._auth_en:
+            return True
+
+        if user is None:
+            user = s_auth.whoami()
+
+        for ruls in self._auth_rules.get(user):
+            if ruls.allow(perm):
+                return True
+
+        logger.warning('perm denied: %r %r' % (user, perm))
+        return False
+
+    def getUserAuth(self, user):
+        '''
+        Return an auth dict for the given user.
+
+        Args:
+            user (str):  The user name
+
+        Returns:
+            (dict): The user auth dict
+        '''
+        return self._auth_users.get(user)
+
+    def getRoleAuth(self, role):
+        '''
+        Return an auth dict for the given role.
+
+        Args:
+            role (str):  The role name
+
+        Returns:
+            (dict): The role auth dict
+        '''
+        return self._auth_roles.get(role)
+
+    def _onAuthRolesMiss(self, role):
+        node = self.getTufoByProp('syn:auth:role', role)
+        if node is None:
+            raise s_common.NoSuchRole(role=role)
+
+        prop = 'syn:role:' + role + ':auth'
+        retn = self.getBlobValu(prop)
+        if retn is None:
+            return {}
+
+        return retn
+
+    def _onAuthRulesMiss(self, user):
+        # return a list of Rules() objects...
+        retn = []
+
+        auth = self.getUserAuth(user)
+        if auth is not None:
+            rules = auth.get('rules')
+            if rules is not None:
+                retn.append(s_auth.Rules(rules))
+
+        for role in self.getUserRoles(user):
+
+            auth = self.getRoleAuth(role)
+            if auth is None:
+                continue
+
+            rules = auth.get('rules')
+            if rules is None:
+                continue
+
+            retn.append(s_auth.Rules(rules))
+
+        return retn
+
+    def _onAuthUsersMiss(self, user):
+
+        node = self.getTufoByProp('syn:auth:user', user)
+        if node is None:
+            raise s_common.NoSuchUser(user=user)
+
+        prop = 'syn:user:' + user + ':auth'
+        retn = self.getBlobValu(prop)
+        if retn is None:
+            return {}
+
+        return retn
+
+    def _syncUserAuth(self, user, auth):
+        prop = 'syn:user:' + user + ':auth'
+        self.setBlobValu(prop, auth)
+
+    def _syncRoleAuth(self, role, auth):
+        prop = 'syn:role:' + role + ':auth'
+        self.setBlobValu(prop, auth)
+
+    def setUserRules(self, user, rules):
+        '''
+        Set the rules for a given user.
+
+        Args:
+            user (str): The user name
+            rules (list): The list of rule tuples
+
+        Returns:
+            (None)
+
+        '''
+        # this will be a ref to the cache dict
+        auth = self.getUserAuth(user)
+        auth['rules'] = rules
+
+        self._syncUserAuth(user, auth)
+
+    def getRoleRules(self, role):
+        '''
+        Get a list of rule tuples for the given role.
+
+        Args:
+            role (str): The role name
+
+        Returns:
+            (list): A list of rule tuples
+        '''
+        auth = self.getRoleAuth(role)
+        return list(auth.get('rules', ()))
+
+    def getUserRules(self, user):
+        '''
+        Get a list of rule tuples for the given user.
+
+        Args:
+            user (str): The user name
+
+        Returns:
+            (list): A list of rule tuples
+        '''
+        auth = self.getUserAuth(user)
+        return list(auth.get('rules', ()))
+
+    def setRoleRules(self, role, rules):
+        '''
+        Set the rules for a given role.  Rules are documented
+        in synapse.lib.auth.Rules.
+
+        Args:
+            role (str): The role name
+            rules (list): A list of rule tuples
+
+        Returns:
+            (None)
+
+        Raises:
+            (synapse.exc.BadRuleValu)
+        '''
+        auth = self.getRoleAuth(role)
+        if auth is None:
+            auth = {}
+
+        auth['rules'] = rules
+        self._syncRoleAuth(role, auth)
+
+    def getUserRoles(self, user):
+        '''
+        Get a list of the roles for the specified user.
+
+        Args:
+            user (str): The user name
+
+        Returns:
+            ([str,...]): The roles for the user
+        '''
+        nodes = self.getTufosByProp('syn:auth:userrole:user')
+        return [n[1].get('syn:auth:userrole:role') for n in nodes]
+
+    def getRoleUsers(self, role):
+        '''
+        Get a list of the users for the specified role.
+
+        Args:
+            role (str): The role name
+
+        Returns:
+            ([str,...]): The users for the role
+        '''
+        nodes = self.getTufosByProp('syn:auth:userrole:role')
+        return [n[1].get('syn:auth:userrole:user') for n in nodes]
+
+    def addUserRule(self, user, rule, indx=None):
+        '''
+        Add a rule tuple for the given user (optionally at index).
+
+        Args:
+            user (str): The user name
+            rule (tuple): The rule tuple
+            indx (int): The index at which to insert the rule
+
+        Returns:
+            (None)
+
+        NOTE: see synapse.lib.auth.Rules for rule tuple definition
+        '''
+        auth = self.getUserAuth(user)
+        if auth is None:
+            auth = {}
+
+        rules = list(auth.get('rules', ()))
+
+        if indx is None:
+            rules.append(rule)
+        else:
+            rules.insert(indx, rule)
+
+        auth['rules'] = rules
+        self._bumpAuthUser(user)
+        self._syncUserAuth(user, auth)
+
+    def delUserRule(self, user, indx):
+        '''
+        Delete a rule at index for the given user.
+
+        Args:
+            user (str): The user name
+            indx (int): The index of the rule to remove
+
+        Returns:
+            (None)
+
+        NOTE: see synapse.lib.auth.Rules for rule tuple definition
+        '''
+        auth = self.getUserAuth(user)
+        if auth is None:
+            auth = {}
+
+        rules = list(auth.get('rules', ()))
+        rules.pop(indx)
+
+        auth['rules'] = rules
+
+        self._bumpAuthUser(user)
+        self._syncUserAuth(user, auth)
+
+    def addRoleRule(self, role, rule, indx=None):
+        '''
+        Add a rule tuple for the given role (optionally at index).
+
+        Args:
+            role (str): The role name
+            rule (tuple): The rule tuple
+            indx (int): The index at which to insert the rule
+        '''
+        auth = self.getRoleAuth(role)
+        if auth is None:
+            auth = {}
+
+        rules = list(auth.get('rules', ()))
+
+        if indx is None:
+            rules.append(rule)
+        else:
+            rules.insert(indx, rule)
+
+        auth['rules'] = rules
+
+        for user in self.getRoleUsers(role):
+            self._bumpAuthUser(user)
+
+        self._syncRoleAuth(role, auth)
+
+    def _bumpAuthUser(self, user):
+        self._auth_rules.pop(user)
+
+    def delRoleRule(self, role, indx):
+        '''
+        Delete a rule at index for the given role.
+
+        Args:
+            role (str): The role name
+            indx (int): The index of the rule to remove
+
+        Returns:
+            (None)
+        '''
+        auth = self.getRoleAuth(role)
+        if auth is None:
+            auth = {}
+
+        rules = list(auth.get('rules', ()))
+        rules.pop(indx)
+
+        auth['rules'] = rules
+
+        for user in self.getRoleUsers(role):
+            self._bumpAuthUser(user)
+
+        self._syncRoleAuth(role, auth)
+
+    @on('node:del', form='syn:auth:role')
+    def _onDelAuthRole(self, mesg):
+        role = mesg[1].get('valu')
+
+        self._syncRoleAuth(role, {})
+
+        # removing these will pop user rule caches
+        for userrole in self.core.getTufosByProp('syn:auth:userrole:role', role):
+            self.delTufo(userrole)
+
+    @on('node:del', form='syn:auth:user')
+    def _onDelAuthUser(self, mesg):
+        user = mesg[1].get('valu')
+
+        self._bumpAuthUser(user)
+        self._syncUserAuth(user, {})
+
+        for userrole in self.core.getTufosByProp('syn:auth:userrole:user', user):
+            self.delTufo(userrole)
+
+    @on('node:add', form='syn:auth:userrole')
+    def _onAddAuthUserRole(self, mesg):
+        node = mesg[1].get('node')
+        user = node[1].get('syn:auth:userrole:user')
+
+        self._bumpAuthUser(user)
+
+    @on('node:del', form='syn:auth:userrole')
+    def _onDelAuthUserRole(self, mesg):
+        node = mesg[1].get('node')
+        user = node[1].get('syn:auth:userrole:user')
+
+        self._bumpAuthUser(user)
 
     def _finiCoreMods(self):
         [modu.fini() for modu in self.coremods.values()]
@@ -1445,6 +1959,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
                 xact.fire('node:tag:add', form=form, valu=valu, tag=subtag, node=tufo)
                 xact.spliced('node:tag:add', form=form, valu=valu, tag=subtag)
+                xact.trigger(tufo, 'node:tag:add', form=form, tag=subtag)
 
             self.addRows(rows)
 
@@ -1502,6 +2017,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 # fire notification events
                 xact.fire('node:tag:del', form=form, valu=valu, tag=subtag, node=tufo)
                 xact.spliced('node:tag:del', form=form, valu=valu, tag=subtag, asof=asof)
+                xact.trigger(tufo, 'node:tag:del', form=form, tag=subtag)
 
                 self.delTufoIval(tufo, subprop)
 
@@ -1588,6 +2104,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             xact.fire('node:ival', form=form, valu=valu, prop=name, ival=ival, node=tufo)
             xact.spliced('node:ival:set', form=form, valu=valu, prop=name, ival=ival)
+            xact.trigger(tufo, 'node:ival:set', form=form, prop=name)
 
         return tufo
 
@@ -1622,6 +2139,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             self._bumpTufoCache(tufo, maxp, maxv, None)
             xact.fire('node:ival:del', form=form, valu=valu, prop=name, node=tufo)
             xact.spliced('node:ival:del', form=form, valu=valu, prop=name)
+            xact.trigger(tufo, 'node:ival:del', form=form, prop=name)
 
         return tufo
 
@@ -1874,6 +2392,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 for form, valu, props, node in adds:
                     xact.fire('node:add', form=form, valu=valu, node=node)
                     xact.spliced('node:add', form=form, valu=valu, props=props)
+                    xact.trigger(node, 'node:add', form=form)
 
         return ret
 
@@ -2027,6 +2546,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             # fire notification events
             xact.fire('node:add', form=prop, valu=valu, node=tufo)
             xact.spliced('node:add', form=prop, valu=valu, props=props)
+            xact.trigger(tufo, 'node:add', form=prop)
 
             if self.autoadd:
                 self._runAutoAdd(toadd)
@@ -2063,6 +2583,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             # delete any dark props/rows
             self.delRowsById(iden[::-1])
             xact.spliced('node:del', form=form, valu=valu)
+            xact.trigger(tufo, 'node:del', form=form)
 
         lists = [p.split(':', 2)[2] for p in tufo[1].keys() if p.startswith('tufo:list:')]
         for name in lists:
@@ -2425,6 +2946,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             # fire the splice event
             xact.spliced('node:prop:del', form=form, valu=valu, prop=prop)
+            xact.trigger(tufo, 'node:prop:del', form=form, prop=prop)
 
         return tufo
 
@@ -2473,6 +2995,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 # fire the splice event
                 xact.spliced('node:prop:set', form=form, valu=valu, prop=p[len(form) + 1:], newv=v, oldv=oldv,
                              node=tufo)
+
+                xact.trigger(tufo, 'node:prop:set', form=form, prop=p)
 
             if self.autoadd:
                 self._runAutoAdd(toadd)
@@ -2872,7 +3396,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def getStoreType(self):
         return self.store.getStoreType()
 
-    # TODO: Wrap this in a userauth layer
+    # TODO: Wrap this in a auth layer
     def getBlobValu(self, key, default=None):
         '''
         Get a value from the blob key/value (KV) store.
@@ -2896,7 +3420,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         return self.store.getBlobValu(key, default)
 
-    # TODO: Wrap this in a userauth layer
+    # TODO: Wrap this in a auth layer
     def getBlobKeys(self):
         '''
         Get a list of keys in the blob key/value store.
@@ -2906,7 +3430,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         return self.store.getBlobKeys()
 
-    # TODO: Wrap this in a userauth layer
+    # TODO: Wrap this in a auth layer
     def setBlobValu(self, key, valu):
         '''
         Set a value from the blob key/value (KV) store.
@@ -2929,7 +3453,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         return self.store.setBlobValu(key, valu)
 
-    # TODO: Wrap this in a userauth layer
+    # TODO: Wrap this in a auth layer
     def hasBlobValu(self, key):
         '''
         Check the blob store to see if a key is present.
@@ -2943,7 +3467,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         return self.store.hasBlobValu(key)
 
-    # TODO: Wrap this in a userauth layer
+    # TODO: Wrap this in a auth layer
     def delBlobValu(self, key):
         '''
         Remove and return a value from the blob store.

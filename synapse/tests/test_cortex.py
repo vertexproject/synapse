@@ -21,6 +21,7 @@ import synapse.cores.common as s_cores_common
 import synapse.cores.storage as s_cores_storage
 import synapse.cores.postgres as s_cores_postgres
 
+import synapse.lib.auth as s_auth
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
@@ -951,8 +952,7 @@ class CortexTest(SynTest):
 
         self.nn(foob[1].get('tufo:list:hehe'))
 
-        vals = core.getTufoList(foob, 'hehe')
-        vals.sort()
+        vals = sorted(core.getTufoList(foob, 'hehe'))
 
         self.eq(tuple(vals), (1, 2, 3))
 
@@ -2582,6 +2582,66 @@ class CortexTest(SynTest):
             t1 = core.addTufoEvent('inet:dns:look', a='WOOT.com/1.2.3.4', time=tick)
             self.eq(t1[1].get('inet:dns:look:time'), tick)
             self.ne(t0[0], t1[0])
+
+    def test_cortex_trigger(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            node = core.formTufoByProp('syn:trigger', '*', on='node:add form=inet:fqdn', run='[ #foo ]', en=1)
+
+            self.eq(node[1].get('syn:trigger:on'), 'node:add form=inet:fqdn')
+            self.eq(node[1].get('syn:trigger:run'), '[ #foo ]')
+
+            node = core.formTufoByProp('inet:fqdn', 'vertex.link')
+            self.nn(node[1].get('#foo'))
+
+    def test_cortex_auth(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            core.formTufoByProp('syn:auth:user', 'visi@vertex.link')
+            core.formTufoByProp('syn:auth:user', 'fred@woot.com')
+            core.formTufoByProp('syn:auth:user', 'root@localhost')
+
+            core.formTufoByProp('syn:auth:role', 'root')
+            core.formTufoByProp('syn:auth:role', 'newb')
+
+            rule = (True, ('*', {}))
+            core.addRoleRule('root', rule)
+            core.addUserRule('root@localhost', rule)
+
+            rule = (True, ('node:add', {'form': 'inet:*'}))
+            core.addRoleRule('newb', rule)
+
+            # test the short circuit before auth is enabled
+            self.true(core.allowed(('node:add', {'form': 'inet:fqdn'}), user='newp'))
+
+            core.setConfOpt('auth:en', 1)
+
+            self.raises(NoSuchUser, core.addUserRule, 'hehe', ('stuff', {}))
+            self.raises(NoSuchRole, core.addRoleRule, 'hehe', ('stuff', {}))
+
+            with s_auth.runas('fred@woot.com'):
+
+                self.false(core.allowed(('node:add', {'form': 'ou:org'})))
+
+                rule = (True, ('node:add', {'form': 'ou:org'}))
+                core.addUserRule('fred@woot.com', rule)
+
+                self.true(core.allowed(('node:add', {'form': 'ou:org'})))
+
+            with s_auth.runas('root@localhost'):
+                self.true(core.allowed(('fake', {})))
+
+            with s_auth.runas('visi@vertex.link'):
+
+                self.false(core.allowed(('fake', {})))
+
+                node = core.formTufoByProp('syn:auth:userrole', ('visi@vertex.link', 'root'))
+                self.true(core.allowed(('fake', {})))
+
+                core.delTufo(node)
+                self.false(core.allowed(('fake', {})))
 
 class StorageTest(SynTest):
 
