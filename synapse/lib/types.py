@@ -606,6 +606,30 @@ class TagType(DataType):
 
         return retn, subs
 
+class StormType(DataType):
+
+    def norm(self, valu, oldval=None):
+        try:
+            s_syntax.parse(valu)
+        except Exception as e:
+            self._raiseBadValu(valu)
+        return valu, {}
+
+class PermType(DataType):
+    '''
+    Enforce that the permission string and options are known.
+    '''
+    def norm(self, valu, oldval=None):
+
+        try:
+            pnfo, off = s_syntax.parse_perm(valu)
+        except Exception as e:
+            self._raiseBadValu(valu)
+
+        if off != len(valu):
+            self._raiseBadValu(valu)
+        return valu, {}
+
 class TypeLib:
     '''
     An extensible type library for use in cortex data models.
@@ -638,6 +662,8 @@ class TypeLib:
                      doc='Timestamp in milliseconds since epoch', ex='20161216084632')
 
         self.addType('syn:tag', ctor='synapse.lib.types.TagType', doc='A synapse tag', ex='foo.bar')
+        self.addType('syn:perm', ctor='synapse.lib.types.PermType', doc='A synapse permission string')
+        self.addType('syn:storm', ctor='synapse.lib.types.StormType', doc='A synapse storm query string')
 
         # add base synapse types
         self.addType('syn:core', subof='str')

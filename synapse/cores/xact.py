@@ -10,9 +10,7 @@ import time
 import logging
 
 import synapse.common as s_common
-
-import synapse.lib.userauth as s_userauth
-
+import synapse.lib.auth as s_auth
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +30,19 @@ class StoreXact:
         self.exiting = False
 
         self.events = []
+        self.triggers = []
+
+    def trigger(self, node, name, **info):
+        '''
+        Fire a trigger from the transaction
+
+        Args:
+            node ((str,dict)):  The node for the trigger
+            name (str):  The trigger permission string
+            info (dict): The trigger permission metadata
+        '''
+        perm = (name, info)
+        self.triggers.append((node, perm))
 
     def spliced(self, act, **info):
         '''
@@ -56,7 +67,7 @@ class StoreXact:
 
         info['act'] = act
         info['time'] = self.tick
-        info['user'] = s_userauth.getSynUser()
+        info['user'] = s_auth.whoami()
 
         self.fire('splice', **info)
 
@@ -102,9 +113,16 @@ class StoreXact:
     def fireall(self):
 
         events = self.events
+        triggers = self.triggers
+
         self.events = []
+        self.triggers = []
 
         [self.store.fire(name, **props) for (name, props) in events]
+
+        if self.core is not None:
+            for node, perm in triggers:
+                self.core._fireNodeTrig(node, perm)
 
     def cedetime(self):
         # release and re acquire the form lock to allow others a shot

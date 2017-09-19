@@ -129,12 +129,12 @@ def _thr_scope():
 
     return scope
 
-def get(name):
+def get(name, defval=None):
     '''
     Access this thread's scope with default values from glob.
     '''
     scope = _thr_scope()
-    return scope.get(name)
+    return scope.get(name, defval=defval)
 
 def set(name, valu):
     '''
