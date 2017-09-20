@@ -8,35 +8,7 @@ import synapse.lib.socket as s_socket
 
 from synapse.tests.common import *
 
-def xor(k, byts):
-    if s_compat.version < (3, 0, 0):
-        return ''.join([chr(ord(b) ^ k) for b in byts])
-    else:
-        return bytes([b ^ k for b in byts])
-
 class SocketTest(SynTest):
-
-    def test_sock_xform(self):
-
-        class Xor(s_socket.SockXform):
-            def txform(self, byts):
-                return xor(0x56, byts)
-
-            def rxform(self, byts):
-                return xor(0x56, byts)
-
-        sock1, sock2 = s_socket.socketpair()
-
-        sock1.sendall(b'woot')
-
-        self.eq(sock2.recvall(4), b'woot')
-
-        xform = Xor()
-        sock1.addSockXform(xform)
-        sock2.addSockXform(xform)
-
-        sock1.sendall(b'woot')
-        self.eq(sock2.recvall(4), b'woot')
 
     def test_sock_plex(self):
 
@@ -76,6 +48,7 @@ class SocketTest(SynTest):
         s1, s2 = s_socket.socketpair()
 
         plex.addPlexSock(s2)
+        self.eq(len(plex.getPlexSocks()), 2)
 
         # the rx socket is a blocking socket which cause calls to
         # rx() to block on the recv() call in the main thread of
