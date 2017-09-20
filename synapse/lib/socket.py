@@ -54,15 +54,7 @@ class Socket(EventBus):
 
         self.onfini(self._finiSocket)
 
-    def addTxByts(self, byts):
-        '''
-        Add bytes to the non-blocking TX queue
-
-        Args:
-
-            byts (bytes): The bytes to send
-
-        '''
+    def _addTxByts(self, byts):
         self.txque.append(byts)
         self.fire('sock:tx:add')
 
@@ -157,11 +149,13 @@ class Socket(EventBus):
         for mesg in self:
             return mesg
 
-    def addTxByts(self, byts):
-        self.txque.append(byts)
-        self.fire('sock:tx:add', sock=self)
-
     def setblocking(self, valu):
+        '''
+        Set the socket's blocking mode to True/False.
+
+        Args:
+            valu (bool): False to set socket non-blocking
+        '''
         valu = bool(valu)
         self.blocking = valu
         self.sock.setblocking(valu)
@@ -184,7 +178,7 @@ class Socket(EventBus):
         # if the socket is non-blocking assume someone is managing
         # the socket via sock:tx:add events
         if not self.blocking:
-            self.addTxByts(byts)
+            self._addTxByts(byts)
             return True
 
         try:
