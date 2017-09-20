@@ -97,13 +97,13 @@ class FileModelTest(SynTest):
             piden = pnod[1].get('ps:person')
             fiden = fnod[1].get('file:bytes')
 
-            img0 = core.formTufoByProp('file:imgof', (fiden, 'ps:person', piden))
-            img1 = core.formTufoByProp('file:imgof', '%s|ps:person|%s' % (fiden, piden))
+            img0 = core.formTufoByProp('file:imgof', (fiden, ('ps:person', piden)))
+            img1 = core.formTufoByProp('file:imgof', '(%s,ps:person=%s)' % (fiden, piden))
 
             self.eq(img0[0], img1[0])
             self.eq(img0[1].get('file:imgof:file'), fiden)
-            self.eq(img0[1].get('file:imgof:xtype'), 'ps:person')
             self.eq(img0[1].get('file:imgof:xref'), 'ps:person=' + piden)
+            self.eq(img0[1].get('file:imgof:xref:prop'), 'ps:person')
             self.eq(img0[1].get('file:imgof:xref:strval'), piden)
             self.eq(img0[1].get('file:imgof:xref:intval'), None)
 
@@ -114,13 +114,13 @@ class FileModelTest(SynTest):
 
             iden = guid()
 
-            img0 = core.formTufoByProp('file:txtref', (iden, 'inet:email', 'visi@vertex.link'))
-            img1 = core.formTufoByProp('file:txtref', '%s|inet:email|visi@VERTEX.LINK' % iden)
+            img0 = core.formTufoByProp('file:txtref', (iden, ('inet:email', 'visi@vertex.link')))
+            img1 = core.formTufoByProp('file:txtref', '(%s,inet:email=visi@VERTEX.LINK)' % iden)
 
             self.eq(img0[0], img1[0])
             self.eq(img0[1].get('file:txtref:file'), iden)
             self.eq(img0[1].get('file:txtref:xref'), 'inet:email=visi@vertex.link')
-            self.eq(img0[1].get('file:txtref:xtype'), 'inet:email')
+            self.eq(img0[1].get('file:txtref:xref:prop'), 'inet:email')
             self.eq(img0[1].get('file:txtref:xref:strval'), 'visi@vertex.link')
             self.eq(img0[1].get('file:txtref:xref:intval'), None)
 

@@ -237,7 +237,7 @@ class StormTest(SynTest):
             # Try refs() with a file:txtref node.  This uses propvalu to do the pivoting
             fnode = core.formTufoByProp('file:bytes:md5', 'd41d8cd98f00b204e9800998ecf8427e')
             form, pprop = s_tufo.ndef(fnode)
-            node = core.formTufoByProp('file:txtref', '{}|inet:ipv4|1.2.3.4'.format(pprop))
+            node = core.formTufoByProp('file:txtref', '({},inet:ipv4=1.2.3.4)'.format(pprop))
             nodes = core.eval('file:txtref refs()')
             self.eq(len(nodes), 3)
             forms = {s_tufo.ndef(node)[0] for node in nodes}
@@ -246,7 +246,7 @@ class StormTest(SynTest):
             # Make sure we're also pivoting on something with a "=" in the valu
             # since we have to do a split operation inside of the refs() operator
             self.nn(core.formTufoByProp('inet:passwd', 'oh=my=graph!'))
-            node = core.formTufoByProp('file:txtref', '{}|inet:passwd|oh=my=graph!'.format(pprop))
+            node = core.formTufoByProp('file:txtref', '({},"inet:passwd=oh=my=graph!")'.format(pprop))
             form, pprop = s_tufo.ndef(node)
             nodes = core.eval('file:txtref={} refs()'.format(pprop))
             self.eq(len(nodes), 3)
