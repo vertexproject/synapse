@@ -498,7 +498,13 @@ class DataTypesTest(SynTest):
             self.eq(subs.get('xref:strval'), None)
             self.eq(subs.get('xref:intval'), 0x01020304)
 
+            valu, subs = core.getTypeNorm('foo:bar', 4 * 'deadb33f')
+            self.eq(valu, 4 * 'deadb33f')
+            self.eq(subs, {})
             self.raises(NoSuchType, core.getTypeNorm, 'foo:bar', '98db59098e385f0bfdec8a6a0a6118b3|inet:fqdn:zone|0')
+            self.raises(BadTypeValu, core.getTypeNorm, 'foo:bar', 1)
+            self.raises(BadTypeValu, core.getTypeNorm, 'foo:bar', ['oh', 'my', 'its', 'broked'])
+            self.raises(BadInfoValu, core.addType, 'foo:baz', subof='xref', source='ou=org')
 
     def test_types_isguid(self):
         self.true(s_types.isguid('98db59098e385f0bfdec8a6a0a6118b3'))
