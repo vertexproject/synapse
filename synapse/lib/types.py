@@ -454,6 +454,11 @@ class XrefType(DataType):
 
     def _norm_str(self, text, oldval=None):
 
+        text = text.strip()
+
+        if not text:
+            self._raiseBadValu(text, mesg='No text left after strip().')
+
         if len(text) == 32 and text.find('=') == -1:
             return self.tlib.getTypeNorm('guid', text)
 
