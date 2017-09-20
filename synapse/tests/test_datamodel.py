@@ -237,6 +237,21 @@ class DataModelTest(SynTest):
         self.eq(model.getTypeNorm('syn:tag', 'foo.BAR')[0], 'foo.bar')
         self.eq(model.getTypeParse('syn:tag', 'foo.BAR')[0], 'foo.bar')
 
+    def test_datamodel_forms(self):
+        model = s_datamodel.DataModel(load=False)
+        forms = model.getTufoForms()
+        self.isinstance(forms, list)
+        self.isin('syn:core', forms)
+        self.isin('syn:type', forms)
+        self.isin('syn:form', forms)
+        self.isin('syn:prop', forms)
+        self.notin('inet:ipv4', forms)
+
+        model = s_datamodel.DataModel()
+        forms = model.getTufoForms()
+        self.isin('syn:prop', forms)
+        self.isin('inet:ipv4', forms)
+
     def test_datamodel_getPropInfo(self):
         model = s_datamodel.DataModel()
 
@@ -245,8 +260,17 @@ class DataModelTest(SynTest):
 
         model.addTufoForm('foo')
         model.addTufoProp('foo', 'meow', ptype='foo:baz')
+        model.addTufoProp('foo', 'bark', doc='lala')
 
+        self.eq(model.getPropInfo('foo:meow', 'req'), False)
+        self.eq(model.getPropInfo('foo:meow', 'base'), 'meow')
+        self.eq(model.getPropInfo('foo:meow', 'defval'), None)
+        self.eq(model.getPropInfo('foo:meow', 'title'), None)
         self.eq(model.getPropInfo('foo:meow', 'doc'), 'foo bar doc')
+
+        self.eq(model.getPropInfo('foo:bark', 'doc'), 'lala')
+        self.eq(model.getPropInfo('foo:bark', 'title'), None)
+
         self.eq(model.getPropInfo('foo:nonexistent', 'doc'), None)
 
     def test_datamodel_getPropDef(self):
@@ -255,7 +279,7 @@ class DataModelTest(SynTest):
         model.addTufoForm('foo')
         model.addTufoProp('foo', 'meow', ptype='int')
 
-        self.eq(model.getPropDef('foo:meow'), ('foo:meow', {'doc': None, 'title': None, 'defval': None, 'form': 'foo', 'base': 'meow', 'uniq': False, 'ptype': 'int', 'req': False}))
+        self.eq(model.getPropDef('foo:meow'), ('foo:meow', {'doc': None, 'title': None, 'defval': None, 'form': 'foo', 'base': 'meow', 'ptype': 'int', 'req': False}))
         self.eq(model.getPropDef('foo:meow:nonexistent'), None)
         self.eq(model.getPropDef('foo:meow:nonexistent', glob=False), None)
 

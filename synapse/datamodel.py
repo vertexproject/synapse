@@ -115,7 +115,7 @@ class DataModel(s_types.TypeLib):
             'forms': [],
         }
 
-        s_types.TypeLib.__init__(self, load=load)
+        s_types.TypeLib.__init__(self, load=False)
 
         self.addTufoForm('syn:core', ptype='str')
 
@@ -130,9 +130,11 @@ class DataModel(s_types.TypeLib):
         self.addTufoForm('syn:prop', ptype='syn:prop')
         # TODO - Re-enable syn:prop:doc req = 1 after cleaning up property docstrings.
         self.addTufoProp('syn:prop', 'doc', ptype='str', req=0, doc='Description of the property definition')
+        self.addTufoProp('syn:prop', 'title', ptype='str', req=0, doc='A short description of the property definition')
         self.addTufoProp('syn:prop', 'form', ptype='syn:prop', req=1, doc='Synapse form which contains this property')
         self.addTufoProp('syn:prop', 'ptype', ptype='syn:type', req=1, doc='Synapse type for this field')
         self.addTufoProp('syn:prop', 'req', ptype='bool', defval=0, doc='Set to 1 if this property is required to form the node.')
+        self.addTufoProp('syn:prop', 'base', ptype='str', doc='Base name of the property.')
         self.addTufoProp('syn:prop', 'glob', ptype='bool', defval=0, doc='Set to 1 if this property defines a glob')
         self.addTufoProp('syn:prop', 'defval', doc='Set to the default value for this property')
 
@@ -169,6 +171,9 @@ class DataModel(s_types.TypeLib):
         self.addTufoProp('syn:seq', 'width', ptype='int', defval=0,
                          doc='How many digits to use to represent the number')
         self.addTufoProp('syn:seq', 'nextvalu', ptype='int', defval=0, doc='The next sequential value')
+
+        if load:
+            self.loadModModels()
 
     def getModelDict(self):
         '''
@@ -293,7 +298,6 @@ class DataModel(s_types.TypeLib):
 
         info.setdefault('doc', None)
         info.setdefault('req', False)
-        info.setdefault('uniq', False)
         info.setdefault('ptype', None)
         info.setdefault('title', None)
         info.setdefault('defval', None)
@@ -301,7 +305,8 @@ class DataModel(s_types.TypeLib):
         form = info.get('form')
         base = prop[len(form) + 1:]
 
-        info['base'] = base
+        if base:
+            info['base'] = base
 
         defval = info.get('defval')
 

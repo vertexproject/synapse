@@ -901,6 +901,45 @@ class CortexBaseTest(SynTest):
 
 class CortexTest(SynTest):
 
+    def test_cortex_datamodel_runt_consistency(self):
+        with self.getRamCore() as core:
+
+            nodes = core.getTufosByProp('syn:form')
+            for node in nodes:
+                self.isin('syn:form:ptype', node[1])
+                self.isin('syn:form:local', node[1])
+                if 'syn:form:doc' in node[1]:
+                    self.isinstance(node[1].get('syn:form:doc'), str)
+
+            nodes = core.getTufosByProp('syn:prop')
+            for node in nodes:
+                self.isin('syn:prop:form', node[1])
+                if 'syn:prop:glob' in node[1]:
+                    continue
+                self.isin('syn:prop:req', node[1])
+                self.isin('syn:prop:ptype', node[1])
+                if 'syn:prop:doc' in node[1]:
+                    self.isinstance(node[1].get('syn:prop:doc'), str)
+                if 'syn:prop:base' in node[1]:
+                    self.isinstance(node[1].get('syn:prop:base'), str)
+                if 'syn:prop:title' in node[1]:
+                    self.isinstance(node[1].get('syn:prop:title'), str)
+                if 'syn:prop:defval' in node[1]:
+                    dv = node[1].get('syn:prop:defval')
+                    self.true(s_common.canstor(dv))
+
+            # Some nodes are local, some are not
+            node = core.getTufoByProp('syn:form', 'inet:ipv4')
+            self.eq(node[1].get('syn:form:local'), 0)
+            node = core.getTufoByProp('syn:form', 'syn:splice')
+            self.eq(node[1].get('syn:form:local'), 1)
+
+            # Some things have docs, others do not
+            self.eq(core.getPropInfo('strform', 'doc'), 'A test str form')
+            self.eq(core.getPropInfo('intform', 'doc'), 'The base integer type')
+            self.eq(core.getTufoByProp('syn:prop', 'strform')[1].get('syn:prop:doc'), 'A test str form')
+            self.eq(core.getTufoByProp('syn:prop', 'intform')[1].get('syn:prop:doc'), None)
+
     def test_pg_encoding(self):
         with self.getPgCore() as core:
             res = core.store.select('SHOW SERVER_ENCODING')[0][0]
