@@ -498,6 +498,11 @@ class DataTypesTest(SynTest):
             self.eq(subs.get('xref:strval'), None)
             self.eq(subs.get('xref:intval'), 0x01020304)
 
+            valu, subs = core.getTypeNorm('foo:bar', '98db59098e385f0bfdec8a6a0a6118b3|inet:passwd|oh=my=graph!')
+            self.eq(subs.get('xref'), 'inet:passwd=oh=my=graph!')
+            self.eq(subs.get('xref:strval'), 'oh=my=graph!')
+            self.eq(subs.get('xref:intval'), None)
+
             valu, subs = core.getTypeNorm('foo:bar', 4 * 'deadb33f')
             self.eq(valu, 4 * 'deadb33f')
             self.eq(subs, {})

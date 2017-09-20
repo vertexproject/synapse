@@ -243,6 +243,16 @@ class StormTest(SynTest):
             forms = {s_tufo.ndef(node)[0] for node in nodes}
             self.eq(forms, {'inet:ipv4', 'file:bytes', 'file:txtref'})
 
+            # Make sure we're also pivoting on something with a "=" in the valu
+            # since we have to do a split operation inside of the refs() operator
+            self.nn(core.formTufoByProp('inet:passwd', 'oh=my=graph!'))
+            node = core.formTufoByProp('file:txtref', '{}|inet:passwd|oh=my=graph!'.format(pprop))
+            form, pprop = s_tufo.ndef(node)
+            nodes = core.eval('file:txtref={} refs()'.format(pprop))
+            self.eq(len(nodes), 3)
+            forms = {s_tufo.ndef(node)[0] for node in nodes}
+            self.eq(forms, {'file:bytes', 'file:txtref', 'inet:passwd'})
+
             # Try refs() with a non-XREF type which has propvalu properties.
             f1 = core.formTufoByProp('foob', 'hai', xref='inet:ipv4=1.2.3.4')
             self.nn(f1)

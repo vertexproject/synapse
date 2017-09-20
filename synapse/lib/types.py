@@ -662,7 +662,7 @@ class PropValuType(DataType):
             self._raiseBadValu(text, mesg='No text left after strip().')
 
         if '=' not in text:
-            self._raiseBadValu(text, mesg='Provalu is missing a =')
+            self._raiseBadValu(text, mesg='PropValu is missing a =')
 
         valu = text.split('=', 1)
 
