@@ -319,6 +319,8 @@ class SynTest(unittest.TestCase):
     def le(self, x, y):
         self.assertLessEqual(x, y)
 
+    def len(self, x, obj):
+        self.eq(x, len(obj))
 
 testdir = os.path.dirname(__file__)
 def getTestPath(*paths):

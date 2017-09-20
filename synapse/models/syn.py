@@ -143,15 +143,18 @@ class SynMod(CoreModule):
             for node in nodes:
                 iden = node[0]
                 srcvtype = node[1].get(xtyp)
+                xrefprop = '{}:xref:prop'.format(ntyp)
                 srcprp = '{}:xref:{}'.format(ntyp, srcvtype)
                 srcv = node[1].get(srcprp)
                 valu, subs = self.core.getPropNorm(xrefp, [srcvtype, srcv])
                 adds.append((iden, xrefp, valu, tick))
+                adds.append((iden, xrefprop, srcvtype, tick))
                 if 'intval' in subs:
                     adds.append((iden, xrefpint, subs.get('intval'), tick))
                 else:
                     adds.append((iden, xrefpstr, subs.get('strval'), tick))
                 dels.add(srcprp)
+                dels.add(xtyp)
         with self.core.getCoreXact():
             self.core.addRows(adds)
             for prop in dels:

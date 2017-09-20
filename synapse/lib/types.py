@@ -454,36 +454,41 @@ class XrefType(DataType):
 
     def _norm_str(self, text, oldval=None):
 
-        if len(text) == 32 and text.find('|') == -1:
+        if len(text) == 32 and text.find('=') == -1:
             return self.tlib.getTypeNorm('guid', text)
 
-        # FIXME full logical / quoted split
-        parts = text.split('|')
-        return self._norm_list(parts)
+        vals, off = s_syntax.parse_list(text)
+
+        if off != len(text):
+            self._raiseBadValu(text, off=off, vals=vals,
+                               mesg='List parting for comp type did not consume all of the input text.')
+
+        return self._norm_list(vals)
 
     def _norm_list(self, valu, oldval=None):
 
-        if len(valu) != 3:
-            self._raiseBadValu(valu, mesg='xref type requires 3 fields')
+        if len(valu) != 2:
+            self._raiseBadValu(valu, mesg='xref type requires 2 fields')
 
-        valu, tstr, tval = valu
+        valu, pvval = valu
+
+        pvval, pvsub = self.tlib.getTypeNorm('propvalu', pvval)
+
+        tstr, tval = pvval.split('=', 1)
 
         valu, vsub = self.tlib.getTypeNorm(self._sorc_type, valu)
         tval, tsub = self.tlib.getTypeNorm(tstr, tval)
 
         iden = s_common.guid((valu, tstr, tval))
 
-        pvval, pvsub = self.tlib.getTypeNorm('propvalu', [tstr, tval])
-
         subs = {
             self._sorc_name: valu,
-            'xtype': tstr,
             'xref': pvval,
         }
 
-        for subtyp in ['intval', 'strval']:
-            if subtyp in pvsub:
-                subs['xref:' + subtyp] = pvsub.get(subtyp)
+        for k, v in pvsub.items():
+            k = 'xref:' + k
+            subs[k] = v
 
         return iden, subs
 

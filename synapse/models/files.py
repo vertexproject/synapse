@@ -149,7 +149,7 @@ class FileMod(CoreModule):
                 ('file:txtref', {}, [
                     ('file', {'ptype': 'file:bytes', 'ro': 1}),
                     ('xref', {'ptype': 'propvalu', 'ro': 1}),
-                    ('xtype', {'ptype': 'str', 'ro': 1}),
+                    ('xref:prop', {'ptype': 'str', 'ro': 1}),
                     ('xref:intval', {'ptype': 'int', 'ro': 1}),
                     ('xref:strval', {'ptype': 'str', 'ro': 1}),
                 ]),

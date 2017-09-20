@@ -476,37 +476,67 @@ class DataTypesTest(SynTest):
             core.setConfOpt('enforce', 1)
 
             core.addType('foo:bar', subof='xref', source='org,ou:org')
+            core.addTufoForm('foo:bar', ptype='foo:bar')
+            core.addTufoProp('foo:bar', 'org', ptype='ou:org')
+            core.addTufoProp('foo:bar', 'xref', ptype='propvalu')
+            core.addTufoProp('foo:bar', 'xref:intval', ptype='int')
+            core.addTufoProp('foo:bar', 'xref:strval', ptype='str')
+            core.addTufoProp('foo:bar', 'xref:prop', ptype='str')
 
-            valu, subs = core.getTypeNorm('foo:bar', ('98db59098e385f0bfdec8a6a0a6118b3', 'inet:fqdn', 'woot.com'))
+            valu, subs = core.getTypeNorm('foo:bar', ('98db59098e385f0bfdec8a6a0a6118b3', 'inet:fqdn=woot.com'))
             self.eq(subs.get('org'), '98db59098e385f0bfdec8a6a0a6118b3')
-            self.eq(subs.get('xtype'), 'inet:fqdn')
+            self.eq(subs.get('xref:prop'), 'inet:fqdn')
             self.eq(subs.get('xref'), 'inet:fqdn=woot.com')
             self.eq(subs.get('xref:strval'), 'woot.com')
             self.eq(subs.get('xref:intval'), None)
 
-            valu, subs = core.getTypeNorm('foo:bar', '98db59098e385f0bfdec8a6a0a6118b3|inet:fqdn|wOOT.com')
+            valu, subs = core.getTypeNorm('foo:bar', '(98db59098e385f0bfdec8a6a0a6118b3,inet:fqdn=wOOT.com)')
             self.eq(subs.get('org'), '98db59098e385f0bfdec8a6a0a6118b3')
-            self.eq(subs.get('xtype'), 'inet:fqdn')
+            self.eq(subs.get('xref:prop'), 'inet:fqdn')
             self.eq(subs.get('xref'), 'inet:fqdn=woot.com')
             self.eq(subs.get('xref:strval'), 'woot.com')
             self.eq(subs.get('xref:intval'), None)
 
-            valu, subs = core.getTypeNorm('foo:bar', '98db59098e385f0bfdec8a6a0a6118b3|inet:ipv4|1.2.3.4')
+            valu, subs = core.getTypeNorm('foo:bar', '(98db59098e385f0bfdec8a6a0a6118b3,inet:ipv4=1.2.3.4)')
             self.eq(subs.get('org'), '98db59098e385f0bfdec8a6a0a6118b3')
-            self.eq(subs.get('xtype'), 'inet:ipv4')
+            self.eq(subs.get('xref:prop'), 'inet:ipv4')
             self.eq(subs.get('xref'), 'inet:ipv4=1.2.3.4')
             self.eq(subs.get('xref:strval'), None)
             self.eq(subs.get('xref:intval'), 0x01020304)
 
-            valu, subs = core.getTypeNorm('foo:bar', '98db59098e385f0bfdec8a6a0a6118b3|inet:passwd|oh=my=graph!')
+            valu, subs = core.getTypeNorm('foo:bar', '(98db59098e385f0bfdec8a6a0a6118b3,"inet:passwd=oh=my=graph!")')
             self.eq(subs.get('xref'), 'inet:passwd=oh=my=graph!')
             self.eq(subs.get('xref:strval'), 'oh=my=graph!')
             self.eq(subs.get('xref:intval'), None)
 
+            # Do some node creation via Storm syntax
+            nodes = core.eval('addnode(foo:bar, "(98db59098e385f0bfdec8a6a0a6118b3,inet:fqdn=wOOT.com)")')
+            self.len(1, nodes)
+
+            nodes = core.eval('addnode(foo:bar, (98db59098e385f0bfdec8a6a0a6118b3,"inet:passwd=oh=my=graph!"))')
+            self.len(1, nodes)
+
+            nodes = core.eval('addnode(foo:bar, (98db59098e385f0bfdec8a6a0a6118b3,inet:ipv4=1.2.3.4))')
+            self.len(1, nodes)
+
+            nodes = core.eval('[foo:bar=(98db59098e385f0bfdec8a6a0a6118b3,inet:fqdn=acme.com)]')
+            self.len(1, nodes)
+
+            nodes = core.eval('[foo:bar=(98db59098e385f0bfdec8a6a0a6118b3,"inet:passwd=oh=my=gosh!")]')
+            self.len(1, nodes)
+
+            nodes = core.eval('[foo:bar=(98db59098e385f0bfdec8a6a0a6118b3,inet:ipv4=1.2.3.5)]')
+            self.len(1, nodes)
+
             valu, subs = core.getTypeNorm('foo:bar', 4 * 'deadb33f')
             self.eq(valu, 4 * 'deadb33f')
             self.eq(subs, {})
-            self.raises(NoSuchType, core.getTypeNorm, 'foo:bar', '98db59098e385f0bfdec8a6a0a6118b3|inet:fqdn:zone|0')
+
+            # The old XREF syntax no longer works
+            self.raises(BadSyntaxError, core.getTypeNorm, 'foo:bar',
+                        '98db59098e385f0bfdec8a6a0a6118b3|inet:fqdn|wOOT.com')
+            self.raises(NoSuchType, core.getTypeNorm, 'foo:bar',
+                        ('98db59098e385f0bfdec8a6a0a6118b3', 'inet:fqdn:zone=0'))
             self.raises(BadTypeValu, core.getTypeNorm, 'foo:bar', 1)
             self.raises(BadTypeValu, core.getTypeNorm, 'foo:bar', ['oh', 'my', 'its', 'broked'])
             self.raises(BadInfoValu, core.addType, 'foo:baz', subof='xref', source='ou=org')

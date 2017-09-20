@@ -86,6 +86,8 @@ class SynModelTest(SynTest):
                 node = nodes[0]
                 self.eq(node[1].get('file:txtref:xref'), 'inet:ipv4=1.2.3.4')
                 self.eq(node[1].get('file:txtref:xref:intval'), 0x01020304)
+                self.eq(node[1].get('file:txtref:xref:prop'), 'inet:ipv4')
+                self.notin('file:txtref:xref:xtype', node[1])
                 self.notin('file:txtref:xref:inet:ipv4', node[1])
                 self.notin('file:txtref:xref:strval', node[1])
                 nodes = core.eval('file:imgof')
@@ -93,5 +95,7 @@ class SynModelTest(SynTest):
                 node = nodes[0]
                 self.eq(node[1].get('file:imgof:xref'), 'inet:fqdn=woot.com')
                 self.eq(node[1].get('file:imgof:xref:strval'), 'woot.com')
+                self.eq(node[1].get('file:imgof:xref:prop'), 'inet:fqdn')
+                self.notin('file:imgof:xref:xtype', node[1])
                 self.notin('file:imgof:xref:inet:fqdn', node[1])
                 self.notin('file:imgof:xref:intval', node[1])
