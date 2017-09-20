@@ -17,16 +17,19 @@ class SwarmRunBase(SynTest):
         core0 = s_cortex.openurl('ram://')
         core1 = s_cortex.openurl('ram://')
 
+        self.addTstForms(core0)
+        self.addTstForms(core1)
+
         tenv.add('core0', core0, fini=True)
         tenv.add('core1', core1, fini=True)
 
-        tufo0 = core0.formTufoByProp('foo:bar', 'baz', vvv='visi')
-        tufo1 = core0.formTufoByProp('foo:bar', 'faz', vvv='visi')
-        tufo2 = core1.formTufoByProp('foo:bar', 'lol', vvv='visi')
-        tufo3 = core1.formTufoByProp('foo:bar', 'hai', vvv='visi')
+        tufo0 = core0.formTufoByProp('strform', 'baz', foo='visi')
+        tufo1 = core0.formTufoByProp('strform', 'faz', foo='visi')
+        tufo2 = core1.formTufoByProp('strform', 'lol', foo='visi')
+        tufo3 = core1.formTufoByProp('strform', 'hai', foo='visi')
 
-        tufo4 = core0.formTufoByProp('zzz:woot', 10, vvv='visi')
-        tufo5 = core1.formTufoByProp('zzz:woot', 12, vvv='romp')
+        tufo4 = core0.formTufoByProp('intform', 10, foo='visi')
+        tufo5 = core1.formTufoByProp('intform', 12, foo='romp')
 
         tenv.add('tufo0', tufo0)
         tenv.add('tufo1', tufo1)
@@ -63,24 +66,24 @@ class SwarmRunTest(SwarmRunBase):
     def test_swarm_runtime_eq(self):
         tenv = self.getSwarmEnv()
 
-        answ = tenv.runt.ask('foo:bar="baz"')
+        answ = tenv.runt.ask('strform="baz"')
         data = answ.get('data')
 
         self.eq(data[0][0], tenv.tufo0[0])
 
         # FIXME check for other expected results info!
 
-        answ = tenv.runt.ask('foo:bar:vvv')
+        answ = tenv.runt.ask('strform:foo')
         data = answ.get('data')
 
         self.eq(len(data), 4)
 
-        answ = tenv.runt.ask('hehe.haha/foo:bar:vvv')
+        answ = tenv.runt.ask('hehe.haha/strform:foo')
         data = answ.get('data')
 
         self.eq(len(data), 2)
 
-        answ = tenv.runt.ask('hehe.haha/foo:bar:vvv="visi"')
+        answ = tenv.runt.ask('hehe.haha/strform:foo="visi"')
         data = answ.get('data')
 
         self.eq(len(data), 2)
@@ -90,7 +93,7 @@ class SwarmRunTest(SwarmRunBase):
     def test_swarm_runtime_pivot(self):
         tenv = self.getSwarmEnv()
 
-        data = tenv.runt.eval('foo:bar="baz" foo:bar:vvv->foo:bar:vvv')
+        data = tenv.runt.eval('strform="baz" strform:foo->strform:foo')
 
         self.eq(len(data), 4)
 
@@ -119,10 +122,10 @@ class SwarmRunTest(SwarmRunBase):
     def test_swarm_runtime_opts_uniq(self):
         tenv = self.getSwarmEnv()
 
-        answ = tenv.runt.ask('%uniq foo:bar="baz" foo:bar="baz"')
+        answ = tenv.runt.ask('%uniq strform="baz" strform="baz"')
         self.eq(len(answ['data']), 1)
 
-        answ = tenv.runt.ask('%uniq=0 foo:bar="baz" foo:bar="baz"')
+        answ = tenv.runt.ask('%uniq=0 strform="baz" strform="baz"')
         self.eq(len(answ['data']), 2)
 
         tenv.fini()
@@ -130,12 +133,12 @@ class SwarmRunTest(SwarmRunBase):
     def test_swarm_runtime_join(self):
         tenv = self.getSwarmEnv()
 
-        answ = tenv.runt.ask('foo:bar="baz" join("foo:bar:vvv")')
+        answ = tenv.runt.ask('strform="baz" join("strform:foo")')
         data = answ.get('data')
 
         self.eq(len(data), 4)
 
-        answ = tenv.runt.ask('foo:bar="baz" join("zzz:woot:vvv","foo:bar:vvv")')
+        answ = tenv.runt.ask('strform="baz" join("intform:foo","strform:foo")')
         data = answ.get('data')
 
         self.eq(len(data), 2)
@@ -145,41 +148,41 @@ class SwarmRunTest(SwarmRunBase):
     def test_swarm_runtime_gele(self):
         env = self.getSwarmEnv()
 
-        answ = env.runt.ask('zzz:woot>=11')
+        answ = env.runt.ask('intform>=11')
 
         data = answ.get('data')
         self.eq(len(data), 1)
-        self.eq(data[0][1].get('zzz:woot'), 12)
+        self.eq(data[0][1].get('intform'), 12)
 
-        answ = env.runt.ask('zzz:woot>10')
+        answ = env.runt.ask('intform>10')
 
         data = answ.get('data')
         self.eq(len(data), 1)
-        self.eq(data[0][1].get('zzz:woot'), 12)
+        self.eq(data[0][1].get('intform'), 12)
 
-        answ = env.runt.ask('zzz:woot>=10')
+        answ = env.runt.ask('intform>=10')
 
         data = answ.get('data')
         self.eq(len(data), 2)
 
-        answ = env.runt.ask('zzz:woot<=11')
+        answ = env.runt.ask('intform<=11')
 
         data = answ.get('data')
         self.eq(len(data), 1)
-        self.eq(data[0][1].get('zzz:woot'), 10)
+        self.eq(data[0][1].get('intform'), 10)
 
-        answ = env.runt.ask('zzz:woot<12')
+        answ = env.runt.ask('intform<12')
 
         data = answ.get('data')
         self.eq(len(data), 1)
-        self.eq(data[0][1].get('zzz:woot'), 10)
+        self.eq(data[0][1].get('intform'), 10)
 
-        answ = env.runt.ask('zzz:woot<=13')
+        answ = env.runt.ask('intform<=13')
 
         data = answ.get('data')
         self.eq(len(data), 2)
 
-        answ = env.runt.ask('zzz:woot -zzz:woot<=11')
+        answ = env.runt.ask('intform -intform<=11')
 
         data = answ.get('data')
         self.eq(len(data), 1)
@@ -188,18 +191,18 @@ class SwarmRunTest(SwarmRunBase):
 
     def test_swarm_runtime_regex(self):
         env = self.getSwarmEnv()
-        answ = env.runt.ask('foo:bar +foo:bar~="^l"')
+        answ = env.runt.ask('strform +strform~="^l"')
 
         data = answ.get('data')
-        self.eq(data[0][1].get('foo:bar'), 'lol')
+        self.eq(data[0][1].get('strform'), 'lol')
 
-        answ = env.runt.ask('foo:bar +foo:bar~="^Q"')
+        answ = env.runt.ask('strform +strform~="^Q"')
         self.eq(len(answ.get('data')), 0)
 
-        answ = env.runt.ask('foo:bar +foo:bar~="^Q"')
+        answ = env.runt.ask('strform +strform~="^Q"')
         self.eq(len(answ.get('data')), 0)
 
-        answ = env.runt.ask('foo:bar -foo:bar~="^[a-z]{3}$"')
+        answ = env.runt.ask('strform -strform~="^[a-z]{3}$"')
         self.eq(len(answ.get('data')), 0)
 
         env.fini()
@@ -207,11 +210,11 @@ class SwarmRunTest(SwarmRunBase):
     def test_swarm_runtime_or(self):
 
         env = self.getSwarmEnv()
-        answ = env.runt.ask('foo:bar +foo:bar="baz"|foo:bar="faz"')
+        answ = env.runt.ask('strform +strform="baz"|strform="faz"')
 
         tufos = answ.get('data')
 
-        foobars = sorted([t[1].get('foo:bar') for t in tufos])
+        foobars = sorted([t[1].get('strform') for t in tufos])
 
         self.eq(foobars, ['baz', 'faz'])
 
@@ -221,18 +224,18 @@ class SwarmRunTest(SwarmRunBase):
 
         with self.getSwarmEnv() as env:
 
-            answ = env.runt.ask('foo:bar -foo:bar="baz" & foo:bar:vvv="newp" ')
+            answ = env.runt.ask('strform -strform="baz" & strform:foo="newp" ')
 
             tufos = answ.get('data')
 
-            foobars = sorted([t[1].get('foo:bar') for t in tufos])
+            foobars = sorted([t[1].get('strform') for t in tufos])
 
             self.eq(foobars, ['baz', 'faz', 'hai', 'lol'])
 
     def test_swarm_runtime_clear(self):
 
         env = self.getSwarmEnv()
-        answ = env.runt.ask('foo:bar clear()')
+        answ = env.runt.ask('strform clear()')
 
         tufos = answ.get('data')
         self.eq(len(tufos), 0)
@@ -242,12 +245,12 @@ class SwarmRunTest(SwarmRunBase):
     def test_swarm_runtime_saveload(self):
 
         env = self.getSwarmEnv()
-        answ = env.runt.ask('foo:bar="baz" save("woot") clear() load("woot")')
+        answ = env.runt.ask('strform="baz" save("woot") clear() load("woot")')
 
         tufos = answ.get('data')
 
         self.eq(len(tufos), 1)
-        self.eq(tufos[0][1].get('foo:bar'), 'baz')
+        self.eq(tufos[0][1].get('strform'), 'baz')
 
         env.fini()
 
@@ -256,44 +259,44 @@ class SwarmRunTest(SwarmRunBase):
         env = self.getSwarmEnv()
 
         # use the lift code for has()
-        answ = env.runt.ask('foo:bar')
+        answ = env.runt.ask('strform')
 
         tufos = answ.get('data')
 
         self.eq(len(tufos), 4)
-        self.eq(tufos[0][1].get('tufo:form'), 'foo:bar')
+        self.eq(tufos[0][1].get('tufo:form'), 'strform')
 
         # use the filter code for has()
-        answ = env.runt.ask('tufo:form +foo:bar')
+        answ = env.runt.ask('tufo:form +strform')
 
         tufos = answ.get('data')
 
         self.eq(len(tufos), 4)
-        self.eq(tufos[0][1].get('tufo:form'), 'foo:bar')
+        self.eq(tufos[0][1].get('tufo:form'), 'strform')
 
         env.fini()
 
     def test_swarm_runtime_maxtime(self):
 
         env = self.getSwarmEnv()
-        self.raises(HitStormLimit, env.runt.eval, 'foo:bar', timeout=0)
+        self.raises(HitStormLimit, env.runt.eval, 'strform', timeout=0)
         env.fini()
 
     def test_swarm_runtime_by(self):
 
         env = self.getSwarmEnv()
 
-        answ = env.runt.ask('zzz:woot*range=(10,13)')
+        answ = env.runt.ask('intform*range=(10,13)')
         tufos = answ.get('data')
 
         self.eq(len(tufos), 2)
 
-        answ = env.runt.ask('zzz:woot*range=(10,12)')
+        answ = env.runt.ask('intform*range=(10,12)')
         tufos = answ.get('data')
 
         self.eq(len(tufos), 1)
 
-        answ = env.runt.ask('zzz:woot^1*range=(10,13)')
+        answ = env.runt.ask('intform^1*range=(10,13)')
         tufos = answ.get('data')
 
         self.eq(len(tufos), 2)

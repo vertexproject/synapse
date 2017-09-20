@@ -117,13 +117,15 @@ class DataModel(s_types.TypeLib):
 
         s_types.TypeLib.__init__(self, load=load)
 
-        self.addTufoForm('syn:core')
+        self.addTufoForm('syn:core', ptype='str')
 
         self.addTufoForm('syn:form', ptype='syn:prop')
         self.addTufoProp('syn:form', 'doc', ptype='str', doc='basic form definition')
         self.addTufoProp('syn:form', 'ver', ptype='int', doc='form version within the model')
         self.addTufoProp('syn:form', 'model', ptype='str', doc='which model defines a given form')
         self.addTufoProp('syn:form', 'ptype', ptype='syn:type', req=1, doc='Synapse type for this form')
+        self.addTufoProp('syn:form', 'local', ptype='bool', defval=0,
+                         doc='Flag used to determine if a form should not be included in splices.')
 
         self.addTufoForm('syn:prop', ptype='syn:prop')
         # TODO - Re-enable syn:prop:doc req = 1 after cleaning up property docstrings.

@@ -59,7 +59,7 @@ class DataModelTest(SynTest):
     def test_datamodel_cortex(self):
         core = s_cortex.openurl('ram:///')
 
-        core.addTufoForm('foo')
+        core.addTufoForm('foo', ptype='str')
         core.addTufoProp('foo', 'bar', ptype='int', defval=10)
 
         core.formTufoByProp('foo', 'hehe')

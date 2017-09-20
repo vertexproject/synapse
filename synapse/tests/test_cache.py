@@ -49,26 +49,26 @@ class CacheTest(SynTest):
         self.true('woot' in c)
 
     def test_cache_tufo(self):
-        core = s_cortex.openurl('ram:///')
-        cache = s_cache.TufoCache(core)
+        with self.getRamCore() as core:
+            cache = s_cache.TufoCache(core)
 
-        tufo = core.formTufoByProp('woot', 'haha', lolol=10)
+            tufo = core.formTufoByProp('strform', 'haha', baz=10)
 
-        newfo = cache.get(tufo[0])
+            newfo = cache.get(tufo[0])
 
-        self.nn(newfo)
-        self.eq(newfo[1].get('woot:lolol'), 10)
+            self.nn(newfo)
+            self.eq(newfo[1].get('strform:baz'), 10)
 
     def test_cache_tufo_prop(self):
-        core = s_cortex.openurl('ram:///')
-        cache = s_cache.TufoPropCache(core, 'woot')
+        with self.getRamCore() as core:
+            cache = s_cache.TufoPropCache(core, 'strform')
 
-        tufo = core.formTufoByProp('woot', 'haha', lolol=10)
+            tufo = core.formTufoByProp('strform', 'haha', baz=10)
 
-        newfo = cache.get('haha')
+            newfo = cache.get('haha')
 
-        self.nn(newfo)
-        self.eq(newfo[1].get('woot:lolol'), 10)
+            self.nn(newfo)
+            self.eq(newfo[1].get('strform:baz'), 10)
 
     def test_ondem_add(self):
 

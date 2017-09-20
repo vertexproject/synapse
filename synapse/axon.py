@@ -18,8 +18,6 @@ import synapse.lib.service as s_service
 import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
 
-import synapse.models.axon as s_models_axon
-
 # for backward compat (HashSet moved from this module to synapse.lib.hashset )
 from synapse.lib.hashset import *
 
@@ -840,7 +838,8 @@ class Axon(s_eventbus.EventBus, AxonMixin):
             dirn = self._getDirNode(ppath)
 
         attr = Axon._fs_new_file_attrs(ppath, mode)
-        filefo = self.core.formTufoByProp('axon:path', path, **attr)
+        with self.flock:
+            filefo = self.core.formTufoByProp('axon:path', path, **attr)
 
         if filefo[1].get('.new') and dirn is not None:
             self.core.incTufoProp(dirn, 'st_nlink', 1)
@@ -898,7 +897,8 @@ class Axon(s_eventbus.EventBus, AxonMixin):
             dirn = self._getDirNode(ppath)
 
         attr = Axon._fs_new_dir_attrs(ppath, mode)
-        tufo = self.core.formTufoByProp('axon:path', path, **attr)
+        with self.flock:
+            tufo = self.core.formTufoByProp('axon:path', path, **attr)
         if tufo and not tufo[1].get('.new'):
             raise s_common.FileExists()
 
@@ -1022,22 +1022,26 @@ class Axon(s_eventbus.EventBus, AxonMixin):
             if not (pdstfo and Axon._fs_isdir(pdstfo[1].get('axon:path:st_mode'))):
                 raise s_common.NoSuchDir()
 
-            dstfo = self.core.formTufoByProp('axon:path', dst)
+            # prepare to set dst props to what src props were
+            dstprops = Axon._get_renameprops(srcfo)
+            dstprops.update({'dir': dstppath})
+
+            # create or update the dstfo node
+            dstfo = self.core.formTufoByProp('axon:path', dst, **dstprops)
             dst_isdir = Axon._fs_isdir(dstfo[1].get('axon:path:st_mode'))
             dst_isemptydir = dstfo[1].get('axon:path:st_nlink', -1) == 2
-            if dst_isdir and not dst_isemptydir:
+            dstfo_isnew = dstfo[1].get('.new')
+            if dst_isdir and not dst_isemptydir and not dstfo_isnew:
                 raise s_common.NotEmpty()
 
             # all pre-checks complete
 
-            # if a new file was created, increment its parents link count
-            if dstfo[1].get('.new'):
+            if dstfo_isnew:
+                # if a new file was created, increment its parents link count ??
                 self.core.incTufoProp(pdstfo, 'st_nlink', 1)
-
-            # set dst props to what src props were
-            dstprops = Axon._get_renameprops(srcfo)
-            dstprops.update({'dir': dstppath})
-            self.core.setTufoProps(dstfo, **dstprops)
+            else:
+                # Now update dstfo props
+                self.core.setTufoProps(dstfo, **dstprops)
 
             # if overwriting a regular file with a dir, remove its st_size
             if src_isdir:
@@ -1136,6 +1140,7 @@ class Axon(s_eventbus.EventBus, AxonMixin):
 
         attr = Axon._fs_new_dir_attrs(None, 0x1FD)
         del attr['dir']
+        attr['base'] = ''
         self.core.formTufoByProp('axon:path', '/', **attr)
 
     @staticmethod

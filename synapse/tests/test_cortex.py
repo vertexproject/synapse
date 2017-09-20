@@ -159,6 +159,7 @@ class CortexBaseTest(SynTest):
             storetype (str): String to check the getStoreType api against.
         '''
         self.eq(core.getStoreType(), storetype)
+        self.addTstForms(core)
         self.runcore(core)
         self.runjson(core)
         self.runrange(core)
@@ -171,7 +172,7 @@ class CortexBaseTest(SynTest):
         self.runstore(core)
 
     def rundsets(self, core):
-        tufo = core.formTufoByProp('lol:zonk', 1)
+        tufo = core.formTufoByProp('intform', 1)
         core.addTufoDset(tufo, 'violet')
 
         self.eq(len(core.eval('dset(violet)')), 1)
@@ -185,7 +186,7 @@ class CortexBaseTest(SynTest):
 
     def rundarks(self, core):
 
-        tufo = core.formTufoByProp('lol:zonk', 1)
+        tufo = core.formTufoByProp('intform', 1)
         core.addTufoDark(tufo, 'hidden', 'color')
         # Duplicate call for code coverage.
         core.addTufoDark(tufo, 'hidden', 'color')
@@ -210,20 +211,20 @@ class CortexBaseTest(SynTest):
 
         with core.getCoreXact():
             for i in range(1500):
-                tufo = core.formTufoByProp('lol:foo', i)
+                tufo = core.formTufoByProp('intform', i)
                 core.addTufoDset(tufo, 'zzzz')
                 core.addTufoDark(tufo, 'animal', 'duck')
 
         #############################################
 
-        answ = core.snapTufosByProp('lol:foo', valu=100)
+        answ = core.snapTufosByProp('intform', valu=100)
 
         self.eq(answ.get('count'), 1)
-        self.eq(answ.get('tufos')[0][1].get('lol:foo'), 100)
+        self.eq(answ.get('tufos')[0][1].get('intform'), 100)
 
         #############################################
 
-        answ = core.snapTufosByProp('lol:foo')
+        answ = core.snapTufosByProp('intform')
         snap = answ.get('snap')
 
         core.finiSnap(snap)
@@ -231,7 +232,7 @@ class CortexBaseTest(SynTest):
 
         #############################################
 
-        answ = core.snapTufosByProp('lol:foo')
+        answ = core.snapTufosByProp('intform')
 
         res = []
 
@@ -307,6 +308,11 @@ class CortexBaseTest(SynTest):
         self.eq(answ.get('count'), 0)
         self.eq(len(tufs), 0)
         self.none(core.getSnapNext(snap))
+
+        # Cleanup dark properties added during this test
+        for i in range(1500):
+            tufo = core.getTufoByProp('intform', i)
+            core.delTufoDark(tufo, 'animal', 'duck')
 
     def runidens(self, core):
         t0 = core.formTufoByProp('inet:ipv4', 0)
@@ -436,43 +442,45 @@ class CortexBaseTest(SynTest):
 
         def formfqdn(event):
             fqdn = event[1].get('valu')
-            event[1]['props']['sfx'] = fqdn.split('.')[-1]
-            event[1]['props']['fqdn:inctest'] = 0
+            event[1]['props']['inet:fqdn:sfx'] = fqdn.split('.')[-1]
+            event[1]['props']['inet:fqdn:inctest'] = 0
 
         core.on('node:form', formtufo)
-        core.on('node:form', formfqdn, form='fqdn')
+        core.on('node:form', formfqdn, form='inet:fqdn')
 
-        tufo = core.formTufoByProp('fqdn', 'woot.com')
+        tufo = core.formTufoByProp('inet:fqdn', 'woot.com')
 
-        self.eq(tufo[1].get('sfx'), 'com')
+        self.eq(tufo[1].get('inet:fqdn:sfx'), 'com')
         self.eq(tufo[1].get('woot'), 'woot')
 
-        self.eq(tufo[1].get('fqdn:inctest'), 0)
+        self.eq(tufo[1].get('inet:fqdn:inctest'), 0)
 
         tufo = core.incTufoProp(tufo, 'inctest')
 
-        self.eq(tufo[1].get('fqdn:inctest'), 1)
+        self.eq(tufo[1].get('inet:fqdn:inctest'), 1)
 
         tufo = core.incTufoProp(tufo, 'inctest', incval=-1)
 
-        self.eq(tufo[1].get('fqdn:inctest'), 0)
+        self.eq(tufo[1].get('inet:fqdn:inctest'), 0)
 
         bigstr = binascii.hexlify(os.urandom(80000)).decode('utf8')
-        tufo = core.formTufoByProp('zoot:suit', 'foo', bar=bigstr)
+        tufo = core.formTufoByProp('strform', 'foo', bar=bigstr)
 
-        self.eq(tufo[1].get('zoot:suit:bar'), bigstr)
-        self.eq(len(core.getTufosByProp('zoot:suit:bar', valu=bigstr)), 1)
+        self.eq(tufo[1].get('strform'), 'foo')
+        self.eq(tufo[1].get('strform:bar'), bigstr)
 
-        tufo = core.formTufoByProp('hehe', 'haha', foo='bar', baz='faz')
-        self.eq(tufo[1].get('hehe'), 'haha')
-        self.eq(tufo[1].get('hehe:foo'), 'bar')
-        self.eq(tufo[1].get('hehe:baz'), 'faz')
+        self.eq(len(core.getTufosByProp('strform:bar', valu=bigstr)), 1)
+
+        tufo = core.formTufoByProp('strform', 'haha', foo='bar', bar='faz')
+        self.eq(tufo[1].get('strform'), 'haha')
+        self.eq(tufo[1].get('strform:foo'), 'bar')
+        self.eq(tufo[1].get('strform:bar'), 'faz')
 
         tufo = core.delTufoProp(tufo, 'foo')
-        self.none(tufo[1].get('hehe:foo'))
+        self.none(tufo[1].get('strform:foo'))
 
-        self.eq(len(core.eval('hehe:foo')), 0)
-        self.eq(len(core.eval('hehe:baz')), 1)
+        self.eq(len(core.eval('strform:foo')), 0)
+        self.eq(len(core.eval('strform:bar')), 2)
 
         # Disable on() events registered in the test.
         core.off('node:form', formtufo)
@@ -732,10 +740,8 @@ class CortexBaseTest(SynTest):
         self.eq(len(core.getTufosBy('ge', 'inet:ipv4', '10.2.3.5')), 5)
 
         # By RANGE
-        # t0/t1 came in from the old test_cortex_ramtyperange test
-        t0 = core.formTufoByProp('foo:bar', 10)
-        t1 = core.formTufoByProp('foo:bar', 'baz')
-        tufs = core.getTufosBy('range', 'foo:bar', (5, 15))
+        t0 = core.formTufoByProp('intform', 10)
+        tufs = core.getTufosBy('range', 'intform', (5, 15))
         self.eq(len(tufs), 1)
         self.eq(tufs[0][0], t0[0])
         # Do a range lift requiring prop normalization (using a built-in data type) to work
@@ -747,7 +753,7 @@ class CortexBaseTest(SynTest):
         self.eq(len(tufs), 1)
         self.eq(t2[0], tufs[0][0])
         # RANGE test cleanup
-        for tufo in [t0, t1, t2]:
+        for tufo in [t0, t2]:
             if tufo[1].get('.new'):
                 core.delTufo(tufo)
 
@@ -910,33 +916,33 @@ class CortexTest(SynTest):
         self.eq(t2, ('foo', 'foo.bar', 'foo.bar.baz'))
 
     def test_cortex_tufo_tag(self):
-        core = s_cortex.openurl('ram://')
-        foob = core.formTufoByProp('foo', 'bar', baz='faz')
-        core.addTufoTag(foob, 'zip.zap')
+        with self.getRamCore() as core:
+            foob = core.formTufoByProp('strform', 'bar', foo='faz')
+            core.addTufoTag(foob, 'zip.zap')
 
-        self.nn(foob[1].get('#zip'))
-        self.nn(foob[1].get('#zip.zap'))
+            self.nn(foob[1].get('#zip'))
+            self.nn(foob[1].get('#zip.zap'))
 
-        self.eq(len(core.getTufosByTag('zip', form='foo')), 1)
-        self.eq(len(core.getTufosByTag('zip.zap', form='foo')), 1)
+            self.eq(len(core.getTufosByTag('zip', form='strform')), 1)
+            self.eq(len(core.getTufosByTag('zip.zap', form='strform')), 1)
 
-        core.delTufoTag(foob, 'zip')
+            core.delTufoTag(foob, 'zip')
 
-        self.none(foob[1].get('#zip'))
-        self.none(foob[1].get('#zip.zap'))
+            self.none(foob[1].get('#zip'))
+            self.none(foob[1].get('#zip.zap'))
 
-        self.eq(len(core.getTufosByTag('zip', form='foo')), 0)
-        self.eq(len(core.getTufosByTag('zip.zap', form='foo')), 0)
+            self.eq(len(core.getTufosByTag('zip', form='strform')), 0)
+            self.eq(len(core.getTufosByTag('zip.zap', form='strform')), 0)
 
     def test_cortex_tufo_setprops(self):
-        core = s_cortex.openurl('ram://')
-        foob = core.formTufoByProp('foo', 'bar', baz='faz')
-        self.eq(foob[1].get('foo:baz'), 'faz')
-        core.setTufoProps(foob, baz='zap')
-        core.setTufoProps(foob, faz='zap')
+        with self.getRamCore() as core:
+            foob = core.formTufoByProp('strform', 'bar', foo='faz')
+            self.eq(foob[1].get('strform:foo'), 'faz')
+            core.setTufoProps(foob, foo='zap')
+            core.setTufoProps(foob, bar='zap')
 
-        self.eq(len(core.getTufosByProp('foo:baz', valu='zap')), 1)
-        self.eq(len(core.getTufosByProp('foo:faz', valu='zap')), 1)
+            self.eq(len(core.getTufosByProp('strform:foo', valu='zap')), 1)
+            self.eq(len(core.getTufosByProp('strform:bar', valu='zap')), 1)
 
         # Try using setprops with an built-in model which type subprops
         t0 = core.formTufoByProp('inet:netuser', 'vertex.link/pennywise')
@@ -948,66 +954,65 @@ class CortexTest(SynTest):
         self.nn(t1)
 
     def test_cortex_tufo_pop(self):
-        with s_cortex.openurl('ram://') as core:
-            foo0 = core.formTufoByProp('foo', 'bar', woot='faz')
-            foo1 = core.formTufoByProp('foo', 'baz', woot='faz')
+        with self.getRamCore() as core:
+            foo0 = core.formTufoByProp('strform', 'bar', foo='faz')
+            foo1 = core.formTufoByProp('strform', 'baz', foo='faz')
 
-            self.eq(2, len(core.popTufosByProp('foo:woot', valu='faz')))
-            self.eq(0, len(core.getTufosByProp('foo')))
+            self.eq(2, len(core.popTufosByProp('strform:foo', valu='faz')))
+            self.eq(0, len(core.getTufosByProp('strform')))
 
     def test_cortex_tufo_setprop(self):
-        core = s_cortex.openurl('ram://')
-        foob = core.formTufoByProp('foo', 'bar', baz='faz')
-        self.eq(foob[1].get('foo:baz'), 'faz')
+        with self.getRamCore() as core:
+            foob = core.formTufoByProp('strform', 'bar', foo='faz')
+            self.eq(foob[1].get('strform:foo'), 'faz')
 
-        core.setTufoProp(foob, 'baz', 'zap')
+            core.setTufoProp(foob, 'foo', 'zap')
 
-        self.eq(len(core.getTufosByProp('foo:baz', valu='zap')), 1)
+            self.eq(len(core.getTufosByProp('strform:foo', valu='zap')), 1)
 
     def test_cortex_tufo_list(self):
 
-        core = s_cortex.openurl('ram://')
-        foob = core.formTufoByProp('foo', 'bar', baz='faz')
+        with self.getRamCore() as core:
+            foob = core.formTufoByProp('strform', 'bar', foo='faz')
 
-        core.addTufoList(foob, 'hehe', 1, 2, 3)
+            core.addTufoList(foob, 'hehe', 1, 2, 3)
 
-        self.nn(foob[1].get('tufo:list:hehe'))
+            self.nn(foob[1].get('tufo:list:hehe'))
 
-        vals = sorted(core.getTufoList(foob, 'hehe'))
+            vals = core.getTufoList(foob, 'hehe')
+            vals.sort()
 
-        self.eq(tuple(vals), (1, 2, 3))
+            self.eq(tuple(vals), (1, 2, 3))
 
-        core.delTufoListValu(foob, 'hehe', 2)
+            core.delTufoListValu(foob, 'hehe', 2)
 
-        vals = core.getTufoList(foob, 'hehe')
-        vals.sort()
+            vals = core.getTufoList(foob, 'hehe')
+            vals.sort()
 
-        self.eq(tuple(vals), (1, 3))
-
-        core.fini()
+            self.eq(tuple(vals), (1, 3))
 
     def test_cortex_tufo_del(self):
 
-        core = s_cortex.openurl('ram://')
-        foob = core.formTufoByProp('foo', 'bar', baz='faz')
+        with self.getRamCore() as core:
+            foob = core.formTufoByProp('strform', 'bar', foo='faz')
 
-        self.nn(core.getTufoByProp('foo', valu='bar'))
-        self.nn(core.getTufoByProp('foo:baz', valu='faz'))
+            self.nn(core.getTufoByProp('strform', valu='bar'))
+            self.nn(core.getTufoByProp('strform:foo', valu='faz'))
 
-        core.addTufoList(foob, 'blahs', 'blah1')
-        core.addTufoList(foob, 'blahs', 'blah2')
+            core.addTufoList(foob, 'blahs', 'blah1')
+            core.addTufoList(foob, 'blahs', 'blah2')
 
-        blahs = core.getTufoList(foob, 'blahs')
+            blahs = core.getTufoList(foob, 'blahs')
 
-        self.eq(len(blahs), 2)
+            self.eq(len(blahs), 2)
 
-        core.delTufoByProp('foo', 'bar')
+            core.delTufoByProp('strform', 'bar')
 
-        self.none(core.getTufoByProp('foo', valu='bar'))
-        self.none(core.getTufoByProp('foo:baz', valu='faz'))
+            self.none(core.getTufoByProp('strform', valu='bar'))
+            self.none(core.getTufoByProp('strform:foo', valu='faz'))
 
-        blahs = core.getTufoList(foob, 'blahs')
-        self.eq(len(blahs), 0)
+            blahs = core.getTufoList(foob, 'blahs')
+            self.eq(len(blahs), 0)
 
     def test_cortex_ramhost(self):
         core0 = s_cortex.openurl('ram:///foobar')
@@ -1043,18 +1048,19 @@ class CortexTest(SynTest):
     def test_cortex_savefd(self):
         fd = s_compat.BytesIO()
         core0 = s_cortex.openurl('ram://', savefd=fd)
+        self.addTstForms(core0)
 
         self.true(core0.isnew)
         myfo0 = core0.myfo[0]
 
         created = core0.getBlobValu('syn:core:created')
 
-        t0 = core0.formTufoByProp('foo', 'one', baz='faz')
-        t1 = core0.formTufoByProp('foo', 'two', baz='faz')
+        t0 = core0.formTufoByProp('strform', 'one', foo='faz')
+        t1 = core0.formTufoByProp('strform', 'two', foo='faz')
 
-        core0.setTufoProps(t0, baz='gronk')
+        core0.setTufoProps(t0, foo='gronk')
 
-        core0.delTufoByProp('foo', 'two')
+        core0.delTufoByProp('strform', 'two')
         # Try persisting an blob store value
         core0.setBlobValu('syn:test', 1234)
         self.eq(core0.getBlobValu('syn:test'), 1234)
@@ -1068,12 +1074,12 @@ class CortexTest(SynTest):
         myfo1 = core1.myfo[0]
         self.eq(myfo0, myfo1)
 
-        self.none(core1.getTufoByProp('foo', 'two'))
+        self.none(core1.getTufoByProp('strform', 'two'))
 
-        t0 = core1.getTufoByProp('foo', 'one')
+        t0 = core1.getTufoByProp('strform', 'one')
         self.nn(t0)
 
-        self.eq(t0[1].get('foo:baz'), 'gronk')
+        self.eq(t0[1].get('strform:foo'), 'gronk')
 
         # Retrieve the stored blob value
         self.eq(core1.getBlobValu('syn:test'), 1234)
@@ -1092,12 +1098,12 @@ class CortexTest(SynTest):
         myfo2 = core2.myfo[0]
         self.eq(myfo0, myfo2)
 
-        self.none(core2.getTufoByProp('foo', 'two'))
+        self.none(core2.getTufoByProp('strform', 'two'))
 
-        t0 = core2.getTufoByProp('foo', 'one')
+        t0 = core2.getTufoByProp('strform', 'one')
         self.nn(t0)
 
-        self.eq(t0[1].get('foo:baz'), 'gronk')
+        self.eq(t0[1].get('strform:foo'), 'gronk')
 
         # blobstores persist across storage types with savefiles
         self.eq(core2.getBlobValu('syn:test'), 1234)
@@ -1145,31 +1151,28 @@ class CortexTest(SynTest):
 
     def test_cortex_fire_set(self):
 
-        core = s_cortex.openurl('ram://')
+        with self.getRamCore() as core:
 
-        tufo = core.formTufoByProp('foo', 'hehe', bar='lol')
+            tufo = core.formTufoByProp('strform', 'hehe', bar='lol')
 
-        msgs = wait = core.waiter(1, 'node:prop:set')
+            msgs = wait = core.waiter(1, 'node:prop:set')
 
-        core.setTufoProps(tufo, bar='hah')
+            core.setTufoProps(tufo, bar='hah')
 
-        evts = wait.wait(timeout=2)
+            evts = wait.wait(timeout=2)
 
-        self.eq(evts[0][0], 'node:prop:set')
-        self.eq(evts[0][1]['node'][0], tufo[0])
-        self.eq(evts[0][1]['form'], 'foo')
-        self.eq(evts[0][1]['valu'], 'hehe')
-        self.eq(evts[0][1]['prop'], 'foo:bar')
-        self.eq(evts[0][1]['newv'], 'hah')
-        self.eq(evts[0][1]['oldv'], 'lol')
-
-        core.fini()
+            self.eq(evts[0][0], 'node:prop:set')
+            self.eq(evts[0][1]['node'][0], tufo[0])
+            self.eq(evts[0][1]['form'], 'strform')
+            self.eq(evts[0][1]['valu'], 'hehe')
+            self.eq(evts[0][1]['prop'], 'strform:bar')
+            self.eq(evts[0][1]['newv'], 'hah')
+            self.eq(evts[0][1]['oldv'], 'lol')
 
     def test_cortex_tags(self):
         core = s_cortex.openurl('ram://')
 
-        core.addType('foo', subof='str')
-        core.addTufoForm('foo')
+        core.addTufoForm('foo', ptype='str')
 
         hehe = core.formTufoByProp('foo', 'hehe')
 
@@ -1248,51 +1251,55 @@ class CortexTest(SynTest):
         core.fini()
 
     def test_cortex_splices(self):
-        core0 = s_cortex.openurl('ram://')
-        core1 = s_cortex.openurl('ram://')
 
-        # Form a tufo before we start sending splices
-        tufo_before1 = core0.formTufoByProp('foo', 'before1')
-        tufo_before2 = core0.formTufoByProp('foo', 'before2')
-        core0.addTufoTag(tufo_before2, 'hoho')  # this will not be synced
-        core0.on('splice', core1.splice)
-        core0.delTufo(tufo_before1)
+        with self.getRamCore() as core0, self.getRamCore() as core1:
 
-        # Add node by forming it
-        tufo0 = core0.formTufoByProp('foo', 'bar', baz='faz')
-        tufo1 = core1.getTufoByProp('foo', 'bar')
-        self.eq(tufo1[1].get('foo'), 'bar')
-        self.eq(tufo1[1].get('foo:baz'), 'faz')
+            # Form a tufo before we start sending splices
+            tufo_before1 = core0.formTufoByProp('strform', 'before1')
+            tufo_before2 = core0.formTufoByProp('strform', 'before2')
+            core0.addTufoTag(tufo_before2, 'hoho')  # this will not be synced
 
-        # Add tag to existing node
-        tufo0 = core0.addTufoTag(tufo0, 'hehe')
-        tufo1 = core1.getTufoByProp('foo', 'bar')
-        self.true(s_tags.tufoHasTag(tufo1, 'hehe'))
+            # Start sending splices
+            core0.on('splice', core1.splice)
+            core0.delTufo(tufo_before1)
 
-        # Del tag from existing node
-        core0.delTufoTag(tufo0, 'hehe')
-        tufo1 = core1.getTufoByProp('foo', 'bar')
-        self.false(s_tags.tufoHasTag(tufo1, 'hehe'))
+            # Add node by forming it
+            tufo0 = core0.formTufoByProp('strform', 'bar', foo='faz')
+            tufo1 = core1.getTufoByProp('strform', 'bar')
 
-        # Set prop on existing node
-        core0.setTufoProp(tufo0, 'baz', 'lol')
-        tufo1 = core1.getTufoByProp('foo', 'bar')
-        self.eq(tufo1[1].get('foo:baz'), 'lol')
+            self.eq(tufo1[1].get('strform'), 'bar')
+            self.eq(tufo1[1].get('strform:foo'), 'faz')
 
-        # Del existing node
-        core0.delTufo(tufo0)
-        tufo1 = core1.getTufoByProp('foo', 'bar')
-        self.none(tufo1)
+            # Add tag to existing node
+            tufo0 = core0.addTufoTag(tufo0, 'hehe')
+            tufo1 = core1.getTufoByProp('strform', 'bar')
 
-        # Tag a node in first core, assert it was formed and tagged in second core
-        core0.addTufoTag(tufo_before2, 'hehe')
-        tufo1 = core1.getTufoByProp('foo', 'before2')
-        self.true(s_tags.tufoHasTag(tufo1, 'hehe'))
-        self.false(s_tags.tufoHasTag(tufo1, 'hoho'))
-        core0.delTufoTag(tufo_before2, 'hehe')
-        tufo1 = core1.getTufoByProp('foo', 'before2')
-        self.false(s_tags.tufoHasTag(tufo1, 'hehe'))
-        self.false(s_tags.tufoHasTag(tufo1, 'hoho'))
+            self.true(s_tags.tufoHasTag(tufo1, 'hehe'))
+
+            # Del tag from existing node
+            core0.delTufoTag(tufo0, 'hehe')
+            tufo1 = core1.getTufoByProp('strform', 'bar')
+            self.false(s_tags.tufoHasTag(tufo1, 'hehe'))
+
+            # Set prop on existing node
+            core0.setTufoProp(tufo0, 'foo', 'lol')
+            tufo1 = core1.getTufoByProp('strform', 'bar')
+            self.eq(tufo1[1].get('strform:foo'), 'lol')
+
+            # Del existing node
+            core0.delTufo(tufo0)
+            tufo1 = core1.getTufoByProp('strform', 'bar')
+            self.none(tufo1)
+
+            # Tag a node in first core, assert it was formed and tagged in second core
+            core0.addTufoTag(tufo_before2, 'hehe')
+            tufo1 = core1.getTufoByProp('strform', 'before2')
+            self.true(s_tags.tufoHasTag(tufo1, 'hehe'))
+            self.false(s_tags.tufoHasTag(tufo1, 'hoho'))
+            core0.delTufoTag(tufo_before2, 'hehe')
+            tufo1 = core1.getTufoByProp('strform', 'before2')
+            self.false(s_tags.tufoHasTag(tufo1, 'hehe'))
+            self.false(s_tags.tufoHasTag(tufo1, 'hoho'))
 
     def test_cortex_dict(self):
         core = s_cortex.openurl('ram://')
@@ -1333,6 +1340,8 @@ class CortexTest(SynTest):
     def test_cortex_enforce(self):
 
         with s_cortex.openurl('ram://') as core:
+            # Disable enforce for first set of tests
+            core.setConfOpt('enforce', False)
 
             core.addTufoForm('foo:bar', ptype='inet:email')
 
@@ -1349,6 +1358,7 @@ class CortexTest(SynTest):
             self.true(core.isSetPropOk('foo:baz:haha'))
             self.true(core.isSetPropOk('foo:baz:duck'))
 
+            # Now re-enable enforce
             core.setConfOpt('enforce', True)
 
             self.true(core.enforce)
@@ -1465,13 +1475,13 @@ class CortexTest(SynTest):
 
     def test_cortex_caching(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
 
-            tufo0 = core.formTufoByProp('foo', 'bar', asdf=2)
-            tufo1 = core.formTufoByProp('foo', 'baz', asdf=2)
+            tufo0 = core.formTufoByProp('strform', 'bar', baz=2)
+            tufo1 = core.formTufoByProp('strform', 'baz', baz=2)
 
-            answ0 = core.getTufosByProp('foo')
-            answ1 = core.getTufosByProp('foo', valu='bar')
+            answ0 = core.getTufosByProp('strform')
+            answ1 = core.getTufosByProp('strform', valu='bar')
 
             self.eq(len(answ0), 2)
             self.eq(len(answ1), 1)
@@ -1485,7 +1495,7 @@ class CortexTest(SynTest):
 
             self.eq(core.caching, 1)
 
-            answ0 = core.getTufosByProp('foo')
+            answ0 = core.getTufosByProp('strform')
 
             self.eq(len(answ0), 2)
             self.eq(len(core.cache_fifo), 1)
@@ -1493,28 +1503,28 @@ class CortexTest(SynTest):
             self.eq(len(core.cache_byiden), 2)
             self.eq(len(core.cache_byprop), 1)
 
-            tufo0 = core.formTufoByProp('foo', 'bar')
+            tufo0 = core.formTufoByProp('strform', 'bar')
             tufo0 = core.addTufoTag(tufo0, 'hehe')
 
-            self.eq(len(core.getTufosByTag('hehe', form='foo')), 1)
+            self.eq(len(core.getTufosByTag('hehe', form='strform')), 1)
             core.delTufoTag(tufo0, 'hehe')
 
-            tufo0 = core.getTufoByProp('foo', 'bar')
+            tufo0 = core.getTufoByProp('strform', 'bar')
             self.noprop(tufo0[1], '#hehe')
 
     def test_cortex_caching_set(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
 
-            tufo0 = core.formTufoByProp('foo', 'bar', qwer=10)
-            tufo1 = core.formTufoByProp('foo', 'baz', qwer=10)
+            tufo0 = core.formTufoByProp('strform', 'bar', baz=10)
+            tufo1 = core.formTufoByProp('strform', 'baz', baz=10)
 
             core.setConfOpt('caching', 1)
 
-            tufs0 = core.getTufosByProp('foo:qwer')
-            tufs1 = core.getTufosByProp('foo:qwer', valu=10)
-            tufs2 = core.getTufosByProp('foo:qwer', valu=11)
-            tufs3 = core.getTufosByProp('foo:qwer', valu=10, limit=2)
+            tufs0 = core.getTufosByProp('strform:baz')
+            tufs1 = core.getTufosByProp('strform:baz', valu=10)
+            tufs2 = core.getTufosByProp('strform:baz', valu=11)
+            tufs3 = core.getTufosByProp('strform:baz', valu=10, limit=2)
 
             self.eq(len(tufs0), 2)
             self.eq(len(tufs1), 2)
@@ -1523,24 +1533,24 @@ class CortexTest(SynTest):
 
             # inspect the details of the cache data structures when setTufoProps
             # causes an addition or removal...
-            self.nn(core.cache_bykey.get(('foo:qwer', 10, None)))
-            self.nn(core.cache_bykey.get(('foo:qwer', None, None)))
+            self.nn(core.cache_bykey.get(('strform:baz', 10, None)))
+            self.nn(core.cache_bykey.get(('strform:baz', None, None)))
 
             # we should have hit the unlimited query and not created a new cache hit...
-            self.none(core.cache_bykey.get(('foo:qwer', 10, 2)))
+            self.none(core.cache_bykey.get(('strform:baz', 10, 2)))
 
             self.nn(core.cache_byiden.get(tufo0[0]))
             self.nn(core.cache_byiden.get(tufo1[0]))
 
-            self.nn(core.cache_byprop.get(('foo:qwer', 10)))
-            self.nn(core.cache_byprop.get(('foo:qwer', None)))
+            self.nn(core.cache_byprop.get(('strform:baz', 10)))
+            self.nn(core.cache_byprop.get(('strform:baz', None)))
 
-            core.setTufoProp(tufo0, 'qwer', 11)
+            core.setTufoProp(tufo0, 'baz', 11)
 
             # the cached results should be updated
-            tufs0 = core.getTufosByProp('foo:qwer')
-            tufs1 = core.getTufosByProp('foo:qwer', valu=10)
-            tufs2 = core.getTufosByProp('foo:qwer', valu=11)
+            tufs0 = core.getTufosByProp('strform:baz')
+            tufs1 = core.getTufosByProp('strform:baz', valu=10)
+            tufs2 = core.getTufosByProp('strform:baz', valu=11)
 
             self.eq(len(tufs0), 2)
             self.eq(len(tufs1), 1)
@@ -1551,26 +1561,26 @@ class CortexTest(SynTest):
 
     def test_cortex_caching_add_tufo(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
 
-            tufo0 = core.formTufoByProp('foo', 'bar', qwer=10)
-            tufo1 = core.formTufoByProp('foo', 'baz', qwer=10)
+            tufo0 = core.formTufoByProp('strform', 'bar', baz=10)
+            tufo1 = core.formTufoByProp('strform', 'baz', baz=10)
 
             core.setConfOpt('caching', 1)
 
-            tufs0 = core.getTufosByProp('foo:qwer')
-            tufs1 = core.getTufosByProp('foo:qwer', valu=10)
-            tufs2 = core.getTufosByProp('foo:qwer', valu=11)
+            tufs0 = core.getTufosByProp('strform:baz')
+            tufs1 = core.getTufosByProp('strform:baz', valu=10)
+            tufs2 = core.getTufosByProp('strform:baz', valu=11)
 
             self.eq(len(tufs0), 2)
             self.eq(len(tufs1), 2)
             self.eq(len(tufs2), 0)
 
-            tufo2 = core.formTufoByProp('foo', 'lol', qwer=10)
+            tufo2 = core.formTufoByProp('strform', 'lol', baz=10)
 
-            tufs0 = core.getTufosByProp('foo:qwer')
-            tufs1 = core.getTufosByProp('foo:qwer', valu=10)
-            tufs2 = core.getTufosByProp('foo:qwer', valu=11)
+            tufs0 = core.getTufosByProp('strform:baz')
+            tufs1 = core.getTufosByProp('strform:baz', valu=10)
+            tufs2 = core.getTufosByProp('strform:baz', valu=11)
 
             self.eq(len(tufs0), 3)
             self.eq(len(tufs1), 3)
@@ -1578,16 +1588,16 @@ class CortexTest(SynTest):
 
     def test_cortex_caching_del_tufo(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
 
-            tufo0 = core.formTufoByProp('foo', 'bar', qwer=10)
-            tufo1 = core.formTufoByProp('foo', 'baz', qwer=10)
+            tufo0 = core.formTufoByProp('strform', 'bar', baz=10)
+            tufo1 = core.formTufoByProp('strform', 'baz', baz=10)
 
             core.setConfOpt('caching', 1)
 
-            tufs0 = core.getTufosByProp('foo:qwer')
-            tufs1 = core.getTufosByProp('foo:qwer', valu=10)
-            tufs2 = core.getTufosByProp('foo:qwer', valu=11)
+            tufs0 = core.getTufosByProp('strform:baz')
+            tufs1 = core.getTufosByProp('strform:baz', valu=10)
+            tufs2 = core.getTufosByProp('strform:baz', valu=11)
 
             # Ensure we have cached the tufos we're deleting.
             self.nn(core.cache_byiden.get(tufo0[0]))
@@ -1601,9 +1611,9 @@ class CortexTest(SynTest):
             # during lifts but the object itself is a different tuple id()
             core.delTufo(tufo0)
 
-            tufs0 = core.getTufosByProp('foo:qwer')
-            tufs1 = core.getTufosByProp('foo:qwer', valu=10)
-            tufs2 = core.getTufosByProp('foo:qwer', valu=11)
+            tufs0 = core.getTufosByProp('strform:baz')
+            tufs1 = core.getTufosByProp('strform:baz', valu=10)
+            tufs2 = core.getTufosByProp('strform:baz', valu=11)
 
             self.eq(len(tufs0), 1)
             self.eq(len(tufs1), 1)
@@ -1611,20 +1621,20 @@ class CortexTest(SynTest):
 
             # Delete an object which was actually cached during lift
             core.delTufo(tufs0[0])
-            tufs0 = core.getTufosByProp('foo:qwer')
+            tufs0 = core.getTufosByProp('strform:baz')
             self.eq(len(tufs0), 0)
 
     def test_cortex_caching_atlimit(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
 
-            tufo0 = core.formTufoByProp('foo', 'bar', qwer=10)
-            tufo1 = core.formTufoByProp('foo', 'baz', qwer=10)
+            tufo0 = core.formTufoByProp('strform', 'bar', baz=10)
+            tufo1 = core.formTufoByProp('strform', 'baz', baz=10)
 
             core.setConfOpt('caching', 1)
 
-            tufs0 = core.getTufosByProp('foo:qwer', limit=2)
-            tufs1 = core.getTufosByProp('foo:qwer', valu=10, limit=2)
+            tufs0 = core.getTufosByProp('strform:baz', limit=2)
+            tufs1 = core.getTufosByProp('strform:baz', valu=10, limit=2)
 
             self.eq(len(tufs0), 2)
             self.eq(len(tufs1), 2)
@@ -1634,41 +1644,43 @@ class CortexTest(SynTest):
 
             core.delTufo(tufo0)
 
-            self.none(core.cache_bykey.get(('foo:qwer', None, 2)))
-            self.none(core.cache_bykey.get(('foo:qwer', 10, 2)))
+            self.none(core.cache_bykey.get(('strform:baz', None, 2)))
+            self.none(core.cache_bykey.get(('strform:baz', 10, 2)))
 
         with s_cortex.openurl('ram://') as core:
 
-            tufo0 = core.formTufoByProp('foo', 'bar', qwer=10)
-            tufo1 = core.formTufoByProp('foo', 'baz', qwer=10)
+            self.addTstForms(core)
+
+            tufo0 = core.formTufoByProp('strform', 'bar', baz=10)
+            tufo1 = core.formTufoByProp('strform', 'baz', baz=10)
 
             core.setConfOpt('caching', 1)
 
-            tufs0 = core.getTufosByProp('foo:qwer', limit=2)
-            tufs1 = core.getTufosByProp('foo:qwer', valu=10, limit=2)
+            tufs0 = core.getTufosByProp('strform:baz', limit=2)
+            tufs1 = core.getTufosByProp('strform:baz', valu=10, limit=2)
 
             self.eq(len(tufs0), 2)
             self.eq(len(tufs1), 2)
 
-            tufo2 = core.formTufoByProp('foo', 'baz', qwer=10)
+            tufo2 = core.formTufoByProp('strform', 'baz', baz=10)
 
             # when an entry is added from a cache result that was at it's limit
             # it should *not* be invalidated
 
-            self.nn(core.cache_bykey.get(('foo:qwer', None, 2)))
-            self.nn(core.cache_bykey.get(('foo:qwer', 10, 2)))
+            self.nn(core.cache_bykey.get(('strform:baz', None, 2)))
+            self.nn(core.cache_bykey.get(('strform:baz', 10, 2)))
 
     def test_cortex_caching_under_limit(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
 
-            tufo0 = core.formTufoByProp('foo', 'bar', qwer=10)
-            tufo1 = core.formTufoByProp('foo', 'baz', qwer=10)
+            tufo0 = core.formTufoByProp('strform', 'bar', baz=10)
+            tufo1 = core.formTufoByProp('strform', 'baz', baz=10)
 
             core.setConfOpt('caching', 1)
 
-            tufs0 = core.getTufosByProp('foo:qwer', limit=9)
-            tufs1 = core.getTufosByProp('foo:qwer', valu=10, limit=9)
+            tufs0 = core.getTufosByProp('strform:baz', limit=9)
+            tufs1 = core.getTufosByProp('strform:baz', valu=10, limit=9)
 
             self.eq(len(tufs0), 2)
             self.eq(len(tufs1), 2)
@@ -1678,59 +1690,59 @@ class CortexTest(SynTest):
 
             core.delTufo(tufo0)
 
-            self.nn(core.cache_bykey.get(('foo:qwer', None, 9)))
-            self.nn(core.cache_bykey.get(('foo:qwer', 10, 9)))
+            self.nn(core.cache_bykey.get(('strform:baz', None, 9)))
+            self.nn(core.cache_bykey.get(('strform:baz', 10, 9)))
 
-            tufs0 = core.getTufosByProp('foo:qwer', limit=9)
-            tufs1 = core.getTufosByProp('foo:qwer', valu=10, limit=9)
+            tufs0 = core.getTufosByProp('strform:baz', limit=9)
+            tufs1 = core.getTufosByProp('strform:baz', valu=10, limit=9)
 
             self.eq(len(tufs0), 1)
             self.eq(len(tufs1), 1)
 
     def test_cortex_caching_oneref(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
 
-            tufo0 = core.formTufoByProp('foo', 'bar')
+            tufo0 = core.formTufoByProp('strform', 'bar')
 
             core.setConfOpt('caching', 1)
 
-            ref0 = core.getTufosByProp('foo', valu='bar')[0]
-            ref1 = core.getTufosByProp('foo', valu='bar')[0]
+            ref0 = core.getTufosByProp('strform', valu='bar')[0]
+            ref1 = core.getTufosByProp('strform', valu='bar')[0]
 
             self.eq(id(ref0), id(ref1))
 
     def test_cortex_caching_tags(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
 
-            tufo0 = core.formTufoByProp('foo', 'bar')
-            tufo1 = core.formTufoByProp('foo', 'baz')
+            tufo0 = core.formTufoByProp('strform', 'bar')
+            tufo1 = core.formTufoByProp('strform', 'baz')
 
             core.addTufoTag(tufo0, 'hehe')
 
             core.setConfOpt('caching', 1)
 
-            tufs0 = core.getTufosByTag('hehe', form='foo')
+            tufs0 = core.getTufosByTag('hehe', form='strform')
 
             core.addTufoTag(tufo1, 'hehe')
 
-            tufs1 = core.getTufosByTag('hehe', form='foo')
+            tufs1 = core.getTufosByTag('hehe', form='strform')
             self.eq(len(tufs1), 2)
 
             core.delTufoTag(tufo0, 'hehe')
 
-            tufs2 = core.getTufosByTag('hehe', form='foo')
+            tufs2 = core.getTufosByTag('hehe', form='strform')
             self.eq(len(tufs2), 1)
 
     def test_cortex_caching_new(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
 
             core.setConfOpt('caching', 1)
 
-            tufo0 = core.formTufoByProp('foo', 'bar')
-            tufo1 = core.formTufoByProp('foo', 'bar')
+            tufo0 = core.formTufoByProp('strform', 'bar')
+            tufo1 = core.formTufoByProp('strform', 'bar')
 
             self.true(tufo0[1].get('.new'))
             self.false(tufo1[1].get('.new'))
@@ -1739,32 +1751,38 @@ class CortexTest(SynTest):
 
         with s_cortex.openurl('ram://') as core:
 
+            self.addTstForms(core)
+
             core.setConfOpt('caching', 1)
 
-            tufo = core.formTufoByProp('foo', 'bar')
+            tufo = core.formTufoByProp('strform', 'bar')
 
             self.nn(core.cache_byiden.get(tufo[0]))
-            self.nn(core.cache_bykey.get(('foo', 'bar', 1)))
-            self.nn(core.cache_byprop.get(('foo', 'bar')))
+            self.nn(core.cache_bykey.get(('strform', 'bar', 1)))
+            self.nn(core.cache_byprop.get(('strform', 'bar')))
             self.eq(len(core.cache_fifo), 1)
 
             core.setConfOpt('caching', 0)
 
             self.none(core.cache_byiden.get(tufo[0]))
-            self.none(core.cache_bykey.get(('foo', 'bar', 1)))
-            self.none(core.cache_byprop.get(('foo', 'bar')))
+            self.none(core.cache_bykey.get(('strform', 'bar', 1)))
+            self.none(core.cache_byprop.get(('strform', 'bar')))
             self.eq(len(core.cache_fifo), 0)
 
     def test_cortex_reqstor(self):
+        # Ensure that the cortex won't let us store data that is invalid
+        # This requires us to disable enforcement, since otherwise all
+        # data is normed and that fails with BadTypeValu instead
         with s_cortex.openurl('ram://') as core:
+            core.setConfOpt('enforce', 0)
             self.raises(BadPropValu, core.formTufoByProp, 'foo:bar', True)
 
     def test_cortex_events(self):
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
 
             tick = now()
 
-            tufo0 = core.addTufoEvent('foo', bar=10, baz='thing')
+            tufo0 = core.addTufoEvent('guidform', baz=10, foo='thing')
 
             tock = now()
 
@@ -2182,13 +2200,13 @@ class CortexTest(SynTest):
 
     def test_cortex_splice_propdel(self):
 
-        with s_cortex.openurl('ram:///') as core:
-            tufo = core.formTufoByProp('hehe', 'haha', foo='bar', baz='faz')
-            splice = ('splice', {'act': 'node:prop:del', 'form': 'hehe', 'valu': 'haha', 'prop': 'foo'})
+        with self.getRamCore() as core:
+            tufo = core.formTufoByProp('strform', 'haha', foo='bar', bar='faz')
+            splice = ('splice', {'act': 'node:prop:del', 'form': 'strform', 'valu': 'haha', 'prop': 'foo'})
             core.splice(splice)
 
-            self.eq(len(core.eval('hehe:foo')), 0)
-            self.eq(len(core.eval('hehe:baz')), 1)
+            self.eq(len(core.eval('strform:foo')), 0)
+            self.eq(len(core.eval('strform:bar')), 1)
 
     def test_cortex_module_datamodel_migration_persistent(self):
 
@@ -2218,8 +2236,14 @@ class CortexTest(SynTest):
 
             with s_cortex.openurl('ram://', savefile=savefile) as core:
                 self.eq(core.getModlVers('test'), 0)
+                # We are unable to form a node with the custom type with enforce enabled
+                self.raises(NoSuchForm, core.formTufoByProp, 'foo:bar', 'I am a bar foo.')
+                # But if we disable we can get the node which exists in the cortex
+                core.setConfOpt('enforce', 0)
                 node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
                 self.false(node[1].get('.new'))
+                # Re-enable type enforcement
+                core.setConfOpt('enforce', 1)
 
                 # Show the model is not yet present
                 self.none(core.getTypeInst('foo:bar'))
@@ -2256,8 +2280,14 @@ class CortexTest(SynTest):
 
             with s_cortex.openurl('sqlite:///%s' % (path,)) as core:
                 self.eq(core.getModlVers('test'), 0)
+                # We are unable to form a node with the custom type with enforce enabled
+                self.raises(NoSuchForm, core.formTufoByProp, 'foo:bar', 'I am a bar foo.')
+                # But if we disable we can get the node which exists in the cortex
+                core.setConfOpt('enforce', 0)
                 node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
                 self.false(node[1].get('.new'))
+                # Re-enable type enforcement
+                core.setConfOpt('enforce', 1)
 
                 # Show the model is not yet present
                 self.none(core.getTypeInst('foo:bar'))
@@ -2348,8 +2378,7 @@ class CortexTest(SynTest):
 
     def test_cortex_formtufosbyprops(self):
 
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
             with s_daemon.Daemon() as dmon:
                 dmon.share('core', core)
                 link = dmon.listen('tcp://127.0.0.1:0/core')
@@ -2386,8 +2415,8 @@ class CortexTest(SynTest):
 
     def test_cortex_reqprops(self):
 
-        with s_cortex.openurl('ram:///') as core:
-
+        with self.getRamCore() as core:
+            core.setConfOpt('enforce', 0)
             core.addDataModel('woot', {
                 'forms': (
                     ('hehe:haha', {'ptype': 'str'}, (

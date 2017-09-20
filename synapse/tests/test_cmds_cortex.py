@@ -19,6 +19,7 @@ class SynCmdCoreTest(SynTest):
 
         dmon = s_daemon.Daemon()
         core = s_cortex.openurl('ram:///')
+        self.addTstForms(core)
 
         link = dmon.listen('tcp://127.0.0.1:0/')
         dmon.share('core00', core)
@@ -159,9 +160,9 @@ class SynCmdCoreTest(SynTest):
         with self.getDmonCore() as core:
             outp = s_output.OutPutStr()
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            core.formTufoByProp('str', 'hehe')
+            core.formTufoByProp('strform', 'hehe')
             core.formTufoByProp('inet:ipv4', 0)
-            resp = cmdr.runCmdLine('ask str inet:ipv4')
+            resp = cmdr.runCmdLine('ask strform inet:ipv4')
             self.eq(len(resp['data']), 2)
 
             outp = str(outp)
