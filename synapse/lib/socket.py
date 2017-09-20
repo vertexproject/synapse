@@ -106,7 +106,7 @@ class Socket(EventBus):
                 dostuff()
 
         '''
-        return self.info.get(prop)
+        return self.info.get(prop, defval)
 
     def set(self, prop, valu):
         '''
