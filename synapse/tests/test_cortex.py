@@ -1391,9 +1391,9 @@ class CortexTest(SynTest):
 
     def test_cortex_enforce(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             # Disable enforce for first set of tests
-            core.setConfOpt('enforce', False)
+            core.setConfOpt('enforce', 0)
 
             core.addTufoForm('foo:bar', ptype='inet:email')
 
@@ -1411,7 +1411,7 @@ class CortexTest(SynTest):
             self.true(core.isSetPropOk('foo:baz:duck'))
 
             # Now re-enable enforce
-            core.setConfOpt('enforce', True)
+            core.setConfOpt('enforce', 1)
 
             self.true(core.enforce)
 
@@ -1454,7 +1454,7 @@ class CortexTest(SynTest):
 
     def test_cortex_minmax(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
 
             core.addTufoForm('foo', ptype='str')
             core.addTufoProp('foo', 'min', ptype='int:min')
@@ -1477,7 +1477,7 @@ class CortexTest(SynTest):
 
     def test_cortex_minmax_epoch(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
 
             core.addTufoForm('foo', ptype='str')
             core.addTufoProp('foo', 'min', ptype='time:epoch:min')
@@ -1500,7 +1500,7 @@ class CortexTest(SynTest):
 
     def test_cortex_by_type(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
 
             core.addTufoForm('foo', ptype='str')
             core.addTufoProp('foo', 'min', ptype='time:epoch:min')
@@ -1699,9 +1699,7 @@ class CortexTest(SynTest):
             self.none(core.cache_bykey.get(('strform:baz', None, 2)))
             self.none(core.cache_bykey.get(('strform:baz', 10, 2)))
 
-        with s_cortex.openurl('ram://') as core:
-
-            self.addTstForms(core)
+        with self.getRamCore() as core:
 
             tufo0 = core.formTufoByProp('strform', 'bar', baz=10)
             tufo1 = core.formTufoByProp('strform', 'baz', baz=10)
@@ -1801,9 +1799,7 @@ class CortexTest(SynTest):
 
     def test_cortex_caching_disable(self):
 
-        with s_cortex.openurl('ram://') as core:
-
-            self.addTstForms(core)
+        with self.getRamCore() as core:
 
             core.setConfOpt('caching', 1)
 
@@ -1825,7 +1821,7 @@ class CortexTest(SynTest):
         # Ensure that the cortex won't let us store data that is invalid
         # This requires us to disable enforcement, since otherwise all
         # data is normed and that fails with BadTypeValu instead
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             core.setConfOpt('enforce', 0)
             self.raises(BadPropValu, core.formTufoByProp, 'foo:bar', True)
 
@@ -1848,7 +1844,7 @@ class CortexTest(SynTest):
     def test_cortex_splicefd(self):
         with self.getTestDir() as path:
             with genfile(path, 'savefile.mpk') as fd:
-                with s_cortex.openurl('ram://') as core:
+                with self.getRamCore() as core:
                     core.addSpliceFd(fd)
 
                     tuf0 = core.formTufoByProp('inet:fqdn', 'woot.com')
@@ -1862,7 +1858,7 @@ class CortexTest(SynTest):
 
                 fd.seek(0)
 
-                with s_cortex.openurl('ram://') as core:
+                with self.getRamCore() as core:
 
                     core.eatSpliceFd(fd)
 
@@ -1874,7 +1870,7 @@ class CortexTest(SynTest):
 
     def test_cortex_addmodel(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
 
             core.addDataModel('a.foo.module',
                 {
@@ -1908,7 +1904,7 @@ class CortexTest(SynTest):
             self.nn(core.getTufoByProp('syn:form', 'foo:baz'))
             self.nn(core.getTufoByProp('syn:prop', 'foo:baz:faz'))
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             core.addDataModels([('a.foo.module',
                 {
                     'prefix': 'foo',
@@ -1973,7 +1969,7 @@ class CortexTest(SynTest):
 
     def test_cortex_seed(self):
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             def seedFooBar(prop, valu, **props):
                 return core.formTufoByProp('inet:fqdn', valu, **props)
@@ -1983,12 +1979,12 @@ class CortexTest(SynTest):
             self.eq(tufo[1].get('inet:fqdn'), 'woot.com')
 
     def test_cortex_bytype(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             self.eq(len(core.eval('inet:ipv4*type="1.2.3.4"')), 2)
 
     def test_cortex_seq(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             core.formTufoByProp('syn:seq', 'foo')
             node = core.formTufoByProp('syn:seq', 'bar', nextvalu=10, width=4)
@@ -2005,7 +2001,7 @@ class CortexTest(SynTest):
 
         data = {'results': {'fqdn': 'woot.com', 'ipv4': '1.2.3.4'}}
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             idef = {
                 'ingest': {
@@ -2036,9 +2032,7 @@ class CortexTest(SynTest):
 
     def test_cortex_tagform(self):
 
-        with s_cortex.openurl('ram:///') as core:
-
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             node = core.formTufoByProp('inet:fqdn', 'vertex.link')
 
@@ -2057,24 +2051,24 @@ class CortexTest(SynTest):
     def test_cortex_splices_errs(self):
 
         splices = [('newp:fake', {})]
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             core.on('splice', splices.append)
             core.formTufoByProp('inet:fqdn', 'vertex.link')
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             errs = core.splices(splices)
             self.eq(len(errs), 1)
             self.eq(errs[0][0][0], 'newp:fake')
             self.nn(core.getTufoByProp('inet:fqdn', 'vertex.link'))
 
     def test_cortex_norm_fail(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             core.formTufoByProp('inet:netuser', 'vertex.link/visi')
             self.raises(BadTypeValu, core.eval, 'inet:netuser="totally invalid input"')
 
     def test_cortex_local(self):
         splices = []
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             core.on('splice', splices.append)
             node = core.formTufoByProp('syn:splice', None)
@@ -2086,7 +2080,7 @@ class CortexTest(SynTest):
 
     def test_cortex_module(self):
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             node = core.formTufoByProp('inet:ipv4', '1.2.3.4')
             self.eq(node[1].get('inet:ipv4:asn'), -1)
@@ -2114,7 +2108,7 @@ class CortexTest(SynTest):
 
     def test_cortex_modlvers(self):
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             self.eq(core.getModlVers('hehe'), -1)
 
@@ -2126,7 +2120,7 @@ class CortexTest(SynTest):
 
     def test_cortex_modlrevs(self):
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             def v0():
                 core.formTufoByProp('inet:fqdn', 'foo.com')
@@ -2167,13 +2161,13 @@ class CortexTest(SynTest):
 
     def test_cortex_notguidform(self):
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             self.raises(NotGuidForm, core.addTufoEvents, 'inet:fqdn', [{}])
 
     def test_cortex_getbytag(self):
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             node0 = core.formTufoByProp('inet:user', 'visi')
             node1 = core.formTufoByProp('inet:ipv4', 0x01020304)
@@ -2188,7 +2182,7 @@ class CortexTest(SynTest):
     def test_cortex_tag_ival(self):
 
         splices = []
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             core.on('splice', splices.append)
 
@@ -2207,21 +2201,21 @@ class CortexTest(SynTest):
             node = core.eval('[ inet:ipv4=1.2.3.4 +#foo.bar@2012-2013 ]')[0]
             self.eq(s_tufo.ival(node, '#foo.bar'), (1293840000000, 1514764800000))
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             core.splices(splices)
             core.on('splice', splices.append)
             node = core.eval('inet:ipv4=1.2.3.4')[0]
             self.eq(s_tufo.ival(node, '#foo.bar'), (1293840000000, 1514764800000))
             core.eval('inet:ipv4=1.2.3.4 [ -#foo.bar ]')
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             core.splices(splices)
             node = core.eval('inet:ipv4=1.2.3.4')[0]
             self.eq(s_tufo.ival(node, '#foo.bar'), None)
 
     def test_cortex_module_datamodel_migration(self):
         self.skipTest('Needs global model registry available')
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             # Enforce data model consistency.
             core.setConfOpt('enforce', 1)
@@ -2358,7 +2352,7 @@ class CortexTest(SynTest):
 
     def test_cortex_lift_by_cidr(self):
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             # Add a bunch of nodes
             for n in range(0, 256):
                 r = core.formTufoByProp('inet:ipv4', '192.168.1.{}'.format(n))
@@ -2495,7 +2489,7 @@ class CortexTest(SynTest):
 
     def test_cortex_runts(self):
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             core.addDataModel('hehe', {'forms': (
                 ('hehe:haha', {'ptype': 'str'}, (
@@ -2527,7 +2521,7 @@ class CortexTest(SynTest):
 
     def test_cortex_trigger(self):
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             node = core.formTufoByProp('syn:trigger', '*', on='node:add form=inet:fqdn', run='[ #foo ]', en=1)
             self.eq(node[1].get('syn:trigger:on'), 'node:add form=inet:fqdn')
@@ -2542,7 +2536,7 @@ class CortexTest(SynTest):
 
     def test_cortex_auth(self):
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             core.formTufoByProp('syn:auth:user', 'visi@vertex.link')
             core.formTufoByProp('syn:auth:user', 'fred@woot.com')

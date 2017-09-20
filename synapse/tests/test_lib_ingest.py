@@ -29,7 +29,7 @@ class IngTest(SynTest):
 
         # test an iters directive within an iters directive for
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             info = {'ingest': {
                 'iters': [
                     ('*/*', {
@@ -47,7 +47,7 @@ class IngTest(SynTest):
 
     def test_ingest_basic(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             info = {
                 'ingest': {
                     'iters': (
@@ -91,7 +91,7 @@ class IngTest(SynTest):
 
     def test_ingest_csv(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             with self.getTestDir() as path:
                 csvp = os.path.join(path, 'woot.csv')
 
@@ -138,7 +138,7 @@ class IngTest(SynTest):
             }]]
         }}
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -160,7 +160,7 @@ class IngTest(SynTest):
             ]
         }}
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -189,7 +189,7 @@ class IngTest(SynTest):
             ],
         }}
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             core.addTufoForm('hehe:haha', ptype='file:bytes')
 
             gest = s_ingest.Ingest(info)
@@ -213,7 +213,7 @@ class IngTest(SynTest):
             ],
         }}
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -263,7 +263,7 @@ class IngTest(SynTest):
         testjsonl = b'''{"fqdn": "spooky.com", "ipv4": "192.168.1.1"}
 {"fqdn":"spookier.com", "ipv4":"192.168.1.2"}'''
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             with self.getTestDir() as path:
                 xpth = os.path.join(path, 'woot.jsonl')
 
@@ -292,7 +292,7 @@ class IngTest(SynTest):
                 self.nn(core.getTufoByProp('inet:ipv4', '192.168.1.2'))
 
     def test_ingest_xml(self):
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             with self.getTestDir() as path:
                 xpth = os.path.join(path, 'woot.xml')
 
@@ -350,7 +350,7 @@ class IngTest(SynTest):
 
     def test_ingest_xml_search(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             with self.getTestDir() as path:
                 xpth = os.path.join(path, 'woot.xml')
 
@@ -386,7 +386,7 @@ class IngTest(SynTest):
 
     def test_ingest_taginfo(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             info = {
                 'ingest': {
                     'iters': [
@@ -429,7 +429,7 @@ class IngTest(SynTest):
             self.nn(core.getTufoByProp('strform', 'lulz'))
 
     def test_ingest_lines(self):
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             with self.getTestDir() as path:
                 path = os.path.join(path, 'woot.txt')
 
@@ -467,7 +467,7 @@ class IngTest(SynTest):
             ],
         }}
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -492,7 +492,7 @@ class IngTest(SynTest):
             ],
         }}
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -512,7 +512,7 @@ class IngTest(SynTest):
             ],
         }}
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -539,7 +539,7 @@ class IngTest(SynTest):
             ],
         }}
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -563,7 +563,7 @@ class IngTest(SynTest):
             ],
         }}
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -591,7 +591,7 @@ class IngTest(SynTest):
             ],
         }}
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -613,7 +613,7 @@ class IngTest(SynTest):
         self.nn(s_ingest.fmtyielders.get('woot'))
         s_ingest.addFormat('woot', _fmt_woot, opts)  # last write wins
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             with self.getTestDir() as path:
                 wootpath = os.path.join(path, 'woot.woot')
                 with genfile(wootpath) as fd:
@@ -637,7 +637,7 @@ class IngTest(SynTest):
 
     def test_ingest_embed_nodes(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             info = {
                 "embed": [
                     {
@@ -667,7 +667,7 @@ class IngTest(SynTest):
 
     def test_ingest_embed_tags(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             info = {
                 "embed": [
                     {
@@ -701,7 +701,7 @@ class IngTest(SynTest):
             self.eq(1, len(core.eval('inet:email*tag=hehe.haha.hoho')))
 
     def test_ingest_embed_props(self):
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             info = {
                 "embed": [
                     {
@@ -727,7 +727,7 @@ class IngTest(SynTest):
             self.eq(3, len(core.eval('inet:fqdn:sfx=1')))
 
     def test_ingest_embed_pernode_tagsprops(self):
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             info = {
                 "embed": [
                     {
@@ -785,7 +785,7 @@ class IngTest(SynTest):
             ],
         }}
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -822,7 +822,7 @@ class IngTest(SynTest):
             ],
         }}
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -867,7 +867,7 @@ class IngTest(SynTest):
             ],
         }}
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -915,7 +915,7 @@ class IngTest(SynTest):
         gest = s_ingest.Ingest(ingest_def)
         gest2 = s_ingest.Ingest(ingest_def2)
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             ret1 = s_ingest.register_ingest(core=core, gest=gest, evtname='ingest:test')
             ret2 = s_ingest.register_ingest(core=core, gest=gest2, evtname='ingest:test2', ret_func=True)
             self.none(ret1)
@@ -943,7 +943,7 @@ class IngTest(SynTest):
 
     def test_ingest_basic_bufio(self):
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             info = {
                 'ingest': {
                     'iters': (
@@ -1077,7 +1077,7 @@ class IngTest(SynTest):
             }
         }
 
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             ingest = s_ingest.Ingest(info=ingdef)
             ingest.ingest(core=core, data=data)
 
@@ -1140,8 +1140,7 @@ class IngTest(SynTest):
 
         data = {"time": tick, "ipv4": "1.2.3.4", "fqdn": "vertex.link"}
 
-        with s_cortex.openurl('ram://') as core:
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
             ingest = s_ingest.Ingest(info=ingdef)
             ingest.ingest(core=core, data=data)
 

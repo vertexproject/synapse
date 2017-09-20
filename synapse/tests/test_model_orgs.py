@@ -5,9 +5,7 @@ from synapse.tests.common import *
 class OrgTest(SynTest):
 
     def test_model_orgs_seed_alias(self):
-        with s_cortex.openurl('ram:///') as core:
-
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             node0 = core.formTufoByProp('ou:org:alias', 'wewtcorp', name='The Woot Corp')
 
@@ -19,9 +17,7 @@ class OrgTest(SynTest):
             self.eq(node0[0], node1[0])
 
     def test_model_orgs_seed_name(self):
-        with s_cortex.openurl('ram:///') as core:
-
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             node0 = core.formTufoByProp('ou:org:name', 'The Woot Corp')
             node1 = core.formTufoByProp('ou:org:name', 'the woot corp')

@@ -336,17 +336,17 @@ class DataTypesTest(SynTest):
         self.raises(BadTypeValu, tlib.getTypeParse, 'woot', 'qwer')
 
     def test_type_bases(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             self.eq(tuple(core.getTypeBases('inet:dns:look')), ('guid', 'inet:dns:look'))
 
     def test_type_issub(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             self.true(core.isSubType('inet:dns:look', 'guid'))
             self.false(core.isSubType('inet:dns:look', 'int'))
             self.true(core.isSubType('str', 'str'))
 
     def test_type_getTypeInfo(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             core.addType('foo:bar', subof='inet:ipv4')
             self.nn(core.getTypeInfo('foo:bar', 'ex'))
 
@@ -472,8 +472,7 @@ class DataTypesTest(SynTest):
         self.eq(tlib.getTypeCast('str:lwr', ' ASDF  '), 'asdf')
 
     def test_type_xref(self):
-        with s_cortex.openurl('ram://') as core:  # type: s_cores_common.Cortex
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             core.addType('foo:bar', subof='xref', source='org,ou:org')
             core.addTufoForm('foo:bar', ptype='foo:bar')
@@ -546,9 +545,7 @@ class DataTypesTest(SynTest):
         self.false(s_types.isguid('visi'))
 
     def test_types_guid_resolver(self):
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
-
+        with self.getRamCore() as core:
             # use the seed constructor for an org
             onode = core.formTufoByProp('ou:org:alias', 'vertex')
 
@@ -565,7 +562,7 @@ class DataTypesTest(SynTest):
             self.eq(len(core.eval('ou:user:org=$vertex')), 1)
 
     def test_types_tagtime(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             valu, subs = core.getTypeNorm('syn:tag', 'Foo.Bar@20161217-20171217')
 
             self.eq(valu, 'foo.bar')
@@ -644,8 +641,7 @@ class DataTypesTest(SynTest):
         tlib.getTypeNorm('syn:perm', 'foo:bar   baz=faz     hehe=haha')
 
     def test_types_propvalu(self):
-        with s_cortex.openurl('ram:///') as core:  # type: s_cores_common.Cortex
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             tstmodl = {
                 'types': [

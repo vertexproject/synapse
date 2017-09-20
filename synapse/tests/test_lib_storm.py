@@ -6,14 +6,14 @@ from synapse.tests.common import *
 
 class StormTest(SynTest):
     def test_storm_cmpr_norm(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             self.eq(len(core.eval('inet:dns:a:ipv4="1.2.3.4"')), 1)
             self.eq(len(core.eval('inet:dns:a:ipv4="1.2.3.4" -:ipv4="1.2.3.4"')), 0)
             self.eq(len(core.eval('inet:dns:a:ipv4="1.2.3.4" +:ipv4="1.2.3.4"')), 1)
 
     def test_storm_pivot(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             core.formTufoByProp('inet:dns:a', 'vertex.vis/5.6.7.8')
             core.formTufoByProp('inet:dns:a', 'vertex.link/5.6.7.8')
@@ -57,8 +57,7 @@ class StormTest(SynTest):
             self.eq(len(core.eval('inet:ipv4="5.6.7.8" pivot(inet:ipv4, inet:dns:a:ipv4)')), 2)
 
     def test_storm_setprop(self):
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             # relative key/val syntax, explicitly relative vals
             node = core.formTufoByProp('inet:netuser', 'vertex.link/pennywise')
@@ -87,8 +86,7 @@ class StormTest(SynTest):
             self.raises(BadSyntaxError, core.eval, bad_cmd)
 
     def test_storm_filt_regex(self):
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             iden0 = guid()
             iden1 = guid()
@@ -102,9 +100,7 @@ class StormTest(SynTest):
             self.eq(len(nodes), 2)
 
     def test_storm_alltag(self):
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
-
+        with self.getRamCore() as core:
             iden = guid()
             node = core.formTufoByProp('inet:fqdn', 'vertex.link')
 
@@ -124,9 +120,7 @@ class StormTest(SynTest):
             self.eq(len(core.eval('#lol limit(1)')), 1)
 
     def test_storm_limit(self):
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
-
+        with self.getRamCore() as core:
             # test that the limit operator correctly handles being first (no opers[-1])
             # and will subsequently filter down to the correct number of nodes
             nodes = core.eval('[ inet:ipv4=1.2.3.4 inet:ipv4=3.4.5.6 ]')
@@ -143,7 +137,7 @@ class StormTest(SynTest):
             self.raises(BadSyntaxError, core.eval, 'inet:ipv4 limit(woot)')
 
     def test_storm_addtag(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             iden = guid()
             node = core.formTufoByProp('inet:fqdn', 'vertex.link')
 
@@ -157,7 +151,7 @@ class StormTest(SynTest):
             self.nn(node[1].get('#baz.faz'))
 
     def test_storm_deltag(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             iden = guid()
             node = core.formTufoByProp('inet:fqdn', 'vertex.link')
 
@@ -174,8 +168,7 @@ class StormTest(SynTest):
             self.none(node[1].get('#baz.faz'))
 
     def test_storm_refs(self):
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             tstmodl = {
                 'types': [
@@ -261,7 +254,7 @@ class StormTest(SynTest):
 
     def test_storm_tag_query(self):
         # Ensure that non-glob tag filters operate as expected.
-        with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_common.Cortex
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:dns:a', 'vertex.vis/5.6.7.8')
             node3 = core.formTufoByProp('inet:dns:a', 'vertex.link/5.6.7.8')
@@ -290,7 +283,7 @@ class StormTest(SynTest):
 
     def test_storm_tag_glob(self):
         # Ensure that glob operators with tag filters operate properly.
-        with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_common.Cortex
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:dns:a', 'vertex.vis/5.6.7.8')
             node3 = core.formTufoByProp('inet:dns:a', 'vertex.link/5.6.7.8')
@@ -368,7 +361,7 @@ class StormTest(SynTest):
             self.eq(len(nodes), 1)
 
     def test_storm_tag_jointag(self):
-        with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_common.Cortex
 
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
@@ -412,7 +405,7 @@ class StormTest(SynTest):
             self.eq(len(nodes), 1)
 
     def test_storm_tag_totag(self):
-        with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_common.Cortex
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
@@ -455,7 +448,7 @@ class StormTest(SynTest):
             self.eq(len(nodes), 0)
 
     def test_storm_tag_fromtag(self):
-        with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_common.Cortex
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
@@ -505,7 +498,7 @@ class StormTest(SynTest):
             self.eq(len(nodes), 3)
 
     def test_storm_lift(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             core.formTufoByProp('inet:ipv4', '1.2.3.4')
             core.formTufoByProp('inet:ipv4', '5.6.7.8')
 
@@ -516,7 +509,7 @@ class StormTest(SynTest):
 
     def test_storm_lifts_by(self):
         # Test various lifts by handlers
-        with s_cortex.openurl('ram:///') as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_common.Cortex
 
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
@@ -548,7 +541,7 @@ class StormTest(SynTest):
             self.eq(len(nodes), 3)
 
     def test_storm_addnode(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             # add a node with addnode(<form>,<valu>) syntax
             node = core.eval('addnode(inet:ipv4,1.2.3.4)')[0]
 
@@ -563,7 +556,7 @@ class StormTest(SynTest):
             self.raises(BadSyntaxError, core.eval, 'addnode(inet:ipv4, 1.2.3.4, asn=20)')
 
     def test_storm_delnode(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             node = core.formTufoByProp('inet:ipv4', 0x01020304)
             core.eval('inet:ipv4=1.2.3.4 delnode()')
             self.nn(core.getTufoByProp('inet:ipv4', 0x01020304))
@@ -571,7 +564,7 @@ class StormTest(SynTest):
             self.none(core.getTufoByProp('inet:ipv4', 0x01020304))
 
     def test_storm_delnode_caching(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             core.setConfOpt('caching', True)
             node = core.formTufoByProp('inet:ipv4', 0x01020304)
             core.eval('inet:ipv4=1.2.3.4 delnode()')
@@ -580,7 +573,7 @@ class StormTest(SynTest):
             self.none(core.getTufoByProp('inet:ipv4', 0x01020304))
 
     def test_storm_editmode(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             node = core.formTufoByProp('inet:ipv4', 0x01020304)
 
             core.eval('inet:ipv4=1.2.3.4 [ #foo.bar ]')
@@ -602,7 +595,7 @@ class StormTest(SynTest):
             self.eq(node[1].get('inet:ipv4:cc'), 'us')
 
     def test_storm_tag_ival(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             node = core.eval('[ inet:ipv4=1.2.3.4  +#foo.bar@2016-2017 ] ')[0]
 
             minv = node[1].get('>#foo.bar')
@@ -630,7 +623,7 @@ class StormTest(SynTest):
             self.eq(nodes[0][1].get('inet:ipv4'), 0x05060708)
 
     def test_storm_edit_end(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             self.eq(len(core.eval(' [ inet:dns:a="woot.com/1.2.3.4" ] +:seen:min >= "2014" ')), 0)
 
     def test_storm_show_help(self):
@@ -638,7 +631,7 @@ class StormTest(SynTest):
             'columns': ['inet:ipv4', ':cc', '#foo.*'],
         }
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             node0 = core.eval('[inet:ipv4=108.111.118.101 :cc=kd #foo.bar #hehe.haha ]')[0]
             node1 = core.eval('[inet:ipv4=1.2.3.4 :cc=vv #foo.bar #hehe.haha ]')[0]
 
@@ -672,7 +665,7 @@ class StormTest(SynTest):
             ])
 
     def test_storm_guid(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             node0 = core.formTufoByProp('inet:ipv4', '1.2.3.4')
             node1 = core.formTufoByProp('inet:ipv4', '4.5.6.7')
 
@@ -693,7 +686,7 @@ class StormTest(SynTest):
             self.eq(node0[0], nodes[0][0][::-1])
 
     def test_storm_task(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             foo = []
             bar = []
             baz = []
@@ -741,7 +734,7 @@ class StormTest(SynTest):
             self.raises(BadSyntaxError, core.eval, 'inet:ipv4 task()')
 
     def test_storm_tree(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             node0 = core.formTufoByProp('inet:ipv4', '1.2.3.4')
             node1 = core.formTufoByProp('inet:ipv4', '4.5.6.7')
             core.addTufoTags(node0,
@@ -841,7 +834,7 @@ class StormTest(SynTest):
             self.eq(len(nodes), 5)
 
     def test_storm_delprop(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             t0 = core.formTufoByProp('inet:fqdn', 'vertex.link', created="20170101")
             self.isin('inet:fqdn:created', t0[1])
             # Operator syntax requires force=1

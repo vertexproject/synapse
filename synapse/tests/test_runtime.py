@@ -26,7 +26,7 @@ class StormRunTest(SynTest):
         return core
 
     def test_storm_ram(self):
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             self.prepStormCore(core)
             self.runStormStats(core)
             self.runStormBasics(core)

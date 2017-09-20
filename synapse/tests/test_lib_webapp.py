@@ -178,7 +178,7 @@ class WebAppTest(AsyncTestCase, SynTest):
         s_dyndeps.addDynAlias('FooServer', FooServer)
 
         with s_daemon.Daemon() as core_dmon:
-            with s_cortex.openurl('ram:///') as core:
+            with self.getRamCore() as core:
                 core_dmon.share('core', core)
                 link = core_dmon.listen('tcp://127.0.0.1:0/')
                 linkurl = 'tcp://127.0.0.1:%d/core' % link[1]['port']

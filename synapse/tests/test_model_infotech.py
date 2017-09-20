@@ -9,15 +9,13 @@ def initcomp(*args, **kwargs):
 class InfoTechTest(SynTest):
 
     def test_model_infotech_host(self):
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
             node = core.formTufoByProp('it:host', guid())
             self.nn(node)
             self.nn(node[1].get('it:host'))
 
     def test_model_infotech_cve(self):
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             node = core.formTufoByProp('it:sec:cve', 'CVE-2013-9999', desc='This is a description')
             self.nn(node)
@@ -31,8 +29,7 @@ class InfoTechTest(SynTest):
             self.eq(node[1].get('it:sec:cve:desc'), 'This is a description')
 
     def test_model_infotech_av(self):
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
             bytesguid = '1234567890ABCDEFFEDCBA0987654321'
             orgname = 'Foo'
             signame = 'Bar.BAZ.faZ'
@@ -51,9 +48,7 @@ class InfoTechTest(SynTest):
             self.eq(tufo, None) # ou:alias will not be automatically formed at this time
 
     def test_model_infotech_hostname(self):
-
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             node = core.formTufoByProp('it:host', None, name='hehehaha')
             self.nn(node)
@@ -63,10 +58,7 @@ class InfoTechTest(SynTest):
             self.nn(node)
 
     def test_model_infotech_filepath(self):
-
-        with s_cortex.openurl('ram:///') as core:
-
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             node = core.formTufoByProp('file:path', '/Foo/Bar/Baz.exe')
 
@@ -105,9 +97,7 @@ class InfoTechTest(SynTest):
             self.eq(node[1].get('file:path'), '/foo/baz.json')
 
     def test_model_infotech_itdev(self):
-
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             node = core.formTufoByProp('it:dev:str', 'He He Ha Ha')
             self.nn(node)
@@ -140,9 +130,7 @@ class InfoTechTest(SynTest):
             self.eq(node[1].get('it:dev:regval:bytes'), iden)
 
     def test_model_infotech_hostexec(self):
-
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             exe = guid()
             port = 80

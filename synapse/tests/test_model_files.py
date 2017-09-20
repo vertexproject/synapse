@@ -11,8 +11,7 @@ from synapse.tests.common import *
 class FileModelTest(SynTest):
 
     def test_model_file_bytes(self):
-
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             hset = s_axon.HashSet()
             hset.update(b'visi')
@@ -29,8 +28,7 @@ class FileModelTest(SynTest):
             self.eq(t0[1].get('file:bytes:sha512'), '8238be12bcc3c10da7e07dbea528e9970dc809c07c5aef545a14e5e8d2038563b29c2e818d167b06e6a33412e6beb8347fcc44520691347aea9ee21fcf804e39')
 
     def test_model_file_seeds(self):
-
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             hset = s_axon.HashSet()
             hset.update(b'visi')
@@ -49,7 +47,7 @@ class FileModelTest(SynTest):
         fhash_lower = fhash.lower()
         stable_guid = 'ed73917b1dc4011627f7a101ace491c8'
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             n1 = core.formTufoByProp('file:bytes:sha256', fhash)
             n2 = core.formTufoByProp('file:bytes:sha256', fhash_lower)
@@ -61,8 +59,7 @@ class FileModelTest(SynTest):
             self.eq(n1[0], n2[0])
 
     def test_filepath(self):
-
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             core.formTufoByProp('file:path', '/foo/bar/baz/faz/')
 
@@ -77,8 +74,7 @@ class FileModelTest(SynTest):
             self.none(core.getTufoByProp('file:base', ''))
 
     def test_filebase(self):
-
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             core.formTufoByProp('file:base', 'baz.quux')
             self.nn(core.getTufoByProp('file:base', 'baz.quux'))
@@ -86,10 +82,7 @@ class FileModelTest(SynTest):
             self.raises(BadTypeValu, core.formTufoByProp, 'file:base', '/haha')
 
     def test_model_files_imgof(self):
-
-        with s_cortex.openurl('ram:///') as core:
-
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             pnod = core.formTufoByProp('ps:person', None)
             fnod = core.formTufoByProp('file:bytes', None)
@@ -108,9 +101,7 @@ class FileModelTest(SynTest):
             self.eq(img0[1].get('file:imgof:xref:intval'), None)
 
     def test_model_files_txtref(self):
-
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             iden = guid()
 
