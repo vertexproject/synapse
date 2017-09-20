@@ -838,7 +838,8 @@ class Axon(s_eventbus.EventBus, AxonMixin):
             dirn = self._getDirNode(ppath)
 
         attr = Axon._fs_new_file_attrs(ppath, mode)
-        filefo = self.core.formTufoByProp('axon:path', path, **attr)
+        with self.flock:
+            filefo = self.core.formTufoByProp('axon:path', path, **attr)
 
         if filefo[1].get('.new') and dirn is not None:
             self.core.incTufoProp(dirn, 'st_nlink', 1)
@@ -896,7 +897,8 @@ class Axon(s_eventbus.EventBus, AxonMixin):
             dirn = self._getDirNode(ppath)
 
         attr = Axon._fs_new_dir_attrs(ppath, mode)
-        tufo = self.core.formTufoByProp('axon:path', path, **attr)
+        with self.flock():
+            tufo = self.core.formTufoByProp('axon:path', path, **attr)
         if tufo and not tufo[1].get('.new'):
             raise s_common.FileExists()
 
