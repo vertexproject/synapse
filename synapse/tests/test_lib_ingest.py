@@ -123,8 +123,8 @@ class IngTest(SynTest):
             self.nn(core.getTufoByProp('inet:ipv4', '1.2.3.4'))
             self.nn(core.getTufoByProp('inet:ipv4', '5.6.7.8'))
 
-            self.eq(len(core.eval('inet:ipv4*tag=hehe.haha')), 2)
-            self.eq(len(core.eval('inet:fqdn*tag=hehe.haha')), 2)
+            self.len(2, core.eval('inet:ipv4*tag=hehe.haha'))
+            self.len(2, core.eval('inet:fqdn*tag=hehe.haha'))
 
     def test_ingest_files(self):
 
@@ -345,8 +345,8 @@ class IngTest(SynTest):
                 self.nn(core.getTufoByProp('inet:url', 'http://evil.com/'))
                 self.nn(core.getTufoByProp('inet:url', 'http://badguy.com/'))
 
-                self.eq(len(core.eval('inet:dns:a*tag=lolxml')), 2)
-                self.eq(len(core.eval('inet:url*tag=lolxml')), 2)
+                self.len(2, core.eval('inet:dns:a*tag=lolxml'))
+                self.len(2, core.eval('inet:url*tag=lolxml'))
 
     def test_ingest_xml_search(self):
 
@@ -406,7 +406,7 @@ class IngTest(SynTest):
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
-            self.eq(len(core.eval('inet:fqdn*tag="foo.bar.lulz"')), 1)
+            self.len(1, core.eval('inet:fqdn*tag="foo.bar.lulz"'))
 
     def test_ingest_cast(self):
 
@@ -697,8 +697,8 @@ class IngTest(SynTest):
             self.nn(core.getTufoByProp('inet:fqdn', 'laughitup.edu'))
             self.nn(core.getTufoByProp('inet:email', 'pennywise@weallfloat.com'))
 
-            self.eq(2, len(core.eval('inet:fqdn*tag=hehe.haha.hoho')))
-            self.eq(1, len(core.eval('inet:email*tag=hehe.haha.hoho')))
+            self.len(2, core.eval('inet:fqdn*tag=hehe.haha.hoho'))
+            self.len(1, core.eval('inet:email*tag=hehe.haha.hoho'))
 
     def test_ingest_embed_props(self):
         with self.getRamCore() as core:
@@ -724,7 +724,7 @@ class IngTest(SynTest):
             self.nn(core.getTufoByProp('inet:fqdn', 'net'))
             self.nn(core.getTufoByProp('inet:fqdn', 'org'))
 
-            self.eq(3, len(core.eval('inet:fqdn:sfx=1')))
+            self.len(3, core.eval('inet:fqdn:sfx=1'))
 
     def test_ingest_embed_pernode_tagsprops(self):
         with self.getRamCore() as core:
@@ -756,8 +756,8 @@ class IngTest(SynTest):
             self.nn(core.getTufoByProp('inet:netuser', 'rootkit.com/metr0'))
             self.nn(core.getTufoByProp('inet:netuser', 'twitter.com/invisig0th'))
 
-            self.eq(1, len(core.eval('inet:netuser:email="visi@vertex.link"')))
-            self.eq(1, len(core.eval('inet:netuser:email="metr0@kenshoto.com"')))
+            self.len(1, core.eval('inet:netuser:email="visi@vertex.link"'))
+            self.len(1, core.eval('inet:netuser:email="metr0@kenshoto.com"'))
 
             node = core.eval('inet:email*tag=foo.bar')[0]
             self.eq(node[1].get('inet:email'), 'visi@vertex.link')
@@ -879,7 +879,7 @@ class IngTest(SynTest):
                                        'ef537f25c895bfa782526529a9b63d97aa631564d5d789c2b765448c8635fb6c'))
             self.nn(core.getTufoByProp('it:av:filehit:sig', 'memesec/meme32.lazydog.puntuation'))
             self.nn(core.getTufoByProp('it:av:sig:sig', 'meme32.lazydog.puntuation'))
-            self.eq(len(core.getTufosByProp('it:av:sig:org', 'memesec')), 2)
+            self.len(2, core.getTufosByProp('it:av:sig:org', 'memesec'))
 
     def test_ingest_cortex_registration(self):
 
@@ -1082,11 +1082,11 @@ class IngTest(SynTest):
             ingest.ingest(core=core, data=data)
 
             nodes1 = core.eval('file:bytes')
-            self.eq(len(nodes1), 1)
+            self.len(1, nodes1)
             nodes2 = core.eval('inet:ipv4')
-            self.eq(len(nodes2), 1)
+            self.len(1, nodes2)
             nodes3 = core.eval('file:txtref')
-            self.eq(len(nodes3), 1)
+            self.len(1, nodes3)
             xrefnode = nodes3[0]
             self.eq(xrefnode[1].get('file:txtref:file'), nodes1[0][1].get('file:bytes'))
             self.eq(xrefnode[1].get('file:txtref:xref'), 'inet:ipv4=8.8.8.8')
@@ -1145,7 +1145,7 @@ class IngTest(SynTest):
             ingest.ingest(core=core, data=data)
 
             nodes = core.eval('inet:dns:look')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
             node = nodes[0]
             self.eq(node[1].get('inet:dns:look:time'), tick)
             self.eq(node[1].get('inet:dns:look:a'), 'vertex.link/1.2.3.4')

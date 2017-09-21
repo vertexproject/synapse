@@ -453,10 +453,10 @@ class StormTest(SynTest):
             core.formTufoByProp('inet:ipv4', '1.2.3.4')
             core.formTufoByProp('inet:ipv4', '5.6.7.8')
 
-            self.eq(2, len(core.eval('lift(inet:ipv4)')))
-            self.eq(1, len(core.eval('lift(inet:ipv4, limit=1)')))
-            self.eq(1, len(core.eval('lift(inet:ipv4, 1.2.3.4)')))
-            self.eq(1, len(core.eval('lift(inet:ipv4, 2.0.0.0, by=lt)')))
+            self.len(2, core.eval('lift(inet:ipv4)'))
+            self.len(1, core.eval('lift(inet:ipv4, limit=1)'))
+            self.len(1, core.eval('lift(inet:ipv4, 1.2.3.4)'))
+            self.len(1, core.eval('lift(inet:ipv4, 2.0.0.0, by=lt)'))
 
     def test_storm_lifts_by(self):
         # Test various lifts by handlers
@@ -477,19 +477,19 @@ class StormTest(SynTest):
 
             # Lift by tags
             nodes = core.eval('inet:dns:a*tag=src.clowntown')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
 
             # Lift by type
             nodes = core.eval('inet:user*type=pennywise')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             # Lift by inet:cidr
             nodes = core.eval('inet:dns:a:ipv4*inet:cidr=1.2.0.0/16')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
 
             # Lift by dark
             nodes = core.eval('hehe*dark=haha')
-            self.eq(len(nodes), 3)
+            self.len(3, nodes)
 
     def test_storm_addnode(self):
         with self.getRamCore() as core:
@@ -528,19 +528,19 @@ class StormTest(SynTest):
             node = core.formTufoByProp('inet:ipv4', 0x01020304)
 
             core.eval('inet:ipv4=1.2.3.4 [ #foo.bar ]')
-            self.eq(len(core.eval('#foo.bar')), 1)
+            self.len(1, core.eval('#foo.bar'))
 
             core.eval('inet:ipv4=1.2.3.4 [ +#foo.bar.baz ]')
-            self.eq(len(core.eval('#foo.bar.baz')), 1)
+            self.len(1, core.eval('#foo.bar.baz'))
 
             core.eval('inet:ipv4=1.2.3.4 [ -#foo.bar ]')
-            self.eq(len(core.eval('#foo')), 1)
-            self.eq(len(core.eval('#foo.bar')), 0)
-            self.eq(len(core.eval('#foo.bar.baz')), 0)
+            self.len(1, core.eval('#foo'))
+            self.len(0, core.eval('#foo.bar'))
+            self.len(0, core.eval('#foo.bar.baz'))
 
             core.eval(' [ inet:ipv4=5.6.7.8 :cc=US #hehe.haha ]')
 
-            self.eq(len(core.eval('#hehe.haha')), 1)
+            self.len(1, core.eval('#hehe.haha'))
 
             node = core.eval('inet:ipv4=5.6.7.8')[0]
             self.eq(node[1].get('inet:ipv4:cc'), 'us')
@@ -558,24 +558,24 @@ class StormTest(SynTest):
             self.eq(s_tufo.ival(node, '#foo.bar'), (1388534400000, 1388534400000))
 
             nodes = core.eval('inet:ipv4 +#foo.bar@201606')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
             self.eq(nodes[0][1].get('inet:ipv4'), 0x01020304)
 
             nodes = core.eval('inet:ipv4 +#foo.bar@201602-2019')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
             self.eq(nodes[0][1].get('inet:ipv4'), 0x01020304)
 
             nodes = core.eval('inet:ipv4 -#foo.bar@201606')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
             self.eq(nodes[0][1].get('inet:ipv4'), 0x05060708)
 
             nodes = core.eval('inet:ipv4 -#foo.bar@2015-201606')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
             self.eq(nodes[0][1].get('inet:ipv4'), 0x05060708)
 
     def test_storm_edit_end(self):
         with self.getRamCore() as core:
-            self.eq(len(core.eval(' [ inet:dns:a="woot.com/1.2.3.4" ] +:seen:min >= "2014" ')), 0)
+            self.len(0, core.eval(' [ inet:dns:a="woot.com/1.2.3.4" ] +:seen:min >= "2014" '))
 
     def test_storm_show_help(self):
         show0 = {
@@ -621,7 +621,7 @@ class StormTest(SynTest):
             node1 = core.formTufoByProp('inet:ipv4', '4.5.6.7')
 
             nodes = core.eval('guid()')
-            self.eq(len(nodes), 0)
+            self.len(0, nodes)
 
             nodes = core.eval('guid(%s)' % node0[0])
             self.eq(nodes[0][1].get('inet:ipv4'), 0x01020304)
@@ -633,7 +633,7 @@ class StormTest(SynTest):
             # We can lift dark rows using guid() but kind of an easter egg.
             core.addTufoDark(node0, 'foo:bar', 'duck:knight')
             nodes = core.eval('guid(%s)' % node0[0][::-1])
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
             self.eq(node0[0], nodes[0][0][::-1])
 
     def test_storm_task(self):
@@ -660,13 +660,13 @@ class StormTest(SynTest):
             nodes = core.eval('inet:ipv4 task(foo, bar, baz, sekrit:priority1, key=valu)')
 
             # We don't consume nodes when tasking
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             # Events were fired
-            self.eq(len(foo), 2)
-            self.eq(len(bar), 2)
-            self.eq(len(baz), 2)
-            self.eq(len(sekrit), 2)
+            self.len(2, foo)
+            self.len(2, bar)
+            self.len(2, baz)
+            self.len(2, sekrit)
 
             # Events contained data we expected
             evt = foo[0]
@@ -699,13 +699,13 @@ class StormTest(SynTest):
                               'knights.ni'])
 
             nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up)')
-            self.eq(len(nodes), 6)
+            self.len(6, nodes)
 
             nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=1)')
-            self.eq(len(nodes), 3)
+            self.len(3, nodes)
 
             nodes = core.eval('syn:tag=foo.bar tree(syn:tag, syn:tag:up)')
-            self.eq(len(nodes), 3)
+            self.len(3, nodes)
 
             nodes = core.eval('syn:tag=foo.baz tree(syn:tag, syn:tag:up)')
             self.eq(len(nodes), 2)
