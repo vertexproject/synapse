@@ -643,83 +643,8 @@ class DataTypesTest(SynTest):
     def test_types_propvalu(self):
         with self.getRamCore() as core:
 
-            tstmodl = {
-                'types': [
-                    [
-                        'foob',
-                        {
-                            'subof': 'str'
-                        }
-                    ],
-                ],
-                'forms': [
-                    [
-                        'foob',
-                        {},
-                        [
-                            [
-                                'xref',
-                                {
-                                    'ptype': 'propvalu',
-                                    'ro': 1,
-                                },
-                            ],
-                            [
-                                'xref:intval',
-                                {
-                                    'ptype': 'int',
-                                    'ro': 1,
-                                }
-                            ],
-                            [
-                                'xref:strval',
-                                {
-                                    'ptype': 'str',
-                                    'ro': 1
-                                }
-                            ],
-                            [
-                                'xref:prop',
-                                {
-                                    'ptype': 'str',
-                                    'ro': 1
-                                }
-                            ]
-                        ]
-                    ],
-                    [
-                        'pvform',
-                        {'ptype': 'propvalu'},
-                        [
-                            [
-                                'intval',
-                                {
-                                    'ptype': 'int',
-                                    'ro': 1,
-                                }
-                            ],
-                            [
-                                'strval',
-                                {
-                                    'ptype': 'str',
-                                    'ro': 1
-                                }
-                            ],
-                            [
-                                'prop',
-                                {
-                                    'ptype': 'str',
-                                    'ro': 1
-                                }
-                            ]
-                        ]
-                    ]
-                ]
-            }
-            core.addDataModel('pvtest', tstmodl)
-
             # Test a list of property/valu
-            valu, subs = core.getPropNorm('foob:xref', ['inet:ipv4', '1.2.3.4'])
+            valu, subs = core.getPropNorm('pvsub:xref', ['inet:ipv4', '1.2.3.4'])
             self.eq(valu, 'inet:ipv4=1.2.3.4')
             self.eq(subs.get('prop'), 'inet:ipv4')
             self.eq(subs.get('intval'), 0x01020304)
@@ -731,7 +656,7 @@ class DataTypesTest(SynTest):
                       ]
 
             for pvstr in pvstrs:
-                valu, subs = core.getPropNorm('foob:xref', pvstr)
+                valu, subs = core.getPropNorm('pvsub:xref', pvstr)
                 self.eq(valu, 'inet:ipv4=1.2.3.4')
                 self.eq(subs.get('intval'), 0x01020304)
                 self.eq(subs.get('prop'), 'inet:ipv4')
@@ -740,13 +665,14 @@ class DataTypesTest(SynTest):
             # Make some nodes, do a pivot
             node = core.formTufoByProp('inet:ipv4', 0x01020304)
             self.nn(node)
-            node = core.formTufoByProp('foob', 'blah', xref=['inet:ipv4', '1.2.3.4'])
+            node = core.formTufoByProp('pvsub', 'blah', xref=['inet:ipv4', '1.2.3.4'])
             self.nn(node)
-            self.eq(node[1].get('foob:xref'), 'inet:ipv4=1.2.3.4')
-            self.eq(node[1].get('foob:xref:intval'), 0x01020304)
-            self.eq(node[1].get('foob:xref:prop'), 'inet:ipv4')
+            self.eq(node[1].get('pvsub:xref'), 'inet:ipv4=1.2.3.4')
+            self.eq(node[1].get('pvsub:xref:prop'), 'inet:ipv4')
+            self.eq(node[1].get('pvsub:xref:intval'), 0x01020304)
+            self.eq(node[1].get('pvsub:xref:prop'), 'inet:ipv4')
 
-            nodes = core.eval('foob :xref:intval->inet:ipv4')
+            nodes = core.eval('pvsub :xref:intval->inet:ipv4')
             self.eq(len(nodes), 1)
             self.eq(nodes[0][1].get('inet:ipv4'), 0x01020304)
 
@@ -768,8 +694,8 @@ class DataTypesTest(SynTest):
             self.eq(t4[1].get('pvform:prop'), 'inet:netpost')
 
             # Bad values
-            self.raises(BadTypeValu, core.getPropNorm, 'foob:xref', 1234)
-            self.raises(BadTypeValu, core.getPropNorm, 'foob:xref', '  ')
-            self.raises(BadTypeValu, core.getPropNorm, 'foob:xref', 'inet:ipv4= 1.2.3.4')
-            self.raises(BadTypeValu, core.getPropNorm, 'foob:xref', '(inet:ipv4,1.2.3.4)')
-            self.raises(BadTypeValu, core.getPropNorm, 'foob:xref', ['inet:ipv4', '1.2.3.4', 'opps'])
+            self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', 1234)
+            self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', '  ')
+            self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', 'inet:ipv4= 1.2.3.4')
+            self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', '(inet:ipv4,1.2.3.4)')
+            self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', ['inet:ipv4', '1.2.3.4', 'opps'])

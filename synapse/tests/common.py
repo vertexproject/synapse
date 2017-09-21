@@ -215,7 +215,8 @@ class SynTest(unittest.TestCase):
                 ('strform', {'subof': 'str'},),
                 ('intform', {'subof': 'int'},),
                 ('default_foo', {'subof': 'str'},),
-                ('guidform', {'subof': 'guid'},)
+                ('guidform', {'subof': 'guid'},),
+                ('pvsub', {'subof': 'str'}),
             ),
             'forms': (
                 (
@@ -244,6 +245,23 @@ class SynTest(unittest.TestCase):
                     (
                         ('foo', {'ptype': 'str'}),
                         ('baz', {'ptype': 'int'}),
+                    )
+                ),
+                (
+                    'pvsub', {'ptype': 'pvsub'},
+                    (
+                        ('xref', {'ptype': 'propvalu', 'ro': 1, }),
+                        ('xref:intval', {'ptype': 'int', 'ro': 1, }),
+                        ('xref:strval', {'ptype': 'str', 'ro': 1}),
+                        ('xref:prop', {'ptype': 'str', 'ro': 1}),
+                    )
+                ),
+                (
+                    'pvform', {'ptype': 'propvalu'},
+                    (
+                        ('intval', {'ptype': 'int', 'ro': 1, }),
+                        ('strval', {'ptype': 'str', 'ro': 1}),
+                        ('prop', {'ptype': 'str', 'ro': 1}),
                     )
                 ),
             )

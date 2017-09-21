@@ -169,55 +169,6 @@ class StormTest(SynTest):
 
     def test_storm_refs(self):
         with self.getRamCore() as core:
-
-            tstmodl = {
-                'types': [
-                    [
-                        'foob',
-                        {
-                            'subof': 'str'
-                        }
-                    ],
-                ],
-                'forms': [
-                    [
-                        'foob',
-                        {},
-                        [
-                            [
-                                'xref',
-                                {
-                                    'ptype': 'propvalu',
-                                    'ro': 1,
-                                },
-                            ],
-                            [
-                                'xref:intval',
-                                {
-                                    'ptype': 'int',
-                                    'ro': 1,
-                                }
-                            ],
-                            [
-                                'xref:strval',
-                                {
-                                    'ptype': 'str',
-                                    'ro': 1
-                                }
-                            ],
-                            [
-                                'xref:prop',
-                                {
-                                    'ptype': 'str',
-                                    'ro': 1
-                                }
-                            ]
-                        ]
-                    ],
-                ]
-            }
-            core.addDataModel('pvtest', tstmodl)
-
             core.formTufoByProp('inet:dns:a', 'foo.com/1.2.3.4')
             core.formTufoByProp('inet:dns:a', 'bar.com/1.2.3.4')
 
@@ -247,9 +198,9 @@ class StormTest(SynTest):
             self.eq(forms, {'file:bytes', 'file:txtref', 'inet:passwd'})
 
             # Try refs() with a non-XREF type which has propvalu properties.
-            f1 = core.formTufoByProp('foob', 'hai', xref='inet:ipv4=1.2.3.4')
+            f1 = core.formTufoByProp('pvsub', 'hai', xref='inet:ipv4=1.2.3.4')
             self.nn(f1)
-            nodes = core.eval('foob refs()')
+            nodes = core.eval('pvsub refs()')
             self.eq(len(nodes), 2)
 
     def test_storm_tag_query(self):
