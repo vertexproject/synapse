@@ -48,6 +48,7 @@ class SynModelTest(SynTest):
         iden1 = guid()
         iden2 = guid()
         iden3 = guid()
+        iden4 = guid()
         tick = now()
         rows = [(iden0, 'inet:ipv4:type', '??', tick),
                 (iden0, 'inet:ipv4', 16909060, tick),
@@ -68,6 +69,10 @@ class SynModelTest(SynTest):
                 (iden3, 'file:imgof', 'ccea21ac0a1442aeffde9fd3893625ab', tick),
                 (iden3, 'file:imgof:file', 'd41d8cd98f00b204e9800998ecf8427e', tick),
                 (iden3, 'file:imgof:xtype', 'inet:fqdn', tick),
+                (iden4, 'file:imgof:xref:inet:fqdn', 'vertex.link', tick),
+                (iden4, 'tufo:form', 'file:imgof', tick),
+                (iden4, 'file:imgof', 'ccea21ac0a1442aeffde9fd3893625ab', tick),
+                (iden4, 'file:imgof:file', 'd41d8cd98f00b204e9800998ecf8427e', tick),
                 ]
 
         with s_cortex.openstore('ram:///') as stor:
@@ -90,11 +95,21 @@ class SynModelTest(SynTest):
                 self.notin('file:txtref:xref:xtype', node[1])
                 self.notin('file:txtref:xref:inet:ipv4', node[1])
                 self.notin('file:txtref:xref:strval', node[1])
+
                 nodes = core.eval('file:imgof')
-                self.eq(len(nodes), 1)
-                node = nodes[0]
+                self.eq(len(nodes), 2)
+
+                node = core.eval('guid({})'.format(iden3))[0]
                 self.eq(node[1].get('file:imgof:xref'), 'inet:fqdn=woot.com')
                 self.eq(node[1].get('file:imgof:xref:strval'), 'woot.com')
+                self.eq(node[1].get('file:imgof:xref:prop'), 'inet:fqdn')
+                self.notin('file:imgof:xref:xtype', node[1])
+                self.notin('file:imgof:xref:inet:fqdn', node[1])
+                self.notin('file:imgof:xref:intval', node[1])
+
+                node = core.eval('guid({})'.format(iden4))[0]
+                self.eq(node[1].get('file:imgof:xref'), 'inet:fqdn=vertex.link')
+                self.eq(node[1].get('file:imgof:xref:strval'), 'vertex.link')
                 self.eq(node[1].get('file:imgof:xref:prop'), 'inet:fqdn')
                 self.notin('file:imgof:xref:xtype', node[1])
                 self.notin('file:imgof:xref:inet:fqdn', node[1])

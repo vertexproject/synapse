@@ -1,4 +1,7 @@
 import synapse.common as s_common
+
+import synapse.lib.tufo as s_tufo
+
 from synapse.lib.module import CoreModule, modelrev
 
 class SynMod(CoreModule):
@@ -140,10 +143,21 @@ class SynMod(CoreModule):
             xrefp = '{}:xref'.format(ntyp)
             xrefpint = '{}:xref:intval'.format(ntyp)
             xrefpstr = '{}:xref:strval'.format(ntyp)
+            xrefprop = '{}:xref:prop'.format(ntyp)
             for node in nodes:
                 iden = node[0]
                 srcvtype = node[1].get(xtyp)
-                xrefprop = '{}:xref:prop'.format(ntyp)
+                if srcvtype is None:
+                    # This is expensive node level introspection :(
+                    for prop, valu in s_tufo.props(node).items():
+                        if prop.startswith('xref:'):
+                            form = prop.split('xref:', 1)[1]
+                            if self.core.isTufoForm(form):
+                                srcvtype = form
+                    if not srcvtype:
+                        raise s_common.NoSuchProp(iden=node[0], type=ntyp,
+                                                  mesg='Unable to find a xref prop which is a form for migrating a '
+                                                       'XREF node.')
                 srcprp = '{}:xref:{}'.format(ntyp, srcvtype)
                 srcv = node[1].get(srcprp)
                 valu, subs = self.core.getPropNorm(xrefp, [srcvtype, srcv])

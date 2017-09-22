@@ -708,16 +708,16 @@ class StormTest(SynTest):
             self.len(3, nodes)
 
             nodes = core.eval('syn:tag=foo.baz tree(syn:tag, syn:tag:up)')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             nodes = core.eval('syn:tag=blah tree(syn:tag, syn:tag:up)')
-            self.eq(len(nodes), 3)
+            self.len(3, nodes)
 
             nodes = core.eval('syn:tag=blah tree(syn:tag, syn:tag:up, recurlim=1)')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             nodes = core.eval('syn:tag=foo tree(syn:tag:up)')
-            self.eq(len(nodes), 6)
+            self.len(6, nodes)
 
             o0 = core.formTufoByProp('ou:org:alias', 'master')
             o1 = core.formTufoByProp('ou:org:alias', 's1')
@@ -735,16 +735,16 @@ class StormTest(SynTest):
             s46 = core.formTufoByProp('ou:suborg', [o4[1].get('ou:org'), o6[1].get('ou:org')])
 
             nodes = core.eval('ou:org:alias=master -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org) :sub-> ou:org')
-            self.eq(len(nodes), 6)
+            self.len(6, nodes)
 
             nodes = core.eval('ou:org:alias=master -> ou:suborg:org tree(:sub, ou:suborg:org) :sub-> ou:org')
-            self.eq(len(nodes), 6)
+            self.len(6, nodes)
 
             nodes = core.eval('ou:org:alias=s2 -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org) :sub-> ou:org')
-            self.eq(len(nodes), 0)
+            self.len(0, nodes)
 
             nodes = core.eval('ou:org:alias=s1 -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org) :sub-> ou:org')
-            self.eq(len(nodes), 4)
+            self.len(4, nodes)
 
             nodes = core.eval('ou:org:alias=s4 -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org) :sub-> ou:org')
             self.eq(len(nodes), 2)
