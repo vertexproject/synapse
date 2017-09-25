@@ -907,9 +907,10 @@ class CortexTest(SynTest):
             nodes = core.getTufosByProp('syn:form')
             for node in nodes:
                 self.isin('syn:form:ptype', node[1])
-                self.isin('syn:form:local', node[1])
                 if 'syn:form:doc' in node[1]:
                     self.isinstance(node[1].get('syn:form:doc'), str)
+                if 'syn:form:local' in node[1]:
+                    self.isinstance(node[1].get('syn:form:local'), int)
 
             nodes = core.getTufosByProp('syn:prop')
             for node in nodes:
@@ -930,7 +931,7 @@ class CortexTest(SynTest):
 
             # Some nodes are local, some are not
             node = core.getTufoByProp('syn:form', 'inet:ipv4')
-            self.eq(node[1].get('syn:form:local'), 0)
+            self.eq(node[1].get('syn:form:local'), None)
             node = core.getTufoByProp('syn:form', 'syn:splice')
             self.eq(node[1].get('syn:form:local'), 1)
 
