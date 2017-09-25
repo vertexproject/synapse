@@ -328,6 +328,7 @@ class Plex(EventBus):
 
         #self._plex_sel = selectors.DefaultSelector()
 
+        self._plex_thr = None
         self._plex_lock = threading.Lock()
         self._plex_socks = {}
 
@@ -336,14 +337,14 @@ class Plex(EventBus):
         self._plex_txsocks = []
         self._plex_xxsocks = []
 
-        self._plex_thr = self._plexMainLoop()
-
         self._plex_wake, self._plex_s2 = socketpair()
 
         self._plex_s2.set('wake', True)
         self.addPlexSock(self._plex_s2)
 
         self.onfini(self._onPlexFini)
+
+        self._plex_thr = self._plexMainLoop()
 
     def __len__(self):
         return len(self._plex_socks)
@@ -460,13 +461,14 @@ class Plex(EventBus):
                     if rxsock.get('listen'):
                         connsock, connaddr = rxsock.accept()
                         if connsock is not None:
+                            self.addPlexSock(connsock)
                             self.fire('link:sock:init', sock=connsock)
 
                         continue
 
                     # yield any completed mesgs
                     for mesg in rxsock.rx():
-                        rxsock.fire('link:sock:mesg', sock=rxsock, mesg=mesg)
+                        self.fire('link:sock:mesg', sock=rxsock, mesg=mesg)
 
                 for txsock in txlist:
                     if not txsock.runTxLoop():

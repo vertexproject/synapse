@@ -19,11 +19,9 @@ class SocketTest(SynTest):
             sock.tx(tufo('hi:got', mesg=mesg))
 
         plex = s_socket.Plex()
+        plex.on('link:sock:mesg', onmesg)
 
         s1, s2 = s_socket.socketpair()
-        s2.on('link:sock:mesg', onmesg)
-
-        waiter = self.getTestWait(s2, 1, 'link:sock:mesg')
 
         plex.addPlexSock(s2)
 

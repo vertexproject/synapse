@@ -213,6 +213,8 @@ class Proxy(s_eventbus.EventBus):
         self._tele_plex = plex
         self._tele_boss = s_async.Boss()
 
+        self._tele_plex.on('link:sock:mesg', self._onLinkSockMesg)
+
         self._raw_on('tele:yield:init', self._onTeleYieldInit)
         self._raw_on('tele:yield:item', self._onTeleYieldItem)
         self._raw_on('tele:yield:fini', self._onTeleYieldFini)
@@ -415,9 +417,6 @@ class Proxy(s_eventbus.EventBus):
 
         if sock is None:
             sock = self._tele_relay.connect()
-
-        # generated on the socket by the multiplexor ( and queued )
-        sock.on('link:sock:mesg', self._onLinkSockMesg)
 
         def sockfini():
             # called by multiplexor... must not block
