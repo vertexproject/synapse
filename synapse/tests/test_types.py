@@ -286,7 +286,7 @@ class DataTypesTest(SynTest):
         tlib = s_types.TypeLib()
 
         tnfo = tlib.getTypeDef('int')
-        self.nn(int)
+        self.nn(tnfo)
         self.eq(tnfo[0], 'int')
         self.notin('subof', tnfo[1])
         self.eq(tnfo[1].get('ctor'), 'synapse.lib.types.IntType')
