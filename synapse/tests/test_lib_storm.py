@@ -856,7 +856,7 @@ class StormTest(SynTest):
 
             for i in range(200):
                 node = core.formTufoByProp('inet:ipv4', i)
-                core.addTufoTag(node,'woot')
+                core.addTufoTag(node, 'woot')
 
             self.eq(100, len(core.eval('#woot')))
             self.eq(200, len(core.eval('#woot limit(1000)')))
