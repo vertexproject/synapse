@@ -258,15 +258,28 @@ class DataModelTest(SynTest):
         model.addTufoForm('foo')
         model.addTufoProp('foo', 'meow', ptype='foo:baz')
         model.addTufoProp('foo', 'bark', doc='lala')
+        model.addTufoProp('foo', 'meow:purr', ptype='foo:baz', title='purr', doc='The sound a purr makes')
 
         self.eq(model.getPropInfo('foo:meow', 'req'), False)
         self.eq(model.getPropInfo('foo:meow', 'base'), 'meow')
+        self.eq(model.getPropInfo('foo:meow', 'relname'), 'meow')
         self.eq(model.getPropInfo('foo:meow', 'defval'), None)
         self.eq(model.getPropInfo('foo:meow', 'title'), '')
         self.eq(model.getPropInfo('foo:meow', 'doc'), 'foo bar doc')
 
         self.eq(model.getPropInfo('foo:bark', 'doc'), 'lala')
         self.eq(model.getPropInfo('foo:bark', 'title'), '')
+        self.eq(model.getPropInfo('foo:bark', 'base'), 'bark')
+        self.eq(model.getPropInfo('foo:bark', 'relname'), 'bark')
+        self.eq(model.getPropInfo('foo:meow', 'defval'), None)
+        self.eq(model.getPropInfo('foo:meow', 'req'), False)
+
+        self.eq(model.getPropInfo('foo:meow:purr', 'req'), False)
+        self.eq(model.getPropInfo('foo:meow:purr', 'base'), 'purr')
+        self.eq(model.getPropInfo('foo:meow:purr', 'relname'), 'meow:purr')
+        self.eq(model.getPropInfo('foo:meow:purr', 'defval'), None)
+        self.eq(model.getPropInfo('foo:meow:purr', 'title'), 'purr')
+        self.eq(model.getPropInfo('foo:meow:purr', 'doc'), 'The sound a purr makes')
 
         self.eq(model.getPropInfo('foo:nonexistent', 'doc'), None)
 
