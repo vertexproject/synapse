@@ -282,6 +282,21 @@ class DataTypesTest(SynTest):
         self.true(tlib.addType('bar', subof='int'))
         self.nn(tlib.getDataType('foo'))
 
+    def test_type_gettdef(self):
+        tlib = s_types.TypeLib()
+
+        tnfo = tlib.getTypeDef('int')
+        self.nn(int)
+        self.eq(tnfo[0], 'int')
+        self.notin('subof', tnfo[1])
+        self.eq(tnfo[1].get('ctor'), 'synapse.lib.types.IntType')
+
+        tnfo = tlib.getTypeDef('str:txt')
+        self.notin('ctor', tnfo[1])
+        self.eq(tnfo[1].get('subof'), 'str')
+
+        self.none(tlib.getTypeDef('paperboat'))
+
     def test_type_sepr(self):
         tlib = s_types.TypeLib()
         tlib.addType('siteuser', subof='sepr', sep='/', fields='foo,inet:fqdn|bar,inet:user')
