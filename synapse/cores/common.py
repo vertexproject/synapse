@@ -457,12 +457,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             for tnam, tnfo in modl.get('types', ()):
                 tdef = self.getTypeDef(tnam)
-                self.addRuntNode('syn:type', tnam, tdef[1])
+                self.addRuntNode('syn:type', tnam, props=tdef[1])
 
             for fnam, fnfo, props in modl.get('forms', ()):
                 pdef = self.getPropDef(fnam)
-                self.addRuntNode('syn:form', fnam, pdef[1])
-                self.addRuntNode('syn:prop', fnam, pdef[1])
+                self.addRuntNode('syn:form', fnam, props=pdef[1])
+                self.addRuntNode('syn:prop', fnam, props=pdef[1])
 
                 for pnam, pnfo in props:
                     full = fnam + ':' + pnam
