@@ -894,6 +894,22 @@ class TypeLib:
         return list(self.typeinfo.items())
 
     def getTypeDef(self, name):
+        '''
+        Get the definition for a given type.
+
+        Args:
+            name (str): Name of the type to look up.
+
+        Examples:
+            Do stuff with the type definition of 'int'::
+
+                tdef = tlib.getTypeDef('int')
+                dostuff(tdef)
+
+        Returns:
+            ((str, dict)): The type definition tufo. The str is the name of the type, and the dictionary are any type
+             options (ctor and subof values). If the name is not a registered type, this is None.
+        '''
         info = self.typeinfo.get(name)
         if info is None:
             return None
