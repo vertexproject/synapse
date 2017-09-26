@@ -477,7 +477,7 @@ class Runtime(Configable):
             (int): The lift limit value or None
 
         '''
-        limits = [ l for l in limits if l is not None ]
+        limits = [l for l in limits if l is not None]
 
         # If they made no requests, return the default
         if not limits:
