@@ -241,10 +241,7 @@ class DataModelTest(SynTest):
         model = s_datamodel.DataModel(load=False)
         forms = model.getTufoForms()
         self.isinstance(forms, list)
-        self.isin('syn:core', forms)
-        self.isin('syn:type', forms)
-        self.isin('syn:form', forms)
-        self.isin('syn:prop', forms)
+        self.notin('syn:prop', forms)
         self.notin('inet:ipv4', forms)
 
         model = s_datamodel.DataModel()
