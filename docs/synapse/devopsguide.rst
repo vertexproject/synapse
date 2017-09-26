@@ -13,6 +13,7 @@ The DevOps Guide is a living document and will continue to be updated and expand
     devopsguides/cortex_basics
     devopsguides/cortex_storage_types
     devopsguides/cortex_storage_details
+    devopsguides/ingest_intro
     devopsguides/axon
     devopsguides/dmon
     devopsguides/eventbus

@@ -7,7 +7,7 @@ Recall that nodes can represent data such objects, relationships, and events. Sy
 Simple Nodes
 ------------
 
-A "simple" node is one that represents an atomic object or entity. "Simple" is an informal descriptor meant to convey that forms for these types of nodes have a primary property that consists of a single ``<form>=<value>``; the "uniqueness" or “thinghood” of a simple node can be represented by a single element. In addition, simple nodes are typically the most readily understood from a modeling perspective.
+A "simple" node is one that represents an atomic object or entity. "Simple" is an informal descriptor meant to convey that forms for these types of nodes have a primary property that consists of a single ``<form>=<valu>``; the "uniqueness" or “thinghood” of a simple node can be represented by a single element. In addition, simple nodes are typically the most readily understood from a modeling perspective.
 
 Even for simple nodes, it may still be possible (and desirable) to break the node's "basic" primary property into component parts so that those components are queryable or pivotable within the hypergraph. If Synapse can parse relevant subcomponents from the primary property, the associated secondary properties can be created automatically during node creation.
 
@@ -35,8 +35,8 @@ Examples of simple nodes include:
 
 GUIDs are used as primary properties for forms which are not easily deconflictable (that is, which do not have readily identified characteristics that can serve as a unique primary property). For commonly used node types that are represented by GUIDs (such as organizations or people), it is impractical for an analyst to have to type (or even copy / paste) a GUID at the CLI every time they want to reference a given node. While nodes can be retrieved based on a more "human-friendly" secondary ``<prop>=<value>`` (e.g., ``ou:org:alias=vertex``), even the need to enter a full secondary property / value may be inconvenient.
 
-Synapse allows an **alias** to be defined as part of the type for the form's primary property. The alias is typically one of the form's secondary properties. For example, the Synapse data model defines the property ``ps:person:guidname`` as an alias for a person, and ``ou:org:alias`` as an alias for an organization. An example of the alias definition can be seen in this snippet of source code that defines the ``ou:org`` type (from ``orgs.py``):
-::
+Synapse allows an **alias** to be defined as part of the type for the form's primary property. The alias is typically one of the form's secondary properties. For example, the Synapse data model defines the property ``ps:person:guidname`` as an alias for a person, and ``ou:org:alias`` as an alias for an organization. An example of the alias definition can be seen in this snippet of source code that defines the ``ou:org`` type (from ``orgs.py``)::
+
     def getBaseModels():
         modl = {
             'types': (
@@ -51,16 +51,16 @@ Synapse allows an **alias** to be defined as part of the type for the form's pri
             ...
         }
 
-Once defined in the data model, the alias property’s value preceded by a dollar sign ( ``$`` ) can be used as shorthand to refer to the node. As such, the following statements are equivalent:
-::
-  ou:org=2f92bc913918f6598bcf310972ebf32e
-  ou:org:alias=vertex
-  ou:org=$vertex
+Once defined in the data model, the alias property’s value preceded by a dollar sign ( ``$`` ) can be used as shorthand to refer to the node. As such, the following statements are equivalent::
+
+    ou:org=2f92bc913918f6598bcf310972ebf32e
+    ou:org:alias=vertex
+    ou:org=$vertex
 
 Composite (Comp) Nodes
 ----------------------
 
-There are cases where the primary property of a node (that which makes the node unique or gives it "thinghood") cannot be defined by a single element. However, these nodes may be defined as "unique" based on the combination of two or more elements. This is true, for example, for many relationship nodes (which makes sense, given that in a directed graph an edge is a relationship that joins two objects). A composite (comp) node supports this through a primary property that is componsed of two or more ``<prop>=<value>`` elements that collectively define a unique node for a given form.
+There are cases where the primary property of a node (that which makes the node unique or gives it "thinghood") cannot be defined by a single element. However, these nodes may be defined as "unique" based on the combination of two or more elements. This is true, for example, for many relationship nodes (which makes sense, given that in a directed graph an edge is a relationship that joins two objects). A composite (comp) node supports this through a primary property that is composed of two or more ``<prop>=<valu>`` elements that collectively define a unique node for a given form.
 
 Comp nodes provide additional flexibility to the data model in that:
 
@@ -72,9 +72,9 @@ Synapse uses the following conventions for comp nodes:
 
 - The elements of a comp node’s primary property are specified as a comma-separated ordered list within parentheses (e.g., ``<form>=(<element_1>,<element_2>,...<element_n>)``).
 
-- Those elements that are mandatory for a given form must be present and listed in the order in which they are defined within the model. Since the mandatory elements are listed in their specified order, they can be listed by ``<value>`` alone.
+- Those elements that are mandatory for a given form must be present and listed in the order in which they are defined within the model. Since the mandatory elements are listed in their specified order, they can be listed by ``<valu>`` alone.
 
-- Optional elements can be included at the end of the list in the form ``<prop>=<value>``.
+- Optional elements can be included at the end of the list in the form ``<prop>=<valu>``.
 
 - While the "primary property" is comprised of multiple elements, the elements can vary widely in number, length, and complexity. For performance reasons, the real primary property (used to store, index and reference a comp node) is a GUID that is generated as a function of the set of elements specified on node creation. Note that because the comp node GUID is "seeded" by the set of unique elements themselves, the GUID is deterministic: the same set of elements will result in the same GUID, including across different Cortexes. (Contrast this with node identifier GUIDs or randomly generated GUIDs used as primary properties, such as for ``ps:person`` nodes or ``ou:org`` nodes – such GUIDs are not deterministic and may vary across Cortexes.)
 
@@ -114,13 +114,13 @@ An example of a comp node with optional properties would be:
 
 Recall that while a comp node’s “primary property” (that which makes it unique) is a combination of two or more elements, the actual primary property stored and referenced in Synapse is a GUID generated as a function of the individual elements specified at the time the node is created. So if you have ``<form>=(foo,bar,baz)`` the GUID is a function of ``foo``, ``bar``, and ``baz``. The function is deterministic, so the same set of elements will always generate the same GUID.
   
-This has implications for the data model when some of the elements are optional. Let’s say you have a comp node ``<form>=(foo,bar,baz,hurr,derp)`` where ``foo`` is required but the remaining elements are optional. If, when you first create the node, you only know ``foo``, the node GUID will be based only on ``foo``.  Once created, a node’s primary property cannot be changed; so if you later identify ``baz``, you can’t simply “add” it to the existing comp node; you would need to create a second comp node based of ``foo`` and ``baz``, which would generate a different GUID. If you later learn ``bar`` and ``derp``, a node created from ``foo``, ``bar``, ``baz``, and ``derp`` would have yet another GUID.
+This has implications for the data model when some of the elements are optional. Let’s say you have a comp node ``<form>=(foo,bar,baz,hurr,derp)`` where ``foo`` is required but the remaining elements are optional. If, when you first create the node, you only know ``foo``, the node GUID will be based only on ``foo``.  Once created, a node’s primary property cannot be changed; so if you later identify ``baz``, you can’t simply “add” it to the existing comp node; you would need to create a second comp node based on ``foo`` and ``baz``, which would generate a different GUID. If you later learn ``bar`` and ``derp``, a node created from ``foo``, ``bar``, ``baz``, and ``derp`` would have yet another GUID.
   
-To provide a more concrete example, consider the ``it:hostfile`` node described above. Let’s say initially you determine that a suspicious file existed at the path ``C:\WINDOWS\system32\scvhost.exe`` on host ``MYHOST``. You create the initial ``it:hostfile`` node based on those two properties, and Synapse generates the GUID ``671993b20eb292dbd1dec63cbd26d3ce`` from that data. In the course of your analysis, you tag the ``it:hostfile`` node as being associated with Threat Group 12 (``#tc.t12``).
+To provide a more concrete example, consider the ``it:hostfile`` node described above. Let’s say initially you determine that a suspicious file existed at the path ``C:\WINDOWS\system32\scvhost.exe`` on host ``MYHOST``. You create the initial ``it:hostfile`` node based on those two properties, and Synapse generates the GUID ``671993b20eb292dbd1dec63cbd26d3ce`` from that data. In the course of your analysis, you tag the ``it:hostfile`` node as being associated with Threat Cluster 12 (``#tc.t12``).
   
-You later recover the actual file bytes for ``somefile.dll``, a ``file:bytes`` node with the GUID (“superhash”) ``d385c823f1f5c64b5cec20c9e04adb32``. You can’t add the ``file:bytes`` element (an optional component of the ``it:hostfile`` node’s primary property) to the existing node, so a new ``it:hostfile`` node is created with a different GUID based on the combination of the host, the path, and the ``file:bytes`` GUID. The new node has “higher resolution” (more information, greater specificity), but the two nodes are not automatically “combined” by Synapse, and tags on the existing node (such as the ``#tc.t12`` tag) are not automatically copied over to the new node.
+You later recover the actual file bytes for ``scvhost.exe``, a ``file:bytes`` node with the GUID (“superhash”) ``d385c823f1f5c64b5cec20c9e04adb32``. You can’t add the ``file:bytes`` element (an optional component of the ``it:hostfile`` node’s primary property) to the existing node, so a new ``it:hostfile`` node is created with a different GUID based on the combination of the host, the path, and the ``file:bytes`` GUID. The new node has “higher resolution” (more information, greater specificity), but the two nodes are not automatically “combined” by Synapse, and tags on the existing node (such as the ``#tc.t12`` tag) are not automatically copied over to the new node.
   
-(Note that **not** copying the tags may be a good thing; perhaps both Threat Group 12 and Threat Group 35 have used the path ``C:\WINDOWS\system32\scvhost.exe`` - not an unreasonable assumption, as use of ``scvhost.exe`` to masquerade as the legitimate ``svchost.exe`` is fairly common. Perhaps both groups even used the same path on the same host at different times during a three-year period. But only that specific file (``file:bytes``) located at that specific path on that specific host is associated with Threat Group 12. In that case, it might be reasonable to tag the ``it:hostfile`` node based on the host and path alone with both ``#tc.t12`` and ``#tc.t35`` (both groups have used that exact path on that exact host), but the ``it:hostfile`` node based on the host, path, and specific file with ``#tc.t12`` (only Threat Group 12 has used that exact file at that exact path on that exact host).
+(Note that **not** copying the tags may be a good thing; perhaps both Threat Cluster 12 and Threat Cluster 35 have been associated with the path ``C:\WINDOWS\system32\scvhost.exe`` - not an unreasonable assumption, as use of ``scvhost.exe`` to masquerade as the legitimate ``svchost.exe`` is fairly common. Perhaps both threat clusters are even associated with the same path on the same host at different times during a three-year period. But only that specific file (``file:bytes``) located at that specific path on that specific host is associated with Threat Cluster 12. In that case, it might be reasonable to tag the ``it:hostfile`` node based on the host and path alone with both ``#tc.t12`` and ``#tc.t35`` (both clusters are associated with that exact path on that exact host), but the ``it:hostfile`` node based on the host, path, and specific file with ``#tc.t12`` (only Threat Cluster 12 is associated with that exact file at that exact path on that exact host).
   
 A similar issue exists for ``file:bytes`` nodes. While not a true comp node, the primary property GUID of a ``file:bytes`` node is based on the combination of the file’s MD5, SHA1, SHA256, and SHA512 hashes. In other words, the GUID is generally meant to be generated based on having an actual copy of the file (the actual bytes) where the four hashes can be calculated and used to create a “complete” GUID ("superhash").
   
@@ -135,9 +135,9 @@ As noted in `Data Model Concepts`__, the model should be "self-evident" to the e
 
 In addition, it is preferable for data in the hypergraph to consist of original or verifiable source material where possible. This follows the general analytical principle of primary sources: you can best verify your own data (or other original data) and related analysis. Third-party reporting raises questions of source reliability, accuracy, and so on. However, this presents several challenges.
 
-First, it is both impractical and unrealistic to assume that all data in a hypergraph can be originally sourced. Almost all analysis relies on some amount of research by others; this is why research papers provide references and cite sources. Let's say that you are attempting to link a computer intrusion to the infamous Threat Group 12, but you don't have direct knowledge of the intrusion or the intrusion investigation. However, a third-party source states that malware found during the investigation communciates with a domain that you have linked to Threat Group 12. How do you reference other reporting or sources within the hypergraph?
+First, it is both impractical and unrealistic to assume that all data in a hypergraph can be originally sourced. Almost all analysis relies on some amount of research by others; this is why research papers provide references and cite sources. Let's say that you are attempting to link a computer intrusion to the infamous Threat Cluster 12, but you don't have direct knowledge of the intrusion or the intrusion investigation. However, a third-party source states that malware found during the investigation communciates with a domain that you have linked to Threat Cluster 12. How do you reference other reporting or sources within the hypergraph?
 
-Second, in conducting analysis across a broad range of data types, there are cases where information needed to support (or refute) a hypothesis is highly specialized, or cannot easily be broken down in to pre-existing nodes (objects, relationships, or events). For example, let's say you want to demonstrate that Alice and Bob know each other, but you don't have evidence (such as social media connections) to demonstrate that. (Maybe you don't have access to that data, or maybe Alice and Bob want to keep their relationship secret and so do not have social media connections.) However, you identify a photograph showing Alice and Bob together that helps support your assertion. How would you represent this in the hypergraph?
+Second, in conducting analysis across a broad range of data types, there are cases where information needed to support (or refute) a hypothesis is highly specialized, or cannot easily be broken down into pre-existing nodes (objects, relationships, or events). For example, let's say you want to demonstrate that Alice and Bob know each other, but you don't have evidence (such as social media connections) to demonstrate that. (Maybe you don't have access to that data, or maybe Alice and Bob want to keep their relationship secret and so do not have social media connections.) However, you identify a photograph showing Alice and Bob together that helps support your assertion. How would you represent this in the hypergraph?
 
 Synapse supports these concepts through a specialized node type called an xref (short for "cross-reference") node, which allows you to demonstrate that one object "references" another. So a photograph (``file:bytes``) can "reference" (contain) an image of a person (``ps:person``) or a particular place (``geo:place``); or a document (``file:bytes``) can reference anything from an atomic object (a security report referencing a malicious domain (``inet:fqdn``)) to a particular assertion (a report stating that malware found on Acme Corporation's network communicated with ``myevildomain.com``, or a news article noting that Acme Corporation was in merger talks with Widgets, Inc. in March 2016).
 
@@ -185,5 +185,5 @@ Examples of sepr nodes include:
   Other secondary properties may depend on the types of account(s) being tracked and the specific analytical need. User profile data available from a given service may vary widely depending on the service purpose (software development vs. cloud storage service vs. social media) or on geography or culture. For example, some Asian web sites allow users to post their blood type, while western web sites may allow users to post their zodiacal sign; within different cultures, both are believed to reflect an individual's personality.
 
 
-.. _Concepts: ../userguides/userguide_section4.html
+.. _Concepts: ../userguides/ug004_dm_concepts.html
 __ Concepts_

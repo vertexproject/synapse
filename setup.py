@@ -1,17 +1,17 @@
 #!/usr/bin/env python
-from setuptools import setup,find_packages
+from setuptools import setup, find_packages
 
 
 setup(
     name='synapse',
-    version='0.0.19', # sync with synapse.version!
+    version='0.0.25',
     description='Synapse Distributed Key-Value Hypergraph Analysis Framework',
     author='Invisigoth Kenshoto',
     author_email='invisigoth.kenshoto@gmail.com',
     url='https://github.com/vertexproject/synapse',
     license='Apache License 2.0',
 
-    packages=find_packages(exclude=['*.tests','*.tests.*']),
+    packages=find_packages(exclude=['*.tests', '*.tests.*']),
 
     include_package_data=True,
 

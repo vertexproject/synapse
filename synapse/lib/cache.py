@@ -1,7 +1,9 @@
 from __future__ import absolute_import, unicode_literals
 
 import time
+import fnmatch
 import threading
+import contextlib
 import collections
 
 import synapse.lib.sched as s_sched
@@ -110,6 +112,19 @@ class Cache(EventBus):
             self.cache[key] = val
             self.lasthit[key] = time.time()
             return val
+
+    def has(self, key):
+        '''
+        Checks if the given key is in the cache
+        (mostly used for testing)
+
+        Args:
+            key (str):  The key being checked in the cache
+
+        Returns:
+            (bool): True if the key is in the cache
+        '''
+        return self.cache.get(key, miss) is not miss
 
     def put(self, key, val):
         '''
@@ -389,16 +404,17 @@ class KeyCache(collections.defaultdict):
     def put(self, key, val):
         self[key] = val
 
-class RefDict:
+class RefDict(EventBus):
     '''
     Allow reference counted ( and instance folded ) cache.
     '''
     def __init__(self):
+        EventBus.__init__(self)
         self.vals = {}
         self.lock = threading.Lock()
         self.refs = collections.defaultdict(int)
 
-    def put(self, key, val):
+    def put(self, key, val=True):
         with self.lock:
             return self._put(key, val)
 
@@ -413,11 +429,17 @@ class RefDict:
         self.refs[key] -= 1
         if self.refs[key] <= 0:
             self.refs.pop(key, None)
-            return self.vals.pop(key, None)
+            val = self.vals.pop(key, None)
+            # fired with the lock! watch yourself...
+            self.fire('ref:pop', key=key, val=val)
+            return val
 
     def _put(self, key, val):
         val = self.vals.setdefault(key, val)
         self.refs[key] += 1
+        if self.refs[key] == 1:
+            # fired with the lock! watch yourself...
+            self.fire('ref:put', key=key, val=val)
         return val
 
     def puts(self, items):
@@ -433,6 +455,58 @@ class RefDict:
             self.vals.clear()
             self.refs.clear()
 
+    def count(self, key):
+        '''
+        Returns the number of references to the specified key.
+
+        Args:
+            key (str):  The key to check for references
+
+        Returns:
+            (int):  The number of references
+        '''
+        return self.refs.get(key, 0)
+
+    @contextlib.contextmanager
+    def holdref(self, key, val=True):
+        '''
+        Provides with-block syntax for holding a reference increment.
+
+        Args:
+            key (str):  The key to reference
+            val (obj):  The value for the key
+
+        Returns:
+            contextmanager
+
+        Example:
+
+            refd = RefDict()
+
+            with refd.holdref('foo','bar'):
+                dostuff()
+
+        '''
+        self.put(key, val=val)
+        yield
+        self.pop(key)
+
+    def bumpref(self, key, val=True):
+        '''
+        Increment and decrement the given ref to potentially trigger events.
+        This API will be most commonly used by leaf references who only seek
+        to trigger potential events.
+
+        Args:
+            key (str):  The key to reference
+            val (obj):  The value for the key
+
+        Returns:
+            (None)
+        '''
+        self.put(key, val=val)
+        self.pop(key)
+
     def __contains__(self, item):
         with self.lock:
             return item in self.vals
@@ -440,3 +514,28 @@ class RefDict:
     def __len__(self):
         with self.lock:
             return len(self.vals)
+
+class MatchCache(Cache):
+    '''
+    The MatchCache allows caching fnmatch results for perf.
+    '''
+
+    def __init__(self):
+        Cache.__init__(self, onmiss=self._onMissMatch)
+
+    def match(self, valu, must):
+        '''
+        Check if a given value matches an fnmatch pattern
+
+        Args:
+            valu (str): The string being checked
+            must (str): The fnmatch pattern to check against
+
+        Returns:
+            (bool): True if valu matches must
+        '''
+        return self.get((valu, must))
+
+    def _onMissMatch(self, ckey):
+        valu, must = ckey
+        return fnmatch.fnmatch(valu, must)

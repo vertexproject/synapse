@@ -38,7 +38,7 @@ class HiveTest(SynTest):
         hive = s_hivemind.Hive(qprox, size=32)
         drone = s_hivemind.Drone(qprox, size=2)
 
-        env = TestEnv()
+        env = TstEnv()
 
         # order matters for fini calls...
         env.add('hive', hive, fini=True)

@@ -91,7 +91,7 @@ class StormSyntaxTest(SynTest):
 
     def test_storm_syntax_pivot(self):
         insts = s_syntax.parse('foo:bar -> hehe.haha/baz:faz')
-        self.eq(insts[0], ('pivot', {'args': ['baz:faz', 'foo:bar'], 'kwlist': [('from', 'hehe.haha')]}))
+        self.eq(insts[0], ('pivot', {'args': ['foo:bar', 'baz:faz'], 'kwlist': [('from', 'hehe.haha')]}))
 
     def test_storm_syntax_whites(self):
         insts = s_syntax.parse('inet:fqdn     =      "1.2.3.4"')
@@ -118,11 +118,10 @@ class StormSyntaxTest(SynTest):
         args = oper[1].get('args')
         opts = dict(oper[1].get('kwlist'))
 
-        self.eq(args[0], [1,2])
+        self.eq(args[0], [1, 2])
         self.eq(args[1], 'lol')
         self.eq(args[2], 'hehe haha')
 
-        self.eq(opts.get('one'), [3,4])
+        self.eq(opts.get('one'), [3, 4])
         self.eq(opts.get('two'), 5)
         self.eq(opts.get('three'), 'whee')
-

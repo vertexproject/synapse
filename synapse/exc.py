@@ -6,8 +6,7 @@ class SynErr(Exception):
         Exception.__init__(self, self._getExcMsg())
 
     def _getExcMsg(self):
-        props = list(self.errinfo.items())
-        props.sort()
+        props = sorted(self.errinfo.items())
         displ = ' '.join(['%s=%r' % (p, v) for (p, v) in props])
         return '%s: %s' % (self.__class__.__name__, displ)
 
@@ -62,6 +61,8 @@ class BadConfValu(SynErr):
     This should contain the config name, valu and mesg.
     '''
     pass
+
+class BadRevValu(SynErr): pass
 class BadTypeValu(SynErr): pass
 class DupTypeName(SynErr): pass
 class DupPropName(SynErr): pass
@@ -72,7 +73,8 @@ class BadCtorType(SynErr): pass
 class BadMesgVers(SynErr): pass
 class BadInfoValu(SynErr): pass
 class BadStorValu(SynErr): pass
-class BadRevValu(SynErr): pass
+class BadRuleValu(SynErr): pass
+
 class BadCoreStore(SynErr):
     '''The storage layer has encountered an error'''
     pass
@@ -94,6 +96,8 @@ class BadJson(Exception): pass
 class BadMesgResp(Exception): pass
 class BadPropValu(SynErr): pass
 class BadPySource(Exception): pass
+
+class BadRuleSyntax(SynErr): pass
 class BadSyntaxError(SynErr): pass
 
 class TeleClientSide(SynErr): pass
@@ -104,6 +108,8 @@ class DupOpt(Exception): pass
 class DupUser(Exception): pass
 class DupRole(Exception): pass
 
+class IsRuntProp(SynErr): pass
+
 class NoSuch(Exception): pass
 class NoSuchJob(Exception): pass
 class NoSuchObj(SynErr): pass
@@ -111,17 +117,18 @@ class NoSuchFile(Exception): pass
 class NoSuchIden(Exception): pass
 class NoSuchMeth(SynErr): pass
 class NoSuchFunc(SynErr): pass
+class NoSuchPerm(SynErr): pass
 class NoSuchPeer(Exception): pass
 class NoSuchSess(Exception): pass
 class NoSuchUser(SynErr): pass
-class NoSuchRole(Exception): pass
+class NoSuchRole(SynErr): pass
 class NoSuchProto(Exception): pass
 
 class NoInitCore(Exception): pass # API disabled because no cortex
 class NoCurrSess(Exception): pass # API requires a current session
 
 class SidNotFound(Exception): pass
-class PropNotFound(Exception): pass
+class PropNotFound(SynErr): pass
 
 class HitMaxTime(Exception): pass
 class HitMaxRetry(Exception): pass

@@ -282,7 +282,7 @@ Basic Cortex Test Suite
 
 Adding a new storage layer implementation to the test suite is fairly
 straightforward.  In the synapse/tests/test_cortex.py file, add the following
-test to the CortexTest class (this assumes you registered the handler as
+test to the CortexBaseTest class (this assumes you registered the handler as
 "mystore")::
 
     def test_cortex_mystore(self):
@@ -292,7 +292,7 @@ test to the CortexTest class (this assumes you registered the handler as
 Then you can run the Cortex tests using the following command to ensure your
 Cortex works properly::
 
-    python -m unittest synapse.tests.test_cortex.CortexTest.test_cortex_mystore
+    python -m unittest synapse.tests.test_cortex.CortexBaseTest.test_cortex_mystore
 
 
 

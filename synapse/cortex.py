@@ -18,9 +18,12 @@ import synapse.telepath as s_telepath
 
 import synapse.cores.ram
 import synapse.cores.lmdb
+import synapse.cores.common
 import synapse.cores.sqlite
 import synapse.cores.storage
 import synapse.cores.postgres
+
+import synapse.cores.common as s_cores_common
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +46,20 @@ corctors = {
     'postgres': synapse.cores.postgres.initPsqlCortex,
 }
 
+def fromstore(stor, **conf):
+    '''
+    Create and return a Cortex for the given Storage layer object.
+
+    Args:
+        stor (Storage): A synapse.cores.storage.Storage instance.
+        conf (dict):    A cortex config dictionary
+
+    Returns:
+        (synapse.cores.common.Cortex):  The Cortex hypergraph instance.
+
+    '''
+    return synapse.cores.common.Cortex(None, stor, **conf)
+
 def openstore(url, storconf=None, **opts):
     '''
     Opens or creates a Cortex Storage object by URL.
@@ -51,8 +68,9 @@ def openstore(url, storconf=None, **opts):
 
     Args:
         url (str): URL which is parsed in order to connect to.
-        conf (dict): Configable options passed to the storage layer.
-        **opts (dict): Additional options added to the link tufo from the parsed URL.
+        storconf (dict): Configable options passed to the storage layer.
+        **opts (dict): Additional options added to the link tufo from the
+            parsed URL.
 
     Example:
         Opening a object and adding a row::
@@ -80,32 +98,60 @@ def openstore(url, storconf=None, **opts):
 
     return ctor(link, **storconf)
 
-def openurl(url, **opts):
+def openurl(url, conf=None, storconf=None, **opts):
     '''
     Construct or reference a cortex by url.
 
-    Example:
+    This will open a cortex if there is a registered handler for the URL
+    otherwise it will attempt to connect to the URL via Telepath.
 
-        core = openurl('ram://')
+    If telepath is used, any configable options passed via openurl will
+    not be automatically set.
+
+    Args:
+        url (str): URL which is parsed in order to connect to.
+        conf (dict): Configable options passed to the Cortex.
+        storconf (dict): Configable options passed to the storage layer.
+        **opts (dict): Additional options added to the link tufo from the
+            parsed URL.
+
+    Examples:
+        Open up a ram backed cortex::
+
+            core = openurl('ram:///')
+
+        Open up a remote cortex over telepath::
+
+            core = openurl('tcp://1.2.3.4:10000/core)
 
     Notes:
-        * ram://
-        * sqlite:///<db>
-        * postgres://[[<passwd>:]<user>@][<host>]/[<db>][/<table>]
+        The following handlers are registerd by default:
+            * ram://
+            * sqlite:///<db>
+            * lmdb:///<db>
+            * postgres://[[<passwd>:]<user>@][<host>]/[<db>][/<table>]
 
-        * default table name: syncortex
+        For SQL databases, the default table name is "syncortex"
 
-    Todo:
-          auditfd=<fd>
-          auditfile=<filename>
-
+    Returns:
+        s_cores_common.Cortex: Cortex object or a telepath proxy for a Cortex.
     '''
+
+    # Todo
+    #   auditfd=<fd>
+    #   auditfile=<filename>
+
+    if not conf:
+        conf = {}
+    if not storconf:
+        storconf = {}
+
     link = s_link.chopLinkUrl(url)
 
     link[1].update(opts)
-    return openlink(link)
+    return openlink(link, conf, storconf)
 
-def openlink(link):
+def openlink(link, conf=None, storconf=None,):
     '''
     Open a cortex via a link tuple.
     '''
@@ -113,7 +159,7 @@ def openlink(link):
     if ctor is None:
         return s_telepath.openlink(link)
 
-    return ctor(link)
+    return ctor(link, conf, storconf)
 
 def choptag(tag):
     '''
@@ -127,8 +173,7 @@ def _ctor_cortex(conf):
     if url is None:
         raise s_common.BadInfoValu(name='url', valu=None, mesg='cortex ctor requires "url":<url> option')
 
-    core = openurl(url)
-    core.setConfOpts(conf)
+    core = openurl(url, conf=conf)
 
     return core
 

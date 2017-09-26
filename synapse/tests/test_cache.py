@@ -49,26 +49,26 @@ class CacheTest(SynTest):
         self.true('woot' in c)
 
     def test_cache_tufo(self):
-        core = s_cortex.openurl('ram:///')
-        cache = s_cache.TufoCache(core)
+        with self.getRamCore() as core:
+            cache = s_cache.TufoCache(core)
 
-        tufo = core.formTufoByProp('woot', 'haha', lolol=10)
+            tufo = core.formTufoByProp('strform', 'haha', baz=10)
 
-        newfo = cache.get(tufo[0])
+            newfo = cache.get(tufo[0])
 
-        self.nn(newfo)
-        self.eq(newfo[1].get('woot:lolol'), 10)
+            self.nn(newfo)
+            self.eq(newfo[1].get('strform:baz'), 10)
 
     def test_cache_tufo_prop(self):
-        core = s_cortex.openurl('ram:///')
-        cache = s_cache.TufoPropCache(core, 'woot')
+        with self.getRamCore() as core:
+            cache = s_cache.TufoPropCache(core, 'strform')
 
-        tufo = core.formTufoByProp('woot', 'haha', lolol=10)
+            tufo = core.formTufoByProp('strform', 'haha', baz=10)
 
-        newfo = cache.get('haha')
+            newfo = cache.get('haha')
 
-        self.nn(newfo)
-        self.eq(newfo[1].get('woot:lolol'), 10)
+            self.nn(newfo)
+            self.eq(newfo[1].get('strform:baz'), 10)
 
     def test_ondem_add(self):
 
@@ -159,8 +159,7 @@ class CacheTest(SynTest):
 
         self.eq(len(c), 2)
 
-        cvs = c.values()
-        cvs.sort()
+        cvs = sorted(c.values())
         self.eq(cvs, ['a', 'b'])
 
         cks = c.keys()
@@ -268,3 +267,56 @@ class CacheTest(SynTest):
         rd.clear()
         self.eq(len(rd), 0)
         self.eq(len(rd.refs), 0)
+
+    def test_refdict_with(self):
+        rd = s_cache.RefDict()
+
+        data = {}
+        def onpop(mesg):
+            data['popit'] = True
+
+        def onput(mesg):
+            data['putit'] = True
+
+        rd.on('ref:put', onput)
+        rd.on('ref:pop', onpop)
+
+        with rd.holdref('foo', 'bar'):
+
+            self.true(data.pop('putit', False))
+            self.false(data.pop('popit', False))
+
+            self.eq(rd.get('foo'), 'bar')
+            self.eq(rd.count('foo'), 1)
+
+            with rd.holdref('foo', 'bar'):
+
+                self.false(data.pop('putit', False))
+                self.false(data.pop('popit', False))
+
+                self.eq(rd.get('foo'), 'bar')
+                self.eq(rd.count('foo'), 2)
+
+            self.false(data.pop('putit', False))
+            self.false(data.pop('popit', False))
+
+            self.eq(rd.get('foo'), 'bar')
+            self.eq(rd.count('foo'), 1)
+
+        self.true(data.pop('popit', False))
+        self.false(data.pop('putit', False))
+
+        rd.bumpref('foo', 'bar')
+        self.true(data.pop('putit', False))
+        self.true(data.pop('popit', False))
+
+        self.eq(rd.count('foo'), 0)
+
+    def test_cache_match(self):
+        cache = s_cache.MatchCache()
+
+        self.true(cache.match('foobar', 'foo*'))
+        self.false(cache.match('foobar', '*baz'))
+
+        self.true(cache.has(('foobar', 'foo*')))
+        self.false(cache.has(('foobar', 'bazfaz')))

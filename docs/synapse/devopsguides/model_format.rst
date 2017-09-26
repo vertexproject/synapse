@@ -35,6 +35,11 @@ An example of a simple model definition file is the following ::
                 'types': (
                     ('foo:bar', {'subof': 'str', 'doc': 'A foo bar!'}),
                 ),
+                'forms': (
+                    ('foo:bar',
+                     {'ptype': 'foo:bar'},
+                     [])
+                )
             }
             name = 'foobar'
             return ((name, modl), )
@@ -52,7 +57,7 @@ a iterable of name, model tuples. This serves two purposes:
      On existing Cortexes which do not have nodes storing the model revision, the revision 0 of the model will be
      created and the base model automatically loaded.
 
-When model updates need to be done, these updates are be delivered as functions in the CoreModule sublcass.  These
+When model updates need to be done, these updates are to be delivered as functions in the CoreModule sublcass. These
 functions must be decorated with the @s_module.modelrev function.  This decorator takes two arguments:
 
   #. The name of the model to be updated.
@@ -89,7 +94,7 @@ will be updated to 201707210101 in the Cortex.::
                 ),
                 'forms': (
                     ('foo:bar',
-                     {'ptype': 'str'},
+                     {'ptype': 'foo:bar'},
                      [('duck', {'defval': 'mallard', 'ptype': 'str', 'doc': 'Duck type.'})]
                      ),
                 ),
@@ -159,11 +164,11 @@ An example of extending the previous example is shown below (minus migration fun
                 ),
                 'forms': (
                     ('foo:bar',
-                     {'ptype': 'str'},
+                     {'ptype': 'foo:bar'},
                      [('duck', {'defval': 'mallard', 'ptype': 'str', 'doc': 'Duck type.'})]
                      ),
                     ('foo:knight',
-                     {'ptype': 'str'},
+                     {'ptype': 'foo:knight'},
                      [('court', {'ptype': 'str', 'doc': 'Knight court'})]
                      ),
                 ),

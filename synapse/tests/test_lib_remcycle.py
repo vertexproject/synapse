@@ -424,7 +424,7 @@ class HypnosTest(SynTest, AsyncTestCase):
     @classmethod
     def setUpClass(cls):
         '''Spin up the fake ipify server on a random port'''
-        cls.env = TestEnv()
+        cls.env = TstEnv()
         cls.port = random.randint(20000, 50000)
         cls.env.add('testserver',
                     StandaloneTestServer(port=cls.port),
@@ -759,7 +759,7 @@ class HypnosTest(SynTest, AsyncTestCase):
                 ip = _data.get('ret', {}).get('ip', '')
                 data[_jid] = ip
 
-            hypo_obj.on(name=name, func=glue)
+            hypo_obj.on(name, func=glue)
 
             jid = hypo_obj.fireWebApi(name=name, ondone=ondone)
             hypo_obj.web_boss.wait(jid)

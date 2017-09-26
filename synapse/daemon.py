@@ -294,7 +294,8 @@ class DmonConf:
 
     def loadDmonFile(self, path):
         checkConfFile(path)
-        text = open(path, 'rb').read().decode('utf8')
+        with open(path, 'rb') as f:
+            text = f.read().decode('utf8')
         return self.loadDmonJson(text)
 
 _onhelp_lock = threading.Lock()
@@ -477,6 +478,7 @@ class Daemon(EventBus, DmonConf):
         savefile = info.get('savefile')
         if savefile is not None:
             core = s_cortex.openurl('sqlite:///%s' % savefile)
+            core.setConfOpt('enforce', 0)
             self.cura.setSessCore(core)
 
             self.onfini(core.fini)

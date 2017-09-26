@@ -339,13 +339,15 @@ In order to contribute to the project, do the following:
 
    If test coverage is desired, you can use the provided testrunner.sh shell
    script to run a test. This script will generate HTML coverage reports and
-   attempt to open those reports using xdg-open. This requires the nose and
-   coverage packages to be installed.
+   attempt to open those reports using xdg-open. This requires the pytest and
+   pytest-cov packages to be installed.
 
    ::
 
         ./scripts/testrunner.sh
-        ./scripts/testrunner.sh synapse.tests.your_test_file
+        ./scripts/testrunner.sh synapse/tests/your_test_file.py
+        ./scripts/testrunner.sh synapse/tests/your_test_file.py::YourTestClass
+        ./scripts/testrunner.sh synapse/tests/your_test_file.py::YourTestClass::test_function
 
 #. Rebase your feature branch on top of the latest master branch of the Vertex
    Project Synapse repository. This may require you to add the Vertex Project

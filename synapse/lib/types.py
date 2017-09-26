@@ -19,6 +19,7 @@ import synapse.lookup.iso3166 as s_l_iso3166
 logger = logging.getLogger(__name__)
 
 guidre = re.compile('^[0-9a-f]{32}$')
+
 def isguid(text):
     return guidre.match(text) is not None
 
@@ -108,7 +109,8 @@ class GuidType(DataType):
         # ( sigh... eventually everything will be a cortex... )
         node = self._getTufoByProp(self._guid_alias, valu[1:])
         if node is None:
-            self._raiseBadValu(valu, mesg='no result for guid resolver')
+            self._raiseBadValu(valu, mesg='no result for guid resolver',
+                               alias=self._guid_alias)
 
         iden = node[1].get(node[1].get('tufo:form'))
         return iden, {}
@@ -188,7 +190,7 @@ class IntType(DataType):
         DataType.__init__(self, tlib, name, **info)
 
         self.fmt = info.get('fmt', '%d')
-        #self.modval = info.get('mod',None)
+        # self.modval = info.get('mod',None)
         self.minval = info.get('min', None)
         self.maxval = info.get('max', None)
 
@@ -317,8 +319,8 @@ def _splitpairs(text, sep0, sep1):
     Split parts via sep0 and then pairs by sep2
     '''
     for part in text.split(sep0):
-        k,v = part.split(sep1)
-        yield k.strip(),v.strip()
+        k, v = part.split(sep1)
+        yield k.strip(), v.strip()
 
 class CompType(DataType):
 
@@ -332,16 +334,16 @@ class CompType(DataType):
         if fstr:
 
             if fstr.find('=') != -1:
-                self.fields.extend( _splitpairs(fstr, ',', '='))
+                self.fields.extend(_splitpairs(fstr, ',', '='))
 
             else:
-                self.fields.extend( _splitpairs(fstr, '|', ','))
+                self.fields.extend(_splitpairs(fstr, '|', ','))
 
         self.fsize = len(self.fields)
 
         ostr = self.info.get('optfields')
         if ostr:
-            self.optfields.extend( _splitpairs(ostr, ',', '='))
+            self.optfields.extend(_splitpairs(ostr, ',', '='))
             # stabilize order to alphabetical since it effects
             # the eventual guid generation
             self.optfields.sort()
@@ -371,34 +373,34 @@ class CompType(DataType):
         vlen = len(valu)
 
         if vlen < self.fsize:
-            self._raiseBadValu(valu, mesg='Expected %d fields and got %d' % (self.fsize,len(valu)))
+            self._raiseBadValu(valu, mesg='Expected %d fields and got %d' % (self.fsize, len(valu)))
 
-        for k,v in valu[self.fsize:]:
+        for k, v in valu[self.fsize:]:
             opts[k] = v
 
         vals = valu[:self.fsize]
-        for v,(name,tname) in s_compat.iterzip(vals,self.fields):
+        for v, (name, tname) in s_compat.iterzip(vals, self.fields):
 
-            norm,ssubs = self.tlib.getTypeNorm(tname,v)
+            norm, ssubs = self.tlib.getTypeNorm(tname, v)
 
             subs[name] = norm
-            for subkey,subval in ssubs.items():
+            for subkey, subval in ssubs.items():
                 subs[name + ':' + subkey] = subval
             retn.append(norm)
 
-        for name,tname in self.optfields:
+        for name, tname in self.optfields:
 
             v = opts.get(name)
             if v is None:
                 continue
 
-            norm,ssubs = self.tlib.getTypeNorm(tname,v)
+            norm, ssubs = self.tlib.getTypeNorm(tname, v)
 
             subs[name] = norm
-            for subkey,subval in ssubs.items():
+            for subkey, subval in ssubs.items():
                 subs[name + ':' + subkey] = subval
 
-            retn.append( (name,norm) )
+            retn.append((name, norm))
 
         return s_common.guid(retn), subs
 
@@ -562,7 +564,6 @@ class SeprType(MultiFieldType):
         return s_compat.iterzip(vals, self._get_fields())
 
 class BoolType(DataType):
-
     def norm(self, valu, oldval=None):
         if s_compat.isstr(valu):
             valu = valu.lower()
@@ -580,6 +581,7 @@ class BoolType(DataType):
         return repr(bool(valu))
 
 tagre = re.compile(r'^([\w]+\.)*[\w]+$')
+
 class TagType(DataType):
 
     def norm(self, valu, oldval=None):
@@ -589,7 +591,6 @@ class TagType(DataType):
         subs = {}
 
         if len(parts) == 2:
-
             strs = parts[1].split('-')
             tims = [self.tlib.getTypeNorm('time', s)[0] for s in strs]
 
@@ -605,6 +606,30 @@ class TagType(DataType):
 
         return retn, subs
 
+class StormType(DataType):
+
+    def norm(self, valu, oldval=None):
+        try:
+            s_syntax.parse(valu)
+        except Exception as e:
+            self._raiseBadValu(valu)
+        return valu, {}
+
+class PermType(DataType):
+    '''
+    Enforce that the permission string and options are known.
+    '''
+    def norm(self, valu, oldval=None):
+
+        try:
+            pnfo, off = s_syntax.parse_perm(valu)
+        except Exception as e:
+            self._raiseBadValu(valu)
+
+        if off != len(valu):
+            self._raiseBadValu(valu)
+        return valu, {}
+
 class TypeLib:
     '''
     An extensible type library for use in cortex data models.
@@ -615,6 +640,7 @@ class TypeLib:
         self.typeinfo = {}
         self.typetree = {}
         self.subscache = {}
+        self.modlnames = set()
 
         # pend creation of subtypes for non-existant base types
         # until the base type gets loaded.
@@ -636,8 +662,11 @@ class TypeLib:
                      doc='Timestamp in milliseconds since epoch', ex='20161216084632')
 
         self.addType('syn:tag', ctor='synapse.lib.types.TagType', doc='A synapse tag', ex='foo.bar')
+        self.addType('syn:perm', ctor='synapse.lib.types.PermType', doc='A synapse permission string')
+        self.addType('syn:storm', ctor='synapse.lib.types.StormType', doc='A synapse storm query string')
 
         # add base synapse types
+        self.addType('syn:core', subof='str')
         self.addType('syn:prop', subof='str', regex=r'^([\w]+:)*([\w]+|\*)$', lower=1)
         self.addType('syn:type', subof='str', regex=r'^([\w]+:)*[\w]+$', lower=1)
         self.addType('syn:glob', subof='str', regex=r'^([\w]+:)*[\w]+:\*$', lower=1)
@@ -714,13 +743,40 @@ class TypeLib:
 
         return ret
 
-    def loadDataModels(self, modtups):
+    def addDataModels(self, modtups):
         '''
-        Load a list of (name,model) tuples into the TypeLib.
-        '''
-        subtodo = []
+        Load a list of (name,model) tuples.
 
+        Args:
+            modtups ([(str,dict)]): A list of (name,modl) tuples.
+
+        Returns:
+            (None)
+
+        NOTE: This API loads all types first and may therefor be used to
+              prevent type dependency ordering issues between multiple models.
+
+        '''
+        return self._addDataModels(modtups)
+
+    def addDataModel(self, name, modl):
+        return self.addDataModels([(name, modl)])
+
+    def isDataModl(self, name):
+        '''
+        Return True if the given data model name exists.
+
+        Args:
+            name (str): The name of the data model
+
+        Returns:
+            (boolean):  True if the model exists
+        '''
+        return name in self.modlnames
+
+    def _addDataModels(self, modtups):
         for modname, moddict in modtups:
+            self.modlnames.add(modname)
             # add all base types first to simplify deps
             for name, info in moddict.get('types', ()):
                 try:
@@ -734,7 +790,7 @@ class TypeLib:
 
         models = [(modname, modl) for name, modls, excp in dynmodls for modname, modl in modls if modls]
 
-        self.loadDataModels(models)
+        self.addDataModels(models)
 
     def _bumpBasePend(self, name):
         for name, info in self.pended.pop(name, ()):
@@ -827,6 +883,15 @@ class TypeLib:
             self.typeinfo.pop(name, None)
             self.pended[tnam].append((name, info))
             return False
+
+    def getTypeDefs(self):
+        '''
+        Return a list of (name,info) tuples for all the types.
+
+        Returns:
+            ([(name,info)]):    The loaded types
+        '''
+        return list(self.typeinfo.items())
 
     def getTypeInfo(self, name, prop, defval=None):
         '''

@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 from __future__ import absolute_import, unicode_literals
 
-import synapse.cortex as s_cortex
+import synapse.lib.tufo as s_tufo
 
 from synapse.tests.common import *
 
@@ -43,6 +43,9 @@ class InetModelTest(SynTest):
             self.eq(t0[1].get('inet:ipv6'), '::1')
             self.eq(t0[1].get('inet:ipv6:asn'), -1)
 
+            self.eq(core.getTypeRepr('inet:ipv6', '0:0:0:0:0:0:0:1'), '::1')
+            self.eq(core.getTypeRepr('inet:ipv6', '::1'), '::1')
+
     def test_model_inet_cidr4(self):
 
         with s_cortex.openurl('ram:///') as core:
@@ -67,6 +70,20 @@ class InetModelTest(SynTest):
             self.nn(core.getTufoByProp('inet:ipv4', 0x01020304))
             self.nn(core.getTufoByProp('inet:ipv4', 0x05060708))
 
+            o1 = core.formTufoByProp('ou:org', '*', alias='vertex')
+            _, o1pprop = s_tufo.ndef(o1)
+            t1 = core.formTufoByProp('inet:asn', 12345)
+            self.none(t1[1].get('inet:asn:owner'))
+            t1 = core.setTufoProps(t1, owner='$vertex')
+            self.eq(t1[1].get('inet:asn:owner'), o1pprop)
+            # TODO: Uncomment when we have a global alias resolver in place.
+            # self.nn(core.getTufoByProp('ou:alias', 'vertex'))
+            t2 = core.formTufoByProp('inet:asn', 12346, owner='$vertex')
+            self.eq(t2[1].get('inet:asn:owner'), o1pprop)
+            # Lift asn's by owner with guid resolver syntax
+            nodes = core.eval('inet:asn:owner=$vertex')
+            self.eq(len(nodes), 2)
+
     def test_model_inet_fqdn(self):
         with s_cortex.openurl('ram:///') as core:
             t0 = core.formTufoByProp('inet:fqdn', 'com', sfx=1)
@@ -81,6 +98,56 @@ class InetModelTest(SynTest):
             self.eq(t1[1].get('inet:fqdn:domain'), 'com')
             self.eq(t1[1].get('inet:fqdn:sfx'), 0)
             self.eq(t1[1].get('inet:fqdn:zone'), 1)
+
+    def test_model_inet_srv4_types(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+            t0 = core.formTufoByProp('inet:tcp4', '8.8.8.8:80')
+            form, pprop = s_tufo.ndef(t0)
+            self.eq(pprop, 8830587502672)
+            self.eq(t0[1].get('inet:tcp4:port'), 80)
+            self.eq(t0[1].get('inet:tcp4:ipv4'), core.getTypeNorm('inet:ipv4', '8.8.8.8')[0])
+
+            # 1.2.3.4:8443
+            t1 = core.formTufoByProp('inet:tcp4', 1108152164603)
+            self.eq(t1[1].get('inet:tcp4:port'), 8443)
+            self.eq(t1[1].get('inet:tcp4:ipv4'), core.getTypeNorm('inet:ipv4', '1.2.3.4')[0])
+
+            t2 = core.formTufoByProp('inet:udp4', '8.8.8.8:80')
+            form, pprop = s_tufo.ndef(t2)
+            self.eq(pprop, 8830587502672)
+            self.eq(t2[1].get('inet:udp4:port'), 80)
+            self.eq(t2[1].get('inet:udp4:ipv4'), core.getTypeNorm('inet:ipv4', '8.8.8.8')[0])
+
+            # 1.2.3.4:8443
+            t3 = core.formTufoByProp('inet:udp4', 1108152164603)
+            self.eq(t3[1].get('inet:udp4:port'), 8443)
+            self.eq(t3[1].get('inet:udp4:ipv4'), core.getTypeNorm('inet:ipv4', '1.2.3.4')[0])
+
+    def test_model_inet_srv6_types(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+            t0 = core.formTufoByProp('inet:tcp6', '[0:0:0:0:0:0:0:1]:80')
+            form, pprop = s_tufo.ndef(t0)
+            self.eq(pprop, '[::1]:80')
+            self.eq(t0[1].get('inet:tcp6:port'), 80)
+            self.eq(t0[1].get('inet:tcp6:ipv6'), '::1')
+
+            t1 = core.formTufoByProp('inet:tcp6', '[0:0:0:0:0:3:2:1]:443')
+            form, pprop = s_tufo.ndef(t1)
+            self.eq(pprop, '[::3:2:1]:443')
+            self.eq(t1[1].get('inet:tcp6:port'), 443)
+            self.eq(t1[1].get('inet:tcp6:ipv6'), '::3:2:1')
+
+            t2 = core.formTufoByProp('inet:udp6', '[0:0:0:0:0:3:2:1]:5000')
+            form, pprop = s_tufo.ndef(t2)
+            self.eq(pprop, '[::3:2:1]:5000')
+            self.eq(t2[1].get('inet:udp6:port'), 5000)
+            self.eq(t2[1].get('inet:udp6:ipv6'), '::3:2:1')
+
+            self.eq(core.getTypeRepr('inet:tcp6', '[0:0:0:0:0:0:0:1]:80'), '[::1]:80')
+            self.eq(core.getTypeRepr('inet:tcp6', '[::1]:80'), '[::1]:80')
+            self.eq(core.getTypeRepr('inet:tcp6', '[0:0:0:0:0:3:2:1]:5000'), '[::3:2:1]:5000')
 
     def test_model_inet_fqdn_unicode(self):
 
@@ -229,9 +296,13 @@ class InetModelTest(SynTest):
             self.eq(node[1].get('inet:url:port'), 9999)
             self.eq(node[1].get('inet:url:user'), 'visi')
             self.eq(node[1].get('inet:url:passwd'), 'hehe')
+            self.eq(node[1].get('inet:url:fqdn'), 'www.vertex.link')
 
             node = core.formTufoByProp('inet:url', 'HTTP://www.vertex.link/')
             self.eq(node[1].get('inet:url:port'), 80)
+
+            node = core.formTufoByProp('inet:url', 'HTTP://1.2.3.4/')
+            self.eq(node[1].get('inet:url:ipv4'), 0x01020304)
 
     def test_model_inet_netpost(self):
 
@@ -333,9 +404,27 @@ class InetModelTest(SynTest):
             self.eq(len(core.eval('inet:whois:rec="woot.com@20501217"')), 1)
             self.eq(len(core.eval('inet:whois:contact:rec="woot.com@20501217"')), 1)
 
+    def test_model_inet_whois_recns(self):
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+
+            node = core.formTufoByProp('inet:whois:rec', 'woot.com@20501217')
+            form, pprop = s_tufo.ndef(node)
+            node = core.formTufoByProp('inet:whois:recns', ['ns1.woot.com', pprop])
+            self.eq(node[1].get('inet:whois:recns:ns'), 'ns1.woot.com')
+            self.eq(node[1].get('inet:whois:recns:rec'), pprop)
+            self.eq(node[1].get('inet:whois:recns:rec:fqdn'), 'woot.com')
+            self.eq(node[1].get('inet:whois:recns:rec:asof'), 2554848000000)
+            nodes = core.eval('inet:whois:recns:rec:fqdn=woot.com')
+            self.eq(node[0], nodes[0][0])
+            nodes = core.eval('inet:whois:rec:fqdn=woot.com inet:whois:rec->inet:whois:recns:rec')
+            self.eq(len(nodes), 1)
+            self.eq(node[0], nodes[0][0])
+
     def test_model_fqdn_punycode(self):
 
         with s_cortex.openurl('ram:///') as core:
+
             core.setConfOpt('enforce', 1)
 
             node = core.formTufoByProp('inet:fqdn', 'www.xn--heilpdagogik-wiki-uqb.de')
@@ -346,3 +435,142 @@ class InetModelTest(SynTest):
             self.eq(core.getTypeRepr('inet:fqdn', fqdn), 'www.heilpädagogik-wiki.de')
 
             self.raises(BadTypeValu, core.getTypeNorm, 'inet:fqdn', '!@#$%')
+
+    def test_model_inet_weblogon(self):
+
+        with s_cortex.openurl('ram:///') as core:
+            core.setConfOpt('enforce', 1)
+            tick = now()
+
+            t0 = core.formTufoByProp('inet:web:logon', '*',
+                                     netuser='vertex.link/pennywise',
+                                     time=tick)
+
+            self.nn(t0)
+
+            self.eq(t0[1].get('inet:web:logon:time'), tick)
+            self.eq(t0[1].get('inet:web:logon:netuser'), 'vertex.link/pennywise')
+            self.eq(t0[1].get('inet:web:logon:netuser:user'), 'pennywise')
+            self.eq(t0[1].get('inet:web:logon:netuser:site'), 'vertex.link')
+
+            # Pivot from a netuser to the netlogon forms via storm
+            self.nn(core.getTufoByProp('inet:netuser', 'vertex.link/pennywise'))
+            nodes = core.eval('inet:netuser=vertex.link/pennywise inet:netuser -> inet:web:logon:netuser')
+            self.eq(len(nodes), 1)
+
+            t0 = core.setTufoProps(t0, ipv4=0x01020304, logout=tick + 1, ipv6='0:0:0:0:0:0:0:1')
+            self.eq(t0[1].get('inet:web:logon:ipv4'), 0x01020304)
+            self.eq(t0[1].get('inet:web:logon:logout'), tick + 1)
+            self.eq(t0[1].get('inet:web:logon:logout') - t0[1].get('inet:web:logon:time'), 1)
+            self.eq(t0[1].get('inet:web:logon:ipv6'), '::1')
+
+    def test_model_inet_201706121318(self):
+
+        iden0 = guid()
+        iden1 = guid()
+        tick = now()
+        rows = (
+            (iden0, 'tufo:form', 'inet:url', tick),
+            (iden0, 'inet:url', 'http://www.woot.com/', tick),
+            (iden1, 'tufo:form', 'inet:url', tick),
+            (iden1, 'inet:url', 'http://1.2.3.4/', tick),
+        )
+
+        data = {}
+        with s_cortex.openstore('ram:///') as stor:
+
+            # force model migration callbacks
+            stor.setModlVers('inet', 0)
+
+            def addrows(mesg):
+                stor.addRows(rows)
+                data['added'] = True
+            stor.on('modl:vers:rev', addrows, name='inet', vers=201706121318)
+
+            with s_cortex.fromstore(stor) as core:
+                self.true(data.get('added'))
+
+                t0 = core.getTufoByIden(iden0)
+                self.eq(t0[1].get('inet:url:fqdn'), 'www.woot.com')
+
+                t1 = core.getTufoByIden(iden1)
+                self.eq(t1[1].get('inet:url:ipv4'), 0x01020304)
+
+    def test_model_inet_201706201837(self):
+
+        data = {}
+        iden0 = guid()
+        iden1 = guid()
+        tick = now()
+        rows = [
+            (iden0, 'tufo:form', 'inet:tcp4', tick),
+            (iden0, 'inet:tcp4', '1.2.3.4:80', tick),
+            (iden1, 'tufo:form', 'inet:udp4', tick),
+            (iden1, 'inet:udp4', '1.2.3.4:443', tick),
+        ]
+
+        with s_cortex.openstore('ram:///') as stor:
+
+            # force model migration callbacks
+            stor.setModlVers('inet', 0)
+
+            def addrows(mesg):
+                stor.addRows(rows)
+                data['added'] = True
+            stor.on('modl:vers:rev', addrows, name='inet', vers=201706201837)
+
+            with s_cortex.fromstore(stor) as core:
+
+                t1 = core.getTufoByIden(iden0)
+                self.eq(t1[1].get('inet:tcp4:port'), 80)
+                self.eq(t1[1].get('inet:tcp4:ipv4'), 0x01020304)
+
+                t2 = core.getTufoByIden(iden1)
+                self.eq(t2[1].get('inet:udp4:port'), 443)
+                self.eq(t2[1].get('inet:udp4:ipv4'), 0x01020304)
+
+    def test_model_inet_201709181501(self):
+        data = {}
+        iden0 = guid()
+        tick = now()
+        rows = [
+            (iden0, 'tufo:form', 'inet:whois:rec', tick),
+            (iden0, 'inet:whois:rec', 'vertex.link@2017/09/18 15:01:00.000', tick),  # 1505746860000,
+            (iden0, 'inet:whois:rec:fqdn', 'vertex.link', tick),
+            (iden0, 'inet:whois:rec:asof', 1505746860000, tick),
+            (iden0, 'inet:whois:rec:ns1', 'ns1.vertex.link', tick),
+            (iden0, 'inet:whois:rec:ns2', 'ns2.vertex.link', tick),
+            (iden0, 'inet:whois:rec:ns3', 'ns3.vertex.link', tick),
+            (iden0, 'inet:whois:rec:ns4', 'ns4.vertex.link', tick),
+        ]
+
+        with s_cortex.openstore('ram:///') as stor:
+
+            # force model migration callbacks
+            stor.setModlVers('inet', 0)
+
+            def addrows(mesg):
+                stor.addRows(rows)
+                data['added'] = True
+            stor.on('modl:vers:rev', addrows, name='inet', vers=201709181501)
+
+            with s_cortex.fromstore(stor) as core:
+
+                t_guid, _ = core.getTypeNorm('inet:whois:recns', ['ns1.vertex.link',
+                                                                  'vertex.link@2017/09/18 15:01:00.000'])
+
+                node = core.eval('inet:whois:rec')[0]
+                self.notin('inet:whois:rec:ns1', node[1])
+                self.notin('inet:whois:rec:ns2', node[1])
+                self.notin('inet:whois:rec:ns3', node[1])
+                self.notin('inet:whois:rec:ns4', node[1])
+
+                nodes = core.eval('inet:whois:recns')
+                self.eq(len(nodes), 4)
+
+                nodes = core.eval('inet:whois:recns={}'.format(t_guid))
+                self.eq(len(nodes), 1)
+                node = nodes[0]
+                self.eq(node[1].get('inet:whois:recns:ns'), 'ns1.vertex.link')
+                self.eq(node[1].get('inet:whois:recns:rec:fqdn'), 'vertex.link')
+                self.eq(node[1].get('inet:whois:recns:rec:asof'), 1505746860000)

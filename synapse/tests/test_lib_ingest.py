@@ -24,23 +24,21 @@ bar.com
 '''
 
 class IngTest(SynTest):
-
     def test_ingest_iteriter(self):
         data = [['woot.com']]
 
         # test an iters directive within an iters directive for
 
         with s_cortex.openurl('ram://') as core:
-
             info = {'ingest': {
-                        'iters': [
-                            ('*/*', {
-                                'forms': [
-                                    ('inet:fqdn', {}),
-                                 ],
-                            }),
+                'iters': [
+                    ('*/*', {
+                        'forms': [
+                            ('inet:fqdn', {}),
                         ],
-                    }}
+                    }),
+                ],
+            }}
 
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
@@ -50,7 +48,6 @@ class IngTest(SynTest):
     def test_ingest_basic(self):
 
         with s_cortex.openurl('ram://') as core:
-
             info = {
                 'ingest': {
                     'iters': (
@@ -95,9 +92,7 @@ class IngTest(SynTest):
     def test_ingest_csv(self):
 
         with s_cortex.openurl('ram://') as core:
-
             with self.getTestDir() as path:
-
                 csvp = os.path.join(path, 'woot.csv')
 
                 with genfile(csvp) as fd:
@@ -133,18 +128,17 @@ class IngTest(SynTest):
 
     def test_ingest_files(self):
 
-        #s_encoding.encode('utf8,base64,-utf8','
+        # s_encoding.encode('utf8,base64,-utf8','
         data = {'foo': ['dmlzaQ==']}
 
         info = {'ingest': {
             'iters': [["foo/*", {
                 'tags': ['woo.woo'],
-                'files':[{'mime': 'hehe/haha', 'decode': '+utf8,base64'}],
+                'files': [{'mime': 'hehe/haha', 'decode': '+utf8,base64'}],
             }]]
         }}
 
         with s_cortex.openurl('ram://') as core:
-
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -167,7 +161,6 @@ class IngTest(SynTest):
         }}
 
         with s_cortex.openurl('ram://') as core:
-
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -197,7 +190,6 @@ class IngTest(SynTest):
         }}
 
         with s_cortex.openurl('ram://') as core:
-
             core.addTufoForm('hehe:haha', ptype='file:bytes')
 
             gest = s_ingest.Ingest(info)
@@ -222,7 +214,6 @@ class IngTest(SynTest):
         }}
 
         with s_cortex.openurl('ram://') as core:
-
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -236,7 +227,7 @@ class IngTest(SynTest):
             "ipv4": "192.168.1.1",
             "aliases": ["foo", "bar", "baz"]
         }'''
-        with s_cortex.openurl('ram://') as core:
+        with self.getRamCore() as core:
             with self.getTestDir() as path:
                 xpth = os.path.join(path, 'woot.json')
 
@@ -248,7 +239,7 @@ class IngTest(SynTest):
                                  {'open': {'format': 'json'},
                                   'ingest': {
                                       'tags': ['luljson'],
-                                      'iters':[
+                                      'iters': [
                                           ['fqdn', {
                                               'forms': [('inet:fqdn', {})]
                                           }],
@@ -256,7 +247,7 @@ class IngTest(SynTest):
                                               'forms': [('inet:ipv4', {})]
                                           }],
                                           ['aliases/*', {
-                                              'forms': [('str:lwr', {})]
+                                              'forms': [('strform', {})]
                                           }]
                                       ]}})]}
                 gest = s_ingest.Ingest(info)
@@ -264,9 +255,9 @@ class IngTest(SynTest):
 
                 self.nn(core.getTufoByProp('inet:fqdn', 'spooky.com'))
                 self.nn(core.getTufoByProp('inet:ipv4', '192.168.1.1'))
-                self.nn(core.getTufoByProp('str:lwr', 'foo'))
-                self.nn(core.getTufoByProp('str:lwr', 'bar'))
-                self.nn(core.getTufoByProp('str:lwr', 'baz'))
+                self.nn(core.getTufoByProp('strform', 'foo'))
+                self.nn(core.getTufoByProp('strform', 'bar'))
+                self.nn(core.getTufoByProp('strform', 'baz'))
 
     def test_ingest_jsonl(self):
         testjsonl = b'''{"fqdn": "spooky.com", "ipv4": "192.168.1.1"}
@@ -284,7 +275,7 @@ class IngTest(SynTest):
                                  {'open': {'format': 'jsonl'},
                                   'ingest': {
                                       'tags': ['leljsonl'],
-                                      'iters':[
+                                      'iters': [
                                           ['fqdn', {
                                               'forms': [('inet:fqdn', {})]
                                           }],
@@ -302,9 +293,7 @@ class IngTest(SynTest):
 
     def test_ingest_xml(self):
         with s_cortex.openurl('ram://') as core:
-
             with self.getTestDir() as path:
-
                 xpth = os.path.join(path, 'woot.xml')
 
                 with genfile(xpth) as fd:
@@ -322,11 +311,10 @@ class IngTest(SynTest):
 
                                 'tags': ['lolxml'],
 
-
-                                'iters':[
+                                'iters': [
 
                                     ['data/dnsa', {
-                                        #explicitly opt fqdn into the optional attrib syntax
+                                        # explicitly opt fqdn into the optional attrib syntax
                                         'vars': [
                                             ['fqdn', {'path': '$fqdn'}],
                                             ['ipv4', {'path': 'ipv4'}],
@@ -363,9 +351,7 @@ class IngTest(SynTest):
     def test_ingest_xml_search(self):
 
         with s_cortex.openurl('ram://') as core:
-
             with self.getTestDir() as path:
-
                 xpth = os.path.join(path, 'woot.xml')
 
                 with genfile(xpth) as fd:
@@ -401,7 +387,6 @@ class IngTest(SynTest):
     def test_ingest_taginfo(self):
 
         with s_cortex.openurl('ram://') as core:
-
             info = {
                 'ingest': {
                     'iters': [
@@ -425,13 +410,12 @@ class IngTest(SynTest):
 
     def test_ingest_cast(self):
 
-        with s_cortex.openurl('ram://') as core:
-
+        with self.getRamCore() as core:
             info = {
                 'ingest': {
                     'iters': [
                         ('foo/*', {
-                            'forms': [('hehe:haha', {'path': '1', 'cast': 'str:lwr'})]
+                            'forms': [('strform', {'path': '1', 'cast': 'str:lwr'})]
                         }),
                     ]
                 }
@@ -442,13 +426,11 @@ class IngTest(SynTest):
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
-            self.nn(core.getTufoByProp('hehe:haha', 'lulz'))
+            self.nn(core.getTufoByProp('strform', 'lulz'))
 
     def test_ingest_lines(self):
         with s_cortex.openurl('ram://') as core:
-
             with self.getTestDir() as path:
-
                 path = os.path.join(path, 'woot.txt')
 
                 with genfile(path) as fd:
@@ -486,7 +468,6 @@ class IngTest(SynTest):
         }}
 
         with s_cortex.openurl('ram://') as core:
-
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -512,7 +493,6 @@ class IngTest(SynTest):
         }}
 
         with s_cortex.openurl('ram://') as core:
-
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -533,7 +513,6 @@ class IngTest(SynTest):
         }}
 
         with s_cortex.openurl('ram://') as core:
-
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -561,7 +540,6 @@ class IngTest(SynTest):
         }}
 
         with s_cortex.openurl('ram://') as core:
-
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -586,7 +564,6 @@ class IngTest(SynTest):
         }}
 
         with s_cortex.openurl('ram://') as core:
-
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -605,7 +582,7 @@ class IngTest(SynTest):
                     'tags': [
                         {'iter': 'haha/*',
                          'vars': [
-                            ['tag', {'regex': '^foo'}],
+                             ['tag', {'regex': '^foo'}],
                          ],
                          'template': 'zoom.{{tag}}'}
                     ],
@@ -615,7 +592,6 @@ class IngTest(SynTest):
         }}
 
         with s_cortex.openurl('ram://') as core:
-
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -627,8 +603,10 @@ class IngTest(SynTest):
 
         def _fmt_woot_old(fd, info):
             yield 'old.bad'
+
         def _fmt_woot(fd, info):
             yield 'woot'
+
         opts = {'mode': 'r', 'encoding': 'utf8'}
 
         s_ingest.addFormat('woot', _fmt_woot_old, opts)
@@ -690,7 +668,6 @@ class IngTest(SynTest):
     def test_ingest_embed_tags(self):
 
         with s_cortex.openurl('ram://') as core:
-
             info = {
                 "embed": [
                     {
@@ -698,7 +675,7 @@ class IngTest(SynTest):
                             "hehe.haha.hoho"
                         ],
 
-                        "nodes":[
+                        "nodes": [
 
                             ["inet:fqdn", [
                                 "rofl.com",
@@ -771,7 +748,7 @@ class IngTest(SynTest):
                         ]
                     }
                 ]
-             }
+            }
 
             gest = s_ingest.Ingest(info)
             gest.ingest(core)
@@ -809,7 +786,6 @@ class IngTest(SynTest):
         }}
 
         with s_cortex.openurl('ram://') as core:
-
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -847,7 +823,6 @@ class IngTest(SynTest):
         }}
 
         with s_cortex.openurl('ram://') as core:
-
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
@@ -896,10 +871,12 @@ class IngTest(SynTest):
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
-            self.nn(core.getTufoByProp('file:bytes:sha256', 'd7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592'))
+            self.nn(core.getTufoByProp('file:bytes:sha256',
+                                       'd7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592'))
             self.nn(core.getTufoByProp('it:av:filehit:sig', 'memesec/meme32.lazydog'))
             self.nn(core.getTufoByProp('it:av:sig:sig', 'meme32.lazydog'))
-            self.nn(core.getTufoByProp('file:bytes:sha256', 'ef537f25c895bfa782526529a9b63d97aa631564d5d789c2b765448c8635fb6c'))
+            self.nn(core.getTufoByProp('file:bytes:sha256',
+                                       'ef537f25c895bfa782526529a9b63d97aa631564d5d789c2b765448c8635fb6c'))
             self.nn(core.getTufoByProp('it:av:filehit:sig', 'memesec/meme32.lazydog.puntuation'))
             self.nn(core.getTufoByProp('it:av:sig:sig', 'meme32.lazydog.puntuation'))
             self.eq(len(core.getTufosByProp('it:av:sig:org', 'memesec')), 2)
@@ -939,7 +916,6 @@ class IngTest(SynTest):
         gest2 = s_ingest.Ingest(ingest_def2)
 
         with s_cortex.openurl('ram:///') as core:
-
             ret1 = s_ingest.register_ingest(core=core, gest=gest, evtname='ingest:test')
             ret2 = s_ingest.register_ingest(core=core, gest=gest2, evtname='ingest:test2', ret_func=True)
             self.none(ret1)
@@ -968,7 +944,6 @@ class IngTest(SynTest):
     def test_ingest_basic_bufio(self):
 
         with s_cortex.openurl('ram://') as core:
-
             info = {
                 'ingest': {
                     'iters': (
@@ -1115,3 +1090,61 @@ class IngTest(SynTest):
             xrefnode = nodes3[0]
             self.eq(xrefnode[1].get('file:txtref:file'), nodes1[0][1].get('file:bytes'))
             self.eq(xrefnode[1].get('file:txtref:xref:inet:ipv4'), nodes2[0][1].get('inet:ipv4'))
+
+    def test_ingest_reqprops(self):
+
+        tick = now()
+
+        ingdef = {
+            "ingest": {
+                "forms": [
+                    [
+                        "inet:dns:look",
+                        {
+                            "props": {
+                                "time": {
+                                    "var": "time"
+                                },
+                                "a": {
+                                    "template": "{{fqdn}}/{{ipv4}}"
+                                }
+                            },
+                            "value": "*"
+                        }
+                    ]
+                ],
+                "vars": [
+                    [
+                        "time",
+                        {
+                            "path": "time"
+                        }
+                    ],
+                    [
+                        "fqdn",
+                        {
+                            "path": "fqdn"
+                        }
+                    ],
+                    [
+                        "ipv4",
+                        {
+                            "path": "ipv4"
+                        }
+                    ]
+                ]
+            }
+        }
+
+        data = {"time": tick, "ipv4": "1.2.3.4", "fqdn": "vertex.link"}
+
+        with s_cortex.openurl('ram://') as core:
+            core.setConfOpt('enforce', 1)
+            ingest = s_ingest.Ingest(info=ingdef)
+            ingest.ingest(core=core, data=data)
+
+            nodes = core.eval('inet:dns:look')
+            self.eq(len(nodes), 1)
+            node = nodes[0]
+            self.eq(node[1].get('inet:dns:look:time'), tick)
+            self.eq(node[1].get('inet:dns:look:a'), 'vertex.link/1.2.3.4')

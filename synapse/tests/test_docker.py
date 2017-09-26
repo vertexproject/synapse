@@ -14,8 +14,9 @@ class DockerTest(SynTest):
         try:
             os.environ['SYN_UPSTREAM_CORE'] = 'ram:///'
             with getSyncCore() as core:
-                tufo = core.formTufoByProp('test', '1', **{})
-                self.eq(tufo[1]['tufo:form'], 'test')
+                self.addTstForms(core)
+                tufo = core.formTufoByProp('strform', '1', **{})
+                self.eq(tufo[1]['tufo:form'], 'strform')
         finally:
             os.environ['SYN_UPSTREAM_CORE'] = SYN_UPSTREAM_CORE
 

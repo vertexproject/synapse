@@ -2,8 +2,11 @@ import re
 import socket
 import struct
 import hashlib
+import logging
 
+import synapse.common as s_common
 import synapse.compat as s_compat
+import synapse.datamodel as s_datamodel
 import synapse.lib.socket as s_socket
 import synapse.lookup.iana as s_l_iana
 
@@ -11,6 +14,8 @@ from synapse.eventbus import on
 from synapse.exc import BadTypeValu
 from synapse.lib.types import DataType
 from synapse.lib.module import CoreModule, modelrev
+
+logger = logging.getLogger(__name__)
 
 def castInetDeFang(valu):
     return valu.replace('[.]', '.')
@@ -40,6 +45,7 @@ def ipv4cidr(valu):
     return lowerbound, lowerbound + mask[1]
 
 class IPv4Type(DataType):
+
     def norm(self, valu, oldval=None):
         if s_compat.isstr(valu):
             return self._norm_str(valu, oldval=oldval)
@@ -70,6 +76,7 @@ class FqdnType(DataType):
     )
 
     def norm(self, valu, oldval=None):
+
         valu = valu.replace('[.]', '.')
         if not fqdnre.match(valu):
             self._raiseBadValu(valu)
@@ -108,6 +115,9 @@ def ipv6norm(text):
     return s_socket.inet_ntop(socket.AF_INET6, s_socket.inet_pton(socket.AF_INET6, text))
 
 class IPv6Type(DataType):
+    def repr(self, valu):
+        return self.norm(valu)[0]
+
     def norm(self, valu, oldval=None):
         try:
             return ipv6norm(valu), {}
@@ -146,7 +156,7 @@ class Srv4Type(DataType):
 
         addr = ipv4int(astr)
         port = int(pstr, 0)
-        return (addr << 16) | port, {}
+        return (addr << 16) | port, {'port': port, 'ipv4': addr}
 
 srv6re = re.compile('^\[([a-f0-9:]+)\]:(\d+)$')
 
@@ -158,6 +168,9 @@ class Srv6Type(DataType):
         ('port', {'ptype': 'inet:port'}),
         ('ipv6', {'ptype': 'inet:ipv6'}),
     )
+
+    def repr(self, valu):
+        return self.norm(valu)[0]
 
     def norm(self, valu, oldval=None):
 
@@ -248,13 +261,29 @@ class UrlType(DataType):
 
         port = None
         proto = proto.lower()
-        hostpart = resloc.lower()
+        hostpart = resloc.lower().replace('[.]', '.')
 
         subs['proto'] = proto
 
+        host = hostpart
         if hostpart.find(':') != -1:
             host, portstr = hostpart.rsplit(':', 1)
             port = self.tlib.getTypeParse('inet:port', portstr)[0]
+
+        # use of exception handling logic here is fastest way to both
+        # validate and convert the data...  normally wouldnt use....
+
+        ipv4 = None
+        try:
+
+            ipv4 = ipv4int(host)
+            subs['ipv4'] = ipv4
+
+        except BadTypeValu as e:
+            pass
+
+        if ipv4 is None and fqdnre.match(host):
+            subs['fqdn'] = host
 
         # try for a default iana protocol lookup
         if port is None:
@@ -291,14 +320,12 @@ class CidrType(DataType):
         return valu
 
 class InetMod(CoreModule):
-
     def initCoreModule(self):
         # add an inet:defang cast to swap [.] to .
         self.core.addTypeCast('inet:defang', castInetDeFang)
         self.core.addTypeCast('inet:ipv4:cidr', ipv4cidr)
         self.onFormNode('inet:fqdn', self.onTufoFormFqdn)
         self.onFormNode('inet:passwd', self.onTufoFormPasswd)
-        self.revCoreModl()
 
     def onTufoFormFqdn(self, form, valu, props, mesg):
         parts = valu.split('.', 1)
@@ -320,16 +347,110 @@ class InetMod(CoreModule):
         for tufo in self.core.getTufosByProp('inet:fqdn:domain', fqdn):
             self.core.setTufoProp(tufo, 'zone', sfx)
 
+    @modelrev('inet', 201706201837)
+    def _revModl201706201837(self):
+        '''
+        Add :port and :ipv4 to inet:tcp4 and inet:udp4 nodes.
+        '''
+        tick = s_common.now()
+
+        forms = ('inet:tcp4', 'inet:udp4')
+        for form in forms:
+            adds = []
+            portprop = '{}:port'.format(form)
+            ipv4prop = '{}:ipv4'.format(form)
+
+            rows = self.core.getRowsByProp(form)
+            for i, p, v, _ in rows:
+                norm, subs = s_datamodel.tlib.getTypeNorm(form, v)
+
+                port = subs.get('port')
+                if port:
+                    adds.append((i, portprop, port, tick))
+
+                ipv4 = subs.get('ipv4')
+                if ipv4:
+                    adds.append((i, ipv4prop, ipv4, tick))
+
+            if adds:
+                self.core.addRows(adds)
+
+    @modelrev('inet', 201706121318)
+    def _revModl201706121318(self):
+
+        # account for the updated sub-property extraction for inet:url nodes
+        adds = []
+        rows = self.core.getRowsByProp('inet:url')
+
+        for i, p, v, t in rows:
+            norm, subs = s_datamodel.tlib.getTypeNorm('inet:url', v)
+
+            fqdn = subs.get('fqdn')
+            if fqdn is not None:
+                adds.append((i, 'inet:url:fqdn', fqdn, t))
+
+            ipv4 = subs.get('ipv4')
+            if ipv4 is not None:
+                adds.append((i, 'inet:url:ipv4', ipv4, t))
+
+        if adds:
+            self.core.addRows(adds)
+
+    @modelrev('inet', 201708231646)
+    def _revModl201708231646(self):
+        pass # for legacy/backward compat
+
+    @modelrev('inet', 201709181501)
+    def _revModl201709181501(self):
+        '''
+        Replace inet:whois:rec:ns<int> rows with inet:whos:recns nodes.
+        '''
+        adds = []
+        srcprops = ('inet:whois:rec:ns1', 'inet:whois:rec:ns2', 'inet:whois:rec:ns3', 'inet:whois:rec:ns4')
+        delprops = set()
+
+        tick = s_common.now()
+
+        # We could use the joins API but we would have to still fold rows into tufos for the purpose of migration.
+        nodes = self.core.getTufosByProp('inet:whois:rec')
+
+        for node in nodes:
+            rec = node[1].get('inet:whois:rec')
+            for prop in srcprops:
+                ns = node[1].get(prop)
+                if not ns:
+                    continue
+                delprops.add(prop)
+                iden = s_common.guid()
+                pprop = s_common.guid([ns, rec])
+                fqdn = node[1].get('inet:whois:rec:fqdn')
+                asof = node[1].get('inet:whois:rec:asof')
+                rows = [
+                    (iden, 'tufo:form', 'inet:whois:recns', tick),
+                    (iden, 'inet:whois:recns', pprop, tick),
+                    (iden, 'inet:whois:recns:ns', ns, tick),
+                    (iden, 'inet:whois:recns:rec', rec, tick),
+                    (iden, 'inet:whois:recns:rec:fqdn', fqdn, tick),
+                    (iden, 'inet:whois:recns:rec:asof', asof, tick),
+                ]
+                adds.extend(rows)
+
+        if adds:
+            self.core.addRows(adds)
+
+        for prop in delprops:
+            self.core.delRowsByProp(prop)
+
     @staticmethod
     def getBaseModels():
         modl = {
             'types': (
                 ('inet:url', {'ctor': 'synapse.models.inet.UrlType', 'doc': 'A Universal Resource Locator (URL)'}),
                 ('inet:ipv4', {'ctor': 'synapse.models.inet.IPv4Type', 'doc': 'An IPv4 Address', 'ex': '1.2.3.4'}),
-                ('inet:ipv6',
-                 {'ctor': 'synapse.models.inet.IPv6Type', 'doc': 'An IPv6 Address', 'ex': '2607:f8b0:4004:809::200e'}),
-                ('inet:srv4',
-                 {'ctor': 'synapse.models.inet.Srv4Type', 'doc': 'An IPv4 Address and Port', 'ex': '1.2.3.4:80'}),
+                ('inet:ipv6', {'ctor': 'synapse.models.inet.IPv6Type', 'doc': 'An IPv6 Address',
+                               'ex': '2607:f8b0:4004:809::200e'}),
+                ('inet:srv4', {'ctor': 'synapse.models.inet.Srv4Type', 'doc': 'An IPv4 Address and Port',
+                               'ex': '1.2.3.4:80'}),
                 ('inet:srv6', {'ctor': 'synapse.models.inet.Srv6Type', 'doc': 'An IPv6 Address and Port',
                                'ex': '[2607:f8b0:4004:809::200e]:80'}),
                 ('inet:email',
@@ -363,6 +484,8 @@ class InetMod(CoreModule):
                 ('inet:tcp6', {'subof': 'inet:srv6', 'doc': 'A TCP server listening on IPv6:port'}),
                 ('inet:udp6', {'subof': 'inet:srv6', 'doc': 'A UDP server listening on IPv6:port'}),
 
+                ('inet:flow', {'subof': 'guid', 'doc': 'An individual network connection'}),
+
                 ('inet:port', {'subof': 'int', 'min': 0, 'max': 0xffff, 'ex': '80'}),
                 (
                     'inet:mac',
@@ -371,6 +494,8 @@ class InetMod(CoreModule):
 
                 ('inet:netuser', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|user,inet:user',
                                   'doc': 'A user account at a given web address', 'ex': 'twitter.com/invisig0th'}),
+                ('inet:web:logon', {'subof': 'guid',
+                                   'doc': 'An instance of a user account authenticating to a service.', }),
 
                 ('inet:netgroup', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|name,ou:name',
                                    'doc': 'A group within an online community'}),
@@ -395,6 +520,8 @@ class InetMod(CoreModule):
                 ('inet:whois:rec',
                  {'subof': 'sepr', 'sep': '@', 'fields': 'fqdn,inet:fqdn|asof,time', 'doc': 'A whois record',
                   'ex': ''}),
+                ('inet:whois:recns', {'subof': 'comp', 'fields': 'ns,inet:fqdn|rec,inet:whois:rec',
+                                      'doc': 'A nameserver associated with a given WHOIS record.'}),
 
                 ('inet:whois:contact', {'subof': 'comp', 'fields': 'rec,inet:whois:rec|type,str:lwr',
                                         'doc': 'A whois contact for a specific record'}),
@@ -409,7 +536,8 @@ class InetMod(CoreModule):
 
                 ('inet:ipv4', {'ptype': 'inet:ipv4'}, [
                     ('cc', {'ptype': 'pol:iso2', 'defval': '??'}),
-                    ('type', {'defval': '??', 'doc': 'what type of ipv4 address ( uni, multi, priv )'}),
+                    ('type', {'ptype': 'str', 'defval': '??',
+                              'doc': 'what type of ipv4 address ( uni, multi, priv )'}),
                     ('asn', {'ptype': 'inet:asn', 'defval': -1}),
                 ]),
 
@@ -441,6 +569,7 @@ class InetMod(CoreModule):
 
                 ('inet:asn', {'ptype': 'inet:asn', 'doc': 'An Autonomous System'}, (
                     ('name', {'ptype': 'str:lwr', 'defval': '??'}),
+                    ('owner', {'ptype': 'ou:org', 'doc': 'Organization which controls an ASN'}),
                 )),
 
                 ('inet:asnet4',
@@ -502,6 +631,55 @@ class InetMod(CoreModule):
                     ('port', {'ptype': 'inet:port', 'ro': 1}),
                 ]),
 
+                ('inet:flow', {}, (
+
+                    ('time', {'ptype': 'time', 'doc': 'The time the connection was initiated'}),
+                    ('duration', {'ptype': 'int', 'doc': 'The duration of the flow in seconds'}),
+
+                    ('dst:host', {'ptype': 'it:host', 'doc': 'The destination host guid'}),
+                    ('dst:proc', {'ptype': 'it:exec:proc', 'doc': 'The destination proc guid'}),
+                    ('dst:txbytes', {'ptype': 'int', 'doc': 'The number of bytes sent by the destination'}),
+
+                    ('dst:tcp4', {'ptype': 'inet:tcp4'}),
+                    ('dst:tcp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
+                    ('dst:tcp4:port', {'ptype': 'inet:port', 'ro': 1}),
+
+                    ('dst:udp4', {'ptype': 'inet:udp4'}),
+                    ('dst:udp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
+                    ('dst:udp4:port', {'ptype': 'inet:port', 'ro': 1}),
+
+                    ('dst:tcp6', {'ptype': 'inet:tcp6'}),
+                    ('dst:tcp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
+                    ('dst:tcp6:port', {'ptype': 'inet:port', 'ro': 1}),
+
+                    ('dst:udp6', {'ptype': 'inet:udp6'}),
+                    ('dst:udp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
+                    ('dst:udp6:port', {'ptype': 'inet:port', 'ro': 1}),
+
+                    ('src:host', {'ptype': 'it:host', 'doc': 'The source host guid'}),
+                    ('src:proc', {'ptype': 'it:exec:proc', 'doc': 'The source proc guid'}),
+                    ('src:txbytes', {'ptype': 'int', 'doc': 'The number of bytes sent by the source'}),
+
+                    ('src:tcp4', {'ptype': 'inet:tcp4'}),
+                    ('src:tcp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
+                    ('src:tcp4:port', {'ptype': 'inet:port', 'ro': 1}),
+
+                    ('src:udp4', {'ptype': 'inet:udp4'}),
+                    ('src:udp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
+                    ('src:udp4:port', {'ptype': 'inet:port', 'ro': 1}),
+
+                    ('src:tcp6', {'ptype': 'inet:tcp6'}),
+                    ('src:tcp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
+                    ('src:tcp6:port', {'ptype': 'inet:port', 'ro': 1}),
+
+                    ('src:udp6', {'ptype': 'inet:udp6'}),
+                    ('src:udp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
+                    ('src:udp6:port', {'ptype': 'inet:port', 'ro': 1}),
+
+                    ('from', {'ptype': 'guid', 'doc': 'The ingest source file/iden.  Used for reparsing'}),
+
+                )),
+
                 ('inet:netuser', {'ptype': 'inet:netuser'}, [
                     ('site', {'ptype': 'inet:fqdn', 'ro': 1}),
                     ('user', {'ptype': 'inet:user', 'ro': 1}),
@@ -528,6 +706,16 @@ class InetMod(CoreModule):
                     ('passwd', {'ptype': 'inet:passwd', 'doc': 'The current passwd for the netuser account'}),
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
+                ]),
+
+                ('inet:web:logon', {'ptype': 'inet:web:logon'}, [
+                    ('netuser', {'ptype': 'inet:netuser', 'doc': 'The netuser associated with the logon event.', }),
+                    ('netuser:site', {'ptype': 'inet:fqdn', }),
+                    ('netuser:user', {'ptype': 'inet:user', }),
+                    ('time', {'ptype': 'time', 'doc': 'The time the netuser logged into the service', }),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the logon.'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the logon.'}),
+                    ('logout', {'ptype': 'time', 'doc': 'The time the netuser logged out of the service.'})
                 ]),
 
                 ('inet:netgroup', {}, [
@@ -627,10 +815,13 @@ class InetMod(CoreModule):
                     ('expires', {'ptype': 'time', 'doc': 'The "expires" time from the whois record'}),
                     ('registrar', {'ptype': 'inet:whois:rar', 'defval': '??'}),
                     ('registrant', {'ptype': 'inet:whois:reg', 'defval': '??'}),
-                    ('ns1', {'ptype': 'inet:fqdn'}),
-                    ('ns2', {'ptype': 'inet:fqdn'}),
-                    ('ns3', {'ptype': 'inet:fqdn'}),
-                    ('ns4', {'ptype': 'inet:fqdn'}),
+                ]),
+
+                ('inet:whois:recns', {}, [
+                    ('ns', {'ptype': 'inet:fqdn', 'ro': 1, 'doct': 'Nameserver for a given FQDN'}),
+                    ('rec', {'ptype': 'inet:whois:rec', 'ro': 1}),
+                    ('rec:fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
+                    ('rec:asof', {'ptype': 'time', 'ro': 1}),
                 ]),
 
                 ('inet:whois:contact', {}, [
@@ -664,4 +855,4 @@ class InetMod(CoreModule):
             ),
         }
         name = 'inet'
-        return ((name, modl), )
+        return ((name, modl),)

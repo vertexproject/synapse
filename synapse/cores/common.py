@@ -13,17 +13,19 @@ import synapse.datamodel as s_datamodel
 
 import synapse.cores.storage as s_storage
 
+import synapse.lib.auth as s_auth
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 import synapse.lib.ingest as s_ingest
+import synapse.lib.syntax as s_syntax
 import synapse.lib.hashset as s_hashset
 import synapse.lib.threads as s_threads
 import synapse.lib.modules as s_modules
+import synapse.lib.trigger as s_trigger
 import synapse.lib.hashitem as s_hashitem
 import synapse.lib.interval as s_interval
-import synapse.lib.userauth as s_userauth
 
 from synapse.eventbus import EventBus, on, onfini
 from synapse.lib.storm import Runtime
@@ -62,7 +64,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.axon = None
         self.seedctors = {}
 
-        self.modules = [(ctor, conf) for ctor, smod, conf in s_modules.ctorlist]
+        self.modules = [(ctor, modconf) for ctor, smod, modconf in s_modules.ctorlist]
         self.modsdone = False
 
         self.noauto = {'syn:form', 'syn:type', 'syn:prop'}
@@ -84,6 +86,47 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.auth = None
         self.snaps = s_cache.Cache(maxtime=60)
 
+        self._core_triggers = s_trigger.Triggers()
+
+        self._auth_perms = {}
+        self._auth_roles = s_cache.Cache(onmiss=self._onAuthRolesMiss)
+        self._auth_users = s_cache.Cache(onmiss=self._onAuthUsersMiss)
+        self._auth_rules = s_cache.Cache(onmiss=self._onAuthRulesMiss)
+
+        # perm defs are also used to define trigger metadata
+        self.addPermDefs((
+            ('node:add', {'doc': 'Permission to add a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+            )),
+            ('node:del', {'doc': 'Permission to delete a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+            )),
+            ('node:tag:add', {'doc': 'Permission to add a tag to a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+                ('tag', {'doc': 'The tag being removed from the node'}),
+            )),
+            ('node:tag:del', {'doc': 'Permission to delete a tag from a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+                ('tag', {'doc': 'The tag being removed from the node'}),
+            )),
+            ('node:prop:set', {'doc': 'Permission to set a property on a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+                ('prop', {'doc': 'The property name being set on the node'}),
+            )),
+            ('node:prop:del', {'doc': 'Permission to delete a property from a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+                ('prop', {'doc': 'The property name being removed from the node'}),
+            )),
+            ('node:ival:set', {'doc': 'Permission to set an interval on a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+                ('name', {'doc': 'The interval name being set on the node'}),
+            )),
+            ('node:ival:del', {'doc': 'Permission to delete an interval from a node'}, (
+                ('form', {'doc': 'The form of node being modified'}),
+                ('name', {'doc': 'The interval name being removed from the node'}),
+            )),
+        ))
+
         self.seqs = s_cache.KeyCache(self.getSeqNode)
 
         self.formed = collections.defaultdict(int)      # count tufos formed since startup
@@ -92,6 +135,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self._core_tagforms = s_cache.FixedCache(maxsize=10000, onmiss=self._getFormFunc('syn:tagform'))
 
         self.tufosbymeths = {}
+
+        # we keep an in-ram set of "ephemeral" nodes which are runtime-only ( non-persistent )
+        self.runt_forms = set()
+        self.runt_props = collections.defaultdict(list)
 
         self.cache_fifo = collections.deque()               # [ ((prop,valu,limt), {
         self.cache_bykey = {}                               # (prop,valu,limt):( (prop,valu,limt), {iden:tufo,...} )
@@ -141,19 +188,21 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         self.isok = True
 
-        DataModel.__init__(self, load=False)
+        DataModel.__init__(self)
+
+        self._loadTrigNodes()
 
         self.myfo = self.formTufoByProp('syn:core', 'self')
         self.isnew = self.myfo[1].get('.new', False)
 
         self.modelrevlist = []
         with self.getCoreXact() as xact:
-            self._initCoreMods()
+            mods = [(ctor, modconf) for ctor, smod, modconf in s_modules.ctorlist]
+            self.addCoreMods(mods)
 
-        # and finally, strap in our event handlers...
-        self.on('node:add', self._onTufoAddSynType, form='syn:type')
-        self.on('node:add', self._onTufoAddSynForm, form='syn:form')
-        self.on('node:add', self._onTufoAddSynProp, form='syn:prop')
+        self.on('node:add', self._loadTrigNodes, form='syn:trigger')
+        self.on('node:del', self._loadTrigNodes, form='syn:trigger')
+        self.on('node:prop:set', self._loadTrigNodes, form='syn:trigger')
 
         self.addTufoForm('syn:log', ptype='guid', local=1)
         self.addTufoProp('syn:log', 'subsys', defval='??', help='Named subsystem which originated the log event')
@@ -179,13 +228,70 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         s_ingest.IngestApi.__init__(self, self)
 
+    def addRuntNode(self, form, valu, **props):
+        '''
+        Add a "runtime" node which does not persist.
+        This is used for ephemeral node "look aside" registration.
+
+        Args:
+            form (str): The primary property for the node
+            valu (obj): The primary value for the node
+            **props:    The node secondary properties ( if modeled, they will be indexed )
+
+        Returns:
+            ((None,dict)):  The ephemeral node
+
+        '''
+        self.runt_forms.add(form)
+
+        node = (None, {})
+        norm, subs = self.getPropNorm(form, valu)
+
+        node[1][form] = norm
+        node[1]['tufo:form'] = form
+
+        self.runt_props[(form, None)].append(node)
+        self.runt_props[(form, norm)].append(node)
+
+        for prop, pval in props.items():
+
+            full = form + ':' + prop
+            norm, subs = self.getPropNorm(full, pval)
+
+            node[1][full] = norm
+            self.runt_props[(full, None)].append(node)
+
+            if self.getPropDef(full) is not None:
+                self.runt_props[(full, norm)].append(node)
+
+        return node
+
+    def isRuntForm(self, prop):
+        '''
+        Returns True if the given property name is a runtime node form.
+
+        Args:
+            prop (str):  The property name
+
+        Returns:
+            (boolean):  True if the property is a runtime node form.
+        '''
+        return prop in self.runt_forms
+
     @staticmethod
     @confdef(name='common_cortex')
     def _cortex_condefs():
         confdefs = (
+
             ('autoadd', {'type': 'bool', 'asloc': 'autoadd', 'defval': 1,
                          'doc': 'Automatically add forms for props where type is form'}),
-            ('enforce', {'type': 'bool', 'asloc': 'enforce', 'defval': 0, 'doc': 'Enables data model enforcement'}),
+
+            ('auth:en', {'type': 'bool', 'asloc': '_auth_en', 'defval': 0,
+                         'doc': 'Enable auth/perm enforcement for splicing/storm'}),
+
+            ('auth:url', {'type': 'inet:url', 'doc': 'Optional remote auth cortex (restart required)'}),
+
+            ('enforce', {'type': 'bool', 'asloc': 'enforce', 'defval': 1, 'doc': 'Enables data model enforcement'}),
             ('caching', {'type': 'bool', 'asloc': 'caching', 'defval': 0,
                          'doc': 'Enables caching layer in the cortex'}),
             ('cache:maxsize', {'type': 'int', 'asloc': 'cache_maxsize', 'defval': 1000,
@@ -193,12 +299,105 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             ('rev:model', {'type': 'bool', 'defval': 1, 'doc': 'Set to 0 to disallow model version updates'}),
             ('rev:storage', {'type': 'bool', 'defval': 1, 'doc': 'Set to 0 to disallow storage version updates'}),
             ('axon:url', {'type': 'str', 'doc': 'Allows cortex to be aware of an axon blob store'}),
+            ('axon:dirmode', {'type': 'int', 'doc': 'Default mode used to make axon:path nodes for directories.',
+                              'defval': 0o775}),
             ('log:save', {'type': 'bool', 'asloc': 'logsave', 'defval': 0,
                           'doc': 'Enables saving exceptions to the cortex as syn:log nodes'}),
             ('log:level', {'type': 'int', 'asloc': 'loglevel', 'defval': 0, 'doc': 'Filters log events to >= level'}),
             ('modules', {'defval': (), 'doc': 'An optional list of (pypath,conf) tuples for synapse modules to load'})
         )
         return confdefs
+
+    def addPermDefs(self, defs):
+        '''
+        Add a set of permission definitions for use with the cortex auth subsystem.
+
+        A perm definition tuple consists of:
+
+        (perm, info, fields)
+
+        ex:
+
+        ('node:add', {'doc': 'The permission to add nodes'}, (
+            ('form', {'doc': 'The form of the node being created'}),
+        )
+
+        Args:
+            defs (list):    A list of permission defs
+
+        Returns:
+            (None)
+
+        '''
+        for pdef in defs:
+            self._auth_perms[pdef[0]] = pdef
+
+    def _loadTrigNodes(self, *args):
+
+        self._core_triggers.clear()
+
+        for node in self.getTufosByProp('syn:trigger'):
+            try:
+
+                if not node[1].get('syn:trigger:en'):
+                    continue
+
+                self._trigFromTufo(node)
+
+            except Exception as e:
+                logger.warning('failed to load trigger: %r' % (node,))
+                logger.exception(e)
+
+    def _trigFromTufo(self, tufo):
+
+        text = tufo[1].get('syn:trigger:on')
+        perm, _ = s_syntax.parse_perm(text)
+
+        text = tufo[1].get('syn:trigger:run')
+        opers = s_syntax.parse(text)
+
+        user = tufo[1].get('syn:trigger:user')
+
+        def func(node):
+            self.run(opers, data=(node,))
+
+        self._core_triggers.add(func, perm)
+
+    def _fireNodeTrig(self, node, perm):
+        # this is called by the xact handler
+        self._core_triggers.trigger(perm, node)
+
+    def getPermDef(self, name):
+        '''
+        Return a permission definition tuple for the given perm name.
+
+        Args:
+            name (str): The permission name
+
+        Returns:
+            (tuple):    A (name,info,fields) tuple for the perm.
+
+        '''
+        return self._auth_perms.get(name)
+
+    def reqPermDef(self, name):
+        '''
+        Require (or raise) a permission definition tuple
+
+        Args:
+            name (str): The permission name
+
+        Returns:
+            (tuple):    A (name,info,fields) tuple for the perm.
+
+        Raises:
+            (NoSuchPerm):   The permission name was not found
+
+        '''
+        retn = self._auth_perms.get(name)
+        if retn is None:
+            raise s_common.NoSuchPerm(perm=name)
+        return retn
 
     def _registerStore(self):
         '''
@@ -245,71 +444,431 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             (None)
 
         '''
-        prop = '.:modl:vers:' + name
+        self.store.setModlVers(name, vers)
 
-        with self.getCoreXact() as xact:
+    def _addDataModels(self, modtups):
 
-            rows = self.getRowsByProp(prop)
+        DataModel._addDataModels(self, modtups)
 
-            if rows:
-                iden = rows[0][0]
-            else:
-                iden = s_common.guid()
+        for name, modl in modtups:
 
-            self.setRowsByIdProp(iden, prop, vers)
-            return vers
+            for tnam, tnfo in modl.get('types', ()):
+                self.addRuntNode('syn:type', tnam, **tnfo)
 
-    def revModlVers(self, name, revs):
+            for fnam, fnfo, props in modl.get('forms', ()):
+
+                self.addRuntNode('syn:form', fnam, **fnfo)
+                self.addRuntNode('syn:prop', fnam, **fnfo)
+
+                for pnam, pnfo in props:
+                    full = fnam + ':' + pnam
+                    self.addRuntNode('syn:prop', full, **pnfo)
+
+    def revModlVers(self, name, vers, func):
         '''
-        Update a model using a list of (vers,func) tuples.
+        Update and track a model version using a callback function.
 
         Args:
             name (str): The name of the model
-            revs ([(int,function)]):  List of (vers,func) revision tuples.
+            vers (int): The version int ( in YYYYMMDDHHMM int format )
+            func (function):  The version update function
 
         Returns:
             (None)
 
-        Example:
-
-            with s_cortex.openurl('ram:///') as core:
-
-                def v0():
-                    addModelStuff(core)
-
-                def v1():
-                    addMoarStuff(core)
-
-                revs = [ (0,v0), (1,v1) ]
-
-                core.revModlVers('foo', revs)
 
         Each specified function is expected to update the cortex including data migration.
         '''
-        if not revs:
-            return
+        if not self.getConfOpt('rev:model'):
+            raise s_common.NoRevAllow(name=name, vers=vers)
 
         curv = self.getModlVers(name)
+        if curv >= vers:
+            return False
 
-        maxver = revs[-1][0]
-        if maxver == curv:
-            return
+        mesg = 'Updating model [{}] from [{}] => [{}] - do *not* interrupt.'.format(name, curv, vers)
+        logger.warning(mesg)
+        self.log(logging.WARNING, mesg=mesg, name=name, curv=curv, vers=vers)
 
-        if not self.getConfOpt('rev:model'):
-            raise s_common.NoRevAllow(name=name, mesg='add rev:model=1 to cortex url to allow model updates')
+        # fire a pre-revision event into the storage layer to allow
+        # tests to "hook" prior to migration callbacks to insert rows.
+        self.store.fire('modl:vers:rev', name=name, vers=vers)
 
-        for vers, func in sorted(revs):
+        func()
 
-            if vers <= curv:
+        self.setModlVers(name, vers)
+        return True
+
+    def getUserAuth(self, user):
+        '''
+        Get the auth information for the given user.
+
+        Args:
+            user (str): The user name
+
+        Returns:
+            (dict): The auth info dict
+
+        '''
+        return self._auth_users.get(user)
+
+    def getRoleAuth(self, role):
+        '''
+        Get the auth information for the given role.
+
+        Args:
+            role (str): The role name
+
+        Returns:
+            (dict): The auth info dict
+
+        '''
+        return self._auth_roles.get(user)
+
+    def allowed(self, perm, user=None):
+        '''
+        Returns True if the user is allowed the given perms/info.
+
+        Args:
+            perm (str): The permission tufo
+            user (str): The user name (or None for "current user")
+
+        Returns:
+            (bool):  True if the user is allowed
+
+        '''
+        if not self._auth_en:
+            return True
+
+        if user is None:
+            user = s_auth.whoami()
+
+        for ruls in self._auth_rules.get(user):
+            if ruls.allow(perm):
+                return True
+
+        logger.warning('perm denied: %r %r' % (user, perm))
+        return False
+
+    def getUserAuth(self, user):
+        '''
+        Return an auth dict for the given user.
+
+        Args:
+            user (str):  The user name
+
+        Returns:
+            (dict): The user auth dict
+        '''
+        return self._auth_users.get(user)
+
+    def getRoleAuth(self, role):
+        '''
+        Return an auth dict for the given role.
+
+        Args:
+            role (str):  The role name
+
+        Returns:
+            (dict): The role auth dict
+        '''
+        return self._auth_roles.get(role)
+
+    def _onAuthRolesMiss(self, role):
+        node = self.getTufoByProp('syn:auth:role', role)
+        if node is None:
+            raise s_common.NoSuchRole(role=role)
+
+        prop = 'syn:role:' + role + ':auth'
+        retn = self.getBlobValu(prop)
+        if retn is None:
+            return {}
+
+        return retn
+
+    def _onAuthRulesMiss(self, user):
+        # return a list of Rules() objects...
+        retn = []
+
+        auth = self.getUserAuth(user)
+        if auth is not None:
+            rules = auth.get('rules')
+            if rules is not None:
+                retn.append(s_auth.Rules(rules))
+
+        for role in self.getUserRoles(user):
+
+            auth = self.getRoleAuth(role)
+            if auth is None:
                 continue
 
-            # allow the revision function to optionally return the
-            # revision he jumped to ( to allow initial override )
-            retn = func()
-            if retn is not None:
-                vers = retn
+            rules = auth.get('rules')
+            if rules is None:
+                continue
 
-            curv = self.setModlVers(name, vers)
+            retn.append(s_auth.Rules(rules))
+
+        return retn
+
+    def _onAuthUsersMiss(self, user):
+
+        node = self.getTufoByProp('syn:auth:user', user)
+        if node is None:
+            raise s_common.NoSuchUser(user=user)
+
+        prop = 'syn:user:' + user + ':auth'
+        retn = self.getBlobValu(prop)
+        if retn is None:
+            return {}
+
+        return retn
+
+    def _syncUserAuth(self, user, auth):
+        prop = 'syn:user:' + user + ':auth'
+        self.setBlobValu(prop, auth)
+
+    def _syncRoleAuth(self, role, auth):
+        prop = 'syn:role:' + role + ':auth'
+        self.setBlobValu(prop, auth)
+
+    def setUserRules(self, user, rules):
+        '''
+        Set the rules for a given user.
+
+        Args:
+            user (str): The user name
+            rules (list): The list of rule tuples
+
+        Returns:
+            (None)
+
+        '''
+        # this will be a ref to the cache dict
+        auth = self.getUserAuth(user)
+        auth['rules'] = rules
+
+        self._bumpAuthUser(user)
+        self._syncUserAuth(user, auth)
+
+    def getRoleRules(self, role):
+        '''
+        Get a list of rule tuples for the given role.
+
+        Args:
+            role (str): The role name
+
+        Returns:
+            (list): A list of rule tuples
+        '''
+        auth = self.getRoleAuth(role)
+        return list(auth.get('rules', ()))
+
+    def getUserRules(self, user):
+        '''
+        Get a list of rule tuples for the given user.
+
+        Args:
+            user (str): The user name
+
+        Returns:
+            (list): A list of rule tuples
+        '''
+        auth = self.getUserAuth(user)
+        return list(auth.get('rules', ()))
+
+    def setRoleRules(self, role, rules):
+        '''
+        Set the rules for a given role.  Rules are documented
+        in synapse.lib.auth.Rules.
+
+        Args:
+            role (str): The role name
+            rules (list): A list of rule tuples
+
+        Returns:
+            (None)
+
+        Raises:
+            (synapse.exc.BadRuleValu)
+        '''
+        auth = self.getRoleAuth(role)
+        if auth is None:
+            auth = {}
+
+        auth['rules'] = rules
+        self._syncRoleAuth(role, auth)
+
+    def getUserRoles(self, user):
+        '''
+        Get a list of the roles for the specified user.
+
+        Args:
+            user (str): The user name
+
+        Returns:
+            ([str,...]): The roles for the user
+        '''
+        nodes = self.getTufosByProp('syn:auth:userrole:user')
+        return [n[1].get('syn:auth:userrole:role') for n in nodes]
+
+    def getRoleUsers(self, role):
+        '''
+        Get a list of the users for the specified role.
+
+        Args:
+            role (str): The role name
+
+        Returns:
+            ([str,...]): The users for the role
+        '''
+        nodes = self.getTufosByProp('syn:auth:userrole:role')
+        return [n[1].get('syn:auth:userrole:user') for n in nodes]
+
+    def addUserRule(self, user, rule, indx=None):
+        '''
+        Add a rule tuple for the given user (optionally at index).
+
+        Args:
+            user (str): The user name
+            rule (tuple): The rule tuple
+            indx (int): The index at which to insert the rule
+
+        Returns:
+            (None)
+
+        NOTE: see synapse.lib.auth.Rules for rule tuple definition
+        '''
+        auth = self.getUserAuth(user)
+        if auth is None:
+            auth = {}
+
+        rules = list(auth.get('rules', ()))
+
+        if indx is None:
+            rules.append(rule)
+        else:
+            rules.insert(indx, rule)
+
+        auth['rules'] = rules
+        self._bumpAuthUser(user)
+        self._syncUserAuth(user, auth)
+
+    def delUserRule(self, user, indx):
+        '''
+        Delete a rule at index for the given user.
+
+        Args:
+            user (str): The user name
+            indx (int): The index of the rule to remove
+
+        Returns:
+            (None)
+
+        NOTE: see synapse.lib.auth.Rules for rule tuple definition
+        '''
+        auth = self.getUserAuth(user)
+        if auth is None:
+            auth = {}
+
+        rules = list(auth.get('rules', ()))
+        rules.pop(indx)
+
+        auth['rules'] = rules
+
+        self._bumpAuthUser(user)
+        self._syncUserAuth(user, auth)
+
+    def addRoleRule(self, role, rule, indx=None):
+        '''
+        Add a rule tuple for the given role (optionally at index).
+
+        Args:
+            role (str): The role name
+            rule (tuple): The rule tuple
+            indx (int): The index at which to insert the rule
+        '''
+        auth = self.getRoleAuth(role)
+        if auth is None:
+            auth = {}
+
+        rules = list(auth.get('rules', ()))
+
+        if indx is None:
+            rules.append(rule)
+        else:
+            rules.insert(indx, rule)
+
+        auth['rules'] = rules
+
+        self._bumpAuthRole(role)
+        self._syncRoleAuth(role, auth)
+
+    def _bumpAuthUser(self, user):
+        self._auth_rules.pop(user)
+        self._auth_users.pop(user)
+
+    def _bumpAuthRole(self, role):
+        self._auth_roles.pop(role)
+        for user in self.getRoleUsers(role):
+            self._bumpAuthUser(user)
+
+    def delRoleRule(self, role, indx):
+        '''
+        Delete a rule at index for the given role.
+
+        Args:
+            role (str): The role name
+            indx (int): The index of the rule to remove
+
+        Returns:
+            (None)
+        '''
+        auth = self.getRoleAuth(role)
+        if auth is None:
+            auth = {}
+
+        rules = list(auth.get('rules', ()))
+        rules.pop(indx)
+
+        auth['rules'] = rules
+
+        self._bumpAuthRole(role)
+        self._syncRoleAuth(role, auth)
+
+    @on('node:del', form='syn:auth:role')
+    def _onDelAuthRole(self, mesg):
+        role = mesg[1].get('valu')
+
+        self._bumpAuthRole(role)
+        self._syncRoleAuth(role, {})
+
+        # removing these will pop user rule caches
+        for userrole in self.getTufosByProp('syn:auth:userrole:role', role):
+            self.delTufo(userrole)
+
+    @on('node:del', form='syn:auth:user')
+    def _onDelAuthUser(self, mesg):
+        user = mesg[1].get('valu')
+
+        self._bumpAuthUser(user)
+        self._syncUserAuth(user, {})
+
+        for userrole in self.getTufosByProp('syn:auth:userrole:user', user):
+            self.delTufo(userrole)
+
+    @on('node:add', form='syn:auth:userrole')
+    def _onAddAuthUserRole(self, mesg):
+        node = mesg[1].get('node')
+        user = node[1].get('syn:auth:userrole:user')
+
+        self._bumpAuthUser(user)
+
+    @on('node:del', form='syn:auth:userrole')
+    def _onDelAuthUserRole(self, mesg):
+        node = mesg[1].get('node')
+        user = node[1].get('syn:auth:userrole:user')
+
+        self._bumpAuthUser(user)
 
     def _finiCoreMods(self):
         [modu.fini() for modu in self.coremods.values()]
@@ -386,63 +945,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             core.formTufoByProp('org:iden:name','The Vertex Project, LLC')
         '''
         self.seedctors[name] = func
-
-    def addDataModel(self, name, modl):
-        '''
-        Store all types/forms/props from the given data model in the cortex.
-
-        Args:
-            name (str): The name of the model ( depricated/ignored )
-            modl (dict):A data model definition dictionary
-
-        Returns:
-            (None)
-
-        Example:
-
-            core.addDataModel('synapse.models.foo',
-                              {
-
-                                'types':( ('foo:g',{'subof':'guid'}), ),
-
-                                'forms':(
-                                    ('foo:f',{'ptype':'foo:g','doc':'a foo'},[
-                                        ('a',{'ptype':'str:lwr'}),
-                                        ('b',{'ptype':'int'}),
-                                    ]),
-                                ),
-                              })
-        '''
-        tufo = self.formTufoByProp('syn:model', name)
-
-        # use the normalized hash of the model dict to short
-        # circuit loading if it is unchanged.
-        mhas = s_hashitem.hashitem(modl)
-        if tufo[1].get('syn:model:hash') == mhas:
-            return
-
-        # FIXME handle type/form/prop removal
-        for name, tnfo in modl.get('types', ()):
-
-            tufo = self.formTufoByProp('syn:type', name, **tnfo)
-            tufo = self.setTufoProps(tufo, **tnfo)
-
-        for form, fnfo, props in modl.get('forms', ()):
-
-            # allow forms declared without ptype if their name *is* one
-            if fnfo.get('ptype') is None:
-                fnfo['ptype'] = form
-
-            tufo = self.formTufoByProp('syn:form', form, **fnfo)
-            tufo = self.setTufoProps(tufo, **fnfo)
-
-            for prop, pnfo in props:
-                fullprop = form + ':' + prop
-                tufo = self.formTufoByProp('syn:prop', fullprop, form=form, **pnfo)
-                tufo = self.setTufoProps(tufo, **pnfo)
-
-    def addDataModels(self, modtups):
-        [self.addDataModel(name, modl) for (name, modl) in modtups]
 
     def _getTufosByCache(self, prop, valu, limit):
         # only used if self.caching = 1
@@ -611,102 +1113,62 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             self.coremods[ctor] = modu
 
-            return True
+            return modu
 
         except Exception as e:
             logger.exception(e)
             logger.warning('mod load fail: %s %s' % (ctor, e))
-            return False
+            return None
 
-    def _synTagsVers0(self):
+    def addCoreMods(self, mods):
+        '''
+        Add a list of (name,conf) tuples to the cortex.
+        '''
+        revs = []
 
-        # nothing to do...
-        if self.isnew:
-            return
+        maxvers = collections.defaultdict(list)
 
-        # we must transition tags from *|<form>|<tag> to #<tag>
-        tags = [n[1].get('syn:tag') for n in self.eval('syn:tag')]
-        forms = [n[1].get('syn:form') for n in self.eval('syn:form')]
+        toadd = []
+        isnew = set()
 
-        logger.warning('syn:core updating... do *not* interrupt')
+        for ctor, conf in mods:
 
-        for form in forms:
-
-            for tag in tags:
-
-                prop = '#' + tag
-
-                oldp = '*|' + form + '|' + tag
-                rows = self.getRowsByProp(oldp)
-                if not rows:
-                    continue
-
-                logger.warning('syn:core updating #%s on %s' % (tag, form))
-
-                newd = '_:*' + form + prop
-
-                news = [(i, prop, v, t) for (i, p, v, t) in rows]
-                darks = [(i[::-1], newd, v, t) for (i, p, v, t) in rows]
-
-                self.addRows(news + darks)
-
-                self.delRowsByProp(oldp)
-                self.delRowsByProp('_:dark:tag', valu=tag)
-
-    def _initCoreMods(self):
-        # call our interal model revision functions
-        revs = [
-            (0, self._synTagsVers0),
-        ]
-        self.revModlVers('syn:core', revs)
-
-        # load each of the configured (and base) modules.
-        for ctor, conf in self.modules:
-            self.initCoreModule(ctor, conf)
-
-        # Sort the model revlist
-        self.modelrevlist.sort(key=lambda x: x[:2])
-        for revision, name, func in self.modelrevlist:
-            self.revModlVers(name, ((revision, func),))
-
-        for tufo in self.getTufosByProp('syn:type'):
-            try:
-                self._initTypeTufo(tufo)
-            except s_common.DupTypeName as e:
+            modu = self.initCoreModule(ctor, conf)
+            if modu is None:
                 continue
 
-        for tufo in self.getTufosByProp('syn:form'):
-            try:
-                self._initFormTufo(tufo)
-            except s_common.DupPropName as e:
-                continue
+            for name, modl in modu.getBaseModels():
 
-        for tufo in self.getTufosByProp('syn:prop'):
-            try:
-                self._initPropTufo(tufo)
-            except s_common.DupPropName as e:
-                continue
+                # make sure the module's modl dict is loaded
+                if not self.isDataModl(name):
+                    toadd.append((name, modl))
 
-        self.modelrevlist = []
-        self.modsdone = True
+                # set the model version to 0 if it's -1
+                if self.getModlVers(name) == -1:
+                    isnew.add(name)
+                    self.setModlVers(name, 0)
+
+            # group up versions by name so we can get max
+            for name, vers, func in modu.getModlRevs():
+                maxvers[name].append(vers)
+
+                revs.append((vers, name, func))
+
+        if toadd:
+            self.addDataModels(toadd)
+
+        # if we didn't have it at all, forward wind...
+        for name, vals in maxvers.items():
+            if name in isnew:
+                self.setModlVers(name, max(vals))
+
+        revs.sort()
+
+        for vers, name, func in revs:
+            self.revModlVers(name, vers, func)
 
     def _onSetMods(self, mods):
-
-        self.modules.extend(mods)
-        if not self.modsdone:
-            return
-
-        # dynamically load modules if we are already done loading
-        for ctor, conf in mods:
-            self.initCoreModule(ctor, conf)
-        if not self.modelrevlist:
-            return
-
-        self.modelrevlist.sort(key=lambda x: x[:2])
-        for revision, name, func in self.modelrevlist:
-            self.revModlVers(name, ((revision, func),))
-
-        self.modelrevlist = []
+        self.addCoreMods(mods)
 
     def _onSetCaching(self, valu):
         if not valu:
@@ -715,22 +1177,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             self.cache_byiden.clear()
             self.cache_byprop.clear()
 
-    def _reqSpliceInfo(self, act, info, prop):
-        valu = info.get(prop)
-        if prop is None:
-            raise Exception('Splice: %s requires %s' % (act, prop))
-        return valu
-
     def _actNodeAdd(self, mesg):
         form = mesg[1].get('form')
         valu = mesg[1].get('valu')
-        tags = mesg[1].get('tags', ())
         props = mesg[1].get('props', {})
 
         node = self.formTufoByProp(form, valu, **props)
-
-        if tags:
-            self.addTufoTags(node, tags)
 
     def _actNodeDel(self, mesg):
         form = mesg[1].get('form')
@@ -745,10 +1197,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _actNodePropSet(self, mesg):
         form = mesg[1].get('form')
         valu = mesg[1].get('valu')
-        props = mesg[1].get('props')
+        prop = mesg[1].get('prop')
+        newv = mesg[1].get('newv')
 
         node = self.formTufoByProp(form, valu)
-        self.setTufoProps(node, **props)
+        self.setTufoProp(node, prop, newv)
 
     def _actNodePropDel(self, mesg):
         form = mesg[1].get('form')
@@ -761,8 +1214,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _actNodeTagAdd(self, mesg):
 
         tag = mesg[1].get('tag')
-        # TODO make these operate on multiple tags?
-        #tags = mesg[1].get('tags',())
         form = mesg[1].get('form')
         valu = mesg[1].get('valu')
 
@@ -836,15 +1287,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         act = mesg[1].get('act')
         self.spliceact.react(mesg, name=act)
 
-    # TODO
-    #def setSyncDir(self, path):
-        #'''
-        #Set the given directory as the archive of core:sync events
-        #for this cortex.  The sync dir may then be used to populate
-        #and synchronize other cortexes.
-        #'''
-
-    #@s_telepath.clientside
+    @s_telepath.clientside
     def addSpliceFd(self, fd):
         '''
         Write all cortex splice events to the specified file-like object.
@@ -1260,6 +1703,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if valu is not None:
             valu, subs = self.getPropNorm(prop, valu)
 
+        # check our runt/ephemeral nodes...
+        answ = self.runt_props.get((prop, valu))
+        if answ is not None:
+            return answ[0]
+
         if self.caching:
             answ = self._getTufosByCache(prop, valu, 1)
             if answ:
@@ -1293,6 +1741,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             norm, subs = self.getPropNorm(prop, valu)
             if norm is None:
                 raise s_common.BadPropValu(prop=prop, valu=valu)
+
+        # check our runt/ephemeral nodes...
+        answ = self.runt_props.get((prop, norm))
+        if answ is not None:
+            return answ
 
         if self.caching and mintime is None and maxtime is None:
             return self._getTufosByCache(prop, norm, limit)
@@ -1446,6 +1899,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
                 xact.fire('node:tag:add', form=form, valu=valu, tag=subtag, node=tufo)
                 xact.spliced('node:tag:add', form=form, valu=valu, tag=subtag)
+                xact.trigger(tufo, 'node:tag:add', form=form, tag=subtag)
 
             self.addRows(rows)
 
@@ -1503,6 +1957,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 # fire notification events
                 xact.fire('node:tag:del', form=form, valu=valu, tag=subtag, node=tufo)
                 xact.spliced('node:tag:del', form=form, valu=valu, tag=subtag, asof=asof)
+                xact.trigger(tufo, 'node:tag:del', form=form, tag=subtag)
 
                 self.delTufoIval(tufo, subprop)
 
@@ -1589,6 +2044,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             xact.fire('node:ival', form=form, valu=valu, prop=name, ival=ival, node=tufo)
             xact.spliced('node:ival:set', form=form, valu=valu, prop=name, ival=ival)
+            xact.trigger(tufo, 'node:ival:set', form=form, prop=name)
 
         return tufo
 
@@ -1623,6 +2079,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             self._bumpTufoCache(tufo, maxp, maxv, None)
             xact.fire('node:ival:del', form=form, valu=valu, prop=name, node=tufo)
             xact.spliced('node:ival:del', form=form, valu=valu, prop=name)
+            xact.trigger(tufo, 'node:ival:del', form=form, prop=name)
 
         return tufo
 
@@ -1637,7 +2094,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         Notes:
 
             If props contains a key "time" it will be used for
-            the cortex timestap column in the row storage.
+            the cortex timestamp column in the row storage.
 
         '''
         return self.addTufoEvents(form, (props,))[0]
@@ -1812,8 +2269,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             core.addTufoEvents('woot',propss)
 
         '''
-
-        doneadd = set()
         tname = self.getPropTypeName(form)
         if tname is None and self.enforce:
             raise s_common.NoSuchForm(name=form)
@@ -1829,26 +2284,28 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
                 adds = []
                 rows = []
-
-                alladd = set()
+                allfulls = []
 
                 for props in chunk:
 
                     iden = s_common.guid()
 
-                    fulls, toadd = self._normTufoProps(form, props, isadd=True)
+                    fulls = self._normTufoProps(form, props, isadd=True)
 
                     self._addDefProps(form, fulls)
 
                     fulls[form] = iden
                     fulls['tufo:form'] = form
 
-                    toadd = [t for t in toadd if t not in doneadd]
+                    if self.autoadd:
+                        allfulls.append(fulls)
 
-                    alladd.update(toadd)
-                    doneadd.update(toadd)
-
+                    # fire these immediately since we need them to potentially fill
+                    # in values before we generate rows for the new tufo
                     self.fire('node:form', form=form, valu=iden, props=fulls)
+
+                    # Ensure we have ALL the required props after node:form is fired.
+                    self._reqProps(form, fulls)
 
                     rows.extend([(iden, p, v, xact.tick) for (p, v) in fulls.items()])
 
@@ -1860,24 +2317,41 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                     ret.append(node)
                     adds.append((form, iden, props, node))
 
-                # add "toadd" nodes *first* (for tree/parent issues )
-                if self.autoadd:
-                    self._runAutoAdd(alladd)
-
                 self.addRows(rows)
 
                 # fire splice events
                 for form, valu, props, node in adds:
                     xact.fire('node:add', form=form, valu=valu, node=node)
                     xact.spliced('node:add', form=form, valu=valu, props=props)
+                    xact.trigger(node, 'node:add', form=form)
+
+                if self.autoadd:
+                    for fulls in allfulls:
+                        self._runToAdd(fulls)
 
         return ret
 
-    def _runAutoAdd(self, toadd):
-        for form, valu in toadd:
-            if form in self.noauto:
-                continue
-            self.formTufoByProp(form, valu)
+    def _reqProps(self, form, fulls):
+        if not self.enforce:
+            return
+
+        props = self.getFormReqs(form)
+
+        # Return fast for perf
+        if not props:
+            return
+
+        props = set(props)
+
+        # Special case for handling syn:prop:glob=1 on will not have a ptype
+        # despite the model requiring a ptype to be present.
+        if fulls.get('syn:prop:glob') and 'syn:prop:ptype' in props:
+            props.remove('syn:prop:ptype')
+
+        missing = props - set(fulls)
+        if missing:
+            raise s_common.PropNotFound(mesg='Node is missing required a prop during formation',
+                                        prop=list(missing)[0], form=form)
 
     def formTufoByTufo(self, tufo):
         '''
@@ -1890,6 +2364,36 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         props = {k[prelen:]: v for (k, v) in tufo[1].items() if k.startswith(prefix)}
 
         return self.formTufoByProp(form, valu, **props)
+
+    def formTufosByProps(self, items):
+        '''
+        Forms tufos by prop, given a tuple of (form, valu, props) tuples.
+
+        Args:
+
+            items (tuple): A tuple of tuples of (form, valu, props)
+
+        Returns:
+
+            tuple: Tuple containing tufos, either with the node or error data
+
+        Example:
+
+            items = ( ('foo:thing', 'hehe', {'a': 1}), ('bar:thing', 'haha', {'b': 2}), )
+            results = core.formTufosByProps(items)
+        '''
+        retval = []
+
+        with self.getCoreXact() as xact:
+            for form, valu, props in items:
+                try:
+                    retval.append(self.formTufoByProp(form, valu, **props))
+                except Exception as e:
+                    excinfo = s_common.excinfo(e)
+                    excval = excinfo.pop('err')
+                    retval.append(s_tufo.ephem('syn:err', excval, **excinfo))
+
+        return tuple(retval)
 
     def formTufoByProp(self, prop, valu, **props):
         '''
@@ -1911,17 +2415,25 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if ctor is not None:
             return ctor(prop, valu, **props)
 
+        tname = self.getPropTypeName(prop)
+        if tname is None and self.enforce:
+            raise s_common.NoSuchForm(name=prop)
+
         # special case for adding nodes with a guid primary property
         # if the value None is specified, generate a new guid and skip
         # deconfliction ( allows highly performant "event" ingest )
         deconf = True
         if valu is None:
-            tname = self.getPropTypeName(prop)
             if tname and self.isSubType(tname, 'guid'):
                 valu = s_common.guid()
                 deconf = False
 
         valu, subs = self.getPropNorm(prop, valu)
+
+        # dont allow formation of nodes which are runts
+        if self.isRuntForm(prop):
+            raise s_common.IsRuntProp(form=prop, valu=valu,
+                  mesg='Runtime nodes may not be created with formTufoByProp')
 
         with self.getCoreXact() as xact:
 
@@ -1935,7 +2447,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             props.update(subs)
 
-            fulls, toadd = self._normTufoProps(prop, props, isadd=True)
+            fulls = self._normTufoProps(prop, props, isadd=True)
 
             # create a "full" props dict which includes defaults
             self._addDefProps(prop, fulls)
@@ -1949,6 +2461,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             # fire these immediately since we need them to potentially fill
             # in values before we generate rows for the new tufo
             self.fire('node:form', form=prop, valu=valu, props=fulls)
+
+            # Ensure we have ALL the required props after node:form is fired.
+            self._reqProps(prop, fulls)
 
             rows = [(iden, p, v, tick) for (p, v) in fulls.items()]
 
@@ -1965,9 +2480,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             # fire notification events
             xact.fire('node:add', form=prop, valu=valu, node=tufo)
             xact.spliced('node:add', form=prop, valu=valu, props=props)
+            xact.trigger(tufo, 'node:add', form=prop)
 
             if self.autoadd:
-                self._runAutoAdd(toadd)
+                self._runToAdd(fulls)
 
         tufo[1]['.new'] = True
         return tufo
@@ -2001,6 +2517,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             # delete any dark props/rows
             self.delRowsById(iden[::-1])
             xact.spliced('node:del', form=form, valu=valu)
+            xact.trigger(tufo, 'node:del', form=form)
 
         lists = [p.split(':', 2)[2] for p in tufo[1].keys() if p.startswith('tufo:list:')]
         for name in lists:
@@ -2150,22 +2667,37 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         for k, v in self.getFormDefs(form):
             fulls.setdefault(k, v)
 
-    def _normTufoProps(self, form, inprops, tufo=None, isadd=False):
-        '''
-        This will both return a set of fully qualified props as a dict
-        as well as modify inprops inband as a normalized set or relatives.
-        '''
-
+    def _runToAdd(self, fulls):
         toadd = set()
 
-        props = {}
-        for name in list(inprops.keys()):
+        for prop, valu in fulls.items():
+            ptype = self.getPropTypeName(prop)
+            for stype in self.getTypeOfs(ptype):
 
-            valu = inprops.get(name)
+                if self.isRuntForm(stype):
+                    continue
+
+                if self.isTufoForm(stype):
+                    toadd.add((stype, valu))
+
+        for form, valu in toadd:
+            self.formTufoByProp(form, valu)
+
+    def _normTufoProps(self, form, props, tufo=None, isadd=False):
+        '''
+        This will both return a dict of fully qualified props as
+        well as modify the given props dict inband to normalize
+        the values.
+        '''
+
+        fulls = {}
+        for name in list(props.keys()):
+
+            valu = props.get(name)
 
             prop = form + ':' + name
             if not self.isSetPropOk(prop, isadd=isadd):
-                inprops.pop(name, None)
+                props.pop(name, None)
                 continue
 
             oldv = None
@@ -2174,12 +2706,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             valu, subs = self.getPropNorm(prop, valu, oldval=oldv)
             if tufo is not None and tufo[1].get(prop) == valu:
-                inprops.pop(name, None)
+                props.pop(name, None)
                 continue
-
-            ptype = self.getPropTypeName(prop)
-            if self.isTufoForm(ptype):
-                toadd.add((ptype, valu))
 
             # any sub-properties to populate?
             for sname, svalu in subs.items():
@@ -2188,16 +2716,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 if self.getPropDef(subprop) is None:
                     continue
 
-                props[subprop] = svalu
+                fulls[subprop] = svalu
 
-                ptype = self.getPropTypeName(subprop)
-                if self.isTufoForm(ptype):
-                    toadd.add((ptype, svalu))
+            fulls[prop] = valu
+            props[name] = valu
 
-            props[prop] = valu
-            inprops[name] = valu
-
-        return props, toadd
+        return fulls
 
     def addSaveLink(self, func):
         '''
@@ -2363,6 +2887,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             # fire the splice event
             xact.spliced('node:prop:del', form=form, valu=valu, prop=prop)
+            xact.trigger(tufo, 'node:prop:del', form=form, prop=prop)
 
         return tufo
 
@@ -2385,7 +2910,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         reqiden(tufo)
         # add tufo form prefix to props
         form = tufo[1].get('tufo:form')
-        fulls, toadd = self._normTufoProps(form, props, tufo=tufo)
+        fulls = self._normTufoProps(form, props, tufo=tufo)
         if not fulls:
             return tufo
 
@@ -2408,7 +2933,14 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 # fire notification event
                 xact.fire('node:prop:set', form=form, valu=valu, prop=p, newv=v, oldv=oldv, node=tufo)
 
-            xact.spliced('node:prop:set', form=form, valu=valu, props=props)
+                # fire the splice event
+                xact.spliced('node:prop:set', form=form, valu=valu, prop=p[len(form) + 1:], newv=v, oldv=oldv,
+                             node=tufo)
+
+                xact.trigger(tufo, 'node:prop:set', form=form, prop=p)
+
+            if self.autoadd:
+                self._runToAdd(fulls)
 
         return tufo
 
@@ -2535,57 +3067,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _tufosByInetCidr(self, prop, valu, limit=None):
         lowerbound, upperbound = self.getTypeCast('inet:ipv4:cidr', valu)
         return self.getTufosBy('range', prop, (lowerbound, upperbound), limit=limit)
-
-    def _onTufoAddSynType(self, mesg):
-        tufo = mesg[1].get('node')
-        if tufo is None:
-            return
-
-        self._initTypeTufo(tufo)
-
-    def _onTufoAddSynForm(self, mesg):
-        tufo = mesg[1].get('node')
-        if tufo is None:
-            return
-
-        self._initFormTufo(tufo)
-
-    def _onTufoAddSynProp(self, mesg):
-        tufo = mesg[1].get('node')
-        if tufo is None:
-            return
-
-        self._initPropTufo(tufo)
-
-    def _initTypeTufo(self, tufo):
-        '''
-        Initialize a TypeLib Type from syn:type tufo
-        '''
-        name = tufo[1].get('syn:type')
-        info = s_tufo.props(tufo)
-        self.addType(name, **info)
-
-    def _initFormTufo(self, tufo):
-        '''
-        Initialize a DataModel Form from syn:form tufo
-        '''
-        name = tufo[1].get('syn:form')
-        info = s_tufo.props(tufo)
-        # add the tufo definition to the DataModel
-        self.addTufoForm(name, **info)
-
-    def _initPropTufo(self, tufo):
-        '''
-        Initialize a DataModel Prop from syn:prop tufo
-        '''
-        name = tufo[1].get('syn:prop')
-        info = s_tufo.props(tufo)
-
-        form = info.pop('form')
-        prop = name[len(form) + 1:]
-
-        self.addTufoProp(form, prop, **info)
-        return
 
     def _stormOperStat(self, query, oper):
 
@@ -2805,7 +3286,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def getStoreType(self):
         return self.store.getStoreType()
 
-    # TODO: Wrap this in a userauth layer
+    # TODO: Wrap this in a auth layer
     def getBlobValu(self, key, default=None):
         '''
         Get a value from the blob key/value (KV) store.
@@ -2829,7 +3310,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         return self.store.getBlobValu(key, default)
 
-    # TODO: Wrap this in a userauth layer
+    # TODO: Wrap this in a auth layer
     def getBlobKeys(self):
         '''
         Get a list of keys in the blob key/value store.
@@ -2839,7 +3320,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         return self.store.getBlobKeys()
 
-    # TODO: Wrap this in a userauth layer
+    # TODO: Wrap this in a auth layer
     def setBlobValu(self, key, valu):
         '''
         Set a value from the blob key/value (KV) store.
@@ -2862,7 +3343,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         return self.store.setBlobValu(key, valu)
 
-    # TODO: Wrap this in a userauth layer
+    # TODO: Wrap this in a auth layer
     def hasBlobValu(self, key):
         '''
         Check the blob store to see if a key is present.
@@ -2876,7 +3357,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         return self.store.hasBlobValu(key)
 
-    # TODO: Wrap this in a userauth layer
+    # TODO: Wrap this in a auth layer
     def delBlobValu(self, key):
         '''
         Remove and return a value from the blob store.

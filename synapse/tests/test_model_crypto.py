@@ -39,3 +39,14 @@ class CryptoModelTest(SynTest):
         self.eq(tufo[1].get('rsa:key:priv:exp'), HEXSTR_PRIVATE_EXPONENT)
         self.eq(tufo[1].get('rsa:key:priv:p'), HEXSTR_PRIVATE_PRIME_P)
         self.eq(tufo[1].get('rsa:key:priv:q'), HEXSTR_PRIVATE_PRIME_Q)
+
+    def test_model_crypto_201708231712(self):
+
+        with s_cortex.openstore('ram:///') as stor:
+
+            # force model migration callbacks
+            stor.setModlVers('crypto', 0)
+
+            with s_cortex.fromstore(stor) as core:
+                modlrev = core.getModlVers('crypto')
+                self.ge(modlrev, 201708231712)

@@ -100,6 +100,7 @@ class DataModel(s_types.TypeLib):
         self.props = {}
         self.forms = set()
 
+        self.reqprops = collections.defaultdict(list)
         self.defvals = collections.defaultdict(list)
         self.subprops = collections.defaultdict(list)
         self.propsbytype = collections.defaultdict(list)
@@ -116,18 +117,22 @@ class DataModel(s_types.TypeLib):
 
         s_types.TypeLib.__init__(self, load=load)
 
-        self.addTufoForm('syn:core')
+        self.addTufoForm('syn:core', ptype='str')
 
         self.addTufoForm('syn:form', ptype='syn:prop')
         self.addTufoProp('syn:form', 'doc', ptype='str', doc='basic form definition')
         self.addTufoProp('syn:form', 'ver', ptype='int', doc='form version within the model')
         self.addTufoProp('syn:form', 'model', ptype='str', doc='which model defines a given form')
+        self.addTufoProp('syn:form', 'ptype', ptype='syn:type', req=1, doc='Synapse type for this form')
+        self.addTufoProp('syn:form', 'local', ptype='bool', defval=0,
+                         doc='Flag used to determine if a form should not be included in splices.')
 
         self.addTufoForm('syn:prop', ptype='syn:prop')
-        self.addTufoProp('syn:prop', 'doc', ptype='str', req=1, doc='Description of the property definition')
+        # TODO - Re-enable syn:prop:doc req = 1 after cleaning up property docstrings.
+        self.addTufoProp('syn:prop', 'doc', ptype='str', req=0, doc='Description of the property definition')
         self.addTufoProp('syn:prop', 'form', ptype='syn:prop', req=1, doc='Synapse form which contains this property')
         self.addTufoProp('syn:prop', 'ptype', ptype='syn:type', req=1, doc='Synapse type for this field')
-        self.addTufoProp('syn:prop', 'req', ptype='bool', defval=0, doc='Set to 1 if this property is required')
+        self.addTufoProp('syn:prop', 'req', ptype='bool', defval=0, doc='Set to 1 if this property is required to form the node.')
         self.addTufoProp('syn:prop', 'glob', ptype='bool', defval=0, doc='Set to 1 if this property defines a glob')
         self.addTufoProp('syn:prop', 'defval', doc='Set to the default value for this property')
 
@@ -154,6 +159,9 @@ class DataModel(s_types.TypeLib):
         self.addTufoProp('syn:model', 'prefix', ptype='syn:prop', doc='prefix used by types/forms in the model')
 
         self.addTufoForm('syn:type', ptype='syn:type')
+        self.addTufoProp('syn:type', 'ctor', ptype='str')
+        self.addTufoProp('syn:type', 'subof', ptype='syn:type')
+
         self.addTufoProp('syn:type', '*', glob=1)
 
         # used most commonly for sequential tag generation
@@ -167,6 +175,21 @@ class DataModel(s_types.TypeLib):
         Returns a dictionary which represents the data model.
         '''
         return dict(self.model)
+
+    def _addDataModels(self, modtups):
+        '''
+        Load a list of (name,modl) tuples into the DataModel.
+        '''
+        # first load all the types...
+        s_types.TypeLib._addDataModels(self, modtups)
+
+        for name, modl in modtups:
+
+            for form, info, props in modl.get('forms', ()):
+                self.addTufoForm(form, **info)
+
+                for prop, pnfo in props:
+                    self.addTufoProp(form, prop, **pnfo)
 
     def addTufoForm(self, form, **info):
         '''
@@ -182,6 +205,12 @@ class DataModel(s_types.TypeLib):
         '''
         if not propre.match(form):
             raise s_common.BadPropName(name=form)
+
+        if info.get('ptype') is None:
+            if self.isDataType(form):
+                info['ptype'] = form
+            else:
+                info['ptype'] = 'str'
 
         self.forms.add(form)
 
@@ -263,6 +292,7 @@ class DataModel(s_types.TypeLib):
             raise s_common.DupPropName(name=prop)
 
         info.setdefault('doc', None)
+        info.setdefault('req', False)
         info.setdefault('uniq', False)
         info.setdefault('ptype', None)
         info.setdefault('title', None)
@@ -277,6 +307,10 @@ class DataModel(s_types.TypeLib):
 
         if defval is not None:
             self.defvals[form].append((prop, defval))
+
+        req = info.get('req')
+        if req:
+            self.reqprops[form].append(prop)
 
         pdef = (prop, info)
 
@@ -297,6 +331,18 @@ class DataModel(s_types.TypeLib):
         Return a list of (prop,valu) tuples for the default values of a form.
         '''
         return self.defvals.get(form, ())
+
+    def getFormReqs(self, form):
+        '''
+        Return a list of prop values which are required form a form.
+
+        Args:
+            form (str): Form to request values for.
+
+        Returns:
+            list: List of required properties needed for making the given form.
+        '''
+        return self.reqprops.get(form, ())
 
     def _addSubRefs(self, pdef):
         name = pdef[0]
@@ -364,11 +410,36 @@ class DataModel(s_types.TypeLib):
         return dtype.repr(valu)
 
     def getPropTypeName(self, prop):
+        '''
+        Retrieve the name of the type for the given property.
+
+        Args:
+            prop (str): The property
+
+        Returns:
+            (str):  The type name (or None)
+        '''
         pdef = self.getPropDef(prop)
         if pdef is None:
             return None
 
         return pdef[1].get('ptype')
+
+    def getTypeOfs(self, name):
+        '''
+        Return a list of type inheritence (including specified name).
+
+        Args:
+            name (str): The name of a type
+
+        Returns:
+            ([str, ...]):   The list of type names it inherits from
+        '''
+        retn = []
+        while name is not None:
+            retn.append(name)
+            name = self.getTypeInfo(name, 'subof')
+        return retn
 
     def getPropNorm(self, prop, valu, oldval=None):
         '''

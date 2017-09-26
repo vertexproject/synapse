@@ -10,7 +10,6 @@ import synapse.telepath as s_telepath
 import synapse.lib.scope as s_scope
 import synapse.lib.service as s_service
 import synapse.lib.threads as s_threads
-import synapse.lib.userauth as s_userauth
 
 from synapse.tests.common import *
 import logging
@@ -45,7 +44,7 @@ class TelePathTest(SynTest):
         return dmon, link
 
     def getFooEnv(self, url='tcp://127.0.0.1:0/foo'):
-        env = TestEnv()
+        env = TstEnv()
         env.add('dmon', s_daemon.Daemon(), fini=True)
         env.add('link', env.dmon.listen(url))
 
@@ -315,60 +314,6 @@ class TelePathTest(SynTest):
                 self.eq(prox.echo(ping), ping)
 
                 wait0.wait(timeout=2)
-
-    def test_telepath_auth(self):
-
-        cafile = getTestPath('ca.crt')
-        keyfile = getTestPath('server.key')
-        certfile = getTestPath('server.crt')
-
-        userkey = getTestPath('user.key')
-        usercert = getTestPath('user.crt')
-
-        with s_userauth.opencore('ram:///') as auth:
-
-            with s_daemon.Daemon() as dmon:
-
-                dmon.setUserAuth(auth)
-
-                dmon.share('foo', Foo())
-
-                link0 = dmon.listen('tcp://localhost:0/')
-                link1 = dmon.listen('ssl://localhost:0/', cafile=cafile, keyfile=keyfile, certfile=certfile)
-
-                port0 = link0[1].get('port')
-                port1 = link1[1].get('port')
-
-                url = 'ssl://localhost/foo'
-
-                with s_telepath.openurl('tcp://localhost/foo', port=port0) as foo:
-                    self.raises(NoAuthUser, foo.bar, 20, 30)
-
-                with s_telepath.openurl(url, port=port1, cafile=cafile, keyfile=userkey, certfile=usercert) as foo:
-                    self.raises(NoSuchUser, foo.bar, 20, 30)
-
-                auth.addUser('user@localhost')
-
-                # even with the user added we should fail
-                with s_telepath.openurl(url, port=port1, cafile=cafile, keyfile=userkey, certfile=usercert) as foo:
-                    self.raises(NoSuchRule, foo.bar, 20, 30)
-
-                auth.addUserRule('user@localhost', 'tele:call:foo:bar')
-
-                # now with a rule we should succeed
-                with s_telepath.openurl(url, port=port1, cafile=cafile, keyfile=userkey, certfile=usercert) as foo:
-                    self.eq(foo.bar(10, 30), 40)
-
-                # but echo should still fail
-                with s_telepath.openurl(url, port=port1, cafile=cafile, keyfile=userkey, certfile=usercert) as foo:
-                    self.raises(NoSuchRule, foo.echo, 'woot')
-
-                # until we add a * rule
-                auth.addUserRule('user@localhost', 'tele:call:foo:*')
-
-                # and now it succeeds
-                with s_telepath.openurl(url, port=port1, cafile=cafile, keyfile=userkey, certfile=usercert) as foo:
-                    self.eq(foo.echo('woot'), 'woot')
 
     def test_telepath_events(self):
         with s_daemon.Daemon() as dmon:

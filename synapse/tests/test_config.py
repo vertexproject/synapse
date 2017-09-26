@@ -1,5 +1,6 @@
 from synapse.tests.common import *
 
+import synapse.daemon as s_daemon
 import synapse.lib.config as s_config
 
 class Foo(s_config.Config):
@@ -44,6 +45,31 @@ class ConfTest(SynTest):
 
             self.raises(NoSuchOpt, conf.setConfOpts, {'newp': 'hehe'})
 
+            instance_defs = conf.getConfDefs()
+            self.eq(len(instance_defs), 2)
+            self.isin('enabled', instance_defs)
+            self.isin('fooval', instance_defs)
+            edict = instance_defs.get('enabled')
+            self.eq(edict.get('type'), 'bool')
+            self.eq(edict.get('defval'), 0)
+            self.eq(edict.get('doc'), 'is thing enabled?')
+
+    def test_conf_defval(self):
+        defs = (
+            ('mutable:dict', {'doc': 'some dictionary', 'defval': {}}),
+        )
+
+        with s_config.Config(defs=defs) as conf:
+            md = conf.getConfOpt('mutable:dict')
+            md['key'] = 1
+            md = conf.getConfOpt('mutable:dict')
+            self.eq(md.get('key'), 1)
+
+        # Ensure the mutable:dict defval content is not changed
+        with s_config.Config(defs=defs) as conf2:
+            md = conf2.getConfOpt('mutable:dict')
+            self.eq(md, {})
+
     def test_conf_asloc(self):
         with s_config.Config() as conf:
             conf.addConfDef('foo', type='int', defval=0, asloc='_foo_valu')
@@ -78,3 +104,21 @@ class ConfTest(SynTest):
             self.eq(conf.getConfOpt('fooval'), 0x30)
 
             self.raises(NoSuchOpt, conf.setConfOpts, {'newp': 'hehe'})
+
+    def test_configable_proxymethod(self):
+
+        class CoolClass(s_config.Configable):
+
+            def __init__(self, proxy):
+                self.proxy = proxy
+                s_config.Configable.__init__(self)
+
+        with s_cortex.openurl('ram:///') as core:
+            with s_daemon.Daemon() as dmon:
+                dmon.share('core', core)
+                link = dmon.listen('tcp://127.0.0.1:0/core')
+                with s_cortex.openurl('tcp://127.0.0.1:%d/core' % link[1]['port']) as prox:
+                    cool = CoolClass(prox)
+                    tufo = cool.proxy.formTufoByProp('inet:ipv4', 0)
+                    self.eq(tufo[1]['tufo:form'], 'inet:ipv4')
+                    self.eq(tufo[1]['inet:ipv4'], 0)

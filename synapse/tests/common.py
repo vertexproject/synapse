@@ -16,6 +16,8 @@ import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.eventbus as s_eventbus
 
+import synapse.cores.common as s_cores_common
+
 import synapse.lib.scope as s_scope
 import synapse.lib.ingest as s_ingest
 import synapse.lib.output as s_output
@@ -31,13 +33,13 @@ class TooFewEvents(Exception): pass
 
 # Py2/3 SSL Exception Compat
 if s_compat.version >= (3, 0, 0):
-    TestSSLInvalidClientCertErr = ssl.SSLError
-    TestSSLConnectionResetErr = ConnectionResetError
+    TstSSLInvalidClientCertErr = ssl.SSLError
+    TstSSLConnectionResetErr = ConnectionResetError
 else:
-    TestSSLInvalidClientCertErr = socket.error
-    TestSSLConnectionResetErr = socket.error
+    TstSSLInvalidClientCertErr = socket.error
+    TstSSLConnectionResetErr = socket.error
 
-class TestEnv:
+class TstEnv:
 
     def __init__(self):
         self.items = {}
@@ -65,7 +67,7 @@ class TestEnv:
             bus.fini()
 
 
-class TestOutPut(s_output.OutPutStr):
+class TstOutPut(s_output.OutPutStr):
 
     def expect(self, substr):
         outs = str(self)
@@ -185,52 +187,8 @@ class SynTest(unittest.TestCase):
             core.onfini(droptable)
         return core
 
-    def getRev0DbByts(self):
-        '''
-        Get the bytes for the rev0.db SQLIte Cortex.
-        '''
-        path = getTestPath('rev0.db')
-        with open(path, 'rb') as fd:
-            byts = fd.read()
-
-        # Hash of the rev0 file on initial commit prevent
-        # commits which overwrite this accidentally from passing.
-        known_hash = '50cae022b296e0c2b61fd6b101c4fdaf'
-        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
-        return byts
-
-    def getRev0DbBytsMpk(self):
-        '''
-        Get the bytes for the rev0.db Cortex savefile.
-        '''
-        path = getTestPath('rev0.mpk')
-
-        with open(path, 'rb') as fd:
-            byts = fd.read()
-
-        # Hash of the rev0 file on initial commit prevent
-        # commits which overwrite this accidentally from passing.
-        known_hash = '5f724ba09c719e1f83454431b516e429'
-        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
-        return byts
-
-    def getRev0DbBytsLmdbGz(self):
-        '''
-        Get the bytes for the rev0.db Cortex in lmdb form.
-        This bytestream has been gzip.compressed.
-        '''
-        path = getTestPath('rev0.lmdb.gz')
-        with open(path, 'rb') as fd:
-            byts = fd.read()
-
-        # Hash of the rev0 file on initial commit prevent
-        # commits which overwrite this accidentally from passing.
-        known_hash = '06c05fa1ed9c9c195e060905357caef6'
-        self.eq(hashlib.md5(byts).hexdigest().lower(), known_hash)
-        return byts
-
     def getTestOutp(self):
-        return TestOutPut()
+        return TstOutPut()
 
     def thisHostMust(self, **props):
         for k, v in props.items():
@@ -241,6 +199,70 @@ class SynTest(unittest.TestCase):
         for k, v in props.items():
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
+
+    @staticmethod
+    def addTstForms(core):
+        '''
+        Add test forms to the cortex.
+        Args:
+            core (s_cores_common.Cortex): Core to prep.
+        Returns:
+            None
+        '''
+        # Some custom type machinations for later test use
+        modl = {
+            'types': (
+                ('strform', {'subof': 'str'},),
+                ('intform', {'subof': 'int'},),
+                ('default_foo', {'subof': 'str'},),
+                ('guidform', {'subof': 'guid'},)
+            ),
+            'forms': (
+                (
+                    'strform', {'ptype': 'str'},
+                    (
+                        ('foo', {'ptype': 'str'}),
+                        ('bar', {'ptype': 'str'}),
+                        ('baz', {'ptype': 'int'}),
+                    )
+                ),
+                (
+                    'intform', {'ptype': 'int'},
+                    (
+                        ('foo', {'ptype': 'str'}),
+                        ('baz', {'ptype': 'int'}),
+                    )
+                ),
+                (
+                    'default_foo', {'ptype': 'str'},
+                    (
+                        ('p0', {'ptype': 'int'}),
+                    )
+                ),
+                (
+                    'guidform', {'ptype': 'guid'},
+                    (
+                        ('foo', {'ptype': 'str'}),
+                        ('baz', {'ptype': 'int'}),
+                    )
+                ),
+            )
+        }
+        core.addDataModel('tst', modl)
+        core.addTufoProp('inet:fqdn', 'inctest', ptype='int', defval=0)
+
+    @contextlib.contextmanager
+    def getRamCore(self):
+        '''
+        Context manager to make a ram:/// cortex which has test models
+        loaded into it.
+
+        Yields:
+            s_cores_common.Cortex: Ram backed cortex with test models.
+        '''
+        with s_cortex.openurl('ram:///') as core:
+            self.addTstForms(core)
+            yield core
 
     @contextlib.contextmanager
     def getTestDir(self):

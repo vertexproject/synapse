@@ -1,4 +1,5 @@
 import synapse.common as s_common
+import synapse.compat as s_compat
 
 import synapse.lib.time as s_time
 import synapse.lib.interval as s_interval
@@ -11,9 +12,10 @@ This module implements syntax parsing for the storm runtime.
 whites = set(' \t\n')
 intset = set('01234567890abcdefx')
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+timeset = set('01234567890')
 propset = set(':abcdefghijklmnopqrstuvwxyz_0123456789')
 starset = varset.union({'*'})
-tagfilt = varset.union({'#', '*', '@'})
+tagfilt = varset.union({'#', '*'})
 alphaset = set('abcdefghijklmnopqrstuvwxyz')
 
 # this may be used to meh() potentially unquoted values
@@ -169,6 +171,11 @@ def parse_string(text, off, trim=True):
 
     return ''.join(vals), off
 
+def parse_time(text, off):
+    tstr, off = nom(text, off, timeset)
+    valu = s_time.parse(tstr)
+    return valu, off
+
 def parse_macro_filt(text, off=0, trim=True, mode='must'):
 
     _, off = nom(text, off, whites)
@@ -179,21 +186,22 @@ def parse_macro_filt(text, off=0, trim=True, mode='must'):
         _, off = nom(text, off, whites)
         prop, off = nom(text, off, tagfilt, trim=True)
 
-        parts = prop.split('@', 1)
-        if len(parts) == 1:
+        _, off = nom(text, off, whites)
+
+        if not nextchar(text, off, '@'):
             inst = ('filt', {'cmp': 'tag', 'mode': mode, 'valu': prop[1:]})
             return inst, off
 
-        prop, istr = parts
+        tick, off = parse_time(text, off + 1)
 
-        if istr.find('-') == -1:
-            tick = s_time.parse(istr)
+        _, off = nom(text, off, whites)
+
+        if not nextchar(text, off, '-'):
             inst = ('filt', {'cmp': 'ival', 'mode': mode, 'valu': (prop, tick)})
             return inst, off
 
-        ival = s_interval.parsetime(istr)
-        inst = ('filt', {'cmp': 'ivalival', 'mode': mode, 'valu': (prop, ival)})
-
+        tock, off = parse_time(text, off + 1)
+        inst = ('filt', {'cmp': 'ivalival', 'mode': mode, 'valu': (prop, (tick, tock))})
         return inst, off
 
     # check for non-macro syntax
@@ -478,8 +486,8 @@ def parse_oper(text, off=0):
 
         if nextchar(text, off, '='):
 
-            vval, off = parse_valu(text, off+1)
-            inst[1]['kwlist'].append((valu,vval))
+            vval, off = parse_valu(text, off + 1)
+            inst[1]['kwlist'].append((valu, vval))
 
         else:
 
@@ -490,6 +498,42 @@ def parse_oper(text, off=0):
 
         if nextchar(text, off, ','):
             off += 1
+
+def parse_perm(text, off=0):
+    '''
+    Parse a permission string
+        <name> [<opt>=<match>...]
+    '''
+    _, off = nom(text, off, whites)
+
+    name, off = nom(text, off, varset)
+    if not name:
+        raise s_common.BadSyntaxError(mesg='perm str expected name')
+
+    retn = (name, {})
+
+    _, off = nom(text, off, whites)
+
+    while len(text) > off:
+
+        _, off = nom(text, off, whites)
+        meta, off = nom(text, off, varset)
+        _, off = nom(text, off, whites)
+
+        if not nextchar(text, off, '='):
+            raise s_common.BadSyntaxError(mesg='perm opt expected =')
+
+        _, off = nom(text, off + 1, whites)
+
+        valu, off = parse_valu(text, off)
+        if not s_compat.isstr(valu):
+            raise s_common.BadSyntaxError(mesg='perm opt %s= expected string' % meta)
+
+        _, off = nom(text, off, whites)
+
+        retn[1][meta] = valu
+
+    return retn, off
 
 def oper(name, *args, **kwargs):
     kwlist = list(sorted(kwargs.items()))
@@ -543,6 +587,11 @@ def parse(text, off=0):
                 if nextchar(text, off, '#'):
                     valu, off = parse_valu(text, off + 1)
                     ret.append(oper('addtag', valu))
+                    continue
+
+                if nextstr(text, off, '-:'):
+                    valu, off = parse_valu(text, off + 1)
+                    ret.append(oper('delprop', valu, force=1))
                     continue
 
                 # otherwise, it should be a prop=valu (maybe relative)
@@ -660,7 +709,7 @@ def parse(text, off=0):
                 inst[1]['kwlist'].append(('from', pivn))
                 pivn, off = nom(text, off + 1, varset)
 
-            inst[1]['args'].insert(0, pivn)
+            inst[1]['args'].append(pivn)
 
             ret.append(inst)
             continue

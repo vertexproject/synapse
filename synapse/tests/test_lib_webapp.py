@@ -4,7 +4,9 @@ import json
 from tornado.httpclient import HTTPError
 from tornado.testing import gen_test, AsyncTestCase, AsyncHTTPClient
 
-import synapse.cortex
+import synapse.cortex as s_cortex
+import synapse.daemon as s_daemon
+import synapse.dyndeps as s_dyndeps
 import synapse.lib.webapp as s_webapp
 import synapse.datamodel as s_datamodel
 import synapse.lib.certdir as s_certdir
@@ -147,7 +149,7 @@ class WebAppTest(AsyncTestCase, SynTest):
             }
 
             # Assert that the request fails w/ http protocol
-            with self.raises(TestSSLConnectionResetErr):
+            with self.raises(TstSSLConnectionResetErr):
                 resp = yield client.fetch(http_url)
 
             # Assert that the request fails w/ no client SSL config
@@ -156,7 +158,7 @@ class WebAppTest(AsyncTestCase, SynTest):
 
             # Assert that the request fails w/ no client SSL config, even if client does not validate cert
             # (server must also validate client cert)
-            with self.raises(TestSSLInvalidClientCertErr):
+            with self.raises(TstSSLInvalidClientCertErr):
                 resp = yield client.fetch(https_url, validate_cert=False)
 
             resp = yield client.fetch(https_url, **client_opts)
@@ -166,3 +168,29 @@ class WebAppTest(AsyncTestCase, SynTest):
             self.eq(resp.get('status'), 'ok')
 
             wapp.fini()
+
+    def test_webapp_dmon(self):
+
+        class FooServer(s_webapp.WebApp):
+            def __init__(self, core):
+                self.core = core
+                s_webapp.WebApp.__init__(self, **{})
+        s_dyndeps.addDynAlias('FooServer', FooServer)
+
+        with s_daemon.Daemon() as core_dmon:
+            with s_cortex.openurl('ram:///') as core:
+                core_dmon.share('core', core)
+                link = core_dmon.listen('tcp://127.0.0.1:0/')
+                linkurl = 'tcp://127.0.0.1:%d/core' % link[1]['port']
+
+                with s_daemon.Daemon() as dmon:
+                    config = {
+                        'vars': {
+                            'linkurl': linkurl,
+                        },
+                        'ctors': [
+                            ('core', 'ctor://synapse.cortex.openurl(linkurl)'),
+                            ('webapp', 'ctor://FooServer(core)')
+                        ]
+                    }
+                    dmon.loadDmonConf(config)
