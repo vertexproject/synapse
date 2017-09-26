@@ -901,6 +901,58 @@ class CortexBaseTest(SynTest):
 
 class CortexTest(SynTest):
 
+    def test_cortex_datamodel_runt_consistency(self):
+        with self.getRamCore() as core:
+
+            nodes = core.getTufosByProp('syn:form')
+            for node in nodes:
+                self.isin('syn:form:ptype', node[1])
+                if 'syn:form:doc' in node[1]:
+                    self.isinstance(node[1].get('syn:form:doc'), s_compat.strtypes)
+                if 'syn:form:local' in node[1]:
+                    self.isinstance(node[1].get('syn:form:local'), int)
+
+            nodes = core.getTufosByProp('syn:prop')
+            for node in nodes:
+                self.isin('syn:prop:form', node[1])
+                if 'syn:prop:glob' in node[1]:
+                    continue
+                self.isin('syn:prop:req', node[1])
+                self.isin('syn:prop:ptype', node[1])
+                if 'syn:prop:doc' in node[1]:
+                    self.isinstance(node[1].get('syn:prop:doc'), s_compat.strtypes)
+                if 'syn:prop:base' in node[1]:
+                    self.isinstance(node[1].get('syn:prop:base'), s_compat.strtypes)
+                if 'syn:prop:title' in node[1]:
+                    self.isinstance(node[1].get('syn:prop:title'), s_compat.strtypes)
+                if 'syn:prop:defval' in node[1]:
+                    dv = node[1].get('syn:prop:defval')
+                    if dv is None:
+                        continue
+                    self.true(s_common.canstor(dv))
+
+            # Some nodes are local, some are not
+            node = core.getTufoByProp('syn:form', 'inet:ipv4')
+            self.eq(node[1].get('syn:form:local'), None)
+            node = core.getTufoByProp('syn:form', 'syn:splice')
+            self.eq(node[1].get('syn:form:local'), 1)
+
+            # Check a few specific nodes
+            node = core.getTufoByProp('syn:prop', 'inet:ipv4')
+            self.isin('syn:prop:doc', node[1])
+            self.isin('syn:prop:base', node[1])
+            self.notin('syn:prop:relname', node[1])
+            node = core.getTufoByProp('syn:prop', 'inet:ipv4:type')
+            self.isin('syn:prop:doc', node[1])
+            self.isin('syn:prop:base', node[1])
+            self.isin('syn:prop:relname', node[1])
+
+            # Ensure things bubbled up during node / datamodel creation
+            self.eq(core.getPropInfo('strform', 'doc'), 'A test str form')
+            self.eq(core.getPropInfo('intform', 'doc'), 'The base integer type')
+            self.eq(core.getTufoByProp('syn:prop', 'strform')[1].get('syn:prop:doc'), 'A test str form')
+            self.eq(core.getTufoByProp('syn:prop', 'intform')[1].get('syn:prop:doc'), 'The base integer type')
+
     def test_pg_encoding(self):
         with self.getPgCore() as core:
             res = core.store.select('SHOW SERVER_ENCODING')[0][0]
@@ -2451,7 +2503,7 @@ class CortexTest(SynTest):
                 )),
             )})
 
-            core.addRuntNode('hehe:haha', 'woot', hoho=20, lulz='rofl')
+            core.addRuntNode('hehe:haha', 'woot', props={'hoho': 20, 'lulz': 'rofl'})
 
             # test that nothing hit the storage layer...
             self.eq(len(core.getRowsByProp('hehe:haha')), 0)
@@ -2469,6 +2521,9 @@ class CortexTest(SynTest):
             # check that only model'd props are indexed
             self.nn(core.getTufoByProp('hehe:haha:hoho', 20))
             self.none(core.getTufoByProp('hehe:haha:lulz', 'rofl'))
+
+            node = core.addRuntNode('hehe:haha', 'ohmy')
+            self.eq(node[1].get('hehe:haha:hoho'), None)
 
     def test_cortex_trigger(self):
 

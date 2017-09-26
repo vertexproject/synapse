@@ -228,7 +228,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         s_ingest.IngestApi.__init__(self, self)
 
-    def addRuntNode(self, form, valu, **props):
+    def addRuntNode(self, form, valu, props=None):
         '''
         Add a "runtime" node which does not persist.
         This is used for ephemeral node "look aside" registration.
@@ -236,12 +236,15 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         Args:
             form (str): The primary property for the node
             valu (obj): The primary value for the node
-            **props:    The node secondary properties ( if modeled, they will be indexed )
+            props (dict): The node secondary properties ( if modeled, they will be indexed )
 
         Returns:
             ((None,dict)):  The ephemeral node
 
         '''
+        if props is None:
+            props = {}
+
         self.runt_forms.add(form)
 
         node = (None, {})
@@ -453,16 +456,18 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         for name, modl in modtups:
 
             for tnam, tnfo in modl.get('types', ()):
-                self.addRuntNode('syn:type', tnam, **tnfo)
+                tdef = self.getTypeDef(tnam)
+                self.addRuntNode('syn:type', tnam, props=tdef[1])
 
             for fnam, fnfo, props in modl.get('forms', ()):
-
-                self.addRuntNode('syn:form', fnam, **fnfo)
-                self.addRuntNode('syn:prop', fnam, **fnfo)
+                pdef = self.getPropDef(fnam)
+                self.addRuntNode('syn:form', fnam, props=pdef[1])
+                self.addRuntNode('syn:prop', fnam, props=pdef[1])
 
                 for pnam, pnfo in props:
                     full = fnam + ':' + pnam
-                    self.addRuntNode('syn:prop', full, **pnfo)
+                    pdef = self.getPropDef(full)
+                    self.addRuntNode('syn:prop', full, pdef[1])
 
     def revModlVers(self, name, vers, func):
         '''

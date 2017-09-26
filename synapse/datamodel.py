@@ -117,59 +117,6 @@ class DataModel(s_types.TypeLib):
 
         s_types.TypeLib.__init__(self, load=load)
 
-        self.addTufoForm('syn:core', ptype='str')
-
-        self.addTufoForm('syn:form', ptype='syn:prop')
-        self.addTufoProp('syn:form', 'doc', ptype='str', doc='basic form definition')
-        self.addTufoProp('syn:form', 'ver', ptype='int', doc='form version within the model')
-        self.addTufoProp('syn:form', 'model', ptype='str', doc='which model defines a given form')
-        self.addTufoProp('syn:form', 'ptype', ptype='syn:type', req=1, doc='Synapse type for this form')
-        self.addTufoProp('syn:form', 'local', ptype='bool', defval=0,
-                         doc='Flag used to determine if a form should not be included in splices.')
-
-        self.addTufoForm('syn:prop', ptype='syn:prop')
-        # TODO - Re-enable syn:prop:doc req = 1 after cleaning up property docstrings.
-        self.addTufoProp('syn:prop', 'doc', ptype='str', req=0, doc='Description of the property definition')
-        self.addTufoProp('syn:prop', 'form', ptype='syn:prop', req=1, doc='Synapse form which contains this property')
-        self.addTufoProp('syn:prop', 'ptype', ptype='syn:type', req=1, doc='Synapse type for this field')
-        self.addTufoProp('syn:prop', 'req', ptype='bool', defval=0, doc='Set to 1 if this property is required to form the node.')
-        self.addTufoProp('syn:prop', 'glob', ptype='bool', defval=0, doc='Set to 1 if this property defines a glob')
-        self.addTufoProp('syn:prop', 'defval', doc='Set to the default value for this property')
-
-        self.addTufoForm('syn:tag', ptype='syn:tag')
-        self.addTufoProp('syn:tag', 'up', ptype='syn:tag')
-        self.addTufoProp('syn:tag', 'doc', defval='', ptype='str')
-        self.addTufoProp('syn:tag', 'depth', defval=0, ptype='int')
-        self.addTufoProp('syn:tag', 'title', defval='', ptype='str')
-        self.addTufoProp('syn:tag', 'base', ptype='str', ro=1)
-
-        self.addType('syn:tagform', subof='comp', fields='tag,syn:tag|form,syn:prop', ex="(foo.bar,baz:faz)")
-
-        self.addTufoForm('syn:tagform', ptype='syn:tagform', fields='tag,syn:tag|form,syn:prop')
-        self.addTufoProp('syn:tagform', 'tag', ptype='syn:tag', ro=1, doc='The tag being documented')
-        self.addTufoProp('syn:tagform', 'form', ptype='syn:prop', ro=1, doc='The the form that the tag applies to.')
-
-        self.addTufoProp('syn:tagform', 'doc', ptype='str:txt', defval='??',
-                         doc='The long form description for what the tag means on the given node form')
-        self.addTufoProp('syn:tagform', 'title', ptype='str:txt', defval='??',
-                         doc='The short name for what the tag means on the given node form')
-
-        self.addTufoForm('syn:model', ptype='str', doc='prefix for all forms within the model')
-        self.addTufoProp('syn:model', 'hash', ptype='guid', doc='version hash for the current model')
-        self.addTufoProp('syn:model', 'prefix', ptype='syn:prop', doc='prefix used by types/forms in the model')
-
-        self.addTufoForm('syn:type', ptype='syn:type')
-        self.addTufoProp('syn:type', 'ctor', ptype='str')
-        self.addTufoProp('syn:type', 'subof', ptype='syn:type')
-
-        self.addTufoProp('syn:type', '*', glob=1)
-
-        # used most commonly for sequential tag generation
-        self.addTufoForm('syn:seq', ptype='str:lwr', doc='A sequential id generation tracker')
-        self.addTufoProp('syn:seq', 'width', ptype='int', defval=0,
-                         doc='How many digits to use to represent the number')
-        self.addTufoProp('syn:seq', 'nextvalu', ptype='int', defval=0, doc='The next sequential value')
-
     def getModelDict(self):
         '''
         Returns a dictionary which represents the data model.
@@ -291,17 +238,20 @@ class DataModel(s_types.TypeLib):
         if self.props.get(prop) is not None:
             raise s_common.DupPropName(name=prop)
 
-        info.setdefault('doc', None)
-        info.setdefault('req', False)
-        info.setdefault('uniq', False)
         info.setdefault('ptype', None)
-        info.setdefault('title', None)
+        info.setdefault('doc', self.getTypeInfo(info.get('ptype'), 'doc', ''))
+        info.setdefault('req', False)
+        info.setdefault('title', self.getTypeInfo(info.get('ptype'), 'title', ''))
         info.setdefault('defval', None)
 
         form = info.get('form')
-        base = prop[len(form) + 1:]
+        relname = prop[len(form) + 1:]
+        if relname:
+            info['relname'] = relname
 
-        info['base'] = base
+        if ':' in prop:
+            _, base = prop.rsplit(':', 1)
+            info.setdefault('base', base)
 
         defval = info.get('defval')
 
@@ -320,7 +270,7 @@ class DataModel(s_types.TypeLib):
             self.propsbytype[ptype].append(pdef)
 
         self.props[prop] = pdef
-        self.props[(form, base)] = pdef
+        self.props[(form, relname)] = pdef
 
         self.model['props'][prop] = pdef
 
