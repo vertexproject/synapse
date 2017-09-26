@@ -2522,6 +2522,9 @@ class CortexTest(SynTest):
             self.nn(core.getTufoByProp('hehe:haha:hoho', 20))
             self.none(core.getTufoByProp('hehe:haha:lulz', 'rofl'))
 
+            node = core.addRuntNode('hehe:haha', 'ohmy')
+            self.eq(node[1].get('hehe:haha:hoho'), None)
+
     def test_cortex_trigger(self):
 
         with s_cortex.openurl('ram:///') as core:
