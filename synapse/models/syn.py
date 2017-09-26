@@ -1,7 +1,6 @@
 from synapse.lib.module import CoreModule, modelrev
 
 class SynMod(CoreModule):
-
     @staticmethod
     def getBaseModels():
         modl = {
@@ -11,6 +10,7 @@ class SynMod(CoreModule):
                 ('syn:auth:user', {'subof': 'str'}),
                 ('syn:auth:role', {'subof': 'str'}),
                 ('syn:auth:userrole', {'subof': 'comp', 'fields': 'user=syn:auth:user,role=syn:auth:role'}),
+                ('syn:tagform', {'subof': 'comp', 'fields': 'tag,syn:tag|form,syn:prop', 'ex': '(foo.bar,baz:faz)'}),
             ),
 
             'forms': (
@@ -27,8 +27,10 @@ class SynMod(CoreModule):
                 )),
 
                 ('syn:auth:user', {'local': 1}, (
-                    ('storm:limit:lift', {'ptype': 'int', 'defval': 10000, 'doc': 'The storm query lift limit for the user'}),
-                    ('storm:limit:time', {'ptype': 'int', 'defval': 120, 'doc': 'The storm query time limit for the user'}),
+                    ('storm:limit:lift',
+                     {'ptype': 'int', 'defval': 10000, 'doc': 'The storm query lift limit for the user'}),
+                    ('storm:limit:time',
+                     {'ptype': 'int', 'defval': 120, 'doc': 'The storm query time limit for the user'}),
                 )),
 
                 ('syn:auth:role', {'local': 1}, (
@@ -47,15 +49,63 @@ class SynMod(CoreModule):
                     ('user', {'ptype': 'syn:auth:user'}),
                 )),
 
-            ),
+                ('syn:core', {'doc': 'A node representing a unique Cortex'}, ()),
+                ('syn:form', {'doc': 'The base form type.'}, (
+                    ('doc', {'ptype': 'str', 'doc': 'basic form definition'}),
+                    ('ver', {'ptype': 'int', 'doc': 'form version within the model'}),
+                    ('model', {'ptype': 'str', 'doc': 'which model defines a given form'}),
+                    ('ptype', {'ptype': 'syn:type', 'doc': 'Synapse type for this form'}),
+                    ('local', {'ptype': 'bool', 'defval': 0,
+                               'doc': 'Flag used to determine if a form should not be included in splices'}),
+                )),
+                ('syn:prop', {'doc': 'The base property type.'}, (
+                    ('doc', {'ptype': 'str', 'doc': 'Description of the property definition.'}),
+                    ('title', {'ptype': 'str', 'doc': 'A short description of the property definition.'}),
+                    ('form', {'ptype': 'syn:prop', 'doc': 'The form of the property.'}),
+                    ('ptype', {'ptype': 'syn:type', 'doc': 'Synapse type for this field'}),
+                    ('req', {'ptype': 'bool', 'doc': 'Set to 1 if this property is required to form teh node.'}),
+                    ('relname', {'ptype': 'str', 'doc': 'Relative name of the property'}),
+                    ('base', {'ptype': 'str', 'doc': 'Base name of the property'}),
+                    ('glob', {'ptype': 'bool', 'defval': 0, 'doc': 'Set to 1 if this property defines a glob'}),
+                    ('defval', {'doc': 'Set to the default value for this property', 'glob': 1}),
+                )),
+                ('syn:type', {'doc': 'The base type type.'}, (
+                    ('ctor', {'ptype': 'str', 'doc': 'Python path to the class used to instantiate the type.'}),
+                    ('subof', {'ptype': 'syn:type', 'doc': 'Type which this inherits from.'}),
+                    ('*', {'glob': 1})
+                )),
+                ('syn:tag', {'doc': 'The base form for a synapse tag.'}, (
+                    ('up', {'ptype': 'syn:tag', 'doc': ''}),
+                    ('doc', {'ptype': 'str', 'defval': '', }),
+                    ('depth', {'ptype': 'int', 'doc': 'How deep the tag is in the hierarchy', 'defval': 0}),
+                    ('title', {'ptype': 'str', 'doc': '', 'defval': ''}),
+                    ('base', {'ptype': 'str', 'doc': '', 'ro': 1}),
+
+                )),
+                ('syn:tagform', {'doc': 'A node describing the meaning of a tag on a specific form'}, (
+                    ('tag', {'ptype': 'syn:tag', 'doc': 'The tag being documented', 'ro': 1}),
+                    ('form', {'ptype': 'syn:prop', 'doc': 'The form that the tag applies too', 'ro': 1}),
+                    ('doc', {'ptype': 'str:txt', 'defval': '??',
+                             'doc': 'The long form description for what the tag means on the given node form'}),
+                    ('title', {'ptype': 'str:txt', 'defval': '??',
+                               'doc': 'The short name for what the tag means the given node form'}),
+                )),
+                ('syn:model', {'ptype': 'str', 'doc': 'prefix for all forms with in the model'}, (
+                    ('hash', {'ptype': 'guid', 'doc': 'version hash for the current model'}),
+                    ('prefix', {'ptype': 'syn:prop', 'doc': 'Prefix used by teh types/forms in the model'}),
+                )),
+                ('syn:seq', {'ptype': 'str:lwr', 'doc': 'A sequential id generation tracker'}, (
+                    ('width', {'ptype': 'int', 'defval': 0, 'doc': 'How many digits to use to represent the number'}),
+                    ('nextvalu', {'ptype': 'int', 'defval': 0, 'doc': 'The next sequential value'}),
+                ))
+            )
         }
 
         name = 'syn'
-        return ((name, modl), )
+        return ((name, modl),)
 
     @modelrev('syn', 201709051630)
     def _delOldModelNodes(self):
-
         types = self.core.getRowsByProp('syn:type')
         forms = self.core.getRowsByProp('syn:form')
         props = self.core.getRowsByProp('syn:prop')

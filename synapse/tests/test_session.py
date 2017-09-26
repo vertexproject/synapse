@@ -9,6 +9,10 @@ class SessTest(SynTest):
 
     def test_sess_current(self):
         core = s_cortex.openurl('ram:///')
+        # Since sessions may store wildcard props in syn:sess nodes we
+        # have to ensure enforce is disabled in our session cortex
+        core.setConfOpt('enforce', 0)
+
         cura = s_session.Curator(core=core)
 
         sess = cura.new()

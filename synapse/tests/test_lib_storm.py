@@ -353,7 +353,6 @@ class StormTest(SynTest):
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
             node4 = core.formTufoByProp('inet:netuser', 'clowntown.link/pennywise')
-            node5 = core.formTufoByProp('geo:loc', 'derry')
 
             core.addTufoTags(node1, ['aka.bar.baz',
                                      'aka.duck.quack.loud',
@@ -844,6 +843,27 @@ class StormTest(SynTest):
             self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link delprop(host, created)')
             self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link [ -: ]')
             self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link [ -: host]')
+
+    def test_storm_lift_limit(self):
+
+        with s_cortex.openurl('ram:///') as core:
+
+            self.none(core.getLiftLimit())
+            self.eq(core.getLiftLimit(10, 20, 30), 30)
+
+            core.setConfOpt('storm:limit:lift', 100)
+            self.eq(core.getLiftLimit(), 100)
+
+            for i in range(200):
+                node = core.formTufoByProp('inet:ipv4', i)
+                core.addTufoTag(node, 'woot')
+
+            self.eq(100, len(core.eval('#woot')))
+            self.eq(200, len(core.eval('#woot limit(1000)')))
+
+            self.eq(100, len(core.eval('inet:ipv4')))
+            self.eq(200, len(core.eval('inet:ipv4^1000')))
+            self.eq(200, len(core.eval('inet:ipv4 limit(1000)')))
 
 class LimitTest(SynTest):
 

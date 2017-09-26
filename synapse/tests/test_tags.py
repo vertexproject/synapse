@@ -16,25 +16,26 @@ class TagTest(SynTest):
         self.eq(tags, ('foo', 'foo.bar', 'foo.bar.baz'))
 
     def test_aspect_adddel(self):
-        core = s_cortex.openurl('ram:///')
-        tufo = core.formTufoByProp('foo', 'bar')
-        tufo = core.addTufoTag(tufo, 'baz.faz.gaz')
 
-        self.nn(tufo[1].get('#baz'))
-        self.nn(tufo[1].get('#baz.faz'))
-        self.nn(tufo[1].get('#baz.faz.gaz'))
+        with self.getRamCore() as core:
+            tufo = core.formTufoByProp('strform', 'bar')
+            tufo = core.addTufoTag(tufo, 'baz.faz.gaz')
 
-        tufos = core.getTufosByTag('baz.faz', form='foo')
+            self.nn(tufo[1].get('#baz'))
+            self.nn(tufo[1].get('#baz.faz'))
+            self.nn(tufo[1].get('#baz.faz.gaz'))
 
-        self.eq(len(tufos), 1)
+            tufos = core.getTufosByTag('baz.faz', form='strform')
 
-        tufo = core.delTufoTag(tufo, 'baz.faz')
+            self.eq(len(tufos), 1)
 
-        tufos = core.getTufosByTag('baz.faz', form='foo')
-        self.eq(len(tufos), 0)
+            tufo = core.delTufoTag(tufo, 'baz.faz')
 
-        tufos = core.getTufosByTag('baz.faz.gaz', form='foo')
-        self.eq(len(tufos), 0)
+            tufos = core.getTufosByTag('baz.faz', form='strform')
+            self.eq(len(tufos), 0)
+
+            tufos = core.getTufosByTag('baz.faz.gaz', form='strform')
+            self.eq(len(tufos), 0)
 
     def test_aspect_bytag(self):
         bytag = s_tags.ByTag()

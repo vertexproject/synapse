@@ -19,12 +19,6 @@ from synapse.lib.config import Configable, confdef
 
 logger = logging.getLogger(__name__)
 
-def minlim(*vals):
-    vals = [v for v in vals if v is not None and v > 0]
-    if not vals:
-        return None
-    return min(vals)
-
 class LimitHelp:
 
     def __init__(self, limit):
@@ -475,18 +469,22 @@ class Runtime(Configable):
     def getLiftLimit(self, *limits):
         '''
         Return the lift() result limit for the current user/runtime.
-        Callers may specify additional limit values, which if not None
-        will be included in the min() calculation.
 
         Args:
-            *limits:    Optional list of additional int limit values
+            *limits:    Optional list of requested int limit values
 
         Returns:
             (int): The lift limit value or None
 
         '''
-        limt0 = s_scope.get('storm:limit:lift')
-        return minlim(self.limlift, limt0, *limits)
+        limits = [l for l in limits if l is not None]
+
+        # If they made no requests, return the default
+        if not limits:
+            return self.limlift
+
+        # TODO: plumb user auth based limit here...
+        return max(limits)
 
     def stormTufosBy(self, by, prop, valu=None, limit=None):
         '''
@@ -1002,7 +1000,7 @@ class Runtime(Configable):
         limt0 = opts.get('limit')
         limt1 = query.opt('limit')
 
-        limit = minlim(limt0, limt1)
+        limit = self.getLiftLimit(limt0, limt1)
 
         [query.add(tufo) for tufo in self.stormTufosBy(by, prop, valu, limit=limit)]
 
@@ -1117,7 +1115,7 @@ class Runtime(Configable):
         opts = dict(oper[1].get('kwlist'))
 
         #TODO opts.get('degrees')
-        limt = LimitHelp(opts.get('limit'))
+        limt = self.getLiftLimitHelp(opts.get('limit'))
 
         core = self.getStormCore()
 
@@ -1282,9 +1280,9 @@ class Runtime(Configable):
         tags = oper[1].get('args')
         opts = dict(oper[1].get('kwlist'))
 
-        limit = opts.get('limit')
-
         core = self.getStormCore()
+
+        limit = self.getLiftLimit(opts.get('limit'))
 
         for tag in tags:
 
@@ -1326,7 +1324,7 @@ class Runtime(Configable):
         forms = set(args)
         keep_nodes = opts.get('keep_nodes', False)
 
-        limt = LimitHelp(opts.get('limit'))
+        limt = self.getLiftLimitHelp(opts.get('limit'))
 
         nodes = query.data()
         if not keep_nodes:
@@ -1373,6 +1371,20 @@ class Runtime(Configable):
 
         [query.add(tufo) for tufo in core.getTufosBy('in', 'syn:tag', list(tags))]
 
+    def getLiftLimitHelp(self, *limits):
+        '''
+        Return a LimitHelp object for the specified limits or defaults.
+
+        Args:
+            limits (list):  A list of int/None limits
+
+        Returns:
+            (LimitHelp)
+
+        '''
+        limit = self.getLiftLimit(*limits)
+        return LimitHelp(limit)
+
     def _stormOperFromTags(self, query, oper):
         args = oper[1].get('args')
         opts = dict(oper[1].get('kwlist'))
@@ -1381,7 +1393,7 @@ class Runtime(Configable):
 
         forms = {arg for arg in args}
 
-        limt = LimitHelp(opts.get('limit'))
+        limt = self.getLiftLimitHelp(opts.get('limit'))
 
         tags = {node[1].get('syn:tag') for node in nodes if node[1].get('tufo:form') == 'syn:tag'}
 

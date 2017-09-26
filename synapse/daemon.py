@@ -478,6 +478,7 @@ class Daemon(EventBus, DmonConf):
         savefile = info.get('savefile')
         if savefile is not None:
             core = s_cortex.openurl('sqlite:///%s' % savefile)
+            core.setConfOpt('enforce', 0)
             self.cura.setSessCore(core)
 
             self.onfini(core.fini)
