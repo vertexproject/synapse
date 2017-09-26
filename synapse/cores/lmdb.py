@@ -37,9 +37,6 @@ logger = logging.getLogger(__name__)
 # Largest primary key value.  No more rows than this
 MAX_PK = sys.maxsize
 
-# Bytes in MAX_PK
-MAX_PK_BYTES = 8 if sys.maxsize > 2**32 else 4
-
 # Prefix to indicate that a v is a nonnegative value
 NONNEGATIVE_VAL_MARKER = 0
 
@@ -324,6 +321,11 @@ class LmdbStorage(s_cores_storage.Storage):
         Checks if there's enough extra space in the map to accomodate a commit of at least
         self._slack_space size and increase it if not.
         '''
+        # Don't change map size if 32-bit interpreter.  set_mapsize failure will lead to seg fault,
+        # so avoid it altogether
+        if sys.maxsize <= 2**32:
+            return
+
         # Figure how how much space the DB is using
         used = 4096 * self.dbenv.info()['last_pgno']
 
@@ -340,9 +342,9 @@ class LmdbStorage(s_cores_storage.Storage):
         dbname = dbinfo.get('name')
 
         # Initial DB Size.  Must be < 2 GiB for 32-bit.  Can be big for 64-bit systems.  Will create
-        # a file of that size.  On MacOS/Windows, will actually immediately take up that much
+        # a file of that size.  On Windows, will actually immediately take up that much
         # disk space.
-        DEFAULT_MAP_SIZE = 256 * 1024 * 1024
+        DEFAULT_MAP_SIZE = 512 * 1024 * 1024
 
         # _write_lock exists solely to hold off other threads' write transactions long enough to
         # potentially increase the map size.
@@ -350,7 +352,7 @@ class LmdbStorage(s_cores_storage.Storage):
 
         map_size = self._link[1].get('lmdb:mapsize', DEFAULT_MAP_SIZE)
         self._map_size, _ = s_datamodel.getTypeNorm('int', map_size)
-        self._max_map_size = 2**48 if sys.maxsize > 2**32 else 2**31
+        self._max_map_size = 2**46 if sys.maxsize > 2**32 else 2**30
 
         map_slack = self._link[1].get('lmdb:mapslack', 2 ** 30)
         self._map_slack, _ = s_datamodel.getTypeNorm('int', map_slack)
