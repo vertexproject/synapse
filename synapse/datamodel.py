@@ -134,6 +134,7 @@ class DataModel(s_types.TypeLib):
         self.addTufoProp('syn:prop', 'form', ptype='syn:prop', req=1, doc='Synapse form which contains this property')
         self.addTufoProp('syn:prop', 'ptype', ptype='syn:type', req=1, doc='Synapse type for this field')
         self.addTufoProp('syn:prop', 'req', ptype='bool', defval=0, doc='Set to 1 if this property is required to form the node.')
+        self.addTufoProp('syn:prop', 'relname', ptype='str', doc='Relative name of the property.')
         self.addTufoProp('syn:prop', 'base', ptype='str', doc='Base name of the property.')
         self.addTufoProp('syn:prop', 'glob', ptype='bool', defval=0, doc='Set to 1 if this property defines a glob')
         self.addTufoProp('syn:prop', 'defval', doc='Set to the default value for this property')
@@ -296,17 +297,20 @@ class DataModel(s_types.TypeLib):
         if self.props.get(prop) is not None:
             raise s_common.DupPropName(name=prop)
 
-        info.setdefault('doc', None)
-        info.setdefault('req', False)
         info.setdefault('ptype', None)
-        info.setdefault('title', None)
+        info.setdefault('doc', self.getTypeInfo(info.get('ptype'), 'doc', ''))
+        info.setdefault('req', False)
+        info.setdefault('title', self.getTypeInfo(info.get('ptype'), 'title', ''))
         info.setdefault('defval', None)
 
         form = info.get('form')
-        base = prop[len(form) + 1:]
+        relname = prop[len(form) + 1:]
+        if relname:
+            info['relname'] = relname
 
-        if base:
-            info['base'] = base
+        if ':' in prop:
+            _, base = prop.rsplit(':', 1)
+            info.setdefault('base', base)
 
         defval = info.get('defval')
 
@@ -325,7 +329,7 @@ class DataModel(s_types.TypeLib):
             self.propsbytype[ptype].append(pdef)
 
         self.props[prop] = pdef
-        self.props[(form, base)] = pdef
+        self.props[(form, relname)] = pdef
 
         self.model['props'][prop] = pdef
 

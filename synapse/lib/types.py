@@ -893,6 +893,12 @@ class TypeLib:
         '''
         return list(self.typeinfo.items())
 
+    def getTypeDef(self, name):
+        info = self.typeinfo.get(name)
+        if info is None:
+            return None
+        return (name, info)
+
     def getTypeInfo(self, name, prop, defval=None):
         '''
         A helper to return an info prop for the type or it's parents.

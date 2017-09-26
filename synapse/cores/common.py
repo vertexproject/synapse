@@ -228,7 +228,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         s_ingest.IngestApi.__init__(self, self)
 
-    def addRuntNode(self, rform, valu, **props):
+    def addRuntNode(self, rform, valu, props=None):
         '''
         Add a "runtime" node which does not persist.
         This is used for ephemeral node "look aside" registration.
@@ -236,12 +236,15 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         Args:
             rform (str): The primary property for the node
             valu (obj): The primary value for the node
-            **props:    The node secondary properties ( if modeled, they will be indexed )
+            props (dict): The node secondary properties ( if modeled, they will be indexed )
 
         Returns:
             ((None,dict)):  The ephemeral node
 
         '''
+        if props is None:
+            props = {}
+
         self.runt_forms.add(rform)
 
         node = (None, {})
@@ -453,27 +456,18 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         for name, modl in modtups:
 
             for tnam, tnfo in modl.get('types', ()):
-                self.addRuntNode('syn:type', tnam, **tnfo)
+                tdef = self.getTypeDef(tnam)
+                self.addRuntNode('syn:type', tnam, tdef[1])
 
             for fnam, fnfo, props in modl.get('forms', ()):
-
-                dmpnfo = self.getPropDef(fnam)[1]
-                dmfnfo = dmpnfo.copy()
-                [dmfnfo.pop(key) for key, valu in list(dmpnfo.items()) if valu is None]
-                self._normTufoProps('syn:form', dmfnfo)
-                self.addRuntNode('syn:form', fnam, **dmfnfo)
-                dmfnfo = dmpnfo.copy()
-                [dmfnfo.pop(key) for key, valu in list(dmfnfo.items()) if valu is None]
-                self._normTufoProps('syn:prop', dmfnfo)
-                self.addRuntNode('syn:prop', fnam, **dmfnfo)
+                pdef = self.getPropDef(fnam)
+                self.addRuntNode('syn:form', fnam, pdef[1])
+                self.addRuntNode('syn:prop', fnam, pdef[1])
 
                 for pnam, pnfo in props:
                     full = fnam + ':' + pnam
-                    dmpnfo = self.getPropDef(full)[1]
-                    dmpnfo = dmpnfo.copy()
-                    [dmpnfo.pop(key) for key, valu in list(dmpnfo.items()) if valu is None]
-                    self._normTufoProps('syn:prop', dmpnfo)
-                    self.addRuntNode('syn:prop', full, **dmpnfo)
+                    pdef = self.getPropDef(full)
+                    self.addRuntNode('syn:prop', full, pdef[1])
 
     def revModlVers(self, name, vers, func):
         '''

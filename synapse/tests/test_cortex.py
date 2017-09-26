@@ -927,6 +927,8 @@ class CortexTest(SynTest):
                     self.isinstance(node[1].get('syn:prop:title'), s_compat.strtypes)
                 if 'syn:prop:defval' in node[1]:
                     dv = node[1].get('syn:prop:defval')
+                    if dv is None:
+                        continue
                     self.true(s_common.canstor(dv))
 
             # Some nodes are local, some are not
@@ -935,11 +937,21 @@ class CortexTest(SynTest):
             node = core.getTufoByProp('syn:form', 'syn:splice')
             self.eq(node[1].get('syn:form:local'), 1)
 
-            # Some things have docs, others do not
+            # Check a few specific nodes
+            node = core.getTufoByProp('syn:prop', 'inet:ipv4')
+            self.isin('syn:prop:doc', node[1])
+            self.isin('syn:prop:base', node[1])
+            self.notin('syn:prop:relname', node[1])
+            node = core.getTufoByProp('syn:prop', 'inet:ipv4:type')
+            self.isin('syn:prop:doc', node[1])
+            self.isin('syn:prop:base', node[1])
+            self.isin('syn:prop:relname', node[1])
+
+            # Ensure things bubbled up during node / datamodel creation
             self.eq(core.getPropInfo('strform', 'doc'), 'A test str form')
             self.eq(core.getPropInfo('intform', 'doc'), 'The base integer type')
             self.eq(core.getTufoByProp('syn:prop', 'strform')[1].get('syn:prop:doc'), 'A test str form')
-            self.eq(core.getTufoByProp('syn:prop', 'intform')[1].get('syn:prop:doc'), None)
+            self.eq(core.getTufoByProp('syn:prop', 'intform')[1].get('syn:prop:doc'), 'The base integer type')
 
     def test_pg_encoding(self):
         with self.getPgCore() as core:
@@ -2491,7 +2503,7 @@ class CortexTest(SynTest):
                 )),
             )})
 
-            core.addRuntNode('hehe:haha', 'woot', hoho=20, lulz='rofl')
+            core.addRuntNode('hehe:haha', 'woot', props={'hoho': 20, 'lulz': 'rofl'})
 
             # test that nothing hit the storage layer...
             self.eq(len(core.getRowsByProp('hehe:haha')), 0)

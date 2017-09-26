@@ -265,11 +265,11 @@ class DataModelTest(SynTest):
         self.eq(model.getPropInfo('foo:meow', 'req'), False)
         self.eq(model.getPropInfo('foo:meow', 'base'), 'meow')
         self.eq(model.getPropInfo('foo:meow', 'defval'), None)
-        self.eq(model.getPropInfo('foo:meow', 'title'), None)
+        self.eq(model.getPropInfo('foo:meow', 'title'), '')
         self.eq(model.getPropInfo('foo:meow', 'doc'), 'foo bar doc')
 
         self.eq(model.getPropInfo('foo:bark', 'doc'), 'lala')
-        self.eq(model.getPropInfo('foo:bark', 'title'), None)
+        self.eq(model.getPropInfo('foo:bark', 'title'), '')
 
         self.eq(model.getPropInfo('foo:nonexistent', 'doc'), None)
 
@@ -279,7 +279,18 @@ class DataModelTest(SynTest):
         model.addTufoForm('foo')
         model.addTufoProp('foo', 'meow', ptype='int')
 
-        self.eq(model.getPropDef('foo:meow'), ('foo:meow', {'doc': None, 'title': None, 'defval': None, 'form': 'foo', 'base': 'meow', 'ptype': 'int', 'req': False}))
+        self.eq(model.getPropDef('foo:meow'),
+                ('foo:meow', {'title': '',
+                              'req': False,
+                              'form': 'foo',
+                              'relname': 'meow',
+                              'base': 'meow',
+                              'defval': None,
+                              'ptype': 'int',
+                              'doc': 'The base integer type',
+                              }
+                 )
+                )
         self.eq(model.getPropDef('foo:meow:nonexistent'), None)
         self.eq(model.getPropDef('foo:meow:nonexistent', glob=False), None)
 
