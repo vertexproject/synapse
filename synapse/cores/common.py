@@ -228,13 +228,13 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         s_ingest.IngestApi.__init__(self, self)
 
-    def addRuntNode(self, rform, valu, props=None):
+    def addRuntNode(self, form, valu, props=None):
         '''
         Add a "runtime" node which does not persist.
         This is used for ephemeral node "look aside" registration.
 
         Args:
-            rform (str): The primary property for the node
+            form (str): The primary property for the node
             valu (obj): The primary value for the node
             props (dict): The node secondary properties ( if modeled, they will be indexed )
 
@@ -245,20 +245,20 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if props is None:
             props = {}
 
-        self.runt_forms.add(rform)
+        self.runt_forms.add(form)
 
         node = (None, {})
-        norm, subs = self.getPropNorm(rform, valu)
+        norm, subs = self.getPropNorm(form, valu)
 
-        node[1][rform] = norm
-        node[1]['tufo:form'] = rform
+        node[1][form] = norm
+        node[1]['tufo:form'] = form
 
-        self.runt_props[(rform, None)].append(node)
-        self.runt_props[(rform, norm)].append(node)
+        self.runt_props[(form, None)].append(node)
+        self.runt_props[(form, norm)].append(node)
 
         for prop, pval in props.items():
 
-            full = rform + ':' + prop
+            full = form + ':' + prop
             norm, subs = self.getPropNorm(full, pval)
 
             node[1][full] = norm
