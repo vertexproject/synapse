@@ -70,8 +70,6 @@ class EventBus(object):
 
         self._syn_links = []
 
-        self._syn_queues = {}
-
         self._fini_funcs = []
 
         for name, valu in s_reflect.getItemLocals(self):
@@ -187,6 +185,9 @@ class EventBus(object):
 
         '''
         event = (evtname, info)
+        if self.isfini:
+            return event
+
         self.dist(event)
         return event
 
@@ -202,8 +203,10 @@ class EventBus(object):
             ebus.dist( ('foo',{'bar':'baz'}) )
 
         '''
-        ret = []
+        if self.isfini:
+            return ()
 
+        ret = []
         for func, filt in self._syn_funcs.get(mesg[0], ()):
 
             try:

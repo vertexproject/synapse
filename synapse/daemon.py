@@ -370,7 +370,7 @@ class Daemon(EventBus, DmonConf):
         self.onfini(self.pool.fini)
         self.onfini(self.cura.fini)
 
-        self.on('link:sock:init', self._onLinkSockInit)
+        self.plex.on('link:sock:init', self._onLinkSockInit)
         self.plex.on('link:sock:mesg', self._onLinkSockMesg)
 
         self.mesgfuncs = {}
@@ -522,18 +522,15 @@ class Daemon(EventBus, DmonConf):
     def setMesgFunc(self, name, func):
         self.mesgfuncs[name] = func
 
-    def _onLinkSockInit(self, event):
+    def _onLinkSockInit(self, mesg):
 
-        sock = event[1].get('sock')
-        sock.on('link:sock:mesg', self._onLinkSockMesg)
+        sock = mesg[1].get('sock')
 
         def onfini():
             self.socks.pop(sock.iden, None)
 
         sock.onfini(onfini)
         self.socks[sock.iden] = sock
-
-        self.plex.addPlexSock(sock)
 
     def _onLinkSockMesg(self, event):
         # THIS MUST NOT BLOCK THE MULTIPLEXOR!
@@ -817,7 +814,6 @@ class Daemon(EventBus, DmonConf):
         relay = s_link.getLinkRelay(link)
 
         sock = relay.listen()
-        sock.on('link:sock:init', self.dist)
 
         self.plex.addPlexSock(sock)
 

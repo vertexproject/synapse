@@ -100,3 +100,13 @@ def chopLinkUrl(url):
 
     link[1].update(query)
     return link
+
+def listen(url, **info):
+    '''
+    Chop a link url and form a listening socket.
+    '''
+    link = chopLinkUrl(url)
+    link[1].update(info)
+
+    relay = getLinkRelay(link)
+    return relay.listen()
