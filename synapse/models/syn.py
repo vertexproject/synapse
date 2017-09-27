@@ -154,6 +154,7 @@ class SynMod(CoreModule):
                             form = prop.split('xref:', 1)[1]
                             if self.core.isTufoForm(form):
                                 srcvtype = form
+                                break
                     if not srcvtype:
                         raise s_common.NoSuchProp(iden=node[0], type=ntyp,
                                                   mesg='Unable to find a xref prop which is a form for migrating a '
