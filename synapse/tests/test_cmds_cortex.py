@@ -61,7 +61,7 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             core.formTufoByProp('inet:email', 'visi@vertex.link')
             resp = cmdr.runCmdLine('ask inet:email="visi@vertex.link"')
-            self.eq(len(resp['data']), 1)
+            self.len(1, resp['data'])
             self.ne(str(outp).strip().find('visi@vertex.link'), -1)
 
     def test_cmds_ask_debug(self):
@@ -70,7 +70,7 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             core.formTufoByProp('inet:email', 'visi@vertex.link')
             resp = cmdr.runCmdLine('ask --debug inet:email="visi@vertex.link"')
-            self.eq(len(resp['data']), 1)
+            self.len(1, resp['data'])
 
             outp = str(outp)
             terms = ('oplog', 'took', 'options', 'limits')
@@ -84,7 +84,7 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             core.formTufoByProp('inet:email', 'visi@vertex.link')
             resp = cmdr.runCmdLine('ask --props inet:email="visi@vertex.link"')
-            self.eq(len(resp['data']), 1)
+            self.len(1, resp['data'])
 
             outp = str(outp)
             terms = ('fqdn = vertex.link', 'user = visi')
@@ -100,7 +100,7 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
 
             resp = cmdr.runCmdLine('ask [ inet:ipv4=1.2.3.4 #foo.bar@2011-2016 #baz.faz ]')
-            self.eq(len(resp['data']), 1)
+            self.len(1, resp['data'])
 
             lines = [s.strip() for s in str(outp).split('\n')]
 
@@ -149,7 +149,7 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             core.formTufoByProp('inet:email', 'visi@vertex.link')
             resp = cmdr.runCmdLine('ask --raw inet:email="visi@vertex.link"')
-            self.eq(len(resp['data']), 1)
+            self.len(1, resp['data'])
 
             outp = str(outp)
             terms = ('"tufo:form": "inet:email"', '"inet:email:user": "visi"')
@@ -163,7 +163,7 @@ class SynCmdCoreTest(SynTest):
             core.formTufoByProp('strform', 'hehe')
             core.formTufoByProp('inet:ipv4', 0)
             resp = cmdr.runCmdLine('ask strform inet:ipv4')
-            self.eq(len(resp['data']), 2)
+            self.len(2, resp['data'])
 
             outp = str(outp)
             terms = ('0.0.0.0', 'hehe')

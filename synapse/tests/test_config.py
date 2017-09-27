@@ -113,7 +113,7 @@ class ConfTest(SynTest):
                 self.proxy = proxy
                 s_config.Configable.__init__(self)
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             with s_daemon.Daemon() as dmon:
                 dmon.share('core', core)
                 link = dmon.listen('tcp://127.0.0.1:0/core')

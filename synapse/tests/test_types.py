@@ -2,15 +2,14 @@
 from __future__ import absolute_import, unicode_literals
 import base64
 
-import synapse.cortex as s_cortex
+import synapse.cores.common as s_cores_common
+
 import synapse.lib.types as s_types
 
 from synapse.tests.common import *
 
 class DataTypesTest(SynTest):
-
     def test_datatype_basics(self):
-
         tlib = s_types.TypeLib()
         self.true(tlib.isDataType('inet:url'))
         self.true(isinstance(tlib.getDataType('inet:url'), s_types.DataType))
@@ -24,12 +23,14 @@ class DataTypesTest(SynTest):
         self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:url', 'newp')
         self.eq(tlib.getTypeNorm('inet:url', 'http://WoOt.com/HeHe')[0], 'http://woot.com/HeHe')
         self.eq(tlib.getTypeNorm('inet:url', 'HTTP://WoOt.com/HeHe')[0], 'http://woot.com/HeHe')
-        self.eq(tlib.getTypeNorm('inet:url', 'HttP://Visi:Secret@WoOt.com/HeHe&foo=10')[0], 'http://Visi:Secret@woot.com/HeHe&foo=10')
+        self.eq(tlib.getTypeNorm('inet:url', 'HttP://Visi:Secret@WoOt.com/HeHe&foo=10')[0],
+                'http://Visi:Secret@woot.com/HeHe&foo=10')
 
         self.raises(BadTypeValu, tlib.getTypeParse, 'inet:url', 'newp')
         self.eq(tlib.getTypeParse('inet:url', 'http://WoOt.com/HeHe')[0], 'http://woot.com/HeHe')
         self.eq(tlib.getTypeParse('inet:url', 'HTTP://WoOt.com/HeHe')[0], 'http://woot.com/HeHe')
-        self.eq(tlib.getTypeParse('inet:url', 'HttP://Visi:Secret@WoOt.com/HeHe&foo=10')[0], 'http://Visi:Secret@woot.com/HeHe&foo=10')
+        self.eq(tlib.getTypeParse('inet:url', 'HttP://Visi:Secret@WoOt.com/HeHe&foo=10')[0],
+                'http://Visi:Secret@woot.com/HeHe&foo=10')
 
         self.eq(tlib.getTypeRepr('inet:url', 'http://woot.com/HeHe'), 'http://woot.com/HeHe')
 
@@ -100,7 +101,8 @@ class DataTypesTest(SynTest):
         self.raises(BadTypeValu, tlib.getTypeNorm, 'guid', 'newp')
 
         self.eq(tlib.getTypeParse('guid', '000102030405060708090A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
-        self.eq(tlib.getTypeParse('guid', '00010203-0405-0607-0809-0A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
+        self.eq(tlib.getTypeParse('guid', '00010203-0405-0607-0809-0A0B0C0D0E0F')[0],
+                '000102030405060708090a0b0c0d0e0f')
         self.eq(tlib.getTypeNorm('guid', '000102030405060708090A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
         self.eq(tlib.getTypeRepr('guid', '000102030405060708090a0b0c0d0e0f'), '000102030405060708090a0b0c0d0e0f')
 
@@ -122,7 +124,8 @@ class DataTypesTest(SynTest):
         self.raises(BadTypeValu, tlib.getTypeParse, 'hash:md5', 'newp')
         self.raises(BadTypeValu, tlib.getTypeNorm, 'hash:md5', 'newp')
 
-        self.eq(tlib.getTypeParse('hash:md5', '000102030405060708090A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
+        self.eq(tlib.getTypeParse('hash:md5', '000102030405060708090A0B0C0D0E0F')[0],
+                '000102030405060708090a0b0c0d0e0f')
         self.eq(tlib.getTypeNorm('hash:md5', '000102030405060708090A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
         self.eq(tlib.getTypeRepr('hash:md5', '000102030405060708090a0b0c0d0e0f'), '000102030405060708090a0b0c0d0e0f')
 
@@ -182,7 +185,7 @@ class DataTypesTest(SynTest):
     def test_datatype_str_hex(self):
         tlib = s_types.TypeLib()
 
-        #self.raises(BadTypeValu, tlib.getTypeNorm, 'str:hex', 0xFFF)
+        # self.raises(BadTypeValu, tlib.getTypeNorm, 'str:hex', 0xFFF)
         self.raises(BadTypeValu, tlib.getTypeNorm, 'str:hex', '0xFFF')
         self.eq(tlib.getTypeNorm('str:hex', 'FfF')[0], 'fff')
         self.eq(tlib.getTypeNorm('str:hex', '12345')[0], '12345')
@@ -194,7 +197,7 @@ class DataTypesTest(SynTest):
 
         tlib.addType('woot', subof='sepr', sep='/', fields='a,str:hex|b,str:hex')
         self.eq(tlib.getTypeNorm('woot', 'AAA/BBB')[0], 'aaa/bbb')
-        self.eq(tlib.getTypeNorm('woot', '123456/BBB')[0], '123456/bbb') # already str
+        self.eq(tlib.getTypeNorm('woot', '123456/BBB')[0], '123456/bbb')  # already str
         self.eq(tlib.getTypeNorm('woot', (123456, 'BBB'))[0], '1e240/bbb')
         self.raises(BadTypeValu, tlib.getTypeParse, 'woot', '123x/aaaa')
         self.raises(BadTypeValu, tlib.getTypeParse, 'woot', '0x123/aaaa')
@@ -333,17 +336,17 @@ class DataTypesTest(SynTest):
         self.raises(BadTypeValu, tlib.getTypeParse, 'woot', 'qwer')
 
     def test_type_bases(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             self.eq(tuple(core.getTypeBases('inet:dns:look')), ('guid', 'inet:dns:look'))
 
     def test_type_issub(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             self.true(core.isSubType('inet:dns:look', 'guid'))
             self.false(core.isSubType('inet:dns:look', 'int'))
             self.true(core.isSubType('str', 'str'))
 
     def test_type_getTypeInfo(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             core.addType('foo:bar', subof='inet:ipv4')
             self.nn(core.getTypeInfo('foo:bar', 'ex'))
 
@@ -396,7 +399,7 @@ class DataTypesTest(SynTest):
         self.eq(tlib.getTypeParse('time', '1970 0201 000001')[0], EPOCH_FEB_MS + SECOND_MS)
         self.eq(tlib.getTypeParse('time:epoch', '1970 0201 000001')[0], EPOCH_FEB_SEC + 1)
 
-        #self.raises(BadTypeValu, tlib.getTypeParse, 'time', 0)
+        # self.raises(BadTypeValu, tlib.getTypeParse, 'time', 0)
         self.raises(BadTypeValu, tlib.getTypeParse, 'time', '19700')
         self.eq(tlib.getTypeParse('time', '1970 0201 000000 0')[0], EPOCH_FEB_MS)
         self.eq(tlib.getTypeParse('time', '1970 0201 000000 1')[0], EPOCH_FEB_MS + 100)
@@ -407,7 +410,7 @@ class DataTypesTest(SynTest):
         self.eq(tlib.getTypeParse('time', '1970-01-01 00:00:00.010')[0], 10)
         self.eq(tlib.getTypeParse('time', '1q9w7e0r0t1y0u1i0o0p0a0s0d0f0g0h0j')[0], 0)
 
-        #self.raises(BadTypeValu, tlib.getTypeParse, 'time:epoch', 0)
+        # self.raises(BadTypeValu, tlib.getTypeParse, 'time:epoch', 0)braeking
         self.raises(BadTypeValu, tlib.getTypeParse, 'time:epoch', '19700')
         self.raises(BadTypeValu, tlib.getTypeParse, 'time:epoch', '1970 0201 000000 0')
         self.raises(BadTypeValu, tlib.getTypeParse, 'time:epoch', '1970 0201 000000 1')
@@ -418,8 +421,10 @@ class DataTypesTest(SynTest):
         self.raises(BadTypeValu, tlib.getTypeParse, 'time:epoch', '1970-01-01 00:00:00.010')
         self.raises(BadTypeValu, tlib.getTypeParse, 'time:epoch', '1q9w7e0r0t1y0u1i0o0p0a0s0d0f0g0h1j')
 
-        self.eq(tlib.getTypeParse('time', '1970')[0], tlib.getTypeParse('time:epoch', '1970')[0] * 1000) # time should = epoch*1000
-        self.eq(tlib.getTypeParse('time', '19700101 123456')[0], tlib.getTypeParse('time:epoch', '19700101 123456')[0] * 1000) # time should = epoch*1000
+        self.eq(tlib.getTypeParse('time', '1970')[0],
+                tlib.getTypeParse('time:epoch', '1970')[0] * 1000)  # time should = epoch*1000
+        self.eq(tlib.getTypeParse('time', '19700101 123456')[0],
+                tlib.getTypeParse('time:epoch', '19700101 123456')[0] * 1000)  # time should = epoch*1000
 
         self.eq(tlib.getTypeRepr('time', -1), '1969/12/31 23:59:59.999')
         self.eq(tlib.getTypeRepr('time:epoch', -1), '1969/12/31 23:59:59')
@@ -467,31 +472,80 @@ class DataTypesTest(SynTest):
         self.eq(tlib.getTypeCast('str:lwr', ' ASDF  '), 'asdf')
 
     def test_type_xref(self):
+        with self.getRamCore() as core:
 
-        tlib = s_types.TypeLib()
+            core.addType('foo:bar', subof='xref', source='org,ou:org')
+            core.addTufoForm('foo:bar', ptype='foo:bar')
+            core.addTufoProp('foo:bar', 'org', ptype='ou:org')
+            core.addTufoProp('foo:bar', 'xref', ptype='propvalu')
+            core.addTufoProp('foo:bar', 'xref:intval', ptype='int')
+            core.addTufoProp('foo:bar', 'xref:strval', ptype='str')
+            core.addTufoProp('foo:bar', 'xref:prop', ptype='str')
 
-        tlib.addType('foo:bar', subof='xref', source='org,ou:org')
+            valu, subs = core.getTypeNorm('foo:bar', ('98db59098e385f0bfdec8a6a0a6118b3', 'inet:fqdn=woot.com'))
+            self.eq(subs.get('org'), '98db59098e385f0bfdec8a6a0a6118b3')
+            self.eq(subs.get('xref:prop'), 'inet:fqdn')
+            self.eq(subs.get('xref'), 'inet:fqdn=woot.com')
+            self.eq(subs.get('xref:strval'), 'woot.com')
+            self.eq(subs.get('xref:intval'), None)
 
-        valu, subs = tlib.getTypeNorm('foo:bar', ('98db59098e385f0bfdec8a6a0a6118b3', 'inet:fqdn', 'woot.com'))
-        self.eq(subs.get('org'), '98db59098e385f0bfdec8a6a0a6118b3')
-        self.eq(subs.get('xtype'), 'inet:fqdn')
-        self.eq(subs.get('xref:inet:fqdn'), 'woot.com')
+            valu, subs = core.getTypeNorm('foo:bar', '(98db59098e385f0bfdec8a6a0a6118b3,inet:fqdn=wOOT.com)')
+            self.eq(subs.get('org'), '98db59098e385f0bfdec8a6a0a6118b3')
+            self.eq(subs.get('xref:prop'), 'inet:fqdn')
+            self.eq(subs.get('xref'), 'inet:fqdn=woot.com')
+            self.eq(subs.get('xref:strval'), 'woot.com')
+            self.eq(subs.get('xref:intval'), None)
 
-        valu, subs = tlib.getTypeNorm('foo:bar', '98db59098e385f0bfdec8a6a0a6118b3|inet:fqdn|wOOT.com')
-        self.eq(subs.get('org'), '98db59098e385f0bfdec8a6a0a6118b3')
-        self.eq(subs.get('xtype'), 'inet:fqdn')
-        self.eq(subs.get('xref:inet:fqdn'), 'woot.com')
+            valu, subs = core.getTypeNorm('foo:bar', '(98db59098e385f0bfdec8a6a0a6118b3,inet:ipv4=1.2.3.4)')
+            self.eq(subs.get('org'), '98db59098e385f0bfdec8a6a0a6118b3')
+            self.eq(subs.get('xref:prop'), 'inet:ipv4')
+            self.eq(subs.get('xref'), 'inet:ipv4=1.2.3.4')
+            self.eq(subs.get('xref:strval'), None)
+            self.eq(subs.get('xref:intval'), 0x01020304)
+
+            valu, subs = core.getTypeNorm('foo:bar', '(98db59098e385f0bfdec8a6a0a6118b3,"inet:passwd=oh=my=graph!")')
+            self.eq(subs.get('xref'), 'inet:passwd=oh=my=graph!')
+            self.eq(subs.get('xref:strval'), 'oh=my=graph!')
+            self.eq(subs.get('xref:intval'), None)
+
+            # Do some node creation via Storm syntax
+            nodes = core.eval('addnode(foo:bar, "(98db59098e385f0bfdec8a6a0a6118b3,inet:fqdn=wOOT.com)")')
+            self.len(1, nodes)
+
+            nodes = core.eval('addnode(foo:bar, (98db59098e385f0bfdec8a6a0a6118b3,"inet:passwd=oh=my=graph!"))')
+            self.len(1, nodes)
+
+            nodes = core.eval('addnode(foo:bar, (98db59098e385f0bfdec8a6a0a6118b3,inet:ipv4=1.2.3.4))')
+            self.len(1, nodes)
+
+            nodes = core.eval('[foo:bar=(98db59098e385f0bfdec8a6a0a6118b3,inet:fqdn=acme.com)]')
+            self.len(1, nodes)
+
+            nodes = core.eval('[foo:bar=(98db59098e385f0bfdec8a6a0a6118b3,"inet:passwd=oh=my=gosh!")]')
+            self.len(1, nodes)
+
+            nodes = core.eval('[foo:bar=(98db59098e385f0bfdec8a6a0a6118b3,inet:ipv4=1.2.3.5)]')
+            self.len(1, nodes)
+
+            valu, subs = core.getTypeNorm('foo:bar', 4 * 'deadb33f')
+            self.eq(valu, 4 * 'deadb33f')
+            self.eq(subs, {})
+
+            # The old XREF syntax no longer works
+            self.raises(BadSyntaxError, core.getTypeNorm, 'foo:bar',
+                        '98db59098e385f0bfdec8a6a0a6118b3|inet:fqdn|wOOT.com')
+            self.raises(NoSuchType, core.getTypeNorm, 'foo:bar',
+                        ('98db59098e385f0bfdec8a6a0a6118b3', 'inet:fqdn:zone=0'))
+            self.raises(BadTypeValu, core.getTypeNorm, 'foo:bar', 1)
+            self.raises(BadTypeValu, core.getTypeNorm, 'foo:bar', ['oh', 'my', 'its', 'broked'])
+            self.raises(BadInfoValu, core.addType, 'foo:baz', subof='xref', source='ou=org')
 
     def test_types_isguid(self):
         self.true(s_types.isguid('98db59098e385f0bfdec8a6a0a6118b3'))
         self.false(s_types.isguid('visi'))
 
     def test_types_guid_resolver(self):
-
-        with s_cortex.openurl('ram:///') as core:
-
-            core.setConfOpt('enforce', 1)
-
+        with self.getRamCore() as core:
             # use the seed constructor for an org
             onode = core.formTufoByProp('ou:org:alias', 'vertex')
 
@@ -508,8 +562,7 @@ class DataTypesTest(SynTest):
             self.eq(len(core.eval('ou:user:org=$vertex')), 1)
 
     def test_types_tagtime(self):
-
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             valu, subs = core.getTypeNorm('syn:tag', 'Foo.Bar@20161217-20171217')
 
             self.eq(valu, 'foo.bar')
@@ -517,7 +570,6 @@ class DataTypesTest(SynTest):
             self.eq(subs['seen:max'], 1513468800000)
 
     def test_types_comp_optfields(self):
-
         tlib = s_types.TypeLib()
 
         tlib.addType('foo:bar', subof='comp', fields='foo=str,bar=int', optfields='baz=str,faz=int')
@@ -555,7 +607,6 @@ class DataTypesTest(SynTest):
         self.eq(subs, tuple(sorted(s3.items())))
 
     def test_types_comp_opt_only(self):
-
         tlib = s_types.TypeLib()
 
         tlib.addType('foo:bar', subof='comp', optfields='baz=str,faz=int')
@@ -588,3 +639,63 @@ class DataTypesTest(SynTest):
         self.raises(BadTypeValu, tlib.getTypeNorm, 'syn:perm', 'foo bar=(bar,baz)')
         tlib.getTypeNorm('syn:perm', 'foo:bar baz=faz')
         tlib.getTypeNorm('syn:perm', 'foo:bar   baz=faz     hehe=haha')
+
+    def test_types_propvalu(self):
+        with self.getRamCore() as core:
+
+            # Test a list of property/valu
+            valu, subs = core.getPropNorm('pvsub:xref', ['inet:ipv4', '1.2.3.4'])
+            self.eq(valu, 'inet:ipv4=1.2.3.4')
+            self.eq(subs.get('prop'), 'inet:ipv4')
+            self.eq(subs.get('intval'), 0x01020304)
+            self.notin('strval', subs)
+
+            pvstrs = ['inet:ipv4=1.2.3.4',
+                      'inet:ipv4=16909060',
+                      'inet:ipv4=0x01020304'
+                      ]
+
+            for pvstr in pvstrs:
+                valu, subs = core.getPropNorm('pvsub:xref', pvstr)
+                self.eq(valu, 'inet:ipv4=1.2.3.4')
+                self.eq(subs.get('intval'), 0x01020304)
+                self.eq(subs.get('prop'), 'inet:ipv4')
+                self.notin('strval', subs)
+
+            # Make some nodes, do a pivot
+            node = core.formTufoByProp('inet:ipv4', 0x01020304)
+            self.nn(node)
+            node = core.formTufoByProp('pvsub', 'blah', xref=['inet:ipv4', '1.2.3.4'])
+            self.nn(node)
+            self.eq(node[1].get('pvsub:xref'), 'inet:ipv4=1.2.3.4')
+            self.eq(node[1].get('pvsub:xref:prop'), 'inet:ipv4')
+            self.eq(node[1].get('pvsub:xref:intval'), 0x01020304)
+            self.eq(node[1].get('pvsub:xref:prop'), 'inet:ipv4')
+
+            nodes = core.eval('pvsub :xref:intval->inet:ipv4')
+            self.eq(len(nodes), 1)
+            self.eq(nodes[0][1].get('inet:ipv4'), 0x01020304)
+
+            # Actually make some pvform nodes
+            t0 = core.formTufoByProp('pvform', 'inet:ipv4=1.2.3.4')
+            self.nn(t0)
+            t1 = core.formTufoByProp('pvform', 'pvform=inet:ipv4=1.2.3.4')
+            self.nn(t1)
+            t2 = core.formTufoByProp('pvform', ['pvform', 'inet:ipv4=1.2.3.4'])
+            self.nn(t2)
+            # We can also eat tuples - in this case our normed value is a str and not a int
+            t3 = core.formTufoByProp('pvform', ('inet:asn:name', 'Acme Corporation'))
+            self.eq(t3[1].get('pvform:strval'), 'acme corporation')
+            self.eq(t3[1].get('pvform:prop'), 'inet:asn:name')
+            self.notin('pvform:intval', t3[1])
+
+            # Test a comp type node made a as Provalu
+            t4 = core.formTufoByProp('pvform', 'inet:netpost=(vertex.link/pennywise,"Do you want your boat?")')
+            self.eq(t4[1].get('pvform:prop'), 'inet:netpost')
+
+            # Bad values
+            self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', 1234)
+            self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', '  ')
+            self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', 'inet:ipv4= 1.2.3.4')
+            self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', '(inet:ipv4,1.2.3.4)')
+            self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', ['inet:ipv4', '1.2.3.4', 'opps'])
