@@ -905,7 +905,7 @@ class CortexTest(SynTest):
             for node in nodes:
                 self.isin('syn:form:ptype', node[1])
                 if 'syn:form:doc' in node[1]:
-                    self.isinstance(node[1].get('syn:form:doc'), s_compat.strtypes)
+                    self.isinstance(node[1].get('syn:form:doc'), strtypes)
                 if 'syn:form:local' in node[1]:
                     self.isinstance(node[1].get('syn:form:local'), int)
 
@@ -917,11 +917,11 @@ class CortexTest(SynTest):
                 self.isin('syn:prop:req', node[1])
                 self.isin('syn:prop:ptype', node[1])
                 if 'syn:prop:doc' in node[1]:
-                    self.isinstance(node[1].get('syn:prop:doc'), s_compat.strtypes)
+                    self.isinstance(node[1].get('syn:prop:doc'), strtypes)
                 if 'syn:prop:base' in node[1]:
-                    self.isinstance(node[1].get('syn:prop:base'), s_compat.strtypes)
+                    self.isinstance(node[1].get('syn:prop:base'), strtypes)
                 if 'syn:prop:title' in node[1]:
-                    self.isinstance(node[1].get('syn:prop:title'), s_compat.strtypes)
+                    self.isinstance(node[1].get('syn:prop:title'), strtypes)
                 if 'syn:prop:defval' in node[1]:
                     dv = node[1].get('syn:prop:defval')
                     if dv is None:

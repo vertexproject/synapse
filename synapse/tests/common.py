@@ -30,8 +30,8 @@ s_scope.get('plex')
 
 class TooFewEvents(Exception): pass
 
-TestSSLInvalidClientCertErr = socket.error
-TestSSLConnectionResetErr = socket.error
+TstSSLInvalidClientCertErr = socket.error
+TstSSLConnectionResetErr = socket.error
 
 class TstEnv:
 
