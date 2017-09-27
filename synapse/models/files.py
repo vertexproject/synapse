@@ -1,3 +1,4 @@
+import synapse.common as s_common
 import synapse.compat as s_compat
 
 from synapse.lib.types import DataType
@@ -138,13 +139,19 @@ class FileMod(CoreModule):
             'forms': (
 
                 ('file:imgof', {}, [
-                    ('file', {'ptype': 'file:bytes'}),
-                    ('xref:*', {'glob': 1}),
+                    ('file', {'ptype': 'file:bytes', 'ro': 1}),
+                    ('xref', {'ptype': 'propvalu', 'ro': 1}),
+                    ('xref:prop', {'ptype': 'str', 'ro': 1}),
+                    ('xref:intval', {'ptype': 'int', 'ro': 1}),
+                    ('xref:strval', {'ptype': 'str', 'ro': 1}),
                 ]),
 
                 ('file:txtref', {}, [
-                    ('file', {'ptype': 'file:bytes'}),
-                    ('xref:*', {'glob': 1}),
+                    ('file', {'ptype': 'file:bytes', 'ro': 1}),
+                    ('xref', {'ptype': 'propvalu', 'ro': 1}),
+                    ('xref:prop', {'ptype': 'str', 'ro': 1}),
+                    ('xref:intval', {'ptype': 'int', 'ro': 1}),
+                    ('xref:strval', {'ptype': 'str', 'ro': 1}),
                 ]),
 
                 ('file:path', {}, (

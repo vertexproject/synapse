@@ -3,9 +3,7 @@ from synapse.tests.common import *
 class LangTest(SynTest):
 
     def test_model_language_trans(self):
-
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             self.nn(core.getTufoByProp('syn:type', 'lang:trans'))
             self.nn(core.getTufoByProp('syn:form', 'lang:trans'))
@@ -17,9 +15,7 @@ class LangTest(SynTest):
             self.eq(node[1].get('lang:trans:desc:en'), 'Some English Desc')
 
     def test_model_language_idiom(self):
-
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
 
             self.nn(core.getTufoByProp('syn:type', 'lang:idiom'))
             self.nn(core.getTufoByProp('syn:form', 'lang:idiom'))

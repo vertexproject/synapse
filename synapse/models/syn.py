@@ -1,3 +1,7 @@
+import synapse.common as s_common
+
+import synapse.lib.tufo as s_tufo
+
 from synapse.lib.module import CoreModule, modelrev
 
 class SynMod(CoreModule):
@@ -116,3 +120,57 @@ class SynMod(CoreModule):
             [self.core.delRowsById(r[0]) for r in forms]
             [self.core.delRowsById(r[0]) for r in props]
             [self.core.delRowsById(r[0]) for r in syncore]
+
+    @modelrev('syn', 201709191412)
+    def _revModl201709191412(self):
+        '''
+        Migrate the XREF types to use the propvalu syntax.
+        '''
+        tick = s_common.now()
+        adds = []
+        dels = set()
+
+        nforms = set()
+
+        for form in self.core.getModelDict().get('forms'):
+            sforms = self.core.getTypeOfs(form)
+            if 'xref' in sforms:
+                nforms.add(form)
+
+        for ntyp in nforms:
+            nodes = self.core.getTufosByProp(ntyp)
+            xtyp = '{}:xtype'.format(ntyp)
+            xrefp = '{}:xref'.format(ntyp)
+            xrefpint = '{}:xref:intval'.format(ntyp)
+            xrefpstr = '{}:xref:strval'.format(ntyp)
+            xrefprop = '{}:xref:prop'.format(ntyp)
+            for node in nodes:
+                iden = node[0]
+                srcvtype = node[1].get(xtyp)
+                if srcvtype is None:
+                    # This is expensive node level introspection :(
+                    for prop, valu in s_tufo.props(node).items():
+                        if prop.startswith('xref:'):
+                            form = prop.split('xref:', 1)[1]
+                            if self.core.isTufoForm(form):
+                                srcvtype = form
+                                break
+                    if not srcvtype:
+                        raise s_common.NoSuchProp(iden=node[0], type=ntyp,
+                                                  mesg='Unable to find a xref prop which is a form for migrating a '
+                                                       'XREF node.')
+                srcprp = '{}:xref:{}'.format(ntyp, srcvtype)
+                srcv = node[1].get(srcprp)
+                valu, subs = self.core.getPropNorm(xrefp, [srcvtype, srcv])
+                adds.append((iden, xrefp, valu, tick))
+                adds.append((iden, xrefprop, srcvtype, tick))
+                if 'intval' in subs:
+                    adds.append((iden, xrefpint, subs.get('intval'), tick))
+                else:
+                    adds.append((iden, xrefpstr, subs.get('strval'), tick))
+                dels.add(srcprp)
+                dels.add(xtyp)
+        with self.core.getCoreXact():
+            self.core.addRows(adds)
+            for prop in dels:
+                self.core.delRowsByProp(prop)

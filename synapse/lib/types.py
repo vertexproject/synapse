@@ -353,14 +353,15 @@ class CompType(DataType):
         text = text.strip()
 
         if not text:
-            self._raiseBadValu(text)
+            self._raiseBadValu(text, mesg='No text left after strip().')
 
         if text[0] != '(':
             return self.tlib.getTypeNorm('guid', text)
 
         vals, off = s_syntax.parse_list(text)
         if off != len(text):
-            self._raiseBadValu(text)
+            self._raiseBadValu(text, off=off, vals=vals,
+                               mesg='List parting for comp type did not consume all of the input text.')
 
         return self._norm_list(vals)
 
@@ -453,19 +454,32 @@ class XrefType(DataType):
 
     def _norm_str(self, text, oldval=None):
 
-        if len(text) == 32 and text.find('|') == -1:
+        text = text.strip()
+
+        if not text:
+            self._raiseBadValu(text, mesg='No text left after strip().')
+
+        if len(text) == 32 and text.find('=') == -1:
             return self.tlib.getTypeNorm('guid', text)
 
-        # FIXME full logical / quoted split
-        parts = text.split('|')
-        return self._norm_list(parts)
+        vals, off = s_syntax.parse_list(text)
+
+        if off != len(text):
+            self._raiseBadValu(text, off=off, vals=vals,
+                               mesg='List parting for comp type did not consume all of the input text.')
+
+        return self._norm_list(vals)
 
     def _norm_list(self, valu, oldval=None):
 
-        if len(valu) != 3:
-            self._raiseBadValu(text, mesg='xref type requires 3 fields')
+        if len(valu) != 2:
+            self._raiseBadValu(valu, mesg='xref type requires 2 fields')
 
-        valu, tstr, tval = valu
+        valu, pvval = valu
+
+        pvval, pvsub = self.tlib.getTypeNorm('propvalu', pvval)
+
+        tstr, tval = pvval.split('=', 1)
 
         valu, vsub = self.tlib.getTypeNorm(self._sorc_type, valu)
         tval, tsub = self.tlib.getTypeNorm(tstr, tval)
@@ -474,9 +488,12 @@ class XrefType(DataType):
 
         subs = {
             self._sorc_name: valu,
-            'xtype': tstr,
-            'xref:%s' % tstr: tval,
+            'xref': pvval,
         }
+
+        for k, v in pvsub.items():
+            k = 'xref:' + k
+            subs[k] = v
 
         return iden, subs
 
@@ -630,6 +647,60 @@ class PermType(DataType):
             self._raiseBadValu(valu)
         return valu, {}
 
+class PropValuType(DataType):
+    def __init__(self, tlib, name, **info):
+        DataType.__init__(self, tlib, name, **info)
+        # TODO figure out what to do about tlib vs core issues
+        self._getPropNorm = getattr(tlib, 'getPropNorm', None)
+        self._getPropRepr = getattr(tlib, 'getPropRepr', None)
+
+    def norm(self, valu, oldval=None):
+        # if it's already a str, we'll need to split it into its two parts to norm.
+        if s_compat.isstr(valu):
+            return self._norm_str(valu, oldval=oldval)
+
+        if not islist(valu):
+            self._raiseBadValu(valu, mesg='Expected str or list/tuple.')
+
+        return self._norm_list(valu)
+
+    def _norm_str(self, text, oldval=None):
+
+        text = text.strip()
+
+        if not text:
+            self._raiseBadValu(text, mesg='No text left after strip().')
+
+        if '=' not in text:
+            self._raiseBadValu(text, mesg='PropValu is missing a =')
+
+        valu = text.split('=', 1)
+
+        return self._norm_list(valu)
+
+    def _norm_list(self, valu, oldval=None):
+        if len(valu) != 2:
+            self._raiseBadValu(valu=valu, mesg='PropValu requires two values to norm.')
+
+        prop, valu = valu
+
+        try:
+            nvalu, nsubs = self._getPropNorm(prop, valu, oldval=oldval)
+        except s_common.BadTypeValu as e:
+            logger.exception('Failed to norm PropValu.')
+            self._raiseBadValu(valu, mesg='Unable to norm PropValu', prop=prop)
+
+        subs = {'prop': prop}
+        if s_compat.isstr(nvalu):
+            subs['strval'] = nvalu
+        else:
+            subs['intval'] = nvalu
+
+        nrepr = self._getPropRepr(prop, nvalu)
+        retv = '='.join([prop, nrepr])
+        return retv, subs
+
+
 class TypeLib:
     '''
     An extensible type library for use in cortex data models.
@@ -664,6 +735,8 @@ class TypeLib:
         self.addType('syn:tag', ctor='synapse.lib.types.TagType', doc='A synapse tag', ex='foo.bar')
         self.addType('syn:perm', ctor='synapse.lib.types.PermType', doc='A synapse permission string')
         self.addType('syn:storm', ctor='synapse.lib.types.StormType', doc='A synapse storm query string')
+        self.addType('propvalu', ctor='synapse.lib.types.PropValuType', ex='foo:bar=1234',
+                     doc='An equal sign delimited property/valu combination.',)
 
         # add base synapse types
         self.addType('syn:core', subof='str')

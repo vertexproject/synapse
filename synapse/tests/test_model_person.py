@@ -5,7 +5,7 @@ class PersonTest(SynTest):
 
     def test_model_person(self):
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             dob = core.getTypeParse('time', '19700101000000001')
             node = core.formTufoByProp('ps:person', guid(), dob=dob[0], name='Kenshoto,Invisigoth')
             self.eq(node[1].get('ps:person:dob'), 1)
@@ -14,12 +14,12 @@ class PersonTest(SynTest):
             self.eq(node[1].get('ps:person:name:given'), 'invisigoth')
 
     def test_model_person_tokn(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             node = core.formTufoByProp('ps:tokn', 'Invisigoth')
             self.eq(node[1].get('ps:tokn'), 'invisigoth')
 
     def test_model_person_name(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             node = core.formTufoByProp('ps:name', 'Kenshoto,Invisigoth')
 
             self.eq(node[1].get('ps:name:sur'), 'kenshoto')
@@ -30,7 +30,7 @@ class PersonTest(SynTest):
 
     def test_model_person_2(self):
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             node = core.formTufoByProp('ps:name', 'Kenshoto,Invisigoth')
 
             self.eq(node[1].get('ps:name'), 'kenshoto,invisigoth')
@@ -41,7 +41,7 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('ps:tokn', 'invisigoth'))
 
     def test_model_person_has_user(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             iden = guid()
             node = core.formTufoByProp('ps:hasuser', '%s/visi' % iden)
 
@@ -52,7 +52,7 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('inet:user', 'visi'))
 
     def test_model_person_has_alias(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             iden = guid()
             node = core.formTufoByProp('ps:hasalias', '%s/Kenshoto,Invisigoth' % iden)
 
@@ -63,7 +63,7 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('ps:name', 'kenshoto,invisigoth'))
 
     def test_model_person_has_phone(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             iden = guid()
             node = core.formTufoByProp('ps:hasphone', '%s/17035551212' % iden)
 
@@ -74,7 +74,7 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('tel:phone', 17035551212))
 
     def test_model_person_has_email(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             iden = guid()
             node = core.formTufoByProp('ps:hasemail', '%s/visi@VERTEX.link' % iden)
 
@@ -85,7 +85,7 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('inet:email', 'visi@vertex.link'))
 
     def test_model_person_has_netuser(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             iden = guid()
             node = core.formTufoByProp('ps:hasnetuser', '%s/ROOTKIT.com/visi' % iden)
 
@@ -98,7 +98,7 @@ class PersonTest(SynTest):
 
     def test_model_person_guidname(self):
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
 
             node = core.formTufoByProp('ps:person:guidname', 'visi')
             self.eq(node[1].get('ps:person:guidname'), 'visi')

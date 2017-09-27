@@ -1171,7 +1171,7 @@ class Runtime(Configable):
 
                     # ensure that the prop's type is also a form
                     name = core.getPropTypeName(prop)
-                    if not core.isTufoForm(name):
+                    if not core.isTufoForm(name) and name != 'propvalu':
                         continue
 
                     pkey = (prop, valu)
@@ -1179,6 +1179,9 @@ class Runtime(Configable):
                         continue
 
                     done.add(pkey)
+
+                    if name == 'propvalu':
+                        name, valu = valu.split('=', 1)
 
                     news = core.getTufosByProp(name, valu=valu, limit=limt.get())
 

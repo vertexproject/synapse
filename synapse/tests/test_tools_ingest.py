@@ -14,7 +14,7 @@ class TestIngest(SynTest):
 
             link = dmon.listen('tcp://127.0.0.1:0/')
 
-            with s_cortex.openurl('ram:///') as core:
+            with self.getRamCore() as core:
 
                 dmon.share('core', core)
 

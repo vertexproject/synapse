@@ -3,8 +3,7 @@ from synapse.tests.common import *
 class CnGovTest(SynTest):
 
     def test_models_cngov_mucd(self):
-        with s_cortex.openurl('ram:///') as core:
-            core.setConfOpt('enforce', 1)
+        with self.getRamCore() as core:
             node = core.formTufoByProp('gov:cn:mucd', 61786)
 
             self.nn(node)
