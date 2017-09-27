@@ -21,6 +21,10 @@ matrix:
       IMAGE_VERSION: py36
       PG_DB: root@database:5432/syn_test
       COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+      SLEEP: 12
+    - TEST_NAME: "Python 37 without coverage."
+      IMAGE_VERSION: py37
+      PG_DB: root@database:5432/syn_test
       SLEEP: 15
 
 pipeline:
