@@ -94,7 +94,7 @@ class PersonTest(SynTest):
 
             self.nn(core.getTufoByProp('ps:person', iden))
             self.nn(core.getTufoByProp('inet:user', 'visi'))
-            self.nn(core.getTufoByProp('inet:netuser', 'rootkit.com/visi'))
+            self.nn(core.getTufoByProp('inet:web:acct', 'rootkit.com/visi'))
 
     def test_model_person_guidname(self):
 

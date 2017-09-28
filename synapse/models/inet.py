@@ -454,6 +454,95 @@ class InetMod(CoreModule):
         for prop in delprops:
             self.core.delRowsByProp(prop)
 
+    def _renameTagForms(self, oldv, newv):
+
+        adds, dels = [], []
+        if oldv == newv:
+            return  # prevent adding new rows, followed by deleting all of the rows
+
+        print('renaming tagforms from %s to %s' % (oldv, newv))
+        with self.core.getCoreXact():
+            for iden, prop, valu, stamp in self.core.getJoinByProp('syn:tagform:form', oldv):
+                adds.append((iden, prop, newv, stamp),)
+                dels.append((iden, prop),)
+
+            if adds:
+                self.core.addRows(adds)
+
+            for iden, prop in dels:
+                self.core.delRowsByIdProp(iden, prop)
+
+    def _renameTagDarks(self, oldp, newp, dark_idens):
+        dadds, ddels = [], []
+        for iden in dark_idens:
+            for iden, prop, valu, stamp in self.core.getRowsById(iden):
+                newdp = prop.replace(oldp, newp)
+                if newdp == prop:
+                    continue
+                dadds.append((iden, newdp, valu, stamp),)
+                ddels.append((iden, prop),)
+
+        if dadds:
+            self.core.addRows(dadds)
+
+        for iden, prop in ddels:
+            self.core.delRowsByIdProp(iden, prop)  # this isnt working?
+
+    def _renameProp(self, oldp, newp, limit=10000):
+
+        if oldp == newp:
+            return  # prevent adding new rows, followed by deleting all of the rows
+
+        print('renaming props from %s to %s' % (oldp, newp))
+        while True:
+            with self.core.getCoreXact():
+
+                rows = self.core.getRowsByProp(oldp, limit=limit)
+                if not rows:
+                    break
+
+                adds, dels = [], []
+                for iden, prop, valu, stamp in rows:
+                    adds.append((iden, newp, valu, stamp),)
+                    dels.append((iden, prop),)
+
+                if adds:
+                    self.core.addRows(adds)
+
+                dark_idens = set()
+                for iden, prop in dels:
+                    dark_idens.add(iden[::-1])
+                    self.core.delRowsByIdProp(iden, prop)
+
+                self._renameTagDarks(oldp, newp, dark_idens)
+
+        # FIXME can we recurse down like this or do we need to specify the oldv, newv for every prop changing?
+        for subprop in self.core.getSubProps(newp):
+            newsp = subprop[0]
+            oldsp = newsp.replace(newp, oldp)
+            self._renameProp(oldsp, newsp)
+
+    @modelrev('inet', 201709271521)
+    def _revModl201709271521(self):
+        '''
+        Rename inet:net* to inet:web*
+        '''
+        # TODO FIXME create a more generalized fn to be used for all renaming migrations
+        # TODO FIXME after figuring out how everything needs to be renamed, add storage layer optimizations
+        # TODO FIXME also implement faster methods for sqlite3/psql
+        props = (
+            ('inet:netuser', 'inet:web:acct'),
+            ('inet:netgroup', 'inet:web:group'),
+            #('inet:netmemb', 'inet:web:memb'),
+            #('inet:follows', 'inet:web:follows'),
+            #('inet:netpost', 'inet:web:post'),
+            #('inet:netfile', 'inet:web:file'),
+        )
+
+        for old, new in props:
+            self._renameProp(old, new)
+            self._renameTagForms(old, new)
+
     @staticmethod
     def getBaseModels():
         modl = {
@@ -505,23 +594,23 @@ class InetMod(CoreModule):
                     {'subof': 'str', 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower': 1, 'nullval': '??',
                      'ex': 'aa:bb:cc:dd:ee:ff', 'doc': 'A 48 bit mac address'}),
 
-                ('inet:netuser', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|user,inet:user',
+                ('inet:web:acct', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|user,inet:user',
                                   'doc': 'A user account at a given web address', 'ex': 'twitter.com/invisig0th'}),
                 ('inet:web:logon', {'subof': 'guid',
                                    'doc': 'An instance of a user account authenticating to a service.', }),
 
-                ('inet:netgroup', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|name,ou:name',
+                ('inet:web:group', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|name,ou:name',
                                    'doc': 'A group within an online community'}),
 
-                ('inet:netpost',
-                 {'subof': 'comp', 'fields': 'netuser,inet:netuser|text,str:txt', 'doc': 'A post made by a netuser'}),
-                ('inet:netfile', {'subof': 'comp', 'fields': 'netuser,inet:netuser|file,file:bytes',
+                ('inet:web:post',
+                 {'subof': 'comp', 'fields': 'netuser,inet:web:acct|text,str:txt', 'doc': 'A post made by a netuser'}),
+                ('inet:web:file', {'subof': 'comp', 'fields': 'netuser,inet:web:acct|file,file:bytes',
                                   'doc': 'A file posted by a netuser'}),
-                ('inet:netmemb', {'subof': 'comp', 'fields': 'user,inet:netuser|group,inet:netgroup'}),
-                ('inet:follows', {'subof': 'comp', 'fields': 'follower,inet:netuser|followee,inet:netuser'}),
+                ('inet:web:memb', {'subof': 'comp', 'fields': 'user,inet:web:acct|group,inet:web:group'}),
+                ('inet:web:follows', {'subof': 'comp', 'fields': 'follower,inet:web:acct|followee,inet:web:acct'}),
 
-                ('inet:netmesg', {'subof': 'comp',
-                                  'fields': 'from,inet:netuser|to,inet:netuser|time,time',
+                ('inet:web:mesg', {'subof': 'comp',
+                                  'fields': 'from,inet:web:acct|to,inet:web:acct|time,time',
                                   'doc': 'A message sent from one netuser to another',
                                   'ex': 'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'}),
 
@@ -540,9 +629,6 @@ class InetMod(CoreModule):
                                         'doc': 'A whois contact for a specific record'}),
                 ('inet:whois:regmail', {'subof': 'comp', 'fields': 'fqdn,inet:fqdn|email,inet:email',
                                         'doc': 'A whois registration fqdn->email link'}),
-
-                # TODO: (port from nucleus etc)
-                # inet:cidr6
             ),
 
             'forms': (
@@ -693,7 +779,7 @@ class InetMod(CoreModule):
 
                 )),
 
-                ('inet:netuser', {'ptype': 'inet:netuser'}, [
+                ('inet:web:acct', {'ptype': 'inet:web:acct'}, [
                     ('site', {'ptype': 'inet:fqdn', 'ro': 1}),
                     ('user', {'ptype': 'inet:user', 'ro': 1}),
 
@@ -714,15 +800,14 @@ class InetMod(CoreModule):
                     ('email', {'ptype': 'inet:email'}),
                     ('phone', {'ptype': 'tel:phone'}),
                     ('signup', {'ptype': 'time', 'doc': 'The time the netuser account was registered'}),
-                    ('signup:ipv4',
-                     {'ptype': 'inet:ipv4', 'doc': 'The original ipv4 address used to sign up for the account'}),
+                    ('signup:ipv4', {'ptype': 'inet:ipv4', 'doc': 'The original ipv4 address used to sign up for the account'}),
                     ('passwd', {'ptype': 'inet:passwd', 'doc': 'The current passwd for the netuser account'}),
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
                 ]),
 
                 ('inet:web:logon', {'ptype': 'inet:web:logon'}, [
-                    ('netuser', {'ptype': 'inet:netuser', 'doc': 'The netuser associated with the logon event.', }),
+                    ('netuser', {'ptype': 'inet:web:acct', 'doc': 'The netuser associated with the logon event.', }),
                     ('netuser:site', {'ptype': 'inet:fqdn', }),
                     ('netuser:user', {'ptype': 'inet:user', }),
                     ('time', {'ptype': 'time', 'doc': 'The time the netuser logged into the service', }),
@@ -731,7 +816,7 @@ class InetMod(CoreModule):
                     ('logout', {'ptype': 'time', 'doc': 'The time the netuser logged out of the service.'})
                 ]),
 
-                ('inet:netgroup', {}, [
+                ('inet:web:group', {}, [
                     ('site', {'ptype': 'inet:fqdn', 'ro': 1}),
                     ('name', {'ptype': 'ou:name', 'ro': 1}),
 
@@ -742,45 +827,45 @@ class InetMod(CoreModule):
                     ('avatar', {'ptype': 'file:bytes'}),
                 ]),
 
-                ('inet:netpost', {}, [
+                ('inet:web:post', {}, [
 
-                    ('netuser', {'ptype': 'inet:netuser', 'ro': 1}),
+                    ('netuser', {'ptype': 'inet:web:acct', 'ro': 1}),  # FIXME rename?
                     ('text', {'ptype': 'str:txt', 'ro': 1, 'doc': 'The text of the actual post'}),
 
-                    ('netuser:site', {'ptype': 'inet:fqdn', 'ro': 1}),
-                    ('netuser:user', {'ptype': 'inet:user', 'ro': 1}),
+                    ('netuser:site', {'ptype': 'inet:fqdn', 'ro': 1}),  # FIXME rename?
+                    ('netuser:user', {'ptype': 'inet:user', 'ro': 1}),  # FIXME rename?
 
                     ('time', {'ptype': 'time'}),
 
-                    ('replyto', {'ptype': 'inet:netpost'}),
+                    ('replyto', {'ptype': 'inet:web:post'}),
 
                     ('url', {'ptype': 'inet:url', 'doc': 'The (optional) URL where the post is published/visible'}),
                     ('file', {'ptype': 'file:bytes', 'doc': 'The (optional) file which was posted'}),
                 ]),
 
-                ('inet:netmesg', {}, [
-                    ('from', {'ptype': 'inet:netuser', 'ro': 1}),
-                    ('to', {'ptype': 'inet:netuser', 'ro': 1}),
+                ('inet:web:mesg', {}, [
+                    ('from', {'ptype': 'inet:web:acct', 'ro': 1}),
+                    ('to', {'ptype': 'inet:web:acct', 'ro': 1}),
                     ('time', {'ptype': 'time', 'ro': 1, 'doc': 'The time at which the message was sent'}),
                     ('url', {'ptype': 'inet:url', 'doc': 'Optional URL of netmesg'}),
                     ('text', {'ptype': 'str:txt', 'doc': 'Optional text body of message'}),
                     ('file', {'ptype': 'file:bytes', 'doc': 'Optional file attachment'}),
                 ]),
 
-                ('inet:follows', {}, [
+                ('inet:web:follows', {}, [
 
-                    ('follower', {'ptype': 'inet:netuser', 'ro': 1}),
-                    ('followee', {'ptype': 'inet:netuser', 'ro': 1}),
+                    ('follower', {'ptype': 'inet:web:acct', 'ro': 1}),
+                    ('followee', {'ptype': 'inet:web:acct', 'ro': 1}),
 
                     ('seen:min', {'ptype': 'time:min', 'doc': 'Optional first/earliest following'}),
                     ('seen:max', {'ptype': 'time:max', 'doc': 'Optional last/end of following'}),
 
                 ]),
 
-                ('inet:netmemb', {}, [
+                ('inet:web:memb', {}, [
 
-                    ('user', {'ptype': 'inet:netuser', 'ro': 1}),
-                    ('group', {'ptype': 'inet:netgroup', 'ro': 1}),
+                    ('user', {'ptype': 'inet:web:acct', 'ro': 1}),  # FIXME rename?
+                    ('group', {'ptype': 'inet:web:group', 'ro': 1}),
 
                     ('title', {'ptype': 'str:lwr'}),
 
@@ -790,11 +875,11 @@ class InetMod(CoreModule):
 
                 ]),
 
-                ('inet:netfile', {}, [
+                ('inet:web:file', {}, [
 
-                    ('netuser', {'ptype': 'inet:netuser', 'ro': 1}),
-                    ('netuser:site', {'ptype': 'inet:fqdn', 'ro': 1}),
-                    ('netuser:user', {'ptype': 'inet:user', 'ro': 1}),
+                    ('netuser', {'ptype': 'inet:web:acct', 'ro': 1}),  # FIXME rename?
+                    ('netuser:site', {'ptype': 'inet:fqdn', 'ro': 1}),  # FIXME rename?
+                    ('netuser:user', {'ptype': 'inet:user', 'ro': 1}),  # FIXME rename?
 
                     ('file', {'ptype': 'file:bytes', 'ro': 1}),
 

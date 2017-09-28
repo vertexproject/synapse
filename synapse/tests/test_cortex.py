@@ -832,7 +832,7 @@ class CortexBaseTest(SynTest):
         # By TYPE using COMP nodes
         self.eq(len(core.getTufosBy('type', 'inet:netmemb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
         self.eq(len(core.getTufosBy('type', 'inet:netmemb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
-        self.eq(len(core.getTufosBy('type', 'inet:netuser', 'vertex.link/invisig0th')), 2)
+        self.eq(len(core.getTufosBy('type', 'inet:web:acct', 'vertex.link/invisig0th')), 2)
 
         # BY CIDR
         tlib = s_types.TypeLib()
@@ -1024,11 +1024,11 @@ class CortexTest(SynTest):
             self.eq(len(core.getTufosByProp('strform:bar', valu='zap')), 1)
 
         # Try using setprops with an built-in model which type subprops
-        t0 = core.formTufoByProp('inet:netuser', 'vertex.link/pennywise')
-        self.notin('inet:netuser:email', t0[1])
+        t0 = core.formTufoByProp('inet:web:acct', 'vertex.link/pennywise')
+        self.notin('inet:web:acct:email', t0[1])
         props = {'email': 'pennywise@vertex.link'}
         core.setTufoProps(t0, **props)
-        self.isin('inet:netuser:email', t0[1])
+        self.isin('inet:web:acct:email', t0[1])
         t1 = core.getTufoByProp('inet:email', 'pennywise@vertex.link')
         self.nn(t1)
 
@@ -2090,8 +2090,8 @@ class CortexTest(SynTest):
 
     def test_cortex_norm_fail(self):
         with self.getRamCore() as core:
-            core.formTufoByProp('inet:netuser', 'vertex.link/visi')
-            self.raises(BadTypeValu, core.eval, 'inet:netuser="totally invalid input"')
+            core.formTufoByProp('inet:web:acct', 'vertex.link/visi')
+            self.raises(BadTypeValu, core.eval, 'inet:web:acct="totally invalid input"')
 
     def test_cortex_local(self):
         splices = []

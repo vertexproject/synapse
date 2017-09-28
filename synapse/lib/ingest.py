@@ -437,7 +437,7 @@ class Ingest(EventBus):
                             ["link", { "props":{"tld":1} } ],
                         ]],
 
-                        ["inet:netuser",[
+                        ["inet:web:acct",[
                             ["rootkit.com/metr0", { "props":{"email":"metr0@kenshoto.com"} } ],
                             ["twitter.com/invisig0th", { "props":{"email":"visi@vertex.link"} } ]
                         ]],

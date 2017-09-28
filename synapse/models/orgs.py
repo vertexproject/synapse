@@ -43,7 +43,7 @@ class OuMod(CoreModule):
                 ('ou:hashost', {'subof': 'comp', 'fields': 'org,ou:org|host,it:host'}),
                 ('ou:hasemail', {'subof': 'comp', 'fields': 'org,ou:org|email,inet:email'}),
                 ('ou:hasphone', {'subof': 'comp', 'fields': 'org,ou:org|phone,tel:phone'}),
-                ('ou:hasnetuser', {'subof': 'comp', 'fields': 'org,ou:org|netuser,inet:netuser'}),
+                ('ou:hasnetuser', {'subof': 'comp', 'fields': 'org,ou:org|netuser,inet:web:acct'}),
 
             ),
 
@@ -121,7 +121,7 @@ class OuMod(CoreModule):
                 ]),
                 ('ou:hasnetuser', {}, [
                     ('org', {'ptype': 'ou:org', 'ro': 1}),
-                    ('netuser', {'ptype': 'inet:netuser', 'ro': 1}),
+                    ('netuser', {'ptype': 'inet:web:acct', 'ro': 1}),
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
                 ]),

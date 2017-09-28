@@ -204,11 +204,11 @@ class InetModelTest(SynTest):
             self.eq(unicode_tufo, idna_tufo)
 
         with self.getRamCore() as core:
-            prop = 'inet:netuser'
+            prop = 'inet:web:acct'
             valu = '%s/%s' % ('xn--tst-6la.xn--xampl-3raf.link', 'user')
             tufo = core.formTufoByProp(prop, valu)
-            self.eq(tufo[1].get('inet:netuser:site'), 'xn--tst-6la.xn--xampl-3raf.link')
-            self.eq(tufo[1].get('inet:netuser'), 'tèst.èxamplè.link/user')
+            self.eq(tufo[1].get('inet:web:acct:site'), 'xn--tst-6la.xn--xampl-3raf.link')
+            self.eq(tufo[1].get('inet:web:acct'), 'tèst.èxamplè.link/user')
             idna_valu = 'xn--tst-6la.xn--xampl-3raf.link'
 
         with self.getRamCore() as core:
@@ -341,7 +341,7 @@ class InetModelTest(SynTest):
 
             node1 = core.formTufoByProp('inet:netpost', ('vertex.link/visi', 'whos there'), time='20141217010102', replyto=iden)
 
-            self.nn(core.getTufoByProp('inet:netuser', 'vertex.link/visi'))
+            self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/visi'))
 
             self.eq(node0[1].get('inet:netpost:netuser:user'), 'visi')
             self.eq(node1[1].get('inet:netpost:netuser:user'), 'visi')
@@ -361,8 +361,8 @@ class InetModelTest(SynTest):
             self.eq(node[1].get('inet:netmesg:time'), 2554848000000)
             self.eq(node[1].get('inet:netmesg:text'), 'hehe haha')
 
-            self.nn(core.getTufoByProp('inet:netuser', 'vertex.link/visi'))
-            self.nn(core.getTufoByProp('inet:netuser', 'vertex.link/hehe'))
+            self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/visi'))
+            self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/hehe'))
 
     def test_model_inet_netmemb(self):
 
@@ -376,8 +376,8 @@ class InetModelTest(SynTest):
             self.eq(node[1].get('inet:netmemb:user'), 'vertex.link/visi')
             self.eq(node[1].get('inet:netmemb:group'), 'vertex.link/kenshoto')
 
-            self.nn(core.getTufoByProp('inet:netuser', 'vertex.link/visi'))
-            self.nn(core.getTufoByProp('inet:netgroup', 'vertex.link/kenshoto'))
+            self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/visi'))
+            self.nn(core.getTufoByProp('inet:web:group', 'vertex.link/kenshoto'))
 
     def test_model_inet_follows(self):
 
@@ -468,8 +468,8 @@ class InetModelTest(SynTest):
             self.eq(t0[1].get('inet:web:logon:netuser:site'), 'vertex.link')
 
             # Pivot from a netuser to the netlogon forms via storm
-            self.nn(core.getTufoByProp('inet:netuser', 'vertex.link/pennywise'))
-            nodes = core.eval('inet:netuser=vertex.link/pennywise inet:netuser -> inet:web:logon:netuser')
+            self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/pennywise'))
+            nodes = core.eval('inet:web:acct=vertex.link/pennywise inet:web:acct -> inet:web:logon:netuser')
             self.eq(len(nodes), 1)
 
             t0 = core.setTufoProps(t0, ipv4=0x01020304, logout=tick + 1, ipv6='0:0:0:0:0:0:0:1')
@@ -588,3 +588,102 @@ class InetModelTest(SynTest):
                 self.eq(node[1].get('inet:whois:recns:ns'), 'ns1.vertex.link')
                 self.eq(node[1].get('inet:whois:recns:rec:fqdn'), 'vertex.link')
                 self.eq(node[1].get('inet:whois:recns:rec:asof'), 1505746860000)
+
+    def test_model_inet_201709271521(self):
+
+        N = 2
+        adds = []
+
+        tag1_iden = guid()
+        tag2_iden = guid()
+        tag1_tick = now()
+        tag2_tick = now()
+
+        adds.extend([
+            (tag1_iden, 'syn:tagform:title', '??', tag1_tick),
+            (tag1_iden, 'syn:tagform', guid(), tag1_tick),
+            (tag1_iden, 'tufo:form', 'syn:tagform', tag1_tick),
+            (tag1_iden, 'syn:tagform:tag', 'hehe.hoho', tag1_tick),
+            (tag1_iden, 'syn:tagform:form', 'inet:netuser', tag1_tick),
+            (tag1_iden, 'syn:tagform:doc', '??', tag1_tick),
+
+            (tag2_iden, 'syn:tagform:title', '??', tag2_tick),
+            (tag2_iden, 'syn:tagform', guid(), tag2_tick),
+            (tag2_iden, 'tufo:form', 'syn:tagform', tag2_tick),
+            (tag2_iden, 'syn:tagform:tag', 'hehe', tag2_tick),
+            (tag2_iden, 'syn:tagform:form', 'inet:netuser', tag2_tick),
+            (tag2_iden, 'syn:tagform:doc', '??', tag2_tick),
+        ])
+
+        for i in range(N):
+            user = 'pennywise%d' % i
+            iden = guid()
+            dark_iden = iden[::-1]
+            tick = now()
+            adds.extend([
+                (iden, 'tufo:form', 'inet:web:acct', tick),
+                (iden, 'inet:netuser', 'vertex.link/' + user, tick),
+                (iden, 'inet:netuser:site', 'vertex.link', tick),
+                (iden, 'inet:netuser:user', user, tick),
+                (iden, 'inet:netuser:dob', 1337, tick),
+                (iden, '#hehe.hoho', tick, tick),
+                (iden, '#hehe', tick, tick),
+                (dark_iden, '_:*inet:netuser#hehe.hoho', tick, tick),
+                (dark_iden, '_:*inet:netuser#hehe', tick, tick),
+            ])
+
+        for i in range(N):
+            group = 'group%d' % i
+            iden = guid()
+            tick = now()
+            adds.extend([
+                (iden, 'tufo:form', 'inet:netgroup', tick),
+                (iden, 'inet:netgroup', 'vertex.link/' + group, tick),
+                (iden, 'inet:netgroup:site', 'vertex.link', tick),
+                (iden, 'inet:netgroup:name', group, tick),
+                (iden, 'inet:netgroup:desc', 'hehe', tick),
+                (iden, '#hehe.hoho', tick, tick),
+                (iden, '#hehe', tick, tick),
+            ])
+
+        with s_cortex.openstore('ram:///') as stor:
+
+            # force model migration callbacks
+            stor.setModlVers('inet', 0)
+
+            def addrows(mesg):
+                stor.addRows(adds)
+            stor.on('modl:vers:rev', addrows, name='inet', vers=201709271521)
+
+            with s_cortex.fromstore(stor) as core:
+
+                # assert that the correct number of users and groups were migrated
+                tufos = core.getTufosByProp('inet:web:acct')
+                self.len(N, tufos)
+                tufos = core.getTufosByProp('inet:web:group')
+                self.len(N, tufos)
+
+                # check that properties were correctly migrated and tags were not damaged
+                tufo = core.getTufoByProp('inet:web:acct', 'vertex.link/pennywise0')
+                self.eq(tufo[1]['inet:web:acct'], 'vertex.link/pennywise0')
+                self.eq(tufo[1]['inet:web:acct:user'], 'pennywise0')
+                self.eq(tufo[1]['inet:web:acct:site'], 'vertex.link')
+                self.eq(tufo[1]['inet:web:acct:dob'], 1337)
+                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('_:*inet:netuser#hehe.hoho'))
+                self.len(0, core.getRowsByProp('_:*inet:netuser#hehe'))
+                self.len(2, core.getRowsByProp('_:*inet:web:acct#hehe.hoho'))
+                self.len(2, core.getRowsByProp('_:*inet:web:acct#hehe'))
+
+                tufo = core.getTufoByProp('inet:web:group', 'vertex.link/group0')
+                self.eq(tufo[1]['inet:web:group'], 'vertex.link/group0')
+                self.eq(tufo[1]['inet:web:group:site'], 'vertex.link')
+                self.eq(tufo[1]['inet:web:group:name'], 'group0')
+                self.eq(tufo[1]['inet:web:group:desc'], 'hehe')
+                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+
+                # assert that no inet:web:acct remains
+                tufos = core.getTufosByProp('inet:netuser')
+                self.len(0, tufos)
+                rows = core.getJoinByProp('inet:netuser')
+                self.len(0, rows)
