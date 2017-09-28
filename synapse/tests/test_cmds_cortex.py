@@ -1,9 +1,4 @@
 import re
-from contextlib import contextmanager
-
-import synapse.cortex as s_cortex
-import synapse.daemon as s_daemon
-import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
 import synapse.cmds.cortex as s_cmds_cortex
@@ -11,29 +6,6 @@ import synapse.cmds.cortex as s_cmds_cortex
 from synapse.tests.common import *
 
 class SynCmdCoreTest(SynTest):
-
-    @contextmanager
-    def getDmonCore(self):
-
-        dmon = s_daemon.Daemon()
-        core = s_cortex.openurl('ram:///')
-        self.addTstForms(core)
-
-        link = dmon.listen('tcp://127.0.0.1:0/')
-        dmon.share('core00', core)
-        port = link[1].get('port')
-        prox = s_telepath.openurl('tcp://127.0.0.1/core00', port=port)
-
-        s_scope.set('syn:test:link', link)
-        #s_scope.set('syn:test:dmon',dmon)
-
-        s_scope.set('syn:cmd:core', prox)
-
-        yield prox
-
-        prox.fini()
-        core.fini()
-        dmon.fini()
 
     def getCoreCmdr(self, core):
         outp = s_output.OutPutStr()

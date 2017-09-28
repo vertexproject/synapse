@@ -661,7 +661,8 @@ class Daemon(EventBus, DmonConf):
             return sock.tx(s_common.tufo('job:done', jid=jid, ret=True))
 
         except Exception as e:
-            sock.tx(s_common.tufo('job:done', jid=jid, **s_common.excinfo(e)))
+            errinfo = s_common.excinfo(e)
+            sock.tx(s_common.tufo('job:done', jid=jid, err=errinfo.get('err'), errinfo=errinfo))
 
     def _onTeleOffMesg(self, sock, mesg):
         # set the socket tx method as the callback
@@ -682,7 +683,8 @@ class Daemon(EventBus, DmonConf):
             return sock.tx(s_common.tufo('job:done', jid=jid, ret=True))
 
         except Exception as e:
-            return sock.tx(s_common.tufo('job:done', jid=jid, **s_common.excinfo(e)))
+            errinfo = s_common.excinfo(e)
+            sock.tx(s_common.tufo('job:done', jid=jid, err=errinfo.get('err'), errinfo=errinfo))
 
     def _reqUserAllowed(self, user, *perms):
         if not self._isUserAllowed(user, *perms):
@@ -792,7 +794,8 @@ class Daemon(EventBus, DmonConf):
                 sock.tx(s_common.tufo('job:done', jid=jid, ret=ret))
 
             except Exception as e:
-                sock.tx(s_common.tufo('job:done', jid=jid, **s_common.excinfo(e)))
+                errinfo = s_common.excinfo(e)
+                sock.tx(s_common.tufo('job:done', jid=jid, err=errinfo.get('err'), errinfo=errinfo))
 
     def listen(self, linkurl, **opts):
         '''
