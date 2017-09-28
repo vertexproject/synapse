@@ -24,15 +24,16 @@ class CommonTest(SynTest):
         self.ne(iden0, iden1)
         self.eq(iden1, iden2)
 
-class CompatTest(SynTest):
-
     def test_compat_canstor(self):
         self.true(0xf0f0)
         self.true(0xf0f0f0f0f0f0)
         self.true(canstor('asdf'))
         self.true(canstor(u'asdf'))
+        # Ensure the previous two strings are actually the same string.
+        self.eq(sys.intern('asdf'), sys.intern(u'asdf'))
 
         self.false(canstor(True))
+        self.false(canstor(b'asdf'))
         self.false(canstor(('asdf',)))
         self.false(canstor(['asdf', ]))
         self.false(canstor({'asdf': True}))

@@ -182,12 +182,4 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
         return 'postgres'
 
     def _prepBlobValu(self, valu):
-        '''
-
-        Args:
-            valu (bytes): BlobValu to prep
-
-        Returns:
-
-        '''
         return memoryview(valu)

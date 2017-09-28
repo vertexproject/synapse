@@ -36,10 +36,6 @@ import synapse.lib.ingest as s_ingest
 import synapse.lib.config as s_config
 import synapse.lib.threads as s_threads
 
-def url_quote_plus(s):
-    #######url_quote_plus
-    return urllib.parse.quote_plus(s)
-
 logger = logging.getLogger(__name__)
 
 MIN_WORKER_THREADS = 'web:worker:threads:min'
