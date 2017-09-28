@@ -494,7 +494,7 @@ class Ingest(EventBus):
         for tagv in info.get('tags', ()):
 
             # if it's a simple tag string, add and move along
-            if s_common.isstr(tagv):
+            if isinstance(tagv, str):
                 scope.add('tags', tagv.lower())
                 continue
 

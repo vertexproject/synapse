@@ -8,6 +8,7 @@ Load rows from a savefile (or a dumprows file) into a Cortex Storage object.
 """
 # Stdlib
 import sys
+import gzip
 import time
 import logging
 import argparse
@@ -63,7 +64,7 @@ def main(argv, outp=None):
             nrows = 0
             for event in gen:
                 if decompress and 'rows' in event[1]:
-                    event[1]['rows'] = s_common.msgunpack(s_common.gzip_decompress(event[1].get('rows')))
+                    event[1]['rows'] = s_common.msgunpack(gzip.decompress(event[1].get('rows')))
                 i += 1
                 if i % 250 == 0:
                     outp.printf('Loaded {} events'.format(i))

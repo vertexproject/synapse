@@ -455,7 +455,7 @@ class Daemon(EventBus, DmonConf):
 
         # process a few daemon specific options
         for url in conf.get('listen', ()):
-            if s_common.isstr(url):
+            if isinstance(url, str):
                 self.listen(url)
                 continue
 

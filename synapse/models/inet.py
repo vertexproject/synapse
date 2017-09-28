@@ -46,10 +46,10 @@ def ipv4cidr(valu):
 class IPv4Type(DataType):
 
     def norm(self, valu, oldval=None):
-        if s_common.isstr(valu):
+        if isinstance(valu, str):
             return self._norm_str(valu, oldval=oldval)
 
-        if not s_common.isint(valu):
+        if not isinstance(valu, int):
             self._raiseBadValu(valu)
 
         return valu & 0xffffffff, {}
@@ -140,7 +140,7 @@ class Srv4Type(DataType):
         return '%s:%d' % (ipv4str(addr), port)
 
     def norm(self, valu, oldval=None):
-        if s_common.isstr(valu):
+        if isinstance(valu, str):
             return self._norm_str(valu, oldval=oldval)
 
         addr = valu >> 16

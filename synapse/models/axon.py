@@ -84,7 +84,7 @@ class AxonPathType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if not (s_common.isstr(valu) and len(valu) > 0):
+        if not (isinstance(valu, str) and len(valu) > 0):
             self._raiseBadValu(valu)
 
         leadingslash = '/' if valu.startswith('/') else ''

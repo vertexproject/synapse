@@ -42,7 +42,7 @@ rstlvls = [
 ]
 
 def reprvalu(valu):
-    if s_common.isstr(valu):
+    if isinstance(valu, str):
         return repr(valu)
     return '%d (0x%x)' % (valu, valu)
 

@@ -62,7 +62,7 @@ def digits(text):
 class PhoneType(DataType):
     def norm(self, valu, oldval=None):
 
-        if s_common.isstr(valu):
+        if isinstance(valu, str):
             valu = int(digits(valu))
 
         subs = {}

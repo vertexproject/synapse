@@ -155,7 +155,7 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
 
         limit = self._getDbLimit(limit)
 
-        if s_common.isint(valus[0]):
+        if isinstance(valus[0], int):
             q = self._q_getjoin_by_in_int
         else:
             q = self._q_getjoin_by_in_str
@@ -182,4 +182,12 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
         return 'postgres'
 
     def _prepBlobValu(self, valu):
-        return s_common.bytesToMem(valu)
+        '''
+
+        Args:
+            valu (bytes): BlobValu to prep
+
+        Returns:
+
+        '''
+        return memoryview(valu)

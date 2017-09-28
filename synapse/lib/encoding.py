@@ -5,7 +5,7 @@ import synapse.common as s_common
 def _de_base64(item, **opts):
 
     # transparently handle the strings/bytes issue...
-    wasstr = s_common.isstr(item)
+    wasstr = isinstance(item, str)
     if wasstr:
         item = item.encode('utf8')
 

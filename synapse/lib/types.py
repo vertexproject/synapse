@@ -83,7 +83,7 @@ class GuidType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if not s_common.isstr(valu) or len(valu) < 1:
+        if not isinstance(valu, str) or len(valu) < 1:
             self._raiseBadValu(valu)
 
         # generate me one.  we dont care.
@@ -143,10 +143,10 @@ class StrType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if self.frobintfmt and s_common.isint(valu):
+        if self.frobintfmt and isinstance(valu, int):
             valu = self.frobintfmt % valu
 
-        if not s_common.isstr(valu):
+        if not isinstance(valu, str):
             self._raiseBadValu(valu)
 
         if self.info.get('lower'):
@@ -173,7 +173,7 @@ class JsonType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if not s_common.isstr(valu):
+        if not isinstance(valu, str):
             return json.dumps(valu, separators=(',', ':')), {}
 
         try:
@@ -209,14 +209,14 @@ class IntType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if s_common.isstr(valu):
+        if isinstance(valu, str):
             try:
                 valu = int(valu, 0)
             except ValueError as e:
-                self._raiseBadValu(valu)
+                self._raiseBadValu(valu, mesg='Unable to cast valu to int')
 
-        if not s_common.isint(valu):
-            self._raiseBadValu(valu)
+        if not isinstance(valu, int):
+            self._raiseBadValu(valu, mesg='Valu is not an int')
 
         if oldval is not None and self.minmax:
             valu = self.minmax(valu, oldval)
@@ -405,7 +405,7 @@ class CompType(DataType):
     def norm(self, valu, oldval=None):
 
         # if it's already a guid, we have nothing to normalize...
-        if s_common.isstr(valu):
+        if isinstance(valu, str):
             return self._norm_str(valu, oldval=oldval)
 
         if not islist(valu):
@@ -441,7 +441,7 @@ class XrefType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if s_common.isstr(valu):
+        if isinstance(valu, str):
             return self._norm_str(valu, oldval=oldval)
 
         if not islist(valu):
@@ -516,7 +516,7 @@ class TimeType(DataType):
         subs = {}
 
         # make the string into int form then apply our min/max
-        if s_common.isstr(valu):
+        if isinstance(valu, str):
             valu, subs = self._norm_str(valu, oldval=oldval)
 
         if oldval is not None and self.minmax:
@@ -541,7 +541,7 @@ class SeprType(MultiFieldType):
         subs = {}
         reprs = []
 
-        if s_common.isstr(valu):
+        if isinstance(valu, str):
             valu = self._split_str(valu)
 
         # only other possiblity should be that it was a list
@@ -579,7 +579,7 @@ class SeprType(MultiFieldType):
 
 class BoolType(DataType):
     def norm(self, valu, oldval=None):
-        if s_common.isstr(valu):
+        if isinstance(valu, str):
             valu = valu.lower()
             if valu in ('true', 't', 'y', 'yes', '1', 'on'):
                 return 1, {}
@@ -653,7 +653,7 @@ class PropValuType(DataType):
 
     def norm(self, valu, oldval=None):
         # if it's already a str, we'll need to split it into its two parts to norm.
-        if s_compat.isstr(valu):
+        if isinstance(valu, str):
             return self._norm_str(valu, oldval=oldval)
 
         if not islist(valu):
@@ -688,7 +688,7 @@ class PropValuType(DataType):
             self._raiseBadValu(valu, mesg='Unable to norm PropValu', prop=prop)
 
         subs = {'prop': prop}
-        if s_compat.isstr(nvalu):
+        if isinstance(nvalu, str):
             subs['strval'] = nvalu
         else:
             subs['intval'] = nvalu

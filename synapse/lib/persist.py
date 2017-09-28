@@ -1,6 +1,7 @@
 '''
 Tools for persisting msgpack compatible objects.
 '''
+import io
 import os
 import time
 import struct
@@ -308,7 +309,7 @@ class File(s_eventbus.EventBus):
         s_eventbus.EventBus.__init__(self)
 
         if fd is None:
-            fd = s_common.BytesIO()
+            fd = io.BytesIO()
 
         fd.seek(0, os.SEEK_END)
 

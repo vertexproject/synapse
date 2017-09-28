@@ -1,3 +1,5 @@
+import io
+
 import synapse.axon as s_axon
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
@@ -115,7 +117,7 @@ class FileModelTest(SynTest):
 
     def test_model_file_bytes_axon(self):
 
-        fd = BytesIO(b'foobar')
+        fd = io.BytesIO(b'foobar')
 
         # create an cortex with access to an axon
         with self.getTestDir() as dirname:

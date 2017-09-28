@@ -242,7 +242,7 @@ def getModDefImps(moddef):
         return ()
 
     i = 0
-    ops = list(s_common.iterbytes(modcode.co_code))
+    ops = list(iter(modcode.co_code))
 
     names = modcode.co_names
     lastname = None

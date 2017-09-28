@@ -1,4 +1,5 @@
 import os
+import queue
 import fnmatch
 import tarfile
 import zipfile
@@ -524,7 +525,7 @@ def parsePaths(*paths):
 
     ends_ct = 0
 
-    bases = s_common.queue.Queue()
+    bases = queue.Queue()
     bases.put(base)
 
     try:
@@ -542,7 +543,7 @@ def parsePaths(*paths):
                     yield nex
                     ends_ct += 1
                 base.close()
-            except s_common.queue.Empty as e:
+            except queue.Empty as e:
                 break
 
     except s_common.NoSuchPath as e:

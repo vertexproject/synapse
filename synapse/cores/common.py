@@ -2237,11 +2237,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             itype = type(item)
 
-            if itype in s_common.numtypes:
+            if isinstance(itype, int):
                 props.append((path, item))
                 continue
 
-            if itype in s_common.strtypes:
+            if isinstance(itype, str):
                 props.append((path, item))
                 continue
 

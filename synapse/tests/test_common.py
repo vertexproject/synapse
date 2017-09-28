@@ -36,13 +36,3 @@ class CompatTest(SynTest):
         self.false(canstor(('asdf',)))
         self.false(canstor(['asdf', ]))
         self.false(canstor({'asdf': True}))
-
-    def test_compat_quote(self):
-        self.eq(url_quote('asdf'), 'asdf')
-        self.eq(url_quote('asdf&foo'), 'asdf%26foo')
-        self.eq(url_quote('asdf foo'), 'asdf%20foo')
-
-    def test_compat_quote_plus(self):
-        self.eq(url_quote_plus('asdf'), 'asdf')
-        self.eq(url_quote_plus('asdf&foo'), 'asdf%26foo')
-        self.eq(url_quote_plus('asdf foo'), 'asdf+foo')

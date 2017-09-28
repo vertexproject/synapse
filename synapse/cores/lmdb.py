@@ -1,6 +1,7 @@
 import sys
 import struct
 import logging
+import functools
 from binascii import unhexlify
 
 from contextlib import contextmanager
@@ -95,7 +96,7 @@ def _encValKey(v):
     interleaving of value types: all string encodings compare larger than all negative number
     encodings compare larger than all nonnegative encodings.
     '''
-    if s_common.isint(v):
+    if isinstance(v, int):
         if v >= 0:
             return s_common.msgenpack(v)
         else:
@@ -108,13 +109,13 @@ def _encValKey(v):
 
 # Really just want to memoize the last iden encoded, but there might be some multithreading, so keep
 # a few more (8)
-@s_common.lru_cache(maxsize=8)
+@functools.lru_cache(maxsize=8)
 def _encIden(iden):
     ''' Encode an iden '''
     return unhexlify(iden)
 
 # Try to memoize most of the prop names we get
-@s_common.lru_cache(maxsize=1024)
+@functools.lru_cache(maxsize=1024)
 def _encProp(prop):
     return msgpack.dumps(prop, encoding='utf-8')
 
@@ -492,9 +493,9 @@ class LmdbStorage(s_cores_storage.Storage):
                 key, value = cursor.item()
                 if key[:len(i_enc)] != i_enc:
                     return
-                p_enc = s_common.memToBytes(key[len(i_enc):])
+                p_enc = key[len(i_enc):].tobytes()
                 # Need to copy out with tobytes because we're deleting
-                pk_enc = s_common.memToBytes(value)
+                pk_enc = value.tobytes()
 
                 if not cursor.delete():
                     raise s_common.BadCoreStore(store='lmdb', mesg='Delete failure')
@@ -517,7 +518,7 @@ class LmdbStorage(s_cores_storage.Storage):
                 if key[:len(first_key)] != first_key:
                     return
                 # Need to copy out with tobytes because we're deleting
-                pk_enc = s_common.memToBytes(value)
+                pk_enc = value.tobytes()
 
                 # Delete the row and the other indices
                 if not self._delRowAndIndices(txn, pk_enc, i_enc=i_enc, p_enc=p_enc,
@@ -581,7 +582,7 @@ class LmdbStorage(s_cores_storage.Storage):
             if not cursor.set_range(first_key):
                 raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
             for key, value in cursor:
-                if s_common.memToBytes(key) != first_key:
+                if key.tobytes() != first_key:
                     return ret
                 row = self._getRowByPkValEnc(txn, value)
                 if valu is not None and row[2] != valu:
@@ -610,7 +611,7 @@ class LmdbStorage(s_cores_storage.Storage):
                     if key[:len(first_key)] != first_key:
                         break
                 else:
-                    if s_common.memToBytes(key) >= last_key:
+                    if key.tobytes() >= last_key:
                         break
                 if v_is_hashed or not do_count_only:
                     row = self._getRowByPkValEnc(txn, pk_enc)
@@ -640,7 +641,7 @@ class LmdbStorage(s_cores_storage.Storage):
                     if key[:len(first_key)] != first_key:
                         break
                 else:
-                    if s_common.memToBytes(key) >= last_key:
+                    if key.tobytes() >= last_key:
                         break
 
                 if self._delRowAndIndices(txn, pk_enc,
@@ -742,7 +743,7 @@ class LmdbStorage(s_cores_storage.Storage):
             if am_going_backwards:
                 # set_range sets the cursor at the first key >= first_key, if we're going backwards
                 # we actually want the first key <= first_key
-                if s_common.memToBytes(cursor.key()[:len(first_key)]) > first_key:
+                if cursor.key()[:len(first_key)].tobytes() > first_key:
                     if not cursor.prev():
                         raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
                 it = cursor.iterprev(keys=True, values=True)
@@ -750,7 +751,7 @@ class LmdbStorage(s_cores_storage.Storage):
                 it = cursor.iternext(keys=True, values=True)
 
             for key, value in it:
-                if term_cmp(s_common.memToBytes(key[:len(last_key)]), last_key):
+                if term_cmp(key[:len(last_key)].tobytes(), last_key):
                     break
                 count += 1
                 if not do_count_only:

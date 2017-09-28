@@ -9,6 +9,7 @@ Dump all of the rows from a cortex storage instance.
 # Stdlib
 import os
 import sys
+import gzip
 import json
 import time
 import logging
@@ -62,7 +63,7 @@ def dump_rows(outp, fd, store, compress=False, genrows_kwargs=None):
         i += len(rows)
         tufo = s_tufo.tufo('core:save:add:rows', rows=rows)
         if compress:
-            tufo[1]['rows'] = s_common.gzip_compress(s_common.msgenpack(rows))
+            tufo[1]['rows'] = gzip.compress(s_common.msgenpack(rows), 9)
         byts = s_common.msgenpack(tufo)
         bufs.append(byts)
         cur_bytes += len(byts)

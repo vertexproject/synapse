@@ -1,6 +1,5 @@
+import sys
 import collections
-
-from synapse.common import isint, intern
 
 import synapse.cores.xact as s_xact
 import synapse.cores.common as s_cores_common
@@ -77,12 +76,13 @@ class RamStorage(s_cores_storage.Storage):
 
     def sizeByRange(self, prop, valu, limit=None):
         minval, maxval = valu[0], valu[1]
-        return sum(1 for r in self.rowsbyprop.get(prop, ()) if isint(r[2]) and r[2] >= minval and r[2] < maxval)
+        return sum(1 for r in self.rowsbyprop.get(prop, ()) if isinstance(r[2], int) and r[2] >= minval and r[2] <
+                   maxval)
 
     def rowsByRange(self, prop, valu, limit=None):
         minval, maxval = valu[0], valu[1]
         # HACK: for speed
-        ret = [r for r in self.rowsbyprop.get(prop, ()) if isint(r[2]) and r[2] >= minval and r[2] < maxval]
+        ret = [r for r in self.rowsbyprop.get(prop, ()) if isinstance(r[2], int) and r[2] >= minval and r[2] < maxval]
 
         if limit is not None:
             ret = ret[:limit]
@@ -90,20 +90,20 @@ class RamStorage(s_cores_storage.Storage):
         return ret
 
     def sizeByGe(self, prop, valu, limit=None):
-        return sum(1 for r in self.rowsbyprop.get(prop, ()) if isint(r[2]) and r[2] >= valu)
+        return sum(1 for r in self.rowsbyprop.get(prop, ()) if isinstance(r[2], int) and r[2] >= valu)
 
     def rowsByGe(self, prop, valu, limit=None):
-        return [r for r in self.rowsbyprop.get(prop, ()) if isint(r[2]) and r[2] >= valu][:limit]
+        return [r for r in self.rowsbyprop.get(prop, ()) if isinstance(r[2], int) and r[2] >= valu][:limit]
 
     def sizeByLe(self, prop, valu, limit=None):
-        return sum(1 for r in self.rowsbyprop.get(prop, ()) if isint(r[2]) and r[2] <= valu)
+        return sum(1 for r in self.rowsbyprop.get(prop, ()) if isinstance(r[2], int) and r[2] <= valu)
 
     def rowsByLe(self, prop, valu, limit=None):
-        return [r for r in self.rowsbyprop.get(prop, ()) if isint(r[2]) and r[2] <= valu][:limit]
+        return [r for r in self.rowsbyprop.get(prop, ()) if isinstance(r[2], int) and r[2] <= valu][:limit]
 
     def _addRows(self, rows):
         for row in rows:
-            row = (intern(row[0]), intern(row[1]), row[2], row[3])
+            row = (sys.intern(row[0]), sys.intern(row[1]), row[2], row[3])
             self.rowsbyid[row[0]].add(row)
             self.rowsbyprop[row[1]].add(row)
             self.rowsbyvalu[(row[1], row[2])].add(row)

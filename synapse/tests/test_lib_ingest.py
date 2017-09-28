@@ -1,3 +1,5 @@
+import io
+
 from synapse.tests.common import *
 
 import synapse.cortex as s_cortex
@@ -978,7 +980,7 @@ class IngTest(SynTest):
 
             }
 
-            buf = BytesIO(json.dumps(data).encode())
+            buf = io.BytesIO(json.dumps(data).encode())
 
             ingdata = s_ingest.iterdata(fd=buf, **info.get('open'))
 
@@ -1009,7 +1011,7 @@ class IngTest(SynTest):
 
         }
 
-        buf = BytesIO(json.dumps(data).encode())
+        buf = io.BytesIO(json.dumps(data).encode())
 
         ingdata = s_ingest.iterdata(fd=buf, **{'format': 'json'})
 
@@ -1017,7 +1019,7 @@ class IngTest(SynTest):
             self.nn(_data)
         self.true(buf.closed)
 
-        buf2 = BytesIO(json.dumps(data).encode())
+        buf2 = io.BytesIO(json.dumps(data).encode())
 
         # Leave the file descriptor open.
         ingdata = s_ingest.iterdata(buf2,

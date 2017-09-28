@@ -96,10 +96,10 @@ class DataElem:
                 yield initelem((name, item), name=self.name(), parent=self)
             return
 
-        if s_common.isint(self._d_item):
+        if isinstance(self._d_item, int):
             return
 
-        if s_common.isstr(self._d_item):
+        if isinstance(self._d_item, str):
             return
 
         for i, item in enumerate(self._d_item):
