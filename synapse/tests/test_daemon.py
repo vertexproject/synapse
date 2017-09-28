@@ -25,6 +25,16 @@ class Blah:
 
 class DaemonTest(SynTest):
 
+    def test_daemon_error(self):
+        with self.getDmonCore() as core:
+            try:
+                # Ask for a unserializaoble object. Don't do this in real code.
+                xact = core.getCoreXact()
+            except SynErr as e:
+                self.eq(e.errinfo.get('excname'), 'TypeError')
+                self.isin('msgpack', e.errinfo.get('errfile'))
+                self.isin("can't serialize", e.errinfo.get('errmsg'))
+
     def test_daemon_timeout(self):
 
         daemon = s_daemon.Daemon()
