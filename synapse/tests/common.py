@@ -14,7 +14,9 @@ logging.basicConfig(level=logging.WARNING)
 import synapse.link as s_link
 import synapse.compat as s_compat
 import synapse.cortex as s_cortex
+import synapse.daemon as s_daemon
 import synapse.eventbus as s_eventbus
+import synapse.telepath as s_telepath
 
 import synapse.cores.common as s_cores_common
 
@@ -281,6 +283,32 @@ class SynTest(unittest.TestCase):
         with s_cortex.openurl('ram:///') as core:
             self.addTstForms(core)
             yield core
+
+    @contextlib.contextmanager
+    def getDmonCore(self):
+        '''
+        Context manager to make a ram:/// cortex which has test models loaded into it and shared via daemon.
+
+        Yields:
+            s_cores_common.Cortex: A proxy object to the Ram backed cortex with test models.
+        '''
+        dmon = s_daemon.Daemon()
+        core = s_cortex.openurl('ram:///')
+        self.addTstForms(core)
+
+        link = dmon.listen('tcp://127.0.0.1:0/')
+        dmon.share('core00', core)
+        port = link[1].get('port')
+        prox = s_telepath.openurl('tcp://127.0.0.1/core00', port=port)
+
+        s_scope.set('syn:test:link', link)
+        s_scope.set('syn:cmd:core', prox)
+
+        yield prox
+
+        prox.fini()
+        core.fini()
+        dmon.fini()
 
     @contextlib.contextmanager
     def getTestDir(self):
