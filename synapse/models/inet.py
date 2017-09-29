@@ -144,18 +144,31 @@ class Srv4Type(DataType):
         if s_compat.isstr(valu):
             return self._norm_str(valu, oldval=oldval)
 
+        if valu < 0 or valu > 281474976710655:
+            self._raiseBadValu(valu, mesg='Srv4Type integer is out of bounds')
+
         addr = valu >> 16
         port = valu & 0xffff
         return valu, {'port': port, 'ipv4': addr}
 
     def _norm_str(self, text, oldval=None):
+        if ':' not in text:
+            try:
+                valu = int(text)
+            except ValueError:
+                self._raiseBadValu(text, mesg='Srv4Type string is not a integer or a colon delimited string.')
+            return self.norm(valu)
+
         try:
             astr, pstr = text.split(':')
         except ValueError as e:
-            self._raiseBadValu(text)
+            self._raiseBadValu(text, mesg='Unable to split Srv4Type into two parts')
 
         addr = ipv4int(astr)
         port = int(pstr, 0)
+        if port < 0 or port > 65535:
+            self._raiseBadValu(text, port=port,
+                               mesg='Srv4 Port number is out of bounds')
         return (addr << 16) | port, {'port': port, 'ipv4': addr}
 
 srv6re = re.compile('^\[([a-f0-9:]+)\]:(\d+)$')
