@@ -722,6 +722,29 @@ class Storage(s_config.Config):
         for rows in self._genStoreRows(**kwargs):
             yield rows
 
+    def updateProperty(self, oldprop, newprop):
+        '''
+        Do a whole replacement of one property with another property.
+
+        Args:
+            oldprop (str):
+            newprop (str):
+
+        Examples:
+            pass
+
+        Returns:
+            None
+        '''
+        if oldprop == newprop:
+            raise s_common.BadPropName(mesg='OldProp and newprop cannot be the same.',
+                                       oldprop=oldprop, newprop=newprop)
+
+        if not isinstance(newprop, str):
+            raise s_common.BadPropName('')
+
+        return self._updateProperty(oldprop, newprop)
+
     # The following MUST be implemented by the storage layer in order to
     # support the basic idea of a cortex
 
@@ -1031,6 +1054,19 @@ class Storage(s_config.Config):
             rows = self.getRowsById(iden)
             ret.extend(rows)
         return ret
+
+    def _updateProperty(self, oldprop, newprop):
+        '''
+        Entrypoint for doing in-place property update type operations.
+        This is called by self.updateProperty() to do the actual property update.
+        '''
+        adds = []
+        for i, p, v, t in self.getRowsByProp(oldprop):
+            adds.append((i, newprop, v, t))
+
+        if adds:
+            self.addRows(adds)
+            self.delRowsByProp(oldprop)
 
     # these helpers allow a storage layer to simply implement
     # and register _getTufosByGe and _getTufosByLe
