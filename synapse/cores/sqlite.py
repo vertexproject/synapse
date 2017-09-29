@@ -254,6 +254,7 @@ class SqliteStorage(s_cores_storage.Storage):
     ################################################################################
     _t_uprows_by_iden_prop_str = 'UPDATE {{TABLE}} SET strval={{VALU}} WHERE iden={{IDEN}} and prop={{PROP}}'
     _t_uprows_by_iden_prop_int = 'UPDATE {{TABLE}} SET intval={{VALU}} WHERE iden={{IDEN}} and prop={{PROP}}'
+    _t_uprows_by_prop_prop = 'UPDATE {{TABLE}} SET prop={{NEWVALU}} WHERE prop={{OLDVALU}}'
 
     def _initDbInfo(self):
         name = self._link[1].get('path')[1:]
@@ -535,6 +536,7 @@ class SqliteStorage(s_cores_storage.Storage):
 
         self._q_uprows_by_iden_prop_str = self._prepQuery(self._t_uprows_by_iden_prop_str)
         self._q_uprows_by_iden_prop_int = self._prepQuery(self._t_uprows_by_iden_prop_int)
+        self._q_uprows_by_prop_prop = self._prepQuery(self._t_uprows_by_prop_prop)
 
         self._q_getjoin_by_range_str = self._prepQuery(self._t_getjoin_by_range_str)
         self._q_getjoin_by_range_int = self._prepQuery(self._t_getjoin_by_range_int)
@@ -712,6 +714,9 @@ class SqliteStorage(s_cores_storage.Storage):
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         self._runPropQuery('delrowsbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete, nolim=True)
+
+    def _updateProperty(self, oldprop, newprop):
+        return self.update(self._q_uprows_by_prop_prop, oldvalu=oldprop, newvalu=newprop)
 
     def _genStoreRows(self, **kwargs):
         '''
