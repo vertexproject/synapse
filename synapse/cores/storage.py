@@ -724,7 +724,7 @@ class Storage(s_config.Config):
 
     def updateProperty(self, oldprop, newprop):
         '''
-        Do a whole replacement of one property with another property.
+        Do a wholesale replacement of one property with another property.
 
         Args:
             oldprop (str):
@@ -734,7 +734,7 @@ class Storage(s_config.Config):
             pass
 
         Returns:
-            None
+            int: Number of rows updated in place.
         '''
         if oldprop == newprop:
             raise s_common.BadPropName(mesg='OldProp and newprop cannot be the same.',
@@ -1067,6 +1067,7 @@ class Storage(s_config.Config):
         if adds:
             self.addRows(adds)
             self.delRowsByProp(oldprop)
+        return len(adds)
 
     # these helpers allow a storage layer to simply implement
     # and register _getTufosByGe and _getTufosByLe

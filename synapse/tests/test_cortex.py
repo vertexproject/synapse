@@ -681,14 +681,23 @@ class CortexBaseTest(SynTest):
 
         # form some nodes for doing in-place prop updates on with store.updateProperty()
         nodes = [core.formTufoByProp('inet:tcp4', '10.1.2.{}:80'.format(i)) for i in range(10)]
-        core.store.updateProperty('inet:tcp4:port', 'inet:tcp4:sewernumber')
-        unodes = core.getTufosByProp('inet:tcp4:sewernumber')
+        ret = core.store.updateProperty('inet:tcp4:port', 'inet:tcp4:gatenumber')
+        self.eq(ret, 10)
+
+        # Ensure prop and propvalu indexes are updated
+        self.len(10, core.getRowsByProp('inet:tcp4:gatenumber'))
+        self.len(10, core.getRowsByProp('inet:tcp4:gatenumber', 80))
+        self.len(0, core.getRowsByProp('inet:tcp4:port'))
+        self.len(0, core.getRowsByProp('inet:tcp4:port', 80))
+
+        # Join operations typically involving pivoting by iden so this ensures that iden based indexes are updated
+        unodes = core.getTufosByProp('inet:tcp4:gatenumber')
         self.len(10, unodes)
-        node = unodes[0]
-        self.isin('inet:tcp4', node[1])
-        self.isin('inet:tcp4:ipv4', node[1])
-        self.isin('inet:tcp4:sewernumber', node[1])
-        self.notin('inet:tcp4:port', node[1])
+        for node in unodes:
+            self.isin('inet:tcp4', node[1])
+            self.isin('inet:tcp4:ipv4', node[1])
+            self.isin('inet:tcp4:gatenumber', node[1])
+            self.notin('inet:tcp4:port', node[1])
 
     def runtufobydefault(self, core):
         # Failures should be expected for unknown names

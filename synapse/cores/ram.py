@@ -204,6 +204,49 @@ class RamStorage(s_cores_storage.Storage):
     def getStoreType(self):
         return 'ram'
 
+    def _updateProperty(self, oldprop, newprop):
+        # Make sure new prop is interned
+        newprop = intern(newprop)
+        oldprop = intern(oldprop)
+
+        # Bail if we don't have the oldprop valu
+        if oldprop not in self.rowsbyprop:
+            return
+
+        # Collect / prep sets of data up front
+        rows = self.rowsbyprop.pop(oldprop)
+        rowsid = collections.defaultdict(set)
+        rowsbv = collections.defaultdict(set)
+        for row in rows:
+            rowsid[row[0]].add(row)
+            rowsbv[row[1], row[2]].add(row)
+
+#        ids = {i for i, p, v, t in rows}
+        nrows = {(i, newprop, v, t) for i, p, v, t in rows}
+        nrowsid = collections.defaultdict(set)
+        nrowsbv = collections.defaultdict(set)
+        for row in nrows:
+            nrowsid[row[0]].add(row)
+            nrowsbv[row[1], row[2]].add(row)
+
+        # Update rowsbyprop
+        # We have to account for renaming a property into a existing set
+        self.rowsbyprop[newprop].update(nrows)
+
+        # update rowsbyid
+        for iden, _orowsid in rowsid.items():
+            _nrowsid = nrowsid.get(iden)
+            self.rowsbyid[iden].update(_nrowsid)
+            self.rowsbyid[iden].difference_update(_orowsid)
+
+        #update rowsbyvalu
+        for pv in rowsbv:
+            self.rowsbyvalu.pop(pv)
+        for pv, _nrowsbv in nrowsbv.items():
+            self.rowsbyvalu[pv].update(_nrowsbv)
+
+        return len(nrows)
+
     def _getBlobValu(self, key):
         ret = self._blob_store.get(key)
         return ret
