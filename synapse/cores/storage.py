@@ -87,6 +87,7 @@ class Storage(s_config.Config):
         self.loadbus.on('core:save:del:rows:by:prop', self._loadDelRowsByProp)
         self.loadbus.on('core:save:set:rows:by:idprop', self._loadSetRowsByIdProp)
         self.loadbus.on('core:save:del:rows:by:idprop', self._loadDelRowsByIdProp)
+        self.loadbus.on('core:save:updateproperty', self._loadUpdateProperty)
         self.loadbus.on('syn:core:blob:set', self._onSetBlobValu)
         self.loadbus.on('syn:core:blob:del', self._onDelBlobValu)
 
@@ -722,16 +723,28 @@ class Storage(s_config.Config):
         for rows in self._genStoreRows(**kwargs):
             yield rows
 
+    def _loadUpdateProperty(self, mesg):
+        oldprop = mesg[1].get('oldprop')
+        newprop = mesg[1].get('newprop')
+        self._updateProperty(oldprop, newprop)
+
     def updateProperty(self, oldprop, newprop):
         '''
         Do a wholesale replacement of one property with another property.
 
         Args:
-            oldprop (str):
-            newprop (str):
+            oldprop (str): The orginal property which is removed.
+            newprop (str): The property that is updated in place.
 
         Examples:
-            pass
+            Rename "inet:tcp4:port" to "inet:tcp4:foobar"::
+
+                nrows = store.updateProperty('inet:tcp4:port', 'inet:tcp4:foobar')
+
+        Notes:
+            This API does  fire syn:core:store:updateprop:pre and syn:core:store:updateprop:post events with the old
+            and new property names in it, before and after the property update is done. This API is primarily designed
+            for assisting with Cortex data migrations.
 
         Returns:
             int: Number of rows updated in place.
@@ -741,9 +754,13 @@ class Storage(s_config.Config):
                                        oldprop=oldprop, newprop=newprop)
 
         if not isinstance(newprop, str):
-            raise s_common.BadPropName('')
+            raise s_common.BadPropName(mesg='newprop must be a str', newprop=newprop)
 
-        return self._updateProperty(oldprop, newprop)
+        self.savebus.fire('core:save:updateproperty', oldprop=oldprop, newprop=newprop)
+        self.fire('syn:core:store:updateprop:pre', oldprop=oldprop, newprop=newprop)
+        nrows = self._updateProperty(oldprop, newprop)
+        self.fire('syn:core:store:updateprop:post', oldprop=oldprop, newprop=newprop, nrows=nrows)
+        return nrows
 
     # The following MUST be implemented by the storage layer in order to
     # support the basic idea of a cortex
@@ -1065,8 +1082,8 @@ class Storage(s_config.Config):
             adds.append((i, newprop, v, t))
 
         if adds:
-            self.addRows(adds)
-            self.delRowsByProp(oldprop)
+            self._addRows(adds)
+            self._delRowsByProp(oldprop)
         return len(adds)
 
     # these helpers allow a storage layer to simply implement

@@ -211,7 +211,7 @@ class RamStorage(s_cores_storage.Storage):
 
         # Bail if we don't have the oldprop valu
         if oldprop not in self.rowsbyprop:
-            return
+            return 0
 
         # Collect / prep sets of data up front
         rows = self.rowsbyprop.pop(oldprop)
