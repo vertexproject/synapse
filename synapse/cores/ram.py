@@ -206,8 +206,8 @@ class RamStorage(s_cores_storage.Storage):
 
     def _updateProperty(self, oldprop, newprop):
         # Make sure new prop is interned
-        newprop = intern(newprop)
-        oldprop = intern(oldprop)
+        newprop = sys.intern(newprop)
+        oldprop = sys.intern(oldprop)
 
         # Bail if we don't have the oldprop valu
         if oldprop not in self.rowsbyprop:
