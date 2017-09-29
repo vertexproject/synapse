@@ -1,4 +1,4 @@
-from __future__ import absolute_import, unicode_literals
+import io
 
 import synapse.axon as s_axon
 import synapse.daemon as s_daemon
@@ -117,7 +117,7 @@ class FileModelTest(SynTest):
 
     def test_model_file_bytes_axon(self):
 
-        fd = s_compat.BytesIO(b'foobar')
+        fd = io.BytesIO(b'foobar')
 
         # create an cortex with access to an axon
         with self.getTestDir() as dirname:

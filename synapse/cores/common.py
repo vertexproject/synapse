@@ -4,7 +4,6 @@ import itertools
 import threading
 import collections
 
-import synapse.compat as s_compat
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.reactor as s_reactor
@@ -2238,11 +2237,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             itype = type(item)
 
-            if itype in s_compat.numtypes:
+            if isinstance(itype, int):
                 props.append((path, item))
                 continue
 
-            if itype in s_compat.strtypes:
+            if isinstance(itype, str):
                 props.append((path, item))
                 continue
 

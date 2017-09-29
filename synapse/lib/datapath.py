@@ -2,7 +2,8 @@ import collections
 
 import xml.etree.ElementTree as x_etree
 
-import synapse.compat as s_compat
+import synapse.common as s_common
+
 import synapse.lib.syntax as s_syntax
 
 class DataElem:
@@ -95,10 +96,10 @@ class DataElem:
                 yield initelem((name, item), name=self.name(), parent=self)
             return
 
-        if s_compat.isint(self._d_item):
+        if isinstance(self._d_item, int):
             return
 
-        if s_compat.isstr(self._d_item):
+        if isinstance(self._d_item, str):
             return
 
         for i, item in enumerate(self._d_item):

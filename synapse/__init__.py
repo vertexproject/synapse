@@ -2,11 +2,15 @@
 The synapse distributed key-value hypergraph analysis framework.
 '''
 import os
+import sys
 import msgpack
 import tornado
 import logging
 
 logger = logging.getLogger(__name__)
+
+if (sys.version_info.major, sys.version_info.minor) < (3, 4):
+    raise Exception('synapse is not supported on Python versions < 3.4')
 
 if msgpack.version < (0, 4, 2):
     raise Exception('synapse requires msgpack >= 0.4.2')

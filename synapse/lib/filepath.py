@@ -1,11 +1,11 @@
 import os
+import queue
 import fnmatch
 import tarfile
 import zipfile
 import tempfile
 
 import synapse.common as s_common
-import synapse.compat as s_compat
 
 # 10 MB
 read_chunk_sz = 1048576 * 10
@@ -525,7 +525,7 @@ def parsePaths(*paths):
 
     ends_ct = 0
 
-    bases = s_compat.queue.Queue()
+    bases = queue.Queue()
     bases.put(base)
 
     try:
@@ -543,7 +543,7 @@ def parsePaths(*paths):
                     yield nex
                     ends_ct += 1
                 base.close()
-            except s_compat.queue.Empty as e:
+            except queue.Empty as e:
                 break
 
     except s_common.NoSuchPath as e:

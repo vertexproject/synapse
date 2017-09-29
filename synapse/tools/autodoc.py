@@ -6,8 +6,8 @@ import collections
 
 import synapse
 
+import synapse.common as s_common
 import synapse.cortex as s_cortex
-import synapse.compat as s_compat
 
 import synapse.lib.tufo as s_tufo
 import synapse.lib.config as s_config
@@ -42,7 +42,7 @@ rstlvls = [
 ]
 
 def reprvalu(valu):
-    if s_compat.isstr(valu):
+    if isinstance(valu, str):
         return repr(valu)
     return '%d (0x%x)' % (valu, valu)
 

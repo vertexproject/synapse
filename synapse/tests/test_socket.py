@@ -1,9 +1,3 @@
-from __future__ import absolute_import, unicode_literals
-import unittest
-import threading
-
-import synapse.compat as s_compat
-import synapse.lib.scope as s_scope
 import synapse.lib.socket as s_socket
 
 from synapse.tests.common import *

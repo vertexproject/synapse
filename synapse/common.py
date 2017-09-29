@@ -1,12 +1,12 @@
-from __future__ import absolute_import, unicode_literals
-
 import io
 import os
 import sys
 import json
 import time
 import types
+import base64
 import hashlib
+import builtins
 import functools
 import itertools
 import threading
@@ -18,9 +18,15 @@ from binascii import hexlify
 import synapse.exc as s_exc
 
 from synapse.exc import *
-from synapse.compat import enbase64, debase64, canstor
 
 import msgpack
+
+major = sys.version_info.major
+minor = sys.version_info.minor
+micro = sys.version_info.micro
+
+majmin = (major, minor)
+version = (major, minor, micro)
 
 class NoValu: pass
 
@@ -358,3 +364,26 @@ def rowstotufos(rows):
     res = collections.defaultdict(dict)
     [res[i].__setitem__(p, v) for (i, p, v, t) in rows]
     return list(res.items())
+
+sockerrs = (builtins.ConnectionError, builtins.FileNotFoundError)
+
+def to_bytes(valu, size):
+    return valu.to_bytes(size, byteorder='little')
+
+def to_int(byts):
+    return int.from_bytes(byts, 'little')
+
+def enbase64(b):
+    return base64.b64encode(b).decode('utf8')
+
+def debase64(b):
+    return base64.b64decode(b.encode('utf8'))
+
+def canstor(s):
+    return type(s) in (int, str)
+
+def makedirs(path, mode=0o777):
+    os.makedirs(path, mode=mode, exist_ok=True)
+
+def iterzip(*args):
+    return itertools.zip_longest(*args)

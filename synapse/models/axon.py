@@ -1,7 +1,6 @@
-import stat
-
 import synapse.axon as s_axon
-import synapse.compat as s_compat
+import synapse.common as s_common
+
 from synapse.lib.types import DataType
 from synapse.lib.module import CoreModule, modelrev
 
@@ -85,7 +84,7 @@ class AxonPathType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if not (s_compat.isstr(valu) and len(valu) > 0):
+        if not (isinstance(valu, str) and len(valu) > 0):
             self._raiseBadValu(valu)
 
         leadingslash = '/' if valu.startswith('/') else ''

@@ -1,5 +1,4 @@
-from __future__ import absolute_import, unicode_literals
-
+import io
 import os
 import gzip
 import hashlib
@@ -9,7 +8,6 @@ import unittest
 
 import synapse.link as s_link
 import synapse.common as s_common
-import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
@@ -908,7 +906,7 @@ class CortexTest(SynTest):
             for node in nodes:
                 self.isin('syn:form:ptype', node[1])
                 if 'syn:form:doc' in node[1]:
-                    self.isinstance(node[1].get('syn:form:doc'), s_compat.strtypes)
+                    self.isinstance(node[1].get('syn:form:doc'), str)
                 if 'syn:form:local' in node[1]:
                     self.isinstance(node[1].get('syn:form:local'), int)
 
@@ -920,11 +918,11 @@ class CortexTest(SynTest):
                 self.isin('syn:prop:req', node[1])
                 self.isin('syn:prop:ptype', node[1])
                 if 'syn:prop:doc' in node[1]:
-                    self.isinstance(node[1].get('syn:prop:doc'), s_compat.strtypes)
+                    self.isinstance(node[1].get('syn:prop:doc'), str)
                 if 'syn:prop:base' in node[1]:
-                    self.isinstance(node[1].get('syn:prop:base'), s_compat.strtypes)
+                    self.isinstance(node[1].get('syn:prop:base'), str)
                 if 'syn:prop:title' in node[1]:
-                    self.isinstance(node[1].get('syn:prop:title'), s_compat.strtypes)
+                    self.isinstance(node[1].get('syn:prop:title'), str)
                 if 'syn:prop:defval' in node[1]:
                     dv = node[1].get('syn:prop:defval')
                     if dv is None:
@@ -1098,7 +1096,7 @@ class CortexTest(SynTest):
         core1.fini()
 
     def test_cortex_savefd(self):
-        fd = s_compat.BytesIO()
+        fd = io.BytesIO()
         core0 = s_cortex.openurl('ram://', savefd=fd)
         self.addTstForms(core0)
 

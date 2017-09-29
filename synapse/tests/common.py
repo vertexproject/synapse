@@ -9,10 +9,11 @@ import unittest
 import threading
 import contextlib
 
+import unittest.mock as mock
+
 logging.basicConfig(level=logging.WARNING)
 
 import synapse.link as s_link
-import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.eventbus as s_eventbus
@@ -33,13 +34,8 @@ s_scope.get('plex')
 
 class TooFewEvents(Exception): pass
 
-# Py2/3 SSL Exception Compat
-if s_compat.version >= (3, 0, 0):
-    TstSSLInvalidClientCertErr = ssl.SSLError
-    TstSSLConnectionResetErr = ConnectionResetError
-else:
-    TstSSLInvalidClientCertErr = socket.error
-    TstSSLConnectionResetErr = socket.error
+TstSSLInvalidClientCertErr = socket.error
+TstSSLConnectionResetErr = socket.error
 
 class TstEnv:
 
@@ -80,11 +76,6 @@ class SynTest(unittest.TestCase):
 
     def getTestWait(self, bus, size, *evts):
         return s_eventbus.Waiter(bus, size, *evts)
-
-    def skipIfOldPython(self):
-        python_version = sys.version_info
-        if python_version.major == 2 or (python_version.major == 3 and python_version.minor < 3):
-            raise unittest.SkipTest('old python version')
 
     def skipIfNoInternet(self):
         if os.getenv('SYN_TEST_NO_INTERNET'):

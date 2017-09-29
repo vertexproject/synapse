@@ -1,5 +1,4 @@
 # -*- coding: UTF-8 -*-
-from __future__ import absolute_import, unicode_literals
 import base64
 
 import synapse.cores.common as s_cores_common

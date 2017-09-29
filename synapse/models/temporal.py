@@ -1,12 +1,12 @@
 import datetime
 
-import synapse.compat as s_compat
+import synapse.common as s_common
 
 from synapse.lib.types import DataType
 from synapse.lib.module import CoreModule, modelrev
 
 def fromUnixEpoch(valu):
-    if s_compat.isstr(valu):
+    if isinstance(valu, str):
         valu = int(valu, 0)
     return valu * 1000
 
@@ -27,10 +27,10 @@ class EpochType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if s_compat.isstr(valu):
+        if isinstance(valu, str):
             return self._norm_str(valu, oldval=oldval)
 
-        if not s_compat.isint(valu):
+        if not isinstance(valu, int):
             self._raiseBadValu(valu)
 
         if oldval is not None and self.minmax:

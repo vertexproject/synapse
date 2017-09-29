@@ -1,25 +1,27 @@
 import traceback
 import collections
 
-import synapse.compat as s_compat
+import synapse.common as s_common
+
 import synapse.lib.output as s_output
 import synapse.lib.syntax as s_syntax
 
 from synapse.eventbus import EventBus
 
-
 def get_input(text):  # pragma: no cover
     '''
-    Wrapper for s_compat.user_input() function for testing runCmdLoop.
+    Get input from a user via stdin.
+
+    Notes:
+        This is just a wrapper for input() so mocking does not have to replace builtin functions for testing runCmdLoop.
 
     Args:
-        text (str): Banner to display
+        text (str): Text displayed prior to the input prompt.
 
     Returns:
-        str: User provided string.
+        str: String of text from the user.
     '''
-    return s_compat.user_input(text)
-
+    return input(text)
 
 class CliFini(Exception): pass
 

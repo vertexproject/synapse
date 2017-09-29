@@ -1,6 +1,7 @@
+import io
+
 from synapse.tests.common import *
 
-import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.lib.tufo as s_tufo
 import synapse.lib.ingest as s_ingest
@@ -979,7 +980,7 @@ class IngTest(SynTest):
 
             }
 
-            buf = s_compat.BytesIO(json.dumps(data).encode())
+            buf = io.BytesIO(json.dumps(data).encode())
 
             ingdata = s_ingest.iterdata(fd=buf, **info.get('open'))
 
@@ -1010,7 +1011,7 @@ class IngTest(SynTest):
 
         }
 
-        buf = s_compat.BytesIO(json.dumps(data).encode())
+        buf = io.BytesIO(json.dumps(data).encode())
 
         ingdata = s_ingest.iterdata(fd=buf, **{'format': 'json'})
 
@@ -1018,7 +1019,7 @@ class IngTest(SynTest):
             self.nn(_data)
         self.true(buf.closed)
 
-        buf2 = s_compat.BytesIO(json.dumps(data).encode())
+        buf2 = io.BytesIO(json.dumps(data).encode())
 
         # Leave the file descriptor open.
         ingdata = s_ingest.iterdata(buf2,

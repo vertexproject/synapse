@@ -5,7 +5,6 @@ import collections
 import distutils.sysconfig as sysconfig
 
 import synapse.common as s_common
-import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
 
 import synapse.lib.tags as s_tags
@@ -243,7 +242,7 @@ def getModDefImps(moddef):
         return ()
 
     i = 0
-    ops = list(s_compat.iterbytes(modcode.co_code))
+    ops = list(iter(modcode.co_code))
 
     names = modcode.co_names
     lastname = None
