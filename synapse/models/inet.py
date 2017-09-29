@@ -454,94 +454,71 @@ class InetMod(CoreModule):
         for prop in delprops:
             self.core.delRowsByProp(prop)
 
-    def _renameTagForms(self, oldv, newv):
-
-        adds, dels = [], []
-        if oldv == newv:
-            return  # prevent adding new rows, followed by deleting all of the rows
-
-        print('renaming tagforms from %s to %s' % (oldv, newv))
-        with self.core.getCoreXact():
-            for iden, prop, valu, stamp in self.core.getJoinByProp('syn:tagform:form', oldv):
-                adds.append((iden, prop, newv, stamp),)
-                dels.append((iden, prop),)
-
-            if adds:
-                self.core.addRows(adds)
-
-            for iden, prop in dels:
-                self.core.delRowsByIdProp(iden, prop)
-
-    def _renameTagDarks(self, oldp, newp, dark_idens):
-        dadds, ddels = [], []
-        for iden in dark_idens:
-            for iden, prop, valu, stamp in self.core.getRowsById(iden):
-                newdp = prop.replace(oldp, newp)
-                if newdp == prop:
-                    continue
-                dadds.append((iden, newdp, valu, stamp),)
-                ddels.append((iden, prop),)
-
-        if dadds:
-            self.core.addRows(dadds)
-
-        for iden, prop in ddels:
-            self.core.delRowsByIdProp(iden, prop)  # this isnt working?
-
-    def _renameProp(self, oldp, newp, limit=10000):
-
-        if oldp == newp:
-            return  # prevent adding new rows, followed by deleting all of the rows
-
-        print('renaming props from %s to %s' % (oldp, newp))
-        while True:
-            with self.core.getCoreXact():
-
-                rows = self.core.getRowsByProp(oldp, limit=limit)
-                if not rows:
-                    break
-
-                adds, dels = [], []
-                for iden, prop, valu, stamp in rows:
-                    adds.append((iden, newp, valu, stamp),)
-                    dels.append((iden, prop),)
-
-                if adds:
-                    self.core.addRows(adds)
-
-                dark_idens = set()
-                for iden, prop in dels:
-                    dark_idens.add(iden[::-1])
-                    self.core.delRowsByIdProp(iden, prop)
-
-                self._renameTagDarks(oldp, newp, dark_idens)
-
-        # FIXME can we recurse down like this or do we need to specify the oldv, newv for every prop changing?
-        for subprop in self.core.getSubProps(newp):
-            newsp = subprop[0]
-            oldsp = newsp.replace(newp, oldp)
-            self._renameProp(oldsp, newsp)
-
     @modelrev('inet', 201709271521)
     def _revModl201709271521(self):
         '''
         Rename inet:net* to inet:web*
         '''
-        # TODO FIXME create a more generalized fn to be used for all renaming migrations
-        # TODO FIXME after figuring out how everything needs to be renamed, add storage layer optimizations
-        # TODO FIXME also implement faster methods for sqlite3/psql
-        props = (
+
+        darks = []
+        forms = [
             ('inet:netuser', 'inet:web:acct'),
             ('inet:netgroup', 'inet:web:group'),
             #('inet:netmemb', 'inet:web:memb'),
             #('inet:follows', 'inet:web:follows'),
             #('inet:netpost', 'inet:web:post'),
             #('inet:netfile', 'inet:web:file'),
-        )
+        ]
+        props = [
+            ('inet:netuser:site', 'inet:web:acct:site'),
+            ('inet:netuser:user', 'inet:web:acct:user'),
+            ('inet:netuser:dob', 'inet:web:acct:dob'),
+            ('inet:netuser:url', 'inet:web:acct:url'),
+            ('inet:netuser:webpage', 'inet:web:acct:webpage'),
+            ('inet:netuser:avatar', 'inet:web:acct:avatar'),
+            ('inet:netuser:tagline', 'inet:web:acct:tagline'),
+            ('inet:netuser:occupation', 'inet:web:acct:occupation'),
+            ('inet:netuser:name', 'inet:web:acct:name'),
+            ('inet:netuser:realname', 'inet:web:acct:realname'),
+            ('inet:netuser:email', 'inet:web:acct:email'),
+            ('inet:netuser:phone', 'inet:web:acct:phone'),
+            ('inet:netuser:signup', 'inet:web:acct:signup'),
+            ('inet:netuser:signup:ipv4', 'inet:web:acct:signup:ipv4'),
+            ('inet:netuser:passwd', 'inet:web:acct:passwn'),
+            ('inet:netuser:seen:min', 'inet:web:acct:seen:min'),
+            ('inet:netuser:seen:max', 'inet:web:acct:seen:max'),
 
-        for old, new in props:
-            self._renameProp(old, new)
-            self._renameTagForms(old, new)
+            ('inet:netgroup:site', 'inet:web:group:site'),
+            ('inet:netgroup:name', 'inet:web:group:name'),
+            ('inet:netgroup:desc', 'inet:web:group:desc'),
+            ('inet:netgroup:url', 'inet:web:group:url'),
+            ('inet:netgroup:webpage', 'inet:web:group:webpage'),
+            ('inet:netgroup:avatar', 'inet:web:group:avatar'),
+        ]
+
+        adds, dels = [], []  # for ro props, valus, etc
+        for old, new in forms:
+
+            # rename tagforms and dark tags
+            for i, p, v, t in self.core.getRowsByProp('syn:tagform:form', old):
+                adds.append((i, p, new, t),)
+                dels.append((i, p, v),)
+
+                for _, _, tag, _ in self.core.getRowsByIdProp(i, 'syn:tagform:tag'):
+                    oldd = '_:*%s#%s' % (old, tag)
+                    newd = '_:*%s#%s' % (new, tag)
+                    darks.append((oldd, newd),)
+
+            # FIXME rename xrefs / propvalu stuff
+
+        if adds:
+            self.core.addRows(adds)
+
+        for i, p, v in dels:
+            self.core.delRowsByIdProp(i, p, v)
+
+        for old, new in forms + props + darks:
+            self.core.store.updateProperty(old, new)
 
     @staticmethod
     def getBaseModels():

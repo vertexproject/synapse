@@ -594,26 +594,17 @@ class InetModelTest(SynTest):
         N = 2
         adds = []
 
-        tag1_iden = guid()
-        tag2_iden = guid()
-        tag1_tick = now()
-        tag2_tick = now()
-
-        adds.extend([
-            (tag1_iden, 'syn:tagform:title', '??', tag1_tick),
-            (tag1_iden, 'syn:tagform', guid(), tag1_tick),
-            (tag1_iden, 'tufo:form', 'syn:tagform', tag1_tick),
-            (tag1_iden, 'syn:tagform:tag', 'hehe.hoho', tag1_tick),
-            (tag1_iden, 'syn:tagform:form', 'inet:netuser', tag1_tick),
-            (tag1_iden, 'syn:tagform:doc', '??', tag1_tick),
-
-            (tag2_iden, 'syn:tagform:title', '??', tag2_tick),
-            (tag2_iden, 'syn:tagform', guid(), tag2_tick),
-            (tag2_iden, 'tufo:form', 'syn:tagform', tag2_tick),
-            (tag2_iden, 'syn:tagform:tag', 'hehe', tag2_tick),
-            (tag2_iden, 'syn:tagform:form', 'inet:netuser', tag2_tick),
-            (tag2_iden, 'syn:tagform:doc', '??', tag2_tick),
-        ])
+        def _addTag(tag, form):
+            iden = guid()
+            tick = now()
+            return [
+                (iden, 'syn:tagform:title', '??', tick),
+                (iden, 'syn:tagform', guid(), tick),
+                (iden, 'tufo:form', 'syn:tagform', tick),
+                (iden, 'syn:tagform:tag', tag, tick),
+                (iden, 'syn:tagform:form', form, tick),
+                (iden, 'syn:tagform:doc', '??', tick),
+            ]
 
         for i in range(N):
             user = 'pennywise%d' % i
@@ -631,10 +622,13 @@ class InetModelTest(SynTest):
                 (dark_iden, '_:*inet:netuser#hehe.hoho', tick, tick),
                 (dark_iden, '_:*inet:netuser#hehe', tick, tick),
             ])
+        adds.extend(_addTag('hehe.hoho', 'inet:netuser'))
+        adds.extend(_addTag('hehe', 'inet:netuser'))
 
         for i in range(N):
             group = 'group%d' % i
             iden = guid()
+            dark_iden = iden[::-1]
             tick = now()
             adds.extend([
                 (iden, 'tufo:form', 'inet:netgroup', tick),
@@ -644,7 +638,11 @@ class InetModelTest(SynTest):
                 (iden, 'inet:netgroup:desc', 'hehe', tick),
                 (iden, '#hehe.hoho', tick, tick),
                 (iden, '#hehe', tick, tick),
+                (dark_iden, '_:*inet:netgroup#hehe.hoho', tick, tick),
+                (dark_iden, '_:*inet:netgroup#hehe', tick, tick),
             ])
+        adds.extend(_addTag('hehe.hoho', 'inet:netgroup'))
+        adds.extend(_addTag('hehe', 'inet:netgroup'))
 
         with s_cortex.openstore('ram:///') as stor:
 
@@ -657,10 +655,9 @@ class InetModelTest(SynTest):
 
             with s_cortex.fromstore(stor) as core:
 
+                # inet:netuser -> inet:web:acct
                 # assert that the correct number of users and groups were migrated
                 tufos = core.getTufosByProp('inet:web:acct')
-                self.len(N, tufos)
-                tufos = core.getTufosByProp('inet:web:group')
                 self.len(N, tufos)
 
                 # check that properties were correctly migrated and tags were not damaged
@@ -675,15 +672,51 @@ class InetModelTest(SynTest):
                 self.len(2, core.getRowsByProp('_:*inet:web:acct#hehe.hoho'))
                 self.len(2, core.getRowsByProp('_:*inet:web:acct#hehe'))
 
+                # assert that no old data remains
+                tufos = core.getTufosByProp('inet:netuser')
+                self.len(0, tufos)
+                rows = core.getJoinByProp('inet:netuser')
+                self.len(0, rows)
+
+                # inet:netgroup -> inet:web:group
+                # assert that the correct number of users and groups were migrated
+                tufos = core.getTufosByProp('inet:web:group')
+                self.len(N, tufos)
+
+                # check that properties were correctly migrated and tags were not damaged
                 tufo = core.getTufoByProp('inet:web:group', 'vertex.link/group0')
                 self.eq(tufo[1]['inet:web:group'], 'vertex.link/group0')
                 self.eq(tufo[1]['inet:web:group:site'], 'vertex.link')
                 self.eq(tufo[1]['inet:web:group:name'], 'group0')
                 self.eq(tufo[1]['inet:web:group:desc'], 'hehe')
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('_:*inet:netgroup#hehe.hoho'))
+                self.len(0, core.getRowsByProp('_:*inet:netgroup#hehe'))
+                self.len(2, core.getRowsByProp('_:*inet:web:group#hehe.hoho'))
+                self.len(2, core.getRowsByProp('_:*inet:web:group#hehe'))
 
-                # assert that no inet:web:acct remains
-                tufos = core.getTufosByProp('inet:netuser')
+                # assert that no old data remains
+                tufos = core.getTufosByProp('inet:netgroup')
                 self.len(0, tufos)
-                rows = core.getJoinByProp('inet:netuser')
+                rows = core.getJoinByProp('inet:netgroup')
                 self.len(0, rows)
+
+                # FIXME inet:netmemb -> inet:web:memb
+                # assert that the correct number of users and groups were migrated
+                # check that properties were correctly migrated and tags were not damaged
+                # assert that no old data remains
+
+                # FIXME inet:follows -> inet:web:follows
+                # assert that the correct number of users and groups were migrated
+                # check that properties were correctly migrated and tags were not damaged
+                # assert that no old data remains
+
+                # FIXME inet:netpost -> inet:web:post
+                # assert that the correct number of users and groups were migrated
+                # check that properties were correctly migrated and tags were not damaged
+                # assert that no old data remains
+
+                # FIXME inet:netfile -> inet:web:file
+                # assert that the correct number of users and groups were migrated
+                # check that properties were correctly migrated and tags were not damaged
+                # assert that no old data remains
