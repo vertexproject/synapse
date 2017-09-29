@@ -121,6 +121,39 @@ class InetModelTest(SynTest):
             self.eq(t3[1].get('inet:udp4:port'), 8443)
             self.eq(t3[1].get('inet:udp4:ipv4'), core.getTypeNorm('inet:ipv4', '1.2.3.4')[0])
 
+            # 1.2.3.4:8443
+            t4 = core.formTufoByProp('inet:udp4', '1108152164603')
+            self.eq(t4[1].get('inet:udp4:port'), 8443)
+            self.eq(t4[1].get('inet:udp4:ipv4'), core.getTypeNorm('inet:ipv4', '1.2.3.4')[0])
+
+            # Ensure boundaries are observed
+            for i in ['0', 0, '0.0.0.0:0']:
+                valu, subs = core.getTypeNorm('inet:srv4', i)
+                self.eq(valu, 0)
+                self.eq(subs.get('port'), 0)
+                self.eq(subs.get('ipv4'), 0)
+
+            for i in ['281474976710655', 281474976710655, '255.255.255.255:65535']:
+                valu, subs = core.getTypeNorm('inet:srv4', i)
+                self.eq(valu, 281474976710655)
+                self.eq(subs.get('port'), 0xFFFF)
+                self.eq(subs.get('ipv4'), 0xFFFFFFFF)
+
+            # Repr works as expected
+            self.eq(core.getTypeRepr('inet:srv4', 0), '0.0.0.0:0')
+            self.eq(core.getTypeRepr('inet:srv4', 1108152164603), '1.2.3.4:8443')
+            self.eq(core.getTypeRepr('inet:srv4', 281474976710655), '255.255.255.255:65535')
+
+            # Ensure bad input fails
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', '281474976710656')
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', 281474976710656)
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', '255.255.255.255:65536')
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', '255.255.255.255:-1')
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', -1)
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', '-1')
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', 'ruh roh')
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', '1.2.3.4:8080:9090')
+
     def test_model_inet_srv6_types(self):
         with self.getRamCore() as core:
             t0 = core.formTufoByProp('inet:tcp6', '[0:0:0:0:0:0:0:1]:80')
