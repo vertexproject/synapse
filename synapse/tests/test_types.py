@@ -543,6 +543,46 @@ class DataTypesTest(SynTest):
         self.true(s_types.isguid('98db59098e385f0bfdec8a6a0a6118b3'))
         self.false(s_types.isguid('visi'))
 
+    def test_types_guid(self):
+        with self.getRamCore() as core:
+
+            # Random guids from "*"
+            v0, _ = core.getPropNorm('guidform', '*')
+            v1, _ = core.getPropNorm('guidform', '*')
+            self.true(s_types.isguid(v0))
+            self.true(s_types.isguid(v1))
+            self.ne(v0, v1)
+
+            # Stable guids from strings
+            v0, subs0 = core.getPropNorm('guidform', '(foo="1",baz=2)')
+            v1, subs1 = core.getPropNorm('guidform', (['baz', '2'], ('foo', '1')))
+            v2, _ = core.getPropNorm('guidform', '  (foo="1",baz=2) ')
+            self.eq(v0, v1)
+            self.eq(v0, v2)
+            self.len(2, subs0)
+            self.eq(subs0.get('foo'), '1')
+            self.eq(subs0.get('baz'), 2)
+            self.eq(subs0, subs1)
+            # Do partial subs
+            v3, subs3 = core.getPropNorm('guidform', '(foo="1")')
+            v4, _ = core.getPropNorm('guidform', [['foo', '1']])
+            self.eq(v3, v4)
+            self.ne(v3, v0)
+            self.eq(subs0.get('foo'), subs3.get('foo'))
+            self.none(subs3.get('baz'))
+
+            # Bad input
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', '   ')
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', '()')
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', [])
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', '(foo, bar)')
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', (['baz', '2'], ('foo', '1', 'blerp')))
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', '(foo="1",junkProp=2)')
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', 'totally not a guid')
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', 1234)
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', '$1234')
+            self.raises(BadTypeValu, core.getTypeNorm, 'guid', '(foo=1)')
+
     def test_types_guid_resolver(self):
         with self.getRamCore() as core:
             # use the seed constructor for an org
