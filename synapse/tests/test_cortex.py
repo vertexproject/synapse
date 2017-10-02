@@ -728,15 +728,15 @@ class CortexBaseTest(SynTest):
         self.eq(len(core.getTufosBy('in', 'inet:ipv4', ['10.2.3.5', '10.2.3.6', '10.2.3.7'])), 1)
 
         # By IN using COMP type nodes
-        nmb1 = core.formTufoByProp('inet:netmemb', '(vertex.link/pennywise,vertex.link/eldergods)')
-        nmb2 = core.formTufoByProp('inet:netmemb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))
-        nmb3 = core.formTufoByProp('inet:netmemb', ['vertex.link/pennywise', 'vertex.link/clowns'])
+        nmb1 = core.formTufoByProp('inet:web:memb', '(vertex.link/pennywise,vertex.link/eldergods)')
+        nmb2 = core.formTufoByProp('inet:web:memb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))
+        nmb3 = core.formTufoByProp('inet:web:memb', ['vertex.link/pennywise', 'vertex.link/clowns'])
 
-        self.eq(len(core.getTufosBy('in', 'inet:netmemb', ['(vertex.link/pennywise,vertex.link/eldergods)'])), 1)
-        self.eq(len(core.getTufosBy('in', 'inet:netmemb:group', ['vertex.link/eldergods'])), 2)
-        self.eq(len(core.getTufosBy('in', 'inet:netmemb:group', ['vertex.link/eldergods'])), 2)
-        self.eq(len(core.getTufosBy('in', 'inet:netmemb:group', ['vertex.link/eldergods', 'vertex.link/clowns'])), 3)
-        self.eq(len(core.getTufosBy('in', 'inet:netmemb', ['(vertex.link/pennywise,vertex.link/eldergods)', ('vertex.link/pennywise', 'vertex.link/clowns')])), 2)
+        self.eq(len(core.getTufosBy('in', 'inet:web:memb', ['(vertex.link/pennywise,vertex.link/eldergods)'])), 1)
+        self.eq(len(core.getTufosBy('in', 'inet:web:memb:group', ['vertex.link/eldergods'])), 2)
+        self.eq(len(core.getTufosBy('in', 'inet:web:memb:group', ['vertex.link/eldergods'])), 2)
+        self.eq(len(core.getTufosBy('in', 'inet:web:memb:group', ['vertex.link/eldergods', 'vertex.link/clowns'])), 3)
+        self.eq(len(core.getTufosBy('in', 'inet:web:memb', ['(vertex.link/pennywise,vertex.link/eldergods)', ('vertex.link/pennywise', 'vertex.link/clowns')])), 2)
 
         # By LT/LE/GE/GT
         self.eq(len(core.getTufosBy('lt', 'default_foo:p0', 6)), 3)
@@ -819,8 +819,8 @@ class CortexBaseTest(SynTest):
         self.eq(len(core.getTufosBy('eq', 'inet:ipv4:asn', -1)), 5)
         self.eq(len(core.getTufosBy('eq', 'inet:ipv4', 0x0)), 0)
         self.eq(len(core.getTufosBy('eq', 'inet:ipv4', '0.0.0.0')), 0)
-        self.eq(len(core.getTufosBy('eq', 'inet:netmemb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
-        self.eq(len(core.getTufosBy('eq', 'inet:netmemb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
+        self.eq(len(core.getTufosBy('eq', 'inet:web:memb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
+        self.eq(len(core.getTufosBy('eq', 'inet:web:memb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
 
         # By TYPE - this requires data model introspection
         fook = core.formTufoByProp('inet:dns:a', 'derry.vertex.link/10.2.3.6')
@@ -830,8 +830,8 @@ class CortexBaseTest(SynTest):
         self.eq(len(core.getTufosBy('type', 'inet:ipv4', 0x0a020306)), 3)
 
         # By TYPE using COMP nodes
-        self.eq(len(core.getTufosBy('type', 'inet:netmemb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
-        self.eq(len(core.getTufosBy('type', 'inet:netmemb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
+        self.eq(len(core.getTufosBy('type', 'inet:web:memb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
+        self.eq(len(core.getTufosBy('type', 'inet:web:memb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
         self.eq(len(core.getTufosBy('type', 'inet:web:acct', 'vertex.link/invisig0th')), 2)
 
         # BY CIDR

@@ -333,64 +333,64 @@ class InetModelTest(SynTest):
             node = core.formTufoByProp('inet:url', 'HTTP://1.2.3.4/')
             self.eq(node[1].get('inet:url:ipv4'), 0x01020304)
 
-    def test_model_inet_netpost(self):
+    def test_model_inet_web_post(self):
 
         with self.getRamCore() as core:
-            node0 = core.formTufoByProp('inet:netpost', ('vertex.link/visi', 'knock knock'), time='20141217010101')
-            iden = node0[1].get('inet:netpost')
+            node0 = core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'knock knock'), time='20141217010101')
+            iden = node0[1].get('inet:web:post')
 
-            node1 = core.formTufoByProp('inet:netpost', ('vertex.link/visi', 'whos there'), time='20141217010102', replyto=iden)
+            node1 = core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'whos there'), time='20141217010102', replyto=iden)
 
             self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/visi'))
 
-            self.eq(node0[1].get('inet:netpost:netuser:user'), 'visi')
-            self.eq(node1[1].get('inet:netpost:netuser:user'), 'visi')
+            self.eq(node0[1].get('inet:web:post:acct:user'), 'visi')
+            self.eq(node1[1].get('inet:web:post:acct:user'), 'visi')
 
-            self.eq(node0[1].get('inet:netpost:netuser:site'), 'vertex.link')
-            self.eq(node1[1].get('inet:netpost:netuser:site'), 'vertex.link')
+            self.eq(node0[1].get('inet:web:post:acct:site'), 'vertex.link')
+            self.eq(node1[1].get('inet:web:post:acct:site'), 'vertex.link')
 
-            self.eq(node0[1].get('inet:netpost'), node1[1].get('inet:netpost:replyto'))
+            self.eq(node0[1].get('inet:web:post'), node1[1].get('inet:web:post:replyto'))
 
-    def test_model_inet_netmesg(self):
+    def test_model_inet_web_mesg(self):
         with self.getRamCore() as core:
 
-            node = core.formTufoByProp('inet:netmesg', ('VERTEX.link/visi', 'vertex.LINK/hehe', '20501217'), text='hehe haha')
+            node = core.formTufoByProp('inet:web:mesg', ('VERTEX.link/visi', 'vertex.LINK/hehe', '20501217'), text='hehe haha')
             self.nn(node)
-            self.eq(node[1].get('inet:netmesg:from'), 'vertex.link/visi')
-            self.eq(node[1].get('inet:netmesg:to'), 'vertex.link/hehe')
-            self.eq(node[1].get('inet:netmesg:time'), 2554848000000)
-            self.eq(node[1].get('inet:netmesg:text'), 'hehe haha')
+            self.eq(node[1].get('inet:web:mesg:from'), 'vertex.link/visi')
+            self.eq(node[1].get('inet:web:mesg:to'), 'vertex.link/hehe')
+            self.eq(node[1].get('inet:web:mesg:time'), 2554848000000)
+            self.eq(node[1].get('inet:web:mesg:text'), 'hehe haha')
 
             self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/visi'))
             self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/hehe'))
 
-    def test_model_inet_netmemb(self):
+    def test_model_inet_web_memb(self):
 
         with self.getRamCore() as core:
 
-            node = core.formTufoByProp('inet:netmemb', ('VERTEX.link/visi', 'vertex.LINK/kenshoto'), joined='20501217')
+            node = core.formTufoByProp('inet:web:memb', ('VERTEX.link/visi', 'vertex.LINK/kenshoto'), joined='20501217')
 
             self.nn(node)
 
-            self.eq(node[1].get('inet:netmemb:joined'), 2554848000000)
-            self.eq(node[1].get('inet:netmemb:user'), 'vertex.link/visi')
-            self.eq(node[1].get('inet:netmemb:group'), 'vertex.link/kenshoto')
+            self.eq(node[1].get('inet:web:memb:joined'), 2554848000000)
+            self.eq(node[1].get('inet:web:memb:acct'), 'vertex.link/visi')
+            self.eq(node[1].get('inet:web:memb:group'), 'vertex.link/kenshoto')
 
             self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/visi'))
             self.nn(core.getTufoByProp('inet:web:group', 'vertex.link/kenshoto'))
 
-    def test_model_inet_follows(self):
+    def test_model_inet_web_follows(self):
 
         with self.getRamCore() as core:
 
             props = {'seen:min': '20501217', 'seen:max': '20501217'}
-            node = core.formTufoByProp('inet:follows', ('VERTEX.link/visi', 'vertex.LINK/hehe'), **props)
+            node = core.formTufoByProp('inet:web:follows', ('VERTEX.link/visi', 'vertex.LINK/hehe'), **props)
 
             self.nn(node)
-            self.eq(node[1].get('inet:follows:follower'), 'vertex.link/visi')
-            self.eq(node[1].get('inet:follows:followee'), 'vertex.link/hehe')
-            self.eq(node[1].get('inet:follows:seen:min'), 2554848000000)
-            self.eq(node[1].get('inet:follows:seen:max'), 2554848000000)
+            self.eq(node[1].get('inet:web:follows:follower'), 'vertex.link/visi')
+            self.eq(node[1].get('inet:web:follows:followee'), 'vertex.link/hehe')
+            self.eq(node[1].get('inet:web:follows:seen:min'), 2554848000000)
+            self.eq(node[1].get('inet:web:follows:seen:max'), 2554848000000)
 
     def test_model_inet_ipv4_raise(self):
         with self.getRamCore() as core:
@@ -451,25 +451,22 @@ class InetModelTest(SynTest):
 
             self.raises(BadTypeValu, core.getTypeNorm, 'inet:fqdn', '!@#$%')
 
-    def test_model_inet_weblogon(self):
+    def test_model_inet_web_logon(self):
 
         with self.getRamCore() as core:
             tick = now()
 
-            t0 = core.formTufoByProp('inet:web:logon', '*',
-                                     netuser='vertex.link/pennywise',
-                                     time=tick)
-
+            t0 = core.formTufoByProp('inet:web:logon', '*', acct='vertex.link/pennywise', time=tick)
             self.nn(t0)
 
             self.eq(t0[1].get('inet:web:logon:time'), tick)
-            self.eq(t0[1].get('inet:web:logon:netuser'), 'vertex.link/pennywise')
-            self.eq(t0[1].get('inet:web:logon:netuser:user'), 'pennywise')
-            self.eq(t0[1].get('inet:web:logon:netuser:site'), 'vertex.link')
+            self.eq(t0[1].get('inet:web:logon:acct'), 'vertex.link/pennywise')
+            self.eq(t0[1].get('inet:web:logon:acct:user'), 'pennywise')
+            self.eq(t0[1].get('inet:web:logon:acct:site'), 'vertex.link')
 
-            # Pivot from a netuser to the netlogon forms via storm
+            # Pivot from an inet:web:acct to the inet:web:logon forms via storm
             self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/pennywise'))
-            nodes = core.eval('inet:web:acct=vertex.link/pennywise inet:web:acct -> inet:web:logon:netuser')
+            nodes = core.eval('inet:web:acct=vertex.link/pennywise inet:web:acct -> inet:web:logon:acct')
             self.eq(len(nodes), 1)
 
             t0 = core.setTufoProps(t0, ipv4=0x01020304, logout=tick + 1, ipv6='0:0:0:0:0:0:0:1')

@@ -464,7 +464,7 @@ class InetMod(CoreModule):
         forms = [
             ('inet:netuser', 'inet:web:acct'),
             ('inet:netgroup', 'inet:web:group'),
-            #('inet:netmemb', 'inet:web:memb'),
+            ('inet:netmemb', 'inet:web:memb'),
             #('inet:follows', 'inet:web:follows'),
             #('inet:netpost', 'inet:web:post'),
             #('inet:netfile', 'inet:web:file'),
@@ -484,7 +484,7 @@ class InetMod(CoreModule):
             ('inet:netuser:phone', 'inet:web:acct:phone'),
             ('inet:netuser:signup', 'inet:web:acct:signup'),
             ('inet:netuser:signup:ipv4', 'inet:web:acct:signup:ipv4'),
-            ('inet:netuser:passwd', 'inet:web:acct:passwn'),
+            ('inet:netuser:passwd', 'inet:web:acct:passwd'),
             ('inet:netuser:seen:min', 'inet:web:acct:seen:min'),
             ('inet:netuser:seen:max', 'inet:web:acct:seen:max'),
 
@@ -494,9 +494,16 @@ class InetMod(CoreModule):
             ('inet:netgroup:url', 'inet:web:group:url'),
             ('inet:netgroup:webpage', 'inet:web:group:webpage'),
             ('inet:netgroup:avatar', 'inet:web:group:avatar'),
+
+            ('inet:netmemb:user', 'inet:web:group:acct'),  # renamed from user -> acct
+            ('inet:netmemb:group', 'inet:web:group:group'),
+            ('inet:netmemb:title', 'inet:web:group:title'),
+            ('inet:netmemb:joined', 'inet:web:group:joined'),
+            ('inet:netmemb:seen:min', 'inet:web:group:seen:min'),
+            ('inet:netmemb:seen:max', 'inet:web:group:seen:max'),
         ]
 
-        adds, dels = [], []  # for ro props, valus, etc
+        adds, dels = [], []  # for ro props, valus, etc  # FIXME use setRowsByIdProp instead
         for old, new in forms:
 
             # rename tagforms and dark tags
@@ -580,15 +587,15 @@ class InetMod(CoreModule):
                                    'doc': 'A group within an online community'}),
 
                 ('inet:web:post',
-                 {'subof': 'comp', 'fields': 'netuser,inet:web:acct|text,str:txt', 'doc': 'A post made by a netuser'}),
-                ('inet:web:file', {'subof': 'comp', 'fields': 'netuser,inet:web:acct|file,file:bytes',
-                                  'doc': 'A file posted by a netuser'}),
-                ('inet:web:memb', {'subof': 'comp', 'fields': 'user,inet:web:acct|group,inet:web:group'}),
+                 {'subof': 'comp', 'fields': 'acct,inet:web:acct|text,str:txt', 'doc': 'A post made by a web account'}),
+                ('inet:web:file', {'subof': 'comp', 'fields': 'acct,inet:web:acct|file,file:bytes',
+                                  'doc': 'A file posted by a web account'}),
+                ('inet:web:memb', {'subof': 'comp', 'fields': 'acct,inet:web:acct|group,inet:web:group'}),
                 ('inet:web:follows', {'subof': 'comp', 'fields': 'follower,inet:web:acct|followee,inet:web:acct'}),
 
                 ('inet:web:mesg', {'subof': 'comp',
                                   'fields': 'from,inet:web:acct|to,inet:web:acct|time,time',
-                                  'doc': 'A message sent from one netuser to another',
+                                  'doc': 'A message sent from one web account to another',
                                   'ex': 'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'}),
 
                 ('inet:ssl:tcp4cert', {'subof': 'sepr', 'sep': '/', 'fields': 'tcp4,inet:tcp4|cert,file:bytes',
@@ -762,35 +769,35 @@ class InetMod(CoreModule):
 
                     ('dob', {'ptype': 'time'}),
 
-                    # ('bio:bt',{'ptype':'wtf','doc':'The netusers self documented blood type'}),
+                    # ('bio:bt',{'ptype':'wtf','doc':'The web account's self documented blood type'}),
 
                     ('url', {'ptype': 'inet:url'}),
                     ('webpage', {'ptype': 'inet:url'}),
                     ('avatar', {'ptype': 'file:bytes'}),
 
-                    ('tagline', {'ptype': 'str:txt', 'doc': 'A netuser status/tag line text'}),
-                    ('occupation', {'ptype': 'str:txt', 'doc': 'A netuser self declared occupation'}),
+                    ('tagline', {'ptype': 'str:txt', 'doc': 'A web account status/tag line text'}),
+                    ('occupation', {'ptype': 'str:txt', 'doc': 'A web account self declared occupation'}),
                     # ('gender',{'ptype':'inet:fqdn','ro':1}),
 
                     ('name', {'ptype': 'inet:user'}),
                     ('realname', {'ptype': 'ps:name'}),
                     ('email', {'ptype': 'inet:email'}),
                     ('phone', {'ptype': 'tel:phone'}),
-                    ('signup', {'ptype': 'time', 'doc': 'The time the netuser account was registered'}),
+                    ('signup', {'ptype': 'time', 'doc': 'The time the web account was registered'}),
                     ('signup:ipv4', {'ptype': 'inet:ipv4', 'doc': 'The original ipv4 address used to sign up for the account'}),
-                    ('passwd', {'ptype': 'inet:passwd', 'doc': 'The current passwd for the netuser account'}),
+                    ('passwd', {'ptype': 'inet:passwd', 'doc': 'The current passwd for the web account'}),
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
                 ]),
 
                 ('inet:web:logon', {'ptype': 'inet:web:logon'}, [
-                    ('netuser', {'ptype': 'inet:web:acct', 'doc': 'The netuser associated with the logon event.', }),
-                    ('netuser:site', {'ptype': 'inet:fqdn', }),
-                    ('netuser:user', {'ptype': 'inet:user', }),
-                    ('time', {'ptype': 'time', 'doc': 'The time the netuser logged into the service', }),
+                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The account associated with the logon event.', }),
+                    ('acct:site', {'ptype': 'inet:fqdn', }),
+                    ('acct:user', {'ptype': 'inet:user', }),
+                    ('time', {'ptype': 'time', 'doc': 'The time the account logged into the service', }),
                     ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the logon.'}),
                     ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the logon.'}),
-                    ('logout', {'ptype': 'time', 'doc': 'The time the netuser logged out of the service.'})
+                    ('logout', {'ptype': 'time', 'doc': 'The time the account logged out of the service.'})
                 ]),
 
                 ('inet:web:group', {}, [
@@ -806,11 +813,11 @@ class InetMod(CoreModule):
 
                 ('inet:web:post', {}, [
 
-                    ('netuser', {'ptype': 'inet:web:acct', 'ro': 1}),  # FIXME rename?
+                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1}),
                     ('text', {'ptype': 'str:txt', 'ro': 1, 'doc': 'The text of the actual post'}),
 
-                    ('netuser:site', {'ptype': 'inet:fqdn', 'ro': 1}),  # FIXME rename?
-                    ('netuser:user', {'ptype': 'inet:user', 'ro': 1}),  # FIXME rename?
+                    ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1}),
+                    ('acct:user', {'ptype': 'inet:user', 'ro': 1}),
 
                     ('time', {'ptype': 'time'}),
 
@@ -841,7 +848,7 @@ class InetMod(CoreModule):
 
                 ('inet:web:memb', {}, [
 
-                    ('user', {'ptype': 'inet:web:acct', 'ro': 1}),  # FIXME rename?
+                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1}),
                     ('group', {'ptype': 'inet:web:group', 'ro': 1}),
 
                     ('title', {'ptype': 'str:lwr'}),
@@ -854,9 +861,9 @@ class InetMod(CoreModule):
 
                 ('inet:web:file', {}, [
 
-                    ('netuser', {'ptype': 'inet:web:acct', 'ro': 1}),  # FIXME rename?
-                    ('netuser:site', {'ptype': 'inet:fqdn', 'ro': 1}),  # FIXME rename?
-                    ('netuser:user', {'ptype': 'inet:user', 'ro': 1}),  # FIXME rename?
+                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1}),
+                    ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1}),
+                    ('acct:user', {'ptype': 'inet:user', 'ro': 1}),
 
                     ('file', {'ptype': 'file:bytes', 'ro': 1}),
 
