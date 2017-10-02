@@ -614,6 +614,20 @@ class InetModelTest(SynTest):
                 (iden, 'inet:netuser:site', 'vertex.link', tick),
                 (iden, 'inet:netuser:user', user, tick),
                 (iden, 'inet:netuser:dob', 1337, tick),
+                (iden, 'inet:netuser:url', 'https://vertex.link/url', tick),
+                (iden, 'inet:netuser:webpage', 'https://vertex.link/webpage', tick),
+                (iden, 'inet:netuser:avatar', 'd41d8cd98f00b204e9800998ecf8427e', tick),
+                (iden, 'inet:netuser:tagline', 'a tagline', tick),
+                (iden, 'inet:netuser:occupation', 'entertainer', tick),
+                (iden, 'inet:netuser:name', 'my name', tick),
+                (iden, 'inet:netuser:realname', 'my real name', tick),
+                (iden, 'inet:netuser:email', 'email@vertex.link', tick),
+                (iden, 'inet:netuser:phone', '17035551212', tick),
+                (iden, 'inet:netuser:signup', 7331, tick),
+                (iden, 'inet:netuser:signup:ipv4', 0x01020304, tick),
+                (iden, 'inet:netuser:passwd', 'hunter2', tick),
+                (iden, 'inet:netuser:seen:min', 0, tick),
+                (iden, 'inet:netuser:seen:max', 1, tick),
                 (iden, '#hehe.hoho', tick, tick),
                 (iden, '#hehe', tick, tick),
                 (dark_iden, '_:*inet:netuser#hehe.hoho', tick, tick),
@@ -633,6 +647,9 @@ class InetModelTest(SynTest):
                 (iden, 'inet:netgroup:site', 'vertex.link', tick),
                 (iden, 'inet:netgroup:name', group, tick),
                 (iden, 'inet:netgroup:desc', 'hehe', tick),
+                (iden, 'inet:netgroup:url', 'https://vertex.link/url', tick),
+                (iden, 'inet:netgroup:webpage', 'https://vertex.link/webpage', tick),
+                (iden, 'inet:netgroup:avatar', 'd41d8cd98f00b204e9800998ecf8427e', tick),
                 (iden, '#hehe.hoho', tick, tick),
                 (iden, '#hehe', tick, tick),
                 (dark_iden, '_:*inet:netgroup#hehe.hoho', tick, tick),
@@ -640,6 +657,95 @@ class InetModelTest(SynTest):
             ])
         adds.extend(_addTag('hehe.hoho', 'inet:netgroup'))
         adds.extend(_addTag('hehe', 'inet:netgroup'))
+
+        iden = guid()
+        acct1 = 'vertex.link/person1'
+        acct2 = 'vertex.link/person2'
+        follow_valu = '4ebc93255f8582a9d6c38dbba952dc9b'
+        dark_iden = iden[::-1]
+        tick = now()
+        adds.extend([
+            (iden, 'tufo:form', 'inet:follows', tick),
+            (iden, 'inet:follows', follow_valu, tick),
+            (iden, 'inet:follows:follower', acct1, tick),
+            (iden, 'inet:follows:followee', acct2, tick),
+            (iden, 'inet:follows:seen:min', 0, tick),
+            (iden, 'inet:follows:seen:max', 1, tick),
+            (iden, '#hehe.hoho', tick, tick),
+            (iden, '#hehe', tick, tick),
+            (dark_iden, '_:*inet:follows#hehe.hoho', tick, tick),
+            (dark_iden, '_:*inet:follows#hehe', tick, tick),
+        ])
+        adds.extend(_addTag('hehe.hoho', 'inet:follows'))
+        adds.extend(_addTag('hehe', 'inet:follows'))
+
+        iden = guid()
+        webmemb_valu = '7d8675f29b54cf71e3c36d4448aaa842'
+        dark_iden = iden[::-1]
+        tick = now()
+        adds.extend([
+            (iden, 'tufo:form', 'inet:netmemb', tick),
+            (iden, 'inet:netmemb', webmemb_valu, tick),
+            (iden, 'inet:netmemb:user', 'vertex.link/person1', tick),
+            (iden, 'inet:netmemb:group', 'vertex.link/group0', tick),
+            (iden, 'inet:netmemb:title', 'a title', tick),
+            (iden, 'inet:netmemb:joined', 123, tick),
+            (iden, 'inet:netmemb:seen:min', 0, tick),
+            (iden, 'inet:netmemb:seen:max', 1, tick),
+            (iden, '#hehe.hoho', tick, tick),
+            (iden, '#hehe', tick, tick),
+            (dark_iden, '_:*inet:netmemb#hehe.hoho', tick, tick),
+            (dark_iden, '_:*inet:netmemb#hehe', tick, tick),
+        ])
+        adds.extend(_addTag('hehe.hoho', 'inet:netmemb'))
+        adds.extend(_addTag('hehe', 'inet:netmemb'))
+
+        iden = guid()
+        webpost_valu = '19abe9969d6712318370f7c4d943f8ea'
+        dark_iden = iden[::-1]
+        tick = now()
+        adds.extend([
+            (iden, 'tufo:form', 'inet:netpost', tick),
+            (iden, 'inet:netpost', webpost_valu, tick),
+            (iden, 'inet:netpost:netuser', 'vertex.link/person1', tick),
+            (iden, 'inet:netpost:netuser:site', 'vertex.link', tick),
+            (iden, 'inet:netpost:netuser:user', 'person1', tick),
+            (iden, 'inet:netpost:text', 'my cool post', tick),
+            (iden, 'inet:netpost:replyto', '0' * 32, tick),
+            (iden, 'inet:netpost:url', 'https://vertex.link/blog/1', tick),
+            (iden, 'inet:netpost:file', 'd41d8cd98f00b204e9800998ecf8427e', tick),
+            (iden, 'inet:netpost:time', 12345, tick),
+            (iden, '#hehe.hoho', tick, tick),
+            (iden, '#hehe', tick, tick),
+            (dark_iden, '_:*inet:netpost#hehe.hoho', tick, tick),
+            (dark_iden, '_:*inet:netpost#hehe', tick, tick),
+        ])
+        adds.extend(_addTag('hehe.hoho', 'inet:netpost'))
+        adds.extend(_addTag('hehe', 'inet:netpost'))
+
+        iden = guid()
+        webfile_valu = '1f91e1492718d2cbccae1f27c54409ed'
+        dark_iden = iden[::-1]
+        tick = now()
+        adds.extend([
+            (iden, 'tufo:form', 'inet:netfile', tick),
+            (iden, 'inet:netfile', webfile_valu, tick),
+            (iden, 'inet:netfile:file', '0' * 32, tick),
+            (iden, 'inet:netfile:netuser', 'vertex.link/person1', tick),
+            (iden, 'inet:netfile:netuser:site', 'vertex.link', tick),
+            (iden, 'inet:netfile:netuser:user', 'person1', tick),
+            (iden, 'inet:netfile:name', 'my cool file', tick),
+            (iden, 'inet:netfile:posted', 123456, tick),
+            (iden, 'inet:netfile:ipv4', 0, tick),
+            (iden, 'inet:netfile:ipv6', '::1', tick),
+            (iden, 'inet:netfile:seen:min', 0, tick),
+            (iden, 'inet:netfile:seen:max', 1, tick),
+            (iden, '#hehe.hoho', tick, tick),
+            (iden, '#hehe', tick, tick),
+            (dark_iden, '_:*inet:netfile#hehe.hoho', tick, tick),
+            (dark_iden, '_:*inet:netfile#hehe', tick, tick),
+        ])
+        adds.extend(_addTag('hehe.hoho', 'inet:netpost'))
 
         with s_cortex.openstore('ram:///') as stor:
 
@@ -662,7 +768,20 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['inet:web:acct'], 'vertex.link/pennywise0')
                 self.eq(tufo[1]['inet:web:acct:user'], 'pennywise0')
                 self.eq(tufo[1]['inet:web:acct:site'], 'vertex.link')
-                self.eq(tufo[1]['inet:web:acct:dob'], 1337)
+                self.eq(tufo[1]['inet:web:acct:url'], 'https://vertex.link/url')
+                self.eq(tufo[1]['inet:web:acct:webpage'], 'https://vertex.link/webpage')
+                self.eq(tufo[1]['inet:web:acct:avatar'], 'd41d8cd98f00b204e9800998ecf8427e')
+                self.eq(tufo[1]['inet:web:acct:tagline'], 'a tagline')
+                self.eq(tufo[1]['inet:web:acct:occupation'], 'entertainer')
+                self.eq(tufo[1]['inet:web:acct:name'], 'my name')
+                self.eq(tufo[1]['inet:web:acct:realname'], 'my real name')
+                self.eq(tufo[1]['inet:web:acct:email'], 'email@vertex.link')
+                self.eq(tufo[1]['inet:web:acct:phone'], '17035551212')
+                self.eq(tufo[1]['inet:web:acct:signup'], 7331)
+                self.eq(tufo[1]['inet:web:acct:signup:ipv4'], 16909060)
+                self.eq(tufo[1]['inet:web:acct:passwd'], 'hunter2')
+                self.eq(tufo[1]['inet:web:acct:seen:min'], 0)
+                self.eq(tufo[1]['inet:web:acct:seen:max'], 1)
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
                 self.len(0, core.getRowsByProp('_:*inet:netuser#hehe.hoho'))
                 self.len(0, core.getRowsByProp('_:*inet:netuser#hehe'))
@@ -686,6 +805,9 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['inet:web:group:site'], 'vertex.link')
                 self.eq(tufo[1]['inet:web:group:name'], 'group0')
                 self.eq(tufo[1]['inet:web:group:desc'], 'hehe')
+                self.eq(tufo[1]['inet:web:group:url'], 'https://vertex.link/url')
+                self.eq(tufo[1]['inet:web:group:webpage'], 'https://vertex.link/webpage')
+                self.eq(tufo[1]['inet:web:group:avatar'], 'd41d8cd98f00b204e9800998ecf8427e')
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
                 self.len(0, core.getRowsByProp('_:*inet:netgroup#hehe.hoho'))
                 self.len(0, core.getRowsByProp('_:*inet:netgroup#hehe'))
@@ -698,22 +820,102 @@ class InetModelTest(SynTest):
                 rows = core.getJoinByProp('inet:netgroup')
                 self.len(0, rows)
 
-                # FIXME inet:netmemb -> inet:web:memb
+                # inet:netmemb -> inet:web:memb
                 # assert that the correct number of users and groups were migrated
-                # check that properties were correctly migrated and tags were not damaged
-                # assert that no old data remains
+                tufos = core.getTufosByProp('inet:web:memb')
+                self.len(1, tufos)
 
-                # FIXME inet:follows -> inet:web:follows
-                # assert that the correct number of users and groups were migrated
                 # check that properties were correctly migrated and tags were not damaged
-                # assert that no old data remains
+                tufo = core.getTufoByProp('inet:web:memb', webmemb_valu)
+                self.eq(tufo[1]['inet:web:memb'], webmemb_valu)
+                self.eq(tufo[1]['inet:web:memb:acct'], 'vertex.link/person1')
+                self.eq(tufo[1]['inet:web:memb:group'], 'vertex.link/group0')
+                self.eq(tufo[1]['inet:web:memb:title'], 'a title')
+                self.eq(tufo[1]['inet:web:memb:joined'], 123)
+                self.eq(tufo[1]['inet:web:memb:seen:min'], 0)
+                self.eq(tufo[1]['inet:web:memb:seen:max'], 1)
+                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('_:*inet:netmemb#hehe.hoho'))
+                self.len(0, core.getRowsByProp('_:*inet:netmemb#hehe'))
+                self.len(1, core.getRowsByProp('_:*inet:web:memb#hehe.hoho'))
+                self.len(1, core.getRowsByProp('_:*inet:web:memb#hehe'))
 
-                # FIXME inet:netpost -> inet:web:post
-                # assert that the correct number of users and groups were migrated
-                # check that properties were correctly migrated and tags were not damaged
                 # assert that no old data remains
+                tufos = core.getTufosByProp('inet:netmemb')
+                self.len(0, tufos)
+                rows = core.getJoinByProp('inet:netmemb')
+                self.len(0, rows)
 
-                # FIXME inet:netfile -> inet:web:file
-                # assert that the correct number of users and groups were migrated
+                # inet:follows -> inet:web:follows
+                # assert that the correct number of follow relationships were migrated
+                tufos = core.getTufosByProp('inet:web:follows')
+                self.len(1, tufos)
+
                 # check that properties were correctly migrated and tags were not damaged
+                tufo = core.getTufoByProp('inet:web:follows', follow_valu)
+                self.eq(tufo[1]['inet:web:follows'], follow_valu)
+                self.eq(tufo[1]['inet:web:follows:follower'], acct1)
+                self.eq(tufo[1]['inet:web:follows:followee'], acct2)
+                self.eq(tufo[1]['inet:web:follows:seen:min'], 0)
+                self.eq(tufo[1]['inet:web:follows:seen:max'], 1)
+                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('_:*inet:follows#hehe.hoho'))
+                self.len(0, core.getRowsByProp('_:*inet:follows#hehe'))
+                self.len(1, core.getRowsByProp('_:*inet:web:follows#hehe.hoho'))
+                self.len(1, core.getRowsByProp('_:*inet:web:follows#hehe'))
+
                 # assert that no old data remains
+                tufos = core.getTufosByProp('inet:follows')
+                self.len(0, tufos)
+                rows = core.getJoinByProp('inet:follows')
+                self.len(0, rows)
+
+                # inet:netpost -> inet:web:post
+                # assert that the correct number of users and groups were migrated
+                tufos = core.getTufosByProp('inet:web:post')
+                self.len(1, tufos)
+
+                # check that properties were correctly migrated and tags were not damaged
+                tufo = core.getTufoByProp('inet:web:post', webpost_valu)
+                self.eq(tufo[1]['inet:web:post'], webpost_valu)
+                self.eq(tufo[1]['inet:web:post:acct'], 'vertex.link/person1')
+                self.eq(tufo[1]['inet:web:post:acct:site'], 'vertex.link')
+                self.eq(tufo[1]['inet:web:post:acct:user'], 'person1')
+                self.eq(tufo[1]['inet:web:post:text'], 'my cool post')
+                self.eq(tufo[1]['inet:web:post:replyto'], '0' * 32)
+                self.eq(tufo[1]['inet:web:post:url'], 'https://vertex.link/blog/1')
+                self.eq(tufo[1]['inet:web:post:file'], 'd41d8cd98f00b204e9800998ecf8427e')
+                self.eq(tufo[1]['inet:web:post:time'], 12345)
+                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+
+                # assert that no old data remains
+                tufos = core.getTufosByProp('inet:netpost')
+                self.len(0, tufos)
+                rows = core.getJoinByProp('inet:netpost')
+                self.len(0, rows)
+
+                # inet:netfile -> inet:web:file
+                # assert that the correct number of users and groups were migrated
+                tufos = core.getTufosByProp('inet:web:file')
+                self.len(1, tufos)
+
+                # check that properties were correctly migrated and tags were not damaged
+                tufo = core.getTufoByProp('inet:web:file', webfile_valu)
+                self.eq(tufo[1]['inet:web:file'], webfile_valu)
+                self.eq(tufo[1]['inet:web:file:acct'], 'vertex.link/person1')
+                self.eq(tufo[1]['inet:web:file:acct:site'], 'vertex.link')
+                self.eq(tufo[1]['inet:web:file:acct:user'], 'person1')
+                self.eq(tufo[1]['inet:web:file:file'], '0' * 32)
+                self.eq(tufo[1]['inet:web:file:name'], 'my cool file')
+                self.eq(tufo[1]['inet:web:file:posted'], 123456)
+                self.eq(tufo[1]['inet:web:file:ipv4'], 0)
+                self.eq(tufo[1]['inet:web:file:ipv6'], '::1')
+                self.eq(tufo[1]['inet:web:file:seen:min'], 0)
+                self.eq(tufo[1]['inet:web:file:seen:max'], 1)
+                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+
+                # assert that no old data remains
+                tufos = core.getTufosByProp('inet:netfile')
+                self.len(0, tufos)
+                rows = core.getJoinByProp('inet:netfile')
+                self.len(0, rows)

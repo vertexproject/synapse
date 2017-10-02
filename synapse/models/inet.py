@@ -465,9 +465,9 @@ class InetMod(CoreModule):
             ('inet:netuser', 'inet:web:acct'),
             ('inet:netgroup', 'inet:web:group'),
             ('inet:netmemb', 'inet:web:memb'),
-            #('inet:follows', 'inet:web:follows'),
-            #('inet:netpost', 'inet:web:post'),
-            #('inet:netfile', 'inet:web:file'),
+            ('inet:follows', 'inet:web:follows'),
+            ('inet:netpost', 'inet:web:post'),
+            ('inet:netfile', 'inet:web:file'),
         ]
         props = [
             ('inet:netuser:site', 'inet:web:acct:site'),
@@ -495,12 +495,38 @@ class InetMod(CoreModule):
             ('inet:netgroup:webpage', 'inet:web:group:webpage'),
             ('inet:netgroup:avatar', 'inet:web:group:avatar'),
 
-            ('inet:netmemb:user', 'inet:web:group:acct'),  # renamed from user -> acct
-            ('inet:netmemb:group', 'inet:web:group:group'),
-            ('inet:netmemb:title', 'inet:web:group:title'),
-            ('inet:netmemb:joined', 'inet:web:group:joined'),
-            ('inet:netmemb:seen:min', 'inet:web:group:seen:min'),
-            ('inet:netmemb:seen:max', 'inet:web:group:seen:max'),
+            ('inet:netmemb:user', 'inet:web:memb:acct'),  # renamed from user -> acct
+            ('inet:netmemb:group', 'inet:web:memb:group'),
+            ('inet:netmemb:title', 'inet:web:memb:title'),
+            ('inet:netmemb:joined', 'inet:web:memb:joined'),
+            ('inet:netmemb:seen:min', 'inet:web:memb:seen:min'),
+            ('inet:netmemb:seen:max', 'inet:web:memb:seen:max'),
+
+            ('inet:follows:follower', 'inet:web:follows:follower'),
+            ('inet:follows:followee', 'inet:web:follows:followee'),
+            ('inet:follows:seen:min', 'inet:web:follows:seen:min'),
+            ('inet:follows:seen:max', 'inet:web:follows:seen:max'),
+
+            ('inet:netpost:netuser', 'inet:web:post:acct'), # renamed from netuser -> acct
+            ('inet:netpost:netuser:site', 'inet:web:post:acct:site'), # renamed from netuser -> acct
+            ('inet:netpost:netuser:user', 'inet:web:post:acct:user'), # renamed from netuser -> acct
+            ('inet:netpost:text', 'inet:web:post:text'),
+            ('inet:netpost:replyto', 'inet:web:post:replyto'),
+            ('inet:netpost:url', 'inet:web:post:url'),
+            ('inet:netpost:file', 'inet:web:post:file'),
+            ('inet:netpost:time', 'inet:web:post:time'),
+
+            ('inet:netfile:file', 'inet:web:file:file'),
+            ('inet:netfile:netuser', 'inet:web:file:acct'), # renamed from netuser -> acct
+            ('inet:netfile:netuser:site', 'inet:web:file:acct:site'), # renamed from netuser -> acct
+            ('inet:netfile:netuser:user', 'inet:web:file:acct:user'), # renamed from netuser -> acct
+            ('inet:netfile:name', 'inet:web:file:name'),
+            ('inet:netfile:posted', 'inet:web:file:posted'),
+            ('inet:netfile:ipv4', 'inet:web:file:ipv4'),
+            ('inet:netfile:ipv6', 'inet:web:file:ipv6'),
+            ('inet:netfile:seen:min', 'inet:web:file:seen:min'),
+            ('inet:netfile:seen:max', 'inet:web:file:seen:max'),
+
         ]
 
         adds, dels = [], []  # for ro props, valus, etc  # FIXME use setRowsByIdProp instead
