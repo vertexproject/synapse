@@ -746,6 +746,45 @@ class InetModelTest(SynTest):
             (dark_iden, '_:*inet:netfile#hehe', tick, tick),
         ])
         adds.extend(_addTag('hehe.hoho', 'inet:netpost'))
+        adds.extend(_addTag('hehe', 'inet:netpost'))
+
+        iden = guid()
+        imgof_valu = 'b873597b32ce4adb836d8d4aae1831f6'
+        dark_iden = iden[::-1]
+        tick = now()
+        adds.extend([
+            (iden, 'tufo:form', 'file:imgof', tick),
+            (iden, 'file:imgof', imgof_valu, tick),
+            (iden, 'file:imgof:file', '0' * 32, tick),
+            (iden, 'file:imgof:xref', 'inet:netuser=vertex.link/person1', tick),
+            (iden, 'file:imgof:xref:prop', 'inet:netuser', tick),
+            (iden, 'file:imgof:xref:strval', 'vertex.link/person1', tick),
+            (iden, '#hehe.hoho', tick, tick),
+            (iden, '#hehe', tick, tick),
+            (dark_iden, '_:*file:imgof#hehe.hoho', tick, tick),
+            (dark_iden, '_:*file:imgof#hehe', tick, tick),
+        ])
+        adds.extend(_addTag('hehe.hoho', 'file:imgof'))
+        adds.extend(_addTag('hehe', 'file:imgof'))
+
+        iden = guid()
+        txtref_valu = 'c10d26ad2467bb72320ad1fc501ec40b'
+        dark_iden = iden[::-1]
+        tick = now()
+        adds.extend([
+            (iden, 'tufo:form', 'file:txtref', tick),
+            (iden, 'file:txtref', txtref_valu, tick),
+            (iden, 'file:txtref:file', '0' * 32, tick),
+            (iden, 'file:txtref:xref', 'inet:netgroup=vertex.link/group0', tick),
+            (iden, 'file:txtref:xref:prop', 'inet:netgroup', tick),
+            (iden, 'file:txtref:xref:strval', 'vertex.link/group0', tick),
+            (iden, '#hehe.hoho', tick, tick),
+            (iden, '#hehe', tick, tick),
+            (dark_iden, '_:*file:imgof#hehe.hoho', tick, tick),
+            (dark_iden, '_:*file:imgof#hehe', tick, tick),
+        ])
+        adds.extend(_addTag('hehe.hoho', 'file:txtref'))
+        adds.extend(_addTag('hehe', 'file:txtref'))
 
         with s_cortex.openstore('ram:///') as stor:
 
@@ -919,3 +958,41 @@ class InetModelTest(SynTest):
                 self.len(0, tufos)
                 rows = core.getJoinByProp('inet:netfile')
                 self.len(0, rows)
+
+                # file:imgof
+                # assert that the correct number of users and groups were migrated
+                tufos = core.getTufosByProp('file:imgof')
+                self.len(1, tufos)
+
+                # check that properties were correctly migrated and tags were not damaged
+                new_imgof_valu = 'fd415d0895e9ce466d8292c3d55c6bf5'  # NOTE: valu changes because we change the prop name
+                tufo = core.getTufoByProp('file:imgof', new_imgof_valu)
+                self.eq(tufo[1]['file:imgof'], new_imgof_valu)
+                self.eq(tufo[1]['file:imgof:file'], '0' * 32)
+                self.eq(tufo[1]['file:imgof:xref'], 'inet:web:acct=vertex.link/person1')
+                self.eq(tufo[1]['file:imgof:xref:prop'], 'inet:web:acct')
+                self.eq(tufo[1]['file:imgof:xref:strval'], 'vertex.link/person1')
+                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+
+                # assert that no old data remains
+                tufos = core.getTufosByProp('file:imgof', imgof_valu)
+                self.len(0, tufos)
+
+                # file:txtref
+                # assert that the correct number of users and groups were migrated
+                tufos = core.getTufosByProp('file:txtref')
+                self.len(1, tufos)
+
+                # check that properties were correctly migrated and tags were not damaged
+                new_txtref_valu = 'd4f8fbb792d127422a0dc788588f8f7a'  # NOTE: valu changes because we change the prop name
+                tufo = core.getTufoByProp('file:txtref', new_txtref_valu)
+                self.eq(tufo[1]['file:txtref'], new_txtref_valu)
+                self.eq(tufo[1]['file:txtref:file'], '0' * 32)
+                self.eq(tufo[1]['file:txtref:xref'], 'inet:web:group=vertex.link/group0')
+                self.eq(tufo[1]['file:txtref:xref:prop'], 'inet:web:group')
+                self.eq(tufo[1]['file:txtref:xref:strval'], 'vertex.link/group0')
+                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+
+                # assert that no old data remains
+                tufos = core.getTufosByProp('file:txtref', txtref_valu)
+                self.len(0, tufos)

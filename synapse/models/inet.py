@@ -529,20 +529,51 @@ class InetMod(CoreModule):
 
         ]
 
-        adds, dels = [], []  # for ro props, valus, etc  # FIXME use setRowsByIdProp instead
-        for old, new in forms:
+        xreftypes = []
+        for t in self.core.getTypeDefs():
+            if t[1].get('subof') == 'xref':
+                xreftypes.append(t[0])
 
+        adds, dels = [], []  # for ro props, valus, etc  # FIXME use setRowsByIdProp instead
+        for oldform, newform in forms:
+
+            # FIXME move tagforms into a migration fn
             # rename tagforms and dark tags
-            for i, p, v, t in self.core.getRowsByProp('syn:tagform:form', old):
-                adds.append((i, p, new, t),)
+            for i, p, v, t in self.core.getRowsByProp('syn:tagform:form', oldform):
+                adds.append((i, p, newform, t),)
                 dels.append((i, p, v),)
 
                 for _, _, tag, _ in self.core.getRowsByIdProp(i, 'syn:tagform:tag'):
-                    oldd = '_:*%s#%s' % (old, tag)
-                    newd = '_:*%s#%s' % (new, tag)
+                    oldd = '_:*%s#%s' % (oldform, tag)
+                    newd = '_:*%s#%s' % (newform, tag)
                     darks.append((oldd, newd),)
 
-            # FIXME rename xrefs / propvalu stuff
+            # FIXME move xrefs into a migration fn
+            for xtype in xreftypes:
+                basename = self.core.getTypeDef(xtype)[1]['source'].split(',')[0]
+                baseprop = xtype + ':' + basename
+                xrefprop = xtype + ':xref'
+                propprop = xtype + ':xref:prop'
+
+                for i, p, v, t in self.core.getRowsByProp(propprop, oldform):  # FIXME if we use a limit, how do we know when its done?
+                    tufo = self.core.getTufoByProp(propprop, oldform)  # FIXME is there a better way to get stamp?
+
+                    # modify :xref:prop
+                    adds.append((i, p, newform, t),)
+                    dels.append((i, p, v),)
+
+                    # modify :xref
+                    old_xref_valu = tufo[1][xrefprop]
+                    new_xref_valu = tufo[1][xrefprop].replace(oldform, newform)
+                    adds.append((i, xrefprop, new_xref_valu, t),)
+                    dels.append((i, xrefprop, old_xref_valu),)
+
+                    # modify base
+                    basevalu = tufo[1][baseprop]
+                    newformvalu = tufo[1][xrefprop].split('=', 1)[1]
+                    xrefvalu, _ = self.core.getTypeNorm(xtype, (basevalu, (newform, newformvalu)))
+                    adds.append((i, xtype, xrefvalu, t),)
+                    dels.append((i, xtype, tufo[1][xtype]),)
 
         if adds:
             self.core.addRows(adds)
