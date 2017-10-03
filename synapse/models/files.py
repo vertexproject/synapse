@@ -213,7 +213,7 @@ class FileMod(CoreModule):
                     # ('mime:pe:imports',{'ptype':'time','doc':'Compile time from the PE header'}),
 
                     ('mime:*', {'glob': 1, 'doc': 'Namespace for high-value mime details'})
-                )),
+                ))
 
                 ('file:subfile', {'ptype': 'file:sub'}, (
                     ('parent', {'ptype': 'file:bytes', 'doc': 'The guid of the parent file.', 'ro': 1}),
@@ -222,7 +222,6 @@ class FileMod(CoreModule):
                           'doc': 'The name of the child file. Because a given set of bytes can have any number of arbitrary names, this field is used for display purposes only.'}),
                     # TODO others....
                 )),
-
             ),
         }
         name = 'file'
