@@ -188,9 +188,8 @@ class FileMod(CoreModule):
                           'doc': 'The final component of the file path. Can be a file name (if present) or the final directory.', 'ro': 1}),
                 )),
 
-                ('file:base', {'ptype': 'file:base',
-                          'doc': 'The name of a file or directory, e.g., system32 or foo.exe; the final component of a file:path.', 'ro': 1}),
-                ()),
+                ('file:base', {'ptype': 'file:base'}, (
+                )),
 
                 ('file:bytes', {'ptype': 'file:bytes'}, (
                     ('size', {'ptype': 'int', 'doc': 'The size of the file in bytes.', 'ro': 1}),
@@ -213,7 +212,7 @@ class FileMod(CoreModule):
                     # ('mime:pe:imports',{'ptype':'time','doc':'Compile time from the PE header'}),
 
                     ('mime:*', {'glob': 1, 'doc': 'Namespace for high-value mime details'})
-                ))
+                )),
 
                 ('file:subfile', {'ptype': 'file:sub'}, (
                     ('parent', {'ptype': 'file:bytes', 'doc': 'The guid of the parent file.', 'ro': 1}),
