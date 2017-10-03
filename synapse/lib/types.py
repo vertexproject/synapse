@@ -28,6 +28,7 @@ class DataType:
         self.tlib = tlib
         self.name = name
         self.info = info
+        self.ppath = self.info.get('ppath', '')
         s_common.reqStorDict(info)
 
     def _raiseBadValu(self, valu, **info):
@@ -142,7 +143,7 @@ class GuidType(DataType):
             if not isinstance(kv, (list, tuple)) or not len(kv) == 2:
                 self._raiseBadValu(valu, kv=kv, mesg='Expected a list or tuple of length 2')
             k, v = kv
-            fullprop = self.name + ':' + k
+            fullprop = self.ppath + ':' + k
             try:
                 v, ssubs = self._reqPropNorm(fullprop, v)
             except s_common.NoSuchProp:
@@ -936,6 +937,15 @@ class TypeLib:
     def reqDataType(self, name):
         '''
         Return a reference to the named DataType or raise NoSuchType.
+
+        Args:
+            name (str): Name of the type to get a reference for.
+
+        Returns:
+            DataType: Instance of a DataType for that name.
+
+        Raises:
+            NoSuchType: If the type is not valid.
         '''
         item = self.getDataType(name)
         if item is None:

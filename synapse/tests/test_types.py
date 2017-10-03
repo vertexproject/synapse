@@ -582,6 +582,29 @@ class DataTypesTest(SynTest):
             self.eq(subs5.get('a:ipv4'), 0x01020304)
             self.eq(subs5.get('time'), 1506902400000)
 
+            # Add a custom form which is a subtype of guid itself without a separate form
+            # which has subs which also include a guid!
+            core.addTufoForm('bobboblaw', ptype='guid')
+            core.addTufoProp('bobboblaw', 'foo', ptype='str')
+            core.addTufoProp('bobboblaw', 'baz', ptype='int')
+            core.addTufoProp('bobboblaw', 'ohmai', ptype='guid')
+            core.addTufoProp('bobboblaw', 'ohmai:s', ptype='str')
+            core.addTufoProp('bobboblaw', 'ohmai:i', ptype='int')
+            v6, subs6 = core.getPropNorm('bobboblaw', '(foo="1",baz=2)')
+            self.eq(v0, v6)
+            self.eq(subs0, subs6)
+
+            # And now with nested subs!
+            v7, subs7 = core.getPropNorm('bobboblaw', '(foo="1",baz=2,ohmai=(s=foo, i=137))')
+            self.ne(v0, v7)
+            self.eq(v7, '706f471a707370fdb8fc3d0590b4dce1')
+            self.isin('foo', subs7)
+            self.isin('baz', subs7)
+            self.isin('ohmai', subs7)
+            self.isin('ohmai:s', subs7)
+            self.isin('ohmai:i', subs7)
+            self.eq(subs7.get('ohmai'), '59cbcbc1b5593d719aeae1e75d05cabf')
+
             # Bad input
             self.raises(BadTypeValu, core.getPropNorm, 'guidform', '   ')
             self.raises(BadTypeValu, core.getPropNorm, 'guidform', '()')

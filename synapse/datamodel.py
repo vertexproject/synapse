@@ -103,6 +103,7 @@ class DataModel(s_types.TypeLib):
         self.defvals = collections.defaultdict(list)
         self.subprops = collections.defaultdict(list)
         self.propsbytype = collections.defaultdict(list)
+        self.propsdtyp = {}
 
         self.globs = []
         self.cache = {} # for globs
@@ -265,8 +266,10 @@ class DataModel(s_types.TypeLib):
 
         ptype = info.get('ptype')
         if ptype is not None:
-            self.reqDataType(ptype)
+            dtyp = self.reqDataType(ptype)
+            pdtyp = dtyp.extend(name=dtyp.name, ppath=prop, **dtyp.info)
             self.propsbytype[ptype].append(pdef)
+            self.propsdtyp[prop] = pdtyp
 
         self.props[prop] = pdef
         self.props[(form, relname)] = pdef
@@ -473,12 +476,22 @@ class DataModel(s_types.TypeLib):
 
     def getPropType(self, prop):
         '''
-        Return the data model type instance for the given property,
-         or None if the data model doesn't have an entry for the property.
+        Return the data model type instance for the given property, or
+        None if the data model doesn't have an entry for the property.
 
-        Example:
-            ptype = model.getPropType('foo:bar')
+        Args:
+            prop (str): Property to get the DataType instance for.
+
+        Returns:
+            s_types.DataType: A DataType for a given property.
         '''
+
+        # Default to pulling dtype from the propsdtyp dict
+        dtyp = self.propsdtyp.get(prop)
+        if dtyp:
+            return dtyp
+
+        # Otherwise, fall back on getPropDef/getDataType methods.
         pdef = self.getPropDef(prop)
         if pdef is None:
             return None
