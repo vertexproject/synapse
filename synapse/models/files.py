@@ -124,17 +124,17 @@ class FileMod(CoreModule):
                 ('file:bytes', {
                     'subof': 'guid',
                     'doc': 'A unique file identifier'}),
-                
+
                 ('file:sub', {
                     'subof': 'sepr',
                     'sep': '/',
                     'fields': 'parent,file:bytes|child,file:bytes',
                     'doc': 'A parent file that fully contains the specified child file.'}),
-                
+
                 ('file:rawpath', {
                     'ctor': 'synapse.models.files.FileRawPathType',
                     'doc': 'A \"raw\" file path in its default (non-normalized) form. Can consist of a directory path, a path and file name, or a file name'}),
-                
+
                 ('file:base', {
                     'ctor': 'synapse.models.files.FileBaseType',
                     'doc': 'A file or directory name (without a full path), such as \"system32\" or \"foo.exe\".'}),
@@ -147,7 +147,7 @@ class FileMod(CoreModule):
                     'subof': 'xref',
                     'source': 'file,file:bytes',
                     'doc': 'A file that contains an image of the specified node.'),
-                
+
                 ('file:txtref', {
                     'subof': 'xref',
                     'source': 'file,file:bytes',
@@ -159,7 +159,7 @@ class FileMod(CoreModule):
                 ('file:imgof', {}, [
                     ('file', {'ptype': 'file:bytes', 'doc': 'The guid of the file containing the image.', 'ro': 1}),
                     ('xref', {'ptype': 'propvalu',
-                         'doc':'The \"form=valu\" of the object referenced in the image, e.g., geo:place=<guid_of_place>.', 'ro': 1}),
+                         'doc': 'The \"form=valu\" of the object referenced in the image, e.g., geo:place=<guid_of_place>.', 'ro': 1}),
                     ('xref:prop', {'ptype': 'str', 'doc': 'The property (form) of the referenced object, as specified by the propvalu.', 'ro': 1}),
                     ('xref:intval', {'ptype': 'int',
                          'doc': 'The value of the property of the referenced object, as specified by the propvalu, if the value is an integer.', 'ro': 1}),
