@@ -589,6 +589,7 @@ class DataTypesTest(SynTest):
             self.raises(BadTypeValu, core.getPropNorm, 'guidform', '(foo, bar)')
             self.raises(BadTypeValu, core.getPropNorm, 'guidform', (['baz', '2'], ('foo', '1', 'blerp')))
             self.raises(BadTypeValu, core.getPropNorm, 'guidform', '(foo="1",junkProp=2)')
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', '(foo="1",somevalu)')
             self.raises(BadTypeValu, core.getPropNorm, 'guidform', 'totally not a guid')
             self.raises(BadTypeValu, core.getPropNorm, 'guidform', 1234)
             self.raises(BadTypeValu, core.getPropNorm, 'guidform', '$1234')
