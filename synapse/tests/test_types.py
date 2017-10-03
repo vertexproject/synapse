@@ -557,6 +557,7 @@ class DataTypesTest(SynTest):
             v0, subs0 = core.getPropNorm('guidform', '(foo="1",baz=2)')
             v1, subs1 = core.getPropNorm('guidform', (['baz', '2'], ('foo', '1')))
             v2, _ = core.getPropNorm('guidform', '  (foo="1",baz=2) ')
+            self.eq(v0, '1312b101a21bdfd0d96f896ecc5cc113')
             self.eq(v0, v1)
             self.eq(v0, v2)
             self.len(2, subs0)
@@ -566,10 +567,20 @@ class DataTypesTest(SynTest):
             # Do partial subs
             v3, subs3 = core.getPropNorm('guidform', '(foo="1")')
             v4, _ = core.getPropNorm('guidform', [['foo', '1']])
+            self.eq(v3, '9d13c5c5f307199cfd9861584bac35f2')
             self.eq(v3, v4)
-            self.ne(v3, v0)
             self.eq(subs0.get('foo'), subs3.get('foo'))
             self.none(subs3.get('baz'))
+
+            # Test a model form with nested subs from a guid type
+            v5, subs5 = core.getPropNorm('inet:dns:look', '(time="20171002",a="woot.com/1.2.3.4")')
+            self.eq(v5, '78241202d9af8b1403e9e391336922a1')
+            self.eq(subs5.get('a'), 'woot.com/1.2.3.4')
+            self.eq(subs5.get('a:fqdn'), 'woot.com')
+            self.eq(subs5.get('a:fqdn:domain'), 'com')
+            self.eq(subs5.get('a:fqdn:host'), 'woot')
+            self.eq(subs5.get('a:ipv4'), 0x01020304)
+            self.eq(subs5.get('time'), 1506902400000)
 
             # Bad input
             self.raises(BadTypeValu, core.getPropNorm, 'guidform', '   ')

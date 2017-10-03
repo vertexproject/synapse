@@ -147,6 +147,7 @@ class GuidType(DataType):
             valid_props.add(pnfo.get('relname'))
 
         vals = []
+        subs = {}
 
         for kv in valu:
             if not isinstance(kv, (list, tuple)) or not len(kv) == 2:
@@ -155,13 +156,14 @@ class GuidType(DataType):
             if k not in valid_props:
                 self._raiseBadValu(valu, k=k, mesg='Non-model property provided when making a stable guid.')
             fullprop = self.name + ':' + k
-            v, _ = self._getPropNorm(fullprop, v)
+            v, ssubs = self._getPropNorm(fullprop, v)
+            subs.update({':'.join([k, _k]): _v for _k, _v in ssubs.items()})
             vals.append((k, v))
 
         # Stable sort based on the property
         vals.sort(key=lambda x: x[0])
         valu = s_common.guid(valu=vals)
-        subs = dict(vals)
+        subs.update(vals)
         return valu, subs
 
 class StrType(DataType):
