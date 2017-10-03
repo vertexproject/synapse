@@ -133,11 +133,11 @@ class FileMod(CoreModule):
 
                 ('file:rawpath', {
                     'ctor': 'synapse.models.files.FileRawPathType',
-                    'doc': 'A \"raw\" file path in its default (non-normalized) form. Can consist of a directory path, a path and file name, or a file name'}),
+                    'doc': 'A raw file path in its default (non-normalized) form. Can consist of a directory path, a path and file name, or a file name.'}),
 
                 ('file:base', {
                     'ctor': 'synapse.models.files.FileBaseType',
-                    'doc': 'A file or directory name (without a full path), such as \"system32\" or \"foo.exe\".'}),
+                    'doc': 'A file or directory name (without a full path), such as system32 or foo.exe.'}),
 
                 ('file:path', {
                     'ctor': 'synapse.models.files.FilePathType',
@@ -159,7 +159,7 @@ class FileMod(CoreModule):
                 ('file:imgof', {}, [
                     ('file', {'ptype': 'file:bytes', 'doc': 'The guid of the file containing the image.', 'ro': 1}),
                     ('xref', {'ptype': 'propvalu',
-                         'doc': 'The \"form=valu\" of the object referenced in the image, e.g., geo:place=<guid_of_place>.', 'ro': 1}),
+                         'doc': 'The form=valu of the object referenced in the image, e.g., geo:place=<guid_of_place>.', 'ro': 1}),
                     ('xref:prop', {'ptype': 'str', 'doc': 'The property (form) of the referenced object, as specified by the propvalu.', 'ro': 1}),
                     ('xref:intval', {'ptype': 'int',
                          'doc': 'The value of the property of the referenced object, as specified by the propvalu, if the value is an integer.', 'ro': 1}),
@@ -170,7 +170,7 @@ class FileMod(CoreModule):
                 ('file:txtref', {}, [
                     ('file', {'ptype': 'file:bytes', 'doc': 'The guid of the file containing the reference.', 'ro': 1}),
                     ('xref', {'ptype': 'propvalu',
-                         'doc': 'The \"form=valu\" of the object referenced in the fiole, e.g., inet:fqdn=foo.com.', 'ro': 1}),
+                         'doc': 'The form=valu of the object referenced in the fiole, e.g., inet:fqdn=foo.com.', 'ro': 1}),
                     ('xref:prop', {'ptype': 'str',
                          'doc': 'The property (form) of the referenced object, as specified by the propvalu.', 'ro': 1}),
                     ('xref:intval', {'ptype': 'int',
@@ -189,7 +189,7 @@ class FileMod(CoreModule):
                 )),
 
                 ('file:base', {'ptype': 'file:base',
-                          'doc': 'The name of a file or directory, e.g., \"system32\" or \"foo.exe\"; the final component of a file:path.', 'ro': 1}),
+                          'doc': 'The name of a file or directory, e.g., system32 or foo.exe; the final component of a file:path.', 'ro': 1}),
                 ()),
 
                 ('file:bytes', {'ptype': 'file:bytes'}, (
@@ -199,7 +199,7 @@ class FileMod(CoreModule):
                     ('sha256', {'ptype': 'hash:sha256', 'doc': 'The sha256 hash of the file.', 'ro': 1}),
                     ('sha512', {'ptype': 'hash:sha512', 'doc': 'The sha512 hash of the file.', 'ro': 1}),
                     ('name', {'ptype': 'file:base',
-                          'doc': 'The \"name\" of the file. Because a given set of bytes can have any number of arbitrary names, this field is used for display purposes only.'}),
+                          'doc': 'The name of the file. Because a given set of bytes can have any number of arbitrary names, this field is used for display purposes only.'}),
                     ('mime', {'ptype': 'str', 'defval': '??', 'doc': 'The MIME type of the file.'}),
 
                     # FIXME could another model define props for this form?
@@ -219,7 +219,7 @@ class FileMod(CoreModule):
                     ('parent', {'ptype': 'file:bytes', 'doc': 'The guid of the parent file.', 'ro': 1}),
                     ('child', {'ptype': 'file:bytes', 'doc': 'The guid of the child file.', 'ro': 1}),
                     ('name', {'ptype': 'file:base',
-                          'doc': 'The \"name\" of the child file. Because a given set of bytes can have any number of arbitrary names, this field is used for display purposes only.'}),
+                          'doc': 'The name of the child file. Because a given set of bytes can have any number of arbitrary names, this field is used for display purposes only.'}),
                     # TODO others....
                 )),
 
