@@ -112,7 +112,7 @@ class GuidType(DataType):
         if text[0] != '$':
             retn = text.lower().replace('-', '')
             if not isguid(retn):
-                self._raiseBadValu(text)
+                self._raiseBadValu(text, mesg='Expected a 32 char guid string')
 
             return retn, {}
 
