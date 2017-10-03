@@ -394,10 +394,33 @@ class DataModel(s_types.TypeLib):
         '''
         Return a normalized system mode value for the given property.
 
-        Example:
+        Args:
+            prop (str): Property to normalize.
+            valu: Input value to normalize.
+            oldval: Optional previous version of the value.
 
-            valu,subs = model.getPropNorm(prop,valu)
+        Examples:
+            Normalize an IPV4 address::
 
+                valu, subs = model.getPropNorm('inet:ipv4', '1.2.3.4')
+                # valu = 16909060
+
+            Normalize a DNS A record::
+
+                valu, subs = model.getPropNorm('inet:dns:a', 'woot.com/1.2.3.4')
+                # valu = 'woot.com/1.2.3.4'
+                # subs['fqdn'] = 'woot.com'
+                # subs['fqdn:domain'] = 'com'
+                # subs['fqdn:host'] = 'woot'
+                # subs['ipv4'] = 16909060
+
+        Notes:
+            If the requested property is not part of the data model, this returns the input valu. If this is not
+            desired behavior, the reqPropNorm() function can be used to throw a NoSuchProp exception.
+
+        Returns:
+            tuple: A tuple of two items. The first item is the system normalized valu, as an integer or string. The
+                   second item is a dictionary of subproperties for the input.
         '''
         dtype = self.getPropType(prop)
         if dtype is None:
@@ -486,3 +509,46 @@ class DataModel(s_types.TypeLib):
             return None
 
         return self.getTypeInfo(ptype, name)
+
+    def reqPropNorm(self, prop, valu, oldval=None):
+        '''
+        Return a normalized system mode value for the given property. This throws an exception if the property does
+        not exist.
+
+        Args:
+            prop (str): Property to normalize.
+            valu: Input value to normalize.
+            oldval: Optional previous version of the value.
+
+        Examples:
+            Normalize an IPV4 address::
+
+                valu, subs = model.reqPropNorm('inet:ipv4', '1.2.3.4')
+                # valu = 16909060
+
+            Normalize a DNS A record::
+
+                valu, subs = model.reqPropNorm('inet:dns:a', 'woot.com/1.2.3.4')
+                # valu = 'woot.com/1.2.3.4'
+                # subs['fqdn'] = 'woot.com'
+                # subs['fqdn:domain'] = 'com'
+                # subs['fqdn:host'] = 'woot'
+                # subs['ipv4'] = 16909060
+
+        Notes:
+            This is similar to the getPropNorm() function, however it throws an exception on a missing property
+            instead of returning the valu to the caller.
+
+        Returns:
+            tuple: A tuple of two items. The first item is the system normalized valu, as an integer or string. The
+                   second item is a dictionary of subproperties for the input.
+
+        Raises:
+            NoSuchProp: If the requested property is not part of the data model.
+        '''
+        dtype = self.getPropType(prop)
+        if dtype is None:
+            raise s_common.NoSuchProp(mesg='Prop does not exist.',
+                                      prop=prop, valu=valu)
+
+        return dtype.norm(valu, oldval=oldval)

@@ -377,3 +377,9 @@ class DataModelTest(SynTest):
         self.eq(base, 'baz')
 
         self.raises(NoSuchProp, modl.getPropFormBase, 'newp:newp')
+
+    def test_datamodel_reqpropnorm(self):
+        with self.getRamCore() as core:
+            v, _ = core.reqPropNorm('strform:foo', '1')
+            self.eq(v, '1')
+            self.raises(NoSuchProp, core.reqPropNorm, 'strform:beepbeep', '1')

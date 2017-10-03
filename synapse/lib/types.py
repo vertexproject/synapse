@@ -80,8 +80,7 @@ class GuidType(DataType):
         self._guid_alias = info.get('alias')
         # TODO figure out what to do about tlib vs core issues
         self._getTufoByProp = getattr(tlib, 'getTufoByProp', None)
-        self._getSubProps = getattr(tlib, 'getSubProps', None)
-        self._getPropNorm = getattr(tlib, 'getPropNorm', None)
+        self._reqPropNorm = getattr(tlib, 'reqPropNorm', None)
 
     def norm(self, valu, oldval=None):
 
@@ -136,16 +135,6 @@ class GuidType(DataType):
         if not valu:
             self._raiseBadValu(valu=valu, mesg='No valus present in list to make a guid with')
 
-        subprops = self._getSubProps(self.name)
-        if not subprops:
-            self._raiseBadValu(valu,
-                               form=self.name,
-                               mesg='Cannot norm a guid valu as a list if there are no subprops for the form'
-                               )
-        valid_props = set()
-        for fullprop, pnfo in subprops:
-            valid_props.add(pnfo.get('relname'))
-
         vals = []
         subs = {}
 
@@ -153,10 +142,13 @@ class GuidType(DataType):
             if not isinstance(kv, (list, tuple)) or not len(kv) == 2:
                 self._raiseBadValu(valu, kv=kv, mesg='Expected a list or tuple of length 2')
             k, v = kv
-            if k not in valid_props:
-                self._raiseBadValu(valu, k=k, mesg='Non-model property provided when making a stable guid.')
             fullprop = self.name + ':' + k
-            v, ssubs = self._getPropNorm(fullprop, v)
+            try:
+                v, ssubs = self._reqPropNorm(fullprop, v)
+            except s_common.NoSuchProp:
+                logger.exception('Error while norming list of props for guid type.')
+                self._raiseBadValu(valu, prop=k, fullprop=fullprop,
+                                   mesg='Non-model property provided when making a stable guid.')
             subs.update({':'.join([k, _k]): _v for _k, _v in ssubs.items()})
             vals.append((k, v))
 
