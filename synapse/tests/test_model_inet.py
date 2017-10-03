@@ -504,6 +504,29 @@ class InetModelTest(SynTest):
             self.eq(t0[1].get('inet:web:logon:logout') - t0[1].get('inet:web:logon:time'), 1)
             self.eq(t0[1].get('inet:web:logon:ipv6'), '::1')
 
+    def test_model_inet_web_action(self):
+
+        with self.getRamCore() as core:
+            tick = now()
+
+            t0 = core.formTufoByProp('inet:web:action', '*', action='didathing', acct='vertex.link/pennywise', time=tick)
+            self.nn(t0)
+
+            self.eq(t0[1].get('inet:web:action:time'), tick)
+            self.eq(t0[1].get('inet:web:action:acct'), 'vertex.link/pennywise')
+            self.eq(t0[1].get('inet:web:action:acct:user'), 'pennywise')
+            self.eq(t0[1].get('inet:web:action:acct:site'), 'vertex.link')
+            self.eq(t0[1].get('inet:web:action:action'), 'didathing')
+
+            # Pivot from an inet:web:acct to the inet:web:action forms via storm
+            self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/pennywise'))
+            nodes = core.eval('inet:web:acct=vertex.link/pennywise inet:web:acct -> inet:web:action:acct')
+            self.eq(len(nodes), 1)
+
+            t0 = core.setTufoProps(t0, ipv4=0x01020304, ipv6='0:0:0:0:0:0:0:1')
+            self.eq(t0[1].get('inet:web:action:ipv4'), 0x01020304)
+            self.eq(t0[1].get('inet:web:action:ipv6'), '::1')
+
     def test_model_inet_201706121318(self):
 
         iden0 = guid()
