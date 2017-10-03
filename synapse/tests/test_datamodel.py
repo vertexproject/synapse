@@ -77,13 +77,13 @@ class DataModelTest(SynTest):
         self.eq(tufo0[0], tufo1[0])
 
         tufos = core.getTufosByProp('foo')
-        self.eq(len(tufos), 3)
+        self.len(3, tufos)
 
         tufos = core.getTufosByProp('foo:bar', valu=30, limit=20)
-        self.eq(len(tufos), 1)
+        self.len(1, tufos)
 
         tufos = core.getTufosByProp('foo:bar', valu=99, limit=20)
-        self.eq(len(tufos), 1)
+        self.len(1, tufos)
 
     def test_datamodel_subs(self):
         model = s_datamodel.DataModel()
@@ -93,7 +93,7 @@ class DataModelTest(SynTest):
 
         subs = model.getSubProps('foo')
 
-        self.eq(len(subs), 1)
+        self.len(1, subs)
         self.eq(subs[0][0], 'foo:bar')
 
         model.addTufoProp('foo', 'baz', ptype='int', defval=20)

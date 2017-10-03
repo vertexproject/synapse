@@ -632,8 +632,8 @@ class DataTypesTest(SynTest):
             self.eq(unode[1].get('ou:user'), '%s/visi' % iden)
             self.eq(unode[1].get('ou:user:org'), iden)
 
-            self.eq(len(core.eval('ou:org=$vertex')), 1)
-            self.eq(len(core.eval('ou:user:org=$vertex')), 1)
+            self.len(1, core.eval('ou:org=$vertex'))
+            self.len(1, core.eval('ou:user:org=$vertex'))
 
     def test_types_tagtime(self):
         with self.getRamCore() as core:
@@ -747,7 +747,7 @@ class DataTypesTest(SynTest):
             self.eq(node[1].get('pvsub:xref:prop'), 'inet:ipv4')
 
             nodes = core.eval('pvsub :xref:intval->inet:ipv4')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
             self.eq(nodes[0][1].get('inet:ipv4'), 0x01020304)
 
             # Actually make some pvform nodes
