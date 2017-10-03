@@ -459,6 +459,7 @@ class InetMod(CoreModule):
         '''
         Rename inet:net* to inet:web*
         '''
+        # TODO: move the inner migration functions into the core
 
         darks = []
         forms = [
@@ -529,34 +530,55 @@ class InetMod(CoreModule):
 
         ]
 
-        def getXrefForms():
-            xreftypes = []
-            for tdef in self.core.getTypeDefs():
-                if tdef[1].get('subof') == 'xref':
-                    xreftypes.append(tdef[0])
-            return xreftypes
+        def _updateTagForm(oldform, newform):
+            adds, dels, darks = [], [], []
+            for i, p, v, t in self.core.getRowsByProp('syn:tagform:form', oldform):
+                adds.append((i, p, newform, t),)
+                dels.append((i, p, v),)
 
-        def updateXref(oldform, newform):
+                for _, _, tag, _ in self.core.getRowsByIdProp(i, 'syn:tagform:tag'):
+                    oldark = '_:*%s#%s' % (oldform, tag)
+                    newdark = '_:*%s#%s' % (newform, tag)
+                    darks.append((oldark, newdark),)
 
-            for xtype in getXrefForms():
+            if adds:
+                self.core.addRows(adds)
 
-                try:
-                    basename = self.core.getTypeDef(xtype)[1]['source'].split(',')[0]
-                except Exception as e:
-                    print('unable to load xtype(%s): %s' % (xtype, e))
-                    continue
+            for i, p, v in dels:
+                self.core.delRowsByIdProp(i, p, v)
 
-                baseprop = xtype + ':' + basename
-                xrefprop = xtype + ':xref'
-                propprop = xtype + ':xref:prop'
+            for olddark, newdark in darks:
+                self.core.store.updateProperty(olddark, newdark)
+
+        def _getXrefPropSrc():
+            retval = []
+
+            for prop in self.core.props:
+                if isinstance(prop, str):
+                    pdef = self.core.getPropDef(prop)
+                    ptype = pdef[1]['ptype']
+                    tdef = self.core.getTypeDef(ptype)
+                    tsub = tdef[1].get('subof')
+                    tsrc = tdef[1].get('source', '').split(',')[0]
+                    if tsrc and tsub == 'xref':
+                        retval.append((prop, prop + ':' + tsrc),)
+
+            return retval
+
+        def _updateXref(xref_props, oldform, newform):
+
+            for xref_base_prop, xref_src_prop in xref_props:
+
+                xref_prop = xref_base_prop + ':xref'
+                xref_prop_prop = xref_base_prop + ':xref:prop'
 
                 while True:
-                    tufos = self.core.getTufosByProp(propprop, oldform, limit=1000)
+                    tufos = self.core.getTufosByProp(xref_prop_prop, oldform, limit=1000)
                     if not tufos:
                         break
 
                     for tufo in tufos:
-                        i, p, v, t = self.core.getRowsByIdProp(tufo[0], propprop)[0]  # is there any way to avoid this?
+                        i, p, v, t = self.core.getRowsByIdProp(tufo[0], xref_prop_prop)[0] # unavoidable until we have `tufo:formed` prop
                         adds, dels = [], []
 
                         # modify :xref:prop
@@ -564,17 +586,17 @@ class InetMod(CoreModule):
                         dels.append((i, p, v),)
 
                         # modify :xref
-                        old_xref_valu = tufo[1][xrefprop]
-                        new_xref_valu = tufo[1][xrefprop].replace(oldform, newform)
-                        adds.append((i, xrefprop, new_xref_valu, t),)
-                        dels.append((i, xrefprop, old_xref_valu),)
+                        old_xref_valu = tufo[1][xref_prop]
+                        new_xref_valu = tufo[1][xref_prop].replace(oldform, newform)
+                        adds.append((i, xref_prop, new_xref_valu, t),)
+                        dels.append((i, xref_prop, old_xref_valu),)
 
-                        # modify base
-                        basevalu = tufo[1][baseprop]
-                        newformvalu = tufo[1][xrefprop].split('=', 1)[1]
-                        xrefvalu, _ = self.core.getTypeNorm(xtype, (basevalu, (newform, newformvalu)))
-                        adds.append((i, xtype, xrefvalu, t),)
-                        dels.append((i, xtype, tufo[1][xtype]),)
+                        # modify the src prop. ex: `file:imgof:file`
+                        src_valu = tufo[1][xref_src_prop]
+                        new_formvalu = tufo[1][xref_prop].split('=', 1)[1]
+                        xref_valu, _ = self.core.getTypeNorm(xref_base_prop, (src_valu, (newform, new_formvalu)))
+                        adds.append((i, xref_base_prop, xref_valu, t),)
+                        dels.append((i, xref_base_prop, tufo[1][xref_base_prop]),)
 
                         if adds:
                             self.core.addRows(adds)
@@ -582,9 +604,16 @@ class InetMod(CoreModule):
                         for i, p, v in dels:
                             self.core.delRowsByIdProp(i, p, v)
 
-        for old, new in forms + props:
-            self.core.store.updateProperty(old, new)
-            updateXref(old, new)
+        with self.core.getCoreXact() as xact:
+
+            xref_propsrc = _getXrefPropSrc()
+            for old, new in forms + props:
+                if old == new:
+                    continue
+
+                self.core.store.updateProperty(old, new)
+                _updateTagForm(old, new)
+                _updateXref(xref_propsrc, old, new)
 
     @staticmethod
     def getBaseModels():

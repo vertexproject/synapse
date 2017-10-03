@@ -221,7 +221,6 @@ class RamStorage(s_cores_storage.Storage):
             rowsid[row[0]].add(row)
             rowsbv[row[1], row[2]].add(row)
 
-#        ids = {i for i, p, v, t in rows}
         nrows = {(i, newprop, v, t) for i, p, v, t in rows}
         nrowsid = collections.defaultdict(set)
         nrowsbv = collections.defaultdict(set)

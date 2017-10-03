@@ -727,7 +727,6 @@ class Storage(s_config.Config):
         oldprop = mesg[1].get('oldprop')
         newprop = mesg[1].get('newprop')
         self._updateProperty(oldprop, newprop)
-        self._updateTagForm(oldprop, newprop)
 
     def updateProperty(self, oldprop, newprop):
         '''
@@ -760,29 +759,8 @@ class Storage(s_config.Config):
         self.savebus.fire('core:save:updateproperty', oldprop=oldprop, newprop=newprop)
         self.fire('syn:core:store:updateprop:pre', oldprop=oldprop, newprop=newprop)
         nrows = self._updateProperty(oldprop, newprop)
-        self._updateTagForm(oldprop, newprop)
         self.fire('syn:core:store:updateprop:post', oldprop=oldprop, newprop=newprop, nrows=nrows)
         return nrows
-
-    def _updateTagForm(self, oldform, newform):
-        adds, dels, darks = [], [], []
-        for i, p, v, t in self.getRowsByProp('syn:tagform:form', oldform):
-            adds.append((i, p, newform, t),)
-            dels.append((i, p, v),)
-
-            for _, _, tag, _ in self.getRowsByIdProp(i, 'syn:tagform:tag'):
-                oldark = '_:*%s#%s' % (oldform, tag)
-                newdark = '_:*%s#%s' % (newform, tag)
-                darks.append((oldark, newdark),)
-
-        if adds:
-            self._addRows(adds)
-
-        for i, p, v in dels:
-            self._delRowsByIdProp(i, p, v)
-
-        for olddark, newdark in darks:
-            self.updateProperty(olddark, newdark)
 
     # The following MUST be implemented by the storage layer in order to
     # support the basic idea of a cortex
