@@ -84,13 +84,13 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('ps:person', iden))
             self.nn(core.getTufoByProp('inet:email', 'visi@vertex.link'))
 
-    def test_model_person_has_netuser(self):
+    def test_model_person_has_webacct(self):
         with self.getRamCore() as core:
             iden = guid()
-            node = core.formTufoByProp('ps:hasnetuser', '%s/ROOTKIT.com/visi' % iden)
+            node = core.formTufoByProp('ps:haswebacct', '%s/ROOTKIT.com/visi' % iden)
 
-            self.eq(node[1].get('ps:hasnetuser:netuser'), 'rootkit.com/visi')
-            self.eq(node[1].get('ps:hasnetuser:person'), iden)
+            self.eq(node[1].get('ps:haswebacct:web:acct'), 'rootkit.com/visi')
+            self.eq(node[1].get('ps:haswebacct:person'), iden)
 
             self.nn(core.getTufoByProp('ps:person', iden))
             self.nn(core.getTufoByProp('inet:user', 'visi'))
@@ -105,10 +105,10 @@ class PersonTest(SynTest):
 
             iden = node[1].get('ps:person')
 
-            node = core.formTufoByProp('ps:hasnetuser', '$visi/rootkit.com/visi')
+            node = core.formTufoByProp('ps:haswebacct', '$visi/rootkit.com/visi')
 
-            self.eq(node[1].get('ps:hasnetuser:netuser'), 'rootkit.com/visi')
-            self.eq(node[1].get('ps:hasnetuser:person'), iden)
+            self.eq(node[1].get('ps:haswebacct:web:acct'), 'rootkit.com/visi')
+            self.eq(node[1].get('ps:haswebacct:person'), iden)
 
             self.nn(core.getTufoByProp('ps:person', iden))
 

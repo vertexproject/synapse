@@ -63,7 +63,7 @@ class PsMod(CoreModule):
                 ('ps:hasalias', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|alias,ps:name'}),
                 ('ps:hasphone', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|phone,tel:phone'}),
                 ('ps:hasemail', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|email,inet:email'}),
-                ('ps:hasnetuser', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|netuser,inet:web:acct'}),
+                ('ps:haswebacct', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|web:acct,inet:web:acct'}),
 
                 ('ps:image', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|file,file:bytes'}),
 
@@ -116,9 +116,9 @@ class PsMod(CoreModule):
                     ('email', {'ptype': 'inet:email'}),
                 )),
 
-                ('ps:hasnetuser', {'ptype': 'ps:hasnetuser'}, (
+                ('ps:haswebacct', {'ptype': 'ps:haswebacct'}, (
                     ('person', {'ptype': 'ps:person'}),
-                    ('netuser', {'ptype': 'inet:web:acct'}),
+                    ('web:acct', {'ptype': 'inet:web:acct'}),
                 )),
             ),
         }

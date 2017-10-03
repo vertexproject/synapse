@@ -863,6 +863,38 @@ class InetModelTest(SynTest):
         adds.extend(_addTag('hehe.hoho', 'file:txtref'))
         adds.extend(_addTag('hehe', 'file:txtref'))
 
+        iden = guid()
+        dark_iden = iden[::-1]
+        tick = now()
+        adds.extend([
+            (iden, 'ps:hasnetuser:netuser', 'vertex.link/heheman', tick),
+            (iden, 'ps:hasnetuser:person', '00000000000000000000000000000000', tick),
+            (iden, 'tufo:form', 'ps:hasnetuser', tick),
+            (iden, 'ps:hasnetuser', '00000000000000000000000000000000/vertex.link/heheman', tick),
+            (iden, '#hehe.hoho', tick, tick),
+            (iden, '#hehe', tick, tick),
+            (dark_iden, '_:*ps:hasnetuser#hehe.hoho', tick, tick),
+            (dark_iden, '_:*ps:hasnetuser#hehe', tick, tick),
+        ])
+        adds.extend(_addTag('hehe.hoho', 'ps:hasnetuser'))
+        adds.extend(_addTag('hehe', 'ps:hasnetuser'))
+
+        iden = guid()
+        dark_iden = iden[::-1]
+        tick = now()
+        adds.extend([
+            (iden, 'ou:hasnetuser:netuser', 'vertex.link/heheman', tick),
+            (iden, 'ou:hasnetuser:org', '00000000000000000000000000000000', tick),
+            (iden, 'tufo:form', 'ou:hasnetuser', tick),
+            (iden, 'ou:hasnetuser', '4016087db1b71ecc56db535a5ee9e86e', tick),
+            (iden, '#hehe.hoho', tick, tick),
+            (iden, '#hehe', tick, tick),
+            (dark_iden, '_:*ou:hasnetuser#hehe.hoho', tick, tick),
+            (dark_iden, '_:*ou:hasnetuser#hehe', tick, tick),
+        ])
+        adds.extend(_addTag('hehe.hoho', 'ou:hasnetuser'))
+        adds.extend(_addTag('hehe', 'ou:hasnetuser'))
+
         with s_cortex.openstore('ram:///') as stor:
 
             # force model migration callbacks
@@ -1073,3 +1105,39 @@ class InetModelTest(SynTest):
                 # assert that no old data remains
                 tufos = core.getTufosByProp('file:txtref', txtref_valu)
                 self.len(0, tufos)
+
+                # ps:hasnetuser -> ps:haswebacct
+                # assert that the correct number of users and groups were migrated
+                tufos = core.getTufosByProp('ps:haswebacct')
+                self.len(1, tufos)
+
+                # check that properties were correctly migrated and tags were not damaged
+                tufo = core.getTufoByProp('ps:haswebacct', '00000000000000000000000000000000/vertex.link/heheman')
+                self.eq(tufo[1]['ps:haswebacct'], '00000000000000000000000000000000/vertex.link/heheman')
+                self.eq(tufo[1]['ps:haswebacct:acct'], 'vertex.link/heheman')
+                self.eq(tufo[1]['ps:haswebacct:person'], '00000000000000000000000000000000')
+                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+
+                # assert that no old data remains
+                tufos = core.getTufosByProp('ps:hasnetuser')
+                self.len(0, tufos)
+                rows = core.getJoinByProp('ps:hasnetuser')
+                self.len(0, rows)
+
+                # ou:hasnetuser -> ou:haswebacct
+                # assert that the correct number of users and groups were migrated
+                tufos = core.getTufosByProp('ou:haswebacct')
+                self.len(1, tufos)
+
+                # check that properties were correctly migrated and tags were not damaged
+                tufo = core.getTufoByProp('ou:haswebacct', '4016087db1b71ecc56db535a5ee9e86e')
+                self.eq(tufo[1]['ou:haswebacct'], '4016087db1b71ecc56db535a5ee9e86e')
+                self.eq(tufo[1]['ou:haswebacct:acct'], 'vertex.link/heheman')
+                self.eq(tufo[1]['ou:haswebacct:org'], '00000000000000000000000000000000')
+                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+
+                # assert that no old data remains
+                tufos = core.getTufosByProp('ou:hasnetuser')
+                self.len(0, tufos)
+                rows = core.getJoinByProp('ou:hasnetuser')
+                self.len(0, rows)

@@ -469,6 +469,8 @@ class InetMod(CoreModule):
             ('inet:follows', 'inet:web:follows'),
             ('inet:netpost', 'inet:web:post'),
             ('inet:netfile', 'inet:web:file'),
+            ('ps:hasnetuser', 'ps:haswebacct'),
+            ('ou:hasnetuser', 'ou:haswebacct'),
         ]
         props = [
             ('inet:netuser:site', 'inet:web:acct:site'),
@@ -527,6 +529,12 @@ class InetMod(CoreModule):
             ('inet:netfile:ipv6', 'inet:web:file:ipv6'),
             ('inet:netfile:seen:min', 'inet:web:file:seen:min'),
             ('inet:netfile:seen:max', 'inet:web:file:seen:max'),
+
+            ('ps:hasnetuser:netuser', 'ps:haswebacct:acct'),
+            ('ps:hasnetuser:person', 'ps:haswebacct:person'),
+
+            ('ou:hasnetuser:netuser', 'ou:haswebacct:acct'),
+            ('ou:hasnetuser:org', 'ou:haswebacct:org'),
 
         ]
 
