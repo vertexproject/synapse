@@ -212,7 +212,7 @@ class FileMod(CoreModule):
                     # once we have dark prop based text token indexes...
                     # ('mime:pe:imports',{'ptype':'time','doc':'Compile time from the PE header'}),
 
-                    ('mime:*', {'glob': 1, 'doc': 'Namespace for high-value mime details'}),
+                    ('mime:*', {'glob': 1, 'doc': 'Namespace for high-value mime details'})
                 )),
 
                 ('file:subfile', {'ptype': 'file:sub'}, (
