@@ -146,7 +146,7 @@ class FileMod(CoreModule):
                 ('file:imgof', {
                     'subof': 'xref',
                     'source': 'file,file:bytes',
-                    'doc': 'A file that contains an image of the specified node.'),
+                    'doc': 'A file that contains an image of the specified node.'}),
 
                 ('file:txtref', {
                     'subof': 'xref',
@@ -190,7 +190,7 @@ class FileMod(CoreModule):
 
                 ('file:base', {'ptype': 'file:base',
                           'doc': 'The name of a file or directory, e.g., \"system32\" or \"foo.exe\"; the final component of a file:path.', 'ro': 1}),
-                )),
+                ()),
 
                 ('file:bytes', {'ptype': 'file:bytes'}, (
                     ('size', {'ptype': 'int', 'doc': 'The size of the file in bytes.', 'ro': 1}),
