@@ -867,6 +867,7 @@ class InetMod(CoreModule):
                     ('avatar', {'ptype': 'file:bytes'}),
 
                     ('tagline', {'ptype': 'str:txt', 'doc': 'A web account status/tag line text'}),
+                    ('loc', {'ptype': 'str:lwr', 'doc': 'The web account self declared location'}),
                     ('occupation', {'ptype': 'str:txt', 'doc': 'A web account self declared occupation'}),
                     # ('gender',{'ptype':'inet:fqdn','ro':1}),
 

@@ -333,6 +333,16 @@ class InetModelTest(SynTest):
             node = core.formTufoByProp('inet:url', 'HTTP://1.2.3.4/')
             self.eq(node[1].get('inet:url:ipv4'), 0x01020304)
 
+    def test_model_inet_web_acct(self):
+
+        with self.getRamCore() as core:
+            t0 = core.formTufoByProp('inet:web:acct', 'vertex.link/person1')
+            self.eq(t0[1].get('inet:web:acct'), 'vertex.link/person1')
+            self.eq(t0[1].get('inet:web:acct:site'), 'vertex.link')
+            self.eq(t0[1].get('inet:web:acct:user'), 'person1')
+            t0 = core.setTufoProp(t0, 'loc', 'HAHA')
+            self.eq(t0[1].get('inet:web:acct:loc'), 'haha')
+
     def test_model_inet_web_post(self):
 
         with self.getRamCore() as core:
