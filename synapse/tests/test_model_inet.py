@@ -351,6 +351,25 @@ class InetModelTest(SynTest):
 
             self.eq(node0[1].get('inet:web:post'), node1[1].get('inet:web:post:replyto'))
 
+    def test_model_inet_postref(self):
+        with self.getRamCore() as core:
+
+            fnod = core.formTufoByProp('file:bytes', 'd41d8cd98f00b204e9800998ecf8427e')
+            pnod = core.formTufoByProp('inet:web:post', ('vertex.link/user1', 'txt about a file'))
+
+            fiden = fnod[1].get('file:bytes')
+            piden = pnod[1].get('inet:web:post')
+
+            pr0 = core.formTufoByProp('inet:web:postref', (piden, ('file:bytes', fiden)))
+            pr1 = core.formTufoByProp('inet:web:postref', '(%s,file:bytes=%s)' % (piden, fiden))
+
+            self.eq(pr0[0], pr1[0])
+            self.eq(pr0[1].get('inet:web:postref:post'), piden)
+            self.eq(pr0[1].get('inet:web:postref:xref'), 'file:bytes=' + fiden)
+            self.eq(pr0[1].get('inet:web:postref:xref:prop'), 'file:bytes')
+            self.eq(pr0[1].get('inet:web:postref:xref:strval'), fiden)
+            self.eq(pr0[1].get('inet:web:postref:xref:intval'), None)
+
     def test_model_inet_web_mesg(self):
         with self.getRamCore() as core:
 

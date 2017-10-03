@@ -647,6 +647,9 @@ class InetMod(CoreModule):
 
                 ('inet:web:post',
                  {'subof': 'comp', 'fields': 'acct,inet:web:acct|text,str:txt', 'doc': 'A post made by a web account'}),
+                ('inet:web:postref',
+                 {'subof': 'xref', 'source': 'post,inet:web:post', 'doc': 'The web post refereneces the given node'}),
+
                 ('inet:web:file', {'subof': 'comp', 'fields': 'acct,inet:web:acct|file,file:bytes',
                                   'doc': 'A file posted by a web account'}),
                 ('inet:web:memb', {'subof': 'comp', 'fields': 'acct,inet:web:acct|group,inet:web:group'}),
@@ -884,6 +887,13 @@ class InetMod(CoreModule):
 
                     ('url', {'ptype': 'inet:url', 'doc': 'The (optional) URL where the post is published/visible'}),
                     ('file', {'ptype': 'file:bytes', 'doc': 'The (optional) file which was posted'}),
+                ]),
+                ('inet:web:postref', {}, [
+                    ('post', {'ptype': 'inet:web:post', 'ro': 1}),
+                    ('xref', {'ptype': 'propvalu', 'ro': 1}),
+                    ('xref:prop', {'ptype': 'str', 'ro': 1}),
+                    ('xref:intval', {'ptype': 'int', 'ro': 1}),
+                    ('xref:strval', {'ptype': 'str', 'ro': 1}),
                 ]),
 
                 ('inet:web:mesg', {}, [
