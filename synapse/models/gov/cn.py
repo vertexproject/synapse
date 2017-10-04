@@ -20,10 +20,11 @@ class GovCnMod(CoreModule):
         return ((name, modl), )
 
     def initCoreModule(self):
-        self.core.on('node:add', self._onAddMucd, form='gov:cn:mucd')
+        self.onNodeAdd(self.onAddMucd, form='gov:cn:mucd')
 
-    def _onAddMucd(self, mesg):
-        mucd = mesg[1].get('valu')
+    def onAddMucd(self, node):
+        mucd = node[1].get('gov:cn:mucd')
+
         name = 'Chinese PLA Unit %d' % (mucd,)
 
         iden = guid(('gov:cn:mucd', mucd))

@@ -38,11 +38,17 @@ class CoreTestModule(s_module.CoreModule):
 
     def initCoreModule(self):
 
+        self.added = []
+        self.deled = []
+
         def formipv4(form, valu, props, mesg):
             props['inet:ipv4:asn'] = 10
 
         self.onFormNode('inet:ipv4', formipv4)
         self.addConfDef('foobar', defval=False, asloc='foobar')
+
+        self.onNodeAdd(self.added.append, form='ou:org')
+        self.onNodeDel(self.deled.append, form='ou:org')
 
     @staticmethod
     def getBaseModels():
@@ -2101,6 +2107,16 @@ class CortexTest(SynTest):
 
             node = core.formTufoByProp('inet:ipv4', '1.2.3.5')
             self.eq(node[1].get('inet:ipv4:asn'), 10)
+
+            iden = guid()
+            node = core.formTufoByProp('ou:org', iden)
+            core.delTufo(node)
+
+            self.len(1, modu.added)
+            self.len(1, modu.deled)
+
+            self.eq(modu.added[0][0], node[0])
+            self.eq(modu.deled[0][0], node[0])
 
         self.true(modu.isfini)
 
