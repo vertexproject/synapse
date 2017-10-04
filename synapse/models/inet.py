@@ -9,7 +9,6 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.socket as s_socket
 import synapse.lookup.iana as s_l_iana
 
-from synapse.eventbus import on
 from synapse.exc import BadTypeValu
 from synapse.lib.types import DataType
 from synapse.lib.module import CoreModule, modelrev
@@ -332,12 +331,15 @@ class CidrType(DataType):
         return valu
 
 class InetMod(CoreModule):
+
     def initCoreModule(self):
         # add an inet:defang cast to swap [.] to .
         self.core.addTypeCast('inet:defang', castInetDeFang)
         self.core.addTypeCast('inet:ipv4:cidr', ipv4cidr)
         self.onFormNode('inet:fqdn', self.onTufoFormFqdn)
         self.onFormNode('inet:passwd', self.onTufoFormPasswd)
+
+        self.core.on('node:prop:set', self.onSetFqdnSfx, prop='inet:fqdn:sfx')
 
     def onTufoFormFqdn(self, form, valu, props, mesg):
         parts = valu.split('.', 1)
@@ -352,8 +354,7 @@ class InetMod(CoreModule):
         props['inet:passwd:sha1'] = hashlib.sha1(valu.encode('utf8')).hexdigest()
         props['inet:passwd:sha256'] = hashlib.sha256(valu.encode('utf8')).hexdigest()
 
-    @on('node:prop:set', prop='inet:fqdn:sfx')
-    def onTufoSetFqdnSfx(self, mesg):
+    def onSetFqdnSfx(self, mesg):
         sfx = mesg[1].get('newv')
         fqdn = mesg[1].get('valu')
         for tufo in self.core.getTufosByProp('inet:fqdn:domain', fqdn):
