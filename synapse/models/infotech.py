@@ -262,8 +262,7 @@ class ItMod(CoreModule):
         return models
 
     def initCoreModule(self):
-        self.core.on('node:form', self._onFormItDevStr, form='it:dev:str')
+        self.onFormNode('it:dev:str', self._onFormItDevStr)
 
-    def _onFormItDevStr(self, mesg):
-        props = mesg[1].get('props')
-        props['it:dev:str:norm'] = mesg[1].get('valu').lower()
+    def _onFormItDevStr(self, form, valu, props, mesg):
+        props['it:dev:str:norm'] = valu.lower()
