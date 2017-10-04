@@ -533,6 +533,25 @@ class InetModelTest(SynTest):
             self.raises(PropNotFound, core.formTufoByProp, 'inet:web:action', '*', acct='vertex.link/pennywise', time=tick)
             self.raises(PropNotFound, core.formTufoByProp, 'inet:web:action', '*', act='didathing', time=tick)
 
+    def test_model_inet_web_actref(self):
+        with self.getRamCore() as core:
+
+            fnod = core.formTufoByProp('file:bytes', 'd41d8cd98f00b204e9800998ecf8427e')
+            anod = core.formTufoByProp('inet:web:action', '*', act='laughed', acct='vertex.link/user1')
+
+            fiden = fnod[1].get('file:bytes')
+            aiden = anod[1].get('inet:web:action')
+
+            ar0 = core.formTufoByProp('inet:web:actref', (aiden, ('file:bytes', fiden)))
+            ar1 = core.formTufoByProp('inet:web:actref', '(%s,file:bytes=%s)' % (aiden, fiden))
+
+            self.eq(ar0[0], ar1[0])
+            self.eq(ar0[1].get('inet:web:actref:act'), aiden)
+            self.eq(ar0[1].get('inet:web:actref:xref'), 'file:bytes=' + fiden)
+            self.eq(ar0[1].get('inet:web:actref:xref:prop'), 'file:bytes')
+            self.eq(ar0[1].get('inet:web:actref:xref:strval'), fiden)
+            self.eq(ar0[1].get('inet:web:actref:xref:intval'), None)
+
     def test_model_inet_201706121318(self):
 
         iden0 = guid()

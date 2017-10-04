@@ -670,8 +670,11 @@ class InetMod(CoreModule):
                                   'doc': 'A user account at a given web address', 'ex': 'twitter.com/invisig0th'}),
                 ('inet:web:logon', {'subof': 'guid',
                                    'doc': 'An instance of a user account authenticating to a service.', }),
+
                 ('inet:web:action', {'subof': 'guid',
                                    'doc': 'An instance of a user account performing an action.'}),
+                ('inet:web:actref',
+                 {'subof': 'xref', 'source': 'act,inet:web:action', 'doc': 'The web action refereneces the given node'}),
 
                 ('inet:web:group', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|name,ou:name',
                                    'doc': 'A group within an online community'}),
@@ -903,6 +906,13 @@ class InetMod(CoreModule):
                     ('time', {'ptype': 'time', 'doc': 'The time the netuser performed the action'}),
                     ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the action'}),
                     ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the action'}),
+                ]),
+                ('inet:web:actref', {}, [
+                    ('act', {'ptype': 'inet:web:action', 'ro': 1}),
+                    ('xref', {'ptype': 'propvalu', 'ro': 1}),
+                    ('xref:prop', {'ptype': 'str', 'ro': 1}),
+                    ('xref:intval', {'ptype': 'int', 'ro': 1}),
+                    ('xref:strval', {'ptype': 'str', 'ro': 1}),
                 ]),
 
                 ('inet:web:group', {}, [
