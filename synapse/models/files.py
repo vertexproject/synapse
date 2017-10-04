@@ -170,7 +170,7 @@ class FileMod(CoreModule):
                 ('file:txtref', {}, [
                     ('file', {'ptype': 'file:bytes', 'doc': 'The guid of the file containing the reference.', 'ro': 1}),
                     ('xref', {'ptype': 'propvalu',
-                         'doc': 'The form=valu of the object referenced in the fiole, e.g., inet:fqdn=foo.com.', 'ro': 1}),
+                         'doc': 'The form=valu of the object referenced in the file, e.g., inet:fqdn=foo.com.', 'ro': 1}),
                     ('xref:prop', {'ptype': 'str',
                          'doc': 'The property (form) of the referenced object, as specified by the propvalu.', 'ro': 1}),
                     ('xref:intval', {'ptype': 'int',
@@ -181,7 +181,7 @@ class FileMod(CoreModule):
 
                 ('file:path', {}, (
                     ('dir', {'ptype': 'file:path',
-                         'doc': 'The parent directory of the file path. Can be the directory path (if the file:path ends in a file name) or the parent directory (if the file:path is itself a directory).', 'ro': 1}),
+                         'doc': 'The parent directory of the file path.', 'ro': 1}),
                     ('ext', {'ptype': 'str:lwr',
                          'doc': 'The file extension of the file name, (if present); for example: exe, bat, py, docx.', 'ro': 1}),
                     ('base', {'ptype': 'file:base',
