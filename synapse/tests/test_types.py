@@ -543,6 +543,81 @@ class DataTypesTest(SynTest):
         self.true(s_types.isguid('98db59098e385f0bfdec8a6a0a6118b3'))
         self.false(s_types.isguid('visi'))
 
+    def test_types_guid(self):
+        with self.getRamCore() as core:
+
+            # Random guids from "*"
+            v0, _ = core.getPropNorm('guidform', '*')
+            v1, _ = core.getPropNorm('guidform', '*')
+            self.true(s_types.isguid(v0))
+            self.true(s_types.isguid(v1))
+            self.ne(v0, v1)
+
+            # Stable guids from strings
+            v0, subs0 = core.getPropNorm('guidform', '(foo="1",baz=2)')
+            v1, subs1 = core.getPropNorm('guidform', (['baz', '2'], ('foo', '1')))
+            v2, _ = core.getPropNorm('guidform', '  (foo="1",baz=2) ')
+            self.eq(v0, '1312b101a21bdfd0d96f896ecc5cc113')
+            self.eq(v0, v1)
+            self.eq(v0, v2)
+            self.len(2, subs0)
+            self.eq(subs0.get('foo'), '1')
+            self.eq(subs0.get('baz'), 2)
+            self.eq(subs0, subs1)
+            # Do partial subs
+            v3, subs3 = core.getPropNorm('guidform', '(foo="1")')
+            v4, _ = core.getPropNorm('guidform', [['foo', '1']])
+            self.eq(v3, '9d13c5c5f307199cfd9861584bac35f2')
+            self.eq(v3, v4)
+            self.eq(subs0.get('foo'), subs3.get('foo'))
+            self.none(subs3.get('baz'))
+
+            # Test a model form with nested subs from a guid type
+            v5, subs5 = core.getPropNorm('inet:dns:look', '(time="20171002",a="woot.com/1.2.3.4")')
+            self.eq(v5, '78241202d9af8b1403e9e391336922a1')
+            self.eq(subs5.get('a'), 'woot.com/1.2.3.4')
+            self.eq(subs5.get('a:fqdn'), 'woot.com')
+            self.eq(subs5.get('a:fqdn:domain'), 'com')
+            self.eq(subs5.get('a:fqdn:host'), 'woot')
+            self.eq(subs5.get('a:ipv4'), 0x01020304)
+            self.eq(subs5.get('time'), 1506902400000)
+
+            # Add a custom form which is a subtype of guid itself without a separate form
+            # which has subs which also include a guid!
+            core.addTufoForm('bobboblaw', ptype='guid')
+            core.addTufoProp('bobboblaw', 'foo', ptype='str')
+            core.addTufoProp('bobboblaw', 'baz', ptype='int')
+            core.addTufoProp('bobboblaw', 'ohmai', ptype='guid')
+            core.addTufoProp('bobboblaw', 'ohmai:s', ptype='str')
+            core.addTufoProp('bobboblaw', 'ohmai:i', ptype='int')
+            v6, subs6 = core.getPropNorm('bobboblaw', '(foo="1",baz=2)')
+            self.eq(v0, v6)
+            self.eq(subs0, subs6)
+
+            # And now with nested subs!
+            v7, subs7 = core.getPropNorm('bobboblaw', '(foo="1",baz=2,ohmai=(s=foo, i=137))')
+            self.ne(v0, v7)
+            self.eq(v7, '706f471a707370fdb8fc3d0590b4dce1')
+            self.isin('foo', subs7)
+            self.isin('baz', subs7)
+            self.isin('ohmai', subs7)
+            self.isin('ohmai:s', subs7)
+            self.isin('ohmai:i', subs7)
+            self.eq(subs7.get('ohmai'), '59cbcbc1b5593d719aeae1e75d05cabf')
+
+            # Bad input
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', '   ')
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', '()')
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', [])
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', '(foo, bar)')
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', (['baz', '2'], ('foo', '1', 'blerp')))
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', '(foo="1",junkProp=2)')
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', '(foo="1",somevalu)')
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', 'totally not a guid')
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', 1234)
+            self.raises(BadTypeValu, core.getPropNorm, 'guidform', '$1234')
+            self.raises(BadTypeValu, core.getTypeNorm, 'guid', '(foo=1)')
+
     def test_types_guid_resolver(self):
         with self.getRamCore() as core:
             # use the seed constructor for an org
@@ -557,8 +632,8 @@ class DataTypesTest(SynTest):
             self.eq(unode[1].get('ou:user'), '%s/visi' % iden)
             self.eq(unode[1].get('ou:user:org'), iden)
 
-            self.eq(len(core.eval('ou:org=$vertex')), 1)
-            self.eq(len(core.eval('ou:user:org=$vertex')), 1)
+            self.len(1, core.eval('ou:org=$vertex'))
+            self.len(1, core.eval('ou:user:org=$vertex'))
 
     def test_types_tagtime(self):
         with self.getRamCore() as core:
@@ -672,7 +747,7 @@ class DataTypesTest(SynTest):
             self.eq(node[1].get('pvsub:xref:prop'), 'inet:ipv4')
 
             nodes = core.eval('pvsub :xref:intval->inet:ipv4')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
             self.eq(nodes[0][1].get('inet:ipv4'), 0x01020304)
 
             # Actually make some pvform nodes
