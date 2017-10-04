@@ -121,62 +121,92 @@ class FileMod(CoreModule):
     def getBaseModels():
         modl = {
             'types': (
-                ('file:bytes', {'subof': 'guid', 'doc': 'A unique file identifier'}),
-                ('file:sub', {'subof': 'sepr', 'sep': '/', 'fields': 'parent,file:bytes|child,file:bytes'}),
-                ('file:rawpath', {'ctor': 'synapse.models.files.FileRawPathType', 'doc': 'A file path'}),
-                ('file:base', {'ctor': 'synapse.models.files.FileBaseType', 'doc': 'A file basename such as foo.exe'}),
+                ('file:bytes', {
+                    'subof': 'guid',
+                    'doc': 'A unique file identifier'}),
 
-                ('file:path', {'ctor': 'synapse.models.files.FilePathType', 'doc': 'A normalized file path'}),
+                ('file:sub', {
+                    'subof': 'sepr',
+                    'sep': '/',
+                    'fields': 'parent,file:bytes|child,file:bytes',
+                    'doc': 'A parent file that fully contains the specified child file.'}),
 
-                ('file:imgof', {'subof': 'xref', 'source': 'file,file:bytes',
-                                'doc': 'The file is an image file which shows the referenced node'}),
-                ('file:txtref',
-                 {'subof': 'xref', 'source': 'file,file:bytes', 'doc': 'The file content refereneces the given node'}),
+                ('file:rawpath', {
+                    'ctor': 'synapse.models.files.FileRawPathType',
+                    'doc': 'A raw file path in its default (non-normalized) form. Can consist of a directory path, a path and file name, or a file name.'}),
 
+                ('file:base', {
+                    'ctor': 'synapse.models.files.FileBaseType',
+                    'doc': 'A file or directory name (without a full path), such as system32 or foo.exe.'}),
+
+                ('file:path', {
+                    'ctor': 'synapse.models.files.FilePathType',
+                    'doc': 'A file path that has been normalized by Synapse. Can consist of a directory path, a path and file name, or a file name.'}),
+
+                ('file:imgof', {
+                    'subof': 'xref',
+                    'source': 'file,file:bytes',
+                    'doc': 'A file that contains an image of the specified node.'}),
+
+                ('file:txtref', {
+                    'subof': 'xref',
+                    'source': 'file,file:bytes',
+                    'doc': 'A file that contains a reference to the specified node.'}),
             ),
 
             'forms': (
 
                 ('file:imgof', {}, [
-                    ('file', {'ptype': 'file:bytes', 'ro': 1}),
-                    ('xref', {'ptype': 'propvalu', 'ro': 1}),
-                    ('xref:prop', {'ptype': 'str', 'ro': 1}),
-                    ('xref:intval', {'ptype': 'int', 'ro': 1}),
-                    ('xref:strval', {'ptype': 'str', 'ro': 1}),
+                    ('file', {'ptype': 'file:bytes', 'doc': 'The guid of the file containing the image.', 'ro': 1}),
+                    ('xref', {'ptype': 'propvalu',
+                         'doc': 'The form=valu of the object referenced in the image, e.g., geo:place=<guid_of_place>.', 'ro': 1}),
+                    ('xref:prop', {'ptype': 'str', 'doc': 'The property (form) of the referenced object, as specified by the propvalu.', 'ro': 1}),
+                    ('xref:intval', {'ptype': 'int',
+                         'doc': 'The value of the property of the referenced object, as specified by the propvalu, if the value is an integer.', 'ro': 1}),
+                    ('xref:strval', {'ptype': 'str',
+                          'doc': 'The value of the property of the referenced object, as specified by the propvalu, if the value is a string.', 'ro': 1}),
                 ]),
 
                 ('file:txtref', {}, [
-                    ('file', {'ptype': 'file:bytes', 'ro': 1}),
-                    ('xref', {'ptype': 'propvalu', 'ro': 1}),
-                    ('xref:prop', {'ptype': 'str', 'ro': 1}),
-                    ('xref:intval', {'ptype': 'int', 'ro': 1}),
-                    ('xref:strval', {'ptype': 'str', 'ro': 1}),
+                    ('file', {'ptype': 'file:bytes', 'doc': 'The guid of the file containing the reference.', 'ro': 1}),
+                    ('xref', {'ptype': 'propvalu',
+                         'doc': 'The form=valu of the object referenced in the file, e.g., inet:fqdn=foo.com.', 'ro': 1}),
+                    ('xref:prop', {'ptype': 'str',
+                         'doc': 'The property (form) of the referenced object, as specified by the propvalu.', 'ro': 1}),
+                    ('xref:intval', {'ptype': 'int',
+                         'doc': 'The value of the property of the referenced object, as specified by the propvalu, if the value is an integer.', 'ro': 1}),
+                    ('xref:strval', {'ptype': 'str',
+                         'doc': 'The value of the property of the referenced object, as specified by the propvalu, if the value is a string.', 'ro': 1}),
                 ]),
 
                 ('file:path', {}, (
-                    ('dir', {'ptype': 'file:path', 'doc': 'The parent directory for this path.'}),
-                    ('ext', {'ptype': 'str:lwr', 'doc': 'The file extension ( if present ).'}),
-                    ('base',
-                     {'ptype': 'file:base', 'doc': 'The final path component, such as the filename, of this path.'}),
+                    ('dir', {'ptype': 'file:path',
+                         'doc': 'The parent directory of the file path.', 'ro': 1}),
+                    ('ext', {'ptype': 'str:lwr',
+                         'doc': 'The file extension of the file name, (if present); for example: exe, bat, py, docx.', 'ro': 1}),
+                    ('base', {'ptype': 'file:base',
+                          'doc': 'The final component of the file path. Can be a file name (if present) or the final directory.', 'ro': 1}),
                 )),
 
-                ('file:base', {'ptype': 'file:base', 'doc': 'A final path component, such as the filename.'}, ()),
+                ('file:base', {'ptype': 'file:base'}, (
+                )),
 
                 ('file:bytes', {'ptype': 'file:bytes'}, (
-                    ('size', {'ptype': 'int'}),
-                    ('md5', {'ptype': 'hash:md5'}),
-                    ('sha1', {'ptype': 'hash:sha1'}),
-                    ('sha256', {'ptype': 'hash:sha256'}),
-                    ('sha512', {'ptype': 'hash:sha512'}),
-                    ('name', {'ptype': 'file:base', 'doc': 'For display purposes only'}),
-                    ('mime', {'ptype': 'str', 'defval': '??', 'doc': 'Mime type for the file bytes'}),
+                    ('size', {'ptype': 'int', 'doc': 'The size of the file in bytes.', 'ro': 1}),
+                    ('md5', {'ptype': 'hash:md5', 'doc': 'The md5 hash of the file.', 'ro': 1}),
+                    ('sha1', {'ptype': 'hash:sha1', 'doc': 'The sha1 hash of the file.', 'ro': 1}),
+                    ('sha256', {'ptype': 'hash:sha256', 'doc': 'The sha256 hash of the file.', 'ro': 1}),
+                    ('sha512', {'ptype': 'hash:sha512', 'doc': 'The sha512 hash of the file.', 'ro': 1}),
+                    ('name', {'ptype': 'file:base',
+                          'doc': 'The name of the file. Because a given set of bytes can have any number of arbitrary names, this field is used for display purposes only.'}),
+                    ('mime', {'ptype': 'str', 'defval': '??', 'doc': 'The MIME type of the file.'}),
 
                     # FIXME could another model define props for this form?
-                    ('mime:x509:cn', {'ptype': 'str', 'doc': 'X509 Subject Common Name'}),
+                    ('mime:x509:cn', {'ptype': 'str', 'doc': 'The Common Name (CN) attribute of the x509 Subject.', 'ro': 1}),
 
-                    ('mime:pe:size', {'ptype': 'int', 'doc': 'Size of the executable according to headers'}),
-                    ('mime:pe:imphash', {'ptype': 'guid', 'doc': 'PE Import hash as calculated by vivisect'}),
-                    ('mime:pe:compiled', {'ptype': 'time', 'doc': 'Compile time from the PE header'}),
+                    ('mime:pe:size', {'ptype': 'int', 'doc': 'The size of the executable file according to the file headers.', 'ro': 1}),
+                    ('mime:pe:imphash', {'ptype': 'guid', 'doc': 'The PE import hash of the file as calculated by Vivisect; this method excludes imports referenced as ordinals and may fail to calculate an import hash for files that use ordinals.', 'ro': 1}),
+                    ('mime:pe:compiled', {'ptype': 'time', 'doc': 'The compile time of the file according to the PE header.', 'ro': 1}),
 
                     # once we have dark prop based text token indexes...
                     # ('mime:pe:imports',{'ptype':'time','doc':'Compile time from the PE header'}),
@@ -185,12 +215,12 @@ class FileMod(CoreModule):
                 )),
 
                 ('file:subfile', {'ptype': 'file:sub'}, (
-                    ('parent', {'ptype': 'file:bytes'}),
-                    ('child', {'ptype': 'file:bytes'}),
-                    ('name', {'ptype': 'file:base'}),
+                    ('parent', {'ptype': 'file:bytes', 'doc': 'The guid of the parent file.', 'ro': 1}),
+                    ('child', {'ptype': 'file:bytes', 'doc': 'The guid of the child file.', 'ro': 1}),
+                    ('name', {'ptype': 'file:base',
+                          'doc': 'The name of the child file. Because a given set of bytes can have any number of arbitrary names, this field is used for display purposes only.'}),
                     # TODO others....
                 )),
-
             ),
         }
         name = 'file'
