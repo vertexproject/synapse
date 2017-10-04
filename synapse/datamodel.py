@@ -267,7 +267,7 @@ class DataModel(s_types.TypeLib):
         ptype = info.get('ptype')
         if ptype is not None:
             dtyp = self.reqDataType(ptype)
-            pdtyp = dtyp.extend(name=dtyp.name, ppath=prop, **dtyp.info)
+            pdtyp = dtyp.extend(dtyp.name, prop=prop)
             self.propsbytype[ptype].append(pdef)
             self.propsdtyp[prop] = pdtyp
 

@@ -28,7 +28,7 @@ class DataType:
         self.tlib = tlib
         self.name = name
         self.info = info
-        self.ppath = self.info.get('ppath', '')
+        self.prop = self.info.get('prop')
         s_common.reqStorDict(info)
 
     def _raiseBadValu(self, valu, **info):
@@ -136,6 +136,10 @@ class GuidType(DataType):
         if not valu:
             self._raiseBadValu(valu=valu, mesg='No valus present in list to make a guid with')
 
+        if not self.prop:
+            self._raiseBadValu(valu,
+                               mesg='Unable to norm a list for a guidtype which is not associated with a property.')
+
         vals = []
         subs = {}
 
@@ -143,7 +147,7 @@ class GuidType(DataType):
             if not isinstance(kv, (list, tuple)) or not len(kv) == 2:
                 self._raiseBadValu(valu, kv=kv, mesg='Expected a list or tuple of length 2')
             k, v = kv
-            fullprop = self.ppath + ':' + k
+            fullprop = self.prop + ':' + k
             try:
                 v, ssubs = self._reqPropNorm(fullprop, v)
             except s_common.NoSuchProp:
