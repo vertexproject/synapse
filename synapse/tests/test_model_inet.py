@@ -686,7 +686,7 @@ class InetModelTest(SynTest):
             dark_iden = iden[::-1]
             tick = now()
             adds.extend([
-                (iden, 'tufo:form', 'inet:web:acct', tick),
+                (iden, 'tufo:form', 'inet:netuser', tick),
                 (iden, 'inet:netuser', 'vertex.link/' + user, tick),
                 (iden, 'inet:netuser:site', 'vertex.link', tick),
                 (iden, 'inet:netuser:user', user, tick),
@@ -913,6 +913,7 @@ class InetModelTest(SynTest):
 
                 # check that properties were correctly migrated and tags were not damaged
                 tufo = core.getTufoByProp('inet:web:acct', 'vertex.link/pennywise0')
+                self.eq(tufo[1]['tufo:form'], 'inet:web:acct')
                 self.eq(tufo[1]['inet:web:acct'], 'vertex.link/pennywise0')
                 self.eq(tufo[1]['inet:web:acct:user'], 'pennywise0')
                 self.eq(tufo[1]['inet:web:acct:site'], 'vertex.link')
@@ -949,6 +950,7 @@ class InetModelTest(SynTest):
 
                 # check that properties were correctly migrated and tags were not damaged
                 tufo = core.getTufoByProp('inet:web:group', 'vertex.link/group0')
+                self.eq(tufo[1]['tufo:form'], 'inet:web:group')
                 self.eq(tufo[1]['inet:web:group'], 'vertex.link/group0')
                 self.eq(tufo[1]['inet:web:group:site'], 'vertex.link')
                 self.eq(tufo[1]['inet:web:group:name'], 'group0')
@@ -975,6 +977,7 @@ class InetModelTest(SynTest):
 
                 # check that properties were correctly migrated and tags were not damaged
                 tufo = core.getTufoByProp('inet:web:memb', webmemb_valu)
+                self.eq(tufo[1]['tufo:form'], 'inet:web:memb')
                 self.eq(tufo[1]['inet:web:memb'], webmemb_valu)
                 self.eq(tufo[1]['inet:web:memb:acct'], 'vertex.link/person1')
                 self.eq(tufo[1]['inet:web:memb:group'], 'vertex.link/group0')
@@ -1001,6 +1004,7 @@ class InetModelTest(SynTest):
 
                 # check that properties were correctly migrated and tags were not damaged
                 tufo = core.getTufoByProp('inet:web:follows', follow_valu)
+                self.eq(tufo[1]['tufo:form'], 'inet:web:follows')
                 self.eq(tufo[1]['inet:web:follows'], follow_valu)
                 self.eq(tufo[1]['inet:web:follows:follower'], acct1)
                 self.eq(tufo[1]['inet:web:follows:followee'], acct2)
@@ -1025,6 +1029,7 @@ class InetModelTest(SynTest):
 
                 # check that properties were correctly migrated and tags were not damaged
                 tufo = core.getTufoByProp('inet:web:post', webpost_valu)
+                self.eq(tufo[1]['tufo:form'], 'inet:web:post')
                 self.eq(tufo[1]['inet:web:post'], webpost_valu)
                 self.eq(tufo[1]['inet:web:post:acct'], 'vertex.link/person1')
                 self.eq(tufo[1]['inet:web:post:acct:site'], 'vertex.link')
@@ -1049,6 +1054,7 @@ class InetModelTest(SynTest):
 
                 # check that properties were correctly migrated and tags were not damaged
                 tufo = core.getTufoByProp('inet:web:file', webfile_valu)
+                self.eq(tufo[1]['tufo:form'], 'inet:web:file')
                 self.eq(tufo[1]['inet:web:file'], webfile_valu)
                 self.eq(tufo[1]['inet:web:file:acct'], 'vertex.link/person1')
                 self.eq(tufo[1]['inet:web:file:acct:site'], 'vertex.link')
@@ -1076,6 +1082,7 @@ class InetModelTest(SynTest):
                 # check that properties were correctly migrated and tags were not damaged
                 new_imgof_valu = 'fd415d0895e9ce466d8292c3d55c6bf5'  # NOTE: valu changes because we change the prop name
                 tufo = core.getTufoByProp('file:imgof', new_imgof_valu)
+                self.eq(tufo[1]['tufo:form'], 'file:imgof')
                 self.eq(tufo[1]['file:imgof'], new_imgof_valu)
                 self.eq(tufo[1]['file:imgof:file'], '0' * 32)
                 self.eq(tufo[1]['file:imgof:xref'], 'inet:web:acct=vertex.link/person1')
@@ -1095,6 +1102,7 @@ class InetModelTest(SynTest):
                 # check that properties were correctly migrated and tags were not damaged
                 new_txtref_valu = 'd4f8fbb792d127422a0dc788588f8f7a'  # NOTE: valu changes because we change the prop name
                 tufo = core.getTufoByProp('file:txtref', new_txtref_valu)
+                self.eq(tufo[1]['tufo:form'], 'file:txtref')
                 self.eq(tufo[1]['file:txtref'], new_txtref_valu)
                 self.eq(tufo[1]['file:txtref:file'], '0' * 32)
                 self.eq(tufo[1]['file:txtref:xref'], 'inet:web:group=vertex.link/group0')
@@ -1113,6 +1121,7 @@ class InetModelTest(SynTest):
 
                 # check that properties were correctly migrated and tags were not damaged
                 tufo = core.getTufoByProp('ps:haswebacct', '00000000000000000000000000000000/vertex.link/heheman')
+                self.eq(tufo[1]['tufo:form'], 'ps:haswebacct')
                 self.eq(tufo[1]['ps:haswebacct'], '00000000000000000000000000000000/vertex.link/heheman')
                 self.eq(tufo[1]['ps:haswebacct:acct'], 'vertex.link/heheman')
                 self.eq(tufo[1]['ps:haswebacct:person'], '00000000000000000000000000000000')
@@ -1131,6 +1140,7 @@ class InetModelTest(SynTest):
 
                 # check that properties were correctly migrated and tags were not damaged
                 tufo = core.getTufoByProp('ou:haswebacct', '4016087db1b71ecc56db535a5ee9e86e')
+                self.eq(tufo[1]['tufo:form'], 'ou:haswebacct')
                 self.eq(tufo[1]['ou:haswebacct'], '4016087db1b71ecc56db535a5ee9e86e')
                 self.eq(tufo[1]['ou:haswebacct:acct'], 'vertex.link/heheman')
                 self.eq(tufo[1]['ou:haswebacct:org'], '00000000000000000000000000000000')

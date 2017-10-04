@@ -535,8 +535,26 @@ class InetMod(CoreModule):
 
             ('ou:hasnetuser:netuser', 'ou:haswebacct:acct'),
             ('ou:hasnetuser:org', 'ou:haswebacct:org'),
-
         ]
+
+        def _updateTufoForm(oldform, newform):
+            # FIXME this can be optimized in storage layer like updateProperty
+
+            while True:
+                rows = self.core.getRowsByProp('tufo:form', oldform, limit=1000)
+                if not rows:
+                    break
+
+                adds, dels = [], []
+                for i, p, v, t in rows:
+                    adds.append((i, p, newform, t),)
+                    dels.append((i, p, v),)
+
+                if adds:
+                    self.core.addRows(adds)
+
+                for i, p, v in dels:
+                    self.core.delRowsByIdProp(i, p, v)
 
         def _updateTagForm(oldform, newform):
             adds, dels, darks = [], [], []
@@ -620,6 +638,7 @@ class InetMod(CoreModule):
                     continue
 
                 self.core.store.updateProperty(old, new)
+                _updateTufoForm(old, new)
                 _updateTagForm(old, new)
                 _updateXref(xref_propsrc, old, new)
 
