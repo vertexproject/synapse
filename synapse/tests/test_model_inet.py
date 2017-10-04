@@ -558,6 +558,31 @@ class InetModelTest(SynTest):
             self.eq(ar0[1].get('inet:web:actref:xref:strval'), fiden)
             self.eq(ar0[1].get('inet:web:actref:xref:intval'), None)
 
+    def test_model_inet_chprofile(self):
+        with self.getRamCore() as core:
+            t0 = core.formTufoByProp('inet:web:chprofile', '*', acct='vertex.link/pennywise', ipv4='1.2.3.4',
+                                     pv='inet:web:acct:name=bob gray', time='201710020800')
+            self.eq(t0[1].get('inet:web:chprofile:acct'), 'vertex.link/pennywise')
+            self.eq(t0[1].get('inet:web:chprofile:acct:site'), 'vertex.link')
+            self.eq(t0[1].get('inet:web:chprofile:acct:user'), 'pennywise')
+            self.eq(t0[1].get('inet:web:chprofile:ipv4'), 0x01020304)
+            self.none(t0[1].get('inet:web:chprofile:acct:ipv6'))
+            self.eq(t0[1].get('inet:web:chprofile:time'), 1506931200000)
+            self.eq(t0[1].get('inet:web:chprofile:pv'), 'inet:web:acct:name=bob gray')
+            self.eq(t0[1].get('inet:web:chprofile:pv:prop'), 'inet:web:acct:name')
+            self.eq(t0[1].get('inet:web:chprofile:pv:strval'), 'bob gray')
+            self.none(t0[1].get('inet:web:chprofile:pv:intval'))
+
+            t1 = core.formTufoByProp('inet:web:chprofile', '*', acct='vertex.link/pennywise', ipv4='1.2.3.4',
+                                     pv='inet:web:acct:seen:min=2014', time='201710020800')
+            self.eq(t1[1].get('inet:web:chprofile:pv'), 'inet:web:acct:seen:min=2014/01/01 00:00:00.000')
+            self.eq(t1[1].get('inet:web:chprofile:pv:prop'), 'inet:web:acct:seen:min')
+            self.eq(t1[1].get('inet:web:chprofile:pv:intval'), 1388534400000)
+            self.none(t1[1].get('inet:web:chprofile:pv:strval'))
+
+            # We require the account to be present
+            self.raises(PropNotFound, core.formTufoByProp, 'inet:web:chprofile', '*')
+
     def test_model_inet_201706121318(self):
 
         iden0 = guid()
