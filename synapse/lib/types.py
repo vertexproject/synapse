@@ -28,6 +28,7 @@ class DataType:
         self.tlib = tlib
         self.name = name
         self.info = info
+        self.prop = self.info.get('prop')
         s_common.reqStorDict(info)
 
     def _raiseBadValu(self, valu, **info):
@@ -80,37 +81,87 @@ class GuidType(DataType):
         self._guid_alias = info.get('alias')
         # TODO figure out what to do about tlib vs core issues
         self._getTufoByProp = getattr(tlib, 'getTufoByProp', None)
+        self._reqPropNorm = getattr(tlib, 'reqPropNorm', None)
 
     def norm(self, valu, oldval=None):
+
+        if isinstance(valu, (list, tuple)):
+            return self._norm_list(valu, oldval)
 
         if not isinstance(valu, str) or len(valu) < 1:
             self._raiseBadValu(valu)
 
+        return self._norm_str(valu, oldval)
+
+    def _norm_str(self, text, oldval=None):
+        text = text.strip()
+        if not text:
+            self._raiseBadValu(text, mesg='No text left after strip().')
+
+        if text[0] == '(':
+            vals, off = s_syntax.parse_list(text)
+            if off != len(text):
+                self._raiseBadValu(text, off=off, vals=vals,
+                                   mesg='List parting for guid type did not consume all of the input text.')
+            return self._norm_list(vals, oldval)
+
         # generate me one.  we dont care.
-        if valu == '*':
+        if text == '*':
             return s_common.guid(), {}
 
-        if valu[0] != '$':
-            retn = valu.lower().replace('-', '')
+        if text[0] != '$':
+            retn = text.lower().replace('-', '')
             if not isguid(retn):
-                self._raiseBadValu(valu)
+                self._raiseBadValu(text, mesg='Expected a 32 char guid string')
 
             return retn, {}
 
         if self._guid_alias is None:
-            self._raiseBadValu(valu, mesg='guid resolver syntax used with non-aliased guid')
+            self._raiseBadValu(text, mesg='guid resolver syntax used with non-aliased guid')
 
         if self._getTufoByProp is None:
-            self._raiseBadValu(valu, mesg='guid resolver syntax used with non-cortex tlib')
+            self._raiseBadValu(text, mesg='guid resolver syntax used with non-cortex tlib')
 
         # ( sigh... eventually everything will be a cortex... )
-        node = self._getTufoByProp(self._guid_alias, valu[1:])
+        node = self._getTufoByProp(self._guid_alias, text[1:])
         if node is None:
-            self._raiseBadValu(valu, mesg='no result for guid resolver',
+            self._raiseBadValu(text, mesg='no result for guid resolver',
                                alias=self._guid_alias)
 
         iden = node[1].get(node[1].get('tufo:form'))
         return iden, {}
+
+    def _norm_list(self, valu, oldval=None):
+
+        if not valu:
+            self._raiseBadValu(valu=valu, mesg='No valus present in list to make a guid with')
+
+        if not self.prop:
+            self._raiseBadValu(valu,
+                               mesg='Unable to norm a list for a guidtype which is not associated with a property.')
+
+        vals = []
+        subs = {}
+
+        for kv in valu:
+            if not isinstance(kv, (list, tuple)) or not len(kv) == 2:
+                self._raiseBadValu(valu, kv=kv, mesg='Expected a list or tuple of length 2')
+            k, v = kv
+            fullprop = self.prop + ':' + k
+            try:
+                v, ssubs = self._reqPropNorm(fullprop, v)
+            except s_common.NoSuchProp:
+                logger.exception('Error while norming list of props for guid type.')
+                self._raiseBadValu(valu, prop=k, fullprop=fullprop,
+                                   mesg='Non-model property provided when making a stable guid.')
+            subs.update({':'.join([k, _k]): _v for _k, _v in ssubs.items()})
+            vals.append((k, v))
+
+        # Stable sort based on the property
+        vals.sort(key=lambda x: x[0])
+        valu = s_common.guid(valu=vals)
+        subs.update(vals)
+        return valu, subs
 
 class StrType(DataType):
 
@@ -890,6 +941,15 @@ class TypeLib:
     def reqDataType(self, name):
         '''
         Return a reference to the named DataType or raise NoSuchType.
+
+        Args:
+            name (str): Name of the type to get a reference for.
+
+        Returns:
+            DataType: Instance of a DataType for that name.
+
+        Raises:
+            NoSuchType: If the type is not valid.
         '''
         item = self.getDataType(name)
         if item is None:
