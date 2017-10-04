@@ -509,23 +509,29 @@ class InetModelTest(SynTest):
         with self.getRamCore() as core:
             tick = now()
 
-            t0 = core.formTufoByProp('inet:web:action', '*', action='didathing', acct='vertex.link/pennywise', time=tick)
+            t0 = core.formTufoByProp('inet:web:action', '*', act='didathing', acct='vertex.link/pennywise', time=tick)
             self.nn(t0)
 
             self.eq(t0[1].get('inet:web:action:time'), tick)
             self.eq(t0[1].get('inet:web:action:acct'), 'vertex.link/pennywise')
             self.eq(t0[1].get('inet:web:action:acct:user'), 'pennywise')
             self.eq(t0[1].get('inet:web:action:acct:site'), 'vertex.link')
-            self.eq(t0[1].get('inet:web:action:action'), 'didathing')
+            self.eq(t0[1].get('inet:web:action:act'), 'didathing')
 
             # Pivot from an inet:web:acct to the inet:web:action forms via storm
             self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/pennywise'))
             nodes = core.eval('inet:web:acct=vertex.link/pennywise inet:web:acct -> inet:web:action:acct')
             self.eq(len(nodes), 1)
 
-            t0 = core.setTufoProps(t0, ipv4=0x01020304, ipv6='0:0:0:0:0:0:0:1')
+            t0 = core.setTufoProps(t0, ipv4=0x01020304, ipv6='0:0:0:0:0:0:0:1', acct='vertex.link/user2')
             self.eq(t0[1].get('inet:web:action:ipv4'), 0x01020304)
             self.eq(t0[1].get('inet:web:action:ipv6'), '::1')
+            self.eq(t0[1].get('inet:web:action:acct'), 'vertex.link/pennywise')
+            self.eq(t0[1].get('inet:web:action:acct:user'), 'pennywise')
+            self.eq(t0[1].get('inet:web:action:acct:site'), 'vertex.link')
+
+            self.raises(PropNotFound, core.formTufoByProp, 'inet:web:action', '*', acct='vertex.link/pennywise', time=tick)
+            self.raises(PropNotFound, core.formTufoByProp, 'inet:web:action', '*', act='didathing', time=tick)
 
     def test_model_inet_201706121318(self):
 

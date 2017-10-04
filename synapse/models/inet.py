@@ -895,10 +895,11 @@ class InetMod(CoreModule):
                 ]),
 
                 ('inet:web:action', {'ptype': 'inet:web:action'}, [
-                    ('action', {'ptype': 'str:lwr', 'doc': 'The action performed'}),
-                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The web account associated with the action'}),
-                    ('acct:site', {'ptype': 'inet:fqdn'}),
-                    ('acct:user', {'ptype': 'inet:user'}),
+                    ('act', {'ptype': 'str:lwr', 'req': 1, 'doc': 'The action performed'}),
+                    ('acct', {'ptype': 'inet:web:acct', 'req': 1, 'ro': 1, 'doc': 'The web account associated with the action'}),
+                    ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1}),
+                    ('acct:user', {'ptype': 'inet:user', 'ro': 1}),
+                    ('info', {'ptype': 'json', 'doc': 'Other information about the action'}),
                     ('time', {'ptype': 'time', 'doc': 'The time the netuser performed the action'}),
                     ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the action'}),
                     ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the action'}),
