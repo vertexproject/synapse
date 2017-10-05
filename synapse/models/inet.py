@@ -339,7 +339,7 @@ class InetMod(CoreModule):
         self.onFormNode('inet:fqdn', self.onTufoFormFqdn)
         self.onFormNode('inet:passwd', self.onTufoFormPasswd)
 
-        self.core.on('node:prop:set', self.onSetFqdnSfx, prop='inet:fqdn:sfx')
+        self.on('node:prop:set', self.onSetFqdnSfx, prop='inet:fqdn:sfx')
 
     def onTufoFormFqdn(self, form, valu, props, mesg):
         parts = valu.split('.', 1)
