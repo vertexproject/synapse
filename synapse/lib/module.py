@@ -230,7 +230,11 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
             node = mesg[1].get('node')
             func(node)
 
+        def fini():
+            self.core.off('node:add', dist)
+
         self.core.on('node:add', dist, form=form)
+        self.onfini(fini)
 
     def onNodeDel(self, func, form=None):
 
@@ -255,6 +259,10 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
             node = mesg[1].get('node')
             func(node)
 
+        def fini():
+            self.core.off('node:del', dist)
+
         self.core.on('node:del', dist, form=form)
+        self.onfini(fini)
 
     # TODO: many more helper functions which wrap event conventions with APIs go here...
