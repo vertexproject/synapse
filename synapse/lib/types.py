@@ -298,6 +298,8 @@ class MultiFieldType(DataType):
 
     def __init__(self, tlib, name, **info):
         DataType.__init__(self, tlib, name, **info)
+        # TODO figure out what to do about tlib vs core issues
+        self._getPropType = getattr(tlib, 'getPropType', None)
         self.fields = None
 
     def _norm_fields(self, valu):
@@ -335,6 +337,10 @@ class MultiFieldType(DataType):
                     for part in fields.split('|'):
                         fname, ftype = part.split(',')
                         fitem = self.tlib.getTypeInst(ftype)
+                        if self.prop:
+                            _fitem = self._getPropType(ftype)
+                            if _fitem:
+                                fitem = _fitem
                         self.fields.append((fname, fitem))
 
                 return self.fields

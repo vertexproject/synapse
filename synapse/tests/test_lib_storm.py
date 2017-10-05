@@ -649,6 +649,9 @@ class StormTest(SynTest):
             self.notin('.new', node1[1])
             self.eq(node0[0], node1[0])
 
+            node2 = core.eval('addnode(ps:hasnetuser, ((guidname="bob gray"),vertex.link/pennywise))')[0]
+            self.eq(node2[1].get('ps:hasnetuser'), 'faebe657f7a5839ecda3f8af15293893/vertex.link/pennywise')
+
     def test_storm_task(self):
         with self.getRamCore() as core:
             foo = []
