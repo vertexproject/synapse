@@ -652,6 +652,10 @@ class StormTest(SynTest):
             node2 = core.eval('addnode(ps:hasnetuser, ((guidname="bob gray"),vertex.link/pennywise))')[0]
             self.eq(node2[1].get('ps:hasnetuser'), 'faebe657f7a5839ecda3f8af15293893/vertex.link/pennywise')
 
+            node3 = core.eval('addnode(ou:hasnetuser, ((alias="vertex"),vertex.link/pennywise))')[0]
+            self.eq(node3[1].get('ou:hasnetuser'), 'e0d1c290732ac433444afe7b5825f94d')
+            self.eq(node3[1].get('ou:hasnetuser:netuser'), 'vertex.link/pennywise')
+
     def test_storm_task(self):
         with self.getRamCore() as core:
             foo = []

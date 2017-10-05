@@ -380,7 +380,8 @@ class CompType(DataType):
 
     def __init__(self, tlib, name, **info):
         DataType.__init__(self, tlib, name, **info)
-
+        # TODO figure out what to do about tlib vs core issues
+        self._getPropNorm = getattr(tlib, 'getPropNorm', None)
         self.fields = []
         self.optfields = []
 
@@ -436,7 +437,10 @@ class CompType(DataType):
         vals = valu[:self.fsize]
         for v, (name, tname) in s_common.iterzip(vals, self.fields):
 
-            norm, ssubs = self.tlib.getTypeNorm(tname, v)
+            if self.prop:
+                norm, ssubs = self._getPropNorm(tname, v)
+            else:
+                norm, ssubs = self.tlib.getTypeNorm(tname, v)
 
             subs[name] = norm
             for subkey, subval in ssubs.items():
