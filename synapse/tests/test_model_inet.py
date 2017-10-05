@@ -892,8 +892,19 @@ class InetModelTest(SynTest):
             (dark_iden, '_:*ou:hasnetuser#hehe.hoho', tick, tick),
             (dark_iden, '_:*ou:hasnetuser#hehe', tick, tick),
         ])
-        adds.extend(_addTag('hehe.hoho', 'ou:hasnetuser'))
-        adds.extend(_addTag('hehe', 'ou:hasnetuser'))
+
+        # inet:web:logon is already in the inet:web:logon space but needs to account for the netuser move
+        iden = guid()
+        tick = now()
+        adds.extend([
+            (iden, 'inet:web:logon', 'cf672b42e342f49d6afee00341de1ebd', tick),
+            (iden, 'inet:web:logon:netuser', 'vertex.link/pennywise', tick),
+            (iden, 'inet:web:logon:netuser:site', 'vertex.link', tick),
+            (iden, 'inet:web:logon:netuser:user', 'pennywise', tick),
+            (iden, 'inet:web:logon:ipv4', 16909060, tick),
+            (iden, 'inet:web:logon:time', 1505001600000, tick),
+            (iden, 'tufo:form', 'inet:web:logon', tick),
+        ])
 
         with s_cortex.openstore('ram:///') as stor:
 
@@ -1151,3 +1162,13 @@ class InetModelTest(SynTest):
                 self.len(0, tufos)
                 rows = core.getJoinByProp('ou:hasnetuser')
                 self.len(0, rows)
+
+                # ensure inet:web:logon:netuser was moved over
+                tufo = core.getTufoByProp('inet:web:logon')
+                self.eq(tufo[1].get('tufo:form'), 'inet:web:logon')
+                self.eq(tufo[1].get('inet:web:logon:acct'), 'vertex.link/pennywise')
+                self.eq(tufo[1].get('inet:web:logon:acct:site'), 'vertex.link')
+                self.eq(tufo[1].get('inet:web:logon:acct:user'), 'pennywise')
+                self.notin('inet:web:logon:netuser', tufo[1])
+                self.notin('inet:web:logon:netuser:site', tufo[1])
+                self.notin('inet:web:logon:netuser:user', tufo[1])

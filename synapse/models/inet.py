@@ -530,6 +530,10 @@ class InetMod(CoreModule):
             ('inet:netfile:seen:min', 'inet:web:file:seen:min'),
             ('inet:netfile:seen:max', 'inet:web:file:seen:max'),
 
+            ('inet:web:logon:netuser', 'inet:web:logon:acct'),
+            ('inet:web:logon:netuser:site', 'inet:web:logon:acct:site'),
+            ('inet:web:logon:netuser:user', 'inet:web:logon:acct:user'),
+
             ('ps:hasnetuser:netuser', 'ps:haswebacct:acct'),
             ('ps:hasnetuser:person', 'ps:haswebacct:person'),
 
