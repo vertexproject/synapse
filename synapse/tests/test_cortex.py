@@ -174,6 +174,7 @@ class CortexBaseTest(SynTest):
         self.runsnaps(core)
         self.rundarks(core)
         self.runblob(core)
+        # runstore should be run last as it may do destructive actions to data in the Cortex.
         self.runstore(core)
 
     def rundsets(self, core):
@@ -698,6 +699,24 @@ class CortexBaseTest(SynTest):
             self.isin('inet:tcp4:ipv4', node[1])
             self.isin('inet:tcp4:gatenumber', node[1])
             self.notin('inet:tcp4:port', node[1])
+
+        # Do a updatePropertValu call to replace a named property with another valu
+        unodes = core.getTufosByProp('tufo:form', 'inet:tcp4')
+        self.len(10, unodes)
+        n = core.store.updatePropertyValu('tufo:form', 'inet:tcp4', 'inet:stateful4')
+        self.eq(n, 10)
+        unodes = core.getTufosByProp('tufo:form', 'inet:tcp4')
+        self.len(0, unodes)
+        unodes = core.getTufosByProp('inet:tcp4')
+        self.len(10, unodes)
+        for node in unodes:
+            self.eq(node[1].get('tufo:form'), 'inet:stateful4')
+            self.isin('inet:tcp4', node[1])
+        unodes = core.getTufosByProp('tufo:form', 'inet:stateful4')
+        self.len(10, unodes)
+        for node in unodes:
+            self.eq(node[1].get('tufo:form'), 'inet:stateful4')
+            self.isin('inet:tcp4', node[1])
 
     def runtufobydefault(self, core):
         # Failures should be expected for unknown names

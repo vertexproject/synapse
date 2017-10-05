@@ -255,6 +255,8 @@ class SqliteStorage(s_cores_storage.Storage):
     _t_uprows_by_iden_prop_str = 'UPDATE {{TABLE}} SET strval={{VALU}} WHERE iden={{IDEN}} and prop={{PROP}}'
     _t_uprows_by_iden_prop_int = 'UPDATE {{TABLE}} SET intval={{VALU}} WHERE iden={{IDEN}} and prop={{PROP}}'
     _t_uprows_by_prop_prop = 'UPDATE {{TABLE}} SET prop={{NEWVALU}} WHERE prop={{OLDVALU}}'
+    _t_uprows_by_prop_val_int = 'UPDATE {{TABLE}} SET intval={{NEWVALU}} WHERE prop={{PROP}} and intval={{OLDVALU}}'
+    _t_uprows_by_prop_val_str = 'UPDATE {{TABLE}} SET strval={{NEWVALU}} WHERE prop={{PROP}} and strval={{OLDVALU}}'
 
     def _initDbInfo(self):
         name = self._link[1].get('path')[1:]
@@ -537,6 +539,8 @@ class SqliteStorage(s_cores_storage.Storage):
         self._q_uprows_by_iden_prop_str = self._prepQuery(self._t_uprows_by_iden_prop_str)
         self._q_uprows_by_iden_prop_int = self._prepQuery(self._t_uprows_by_iden_prop_int)
         self._q_uprows_by_prop_prop = self._prepQuery(self._t_uprows_by_prop_prop)
+        self._q_uprows_by_prop_val_str = self._prepQuery(self._t_uprows_by_prop_val_str)
+        self._q_uprows_by_prop_val_int = self._prepQuery(self._t_uprows_by_prop_val_int)
 
         self._q_getjoin_by_range_str = self._prepQuery(self._t_getjoin_by_range_str)
         self._q_getjoin_by_range_int = self._prepQuery(self._t_getjoin_by_range_int)
@@ -717,6 +721,11 @@ class SqliteStorage(s_cores_storage.Storage):
 
     def _updateProperty(self, oldprop, newprop):
         return self.update(self._q_uprows_by_prop_prop, oldvalu=oldprop, newvalu=newprop)
+
+    def _updatePropertyValu(self, prop, oldval, newval):
+        if isinstance(oldval, int):
+            return self.update(self._q_uprows_by_prop_val_int, oldvalu=oldval, newvalu=newval, prop=prop)
+        return self.update(self._q_uprows_by_prop_val_str, oldvalu=oldval, newvalu=newval, prop=prop)
 
     def _genStoreRows(self, **kwargs):
         '''
