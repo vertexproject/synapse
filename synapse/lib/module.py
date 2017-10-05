@@ -207,4 +207,62 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         self.core.on('node:form', distfunc, form=form)
         self.onfini(fini)
 
+    def onNodeAdd(self, func, form=None):
+        '''
+        Register a callback to run when a node is added.
+
+        Args:
+            func (function): The callback
+            form (str): The form of node to watch for (or all!)
+
+        Returns:
+            (None)
+
+        Example:
+
+            def callback(node):
+                dostuff(node)
+
+            self.onNodeAdd(callback, form='inet:fqdn')
+
+        '''
+        def dist(mesg):
+            node = mesg[1].get('node')
+            func(node)
+
+        def fini():
+            self.core.off('node:add', dist)
+
+        self.core.on('node:add', dist, form=form)
+        self.onfini(fini)
+
+    def onNodeDel(self, func, form=None):
+
+        '''
+        Register a callback to run when a node is deleted.
+
+        Args:
+            func (function): The callback
+            form (str): The form of node to watch for (or all!)
+
+        Returns:
+            (None)
+
+        Example:
+
+            def callback(node):
+                dostuff(node)
+
+            self.onNodeDel(callback, form='inet:fqdn')
+        '''
+        def dist(mesg):
+            node = mesg[1].get('node')
+            func(node)
+
+        def fini():
+            self.core.off('node:del', dist)
+
+        self.core.on('node:del', dist, form=form)
+        self.onfini(fini)
+
     # TODO: many more helper functions which wrap event conventions with APIs go here...
