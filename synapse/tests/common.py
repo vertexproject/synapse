@@ -213,7 +213,7 @@ class SynTest(unittest.TestCase):
             ),
             'forms': (
                 (
-                    'strform', {'ptype': 'str', 'doc': 'A test str form'},
+                    'strform', {'ptype': 'strform', 'doc': 'A test str form'},
                     (
                         ('foo', {'ptype': 'str'}),
                         ('bar', {'ptype': 'str'}),
@@ -221,7 +221,7 @@ class SynTest(unittest.TestCase):
                     )
                 ),
                 (
-                    'intform', {'ptype': 'int'},  # purposely missing doc
+                    'intform', {'ptype': 'intform'},  # purposely missing doc
                     (
                         ('foo', {'ptype': 'str'}),
                         ('baz', {'ptype': 'int'}),
@@ -234,7 +234,7 @@ class SynTest(unittest.TestCase):
                     )
                 ),
                 (
-                    'guidform', {'ptype': 'guid'},
+                    'guidform', {'ptype': 'guidform'},
                     (
                         ('foo', {'ptype': 'str'}),
                         ('baz', {'ptype': 'int'}),

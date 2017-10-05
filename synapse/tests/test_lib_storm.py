@@ -615,7 +615,7 @@ class StormTest(SynTest):
                 ['1.2.3.4', 'vv', '#foo.bar'],
             ])
 
-    def test_storm_guid(self):
+    def test_storm_guid_operator(self):
         with self.getRamCore() as core:
             node0 = core.formTufoByProp('inet:ipv4', '1.2.3.4')
             node1 = core.formTufoByProp('inet:ipv4', '4.5.6.7')
@@ -635,6 +635,19 @@ class StormTest(SynTest):
             nodes = core.eval('guid(%s)' % node0[0][::-1])
             self.len(1, nodes)
             self.eq(node0[0], nodes[0][0][::-1])
+
+    def test_storm_guid_stablegen(self):
+        with self.getRamCore() as core:
+            node0 = core.eval(' [ guidform = (foo="1") ] ')[0]
+            self.nn(node0)
+            self.isin('.new', node0[1])
+            self.eq(node0[1].get('guidform:foo'), '1')
+            self.none(node0[1].get('guidform:baz'))
+
+            node1 = core.eval('addnode(guidform, (foo="1"))')[0]
+            self.nn(node1)
+            self.notin('.new', node1[1])
+            self.eq(node0[0], node1[0])
 
     def test_storm_task(self):
         with self.getRamCore() as core:
