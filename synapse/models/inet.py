@@ -537,44 +537,20 @@ class InetMod(CoreModule):
             ('ou:hasnetuser:org', 'ou:haswebacct:org'),
         ]
 
-        def _updateTufoForm(oldform, newform):
-            # FIXME this can be optimized in storage layer like updateProperty
+        def _updateTagForm(old, new):
 
-            while True:
-                rows = self.core.getRowsByProp('tufo:form', oldform, limit=1000)
-                if not rows:
-                    break
+            darks = []
 
-                adds, dels = [], []
-                for i, p, v, t in rows:
-                    adds.append((i, p, newform, t),)
-                    dels.append((i, p, v),)
-
-                if adds:
-                    self.core.addRows(adds)
-
-                for i, p, v in dels:
-                    self.core.delRowsByIdProp(i, p, v)
-
-        def _updateTagForm(oldform, newform):
-            adds, dels, darks = [], [], []
-            for i, p, v, t in self.core.getRowsByProp('syn:tagform:form', oldform):
-                adds.append((i, p, newform, t),)
-                dels.append((i, p, v),)
-
+            for i, _, _, _ in self.core.getRowsByProp('syn:tagform:form', old):
                 for _, _, tag, _ in self.core.getRowsByIdProp(i, 'syn:tagform:tag'):
-                    oldark = '_:*%s#%s' % (oldform, tag)
-                    newdark = '_:*%s#%s' % (newform, tag)
+                    oldark = '_:*%s#%s' % (old, tag)
+                    newdark = '_:*%s#%s' % (new, tag)
                     darks.append((oldark, newdark),)
-
-            if adds:
-                self.core.addRows(adds)
-
-            for i, p, v in dels:
-                self.core.delRowsByIdProp(i, p, v)
 
             for olddark, newdark in darks:
                 self.core.store.updateProperty(olddark, newdark)
+
+            self.core.store.updatePropertyValu('syn:tagform:form', old, new)
 
         def _getXrefPropSrc():
             retval = []
@@ -638,7 +614,7 @@ class InetMod(CoreModule):
                     continue
 
                 self.core.store.updateProperty(old, new)
-                _updateTufoForm(old, new)
+                self.core.store.updatePropertyValu('tufo:form', old, new)
                 _updateTagForm(old, new)
                 _updateXref(xref_propsrc, old, new)
 
