@@ -18,8 +18,7 @@ if msgpack.version < (0, 4, 2):
 if tornado.version_info < (3, 2, 2):
     raise Exception('synapse requires tornado >= 3.2.2')
 
-from synapse.lib.version import version
-from synapse.lib.version import verstring
+from synapse.lib.version import version, verstring
 
 # load all the synapse builtin modules
 # the built-in cortex modules...
