@@ -507,6 +507,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.store.fire('modl:vers:rev', name=name, vers=vers)
 
         func()
+        mesg = 'Finished updating model [{}] to [{}].'.format(name, vers)
+        logger.warning(mesg)
+        self.log(logging.WARNING, mesg=mesg, name=name, curv=curv, vers=vers)
 
         self.setModlVers(name, vers)
         return True
