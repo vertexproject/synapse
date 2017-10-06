@@ -24,6 +24,7 @@ import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
 import synapse.lib.threads as s_threads
+import synapse.lib.version as s_version
 
 import synapse.models.syn as s_models_syn
 
@@ -579,6 +580,8 @@ class CortexBaseTest(SynTest):
     def runblob(self, core):
         # Do we have default cortex blob values?
         self.true(core.hasBlobValu('syn:core:created'))
+        cvers = core.getBlobValu('syn:core:synapse:version')
+        self.eq(cvers, s_version.version)
 
         kvs = (
             ('syn:meta', 1),
