@@ -46,7 +46,7 @@ Todo
 .. _conventions: ../userguides/ug011_storm_basics.html#syntax-conventions
 __ conventions_
 
-.. _filter: ../userguides/ug014_storm_ref_filter.rst  #fix
+.. _filter: ../userguides/ug014_storm_ref_filter.rst
 
-.. _handlers: ../userguides/ug016_storm_ref_byhandlers.rst #fix
+.. _handlers: ../userguides/ug016_storm_ref_byhandlers.rst
 __ handlers_
