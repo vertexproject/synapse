@@ -539,6 +539,39 @@ class InetMod(CoreModule):
 
             ('ou:hasnetuser:netuser', 'ou:haswebacct:acct'),
             ('ou:hasnetuser:org', 'ou:haswebacct:org'),
+
+            # The following props are extra-model which may have been created if enforce=0 was set on a cortex.
+            ('inet:netgroup:site:domain', 'inet:web:group:site:domain'),
+            ('inet:netgroup:site:host', 'inet:web:group:site:host'),
+
+            ('inet:netmemb:group:name', 'inet:web:memb:group:name'),
+            ('inet:netmemb:group:site', 'inet:web:memb:group:site'),
+            ('inet:netmemb:group:site:domain', 'inet:web:memb:group:site:domain'),
+            ('inet:netmemb:group:site:host', 'inet:web:memb:group:site:hos'),
+            ('inet:netmemb:user:site', 'inet:web:memb:acct:site'),
+            ('inet:netmemb:user:site:domain', 'inet:web:memb:acct:site:domain'),
+            ('inet:netmemb:user:site:host', 'inet:web:memb:acct:site:host'),
+            ('inet:netmemb:user:user', 'inet:web:memb:acct:user'),
+
+            ('inet:netpost:netuser:site:domain', 'inet:web:post:acct:site:domain'),
+            ('inet:netpost:netuser:site:host', 'inet:web:post:acct:acctquit:site:host'),
+
+            ('inet:netuser:site:domain', 'inet:acct:site:domain'),
+            ('inet:netuser:site:host', 'inet:acct:site:host'),
+
+            ('inet:web:logon:netuser:site:domain', 'inet:web:logon:acct:site:domain'),
+            ('inet:web:logon:netuser:site:host', 'inet:web:logon:acct:site:host'),
+
+            ('ou:hasnetuser:netuser:site', 'ou:haswebacct:acct:site'),
+            ('ou:hasnetuser:netuser:site:domain', 'ou:haswebacct:acct:domain'),
+            ('ou:hasnetuser:netuser:site:host', 'ou:haswebacct:acct:host'),
+            ('ou:hasnetuser:netuser:user', 'ou:haswebacct:acct:user'),
+
+            ('ps:hasnetuser:netuser:site', 'ps:haswebacct:acct:site'),
+            ('ps:hasnetuser:netuser:site:domain', 'ps:haswebacct:acct:site:domain'),
+            ('ps:hasnetuser:netuser:site:host', 'ps:haswebacct:acct:site:host'),
+            ('ps:hasnetuser:netuser:user', 'ps:haswebacct:acct:user'),
+
         ]
 
         def _updateTagForm(old, new):
