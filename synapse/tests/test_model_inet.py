@@ -822,8 +822,8 @@ class InetModelTest(SynTest):
             (dark_iden, '_:*inet:netfile#hehe.hoho', tick, tick),
             (dark_iden, '_:*inet:netfile#hehe', tick, tick),
         ])
-        adds.extend(_addTag('hehe.hoho', 'inet:netpost'))
-        adds.extend(_addTag('hehe', 'inet:netpost'))
+        adds.extend(_addTag('hehe.hoho', 'inet:netfile'))
+        adds.extend(_addTag('hehe', 'inet:netfile'))
 
         iden = guid()
         imgof_valu = 'b873597b32ce4adb836d8d4aae1831f6'
@@ -857,8 +857,8 @@ class InetModelTest(SynTest):
             (iden, 'file:txtref:xref:strval', 'vertex.link/group0', tick),
             (iden, '#hehe.hoho', tick, tick),
             (iden, '#hehe', tick, tick),
-            (dark_iden, '_:*file:imgof#hehe.hoho', tick, tick),
-            (dark_iden, '_:*file:imgof#hehe', tick, tick),
+            (dark_iden, '_:*file:txtref#hehe.hoho', tick, tick),
+            (dark_iden, '_:*file:txtref#hehe', tick, tick),
         ])
         adds.extend(_addTag('hehe.hoho', 'file:txtref'))
         adds.extend(_addTag('hehe', 'file:txtref'))
@@ -892,6 +892,8 @@ class InetModelTest(SynTest):
             (dark_iden, '_:*ou:hasnetuser#hehe.hoho', tick, tick),
             (dark_iden, '_:*ou:hasnetuser#hehe', tick, tick),
         ])
+        adds.extend(_addTag('hehe.hoho', 'ou:hasnetuser'))
+        adds.extend(_addTag('hehe', 'ou:hasnetuser'))
 
         # inet:web:logon is already in the inet:web:logon space but needs to account for the netuser move
         iden = guid()
@@ -904,7 +906,13 @@ class InetModelTest(SynTest):
             (iden, 'inet:web:logon:ipv4', 16909060, tick),
             (iden, 'inet:web:logon:time', 1505001600000, tick),
             (iden, 'tufo:form', 'inet:web:logon', tick),
+            (iden, '#hehe.hoho', tick, tick),
+            (iden, '#hehe', tick, tick),
+            (dark_iden, '_:*inet:web:logon#hehe.hoho', tick, tick),
+            (dark_iden, '_:*inet:web:logon#hehe', tick, tick),
         ])
+        adds.extend(_addTag('hehe.hoho', 'inet:web:logon'))
+        adds.extend(_addTag('hehe', 'inet:web:logon'))
 
         with s_cortex.openstore('ram:///') as stor:
 
@@ -942,7 +950,11 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['inet:web:acct:passwd'], 'hunter2')
                 self.eq(tufo[1]['inet:web:acct:seen:min'], 0)
                 self.eq(tufo[1]['inet:web:acct:seen:max'], 1)
+
+                # check that tags were correctly migrated
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:netuser'))
+                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:acct'))
                 self.len(0, core.getRowsByProp('_:*inet:netuser#hehe.hoho'))
                 self.len(0, core.getRowsByProp('_:*inet:netuser#hehe'))
                 self.len(2, core.getRowsByProp('_:*inet:web:acct#hehe.hoho'))
@@ -969,7 +981,11 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['inet:web:group:url'], 'https://vertex.link/url')
                 self.eq(tufo[1]['inet:web:group:webpage'], 'https://vertex.link/webpage')
                 self.eq(tufo[1]['inet:web:group:avatar'], 'd41d8cd98f00b204e9800998ecf8427e')
+
+                # check that tags were correctly migrated
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:netgroup'))
+                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:group'))
                 self.len(0, core.getRowsByProp('_:*inet:netgroup#hehe.hoho'))
                 self.len(0, core.getRowsByProp('_:*inet:netgroup#hehe'))
                 self.len(2, core.getRowsByProp('_:*inet:web:group#hehe.hoho'))
@@ -996,7 +1012,11 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['inet:web:memb:joined'], 123)
                 self.eq(tufo[1]['inet:web:memb:seen:min'], 0)
                 self.eq(tufo[1]['inet:web:memb:seen:max'], 1)
+
+                # check that tags were correctly migrated
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:netmemb'))
+                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:memb'))
                 self.len(0, core.getRowsByProp('_:*inet:netmemb#hehe.hoho'))
                 self.len(0, core.getRowsByProp('_:*inet:netmemb#hehe'))
                 self.len(1, core.getRowsByProp('_:*inet:web:memb#hehe.hoho'))
@@ -1021,7 +1041,11 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['inet:web:follows:followee'], acct2)
                 self.eq(tufo[1]['inet:web:follows:seen:min'], 0)
                 self.eq(tufo[1]['inet:web:follows:seen:max'], 1)
+
+                # check that tags were correctly migrated
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:follows'))
+                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:follows'))
                 self.len(0, core.getRowsByProp('_:*inet:follows#hehe.hoho'))
                 self.len(0, core.getRowsByProp('_:*inet:follows#hehe'))
                 self.len(1, core.getRowsByProp('_:*inet:web:follows#hehe.hoho'))
@@ -1050,7 +1074,11 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['inet:web:post:url'], 'https://vertex.link/blog/1')
                 self.eq(tufo[1]['inet:web:post:file'], 'd41d8cd98f00b204e9800998ecf8427e')
                 self.eq(tufo[1]['inet:web:post:time'], 12345)
+
+                # check that tags were correctly migrated
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:netpost'))
+                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:post'))
                 self.len(0, core.getRowsByProp('_:*inet:netpost#hehe.hoho'))
                 self.len(0, core.getRowsByProp('_:*inet:netpost#hehe'))
                 self.len(1, core.getRowsByProp('_:*inet:web:post#hehe.hoho'))
@@ -1081,7 +1109,11 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['inet:web:file:ipv6'], '::1')
                 self.eq(tufo[1]['inet:web:file:seen:min'], 0)
                 self.eq(tufo[1]['inet:web:file:seen:max'], 1)
+
+                # check that tags were correctly migrated
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:netfile'))
+                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:file'))
                 self.len(0, core.getRowsByProp('_:*inet:netfile#hehe.hoho'))
                 self.len(0, core.getRowsByProp('_:*inet:netfile#hehe'))
                 self.len(1, core.getRowsByProp('_:*inet:web:file#hehe.hoho'))
@@ -1107,7 +1139,10 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['file:imgof:xref'], 'inet:web:acct=vertex.link/person1')
                 self.eq(tufo[1]['file:imgof:xref:prop'], 'inet:web:acct')
                 self.eq(tufo[1]['file:imgof:xref:strval'], 'vertex.link/person1')
+
+                # check that tags were correctly migrated
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(2, core.getRowsByProp('syn:tagform:form', 'file:imgof'))
                 self.len(1, core.getRowsByProp('_:*file:imgof#hehe.hoho'))
                 self.len(1, core.getRowsByProp('_:*file:imgof#hehe'))  # NOTE: dark rows should stay the same
 
@@ -1129,7 +1164,10 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['file:txtref:xref'], 'inet:web:group=vertex.link/group0')
                 self.eq(tufo[1]['file:txtref:xref:prop'], 'inet:web:group')
                 self.eq(tufo[1]['file:txtref:xref:strval'], 'vertex.link/group0')
+
+                # check that tags were correctly migrated
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(2, core.getRowsByProp('syn:tagform:form', 'file:txtref'))
                 self.len(1, core.getRowsByProp('_:*file:txtref#hehe.hoho'))
                 self.len(1, core.getRowsByProp('_:*file:txtref#hehe'))  # NOTE: dark rows should stay the same
 
@@ -1148,7 +1186,11 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['ps:haswebacct'], '00000000000000000000000000000000/vertex.link/heheman')
                 self.eq(tufo[1]['ps:haswebacct:acct'], 'vertex.link/heheman')
                 self.eq(tufo[1]['ps:haswebacct:person'], '00000000000000000000000000000000')
+
+                # check that tags were correctly migrated
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('syn:tagform:form', 'ps:hasnetuser'))
+                self.len(2, core.getRowsByProp('syn:tagform:form', 'ps:haswebacct'))
                 self.len(0, core.getRowsByProp('_:*ps:hasnetuser#hehe.hoho'))
                 self.len(0, core.getRowsByProp('_:*ps:hasnetuser#hehe'))
                 self.len(1, core.getRowsByProp('_:*ps:haswebacct#hehe.hoho'))
@@ -1171,7 +1213,11 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['ou:haswebacct'], '4016087db1b71ecc56db535a5ee9e86e')
                 self.eq(tufo[1]['ou:haswebacct:acct'], 'vertex.link/heheman')
                 self.eq(tufo[1]['ou:haswebacct:org'], '00000000000000000000000000000000')
+
+                # check that tags were correctly migrated
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('syn:tagform:form', 'ou:hasnetuser'))
+                self.len(2, core.getRowsByProp('syn:tagform:form', 'ou:haswebacct'))
                 self.len(0, core.getRowsByProp('_:*ou:hasnetuser#hehe.hoho'))
                 self.len(0, core.getRowsByProp('_:*ou:hasnetuser#hehe'))
                 self.len(1, core.getRowsByProp('_:*ou:haswebacct#hehe.hoho'))
@@ -1192,5 +1238,9 @@ class InetModelTest(SynTest):
                 self.notin('inet:web:logon:netuser', tufo[1])
                 self.notin('inet:web:logon:netuser:site', tufo[1])
                 self.notin('inet:web:logon:netuser:user', tufo[1])
+
+                # check that tags were correctly migrated
+                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:logon'))
                 self.len(1, core.getRowsByProp('_:*inet:web:logon#hehe.hoho'))
                 self.len(1, core.getRowsByProp('_:*inet:web:logon#hehe'))
