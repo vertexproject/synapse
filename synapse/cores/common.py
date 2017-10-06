@@ -8,7 +8,6 @@ import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.reactor as s_reactor
 import synapse.telepath as s_telepath
-import synapse.datamodel as s_datamodel
 
 import synapse.cores.storage as s_storage
 
@@ -23,7 +22,7 @@ import synapse.lib.hashset as s_hashset
 import synapse.lib.threads as s_threads
 import synapse.lib.modules as s_modules
 import synapse.lib.trigger as s_trigger
-import synapse.lib.hashitem as s_hashitem
+import synapse.lib.version as s_version
 import synapse.lib.interval as s_interval
 
 from synapse.eventbus import EventBus
@@ -233,6 +232,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.onfini(self._finiCoreMods)
 
         s_ingest.IngestApi.__init__(self, self)
+
+        self.setBlobValu('syn:core:synapse:version', s_version.version)
 
     def addRuntNode(self, form, valu, props=None):
         '''
