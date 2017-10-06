@@ -753,8 +753,7 @@ class InetModelTest(SynTest):
             (dark_iden, '_:*inet:follows#hehe.hoho', tick, tick),
             (dark_iden, '_:*inet:follows#hehe', tick, tick),
         ])
-        adds.extend(_addTag('hehe.hoho', 'inet:follows'))
-        adds.extend(_addTag('hehe', 'inet:follows'))
+        # NOTE: we do not add the tagform here on purpose to make sure the dark rows migrate
 
         iden = guid()
         webmemb_valu = '7d8675f29b54cf71e3c36d4448aaa842'
@@ -1044,8 +1043,9 @@ class InetModelTest(SynTest):
 
                 # check that tags were correctly migrated
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                # NOTE: both tagforms here are 0. If it wasn't originally there, we wont migrate/create it.
                 self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:follows'))
-                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:follows'))
+                self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:web:follows'))
                 self.len(0, core.getRowsByProp('_:*inet:follows#hehe.hoho'))
                 self.len(0, core.getRowsByProp('_:*inet:follows#hehe'))
                 self.len(1, core.getRowsByProp('_:*inet:web:follows#hehe.hoho'))
