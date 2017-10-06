@@ -1051,6 +1051,10 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['inet:web:post:file'], 'd41d8cd98f00b204e9800998ecf8427e')
                 self.eq(tufo[1]['inet:web:post:time'], 12345)
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('_:*inet:netpost#hehe.hoho'))
+                self.len(0, core.getRowsByProp('_:*inet:netpost#hehe'))
+                self.len(1, core.getRowsByProp('_:*inet:web:post#hehe.hoho'))
+                self.len(1, core.getRowsByProp('_:*inet:web:post#hehe'))
 
                 # assert that no old data remains
                 tufos = core.getTufosByProp('inet:netpost')
@@ -1078,6 +1082,10 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['inet:web:file:seen:min'], 0)
                 self.eq(tufo[1]['inet:web:file:seen:max'], 1)
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('_:*inet:netfile#hehe.hoho'))
+                self.len(0, core.getRowsByProp('_:*inet:netfile#hehe'))
+                self.len(1, core.getRowsByProp('_:*inet:web:file#hehe.hoho'))
+                self.len(1, core.getRowsByProp('_:*inet:web:file#hehe'))
 
                 # assert that no old data remains
                 tufos = core.getTufosByProp('inet:netfile')
@@ -1100,6 +1108,8 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['file:imgof:xref:prop'], 'inet:web:acct')
                 self.eq(tufo[1]['file:imgof:xref:strval'], 'vertex.link/person1')
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(1, core.getRowsByProp('_:*file:imgof#hehe.hoho'))
+                self.len(1, core.getRowsByProp('_:*file:imgof#hehe'))  # NOTE: dark rows should stay the same
 
                 # assert that no old data remains
                 tufos = core.getTufosByProp('file:imgof', imgof_valu)
@@ -1120,6 +1130,8 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['file:txtref:xref:prop'], 'inet:web:group')
                 self.eq(tufo[1]['file:txtref:xref:strval'], 'vertex.link/group0')
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(1, core.getRowsByProp('_:*file:txtref#hehe.hoho'))
+                self.len(1, core.getRowsByProp('_:*file:txtref#hehe'))  # NOTE: dark rows should stay the same
 
                 # assert that no old data remains
                 tufos = core.getTufosByProp('file:txtref', txtref_valu)
@@ -1137,6 +1149,10 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['ps:haswebacct:acct'], 'vertex.link/heheman')
                 self.eq(tufo[1]['ps:haswebacct:person'], '00000000000000000000000000000000')
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('_:*ps:hasnetuser#hehe.hoho'))
+                self.len(0, core.getRowsByProp('_:*ps:hasnetuser#hehe'))
+                self.len(1, core.getRowsByProp('_:*ps:haswebacct#hehe.hoho'))
+                self.len(1, core.getRowsByProp('_:*ps:haswebacct#hehe'))
 
                 # assert that no old data remains
                 tufos = core.getTufosByProp('ps:hasnetuser')
@@ -1156,6 +1172,10 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['ou:haswebacct:acct'], 'vertex.link/heheman')
                 self.eq(tufo[1]['ou:haswebacct:org'], '00000000000000000000000000000000')
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.len(0, core.getRowsByProp('_:*ou:hasnetuser#hehe.hoho'))
+                self.len(0, core.getRowsByProp('_:*ou:hasnetuser#hehe'))
+                self.len(1, core.getRowsByProp('_:*ou:haswebacct#hehe.hoho'))
+                self.len(1, core.getRowsByProp('_:*ou:haswebacct#hehe'))
 
                 # assert that no old data remains
                 tufos = core.getTufosByProp('ou:hasnetuser')
@@ -1172,3 +1192,5 @@ class InetModelTest(SynTest):
                 self.notin('inet:web:logon:netuser', tufo[1])
                 self.notin('inet:web:logon:netuser:site', tufo[1])
                 self.notin('inet:web:logon:netuser:user', tufo[1])
+                self.len(1, core.getRowsByProp('_:*inet:web:logon#hehe.hoho'))
+                self.len(1, core.getRowsByProp('_:*inet:web:logon#hehe'))
