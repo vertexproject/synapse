@@ -205,14 +205,14 @@ Lifts a set of nodes based on one or more tags.
 .. _conventions: ../userguides/ug011_storm_basics.html#syntax-conventions
 __ conventions_
 
-.. _filter: ../userguides/ug014_storm_ref_filter.rst
+.. _filter: ../userguides/ug014_storm_ref_filter.html
 
-.. _separately: ../userguides/ug016_storm_ref_byhandlers.rst
+.. _separately: ../userguides/ug016_storm_ref_byhandlers.html
 
-.. _handlers: ../userguides/ug016_storm_ref_byhandlers.rst
+.. _handlers: ../userguides/ug016_storm_ref_byhandlers.html
 __ handlers_
 
-.. _handler: ../userguides/ug016_storm_ref_byhandlers.rst
+.. _handler: ../userguides/ug016_storm_ref_byhandlers.html
 __ handler_
 
-.. _operator: ../userguides/ug018_storm_ref_misc.rst#limit
+.. _operator: ../userguides/ug018_storm_ref_misc.html#limit
