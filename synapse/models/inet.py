@@ -646,14 +646,16 @@ class InetMod(CoreModule):
         with self.core.getCoreXact() as xact:
 
             xref_propsrc = _getXrefPropSrc()
-            for old, new in forms + props:
-                if old == new:
-                    continue
 
-                self.core.store.updateProperty(old, new)
+            for old, new in forms:
                 self.core.store.updatePropertyValu('tufo:form', old, new)
                 _updateTagForm(old, new)
                 _updateXref(xref_propsrc, old, new)
+
+            for old, new in forms + props:
+                if old == new:
+                    continue
+                self.core.store.updateProperty(old, new)
 
     @staticmethod
     def getBaseModels():
