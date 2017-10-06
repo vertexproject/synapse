@@ -1,5 +1,7 @@
 # -*- coding: UTF-8 -*-
 import synapse.lib.tufo as s_tufo
+import synapse.lib.types as s_types
+
 
 from synapse.tests.common import *
 
@@ -664,16 +666,21 @@ class InetModelTest(SynTest):
                 self.eq(node[1].get('inet:whois:recns:rec:asof'), 1505746860000)
 
     def test_model_inet_201709271521(self):
+        # There is a lot to look at here.
+        # Note that `inet:follows` is completely missing tagforms, these should be created.
+        # Note that `inet:netmemb` is missing one tagform, these should be created.
 
         N = 2
         adds = []
 
         def _addTag(tag, form):
-            iden = guid()
             tick = now()
+            iden = guid()
+            tlib = s_types.TypeLib()
+            form_valu, _ = tlib.getTypeNorm('syn:tagform', (tag, form))
             return [
                 (iden, 'syn:tagform:title', '??', tick),
-                (iden, 'syn:tagform', guid(), tick),
+                (iden, 'syn:tagform', form_valu, tick),
                 (iden, 'tufo:form', 'syn:tagform', tick),
                 (iden, 'syn:tagform:tag', tag, tick),
                 (iden, 'syn:tagform:form', form, tick),
@@ -768,12 +775,15 @@ class InetModelTest(SynTest):
             (iden, 'inet:netmemb:joined', 123, tick),
             (iden, 'inet:netmemb:seen:min', 0, tick),
             (iden, 'inet:netmemb:seen:max', 1, tick),
+            (iden, '#hehe.hoho.haha', tick, tick),
             (iden, '#hehe.hoho', tick, tick),
             (iden, '#hehe', tick, tick),
+            (dark_iden, '_:*inet:netmemb#hehe.hoho.haha', tick, tick),
             (dark_iden, '_:*inet:netmemb#hehe.hoho', tick, tick),
             (dark_iden, '_:*inet:netmemb#hehe', tick, tick),
         ])
-        adds.extend(_addTag('hehe.hoho', 'inet:netmemb'))
+        adds.extend(_addTag('hehe.hoho.haha', 'inet:netmemb'))
+        # hehe.hoho is missing for some unknown reason
         adds.extend(_addTag('hehe', 'inet:netmemb'))
 
         iden = guid()
@@ -1013,11 +1023,12 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['inet:web:memb:seen:max'], 1)
 
                 # check that tags were correctly migrated
-                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
+                self.eq(['hehe', 'hehe.hoho', 'hehe.hoho.haha'], sorted(s_tufo.tags(tufo)))
                 self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:netmemb'))
-                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:memb'))
+                self.len(3, core.getRowsByProp('syn:tagform:form', 'inet:web:memb'))  # NOTE: the middle tagform was created
                 self.len(0, core.getRowsByProp('_:*inet:netmemb#hehe.hoho'))
                 self.len(0, core.getRowsByProp('_:*inet:netmemb#hehe'))
+                self.len(1, core.getRowsByProp('_:*inet:web:memb#hehe.hoho.haha'))
                 self.len(1, core.getRowsByProp('_:*inet:web:memb#hehe.hoho'))
                 self.len(1, core.getRowsByProp('_:*inet:web:memb#hehe'))
 
@@ -1043,9 +1054,9 @@ class InetModelTest(SynTest):
 
                 # check that tags were correctly migrated
                 self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
-                # NOTE: both tagforms here are 0. If it wasn't originally there, we wont migrate/create it.
+                # NOTE: we try to create missing tagforms
                 self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:follows'))
-                self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:web:follows'))
+                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:follows'))
                 self.len(0, core.getRowsByProp('_:*inet:follows#hehe.hoho'))
                 self.len(0, core.getRowsByProp('_:*inet:follows#hehe'))
                 self.len(1, core.getRowsByProp('_:*inet:web:follows#hehe.hoho'))

@@ -5,6 +5,7 @@ import hashlib
 import logging
 
 import synapse.common as s_common
+import synapse.lib.tufo as s_tufo
 import synapse.datamodel as s_datamodel
 import synapse.lib.socket as s_socket
 import synapse.lookup.iana as s_l_iana
@@ -459,8 +460,6 @@ class InetMod(CoreModule):
         '''
         Rename inet:net* to inet:web*
         '''
-        # TODO: move the inner migration functions into the core
-
         darks = []
         forms = [
             ('inet:netuser', 'inet:web:acct'),
@@ -576,18 +575,36 @@ class InetMod(CoreModule):
 
         def _updateTagForm(old, new):
 
-            darks = []
+            # make a set of all of the syn:tagforms that should exist based on existing tagforms
+            tag_valus = set()
+            for tagform_tufo in self.core.getTufosByProp('syn:tagform:form', old):
+                parts = tagform_tufo[1].get('syn:tagform:tag', '').split('.')
+                for i in range(len(parts)):
+                    tag_valus.add('.'.join(parts[0:i + 1]))
 
-            for i, _, _, _ in self.core.getRowsByProp('syn:tagform:form', old):
-                for _, _, tag, _ in self.core.getRowsByIdProp(i, 'syn:tagform:tag'):
-                    oldark = '_:*%s#%s' % (old, tag)
-                    newdark = '_:*%s#%s' % (new, tag)
-                    darks.append((oldark, newdark),)
+            for tag_valu in tag_valus:
+                self.core.formTufoByProp('syn:tagform', (tag_valu, new))
+                self.core.delTufoByProp('syn:tagform', (tag_valu, old))
 
-            for olddark, newdark in darks:
+            _updateTagDarks(tag_valus, old, new)
+
+        def _updateTagDarks(existing_tagforms, old, new):
+
+            # create a set of all of the tags on all of the nodes of a given form
+            tags = set()
+            for tufo in self.core.getTufosByProp(old):
+                tags.update(s_tufo.tags(tufo))
+
+            # for each tag, update the dark tag row and form a tagform if it is missing
+            for tag in tags:
+
+                if tag not in existing_tagforms:
+                    self.core.formTufoByProp('syn:tagform', (tag, new))
+                    existing_tagforms.add(tag)
+
+                olddark = '_:*%s#%s' % (old, tag)
+                newdark = '_:*%s#%s' % (new, tag)
                 self.core.store.updateProperty(olddark, newdark)
-
-            self.core.store.updatePropertyValu('syn:tagform:form', old, new)
 
         def _getXrefPropSrc():
             retval = []
@@ -612,7 +629,7 @@ class InetMod(CoreModule):
                 xref_prop_prop = xref_base_prop + ':xref:prop'
 
                 while True:
-                    tufos = self.core.getTufosByProp(xref_prop_prop, oldform, limit=1000)
+                    tufos = self.core.getTufosByProp(xref_prop_prop, oldform, limit=100000)
                     if not tufos:
                         break
 
