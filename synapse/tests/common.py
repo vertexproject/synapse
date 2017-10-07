@@ -79,7 +79,11 @@ class SynTest(unittest.TestCase):
 
     def skipIfNoInternet(self):
         if os.getenv('SYN_TEST_NO_INTERNET'):
-            raise unittest.SkipTest('no internet access')
+            raise unittest.SkipTest('envar set for no internet access')
+        try:
+            socket.gethostbyname('iana.org')
+        except:
+            raise unittest.SkipTest('unable to resolve iana.org - assuming no internet access')
 
     def getPgConn(self):
         '''
