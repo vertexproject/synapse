@@ -153,7 +153,7 @@ N/A
   
 **Usage Notes:**
 
-* The GUID is a unique identifier assigned to every node. (This identifier is **not** the GUID value used as a primary property by some forms.)
+* The GUID is a unique identifier assigned to every node. (This identifier is **not** the GUID value used as a primary property by some forms). This GUID is frequently referred to as the ``iden`` in API documentation.
 * The GUID for a node or set of nodes can be displayed at the Synapse CLI by using the ``ask --raw`` option preceding a Storm query. For example, in the query output below, ``b19fe2a26bbe4a6c74b051142d0e5316`` is the GUID for the requested node:
   ::
     ask --raw inet:ipv4=1.2.3.4
