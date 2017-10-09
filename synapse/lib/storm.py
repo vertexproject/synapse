@@ -6,9 +6,9 @@ import collections
 
 import synapse.common as s_common
 
+import synapse.lib.auth as s_auth
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
-import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
 import synapse.lib.interval as s_interval
 
@@ -606,6 +606,8 @@ class Runtime(Configable):
         Run a storm query and return the query result dict.
         user= stdin=
         '''
+        user = s_auth.whoami()
+        logger.debug('Executing storm query [%s] as [%s]', text, user)
         opers = s_syntax.parse(text)
         return self.run(opers, data=data, timeout=timeout)
 
