@@ -532,6 +532,10 @@ class InetModelTest(SynTest):
             self.eq(t0[1].get('inet:web:action:acct:user'), 'pennywise')
             self.eq(t0[1].get('inet:web:action:acct:site'), 'vertex.link')
 
+            d = {'key': 1, 'valu': ['oh', 'my']}
+            t0 = core.setTufoProps(t0, info=d)
+            self.eq(json.loads(t0[1].get('inet:web:action:info')), d)
+
             self.raises(PropNotFound, core.formTufoByProp, 'inet:web:action', '*', acct='vertex.link/pennywise', time=tick)
             self.raises(PropNotFound, core.formTufoByProp, 'inet:web:action', '*', act='didathing', time=tick)
 
