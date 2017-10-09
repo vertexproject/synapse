@@ -952,13 +952,20 @@ class InetMod(CoreModule):
                               'req': 1}),
                     ('acct:site', {'ptype': 'inet:fqdn', 'doc': 'Site the user account is at', 'ro': 1, }),
                     ('acct:user', {'ptype': 'inet:user', 'doc': 'User account name', 'ro': 1, }),
-                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'Source IPv4 Address the action was done from', }),
-                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'Source IPv6 Address the action was done from', }),
-                    ('time', {'ptype': 'time', 'doc': 'Time the action was observed', }),
-                    ('pv', {'ptype': 'propvalu', 'doc': 'The value changed in the account', 'ro': 1, 'req': 1}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'Source IPv4 address used to make the account change.', }),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'Source IPv6  address used to make the account change.', }),
+                    ('time', {'ptype': 'time', 'doc': 'When the account change was done', }),
+                    ('pv', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
+                            'doc': 'The prop=valu of the account property that was changed. Valu should be the '
+                                   'old / original value, while the new value should be updated on the '
+                                   'inet:web:acct form.'}),
                     ('pv:prop', {'ptype': 'str', 'doc': 'Property which changed', 'ro': 1}),
-                    ('pv:strval', {'ptype': 'str', 'doc': 'System normed string value', 'ro': 1}),
-                    ('pv:intval', {'ptype': 'int', 'doc': 'System normed integer value.', 'ro': 1}),
+                    ('pv:strval', {'ptype': 'str', 'ro': 1,
+                                   'doc': 'The normed value of the property (specified by pv), if the property is '
+                                          'a string', }),
+                    ('pv:intval', {'ptype': 'int', 'ro': 1,
+                                   'doc': 'The normed value of the property (specified by pv), if the property is '
+                                          'a integer.', }),
                 ]),
 
                 ('inet:web:logon', {'ptype': 'inet:web:logon'}, [
