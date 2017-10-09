@@ -5,6 +5,7 @@ import hashlib
 import logging
 
 import synapse.common as s_common
+import synapse.lib.tufo as s_tufo
 import synapse.datamodel as s_datamodel
 import synapse.lib.socket as s_socket
 import synapse.lookup.iana as s_l_iana
@@ -454,6 +455,225 @@ class InetMod(CoreModule):
         for prop in delprops:
             self.core.delRowsByProp(prop)
 
+    @modelrev('inet', 201709271521)
+    def _revModl201709271521(self):
+        '''
+        Rename inet:net* to inet:web*
+        '''
+        darks = []
+        forms = [
+            ('inet:netuser', 'inet:web:acct'),
+            ('inet:netgroup', 'inet:web:group'),
+            ('inet:netmemb', 'inet:web:memb'),
+            ('inet:follows', 'inet:web:follows'),
+            ('inet:netpost', 'inet:web:post'),
+            ('inet:netfile', 'inet:web:file'),
+            ('ps:hasnetuser', 'ps:haswebacct'),
+            ('ou:hasnetuser', 'ou:haswebacct'),
+        ]
+        props = [
+            ('inet:netuser:site', 'inet:web:acct:site'),
+            ('inet:netuser:user', 'inet:web:acct:user'),
+            ('inet:netuser:dob', 'inet:web:acct:dob'),
+            ('inet:netuser:url', 'inet:web:acct:url'),
+            ('inet:netuser:webpage', 'inet:web:acct:webpage'),
+            ('inet:netuser:avatar', 'inet:web:acct:avatar'),
+            ('inet:netuser:tagline', 'inet:web:acct:tagline'),
+            ('inet:netuser:occupation', 'inet:web:acct:occupation'),
+            ('inet:netuser:name', 'inet:web:acct:name'),
+            ('inet:netuser:realname', 'inet:web:acct:realname'),
+            ('inet:netuser:email', 'inet:web:acct:email'),
+            ('inet:netuser:phone', 'inet:web:acct:phone'),
+            ('inet:netuser:signup', 'inet:web:acct:signup'),
+            ('inet:netuser:signup:ipv4', 'inet:web:acct:signup:ipv4'),
+            ('inet:netuser:passwd', 'inet:web:acct:passwd'),
+            ('inet:netuser:seen:min', 'inet:web:acct:seen:min'),
+            ('inet:netuser:seen:max', 'inet:web:acct:seen:max'),
+
+            ('inet:netgroup:site', 'inet:web:group:site'),
+            ('inet:netgroup:name', 'inet:web:group:name'),
+            ('inet:netgroup:desc', 'inet:web:group:desc'),
+            ('inet:netgroup:url', 'inet:web:group:url'),
+            ('inet:netgroup:webpage', 'inet:web:group:webpage'),
+            ('inet:netgroup:avatar', 'inet:web:group:avatar'),
+
+            ('inet:netmemb:user', 'inet:web:memb:acct'),  # renamed from user -> acct
+            ('inet:netmemb:group', 'inet:web:memb:group'),
+            ('inet:netmemb:title', 'inet:web:memb:title'),
+            ('inet:netmemb:joined', 'inet:web:memb:joined'),
+            ('inet:netmemb:seen:min', 'inet:web:memb:seen:min'),
+            ('inet:netmemb:seen:max', 'inet:web:memb:seen:max'),
+
+            ('inet:follows:follower', 'inet:web:follows:follower'),
+            ('inet:follows:followee', 'inet:web:follows:followee'),
+            ('inet:follows:seen:min', 'inet:web:follows:seen:min'),
+            ('inet:follows:seen:max', 'inet:web:follows:seen:max'),
+
+            ('inet:netpost:netuser', 'inet:web:post:acct'), # renamed from netuser -> acct
+            ('inet:netpost:netuser:site', 'inet:web:post:acct:site'), # renamed from netuser -> acct
+            ('inet:netpost:netuser:user', 'inet:web:post:acct:user'), # renamed from netuser -> acct
+            ('inet:netpost:text', 'inet:web:post:text'),
+            ('inet:netpost:replyto', 'inet:web:post:replyto'),
+            ('inet:netpost:url', 'inet:web:post:url'),
+            ('inet:netpost:file', 'inet:web:post:file'),
+            ('inet:netpost:time', 'inet:web:post:time'),
+
+            ('inet:netfile:file', 'inet:web:file:file'),
+            ('inet:netfile:netuser', 'inet:web:file:acct'), # renamed from netuser -> acct
+            ('inet:netfile:netuser:site', 'inet:web:file:acct:site'), # renamed from netuser -> acct
+            ('inet:netfile:netuser:user', 'inet:web:file:acct:user'), # renamed from netuser -> acct
+            ('inet:netfile:name', 'inet:web:file:name'),
+            ('inet:netfile:posted', 'inet:web:file:posted'),
+            ('inet:netfile:ipv4', 'inet:web:file:ipv4'),
+            ('inet:netfile:ipv6', 'inet:web:file:ipv6'),
+            ('inet:netfile:seen:min', 'inet:web:file:seen:min'),
+            ('inet:netfile:seen:max', 'inet:web:file:seen:max'),
+
+            ('inet:web:logon:netuser', 'inet:web:logon:acct'),
+            ('inet:web:logon:netuser:site', 'inet:web:logon:acct:site'),
+            ('inet:web:logon:netuser:user', 'inet:web:logon:acct:user'),
+
+            ('ps:hasnetuser:netuser', 'ps:haswebacct:acct'),
+            ('ps:hasnetuser:person', 'ps:haswebacct:person'),
+
+            ('ou:hasnetuser:netuser', 'ou:haswebacct:acct'),
+            ('ou:hasnetuser:org', 'ou:haswebacct:org'),
+
+            # The following props are extra-model which may have been created if enforce=0 was set on a cortex.
+            ('inet:netgroup:site:domain', 'inet:web:group:site:domain'),
+            ('inet:netgroup:site:host', 'inet:web:group:site:host'),
+
+            ('inet:netmemb:group:name', 'inet:web:memb:group:name'),
+            ('inet:netmemb:group:site', 'inet:web:memb:group:site'),
+            ('inet:netmemb:group:site:domain', 'inet:web:memb:group:site:domain'),
+            ('inet:netmemb:group:site:host', 'inet:web:memb:group:site:hos'),
+            ('inet:netmemb:user:site', 'inet:web:memb:acct:site'),
+            ('inet:netmemb:user:site:domain', 'inet:web:memb:acct:site:domain'),
+            ('inet:netmemb:user:site:host', 'inet:web:memb:acct:site:host'),
+            ('inet:netmemb:user:user', 'inet:web:memb:acct:user'),
+
+            ('inet:netpost:netuser:site:domain', 'inet:web:post:acct:site:domain'),
+            ('inet:netpost:netuser:site:host', 'inet:web:post:acct:acctquit:site:host'),
+
+            ('inet:netuser:site:domain', 'inet:acct:site:domain'),
+            ('inet:netuser:site:host', 'inet:acct:site:host'),
+
+            ('inet:web:logon:netuser:site:domain', 'inet:web:logon:acct:site:domain'),
+            ('inet:web:logon:netuser:site:host', 'inet:web:logon:acct:site:host'),
+
+            ('ou:hasnetuser:netuser:site', 'ou:haswebacct:acct:site'),
+            ('ou:hasnetuser:netuser:site:domain', 'ou:haswebacct:acct:domain'),
+            ('ou:hasnetuser:netuser:site:host', 'ou:haswebacct:acct:host'),
+            ('ou:hasnetuser:netuser:user', 'ou:haswebacct:acct:user'),
+
+            ('ps:hasnetuser:netuser:site', 'ps:haswebacct:acct:site'),
+            ('ps:hasnetuser:netuser:site:domain', 'ps:haswebacct:acct:site:domain'),
+            ('ps:hasnetuser:netuser:site:host', 'ps:haswebacct:acct:site:host'),
+            ('ps:hasnetuser:netuser:user', 'ps:haswebacct:acct:user'),
+
+        ]
+
+        def _updateTagForm(old, new):
+
+            # make a set of all of the syn:tagforms that should exist based on existing tagforms
+            tag_valus = set()
+            for tagform_tufo in self.core.getTufosByProp('syn:tagform:form', old):
+                parts = tagform_tufo[1].get('syn:tagform:tag', '').split('.')
+                for i in range(len(parts)):
+                    tag_valus.add('.'.join(parts[0:i + 1]))
+
+            for tag_valu in tag_valus:
+                self.core.formTufoByProp('syn:tagform', (tag_valu, new))
+                self.core.delTufoByProp('syn:tagform', (tag_valu, old))
+
+            _updateTagDarks(tag_valus, old, new)
+
+        def _updateTagDarks(existing_tagforms, old, new):
+
+            # create a set of all of the tags on all of the nodes of a given form
+            tags = set()
+            for tufo in self.core.getTufosByProp(old):
+                tags.update(s_tufo.tags(tufo))
+
+            # for each tag, update the dark tag row and form a tagform if it is missing
+            for tag in tags:
+
+                if tag not in existing_tagforms:
+                    self.core.formTufoByProp('syn:tagform', (tag, new))
+                    existing_tagforms.add(tag)
+
+                olddark = '_:*%s#%s' % (old, tag)
+                newdark = '_:*%s#%s' % (new, tag)
+                self.core.store.updateProperty(olddark, newdark)
+
+        def _getXrefPropSrc():
+            retval = []
+
+            for prop in self.core.props:
+                if isinstance(prop, str):
+                    pdef = self.core.getPropDef(prop)
+                    ptype = pdef[1]['ptype']
+                    tdef = self.core.getTypeDef(ptype)
+                    tsub = tdef[1].get('subof')
+                    tsrc = tdef[1].get('source', '').split(',')[0]
+                    if tsrc and tsub == 'xref':
+                        retval.append((prop, prop + ':' + tsrc),)
+
+            return retval
+
+        def _updateXref(xref_props, oldform, newform):
+
+            for xref_base_prop, xref_src_prop in xref_props:
+
+                xref_prop = xref_base_prop + ':xref'
+                xref_prop_prop = xref_base_prop + ':xref:prop'
+
+                while True:
+                    tufos = self.core.getTufosByProp(xref_prop_prop, oldform, limit=100000)
+                    if not tufos:
+                        break
+
+                    for tufo in tufos:
+                        i, p, v, t = self.core.getRowsByIdProp(tufo[0], xref_prop_prop)[0] # unavoidable until we have `tufo:formed` prop
+                        adds, dels = [], []
+
+                        # modify :xref:prop
+                        adds.append((i, p, newform, t),)
+                        dels.append((i, p, v),)
+
+                        # modify :xref
+                        old_xref_valu = tufo[1][xref_prop]
+                        new_xref_valu = tufo[1][xref_prop].replace(oldform, newform)
+                        adds.append((i, xref_prop, new_xref_valu, t),)
+                        dels.append((i, xref_prop, old_xref_valu),)
+
+                        # modify the src prop. ex: `file:imgof:file`
+                        src_valu = tufo[1][xref_src_prop]
+                        new_formvalu = tufo[1][xref_prop].split('=', 1)[1]
+                        xref_valu, _ = self.core.getTypeNorm(xref_base_prop, (src_valu, (newform, new_formvalu)))
+                        adds.append((i, xref_base_prop, xref_valu, t),)
+                        dels.append((i, xref_base_prop, tufo[1][xref_base_prop]),)
+
+                        if adds:
+                            self.core.addRows(adds)
+
+                        for i, p, v in dels:
+                            self.core.delRowsByIdProp(i, p, v)
+
+        with self.core.getCoreXact() as xact:
+
+            xref_propsrc = _getXrefPropSrc()
+
+            for old, new in forms:
+                self.core.store.updatePropertyValu('tufo:form', old, new)
+                _updateTagForm(old, new)
+                _updateXref(xref_propsrc, old, new)
+
+            for old, new in forms + props:
+                if old == new:
+                    continue
+                self.core.store.updateProperty(old, new)
+
     @staticmethod
     def getBaseModels():
         modl = {
@@ -505,24 +725,32 @@ class InetMod(CoreModule):
                     {'subof': 'str', 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower': 1, 'nullval': '??',
                      'ex': 'aa:bb:cc:dd:ee:ff', 'doc': 'A 48 bit mac address'}),
 
-                ('inet:netuser', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|user,inet:user',
+                ('inet:web:acct', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|user,inet:user',
                                   'doc': 'A user account at a given web address', 'ex': 'twitter.com/invisig0th'}),
                 ('inet:web:logon', {'subof': 'guid',
                                    'doc': 'An instance of a user account authenticating to a service.', }),
 
-                ('inet:netgroup', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|name,ou:name',
+                ('inet:web:action', {'subof': 'guid',
+                                   'doc': 'An instance of a user account performing an action.'}),
+                ('inet:web:actref',
+                 {'subof': 'xref', 'source': 'act,inet:web:action', 'doc': 'The web action refereneces the given node'}),
+
+                ('inet:web:group', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|name,ou:name',
                                    'doc': 'A group within an online community'}),
 
-                ('inet:netpost',
-                 {'subof': 'comp', 'fields': 'netuser,inet:netuser|text,str:txt', 'doc': 'A post made by a netuser'}),
-                ('inet:netfile', {'subof': 'comp', 'fields': 'netuser,inet:netuser|file,file:bytes',
-                                  'doc': 'A file posted by a netuser'}),
-                ('inet:netmemb', {'subof': 'comp', 'fields': 'user,inet:netuser|group,inet:netgroup'}),
-                ('inet:follows', {'subof': 'comp', 'fields': 'follower,inet:netuser|followee,inet:netuser'}),
+                ('inet:web:post',
+                 {'subof': 'comp', 'fields': 'acct,inet:web:acct|text,str:txt', 'doc': 'A post made by a web account'}),
+                ('inet:web:postref',
+                 {'subof': 'xref', 'source': 'post,inet:web:post', 'doc': 'The web post refereneces the given node'}),
 
-                ('inet:netmesg', {'subof': 'comp',
-                                  'fields': 'from,inet:netuser|to,inet:netuser|time,time',
-                                  'doc': 'A message sent from one netuser to another',
+                ('inet:web:file', {'subof': 'comp', 'fields': 'acct,inet:web:acct|file,file:bytes',
+                                  'doc': 'A file posted by a web account'}),
+                ('inet:web:memb', {'subof': 'comp', 'fields': 'acct,inet:web:acct|group,inet:web:group'}),
+                ('inet:web:follows', {'subof': 'comp', 'fields': 'follower,inet:web:acct|followee,inet:web:acct'}),
+
+                ('inet:web:mesg', {'subof': 'comp',
+                                  'fields': 'from,inet:web:acct|to,inet:web:acct|time,time',
+                                  'doc': 'A message sent from one web account to another',
                                   'ex': 'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'}),
 
                 ('inet:ssl:tcp4cert', {'subof': 'sepr', 'sep': '/', 'fields': 'tcp4,inet:tcp4|cert,file:bytes',
@@ -540,9 +768,6 @@ class InetMod(CoreModule):
                                         'doc': 'A whois contact for a specific record'}),
                 ('inet:whois:regmail', {'subof': 'comp', 'fields': 'fqdn,inet:fqdn|email,inet:email',
                                         'doc': 'A whois registration fqdn->email link'}),
-
-                # TODO: (port from nucleus etc)
-                # inet:cidr6
             ),
 
             'forms': (
@@ -693,45 +918,63 @@ class InetMod(CoreModule):
 
                 )),
 
-                ('inet:netuser', {'ptype': 'inet:netuser'}, [
+                ('inet:web:acct', {'ptype': 'inet:web:acct'}, [
                     ('site', {'ptype': 'inet:fqdn', 'ro': 1}),
                     ('user', {'ptype': 'inet:user', 'ro': 1}),
 
                     ('dob', {'ptype': 'time'}),
 
-                    # ('bio:bt',{'ptype':'wtf','doc':'The netusers self documented blood type'}),
+                    # ('bio:bt',{'ptype':'wtf','doc':'The web account's self documented blood type'}),
 
                     ('url', {'ptype': 'inet:url'}),
                     ('webpage', {'ptype': 'inet:url'}),
                     ('avatar', {'ptype': 'file:bytes'}),
 
-                    ('tagline', {'ptype': 'str:txt', 'doc': 'A netuser status/tag line text'}),
-                    ('occupation', {'ptype': 'str:txt', 'doc': 'A netuser self declared occupation'}),
+                    ('tagline', {'ptype': 'str:txt', 'doc': 'A web account status/tag line text'}),
+                    ('loc', {'ptype': 'str:lwr', 'doc': 'The web account self declared location'}),
+                    ('occupation', {'ptype': 'str:txt', 'doc': 'A web account self declared occupation'}),
                     # ('gender',{'ptype':'inet:fqdn','ro':1}),
 
                     ('name', {'ptype': 'inet:user'}),
                     ('realname', {'ptype': 'ps:name'}),
                     ('email', {'ptype': 'inet:email'}),
                     ('phone', {'ptype': 'tel:phone'}),
-                    ('signup', {'ptype': 'time', 'doc': 'The time the netuser account was registered'}),
-                    ('signup:ipv4',
-                     {'ptype': 'inet:ipv4', 'doc': 'The original ipv4 address used to sign up for the account'}),
-                    ('passwd', {'ptype': 'inet:passwd', 'doc': 'The current passwd for the netuser account'}),
+                    ('signup', {'ptype': 'time', 'doc': 'The time the web account was registered'}),
+                    ('signup:ipv4', {'ptype': 'inet:ipv4', 'doc': 'The original ipv4 address used to sign up for the account'}),
+                    ('passwd', {'ptype': 'inet:passwd', 'doc': 'The current passwd for the web account'}),
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
                 ]),
 
                 ('inet:web:logon', {'ptype': 'inet:web:logon'}, [
-                    ('netuser', {'ptype': 'inet:netuser', 'doc': 'The netuser associated with the logon event.', }),
-                    ('netuser:site', {'ptype': 'inet:fqdn', }),
-                    ('netuser:user', {'ptype': 'inet:user', }),
-                    ('time', {'ptype': 'time', 'doc': 'The time the netuser logged into the service', }),
+                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The account associated with the logon event.', }),
+                    ('acct:site', {'ptype': 'inet:fqdn', }),
+                    ('acct:user', {'ptype': 'inet:user', }),
+                    ('time', {'ptype': 'time', 'doc': 'The time the account logged into the service', }),
                     ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the logon.'}),
                     ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the logon.'}),
-                    ('logout', {'ptype': 'time', 'doc': 'The time the netuser logged out of the service.'})
+                    ('logout', {'ptype': 'time', 'doc': 'The time the account logged out of the service.'})
                 ]),
 
-                ('inet:netgroup', {}, [
+                ('inet:web:action', {'ptype': 'inet:web:action'}, [
+                    ('act', {'ptype': 'str:lwr', 'req': 1, 'doc': 'The action performed'}),
+                    ('acct', {'ptype': 'inet:web:acct', 'req': 1, 'ro': 1, 'doc': 'The web account associated with the action'}),
+                    ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1}),
+                    ('acct:user', {'ptype': 'inet:user', 'ro': 1}),
+                    ('info', {'ptype': 'json', 'doc': 'Other information about the action'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the netuser performed the action'}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the action'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the action'}),
+                ]),
+                ('inet:web:actref', {}, [
+                    ('act', {'ptype': 'inet:web:action', 'ro': 1}),
+                    ('xref', {'ptype': 'propvalu', 'ro': 1}),
+                    ('xref:prop', {'ptype': 'str', 'ro': 1}),
+                    ('xref:intval', {'ptype': 'int', 'ro': 1}),
+                    ('xref:strval', {'ptype': 'str', 'ro': 1}),
+                ]),
+
+                ('inet:web:group', {}, [
                     ('site', {'ptype': 'inet:fqdn', 'ro': 1}),
                     ('name', {'ptype': 'ou:name', 'ro': 1}),
 
@@ -742,45 +985,52 @@ class InetMod(CoreModule):
                     ('avatar', {'ptype': 'file:bytes'}),
                 ]),
 
-                ('inet:netpost', {}, [
+                ('inet:web:post', {}, [
 
-                    ('netuser', {'ptype': 'inet:netuser', 'ro': 1}),
+                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1}),
                     ('text', {'ptype': 'str:txt', 'ro': 1, 'doc': 'The text of the actual post'}),
 
-                    ('netuser:site', {'ptype': 'inet:fqdn', 'ro': 1}),
-                    ('netuser:user', {'ptype': 'inet:user', 'ro': 1}),
+                    ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1}),
+                    ('acct:user', {'ptype': 'inet:user', 'ro': 1}),
 
                     ('time', {'ptype': 'time'}),
 
-                    ('replyto', {'ptype': 'inet:netpost'}),
+                    ('replyto', {'ptype': 'inet:web:post'}),
 
                     ('url', {'ptype': 'inet:url', 'doc': 'The (optional) URL where the post is published/visible'}),
                     ('file', {'ptype': 'file:bytes', 'doc': 'The (optional) file which was posted'}),
                 ]),
+                ('inet:web:postref', {}, [
+                    ('post', {'ptype': 'inet:web:post', 'ro': 1}),
+                    ('xref', {'ptype': 'propvalu', 'ro': 1}),
+                    ('xref:prop', {'ptype': 'str', 'ro': 1}),
+                    ('xref:intval', {'ptype': 'int', 'ro': 1}),
+                    ('xref:strval', {'ptype': 'str', 'ro': 1}),
+                ]),
 
-                ('inet:netmesg', {}, [
-                    ('from', {'ptype': 'inet:netuser', 'ro': 1}),
-                    ('to', {'ptype': 'inet:netuser', 'ro': 1}),
+                ('inet:web:mesg', {}, [
+                    ('from', {'ptype': 'inet:web:acct', 'ro': 1}),
+                    ('to', {'ptype': 'inet:web:acct', 'ro': 1}),
                     ('time', {'ptype': 'time', 'ro': 1, 'doc': 'The time at which the message was sent'}),
                     ('url', {'ptype': 'inet:url', 'doc': 'Optional URL of netmesg'}),
                     ('text', {'ptype': 'str:txt', 'doc': 'Optional text body of message'}),
                     ('file', {'ptype': 'file:bytes', 'doc': 'Optional file attachment'}),
                 ]),
 
-                ('inet:follows', {}, [
+                ('inet:web:follows', {}, [
 
-                    ('follower', {'ptype': 'inet:netuser', 'ro': 1}),
-                    ('followee', {'ptype': 'inet:netuser', 'ro': 1}),
+                    ('follower', {'ptype': 'inet:web:acct', 'ro': 1}),
+                    ('followee', {'ptype': 'inet:web:acct', 'ro': 1}),
 
                     ('seen:min', {'ptype': 'time:min', 'doc': 'Optional first/earliest following'}),
                     ('seen:max', {'ptype': 'time:max', 'doc': 'Optional last/end of following'}),
 
                 ]),
 
-                ('inet:netmemb', {}, [
+                ('inet:web:memb', {}, [
 
-                    ('user', {'ptype': 'inet:netuser', 'ro': 1}),
-                    ('group', {'ptype': 'inet:netgroup', 'ro': 1}),
+                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1}),
+                    ('group', {'ptype': 'inet:web:group', 'ro': 1}),
 
                     ('title', {'ptype': 'str:lwr'}),
 
@@ -790,11 +1040,11 @@ class InetMod(CoreModule):
 
                 ]),
 
-                ('inet:netfile', {}, [
+                ('inet:web:file', {}, [
 
-                    ('netuser', {'ptype': 'inet:netuser', 'ro': 1}),
-                    ('netuser:site', {'ptype': 'inet:fqdn', 'ro': 1}),
-                    ('netuser:user', {'ptype': 'inet:user', 'ro': 1}),
+                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1}),
+                    ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1}),
+                    ('acct:user', {'ptype': 'inet:user', 'ro': 1}),
 
                     ('file', {'ptype': 'file:bytes', 'ro': 1}),
 

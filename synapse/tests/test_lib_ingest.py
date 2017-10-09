@@ -738,7 +738,7 @@ class IngTest(SynTest):
                                 ["link", {"props": {"tld": 1}}],
                             ]],
 
-                            ["inet:netuser", [
+                            ["inet:web:acct", [
                                 ["rootkit.com/metr0", {"props": {"email": "metr0@kenshoto.com"}}],
                                 ["twitter.com/invisig0th", {"props": {"email": "visi@vertex.link"}}]
                             ]],
@@ -754,11 +754,11 @@ class IngTest(SynTest):
             gest = s_ingest.Ingest(info)
             gest.ingest(core)
 
-            self.nn(core.getTufoByProp('inet:netuser', 'rootkit.com/metr0'))
-            self.nn(core.getTufoByProp('inet:netuser', 'twitter.com/invisig0th'))
+            self.nn(core.getTufoByProp('inet:web:acct', 'rootkit.com/metr0'))
+            self.nn(core.getTufoByProp('inet:web:acct', 'twitter.com/invisig0th'))
 
-            self.len(1, core.eval('inet:netuser:email="visi@vertex.link"'))
-            self.len(1, core.eval('inet:netuser:email="metr0@kenshoto.com"'))
+            self.len(1, core.eval('inet:web:acct:email="visi@vertex.link"'))
+            self.len(1, core.eval('inet:web:acct:email="metr0@kenshoto.com"'))
 
             node = core.eval('inet:email*tag=foo.bar')[0]
             self.eq(node[1].get('inet:email'), 'visi@vertex.link')
