@@ -1002,15 +1002,16 @@ class InetMod(CoreModule):
 
                 ('inet:web:post', {}, [
 
-                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1}),
+                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1, 'doc': 'Account which made the post'}),
                     ('text', {'ptype': 'str:txt', 'ro': 1, 'doc': 'The text of the actual post'}),
 
                     ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1}),
                     ('acct:user', {'ptype': 'inet:user', 'ro': 1}),
 
-                    ('time', {'ptype': 'time'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time that the post was made'}),
 
-                    ('replyto', {'ptype': 'inet:web:post'}),
+                    ('replyto', {'ptype': 'inet:web:post', 'doc': 'The post which this post is in reply to.'}),
+                    ('repost', {'ptype': 'inet:web:post', 'doc': 'The post which this is a repost of.'}),
 
                     ('url', {'ptype': 'inet:url', 'doc': 'The (optional) URL where the post is published/visible'}),
                     ('file', {'ptype': 'file:bytes', 'doc': 'The (optional) file which was posted'}),

@@ -351,7 +351,8 @@ class InetModelTest(SynTest):
             node0 = core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'knock knock'), time='20141217010101')
             iden = node0[1].get('inet:web:post')
 
-            node1 = core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'whos there'), time='20141217010102', replyto=iden)
+            node1 = core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'whos there'),
+                                        time='20141217010102', replyto=iden)
 
             self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/visi'))
 
@@ -362,6 +363,16 @@ class InetModelTest(SynTest):
             self.eq(node1[1].get('inet:web:post:acct:site'), 'vertex.link')
 
             self.eq(node0[1].get('inet:web:post'), node1[1].get('inet:web:post:replyto'))
+            self.none(node0[1].get('inet:web:post:repost'))
+            self.none(node1[1].get('inet:web:post:repost'))
+
+            repiden = node1[0]
+            node2 = core.formTufoByProp('inet:web:post', ('vertex.link/pennywise', 'whos there'),
+                                        time='201710091541', repost=node1[0])
+            self.eq(node2[1].get('inet:web:post:acct'), 'vertex.link/pennywise')
+            self.eq(node2[1].get('inet:web:post:text'), 'whos there')
+            self.eq(node2[1].get('inet:web:post:repost'), repiden)
+            self.none(node2[1].get('inet:web:replyto'))
 
     def test_model_inet_postref(self):
         with self.getRamCore() as core:
