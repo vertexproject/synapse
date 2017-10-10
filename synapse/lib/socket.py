@@ -356,10 +356,9 @@ class Plex(EventBus):
         '''
         return self._plex_socks.values()
 
-    def _popPlexSock(self, iden):
-        sock = self._plex_socks.pop(iden, None)
-        if sock is None:
-            return
+    def _finiPlexSock(self, sock):
+
+        self._plex_socks.pop(sock.iden, None)
 
         # try/wrap these because list has no discard()
         try:
@@ -378,6 +377,10 @@ class Plex(EventBus):
             pass
 
         self.wake()
+
+        # call sock fini from a pool thread
+        if not sock.isfini:
+            s_glob.pool.call(sock.fini)
 
     def wake(self):
         '''
@@ -423,7 +426,7 @@ class Plex(EventBus):
         self._plex_xxsocks.append(sock)
 
         def fini():
-            self._popPlexSock(sock.iden)
+            self._finiPlexSock(sock)
 
         sock.onfini(fini)
         self.wake()
@@ -476,7 +479,7 @@ class Plex(EventBus):
                         except ValueError as e:
                             pass
 
-                [sock.fini() for sock in xxlist]
+                [ self._finiPlexSock(sock) for sock in xxlist ]
 
             except Exception as e:
                 logger.warning('plexMainLoop: %s', e)

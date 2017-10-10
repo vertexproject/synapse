@@ -1940,29 +1940,29 @@ class CortexTest(SynTest):
 
     def test_cortex_xact_deadlock(self):
         N = 100
-        prop = 'testform'
         fd = tempfile.NamedTemporaryFile()
+        evnt = threading.Event()
         dmon = s_daemon.Daemon()
         pool = s_threads.Pool(size=4, maxsize=8)
-        wait = s_eventbus.Waiter(pool, 1, 'pool:work:fini')
 
         with s_cortex.openurl('sqlite:///%s' % fd.name) as core:
 
             def populate():
                 for i in range(N):
                     #print('wrote %d tufos' % i)
-                    core.formTufoByProp(prop, str(i), **{})
+                    core.formTufoByProp('inet:ipv4', str(i), **{})
+                evnt.set()
 
             dmon.share('core', core)
             link = dmon.listen('tcp://127.0.0.1:0/core')
             prox = s_telepath.openurl('tcp://127.0.0.1:%d/core' % link[1]['port'])
 
-            pool.wrap(populate)()
+            pool.call(populate)
             for i in range(N):
-                tufos = prox.getTufosByProp(prop)
+                tufos = prox.getTufosByProp('inet:ipv4')
                 #print('got %d tufos' % len(tufos))
 
-            wait.wait()
+            self.true(evnt.wait(timeout=3))
             pool.fini()
 
     def test_cortex_seed(self):

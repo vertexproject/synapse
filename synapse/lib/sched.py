@@ -1,20 +1,30 @@
 import time
 import atexit
+import logging
 import threading
 import traceback
 
+logger = logging.Logger(__name__)
+
 import synapse.common as s_common
-import synapse.glob as s_glob
+
+import synapse.lib.task as s_task
+import synapse.lib.threads as s_threads
 
 from synapse.eventbus import EventBus
 
 class Sched(EventBus):
 
-    def __init__(self):
+    def __init__(self, pool=None):
+
         EventBus.__init__(self)
 
+        if pool == None:
+            pool = s_threads.Pool()
+
+        self.pool = pool
         self.root = None
-        self.running = None
+        #self.running = None
 
         self.lock = threading.Lock()
         self.wake = threading.Event()
@@ -36,8 +46,9 @@ class Sched(EventBus):
             sched.at(ts, foo, bar, baz=10)
 
         '''
-        task = (func, args, kwargs)
-        mine = [ts, task, None]
+        work = (func, args, kwargs)
+        mine = [ts, work, None]
+
         with self.lock:
 
             # if no root, we're it!
@@ -67,7 +78,7 @@ class Sched(EventBus):
                     mine[2] = step[2]
                     step[2] = mine
                     return mine
-
+   
                 # move along to next
                 step = step[2]
 
@@ -100,21 +111,43 @@ class Sched(EventBus):
             sched = Sched()
             sched.persec(10, tenpersec, 10, y='woot')
         '''
-        dt = 1.0 / count
-        def cb():
+        secs = 1.0 / count
+        return self.loop(secs, func, *args, **kwargs)
+
+    def loop(self, secs, func, *args, **kwargs):
+        '''
+        Call the given function in a delay loop.
+
+        Args:
+            secs (int): Seconds between loop calls (can be float)
+            func (function): The function to call
+            args (list): The call arguments
+            kwargs (dict): The call keyword arguments
+
+        Returns:
+            (synapse.lib.task.Task)
+        '''
+        task = s_task.Task()
+
+        def run():
+
+            if task.isfini:
+                return
+
             try:
 
-                ret = func(*args, **kwargs)
-                if ret is False:
+                if func(*args, **kwargs) is False:
+                    task.fini()
                     return
 
             except Exception as e:
-                self.fire('err:exc', exc=e, msg='persec fail: %s' % (func,))
+                logger.exception(e)
 
-            if not self.isfini:
-                self.insec(dt, cb)
+            if not self.isfini and not task.isfini:
+                self.insec(secs, run)
 
-        cb()
+        run()
+        return task
 
     def cancel(self, item):
         '''
@@ -137,10 +170,8 @@ class Sched(EventBus):
     def _runSchedMain(self):
         for task in self.yieldTimeTasks():
             try:
-                self.running = task
                 func, args, kwargs = task
-                func(*args, **kwargs)
-                self.running = None
+                self.pool.call(func, *args, **kwargs)
             except Exception as e:
                 traceback.format_exc()
 
@@ -178,17 +209,3 @@ class Sched(EventBus):
 
             if item is not None:
                 yield item
-
-def getGlobSched():
-    '''
-    Retrieve a reference to a global scheduler.
-    '''
-    if s_glob.sched is not None:
-        return s_glob.sched
-
-    with s_glob.lock:
-        if s_glob.sched is None:
-            s_glob.sched = Sched()
-            atexit.register(s_glob.sched.fini)
-
-    return s_glob.sched

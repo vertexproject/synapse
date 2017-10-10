@@ -3,13 +3,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+import synapse.glob as s_glob
 import synapse.async as s_async
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
 import synapse.lib.tags as s_tags
-import synapse.lib.sched as s_sched
 import synapse.lib.scope as s_scope
 import synapse.lib.reflect as s_reflect
 import synapse.lib.thishost as s_thishost
@@ -445,7 +445,6 @@ def runSynSvc(name, item, sbus, tags=(), **props):
     sbus.push(iden, item)
     sbus.push(name, item)
 
-    sched = s_sched.getGlobSched()
     hostinfo = s_thishost.hostinfo
 
     tags = list(tags)
@@ -469,7 +468,7 @@ def runSynSvc(name, item, sbus, tags=(), **props):
             return
 
         sbus.call('iAmAlive', iden)
-        sched.insec(30, svcHeartBeat)
+        s_glob.sched.insec(30, svcHeartBeat)
 
     svcHeartBeat()
 

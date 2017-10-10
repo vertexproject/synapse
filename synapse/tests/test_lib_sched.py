@@ -73,17 +73,33 @@ class SchedTest(SynTest):
 
         sched.fini()
 
-    def test_sched_glob(self):
-        sched = s_sched.getGlobSched()
+    def test_sched_loop(self):
 
-        evt = threading.Event()
-        data = {}
+        data = {'count': 0}
 
-        def woot():
-            data['woot'] = 'woot'
-            evt.set()
+        def foo():
+            data['count'] += 1
+            if data['count'] > 3:
+                return False
 
-        sched.insec(0.01, woot)
+        ran = threading.Event()
+        def bar():
+            data['count'] += 1
+            if data['count'] > 3:
+                ran.set()
 
-        evt.wait(timeout=3)
-        self.eq(data.get('woot'), 'woot')
+        with s_sched.Sched() as sched:
+
+            loop = sched.loop(0.001, foo)
+            self.true(loop.waitfini(timeout=0.1))
+
+            
+            data['count'] = 0
+            loop = sched.loop(0.001, bar)
+            self.true(ran.wait(timeout=1))
+
+            loop.fini()
+
+            ran.clear()
+            self.false(ran.wait(timeout=0.2))
+

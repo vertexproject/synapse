@@ -25,33 +25,31 @@ class ThreadsTest(SynTest):
 
     def test_threads_pool(self):
 
-        pool = s_threads.Pool()
-
-        wait = s_eventbus.Waiter(pool, 1, 'pool:work:fini')
-
         def woot(x, y):
             return x + y
 
-        pool.task(newtask(woot, 20, 30))
+        with s_threads.Pool() as pool:
 
-        wait.wait()
-        pool.fini()
+            with pool.task(woot, 20, 30) as task:
+                pass
+
+            self.true(task.waitfini(timeout=1))
+
 
     def test_threads_pool_wrap(self):
 
-        pool = s_threads.Pool()
-
-        wait = s_eventbus.Waiter(pool, 1, 'pool:work:fini')
-
+        evnt = threading.Event()
         def woot(x, y):
+            evnt.set()
             return x + y
 
-        pool.wrap(woot)(20, 30)
+        with s_threads.Pool() as pool:
+            pool.wrap(woot)(20, 30)
+            self.true(evnt.wait(timeout=1))
 
-        wait.wait()
-        pool.fini()
 
     def test_threads_cancelable(self):
+
         sock1, sock2 = s_socket.socketpair()
 
         data = []

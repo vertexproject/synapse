@@ -1,12 +1,17 @@
 import os
+import logging
 import threading
 import traceback
+import contextlib
 import collections
+
+logger = logging.Logger(__name__)
 
 from functools import wraps
 
 import synapse.common as s_common
 
+import synapse.lib.task as s_task
 import synapse.lib.queue as s_queue
 
 from synapse.eventbus import EventBus
@@ -154,22 +159,38 @@ class Pool(EventBus):
         '''
         Call the given func(*args,**kwargs) in the pool.
         '''
-        self.task(newtask(func, *args, **kwargs))
+        self._que_work((func, args, kwargs))
 
-    def task(self, task, jid=None):
+    @contextlib.contextmanager
+    def task(self, func, *args, **kwargs):
         '''
-        Run the given task in the pool.
+        Call the given function in the pool with a task.
+
+        NOTE: Callers *must* use with-block syntax.
 
         Example:
-            task = newtask( x.getFooByBar, bar )
-            pool.task(task, jid=None)
 
-        Notes:
+            def foo(x):
+                dostuff()
 
-            * Specify jid=<iden> to generate job:done events.
+            def onretn(valu):
+                otherstuff()
 
+            with pool.task(foo, 10) as task:
+                task.onretn(onretn)
+
+            # the task is queued for execution *after* we
+            # leave the with block.
         '''
-        work = s_common.tufo(task, jid=jid)
+        call = (func, args, kwargs)
+        task = s_task.CallTask(call)
+
+        yield task
+
+        self._que_work((task.run, (), {}))
+
+    def _que_work(self, work):
+
         with self._pool_lock:
 
             if self.isfini:
@@ -226,26 +247,13 @@ class Pool(EventBus):
             if work is None:
                 return
 
-            self.fire('pool:work:init', work=work)
-
-            task, info = work
-
-            jid = info.get('jid')
             try:
 
-                func, args, kwargs = task
-                ret = func(*args, **kwargs)
-
-                # optionally generate a job event
-                if jid is not None:
-                    self.fire('job:done', jid=jid, ret=ret)
+                func, args, kwargs = work
+                func(*args, **kwargs)
 
             except Exception as e:
-
-                if jid is not None:
-                    self.fire('job:done', jid=jid, **s_common.excinfo(e))
-
-            self.fire('pool:work:fini', work=work)
+                logger.exception(e)
 
     def _onPoolFini(self):
         threads = list(self._pool_threads.values())
