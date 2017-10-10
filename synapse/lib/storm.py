@@ -6,9 +6,9 @@ import collections
 
 import synapse.common as s_common
 
+import synapse.lib.auth as s_auth
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
-import synapse.lib.scope as s_scope
 import synapse.lib.syntax as s_syntax
 import synapse.lib.interval as s_interval
 
@@ -450,6 +450,10 @@ class Runtime(Configable):
     def _storm_runtime_confdefs():
         confdefs = (
             ('storm:limit:lift', {'asloc': 'limlift', 'defval': None, 'doc': 'Global lift limit'}),
+            ('storm:query:log:en', {'asloc': 'querylog', 'defval': 0, 'ptype': 'bool',
+                                    'doc': 'words'}),
+            ('storm:query:log:level', {'asloc': 'queryloglevel', 'defval': logging.DEBUG, 'ptype': 'int',
+                                       'doc': 'Logging level to fire query log messages at.'}),
         )
         return confdefs
 
@@ -606,6 +610,9 @@ class Runtime(Configable):
         Run a storm query and return the query result dict.
         user= stdin=
         '''
+        if self.querylog:
+            user = s_auth.whoami()
+            logger.log(self.queryloglevel, 'Executing storm query [%s] as [%s]', text, user)
         opers = s_syntax.parse(text)
         return self.run(opers, data=data, timeout=timeout)
 
