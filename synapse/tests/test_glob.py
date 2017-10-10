@@ -18,13 +18,11 @@ class GlobTest(SynTest):
 
         data = {}
         def onretn(retn):
-            print('ON RETN')
             ok, valu = retn
             data['ok'] = ok
             data['valu'] = valu
 
         def woot():
-            print('OMG WOOT')
             return 20
 
         def junk():
