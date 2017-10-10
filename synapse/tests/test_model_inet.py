@@ -393,6 +393,16 @@ class InetModelTest(SynTest):
             self.eq(pr0[1].get('inet:web:postref:xref:strval'), fiden)
             self.eq(pr0[1].get('inet:web:postref:xref:intval'), None)
 
+    def test_model_inet_postref_postmissingprops(self):
+        with self.getRamCore() as core:
+
+            postref_tufo = core.formTufoByProp('inet:web:postref', (('vertex.link/user', 'mypost 0.0.0.0'), ('inet:ipv4', 0)))
+            post_tufo = core.formTufoByProp('inet:web:post', ('vertex.link/user', 'mypost 0.0.0.0'))
+            # This feels wrong...
+
+            self.eq(post_tufo[1].get('inet:web:post:acct'), 'vertex.link/user')
+            self.eq(post_tufo[1].get('inet:web:post:text'), 'mypost 0.0.0.0')
+
     def test_model_inet_web_mesg(self):
         with self.getRamCore() as core:
 
