@@ -84,9 +84,10 @@ class SynTest(unittest.TestCase):
         if bool(int(os.getenv('SYN_TEST_SKIP_INTERNET', 0))):
             raise unittest.SkipTest('SYN_TEST_SKIP_INTERNET envar set')
 
-    def skipLongTests(self):
-        if not os.getenv('SYN_RUN_LONG_TESTS'):
-            raise unittest.SkipTest('no SYN_RUN_LONG_TESTS envar')
+    def skipLongTest(self):
+        valu = os.getenv('SYN_TEST_SKIP_LONG', 0)
+        if bool(int(valu)):
+            raise unittest.SkipTest('SYN_TEST_SKIP_LONG envar set')
 
     def getPgConn(self):
         '''

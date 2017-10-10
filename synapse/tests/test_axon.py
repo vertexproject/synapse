@@ -227,7 +227,7 @@ class AxonHostTest(SynTest):
                 self.nn(axfo1)
 
     def test_axon_host_free_limit(self):
-        self.skipLongTests()
+        self.skipLongTest()
         self.thisHostMustNot(platform='windows')
 
         with self.getTestDir() as datadir:
@@ -256,7 +256,7 @@ class AxonHostTest(SynTest):
                 self.raises(NotEnoughFree, host.add)
 
     def test_axon_host_clone(self):
-        self.skipLongTests()
+        self.skipLongTest()
         self.thisHostMustNot(platform='windows')
 
         busurl = 'local://%s/axons' % guid()
@@ -376,7 +376,7 @@ class AxonHostTest(SynTest):
         dmon.fini()
 
     def test_axon_clone_large(self):
-        self.skipLongTests()
+        self.skipLongTest()
         self.thisHostMustNot(platform='windows')
 
         busurl = 'local://%s/axons' % guid()
@@ -440,7 +440,7 @@ class AxonHostTest(SynTest):
             host.fini()
 
     def test_axon_host_spinbackup(self):
-        self.skipLongTests()
+        self.skipLongTest()
         self.thisHostMustNot(platform='windows')
 
         hstcfg = {
@@ -553,7 +553,7 @@ class AxonHostTest(SynTest):
 
 class AxonClusterTest(SynTest):
     def test_axon_cluster(self):
-        self.skipLongTests()
+        self.skipLongTest()
         self.thisHostMustNot(platform='windows')
 
         busurl = 'local://%s/axons' % guid()
