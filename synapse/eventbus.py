@@ -375,7 +375,9 @@ class Waiter:
             self.bus.unlink(self._onWaitEvent)
 
 class BusRef(EventBus):
-
+    '''
+    An object for managing multiple EventBus instances.
+    '''
     def __init__(self):
         EventBus.__init__(self)
         self.ebus_by_name = {}
@@ -386,7 +388,16 @@ class BusRef(EventBus):
         [ebus.fini() for ebus in todo]
 
     def put(self, name, ebus):
+        '''
+        Add an EventBus (or sub-class) to the BusRef by name.
 
+        Args:
+            name (str): The name/iden of the EventBus
+            ebus (EventBus): The EventBus instance
+
+        Returns:
+            (None)
+        '''
         def fini():
             self.ebus_by_name.pop(name, None)
 
@@ -394,9 +405,27 @@ class BusRef(EventBus):
         self.ebus_by_name[name] = ebus
 
     def pop(self, name):
+        '''
+        Remove and return an EventBus from the BusRef.
+
+        Args:
+            name (str): The name/iden of the EventBus instance
+
+        Returns:
+            (EventBus): The named event bus ( or None )
+        '''
         return self.ebus_by_name.pop(name, None)
 
     def get(self, name):
+        '''
+        Retrieve an EventBus instance by name.
+
+        Args:
+            name (str): The name/iden of the EventBus
+
+        Returns:
+            (EventBus): The EventBus instance (or None)
+        '''
         return self.ebus_by_name.get(name)
 
     def __iter__(self):
