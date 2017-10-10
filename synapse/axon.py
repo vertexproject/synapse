@@ -112,8 +112,8 @@ class AxonHost(s_config.Config):
         # Special case where the axonbus may update - we want to ensure
         # we're passing the latest axonbus to the Axon so it can register
         # itself properly.
-        if 'axon:axonbus' in opts:
-            axonbus = opts.get('axon:axonbus')
+        axonbus = opts.get('axonbus')
+        if axonbus is not None:
             myaxonbus = self.getConfOpt('axonhost:axonbus')
             if axonbus != myaxonbus:
                 opts['axon:axonbus'] = myaxonbus
