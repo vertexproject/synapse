@@ -351,7 +351,8 @@ class InetModelTest(SynTest):
             node0 = core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'knock knock'), time='20141217010101')
             iden = node0[1].get('inet:web:post')
 
-            node1 = core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'whos there'), time='20141217010102', replyto=iden)
+            node1 = core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'whos there'),
+                                        time='20141217010102', replyto=iden)
 
             self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/visi'))
 
@@ -362,6 +363,16 @@ class InetModelTest(SynTest):
             self.eq(node1[1].get('inet:web:post:acct:site'), 'vertex.link')
 
             self.eq(node0[1].get('inet:web:post'), node1[1].get('inet:web:post:replyto'))
+            self.none(node0[1].get('inet:web:post:repost'))
+            self.none(node1[1].get('inet:web:post:repost'))
+
+            repiden = node1[0]
+            node2 = core.formTufoByProp('inet:web:post', ('vertex.link/pennywise', 'whos there'),
+                                        time='201710091541', repost=node1[0])
+            self.eq(node2[1].get('inet:web:post:acct'), 'vertex.link/pennywise')
+            self.eq(node2[1].get('inet:web:post:text'), 'whos there')
+            self.eq(node2[1].get('inet:web:post:repost'), repiden)
+            self.none(node2[1].get('inet:web:replyto'))
 
     def test_model_inet_postref(self):
         with self.getRamCore() as core:
@@ -557,6 +568,31 @@ class InetModelTest(SynTest):
             self.eq(ar0[1].get('inet:web:actref:xref:prop'), 'file:bytes')
             self.eq(ar0[1].get('inet:web:actref:xref:strval'), fiden)
             self.eq(ar0[1].get('inet:web:actref:xref:intval'), None)
+
+    def test_model_inet_chprofile(self):
+        with self.getRamCore() as core:
+            t0 = core.formTufoByProp('inet:web:chprofile', '*', acct='vertex.link/pennywise', ipv4='1.2.3.4',
+                                     pv='inet:web:acct:name=bob gray', time='201710020800')
+            self.eq(t0[1].get('inet:web:chprofile:acct'), 'vertex.link/pennywise')
+            self.eq(t0[1].get('inet:web:chprofile:acct:site'), 'vertex.link')
+            self.eq(t0[1].get('inet:web:chprofile:acct:user'), 'pennywise')
+            self.eq(t0[1].get('inet:web:chprofile:ipv4'), 0x01020304)
+            self.none(t0[1].get('inet:web:chprofile:acct:ipv6'))
+            self.eq(t0[1].get('inet:web:chprofile:time'), 1506931200000)
+            self.eq(t0[1].get('inet:web:chprofile:pv'), 'inet:web:acct:name=bob gray')
+            self.eq(t0[1].get('inet:web:chprofile:pv:prop'), 'inet:web:acct:name')
+            self.eq(t0[1].get('inet:web:chprofile:pv:strval'), 'bob gray')
+            self.none(t0[1].get('inet:web:chprofile:pv:intval'))
+
+            t1 = core.formTufoByProp('inet:web:chprofile', '*', acct='vertex.link/pennywise', ipv4='1.2.3.4',
+                                     pv='inet:web:acct:seen:min=2014', time='201710020800')
+            self.eq(t1[1].get('inet:web:chprofile:pv'), 'inet:web:acct:seen:min=2014/01/01 00:00:00.000')
+            self.eq(t1[1].get('inet:web:chprofile:pv:prop'), 'inet:web:acct:seen:min')
+            self.eq(t1[1].get('inet:web:chprofile:pv:intval'), 1388534400000)
+            self.none(t1[1].get('inet:web:chprofile:pv:strval'))
+
+            # We require the account to be present
+            self.raises(PropNotFound, core.formTufoByProp, 'inet:web:chprofile', '*')
 
     def test_model_inet_201706121318(self):
 
