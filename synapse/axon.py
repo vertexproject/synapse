@@ -556,7 +556,7 @@ class Axon(s_config.Config, AxonMixin):
         self.axthrs = set()
 
         self.setAxonInfo('link', self.link)
-        self.setAxonInfo('opts', {key: self.getConfOpt(key) for key, _ in self.getConfDefs().items()})
+        self.setAxonInfo('opts', self.getConfOpts())
         self.on('syn:conf:set', self._onSetConfigableValu)
 
         self.dmon.share('axon', self)

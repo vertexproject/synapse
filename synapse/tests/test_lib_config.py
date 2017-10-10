@@ -54,6 +54,9 @@ class ConfTest(SynTest):
             self.eq(edict.get('defval'), 0)
             self.eq(edict.get('doc'), 'is thing enabled?')
 
+            opts = conf.getConfOpts()
+            self.eq(opts, {'enabled': 1, 'fooval': 0x30})
+
     def test_conf_defval(self):
         defs = (
             ('mutable:dict', {'doc': 'some dictionary', 'defval': {}}),
