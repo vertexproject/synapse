@@ -26,6 +26,12 @@ class NoValu: pass
 
 novalu = NoValu()
 
+# generate some constants
+kils = 2 ** 10
+megs = 2 ** 20
+gigs = 2 ** 30
+ters = 2 ** 40
+
 def now():
     '''
     Get the current epoch time in milliseconds.

@@ -192,6 +192,20 @@ class Configable:
             raise s_common.NoSuchOpt(name=name)
         return cdef
 
+    def reqConfOpts(self):
+        '''
+        Check for the presense of required config options and raise if missing.
+
+        Raises:
+            ReqConfOpt
+        '''
+        for name, info in self._conf_defs.values():
+            if info.get('req') is None:
+                continue
+
+            if name not in self._conf_defs:
+                raise ReqConfOpt(name=name)
+
     def getConfDefs(self):
         '''
         Get the configuration definitions for this object.

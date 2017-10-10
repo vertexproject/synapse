@@ -85,14 +85,16 @@ class AtomFile(EventBus):
             atom.resize(newsize)
 
         '''
+        with self.lock:
 
-        if size < self.size:
-            raise Exception('resize() to smaller not supported')
+            if size < self.size:
+                self._trunc(size)
+                return
 
-        if size == self.size:
-            return
+            if size == self.size:
+                return
 
-        self._resize(size)
+            self._grow(size)
 
     def flush(self):
         '''
@@ -108,15 +110,20 @@ class AtomFile(EventBus):
     def _flush(self):
         self.fd.flush()
 
-    def _resize(self, size):
+    def _trunc(self, size):
+        self.size = size
+        self.fdoff = size
 
-        with self.lock:
+        self.fd.seek(size)
+        self.fd.truncate()
 
-            self.size = size
-            self.fdoff = size
+    def _grow(self, size):
 
-            self.fd.seek(size - 1)
-            self.fd.write(b'\x00')
+        self.size = size
+        self.fdoff = size
+
+        self.fd.seek(size - 1)
+        self.fd.write(b'\x00')
 
     def _readoff(self, off, size):
 
@@ -176,10 +183,13 @@ class MemAtom(AtomFile):
 
         self.mm[off:off + len(byts)] = byts
 
-    def _resize(self, size):
-        with self.lock:
-            self.mm.resize(size)
-            self.size = size
+    def _grow(self, size):
+        AtomFile._grow(self, size)
+        self.mm.resize(size)
+
+    def _trunc(self, size):
+        self.mm.resize(size)
+        AtomFile._trunc(self, size)
 
 class FastAtom(AtomFile):
     '''
