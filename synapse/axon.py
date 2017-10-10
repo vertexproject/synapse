@@ -851,10 +851,7 @@ class Axon(s_config.Config, AxonMixin):
         Returns:
             bytes:  A chunk of bytes
         '''
-        if htype == 'guid':
-            blob = self.core.getTufoByProp('axon:blob', valu=hvalu)
-        else:
-            blob = self.core.getTufoByProp('axon:blob:%s' % htype, valu=hvalu)
+        blob = self.has(htype, hvalu)
         if blob:
             for byts in self.iterblob(blob):
                 yield byts
@@ -1025,13 +1022,14 @@ class Axon(s_config.Config, AxonMixin):
                     stuff()
 
         Returns:
-            bool: True if the axon has the hash present.
+            ((str, dict)): axon:blob tufo if the axon has the hash or guid. None otherwise.
         '''
         if htype == 'guid':
             tufo = self.core.getTufoByProp('axon:blob', hvalu)
         else:
             tufo = self.core.getTufoByProp('axon:blob:%s' % htype, hvalu)
-        return tufo is not None
+        if tufo:
+            return tufo
 
     def byiden(self, iden):
         '''
