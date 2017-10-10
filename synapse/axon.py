@@ -56,8 +56,7 @@ class AxonHost(s_config.Config):
 
         self._axonconfs = [_name for _name, _ in Axon._axon_confdefs()]
 
-        # track the total number of bytes which may be used by axons
-        # associated with this axonhost (disregarding heap overhead)
+        # track the total number of bytes which may be used by axons for startup operations
         self.usedspace = 0
 
         for name in os.listdir(self.datadir):
