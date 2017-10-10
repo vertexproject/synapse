@@ -7,9 +7,11 @@ from tornado.testing import gen_test, AsyncTestCase, AsyncHTTPClient
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.dyndeps as s_dyndeps
-import synapse.lib.webapp as s_webapp
 import synapse.datamodel as s_datamodel
+
+import synapse.lib.webapp as s_webapp
 import synapse.lib.certdir as s_certdir
+import synapse.lib.openfile as s_openfile
 
 from synapse.tests.common import *
 
@@ -194,3 +196,26 @@ class WebAppTest(AsyncTestCase, SynTest):
                         ]
                     }
                     dmon.loadDmonConf(config)
+
+    @gen_test
+    def test_webapp_static(self):
+        self.thisHostMustNot(platform='windows')
+
+        fdir = getTestPath()
+        fp = os.path.join(fdir, 'test.dat')
+        self.true(os.path.isfile(fp))
+
+        with open(fp, 'rb') as fd:
+            byts = fd.read()
+        self.true(len(byts) > 0)
+
+        wapp = s_webapp.WebApp()
+        wapp.listen(0, host='127.0.0.1')
+        wapp.addFilePath('/v1/test/(.*)', fdir)
+
+        client = AsyncHTTPClient(self.io_loop)
+        port = wapp.getServBinds()[0][1]
+
+        resp = yield client.fetch('http://127.0.0.1:%d/v1/test/test.dat' % port)
+        self.eq(resp.code, 200)
+        self.eq(resp.body, byts)
