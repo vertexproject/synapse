@@ -24,7 +24,6 @@ class Sched(EventBus):
 
         self.pool = pool
         self.root = None
-        #self.running = None
 
         self.lock = threading.Lock()
         self.wake = threading.Event()
