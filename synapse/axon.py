@@ -70,11 +70,11 @@ class AxonHost(s_config.Config):
             self._fireAxonIden(iden)
 
         # fire auto-run axons
-        auto = self.getConfOpt('axonhost:autorun')
+        auto = self.getConfOpt('autorun')
         while (len(self.axons) - len(self.cloneaxons)) < auto:
             self.add()
 
-        url = self.getConfOpt('axonhost:axonbus')
+        url = self.getConfOpt('axon:axonbus')
         if url:
             self.axonbus = s_service.openurl(url)
             self.axonbus.runSynSvc(s_common.guid(), self)
@@ -85,18 +85,18 @@ class AxonHost(s_config.Config):
         confdefs = (
             ('axonhost:autorun', {'type': 'int', 'defval': 0,
                                   'doc': 'Number of Axons to autostart.'}),
-            ('axonhost:axonbus', {'type': 'str', 'defval': '',
+            ('axon:axonbus', {'type': 'str', 'defval': '',
                                   'doc': 'URL to an axonbus'}),
-            ('axonhost:bytemax', {'type': 'int', 'defval': terabyte,
+            ('axon:bytemax', {'type': 'int', 'defval': terabyte,
                                   'doc': 'Max size of each axon created by the host.'}),
-            ('axonhost:clones', {'type': 'int', 'defval': 2,
+            ('axon:clones', {'type': 'int', 'defval': 2,
                                  'doc': 'The default number of clones for a axon.'}),
             ('axonhost:maxsize', {'type': 'int', 'defval': 0,
                                   'doc': 'Max total allocations for Axons created by the host. '
                                          'Only applies if set to a positive integer.'}),
-            ('axonhost:syncmax', {'type': 'int', 'defval': gigabyte * 10,
+            ('axon:syncmax', {'type': 'int', 'defval': gigabyte * 10,
                                   'doc': ''}),  # XXX Words
-            ('axonhost:hostname', {'type': 'str', 'defval': s_thishost.get('hostname'),
+            ('axon:hostname', {'type': 'str', 'defval': s_thishost.get('hostname'),
                                    'doc': 'AxonHost hostname'}),
         )
         return confdefs
@@ -114,7 +114,7 @@ class AxonHost(s_config.Config):
         # itself properly.
         axonbus = opts.get('axon:axonbus')
         if axonbus is not None:
-            myaxonbus = self.getConfOpt('axonhost:axonbus')
+            myaxonbus = self.getConfOpt('axon:axonbus')
             if axonbus != myaxonbus:
                 opts['axon:axonbus'] = myaxonbus
                 s_common.jssave(opts, axondir, 'axon.opts')
@@ -142,11 +142,10 @@ class AxonHost(s_config.Config):
             dict: Configable dict of valid options which can be passed to a Axon()
         '''
         ret = {}
-        for name, _ in self.getConfDefs().items():
-            axonname = name.replace('axonhost:', 'axon:')
-            if axonname not in self._axonconfs:
+        for name, valu in self.getConfOpts().items():
+            if name not in self._axonconfs:
                 continue
-            ret[axonname] = self.getConfOpt(name)
+            ret[name] = valu
         return ret
 
     def info(self):
@@ -158,7 +157,7 @@ class AxonHost(s_config.Config):
             'count': len(self.axons),
             'free': usage.get('free', 0),
             'used': usage.get('used', 0),
-            'hostname': self.getConfOpt('axonhost:hostname'),
+            'hostname': self.getConfOpt('axon:hostname'),
         }
 
     def add(self, **opts):

@@ -208,8 +208,8 @@ class AxonHostTest(SynTest):
             syncmax = s_axon.megabyte * 5
 
             props = {
-                'axonhost:bytemax': bytemax,
-                'axonhost:syncmax': syncmax,
+                'axon:bytemax': bytemax,
+                'axon:syncmax': syncmax,
                 'axonhost:maxsize': maxsize
             }
 
@@ -243,8 +243,8 @@ class AxonHostTest(SynTest):
                 bytemax = int(_t * 0.66)
                 syncmax = int(_t * 0.33)
 
-                host.setConfOpt('axonhost:bytemax', bytemax)
-                host.setConfOpt('axonhost:syncmax', syncmax)
+                host.setConfOpt('axon:bytemax', bytemax)
+                host.setConfOpt('axon:syncmax', syncmax)
 
                 axons = {}
                 for i in range(max_axons):
@@ -271,18 +271,18 @@ class AxonHostTest(SynTest):
             dir1 = gendir(datadir, 'host1')
             dir2 = gendir(datadir, 'host2')
 
-            host0 = s_axon.AxonHost(dir0, **{'axonhost:hostname': 'host0',
-                                             'axonhost:axonbus': busurl,
-                                             'axonhost:bytemax': s_axon.megabyte * 100,
-                                             'axonhost:syncmax': s_axon.megabyte * 10})
-            host1 = s_axon.AxonHost(dir1, **{'axonhost:hostname': 'host1',
-                                             'axonhost:axonbus': busurl,
-                                             'axonhost:bytemax': s_axon.megabyte * 100,
-                                             'axonhost:syncmax': s_axon.megabyte * 10})
-            host2 = s_axon.AxonHost(dir2, **{'axonhost:hostname': 'host2',
-                                             'axonhost:axonbus': busurl,
-                                             'axonhost:bytemax': s_axon.megabyte * 100,
-                                             'axonhost:syncmax': s_axon.megabyte * 10})
+            host0 = s_axon.AxonHost(dir0, **{'axon:hostname': 'host0',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             'axon:syncmax': s_axon.megabyte * 10})
+            host1 = s_axon.AxonHost(dir1, **{'axon:hostname': 'host1',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             'axon:syncmax': s_axon.megabyte * 10})
+            host2 = s_axon.AxonHost(dir2, **{'axon:hostname': 'host2',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             'axon:syncmax': s_axon.megabyte * 10})
 
             props = {
                 'axon:syncmax': s_axon.megabyte * 10,
@@ -392,30 +392,30 @@ class AxonHostTest(SynTest):
             dir2 = gendir(datadir, 'host2')
             dir3 = gendir(datadir, 'host3')
 
-            host0 = s_axon.AxonHost(dir0, **{'axonhost:hostname': 'host0',
-                                             'axonhost:axonbus': busurl,
-                                             'axonhost:clones': 1,
+            host0 = s_axon.AxonHost(dir0, **{'axon:hostname': 'host0',
+                                             'axon:axonbus': busurl,
+                                             'axon:clones': 1,
                                              'axonhost:autorun': 2,
-                                             'axonhost:bytemax': s_axon.megabyte * 100,
-                                             'axonhost:syncmax': s_axon.megabyte * 10})
-            host1 = s_axon.AxonHost(dir1, **{'axonhost:hostname': 'host1',
-                                             'axonhost:axonbus': busurl,
-                                             'axonhost:clones': 1,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             'axon:syncmax': s_axon.megabyte * 10})
+            host1 = s_axon.AxonHost(dir1, **{'axon:hostname': 'host1',
+                                             'axon:axonbus': busurl,
+                                             'axon:clones': 1,
                                              'axonhost:autorun': 2,
-                                             'axonhost:bytemax': s_axon.megabyte * 100,
-                                             'axonhost:syncmax': s_axon.megabyte * 10})
-            host2 = s_axon.AxonHost(dir2, **{'axonhost:hostname': 'host2',
-                                             'axonhost:axonbus': busurl,
-                                             'axonhost:clones': 1,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             'axon:syncmax': s_axon.megabyte * 10})
+            host2 = s_axon.AxonHost(dir2, **{'axon:hostname': 'host2',
+                                             'axon:axonbus': busurl,
+                                             'axon:clones': 1,
                                              'axonhost:autorun': 2,
-                                             'axonhost:bytemax': s_axon.megabyte * 100,
-                                             'axonhost:syncmax': s_axon.megabyte * 10})
-            host3 = s_axon.AxonHost(dir3, **{'axonhost:hostname': 'host3',
-                                             'axonhost:axonbus': busurl,
-                                             'axonhost:clones': 1,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             'axon:syncmax': s_axon.megabyte * 10})
+            host3 = s_axon.AxonHost(dir3, **{'axon:hostname': 'host3',
+                                             'axon:axonbus': busurl,
+                                             'axon:clones': 1,
                                              'axonhost:autorun': 2,
-                                             'axonhost:bytemax': s_axon.megabyte * 100,
-                                             'axonhost:syncmax': s_axon.megabyte * 10})
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             'axon:syncmax': s_axon.megabyte * 10})
 
             time.sleep(3)
             ta = [len(host.axons) for host in [host0, host1, host2, host3]]
@@ -432,8 +432,8 @@ class AxonHostTest(SynTest):
         with self.getTestDir() as dirname:
             opts = {
                 'axonhost:autorun': 2,
-                'axonhost:syncmax': s_axon.megabyte,
-                'axonhost:bytemax': s_axon.megabyte,
+                'axon:syncmax': s_axon.megabyte,
+                'axon:bytemax': s_axon.megabyte,
             }
             host = s_axon.AxonHost(dirname, **opts)
             self.eq(len(host.axons), 2)
@@ -446,20 +446,20 @@ class AxonHostTest(SynTest):
         hstcfg = {
             "vars": {
                 "hcfg0": {
-                    "axonhost:hostname": "host0",
-                    "axonhost:bytemax": 1024000000,
-                    "axonhost:syncmax": 512000000,
+                    "axon:hostname": "host0",
+                    "axon:bytemax": 1024000000,
+                    "axon:syncmax": 512000000,
                     "axonhost:maxsize": 10240000000,
                     "axonhost:autorun": 1,
-                    "axonhost:clones": 1,
+                    "axon:clones": 1,
                 },
                 "hcfg1": {
-                    "axonhost:hostname": "host1",
-                    "axonhost:bytemax": 1024000000,
-                    "axonhost:syncmax": 512000000,
+                    "axon:hostname": "host1",
+                    "axon:bytemax": 1024000000,
+                    "axon:syncmax": 512000000,
                     "axonhost:maxsize": 10240000000,
                     "axonhost:autorun": 1,
-                    "axonhost:clones": 1,
+                    "axon:clones": 1,
                 }
             },
             "ctors": [
@@ -512,8 +512,8 @@ class AxonHostTest(SynTest):
                 link = svcdmon.listen('tcp://127.0.0.1:0/')
                 port = link[1].get('port')
                 busurl = 'tcp://127.0.0.1:{}/axonbus'.format(port)
-                hstcfg['vars']['hcfg0']['axonhost:axonbus'] = busurl
-                hstcfg['vars']['hcfg1']['axonhost:axonbus'] = busurl
+                hstcfg['vars']['hcfg0']['axon:axonbus'] = busurl
+                hstcfg['vars']['hcfg1']['axon:axonbus'] = busurl
 
                 with s_daemon.Daemon() as axondmon:
                     axondmon.loadDmonConf(hstcfg)
@@ -537,8 +537,8 @@ class AxonHostTest(SynTest):
                 link = svcdmon.listen('tcp://127.0.0.1:0/')
                 port = link[1].get('port')
                 busurl = 'tcp://127.0.0.1:{}/axonbus'.format(port)
-                hstcfg['vars']['hcfg0']['axonhost:axonbus'] = busurl
-                hstcfg['vars']['hcfg1']['axonhost:axonbus'] = busurl
+                hstcfg['vars']['hcfg0']['axon:axonbus'] = busurl
+                hstcfg['vars']['hcfg1']['axon:axonbus'] = busurl
 
                 with s_daemon.Daemon() as axondmon:
                     axondmon.loadDmonConf(hstcfg)
@@ -572,18 +572,18 @@ class AxonClusterTest(SynTest):
             dir1 = gendir(datadir, 'host1')
             dir2 = gendir(datadir, 'host2')
 
-            host0 = s_axon.AxonHost(dir0, **{'axonhost:hostname': 'host0',
-                                             'axonhost:axonbus': busurl,
-                                             'axonhost:bytemax': s_axon.megabyte * 100,
-                                             'axonhost:syncmax': s_axon.megabyte * 10})
-            host1 = s_axon.AxonHost(dir1, **{'axonhost:hostname': 'host1',
-                                             'axonhost:axonbus': busurl,
-                                             'axonhost:bytemax': s_axon.megabyte * 100,
-                                             'axonhost:syncmax': s_axon.megabyte * 10})
-            host2 = s_axon.AxonHost(dir2, **{'axonhost:hostname': 'host2',
-                                             'axonhost:axonbus': busurl,
-                                             'axonhost:bytemax': s_axon.megabyte * 100,
-                                             'axonhost:syncmax': s_axon.megabyte * 10})
+            host0 = s_axon.AxonHost(dir0, **{'axon:hostname': 'host0',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             'axon:syncmax': s_axon.megabyte * 10})
+            host1 = s_axon.AxonHost(dir1, **{'axon:hostname': 'host1',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             'axon:syncmax': s_axon.megabyte * 10})
+            host2 = s_axon.AxonHost(dir2, **{'axon:hostname': 'host2',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             'axon:syncmax': s_axon.megabyte * 10})
 
             props = {
                 'axon:clones': 1,
