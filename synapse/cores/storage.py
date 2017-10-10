@@ -87,6 +87,8 @@ class Storage(s_config.Config):
         self.loadbus.on('core:save:del:rows:by:prop', self._loadDelRowsByProp)
         self.loadbus.on('core:save:set:rows:by:idprop', self._loadSetRowsByIdProp)
         self.loadbus.on('core:save:del:rows:by:idprop', self._loadDelRowsByIdProp)
+        self.loadbus.on('core:save:set:up:prop', self._loadUpdateProperty)
+        self.loadbus.on('core:save:set:up:propvalu', self._loadUpdatePropertyValu)
         self.loadbus.on('syn:core:blob:set', self._onSetBlobValu)
         self.loadbus.on('syn:core:blob:del', self._onDelBlobValu)
 
@@ -722,6 +724,90 @@ class Storage(s_config.Config):
         for rows in self._genStoreRows(**kwargs):
             yield rows
 
+    def _loadUpdateProperty(self, mesg):
+        oldprop = mesg[1].get('oldprop')
+        newprop = mesg[1].get('newprop')
+        self._updateProperty(oldprop, newprop)
+
+    def updateProperty(self, oldprop, newprop):
+        '''
+        Do a wholesale replacement of one property with another property.
+
+        Args:
+            oldprop (str): The orginal property which is removed.
+            newprop (str): The property that is updated in place.
+
+        Examples:
+            Rename "inet:tcp4:port" to "inet:tcp4:foobar"::
+
+                nrows = store.updateProperty('inet:tcp4:port', 'inet:tcp4:foobar')
+
+        Notes:
+            This API does  fire syn:core:store:up:prop:pre and syn:core:store:up:prop:post events with the old
+            and new property names in it, before and after the property update is done. This API is primarily designed
+            for assisting with Cortex data migrations.
+
+        Returns:
+            int: Number of rows updated in place.
+        '''
+        if oldprop == newprop:
+            raise s_common.BadPropName(mesg='OldProp and newprop cannot be the same.',
+                                       oldprop=oldprop, newprop=newprop)
+
+        if not isinstance(newprop, str):
+            raise s_common.BadPropName(mesg='newprop must be a str', newprop=newprop)
+
+        self.savebus.fire('core:save:set:up:prop', oldprop=oldprop, newprop=newprop)
+        self.fire('syn:core:store:up:prop:pre', oldprop=oldprop, newprop=newprop)
+        nrows = self._updateProperty(oldprop, newprop)
+        self.fire('syn:core:store:up:prop:post', oldprop=oldprop, newprop=newprop, nrows=nrows)
+        return nrows
+
+    def _loadUpdatePropertyValu(self, mesg):
+        prop = mesg[1].get('prop')
+        oldval = mesg[1].get('oldval')
+        newval = mesg[1].get('newval')
+        self._updatePropertyValu(prop, oldval, newval)
+
+    def updatePropertyValu(self, prop, oldval, newval):
+        '''
+        Do a wholesale update of one property=valu combination with a new valu.
+
+        Args:
+            prop (str): Property to select by for updating.
+            oldval: Old valu to select rows by.
+            newval: Valu to set the the prop=oldval rows to be.
+
+        Examples:
+            Rename "tufo:form"="inet:tcp4" to instead be "tufo:form"="inet:tcp4000"::
+
+                nrows = store.updatePropertyValu('tufo:form', 'inet:tcp4', 'inet:tcp4000')
+
+        Notes:
+            This API does fire syn:core:store:up:propval:pre and syn:core:store:up:propval:post
+            events with the property, old value and new values in it; before and after update is done. This API is
+            primarily designed for assisting with Cortex data migrations.  The oldval and newval must be of the same
+            type.
+
+        Returns:
+            int: Number of rows updated in place.
+        '''
+        if oldval == newval:
+            raise s_common.SynErr(mesg='oldval and newval cannot be the same.',
+                                  oldval=oldval, newval=newval)
+
+        if not isinstance(newval, (int, str)):
+            raise s_common.BadPropValu(mesg='newval must be a str or int', newval=newval)
+        if not isinstance(oldval, type(newval)):
+            raise s_common.BadPropValu(mesg='oldval and newval must be of the same type',
+                                       newval=newval, oldval=oldval)
+
+        self.savebus.fire('core:save:set:up:propvalu', prop=prop, oldval=oldval, newval=newval)
+        self.fire('syn:core:store:up:propval:pre', prop=prop, oldval=oldval, newval=newval)
+        nrows = self._updatePropertyValu(prop, oldval, newval)
+        self.fire('syn:core:store:up:propval:post', prop=prop, oldval=oldval, newval=newval, nrows=nrows)
+        return nrows
+
     # The following MUST be implemented by the storage layer in order to
     # support the basic idea of a cortex
 
@@ -1031,6 +1117,36 @@ class Storage(s_config.Config):
             rows = self.getRowsById(iden)
             ret.extend(rows)
         return ret
+
+    def _updateProperty(self, oldprop, newprop):
+        '''
+        Entrypoint for doing in-place property update type operations.
+        This is called by self.updateProperty() to do the actual property update.
+        '''
+        adds = []
+        for i, p, v, t in self.getRowsByProp(oldprop):
+            adds.append((i, newprop, v, t))
+
+        if adds:
+            self._addRows(adds)
+            self._delRowsByProp(oldprop)
+
+        return len(adds)
+
+    def _updatePropertyValu(self, prop, oldval, newval):
+        '''
+        Entrypoint for doing in-place property value update type operations.
+        This is called by self.updatePropertyValu() to do the actual property update.
+        '''
+        adds = []
+        rows = self.getRowsByProp(prop, oldval)
+        for i, p, v, t in rows:
+            adds.append((i, p, newval, t))
+
+        if adds:
+            self._delRowsByProp(prop, oldval)
+            self._addRows(adds)
+        return len(adds)
 
     # these helpers allow a storage layer to simply implement
     # and register _getTufosByGe and _getTufosByLe

@@ -8,7 +8,6 @@ import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.reactor as s_reactor
 import synapse.telepath as s_telepath
-import synapse.datamodel as s_datamodel
 
 import synapse.cores.storage as s_storage
 
@@ -23,10 +22,10 @@ import synapse.lib.hashset as s_hashset
 import synapse.lib.threads as s_threads
 import synapse.lib.modules as s_modules
 import synapse.lib.trigger as s_trigger
-import synapse.lib.hashitem as s_hashitem
+import synapse.lib.version as s_version
 import synapse.lib.interval as s_interval
 
-from synapse.eventbus import EventBus, on, onfini
+from synapse.eventbus import EventBus
 from synapse.lib.storm import Runtime
 from synapse.lib.config import confdef
 from synapse.datamodel import DataModel
@@ -58,6 +57,13 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         Runtime.__init__(self)
         EventBus.__init__(self)
+
+        self.on('node:del', self._onDelAuthRole, form='syn:auth:role')
+        self.on('node:del', self._onDelAuthUser, form='syn:auth:user')
+        self.on('node:add', self._onAddAuthUserRole, form='syn:auth:userrole')
+        self.on('node:del', self._onDelAuthUserRole, form='syn:auth:userrole')
+        self.on('node:del', self._onDelSynTag, form='syn:tag')
+        self.on('node:form', self._onFormSynTag, form='syn:tag')
 
         # a cortex may have a ref to an axon
         self.axon = None
@@ -226,6 +232,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.onfini(self._finiCoreMods)
 
         s_ingest.IngestApi.__init__(self, self)
+
+        self.setBlobValu('syn:core:synapse:version', s_version.version)
 
     def addRuntNode(self, form, valu, props=None):
         '''
@@ -499,6 +507,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.store.fire('modl:vers:rev', name=name, vers=vers)
 
         func()
+        mesg = 'Finished updating model [{}] to [{}].'.format(name, vers)
+        logger.warning(mesg)
+        self.log(logging.WARNING, mesg=mesg, name=name, curv=curv, vers=vers)
 
         self.setModlVers(name, vers)
         return True
@@ -839,7 +850,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self._bumpAuthRole(role)
         self._syncRoleAuth(role, auth)
 
-    @on('node:del', form='syn:auth:role')
     def _onDelAuthRole(self, mesg):
         role = mesg[1].get('valu')
 
@@ -850,7 +860,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         for userrole in self.getTufosByProp('syn:auth:userrole:role', role):
             self.delTufo(userrole)
 
-    @on('node:del', form='syn:auth:user')
     def _onDelAuthUser(self, mesg):
         user = mesg[1].get('valu')
 
@@ -860,14 +869,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         for userrole in self.getTufosByProp('syn:auth:userrole:user', user):
             self.delTufo(userrole)
 
-    @on('node:add', form='syn:auth:userrole')
     def _onAddAuthUserRole(self, mesg):
         node = mesg[1].get('node')
         user = node[1].get('syn:auth:userrole:user')
 
         self._bumpAuthUser(user)
 
-    @on('node:del', form='syn:auth:userrole')
     def _onDelAuthUserRole(self, mesg):
         node = mesg[1].get('node')
         user = node[1].get('syn:auth:userrole:user')
@@ -1319,7 +1326,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         for chnk in s_common.chunks(s_common.msgpackfd(fd), 1000):
             self.splices(chnk)
 
-    @on('node:del', form='syn:tag')
     def _onDelSynTag(self, mesg):
         # deleting a tag node.  delete all sub tags and wipe tufos.
         valu = mesg[1].get('valu')
@@ -1333,7 +1339,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self._core_tags.clear()
         self._core_tagforms.clear()
 
-    @on('node:form', form='syn:tag')
     def _onFormSynTag(self, mesg):
         valu = mesg[1].get('valu')
         props = mesg[1].get('props')

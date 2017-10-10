@@ -2,6 +2,7 @@ import unittest
 import threading
 
 import synapse.eventbus as s_eventbus
+import synapse.lib.threads as s_threads
 
 from synapse.tests.common import *
 
@@ -202,3 +203,20 @@ class EventBusTest(SynTest):
 
         bref.fini()
         self.true(bus0.isfini)
+
+    def test_eventbus_waitfini(self):
+
+        ebus = s_eventbus.EventBus()
+
+        self.false(ebus.waitfini(timeout=0.1))
+
+        def callfini():
+            time.sleep(0.1)
+            ebus.fini()
+
+        thr = s_threads.worker(callfini)
+        # actually wait...
+        self.true(ebus.waitfini(timeout=0.3))
+
+        # bounce off the isfini block
+        self.true(ebus.waitfini(timeout=0.3))

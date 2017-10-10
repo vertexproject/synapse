@@ -24,6 +24,7 @@ import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
 import synapse.lib.threads as s_threads
+import synapse.lib.version as s_version
 
 import synapse.models.syn as s_models_syn
 
@@ -38,11 +39,17 @@ class CoreTestModule(s_module.CoreModule):
 
     def initCoreModule(self):
 
+        self.added = []
+        self.deled = []
+
         def formipv4(form, valu, props, mesg):
             props['inet:ipv4:asn'] = 10
 
         self.onFormNode('inet:ipv4', formipv4)
         self.addConfDef('foobar', defval=False, asloc='foobar')
+
+        self.onNodeAdd(self.added.append, form='ou:org')
+        self.onNodeDel(self.deled.append, form='ou:org')
 
     @staticmethod
     def getBaseModels():
@@ -167,6 +174,7 @@ class CortexBaseTest(SynTest):
         self.runsnaps(core)
         self.rundarks(core)
         self.runblob(core)
+        # runstore should be run last as it may do destructive actions to data in the Cortex.
         self.runstore(core)
 
     def rundsets(self, core):
@@ -573,6 +581,8 @@ class CortexBaseTest(SynTest):
     def runblob(self, core):
         # Do we have default cortex blob values?
         self.true(core.hasBlobValu('syn:core:created'))
+        cvers = core.getBlobValu('syn:core:synapse:version')
+        self.eq(cvers, s_version.version)
 
         kvs = (
             ('syn:meta', 1),
@@ -670,6 +680,44 @@ class CortexBaseTest(SynTest):
             ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
         ])
 
+        # form some nodes for doing in-place prop updates on with store.updateProperty()
+        nodes = [core.formTufoByProp('inet:tcp4', '10.1.2.{}:80'.format(i)) for i in range(10)]
+        ret = core.store.updateProperty('inet:tcp4:port', 'inet:tcp4:gatenumber')
+        self.eq(ret, 10)
+
+        # Ensure prop and propvalu indexes are updated
+        self.len(10, core.getRowsByProp('inet:tcp4:gatenumber'))
+        self.len(10, core.getRowsByProp('inet:tcp4:gatenumber', 80))
+        self.len(0, core.getRowsByProp('inet:tcp4:port'))
+        self.len(0, core.getRowsByProp('inet:tcp4:port', 80))
+
+        # Join operations typically involving pivoting by iden so this ensures that iden based indexes are updated
+        unodes = core.getTufosByProp('inet:tcp4:gatenumber')
+        self.len(10, unodes)
+        for node in unodes:
+            self.isin('inet:tcp4', node[1])
+            self.isin('inet:tcp4:ipv4', node[1])
+            self.isin('inet:tcp4:gatenumber', node[1])
+            self.notin('inet:tcp4:port', node[1])
+
+        # Do a updatePropertValu call to replace a named property with another valu
+        unodes = core.getTufosByProp('tufo:form', 'inet:tcp4')
+        self.len(10, unodes)
+        n = core.store.updatePropertyValu('tufo:form', 'inet:tcp4', 'inet:stateful4')
+        self.eq(n, 10)
+        unodes = core.getTufosByProp('tufo:form', 'inet:tcp4')
+        self.len(0, unodes)
+        unodes = core.getTufosByProp('inet:tcp4')
+        self.len(10, unodes)
+        for node in unodes:
+            self.eq(node[1].get('tufo:form'), 'inet:stateful4')
+            self.isin('inet:tcp4', node[1])
+        unodes = core.getTufosByProp('tufo:form', 'inet:stateful4')
+        self.len(10, unodes)
+        for node in unodes:
+            self.eq(node[1].get('tufo:form'), 'inet:stateful4')
+            self.isin('inet:tcp4', node[1])
+
     def runtufobydefault(self, core):
         # Failures should be expected for unknown names
         self.raises(NoSuchGetBy, core.getTufosBy, 'clowns', 'inet:ipv4', 0x01020304)
@@ -699,15 +747,15 @@ class CortexBaseTest(SynTest):
         self.eq(len(core.getTufosBy('in', 'inet:ipv4', ['10.2.3.5', '10.2.3.6', '10.2.3.7'])), 1)
 
         # By IN using COMP type nodes
-        nmb1 = core.formTufoByProp('inet:netmemb', '(vertex.link/pennywise,vertex.link/eldergods)')
-        nmb2 = core.formTufoByProp('inet:netmemb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))
-        nmb3 = core.formTufoByProp('inet:netmemb', ['vertex.link/pennywise', 'vertex.link/clowns'])
+        nmb1 = core.formTufoByProp('inet:web:memb', '(vertex.link/pennywise,vertex.link/eldergods)')
+        nmb2 = core.formTufoByProp('inet:web:memb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))
+        nmb3 = core.formTufoByProp('inet:web:memb', ['vertex.link/pennywise', 'vertex.link/clowns'])
 
-        self.eq(len(core.getTufosBy('in', 'inet:netmemb', ['(vertex.link/pennywise,vertex.link/eldergods)'])), 1)
-        self.eq(len(core.getTufosBy('in', 'inet:netmemb:group', ['vertex.link/eldergods'])), 2)
-        self.eq(len(core.getTufosBy('in', 'inet:netmemb:group', ['vertex.link/eldergods'])), 2)
-        self.eq(len(core.getTufosBy('in', 'inet:netmemb:group', ['vertex.link/eldergods', 'vertex.link/clowns'])), 3)
-        self.eq(len(core.getTufosBy('in', 'inet:netmemb', ['(vertex.link/pennywise,vertex.link/eldergods)', ('vertex.link/pennywise', 'vertex.link/clowns')])), 2)
+        self.eq(len(core.getTufosBy('in', 'inet:web:memb', ['(vertex.link/pennywise,vertex.link/eldergods)'])), 1)
+        self.eq(len(core.getTufosBy('in', 'inet:web:memb:group', ['vertex.link/eldergods'])), 2)
+        self.eq(len(core.getTufosBy('in', 'inet:web:memb:group', ['vertex.link/eldergods'])), 2)
+        self.eq(len(core.getTufosBy('in', 'inet:web:memb:group', ['vertex.link/eldergods', 'vertex.link/clowns'])), 3)
+        self.eq(len(core.getTufosBy('in', 'inet:web:memb', ['(vertex.link/pennywise,vertex.link/eldergods)', ('vertex.link/pennywise', 'vertex.link/clowns')])), 2)
 
         # By LT/LE/GE/GT
         self.eq(len(core.getTufosBy('lt', 'default_foo:p0', 6)), 3)
@@ -790,8 +838,8 @@ class CortexBaseTest(SynTest):
         self.eq(len(core.getTufosBy('eq', 'inet:ipv4:asn', -1)), 5)
         self.eq(len(core.getTufosBy('eq', 'inet:ipv4', 0x0)), 0)
         self.eq(len(core.getTufosBy('eq', 'inet:ipv4', '0.0.0.0')), 0)
-        self.eq(len(core.getTufosBy('eq', 'inet:netmemb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
-        self.eq(len(core.getTufosBy('eq', 'inet:netmemb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
+        self.eq(len(core.getTufosBy('eq', 'inet:web:memb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
+        self.eq(len(core.getTufosBy('eq', 'inet:web:memb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
 
         # By TYPE - this requires data model introspection
         fook = core.formTufoByProp('inet:dns:a', 'derry.vertex.link/10.2.3.6')
@@ -801,9 +849,9 @@ class CortexBaseTest(SynTest):
         self.eq(len(core.getTufosBy('type', 'inet:ipv4', 0x0a020306)), 3)
 
         # By TYPE using COMP nodes
-        self.eq(len(core.getTufosBy('type', 'inet:netmemb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
-        self.eq(len(core.getTufosBy('type', 'inet:netmemb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
-        self.eq(len(core.getTufosBy('type', 'inet:netuser', 'vertex.link/invisig0th')), 2)
+        self.eq(len(core.getTufosBy('type', 'inet:web:memb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
+        self.eq(len(core.getTufosBy('type', 'inet:web:memb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
+        self.eq(len(core.getTufosBy('type', 'inet:web:acct', 'vertex.link/invisig0th')), 2)
 
         # BY CIDR
         tlib = s_types.TypeLib()
@@ -995,11 +1043,11 @@ class CortexTest(SynTest):
             self.eq(len(core.getTufosByProp('strform:bar', valu='zap')), 1)
 
         # Try using setprops with an built-in model which type subprops
-        t0 = core.formTufoByProp('inet:netuser', 'vertex.link/pennywise')
-        self.notin('inet:netuser:email', t0[1])
+        t0 = core.formTufoByProp('inet:web:acct', 'vertex.link/pennywise')
+        self.notin('inet:web:acct:email', t0[1])
         props = {'email': 'pennywise@vertex.link'}
         core.setTufoProps(t0, **props)
-        self.isin('inet:netuser:email', t0[1])
+        self.isin('inet:web:acct:email', t0[1])
         t1 = core.getTufoByProp('inet:email', 'pennywise@vertex.link')
         self.nn(t1)
 
@@ -2061,8 +2109,8 @@ class CortexTest(SynTest):
 
     def test_cortex_norm_fail(self):
         with self.getRamCore() as core:
-            core.formTufoByProp('inet:netuser', 'vertex.link/visi')
-            self.raises(BadTypeValu, core.eval, 'inet:netuser="totally invalid input"')
+            core.formTufoByProp('inet:web:acct', 'vertex.link/visi')
+            self.raises(BadTypeValu, core.eval, 'inet:web:acct="totally invalid input"')
 
     def test_cortex_local(self):
         splices = []
@@ -2101,6 +2149,16 @@ class CortexTest(SynTest):
 
             node = core.formTufoByProp('inet:ipv4', '1.2.3.5')
             self.eq(node[1].get('inet:ipv4:asn'), 10)
+
+            iden = guid()
+            node = core.formTufoByProp('ou:org', iden)
+            core.delTufo(node)
+
+            self.len(1, modu.added)
+            self.len(1, modu.deled)
+
+            self.eq(modu.added[0][0], node[0])
+            self.eq(modu.deled[0][0], node[0])
 
         self.true(modu.isfini)
 

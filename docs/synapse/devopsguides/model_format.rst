@@ -123,7 +123,7 @@ Advanced CoreModule Usage
 
 The CoreModule class can also be used to extend the functionality of the Cortex beyond simply adding additional model
 definitions. The CoreModule has access to the Cortex is loaded with, for example, we can use it to add additional
-event handlers; type casts; or other functionality. The @on decorator (from eventbus.py) can be used to quickly strap
+event handlers; type casts; or other functionality. The Cortex on method (from eventbus.py) can be used to quickly strap
 in additional actions, and the CoreModule class itself has specific event helpers as well (with more coming soon).
 An example of extending the previous example is shown below (minus migration functions). ::
 
@@ -137,8 +137,10 @@ An example of extending the previous example is shown below (minus migration fun
 
         # Override the default initCoreModule function
         def initCoreModule(self):
+
             # Define a function used for helping out during node creation.
             self.onFormNode('foo:knight', self.onTufoFormKnight)
+
             # Calling self.revCoreModl() is required by classes which override
             # initCoreModule and define module revisions.
             self.revCoreModl()

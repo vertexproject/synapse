@@ -11,80 +11,19 @@ import synapse.lib.thishost as s_thishost
 logger = logging.getLogger(__name__)
 finlock = threading.RLock()
 
-def on(evnt, **filt):
-    '''
-    A decorator to register a method for EventBus.on() callbacks.
-
-    Example:
-
-        class FooBar(EventBus):
-
-            @on('hehe')
-            def _onHehe(self, mesg):
-                doHeheStuff(mesg)
-
-            # only fires if mesg[1].get('woot') == True
-            @on('haha', woot=True)
-            def _onHahaWoot(self, mesg):
-                doHahaStuff(mesg)
-
-    See: EventBus.on()
-
-    '''
-    def wrap(f):
-        ons = getattr(f, '_ebus_ons', None)
-        if ons is None:
-            ons = f._ebus_ons = []
-        ons.append((evnt, filt))
-        return f
-    return wrap
-
-def onfini(f):
-    '''
-    A decorator to register a method for EventBus.onfini() callbacks.
-
-    Example:
-
-        class FooBar(EventBus):
-
-            @onfini
-            def _onFooBarFini(self):
-                doFiniStuff()
-
-    See: EventBus.onfini()
-
-    '''
-    f._ebus_onfini = True
-    return f
-
 class EventBus(object):
     '''
     A synapse EventBus provides an easy way manage callbacks.
     '''
     def __init__(self):
         self.isfini = False
+        self.finievt = None
         self.finlock = finlock
-        self.finievt = threading.Event()
 
         self._syn_funcs = collections.defaultdict(list)
 
         self._syn_links = []
-
         self._fini_funcs = []
-
-        for name, valu in s_reflect.getItemLocals(self):
-
-            if not callable(valu):
-                continue
-
-            # check for onfini() decorator
-            if getattr(valu, '_ebus_onfini', None):
-                self.onfini(valu)
-                continue
-
-            # check for on() decorators
-            for name, filt in getattr(valu, '_ebus_ons', ()):
-                self.on(name, valu, **filt)
 
     def __enter__(self):
         return self
@@ -240,6 +179,7 @@ class EventBus(object):
                 return
 
             self.isfini = True
+            fevt = self.finievt
 
         for func in self._fini_funcs:
             try:
@@ -251,7 +191,8 @@ class EventBus(object):
         self._syn_funcs.clear()
         del self._fini_funcs[:]
 
-        self.finievt.set()
+        if fevt is not None:
+            fevt.set()
 
     def onfini(self, func):
         '''
@@ -268,6 +209,14 @@ class EventBus(object):
             bus.waitfini(timeout=30)
 
         '''
+        with self.finlock:
+
+            if self.isfini:
+                return True
+
+            if self.finievt is None:
+                self.finievt = threading.Event()
+
         return self.finievt.wait(timeout=timeout)
 
     def main(self):

@@ -1,3 +1,4 @@
+import synapse.lib.auth as s_auth
 import synapse.lib.tufo as s_tufo
 import synapse.lib.storm as s_storm
 import synapse.cores.common as s_common
@@ -60,18 +61,18 @@ class StormTest(SynTest):
         with self.getRamCore() as core:
 
             # relative key/val syntax, explicitly relative vals
-            node = core.formTufoByProp('inet:netuser', 'vertex.link/pennywise')
-            node = core.formTufoByProp('inet:netuser', 'vertex.link/visi')
-            node = core.eval('inet:netuser=vertex.link/pennywise setprop(:realname="Robert Gray")')[0]
+            node = core.formTufoByProp('inet:web:acct', 'vertex.link/pennywise')
+            node = core.formTufoByProp('inet:web:acct', 'vertex.link/visi')
+            node = core.eval('inet:web:acct=vertex.link/pennywise setprop(:realname="Robert Gray")')[0]
 
-            self.eq(node[1].get('inet:netuser'), 'vertex.link/pennywise')
-            self.eq(node[1].get('inet:netuser:realname'), 'robert gray')
+            self.eq(node[1].get('inet:web:acct'), 'vertex.link/pennywise')
+            self.eq(node[1].get('inet:web:acct:realname'), 'robert gray')
 
             # Can set multiple props at once
-            cmd = 'inet:netuser=vertex.link/pennywise setprop(:seen:min="2000", :seen:max="2017")'
+            cmd = 'inet:web:acct=vertex.link/pennywise setprop(:seen:min="2000", :seen:max="2017")'
             node = core.eval(cmd)[0]
-            self.nn(node[1].get('inet:netuser:seen:min'))
-            self.nn(node[1].get('inet:netuser:seen:max'))
+            self.nn(node[1].get('inet:web:acct:seen:min'))
+            self.nn(node[1].get('inet:web:acct:seen:max'))
 
             # old / bad syntax fails
             # kwlist key/val syntax is no longer valid in setprop()
@@ -82,7 +83,7 @@ class StormTest(SynTest):
             bad_cmd = 'inet:fqdn=vertex.link setprop(:typocreated="2016-05-05")'
             self.raises(BadSyntaxError, core.eval, bad_cmd)
             # full prop syntax is not acceptable
-            bad_cmd = 'inet:netuser=vertex.link/pennywise setprop(inet:netuser:signup="1970-01-01")'
+            bad_cmd = 'inet:web:acct=vertex.link/pennywise setprop(inet:web:acct:signup="1970-01-01")'
             self.raises(BadSyntaxError, core.eval, bad_cmd)
 
     def test_storm_filt_regex(self):
@@ -317,7 +318,7 @@ class StormTest(SynTest):
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
-            node4 = core.formTufoByProp('inet:netuser', 'clowntown.link/pennywise')
+            node4 = core.formTufoByProp('inet:web:acct', 'clowntown.link/pennywise')
 
             core.addTufoTags(node1, ['aka.bar.baz',
                                      'aka.duck.quack.loud',
@@ -360,7 +361,7 @@ class StormTest(SynTest):
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
-            node4 = core.formTufoByProp('inet:netuser', 'clowntown.link/pennywise')
+            node4 = core.formTufoByProp('inet:web:acct', 'clowntown.link/pennywise')
 
             core.addTufoTags(node1, ['aka.bar.baz',
                                      'aka.duck.quack.loud',
@@ -403,7 +404,7 @@ class StormTest(SynTest):
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
-            node4 = core.formTufoByProp('inet:netuser', 'clowntown.link/pennywise')
+            node4 = core.formTufoByProp('inet:web:acct', 'clowntown.link/pennywise')
             core.addTufoTags(node1, ['aka.bar.baz',
                                      'aka.duck.quack.loud',
                                      'loc.milkyway.galactic_arm_a.sol.earth.us.ca.san_francisco'])
@@ -465,7 +466,7 @@ class StormTest(SynTest):
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
-            node4 = core.formTufoByProp('inet:netuser', 'clowntown.link/pennywise')
+            node4 = core.formTufoByProp('inet:web:acct', 'clowntown.link/pennywise')
 
             core.addTufoDark(node1, 'hehe', 'haha')
             core.addTufoDark(node2, 'hehe', 'haha')
@@ -649,6 +650,13 @@ class StormTest(SynTest):
             self.notin('.new', node1[1])
             self.eq(node0[0], node1[0])
 
+            node2 = core.eval('addnode(ps:haswebacct, ((guidname="bob gray"),vertex.link/pennywise))')[0]
+            self.eq(node2[1].get('ps:haswebacct'), 'faebe657f7a5839ecda3f8af15293893/vertex.link/pennywise')
+
+            node3 = core.eval('addnode(ou:haswebacct, ((alias="vertex"),vertex.link/pennywise))')[0]
+            self.eq(node3[1].get('ou:haswebacct'), 'e0d1c290732ac433444afe7b5825f94d')
+            self.eq(node3[1].get('ou:haswebacct:web:acct'), 'vertex.link/pennywise')
+
     def test_storm_task(self):
         with self.getRamCore() as core:
             foo = []
@@ -831,19 +839,19 @@ class StormTest(SynTest):
             self.notin('inet:fqdn:updated', t0[1])
 
             # Cannot delete "ro" props via delprop
-            t1 = core.formTufoByProp('inet:netuser', 'vertex.link/pennywise')
-            self.isin('inet:netuser:user', t1[1])
+            t1 = core.formTufoByProp('inet:web:acct', 'vertex.link/pennywise')
+            self.isin('inet:web:acct:user', t1[1])
             # Operator syntax requires force=1
-            result = core.ask('inet:netuser [ -:user ]')
+            result = core.ask('inet:web:acct [ -:user ]')
             self.eq(result.get('data'), [])
             self.eq(result.get('oplog')[1].get('excinfo').get('err'), 'CantDelProp')
-            t1 = core.getTufoByProp('inet:netuser', 'vertex.link/pennywise')
-            self.isin('inet:netuser:user', t1[1])
-            result = core.ask('inet:netuser delprop(:user, force=1)')
+            t1 = core.getTufoByProp('inet:web:acct', 'vertex.link/pennywise')
+            self.isin('inet:web:acct:user', t1[1])
+            result = core.ask('inet:web:acct delprop(:user, force=1)')
             self.eq(result.get('data'), [])
             self.eq(result.get('oplog')[1].get('excinfo').get('err'), 'CantDelProp')
-            t1 = core.getTufoByProp('inet:netuser', 'vertex.link/pennywise')
-            self.isin('inet:netuser:user', t1[1])
+            t1 = core.getTufoByProp('inet:web:acct', 'vertex.link/pennywise')
+            self.isin('inet:web:acct:user', t1[1])
 
             # Syntax errors
             self.raises(BadSyntaxError, core.eval, 'inet:fqdn=vertex.link delprop()')
@@ -874,6 +882,38 @@ class StormTest(SynTest):
             self.eq(100, len(core.eval('inet:ipv4')))
             self.eq(200, len(core.eval('inet:ipv4^1000')))
             self.eq(200, len(core.eval('inet:ipv4 limit(1000)')))
+
+    def test_storm_query_log(self):
+        with self.getRamCore() as core:
+            # Setup logging to an io.StringIO object
+            stream = io.StringIO()
+            handler = logging.StreamHandler(stream)
+            storm_logger = logging.getLogger('synapse.lib.storm')
+
+            try:
+                storm_logger.addHandler(handler)
+                core.eval('#HAHA')
+            finally:
+                storm_logger.removeHandler(handler)
+
+            stream.seek(0)
+            mesgs = stream.read()
+            self.eq('', mesgs.strip())
+
+            core.setConfOpt('storm:query:log:en', 1)
+            core.setConfOpt('storm:query:log:level', logging.WARNING)
+
+            try:
+                storm_logger.addHandler(handler)
+                core.eval('#HAHA')
+            finally:
+                storm_logger.removeHandler(handler)
+
+            stream.seek(0)
+            mesgs = stream.read()
+
+            e = 'Executing storm query [#HAHA] as [{}]'.format(s_auth.whoami())
+            self.eq(e, mesgs.strip())
 
 class LimitTest(SynTest):
     def test_limit_default(self):
