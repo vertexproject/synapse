@@ -24,7 +24,7 @@ class Task(EventBus):
 
         retn = mesg[1].get('retn')
         if retn is not None:
-            self.fire('task:retn', retn=retn)
+            self.fire('task:retn', task=self.iden, retn=retn)
 
         self.fini()
 
