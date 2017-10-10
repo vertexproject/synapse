@@ -24,7 +24,7 @@ class TaskTest(SynTest):
             self.true(data['ok'])
             self.eq(data['valu'], 30)
 
-            task.err({'hehe':'haha'})
+            task.err({'hehe': 'haha'})
 
             self.false(data['ok'])
             self.eq(data['valu']['hehe'], 'haha')
@@ -32,7 +32,7 @@ class TaskTest(SynTest):
         with s_task.Task() as task:
             task.onretn(onretn)
 
-            task.fire('task:fini', retn=(True,100))
+            task.fire('task:fini', retn=(True, 100))
             self.true(task.isfini)
 
             self.true(data['ok'])
@@ -46,10 +46,10 @@ class TaskTest(SynTest):
         def onretn(retn):
             data['ok'], data['valu'] = retn
 
-        def doit(x,y):
+        def doit(x, y):
             return x + y
 
-        call = (doit,(10,20),{})
+        call = (doit, (10, 20), {})
         with s_task.CallTask(call) as task:
             task.onretn(onretn)
             task.run()

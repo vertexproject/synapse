@@ -479,7 +479,7 @@ class Plex(EventBus):
                         except ValueError as e:
                             pass
 
-                [ self._finiPlexSock(sock) for sock in xxlist ]
+                [self._finiPlexSock(sock) for sock in xxlist]
 
             except Exception as e:
                 logger.warning('plexMainLoop: %s', e)

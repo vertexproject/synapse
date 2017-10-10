@@ -19,7 +19,7 @@ class Sched(EventBus):
 
         EventBus.__init__(self)
 
-        if pool == None:
+        if pool is None:
             pool = s_threads.Pool()
 
         self.pool = pool
@@ -78,7 +78,7 @@ class Sched(EventBus):
                     mine[2] = step[2]
                     step[2] = mine
                     return mine
-   
+
                 # move along to next
                 step = step[2]
 

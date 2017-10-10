@@ -196,10 +196,10 @@ class EventBusTest(SynTest):
         self.nn(bref.get('foo'))
         self.none(bref.get('bar'))
 
-        self.len(2,list(bref))
+        self.len(2, list(bref))
 
-        self.true( bref.pop('baz') is bus2 )
-        self.len(1,list(bref))
+        self.true(bref.pop('baz') is bus2)
+        self.len(1, list(bref))
 
         bref.fini()
         self.true(bus0.isfini)

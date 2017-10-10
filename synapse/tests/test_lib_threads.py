@@ -35,7 +35,6 @@ class ThreadsTest(SynTest):
 
             self.true(task.waitfini(timeout=1))
 
-
     def test_threads_pool_wrap(self):
 
         evnt = threading.Event()
@@ -46,7 +45,6 @@ class ThreadsTest(SynTest):
         with s_threads.Pool() as pool:
             pool.wrap(woot)(20, 30)
             self.true(evnt.wait(timeout=1))
-
 
     def test_threads_cancelable(self):
 

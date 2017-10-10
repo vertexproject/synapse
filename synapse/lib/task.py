@@ -39,7 +39,7 @@ class Task(EventBus):
         self.fire('task:retn', retn=retn)
 
     def retn(self, valu):
-        retn =(True, valu)
+        retn = (True, valu)
         self.fire('task:retn', retn=retn)
 
     def onretn(self, func):
@@ -93,4 +93,3 @@ class CallTask(Task):
 
         except Exception as e:
             self.err(s_common.excinfo(e))
-

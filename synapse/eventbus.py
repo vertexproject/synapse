@@ -379,11 +379,11 @@ class BusRef(EventBus):
     def __init__(self):
         EventBus.__init__(self)
         self.ebus_by_name = {}
-        self.onfini( self._onBusRefFini )
+        self.onfini(self._onBusRefFini)
 
     def _onBusRefFini(self):
         todo = list(self.ebus_by_name.values())
-        [ ebus.fini() for ebus in todo ]
+        [ebus.fini() for ebus in todo]
 
     def put(self, name, ebus):
 

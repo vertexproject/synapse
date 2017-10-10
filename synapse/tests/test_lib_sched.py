@@ -93,7 +93,6 @@ class SchedTest(SynTest):
             loop = sched.loop(0.001, foo)
             self.true(loop.waitfini(timeout=0.1))
 
-            
             data['count'] = 0
             loop = sched.loop(0.001, bar)
             self.true(ran.wait(timeout=1))
@@ -102,4 +101,3 @@ class SchedTest(SynTest):
 
             ran.clear()
             self.false(ran.wait(timeout=0.2))
-
