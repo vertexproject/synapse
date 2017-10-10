@@ -1,6 +1,5 @@
 import os
 
-import synapse.compat as s_compat
 import synapse.dyndeps as s_dyndeps
 import synapse.lib.socket as s_socket
 
@@ -74,7 +73,7 @@ class SshRelay(LinkRelay):
 
             return s_socket.Socket(s, ssh=ssh)
 
-        except s_compat.sockerrs as e:
+        except s_common.sockerrs as e:
             raiseSockError(self.link, e)
 
         except Exception as e:

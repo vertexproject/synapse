@@ -1,4 +1,3 @@
-from synapse.eventbus import on
 from synapse.lib.module import CoreModule, modelrev
 
 class ItMod(CoreModule):
@@ -262,10 +261,8 @@ class ItMod(CoreModule):
 
         return models
 
-    def intiCoreModule(self):
-        pass
+    def initCoreModule(self):
+        self.onFormNode('it:dev:str', self._onFormItDevStr)
 
-    @on('node:form', form='it:dev:str')
-    def _onFormItDevStr(self, mesg):
-        props = mesg[1].get('props')
-        props['it:dev:str:norm'] = mesg[1].get('valu').lower()
+    def _onFormItDevStr(self, form, valu, props, mesg):
+        props['it:dev:str:norm'] = valu.lower()

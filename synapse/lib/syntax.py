@@ -1,5 +1,4 @@
 import synapse.common as s_common
-import synapse.compat as s_compat
 
 import synapse.lib.time as s_time
 import synapse.lib.interval as s_interval
@@ -526,7 +525,7 @@ def parse_perm(text, off=0):
         _, off = nom(text, off + 1, whites)
 
         valu, off = parse_valu(text, off)
-        if not s_compat.isstr(valu):
+        if not isinstance(valu, str):
             raise s_common.BadSyntaxError(mesg='perm opt %s= expected string' % meta)
 
         _, off = nom(text, off, whites)

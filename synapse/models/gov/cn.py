@@ -1,5 +1,4 @@
 from synapse.common import guid
-from synapse.eventbus import on
 from synapse.lib.module import CoreModule, modelrev
 
 class GovCnMod(CoreModule):
@@ -20,9 +19,12 @@ class GovCnMod(CoreModule):
         name = 'gov:cn'
         return ((name, modl), )
 
-    @on('node:add', form='gov:cn:mucd')
-    def _onFormMucd(self, mesg):
-        mucd = mesg[1].get('valu')
+    def initCoreModule(self):
+        self.onNodeAdd(self.onAddMucd, form='gov:cn:mucd')
+
+    def onAddMucd(self, node):
+        mucd = node[1].get('gov:cn:mucd')
+
         name = 'Chinese PLA Unit %d' % (mucd,)
 
         iden = guid(('gov:cn:mucd', mucd))

@@ -3,7 +3,7 @@ from synapse.tests.common import *
 class MediaTest(SynTest):
 
     def test_models_media_news(self):
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             node = core.formTufoByProp('media:news', guid(), title='Synapse is Awesome!', url='http://www.VERTEX.link/synapse')
             self.nn(node)
             self.eq(node[1].get('media:news:org'), '??')

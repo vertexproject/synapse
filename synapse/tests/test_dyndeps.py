@@ -13,6 +13,10 @@ def woot(x, y=30):
 
 class DynDepsTest(SynTest):
 
+    def test_dyndeps_expected_aliases(self):
+        self.isin('syn:axon', s_dyndeps.aliases)
+        self.isin('syn:cortex', s_dyndeps.aliases)
+
     def test_dyndeps_dynmod(self):
         self.none(s_dyndeps.getDynMod('- -'))
         self.nn(s_dyndeps.getDynMod('sys'))

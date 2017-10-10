@@ -2,11 +2,15 @@
 The synapse distributed key-value hypergraph analysis framework.
 '''
 import os
+import sys
 import msgpack
 import tornado
 import logging
 
 logger = logging.getLogger(__name__)
+
+if (sys.version_info.major, sys.version_info.minor) < (3, 4):
+    raise Exception('synapse is not supported on Python versions < 3.4')
 
 if msgpack.version < (0, 4, 2):
     raise Exception('synapse requires msgpack >= 0.4.2')
@@ -14,8 +18,7 @@ if msgpack.version < (0, 4, 2):
 if tornado.version_info < (3, 2, 2):
     raise Exception('synapse requires tornado >= 3.2.2')
 
-version = (0, 0, 25)
-verstring = '.'.join([str(x) for x in version])
+from synapse.lib.version import version, verstring
 
 # load all the synapse builtin modules
 # the built-in cortex modules...
@@ -76,6 +79,4 @@ s_datamodel.rebuildTlib()
 
 # load any modules which register dyndeps aliases...
 # ( order matters...)
-import synapse.axon
-import synapse.cortex
-#import synapse.cores.common as s_cores_common
+import synapse.axon  # synapse.axon brings in synapse.cortex's dyndep registration.

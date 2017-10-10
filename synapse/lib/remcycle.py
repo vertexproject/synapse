@@ -22,6 +22,7 @@ import json
 import logging
 import tempfile
 import collections
+import urllib.parse
 # Third Party Code
 import tornado.ioloop as t_ioloop
 import tornado.httpclient as t_http
@@ -29,7 +30,6 @@ import tornado.httpclient as t_http
 import synapse.axon as s_axon
 import synapse.async as s_async
 import synapse.common as s_common
-import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.lib.cache as s_cache
 import synapse.lib.ingest as s_ingest
@@ -288,9 +288,9 @@ class Nyx(object):
             if argv is s_common.novalu:
                 logger.error('Missing argument: %s', argn)
                 raise s_common.NoSuchName(name=argn, mesg='Missing an expected argument')
-            t_args[argn] = s_compat.url_quote_plus(str(argv))
+            t_args[argn] = urllib.parse.quote_plus(str(argv))
         for argn, defval in self.api_kwargs.items():
-            t_args[argn] = s_compat.url_quote_plus(str(api_args.get(argn, defval)))
+            t_args[argn] = urllib.parse.quote_plus(str(api_args.get(argn, defval)))
         url = self.effective_url.format(**t_args)
         req = t_http.HTTPRequest(url, body=body, **self.request_defaults)
         return req

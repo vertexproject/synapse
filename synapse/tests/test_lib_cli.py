@@ -104,8 +104,6 @@ class CliTest(SynTest):
             self.eq(opts.get('bar'), 'lol')
 
     def test_cli_cmd_loop_quit(self):
-        self.skipIfOldPython()
-        import unittest.mock as mock
 
         @mock.patch('synapse.lib.cli.get_input', return_value='quit')
         def _innertest(testcase, *args, **kwargs):

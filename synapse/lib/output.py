@@ -1,9 +1,8 @@
 '''
 Tools for easily hookable output from cli-like tools.
 '''
+import io
 import sys
-
-import synapse.compat as s_compat
 
 class OutPut:
 
@@ -33,7 +32,7 @@ class OutPutFd(OutPut):
 class OutPutBytes(OutPutFd):
 
     def __init__(self):
-        OutPutFd.__init__(self, s_compat.BytesIO())
+        OutPutFd.__init__(self, io.BytesIO())
 
 class OutPutStr(OutPut):
 

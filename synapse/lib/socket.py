@@ -1,5 +1,3 @@
-from __future__ import absolute_import, unicode_literals
-
 import ssl
 import zlib
 import errno
@@ -26,23 +24,6 @@ def sockgzip(byts):
     #print('GZIP DELTA: %d -> %d' % (blen,len(byts)))
     return s_common.msgenpack(('sock:gzip', {'data': byts}))
 
-class SockXform:
-    '''
-    Base class for a socket bytes transform class.
-
-    Notes:
-
-        * for obj tx/rx, these are called once per.
-    '''
-    def init(self, sock):
-        pass
-
-    def txform(self, byts):
-        return byts
-
-    def rxform(self, byts):
-        return byts
-
 class Socket(EventBus):
     '''
     Wrapper for the builtin socket.Socket class.
@@ -56,37 +37,56 @@ class Socket(EventBus):
         EventBus.__init__(self)
 
         self.sock = sock  # type: socket.socket
-        self.plex = None
         self.unpk = msgpack.Unpacker(use_list=0, encoding='utf8')
         self.iden = s_common.guid()
-        self.xforms = []        # list of SockXform instances
-        self.info = info
 
-        # used by Plex() tx
-        self.txbuf = None
-        self.txsize = 0
+        self.info = info
+        self.blocking = True    # sockets are blocking by default
 
         if self.info.get('nodelay', True):
             self._tryTcpNoDelay()
 
+        self.txbuf = None   # the remainder of a partially sent byts
         self.txque = collections.deque()
         self.rxque = collections.deque()
 
         self.onfini(self._finiSocket)
 
-    def addSockXform(self, xform):
+    def _addTxByts(self, byts):
+        self.txque.append(byts)
+        self.fire('sock:tx:add')
+
+    def runTxLoop(self):
         '''
-        Add a data transformation filter to the socket.
+        Run a pass through the non-blocking tx loop.
 
-        Example:
-
-            sock.addSockXform(xform)
-
+        Returns:
+            (bool): True if there is still more work to do
         '''
-        xform.init(self)
-        self.xforms.append(xform)
+        while True:
 
-    def get(self, prop):
+            if not self.txbuf:
+
+                if not self.txque:
+                    break
+
+                self.txbuf = self.txque.popleft()
+                self.fire('sock:tx:pop')
+
+            sent = self.send(self.txbuf)
+            self.txbuf = self.txbuf[sent:]
+
+            # if we still have a txbuf after sending
+            # we could only send part of the buffer
+            if self.txbuf:
+                break
+
+        if not self.txbuf and not self.txque:
+            return False
+
+        return True
+
+    def get(self, prop, defval=None):
         '''
         Retrieve a property from the socket's info dict.
 
@@ -96,7 +96,7 @@ class Socket(EventBus):
                 dostuff()
 
         '''
-        return self.info.get(prop)
+        return self.info.get(prop, defval)
 
     def set(self, prop, valu):
         '''
@@ -141,77 +141,47 @@ class Socket(EventBus):
             # fini triggered above.
             return None
 
-        for xform in self.xforms:
-            byts = xform.rxform(byts)
-
-        return byts
-
-    def _tx_xform(self, byts):
-        '''
-        '''
-        for xform in self.xforms:
-            byts = xform.txform(byts)
-
-        return byts
-
-    def _rx_xform(self, byts):
-        for xform in self.xforms:
-            byts = xform.rxform(byts)
-        return byts
-
-    def sendall(self, byts):
-        byts = self._tx_xform(byts)
-        return self.sock.sendall(byts)
-
-    def _raw_send(self, byts):
-        return self.sock.send(byts)
-
-    def _raw_sendall(self, byts):
-        return self.sock.sendall(byts)
-
-    def _raw_recvall(self, size):
-        byts = b''
-        remain = size
-
-        try:
-
-            while remain:
-                x = self.sock.recv(remain)
-                if not x:
-                    return None
-                byts += x
-                remain -= len(x)
-
-        except socket.error as e:
-            # fini triggered above.
-            return None
-
         return byts
 
     def recvobj(self):
         for mesg in self:
             return mesg
 
-    def fireobj(self, msg, **msginfo):
-        return self.tx((msg, msginfo))
+    def setblocking(self, valu):
+        '''
+        Set the socket's blocking mode to True/False.
+
+        Args:
+            valu (bool): False to set socket non-blocking
+        '''
+        valu = bool(valu)
+        self.blocking = valu
+        self.sock.setblocking(valu)
 
     def tx(self, mesg):
         '''
         Transmit a mesg tufo ( type, info ) via the socket using msgpack.
         If present this API is safe for use with a socket in a Plex().
         '''
-        if self.plex is not None:
-            return self.plex._txSockMesg(self, mesg)
 
-        try:
-            byts = s_common.msgenpack(mesg)
+        byts = s_common.msgenpack(mesg)
+        return self.txbytes(byts)
 
-            if len(byts) > 50000 and self.get('sock:can:gzip'):
-                byts = sockgzip(byts)
+    def txbytes(self, byts):
 
-            self.sendall(byts)
+        # we may support gzip on the socket message
+        if len(byts) > 50000 and self.get('sock:can:gzip'):
+            byts = sockgzip(byts)
+
+        # if the socket is non-blocking assume someone is managing
+        # the socket via sock:tx:add events
+        if not self.blocking:
+            self._addTxByts(byts)
             return True
 
+        try:
+            self.sendall(byts)
+            return True
         except socket.error as e:
             self.fini()
             return False
@@ -237,6 +207,7 @@ class Socket(EventBus):
             return
 
         byts = self.recv(102400)
+
         # special case for non-blocking recv with no data ready
         if byts is None:
             return
@@ -317,7 +288,7 @@ class Socket(EventBus):
                 self.fini()
                 return byts
 
-            return self._rx_xform(byts)
+            return byts
 
         except ssl.SSLError as e:
             # handle "did not complete" error where we didn't
@@ -355,6 +326,7 @@ class Plex(EventBus):
 
         #self._plex_sel = selectors.DefaultSelector()
 
+        self._plex_thr = None
         self._plex_lock = threading.Lock()
         self._plex_socks = {}
 
@@ -368,12 +340,21 @@ class Plex(EventBus):
         self._plex_s2.set('wake', True)
         self.addPlexSock(self._plex_s2)
 
-        self._plex_thr = self._plexMainLoop()
-
         self.onfini(self._onPlexFini)
+
+        self._plex_thr = self._plexMainLoop()
 
     def __len__(self):
         return len(self._plex_socks)
+
+    def getPlexSocks(self):
+        '''
+        Return a list of the Socket()s managed by the Plex().
+
+        Returns:
+            ([Socket(),...]):   The list of Socket() instances.
+        '''
+        return self._plex_socks.values()
 
     def _popPlexSock(self, iden):
         sock = self._plex_socks.pop(iden, None)
@@ -396,6 +377,14 @@ class Plex(EventBus):
         except ValueError as e:
             pass
 
+        self.wake()
+
+    def wake(self):
+        '''
+        '''
+        if s_threads.current() is self._plex_thr:
+            return
+
         self._plexWake()
 
     def addPlexSock(self, sock):
@@ -410,12 +399,22 @@ class Plex(EventBus):
             plex.addPlexSock(sock)
 
         '''
-        sock.plex = self
         sock.setblocking(0)
 
-        iden = sock.iden
+        def txadd(mesg):
 
-        sock.plex = self
+            with self._plex_lock:
+                istx = sock.get('plex:istx')
+
+                if not istx:
+                    # since it's not in the tx list yet lets fire the
+                    # tx loop and see if we need to be added...
+                    if sock.runTxLoop():
+                        sock.set('plex:istx', True)
+                        self._plex_txsocks.append(sock)
+                        self.wake()
+
+        sock.on('sock:tx:add', txadd)
 
         self._plex_socks[sock.iden] = sock
 
@@ -423,92 +422,11 @@ class Plex(EventBus):
         self._plex_rxsocks.append(sock)
         self._plex_xxsocks.append(sock)
 
-        def finisock():
-            self.fire('link:sock:fini', sock=sock)
-            self._popPlexSock(iden)
+        def fini():
+            self._popPlexSock(sock.iden)
 
-        sock.onfini(finisock)
-        self._plexWake()
-
-    def _txSockMesg(self, sock, mesg):
-        # handle the need to send on a socket in the plex
-        byts = s_common.msgenpack(mesg)
-        if len(byts) > 50000 and sock.get('sock:can:gzip'):
-            byts = sockgzip(byts)
-
-        with self._plex_lock:
-
-            # we have no backlog!
-            if sock.txbuf is None:
-
-                byts = sock._tx_xform(byts)
-
-                try:
-
-                    sent = sock.send(byts)
-
-                except ssl.SSLError as e:
-                    # FIXME isolate this filth within link modules.
-                    sent = 0
-                    if e.errno != 3:
-                        #logger.exception(e)
-                        sock.fini()
-                        return
-
-                except Exception as e:
-                    #logger.exception(e)
-                    sock.fini()
-                    return
-
-                blen = len(byts)
-                if sent == blen:
-                    return
-
-                # our send was a bit short...
-                sock.txbuf = byts[sent:]
-                sock.txsize += (blen - sent)
-                sock.fire('sock:tx:size', size=sock.txsize)
-
-                self._plex_txsocks.append(sock)
-                self._plexWake()
-                return
-
-            # so... we have a backlog...
-            sock.txque.append(byts)
-
-            sock.txsize += len(byts)
-            sock.fire('sock:tx:size', size=sock.txsize)
-
-    def _runSockTx(self, sock):
-        # handle socket select() for tx
-        # ( this is *always* run by plexMainLoop() )
-        with self._plex_lock:
-
-            sent = sock.send(sock.txbuf)
-
-            sock.txsize -= sent
-            sock.fire('sock:tx:size', size=sock.txsize)
-
-            # did we not even manage the whole txbuf?
-            if sent < len(sock.txbuf):
-                sock.txbuf = sock.txbuf[sent:]
-                return
-
-            # we managed it! any more msgs?
-            if not sock.txque:
-                sock.txbuf = None
-
-                # SPEED HACK: faster than if sock in txsocks:
-                try:
-                    self._plex_txsocks.remove(sock)
-                except ValueError as e:
-                    pass
-
-                return
-
-            # more msgs! lets serialize the next!
-            byts = sock.txque.popleft()
-            sock.txbuf = sock._tx_xform(byts)
+        sock.onfini(fini)
+        self.wake()
 
     def _plexWake(self):
         try:
@@ -541,16 +459,22 @@ class Plex(EventBus):
                     if rxsock.get('listen'):
                         connsock, connaddr = rxsock.accept()
                         if connsock is not None:
-                            rxsock.fire('link:sock:init', sock=connsock)
+                            self.addPlexSock(connsock)
+                            self.fire('link:sock:init', sock=connsock)
 
                         continue
 
                     # yield any completed mesgs
                     for mesg in rxsock.rx():
-                        rxsock.fire('link:sock:mesg', sock=rxsock, mesg=mesg)
+                        self.fire('link:sock:mesg', sock=rxsock, mesg=mesg)
 
                 for txsock in txlist:
-                    self._runSockTx(txsock)
+                    if not txsock.runTxLoop():
+                        txsock.set('plex:istx', False)
+                        try:
+                            self._plex_txsocks.remove(txsock)
+                        except ValueError as e:
+                            pass
 
                 [sock.fini() for sock in xxlist]
 

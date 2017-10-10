@@ -1,15 +1,13 @@
-from __future__ import absolute_import
-
 import sys
 import struct
 import logging
+import functools
 from binascii import unhexlify
 
 from contextlib import contextmanager
 from threading import Lock
 
 import synapse.common as s_common
-import synapse.compat as s_compat
 import synapse.datamodel as s_datamodel
 
 import synapse.cores.xact as s_xact
@@ -36,9 +34,6 @@ logger = logging.getLogger(__name__)
 
 # Largest primary key value.  No more rows than this
 MAX_PK = sys.maxsize
-
-# Bytes in MAX_PK
-MAX_PK_BYTES = 8 if sys.maxsize > 2**32 else 4
 
 # Prefix to indicate that a v is a nonnegative value
 NONNEGATIVE_VAL_MARKER = 0
@@ -101,7 +96,7 @@ def _encValKey(v):
     interleaving of value types: all string encodings compare larger than all negative number
     encodings compare larger than all nonnegative encodings.
     '''
-    if s_compat.isint(v):
+    if isinstance(v, int):
         if v >= 0:
             return s_common.msgenpack(v)
         else:
@@ -114,13 +109,13 @@ def _encValKey(v):
 
 # Really just want to memoize the last iden encoded, but there might be some multithreading, so keep
 # a few more (8)
-@s_compat.lru_cache(maxsize=8)
+@functools.lru_cache(maxsize=8)
 def _encIden(iden):
     ''' Encode an iden '''
     return unhexlify(iden)
 
 # Try to memoize most of the prop names we get
-@s_compat.lru_cache(maxsize=1024)
+@functools.lru_cache(maxsize=1024)
 def _encProp(prop):
     return msgpack.dumps(prop, encoding='utf-8')
 
@@ -324,6 +319,11 @@ class LmdbStorage(s_cores_storage.Storage):
         Checks if there's enough extra space in the map to accomodate a commit of at least
         self._slack_space size and increase it if not.
         '''
+        # Don't change map size if 32-bit interpreter.  set_mapsize failure will lead to seg fault,
+        # so avoid it altogether
+        if sys.maxsize <= 2**32:
+            return
+
         # Figure how how much space the DB is using
         used = 4096 * self.dbenv.info()['last_pgno']
 
@@ -340,9 +340,9 @@ class LmdbStorage(s_cores_storage.Storage):
         dbname = dbinfo.get('name')
 
         # Initial DB Size.  Must be < 2 GiB for 32-bit.  Can be big for 64-bit systems.  Will create
-        # a file of that size.  On MacOS/Windows, will actually immediately take up that much
+        # a file of that size.  On Windows, will actually immediately take up that much
         # disk space.
-        DEFAULT_MAP_SIZE = 256 * 1024 * 1024
+        DEFAULT_MAP_SIZE = 512 * 1024 * 1024
 
         # _write_lock exists solely to hold off other threads' write transactions long enough to
         # potentially increase the map size.
@@ -350,7 +350,7 @@ class LmdbStorage(s_cores_storage.Storage):
 
         map_size = self._link[1].get('lmdb:mapsize', DEFAULT_MAP_SIZE)
         self._map_size, _ = s_datamodel.getTypeNorm('int', map_size)
-        self._max_map_size = 2**48 if sys.maxsize > 2**32 else 2**31
+        self._max_map_size = 2**46 if sys.maxsize > 2**32 else 2**30
 
         map_slack = self._link[1].get('lmdb:mapslack', 2 ** 30)
         self._map_slack, _ = s_datamodel.getTypeNorm('int', map_slack)
@@ -493,9 +493,9 @@ class LmdbStorage(s_cores_storage.Storage):
                 key, value = cursor.item()
                 if key[:len(i_enc)] != i_enc:
                     return
-                p_enc = s_compat.memToBytes(key[len(i_enc):])
+                p_enc = key[len(i_enc):].tobytes()
                 # Need to copy out with tobytes because we're deleting
-                pk_enc = s_compat.memToBytes(value)
+                pk_enc = value.tobytes()
 
                 if not cursor.delete():
                     raise s_common.BadCoreStore(store='lmdb', mesg='Delete failure')
@@ -518,7 +518,7 @@ class LmdbStorage(s_cores_storage.Storage):
                 if key[:len(first_key)] != first_key:
                     return
                 # Need to copy out with tobytes because we're deleting
-                pk_enc = s_compat.memToBytes(value)
+                pk_enc = value.tobytes()
 
                 # Delete the row and the other indices
                 if not self._delRowAndIndices(txn, pk_enc, i_enc=i_enc, p_enc=p_enc,
@@ -582,7 +582,7 @@ class LmdbStorage(s_cores_storage.Storage):
             if not cursor.set_range(first_key):
                 raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
             for key, value in cursor:
-                if s_compat.memToBytes(key) != first_key:
+                if key.tobytes() != first_key:
                     return ret
                 row = self._getRowByPkValEnc(txn, value)
                 if valu is not None and row[2] != valu:
@@ -611,7 +611,7 @@ class LmdbStorage(s_cores_storage.Storage):
                     if key[:len(first_key)] != first_key:
                         break
                 else:
-                    if s_compat.memToBytes(key) >= last_key:
+                    if key.tobytes() >= last_key:
                         break
                 if v_is_hashed or not do_count_only:
                     row = self._getRowByPkValEnc(txn, pk_enc)
@@ -641,7 +641,7 @@ class LmdbStorage(s_cores_storage.Storage):
                     if key[:len(first_key)] != first_key:
                         break
                 else:
-                    if s_compat.memToBytes(key) >= last_key:
+                    if key.tobytes() >= last_key:
                         break
 
                 if self._delRowAndIndices(txn, pk_enc,
@@ -743,7 +743,7 @@ class LmdbStorage(s_cores_storage.Storage):
             if am_going_backwards:
                 # set_range sets the cursor at the first key >= first_key, if we're going backwards
                 # we actually want the first key <= first_key
-                if s_compat.memToBytes(cursor.key()[:len(first_key)]) > first_key:
+                if cursor.key()[:len(first_key)].tobytes() > first_key:
                     if not cursor.prev():
                         raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
                 it = cursor.iterprev(keys=True, values=True)
@@ -751,7 +751,7 @@ class LmdbStorage(s_cores_storage.Storage):
                 it = cursor.iternext(keys=True, values=True)
 
             for key, value in it:
-                if term_cmp(s_compat.memToBytes(key[:len(last_key)]), last_key):
+                if term_cmp(key[:len(last_key)].tobytes(), last_key):
                     break
                 count += 1
                 if not do_count_only:

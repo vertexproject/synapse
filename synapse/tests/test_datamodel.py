@@ -59,7 +59,7 @@ class DataModelTest(SynTest):
     def test_datamodel_cortex(self):
         core = s_cortex.openurl('ram:///')
 
-        core.addTufoForm('foo')
+        core.addTufoForm('foo', ptype='str')
         core.addTufoProp('foo', 'bar', ptype='int', defval=10)
 
         core.formTufoByProp('foo', 'hehe')
@@ -77,13 +77,13 @@ class DataModelTest(SynTest):
         self.eq(tufo0[0], tufo1[0])
 
         tufos = core.getTufosByProp('foo')
-        self.eq(len(tufos), 3)
+        self.len(3, tufos)
 
         tufos = core.getTufosByProp('foo:bar', valu=30, limit=20)
-        self.eq(len(tufos), 1)
+        self.len(1, tufos)
 
         tufos = core.getTufosByProp('foo:bar', valu=99, limit=20)
-        self.eq(len(tufos), 1)
+        self.len(1, tufos)
 
     def test_datamodel_subs(self):
         model = s_datamodel.DataModel()
@@ -93,7 +93,7 @@ class DataModelTest(SynTest):
 
         subs = model.getSubProps('foo')
 
-        self.eq(len(subs), 1)
+        self.len(1, subs)
         self.eq(subs[0][0], 'foo:bar')
 
         model.addTufoProp('foo', 'baz', ptype='int', defval=20)
@@ -237,6 +237,18 @@ class DataModelTest(SynTest):
         self.eq(model.getTypeNorm('syn:tag', 'foo.BAR')[0], 'foo.bar')
         self.eq(model.getTypeParse('syn:tag', 'foo.BAR')[0], 'foo.bar')
 
+    def test_datamodel_forms(self):
+        model = s_datamodel.DataModel(load=False)
+        forms = model.getTufoForms()
+        self.isinstance(forms, list)
+        self.notin('syn:prop', forms)
+        self.notin('inet:ipv4', forms)
+
+        model = s_datamodel.DataModel()
+        forms = model.getTufoForms()
+        self.isin('syn:prop', forms)
+        self.isin('inet:ipv4', forms)
+
     def test_datamodel_getPropInfo(self):
         model = s_datamodel.DataModel()
 
@@ -245,8 +257,30 @@ class DataModelTest(SynTest):
 
         model.addTufoForm('foo')
         model.addTufoProp('foo', 'meow', ptype='foo:baz')
+        model.addTufoProp('foo', 'bark', doc='lala')
+        model.addTufoProp('foo', 'meow:purr', ptype='foo:baz', title='purr', doc='The sound a purr makes')
 
+        self.eq(model.getPropInfo('foo:meow', 'req'), False)
+        self.eq(model.getPropInfo('foo:meow', 'base'), 'meow')
+        self.eq(model.getPropInfo('foo:meow', 'relname'), 'meow')
+        self.eq(model.getPropInfo('foo:meow', 'defval'), None)
+        self.eq(model.getPropInfo('foo:meow', 'title'), '')
         self.eq(model.getPropInfo('foo:meow', 'doc'), 'foo bar doc')
+
+        self.eq(model.getPropInfo('foo:bark', 'doc'), 'lala')
+        self.eq(model.getPropInfo('foo:bark', 'title'), '')
+        self.eq(model.getPropInfo('foo:bark', 'base'), 'bark')
+        self.eq(model.getPropInfo('foo:bark', 'relname'), 'bark')
+        self.eq(model.getPropInfo('foo:meow', 'defval'), None)
+        self.eq(model.getPropInfo('foo:meow', 'req'), False)
+
+        self.eq(model.getPropInfo('foo:meow:purr', 'req'), False)
+        self.eq(model.getPropInfo('foo:meow:purr', 'base'), 'purr')
+        self.eq(model.getPropInfo('foo:meow:purr', 'relname'), 'meow:purr')
+        self.eq(model.getPropInfo('foo:meow:purr', 'defval'), None)
+        self.eq(model.getPropInfo('foo:meow:purr', 'title'), 'purr')
+        self.eq(model.getPropInfo('foo:meow:purr', 'doc'), 'The sound a purr makes')
+
         self.eq(model.getPropInfo('foo:nonexistent', 'doc'), None)
 
     def test_datamodel_getPropDef(self):
@@ -255,7 +289,18 @@ class DataModelTest(SynTest):
         model.addTufoForm('foo')
         model.addTufoProp('foo', 'meow', ptype='int')
 
-        self.eq(model.getPropDef('foo:meow'), ('foo:meow', {'doc': None, 'title': None, 'defval': None, 'form': 'foo', 'base': 'meow', 'uniq': False, 'ptype': 'int', 'req': False}))
+        self.eq(model.getPropDef('foo:meow'),
+                ('foo:meow', {'title': '',
+                              'req': False,
+                              'form': 'foo',
+                              'relname': 'meow',
+                              'base': 'meow',
+                              'defval': None,
+                              'ptype': 'int',
+                              'doc': 'The base integer type',
+                              }
+                 )
+                )
         self.eq(model.getPropDef('foo:meow:nonexistent'), None)
         self.eq(model.getPropDef('foo:meow:nonexistent', glob=False), None)
 
@@ -332,3 +377,9 @@ class DataModelTest(SynTest):
         self.eq(base, 'baz')
 
         self.raises(NoSuchProp, modl.getPropFormBase, 'newp:newp')
+
+    def test_datamodel_reqpropnorm(self):
+        with self.getRamCore() as core:
+            v, _ = core.reqPropNorm('strform:foo', '1')
+            self.eq(v, '1')
+            self.raises(NoSuchProp, core.reqPropNorm, 'strform:beepbeep', '1')

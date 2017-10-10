@@ -9,12 +9,17 @@ import unittest
 import threading
 import contextlib
 
+import unittest.mock as mock
+
 logging.basicConfig(level=logging.WARNING)
 
 import synapse.link as s_link
-import synapse.compat as s_compat
 import synapse.cortex as s_cortex
+import synapse.daemon as s_daemon
 import synapse.eventbus as s_eventbus
+import synapse.telepath as s_telepath
+
+import synapse.cores.common as s_cores_common
 
 import synapse.lib.scope as s_scope
 import synapse.lib.ingest as s_ingest
@@ -29,13 +34,8 @@ s_scope.get('plex')
 
 class TooFewEvents(Exception): pass
 
-# Py2/3 SSL Exception Compat
-if s_compat.version >= (3, 0, 0):
-    TstSSLInvalidClientCertErr = ssl.SSLError
-    TstSSLConnectionResetErr = ConnectionResetError
-else:
-    TstSSLInvalidClientCertErr = socket.error
-    TstSSLConnectionResetErr = socket.error
+TstSSLInvalidClientCertErr = socket.error
+TstSSLConnectionResetErr = socket.error
 
 class TstEnv:
 
@@ -76,11 +76,6 @@ class SynTest(unittest.TestCase):
 
     def getTestWait(self, bus, size, *evts):
         return s_eventbus.Waiter(bus, size, *evts)
-
-    def skipIfOldPython(self):
-        python_version = sys.version_info
-        if python_version.major == 2 or (python_version.major == 3 and python_version.minor < 3):
-            raise unittest.SkipTest('old python version')
 
     def skipIfNoInternet(self):
         if os.getenv('SYN_TEST_NO_INTERNET'):
@@ -198,6 +193,114 @@ class SynTest(unittest.TestCase):
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
+    @staticmethod
+    def addTstForms(core):
+        '''
+        Add test forms to the cortex.
+        Args:
+            core (s_cores_common.Cortex): Core to prep.
+        Returns:
+            None
+        '''
+        # Some custom type machinations for later test use
+        modl = {
+            'types': (
+                ('strform', {'subof': 'str'},),
+                ('intform', {'subof': 'int'},),
+                ('default_foo', {'subof': 'str'},),
+                ('guidform', {'subof': 'guid'},),
+                ('pvsub', {'subof': 'str'}),
+            ),
+            'forms': (
+                (
+                    'strform', {'ptype': 'strform', 'doc': 'A test str form'},
+                    (
+                        ('foo', {'ptype': 'str'}),
+                        ('bar', {'ptype': 'str'}),
+                        ('baz', {'ptype': 'int'}),
+                    )
+                ),
+                (
+                    'intform', {'ptype': 'intform'},  # purposely missing doc
+                    (
+                        ('foo', {'ptype': 'str'}),
+                        ('baz', {'ptype': 'int'}),
+                    )
+                ),
+                (
+                    'default_foo', {'ptype': 'str'},
+                    (
+                        ('p0', {'ptype': 'int'}),
+                    )
+                ),
+                (
+                    'guidform', {'ptype': 'guidform'},
+                    (
+                        ('foo', {'ptype': 'str'}),
+                        ('baz', {'ptype': 'int'}),
+                    )
+                ),
+                (
+                    'pvsub', {'ptype': 'pvsub'},
+                    (
+                        ('xref', {'ptype': 'propvalu', 'ro': 1, }),
+                        ('xref:intval', {'ptype': 'int', 'ro': 1, }),
+                        ('xref:strval', {'ptype': 'str', 'ro': 1}),
+                        ('xref:prop', {'ptype': 'str', 'ro': 1}),
+                    )
+                ),
+                (
+                    'pvform', {'ptype': 'propvalu'},
+                    (
+                        ('intval', {'ptype': 'int', 'ro': 1, }),
+                        ('strval', {'ptype': 'str', 'ro': 1}),
+                        ('prop', {'ptype': 'str', 'ro': 1}),
+                    )
+                ),
+            )
+        }
+        core.addDataModel('tst', modl)
+        core.addTufoProp('inet:fqdn', 'inctest', ptype='int', defval=0)
+
+    @contextlib.contextmanager
+    def getRamCore(self):
+        '''
+        Context manager to make a ram:/// cortex which has test models
+        loaded into it.
+
+        Yields:
+            s_cores_common.Cortex: Ram backed cortex with test models.
+        '''
+        with s_cortex.openurl('ram:///') as core:
+            self.addTstForms(core)
+            yield core
+
+    @contextlib.contextmanager
+    def getDmonCore(self):
+        '''
+        Context manager to make a ram:/// cortex which has test models loaded into it and shared via daemon.
+
+        Yields:
+            s_cores_common.Cortex: A proxy object to the Ram backed cortex with test models.
+        '''
+        dmon = s_daemon.Daemon()
+        core = s_cortex.openurl('ram:///')
+        self.addTstForms(core)
+
+        link = dmon.listen('tcp://127.0.0.1:0/')
+        dmon.share('core00', core)
+        port = link[1].get('port')
+        prox = s_telepath.openurl('tcp://127.0.0.1/core00', port=port)
+
+        s_scope.set('syn:test:link', link)
+        s_scope.set('syn:cmd:core', prox)
+
+        yield prox
+
+        prox.fini()
+        core.fini()
+        dmon.fini()
+
     @contextlib.contextmanager
     def getTestDir(self):
         tempdir = tempfile.mkdtemp()
@@ -253,6 +356,8 @@ class SynTest(unittest.TestCase):
     def le(self, x, y):
         self.assertLessEqual(x, y)
 
+    def len(self, x, obj):
+        self.eq(x, len(obj))
 
 testdir = os.path.dirname(__file__)
 def getTestPath(*paths):

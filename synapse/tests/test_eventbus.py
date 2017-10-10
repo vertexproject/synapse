@@ -2,6 +2,7 @@ import unittest
 import threading
 
 import synapse.eventbus as s_eventbus
+import synapse.lib.threads as s_threads
 
 from synapse.tests.common import *
 
@@ -151,40 +152,6 @@ class EventBusTest(SynTest):
         mesg = bus.fire('rofl', foo=10)
         self.true(mesg[1].get('woot'))
 
-    def test_eventbus_decor(self):
-
-        class Woot(s_eventbus.EventBus):
-
-            @s_eventbus.on('ebus:init')
-            def _onWootInit(self, mesg):
-                self.hit = False
-                self.finid = False
-
-            @s_eventbus.on('hehe:hoho')
-            @s_eventbus.on('hehe:haha', woot=1)
-            def _onHeheHaHaWoot(self, mesg):
-                self.hit = True
-
-            @s_eventbus.onfini
-            def _onWootFini(self):
-                self.finid = True
-
-        woot = Woot()
-        self.false(woot.hit)
-
-        woot.fire('hehe:haha')
-        self.false(woot.hit)
-
-        woot.fire('hehe:haha', woot=1)
-        self.true(woot.hit)
-
-        woot.hit = False
-        woot.fire('hehe:hoho')
-        self.true(woot.hit)
-
-        woot.fini()
-        self.true(woot.finid)
-
     def test_eventbus_log(self):
 
         logs = []
@@ -212,3 +179,20 @@ class EventBusTest(SynTest):
 
         mesg = logs[0]
         self.eq(mesg[1].get('err'), 'NoSuchObj')
+
+    def test_eventbus_waitfini(self):
+
+        ebus = s_eventbus.EventBus()
+
+        self.false(ebus.waitfini(timeout=0.1))
+
+        def callfini():
+            time.sleep(0.1)
+            ebus.fini()
+
+        thr = s_threads.worker(callfini)
+        # actually wait...
+        self.true(ebus.waitfini(timeout=0.3))
+
+        # bounce off the isfini block
+        self.true(ebus.waitfini(timeout=0.3))

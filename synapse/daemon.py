@@ -10,7 +10,6 @@ import collections
 import multiprocessing
 
 import synapse.link as s_link
-import synapse.compat as s_compat
 import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
@@ -370,7 +369,7 @@ class Daemon(EventBus, DmonConf):
         self.onfini(self.pool.fini)
         self.onfini(self.cura.fini)
 
-        self.on('link:sock:init', self._onLinkSockInit)
+        self.plex.on('link:sock:init', self._onLinkSockInit)
         self.plex.on('link:sock:mesg', self._onLinkSockMesg)
 
         self.mesgfuncs = {}
@@ -456,7 +455,7 @@ class Daemon(EventBus, DmonConf):
 
         # process a few daemon specific options
         for url in conf.get('listen', ()):
-            if s_compat.isstr(url):
+            if isinstance(url, str):
                 self.listen(url)
                 continue
 
@@ -478,6 +477,7 @@ class Daemon(EventBus, DmonConf):
         savefile = info.get('savefile')
         if savefile is not None:
             core = s_cortex.openurl('sqlite:///%s' % savefile)
+            core.setConfOpt('enforce', 0)
             self.cura.setSessCore(core)
 
             self.onfini(core.fini)
@@ -521,18 +521,15 @@ class Daemon(EventBus, DmonConf):
     def setMesgFunc(self, name, func):
         self.mesgfuncs[name] = func
 
-    def _onLinkSockInit(self, event):
+    def _onLinkSockInit(self, mesg):
 
-        sock = event[1].get('sock')
-        sock.on('link:sock:mesg', self._onLinkSockMesg)
+        sock = mesg[1].get('sock')
 
         def onfini():
             self.socks.pop(sock.iden, None)
 
         sock.onfini(onfini)
         self.socks[sock.iden] = sock
-
-        self.plex.addPlexSock(sock)
 
     def _onLinkSockMesg(self, event):
         # THIS MUST NOT BLOCK THE MULTIPLEXOR!
@@ -664,7 +661,8 @@ class Daemon(EventBus, DmonConf):
             return sock.tx(s_common.tufo('job:done', jid=jid, ret=True))
 
         except Exception as e:
-            sock.tx(s_common.tufo('job:done', jid=jid, **s_common.excinfo(e)))
+            errinfo = s_common.excinfo(e)
+            sock.tx(s_common.tufo('job:done', jid=jid, err=errinfo.get('err'), errinfo=errinfo))
 
     def _onTeleOffMesg(self, sock, mesg):
         # set the socket tx method as the callback
@@ -685,7 +683,8 @@ class Daemon(EventBus, DmonConf):
             return sock.tx(s_common.tufo('job:done', jid=jid, ret=True))
 
         except Exception as e:
-            return sock.tx(s_common.tufo('job:done', jid=jid, **s_common.excinfo(e)))
+            errinfo = s_common.excinfo(e)
+            sock.tx(s_common.tufo('job:done', jid=jid, err=errinfo.get('err'), errinfo=errinfo))
 
     def _reqUserAllowed(self, user, *perms):
         if not self._isUserAllowed(user, *perms):
@@ -795,7 +794,8 @@ class Daemon(EventBus, DmonConf):
                 sock.tx(s_common.tufo('job:done', jid=jid, ret=ret))
 
             except Exception as e:
-                sock.tx(s_common.tufo('job:done', jid=jid, **s_common.excinfo(e)))
+                errinfo = s_common.excinfo(e)
+                sock.tx(s_common.tufo('job:done', jid=jid, err=errinfo.get('err'), errinfo=errinfo))
 
     def listen(self, linkurl, **opts):
         '''
@@ -816,7 +816,6 @@ class Daemon(EventBus, DmonConf):
         relay = s_link.getLinkRelay(link)
 
         sock = relay.listen()
-        sock.on('link:sock:init', self.dist)
 
         self.plex.addPlexSock(sock)
 

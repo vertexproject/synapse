@@ -5,7 +5,7 @@ import threading
 
 from binascii import unhexlify as unhex
 
-import synapse.compat as s_compat
+import synapse.common as s_common
 import synapse.reactor as s_reactor
 import synapse.eventbus as s_eventbus
 import synapse.lib.atomfile as s_atomfile
@@ -53,7 +53,7 @@ class Heap(s_eventbus.EventBus):
 
             size = 32 # a few qword slots for expansion
             used = headsize + size
-            heaphead = self._genHeapHead(size) + s_compat.to_bytes(used, 8)
+            heaphead = self._genHeapHead(size) + s_common.to_bytes(used, 8)
 
             rem = len(heaphead) % self.pagesize
             if rem:
@@ -69,7 +69,7 @@ class Heap(s_eventbus.EventBus):
         if self.atom is None:
             self.atom = s_atomfile.getAtomFile(fd)
 
-        self.used = s_compat.to_int(self.readoff(32, 8))
+        self.used = s_common.to_int(self.readoff(32, 8))
 
         self.onfini(self.atom.fini)
 
@@ -185,7 +185,7 @@ class Heap(s_eventbus.EventBus):
 
             self.used += fullsize
 
-            self._writeoff(32, s_compat.to_bytes(self.used, 8))
+            self._writeoff(32, s_common.to_bytes(self.used, 8))
             self._writeoff(self.used, self._genHeapHead(size))
 
         return dataoff

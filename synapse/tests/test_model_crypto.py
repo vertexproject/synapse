@@ -29,7 +29,7 @@ class CryptoModelTest(SynTest):
         }
         valu = (MODULUS, PUBLIC_EXPONENT)
         tufo = ('', {})
-        with s_cortex.openurl('ram:///') as core:
+        with self.getRamCore() as core:
             tufo = core.formTufoByProp(prop, valu, **props)
         self.eq(tufo[1].get('tufo:form'), 'rsa:key')
         self.eq(tufo[1].get('rsa:key'), HEXSTR_RSA_KEY)

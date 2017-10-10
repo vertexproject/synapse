@@ -1,11 +1,4 @@
-from __future__ import absolute_import, unicode_literals
-
 import re
-from contextlib import contextmanager
-
-import synapse.cortex as s_cortex
-import synapse.daemon as s_daemon
-import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
 import synapse.cmds.cortex as s_cmds_cortex
@@ -13,28 +6,6 @@ import synapse.cmds.cortex as s_cmds_cortex
 from synapse.tests.common import *
 
 class SynCmdCoreTest(SynTest):
-
-    @contextmanager
-    def getDmonCore(self):
-
-        dmon = s_daemon.Daemon()
-        core = s_cortex.openurl('ram:///')
-
-        link = dmon.listen('tcp://127.0.0.1:0/')
-        dmon.share('core00', core)
-        port = link[1].get('port')
-        prox = s_telepath.openurl('tcp://127.0.0.1/core00', port=port)
-
-        s_scope.set('syn:test:link', link)
-        #s_scope.set('syn:test:dmon',dmon)
-
-        s_scope.set('syn:cmd:core', prox)
-
-        yield prox
-
-        prox.fini()
-        core.fini()
-        dmon.fini()
 
     def getCoreCmdr(self, core):
         outp = s_output.OutPutStr()
@@ -60,7 +31,7 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             core.formTufoByProp('inet:email', 'visi@vertex.link')
             resp = cmdr.runCmdLine('ask inet:email="visi@vertex.link"')
-            self.eq(len(resp['data']), 1)
+            self.len(1, resp['data'])
             self.ne(str(outp).strip().find('visi@vertex.link'), -1)
 
     def test_cmds_ask_debug(self):
@@ -69,7 +40,7 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             core.formTufoByProp('inet:email', 'visi@vertex.link')
             resp = cmdr.runCmdLine('ask --debug inet:email="visi@vertex.link"')
-            self.eq(len(resp['data']), 1)
+            self.len(1, resp['data'])
 
             outp = str(outp)
             terms = ('oplog', 'took', 'options', 'limits')
@@ -83,7 +54,7 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             core.formTufoByProp('inet:email', 'visi@vertex.link')
             resp = cmdr.runCmdLine('ask --props inet:email="visi@vertex.link"')
-            self.eq(len(resp['data']), 1)
+            self.len(1, resp['data'])
 
             outp = str(outp)
             terms = ('fqdn = vertex.link', 'user = visi')
@@ -99,7 +70,7 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
 
             resp = cmdr.runCmdLine('ask [ inet:ipv4=1.2.3.4 #foo.bar@2011-2016 #baz.faz ]')
-            self.eq(len(resp['data']), 1)
+            self.len(1, resp['data'])
 
             lines = [s.strip() for s in str(outp).split('\n')]
 
@@ -148,7 +119,7 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             core.formTufoByProp('inet:email', 'visi@vertex.link')
             resp = cmdr.runCmdLine('ask --raw inet:email="visi@vertex.link"')
-            self.eq(len(resp['data']), 1)
+            self.len(1, resp['data'])
 
             outp = str(outp)
             terms = ('"tufo:form": "inet:email"', '"inet:email:user": "visi"')
@@ -159,10 +130,10 @@ class SynCmdCoreTest(SynTest):
         with self.getDmonCore() as core:
             outp = s_output.OutPutStr()
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            core.formTufoByProp('str', 'hehe')
+            core.formTufoByProp('strform', 'hehe')
             core.formTufoByProp('inet:ipv4', 0)
-            resp = cmdr.runCmdLine('ask str inet:ipv4')
-            self.eq(len(resp['data']), 2)
+            resp = cmdr.runCmdLine('ask strform inet:ipv4')
+            self.len(2, resp['data'])
 
             outp = str(outp)
             terms = ('0.0.0.0', 'hehe')

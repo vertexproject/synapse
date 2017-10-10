@@ -76,7 +76,7 @@ class SvcTest(SynTest):
                 self.eq(2, len(svcp.getSynSvcs()))
                 self.eq(2, len(svcp.getSynSvcsByTag('woots')))
 
-                woots = svcp.getTagProxy('class.synapse.tests.test_service.Woot')
+                woots = svcp.getTagProxy('class.synapse.tests.test_lib_service.Woot')
 
                 vals = tuple(sorted(woots.foo(10, y=20)))
                 self.eq(vals, (30, 30))

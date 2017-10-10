@@ -1,10 +1,6 @@
-from __future__ import absolute_import, unicode_literals
-
 import ssl
 import socket
 import logging
-
-import synapse.compat as s_compat
 
 import synapse.lib.socket as s_socket
 import synapse.lib.certdir as s_certdir
@@ -199,7 +195,7 @@ class SslRelay(LinkRelay):
 
         try:
             sock.connect((host, port))
-        except s_compat.sockerrs as e:
+        except s_common.sockerrs as e:
             sock.close()
             raiseSockError(self.link, e)
 

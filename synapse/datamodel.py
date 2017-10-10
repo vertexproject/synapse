@@ -1,4 +1,3 @@
-from __future__ import absolute_import, unicode_literals
 '''
 An API to assist with the creation and enforcement of cortex data models.
 '''
@@ -104,6 +103,7 @@ class DataModel(s_types.TypeLib):
         self.defvals = collections.defaultdict(list)
         self.subprops = collections.defaultdict(list)
         self.propsbytype = collections.defaultdict(list)
+        self.propsdtyp = {}
 
         self.globs = []
         self.cache = {} # for globs
@@ -116,57 +116,6 @@ class DataModel(s_types.TypeLib):
         }
 
         s_types.TypeLib.__init__(self, load=load)
-
-        self.addTufoForm('syn:core')
-
-        self.addTufoForm('syn:form', ptype='syn:prop')
-        self.addTufoProp('syn:form', 'doc', ptype='str', doc='basic form definition')
-        self.addTufoProp('syn:form', 'ver', ptype='int', doc='form version within the model')
-        self.addTufoProp('syn:form', 'model', ptype='str', doc='which model defines a given form')
-        self.addTufoProp('syn:form', 'ptype', ptype='syn:type', req=1, doc='Synapse type for this form')
-
-        self.addTufoForm('syn:prop', ptype='syn:prop')
-        # TODO - Re-enable syn:prop:doc req = 1 after cleaning up property docstrings.
-        self.addTufoProp('syn:prop', 'doc', ptype='str', req=0, doc='Description of the property definition')
-        self.addTufoProp('syn:prop', 'form', ptype='syn:prop', req=1, doc='Synapse form which contains this property')
-        self.addTufoProp('syn:prop', 'ptype', ptype='syn:type', req=1, doc='Synapse type for this field')
-        self.addTufoProp('syn:prop', 'req', ptype='bool', defval=0, doc='Set to 1 if this property is required to form the node.')
-        self.addTufoProp('syn:prop', 'glob', ptype='bool', defval=0, doc='Set to 1 if this property defines a glob')
-        self.addTufoProp('syn:prop', 'defval', doc='Set to the default value for this property')
-
-        self.addTufoForm('syn:tag', ptype='syn:tag')
-        self.addTufoProp('syn:tag', 'up', ptype='syn:tag')
-        self.addTufoProp('syn:tag', 'doc', defval='', ptype='str')
-        self.addTufoProp('syn:tag', 'depth', defval=0, ptype='int')
-        self.addTufoProp('syn:tag', 'title', defval='', ptype='str')
-        self.addTufoProp('syn:tag', 'base', ptype='str', ro=1)
-
-        self.addType('syn:tagform', subof='comp', fields='tag,syn:tag|form,syn:prop', ex="(foo.bar,baz:faz)")
-
-        self.addTufoForm('syn:tagform', ptype='syn:tagform', fields='tag,syn:tag|form,syn:prop')
-        self.addTufoProp('syn:tagform', 'tag', ptype='syn:tag', ro=1, doc='The tag being documented')
-        self.addTufoProp('syn:tagform', 'form', ptype='syn:prop', ro=1, doc='The the form that the tag applies to.')
-
-        self.addTufoProp('syn:tagform', 'doc', ptype='str:txt', defval='??',
-                         doc='The long form description for what the tag means on the given node form')
-        self.addTufoProp('syn:tagform', 'title', ptype='str:txt', defval='??',
-                         doc='The short name for what the tag means on the given node form')
-
-        self.addTufoForm('syn:model', ptype='str', doc='prefix for all forms within the model')
-        self.addTufoProp('syn:model', 'hash', ptype='guid', doc='version hash for the current model')
-        self.addTufoProp('syn:model', 'prefix', ptype='syn:prop', doc='prefix used by types/forms in the model')
-
-        self.addTufoForm('syn:type', ptype='syn:type')
-        self.addTufoProp('syn:type', 'ctor', ptype='str')
-        self.addTufoProp('syn:type', 'subof', ptype='syn:type')
-
-        self.addTufoProp('syn:type', '*', glob=1)
-
-        # used most commonly for sequential tag generation
-        self.addTufoForm('syn:seq', ptype='str:lwr', doc='A sequential id generation tracker')
-        self.addTufoProp('syn:seq', 'width', ptype='int', defval=0,
-                         doc='How many digits to use to represent the number')
-        self.addTufoProp('syn:seq', 'nextvalu', ptype='int', defval=0, doc='The next sequential value')
 
     def getModelDict(self):
         '''
@@ -289,17 +238,20 @@ class DataModel(s_types.TypeLib):
         if self.props.get(prop) is not None:
             raise s_common.DupPropName(name=prop)
 
-        info.setdefault('doc', None)
-        info.setdefault('req', False)
-        info.setdefault('uniq', False)
         info.setdefault('ptype', None)
-        info.setdefault('title', None)
+        info.setdefault('doc', self.getTypeInfo(info.get('ptype'), 'doc', ''))
+        info.setdefault('req', False)
+        info.setdefault('title', self.getTypeInfo(info.get('ptype'), 'title', ''))
         info.setdefault('defval', None)
 
         form = info.get('form')
-        base = prop[len(form) + 1:]
+        relname = prop[len(form) + 1:]
+        if relname:
+            info['relname'] = relname
 
-        info['base'] = base
+        if ':' in prop:
+            _, base = prop.rsplit(':', 1)
+            info.setdefault('base', base)
 
         defval = info.get('defval')
 
@@ -314,11 +266,13 @@ class DataModel(s_types.TypeLib):
 
         ptype = info.get('ptype')
         if ptype is not None:
-            self.reqDataType(ptype)
+            dtyp = self.reqDataType(ptype)
+            pdtyp = dtyp.extend(dtyp.name, prop=prop)
             self.propsbytype[ptype].append(pdef)
+            self.propsdtyp[prop] = pdtyp
 
         self.props[prop] = pdef
-        self.props[(form, base)] = pdef
+        self.props[(form, relname)] = pdef
 
         self.model['props'][prop] = pdef
 
@@ -443,10 +397,33 @@ class DataModel(s_types.TypeLib):
         '''
         Return a normalized system mode value for the given property.
 
-        Example:
+        Args:
+            prop (str): Property to normalize.
+            valu: Input value to normalize.
+            oldval: Optional previous version of the value.
 
-            valu,subs = model.getPropNorm(prop,valu)
+        Examples:
+            Normalize an IPV4 address::
 
+                valu, subs = model.getPropNorm('inet:ipv4', '1.2.3.4')
+                # valu = 16909060
+
+            Normalize a DNS A record::
+
+                valu, subs = model.getPropNorm('inet:dns:a', 'woot.com/1.2.3.4')
+                # valu = 'woot.com/1.2.3.4'
+                # subs['fqdn'] = 'woot.com'
+                # subs['fqdn:domain'] = 'com'
+                # subs['fqdn:host'] = 'woot'
+                # subs['ipv4'] = 16909060
+
+        Notes:
+            If the requested property is not part of the data model, this returns the input valu. If this is not
+            desired behavior, the reqPropNorm() function can be used to throw a NoSuchProp exception.
+
+        Returns:
+            tuple: A tuple of two items. The first item is the system normalized valu, as an integer or string. The
+                   second item is a dictionary of subproperties for the input.
         '''
         dtype = self.getPropType(prop)
         if dtype is None:
@@ -499,12 +476,22 @@ class DataModel(s_types.TypeLib):
 
     def getPropType(self, prop):
         '''
-        Return the data model type instance for the given property,
-         or None if the data model doesn't have an entry for the property.
+        Return the data model type instance for the given property, or
+        None if the data model doesn't have an entry for the property.
 
-        Example:
-            ptype = model.getPropType('foo:bar')
+        Args:
+            prop (str): Property to get the DataType instance for.
+
+        Returns:
+            s_types.DataType: A DataType for a given property.
         '''
+
+        # Default to pulling dtype from the propsdtyp dict
+        dtyp = self.propsdtyp.get(prop)
+        if dtyp:
+            return dtyp
+
+        # Otherwise, fall back on getPropDef/getDataType methods.
         pdef = self.getPropDef(prop)
         if pdef is None:
             return None
@@ -535,3 +522,46 @@ class DataModel(s_types.TypeLib):
             return None
 
         return self.getTypeInfo(ptype, name)
+
+    def reqPropNorm(self, prop, valu, oldval=None):
+        '''
+        Return a normalized system mode value for the given property. This throws an exception if the property does
+        not exist.
+
+        Args:
+            prop (str): Property to normalize.
+            valu: Input value to normalize.
+            oldval: Optional previous version of the value.
+
+        Examples:
+            Normalize an IPV4 address::
+
+                valu, subs = model.reqPropNorm('inet:ipv4', '1.2.3.4')
+                # valu = 16909060
+
+            Normalize a DNS A record::
+
+                valu, subs = model.reqPropNorm('inet:dns:a', 'woot.com/1.2.3.4')
+                # valu = 'woot.com/1.2.3.4'
+                # subs['fqdn'] = 'woot.com'
+                # subs['fqdn:domain'] = 'com'
+                # subs['fqdn:host'] = 'woot'
+                # subs['ipv4'] = 16909060
+
+        Notes:
+            This is similar to the getPropNorm() function, however it throws an exception on a missing property
+            instead of returning the valu to the caller.
+
+        Returns:
+            tuple: A tuple of two items. The first item is the system normalized valu, as an integer or string. The
+                   second item is a dictionary of subproperties for the input.
+
+        Raises:
+            NoSuchProp: If the requested property is not part of the data model.
+        '''
+        dtype = self.getPropType(prop)
+        if dtype is None:
+            raise s_common.NoSuchProp(mesg='Prop does not exist.',
+                                      prop=prop, valu=valu)
+
+        return dtype.norm(valu, oldval=oldval)

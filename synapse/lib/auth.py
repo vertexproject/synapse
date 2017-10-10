@@ -1,8 +1,5 @@
 import contextlib
-import collections
 
-import synapse.exc as s_exc
-import synapse.compat as s_compat
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 

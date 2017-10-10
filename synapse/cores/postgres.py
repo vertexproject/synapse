@@ -1,7 +1,7 @@
 import time
 import hashlib
 
-import synapse.compat as s_compat
+import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
 import synapse.cores.common as s_cores_common
@@ -81,6 +81,8 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
 
     _t_getrows_by_idens = 'SELECT * FROM {{TABLE}} WHERE iden IN {{VALU}}'
 
+    _t_uprows_by_prop_val_str = 'UPDATE {{TABLE}} SET strval={{NEWVALU}} WHERE prop={{PROP}} and MD5(strval)=MD5({{OLDVALU}})'
+
     def _initDbConn(self):
         import psycopg2
         self._psycopg2 = psycopg2
@@ -155,7 +157,7 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
 
         limit = self._getDbLimit(limit)
 
-        if s_compat.isint(valus[0]):
+        if isinstance(valus[0], int):
             q = self._q_getjoin_by_in_int
         else:
             q = self._q_getjoin_by_in_str
@@ -182,4 +184,4 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
         return 'postgres'
 
     def _prepBlobValu(self, valu):
-        return s_compat.bytesToMem(valu)
+        return memoryview(valu)

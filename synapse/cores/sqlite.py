@@ -1,11 +1,9 @@
-from __future__ import absolute_import, unicode_literals
-
 import re
+import queue
 import logging
 import sqlite3
 
 import synapse.common as s_common
-import synapse.compat as s_compat
 
 import synapse.cores.xact as s_xact
 import synapse.cores.common as s_cores_common
@@ -15,9 +13,9 @@ logger = logging.getLogger(__name__)
 
 stashre = re.compile('{{([A-Z]+)}}')
 
-int_t = s_compat.typeof(0)
-str_t = s_compat.typeof('visi')
-none_t = s_compat.typeof(None)
+int_t = type(0)
+str_t = type('synapse')
+none_t = type(None)
 
 def initSqliteCortex(link, conf=None, storconf=None):
     '''
@@ -81,7 +79,7 @@ class DbPool:
         # TODO: high/low water marks
         self.size = size
         self.ctor = ctor
-        self.dbque = s_compat.queue.Queue()
+        self.dbque = queue.Queue()
 
         for i in range(size):
             db = ctor()
@@ -256,6 +254,9 @@ class SqliteStorage(s_cores_storage.Storage):
     ################################################################################
     _t_uprows_by_iden_prop_str = 'UPDATE {{TABLE}} SET strval={{VALU}} WHERE iden={{IDEN}} and prop={{PROP}}'
     _t_uprows_by_iden_prop_int = 'UPDATE {{TABLE}} SET intval={{VALU}} WHERE iden={{IDEN}} and prop={{PROP}}'
+    _t_uprows_by_prop_prop = 'UPDATE {{TABLE}} SET prop={{NEWVALU}} WHERE prop={{OLDVALU}}'
+    _t_uprows_by_prop_val_int = 'UPDATE {{TABLE}} SET intval={{NEWVALU}} WHERE prop={{PROP}} and intval={{OLDVALU}}'
+    _t_uprows_by_prop_val_str = 'UPDATE {{TABLE}} SET strval={{NEWVALU}} WHERE prop={{PROP}} and strval={{OLDVALU}}'
 
     def _initDbInfo(self):
         name = self._link[1].get('path')[1:]
@@ -537,6 +538,9 @@ class SqliteStorage(s_cores_storage.Storage):
 
         self._q_uprows_by_iden_prop_str = self._prepQuery(self._t_uprows_by_iden_prop_str)
         self._q_uprows_by_iden_prop_int = self._prepQuery(self._t_uprows_by_iden_prop_int)
+        self._q_uprows_by_prop_prop = self._prepQuery(self._t_uprows_by_prop_prop)
+        self._q_uprows_by_prop_val_str = self._prepQuery(self._t_uprows_by_prop_val_str)
+        self._q_uprows_by_prop_val_int = self._prepQuery(self._t_uprows_by_prop_val_int)
 
         self._q_getjoin_by_range_str = self._prepQuery(self._t_getjoin_by_range_str)
         self._q_getjoin_by_range_int = self._prepQuery(self._t_getjoin_by_range_int)
@@ -594,7 +598,7 @@ class SqliteStorage(s_cores_storage.Storage):
     def _addRows(self, rows):
         args = []
         for i, p, v, t in rows:
-            if s_compat.isint(v):
+            if isinstance(v, int):
                 args.append({'iden': i, 'prop': p, 'intval': v, 'strval': None, 'tstamp': t})
             else:
                 args.append({'iden': i, 'prop': p, 'intval': None, 'strval': v, 'tstamp': t})
@@ -662,7 +666,7 @@ class SqliteStorage(s_cores_storage.Storage):
     def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None, nolim=False):
         limit = self._getDbLimit(limit)
 
-        qkey = (s_compat.typeof(valu), s_compat.typeof(mintime), s_compat.typeof(maxtime))
+        qkey = (type(valu), type(mintime), type(maxtime))
 
         qstr = self.qbuild[name][qkey]
         if meth is None:
@@ -676,7 +680,7 @@ class SqliteStorage(s_cores_storage.Storage):
         if valu is None:
             return self.delete(self._q_delrows_by_iden_prop, iden=iden, prop=prop)
 
-        if s_compat.isint(valu):
+        if isinstance(valu, int):
             return self.delete(self._q_delrows_by_iden_prop_intval, iden=iden, prop=prop, valu=valu)
         else:
             return self.delete(self._q_delrows_by_iden_prop_strval, iden=iden, prop=prop, valu=valu)
@@ -686,14 +690,14 @@ class SqliteStorage(s_cores_storage.Storage):
             rows = self.select(self._q_getrows_by_iden_prop, iden=iden, prop=prop)
             return self._foldTypeCols(rows)
 
-        if s_compat.isint(valu):
+        if isinstance(valu, int):
             rows = self.select(self._q_getrows_by_iden_prop_intval, iden=iden, prop=prop, valu=valu)
         else:
             rows = self.select(self._q_getrows_by_iden_prop_strval, iden=iden, prop=prop, valu=valu)
         return self._foldTypeCols(rows)
 
     def _setRowsByIdProp(self, iden, prop, valu):
-        if s_compat.isint(valu):
+        if isinstance(valu, int):
             count = self.update(self._q_uprows_by_iden_prop_int, iden=iden, prop=prop, valu=valu)
         else:
             count = self.update(self._q_uprows_by_iden_prop_str, iden=iden, prop=prop, valu=valu)
@@ -714,6 +718,14 @@ class SqliteStorage(s_cores_storage.Storage):
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
         self._runPropQuery('delrowsbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete, nolim=True)
+
+    def _updateProperty(self, oldprop, newprop):
+        return self.update(self._q_uprows_by_prop_prop, oldvalu=oldprop, newvalu=newprop)
+
+    def _updatePropertyValu(self, prop, oldval, newval):
+        if isinstance(oldval, int):
+            return self.update(self._q_uprows_by_prop_val_int, oldvalu=oldval, newvalu=newval, prop=prop)
+        return self.update(self._q_uprows_by_prop_val_str, oldvalu=oldval, newvalu=newval, prop=prop)
 
     def _genStoreRows(self, **kwargs):
         '''

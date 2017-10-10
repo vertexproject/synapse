@@ -2,7 +2,6 @@ import time
 import errno
 
 import synapse.common as s_common
-import synapse.crypto as s_crypto
 
 class NoSuchProto(Exception): pass
 
@@ -34,12 +33,6 @@ class LinkRelay:
 
         if sock.get('listen'):
             return
-
-        rc4key = self.link[1].get('rc4key', b'')
-        zerosig = self.link[1].get('zerosig')
-        if rc4key or zerosig is not None:
-            xform = s_crypto.Rc4Xform(rc4key)
-            sock.addSockXform(xform)
 
     def listen(self):
         '''

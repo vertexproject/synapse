@@ -10,7 +10,6 @@ import xml.etree.ElementTree as x_etree
 import synapse.common as s_common
 
 import synapse.gene as s_gene
-import synapse.compat as s_compat
 
 import synapse.lib.scope as s_scope
 import synapse.lib.hashset as s_hashset
@@ -438,7 +437,7 @@ class Ingest(EventBus):
                             ["link", { "props":{"tld":1} } ],
                         ]],
 
-                        ["inet:netuser",[
+                        ["inet:web:acct",[
                             ["rootkit.com/metr0", { "props":{"email":"metr0@kenshoto.com"} } ],
                             ["twitter.com/invisig0th", { "props":{"email":"visi@vertex.link"} } ]
                         ]],
@@ -495,7 +494,7 @@ class Ingest(EventBus):
         for tagv in info.get('tags', ()):
 
             # if it's a simple tag string, add and move along
-            if s_compat.isstr(tagv):
+            if isinstance(tagv, str):
                 scope.add('tags', tagv.lower())
                 continue
 

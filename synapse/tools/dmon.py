@@ -5,7 +5,7 @@ import logging
 import argparse
 import subprocess
 
-import synapse.compat as s_compat
+import synapse.common as s_common
 import synapse.daemon as s_daemon
 
 import synapse.lib.output as s_output
@@ -53,7 +53,7 @@ def initconf():
 
     '''
     if not os.path.isdir(dmondir):
-        s_compat.makedirs(dmondir, mode=0o700)
+        s_common.makedirs(dmondir, mode=0o700)
 
     if not os.path.isfile(onefile):
         initboot()

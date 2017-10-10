@@ -1,5 +1,4 @@
 import synapse.common as s_common
-import synapse.compat as s_compat
 
 import synapse.lib.socket as s_socket
 
@@ -38,5 +37,5 @@ class TcpRelay(LinkRelay):
             port = self.link[1].get('port')
             return s_socket.connect((host, port))
 
-        except s_compat.sockerrs as e:
+        except s_common.sockerrs as e:
             raiseSockError(self.link, e)

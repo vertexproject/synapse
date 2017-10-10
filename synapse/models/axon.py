@@ -1,9 +1,38 @@
-import synapse.compat as s_compat
+import synapse.axon as s_axon
+import synapse.common as s_common
+
 from synapse.lib.types import DataType
 from synapse.lib.module import CoreModule, modelrev
 
 
 class AxonMod(CoreModule):
+
+    def initCoreModule(self):
+        self.onFormNode('axon:path', self.onFormAxonPath)
+
+    def onFormAxonPath(self, form, valu, props, mesg):
+        # Early return for root nodes
+        if valu == '/':
+            return
+
+        # Check to see if parent exists
+        pval = props.get('axon:path:dir')
+        ppfo = self.core.getTufoByProp('axon:path', pval)
+
+        # If the parent node exists, return. otherwise make the parent node
+        # with a default mode and nlinks value.
+        if ppfo:
+            return
+
+        pval, psubs = self.core.getTypeNorm('axon:path', pval)
+        # XXX Private static method should be promoted to a standalone method.
+        mode = self.core.getConfOpt('axon:dirmode')
+        pprops = s_axon.Axon._fs_new_dir_attrs(psubs.get('dir'), mode)
+        children = self.core.getTufosByProp('axon:path:dir', pval)
+        pprops['st_nlink'] += len(children) + 1 # XXX Is this correct?
+
+        # Form the new dir node
+        self.core.formTufoByProp('axon:path', pval, **pprops)
 
     @staticmethod
     def getBaseModels():
@@ -30,11 +59,19 @@ class AxonMod(CoreModule):
                     ('dir', {'ptype': 'axon:path', 'req': False, 'doc': 'The parent directory for this path.'}),
                     ('base', {'ptype': 'file:base', 'req': True, 'doc': 'The final path component, such as the filename, of this path.'}),
                     ('blob', {'ptype': 'guid', 'req': False}),
-                    ('st_mode', {'ptype': 'int', 'req': True}),
-                    ('st_nlink', {'ptype': 'int', 'req': True}),
-                    ('st_atime', {'ptype': 'int', 'req': False}),
-                    ('st_ctime', {'ptype': 'int', 'req': False}),
-                    ('st_mtime', {'ptype': 'int', 'req': False}),
+                    ('st_mode', {'ptype': 'int', 'req': True,
+                                 'doc': 'Specifies the mode of the file.'}),
+                    ('st_nlink',
+                     {'ptype': 'int', 'req': True,
+                      'doc': 'The number of hard links to the file. This count keeps track of how many directories'
+                             ' have entries for this file.'}
+                     ),
+                    ('st_atime', {'ptype': 'int', 'req': False,
+                                  'doc': 'This is the last access time for the file.'}),
+                    ('st_ctime', {'ptype': 'int', 'req': False,
+                                  'doc': 'This is the time of the last modification to the attributes of the file.'}),
+                    ('st_mtime', {'ptype': 'int', 'req': False,
+                                  'doc': 'This is the time of the last modification to the contents of the file.'}),
                     ('st_size', {'ptype': 'int', 'req': False}),
                 )),
 
@@ -47,7 +84,7 @@ class AxonPathType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        if not (s_compat.isstr(valu) and len(valu) > 0):
+        if not (isinstance(valu, str) and len(valu) > 0):
             self._raiseBadValu(valu)
 
         leadingslash = '/' if valu.startswith('/') else ''
