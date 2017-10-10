@@ -162,8 +162,7 @@ class CacheTest(SynTest):
         cvs = sorted(c.values())
         self.eq(cvs, ['a', 'b'])
 
-        cks = c.keys()
-        cks.sort()
+        cks = sorted(c.keys())
         self.eq(cks, [1, 2])
 
         for k, v in c:
