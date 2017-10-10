@@ -450,6 +450,10 @@ class Runtime(Configable):
     def _storm_runtime_confdefs():
         confdefs = (
             ('storm:limit:lift', {'asloc': 'limlift', 'defval': None, 'doc': 'Global lift limit'}),
+            ('storm:query:log:en', {'asloc': 'querylog', 'defval': 0, 'ptype': 'bool',
+                                    'doc': 'words'}),
+            ('storm:query:log:level', {'asloc': 'queryloglevel', 'defval': logging.DEBUG, 'ptype': 'int',
+                                       'doc': 'Logging level to fire query log messages at.'}),
         )
         return confdefs
 
@@ -606,8 +610,9 @@ class Runtime(Configable):
         Run a storm query and return the query result dict.
         user= stdin=
         '''
-        user = s_auth.whoami()
-        logger.debug('Executing storm query [%s] as [%s]', text, user)
+        if self.querylog:
+            user = s_auth.whoami()
+            logger.log(self.queryloglevel, 'Executing storm query [%s] as [%s]', text, user)
         opers = s_syntax.parse(text)
         return self.run(opers, data=data, timeout=timeout)
 

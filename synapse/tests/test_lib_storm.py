@@ -1,3 +1,4 @@
+import synapse.lib.auth as s_auth
 import synapse.lib.tufo as s_tufo
 import synapse.lib.storm as s_storm
 import synapse.cores.common as s_common
@@ -881,6 +882,38 @@ class StormTest(SynTest):
             self.eq(100, len(core.eval('inet:ipv4')))
             self.eq(200, len(core.eval('inet:ipv4^1000')))
             self.eq(200, len(core.eval('inet:ipv4 limit(1000)')))
+
+    def test_storm_query_log(self):
+        with self.getRamCore() as core:
+            # Setup logging to an io.StringIO object
+            stream = io.StringIO()
+            handler = logging.StreamHandler(stream)
+            storm_logger = logging.getLogger('synapse.lib.storm')
+
+            try:
+                storm_logger.addHandler(handler)
+                core.eval('#HAHA')
+            finally:
+                storm_logger.removeHandler(handler)
+
+            stream.seek(0)
+            mesgs = stream.read()
+            self.eq('', mesgs.strip())
+
+            core.setConfOpt('storm:query:log:en', 1)
+            core.setConfOpt('storm:query:log:level', logging.WARNING)
+
+            try:
+                storm_logger.addHandler(handler)
+                core.eval('#HAHA')
+            finally:
+                storm_logger.removeHandler(handler)
+
+            stream.seek(0)
+            mesgs = stream.read()
+
+            e = 'Executing storm query [#HAHA] as [{}]'.format(s_auth.whoami())
+            self.eq(e, mesgs.strip())
 
 class LimitTest(SynTest):
     def test_limit_default(self):
