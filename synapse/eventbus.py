@@ -86,8 +86,6 @@ class EventBus(object):
             for name, filt in getattr(valu, '_ebus_ons', ()):
                 self.on(name, valu, **filt)
 
-        self.fire('ebus:init')
-
     def __enter__(self):
         return self
 
@@ -426,3 +424,33 @@ class Waiter:
 
         if not self.names:
             self.bus.unlink(self._onWaitEvent)
+
+class BusRef(EventBus):
+
+    def __init__(self):
+        EventBus.__init__(self)
+        self.ebus_by_name = {}
+        self.onfini( self._onBusRefFini )
+
+    def _onBusRefFini(self):
+        todo = list(self.ebus_by_name.values())
+        [ ebus.fini() for ebus in todo ]
+
+    def put(self, name, ebus):
+
+        def fini():
+            self.ebus_by_name.pop(name, None)
+
+        ebus.onfini(fini)
+        self.ebus_by_name[name] = ebus
+
+    def pop(self, name):
+        return self.ebus_by_name.pop(name, None)
+
+    def get(self, name):
+        return self.ebus_by_name.get(name)
+
+    def __iter__(self):
+        # make a copy during iteration to prevent dict
+        # change during iteration exceptions
+        return iter(list(self.ebus_by_name.values()))
