@@ -1,6 +1,142 @@
+import synapse.common as s_common
+import synapse.datamodel as s_datamodel
+
+import synapse.lib.version as s_version
+
 from synapse.lib.module import CoreModule, modelrev
+from synapse.lib.types import DataType
+
+
+class SemverType(DataType):
+    subprops = (
+        ('major', {'ptype': 'int'},),
+        ('minor', {'ptype': 'int'},),
+        ('patch', {'ptype': 'int'},),
+        ('build', {'ptype': 'str:txt'},),
+        ('prerelease', {'ptype': 'str:txt'},),
+    )
+
+    def norm(self, valu, oldval=None):
+        if isinstance(valu, int):
+            return self._norm_int(valu, oldval=oldval)
+
+        if isinstance(valu, str):
+            return self._norm_str(valu, oldval=oldval)
+
+        self._raiseBadValu(valu, mesg='Invalid type encountered when norming a semver', type=type(valu))
+
+    def _norm_str(self, text, oldval=None):
+        text = text.strip()
+        if not text:
+            self._raiseBadValu(text, mesg='No text left after stripping whitespace')
+
+        subs = s_version.parseSemver(text)
+        if not subs:
+            self._raiseBadValu(text, mesg='Unable to parse string as a semver.')
+        valu = s_version.packVersion(subs.get('major'), subs.get('minor'), subs.get('patch'))
+        return valu, subs
+
+    def _norm_int(self, valu, oldval=None):
+        if valu < 0:
+            self._raiseBadValu(valu, mesg='Cannot norm a negative integer as a semver.')
+        if valu > s_version.mask96:
+            self._raiseBadValu(valu, mesg='Cannot norm a integer larger than our version string mask as a semver.')
+        major, minor, patch = s_version.unpackVersion(valu)
+        valu = s_version.packVersion(major, minor, patch)
+        subs = {'major': major,
+                'minor': minor,
+                'patch': patch}
+        return valu, subs
+
+    def repr(self, valu):
+        major, minor, patch = s_version.unpackVersion(valu)
+        valu = s_version.fmtVersion(major, minor, patch)
+        return valu
+
+def bruteVersionValu(valu):
+    '''
+    Return the system normalized version integer for a given input.
+
+    Args:
+        valu: String or integer to normalize.
+
+    Returns:
+        int: System normalized version value.
+    '''
+    return bruteVersion(valu)[0]
+
+def bruteVersion(valu):
+    '''
+    Attempt to brute force a valu into a semantic version string and its components
+
+    Args:
+        valu: A string or integer to attempt to obtain a system normalized version
+        valu and subs for.
+
+    Returns:
+        int, dict: The system normalized version integer and a subs dictionary.
+    '''
+    if isinstance(valu, int):
+        return s_datamodel.tlib.getTypeNorm('it:semver', valu)
+
+    if isinstance(valu, str):
+        return bruteStr(valu)
+
+    else:
+        raise s_common.BadTypeValu(valu=valu,
+                                   mesg='Unable to brute force  a valu',
+                                   type=type(valu))
+
+def bruteStr(valu):
+    '''
+    Brute force the version out of a string.
+
+    Args:
+        valu (str): String to attempt to get version information for.
+
+    Notes:
+        This first attempts to parse strings using the it:semver normalization
+        before attempting to extract version parts out of the string.
+
+    Returns:
+        int, dict: The system normalized version integer and a subs dictionary.
+    '''
+    try:
+        valu, subs = s_datamodel.tlib.getTypeNorm('it:semver', valu)
+        return valu, subs
+    except s_common.BadTypeValu:
+        # Try doing version part extraction by noming through the string
+        subs = s_version.parseVersionParts(valu)
+        subs.setdefault('major', 0)
+        subs.setdefault('minor', 0)
+        subs.setdefault('patch', 0)
+        if subs:
+            valu = s_version.packVersion(subs.get('major'),
+                                         subs.get('minor'),
+                                         subs.get('patch'))
+            return valu, subs
+    raise s_common.BadTypeValu(valu=valu,
+                               mesg='Unable to brute force version parts out of the string')  # pragma: no cover
 
 class ItMod(CoreModule):
+
+    def initCoreModule(self):
+        self.onFormNode('it:dev:str', self._onFormItDevStr)
+        self.onFormNode('it:prod:softver', self._onFormItSoftVer)
+        self.core.addTypeCast('it:version:brute', bruteVersionValu)
+
+    def _onFormItDevStr(self, form, valu, props, mesg):
+        props['it:dev:str:norm'] = valu.lower()
+
+    def _onFormItSoftVer(self, form, valu, props, mesg):
+        verstr = props.get('it:prod:softver:verstr')
+        props['it:prod:softver:verstr:norm'] = self.core.getTypeNorm('str:lwr', verstr)[0]
+        if 'it:prod:softver:semver' in props:
+            return
+        valu, subs = bruteVersion(verstr)
+        props['it:prod:softver:semver'] = valu
+        for k, v in subs.items():
+            props['it:prod:softver:semver:' + k] = v
 
     @staticmethod
     def getBaseModels():
@@ -69,6 +205,17 @@ class ItMod(CoreModule):
                     'optfields': 'str=it:dev:str,int=it:dev:int,bytes=file:bytes',
                     'doc': 'A Windows registry key/value pair.'}),
 
+                ('it:semver', {'ctor': 'synapse.models.infotech.SemverType',
+                                'doc': 'Semantic Version type.'}),
+                ('it:prod:soft', {'subof': 'guid', 'doc': 'An arbitrary, unversioned software product.'}),
+                ('it:prod:softver', {'subof': 'guid', 'doc': 'An version of a particular software product.'}),
+                ('it:hostsoft', {'subof': 'comp',
+                                 'fields': 'host,it:host|softver,it:prod:soft:vers',
+                                 'doc': 'A version of a software product which is present on a given host.'}),
+                # ('it:prod:hard', {'subof': 'guid', 'doc': ''}),
+                # ('it:prod:hardver', {'subof': 'guid', 'doc': ''}),
+                # ('it:hosthard', {'subof': 'comp', 'fields': 'host,it:host|hardware,it:prod:hard:vers',
+                #                  'doc': ''}),
             ),
 
             'forms': (
@@ -303,6 +450,46 @@ class ItMod(CoreModule):
                     ('reg:int', {'ptype': 'it:dev:int', 'doc': 'The integer value that was deleted (parsed from :reg).', 'ro': 1}),
                     ('reg:bytes', {'ptype': 'file:bytes', 'doc': 'The binary data that was deleted (parsed from :reg).', 'ro': 1}),
                 )),
+                ('it:prod:soft', {}, (
+                    ('name', {'ptype': 'str:lwr', 'ro': 1, 'req': 1,
+                              'doc': 'Name of the software'}),
+                    ('desc', {'ptype': 'str:txt', 'doc': 'A description of the software'}),
+                    ('desc:short', {'ptype': 'str:lwr', 'doc': 'A short description of the software'}),
+                    ('author:org', {'ptype': 'ou:org', 'doc': 'Organization responsible for the software', }),
+                    ('author:acct', {'ptype': 'inet:web:acct', 'doc': 'Web user responsible for the software', }),
+                    ('author:person', {'ptype': 'ps:person', 'doc': 'Person responsible for the software', }),
+                    ('url', {'ptype': 'inet:url', 'doc': 'URL relevant for the software', }),
+                )),
+
+                ('it:prod:softver', {}, (
+                    ('software', {'ptype': 'it:prod:soft', 'req': 1, 'ro': 1,
+                                  'doc': 'Software associated with this version instance.'}),
+                    ('verstr', {'ptype': 'it:dev:str', 'req': 1, 'ro': 1, 'ex': '1.0.2'
+                                'Version string associated with this version instance.'}),
+                    ('verstr:norm', {'ptype': 'str:lwr', 'doc': 'Normalized version of the version string.'}),
+                    ('arch', {'ptype': 'it:dev:str', 'doc': 'Software architecture.'}),
+                    ('semver', {'ptype': 'it:semver', 'doc': 'System normalized semantic version number.', }),
+                    ('semver:major', {'ptype': 'int', 'doc': 'Version major number', }),
+                    ('semver:minor', {'ptype': 'int', 'doc': 'Version minor number', }),
+                    ('semver:patch', {'ptype': 'int', 'doc': 'Version patch number', }),
+                    ('semver:prerelease', {'ptype': 'str:txt', 'doc': 'Semver prerelease string.', }),
+                    ('semver:build', {'ptype': 'str:txt', 'doc': 'Semver build string.', }),
+                    ('url', {'ptype': 'inet:url',
+                             'doc': 'URL where a specific version of the software is available from'}),
+                )),
+
+                ('it:hostsoft', {}, (
+                    ('host', {'ptype': 'it:host', 'ro': 1, 'req': 1,
+                              'doc': 'Host with the software', }),
+                    ('softver', {'ptype': 'it:prod:softver', 'ro': 1, 'req': 1,
+                                  'doc': 'Software on the host', }),
+                    ('seen:min', {'ptype': 'time:min',
+                                  'doc': 'Minimum time the software was seen on the host', }),
+                    ('seen:max', {'ptype': 'time:max',
+                                  'doc': 'Maximum time the software was seen on the host', }),
+                    ('path', {'ptype': 'file:path',
+                              'doc': 'Path where the software was seen on the host'})
+                )),
             ),
         }
 
@@ -311,9 +498,3 @@ class ItMod(CoreModule):
         )
 
         return models
-
-    def initCoreModule(self):
-        self.onFormNode('it:dev:str', self._onFormItDevStr)
-
-    def _onFormItDevStr(self, form, valu, props, mesg):
-        props['it:dev:str:norm'] = valu.lower()
