@@ -732,9 +732,9 @@ class InetMod(CoreModule):
 
                 ('inet:web:action', {'subof': 'guid',
                                    'doc': 'An instance of a user account performing an action.'}),
-                ('inet:web:actref',
-                 {'subof': 'xref', 'source': 'act,inet:web:action', 'doc': 'The web action refereneces the given node'}),
-
+                ('inet:web:actref', {'subof': 'xref', 'source': 'act,inet:web:action',
+                                     'doc': 'The web action refereneces the given node'}),
+                ('inet:web:chprofile', {'subof': 'guid', 'doc': 'A change to a inet:web:acct at a point in time'}),
                 ('inet:web:group', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|name,ou:name',
                                    'doc': 'A group within an online community'}),
 
@@ -940,10 +940,32 @@ class InetMod(CoreModule):
                     ('email', {'ptype': 'inet:email'}),
                     ('phone', {'ptype': 'tel:phone'}),
                     ('signup', {'ptype': 'time', 'doc': 'The time the web account was registered'}),
-                    ('signup:ipv4', {'ptype': 'inet:ipv4', 'doc': 'The original ipv4 address used to sign up for the account'}),
+                    ('signup:ipv4', {'ptype': 'inet:ipv4',
+                                     'doc': 'The original ipv4 address used to sign up for the account'}),
                     ('passwd', {'ptype': 'inet:passwd', 'doc': 'The current passwd for the web account'}),
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
+                ]),
+
+                ('inet:web:chprofile', {}, [
+                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'Account associated with the change', 'ro': 1,
+                              'req': 1}),
+                    ('acct:site', {'ptype': 'inet:fqdn', 'doc': 'Site the user account is at', 'ro': 1, }),
+                    ('acct:user', {'ptype': 'inet:user', 'doc': 'User account name', 'ro': 1, }),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'Source IPv4 address used to make the account change.', }),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'Source IPv6  address used to make the account change.', }),
+                    ('time', {'ptype': 'time', 'doc': 'When the account change was done', }),
+                    ('pv', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
+                            'doc': 'The prop=valu of the account property that was changed. Valu should be the '
+                                   'old / original value, while the new value should be updated on the '
+                                   'inet:web:acct form.'}),
+                    ('pv:prop', {'ptype': 'str', 'doc': 'Property which changed', 'ro': 1}),
+                    ('pv:strval', {'ptype': 'str', 'ro': 1,
+                                   'doc': 'The normed value of the property (specified by pv), if the property is '
+                                          'a string', }),
+                    ('pv:intval', {'ptype': 'int', 'ro': 1,
+                                   'doc': 'The normed value of the property (specified by pv), if the property is '
+                                          'a integer.', }),
                 ]),
 
                 ('inet:web:logon', {'ptype': 'inet:web:logon'}, [
@@ -962,7 +984,7 @@ class InetMod(CoreModule):
                     ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1}),
                     ('acct:user', {'ptype': 'inet:user', 'ro': 1}),
                     ('info', {'ptype': 'json', 'doc': 'Other information about the action'}),
-                    ('time', {'ptype': 'time', 'doc': 'The time the netuser performed the action'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the account performed the action'}),
                     ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the action'}),
                     ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the action'}),
                 ]),
@@ -987,15 +1009,16 @@ class InetMod(CoreModule):
 
                 ('inet:web:post', {}, [
 
-                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1}),
+                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1, 'doc': 'Account which made the post'}),
                     ('text', {'ptype': 'str:txt', 'ro': 1, 'doc': 'The text of the actual post'}),
 
                     ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1}),
                     ('acct:user', {'ptype': 'inet:user', 'ro': 1}),
 
-                    ('time', {'ptype': 'time'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time that the post was made'}),
 
-                    ('replyto', {'ptype': 'inet:web:post'}),
+                    ('replyto', {'ptype': 'inet:web:post', 'doc': 'The post which this post is in reply to.'}),
+                    ('repost', {'ptype': 'inet:web:post', 'doc': 'The post which this is a repost of.'}),
 
                     ('url', {'ptype': 'inet:url', 'doc': 'The (optional) URL where the post is published/visible'}),
                     ('file', {'ptype': 'file:bytes', 'doc': 'The (optional) file which was posted'}),
