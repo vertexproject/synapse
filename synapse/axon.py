@@ -29,7 +29,6 @@ megabyte = 1024000
 gigabyte = 1024000000
 terabyte = 1024000000000
 chunksize = megabyte * 10
-threedays = ((60 * 60) * 24) * 3
 axontag = 'class.synapse.axon.Axon'
 
 _fs_attrs = ('st_mode', 'st_nlink', 'st_size', 'st_atime', 'st_ctime', 'st_mtime')
@@ -69,7 +68,7 @@ class AxonHost(s_config.Config):
             self._fireAxonIden(iden)
 
         # fire auto-run axons
-        auto = self.getConfOpt('autorun')
+        auto = self.getConfOpt('axonhost:autorun')
         while (len(self.axons) - len(self.cloneaxons)) < auto:
             self.add()
 
@@ -93,8 +92,6 @@ class AxonHost(s_config.Config):
             ('axonhost:maxsize', {'type': 'int', 'defval': 0,
                                   'doc': 'Max total allocations for Axons created by the host. '
                                          'Only applies if set to a positive integer.'}),
-            ('axon:syncmax', {'type': 'int', 'defval': gigabyte * 10,
-                                  'doc': ''}),  # XXX Words
             ('axon:hostname', {'type': 'str', 'defval': s_thishost.get('hostname'),
                                    'doc': 'AxonHost hostname'}),
         )
@@ -125,8 +122,6 @@ class AxonHost(s_config.Config):
 
         if clone:
             self.cloneaxons.append(iden)
-        else:
-            bytemax += opts.get('axon:syncmax')
         self.usedspace = self.usedspace + bytemax
 
     def _onAxonHostFini(self):
@@ -182,8 +177,6 @@ class AxonHost(s_config.Config):
 
         bytemax = fullopts.get('axon:bytemax')
         clone = fullopts.get('axon:clone')
-        if not clone:
-            bytemax += fullopts.get('axon:syncmax')
 
         volinfo = s_thisplat.getVolInfo(self.datadir)
 
@@ -496,14 +489,6 @@ class AxonCluster(AxonMixin):
 class Axon(s_config.Config, AxonMixin):
     '''
     An Axon acts as a binary blob store with hash based indexing/retrieval.
-
-    Opts:
-
-        clone = <iden>          # set if we are a clone (of iden)
-        clones = <count>        # how many clones should we try to create?
-        syncsize = <size>       # approx max size for each sync file
-        synckeep = <seconds>    # how long to keep an axon sync block
-
     '''
     def __init__(self, axondir, **opts):
         s_config.Config.__init__(self)
@@ -618,10 +603,6 @@ class Axon(s_config.Config, AxonMixin):
                        'doc': 'Hostname associated with an Axon.', }),
             ('axon:listen', {'type': 'str', 'defval': 'tcp://0.0.0.0:0/axon',
                        'doc': 'Default listener URL for the axon', }),
-            ('axon:synckeep', {'type': 'int', 'defval': threedays,
-                       'doc': 'how long to keep an axon sync block', }),
-            ('axon:syncsize', {'type': 'int', 'defval': gigabyte * 10,
-                       'doc': 'approx max size for each sync file', }),
             ('axon:tags', {'defval': (),
                            'doc': 'Tuple of tag values for the axon over a Axon servicebus.'}),
             ('axon:iden', {'type': 'str', 'defval': None,
@@ -630,8 +611,6 @@ class Axon(s_config.Config, AxonMixin):
                                'doc': 'kwarg Options used when making a persistent sync directory.'}),
             ('axon:bytemax', {'type': 'int', 'defval': terabyte,
                               'doc': 'Max size of data this axon is allowed to store.'}),
-            ('axon:syncmax', {'type': 'int', 'defval': terabyte,
-                              'doc': ''}), # XXX Words this does nothing
         )
         return confdefs
 
