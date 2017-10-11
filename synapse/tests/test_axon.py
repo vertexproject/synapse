@@ -55,6 +55,9 @@ class AxonTest(SynTest):
                 self.none(axon.wants('md5', asdfhash, 8))
                 self.nn(axon.wants('md5', craphash, 8))
 
+                with self.assertRaises(NoSuchFile):
+                    _ = [byts for byts in axon.bytes('md5', craphash)]
+
     def test_axon_restrictions(self):
         with self.getTestDir() as axondir:
             with s_axon.Axon(axondir) as axon:

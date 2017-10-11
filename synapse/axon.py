@@ -820,18 +820,42 @@ class Axon(s_config.Config, AxonMixin):
             hvalu (str): Hash value.
 
         Examples:
-            Write bytes for a md5 to disk::
+            Get the bytes for a given guid and do stuff with them::
 
-                for byts in axon.bytes('md5',md5sum):
+                for byts in axon.bytes('guid', axonblobguid):
+                    dostuff(byts)
+
+
+            Iteratively write bytes to a file for a given md5sum::
+
+                for byts in axon.bytes('md5', md5sum):
                     fd.write(byts)
 
-        Returns:
-            bytes:  A chunk of bytes
+            Form a contiguous bytes object for a given sha512sum. This is not recommended for large files.::
+
+                byts = b''.join((_byts for _byts in axon.bytes('sha512', sha512sum)))
+
+        Notes:
+            This API will raise an exception to the caller if the requested
+            hash is not present in the axon. This is contrasted against the
+            Axon.iterblob() API, which first requires the caller to first
+            obtain an axon:blob tufo in order to start retrieving bytes from
+            the axon.
+
+        Yields:
+            bytes:  A chunk of bytes for a given hash.
+
+        Raises:
+            NoSuchFile: If the requested hash is not present in the axon. This
+            is raised when the generator is first consumed.
         '''
         blob = self.has(htype, hvalu)
         if blob:
             for byts in self.iterblob(blob):
                 yield byts
+        else:
+            raise s_common.NoSuchFile(mesg='The requested blob was not found.',
+                                      htype=htype, hvalu=hvalu)
 
     def iterblob(self, blob):
         '''
@@ -841,14 +865,20 @@ class Axon(s_config.Config, AxonMixin):
             blob ((str, dict)):  axon:blob tufo to yield bytes from.
 
         Examples:
-            Get the bytes from a blob::
+            Get the bytes from a blob and do stuff with them::
 
-                for byts in axon.iterAxonBlob(blob):
+                for byts in axon.iterblob(blob):
                     dostuff(byts)
 
-            Form a contiguous bytes object for a given blob::
+            Iteratively write bytes to a file for a given blob::
 
-                byts = b''.join((_byts for _bytes in eaxon.iterAxonBlob(blob)))
+                fd = file('foo.bin','wb')
+                for byts in axon.iterblob(blob):
+                    fd.write(byts)
+
+            Form a contiguous bytes object for a given blob. This is not recommended for large files.::
+
+                byts = b''.join((_byts for _byts in axon.iterblob(blob)))
 
         Yields:
             bytes:  A chunk of bytes

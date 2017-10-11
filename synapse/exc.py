@@ -113,7 +113,7 @@ class IsRuntProp(SynErr): pass
 class NoSuch(Exception): pass
 class NoSuchJob(Exception): pass
 class NoSuchObj(SynErr): pass
-class NoSuchFile(Exception): pass
+class NoSuchFile(SynErr): pass
 class NoSuchIden(Exception): pass
 class NoSuchMeth(SynErr): pass
 class NoSuchFunc(SynErr): pass
