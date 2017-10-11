@@ -36,5 +36,5 @@ class OpenFileTest(SynTest):
         wapp.addFilePath('/v1/test/(.*)', fdir)
         port = wapp.getServBinds()[0][1]
 
-        with s_openfile.openfd('http://127.0.0.1:{}/v1/test/tlds-alpha-by-domain.txt'.format(port)) as fd:
-            self.true(fd.read().find(b'LINK') != -1)
+        with s_openfile.openfd('http://127.0.0.1:{}/v1/test/test.dat'.format(port)) as fd:
+            self.true(fd.read().find(b'woot') != -1)
