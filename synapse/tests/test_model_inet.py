@@ -1295,3 +1295,44 @@ class InetModelTest(SynTest):
                 self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:logon'))
                 self.len(1, core.getRowsByProp('_:*inet:web:logon#hehe.hoho'))
                 self.len(1, core.getRowsByProp('_:*inet:web:logon#hehe'))
+
+    def test_model_inet_201710111553(self):
+
+        adds = []
+
+        iden, tick = guid(), now()
+        adds.extend([
+            (iden, 'tufo:form', 'inet:web:acct', tick),
+            (iden, 'inet:web:acct', 'vertex.link/pennywise1', tick),
+            (iden, 'inet:web:acct:site', 'vertex.link', tick),
+            (iden, 'inet:web:acct:user', 'pennywise', tick),
+            (iden, 'inet:web:acct:occupation', 'EnterTainEr', tick),
+        ])
+
+        iden, tick = guid(), now()
+        adds.extend([
+            (iden, 'tufo:form', 'inet:web:acct', tick),
+            (iden, 'inet:web:acct', 'vertex.link/pennywise2', tick),
+            (iden, 'inet:web:acct:site', 'vertex.link', tick),
+            (iden, 'inet:web:acct:user', 'pennywise', tick),
+            (iden, 'inet:web:acct:occupation', 'entertainer', tick),
+        ])
+
+        with s_cortex.openstore('ram:///') as stor:
+
+            stor.setModlVers('inet', 0)
+            def addrows(mesg):
+                stor.addRows(adds)
+            stor.on('modl:vers:rev', addrows, name='inet', vers=201710111553)
+
+            with s_cortex.fromstore(stor) as core:
+
+                tufo = core.getTufoByProp('inet:web:acct', 'vertex.link/pennywise1')
+                self.eq(tufo[1]['tufo:form'], 'inet:web:acct')
+                self.eq(tufo[1]['inet:web:acct'], 'vertex.link/pennywise1')
+                self.eq(tufo[1]['inet:web:acct:occupation'], 'entertainer')
+
+                tufo = core.getTufoByProp('inet:web:acct', 'vertex.link/pennywise2')
+                self.eq(tufo[1]['tufo:form'], 'inet:web:acct')
+                self.eq(tufo[1]['inet:web:acct'], 'vertex.link/pennywise2')
+                self.eq(tufo[1]['inet:web:acct:occupation'], 'entertainer')
