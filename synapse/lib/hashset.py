@@ -7,12 +7,12 @@ class HashSet:
         self.size = 0
 
         # BEWARE ORDER MATTERS FOR guid()
-        self.hashes = [
+        self.hashes = (
             ('md5', hashlib.md5()),
             ('sha1', hashlib.sha1()),
             ('sha256', hashlib.sha256()),
             ('sha512', hashlib.sha512())
-        ]
+        )
 
     def guid(self):
         '''

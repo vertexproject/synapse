@@ -201,6 +201,15 @@ class Configable:
         '''
         return {name: dict(info[1]) for (name, info) in self._conf_defs.items()}
 
+    def getConfOpts(self):
+        '''
+        Get the current configuration for this object.
+
+        Returns:
+            dict: Dictionary of option and configured value for the object.
+        '''
+        return {key: self.getConfOpt(key) for key, _ in self.getConfDefs().items()}
+
     def getConfNorm(self, name, valu):
         '''
         Return a normalized version of valu based on type knowledge for name.

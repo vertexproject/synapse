@@ -96,6 +96,7 @@ class Heap(s_eventbus.EventBus):
 
     def _actSyncHeapResize(self, mesg):
         size = mesg[1].get('size')
+        self.atom.resize(size)
 
     def _writeoff(self, off, byts):
         self.atom.writeoff(off, byts)

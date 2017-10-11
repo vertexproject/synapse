@@ -73,7 +73,7 @@ class Offset(s_eventbus.EventBus):
 
 class Dir(s_eventbus.EventBus):
     '''
-    A persistance dir may be used similar to a Write-Ahead-Log to sync
+    A persistence dir may be used similar to a Write-Ahead-Log to sync
     objects based on events ( and allow desync-catch-up )
     '''
 
@@ -300,7 +300,7 @@ class Dir(s_eventbus.EventBus):
 
 class File(s_eventbus.EventBus):
     '''
-    A single fd based persistance stream.
+    A single fd based persistence stream.
 
     This is mostly a helper for Dir().  All consume/resume
     behavior should be facilitated by the Dir() object.
