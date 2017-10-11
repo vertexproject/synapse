@@ -78,8 +78,8 @@ class SynTest(unittest.TestCase):
         return s_eventbus.Waiter(bus, size, *evts)
 
     def skipIfNoInternet(self):
-        if os.getenv('SYN_TEST_NO_INTERNET'):
-            raise unittest.SkipTest('no internet access')
+        if bool(int(os.getenv('SYN_TEST_SKIP_INTERNET', 0))):
+            raise unittest.SkipTest('SYN_TEST_SKIP_INTERNET envar set')
 
     def getPgConn(self):
         '''

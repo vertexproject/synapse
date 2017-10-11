@@ -1,5 +1,6 @@
 from synapse.tests.common import *
 
+import synapse.lib.webapp as s_webapp
 import synapse.lib.openfile as s_openfile
 
 class OpenFileTest(SynTest):
@@ -27,6 +28,13 @@ class OpenFileTest(SynTest):
                 self.eq(fd.read(), b'asdfqwer')
 
     def test_openfile_http(self):
-        self.skipIfNoInternet()
-        with s_openfile.openfd('http://data.iana.org/TLD/tlds-alpha-by-domain.txt') as fd:
-            self.true(fd.read().find(b'LINK') != -1)
+        self.thisHostMustNot(platform='windows')
+        fdir = getTestPath()
+
+        wapp = s_webapp.WebApp()
+        wapp.listen(0, host='127.0.0.1')
+        wapp.addFilePath('/v1/test/(.*)', fdir)
+        port = wapp.getServBinds()[0][1]
+
+        with s_openfile.openfd('http://127.0.0.1:{}/v1/test/test.dat'.format(port)) as fd:
+            self.true(fd.read().find(b'woot') != -1)
