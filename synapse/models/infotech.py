@@ -6,31 +6,73 @@ class ItMod(CoreModule):
     def getBaseModels():
         modl = {
             'types': (
-                ('it:host', {'subof': 'guid', 'doc': 'A GUID for a host/system'}),
-                ('it:hostname', {'subof': 'str:lwr', 'doc': 'A system/host name'}),
+                
+                ('it:host', {
+                    'subof': 'guid',
+                    'doc': 'A GUID that represents a host or system.'}),
+                
+                ('it:hostname', {
+                    'subof': 'str:lwr',
+                    'doc': 'The name of a host or system.'}),
 
-                ('it:hosturl', {'subof': 'comp', 'fields': 'host,it:host|url,inet:url'}),
+                ('it:hosturl', {
+                    'subof': 'comp',
+                    'fields': 'host,it:host|url,inet:url',
+                    'doc': 'A URL hosted on or served by a host or system.'}),
 
-                ('it:sec:cve', {'subof': 'str:lwr', 'regex': '(?i)^CVE-[0-9]{4}-[0-9]{4,}$',
-                                'doc': 'A CVE entry from Mitre'}),
+                ('it:sec:cve', {
+                    'subof': 'str:lwr',
+                    'regex': '(?i)^CVE-[0-9]{4}-[0-9]{4,}$',
+                    'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
+                    'ex': 'CVE-2012-0158'}),
 
-                ('it:av:sig', {'subof': 'sepr', 'sep': '/',
-                               'fields': 'org,ou:alias|sig,str:lwr', 'doc': 'An antivirus signature'}),
-                ('it:av:filehit', {'subof': 'sepr', 'sep': '/', 'fields': 'file,file:bytes|sig,it:av:sig', 'doc': 'An antivirus hit'}),
+                ('it:av:sig', {
+                    'subof': 'sepr',
+                    'sep': '/',
+                    'fields': 'org,ou:alias|sig,str:lwr',
+                    'doc': 'A vendor- or organization-specific antivirus signature name.'}),
+                
+                ('it:av:filehit', {
+                    'subof': 'sepr',
+                    'sep': '/',
+                    'fields': 'file,file:bytes|sig,it:av:sig',
+                    'doc': 'A file that triggered an alert on an antivirus signature.'}),
 
-                ('it:dev:str', {'subof': 'str', 'doc': 'A developer selected string'}),
-                ('it:dev:int', {'subof': 'int', 'doc': 'A developer selected int constant'}),
+                ('it:dev:str', {
+                    'subof': 'str',
+                    'doc': 'A developer-selected string.'}),
+                
+                ('it:dev:int', {
+                    'subof': 'int',
+                    'doc': 'A developer-selected integer constant.'}),
 
-                ('it:exec:proc', {'subof': 'guid', 'doc': 'A unique process execution on a host'}),
-                ('it:exec:subproc', {'subof': 'comp', 'fields': 'proc=it:exec:proc,child=it:exec:proc'}),
+                ('it:exec:proc', {
+                    'subof': 'guid',
+                    'doc': 'An instance of a process ("file") executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.'}),
+                
+                ('it:exec:subproc', {
+                    'subof': 'comp',
+                    'fields': 'proc=it:exec:proc,child=it:exec:proc'
+                     'doc': 'An instance of a process launching or spawning a subprocess.'}),
 
-                ('it:dev:pipe', {'subof': 'it:dev:str', 'doc': 'A  named pipe string'}),
-                ('it:dev:mutex', {'subof': 'it:dev:str', 'doc': 'A named mutex string'}),
-                ('it:dev:regkey', {'subof': 'it:dev:str', 'doc': 'A windows registry key string'}),
+                ('it:dev:pipe', {
+                    'subof': 'it:dev:str',
+                    'doc': 'A string representing a named pipe.'}),
+                
+                ('it:dev:mutex', {
+                    'subof': 'it:dev:str',
+                    'doc': 'A string representing a mutex.'}),
+                
+                ('it:dev:regkey', {
+                    'subof': 'it:dev:str',
+                    'doc': 'A Windows registry key.'
+                    'ex': 'HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'}),
 
-                ('it:dev:regval', {'subof': 'comp', 'fields': 'key=it:dev:regkey',
-                                   'optfields': 'str=it:dev:str,int=it:dev:int,bytes=file:bytes',
-                                   'doc': 'A windows registry key/val pair'}),
+                ('it:dev:regval', {
+                    'subof': 'comp',
+                    'fields': 'key=it:dev:regkey',
+                    'optfields': 'str=it:dev:str,int=it:dev:int,bytes=file:bytes',
+                    'doc': 'A Windows registry key/value pair.'}),
             ),
 
             'forms': (
