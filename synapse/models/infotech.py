@@ -149,7 +149,7 @@ class ItMod(CoreModule):
                     ('proc', {'ptype': 'it:exec:proc', 'doc': 'The process executing code that created the mutex.'}),
                     ('host', {'ptype': 'it:host', 'doc': 'The host running the process that created the mutex (parsed :proc).'}),
                     ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing code that created the mutex (parsed from :proc).'}),
-                    ('time', {'ptype': 'time', 'The time the mutex was created.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the mutex was created.'}),
                     ('name', {'ptype': 'it:dev:mutex', 'doc': 'The mutex string.'}),
                 )),
 
