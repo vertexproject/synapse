@@ -2703,7 +2703,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 if self.isRuntForm(stype):
                     continue
 
-                if self.isTufoForm(stype):
+                if not self.isTufoForm(stype):
+                    continue
+
+                if self.isAutoAddSafe(stype):
                     toadd.add((stype, valu))
 
         for form, valu in toadd:

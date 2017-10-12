@@ -770,6 +770,7 @@ class TypeLib:
         self.typetree = {}
         self.subscache = {}
         self.modlnames = set()
+        self.notautoaddsafe = set()
 
         # pend creation of subtypes for non-existant base types
         # until the base type gets loaded.
@@ -780,13 +781,16 @@ class TypeLib:
         self.addType('bool', ctor='synapse.lib.types.BoolType', doc='A boolean type')
         self.addType('json', ctor='synapse.lib.types.JsonType', doc='A json type (stored as str)')
 
-        self.addType('guid', ctor='synapse.lib.types.GuidType', doc='A Globally Unique Identifier type')
+        self.addType('guid', ctor='synapse.lib.types.GuidType', doc='A Globally Unique Identifier type',
+                     autoaddsafe=0)
         self.addType('sepr', ctor='synapse.lib.types.SeprType',
                      doc='A multi-field composite type which uses separated repr values')
         self.addType('comp', ctor='synapse.lib.types.CompType',
-                     doc='A multi-field composite type which generates a stable guid from normalized fields')
+                     doc='A multi-field composite type which generates a stable guid from normalized fields',
+                     autoaddsafe=0)
         self.addType('xref', ctor='synapse.lib.types.XrefType',
-                     doc='A multi-field composite type which can be used to link a known form to an unknown form')
+                     doc='A multi-field composite type which can be used to link a known form to an unknown form',
+                     autoaddsafe=0)
         self.addType('time', ctor='synapse.lib.types.TimeType',
                      doc='Timestamp in milliseconds since epoch', ex='20161216084632')
 
@@ -837,13 +841,19 @@ class TypeLib:
 
     def getTypeBases(self, name):
         '''
-        Return a list of type inheritence names beginning with the base type.
+        Return a list of type inheritance names beginning with the base type.
 
-        Example:
+        Args:
+            name (str): Type to get the inheritance names for.
 
-            for base in tlib.getTypeBases('foo:minval'):
-                print('base type: %s' % (name,))
+        Examples:
+            Print a list of inheritance names::
 
+                for base in tlib.getTypeBases('foo:minval'):
+                    print('base type: %s' % (name,))
+
+        Returns:
+            list: List of type names.
         '''
         done = [name]
 
@@ -988,8 +998,13 @@ class TypeLib:
 
         ctor = info.get('ctor')
         subof = info.get('subof')
+        autoaddsafe = info.get('autoaddsafe', True)
+
         if ctor is None and subof is None:
             raise Exception('addType must have either ctor= or subof=')
+
+        if not autoaddsafe:
+            self.notautoaddsafe.add(name)
 
         if ctor is not None:
             self.typeinfo[name] = info
@@ -1134,3 +1149,15 @@ class TypeLib:
 
         '''
         return self.reqDataType(name).parse(text)
+
+    def isAutoAddSafe(self, name):
+        for btype in self.getTypeBases(name):
+            if btype in self.notautoaddsafe:
+                return False
+        return True
+
+    def reqAutoAddSafe(self, name):
+        if not self.isAutoAddSafe(name):
+            raise s_common.NotAutoAddSafe(mesg='Requested type is not safe to make autoadds with.',
+                                          name=name)
+        return True

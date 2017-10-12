@@ -773,3 +773,26 @@ class DataTypesTest(SynTest):
             self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', 'inet:ipv4= 1.2.3.4')
             self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', '(inet:ipv4,1.2.3.4)')
             self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', ['inet:ipv4', '1.2.3.4', 'opps'])
+
+    def test_types_autoaddsafe(self):
+        with self.getRamCore() as core:
+            self.false(core.isAutoAddSafe('guid'))
+            self.false(core.isAutoAddSafe('comp'))
+            self.false(core.isAutoAddSafe('xref'))
+
+            self.true(core.isAutoAddSafe('int'))
+            self.true(core.isAutoAddSafe('str'))
+            self.true(core.isAutoAddSafe('str:lwr'))
+            self.true(core.isAutoAddSafe('sepr'))
+
+            self.true(core.reqAutoAddSafe('str'))
+            self.raises(NotAutoAddSafe, core.reqAutoAddSafe, 'guid')
+
+            # Try some model-specific sub types
+            self.true(core.isAutoAddSafe('inet:ipv4'))
+            self.true(core.isAutoAddSafe('inet:web:acct'))
+            self.false(core.isAutoAddSafe('it:host'))
+            self.false(core.isAutoAddSafe('ps:person'))
+
+            self.true(core.reqAutoAddSafe('inet:ipv4'))
+            self.raises(NotAutoAddSafe, core.reqAutoAddSafe, 'it:host')
