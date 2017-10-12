@@ -65,7 +65,7 @@ class ItMod(CoreModule):
 
                 ('it:dev:regkey', {
                     'subof': 'it:dev:str',
-                    'doc': 'A Windows registry key.'
+                    'doc': 'A Windows registry key.',
                     'ex': 'HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'}),
 
                 ('it:dev:regval', {
