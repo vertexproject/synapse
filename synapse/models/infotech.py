@@ -212,7 +212,7 @@ class ItMod(CoreModule):
                 )),
 
                 ('it:exec:file:del', {'ptype': 'guid'}, (
-                    ('proc', {'ptype': 'it:exec:proc', 'doc', 'The process executing code that deleted the file.'}),
+                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The process executing code that deleted the file.'}),
                     ('host', {'ptype': 'it:host', 'doc': 'The host running the process that deleted the file (parsed from :proc).'}),
                     ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing code that deleted the file (parsed from :proc).'}),
                     ('time', {'ptype': 'time', 'doc': 'The time the file was deleted.'}),
