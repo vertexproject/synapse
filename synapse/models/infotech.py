@@ -6,7 +6,7 @@ class ItMod(CoreModule):
     def getBaseModels():
         modl = {
             'types': (
-                
+
                 ('it:host', {
                     'subof': 'guid',
                     'doc': 'A GUID that represents a host or system.'}),
@@ -198,7 +198,7 @@ class ItMod(CoreModule):
                 )),
 
                 # FIXME seed for hex file bytes
-                
+
                 ('it:exec:file:add', {'ptype': 'guid'}, (
                     ('proc', {'ptype': 'it:exec:proc', 'doc': 'The process executing code that created the new file.'}),
                     ('host', {'ptype': 'it:host', 'doc': 'The host running the process that created the new file (parsed from :proc).'}),
