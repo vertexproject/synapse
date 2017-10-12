@@ -397,11 +397,17 @@ class InetModelTest(SynTest):
         with self.getRamCore() as core:
 
             postref_tufo = core.formTufoByProp('inet:web:postref', (('vertex.link/user', 'mypost 0.0.0.0'), ('inet:ipv4', 0)))
-            post_tufo = core.formTufoByProp('inet:web:post', ('vertex.link/user', 'mypost 0.0.0.0'))
-            # This feels wrong...
+            self.none(core.getTufoByProp('inet:web:post', ('vertex.link/user', 'mypost 0.0.0.0')))  # NOTE: the post will not be formed by forming the postref.
 
-            self.eq(post_tufo[1].get('inet:web:post:acct'), 'vertex.link/user')
-            self.eq(post_tufo[1].get('inet:web:post:text'), 'mypost 0.0.0.0')
+            self.eq(postref_tufo[1]['tufo:form'], 'inet:web:postref')
+            self.eq(postref_tufo[1]['inet:web:postref'], '804ec63392f4ea031bb3fd004dee209d')
+            self.eq(postref_tufo[1]['inet:web:postref:post'], '68bc4607f0518963165536921d6e86fa')
+            self.eq(postref_tufo[1]['inet:web:postref:xref'], 'inet:ipv4=0.0.0.0')
+            self.eq(postref_tufo[1]['inet:web:postref:xref:prop'], 'inet:ipv4')
+            self.eq(postref_tufo[1]['inet:web:postref:xref:intval'], 0)
+
+            post_tufo = core.formTufoByProp('inet:web:post', ('vertex.link/user', 'mypost 0.0.0.0'))
+            self.eq(post_tufo[1]['inet:web:post'], postref_tufo[1]['inet:web:postref:post'])
 
     def test_model_inet_web_mesg(self):
         with self.getRamCore() as core:
