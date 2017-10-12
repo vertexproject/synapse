@@ -52,7 +52,7 @@ class ItMod(CoreModule):
 
                 ('it:exec:subproc', {
                     'subof': 'comp',
-                    'fields': 'proc=it:exec:proc,child=it:exec:proc'
+                    'fields': 'proc=it:exec:proc,child=it:exec:proc',
                     'doc': 'A process that launches a subprocess.'}),
 
                 ('it:dev:pipe', {
