@@ -10,7 +10,7 @@ class ItMod(CoreModule):
                 ('it:host', {
                     'subof': 'guid',
                     'doc': 'A GUID that represents a host or system.'}),
-                
+
                 ('it:hostname', {
                     'subof': 'str:lwr',
                     'doc': 'The name of a host or system.'}),
@@ -31,7 +31,7 @@ class ItMod(CoreModule):
                     'sep': '/',
                     'fields': 'org,ou:alias|sig,str:lwr',
                     'doc': 'A vendor- or organization-specific antivirus signature name.'}),
-                
+
                 ('it:av:filehit', {
                     'subof': 'sepr',
                     'sep': '/',
@@ -41,7 +41,7 @@ class ItMod(CoreModule):
                 ('it:dev:str', {
                     'subof': 'str',
                     'doc': 'A developer-selected string.'}),
-                
+
                 ('it:dev:int', {
                     'subof': 'int',
                     'doc': 'A developer-selected integer constant.'}),
@@ -49,7 +49,7 @@ class ItMod(CoreModule):
                 ('it:exec:proc', {
                     'subof': 'guid',
                     'doc': 'An instance of a process ("file") executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.'}),
-                
+
                 ('it:exec:subproc', {
                     'subof': 'comp',
                     'fields': 'proc=it:exec:proc,child=it:exec:proc'
@@ -58,11 +58,11 @@ class ItMod(CoreModule):
                 ('it:dev:pipe', {
                     'subof': 'it:dev:str',
                     'doc': 'A string representing a named pipe.'}),
-                
+
                 ('it:dev:mutex', {
                     'subof': 'it:dev:str',
                     'doc': 'A string representing a mutex.'}),
-                
+
                 ('it:dev:regkey', {
                     'subof': 'it:dev:str',
                     'doc': 'A Windows registry key.'
