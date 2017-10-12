@@ -243,7 +243,7 @@ class ItMod(CoreModule):
                     ('path', {'ptype': 'file:path', 'doc': 'The path where the file was modified.'}),
                     ('path:dir', {'ptype': 'file:path', 'doc': 'The parent directory of the file path (parsed from :path).', 'ro': 1}),
                     ('path:ext', {'ptype': 'str:lwr', 'doc': 'The file extension of the file name (parsed from :path).', 'ro': 1}),
-                    ('path:base', {'ptype': 'file:base' 'doc': 'The final component of the file path (parsed from :path).', 'ro': 1}),
+                    ('path:base', {'ptype': 'file:base', 'doc': 'The final component of the file path (parsed from :path).', 'ro': 1}),
                     ('file', {'ptype': 'file:bytes', 'doc': 'The file that was modified.'}),
                 )),
 
