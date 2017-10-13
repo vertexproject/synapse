@@ -75,6 +75,7 @@ class SocketTest(SynTest):
         plex.fini()
 
     def test_socket_hostaddr(self):
+        self.skipIfNoInternet()
         self.nn(s_socket.hostaddr())
 
     def test_socket_glob_plex(self):

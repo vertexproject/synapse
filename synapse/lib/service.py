@@ -124,6 +124,14 @@ class SvcProxy(s_eventbus.EventBus):
     def __init__(self, sbus, timeout=None):
         s_eventbus.EventBus.__init__(self)
 
+        self.byiden = {}
+        self.byname = {}
+        self.bytag = s_tags.ByTag()
+
+        self.idenprox = {}
+        self.nameprox = {}
+        self.tagprox = {}
+
         self.sbus = sbus
         self.timeout = timeout
 
@@ -132,14 +140,6 @@ class SvcProxy(s_eventbus.EventBus):
         # FIXME set a reconnect handler for sbus
         self.sbus.on('syn:svc:init', self._onSynSvcInit)
         self.sbus.on('syn:svc:fini', self._onSynSvcFini)
-
-        self.byiden = {}
-        self.byname = {}
-        self.bytag = s_tags.ByTag()
-
-        self.idenprox = {}
-        self.nameprox = {}
-        self.tagprox = {}
 
         [self._addSvcTufo(svcfo) for svcfo in sbus.getSynSvcs()]
 
@@ -202,7 +202,7 @@ class SvcProxy(s_eventbus.EventBus):
                 dostuff(svcfo)
 
         '''
-        return self.byiden.values()
+        return list(self.byiden.values())
 
     def getSynSvcsByTag(self, tag):
         '''

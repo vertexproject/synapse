@@ -1,6 +1,9 @@
 import os
 import mmap
+import logging
 import threading
+
+import synapse.common as s_common
 
 import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
@@ -14,6 +17,8 @@ ptrsize = s_thishost.get('ptrsize')
 haspriv = getattr(mmap, 'MAP_PRIVATE', None) is not None
 haspread = getattr(os, 'pread', None) is not None
 hasremap = getattr(libc, 'mremap', None) is not None
+
+logger = logging.getLogger(__name__)
 
 def getAtomFile(fd, memok=True):
     '''
@@ -74,6 +79,9 @@ class AtomFile(EventBus):
         '''
         Atomically write bytes at the given offset.
         '''
+        bsize = len(byts)
+        if off + bsize > self.size:
+            raise s_common.BadAtomFile('writeoff past size!', offset=off, size=bsize, fsize=self.size, )
         return self._writeoff(off, byts)
 
     def resize(self, size):
@@ -87,7 +95,7 @@ class AtomFile(EventBus):
         '''
 
         if size < self.size:
-            raise Exception('resize() to smaller not supported')
+            raise s_common.BadAtomFile('resize() to smaller not supported', size=size, fsize=self.size)
 
         if size == self.size:
             return
@@ -171,9 +179,6 @@ class MemAtom(AtomFile):
         return self.mm[off:off + size]
 
     def _writeoff(self, off, byts):
-        if off + len(byts) > self.size:
-            raise Exception('writeoff past size!')
-
         self.mm[off:off + len(byts)] = byts
 
     def _resize(self, size):

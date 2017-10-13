@@ -18,6 +18,14 @@ class AtomTest(SynTest):
 
         self.eq(atom.readoff(100, 8), b'asdfqwer')
 
+        # calling resize with the current size does nothing
+        self.eq(atom.size, 8192)
+        atom.resize(8192)
+        self.eq(atom.size, 8192)
+
+        self.raises(BadAtomFile, atom.resize, 10)
+        self.raises(BadAtomFile, atom.writeoff, 0xFFFFFFFF, b'deadb33f')
+
     def test_atomfile_base(self):
         fd = self._getTempFile()
         with s_atomfile.AtomFile(fd) as atom:

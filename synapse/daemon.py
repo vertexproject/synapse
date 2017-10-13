@@ -331,7 +331,7 @@ class OnHelp:
 
     def dist(self, mesg):
 
-        for sock, filts in self.ons.items():
+        for sock, filts in list(self.ons.items()):
 
             for filt in filts.values():
 
@@ -490,6 +490,7 @@ class Daemon(EventBus, DmonConf):
         reflect = mesg[1].get('reflect')
 
         user = sock.get('syn:user')
+
         if not self._isUserAllowed(user, 'tele:push:' + name):
             return sock.tx(s_common.tufo('job:done', err='NoSuchRule', jid=jid))
 

@@ -478,7 +478,6 @@ class HypnosTest(SynTest, AsyncTestCase):
 
     def test_hypnos_callback_ondone(self):
         self.thisHostMustNot(platform='windows')
-        self.skipIfNoInternet()
 
         # testserver = Foo()
         gconf = get_fake_ipify_global_config(port=self.port)
@@ -625,7 +624,6 @@ class HypnosTest(SynTest, AsyncTestCase):
     def test_hypnos_fire_api_callback(self):
         # Ensure that the provided callback is fired and args are passed to the callbacks.
         self.thisHostMustNot(platform='windows')
-        self.skipIfNoInternet()
 
         # testserver = Foo()
         gconf = get_fake_ipify_global_config(port=self.port)
@@ -657,7 +655,6 @@ class HypnosTest(SynTest, AsyncTestCase):
     def test_hypnos_default_callback(self):
         # Ensure that the default callback, of firing an event handler, works.
         self.thisHostMustNot(platform='windows')
-        self.skipIfNoInternet()
         # testserver = Foo()
         gconf = get_fake_ipify_global_config(port=self.port)
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1}, ioloop=self.io_loop) as hypo_obj:
@@ -684,7 +681,6 @@ class HypnosTest(SynTest, AsyncTestCase):
         # Ensure the Job is complete even if we have no explicit callback or
         # listening event handlers.
         self.thisHostMustNot(platform='windows')
-        self.skipIfNoInternet()
         gconf = get_fake_ipify_global_config(port=self.port)
         # testserver = Foo()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
@@ -704,7 +700,6 @@ class HypnosTest(SynTest, AsyncTestCase):
     def test_hypnos_manual_ingest_via_eventbus(self):
         # This is a manual setup of the core / ingest type of action.
         self.thisHostMustNot(platform='windows')
-        self.skipIfNoInternet()
 
         core = s_cortex.openurl('ram://')
 
@@ -774,7 +769,6 @@ class HypnosTest(SynTest, AsyncTestCase):
     def test_hypnos_automatic_ingest(self):
         # Ensure that a configuration object with a ingest definition is automatically parsed.
         self.thisHostMustNot(platform='windows')
-        self.skipIfNoInternet()
         gconf = get_fake_ipify_ingest_global_config(port=self.port)
         # testserver = Foo()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
@@ -805,7 +799,6 @@ class HypnosTest(SynTest, AsyncTestCase):
     def test_hypnos_simple_fail(self):
         # Test a simple failure case
         self.thisHostMustNot(platform='windows')
-        self.skipIfNoInternet()
         gconf = get_fake_ipify_global_config(port=self.port)
         # testserver = Foo()
 
@@ -841,7 +834,6 @@ class HypnosTest(SynTest, AsyncTestCase):
         # against ingested tufo in the hypnos cortex. Use daemon to handle
         # telepath proxying.
         self.thisHostMustNot(platform='windows')
-        self.skipIfNoInternet()
         gconf = get_fake_ipify_ingest_global_config(port=self.port)
         dconf = {
             'vars': {
@@ -897,7 +889,6 @@ class HypnosTest(SynTest, AsyncTestCase):
 
     def test_hypnos_content_type_skips(self):
         self.thisHostMustNot(platform='windows')
-        self.skipIfNoInternet()
         gconf = get_fake_ipify_global_config(port=self.port)
         # testserver = Foo()
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1},
@@ -937,7 +928,6 @@ class HypnosTest(SynTest, AsyncTestCase):
     def test_hypnos_cache_job(self):
         # Ensure that job results are available via cache when caching is enabled.
         self.thisHostMustNot(platform='windows')
-        self.skipIfNoInternet()
         gconf = get_fake_ipify_global_config(port=self.port)
         # testserver = Foo()
 
@@ -977,7 +967,6 @@ class HypnosTest(SynTest, AsyncTestCase):
     def test_hypnos_cache_with_ingest(self):
         # Ensure that the cached data from a result with a ingest definition is msgpack serializable.
         self.thisHostMustNot(platform='windows')
-        self.skipIfNoInternet()
         # testserver = Foo()
         gconf = get_fake_ipify_ingest_global_config(port=self.port)
 
@@ -1000,7 +989,6 @@ class HypnosTest(SynTest, AsyncTestCase):
     def test_hypnos_cache_with_failure(self):
         # Test a simple failure case
         self.thisHostMustNot(platform='windows')
-        self.skipIfNoInternet()
 
         gconf = get_fake_ipify_global_config(port=self.port)
         with s_remcycle.Hypnos(opts={s_remcycle.MIN_WORKER_THREADS: 1,
@@ -1020,7 +1008,6 @@ class HypnosTest(SynTest, AsyncTestCase):
 
     def test_hypnos_post_byts(self):
         self.thisHostMustNot(platform='windows')
-        self.skipIfNoInternet()
 
         testserver = self.env.testserver  # type: StandaloneTestServer
         self.false(testserver.nommer.nommed)

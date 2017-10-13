@@ -2365,9 +2365,26 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def formTufoByTufo(self, tufo):
         '''
         Form an (iden,info) tufo by extracting information from an existing one.
+
+        Args:
+            tufo ((str, dict)): An existing tufo to form a new tufo from.
+
+        Examples:
+            Create an IPv4 node from an existing node::
+
+                t0 = (None, {'inet:ipv4':0x01020304, 'inet:ipv4:asn': 1024})
+                new_tufo = core.formTufoByTufo(t0)
+
+        Notes:
+            This API uses the formTufoByProp API to form the new tufo; after extracting
+            the form, primary property and sub properties from the input tufo.
+            In addition, this API does not utilize the iden value present in the first
+            element of the tuple when making a new node.
+
+        Returns:
+            ((str, dict)): The new tufo, or an existing tufo if the tufo already existed.
         '''
-        form = tufo[1].get('tufo:form')
-        valu = tufo[1].get(form)
+        form, valu = s_tufo.ndef(tufo)
         prefix = '%s:' % (form,)
         prelen = len(prefix)
         props = {k[prelen:]: v for (k, v) in tufo[1].items() if k.startswith(prefix)}

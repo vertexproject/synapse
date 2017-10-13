@@ -1127,6 +1127,9 @@ class Runtime(Configable):
 
         #NOTE: we only actually want refs where type is form
 
+        # Build a set of pv props so we can lift by form on 'in'
+        pvprops = [prop for prop, pnfo in core.getPropsByType('propvalu')]
+
         done = set()
         if not args or 'in' in args:
 
@@ -1144,6 +1147,7 @@ class Runtime(Configable):
 
                 done.add(dkey)
 
+                # Check regular forms
                 for prop, info in core.getPropsByType(form):
 
                     pkey = (prop, valu)
@@ -1153,6 +1157,23 @@ class Runtime(Configable):
                     done.add(pkey)
 
                     news = core.getTufosByProp(prop, valu=valu, limit=limt.get())
+
+                    [query.add(n) for n in news]
+
+                    if limt.dec(len(news)):
+                        break
+
+                # Check propvalu forms which may point to our current node.
+                pv, _ = core.getTypeNorm('propvalu', [form, valu])
+                for prop in pvprops:
+
+                    pkey = (prop, pv)
+                    if pkey in done:
+                        continue
+
+                    done.add(pkey)
+
+                    news = core.getTufosByProp(prop, valu=pv, limit=limt.get())
 
                     [query.add(n) for n in news]
 

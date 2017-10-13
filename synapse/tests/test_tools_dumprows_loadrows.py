@@ -174,6 +174,7 @@ class DumpRowsTest(SynTest):
             self.eq(ret, 0)
 
     def test_dump_largecore(self):
+        self.skipLongTest()
         # This ensure we're executing the "dump rows
         # when we have N number of bytes cached codepath.
         # Unfortunately this is a bit slow (2-4 seconds).
