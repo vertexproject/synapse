@@ -3,13 +3,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+import synapse.glob as s_glob
 import synapse.async as s_async
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
 import synapse.lib.tags as s_tags
-import synapse.lib.sched as s_sched
 import synapse.lib.scope as s_scope
 import synapse.lib.reflect as s_reflect
 import synapse.lib.thishost as s_thishost
@@ -124,6 +124,14 @@ class SvcProxy(s_eventbus.EventBus):
     def __init__(self, sbus, timeout=None):
         s_eventbus.EventBus.__init__(self)
 
+        self.byiden = {}
+        self.byname = {}
+        self.bytag = s_tags.ByTag()
+
+        self.idenprox = {}
+        self.nameprox = {}
+        self.tagprox = {}
+
         self.sbus = sbus
         self.timeout = timeout
 
@@ -132,14 +140,6 @@ class SvcProxy(s_eventbus.EventBus):
         # FIXME set a reconnect handler for sbus
         self.sbus.on('syn:svc:init', self._onSynSvcInit)
         self.sbus.on('syn:svc:fini', self._onSynSvcFini)
-
-        self.byiden = {}
-        self.byname = {}
-        self.bytag = s_tags.ByTag()
-
-        self.idenprox = {}
-        self.nameprox = {}
-        self.tagprox = {}
 
         [self._addSvcTufo(svcfo) for svcfo in sbus.getSynSvcs()]
 
@@ -202,7 +202,7 @@ class SvcProxy(s_eventbus.EventBus):
                 dostuff(svcfo)
 
         '''
-        return self.byiden.values()
+        return list(self.byiden.values())
 
     def getSynSvcsByTag(self, tag):
         '''
@@ -445,7 +445,6 @@ def runSynSvc(name, item, sbus, tags=(), **props):
     sbus.push(iden, item)
     sbus.push(name, item)
 
-    sched = s_sched.getGlobSched()
     hostinfo = s_thishost.hostinfo
 
     tags = list(tags)
@@ -469,7 +468,7 @@ def runSynSvc(name, item, sbus, tags=(), **props):
             return
 
         sbus.call('iAmAlive', iden)
-        sched.insec(30, svcHeartBeat)
+        s_glob.sched.insec(30, svcHeartBeat)
 
     svcHeartBeat()
 

@@ -53,7 +53,9 @@ class AxonMod(CoreModule):
                     ('sha512', {'ptype': 'hash:sha512', 'req': True}),
                 )),
 
-                ('axon:clone', {'ptype': 'guid'}, ()),
+                ('axon:clone', {'ptype': 'guid'}, (
+                    ('host', {'ptype': 'str', 'req': 1}),
+                )),
 
                 ('axon:path', {'ptype': 'axon:path'}, (
                     ('dir', {'ptype': 'axon:path', 'req': False, 'doc': 'The parent directory for this path.'}),

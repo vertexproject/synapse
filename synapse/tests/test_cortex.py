@@ -1722,6 +1722,15 @@ class CortexTest(SynTest):
             tufs0 = core.getTufosByProp('strform:baz')
             self.eq(len(tufs0), 0)
 
+    def test_cortex_caching_del_tufo_prop(self):
+        with self.getRamCore() as core:
+            core.setConfOpt('caching', 1)
+            t0 = core.formTufoByProp('strform', 'stuff', baz=10)
+            self.eq(t0[1].get('strform:baz'), 10)
+            core.delTufoProp(t0, 'baz')
+            t0 = core.getTufoByProp('strform', 'stuff')
+            self.eq(t0[1].get('strform:baz'), None)
+
     def test_cortex_caching_atlimit(self):
 
         with self.getRamCore() as core:
@@ -1988,29 +1997,29 @@ class CortexTest(SynTest):
 
     def test_cortex_xact_deadlock(self):
         N = 100
-        prop = 'testform'
         fd = tempfile.NamedTemporaryFile()
+        evnt = threading.Event()
         dmon = s_daemon.Daemon()
         pool = s_threads.Pool(size=4, maxsize=8)
-        wait = s_eventbus.Waiter(pool, 1, 'pool:work:fini')
 
         with s_cortex.openurl('sqlite:///%s' % fd.name) as core:
 
             def populate():
                 for i in range(N):
                     #print('wrote %d tufos' % i)
-                    core.formTufoByProp(prop, str(i), **{})
+                    core.formTufoByProp('inet:ipv4', str(i), **{})
+                evnt.set()
 
             dmon.share('core', core)
             link = dmon.listen('tcp://127.0.0.1:0/core')
             prox = s_telepath.openurl('tcp://127.0.0.1:%d/core' % link[1]['port'])
 
-            pool.wrap(populate)()
+            pool.call(populate)
             for i in range(N):
-                tufos = prox.getTufosByProp(prop)
+                tufos = prox.getTufosByProp('inet:ipv4')
                 #print('got %d tufos' % len(tufos))
 
-            wait.wait()
+            self.true(evnt.wait(timeout=3))
             pool.fini()
 
     def test_cortex_seed(self):
@@ -2667,6 +2676,28 @@ class CortexTest(SynTest):
 
             self.raises(NoSuchUser, core.addUserRule, 'fred@woot.com', ('stuff', {}))
             self.raises(NoSuchRole, core.addRoleRule, 'root', ('stuff', {}))
+
+    def test_cortex_formtufobytufo(self):
+        with self.getRamCore() as core:
+            _t0iden = guid()
+            _t0 = (_t0iden, {'tufo:form': 'inet:ipv4', 'inet:ipv4': '1.2.3.4', 'inet:ipv4:asn': 1024})
+            t0 = core.formTufoByTufo(_t0)
+            form, valu = s_tufo.ndef(t0)
+            self.eq(form, 'inet:ipv4')
+            self.eq(valu, 0x01020304)
+            self.eq(t0[1].get('inet:ipv4:asn'), 1024)
+            self.eq(t0[1].get('inet:ipv4:cc'), '??')
+            self.ne(t0[0], _t0iden)
+
+            t1 = core.formTufoByTufo((None, {'tufo:form': 'strform', 'strform': 'oh hai',
+                                             'strform:haha': 1234, 'strform:foo': 'sup'}))
+            form, valu = s_tufo.ndef(t1)
+            self.eq(form, 'strform')
+            self.eq(valu, 'oh hai')
+            self.eq(t1[1].get('strform:foo'), 'sup')
+            self.none(t1[1].get('strform:bar'))
+            self.none(t1[1].get('strform:baz'))
+            self.none(t1[1].get('strform:haha'))
 
 class StorageTest(SynTest):
 

@@ -17,7 +17,7 @@ if [ -e $HTML_DIR ]; then
     rm -rf $HTML_DIR
 fi
 
-pytest -v -s --durations 6 --cov $MODULE --no-cov-on-fail --cov-report=html:$HTML_DIR $1
+pytest -v -s --durations 6 -rs --cov $MODULE --no-cov-on-fail --cov-report=html:$HTML_DIR $1
 
 if [ $? -eq 0 ]; then
     if [ -e $INDEX ]; then

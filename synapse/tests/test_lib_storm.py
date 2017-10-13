@@ -204,6 +204,30 @@ class StormTest(SynTest):
             nodes = core.eval('pvsub refs()')
             self.eq(len(nodes), 2)
 
+            # Try refs() on a node which points to a ref node
+            t0 = core.formTufoByProp('inet:ipv4', '1.2.3.5')
+            t1 = core.formTufoByProp('inet:web:acct', 'vertex.link/pennywise')
+            t2 = core.formTufoByProp('inet:web:post', '(vertex.link/pennywise,"Smells like cottoncandy")')
+            form, valu = s_tufo.ndef(t2)
+            t3 = core.formTufoByProp('inet:web:postref', [valu, ['inet:ipv4', '1.2.3.5']])
+            for node in [t0, t1, t2, t3]:
+                self.nn(node)
+            nodes = core.eval('inet:ipv4=1.2.3.5 refs(in)')
+            self.len(2, nodes)
+
+            forms = set()
+            valus = set()
+            for node in nodes:
+                form, valu = s_tufo.ndef(node)
+                forms.add(form)
+                valus.add(valu)
+            self.eq(forms, {'inet:ipv4', 'inet:web:postref'})
+            self.isin(t0[1].get('inet:ipv4'), valus)
+            self.isin(t3[1].get('inet:web:postref'), valus)
+
+            nodes = core.eval('inet:ipv4=1.2.3.5 refs()')
+            self.len(3, nodes)
+
     def test_storm_tag_query(self):
         # Ensure that non-glob tag filters operate as expected.
         with self.getRamCore() as core:  # type: s_common.Cortex

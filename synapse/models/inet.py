@@ -674,6 +674,23 @@ class InetMod(CoreModule):
                     continue
                 self.core.store.updateProperty(old, new)
 
+    @modelrev('inet', 201710111553)
+    def _revModl201710111553(self):
+
+        adds, dels = [], []
+        with self.core.getCoreXact() as xact:
+            for i, p, v, t in self.core.getRowsByProp('inet:web:acct:occupation'):
+                newv = v.lower()
+                if newv != v:
+                    adds.append((i, p, newv, t),)
+                    dels.append((i, p, v),)
+
+            if adds:
+                self.core.addRows(adds)
+
+            for i, p, v in dels:
+                self.core.delRowsByIdProp(i, p, v)
+
     @staticmethod
     def getBaseModels():
         modl = {
@@ -932,7 +949,7 @@ class InetMod(CoreModule):
 
                     ('tagline', {'ptype': 'str:txt', 'doc': 'A web account status/tag line text'}),
                     ('loc', {'ptype': 'str:lwr', 'doc': 'The web account self declared location'}),
-                    ('occupation', {'ptype': 'str:txt', 'doc': 'A web account self declared occupation'}),
+                    ('occupation', {'ptype': 'str:lwr', 'doc': 'A web account self declared occupation'}),
                     # ('gender',{'ptype':'inet:fqdn','ro':1}),
 
                     ('name', {'ptype': 'inet:user'}),

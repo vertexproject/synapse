@@ -9,7 +9,7 @@ import synapse.tools.pushfile as s_pushfile
 class TestPushFile(SynTest):
 
     def test_tools_pushfile(self):
-
+        self.skipLongTest()
         with self.getTestDir() as path:
 
             visipath = os.path.join(path, 'visi.txt')

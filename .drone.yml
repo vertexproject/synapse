@@ -1,3 +1,14 @@
+buildcommands: &runbuild
+  image: vertexproject/synapse-docker-testimages:${IMAGE_VERSION}
+  pull: true
+  secrets:
+    [ CODECOV_TOKEN ]
+  commands:
+    - if [ -n "${SLEEP}" ]; then sleep ${SLEEP}; fi;
+    - python setup.py install
+    - pytest -v -s -rs --durations 6 ${COVERAGE_ARGS}
+    - if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${IMAGE_VERSION} --required; fi;
+
 clone:
   git:
     image: plugins/git
@@ -25,23 +36,25 @@ matrix:
 pipeline:
   pycodestyle:
     group: style_checks
-    image: vepiphyte/synapse_test_images:py36
+    image: vertexproject/synapse-docker-testimages:py36
     commands:
       - pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 synapse
       - pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 scripts
 
-  build:
-    image: vertexproject/synapse-docker-testimages:${IMAGE_VERSION}
-    pull: true
-    secrets:
-      [ CODECOV_TOKEN ]
+  buildpush:
+    when:
+      event: [push]
     environment:
       - SYN_TEST_PG_DB=${PG_DB}
-    commands:
-      - if [ -n "${SLEEP}" ]; then sleep ${SLEEP}; fi;
-      - python setup.py install
-      - pytest -v -s --durations 6 ${COVERAGE_ARGS}
-      - if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${IMAGE_VERSION} --required; fi;
+      - SYN_TEST_SKIP_LONG=1
+    <<: *runbuild
+
+  build:
+    when:
+      event: [pull_request, tag, deployment]
+    environment:
+      - SYN_TEST_PG_DB=${PG_DB}
+    <<: *runbuild
 
 services:
   database:
