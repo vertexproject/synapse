@@ -1127,13 +1127,8 @@ class Runtime(Configable):
 
         #NOTE: we only actually want refs where type is form
 
-        # Build a set of xref forms so we can lift by form on 'in'
-        xforms = set()
-        _forms = core.getModelDict().get('forms')
-        for _form in _forms:
-            sforms = core.getTypeOfs(_form)
-            if 'xref' in sforms:
-                xforms.add(_form)
+        # Build a set of pv props so we can lift by form on 'in'
+        pvprops = [prop for prop, pnfo in core.getPropsByType('propvalu')]
 
         done = set()
         if not args or 'in' in args:
@@ -1168,10 +1163,9 @@ class Runtime(Configable):
                     if limt.dec(len(news)):
                         break
 
-                # Check XREF forms which have :xref props.
+                # Check propvalu forms which may point to our current node.
                 pv, _ = core.getTypeNorm('propvalu', [form, valu])
-                for _form in xforms:
-                    prop = _form + ':xref'
+                for prop in pvprops:
 
                     pkey = (prop, pv)
                     if pkey in done:
