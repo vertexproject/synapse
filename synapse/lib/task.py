@@ -101,7 +101,7 @@ class Task(EventBus):
 class CallTask(Task):
 
     '''
-    An extnsion for a runnable task.
+    An extension for a runnable task.
 
     Args:
         call ((func,[],{})): A tuple of call details.

@@ -253,7 +253,7 @@ class Pool(EventBus):
                 func(*args, **kwargs)
 
             except Exception as e:
-                logger.exception(e)
+                logger.exception('error running task')
 
     def _onPoolFini(self):
         threads = list(self._pool_threads.values())
