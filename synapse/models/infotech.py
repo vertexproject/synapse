@@ -53,7 +53,7 @@ class ItMod(CoreModule):
                 ('it:exec:subproc', {
                     'subof': 'comp',
                     'fields': 'proc=it:exec:proc,child=it:exec:proc',
-                    'doc': 'A process that launches a subprocess. For example, an EXE loading a DLL, or a program launching another program, such as cmd.exe launching ipconfig.exe.' }),
+                    'doc': 'A process that launches a subprocess. For example, an EXE loading a DLL, or a program launching another program, such as cmd.exe launching ipconfig.exe.'}),
 
                 ('it:dev:pipe', {
                     'subof': 'it:dev:str',
