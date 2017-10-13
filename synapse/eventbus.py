@@ -22,6 +22,7 @@ class EventBus(object):
 
         self._syn_funcs = collections.defaultdict(list)
 
+        self._syn_refs = 1  # one ref for the ctor
         self._syn_links = []
         self._fini_funcs = []
 
@@ -30,6 +31,15 @@ class EventBus(object):
 
     def __exit__(self, type, value, traceback):
         self.fini()
+
+    def incref(self):
+        '''
+        Increment the reference count for this event bus.
+        This API may be optionally used to control fini().
+        '''
+        with self.finlock:
+            self._syn_refs += 1
+            return self._syn_refs
 
     def link(self, func):
         '''
@@ -176,7 +186,11 @@ class EventBus(object):
         with finlock:
 
             if self.isfini:
-                return
+                return 0
+
+            self._syn_refs -= 1
+            if self._syn_refs > 0:
+                return self._syn_refs
 
             self.isfini = True
             fevt = self.finievt
@@ -193,6 +207,8 @@ class EventBus(object):
 
         if fevt is not None:
             fevt.set()
+
+        return 0
 
     def onfini(self, func):
         '''

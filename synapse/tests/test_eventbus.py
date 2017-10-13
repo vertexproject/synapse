@@ -196,3 +196,14 @@ class EventBusTest(SynTest):
 
         # bounce off the isfini block
         self.true(ebus.waitfini(timeout=0.3))
+
+    def test_eventbus_refcount(self):
+        ebus = s_eventbus.EventBus()
+
+        self.eq(ebus.incref(), 2)
+
+        self.eq(ebus.fini(), 1)
+        self.false(ebus.isfini)
+
+        self.eq(ebus.fini(), 0)
+        self.true(ebus.isfini)
