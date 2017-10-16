@@ -85,6 +85,10 @@ class GuidType(DataType):
 
     def norm(self, valu, oldval=None):
 
+        if isinstance(valu, dict):
+            vals = list(valu.items())
+            return self._norm_list(vals, oldval)
+
         if isinstance(valu, (list, tuple)):
             return self._norm_list(valu, oldval)
 

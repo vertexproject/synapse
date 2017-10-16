@@ -564,9 +564,13 @@ class DataTypesTest(SynTest):
             v0, subs0 = core.getPropNorm('guidform', '(foo="1",baz=2)')
             v1, subs1 = core.getPropNorm('guidform', (['baz', '2'], ('foo', '1')))
             v2, _ = core.getPropNorm('guidform', '  (foo="1",baz=2) ')
+            v3, _ = core.getPropNorm('guidform', {'foo': '1', 'baz': 2})
+
             self.eq(v0, '1312b101a21bdfd0d96f896ecc5cc113')
             self.eq(v0, v1)
             self.eq(v0, v2)
+            self.eq(v0, v3)
+
             self.len(2, subs0)
             self.eq(subs0.get('foo'), '1')
             self.eq(subs0.get('baz'), 2)
