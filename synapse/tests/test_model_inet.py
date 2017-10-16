@@ -598,7 +598,7 @@ class InetModelTest(SynTest):
         with self.getRamCore() as core:
 
             postref_tufo = core.formTufoByProp('inet:web:postref', (('vertex.link/user', 'mypost 0.0.0.0'), ('inet:ipv4', 0)))
-            self.none(core.getTufoByProp('inet:web:post', ('vertex.link/user', 'mypost 0.0.0.0')))  # NOTE: the post will not be formed by forming the postref.
+            self.nn(core.getTufoByProp('inet:web:post', ('vertex.link/user', 'mypost 0.0.0.0')))
 
             self.eq(postref_tufo[1]['tufo:form'], 'inet:web:postref')
             self.eq(postref_tufo[1]['inet:web:postref'], '804ec63392f4ea031bb3fd004dee209d')
@@ -608,7 +608,17 @@ class InetModelTest(SynTest):
             self.eq(postref_tufo[1]['inet:web:postref:xref:intval'], 0)
 
             post_tufo = core.formTufoByProp('inet:web:post', ('vertex.link/user', 'mypost 0.0.0.0'))
+            # Ensure we got the deconflicted node that was already made, not a new node
+            self.notin('.new', post_tufo[1])
             self.eq(post_tufo[1]['inet:web:post'], postref_tufo[1]['inet:web:postref:post'])
+            # Ensure that subs on the autoadd node are formed properly
+            self.eq(post_tufo[1].get('inet:web:post:acct'), 'vertex.link/user')
+            self.eq(post_tufo[1].get('inet:web:post:text'), 'mypost 0.0.0.0')
+            # Ensure multiple subs were made into nodes
+            self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/user'))
+            self.nn(core.getTufoByProp('inet:user', 'user'))
+            self.nn(core.getTufoByProp('inet:fqdn', 'vertex.link'))
+            self.nn(core.getTufoByProp('inet:fqdn', 'link'))
 
     def test_model_inet_201706121318(self):
 

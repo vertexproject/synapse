@@ -1052,6 +1052,19 @@ class CortexTest(SynTest):
         t1 = core.getTufoByProp('inet:email', 'pennywise@vertex.link')
         self.nn(t1)
 
+        # Try forming a node from its normalize value and then setting
+        # ro props after the fact. Also ensure those secondary props which
+        # may trigger autoadds are generating the autoadds and do not retain
+        # those non-model seconadry props.
+        valu, subs = core.getTypeNorm('inet:web:post', '(vertex.ninja/ninja,"Just ninja things.")')
+        t0 = core.formTufoByProp('inet:web:post', valu)
+        self.eq(t0[1].get('inet:web:post'), valu)
+        self.none(t0[1].get('inet:web:post:acct'))
+        self.none(t0[1].get('inet:web:post:text'))
+        t0 = core.setTufoProps(t0, **subs)
+        self.eq(t0[1].get('inet:web:post:acct'), 'vertex.ninja/ninja')
+        self.eq(t0[1].get('inet:web:post:text'), 'Just ninja things.')
+
     def test_cortex_tufo_pop(self):
         with self.getRamCore() as core:
             foo0 = core.formTufoByProp('strform', 'bar', foo='faz')
@@ -1402,6 +1415,50 @@ class CortexTest(SynTest):
             tufo1 = core1.getTufoByProp('strform', 'before2')
             self.false(s_tags.tufoHasTag(tufo1, 'hehe'))
             self.false(s_tags.tufoHasTag(tufo1, 'hoho'))
+
+            # Add a complicated node which fires a bunch of autoadd nodes and
+            # ensure they are populated in the second core
+            postref_tufo = core0.formTufoByProp('inet:web:postref',
+                                                (('vertex.link/user', 'mypost 0.0.0.0'),
+                                                 ('inet:ipv4', 0)))
+            self.nn(core1.getTufoByProp('inet:web:post',
+                                        ('vertex.link/user', 'mypost 0.0.0.0')))
+            self.eq(postref_tufo[1]['tufo:form'], 'inet:web:postref')
+            self.eq(postref_tufo[1]['inet:web:postref'], '804ec63392f4ea031bb3fd004dee209d')
+            self.eq(postref_tufo[1]['inet:web:postref:post'], '68bc4607f0518963165536921d6e86fa')
+            self.eq(postref_tufo[1]['inet:web:postref:xref'], 'inet:ipv4=0.0.0.0')
+            self.eq(postref_tufo[1]['inet:web:postref:xref:prop'], 'inet:ipv4')
+            self.eq(postref_tufo[1]['inet:web:postref:xref:intval'], 0)
+
+            # Ensure we got the deconflicted node that was already made, not a new node
+            post_tufo = core1.formTufoByProp('inet:web:post',
+                                             ('vertex.link/user', 'mypost 0.0.0.0'))
+            self.notin('.new', post_tufo[1])
+            self.eq(post_tufo[1]['inet:web:post'], postref_tufo[1]['inet:web:postref:post'])
+            # Ensure that subs on the autoadd node are formed properly
+            self.eq(post_tufo[1].get('inet:web:post:acct'), 'vertex.link/user')
+            self.eq(post_tufo[1].get('inet:web:post:text'), 'mypost 0.0.0.0')
+            # Ensure multiple subs were made into nodes
+            self.nn(core1.getTufoByProp('inet:web:acct', 'vertex.link/user'))
+            self.nn(core1.getTufoByProp('inet:user', 'user'))
+            self.nn(core1.getTufoByProp('inet:fqdn', 'vertex.link'))
+            self.nn(core1.getTufoByProp('inet:fqdn', 'link'))
+
+            # Ensure that splices for changes on ro properties on a node are reflected
+            valu, subs = core0.getTypeNorm('inet:web:post',
+                                           '(vertex.ninja/ninja,"Just ninja things.")')
+            t0 = core0.formTufoByProp('inet:web:post', valu)
+            self.eq(t0[1].get('inet:web:post'), valu)
+            self.none(t0[1].get('inet:web:post:acct'))
+            self.none(t0[1].get('inet:web:post:text'))
+            core0.setTufoProps(t0, **subs)
+            t0 = core1.getTufoByProp('inet:web:post', valu)
+            self.eq(t0[1].get('inet:web:post:acct'), 'vertex.ninja/ninja')
+            self.eq(t0[1].get('inet:web:post:text'), 'Just ninja things.')
+            self.nn(core1.getTufoByProp('inet:web:acct', 'vertex.ninja/ninja'))
+            self.nn(core1.getTufoByProp('inet:user', 'ninja'))
+            self.nn(core1.getTufoByProp('inet:fqdn', 'vertex.ninja'))
+            self.nn(core1.getTufoByProp('inet:fqdn', 'ninja'))
 
     def test_cortex_dict(self):
         core = s_cortex.openurl('ram://')
@@ -1884,22 +1941,6 @@ class CortexTest(SynTest):
             core.setConfOpt('enforce', 0)
             self.raises(BadPropValu, core.formTufoByProp, 'foo:bar', True)
 
-    def test_cortex_events(self):
-        with self.getRamCore() as core:
-
-            tick = now()
-
-            tufo0 = core.addTufoEvent('guidform', baz=10, foo='thing')
-
-            tock = now()
-
-            id0 = tufo0[0]
-            rows = core.getRowsById(id0)
-
-            self.eq(len(rows), 4)
-            self.true(rows[0][-1] >= tick)
-            self.true(rows[0][-1] <= tock)
-
     def test_cortex_splicefd(self):
         with self.getTestDir() as path:
             with genfile(path, 'savefile.mpk') as fd:
@@ -2231,12 +2272,6 @@ class CortexTest(SynTest):
 
             with s_cortex.openurl('sqlite:///%s' % (path,)) as core:
                 self.false(core.isnew)
-
-    def test_cortex_notguidform(self):
-
-        with self.getRamCore() as core:
-
-            self.raises(NotGuidForm, core.addTufoEvents, 'inet:fqdn', [{}])
 
     def test_cortex_getbytag(self):
 

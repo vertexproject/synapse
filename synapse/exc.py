@@ -82,8 +82,6 @@ class BadCoreStore(SynErr):
 class CantDelProp(SynErr): pass
 class CantSetProp(SynErr): pass
 
-class NotGuidForm(SynErr): pass
-
 class MustBeLocal(SynErr): pass
 class MustBeProxy(SynErr): pass
 
