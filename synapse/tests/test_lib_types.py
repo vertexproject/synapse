@@ -454,6 +454,13 @@ class DataTypesTest(SynTest):
         self.eq(tlib.getTypeNorm('time', 1)[0], 1)
         self.eq(tlib.getTypeNorm('time:epoch', 1)[0], 1)
 
+        # Test "now" as a current time value
+        currenttime = now()
+        valu = tlib.getTypeNorm('time', 'now')[0]
+        # Allow for a potential context switch / system load during test
+        #  to push the valu 1 second past currenttime
+        self.le(valu - currenttime, 1)
+
     def test_type_cast(self):
         tlib = s_types.TypeLib()
 

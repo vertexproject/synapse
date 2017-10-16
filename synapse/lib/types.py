@@ -586,6 +586,8 @@ class TimeType(DataType):
         return valu, subs
 
     def _norm_str(self, text, oldval=None):
+        if text.strip().lower() == 'now':
+            return s_common.now(), {}
         return s_time.parse(text), {}
 
     def repr(self, valu):

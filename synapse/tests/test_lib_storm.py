@@ -74,6 +74,12 @@ class StormTest(SynTest):
             self.nn(node[1].get('inet:web:acct:seen:min'))
             self.nn(node[1].get('inet:web:acct:seen:max'))
 
+            # Can use the "now" string on a time prop to set it to that valu
+            currenttime = now()
+            cmd = 'inet:web:acct=vertex.link/pennywise setprop(:seen:max="now")'
+            node = core.eval(cmd)[0]
+            self.le(node[1].get('inet:web:acct:seen:max') - currenttime, 1)
+
             # old / bad syntax fails
             # kwlist key/val syntax is no longer valid in setprop()
             node = core.formTufoByProp('inet:fqdn', 'vertex.link')
