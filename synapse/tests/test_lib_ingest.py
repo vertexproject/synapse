@@ -1134,45 +1134,6 @@ class IngTest(SynTest):
             self.eq(node[1].get('inet:web:logon:time'), 1427031421000)
             self.eq(node[1].get('inet:web:logon:acct'), 'twitter.com/invisig0th')
 
-    def test_ingest_intstr(self):
-
-        # similar to csv data...
-        data = ["twitter.com", "invisig0th", "1.2.3.4", "2015/03/22 13:37:01"]
-
-        # purposely using double quotes and json syntax...
-        idef = {
-            "ingest":{
-                    "vars":[
-                        ["site", {"path": "0"}],
-                        ["user", {"path": "1"}],
-                        ["ipv4", {"path": "2"}],
-                        ["time", {"path": "3"}],
-                        ["acct", {"template": "{{site}}/{{user}}"}]
-                    ],
-
-                    "forms":[
-                        ["inet:web:logon", {"guid":["acct","ipv4","time"]}]
-                    ]
-            }
-        }
-
-        with self.getRamCore() as core:
-
-            ingest = s_ingest.Ingest(idef)
-            ingest.ingest(core, data=data)
-
-            node = core.getTufoByProp('inet:web:acct')
-
-            self.nn(node)
-            self.eq(node[1].get('inet:web:acct'), 'twitter.com/invisig0th')
-
-            valu = {'acct': 'twitter.com/invisig0th', 'ipv4': '1.2.3.4', 'time': '2015/03/22 13:37:01'}
-            node = core.getTufoByProp('inet:web:logon', valu)
-
-            self.eq(node[1].get('inet:web:logon:ipv4'), 0x01020304)
-            self.eq(node[1].get('inet:web:logon:time'), 0x01020304)
-            self.eq(node[1].get('inet:web:logon:acct'), 'twitter.com/invisig0th')
-
     def test_ingest_reqprops(self):
 
         tick = now()
