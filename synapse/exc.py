@@ -155,6 +155,12 @@ class NoSuchData(SynErr): pass
 class FileExists(SynErr): pass
 class NotEmpty(SynErr): pass
 class NotSupported(SynErr): pass
+class NotAutoAddSafe(SynErr):
+    '''
+    Raised by DataModel.reqAutoAddSafe to indicate a Synapse Type is not safe to be automatically added to a
+    Cortex as a result of autoadd events.
+    '''
+    pass
 
 class BadAtomFile(SynErr):
     '''

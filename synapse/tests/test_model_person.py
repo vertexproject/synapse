@@ -48,7 +48,7 @@ class PersonTest(SynTest):
             self.eq(node[1].get('ps:hasuser:user'), 'visi')
             self.eq(node[1].get('ps:hasuser:person'), iden)
 
-            self.nn(core.getTufoByProp('ps:person', iden))
+            # self.nn(core.getTufoByProp('ps:person', iden))  # XXX This is no longer valid with isAutoAddSafe()
             self.nn(core.getTufoByProp('inet:user', 'visi'))
 
     def test_model_person_has_alias(self):
@@ -59,7 +59,7 @@ class PersonTest(SynTest):
             self.eq(node[1].get('ps:hasalias:alias'), 'kenshoto,invisigoth')
             self.eq(node[1].get('ps:hasalias:person'), iden)
 
-            self.nn(core.getTufoByProp('ps:person', iden))
+            # self.nn(core.getTufoByProp('ps:person', iden))  # XXX This is no longer valid with isAutoAddSafe()
             self.nn(core.getTufoByProp('ps:name', 'kenshoto,invisigoth'))
 
     def test_model_person_has_phone(self):
@@ -70,7 +70,7 @@ class PersonTest(SynTest):
             self.eq(node[1].get('ps:hasphone:phone'), 17035551212)
             self.eq(node[1].get('ps:hasphone:person'), iden)
 
-            self.nn(core.getTufoByProp('ps:person', iden))
+            # self.nn(core.getTufoByProp('ps:person', iden))  # XXX This is no longer valid with isAutoAddSafe()
             self.nn(core.getTufoByProp('tel:phone', 17035551212))
 
     def test_model_person_has_email(self):
@@ -81,7 +81,7 @@ class PersonTest(SynTest):
             self.eq(node[1].get('ps:hasemail:email'), 'visi@vertex.link')
             self.eq(node[1].get('ps:hasemail:person'), iden)
 
-            self.nn(core.getTufoByProp('ps:person', iden))
+            # self.nn(core.getTufoByProp('ps:person', iden))  # XXX This is no longer valid with isAutoAddSafe()
             self.nn(core.getTufoByProp('inet:email', 'visi@vertex.link'))
 
     def test_model_person_has_webacct(self):
@@ -92,7 +92,7 @@ class PersonTest(SynTest):
             self.eq(node[1].get('ps:haswebacct:web:acct'), 'rootkit.com/visi')
             self.eq(node[1].get('ps:haswebacct:person'), iden)
 
-            self.nn(core.getTufoByProp('ps:person', iden))
+            # self.nn(core.getTufoByProp('ps:person', iden))  # XXX This is no longer valid with isAutoAddSafe()
             self.nn(core.getTufoByProp('inet:user', 'visi'))
             self.nn(core.getTufoByProp('inet:web:acct', 'rootkit.com/visi'))
 

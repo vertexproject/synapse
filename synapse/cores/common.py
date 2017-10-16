@@ -2436,6 +2436,13 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             tufo = core.formTufoByProp('inet:fqdn','woot.com')
 
+        Notes:
+            <something about guid types = None to skip deconfliction>
+
+        Returns:
+            ((str, dict)): The newly formed tufo, or the existing tufo if
+            the node already exists. If the ephemeral property '.new' is
+            present in the tufo, the tufo was newly made.
         '''
         ctor = self.seedctors.get(prop)
         if ctor is not None:
@@ -2703,7 +2710,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 if self.isRuntForm(stype):
                     continue
 
-                if self.isTufoForm(stype):
+                if not self.isTufoForm(stype):
+                    continue
+
+                if self.isAutoAddSafe(stype):
                     toadd.add((stype, valu))
 
         for form, valu in toadd:

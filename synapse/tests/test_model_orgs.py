@@ -34,6 +34,6 @@ class OrgTest(SynTest):
             self.eq(node[1].get('ou:haswebacct:web:acct'), 'rootkit.com/visi')
             self.eq(node[1].get('ou:haswebacct:org'), iden)
 
-            self.nn(core.getTufoByProp('ou:org', iden))
+            # self.nn(core.getTufoByProp('ou:org', iden))  # XXX This is no longer valid with isAutoAddSafe()
             self.nn(core.getTufoByProp('inet:user', 'visi'))
             self.nn(core.getTufoByProp('inet:web:acct', 'rootkit.com/visi'))
