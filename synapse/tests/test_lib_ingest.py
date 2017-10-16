@@ -917,8 +917,8 @@ class IngTest(SynTest):
         gest2 = s_ingest.Ingest(ingest_def2)
 
         with self.getRamCore() as core:
-            ret1 = s_ingest.register_ingest(core=core, gest=gest, evtname='ingest:test')
-            ret2 = s_ingest.register_ingest(core=core, gest=gest2, evtname='ingest:test2', ret_func=True)
+            ret1 = s_ingest.register_ingest(core, gest, 'ingest:test')
+            ret2 = s_ingest.register_ingest(core, gest2, 'ingest:test2', ret_func=True)
             self.none(ret1)
             self.true(callable(ret2))
 
@@ -1079,8 +1079,8 @@ class IngTest(SynTest):
         }
 
         with self.getRamCore() as core:
-            ingest = s_ingest.Ingest(info=ingdef)
-            ingest.ingest(core=core, data=data)
+            ingest = s_ingest.Ingest(ingdef)
+            ingest.ingest(core, data=data)
 
             nodes1 = core.eval('file:bytes')
             self.len(1, nodes1)
@@ -1093,6 +1093,85 @@ class IngTest(SynTest):
             self.eq(xrefnode[1].get('file:txtref:xref'), 'inet:ipv4=8.8.8.8')
             self.eq(xrefnode[1].get('file:txtref:xref:prop'), 'inet:ipv4')
             self.eq(xrefnode[1].get('file:txtref:xref:intval'), nodes2[0][1].get('inet:ipv4'))
+
+    def test_ingest_gen_guid(self):
+
+        # similar to csv data...
+        data = ["twitter.com", "invisig0th", "1.2.3.4", "2015/03/22 13:37:01"]
+
+        # purposely using double quotes and json syntax...
+        idef = {
+
+            "ingest":{
+                    "vars":[
+                        ["site", {"path": "0"}],
+                        ["user", {"path": "1"}],
+                        ["ipv4", {"path": "2"}],
+                        ["time", {"path": "3"}],
+                        ["acct", {"template": "{{site}}/{{user}}"}]
+                    ],
+
+                    "forms":[
+                        ["inet:web:logon", {"guid":["acct","ipv4","time"]}]
+                    ]
+            }
+        }
+
+        with self.getRamCore() as core:
+
+            ingest = s_ingest.Ingest(idef)
+            ingest.ingest(core, data=data)
+
+            node = core.getTufoByProp('inet:web:acct')
+
+            self.nn(node)
+            self.eq(node[1].get('inet:web:acct'), 'twitter.com/invisig0th')
+
+            valu = {'acct': 'twitter.com/invisig0th', 'ipv4': '1.2.3.4', 'time': '2015/03/22 13:37:01'}
+            node = core.getTufoByProp('inet:web:logon', valu)
+
+            self.eq(node[1].get('inet:web:logon:ipv4'), 0x01020304)
+            self.eq(node[1].get('inet:web:logon:time'), 1427031421000)
+            self.eq(node[1].get('inet:web:logon:acct'), 'twitter.com/invisig0th')
+
+    def test_ingest_intstr(self):
+
+        # similar to csv data...
+        data = ["twitter.com", "invisig0th", "1.2.3.4", "2015/03/22 13:37:01"]
+
+        # purposely using double quotes and json syntax...
+        idef = {
+            "ingest":{
+                    "vars":[
+                        ["site", {"path": "0"}],
+                        ["user", {"path": "1"}],
+                        ["ipv4", {"path": "2"}],
+                        ["time", {"path": "3"}],
+                        ["acct", {"template": "{{site}}/{{user}}"}]
+                    ],
+
+                    "forms":[
+                        ["inet:web:logon", {"guid":["acct","ipv4","time"]}]
+                    ]
+            }
+        }
+
+        with self.getRamCore() as core:
+
+            ingest = s_ingest.Ingest(idef)
+            ingest.ingest(core, data=data)
+
+            node = core.getTufoByProp('inet:web:acct')
+
+            self.nn(node)
+            self.eq(node[1].get('inet:web:acct'), 'twitter.com/invisig0th')
+
+            valu = {'acct': 'twitter.com/invisig0th', 'ipv4': '1.2.3.4', 'time': '2015/03/22 13:37:01'}
+            node = core.getTufoByProp('inet:web:logon', valu)
+
+            self.eq(node[1].get('inet:web:logon:ipv4'), 0x01020304)
+            self.eq(node[1].get('inet:web:logon:time'), 0x01020304)
+            self.eq(node[1].get('inet:web:logon:acct'), 'twitter.com/invisig0th')
 
     def test_ingest_reqprops(self):
 
@@ -1142,8 +1221,8 @@ class IngTest(SynTest):
         data = {"time": tick, "ipv4": "1.2.3.4", "fqdn": "vertex.link"}
 
         with self.getRamCore() as core:
-            ingest = s_ingest.Ingest(info=ingdef)
-            ingest.ingest(core=core, data=data)
+            ingest = s_ingest.Ingest(ingdef)
+            ingest.ingest(core, data=data)
 
             nodes = core.eval('inet:dns:look')
             self.len(1, nodes)
