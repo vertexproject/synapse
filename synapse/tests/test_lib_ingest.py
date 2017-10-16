@@ -1102,8 +1102,8 @@ class IngTest(SynTest):
         # purposely using double quotes and json syntax...
         idef = {
 
-            "ingest":{
-                    "vars":[
+            "ingest": {
+                    "vars": [
                         ["site", {"path": "0"}],
                         ["user", {"path": "1"}],
                         ["ipv4", {"path": "2"}],
@@ -1111,8 +1111,8 @@ class IngTest(SynTest):
                         ["acct", {"template": "{{site}}/{{user}}"}]
                     ],
 
-                    "forms":[
-                        ["inet:web:logon", {"guid":["acct","ipv4","time"]}]
+                    "forms": [
+                        ["inet:web:logon", {"guid": ["acct", "ipv4", "time"]}]
                     ]
             }
         }
