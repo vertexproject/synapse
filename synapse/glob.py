@@ -1,15 +1,13 @@
 import threading
+import multiprocessing
 
 lock = threading.RLock()
 
-# A global / default PkiStor used by getUserPki()
-pki = None
+import synapse.lib.sched as s_sched
+import synapse.lib.threads as s_threads
 
-# A global Plex instance for managing socket i/o.
-plex = None
+# go high since they will mostly be IO bound
+tmax = multiprocessing.cpu_count() * 8
 
-# A global Sched instance for maint routines
-sched = None
-
-# A host info dictionary for "thishost" API
-hostinfo = None
+pool = s_threads.Pool(maxsize=tmax)
+sched = s_sched.Sched(pool=pool)

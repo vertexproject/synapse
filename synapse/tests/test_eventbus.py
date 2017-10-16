@@ -180,6 +180,30 @@ class EventBusTest(SynTest):
         mesg = logs[0]
         self.eq(mesg[1].get('err'), 'NoSuchObj')
 
+    def test_eventbus_busref(self):
+
+        bref = s_eventbus.BusRef()
+
+        bus0 = s_eventbus.EventBus()
+        bus1 = s_eventbus.EventBus()
+        bus2 = s_eventbus.EventBus()
+
+        bref.put('foo', bus0)
+        bref.put('bar', bus1)
+        bref.put('baz', bus2)
+
+        bus1.fini()
+        self.nn(bref.get('foo'))
+        self.none(bref.get('bar'))
+
+        self.len(2, list(bref))
+
+        self.true(bref.pop('baz') is bus2)
+        self.len(1, list(bref))
+
+        bref.fini()
+        self.true(bus0.isfini)
+
     def test_eventbus_waitfini(self):
 
         ebus = s_eventbus.EventBus()
