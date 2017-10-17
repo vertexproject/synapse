@@ -12,11 +12,16 @@ import synapse.lib.thishost as s_thishost
 
 from synapse.tests.common import *
 
+
 class FooBar:
 
-    def foo(self):
+    bigdata = os.urandom(1000 * 1000 * 50)
 
+    def foo(self):
         return 'bar'
+
+    def big(self):
+        return FooBar.bigdata
 
 class LinkTest(SynTest):
 
@@ -76,6 +81,24 @@ class LinkTest(SynTest):
 
         self.eq(link[1].get('user'), 'visi')
         self.eq(link[1].get('passwd'), 'secret')
+
+    def test_link_ssl_big(self):
+
+        # FIXME some kind of cert validation diffs in *py* vers killed us
+        cafile = getTestPath('ca.crt')
+        keyfile = getTestPath('server.key')
+        certfile = getTestPath('server.crt')
+
+        with s_daemon.Daemon() as dmon:
+
+            dmon.share('foobar', FooBar())
+            link = dmon.listen('ssl://localhost:0/', keyfile=keyfile, certfile=certfile)
+            port = link[1].get('port')
+            url = 'ssl://localhost/foobar'
+
+            with s_telepath.openurl(url, port=port, cafile=cafile) as foo:
+                # FIXME ssl.SSLWantWriteError should not be raised here
+                x = foo.big()
 
     def test_link_ssl_basic(self):
 
