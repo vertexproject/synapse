@@ -96,9 +96,11 @@ class LinkTest(SynTest):
             port = link[1].get('port')
             url = 'ssl://localhost/foobar'
 
+            expected = FooBar.bigdata
             with s_telepath.openurl(url, port=port, cafile=cafile) as foo:
                 # FIXME ssl.SSLWantWriteError should not be raised here
-                x = foo.big()
+                actual = foo.big()
+                self.eq(actual, expected)
 
     def test_link_ssl_basic(self):
 
