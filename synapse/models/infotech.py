@@ -50,11 +50,6 @@ class ItMod(CoreModule):
                     'subof': 'guid',
                     'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.'}),
 
-                ('it:exec:subproc', {
-                    'subof': 'comp',
-                    'fields': 'proc=it:exec:proc,child=it:exec:proc',
-                    'doc': 'A process that launches a subprocess. For example, an EXE loading a DLL, or a program launching another program, such as cmd.exe launching ipconfig.exe.'}),
-
                 ('it:dev:pipe', {
                     'subof': 'it:dev:str',
                     'doc': 'A string representing a named pipe.'}),
@@ -73,6 +68,7 @@ class ItMod(CoreModule):
                     'fields': 'key=it:dev:regkey',
                     'optfields': 'str=it:dev:str,int=it:dev:int,bytes=file:bytes',
                     'doc': 'A Windows registry key/value pair.'}),
+
             ),
 
             'forms': (
@@ -133,12 +129,9 @@ class ItMod(CoreModule):
                     ('pid', {'ptype': 'int', 'doc': 'The process ID.'}),
                     ('time', {'ptype': 'time', 'doc': 'The start time for the process.'}),
                     ('user', {'ptype': 'inet:user', 'doc': 'The user name of the process owner.'}),
-                )),
-
-                ('it:exec:subproc', {}, (
-                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The parent process', 'req': 1, 'ro': 1}),
-                    ('child', {'ptype': 'it:exec:proc', 'doc': 'The child process', 'req': 1, 'ro': 1}),
-                    ('host', {'ptype': 'it:host', 'doc': 'The host that executed the process'}),
+                    ('path', {'ptype': 'file:path', 'doc': 'The path to the executable of the process.'}),
+                    ('src:exe', {'ptype': 'file:path', 'doc': 'The executable which created the process.'}),
+                    ('src:proc', {'ptype': 'it:exec:proc', 'doc': 'The process which created the process.'}),
                 )),
 
                 ('it:exec:pipe', {'ptype': 'guid'}, (
