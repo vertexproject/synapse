@@ -7,6 +7,7 @@ import logging
 import threading
 import collections
 
+import synapse.glob as s_glob
 import synapse.link as s_link
 import synapse.async as s_async
 import synapse.common as s_common
@@ -14,11 +15,9 @@ import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.queue as s_queue
-import synapse.lib.sched as s_sched
 import synapse.lib.scope as s_scope
 import synapse.lib.socket as s_socket
 import synapse.lib.reflect as s_reflect
-import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__name__)
 
@@ -223,11 +222,7 @@ class Proxy(s_eventbus.EventBus):
         self._raw_on('sock:gzip', self._onSockGzip)
         self._raw_on('tele:call', self._onTeleCall)
 
-        poolmax = relay.getLinkProp('poolmax', -1)
-        poolsize = relay.getLinkProp('poolsize', 0)
-
         self._tele_cthr = self.consume(self._tele_q)
-        self._tele_pool = s_threads.Pool(size=poolsize, maxsize=poolmax)
 
         self._tele_ons = {}
 
@@ -421,7 +416,7 @@ class Proxy(s_eventbus.EventBus):
         def sockfini():
             # called by multiplexor... must not block
             if not self.isfini:
-                self._tele_pool.call(self._runSockFini)
+                s_glob.pool.call(self._runSockFini)
 
         sock.onfini(sockfini)
 
@@ -446,12 +441,11 @@ class Proxy(s_eventbus.EventBus):
         try:
             self._initTeleSock()
         except s_common.LinkErr as e:
-            sched = s_sched.getGlobSched()
-            sched.insec(1, self._runSockFini)
+            s_glob.sched.insec(1, self._runSockFini)
 
     def _onTeleCall(self, mesg):
         # dont block consumer thread... task pool
-        self._tele_pool.call(self._runTeleCall, mesg)
+        s_glob.pool.call(self._runTeleCall, mesg)
 
     def _onSockGzip(self, mesg):
         data = zlib.decompress(mesg[1].get('data'))
@@ -550,7 +544,6 @@ class Proxy(s_eventbus.EventBus):
             self._tele_sock.fini()
 
         self._tele_boss.fini()
-        self._tele_pool.fini()
 
     def __getattr__(self, name):
         path = self._tele_csides.get(name)

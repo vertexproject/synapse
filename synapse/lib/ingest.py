@@ -670,6 +670,13 @@ class Ingest(EventBus):
             if varn is not None:
                 valu = scope.get(varn)
 
+        gvar = info.get('guid')
+        if gvar is not None:
+            valu = []
+            for varn in gvar:
+                valu.append((varn, scope.get(varn)))
+            return valu
+
         template = info.get('template')
         if template is not None:
 

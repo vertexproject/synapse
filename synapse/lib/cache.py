@@ -4,7 +4,7 @@ import threading
 import contextlib
 import collections
 
-import synapse.lib.sched as s_sched
+import synapse.glob as s_glob
 
 from synapse.eventbus import EventBus
 
@@ -32,8 +32,6 @@ class Cache(EventBus):
 
     def __init__(self, maxtime=None, onmiss=None):
         EventBus.__init__(self)
-
-        self.sched = s_sched.getGlobSched()
         self.onmiss = onmiss
 
         self.cache = {}
@@ -75,7 +73,7 @@ class Cache(EventBus):
         finally:
             if not self.isfini and self.maxtime is not None:
                 ival = self.maxtime / 10.0
-                self.schevt = self.sched.insec(ival, self._checkCacheTimes)
+                self.schevt = s_glob.sched.insec(ival, self._checkCacheTimes)
 
     def clear(self):
         '''
@@ -199,7 +197,7 @@ class Cache(EventBus):
             self.pop(key)
 
         if self.schevt is not None:
-            self.sched.cancel(self.schevt)
+            s_glob.sched.cancel(self.schevt)
 
 class FixedCache(EventBus):
     '''

@@ -4,7 +4,7 @@ import threading
 
 import synapse.common as s_common
 
-import synapse.lib.sched as s_sched
+import synapse.glob as s_glob
 import synapse.lib.scope as s_scope
 import synapse.lib.threads as s_threads
 
@@ -77,7 +77,6 @@ class Boss(EventBus):
         self.onfini(self._onBossFini)
 
         self.pool = None
-        self.sched = s_sched.getGlobSched()
 
         self.joblock = threading.Lock()
 
@@ -206,7 +205,7 @@ class Boss(EventBus):
                 joblocal.pop('schedevt', None)
                 self.fire('job:done', jid=jid, err='HitMaxTime')
 
-            joblocal['schedevt'] = self.sched.insec(timeout, hitmax)
+            joblocal['schedevt'] = s_glob.sched.insec(timeout, hitmax)
 
         self.fire('job:init', job=job)
         return job
@@ -257,7 +256,7 @@ class Boss(EventBus):
 
             schedevt = joblocal.get('schedevt')
             if schedevt is not None:
-                self.sched.cancel(schedevt)
+                s_glob.sched.cancel(schedevt)
 
             ondone = joblocal.get('ondone')
             if ondone is not None:
