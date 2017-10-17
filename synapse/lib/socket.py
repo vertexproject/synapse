@@ -253,7 +253,7 @@ class Socket(EventBus):
         except Exception as e:
             return None, None
 
-        sock = Socket(sock, accept=True)
+        sock = self.__class__(sock, accept=True)
 
         relay = self.get('relay')
         if relay is not None:
