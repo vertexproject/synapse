@@ -148,21 +148,22 @@ class InfoTechTest(SynTest):
             core.formTufoByProp('file:bytes', exe)
 
             # host execution process model
-            #core.formTufoByProp('it:exec:proc',
-            node = core.formTufoByProp('it:exec:proc', proc, pid=20, time=tick, host=host, user='visi', exe=exe)
+            node = core.formTufoByProp('it:exec:proc', proc, pid=20, time=tick, host=host, user='visi', exe=exe,
+                                       path=path)
+            self.eq(node[1].get('it:exec:proc'), proc)
             self.eq(node[1].get('it:exec:proc:exe'), exe)
             self.eq(node[1].get('it:exec:proc:pid'), 20)
             self.eq(node[1].get('it:exec:proc:time'), tick)
             self.eq(node[1].get('it:exec:proc:host'), host)
             self.eq(node[1].get('it:exec:proc:user'), 'visi')
+            self.eq(node[1].get('it:exec:proc:path'), norm)
 
             p0 = guid()
-            p1 = guid()
-
-            node = core.formTufoByProp('it:exec:subproc', (p0, p1), host=host)
-            self.eq(node[1].get('it:exec:subproc:proc'), p0)
-            self.eq(node[1].get('it:exec:subproc:child'), p1)
-            self.eq(node[1].get('it:exec:subproc:host'), host)
+            f0 = guid()
+            node = core.formTufoByProp('it:exec:proc', p0, **{'src:proc': proc, 'src:exe': f0})
+            self.eq(node[1].get('it:exec:proc'), p0)
+            self.eq(node[1].get('it:exec:proc:src:proc'), proc)
+            self.eq(node[1].get('it:exec:proc:src:exe'), f0)
 
             node = core.formTufoByProp('it:exec:mutex', '*', host=host, exe=exe, proc=proc, time=tick)
             self.eq(node[1].get('it:exec:mutex:exe'), exe)

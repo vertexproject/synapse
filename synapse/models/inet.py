@@ -893,6 +893,7 @@ class InetMod(CoreModule):
 
                     ('dst:host', {'ptype': 'it:host', 'doc': 'The destination host guid'}),
                     ('dst:proc', {'ptype': 'it:exec:proc', 'doc': 'The destination proc guid'}),
+                    ('dst:exe', {'ptype': 'file:bytes', 'doc': 'The executable that received the connection'}),
                     ('dst:txbytes', {'ptype': 'int', 'doc': 'The number of bytes sent by the destination'}),
 
                     ('dst:tcp4', {'ptype': 'inet:tcp4'}),
@@ -913,6 +914,7 @@ class InetMod(CoreModule):
 
                     ('src:host', {'ptype': 'it:host', 'doc': 'The source host guid'}),
                     ('src:proc', {'ptype': 'it:exec:proc', 'doc': 'The source proc guid'}),
+                    ('src:exe', {'ptype': 'file:bytes', 'doc': 'The executable that created the connection'}),
                     ('src:txbytes', {'ptype': 'int', 'doc': 'The number of bytes sent by the source'}),
 
                     ('src:tcp4', {'ptype': 'inet:tcp4'}),
