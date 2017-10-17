@@ -6,253 +6,311 @@ class ItMod(CoreModule):
     def getBaseModels():
         modl = {
             'types': (
-                ('it:host', {'subof': 'guid', 'doc': 'A GUID for a host/system'}),
-                ('it:hostname', {'subof': 'str:lwr', 'doc': 'A system/host name'}),
 
-                ('it:hosturl', {'subof': 'comp', 'fields': 'host,it:host|url,inet:url'}),
+                ('it:host', {
+                    'subof': 'guid',
+                    'doc': 'A GUID that represents a host or system.'}),
 
-                ('it:sec:cve', {'subof': 'str:lwr', 'regex': '(?i)^CVE-[0-9]{4}-[0-9]{4,}$',
-                                'doc': 'A CVE entry from Mitre'}),
+                ('it:hostname', {
+                    'subof': 'str:lwr',
+                    'doc': 'The name of a host or system.'}),
 
-                ('it:av:sig', {'subof': 'sepr', 'sep': '/',
-                               'fields': 'org,ou:alias|sig,str:lwr', 'doc': 'An antivirus signature'}),
-                ('it:av:filehit', {'subof': 'sepr', 'sep': '/', 'fields': 'file,file:bytes|sig,it:av:sig', 'doc': 'An antivirus hit'}),
+                ('it:hosturl', {
+                    'subof': 'comp',
+                    'fields': 'host,it:host|url,inet:url',
+                    'doc': 'A URL hosted on or served by a host or system.'}),
 
-                ('it:dev:str', {'subof': 'str', 'doc': 'A developer selected string'}),
-                ('it:dev:int', {'subof': 'int', 'doc': 'A developer selected int constant'}),
+                ('it:sec:cve', {
+                    'subof': 'str:lwr',
+                    'regex': '(?i)^CVE-[0-9]{4}-[0-9]{4,}$',
+                    'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
+                    'ex': 'CVE-2012-0158'}),
 
-                ('it:exec:proc', {'subof': 'guid', 'doc': 'A unique process execution on a host'}),
-                ('it:exec:subproc', {'subof': 'comp', 'fields': 'proc=it:exec:proc,child=it:exec:proc'}),
+                ('it:av:sig', {
+                    'subof': 'sepr',
+                    'sep': '/',
+                    'fields': 'org,ou:alias|sig,str:lwr',
+                    'doc': 'A vendor- or organization-specific antivirus signature name.'}),
 
-                ('it:dev:pipe', {'subof': 'it:dev:str', 'doc': 'A  named pipe string'}),
-                ('it:dev:mutex', {'subof': 'it:dev:str', 'doc': 'A named mutex string'}),
-                ('it:dev:regkey', {'subof': 'it:dev:str', 'doc': 'A windows registry key string'}),
+                ('it:av:filehit', {
+                    'subof': 'sepr',
+                    'sep': '/',
+                    'fields': 'file,file:bytes|sig,it:av:sig',
+                    'doc': 'A file that triggered an alert on a specific antivirus signature.'}),
 
-                ('it:dev:regval', {'subof': 'comp', 'fields': 'key=it:dev:regkey',
-                                   'optfields': 'str=it:dev:str,int=it:dev:int,bytes=file:bytes',
-                                   'doc': 'A windows registry key/val pair'}),
+                ('it:dev:str', {
+                    'subof': 'str',
+                    'doc': 'A developer-selected string.'}),
+
+                ('it:dev:int', {
+                    'subof': 'int',
+                    'doc': 'A developer-selected integer constant.'}),
+
+                ('it:exec:proc', {
+                    'subof': 'guid',
+                    'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.'}),
+
+                ('it:exec:subproc', {
+                    'subof': 'comp',
+                    'fields': 'proc=it:exec:proc,child=it:exec:proc',
+                    'doc': 'A process that launches a subprocess. For example, an EXE loading a DLL, or a program launching another program, such as cmd.exe launching ipconfig.exe.'}),
+
+                ('it:dev:pipe', {
+                    'subof': 'it:dev:str',
+                    'doc': 'A string representing a named pipe.'}),
+
+                ('it:dev:mutex', {
+                    'subof': 'it:dev:str',
+                    'doc': 'A string representing a mutex.'}),
+
+                ('it:dev:regkey', {
+                    'subof': 'it:dev:str',
+                    'doc': 'A Windows registry key.',
+                    'ex': 'HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'}),
+
+                ('it:dev:regval', {
+                    'subof': 'comp',
+                    'fields': 'key=it:dev:regkey',
+                    'optfields': 'str=it:dev:str,int=it:dev:int,bytes=file:bytes',
+                    'doc': 'A Windows registry key/value pair.'}),
             ),
 
             'forms': (
 
                 ('it:host', {}, [
-                    ('name', {'ptype': 'it:hostname', 'doc': 'Optional name for the host'}),
-                    ('desc', {'ptype': 'str:txt', 'doc': 'Optional description of the host'}),
+                    ('name', {'ptype': 'it:hostname', 'doc': 'The name of the host or system.'}),
+                    ('desc', {'ptype': 'str:txt', 'doc': 'A free-form description of the host.'}),
 
                     # FIXME we probably eventually need a bunch of stuff here...
-                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'Optional last known ipv4 address for the host'}),
-
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The last known ipv4 address for the host.'}),
                 ]),
 
                 ('it:hostname', {}, ()),
 
                 ('it:sec:cve', {'ptype': 'it:sec:cve'}, [
-                    ('desc', {'ptype': 'str'}),
+                    ('desc', {'ptype': 'str', 'doc': 'A free-form description of the CVE vulnerability.'}),
                 ]),
 
                 ('it:av:sig', {'ptype': 'it:av:sig'}, [
-                    ('sig', {'ptype': 'str:lwr'}),
-                    ('org', {'ptype': 'ou:alias'}),
-                    ('desc', {'ptype': 'str'}),
-                    ('url', {'ptype': 'inet:url'}),
+                    ('sig', {'ptype': 'str:lwr', 'doc': 'The signature name.', 'ro': 1}),
+                    ('org', {'ptype': 'ou:alias', 'doc': 'The organization responsible for the signature.', 'ro': 1}),
+                    ('desc', {'ptype': 'str', 'doc': 'A free-form description of the signature.'}),
+                    ('url', {'ptype': 'inet:url', 'doc': 'A reference URL for information about the signature.'}),
                 ]),
 
                 ('it:av:filehit', {'ptype': 'it:av:filehit'}, [
-                    ('file', {'ptype': 'file:bytes'}),
-                    ('sig', {'ptype': 'it:av:sig'}),
+                    ('file', {'ptype': 'file:bytes', 'doc': 'The file that triggered the signature hit.'}),
+                    ('sig', {'ptype': 'it:av:sig', 'doc': 'The signature that the file triggered on.'}),
                 ]),
 
                 ('it:dev:str', {}, (
                     ('norm', {'ptype': 'str', 'ro': 1, 'lower': 1, 'doc': 'Lower case normalized version of it:dev:str'}),
                 )),
 
-                ('it:dev:int', {}, (
-                )),
+                ('it:dev:int', {}, ()),
 
                 ('it:dev:pipe', {}, ()),
+
                 ('it:dev:mutex', {}, ()),
+
                 ('it:dev:regkey', {}, ()),
 
                 ('it:dev:regval', {}, (
-                    ('key', {'ptype': 'it:dev:regkey', 'ro': 1}),
-                    ('str', {'ptype': 'it:dev:str', 'ro': 1}),
-                    ('int', {'ptype': 'it:dev:int', 'ro': 1}),
-                    ('bytes', {'ptype': 'file:bytes', 'ro': 1}),
-                )),
-
-                ('it:exec:pipe', {'ptype': 'guid'}, (
-                    ('time', {'ptype': 'time'}),
-                    ('host', {'ptype': 'it:host'}),
-                    ('name', {'ptype': 'it:dev:pipe'}),
-                    ('proc', {'ptype': 'it:exec:proc'}),
-                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing code which created the pipe'}),
-                )),
-
-                ('it:exec:mutex', {'ptype': 'guid'}, (
-                    ('time', {'ptype': 'time'}),
-                    ('host', {'ptype': 'it:host'}),
-                    ('name', {'ptype': 'it:dev:mutex'}),
-                    ('proc', {'ptype': 'it:exec:proc'}),
-                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing code which created the mutex'}),
+                    ('key', {'ptype': 'it:dev:regkey', 'doc': 'The Windows registry key.', 'ro': 1}),
+                    ('str', {'ptype': 'it:dev:str', 'doc': 'The value of the registry key, if the value is a string.', 'ro': 1}),
+                    ('int', {'ptype': 'it:dev:int', 'doc': 'The value of the registry key, if the value is an integer.', 'ro': 1}),
+                    ('bytes', {'ptype': 'file:bytes',
+                         'doc': 'The file representing the value of the registry key, if the value is binary data.', 'ro': 1}),
                 )),
 
                 ('it:exec:proc', {'ptype': 'guid'}, (
-                    ('pid', {'ptype': 'int', 'doc': 'The process ID'}),
-                    ('time', {'ptype': 'time', 'doc': 'The start time for the process'}),
-                    ('host', {'ptype': 'it:host', 'doc': 'The host which executed the process'}),
-                    ('user', {'ptype': 'inet:user', 'doc': 'The user name of the process owner'}),
-                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file considered the "main" executable for the process'}),
-                    ('cmd', {'ptype': 'str', 'doc': 'The command string for the process'}),
+                    ('host', {'ptype': 'it:host',
+                         'doc': 'The host that executed the process. May be an actual or a virtual / notional host.'}),
+                    ('exe', {'ptype': 'file:bytes',
+                         'doc': 'The file considered the "main" executable for the process. For example, rundll32.exe may be considered the "main" executable for DLLs loaded by that program.'}),
+                    ('cmd', {'ptype': 'str',
+                         'doc': 'The command string used to launch the process, including any command line parameters.'}),
+                    ('pid', {'ptype': 'int', 'doc': 'The process ID.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The start time for the process.'}),
+                    ('user', {'ptype': 'inet:user', 'doc': 'The user name of the process owner.'}),
                 )),
 
                 ('it:exec:subproc', {}, (
-                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The parent process'}),
-                    ('child', {'ptype': 'it:exec:proc', 'doc': 'The child process'}),
-                    ('host', {'ptype': 'it:host', 'doc': 'The host which executed the process'}),
+                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The parent process', 'req': 1, 'ro': 1}),
+                    ('child', {'ptype': 'it:exec:proc', 'doc': 'The child process', 'req': 1, 'ro': 1}),
+                    ('host', {'ptype': 'it:host', 'doc': 'The host that executed the process'}),
+                )),
+
+                ('it:exec:pipe', {'ptype': 'guid'}, (
+                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The main process executing code that created the named pipe.'}),
+                    ('host', {'ptype': 'it:host',
+                         'doc': 'The host running the process that created the named pipe. Typically the same host referenced in :proc, if present.'}),
+                    ('exe', {'ptype': 'file:bytes',
+                         'doc': 'The specific file containing code that created the named pipe. May or may not be the same :exe specified in :proc, if present.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the named pipe was created.'}),
+                    ('name', {'ptype': 'it:dev:pipe', 'doc': 'The named pipe string.'}),
+                )),
+
+                ('it:exec:mutex', {'ptype': 'guid'}, (
+                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The main process executing code that created the mutex.'}),
+                    ('host', {'ptype': 'it:host',
+                         'doc': 'The host running the process that created the mutex. Typically the same host referenced in :proc, if present.'}),
+                    ('exe', {'ptype': 'file:bytes',
+                         'doc': 'The specific file containing code that created the mutex. May or may not be the same :exe specified in :proc, if present.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the mutex was created.'}),
+                    ('name', {'ptype': 'it:dev:mutex', 'doc': 'The mutex string.'}),
                 )),
 
                 ('it:exec:url', {'ptype': 'guid'}, (
-                    ('url', {'ptype': 'inet:url'}),
-                    ('host', {'ptype': 'it:host'}),
-                    ('proc', {'ptype': 'it:exec:proc'}),
-                    ('time', {'ptype': 'time'}),
-
-                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing code which retrieved the URL'}),
-                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The IPv4 address of the host during URL retrieval'}),
-                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The IPv6 address of the host during URL retrieval'}),
+                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The main process executing code that requested the URL.'}),
+                    ('host', {'ptype': 'it:host',
+                         'doc': 'The host running the process that requested the URL. Typically the same host referenced in :proc, if present.'}),
+                    ('exe', {'ptype': 'file:bytes',
+                         'doc': 'The specific file containing code that requested the URL. May or may not be the same :exe specified in :proc, if present.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the URL was requested.'}),
+                    ('url', {'ptype': 'inet:url', 'doc': 'The URL that was requested.'}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The IPv4 address of the host during URL retrieval.'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The IPv6 address of the host during URL retrieval.'}),
                 )),
 
                 ('it:exec:bind:tcp', {'ptype': 'guid'}, (
-                    ('port', {'ptype': 'inet:port', 'doc': 'The bound TCP port'}),
-
-                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The (optional) IPv4 specified to bind()'}),
-                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The (optional) IPv6 specified to bind()'}),
-                    ('host', {'ptype': 'it:host'}),
-                    ('proc', {'ptype': 'it:exec:proc'}),
-                    ('time', {'ptype': 'time'}),
-
-                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing code which bound the listener'}),
+                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The main process executing code that bound the listening TCP port.'}),
+                    ('host', {'ptype': 'it:host',
+                         'doc': 'The host running the process that bound the port. Typically the same host referenced in :proc, if present.'}),
+                    ('exe', {'ptype': 'file:bytes',
+                         'doc': 'The specific file containing code that bound the port. May or may not be the same :exe specified in :proc, if present.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the port was bound.'}),
+                    ('port', {'ptype': 'inet:port', 'doc': 'The bound (listening) TCP port.'}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The IPv4 address specified to bind().'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The IPv6 specified to bind().'}),
                 )),
 
                 ('it:exec:bind:udp', {'ptype': 'guid'}, (
-                    ('port', {'ptype': 'inet:port', 'doc': 'The bound UDP port'}),
-
-                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The (optional) IPv4 specified to bind()'}),
-                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The (optional) IPv6 specified to bind()'}),
-                    ('host', {'ptype': 'it:host'}),
-                    ('proc', {'ptype': 'it:exec:proc'}),
-                    ('time', {'ptype': 'time'}),
-
-                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing code which bound the listener'}),
+                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The main process executing code that bound the listening UDP port.'}),
+                    ('host', {'ptype': 'it:host',
+                         'doc': 'The host running the process that bound the port. Typically the same host referenced in :proc, if present.'}),
+                    ('exe', {'ptype': 'file:bytes',
+                         'doc': 'The specific file containing code that bound the port. May or may not be the same :exe specified in :proc, if present.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the port was bound.'}),
+                    ('port', {'ptype': 'inet:port', 'doc': 'The bound (listening) UDP port.'}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The IPv4 specified to bind().'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The IPv6 specified to bind().'}),
                 )),
 
                 ('it:fs:file', {'ptype': 'guid'}, (
-                    ('host', {'ptype': 'it:host'}),
-
-                    ('path', {'ptype': 'file:path'}),
-                    ('path:dir', {'ptype': 'file:path', 'ro': 1}),
-                    ('path:ext', {'ptype': 'str:lwr', 'ro': 1}),
-                    ('path:base', {'ptype': 'file:base', 'ro': 1}),
-                    ('file', {'ptype': 'file:bytes'}),
-
-                    ('ctime', {'ptype': 'time', 'doc': 'File creation time'}),
-                    ('mtime', {'ptype': 'time', 'doc': 'File modification time'}),
-                    ('atime', {'ptype': 'time', 'doc': 'File access time'}),
-
-                    ('user', {'ptype': 'inet:user', 'doc': 'The owner of the file'}),
-                    ('group', {'ptype': 'inet:user', 'doc': 'The group owner of the file'}),
+                    ('host', {'ptype': 'it:host', 'doc': 'The host containing the file.'}),
+                    ('path', {'ptype': 'file:path', 'doc': 'The path for the file.'}),
+                    ('path:dir', {'ptype': 'file:path', 'doc': 'The parent directory of the file path (parsed from :path).', 'ro': 1}),
+                    ('path:ext', {'ptype': 'str:lwr', 'doc': 'The file extension of the file name (parsed from :path).', 'ro': 1}),
+                    ('path:base', {'ptype': 'file:base', 'doc': 'The final component of the file path (parsed from :path).', 'ro': 1}),
+                    ('file', {'ptype': 'file:bytes', 'doc': 'The file on the host.'}),
+                    ('ctime', {'ptype': 'time', 'doc': 'The file creation time.'}),
+                    ('mtime', {'ptype': 'time', 'doc': 'The file modification time.'}),
+                    ('atime', {'ptype': 'time', 'doc': 'The file access time.'}),
+                    ('user', {'ptype': 'inet:user', 'doc': 'The owner of the file.'}),
+                    ('group', {'ptype': 'inet:user', 'doc': 'The group owner of the file.'}),
                 )),
 
                 # FIXME seed for hex file bytes
-                ('it:exec:file:add', {'ptype': 'guid'}, (
-                    ('host', {'ptype': 'it:host'}),
-                    ('path', {'ptype': 'file:path'}),
-                    ('path:dir', {'ptype': 'file:path', 'ro': 1}),
-                    ('path:ext', {'ptype': 'str:lwr', 'ro': 1}),
-                    ('path:base', {'ptype': 'file:base', 'ro': 1}),
-                    ('file', {'ptype': 'file:bytes'}),
-                    ('time', {'ptype': 'time'}),
-                    ('proc', {'ptype': 'it:exec:proc'}),
-                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing the code that created the file'}),
 
+                ('it:exec:file:add', {'ptype': 'guid'}, (
+                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The main process executing code that created the new file.'}),
+                    ('host', {'ptype': 'it:host',
+                         'doc': 'The host running the process that created the new file. Typically the same host referenced in :proc, if present.'}),
+                    ('exe', {'ptype': 'file:bytes',
+                         'doc': 'The specific file containing code that created the new file. May or may not be the same :exe specified in :proc, if present.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the file was created.'}),
+                    ('path', {'ptype': 'file:path', 'doc': 'The path where the file was created.'}),
+                    ('path:dir', {'ptype': 'file:path', 'doc': 'The parent directory of the file path (parsed from :path).', 'ro': 1}),
+                    ('path:ext', {'ptype': 'str:lwr', 'doc': 'The file extension of the file name (parsed from :path).', 'ro': 1}),
+                    ('path:base', {'ptype': 'file:base', 'doc': 'The final component of the file path (parsed from :path).', 'ro': 1}),
+                    ('file', {'ptype': 'file:bytes', 'doc': 'The file that was created.'}),
                 )),
 
                 ('it:exec:file:del', {'ptype': 'guid'}, (
-                    ('host', {'ptype': 'it:host'}),
-                    ('path', {'ptype': 'file:path'}),
-                    ('path:dir', {'ptype': 'file:path', 'ro': 1}),
-                    ('path:ext', {'ptype': 'str:lwr', 'ro': 1}),
-                    ('path:base', {'ptype': 'file:base', 'ro': 1}),
-                    ('file', {'ptype': 'file:bytes'}),
-                    ('time', {'ptype': 'time'}),
-                    ('proc', {'ptype': 'it:exec:proc'}),
-                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing the code that deleted the file'}),
-
+                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The main process executing code that deleted the file.'}),
+                    ('host', {'ptype': 'it:host',
+                         'doc': 'The host running the process that deleted the file. Typically the same host referenced in :proc, if present.'}),
+                    ('exe', {'ptype': 'file:bytes',
+                         'doc': 'The specific file containing code that deleted the file. May or may not be the same :exe specified in :proc if present.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the file was deleted.'}),
+                    ('path', {'ptype': 'file:path', 'doc': 'The path where the file was deleted.'}),
+                    ('path:dir', {'ptype': 'file:path', 'doc': 'The parent directory of the file path (parsed from :path).', 'ro': 1}),
+                    ('path:ext', {'ptype': 'str:lwr', 'doc': 'The file extension of the file name (parsed from :path).', 'ro': 1}),
+                    ('path:base', {'ptype': 'file:base', 'doc': 'The final component of the file path (parsed from :path).', 'ro': 1}),
+                    ('file', {'ptype': 'file:bytes', 'doc': 'The file that was deleted.'}),
                 )),
 
                 ('it:exec:file:read', {'ptype': 'guid'}, (
-                    ('host', {'ptype': 'it:host'}),
-                    ('path', {'ptype': 'file:path'}),
-                    ('path:dir', {'ptype': 'file:path', 'ro': 1}),
-                    ('path:ext', {'ptype': 'str:lwr', 'ro': 1}),
-                    ('path:base', {'ptype': 'file:base', 'ro': 1}),
-                    ('file', {'ptype': 'file:bytes'}),
-                    ('time', {'ptype': 'time'}),
-                    ('proc', {'ptype': 'it:exec:proc'}),
-                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing the code that read the file'}),
-
+                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The main process executing code that read the file.'}),
+                    ('host', {'ptype': 'it:host',
+                         'doc': 'The host running the process that read the file. Typically the same host referenced in :proc, if present.'}),
+                    ('exe', {'ptype': 'file:bytes',
+                         'doc': 'The specific file containing code that read the file. May or may not be the same :exe specified in :proc, if present.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the file was read.'}),
+                    ('path', {'ptype': 'file:path', 'doc': 'The path where the file was read.'}),
+                    ('path:dir', {'ptype': 'file:path', 'doc': 'The parent directory of the file path (parsed from :path).', 'ro': 1}),
+                    ('path:ext', {'ptype': 'str:lwr', 'doc': 'The file extension of the file name (parsed from :path).', 'ro': 1}),
+                    ('path:base', {'ptype': 'file:base', 'doc': 'The final component of the file path (parsed from :path).', 'ro': 1}),
+                    ('file', {'ptype': 'file:bytes', 'doc': 'The file that was read.'}),
                 )),
 
                 ('it:exec:file:write', {'ptype': 'guid'}, (
-                    ('host', {'ptype': 'it:host'}),
-                    ('path', {'ptype': 'file:path'}),
-                    ('path:dir', {'ptype': 'file:path', 'ro': 1}),
-                    ('path:ext', {'ptype': 'str:lwr', 'ro': 1}),
-                    ('path:base', {'ptype': 'file:base', 'ro': 1}),
-                    ('file', {'ptype': 'file:bytes'}),
-                    ('time', {'ptype': 'time'}),
-                    ('proc', {'ptype': 'it:exec:proc'}),
-                    ('exe', {'ptype': 'file:bytes', 'doc': 'The file containing the code that wrote to the file'}),
-
+                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The main process executing code that wrote to / modified the existing file.'}),
+                    ('host', {'ptype': 'it:host',
+                         'doc': 'The host running the process that wrote to the file. Typically the same host referenced in :proc, if present.'}),
+                    ('exe', {'ptype': 'file:bytes',
+                         'doc': 'The specific file containing code that wrote to the file. May or may not be the same :exe referenced in :proc, if present.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the file was written to / modified.'}),
+                    ('path', {'ptype': 'file:path', 'doc': 'The path where the file was modified.'}),
+                    ('path:dir', {'ptype': 'file:path', 'doc': 'The parent directory of the file path (parsed from :path).', 'ro': 1}),
+                    ('path:ext', {'ptype': 'str:lwr', 'doc': 'The file extension of the file name (parsed from :path).', 'ro': 1}),
+                    ('path:base', {'ptype': 'file:base', 'doc': 'The final component of the file path (parsed from :path).', 'ro': 1}),
+                    ('file', {'ptype': 'file:bytes', 'doc': 'The file that was modified.'}),
                 )),
 
                 ('it:exec:reg:get', {'ptype': 'guid'}, (
-                    ('host', {'ptype': 'it:host'}),
-                    ('reg', {'ptype': 'it:dev:regval'}),
-                    ('reg:key', {'ptype': 'it:dev:regkey', 'ro': 1}),
-                    ('reg:int', {'ptype': 'it:dev:int', 'ro': 1}),
-                    ('reg:str', {'ptype': 'it:dev:str', 'ro': 1}),
-                    ('reg:bytes', {'ptype': 'file:bytes', 'ro': 1}),
-                    ('exe', {'ptype': 'file:bytes'}),
-                    ('proc', {'ptype': 'it:exec:proc'}),
-                    ('time', {'ptype': 'time'}),
+                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The main process executing code that read the registry.'}),
+                    ('host', {'ptype': 'it:host',
+                         'doc': 'The host running the process that read the registry. Typically the same host referenced in :proc, if present.'}),
+                    ('exe', {'ptype': 'file:bytes',
+                         'doc': 'The specific file containing code that read the registry. May or may not be the same :exe referenced in :proc, if present.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the registry was read.'}),
+                    ('reg', {'ptype': 'it:dev:regval', 'doc': 'The registry key or value that was read.'}),
+                    ('reg:key', {'ptype': 'it:dev:regkey', 'doc': 'The registry key that was read (parsed from :reg).', 'ro': 1}),
+                    ('reg:str', {'ptype': 'it:dev:str', 'doc': 'The string value that was read (parsed from :reg).', 'ro': 1}),
+                    ('reg:int', {'ptype': 'it:dev:int', 'doc': 'The integer value that was read (parsed from :reg).', 'ro': 1}),
+                    ('reg:bytes', {'ptype': 'file:bytes', 'doc': 'The binary data that was read (parsed from :reg).', 'ro': 1}),
                 )),
 
                 ('it:exec:reg:set', {'ptype': 'guid'}, (
-                    ('host', {'ptype': 'it:host'}),
-                    ('reg', {'ptype': 'it:dev:regval'}),
-                    ('reg:key', {'ptype': 'it:dev:regkey', 'ro': 1}),
-                    ('reg:int', {'ptype': 'it:dev:int', 'ro': 1}),
-                    ('reg:str', {'ptype': 'it:dev:str', 'ro': 1}),
-                    ('reg:bytes', {'ptype': 'file:bytes', 'ro': 1}),
-                    ('exe', {'ptype': 'file:bytes'}),
-                    ('proc', {'ptype': 'it:exec:proc'}),
-                    ('time', {'ptype': 'time'}),
+                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The main process executing code that wrote to the registry.'}),
+                    ('host', {'ptype': 'it:host',
+                         'doc': 'The host running the process that wrote to the registry. Typically the same host referenced in :proc, if present.'}),
+                    ('exe', {'ptype': 'file:bytes',
+                         'doc': 'The specific file containing code that wrote to the registry. May or may not be the same :exe referenced in :proc, if present.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the registry was written to.'}),
+                    ('reg', {'ptype': 'it:dev:regval', 'doc': 'The registry key or value that was written.'}),
+                    ('reg:key', {'ptype': 'it:dev:regkey', 'doc': 'The registry key that was written (parsed from :reg).', 'ro': 1}),
+                    ('reg:str', {'ptype': 'it:dev:str', 'doc': 'The string value that was written (parsed from :reg).', 'ro': 1}),
+                    ('reg:int', {'ptype': 'it:dev:int', 'doc': 'The integer value that was written (parsed from :reg).', 'ro': 1}),
+                    ('reg:bytes', {'ptype': 'file:bytes', 'doc': 'The binary data that was written (parsed from :reg).', 'ro': 1}),
                 )),
 
                 ('it:exec:reg:del', {'ptype': 'guid'}, (
-                    ('host', {'ptype': 'it:host'}),
-                    ('reg', {'ptype': 'it:dev:regval'}),
-                    ('reg:key', {'ptype': 'it:dev:regkey', 'ro': 1}),
-                    ('reg:int', {'ptype': 'it:dev:int', 'ro': 1}),
-                    ('reg:str', {'ptype': 'it:dev:str', 'ro': 1}),
-                    ('reg:bytes', {'ptype': 'file:bytes', 'ro': 1}),
-                    ('exe', {'ptype': 'file:bytes'}),
-                    ('proc', {'ptype': 'it:exec:proc'}),
-                    ('time', {'ptype': 'time'}),
+                    ('proc', {'ptype': 'it:exec:proc', 'doc': 'The main process executing code that deleted data from the registry.'}),
+                    ('host', {'ptype': 'it:host',
+                         'doc': 'The host running the process that deleted data from the registry. Typically the same host referenced in :proc, if present.'}),
+                    ('exe', {'ptype': 'file:bytes',
+                         'doc': 'The specific file containing code that deleted data from the registry. May or may not be the same :exe referenced in :proc, if present.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The time the data from the registry was deleted.'}),
+                    ('reg', {'ptype': 'it:dev:regval', 'doc': 'The registry key or value that was deleted.'}),
+                    ('reg:key', {'ptype': 'it:dev:regkey', 'doc': 'The registry key that was deleted (parsed from :reg).', 'ro': 1}),
+                    ('reg:str', {'ptype': 'it:dev:str', 'doc': 'The string value that was deleted (parsed from :reg).', 'ro': 1}),
+                    ('reg:int', {'ptype': 'it:dev:int', 'doc': 'The integer value that was deleted (parsed from :reg).', 'ro': 1}),
+                    ('reg:bytes', {'ptype': 'file:bytes', 'doc': 'The binary data that was deleted (parsed from :reg).', 'ro': 1}),
                 )),
             ),
-
         }
 
         models = (
