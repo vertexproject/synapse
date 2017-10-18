@@ -143,9 +143,11 @@ def main(argv, outp=None):
     p = getArgParser()
     opts = p.parse_args(argv)
 
-    if opts.log_level:
-        logging.basicConfig(level=opts.log_level.upper())
-        logger.info('log level set to ' + opts.log_level)
+    log_level = os.getenv('SYN_DMON_LOG_LEVEL', opts.log_level)
+    if log_level:
+        logging.basicConfig(level=log_level.upper(),
+                            format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s]')
+        logger.info('log level set to ' + log_level)
 
     if opts.lsboot:
         for path in lsboot():
