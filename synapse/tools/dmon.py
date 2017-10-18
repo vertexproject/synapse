@@ -145,7 +145,7 @@ def main(argv, outp=None):
     opts = p.parse_args(argv)
 
     log_level = os.getenv('SYN_DMON_LOG_LEVEL', opts.log_level)
-    if log_level:
+    if log_level:  # pragma: no cover
         log_level = log_level.upper()
         if log_level not in LOG_LEVEL_CHOICES:
             raise ValueError('Invalid log level provided: {}'.format(log_level))

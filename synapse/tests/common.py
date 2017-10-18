@@ -337,10 +337,10 @@ class SynTest(unittest.TestCase):
         '''
         stream = io.StringIO()
         handler = logging.StreamHandler(stream)
-        storm_logger = logging.getLogger(logname)
-        storm_logger.addHandler(handler)
+        slogger = logging.getLogger(logname)
+        slogger.addHandler(handler)
         yield stream
-        storm_logger.removeHandler(handler)
+        slogger.removeHandler(handler)
 
     def eq(self, x, y):
         self.assertEqual(x, y)

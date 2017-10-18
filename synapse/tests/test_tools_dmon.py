@@ -61,25 +61,6 @@ class TestMain(SynTest):
 
         tfile.close()
 
-    def test_main_logging(self):
-
-        out0 = self.getTestOutp()
-        out1 = self.getTestOutp()
-
-        with self.getLoggerStream('synapse.tools.dmon') as stream:
-            s_dmon.main(['--log-level', 'DEBUG', '--lsboot'], out0)
-            stream.seek(0)
-            mesgs = stream.read()
-        self.isin('log level set to DEBUG', mesgs)
-
-        os.environ['SYN_DMON_LOG_LEVEL'] = 'DEBUG'
-        with self.getLoggerStream('synapse.tools.dmon') as stream:
-            s_dmon.main(['--lsboot'], out1)
-            stream.seek(0)
-            mesgs = stream.read()
-        del os.environ['SYN_DMON_LOG_LEVEL']
-        self.isin('log level set to DEBUG', mesgs)
-
     def test_main_onboot(self):
         self.thisHostMustNot(platform='windows')
 
