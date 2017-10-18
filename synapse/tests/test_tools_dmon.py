@@ -15,7 +15,7 @@ class TestArgParser(SynTest):
         for level in ['debug', 'info', 'warning', 'error', 'critical']:
             p = getArgParser()
             args = p.parse_args(['--log-level', level])
-            self.eq(args.log_level, level)
+            self.eq(args.log_level, level.upper())
 
     def test_getArgParser_logLevel_exception(self):
         for level in ['all', 'notice']:
@@ -60,6 +60,25 @@ class TestMain(SynTest):
         s_dmon.main(['--noboot', tfile.name], out1)
 
         tfile.close()
+
+    def test_main_logging(self):
+
+        out0 = self.getTestOutp()
+        out1 = self.getTestOutp()
+
+        with self.getLoggerStream('synapse.tools.dmon') as stream:
+            s_dmon.main(['--log-level', 'DEBUG', '--lsboot'], out0)
+            stream.seek(0)
+            mesgs = stream.read()
+        self.isin('log level set to DEBUG', mesgs)
+
+        os.environ['SYN_DMON_LOG_LEVEL'] = 'DEBUG'
+        with self.getLoggerStream('synapse.tools.dmon') as stream:
+            s_dmon.main(['--lsboot'], out1)
+            stream.seek(0)
+            mesgs = stream.read()
+        del os.environ['SYN_DMON_LOG_LEVEL']
+        self.isin('log level set to DEBUG', mesgs)
 
     def test_main_onboot(self):
         self.thisHostMustNot(platform='windows')

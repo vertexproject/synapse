@@ -314,6 +314,34 @@ class SynTest(unittest.TestCase):
         yield tempdir
         shutil.rmtree(tempdir, ignore_errors=True)
 
+    @contextlib.contextmanager
+    def getLoggerStream(self, logname):
+        '''
+        Get a logger and attach a io.StringIO object to the logger to capture log messages.
+
+        Args:
+            logname (str): Name of the logger to get.
+
+        Examples:
+            Do an action and get the stream of log messages to check against::
+
+                with self.getLoggerStream('synapse.foo.bar') as stream:
+                    # Do something that triggers a log message
+                    doSomthing()
+                    stream.seek(0)
+                    mesgs = stream.read()
+                # Do something with messages
+
+        Yields:
+            io.StringIO: A io.StringIO object
+        '''
+        stream = io.StringIO()
+        handler = logging.StreamHandler(stream)
+        storm_logger = logging.getLogger(logname)
+        storm_logger.addHandler(handler)
+        yield stream
+        storm_logger.removeHandler(handler)
+
     def eq(self, x, y):
         self.assertEqual(x, y)
 

@@ -148,7 +148,7 @@ def main(argv, outp=None):
     if log_level:
         log_level = log_level.upper()
         if log_level not in LOG_LEVEL_CHOICES:
-            raise Exception('Invalid log level provided: {}'.format(log_level))
+            raise ValueError('Invalid log level provided: {}'.format(log_level))
         logging.basicConfig(level=log_level,
                             format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s]')
         logger.info('log level set to ' + log_level)
