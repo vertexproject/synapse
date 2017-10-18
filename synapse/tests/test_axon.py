@@ -270,7 +270,7 @@ class AxonHostTest(SynTest):
 
             axfo0 = host0.add(**props)
             axon0 = s_telepath.openlink(axfo0[1].get('link'))  # type: s_axon.Axon
-            self.true(axon0._waitClonesReady(timeout=8))
+            self.true(axon0._waitClonesReady(timeout=16))
             self.notin(axfo0[0], host0.cloneaxons)
 
             # get refs to axon0's clones
@@ -329,11 +329,11 @@ class AxonHostTest(SynTest):
             # Add axons to the other two hosts and see that they clone over to the other hosts
             axfo1 = host1.add(**props)
             axon1 = s_telepath.openlink(axfo1[1].get('link'))  # type: s_axon.Axon
-            self.true(axon1._waitClonesReady(timeout=8))
+            self.true(axon1._waitClonesReady(timeout=16))
 
             axfo2 = host2.add(**props)
             axon2 = s_telepath.openlink(axfo2[1].get('link'))  # type: s_axon.Axon
-            self.true(axon2._waitClonesReady(timeout=8))
+            self.true(axon2._waitClonesReady(timeout=16))
 
             self.eq(len(host0.axons), 3)
             self.eq(len(host1.axons), 3)
@@ -572,7 +572,7 @@ class AxonClusterTest(SynTest):
 
             # Ensure our axfo0 was cloned to someone in the cluster
             axon0 = s_telepath.openlink(axfo0[1].get('link'))  # type: s_axon.Axon
-            axon0._waitClonesReady(timeout=8)
+            axon0._waitClonesReady(timeout=16)
             foundclone = False
             if host1.cloneaxons:
                 foundclone = True
