@@ -32,7 +32,6 @@ class Socket(EventBus):
         sock socket.socket: socket to wrap
         **info:
     '''
-
     def __init__(self, sock, **info):
         EventBus.__init__(self)
 
@@ -73,8 +72,14 @@ class Socket(EventBus):
                 self.txbuf = self.txque.popleft()
                 self.fire('sock:tx:pop')
 
-            sent = self.send(self.txbuf)
-            self.txbuf = self.txbuf[sent:]
+            try:
+                sent = self.send(self.txbuf)
+                self.txbuf = self.txbuf[sent:]
+            except (ssl.SSLWantWriteError, ssl.SSLWantReadError):
+                pass
+            except socket.error as e:
+                if e.errno != errno.EWOULDBLOCK:
+                    raise e
 
             # if we still have a txbuf after sending
             # we could only send part of the buffer
@@ -131,11 +136,11 @@ class Socket(EventBus):
 
         try:
             while remain:
-                x = self.sock.recv(remain)
-                if not x:
+                data = self.recv(remain)
+                if not data:
                     return None
-                byts += x
-                remain -= len(x)
+                byts += data
+                remain -= len(data)
 
         except socket.error as e:
             # fini triggered above.
@@ -180,7 +185,7 @@ class Socket(EventBus):
             return True
 
         try:
-            self.sendall(byts)
+            self.sendall(byts)  # FIXME
             return True
         except socket.error as e:
             self.fini()
@@ -253,7 +258,7 @@ class Socket(EventBus):
         except Exception as e:
             return None, None
 
-        sock = self.__class__(sock, accept=True)
+        sock = Socket(sock, accept=True)
 
         relay = self.get('relay')
         if relay is not None:
@@ -281,31 +286,20 @@ class Socket(EventBus):
         Additionally, any non-blocking recv's with no available data
         will return None!
         '''
+        byts = b''
+
         try:
-
             byts = self.sock.recv(size)
-            if not byts:
-                self.fini()
-                return byts
-
-            return byts
-
-        except ssl.SSLError as e:
-            # handle "did not complete" error where we didn't
-            # get all the bytes necessary to decrypt the data.
-            if e.errno == 2:
-                return None
-
-            self.fini()
-            return b''
-
+        except (ssl.SSLWantWriteError, ssl.SSLWantReadError):
+            return None
         except socket.error as e:
-
-            if e.errno == errno.EAGAIN:
+            if e.errno == errno.EWOULDBLOCK:
                 return None
 
+        if not byts:
             self.fini()
-            return b''
+
+        return byts
 
     def __getattr__(self, name):
         # allows us to be a thin wrapper
@@ -455,7 +449,7 @@ class Plex(EventBus):
                 for rxsock in rxlist:
 
                     if rxsock.get('wake'):
-                        rxsock.recv(10240)
+                        rxsock.recv(10240)   #FIXME
                         continue
 
                     # if he's a listen sock... accept()
