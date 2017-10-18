@@ -44,17 +44,22 @@ pipeline:
   buildpush:
     when:
       event: [push]
+      branch:
+       exclude: [master]
     environment:
       - SYN_TEST_PG_DB=${PG_DB}
       - SYN_TEST_SKIP_LONG=1
     <<: *runbuild
 
-  build:
+  buildmaster:
     when:
-      event: [pull_request, tag, deployment]
+      branch:
+        include: [master]
+      event: [pull_request, tag, deployment, push]
     environment:
       - SYN_TEST_PG_DB=${PG_DB}
     <<: *runbuild
+
 
 services:
   database:
