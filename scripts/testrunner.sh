@@ -3,9 +3,9 @@
 ##############################################################################
 # Standalone test runner for synapse tests
 # This will run unit tests using pytest and generate HTML coverage reports.
-# The use of this script requires the installation of pytest & pytest-cov
-# python packages, which are not required for other synapse developement or
-# deployment.
+# The use of this script requires the installation of pytest, pytest-cov and
+# pytest-xdist python packages, which are not required for other synapse
+# developement or deployment.
 ##############################################################################
 
 MODULE=synapse
@@ -17,7 +17,7 @@ if [ -e $HTML_DIR ]; then
     rm -rf $HTML_DIR
 fi
 
-pytest -v -s --durations 6 -rs --cov $MODULE --no-cov-on-fail --cov-report=html:$HTML_DIR $1
+pytest -v -s --durations 6 -n auto --maxfail 6 -rs --cov $MODULE --no-cov-on-fail --cov-report=html:$HTML_DIR $1
 
 if [ $? -eq 0 ]; then
     if [ -e $INDEX ]; then

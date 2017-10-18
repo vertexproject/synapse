@@ -6,7 +6,7 @@ buildcommands: &runbuild
   commands:
     - if [ -n "${SLEEP}" ]; then sleep ${SLEEP}; fi;
     - python setup.py install
-    - pytest -v -s -rs --durations 6 ${COVERAGE_ARGS}
+    - pytest -v -s -rs --durations 6 -n auto --maxfail 6 ${COVERAGE_ARGS}
     - if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${IMAGE_VERSION} --required; fi;
 
 clone:
