@@ -7,7 +7,7 @@ buildcommands: &runbuild
     - if [ -n "${SLEEP}" ]; then sleep ${SLEEP}; fi;
     - python setup.py install
     - python -m pip install pytest-xdist
-    - pytest -v -s -rs --durations 6 ${COVERAGE_ARGS} -n 2
+    - pytest -v -s -rs --durations 6 -n auto --maxfail 6 ${COVERAGE_ARGS}
     - if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${IMAGE_VERSION} --required; fi;
 
 clone:
