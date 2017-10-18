@@ -339,8 +339,8 @@ In order to contribute to the project, do the following:
 
    If test coverage is desired, you can use the provided testrunner.sh shell
    script to run a test. This script will generate HTML coverage reports and
-   attempt to open those reports using xdg-open. This requires the pytest and
-   pytest-cov packages to be installed.
+   attempt to open those reports using xdg-open. This requires the pytest,
+   pytest-cov, pytest-xdist packages to be installed.
 
    ::
 
