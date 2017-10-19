@@ -1,3 +1,5 @@
+import logging
+
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
@@ -6,6 +8,7 @@ import synapse.lib.version as s_version
 from synapse.lib.module import CoreModule, modelrev
 from synapse.lib.types import DataType
 
+logger = logging.getLogger(__name__)
 
 class SemverType(DataType):
     subprops = (
@@ -40,7 +43,8 @@ class SemverType(DataType):
         if valu < 0:
             self._raiseBadValu(valu, mesg='Cannot norm a negative integer as a semver.')
         if valu > s_version.mask96:
-            self._raiseBadValu(valu, mesg='Cannot norm a integer larger than our version string mask as a semver.')
+            self._raiseBadValu(valu,
+                               mesg='Cannot norm a integer larger than 79228162514264337593543950335 as a semver.')
         major, minor, patch = s_version.unpackVersion(valu)
         valu = s_version.packVersion(major, minor, patch)
         subs = {'major': major,
@@ -84,7 +88,7 @@ def bruteVersion(valu):
 
     else:
         raise s_common.BadTypeValu(valu=valu,
-                                   mesg='Unable to brute force  a valu',
+                                   mesg='Unable to brute force a valu',
                                    type=type(valu))
 
 def bruteStr(valu):
@@ -139,11 +143,13 @@ class ItMod(CoreModule):
         props['it:prod:softver:vers:norm'] = self.core.getTypeNorm('str:lwr', vers)[0]
         if 'it:prod:softver:semver' in props:
             return
-        # This could through a BadTypeValu and end the callback
-        valu, subs = bruteVersion(vers)
-        props['it:prod:softver:semver'] = valu
-        for k, v in subs.items():
-            props['it:prod:softver:semver:' + k] = v
+        try:
+            valu, subs = bruteVersion(vers)
+            props['it:prod:softver:semver'] = valu
+            for k, v in subs.items():
+                props['it:prod:softver:semver:' + k] = v
+        except s_common.BadTypeValu:
+            logger.exception('Unable to brute force version string.')
 
     @staticmethod
     def getBaseModels():
@@ -224,10 +230,6 @@ class ItMod(CoreModule):
                 ('it:hostsoft', {'subof': 'comp',
                                  'fields': 'host,it:host|softver,it:prod:softver',
                                  'doc': 'A version of a software product which is present on a given host.'}),
-                # ('it:prod:hard', {'subof': 'guid', 'doc': ''}),
-                # ('it:prod:hardver', {'subof': 'guid', 'doc': ''}),
-                # ('it:hosthard', {'subof': 'comp', 'fields': 'host,it:host|hardware,it:prod:hard:vers',
-                #                  'doc': ''}),
             ),
 
             'forms': (
