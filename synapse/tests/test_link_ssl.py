@@ -8,7 +8,7 @@ from synapse.tests.common import *
 byts = os.urandom(1024000)
 class FooBar:
     def bar(self):
-        return byts * 50
+        return byts
 
 class SslTest(SynTest):
 
