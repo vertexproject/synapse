@@ -915,33 +915,19 @@ class StormTest(SynTest):
 
     def test_storm_query_log(self):
         with self.getRamCore() as core:
-            # Setup logging to an io.StringIO object
-            stream = io.StringIO()
-            handler = logging.StreamHandler(stream)
-            storm_logger = logging.getLogger('synapse.lib.storm')
-
-            try:
-                storm_logger.addHandler(handler)
+            with self.getLoggerStream('synapse.lib.storm') as stream:
                 core.eval('#HAHA')
-            finally:
-                storm_logger.removeHandler(handler)
-
             stream.seek(0)
             mesgs = stream.read()
             self.eq('', mesgs.strip())
 
             core.setConfOpt('storm:query:log:en', 1)
-            core.setConfOpt('storm:query:log:level', logging.WARNING)
+            core.setConfOpt('storm:query:log:level', logging.ERROR)
 
-            try:
-                storm_logger.addHandler(handler)
+            with self.getLoggerStream('synapse.lib.storm') as stream:
                 core.eval('#HAHA')
-            finally:
-                storm_logger.removeHandler(handler)
-
             stream.seek(0)
             mesgs = stream.read()
-
             e = 'Executing storm query [#HAHA] as [{}]'.format(s_auth.whoami())
             self.eq(e, mesgs.strip())
 
