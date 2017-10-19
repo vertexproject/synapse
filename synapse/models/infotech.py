@@ -31,7 +31,7 @@ class SemverType(DataType):
             self._raiseBadValu(text, mesg='No text left after stripping whitespace')
 
         subs = s_version.parseSemver(text)
-        if not subs:
+        if subs is None:
             self._raiseBadValu(text, mesg='Unable to parse string as a semver.')
         valu = s_version.packVersion(subs.get('major'), subs.get('minor'), subs.get('patch'))
         return valu, subs
@@ -107,16 +107,14 @@ def bruteStr(valu):
     except s_common.BadTypeValu:
         # Try doing version part extraction by noming through the string
         subs = s_version.parseVersionParts(valu)
-        subs.setdefault('major', 0)
-        subs.setdefault('minor', 0)
-        subs.setdefault('patch', 0)
+        if subs is None:
+            raise s_common.BadTypeValu(valu=valu,
+                                       mesg='Unable to brute force version parts out of the string')
         if subs:
             valu = s_version.packVersion(subs.get('major'),
-                                         subs.get('minor'),
-                                         subs.get('patch'))
+                                         subs.get('minor', 0),
+                                         subs.get('patch', 0))
             return valu, subs
-    raise s_common.BadTypeValu(valu=valu,
-                               mesg='Unable to brute force version parts out of the string')  # pragma: no cover
 
 class ItMod(CoreModule):
 
@@ -129,11 +127,20 @@ class ItMod(CoreModule):
         props['it:dev:str:norm'] = valu.lower()
 
     def _onFormItSoftVer(self, form, valu, props, mesg):
-        verstr = props.get('it:prod:softver:verstr')
-        props['it:prod:softver:verstr:norm'] = self.core.getTypeNorm('str:lwr', verstr)[0]
+        # Set the :software:name field
+        if 'it:prod:softver:software:name' not in props:
+            software = props.get('it:prod:softver:software')
+            node = self.core.getTufoByProp('it:prod:soft', software)
+            if node:
+                name = node[1].get('it:prod:soft:name')
+                props['it:prod:softver:software:name'] = name
+        # Normalize the version string
+        vers = props.get('it:prod:softver:vers')
+        props['it:prod:softver:vers:norm'] = self.core.getTypeNorm('str:lwr', vers)[0]
         if 'it:prod:softver:semver' in props:
             return
-        valu, subs = bruteVersion(verstr)
+        # This could through a BadTypeValu and end the callback
+        valu, subs = bruteVersion(vers)
         props['it:prod:softver:semver'] = valu
         for k, v in subs.items():
             props['it:prod:softver:semver:' + k] = v
@@ -205,12 +212,17 @@ class ItMod(CoreModule):
                     'optfields': 'str=it:dev:str,int=it:dev:int,bytes=file:bytes',
                     'doc': 'A Windows registry key/value pair.'}),
 
-                ('it:semver', {'ctor': 'synapse.models.infotech.SemverType',
-                                'doc': 'Semantic Version type.'}),
-                ('it:prod:soft', {'subof': 'guid', 'doc': 'An arbitrary, unversioned software product.'}),
-                ('it:prod:softver', {'subof': 'guid', 'doc': 'An version of a particular software product.'}),
+                ('it:semver', {
+                    'ctor': 'synapse.models.infotech.SemverType',
+                    'doc': 'Semantic Version type.'}),
+                ('it:prod:soft', {
+                    'subof': 'guid',
+                    'doc': 'A arbitrary, unversioned software product.'}),
+                ('it:prod:softver',
+                 {'subof': 'guid',
+                  'doc': 'A version of a particular software product.'}),
                 ('it:hostsoft', {'subof': 'comp',
-                                 'fields': 'host,it:host|softver,it:prod:soft:vers',
+                                 'fields': 'host,it:host|softver,it:prod:softver',
                                  'doc': 'A version of a software product which is present on a given host.'}),
                 # ('it:prod:hard', {'subof': 'guid', 'doc': ''}),
                 # ('it:prod:hardver', {'subof': 'guid', 'doc': ''}),
@@ -464,15 +476,17 @@ class ItMod(CoreModule):
                 ('it:prod:softver', {}, (
                     ('software', {'ptype': 'it:prod:soft', 'req': 1, 'ro': 1,
                                   'doc': 'Software associated with this version instance.'}),
-                    ('verstr', {'ptype': 'it:dev:str', 'req': 1, 'ro': 1, 'ex': '1.0.2'
+                    ('software:name', {'ptype': 'str:lwr',
+                                       'doc': 'The name of the software at a particular version.'}),
+                    ('vers', {'ptype': 'it:dev:str', 'req': 1, 'ro': 1, 'ex': '1.0.2'
                                 'Version string associated with this version instance.'}),
-                    ('verstr:norm', {'ptype': 'str:lwr', 'doc': 'Normalized version of the version string.'}),
+                    ('vers:norm', {'ptype': 'str:lwr', 'doc': 'Normalized version of the version string.'}),
                     ('arch', {'ptype': 'it:dev:str', 'doc': 'Software architecture.'}),
                     ('semver', {'ptype': 'it:semver', 'doc': 'System normalized semantic version number.', }),
                     ('semver:major', {'ptype': 'int', 'doc': 'Version major number', }),
                     ('semver:minor', {'ptype': 'int', 'doc': 'Version minor number', }),
                     ('semver:patch', {'ptype': 'int', 'doc': 'Version patch number', }),
-                    ('semver:prerelease', {'ptype': 'str:txt', 'doc': 'Semver prerelease string.', }),
+                    ('semver:pre', {'ptype': 'str:txt', 'doc': 'Semver prerelease string.', }),
                     ('semver:build', {'ptype': 'str:txt', 'doc': 'Semver build string.', }),
                     ('url', {'ptype': 'inet:url',
                              'doc': 'URL where a specific version of the software is available from'}),

@@ -29,10 +29,9 @@ def parseSemver(text):
             parts = parseSemver('v1.2.3')
 
     Returns:
-        dict: The dictionary will either be empty, contain the keys 'major', 'minor' and 'patch' pointing to integer
-        values.  The dictionary may also contain keys for 'build' and 'prerelease' information if that data is parsed
-        out of a semver string.  An empty dictionary indicates that the input string was not a Semantic Version
-        compliant string.
+        dict: The dictionary will contain the keys 'major', 'minor' and 'patch' pointing to integer values.
+        The dictionary may also contain keys for 'build' and 'pre' information if that data is parsed out
+        of a semver string. None is returned if the string is not a valid Semver string.
     '''
     # eat whitespace and leading chars common on version strings
     txt = text.strip().lstrip('vV')
@@ -40,7 +39,7 @@ def parseSemver(text):
 
     m = re.match(semver_re, txt)
     if not m:
-        return {}
+        return None
     d = m.groupdict()
     ret['major'] = int(d.get('maj'))
     ret['minor'] = int(d.get('min'))
@@ -54,22 +53,22 @@ def parseSemver(text):
         parts = pre.split('.')
         for part in parts:
             if not part:
-                return {}
+                return None
             try:
                 int(part)
             except ValueError:
                 continue
             else:
                 if part[0] == '0' and len(part) > 1:
-                    return {}
-        ret['prerelease'] = pre
+                    return None
+        ret['pre'] = pre
 
     if bld:
         # Validate bld
         parts = bld.split('.')
         for part in parts:
             if not part:
-                return {}
+                return None
         ret['build'] = bld
 
     return ret
@@ -102,9 +101,9 @@ def unpackVersion(ver):
     Returns:
         (int, int, int): A tuple containing the major, minor and patch values shifted out of the integer.
     '''
-    major = (ver & mask96) >> 32 * 2
-    minor = (ver << 32 & mask96) >> 32 * 2
-    patch = (ver << 32 * 2 & mask96) >> 32 * 2
+    major = (ver >> 64) & mask32
+    minor = (ver >> 32) & mask32
+    patch = ver & mask32
     return major, minor, patch
 
 def fmtVersion(*vsnparts):
@@ -152,7 +151,7 @@ def parseVersionParts(text, seps=vseps):
         the string.
 
     Returns:
-        dict: Either a empty dictionary or dictionary contianing up to three keys, 'major', 'minor' and 'patch'.
+        dict: Either a empty dictionary or dictionary containing up to three keys, 'major', 'minor' and 'patch'.
     '''
     # Join seps together
     seps = ''.join(seps)
@@ -173,7 +172,8 @@ def parseVersionParts(text, seps=vseps):
         off += m.end()
         p, s = m.groups()
         parts.append(int(p))
-
+    if not parts:
+        return None
     keys = ('major', 'minor', 'patch')
     ret.update(zip(keys, parts))
     return ret

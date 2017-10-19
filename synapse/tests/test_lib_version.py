@@ -24,7 +24,6 @@ class VersionTest(SynTest):
         self.eq(ver, 0)
 
         ver = s_version.packVersion(1)
-        self.eq(ver, 1 << 64)
         self.eq(ver, 0x000000010000000000000000)
 
         # Ensure each value makes it to its position
@@ -125,40 +124,40 @@ class VersionTest(SynTest):
             ('1.2.3', {'major': 1, 'minor': 2, 'patch': 3, }),
             ('0.0.1', {'major': 0, 'minor': 0, 'patch': 1, }),
             ('1.2.3-alpha', {'major': 1, 'minor': 2, 'patch': 3,
-                             'prerelease': 'alpha', }),
+                             'pre': 'alpha', }),
             ('1.2.3-alpha.1', {'major': 1, 'minor': 2, 'patch': 3,
-                       'prerelease': 'alpha.1', }),
+                       'pre': 'alpha.1', }),
             ('1.2.3-0.3.7', {'major': 1, 'minor': 2, 'patch': 3,
-                             'prerelease': '0.3.7', }),
+                             'pre': '0.3.7', }),
             ('1.2.3-x.7.z.92', {'major': 1, 'minor': 2, 'patch': 3,
-                                'prerelease': 'x.7.z.92', }),
+                                'pre': 'x.7.z.92', }),
             ('1.2.3-alpha+001', {'major': 1, 'minor': 2, 'patch': 3,
-                                 'prerelease': 'alpha', 'build': '001'}),
+                                 'pre': 'alpha', 'build': '001'}),
             ('1.2.3+20130313144700', {'major': 1, 'minor': 2, 'patch': 3,
                                       'build': '20130313144700'}),
             ('1.2.3-beta+exp.sha.5114f85', {'major': 1, 'minor': 2, 'patch': 3,
-                                            'prerelease': 'beta', 'build': 'exp.sha.5114f85'}),
+                                            'pre': 'beta', 'build': 'exp.sha.5114f85'}),
             # Real world examples
             ('1.2.3-B5CD5743F', {'major': 1, 'minor': 2, 'patch': 3,
-                                 'prerelease': 'B5CD5743F', }),
+                                 'pre': 'B5CD5743F', }),
             ('V1.2.3', {'major': 1, 'minor': 2, 'patch': 3, }),
             ('V1.4.0-RC0', {'major': 1, 'minor': 4, 'patch': 0,
-                            'prerelease': 'RC0', }),
+                            'pre': 'RC0', }),
             ('v2.4.1-0.3.rc1', {'major': 2, 'minor': 4, 'patch': 1,
-                                  'prerelease': '0.3.rc1'}),
+                                  'pre': '0.3.rc1'}),
             ('0.18.1', {'major': 0, 'minor': 18, 'patch': 1, }),
             # Invalid semvers
-            ('1', {}),
-            ('1.2', {}),
-            ('2.0A1', {}),
-            ('0.18rc2', {}),
-            ('0.0.00001', {}),
-            ('2016-03-01', {}),
-            ('v2.4.0.0-1', {}),
-            ('1.3a2.dev12', {}),
-            ('OpenSSL_1_0_2l', {}),
-            ('1.2.windows-RC1', {}),
-            ('v2.4.1.0-0.3.rc1', {}),
+            ('1', None),
+            ('1.2', None),
+            ('2.0A1', None),
+            ('0.18rc2', None),
+            ('0.0.00001', None),
+            ('2016-03-01', None),
+            ('v2.4.0.0-1', None),
+            ('1.3a2.dev12', None),
+            ('OpenSSL_1_0_2l', None),
+            ('1.2.windows-RC1', None),
+            ('v2.4.1.0-0.3.rc1', None),
         )
         for s, e in data:
             r = s_version.parseSemver(s)

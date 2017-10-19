@@ -247,38 +247,38 @@ class InfoTechTest(SynTest):
                            {'major': 0, 'minor': 0, 'patch': 1, })),
                 ('1.2.3-alpha', (0x000000010000000200000003,
                                  {'major': 1, 'minor': 2, 'patch': 3,
-                                 'prerelease': 'alpha', })),
+                                 'pre': 'alpha', })),
                 ('1.2.3-alpha.1', (0x000000010000000200000003,
                                    {'major': 1, 'minor': 2, 'patch': 3,
-                                   'prerelease': 'alpha.1', })),
+                                   'pre': 'alpha.1', })),
                 ('1.2.3-0.3.7', (0x000000010000000200000003,
                                  {'major': 1, 'minor': 2, 'patch': 3,
-                                 'prerelease': '0.3.7', })),
+                                 'pre': '0.3.7', })),
                 ('1.2.3-x.7.z.92', (0x000000010000000200000003,
                                     {'major': 1, 'minor': 2, 'patch': 3,
-                                    'prerelease': 'x.7.z.92', })),
+                                    'pre': 'x.7.z.92', })),
                 ('1.2.3-alpha+001', (0x000000010000000200000003,
                                      {'major': 1, 'minor': 2, 'patch': 3,
-                                     'prerelease': 'alpha', 'build': '001'})),
+                                     'pre': 'alpha', 'build': '001'})),
                 ('1.2.3+20130313144700', (0x000000010000000200000003,
                                           {'major': 1, 'minor': 2, 'patch': 3,
                                           'build': '20130313144700'})),
                 ('1.2.3-beta+exp.sha.5114f85', (0x000000010000000200000003,
                                                 {'major': 1, 'minor': 2, 'patch': 3,
-                                                'prerelease': 'beta',
+                                                'pre': 'beta',
                                                  'build': 'exp.sha.5114f85'})),
                 # Real world examples
                 ('1.2.3-B5CD5743F', (0x000000010000000200000003,
                                      {'major': 1, 'minor': 2, 'patch': 3,
-                                     'prerelease': 'B5CD5743F', })),
+                                     'pre': 'B5CD5743F', })),
                 ('V1.2.3', (0x000000010000000200000003,
                             {'major': 1, 'minor': 2, 'patch': 3, })),
                 ('V1.4.0-RC0', (0x000000010000000400000000,
                                 {'major': 1, 'minor': 4, 'patch': 0,
-                                'prerelease': 'RC0', })),
+                                'pre': 'RC0', })),
                 ('v2.4.1-0.3.rc1', (0x000000020000000400000001,
                                    {'major': 2, 'minor': 4, 'patch': 1,
-                                    'prerelease': '0.3.rc1'})),
+                                    'pre': '0.3.rc1'})),
                 ('0.18.1', (0x000000000000001200000001,
                             {'major': 0, 'minor': 18, 'patch': 1, })),
             )
@@ -382,7 +382,6 @@ class InfoTechTest(SynTest):
                 ('0.18rc2', (0, {'major': 0, 'minor': 0, 'patch': 0})),
                 ('OpenSSL_1_0_2l', (0x000000010000000000000000,
                                     {'major': 1, 'minor': 0, 'patch': 0})),
-                ('alpha', (0, {'major': 0, 'minor': 0, 'patch': 0})),
             )
 
             for s, e in data:
@@ -390,6 +389,7 @@ class InfoTechTest(SynTest):
                 valu = core.getTypeCast('it:version:brute', s)
                 self.eq(valu, ev)
 
+            self.raises(BadTypeValu, core.getTypeCast, 'it:version:brute', 'alpha')
             self.raises(BadTypeValu, core.getTypeCast, 'it:version:brute', ())
 
     def test_model_infotech_software(self):
@@ -430,15 +430,17 @@ class InfoTechTest(SynTest):
             self.len(2, nodes)
 
             # Make some version nodes
-            # Ensure :semver is populated by the verstr value.
+            # Ensure :semver is populated by the vers value.
             sv1 = core.formTufoByProp('it:prod:softver',
                                      '*',
                                      software='5fd0340d2ad8878fe53ccd28843ff2dc',
-                                     verstr='V1.0.1',
+                                     vers='V1.0.1',
                                      url='https://vertex.link/products/balloonmaker/release_101.exe'
                                      )
-            self.eq(sv1[1].get('it:prod:softver:verstr'), 'V1.0.1')
-            self.eq(sv1[1].get('it:prod:softver:verstr:norm'), 'v1.0.1')
+            self.eq(sv1[1].get('it:prod:softver:software'), '5fd0340d2ad8878fe53ccd28843ff2dc')
+            self.eq(sv1[1].get('it:prod:softver:software:name'), 'balloon maker')
+            self.eq(sv1[1].get('it:prod:softver:vers'), 'V1.0.1')
+            self.eq(sv1[1].get('it:prod:softver:vers:norm'), 'v1.0.1')
             self.eq(sv1[1].get('it:prod:softver:semver'), 0x000000010000000000000001)
             self.eq(sv1[1].get('it:prod:softver:semver:major'), 1)
             self.eq(sv1[1].get('it:prod:softver:semver:minor'), 0)
@@ -477,27 +479,27 @@ class InfoTechTest(SynTest):
             # Make a bunch of softver nodes in order to do filtering via storm
             sv = core.formTufoByProp('it:prod:softver',
                                       (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                       ('verstr', 'V1.0.0'))
+                                       ('vers', 'V1.0.0'))
                                       )
             sv = core.formTufoByProp('it:prod:softver',
                                      (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('verstr', 'V1.1.0'))
+                                      ('vers', 'V1.1.0'))
                                      )
             sv = core.formTufoByProp('it:prod:softver',
                                      (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('verstr', 'V0.0.1'))
+                                      ('vers', 'V0.0.1'))
                                      )
             sv = core.formTufoByProp('it:prod:softver',
                                      (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('verstr', 'V0.1.0'))
+                                      ('vers', 'V0.1.0'))
                                      )
             sv = core.formTufoByProp('it:prod:softver',
                                      (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('verstr', '0.1.1'))
+                                      ('vers', '0.1.1'))
                                      )
             sv = core.formTufoByProp('it:prod:softver',
                                      (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('verstr', 'V2.0.0-alpha+b1'))
+                                      ('vers', 'V2.0.0-alpha+b1'))
                                      )
 
             nodes = core.eval('it:prod:softver:semver<1.0.0')
@@ -508,16 +510,16 @@ class InfoTechTest(SynTest):
             self.len(4, nodes)
             nodes = core.eval('it:prod:softver:semver>1.1.0')
             self.len(1, nodes)
-            nodes = core.eval('it:prod:softver:semver:prerelease=alpha')
+            nodes = core.eval('it:prod:softver:semver:pre=alpha')
             self.len(1, nodes)
 
             # Try some non-standard semver values
             sv = core.formTufoByProp('it:prod:softver',
                                      (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('verstr', '  OhMy2016-12-10  '))
+                                      ('vers', '  OhMy2016-12-10  '))
                                      )
-            self.eq(sv[1].get('it:prod:softver:verstr'), '  OhMy2016-12-10  ')
-            self.eq(sv[1].get('it:prod:softver:verstr:norm'), 'ohmy2016-12-10')
+            self.eq(sv[1].get('it:prod:softver:vers'), '  OhMy2016-12-10  ')
+            self.eq(sv[1].get('it:prod:softver:vers:norm'), 'ohmy2016-12-10')
             self.eq(sv[1].get('it:prod:softver:semver:major'), 2016)
             self.eq(sv[1].get('it:prod:softver:semver:minor'), 12)
             self.eq(sv[1].get('it:prod:softver:semver:patch'), 10)
@@ -526,15 +528,15 @@ class InfoTechTest(SynTest):
 
             sv = core.formTufoByProp('it:prod:softver',
                                      (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('verstr', '1.2'))
+                                      ('vers', '1.2'))
                                      )
             self.eq(sv[1].get('it:prod:softver:semver:major'), 1)
             self.eq(sv[1].get('it:prod:softver:semver:minor'), 2)
-            self.eq(sv[1].get('it:prod:softver:semver:patch'), 0)
+            self.none(sv[1].get('it:prod:softver:semver:patch'))
 
             sv = core.formTufoByProp('it:prod:softver',
                                      (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('verstr', '1.2.3.4'))
+                                      ('vers', '1.2.3.4'))
                                      )
             self.eq(sv[1].get('it:prod:softver:semver:major'), 1)
             self.eq(sv[1].get('it:prod:softver:semver:minor'), 2)
@@ -542,28 +544,34 @@ class InfoTechTest(SynTest):
 
             sv = core.formTufoByProp('it:prod:softver',
                                      (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('verstr', 'AlPHa'))
+                                      ('vers', 'AlPHa'))
                                      )
-            self.eq(sv[1].get('it:prod:softver:verstr'), 'AlPHa')
-            self.eq(sv[1].get('it:prod:softver:verstr:norm'), 'alpha')
-            self.eq(sv[1].get('it:prod:softver:semver'), 0)
-            self.eq(sv[1].get('it:prod:softver:semver:major'), 0)
-            self.eq(sv[1].get('it:prod:softver:semver:minor'), 0)
-            self.eq(sv[1].get('it:prod:softver:semver:patch'), 0)
+            self.eq(sv[1].get('it:prod:softver:vers'), 'AlPHa')
+            self.eq(sv[1].get('it:prod:softver:vers:norm'), 'alpha')
+            self.none(sv[1].get('it:prod:softver:semver'))
 
-            # Set the semver value separately from the verstr.
+            # Set the software:name directly
+            sv = core.formTufoByProp('it:prod:softver',
+                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
+                                      ('vers', 'beta')),
+                                     **{'software:name': 'ballon maker-beta'}
+                                     )
+            self.eq(sv[1].get('it:prod:softver:vers'), 'beta')
+            self.eq(sv[1].get('it:prod:softver:software:name'), 'ballon maker-beta')
+
+            # Set the semver value separately from the vers.
             # This bypasses the node:form callback from setting the prop and instead
             # relys on regular prop-norming.
             sv = core.formTufoByProp('it:prod:softver',
                                      (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('verstr', 'AlPHa001')),
+                                      ('vers', 'AlPHa001')),
                                      semver='0.0.1-alpha+build.001'
                                      )
-            self.eq(sv[1].get('it:prod:softver:verstr'), 'AlPHa001')
-            self.eq(sv[1].get('it:prod:softver:verstr:norm'), 'alpha001')
+            self.eq(sv[1].get('it:prod:softver:vers'), 'AlPHa001')
+            self.eq(sv[1].get('it:prod:softver:vers:norm'), 'alpha001')
             self.eq(sv[1].get('it:prod:softver:semver'), 1)
             self.eq(sv[1].get('it:prod:softver:semver:major'), 0)
             self.eq(sv[1].get('it:prod:softver:semver:minor'), 0)
             self.eq(sv[1].get('it:prod:softver:semver:patch'), 1)
             self.eq(sv[1].get('it:prod:softver:semver:build'), 'build.001')
-            self.eq(sv[1].get('it:prod:softver:semver:prerelease'), 'alpha')
+            self.eq(sv[1].get('it:prod:softver:semver:pre'), 'alpha')
