@@ -51,44 +51,37 @@ class Socket(EventBus):
 
         self.onfini(self._finiSocket)
 
+    def __getattr__(self, name):
+        # allows us to be a thin wrapper
+        return getattr(self.sock, name)
+
+    def __iter__(self):
+        '''
+        Receive loop which yields messages until socket close.
+        '''
+        while not self.isfini:
+            for mesg in self.rx():
+                yield mesg
+
     def _addTxByts(self, byts):
         self.txque.append(byts)
         self.fire('sock:tx:add')
 
-    def runTxLoop(self):
-        '''
-        Run a pass through the non-blocking tx loop.
+    def _finiSocket(self):
+        try:
+            self.sock.close()
+        except OSError as e:
+            pass
 
-        Returns:
-            (bool): True if there is still more work to do
-        '''
-        while True:
+    def _tryTcpNoDelay(self):
 
-            if not self.txbuf:
-
-                if not self.txque:
-                    break
-
-                self.txbuf = self.txque.popleft()
-                self.fire('sock:tx:pop')
-
-            try:
-                sent = self.send(self.txbuf)
-                self.txbuf = self.txbuf[sent:]
-            except (ssl.SSLWantWriteError, ssl.SSLWantReadError):
-                pass
-            except socket.error as e:
-                if e.errno != errno.EWOULDBLOCK:
-                    raise e
-
-            # if we still have a txbuf after sending
-            # we could only send part of the buffer
-            if self.txbuf:
-                break
-
-        if not self.txbuf and not self.txque:
+        if self.sock.family not in (socket.AF_INET, socket.AF_INET6):
             return False
 
+        if self.sock.type != socket.SOCK_STREAM:
+            return False
+
+        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         return True
 
     def get(self, prop, defval=None):
@@ -114,55 +107,6 @@ class Socket(EventBus):
         '''
         self.info[prop] = valu
 
-    def recvall(self, size):
-        '''
-        Recieve the exact number of bytes requested.
-        Returns None on if socket closes early.
-
-        Example:
-
-            byts = sock.recvall(300)
-            if byts == None:
-                return
-
-            dostuff(byts)
-
-        Notes:
-            * this API will trigger fini() on close
-
-        '''
-        byts = b''
-        remain = size
-
-        try:
-            while remain:
-                data = self.recv(remain)
-                if not data:
-                    return None
-                byts += data
-                remain -= len(data)
-
-        except socket.error as e:
-            # fini triggered above.
-            return None
-
-        return byts
-
-    def recvobj(self):
-        for mesg in self:
-            return mesg
-
-    def setblocking(self, valu):
-        '''
-        Set the socket's blocking mode to True/False.
-
-        Args:
-            valu (bool): False to set socket non-blocking
-        '''
-        valu = bool(valu)
-        self.blocking = valu
-        self.sock.setblocking(valu)
-
     def tx(self, mesg):
         '''
         Transmit a mesg tufo ( type, info ) via the socket using msgpack.
@@ -185,11 +129,15 @@ class Socket(EventBus):
             return True
 
         try:
-            self.sendall(byts)  # FIXME
+            self.sendall(byts)
             return True
         except socket.error as e:
             self.fini()
             return False
+
+    def recvobj(self):
+        for mesg in self:
+            return mesg
 
     def rx(self):
         '''
@@ -230,35 +178,44 @@ class Socket(EventBus):
             self.fini()
             return
 
-    def __iter__(self):
+    def runTxLoop(self):
         '''
-        Receive loop which yields messages until socket close.
+        Run a pass through the non-blocking tx loop.
+
+        Returns:
+            (bool): True if there is still more work to do
         '''
-        while not self.isfini:
-            for mesg in self.rx():
-                yield mesg
+        while True:
 
-    def _tryTcpNoDelay(self):
+            if not self.txbuf:
 
-        if self.sock.family not in (socket.AF_INET, socket.AF_INET6):
+                if not self.txque:
+                    break
+
+                self.txbuf = self.txque.popleft()
+                self.fire('sock:tx:pop')
+
+            sent = self.send(self.txbuf)
+            self.txbuf = self.txbuf[sent:]
+
+            # if we still have a txbuf after sending
+            # we could only send part of the buffer
+            if self.txbuf:
+                break
+
+        if not self.txbuf and not self.txque:
             return False
 
-        if self.sock.type != socket.SOCK_STREAM:
-            return False
-
-        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         return True
 
+    # socket overrides ============================================================================
     def accept(self):
-
         try:
-
             sock, addr = self.sock.accept()
-
         except Exception as e:
             return None, None
 
-        sock = Socket(sock, accept=True)
+        sock = self.__class__(sock, accept=True)
 
         relay = self.get('relay')
         if relay is not None:
@@ -285,31 +242,41 @@ class Socket(EventBus):
 
         Additionally, any non-blocking recv's with no available data
         will return None!
+
         '''
         byts = b''
 
         try:
             byts = self.sock.recv(size)
-        except (ssl.SSLWantWriteError, ssl.SSLWantReadError):
-            return None
         except socket.error as e:
             if e.errno == errno.EWOULDBLOCK:
                 return None
+        except Exception:
+            pass
 
         if not byts:
             self.fini()
 
         return byts
 
-    def __getattr__(self, name):
-        # allows us to be a thin wrapper
-        return getattr(self.sock, name)
-
-    def _finiSocket(self):
+    def send(self, byts):
         try:
-            self.sock.close()
-        except OSError as e:
-            pass
+            return self.sock.send(byts)
+        except socket.error as e:
+            if e.errno != errno.EWOULDBLOCK:
+                raise e
+        return 0
+
+    def setblocking(self, valu):
+        '''
+        Set the socket's blocking mode to True/False.
+
+        Args:
+            valu (bool): False to set socket non-blocking
+        '''
+        valu = bool(valu)
+        self.blocking = valu
+        self.sock.setblocking(valu)
 
 class Plex(EventBus):
     '''
@@ -449,7 +416,7 @@ class Plex(EventBus):
                 for rxsock in rxlist:
 
                     if rxsock.get('wake'):
-                        rxsock.recv(10240)   #FIXME
+                        rxsock.recv(10240)
                         continue
 
                     # if he's a listen sock... accept()
