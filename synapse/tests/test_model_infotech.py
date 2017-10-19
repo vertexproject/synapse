@@ -452,14 +452,12 @@ class InfoTechTest(SynTest):
                                       (h1[1].get('it:host'),
                                        sv1[1].get('it:prod:softver')),
                                       **{'seen:min': '2013',
-                                         'seen:max': '2017',
-                                         'path': '/usr/lib/balloon'}
+                                         'seen:max': '2017', }
                                       )
             self.eq(hs1[1].get('it:hostsoft:host'), h1[1].get('it:host'))
             self.eq(hs1[1].get('it:hostsoft:softver'), sv1[1].get('it:prod:softver'))
             self.eq(hs1[1].get('it:hostsoft:seen:min'), core.getTypeNorm('time', '2013')[0])
             self.eq(hs1[1].get('it:hostsoft:seen:max'), core.getTypeNorm('time', '2017')[0])
-            self.eq(hs1[1].get('it:hostsoft:path'), '/usr/lib/balloon')
 
             nodes = core.eval('it:prod:soft:name="balloon maker" ->it:prod:softver:software ->it:hostsoft:softver '
                               ':host->it:host')

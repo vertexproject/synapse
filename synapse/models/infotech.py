@@ -501,8 +501,6 @@ class ItMod(CoreModule):
                                   'doc': 'Minimum time the software was seen on the host', }),
                     ('seen:max', {'ptype': 'time:max',
                                   'doc': 'Maximum time the software was seen on the host', }),
-                    ('path', {'ptype': 'file:path',
-                              'doc': 'Path where the software was seen on the host'})
                 )),
             ),
         }
