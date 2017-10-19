@@ -1,7 +1,5 @@
 import synapse.common as s_common
-
 import synapse.lib.tufo as s_tufo
-
 from synapse.lib.module import CoreModule, modelrev
 
 class SynMod(CoreModule):
@@ -174,3 +172,14 @@ class SynMod(CoreModule):
             self.core.addRows(adds)
             for prop in dels:
                 self.core.delRowsByProp(prop)
+
+    @modelrev('syn', 201710191144)
+    def _revModl201710191144(self):
+        with self.core.getCoreXact():
+
+            rows = []
+            for i, _, _, t in self.core.store.getRowsByProp('tufo:form'):
+                rows.append((i, 'tufo:formed', t),)
+
+            for i, p, v in rows:
+                self.core.store.setRowsByIdProp(i, p, v)

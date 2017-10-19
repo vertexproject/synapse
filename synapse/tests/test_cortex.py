@@ -695,6 +695,7 @@ class CortexBaseTest(SynTest):
         unodes = core.getTufosByProp('inet:tcp4:gatenumber')
         self.len(10, unodes)
         for node in unodes:
+            self.isin('tufo:formed', node[1])
             self.isin('inet:tcp4', node[1])
             self.isin('inet:tcp4:ipv4', node[1])
             self.isin('inet:tcp4:gatenumber', node[1])
@@ -1337,6 +1338,9 @@ class CortexTest(SynTest):
         # Recreate expected results from #320 to ensure
         # we're also doing the same via storm
         self.eq(len(core.eval('[inet:fqdn=w00t.com +#some.tag]')), 1)
+        self.eq(len(core.eval('inet:fqdn=w00t.com')), 1)
+        self.eq(len(core.eval('inet:fqdn=w00t.com +tufo:formed<1')), 0)
+        self.eq(len(core.eval('inet:fqdn=w00t.com +tufo:formed>1')), 1)
         self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0)')), 2)
         self.eq(len(core.eval('syn:tag=some')), 1)
         self.eq(len(core.eval('syn:tag=some.tag')), 1)
@@ -2293,6 +2297,7 @@ class CortexTest(SynTest):
 
             node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
             self.eq(node[1].get('tufo:form'), 'foo:bar')
+            self.gt(node[1].get('tufo:formed'), 1483228800000)
             self.eq(node[1].get('foo:bar'), 'I am a bar foo.')
             self.none(node[1].get('foo:bar:duck'))
 
@@ -2342,6 +2347,7 @@ class CortexTest(SynTest):
 
                 node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
                 self.eq(node[1].get('tufo:form'), 'foo:bar')
+                self.gt(node[1].get('tufo:formed'), 1483228800000)
                 self.eq(node[1].get('foo:bar'), 'I am a bar foo.')
                 self.none(node[1].get('foo:bar:duck'))
 
@@ -2386,6 +2392,7 @@ class CortexTest(SynTest):
 
                 node = core.formTufoByProp('foo:bar', 'I am a bar foo.')
                 self.eq(node[1].get('tufo:form'), 'foo:bar')
+                self.gt(node[1].get('tufo:formed'), 1483228800000)
                 self.eq(node[1].get('foo:bar'), 'I am a bar foo.')
                 self.none(node[1].get('foo:bar:duck'))
 
@@ -2507,12 +2514,14 @@ class CortexTest(SynTest):
                     self.isinstance(actual[0], tuple)
                     self.eq(len(actual[0]), 2)
                     self.eq(actual[0][1]['tufo:form'], 'inet:fqdn')
+                    self.gt(actual[0][1]['tufo:formed'], 1483228800000)
                     self.eq(actual[0][1]['inet:fqdn'], 'vertex.link')
                     self.eq(actual[0][1]['inet:fqdn:zone'], 1)
 
                     self.isinstance(actual[1], tuple)
                     self.eq(actual[1][0], None)
                     self.eq(actual[1][1]['tufo:form'], 'syn:err')
+                    # NOTE: ephemeral data does not get tufo:formed
                     self.eq(actual[1][1]['syn:err'], 'BadTypeValu')
                     for s in ['BadTypeValu', 'name=', 'inet:url', 'valu=', 'bad']:
                         self.isin(s, actual[1][1]['syn:err:errmsg'])
@@ -2520,6 +2529,7 @@ class CortexTest(SynTest):
                     self.isinstance(actual[2], tuple)
                     self.eq(actual[2][0], None)
                     self.eq(actual[2][1]['tufo:form'], 'syn:err')
+                    # NOTE: ephemeral data does not get tufo:formed
                     self.eq(actual[2][1]['syn:err'], 'NoSuchForm')
                     for s in ['NoSuchForm', 'name=', 'bad']:
                         self.isin(s, actual[2][1]['syn:err:errmsg'])
@@ -2691,7 +2701,9 @@ class CortexTest(SynTest):
 
             t1 = core.formTufoByTufo((None, {'tufo:form': 'strform', 'strform': 'oh hai',
                                              'strform:haha': 1234, 'strform:foo': 'sup'}))
+
             form, valu = s_tufo.ndef(t1)
+            self.gt(t1[1]['tufo:formed'], 1483228800000)
             self.eq(form, 'strform')
             self.eq(valu, 'oh hai')
             self.eq(t1[1].get('strform:foo'), 'sup')
@@ -2740,6 +2752,7 @@ class StorageTest(SynTest):
                 tick = s_common.now()
                 rows.append(('1234', 'foo:bar:baz', 'yes', tick))
                 rows.append(('1234', 'tufo:form', 'foo:bar', tick))
+                rows.append(('1234', 'tufo:formed', 1483228800000, tick))
                 store.addRows(rows)
 
             # Retrieve the node via the Cortex interface
@@ -2747,6 +2760,7 @@ class StorageTest(SynTest):
                 node = core.getTufoByIden('1234')
                 self.nn(node)
                 self.eq(node[1].get('tufo:form'), 'foo:bar')
+                self.eq(node[1].get('tufo:formed'), 1483228800000)
                 self.eq(node[1].get('foo:bar:baz'), 'yes')
 
     def test_storage_row_manipulation(self):
@@ -2762,6 +2776,7 @@ class StorageTest(SynTest):
                 tick = s_common.now()
                 rows.append(('1234', 'foo:bar:baz', 'yes', tick))
                 rows.append(('1234', 'tufo:form', 'foo:bar', tick))
+                rows.append(('1234', 'tufo:formed', 1483228800000, tick))
                 store.addRows(rows)
 
             # Retrieve the node via the Cortex interface
@@ -2769,6 +2784,7 @@ class StorageTest(SynTest):
                 node = core.getTufoByIden('1234')
                 self.nn(node)
                 self.eq(node[1].get('tufo:form'), 'foo:bar')
+                self.eq(node[1].get('tufo:formed'), 1483228800000)
                 self.eq(node[1].get('foo:bar:baz'), 'yes')
 
     def test_storage_handler_misses(self):
