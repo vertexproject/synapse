@@ -2,14 +2,40 @@ import ssl
 import socket
 import logging
 
+import synapse.common as s_common
 import synapse.lib.socket as s_socket
 import synapse.lib.certdir as s_certdir
-
-from synapse.links.common import *
-
-from OpenSSL import crypto
+from synapse.links.common import LinkRelay, raiseSockError
 
 logger = logging.getLogger(__name__)
+
+
+class SslSocket(s_socket.Socket):
+
+    def recv(self, size):
+        byts = b''
+
+        try:
+            byts = self.sock.recv(size)
+        except (ssl.SSLWantReadError, ssl.SSLWantWriteError) as e:
+            print(e)
+            return None
+        except Exception as e:
+            print(e)
+            pass
+
+        if not byts:
+            self.fini()
+
+        return byts
+
+    def send(self, byts):
+        try:
+            return self.sock.send(byts)
+        except (ssl.SSLWantWriteError, ssl.SSLWantReadError) as e:
+            import code; code.interact(local=locals())
+            print(e)
+            return 0
 
 class SslRelay(LinkRelay):
 
@@ -83,7 +109,7 @@ class SslRelay(LinkRelay):
 
         wrap = ssl.wrap_socket(sock, **sslopts)
 
-        sock = s_socket.Socket(wrap)
+        sock = SslSocket(wrap)
         sock.on('link:sock:accept', self._onSslAccept)
 
         return sock
@@ -101,18 +127,12 @@ class SslRelay(LinkRelay):
 
         # this fails on purpose ( but we must prompt the server to send )
         try:
-
             sock.do_handshake()
-
-        except ssl.SSLError as e:
-
-            if e.errno == ssl.SSL_ERROR_WANT_READ:
-                return
-
+        except (ssl.SSLWantReadError, ssl.SSLWantWriteError):
+            return
+        except ssl.SSLError:
             sock.fini()
-
         except Exception as e:
-
             logger.exception(e)
             sock.fini()
 
@@ -130,15 +150,9 @@ class SslRelay(LinkRelay):
             if user is not None:
                 sock.set('syn:user', user)
 
-        except ssl.SSLError as e:
-
-            if e.errno == ssl.SSL_ERROR_WANT_READ:
-                return
-
-            sock.fini()
-
+        except (ssl.SSLWantReadError, ssl.SSLWantWriteError):
+            return
         except Exception as e:
-
             sock.fini()
 
     def _getCommonName(self, sock):
@@ -205,4 +219,4 @@ class SslRelay(LinkRelay):
             sock.close()
             raise s_common.LinkErr(self.link, str(e))
 
-        return s_socket.Socket(wrap)
+        return SslSocket(wrap)

@@ -1,25 +1,10 @@
-import time
-import unittest
 import threading
 
 import synapse.lib.socket as s_socket
 import synapse.lib.threads as s_threads
-import synapse.eventbus as s_eventbus
 
 from synapse.tests.common import *
 
-#class Task:
-
-    #def __init__(self, func, *args, **kwargs):
-        #self.func = func
-        #self.args = args
-        #self.kwargs = kwargs
-
-    #def __call__(self):
-        #return self.func( *self.args, **self.kwargs )
-
-def newtask(func, *args, **kwargs):
-    return(func, args, kwargs)
 
 class ThreadsTest(SynTest):
 

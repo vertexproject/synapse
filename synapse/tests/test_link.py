@@ -1,22 +1,31 @@
 import io
+import os
 import ssl
 import time
 import unittest
 import threading
 
+import synapse.glob as s_glob
 import synapse.link as s_link
 import synapse.daemon as s_daemon
+import synapse.lib.socket as s_socket
 import synapse.telepath as s_telepath
+from synapse.links.ssl import SslSocket
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.thishost as s_thishost
 
 from synapse.tests.common import *
 
+
 class FooBar:
 
-    def foo(self):
+    bigdata = os.urandom(1000 * 1000 * 50)
 
+    def foo(self):
         return 'bar'
+
+    def big(self):
+        return FooBar.bigdata
 
 class LinkTest(SynTest):
 
@@ -76,6 +85,154 @@ class LinkTest(SynTest):
 
         self.eq(link[1].get('user'), 'visi')
         self.eq(link[1].get('passwd'), 'secret')
+
+    def run_nonblocking_pair_recv_tests(self, s1, s2):
+        tenmegs = 10000000
+        s1.setblocking(False)
+        s2.setblocking(False)
+
+        # call recv on a nonblocking socket w/ no data, should return None
+        data = s2.recv(tenmegs)
+        self.none(data)
+
+        # call recv on a closed nonblocking socket w/ no data, should return b''
+        s2.close()
+        data = s2.recv(tenmegs)
+        self.eq(data, b'')
+
+        # call recv w/ negative buffer size on a closed nonblocking socket w/ no data, should return b''
+        data = s2.recv(-1 * tenmegs)
+        self.eq(data, b'')
+
+        s1.close()
+        s2.close() # close already closed socket
+
+    def run_nonblocking_pair_recv_err_tests(self, s1, s2):
+        tenmegs = 10000000
+        s1.setblocking(False)
+        s2.setblocking(False)
+
+        # call recv w/ negative buffer size, resulting in it being finid
+        data = s2.recv(-1 * tenmegs)
+        self.eq(data, b'')
+        self.raises(BrokenPipeError, s1.send, b'wat')
+
+        s1.close()
+        s2.close()
+
+    def run_nonblocking_pair_send_tests(self, s1, s2):
+        tenmegs = 10000000
+        data = os.urandom(tenmegs)
+        s1.setblocking(False)
+        s2.setblocking(False)
+
+        # try to send ten megs, assert that fewer than ten megs are sent
+        send0 = s1.send(data)
+        self.lt(send0, tenmegs)
+
+        # try to send ten megs again, assert that nothing is sent because the buffer in s2 is full
+        self.eq(0, s1.send(data))
+
+        # try to send some garbage and assert that the exception is reraised
+        self.raises(TypeError, s1.send, None)
+
+        # call recv on s2, assert that we get what we actually sent
+        self.eq(s2.recv(tenmegs), data[:send0])
+
+        # close s2 and assert that BrokenPipeError is raised if s1 sends again
+        s2.close()
+        self.raises(BrokenPipeError, s1.send, b'wat')
+        s1.close()
+
+    def run_nonblocking_pair_send_closed_tests(self, s1, s2):
+        s1.setblocking(False)
+        s2.setblocking(False)
+
+        # try to send on a closed socket, get bad file descriptor
+        s1.close()
+        self.raises(OSError, s1.send, b'wat')
+        s2.close()
+
+    def make_ssl_socketpair(self):
+
+        cafile = getTestPath('ca.crt')
+        keyfile = getTestPath('server.key')
+        certfile = getTestPath('server.crt')
+
+        s0, s1 = s_socket.socketpair()
+
+        srvopts = dict(server_side=True,
+                       ca_certs=cafile,
+                       keyfile=keyfile,
+                       certfile=certfile,
+                       cert_reqs=ssl.CERT_NONE,
+                       do_handshake_on_connect=False,
+                       ssl_version=ssl.PROTOCOL_TLSv1)
+
+        cliopts = dict(ca_certs=cafile,
+                       keyfile=keyfile,
+                       certfile=certfile,
+                       cert_reqs=ssl.CERT_REQUIRED,
+                       ssl_version=ssl.PROTOCOL_TLSv1)
+
+        ssl0 = ssl.wrap_socket(s0, **srvopts)
+        s_glob.pool.call(ssl0.do_handshake)
+
+        ssl1 = ssl.wrap_socket(s1, **cliopts)
+        ssl1.do_handshake()
+
+        ssl0 = SslSocket(ssl0)
+        ssl1 = SslSocket(ssl1)
+
+        return ssl0, ssl1
+
+    def test_links_nonblocking_expectations(self):
+
+        # TCP
+        s1, s2 = s_socket.socketpair()
+        self.run_nonblocking_pair_recv_tests(s1, s2)
+
+        s1, s2 = s_socket.socketpair()
+        self.run_nonblocking_pair_recv_err_tests(s1, s2)
+
+        s1, s2 = s_socket.socketpair()
+        self.run_nonblocking_pair_send_tests(s1, s2)
+
+        s1, s2 = s_socket.socketpair()
+        self.run_nonblocking_pair_send_closed_tests(s1, s2)
+
+        # SSL
+        s1, s2 = self.make_ssl_socketpair()
+        self.run_nonblocking_pair_recv_tests(s1, s2)
+
+        s1, s2 = self.make_ssl_socketpair()
+        self.run_nonblocking_pair_recv_err_tests(s1, s2)
+
+        s1, s2 = self.make_ssl_socketpair()
+        self.run_nonblocking_pair_send_tests(s1, s2)
+
+        s1, s2 = self.make_ssl_socketpair()
+        self.run_nonblocking_pair_send_closed_tests(s1, s2)
+
+    def test_link_ssl_big(self):
+
+        # FIXME some kind of cert validation diffs in *py* vers killed us
+        cafile = getTestPath('ca.crt')
+        keyfile = getTestPath('server.key')
+        certfile = getTestPath('server.crt')
+
+        with s_daemon.Daemon() as dmon:
+
+            dmon.share('foobar', FooBar())
+            link = dmon.listen('ssl://localhost:0/', keyfile=keyfile, certfile=certfile)
+            port = link[1].get('port')
+            url = 'ssl://localhost/foobar'
+
+            expected = FooBar.bigdata
+            with s_telepath.openurl(url, port=port, cafile=cafile) as foo:
+                # FIXME ssl.SSLWantWriteError should not be raised here
+                actual = foo.big()
+                self.eq(actual, expected)
 
     def test_link_ssl_basic(self):
 
