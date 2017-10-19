@@ -56,6 +56,9 @@ class Socket(EventBus):
         self.txque.append(byts)
         self.fire('sock:tx:add')
 
+    def send(self, byts):
+        return self.sock.send(byts)
+
     def runTxLoop(self):
         '''
         Run a pass through the non-blocking tx loop.
@@ -253,7 +256,7 @@ class Socket(EventBus):
         except Exception as e:
             return None, None
 
-        sock = Socket(sock, accept=True)
+        sock = self.__class__(sock, accept=True)
 
         relay = self.get('relay')
         if relay is not None:
