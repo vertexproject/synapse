@@ -16,17 +16,18 @@ import synapse.lib.thishost as s_thishost
 
 logger = logging.getLogger(__name__)
 
-LOG_LEVEL_CHOICES = ('debug', 'info', 'warning', 'error', 'critical')
+LOG_LEVEL_CHOICES = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
 
 # FIXME CONFIG FILE DOCS
 
 def getArgParser():
     p = argparse.ArgumentParser()
     p.add_argument('--lsboot', default=False, action='store_true', help='List the current onboot dmon config files')
-    p.add_argument('--onboot', default=False, action='store_true', help='Configure the dmon for startup on reboot and add configs')
+    p.add_argument('--onboot', default=False, action='store_true',
+                   help='Configure the dmon for startup on reboot and add configs')
     p.add_argument('--noboot', default=False, action='store_true', help='Remove a dmon config from the onboot list')
     p.add_argument('--asboot', default=False, action='store_true', help='Run the onboot dmon config')
-    p.add_argument('--log-level', choices=LOG_LEVEL_CHOICES, help='specify the log level')
+    p.add_argument('--log-level', choices=LOG_LEVEL_CHOICES, help='specify the log level', type=str.upper)
 
     p.add_argument('configs', nargs='*', help='json config file(s)')
 
@@ -143,9 +144,14 @@ def main(argv, outp=None):
     p = getArgParser()
     opts = p.parse_args(argv)
 
-    if opts.log_level:
-        logging.basicConfig(level=opts.log_level.upper())
-        logger.info('log level set to ' + opts.log_level)
+    log_level = os.getenv('SYN_DMON_LOG_LEVEL', opts.log_level)
+    if log_level:  # pragma: no cover
+        log_level = log_level.upper()
+        if log_level not in LOG_LEVEL_CHOICES:
+            raise ValueError('Invalid log level provided: {}'.format(log_level))
+        logging.basicConfig(level=log_level,
+                            format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s]')
+        logger.info('log level set to ' + log_level)
 
     if opts.lsboot:
         for path in lsboot():
