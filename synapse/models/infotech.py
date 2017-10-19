@@ -135,7 +135,7 @@ class ItMod(CoreModule):
         if 'it:prod:softver:software:name' not in props:
             software = props.get('it:prod:softver:software')
             node = self.core.getTufoByProp('it:prod:soft', software)
-            if node:
+            if node is not None:
                 name = node[1].get('it:prod:soft:name')
                 props['it:prod:softver:software:name'] = name
         # Normalize the version string
