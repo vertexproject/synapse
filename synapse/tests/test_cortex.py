@@ -1043,32 +1043,32 @@ class CortexTest(SynTest):
             self.eq(len(core.getTufosByProp('strform:foo', valu='zap')), 1)
             self.eq(len(core.getTufosByProp('strform:bar', valu='zap')), 1)
 
-        # Try using setprops with an built-in model which type subprops
-        t0 = core.formTufoByProp('inet:web:acct', 'vertex.link/pennywise')
-        self.notin('inet:web:acct:email', t0[1])
-        props = {'email': 'pennywise@vertex.link'}
-        core.setTufoProps(t0, **props)
-        self.isin('inet:web:acct:email', t0[1])
-        t1 = core.getTufoByProp('inet:email', 'pennywise@vertex.link')
-        self.nn(t1)
+            # Try using setprops with an built-in model which type subprops
+            t0 = core.formTufoByProp('inet:web:acct', 'vertex.link/pennywise')
+            self.notin('inet:web:acct:email', t0[1])
+            props = {'email': 'pennywise@vertex.link'}
+            core.setTufoProps(t0, **props)
+            self.isin('inet:web:acct:email', t0[1])
+            t1 = core.getTufoByProp('inet:email', 'pennywise@vertex.link')
+            self.nn(t1)
 
-        # Trying settufoprops on a ro prop doens't change anything
-        self.eq(t0[1].get('inet:web:acct:user'), 'pennywise')
-        t0 = core.setTufoProps(t0, user='ninja')
-        self.eq(t0[1].get('inet:web:acct:user'), 'pennywise')
+            # Trying settufoprops on a ro prop doens't change anything
+            self.eq(t0[1].get('inet:web:acct:user'), 'pennywise')
+            t0 = core.setTufoProps(t0, user='ninja')
+            self.eq(t0[1].get('inet:web:acct:user'), 'pennywise')
 
-        # Try forming a node from its normalize value and then setting
-        # ro props after the fact. Also ensure those secondary props which
-        # may trigger autoadds are generating the autoadds and do not retain
-        # those non-model seconadry props.
-        valu, subs = core.getTypeNorm('inet:web:post', '(vertex.ninja/ninja,"Just ninja things.")')
-        t0 = core.formTufoByProp('inet:web:post', valu)
-        self.eq(t0[1].get('inet:web:post'), valu)
-        self.none(t0[1].get('inet:web:post:acct'))
-        self.none(t0[1].get('inet:web:post:text'))
-        t0 = core.setTufoProps(t0, **subs)
-        self.eq(t0[1].get('inet:web:post:acct'), 'vertex.ninja/ninja')
-        self.eq(t0[1].get('inet:web:post:text'), 'Just ninja things.')
+            # Try forming a node from its normalize value and then setting
+            # ro props after the fact. Also ensure those secondary props which
+            # may trigger autoadds are generating the autoadds and do not retain
+            # those non-model seconadry props.
+            valu, subs = core.getTypeNorm('inet:web:post', '(vertex.ninja/ninja,"Just ninja things.")')
+            t0 = core.formTufoByProp('inet:web:post', valu)
+            self.eq(t0[1].get('inet:web:post'), valu)
+            self.none(t0[1].get('inet:web:post:acct'))
+            self.none(t0[1].get('inet:web:post:text'))
+            t0 = core.setTufoProps(t0, **subs)
+            self.eq(t0[1].get('inet:web:post:acct'), 'vertex.ninja/ninja')
+            self.eq(t0[1].get('inet:web:post:text'), 'Just ninja things.')
 
     def test_cortex_tufo_pop(self):
         with self.getRamCore() as core:
