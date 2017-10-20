@@ -92,6 +92,84 @@ class PhoneType(DataType):
 
         return '+' + text
 
+def imeicsum(text):
+    '''
+    Calculate the imei check byte.
+    '''
+    digs = []
+    for i in range(14):
+
+        v = int(text[i])
+        if i % 2:
+            v *= 2
+
+        [ digs.append(int(x)) for x in str(v) ]
+
+    chek = 0
+    valu = sum(digs)
+    remd = valu % 10
+    if remd != 0:
+        chek = 10 - remd
+
+    return str(chek)
+
+class ImeiType(DataType):
+    '''
+    https://en.wikipedia.org/wiki/International_Mobile_Equipment_Identity
+    '''
+
+    def norm(self, valu, oldval=None):
+
+        # TODO: support pre 2004 "old" imei format
+        if isinstance(valu, str):
+            digs = digits(valu)
+            if not digs:
+                self._raiseBadValu(valu)
+            valu = int(digs)
+
+        imei = str(valu)
+        ilen = len(imei)
+
+        # we are missing our optional check digit
+        # lets add it for consistency...
+        if ilen == 14:
+            imei += imeicsum(imei)
+            return self._norm_imei(imei)
+
+        # if we *have* our check digit, lets check it
+        elif ilen == 15:
+            if imeicsum(imei) != imei[-1]:
+                self._raiseBadValu(valu, mesg='invalid imei checksum byte')
+            return self._norm_imei(imei)
+
+        self._raiseBadValu(valu)
+
+    def _norm_imei(self, imei):
+        valu = int(imei)
+        tac = int(imei[0:8])
+        snr = int(imei[8:14])
+        cd = int(imei[14:15])
+        return valu, {'tac': tac, 'serial': snr, 'cd': cd}
+
+class ImsiType(DataType):
+
+    def norm(self, valu, oldval=None):
+
+        if isinstance(valu, str):
+            digs = digits(valu)
+            if not digs:
+                self._raiseBadValu(valu)
+            valu = int(digs)
+
+        imsi = str(valu)
+        ilen = len(imsi)
+        if ilen > 15:
+            self._raiseBadValu(valu)
+
+        mcc = int(imsi[0:3])
+        # TODO full imsi analysis tree
+        return valu, {'mcc': mcc}
+
 class TelMod(CoreModule):
 
     def initCoreModule(self):
@@ -104,17 +182,59 @@ class TelMod(CoreModule):
     def getBaseModels():
         modl = {
             'types': (
+
                 ('tel:phone', {'ctor': 'synapse.models.telco.PhoneType'}),
+
+                ('tel:mob:tac', {'subof': 'int',
+                                 'doc': 'A mobile Type Allocation Code'}),
+
+                ('tel:mob:imei', {'ctor': 'synapse.models.telco.ImeiType',
+                                  'doc': 'An International Mobile Equipment Id'}),
+
+                ('tel:mob:imsi', {'ctor': 'synapse.models.telco.ImsiType',
+                                  'doc': 'An International Mobile Subscriber Id'}),
+
+                # TODO: mcc, meid
+
             ),
+
             'forms': (
+
                 ('tel:phone', {'ptype': 'tel:phone'}, [
                     ('cc', {'ptype': 'pol:iso2', 'defval': '??'}),
                 ]),
+
                 ('tel:prefix', {'ptype': 'tel:phone'}, [
                     ('cc', {'ptype': 'pol:iso2', 'defval': '??'}),
                     ('tag', {'ptype': 'syn:tag'}),
                 ]),
+
+                ('tel:mob:tac', {}, [
+
+                    ('org', {'ptype': 'ou:org', 'defval': 'ffffffffffffffffffffffffffffffff',
+                             'doc': 'The org guid for the manufacturer'}),
+
+                    ('manu', {'ptype': 'str:lwr', 'defval': '??',
+                              'doc': 'The TAC manufacturer name'}),
+
+                    ('model', {'ptype': 'str:lwr', 'defval': '??',
+                               'doc': 'The TAC model name'}),
+
+                    ('internal', {'ptype': 'str:lwr', 'defval': '??',
+                                  'doc': 'The TAC internal model name'}),
+                ]),
+
+                ('tel:mob:imei', {}, [
+                    ('tac', {'ptype': 'tel:mob:tac', 'doc': 'The Type Allocate Code within the IMEI'}),
+                    ('serial', {'ptype': 'int', 'doc': 'The serial number within the IMEI'}),
+                ]),
+
+                ('tel:mob:imsi', {}, [
+                    ('mcc', {'ptype': 'int', 'doc': 'The Mobile Country Code'}),
+                ]),
+
             ),
         }
         name = 'tel'
         return ((name, modl), )
+

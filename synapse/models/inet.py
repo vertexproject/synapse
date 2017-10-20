@@ -703,8 +703,12 @@ class InetMod(CoreModule):
                                'ex': '1.2.3.4:80'}),
                 ('inet:srv6', {'ctor': 'synapse.models.inet.Srv6Type', 'doc': 'An IPv6 Address and Port',
                                'ex': '[2607:f8b0:4004:809::200e]:80'}),
-                ('inet:email',
-                 {'ctor': 'synapse.models.inet.EmailType', 'doc': 'An e-mail address', 'ex': 'visi@vertex.link'}),
+
+                ('inet:wifi:ssid', {'subof': 'str', 'doc': 'A WiFi SSID name', 'ex': 'The Vertex Project'}),
+
+                ('inet:email', {'ctor': 'synapse.models.inet.EmailType', 'doc': 'An e-mail address',
+                                'ex': 'visi@vertex.link'}),
+
                 ('inet:fqdn', {'ctor': 'synapse.models.inet.FqdnType', 'ex': 'vertex.link',
                                'doc': 'A Fully Qualified Domain Name (FQDN)'}),
 
@@ -725,6 +729,8 @@ class InetMod(CoreModule):
                                  'doc': 'An IPv4 address range assigned to an autonomous system',
                                  'ex': '54959/1.2.3.4-1.2.3.20'}),
 
+                ('inet:iface', {'subof': 'guid', 'doc': 'A network interface with a stack of protocol addresses'}),
+
                 ('inet:asn', {'subof': 'int', 'doc': 'An Autonomous System Number (ASN)'}),
                 ('inet:user', {'subof': 'str:lwr', 'doc': 'A username string'}),
                 ('inet:passwd', {'subof': 'str', 'doc': 'A password string'}),
@@ -737,10 +743,9 @@ class InetMod(CoreModule):
                 ('inet:flow', {'subof': 'guid', 'doc': 'An individual network connection'}),
 
                 ('inet:port', {'subof': 'int', 'min': 0, 'max': 0xffff, 'ex': '80'}),
-                (
-                    'inet:mac',
-                    {'subof': 'str', 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower': 1, 'nullval': '??',
-                     'ex': 'aa:bb:cc:dd:ee:ff', 'doc': 'A 48 bit mac address'}),
+
+                ('inet:mac',  {'subof': 'str', 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower': 1,
+                               'nullval': '??', 'ex': 'aa:bb:cc:dd:ee:ff', 'doc': 'A 48 bit mac address'}),
 
                 ('inet:web:acct', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|user,inet:user',
                                   'doc': 'A user account at a given web address', 'ex': 'twitter.com/invisig0th'}),
@@ -936,6 +941,19 @@ class InetMod(CoreModule):
                     ('from', {'ptype': 'guid', 'doc': 'The ingest source file/iden.  Used for reparsing'}),
 
                 )),
+
+                ('inet:iface', {}, (
+                    ('mac', {'ptype': 'inet:mac'}),
+                    ('host', {'ptype': 'it:host'}),
+                    ('ipv4', {'ptype': 'inet:ipv4'}),
+                    ('ipv6', {'ptype': 'inet:ipv6'}),
+                    ('phone', {'ptype': 'tel:phone'}),
+                    ('wifi:ssid', {'ptype': 'inet:wifi:ssid'}),
+                    ('mob:imei', {'ptype': 'tel:mob:imei'}),
+                    ('mob:imsi', {'ptype': 'tel:mob:imsi'}),
+                )),
+
+                ('inet:wifi:ssid', {}, []),
 
                 ('inet:web:acct', {'ptype': 'inet:web:acct'}, [
                     ('site', {'ptype': 'inet:fqdn', 'ro': 1}),

@@ -1336,3 +1336,34 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['tufo:form'], 'inet:web:acct')
                 self.eq(tufo[1]['inet:web:acct'], 'vertex.link/pennywise2')
                 self.eq(tufo[1]['inet:web:acct:occupation'], 'entertainer')
+
+    def test_model_inet_wifi(self):
+        with self.getRamCore() as core:
+            node = core.formTufoByProp('inet:wifi:ssid', 'hehe haha')
+            self.eq(node[1].get('inet:wifi:ssid'), 'hehe haha')
+
+    def test_model_inet_iface(self):
+
+        with self.getRamCore() as core:
+
+            info = {
+                'host':'*',
+                'ipv6': 'ff::00',
+                'ipv4': '1.2.3.4',
+                'phone': 12345678910,
+                'mac': 'ff:00:ff:00:ff:00',
+                'wifi:ssid': 'hehe haha',
+                'mob:imei':12345678901234,
+                'mob:imsi':12345678901234,
+            }
+
+            node = core.formTufoByProp('inet:iface', info)
+
+            self.nn(core.getTufoByProp('it:host', node[1].get('inet:iface:host')))
+            self.nn(core.getTufoByProp('inet:mac', node[1].get('inet:iface:mac')))
+            self.nn(core.getTufoByProp('inet:ipv4', node[1].get('inet:iface:ipv4')))
+            self.nn(core.getTufoByProp('inet:ipv6', node[1].get('inet:iface:ipv6')))
+            self.nn(core.getTufoByProp('tel:phone', node[1].get('inet:iface:phone')))
+            self.nn(core.getTufoByProp('inet:wifi:ssid', node[1].get('inet:iface:wifi:ssid')))
+            self.nn(core.getTufoByProp('tel:mob:imei', node[1].get('inet:iface:mob:imei')))
+            self.nn(core.getTufoByProp('tel:mob:imsi', node[1].get('inet:iface:mob:imsi')))

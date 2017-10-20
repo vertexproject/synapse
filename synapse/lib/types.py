@@ -925,7 +925,13 @@ class TypeLib:
 
         dynmodls = s_modules.call_ctor('getBaseModels')
 
-        models = [(modname, modl) for name, modls, excp in dynmodls for modname, modl in modls if modls]
+        models = []
+        for name, modls, excp in dynmodls:
+            if not modls:
+                logger.warning('dyn model empty: %r %r' % (name,excp))
+                continue
+
+            models.extend(modls)
 
         self.addDataModels(models)
 

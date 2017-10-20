@@ -113,3 +113,48 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('ps:person', iden))
 
             self.eq(len(core.eval('ps:person=$visi')), 1)
+
+    def test_model_person_contact(self):
+
+        with self.getRamCore() as core:
+
+            info = {
+                'org': '*',
+                'person': '*',
+
+                'name':'Stark,Tony',
+
+                'title': 'CEO',
+                'orgname': 'Stark Industries, INC',
+
+                'user': 'ironman',
+                'web:acct': 'twitter.com/ironman',
+
+                'dob': '1976-12-17',
+                'url': 'https://starkindustries.com/',
+
+                'email': 'tony.stark@gmail.com',
+                'email:work': 'tstark@starkindustries.com',
+
+                'phone': '12345678910',
+                'phone:fax': '12345678910',
+                'phone:work': '12345678910',
+
+                'address': '1 Iron Suit Drive, San Francisco, CA, 22222, USA',
+            }
+
+            node = core.formTufoByProp('ps:contact', info)
+
+            self.nn(core.getTufoByProp('ou:org', node[1].get('ps:contact:org')))
+            self.nn(core.getTufoByProp('ps:person', node[1].get('ps:contact:person')))
+            self.nn(core.getTufoByProp('inet:url', node[1].get('ps:contact:url')))
+            self.nn(core.getTufoByProp('inet:user', node[1].get('ps:contact:user')))
+            self.nn(core.getTufoByProp('inet:email', node[1].get('ps:contact:email')))
+            self.nn(core.getTufoByProp('inet:email', node[1].get('ps:contact:email:work')))
+            self.nn(core.getTufoByProp('inet:web:acct', node[1].get('ps:contact:web:acct')))
+            self.nn(core.getTufoByProp('tel:phone', node[1].get('ps:contact:phone')))
+            self.nn(core.getTufoByProp('tel:phone', node[1].get('ps:contact:phone:fax')))
+            self.nn(core.getTufoByProp('tel:phone', node[1].get('ps:contact:phone:work')))
+
+            self.eq(node[1].get('ps:contact:address'), '1 iron suit drive, san francisco, ca, 22222, usa')
+
