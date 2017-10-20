@@ -103,7 +103,7 @@ def imeicsum(text):
         if i % 2:
             v *= 2
 
-        [ digs.append(int(x)) for x in str(v) ]
+        [digs.append(int(x)) for x in str(v)]
 
     chek = 0
     valu = sum(digs)
@@ -237,4 +237,3 @@ class TelMod(CoreModule):
         }
         name = 'tel'
         return ((name, modl), )
-

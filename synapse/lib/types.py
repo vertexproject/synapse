@@ -928,7 +928,7 @@ class TypeLib:
         models = []
         for name, modls, excp in dynmodls:
             if not modls:
-                logger.warning('dyn model empty: %r %r' % (name,excp))
+                logger.warning('dyn model empty: %r %r' % (name, excp))
                 continue
 
             models.extend(modls)

@@ -744,7 +744,7 @@ class InetMod(CoreModule):
 
                 ('inet:port', {'subof': 'int', 'min': 0, 'max': 0xffff, 'ex': '80'}),
 
-                ('inet:mac',  {'subof': 'str', 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower': 1,
+                ('inet:mac', {'subof': 'str', 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower': 1,
                                'nullval': '??', 'ex': 'aa:bb:cc:dd:ee:ff', 'doc': 'A 48 bit mac address'}),
 
                 ('inet:web:acct', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|user,inet:user',

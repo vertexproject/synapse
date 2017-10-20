@@ -122,7 +122,7 @@ class PersonTest(SynTest):
                 'org': '*',
                 'person': '*',
 
-                'name':'Stark,Tony',
+                'name': 'Stark,Tony',
 
                 'title': 'CEO',
                 'orgname': 'Stark Industries, INC',
@@ -157,4 +157,3 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('tel:phone', node[1].get('ps:contact:phone:work')))
 
             self.eq(node[1].get('ps:contact:address'), '1 iron suit drive, san francisco, ca, 22222, usa')
-

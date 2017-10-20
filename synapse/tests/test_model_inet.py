@@ -1347,14 +1347,14 @@ class InetModelTest(SynTest):
         with self.getRamCore() as core:
 
             info = {
-                'host':'*',
+                'host': '*',
                 'ipv6': 'ff::00',
                 'ipv4': '1.2.3.4',
                 'phone': 12345678910,
                 'mac': 'ff:00:ff:00:ff:00',
                 'wifi:ssid': 'hehe haha',
-                'mob:imei':12345678901234,
-                'mob:imsi':12345678901234,
+                'mob:imei': 12345678901234,
+                'mob:imsi': 12345678901234,
             }
 
             node = core.formTufoByProp('inet:iface', info)
