@@ -38,6 +38,7 @@ class TelcoTest(SynTest):
             self.eq(node[1].get('tel:mob:imei:tac'), 49015420)
             self.eq(node[1].get('tel:mob:imei:serial'), 323751)
 
+            self.raises(BadTypeValu, core.formTufoByProp, 'tel:mob:imei', 20)
             self.raises(BadTypeValu, core.formTufoByProp, 'tel:mob:imei', 'hehe')
 
     def test_model_telco_imsi(self):
