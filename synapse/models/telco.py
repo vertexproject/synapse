@@ -158,7 +158,7 @@ class ImsiType(DataType):
         if isinstance(valu, str):
             digs = digits(valu)
             if not digs:
-                self._raiseBadValu(valu)
+                self._raiseBadValu(valu, mesg='requires a digit string')
             valu = int(digs)
 
         imsi = str(valu)
