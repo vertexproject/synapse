@@ -124,7 +124,7 @@ class ImeiType(DataType):
         if isinstance(valu, str):
             digs = digits(valu)
             if not digs:
-                self._raiseBadValu(valu)
+                self._raiseBadValu(valu, mesg='requires a digit string')
             valu = int(digs)
 
         imei = str(valu)
@@ -164,7 +164,7 @@ class ImsiType(DataType):
         imsi = str(valu)
         ilen = len(imsi)
         if ilen > 15:
-            self._raiseBadValu(valu)
+            self._raiseBadValu(valu, mesg='invalid imsi len: %d' % (ilen,))
 
         mcc = int(imsi[0:3])
         # TODO full imsi analysis tree
@@ -211,7 +211,7 @@ class TelMod(CoreModule):
 
                 ('tel:mob:tac', {}, [
 
-                    ('org', {'ptype': 'ou:org', 'defval': 'ffffffffffffffffffffffffffffffff',
+                    ('org', {'ptype': 'ou:org',
                              'doc': 'The org guid for the manufacturer'}),
 
                     ('manu', {'ptype': 'str:lwr', 'defval': '??',
