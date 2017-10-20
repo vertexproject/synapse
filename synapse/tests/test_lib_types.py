@@ -454,6 +454,13 @@ class DataTypesTest(SynTest):
         self.eq(tlib.getTypeNorm('time', 1)[0], 1)
         self.eq(tlib.getTypeNorm('time:epoch', 1)[0], 1)
 
+        # Test "now" as a current time value
+        currenttime = now()
+        valu = tlib.getTypeNorm('time', 'now')[0]
+        # Allow for a potential context switch / system load during test
+        #  to push the valu 2 second past currenttime
+        self.le(valu - currenttime, 2)
+
     def test_type_cast(self):
         tlib = s_types.TypeLib()
 
@@ -557,9 +564,13 @@ class DataTypesTest(SynTest):
             v0, subs0 = core.getPropNorm('guidform', '(foo="1",baz=2)')
             v1, subs1 = core.getPropNorm('guidform', (['baz', '2'], ('foo', '1')))
             v2, _ = core.getPropNorm('guidform', '  (foo="1",baz=2) ')
+            v3, _ = core.getPropNorm('guidform', {'foo': '1', 'baz': 2})
+
             self.eq(v0, '1312b101a21bdfd0d96f896ecc5cc113')
             self.eq(v0, v1)
             self.eq(v0, v2)
+            self.eq(v0, v3)
+
             self.len(2, subs0)
             self.eq(subs0.get('foo'), '1')
             self.eq(subs0.get('baz'), 2)
@@ -764,8 +775,8 @@ class DataTypesTest(SynTest):
             self.notin('pvform:intval', t3[1])
 
             # Test a comp type node made a as Provalu
-            t4 = core.formTufoByProp('pvform', 'inet:netpost=(vertex.link/pennywise,"Do you want your boat?")')
-            self.eq(t4[1].get('pvform:prop'), 'inet:netpost')
+            t4 = core.formTufoByProp('pvform', 'inet:web:post=(vertex.link/pennywise,"Do you want your boat?")')
+            self.eq(t4[1].get('pvform:prop'), 'inet:web:post')
 
             # Bad values
             self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', 1234)
@@ -773,3 +784,5 @@ class DataTypesTest(SynTest):
             self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', 'inet:ipv4= 1.2.3.4')
             self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', '(inet:ipv4,1.2.3.4)')
             self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', ['inet:ipv4', '1.2.3.4', 'opps'])
+            # Non-existent valu
+            self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', 'inet:ip=1.2.3.4')

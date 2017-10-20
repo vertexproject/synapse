@@ -74,6 +74,12 @@ class StormTest(SynTest):
             self.nn(node[1].get('inet:web:acct:seen:min'))
             self.nn(node[1].get('inet:web:acct:seen:max'))
 
+            # Can use the "now" string on a time prop to set it to that valu
+            currenttime = now()
+            cmd = 'inet:web:acct=vertex.link/pennywise setprop(:seen:max="now")'
+            node = core.eval(cmd)[0]
+            self.le(node[1].get('inet:web:acct:seen:max') - currenttime, 2)
+
             # old / bad syntax fails
             # kwlist key/val syntax is no longer valid in setprop()
             node = core.formTufoByProp('inet:fqdn', 'vertex.link')
@@ -909,33 +915,19 @@ class StormTest(SynTest):
 
     def test_storm_query_log(self):
         with self.getRamCore() as core:
-            # Setup logging to an io.StringIO object
-            stream = io.StringIO()
-            handler = logging.StreamHandler(stream)
-            storm_logger = logging.getLogger('synapse.lib.storm')
-
-            try:
-                storm_logger.addHandler(handler)
+            with self.getLoggerStream('synapse.lib.storm') as stream:
                 core.eval('#HAHA')
-            finally:
-                storm_logger.removeHandler(handler)
-
             stream.seek(0)
             mesgs = stream.read()
             self.eq('', mesgs.strip())
 
             core.setConfOpt('storm:query:log:en', 1)
-            core.setConfOpt('storm:query:log:level', logging.WARNING)
+            core.setConfOpt('storm:query:log:level', logging.ERROR)
 
-            try:
-                storm_logger.addHandler(handler)
+            with self.getLoggerStream('synapse.lib.storm') as stream:
                 core.eval('#HAHA')
-            finally:
-                storm_logger.removeHandler(handler)
-
             stream.seek(0)
             mesgs = stream.read()
-
             e = 'Executing storm query [#HAHA] as [{}]'.format(s_auth.whoami())
             self.eq(e, mesgs.strip())
 

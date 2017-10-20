@@ -85,6 +85,10 @@ class GuidType(DataType):
 
     def norm(self, valu, oldval=None):
 
+        if isinstance(valu, dict):
+            vals = list(valu.items())
+            return self._norm_list(vals, oldval)
+
         if isinstance(valu, (list, tuple)):
             return self._norm_list(valu, oldval)
 
@@ -586,6 +590,8 @@ class TimeType(DataType):
         return valu, subs
 
     def _norm_str(self, text, oldval=None):
+        if text.strip().lower() == 'now':
+            return s_common.now(), {}
         return s_time.parse(text), {}
 
     def repr(self, valu):
@@ -709,7 +715,7 @@ class PropValuType(DataType):
     def __init__(self, tlib, name, **info):
         DataType.__init__(self, tlib, name, **info)
         # TODO figure out what to do about tlib vs core issues
-        self._getPropNorm = getattr(tlib, 'getPropNorm', None)
+        self._reqPropNorm = getattr(tlib, 'reqPropNorm', None)
         self._getPropRepr = getattr(tlib, 'getPropRepr', None)
 
     def norm(self, valu, oldval=None):
@@ -743,8 +749,8 @@ class PropValuType(DataType):
         prop, valu = valu
 
         try:
-            nvalu, nsubs = self._getPropNorm(prop, valu, oldval=oldval)
-        except s_common.BadTypeValu as e:
+            nvalu, nsubs = self._reqPropNorm(prop, valu, oldval=oldval)
+        except (s_common.BadTypeValu, s_common.NoSuchProp) as e:
             logger.exception('Failed to norm PropValu.')
             self._raiseBadValu(valu, mesg='Unable to norm PropValu', prop=prop)
 

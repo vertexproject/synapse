@@ -1,3 +1,5 @@
+import synapse.lib.tufo as s_tufo
+import synapse.lib.version as s_version
 
 from synapse.tests.common import *
 
@@ -148,21 +150,22 @@ class InfoTechTest(SynTest):
             core.formTufoByProp('file:bytes', exe)
 
             # host execution process model
-            #core.formTufoByProp('it:exec:proc',
-            node = core.formTufoByProp('it:exec:proc', proc, pid=20, time=tick, host=host, user='visi', exe=exe)
+            node = core.formTufoByProp('it:exec:proc', proc, pid=20, time=tick, host=host, user='visi', exe=exe,
+                                       path=path)
+            self.eq(node[1].get('it:exec:proc'), proc)
             self.eq(node[1].get('it:exec:proc:exe'), exe)
             self.eq(node[1].get('it:exec:proc:pid'), 20)
             self.eq(node[1].get('it:exec:proc:time'), tick)
             self.eq(node[1].get('it:exec:proc:host'), host)
             self.eq(node[1].get('it:exec:proc:user'), 'visi')
+            self.eq(node[1].get('it:exec:proc:path'), norm)
 
             p0 = guid()
-            p1 = guid()
-
-            node = core.formTufoByProp('it:exec:subproc', (p0, p1), host=host)
-            self.eq(node[1].get('it:exec:subproc:proc'), p0)
-            self.eq(node[1].get('it:exec:subproc:child'), p1)
-            self.eq(node[1].get('it:exec:subproc:host'), host)
+            f0 = guid()
+            node = core.formTufoByProp('it:exec:proc', p0, **{'src:proc': proc, 'src:exe': f0})
+            self.eq(node[1].get('it:exec:proc'), p0)
+            self.eq(node[1].get('it:exec:proc:src:proc'), proc)
+            self.eq(node[1].get('it:exec:proc:src:exe'), f0)
 
             node = core.formTufoByProp('it:exec:mutex', '*', host=host, exe=exe, proc=proc, time=tick)
             self.eq(node[1].get('it:exec:mutex:exe'), exe)
@@ -233,3 +236,340 @@ class InfoTechTest(SynTest):
             self.eq(node[1].get('it:exec:reg:get:host'), host)
             self.eq(node[1].get('it:exec:reg:get:proc'), proc)
             self.eq(node[1].get('it:exec:reg:get:time'), tick)
+
+    def test_model_infotech_semvertype(self):
+        with self.getRamCore() as core:
+            # Norm tests with strings
+            data = (
+                ('1.2.3', (0x000000010000000200000003,
+                           {'major': 1, 'minor': 2, 'patch': 3, })),
+                ('0.0.1', (0x000000000000000000000001,
+                           {'major': 0, 'minor': 0, 'patch': 1, })),
+                ('1.2.3-alpha', (0x000000010000000200000003,
+                                 {'major': 1, 'minor': 2, 'patch': 3,
+                                 'pre': 'alpha', })),
+                ('1.2.3-alpha.1', (0x000000010000000200000003,
+                                   {'major': 1, 'minor': 2, 'patch': 3,
+                                   'pre': 'alpha.1', })),
+                ('1.2.3-0.3.7', (0x000000010000000200000003,
+                                 {'major': 1, 'minor': 2, 'patch': 3,
+                                 'pre': '0.3.7', })),
+                ('1.2.3-x.7.z.92', (0x000000010000000200000003,
+                                    {'major': 1, 'minor': 2, 'patch': 3,
+                                    'pre': 'x.7.z.92', })),
+                ('1.2.3-alpha+001', (0x000000010000000200000003,
+                                     {'major': 1, 'minor': 2, 'patch': 3,
+                                     'pre': 'alpha', 'build': '001'})),
+                ('1.2.3+20130313144700', (0x000000010000000200000003,
+                                          {'major': 1, 'minor': 2, 'patch': 3,
+                                          'build': '20130313144700'})),
+                ('1.2.3-beta+exp.sha.5114f85', (0x000000010000000200000003,
+                                                {'major': 1, 'minor': 2, 'patch': 3,
+                                                'pre': 'beta',
+                                                 'build': 'exp.sha.5114f85'})),
+                # Real world examples
+                ('1.2.3-B5CD5743F', (0x000000010000000200000003,
+                                     {'major': 1, 'minor': 2, 'patch': 3,
+                                     'pre': 'B5CD5743F', })),
+                ('V1.2.3', (0x000000010000000200000003,
+                            {'major': 1, 'minor': 2, 'patch': 3, })),
+                ('V1.4.0-RC0', (0x000000010000000400000000,
+                                {'major': 1, 'minor': 4, 'patch': 0,
+                                'pre': 'RC0', })),
+                ('v2.4.1-0.3.rc1', (0x000000020000000400000001,
+                                   {'major': 2, 'minor': 4, 'patch': 1,
+                                    'pre': '0.3.rc1'})),
+                ('0.18.1', (0x000000000000001200000001,
+                            {'major': 0, 'minor': 18, 'patch': 1, })),
+            )
+            for s, e in data:
+                ev, es = e
+                valu, subs = core.getTypeNorm('it:semver', s)
+                self.eq(valu, ev)
+                self.eq(subs, es)
+
+            # norm ints
+            data = (
+                (0, {'major': 0, 'minor': 0, 'patch': 0}),
+                (1, {'major': 0, 'minor': 0, 'patch': 1}),
+                (2, {'major': 0, 'minor': 0, 'patch': 2}),
+                (0xFFFFFFFF, {'major': 0, 'minor': 0, 'patch': 0xFFFFFFFF}),
+                (0xFFFFFFFF + 1, {'major': 0, 'minor': 1, 'patch': 0}),
+                (0xdeadb33f1337733101020304, {'major': 0xdeadb33f, 'minor': 0x13377331, 'patch': 0x01020304}),
+                (0xFFFFFFFFFFFFFFFFFFFFFFFF, {'major': 0xFFFFFFFF, 'minor': 0xFFFFFFFF, 'patch': 0xFFFFFFFF})
+            )
+            for intval, e in data:
+                valu, subs = core.getTypeNorm('it:semver', intval)
+                self.eq(valu, intval)
+                self.eq(subs, e)
+
+            # Bad strings / ints
+            badsemvers = (
+                # Invalid strings
+                '1',
+                '1.2',
+                '2.0A1',
+                '0.18rc2',
+                '0.0.00001',
+                '2016-03-01',
+                'v2.4.0.0-1',
+                '1.3a2.dev12',
+                'OpenSSL_1_0_2l',
+                '1.2.windows-RC1',
+                'v2.4.1.0-0.3.rc1',
+                # invalid ints
+                -1,
+                0xFFFFFFFFFFFFFFFFFFFFFFFF + 1,
+                # Invalid build and prerelease values
+                '1.2.3-alpha.foo..+001',
+                '1.2.3-alpha.foo.001+001',
+                '1.2.3-alpha+001.blahblahblah...',
+                '1.2.3-alpha+001.blahblahblah.*iggy',
+                # Just bad input
+                (),
+                '   ',
+                ' alpha ',
+
+            )
+            for valu in badsemvers:
+                self.raises(BadTypeValu, core.getTypeNorm, 'it:semver', valu)
+
+            reprs = (
+                (0, '0.0.0'),
+                (1, '0.0.1'),
+                (0x000000010000000200000003, '1.2.3'),
+            )
+            for v, e in reprs:
+                self.eq(core.getTypeRepr('it:semver', v), e)
+
+    def test_model_infotech_brutecast(self):
+        with self.getRamCore() as core:
+            # Try some integers
+            valu = core.getTypeCast('it:version:brute', s_version.packVersion(1))
+            self.eq(valu, 0x000000010000000000000000)
+
+            valu = core.getTypeCast('it:version:brute', s_version.packVersion(1, 2, 255))
+            self.eq(valu, 0x0000000100000002000000FF)
+
+            valu = core.getTypeCast('it:version:brute', '1')
+            self.eq(valu, 0x000000010000000000000000)
+
+            # A valid semver
+            valu = core.getTypeCast('it:version:brute', '1.2.3-B5CD5743F')
+            self.eq(valu, 0x000000010000000200000003)
+
+            valu = core.getTypeCast('it:version:brute', '1.2.3-beta+exp.sha.5114f85')
+            self.eq(valu, 0x000000010000000200000003)
+
+            # Part extections
+            data = (
+                ('1', (0x000000010000000000000000,
+                       {'major': 1, 'minor': 0, 'patch': 0})),
+                ('2.0A1', (0x000000020000000000000000,
+                           {'major': 2, 'minor': 0, 'patch': 0})),
+                ('2016-03-01', (0x000007e00000000300000001,
+                                {'major': 2016, 'minor': 3, 'patch': 1})),
+                ('1.2.windows-RC1', (0x000000010000000200000000,
+                                     {'major': 1, 'minor': 2, 'patch': 0})),
+                ('3.4', (0x000000030000000400000000,
+                                     {'major': 3, 'minor': 4, 'patch': 0})),
+                ('1.3a2.dev12', (0x000000010000000000000000,
+                                 {'major': 1, 'minor': 0, 'patch': 0})),
+                ('v2.4.0.0-1', (0x000000020000000400000000,
+                                {'major': 2, 'minor': 4, 'patch': 0})),
+                ('v2.4.1.0-0.3.rc1', (0x000000020000000400000001,
+                                      {'major': 2, 'minor': 4, 'patch': 1})),
+                ('0.18rc2', (0, {'major': 0, 'minor': 0, 'patch': 0})),
+                ('OpenSSL_1_0_2l', (0x000000010000000000000000,
+                                    {'major': 1, 'minor': 0, 'patch': 0})),
+            )
+
+            for s, e in data:
+                ev, es = e
+                valu = core.getTypeCast('it:version:brute', s)
+                self.eq(valu, ev)
+
+            self.raises(BadTypeValu, core.getTypeCast, 'it:version:brute', 'alpha')
+            self.raises(BadTypeValu, core.getTypeCast, 'it:version:brute', ())
+
+    def test_model_infotech_software(self):
+        with self.getRamCore() as core:
+            a1 = core.formTufoByProp('inet:web:acct', 'vertex.link/pennywise')
+            o1 = core.formTufoByProp('ou:org:alias', 'deadlights')
+            p1 = core.formTufoByProp('ps:person', [['guidname', 'Robert Gray']])
+            h1 = core.formTufoByProp('it:host', '(name=pennywise001)')
+            self.nn(a1)
+            self.nn(o1)
+            self.nn(p1)
+            self.nn(h1)
+            # Random guid
+            s1 = core.formTufoByProp('it:prod:soft', '*',
+                                     **{'name': 'Balloon Maker',
+                                        'desc': "Pennywise's patented balloon blower uper",
+                                        'desc:short': 'Balloon blower',
+                                        'author:org': o1[1].get('ou:org'),
+                                        'author:acct': a1[1].get('inet:web:acct'),
+                                        'author:person': p1[1].get('ps:person'),
+                                        'url': 'https://vertex.link/products/balloonmaker'
+                                        })
+            self.eq(s1[1].get('it:prod:soft:name'), 'balloon maker')
+            self.eq(s1[1].get('it:prod:soft:desc'), "Pennywise's patented balloon blower uper")
+            self.eq(s1[1].get('it:prod:soft:desc:short'), 'balloon blower')
+            self.eq(s1[1].get('it:prod:soft:author:acct'), a1[1].get('inet:web:acct'),)
+            self.eq(s1[1].get('it:prod:soft:author:org'), o1[1].get('ou:org'))
+            self.eq(s1[1].get('it:prod:soft:author:person'), p1[1].get('ps:person'))
+            self.eq(s1[1].get('it:prod:soft:url'), 'https://vertex.link/products/balloonmaker')
+
+            # Stable guid
+            s2 = core.formTufoByProp('it:prod:soft', '(name="Balloon Maker",author:acct=vertex.link/pennywise)')
+            self.eq(s2[1].get('it:prod:soft'), '5fd0340d2ad8878fe53ccd28843ff2dc')
+
+            self.raises(PropNotFound, core.formTufoByProp, 'it:prod:soft', '*')
+
+            nodes = core.getTufosByProp('it:prod:soft:name', 'balloon maker')
+            self.len(2, nodes)
+
+            # Make some version nodes
+            # Ensure :semver is populated by the vers value.
+            sv1 = core.formTufoByProp('it:prod:softver',
+                                     '*',
+                                     software='5fd0340d2ad8878fe53ccd28843ff2dc',
+                                     vers='V1.0.1',
+                                     url='https://vertex.link/products/balloonmaker/release_101.exe'
+                                     )
+            self.eq(sv1[1].get('it:prod:softver:software'), '5fd0340d2ad8878fe53ccd28843ff2dc')
+            self.eq(sv1[1].get('it:prod:softver:software:name'), 'balloon maker')
+            self.eq(sv1[1].get('it:prod:softver:vers'), 'V1.0.1')
+            self.eq(sv1[1].get('it:prod:softver:vers:norm'), 'v1.0.1')
+            self.eq(sv1[1].get('it:prod:softver:semver'), 0x000000010000000000000001)
+            self.eq(sv1[1].get('it:prod:softver:semver:major'), 1)
+            self.eq(sv1[1].get('it:prod:softver:semver:minor'), 0)
+            self.eq(sv1[1].get('it:prod:softver:semver:patch'), 1)
+            self.eq(sv1[1].get('it:prod:softver:url'),
+                    'https://vertex.link/products/balloonmaker/release_101.exe')
+            # Link the softver to a host
+            hs1 = core.formTufoByProp('it:hostsoft',
+                                      (h1[1].get('it:host'),
+                                       sv1[1].get('it:prod:softver')),
+                                      **{'seen:min': '2013',
+                                         'seen:max': '2017', }
+                                      )
+            self.eq(hs1[1].get('it:hostsoft:host'), h1[1].get('it:host'))
+            self.eq(hs1[1].get('it:hostsoft:softver'), sv1[1].get('it:prod:softver'))
+            self.eq(hs1[1].get('it:hostsoft:seen:min'), core.getTypeNorm('time', '2013')[0])
+            self.eq(hs1[1].get('it:hostsoft:seen:max'), core.getTypeNorm('time', '2017')[0])
+
+            nodes = core.eval('it:prod:soft:name="balloon maker" ->it:prod:softver:software ->it:hostsoft:softver '
+                              ':host->it:host')
+            self.len(1, nodes)
+            form, prop = s_tufo.ndef(nodes[0])
+            self.eq(form, 'it:host')
+            self.eq(prop, 'e862b0d7f3a9e015171a4113e0dbe861')
+
+            # Go backwards from the host
+            nodes = core.eval('it:host=e862b0d7f3a9e015171a4113e0dbe861 ->it:hostsoft:host :softver '
+                              '->it:prod:softver')
+            self.len(1, nodes)
+            form, prop = s_tufo.ndef(nodes[0])
+            self.eq(form, 'it:prod:softver')
+            self.eq(prop, sv1[1].get('it:prod:softver'))
+
+            # Make a bunch of softver nodes in order to do filtering via storm
+            sv = core.formTufoByProp('it:prod:softver',
+                                      (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
+                                       ('vers', 'V1.0.0'))
+                                      )
+            sv = core.formTufoByProp('it:prod:softver',
+                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
+                                      ('vers', 'V1.1.0'))
+                                     )
+            sv = core.formTufoByProp('it:prod:softver',
+                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
+                                      ('vers', 'V0.0.1'))
+                                     )
+            sv = core.formTufoByProp('it:prod:softver',
+                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
+                                      ('vers', 'V0.1.0'))
+                                     )
+            sv = core.formTufoByProp('it:prod:softver',
+                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
+                                      ('vers', '0.1.1'))
+                                     )
+            sv = core.formTufoByProp('it:prod:softver',
+                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
+                                      ('vers', 'V2.0.0-alpha+b1'))
+                                     )
+
+            nodes = core.eval('it:prod:softver:semver<1.0.0')
+            self.len(3, nodes)
+            nodes = core.eval('it:prod:softver:semver<1.0.0 +it:prod:softver:semver:minor=1')
+            self.len(2, nodes)
+            nodes = core.eval('it:prod:softver:semver<=1.0.0')
+            self.len(4, nodes)
+            nodes = core.eval('it:prod:softver:semver>1.1.0')
+            self.len(1, nodes)
+            nodes = core.eval('it:prod:softver:semver:pre=alpha')
+            self.len(1, nodes)
+
+            # Try some non-standard semver values
+            sv = core.formTufoByProp('it:prod:softver',
+                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
+                                      ('vers', '  OhMy2016-12-10  '))
+                                     )
+            self.eq(sv[1].get('it:prod:softver:vers'), '  OhMy2016-12-10  ')
+            self.eq(sv[1].get('it:prod:softver:vers:norm'), 'ohmy2016-12-10')
+            self.eq(sv[1].get('it:prod:softver:semver:major'), 2016)
+            self.eq(sv[1].get('it:prod:softver:semver:minor'), 12)
+            self.eq(sv[1].get('it:prod:softver:semver:patch'), 10)
+            nodes = core.eval('it:prod:softver:semver:major=2016')
+            self.len(1, nodes)
+
+            sv = core.formTufoByProp('it:prod:softver',
+                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
+                                      ('vers', '1.2'))
+                                     )
+            self.eq(sv[1].get('it:prod:softver:semver:major'), 1)
+            self.eq(sv[1].get('it:prod:softver:semver:minor'), 2)
+            self.none(sv[1].get('it:prod:softver:semver:patch'))
+
+            sv = core.formTufoByProp('it:prod:softver',
+                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
+                                      ('vers', '1.2.3.4'))
+                                     )
+            self.eq(sv[1].get('it:prod:softver:semver:major'), 1)
+            self.eq(sv[1].get('it:prod:softver:semver:minor'), 2)
+            self.eq(sv[1].get('it:prod:softver:semver:patch'), 3)
+
+            sv = core.formTufoByProp('it:prod:softver',
+                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
+                                      ('vers', 'AlPHa'))
+                                     )
+            self.eq(sv[1].get('it:prod:softver:vers'), 'AlPHa')
+            self.eq(sv[1].get('it:prod:softver:vers:norm'), 'alpha')
+            self.none(sv[1].get('it:prod:softver:semver'))
+
+            # Set the software:name directly
+            sv = core.formTufoByProp('it:prod:softver',
+                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
+                                      ('vers', 'beta')),
+                                     **{'software:name': 'ballon maker-beta'}
+                                     )
+            self.eq(sv[1].get('it:prod:softver:vers'), 'beta')
+            self.eq(sv[1].get('it:prod:softver:software:name'), 'ballon maker-beta')
+
+            # Set the semver value separately from the vers.
+            # This bypasses the node:form callback from setting the prop and instead
+            # relys on regular prop-norming.
+            sv = core.formTufoByProp('it:prod:softver',
+                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
+                                      ('vers', 'AlPHa001')),
+                                     semver='0.0.1-alpha+build.001'
+                                     )
+            self.eq(sv[1].get('it:prod:softver:vers'), 'AlPHa001')
+            self.eq(sv[1].get('it:prod:softver:vers:norm'), 'alpha001')
+            self.eq(sv[1].get('it:prod:softver:semver'), 1)
+            self.eq(sv[1].get('it:prod:softver:semver:major'), 0)
+            self.eq(sv[1].get('it:prod:softver:semver:minor'), 0)
+            self.eq(sv[1].get('it:prod:softver:semver:patch'), 1)
+            self.eq(sv[1].get('it:prod:softver:semver:build'), 'build.001')
+            self.eq(sv[1].get('it:prod:softver:semver:pre'), 'alpha')

@@ -11,6 +11,14 @@ from OpenSSL import crypto
 
 logger = logging.getLogger(__name__)
 
+class Socket(s_socket.Socket):
+
+    def send(self, byts):
+        try:
+            return s_socket.Socket.send(self, byts)
+        except (ssl.SSLWantReadError, ssl.SSLWantWriteError) as e:
+            return 0
+
 class SslRelay(LinkRelay):
 
     proto = 'ssl'
@@ -83,7 +91,7 @@ class SslRelay(LinkRelay):
 
         wrap = ssl.wrap_socket(sock, **sslopts)
 
-        sock = s_socket.Socket(wrap)
+        sock = Socket(wrap)
         sock.on('link:sock:accept', self._onSslAccept)
 
         return sock
@@ -205,4 +213,4 @@ class SslRelay(LinkRelay):
             sock.close()
             raise s_common.LinkErr(self.link, str(e))
 
-        return s_socket.Socket(wrap)
+        return Socket(wrap)

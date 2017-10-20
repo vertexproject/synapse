@@ -15,7 +15,7 @@ class TestArgParser(SynTest):
         for level in ['debug', 'info', 'warning', 'error', 'critical']:
             p = getArgParser()
             args = p.parse_args(['--log-level', level])
-            self.eq(args.log_level, level)
+            self.eq(args.log_level, level.upper())
 
     def test_getArgParser_logLevel_exception(self):
         for level in ['all', 'notice']:
