@@ -775,8 +775,8 @@ class DataTypesTest(SynTest):
             self.notin('pvform:intval', t3[1])
 
             # Test a comp type node made a as Provalu
-            t4 = core.formTufoByProp('pvform', 'inet:netpost=(vertex.link/pennywise,"Do you want your boat?")')
-            self.eq(t4[1].get('pvform:prop'), 'inet:netpost')
+            t4 = core.formTufoByProp('pvform', 'inet:web:post=(vertex.link/pennywise,"Do you want your boat?")')
+            self.eq(t4[1].get('pvform:prop'), 'inet:web:post')
 
             # Bad values
             self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', 1234)
@@ -784,3 +784,5 @@ class DataTypesTest(SynTest):
             self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', 'inet:ipv4= 1.2.3.4')
             self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', '(inet:ipv4,1.2.3.4)')
             self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', ['inet:ipv4', '1.2.3.4', 'opps'])
+            # Non-existent valu
+            self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', 'inet:ip=1.2.3.4')
