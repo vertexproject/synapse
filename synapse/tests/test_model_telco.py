@@ -20,3 +20,42 @@ class TelcoTest(SynTest):
 
             self.eq(core.getTypeCast('tel:loc:us', '7(495) 124-59-83'), 74951245983)
             self.eq(core.getTypeCast('tel:loc:us', '+7(495) 124-59-83'), 74951245983)
+
+    def test_model_telco_imei(self):
+
+        with self.getRamCore() as core:
+
+            # a perfect one...
+            valu, subs = core.getTypeNorm('tel:mob:imei', '490154203237518')
+            self.eq(valu, 490154203237518)
+
+            # invalid checksum bit
+            self.raises(BadTypeValu, core.getTypeNorm, 'tel:mob:imei', '490154203237519')
+
+            # one without it's check bit ( gets check bit added )
+            valu, subs = core.getTypeNorm('tel:mob:imei', '49015420323751')
+            self.eq(valu, 490154203237518)
+
+            node = core.formTufoByProp('tel:mob:imei', 49015420323751)
+            self.eq(node[1].get('tel:mob:imei'), 490154203237518)
+            self.eq(node[1].get('tel:mob:imei:tac'), 49015420)
+            self.eq(node[1].get('tel:mob:imei:serial'), 323751)
+
+            self.raises(BadTypeValu, core.formTufoByProp, 'tel:mob:imei', 20)
+            self.raises(BadTypeValu, core.formTufoByProp, 'tel:mob:imei', 'hehe')
+
+    def test_model_telco_imsi(self):
+
+        with self.getRamCore() as core:
+
+            node = core.formTufoByProp('tel:mob:imsi', 310150123456789)
+            self.eq(node[1].get('tel:mob:imsi'), 310150123456789)
+            self.eq(node[1].get('tel:mob:imsi:mcc'), 310)
+
+            node = core.formTufoByProp('tel:mob:imsi', '310150123456789')
+            self.eq(node[1].get('tel:mob:imsi'), 310150123456789)
+            self.eq(node[1].get('tel:mob:imsi:mcc'), 310)
+
+            # < 15 digits
+            self.raises(BadTypeValu, core.formTufoByProp, 'tel:mob:imsi', 'hehe')
+            self.raises(BadTypeValu, core.formTufoByProp, 'tel:mob:imsi', 1111111111111111)
