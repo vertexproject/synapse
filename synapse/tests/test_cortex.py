@@ -1052,6 +1052,11 @@ class CortexTest(SynTest):
         t1 = core.getTufoByProp('inet:email', 'pennywise@vertex.link')
         self.nn(t1)
 
+        # Trying settufoprops on a ro prop doens't change anything
+        self.eq(t0[1].get('inet:web:acct:user'), 'pennywise')
+        t0 = core.setTufoProps(t0, user='ninja')
+        self.eq(t0[1].get('inet:web:acct:user'), 'pennywise')
+
         # Try forming a node from its normalize value and then setting
         # ro props after the fact. Also ensure those secondary props which
         # may trigger autoadds are generating the autoadds and do not retain
