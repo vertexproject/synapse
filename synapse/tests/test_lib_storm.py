@@ -694,12 +694,6 @@ class StormTest(SynTest):
             baz = []
             sekrit = []
 
-            def make_handler(store):
-                def handler(evt):
-                    store.append(evt)
-
-                return handler
-
             core.on('task:foo', foo.append)
             core.on('task:bar', bar.append)
             core.on('task:baz', baz.append)
@@ -734,6 +728,33 @@ class StormTest(SynTest):
 
             # We have to know queue names to add nodes too
             self.raises(BadSyntaxError, core.eval, 'inet:ipv4 task()')
+
+    def test_storm_task_telepath(self):
+        with self.getDmonCore() as core_prox:
+            foo = []
+
+            def foo_append(data):
+                foo.append(data)
+
+            core_prox.on('task:foo', foo_append)
+
+            core_prox.formTufoByProp('inet:ipv4', 0x01020304)
+            core_prox.formTufoByProp('inet:ipv4', 0x05060708)
+
+            nodes = core_prox.eval('inet:ipv4 task(foo, key=valu)')
+
+            # We don't consume nodes when tasking
+            self.len(2, nodes)
+
+            # Events were fired
+            self.len(2, foo)
+
+            # Events contained data we expected
+            evt = foo[0]
+            self.eq(evt[0], 'task:foo')
+            self.isinstance(evt[1].get('node'), tuple)
+            self.eq(evt[1].get('storm'), True)
+            self.eq(evt[1].get('key'), 'valu')
 
     def test_storm_tree(self):
         with self.getRamCore() as core:
