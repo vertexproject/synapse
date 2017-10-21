@@ -416,8 +416,10 @@ class BusRef(EventBus):
     '''
     An object for managing multiple EventBus instances.
     '''
-    def __init__(self):
+    def __init__(self, ctor=None):
         EventBus.__init__(self)
+        self.ctor = ctor
+        self.lock = threading.Lock()
         self.ebus_by_name = {}
         self.onfini(self._onBusRefFini)
 
@@ -464,6 +466,37 @@ class BusRef(EventBus):
             (EventBus): The EventBus instance (or None)
         '''
         return self.ebus_by_name.get(name)
+
+    def gen(self, name):
+        '''
+        Atomically get/gen an EventBus and incref.
+        (requires ctor during BusRef init)
+
+        Args:
+            name (str): The name/iden of the EventBus instance.
+        '''
+        if self.ctor is None:
+            raise s_common.NoSuchCtor(mesg='BusRef.gen() requires ctor')
+
+        with self.lock:
+
+            ebus = self.ebus_by_name.get(name)
+
+            if ebus is None:
+                ebus = self.ctor(name)
+
+                if ebus is not None:
+
+                    def fini():
+                        self.ebus_by_name.pop(name, None)
+
+                    ebus.onfini(fini)
+                    self.ebus_by_name[name] = ebus
+
+            else:
+                ebus.incref()
+
+            return ebus
 
     def vals(self):
         return list(self.ebus_by_name.values())

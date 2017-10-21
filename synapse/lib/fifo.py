@@ -27,7 +27,9 @@ class Fifo(s_config.Config):
 
         self.lock = threading.Lock()
         self.winds = s_eventbus.BusRef()
-        self.atoms = s_eventbus.BusRef()
+
+        self.atoms = s_eventbus.BusRef(ctor=self._brefAtomCtor)
+        self.onfini(self.atoms.fini)
 
         self.seqs = self._getFifoSeqs()
         if not self.seqs:
@@ -35,7 +37,7 @@ class Fifo(s_config.Config):
 
         # open our append atom
         lseq = self.seqs[-1]
-        self.atom = self._openFifoAtom(lseq)
+        self.atom = self.atoms.gen(lseq)
 
         # our next expected sequence num
         self.nseq = lseq + self.atom.size
@@ -71,6 +73,21 @@ class Fifo(s_config.Config):
                 os.unlink(path)
 
     def resync(self, xmit=None):
+        '''
+        Re-synchronize this Fifo by sending all window entries.
+        (optionally specify a new xmit callback)
+
+        Args:
+            xmit (func): The fifo xmit() callback.
+
+        Example:
+
+            def xmit(qent):
+                seqn, nseq, item = qent
+                dostuff()
+
+            fifo.resync(xmit=xmit)
+        '''
         return self.wind.resync(xmit=xmit)
 
     def _findFifoAtom(self, nseq):
@@ -78,7 +95,7 @@ class Fifo(s_config.Config):
         if nseq not in self.seqs:
             nseq = [s for s in self.seqs if s <= nseq][-1]
 
-        return nseq, self._initFifoAtom(nseq)
+        return nseq, self.atoms.gen(nseq)
 
     def _openFifoAtom(self, nseq):
         '''
@@ -87,22 +104,11 @@ class Fifo(s_config.Config):
         if nseq not in self.seqs:
             return None
 
-        return self._initFifoAtom(nseq)
+        return self.atoms.gen(nseq)
 
-    def _initFifoAtom(self, nseq):
-
+    def _brefAtomCtor(self, nseq):
         path = self._getSeqPath(nseq)
-
-        with s_glob.lock:
-
-            atom = self.atoms.get(nseq)
-            if atom is not None:
-                atom.incref()
-                return atom
-
-            atom = s_atomfile.openAtomFile(path, memok=False)
-            self.atoms.put(nseq, atom)
-            return atom
+        return s_atomfile.openAtomFile(path, memok=False)
 
     def flush(self):
         '''
@@ -130,7 +136,7 @@ class Fifo(s_config.Config):
             if self.atom.size >= self.maxsize:
                 self.atom.fini()
                 self.seqs.append(self.nseq)
-                self.atom = self._initFifoAtom(self.nseq)
+                self.atom = self.atoms.gen(self.nseq)
 
             qent = (seqn, self.nseq, item)
 
@@ -263,6 +269,7 @@ class Window(s_eventbus.EventBus):
     def resync(self, xmit=None):
         '''
         Re-synchronize this Fifo (assuming an xmit restart).
+        ( see Fifo.resync )
         '''
         if xmit is not None:
             self._xmit = xmit

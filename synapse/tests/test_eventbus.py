@@ -1,6 +1,7 @@
 import unittest
 import threading
 
+import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.lib.threads as s_threads
 
@@ -173,7 +174,7 @@ class EventBusTest(SynTest):
             ebus.on('log', logs.append)
 
             try:
-                raise NoSuchObj(name='hehe')
+                raise s_common.NoSuchObj(name='hehe')
             except Exception as e:
                 ebus.exc(e)
 
@@ -231,3 +232,28 @@ class EventBusTest(SynTest):
 
         self.eq(ebus.fini(), 0)
         self.true(ebus.isfini)
+
+    def test_eventbus_busref_gen(self):
+
+        with s_eventbus.BusRef() as refs:
+            self.raises(NoSuchCtor, refs.gen, 'woot')
+
+        def ctor(name):
+            return s_eventbus.EventBus()
+
+        with s_eventbus.BusRef(ctor=ctor) as refs:
+
+            self.none(refs.get('woot'))
+
+            woot = refs.gen('woot')
+
+            self.nn(woot)
+            self.true(refs.gen('woot') is woot)
+
+            woot.fini()
+            self.false(woot.isfini)
+            self.true(refs.get('woot') is woot)
+
+            woot.fini()
+            self.true(woot.isfini)
+            self.false(refs.get('woot') is woot)
