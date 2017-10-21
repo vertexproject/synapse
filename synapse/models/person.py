@@ -58,6 +58,8 @@ class PsMod(CoreModule):
                 ('ps:person',
                  {'subof': 'guid', 'alias': 'ps:person:guidname', 'doc': 'A GUID for a person or suspected person'}),
 
+                ('ps:contact', {'subof': 'guid', 'doc': 'A GUID for a contact info record'}),
+
                 ('ps:hasuser', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|user,inet:user'}),
                 ('ps:hashost', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|host,it:host'}),
                 ('ps:hasalias', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|alias,ps:name'}),
@@ -88,6 +90,38 @@ class PsMod(CoreModule):
                     ('name', {'ptype': 'ps:name'}),
                     ('name:sur', {'ptype': 'ps:tokn'}),
                     ('name:given', {'ptype': 'ps:tokn'}),
+                ]),
+
+                ('ps:contact', {'ptype': 'guid', 'doc': 'A collection of contact information in a single record'}, [
+
+                    ('org', {'ptype': 'ou:org', 'doc': 'The ou:org GUID which owns this contact'}),
+                    ('asof', {'ptype': 'time', 'doc': 'The time this contact was created or modified'}),
+                    ('person', {'ptype': 'ps:person', 'doc': 'The ps:person GUID which owns this contact'}),
+
+                    ('name', {'ptype': 'ps:name', 'doc': 'The person name listed for the contact'}),
+                    ('title', {'ptype': 'str:lwr', 'doc': 'The job/org title listed for this contact'}),
+                    ('photo', {'ptype': 'file:bytes', 'doc': 'The photo listed for this contact'}),
+
+                    ('orgname', {'ptype': 'str:lwr', 'doc': 'The listed org/company name for this contact'}),
+
+                    ('user', {'ptype': 'inet:user', 'doc': 'The username or handle for the contact'}),
+
+                    ('web:acct', {'ptype': 'inet:web:acct', 'doc': 'The social media account for this contact'}),
+
+                    ('dob', {'ptype': 'time', 'doc': 'The Date of Birth (DOB) for the contact'}),
+
+                    ('url', {'ptype': 'inet:url', 'doc': 'The home/main site for this contact'}),
+
+                    ('email', {'ptype': 'inet:email', 'doc': 'The main email address for this contact'}),
+                    ('email:work', {'ptype': 'inet:email', 'doc': 'The contact work email address'}),
+
+                    ('address', {'ptype': 'str:lwr', 'doc': 'The free-form address listed for the contact'}),
+
+                    ('phone', {'ptype': 'tel:phone', 'doc': 'The "main" phone number for this contact'}),
+
+                    # TODO: figure out a reasonable way to do multi-valu fields?
+                    ('phone:fax', {'ptype': 'tel:phone', 'doc': 'The contact fax phone number'}),
+                    ('phone:work', {'ptype': 'tel:phone', 'doc': 'The contact work phone number'}),
                 ]),
 
                 ('ps:image', {}, (
