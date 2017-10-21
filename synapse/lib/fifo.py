@@ -149,8 +149,9 @@ class Fifo(s_config.Config):
         dirn = self.getConfOpt('fifo:dir')
         return s_common.genpath(dirn, *names)
 
+    @staticmethod
     @s_config.confdef(name='fifo')
-    def _getFifoConf(self):
+    def _getFifoConf():
         return (
             ('fifo:dir', {'type': 'str', 'req': 1, 'doc': 'Path to the FIFO directory'}),
             ('fifo:file:maxsize', {'type': 'int', 'defval': 1000000000, 'doc': 'Max fifo file size'}),
