@@ -1,3 +1,5 @@
+import gc
+import atexit
 import logging
 import threading
 import traceback
@@ -10,6 +12,25 @@ import synapse.lib.thishost as s_thishost
 
 logger = logging.getLogger(__name__)
 finlock = threading.RLock()
+
+def _fini_atexit():
+
+    for item in gc.get_objects():
+
+        if not isinstance(item, EventBus):
+            continue
+
+        if not item._fini_atexit:
+            continue
+
+        try:
+
+            item.fini()
+
+        except Exception as e:
+            logger.exception('atexit fini fail: %r' % (ebus,))
+
+atexit.register(_fini_atexit)
 
 class EventBus(object):
     '''
@@ -25,6 +46,7 @@ class EventBus(object):
         self._syn_refs = 1  # one ref for the ctor
         self._syn_links = []
         self._fini_funcs = []
+        self._fini_atexit = False
 
     def __enter__(self):
         return self
@@ -400,8 +422,7 @@ class BusRef(EventBus):
         self.onfini(self._onBusRefFini)
 
     def _onBusRefFini(self):
-        todo = list(self.ebus_by_name.values())
-        [ebus.fini() for ebus in todo]
+        [ebus.fini() for ebus in self.vals()]
 
     def put(self, name, ebus):
         '''
@@ -443,6 +464,9 @@ class BusRef(EventBus):
             (EventBus): The EventBus instance (or None)
         '''
         return self.ebus_by_name.get(name)
+
+    def vals(self):
+        return list(self.ebus_by_name.values())
 
     def __iter__(self):
         # make a copy during iteration to prevent dict

@@ -20,6 +20,10 @@ hasremap = getattr(libc, 'mremap', None) is not None
 
 logger = logging.getLogger(__name__)
 
+def openAtomFile(path, memok=True):
+    fd = s_common.genfile(path)
+    return getAtomFile(fd, memok=memok)
+
 def getAtomFile(fd, memok=True):
     '''
     Factory to construct the most optimal AtomFile for this platform.
@@ -52,6 +56,7 @@ class AtomFile(EventBus):
     '''
     def __init__(self, fd, **opts):
         EventBus.__init__(self)
+        self._fini_atexit = True
 
         fd.seek(0, os.SEEK_END)
 
@@ -80,8 +85,6 @@ class AtomFile(EventBus):
         Atomically write bytes at the given offset.
         '''
         bsize = len(byts)
-        if off + bsize > self.size:
-            raise s_common.BadAtomFile('writeoff past size!', offset=off, size=bsize, fsize=self.size, )
         return self._writeoff(off, byts)
 
     def resize(self, size):
@@ -94,6 +97,9 @@ class AtomFile(EventBus):
 
         '''
         with self.lock:
+            return self._resize(size)
+
+    def _resize(self, size):
 
             if size < self.size:
                 self._trunc(size)
@@ -186,6 +192,10 @@ class MemAtom(AtomFile):
         return self.mm[off:off + size]
 
     def _writeoff(self, off, byts):
+
+        if off + len(byts) > self.size:
+            raise s_common.BadAtomFile('writeoff past size!', offset=off, size=len(byts), fsize=self.size)
+
         self.mm[off:off + len(byts)] = byts
 
     def _grow(self, size):

@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import sys
 import json
 import time
@@ -74,6 +75,10 @@ def guid(valu=None):
     # Generate a "stable" guid from the given item
     byts = msgenpack(valu)
     return hashlib.md5(byts).hexdigest()
+
+guidre = re.compile('^[0-9a-f]{32}$')
+def isguid(text):
+    return guidre.match(text) is not None
 
 def intify(x):
     '''
