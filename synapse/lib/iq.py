@@ -1,10 +1,22 @@
 # -*- coding: utf-8 -*-
-# XXX Update Docstring
 """
-synapse - testify.py
+synapse - iq.py
 Created on 10/21/17.
 
+The IQ module contains the core test helper code used in Synapse.
 
+This gives the opportunity for third-party users of Synapse to test their
+code using some of the same of the same helpers used to test Synapse.
+
+The core class, synapse.lib.iq.SynTest is a subclass of unittest.TestCase,
+with several wrapper functions to allow for easier calls to assert* functions,
+with less typing.  There are also Synapse specific helpers, to load both Ram
+and PSQL Cortexes.
+
+Since SynTest is built from unittest.TestCase, the use of SynTest is
+compatible with the unittest, nose and pytest frameworks.  This does not lock
+users into a particular test framework; while at the same time allowing base
+use to be invoked via the built-in Unittest library.
 """
 import io
 import os
@@ -68,7 +80,7 @@ class SynTest(unittest.TestCase):
     def getTestWait(self, bus, size, *evts):
         return s_eventbus.Waiter(bus, size, *evts)
 
-    def skipIfNoInternet(self):
+    def skipIfNoInternet(self):  # pragma: no cover
         '''
         Allow skipping a test if SYN_TEST_SKIP_INTERNET envar is set.
 
@@ -78,7 +90,7 @@ class SynTest(unittest.TestCase):
         if bool(int(os.getenv('SYN_TEST_SKIP_INTERNET', 0))):
             raise unittest.SkipTest('SYN_TEST_SKIP_INTERNET envar set')
 
-    def skipLongTest(self):
+    def skipLongTest(self):  # pragma: no cover
         '''
         Allow skipping a test if SYN_TEST_SKIP_LONG envar is set.
 
@@ -100,11 +112,11 @@ class SynTest(unittest.TestCase):
 
         '''
         db = os.getenv('SYN_TEST_PG_DB')
-        if not db:
+        if not db:  # pragma: no cover
             raise unittest.SkipTest('no SYN_TEST_PG_DB envar')
         try:
             import psycopg2
-        except ImportError:
+        except ImportError:  # pragma: no cover
             raise unittest.SkipTest('psycopg2 not installed.')
 
         url = 'postgres://%s' % db
@@ -165,13 +177,13 @@ class SynTest(unittest.TestCase):
             opts: Additional options passed to openlink call.
 
         Returns:
-            A PSQL backed cortex.
+            s_cores_common.Cortex: A PSQL backed cortex.
 
         Raises:
             unittest.SkipTest: if there is no SYN_TEST_PG_DB envar set.
         '''
         db = os.getenv('SYN_TEST_PG_DB')
-        if not db:
+        if not db:  # pragma: no cover
             raise unittest.SkipTest('no SYN_TEST_PG_DB envar')
 
         if not table:
@@ -196,7 +208,7 @@ class SynTest(unittest.TestCase):
         '''
         return TstOutPut()
 
-    def thisHostMust(self, **props):
+    def thisHostMust(self, **props):  # pragma: no cover
         '''
         Requires a host having a specific property.
 
@@ -210,7 +222,7 @@ class SynTest(unittest.TestCase):
             if s_thishost.get(k) != v:
                 raise unittest.SkipTest('skip thishost: %s!=%r' % (k, v))
 
-    def thisHostMustNot(self, **props):
+    def thisHostMustNot(self, **props):  # pragma: no cover
         '''
         Requires a host to not have a specific property.
 
