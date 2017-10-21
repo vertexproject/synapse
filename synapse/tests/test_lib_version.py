@@ -10,6 +10,9 @@ from synapse.tests.common import *
 class VersionTest(SynTest):
 
     def test_version_basics(self):
+        self.eq(s_version.mask20.bit_length(), 20)
+        self.eq(s_version.mask60.bit_length(), 60)
+
         self.isinstance(s_version.version, tuple)
         self.len(3, s_version.version)
         for v in s_version.version:
@@ -24,47 +27,47 @@ class VersionTest(SynTest):
         self.eq(ver, 0)
 
         ver = s_version.packVersion(1)
-        self.eq(ver, 0x000000010000000000000000)
+        self.eq(ver, 0x000010000000000)
 
         # Ensure each value makes it to its position
         ver = s_version.packVersion(1, 2, 3)
-        self.eq(ver, 0x000000010000000200000003)
+        self.eq(ver, 0x000010000200003)
 
-        ver = s_version.packVersion(0xdeadb33f, 0x13371337, 0x01020304)
-        self.eq(ver, 0xdeadb33f1337133701020304)
+        ver = s_version.packVersion(0xdeadb, 0x33f13, 0x37133)
+        self.eq(ver, 0xdeadb33f1337133)
 
-        ver = s_version.packVersion(s_version.mask32, s_version.mask32, s_version.mask32)
-        self.eq(ver, s_version.mask96)
+        ver = s_version.packVersion(s_version.mask20, s_version.mask20, s_version.mask20)
+        self.eq(ver, s_version.mask60)
 
-        # Input values are masked to ensure they are 32 bits max
+        # Input values are masked to ensure they are 20 bits max
         # XXX Or do we want this to throw an exception?
-        ver = s_version.packVersion(1 << 33, 1 << 33, 1 << 33)
+        ver = s_version.packVersion(1 << 20, 1 << 20, 1 << 20)
         self.eq(ver, 0)
-        ver = s_version.packVersion((1 << 32) + 1, (1 << 32) + 2, (1 << 32) + 3)
-        self.eq(ver, 0x000000010000000200000003)
+        ver = s_version.packVersion((1 << 20) + 1, (1 << 20) + 2, (1 << 20) + 3)
+        self.eq(ver, 0x000010000200003)
 
     def test_version_unpack(self):
         tup = s_version.unpackVersion(0)
         self.eq(tup, (0, 0, 0))
 
-        tup = s_version.unpackVersion(0x000000010000000000000000)
+        tup = s_version.unpackVersion(0x000010000000000)
         self.eq(tup, (1, 0, 0))
 
-        tup = s_version.unpackVersion(0x000000010000000200000003)
+        tup = s_version.unpackVersion(0x000010000200003)
         self.eq(tup, (1, 2, 3))
 
-        tup = s_version.unpackVersion(0xdeadb33f1337133701020304)
-        self.eq(tup, (0xdeadb33f, 0x13371337, 0x01020304))
+        tup = s_version.unpackVersion(0xdeadb33f1337133)
+        self.eq(tup, (0xdeadb, 0x33f13, 0x37133))
 
-        tup = s_version.unpackVersion(s_version.mask96)
-        self.eq(tup, (s_version.mask32, s_version.mask32, s_version.mask32))
+        tup = s_version.unpackVersion(s_version.mask60)
+        self.eq(tup, (s_version.mask20, s_version.mask20, s_version.mask20))
 
         # Ensure we only snag the data from the 96 bits of input
         # XXX Or do we want this to throw an exception?
-        tup = s_version.unpackVersion(1 << 96)
+        tup = s_version.unpackVersion(1 << 60)
         self.eq(tup, (0, 0, 0))
-        tup = s_version.unpackVersion(1 << 96 | s_version.mask96)
-        self.eq(tup, (s_version.mask32, s_version.mask32, s_version.mask32))
+        tup = s_version.unpackVersion(1 << 60 | s_version.mask60)
+        self.eq(tup, (s_version.mask20, s_version.mask20, s_version.mask20))
 
     def test_version_fmt(self):
 

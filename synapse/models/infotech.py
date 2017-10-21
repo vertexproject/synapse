@@ -11,6 +11,20 @@ from synapse.lib.types import DataType
 logger = logging.getLogger(__name__)
 
 class SemverType(DataType):
+    '''
+    Provides support for parsing a semantic version string into its component
+    parts. This normalizes a version string into a integer to allow version
+    ordering.  Prerelease information is disregarded for integer comparison
+    purposes, as we cannot map an arbitrary pre-release version into a integer
+    value
+
+    Major, minor and patch levels are represented as integers, with a max
+    width of 20 bits.  The comparable integer value representing the semver
+    is the bitwise concatenation of the major, minor and patch levels.
+
+    Prerelease and build information will be parsed out and available as
+    strings if that information is present.
+    '''
     subprops = (
         ('major', {'ptype': 'int'},),
         ('minor', {'ptype': 'int'},),
@@ -42,9 +56,9 @@ class SemverType(DataType):
     def _norm_int(self, valu, oldval=None):
         if valu < 0:
             self._raiseBadValu(valu, mesg='Cannot norm a negative integer as a semver.')
-        if valu > s_version.mask96:
+        if valu > s_version.mask60:
             self._raiseBadValu(valu,
-                               mesg='Cannot norm a integer larger than 79228162514264337593543950335 as a semver.')
+                               mesg='Cannot norm a integer larger than 1152921504606846975 as a semver.')
         major, minor, patch = s_version.unpackVersion(valu)
         valu = s_version.packVersion(major, minor, patch)
         subs = {'major': major,

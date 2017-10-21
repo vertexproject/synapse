@@ -11,8 +11,8 @@ import string
 import synapse.exc as s_exc
 
 vseps = ('.', '-', '_', '+')
-mask32 = 0xFFFFFFFF
-mask96 = 0xFFFFFFFFFFFFFFFFFFFFFFFF
+mask20 = 0xFFFFF
+mask60 = 0xFFFFFFFFFFFFFFF
 semver_re = r'''^(?P<maj>(0(?![0-9])|[1-9][0-9]*))\.(?P<min>(0(?![0-9])|[1-9][0-9]*))\.(?P<pat>(0(?![0-9])|[1-9][0-9]*))(\-(?P<pre>([0-9A-Za-z\-\.]+)))?(\+(?P<bld>([0-9A-Za-z\.\-]+)))?$'''
 
 def parseSemver(text):
@@ -86,9 +86,9 @@ def packVersion(major, minor=0, patch=0):
         int:  System normalized integer value to represent a software version.
     '''
 
-    ret = patch & mask32
-    ret = ret | (minor & mask32) << 32
-    ret = ret | (major & mask32) << 32 * 2
+    ret = patch & mask20
+    ret = ret | (minor & mask20) << 20
+    ret = ret | (major & mask20) << 20 * 2
     return ret
 
 def unpackVersion(ver):
@@ -101,9 +101,9 @@ def unpackVersion(ver):
     Returns:
         (int, int, int): A tuple containing the major, minor and patch values shifted out of the integer.
     '''
-    major = (ver >> 64) & mask32
-    minor = (ver >> 32) & mask32
-    patch = ver & mask32
+    major = (ver >> 20 * 2) & mask20
+    minor = (ver >> 20) & mask20
+    patch = ver & mask20
     return major, minor, patch
 
 def fmtVersion(*vsnparts):

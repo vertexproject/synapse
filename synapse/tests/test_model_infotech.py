@@ -241,45 +241,45 @@ class InfoTechTest(SynTest):
         with self.getRamCore() as core:
             # Norm tests with strings
             data = (
-                ('1.2.3', (0x000000010000000200000003,
+                ('1.2.3', (0x000010000200003,
                            {'major': 1, 'minor': 2, 'patch': 3, })),
-                ('0.0.1', (0x000000000000000000000001,
+                ('0.0.1', (0x000000000000001,
                            {'major': 0, 'minor': 0, 'patch': 1, })),
-                ('1.2.3-alpha', (0x000000010000000200000003,
+                ('1.2.3-alpha', (0x000010000200003,
                                  {'major': 1, 'minor': 2, 'patch': 3,
                                  'pre': 'alpha', })),
-                ('1.2.3-alpha.1', (0x000000010000000200000003,
+                ('1.2.3-alpha.1', (0x000010000200003,
                                    {'major': 1, 'minor': 2, 'patch': 3,
                                    'pre': 'alpha.1', })),
-                ('1.2.3-0.3.7', (0x000000010000000200000003,
+                ('1.2.3-0.3.7', (0x000010000200003,
                                  {'major': 1, 'minor': 2, 'patch': 3,
                                  'pre': '0.3.7', })),
-                ('1.2.3-x.7.z.92', (0x000000010000000200000003,
+                ('1.2.3-x.7.z.92', (0x000010000200003,
                                     {'major': 1, 'minor': 2, 'patch': 3,
                                     'pre': 'x.7.z.92', })),
-                ('1.2.3-alpha+001', (0x000000010000000200000003,
+                ('1.2.3-alpha+001', (0x000010000200003,
                                      {'major': 1, 'minor': 2, 'patch': 3,
                                      'pre': 'alpha', 'build': '001'})),
-                ('1.2.3+20130313144700', (0x000000010000000200000003,
+                ('1.2.3+20130313144700', (0x000010000200003,
                                           {'major': 1, 'minor': 2, 'patch': 3,
                                           'build': '20130313144700'})),
-                ('1.2.3-beta+exp.sha.5114f85', (0x000000010000000200000003,
+                ('1.2.3-beta+exp.sha.5114f85', (0x000010000200003,
                                                 {'major': 1, 'minor': 2, 'patch': 3,
                                                 'pre': 'beta',
                                                  'build': 'exp.sha.5114f85'})),
                 # Real world examples
-                ('1.2.3-B5CD5743F', (0x000000010000000200000003,
+                ('1.2.3-B5CD5743F', (0x000010000200003,
                                      {'major': 1, 'minor': 2, 'patch': 3,
                                      'pre': 'B5CD5743F', })),
-                ('V1.2.3', (0x000000010000000200000003,
+                ('V1.2.3', (0x000010000200003,
                             {'major': 1, 'minor': 2, 'patch': 3, })),
-                ('V1.4.0-RC0', (0x000000010000000400000000,
+                ('V1.4.0-RC0', (0x000010000400000,
                                 {'major': 1, 'minor': 4, 'patch': 0,
                                 'pre': 'RC0', })),
-                ('v2.4.1-0.3.rc1', (0x000000020000000400000001,
+                ('v2.4.1-0.3.rc1', (0x000020000400001,
                                    {'major': 2, 'minor': 4, 'patch': 1,
                                     'pre': '0.3.rc1'})),
-                ('0.18.1', (0x000000000000001200000001,
+                ('0.18.1', (0x000000001200001,
                             {'major': 0, 'minor': 18, 'patch': 1, })),
             )
             for s, e in data:
@@ -293,10 +293,10 @@ class InfoTechTest(SynTest):
                 (0, {'major': 0, 'minor': 0, 'patch': 0}),
                 (1, {'major': 0, 'minor': 0, 'patch': 1}),
                 (2, {'major': 0, 'minor': 0, 'patch': 2}),
-                (0xFFFFFFFF, {'major': 0, 'minor': 0, 'patch': 0xFFFFFFFF}),
-                (0xFFFFFFFF + 1, {'major': 0, 'minor': 1, 'patch': 0}),
-                (0xdeadb33f1337733101020304, {'major': 0xdeadb33f, 'minor': 0x13377331, 'patch': 0x01020304}),
-                (0xFFFFFFFFFFFFFFFFFFFFFFFF, {'major': 0xFFFFFFFF, 'minor': 0xFFFFFFFF, 'patch': 0xFFFFFFFF})
+                (0xFFFFF, {'major': 0, 'minor': 0, 'patch': 0xFFFFF}),
+                (0xFFFFF + 1, {'major': 0, 'minor': 1, 'patch': 0}),
+                (0xdeadb33f1337133, {'major': 0xdeadb, 'minor': 0x33f13, 'patch': 0x37133}),
+                (0xFFFFFFFFFFFFFFF, {'major': 0xFFFFF, 'minor': 0xFFFFF, 'patch': 0xFFFFF})
             )
             for intval, e in data:
                 valu, subs = core.getTypeNorm('it:semver', intval)
@@ -337,7 +337,7 @@ class InfoTechTest(SynTest):
             reprs = (
                 (0, '0.0.0'),
                 (1, '0.0.1'),
-                (0x000000010000000200000003, '1.2.3'),
+                (0x000010000200003, '1.2.3'),
             )
             for v, e in reprs:
                 self.eq(core.getTypeRepr('it:semver', v), e)
@@ -346,41 +346,41 @@ class InfoTechTest(SynTest):
         with self.getRamCore() as core:
             # Try some integers
             valu = core.getTypeCast('it:version:brute', s_version.packVersion(1))
-            self.eq(valu, 0x000000010000000000000000)
+            self.eq(valu, 0x000010000000000)
 
             valu = core.getTypeCast('it:version:brute', s_version.packVersion(1, 2, 255))
-            self.eq(valu, 0x0000000100000002000000FF)
+            self.eq(valu, 0x0000100002000FF)
 
             valu = core.getTypeCast('it:version:brute', '1')
-            self.eq(valu, 0x000000010000000000000000)
+            self.eq(valu, 0x000010000000000)
 
             # A valid semver
             valu = core.getTypeCast('it:version:brute', '1.2.3-B5CD5743F')
-            self.eq(valu, 0x000000010000000200000003)
+            self.eq(valu, 0x000010000200003)
 
             valu = core.getTypeCast('it:version:brute', '1.2.3-beta+exp.sha.5114f85')
-            self.eq(valu, 0x000000010000000200000003)
+            self.eq(valu, 0x000010000200003)
 
             # Part extections
             data = (
-                ('1', (0x000000010000000000000000,
+                ('1', (0x000010000000000,
                        {'major': 1, 'minor': 0, 'patch': 0})),
-                ('2.0A1', (0x000000020000000000000000,
+                ('2.0A1', (0x000020000000000,
                            {'major': 2, 'minor': 0, 'patch': 0})),
-                ('2016-03-01', (0x000007e00000000300000001,
+                ('2016-03-01', (0x007e00000300001,
                                 {'major': 2016, 'minor': 3, 'patch': 1})),
-                ('1.2.windows-RC1', (0x000000010000000200000000,
+                ('1.2.windows-RC1', (0x000010000200000,
                                      {'major': 1, 'minor': 2, 'patch': 0})),
-                ('3.4', (0x000000030000000400000000,
-                                     {'major': 3, 'minor': 4, 'patch': 0})),
-                ('1.3a2.dev12', (0x000000010000000000000000,
+                ('3.4', (0x000030000400000,
+                         {'major': 3, 'minor': 4, 'patch': 0})),
+                ('1.3a2.dev12', (0x000010000000000,
                                  {'major': 1, 'minor': 0, 'patch': 0})),
-                ('v2.4.0.0-1', (0x000000020000000400000000,
+                ('v2.4.0.0-1', (0x000020000400000,
                                 {'major': 2, 'minor': 4, 'patch': 0})),
-                ('v2.4.1.0-0.3.rc1', (0x000000020000000400000001,
+                ('v2.4.1.0-0.3.rc1', (0x000020000400001,
                                       {'major': 2, 'minor': 4, 'patch': 1})),
                 ('0.18rc2', (0, {'major': 0, 'minor': 0, 'patch': 0})),
-                ('OpenSSL_1_0_2l', (0x000000010000000000000000,
+                ('OpenSSL_1_0_2l', (0x000010000000000,
                                     {'major': 1, 'minor': 0, 'patch': 0})),
             )
 
@@ -441,7 +441,7 @@ class InfoTechTest(SynTest):
             self.eq(sv1[1].get('it:prod:softver:software:name'), 'balloon maker')
             self.eq(sv1[1].get('it:prod:softver:vers'), 'V1.0.1')
             self.eq(sv1[1].get('it:prod:softver:vers:norm'), 'v1.0.1')
-            self.eq(sv1[1].get('it:prod:softver:semver'), 0x000000010000000000000001)
+            self.eq(sv1[1].get('it:prod:softver:semver'), 0x000010000000001)
             self.eq(sv1[1].get('it:prod:softver:semver:major'), 1)
             self.eq(sv1[1].get('it:prod:softver:semver:minor'), 0)
             self.eq(sv1[1].get('it:prod:softver:semver:patch'), 1)
