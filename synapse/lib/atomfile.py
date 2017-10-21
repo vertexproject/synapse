@@ -164,7 +164,6 @@ class AtomFile(EventBus):
             self.size = max(self.size, self.fdoff)
 
     def _onAtomFini(self):
-        self.fd.flush()
         self.fd.close()
 
 class MemAtom(AtomFile):
