@@ -21,6 +21,13 @@ hasremap = getattr(libc, 'mremap', None) is not None
 logger = logging.getLogger(__name__)
 
 def openAtomFile(path, memok=True):
+    '''
+    Open the given file path as an AtomFile.
+
+    Args:
+        path (str): A file path
+        memok (bool): If True, allow use of mmap files.
+    '''
     fd = s_common.genfile(path)
     return getAtomFile(fd, memok=memok)
 
