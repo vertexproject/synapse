@@ -15,11 +15,169 @@ import synapse.lib.atomfile as s_atomfile
 
 logger = logging.getLogger(__file__)
 
-class Fifo(s_eventbus.EventBus):
-    '''
-    A Fifo state within a FifoDir.
-    '''
+class Fifo(s_config.Config):
 
+    def __init__(self, conf, xmit=None):
+
+        s_config.Config.__init__(self)
+        self.setConfOpts(conf)
+        self.reqConfOpts()
+
+        self.maxsize = self.getConfOpt('fifo:file:maxsize')
+
+        self.lock = threading.Lock()
+        self.winds = s_eventbus.BusRef()
+        self.atoms = s_eventbus.BusRef()
+
+        self.seqs = self._getFifoSeqs()
+        if not self.seqs:
+            self.seqs.append(0)
+
+        # open our append atom
+        lseq = self.seqs[-1]
+        self.atom = self._openFifoAtom(lseq)
+
+        # our next expected sequence num
+        self.nseq = lseq + self.atom.size
+
+        # open our "default" state file
+        path = self._getPathJoin('default.state')
+        self.wind = Window(self, path, xmit=xmit)
+        self.onfini(self.wind.fini)
+
+        task = s_glob.sched.loop(2, self.flush)
+        self.onfini(task.fini)
+
+        self._cullAtomBase(self.wind.bseq)
+
+    def ack(self, seqn):
+        '''
+        Acknowledge (and cull) an item in the sequence.
+        '''
+        retn = self.wind.ack(seqn)
+
+        if retn:
+            self._cullAtomBase(self.wind.bseq)
+
+        return retn
+
+    def _cullAtomBase(self, nseq):
+
+        with self.lock:
+
+            while self.seqs[0] < nseq:
+                fseq = self.seqs.pop(0)
+                path = self._getSeqPath(fseq)
+                os.unlink(path)
+
+    def resync(self, xmit=None):
+        return self.wind.resync(xmit=xmit)
+
+    def _findFifoAtom(self, nseq):
+        # if they specify an un-aligned sequence, find the prev
+        if nseq not in self.seqs:
+            nseq = [s for s in self.seqs if s <= nseq][-1]
+
+        return nseq, self._initFifoAtom(nseq)
+
+    def _openFifoAtom(self, nseq):
+        '''
+        Open and return a new Fifo AtomFile by next sequence.
+        '''
+        if nseq not in self.seqs:
+            return None
+
+        return self._initFifoAtom(nseq)
+
+    def _initFifoAtom(self, nseq):
+
+        path = self._getSeqPath(nseq)
+
+        with s_glob.lock:
+
+            atom = self.atoms.get(nseq)
+            if atom is not None:
+                atom.incref()
+                return atom
+
+            atom = s_atomfile.openAtomFile(path, memok=False)
+            self.atoms.put(nseq, atom)
+            return atom
+
+    def flush(self):
+        '''
+        Flush any file buffers associated with this Fifo.
+        '''
+        self.wind.flush()
+        [wind.flush() for wind in self.winds]
+
+    def put(self, item):
+        '''
+        Put a new item into the Fifo.
+
+        Args:
+            item (obj): The object to serialize into the Fifo.
+        '''
+        byts = s_msgpack.en(item)
+
+        with self.lock:
+
+            seqn = self.nseq
+
+            self.atom.writeoff(self.atom.size, byts)
+            self.nseq += len(byts)
+
+            if self.atom.size >= self.maxsize:
+                self.atom.fini()
+                self.seqs.append(self.nseq)
+                self.atom = self._initFifoAtom(self.nseq)
+
+            qent = (seqn, self.nseq, item)
+
+            self.wind._may_put(qent)
+
+            # see if any of our readers are caught up...
+            [wind._may_put(qent) for wind in self.winds.vals()]
+
+    def _getPathJoin(self, *names):
+        dirn = self.getConfOpt('fifo:dir')
+        return s_common.genpath(dirn, *names)
+
+    @s_config.confdef(name='fifo')
+    def _getFifoConf(self):
+        return (
+            ('fifo:dir', {'type': 'str', 'req': 1, 'doc': 'Path to the FIFO directory'}),
+            ('fifo:file:maxsize', {'type': 'int', 'defval': 1000000000, 'doc': 'Max fifo file size'}),
+            ('fifo:window:min', {'type': 'int', 'defval': 1000, 'doc': 'Minimum window size'}),
+            ('fifo:window:max', {'type': 'int', 'defval': 1000, 'doc': 'Maximum window size'}),
+            ('fifo:window:fill', {'type': 'int', 'defval': 10000000, 'doc': 'Window fill read size'}),
+        )
+
+    def _getSeqPath(self, nseq):
+        dirn = self.getConfOpt('fifo:dir')
+        base = '%.16x.fifo' % (nseq,)
+        return os.path.join(dirn, base)
+
+    def _getFifoSeqs(self):
+
+        dirn = self.getConfOpt('fifo:dir')
+
+        retn = []
+        for name in os.listdir(dirn):
+
+            if not name.endswith('.fifo'):
+                continue
+
+            base = name.split('.')[0]
+            retn.append(int(base, 16))
+
+        retn.sort()
+        return retn
+
+class Window(s_eventbus.EventBus):
+    '''
+    A read window within a Fifo.
+    '''
     def __init__(self, fdir, path, xmit=None):
 
         s_eventbus.EventBus.__init__(self)
@@ -221,169 +379,3 @@ class Fifo(s_eventbus.EventBus):
 
         finally:
             self.filling.set(False)
-
-#class FifoFile:
-
-class FifoDir(s_config.Config):
-
-    def __init__(self, conf, xmit=None):
-
-        s_config.Config.__init__(self)
-        self.setConfOpts(conf)
-        self.reqConfOpts()
-
-        self.maxsize = self.getConfOpt('fifo:file:maxsize')
-
-        self.fifolock = threading.Lock()
-
-        self.lock = threading.Lock()
-        self.fifos = s_eventbus.BusRef()
-        self.atoms = s_eventbus.BusRef()
-
-        self.seqs = self._getFifoSeqs()
-        if not self.seqs:
-            self.seqs.append(0)
-
-        # open our append atom
-        lseq = self.seqs[-1]
-        self.atom = self._openFifoAtom(lseq)
-
-        # our next expected sequence num
-        self.nseq = lseq + self.atom.size
-
-        # open our "default" state file
-        path = self._getPathJoin('default.state')
-        self.fifo = Fifo(self, path, xmit=xmit)
-        self.onfini(self.fifo.fini)
-
-        task = s_glob.sched.loop(2, self.flush)
-        self.onfini(task.fini)
-
-        self._cullAtomBase(self.fifo.bseq)
-
-    def ack(self, seqn):
-        '''
-        Acknowledge (and cull) an item in the sequence.
-        '''
-        retn = self.fifo.ack(seqn)
-
-        if retn:
-            self._cullAtomBase(self.fifo.bseq)
-
-        return retn
-
-    def _cullAtomBase(self, nseq):
-
-        with self.lock:
-
-            while self.seqs[0] < nseq:
-                fseq = self.seqs.pop(0)
-                path = self._getSeqPath(fseq)
-                os.unlink(path)
-
-    def resync(self, xmit=None):
-        return self.fifo.resync(xmit=xmit)
-
-    def _findFifoAtom(self, nseq):
-        # if they specify an un-aligned sequence, find the prev
-        if nseq not in self.seqs:
-            nseq = [s for s in self.seqs if s <= nseq][-1]
-
-        return nseq, self._initFifoAtom(nseq)
-
-    def _openFifoAtom(self, nseq):
-        '''
-        Open and return a new Fifo AtomFile by next sequence.
-        '''
-        if nseq not in self.seqs:
-            return None
-
-        return self._initFifoAtom(nseq)
-
-    def _initFifoAtom(self, nseq):
-
-        path = self._getSeqPath(nseq)
-
-        with s_glob.lock:
-
-            atom = self.atoms.get(nseq)
-            if atom is not None:
-                atom.incref()
-                return atom
-
-            atom = s_atomfile.openAtomFile(path, memok=False)
-            self.atoms.put(nseq, atom)
-            return atom
-
-    #def _getNextAtom(self, nseq):
-
-        #if nseq == self.seqs[-1][0]:
-            #return None
-
-        #for fseq in self.seqs:
-            #if fseq > nseq:
-                #return self._openAtomFile(fseq)
-
-    def flush(self):
-        self.fifo.flush()
-        [fifo.flush() for fifo in self.fifos]
-
-    def put(self, item):
-        '''
-        Put a new item into the Fifo.
-        '''
-        byts = s_msgpack.en(item)
-
-        with self.lock:
-
-            seqn = self.nseq
-
-            self.atom.writeoff(self.atom.size, byts)
-            self.nseq += len(byts)
-
-            if self.atom.size >= self.maxsize:
-                self.atom.fini()
-                self.seqs.append(self.nseq)
-                self.atom = self._initFifoAtom(self.nseq)
-
-            qent = (seqn, self.nseq, item)
-
-            self.fifo._may_put(qent)
-
-            # see if any of our readers are caught up...
-            [fifo._may_put(qent) for fifo in self.fifos.vals()]
-
-    def _getPathJoin(self, *names):
-        dirn = self.getConfOpt('fifo:dir')
-        return s_common.genpath(dirn, *names)
-
-    @s_config.confdef(name='fifo')
-    def _getFifoDirConf(self):
-        return (
-            ('fifo:dir', {'type': 'str', 'req': 1, 'doc': 'Path to the FIFO directory'}),
-            ('fifo:file:maxsize', {'type': 'int', 'defval': 1000000000, 'doc': 'Max fifo file size'}),
-            ('fifo:window:min', {'type': 'int', 'defval': 1000, 'doc': 'Minimum window size'}),
-            ('fifo:window:max', {'type': 'int', 'defval': 1000, 'doc': 'Maximum window size'}),
-            ('fifo:window:fill', {'type': 'int', 'defval': 10000000, 'doc': 'Window fill read size'}),
-        )
-
-    def _getSeqPath(self, nseq):
-        dirn = self.getConfOpt('fifo:dir')
-        base = '%.16x.fifo' % (nseq,)
-        return os.path.join(dirn, base)
-
-    def _getFifoSeqs(self):
-
-        dirn = self.getConfOpt('fifo:dir')
-
-        retn = []
-        for name in os.listdir(dirn):
-
-            if not name.endswith('.fifo'):
-                continue
-
-            base = name.split('.')[0]
-            retn.append(int(base, 16))
-
-        retn.sort()
-        return retn
