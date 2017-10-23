@@ -176,10 +176,12 @@ class SynMod(CoreModule):
     @modelrev('syn', 201710191144)
     def _revModl201710191144(self):
         with self.core.getCoreXact():
+            now = s_common.now()
 
-            rows = []
-            for i, _, _, t in self.core.store.getRowsByProp('tufo:form'):
-                rows.append((i, 'tufo:formed', t),)
+            adds = []
+            for i, _, v, t in self.core.store.getRowsByProp('tufo:form'):
+                adds.append((i, 'tufo:formed', t, now),)
 
-            for i, p, v in rows:
-                self.core.store.setRowsByIdProp(i, p, v)
+            self.core.store.delRowsByProp('tufo:formed')
+            if adds:
+                self.core.store.addRows(adds)
