@@ -2383,7 +2383,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             fired on for the Cortex event bus, splices and triggers.
 
         Returns:
-            ((str, dict)): Thew newly formed tufo, or the existing tufo if
+            ((str, dict)): The newly formed tufo, or the existing tufo if
             the node already exists.  The ephemeral property ".new" can be
             checked to see if the node was newly created or not.
         '''
@@ -2487,7 +2487,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             form (str): Form of the dictionary being operated on.
             fulls (dict): Dictionary of full property name & valu pairs.
             props (dict): Dictionary of property name & value pairs.
-            isadd (bool): Bool indicating if the data is newly being addd or not.
+            isadd (bool): Bool indicating if the data is newly being added or not.
 
         Returns:
             None

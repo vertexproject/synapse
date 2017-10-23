@@ -1069,6 +1069,8 @@ class CortexTest(SynTest):
             t0 = core.setTufoProps(t0, **subs)
             self.eq(t0[1].get('inet:web:post:acct'), 'vertex.ninja/ninja')
             self.eq(t0[1].get('inet:web:post:text'), 'Just ninja things.')
+            t0 = core.setTufoProps(t0, text='Throwing stars are cool!')
+            self.eq(t0[1].get('inet:web:post:text'), 'Just ninja things.')
 
     def test_cortex_tufo_pop(self):
         with self.getRamCore() as core:
