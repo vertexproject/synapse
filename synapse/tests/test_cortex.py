@@ -1995,9 +1995,13 @@ class CortexTest(SynTest):
             with s_cortex.openurl('ram://') as core1:
 
                 with core0.getSplicePump(core1):
-                    core0.formTufoByProp('inet:fqdn', 'woot.com')
+                    tufo0 = core0.formTufoByProp('inet:fqdn', 'woot.com')
 
-                self.nn(core1.getTufoByProp('inet:fqdn', 'woot.com'))
+                tufo1 = core1.getTufoByProp('inet:fqdn', 'woot.com')
+                self.nn(tufo1)
+
+                # tufo:formed rows are not sent with the splice and will be created by the target core
+                self.gt(tufo1[1]['tufo:formed'], tufo0[1]['tufo:formed'])
 
     def test_cortex_xact_deadlock(self):
         N = 100
