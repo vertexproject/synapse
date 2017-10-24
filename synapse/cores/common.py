@@ -259,6 +259,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         node[1][form] = norm
         node[1]['tufo:form'] = form
+        node[1]['tufo:formed'] = s_common.now()
 
         self.runt_props[(form, None)].append(node)
         self.runt_props[(form, norm)].append(node)
@@ -2480,6 +2481,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             fulls[prop] = valu
             fulls['tufo:form'] = prop
+            fulls['tufo:formed'] = s_common.now()
 
             # update our runtime form counters
             self.formed[prop] += 1

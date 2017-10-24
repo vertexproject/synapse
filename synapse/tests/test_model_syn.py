@@ -114,3 +114,61 @@ class SynModelTest(SynTest):
                 self.notin('file:imgof:xref:xtype', node[1])
                 self.notin('file:imgof:xref:inet:fqdn', node[1])
                 self.notin('file:imgof:xref:intval', node[1])
+
+    def test_model_syn_201710191144(self):
+        data = {}
+        old_formed = 12345
+        iden0, iden1 = guid(), guid()
+        tick = now() - 10000  # putting tick in the past to show that preexisting tufo:formed rows will have their stamps removed
+        rows = [
+            (iden0, 'inet:ipv4:type', '??', tick),
+            (iden0, 'inet:ipv4', 16909060, tick),
+            (iden0, 'tufo:form', 'inet:ipv4', tick),
+            (iden0, 'inet:ipv4:cc', '??', tick),
+            (iden0, 'inet:ipv4:asn', -1, tick),
+
+            (iden1, 'file:bytes', 'd41d8cd98f00b204e9800998ecf8427e', tick),
+            (iden1, 'file:bytes:mime', '??', tick),
+            (iden1, 'file:bytes:md5', 'd41d8cd98f00b204e9800998ecf8427e', tick),
+            (iden1, 'tufo:form', 'file:bytes', tick),
+            (iden1, 'tufo:formed', tick, tick),  # NOTE: this row should not exist pre-migration
+        ]
+
+        with s_cortex.openstore('ram:///') as stor:
+            # force model migration callbacks
+            stor.setModlVers('syn', 0)
+
+            def addrows(mesg):
+                stor.addRows(rows)
+                data['added'] = True
+
+            stor.on('modl:vers:rev', addrows, name='syn', vers=201710191144)
+
+            with s_cortex.fromstore(stor) as core:
+
+                # 1 file:bytes, 1 inet:ipv4
+                self.ge(len(core.eval('tufo:formed')), 3)
+
+                tufos = core.eval('tufo:formed +tufo:form=inet:ipv4')
+                self.eq(len(tufos), 1)
+                iden, props = tufos[0]
+                self.eq(props['tufo:form'], 'inet:ipv4')
+                self.eq(props['tufo:formed'], tick)
+                self.eq(props['inet:ipv4'], 16909060)
+                self.eq(props['inet:ipv4:asn'], -1)
+                self.eq(props['inet:ipv4:cc'], '??')
+                rows = core.getRowsByIdProp(iden, 'tufo:formed')
+                _, _, valu, stamp = rows[0]
+                self.gt(stamp, valu)  # tufo:formed row's stamp will be higher than its valu
+
+                tufos = core.eval('tufo:formed +tufo:form=file:bytes')
+                self.eq(len(tufos), 1)
+                props = tufos[0][1]
+                self.eq(props['tufo:form'], 'file:bytes')
+                self.eq(props['tufo:formed'], tick)
+                self.eq(props['file:bytes'], 'd41d8cd98f00b204e9800998ecf8427e')
+                self.eq(props['file:bytes:mime'], '??')
+                self.eq(props['file:bytes:md5'], 'd41d8cd98f00b204e9800998ecf8427e')
+                rows = core.getRowsByIdProp(iden, 'tufo:formed')
+                _, _, valu, stamp = rows[0]
+                self.gt(stamp, valu)  # tufo:formed row's stamp will be higher than its valu
