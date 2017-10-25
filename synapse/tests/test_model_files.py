@@ -124,8 +124,13 @@ class FileModelTest(SynTest):
 
             conf = {
                 'ctors': (
-                    ('axon00', 'syn:axon', {'datadir': dirname}),
-                    ('core00', 'syn:cortex', {'url': 'ram:///', 'axon:url': 'dmon://axon00'}),
+                    ('axon00',
+                     'syn:axon',
+                     {'datadir': dirname}),
+                    ('core00',
+                     'syn:cortex',
+                     {'url': 'ram:///',
+                      'axon:url': 'dmon://axon00'}),
                 ),
 
                 'share': (

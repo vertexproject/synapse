@@ -18,6 +18,8 @@ import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 import synapse.lib.ingest as s_ingest
 import synapse.lib.syntax as s_syntax
+import synapse.lib.reflect as s_reflect
+import synapse.lib.service as s_service
 import synapse.lib.hashset as s_hashset
 import synapse.lib.threads as s_threads
 import synapse.lib.modules as s_modules
@@ -1103,7 +1105,30 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                     self._delCacheKey(ckey)
 
     def _onSetAxonUrl(self, url):
-        self.axon = s_telepath.openurl(url)
+        old_axon = None
+        if self.axon:
+            old_axon = self.axon
+
+        proxy = s_telepath.openurl(url)
+        reflections = s_reflect.getItemInfo(proxy)
+        classes = reflections.get('inherits')
+        if 'synapse.axon.Axon' in classes:
+            self.axon = proxy
+        elif 'synapse.lib.service.SvcBus' in classes:
+            proxy.fini()
+            # This is a delayed import to avoid a startup import loop
+            import synapse.axon as s_axon
+            svcprox = s_service.openurl(url)
+            self.axon = s_axon.AxonCluster(svcprox)
+        else:  # pragma: no cover
+            proxy.fini()
+            # This scenario is a no-op and the exception is raised
+            # to the eventbus and logged.
+            mesg = 'axon:url must point to a standalone Axon or a ServiceBus'
+            raise s_common.BadConfValu(mesg=mesg, valu=url, key='axon:url')
+
+        if old_axon:
+            old_axon.fini()
 
     def initCoreModule(self, ctor, conf):
         '''
