@@ -595,6 +595,7 @@ class AxonClusterTest(SynTest):
             blobs = axcluster.find('md5', craphash)
             self.eq(len(blobs), 0)
 
+            time.sleep(0.2)  # Yield to axon threads
             blobs = axcluster.find('md5', asdfhash)
             # We have two blobs for the same hash since the clone of axfo0 is up on host1/host2
             self.eq(len(blobs), 2)
