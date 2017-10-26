@@ -261,7 +261,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         node[1][form] = norm
         node[1]['tufo:form'] = form
-        node[1]['tufo:formed'] = s_common.now()
+        node[1]['node:created'] = s_common.now()
 
         self.runt_props[(form, None)].append(node)
         self.runt_props[(form, norm)].append(node)
@@ -2429,7 +2429,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             fulls[prop] = valu
             fulls['tufo:form'] = prop
-            fulls['tufo:formed'] = s_common.now()
+            fulls['node:created'] = s_common.now()
 
             # Examine the fulls dictionary and identify any props which are
             # themselves forms, and extract the form/valu/subs from the fulls
@@ -2494,7 +2494,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         splitp = form + ':'
         for name in list(fulls.keys()):
-            if name in ('tufo:form', 'tufo:formed'):
+            if name in ('tufo:form', 'node:created', 'node:loc'):
                 continue
             if not self.isSetPropOk(name, isadd):
                 prop = name.split(splitp)[1]
@@ -2513,7 +2513,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             list: List of tuples (prop,valu,**props) for consumption by formTufoByProp.
         '''
         ret = []
-        skips = ('tufo:form', 'tufo:formed')
+        skips = ('tufo:form', 'node:created', 'node:loc')
         valu = fulls.get(form)
         for fprop, fvalu in fulls.items():
             if fprop in skips:

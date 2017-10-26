@@ -634,7 +634,7 @@ class InetMod(CoreModule):
                         break
 
                     for tufo in tufos:
-                        i, p, v, t = self.core.getRowsByIdProp(tufo[0], xref_prop_prop)[0] # unavoidable until we have `tufo:formed` prop
+                        i, p, v, t = self.core.getRowsByIdProp(tufo[0], xref_prop_prop)[0] # unavoidable until we have `node:created` prop
                         adds, dels = [], []
 
                         # modify :xref:prop
