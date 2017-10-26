@@ -404,6 +404,57 @@ class SynTest(unittest.TestCase):
         finally:
             slogger.removeHandler(handler)
 
+    @contextlib.contextmanager
+    def setTstEnvars(self, **props):
+        '''
+        Set Environmental variables for the purposes of running a specific test.
+
+        Args:
+            **props: A kwarg list of envars to set. The values set are run
+            through str() to ensure we're setting strings.
+
+        Examples:
+            Run a test while a envar is set::
+
+                with self.setEnvars(magic='haha') as nop:
+                    ret = dostuff()
+                    self.true(ret)
+
+        Notes:
+            This helper explicitly sets and unsets values in os.environ, as
+            os.putenv does not automatically updates the os.environ object.
+
+        Yields:
+            None. This context manager yields None. Upon exiting, envars are
+            either removed from os.environ or reset to their previous values.
+        '''
+        old_data = {}
+        pop_data = set()
+        for key, valu in props.items():
+            v = str(valu)
+            oldv = os.environ.get(key, None)
+            if oldv:
+                if oldv == v:
+                    continue
+                else:
+                    old_data[key] = oldv
+                    os.environ[key] = v
+            else:
+                pop_data.add(key)
+                os.environ[key] = v
+
+        # This context manager is a nop
+        try:
+            yield None
+        except:  # pragma: no cover
+            raise
+        # Clean up any new envars we set and any old envars we need to reset.
+        finally:
+            for key in pop_data:
+                del os.environ[key]
+            for key, valu in old_data.items():
+                os.environ[key] = valu
+
     def eq(self, x, y):
         '''
         Assert X is equal to Y
