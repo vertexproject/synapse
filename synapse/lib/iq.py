@@ -319,7 +319,12 @@ class SynTest(unittest.TestCase):
         '''
         with s_cortex.openurl('ram:///') as core:
             self.addTstForms(core)
-            yield core
+            try:
+                yield core
+            except:  # pragma: no cover
+                raise
+            finally:
+                core.fini()
 
     @contextlib.contextmanager
     def getDmonCore(self):
@@ -341,11 +346,14 @@ class SynTest(unittest.TestCase):
         s_scope.set('syn:test:link', link)
         s_scope.set('syn:cmd:core', prox)
 
-        yield prox
-
-        prox.fini()
-        core.fini()
-        dmon.fini()
+        try:
+            yield prox
+        except:  # pragma: no cover
+            raise
+        finally:
+            prox.fini()
+            core.fini()
+            dmon.fini()
 
     @contextlib.contextmanager
     def getTestDir(self):
@@ -357,8 +365,12 @@ class SynTest(unittest.TestCase):
             str: The path to a temporary directory.
         '''
         tempdir = tempfile.mkdtemp()
-        yield tempdir
-        shutil.rmtree(tempdir, ignore_errors=True)
+        try:
+            yield tempdir
+        except:  # pragma: no cover
+            raise
+        finally:
+            shutil.rmtree(tempdir, ignore_errors=True)
 
     @contextlib.contextmanager
     def getLoggerStream(self, logname):
@@ -385,8 +397,12 @@ class SynTest(unittest.TestCase):
         handler = logging.StreamHandler(stream)
         slogger = logging.getLogger(logname)
         slogger.addHandler(handler)
-        yield stream
-        slogger.removeHandler(handler)
+        try:
+            yield stream
+        except:  # pragma: no cover
+            raise
+        finally:
+            slogger.removeHandler(handler)
 
     def eq(self, x, y):
         '''
