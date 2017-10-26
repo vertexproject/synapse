@@ -261,7 +261,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         node[1][form] = norm
         node[1]['tufo:form'] = form
-        node[1]['tufo:formed'] = s_common.now()
+        node[1]['node:created'] = s_common.now()
 
         self.runt_props[(form, None)].append(node)
         self.runt_props[(form, norm)].append(node)
@@ -2118,22 +2118,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         return tufo
 
-    def addTufoEvent(self, form, **props):
-        '''
-        Add a "non-deconflicted" tufo by generating a guid
-
-        Example:
-
-            tufo = core.addTufoEvent('foo',bar=baz)
-
-        Notes:
-
-            If props contains a key "time" it will be used for
-            the cortex timestamp column in the row storage.
-
-        '''
-        return self.addTufoEvents(form, (props,))[0]
-
     def addJsonText(self, form, text):
         '''
         Add and fully index a blob of JSON text.
@@ -2290,82 +2274,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         return props
 
-    def addTufoEvents(self, form, propss):
-        '''
-        Add a list of tufo events in bulk.
-
-        Example:
-
-            propss = [
-                {'foo':10,'bar':30},
-                {'foo':11,'bar':99},
-            ]
-
-            core.addTufoEvents('woot',propss)
-
-        '''
-        tname = self.getPropTypeName(form)
-        if tname is None and self.enforce:
-            raise s_common.NoSuchForm(name=form)
-
-        if tname and not self.isSubType(tname, 'guid'):
-            raise s_common.NotGuidForm(name=form)
-
-        with self.getCoreXact() as xact:
-
-            ret = []
-
-            for chunk in chunked(1000, propss):
-
-                adds = []
-                rows = []
-                allfulls = []
-
-                for props in chunk:
-
-                    iden = s_common.guid()
-
-                    fulls = self._normTufoProps(form, props, isadd=True)
-
-                    self._addDefProps(form, fulls)
-
-                    fulls[form] = iden
-                    fulls['tufo:form'] = form
-
-                    if self.autoadd:
-                        allfulls.append(fulls)
-
-                    # fire these immediately since we need them to potentially fill
-                    # in values before we generate rows for the new tufo
-                    self.fire('node:form', form=form, valu=iden, props=fulls)
-
-                    # Ensure we have ALL the required props after node:form is fired.
-                    self._reqProps(form, fulls)
-
-                    rows.extend([(iden, p, v, xact.tick) for (p, v) in fulls.items()])
-
-                    # sneaky ephemeral/hidden prop to identify newly created tufos
-                    fulls['.new'] = 1
-
-                    node = (iden, fulls)
-
-                    ret.append(node)
-                    adds.append((form, iden, props, node))
-
-                self.addRows(rows)
-
-                # fire splice events
-                for form, valu, props, node in adds:
-                    xact.fire('node:add', form=form, valu=valu, node=node)
-                    xact.spliced('node:add', form=form, valu=valu, props=props)
-                    xact.trigger(node, 'node:add', form=form)
-
-                if self.autoadd:
-                    for fulls in allfulls:
-                        self._runToAdd(fulls)
-
-        return ret
-
     def _reqProps(self, form, fulls):
         if not self.enforce:
             return
@@ -2450,7 +2358,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def formTufoByProp(self, prop, valu, **props):
         '''
         Form an (iden,info) tuple by atomically deconflicting
-        the existance of prop=valu and creating it if not present.
+        the existence of prop=valu and creating it if not present.
 
         Args:
 
@@ -2459,9 +2367,25 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             **props:    Additional secondary properties for the node
 
         Example:
+            Make a node for the FQDN woot.com::
 
-            tufo = core.formTufoByProp('inet:fqdn','woot.com')
+                tufo = core.formTufoByProp('inet:fqdn','woot.com')
 
+        Notes:
+            When forming nodes whose primary property is derived from the
+            GuidType, deconfliction can be skipped if the value is set to
+            None. This allows for high-speed ingest of event type data which
+            does note require deconfliction.
+
+            This API will fire a ``node:form`` event prior to creating rows,
+            allowing callbacks to populate any additional properties on the
+            node.  After node creation is finished, ``node:add`` events are
+            fired on for the Cortex event bus, splices and triggers.
+
+        Returns:
+            ((str, dict)): The newly formed tufo, or the existing tufo if
+            the node already exists.  The ephemeral property ".new" can be
+            checked to see if the node was newly created or not.
         '''
         ctor = self.seedctors.get(prop)
         if ctor is not None:
@@ -2499,20 +2423,31 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             props.update(subs)
 
-            fulls = self._normTufoProps(prop, props, isadd=True)
-
             # create a "full" props dict which includes defaults
+            fulls = self._normTufoProps(prop, props)
             self._addDefProps(prop, fulls)
 
             fulls[prop] = valu
             fulls['tufo:form'] = prop
-            fulls['tufo:formed'] = s_common.now()
+            fulls['node:created'] = s_common.now()
+
+            # Examine the fulls dictionary and identify any props which are
+            # themselves forms, and extract the form/valu/subs from the fulls
+            # dictionary so we can later make those nodes
+            toadds = None
+            if self.autoadd:
+                toadds = self._formToAdd(prop, fulls)
+
+            # Remove any non-model props present in the props and fulls
+            # dictionary which may have been added during _normTufoProps
+            self._pruneFulls(prop, fulls, props, isadd=True)
 
             # update our runtime form counters
             self.formed[prop] += 1
 
-            # fire these immediately since we need them to potentially fill
-            # in values before we generate rows for the new tufo
+            # Fire these immediately since we need them to potentially fill
+            # in values before we generate rows for the new tufo. It is
+            # possible this callback may generate extra-model values.
             self.fire('node:form', form=prop, valu=valu, props=fulls)
 
             # Ensure we have ALL the required props after node:form is fired.
@@ -2524,22 +2459,83 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             tufo = (iden, fulls)
 
+            # Cache the tufo data now so we can avoid having a .new ephemeral
+            # property in the cache
             if self.caching:
-                # avoid .new in cache
                 cachefo = (iden, dict(fulls))
                 for p, v in fulls.items():
                     self._bumpTufoCache(cachefo, p, None, v)
 
-            # fire notification events
+            # Run any autoadd nodes we may have. In the event of autoadds being
+            # present, our subsequent node:add events are fired depth-first
+            if self.autoadd and toadds is not None:
+                self._runToAdd(toadds)
+
+            # fire the node:add events from the xact
             xact.fire('node:add', form=prop, valu=valu, node=tufo)
             xact.spliced('node:add', form=prop, valu=valu, props=props)
             xact.trigger(tufo, 'node:add', form=prop)
 
-            if self.autoadd:
-                self._runToAdd(fulls)
-
         tufo[1]['.new'] = True
         return tufo
+
+    def _pruneFulls(self, form, fulls, props, isadd=False):
+        '''
+        Modify fulls and props dicts in place to remove non-model props.
+
+        Args:
+            form (str): Form of the dictionary being operated on.
+            fulls (dict): Dictionary of full property name & valu pairs.
+            props (dict): Dictionary of property name & value pairs.
+            isadd (bool): Bool indicating if the data is newly being added or not.
+
+        Returns:
+            None
+        '''
+        splitp = form + ':'
+        for name in list(fulls.keys()):
+            if name in ('tufo:form', 'node:created', 'node:loc'):
+                continue
+            if not self.isSetPropOk(name, isadd):
+                prop = name.split(splitp)[1]
+                props.pop(prop, None)
+                fulls.pop(name, None)
+
+    def _formToAdd(self, form, fulls):
+        '''
+        Build a list of property, valu, **props from a dictionary of fulls.
+
+        Args:
+            form (str): Form of fulls
+            fulls (dict):
+
+        Returns:
+            list: List of tuples (prop,valu,**props) for consumption by formTufoByProp.
+        '''
+        ret = []
+        skips = ('tufo:form', 'node:created', 'node:loc')
+        valu = fulls.get(form)
+        for fprop, fvalu in fulls.items():
+            if fprop in skips:
+                continue
+            ptype = self.getPropTypeName(fprop)
+            prefix = fprop + ':'
+            plen = len(prefix)
+            for stype in self.getTypeOfs(ptype):
+                if self.isRuntForm(stype):
+                    continue
+                if self.isTufoForm(stype):
+                    # We don't want to recurse on forming ourself with all our same properties
+                    if stype == form and valu == fvalu:
+                        continue
+                    subs = {}
+
+                    for _fprop, _fvalu in fulls.items():
+                        if _fprop.startswith(prefix):
+                            k = _fprop[plen:]
+                            subs[k] = _fvalu
+                    ret.append((stype, fvalu, subs))
+        return ret
 
     def delTufo(self, tufo):
         '''
@@ -2720,47 +2716,36 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         for k, v in self.getFormDefs(form):
             fulls.setdefault(k, v)
 
-    def _runToAdd(self, fulls):
-        toadd = set()
+    def _runToAdd(self, toadds):
+        for form, valu, props in toadds:
+            self.formTufoByProp(form, valu, **props)
 
-        for prop, valu in fulls.items():
-            ptype = self.getPropTypeName(prop)
-            for stype in self.getTypeOfs(ptype):
-
-                if self.isRuntForm(stype):
-                    continue
-
-                if self.isTufoForm(stype):
-                    toadd.add((stype, valu))
-
-        for form, valu in toadd:
-            self.formTufoByProp(form, valu)
-
-    def _normTufoProps(self, form, props, tufo=None, isadd=False):
+    def _normTufoProps(self, form, props, tufo=None):
         '''
         This will both return a dict of fully qualified props as
         well as modify the given props dict inband to normalize
         the values.
         '''
-
         fulls = {}
         for name in list(props.keys()):
 
             valu = props.get(name)
 
             prop = form + ':' + name
-            if not self.isSetPropOk(prop, isadd=isadd):
-                props.pop(name, None)
-                continue
 
             oldv = None
             if tufo is not None:
                 oldv = tufo[1].get(prop)
 
             valu, subs = self.getPropNorm(prop, valu, oldval=oldv)
-            if tufo is not None and tufo[1].get(prop) == valu:
-                props.pop(name, None)
-                continue
+            if tufo is not None:
+                if tufo[1].get(prop) == valu:
+                    props.pop(name, None)
+                    continue
+                _isadd = not bool(oldv)
+                if not self.isSetPropOk(prop, isadd=_isadd):
+                    props.pop(name, None)
+                    continue
 
             # any sub-properties to populate?
             for sname, svalu in subs.items():
@@ -2870,6 +2855,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         Args:
             prop (str): Full property name to check.
+            isadd (bool): Bool indicating that the property check is being
+            done on a property which has not yet been set on a node.
 
         Examples:
             Check if a value is valid before calling a function.::
@@ -2970,10 +2957,14 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         iden = tufo[0]
         valu = tufo[1].get(form)
 
+        toadds = None
+        if self.autoadd:
+            toadds = self._formToAdd(form, fulls)
+        self._pruneFulls(form, fulls, props, isadd=True)
+
         with self.getCoreXact() as xact:
 
             for p, v in fulls.items():
-
                 oldv = tufo[1].get(p)
                 self.setRowsByIdProp(iden, p, v)
 
@@ -2992,8 +2983,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
                 xact.trigger(tufo, 'node:prop:set', form=form, prop=p)
 
-            if self.autoadd:
-                self._runToAdd(fulls)
+            if self.autoadd and toadds is not None:
+                self._runToAdd(toadds)
 
         return tufo
 
