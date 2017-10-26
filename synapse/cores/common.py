@@ -2519,6 +2519,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             if fprop in skips:
                 continue
             ptype = self.getPropTypeName(fprop)
+            prefix = fprop + ':'
+            plen = len(prefix)
             for stype in self.getTypeOfs(ptype):
                 if self.isRuntForm(stype):
                     continue
@@ -2527,10 +2529,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                     if stype == form and valu == fvalu:
                         continue
                     subs = {}
-                    prefix = fprop + ':'
+
                     for _fprop, _fvalu in fulls.items():
                         if _fprop.startswith(prefix):
-                            k = _fprop.split(prefix, 1)[1]
+                            k = _fprop[plen:]
                             subs[k] = _fvalu
                     ret.append((stype, fvalu, subs))
         return ret
@@ -2957,7 +2959,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         toadds = None
         if self.autoadd:
-            toadds = self._formToAdd(valu, fulls)
+            toadds = self._formToAdd(form, fulls)
         self._pruneFulls(form, fulls, props, isadd=True)
 
         with self.getCoreXact() as xact:
