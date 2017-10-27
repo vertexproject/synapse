@@ -548,6 +548,10 @@ class XrefType(DataType):
             'xref': pvval,
         }
 
+        for k, v in vsub.items():
+            k = self._sorc_name + ':' + k
+            subs[k] = v
+
         for k, v in pvsub.items():
             k = 'xref:' + k
             subs[k] = v

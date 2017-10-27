@@ -594,6 +594,32 @@ class InetModelTest(SynTest):
             # We require the account to be present
             self.raises(PropNotFound, core.formTufoByProp, 'inet:web:chprofile', '*')
 
+    def test_model_inet_postref_postmissingprops(self):
+        with self.getRamCore() as core:
+
+            postref_tufo = core.formTufoByProp('inet:web:postref', (('vertex.link/user', 'mypost 0.0.0.0'), ('inet:ipv4', 0)))
+            self.nn(core.getTufoByProp('inet:web:post', ('vertex.link/user', 'mypost 0.0.0.0')))
+
+            self.eq(postref_tufo[1]['tufo:form'], 'inet:web:postref')
+            self.eq(postref_tufo[1]['inet:web:postref'], '804ec63392f4ea031bb3fd004dee209d')
+            self.eq(postref_tufo[1]['inet:web:postref:post'], '68bc4607f0518963165536921d6e86fa')
+            self.eq(postref_tufo[1]['inet:web:postref:xref'], 'inet:ipv4=0.0.0.0')
+            self.eq(postref_tufo[1]['inet:web:postref:xref:prop'], 'inet:ipv4')
+            self.eq(postref_tufo[1]['inet:web:postref:xref:intval'], 0)
+
+            post_tufo = core.formTufoByProp('inet:web:post', ('vertex.link/user', 'mypost 0.0.0.0'))
+            # Ensure we got the deconflicted node that was already made, not a new node
+            self.notin('.new', post_tufo[1])
+            self.eq(post_tufo[1]['inet:web:post'], postref_tufo[1]['inet:web:postref:post'])
+            # Ensure that subs on the autoadd node are formed properly
+            self.eq(post_tufo[1].get('inet:web:post:acct'), 'vertex.link/user')
+            self.eq(post_tufo[1].get('inet:web:post:text'), 'mypost 0.0.0.0')
+            # Ensure multiple subs were made into nodes
+            self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/user'))
+            self.nn(core.getTufoByProp('inet:user', 'user'))
+            self.nn(core.getTufoByProp('inet:fqdn', 'vertex.link'))
+            self.nn(core.getTufoByProp('inet:fqdn', 'link'))
+
     def test_model_inet_201706121318(self):
 
         iden0 = guid()
@@ -1353,6 +1379,7 @@ class InetModelTest(SynTest):
                 'phone': 12345678910,
                 'mac': 'ff:00:ff:00:ff:00',
                 'wifi:ssid': 'hehe haha',
+                'wifi:bssid': '00:ff:00:ff:00:ff',
                 'mob:imei': 12345678901234,
                 'mob:imsi': 12345678901234,
             }
@@ -1364,6 +1391,7 @@ class InetModelTest(SynTest):
             self.nn(core.getTufoByProp('inet:ipv4', node[1].get('inet:iface:ipv4')))
             self.nn(core.getTufoByProp('inet:ipv6', node[1].get('inet:iface:ipv6')))
             self.nn(core.getTufoByProp('tel:phone', node[1].get('inet:iface:phone')))
+            self.nn(core.getTufoByProp('inet:mac', node[1].get('inet:iface:wifi:bssid')))
             self.nn(core.getTufoByProp('inet:wifi:ssid', node[1].get('inet:iface:wifi:ssid')))
             self.nn(core.getTufoByProp('tel:mob:imei', node[1].get('inet:iface:mob:imei')))
             self.nn(core.getTufoByProp('tel:mob:imsi', node[1].get('inet:iface:mob:imsi')))

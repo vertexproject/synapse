@@ -595,6 +595,7 @@ class AxonClusterTest(SynTest):
             blobs = axcluster.find('md5', craphash)
             self.eq(len(blobs), 0)
 
+            time.sleep(0.2)  # Yield to axon threads
             blobs = axcluster.find('md5', asdfhash)
             # We have two blobs for the same hash since the clone of axfo0 is up on host1/host2
             self.eq(len(blobs), 2)
@@ -625,6 +626,92 @@ class AxonClusterTest(SynTest):
             self.isin('.new', blob[1])
             blob = axcluster.eatfd(buf)
             self.notin('.new', blob[1])
+
+            host0.fini()
+            host1.fini()
+            host2.fini()
+
+        dmon.fini()
+
+    def test_axon_cluster_cortex(self):
+        self.skipLongTest()
+        self.thisHostMustNot(platform='windows')
+
+        localguid = guid()
+        busurl = 'local://%s/axons' % localguid
+        hahaurl = 'local://%s/haha' % localguid
+
+        dmon = s_daemon.Daemon()
+        dmon.listen(busurl)
+
+        dmon.share('axons', s_service.SvcBus(), fini=True)
+        dmon.share('haha', {})
+
+        svcprox = s_service.openurl(busurl)
+
+        axcluster = s_axon.AxonCluster(svcprox)
+
+        with self.getTestDir() as datadir:
+
+            dir0 = gendir(datadir, 'host0')
+            dir1 = gendir(datadir, 'host1')
+            dir2 = gendir(datadir, 'host2')
+
+            host0 = s_axon.AxonHost(dir0, **{'axon:hostname': 'host0',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             })
+            host1 = s_axon.AxonHost(dir1, **{'axon:hostname': 'host1',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             })
+            host2 = s_axon.AxonHost(dir2, **{'axon:hostname': 'host2',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             })
+
+            props = {
+                'axon:clones': 1,
+                'axon:bytemax': s_axon.megabyte,
+            }
+
+            axfo0 = host0.add(**props)
+
+            axcluster._waitWrAxons(1, 4)
+
+            # Ensure our axfo0 was cloned to someone in the cluster
+            axon0 = s_telepath.openlink(axfo0[1].get('link'))  # type: s_axon.Axon
+            axon0._waitClonesReady(timeout=16)
+            foundclone = False
+            if host1.cloneaxons:
+                foundclone = True
+            if host2.cloneaxons:
+                foundclone = True
+            self.true(foundclone)
+            axon0.fini()  # fini the proxy object
+
+            core = s_cortex.openurl('ram://')
+            core.setConfOpt('axon:url', busurl)
+
+            self.false(axcluster.has('md5', craphash))
+            self.false(axcluster.has('md5', asdfhash))
+
+            node = core.formNodeByBytes(b'asdfasdf', name='asdf')
+            self.eq(node[1].get('file:bytes'), asdfhash_iden)
+            self.eq(node[1].get('file:bytes:md5'), asdfhash)
+
+            self.true(axcluster.has('md5', asdfhash))
+            self.true(axcluster.has('guid', asdfhash_iden))
+
+            fd = io.BytesIO(b'visi')
+            node = core.formNodeByFd(fd, name='visi.bin')
+            self.eq(node[1].get('file:bytes:size'), 4)
+            self.eq(node[1].get('file:bytes:name'), 'visi.bin')
+            self.eq(node[1].get('file:bytes'), '442f602ecf8230b2a59a44b4f845be27')
+            self.eq(node[1].get('file:bytes:md5'), '1b2e93225959e3722efed95e1731b764')
+
+            self.true(axcluster.has('md5', '1b2e93225959e3722efed95e1731b764'))
+            self.true(axcluster.has('guid', '442f602ecf8230b2a59a44b4f845be27'))
 
             host0.fini()
             host1.fini()

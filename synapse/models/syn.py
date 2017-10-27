@@ -1,8 +1,10 @@
+import logging
+
 import synapse.common as s_common
-
 import synapse.lib.tufo as s_tufo
-
 from synapse.lib.module import CoreModule, modelrev
+
+logger = logging.getLogger(__name__)
 
 class SynMod(CoreModule):
     @staticmethod
@@ -174,3 +176,24 @@ class SynMod(CoreModule):
             self.core.addRows(adds)
             for prop in dels:
                 self.core.delRowsByProp(prop)
+
+    @modelrev('syn', 201710191144)
+    def _revModl201710191144(self):
+        with self.core.getCoreXact():
+            now = s_common.now()
+            adds = []
+            logger.debug('Lifting tufo:form rows')
+            for i, _, v, t in self.core.store.getRowsByProp('tufo:form'):
+                adds.append((i, 'node:created', t, now),)
+            logger.debug('Deleting existing node:created rows')
+            self.core.store.delRowsByProp('node:created')
+            if adds:
+                tot = len(adds)
+                logger.debug('Adding {:,d} node:created rows'.format(tot))
+                i = 0
+                n = 100000
+                for chunk in s_common.chunks(adds, n):
+                    self.core.store.addRows(chunk)
+                    i = i + len(chunk)
+                    logger.debug('Loading {:,d} [{}%] rows into transaction'.format(i, int((i / tot) * 100)))
+        logger.debug('Finished adding node:created rows to the Cortex')
