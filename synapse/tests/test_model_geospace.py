@@ -32,3 +32,6 @@ class GeoTest(SynTest):
 
             valu, subs = core.getTypeNorm('geo:latlong', '-88.02000000,101.1100000000')
             self.eq(valu, '-88.02,101.11')
+
+            valu, subs = core.getTypeNorm('geo:dist', '11.2 km')
+            self.eq(valu, 11200000)

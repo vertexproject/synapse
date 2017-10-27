@@ -1,4 +1,6 @@
+import synapse.lib.gis as s_gis
 import synapse.lib.types as s_types
+import synapse.lib.syntax as s_syntax
 
 from synapse.lib.module import CoreModule
 
@@ -25,7 +27,39 @@ class LatLongType(s_types.DataType):
         norm = '%s,%s' % (latv, lonv)
         return norm, {}
 
+units = {
+    'mm': 1,
+    'cm': 10,
+
+    'm': 1000,
+    'meters': 1000,
+
+    'km': 1000000,
+}
+
+class DistType(s_types.DataType):
+
+    def norm(self, valu, oldval=None):
+
+        if type(valu) == str:
+            return self._norm_str(valu)
+        return valu, {}
+
+    def _norm_str(self, text):
+
+        valu, off = s_syntax.parse_float(text, 0)
+        unit, off = s_syntax.nom(text, off, s_syntax.alphaset)
+
+        mult = units.get(unit.lower())
+        if mult is None:
+            raise SyntaxError('invalid units: %s' % (unit,))
+
+        return valu * mult, {}
+
 class GeoMod(CoreModule):
+
+    #def postCoreModule(self):
+        #self.core.setOperFunc('geo:near'
 
     @staticmethod
     def getBaseModels():
@@ -33,6 +67,9 @@ class GeoMod(CoreModule):
             'types': (
                 ('geo:place', {'subof': 'guid', 'alias': 'geo:place:alias', 'doc': 'A GUID for a specific place'}),
                 ('geo:alias', {'subof': 'str:lwr', 'regex': '^[0-9a-z]+$', 'doc': 'An alias for the place GUID', 'ex': 'foobar'}),
+
+                ('geo:dist', {'ctor': 'synapse.models.geospace.DistType',
+                    'doc': 'A geographic distance', 'ex': '10 km'}),
 
                 ('geo:latlong', {'ctor': 'synapse.models.geospace.LatLongType',
                     'doc': 'A Lat/Long string specifying a point on earth'}),

@@ -125,3 +125,11 @@ class StormSyntaxTest(SynTest):
         self.eq(opts.get('one'), [3, 4])
         self.eq(opts.get('two'), 5)
         self.eq(opts.get('three'), 'whee')
+
+    def test_lib_syntax_int(self):
+        self.eq(s_syntax.parse_int('  30 ', 0), (30, 5))
+        self.eq(s_syntax.parse_int(' -30 ', 0), (-30, 5))
+
+        self.raises(BadSyntaxError, s_syntax.parse_int, '0x', 0)
+        self.raises(BadSyntaxError, s_syntax.parse_int, 'asdf', 0)
+        self.raises(BadSyntaxError, s_syntax.parse_int, '0xzzzz', 0)
