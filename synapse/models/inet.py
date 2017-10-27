@@ -943,14 +943,16 @@ class InetMod(CoreModule):
                 )),
 
                 ('inet:iface', {}, (
-                    ('mac', {'ptype': 'inet:mac'}),
-                    ('host', {'ptype': 'it:host'}),
-                    ('ipv4', {'ptype': 'inet:ipv4'}),
-                    ('ipv6', {'ptype': 'inet:ipv6'}),
-                    ('phone', {'ptype': 'tel:phone'}),
-                    ('wifi:ssid', {'ptype': 'inet:wifi:ssid'}),
-                    ('mob:imei', {'ptype': 'tel:mob:imei'}),
-                    ('mob:imsi', {'ptype': 'tel:mob:imsi'}),
+                    ('host', {'ptype': 'it:host', 'doc': 'The host guid the interface is connected to'}),
+
+                    ('mac', {'ptype': 'inet:mac', 'doc': 'The ethernet address of the interface'}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The IPv4 address of the interface'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The IPv6 address of the interface'}),
+                    ('phone', {'ptype': 'tel:phone', 'doc': 'The telephone number of the interface'}),
+                    ('wifi:ssid', {'ptype': 'inet:wifi:ssid', 'doc': 'The wifi SSID of the interface'}),
+                    ('wifi:bssid', {'ptype': 'inet:mac', 'doc': 'The wifi BSSID of the interface'}),
+                    ('mob:imei', {'ptype': 'tel:mob:imei', 'doc': 'The IMEI of the interface'}),
+                    ('mob:imsi', {'ptype': 'tel:mob:imsi', 'doc': 'The IMSI of the interface'}),
                 )),
 
                 ('inet:wifi:ssid', {}, []),
