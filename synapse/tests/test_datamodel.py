@@ -383,3 +383,10 @@ class DataModelTest(SynTest):
             v, _ = core.reqPropNorm('strform:foo', '1')
             self.eq(v, '1')
             self.raises(NoSuchProp, core.reqPropNorm, 'strform:beepbeep', '1')
+
+    def test_datamodel_cast_json(self):
+        modl = s_datamodel.DataModel()
+        self.eq(modl.getTypeCast('json:dumps', 1), '1')
+        self.eq(modl.getTypeCast('json:dumps', 'hehe'), '"hehe"')
+        self.eq(modl.getTypeCast('json:dumps', '"hehe"'), '"\\"hehe\\""')
+        self.eq(modl.getTypeCast('json:dumps', {"z": 1, 'yo': 'dawg', }), '{"yo": "dawg", "z": 1}')
