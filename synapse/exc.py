@@ -63,6 +63,7 @@ class BadConfValu(SynErr):
     pass
 
 class BadRevValu(SynErr): pass
+class BadPropDef(SynErr): pass
 class BadTypeValu(SynErr): pass
 class DupTypeName(SynErr): pass
 class DupPropName(SynErr): pass
