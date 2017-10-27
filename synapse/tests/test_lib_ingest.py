@@ -429,6 +429,59 @@ class IngTest(SynTest):
 
             self.nn(core.getTufoByProp('strform', 'lulz'))
 
+    def test_ingest_jsoncast(self):
+
+        # similar to csv data...
+        data = ['vertex.link/pennywise', '2017/10/10 01:02:03', 'served:balloon', '1.2.3.4', 'we all float down here']
+
+        idef = {
+            'ingest': {
+                'vars': [
+                    ['acct',
+                     {'path': '0'}],
+                    ['time',
+                     {'path': '1'}],
+                    ['act',
+                     {'path': '2'}],
+                    ['ipv4',
+                     {'path': '3'}],
+                    ['info',
+                     {'path': '4',
+                      'cast': 'json:dumps'}]
+                ],
+                'forms': [
+                    [
+                        'inet:web:action',
+                        {
+                            'guid': [
+                                'acct',
+                                'ipv4',
+                                'time',
+                                'act'
+                            ],
+                            'props': {
+                                'info': {
+                                    'var': 'info'
+                                }
+                            }
+                        }
+                    ]
+                ]
+            }
+        }
+
+        with self.getRamCore() as core:
+            ingest = s_ingest.Ingest(idef)
+            ingest.ingest(core, data=data)
+
+            node = core.getTufoByProp('inet:web:action')
+
+            self.nn(node)
+            self.eq(node[1].get('inet:web:action:acct'), 'vertex.link/pennywise')
+            self.eq(node[1].get('inet:web:action:act'), 'served:balloon')
+            self.eq(node[1].get('inet:web:action:ipv4'), 0x01020304)
+            self.eq(node[1].get('inet:web:action:info'), '"we all float down here"')
+
     def test_ingest_lines(self):
         with self.getRamCore() as core:
             with self.getTestDir() as path:
