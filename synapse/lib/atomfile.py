@@ -20,6 +20,17 @@ hasremap = getattr(libc, 'mremap', None) is not None
 
 logger = logging.getLogger(__name__)
 
+def openAtomFile(path, memok=True):
+    '''
+    Open the given file path as an AtomFile.
+
+    Args:
+        path (str): A file path
+        memok (bool): If True, allow use of mmap files.
+    '''
+    fd = s_common.genfile(path)
+    return getAtomFile(fd, memok=memok)
+
 def getAtomFile(fd, memok=True):
     '''
     Factory to construct the most optimal AtomFile for this platform.
@@ -52,6 +63,7 @@ class AtomFile(EventBus):
     '''
     def __init__(self, fd, **opts):
         EventBus.__init__(self)
+        self._fini_atexit = True
 
         fd.seek(0, os.SEEK_END)
 
@@ -80,8 +92,6 @@ class AtomFile(EventBus):
         Atomically write bytes at the given offset.
         '''
         bsize = len(byts)
-        if off + bsize > self.size:
-            raise s_common.BadAtomFile('writeoff past size!', offset=off, size=bsize, fsize=self.size, )
         return self._writeoff(off, byts)
 
     def resize(self, size):
@@ -93,14 +103,19 @@ class AtomFile(EventBus):
             atom.resize(newsize)
 
         '''
+        with self.lock:
+            return self._resize(size)
 
-        if size < self.size:
-            raise s_common.BadAtomFile('resize() to smaller not supported', size=size, fsize=self.size)
+    def _resize(self, size):
 
-        if size == self.size:
-            return
+            if size < self.size:
+                self._trunc(size)
+                return
 
-        self._resize(size)
+            if size == self.size:
+                return
+
+            self._grow(size)
 
     def flush(self):
         '''
@@ -116,15 +131,20 @@ class AtomFile(EventBus):
     def _flush(self):
         self.fd.flush()
 
-    def _resize(self, size):
+    def _trunc(self, size):
+        self.size = size
+        self.fdoff = size
 
-        with self.lock:
+        self.fd.seek(size)
+        self.fd.truncate()
 
-            self.size = size
-            self.fdoff = size
+    def _grow(self, size):
 
-            self.fd.seek(size - 1)
-            self.fd.write(b'\x00')
+        self.size = size
+        self.fdoff = size
+
+        self.fd.seek(size - 1)
+        self.fd.write(b'\x00')
 
     def _readoff(self, off, size):
 
@@ -151,7 +171,6 @@ class AtomFile(EventBus):
             self.size = max(self.size, self.fdoff)
 
     def _onAtomFini(self):
-        self.fd.flush()
         self.fd.close()
 
 class MemAtom(AtomFile):
@@ -179,12 +198,19 @@ class MemAtom(AtomFile):
         return self.mm[off:off + size]
 
     def _writeoff(self, off, byts):
+
+        if off + len(byts) > self.size:
+            raise s_common.BadAtomFile('writeoff past size!', offset=off, size=len(byts), fsize=self.size)
+
         self.mm[off:off + len(byts)] = byts
 
-    def _resize(self, size):
-        with self.lock:
-            self.mm.resize(size)
-            self.size = size
+    def _grow(self, size):
+        AtomFile._grow(self, size)
+        self.mm.resize(size)
+
+    def _trunc(self, size):
+        self.mm.resize(size)
+        AtomFile._trunc(self, size)
 
 class FastAtom(AtomFile):
     '''

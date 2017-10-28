@@ -54,6 +54,7 @@ class NoSuchDecoder(SynErr): pass
 class NoSuchEncoder(SynErr): pass
 
 class BadOperArg(SynErr): pass
+class ReqConfOpt(SynErr): pass
 class BadConfValu(SynErr):
     '''
     The configuration value provided is not valid.
@@ -63,6 +64,7 @@ class BadConfValu(SynErr):
     pass
 
 class BadRevValu(SynErr): pass
+class BadFifoSeq(SynErr): pass
 class BadTypeValu(SynErr): pass
 class DupTypeName(SynErr): pass
 class DupPropName(SynErr): pass

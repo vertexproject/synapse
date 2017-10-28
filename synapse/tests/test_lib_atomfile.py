@@ -23,8 +23,8 @@ class AtomTest(SynTest):
         atom.resize(8192)
         self.eq(atom.size, 8192)
 
-        self.raises(BadAtomFile, atom.resize, 10)
-        self.raises(BadAtomFile, atom.writeoff, 0xFFFFFFFF, b'deadb33f')
+        atom.resize(4096)
+        self.eq(atom.size, 4096)
 
     def test_atomfile_base(self):
         fd = self._getTempFile()
@@ -37,7 +37,7 @@ class AtomTest(SynTest):
             raise unittest.SkipTest('platform lacks pread')
 
         fd = self._getTempFile()
-        with s_atomfile.AtomFile(fd) as atom:
+        with s_atomfile.FastAtom(fd) as atom:
             atom = s_atomfile.FastAtom(fd)
             self._runAtomChecks(atom)
 

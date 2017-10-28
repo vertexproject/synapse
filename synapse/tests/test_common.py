@@ -24,6 +24,10 @@ class CommonTest(SynTest):
         self.ne(iden0, iden1)
         self.eq(iden1, iden2)
 
+    def test_common_isguid(self):
+        self.true(isguid('98db59098e385f0bfdec8a6a0a6118b3'))
+        self.false(isguid('visi'))
+
     def test_compat_canstor(self):
         self.true(0xf0f0)
         self.true(0xf0f0f0f0f0f0)

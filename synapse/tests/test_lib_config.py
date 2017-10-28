@@ -125,3 +125,13 @@ class ConfTest(SynTest):
                     tufo = cool.proxy.formTufoByProp('inet:ipv4', 0)
                     self.eq(tufo[1]['tufo:form'], 'inet:ipv4')
                     self.eq(tufo[1]['inet:ipv4'], 0)
+
+    def test_lib_config_req(self):
+        defs = (
+            ('foo', {'type': 'int', 'req': True}),
+        )
+
+        with s_config.Config(defs=defs) as conf:
+            self.raises(ReqConfOpt, conf.reqConfOpts)
+            conf.setConfOpt('foo', 20)
+            conf.reqConfOpts()
