@@ -100,15 +100,30 @@ class Sched(EventBus):
 
     def persec(self, count, func, *args, **kwargs):
         '''
-        Scedule a callback to occur count times per second.
+        Schedule a callback to occur count times per second.
 
-        Example:
+        Args:
+            count: Number of times per second for this to occur. Either an int or a float.
+            func: Function to execute.
+            *args: Args passed to the function.
+            **kwargs: Kwargs passed to the function.
 
-            def tenpersec(x,y=None):
-                blah()
+        Examples:
+            Scheduled a function to be called 10 times per second::
 
-            sched = Sched()
-            sched.persec(10, tenpersec, 10, y='woot')
+                def tenpersec(x,y=None):
+                    blah()
+
+                sched = Sched()
+                sched.persec(10, tenpersec, 10, y='woot')
+
+        Notes:
+            This indefinitely calls the scheduled function until the function
+            returns False or the Task is fini'd. See the Sched.loop function
+            for more details.
+
+        Returns:
+            s_task.Task: A Task object representing the object's execution.
         '''
         secs = 1.0 / count
         return self.loop(secs, func, *args, **kwargs)
@@ -123,8 +138,22 @@ class Sched(EventBus):
             args (list): The call arguments
             kwargs (dict): The call keyword arguments
 
+        Examples:
+            Scheduled a function to be called once every 10 seconds::
+
+                def tensec(x,y=None):
+                    blah()
+
+                sched = Sched()
+                sched.loop(10, tensec, 10, y='woot')
+
+        Notes:
+            If the function returns False, the loop will explicitly break.
+            If the task object is isfini'd, the loop will explicitly break.
+            In either of those scenarios, the task will not be scheduled for further execution.
+
         Returns:
-            (synapse.lib.task.Task)
+            s_task.Task: A Task object representing the object's execution.
         '''
         task = s_task.Task()
 
