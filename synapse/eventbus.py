@@ -13,7 +13,7 @@ import synapse.lib.thishost as s_thishost
 logger = logging.getLogger(__name__)
 finlock = threading.RLock()
 
-def _fini_atexit():
+def _fini_atexit(): # pragma: no cover
 
     for item in gc.get_objects():
 
@@ -476,7 +476,7 @@ class BusRef(EventBus):
             name (str): The name/iden of the EventBus instance.
         '''
         if self.ctor is None:
-            raise s_common.NoSuchCtor(mesg='BusRef.gen() requires ctor')
+            raise s_common.NoSuchCtor(name=name, mesg='BusRef.gen() requires ctor')
 
         with self.lock:
 

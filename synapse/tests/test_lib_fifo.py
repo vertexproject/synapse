@@ -5,6 +5,78 @@ import synapse.lib.fifo as s_fifo
 
 class FifoTest(SynTest):
 
+    def test_fifo_nack_past(self):
+        with self.getTestDir() as dirn:
+
+            conf = {
+                'fifo:dir': dirn,
+                'fifo:file:maxsize': 1024,
+                'fifo:window:max': 4,
+                'fifo:window:min': 2,
+                'fifo:window:fill': 1,
+            }
+
+            sent = []
+
+            with s_fifo.Fifo(conf) as fifo:
+
+                self.eq(fifo.wind.nack, 0)
+
+                while fifo.atom.size != 0:
+                    fifo.put('whee')
+
+                nseq = fifo.nseq
+                path = fifo._getSeqPath(0)
+
+            os.unlink(path)
+
+            with s_fifo.Fifo(conf) as fifo:
+                self.eq(fifo.wind.nack, nseq)
+
+    def test_fifo_flush(self):
+
+        with self.getTestDir() as dirn:
+
+            conf = {'fifo:dir': dirn}
+
+            sent = []
+            with s_fifo.Fifo(conf) as fifo:
+
+                fifo.put('whee')
+                fifo.put('whee')
+
+                fifo.resync(xmit=sent.append)
+
+                fifo.ack(sent[0][1])
+
+                # dirty
+                fifo.flush()
+
+                # not dirty
+                fifo.flush()
+
+    def test_fifo_ack_neg1(self):
+
+        with self.getTestDir() as dirn:
+
+            conf = {'fifo:dir': dirn}
+
+            sent = []
+            with s_fifo.Fifo(conf, xmit=sent.append) as fifo:
+
+                fifo.put('foo')
+                fifo.put('bar')
+
+                slen = len(sent)
+                fifo.ack(-1)
+
+                self.eq(len(sent), slen * 2)
+                self.eq(sent[:slen], sent[slen:])
+
+                # also test ack of lower than nack
+                self.true(fifo.ack(sent[0][1]))
+                self.false(fifo.ack(sent[0][1]))
+
     def test_fifo_fifo(self):
 
         with self.getTestDir() as dirn:

@@ -23,6 +23,9 @@ class AtomTest(SynTest):
         atom.resize(8192)
         self.eq(atom.size, 8192)
 
+        atom.resize(4096)
+        self.eq(atom.size, 4096)
+
     def test_atomfile_base(self):
         fd = self._getTempFile()
         with s_atomfile.AtomFile(fd) as atom:

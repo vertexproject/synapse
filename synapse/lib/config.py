@@ -200,11 +200,12 @@ class Configable:
             ReqConfOpt
         '''
         for name, info in self._conf_defs.values():
-            if info.get('req') is None:
+
+            if not info.get('req'):
                 continue
 
-            if name not in self._conf_defs:
-                raise ReqConfOpt(name=name)
+            if self._conf_opts.get(name) is None:
+                raise s_common.ReqConfOpt(name=name)
 
     def getConfDefs(self):
         '''

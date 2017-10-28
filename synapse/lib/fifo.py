@@ -23,8 +23,6 @@ class Fifo(s_config.Config):
         self.setConfOpts(conf)
         self.reqConfOpts()
 
-        self.maxsize = self.getConfOpt('fifo:file:maxsize')
-
         self.lock = threading.Lock()
         self.winds = s_eventbus.BusRef()
 
@@ -97,15 +95,6 @@ class Fifo(s_config.Config):
 
         return nseq, self.atoms.gen(nseq)
 
-    def _openFifoAtom(self, nseq):
-        '''
-        Open and return a new Fifo AtomFile by next sequence.
-        '''
-        if nseq not in self.seqs:
-            return None
-
-        return self.atoms.gen(nseq)
-
     def _brefAtomCtor(self, nseq):
         path = self._getSeqPath(nseq)
         return s_atomfile.openAtomFile(path, memok=False)
@@ -154,7 +143,10 @@ class Fifo(s_config.Config):
     def _getFifoConf():
         return (
             ('fifo:dir', {'type': 'str', 'req': 1, 'doc': 'Path to the FIFO directory'}),
-            ('fifo:file:maxsize', {'type': 'int', 'defval': 1000000000, 'doc': 'Max fifo file size'}),
+
+            ('fifo:file:maxsize', {'type': 'int', 'asloc': 'maxsize', 'defval': 1000000000,
+                'doc': 'Max fifo file size'}),
+
             ('fifo:window:min', {'type': 'int', 'defval': 1000, 'doc': 'Minimum window size'}),
             ('fifo:window:max', {'type': 'int', 'defval': 1000, 'doc': 'Maximum window size'}),
             ('fifo:window:fill', {'type': 'int', 'defval': 10000000, 'doc': 'Window fill read size'}),
@@ -276,7 +268,7 @@ class Window(s_eventbus.EventBus):
             self._xmit = xmit
 
         for item in self.dequ:
-            xmit(item)
+            self._xmit(item)
 
     def _run_xmit(self, item):
         if self._xmit is not None:
@@ -349,8 +341,6 @@ class Window(s_eventbus.EventBus):
         try:
 
             while len(self.dequ) < self.wmax:
-
-                #print('READ AT: %r %r' % (self.nseq, self.roff))
 
                 byts = self.atom.readoff(self.roff, self.wfill)
 
