@@ -816,7 +816,7 @@ class TypeLib:
 
         self.addTypeCast('country:2:cc', self._castCountry2CC)
         self.addTypeCast('make:guid', self._castMakeGuid)
-        self.addTypeCast('json:dumps', self._castJsonDumps)
+        self.addTypeCast('make:json', self._castMakeJson)
 
         if load:
             self.loadModModels()
@@ -828,7 +828,7 @@ class TypeLib:
     def _castMakeGuid(self, valu):
         return s_common.guid(valu)
 
-    def _castJsonDumps(self, valu):
+    def _castMakeJson(self, valu):
         valu = json.dumps(valu, sort_keys=True)
         return valu
 

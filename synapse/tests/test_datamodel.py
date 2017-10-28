@@ -386,7 +386,7 @@ class DataModelTest(SynTest):
 
     def test_datamodel_cast_json(self):
         modl = s_datamodel.DataModel()
-        self.eq(modl.getTypeCast('json:dumps', 1), '1')
-        self.eq(modl.getTypeCast('json:dumps', 'hehe'), '"hehe"')
-        self.eq(modl.getTypeCast('json:dumps', '"hehe"'), '"\\"hehe\\""')
-        self.eq(modl.getTypeCast('json:dumps', {"z": 1, 'yo': 'dawg', }), '{"yo": "dawg", "z": 1}')
+        self.eq(modl.getTypeCast('make:json', 1), '1')
+        self.eq(modl.getTypeCast('make:json', 'hehe'), '"hehe"')
+        self.eq(modl.getTypeCast('make:json', '"hehe"'), '"\\"hehe\\""')
+        self.eq(modl.getTypeCast('make:json', {"z": 1, 'yo': 'dawg', }), '{"yo": "dawg", "z": 1}')

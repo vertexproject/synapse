@@ -432,7 +432,8 @@ class IngTest(SynTest):
     def test_ingest_jsoncast(self):
 
         # similar to csv data...
-        data = ['vertex.link/pennywise', '2017/10/10 01:02:03', 'served:balloon', '1.2.3.4', 'we all float down here']
+        data1 = ['vertex.link/pennywise', '2017/10/10 01:02:03', 'served:balloon', '1.2.3.4', 'we all float down here']
+        data2 = ['vertex.link/ninja', '2017', 'pwned:vertex', '1.2.3.4', {'hosts': 2, 'foo': ['bar']}]
 
         idef = {
             'ingest': {
@@ -447,7 +448,7 @@ class IngTest(SynTest):
                      {'path': '3'}],
                     ['info',
                      {'path': '4',
-                      'cast': 'json:dumps'}]
+                      'cast': 'make:json'}]
                 ],
                 'forms': [
                     [
@@ -472,15 +473,24 @@ class IngTest(SynTest):
 
         with self.getRamCore() as core:
             ingest = s_ingest.Ingest(idef)
-            ingest.ingest(core, data=data)
+            ingest.ingest(core, data=data1)
+            ingest.ingest(core, data=data2)
 
-            node = core.getTufoByProp('inet:web:action')
+            self.len(2, core.eval('inet:web:action'))
 
+            node = core.getTufoByProp('inet:web:action:acct', 'vertex.link/pennywise')
             self.nn(node)
             self.eq(node[1].get('inet:web:action:acct'), 'vertex.link/pennywise')
             self.eq(node[1].get('inet:web:action:act'), 'served:balloon')
             self.eq(node[1].get('inet:web:action:ipv4'), 0x01020304)
             self.eq(node[1].get('inet:web:action:info'), '"we all float down here"')
+
+            node = core.getTufoByProp('inet:web:action:acct', 'vertex.link/ninja')
+            self.nn(node)
+            self.eq(node[1].get('inet:web:action:acct'), 'vertex.link/ninja')
+            self.eq(node[1].get('inet:web:action:act'), 'pwned:vertex')
+            self.eq(node[1].get('inet:web:action:ipv4'), 0x01020304)
+            self.eq(node[1].get('inet:web:action:info'), '{"foo":["bar"],"hosts":2}')
 
     def test_ingest_lines(self):
         with self.getRamCore() as core:
