@@ -224,10 +224,10 @@ class JsonType(DataType):
     def norm(self, valu, oldval=None):
 
         if not isinstance(valu, str):
-            return json.dumps(valu, separators=(',', ':')), {}
+            return json.dumps(valu, sort_keys=True, separators=(',', ':')), {}
 
         try:
-            return json.dumps(json.loads(valu), separators=(',', ':')), {}
+            return json.dumps(json.loads(valu), sort_keys=True, separators=(',', ':')), {}
         except Exception as e:
             self._raiseBadValu(valu)
 
@@ -829,7 +829,7 @@ class TypeLib:
         return s_common.guid(valu)
 
     def _castMakeJson(self, valu):
-        valu = json.dumps(valu, sort_keys=True)
+        valu = json.dumps(valu, sort_keys=True, separators=(',', ':'))
         return valu
 
     def getTypeInst(self, name):

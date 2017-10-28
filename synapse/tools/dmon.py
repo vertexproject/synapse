@@ -62,7 +62,7 @@ def initconf():
     if not os.path.isfile(cfgfile):
         conf = {'includes': []}
         with open(cfgfile, 'wb') as fd:
-            fd.write(json.dumps(conf).encode('utf8'))
+            fd.write(json.dumps(conf, sort_keys=True).encode('utf8'))
         return conf
 
     with open(cfgfile, 'rb') as fd:
@@ -73,7 +73,7 @@ def saveconf(conf):
     Save the config dict to the onboot json config.
     '''
     with open(cfgfile, 'wb') as fd:
-        fd.write(json.dumps(conf).encode('utf8'))
+        fd.write(json.dumps(conf, sort_keys=True).encode('utf8'))
 
 cronbloc = '''
 @reboot "%s" -m synapse.tools.dmon --asboot &

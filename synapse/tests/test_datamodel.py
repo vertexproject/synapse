@@ -389,4 +389,4 @@ class DataModelTest(SynTest):
         self.eq(modl.getTypeCast('make:json', 1), '1')
         self.eq(modl.getTypeCast('make:json', 'hehe'), '"hehe"')
         self.eq(modl.getTypeCast('make:json', '"hehe"'), '"\\"hehe\\""')
-        self.eq(modl.getTypeCast('make:json', {"z": 1, 'yo': 'dawg', }), '{"yo": "dawg", "z": 1}')
+        self.eq(modl.getTypeCast('make:json', {"z": 1, 'yo': 'dawg', }), '{"yo":"dawg","z":1}')
