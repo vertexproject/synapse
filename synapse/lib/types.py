@@ -224,12 +224,15 @@ class JsonType(DataType):
     def norm(self, valu, oldval=None):
 
         if not isinstance(valu, str):
-            return json.dumps(valu, separators=(',', ':')), {}
+            try:
+                return json.dumps(valu, sort_keys=True, separators=(',', ':')), {}
+            except Exception as e:
+                self._raiseBadValu(valu, mesg='Unable to normalize object as json.')
 
         try:
-            return json.dumps(json.loads(valu), separators=(',', ':')), {}
+            return json.dumps(json.loads(valu), sort_keys=True, separators=(',', ':')), {}
         except Exception as e:
-            self._raiseBadValu(valu)
+            self._raiseBadValu(valu, mesg='Unable to norm json string')
 
 class IntType(DataType):
 
@@ -816,6 +819,7 @@ class TypeLib:
 
         self.addTypeCast('country:2:cc', self._castCountry2CC)
         self.addTypeCast('make:guid', self._castMakeGuid)
+        self.addTypeCast('make:json', self._castMakeJson)
 
         if load:
             self.loadModModels()
@@ -826,6 +830,10 @@ class TypeLib:
 
     def _castMakeGuid(self, valu):
         return s_common.guid(valu)
+
+    def _castMakeJson(self, valu):
+        valu = json.dumps(valu, sort_keys=True, separators=(',', ':'))
+        return valu
 
     def getTypeInst(self, name):
         '''

@@ -234,7 +234,7 @@ def gentask(func, *args, **kwargs):
 def jssave(js, *paths):
     path = genpath(*paths)
     with io.open(path, 'wb') as fd:
-        fd.write(json.dumps(js).encode('utf8'))
+        fd.write(json.dumps(js, sort_keys=True, indent=2).encode('utf8'))
 
 def verstr(vtup):
     '''

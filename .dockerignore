@@ -1,2 +1,15 @@
 **/*.pyc
 **/__pycache__
+build
+.cache
+.coverage
+coverage
+.coveragerc
+dist
+.git
+htmlcov
+.idea
+*.egg-info
+.eggs
+*.swo
+*.swp
