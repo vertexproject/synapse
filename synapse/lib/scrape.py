@@ -68,7 +68,7 @@ if __name__ == '__main__':
 
     #FIXME options for taging all / tagging forms / form props
 
-    print(json.dumps({'format': 'syn', 'data': data}, sort_keys=True))
+    print(json.dumps({'format': 'syn', 'data': data}, sort_keys=True, indent=2))
 #
     #print( repr( data ) )
 
