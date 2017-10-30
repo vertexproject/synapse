@@ -2214,7 +2214,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 rows = [(iden, p, v, tstamp) for (p, v) in props]
 
                 rows.append((iden, form, iden, tstamp))
-                rows.append((iden, 'prim:json', json.dumps(item), tstamp))
+                rows.append((iden, 'prim:json', json.dumps(item, sort_keys=True, separators=(',', ':')), tstamp))
 
             self.addRows(rows)
 

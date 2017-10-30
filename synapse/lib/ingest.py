@@ -253,7 +253,7 @@ class IngestApi:
         '''
         props = {
             'time': s_common.now(),
-            'text': json.dumps(idef),
+            'text': json.dumps(idef, sort_keys=True, separators=(',', ':')),
         }
 
         node = self._gest_core.formTufoByProp('syn:ingest', name, **props)
