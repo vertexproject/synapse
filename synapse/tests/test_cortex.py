@@ -2049,7 +2049,7 @@ class CortexTest(SynTest):
                 self.nn(tufo1)
 
                 # node:created rows are not sent with the splice and will be created by the target core
-                self.gt(tufo1[1]['node:created'], tufo0[1]['node:created'])
+                self.ge(tufo1[1]['node:created'], tufo0[1]['node:created'])
 
     def test_cortex_xact_deadlock(self):
         N = 100
