@@ -45,7 +45,7 @@ def bbox(lat, lon, dist):
     Args:
         lat (float): The latitude in degrees
         lon (float): The longitude in degrees
-        dist (int): A distance in geo:dist base units
+        dist (int): A distance in geo:dist base units (mm)
 
     Returns:
         (float,float,float,float): (latmin, latmax, lonmin, lonmax)
@@ -56,7 +56,6 @@ def bbox(lat, lon, dist):
     rad = r_mm
     prad = rad * math.cos(latr)
 
-    print('RAD: %r PRAD: %r' % (rad, prad))
     latd = dist / rad
     lond = dist / prad
 

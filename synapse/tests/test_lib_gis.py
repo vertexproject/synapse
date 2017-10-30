@@ -26,4 +26,7 @@ class GisTest(SynTest):
 
     def test_lib_gis_bbox(self):
         lbox = s_gis.bbox(gchq[0], gchq[1], 1 * km)
-        self.eq(lbox, ())
+        self.eq(lbox, (51.890406796362754,
+                       51.908393203637246,
+                       -2.0928746526154747,
+                       -2.0637253473845254))
