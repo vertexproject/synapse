@@ -1,7 +1,7 @@
 # vim:set ft=dockerfile:
 FROM python:3.6.3-slim
 
-ENV DEBIAN_FRONTEND="noninteractive"
+ENV DEBIAN_FRONTEND="noninteractive" SYN_DMON_LOG_LEVEL="WARNING"
 
 COPY . /root/git/synapse
 RUN mkdir /syndata \
