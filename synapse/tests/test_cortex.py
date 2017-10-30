@@ -488,6 +488,16 @@ class CortexBaseTest(SynTest):
         self.eq(len(core.eval('strform:foo')), 0)
         self.eq(len(core.eval('strform:bar')), 2)
 
+        # Ensure we can store data at the boundary of 64 bit integers
+        node = core.formTufoByProp('intform', -9223372036854775808)
+        self.nn(node)
+        core.delTufo(node)
+        node = core.formTufoByProp('intform', 9223372036854775807)
+        self.nn(node)
+        core.delTufo(node)
+        self.raises(BadTypeValu, core.formTufoByProp, 'intform', -9223372036854775809)
+        self.raises(BadTypeValu, core.formTufoByProp, 'intform', 9223372036854775808)
+
         # Disable on() events registered in the test.
         core.off('node:form', formtufo)
         core.off('node:form', formfqdn)

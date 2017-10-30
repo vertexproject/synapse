@@ -135,6 +135,31 @@ class DataTypesTest(SynTest):
         self.eq(subs.get('hehe'), 'woot.com')
         self.eq(subs.get('haha'), 0x01020304)
 
+    def test_datatype_int(self):
+        tlib = s_types.TypeLib()
+        self.eq(tlib.getTypeNorm('int', 1), (1, {}))
+        self.eq(tlib.getTypeNorm('int', -1), (-1, {}))
+        self.eq(tlib.getTypeNorm('int', 0), (0, {}))
+        self.eq(tlib.getTypeNorm('int', '1'), (1, {}))
+        self.eq(tlib.getTypeNorm('int', '0x01'), (1, {}))
+
+        self.eq(tlib.getTypeNorm('int', '-1'), (-1, {}))
+        self.eq(tlib.getTypeNorm('int', '0'), (0, {}))
+        # Bound checking
+        self.eq(tlib.getTypeNorm('int', -9223372036854775808), (-9223372036854775808, {}))
+        self.eq(tlib.getTypeNorm('int', 9223372036854775807), (9223372036854775807, {}))
+
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'int', 'hehe')
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'int', 'one')
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'int', 'one')
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'int', 1.0)
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'int', '1.0')
+
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'int', {})
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'int', [])
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'int', 9223372036854775809)
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'int', 9223372036854775808)
+
     def test_datatype_int_minmax(self):
         tlib = s_types.TypeLib()
 
