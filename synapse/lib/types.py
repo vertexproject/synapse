@@ -81,7 +81,7 @@ class GuidType(DataType):
     def norm(self, valu, oldval=None):
 
         if isinstance(valu, dict):
-            vals = list(valu.items())
+            vals = [(k, v) for k, v in valu.items() if v is not None]
             return self._norm_list(vals, oldval)
 
         if isinstance(valu, (list, tuple)):

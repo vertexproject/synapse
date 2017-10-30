@@ -572,6 +572,11 @@ class DataTypesTest(SynTest):
             self.eq(v0, v2)
             self.eq(v0, v3)
 
+            # test that None vals are dropped from guid dict gen
+            x0, _ = core.getPropNorm('guidform', {'foo': 'hehe'})
+            x1, _ = core.getPropNorm('guidform', {'foo': 'hehe', 'bar': None})
+            self.eq(x0, x1)
+
             self.len(2, subs0)
             self.eq(subs0.get('foo'), '1')
             self.eq(subs0.get('baz'), 2)
