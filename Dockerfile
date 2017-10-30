@@ -11,6 +11,7 @@ RUN mkdir /syndata \
     cron \
     libffi-dev \
     libssl-dev \
+    libpq-dev \
     locales \
  && apt-get clean \
  && apt-get purge \
@@ -18,6 +19,7 @@ RUN mkdir /syndata \
  && locale-gen en_US.UTF-8 \
  && dpkg-reconfigure locales \
  && /usr/sbin/update-locale LANG=en_US.UTF-8 \
+ && pip install "psycopg2>=2.7,<3" \
  && cd /root/git/synapse && python setup.py install \
  && cp synapse/docker/cortex/ram_dmon.json /syndata/dmon.json
 ENV LANG="en_US.UTF-8" LANGUAGE="en_US.UTF-8" LC_ALL="en_US.UTF-8"
