@@ -1,5 +1,5 @@
 # vim:set ft=dockerfile:
-FROM python:3.6
+FROM python:3.6.3-slim
 
 ENV DEBIAN_FRONTEND="noninteractive"
 
