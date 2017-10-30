@@ -26,6 +26,10 @@ def main(argv, outp=None):
             outp.printf('skip: %s (not .json extension)' % (path,))
             continue
 
+        if not os.path.isfile(path):
+            outp.printf('skip: %s (not a file)' % (path,))
+            continue
+
         base = path[:-5]
         newp = base + '.mpk'
 

@@ -14,6 +14,8 @@ class Json2MpkTest(SynTest):
 
             path = os.path.join(ndir, 'woot.json')
             newp = os.path.join(ndir, 'woot.mpk')
+            fake = os.path.join(ndir, 'fake.json')
+            html = os.path.join(ndir, 'woot.html')
 
             self.false(os.path.isfile(path))
             self.false(os.path.isfile(newp))
@@ -21,7 +23,7 @@ class Json2MpkTest(SynTest):
             with open(path, 'wb') as fd:
                 fd.write(b'{"foo":10}\n{"bar":20}\n')
 
-            args = ['--rm', path]
+            args = ['--rm', path, fake, html]
 
             s_json2mpk.main(args, outp=outp)
 
