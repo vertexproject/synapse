@@ -15,11 +15,6 @@ import synapse.lookup.iso3166 as s_l_iso3166
 
 logger = logging.getLogger(__name__)
 
-guidre = re.compile('^[0-9a-f]{32}$')
-
-def isguid(text):
-    return guidre.match(text) is not None
-
 class DataType:
 
     subprops = ()
@@ -115,7 +110,7 @@ class GuidType(DataType):
 
         if text[0] != '$':
             retn = text.lower().replace('-', '')
-            if not isguid(retn):
+            if not s_common.isguid(retn):
                 self._raiseBadValu(text, mesg='Expected a 32 char guid string')
 
             return retn, {}
@@ -552,6 +547,10 @@ class XrefType(DataType):
             self._sorc_name: valu,
             'xref': pvval,
         }
+
+        for k, v in vsub.items():
+            k = self._sorc_name + ':' + k
+            subs[k] = v
 
         for k, v in pvsub.items():
             k = 'xref:' + k

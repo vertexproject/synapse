@@ -1,3 +1,5 @@
+import gc
+import atexit
 import logging
 import threading
 import traceback
@@ -11,6 +13,25 @@ import synapse.lib.thishost as s_thishost
 logger = logging.getLogger(__name__)
 finlock = threading.RLock()
 
+def _fini_atexit(): # pragma: no cover
+
+    for item in gc.get_objects():
+
+        if not isinstance(item, EventBus):
+            continue
+
+        if not item._fini_atexit:
+            continue
+
+        try:
+
+            item.fini()
+
+        except Exception as e:
+            logger.exception('atexit fini fail: %r' % (ebus,))
+
+atexit.register(_fini_atexit)
+
 class EventBus(object):
     '''
     A synapse EventBus provides an easy way manage callbacks.
@@ -22,14 +43,25 @@ class EventBus(object):
 
         self._syn_funcs = collections.defaultdict(list)
 
+        self._syn_refs = 1  # one ref for the ctor
         self._syn_links = []
         self._fini_funcs = []
+        self._fini_atexit = False
 
     def __enter__(self):
         return self
 
     def __exit__(self, type, value, traceback):
         self.fini()
+
+    def incref(self):
+        '''
+        Increment the reference count for this event bus.
+        This API may be optionally used to control fini().
+        '''
+        with self.finlock:
+            self._syn_refs += 1
+            return self._syn_refs
 
     def link(self, func):
         '''
@@ -176,7 +208,11 @@ class EventBus(object):
         with finlock:
 
             if self.isfini:
-                return
+                return 0
+
+            self._syn_refs -= 1
+            if self._syn_refs > 0:
+                return self._syn_refs
 
             self.isfini = True
             fevt = self.finievt
@@ -193,6 +229,8 @@ class EventBus(object):
 
         if fevt is not None:
             fevt.set()
+
+        return 0
 
     def onfini(self, func):
         '''
@@ -378,14 +416,15 @@ class BusRef(EventBus):
     '''
     An object for managing multiple EventBus instances.
     '''
-    def __init__(self):
+    def __init__(self, ctor=None):
         EventBus.__init__(self)
+        self.ctor = ctor
+        self.lock = threading.Lock()
         self.ebus_by_name = {}
         self.onfini(self._onBusRefFini)
 
     def _onBusRefFini(self):
-        todo = list(self.ebus_by_name.values())
-        [ebus.fini() for ebus in todo]
+        [ebus.fini() for ebus in self.vals()]
 
     def put(self, name, ebus):
         '''
@@ -427,6 +466,40 @@ class BusRef(EventBus):
             (EventBus): The EventBus instance (or None)
         '''
         return self.ebus_by_name.get(name)
+
+    def gen(self, name):
+        '''
+        Atomically get/gen an EventBus and incref.
+        (requires ctor during BusRef init)
+
+        Args:
+            name (str): The name/iden of the EventBus instance.
+        '''
+        if self.ctor is None:
+            raise s_common.NoSuchCtor(name=name, mesg='BusRef.gen() requires ctor')
+
+        with self.lock:
+
+            ebus = self.ebus_by_name.get(name)
+
+            if ebus is None:
+                ebus = self.ctor(name)
+
+                if ebus is not None:
+
+                    def fini():
+                        self.ebus_by_name.pop(name, None)
+
+                    ebus.onfini(fini)
+                    self.ebus_by_name[name] = ebus
+
+            else:
+                ebus.incref()
+
+            return ebus
+
+    def vals(self):
+        return list(self.ebus_by_name.values())
 
     def __iter__(self):
         # make a copy during iteration to prevent dict

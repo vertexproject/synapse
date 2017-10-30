@@ -3,6 +3,7 @@ import base64
 
 import synapse.cores.common as s_cores_common
 
+import synapse.common as s_common
 import synapse.lib.types as s_types
 
 from synapse.tests.common import *
@@ -546,18 +547,14 @@ class DataTypesTest(SynTest):
             self.raises(BadTypeValu, core.getTypeNorm, 'foo:bar', ['oh', 'my', 'its', 'broked'])
             self.raises(BadInfoValu, core.addType, 'foo:baz', subof='xref', source='ou=org')
 
-    def test_types_isguid(self):
-        self.true(s_types.isguid('98db59098e385f0bfdec8a6a0a6118b3'))
-        self.false(s_types.isguid('visi'))
-
     def test_types_guid(self):
         with self.getRamCore() as core:
 
             # Random guids from "*"
             v0, _ = core.getPropNorm('guidform', '*')
             v1, _ = core.getPropNorm('guidform', '*')
-            self.true(s_types.isguid(v0))
-            self.true(s_types.isguid(v1))
+            self.true(s_common.isguid(v0))
+            self.true(s_common.isguid(v1))
             self.ne(v0, v1)
 
             # Stable guids from strings

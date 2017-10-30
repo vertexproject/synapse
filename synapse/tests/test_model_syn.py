@@ -119,7 +119,7 @@ class SynModelTest(SynTest):
         data = {}
         old_formed = 12345
         iden0, iden1 = guid(), guid()
-        tick = now() - 10000  # putting tick in the past to show that preexisting tufo:formed rows will have their stamps removed
+        tick = now() - 10000  # putting tick in the past to show that preexisting node:created rows will have their stamps removed
         rows = [
             (iden0, 'inet:ipv4:type', '??', tick),
             (iden0, 'inet:ipv4', 16909060, tick),
@@ -131,7 +131,7 @@ class SynModelTest(SynTest):
             (iden1, 'file:bytes:mime', '??', tick),
             (iden1, 'file:bytes:md5', 'd41d8cd98f00b204e9800998ecf8427e', tick),
             (iden1, 'tufo:form', 'file:bytes', tick),
-            (iden1, 'tufo:formed', tick, tick),  # NOTE: this row should not exist pre-migration
+            (iden1, 'node:created', tick, tick),  # NOTE: this row should not exist pre-migration
         ]
 
         with s_cortex.openstore('ram:///') as stor:
@@ -147,28 +147,28 @@ class SynModelTest(SynTest):
             with s_cortex.fromstore(stor) as core:
 
                 # 1 file:bytes, 1 inet:ipv4
-                self.ge(len(core.eval('tufo:formed')), 3)
+                self.ge(len(core.eval('node:created')), 3)
 
-                tufos = core.eval('tufo:formed +tufo:form=inet:ipv4')
+                tufos = core.eval('node:created +tufo:form=inet:ipv4')
                 self.eq(len(tufos), 1)
                 iden, props = tufos[0]
                 self.eq(props['tufo:form'], 'inet:ipv4')
-                self.eq(props['tufo:formed'], tick)
+                self.eq(props['node:created'], tick)
                 self.eq(props['inet:ipv4'], 16909060)
                 self.eq(props['inet:ipv4:asn'], -1)
                 self.eq(props['inet:ipv4:cc'], '??')
-                rows = core.getRowsByIdProp(iden, 'tufo:formed')
+                rows = core.getRowsByIdProp(iden, 'node:created')
                 _, _, valu, stamp = rows[0]
-                self.gt(stamp, valu)  # tufo:formed row's stamp will be higher than its valu
+                self.gt(stamp, valu)  # node:created row's stamp will be higher than its valu
 
-                tufos = core.eval('tufo:formed +tufo:form=file:bytes')
+                tufos = core.eval('node:created +tufo:form=file:bytes')
                 self.eq(len(tufos), 1)
                 props = tufos[0][1]
                 self.eq(props['tufo:form'], 'file:bytes')
-                self.eq(props['tufo:formed'], tick)
+                self.eq(props['node:created'], tick)
                 self.eq(props['file:bytes'], 'd41d8cd98f00b204e9800998ecf8427e')
                 self.eq(props['file:bytes:mime'], '??')
                 self.eq(props['file:bytes:md5'], 'd41d8cd98f00b204e9800998ecf8427e')
-                rows = core.getRowsByIdProp(iden, 'tufo:formed')
+                rows = core.getRowsByIdProp(iden, 'node:created')
                 _, _, valu, stamp = rows[0]
-                self.gt(stamp, valu)  # tufo:formed row's stamp will be higher than its valu
+                self.gt(stamp, valu)  # node:created row's stamp will be higher than its valu

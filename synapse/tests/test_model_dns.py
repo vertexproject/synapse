@@ -43,25 +43,25 @@ class DnsModelTest(SynTest):
 
             tick = now()
 
-            t0 = core.addTufoEvent('inet:dns:look', a='WOOT.com/1.002.3.4', time=tick)
+            t0 = core.formTufoByProp('inet:dns:look', '*', a='WOOT.com/1.002.3.4', time=tick)
             self.eq(t0[1].get('inet:dns:look:time'), tick)
             self.eq(t0[1].get('inet:dns:look:a'), 'woot.com/1.2.3.4')
             self.eq(t0[1].get('inet:dns:look:a:fqdn'), 'woot.com')
             self.eq(t0[1].get('inet:dns:look:a:ipv4'), 0x01020304)
 
-            t0 = core.addTufoEvent('inet:dns:look', ns='WOOT.com/ns.yermom.com', time=tick)
+            t0 = core.formTufoByProp('inet:dns:look', '*', ns='WOOT.com/ns.yermom.com', time=tick)
             self.eq(t0[1].get('inet:dns:look:time'), tick)
             self.eq(t0[1].get('inet:dns:look:ns'), 'woot.com/ns.yermom.com')
             self.eq(t0[1].get('inet:dns:look:ns:ns'), 'ns.yermom.com')
             self.eq(t0[1].get('inet:dns:look:ns:zone'), 'woot.com')
 
-            t0 = core.addTufoEvent('inet:dns:look', rev='1.2.3.4/WOOT.com', time=tick)
+            t0 = core.formTufoByProp('inet:dns:look', '*', rev='1.2.3.4/WOOT.com', time=tick)
             self.eq(t0[1].get('inet:dns:look:time'), tick)
             self.eq(t0[1].get('inet:dns:look:rev'), '1.2.3.4/woot.com')
             self.eq(t0[1].get('inet:dns:look:rev:fqdn'), 'woot.com')
             self.eq(t0[1].get('inet:dns:look:rev:ipv4'), 0x01020304)
 
-            t0 = core.addTufoEvent('inet:dns:look', aaaa='WOOT.com/FF::56', time=tick)
+            t0 = core.formTufoByProp('inet:dns:look', '*', aaaa='WOOT.com/FF::56', time=tick)
             self.eq(t0[1].get('inet:dns:look:time'), tick)
             self.eq(t0[1].get('inet:dns:look:aaaa'), 'woot.com/ff::56')
             self.eq(t0[1].get('inet:dns:look:aaaa:fqdn'), 'woot.com')

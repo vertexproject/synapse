@@ -59,45 +59,6 @@ class InfoTechTest(SynTest):
             node = core.getTufoByProp('it:hostname', 'hehehaha')
             self.nn(node)
 
-    def test_model_infotech_filepath(self):
-        with self.getRamCore() as core:
-
-            node = core.formTufoByProp('file:path', '/Foo/Bar/Baz.exe')
-
-            self.nn(node)
-            self.eq(node[1].get('file:path:dir'), '/foo/bar')
-            self.eq(node[1].get('file:path:ext'), 'exe')
-            self.eq(node[1].get('file:path:base'), 'baz.exe')
-
-            node = core.getTufoByProp('file:path', '/foo')
-
-            self.nn(node)
-            self.none(node[1].get('file:path:ext'))
-
-            self.eq(node[1].get('file:path:dir'), '')
-            self.eq(node[1].get('file:path:base'), 'foo')
-
-            node = core.formTufoByProp('file:path', r'c:\Windows\system32\Kernel32.dll')
-
-            self.nn(node)
-            self.eq(node[1].get('file:path:dir'), 'c:/windows/system32')
-            self.eq(node[1].get('file:path:ext'), 'dll')
-            self.eq(node[1].get('file:path:base'), 'kernel32.dll')
-
-            self.nn(core.getTufoByProp('file:base', 'kernel32.dll'))
-
-            node = core.getTufoByProp('file:path', 'c:')
-
-            self.nn(node)
-            self.none(node[1].get('file:path:ext'))
-            self.eq(node[1].get('file:path:dir'), '')
-            self.eq(node[1].get('file:path:base'), 'c:')
-
-            node = core.formTufoByProp('file:path', r'/foo////bar/.././baz.json')
-
-            self.nn(node)
-            self.eq(node[1].get('file:path'), '/foo/baz.json')
-
     def test_model_infotech_itdev(self):
         with self.getRamCore() as core:
 

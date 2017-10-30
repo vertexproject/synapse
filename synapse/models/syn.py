@@ -184,16 +184,16 @@ class SynMod(CoreModule):
             adds = []
             logger.debug('Lifting tufo:form rows')
             for i, _, v, t in self.core.store.getRowsByProp('tufo:form'):
-                adds.append((i, 'tufo:formed', t, now),)
-            logger.debug('Deleting existing tufo:formed rows')
-            self.core.store.delRowsByProp('tufo:formed')
+                adds.append((i, 'node:created', t, now),)
+            logger.debug('Deleting existing node:created rows')
+            self.core.store.delRowsByProp('node:created')
             if adds:
                 tot = len(adds)
-                logger.debug('Adding {:,d} tufo:formed rows'.format(tot))
+                logger.debug('Adding {:,d} node:created rows'.format(tot))
                 i = 0
                 n = 100000
                 for chunk in s_common.chunks(adds, n):
                     self.core.store.addRows(chunk)
                     i = i + len(chunk)
                     logger.debug('Loading {:,d} [{}%] rows into transaction'.format(i, int((i / tot) * 100)))
-        logger.debug('Finished adding tufo:formed rows to the Cortex')
+        logger.debug('Finished adding node:created rows to the Cortex')

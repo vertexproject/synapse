@@ -209,7 +209,7 @@ class Socket(EventBus):
             self.fire('link:sock:preread', sock=self)
             return
 
-        byts = self.recv(102400)
+        byts = self.recv(1024000)
 
         # special case for non-blocking recv with no data ready
         if byts is None:
