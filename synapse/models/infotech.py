@@ -254,6 +254,7 @@ class ItMod(CoreModule):
 
                     # FIXME we probably eventually need a bunch of stuff here...
                     ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The last known ipv4 address for the host.'}),
+                    ('latlong', {'ptype': 'geo:latlong', 'doc': 'The last known location for the node'}),
                 ]),
 
                 ('it:hostname', {}, ()),

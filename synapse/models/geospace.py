@@ -8,6 +8,10 @@ class LatLongType(s_types.DataType):
 
     def norm(self, valu, oldval=None):
 
+        valu = valu.strip().lower()
+        if valu == '??':
+            return valu, {}
+
         lat, lon = valu.split(',', 1)
 
         try:
@@ -25,7 +29,7 @@ class LatLongType(s_types.DataType):
             self._raiseBadValu(valu, mesg='Longitude may only be -180.0 to 180.0')
 
         norm = '%s,%s' % (latv, lonv)
-        return norm, {}
+        return norm, {'lat': latv, 'lon': lonv}
 
 units = {
     'mm': 1,
@@ -58,9 +62,6 @@ class DistType(s_types.DataType):
 
 class GeoMod(CoreModule):
 
-    #def postCoreModule(self):
-        #self.core.setOperFunc('geo:near'
-
     @staticmethod
     def getBaseModels():
         modl = {
@@ -72,7 +73,7 @@ class GeoMod(CoreModule):
                     'doc': 'A geographic distance', 'ex': '10 km'}),
 
                 ('geo:latlong', {'ctor': 'synapse.models.geospace.LatLongType',
-                    'doc': 'A Lat/Long string specifying a point on earth'}),
+                    'doc': 'A Lat/Long string specifying a point on Earth'}),
             ),
 
             'forms': (
@@ -83,16 +84,12 @@ class GeoMod(CoreModule):
                     ('latlong', {'ptype': 'geo:latlong', 'defval': '??', 'doc': 'The location of the place'}),
                 ]),
 
-                ('geo:loctime', {'ptype': 'guid'}, [
+                ('geo:nodeloc', {'ptype': 'guid'}, [
                     ('node', {'ptype': 'propvalu', 'doc': 'The node with location in geo/time'}),
                     ('time', {'ptype': 'time', 'doc': 'The time the node was observed at location'}),
+                    ('latlong', {'ptype': 'geo:latlong', 'req': 1, 'doc': 'The location the node was observed'}),
                 ]),
             ),
-
-            'props': (
-                ('node:loc', {'ptype': 'geo:latlong', 'doc': 'The current geospacial location of the node'}),
-            ),
-
         }
         name = 'geo'
         return ((name, modl), )

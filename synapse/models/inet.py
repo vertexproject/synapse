@@ -943,6 +943,7 @@ class InetMod(CoreModule):
                 )),
 
                 ('inet:iface', {}, (
+                    ('latlong', {'ptype': 'geo:latlong', 'doc': 'The last known location for the node'}),
                     ('host', {'ptype': 'it:host', 'doc': 'The host guid the interface is connected to'}),
 
                     ('mac', {'ptype': 'inet:mac', 'doc': 'The ethernet address of the interface'}),
@@ -958,10 +959,12 @@ class InetMod(CoreModule):
                 ('inet:wifi:ssid', {}, []),
 
                 ('inet:web:acct', {'ptype': 'inet:web:acct'}, [
+
                     ('site', {'ptype': 'inet:fqdn', 'ro': 1}),
                     ('user', {'ptype': 'inet:user', 'ro': 1}),
 
                     ('dob', {'ptype': 'time'}),
+                    ('latlong', {'ptype': 'geo:latlong', 'doc': 'The last known location for the node'}),
 
                     # ('bio:bt',{'ptype':'wtf','doc':'The web account's self documented blood type'}),
 
