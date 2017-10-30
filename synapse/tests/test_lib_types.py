@@ -17,83 +17,6 @@ class DataTypesTest(SynTest):
         self.none(tlib.getDataType('newp'))
         self.raises(NoSuchType, tlib.reqDataType, 'newp')
 
-    def test_datatype_inet_url(self):
-        tlib = s_types.TypeLib()
-
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:url', 'newp')
-        self.eq(tlib.getTypeNorm('inet:url', 'http://WoOt.com/HeHe')[0], 'http://woot.com/HeHe')
-        self.eq(tlib.getTypeNorm('inet:url', 'HTTP://WoOt.com/HeHe')[0], 'http://woot.com/HeHe')
-        self.eq(tlib.getTypeNorm('inet:url', 'HttP://Visi:Secret@WoOt.com/HeHe&foo=10')[0],
-                'http://Visi:Secret@woot.com/HeHe&foo=10')
-
-        self.raises(BadTypeValu, tlib.getTypeParse, 'inet:url', 'newp')
-        self.eq(tlib.getTypeParse('inet:url', 'http://WoOt.com/HeHe')[0], 'http://woot.com/HeHe')
-        self.eq(tlib.getTypeParse('inet:url', 'HTTP://WoOt.com/HeHe')[0], 'http://woot.com/HeHe')
-        self.eq(tlib.getTypeParse('inet:url', 'HttP://Visi:Secret@WoOt.com/HeHe&foo=10')[0],
-                'http://Visi:Secret@woot.com/HeHe&foo=10')
-
-        self.eq(tlib.getTypeRepr('inet:url', 'http://woot.com/HeHe'), 'http://woot.com/HeHe')
-
-    def test_datatype_inet_ipv4(self):
-        tlib = s_types.TypeLib()
-
-        self.eq(tlib.getTypeNorm('inet:ipv4', 0x01020304)[0], 0x01020304)
-        self.eq(tlib.getTypeNorm('inet:ipv4', '0x01020304')[0], 0x01020304)
-        self.eq(tlib.getTypeParse('inet:ipv4', '1.2.3.4')[0], 0x01020304)
-        self.eq(tlib.getTypeRepr('inet:ipv4', 0x01020304), '1.2.3.4')
-
-    def test_datatype_inet_tcp4(self):
-        tlib = s_types.TypeLib()
-
-        self.eq(tlib.getTypeNorm('inet:tcp4', '1.2.3.4:2')[0], 0x010203040002)
-        self.eq(tlib.getTypeNorm('inet:tcp4', 0x010203040002)[0], 0x010203040002)
-
-        self.raises(BadTypeValu, tlib.getTypeParse, 'inet:tcp4', 'newp')
-        self.eq(tlib.getTypeParse('inet:tcp4', '1.2.3.4:2')[0], 0x010203040002)
-
-        self.eq(tlib.getTypeRepr('inet:tcp4', 0x010203040002), '1.2.3.4:2')
-
-    def test_datatype_inet_udp4(self):
-        tlib = s_types.TypeLib()
-
-        self.eq(tlib.getTypeNorm('inet:udp4', '1.2.3.4:2')[0], 0x010203040002)
-        self.eq(tlib.getTypeNorm('inet:udp4', 0x010203040002)[0], 0x010203040002)
-
-        self.raises(BadTypeValu, tlib.getTypeParse, 'inet:udp4', 'newp')
-        self.eq(tlib.getTypeParse('inet:udp4', '1.2.3.4:2')[0], 0x010203040002)
-
-        self.eq(tlib.getTypeRepr('inet:udp4', 0x010203040002), '1.2.3.4:2')
-
-    def test_datatype_inet_port(self):
-        tlib = s_types.TypeLib()
-
-        self.raises(BadTypeValu, tlib.getTypeParse, 'inet:port', '70000')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:port', 0xffffffff)
-
-        self.eq(tlib.getTypeNorm('inet:port', 20)[0], 20)
-
-    def test_datatype_inet_mac(self):
-        tlib = s_types.TypeLib()
-
-        self.raises(BadTypeValu, tlib.getTypeParse, 'inet:mac', 'newp')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:mac', 'newp')
-
-        self.eq(tlib.getTypeNorm('inet:mac', 'FF:FF:FF:FF:FF:FF')[0], 'ff:ff:ff:ff:ff:ff')
-        self.eq(tlib.getTypeParse('inet:mac', 'FF:FF:FF:FF:FF:FF')[0], 'ff:ff:ff:ff:ff:ff')
-        self.eq(tlib.getTypeRepr('inet:mac', 'ff:ff:ff:ff:ff:ff'), 'ff:ff:ff:ff:ff:ff')
-
-    def test_datatype_inet_email(self):
-        tlib = s_types.TypeLib()
-
-        self.raises(BadTypeValu, tlib.getTypeParse, 'inet:email', 'newp')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:email', 'newp')
-
-        self.eq(tlib.getTypeParse('inet:email', 'ViSi@Woot.Com')[0], 'visi@woot.com')
-
-        self.eq(tlib.getTypeNorm('inet:email', 'ViSi@Woot.Com')[0], 'visi@woot.com')
-
-        self.eq(tlib.getTypeRepr('inet:email', 'visi@woot.com'), 'visi@woot.com')
-
     def test_datatype_guid(self):
         tlib = s_types.TypeLib()
 
@@ -128,40 +51,6 @@ class DataTypesTest(SynTest):
                 '000102030405060708090a0b0c0d0e0f')
         self.eq(tlib.getTypeNorm('hash:md5', '000102030405060708090A0B0C0D0E0F')[0], '000102030405060708090a0b0c0d0e0f')
         self.eq(tlib.getTypeRepr('hash:md5', '000102030405060708090a0b0c0d0e0f'), '000102030405060708090a0b0c0d0e0f')
-
-    def test_datatype_inet_ipv6(self):
-        tlib = s_types.TypeLib()
-
-        self.raises(BadTypeValu, tlib.getTypeParse, 'inet:ipv6', 'newp')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:srv6', 'newp')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:srv6', '[fffffffffffffffffffffffff::2]:80')
-
-        self.eq(tlib.getTypeParse('inet:ipv6', 'AF:00::02')[0], 'af::2')
-        self.eq(tlib.getTypeNorm('inet:ipv6', 'AF:00::02')[0], 'af::2')
-        self.eq(tlib.getTypeRepr('inet:ipv6', 'af::2'), 'af::2')
-
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8::1:1:1:1:1')[0], '2001:db8:0:1:1:1:1:1')
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8:0:1:1:1:1:1')[0], '2001:db8:0:1:1:1:1:1')
-
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8::0:1')[0], '2001:db8::1')
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
-
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8::')[0], '2001:db8::')
-
-        self.eq(tlib.getTypeRepr('inet:srv6', '[af::2]:80'), '[af::2]:80')
-        self.eq(tlib.getTypeParse('inet:srv6', '[AF:00::02]:80')[0], '[af::2]:80')
-        self.eq(tlib.getTypeNorm('inet:srv6', '[AF:00::02]:80')[0], '[af::2]:80')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:srv6', '[AF:00::02]:999999')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:srv6', '[AF:00::02]:-1')
-
-    def test_datatype_inet_cidr(self):
-        tlib = s_types.TypeLib()
-
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:cidr4', '1.2.3.0/33')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:cidr4', '1.2.3.0/-1')
-
-        self.eq(tlib.getTypeNorm('inet:cidr4', '1.2.3.0/24'), ('1.2.3.0/24', {'ipv4': 16909056, 'mask': 24}))
-        self.eq(tlib.getTypeRepr('inet:cidr4', '1.2.3.0/24'), '1.2.3.0/24')
 
     def test_datatype_str(self):
         tlib = s_types.TypeLib()
