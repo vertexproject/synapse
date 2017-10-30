@@ -249,16 +249,6 @@ class DataTypesTest(SynTest):
         self.raises(BadTypeValu, tlib.getTypeNorm, 'json', {'hehe', 'haha'})
         self.raises(BadTypeValu, tlib.getTypeNorm, 'json', 'Wow"wow')
 
-    def test_type_phone(self):
-        tlib = s_types.TypeLib()
-        prop = 'tel:phone'
-
-        self.eq(tlib.getTypeNorm(prop, 1234567890)[0], 1234567890)
-        self.eq(tlib.getTypeParse(prop, '123 456 7890')[0], 1234567890)
-
-        self.eq(tlib.getTypeRepr(prop, 12345678901), '+1 (234) 567-8901')
-        self.eq(tlib.getTypeRepr(prop, 9999999999), '+9999999999')
-
     def test_type_time_timeepoch(self):
         tlib = s_types.TypeLib()
         SECOND_MS = 1000
