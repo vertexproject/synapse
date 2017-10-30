@@ -1,5 +1,3 @@
-#from binascii import hexlify
-
 import synapse.tools.json2mpk as s_json2mpk
 
 from synapse.tests.common import *
