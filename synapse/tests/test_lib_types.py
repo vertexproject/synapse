@@ -354,7 +354,11 @@ class DataTypesTest(SynTest):
         tlib = s_types.TypeLib()
         self.eq(tlib.getTypeNorm('json', '{  "woot"       :10}')[0], '{"woot":10}')
         self.eq(tlib.getTypeNorm('json', {'woot': 10})[0], '{"woot":10}')
+        self.eq(tlib.getTypeNorm('json', {'hehe': 1, 'foo': 'bar'}), ('{"foo":"bar","hehe":1}', {}))
         self.eq(tlib.getTypeParse('json', '{"woot":10}')[0], '{"woot":10}')
+
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'json', {'hehe', 'haha'})
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'json', 'Wow"wow')
 
     def test_type_phone(self):
         tlib = s_types.TypeLib()

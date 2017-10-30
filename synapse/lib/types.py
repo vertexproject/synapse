@@ -224,12 +224,15 @@ class JsonType(DataType):
     def norm(self, valu, oldval=None):
 
         if not isinstance(valu, str):
-            return json.dumps(valu, sort_keys=True, separators=(',', ':')), {}
+            try:
+                return json.dumps(valu, sort_keys=True, separators=(',', ':')), {}
+            except Exception as e:
+                self._raiseBadValu(valu, mesg='Unable to normalize object as json.')
 
         try:
             return json.dumps(json.loads(valu), sort_keys=True, separators=(',', ':')), {}
         except Exception as e:
-            self._raiseBadValu(valu)
+            self._raiseBadValu(valu, mesg='Unable to norm json string')
 
 class IntType(DataType):
 
