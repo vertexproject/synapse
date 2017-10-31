@@ -511,6 +511,7 @@ class Proxy(s_eventbus.EventBus):
         for (evnt, func), (iden, filt) in self._tele_ons.items():
             eper[evnt].append((iden, filt))
 
+        # XXX BOOM
         if eper:
             job = self._txTeleJob('tele:on', ons=eper.items(), name=self._tele_name)
             self.syncjob(job)

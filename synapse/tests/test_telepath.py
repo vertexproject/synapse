@@ -233,6 +233,14 @@ class TelePathTest(SynTest):
         url = 'tcp://127.0.0.1:%d/foo' % (port,)
         self.eq(prox.bar(10, 20), 30)
 
+        data = {}
+        def _onHehe(mesg):
+            data['hehe'] = data.get('hehe', 0) + 1
+
+        prox.on('hehe', _onHehe)
+        prox.fire('hehe', haha=1)
+        self.eq(data.get('hehe'), 1)
+
         waiter = self.getTestWait(prox, 1, 'tele:sock:init')
 
         # shut down the daemon
@@ -245,6 +253,9 @@ class TelePathTest(SynTest):
         waiter.wait()
 
         self.eq(prox.bar(10, 20), 30)
+
+        prox.fire('hehe', haha=1)
+        self.eq(data.get('hehe'), 2)
 
         prox.fini()
         dmon.fini()
