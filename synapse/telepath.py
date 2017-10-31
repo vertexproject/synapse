@@ -178,7 +178,7 @@ class Method:
 
         return self.proxy.syncjob(job)
 
-telelocal = set(['tele:sock:init', 'ebus:init'])
+telelocal = set(['tele:sock:init', 'ebus:init', 'core:fifo:xmit'])
 
 class Proxy(s_eventbus.EventBus):
     '''
@@ -218,6 +218,7 @@ class Proxy(s_eventbus.EventBus):
         self._raw_on('tele:yield:item', self._onTeleYieldItem)
         self._raw_on('tele:yield:fini', self._onTeleYieldFini)
 
+        self._raw_on('core:fifo:xmit', self._onCoreFifoXmit)
         self._raw_on('job:done', self._tele_boss.dist)
         self._raw_on('sock:gzip', self._onSockGzip)
         self._raw_on('tele:call', self._onTeleCall)
@@ -240,6 +241,16 @@ class Proxy(s_eventbus.EventBus):
             sock = self._tele_relay.connect()
 
         self._initTeleSock(sock=sock)
+
+    def _onCoreFifoXmit(self, mesg):
+
+        # a bit of magic specific to cortex proxy...
+        # ( this will be made cleaner in neuron use case )
+
+        name = mesg[1].get('name')
+        seqn, nseq, item = mesg[1].get('qent')
+
+        self.call('fire', 'ackCoreFifo', name, seqn)
 
     def _onTeleYieldInit(self, mesg):
         jid = mesg[1].get('jid')

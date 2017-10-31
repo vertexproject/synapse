@@ -1,3 +1,5 @@
+import os
+import json
 import logging
 '''
 A synapse cortex is a data storage and indexing abstraction
@@ -39,12 +41,46 @@ storectors = {
     'postgres': synapse.cores.postgres.PsqlStorage,
 }
 
+def _initDirCore(link, conf, sconf):
+    return fromdir(link[1].get('path'), conf=conf)
+
 corctors = {
+    'dir': _initDirCore,
     'lmdb': synapse.cores.lmdb.initLmdbCortex,
     'sqlite': synapse.cores.sqlite.initSqliteCortex,
     'ram': synapse.cores.ram.initRamCortex,
     'postgres': synapse.cores.postgres.initPsqlCortex,
 }
+
+def fromdir(path, conf=None):
+    '''
+    Initialize a cortex from a directory.
+
+    Args:
+        path (str): The path to the directory
+        conf (dict): An optional set of config info
+    '''
+    if conf is None:
+        conf = {}
+
+    path = s_common.genpath(path)
+    os.makedirs(path, exist_ok=True)
+
+    conf['dir'] = path
+
+    corepath = os.path.join(path, 'core.db')
+
+    confpath = os.path.join(path, 'config.json')
+    if not os.path.isfile(confpath):
+        with open(confpath, 'wb') as fd:
+            fd.write(b'{\n}')
+
+    with open(confpath, 'r', encoding='utf8') as fd:
+        text = fd.read()
+        conf.update(json.loads(text))
+
+    #TODO config option for lmdb?
+    return openurl('sqlite:///%s' % (corepath,), conf=conf)
 
 def fromstore(stor, **conf):
     '''
