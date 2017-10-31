@@ -1097,8 +1097,8 @@ class InetMod(CoreModule):
                     ('site', {'ptype': 'inet:fqdn', 'doc': 'The site or service associated with the account.', 'ro': 1}),
                     ('user', {'ptype': 'inet:user', 'doc': 'The unique identifier for the account (may be different '
                         'from the common name or display name).', 'ro': 1}),
-                    ('url', {'ptype': 'inet:url', 'The service provider URL where the account is hosted.'}),
-                    ('name', {'ptype': 'inet:user', 'The name associated with the account (may be different from '
+                    ('url', {'ptype': 'inet:url', 'doc': 'The service provider URL where the account is hosted.'}),
+                    ('name', {'ptype': 'inet:user', 'doc': 'The name associated with the account (may be different from '
                         'the account identifier, e.g., a display name).'}),
                     ('avatar', {'ptype': 'file:bytes', 'doc': 'The file representing the avatar (e.g., profile '
                         'picture) for the account.'}),
