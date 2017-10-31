@@ -2782,10 +2782,14 @@ class CortexTest(SynTest):
                 self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
 
                 node = core.formTufoByProp('syn:fifo', '*', name='haha')
+                path = core.getCorePath('fifos', node[1].get('syn:fifo'))
 
                 sent = []
 
+                # this will trigger dir creation
                 core.subCoreFifo('haha', sent.append)
+
+                self.true(os.path.isdir(path))
 
                 core.putCoreFifo('haha', 'foo')
                 core.putCoreFifo('haha', 'bar')
@@ -2825,6 +2829,11 @@ class CortexTest(SynTest):
                     wait.wait(timeout=1)
 
                     self.len(3, data)
+
+                core.delTufo(node)
+
+                self.false(os.path.isdir(path))
+                self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
 
 class StorageTest(SynTest):
 

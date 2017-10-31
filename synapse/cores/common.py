@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 import logging
 import itertools
 import threading
@@ -64,6 +65,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         Runtime.__init__(self)
         EventBus.__init__(self)
 
+        self.on('node:del', self._onDelFifo, form='syn:fifo')
         self.on('node:del', self._onDelAuthRole, form='syn:auth:role')
         self.on('node:del', self._onDelAuthUser, form='syn:auth:user')
         self.on('node:add', self._onAddAuthUserRole, form='syn:auth:userrole')
