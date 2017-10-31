@@ -695,7 +695,7 @@ class InetMod(CoreModule):
     def getBaseModels():
         modl = {
             'types': (
-		('inet:url', {
+                ('inet:url', {
                     'ctor': 'synapse.models.inet.UrlType',
                     'doc': 'A Universal Resource Locator (URL).',
                     'ex': 'http://www.woot.com/files/index.html'}),
