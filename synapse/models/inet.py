@@ -695,487 +695,648 @@ class InetMod(CoreModule):
     def getBaseModels():
         modl = {
             'types': (
-                ('inet:url', {'ctor': 'synapse.models.inet.UrlType', 'doc': 'A Universal Resource Locator (URL)'}),
-                ('inet:ipv4', {'ctor': 'synapse.models.inet.IPv4Type', 'doc': 'An IPv4 Address', 'ex': '1.2.3.4'}),
-                ('inet:ipv6', {'ctor': 'synapse.models.inet.IPv6Type', 'doc': 'An IPv6 Address',
-                               'ex': '2607:f8b0:4004:809::200e'}),
-                ('inet:srv4', {'ctor': 'synapse.models.inet.Srv4Type', 'doc': 'An IPv4 Address and Port',
-                               'ex': '1.2.3.4:80'}),
-                ('inet:srv6', {'ctor': 'synapse.models.inet.Srv6Type', 'doc': 'An IPv6 Address and Port',
-                               'ex': '[2607:f8b0:4004:809::200e]:80'}),
+                ('inet:url', {
+                    'ctor': 'synapse.models.inet.UrlType',
+                    'doc': 'A Universal Resource Locator (URL).',
+                    'ex': 'http://www.woot.com/files/index.html'}),
 
-                ('inet:wifi:ssid', {'subof': 'str', 'doc': 'A WiFi SSID name', 'ex': 'The Vertex Project'}),
+                ('inet:ipv4', {
+                    'ctor': 'synapse.models.inet.IPv4Type',
+                    'doc': 'An IPv4 address.',
+                    'ex': '1.2.3.4'}),
 
-                ('inet:email', {'ctor': 'synapse.models.inet.EmailType', 'doc': 'An e-mail address',
-                                'ex': 'visi@vertex.link'}),
+                ('inet:ipv6', {
+                    'ctor': 'synapse.models.inet.IPv6Type',
+                    'doc': 'An IPv6 address.',
+                    'ex': '2607:f8b0:4004:809::200e'}),
 
-                ('inet:fqdn', {'ctor': 'synapse.models.inet.FqdnType', 'ex': 'vertex.link',
-                               'doc': 'A Fully Qualified Domain Name (FQDN)'}),
+                ('inet:srv4', {
+                    'ctor': 'synapse.models.inet.Srv4Type',
+                    'doc': 'An IPv4 address and port.',
+                    'ex': '1.2.3.4:80'}),
 
-                (
-                    'inet:cidr4',
-                    {'ctor': 'synapse.models.inet.CidrType', 'doc': 'An IPv4 CIDR type', 'ex': '1.2.3.0/24'}),
+                ('inet:srv6', {
+                    'ctor': 'synapse.models.inet.Srv6Type',
+                    'doc': 'An IPv6 address and port.',
+                    'ex': '[2607:f8b0:4004:809::200e]:80'}),
 
-                ('inet:urlfile', {'subof': 'comp', 'fields': 'url=inet:url,file=file:bytes',
-                                  'doc': 'A File at a Universal Resource Locator (URL)'}),
-                ('inet:net4',
-                 {'subof': 'sepr', 'sep': '-', 'fields': 'min,inet:ipv4|max,inet:ipv4', 'doc': 'An IPv4 address range',
-                  'ex': '1.2.3.4-1.2.3.20'}),
-                ('inet:net6',
-                 {'subof': 'sepr', 'sep': '-', 'fields': 'min,inet:ipv6|max,inet:ipv6', 'doc': 'An IPv6 address range',
-                  'ex': 'ff::00-ff::30'}),
+                ('inet:wifi:ssid', {
+                    'subof': 'str',
+                    'doc': 'A WiFi service set identifier (SSID) name.',
+                    'ex': 'The Vertex Project'}),
 
-                ('inet:asnet4', {'subof': 'sepr', 'sep': '/', 'fields': 'asn,inet:asn|net4,inet:net4',
-                                 'doc': 'An IPv4 address range assigned to an autonomous system',
-                                 'ex': '54959/1.2.3.4-1.2.3.20'}),
+                ('inet:email', {
+                    'ctor': 'synapse.models.inet.EmailType',
+                    'doc': 'An email address.',
+                    'ex': 'visi@vertex.link'}),
 
-                ('inet:iface', {'subof': 'guid', 'doc': 'A network interface with a stack of protocol addresses'}),
+                ('inet:fqdn', {
+                    'ctor': 'synapse.models.inet.FqdnType',
+                    'doc': 'A fully qualified domain name (FQDN).',
+                    'ex': 'vertex.link'}),
 
-                ('inet:asn', {'subof': 'int', 'doc': 'An Autonomous System Number (ASN)'}),
-                ('inet:user', {'subof': 'str:lwr', 'doc': 'A username string'}),
-                ('inet:passwd', {'subof': 'str', 'doc': 'A password string'}),
+                ('inet:cidr4', {
+                    'ctor': 'synapse.models.inet.CidrType',
+                    'doc': 'An IPv4 address block in Classless Inter-Domain Routing (CIDR) notation.',
+                    'ex': '1.2.3.0/24'}),
 
-                ('inet:tcp4', {'subof': 'inet:srv4', 'doc': 'A TCP server listening on IPv4:port'}),
-                ('inet:udp4', {'subof': 'inet:srv4', 'doc': 'A UDP server listening on IPv4:port'}),
-                ('inet:tcp6', {'subof': 'inet:srv6', 'doc': 'A TCP server listening on IPv6:port'}),
-                ('inet:udp6', {'subof': 'inet:srv6', 'doc': 'A UDP server listening on IPv6:port'}),
+                ('inet:urlfile', {
+                    'subof': 'comp',
+                    'fields': 'url=inet:url, file=file:bytes',
+                    'doc': 'A file hosted at a specific Universal Resource Locator (URL).'}),
 
-                ('inet:flow', {'subof': 'guid', 'doc': 'An individual network connection'}),
+                ('inet:net4', {
+                    'subof': 'sepr',
+                    'sep': '-',
+                    'fields': 'min,inet:ipv4|max,inet:ipv4',
+                    'doc': 'An IPv4 address range.',
+                    'ex': '1.2.3.4-1.2.3.20'}),
 
-                ('inet:port', {'subof': 'int', 'min': 0, 'max': 0xffff, 'ex': '80'}),
+                ('inet:net6', {
+                    'subof': 'sepr',
+                    'sep': '-',
+                    'fields': 'min,inet:ipv6|max,inet:ipv6',
+                    'doc': 'An IPv6 address range.',
+                    'ex': 'ff::00-ff::30'}),
 
-                ('inet:mac', {'subof': 'str', 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$', 'lower': 1,
-                               'nullval': '??', 'ex': 'aa:bb:cc:dd:ee:ff', 'doc': 'A 48 bit mac address'}),
+                ('inet:asnet4', {
+                    'subof': 'sepr',
+                    'sep': '/',
+                    'fields': 'asn,inet:asn|net4,inet:net4',
+                    'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
+                    'ex': '54959/1.2.3.4-1.2.3.20'}),
 
-                ('inet:web:acct', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|user,inet:user',
-                                  'doc': 'A user account at a given web address', 'ex': 'twitter.com/invisig0th'}),
-                ('inet:web:logon', {'subof': 'guid',
-                                   'doc': 'An instance of a user account authenticating to a service.', }),
+                ('inet:iface', {
+                    'subof': 'guid',
+                    'doc': 'A network interface with a set of associated protocol addresses.'}),
 
-                ('inet:web:action', {'subof': 'guid',
-                                   'doc': 'An instance of a user account performing an action.'}),
-                ('inet:web:actref', {'subof': 'xref', 'source': 'act,inet:web:action',
-                                     'doc': 'The web action refereneces the given node'}),
-                ('inet:web:chprofile', {'subof': 'guid', 'doc': 'A change to a inet:web:acct at a point in time'}),
-                ('inet:web:group', {'subof': 'sepr', 'sep': '/', 'fields': 'site,inet:fqdn|name,ou:name',
-                                   'doc': 'A group within an online community'}),
+                ('inet:asn', {
+                    'subof': 'int',
+                    'doc': 'An Autonomous System Number (ASN).'}),
 
-                ('inet:web:post',
-                 {'subof': 'comp', 'fields': 'acct,inet:web:acct|text,str:txt', 'doc': 'A post made by a web account'}),
-                ('inet:web:postref',
-                 {'subof': 'xref', 'source': 'post,inet:web:post', 'doc': 'The web post refereneces the given node'}),
+                ('inet:user', {
+                    'subof': 'str:lwr',
+                    'doc': 'A username string.'}),
 
-                ('inet:web:file', {'subof': 'comp', 'fields': 'acct,inet:web:acct|file,file:bytes',
-                                  'doc': 'A file posted by a web account'}),
-                ('inet:web:memb', {'subof': 'comp', 'fields': 'acct,inet:web:acct|group,inet:web:group'}),
-                ('inet:web:follows', {'subof': 'comp', 'fields': 'follower,inet:web:acct|followee,inet:web:acct'}),
+                ('inet:passwd', {
+                    'subof': 'str',
+                    'doc': 'A password string.'}),
 
-                ('inet:web:mesg', {'subof': 'comp',
-                                  'fields': 'from,inet:web:acct|to,inet:web:acct|time,time',
-                                  'doc': 'A message sent from one web account to another',
-                                  'ex': 'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'}),
+                ('inet:tcp4', {
+                    'subof': 'inet:srv4',
+                    'doc': 'A TCP server listening on an IPv4 address and port.'}),
 
-                ('inet:ssl:tcp4cert', {'subof': 'sepr', 'sep': '/', 'fields': 'tcp4,inet:tcp4|cert,file:bytes',
-                                       'doc': 'An SSL cert file served by an IPv4 server'}),
+                ('inet:udp4', {
+                    'subof': 'inet:srv4',
+                    'doc': 'A UDP server listening on an IPv4 address and port.'}),
 
-                ('inet:whois:rar', {'subof': 'str:lwr', 'doc': 'A whois registrar', 'ex': 'blah domain registrar'}),
-                ('inet:whois:reg', {'subof': 'str:lwr', 'doc': 'A whois registrant', 'ex': 'woot hostmaster'}),
-                ('inet:whois:rec',
-                 {'subof': 'sepr', 'sep': '@', 'fields': 'fqdn,inet:fqdn|asof,time', 'doc': 'A whois record',
-                  'ex': ''}),
-                ('inet:whois:recns', {'subof': 'comp', 'fields': 'ns,inet:fqdn|rec,inet:whois:rec',
-                                      'doc': 'A nameserver associated with a given WHOIS record.'}),
+                ('inet:tcp6', {
+                    'subof': 'inet:srv6',
+                    'doc': 'A TCP server listening on a specific IPv6 address and port.'}),
 
-                ('inet:whois:contact', {'subof': 'comp', 'fields': 'rec,inet:whois:rec|type,str:lwr',
-                                        'doc': 'A whois contact for a specific record'}),
-                ('inet:whois:regmail', {'subof': 'comp', 'fields': 'fqdn,inet:fqdn|email,inet:email',
-                                        'doc': 'A whois registration fqdn->email link'}),
+                ('inet:udp6', {
+                    'subof': 'inet:srv6',
+                    'doc': 'A UDP server listening on a specific IPv6 address and port.'}),
+
+                ('inet:flow', {
+                    'subof': 'guid',
+                    'doc': 'An individual network connection between a given source and destination.'}),
+
+                ('inet:port', {
+                    'subof': 'int',
+                    'min': 0,
+                    'max': 0xffff,
+                    'doc': 'A network port.',
+                    'ex': '80'}),
+
+                ('inet:mac', {
+                    'subof': 'str',
+                    'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$',
+                    'lower': 1,
+                    'nullval': '??',
+                    'doc': 'A 48-bit Media Access Control (MAC) address.',
+                    'ex': 'aa:bb:cc:dd:ee:ff'}),
+
+                ('inet:web:acct', {
+                    'subof': 'sepr',
+                    'sep': '/',
+                    'fields': 'site,inet:fqdn|user,inet:user',
+                    'doc': 'An account with a given Internet-based site or service.',
+                    'ex': 'twitter.com/invisig0th'}),
+
+                ('inet:web:logon', {
+                    'subof': 'guid',
+                    'doc': 'An instance of an account authenticating to an Internet-based site or service.'}),
+
+                ('inet:web:action', {
+                    'subof': 'guid',
+                    'doc': 'An instance of an account performing an action at an Internet-based site or service.'}),
+
+                ('inet:web:actref', {
+                    'subof': 'xref',
+                    'source': 'act,inet:web:action',
+                    'doc': 'A web action that references a given node.'}),
+
+                ('inet:web:chprofile', {
+                    'subof': 'guid',
+                    'doc': 'A change to a web account. Used to capture historical properties associated with '
+                           ' an account, as opposed to current data in the inet:web:acct node.'}),
+
+                ('inet:web:group', {
+                    'subof': 'sepr',
+                    'sep': '/',
+                    'fields': 'site,inet:fqdn|name,ou:name',
+                    'doc': 'A group hosted within or registered with a given Internet-based site or service.',
+                    'ex': 'somesite.com/mycoolgroup'}),
+
+                ('inet:web:post', {
+                    'subof': 'comp',
+                    'fields': 'acct,inet:web:acct|text,str:txt',
+                    'doc': 'A post made by a web account.'}),
+
+                ('inet:web:postref', {
+                    'subof': 'xref',
+                    'source': 'post,inet:web:post',
+                    'doc': 'A web post that references a given node.'}),
+
+                ('inet:web:file', {
+                    'subof': 'comp',
+                    'fields': 'acct,inet:web:acct|file,file:bytes',
+                    'doc': 'A file posted by a web account.'}),
+
+                ('inet:web:memb', {
+                    'subof': 'comp',
+                    'fields': 'acct,inet:web:acct|group,inet:web:group',
+                    'doc': 'A web account that is a member of a web group.'}),
+
+                ('inet:web:follows', {
+                    'subof': 'comp',
+                    'fields': 'follower,inet:web:acct|followee,inet:web:acct',
+                    'doc': 'A web account follows or is connected to another web account.'}),
+
+                ('inet:web:mesg', {
+                    'subof': 'comp',
+                    'fields': 'from,inet:web:acct|to,inet:web:acct|time,time',
+                    'doc': 'A message sent from one web account to another web account.',
+                    'ex': 'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'}),
+
+                ('inet:ssl:tcp4cert', {
+                    'subof': 'sepr',
+                    'sep': '/',
+                    'fields': 'tcp4,inet:tcp4|cert,file:bytes',
+                    'doc': 'An SSL certificate file served by an IPv4 TCP server.'}),
+
+                ('inet:whois:rar', {
+                    'subof': 'str:lwr',
+                    'doc': 'A domain registrar.',
+                    'ex': 'godaddy, inc.'}),
+
+                ('inet:whois:reg', {
+                    'subof': 'str:lwr',
+                    'doc': 'A domain registrant.',
+                    'ex': 'woot hostmaster'}),
+
+                ('inet:whois:rec', {
+                    'subof': 'sepr',
+                    'sep': '@',
+                    'fields': 'fqdn,inet:fqdn|asof,time',
+                    'doc': 'A domain whois record'}),
+
+                ('inet:whois:recns', {
+                    'subof': 'comp',
+                    'fields': 'ns,inet:fqdn|rec,inet:whois:rec',
+                    'doc': 'A nameserver associated with a domain whois record.'}),
+
+                ('inet:whois:contact', {
+                    'subof': 'comp',
+                    'fields': 'rec,inet:whois:rec|type,str:lwr',
+                    'doc': 'An individual contact from a domain whois record.'}),
+
+                ('inet:whois:regmail', {
+                    'subof': 'comp',
+                    'fields': 'fqdn,inet:fqdn|email,inet:email',
+                    'doc': 'An association between a domain and a registrant email address.'}),
             ),
 
             'forms': (
 
                 ('inet:ipv4', {'ptype': 'inet:ipv4'}, [
-                    ('cc', {'ptype': 'pol:iso2', 'defval': '??'}),
-                    ('type', {'ptype': 'str', 'defval': '??',
-                              'doc': 'what type of ipv4 address ( uni, multi, priv )'}),
-                    ('asn', {'ptype': 'inet:asn', 'defval': -1}),
+                    ('cc', {'ptype': 'pol:iso2', 'doc': 'The country where the IPv4 address is currently located.',
+                        'defval': '??'}),
+                    ('type', {'ptype': 'str', 'doc': 'The type of IP address (e.g., private, multicast, etc.).',
+                        'defval': '??'}),
+                    ('asn', {'ptype': 'inet:asn', 'doc': 'The ASN to which the IPv4 address is currently assigned.',
+                        'defval': -1}),
                 ]),
 
                 ('inet:cidr4', {'ptype': 'inet:cidr4'}, [
-                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The CIDR Network Address', 'ro': 1}),
-                    ('mask', {'ptype': 'int', 'doc': 'The CIDR mask', 'ro': 1})
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The IP address from the CIDR notation.', 'ro': 1}),
+                    ('mask', {'ptype': 'int', 'doc': 'The mask from the CIDR notation.', 'ro': 1})
                 ]),
 
                 ('inet:ipv6', {'ptype': 'inet:ipv6'}, [
-                    ('cc', {'ptype': 'pol:iso2', 'defval': '??'}),
-                    ('asn', {'ptype': 'inet:asn', 'defval': -1}),
+                    ('cc', {'ptype': 'pol:iso2', 'doc': 'The country where the IPv6 address is currently located.',
+                        'defval': '??'}),
+                    ('asn', {'ptype': 'inet:asn', 'doc': 'The ASN to which the IPv6 address is currently assigned.',
+                        'defval': -1}),
                 ]),
 
                 ('inet:url', {'ptype': 'inet:url'}, [
-                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
-                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
-                    ('port', {'ptype': 'inet:port', 'ro': 1}),
-                    ('user', {'ptype': 'inet:user', 'ro': 1}),
-                    ('passwd', {'ptype': 'inet:passwd', 'ro': 1}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The IPv6 address used in the URL.', 'ro': 1}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).',
+                         'ro': 1}),
+                    ('fqdn', {'ptype': 'inet:fqdn', 'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).',
+                         'ro': 1}),
+                    ('port', {'ptype': 'inet:port', 'doc': 'The port of the URL. URLs prefixed with http will be set to port '
+                         '80 and URLs prefixed with https will be set to port 443 unless otherwise specified.', 'ro': 1}),
+                    ('user', {'ptype': 'inet:user', 'doc': 'The optional username used to access the URL.', 'ro': 1}),
+                    ('passwd', {'ptype': 'inet:passwd', 'doc': 'The optional password used to access the URL.', 'ro': 1}),
                 ]),
+
 
                 ('inet:urlfile', {'ptype': 'inet:urlfile'}, [
-                    ('url', {'ptype': 'inet:url', 'ro': 1}),
-                    ('file', {'ptype': 'file:bytes', 'ro': 1}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
+                    ('url', {'ptype': 'inet:url', 'doc': 'The URL where the file was hosted.', 'ro': 1, 'req': 1}),
+                    ('file', {'ptype': 'file:bytes', 'doc': 'The file that was hosted at the URL.', 'ro': 1, 'req': 1}),
+                    ('seen:min', {'ptype': 'time:min', 'doc': 'The earliest known time the file was hosted at the URL.'}),
+                    ('seen:max', {'ptype': 'time:max', 'doc': 'The most recent known time the file was hosted at the URL.'}),
                 ]),
 
-                ('inet:asn', {'ptype': 'inet:asn', 'doc': 'An Autonomous System'}, (
-                    ('name', {'ptype': 'str:lwr', 'defval': '??'}),
-                    ('owner', {'ptype': 'ou:org', 'doc': 'Organization which controls an ASN'}),
+                ('inet:asn', {'ptype': 'inet:asn'}, (
+                    ('name', {'ptype': 'str:lwr', 'doc': 'The name of the organization currently responsible for the ASN.',
+                        'defval': '??'}),
+                    ('owner', {'ptype': 'ou:org', 'doc': 'The guid of the organization currently responsible for the ASN.'}),
                 )),
 
-                ('inet:asnet4',
-                 {'ptype': 'inet:asnet4', 'doc': 'A netblock IPv4 range assigned to an Autonomous System'}, [
-                     ('asn', {'ptype': 'inet:asn'}),
-                     ('net4', {'ptype': 'inet:net4'}),
-                     ('net4:min', {'ptype': 'inet:ipv4'}),
-                     ('net4:max', {'ptype': 'inet:ipv4'}),
+                ('inet:asnet4', {'ptype': 'inet:asnet4'}, [
+                     ('asn', {'ptype': 'inet:asn', 'doc': 'The Autonomous System Number (ASN) of the netblock.', 'ro': 1}),
+                     ('net4', {'ptype': 'inet:net4', 'doc': 'The IPv4 address range assigned to the ASN.', 'ro': 1}),
+                     ('net4:min', {'ptype': 'inet:ipv4', 'doc': 'The first IPv4 in the range assigned to the ASN.', 'ro': 1}),
+                     ('net4:max', {'ptype': 'inet:ipv4', 'doc': 'The last IPv4 in the range assigned to teh ASN.', 'ro': 1}),
                  ]),
 
                 ('inet:user', {'ptype': 'inet:user'}, []),
 
                 ('inet:passwd', {'ptype': 'inet:passwd'}, [
-                    ('md5', {'ptype': 'hash:md5', 'doc': 'Pre-computed MD5 hash of the passwd'}),
-                    ('sha1', {'ptype': 'hash:sha1', 'doc': 'Pre-computed SHA1 hash of the passwd'}),
-                    ('sha256', {'ptype': 'hash:sha256', 'doc': 'Pre-computed SHA256 hash of the passwd'}),
+                    ('md5', {'ptype': 'hash:md5', 'doc': 'The computed MD5 hash of the password.', 'ro': 1}),
+                    ('sha1', {'ptype': 'hash:sha1', 'doc': 'The computed SHA1 hash of the password.', 'ro': 1}),
+                    ('sha256', {'ptype': 'hash:sha256', 'doc': 'The computed SHA256 hash of the password.', 'ro': 1}),
                 ]),
 
                 ('inet:mac', {'ptype': 'inet:mac'}, [
-                    ('vendor',
-                     {'ptype': 'str', 'defval': '??', 'doc': 'The vendor name registered for the 24 bit prefix'}),
+                    ('vendor', {'ptype': 'str', 'doc': 'The vendor associated with the 24-bit prefix of a MAC address.',
+                        'defval': '??'}),
                 ]),
 
                 ('inet:fqdn', {'ptype': 'inet:fqdn'}, [
-                    ('sfx', {'ptype': 'bool', 'defval': 0, 'doc': 'Set to 1 if this FQDN is considered a "suffix"'}),
-                    ('zone',
-                     {'ptype': 'bool', 'defval': 0, 'doc': 'Set to 1 if this FQDN is a logical zone (under a suffix)'}),
-                    ('domain', {'ptype': 'inet:fqdn', 'doc': 'The parent FQDN of the FQDN'}),
-                    ('host', {'ptype': 'str', 'doc': 'The hostname of the FQDN'}),
-
-                    ('created', {'ptype': 'time:min'}),
-                    ('updated', {'ptype': 'time:max'}),
-                    ('expires', {'ptype': 'time:max'}),
-
+                    ('sfx', {'ptype': 'bool', 'doc': 'Set to 1 if the fqdn is considered a "suffix".', 'defval': 0}),
+                    ('zone', {'ptype': 'bool', 'doc': 'Set to 1 if the fqdn is a logical zone (under a suffix).',
+                        'defval': 0}),
+                    ('domain', {'ptype': 'inet:fqdn', 'doc': 'The parent fqdn of the fqdn.', 'ro': 1}),
+                    ('host', {'ptype': 'str', 'doc': 'The host portion of the fqdn.', 'ro': 1}),
+                    ('created', {'ptype': 'time:min', 'doc': 'The earliest known registration (creation) date for '
+                        'the fqdn.'}),
+                    ('updated', {'ptype': 'time:max', 'doc': 'The last known updated date for the fqdn.'}),
+                    ('expires', {'ptype': 'time:max', 'doc': 'The current expiration date for the fqdn.'}),
                 ]),
 
                 ('inet:email', {'ptype': 'inet:email'}, [
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
-                    ('user', {'ptype': 'inet:user', 'ro': 1}),
+                    ('fqdn', {'ptype': 'inet:fqdn', 'doc': 'The domain of the email address.', 'ro': 1}),
+                    ('user', {'ptype': 'inet:user', 'doc': 'The username of the email address.', 'ro': 1}),
                 ]),
 
                 ('inet:tcp4', {'ptype': 'inet:srv4'}, [
-                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
-                    ('port', {'ptype': 'inet:port', 'ro': 1}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The IPv4 address of the TCP server.', 'ro': 1}),
+                    ('port', {'ptype': 'inet:port', 'doc': 'The port of the IPv4 TCP server.', 'ro': 1}),
                 ]),
 
                 ('inet:udp4', {'ptype': 'inet:srv4'}, [
-                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
-                    ('port', {'ptype': 'inet:port', 'ro': 1}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The IPv4 address of the UDP server.', 'ro': 1}),
+                    ('port', {'ptype': 'inet:port', 'doc': 'The port of the IPv4 UDP server.', 'ro': 1}),
                 ]),
 
                 ('inet:tcp6', {'ptype': 'inet:srv6'}, [
-                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
-                    ('port', {'ptype': 'inet:port', 'ro': 1}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The IPv6 address of the TCP server.', 'ro': 1}),
+                    ('port', {'ptype': 'inet:port', 'doc': 'The port of the IPv6 TCP server.', 'ro': 1}),
                 ]),
 
                 ('inet:udp6', {'ptype': 'inet:srv6'}, [
-                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
-                    ('port', {'ptype': 'inet:port', 'ro': 1}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The IPv6 address of the UDP server.', 'ro': 1}),
+                    ('port', {'ptype': 'inet:port', 'doc': 'The port of the IPv6 UDP server.', 'ro': 1}),
                 ]),
 
                 ('inet:flow', {}, (
+                    ('time', {'ptype': 'time', 'doc': 'The time the network connection was initiated.'}),
+                    ('duration', {'ptype': 'int', 'doc': 'The duration of the flow in seconds.'}),
 
-                    ('time', {'ptype': 'time', 'doc': 'The time the connection was initiated'}),
-                    ('duration', {'ptype': 'int', 'doc': 'The duration of the flow in seconds'}),
+                    ('dst:host', {'ptype': 'it:host', 'doc': 'The guid of the destination host.'}),
+                    ('dst:proc', {'ptype': 'it:exec:proc', 'doc': 'The guid of the destination process.'}),
+                    ('dst:exe', {'ptype': 'file:bytes', 'doc': 'The file (executable) that received the connection.'}),
+                    ('dst:txbytes', {'ptype': 'int', 'doc': 'The number of bytes sent by the destination host / '
+                        'process / file.'}),
 
-                    ('dst:host', {'ptype': 'it:host', 'doc': 'The destination host guid'}),
-                    ('dst:proc', {'ptype': 'it:exec:proc', 'doc': 'The destination proc guid'}),
-                    ('dst:exe', {'ptype': 'file:bytes', 'doc': 'The executable that received the connection'}),
-                    ('dst:txbytes', {'ptype': 'int', 'doc': 'The number of bytes sent by the destination'}),
+                    ('dst:tcp4', {'ptype': 'inet:tcp4', 'doc': 'The destination IPv4 address / port for an IPv4 '
+                        'TCP connection.'}),
+                    ('dst:tcp4:ipv4', {'ptype': 'inet:ipv4', 'doc': 'The destination IPv4 address.', 'ro': 1}),
+                    ('dst:tcp4:port', {'ptype': 'inet:port', 'doc': 'The destination IPv4 port.', 'ro': 1}),
 
-                    ('dst:tcp4', {'ptype': 'inet:tcp4'}),
-                    ('dst:tcp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
-                    ('dst:tcp4:port', {'ptype': 'inet:port', 'ro': 1}),
+                    ('dst:udp4', {'ptype': 'inet:udp4', 'doc': 'The destination IPv4 address / port for an IPv4 '
+                        'UDP connection.'}),
+                    ('dst:udp4:ipv4', {'ptype': 'inet:ipv4', 'doc': 'The destination IPv4 address.', 'ro': 1}),
+                    ('dst:udp4:port', {'ptype': 'inet:port', 'doc': 'The destination IPv4 port.', 'ro': 1}),
 
-                    ('dst:udp4', {'ptype': 'inet:udp4'}),
-                    ('dst:udp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
-                    ('dst:udp4:port', {'ptype': 'inet:port', 'ro': 1}),
+                    ('dst:tcp6', {'ptype': 'inet:tcp6', 'doc': 'The destination IPv6 address / port for an IPv6 '
+                        'TCP connection.'}),
+                    ('dst:tcp6:ipv6', {'ptype': 'inet:ipv6', 'doc': 'The destination IPv6 address.', 'ro': 1}),
+                    ('dst:tcp6:port', {'ptype': 'inet:port', 'doc': 'The destination IPv6 port.', 'ro': 1}),
 
-                    ('dst:tcp6', {'ptype': 'inet:tcp6'}),
-                    ('dst:tcp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
-                    ('dst:tcp6:port', {'ptype': 'inet:port', 'ro': 1}),
+                    ('dst:udp6', {'ptype': 'inet:udp6', 'doc': 'The destination IPv6 address / port for an IPv6 '
+                        'UDP connection.'}),
+                    ('dst:udp6:ipv6', {'ptype': 'inet:ipv6', 'doc': 'The destination IPv6 address.', 'ro': 1}),
+                    ('dst:udp6:port', {'ptype': 'inet:port', 'doc': 'The destination IPv6 port.', 'ro': 1}),
 
-                    ('dst:udp6', {'ptype': 'inet:udp6'}),
-                    ('dst:udp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
-                    ('dst:udp6:port', {'ptype': 'inet:port', 'ro': 1}),
+                    ('src:host', {'ptype': 'it:host', 'doc': 'The guid of the source host.'}),
+                    ('src:proc', {'ptype': 'it:exec:proc', 'doc': 'The guid of the source process.'}),
+                    ('src:exe', {'ptype': 'file:bytes', 'doc': 'The file (executable) that created the connection.'}),
+                    ('src:txbytes', {'ptype': 'int', 'doc': 'The number of bytes sent by the source host / process '
+                        '/ file.'}),
 
-                    ('src:host', {'ptype': 'it:host', 'doc': 'The source host guid'}),
-                    ('src:proc', {'ptype': 'it:exec:proc', 'doc': 'The source proc guid'}),
-                    ('src:exe', {'ptype': 'file:bytes', 'doc': 'The executable that created the connection'}),
-                    ('src:txbytes', {'ptype': 'int', 'doc': 'The number of bytes sent by the source'}),
+                    ('src:tcp4', {'ptype': 'inet:tcp4', 'doc': 'The source IPv4 address / port for an IPv4 TCP connection.'}),
+                    ('src:tcp4:ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address.', 'ro': 1}),
+                    ('src:tcp4:port', {'ptype': 'inet:port', 'doc': 'The source IPv4 port.', 'ro': 1}),
 
-                    ('src:tcp4', {'ptype': 'inet:tcp4'}),
-                    ('src:tcp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
-                    ('src:tcp4:port', {'ptype': 'inet:port', 'ro': 1}),
+                    ('src:udp4', {'ptype': 'inet:udp4', 'doc': 'The source IPv4 address / port for an IPv4 UDP connection.'}),
+                    ('src:udp4:ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address.', 'ro': 1}),
+                    ('src:udp4:port', {'ptype': 'inet:port', 'doc': 'The source IPv4 port.', 'ro': 1}),
 
-                    ('src:udp4', {'ptype': 'inet:udp4'}),
-                    ('src:udp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
-                    ('src:udp4:port', {'ptype': 'inet:port', 'ro': 1}),
+                    ('src:tcp6', {'ptype': 'inet:tcp6', 'doc': 'The source IPv6 address / port for an IPv6 TCP connection.'}),
+                    ('src:tcp6:ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address.', 'ro': 1}),
+                    ('src:tcp6:port', {'ptype': 'inet:port', 'doc': 'The source IPv6 port.', 'ro': 1}),
 
-                    ('src:tcp6', {'ptype': 'inet:tcp6'}),
-                    ('src:tcp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
-                    ('src:tcp6:port', {'ptype': 'inet:port', 'ro': 1}),
+                    ('src:udp6', {'ptype': 'inet:udp6', 'doc': 'The source IPv6 address / port for an IPv6 UDP connection.'}),
+                    ('src:udp6:ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address.', 'ro': 1}),
+                    ('src:udp6:port', {'ptype': 'inet:port', 'doc': 'The source IPv6 port.', 'ro': 1}),
 
-                    ('src:udp6', {'ptype': 'inet:udp6'}),
-                    ('src:udp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1}),
-                    ('src:udp6:port', {'ptype': 'inet:port', 'ro': 1}),
-
-                    ('from', {'ptype': 'guid', 'doc': 'The ingest source file/iden.  Used for reparsing'}),
-
+                    ('from', {'ptype': 'guid', 'doc': 'The ingest source file/iden. Used for reparsing.'}),
                 )),
 
                 ('inet:iface', {}, (
-                    ('host', {'ptype': 'it:host', 'doc': 'The host guid the interface is connected to'}),
-
-                    ('mac', {'ptype': 'inet:mac', 'doc': 'The ethernet address of the interface'}),
-                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The IPv4 address of the interface'}),
-                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The IPv6 address of the interface'}),
-                    ('phone', {'ptype': 'tel:phone', 'doc': 'The telephone number of the interface'}),
-                    ('wifi:ssid', {'ptype': 'inet:wifi:ssid', 'doc': 'The wifi SSID of the interface'}),
-                    ('wifi:bssid', {'ptype': 'inet:mac', 'doc': 'The wifi BSSID of the interface'}),
-                    ('mob:imei', {'ptype': 'tel:mob:imei', 'doc': 'The IMEI of the interface'}),
-                    ('mob:imsi', {'ptype': 'tel:mob:imsi', 'doc': 'The IMSI of the interface'}),
+                    ('host', {'ptype': 'it:host', 'doc': 'The guid of the host the interface is associated with.'}),
+                    ('mac', {'ptype': 'inet:mac', 'doc': 'The ethernet (MAC) address of the interface.'}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The IPv4 address of the interface.'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The IPv6 address of the interface.'}),
+                    ('phone', {'ptype': 'tel:phone', 'doc': 'The telephone number of the interface.'}),
+                    ('wifi:ssid', {'ptype': 'inet:wifi:ssid', 'doc': 'The wifi SSID of the interface.'}),
+                    ('wifi:bssid', {'ptype': 'inet:mac', 'doc': 'The wifi BSSID of the interface.'}),
+                    ('mob:imei', {'ptype': 'tel:mob:imei', 'doc': 'The IMEI of the interface.'}),
+                    ('mob:imsi', {'ptype': 'tel:mob:imsi', 'doc': 'The IMSI of the interface.'}),
                 )),
 
                 ('inet:wifi:ssid', {}, []),
 
                 ('inet:web:acct', {'ptype': 'inet:web:acct'}, [
-                    ('site', {'ptype': 'inet:fqdn', 'ro': 1}),
-                    ('user', {'ptype': 'inet:user', 'ro': 1}),
-
-                    ('dob', {'ptype': 'time'}),
-
+                    ('site', {'ptype': 'inet:fqdn', 'doc': 'The site or service associated with the account.', 'ro': 1}),
+                    ('user', {'ptype': 'inet:user', 'doc': 'The unique identifier for the account (may be different '
+                        'from the common name or display name).', 'ro': 1}),
+                    ('url', {'ptype': 'inet:url', 'doc': 'The service provider URL where the account is hosted.'}),
+                    ('name', {'ptype': 'inet:user', 'doc': 'The name associated with the account (may be different from '
+                        'the account identifier, e.g., a display name).'}),
+                    ('avatar', {'ptype': 'file:bytes', 'doc': 'The file representing the avatar (e.g., profile '
+                        'picture) for the account.'}),
+                    ('tagline', {'ptype': 'str:txt', 'doc': 'The text of the account status or tag line.'}),
+                    ('webpage', {'ptype': 'inet:url', 'doc': 'A related URL specified by the account (e.g., a '
+                        'personal or company web page, blog, etc.).'}),
+                    ('loc', {'ptype': 'str:lwr', 'doc': 'A self-declared location for the account.'}),
+                    ('occupation', {'ptype': 'str:lwr', 'doc': 'A self-declared occupation for the account.'}),
+                    ('dob', {'ptype': 'time', 'doc': 'A self-declared date of birth for the account (if the '
+                         'account belongs to a person).'}),
+                    # ('gender',{'ptype':'inet:fqdn','ro':1}),
                     # ('bio:bt',{'ptype':'wtf','doc':'The web account's self documented blood type'}),
 
-                    ('url', {'ptype': 'inet:url'}),
-                    ('webpage', {'ptype': 'inet:url'}),
-                    ('avatar', {'ptype': 'file:bytes'}),
-
-                    ('tagline', {'ptype': 'str:txt', 'doc': 'A web account status/tag line text'}),
-                    ('loc', {'ptype': 'str:lwr', 'doc': 'The web account self declared location'}),
-                    ('occupation', {'ptype': 'str:lwr', 'doc': 'A web account self declared occupation'}),
-                    # ('gender',{'ptype':'inet:fqdn','ro':1}),
-
-                    ('name', {'ptype': 'inet:user'}),
-                    ('realname', {'ptype': 'ps:name'}),
-                    ('email', {'ptype': 'inet:email'}),
-                    ('phone', {'ptype': 'tel:phone'}),
-                    ('signup', {'ptype': 'time', 'doc': 'The time the web account was registered'}),
-                    ('signup:ipv4', {'ptype': 'inet:ipv4',
-                                     'doc': 'The original ipv4 address used to sign up for the account'}),
-                    ('passwd', {'ptype': 'inet:passwd', 'doc': 'The current passwd for the web account'}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
+                    ('realname', {'ptype': 'ps:name', 'doc': 'The real name of the account owner / registrant.'}),
+                    ('email', {'ptype': 'inet:email', 'doc': 'The email address associated with the account.'}),
+                    ('phone', {'ptype': 'tel:phone', 'doc': 'The phone number associated with the account.'}),
+                    ('signup', {'ptype': 'time', 'doc': 'The date and time the account was registered.'}),
+                    ('signup:ipv4', {'ptype': 'inet:ipv4', 'doc': 'The IPv4 address used to sign up for the account.'}),
+                    ('seen:min', {'ptype': 'time:min', 'doc': 'The earliest known date of activity for the account.'}),
+                    ('seen:max', {'ptype': 'time:max', 'doc': 'The most recent known date of activity for the account.'}),
+                    ('passwd', {'ptype': 'inet:passwd', 'doc': 'The current password for the account.'})
                 ]),
 
                 ('inet:web:chprofile', {}, [
-                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'Account associated with the change', 'ro': 1,
-                              'req': 1}),
-                    ('acct:site', {'ptype': 'inet:fqdn', 'doc': 'Site the user account is at', 'ro': 1, }),
-                    ('acct:user', {'ptype': 'inet:user', 'doc': 'User account name', 'ro': 1, }),
-                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'Source IPv4 address used to make the account change.', }),
-                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'Source IPv6  address used to make the account change.', }),
-                    ('time', {'ptype': 'time', 'doc': 'When the account change was done', }),
-                    ('pv', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
-                            'doc': 'The prop=valu of the account property that was changed. Valu should be the '
-                                   'old / original value, while the new value should be updated on the '
-                                   'inet:web:acct form.'}),
-                    ('pv:prop', {'ptype': 'str', 'doc': 'Property which changed', 'ro': 1}),
-                    ('pv:strval', {'ptype': 'str', 'ro': 1,
-                                   'doc': 'The normed value of the property (specified by pv), if the property is '
-                                          'a string', }),
-                    ('pv:intval', {'ptype': 'int', 'ro': 1,
-                                   'doc': 'The normed value of the property (specified by pv), if the property is '
-                                          'a integer.', }),
+                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The web account associated with the change.',
+                        'ro': 1, 'req': 1}),
+                    ('acct:site', {'ptype': 'inet:fqdn', 'doc': 'The site or service associated with the account.', 'ro': 1}),
+                    ('acct:user', {'ptype': 'inet:user', 'doc': 'The unique identifier for the account.', 'ro': 1}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address used to make the account change.'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address used to make the account change.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The date and time when the account change occurred.'}),
+                    ('pv', {'ptype': 'propvalu', 'doc': 'The prop=valu of the account property that was changed. Valu '
+                        'should be the old / original value, while the new value should be updated on the '
+                        'inet:web:acct form.', 'ro': 1, 'req': 1}),
+                    ('pv:prop', {'ptype': 'str', 'doc': 'The property that was changed.', 'ro': 1}),
+                    ('pv:intval', {'ptype': 'int', 'doc': 'The normed value of the property (specified by pv), if '
+                        'the property is an integer.', 'ro': 1}),
+                    ('pv:strval', {'ptype': 'str', 'doc': 'The normed value of the property (specified by pv), if '
+                        'the property is a string.', 'ro': 1}),
                 ]),
 
                 ('inet:web:logon', {'ptype': 'inet:web:logon'}, [
-                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The account associated with the logon event.', }),
-                    ('acct:site', {'ptype': 'inet:fqdn', }),
-                    ('acct:user', {'ptype': 'inet:user', }),
-                    ('time', {'ptype': 'time', 'doc': 'The time the account logged into the service', }),
+                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The web account associated with the logon event.',
+                        'ro': 1, 'req': 1}),
+                    ('acct:site', {'ptype': 'inet:fqdn', 'doc': 'The site or service associated with the account.',
+                        'ro': 1}),
+                    ('acct:user', {'ptype': 'inet:user', 'doc': 'The unique identifier for the account.', 'ro': 1}),
+                    ('time', {'ptype': 'time', 'doc': 'The date and time the account logged into the service.'}),
                     ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the logon.'}),
                     ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the logon.'}),
-                    ('logout', {'ptype': 'time', 'doc': 'The time the account logged out of the service.'})
+                    ('logout', {'ptype': 'time', 'doc': 'The date and time the account logged out of the service.'})
                 ]),
 
                 ('inet:web:action', {'ptype': 'inet:web:action'}, [
-                    ('act', {'ptype': 'str:lwr', 'req': 1, 'doc': 'The action performed'}),
-                    ('acct', {'ptype': 'inet:web:acct', 'req': 1, 'ro': 1, 'doc': 'The web account associated with the action'}),
-                    ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1}),
-                    ('acct:user', {'ptype': 'inet:user', 'ro': 1}),
-                    ('info', {'ptype': 'json', 'doc': 'Other information about the action'}),
-                    ('time', {'ptype': 'time', 'doc': 'The time the account performed the action'}),
-                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the action'}),
-                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the action'}),
+                    ('act', {'ptype': 'str:lwr', 'doc': 'The action performed by the account.', 'req': 1}),
+                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The web account associated with the action.',
+                        'ro': 1, 'req': 1}),
+                    ('acct:site', {'ptype': 'inet:fqdn', 'doc': 'The site or service associated with the account.',
+                        'ro': 1}),
+                    ('acct:user', {'ptype': 'inet:user', 'doc': 'The unique identifier for the account.', 'ro': 1}),
+                    ('info', {'ptype': 'json', 'doc': 'Any other data associated with the action.'}),
+                    ('time', {'ptype': 'time', 'doc': 'The date and time the account performed the action.'}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the action.'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the action.'}),
                 ]),
+
                 ('inet:web:actref', {}, [
-                    ('act', {'ptype': 'inet:web:action', 'ro': 1}),
-                    ('xref', {'ptype': 'propvalu', 'ro': 1}),
-                    ('xref:prop', {'ptype': 'str', 'ro': 1}),
-                    ('xref:intval', {'ptype': 'int', 'ro': 1}),
-                    ('xref:strval', {'ptype': 'str', 'ro': 1}),
+                    ('act', {'ptype': 'inet:web:action', 'doc': 'The action that references the given node.',
+                        'ro': 1, 'req': 1}),
+                    ('xref', {'ptype': 'propvalu', 'doc': 'The prop=valu that is referenced as part of the action.',
+                        'ro': 1, 'req': 1}),
+                    ('xref:prop', {'ptype': 'str', 'doc': 'The property (form) of the referenced object, as '
+                        'specified by the propvalu.', 'ro': 1}),
+                    ('xref:intval', {'ptype': 'int', 'doc': 'The normed value of the form that was referenced, '
+                        'if the value is an integer.', 'ro': 1}),
+                    ('xref:strval', {'ptype': 'str', 'doc': 'The normed value of the form that was referenced, '
+                        'if the value is a string.', 'ro': 1}),
                 ]),
 
                 ('inet:web:group', {}, [
-                    ('site', {'ptype': 'inet:fqdn', 'ro': 1}),
+                    ('site', {'ptype': 'inet:fqdn', 'doc': 'The site or service associated with the group.', 'ro': 1}),
                     ('name', {'ptype': 'ou:name', 'ro': 1}),
-
-                    ('desc', {'ptype': 'str:txt'}),
-
-                    ('url', {'ptype': 'inet:url'}),
-                    ('webpage', {'ptype': 'inet:url'}),
-                    ('avatar', {'ptype': 'file:bytes'}),
+                    ('url', {'ptype': 'inet:url', 'doc': 'The service provider URL where the group is hosted.'}),
+                    ('avatar', {'ptype': 'file:bytes', 'doc': 'The file representing the avatar (e.g., '
+                        'profile picture) for the group.'}),
+                    ('desc', {'ptype': 'str:txt', 'doc': 'The text of the description of the group.'}),
+                    ('webpage', {'ptype': 'inet:url', 'doc': 'A related URL specified by the group (e.g., primary '
+                        'web site, etc.).'}),
                 ]),
 
                 ('inet:web:post', {}, [
-
-                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1, 'doc': 'Account which made the post'}),
-                    ('text', {'ptype': 'str:txt', 'ro': 1, 'doc': 'The text of the actual post'}),
-
-                    ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1}),
-                    ('acct:user', {'ptype': 'inet:user', 'ro': 1}),
-
-                    ('time', {'ptype': 'time', 'doc': 'The time that the post was made'}),
-
-                    ('replyto', {'ptype': 'inet:web:post', 'doc': 'The post which this post is in reply to.'}),
-                    ('repost', {'ptype': 'inet:web:post', 'doc': 'The post which this is a repost of.'}),
-
-                    ('url', {'ptype': 'inet:url', 'doc': 'The (optional) URL where the post is published/visible'}),
-                    ('file', {'ptype': 'file:bytes', 'doc': 'The (optional) file which was posted'}),
+                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The web account that made the post.', 'ro': 1,
+                        'req': 1}),
+                    ('text', {'ptype': 'str:txt', 'doc': 'The text of the post.', 'ro': 1}),
+                    ('acct:site', {'ptype': 'inet:fqdn', 'doc': 'The site or service associated with the account.',
+                        'ro': 1}),
+                    ('acct:user', {'ptype': 'inet:user', 'doc': 'The unique identifier for the account.', 'ro': 1}),
+                    ('time', {'ptype': 'time', 'doc': 'The date and time that the post was made.'}),
+                    ('url', {'ptype': 'inet:url', 'doc': 'The URL where the post is published / visible.'}),
+                    ('file', {'ptype': 'file:bytes', 'doc': 'The file that was attached to the post.'}),
+                    ('replyto', {'ptype': 'inet:web:post', 'doc': 'The post that this post is in reply to.'}),
+                    ('repost', {'ptype': 'inet:web:post', 'doc': 'The original post that this is a repost of.'}),
                 ]),
+
                 ('inet:web:postref', {}, [
-                    ('post', {'ptype': 'inet:web:post', 'ro': 1}),
-                    ('xref', {'ptype': 'propvalu', 'ro': 1}),
-                    ('xref:prop', {'ptype': 'str', 'ro': 1}),
-                    ('xref:intval', {'ptype': 'int', 'ro': 1}),
-                    ('xref:strval', {'ptype': 'str', 'ro': 1}),
+                    ('post', {'ptype': 'inet:web:post', 'doc': 'The web post that references the given node.',
+                        'ro': 1, 'req': 1}),
+                    ('xref', {'ptype': 'propvalu', 'doc': 'The prop=valu that is referenced by the post.', 'ro': 1,
+                        'req': 1}),
+                    ('xref:prop', {'ptype': 'str', 'doc': 'The property (form) of the referenced object, as '
+                        'specified by the propvalu.', 'ro': 1}),
+                    ('xref:intval', {'ptype': 'int', 'doc': 'The normed value of the form that was referenced, '
+                        'if the value is an integer.', 'ro': 1}),
+                    ('xref:strval', {'ptype': 'str', 'doc': 'The normed value of the form that was referenced, '
+                        'if the value is a string.', 'ro': 1}),
                 ]),
 
                 ('inet:web:mesg', {}, [
-                    ('from', {'ptype': 'inet:web:acct', 'ro': 1}),
-                    ('to', {'ptype': 'inet:web:acct', 'ro': 1}),
-                    ('time', {'ptype': 'time', 'ro': 1, 'doc': 'The time at which the message was sent'}),
-                    ('url', {'ptype': 'inet:url', 'doc': 'Optional URL of netmesg'}),
-                    ('text', {'ptype': 'str:txt', 'doc': 'Optional text body of message'}),
-                    ('file', {'ptype': 'file:bytes', 'doc': 'Optional file attachment'}),
+                    ('from', {'ptype': 'inet:web:acct', 'doc': 'The web account that sent the message.',
+                        'ro': 1, 'req': 1}),
+                    ('to', {'ptype': 'inet:web:acct', 'doc': 'The web account that received the message.',
+                        'ro': 1, 'req': 1}),
+                    ('time', {'ptype': 'time', 'doc': 'The date and time at which the message was sent.',
+                        'ro': 1, 'req': 1}),
+                    ('url', {'ptype': 'inet:url', 'doc': 'The URL where the message is posted / visible.'}),
+                    ('text', {'ptype': 'str:txt', 'doc': 'The text of the message.'}),
+                    ('file', {'ptype': 'file:bytes', 'doc': 'The file attached to or sent with the message.'}),
                 ]),
 
                 ('inet:web:follows', {}, [
-
-                    ('follower', {'ptype': 'inet:web:acct', 'ro': 1}),
-                    ('followee', {'ptype': 'inet:web:acct', 'ro': 1}),
-
-                    ('seen:min', {'ptype': 'time:min', 'doc': 'Optional first/earliest following'}),
-                    ('seen:max', {'ptype': 'time:max', 'doc': 'Optional last/end of following'}),
-
+                    ('follower', {'ptype': 'inet:web:acct', 'doc': 'The account following an account.',
+                        'ro': 1, 'req': 1}),
+                    ('followee', {'ptype': 'inet:web:acct', 'doc': 'The account followed by an account.',
+                        'ro': 1, 'req': 1}),
+                    ('seen:min', {'ptype': 'time:min', 'doc': 'The earliest known date when the "follows" '
+                        'relationship existed.'}),
+                    ('seen:max', {'ptype': 'time:max', 'doc': 'The most recent known date when the "follows" '
+                        'relationship existed.'}),
                 ]),
 
                 ('inet:web:memb', {}, [
-
-                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1}),
-                    ('group', {'ptype': 'inet:web:group', 'ro': 1}),
-
-                    ('title', {'ptype': 'str:lwr'}),
-
-                    ('joined', {'ptype': 'time'}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-
+                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The account that is a member of the group.',
+                        'ro': 1, 'req': 1}),
+                    ('group', {'ptype': 'inet:web:group', 'doc': 'The group that the account is a member of.',
+                        'ro': 1, 'req': 1}),
+                    ('title', {'ptype': 'str:lwr', 'doc': 'The title or status of the member (e.g., admin, '
+                        'new member, etc.).'}),
+                    ('joined', {'ptype': 'time', 'doc': 'The date / time the account joined the group.'}),
+                    ('seen:min', {'ptype': 'time:min', 'doc': 'The earliest known date when the account was a '
+                        'member of the group.'}),
+                    ('seen:max', {'ptype': 'time:max', 'doc': 'The most recent known date when the account was '
+                        'a member of the group.'}),
                 ]),
 
                 ('inet:web:file', {}, [
-
-                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1}),
-                    ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1}),
-                    ('acct:user', {'ptype': 'inet:user', 'ro': 1}),
-
-                    ('file', {'ptype': 'file:bytes', 'ro': 1}),
-
-                    ('name', {'ptype': 'file:base', 'doc': 'The basename of the file in the post'}),
-
-                    ('posted', {'ptype': 'time'}),
-
-                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address of the post.'}),
-                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address of the post.'}),
-
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
+                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The account that owns or is associated with the file.',
+                        'ro': 1, 'req': 1}),
+                    ('acct:site', {'ptype': 'inet:fqdn', 'doc': 'The site or service associated with the account.',
+                        'ro': 1}),
+                    ('acct:user', {'ptype': 'inet:user', 'doc': 'The unique identifier for the account.', 'ro': 1}),
+                    ('file', {'ptype': 'file:bytes', 'doc': 'The file owned by or associated with the account.',
+                        'ro': 1, 'req': 1}),
+                    ('name', {'ptype': 'file:base', 'doc': 'The name of the file owned by or associated with the account.'}),
+                    ('posted', {'ptype': 'time', 'doc': 'The date and time the file was posted / submitted.'}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The source IPv4 address used to post or submit the file.'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'doc': 'The source IPv6 address used to post or submit the file.'}),
+                    ('seen:min', {'ptype': 'time:min', 'doc': 'The earliest known date the file was posted / submitted '
+                        '/ associated with the account.'}),
+                    ('seen:max', {'ptype': 'time:max', 'doc': 'The most recent known date when the file was posted '
+                        '/ submitted / associated with the account.'}),
                 ]),
 
                 ('inet:whois:reg', {}, []),
+
                 ('inet:whois:rar', {}, []),
 
                 ('inet:whois:regmail', {'ptype': 'inet:whois:regmail'}, [
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
-                    ('email', {'ptype': 'inet:email', 'ro': 1}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
+                    ('fqdn', {'ptype': 'inet:fqdn', 'doc': 'The domain associated with the registrant email address.',
+                        'ro': 1, 'req': 1}),
+                    ('email', {'ptype': 'inet:email', 'doc': 'The registrant email address associated with the '
+                        'domain.', 'ro': 1, 'req': 1}),
+                    ('seen:min', {'ptype': 'time:min', 'doc': 'The earliest known date the registrant email was '
+                        'associated with the domain.'}),
+                    ('seen:max', {'ptype': 'time:max', 'doc': 'The most recent known date the registrant email was '
+                        'associated with the domain.'}),
                 ]),
 
                 ('inet:whois:rec', {'ptype': 'inet:whois:rec'}, [
-                    ('fqdn', {'ptype': 'inet:fqdn'}),
-                    ('asof', {'ptype': 'time'}),
-                    ('text', {'ptype': 'str:lwr'}),
-                    ('created', {'ptype': 'time', 'doc': 'The "created" time from the whois record'}),
-                    ('updated', {'ptype': 'time', 'doc': 'The "last updated" time from the whois record'}),
-                    ('expires', {'ptype': 'time', 'doc': 'The "expires" time from the whois record'}),
-                    ('registrar', {'ptype': 'inet:whois:rar', 'defval': '??'}),
-                    ('registrant', {'ptype': 'inet:whois:reg', 'defval': '??'}),
+                    ('fqdn', {'ptype': 'inet:fqdn', 'doc': 'The domain associated with the whois record.', 'ro': 1,
+                        'req': 1}),
+                    ('asof', {'ptype': 'time', 'doc': 'The date of the whois record.', 'ro': 1, 'req': 1}),
+                    ('text', {'ptype': 'str:lwr', 'doc': 'The full text of the whois record.'}),
+                    ('created', {'ptype': 'time', 'doc': 'The "created" time from the whois record.'}),
+                    ('updated', {'ptype': 'time', 'doc': 'The "last updated" time from the whois record.'}),
+                    ('expires', {'ptype': 'time', 'doc': 'The "expires" time from the whois record.'}),
+                    ('registrar', {'ptype': 'inet:whois:rar', 'doc': 'The registrar name from the whois record.',
+                        'defval': '??'}),
+                    ('registrant', {'ptype': 'inet:whois:reg', 'doc': 'The registrant name from the whois record.',
+                        'defval': '??'}),
                 ]),
 
                 ('inet:whois:recns', {}, [
-                    ('ns', {'ptype': 'inet:fqdn', 'ro': 1, 'doct': 'Nameserver for a given FQDN'}),
-                    ('rec', {'ptype': 'inet:whois:rec', 'ro': 1}),
-                    ('rec:fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
-                    ('rec:asof', {'ptype': 'time', 'ro': 1}),
+                    ('ns', {'ptype': 'inet:fqdn', 'doc': 'A nameserver for a domain as listed in the domain whois '
+                        'record.', 'ro': 1, 'req': 1}),
+                    ('rec', {'ptype': 'inet:whois:rec', 'doc': 'The whois record containing the nameserver data.',
+                        'ro': 1, 'req': 1}),
+                    ('rec:fqdn', {'ptype': 'inet:fqdn', 'doc': 'The domain associated with the whois record.', 'ro': 1}),
+                    ('rec:asof', {'ptype': 'time', 'doc': 'The date of the whois record.', 'ro': 1}),
                 ]),
 
                 ('inet:whois:contact', {}, [
-
-                    ('rec', {'ptype': 'inet:whois:rec'}),
-                    ('rec:fqdn', {'ptype': 'inet:fqdn'}),
-                    ('rec:asof', {'ptype': 'time'}),
-
-                    ('type', {'ptype': 'str:lwr'}),
-
-                    ('id', {'ptype': 'str:lwr'}),
-                    ('name', {'ptype': 'str:lwr'}),
-                    ('email', {'ptype': 'inet:email'}),
-
-                    ('orgname', {'ptype': 'ou:name'}),
-                    ('address', {'ptype': 'str:lwr'}),  # FIXME street address type
-                    ('city', {'ptype': 'str:lwr'}),
+                    ('rec', {'ptype': 'inet:whois:rec', 'doc': 'The whois record containing the contact data.',
+                        'ro': 1, 'req': 1}),
+                    ('rec:fqdn', {'ptype': 'inet:fqdn', 'doc': 'The domain associated with the whois record.',
+                        'ro': 1}),
+                    ('rec:asof', {'ptype': 'time', 'doc': 'The date of the whois record.', 'ro': 1}),
+                    ('type', {'ptype': 'str:lwr', 'doc': 'The contact type (e.g., registrar, registrant, admin, '
+                        'billing, tech, etc.).'}),
+                    ('id', {'ptype': 'str:lwr', 'doc': 'The ID associated with the contact.'}),
+                    ('name', {'ptype': 'str:lwr', 'doc': 'The name of the contact.'}),
+                    ('email', {'ptype': 'inet:email', 'doc': 'The email address of the contact.'}),
+                    ('orgname', {'ptype': 'ou:name', 'doc': 'The name of the contact organization.'}),
+                    ('address', {'ptype': 'str:lwr', 'doc': 'The content of the street address field(s) of the '
+                        'contract.'}),  # FIXME street address type
+                    ('city', {'ptype': 'str:lwr', 'doc': 'The content of the city field of the contact.'}),
                     # ('zip',{'ptype':'str:lwr'}),
-                    ('state', {'ptype': 'str:lwr'}),
-                    ('country', {'ptype': 'pol:iso2'}),
-
-                    ('phone', {'ptype': 'tel:phone'}),
-                    ('fax', {'ptype': 'tel:phone'}),
+                    ('state', {'ptype': 'str:lwr', 'doc': 'The content of the state field of the contact.'}),
+                    ('country', {'ptype': 'pol:iso2', 'doc': 'The two-letter country code of the contact.'}),
+                    ('phone', {'ptype': 'tel:phone', 'doc': 'The content of the phone field of the contact.'}),
+                    ('fax', {'ptype': 'tel:phone', 'doc': 'The content of the fax field of the contact.'}),
                 ]),
 
                 ('inet:ssl:tcp4cert', {'ptype': 'inet:ssl:tcp4cert'}, [
-                    ('tcp4', {'ptype': 'inet:tcp4'}),
-                    ('cert', {'ptype': 'file:bytes'}),
-                    ('tcp4:ipv4', {'ptype': 'inet:ipv4'}),
+                    ('tcp4', {'ptype': 'inet:tcp4', 'doc': 'The IPv4 TCP server where the certificate was observed.',
+                        'ro': 1, 'req': 1}),
+                    ('cert', {'ptype': 'file:bytes', 'doc': 'The SSL certificate.', 'ro': 1, 'req': 1}),
+                    ('tcp4:ipv4', {'ptype': 'inet:ipv4', 'doc': 'The IPv4 address associated with the TCP server.',
+                        'ro': 1}),
                 ]),
             ),
         }
