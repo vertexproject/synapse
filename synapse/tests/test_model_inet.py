@@ -477,12 +477,12 @@ class InetModelTest(SynTest):
             self.none(node0[1].get('inet:web:post:repost'))
             self.none(node1[1].get('inet:web:post:repost'))
 
-            repiden = node1[0]
+            repost = node1[1].get('inet:web:post')
             node2 = core.formTufoByProp('inet:web:post', ('vertex.link/pennywise', 'whos there'),
-                                        time='201710091541', repost=node1[0])
+                                        time='201710091541', repost=repost)
             self.eq(node2[1].get('inet:web:post:acct'), 'vertex.link/pennywise')
             self.eq(node2[1].get('inet:web:post:text'), 'whos there')
-            self.eq(node2[1].get('inet:web:post:repost'), repiden)
+            self.eq(node2[1].get('inet:web:post:repost'), repost)
             self.none(node2[1].get('inet:web:replyto'))
 
     def test_model_inet_postref(self):
