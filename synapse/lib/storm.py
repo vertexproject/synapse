@@ -1060,6 +1060,24 @@ class Runtime(Configable):
                 if valu is not None:
                     vals.add(valu)
 
+        # do not use fancy by handlers for runt nodes...
+        core = self.getStormCore()
+        if core.isRuntProp(dstp):
+
+            limt = self.getLiftLimitHelp(opts.get('limit'))
+            for valu in vals:
+
+                # the base "eq" handler is aware of runts...
+                news = self.stormTufosBy('eq', dstp, valu, limit=limt.get())
+                limt.dec(len(news))
+
+                [query.add(n) for n in news]
+
+                if limt.reached():
+                    break
+
+            return
+
         [query.add(t)for t in self.stormTufosBy('in', dstp, list(vals), limit=opts.get('limit'))]
 
     def _stormOperNextSeq(self, query, oper):
