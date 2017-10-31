@@ -1253,3 +1253,15 @@ class IngTest(SynTest):
             node = nodes[0]
             self.eq(node[1].get('inet:dns:look:time'), tick)
             self.eq(node[1].get('inet:dns:look:a'), 'vertex.link/1.2.3.4')
+
+    def test_ingest_func(self):
+
+        with self.getRamCore() as core:
+
+            def func(data):
+                [core.formTufoByProp('inet:fqdn', r) for r in data]
+
+            core.setGestFunc('foo:bar', func)
+            core.addGestData('foo:bar', ['woot.com'])
+
+            self.nn(core.getTufoByProp('inet:fqdn', 'woot.com'))
