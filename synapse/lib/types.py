@@ -271,6 +271,11 @@ class IntType(DataType):
         if not isinstance(valu, int):
             self._raiseBadValu(valu, mesg='Valu is not an int')
 
+        if valu < -9223372036854775808:
+            self._raiseBadValu(valu, mesg='Value less than 64bit signed integer minimum (-9223372036854775808)')
+        if valu > 9223372036854775807:
+            self._raiseBadValu(valu, mesg='Value greater than 64bit signed integer maximum (9223372036854775807)')
+
         if oldval is not None and self.minmax:
             valu = self.minmax(valu, oldval)
 
