@@ -573,7 +573,7 @@ class Proxy(s_eventbus.EventBus):
         return meth
 
     # some methods to avoid round trips...
-    def __nonzero__(self):
+    def __bool__(self):
         return True
 
     def __eq__(self, obj):

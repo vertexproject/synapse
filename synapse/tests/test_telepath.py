@@ -61,6 +61,12 @@ class TelePathTest(SynTest):
         self.true(s_telepath.isProxy(foo))
         self.false(s_telepath.isProxy(self))
 
+        # Test magic methods
+        self.true(bool(foo) is True)
+        self.true(foo == foo)
+        self.false(foo == 1)
+        self.true(foo != 1)
+
         s = time.time()
         for i in range(1000):
             foo.speed()
