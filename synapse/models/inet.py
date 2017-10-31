@@ -695,9 +695,9 @@ class InetMod(CoreModule):
     def getBaseModels():
         modl = {
             'types': (
-                ('inet:url', {
-		            'ctor': 'synapse.models.inet.UrlType',
-		            'doc': 'A Universal Resource Locator (URL).',
+		('inet:url', {
+                    'ctor': 'synapse.models.inet.UrlType',
+                    'doc': 'A Universal Resource Locator (URL).',
                     'ex': 'http://www.woot.com/files/index.html'}),
 
                 ('inet:ipv4', {
@@ -712,7 +712,7 @@ class InetMod(CoreModule):
 
                 ('inet:srv4', {
                     'ctor': 'synapse.models.inet.Srv4Type',
-		            'doc': 'An IPv4 address and port.',
+                    'doc': 'An IPv4 address and port.',
                     'ex': '1.2.3.4:80'}),
 
                 ('inet:srv6', {
@@ -744,14 +744,14 @@ class InetMod(CoreModule):
                     'subof': 'comp',
                     'fields': 'url=inet:url, file=file:bytes',
                     'doc': 'A file hosted at a specific Universal Resource Locator (URL).'}),
-                
+
                 ('inet:net4', {
                     'subof': 'sepr',
                     'sep': '-',
                     'fields': 'min,inet:ipv4|max,inet:ipv4',
                     'doc': 'An IPv4 address range.',
                     'ex': '1.2.3.4-1.2.3.20'}),
-                
+
                 ('inet:net6', {
                     'subof': 'sepr',
                     'sep': '-',
@@ -836,7 +836,7 @@ class InetMod(CoreModule):
                     'subof': 'xref',
                     'source': 'act,inet:web:action',
                     'doc': 'A web action that references a given node.'}),
-                
+
                 ('inet:web:chprofile', {
                     'subof': 'guid',
                     'doc': 'A change to a web account. Used to capture historical properties associated with '
@@ -1123,7 +1123,7 @@ class InetMod(CoreModule):
                 ]),
 
                 ('inet:web:chprofile', {}, [
-                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The web account associated with the change.', 
+                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The web account associated with the change.',
                         'ro': 1, 'req': 1}),
                     ('acct:site', {'ptype': 'inet:fqdn', 'doc': 'The site or service associated with the account.', 'ro': 1}),
                     ('acct:user', {'ptype': 'inet:user', 'doc': 'The unique identifier for the account.', 'ro': 1}),
@@ -1141,7 +1141,7 @@ class InetMod(CoreModule):
                 ]),
 
                 ('inet:web:logon', {'ptype': 'inet:web:logon'}, [
-                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The web account associated with the logon event.', 
+                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The web account associated with the logon event.',
                         'ro': 1, 'req': 1}),
                     ('acct:site', {'ptype': 'inet:fqdn', 'doc': 'The site or service associated with the account.',
                         'ro': 1}),
@@ -1154,7 +1154,7 @@ class InetMod(CoreModule):
 
                 ('inet:web:action', {'ptype': 'inet:web:action'}, [
                     ('act', {'ptype': 'str:lwr', 'doc': 'The action performed by the account.', 'req': 1}),
-                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The web account associated with the action.', 
+                    ('acct', {'ptype': 'inet:web:acct', 'doc': 'The web account associated with the action.',
                         'ro': 1, 'req': 1}),
                     ('acct:site', {'ptype': 'inet:fqdn', 'doc': 'The site or service associated with the account.',
                         'ro': 1}),
