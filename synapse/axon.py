@@ -690,7 +690,7 @@ class Axon(s_config.Config, AxonMixin):
                 waiter.wait(60)
 
             except Exception as e:  # pragma: no cover
-                logger.exception('Axon %s encountered a unhandled exception during _findAxonClones', self.iden)
+                logger.exception('Axon %s (_findAxonClones)', self.iden)
 
     def _findAxonClone(self):
 
@@ -730,7 +730,8 @@ class Axon(s_config.Config, AxonMixin):
                 return axfo
 
             except Exception as e:
-                logger.exception('Axon %s encountered a unhandled exception during _findAxonClone', self.iden)
+                logger.exception('Axon %s, svc iden %s, host %s, props %s (_findAxonClone)',
+                                 self.iden, svcfo[0], host, props)
 
     def _initAxonClone(self, iden):
         tufo = self.core.formTufoByProp('axon:clone', iden)
@@ -783,7 +784,7 @@ class Axon(s_config.Config, AxonMixin):
 
                 except Exception as e:  # pragma: no cover
 
-                    logger.exception('Axon %s encountered a unhandled exception during _fireAxonClone', self.iden)
+                    logger.exception('Axon %s, clone iden %s (_fireAxonClone)', self.iden, iden)
 
                     if self.isfini:
                         break
