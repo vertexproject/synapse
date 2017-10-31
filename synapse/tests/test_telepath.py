@@ -61,6 +61,12 @@ class TelePathTest(SynTest):
         self.true(s_telepath.isProxy(foo))
         self.false(s_telepath.isProxy(self))
 
+        # Test magic methods
+        self.true(bool(foo) is True)
+        self.true(foo == foo)
+        self.false(foo == 1)
+        self.true(foo != 1)
+
         s = time.time()
         for i in range(1000):
             foo.speed()
@@ -233,8 +239,17 @@ class TelePathTest(SynTest):
         url = 'tcp://127.0.0.1:%d/foo' % (port,)
         self.eq(prox.bar(10, 20), 30)
 
-        waiter = self.getTestWait(prox, 1, 'tele:sock:init')
+        data = {}
+        def _onHehe(mesg):
+            data['hehe'] = data.get('hehe', 0) + 1
+            data['haha'] = mesg[1].get('haha')
 
+        prox.on('hehe', _onHehe)
+        prox.fire('hehe', haha=1)
+        self.eq(data.get('hehe'), 1)
+        self.eq(data.get('haha'), 1)
+
+        waiter = self.getTestWait(prox, 1, 'tele:sock:init')
         # shut down the daemon
         tenv.dmon.fini()
 
@@ -245,6 +260,10 @@ class TelePathTest(SynTest):
         waiter.wait()
 
         self.eq(prox.bar(10, 20), 30)
+
+        prox.fire('hehe', haha=3)
+        self.eq(data.get('hehe'), 2)
+        self.eq(data.get('haha'), 3)
 
         prox.fini()
         dmon.fini()

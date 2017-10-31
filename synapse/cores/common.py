@@ -293,7 +293,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             prop (str):  The property name
 
         Returns:
-            (boolean):  True if the property is a runtime node form.
+            (bool):  True if the property is a runtime node form.
         '''
         return prop in self.runt_forms
 
@@ -418,6 +418,18 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         path = self.getCorePath('fifos', iden)
         if path is not None and os.path.isdir(path):
             shutil.rmtree(path, ignore_errors=True)
+
+    def isRuntProp(self, prop):
+        '''
+        Return True if the given property name is a runtime node prop.
+
+        Args:
+            prop (str): The property name
+
+        Returns:
+            (bool): True if the property is a runtime node property.
+        '''
+        return (prop, None) in self.runt_props
 
     @staticmethod
     @confdef(name='common_cortex')

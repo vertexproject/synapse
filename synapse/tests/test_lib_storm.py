@@ -952,6 +952,10 @@ class StormTest(SynTest):
             e = 'Executing storm query [#HAHA] as [{}]'.format(s_auth.whoami())
             self.eq(e, mesgs.strip())
 
+    def test_storm_pivot_runt(self):
+        with self.getRamCore() as core:
+            self.true(len(core.eval('syn:prop:ptype=it:host :form->syn:form')) > 1)
+
 class LimitTest(SynTest):
     def test_limit_default(self):
         # LimitHelper would normally be used with the kwlist arg limit,
