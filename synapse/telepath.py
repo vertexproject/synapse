@@ -178,7 +178,7 @@ class Method:
 
         return self.proxy.syncjob(job)
 
-telelocal = set(['tele:sock:init', 'ebus:init', 'core:fifo:xmit'])
+telelocal = set(['tele:sock:init', 'ebus:init', 'fifo:xmit'])
 
 class Proxy(s_eventbus.EventBus):
     '''
@@ -206,6 +206,10 @@ class Proxy(s_eventbus.EventBus):
         self._tele_q = s_queue.Queue()
         self._tele_pushed = {}
 
+        # allow the server to give us events to fire back on
+        # reconnect so we can help re-init our server-side state
+        self._tele_reminders = []
+
         if plex is None:
             plex = s_socket.Plex()
 
@@ -218,7 +222,9 @@ class Proxy(s_eventbus.EventBus):
         self._raw_on('tele:yield:item', self._onTeleYieldItem)
         self._raw_on('tele:yield:fini', self._onTeleYieldFini)
 
-        self._raw_on('core:fifo:xmit', self._onCoreFifoXmit)
+        self._raw_on('tele:reminder', self._onTeleReminder)
+
+        self._raw_on('fifo:xmit', self._onFifoXmit)
         self._raw_on('job:done', self._tele_boss.dist)
         self._raw_on('sock:gzip', self._onSockGzip)
         self._raw_on('tele:call', self._onTeleCall)
@@ -243,15 +249,17 @@ class Proxy(s_eventbus.EventBus):
 
         self._initTeleSock(sock=sock)
 
-    def _onCoreFifoXmit(self, mesg):
+    def _onTeleReminder(self, mesg):
+        self._tele_reminders.append(mesg[1].get('mesg'))
+
+    def _onFifoXmit(self, mesg):
 
         # a bit of magic specific to cortex proxy...
         # ( this will be made cleaner in neuron use case )
 
         name = mesg[1].get('name')
         seqn, nseq, item = mesg[1].get('qent')
-
-        self.call('fire', 'ackCoreFifo', name, seqn)
+        self.call('fire', 'fifo:ack', name, seqn)
 
     def _onTeleYieldInit(self, mesg):
         jid = mesg[1].get('jid')
@@ -323,14 +331,14 @@ class Proxy(s_eventbus.EventBus):
 
         return ret
 
-    def fire(self, name, **info):
-        if name in telelocal:
-            return s_eventbus.EventBus.fire(self, name, **info)
+    def fire(self, evntname, **info):
+        if evntname in telelocal:
+            return s_eventbus.EventBus.fire(self, evntname, **info)
 
-        job = self.call('fire', name, **info)
+        job = self.call('fire', evntname, **info)
         return self.syncjob(job)
 
-    def call(self, name, *args, **kwargs):
+    def call(self, methname, *args, **kwargs):
         '''
         Call a shared method as a job.
 
@@ -345,7 +353,7 @@ class Proxy(s_eventbus.EventBus):
         '''
         ondone = kwargs.pop('ondone', None)
 
-        task = (name, args, kwargs)
+        task = (methname, args, kwargs)
         return self._tx_call(task, ondone=ondone)
 
     def callx(self, name, task, ondone=None):
@@ -437,8 +445,13 @@ class Proxy(s_eventbus.EventBus):
         # add the sock to the multiplexor
         self._tele_plex.addPlexSock(sock)
 
-        # let client code do stuff on reconnect
         self._tele_sock = sock
+
+        # fire the remiders that the server wanted
+        for evntname, evntinfo in self._tele_reminders:
+            self.call('fire', evntname, **evntinfo)
+
+        # let client code do stuff on reconnect
         self.fire('tele:sock:init', sock=sock)
 
     def _onLinkSockMesg(self, event):
@@ -619,6 +632,29 @@ def teleSynAck(sock, name=None, sid=None):
             raise s_common.BadMesgVers(myver=telever, hisver=vers)
 
     return synack
+
+def reminder(evnt, **info):
+    '''
+    May be used on server side to set a telepath reconnect reminder.
+
+    Args:
+        name (str): The event name to fire on reconnect
+        **info: The event metadata
+
+    Returns:
+        (bool): True if the telepath caller was notified.
+
+    NOTE:
+        This requests that the current telepath caller fire the given
+        event back to us in the event of a socket reconnect.
+    '''
+    sock = s_scope.get('sock')
+    if sock is None:
+        return False
+
+    mesg = (evnt, info)
+    sock.tx(('tele:reminder', {'mesg': mesg}))
+    return True
 
 def clientside(f):
     '''

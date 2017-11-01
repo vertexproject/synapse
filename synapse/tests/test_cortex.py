@@ -2815,15 +2815,15 @@ class CortexTest(SynTest):
                     prox = s_telepath.openurl('tcp://127.0.0.1/core', port=port)
 
                     data = []
-                    prox.on('core:fifo:xmit', data.append, name='haha')
+                    prox.on('fifo:xmit', data.append, name='haha')
 
-                    wait = prox.waiter(1, 'core:fifo:xmit')
+                    wait = prox.waiter(1, 'fifo:xmit')
                     prox.subCoreFifo('haha')
                     wait.wait(timeout=1)
 
                     self.len(1, data)
 
-                    wait = prox.waiter(2, 'core:fifo:xmit')
+                    wait = prox.waiter(2, 'fifo:xmit')
                     core.putCoreFifo('haha', 'lulz')
                     core.putCoreFifo('haha', 'rofl')
                     wait.wait(timeout=1)

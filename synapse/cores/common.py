@@ -73,6 +73,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.on('node:del', self._onDelSynTag, form='syn:tag')
         self.on('node:form', self._onFormSynTag, form='syn:tag')
 
+        self.on('fifo:ack', self._onFifoAck)
+        self.on('fifo:sub', self._onFifoSub)
+
         # a cortex may have a ref to an axon
         self.axon = None
         self.seedctors = {}
@@ -363,6 +366,27 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         fifo = self._core_fifos.gen(name)
         fifo.ack(seqn)
 
+    def _onFifoSub(self, mesg):
+        name = mesg[1].get('name')
+        xmit = self._getTeleFifoXmit(name)
+        self.subCoreFifo(name, xmit=xmit)
+
+    def _onFifoAck(self, mesg):
+        name = mesg[1].get('name')
+        seqn = mesg[1].get('seqn')
+        self.ackCoreFifo(name, seqn)
+
+    def _getTeleFifoXmit(self, name):
+
+        sock = s_scope.get('sock')
+        if sock is None:
+            return None
+
+        def xmit(qent):
+            sock.tx(('fifo:xmit', {'name': name, 'qent': qent}))
+
+        return xmit
+
     def subCoreFifo(self, name, xmit=None):
         '''
         Provde an xmit function for a given core fifo.
@@ -379,13 +403,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         fifo = self._core_fifos.gen(name)
 
         if xmit is None:
-
-            sock = s_scope.get('sock')
-            if sock is None:
-                raise Exception('subCoreFifo needs xmit or telepath')
-
-            def xmit(qent):
-                sock.tx(('core:fifo:xmit', {'name': name, 'qent': qent}))
+            xmit = self._getTeleFifoXmit(name)
+            s_telepath.reminder('fifo:sub', name=name)
 
         fifo.resync(xmit=xmit)
 
