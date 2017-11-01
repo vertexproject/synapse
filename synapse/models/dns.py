@@ -114,7 +114,7 @@ class DnsMod(CoreModule):
 
                 ('inet:dns:cname',
                    {'ptype': 'inet:dns:cname', 'doc': 'Consolidated knowledge of a DNS CNAME record.'}, [
-                      ('fqdn', {'ptype': 'inet:fqdn','ro': 1,
+                      ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
                           'doc': 'The domain queried for its CNAME record.'}),
                       ('cname', {'ptype': 'inet:fqdn', 'ro': 1,
                           'doc': 'The domain returned in the CNAME record.'}),
