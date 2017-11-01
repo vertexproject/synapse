@@ -1242,7 +1242,7 @@ class InetMod(CoreModule):
                         'doc': 'The unique identifier for the account.'}),
                     ('time', {'ptype': 'time',
                         'doc': 'The date and time the account logged into the service.'}),
-                    ('ipv4', {'ptype': 'inet:ipv4',\
+                    ('ipv4', {'ptype': 'inet:ipv4',
                         'doc': 'The source IPv4 address of the logon.'}),
                     ('ipv6', {'ptype': 'inet:ipv6',
                         'doc': 'The source IPv6 address of the logon.'}),
