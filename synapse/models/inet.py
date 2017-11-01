@@ -960,7 +960,7 @@ class InetMod(CoreModule):
                 ]),
 
                 ('inet:urlfile', {'ptype': 'inet:urlfile'}, [
-                    ('url', {'ptype': 'inet:url', , 'ro': 1, 'req': 1,
+                    ('url', {'ptype': 'inet:url', 'ro': 1, 'req': 1,
                         'doc': 'The URL where the file was hosted.'}),
                     ('file', {'ptype': 'file:bytes', 'ro': 1, 'req': 1,
                         'doc': 'The file that was hosted at the URL.'}),
