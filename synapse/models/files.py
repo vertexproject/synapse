@@ -184,7 +184,7 @@ class FileMod(CoreModule):
                              'the value is an integer.'}),
                     ('xref:strval', {'ptype': 'str', 'ro': 1,
                          'doc': 'The value of the property of the referenced object, as specified by the propvalu, '
-                             'if the value is a string.',}),
+                             'if the value is a string.'}),
                 ]),
 
                 ('file:path', {}, (
@@ -223,10 +223,10 @@ class FileMod(CoreModule):
 
                     ('mime:pe:size', {'ptype': 'int', 'ro': 1,
                         'doc': 'The size of the executable file according to the file headers.'}),
-                    ('mime:pe:imphash', {'ptype': 'guid',  'ro': 1,
+                    ('mime:pe:imphash', {'ptype': 'guid', 'ro': 1,
                         'doc': 'The PE import hash of the file as calculated by Vivisect; this method excludes '
                             'imports referenced as ordinals and may fail to calculate an import hash for files '
-                            'that use ordinals.',}),
+                            'that use ordinals.'}),
                     ('mime:pe:compiled', {'ptype': 'time', 'ro': 1,
                         'doc': 'The compile time of the file according to the PE header.'}),
 
