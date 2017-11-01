@@ -157,7 +157,7 @@ class DataTypesTest(SynTest):
 
         self.raises(BadTypeValu, tlib.getTypeNorm, 'int', {})
         self.raises(BadTypeValu, tlib.getTypeNorm, 'int', [])
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'int', 9223372036854775809)
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'int', -9223372036854775809)
         self.raises(BadTypeValu, tlib.getTypeNorm, 'int', 9223372036854775808)
 
     def test_datatype_int_minmax(self):
