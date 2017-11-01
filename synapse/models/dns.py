@@ -178,7 +178,7 @@ class DnsMod(CoreModule):
                         'doc': ' The IPv4 address returned in the A record.'}),
 
                     ('ns', {'ptype': 'inet:dns:ns', 'ro': 1,
-                        'doc': 'The DNS NS record returned by the lookup'.}),
+                        'doc': 'The DNS NS record returned by the lookup.'}),
                     ('ns:zone', {'ptype': 'inet:fqdn', 'ro': 1,
                         'doc': 'The domain queried for its NS record.'}),
                     ('ns:ns', {'ptype': 'inet:fqdn', 'ro': 1,
