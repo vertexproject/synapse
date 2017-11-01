@@ -1,15 +1,8 @@
 environment:
 
   matrix:
-
-    - PYTHON: "C:\\Python27"
-
-    - PYTHON: "C:\\Python27-x64"
-
-    - PYTHON: "C:\\Python34"
-
-    - PYTHON: "C:\\Python34-x64"
-
+    - PYTHON: "C:\\Python35"
+    - PYTHON: "C:\\Python35-x64"
     # TODO
     #- PYTHON: "C:\\Python36"
     #- PYTHON: "C:\\Python36-x64"
@@ -33,4 +26,4 @@ build: off
 
 test_script:
   # Run the project tests
-  - "%CMD_IN_ENV% %PYTHON%\\python.exe -m unittest discover -v --fail"
+  - "%CMD_IN_ENV% %PYTHON%\\python.exe -m unittest discover -v"
