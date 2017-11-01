@@ -1401,7 +1401,7 @@ class InetMod(CoreModule):
                 ('inet:whois:rar', {}, []),
 
                 ('inet:whois:regmail', {'ptype': 'inet:whois:regmail'}, [
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1.
+                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1,
                         'doc': 'The domain associated with the registrant email address.'}),
                     ('email', {'ptype': 'inet:email', 'ro': 1, 'req': 1,
                         'doc': 'The registrant email address associated with the domain.'}),
