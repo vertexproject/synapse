@@ -944,7 +944,7 @@ class InetMod(CoreModule):
                 ]),
 
                 ('inet:url', {'ptype': 'inet:url'}, [
-                    ('ipv6', {'ptype': 'inet:ipv6',  'ro': 1,
+                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
                          'doc': 'The IPv6 address used in the URL.'}),
                     ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
                          'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
@@ -1022,7 +1022,7 @@ class InetMod(CoreModule):
                 ]),
 
                 ('inet:email', {'ptype': 'inet:email'}, [
-                    ('fqdn', {'ptype': 'inet:fqdn',  'ro': 1,
+                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
                         'doc': 'The domain of the email address.'}),
                     ('user', {'ptype': 'inet:user', 'ro': 1,
                         'doc': 'The username of the email address.'}),
@@ -1078,7 +1078,7 @@ class InetMod(CoreModule):
                     ('dst:tcp4:port', {'ptype': 'inet:port', 'ro': 1,
                         'doc': 'The destination IPv4 port.'}),
 
-                    ('dst:udp4', {'ptype': 'inet:udp4', 
+                    ('dst:udp4', {'ptype': 'inet:udp4',
                         'doc': 'The destination IPv4 address / port for an IPv4 UDP connection.'}),
                     ('dst:udp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
                         'doc': 'The destination IPv4 address.'}),
@@ -1092,7 +1092,7 @@ class InetMod(CoreModule):
                     ('dst:tcp6:port', {'ptype': 'inet:port', 'ro': 1,
                         'doc': 'The destination IPv6 port.'}),
 
-                    ('dst:udp6', {'ptype': 'inet:udp6', 
+                    ('dst:udp6', {'ptype': 'inet:udp6',
                         'doc': 'The destination IPv6 address / port for an IPv6 UDP connection.'}),
                     ('dst:udp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
                         'doc': 'The destination IPv6 address.'}),
@@ -1122,7 +1122,7 @@ class InetMod(CoreModule):
                     ('src:udp4:port', {'ptype': 'inet:port', 'ro': 1,
                         'doc': 'The source IPv4 port.'}),
 
-                    ('src:tcp6', {'ptype': 'inet:tcp6', 
+                    ('src:tcp6', {'ptype': 'inet:tcp6',
                         'doc': 'The source IPv6 address / port for an IPv6 TCP connection.'}),
                     ('src:tcp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
                         'doc': 'The source IPv6 address.'}),
@@ -1286,7 +1286,7 @@ class InetMod(CoreModule):
                     ('site', {'ptype': 'inet:fqdn', 'ro': 1,
                         'doc': 'The site or service associated with the group.'}),
                     ('name', {'ptype': 'ou:name', 'ro': 1}),
-                    ('url', {'ptype': 'inet:url', 
+                    ('url', {'ptype': 'inet:url',
                         'doc': 'The service provider URL where the group is hosted.'}),
                     ('avatar', {'ptype': 'file:bytes',
                         'doc': 'The file representing the avatar (e.g., profile picture) for the group.'}),
@@ -1432,7 +1432,7 @@ class InetMod(CoreModule):
 
                 ('inet:whois:recns', {}, [
                     ('ns', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1,
-                        'doc': 'A nameserver for a domain as listed in the domain whois record.',}),
+                        'doc': 'A nameserver for a domain as listed in the domain whois record.'}),
                     ('rec', {'ptype': 'inet:whois:rec', 'ro': 1, 'req': 1,
                         'doc': 'The whois record containing the nameserver data.'}),
                     ('rec:fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
