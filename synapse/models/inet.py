@@ -985,7 +985,7 @@ class InetMod(CoreModule):
                      ('net4:min', {'ptype': 'inet:ipv4', 'ro': 1,
                          'doc': 'The first IPv4 in the range assigned to the ASN.'}),
                      ('net4:max', {'ptype': 'inet:ipv4', 'ro': 1,
-                         'doc': 'The last IPv4 in the range assigned to teh ASN.'}),
+                         'doc': 'The last IPv4 in the range assigned to the ASN.'}),
                  ]),
 
                 ('inet:user', {'ptype': 'inet:user'}, []),
