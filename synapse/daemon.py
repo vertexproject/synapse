@@ -429,11 +429,6 @@ class Daemon(EventBus, DmonConf):
             fini = opts.get('onfini', False)
             self.share(asname, item, fini=fini)
 
-        # process the sessions config info
-        sessconf = conf.get('sessions')
-        if sessconf is not None:
-            self.cura.setConfOpts(sessconf)
-
         # process a few daemon specific options
         for url in conf.get('listen', ()):
             if isinstance(url, str):
