@@ -39,6 +39,7 @@ class AskCmd(s_cli.Cmd):
 
         core = self.getCmdItem()
         resp = core.ask(ques)
+        uniprops = core.getUniversalProps()
 
         oplog = resp.get('oplog')
 
@@ -140,6 +141,12 @@ class AskCmd(s_cli.Cmd):
                         valu = node[1].get(prop)
                         disp = core.getPropRepr(prop, valu)
                         self.printf('    %s = %s' % (prop[flen:], disp))
+                    for prop in uniprops:
+                        valu = node[1].get(prop)
+                        if valu is None:
+                            continue
+                        disp = core.getPropRepr(prop, valu)
+                        self.printf('    %s = %s' % (prop, disp))
 
         self.printf('(%d results)' % (len(nodes),))
 

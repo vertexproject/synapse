@@ -258,6 +258,27 @@ def main(argv, outp=None):
                 if pdoc:
                     rst.addLines('\t\t- %s' % (pdoc,))
 
+        # Add universal props last
+        if None in props:
+            rst.addHead('Universal Props', lvl=1)
+
+            rst.addLines('', 'Universal props are system level properties which are generally present on every node.',
+                         '', 'These properties are not specific to a particular form and exist outside of a particular'
+                             ' namespace.', '')
+            plist = sorted(props.get(None), key=lambda x: x[0])
+            for prop, pnfo in plist:
+                rst.addHead(prop, lvl=2)
+
+                pdoc = core.getPropInfo(prop, 'doc')
+
+                ptype = pnfo.get('ptype')
+
+                pline = '\t- %s = <%s>' % (prop, ptype)
+                rst.addLines(pline)
+
+                if pdoc:
+                    rst.addLines('\t\t- %s' % (pdoc,))
+
         outp.printf(rst.getRstText())
         return 0
 

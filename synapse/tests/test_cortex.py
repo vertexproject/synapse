@@ -961,6 +961,8 @@ class CortexTest(SynTest):
     def test_cortex_datamodel_runt_consistency(self):
         with self.getRamCore() as core:
 
+            uniprops = core.getUniversalProps()
+
             nodes = core.getTufosByProp('syn:form')
             for node in nodes:
                 self.isin('syn:form:ptype', node[1])
@@ -971,7 +973,10 @@ class CortexTest(SynTest):
 
             nodes = core.getTufosByProp('syn:prop')
             for node in nodes:
-                self.isin('syn:prop:form', node[1])
+                prop = node[1].get('syn:prop')
+                if prop not in uniprops:
+                    self.isin('syn:prop:form', node[1])
+
                 if 'syn:prop:glob' in node[1]:
                     continue
                 self.isin('syn:prop:req', node[1])
@@ -1003,6 +1008,12 @@ class CortexTest(SynTest):
             self.isin('syn:prop:doc', node[1])
             self.isin('syn:prop:base', node[1])
             self.isin('syn:prop:relname', node[1])
+
+            # universal prop nodes
+            node = core.getTufoByProp('syn:prop', 'node:ndef')
+            self.eq(node[1].get('syn:prop:unid'), 1)
+            # The node:ndef value is a stable guid :)
+            self.eq(node[1].get('node:ndef'), 'd20cb4873e36db4670073169f87abc32')
 
             # Ensure things bubbled up during node / datamodel creation
             self.eq(core.getPropInfo('strform', 'doc'), 'A test str form')
@@ -2874,6 +2885,64 @@ class CortexTest(SynTest):
 
                 self.false(os.path.isdir(path))
                 self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
+
+    def test_cortex_universal_props(self):
+        with self.getRamCore() as core:
+            myfo = core.myfo
+
+            node = core.getTufoByProp('node:ndef', '90ec8b92deda626d31e2d63e8dbf48be')
+            self.eq(node[0], myfo[0])
+
+            node = core.getTufoByProp('tufo:form', 'syn:core')
+            self.eq(node[0], myfo[0])
+
+            nodes = core.getTufosByProp('node:created', myfo[1].get('node:created'))
+            self.ge(len(nodes), 1)
+            rvalu = core.getPropRepr('node:created', myfo[1].get('node:created'))
+            self.isinstance(rvalu, str)
+            nodes2 = core.getTufosByProp('node:created', rvalu)
+            self.eq(len(nodes), len(nodes2))
+
+            # We can have a data model which has a prop which is a ndef type
+            modl = {
+                'types': (
+                    ('ndefxref', {'subof': 'comp', 'fields': 'ndef,node:ndef|strdude,strform|time,time'}),
+                ),
+                'forms': (
+                    ('ndefxref', {}, (
+                        ('ndef', {'req': 1, 'ro': 1, 'doc': 'ndef to a node', 'ptype': 'ndef'}),
+                        ('strdude', {'req': 1, 'ro': 1, 'doc': 'strform thing', 'ptype': 'strform'}),
+                        ('time', {'req': 1, 'ro': 1, 'doc': 'time thing was seen', 'ptype': 'time'})
+                    )),
+                )
+            }
+            core.addDataModel('unitst', modl)
+
+            # Make an node which refers to another node by its node:ndef value
+            node = core.formTufoByProp('ndefxref', '(90ec8b92deda626d31e2d63e8dbf48be,"hehe","2017")')
+            self.nn(node)
+            self.isin('.new', node[1])
+
+            # We can also provide values which will be prop-normed by the NDefType
+            # This means we can create arbitrary linkages which may eventually exist
+            nnode = core.formTufoByProp('ndefxref', '((syn:core,self),"hehe","2017")')
+            self.notin('.new', nnode[1])
+            self.eq(node[0], nnode[0])
+            self.nn(core.getTufoByProp('strform', 'hehe'))
+
+            # Use storm to pivot across this node to the ndef node
+            nodes = core.eval('ndefxref :ndef->node:ndef')
+            self.len(1, nodes)
+            self.eq(nodes[0][0], myfo[0])
+
+            # Use storm to pivot from the ndef node to the ndefxref node
+            nodes = core.eval('syn:core=self node:ndef->ndefxref:ndef')
+            self.len(1, nodes)
+            self.eq(nodes[0][0], node[0])
+
+            # Lift nodes by node:created text timestamp
+            nodes = core.eval('node:created>={}'.format(rvalu))
+            self.ge(len(nodes), 3)
 
 class StorageTest(SynTest):
 

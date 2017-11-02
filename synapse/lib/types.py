@@ -163,6 +163,56 @@ class GuidType(DataType):
         subs.update(vals)
         return valu, subs
 
+class NDefType(DataType):
+
+    def __init__(self, tlib, name, **info):
+        DataType.__init__(self, tlib, name, **info)
+        # TODO figure out what to do about tlib vs core issues
+        self._isTufoForm = getattr(tlib, 'isTufoForm', None)
+        self._getPropNorm = getattr(tlib, 'getPropNorm', None)
+
+    def norm(self, valu, oldval=None):
+
+        if isinstance(valu, (list, tuple)):
+            return self._norm_list(valu, oldval)
+
+        if not isinstance(valu, str) or len(valu) < 1:
+            self._raiseBadValu(valu)
+
+        return self._norm_str(valu, oldval)
+
+    def _norm_str(self, text, oldval=None):
+        text = text.strip()
+        if not text:
+            self._raiseBadValu(text, mesg='No text left after strip().')
+
+        if text[0] == '(':
+            vals, off = s_syntax.parse_list(text)
+            if off != len(text):  # pragma: no cover
+                self._raiseBadValu(text, off=off, vals=vals,
+                                   mesg='List parting for ndef type did not consume all of the input text.')
+            return self._norm_list(vals, oldval)
+
+        if not s_common.isguid(text):
+            self._raiseBadValu(text, mesg='Expected a 32 char guid string')
+
+        return text, {}
+
+    def _norm_list(self, valu, oldval=None):
+
+        if not valu:
+            self._raiseBadValu(valu=valu, mesg='No valus present in list to make a guid with')
+
+        form, fvalu = valu
+        if not self._isTufoForm(form):
+            self._raiseBadValu(valu=valu, form=form,
+                               mesg='Form is not a valid form.')
+        # NDefType specifically does not care about the subs since
+        # they aren't useful for universal node identification
+        fvalu, _ = self._getPropNorm(form, fvalu)
+        retn = s_common.guid((form, fvalu))
+        return retn, {}
+
 class StrType(DataType):
 
     def __init__(self, tlib, name, **info):
@@ -803,6 +853,8 @@ class TypeLib:
                      doc='A multi-field composite type which can be used to link a known form to an unknown form')
         self.addType('time', ctor='synapse.lib.types.TimeType',
                      doc='Timestamp in milliseconds since epoch', ex='20161216084632')
+        self.addType('ndef', ctor='synapse.lib.types.NDefType',
+                     doc='The type used for normalizing node:ndef values.')
 
         self.addType('syn:tag', ctor='synapse.lib.types.TagType', doc='A synapse tag', ex='foo.bar')
         self.addType('syn:perm', ctor='synapse.lib.types.PermType', doc='A synapse permission string')

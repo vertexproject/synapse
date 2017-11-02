@@ -273,6 +273,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         node[1][form] = norm
         node[1]['tufo:form'] = form
         node[1]['node:created'] = s_common.now()
+        node[1]['node:ndef'] = s_common.guid((form, valu))
 
         self.runt_props[(form, None)].append(node)
         self.runt_props[(form, norm)].append(node)
@@ -650,6 +651,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                     full = fnam + ':' + pnam
                     pdef = self.getPropDef(full)
                     self.addRuntNode('syn:prop', full, pdef[1])
+        for pname in self.uniprops:
+            pdef = self.getPropDef(pname)
+            self.addRuntNode('syn:prop', pname, pdef[1])
 
     def revModlVers(self, name, vers, func):
         '''
@@ -2482,7 +2486,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             return
 
         props = self.getFormReqs(form)
-
         # Return fast for perf
         if not props:
             return
@@ -2494,6 +2497,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if fulls.get('syn:prop:glob') and 'syn:prop:ptype' in props:
             props.remove('syn:prop:ptype')
 
+        # Add in universal props
+        props = props.union(self.uniprops)
+        # Compute any missing props
         missing = props - set(fulls)
         if missing:
             raise s_common.PropNotFound(mesg='Node is missing required a prop during formation',
@@ -2631,8 +2637,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             self._addDefProps(prop, fulls)
 
             fulls[prop] = valu
+
+            # Set universal node values
             fulls['tufo:form'] = prop
             fulls['node:created'] = s_common.now()
+            fulls['node:ndef'] = s_common.guid((prop, valu))
+            # fulls['node:ndef'] = self.reqPropNorm('node:ndef', (prop, valu))[0]
 
             # Examine the fulls dictionary and identify any props which are
             # themselves forms, and extract the form/valu/subs from the fulls
@@ -2697,7 +2707,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         splitp = form + ':'
         for name in list(fulls.keys()):
-            if name in ('tufo:form', 'node:created', 'node:loc'):
+            if name in self.uniprops:
                 continue
             if not self.isSetPropOk(name, isadd):
                 prop = name.split(splitp)[1]
@@ -2716,7 +2726,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             list: List of tuples (prop,valu,**props) for consumption by formTufoByProp.
         '''
         ret = []
-        skips = ('tufo:form', 'node:created', 'node:loc')
+        skips = self.uniprops
         valu = fulls.get(form)
         for fprop, fvalu in fulls.items():
             if fprop in skips:
