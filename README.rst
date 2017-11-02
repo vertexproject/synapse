@@ -2,13 +2,11 @@ synapse
 =======
 Distributed Key-Value Hypergraph Analysis Framework
 
-Builds
-------
+|codecov|_ |drone|_ |appveyor|_ |dockerhub|_ |rtd|_
 
-- Drone |drone|_
-- AppVeyor |appveyor|_
-- Codecov |codecov|_
-- Documentation |rtd_latest|
+Installation
+------------
+Synapse is available as a Python Package on pypi_ and as a Docker image on dockerhub_.
 
 Documentation
 -------------
@@ -24,4 +22,10 @@ https://vertexprojectsynapse.readthedocs.io
 .. |codecov| image:: https://codecov.io/gh/vertexproject/synapse/branch/master/graph/badge.svg?branch=master
 .. _codecov: https://codecov.io/gh/vertexproject/synapse
 
-.. |rtd_latest| image:: https://readthedocs.org/projects/vertexprojectsynapse/badge/?version=latest
+.. |rtd| image:: https://readthedocs.org/projects/vertexprojectsynapse/badge/?version=latest
+.. _rtd: https://vertexprojectsynapse.readthedocs.io
+
+.. |dockerhub| image:: https://img.shields.io/docker/build/vertexproject/synapse.svg?branch=master
+.. _dockerhub: https://hub.docker.com/r/vertexproject/synapse/
+
+.. _pypi: https://pypi.python.org/pypi/synapse
