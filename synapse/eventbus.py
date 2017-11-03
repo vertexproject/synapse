@@ -274,7 +274,7 @@ class EventBus(object):
 
         try:
             signal.signal(signal.SIGTERM, sighandler)
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             logger.exception('Unable to register SIGTERM handler in eventbus.')
 
         try:

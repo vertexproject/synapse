@@ -7,6 +7,12 @@ import synapse.lib.threads as s_threads
 
 from synapse.tests.common import *
 
+@firethread
+def send_sig(pid, sig):
+    time.sleep(0.1)
+    # This test is insanity wolf
+    os.kill(pid, sig)
+
 class Foo(object):
     def __init__(self):
         self.bus = None  # type: s_eventbus.EventBus
@@ -270,21 +276,30 @@ class EventBusTest(SynTest):
             self.true(woot.isfini)
             self.false(refs.get('woot') is woot)
 
-    def test_eventbus_sigterm(self):
+    def test_eventbus_main_sigterm(self):
         self.thisHostMustNot(platform='windows')
         # We have no reliable way to test this on windows
 
         bus = s_eventbus.EventBus()
         pid = os.getpid()
 
-        @firethread
-        def send_sigterm(pid):
-            time.sleep(0.1)
-            # This test is insanity wolf
-            os.kill(pid, signal.SIGTERM)
+        self.false(bus.isfini)
+        foo = send_sig(pid, signal.SIGTERM)
+        # block mainthread
+        bus.main()
+        # Signal should fire from our thread and unblock us to continue :)
+        self.true(bus.isfini)
+        foo.join()
+
+    def test_eventbus_main_sigint(self):
+        self.thisHostMustNot(platform='windows')
+        # We have no reliable way to test this on windows
+
+        bus = s_eventbus.EventBus()
+        pid = os.getpid()
 
         self.false(bus.isfini)
-        foo = send_sigterm(pid)
+        foo = send_sig(pid, signal.SIGINT)
         # block mainthread
         bus.main()
         # Signal should fire from our thread and unblock us to continue :)
