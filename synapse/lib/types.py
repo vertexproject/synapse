@@ -224,12 +224,15 @@ class JsonType(DataType):
     def norm(self, valu, oldval=None):
 
         if not isinstance(valu, str):
-            return json.dumps(valu, separators=(',', ':')), {}
+            try:
+                return json.dumps(valu, sort_keys=True, separators=(',', ':')), {}
+            except Exception as e:
+                self._raiseBadValu(valu, mesg='Unable to normalize object as json.')
 
         try:
-            return json.dumps(json.loads(valu), separators=(',', ':')), {}
+            return json.dumps(json.loads(valu), sort_keys=True, separators=(',', ':')), {}
         except Exception as e:
-            self._raiseBadValu(valu)
+            self._raiseBadValu(valu, mesg='Unable to norm json string')
 
 class IntType(DataType):
 
@@ -267,6 +270,11 @@ class IntType(DataType):
 
         if not isinstance(valu, int):
             self._raiseBadValu(valu, mesg='Valu is not an int')
+
+        if valu < -9223372036854775808:
+            self._raiseBadValu(valu, mesg='Value less than 64bit signed integer minimum (-9223372036854775808)')
+        if valu > 9223372036854775807:
+            self._raiseBadValu(valu, mesg='Value greater than 64bit signed integer maximum (9223372036854775807)')
 
         if oldval is not None and self.minmax:
             valu = self.minmax(valu, oldval)
@@ -816,6 +824,7 @@ class TypeLib:
 
         self.addTypeCast('country:2:cc', self._castCountry2CC)
         self.addTypeCast('make:guid', self._castMakeGuid)
+        self.addTypeCast('make:json', self._castMakeJson)
 
         if load:
             self.loadModModels()
@@ -826,6 +835,10 @@ class TypeLib:
 
     def _castMakeGuid(self, valu):
         return s_common.guid(valu)
+
+    def _castMakeJson(self, valu):
+        valu = json.dumps(valu, sort_keys=True, separators=(',', ':'))
+        return valu
 
     def getTypeInst(self, name):
         '''

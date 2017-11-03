@@ -429,6 +429,69 @@ class IngTest(SynTest):
 
             self.nn(core.getTufoByProp('strform', 'lulz'))
 
+    def test_ingest_jsoncast(self):
+
+        # similar to csv data...
+        data1 = ['vertex.link/pennywise', '2017/10/10 01:02:03', 'served:balloon', '1.2.3.4', 'we all float down here']
+        data2 = ['vertex.link/ninja', '2017', 'pwned:vertex', '1.2.3.4', {'hosts': 2, 'foo': ['bar']}]
+
+        idef = {
+            'ingest': {
+                'vars': [
+                    ['acct',
+                     {'path': '0'}],
+                    ['time',
+                     {'path': '1'}],
+                    ['act',
+                     {'path': '2'}],
+                    ['ipv4',
+                     {'path': '3'}],
+                    ['info',
+                     {'path': '4',
+                      'cast': 'make:json'}]
+                ],
+                'forms': [
+                    [
+                        'inet:web:action',
+                        {
+                            'guid': [
+                                'acct',
+                                'ipv4',
+                                'time',
+                                'act'
+                            ],
+                            'props': {
+                                'info': {
+                                    'var': 'info'
+                                }
+                            }
+                        }
+                    ]
+                ]
+            }
+        }
+
+        with self.getRamCore() as core:
+            ingest = s_ingest.Ingest(idef)
+            ingest.ingest(core, data=data1)
+            ingest.ingest(core, data=data2)
+
+            self.len(2, core.eval('inet:web:action'))
+
+            node = core.getTufoByProp('inet:web:action:acct', 'vertex.link/pennywise')
+            self.nn(node)
+            self.eq(node[1].get('inet:web:action:acct'), 'vertex.link/pennywise')
+            self.eq(node[1].get('inet:web:action:act'), 'served:balloon')
+            self.eq(node[1].get('inet:web:action:ipv4'), 0x01020304)
+            self.eq(node[1].get('inet:web:action:info'), '"we all float down here"')
+
+            node = core.getTufoByProp('inet:web:action:acct', 'vertex.link/ninja')
+            self.nn(node)
+            self.eq(node[1].get('inet:web:action:acct'), 'vertex.link/ninja')
+            self.eq(node[1].get('inet:web:action:act'), 'pwned:vertex')
+            self.eq(node[1].get('inet:web:action:ipv4'), 0x01020304)
+            self.eq(node[1].get('inet:web:action:info'), '{"foo":["bar"],"hosts":2}')
+
     def test_ingest_lines(self):
         with self.getRamCore() as core:
             with self.getTestDir() as path:
@@ -1190,3 +1253,15 @@ class IngTest(SynTest):
             node = nodes[0]
             self.eq(node[1].get('inet:dns:look:time'), tick)
             self.eq(node[1].get('inet:dns:look:a'), 'vertex.link/1.2.3.4')
+
+    def test_ingest_func(self):
+
+        with self.getRamCore() as core:
+
+            def func(data):
+                [core.formTufoByProp('inet:fqdn', r) for r in data]
+
+            core.setGestFunc('foo:bar', func)
+            core.addGestData('foo:bar', ['woot.com'])
+
+            self.nn(core.getTufoByProp('inet:fqdn', 'woot.com'))

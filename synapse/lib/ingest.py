@@ -195,6 +195,7 @@ class IngestApi:
     def __init__(self, core):
         self._gest_core = core
         self._gest_cache = {}
+        self._gest_funcs = {}
 
         self._gest_core.on('node:del', self._onDelSynIngest, form='syn:ingest')
         self._gest_core.on('node:add', self._onAddSynIngest, form='syn:ingest')
@@ -240,6 +241,16 @@ class IngestApi:
 
         self._gest_cache.pop(name, None)
 
+    def setGestFunc(self, name, func):
+        '''
+        Set an ingest function to handle a custom data format.
+
+        Args:
+            name (str): The name of the ingest format
+            func (func): The callback function to parse the data
+        '''
+        self._gest_funcs[name] = func
+
     def setGestDef(self, name, idef):
         '''
         Set an ingest definition by storing it in the cortex.
@@ -253,7 +264,7 @@ class IngestApi:
         '''
         props = {
             'time': s_common.now(),
-            'text': json.dumps(idef),
+            'text': json.dumps(idef, sort_keys=True, separators=(',', ':')),
         }
 
         node = self._gest_core.formTufoByProp('syn:ingest', name, **props)
@@ -274,6 +285,11 @@ class IngestApi:
             iapi.addGestData('foo:bar', data)
 
         '''
+        func = self._gest_funcs.get(name)
+        if func is not None:
+            with self._gest_core.getCoreXact() as xact:
+                return func(data)
+
         gest = self._gest_cache.get(name)
         if gest is None:
             raise s_common.NoSuchTufo(prop='syn:ingest', valu=name)

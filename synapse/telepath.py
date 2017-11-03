@@ -221,6 +221,7 @@ class Proxy(s_eventbus.EventBus):
         self._raw_on('job:done', self._tele_boss.dist)
         self._raw_on('sock:gzip', self._onSockGzip)
         self._raw_on('tele:call', self._onTeleCall)
+        self._raw_on('tele:sock:init', self._onTeleSockInit)
 
         self._tele_cthr = self.consume(self._tele_q)
 
@@ -486,6 +487,25 @@ class Proxy(s_eventbus.EventBus):
     def _syn_reflect(self):
         return self._tele_reflect
 
+    def _onTeleSockInit(self, mesg):
+        '''
+        Callback to allow the client to do anything neccesary after a Telepath
+        connection has been made with the remote.
+
+        This is in response to a tele:sock:init event. This occurs during
+        startup of the Proxy object or during reconnection.
+        '''
+        sock = mesg[1].get('sock')
+
+        # Reset any on handlers which the Proxy has registered with the remote
+        eper = collections.defaultdict(list)
+        for (evnt, func), (iden, filt) in self._tele_ons.items():
+            eper[evnt].append((iden, filt))
+
+        if eper:
+            job = self._txTeleJob('tele:on', ons=list(eper.items()), name=self._tele_name)
+            self.syncjob(job)
+
     def _teleSynAck(self, sock):
         '''
         Send a tele:syn to get a telepath session
@@ -506,14 +526,6 @@ class Proxy(s_eventbus.EventBus):
 
         if hisopts.get('sock:can:gzip'):
             sock.set('sock:can:gzip', True)
-
-        eper = collections.defaultdict(list)
-        for (evnt, func), (iden, filt) in self._tele_ons.items():
-            eper[evnt].append((iden, filt))
-
-        if eper:
-            job = self._txTeleJob('tele:on', ons=eper.items(), name=self._tele_name)
-            self.syncjob(job)
 
     def _txTeleJob(self, msg, **msginfo):
         '''
@@ -561,7 +573,7 @@ class Proxy(s_eventbus.EventBus):
         return meth
 
     # some methods to avoid round trips...
-    def __nonzero__(self):
+    def __bool__(self):
         return True
 
     def __eq__(self, obj):
