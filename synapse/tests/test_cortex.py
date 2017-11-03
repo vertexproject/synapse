@@ -1011,7 +1011,7 @@ class CortexTest(SynTest):
 
             # universal prop nodes
             node = core.getTufoByProp('syn:prop', 'node:ndef')
-            self.eq(node[1].get('syn:prop:unid'), 1)
+            self.eq(node[1].get('syn:prop:universal'), 1)
             # The node:ndef value is a stable guid :)
             self.eq(node[1].get('node:ndef'), 'd20cb4873e36db4670073169f87abc32')
 

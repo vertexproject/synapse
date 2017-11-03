@@ -131,21 +131,21 @@ class DataModel(s_types.TypeLib):
                             ptype='str',
                             doc='The form of the node',
                             ro=1,
-                            unid=1,
+                            universal=1,
                             )
         if 'node:created' not in uniprops:
             self.addPropDef('node:created',
                             ptype='time',
                             doc='The time the node was created',
                             ro=1,
-                            unid=1,
+                            universal=1,
                             )
         if 'node:ndef' not in uniprops:
             self.addPropDef('node:ndef',
                             ptype='ndef',
                             doc='The unique guid representing the combination of the node form and primary property.',
                             ro=1,
-                            unid=1)
+                            universal=1)
 
     def getModelDict(self):
         '''
@@ -303,7 +303,7 @@ class DataModel(s_types.TypeLib):
         info.setdefault('title', self.getTypeInfo(info.get('ptype'), 'title', ''))
         info.setdefault('defval', None)
 
-        universal = info.get('unid')
+        universal = info.get('universal')
         form = info.get('form')
         if form and universal:
             raise s_common.BadPropConf(mesg='Universal props cannot be set on forms.',
