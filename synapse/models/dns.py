@@ -31,6 +31,13 @@ class DnsMod(CoreModule):
                     'doc': 'The transformed result of a DNS PTR record lookup.',
                     'ex': '1.2.3.4/vertex.link'}),
 
+                ('inet:dns:rev6', {
+                    'subof': 'sepr',
+                    'sep': '/',
+                    'fields': 'ipv6,inet:ipv6|fqdn,inet:fqdn',
+                    'doc': 'The transformed result of a DNS PTR record for an IPv6 address.',
+                    'ex': '2607:f8b0:4004:809::200e/vertex.link'}),
+
                 ('inet:dns:aaaa', {
                     'subof': 'sepr',
                     'sep': '/',
@@ -92,6 +99,18 @@ class DnsMod(CoreModule):
                    {'ptype': 'inet:dns:rev', 'doc': 'Fused knowledge of a DNS PTR record.'}, [
                       ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
                           'doc': 'The IPv4 address queried for its DNS PTR record.'}),
+                      ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
+                          'doc': 'The domain returned in the PTR record.'}),
+                      ('seen:min', {'ptype': 'time:min',
+                          'doc': 'The earliest observed time for the data in the PTR record.'}),
+                      ('seen:max', {'ptype': 'time:max',
+                          'doc': 'The most recent observed time for the data in the PTR record.'}),
+                 ]),
+
+                ('inet:dns:rev6',
+                   {'ptype': 'inet:dns:rev6', 'doc': 'Fused knowledge of a DNS PTR record for IPv6.'}, [
+                      ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
+                          'doc': 'The IPv6 address queried for its DNS PTR record.'}),
                       ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
                           'doc': 'The domain returned in the PTR record.'}),
                       ('seen:min', {'ptype': 'time:min',
