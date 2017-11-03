@@ -1,4 +1,4 @@
-import unittest
+import signal
 import threading
 
 import synapse.common as s_common
@@ -6,6 +6,18 @@ import synapse.eventbus as s_eventbus
 import synapse.lib.threads as s_threads
 
 from synapse.tests.common import *
+
+class Foo(object):
+    def __init__(self):
+        self.bus = None  # type: s_eventbus.EventBus
+        self.btreadid = None
+        self.bthr = self.fireBus()
+
+    @firethread
+    def fireBus(self):
+        self.btreadid = threading.get_ident()
+        self.bus = s_eventbus.EventBus()
+        self.bus.main()
 
 class EventBusTest(SynTest):
 
@@ -257,3 +269,24 @@ class EventBusTest(SynTest):
             woot.fini()
             self.true(woot.isfini)
             self.false(refs.get('woot') is woot)
+
+    def test_eventbus_sigterm(self):
+        self.thisHostMustNot(platform='windows')
+        # We have no reliable way to test this on windows
+
+        bus = s_eventbus.EventBus()
+        pid = os.getpid()
+
+        @firethread
+        def send_sigterm(pid):
+            time.sleep(0.1)
+            # This test is insanity wolf
+            os.kill(pid, signal.SIGTERM)
+
+        self.false(bus.isfini)
+        foo = send_sigterm(pid)
+        # block mainthread
+        bus.main()
+        # Signal should fire from our thread and unblock us to continue :)
+        self.true(bus.isfini)
+        foo.join()

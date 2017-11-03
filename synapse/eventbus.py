@@ -268,12 +268,14 @@ class EventBus(object):
             # we have now fini()d
 
         '''
-
         def sighandler(signum, frame):
             print('Caught signal {}, shutting down'.format(signum))
             self.fini()
 
-        signal.signal(signal.SIGTERM, sighandler)
+        try:
+            signal.signal(signal.SIGTERM, sighandler)
+        except Exception as e:
+            logger.exception('Unable to register SIGTERM handler in eventbus.')
 
         try:
             self.waitfini()
