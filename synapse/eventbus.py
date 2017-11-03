@@ -1,5 +1,6 @@
 import gc
 import atexit
+import signal
 import logging
 import threading
 import traceback
@@ -267,6 +268,13 @@ class EventBus(object):
             # we have now fini()d
 
         '''
+
+        def sighandler(signum, frame):
+            print('Caught signal {}, shutting down'.format(signum))
+            self.fini()
+
+        signal.signal(signal.SIGTERM, sighandler)
+
         try:
             self.waitfini()
         except KeyboardInterrupt as e:
