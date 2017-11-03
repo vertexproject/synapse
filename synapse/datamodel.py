@@ -106,6 +106,7 @@ class DataModel(s_types.TypeLib):
         self.propsbytype = collections.defaultdict(list)
         self.propsdtyp = {}
         self.uniprops = set()
+        self.unipropsreq = set()
 
         self.globs = []
         self.cache = {} # for globs
@@ -131,6 +132,7 @@ class DataModel(s_types.TypeLib):
                             ptype='str',
                             doc='The form of the node',
                             ro=1,
+                            req=1,
                             universal=1,
                             )
         if 'node:created' not in uniprops:
@@ -138,6 +140,7 @@ class DataModel(s_types.TypeLib):
                             ptype='time',
                             doc='The time the node was created',
                             ro=1,
+                            req=1,
                             universal=1,
                             )
         if 'node:ndef' not in uniprops:
@@ -145,6 +148,7 @@ class DataModel(s_types.TypeLib):
                             ptype='ndef',
                             doc='The unique guid representing the combination of the node form and primary property.',
                             ro=1,
+                            req=1,
                             universal=1)
 
     def getModelDict(self):
@@ -290,6 +294,9 @@ class DataModel(s_types.TypeLib):
 
             model.addPropDef('foo:bar', ptype='int', defval=30)
 
+        Returns:
+            ((str, dict)): Retuns the prop, property definition tuple.
+
         Raises:
             DupPropName: If the property name is already present in the data model.
             BadPropConf: If the propety has an invalid configuration.
@@ -344,8 +351,12 @@ class DataModel(s_types.TypeLib):
 
         if universal:
             self.uniprops.add(prop)
+            if info.get('req'):
+                self.unipropsreq.add(prop)
 
         self._addSubRefs(pdef)
+
+        return pdef
 
     def getFormDefs(self, form):
         '''

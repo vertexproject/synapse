@@ -2944,6 +2944,63 @@ class CortexTest(SynTest):
             nodes = core.eval('node:created>={}'.format(rvalu))
             self.ge(len(nodes), 3)
 
+            # We can add a new universal prop via API
+            nprop = core.addPropDef('node:tstfact',
+                                    ro=1,
+                                    universal=1,
+                                    ptype='str:lwr',
+                                    doc='A fact about a node.',
+                                    )
+            self.isinstance(nprop, tuple)
+            self.isin('node:tstfact', core.getUniversalProps())
+            self.notin('node:tstfact', core.unipropsreq)
+            self.nn(core.getPropDef('node:tstfact'))
+
+            node = core.formTufoByProp('inet:ipv4', 0x01020304)
+            self.nn(node)
+            self.notin('node:tstfact', node[1])
+            # Set the non-required prop via setTufoProps()
+            node = core.setTufoProps(node, **{'node:tstfact': ' THIS node is blue.  '})
+            self.eq(node[1].get('node:tstfact'), 'this node is blue.')
+
+            # The uniprop is ro and cannot be changed once set
+            node = core.setTufoProps(node, **{'node:tstfact': 'hehe'})
+            self.eq(node[1].get('node:tstfact'), 'this node is blue.')
+
+            # We can have a mutable, non ro universal prop on a node though!
+            nprop = core.addPropDef('node:tstopinion',
+                                    universal=1,
+                                    ptype='str:lwr',
+                                    doc='A opinion about a node.',
+                                    )
+            node = core.setTufoProps(node, **{'node:tstopinion': ' THIS node is good Ash.  '})
+            self.eq(node[1].get('node:tstopinion'), 'this node is good ash.')
+
+            # We can change the prop of the uniprop on this node.
+            node = core.setTufoProps(node, **{'node:tstopinion': 'this node is BAD ash.'})
+            self.eq(node[1].get('node:tstopinion'), 'this node is bad ash.')
+
+            # Lastly - we can add a universal prop which is required but breaks node creation
+            # Do NOT do this in the real world - its a bad idea.
+            nprop = core.addPropDef('node:tstevil',
+                                    universal=1,
+                                    req=1,
+                                    ptype='bool',
+                                    doc='No more nodes!',
+                                    )
+            self.nn(nprop)
+            self.raises(PropNotFound, core.formTufoByProp, 'inet:ipv4', 0x01020305)
+            # We can add a node:add handler to populate this new universal prop though!
+            def foo(mesg):
+                fulls = mesg[1].get('props')
+                fulls['node:tstevil'] = 1
+            core.on('node:form', foo)
+            # We can form nodes again, but they're all evil.
+            node = core.formTufoByProp('inet:ipv4', 0x01020305)
+            self.nn(node)
+            self.eq(node[1].get('node:tstevil'), 1)
+            core.off('node:form', foo)
+
 class StorageTest(SynTest):
 
     def test_nonexist_ctor(self):
