@@ -1,8 +1,9 @@
-import re
 import json
 import base64
 import logging
 import collections
+
+import regex
 
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
@@ -179,13 +180,13 @@ class StrType(DataType):
         if enumstr is not None:
             self.envals = enumstr.split(',')
 
-        regex = info.get('regex')
-        if regex is not None:
-            self.regex = re.compile(regex)
+        regexp = info.get('regex')
+        if regexp is not None:
+            self.regex = regex.compile(regexp)
 
         restrip = info.get('restrip')
         if restrip is not None:
-            self.restrip = re.compile(restrip)
+            self.restrip = regex.compile(restrip)
 
         frobintfmt = info.get('frob_int_fmt')
         if frobintfmt is not None:
@@ -668,7 +669,7 @@ class BoolType(DataType):
     def repr(self, valu):
         return repr(bool(valu))
 
-tagre = re.compile(r'^([\w]+\.)*[\w]+$')
+tagre = regex.compile(r'^([\w]+\.)*[\w]+$')
 
 class TagType(DataType):
 

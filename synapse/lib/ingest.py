@@ -1,11 +1,12 @@
 import os
-import re
 import csv
 import json
 import codecs
 import logging
 
 import xml.etree.ElementTree as x_etree
+
+import regex
 
 import synapse.common as s_common
 
@@ -84,11 +85,11 @@ def _fmt_lines(fd, gest):
 
     skipstr = gest.get('format:lines:skipre')
     if skipstr is not None:
-        skipre = re.compile(skipstr)
+        skipre = regex.compile(skipstr)
 
     muststr = gest.get('format:lines:mustre')
     if muststr is not None:
-        mustre = re.compile(muststr)
+        mustre = regex.compile(muststr)
 
     for line in fd:
 
@@ -314,12 +315,12 @@ class Ingest(EventBus):
         self._i_glab = s_gene.GeneLab()
 
         self._tvar_cache = {}
-        self._tvar_regex = re.compile('{{(\w+)}}')
+        self._tvar_regex = regex.compile('{{(\w+)}}')
 
-    def _re_compile(self, regex):
-        ret = self._i_res.get(regex)
+    def _re_compile(self, regexp):
+        ret = self._i_res.get(regexp)
         if ret is None:
-            self._i_res[regex] = ret = re.compile(regex)
+            self._i_res[regexp] = ret = regex.compile(regexp)
         return ret
 
     def get(self, name, defval=None):

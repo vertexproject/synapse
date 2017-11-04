@@ -1,5 +1,7 @@
-import re
 import json
+
+import regex
+
 import synapse.data as s_data
 import synapse.common as s_common
 
@@ -9,7 +11,7 @@ tldlist.sort(key=lambda x: len(x))
 tldlist.reverse()
 
 tldcat = '|'.join(tldlist)
-fqdn_re = r'((?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))' % tldcat
+fqdn_re = regex.compile(r'((?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))' % tldcat)
 
 scrape_types = [
     ('hash:md5', r'(?=(?:[^A-Za-z0-9]|^)([A-Fa-f0-9]{32})(?:[^A-Za-z0-9]|$))', {}),
@@ -23,7 +25,7 @@ scrape_types = [
     ('inet:email', r'(?:[^a-z0-9_.+-]|^)([a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|$)' % tldcat, {}),
 ]
 
-regexes = {name: re.compile(rule, re.IGNORECASE) for (name, rule, opts) in scrape_types}
+regexes = {name: regex.compile(rule, regex.IGNORECASE) for (name, rule, opts) in scrape_types}
 
 def scrape(text):
     '''
