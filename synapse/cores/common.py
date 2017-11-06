@@ -322,6 +322,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         Use getCorePath and raise if dir is not set.
 
+        Args:
+            paths ([str,...]):  A list of path elements to join.
+
+        Returns:
+            (str):  The full path for the cortex directory.
+
         Raises:
             NoSuchOpt
         '''
@@ -338,7 +344,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             name (str): The :name of the syn:fifo node.
 
         Returns:
-            (Fifo): The Fifo object.
+            (synapse.lib.fifo.Fifo): The Fifo object.
         '''
         return self._core_fifos.gen(name)
 

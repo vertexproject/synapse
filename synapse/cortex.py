@@ -59,6 +59,9 @@ def fromdir(path, conf=None):
     Args:
         path (str): The path to the directory
         conf (dict): An optional set of config info
+
+    Returns:
+        (synapse.cores.common.Cortex)
     '''
     if conf is None:
         conf = {}

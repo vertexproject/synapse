@@ -2772,7 +2772,8 @@ class CortexTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            with s_cortex.fromdir(dirn) as core:
+            url = 'dir:///' + dirn
+            with s_cortex.openurl(url) as core:
 
                 self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
 
