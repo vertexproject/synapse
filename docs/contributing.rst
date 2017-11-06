@@ -436,7 +436,7 @@ This does require docker to be installed and working.
 
 #. Now PSQL tests can be run directly. The ``start_docker_psql`` alias can be
    used as needed to ensure the docker PSQL container is running and the
-   ``SYN_TEST_PG_DB`` is set.
+   ``SYN_TEST_PG_DB`` environment variable is set.
 
    ::
 
