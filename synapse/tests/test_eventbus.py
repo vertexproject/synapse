@@ -1,5 +1,5 @@
 import signal
-import threading
+import multiprocessing
 
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
@@ -8,22 +8,24 @@ import synapse.lib.threads as s_threads
 from synapse.tests.common import *
 
 @firethread
-def send_sig(pid, sig):
-    time.sleep(0.1)
-    # This test is insanity wolf
+def send_sig(pid, sig, wait=0.1):
+    time.sleep(wait)
     os.kill(pid, sig)
 
-class Foo(object):
-    def __init__(self):
-        self.bus = None  # type: s_eventbus.EventBus
-        self.btreadid = None
-        self.bthr = self.fireBus()
+def block_processing(evt):
+    '''
 
-    @firethread
-    def fireBus(self):
-        self.btreadid = threading.get_ident()
-        self.bus = s_eventbus.EventBus()
-        self.bus.main()
+    Args:
+        evt (multiprocessing.Event): event to twiddle
+
+    Returns:
+
+    '''
+    bus = s_eventbus.EventBus()
+    evt.set()
+    bus.main()
+    evt.set()
+    sys.exit(137)
 
 class EventBusTest(SynTest):
 
@@ -280,28 +282,42 @@ class EventBusTest(SynTest):
         self.thisHostMustNot(platform='windows')
         # We have no reliable way to test this on windows
 
-        bus = s_eventbus.EventBus()
-        pid = os.getpid()
+        evt = multiprocessing.Event()
+        evt.clear()
 
-        self.false(bus.isfini)
-        foo = send_sig(pid, signal.SIGTERM)
-        # block mainthread
-        bus.main()
-        # Signal should fire from our thread and unblock us to continue :)
-        self.true(bus.isfini)
+        proc = multiprocessing.Process(target=block_processing, args=(evt,))
+        proc.start()
+
+        self.true(evt.wait(timeout=30))
+        evt.clear()
+
+        foo = send_sig(proc.pid, signal.SIGTERM, wait=1)
+
+        self.true(evt.wait(timeout=30))
+
         foo.join()
+        proc.join()
+
+        self.eq(proc.exitcode, 137)
 
     def test_eventbus_main_sigint(self):
         self.thisHostMustNot(platform='windows')
         # We have no reliable way to test this on windows
 
-        bus = s_eventbus.EventBus()
-        pid = os.getpid()
+        evt = multiprocessing.Event()
+        evt.clear()
 
-        self.false(bus.isfini)
-        foo = send_sig(pid, signal.SIGINT)
-        # block mainthread
-        bus.main()
-        # Signal should fire from our thread and unblock us to continue :)
-        self.true(bus.isfini)
+        proc = multiprocessing.Process(target=block_processing, args=(evt,))
+        proc.start()
+
+        self.true(evt.wait(timeout=30))
+        evt.clear()
+
+        foo = send_sig(proc.pid, signal.SIGINT, wait=1)
+
+        self.true(evt.wait(timeout=30))
+
         foo.join()
+        proc.join()
+
+        self.eq(proc.exitcode, 137)
