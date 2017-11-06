@@ -1,11 +1,47 @@
-import unittest
-import threading
+import signal
+import multiprocessing
 
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.lib.threads as s_threads
 
 from synapse.tests.common import *
+
+@firethread
+def send_sig(pid, sig):
+    '''
+    Sent a signal to a process.
+
+    Args:
+        pid (int): Process id to send the signal too.
+        sig (int): Signal to send.
+
+    Returns:
+        None
+    '''
+    os.kill(pid, sig)
+
+def block_processing(evt1, evt2):
+    '''
+    Function to make an eventbus and call main().  Used as a Process target.
+
+    Args:
+        evt1 (multiprocessing.Event): event to twiddle
+        evt2 (multiprocessing.Event): event to twiddle
+    '''
+    bus = s_eventbus.EventBus()
+
+    def onMain(mesg):
+        evt1.set()
+
+    def onFini():
+        evt2.set()
+
+    bus.on('ebus:main', onMain)
+    bus.onfini(onFini)
+
+    bus.main()
+    sys.exit(137)
 
 class EventBusTest(SynTest):
 
@@ -257,3 +293,41 @@ class EventBusTest(SynTest):
             woot.fini()
             self.true(woot.isfini)
             self.false(refs.get('woot') is woot)
+
+    def test_eventbus_main_sigterm(self):
+        self.thisHostMustNot(platform='windows')
+        # We have no reliable way to test this on windows
+
+        evt1 = multiprocessing.Event()
+        evt1.clear()
+        evt2 = multiprocessing.Event()
+        evt2.clear()
+
+        proc = multiprocessing.Process(target=block_processing, args=(evt1, evt2))
+        proc.start()
+
+        self.true(evt1.wait(timeout=10))
+        foo = send_sig(proc.pid, signal.SIGTERM)
+        self.true(evt2.wait(timeout=10))
+        proc.join(timeout=10)
+        foo.join()
+        self.eq(proc.exitcode, 137)
+
+    def test_eventbus_main_sigint(self):
+        self.thisHostMustNot(platform='windows')
+        # We have no reliable way to test this on windows
+
+        evt1 = multiprocessing.Event()
+        evt1.clear()
+        evt2 = multiprocessing.Event()
+        evt2.clear()
+
+        proc = multiprocessing.Process(target=block_processing, args=(evt1, evt2))
+        proc.start()
+
+        self.true(evt1.wait(timeout=10))
+        foo = send_sig(proc.pid, signal.SIGINT)
+        self.true(evt2.wait(timeout=10))
+        proc.join(timeout=10)
+        foo.join()
+        self.eq(proc.exitcode, 137)
