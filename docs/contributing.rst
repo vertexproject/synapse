@@ -383,65 +383,31 @@ Running Postgres Tests
 
 Changes which involve modifying Postgres storage layer may require additional
 testing during local development. It is easy to use a dockerized version of
-Postgres in order to do this. The following instructions show how to make a
-persistent docker volume and postgres container that can be used for testing.
-This does require docker to be installed and working.
+Postgres in order to do this. The following instructions show how to start and
+stop a docker-compose file provided in Synapse in order to run these tests,
+as well as configuring shell aliases to start/stop the container.
 
-#. Pull required docker images:
+This does require docker and docker-compose to be installed and working.
 
-   ::
-
-      docker pull postgres:9.6
-      docker pull busybox
-
-
-#. Make the data container. This container can be used to persist the DB
-   contents over time if needed.
+#. Start the container via docker-compose from the root checkout of the Synapse
+   repository.  This will daemonize the docker container so its runs in the
+   background.
 
    ::
 
-      docker create -v /var/lib/postgresql/data --name psql96-data busybox
+      docker-compose -f synapse/tests/docker-compose.yml up -d --force-recreate
 
-#. Make the DB container.  You can choose the password for the postgres user
-   by changing the value in the POSTGRES_PASSWORD envar during container
-   creation. This does expose the DB on port 5432 locally.
-
-   ::
-
-      docker run --name local-psql96 -e POSTGRES_PASSWORD=hehe -p 5432:5432 -d --volumes-from psql96-data postgres:9.6
-
-#. Add the test database to the DB. This will be used next to configure the
-   environmental variable the testrunner looks for in order to create the
-   Postgres storage object.  You'll be prompted for the postgres user password,
-   use the password set in the previous step.
+#. Configure test environment variable so the unittest runner knows where to
+   connect too for getting a PSQL Cortex connection from.
 
    ::
 
-      $ docker run -it --link local-psql96:postgres --rm postgres:9.6 sh -c 'exec psql -h "$POSTGRES_PORT_5432_TCP_ADDR" -p "$POSTGRES_PORT_5432_TCP_PORT" -U postgres'
-      Password for user postgres: <enter your password here>
-      psql (9.6.5)
-      Type "help" for help.
+      export SYN_TEST_PG_DB=postgres:hehe@localhost:5432/syn_test
 
-      postgres=# create database syn_test;
-      CREATE DATABASE
-      postgres=# \q
-
-#. Set an alias to easily start up the containers and set the test
-   environmental variable. This can be added to a ``~/.bash_aliases`` file or
-   other shell configuration file as appropriate.
+#. Run a PSQL Cortex unit test to make sure it works properly.
 
    ::
 
-      alias start_docker_psql='docker start local-psql96 && export SYN_TEST_PG_DB=postgres:hehe@localhost:5432/syn_test'
-
-#. Now PSQL tests can be run directly. The ``start_docker_psql`` alias can be
-   used as needed to ensure the docker PSQL container is running and the
-   ``SYN_TEST_PG_DB`` environment variable is set.
-
-   ::
-
-      synapse$ start_docker_psql
-      local-psql96
       synapse$ python -m unittest synapse.tests.test_cortex.CortexBaseTest.test_cortex_postgres -v
       test_cortex_postgres (synapse.tests.test_cortex.CortexBaseTest) ... ok
 
@@ -451,3 +417,18 @@ This does require docker to be installed and working.
       OK
 
    ::
+
+#. Tear down the PSQL container when done with it.
+
+   ::
+
+      docker-compose -f synapse/tests/docker-compose.yml down
+
+#. These commands can be set as bash aliases to easily run them. These can be
+   added to a ``~/.bash_aliases`` file or other shell configuration file as
+   appropriate.
+
+   ::
+
+      alias start_syn_psql='docker-compose -f synapse/tests/docker-compose.yml up -d --force-recreate && export SYN_TEST_PG_DB=postgres:hehe@localhost:5432/syn_test'
+      alias stop_syn_psql='docker-compose -f synapse/tests/docker-compose.yml down'
