@@ -66,3 +66,9 @@ class DnsModelTest(SynTest):
             self.eq(t0[1].get('inet:dns:look:aaaa'), 'woot.com/ff::56')
             self.eq(t0[1].get('inet:dns:look:aaaa:fqdn'), 'woot.com')
             self.eq(t0[1].get('inet:dns:look:aaaa:ipv6'), 'ff::56')
+
+    def test_model_dns_rev6(self):
+        with self.getRamCore() as core:
+            node = core.formTufoByProp('inet:dns:rev6', '2607:f8b0:4004:809::200e/vertex.link')
+            self.eq(node[1].get('inet:dns:rev6:fqdn'), 'vertex.link')
+            self.eq(node[1].get('inet:dns:rev6:ipv6'), '2607:f8b0:4004:809::200e')

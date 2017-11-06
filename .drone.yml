@@ -28,10 +28,11 @@ matrix:
       PG_DB: root@database:5432/syn_test
       COVERAGE_ARGS: --cov synapse --no-cov-on-fail
       SLEEP: 6
-    - TEST_NAME: "Python 37 without coverage."
-      IMAGE_VERSION: py37
-      PG_DB: root@database:5432/syn_test
-      SLEEP: 9
+# We are unable to test on Python 3.7 until synapse.async is renamed
+#    - TEST_NAME: "Python 37 without coverage."
+#      IMAGE_VERSION: py37
+#      PG_DB: root@database:5432/syn_test
+#      SLEEP: 9
 
 pipeline:
   pycodestyle:

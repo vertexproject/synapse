@@ -1071,16 +1071,27 @@ class CortexTest(SynTest):
             # ro props after the fact. Also ensure those secondary props which
             # may trigger autoadds are generating the autoadds and do not retain
             # those non-model seconadry props.
-            valu, subs = core.getTypeNorm('inet:web:post', '(vertex.ninja/ninja,"Just ninja things.")')
-            t0 = core.formTufoByProp('inet:web:post', valu)
-            self.eq(t0[1].get('inet:web:post'), valu)
-            self.none(t0[1].get('inet:web:post:acct'))
-            self.none(t0[1].get('inet:web:post:text'))
-            t0 = core.setTufoProps(t0, **subs)
-            self.eq(t0[1].get('inet:web:post:acct'), 'vertex.ninja/ninja')
-            self.eq(t0[1].get('inet:web:post:text'), 'Just ninja things.')
-            t0 = core.setTufoProps(t0, text='Throwing stars are cool!')
-            self.eq(t0[1].get('inet:web:post:text'), 'Just ninja things.')
+            core.addDataModels([
+                ('test:foo', {
+                    'forms': (
+                        ('test:roprop', {'ptype': 'guid'}, (
+                            ('hehe', {'ptype': 'int', 'ro': 1}),
+                        )),
+                    ),
+                })
+            ])
+
+            # Ensure that splices for changes on ro properties on a node are reflected
+            node = core.formTufoByProp('test:roprop', '*')
+
+            self.nn(node[1].get('test:roprop'))
+            self.none(node[1].get('test:roprop:hehe'))
+
+            node = core.setTufoProps(node, hehe=10)
+            self.eq(node[1].get('test:roprop:hehe'), 10)
+
+            node = core.setTufoProps(node, hehe=20)
+            self.eq(node[1].get('test:roprop:hehe'), 10)
 
     def test_cortex_tufo_pop(self):
         with self.getRamCore() as core:
@@ -1460,22 +1471,6 @@ class CortexTest(SynTest):
             self.nn(core1.getTufoByProp('inet:user', 'user'))
             self.nn(core1.getTufoByProp('inet:fqdn', 'vertex.link'))
             self.nn(core1.getTufoByProp('inet:fqdn', 'link'))
-
-            # Ensure that splices for changes on ro properties on a node are reflected
-            valu, subs = core0.getTypeNorm('inet:web:post',
-                                           '(vertex.ninja/ninja,"Just ninja things.")')
-            t0 = core0.formTufoByProp('inet:web:post', valu)
-            self.eq(t0[1].get('inet:web:post'), valu)
-            self.none(t0[1].get('inet:web:post:acct'))
-            self.none(t0[1].get('inet:web:post:text'))
-            core0.setTufoProps(t0, **subs)
-            t0 = core1.getTufoByProp('inet:web:post', valu)
-            self.eq(t0[1].get('inet:web:post:acct'), 'vertex.ninja/ninja')
-            self.eq(t0[1].get('inet:web:post:text'), 'Just ninja things.')
-            self.nn(core1.getTufoByProp('inet:web:acct', 'vertex.ninja/ninja'))
-            self.nn(core1.getTufoByProp('inet:user', 'ninja'))
-            self.nn(core1.getTufoByProp('inet:fqdn', 'vertex.ninja'))
-            self.nn(core1.getTufoByProp('inet:fqdn', 'ninja'))
 
     def test_cortex_dict(self):
         core = s_cortex.openurl('ram://')
