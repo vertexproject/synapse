@@ -1,7 +1,8 @@
-import re
 import queue
 import logging
 import sqlite3
+
+import regex
 
 import synapse.common as s_common
 
@@ -11,7 +12,7 @@ import synapse.cores.storage as s_cores_storage
 
 logger = logging.getLogger(__name__)
 
-stashre = re.compile('{{([A-Z]+)}}')
+stashre = regex.compile('{{([A-Z]+)}}')
 
 int_t = type(0)
 str_t = type('synapse')
