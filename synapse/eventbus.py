@@ -1,5 +1,6 @@
 import gc
 import atexit
+import signal
 import logging
 import threading
 import traceback
@@ -259,15 +260,33 @@ class EventBus(object):
 
     def main(self):
         '''
-        Helper function to block until shutdown ( and handle ctrl-c etc ).
+        Helper function to block until shutdown ( and handle ctrl-c and SIGTERM).
 
-        Example:
+        Examples:
+            Run a event bus, wait until main() has returned, then do other stuff::
 
-            dmon.main()
-            # we have now fini()d
+                foo = EventBus()
+                foo.main()
+                dostuff()
 
+        Notes:
+            This does fire a 'ebus:main' event prior to entering the
+            waitfini() loop.
+
+        Returns:
+            None
         '''
+        def sighandler(signum, frame):
+            print('Caught signal {}, shutting down'.format(signum))
+            self.fini()
+
         try:
+            signal.signal(signal.SIGTERM, sighandler)
+        except Exception as e:  # pragma: no cover
+            logger.exception('Unable to register SIGTERM handler in eventbus.')
+
+        try:
+            self.fire('ebus:main')
             self.waitfini()
         except KeyboardInterrupt as e:
             print('ctrl-c caught: shutting down')
