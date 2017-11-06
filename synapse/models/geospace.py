@@ -70,7 +70,7 @@ class GeoMod(CoreModule):
                 ('geo:alias', {'subof': 'str:lwr', 'regex': '^[0-9a-z]+$', 'doc': 'An alias for the place GUID', 'ex': 'foobar'}),
 
                 ('geo:dist', {'ctor': 'synapse.models.geospace.DistType',
-                    'doc': 'A geographic distance', 'ex': '10 km'}),
+                    'doc': 'A geographic distance (base unit is mm)', 'ex': '10 km'}),
 
                 ('geo:latlong', {'ctor': 'synapse.models.geospace.LatLongType',
                     'doc': 'A Lat/Long string specifying a point on Earth'}),
@@ -84,11 +84,11 @@ class GeoMod(CoreModule):
                     ('latlong', {'ptype': 'geo:latlong', 'defval': '??', 'doc': 'The location of the place'}),
                 ]),
 
-                ('geo:nodeloc', {'ptype': 'guid'}, [
-                    ('node', {'ptype': 'propvalu', 'doc': 'The node with location in geo/time'}),
-                    ('time', {'ptype': 'time', 'doc': 'The time the node was observed at location'}),
-                    ('latlong', {'ptype': 'geo:latlong', 'req': 1, 'doc': 'The location the node was observed'}),
-                ]),
+                #('geo:nodeloc', {'ptype': 'guid'}, [
+                    #('node', {'ptype': 'syn:ndef', 'doc': 'The node with location in geo/time'}),
+                    #('time', {'ptype': 'time', 'doc': 'The time the node was observed at location'}),
+                    #('latlong', {'ptype': 'geo:latlong', 'req': 1, 'doc': 'The location the node was observed'}),
+                #]),
             ),
         }
         name = 'geo'
