@@ -586,14 +586,14 @@ class StormTest(SynTest):
             self.nn(orgnode)
             self.nn(core.eval('[inet:fqdn=woot.com]')[0])
             # Set the missing props
-            query = 'ou:hasfqdn={} [:org={} :fqdn=woot.com]'.format(ouhnode[1].get('ou:hasfqdn'),
-                                                                    orgnode[1].get('ou:org'))
+            query = 'ou:hasfqdn=%s [:org=%s :fqdn=woot.com]' % (ouhnode[1].get('ou:hasfqdn'),
+                                                                orgnode[1].get('ou:org'))
             ouhnode = core.eval(query)[0]
             self.eq(ouhnode[1].get('ou:hasfqdn:org'), orgnode[1].get('ou:org'))
             self.eq(ouhnode[1].get('ou:hasfqdn:fqdn'), 'woot.com')
             # We cannot change ro values via set prop mode
-            query = 'ou:hasfqdn={} [:org={} :fqdn=vertex.link]'.format(ouhnode[1].get('ou:hasfqdn'),
-                                                                    orgnode[1].get('ou:org'))
+            query = 'ou:hasfqdn=%s [:org=%s :fqdn=vertex.link]' % (ouhnode[1].get('ou:hasfqdn'),
+                                                                   orgnode[1].get('ou:org'))
             ouhnode = core.eval(query)[0]
             self.eq(ouhnode[1].get('ou:hasfqdn:org'), orgnode[1].get('ou:org'))
             self.eq(ouhnode[1].get('ou:hasfqdn:fqdn'), 'woot.com')

@@ -2403,9 +2403,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if ctor is not None:
             return ctor(prop, valu, **props)
 
-        if self.enforce and not self.isTufoForm(prop):
-            raise s_common.NoSuchForm(name=prop,
-                                      mesg='Cannot form node for a non-form property.')
+        if self.enforce:
+            self.reqTufoForm(prop)
         tname = self.getPropTypeName(prop)
 
         # special case for adding nodes with a guid primary property
