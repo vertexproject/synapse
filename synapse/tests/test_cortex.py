@@ -2811,20 +2811,45 @@ class CortexTest(SynTest):
                     prox = s_telepath.openurl('tcp://127.0.0.1/core', port=port)
 
                     data = []
-                    prox.on('fifo:xmit', data.append, name='haha')
+                    def fifoxmit(mesg):
+                        data.append(mesg)
+                        name = mesg[1].get('name')
+                        seqn = mesg[1].get('qent')[0]
+                        prox.fire('fifo:ack', seqn=seqn, name=name)
+
+                    prox.on('fifo:xmit', fifoxmit, name='haha')
 
                     wait = prox.waiter(1, 'fifo:xmit')
                     prox.subCoreFifo('haha')
-                    wait.wait(timeout=1)
+
+                    self.nn(wait.wait(timeout=1))
 
                     self.len(1, data)
 
                     wait = prox.waiter(2, 'fifo:xmit')
+                    ackwait = core.waiter(2, 'fifo:ack')
+
                     core.putCoreFifo('haha', 'lulz')
                     core.putCoreFifo('haha', 'rofl')
-                    wait.wait(timeout=1)
+
+                    self.nn(wait.wait(timeout=1))
+                    self.nn(ackwait.wait(timeout=1))
 
                     self.len(3, data)
+
+                    waiter = prox.waiter(1, 'tele:sock:init')
+                    subwait = core.waiter(1, 'fifo:sub')
+
+                    prox._tele_sock.fini()
+
+                    self.nn(waiter.wait(timeout=1))
+                    self.nn(subwait.wait(timeout=1))
+
+                    waiter = prox.waiter(1, 'fifo:xmit')
+                    core.putCoreFifo('haha', 'zonk')
+                    self.nn(waiter.wait(timeout=1))
+
+                    self.len(4, data)
 
                 core.delTufo(node)
 
