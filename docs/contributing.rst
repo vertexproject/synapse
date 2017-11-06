@@ -221,7 +221,7 @@ The following items should be considered when contributing to Synapse:
     def foo(a, b, duck=None):
        print(a, b, duck)
 
-    #Do this
+    # Do this
     foo('a', 'b', duck='quacker')
     # Not this
     foo(a='a', b='b', duck='quacker')
@@ -262,6 +262,28 @@ The following items should be considered when contributing to Synapse:
   - Ensure you are closing resources which may be open with test cases. Many
     Synapse objects may be used as content managers which make this easy for
     test authors.
+
+* Avoid the use of the built-in ``re`` module. Instead use the third-party ``regex``
+  module. ``regex`` is preferred due to known bugs with unicode in the ``re``
+  module. Additionally, ``regex`` does provide some performance benefits over
+  ``re``, especially when using pre-compiled regular expression statements.
+
+* Whenever possible, regular expressions should be pre-compiled. String 
+  matches/comparisons should be performed against the pre-compiled regex instance.
+
+  ::
+
+      # Do this
+      fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
+
+      def checkValue(valu):
+          if not fqdnre.match(valu):
+              self._raiseBadValu(valu)
+
+      # NOT this
+      def checkValue(valu):
+          if not regex.match(r'^[\w._-]+$', valu, regex.U)
+              self._raiseBadValu(valu)
 
 Contributions to Synapse which do not follow the project style guidelines may
 not be accepted.
