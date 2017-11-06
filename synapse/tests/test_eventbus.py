@@ -9,17 +9,26 @@ from synapse.tests.common import *
 
 @firethread
 def send_sig(pid, sig, wait=0.1):
+    '''
+    Sent a signal to a process.
+
+    Args:
+        pid (int): Process id to send the signal too.
+        sig (int): Signal to send.
+        wait (float): Time to sleep before sending the signal.
+
+    Returns:
+        None
+    '''
     time.sleep(wait)
     os.kill(pid, sig)
 
 def block_processing(evt):
     '''
+    Function to make an eventbus and call main().  Used as a Process target.
 
     Args:
         evt (multiprocessing.Event): event to twiddle
-
-    Returns:
-
     '''
     bus = s_eventbus.EventBus()
     evt.set()
