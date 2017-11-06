@@ -390,7 +390,7 @@ class DataModelTest(SynTest):
         self.false(modl.isTufoForm('file:bytes:size'))
         self.false(modl.isTufoForm('node:ndef'))
 
-        self.true(modl.reqTufoForm('file:bytes'))
+        self.none(modl.reqTufoForm('file:bytes'))
         self.raises(NoSuchForm, modl.reqTufoForm, 'file:bytes:size')
 
     def test_datamodel_cast_json(self):
