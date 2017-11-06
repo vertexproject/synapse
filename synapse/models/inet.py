@@ -1,8 +1,9 @@
-import re
 import socket
 import struct
 import hashlib
 import logging
+
+import regex
 
 import synapse.common as s_common
 import synapse.lib.tufo as s_tufo
@@ -64,7 +65,7 @@ class IPv4Type(DataType):
     def repr(self, valu):
         return ipv4str(valu)
 
-fqdnre = re.compile(r'^[\w._-]+$', re.U)
+fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 
 class FqdnType(DataType):
     subprops = (
@@ -170,7 +171,7 @@ class Srv4Type(DataType):
                                mesg='Srv4 Port number is out of bounds')
         return (addr << 16) | port, {'port': port, 'ipv4': addr}
 
-srv6re = re.compile('^\[([a-f0-9:]+)\]:(\d+)$')
+srv6re = regex.compile('^\[([a-f0-9:]+)\]:(\d+)$')
 
 class Srv6Type(DataType):
     '''

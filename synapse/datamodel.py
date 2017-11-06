@@ -1,11 +1,12 @@
 '''
 An API to assist with the creation and enforcement of cortex data models.
 '''
-import re
 import fnmatch
 import functools
 import collections
 import logging
+
+import regex
 
 import synapse.common as s_common
 
@@ -14,8 +15,8 @@ import synapse.lib.types as s_types
 
 logger = logging.getLogger(__name__)
 
-hexre = re.compile('^[0-9a-z]+$')
-propre = re.compile('^[0-9a-z:_]+$')
+hexre = regex.compile('^[0-9a-z]+$')
+propre = regex.compile('^[0-9a-z:_]+$')
 
 tlib = s_types.TypeLib()
 
