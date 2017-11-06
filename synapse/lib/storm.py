@@ -1,8 +1,9 @@
-import re
 import time
 import fnmatch
 import logging
 import collections
+
+import regex
 
 import synapse.common as s_common
 
@@ -443,7 +444,7 @@ class Runtime(Configable):
         self.setOperFunc('show:cols', self._stormOperShowCols)
 
         # Cache compiled regex objects.
-        self._rt_regexcache = s_cache.FixedCache(1024, re.compile)
+        self._rt_regexcache = s_cache.FixedCache(1024, regex.compile)
 
     @staticmethod
     @confdef(name='storm')

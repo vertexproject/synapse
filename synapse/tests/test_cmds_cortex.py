@@ -1,4 +1,4 @@
-import re
+import regex
 
 import synapse.lib.cmdr as s_cmdr
 import synapse.cmds.cortex as s_cmds_cortex
@@ -46,7 +46,7 @@ class SynCmdCoreTest(SynTest):
             terms = ('oplog', 'took', 'options', 'limits')
 
             for term in terms:
-                self.nn(re.search(term, outp))
+                self.nn(regex.search(term, outp))
 
     def test_cmds_ask_props(self):
         with self.getDmonCore() as core:
@@ -60,7 +60,7 @@ class SynCmdCoreTest(SynTest):
             terms = ('fqdn = vertex.link', 'user = visi')
 
             for term in terms:
-                self.nn(re.search(term, outp))
+                self.nn(regex.search(term, outp))
 
     def test_cmds_ask_tagtime(self):
 
@@ -74,8 +74,8 @@ class SynCmdCoreTest(SynTest):
 
             lines = [s.strip() for s in str(outp).split('\n')]
 
-            self.true(any([re.search('^#baz.faz \(added [0-9/: \.]+\)$', l) for l in lines]))
-            self.true(any([re.search('^#foo.bar \(added [0-9/: \.]+\) 2011/01/01 00:00:00.000  -  2016/01/01 00:00:00.000$', l) for l in lines]))
+            self.true(any([regex.search('^#baz.faz \(added [0-9/: \.]+\)$', l) for l in lines]))
+            self.true(any([regex.search('^#foo.bar \(added [0-9/: \.]+\) 2011/01/01 00:00:00.000  -  2016/01/01 00:00:00.000$', l) for l in lines]))
 
     def test_cmds_ask_mutual_exclusive(self):
         with self.getDmonCore() as core:
@@ -111,7 +111,7 @@ class SynCmdCoreTest(SynTest):
                      'options:',
                      'limits:')
             for term in terms:
-                self.nn(re.search(term, outp))
+                self.nn(regex.search(term, outp))
 
     def test_cmds_ask_raw(self):
         with self.getDmonCore() as core:
@@ -124,7 +124,7 @@ class SynCmdCoreTest(SynTest):
             outp = str(outp)
             terms = ('"tufo:form": "inet:email"', '"inet:email:user": "visi"')
             for term in terms:
-                self.nn(re.search(term, outp))
+                self.nn(regex.search(term, outp))
 
     def test_cmds_ask_multilift(self):
         with self.getDmonCore() as core:
@@ -139,14 +139,14 @@ class SynCmdCoreTest(SynTest):
             terms = ('0.0.0.0', 'hehe')
 
             for term in terms:
-                self.nn(re.search(term, outp))
+                self.nn(regex.search(term, outp))
 
     def test_cmds_ask_noopts(self):
         with self.getDmonCore() as core:
             outp = s_output.OutPutStr()
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('ask')
-            self.nn(re.search('Examples:', str(outp)))
+            self.nn(regex.search('Examples:', str(outp)))
 
     def test_cmds_guid(self):
         with self.getDmonCore() as core:

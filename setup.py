@@ -21,7 +21,8 @@ setup(
         'pyOpenSSL>=16.2.0',
         'msgpack-python>=0.4.2',
         'xxhash>=1.0.1',
-        'lmdb>=0.92'
+        'lmdb>=0.92',
+        'regex>=2017.9.23'
     ],
 
     classifiers=[

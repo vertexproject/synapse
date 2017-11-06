@@ -2,8 +2,9 @@
 Synapse utilites for dealing with Semvar versioning.
 This includes the Synapse version information.
 '''
-import re
 import string
+
+import regex
 
 # This module is imported during synapse.__init__.  As such, we can't pull
 # arbitrary modules from Synapse here. synapse.exc is currently safe,
@@ -13,7 +14,7 @@ import synapse.exc as s_exc
 vseps = ('.', '-', '_', '+')
 mask20 = 0xFFFFF
 mask60 = 0xFFFFFFFFFFFFFFF
-semver_re = r'''^(?P<maj>(0(?![0-9])|[1-9][0-9]*))\.(?P<min>(0(?![0-9])|[1-9][0-9]*))\.(?P<pat>(0(?![0-9])|[1-9][0-9]*))(\-(?P<pre>([0-9A-Za-z\-\.]+)))?(\+(?P<bld>([0-9A-Za-z\.\-]+)))?$'''
+semver_re = regex.compile(r'''^(?P<maj>(0(?![0-9])|[1-9][0-9]*))\.(?P<min>(0(?![0-9])|[1-9][0-9]*))\.(?P<pat>(0(?![0-9])|[1-9][0-9]*))(\-(?P<pre>([0-9A-Za-z\-\.]+)))?(\+(?P<bld>([0-9A-Za-z\.\-]+)))?$''')
 
 def parseSemver(text):
     '''
@@ -37,7 +38,7 @@ def parseSemver(text):
     txt = text.strip().lstrip('vV')
     ret = {}
 
-    m = re.match(semver_re, txt)
+    m = semver_re.match(txt)
     if not m:
         return None
     d = m.groupdict()
@@ -161,12 +162,12 @@ def parseVersionParts(text, seps=vseps):
     text = text.lstrip(string.ascii_letters)
     # Strip off any leading separator which may be present
     text = text.lstrip(seps)
-    pattern = r'^(\d+)([{}]+|$)'.format(re.escape(seps))
+    pattern = r'^(\d+)([{}]+|$)'.format(regex.escape(seps))
     parts = []
     ret = {}
     off = 0
     while True:
-        m = re.search(pattern, text[off:])
+        m = regex.search(pattern, text[off:])
         if not m:
             break
         off += m.end()

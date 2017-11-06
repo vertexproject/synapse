@@ -17,6 +17,11 @@ class DnsModelTest(SynTest):
             self.eq(t1[1].get('inet:dns:a:fqdn'), 'foo.com')
             self.eq(t1[1].get('inet:dns:a:ipv4'), 0x05060708)
 
+            t2 = core.formTufoByProp('inet:dns:a', 'www.\u0915\u0949\u092e/1.2.3.4')
+            self.eq(t2[1].get('inet:dns:a'), 'www.\u0915\u0949\u092e/1.2.3.4')
+            self.eq(t2[1].get('inet:dns:a:fqdn'), 'www.xn--11b4c3d')
+            self.eq(t2[1].get('inet:dns:a:ipv4'), 0x01020304)
+
     def test_model_dns_aaaa(self):
         with self.getRamCore() as core:
             t0 = core.formTufoByProp('inet:dns:aaaa', 'WOOT.com/FF::56')
