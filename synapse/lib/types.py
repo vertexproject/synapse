@@ -116,6 +116,11 @@ class GuidType(DataType):
 
             return retn, {}
 
+        node = self.tlib.getTufoByProp('guid:alias', name)
+        if node is not None:
+            return node[1].get('syn:alias:iden'), {}
+
+        # TODO remove legacy model aliases
         if self._guid_alias is None:
             self._raiseBadValu(text, mesg='guid resolver syntax used with non-aliased guid')
 

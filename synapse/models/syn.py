@@ -17,6 +17,10 @@ class SynMod(CoreModule):
                 ('syn:auth:role', {'subof': 'str'}),
                 ('syn:auth:userrole', {'subof': 'comp', 'fields': 'user=syn:auth:user,role=syn:auth:role'}),
                 ('syn:tagform', {'subof': 'comp', 'fields': 'tag,syn:tag|form,syn:prop', 'ex': '(foo.bar,baz:faz)'}),
+
+                ('syn:alias', {'subof': 'str', 'regex': '$[a-z_]+',
+                    'doc': 'A synapse guid alias', 'ex': '$visi'}),
+
             ),
 
             'forms': (
@@ -30,6 +34,11 @@ class SynMod(CoreModule):
                     ('tag', {'ptype': 'str:lwr'}),
                     ('form', {'ptype': 'str:lwr'}),
                     ('valu', {'ptype': 'str:lwr'}),
+                )),
+
+                ('syn:alias', {'local': 1}, (
+                    ('iden', {'ptype': 'guid', 'defval': '*',
+                        'doc': 'The GUID for the given alias name'}),
                 )),
 
                 ('syn:auth:user', {'local': 1}, (
