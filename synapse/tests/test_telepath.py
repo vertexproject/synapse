@@ -411,3 +411,40 @@ class TelePathTest(SynTest):
 
             with s_telepath.openurl('tcp://127.0.0.1/foo', port=port) as foo:
                 self.raises(MustBeLocal, s_telepath.reqNotProxy, foo)
+
+    def test_telepath_reminder(self):
+
+        evnt = threading.Event()
+        class Mind(s_eventbus.EventBus):
+
+            def __init__(self):
+                s_eventbus.EventBus.__init__(self)
+                self.sent = []
+                self.on('foo:bar', self._onFooBar)
+
+            def _onFooBar(self, mesg):
+                self.sent.append(mesg)
+                evnt.set()
+
+            def woot(self):
+                s_telepath.reminder('foo:bar', name='hehe')
+                return 10
+
+        mind = Mind()
+
+        with s_daemon.Daemon() as dmon:
+
+            dmon.share('mind', mind)
+
+            link = dmon.listen('tcp://127.0.0.1:0/')
+
+            port = link[1].get('port')
+
+            prox = s_telepath.openurl('tcp://127.0.0.1/mind', port=port)
+
+            self.eq(prox.woot(), 10)
+
+            # reach in and squish the socket...
+            prox._tele_sock.fini()
+            self.true(evnt.wait(timeout=1))
+            self.eq(mind.sent[0][0], 'foo:bar')

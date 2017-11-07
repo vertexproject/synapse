@@ -2707,6 +2707,7 @@ class CortexTest(SynTest):
             self.eq(len(core.getRoleRules('newb')), 0)
 
             # test the short circuit before auth is enabled
+            core.reqperm(('node:add', {'form': 'inet:fqdn'}), user='newp')
             self.true(core.allowed(('node:add', {'form': 'inet:fqdn'}), user='newp'))
 
             core.setConfOpt('auth:en', 1)
@@ -2721,12 +2722,17 @@ class CortexTest(SynTest):
                 rule = (True, ('node:add', {'form': 'ou:org'}))
                 core.addUserRule('fred@woot.com', rule)
 
-                self.true(core.allowed(('node:add', {'form': 'ou:org'})))
+                perm = ('node:add', {'form': 'ou:org'})
+                core.reqperm(perm)
+                self.true(core.allowed(perm))
                 self.eq(len(core.getUserRules('fred@woot.com')), 1)
 
                 core.setUserRules('fred@woot.com', ())
                 self.eq(len(core.getUserRules('fred@woot.com')), 0)
-                self.false(core.allowed(('node:add', {'form': 'ou:org'})))
+
+                perm = ('node:add', {'form': 'ou:org'})
+                self.false(core.allowed(perm))
+                self.raises(AuthDeny, core.reqperm, perm)
 
             with s_auth.runas('root@localhost'):
                 self.true(core.allowed(('fake', {})))
@@ -2769,6 +2775,94 @@ class CortexTest(SynTest):
             self.none(t1[1].get('strform:bar'))
             self.none(t1[1].get('strform:baz'))
             self.none(t1[1].get('strform:haha'))
+
+    def test_cortex_fifos(self):
+
+        with self.getTestDir() as dirn:
+
+            url = 'dir:///' + dirn
+            with s_cortex.openurl(url) as core:
+
+                self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
+
+                node = core.formTufoByProp('syn:fifo', '*', name='haha')
+                path = core.getCorePath('fifos', node[1].get('syn:fifo'))
+
+                sent = []
+
+                # this will trigger dir creation
+                core.subCoreFifo('haha', sent.append)
+
+                self.true(os.path.isdir(path))
+
+                core.putCoreFifo('haha', 'foo')
+                core.putCoreFifo('haha', 'bar')
+
+                self.len(2, sent)
+                self.eq(sent[0][2], 'foo')
+                self.eq(sent[1][2], 'bar')
+
+                core.ackCoreFifo('haha', sent[0][0])
+
+                sent = []
+                core.subCoreFifo('haha', sent.append)
+
+                self.len(1, sent)
+                self.eq(sent[0][2], 'bar')
+
+                with s_daemon.Daemon() as dmon:
+
+                    link = dmon.listen('tcp://127.0.0.1:0/')
+                    dmon.share('core', core)
+
+                    port = link[1].get('port')
+                    prox = s_telepath.openurl('tcp://127.0.0.1/core', port=port)
+
+                    data = []
+                    def fifoxmit(mesg):
+                        data.append(mesg)
+                        name = mesg[1].get('name')
+                        seqn = mesg[1].get('qent')[0]
+                        prox.fire('fifo:ack', seqn=seqn, name=name)
+
+                    prox.on('fifo:xmit', fifoxmit, name='haha')
+
+                    wait = prox.waiter(1, 'fifo:xmit')
+                    prox.subCoreFifo('haha')
+
+                    self.nn(wait.wait(timeout=1))
+
+                    self.len(1, data)
+
+                    wait = prox.waiter(2, 'fifo:xmit')
+                    ackwait = core.waiter(2, 'fifo:ack')
+
+                    core.putCoreFifo('haha', 'lulz')
+                    core.putCoreFifo('haha', 'rofl')
+
+                    self.nn(wait.wait(timeout=1))
+                    self.nn(ackwait.wait(timeout=1))
+
+                    self.len(3, data)
+
+                    waiter = prox.waiter(1, 'tele:sock:init')
+                    subwait = core.waiter(1, 'fifo:sub')
+
+                    prox._tele_sock.fini()
+
+                    self.nn(waiter.wait(timeout=1))
+                    self.nn(subwait.wait(timeout=1))
+
+                    waiter = prox.waiter(1, 'fifo:xmit')
+                    core.putCoreFifo('haha', 'zonk')
+                    self.nn(waiter.wait(timeout=1))
+
+                    self.len(4, data)
+
+                core.delTufo(node)
+
+                self.false(os.path.isdir(path))
+                self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
 
 class StorageTest(SynTest):
 

@@ -391,12 +391,6 @@ class Daemon(EventBus, DmonConf):
     def setUserAuth(self, auth):
         self.auth = auth
 
-    def getNewSess(self):
-        return self.cura.new()
-
-    def getSessByIden(self, iden):
-        return self.cura.get(iden)
-
     def _onTeleYieldFini(self, sock, mesg):
         iden = mesg[1].get('iden')
         self._dmon_yields.discard(iden)
@@ -408,19 +402,6 @@ class Daemon(EventBus, DmonConf):
         # examples of additional config elements
 
         {
-            "sessions":{
-
-                "comment":"Maxtime (if set) sets the maxtime for the session cache (in seconds)",
-                "maxtime":12345,
-
-                "comment":"Curator (if set) uses dmoneval to set the session curator",
-                "curator":"tcp://host.com:8899/synsess",
-
-                "comment":"Comment (if set) saves sessions to the given path (sqlite cortex)",
-                "savefile":"sessions.sql3"
-
-            },
-
             "share":(
                 ('fooname',{'optname':optval}),
                 ...
@@ -448,11 +429,6 @@ class Daemon(EventBus, DmonConf):
             fini = opts.get('onfini', False)
             self.share(asname, item, fini=fini)
 
-        # process the sessions config info
-        sessinfo = conf.get('sessions')
-        if sessinfo is not None:
-            self._loadSessConf(sessinfo)
-
         # process a few daemon specific options
         for url in conf.get('listen', ()):
             if isinstance(url, str):
@@ -461,26 +437,6 @@ class Daemon(EventBus, DmonConf):
 
             url, opts = url
             self.listen(url, **opts)
-
-    def _loadSessConf(self, info):
-        # curator over-ride wins
-        curaname = info.get('curator')
-
-        # If it's a local, go with it...
-        if curaname is not None:
-            self.cura = self.dmoneval(curaname)
-
-        maxtime = info.get('maxtime')
-        if maxtime is not None:
-            self.cura.setMaxTime(maxtime)
-
-        savefile = info.get('savefile')
-        if savefile is not None:
-            core = s_cortex.openurl('sqlite:///%s' % savefile)
-            core.setConfOpt('enforce', 0)
-            self.cura.setSessCore(core)
-
-            self.onfini(core.fini)
 
     def _onTelePushMesg(self, sock, mesg):
 
@@ -594,14 +550,8 @@ class Daemon(EventBus, DmonConf):
             info = s_common.errinfo('BadMesgVers', 'server %r != client %r' % (s_telepath.telever, vers))
             return sock.tx(s_common.tufo('job:done', jid=jid, **info))
 
-        sess = None
-
         iden = mesg[1].get('sess')
-        if iden is not None:
-            sess = self.getSessByIden(iden)
-
-        if sess is None:
-            sess = self.getNewSess()
+        sess = self.cura.get(iden)
 
         ret = {
             'sess': sess.iden,
@@ -618,7 +568,7 @@ class Daemon(EventBus, DmonConf):
         if not sess.get('user'):
             nonce = s_common.guid()
             ret['nonce'] = nonce
-            sess.put('nonce', nonce)
+            sess.set('nonce', nonce)
 
         return sock.tx(s_common.tufo('job:done', jid=jid, ret=ret))
 
