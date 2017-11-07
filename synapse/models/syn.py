@@ -207,32 +207,23 @@ class SynMod(CoreModule):
 
     @modelrev('syn', 201711012123)
     def _revModl201711012123(self):
-        with self.core.getCoreXact():
-            now = s_common.now()
-            forms = set()
+        now = s_common.now()
+        for form in self.core.getTufoForms():
             adds = []
-            # Lifting all tufo:form rows first and then grabbing the unique
-            # forms referenced allows us to migrate forms which are not loaded
-            # at the time this migration is performed (important in the event
-            # a custom model is loaded) after the Cortex is started.
-            logger.debug('Lifting tufo:form rows')
-            for i, p, v, t in self.core.store.getRowsByProp('tufo:form'):
-                forms.add(v)
-            logger.debug('Computing all node:ndef values')
-            for form in forms:
-                for i, p, v, t in self.core.store.getRowsByProp(form):
-                    # This is quicker than going through the norm process
-                    nv = s_common.guid((p, v))
-                    adds.append((i, 'node:ndef', nv, now))
-            logger.debug('Deleting existing node:ndef rows')
-            self.core.store.delRowsByProp('node:ndef')
+            logger.debug('Computing all node:ndef values for{}'.format(form))
+            for i, p, v, t in self.core.store.getRowsByProp(form):
+                # This is quicker than going through the norm process
+                nv = s_common.guid((p, v))
+                adds.append((i, 'node:ndef', nv, now))
+
             if adds:
                 tot = len(adds)
-                logger.debug('Adding {:,d} node:ndef rows'.format(tot))
+                logger.debug('Adding {:,d} node:ndef rows for {}'.format(tot, form))
                 i = 0
                 n = 100000
                 for chunk in s_common.chunks(adds, n):
-                    self.core.store.addRows(chunk)
-                    i = i + len(chunk)
-                    logger.debug('Loading {:,d} [{}%] rows into transaction'.format(i, int((i / tot) * 100)))
+                    with self.core.getCoreXact() as xact:
+                        self.core.store.addRows(chunk)
+                        i = i + len(chunk)
+                    logger.debug('Processed {:,d} [{}%] rows.'.format(i, int((i / tot) * 100)))
         logger.debug('Finished adding node:ndef rows to the Cortex')
