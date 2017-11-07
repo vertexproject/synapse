@@ -13,13 +13,21 @@ See the `Storm Syntax Conventions`__ for an explanation of the usage format used
 
 Filter operations differ in that, while there is a ``filt()`` operator within Synapse that handles filter operations, the operator syntax is not available via Storm. In other words, all filter operations within Storm are performed using **macro syntax.**
 
-filt() ( + / - )
-----------------
+filt()
+------
 Filters the set of nodes output by a Storm query by either including ( + ) or excluding ( - ) a set of nodes based on specified criteria.
 
 **Macro Syntax**
 
+.. parsed-literal::
+  
+  **+** | **-** *<prop>* | *<prop> <comparator> <valu>* | **#** *<tag>* | *<helper>* **(** *<params>* **)**
 
+**Examples:**
+
+These basic examples all use the "equals" comparator. See below for additional examples using other comparators.
+
+*Filter by primary property (form):*
 
 
 Filter Comparators
