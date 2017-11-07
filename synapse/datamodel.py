@@ -98,7 +98,6 @@ class DataModel(s_types.TypeLib):
 
     def __init__(self, load=True):
         self.props = {}
-        self.univs = []
         self.forms = set()
 
         self.reqprops = collections.defaultdict(list)
@@ -140,12 +139,6 @@ class DataModel(s_types.TypeLib):
                 for prop, pnfo in props:
                     self.addTufoProp(form, prop, **pnfo)
 
-            # allow a model dict to declare new fully
-            # qualified props.  If form=*, it is considered
-            # a universal node property ( such as node:created )
-            for name, info in modl.get('props', ()):
-                self.addPropDef(name, **info)
-
     def addTufoForm(self, form, **info):
         '''
         Add a tufo form to the data model
@@ -171,13 +164,6 @@ class DataModel(s_types.TypeLib):
 
         info['form'] = form
         self.model['forms'].append(form)
-
-        # build out any universal props
-        for name, info in self.univs:
-            defval = info.get('defval')
-            if defval is not None:
-                self.defvals[form].append(name, defval)
-
         return self.addPropDef(form, **info)
 
     def isTufoForm(self, name):
@@ -257,36 +243,6 @@ class DataModel(s_types.TypeLib):
 
         return pdef[1].get('form'), pdef[1].get('base')
 
-    def _addFormProp(self, pdef):
-
-        # setup values specific to a form property
-        prop = pdef[0]
-        form = pdef[1].get('form')
-
-        relname = prop[len(form) + 1:]
-        if relname:
-            pdef[1]['relname'] = relname
-
-        defval = pdef[1].get('defval')
-        if defval is not None:
-            self.defvals[form].append((prop, defval))
-
-        req = pdef[1].get('req')
-        if req is not None:
-            self.reqprops[form].append(prop)
-
-        self.props[(form, relname)] = pdef
-
-    def _addUnivProp(self, pdef):
-
-        # setup values specific to a universal property
-        self.univs.append(pdef)
-
-        defval = pdef[1].get('defval')
-        if defval is not None:
-            for form in self.forms:
-                self.defvals[form].append((prop, defval))
-
     def addPropDef(self, prop, **info):
         '''
         Add a property definition to the DataModel.
@@ -303,24 +259,31 @@ class DataModel(s_types.TypeLib):
         if self.props.get(prop) is not None:
             raise s_common.DupPropName(name=prop)
 
-        pdef = (prop, info)
-
         info.setdefault('ptype', None)
         info.setdefault('doc', self.getTypeInfo(info.get('ptype'), 'doc', ''))
         info.setdefault('req', False)
         info.setdefault('title', self.getTypeInfo(info.get('ptype'), 'title', ''))
         info.setdefault('defval', None)
 
+        form = info.get('form')
+        relname = prop[len(form) + 1:]
+        if relname:
+            info['relname'] = relname
+
         if ':' in prop:
             _, base = prop.rsplit(':', 1)
             info.setdefault('base', base)
 
-        form = info.get('form') # what form does this prop belong to?
+        defval = info.get('defval')
 
-        if form is None:
-            self._addUnivProp(pdef)
-        else:
-            self._addFormProp(pdef)
+        if defval is not None:
+            self.defvals[form].append((prop, defval))
+
+        req = info.get('req')
+        if req:
+            self.reqprops[form].append(prop)
+
+        pdef = (prop, info)
 
         ptype = info.get('ptype')
         if ptype is not None:
@@ -330,6 +293,8 @@ class DataModel(s_types.TypeLib):
             self.propsdtyp[prop] = pdtyp
 
         self.props[prop] = pdef
+        self.props[(form, relname)] = pdef
+
         self.model['props'][prop] = pdef
 
         self._addSubRefs(pdef)
