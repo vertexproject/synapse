@@ -1529,6 +1529,12 @@ class CortexTest(SynTest):
             self.true(core.isSetPropOk('foo:baz:haha'))
             self.true(core.isSetPropOk('foo:baz:duck'))
 
+            # we can make nodes from props (not forms!)
+            node0 = core.formTufoByProp('foo:baz:fqdn', 'woot.com')
+            self.nn(node0)
+            self.eq(node0[1].get('tufo:form'), 'foo:baz:fqdn')
+            self.eq(node0[1].get('foo:baz:fqdn'), 'woot.com')
+
             # Now re-enable enforce
             core.setConfOpt('enforce', 1)
 
@@ -1570,6 +1576,8 @@ class CortexTest(SynTest):
             # Ensure that we cannot form nodes from Types alone - we must use forms
             self.raises(NoSuchForm, core.formTufoByProp, 'str', 'we all float down here')
             self.raises(NoSuchForm, core.formTufoByProp, 'inet:srv4', '1.2.3.4:8080')
+            # Ensure that we cannot form nodes from non-form prop's which do not have ctors
+            self.raises(NoSuchForm, core.formTufoByProp, 'foo:baz:fqdn', 'woot.com')
 
     def test_cortex_minmax(self):
 
