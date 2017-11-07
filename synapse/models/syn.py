@@ -79,7 +79,8 @@ class SynMod(CoreModule):
                     ('base', {'ptype': 'str', 'doc': 'Base name of the property'}),
                     ('glob', {'ptype': 'bool', 'defval': 0, 'doc': 'Set to 1 if this property defines a glob'}),
                     ('defval', {'doc': 'Set to the default value for this property', 'glob': 1}),
-                    ('universal', {'ptype': 'bool', 'doc': 'Specifies if a prop is universal across all nodes types.'}),
+                    ('univ', {'ptype': 'bool',
+                              'doc': 'Specifies if a prop is universal and has no form associated with it.'}),
                 )),
                 ('syn:type', {'doc': 'The base type type.'}, (
                     ('ctor', {'ptype': 'str', 'doc': 'Python path to the class used to instantiate the type.'}),

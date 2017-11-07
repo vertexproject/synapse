@@ -961,7 +961,7 @@ class CortexTest(SynTest):
     def test_cortex_datamodel_runt_consistency(self):
         with self.getRamCore() as core:
 
-            uniprops = core.getUniversalProps()
+            uniprops = core.getUnivProps()
 
             nodes = core.getTufosByProp('syn:form')
             for node in nodes:
@@ -1011,7 +1011,7 @@ class CortexTest(SynTest):
 
             # universal prop nodes
             node = core.getTufoByProp('syn:prop', 'node:ndef')
-            self.eq(node[1].get('syn:prop:universal'), 1)
+            self.eq(node[1].get('syn:prop:univ'), 1)
             # The node:ndef value is a stable guid :)
             self.eq(node[1].get('node:ndef'), 'd20cb4873e36db4670073169f87abc32')
 
@@ -2947,12 +2947,12 @@ class CortexTest(SynTest):
             # We can add a new universal prop via API
             nprop = core.addPropDef('node:tstfact',
                                     ro=1,
-                                    universal=1,
+                                    univ=1,
                                     ptype='str:lwr',
                                     doc='A fact about a node.',
                                     )
             self.isinstance(nprop, tuple)
-            self.isin('node:tstfact', core.getUniversalProps())
+            self.isin('node:tstfact', core.getUnivProps())
             self.notin('node:tstfact', core.unipropsreq)
             self.nn(core.getPropDef('node:tstfact'))
 
@@ -2969,7 +2969,7 @@ class CortexTest(SynTest):
 
             # We can have a mutable, non ro universal prop on a node though!
             nprop = core.addPropDef('node:tstopinion',
-                                    universal=1,
+                                    univ=1,
                                     ptype='str:lwr',
                                     doc='A opinion about a node.',
                                     )
@@ -2983,7 +2983,7 @@ class CortexTest(SynTest):
             # Lastly - we can add a universal prop which is required but breaks node creation
             # Do NOT do this in the real world - its a bad idea.
             nprop = core.addPropDef('node:tstevil',
-                                    universal=1,
+                                    univ=1,
                                     req=1,
                                     ptype='bool',
                                     doc='No more nodes!',

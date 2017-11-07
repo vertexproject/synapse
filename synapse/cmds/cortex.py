@@ -39,7 +39,7 @@ class AskCmd(s_cli.Cmd):
 
         core = self.getCmdItem()
         resp = core.ask(ques)
-        uniprops = core.getUniversalProps()
+        uniprops = core.getUnivProps()
 
         oplog = resp.get('oplog')
 
