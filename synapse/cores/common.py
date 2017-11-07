@@ -2580,9 +2580,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if ctor is not None:
             return ctor(prop, valu, **props)
 
+        if self.enforce:
+            self.reqTufoForm(prop)
         tname = self.getPropTypeName(prop)
-        if tname is None and self.enforce:
-            raise s_common.NoSuchForm(name=prop)
 
         # special case for adding nodes with a guid primary property
         # if the value None is specified, generate a new guid and skip

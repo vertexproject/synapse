@@ -168,9 +168,29 @@ class DataModel(s_types.TypeLib):
 
     def isTufoForm(self, name):
         '''
-        Returns True if the given name is a form.
+        Check if a form is a valid form.
+
+        Args:
+            name (str): Form to check
+
+        Returns:
+            bool: True if the form is a valid form. False otherwise.
         '''
         return name in self.forms
+
+    def reqTufoForm(self, name):
+        '''
+        Check if a form is a valid form, raise an exception otherwise.
+
+        Args:
+            name (str): Form to check
+
+        Raises:
+            NoSuchForm: If the form does not exist in the datamodel.
+        '''
+        ret = self.isTufoForm(name)
+        if not ret:
+            raise s_common.NoSuchForm(name=name)
 
     def getTufoForms(self):
         '''
