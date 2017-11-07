@@ -116,7 +116,7 @@ class GuidType(DataType):
 
             return retn, {}
 
-        node = self.tlib.getTufoByProp('guid:alias', name)
+        node = self.tlib.getTufoByProp('syn:alias', text)
         if node is not None:
             return node[1].get('syn:alias:iden'), {}
 

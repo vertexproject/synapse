@@ -18,7 +18,7 @@ class SynMod(CoreModule):
                 ('syn:auth:userrole', {'subof': 'comp', 'fields': 'user=syn:auth:user,role=syn:auth:role'}),
                 ('syn:tagform', {'subof': 'comp', 'fields': 'tag,syn:tag|form,syn:prop', 'ex': '(foo.bar,baz:faz)'}),
 
-                ('syn:alias', {'subof': 'str', 'regex': '$[a-z_]+',
+                ('syn:alias', {'subof': 'str', 'regex': r'^\$[a-z_]+$',
                     'doc': 'A synapse guid alias', 'ex': '$visi'}),
 
             ),
