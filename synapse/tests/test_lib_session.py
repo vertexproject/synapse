@@ -7,43 +7,20 @@ from synapse.tests.common import *
 
 class SessTest(SynTest):
 
-    def test_sess_current(self):
-        core = s_cortex.openurl('ram:///')
-        # Since sessions may store wildcard props in syn:sess nodes we
-        # have to ensure enforce is disabled in our session cortex
-        core.setConfOpt('enforce', 0)
+    def test_lib_session_cura(self):
 
-        cura = s_session.Curator(core=core)
+        with s_session.Curator() as cura:
 
-        sess = cura.new()
+            sess = cura.get()
+            sess.set('foo', 'bar')
 
-        iden = sess.iden
+            self.eq(sess.get('foo'), 'bar')
+            self.none(sess.get('baz'))
 
-        sess.put('woot', 10)
+            # fake out a maint loop
+            sess.tick = 1
+            cura._curaMainLoop()
+            self.true(sess.isfini)
 
-        with sess:
-
-            woot = s_session.current()
-
-            self.eq(sess.iden, woot.iden)
-            self.eq(woot.get('woot'), 10)
-
-            sess.put('haha', 30, save=False)
-            self.eq(woot.get('haha'), 30)
-
-        cura.fini()
-
-        cura = s_session.Curator(core=core)
-
-        sess = cura.get(iden)
-
-        self.eq(sess.get('woot'), 10)
-        self.eq(sess.get('haha'), None)
-
-        core.fini()
-
-    def test_sess_log(self):
-        cura = s_session.Curator()
-        watr = cura.waiter(1, 'sess:log')
-        sess = cura.new()
-        sess.log(0, "woot")
+            # get a new session
+            sess = cura.get()

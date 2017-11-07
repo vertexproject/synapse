@@ -384,6 +384,15 @@ class DataModelTest(SynTest):
             self.eq(v, '1')
             self.raises(NoSuchProp, core.reqPropNorm, 'strform:beepbeep', '1')
 
+    def test_datamodel_istufoform(self):
+        modl = s_datamodel.DataModel()
+        self.true(modl.isTufoForm('file:bytes'))
+        self.false(modl.isTufoForm('file:bytes:size'))
+        self.false(modl.isTufoForm('node:ndef'))
+
+        self.none(modl.reqTufoForm('file:bytes'))
+        self.raises(NoSuchForm, modl.reqTufoForm, 'file:bytes:size')
+
     def test_datamodel_cast_json(self):
         modl = s_datamodel.DataModel()
         self.eq(modl.getTypeCast('make:json', 1), '1')

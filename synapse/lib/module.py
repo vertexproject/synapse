@@ -74,10 +74,14 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
     NOTE: The cortex which loads the module plumbs all events into the
           CoreModule instance using EventBus.link().
     '''
+    _mod_name = None
 
     def __init__(self, core, conf):
         s_eventbus.EventBus.__init__(self)
         s_config.Configable.__init__(self)
+
+        if self._mod_name is None:
+            self._mod_name = self.__class__.__name__
 
         s_telepath.reqNotProxy(core)
 
@@ -103,6 +107,41 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         self.initCoreModule()
         self.setConfOpts(conf)
         self.postCoreModule()
+
+    def getModName(self):
+        '''
+        Return the name of this module.
+
+        Returns:
+            (str): The module name.
+        '''
+        return self._mod_name
+
+    def getModPath(self, *paths):
+        '''
+        Construct a path relative to this module's working directory.
+
+        Args:
+            (*paths): A list of path strings
+
+        Returns:
+            (str): The full path
+        '''
+        name = self.getModName()
+        return self.core.getCorePath('mods', name, *paths)
+
+    def reqModPath(self, *paths):
+        '''
+        Require a path relative to this module's working directory.
+
+        Args:
+            (*paths): A list of path strings
+
+        Returns:
+            (str): The full path
+        '''
+        name = self.getModName()
+        return self.core.reqCorePath('mods', name, *paths)
 
     def form(self, form, valu, **props):
         '''
