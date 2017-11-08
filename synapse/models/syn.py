@@ -208,9 +208,11 @@ class SynMod(CoreModule):
     @modelrev('syn', 201711012123)
     def _revModl201711012123(self):
         now = s_common.now()
-        for form in self.core.getTufoForms():
+        forms = sorted(self.core.getTufoForms())
+        nforms = len(forms)
+        for n, form in enumerate(forms):
             adds = []
-            logger.debug('Computing all node:ndef values for{}'.format(form))
+            logger.debug('Computing node:ndef rows for [{}]'.format(form))
             for i, p, v, t in self.core.store.getRowsByProp(form):
                 # This is quicker than going through the norm process
                 nv = s_common.guid((p, v))
@@ -218,12 +220,13 @@ class SynMod(CoreModule):
 
             if adds:
                 tot = len(adds)
-                logger.debug('Adding {:,d} node:ndef rows for {}'.format(tot, form))
-                i = 0
-                n = 100000
-                for chunk in s_common.chunks(adds, n):
-                    with self.core.getCoreXact() as xact:
+                logger.debug('Adding {:,d} node:ndef rows for [{}]'.format(tot, form))
+                with self.core.getCoreXact() as xact:
+                    i = 0
+                    nt = 100000
+                    for chunk in s_common.chunks(adds, nt):
                         self.core.store.addRows(chunk)
                         i = i + len(chunk)
-                    logger.debug('Processed {:,d} [{}%] rows.'.format(i, int((i / tot) * 100)))
+                        logger.debug('Loading {:,d} [{}%] rows into transaction'.format(i, int((i / tot) * 100)))
+            logger.debug('Processed {:,d} [{}%] forms.'.format(n, int((n / nforms) * 100)))
         logger.debug('Finished adding node:ndef rows to the Cortex')

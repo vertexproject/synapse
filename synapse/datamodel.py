@@ -223,7 +223,10 @@ class DataModel(s_types.TypeLib):
 
     def getTufoForms(self):
         '''
-        Return a list of the tufo forms.
+        Get a list of the currently loaded tufo forms.
+
+        Returns:
+            list: List of forms.
         '''
         return list(self.forms)
 
