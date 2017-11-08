@@ -120,16 +120,18 @@ A single example using a "by" handler is provided for illustrative purposes. Ind
 * When lifting by prop + valu, additional comparison operators can be used besides just equals ( ``=`` ); these include 'not equals', 'greater than or equal to', etc. Use of these comparison operators is covered under Storm By Handlers.
 * For ``lift()`` operations at the CLI, it is generally simpler to use macro syntax.
 * The ``limit=`` option (``^`` in macro syntax) restricts **the number of nodes returned,** regardless of the total number of nodes that would otherwise be returned by the query. The specific nodes returned are non-deterministic. Limiting the results of a query is generally not useful for analysis (it artificially restricts results) but may be useful for troubleshooting queries or returning "exemplar" nodes (e.g., to examine their structure, properties, etc.)
-* The number of nodes returned by any query can also be restricted by using the ``limit()`` operator_. However, this method executes the entire query, **then filters the results** to the specified number of nodes. So:
+* The number of nodes returned by any query can also be restricted by using the ``limit()`` operator_. The first set of examples below uses the *limit* parameter to the ``lift()`` operator (in both operator and macro syntax). The second set of examples uses the ``limit()`` operator (in both operator and macro syntax - note that the macro syntax is equivalent in each case).
+  ::
+    lift ( inet:fqdn , limit=10 )
+    
+    inet:fqdn^10
 
-  ``lift ( inet:fqdn , limit=10 )``
+  vs.
+  ::
+    lift ( inet:fqdn ) limit( 10 )
+    
+    inet:fqdn^10
   
-  and
-  
-  ``lift ( inet:fqdn ) limit( 10 )``
-  
-  Are two different queries. The first lifts 10 ``inet:fqdn`` nodes. The second lifts **all** ``inet:fqdn`` nodes and limits the displayed results to 10.
-
 guid()
 ------
 
