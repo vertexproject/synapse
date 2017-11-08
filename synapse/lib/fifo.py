@@ -135,31 +135,31 @@ class Fifo(s_config.Config):
             [wind._may_put(qent) for wind in self.winds.vals()]
 
     def _getPathJoin(self, *names):
-        dirn = self.getConfOpt('fifo:dir')
+        dirn = self.getConfOpt('dir')
         return s_common.genpath(dirn, *names)
 
     @staticmethod
     @s_config.confdef(name='fifo')
     def _getFifoConf():
         return (
-            ('fifo:dir', {'type': 'str', 'req': 1, 'doc': 'Path to the FIFO directory'}),
+            ('dir', {'type': 'str', 'req': 1, 'doc': 'Path to the FIFO directory'}),
 
-            ('fifo:file:maxsize', {'type': 'int', 'asloc': 'maxsize', 'defval': 1000000000,
+            ('file:maxsize', {'type': 'int', 'asloc': 'maxsize', 'defval': 1000000000,
                 'doc': 'Max fifo file size'}),
 
-            ('fifo:window:min', {'type': 'int', 'defval': 1000, 'doc': 'Minimum window size'}),
-            ('fifo:window:max', {'type': 'int', 'defval': 1000, 'doc': 'Maximum window size'}),
-            ('fifo:window:fill', {'type': 'int', 'defval': 10000000, 'doc': 'Window fill read size'}),
+            ('window:min', {'type': 'int', 'defval': 1000, 'doc': 'Minimum window size'}),
+            ('window:max', {'type': 'int', 'defval': 2000, 'doc': 'Maximum window size'}),
+            ('window:fill', {'type': 'int', 'defval': 10000000, 'doc': 'Window fill read size'}),
         )
 
     def _getSeqPath(self, nseq):
-        dirn = self.getConfOpt('fifo:dir')
+        dirn = self.getConfOpt('dir')
         base = '%.16x.fifo' % (nseq,)
         return os.path.join(dirn, base)
 
     def _getFifoSeqs(self):
 
-        dirn = self.getConfOpt('fifo:dir')
+        dirn = self.getConfOpt('dir')
 
         retn = []
         for name in os.listdir(dirn):
@@ -181,9 +181,9 @@ class Window(s_eventbus.EventBus):
 
         s_eventbus.EventBus.__init__(self)
 
-        self.wmin = fdir.getConfOpt('fifo:window:min')
-        self.wmax = fdir.getConfOpt('fifo:window:max')
-        self.wfill = fdir.getConfOpt('fifo:window:fill')
+        self.wmin = fdir.getConfOpt('window:min')
+        self.wmax = fdir.getConfOpt('window:max')
+        self.wfill = fdir.getConfOpt('window:fill')
 
         if not os.path.isfile(path):
             with open(path, 'wb') as fd:

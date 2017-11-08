@@ -1,4 +1,6 @@
+import os
 import json
+import shutil
 import logging
 import itertools
 import threading
@@ -7,15 +9,18 @@ import collections
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.reactor as s_reactor
+import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
 import synapse.cores.storage as s_storage
 
 import synapse.lib.auth as s_auth
+import synapse.lib.fifo as s_fifo
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
+import synapse.lib.scope as s_scope
 import synapse.lib.ingest as s_ingest
 import synapse.lib.syntax as s_syntax
 import synapse.lib.reflect as s_reflect
@@ -60,12 +65,16 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         Runtime.__init__(self)
         EventBus.__init__(self)
 
+        self.on('node:del', self._onDelFifo, form='syn:fifo')
         self.on('node:del', self._onDelAuthRole, form='syn:auth:role')
         self.on('node:del', self._onDelAuthUser, form='syn:auth:user')
         self.on('node:add', self._onAddAuthUserRole, form='syn:auth:userrole')
         self.on('node:del', self._onDelAuthUserRole, form='syn:auth:userrole')
         self.on('node:del', self._onDelSynTag, form='syn:tag')
         self.on('node:form', self._onFormSynTag, form='syn:tag')
+
+        self.on('fifo:ack', self._onFifoAck)
+        self.on('fifo:sub', self._onFifoSub)
 
         # a cortex may have a ref to an axon
         self.axon = None
@@ -140,6 +149,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         self._core_tags = s_cache.FixedCache(maxsize=10000, onmiss=self._getFormFunc('syn:tag'))
         self._core_tagforms = s_cache.FixedCache(maxsize=10000, onmiss=self._getFormFunc('syn:tagform'))
+
+        self._core_fifos = s_eventbus.BusRef(ctor=self._initCoreFifo)
 
         self.tufosbymeths = {}
 
@@ -291,6 +302,150 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         return prop in self.runt_forms
 
+    def getCorePath(self, *paths):
+        '''
+        Construct a path relative to the cortex metadata dir (or None).
+
+        Args:
+            *paths ([str,]): A set of path elements
+
+        Returns:
+            (str):  The full path ( or None ).
+        '''
+        dirn = self.getConfOpt('dir')
+        if dirn is None:
+            return None
+
+        return s_common.genpath(dirn, *paths)
+
+    def reqCorePath(self, *paths):
+        '''
+        Use getCorePath and raise if dir is not set.
+
+        Args:
+            paths ([str,...]):  A list of path elements to join.
+
+        Returns:
+            (str):  The full path for the cortex directory.
+
+        Raises:
+            NoSuchOpt
+        '''
+        retn = self.getCorePath(*paths)
+        if retn is None:
+            raise s_common.ReqConfOpt(name='dir', mesg='reqCorePath requires a cortex dir')
+        return retn
+
+    def getCoreFifo(self, name):
+        '''
+        Return a Fifo object by name.
+
+        Args:
+            name (str): The :name of the syn:fifo node.
+
+        Returns:
+            (synapse.lib.fifo.Fifo): The Fifo object.
+        '''
+        return self._core_fifos.gen(name)
+
+    def putCoreFifo(self, name, item):
+        '''
+        Add an item to a cortex fifo.
+
+        Args:
+            name (str): The syn:fifo:name of the fifo.
+            item (obj): The object to put in the fifo.
+        '''
+        self.reqperm(('fifo:put', {'name': name}))
+        fifo = self._core_fifos.gen(name)
+        fifo.put(item)
+
+    def ackCoreFifo(self, name, seqn):
+        '''
+        Acknowledge transmission of fifo items.
+
+        Args:
+            name (str): The syn:fifo:name of the fifo.
+            nseq (int): The next expected sequence.
+        '''
+        self.reqperm(('fifo:ack', {'name': name}))
+        fifo = self._core_fifos.gen(name)
+        fifo.ack(seqn)
+
+    def _onFifoSub(self, mesg):
+        name = mesg[1].get('name')
+        xmit = self._getTeleFifoXmit(name)
+        self.subCoreFifo(name, xmit=xmit)
+
+    def _onFifoAck(self, mesg):
+        name = mesg[1].get('name')
+        seqn = mesg[1].get('seqn')
+        self.ackCoreFifo(name, seqn)
+
+    def _getTeleFifoXmit(self, name):
+
+        sock = s_scope.get('sock')
+        if sock is None:
+            return None
+
+        def xmit(qent):
+            sock.tx(('fifo:xmit', {'name': name, 'qent': qent}))
+
+        return xmit
+
+    def subCoreFifo(self, name, xmit=None):
+        '''
+        Provde an xmit function for a given core fifo.
+
+        Args:
+            name (str): The name of the fifo.
+            xmit (func): A fifo xmit func.
+
+        NOTE: if xmit is None, it is assumed that the
+              caller is a remote telepath client and the
+              socket.tx function is used.
+        '''
+        self.reqperm(('fifo:sub', {'name': name}))
+        fifo = self._core_fifos.gen(name)
+
+        if xmit is None:
+            xmit = self._getTeleFifoXmit(name)
+            s_telepath.reminder('fifo:sub', name=name)
+
+        fifo.resync(xmit=xmit)
+
+    def _initCoreFifo(self, name):
+        node = self.getTufoByProp('syn:fifo:name')
+        if node is None:
+            raise s_common.NoSuchFifo(name=name)
+
+        iden = node[1].get('syn:fifo')
+        path = self.reqCorePath('fifos', iden)
+        if not os.path.isdir(path):
+            os.makedirs(path, exist_ok=True)
+
+        conf = dict(self.getConfOpt('fifo:defs'))
+
+        conf['dir'] = path
+
+        # TODO default fifo config info in core config?
+        return s_fifo.Fifo(conf)
+
+    def _onDelFifo(self, mesg):
+
+        node = mesg[1].get('node')
+
+        iden = node[1].get('syn:fifo')
+        name = node[1].get('syn:fifo:name')
+
+        fifo = self._core_fifos.pop(name)
+        if fifo is not None:
+            fifo.fini()
+
+        path = self.getCorePath('fifos', iden)
+        if path is not None and os.path.isdir(path):
+            shutil.rmtree(path, ignore_errors=True)
+
     def isRuntProp(self, prop):
         '''
         Return True if the given property name is a runtime node prop.
@@ -307,6 +462,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     @confdef(name='common_cortex')
     def _cortex_condefs():
         confdefs = (
+
+            ('dir', {'type': 'str',
+                        'doc': 'The cortex metadata directory'}),
+
+            ('fifo:defs', {'defval': {}, 'doc': 'Config defaults for core fifos'}),
 
             ('autoadd', {'type': 'bool', 'asloc': 'autoadd', 'defval': 1,
                          'doc': 'Automatically add forms for props where type is form'}),
@@ -554,6 +714,23 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         '''
         return self._auth_roles.get(user)
+
+    def reqperm(self, perm, user=None):
+        '''
+        Require a given permission (or raise AuthDeny)
+
+        Args:
+            perm ((str,dict)): A perm tuple
+            user (str): The user to check (or self)
+
+        Raises:
+            AuthDeny: The user is not allowed
+        '''
+        if user is None:
+            user = s_auth.whoami()
+
+        if not self.allowed(perm, user=user):
+            raise s_common.AuthDeny(perm=perm, user=user)
 
     def allowed(self, perm, user=None):
         '''
@@ -2403,9 +2580,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if ctor is not None:
             return ctor(prop, valu, **props)
 
+        if self.enforce:
+            self.reqTufoForm(prop)
         tname = self.getPropTypeName(prop)
-        if tname is None and self.enforce:
-            raise s_common.NoSuchForm(name=prop)
 
         # special case for adding nodes with a guid primary property
         # if the value None is specified, generate a new guid and skip

@@ -1301,7 +1301,7 @@ class Runtime(Configable):
                 # Which is valid against
                 for form in forms:
                     _fprop = form + prop
-                    if core.isSetPropOk(_fprop):
+                    if core.isSetPropOk(_fprop, isadd=True):
                         formprops[form][_prop] = valu
                         valid = True
                 if not valid:

@@ -9,11 +9,11 @@ class FifoTest(SynTest):
         with self.getTestDir() as dirn:
 
             conf = {
-                'fifo:dir': dirn,
-                'fifo:file:maxsize': 1024,
-                'fifo:window:max': 4,
-                'fifo:window:min': 2,
-                'fifo:window:fill': 1,
+                'dir': dirn,
+                'file:maxsize': 1024,
+                'window:max': 4,
+                'window:min': 2,
+                'window:fill': 1,
             }
 
             sent = []
@@ -37,7 +37,7 @@ class FifoTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            conf = {'fifo:dir': dirn}
+            conf = {'dir': dirn}
 
             sent = []
             with s_fifo.Fifo(conf) as fifo:
@@ -59,7 +59,7 @@ class FifoTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            conf = {'fifo:dir': dirn}
+            conf = {'dir': dirn}
 
             sent = []
             with s_fifo.Fifo(conf, xmit=sent.append) as fifo:
@@ -84,11 +84,11 @@ class FifoTest(SynTest):
             # some very small settings so we trigger
             # more of the cleanup / culling code...
             conf = {
-                'fifo:dir': dirn,
-                'fifo:file:maxsize': 1024,
-                'fifo:window:max': 4,
-                'fifo:window:min': 2,
-                'fifo:window:fill': 1,
+                'dir': dirn,
+                'file:maxsize': 1024,
+                'window:max': 4,
+                'window:min': 2,
+                'window:fill': 1,
             }
 
             sent = []

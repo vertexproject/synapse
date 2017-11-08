@@ -1,152 +1,102 @@
-import threading
+import time
 
+import synapse.glob as s_glob
 import synapse.common as s_common
+import synapse.eventbus as s_eventbus
 
-import synapse.lib.tufo as s_tufo
-import synapse.lib.cache as s_cache
+import synapse.lib.config as s_config
 
-from synapse.eventbus import EventBus
-
-sesslocal = threading.local()
-
-def current():
+class Sess(s_eventbus.EventBus):
     '''
-    Return the current Sess() or None.
+    A synapse session to store prop/vals.
     '''
-    try:
-        return sesslocal.sess
-    except AttributeError as e:
-        return None
-
-reflock = threading.Lock()
-
-class Sess(EventBus):
-
-    def __init__(self, cura, iden, **props):
-        EventBus.__init__(self)
+    def __init__(self, iden, **props):
+        s_eventbus.EventBus.__init__(self)
 
         self.iden = iden
-        self.cura = cura
-        self.props = props
+        self.tick = int(time.time())
 
-        self.on('sess:log', self.cura.dist)
+        self.props = props
+        self.dirty = False
 
     def get(self, prop):
         '''
         Retrieve a session property by name.
+
+        Args:
+            prop (str): The property name to retrieve.
+
+        Returns:
+            (obj): The property valu (or None)
         '''
         return self.props.get(prop)
 
-    def put(self, prop, valu, save=True):
+    def set(self, prop, valu):
         '''
-        Put a value into the session ( but do not persist it to storage ).
+        Set a session property to the given value.
+
+        Args:
+            prop (str): The name of the session property
+            valu (obj): The property valu
         '''
+        self.dirty = True
         self.props[prop] = valu
-        if save:
-            self.cura._saveSessProp(self.iden, prop, valu)
+        self.fire('set', prop=prop, valu=valu)
 
-    def log(self, level, mesg, **info):
-        info['mesg'] = mesg
-        info['level'] = level
+    #TODO: make save() return *only* msgpack compat props
 
-        info['iden'] = self.iden
-
-        self.fire('sess:log', **info)
-
-    def __enter__(self):
-        sesslocal.sess = self
-        return self
-
-    def __exit__(self, exc, cls, tb):
-        sesslocal.sess = None
-
-onehour = 60 * 60
-class Curator(EventBus):
+class Curator(s_config.Config):
     '''
-    The Curator class manages session objects and storage.
+    The Curator class manages sessions.
     '''
-    def __init__(self, core=None, maxtime=onehour):
-        EventBus.__init__(self)
+    def __init__(self, conf=None):
 
-        self.core = core
+        if conf is None:
+            conf = {}
 
-        self.cache = s_cache.Cache(maxtime=maxtime)
-        self.cache.setOnMiss(self._getSessByIden)
-        self.cache.on('cache:pop', self._onSessCachePop)
+        s_config.Config.__init__(self)
+        self.setConfOpts(conf)
+        self.reqConfOpts()
 
-        self.onfini(self.cache.fini)
+        self.refs = s_eventbus.BusRef()
+        self.onfini(self.refs.fini)
 
-        if self.core:
-            pdef = self.core.getPropDef('syn:sess')
-            if not pdef:
-                self.core.addTufoForm('syn:sess', ptype='guid')
+        self.task = s_glob.sched.loop(30, self._curaMainLoop)
+        self.onfini(self.task.fini)
 
-    def setMaxTime(self, valu):
-        return self.cache.setMaxTime(valu)
+    def _curaMainLoop(self):
+        # the curator maintenance loop...
+        tout = self.getConfOpt('timeout')
+        tick = int(time.time()) - tout
+        for sess in self.refs.vals():
+            if sess.tick < tick:
+                sess.fini()
 
-    def setSessCore(self, core):
-        self.core = core
-
-    def _onSessCachePop(self, event):
-
-        iden = event[1].get('key')
-        sess = event[1].get('val')
-
-        if sess is None:
-            return
-
-        sess.fini()
-
-    def __iter__(self):
-        return self.cache.values()
-
-    def new(self):
-        '''
-        Create and return a new Sess.
-
-        Example:
-
-            sess = cura.new()
-
-        '''
-        iden = s_common.guid()
-        sess = Sess(self, iden)
-        self.cache.put(iden, sess)
-        self.fire('sess:init', sess=sess)
-        return sess
-
-    def get(self, iden):
+    def get(self, iden=None):
         '''
         Return a Session by iden.
 
-        Example:
+        Args:
+            iden (str): The guid (None creates a new sess).
 
-            sess = boss.get(sid)
-            if sess != None:
-                dostuff(sess)
-
+        Returns:
+            (Sess)
         '''
-        return self.cache.get(iden)
+        if iden is None:
+            iden = s_common.guid()
 
-    def _getSessByIden(self, iden):
+        sess = self.refs.get(iden)
+        if sess is None:
+            sess = Sess(iden)
+            self.refs.put(iden, sess)
 
-        # If we have no cortex, we have no session storage
-        if self.core is None:
-            return None
+        sess.tick = int(time.time())
+        return sess
 
-        # look up the tufo and construct a Sess()
-        sefo = self.core.getTufoByProp('syn:sess', iden)
-        if sefo is None:
-            return None
-
-        props = s_tufo.props(sefo)
-        return Sess(self, iden, **props)
-
-    def _saveSessProp(self, iden, prop, valu):
-
-        # if we have a cortex to persist into
-        if self.core is None:
-            return
-
-        sefo = self.core.formTufoByProp('syn:sess', iden)
-        self.core.setTufoProp(sefo, prop, valu)
+    @staticmethod
+    @s_config.confdef('cura')
+    def _getCuraConf():
+        return (
+            #TODO: ('dir', {'type': 'str', 'doc': 'The directory to persist sess info'}),
+            ('timeout', {'type': 'int', 'defval': 60 * 60, 'doc': 'Session timeout in seconds'}),
+        )

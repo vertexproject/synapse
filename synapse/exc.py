@@ -27,6 +27,8 @@ class SynErr(Exception):
         '''
         return self.errinfo.get(name)
 
+class AuthDeny(SynErr): pass
+
 class NoSuchAct(SynErr): pass
 class NoSuchOpt(SynErr): pass
 class NoSuchDir(SynErr): pass
@@ -36,6 +38,7 @@ class NoSuchSeq(SynErr): pass
 class NoRevAllow(SynErr): pass
 class NoSuchConf(SynErr): pass
 class NoSuchCtor(SynErr): pass
+class NoSuchFifo(SynErr): pass
 class NoSuchForm(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchStat(SynErr): pass
