@@ -1517,4 +1517,7 @@ class InetModelTest(SynTest):
             self.nn(core.getTufoByProp('inet:url', 'http://bar.com/'))
 
             self.eq(node[1].get('inet:urlredir:src'), 'http://foo.com/')
+            self.eq(node[1].get('inet:urlredir:src:fqdn'), 'foo.com')
+
             self.eq(node[1].get('inet:urlredir:dst'), 'http://bar.com/')
+            self.eq(node[1].get('inet:urlredir:dst:fqdn'), 'bar.com')
