@@ -741,6 +741,12 @@ class InetMod(CoreModule):
                     'doc': 'An IPv4 address block in Classless Inter-Domain Routing (CIDR) notation.',
                     'ex': '1.2.3.0/24'}),
 
+                ('inet:urlredir', {
+                    'subof': 'comp',
+                    'fields': 'src=inet:url,dst=inet:url',
+                    'doc': 'A URL redirect relationship typically via HTTP code 302',
+                    'ex': '(http://foo.com/,http://bar.com/)'}),
+
                 ('inet:urlfile', {
                     'subof': 'comp',
                     'fields': 'url=inet:url, file=file:bytes',
@@ -958,6 +964,13 @@ class InetMod(CoreModule):
                          'doc': 'The optional username used to access the URL.'}),
                     ('passwd', {'ptype': 'inet:passwd', 'ro': 1,
                          'doc': 'The optional password used to access the URL.'}),
+                ]),
+
+                ('inet:urlredir', {}, [
+                    ('src', {'ptype': 'inet:url', 'ro': 1, 'req': 1,
+                        'doc': 'The original/source URL before redirect'}),
+                    ('dst', {'ptype': 'inet:url', 'ro': 1, 'req': 1,
+                        'doc': 'The redirected/destination URL'}),
                 ]),
 
                 ('inet:urlfile', {'ptype': 'inet:urlfile'}, [
