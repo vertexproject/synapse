@@ -332,6 +332,10 @@ class CidrType(DataType):
     def repr(self, valu):
         return valu
 
+class AddrType(DataType):
+    def norm(self, valu):
+        pass
+
 class InetMod(CoreModule):
 
     def initCoreModule(self):

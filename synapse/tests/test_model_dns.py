@@ -77,3 +77,17 @@ class DnsModelTest(SynTest):
             node = core.formTufoByProp('inet:dns:rev6', '2607:f8b0:4004:809::200e/vertex.link')
             self.eq(node[1].get('inet:dns:rev6:fqdn'), 'vertex.link')
             self.eq(node[1].get('inet:dns:rev6:ipv6'), '2607:f8b0:4004:809::200e')
+
+    def test_model_dns_req46(self):
+
+        with self.getRamCore() as core:
+
+            node = core.formTufoByProp('inet:dns:req4', ('1.2.3.4', 'VERTEX.link', 'A'))
+            self.eq(node[1].get('inet:dns:req4:type'), 'a')
+            self.eq(node[1].get('inet:dns:req4:ipv4'), 0x01020304)
+            self.eq(node[1].get('inet:dns:req4:fqdn'), 'vertex.link')
+
+            node = core.formTufoByProp('inet:dns:req6', ('ff::56', 'VERTEX.link', 'NS'))
+            self.eq(node[1].get('inet:dns:req6:type'), 'ns')
+            self.eq(node[1].get('inet:dns:req6:ipv6'), 'ff::56'),
+            self.eq(node[1].get('inet:dns:req6:fqdn'), 'vertex.link')
