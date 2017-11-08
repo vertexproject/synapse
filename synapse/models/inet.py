@@ -333,8 +333,18 @@ class CidrType(DataType):
         return valu
 
 class AddrType(DataType):
-    def norm(self, valu):
-        pass
+
+    def norm(self, valu, oldval=None):
+
+        subs = {}
+        if valu.find(':') == -1:
+            ipv4, subs = self.tlib.getTypeNorm('inet:ipv4', valu)
+            subs['ipv4'] = ipv4
+
+            valu = '::ffff:' + valu
+
+        addr, _ = self.tlib.getTypeNorm('inet:ipv6', valu)
+        return addr, subs
 
 class InetMod(CoreModule):
 
@@ -705,6 +715,11 @@ class InetMod(CoreModule):
                     'doc': 'A Universal Resource Locator (URL).',
                     'ex': 'http://www.woot.com/files/index.html'}),
 
+                ('inet:addr', {
+                    'ctor': 'synapse.models.inet.AddrType',
+                    'doc': 'An IPv4 or IPv6 address',
+                    'ex': '1.2.3.4'}),
+
                 ('inet:ipv4', {
                     'ctor': 'synapse.models.inet.IPv4Type',
                     'doc': 'An IPv4 address.',
@@ -924,6 +939,18 @@ class InetMod(CoreModule):
             ),
 
             'forms': (
+
+                # TODO: prep for atomic cut over?
+#                ('inet:addr', {}, (
+#                    ('ipv4', {'ptype': 'inet:ipv4',
+#                        'doc': 'The IPv4 part of the address.'}),
+#                    ('cc', {'ptype': 'pol:iso2', 'defval': '??',
+#                        'doc': 'The country where the address is currently located.'}),
+#                    ('type', {'ptype': 'str', 'defval': '??',
+#                        'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
+#                    ('asn', {'ptype': 'inet:asn', 'defval': -1,
+#                        'doc': 'The ASN to which the address is currently assigned.'}),
+#                )),
 
                 ('inet:ipv4', {'ptype': 'inet:ipv4'}, [
                     ('cc', {'ptype': 'pol:iso2', 'defval': '??',

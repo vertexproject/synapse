@@ -74,12 +74,8 @@ class DnsMod(CoreModule):
                     'enums': 'soa,ns,mx,a,aaaa,txt,srv,ptr,cname,hinfo,isdn',
                     'doc': 'A DNS request type enum'}),
 
-                ('inet:dns:req4', {'subof': 'comp', 'fields': 'ipv4=inet:ipv4,fqdn=inet:fqdn,type=inet:dns:type',
-                    'doc': 'A fused DNS request record from an IPv4 address'}),
-
-                ('inet:dns:req6', {'subof': 'comp', 'fields': 'ipv6=inet:ipv6,fqdn=inet:fqdn,type=inet:dns:type',
-                    'doc': 'A fused DNS request record from an IPv6 address'}),
-
+                ('inet:dns:req', {'subof': 'comp', 'fields': 'addr=inet:addr,fqdn=inet:fqdn,type=inet:dns:type',
+                    'doc': 'A fused DNS request record'}),
             ),
 
             'forms': (
@@ -118,18 +114,11 @@ class DnsMod(CoreModule):
                           'doc': 'The most recent observed time for the data in the PTR record.'}),
                  ]),
 
-                ('inet:dns:req4', {'doc': 'Fused knowledge of a DNS request origin'}, [
-                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1, 'req': 1,
+                ('inet:dns:req', {'doc': 'Fused knowledge of a DNS request origin'}, [
+                    ('addr', {'ptype': 'inet:addr', 'ro': 1, 'req': 1,
                         'doc': 'The IPv4 address which requested the FQDN'}),
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1,
-                        'doc': 'The requested FQDN'}),
-                    ('type', {'ptype': 'inet:dns:type', 'ro': 1, 'req': 1,
-                        'doc': 'The type of DNS record requested'}),
-                ]),
-
-                ('inet:dns:req6', {'doc': 'Fused knowledge of a DNS request origin'}, [
-                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1, 'req': 1,
-                        'doc': 'The IPv6 address which requested the FQDN'}),
+                    ('addr:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
+                        'doc': 'The IPv4 address which requested the FQDN'}),
                     ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1,
                         'doc': 'The requested FQDN'}),
                     ('type', {'ptype': 'inet:dns:type', 'ro': 1, 'req': 1,
