@@ -1521,3 +1521,18 @@ class InetModelTest(SynTest):
             self.nn(core.getTufoByProp('inet:wifi:ssid', node[1].get('inet:iface:wifi:ssid')))
             self.nn(core.getTufoByProp('tel:mob:imei', node[1].get('inet:iface:mob:imei')))
             self.nn(core.getTufoByProp('tel:mob:imsi', node[1].get('inet:iface:mob:imsi')))
+
+    def test_model_inet_urlredir(self):
+
+        with self.getRamCore() as core:
+
+            node = core.formTufoByProp('inet:urlredir', ('http://foo.com/', 'http://bar.com/'))
+
+            self.nn(core.getTufoByProp('inet:url', 'http://foo.com/'))
+            self.nn(core.getTufoByProp('inet:url', 'http://bar.com/'))
+
+            self.eq(node[1].get('inet:urlredir:src'), 'http://foo.com/')
+            self.eq(node[1].get('inet:urlredir:src:fqdn'), 'foo.com')
+
+            self.eq(node[1].get('inet:urlredir:dst'), 'http://bar.com/')
+            self.eq(node[1].get('inet:urlredir:dst:fqdn'), 'bar.com')
