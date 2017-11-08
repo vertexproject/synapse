@@ -273,7 +273,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         node[1][form] = norm
         node[1]['tufo:form'] = form
         node[1]['node:created'] = s_common.now()
-        node[1]['node:ndef'] = s_common.guid((form, valu))
+        node[1]['node:ndef'] = s_common.guid((form, norm))
 
         self.runt_props[(form, None)].append(node)
         self.runt_props[(form, norm)].append(node)
