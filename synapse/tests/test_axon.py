@@ -460,6 +460,12 @@ class AxonHostTest(SynTest):
                     {
                         "onfini": True
                     }
+                ],
+                [
+                    "host1",
+                    {
+                        "onfini": True
+                    }
                 ]
             ]
         }
