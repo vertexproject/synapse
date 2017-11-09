@@ -367,8 +367,8 @@ class DataTypesTest(SynTest):
         currenttime = now()
         valu = tlib.getTypeNorm('time', 'now')[0]
         # Allow for a potential context switch / system load during test
-        #  to push the valu 2 second past currenttime
-        self.le(valu - currenttime, 2)
+        #  to push the valu within 1000 milliseconds past currenttime
+        self.le(valu - currenttime, 1000)
 
     def test_type_cast(self):
         tlib = s_types.TypeLib()
