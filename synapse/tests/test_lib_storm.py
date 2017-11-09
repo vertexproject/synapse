@@ -730,21 +730,28 @@ class StormTest(SynTest):
             self.len(2, nodes)
 
             # Events were fired
-            self.len(2, foo)
-            self.len(2, bar)
-            self.len(2, baz)
-            self.len(2, sekrit)
+            self.len(1, foo)
+            self.len(1, bar)
+            self.len(1, baz)
+            self.len(1, sekrit)
 
             # Events contained data we expected
             evt = foo[0]
             self.eq(evt[0], 'task:foo')
-            self.isinstance(evt[1].get('node'), tuple)
+            # My nodes are a list since they haven't gone through telepath
+            self.isinstance(evt[1].get('nodes'), list)
+            nodes = evt[1].get('nodes')
+            self.len(2, nodes)
+            for node in nodes:
+                pprop, valu = s_tufo.ndef(node)
+                self.eq(pprop, 'inet:ipv4')
             self.eq(evt[1].get('storm'), True)
             self.eq(evt[1].get('key'), 'valu')
 
             evt = sekrit[0]
             self.eq(evt[0], 'task:sekrit:priority1')
-            self.isinstance(evt[1].get('node'), tuple)
+            # My nodes are a list since they haven't gone through telepath
+            self.isinstance(evt[1].get('nodes'), list)
             self.eq(evt[1].get('storm'), True)
             self.eq(evt[1].get('key'), 'valu')
 
@@ -769,12 +776,18 @@ class StormTest(SynTest):
             self.len(2, nodes)
 
             # Events were fired
-            self.len(2, foo)
+            self.len(1, foo)
 
             # Events contained data we expected
             evt = foo[0]
             self.eq(evt[0], 'task:foo')
-            self.isinstance(evt[1].get('node'), tuple)
+            # My nodes are a tuple since they have gone through telepath
+            self.isinstance(evt[1].get('nodes'), tuple)
+            nodes = evt[1].get('nodes')
+            self.len(2, nodes)
+            for node in nodes:
+                pprop, valu = s_tufo.ndef(node)
+                self.eq(pprop, 'inet:ipv4')
             self.eq(evt[1].get('storm'), True)
             self.eq(evt[1].get('key'), 'valu')
 
