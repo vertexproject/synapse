@@ -1380,6 +1380,13 @@ class CortexTest(SynTest):
         self.nn(core.getTufoByProp('syn:tag', 'lulz.rofl'))
         self.nn(core.getTufoByProp('syn:tag', 'lulz.rofl.zebr'))
 
+        # Ensure we're making nodes which have a timebox
+        node = core.addTufoTag(node, 'foo.bar@20171217')
+        self.eq(s_tufo.ival(node, '#foo.bar'), (1513468800000, 1513468800000))
+        # Ensure the times argument is respected
+        node = core.addTufoTag(node, 'foo.duck', times=(1513382400000, 1513468800000))
+        self.eq(s_tufo.ival(node, '#foo.duck'), (1513382400000, 1513468800000))
+
         # Recreate expected results from #320 to ensure
         # we're also doing the same via storm
         self.eq(len(core.eval('[inet:fqdn=w00t.com +#some.tag]')), 1)
