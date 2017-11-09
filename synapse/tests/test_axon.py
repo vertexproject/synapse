@@ -100,7 +100,7 @@ class AxonTest(SynTest):
                 port = link[1].get('port')
 
                 with s_axon.Axon(dirname) as axon:
-                    dmon.share('axon', axon)
+                    dmon.share('axon', axon, fini=True)
 
                     prox = s_telepath.openurl('tcp://127.0.0.1/axon', port=port)
 
@@ -403,6 +403,12 @@ class AxonHostTest(SynTest):
             total_clones = sum(tc)
             self.eq(total_axons, 16)
             self.eq(total_clones, 8)
+
+            host0.fini()
+            host1.fini()
+            host2.fini()
+            host3.fini()
+        dmon.fini()
 
     def test_axon_autorun(self):
 
