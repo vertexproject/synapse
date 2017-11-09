@@ -1350,7 +1350,11 @@ class CortexTest(SynTest):
         self.eq(len(tags), 2)
 
         wait = core.waiter(2, 'node:tag:del')
-        core.delTufoTag(hehe, 'lulz.rofl')
+        hehe = core.delTufoTag(hehe, 'lulz.rofl')
+        self.nn(hehe)
+        self.isin('#lulz', hehe[1])
+        self.notin('#lulz.rofl', hehe[1])
+        self.notin('#lulz.rofl.zebr', hehe[1])
         wait.wait(timeout=2)
 
         wait = core.waiter(1, 'node:tag:del')

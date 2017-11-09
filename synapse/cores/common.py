@@ -2130,7 +2130,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             if ival is not None:
                 tufo = self.setTufoIval(tufo, tagp, ival)
 
-            return tufo
+        return tufo
 
     def delTufoTag(self, tufo, tag):
         '''
@@ -2184,6 +2184,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 xact.trigger(tufo, 'node:tag:del', form=form, tag=subtag)
 
                 self.delTufoIval(tufo, subprop)
+
+        return tufo
 
     def getTufosByTag(self, tag, form=None, limit=None):
         '''
