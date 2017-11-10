@@ -1350,7 +1350,11 @@ class CortexTest(SynTest):
         self.eq(len(tags), 2)
 
         wait = core.waiter(2, 'node:tag:del')
-        core.delTufoTag(hehe, 'lulz.rofl')
+        hehe = core.delTufoTag(hehe, 'lulz.rofl')
+        self.nn(hehe)
+        self.isin('#lulz', hehe[1])
+        self.notin('#lulz.rofl', hehe[1])
+        self.notin('#lulz.rofl.zebr', hehe[1])
         wait.wait(timeout=2)
 
         wait = core.waiter(1, 'node:tag:del')
@@ -1375,6 +1379,13 @@ class CortexTest(SynTest):
         self.nn(core.getTufoByProp('syn:tag', 'lulz'))
         self.nn(core.getTufoByProp('syn:tag', 'lulz.rofl'))
         self.nn(core.getTufoByProp('syn:tag', 'lulz.rofl.zebr'))
+
+        # Ensure we're making nodes which have a timebox
+        node = core.addTufoTag(node, 'foo.bar@20171217')
+        self.eq(s_tufo.ival(node, '#foo.bar'), (1513468800000, 1513468800000))
+        # Ensure the times argument is respected
+        node = core.addTufoTag(node, 'foo.duck', times=(1513382400000, 1513468800000))
+        self.eq(s_tufo.ival(node, '#foo.duck'), (1513382400000, 1513468800000))
 
         # Recreate expected results from #320 to ensure
         # we're also doing the same via storm

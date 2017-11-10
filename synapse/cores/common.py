@@ -2062,21 +2062,25 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             tag (str):  A synapse tag string
             times ((int,)): A list of time stamps in milli epoch
 
+        Examples:
+
+            Form a node, and add the baz.faz tag to it::
+
+                node = core.formTufoByProp('foo','bar')
+                node = core.addTufoTag(tufo,'baz.faz')
+
+            Add a timeboxed tag to a node::
+
+                node = core.addTufoTag(tufo,'foo.bar@2012-2016')
+
+
+            Add a list of times sample times to a tag to create a timebox
+
+                timeslist = (1513382400000, 1513468800000)
+                node = core.addTufoTag(tufo,'hehe.haha', times=timelist)
+
         Returns:
             ((str,dict)): The node in tuple form (with updated props)
-
-        Example:
-
-            node = core.formTufoByProp('foo','bar')
-            node = core.addTufoTag(tufo,'baz.faz')
-
-            # add a tag with a time box
-            node = core.addTufoTag(tufo,'foo.bar@2012-2016')
-
-            # add a tag with a list of sample times used to
-            # create a timebox.
-            node = core.addTufoTag(tufo,'hehe.haha', times=timelist)
-
         '''
         iden = reqiden(tufo)
 
@@ -2130,7 +2134,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             if ival is not None:
                 tufo = self.setTufoIval(tufo, tagp, ival)
 
-            return tufo
+        return tufo
 
     def delTufoTag(self, tufo, tag):
         '''
@@ -2141,10 +2145,18 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             tag (str):          The tag to remove
 
         Example:
+            Remove the tag baz tag (and its subtags) from all tufos tagged baz.faz::
 
-            for tufo in core.getTufosByTag('baz.faz'):
-                core.delTufoTag(tufo,'baz')
+                for tufo in core.getTufosByTag('baz.faz'):
+                    core.delTufoTag(tufo,'baz')
 
+            Remove a tag from a tufo and then do something with the tufo::
+
+                tufo = core.delTufoTag(tufo, 'hehe.haha')
+                dostuff(tufo)
+
+        Returns:
+            ((str,dict)): The node in tuple form (with updated props)
         '''
         iden = reqiden(tufo)
         dark = iden[::-1]
@@ -2184,6 +2196,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 xact.trigger(tufo, 'node:tag:del', form=form, tag=subtag)
 
                 self.delTufoIval(tufo, subprop)
+
+        return tufo
 
     def getTufosByTag(self, tag, form=None, limit=None):
         '''
