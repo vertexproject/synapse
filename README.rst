@@ -33,7 +33,7 @@ Join the Vertex Project on |slack|_!
 .. |dockerhub| image:: https://img.shields.io/docker/build/vertexproject/synapse.svg?branch=master
 .. _dockerhub: https://hub.docker.com/r/vertexproject/synapse/
 
-.. |slack| image:: https://www.vertex.link/badge.svg
+.. |slack| image:: https://www.vertex.link/slack/badge.svg
 .. _slack: https://www.vertex.link/slack/
 
 .. _pypi: https://pypi.python.org/pypi/synapse
