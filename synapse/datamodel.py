@@ -127,24 +127,24 @@ class DataModel(s_types.TypeLib):
         These properties are not bound to a specific form and may be present on a node.
         '''
         self.addPropDef('tufo:form',
-                            ptype='str',
-                            doc='The form of the node',
-                            ro=1,
-                            req=1,
-                            univ=1,
-                            )
-        self.addPropDef('node:created',
-                            ptype='time',
-                            doc='The time the node was created',
-                            ro=1,
-                            req=1,
+                        ptype='str',
+                        doc='The form of the node',
+                        ro=1,
+                        req=1,
                         univ=1,
-                            )
+                        )
+        self.addPropDef('node:created',
+                        ptype='time',
+                        doc='The time the node was created',
+                        ro=1,
+                        req=1,
+                        univ=1,
+                        )
         self.addPropDef('node:ndef',
-                            ptype='ndef',
-                            doc='The unique guid representing the combination of the node form and primary property.',
-                            ro=1,
-                            req=1,
+                        ptype='ndef',
+                        doc='The unique guid representing the combination of the node form and primary property.',
+                        ro=1,
+                        req=1,
                         univ=1)
 
     def getModelDict(self):
