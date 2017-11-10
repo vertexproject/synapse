@@ -150,7 +150,7 @@ class SynModelTest(SynTest):
                 self.ge(len(core.eval('node:created')), 3)
 
                 tufos = core.eval('node:created +tufo:form=inet:ipv4')
-                self.eq(len(tufos), 1)
+                self.len(1, tufos)
                 iden, props = tufos[0]
                 self.eq(props['tufo:form'], 'inet:ipv4')
                 self.eq(props['node:created'], tick)
@@ -162,7 +162,7 @@ class SynModelTest(SynTest):
                 self.gt(stamp, valu)  # node:created row's stamp will be higher than its valu
 
                 tufos = core.eval('node:created +tufo:form=file:bytes')
-                self.eq(len(tufos), 1)
+                self.len(1, tufos)
                 props = tufos[0][1]
                 self.eq(props['tufo:form'], 'file:bytes')
                 self.eq(props['node:created'], tick)
@@ -172,3 +172,48 @@ class SynModelTest(SynTest):
                 rows = core.getRowsByIdProp(iden, 'node:created')
                 _, _, valu, stamp = rows[0]
                 self.gt(stamp, valu)  # node:created row's stamp will be higher than its valu
+
+    def test_model_syn_201711012123(self):
+        data = {}
+        iden0, iden1 = guid(), guid()
+        tick = now()
+        rows = [
+            (iden0, 'inet:ipv4:type', '??', tick),
+            (iden0, 'inet:ipv4', 16909060, tick),
+            (iden0, 'tufo:form', 'inet:ipv4', tick),
+            (iden0, 'node:created', tick, tick),
+            (iden0, 'inet:ipv4:cc', '??', tick),
+            (iden0, 'inet:ipv4:asn', -1, tick),
+
+            (iden1, 'file:bytes', 'd41d8cd98f00b204e9800998ecf8427e', tick),
+            (iden1, 'file:bytes:mime', '??', tick),
+            (iden1, 'file:bytes:md5', 'd41d8cd98f00b204e9800998ecf8427e', tick),
+            (iden1, 'tufo:form', 'file:bytes', tick),
+            (iden1, 'node:created', tick, tick),
+        ]
+
+        with s_cortex.openstore('ram:///') as stor:
+            # force model migration callbacks
+            stor.setModlVers('syn', 0)
+
+            def addrows(mesg):
+                stor.addRows(rows)
+                data['added'] = True
+
+            stor.on('modl:vers:rev', addrows, name='syn', vers=201711012123)
+
+            with s_cortex.fromstore(stor) as core:
+                self.true(data.get('added'))
+
+                # 1 file:bytes, 1 inet:ipv4, 1 syn:core
+                self.ge(len(core.eval('node:ndef')), 3)
+
+                tufos = core.eval('node:ndef +tufo:form=inet:ipv4')
+                self.eq(len(tufos), 1)
+                node = tufos[0]
+                self.eq(node[1].get('node:ndef'), 'cbc65d5e373205b31b9be06155c186db')
+
+                tufos = core.eval('node:ndef +tufo:form=file:bytes')
+                self.eq(len(tufos), 1)
+                node = tufos[0]
+                self.eq(node[1].get('node:ndef'), 'ab91b96076bd6f2b1acd5b19f0e06d05')

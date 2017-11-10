@@ -1,14 +1,14 @@
 import types
 import hashlib
 
-import synapse.common as s_common
+import synapse.lib.msgpack as s_msgpack
 
 def hashitem(item):
     '''
     Generate a uniq hash for the JSON compatible primitive data structure.
     '''
     norm = normitem(item)
-    byts = s_common.msgenpack(norm)
+    byts = s_msgpack.en(norm)
     return hashlib.md5(byts).hexdigest()
 
 def normitem(item):

@@ -79,6 +79,12 @@ class BadMesgVers(SynErr): pass
 class BadInfoValu(SynErr): pass
 class BadStorValu(SynErr): pass
 class BadRuleValu(SynErr): pass
+class BadPropConf(SynErr):
+    '''
+    The configuration for the property is invalid.
+    '''
+    pass
+
 
 class BadCoreStore(SynErr):
     '''The storage layer has encountered an error'''

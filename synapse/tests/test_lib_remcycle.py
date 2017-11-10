@@ -2,10 +2,9 @@ import time
 import random
 
 import synapse.common as s_common
-import synapse.daemon as s_daemon
-import synapse.telepath as s_telepath
 
 import synapse.lib.webapp as s_webapp
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.remcycle as s_remcycle
 
 import synapse.models.inet as s_inet
@@ -981,7 +980,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             cached_data = hypo_obj.webCacheGet(jid=jid)
             self.nn(cached_data)
             # Ensure the cached data can be msgpacked as needed.
-            buf = msgenpack(cached_data)
+            buf = s_msgpack.en(cached_data)
             self.true(isinstance(buf, bytes))
             # Ensure that the existing job tufo is untouched when caching.
             self.true('ingdata' in job[1].get('task')[2].get('resp'))

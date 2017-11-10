@@ -18,6 +18,7 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.lib.output as s_output
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ def main(argv, outp=None):
     decompress = False
     discard_first_event = False
     with open(opts.input, 'rb') as fd:
-        gen = s_common.msgpackfd(fd)
+        gen = s_msgpack.iterfd(fd)
         tufo0 = next(gen)
         if tufo0[0] == 'syn:cortex:rowdump:info':
             outp.printf('Restoring from a dumprows file.')
@@ -54,7 +55,7 @@ def main(argv, outp=None):
         storconf['rev:storage'] = True
 
     with open(opts.input, 'rb') as fd:
-        gen = s_common.msgpackfd(fd)
+        gen = s_msgpack.iterfd(fd)
         if discard_first_event:
             next(gen)
         with s_cortex.openstore(opts.store, storconf=storconf) as store:
@@ -64,7 +65,7 @@ def main(argv, outp=None):
             nrows = 0
             for event in gen:
                 if decompress and 'rows' in event[1]:
-                    event[1]['rows'] = s_common.msgunpack(gzip.decompress(event[1].get('rows')))
+                    event[1]['rows'] = s_msgpack.un(gzip.decompress(event[1].get('rows')))
                 i += 1
                 if i % 250 == 0:
                     outp.printf('Loaded {} events'.format(i))

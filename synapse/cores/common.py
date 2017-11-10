@@ -28,6 +28,7 @@ import synapse.lib.service as s_service
 import synapse.lib.hashset as s_hashset
 import synapse.lib.threads as s_threads
 import synapse.lib.modules as s_modules
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.trigger as s_trigger
 import synapse.lib.version as s_version
 import synapse.lib.interval as s_interval
@@ -207,6 +208,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.isok = True
 
         DataModel.__init__(self)
+        self._addUnivProps()
 
         self._loadTrigNodes()
 
@@ -273,6 +275,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         node[1][form] = norm
         node[1]['tufo:form'] = form
         node[1]['node:created'] = s_common.now()
+        node[1]['node:ndef'] = s_common.guid((form, norm))
 
         self.runt_props[(form, None)].append(node)
         self.runt_props[(form, norm)].append(node)
@@ -650,6 +653,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                     full = fnam + ':' + pnam
                     pdef = self.getPropDef(full)
                     self.addRuntNode('syn:prop', full, pdef[1])
+
+    def _addUnivProps(self):
+        for pname in self.uniprops:
+            pdef = self.getPropDef(pname)
+            self.addRuntNode('syn:prop', pname, pdef[1])
 
     def revModlVers(self, name, vers, func):
         '''
@@ -1524,7 +1532,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             core.addSpliceFd(fd)
         '''
         def save(mesg):
-            fd.write(s_common.msgenpack(mesg))
+            fd.write(s_msgpack.en(mesg))
         self.on('splice', save)
 
     def eatSpliceFd(self, fd):
@@ -1538,7 +1546,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             core.eatSyncFd(fd)
 
         '''
-        for chnk in s_common.chunks(s_common.msgpackfd(fd), 1000):
+        for chnk in s_common.chunks(s_msgpack.iterfd(fd), 1000):
             self.splices(chnk)
 
     def _onDelSynTag(self, mesg):
@@ -2482,18 +2490,21 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             return
 
         props = self.getFormReqs(form)
+        props = set(props)
+
+        # Add in universal props which are required
+        props = props.union(self.unipropsreq)
 
         # Return fast for perf
         if not props:
             return
-
-        props = set(props)
 
         # Special case for handling syn:prop:glob=1 on will not have a ptype
         # despite the model requiring a ptype to be present.
         if fulls.get('syn:prop:glob') and 'syn:prop:ptype' in props:
             props.remove('syn:prop:ptype')
 
+        # Compute any missing props
         missing = props - set(fulls)
         if missing:
             raise s_common.PropNotFound(mesg='Node is missing required a prop during formation',
@@ -2631,8 +2642,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             self._addDefProps(prop, fulls)
 
             fulls[prop] = valu
+
+            # Set universal node values
             fulls['tufo:form'] = prop
             fulls['node:created'] = s_common.now()
+            fulls['node:ndef'] = s_common.guid((prop, valu))
+            # fulls['node:ndef'] = self.reqPropNorm('node:ndef', (prop, valu))[0]
 
             # Examine the fulls dictionary and identify any props which are
             # themselves forms, and extract the form/valu/subs from the fulls
@@ -2697,7 +2712,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         splitp = form + ':'
         for name in list(fulls.keys()):
-            if name in ('tufo:form', 'node:created', 'node:loc'):
+            if name in self.uniprops:
                 continue
             if not self.isSetPropOk(name, isadd):
                 prop = name.split(splitp)[1]
@@ -2716,7 +2731,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             list: List of tuples (prop,valu,**props) for consumption by formTufoByProp.
         '''
         ret = []
-        skips = ('tufo:form', 'node:created', 'node:loc')
+        skips = self.uniprops
         valu = fulls.get(form)
         for fprop, fvalu in fulls.items():
             if fprop in skips:
@@ -2934,7 +2949,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             valu = props.get(name)
 
-            prop = form + ':' + name
+            if name in self.uniprops:
+                prop = name
+
+            else:
+                prop = form + ':' + name
 
             oldv = None
             if tufo is not None:
@@ -2942,7 +2961,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             valu, subs = self.getPropNorm(prop, valu, oldval=oldv)
             if tufo is not None:
-                if tufo[1].get(prop) == valu:
+                if oldv == valu:
                     props.pop(name, None)
                     continue
                 _isadd = not bool(oldv)

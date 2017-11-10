@@ -298,6 +298,7 @@ class DataModelTest(SynTest):
                               'defval': None,
                               'ptype': 'int',
                               'doc': 'The base integer type',
+                              'univ': False,
                               }
                  )
                 )

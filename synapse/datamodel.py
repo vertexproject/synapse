@@ -105,6 +105,8 @@ class DataModel(s_types.TypeLib):
         self.subprops = collections.defaultdict(list)
         self.propsbytype = collections.defaultdict(list)
         self.propsdtyp = {}
+        self.uniprops = set()
+        self.unipropsreq = set()
 
         self.globs = []
         self.cache = {} # for globs
@@ -117,6 +119,33 @@ class DataModel(s_types.TypeLib):
         }
 
         s_types.TypeLib.__init__(self, load=load)
+        self._initUniversalProps()
+
+    def _initUniversalProps(self):
+        '''
+        Initialize universal properties in the DataModel.
+        These properties are not bound to a specific form and may be present on a node.
+        '''
+        self.addPropDef('tufo:form',
+                        ptype='str',
+                        doc='The form of the node',
+                        ro=1,
+                        req=1,
+                        univ=1,
+                        )
+        self.addPropDef('node:created',
+                        ptype='time',
+                        doc='The time the node was created',
+                        ro=1,
+                        req=1,
+                        univ=1,
+                        )
+        self.addPropDef('node:ndef',
+                        ptype='ndef',
+                        doc='The unique guid representing the combination of the node form and primary property.',
+                        ro=1,
+                        req=1,
+                        univ=1)
 
     def getModelDict(self):
         '''
@@ -194,9 +223,21 @@ class DataModel(s_types.TypeLib):
 
     def getTufoForms(self):
         '''
-        Return a list of the tufo forms.
+        Get a list of the currently loaded tufo forms.
+
+        Returns:
+            list: List of forms.
         '''
         return list(self.forms)
+
+    def getUnivProps(self):
+        '''
+        Get a list of the universal tufo props.
+
+        Returns:
+            list: List of universal tufo props
+        '''
+        return list(self.uniprops)
 
     def addTufoProp(self, form, prop, **info):
         '''
@@ -251,10 +292,12 @@ class DataModel(s_types.TypeLib):
 
             model.addPropDef('foo:bar', ptype='int', defval=30)
 
+        Returns:
+            ((str, dict)): Retuns the prop, property definition tuple.
+
         Raises:
-
             DupPropName: If the property name is already present in the data model.
-
+            BadPropConf: If the propety has an invalid configuration.
         '''
         if self.props.get(prop) is not None:
             raise s_common.DupPropName(name=prop)
@@ -264,11 +307,18 @@ class DataModel(s_types.TypeLib):
         info.setdefault('req', False)
         info.setdefault('title', self.getTypeInfo(info.get('ptype'), 'title', ''))
         info.setdefault('defval', None)
+        info.setdefault('univ', False)
 
+        univ = info.get('univ')
         form = info.get('form')
-        relname = prop[len(form) + 1:]
-        if relname:
-            info['relname'] = relname
+        if form and univ:
+            raise s_common.BadPropConf(mesg='Universal props cannot be set on forms.',
+                                       prop=prop, form=form,)
+        relname = None
+        if form:
+            relname = prop[len(form) + 1:]
+            if relname:
+                info['relname'] = relname
 
         if ':' in prop:
             _, base = prop.rsplit(':', 1)
@@ -293,11 +343,19 @@ class DataModel(s_types.TypeLib):
             self.propsdtyp[prop] = pdtyp
 
         self.props[prop] = pdef
-        self.props[(form, relname)] = pdef
+        if relname:
+            self.props[(form, relname)] = pdef
 
         self.model['props'][prop] = pdef
 
+        if univ:
+            self.uniprops.add(prop)
+            if info.get('req'):
+                self.unipropsreq.add(prop)
+
         self._addSubRefs(pdef)
+
+        return pdef
 
     def getFormDefs(self, form):
         '''

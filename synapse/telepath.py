@@ -17,6 +17,7 @@ import synapse.eventbus as s_eventbus
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.socket as s_socket
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.reflect as s_reflect
 
 logger = logging.getLogger(__name__)
@@ -474,7 +475,7 @@ class Proxy(s_eventbus.EventBus):
 
     def _onSockGzip(self, mesg):
         data = zlib.decompress(mesg[1].get('data'))
-        self.dist(s_common.msgunpack(data))
+        self.dist(s_msgpack.un(data))
 
     def _runTeleCall(self, mesg):
 
