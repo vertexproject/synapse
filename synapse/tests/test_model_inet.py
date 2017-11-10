@@ -1474,6 +1474,27 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['inet:web:acct'], 'vertex.link/pennywise2')
                 self.eq(tufo[1]['inet:web:acct:occupation'], 'entertainer')
 
+    def test_model_inet_addr(self):
+        with self.getRamCore() as core:
+
+            valu, subs = core.getTypeNorm('inet:addr', 'FF::56')
+
+            self.eq(valu, 'ff::56')
+            self.none(subs.get('ipv4'))
+
+            valu, subs = core.getTypeNorm('inet:addr', '1.2.3.4')
+
+            self.eq(valu, '::ffff:1.2.3.4')
+            self.eq(subs.get('ipv4'), 0x01020304)
+
+            nv, nsubs = core.getTypeNorm('inet:addr', '::ffff:1.2.3.4')
+            self.eq(valu, nv)
+            self.eq(subs, nsubs)
+
+            # These change when we move to using inet:addr instead of
+            self.raises(NoSuchForm, core.formTufoByProp, 'inet:addr', 0x01020304)
+            # self.nn(core.getTufoByProp('inet:addr:ipv4', '1.2.3.4'))
+
     def test_model_inet_wifi(self):
         with self.getRamCore() as core:
             node = core.formTufoByProp('inet:wifi:ssid', 'hehe haha')
