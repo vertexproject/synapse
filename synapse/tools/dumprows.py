@@ -24,6 +24,7 @@ import synapse.cortex as s_cortex
 
 import synapse.lib.tufo as s_tufo
 import synapse.lib.output as s_output
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +64,8 @@ def dump_rows(outp, fd, store, compress=False, genrows_kwargs=None):
         i += len(rows)
         tufo = s_tufo.tufo('core:save:add:rows', rows=rows)
         if compress:
-            tufo[1]['rows'] = gzip.compress(s_common.msgenpack(rows), 9)
-        byts = s_common.msgenpack(tufo)
+            tufo[1]['rows'] = gzip.compress(s_msgpack.en(rows), 9)
+        byts = s_msgpack.en(tufo)
         bufs.append(byts)
         cur_bytes += len(byts)
         if cur_bytes > s_axon.megabyte * DUMP_MEGS:
@@ -87,8 +88,8 @@ def dump_blobs(outp, fd, store):
     outp.printf('Dumping blobstore')
     for key in store.getBlobKeys():
         valu = store.getBlobValu(key)
-        tufo = s_tufo.tufo('syn:core:blob:set', key=key, valu=s_common.msgenpack(valu))
-        byts = s_common.msgenpack(tufo)
+        tufo = s_tufo.tufo('syn:core:blob:set', key=key, valu=s_msgpack.en(valu))
+        byts = s_msgpack.en(tufo)
         fd.write(byts)
         i += 1
     outp.printf('Done dumping {} keys from blobstore.'.format(i))
@@ -130,7 +131,7 @@ def main(argv, outp=None):
     backup_tufo = gen_backup_tufo(opts)
 
     with open(opts.output, 'wb') as fd:
-        fd.write(s_common.msgenpack(backup_tufo))
+        fd.write(s_msgpack.en(backup_tufo))
         with s_cortex.openstore(opts.store, storconf=storconf) as store:
             dump_store(outp, fd, store,
                        compress=opts.compress,

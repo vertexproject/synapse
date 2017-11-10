@@ -1,6 +1,7 @@
 import synapse.common as s_common
 
 import synapse.lib.datfile as s_datfile
+import synapse.lib.msgpack as s_msgpack
 
 def get(name, defval=None):
     '''
@@ -14,4 +15,4 @@ def get(name, defval=None):
     NOTE: Files are named synapse/data/<name>.mpk
     '''
     with s_datfile.openDatFile('synapse.data/%s.mpk' % name) as fd:
-        return s_common.msgunpack(fd.read())
+        return s_msgpack.un(fd.read())

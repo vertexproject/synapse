@@ -11,6 +11,7 @@ import synapse.dyndeps as s_dyndeps
 import synapse.lib.time as s_time
 import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
+import synapse.lib.msgpack as s_msgpack
 
 import synapse.lookup.iso3166 as s_l_iso3166
 
@@ -341,11 +342,11 @@ class IntType(DataType):
 def enMsgB64(item):
     # FIXME find a way to go directly from binary bytes to
     # base64 *string* to avoid the extra decode pass..
-    return base64.b64encode(s_common.msgenpack(item)).decode('utf8')
+    return base64.b64encode(s_msgpack.en(item)).decode('utf8')
 
 def deMsgB64(text):
     # FIXME see above
-    return s_common.msgunpack(base64.b64decode(text.encode('utf8')))
+    return s_msgpack.un(base64.b64decode(text.encode('utf8')))
 
 jsseps = (',', ':')
 

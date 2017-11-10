@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 import synapse.common as s_common
 import synapse.lib.scope as s_scope
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
 import synapse.lib.thisplat as s_thisplat
 
@@ -22,7 +23,7 @@ def sockgzip(byts):
     blen = len(byts)
     byts = zlib.compress(byts)
     #print('GZIP DELTA: %d -> %d' % (blen,len(byts)))
-    return s_common.msgenpack(('sock:gzip', {'data': byts}))
+    return s_msgpack.en(('sock:gzip', {'data': byts}))
 
 class Socket(EventBus):
     '''
@@ -167,7 +168,7 @@ class Socket(EventBus):
         If present this API is safe for use with a socket in a Plex().
         '''
 
-        byts = s_common.msgenpack(mesg)
+        byts = s_msgpack.en(mesg)
         return self.txbytes(byts)
 
     def txbytes(self, byts):

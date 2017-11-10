@@ -1,6 +1,14 @@
+import logging
 import msgpack
+import msgpack.fallback as m_fallback
 
+logger = logging.getLogger(__name__)
+
+# Single Packer object which is reused for performance
 pakr = msgpack.Packer(use_bin_type=True, encoding='utf8')
+if isinstance(pakr, m_fallback.Packer):
+    logger.warning('msgpack is using the pure python fallback implementation. This will impact performance negatively.')
+    pakr = None
 
 def en(item):
     '''
@@ -10,8 +18,10 @@ def en(item):
         item (obj): The object to serialize
 
     Returns:
-        (bytes): The serialized bytes
+        bytes: The serialized bytes
     '''
+    if pakr is None:
+        return msgpack.packb(item, use_bin_type=True, encoding='utf8')
     return pakr.pack(item)
 
 def un(byts):
@@ -22,9 +32,23 @@ def un(byts):
         byts (bytes): The bytes to de-serialize
 
     Returns:
-        (obj): The de-serialized object
+        obj: The de-serialized object
     '''
     return msgpack.loads(byts, use_list=False, encoding='utf8')
+
+def iterfd(fd):
+    '''
+    Generator which unpacks a file object of msgpacked content.
+
+    Args:
+        fd: File object to consume data from.
+
+    Yields:
+        Objects from a msgpack stream.
+    '''
+    unpk = msgpack.Unpacker(fd, use_list=False, encoding='utf8')
+    for mesg in unpk:
+        yield mesg
 
 class Unpk:
     '''

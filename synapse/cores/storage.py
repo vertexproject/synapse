@@ -17,6 +17,7 @@ import synapse.eventbus as s_eventbus
 import synapse.cores.xact as s_xact
 
 import synapse.lib.config as s_config
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
 
 from synapse.common import reqstor
@@ -379,7 +380,7 @@ class Storage(s_config.Config):
         if buf is None:
             self.log(logging.WARNING, mesg='Requested key not present in blob store, returning default', name=key)
             return default
-        return s_common.msgunpack(buf)
+        return s_msgpack.un(buf)
 
     def getBlobKeys(self):
         '''
@@ -410,7 +411,7 @@ class Storage(s_config.Config):
         Returns:
             The input value, unchanged.
         '''
-        buf = s_common.msgenpack(valu)
+        buf = s_msgpack.en(valu)
         self._setBlobValu(key, buf)
         self.savebus.fire('syn:core:blob:set', key=key, valu=buf)
         return valu
@@ -445,7 +446,7 @@ class Storage(s_config.Config):
             raise s_common.NoSuchName(name=key, mesg='Cannot delete key which is not present in the blobstore.')
         buf = self._delBlobValu(key)
         self.savebus.fire('syn:core:blob:del', key=key)
-        return s_common.msgunpack(buf)
+        return s_msgpack.un(buf)
 
     def _onSetBlobValu(self, mesg):
         key = mesg[1].get('key')
@@ -1079,7 +1080,7 @@ class Storage(s_config.Config):
         This may be overridden by a storage layer.
         '''
         if load:
-            for mesg in s_common.msgpackfd(fd):
+            for mesg in s_msgpack.iterfd(fd):
                 self.loadbus.dist(mesg)
 
         self.onfini(fd.flush)
@@ -1087,7 +1088,7 @@ class Storage(s_config.Config):
             self.onfini(fd.close)
 
         def savemesg(mesg):
-            fd.write(s_common.msgenpack(mesg))
+            fd.write(s_msgpack.en(mesg))
 
         self.savebus.link(savemesg)
 

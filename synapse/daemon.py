@@ -18,6 +18,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.socket as s_socket
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.reflect as s_reflect
 import synapse.lib.service as s_service
 import synapse.lib.session as s_session
@@ -528,7 +529,7 @@ class Daemon(EventBus, DmonConf):
 
     def _onSockGzipMesg(self, sock, mesg):
         data = zlib.decompress(mesg[1].get('data'))
-        mesg = s_common.msgunpack(data)
+        mesg = s_msgpack.un(data)
         self._distSockMesg(sock, mesg)
 
     def _onTeleSynMesg(self, sock, mesg):

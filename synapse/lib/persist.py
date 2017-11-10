@@ -14,6 +14,7 @@ import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.queue as s_queue
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -332,7 +333,7 @@ class File(s_eventbus.EventBus):
         '''
         Add an item to the persistance storage.
         '''
-        byts = s_common.msgenpack(item)
+        byts = s_msgpack.en(item)
         size = len(byts)
 
         with self.fdlock:

@@ -9,6 +9,8 @@ import gzip
 
 import synapse.axon as s_axon
 
+import synapse.lib.msgpack as s_msgpack
+
 import synapse.tools.dumprows as s_dumprows
 import synapse.tools.loadrows as s_loadrows
 
@@ -44,7 +46,7 @@ class DumpRowsTest(SynTest):
 
             # Now ensure our .mpk file is correct
             with open(fp, 'rb') as fd:
-                gen = msgpackfd(fd)
+                gen = s_msgpack.iterfd(fd)
                 evt = next(gen)
                 self.eq(evt[0], 'syn:cortex:rowdump:info')
                 self.eq(evt[1].get('rows:compress'), False)
@@ -89,7 +91,7 @@ class DumpRowsTest(SynTest):
 
             # Now ensure our .mpk file is correct
             with open(fp, 'rb') as fd:
-                gen = msgpackfd(fd)
+                gen = s_msgpack.iterfd(fd)
                 evt = next(gen)
                 self.eq(evt[0], 'syn:cortex:rowdump:info')
                 self.eq(evt[1].get('rows:compress'), True)
@@ -98,7 +100,7 @@ class DumpRowsTest(SynTest):
                 self.isin('rows', evt[1])
                 rows = evt[1].get('rows')
                 # we decode the rows blob not in place but separately here
-                rows = msgunpack(gzip.decompress(rows))
+                rows = s_msgpack.un(gzip.decompress(rows))
                 self.isinstance(rows, tuple)
                 self.isinstance(rows[0], tuple)
                 self.eq(len(rows[0]), 4)
@@ -127,7 +129,7 @@ class DumpRowsTest(SynTest):
 
             # Now ensure our .mpk file is correct
             with open(fp, 'rb') as fd:
-                gen = msgpackfd(fd)
+                gen = s_msgpack.iterfd(fd)
                 evt = next(gen)
                 self.eq(evt[0], 'syn:cortex:rowdump:info')
                 self.eq(evt[1].get('synapse:cortex:blob_store'), True)
@@ -208,7 +210,7 @@ class DumpRowsTest(SynTest):
             # Now ensure our .mpk file is correct
             with open(fp, 'rb') as fd:
                 msgpk_rows = 0
-                for evt in msgpackfd(fd):
+                for evt in s_msgpack.iterfd(fd):
                     if 'rows' in evt[1]:
                         msgpk_rows = msgpk_rows + len(evt[1].get('rows'))
             self.eq(num_core_rows, msgpk_rows)

@@ -28,6 +28,7 @@ import synapse.lib.service as s_service
 import synapse.lib.hashset as s_hashset
 import synapse.lib.threads as s_threads
 import synapse.lib.modules as s_modules
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.trigger as s_trigger
 import synapse.lib.version as s_version
 import synapse.lib.interval as s_interval
@@ -1528,7 +1529,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             core.addSpliceFd(fd)
         '''
         def save(mesg):
-            fd.write(s_common.msgenpack(mesg))
+            fd.write(s_msgpack.en(mesg))
         self.on('splice', save)
 
     def eatSpliceFd(self, fd):
@@ -1542,7 +1543,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             core.eatSyncFd(fd)
 
         '''
-        for chnk in s_common.chunks(s_common.msgpackfd(fd), 1000):
+        for chnk in s_common.chunks(s_msgpack.iterfd(fd), 1000):
             self.splices(chnk)
 
     def _onDelSynTag(self, mesg):
