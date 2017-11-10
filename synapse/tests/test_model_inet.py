@@ -1487,7 +1487,13 @@ class InetModelTest(SynTest):
             self.eq(valu, '::ffff:1.2.3.4')
             self.eq(subs.get('ipv4'), 0x01020304)
 
-            #self.nn(core.getTufoByProp('inet:addr:ipv4', '1.2.3.4'))
+            nv, nsubs = core.getTypeNorm('inet:addr', '::ffff:1.2.3.4')
+            self.eq(valu, nv)
+            self.eq(subs, nsubs)
+
+            # These change when we move to using inet:addr instead of
+            self.raises(NoSuchForm, core.formTufoByProp, 'inet:addr', 0x01020304)
+            # self.nn(core.getTufoByProp('inet:addr:ipv4', '1.2.3.4'))
 
     def test_model_inet_wifi(self):
         with self.getRamCore() as core:
