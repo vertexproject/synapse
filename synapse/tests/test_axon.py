@@ -102,12 +102,11 @@ class AxonTest(SynTest):
                 with s_axon.Axon(dirname) as axon:
                     dmon.share('axon', axon, fini=True)
 
-                    prox = s_telepath.openurl('tcp://127.0.0.1/axon', port=port)
-
-                    with io.BytesIO(b'vertex') as fd:
-                        blob = prox.eatfd(fd)
-                        self.eq(blob[1]['axon:blob:sha256'],
-                                'e1b683e26a3aad218df6aa63afe9cf57fdb5dfaf5eb20cddac14305d67f48a02')
+                    with s_telepath.openurl('tcp://127.0.0.1/axon', port=port) as prox:
+                        with io.BytesIO(b'vertex') as fd:
+                            blob = prox.eatfd(fd)
+                            self.eq(blob[1]['axon:blob:sha256'],
+                                    'e1b683e26a3aad218df6aa63afe9cf57fdb5dfaf5eb20cddac14305d67f48a02')
 
     def test_axon_eatbytes(self):
         self.thisHostMustNot(platform='windows')
@@ -643,6 +642,7 @@ class AxonClusterTest(SynTest):
             host1.fini()
             host2.fini()
 
+        svcprox.fini()
         dmon.fini()
 
     def test_axon_cluster_cortex(self):
@@ -729,6 +729,7 @@ class AxonClusterTest(SynTest):
             host1.fini()
             host2.fini()
 
+        svcprox.fini()
         dmon.fini()
 
 class AxonFSTest(SynTest):
