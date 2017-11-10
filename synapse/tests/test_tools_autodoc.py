@@ -17,6 +17,7 @@ class TestAutoDoc(SynTest):
                 rst = fd.read().decode()
 
             self.true('inet:ipv4:asn = <inet:asn> (default: -1)' in rst)
+            self.true('Universal Props' in rst)
 
     def test_tools_autodoc_configable(self):
         with self.getTestDir() as path:

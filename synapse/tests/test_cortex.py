@@ -3001,6 +3001,9 @@ class CortexTest(SynTest):
             self.eq(node[1].get('node:tstevil'), 1)
             core.off('node:form', foo)
 
+            # We cannot add a universal prop which is associated with a form
+            self.raises(BadPropConf, core.addPropDef, 'node:poorform', univ=1, req=1, ptype='bool', form='file:bytes')
+
 class StorageTest(SynTest):
 
     def test_nonexist_ctor(self):

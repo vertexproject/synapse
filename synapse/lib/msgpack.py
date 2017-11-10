@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 # Single Packer object which is reused for performance
 pakr = msgpack.Packer(use_bin_type=True, encoding='utf8')
-if isinstance(pakr, m_fallback.Packer):
+if isinstance(pakr, m_fallback.Packer):  # pragma: no cover
     logger.warning('msgpack is using the pure python fallback implementation. This will impact performance negatively.')
     pakr = None
 
@@ -20,7 +20,7 @@ def en(item):
     Returns:
         bytes: The serialized bytes
     '''
-    if pakr is None:
+    if pakr is None:  # pragma: no cover
         return msgpack.packb(item, use_bin_type=True, encoding='utf8')
     return pakr.pack(item)
 

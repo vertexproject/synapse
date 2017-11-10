@@ -208,6 +208,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.isok = True
 
         DataModel.__init__(self)
+        self._addUnivProps()
 
         self._loadTrigNodes()
 
@@ -652,6 +653,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                     full = fnam + ':' + pnam
                     pdef = self.getPropDef(full)
                     self.addRuntNode('syn:prop', full, pdef[1])
+
+    def _addUnivProps(self):
         for pname in self.uniprops:
             pdef = self.getPropDef(pname)
             self.addRuntNode('syn:prop', pname, pdef[1])
