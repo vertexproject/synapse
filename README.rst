@@ -11,7 +11,12 @@ Synapse is available as a Python Package on pypi_ and as a Docker image on docke
 Documentation
 -------------
 
-https://vertexprojectsynapse.readthedocs.io
+API Documentation and User Guides can be found at https://vertexprojectsynapse.readthedocs.io
+
+Chat
+----
+
+Join the Vertex Project on |slack|_!
 
 .. |drone| image:: https://drone.vertex.link/api/badges/vertexproject/synapse/status.svg?branch=master
 .. _drone: https://drone.vertex.link/vertexproject/synapse
@@ -27,5 +32,8 @@ https://vertexprojectsynapse.readthedocs.io
 
 .. |dockerhub| image:: https://img.shields.io/docker/build/vertexproject/synapse.svg?branch=master
 .. _dockerhub: https://hub.docker.com/r/vertexproject/synapse/
+
+.. |slack| image:: https://www.vertex.link/badge.svg
+.. _slack: https://www.vertex.link/slack/
 
 .. _pypi: https://pypi.python.org/pypi/synapse
