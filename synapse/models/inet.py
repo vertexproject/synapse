@@ -337,7 +337,8 @@ class AddrType(DataType):
     def norm(self, valu, oldval=None):
 
         subs = {}
-        if valu.find(':') == -1:
+        if valu.find('.') != -1:
+            valu = valu.split(':')[-1]
             ipv4, subs = self.tlib.getTypeNorm('inet:ipv4', valu)
             subs['ipv4'] = ipv4
 
