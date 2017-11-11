@@ -351,6 +351,12 @@ class AxonHostTest(SynTest):
             host0.fini()
             host1.fini()
             host2.fini()
+
+            # Ensure the axonhost fini'd its objects
+            self.true(host0.axonbus.isfini)
+            for axon in host0.axons.values():
+                self.true(axon.isfini)
+
         dmon.fini()
 
     def test_axon_clone_large(self):
