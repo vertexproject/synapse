@@ -1,3 +1,4 @@
+import os
 import datetime
 import collections
 
@@ -75,6 +76,7 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
           CoreModule instance using EventBus.link().
     '''
     _mod_name = None
+    _mod_iden = None
 
     def __init__(self, core, conf):
         s_eventbus.EventBus.__init__(self)
@@ -117,6 +119,15 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         '''
         return self._mod_name
 
+    def getModIden(self):
+        '''
+        Return the GUID which identifies this module.
+
+        Returns:
+            (str):  The GUID string.
+        '''
+        return self._mod_iden
+
     def getModPath(self, *paths):
         '''
         Construct a path relative to this module's working directory.
@@ -125,10 +136,71 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
             (*paths): A list of path strings
 
         Returns:
-            (str): The full path
+            (str): The full path (or None if no cortex dir is configured).
         '''
         name = self.getModName()
+
+        dirn = self.core.getCorePath('mods', name)
+        if dirn is None:
+            return None
+
+        if not os.path.isdir(dirn):
+            os.makedirs(dirn, mode=0o700)
+
         return self.core.getCorePath('mods', name, *paths)
+
+    def reqModPath(self, *paths):
+        '''
+        Construct a path for this modules working directory.
+
+        Args:
+            (*paths): A list of path strings
+
+        Returns:
+            (str): The full path (or None if no cortex dir is configured).
+
+        Raises:
+            ReqConfOpt: If the cortex has no configured dir.
+        '''
+        name = self.getModName()
+        dirn = self.core.reqCorePath('mods', name)
+        if not os.path.isdir(dirn):
+            os.makedirs(dirn, mode=0o700)
+
+        return self.core.getCorePath('mods', name, *paths)
+
+    def getModProp(self, prop, defval=None):
+        '''
+        Retrieve a module property from the cortex storage layer.
+
+        Args:
+            prop (name): The property name
+
+        Returns:
+            (obj): The int/str or None
+        '''
+        if self._mod_iden is None:
+            raise s_common.NoModIden(name=self._mod_name, ctor=self.__class__.__name__)
+
+        prop = '.:mod:' + self._mod_iden + '/' + prop
+        rows = self.core.getRowsByProp(prop, limit=1)
+        if not rows:
+            return defval
+        return rows[0][2]
+
+    def setModProp(self, prop, valu):
+        '''
+        Set a module property within the cortex storage layer.
+
+        Args:
+            prop (str): The property name.
+            valu (obj): A str/int valu.
+        '''
+        if self._mod_iden is None:
+            raise s_common.NoModIden(name=self._mod_name, ctor=self.__class__.__name__)
+
+        prop = '.:mod:' + self._mod_iden + '/' + prop
+        self.core.setRowsByIdProp(self._mod_iden, prop, valu)
 
     def reqModPath(self, *paths):
         '''

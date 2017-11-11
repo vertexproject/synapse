@@ -25,6 +25,15 @@ class GeneTest(SynTest):
         self.eq(scope.get('foo'), 'woot')
         self.eq(tuple(scope.iter('baz')), (1, 2))
 
+        self.eq(scope.pop('bar'), 30)
+        self.none(scope.get('bar'))
+
+    def test_lib_scope_thread(self):
+        s_scope.set('test:foo', 10)
+        self.eq(s_scope.get('test:foo'), 10)
+        self.eq(s_scope.pop('test:foo'), 10)
+        self.none(s_scope.get('test:foo'))
+
     def test_lib_scope_enter(self):
 
         with s_scope.enter({'woot': 10}):

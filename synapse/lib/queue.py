@@ -30,6 +30,18 @@ class Queue(EventBus):
 
             yield ret
 
+    def __len__(self):
+        return self.size()
+
+    def size(self):
+        '''
+        Return the number of entries in the Queue.
+
+        Returns:
+            int: The number of entries.
+        '''
+        return len(self.deq)
+
     def done(self):
         '''
         Gracefully mark this Queue as done.

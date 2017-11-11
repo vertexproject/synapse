@@ -24,6 +24,7 @@ import shutil
 import logging
 import tempfile
 import unittest
+import threading
 import contextlib
 
 import synapse.link as s_link
@@ -75,10 +76,63 @@ class TstOutPut(s_output.OutPutStr):
         if outs.find(substr) == -1:
             raise Exception('TestOutPut.expect(%s) not in %s' % (substr, outs))
 
+class TestSteps:
+    '''
+    A class to assist with interlocking for multi-thread tests.
+    '''
+    def __init__(self, names):
+        self.steps = {}
+        for name in names:
+            self.steps[name] = threading.Event()
+
+    def done(self, step):
+        '''
+        Mark the step name as complete.
+
+        Args:
+            step (str): The step name to mark complete
+        '''
+        self.steps[step].set()
+
+    def wait(self, step, timeout=None):
+        '''
+        Wait (up to timeout seconds) for a step to complete.
+
+        Args:
+            step (str): The step name to wait for.
+            timeout (int): The timeout in seconds (or None)
+
+        Raises:
+            Exception: on wait timeout
+        '''
+        if not self.steps[step].wait(timeout=timeout):
+            raise Exception('timeout waiting for step: %d' % (step,))
+
+    def step(self, done, wait, timeout=None):
+        '''
+        Complete a step and wait for another.
+
+        Args:
+            done (str): The step name to complete.
+            wait (str): The step name to wait for.
+            timeout (int): The wait timeout.
+        '''
+        self.done(done)
+        self.wait(wait, timeout=timeout)
+
 class SynTest(unittest.TestCase):
 
     def getTestWait(self, bus, size, *evts):
         return s_eventbus.Waiter(bus, size, *evts)
+
+    def getTestSteps(self, names):
+        '''
+        Return a TestSteps instance for the given step names.
+
+        Args:
+            names ([str]): The list of step names.
+        '''
+        return TestSteps(names)
 
     def skipIfNoInternet(self):  # pragma: no cover
         '''
@@ -321,10 +375,21 @@ class SynTest(unittest.TestCase):
             self.addTstForms(core)
             try:
                 yield core
-            except:  # pragma: no cover
-                raise
             finally:
                 core.fini()
+
+    @contextlib.contextmanager
+    def getDirCore(self):
+        '''
+        Context manager to make a ram:/// cortex which has test models
+        loaded into it.
+
+        Yields:
+            s_cores_common.Cortex: Ram backed cortex with test models.
+        '''
+        with self.getTestDir() as dirn:
+            with s_cortex.fromdir(dirn) as core:
+                yield core
 
     @contextlib.contextmanager
     def getDmonCore(self):
