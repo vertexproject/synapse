@@ -285,6 +285,37 @@ The following items should be considered when contributing to Synapse:
           if not regex.match(r'^[\w._-]+$', valu, regex.U)
               self._raiseBadValu(valu)
 
+* Return values should be preferred over raising exceptions. Functions/methods
+  that return a value should return None (or a default value) in the case of an
+  error.  The logic behind this is that it is much easier, cleaner, faster to
+  check a return value than to handle an exception.
+
+  Raising exceptions is reserved for "exceptional circumstances" and should 
+  NEVER be used for normal program flow.
+
+  ::
+
+      # Do this
+      def getWidgetById(self, wid):
+          widget_hash = self._index.get(wid)
+          if widget_hash is None:
+              return None
+
+          widget = self._widgets.get(widget_hash)
+          return widget
+
+      # NOT this
+      def getWidgetById(self, wid):
+          widget_hash = self._index.get(wid)
+          if widget_hash is None:
+              raise NotFoundError
+
+          widget = self._widgets.get(widget_hash)
+          if widget is None:
+              raise NotFoundError
+
+          return widget
+
 Contributions to Synapse which do not follow the project style guidelines may
 not be accepted.
 

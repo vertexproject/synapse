@@ -961,6 +961,8 @@ class CortexTest(SynTest):
     def test_cortex_datamodel_runt_consistency(self):
         with self.getRamCore() as core:
 
+            uniprops = core.getUnivProps()
+
             nodes = core.getTufosByProp('syn:form')
             for node in nodes:
                 self.isin('syn:form:ptype', node[1])
@@ -971,7 +973,10 @@ class CortexTest(SynTest):
 
             nodes = core.getTufosByProp('syn:prop')
             for node in nodes:
-                self.isin('syn:prop:form', node[1])
+                prop = node[1].get('syn:prop')
+                if prop not in uniprops:
+                    self.isin('syn:prop:form', node[1])
+
                 if 'syn:prop:glob' in node[1]:
                     continue
                 self.isin('syn:prop:req', node[1])
@@ -1003,6 +1008,12 @@ class CortexTest(SynTest):
             self.isin('syn:prop:doc', node[1])
             self.isin('syn:prop:base', node[1])
             self.isin('syn:prop:relname', node[1])
+
+            # universal prop nodes
+            node = core.getTufoByProp('syn:prop', 'node:ndef')
+            self.eq(node[1].get('syn:prop:univ'), 1)
+            # The node:ndef value is a stable guid :)
+            self.eq(node[1].get('node:ndef'), 'd20cb4873e36db4670073169f87abc32')
 
             # Ensure things bubbled up during node / datamodel creation
             self.eq(core.getPropInfo('strform', 'doc'), 'A test str form')
@@ -1350,7 +1361,11 @@ class CortexTest(SynTest):
         self.eq(len(tags), 2)
 
         wait = core.waiter(2, 'node:tag:del')
-        core.delTufoTag(hehe, 'lulz.rofl')
+        hehe = core.delTufoTag(hehe, 'lulz.rofl')
+        self.nn(hehe)
+        self.isin('#lulz', hehe[1])
+        self.notin('#lulz.rofl', hehe[1])
+        self.notin('#lulz.rofl.zebr', hehe[1])
         wait.wait(timeout=2)
 
         wait = core.waiter(1, 'node:tag:del')
@@ -1375,6 +1390,13 @@ class CortexTest(SynTest):
         self.nn(core.getTufoByProp('syn:tag', 'lulz'))
         self.nn(core.getTufoByProp('syn:tag', 'lulz.rofl'))
         self.nn(core.getTufoByProp('syn:tag', 'lulz.rofl.zebr'))
+
+        # Ensure we're making nodes which have a timebox
+        node = core.addTufoTag(node, 'foo.bar@20171217')
+        self.eq(s_tufo.ival(node, '#foo.bar'), (1513468800000, 1513468800000))
+        # Ensure the times argument is respected
+        node = core.addTufoTag(node, 'foo.duck', times=(1513382400000, 1513468800000))
+        self.eq(s_tufo.ival(node, '#foo.duck'), (1513382400000, 1513468800000))
 
         # Recreate expected results from #320 to ensure
         # we're also doing the same via storm
@@ -2863,6 +2885,124 @@ class CortexTest(SynTest):
 
                 self.false(os.path.isdir(path))
                 self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
+
+    def test_cortex_universal_props(self):
+        with self.getRamCore() as core:
+            myfo = core.myfo
+
+            node = core.getTufoByProp('node:ndef', '90ec8b92deda626d31e2d63e8dbf48be')
+            self.eq(node[0], myfo[0])
+
+            node = core.getTufoByProp('tufo:form', 'syn:core')
+            self.eq(node[0], myfo[0])
+
+            nodes = core.getTufosByProp('node:created', myfo[1].get('node:created'))
+            self.ge(len(nodes), 1)
+            rvalu = core.getPropRepr('node:created', myfo[1].get('node:created'))
+            self.isinstance(rvalu, str)
+            nodes2 = core.getTufosByProp('node:created', rvalu)
+            self.eq(len(nodes), len(nodes2))
+
+            # We can have a data model which has a prop which is a ndef type
+            modl = {
+                'types': (
+                    ('ndefxref', {'subof': 'comp', 'fields': 'ndef,node:ndef|strdude,strform|time,time'}),
+                ),
+                'forms': (
+                    ('ndefxref', {}, (
+                        ('ndef', {'req': 1, 'ro': 1, 'doc': 'ndef to a node', 'ptype': 'ndef'}),
+                        ('strdude', {'req': 1, 'ro': 1, 'doc': 'strform thing', 'ptype': 'strform'}),
+                        ('time', {'req': 1, 'ro': 1, 'doc': 'time thing was seen', 'ptype': 'time'})
+                    )),
+                )
+            }
+            core.addDataModel('unitst', modl)
+
+            # Make an node which refers to another node by its node:ndef value
+            node = core.formTufoByProp('ndefxref', '(90ec8b92deda626d31e2d63e8dbf48be,"hehe","2017")')
+            self.nn(node)
+            self.isin('.new', node[1])
+
+            # We can also provide values which will be prop-normed by the NDefType
+            # This means we can create arbitrary linkages which may eventually exist
+            nnode = core.formTufoByProp('ndefxref', '((syn:core,self),"hehe","2017")')
+            self.notin('.new', nnode[1])
+            self.eq(node[0], nnode[0])
+            self.nn(core.getTufoByProp('strform', 'hehe'))
+
+            # Use storm to pivot across this node to the ndef node
+            nodes = core.eval('ndefxref :ndef->node:ndef')
+            self.len(1, nodes)
+            self.eq(nodes[0][0], myfo[0])
+
+            # Use storm to pivot from the ndef node to the ndefxref node
+            nodes = core.eval('syn:core=self node:ndef->ndefxref:ndef')
+            self.len(1, nodes)
+            self.eq(nodes[0][0], node[0])
+
+            # Lift nodes by node:created text timestamp
+            nodes = core.eval('node:created>={}'.format(rvalu))
+            self.ge(len(nodes), 3)
+
+            # We can add a new universal prop via API
+            nprop = core.addPropDef('node:tstfact',
+                                    ro=1,
+                                    univ=1,
+                                    ptype='str:lwr',
+                                    doc='A fact about a node.',
+                                    )
+            self.isinstance(nprop, tuple)
+            self.isin('node:tstfact', core.getUnivProps())
+            self.notin('node:tstfact', core.unipropsreq)
+            self.nn(core.getPropDef('node:tstfact'))
+
+            node = core.formTufoByProp('inet:ipv4', 0x01020304)
+            self.nn(node)
+            self.notin('node:tstfact', node[1])
+            # Set the non-required prop via setTufoProps()
+            node = core.setTufoProps(node, **{'node:tstfact': ' THIS node is blue.  '})
+            self.eq(node[1].get('node:tstfact'), 'this node is blue.')
+
+            # The uniprop is ro and cannot be changed once set
+            node = core.setTufoProps(node, **{'node:tstfact': 'hehe'})
+            self.eq(node[1].get('node:tstfact'), 'this node is blue.')
+
+            # We can have a mutable, non ro universal prop on a node though!
+            nprop = core.addPropDef('node:tstopinion',
+                                    univ=1,
+                                    ptype='str:lwr',
+                                    doc='A opinion about a node.',
+                                    )
+            node = core.setTufoProps(node, **{'node:tstopinion': ' THIS node is good Ash.  '})
+            self.eq(node[1].get('node:tstopinion'), 'this node is good ash.')
+
+            # We can change the prop of the uniprop on this node.
+            node = core.setTufoProps(node, **{'node:tstopinion': 'this node is BAD ash.'})
+            self.eq(node[1].get('node:tstopinion'), 'this node is bad ash.')
+
+            # Lastly - we can add a universal prop which is required but breaks node creation
+            # Do NOT do this in the real world - its a bad idea.
+            nprop = core.addPropDef('node:tstevil',
+                                    univ=1,
+                                    req=1,
+                                    ptype='bool',
+                                    doc='No more nodes!',
+                                    )
+            self.nn(nprop)
+            self.raises(PropNotFound, core.formTufoByProp, 'inet:ipv4', 0x01020305)
+            # We can add a node:add handler to populate this new universal prop though!
+            def foo(mesg):
+                fulls = mesg[1].get('props')
+                fulls['node:tstevil'] = 1
+            core.on('node:form', foo)
+            # We can form nodes again, but they're all evil.
+            node = core.formTufoByProp('inet:ipv4', 0x01020305)
+            self.nn(node)
+            self.eq(node[1].get('node:tstevil'), 1)
+            core.off('node:form', foo)
+
+            # We cannot add a universal prop which is associated with a form
+            self.raises(BadPropConf, core.addPropDef, 'node:poorform', univ=1, req=1, ptype='bool', form='file:bytes')
 
 class StorageTest(SynTest):
 

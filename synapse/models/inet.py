@@ -332,6 +332,21 @@ class CidrType(DataType):
     def repr(self, valu):
         return valu
 
+class AddrType(DataType):
+
+    def norm(self, valu, oldval=None):
+
+        subs = {}
+        if valu.find('.') != -1:
+            valu = valu.split(':')[-1]
+            ipv4, subs = self.tlib.getTypeNorm('inet:ipv4', valu)
+            subs['ipv4'] = ipv4
+
+            valu = '::ffff:' + valu
+
+        addr, _ = self.tlib.getTypeNorm('inet:ipv6', valu)
+        return addr, subs
+
 class InetMod(CoreModule):
 
     def initCoreModule(self):
@@ -701,6 +716,11 @@ class InetMod(CoreModule):
                     'doc': 'A Universal Resource Locator (URL).',
                     'ex': 'http://www.woot.com/files/index.html'}),
 
+                ('inet:addr', {
+                    'ctor': 'synapse.models.inet.AddrType',
+                    'doc': 'An IPv4 or IPv6 address',
+                    'ex': '1.2.3.4'}),
+
                 ('inet:ipv4', {
                     'ctor': 'synapse.models.inet.IPv4Type',
                     'doc': 'An IPv4 address.',
@@ -740,6 +760,12 @@ class InetMod(CoreModule):
                     'ctor': 'synapse.models.inet.CidrType',
                     'doc': 'An IPv4 address block in Classless Inter-Domain Routing (CIDR) notation.',
                     'ex': '1.2.3.0/24'}),
+
+                ('inet:urlredir', {
+                    'subof': 'comp',
+                    'fields': 'src=inet:url,dst=inet:url',
+                    'doc': 'A URL that redirects to another URL, such as via a URL shortening service or an HTTP 302 response.',
+                    'ex': '(http://foo.com/,http://bar.com/)'}),
 
                 ('inet:urlfile', {
                     'subof': 'comp',
@@ -921,6 +947,18 @@ class InetMod(CoreModule):
 
             'forms': (
 
+                # TODO: prep for atomic cut over?
+#                ('inet:addr', {}, (
+#                    ('ipv4', {'ptype': 'inet:ipv4',
+#                        'doc': 'The IPv4 part of the address.'}),
+#                    ('cc', {'ptype': 'pol:iso2', 'defval': '??',
+#                        'doc': 'The country where the address is currently located.'}),
+#                    ('type', {'ptype': 'str', 'defval': '??',
+#                        'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
+#                    ('asn', {'ptype': 'inet:asn', 'defval': -1,
+#                        'doc': 'The ASN to which the address is currently assigned.'}),
+#                )),
+
                 ('inet:ipv4', {'ptype': 'inet:ipv4'}, [
                     ('cc', {'ptype': 'pol:iso2', 'defval': '??',
                         'doc': 'The country where the IPv4 address is currently located.'}),
@@ -962,6 +1000,17 @@ class InetMod(CoreModule):
                          'doc': 'The optional username used to access the URL.'}),
                     ('passwd', {'ptype': 'inet:passwd', 'ro': 1,
                          'doc': 'The optional password used to access the URL.'}),
+                ]),
+
+                ('inet:urlredir', {}, [
+                    ('src', {'ptype': 'inet:url', 'ro': 1, 'req': 1,
+                        'doc': 'The original/source URL before redirect'}),
+                    ('src:fqdn', {'ptype': 'inet:fqdn',
+                        'doc': 'The FQDN within the src URL (if present)'}),
+                    ('dst', {'ptype': 'inet:url', 'ro': 1, 'req': 1,
+                        'doc': 'The redirected/destination URL'}),
+                    ('dst:fqdn', {'ptype': 'inet:fqdn',
+                        'doc': 'The FQDN within the dst URL (if present)'}),
                 ]),
 
                 ('inet:urlfile', {'ptype': 'inet:urlfile'}, [

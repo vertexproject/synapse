@@ -69,6 +69,13 @@ class DnsMod(CoreModule):
                      'subof': 'comp',
                      'fields': 'fqdn=inet:fqdn,txt=str',
                      'doc': 'The result of a DNS TXT record lookup.'}),
+
+                ('inet:dns:type', {'subof': 'str', 'lower': 1,
+                    'enums': 'soa,ns,mx,a,aaaa,txt,srv,ptr,cname,hinfo,isdn',
+                    'doc': 'A DNS request type enum'}),
+
+                ('inet:dns:req', {'subof': 'comp', 'fields': 'addr=inet:addr,fqdn=inet:fqdn,type=inet:dns:type',
+                    'doc': 'A fused DNS request record'}),
             ),
 
             'forms': (
@@ -106,6 +113,17 @@ class DnsMod(CoreModule):
                       ('seen:max', {'ptype': 'time:max',
                           'doc': 'The most recent observed time for the data in the PTR record.'}),
                  ]),
+
+                ('inet:dns:req', {'doc': 'Fused knowledge of a DNS request origin'}, [
+                    ('addr', {'ptype': 'inet:addr', 'ro': 1, 'req': 1,
+                        'doc': 'The IPv4 address which requested the FQDN'}),
+                    ('addr:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
+                        'doc': 'The IPv4 address which requested the FQDN'}),
+                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1,
+                        'doc': 'The requested FQDN'}),
+                    ('type', {'ptype': 'inet:dns:type', 'ro': 1, 'req': 1,
+                        'doc': 'The type of DNS record requested'}),
+                ]),
 
                 ('inet:dns:rev6',
                    {'ptype': 'inet:dns:rev6', 'doc': 'Fused knowledge of a DNS PTR record for IPv6.'}, [

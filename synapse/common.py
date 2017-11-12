@@ -21,7 +21,7 @@ import synapse.exc as s_exc
 
 from synapse.exc import *
 
-import msgpack
+import synapse.lib.msgpack as s_msgpack
 
 major = sys.version_info.major
 minor = sys.version_info.minor
@@ -68,7 +68,7 @@ def guid(valu=None):
     if valu is None:
         return hexlify(os.urandom(16)).decode('utf8')
     # Generate a "stable" guid from the given item
-    byts = msgenpack(valu)
+    byts = s_msgpack.en(valu)
     return hashlib.md5(byts).hexdigest()
 
 guidre = regex.compile('^[0-9a-f]{32}$')
@@ -102,17 +102,6 @@ def tufo(typ, **kwargs):
 def splice(act, **info):
     info['act'] = act
     return ('splice', info)
-
-def msgenpack(obj):
-    return msgpack.dumps(obj, use_bin_type=True, encoding='utf8')
-
-def msgunpack(byts):
-    return msgpack.loads(byts, use_list=False, encoding='utf8')
-
-def msgpackfd(fd):
-    unpk = msgpack.Unpacker(fd, use_list=False, encoding='utf8')
-    for mesg in unpk:
-        yield mesg
 
 def vertup(vstr):
     '''

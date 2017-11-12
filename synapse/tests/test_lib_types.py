@@ -157,7 +157,7 @@ class DataTypesTest(SynTest):
 
         self.raises(BadTypeValu, tlib.getTypeNorm, 'int', {})
         self.raises(BadTypeValu, tlib.getTypeNorm, 'int', [])
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'int', 9223372036854775809)
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'int', -9223372036854775809)
         self.raises(BadTypeValu, tlib.getTypeNorm, 'int', 9223372036854775808)
 
     def test_datatype_int_minmax(self):
@@ -367,8 +367,8 @@ class DataTypesTest(SynTest):
         currenttime = now()
         valu = tlib.getTypeNorm('time', 'now')[0]
         # Allow for a potential context switch / system load during test
-        #  to push the valu 2 second past currenttime
-        self.le(valu - currenttime, 2)
+        #  to push the valu within 1000 milliseconds past currenttime
+        self.le(valu - currenttime, 1000)
 
     def test_type_cast(self):
         tlib = s_types.TypeLib()
@@ -691,3 +691,35 @@ class DataTypesTest(SynTest):
             self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', ['inet:ipv4', '1.2.3.4', 'opps'])
             # Non-existent valu
             self.raises(BadTypeValu, core.getPropNorm, 'pvsub:xref', 'inet:ip=1.2.3.4')
+
+    def test_types_ndef(self):
+        with self.getRamCore() as core:
+
+            # No subs
+            valu, subs = core.getTypeNorm('ndef', ('inet:fqdn', 'woot.com'))
+            self.eq(valu, 'e247b8451766865f231805fcce989bdf')
+            self.eq(subs, {})
+            # Accept lists/tuples via API
+            self.eq(core.getTypeNorm('ndef', ['inet:fqdn', 'woot.com'])[0], 'e247b8451766865f231805fcce989bdf')
+            self.eq(core.getTypeNorm('ndef', ('inet:fqdn', 'woot.com'))[0], 'e247b8451766865f231805fcce989bdf')
+            # Accept  text which we'll parse as a storm list
+            self.eq(core.getTypeNorm('ndef', '(inet:fqdn,woot.com)')[0], 'e247b8451766865f231805fcce989bdf')
+
+            # We can ensure that the guid is stable in actual nodes
+            self.eq(core.getTypeNorm('ndef', '(syn:core,self)')[0], '90ec8b92deda626d31e2d63e8dbf48be')
+            # This is equivalent to the computed form made during formTufoByProp
+            self.eq(core.myfo[1].get('node:ndef'), '90ec8b92deda626d31e2d63e8dbf48be')
+
+            # Guid-in, guid-out
+            self.eq(core.getTypeNorm('ndef', '90ec8b92deda626d31e2d63e8dbf48be')[0], '90ec8b92deda626d31e2d63e8dbf48be')
+
+            self.raises(BadTypeValu, core.getTypeNorm, 'ndef', '    ')
+            self.raises(BadTypeValu, core.getTypeNorm, 'ndef', 'notaguid')
+            self.raises(BadTypeValu, core.getTypeNorm, 'ndef', {})
+            self.raises(BadTypeValu, core.getTypeNorm, 'ndef', ())
+            self.raises(BadTypeValu, core.getTypeNorm, 'ndef', [])
+            # Not a form but a property
+            self.raises(BadTypeValu, core.getTypeNorm, 'ndef', '(file:bytes:name,balloon.exe)')
+
+            self.raises(ValueError, core.getTypeNorm, 'ndef', ('inet:fqdn', 'woot.com', 'hehe'))
+            self.raises(ValueError, core.getTypeNorm, 'ndef', '(inet:fqdn, woot.com, hehe)')

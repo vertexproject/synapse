@@ -1496,7 +1496,7 @@ class Runtime(Configable):
 
         for tname in args:
             evt = ':'.join(['task', tname])
-            [core.fire(evt, node=node, storm=True, **opts) for node in nodes]
+            core.fire(evt, nodes=nodes, storm=True, **opts)
 
     def _stormOperTree(self, query, oper):
 
