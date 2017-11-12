@@ -12,11 +12,13 @@ class LatLongType(s_types.DataType):
         if valu == '??':
             return valu, {}
 
-        lat, lon = valu.split(',', 1)
-
         try:
+
+            lat, lon = valu.split(',', 1)
+
             latv = float(lat.strip())
             lonv = float(lon.strip())
+
         except Exception as e:
             self._raiseBadValu(valu, mesg='Invalid float format')
 
