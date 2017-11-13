@@ -24,10 +24,10 @@ class LatLongType(s_types.DataType):
 
         #TODO eventually support minutes / sec and N/S E/W syntax
 
-        if 90.0 < latv < -90.0:
+        if latv > 90 or latv < -90:
             self._raiseBadValu(valu, mesg='Latitude may only be -90.0 to 90.0')
 
-        if 180.0 < lonv < -180.0:
+        if lonv > 180 or lonv < -180:
             self._raiseBadValu(valu, mesg='Longitude may only be -180.0 to 180.0')
 
         norm = '%s,%s' % (latv, lonv)
@@ -74,6 +74,10 @@ class GeoMod(CoreModule):
                 ('geo:dist', {'ctor': 'synapse.models.geospace.DistType',
                     'doc': 'A geographic distance (base unit is mm)', 'ex': '10 km'}),
 
+                ('geo:nloc', {'subof': 'comp',
+                    'fields': 'prop=syn:prop,ndef=ndef,locn=geo:latlong,time=time',
+                    'doc': 'Records a node latitude/longitude in space-time.'}),
+
                 ('geo:latlong', {'ctor': 'synapse.models.geospace.LatLongType',
                     'doc': 'A Lat/Long string specifying a point on Earth'}),
             ),
@@ -83,14 +87,24 @@ class GeoMod(CoreModule):
                 ('geo:place', {'ptype': 'geo:place'}, [
                     ('alias', {'ptype': 'geo:alias'}),
                     ('name', {'ptype': 'str', 'lower': 1, 'doc': 'The name of the place'}),
-                    ('latlong', {'ptype': 'geo:latlong', 'defval': '??', 'doc': 'The location of the place'}),
+                    ('locn', {'ptype': 'geo:latlong', 'defval': '??', 'doc': 'The location of the place'}),
                 ]),
 
-                #('geo:nodeloc', {'ptype': 'guid'}, [
-                    #('node', {'ptype': 'syn:ndef', 'doc': 'The node with location in geo/time'}),
-                    #('time', {'ptype': 'time', 'doc': 'The time the node was observed at location'}),
-                    #('latlong', {'ptype': 'geo:latlong', 'req': 1, 'doc': 'The location the node was observed'}),
-                #]),
+                ('geo:nloc', {}, [
+
+                    ('prop', {'ptype': 'syn:prop', 'ro': 1, 'req': 1,
+                        'doc': 'The latlong property name on the original node'}),
+
+                    ('ndef', {'ptype': 'ndef', 'ro': 1, 'req': 1,
+                        'doc': 'The node with location in geo/time'}),
+
+                    ('locn', {'ptype': 'geo:latlong', 'ro': 1, 'req': 1,
+                        'doc': 'The latitude/longitude the node was observed'}),
+
+                    ('time', {'ptype': 'time', 'ro': 1, 'req': 1,
+                        'doc': 'The time the node was observed at location'}),
+
+                ]),
             ),
         }
         name = 'geo'

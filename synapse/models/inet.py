@@ -966,8 +966,8 @@ class InetMod(CoreModule):
                         'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
                     ('asn', {'ptype': 'inet:asn', 'defval': -1,
                         'doc': 'The ASN to which the IPv4 address is currently assigned.'}),
-                    ('latlong', {'ptype': 'geo:latlong',
-                        'doc': 'The last known location for the node'}),
+                    ('locn', {'ptype': 'geo:latlong',
+                        'doc': 'The last known latitude/longitude for the node'}),
                 ]),
 
                 ('inet:cidr4', {'ptype': 'inet:cidr4'}, [
@@ -982,8 +982,8 @@ class InetMod(CoreModule):
                         'doc': 'The country where the IPv6 address is currently located.'}),
                     ('asn', {'ptype': 'inet:asn', 'defval': -1,
                         'doc': 'The ASN to which the IPv6 address is currently assigned.'}),
-                    ('latlong', {'ptype': 'geo:latlong',
-                        'doc': 'The last known location for the node'}),
+                    ('locn', {'ptype': 'geo:latlong',
+                        'doc': 'The last known latitude/longitude for the node'}),
                 ]),
 
                 ('inet:url', {'ptype': 'inet:url'}, [
@@ -1195,8 +1195,8 @@ class InetMod(CoreModule):
                 )),
 
                 ('inet:iface', {}, (
-                    ('latlong', {'ptype': 'geo:latlong',
-                        'doc': 'The last known location for the node'}),
+                    ('locn', {'ptype': 'geo:latlong',
+                        'doc': 'The last known latitude/longitude for the node'}),
                     ('host', {'ptype': 'it:host',
                         'doc': 'The guid of the host the interface is associated with.'}),
                     ('mac', {'ptype': 'inet:mac',
@@ -1245,11 +1245,12 @@ class InetMod(CoreModule):
                         'doc': 'A related URL specified by the account (e.g., a personal or company web '
                              'page, blog, etc.).'}),
 
-                    ('latlong', {'ptype': 'geo:latlong',
-                        'doc': 'The last known location for the node'}),
+                    ('locn', {'ptype': 'geo:latlong',
+                        'doc': 'The last known latitude/longitude for the node'}),
 
                     ('loc', {'ptype': 'str:lwr',
                         'doc': 'A self-declared location for the account.'}),
+
                     ('occupation', {'ptype': 'str:lwr',
                         'doc': 'A self-declared occupation for the account.'}),
                     ('dob', {'ptype': 'time',

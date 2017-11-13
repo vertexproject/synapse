@@ -297,6 +297,17 @@ class IngestApi:
 
         gest.ingest(self._gest_core, data=data)
 
+    def addGestDatas(self, name, datas):
+        '''
+        A bulk version of the addGestData API.
+
+        Args:
+            name (str): The ingest data format name.
+            datas ([obj]): A list of data items to ingest.
+        '''
+        with self._gest_core.getCoreXact() as xact:
+            [self.addGestData(data) for data in datas]
+
     # TODO - use open/format directives to parse raw file data
     #def addGestFd(self, name, fd):
     #def addGestPath(self, name, path):

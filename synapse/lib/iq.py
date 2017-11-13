@@ -381,11 +381,10 @@ class SynTest(unittest.TestCase):
     @contextlib.contextmanager
     def getDirCore(self):
         '''
-        Context manager to make a ram:/// cortex which has test models
-        loaded into it.
+        Context manager to make a dir:/// cortex which has test models
 
         Yields:
-            s_cores_common.Cortex: Ram backed cortex with test models.
+            s_cores_common.Cortex: Dir backed Cortex
         '''
         with self.getTestDir() as dirn:
             with s_cortex.fromdir(dirn) as core:
