@@ -1404,6 +1404,15 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _onSetMods(self, mods):
         self.addCoreMods(mods)
 
+    def getCoreMods(self):
+        '''
+        Get a list of CoreModules loaded in the current Cortex.
+
+        Returns:
+            list: List of python paths to CoreModule classes which are loaded in the current Cortex.
+        '''
+        return list(self.coremods.keys())
+
     def _onSetCaching(self, valu):
         if not valu:
             self.cache_fifo.clear()

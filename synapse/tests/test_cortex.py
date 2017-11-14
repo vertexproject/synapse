@@ -2236,6 +2236,12 @@ class CortexTest(SynTest):
             core.setConfOpt('rev:model', 1)
             core.setConfOpt('modules', mods)
 
+            # Get a list of modules which are loaded in the Cortex
+            modules = core.getCoreMods()
+            self.gt(len(modules), 2)
+            self.isin('synapse.models.syn.SynMod', modules)
+            self.isin('synapse.tests.test_cortex.CoreTestModule', modules)
+
             # directly access the module so we can confirm it gets fini()
             modu = core.coremods.get('synapse.tests.test_cortex.CoreTestModule')
 
