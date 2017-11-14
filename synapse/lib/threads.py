@@ -5,8 +5,6 @@ import traceback
 import contextlib
 import collections
 
-logger = logging.Logger(__name__)
-
 from functools import wraps
 
 import synapse.common as s_common
@@ -15,6 +13,8 @@ import synapse.lib.task as s_task
 import synapse.lib.queue as s_queue
 
 from synapse.eventbus import EventBus
+
+logger = logging.getLogger(__name__)
 
 def current():
     return threading.currentThread()
