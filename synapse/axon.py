@@ -645,6 +645,10 @@ class Axon(s_config.Config, AxonMixin):
 
             self._initAxonClone(iden)
 
+            # Wait for our clone to come online
+            waiter = self.waiter(1, 'syn:axon:clone:ready')
+            waiter.wait(60)
+
         self._findAxonClones()
 
     def _waitClonesReady(self, timeout=None):
