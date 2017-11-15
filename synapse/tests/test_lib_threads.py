@@ -1,22 +1,7 @@
-import time
-import unittest
-import threading
-
 import synapse.lib.socket as s_socket
 import synapse.lib.threads as s_threads
-import synapse.eventbus as s_eventbus
 
 from synapse.tests.common import *
-
-#class Task:
-
-    #def __init__(self, func, *args, **kwargs):
-        #self.func = func
-        #self.args = args
-        #self.kwargs = kwargs
-
-    #def __call__(self):
-        #return self.func( *self.args, **self.kwargs )
 
 def newtask(func, *args, **kwargs):
     return(func, args, kwargs)
@@ -80,3 +65,19 @@ class ThreadsTest(SynTest):
         del threading.currentThread()._syn_cantwait
 
         self.true(s_threads.iMayWait())
+
+    def test_threads_exception(self):
+        data = {}
+        def breakstuff():
+            data['key'] = True
+            return 1 / 0
+
+        with self.getLoggerStream('synapse.lib.threads') as stream:
+            with s_threads.Pool() as pool:
+                pool.call(breakstuff)
+                time.sleep(0.1)
+
+        self.true(data.get('key'))
+        stream.seek(0)
+        mesgs = stream.read()
+        self.isin('error running task for', mesgs)

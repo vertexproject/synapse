@@ -28,14 +28,26 @@ telever = (2, 0)
 
 def openurl(url, **opts):
     '''
-    Construct a telepath proxy from a url.
+    Construct a Telepath Proxy from a URL.
 
-    Example:
+    Args:
+        url (str): A URL to parser into a link tufo.
+        **opts: Additional options which are added to the link tufo.
 
-        foo = openurl('tcp://1.2.3.4:90/foo')
+    Examples:
+        Get a proxy object from a URL, call a function then close the object::
 
-        foo.dostuff(30) # call remote method
+            foo = openurl('tcp://1.2.3.4:90/foo')
+            foo.dostuff(30) # call remote method
+            foo.fini()
 
+        Get a proxy object as a context manager, which will result in the object being automatically closed::
+
+            with openurl('tcp://1.2.3.4:90/foo') as foo:
+                foo.dostuff(30)
+
+    Returns:
+        Proxy: A Proxy object for calling remote tasks.
     '''
     #plex = opts.pop('plex',None)
     #return openclass(Proxy,url,**opts)
@@ -46,13 +58,25 @@ def openurl(url, **opts):
 
 def openlink(link):
     '''
-    Construct a telepath proxy from a link tufo.
+    Construct a Telepath Proxy from a link tufo.
 
-    Example:
+    Args:
+        link ((str, dict)): A link dictionary.
 
-        foo = openlink(link)
-        foo.bar(20)
+    Examples:
+        Get a proxy object, call a function then close the object::
 
+            foo = openlink(link)
+            foo.bar(20)
+            foo.fini()
+
+        Get a proxy object as a context manager, which will result in the object being automatically closed::
+
+            with openlink as foo:
+                foo.dostuff(30)
+
+    Returns:
+        Proxy: A Proxy object for calling remote tasks.
     '''
     # special case for dmon://fooname/ which refers to a
     # named object within whatever dmon is currently in scope

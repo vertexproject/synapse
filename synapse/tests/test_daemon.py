@@ -1,15 +1,10 @@
-import io
-import os
-import unittest
-import threading
+import logging
 
-import synapse.link as s_link
-import synapse.daemon as s_daemon
 import synapse.dyndeps as s_dyndeps
-import synapse.eventbus as s_eventbus
-import synapse.telepath as s_telepath
 
 from synapse.tests.common import *
+
+logger = logging.getLogger(__name__)
 
 
 class Woot:
@@ -19,21 +14,37 @@ class Woot:
     def pid(self):
         return os.getpid()
 
+    def getSet(self):
+        s = {1, 2}
+        return s
+
 class Blah:
     def __init__(self, woot):
         self.woot = woot
 
 class DaemonTest(SynTest):
 
-    def test_daemon_error(self):
-        with self.getDmonCore() as core:
+    def test_daemon_error_unserializable(self):
+        dmon = s_daemon.Daemon()
+        link = dmon.listen('tcp://127.0.0.1:0/')
+        port = link[1].get('port')
+
+        woot = Woot()
+        dmon.share('woot', woot)
+        flag = False
+
+        with s_telepath.openurl('tcp://127.0.0.1/woot', port=port) as wprox:
             try:
                 # Ask for a unserializaoble object. Don't do this in real code.
-                xact = core.getCoreXact()
+                blah = wprox.getSet()
             except SynErr as e:
+                flag = True
                 self.eq(e.errinfo.get('excname'), 'TypeError')
                 self.isin('msgpack', e.errinfo.get('errfile'))
+                # The following line will fail if the msgpack.fallpack serializer is used.
                 self.isin("can't serialize", e.errinfo.get('errmsg'))
+        self.true(flag)
+        dmon.fini()
 
     def test_daemon_timeout(self):
 
@@ -82,6 +93,10 @@ class DaemonTest(SynTest):
         fprox.off('woot', woot)
 
         self.true(evt.is_set())
+
+        fprox.fini()
+        bprox.fini()
+        dmon.fini()
 
     def test_daemon_conf(self):
 
