@@ -59,7 +59,9 @@ stat()
 Generates statistics about data in Synapse.
 
 **Operator Syntax:**
-::
+
+.. parsed-literal::
+  
   **stat(** *<handler>* **,** *<prop>* [ **,valu =** *<valu>* ] **)**
 
 **Macro Syntax:**
