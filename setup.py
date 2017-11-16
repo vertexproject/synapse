@@ -11,7 +11,10 @@ setup(
     url='https://github.com/vertexproject/synapse',
     license='Apache License 2.0',
 
-    packages=find_packages(exclude=['*.tests', '*.tests.*']),
+    packages=find_packages(exclude=['*.tests',
+                                    '*.tests.*',
+                                    'scripts',
+                                    ]),
 
     include_package_data=True,
 
