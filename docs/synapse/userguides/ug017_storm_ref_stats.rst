@@ -67,6 +67,49 @@ N/A
 
 **Examples:**
 
+**count** - returns the number of nodes with the specified *<prop>* or *<prop> / <valu>*
+
+*Determine the number of domains in the Cortex:*
+::
+  ask --props stat(count,inet:fqdn)
+  stat:count - inet:fqdn
+      :valu = 239887
+  (1 results)
+
+*Determine the number of .net domains in the Cortex:*
+::
+  ask --props stat(count,inet:fqdn:domain,valu=net)
+  stat:count - inet:fqdn:domain
+      :valu = 11438
+  (1 results)
+
+*Determine the total number of nodes (forms) in the Cortex:*
+::
+  ask --props stat(count,tufo:form)
+  stat:count = tufo:form
+      :valu = 100461644
+  (1 results)
+
+**min** - returns the minimum value for the specified *<prop>*
+
+*Determine the minimum (earliest) date of birth for any person in the Cortex:*
+::
+  ask --props stat(min,ps:person:dob)
+  stat:min - ps:person:dob
+      :valu = 345772800000
+  (1 results)
+
+*Determine the minimum (earliest) observed date for any DNS A record in the Cortex:*
+::
+  ask --props stat(min,inet:dns:a:seen:min)
+  stat:min = inet:dns:a:seen:min
+      :valu = 1251770027000
+  (1 results)
+
+**Note:** date values are returned in Unix epoch format.
+
+**max** - returns the maximum value for the specified *<prop>*
+
 
 .. _common.py: https://github.com/vertexproject/synapse/blob/master/synapse/lib/common.py
 
