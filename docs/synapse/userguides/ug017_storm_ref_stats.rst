@@ -110,6 +110,45 @@ N/A
 
 **max** - returns the maximum value for the specified *<prop>*
 
+*Determine the maximum (largest) IPv6 address stored in the Cortex:*
+::
+  ask --props stat(max,inet:ipv6)
+  stat:max = inet:ipv6
+      :valu = 2a06:1700:0:14::207
+  (1 results)
+
+**sum** - returns the sum of the values of the specified *<prop>*
+
+*Determine the total size of all files in the Cortex:*
+::
+  ask --props stat(sum,file:bytes:size)
+  stat:sum = file:bytes:size
+      :valu = 1088807999
+  (1 results)
+
+
+**mean** - returns the mean (average) of the values of the specified *<prop>*
+
+*Determine the average size of a file in the Cortex:*
+::
+  ask --props stat(mean,file:bytes:size)
+  stat:mean - file:bytes:size
+      :valu = 1382.3535373669456
+  (1 results)
+
+
+**histo** - returns a histogram (count of instances by value) for the specified *<prop>*
+
+**Note:** the ``ask --raw`` parameter returns results in JSON format, which may be more "readable" at the CLI for large histograms.
+
+*Determine the distribution by country for organizations in the Cortex:*
+::
+  ask --props stat(histo,ou:org:cc)
+  stat:histo - ou:org:cc
+      :valu = {'fi': 1, 'ua': 2, 'ca': 1, 'ie': 2, 'ch': 2, 'pl': 1, 'ro': 1, 'cz': 1, 'kr': 1, 'de': 4, 'lu': 2, 'ae': 1, 'jp': 7, 'gb': 4, 'dk': 1, 'nl': 2, 'ru': 2, 'sk': 1, 'vn': 1, 'hk': 1, 'us': 57, 'bz': 1, 'il': 6, 'au': 1, 'cn': 8}
+  (1 results)
+
+*Determine the distribution of registration dates for domains in the Cortex:*
 
 .. _common.py: https://github.com/vertexproject/synapse/blob/master/synapse/lib/common.py
 
