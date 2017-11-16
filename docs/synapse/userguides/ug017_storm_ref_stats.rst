@@ -1,7 +1,7 @@
 Storm Reference - Statistical Operator
 ======================================
 
-The statistical operator is used to generate data about data in Synapse.
+The statistical operator is used to calculate statistics about data in Synapse.
 
 ``stat()`` is defined in common.py_ as opposed to storm.py_.
 
@@ -9,9 +9,9 @@ The statistical operator is used to generate data about data in Synapse.
 
 * ``stat()`` operates directly on the Synapse storage layer using the row-level APIs (as opposed to the node (form) APIs used by other Storm operators). This is an optimization that allows ``stat()`` to answer questions across large data sets ("all of the IP addresses in Synapse") that would otherwise be too "heavy" (non-performant) to lift.
 
-* Depending on the specific ``stat()`` handler used and the optimizations available in a particular Syanpse storage backing, the amount of time for a given ``stat()`` query to return may vary. For example, "count" operations will generally return much faster than "min" or "max" operations, even with the use of row-level APIs.
+* Depending on the specific ``stat()`` handler used and the optimizations available in a particular Synapse storage backing, the amount of time for a given ``stat()`` query to return may vary. For example, "count" operations will generally return much faster than "min" or "max" operations, even with the use of row-level APIs.
 
-* ``stat()`` is designed as a stand-alone operator; because it uses a different set of APIs, it cannot operate on the output of a previous Storm query and so cannot be "chained" as part of a larger query.
+* ``stat()`` is designed as a stand-alone operator; because it uses a different set of APIs, it cannot operate on the output of a previous Storm query and so cannot be "chained" as part of a larger query. ``stat()`` operations embedded within a larger Storm query are simply dropped / ignored.
 
 * Because Storm expects to return node data as the result of a query, ``stat()`` generates an "ephemeral node" containing the results of the operation. That is, output is structured as a "node" with properties reflecting the query parameters and results. However, this ephemeral node does not have a node identifier (ID), and the node is not permanently stored in the Cortex.
 
