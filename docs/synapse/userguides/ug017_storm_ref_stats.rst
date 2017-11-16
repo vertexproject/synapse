@@ -58,6 +58,14 @@ stat()
 
 Generates statistics about data in Synapse.
 
+**Operator Syntax:**
+::
+  **stat(** *<handler>* **,** *<prop>* [ **,valu =** *<valu>* ] **)**
+
+**Macro Syntax:**
+N/A
+
+**Examples:**
 
 
 .. _common.py: https://github.com/vertexproject/synapse/blob/master/synapse/lib/common.py
