@@ -75,6 +75,7 @@ class AxonHost(s_config.Config):
         url = self.getConfOpt('axon:axonbus')
         if url:
             self.axonbus = s_service.openurl(url)
+            self.onfini(self.axonbus.fini)
             self.axonbus.runSynSvc(s_common.guid(), self)
 
     @staticmethod
@@ -582,6 +583,7 @@ class Axon(s_config.Config, AxonMixin):
         busurl = self.getConfOpt('axon:axonbus')
         if busurl:
             self.axonbus = s_service.openurl(busurl)
+            self.onfini(self.axonbus.fini)
 
             props = {'link': self.link, 'tags': self.tags}
             self.axonbus.runSynSvc(self.iden, self, **props)
@@ -642,6 +644,10 @@ class Axon(s_config.Config, AxonMixin):
             self.clonehosts.add(host)
 
             self._initAxonClone(iden)
+
+            # Wait for our clone to come online
+            waiter = self.waiter(1, 'syn:axon:clone:ready')
+            waiter.wait(60)
 
         self._findAxonClones()
 

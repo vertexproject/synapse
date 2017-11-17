@@ -22,7 +22,11 @@ def en(item):
     '''
     if pakr is None:  # pragma: no cover
         return msgpack.packb(item, use_bin_type=True, encoding='utf8')
-    return pakr.pack(item)
+    try:
+        return pakr.pack(item)
+    except Exception as e:
+        pakr.reset()
+        raise
 
 def un(byts):
     '''

@@ -1300,6 +1300,13 @@ class CortexTest(SynTest):
 
         self.raises(NoSuchStat, core.getStatByProp, 'derp', 'inet:ipv4')
 
+        # Stats props both accept a valu and are normed
+        self.nn(core.formTufoByProp('inet:ipv4', 0x01020304))
+        self.nn(core.formTufoByProp('inet:ipv4', 0x05060708))
+        self.eq(core.getStatByProp('count', 'inet:ipv4'), 2)
+        self.eq(core.getStatByProp('count', 'inet:ipv4', 0x01020304), 1)
+        self.eq(core.getStatByProp('count', 'inet:ipv4', '1.2.3.4'), 1)
+
     def test_cortex_fire_set(self):
 
         with self.getRamCore() as core:
@@ -2235,6 +2242,12 @@ class CortexTest(SynTest):
 
             core.setConfOpt('rev:model', 1)
             core.setConfOpt('modules', mods)
+
+            # Get a list of modules which are loaded in the Cortex
+            modules = core.getCoreMods()
+            self.gt(len(modules), 2)
+            self.isin('synapse.models.syn.SynMod', modules)
+            self.isin('synapse.tests.test_cortex.CoreTestModule', modules)
 
             # directly access the module so we can confirm it gets fini()
             modu = core.coremods.get('synapse.tests.test_cortex.CoreTestModule')

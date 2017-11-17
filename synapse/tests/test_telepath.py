@@ -100,6 +100,7 @@ class TelePathTest(SynTest):
         newp = s_telepath.openurl('tcp://localhost:%d/newp' % (port,))
         self.raises(SynErr, newp.foo)
 
+        newp.fini()
         dmon.fini()
 
     def test_telepath_call(self):
@@ -163,6 +164,7 @@ class TelePathTest(SynTest):
         job = foo.callx('baz', ('faz', (30,), {'y': 40}), )
 
         self.eq(foo.syncjob(job), '30:40')
+        foo.fini()
 
     def test_telepath_fakesync(self):
         env = self.getFooEnv()
@@ -212,6 +214,9 @@ class TelePathTest(SynTest):
         prox1 = s_telepath.openurl('tcp://127.0.0.1/bar', port=port)
 
         self.eq(prox1.bar(33, 44), 77)
+
+        prox0.fini()
+        prox1.fini()
 
         env0.fini()
         env1.fini()
@@ -385,6 +390,9 @@ class TelePathTest(SynTest):
                 self.eq(counters['p1'], 3)
                 self.eq(counters['f0'], 1)
 
+                proxy0.fini()
+                proxy1.fini()
+
     def test_telepath_clientside(self):
 
         with s_daemon.Daemon() as dmon:
@@ -448,3 +456,5 @@ class TelePathTest(SynTest):
             prox._tele_sock.fini()
             self.true(evnt.wait(timeout=1))
             self.eq(mind.sent[0][0], 'foo:bar')
+
+            prox.fini()
