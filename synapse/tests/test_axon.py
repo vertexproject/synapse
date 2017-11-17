@@ -343,6 +343,8 @@ class AxonHostTest(SynTest):
             self.eq(len(host2.cloneaxons), 2)
 
             # Fini the proxy objects
+            axonc1.fini()
+            axonc2.fini()
             axon0.fini()
             axon1.fini()
             axon2.fini()
