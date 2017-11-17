@@ -2389,6 +2389,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             knowns = self.statfuncs.keys()
             raise s_common.NoSuchStat(name=stat, knowns=knowns)
 
+        if valu is not None:
+            valu, _ = self.getPropNorm(prop, valu)
+
         rows = self.getRowsByProp(prop, valu=valu, mintime=mintime, maxtime=maxtime, limit=limit)
         return statfunc(rows)
 
