@@ -17,6 +17,10 @@ filt()
 ------
 Filters the set of nodes output by a Storm query by either including ( + ) or excluding ( - ) a set of nodes based on specified criteria.
 
+**Operator Syntax**
+
+N/A
+
 **Macro Syntax**
 
 .. parsed-literal::
