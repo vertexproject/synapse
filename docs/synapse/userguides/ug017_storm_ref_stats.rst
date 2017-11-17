@@ -1,9 +1,7 @@
 Storm Reference - Statistical Operator
 ======================================
 
-The statistical operator is used to calculate statistics about data in Synapse.
-
-``stat()`` is defined in common.py_ as opposed to storm.py_.
+The statistical operator, ``stat()``, is used to calculate statistics about data in Synapse.
 
 ``stat()`` operates differently from other Storm operators:
 
@@ -185,8 +183,13 @@ N/A
       :valu = False
   (1 results)
 
+Implementation Detail
+---------------------
 
-.. _common.py: https://github.com/vertexproject/synapse/blob/master/synapse/lib/common.py
+The ``stat()`` operator is defined in common.py_ where the base Cortex class is defined, as opposed to storm.py_,
+where the Storm Runtime is defined.
+
+.. _common.py: https://github.com/vertexproject/synapse/blob/master/synapse/cores/common.py
 
 .. _storm.py: https://github.com/vertexproject/synapse/blob/master/synapse/lib/storm.py
 
