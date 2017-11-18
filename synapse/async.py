@@ -266,7 +266,7 @@ class Boss(EventBus):
                 try:
                     ondone(job)
                 except Exception as e:
-                    traceback.print_exc()
+                    logger.exception('Error executing ondone for jid %s', jid)
 
             evt = joblocal.get('waitevt')
             if evt is not None:

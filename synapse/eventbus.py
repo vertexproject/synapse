@@ -222,7 +222,7 @@ class EventBus(object):
             try:
                 func()
             except Exception as e:
-                traceback.print_exc()
+                logger.exception('Ebus %s error during fini function', self)
 
         # explicitly release the handlers
         self._syn_funcs.clear()
