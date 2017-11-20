@@ -214,17 +214,30 @@ class Dir(s_eventbus.EventBus):
 
     def items(self, off):
         '''
-        Yield (nextoff,item) tuples from the file backlog and real-time
+        Yield (nextoff,object) tuples from the file backlog and real-time
         once caught up.
 
-        NOTE: because this is a legitimate yield generator it may not be
-              used across a telepath proxy.
+        Args:
+            off (int): Starting offset to use when unpacking objects from the
+                       Dir object.
 
-        Example:
+        Examples:
+            Iterate over the items in a file and do stuff with them::
 
-            for noff,item in pers.items(0):
-                stuff(item)
+                for noff,item in pers.items(0):
+                    dostuff(item)
 
+        Notes:
+            This is a legitimate yield generator; it may not be used across
+            a Telepath Proxy.
+
+            The offset yielded by this if a relative offset, computed from
+            the base of the persist file and the input offset.  It should not
+            be considered an absolute offset value.
+
+        Yields:
+            ((int, object)): A tuple containing the relative offset of the
+             unpacked object and the unpacked object itself.
         '''
         que = s_queue.Queue()
         unpk = msgpack.Unpacker(use_list=0, encoding='utf8')
