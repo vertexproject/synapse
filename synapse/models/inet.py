@@ -966,7 +966,7 @@ class InetMod(CoreModule):
                         'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
                     ('asn', {'ptype': 'inet:asn', 'defval': -1,
                         'doc': 'The ASN to which the IPv4 address is currently assigned.'}),
-                    ('locn', {'ptype': 'geo:latlong',
+                    ('latlong', {'ptype': 'geo:latlong',
                         'doc': 'The last known latitude/longitude for the node'}),
                 ]),
 
@@ -982,7 +982,7 @@ class InetMod(CoreModule):
                         'doc': 'The country where the IPv6 address is currently located.'}),
                     ('asn', {'ptype': 'inet:asn', 'defval': -1,
                         'doc': 'The ASN to which the IPv6 address is currently assigned.'}),
-                    ('locn', {'ptype': 'geo:latlong',
+                    ('latlong', {'ptype': 'geo:latlong',
                         'doc': 'The last known latitude/longitude for the node'}),
                 ]),
 
@@ -1195,7 +1195,7 @@ class InetMod(CoreModule):
                 )),
 
                 ('inet:iface', {}, (
-                    ('locn', {'ptype': 'geo:latlong',
+                    ('latlong', {'ptype': 'geo:latlong',
                         'doc': 'The last known latitude/longitude for the node'}),
                     ('host', {'ptype': 'it:host',
                         'doc': 'The guid of the host the interface is associated with.'}),
@@ -1245,7 +1245,7 @@ class InetMod(CoreModule):
                         'doc': 'A related URL specified by the account (e.g., a personal or company web '
                              'page, blog, etc.).'}),
 
-                    ('locn', {'ptype': 'geo:latlong',
+                    ('latlong', {'ptype': 'geo:latlong',
                         'doc': 'The last known latitude/longitude for the node'}),
 
                     ('loc', {'ptype': 'str:lwr',

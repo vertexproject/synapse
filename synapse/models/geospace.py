@@ -75,7 +75,7 @@ class GeoMod(CoreModule):
                     'doc': 'A geographic distance (base unit is mm)', 'ex': '10 km'}),
 
                 ('geo:nloc', {'subof': 'comp',
-                    'fields': 'prop=syn:prop,ndef=ndef,locn=geo:latlong,time=time',
+                    'fields': 'prop=syn:prop,ndef=ndef,latlong=geo:latlong,time=time',
                     'doc': 'Records a node latitude/longitude in space-time.'}),
 
                 ('geo:latlong', {'ctor': 'synapse.models.geospace.LatLongType',
@@ -87,7 +87,7 @@ class GeoMod(CoreModule):
                 ('geo:place', {'ptype': 'geo:place'}, [
                     ('alias', {'ptype': 'geo:alias'}),
                     ('name', {'ptype': 'str', 'lower': 1, 'doc': 'The name of the place'}),
-                    ('locn', {'ptype': 'geo:latlong', 'defval': '??', 'doc': 'The location of the place'}),
+                    ('latlong', {'ptype': 'geo:latlong', 'defval': '??', 'doc': 'The location of the place'}),
                 ]),
 
                 ('geo:nloc', {}, [
@@ -98,7 +98,7 @@ class GeoMod(CoreModule):
                     ('ndef', {'ptype': 'ndef', 'ro': 1, 'req': 1,
                         'doc': 'The node with location in geo/time'}),
 
-                    ('locn', {'ptype': 'geo:latlong', 'ro': 1, 'req': 1,
+                    ('latlong', {'ptype': 'geo:latlong', 'ro': 1, 'req': 1,
                         'doc': 'The latitude/longitude the node was observed'}),
 
                     ('time', {'ptype': 'time', 'ro': 1, 'req': 1,

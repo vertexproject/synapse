@@ -35,5 +35,5 @@ class GeoTest(SynTest):
             node = core.formTufoByProp('geo:nloc', valu)
             self.eq(node[1].get('geo:nloc:prop'), 'mat:item')
             self.eq(node[1].get('geo:nloc:ndef'), '15533769b23efcb12d126a53f9b804ee')
-            self.eq(node[1].get('geo:nloc:locn'), '44.0429075,4.8828757')
             self.eq(node[1].get('geo:nloc:time'), 1459641600000)
+            self.eq(node[1].get('geo:nloc:latlong'), '44.0429075,4.8828757')
