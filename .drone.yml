@@ -1,5 +1,5 @@
 buildcommands: &runbuild
-  image: vertexproject/synapse-docker-testimages:${IMAGE_VERSION}
+  image: vertexproject/synapse-base-image:${IMAGE_VERSION}
   pull: true
   secrets:
     [ CODECOV_TOKEN ]
