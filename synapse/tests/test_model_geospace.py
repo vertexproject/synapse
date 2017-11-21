@@ -30,10 +30,10 @@ class GeoTest(SynTest):
 
             item = core.formTufoByProp('mat:item', '7ea768402eae63c9378f4e3805f4d0d3')
 
-            valu = ('mat:item', item[1].get('node:ndef'), '44.0429075,4.8828757', '20160403')
+            valu = ('mat:item:latlong', item[1].get('node:ndef'), '44.0429075,4.8828757', '20160403')
 
             node = core.formTufoByProp('geo:nloc', valu)
-            self.eq(node[1].get('geo:nloc:prop'), 'mat:item')
-            self.eq(node[1].get('geo:nloc:ndef'), '15533769b23efcb12d126a53f9b804ee')
             self.eq(node[1].get('geo:nloc:time'), 1459641600000)
+            self.eq(node[1].get('geo:nloc:prop'), 'mat:item:latlong')
+            self.eq(node[1].get('geo:nloc:ndef'), '15533769b23efcb12d126a53f9b804ee')
             self.eq(node[1].get('geo:nloc:latlong'), '44.0429075,4.8828757')
