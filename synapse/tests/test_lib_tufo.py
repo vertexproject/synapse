@@ -92,5 +92,5 @@ class TestTufoProps(SynTest):
         self.eq(s_tufo.prop(node, ':baz'), 10)
         self.eq(s_tufo.prop(node, 'foo:bar:baz'), 10)
 
-        self.none(s_tufo.prop(node, ':haha')
-        self.none(s_tufo.prop(node, 'hehe:haha')
+        self.none(s_tufo.prop(node, ':haha'))
+        self.none(s_tufo.prop(node, 'hehe:haha'))
