@@ -164,7 +164,7 @@ class SvcProxy(s_eventbus.EventBus):
         self.idenprox[iden] = IdenProxy(self, svcfo)
 
         self.bytag.put(iden, tags)
-        self.fire('syn:svcprox:init', svcfo=svcfo)
+        self.fire('syn:svc:init', svcfo=svcfo)
 
     def _onSynSvcFini(self, mesg):
         svcfo = mesg[1].get('svcfo')
@@ -177,7 +177,7 @@ class SvcProxy(s_eventbus.EventBus):
 
         self.byname.pop(name, None)
         self.byiden.pop(iden, None)
-        self.fire('syn:svcprox:fini', svcfo=svcfo)
+        self.fire('syn:svc:fini', svcfo=svcfo)
 
     def setSynSvcTimeout(self, timeout):
         self.timeout = timeout
