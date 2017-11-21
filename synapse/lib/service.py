@@ -141,7 +141,10 @@ class SvcProxy(s_eventbus.EventBus):
 
         # FIXME set a reconnect handler for sbus
         self.sbus.on('syn:svc:init', self._onSynSvcInit)
+        self.sbus.on('syn:svc:init', self.dist)
+
         self.sbus.on('syn:svc:fini', self._onSynSvcFini)
+        self.sbus.on('syn:svc:fini', self.dist)
 
         [self._addSvcTufo(svcfo) for svcfo in sbus.getSynSvcs()]
 
@@ -164,7 +167,6 @@ class SvcProxy(s_eventbus.EventBus):
         self.idenprox[iden] = IdenProxy(self, svcfo)
 
         self.bytag.put(iden, tags)
-        self.fire('syn:svc:init', svcfo=svcfo)
 
     def _onSynSvcFini(self, mesg):
         svcfo = mesg[1].get('svcfo')
@@ -177,7 +179,6 @@ class SvcProxy(s_eventbus.EventBus):
 
         self.byname.pop(name, None)
         self.byiden.pop(iden, None)
-        self.fire('syn:svc:fini', svcfo=svcfo)
 
     def setSynSvcTimeout(self, timeout):
         self.timeout = timeout
