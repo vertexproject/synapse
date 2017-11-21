@@ -436,13 +436,22 @@ def runSynSvc(name, item, sbus, tags=(), **props):
     '''
     Add an object as a synapse service.
 
-    Example:
+    Args:
+        name (str): Name of the service.
+        item (object): Callable service object.
+        sbus (s_telepath.Proxy): Telepath Proxy object pointing to a ServiceBus.
+        tags:
+        **props: Additional props to make available about the service.
 
-        woot = Woot()
-        sbus = s_telepath.openurl('tcp://1.2.3.4:90/syn.svcbus')
+    Examples:
+        Share the woot object as a service named 'syn.woot'::
 
-        runSynSvc('syn.woot', woot, sbus)
+            woot = Woot()
+            sbus = s_telepath.openurl('tcp://1.2.3.4:90/syn.svcbus')
+            runSynSvc('syn.woot', woot, sbus)
 
+    Returns:
+        str: The iden of the instance of the service on the ServiceBus.
     '''
     iden = s_common.guid()
 
