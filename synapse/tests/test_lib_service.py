@@ -89,7 +89,7 @@ class SvcTest(SynTest):
             for svcfo in r:
                 self.nn(svcfo)
 
-            # woots.woot1 is still around
+            # woots.woot0 is still around
             r = sprox0.callByName('woots.woot0', gentask('foo', 1))
             self.eq(r, 11)
             # Poor woots.woot1 is gone though
