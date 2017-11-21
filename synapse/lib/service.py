@@ -57,9 +57,12 @@ class SvcBus(s_eventbus.EventBus):
         sock = s_scope.get('sock')
         if sock is not None:
             def onfini():
-                oldsvc = self.services.pop(iden, None)
-                self.bytag.pop(iden)
-                self.fire('syn:svc:fini', svcfo=oldsvc)
+                # MULTIPLEXOR - don't block
+                def _onfini():
+                    oldsvc = self.services.pop(iden, None)
+                    self.bytag.pop(iden)
+                    self.fire('syn:svc:fini', svcfo=oldsvc)
+                s_glob.pool.call(_onfini)
 
             sock.onfini(onfini)
 
