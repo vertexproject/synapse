@@ -37,10 +37,9 @@ class SvcBus(s_eventbus.EventBus):
         self.on('syn:svc:fini', self._onSynSvcFini)
 
     def _onSynSvcFini(self, mesg):
-        name = mesg[1].get('name')
-        props = mesg[1].get('props')
-
-        self.bytag.pop(name)
+        svcfo = mesg[1].get('svcfo')
+        iden = svcfo[0]
+        self.bytag.pop(iden)
 
     def iAmSynSvc(self, iden, props):
         '''
@@ -58,9 +57,12 @@ class SvcBus(s_eventbus.EventBus):
         sock = s_scope.get('sock')
         if sock is not None:
             def onfini():
-                oldsvc = self.services.pop(iden, None)
-                self.bytag.pop(iden)
-                self.fire('syn:svc:fini', svcfo=oldsvc)
+                # MULTIPLEXOR - don't block
+                def _onfini():
+                    oldsvc = self.services.pop(iden, None)
+                    self.bytag.pop(iden)
+                    self.fire('syn:svc:fini', svcfo=oldsvc)
+                s_glob.pool.call(_onfini)
 
             sock.onfini(onfini)
 
@@ -162,7 +164,7 @@ class SvcProxy(s_eventbus.EventBus):
         self.idenprox[iden] = IdenProxy(self, svcfo)
 
         self.bytag.put(iden, tags)
-        self.bytag.put(iden, (name,))
+        self.fire('syn:svcprox:init', svcfo=svcfo)
 
     def _onSynSvcFini(self, mesg):
         svcfo = mesg[1].get('svcfo')
@@ -170,11 +172,12 @@ class SvcProxy(s_eventbus.EventBus):
         iden = svcfo[0]
         name = svcfo[1].get('name', iden)
 
-        self.bytag.pop(svcfo[0])
-        self.idenprox.pop(svcfo[0], None)
+        self.bytag.pop(iden)
+        self.idenprox.pop(iden, None)
 
         self.byname.pop(name, None)
         self.byiden.pop(iden, None)
+        self.fire('syn:svcprox:fini', svcfo=svcfo)
 
     def setSynSvcTimeout(self, timeout):
         self.timeout = timeout
