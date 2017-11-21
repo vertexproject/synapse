@@ -29,7 +29,7 @@ def _fini_atexit(): # pragma: no cover
             item.fini()
 
         except Exception as e:
-            logger.exception('atexit fini fail: %r' % (ebus,))
+            logger.exception('atexit fini fail: %r' % (item,))
 
 atexit.register(_fini_atexit)
 
