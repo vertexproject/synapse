@@ -80,7 +80,7 @@ class SvcTest(SynTest):
                 self.eq(result, 11)
 
             # Tear down sprox1 - it will fini the woots.woot1 service
-            w0 = sprox0.waiter(1, 'syn:svcprox:fini')
+            w0 = sprox0.waiter(1, 'syn:svc:fini')
             sprox1.fini()
             w0.wait(1)
 
