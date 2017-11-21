@@ -12,7 +12,33 @@ r_km = 6371.0088
 
 # investigate perf impact of using WGS-84 ellipsoid for dist calc
 
-def haversine(px, py, r=r_km):
+def latlong(text):
+    '''
+    Chop a latlong string and return (float,float).
+
+    Args:
+        text (str):  A longitude,latitude string.
+
+    Returns:
+        (float,float): A longitude, latitude float tuple.
+    '''
+    nlat, nlon = text.split(',')
+    return (float(nlat), float(nlon))
+
+def near(point, dist, points):
+    '''
+    Determine if the given point is within dist of any of points.
+
+    Args:
+        point ((float,float)): A latitude, longitude float tuple.
+        dist (int): A distance in mm ( base units )
+    '''
+    for cmpt in points:
+        if haversine(point, cmpt) <= dist:
+            return True
+    return False
+
+def haversine(px, py, r=r_mm):
     '''
     Calculate the haversine distance between two points
     defined by (lat,lon) tuples.
@@ -23,7 +49,7 @@ def haversine(px, py, r=r_km):
         r (float): Radius of sphere
 
     Returns:
-        (int):  Distance in km.
+        (int):  Distance in mm.
     '''
     lat1, lon1 = px
     lat2, lon2 = py

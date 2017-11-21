@@ -2706,6 +2706,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             xact.spliced('node:add', form=prop, valu=valu, props=props)
             xact.trigger(tufo, 'node:add', form=prop)
 
+            # fire prop set notifications for each prop
+            for p, v in tufo[1].items():
+                # fire notification event
+                xact.fire('node:prop:set', form=prop, valu=valu, prop=p, newv=v, oldv=None, node=tufo)
+                xact.trigger(tufo, 'node:prop:set', form=prop, prop=p)
+
         tufo[1]['.new'] = True
         return tufo
 
@@ -2780,9 +2786,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         form = tufo[1].get('tufo:form')
         valu = tufo[1].get(form)
 
-        # fire notification events
-        self.fire('node:del', form=form, valu=valu, node=tufo)
-
         for name, tick in self.getTufoDsets(tufo):
             self.delTufoDset(tufo, name)
 
@@ -2795,6 +2798,16 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             self.delRowsById(iden)
             # delete any dark props/rows
             self.delRowsById(iden[::-1])
+
+            # fire set None events for the props.
+            pref = form + ':'
+            for p, v in tufo[1].items():
+                if not p.startswith(pref):
+                    continue
+
+                xact.fire('node:prop:set', form=form, valu=valu, prop=p, newv=None, oldv=v, node=tufo)
+
+            xact.fire('node:del', form=form, valu=valu, node=tufo)
             xact.spliced('node:del', form=form, valu=valu)
             xact.trigger(tufo, 'node:del', form=form)
 
