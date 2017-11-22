@@ -55,8 +55,8 @@ class SvcTest(SynTest):
             woot0 = Woot()
             woot1 = Woot()
 
-            w0 = sprox0.waiter(2, 'syn:svcprox:init')
-            w1 = sprox0.waiter(2, 'syn:svcprox:init')
+            w0 = sprox0.waiter(2, 'syn:svc:init')
+            w1 = sprox0.waiter(2, 'syn:svc:init')
 
             sprox0.runSynSvc('woots.woot0', woot0, tags=('foo.bar',))
             sprox1.runSynSvc('woots.woot1', woot1, tags=('foo.bar',))
@@ -80,7 +80,7 @@ class SvcTest(SynTest):
                 self.eq(result, 11)
 
             # Tear down sprox1 - it will fini the woots.woot1 service
-            w0 = sprox0.waiter(1, 'syn:svcprox:fini')
+            w0 = sprox0.waiter(1, 'syn:svc:fini')
             sprox1.fini()
             w0.wait(1)
 
@@ -89,17 +89,22 @@ class SvcTest(SynTest):
             for svcfo in r:
                 self.nn(svcfo)
 
-            # woots.woot1 is still around
+            # woots.woot0 is still around
             r = sprox0.callByName('woots.woot0', gentask('foo', 1))
             self.eq(r, 11)
             # Poor woots.woot1 is gone though
             self.raises(NoSuchObj, sprox0.callByName, 'woots.woot1', gentask('foo', 1))
 
+            r = [_r for _r in sprox0.callByTag('foo.bar', gentask('foo', 1))]
+            self.len(1, r)
+            for svcfo, result in r:
+                self.eq(result, 11)
+
             # We can recreate sprox1, reshare woot1 and use it
             sprox1 = s_service.SvcProxy(s_telepath.openurl('tcp://127.0.0.1/syn.svcbus', port=port))
 
-            w0 = sprox0.waiter(1, 'syn:svcprox:init')
-            w1 = sprox1.waiter(1, 'syn:svcprox:init')
+            w0 = sprox0.waiter(1, 'syn:svc:init')
+            w1 = sprox1.waiter(1, 'syn:svc:init')
 
             sprox1.runSynSvc('woots.woot1', woot1, tags=('foo.bar',))
             w0.wait(1)

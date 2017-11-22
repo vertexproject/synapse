@@ -141,7 +141,10 @@ class SvcProxy(s_eventbus.EventBus):
 
         # FIXME set a reconnect handler for sbus
         self.sbus.on('syn:svc:init', self._onSynSvcInit)
+        self.sbus.on('syn:svc:init', self.dist)
+
         self.sbus.on('syn:svc:fini', self._onSynSvcFini)
+        self.sbus.on('syn:svc:fini', self.dist)
 
         [self._addSvcTufo(svcfo) for svcfo in sbus.getSynSvcs()]
 
@@ -164,7 +167,6 @@ class SvcProxy(s_eventbus.EventBus):
         self.idenprox[iden] = IdenProxy(self, svcfo)
 
         self.bytag.put(iden, tags)
-        self.fire('syn:svcprox:init', svcfo=svcfo)
 
     def _onSynSvcFini(self, mesg):
         svcfo = mesg[1].get('svcfo')
@@ -177,7 +179,6 @@ class SvcProxy(s_eventbus.EventBus):
 
         self.byname.pop(name, None)
         self.byiden.pop(iden, None)
-        self.fire('syn:svcprox:fini', svcfo=svcfo)
 
     def setSynSvcTimeout(self, timeout):
         self.timeout = timeout
@@ -290,14 +291,21 @@ class SvcProxy(s_eventbus.EventBus):
     def callByTag(self, tag, dyntask, timeout=None):
         '''
         Call a method on all services with the given tag.
-        Yields (svcfo,job) tuples for the results.
 
-        Example:
+        Args:
+            tag (str): Tag to call objects by.
+            dyntask ((str, tuple, dict): A tuple containing the function name, *args and **kwargs for the task.
+            timeout (int): Timeout to wait for the job to complete for, in seconds.
 
-            dyntask = gentask('getFooThing')
-            for svcfo,retval in svcprox.callByTag('foo.bar',dyntask):
-                dostuff(svcfo,retval)
+        Examples:
+            Call getFooThing on all objects with the 'foo.bar' tag and dostuff() on the results::
 
+                dyntask = gentask('getFooThing')
+                for svcfo,retval in svcprox.callByTag('foo.bar',dyntask):
+                    dostuff(svcfo,retval)
+
+        Yields:
+            tuple: Tuple containing svcfo and job results.
         '''
         jobs = []
         if timeout is None:
@@ -435,13 +443,22 @@ def runSynSvc(name, item, sbus, tags=(), **props):
     '''
     Add an object as a synapse service.
 
-    Example:
+    Args:
+        name (str): Name of the service.
+        item (object): Callable service object.
+        sbus (s_telepath.Proxy): Telepath Proxy object pointing to a ServiceBus.
+        tags:
+        **props: Additional props to make available about the service.
 
-        woot = Woot()
-        sbus = s_telepath.openurl('tcp://1.2.3.4:90/syn.svcbus')
+    Examples:
+        Share the woot object as a service named 'syn.woot'::
 
-        runSynSvc('syn.woot', woot, sbus)
+            woot = Woot()
+            sbus = s_telepath.openurl('tcp://1.2.3.4:90/syn.svcbus')
+            runSynSvc('syn.woot', woot, sbus)
 
+    Returns:
+        str: The iden of the instance of the service on the ServiceBus.
     '''
     iden = s_common.guid()
 
