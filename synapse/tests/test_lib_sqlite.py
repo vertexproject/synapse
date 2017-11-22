@@ -30,6 +30,7 @@ class SqliteTest(SynTest):
 
                     with pool.xact() as xact1:
                         xact1.execute('INSERT INTO test (foo,bar) VALUES ("lol", 20)')
+                        xact1.executemany('INSERT INTO test (foo,bar) VALUES (?, ?)', [('lol', 30), ('lol', 40)])
                         steps.step('t1:write:0', 't0:read:0', timeout=8)
 
                     steps.done('t1:done')
@@ -44,7 +45,9 @@ class SqliteTest(SynTest):
                     # we should be able to see his un-commited write due to shared cache
                     # ( using a select query to specifically avoid the write lock )
                     rows = list(xact0.select('SELECT * FROM test'))
-                    self.eq(rows[0], ('lol', 20))
+                    self.isin(('lol', 20), rows)
+                    self.isin(('lol', 30), rows)
+                    self.isin(('lol', 40), rows)
 
                     # allow t1 to close the write xact
                     steps.step('t0:read:0', 't1:done', timeout=8)
@@ -66,4 +69,4 @@ class SqliteTest(SynTest):
                 with pool.xact() as xact2:
                     # we should see our previously commited write
                     rows = list(xact2.select('SELECT * FROM test'))
-                    self.len(2, rows)
+                    self.len(4, rows)
