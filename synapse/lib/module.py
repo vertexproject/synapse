@@ -149,26 +149,6 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
 
         return self.core.getCorePath('mods', name, *paths)
 
-    def reqModPath(self, *paths):
-        '''
-        Construct a path for this modules working directory.
-
-        Args:
-            (*paths): A list of path strings
-
-        Returns:
-            (str): The full path (or None if no cortex dir is configured).
-
-        Raises:
-            ReqConfOpt: If the cortex has no configured dir.
-        '''
-        name = self.getModName()
-        dirn = self.core.reqCorePath('mods', name)
-        if not os.path.isdir(dirn):
-            os.makedirs(dirn, mode=0o700)
-
-        return self.core.getCorePath('mods', name, *paths)
-
     def getModProp(self, prop, defval=None):
         '''
         Retrieve a module property from the cortex storage layer.
@@ -207,10 +187,13 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         Require a path relative to this module's working directory.
 
         Args:
-            (*paths): A list of path strings
+            (*paths): A list of additional path strings
 
         Returns:
-            (str): The full path
+            str: The full path
+
+        Raises:
+            ReqConfOpt: If the cortex has no configured dir.
         '''
         name = self.getModName()
         return self.core.reqCorePath('mods', name, *paths)
