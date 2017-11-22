@@ -1044,6 +1044,9 @@ class Axon(s_config.Config, AxonMixin):
         Returns:
             ((str, dict)): axon:blob tufo if the axon has the hash or guid. None otherwise.
         '''
+        if hvalu is None:
+            logger.error('Hvalu must be provided.')
+            return
         if htype == 'guid':
             tufo = self.core.getTufoByProp('axon:blob', hvalu)
         else:

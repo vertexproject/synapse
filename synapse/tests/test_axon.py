@@ -160,9 +160,11 @@ class AxonHostTest(SynTest):
 
             self.nn(blob)
 
-            self.true(axon.has('md5', blob[1].get('hash:md5')))
-            self.true(axon.has('sha1', blob[1].get('hash:sha1')))
-            self.true(axon.has('sha256', blob[1].get('hash:sha256')))
+            self.none(axon.has('md5', None))
+
+            self.true(axon.has('md5', blob[1].get('axon:blob:md5')))
+            self.true(axon.has('sha1', blob[1].get('axon:blob:sha1')))
+            self.true(axon.has('sha256', blob[1].get('axon:blob:sha256')))
 
             host.fini()
 
@@ -171,9 +173,9 @@ class AxonHostTest(SynTest):
 
             axon = host.axons.get(axfo[0])
 
-            self.true(axon.has('md5', blob[1].get('hash:md5')))
-            self.true(axon.has('sha1', blob[1].get('hash:sha1')))
-            self.true(axon.has('sha256', blob[1].get('hash:sha256')))
+            self.true(axon.has('md5', blob[1].get('axon:blob:md5')))
+            self.true(axon.has('sha1', blob[1].get('axon:blob:sha1')))
+            self.true(axon.has('sha256', blob[1].get('axon:blob:sha256')))
 
             props = {
                 'axon:syncmax': s_axon.megabyte * 10,
@@ -289,21 +291,21 @@ class AxonHostTest(SynTest):
             time.sleep(1)
 
             self.nn(blob)
-            self.true(axon0.has('md5', blob[1].get('hash:md5')))
-            self.true(axon0.has('sha1', blob[1].get('hash:sha1')))
-            self.true(axon0.has('sha256', blob[1].get('hash:sha256')))
+            self.true(axon0.has('md5', blob[1].get('axon:blob:md5')))
+            self.true(axon0.has('sha1', blob[1].get('axon:blob:sha1')))
+            self.true(axon0.has('sha256', blob[1].get('axon:blob:sha256')))
             axonbyts = b''.join(_byts for _byts in axon0.iterblob(blob))
             self.eq(axonbyts, cv)
 
-            self.true(axonc1.has('md5', blob[1].get('hash:md5')))
-            self.true(axonc1.has('sha1', blob[1].get('hash:sha1')))
-            self.true(axonc1.has('sha256', blob[1].get('hash:sha256')))
+            self.true(axonc1.has('md5', blob[1].get('axon:blob:md5')))
+            self.true(axonc1.has('sha1', blob[1].get('axon:blob:sha1')))
+            self.true(axonc1.has('sha256', blob[1].get('axon:blob:sha256')))
             axonbyts = b''.join(_byts for _byts in axonc1.iterblob(blob))
             self.eq(axonbyts, cv)
 
-            self.true(axonc2.has('md5', blob[1].get('hash:md5')))
-            self.true(axonc2.has('sha1', blob[1].get('hash:sha1')))
-            self.true(axonc2.has('sha256', blob[1].get('hash:sha256')))
+            self.true(axonc2.has('md5', blob[1].get('axon:blob:md5')))
+            self.true(axonc2.has('sha1', blob[1].get('axon:blob:sha1')))
+            self.true(axonc2.has('sha256', blob[1].get('axon:blob:sha256')))
             axonbyts = b''.join(_byts for _byts in axonc2.iterblob(blob))
             self.eq(axonbyts, cv)
 
@@ -343,6 +345,8 @@ class AxonHostTest(SynTest):
             self.eq(len(host2.cloneaxons), 2)
 
             # Fini the proxy objects
+            axonc1.fini()
+            axonc2.fini()
             axon0.fini()
             axon1.fini()
             axon2.fini()
