@@ -3,10 +3,10 @@ import math
 import synapse.lib.syntax as s_syntax
 
 '''
-Synapse module with helpers for geo-spacial calculations.
+Synapse module with helpers for earth based geo-spacial calculations.
 '''
 
-# base geo distances will be in mm
+# base earth geo distances will be in mm
 r_mm = 6371008800.0
 r_km = 6371.0088
 

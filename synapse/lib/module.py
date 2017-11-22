@@ -174,7 +174,7 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         Retrieve a module property from the cortex storage layer.
 
         Args:
-            prop (name): The property name
+            prop (str): The property name
 
         Returns:
             (obj): The int/str or None

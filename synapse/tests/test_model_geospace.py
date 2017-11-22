@@ -21,9 +21,6 @@ class GeoTest(SynTest):
             valu, subs = core.getTypeNorm('geo:dist', '11.2 km')
             self.eq(valu, 11200000)
 
-    #def test_model_geospace_place(self):
-        #with self.getRamCore() as core:
-
     def test_model_geospace_nloc(self):
 
         with self.getRamCore() as core:

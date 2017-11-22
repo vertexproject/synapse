@@ -381,7 +381,7 @@ class SynTest(unittest.TestCase):
     @contextlib.contextmanager
     def getDirCore(self):
         '''
-        Context manager to make a dir:/// cortex which has test models
+        Context manager to make a dir:/// cortex
 
         Yields:
             s_cores_common.Cortex: Dir backed Cortex

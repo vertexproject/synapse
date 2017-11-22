@@ -2608,6 +2608,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             node.  After node creation is finished, ``node:add`` events are
             fired on for the Cortex event bus, splices and triggers.
 
+            For each property in the newly created node, a ``node:prop:set``
+            event will be fired.
+
         Returns:
             ((str, dict)): The newly formed tufo, or the existing tufo if
             the node already exists.  The ephemeral property ".new" can be

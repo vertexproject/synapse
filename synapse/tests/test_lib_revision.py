@@ -2,7 +2,7 @@ from synapse.tests.common import *
 
 import synapse.lib.revision as s_revision
 
-class TestRevr(s_revision.Revisioner):
+class Revr(s_revision.Revisioner):
 
     @s_revision.step('0.0.0', '0.0.2')
     def _doRev0(self, x, y=10):
@@ -15,7 +15,8 @@ class TestRevr(s_revision.Revisioner):
 class RevTest(SynTest):
 
     def test_revision_er(self):
-        revr = TestRevr()
+
+        revr = Revr()
 
         info = {}
 
@@ -25,8 +26,6 @@ class RevTest(SynTest):
         self.eq(info.get('foo'), 10)
         self.eq(info.get('bar'), 20)
         self.eq(path, ((0, 0, 2), (0, 0, 3)))
-
-        print('WOOT')
 
         def genexc():
             for v in revr.runRevPath((0, 1, 0)):
