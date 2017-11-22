@@ -15,7 +15,12 @@ class CoreModTest(SynTest):
     def test_lib_module_modname(self):
         with self.getRamCore() as core:
             foo = core.initCoreModule('synapse.tests.test_lib_module.FooMod', {})
+            self.eq(foo.getModName(), 'foo')
+            self.eq(foo.getModIden(), 'e8ff3739f5d9dbacafef75a532691420')
+
             bar = core.initCoreModule('synapse.tests.test_lib_module.BarMod', {})
+            self.eq(bar.getModName(), 'BarMod')
+            self.none(bar.getModIden())
 
     def test_lib_module_modpath(self):
 
