@@ -38,6 +38,11 @@ class RevTest(SynTest):
             for v in revr.runRevPath((0, 1, 0)):
                 pass
 
+        # Ensure the revision path to self.maxver is empty
+        self.eq(revr.getRevPath((0, 0, 3)), [])
+        # But the path to maxver is not empty
+        self.nn(revr.getRevPath((0, 0, 0)))
+
         self.eq(revr.chop('1.2.3'), (1, 2, 3))
         self.eq(revr.repr((1, 2, 3)), '1.2.3')
         self.raises(NoRevPath, genexc)
