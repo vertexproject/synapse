@@ -160,6 +160,8 @@ class AxonHostTest(SynTest):
 
             self.nn(blob)
 
+            self.none(axon.has('md5', None))
+
             self.true(axon.has('md5', blob[1].get('axon:blob:md5')))
             self.true(axon.has('sha1', blob[1].get('axon:blob:sha1')))
             self.true(axon.has('sha256', blob[1].get('axon:blob:sha256')))
