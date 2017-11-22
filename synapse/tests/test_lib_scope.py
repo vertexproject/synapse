@@ -2,7 +2,7 @@ from synapse.tests.common import *
 
 import synapse.lib.scope as s_scope
 
-class GeneTest(SynTest):
+class ScopeTest(SynTest):
 
     def test_lib_scope(self):
         syms = {'foo': 'woot', 'bar': 30, 'baz': [1, 2]}
@@ -12,14 +12,25 @@ class GeneTest(SynTest):
         self.eq(scope.get('foo'), 'woot')
         self.eq(tuple(scope.iter('baz')), (1, 2))
 
+        scope.update((('hehe', 1), ('haha', 'wow')))
+        self.eq(scope.get('hehe'), 1)
+        self.eq(scope.get('haha'), 'wow')
+
         with scope:
 
             scope.set('bar', 20)
             scope.add('baz', 3, 4)
+            scope.update((('hehe', 2), ('haha', 'oh my')))
 
             self.eq(scope.get('bar'), 20)
             self.eq(scope.get('foo'), 'woot')
             self.eq(tuple(scope.iter('baz')), (1, 2, 3, 4))
+
+            self.eq(scope.get('hehe'), 2)
+            self.eq(scope.get('haha'), 'oh my')
+
+        self.eq(scope.get('hehe'), 1)
+        self.eq(scope.get('haha'), 'wow')
 
         self.eq(scope.get('bar'), 30)
         self.eq(scope.get('foo'), 'woot')
@@ -33,6 +44,9 @@ class GeneTest(SynTest):
         self.eq(s_scope.get('test:foo'), 10)
         self.eq(s_scope.pop('test:foo'), 10)
         self.none(s_scope.get('test:foo'))
+        s_scope.update([('test:hehe', 1), ('test:haha', 'wow')])
+        self.eq(s_scope.get('test:hehe'), 1)
+        self.eq(s_scope.get('test:haha'), 'wow')
 
     def test_lib_scope_enter(self):
 
