@@ -18,6 +18,13 @@ class RevTest(SynTest):
 
         revr = Revr()
 
+        # Ensure that pre-revision events are fired
+        mesgs = []
+        def onRev(mesg):
+            mesgs.append(mesg)
+
+        revr.on('syn:revisioner:rev', onRev)
+
         info = {}
 
         v0 = (0, 0, 0)
@@ -33,4 +40,11 @@ class RevTest(SynTest):
 
         self.eq(revr.chop('1.2.3'), (1, 2, 3))
         self.eq(revr.repr((1, 2, 3)), '1.2.3')
-        self.raises(s_revision.NoRevPath, genexc)
+        self.raises(NoRevPath, genexc)
+
+        # Ensure messages were fired and captured by our handler
+        self.len(2, mesgs)
+        self.eq(mesgs[0][0], 'syn:revisioner:rev')
+        self.eq(mesgs[0][1].get('name'), 'Revr')
+        self.eq(mesgs[0][1].get('v1'), (0, 0, 0))
+        self.eq(mesgs[0][1].get('v2'), (0, 0, 2))

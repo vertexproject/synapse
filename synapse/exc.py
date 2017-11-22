@@ -37,6 +37,7 @@ class NoSuchOpt(SynErr): pass
 class NoSuchDir(SynErr): pass
 class NoSuchDyn(SynErr): pass
 class NoSuchSeq(SynErr): pass
+class NoRevPath(SynErr): pass
 class NoRevAllow(SynErr): pass
 class NoSuchConf(SynErr): pass
 class NoSuchCtor(SynErr): pass

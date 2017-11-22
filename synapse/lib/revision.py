@@ -1,7 +1,9 @@
-import synapse.exc as s_exc
+import logging
+
+import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
-class NoRevPath(s_exc.SynErr): pass
+logger = logging.getLogger(__name__)
 
 def step(v1, v2):
     def wrap(f):
@@ -111,7 +113,7 @@ class Revisioner(s_eventbus.EventBus):
             nver = step[1]
 
         if not path or path[-1][1] != self.maxver:
-            raise NoRevPath(vers=vers, maxver=self.maxver, path=path)
+            raise s_common.NoRevPath(vers=vers, maxver=self.maxver, path=path)
 
         return path
 
@@ -127,5 +129,15 @@ class Revisioner(s_eventbus.EventBus):
         '''
         path = list(self.getRevPath(vers))
         for v1, v2, func in path:
+            mesg = 'Updating module [%s] from [%s] => [%s] - do *not* interrupt'
+            logger.warning(mesg, self, v1, v2)
+
+            # fire a pre-revision event so that tests can hook into
+            self.fire('syn:revisioner:rev', name=str(self.__class__.__name__), v1=v1, v2=v2)
+
             func(*args, **kwargs)
+
+            mesg = 'Finished updating module [%s] to [%s].'
+            logger.warning(mesg, self, v2)
+
             yield v2
