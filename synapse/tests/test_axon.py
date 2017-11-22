@@ -511,15 +511,17 @@ class AxonHostTest(SynTest):
                 busurl = 'tcp://127.0.0.1:{}/axonbus'.format(port)
                 hstcfg['vars']['hcfg0']['axon:axonbus'] = busurl
                 hstcfg['vars']['hcfg1']['axon:axonbus'] = busurl
+                svcbus = s_service.openurl('tcp://127.0.0.1:0/axonbus', port=port)  # type: s_service.SvcProxy
 
                 with s_daemon.Daemon() as axondmon:
+                    w = svcbus.waiter(6, 'syn:svc:init')
                     axondmon.loadDmonConf(hstcfg)
-                    svcbus = s_service.openurl('tcp://127.0.0.1:0/axonbus', port=port)  # type: s_service.SvcProxy
-                    time.sleep(2)
+                    w.wait(15)
                     first_axons = svcbus.getSynSvcsByTag(s_axon.axontag)
                     self.eq(len(first_axons), 4)
-                    # Close the proxy
-                    svcbus.fini()
+
+                # Close the proxy
+                svcbus.fini()
 
             # Spin the AxonHost back up
             # This does exercise a behavior in the AxonHost to always give
@@ -536,17 +538,19 @@ class AxonHostTest(SynTest):
                 busurl = 'tcp://127.0.0.1:{}/axonbus'.format(port)
                 hstcfg['vars']['hcfg0']['axon:axonbus'] = busurl
                 hstcfg['vars']['hcfg1']['axon:axonbus'] = busurl
+                svcbus = s_service.openurl('tcp://127.0.0.1:0/axonbus', port=port)  # type: s_service.SvcProxy
 
                 with s_daemon.Daemon() as axondmon:
+                    w = svcbus.waiter(6, 'syn:svc:init')
                     axondmon.loadDmonConf(hstcfg)
-                    svcbus = s_service.openurl('tcp://127.0.0.1:0/axonbus', port=port)  # type: s_service.SvcProxy
-                    time.sleep(2)
+                    w.wait(15)
                     axons = svcbus.getSynSvcsByTag(s_axon.axontag)
                     self.eq(len(axons), 4)
                     # Ensure these are the same axons we had first created
                     self.eq({axn[1].get('name') for axn in axons}, {axn[1].get('name') for axn in first_axons})
-                    # Close the proxy
-                    svcbus.fini()
+
+                # Close the proxy
+                svcbus.fini()
 
 class AxonClusterTest(SynTest):
     def test_axon_cluster(self):
