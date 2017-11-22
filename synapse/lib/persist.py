@@ -224,7 +224,7 @@ class Dir(s_eventbus.EventBus):
         Examples:
             Iterate over the items in a file and do stuff with them::
 
-                for noff,item in pers.items(0):
+                for noff, item in pers.items(0):
                     dostuff(item)
 
         Notes:
