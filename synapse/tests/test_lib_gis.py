@@ -1,3 +1,4 @@
+import math
 from synapse.tests.common import *
 
 import synapse.lib.gis as s_gis
@@ -20,6 +21,24 @@ class GisTest(SynTest):
         px = (36.12, -86.67)
         py = (33.94, -118.40)
         self.eq(s_gis.haversine(px, py), 2886448429.7648544)
+
+        # Test haversinve value from rosetta code
+        r = s_gis.haversine((36.12, -86.67), (33.94, -118.40), 6372.8)
+        e = 2887.2599506071106
+        self.eq(r, e)
+
+        # Test against 1/4th of a unit sphere
+        r = s_gis.haversine((45, 45), (-45, 45), 1.0)
+        e = math.pi / 2
+        # We are typically within the machine-epsilon range for this test
+        self.assertAlmostEqual(r, e)
+
+        # Test against the haversine package
+        lyon = (45.7597, 4.8422)
+        paris = (48.8567, 2.3508)
+        r = s_gis.haversine(lyon, paris, r=6371)
+        e = 392.21671780659625
+        self.assertAlmostEqual(r, e)
 
     def test_lib_gis_dms2dec(self):
         self.eq(s_gis.dms2dec(45, 46, 52), 45.78111111111111)
