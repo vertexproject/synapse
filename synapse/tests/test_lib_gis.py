@@ -55,6 +55,32 @@ class GisTest(SynTest):
 
         self.eq(s_gis.latlong('123.456,-987.654 '), (123.456, -987.654))  # Note Invalid coords
 
+    def test_lib_gis_near(self):
+        point = (0.0, 0.0)
+        dist = 0
+        points = []
+        self.false(s_gis.near(point, dist, points))  # no points
+
+        point = (0.0, 0.0)
+        dist = 0
+        points = [(0.0, 0.0)]
+        self.true(s_gis.near(point, dist, points))  # same point
+
+        point = (0.0, 0.0)
+        dist = 0
+        points = [(50.0, 50.0), (0.0, 0.0)]
+        self.true(s_gis.near(point, dist, points))  # far point and same point
+
+        point = (45.7597, 4.8422)  # lyon
+        dist = 400000000  # actual haversine distance between lyon/paris is ~392217259mm
+        points = [(0.0, 0.0), (48.8567, 2.3508)]  # 0,0 and paris
+        self.true(s_gis.near(point, dist, points))
+
+        point = (45.7597, 4.8422)  # lyon
+        dist = 391000000  # actual haversine distance between lyon/paris is ~392217259mm
+        points = [(0.0, 0.0), (48.8567, 2.3508)]  # 0,0 and paris
+        self.false(s_gis.near(point, dist, points))
+
     def test_lib_gis_dms2dec(self):
         self.eq(s_gis.dms2dec(45, 46, 52), 45.78111111111111)
 
