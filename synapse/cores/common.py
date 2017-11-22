@@ -363,6 +363,18 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         fifo = self._core_fifos.gen(name)
         fifo.put(item)
 
+    def extCoreFifo(self, name, items):
+        '''
+        Add a list of items to a cortex fifo.
+
+        Args:
+            name (str): The name of the fifo
+            items (list): A list of items to add
+        '''
+        self.reqperm(('fifo:put', {'name': name}))
+        fifo = self._core_fifos.gen(name)
+        [fifo.put(item) for item in items]
+
     def ackCoreFifo(self, name, seqn):
         '''
         Acknowledge transmission of fifo items.
