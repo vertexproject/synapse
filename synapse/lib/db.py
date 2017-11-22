@@ -22,7 +22,7 @@ class Xact(s_eventbus.EventBus):
     def wrlock(self):
         while not self.lockd:
             if self.isfini:
-                raise IsFini()
+                raise s_common.IsFini()
 
             self.lockd = self.pool.wlock.acquire(timeout=1)
 
@@ -62,7 +62,7 @@ class Xact(s_eventbus.EventBus):
             Cursor: see DB API
         '''
         if self.isfini:
-            raise IsFini()
+            raise s_common.IsFini()
 
         return self.curs.execute(*args)
 
