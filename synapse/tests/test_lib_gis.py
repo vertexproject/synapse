@@ -40,6 +40,21 @@ class GisTest(SynTest):
         e = 392.21671780659625
         self.assertAlmostEqual(r, e)
 
+    def test_lib_gis_latlong(self):
+        self.assertRaises(ValueError, s_gis.latlong, 'hehe')
+        self.assertRaises(ValueError, s_gis.latlong, 'hehe,hoho')
+
+        self.eq(s_gis.latlong(' 0,0 '), (0.0, 0.0))
+        self.eq(s_gis.latlong('-0,0 '), (0.0, 0.0))
+        self.eq(s_gis.latlong('50,100 '), (50.0, 100.0))
+        self.eq(s_gis.latlong('-50,100 '), (-50.0, 100.0))
+        self.eq(s_gis.latlong('-50,-100 '), (-50.0, -100.0))
+        self.eq(s_gis.latlong('50,-100 '), (50.0, -100.0))
+
+        self.eq(s_gis.latlong(' 0.12345678901234567890,-0.12345678901234567890 '), (0.12345678901234568, -0.12345678901234568))  # Note precision
+
+        self.eq(s_gis.latlong('123.456,-987.654 '), (123.456, -987.654))  # Note Invalid coords
+
     def test_lib_gis_dms2dec(self):
         self.eq(s_gis.dms2dec(45, 46, 52), 45.78111111111111)
 

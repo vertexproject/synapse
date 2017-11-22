@@ -15,6 +15,7 @@ r_km = 6371.0088
 def latlong(text):
     '''
     Chop a latlong string and return (float,float).
+    Does not perform validation on the coordinates.
 
     Args:
         text (str):  A longitude,latitude string.
