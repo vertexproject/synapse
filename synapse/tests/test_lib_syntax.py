@@ -148,3 +148,22 @@ class StormSyntaxTest(SynTest):
         self.raises(BadSyntaxError, s_syntax.parse_int, 'asdf', 0)
         self.raises(BadSyntaxError, s_syntax.parse_int, '0xzzzz', 0)
         self.raises(BadSyntaxError, s_syntax.parse_int, '0bbbbb', 0)
+
+    def test_lib_syntax_float(self):
+
+        valu, off = s_syntax.parse_float('  1 ', 0)
+        self.eq((valu, off), (1.0, 4))
+        self.eq(valu, 1.0)
+        self.eq(valu, 1)
+        self.true(valu is not 1)
+
+        self.eq(s_syntax.parse_float('  1.0 ', 0), (1.0, 6))
+        self.eq(s_syntax.parse_float('  1.2 ', 0), (1.2, 6))
+        self.eq(s_syntax.parse_float('  0.2 ', 0), (0.2, 6))
+        self.eq(s_syntax.parse_float('  0.0 ', 0), (0.0, 6))
+        self.eq(s_syntax.parse_float(' -1.2 ', 0), (-1.2, 6))
+        self.eq(s_syntax.parse_float(' -0.2 ', 0), (-0.2, 6))
+        self.eq(s_syntax.parse_float(' -0.0 ', 0), (0.0, 6))
+
+        self.raises(BadSyntaxError, s_syntax.parse_float, 'asdf', 0)
+        self.raises(BadSyntaxError, s_syntax.parse_float, '1.asdf', 0)
