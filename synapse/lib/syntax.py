@@ -101,7 +101,7 @@ def parse_int(text, off, trim=True):
             valu = int(valu)
 
         else:
-            frac = nom(text, off + 1, decset)
+            frac, off = nom(text, off + 1, decset)
             valu = float('%s.%s' % (valu, frac))
 
     if neg:

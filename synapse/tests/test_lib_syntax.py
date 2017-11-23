@@ -130,6 +130,21 @@ class StormSyntaxTest(SynTest):
         self.eq(s_syntax.parse_int('  30 ', 0), (30, 5))
         self.eq(s_syntax.parse_int(' -30 ', 0), (-30, 5))
 
+        self.eq(s_syntax.parse_int('  0xfF  ', 0), (15, 5))
+        self.eq(s_syntax.parse_int('  0b01101001  ', 0), (105, 14))
+
+        self.eq(s_syntax.parse_int(' -0xfF  ', 0), (-15, 5))
+        self.eq(s_syntax.parse_int(' -0b01101001  ', 0), (-105, 14))
+
+        self.eq(s_syntax.parse_int('  1.0 ', 0), (1.0, 6))
+        self.eq(s_syntax.parse_int('  1.2 ', 0), (1.2, 6))
+        self.eq(s_syntax.parse_int('  0.2 ', 0), (0.2, 6))
+        self.eq(s_syntax.parse_int('  0.0 ', 0), (0.0, 6))
+        self.eq(s_syntax.parse_int(' -1.2 ', 0), (-1.2, 6))
+        self.eq(s_syntax.parse_int(' -0.2 ', 0), (-0.2, 6))
+        self.eq(s_syntax.parse_int(' -0.0 ', 0), (0.0, 6))
+
         self.raises(BadSyntaxError, s_syntax.parse_int, '0x', 0)
         self.raises(BadSyntaxError, s_syntax.parse_int, 'asdf', 0)
         self.raises(BadSyntaxError, s_syntax.parse_int, '0xzzzz', 0)
+        self.raises(BadSyntaxError, s_syntax.parse_int, '0bbbbb', 0)
