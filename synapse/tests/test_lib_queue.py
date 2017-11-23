@@ -11,10 +11,20 @@ class QueueTest(SynTest):
 
     def test_queue_base(self):
         q = s_queue.Queue()
+
+        self.len(0, q)
+        self.eq(q.size(), 0)
+
         q.put('woot')
+
+        self.len(1, q)
+        self.eq(q.size(), 1)
 
         self.eq(q.get(), 'woot')
         self.none(q.get(timeout=0.1))
+
+        self.len(0, q)
+        self.eq(q.size(), 0)
 
         q.fini()
 
