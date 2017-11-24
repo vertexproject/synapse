@@ -39,6 +39,94 @@ class SvcTest(SynTest):
                 job = prox.callx(svcs[0][0], dyntask)
                 self.eq(prox.syncjob(job), 40)
 
+    def test_service_proxy_bounce(self):
+
+        with s_daemon.Daemon() as dmon:
+
+            sbus = s_service.SvcBus()
+            dmon.share('syn.svcbus', sbus, fini=True)
+
+            link = dmon.listen('tcp://127.0.0.1:0/')
+
+            port = link[1].get('port')
+            sprox0 = s_service.SvcProxy(s_telepath.openurl('tcp://127.0.0.1/syn.svcbus', port=port))
+            sprox1 = s_service.SvcProxy(s_telepath.openurl('tcp://127.0.0.1/syn.svcbus', port=port))
+
+            woot0 = Woot()
+            woot1 = Woot()
+
+            w0 = sprox0.waiter(2, 'syn:svc:init')
+            w1 = sprox0.waiter(2, 'syn:svc:init')
+
+            sprox0.runSynSvc('woots.woot0', woot0, tags=('foo.bar',))
+            sprox1.runSynSvc('woots.woot1', woot1, tags=('foo.bar',))
+
+            w0.wait(1)
+            w1.wait(1)
+
+            # Both SvcProxy objects know about both objects and they are not None
+            r = sprox0.getSynSvcsByTag('foo.bar')
+            self.len(2, r)
+            for svcfo in r:
+                self.nn(svcfo)
+            r = sprox1.getSynSvcsByTag('foo.bar')
+            self.len(2, r)
+            for svcfo in r:
+                self.nn(svcfo)
+
+            r = [_r for _r in sprox0.callByTag('foo.bar', gentask('foo', 1))]
+            self.len(2, r)
+            for svcfo, result in r:
+                self.eq(result, 11)
+
+            # Tear down sprox1 - it will fini the woots.woot1 service
+            w0 = sprox0.waiter(1, 'syn:svc:fini')
+            sprox1.fini()
+            w0.wait(1)
+
+            r = sprox0.getSynSvcsByTag('foo.bar')
+            self.len(1, r)
+            for svcfo in r:
+                self.nn(svcfo)
+
+            # woots.woot0 is still around
+            r = sprox0.callByName('woots.woot0', gentask('foo', 1))
+            self.eq(r, 11)
+            # Poor woots.woot1 is gone though
+            self.raises(NoSuchObj, sprox0.callByName, 'woots.woot1', gentask('foo', 1))
+
+            r = [_r for _r in sprox0.callByTag('foo.bar', gentask('foo', 1))]
+            self.len(1, r)
+            for svcfo, result in r:
+                self.eq(result, 11)
+
+            # We can recreate sprox1, reshare woot1 and use it
+            sprox1 = s_service.SvcProxy(s_telepath.openurl('tcp://127.0.0.1/syn.svcbus', port=port))
+
+            w0 = sprox0.waiter(1, 'syn:svc:init')
+            w1 = sprox1.waiter(1, 'syn:svc:init')
+
+            sprox1.runSynSvc('woots.woot1', woot1, tags=('foo.bar',))
+            w0.wait(1)
+            w1.wait(1)
+
+            # Both SvcProxy objects know about both objects
+            r = sprox0.getSynSvcsByTag('foo.bar')
+            self.len(2, r)
+            for svcfo in r:
+                self.nn(svcfo)
+            r = sprox1.getSynSvcsByTag('foo.bar')
+            self.len(2, r)
+            for svcfo in r:
+                self.nn(svcfo)
+
+            # We can call woots1 from sprox0 again and by name
+            r = sprox0.callByName('woots.woot1', gentask('foo', 1))
+            self.eq(r, 11)
+
+            sprox0.fini()
+            sprox1.fini()
+
     def test_service_proxy(self):
 
         with s_daemon.Daemon() as dmon:

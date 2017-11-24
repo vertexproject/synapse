@@ -29,7 +29,7 @@ def _fini_atexit(): # pragma: no cover
             item.fini()
 
         except Exception as e:
-            logger.exception('atexit fini fail: %r' % (ebus,))
+            logger.exception('atexit fini fail: %r' % (item,))
 
 atexit.register(_fini_atexit)
 
@@ -187,13 +187,13 @@ class EventBus(object):
                 ret.append(func(mesg))
 
             except Exception as e:
-                logger.exception(e)
+                logger.exception('Ebus %s error with mesg %s', self, mesg)
 
         for func in self._syn_links:
             try:
                 ret.append(func(mesg))
             except Exception as e:
-                logger.exception(e)
+                logger.exception('Ebus %s error with mesg %s', self, mesg)
 
         return ret
 
@@ -222,7 +222,7 @@ class EventBus(object):
             try:
                 func()
             except Exception as e:
-                traceback.print_exc()
+                logger.exception('Ebus %s error during fini function', self)
 
         # explicitly release the handlers
         self._syn_funcs.clear()

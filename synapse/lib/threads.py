@@ -55,7 +55,7 @@ class cancelable:
         try:
             self.func(*self.args, **self.kwargs)
         except Exception as e:
-            traceback.print_exc()
+            logger.exception('Error executing %s', self.func)
 
     def __enter__(self):
         current().cancels.append(self)

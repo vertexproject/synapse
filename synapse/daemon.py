@@ -510,8 +510,7 @@ class Daemon(EventBus, DmonConf):
             func(sock, mesg)
 
         except Exception as e:
-            traceback.print_exc()
-            logger.error('_runLinkSockMesg: %s', e)
+            logger.exception('exception in _runLinkSockMesg with mesg %s', mesg)
 
     def _genChalSign(self, mesg):
         '''
