@@ -96,7 +96,37 @@ class InetModelTest(SynTest):
         self.eq(tlib.getTypeRepr('inet:ipv6', 'af::2'), 'af::2')
 
         self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8::1:1:1:1:1')[0], '2001:db8:0:1:1:1:1:1')
+
+        # Specific examples given in RFC5952
+        # Section 1
+        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:0db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8::1:0:0:1')[0], '2001:db8::1:0:0:1')
+        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8::0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:0db8::1:0:0:1')[0], '2001:db8::1:0:0:1')
+        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8:0:0:1::1')[0], '2001:db8::1:0:0:1')
+        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:DB8:0:0:1::1')[0], '2001:db8::1:0:0:1')
+
+        # Section 2.1
+        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:DB8:0:0:1:0000:0000:1')[0], '2001:db8::1:0:0:1')
+
+        # Section 2.2
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:ipv6', '::1::')
+
+        # Section 4.1
+        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:0db8::0001')[0], '2001:db8::1')
+
+        # Section 4.2.1
+        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
+
+        # Section 4.2.2
         self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8:0:1:1:1:1:1')[0], '2001:db8:0:1:1:1:1:1')
+
+        # Section 4.2.3
+        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:0:0:1:0:0:0:1')[0], '2001:0:0:1::1')
+        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+
+        self.eq(tlib.getTypeNorm('inet:ipv6', '::ffff:1.2.3.4')[0], '::ffff:1.2.3.4')
 
         self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8::0:1')[0], '2001:db8::1')
         self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')

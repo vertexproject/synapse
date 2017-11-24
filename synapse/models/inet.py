@@ -2,6 +2,7 @@ import socket
 import struct
 import hashlib
 import logging
+import ipaddress
 
 import regex
 
@@ -111,8 +112,17 @@ def ipv6norm(text):
         text = ipv6norm(text)
 
     '''
-    # use inet_ntop / inet_pton from synapse.lib.socket for portability
-    return s_socket.inet_ntop(socket.AF_INET6, s_socket.inet_pton(socket.AF_INET6, text))
+    # This used to use socket.inet_pton for normalizing
+    # ipv6 addresses. There's a bug in macOS where it
+    # doesn't abbreviate the zeroes properly. See RFC
+    # 5952 for IPv6 address text representation
+
+    v6addr = ipaddress.IPv6Address(text)
+    v4addr = v6addr.ipv4_mapped
+    if v4addr is not None:
+        return '::ffff:%s' % (v4addr)
+
+    return v6addr.compressed
 
 class IPv6Type(DataType):
     def repr(self, valu):
