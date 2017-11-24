@@ -109,6 +109,8 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         self.initCoreModule()
         self.setConfOpts(conf)
         self.postCoreModule()
+        # Add the automatic fini handler
+        self.onfini(self.finiCoreModule)
 
     def getModName(self):
         '''
@@ -232,6 +234,13 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         Returns:
             (None)
 
+        '''
+        pass
+
+    def finiCoreModule(self):
+        '''
+        Module implementors may over-ride this method to automatically tear down
+        resources during fini()
         '''
         pass
 
