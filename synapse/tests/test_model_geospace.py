@@ -32,7 +32,7 @@ class GeoTest(SynTest):
             valu, subs = core.getTypeNorm('geo:dist', 11200000)
             self.eq(valu, 11200000)
 
-            self.raises(SyntaxError, core.getTypeNorm, 'geo:dist', '1.3 pc')
+            self.raises(BadTypeValu, core.getTypeNorm, 'geo:dist', '1.3 pc')
 
     def test_model_geospace_nloc(self):
 

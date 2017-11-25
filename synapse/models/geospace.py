@@ -58,7 +58,7 @@ class DistType(s_types.DataType):
 
         mult = units.get(unit.lower())
         if mult is None:
-            raise SyntaxError('invalid units: %s' % (unit,))
+            self._raiseBadValu(text, mesg='invalid/unknown dist unit: %s' % (unit,))
 
         return valu * mult, {}
 
