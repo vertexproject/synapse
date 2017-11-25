@@ -19,7 +19,18 @@ class Xact(s_eventbus.EventBus):
         self.curs = None
         self.lockd = False
 
+        self.onfini(self._onXactFini)
+
+    def _onXactFini(self):
+        self.db.commit()
+        self.db.close()
+        if self.lockd:
+            self.pool.wlock.release()
+
     def wrlock(self):
+        '''
+        Acquire the pool write lock for the remainder of this transaction.
+        '''
         while not self.lockd:
             if self.isfini:
                 raise s_common.IsFini()
@@ -75,9 +86,8 @@ class Xact(s_eventbus.EventBus):
         # on an incremental commit, release the wlock
         self.db.commit()
         if self.lockd:
+            self.lockd = False
             self.pool.wlock.release()
-            # maybe sleep(0.0000001)?
-            self.pool.wlock.acquire()
 
     def __enter__(self):
         self.refs += 1
@@ -119,24 +129,13 @@ class Pool(s_eventbus.EventBus):
         self.onfini(self.dbque.fini)
 
         self.wlock = threading.Lock()
-
-        self.conns = [ctor() for i in range(size)]
-
-        [self._initXact(db) for db in self.conns]
+        self.xacts = [self._initXact(ctor()) for i in range(size)]
 
     def _initXact(self, db):
         xact = self._xact_ctor(self, db)
+        self.onfini(xact.fini)
         self.dbque.put(xact)
-
-    def _onPoolFini(self):
-
-        def fini(x):
-            try:
-                x.commit()
-            finally:
-                x.close()
-
-        [fini(db) for db in self.conns]
+        return xact
 
     def _put(self, xact):
         s_scope.pop(self.iden)
