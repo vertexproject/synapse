@@ -966,6 +966,8 @@ class InetMod(CoreModule):
                         'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
                     ('asn', {'ptype': 'inet:asn', 'defval': -1,
                         'doc': 'The ASN to which the IPv4 address is currently assigned.'}),
+                    ('latlong', {'ptype': 'geo:latlong',
+                        'doc': 'The last known latitude/longitude for the node'}),
                 ]),
 
                 ('inet:cidr4', {'ptype': 'inet:cidr4'}, [
@@ -980,6 +982,8 @@ class InetMod(CoreModule):
                         'doc': 'The country where the IPv6 address is currently located.'}),
                     ('asn', {'ptype': 'inet:asn', 'defval': -1,
                         'doc': 'The ASN to which the IPv6 address is currently assigned.'}),
+                    ('latlong', {'ptype': 'geo:latlong',
+                        'doc': 'The last known latitude/longitude for the node'}),
                 ]),
 
                 ('inet:url', {'ptype': 'inet:url'}, [
@@ -1191,6 +1195,8 @@ class InetMod(CoreModule):
                 )),
 
                 ('inet:iface', {}, (
+                    ('latlong', {'ptype': 'geo:latlong',
+                        'doc': 'The last known latitude/longitude for the node'}),
                     ('host', {'ptype': 'it:host',
                         'doc': 'The guid of the host the interface is associated with.'}),
                     ('mac', {'ptype': 'inet:mac',
@@ -1214,29 +1220,42 @@ class InetMod(CoreModule):
                 ('inet:wifi:ssid', {}, []),
 
                 ('inet:web:acct', {'ptype': 'inet:web:acct'}, [
+
                     ('site', {'ptype': 'inet:fqdn', 'ro': 1,
                         'doc': 'The site or service associated with the account.'}),
+
                     ('user', {'ptype': 'inet:user', 'ro': 1,
                         'doc': 'The unique identifier for the account (may be different from the common '
                             'name or display name).'}),
+
                     ('url', {'ptype': 'inet:url',
                         'doc': 'The service provider URL where the account is hosted.'}),
+
                     ('name', {'ptype': 'inet:user',
                         'doc': 'The name associated with the account (may be different from the account '
                             'identifier, e.g., a display name).'}),
+
                     ('avatar', {'ptype': 'file:bytes',
                         'doc': 'The file representing the avatar (e.g., profile picture) for the account.'}),
+
                     ('tagline', {'ptype': 'str:txt',
                         'doc': 'The text of the account status or tag line.'}),
+
                     ('webpage', {'ptype': 'inet:url',
                         'doc': 'A related URL specified by the account (e.g., a personal or company web '
                              'page, blog, etc.).'}),
+
+                    ('latlong', {'ptype': 'geo:latlong',
+                        'doc': 'The last known latitude/longitude for the node'}),
+
                     ('loc', {'ptype': 'str:lwr',
                         'doc': 'A self-declared location for the account.'}),
+
                     ('occupation', {'ptype': 'str:lwr',
                         'doc': 'A self-declared occupation for the account.'}),
                     ('dob', {'ptype': 'time',
                         'doc': 'A self-declared date of birth for the account (if the account belongs to a person).'}),
+
                     # ('gender',{'ptype':'inet:fqdn','ro':1}),
                     # ('bio:bt',{'ptype':'wtf','doc':'The web account's self documented blood type'}),
 

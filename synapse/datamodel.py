@@ -108,6 +108,8 @@ class DataModel(s_types.TypeLib):
         self.uniprops = set()
         self.unipropsreq = set()
 
+        self._type_hooks = collections.defaultdict(list)
+
         self.globs = []
         self.cache = {} # for globs
         self.model = {
@@ -355,7 +357,33 @@ class DataModel(s_types.TypeLib):
 
         self._addSubRefs(pdef)
 
+        if ptype is not None:
+            for func in self._type_hooks.get(ptype, ()):
+                func(pdef)
+
         return pdef
+
+    def addPropTypeHook(self, name, func):
+        '''
+        Add a callback function for props declared from a given type.
+
+        Args:
+            name (str): The name of a type to hook props
+            func (function): A function callback
+
+        Example:
+            def func(pdef):
+                dostuff(pdef)
+
+            modl.addPropTypeHook('foo:bar', func)
+
+        NOTE: This will be called immediately for existing props and
+              incrementally as future props are declared using the type.
+        '''
+        for pdef in self.propsbytype.get(name, ()):
+            func(pdef)
+
+        self._type_hooks[name].append(func)
 
     def getFormDefs(self, form):
         '''

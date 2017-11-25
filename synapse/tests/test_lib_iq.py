@@ -85,6 +85,8 @@ class IqTest(SynTest):
         outp = self.getTestOutp()
         self.isinstance(outp, s_output.OutPut)
 
+        # Cortex helpers
+
         with self.getRamCore() as core:
             self.isinstance(core, s_cores_common.Cortex)
             self.nn(core.getTufoByProp('syn:form', 'guidform'))
@@ -95,6 +97,11 @@ class IqTest(SynTest):
         with self.getDmonCore() as core:
             self.isinstance(core, s_telepath.Proxy)
             self.nn(core.getTufoByProp('syn:form', 'guidform'))
+
+        with self.getDirCore() as core:
+            self.isinstance(core, s_cores_common.Cortex)
+            opt = core.getConfOpt('dir')
+            self.true(os.path.isdir(opt))
 
     def test_iq_syntest_psql(self):
         core = self.getPgCore()

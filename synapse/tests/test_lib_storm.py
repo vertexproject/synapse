@@ -991,6 +991,17 @@ class StormTest(SynTest):
         with self.getRamCore() as core:
             self.true(len(core.eval('syn:prop:ptype=it:host :form->syn:form')) > 1)
 
+    def test_storm_prop_gtor(self):
+        with self.getRamCore() as core:
+
+            fqdn = core.formTufoByProp('inet:fqdn', 'woot.com')
+
+            gtor = core._getPropGtor(':zone')
+            self.eq(gtor(fqdn), ('inet:fqdn:zone', 1))
+
+            gtor = core._getPropGtor('inet:fqdn:zone')
+            self.eq(gtor(fqdn), ('inet:fqdn:zone', 1))
+
 class LimitTest(SynTest):
     def test_limit_default(self):
         # LimitHelper would normally be used with the kwlist arg limit,

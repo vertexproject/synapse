@@ -86,6 +86,17 @@ class Scope:
             self.frames[-1][name] = item = []
         item.extend(vals)
 
+    def pop(self, name, defval=None):
+        '''
+        Pop and return a value (from the last frame) of the scope.
+
+        Args:
+            name (str): The name of the scope variable.
+        Returns:
+            obj: The scope variable value or None
+        '''
+        return self.frames[-1].pop(name, None)
+
     def ctor(self, name, func, *args, **kwargs):
         '''
         Add a constructor to be called when a specific property is not present.
@@ -133,15 +144,23 @@ def get(name, defval=None):
     '''
     Access this thread's scope with default values from glob.
     '''
-    scope = _thr_scope()
-    return scope.get(name, defval=defval)
+    return _thr_scope().get(name, defval=defval)
 
 def set(name, valu):
     '''
     Set a value in the current frame of the local thread scope.
     '''
-    scope = _thr_scope()
-    scope.set(name, valu)
+    _thr_scope().set(name, valu)
+
+def pop(name):
+    '''
+    Pop and return a thread scope variable.
+    Args:
+        name (str): The thread scope variable name.
+    Returns:
+        obj: The scope value or None
+    '''
+    return _thr_scope().pop(name)
 
 def update(vals):
     scope = _thr_scope()
