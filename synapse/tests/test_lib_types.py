@@ -135,6 +135,9 @@ class DataTypesTest(SynTest):
         self.eq(subs.get('hehe'), 'woot.com')
         self.eq(subs.get('haha'), 0x01020304)
 
+        val1, sub1 = tlib.getTypeNorm('foo:bar', {'hehe': 'WOOT.COM', 'haha': 0x01020304})
+        self.eq(valu, val1)
+
     def test_datatype_int(self):
         tlib = s_types.TypeLib()
         self.eq(tlib.getTypeNorm('int', 1), (1, {}))

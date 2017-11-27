@@ -203,8 +203,19 @@ class DnsMod(CoreModule):
                 ]),
 
                 ('inet:dns:look', {'ptype': 'inet:dns:look', 'doc': 'Instance knowledge of a DNS record lookup.'}, [
+
                     ('time', {'ptype': 'time', 'req': 1, 'ro': 1,
                         'doc': 'The date and time that the lookup occurred.'}),
+
+                    ('ipv4', {'ptype': 'inet:ipv4',
+                        'doc': 'The IPv4 address that requested the lookup.'}),
+
+                    ('tcp4', {'ptype': 'inet:tcp4',
+                        'doc': 'The IPv4/TCP server that responded to the lookup.'}),
+
+                    ('udp4', {'ptype': 'inet:udp4',
+                        'doc': 'The IPv4/UDP server that responded to the lookup.'}),
+
                     # one of the following should be set...
                     # FIXME define a way to add subfields to prop decl so we dont have to declare them all
                     ('a', {'ptype': 'inet:dns:a', 'ro': 1,

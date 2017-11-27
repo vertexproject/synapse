@@ -194,6 +194,16 @@ class TelMod(CoreModule):
                 ('tel:mob:imsi', {'ctor': 'synapse.models.telco.ImsiType',
                                   'doc': 'An International Mobile Subscriber Id'}),
 
+                ('tel:mob:imid', {
+                    'subof': 'comp',
+                    'fields': 'imei=tel:mob:imei,imsi=tel:mob:imsi',
+                    'doc': 'Fused knowledge of an IMEI/IMSI used together.'}),
+
+                ('tel:mob:imsiphone', {
+                    'subof': 'comp',
+                    'fields': 'imsi=tel:mob:imsi,phone=tel:phone',
+                    'doc': 'Fused knowledge of an IMSI assigned phone number.'}),
+
                 # TODO: mcc, meid
 
             ),
@@ -232,6 +242,22 @@ class TelMod(CoreModule):
                 ('tel:mob:imsi', {}, [
                     ('mcc', {'ptype': 'int', 'doc': 'The Mobile Country Code'}),
                 ]),
+
+                ('tel:mob:imid', {}, [
+                    ('imei', {'ptype': 'tel:mob:imei',
+                        'doc': 'The IMEI for the phone hardware.'}),
+                    ('imsi', {'ptype': 'tel:mob:imsi',
+                        'doc': 'The IMSI for the phone subscriber.'}),
+                ]),
+
+                ('tel:mob:imsiphone', {}, (
+
+                    ('imsi', {'ptype': 'tel:mob:imsi',
+                        'doc': 'The IMSI with the assigned phone number.'}),
+
+                    ('phone', {'ptype': 'tel:phone',
+                        'doc': 'The phone number assigned to the IMSI.'}),
+                )),
 
             ),
         }
