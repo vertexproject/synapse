@@ -44,7 +44,7 @@ class CommonTest(SynTest):
 
     def test_common_listdir(self):
         with self.getTestDir() as dirn:
-            path = os.path.join(dirn,'woot.txt')
+            path = os.path.join(dirn, 'woot.txt')
             with open(path, 'wb') as fd:
                 fd.write(b'woot')
             retn = tuple(listdir(dirn, glob='*.txt'))

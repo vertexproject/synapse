@@ -541,7 +541,7 @@ class CompType(DataType):
         for name, type in self.optfields:
             fval = valu.get(name)
             if fval is not None:
-                newv.append((name,fval))
+                newv.append((name, fval))
 
         return self._norm_list(newv)
 
