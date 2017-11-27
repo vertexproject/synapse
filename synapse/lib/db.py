@@ -102,8 +102,9 @@ class Xact(s_eventbus.EventBus):
         self.refs -= 1
         if self.refs == 0:
 
-            self.curs.close()
-            self.db.commit()
+            if not self.isfini:
+                self.curs.close()
+                self.db.commit()
 
             if self.lockd:
                 self.lockd = False

@@ -1,6 +1,7 @@
 import os
 import threading
 
+from synapse.exc import IsFini
 import synapse.lib.sqlite as s_sqlite
 import synapse.lib.threads as s_threads
 
@@ -66,7 +67,14 @@ class SqliteTest(SynTest):
 
             # ensure that the pool commit/fini wrote all data...
             with s_sqlite.pool(2, path) as pool:
-                with pool.xact() as xact2:
+                with pool.xact() as xact:
                     # we should see our previously commited write
-                    rows = list(xact2.select('SELECT * FROM test'))
+                    rows = list(xact.select('SELECT * FROM test'))
                     self.len(4, rows)
+
+            with s_sqlite.pool(2, path) as pool:
+                with pool.xact() as xact:
+                    pool.fini()
+                    # the xact should be fini because the pool is fini
+                    self.raises(IsFini, xact.select, 'SELECT * FROM test');
+                    self.raises(IsFini, xact.wrlock);
