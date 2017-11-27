@@ -527,11 +527,32 @@ class CompType(DataType):
 
         return s_common.guid(retn), subs
 
+    def _norm_dict(self, valu, oldval=None):
+
+        newv = []
+        for name, ftype in self.fields:
+
+            fval = valu.get(name)
+            if fval is None:
+                self._raiseBadValu(valu, mesg='missing field: %s' % (name,))
+
+            newv.append(fval)
+
+        for name, ftype in self.optfields:
+            fval = valu.get(name)
+            if fval is not None:
+                newv.append((name, fval))
+
+        return self._norm_list(newv)
+
     def norm(self, valu, oldval=None):
 
         # if it's already a guid, we have nothing to normalize...
         if isinstance(valu, str):
             return self._norm_str(valu, oldval=oldval)
+
+        if isinstance(valu, dict):
+            return self._norm_dict(valu, oldval=oldval)
 
         if not islist(valu):
             self._raiseBadValu(valu, mesg='Expected guid or list/tuple')

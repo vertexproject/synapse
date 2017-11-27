@@ -746,6 +746,11 @@ class InetMod(CoreModule):
                     'doc': 'A WiFi service set identifier (SSID) name.',
                     'ex': 'The Vertex Project'}),
 
+                ('inet:wifi:ap', {
+                    'subof': 'comp',
+                    'fields': 'ssid=inet:wifi:ssid,bssid=inet:mac',
+                    'doc': 'An SSID/MAC address combination for a wireless access point.'}),
+
                 ('inet:email', {
                     'ctor': 'synapse.models.inet.EmailType',
                     'doc': 'An email address.',
@@ -1199,6 +1204,8 @@ class InetMod(CoreModule):
                         'doc': 'The last known latitude/longitude for the node'}),
                     ('host', {'ptype': 'it:host',
                         'doc': 'The guid of the host the interface is associated with.'}),
+                    ('type', {'ptype': 'str:lwr',
+                        'doc': 'The free-form interface type'}),
                     ('mac', {'ptype': 'inet:mac',
                         'doc': 'The ethernet (MAC) address of the interface.'}),
                     ('ipv4', {'ptype': 'inet:ipv4',
@@ -1216,6 +1223,13 @@ class InetMod(CoreModule):
                     ('mob:imsi', {'ptype': 'tel:mob:imsi',
                         'doc': 'The IMSI of the interface.'}),
                 )),
+
+                ('inet:wifi:ap', {}, [
+                    ('ssid', {'ptype': 'inet:wifi:ssid',
+                        'doc': 'The SSID for the wireless access point.'}),
+                    ('bssid', {'ptype': 'inet:wifi:ssid',
+                        'doc': 'The SSID for the wireless access point.'}),
+                ]),
 
                 ('inet:wifi:ssid', {}, []),
 

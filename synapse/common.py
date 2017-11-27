@@ -5,6 +5,7 @@ import json
 import time
 import types
 import base64
+import fnmatch
 import hashlib
 import builtins
 import functools
@@ -196,6 +197,23 @@ def genfile(*paths):
     if not os.path.isfile(path):
         return io.open(path, 'w+b')
     return io.open(path, 'r+b')
+
+def listdir(*paths, glob=None):
+    '''
+    List the (optionally glob filtered) full paths from a dir.
+
+    Args:
+        *paths ([str,...]): A list of path elements
+        glob (str): An optional fnmatch glob str
+    '''
+    path = genpath(*paths)
+
+    names = os.listdir(path)
+    if glob is not None:
+        names = fnmatch.filter(names, glob)
+
+    retn = [os.path.join(path, name) for name in names]
+    return retn
 
 def gendir(*paths, **opts):
     mode = opts.get('mode', 0o700)
