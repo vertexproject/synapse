@@ -47,5 +47,13 @@ class CommonTest(SynTest):
             path = os.path.join(dirn, 'woot.txt')
             with open(path, 'wb') as fd:
                 fd.write(b'woot')
+
+            os.makedirs(os.path.join(dirn, 'nest'))
+            with open(os.path.join(dirn, 'nest', 'nope.txt'), 'wb') as fd:
+                fd.write(b'nope')
+
+            retn = tuple(listdir(dirn))
+            self.len(2, retn)
+
             retn = tuple(listdir(dirn, glob='*.txt'))
             self.eq(retn, ((path,)))

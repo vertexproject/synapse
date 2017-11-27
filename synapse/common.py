@@ -208,14 +208,11 @@ def listdir(*paths, glob=None):
     '''
     path = genpath(*paths)
 
-    retn = []
     names = os.listdir(path)
     if glob is not None:
         names = fnmatch.filter(names, glob)
 
-    for name in names:
-        retn.append(os.path.join(path, name))
-
+    retn = [os.path.join(path, name) for name in names]
     return retn
 
 def gendir(*paths, **opts):
