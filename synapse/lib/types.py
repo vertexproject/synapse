@@ -530,7 +530,7 @@ class CompType(DataType):
     def _norm_dict(self, valu, oldval=None):
 
         newv = []
-        for name, type in self.fields:
+        for name, ftype in self.fields:
 
             fval = valu.get(name)
             if fval is None:
@@ -538,7 +538,7 @@ class CompType(DataType):
 
             newv.append(fval)
 
-        for name, type in self.optfields:
+        for name, ftype in self.optfields:
             fval = valu.get(name)
             if fval is not None:
                 newv.append((name, fval))
