@@ -150,6 +150,8 @@ class DataTypesTest(SynTest):
         self.eq(valu1, val3)
         self.eq(subs, sub3)
 
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'foo:bar', set([1, 2]))
+
     def test_datatype_int(self):
         tlib = s_types.TypeLib()
         self.eq(tlib.getTypeNorm('int', 1), (1, {}))
