@@ -1564,6 +1564,10 @@ class InetMod(CoreModule):
                         'doc': 'The content of the phone field of the contact.'}),
                     ('fax', {'ptype': 'tel:phone',
                         'doc': 'The content of the fax field of the contact.'}),
+                    ('url', {'ptype': 'inet:url',
+                        'doc': 'The URL specified for the contact'}),
+                    ('whois:fqdn', {'ptype': 'inet:fqdn',
+                        'doc': 'The whois server FQDN for the given contact (most likely a registrar).'}),
                 ]),
 
                 ('inet:ssl:tcp4cert', {'ptype': 'inet:ssl:tcp4cert'}, [

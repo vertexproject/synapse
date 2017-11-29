@@ -605,6 +605,14 @@ class InetModelTest(SynTest):
             self.eq(len(core.eval('inet:whois:rec="woot.com@20501217"')), 1)
             self.eq(len(core.eval('inet:whois:contact:rec="woot.com@20501217"')), 1)
 
+            props = {'url': 'http://woot.com/hehe', 'whois:fqdn': 'blah.com'}
+            node = core.formTufoByProp('inet:whois:contact', ('woot.com@2015', 'registrar'), **props)
+            self.eq(node[1].get('inet:whois:contact:url'), 'http://woot.com/hehe')
+            self.eq(node[1].get('inet:whois:contact:whois:fqdn'), 'blah.com')
+
+            self.nn(core.getTufoByProp('inet:fqdn', 'blah.com'))
+            self.nn(core.getTufoByProp('inet:url', 'http://woot.com/hehe'))
+
     def test_model_inet_whois_recns(self):
         with self.getRamCore() as core:
 
