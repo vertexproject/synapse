@@ -235,6 +235,8 @@ class DmonConf:
                 item = self.dmoneval(url)
 
             self.locs[name] = item
+            if isinstance(item, EventBus):
+                self.onfini(item.fini)
 
             # check for a ctor opt that wants us to load a config dict by name
             cfgname = copts.get('config')
@@ -783,10 +785,22 @@ class Daemon(EventBus, DmonConf):
         '''
         Share an object via the telepath protocol.
 
-        Example:
+        Args:
+            name (str): Name of the shared object
+            item (object): Shared object
+            fini (bool): If true, call item.fini() during the daemon fini().
 
-            dmon.share('foo', Foo())
+        Examples:
+            Share an object named 'foo' from the Foo class::
 
+                dmon.share('foo', Foo())
+
+            Share an eventbus named 'ebus' and fini it on daemon shutdown::
+
+                dmon.share('ebus', EventBus(), fini=True).
+
+        Returns:
+            None
         '''
         self.shared[name] = item
         self.reflect[name] = s_reflect.getItemInfo(item)
