@@ -1530,6 +1530,10 @@ class InetModelTest(SynTest):
             node = core.formTufoByProp('inet:wifi:ssid', 'hehe haha')
             self.eq(node[1].get('inet:wifi:ssid'), 'hehe haha')
 
+            node = core.formTufoByProp('inet:wifi:ap', ('lololol', '01:02:03:04:05:06'))
+            self.eq(node[1].get('inet:wifi:ap:ssid'), 'lololol')
+            self.eq(node[1].get('inet:wifi:ap:bssid'), '01:02:03:04:05:06')
+
     def test_model_inet_iface(self):
 
         with self.getRamCore() as core:

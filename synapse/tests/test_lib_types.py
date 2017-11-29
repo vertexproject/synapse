@@ -128,12 +128,29 @@ class DataTypesTest(SynTest):
 
     def test_type_comp(self):
         tlib = s_types.TypeLib()
-        tlib.addType('foo:bar', subof='comp', fields='hehe=inet:fqdn,haha=inet:ipv4')
+        tlib.addType('foo:bar', subof='comp', fields='hehe=inet:fqdn,haha=inet:ipv4', optfields="time=time")
 
         valu, subs = tlib.getTypeNorm('foo:bar', ('WOOT.COM', 0x01020304))
         self.eq(valu, '47e2e1c0f894266153f836a75440f803')
         self.eq(subs.get('hehe'), 'woot.com')
         self.eq(subs.get('haha'), 0x01020304)
+        self.none(subs.get('time'))
+
+        valu1, subs = tlib.getTypeNorm('foo:bar', ('WOOT.COM', 0x01020304, ('time', '20170101')))
+        self.eq(valu1, 'f34a0c6ed2d91772b4790f4da1d2c0d6')
+        self.eq(subs.get('hehe'), 'woot.com')
+        self.eq(subs.get('haha'), 0x01020304)
+        self.eq(subs.get('time'), 1483228800000)
+
+        val2, sub2 = tlib.getTypeNorm('foo:bar', {'hehe': 'WOOT.COM', 'haha': 0x01020304})
+        self.eq(valu, val2)
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'foo:bar', {})
+
+        val3, sub3 = tlib.getTypeNorm('foo:bar', {'hehe': 'WOOT.COM', 'haha': 0x01020304, 'time': '20170101'})
+        self.eq(valu1, val3)
+        self.eq(subs, sub3)
+
+        self.raises(BadTypeValu, tlib.getTypeNorm, 'foo:bar', set([1, 2]))
 
     def test_datatype_int(self):
         tlib = s_types.TypeLib()

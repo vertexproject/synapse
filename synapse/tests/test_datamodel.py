@@ -400,3 +400,18 @@ class DataModelTest(SynTest):
         self.eq(modl.getTypeCast('make:json', 'hehe'), '"hehe"')
         self.eq(modl.getTypeCast('make:json', '"hehe"'), '"\\"hehe\\""')
         self.eq(modl.getTypeCast('make:json', {"z": 1, 'yo': 'dawg', }), '{"yo":"dawg","z":1}')
+
+    def test_datamodel_type_hook(self):
+        defs = []
+        modl = s_datamodel.DataModel()
+        modl.addType('gronk', subof='guid')
+        modl.addPropDef('foo:bar', ptype='gronk')
+        modl.addPropTypeHook('gronk', defs.append)
+
+        self.len(1, defs)
+        self.eq(defs[0][0], 'foo:bar')
+
+        modl.addPropDef('foo:baz', ptype='gronk')
+
+        self.len(2, defs)
+        self.eq(defs[1][0], 'foo:baz')

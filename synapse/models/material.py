@@ -19,7 +19,13 @@ class MatMod(CoreModule):
             'forms': (
 
                 ('mat:item', {}, (
-                    ('name', {'ptype': 'str:lwr', 'doc': 'The human readable name of the material item'}),
+
+                    ('name', {'ptype': 'str:lwr',
+                        'doc': 'The human readable name of the material item'}),
+
+                    ('latlong', {'ptype': 'geo:latlong',
+                        'doc': 'The last known lat/long location of the node'}),
+
                     # FIXME add baseline things like dimensions / mass / etc?
                 )),
 

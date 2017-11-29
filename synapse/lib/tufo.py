@@ -39,6 +39,21 @@ def props(tufo, pref=None):
     plen = len(pref)
     return {p[plen:]: v for (p, v) in tufo[1].items() if p.startswith(pref)}
 
+def prop(node, prop):
+    '''
+    Return a (potentially relative) property from the node tufo.
+
+    Args:
+        node ((str,dict)): The node in tufo form
+        prop (str): The property name ( relative props start with : )
+
+    Returns:
+        obj: The valu or None
+    '''
+    if prop[0] != ':':
+        return node[1].get(prop)
+    return node[1].get(node[1].get('tufo:form') + prop)
+
 def tags(tufo, leaf=False):
 
     fulltags = [p[1:] for p in tufo[1].keys() if p[0] == '#']

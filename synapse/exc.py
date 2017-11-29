@@ -29,12 +29,15 @@ class SynErr(Exception):
 
 class AuthDeny(SynErr): pass
 
+class NoSuchMod(SynErr): pass
+class NoModIden(SynErr): pass
+
 class NoSuchAct(SynErr): pass
 class NoSuchOpt(SynErr): pass
 class NoSuchDir(SynErr): pass
 class NoSuchDyn(SynErr): pass
-class NoSuchMod(SynErr): pass
 class NoSuchSeq(SynErr): pass
+class NoRevPath(SynErr): pass
 class NoRevAllow(SynErr): pass
 class NoSuchConf(SynErr): pass
 class NoSuchCtor(SynErr): pass

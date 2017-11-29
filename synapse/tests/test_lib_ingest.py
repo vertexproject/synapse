@@ -1265,3 +1265,7 @@ class IngTest(SynTest):
             core.addGestData('foo:bar', ['woot.com'])
 
             self.nn(core.getTufoByProp('inet:fqdn', 'woot.com'))
+
+            core.addGestDatas('foo:bar', [['foo.com', 'bar.com'], ['vertex.link']])
+            self.len(3, core.eval('inet:fqdn:domain=com'))
+            self.len(1, core.eval('inet:fqdn:domain=link'))

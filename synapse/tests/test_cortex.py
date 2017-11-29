@@ -2872,8 +2872,7 @@ class CortexTest(SynTest):
                     wait = prox.waiter(2, 'fifo:xmit')
                     ackwait = core.waiter(2, 'fifo:ack')
 
-                    core.putCoreFifo('haha', 'lulz')
-                    core.putCoreFifo('haha', 'rofl')
+                    core.extCoreFifo('haha', ('lulz', 'rofl'))
 
                     self.nn(wait.wait(timeout=1))
                     self.nn(ackwait.wait(timeout=1))

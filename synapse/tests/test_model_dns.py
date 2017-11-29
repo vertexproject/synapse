@@ -1,3 +1,4 @@
+import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 from synapse.tests.common import *
@@ -48,7 +49,10 @@ class DnsModelTest(SynTest):
 
             tick = now()
 
-            t0 = core.formTufoByProp('inet:dns:look', '*', a='WOOT.com/1.002.3.4', time=tick)
+            props = {'a': 'WOOT.com/1.002.3.4', 'time': tick, 'ipv4': '5.5.5.5', 'udp4': '8.8.8.8:80'}
+            t0 = core.formTufoByProp('inet:dns:look', '*', **props)
+            self.eq(t0[1].get('inet:dns:look:ipv4'), 0x05050505)
+            self.eq(t0[1].get('inet:dns:look:udp4'), 0x080808080050)
             self.eq(t0[1].get('inet:dns:look:time'), tick)
             self.eq(t0[1].get('inet:dns:look:a'), 'woot.com/1.2.3.4')
             self.eq(t0[1].get('inet:dns:look:a:fqdn'), 'woot.com')
@@ -71,6 +75,22 @@ class DnsModelTest(SynTest):
             self.eq(t0[1].get('inet:dns:look:aaaa'), 'woot.com/ff::56')
             self.eq(t0[1].get('inet:dns:look:aaaa:fqdn'), 'woot.com')
             self.eq(t0[1].get('inet:dns:look:aaaa:ipv6'), 'ff::56')
+
+            # test host execution lookup record
+            exe = s_common.guid()
+            host = s_common.guid()
+            proc = s_common.guid()
+
+            valu = {'host': host, 'proc': proc, 'exe': exe, 'a:fqdn': 'blah.com'}
+            t0 = core.formTufoByProp('inet:dns:look', valu)
+            self.eq(t0[1].get('inet:dns:look:exe'), exe)
+            self.eq(t0[1].get('inet:dns:look:host'), host)
+            self.eq(t0[1].get('inet:dns:look:proc'), proc)
+            self.eq(t0[1].get('inet:dns:look:a:fqdn'), 'blah.com')
+
+            self.nn(core.getTufoByProp('file:bytes', exe))
+            self.nn(core.getTufoByProp('it:host', host))
+            self.nn(core.getTufoByProp('it:exec:proc', proc))
 
     def test_model_dns_rev6(self):
         with self.getRamCore() as core:

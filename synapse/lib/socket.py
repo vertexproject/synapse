@@ -58,7 +58,20 @@ class Socket(EventBus):
         self.fire('sock:tx:add')
 
     def send(self, byts):
-        return self.sock.send(byts)
+        '''
+        Send bytes on the socket.
+
+        Args:
+            byts (bytes): The bytes to send
+
+        Returns:
+            int: The sent byte count (or None) on fini()
+        '''
+        try:
+            return self.sock.send(byts)
+        except (OSError, ConnectionError) as e:
+            self.fini()
+            return None
 
     def runTxLoop(self):
         '''
@@ -186,7 +199,7 @@ class Socket(EventBus):
         try:
             self.sendall(byts)
             return True
-        except socket.error as e:
+        except (OSError, ConnectionError) as e:
             self.fini()
             return False
 
@@ -257,6 +270,7 @@ class Socket(EventBus):
         except Exception as e:
             return None, None
 
+        logger.debug('Accepting connection from %r', addr)
         sock = self.__class__(sock, accept=True)
 
         relay = self.get('relay')

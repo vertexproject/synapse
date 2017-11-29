@@ -235,15 +235,19 @@ class ItMod(CoreModule):
                 ('it:semver', {
                     'ctor': 'synapse.models.infotech.SemverType',
                     'doc': 'Semantic Version type.'}),
+
                 ('it:prod:soft', {
                     'subof': 'guid',
                     'doc': 'A arbitrary, unversioned software product.'}),
-                ('it:prod:softver',
-                 {'subof': 'guid',
-                  'doc': 'A version of a particular software product.'}),
-                ('it:hostsoft', {'subof': 'comp',
-                                 'fields': 'host,it:host|softver,it:prod:softver',
-                                 'doc': 'A version of a software product which is present on a given host.'}),
+
+                ('it:prod:softver', {
+                    'subof': 'guid',
+                    'doc': 'A version of a particular software product.'}),
+
+                ('it:hostsoft', {
+                    'subof': 'comp',
+                    'fields': 'host,it:host|softver,it:prod:softver',
+                    'doc': 'A version of a software product which is present on a given host.'}),
             ),
 
             'forms': (
@@ -254,6 +258,7 @@ class ItMod(CoreModule):
 
                     # FIXME we probably eventually need a bunch of stuff here...
                     ('ipv4', {'ptype': 'inet:ipv4', 'doc': 'The last known ipv4 address for the host.'}),
+                    ('latlong', {'ptype': 'geo:latlong', 'doc': 'The last known location for the node'}),
                 ]),
 
                 ('it:hostname', {}, ()),

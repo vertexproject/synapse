@@ -84,3 +84,13 @@ class TestTufoProps(SynTest):
         self.eq(r, {'sound': 'quack', 'stype': 'duck'})
         r = s_tufo.props(self.t3, pref='geo')
         self.eq(r, {})
+
+    def test_lib_tufo_prop(self):
+
+        node = ('asdf', {'tufo:form': 'foo:bar', 'foo:bar:baz': 10})
+
+        self.eq(s_tufo.prop(node, ':baz'), 10)
+        self.eq(s_tufo.prop(node, 'foo:bar:baz'), 10)
+
+        self.none(s_tufo.prop(node, ':haha'))
+        self.none(s_tufo.prop(node, 'hehe:haha'))

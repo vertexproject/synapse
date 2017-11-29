@@ -71,3 +71,23 @@ class TelcoTest(SynTest):
             # < 15 digits
             self.raises(BadTypeValu, core.formTufoByProp, 'tel:mob:imsi', 'hehe')
             self.raises(BadTypeValu, core.formTufoByProp, 'tel:mob:imsi', 1111111111111111)
+
+    def test_model_telco_imid(self):
+        with self.getRamCore() as core:
+            node = core.formTufoByProp('tel:mob:imid', (490154203237518, 310150123456789))
+            self.eq(node[1].get('tel:mob:imid:imsi'), 310150123456789)
+            self.eq(node[1].get('tel:mob:imid:imei'), 490154203237518)
+
+            self.nn(core.getTufoByProp('tel:mob:imei', 490154203237518))
+            self.nn(core.getTufoByProp('tel:mob:imsi', 310150123456789))
+
+    def test_model_telco_imsiphone(self):
+
+        with self.getRamCore() as core:
+
+            node = core.formTufoByProp('tel:mob:imsiphone', (310150123456789, '+7(495) 124-59-83'))
+            self.eq(node[1].get('tel:mob:imsiphone:imsi'), 310150123456789)
+            self.eq(node[1].get('tel:mob:imsiphone:phone'), 74951245983)
+
+            self.nn(core.getTufoByProp('tel:phone', 74951245983))
+            self.nn(core.getTufoByProp('tel:mob:imsi', 310150123456789))

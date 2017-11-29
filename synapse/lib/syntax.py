@@ -9,6 +9,9 @@ This module implements syntax parsing for the storm runtime.
 '''
 
 whites = set(' \t\n')
+binset = set('01')
+decset = set('0123456789')
+hexset = set('01234567890abcdef')
 intset = set('01234567890abcdefx')
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 timeset = set('01234567890')
@@ -67,11 +70,68 @@ def parse_literal(text, off, trim=True):
     return parse_int(text, off, trim=trim)
 
 def parse_int(text, off, trim=True):
-    numstr, off = nom(text, off, intset, trim=trim)
-    try:
-        return int(numstr, 0), off
-    except Exception as e:
-        raise s_common.BadSyntaxError(expected='Literal', at=off, got=text[off:off + 10])
+
+    _, off = nom(text, off, whites)
+
+    neg = False
+    if nextchar(text, off, '-'):
+        neg = True
+        _, off = nom(text, off + 1, whites)
+
+    valu = None
+    if nextstr(text, off, '0x'):
+        valu, off = nom(text, off + 2, hexset)
+        if not valu:
+            raise s_common.BadSyntaxError(at=off, mesg='0x expected hex')
+        valu = int(valu, 16)
+
+    elif nextstr(text, off, '0b'):
+        valu, off = nom(text, off + 2, binset)
+        if not valu:
+            raise s_common.BadSyntaxError(at=off, mesg='0b expected bits')
+        valu = int(valu, 2)
+
+    else:
+
+        valu, off = nom(text, off, decset)
+        if not valu:
+            raise s_common.BadSyntaxError(at=off, mesg='expected digits')
+
+        if not nextchar(text, off, '.'):
+            valu = int(valu)
+
+        else:
+            frac, off = nom(text, off + 1, decset)
+            valu = float('%s.%s' % (valu, frac))
+
+    if neg:
+        valu = -valu
+
+    return valu, off
+
+def parse_float(text, off, trim=True):
+
+    _, off = nom(text, off, whites)
+
+    valu = ''
+    if nextchar(text, off, '-'):
+        valu += '-'
+        _, off = nom(text, off + 1, whites)
+
+    digs, off = nom(text, off, decset)
+    if not digs:
+        raise s_common.BadSyntaxError(at=off, mesg='expected digits')
+
+    valu += digs
+
+    if nextchar(text, off, '.'):
+        frac, off = nom(text, off + 1, decset)
+        if not frac:
+            raise s_common.BadSyntaxError(at=off, mesg='expected .<digits>')
+
+        valu = valu + '.' + frac
+
+    return float(valu), off
 
 def nom_whitespace(text, off):
     return nom(text, off, whites)

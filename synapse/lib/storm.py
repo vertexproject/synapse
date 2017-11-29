@@ -1276,6 +1276,22 @@ class Runtime(Configable):
         # TODO: users and perms
         # TODO: use edits here for requested delete
 
+    def _getPropGtor(self, prop):
+
+        # an optimized gtor factory to avoid startswith() over and over...
+        if not prop.startswith(':'):
+
+            def fullgtor(node):
+                return prop, node[1].get(prop)
+
+            return fullgtor
+
+        def relgtor(node):
+            full = node[1].get('tufo:form') + prop
+            return full, node[1].get(full)
+
+        return relgtor
+
     def _stormOperSetProp(self, query, oper):
         # Coverage of this function is affected by the following issue:
         # https://bitbucket.org/ned/coveragepy/issues/198/continue-marked-as-not-covered
