@@ -270,6 +270,7 @@ class Socket(EventBus):
         except Exception as e:
             return None, None
 
+        logger.debug('Accepting connection from %r', addr)
         sock = self.__class__(sock, accept=True)
 
         relay = self.get('relay')
