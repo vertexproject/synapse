@@ -207,6 +207,21 @@ class DaemonTest(SynTest):
             core = dmon.locs.get('bar')
             self.eq(core.caching, 1)
 
+    def test_daemon_fini_config(self):
+        conf = {
+
+            'ctors': (
+                ('foo', 'ctor://synapse.cortex.openurl("ram:///foocore")', {'onfini': True}),
+                ('bar', 'ctor://synapse.cortex.openurl("ram:///barcore")', {'onfini': False}),
+            )
+        }
+        with s_daemon.Daemon() as dmon:
+            dmon.loadDmonConf(conf)
+
+        # Ensure that we fini'd the objects specified with onfini in the ctors
+        self.true(dmon.locs.get('foo').isfini)
+        self.false(dmon.locs.get('bar').isfini)
+
     def test_daemon_ctor_nonurl(self):
 
         s_dyndeps.addDynAlias('test:blah', Blah)

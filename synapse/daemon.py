@@ -266,6 +266,9 @@ class DmonConf:
 
                 item.setConfOpts(opts)
 
+            if copts.get('onfini', False):
+                self.onfini(item.fini)
+
             # check for a match between config and ctor names
             opts = configs.get(name)
             if opts is not None:
