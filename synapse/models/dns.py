@@ -204,7 +204,7 @@ class DnsMod(CoreModule):
 
                 ('inet:dns:look', {'ptype': 'inet:dns:look', 'doc': 'Instance knowledge of a DNS record lookup.'}, [
 
-                    ('time', {'ptype': 'time', 'req': 1, 'ro': 1,
+                    ('time', {'ptype': 'time', 'ro': 1,
                         'doc': 'The date and time that the lookup occurred.'}),
 
                     ('ipv4', {'ptype': 'inet:ipv4',
@@ -215,6 +215,15 @@ class DnsMod(CoreModule):
 
                     ('udp4', {'ptype': 'inet:udp4',
                         'doc': 'The IPv4/UDP server that responded to the lookup.'}),
+
+                    ('exe', {'ptype': 'file:bytes',
+                        'doc': 'The file containing the code that attempted the DNS lookup.'}),
+
+                    ('proc', {'ptype': 'it:exec:proc',
+                        'doc': 'The process that attempted the DNS lookup.'}),
+
+                    ('host', {'ptype': 'it:host',
+                        'doc': 'The host that attempted the DNS lookup.'}),
 
                     # one of the following should be set...
                     # FIXME define a way to add subfields to prop decl so we dont have to declare them all
