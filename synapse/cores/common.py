@@ -461,6 +461,20 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if path is not None and os.path.isdir(path):
             shutil.rmtree(path, ignore_errors=True)
 
+    def getCoreTasks(self):
+        '''
+        Get a list of tasks which have been registered on the Cortex.
+
+        Returns:
+            list: A list of tasks which may be tasked via storm task() command.
+        '''
+        ret = set()
+        for name, funcs in list(self._syn_funcs.items()):
+            if name.startswith('task:'):
+                ret.add(name.split('task:')[1])
+        ret = sorted(ret)
+        return ret
+
     def isRuntProp(self, prop):
         '''
         Return True if the given property name is a runtime node prop.

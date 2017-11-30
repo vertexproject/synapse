@@ -1002,6 +1002,26 @@ class StormTest(SynTest):
             gtor = core._getPropGtor('inet:fqdn:zone')
             self.eq(gtor(fqdn), ('inet:fqdn:zone', 1))
 
+    def test_storm_gettasks(self):
+        with self.getRamCore() as core:
+
+            def f1(mesg):
+                pass
+
+            def f2(mesg):
+                pass
+
+            core.on('task:hehe:haha', f1)
+            core.on('task:hehe:haha', f2)
+            core.on('task:wow', f1)
+
+            nodes = core.eval('get:tasks()')
+            self.len(2, nodes)
+            for node in nodes:
+                self.none(node[0])
+                self.eq(node[1].get('tufo:form'), 'task')
+                self.isin(node[1].get('task'), ('hehe:haha', 'wow'))
+
 class LimitTest(SynTest):
     def test_limit_default(self):
         # LimitHelper would normally be used with the kwlist arg limit,
