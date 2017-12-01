@@ -468,11 +468,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         Returns:
             list: A list of tasks which may be tasked via storm task() command.
         '''
-        ret = set()
-        for name, funcs in list(self._syn_funcs.items()):
-            if name.startswith('task:'):
-                ret.add(name.split('task:')[1])
-        ret = sorted(ret)
+        ret = [name.split('task:')[1] for name in list(self._syn_funcs.keys()) if name.startswith('task:')]
+        ret.sort()
         return ret
 
     def isRuntProp(self, prop):

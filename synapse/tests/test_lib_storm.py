@@ -758,6 +758,10 @@ class StormTest(SynTest):
             # We have to know queue names to add nodes too
             self.raises(BadSyntaxError, core.eval, 'inet:ipv4 task()')
 
+            # We have some task names too!
+            nodes = core.eval('get:tasks()')
+            self.len(4, nodes)
+
     def test_storm_task_telepath(self):
         with self.getDmonCore() as core_prox:
             foo = []
