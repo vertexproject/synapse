@@ -3016,6 +3016,24 @@ class CortexTest(SynTest):
             # We cannot add a universal prop which is associated with a form
             self.raises(BadPropConf, core.addPropDef, 'node:poorform', univ=1, req=1, ptype='bool', form='file:bytes')
 
+    def test_cortex_gettasks(self):
+        with self.getRamCore() as core:
+
+            def f1(mesg):
+                pass
+
+            def f2(mesg):
+                pass
+
+            core.on('task:hehe:haha', f1)
+            core.on('task:hehe:haha', f2)
+            core.on('task:wow', f1)
+
+            tasks = core.getCoreTasks()
+            self.len(2, tasks)
+            self.isin('hehe:haha', tasks)
+            self.isin('wow', tasks)
+
 class StorageTest(SynTest):
 
     def test_nonexist_ctor(self):

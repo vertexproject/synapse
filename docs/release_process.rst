@@ -55,14 +55,45 @@ The following can be used as a markdown template for Github release notes::
 Cutting the Release
 -------------------
 
-This includes three parts:
+This includes four parts:
 
+    #. Preparing the release notes/changelog information.
     #. Tagging the release and pushing to github.
     #. Publishing the release on pypi.
     #. Publishing new docker images on dockerhub.
 
+Preparing The Release Notes
+***************************
+
+Release notes are to be prepared as per the release notes format noted above.
+
+The markdown template also needs to be added to the top of the ``CHANGELOG.md`` file.  This allows us to keep the
+changes in repository as well. This file needs to be updated prior to the release tagging. The formatting for adding
+the content to the file is the following::
+
+    <git tag> - YYYY-MM-DD
+    ----------------------
+
+    ## New Features
+    - item 1
+    - item 2
+
+    ## Enhancements
+    - item 1
+    - item 2
+
+    ## Bugs
+    - item 1
+    - item 2
+
+    ## Documentation
+    - item 1
+    - item
+
+This also allows for machine parseable notes so that ``pyup.io`` can show our changelogs.
+
 Tagging the Release
-~~~~~~~~~~~~~~~~~~~
+*******************
 
 Version tagging in Synapse is managed by bumpversion. This handles updating the .py files containing the version
 number in them, as well as creating git tags and commit messages.  There should not be a need to manually edit
@@ -90,11 +121,11 @@ Next, go to github at https://github.com/vertexproject/synapse/tags and edit the
 pushed up.  Add the release notes compiled from the previous step.
 
 Publishing on Pypi
-~~~~~~~~~~~~~~~~~~
+*******************
 Coming soon (this may be automated very soon)
 
 Updating Docker images
-~~~~~~~~~~~~~~~~~~~~~~
+**********************
 Coming soon
 
 
