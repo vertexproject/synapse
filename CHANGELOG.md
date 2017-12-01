@@ -1,6 +1,20 @@
 Changelog
 =========
 
+v0.0.38 - 2017-12-01
+--------------------
+
+## New Features
+- #545 - Added storm macro function ``get:tasks`` and an API for introspecting tasks which have been registered on a Cortex.
+
+## Enhancements
+- #544 - Added new fields (``url`` and ``whois:fqdn``) to ``whois:contact``.
+- #547 - Enabled pyup monitoring for Synapse release notes and added config file to disable pyup update checks.
+- #549 - Removed ``cryptography`` from setup.py.
+
+## Documentation
+- #548 - Added CHANGELOG.md to maintain release notes within the repository.
+
 v0.0.37 - 2017-11-29
 --------------------
 
