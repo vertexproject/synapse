@@ -441,6 +441,8 @@ class Runtime(Configable):
         self.setOperFunc('fromtags', self._stormOperFromTags)
         self.setOperFunc('jointags', self._stormOperJoinTags)
 
+        self.setOperFunc('get:tasks', self._stormOperGetTasks)
+
         self.setOperFunc('show:cols', self._stormOperShowCols)
 
         # Cache compiled regex objects.
@@ -1513,6 +1515,15 @@ class Runtime(Configable):
         for tname in args:
             evt = ':'.join(['task', tname])
             core.fire(evt, nodes=nodes, storm=True, **opts)
+
+    def _stormOperGetTasks(self, query, oper):
+
+        core = self.getStormCore()
+        tasks = core.getCoreTasks()
+
+        for task in tasks:
+            node = s_tufo.ephem('task', task)
+            query.add(node)
 
     def _stormOperTree(self, query, oper):
 
