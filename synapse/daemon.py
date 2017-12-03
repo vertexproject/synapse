@@ -77,6 +77,7 @@ class DmonConf:
 
         self.forkperm = {}
         self.evalcache = {}
+        self._fini_items = []
 
         self.onfini(self._onDmonFini)
 
@@ -101,6 +102,10 @@ class DmonConf:
     def _onDmonFini(self):
         for name in list(self.forks.keys()):
             self.killDmonFork(name, perm=True)
+
+        for item in self._fini_items:
+            item.fini()
+        self._fini_items = []
 
     def _addConfValu(self, conf, prop):
         valu = conf.get(prop)
@@ -236,7 +241,8 @@ class DmonConf:
 
             self.locs[name] = item
             if isinstance(item, EventBus):
-                self.onfini(item.fini)
+                # Insert ebus items in LIFO order for fini
+                self._fini_items.insert(0, item)
 
             # check for a ctor opt that wants us to load a config dict by name
             cfgname = copts.get('config')
