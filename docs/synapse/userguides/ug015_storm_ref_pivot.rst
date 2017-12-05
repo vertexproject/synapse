@@ -111,7 +111,46 @@ Todo
 
 refs()
 ------
-Todo
+Returns the set of nodes that 'reference' or are 'referenced by' the working set of nodes.
+
+Optional parameters:
+
+* **in:** return all nodes that have a secondary property *<type> (<ptype>) = <valu>* that references any primary *<prop> = <valu>* in the working set of nodes.
+* **out:** return all the nodes whose primary *<prop> = <valu>* is referenced by any secondary property *<type> (<ptype>) = <valu>* in the working set of nodes.
+* If no parameters are specified, ``refs()`` will return the combined results of both ``refs(in)`` and ``refs(out)``.
+
+**Operator syntax:**
+
+.. parsed-literal::
+  **refs(** [ **in** | **out** ] **)**
+
+**Macro syntax:**
+
+N/A
+
+**Examples:**
+
+* Return all of the nodes that **reference** a set of nodes:
+  ::
+    refs(in)
+
+  Assume a set of inet:fqdn nodes in the working set. ``refs(in)`` will return any node with a secondary property type (ptype) = valu that matches those inet:fqdns. For example, this may include inet:dns:a nodes (inet:dns:a:fqdn), inet:whois:rec nodes (inet:whois:rec:fqdn), additional inet:fqdn nodes (inet:fqdn:domain), etc.
+
+* Return all the nodes **referenced by** a set of nodes:
+  ::
+    refs(out)
+
+  Assume a set of inet:dns:a nodes in the working set. ``refs(out)`` will return any node with a primary prop = valu that matches any secondary property type (ptype) = valu in the working set. As an inet:dns:a record includes secondary properties of type inet:fqdn (inet:dns:a:fqdn) and inet:ipv4 (inet:dns:a:ipv4), the query may return those node types.
+
+* Return all of the nodes that **reference** or are **referenced by** a set of nodes:
+  ::
+    refs()
+
+  Assume a set of inet:email nodes in the working set. An inet:email type = valu may be referenced by a variety of forms, including inet:whois:contact (inet:whois:contact:email), inet:dns:soa (inet:dns:soa:email) or inet:web:acct (inet:web:acct:email). Based on its secondary properties, an inet:email node may reference forms such as inet:fqdn (inet:email:fqdn) or inet:user (inet:email:user).
+
+**Usage notes:**
+
+* ``refs()`` / ``refs(in)`` / ``refs(out)`` can be useful in an "exploratory" manner to identify what other nodes / forms are "reachable" (can be pivoted to or from) from the working set of nodes. However, because ``refs()`` essentially carries out all possible pivots, the set of nodes returned may be quite large. In such cases a more focused ``pivot()`` or ``join()`` operation may be more useful.
 
 fromtags()
 ----------
