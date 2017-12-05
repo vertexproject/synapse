@@ -232,7 +232,7 @@ N/A
 
 **Usage notes:**
 
-* ``totags()`` and ``totags(leaf=1)`` return the set of explicitly present (leaf) tags only. For example, if nodes in the working set have the tag ``#foo.bar.baz``, ``totags()`` will return ``syn:tag=foo.bar.baz``, but not ``syn:tag=foo.bar`` or ``syn:tag=foo``, although those tags are implicitly present on the nodes.
+* ``totags()`` and ``totags(leaf=1)`` return the set of explicitly present (leaf) tags only. For example, if nodes in the working set have the tag ``#foo.bar.baz``, ``totags()`` will return ``syn:tag=foo.bar.baz``, but not ``syn:tag=foo.bar`` or ``syn:tag=foo``.
 
 * As tags represent analytical observations or assessments, ``totags()`` can be useful for "summarizing" the set of assessments associated with a given set of nodes. For example, with respect to cyber threat data, assume you are using tags to track malicious activity associated with a particular threat cluster (threat group) – say "Threat Cluster 5". After retrieving all nodes tagged as part of that threat cluster, you can use ``totags()`` to list all other tags (analytical observations) that are associated with the nodes in that threat cluster. Depending on the analytical model (tag structure) you are using, those tags could represent the names of malware families, sets of tactics, techniques, and procedures (TTPs) used by the threat cluster, and so on:
   ::
@@ -245,63 +245,103 @@ N/A
 
 jointags()
 ----------
-Todo
+Given a working set of nodes, returns all specified nodes that have any of the tags applied to any of the working set of nodes.
+
+``jointags()`` can be thought of as executing a ``totags()`` operation followed by a ``fromtags()`` operation.
+
+Optional parameters:
+
+* **<form>:** return only nodes of the specified form(s).
+* If no forms are specified, ``jointags()`` returns all nodes for all forms to which the tags are applied.
+
+**Operator syntax:**
+
+.. parsed-literal::
+  
+  **jointags(** [ *<form_1>* **,** *<form_2>* **,** *...<form_n>* ] **)**
+
+**Macro syntax:**
+
+N/A
+
+**Examples:**
+
+* Return the set of nodes that share any of the tags applied to the working set of nodes:
+  ::
+    jointags()
+
+* Return the set of all ``inet:fqdn`` and ``inet:email`` nodes that share any of the tags applied to the working set of nodes:
+  ::
+    jointags(inet:fqdn,inet:email)
+
+**Usage notes:**
+
+* ``jointags()`` pivots using the set of explicitly present (leaf) tags only. For example if nodes in the working set have the tag ``#foo.bar.baz``, ``jointags()`` will return other nodes with ``#foo.bar.baz``, but not nodes with ``#foo.bar`` or ``#foo`` alone.
+
+* ``jointags()``, like ``refs()``, can be useful to "explore" other nodes that share some analytical assessment (tag) with the working set of nodes, but may return a large number of nodes. It may be more efficient to narrow the scope of the query using ``totags()`` in combination with a filter operator (e.g., to potentially limit the specific tags selected) followed by ``fromtags()``.
 
 tree()
 ------
 
-The `tree()` operator acts as a recursive pivot for forms which reference their own types or multiple duplicate ptypes.
+Recursively return the set of nodes that have a property type (ptype) = valu that matches the specified property type (ptype) = valu from the working set of nodes.
+
+``tree()`` can be thought of as a recursive pivot that can be used to "traverse" a set of nodes which reference their own types or multiple duplicate ptypes (such as domains / subdomains, or tags in a tag hierarchy). This allows a user to build a set of nodes which have self-referencing forms. The recursive pivot takes the place of multiple single pivots.
+
+Optional parameters:
+
+* **recurnlim:** recursive number limit; specify the number of recursive queries to execute.
+* In the absence of a ``recurnlim`` parameter, ``tree()`` assumes a default limit of 20 (``recurnlim=20``).
+* To disable limits on recursion (e.g., continue executing pivots until no more results are returned), ``recurnlim`` should be set to 0 (``recurnlim=0``).
 
 **Operator Syntax:**
 
 .. parsed-literal::
 
-  *<query>* **tree(** *<srcprop> , <dstprop>,* [ *recurnlim=<n>* ] **)**
-
-  *<query>* **tree(** *<relative srcprop>, <dstprop>,* [ *recurnlim=<n>* ] **)**
-
-  *<query>* **tree(** *<dstprop>,* [ *recurnlim=<n>* ] **)**
-
+  **tree(** [ *<srcprop>* **,** ] *<dstprop>* [ **, recurnlim=** *<n>* ] **)**
+  
 **Macro Syntax:**
 
-There is no macro syntax for the tree() operator.
+N/A
 
 **Examples:**
-::
 
-  # Full form - traversing to all of the woot.com children nodes
-  inet:fqdn = woot.com tree( inet:fqdn, inet:fqdn:domain )
+*Traverse "down" a set of nodes:*
 
-  # Relative source only form - traversing ou:suborg relationships
-  ou:org:alias = someorg -> ou:suborg:org tree( :sub, ou:suborg:org ) :sub -> ou:org
+* Given a set of domains (``inet:fqdn``) in the working set, return the domain(s) and all of their child domains (subdomains):
+  ::
+    tree( inet:fqdn, inet:fqdn:domain )
+    
+    tree( inet:fqdn:domain )
 
-  # Destination only form - traversing all of the woot.com children nodes.
-  inet:fqdn = woot.com tree( inet:fqdn:domain )
+* Given a base tag (``syn:tag``) in the working set, return all tags in that tag's hierarchy / tag tree:
+  ::
+    tree( syn:tag, syn:tag:up )
+    
+    tree( syn:tag:up )
 
-  # Select the entire syn:tage=foo tree.
-  syn:tag=foo tree(syn:tag, syn:tag:up)
+* Given a parent organization (``ou:org``), pivot to the organization / sub-organization nodes (``ou:suborg``) where that org is a parent, and return all of the sub-organizations under that parent (full Storm query provided for clarity):
+  ::
+     ask --props ou:org=<org_guid> -> ou:suborg:org tree( ou:suborg:sub,
+       ou:suborg:org ) :sub -> ou:org
 
-  # tree() up - select all parent fqdns of mx.somebox.woot.com
-  inet:fqdn = mx.somebox.woot.com tree( inet:fqdn:domain, inet:fqdn )
+*Traverse "up" a set of nodes:*
+
+* Given a set of domains (``inet:fqdn``) in the working set, return the domain(s) and all of their parent domains:
+  ::
+    tree( inet:fqdn:domain, inet:fqdn )
+    
+    tree( :domain, inet:fqdn)
+
+* Given a child organization (``ou:org``), pivot to the organization / sub-organization nodes (``ou:suborg``) where that org is a child, and return all of the parent organizations above that child (full Storm query provided for clarity):
+  ::
+    ask --props ou:org=<org_guid> -> ou:suborg:sub tree( ou:suborg:org,
+      ou:suborg:sub ) :org -> ou:org
 
 **Usage Notes:**
 
-* The ``tree()`` operator acts as a recursive pivot. This allows a user to build a set of nodes which have
-  self-referencing forms. For example, in the ``syn:tag`` form, the ``syn:tag:up`` ptype is a ``syn:tag``, so we can
-  recursively pivot on it.
-* The ``recurlim`` option may be set to limit the depth of the number of lookups performed by the tree() operator. This
-  can be used to only grab a portion of a node tree.  This value defaults to 20; and can be set to zero (``recurlim=0``)
-  in order to disable this limit.
-* The ``tree()`` operator does consume all of the nodes present in the source `query` it uses to start pivoting from,
-  and only returns the nodes from the resulting pivots.
+* If *<srcprop>* is self-evident (e.g., if *<srcprop>* is the primary property type = valu of the working set of nodes) it can be omitted.
+* If *<srcprop>* is a secondary property that is self-evident (relative to the working set of nodes) then *<srcprop>* can be specified using relative property syntax (e.g., *:baz* instead of *foo:bar:baz* for nodes of type *foo:bar*).
 
-**Operator Syntax Notes:**
-
-* N/A
-
-**Macro Syntax Notes:**
-
-* ``tree()`` has no Macro syntax implementation.
 
 .. _storm.py: https://github.com/vertexproject/synapse/blob/master/synapse/lib/storm.py
 
