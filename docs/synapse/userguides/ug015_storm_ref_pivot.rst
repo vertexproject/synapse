@@ -36,7 +36,74 @@ Optional parameters:
 
 **Examples:**
 
+* Pivot from a set of domains (``inet:fqdn`` nodes) to the DNS A records for those domains:
+  ::
+    pivot( inet:fqdn, inet:dns:a:fqdn )
+    
+    pivot( inet:dns:a:fqdn )
+    
+    inet:fqdn  ->  inet:dns:a:fqdn
+    
+    -> inet:dns:a:fqdn
 
+* Pivot from a set of domains (``inet:fqdn`` nodes) to the DNS A records for those domains, but limit the results to 10 nodes:
+  ::
+    pivot( inet:fqdn, inet:dns:a:fqdn, limit=10 )
+    
+    pivot( inet:dns:a:fqdn, limit=10 )
+    
+    inet:fqdn^10  ->  inet:dns:a:fqdn
+
+* Pivot from a set of domains (``inet:fqdn`` nodes) to the DNS A records for those domains, and from the IP addresses in the DNS A records to the set of IPv4 nodes (e.g., pivot from a set of domains to the set of IP addresses the domains resolved to).
+  ::
+    pivot(inet:fqdn,inet:dns:a:fqdn) pivot(inet:dns:a:ipv4,inet:ipv4)
+      
+    pivot(inet:dns:a:fqdn) pivot(:ipv4,inet:ipv4)
+    
+    inet:fqdn -> inet:dns:a:fqdn inet:dns:a:ipv4 
+      -> inet:ipv4
+    
+    -> inet:dns:a:fqdn :ipv4 -> inet:ipv4
+
+* Pivot from a set of domains to the set of subdomains for those domains:
+  ::
+    pivot(inet:fqdn,inet:fqdn:domain)
+    
+    pivot(inet:fqdn:domain)
+    
+    inet:fqdn -> inet:fqdn:domain
+    
+    -> inet:fqdn:domain
+
+* Pivot from a set of email addresses to the set of domains registered to those email addresses.
+  ::
+    pivot(inet:email,inet:whois:regmail:email)
+      pivot(inet:whois:regmail:fqdn,inet:fqdn)
+    
+    pivot(inet:whois:regmail:email) pivot(:fqdn,inet:fqdn)
+    
+    inet:email -> inet:whois:regmail:email 
+      inet:whois:regmail:fqdn -> inet:fqdn
+    
+    -> inet:whois:regmail:email :fqdn -> inet:fqdn
+
+* Pivot from a set of email addresses to the set of whois records associated with those email addresses.
+  ::
+    pivot(inet:email,inet:whois:contatct:email)
+      pivot(inet:whois:contact:rec,inet:whois:rec)
+    
+    pivot(inet:whois:contact:email) pivot(:rec,inet:whois:rec)
+    
+    inet:email -> inet:whois:contact:email inet:whois:contact:rec
+      -> inet:whois:rec
+    
+    -> inet:whois:contact:email inet:whois:contact:rec -> inet:whois:rec
+
+**Usage notes:**
+
+* If the source property for the pivot is the primary property of the working set of nodes, the *<srcprop>* can be omitted from Operator syntax. The *<srcprop>* can also be omitted from Macro syntax, unless a limit parameter ( ``^`` ) is specified.
+* Relative properties can be used to specify *<srcprop>* as the source form(s) are, by definition, the form(s) of the working set of nodes.
+* The ``limit=`` parameter can be provided as input to the ``pivot()`` operator itself; alternately the ``limit()`` operator_ can be used to specify a limit.
 
 join()
 ------
@@ -118,3 +185,5 @@ There is no macro syntax for the tree() operator.
 
 .. _conventions: ../userguides/ug011_storm_basics.html#syntax-conventions
 __ conventions_
+
+.. _operator: ../userguides/ug018_storm_ref_misc.html#limit
