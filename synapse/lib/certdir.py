@@ -14,9 +14,9 @@ def iterFqdnUp(fqdn):
         yield '.'.join(levs[i:])
 
 class CertDir:
-    CRYPTO_NUMBITS = 4096
 
     def __init__(self, path=None):
+        self.crypto_numbits = 4096
 
         if path is None:
             path = defdir
@@ -103,7 +103,7 @@ class CertDir:
 
         if pkey is None:
             pkey = crypto.PKey()
-            pkey.generate_key(crypto.TYPE_RSA, CertDir.CRYPTO_NUMBITS)
+            pkey.generate_key(crypto.TYPE_RSA, self.crypto_numbits)
 
         cert = crypto.X509()
         cert.set_pubkey(pkey)
@@ -260,7 +260,7 @@ class CertDir:
 
     def _genPkeyCsr(self, name, mode, outp=None):
         pkey = crypto.PKey()
-        pkey.generate_key(crypto.TYPE_RSA, CertDir.CRYPTO_NUMBITS)
+        pkey.generate_key(crypto.TYPE_RSA, self.crypto_numbits)
 
         xcsr = crypto.X509Req()
         xcsr.get_subject().CN = name
