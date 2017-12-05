@@ -198,7 +198,50 @@ N/A
 
 totags()
 --------
-Todo
+Returns the set of all tags (``syn:tag`` nodes) applied to the current working set of nodes.
+
+``totags()`` can be thought of as pivoting **from** a set of **nodes**, **to** the set of **tags** applied to those nodes.
+
+Optional parameters:
+
+* **leaf:** specify whether ``totags()`` should return **only** leaf tags (``leaf = 1``) or **all** tags in the tag hierarchy (``leaf = 0``).
+
+* If no parameter is specified, ``totags()`` assumes ``leaf = 1``.
+
+**Operator syntax:**
+
+.. parsed-literal::
+  
+  **totags(** [ **leaf = 1** | **0** ] **)**
+
+**Macro syntax:**
+
+N/A
+
+**Examples:**
+
+* Return the set of explicitly specified (leaf) tags applied to a given set of nodes:
+  ::
+    totags( leaf = 1 )
+    
+    totags()
+
+* Return all tags applied to a given set of nodes:
+  ::
+    totags( leaf = 0 )
+
+**Usage notes:**
+
+* ``totags()`` and ``totags(leaf=1)`` return the set of explicitly present (leaf) tags only. For example, if nodes in the working set have the tag ``#foo.bar.baz``, ``totags()`` will return ``syn:tag=foo.bar.baz``, but not ``syn:tag=foo.bar`` or ``syn:tag=foo``, although those tags are implicitly present on the nodes.
+
+* As tags represent analytical observations or assessments, ``totags()`` can be useful for "summarizing" the set of assessments associated with a given set of nodes. For example, with respect to cyber threat data, assume you are using tags to track malicious activity associated with a particular threat cluster (threat group) – say "Threat Cluster 5". After retrieving all nodes tagged as part of that threat cluster, you can use ``totags()`` to list all other tags (analytical observations) that are associated with the nodes in that threat cluster. Depending on the analytical model (tag structure) you are using, those tags could represent the names of malware families, sets of tactics, techniques, and procedures (TTPs) used by the threat cluster, and so on:
+  ::
+    ask #cno.threat.t5.tc totags()
+
+* ``totags()`` and ``fromtags()`` are often used together to:
+  
+  * pivot from a set of nodes, to the tags applied to those nodes, to other nodes that have the same tags; or
+  * from a set of tags, to nodes those tags are applied to, to other tags applied to those same nodes.
 
 jointags()
 ----------
