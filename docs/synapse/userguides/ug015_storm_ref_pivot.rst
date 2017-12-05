@@ -115,8 +115,8 @@ Returns the set of nodes that 'reference' or are 'referenced by' the working set
 
 Optional parameters:
 
-* **in:** return all nodes that have a secondary property *<type> (<ptype>) = <valu>* that references any primary *<prop> = <valu>* in the working set of nodes.
-* **out:** return all the nodes whose primary *<prop> = <valu>* is referenced by any secondary property *<type> (<ptype>) = <valu>* in the working set of nodes.
+* **in:** return all nodes that have a secondary property *<type> (<ptype>) = <valu>* that **references** any primary *<prop> = <valu>* in the working set of nodes.
+* **out:** return all the nodes whose primary *<prop> = <valu>* is **referenced by** any secondary property *<type> (<ptype>) = <valu>* in the working set of nodes.
 * If no parameters are specified, ``refs()`` will return the combined results of both ``refs(in)`` and ``refs(out)``.
 
 **Operator syntax:**
@@ -154,7 +154,47 @@ N/A
 
 fromtags()
 ----------
-Todo
+Given a working set that contains one or more ``syn:tag`` nodes, returns the specified set of nodes to which those tags have been applied.
+
+``fromtags()`` can be thought of as pivoting **from** a set of **tags**, **to** a set of **nodes** that have those tags.
+
+Optional parameters:
+
+*  **<form>:** return only nodes of the specified <form>(s).
+* If no forms are specified, ``fromtags()`` returns all nodes for all forms to which the tags are applied.
+
+**Operator syntax:**
+
+.. parsed-literal::
+  
+  **fromtags(** [ *<form_1>* **,** *<form_2>* **,** *...<form_n>* ] **)**
+
+**Macro syntax:**
+
+N/A
+
+**Examples:**
+
+* Return the set of all nodes to which a given set of tags have been applied:
+  ::
+    fromtags()
+
+* Return the set of ``inet:fqdn`` and ``inet:email`` nodes to which a given set of tags have been applied:
+  ::
+    fromtags(inet:fqdn,inet:email)
+
+**Usage notes:**
+
+* ``fromtags()`` pivots from explicitly declared (leaf) tags only. For example, if the working set contains ``syn:tag=foo.bar.baz``, ``fromtags()`` will return nodes with ``#foo.bar.baz`` but **not** nodes with ``#foo.bar`` or ``#foo`` alone.
+* In some cases, pivoting with ``fromtags()`` is equivalent to lifting by tag; for example, ``ask #foo.mytag`` is equivalent to ``ask syn:tag=foo.mytag fromtags()``. However, ``fromtags()`` can also take more complex queries as input.
+* As a more complex example, say you are tagging nodes with analytical observations made by third parties: ``syn:tag=alias.CompanyA.redtree`` ("things Company A states are "Redtree" malware") or ``syn:tag=alias.CompanyB.redtree`` ("things Company B states are "Redtree" malware"). To return all nodes **any** organization calls "Redtree" you could do:
+  
+  ``ask syn:tag:base=redtree fromtags()``
+
+* ``totags()`` and ``fromtags()`` are often used together to:
+
+  * pivot from a set of nodes, to the tags applied to those nodes, to other nodes that have the same tags; or
+  * from a set of tags, to nodes those tags are applied to, to other tags applied to those same nodes.
 
 totags()
 --------
