@@ -1,6 +1,8 @@
 Storm Reference - Pivot Operators
 =================================
 
+Pivot operators operate on the output of a **previous Storm query.**
+
 The operators below can be used to pivot from one set of nodes to another set of nodes within a Synapse hypergraph based on a set of specified criteria.
 
 All of these operators are defined in storm.py_.
@@ -11,7 +13,30 @@ Where specific query examples are given, they are commonly provided in pairs usi
 
 pivot()
 -------
-Todo
+Returns a set of nodes that share a specified property of the same type / valu as the original set of nodes.
+
+Optional parameters:
+
+* **Return limit:** specify the maximum number of nodes returned by the ``pivot()`` query.
+
+  * ``limit=`` (operational syntax)
+  * ``^`` (macro syntax)
+
+**Operator syntax:**
+
+.. parsed-literal::
+
+  **pivot(** [ *<srcprop>* **,** ] *<dstprop>* [ **, limit=** *<limit>* ] **)**
+
+**Macro syntax:**
+
+.. parsed-literal::
+
+  [ *<srcprop>* **^** *<num>* ] **->** *<dstprop>*
+
+**Examples:**
+
+
 
 join()
 ------
