@@ -14,7 +14,6 @@ def iterFqdnUp(fqdn):
         yield '.'.join(levs[i:])
 
 class CertDir:
-    CRYPTO_NUMBITS = 4096
 
     def __init__(self, path=None):
         self.crypto_numbits = 4096
