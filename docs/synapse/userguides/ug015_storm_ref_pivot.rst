@@ -1,3 +1,5 @@
+.. highlight:: none
+
 Storm Reference - Pivot Operators
 =================================
 
@@ -32,11 +34,11 @@ Optional parameters:
 
 .. parsed-literal::
 
-  [ *<srcprop>* **^** *<num>* ] **->** *<dstprop>*
+  [ *<srcprop>* **^** *<limit>* ] **->** *<dstprop>*
 
 **Examples:**
 
-* Pivot from a set of domains (``inet:fqdn`` nodes) to the DNS A records for those domains:
+* Pivot from a set of domains (``inet:fqdn`` nodes) in the working set to the DNS A records for those domains:
   ::
     pivot( inet:fqdn, inet:dns:a:fqdn )
     
@@ -46,7 +48,7 @@ Optional parameters:
     
     -> inet:dns:a:fqdn
 
-* Pivot from a set of domains (``inet:fqdn`` nodes) to the DNS A records for those domains, but limit the results to 10 nodes:
+* Pivot from a set of domains in the working set to the DNS A records for those domains, but limit the results to 10 nodes:
   ::
     pivot( inet:fqdn, inet:dns:a:fqdn, limit=10 )
     
@@ -54,7 +56,7 @@ Optional parameters:
     
     inet:fqdn^10  ->  inet:dns:a:fqdn
 
-* Pivot from a set of domains (``inet:fqdn`` nodes) to the DNS A records for those domains, and from the IP addresses in the DNS A records to the set of IPv4 nodes (e.g., pivot from a set of domains to the set of IP addresses the domains resolved to).
+* Pivot from a set of domains in the working set to the DNS A records for those domains, and from the IP addresses in the DNS A records to the associated set of IPv4 nodes (e.g., pivot from a set of domains to the set of IP addresses the domains resolved to).
   ::
     pivot(inet:fqdn,inet:dns:a:fqdn) pivot(inet:dns:a:ipv4,inet:ipv4)
       
@@ -65,7 +67,7 @@ Optional parameters:
     
     -> inet:dns:a:fqdn :ipv4 -> inet:ipv4
 
-* Pivot from a set of domains to the set of subdomains for those domains:
+* Pivot from a set of domains in the working set to the set of subdomains for those domains:
   ::
     pivot(inet:fqdn,inet:fqdn:domain)
     
@@ -75,7 +77,7 @@ Optional parameters:
     
     -> inet:fqdn:domain
 
-* Pivot from a set of email addresses to the set of domains registered to those email addresses.
+* Pivot from a set of email addresses in the working set to the set of domains registered to those email addresses.
   ::
     pivot(inet:email,inet:whois:regmail:email)
       pivot(inet:whois:regmail:fqdn,inet:fqdn)
@@ -87,7 +89,7 @@ Optional parameters:
     
     -> inet:whois:regmail:email :fqdn -> inet:fqdn
 
-* Pivot from a set of email addresses to the set of whois records associated with those email addresses.
+* Pivot from a set of email addresses in the working set to the set of whois records associated with those email addresses.
   ::
     pivot(inet:email,inet:whois:contatct:email)
       pivot(inet:whois:contact:rec,inet:whois:rec)
@@ -102,8 +104,8 @@ Optional parameters:
 **Usage notes:**
 
 * If the source property for the pivot is the primary property of the working set of nodes, the *<srcprop>* can be omitted from Operator syntax. The *<srcprop>* can also be omitted from Macro syntax, unless a limit parameter ( ``^`` ) is specified.
-* Relative properties can be used to specify *<srcprop>* as the source form(s) are, by definition, the form(s) of the working set of nodes.
-* The ``limit=`` parameter can be provided as input to the ``pivot()`` operator itself; alternately the ``limit()`` operator_ can be used to specify a limit.
+* If the source property for the pivot is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source form(s) are, by definition, the form(s) of the working set of nodes.
+* The ``limit=`` parameter can be provided as input to the ``pivot()`` operator itself; alternately the ``limit()`` operator_ can be used after the ``pivot()`` operator to specify a limit on the number of nodes returned.
 
 join()
 ------
@@ -111,13 +113,13 @@ Todo
 
 refs()
 ------
-Returns the set of nodes that 'reference' or are 'referenced by' the working set of nodes.
+Returns the set of nodes that "reference" or are "referenced by" the working set of nodes.
 
 Optional parameters:
 
-* **in:** return all nodes that have a secondary property *<type> (<ptype>) = <valu>* that **references** any primary *<prop> = <valu>* in the working set of nodes.
-* **out:** return all the nodes whose primary *<prop> = <valu>* is **referenced by** any secondary property *<type> (<ptype>) = <valu>* in the working set of nodes.
-* If no parameters are specified, ``refs()`` will return the combined results of both ``refs(in)`` and ``refs(out)``.
+* **in:** return all nodes that have a secondary property *<type> (<ptype>) = <valu>* that is the same as (**references**) any primary *<prop> = <valu>* in the working set of nodes.
+* **out:** return all the nodes whose primary *<prop> = <valu>* is the same as (is **referenced by**) any secondary property *<type> (<ptype>) = <valu>* in the working set of nodes.
+* If no parameters are specified, ``refs()`` will return the combined results of both ``refs(in)`` and ``refs(out)`` (e.g., execute all pivots to / from the working set of nodes).
 
 **Operator syntax:**
 
@@ -134,33 +136,33 @@ N/A
   ::
     refs(in)
 
-  Assume a set of inet:fqdn nodes in the working set. ``refs(in)`` will return any node with a secondary property type (ptype) = valu that matches those inet:fqdns. For example, this may include inet:dns:a nodes (inet:dns:a:fqdn), inet:whois:rec nodes (inet:whois:rec:fqdn), additional inet:fqdn nodes (inet:fqdn:domain), etc.
+  Assume a set of ``inet:fqdn`` nodes in the working set. ``refs(in)`` will return any node with a secondary property type *<ptype> = <valu>* that matches the *<type> = <valu>* of those ``inet:fqdn`` nodes. For example, this may include ``inet:dns:a`` nodes (``inet:dns:a:fqdn``), ``inet:whois:rec`` nodes (``inet:whois:rec:fqdn``), additional ``inet:fqdn`` nodes (``inet:fqdn:domain``), etc.
 
 * Return all the nodes **referenced by** a set of nodes:
   ::
     refs(out)
 
-  Assume a set of inet:dns:a nodes in the working set. ``refs(out)`` will return any node with a primary prop = valu that matches any secondary property type (ptype) = valu in the working set. As an inet:dns:a record includes secondary properties of type inet:fqdn (inet:dns:a:fqdn) and inet:ipv4 (inet:dns:a:ipv4), the query may return those node types.
+  Assume a set of ``inet:dns:a`` nodes in the working set. ``refs(out)`` will return any node with a primary *<type> = <valu>* that matches any secondary property type *<ptype> = <valu>* in the working set. As an ``inet:dns:a`` record includes secondary properties of type ``inet:fqdn`` (``inet:dns:a:fqdn``) and ``inet:ipv4`` (``inet:dns:a:ipv4``), the query may return those node types.
 
 * Return all of the nodes that **reference** or are **referenced by** a set of nodes:
   ::
     refs()
 
-  Assume a set of inet:email nodes in the working set. An inet:email type = valu may be referenced by a variety of forms, including inet:whois:contact (inet:whois:contact:email), inet:dns:soa (inet:dns:soa:email) or inet:web:acct (inet:web:acct:email). Based on its secondary properties, an inet:email node may reference forms such as inet:fqdn (inet:email:fqdn) or inet:user (inet:email:user).
+  Assume a set of ``inet:email`` nodes in the working set. An ``inet:email`` *<type> = <valu>* may be referenced by *<ptype> = <valu>* from a variety of forms, including ``inet:whois:contact`` (``inet:whois:contact:email``), ``inet:dns:soa`` (``inet:dns:soa:email``) or ``inet:web:acct`` (``inet:web:acct:email``). Based on its secondary properties, a *<ptype> = <valu>* from an ``inet:email`` node may reference *<type> = <valu>* forms such as ``inet:fqdn`` (``inet:email:fqdn``) or ``inet:user`` (``inet:email:user``).
 
 **Usage notes:**
 
-* ``refs()`` / ``refs(in)`` / ``refs(out)`` can be useful in an "exploratory" manner to identify what other nodes / forms are "reachable" (can be pivoted to or from) from the working set of nodes. However, because ``refs()`` essentially carries out all possible pivots, the set of nodes returned may be quite large. In such cases a more focused ``pivot()`` or ``join()`` operation may be more useful.
+* ``refs()`` / ``refs(in)`` / ``refs(out)`` can be useful in an "exploratory" manner to identify what other nodes / forms are "reachable from" (can be pivoted to or from) the working set of nodes. However, because ``refs()`` essentially carries out all possible pivots, the set of nodes returned may be quite large. In such cases a more focused ``pivot()`` or ``join()`` operation may be more useful.
 
 fromtags()
 ----------
 Given a working set that contains one or more ``syn:tag`` nodes, returns the specified set of nodes to which those tags have been applied.
 
-``fromtags()`` can be thought of as pivoting **from** a set of **tags**, **to** a set of **nodes** that have those tags.
+``fromtags()`` can be thought of as pivoting **from** a set of **tags**, to a set of nodes that have those tags.
 
 Optional parameters:
 
-*  **<form>:** return only nodes of the specified <form>(s).
+*  **<form>:** return only nodes of the specified form(s).
 * If no forms are specified, ``fromtags()`` returns all nodes for all forms to which the tags are applied.
 
 **Operator syntax:**
@@ -185,9 +187,9 @@ N/A
 
 **Usage notes:**
 
-* ``fromtags()`` pivots from explicitly declared (leaf) tags only. For example, if the working set contains ``syn:tag=foo.bar.baz``, ``fromtags()`` will return nodes with ``#foo.bar.baz`` but **not** nodes with ``#foo.bar`` or ``#foo`` alone.
+* ``fromtags()`` pivots from leaf tags only. For example, if the working set contains ``syn:tag=foo.bar.baz``, ``fromtags()`` will return nodes with ``#foo.bar.baz`` but **not** nodes with ``#foo.bar`` or ``#foo`` alone.
 * In some cases, pivoting with ``fromtags()`` is equivalent to lifting by tag; for example, ``ask #foo.mytag`` is equivalent to ``ask syn:tag=foo.mytag fromtags()``. However, ``fromtags()`` can also take more complex queries as input.
-* As a more complex example, say you are tagging nodes with analytical observations made by third parties: ``syn:tag=alias.CompanyA.redtree`` ("things Company A states are "Redtree" malware") or ``syn:tag=alias.CompanyB.redtree`` ("things Company B states are "Redtree" malware"). To return all nodes **any** organization calls "Redtree" you could do:
+* For example, say you are tagging nodes with analytical observations made by third parties: ``syn:tag=alias.acme.redtree`` ("things Acme Corporation states are associated with "Redtree" malware") or ``syn:tag=alias.foo.redtree`` ("things Foo Organization states are associated with "Redtree" malware"). To return all nodes **any** organization associates with "Redtree" you could do:
   
   ``ask syn:tag:base=redtree fromtags()``
 
@@ -198,9 +200,9 @@ N/A
 
 totags()
 --------
-Returns the set of all tags (``syn:tag`` nodes) applied to the current working set of nodes.
+Returns the set of all tags (``syn:tag`` nodes) applied to the working set of nodes.
 
-``totags()`` can be thought of as pivoting **from** a set of **nodes**, **to** the set of **tags** applied to those nodes.
+``totags()`` can be thought of as pivoting from a set of nodes, **to** the set of **tags** applied to those nodes.
 
 Optional parameters:
 
@@ -220,7 +222,7 @@ N/A
 
 **Examples:**
 
-* Return the set of explicitly specified (leaf) tags applied to a given set of nodes:
+* Return the set of leaf tags applied to a given set of nodes:
   ::
     totags( leaf = 1 )
     
@@ -232,9 +234,9 @@ N/A
 
 **Usage notes:**
 
-* ``totags()`` and ``totags(leaf=1)`` return the set of explicitly present (leaf) tags only. For example, if nodes in the working set have the tag ``#foo.bar.baz``, ``totags()`` will return ``syn:tag=foo.bar.baz``, but not ``syn:tag=foo.bar`` or ``syn:tag=foo``.
+* ``totags()`` and ``totags(leaf=1)`` return the set of leaf tags only. For example, if nodes in the working set have the tag ``#foo.bar.baz``, ``totags()`` will return ``syn:tag=foo.bar.baz``, but not ``syn:tag=foo.bar`` or ``syn:tag=foo``.
 
-* As tags represent analytical observations or assessments, ``totags()`` can be useful for "summarizing" the set of assessments associated with a given set of nodes. For example, with respect to cyber threat data, assume you are using tags to track malicious activity associated with a particular threat cluster (threat group) – say "Threat Cluster 5". After retrieving all nodes tagged as part of that threat cluster, you can use ``totags()`` to list all other tags (analytical observations) that are associated with the nodes in that threat cluster. Depending on the analytical model (tag structure) you are using, those tags could represent the names of malware families, sets of tactics, techniques, and procedures (TTPs) used by the threat cluster, and so on:
+* As tags represent analytical observations or assessments, ``totags()`` can be useful for "summarizing" the set of assessments associated with a given set of nodes. For example, with respect to cyber threat data, assume you are using tags to track malicious activity associated with a particular threat cluster (threat group), such as "Threat Cluster 5". After retrieving all nodes tagged as part of that threat cluster, you can use ``totags()`` to list all other tags (analytical observations) that are associated with the nodes in that threat cluster. Depending on the analytical model (tag structure) you are using, those tags could represent the names of malware families, sets of tactics, techniques, and procedures (TTPs) used by the threat cluster, and so on:
   ::
     ask #cno.threat.t5.tc totags()
 
@@ -245,7 +247,7 @@ N/A
 
 jointags()
 ----------
-Given a working set of nodes, returns all specified nodes that have any of the tags applied to any of the working set of nodes.
+Returns all specified nodes that have **any** of the tags applied to **any** of the working set of nodes.
 
 ``jointags()`` can be thought of as executing a ``totags()`` operation followed by a ``fromtags()`` operation.
 
@@ -270,7 +272,7 @@ N/A
   ::
     jointags()
 
-* Return the set of all ``inet:fqdn`` and ``inet:email`` nodes that share any of the tags applied to the working set of nodes:
+* Return the set of ``inet:fqdn`` and ``inet:email`` nodes that share any of the tags applied to the working set of nodes:
   ::
     jointags(inet:fqdn,inet:email)
 
@@ -283,13 +285,13 @@ N/A
 tree()
 ------
 
-Recursively return the set of nodes that have a property type (ptype) = valu that matches the specified property type (ptype) = valu from the working set of nodes.
+Recursively return the set of nodes that have a property type (*<type> = <valu>* or *<ptype> = <valu>*) that matches the specified property type (*<type> = <valu>* or *<ptype> = <valu>*) from the working set of nodes.
 
 ``tree()`` can be thought of as a recursive pivot that can be used to "traverse" a set of nodes which reference their own types or multiple duplicate ptypes (such as domains / subdomains, or tags in a tag hierarchy). This allows a user to build a set of nodes which have self-referencing forms. The recursive pivot takes the place of multiple single pivots.
 
 Optional parameters:
 
-* **recurnlim:** recursive number limit; specify the number of recursive queries to execute.
+* **recurnlim:** recursion limit; specify the maximum number of recursive queries to execute.
 * In the absence of a ``recurnlim`` parameter, ``tree()`` assumes a default limit of 20 (``recurnlim=20``).
 * To disable limits on recursion (e.g., continue executing pivots until no more results are returned), ``recurnlim`` should be set to 0 (``recurnlim=0``).
 
@@ -339,8 +341,8 @@ N/A
 
 **Usage Notes:**
 
-* If *<srcprop>* is self-evident (e.g., if *<srcprop>* is the primary property type = valu of the working set of nodes) it can be omitted.
-* If *<srcprop>* is a secondary property that is self-evident (relative to the working set of nodes) then *<srcprop>* can be specified using relative property syntax (e.g., *:baz* instead of *foo:bar:baz* for nodes of type *foo:bar*).
+* If the source property for the ``tree()`` operation is the primary property of the working set of nodes, *<srcprop>* can be omitted.
+* If the source property for the ``tree()`` operation is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source form(s) are, by definition, the form(s) of the working set of nodes.
 
 
 .. _storm.py: https://github.com/vertexproject/synapse/blob/master/synapse/lib/storm.py
