@@ -58,9 +58,9 @@ Optional parameters:
 
 * Pivot from a set of domains in the working set to the DNS A records for those domains, and from the IP addresses in the DNS A records to the associated set of IPv4 nodes (e.g., pivot from a set of domains to the set of IP addresses the domains resolved to).
   ::
-    pivot(inet:fqdn,inet:dns:a:fqdn) pivot(inet:dns:a:ipv4,inet:ipv4)
+    pivot( inet:fqdn, inet:dns:a:fqdn ) pivot( inet:dns:a:ipv4, inet:ipv4 )
       
-    pivot(inet:dns:a:fqdn) pivot(:ipv4,inet:ipv4)
+    pivot( inet:dns:a:fqdn ) pivot( :ipv4, inet:ipv4 )
     
     inet:fqdn -> inet:dns:a:fqdn inet:dns:a:ipv4 
       -> inet:ipv4
@@ -69,9 +69,9 @@ Optional parameters:
 
 * Pivot from a set of domains in the working set to the set of subdomains for those domains:
   ::
-    pivot(inet:fqdn,inet:fqdn:domain)
+    pivot( inet:fqdn, inet:fqdn:domain )
     
-    pivot(inet:fqdn:domain)
+    pivot( inet:fqdn:domain )
     
     inet:fqdn -> inet:fqdn:domain
     
@@ -79,10 +79,10 @@ Optional parameters:
 
 * Pivot from a set of email addresses in the working set to the set of domains registered to those email addresses.
   ::
-    pivot(inet:email,inet:whois:regmail:email)
-      pivot(inet:whois:regmail:fqdn,inet:fqdn)
+    pivot( inet:email, inet:whois:regmail:email )
+      pivot( inet:whois:regmail:fqdn, inet:fqdn )
     
-    pivot(inet:whois:regmail:email) pivot(:fqdn,inet:fqdn)
+    pivot( inet:whois:regmail:email ) pivot( :fqdn, inet:fqdn )
     
     inet:email -> inet:whois:regmail:email 
       inet:whois:regmail:fqdn -> inet:fqdn
@@ -91,10 +91,10 @@ Optional parameters:
 
 * Pivot from a set of email addresses in the working set to the set of whois records associated with those email addresses.
   ::
-    pivot(inet:email,inet:whois:contatct:email)
-      pivot(inet:whois:contact:rec,inet:whois:rec)
+    pivot( inet:email, inet:whois:contatct:email )
+      pivot( inet:whois:contact:rec, inet:whois:rec )
     
-    pivot(inet:whois:contact:email) pivot(:rec,inet:whois:rec)
+    pivot( inet:whois:contact:email ) pivot( :rec, inet:whois:rec )
     
     inet:email -> inet:whois:contact:email inet:whois:contact:rec
       -> inet:whois:rec
@@ -104,7 +104,7 @@ Optional parameters:
 **Usage notes:**
 
 * If the source property for the pivot is the primary property of the working set of nodes, the *<srcprop>* can be omitted from Operator syntax. The *<srcprop>* can also be omitted from Macro syntax, unless a limit parameter ( ``^`` ) is specified.
-* If the source property for the pivot is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source form(s) are, by definition, the form(s) of the working set of nodes.
+* If the source property for the pivot is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source properties are, by definition, properties from the working set of nodes.
 * The ``limit=`` parameter can be provided as input to the ``pivot()`` operator itself; alternately the ``limit()`` operator_ can be used after the ``pivot()`` operator to specify a limit on the number of nodes returned.
 
 join()
@@ -134,13 +134,13 @@ N/A
 
 * Return all of the nodes that **reference** a set of nodes:
   ::
-    refs(in)
+    refs( in )
 
   Assume a set of ``inet:fqdn`` nodes in the working set. ``refs(in)`` will return any node with a secondary property type *<ptype> = <valu>* that matches the *<type> = <valu>* of those ``inet:fqdn`` nodes. For example, this may include ``inet:dns:a`` nodes (``inet:dns:a:fqdn``), ``inet:whois:rec`` nodes (``inet:whois:rec:fqdn``), additional ``inet:fqdn`` nodes (``inet:fqdn:domain``), etc.
 
 * Return all the nodes **referenced by** a set of nodes:
   ::
-    refs(out)
+    refs( out )
 
   Assume a set of ``inet:dns:a`` nodes in the working set. ``refs(out)`` will return any node with a primary *<type> = <valu>* that matches any secondary property type *<ptype> = <valu>* in the working set. As an ``inet:dns:a`` record includes secondary properties of type ``inet:fqdn`` (``inet:dns:a:fqdn``) and ``inet:ipv4`` (``inet:dns:a:ipv4``), the query may return those node types.
 
@@ -183,7 +183,7 @@ N/A
 
 * Return the set of ``inet:fqdn`` and ``inet:email`` nodes to which a given set of tags have been applied:
   ::
-    fromtags(inet:fqdn,inet:email)
+    fromtags( inet:fqdn, inet:email )
 
 **Usage notes:**
 
@@ -274,11 +274,11 @@ N/A
 
 * Return the set of ``inet:fqdn`` and ``inet:email`` nodes that share any of the tags applied to the working set of nodes:
   ::
-    jointags(inet:fqdn,inet:email)
+    jointags( inet:fqdn, inet:email )
 
 **Usage notes:**
 
-* ``jointags()`` pivots using the set of explicitly present (leaf) tags only. For example if nodes in the working set have the tag ``#foo.bar.baz``, ``jointags()`` will return other nodes with ``#foo.bar.baz``, but not nodes with ``#foo.bar`` or ``#foo`` alone.
+* ``jointags()`` pivots using the set of leaf tags only. For example if nodes in the working set have the tag ``#foo.bar.baz``, ``jointags()`` will return other nodes with ``#foo.bar.baz``, but not nodes with ``#foo.bar`` or ``#foo`` alone.
 
 * ``jointags()``, like ``refs()``, can be useful to "explore" other nodes that share some analytical assessment (tag) with the working set of nodes, but may return a large number of nodes. It may be more efficient to narrow the scope of the query using ``totags()`` in combination with a filter operator (e.g., to potentially limit the specific tags selected) followed by ``fromtags()``.
 
@@ -342,7 +342,7 @@ N/A
 **Usage Notes:**
 
 * If the source property for the ``tree()`` operation is the primary property of the working set of nodes, *<srcprop>* can be omitted.
-* If the source property for the ``tree()`` operation is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source form(s) are, by definition, the form(s) of the working set of nodes.
+* If the source property for the ``tree()`` operation is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source properties are, by definition, properties from of the working set of nodes.
 
 
 .. _storm.py: https://github.com/vertexproject/synapse/blob/master/synapse/lib/storm.py
