@@ -1,5 +1,4 @@
 import os
-import time
 
 import synapse.common as s_common
 
@@ -17,6 +16,7 @@ def iterFqdnUp(fqdn):
 class CertDir:
 
     def __init__(self, path=None):
+        self.crypto_numbits = 4096
 
         if path is None:
             path = defdir
@@ -103,7 +103,7 @@ class CertDir:
 
         if pkey is None:
             pkey = crypto.PKey()
-            pkey.generate_key(crypto.TYPE_RSA, 2048)
+            pkey.generate_key(crypto.TYPE_RSA, self.crypto_numbits)
 
         cert = crypto.X509()
         cert.set_pubkey(pkey)
@@ -260,7 +260,7 @@ class CertDir:
 
     def _genPkeyCsr(self, name, mode, outp=None):
         pkey = crypto.PKey()
-        pkey.generate_key(crypto.TYPE_RSA, 2048)
+        pkey.generate_key(crypto.TYPE_RSA, self.crypto_numbits)
 
         xcsr = crypto.X509Req()
         xcsr.get_subject().CN = name
