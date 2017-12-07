@@ -106,7 +106,46 @@ Optional parameters:
 
 join()
 ------
-Todo
+Returns the current (working) set of nodes **and** the set of nodes that share a specified property of the same type / valu as the original set of nodes.
+
+``join()`` can be thought of as a ``pivot()`` that retains the original set of nodes and combines (joins) them with the set of nodes that are pivoted to.
+
+Optional parameters:
+
+*  **Return limit**: specify the maximum number of nodes returned by the ``join()`` query.
+  
+  * ``limit=`` (operator syntax)
+
+**Operator syntax:**
+
+.. parsed-literal::
+  
+  **join(** *<dstprop>* **,** *<srcprop>* [ **,** limit=** *<num>* ] **)**
+
+**Macro syntax:**
+
+N/A
+
+**Examples:**
+
+* Given a set of domains (``inet:fqdn``) in the working set, return the domains and their set of immediate subdomains:
+  ::
+    join( inet:fqdn:domain, inet:fqdn )
+
+* Given a set of email addresses (``inet:email``) in the working set, return the set of domain / registrant email (``inet:whois:regmail``) records associated with those email addresses:
+  ::
+    join( inet:whois:regmail:email, inet:email )
+
+**Usage notes:**
+
+* ``join()`` takes its arguments in the order *<dstprop>*, *<srcprop>*, which is the opposite of ``pivot()``, which takes its arguments as *<srcprop>*, *<dstprop>*. ``join()`` may be modified in a future release so its syntax matches that of ``pivot()``.
+* Both *<dstprop>* and *<srcprop>* must be specified.
+* ``join()`` does not consume nodes by design.
+* The ``limit=`` parameter can be provided as input to the ``join()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``join()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
+* Because ``join()`` does not consume nodes, this impacts the results returned by either the ``limit=`` parameter or the ``limit()`` operator.
+  
+  * The ``limit=`` parameter will return **all** of the original nodes, **plus** the specified number of results (if ``limit=10`` and the number of working nodes was eight, this will return 18 nodes).
+  * The ``limit()`` operator will return a **total** number of nodes equal to the specified limit, first including the original working nodes and then including resulting nodes (if ``limit=10`` and the number of working nodes was eight, this will return 10 nodes: the original eight, plus two results).
 
 refs()
 ------
