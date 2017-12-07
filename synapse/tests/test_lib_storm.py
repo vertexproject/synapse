@@ -1,7 +1,8 @@
+import synapse.common as s_common
 import synapse.lib.auth as s_auth
 import synapse.lib.tufo as s_tufo
 import synapse.lib.storm as s_storm
-import synapse.cores.common as s_common
+import synapse.cores.common as s_cores_common
 
 from synapse.tests.common import *
 
@@ -236,7 +237,7 @@ class StormTest(SynTest):
 
     def test_storm_tag_query(self):
         # Ensure that non-glob tag filters operate as expected.
-        with self.getRamCore() as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:dns:a', 'vertex.vis/5.6.7.8')
             node3 = core.formTufoByProp('inet:dns:a', 'vertex.link/5.6.7.8')
@@ -265,7 +266,7 @@ class StormTest(SynTest):
 
     def test_storm_tag_glob(self):
         # Ensure that glob operators with tag filters operate properly.
-        with self.getRamCore() as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:dns:a', 'vertex.vis/5.6.7.8')
             node3 = core.formTufoByProp('inet:dns:a', 'vertex.link/5.6.7.8')
@@ -343,7 +344,7 @@ class StormTest(SynTest):
             self.eq(len(nodes), 1)
 
     def test_storm_tag_jointag(self):
-        with self.getRamCore() as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
 
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
@@ -387,7 +388,7 @@ class StormTest(SynTest):
             self.eq(len(nodes), 1)
 
     def test_storm_tag_totag(self):
-        with self.getRamCore() as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
@@ -430,7 +431,7 @@ class StormTest(SynTest):
             self.eq(len(nodes), 0)
 
     def test_storm_tag_fromtag(self):
-        with self.getRamCore() as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
@@ -491,7 +492,7 @@ class StormTest(SynTest):
 
     def test_storm_lifts_by(self):
         # Test various lifts by handlers
-        with self.getRamCore() as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
 
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
@@ -814,6 +815,22 @@ class StormTest(SynTest):
 
             nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=1)')
             self.len(3, nodes)
+
+            nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=2)')
+            self.len(6, nodes)
+
+            nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=3)')
+            self.len(6, nodes)
+
+            nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=12345)')
+            self.len(6, nodes)
+
+            nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=0)')  # 0 means no recursion limit
+            self.len(6, nodes)
+
+            self.raises(s_common.BadSyntaxError, core.eval, 'syn:tag=foo tree()')
+            self.raises(s_common.BadOperArg, core.eval, 'syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=0.123)')
+            self.raises(s_common.BadOperArg, core.eval, 'syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=-1)')
 
             nodes = core.eval('syn:tag=foo.bar tree(syn:tag, syn:tag:up)')
             self.len(3, nodes)
