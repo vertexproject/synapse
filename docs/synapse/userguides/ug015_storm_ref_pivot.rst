@@ -317,14 +317,20 @@ Recursively return the set of nodes that have a property type (*<type> = <valu>*
 Optional parameters:
 
 * **recurnlim:** recursion limit; specify the maximum number of recursive queries to execute.
-* In the absence of a ``recurnlim`` parameter, ``tree()`` assumes a default limit of 20 (``recurnlim=20``).
-* To disable limits on recursion (e.g., continue executing pivots until no more results are returned), ``recurnlim`` should be set to 0 (``recurnlim=0``).
+  
+  * In the absence of a ``recurnlim`` parameter, ``tree()`` assumes a default limit of 20 (``recurnlim=20``).
+  * To disable limits on recursion (e.g., continue executing pivots until no more results are returned), ``recurnlim`` should be set to 0 (``recurnlim=0``).
+  * **Note:** due to a known bug, ``tree()`` currently ignores any ``recurnlim`` parameter.
+
+* **Return limit:** specify the maximum number of nodes returned by the ``tree()`` query.
+  
+  * ``limit=`` (operator syntax)
 
 **Operator Syntax:**
 
 .. parsed-literal::
 
-  **tree(** [ *<srcprop>* **,** ] *<dstprop>* [ **, recurnlim=** *<n>* ] **)**
+  **tree(** [ *<srcprop>* **,** ] *<dstprop>* [ **, recurnlim=** *<num>* **, limit=** *<num>* ] **)**
   
 **Macro Syntax:**
 
@@ -340,11 +346,17 @@ N/A
     
     tree( inet:fqdn:domain )
 
-* Given a base tag (``syn:tag``) in the working set, return all tags in that tag's hierarchy / tag tree:
+* Given a set of base tags (``syn:tag``) in the working set, return all tags in the tag hierarchy for those tags:
   ::
     tree( syn:tag, syn:tag:up )
     
     tree( syn:tag:up )
+
+* Given a set of base tags (``syn:tag``) in the working set, return all the tags in the tag hierarchy for those tags, limiting the number of results to 10:
+  ::
+    tree( syn:tag, syn:tag:up, limit=10 )
+    
+    tree( syn:tag:up, limit=10 )
 
 * Given a parent organization (``ou:org``), pivot to the organization / sub-organization nodes (``ou:suborg``) where that org is a parent, and return all of the sub-organizations under that parent (full Storm query provided for clarity):
   ::
@@ -368,6 +380,12 @@ N/A
 
 * If the source property for the ``tree()`` operation is the primary property of the working set of nodes, *<srcprop>* can be omitted.
 * If the source property for the ``tree()`` operation is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source properties are, by definition, properties from of the working set of nodes.
+* ``tree()`` does not consume nodes by design, so the results of a ``tree()`` operation will include both the original working set as well as the resulting (recursive) set of nodes.
+* The ``limit=`` parameter can be provided as input to the ``tree()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``tree()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
+* Because ``tree()`` does not consume nodes, this impacts the results returned by either the ``limit=`` parameter or the ``limit()`` operator.
+  
+  * The ``limit=`` parameter will return **all** of the original nodes, **plus** the specified number of results (if ``limit=10`` and the number of working nodes was eight, this will return 18 nodes).
+  * The ``limit()`` operator will return a **total** number of nodes equal to the specified limit, first including the original working nodes and then including resulting nodes (if ``limit=10`` and the number of working nodes was eight, this will return 10 nodes: the original eight, plus two results).
 
 
 .. _storm.py: https://github.com/vertexproject/synapse/blob/master/synapse/lib/storm.py
