@@ -138,7 +138,9 @@ N/A
 
 **Usage notes:**
 
-* ``join()`` takes its arguments in the order *<dstprop>*, *<srcprop>*, which is the opposite of ``pivot()``, which takes its arguments as *<srcprop>*, *<dstprop>*. ``join()`` may be modified in a future release so its syntax matches that of ``pivot()``.
+* ``join()`` takes its arguments in the order *<dstprop>*, *<srcprop>*, which is the opposite of ``pivot()``, which takes its arguments as *<srcprop>*, *<dstprop>*.
+  
+  * **Note:** ``join()`` may be modified in a future release so its syntax matches that of ``pivot()``.
 * Both *<dstprop>* and *<srcprop>* must be specified.
 * ``join()`` does not consume nodes by design.
 * The ``limit=`` parameter can be provided as input to the ``join()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``join()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
