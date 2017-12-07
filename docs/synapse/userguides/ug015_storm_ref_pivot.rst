@@ -117,7 +117,7 @@ Optional parameters:
 * **in:** return all nodes that have a secondary property *<type> (<ptype>) = <valu>* that is the same as (**references**) any primary *<prop> = <valu>* in the working set of nodes.
 * **out:** return all the nodes whose primary *<prop> = <valu>* is the same as (is **referenced by**) any secondary property *<type> (<ptype>) = <valu>* in the working set of nodes.
 * If no parameters are specified, ``refs()`` will return the combined results of both ``refs(in)`` and ``refs(out)`` (e.g., execute all pivots to / from the working set of nodes).
-* **Return limit:** specify the maximum number of nodes returned by the ``pivot()`` query.
+* **Return limit:** specify the maximum number of nodes returned by the ``refs()`` query.
   
   * ``limit=`` (operator syntax)
 
