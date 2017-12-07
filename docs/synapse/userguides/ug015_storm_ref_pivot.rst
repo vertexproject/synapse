@@ -88,7 +88,7 @@ Optional parameters:
 
 * Pivot from a set of email addresses in the working set to the set of whois records associated with those email addresses.
   ::
-    pivot( inet:email, inet:whois:contatct:email )
+    pivot( inet:email, inet:whois:contact:email )
       pivot( inet:whois:contact:rec, inet:whois:rec )
     
     pivot( inet:whois:contact:email ) pivot( :rec, inet:whois:rec )
