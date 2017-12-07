@@ -165,14 +165,19 @@ Given a working set that contains one or more ``syn:tag`` nodes, returns the spe
 
 Optional parameters:
 
-*  **<form>:** return only nodes of the specified form(s).
-* If no forms are specified, ``fromtags()`` returns all nodes for all forms to which the tags are applied.
+* **<form>:** return only nodes of the specified form(s).
+  
+  * If no forms are specified, ``fromtags()`` returns all nodes for all forms to which the tags are applied.
+
+* **Return limit:** specify the maximum number of nodes returned by the ``fromtags()`` query.
+  
+  * ``limit=`` (operator syntax)
 
 **Operator syntax:**
 
 .. parsed-literal::
   
-  **fromtags(** [ *<form_1>* **,** *<form_2>* **,** *...<form_n>* ] **)**
+  **fromtags(** [ *<form_1>* **,** *<form_2>* **,** *...<form_n>* **, limit=** *<num>* ] **)**
 
 **Macro syntax:**
 
@@ -188,9 +193,14 @@ N/A
   ::
     fromtags( inet:fqdn, inet:email )
 
+* Return the set of ``inet:fqdn`` and ``inet:email`` nodes to which a given set of tags have been applied, limiting the results to 10:
+  ::
+    fromtags( inet:fqdn, inet:email, limit=10 )
+
 **Usage notes:**
 
 * ``fromtags()`` pivots from leaf tags only. For example, if the working set contains ``syn:tag=foo.bar.baz``, ``fromtags()`` will return nodes with ``#foo.bar.baz`` but **not** nodes with ``#foo.bar`` or ``#foo`` alone.
+* The ``limit=`` parameter can be provided as input to the ``pivot()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``pivot()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 * In some cases, pivoting with ``fromtags()`` is equivalent to lifting by tag; for example, ``ask #foo.mytag`` is equivalent to ``ask syn:tag=foo.mytag fromtags()``. However, ``fromtags()`` can also take more complex queries as input.
 * For example, say you are tagging nodes with analytical observations made by third parties: ``syn:tag=alias.acme.redtree`` ("things Acme Corporation states are associated with "Redtree" malware") or ``syn:tag=alias.foo.redtree`` ("things Foo Organization states are associated with "Redtree" malware"). To return all nodes **any** organization associates with "Redtree" you could do:
   
