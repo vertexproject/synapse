@@ -21,8 +21,7 @@ Optional parameters:
 
 * **Return limit:** specify the maximum number of nodes returned by the ``pivot()`` query.
 
-  * ``limit=`` (operational syntax)
-  * ``^`` (macro syntax)
+  * ``limit=`` (operator syntax)
 
 **Operator syntax:**
 
@@ -34,7 +33,7 @@ Optional parameters:
 
 .. parsed-literal::
 
-  [ *<srcprop>* **^** *<limit>* ] **->** *<dstprop>*
+  [ *<srcprop>* ] **->** *<dstprop>*
 
 **Examples:**
 
@@ -53,8 +52,6 @@ Optional parameters:
     pivot( inet:fqdn, inet:dns:a:fqdn, limit=10 )
     
     pivot( inet:dns:a:fqdn, limit=10 )
-    
-    inet:fqdn^10  ->  inet:dns:a:fqdn
 
 * Pivot from a set of domains in the working set to the DNS A records for those domains, and from the IP addresses in the DNS A records to the associated set of IPv4 nodes (e.g., pivot from a set of domains to the set of IP addresses the domains resolved to).
   ::
@@ -103,9 +100,9 @@ Optional parameters:
 
 **Usage notes:**
 
-* If the source property for the pivot is the primary property of the working set of nodes, the *<srcprop>* can be omitted from Operator syntax. The *<srcprop>* can also be omitted from Macro syntax, unless a limit parameter ( ``^`` ) is specified.
+* If the source property for the pivot is the primary property of the working set of nodes, the *<srcprop>* can be omitted from both Operator and Macro syntax.
 * If the source property for the pivot is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source properties are, by definition, properties from the working set of nodes.
-* The ``limit=`` parameter can be provided as input to the ``pivot()`` operator itself; alternately the ``limit()`` operator_ can be used after the ``pivot()`` operator to specify a limit on the number of nodes returned.
+* The ``limit=`` parameter can be provided as input to the ``pivot()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``pivot()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 
 join()
 ------
