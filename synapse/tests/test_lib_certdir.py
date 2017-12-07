@@ -25,6 +25,9 @@ class CertDirTest(SynTest):
             self.true(cdir.isCaCert('syntest'))
             self.false(cdir.isCaCert('newpnewp'))
 
+            # Make sure the ca cert was generated with the expected number of bits
+            self.eq(cdir.getCaCert('syntest').get_pubkey().bits(), cdir.crypto_numbits)
+
     def test_certdir_user(self):
         with self.getCertDir() as cdir:
             cdir.genCaCert('syntest')
@@ -42,6 +45,10 @@ class CertDirTest(SynTest):
 
             self.true(cdir.isUserCert('visi@vertex.link'))
             self.true(cdir.isClientCert('visi@vertex.link'))
+
+            # Make sure the certs was generated with the expected number of bits
+            self.eq(cdir.getUserKey('visi@vertex.link').bits(), cdir.crypto_numbits)
+            self.eq(cdir.getUserCert('visi@vertex.link').get_pubkey().bits(), cdir.crypto_numbits)
 
     def test_certdir_host(self):
         with self.getCertDir() as cdir:

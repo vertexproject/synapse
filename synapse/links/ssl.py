@@ -117,6 +117,8 @@ class SslRelay(LinkRelay):
             if e.errno == ssl.SSL_ERROR_WANT_READ:
                 return
 
+            logger.debug('SSLError: %r', e)
+
             sock.fini()
 
         except Exception as e:
@@ -128,8 +130,10 @@ class SslRelay(LinkRelay):
         # gotta be pretty careful on these....
 
         sock = mesg[1].get('sock')
+        logger.debug('Performing SSL handshake.')
         try:
             sock.do_handshake()
+            logger.debug('Finished SSL handshake.')
 
             # handshake completed! no more pre-read!
             sock.set('preread', False)
@@ -143,9 +147,13 @@ class SslRelay(LinkRelay):
             if e.errno == ssl.SSL_ERROR_WANT_READ:
                 return
 
+            logger.debug('SSLError: %r', e)
+
             sock.fini()
 
         except Exception as e:
+
+            logger.debug('Unknown error during ssl preread %r', e)
 
             sock.fini()
 

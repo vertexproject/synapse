@@ -66,6 +66,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         Runtime.__init__(self)
         EventBus.__init__(self)
 
+        logger.debug('Initializing Cortex')
+
         self.on('node:del', self._onDelFifo, form='syn:fifo')
         self.on('node:del', self._onDelAuthRole, form='syn:auth:role')
         self.on('node:del', self._onDelAuthUser, form='syn:auth:user')
@@ -90,6 +92,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.onConfOptSet('caching', self._onSetCaching)
         self.onConfOptSet('axon:url', self._onSetAxonUrl)
 
+        logger.debug('Setting Cortex conf opts')
         self.setConfOpts(conf)
 
         self._link = link
@@ -215,6 +218,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.myfo = self.formTufoByProp('syn:core', 'self')
         self.isnew = self.myfo[1].get('.new', False)
 
+        logger.debug('Loading coremodules from s_modules.ctorlist')
         self.modelrevlist = []
         with self.getCoreXact() as xact:
             mods = [(ctor, modconf) for ctor, smod, modconf in s_modules.ctorlist]
@@ -240,6 +244,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.setOperFunc('dset', self._stormOperDset)
 
         # allow modules a shot at hooking cortex events for model ctors
+        logger.debug('Executing s_modules.call(addCoreOns, self)')
         for name, ret, exc in s_modules.call('addCoreOns', self):
             if exc is not None:
                 logger.warning('%s.addCoreOns: %s' % (name, exc))
@@ -248,7 +253,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         s_ingest.IngestApi.__init__(self, self)
 
+        logger.debug('Setting the syn:core:synapse:version value.')
         self.setBlobValu('syn:core:synapse:version', s_version.version)
+
+        # The iden of self.myfo is persistent
+        logger.debug('Done starting up cortex %s', self.myfo[0])
 
     def addRuntNode(self, form, valu, props=None):
         '''

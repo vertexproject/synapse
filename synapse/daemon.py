@@ -697,7 +697,9 @@ class Daemon(EventBus, DmonConf):
                     name = s_reflect.getMethName(func)
                     raise s_common.TeleClientSide(name=name)
 
+                logger.debug('Executing %s/%r for [%r]', jid, func, user)
                 ret = func(*args, **kwargs)
+                logger.debug('Done executing %s/%r for [%r]', jid, func, user)
 
                 # handle generator returns specially
                 if isinstance(ret, types.GeneratorType):
