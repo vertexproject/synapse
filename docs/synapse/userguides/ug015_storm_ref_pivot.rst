@@ -154,8 +154,11 @@ N/A
 
 * ``refs()`` / ``refs(in)`` / ``refs(out)`` can be useful in an "exploratory" manner to identify what other nodes / forms are "reachable from" (can be pivoted to or from) the working set of nodes. However, because ``refs()`` essentially carries out all possible pivots, the set of nodes returned may be quite large. In such cases a more focused ``pivot()`` or ``join()`` operation may be more useful.
 * ``refs()`` does not consume nodes, so the results of a ``refs()`` operation will include both the original working set as well as the resulting set of nodes.
-* The ``limit=`` parameter can be provided as input to the ``pivot()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``pivot()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
-* Because ``refs()`` does not consume nodes, this impacts the results returned by the ``limit=`` parameter or the ``limit()`` operator. The ``limit=`` parameter will return **all** of the original nodes, **plus** the specified number of results. The ``limit()`` operator will return a **total** number of nodes equal to the specified limit, first including the original working nodes and then including resulting nodes (if possible).
+* The ``limit=`` parameter can be provided as input to the ``refs()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``refs()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
+* Because ``refs()`` does not consume nodes, this impacts the results returned by either the ``limit=`` parameter or the ``limit()`` operator.
+  
+  * The ``limit=`` parameter will return **all** of the original nodes, **plus** the specified number of results (if ``limit=10`` and the number of working nodes was eight, this will return 18 nodes).
+  * The ``limit()`` operator will return a **total** number of nodes equal to the specified limit, first including the original working nodes and then including resulting nodes (if ``limit=10`` and the number of working nodes was eight, this will return 10 nodes: the original eight, plus two results).
 
 fromtags()
 ----------
@@ -193,14 +196,14 @@ N/A
   ::
     fromtags( inet:fqdn, inet:email )
 
-* Return the set of ``inet:fqdn`` and ``inet:email`` nodes to which a given set of tags have been applied, limiting the results to 10:
+* Return the set of ``inet:fqdn`` and ``inet:email`` nodes to which a given set of tags have been applied, limiting the number of results to 10:
   ::
     fromtags( inet:fqdn, inet:email, limit=10 )
 
 **Usage notes:**
 
 * ``fromtags()`` pivots from leaf tags only. For example, if the working set contains ``syn:tag=foo.bar.baz``, ``fromtags()`` will return nodes with ``#foo.bar.baz`` but **not** nodes with ``#foo.bar`` or ``#foo`` alone.
-* The ``limit=`` parameter can be provided as input to the ``pivot()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``pivot()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
+* The ``limit=`` parameter can be provided as input to the ``fromtags()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``fromtags()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 * In some cases, pivoting with ``fromtags()`` is equivalent to lifting by tag; for example, ``ask #foo.mytag`` is equivalent to ``ask syn:tag=foo.mytag fromtags()``. However, ``fromtags()`` can also take more complex queries as input.
 * For example, say you are tagging nodes with analytical observations made by third parties: ``syn:tag=alias.acme.redtree`` ("things Acme Corporation states are associated with "Redtree" malware") or ``syn:tag=alias.foo.redtree`` ("things Foo Organization states are associated with "Redtree" malware"). To return all nodes **any** organization associates with "Redtree" you could do:
   
@@ -267,13 +270,18 @@ Returns all specified nodes that have **any** of the tags applied to **any** of 
 Optional parameters:
 
 * **<form>:** return only nodes of the specified form(s).
-* If no forms are specified, ``jointags()`` returns all nodes for all forms to which the tags are applied.
+  
+  * If no forms are specified, ``jointags()`` returns all nodes for all forms to which the tags are applied.
+
+* **Return limit:** specify the maximum number of nodes returned by the ``jointags()`` query.
+  
+  * ``limit=`` (operator syntax)
 
 **Operator syntax:**
 
 .. parsed-literal::
   
-  **jointags(** [ *<form_1>* **,** *<form_2>* **,** *...<form_n>* ] **)**
+  **jointags(** [ *<form_1>* **,** *<form_2>* **,** *...<form_n>* **, limit=** *<num>* ] **)**
 
 **Macro syntax:**
 
@@ -289,11 +297,15 @@ N/A
   ::
     jointags( inet:fqdn, inet:email )
 
+* Return the set of ``inet:fqdn`` and ``inet:email`` nodes that share any of the tags applied to the working set of nodes, limiting the number of results to 10:
+  ::
+    jointags( inet:fqdn, inet:email, limit=10 )
+
 **Usage notes:**
 
 * ``jointags()`` pivots using the set of leaf tags only. For example if nodes in the working set have the tag ``#foo.bar.baz``, ``jointags()`` will return other nodes with ``#foo.bar.baz``, but not nodes with ``#foo.bar`` or ``#foo`` alone.
-
-* ``jointags()``, like ``refs()``, can be useful to "explore" other nodes that share some analytical assessment (tag) with the working set of nodes, but may return a large number of nodes. It may be more efficient to narrow the scope of the query using ``totags()`` in combination with a filter operator (e.g., to potentially limit the specific tags selected) followed by ``fromtags()``.
+* ``jointags()``, like ``refs()``, can be useful to "explore" other nodes that share some analytical assessment (tag) with the working set of nodes, but may return a large number of nodes. It may be more efficient to narrow the scope of the query using ``totags()`` in combination with a filter operator (e.g., to limit the specific tags selected) followed by ``fromtags()``.
+* The ``limit=`` parameter can be provided as input to the ``jointags()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``jointags()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 
 tree()
 ------
