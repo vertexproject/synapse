@@ -117,11 +117,14 @@ Optional parameters:
 * **in:** return all nodes that have a secondary property *<type> (<ptype>) = <valu>* that is the same as (**references**) any primary *<prop> = <valu>* in the working set of nodes.
 * **out:** return all the nodes whose primary *<prop> = <valu>* is the same as (is **referenced by**) any secondary property *<type> (<ptype>) = <valu>* in the working set of nodes.
 * If no parameters are specified, ``refs()`` will return the combined results of both ``refs(in)`` and ``refs(out)`` (e.g., execute all pivots to / from the working set of nodes).
+* **Return limit:** specify the maximum number of nodes returned by the ``pivot()`` query.
+  
+  * ``limit=`` (operator syntax)
 
 **Operator syntax:**
 
 .. parsed-literal::
-  **refs(** [ **in** | **out** ] **)**
+  **refs(** [ **in** | **out , limit=** *<num>* ] **)**
 
 **Macro syntax:**
 
@@ -150,6 +153,9 @@ N/A
 **Usage notes:**
 
 * ``refs()`` / ``refs(in)`` / ``refs(out)`` can be useful in an "exploratory" manner to identify what other nodes / forms are "reachable from" (can be pivoted to or from) the working set of nodes. However, because ``refs()`` essentially carries out all possible pivots, the set of nodes returned may be quite large. In such cases a more focused ``pivot()`` or ``join()`` operation may be more useful.
+* ``refs()`` does not consume nodes, so the results of a ``refs()`` operation will include both the original working set as well as the resulting set of nodes.
+* The ``limit=`` parameter can be provided as input to the ``pivot()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``pivot()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
+* Because ``refs()`` does not consume nodes, this impacts the results returned by the ``limit=`` parameter or the ``limit()`` operator. The ``limit=`` parameter will return **all** of the original nodes, **plus** the specified number of results. The ``limit()`` operator will return a **total** number of nodes equal to the specified limit, first including the original working nodes and then including resulting nodes (if possible).
 
 fromtags()
 ----------
