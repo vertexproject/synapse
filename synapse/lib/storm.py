@@ -859,11 +859,7 @@ class Runtime(Configable):
         return cmpr
 
     def _cmprCtorRange(self, oper):
-
-        prop = self._reqOperArg(oper, 'prop')
-        valu = self._reqOperArg(oper, 'valu')
-
-        #TODO unified syntax plumbing with in-band help
+        prop, valu = oper[1].get('args')
 
         core = self.getStormCore()
         isrel = prop.startswith(':')

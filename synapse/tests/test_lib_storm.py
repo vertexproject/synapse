@@ -523,6 +523,53 @@ class StormTest(SynTest):
             nodes = core.eval('hehe*dark=haha')
             self.len(3, nodes)
 
+    def test_storm_cmpr_range(self):
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
+            core.formTufoByProp('intform', 0)
+            core.formTufoByProp('intform', 1)
+            core.formTufoByProp('intform', 2)
+            core.formTufoByProp('intform', 1000)
+
+            nodes = core.eval('intform +range(intform, (-1,0))')
+            self.len(1, nodes)
+
+            nodes = core.eval('intform +range(intform, (-10000,10000))')
+            self.len(4, nodes)
+
+            nodes = core.eval('intform +range(intform, (0,0))')
+            self.len(1, nodes)
+
+            nodes = core.eval('intform +range(intform, (0,1))')
+            self.len(2, nodes)
+
+            nodes = core.eval('intform +range(intform, (0,3))')
+            self.len(3, nodes)
+
+            nodes = core.eval('intform +range(intform, (0,4))')
+            self.len(3, nodes)
+
+            core.formTufoByProp('inet:ipv4', 0)
+            core.formTufoByProp('inet:ipv4', 1)
+            core.formTufoByProp('inet:ipv4', 2)
+            core.formTufoByProp('inet:ipv4', 1000)
+
+            nodes = core.eval('inet:ipv4 +range(inet:ipv4, ("0.0.0.0","0.0.0.10"))')
+            self.len(3, nodes)
+
+            nodes = core.eval('inet:ipv4 +range(:asn, (0,1))')
+            self.len(0, nodes)
+
+            # Relative property
+            nodes = core.eval('inet:ipv4 +range(:asn, (-1,1))')
+            self.len(4, nodes)
+
+            # Invalid property
+            nodes = core.eval('inet:ipv4 +range(:asn_wat, (-1,1))')
+            self.len(0, nodes)  # NOTE: no exception is raised
+
+            # Invalid range
+            self.raises(BadTypeValu, core.eval, 'intform +range(intform, (asdf, ghjk))')
+
     def test_storm_addnode(self):
         with self.getRamCore() as core:
             # add a node with addnode(<form>,<valu>) syntax
