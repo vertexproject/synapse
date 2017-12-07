@@ -112,7 +112,7 @@ Returns the current (working) set of nodes **and** the set of nodes that share a
 
 Optional parameters:
 
-*  **Return limit**: specify the maximum number of nodes returned by the ``join()`` query.
+* **Return limit**: specify the maximum number of nodes returned by the ``join()`` query.
   
   * ``limit=`` (operator syntax)
 
