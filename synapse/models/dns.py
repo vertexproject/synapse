@@ -212,9 +212,17 @@ class DnsMod(CoreModule):
 
                     ('tcp4', {'ptype': 'inet:tcp4',
                         'doc': 'The IPv4/TCP server that responded to the lookup.'}),
+                    ('tcp4:ipv4', {'ptype': 'inet:ipv4',
+                              'doc': 'The IPv4 of the server that responded to the lookup.'}),
+                    ('tcp4:port', {'ptype': 'inet:port',
+                              'doc': 'The TCP port of the server that responded to the lookup.'}),
 
                     ('udp4', {'ptype': 'inet:udp4',
                         'doc': 'The IPv4/UDP server that responded to the lookup.'}),
+                    ('udp4:ipv4', {'ptype': 'inet:ipv4',
+                                   'doc': 'The IPv4 of the server that responded to the lookup.'}),
+                    ('udp4:port', {'ptype': 'inet:port',
+                                   'doc': 'The UDP port of the server that responded to the lookup.'}),
 
                     ('exe', {'ptype': 'file:bytes',
                         'doc': 'The file containing the code that attempted the DNS lookup.'}),
