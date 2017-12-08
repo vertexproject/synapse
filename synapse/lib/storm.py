@@ -1536,7 +1536,13 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         # Prevent infinite pivots
-        recurlim, _ = core.getTypeNorm('int', opts.get('recurlim', 20))
+        try:
+            recurlim, _ = core.getTypeNorm('int', opts.get('recurlim', 20))
+        except s_common.BadTypeValu as e:
+            raise s_common.BadOperArg(oper='tree', name='recurlim', mesg=e.errinfo.get('mesg'))
+
+        if recurlim < 0:
+            raise s_common.BadOperArg(oper='tree', name='recurlim', mesg='must be a positive integer >= 0')
 
         srcp = None
         dstp = args[0]
@@ -1585,7 +1591,7 @@ class Runtime(Configable):
 
             queried_vals = queried_vals.union(vals)
 
-            if recurlim:
+            if recurlim > 0:
                 recurlim -= 1
                 if recurlim < 1:
                     break
