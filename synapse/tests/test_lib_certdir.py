@@ -25,8 +25,13 @@ class CertDirTest(SynTest):
             self.true(cdir.isCaCert('syntest'))
             self.false(cdir.isCaCert('newpnewp'))
 
+            cert = cdir.getCaCert('syntest')
+
             # Make sure the ca cert was generated with the expected number of bits
-            self.eq(cdir.getCaCert('syntest').get_pubkey().bits(), cdir.crypto_numbits)
+            self.eq(cert.get_pubkey().bits(), cdir.crypto_numbits)
+
+            # Make sure the ca cert was generated with the correct version number
+            self.eq(cert.get_version(), 2)
 
     def test_certdir_user(self):
         with self.getCertDir() as cdir:
@@ -46,9 +51,15 @@ class CertDirTest(SynTest):
             self.true(cdir.isUserCert('visi@vertex.link'))
             self.true(cdir.isClientCert('visi@vertex.link'))
 
-            # Make sure the certs was generated with the expected number of bits
-            self.eq(cdir.getUserKey('visi@vertex.link').bits(), cdir.crypto_numbits)
-            self.eq(cdir.getUserCert('visi@vertex.link').get_pubkey().bits(), cdir.crypto_numbits)
+            key = cdir.getUserKey('visi@vertex.link')
+            cert = cdir.getUserCert('visi@vertex.link')
+
+            # Make sure the certs were generated with the expected number of bits
+            self.eq(key.bits(), cdir.crypto_numbits)
+            self.eq(cert.get_pubkey().bits(), cdir.crypto_numbits)
+
+            # Make sure the certs were generated with the correct version number
+            self.eq(cert.get_version(), 2)
 
     def test_certdir_host(self):
         with self.getCertDir() as cdir:
@@ -65,6 +76,9 @@ class CertDirTest(SynTest):
             self.eq(cert.get_extension(4).get_short_name(), b'subjectAltName')
             self.eq(cert.get_extension(4).get_data(), b'0\x1f\x82\x0bvertex.link\x82\x10visi.vertex.link')  # ASN.1 encoded subjectAltName data
 
+            # Make sure the cert was generated with the correct version number
+            self.eq(cert.get_version(), 2)
+
         # Test SAN is valid when not specified in kwargs
         with self.getCertDir() as cdir:
             cdir.genCaCert('syntest')
@@ -76,6 +90,9 @@ class CertDirTest(SynTest):
             self.eq(cert.get_extension_count(), 5)
             self.eq(cert.get_extension(4).get_short_name(), b'subjectAltName')
             self.eq(cert.get_extension(4).get_data(), b'0\x12\x82\x10visi.vertex.link')  # ASN.1 encoded subjectAltName data
+
+            # Make sure the ca cert was generated with the correct version number
+            self.eq(cert.get_version(), 2)
 
     def test_certdir_hostca(self):
         with self.getCertDir() as cdir:
