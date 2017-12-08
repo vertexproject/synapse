@@ -106,11 +106,14 @@ class CertDirTest(SynTest):
         with self.getCertDir() as cdir:
             cdir.genCaCert('syntest')
             cdir.genUserCert('visi@vertex.link', signas='syntest')
+            cdir.genUserCert('unsigned@vertex.link')
 
             self.eq(cdir.getUserForHost('visi', 'host.vertex.link'), 'visi@vertex.link')
+            self.eq(cdir.getUserCaPath('visi@vertex.link'), cdir.getPathJoin() + '/cas/syntest.crt')
 
             self.none(cdir.getUserCaPath('visi@newp.newp'))
             self.none(cdir.getUserCaPath('visi@host.vertex.link'))
+            self.none(cdir.getUserCaPath('unsigned@vertex.link'))
 
     def test_certdir_hostcsr(self):
         with self.getCertDir() as cdir:
