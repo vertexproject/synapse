@@ -464,8 +464,16 @@ class Plex(EventBus):
 
             try:
                 rxlist, txlist, xxlist = select.select(self._plex_rxsocks, self._plex_txsocks, self._plex_xxsocks, 0.2)
-            # mask "bad file descriptor" race and go around again...
             except Exception as e:
+                # go through ALL of our sockets, and call _finiPlexSock on that socket if it has been fini'd or
+                # if those sockets fileno() call is -1
+                # The .copy() method is used since it is faster for small lists.
+                # The identity check of -1 is reliant on a CPython optimization which keeps a single
+                # addressed copy of integers between -5 and 256 in. memory
+                logger.exception('Error during socket select. Culling fini or fileno==-1 sockets.')
+                [self._finiPlexSock(sck) for sck in self._plex_rxsocks.copy() if sck.isfini or sck.fileno() is -1]
+                [self._finiPlexSock(sck) for sck in self._plex_txsocks.copy() if sck.isfini or sck.fileno() is -1]
+                [self._finiPlexSock(sck) for sck in self._plex_xxsocks.copy() if sck.isfini or sck.fileno() is -1]
                 continue
 
             try:
