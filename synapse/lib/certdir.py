@@ -107,6 +107,7 @@ class CertDir:
 
         cert = crypto.X509()
         cert.set_pubkey(pkey)
+        cert.set_version(2)
         cert.gmtime_adj_notBefore(0)
         cert.gmtime_adj_notAfter(10 * 365 * 24 * 60 * 60)
 
