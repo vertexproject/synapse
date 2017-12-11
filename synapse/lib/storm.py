@@ -467,7 +467,7 @@ class Runtime(Configable):
         '''
         return self._getStormCore(name=name)
 
-    def _getStormCore(self, name=None):
+    def _getStormCore(self, name=None):  # pragma: no cover
         raise s_common.NoSuchImpl(name='getStormCore')
 
     def getLiftLimit(self, *limits):
@@ -499,7 +499,7 @@ class Runtime(Configable):
         limit = self.getLiftLimit(limit)
         return self._stormTufosBy(by, prop, valu=valu, limit=limit)
 
-    def _stormTufosBy(self, by, prop, valu=None, limit=None):
+    def _stormTufosBy(self, by, prop, valu=None, limit=None):  # pragma: no cover
         raise s_common.NoSuchImpl(name='_stormTufosBy')
 
     def setCmprCtor(self, name, func):
@@ -713,19 +713,20 @@ class Runtime(Configable):
 
     def _cmprCtorHas(self, oper):
         prop = self._reqOperArg(oper, 'prop')
+
         def cmpr(tufo):
             return tufo[1].get(prop) is not None
 
         return cmpr
 
     def _cmprCtorIn(self, oper):
-        prop = self._reqOperArg(oper, 'prop')
-        valus = self._reqOperArg(oper, 'valu')
-        if len(valus) > 12: # TODO opt value?
-            valus = set(valus)
+        prop, valu = oper[1].get('args')
+
+        if len(valu) > 12:
+            valu = set(valu)
 
         def cmpr(tufo):
-            return tufo[1].get(prop) in valus
+            return tufo[1].get(prop) in valu
 
         return cmpr
 
@@ -748,29 +749,6 @@ class Runtime(Configable):
             return reobj.search(valu) is not None
 
         return cmpr
-
-    def _stormOperShowCols(self, query, oper):
-
-        opts = dict(oper[1].get('kwlist'))
-
-        order = opts.get('order')
-        if order is not None:
-            query.results['show']['order'] = order
-
-        query.results['show']['columns'] = oper[1].get('args')
-
-    def _stormOperFilt(self, query, oper):
-        cmpr = self.getCmprFunc(oper)
-        if oper[1].get('mode') == 'cant':
-            cmpr = invert(cmpr)
-
-        [query.add(t) for t in query.take() if cmpr(t)]
-
-    def _stormOperOr(self, query, oper):
-        funcs = [self.getCmprFunc(op) for op in oper[1].get('args')]
-        for tufo in query.take():
-            if any([func(tufo) for func in funcs]):
-                query.add(tufo)
 
     def _cmprCtorOr(self, oper):
         args = self._reqOperArg(oper, 'args')
@@ -929,6 +907,29 @@ class Runtime(Configable):
             return s_interval.overlap(ival, (minv, maxv))
 
         return cmpr
+
+    def _stormOperShowCols(self, query, oper):
+
+        opts = dict(oper[1].get('kwlist'))
+
+        order = opts.get('order')
+        if order is not None:
+            query.results['show']['order'] = order
+
+        query.results['show']['columns'] = oper[1].get('args')
+
+    def _stormOperFilt(self, query, oper):
+        cmpr = self.getCmprFunc(oper)
+        if oper[1].get('mode') == 'cant':
+            cmpr = invert(cmpr)
+
+        [query.add(t) for t in query.take() if cmpr(t)]
+
+    def _stormOperOr(self, query, oper):
+        funcs = [self.getCmprFunc(op) for op in oper[1].get('args')]
+        for tufo in query.take():
+            if any([func(tufo) for func in funcs]):
+                query.add(tufo)
 
     def _stormOperAnd(self, query, oper):
         funcs = [self.getCmprFunc(op) for op in oper[1].get('args')]
@@ -1330,11 +1331,6 @@ class Runtime(Configable):
             props = formprops.get(form)
             if props:
                 [core.setTufoProps(node, **props) for node in nodes]
-
-    def _iterPropTags(self, props, tags):
-        for prop in props:
-            for tag in tags:
-                yield prop, tag
 
     def _stormOperAllTag(self, query, oper):
 
