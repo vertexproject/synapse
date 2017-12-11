@@ -264,14 +264,18 @@ Returns the set of all tags (``syn:tag`` nodes) applied to the working set of no
 Optional parameters:
 
 * **leaf:** specify whether ``totags()`` should return **only** leaf tags (``leaf = 1``) or **all** tags in the tag hierarchy (``leaf = 0``).
+  
+  * If no parameter is specified, ``totags()`` assumes ``leaf = 1``.
 
-* If no parameter is specified, ``totags()`` assumes ``leaf = 1``.
+* **Return limit:** specify the maximum number of nodes returned by the totags() query.
+
+  * ``limit=`` (operator syntax)
 
 **Operator syntax:**
 
 .. parsed-literal::
   
-  **totags(** [ **leaf = 1** | **0** ] **)**
+  **totags(** [ **leaf = 1** | **0**, **limit = 0** ] **)**
 
 **Macro syntax:**
 
@@ -288,6 +292,10 @@ N/A
 * Return all tags applied to a given set of nodes:
   ::
     totags( leaf = 0 )
+
+* Return 10 tags applied to a given set of nodes:
+  ::
+    totags( leaf = 0, limit = 10 )
 
 **Usage notes:**
 
