@@ -699,7 +699,7 @@ class Daemon(EventBus, DmonConf):
 
                 logger.debug('Executing %s/%r for [%r]', jid, func, user)
                 ret = func(*args, **kwargs)
-                logger.debug('Done executing %s/%r for [%r]', jid, func, user)
+                logger.debug('Done executing %s', jid)
 
                 # handle generator returns specially
                 if isinstance(ret, types.GeneratorType):

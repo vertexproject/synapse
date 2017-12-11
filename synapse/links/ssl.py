@@ -14,10 +14,23 @@ logger = logging.getLogger(__name__)
 class Socket(s_socket.Socket):
 
     def send(self, byts):
+        '''
+        Send bytes on the socket.
+
+        Args:
+            byts (bytes): The bytes to send
+
+        Returns:
+            int: The sent byte count (or None) on fini()
+        '''
         try:
-            return s_socket.Socket.send(self, byts)
+            return self.sock.send(byts)
         except (ssl.SSLWantReadError, ssl.SSLWantWriteError) as e:
             return 0
+        except (OSError, ConnectionError) as e:
+            logger.exception('Error during socket.send() - shutting down socket [%s]', self)
+            self.fini()
+            return None
 
 class SslRelay(LinkRelay):
 
