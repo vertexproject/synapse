@@ -201,6 +201,7 @@ class Socket(EventBus):
             self.sendall(byts)
             return True
         except (OSError, ConnectionError) as e:
+            logger.exception('Error during socket.txbytes() - shutting down socket [%s]', self)
             self.fini()
             return False
 
@@ -239,7 +240,7 @@ class Socket(EventBus):
                 yield self.rxque.popleft()
 
         except Exception as e:
-            logger.exception(e)
+            logger.exception('Error during unpacking / yielding message - shutting down socket [%s]', self)
             self.fini()
             return
 
