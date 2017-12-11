@@ -70,6 +70,7 @@ class Socket(EventBus):
         try:
             return self.sock.send(byts)
         except (OSError, ConnectionError) as e:
+            logger.exception('Error during socket.send() - shutting down socket [%s]', self)
             self.fini()
             return None
 
