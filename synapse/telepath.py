@@ -237,6 +237,7 @@ class Proxy(s_eventbus.EventBus):
 
         if plex is None:
             plex = s_socket.Plex()
+            self.onfini(plex.fini)
 
         self._tele_plex = plex
         self._tele_boss = s_async.Boss()
