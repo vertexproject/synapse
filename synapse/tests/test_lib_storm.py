@@ -523,6 +523,26 @@ class StormTest(SynTest):
             nodes = core.eval('hehe*dark=haha')
             self.len(3, nodes)
 
+    def test_storm_cmpr_in(self):
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
+            core.formTufoByProp('intform', 0)
+            core.formTufoByProp('intform', 1)
+            core.formTufoByProp('intform', 2)
+            core.formTufoByProp('intform', 1000)
+
+            self.len(0, core.eval('intform +in(intform, (-1))'))
+            self.len(1, core.eval('intform +in(intform, (0))'))
+            self.len(3, core.eval('intform -in(intform, (0))'))
+            self.len(1, core.eval('intform +in(intform, (1))'))
+            self.len(1, core.eval('intform +in(intform, (2))'))
+            self.len(1, core.eval('intform +in(intform, (1000))'))
+            self.len(0, core.eval('intform +in(intform, (1001))'))
+            self.len(2, core.eval('intform +in(intform, (1,2))'))
+            self.len(3, core.eval('intform +in(intform, (0,1,2))'))
+            self.len(4, core.eval('intform +in(intform, (0,1,2,1000))'))
+            self.len(4, core.eval('intform +in(intform, (-1,0,1,2,1000,1001))'))
+            self.len(3, core.eval('intform +in(intform, (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16))'))
+
     def test_storm_cmpr_range(self):
         with self.getRamCore() as core:  # type: s_cores_common.Cortex
             core.formTufoByProp('intform', 0)
@@ -532,6 +552,9 @@ class StormTest(SynTest):
 
             nodes = core.eval('intform +range(intform, (-1,0))')
             self.len(1, nodes)
+
+            nodes = core.eval('intform -range(intform, (-1,0))')
+            self.len(3, nodes)
 
             nodes = core.eval('intform +range(intform, (-10000,10000))')
             self.len(4, nodes)
@@ -694,8 +717,11 @@ class StormTest(SynTest):
             self.eq(shlp._getShowFunc('#')(node1), '#foo.bar #hehe.haha')
 
             self.eq(shlp._getShowFunc(':cc')(node1), 'vv')
+            self.eq(shlp._getShowFunc(':wat')(node1), '')
+
             self.eq(shlp._getShowFunc('#foo.*')(node1), '#foo.bar')
             self.eq(shlp._getShowFunc('inet:ipv4')(node1), '1.2.3.4')
+            self.eq(shlp._getShowFunc('wat')(node1), '')
 
             rows = list(sorted(shlp.rows(nodes)))
             self.eq(rows, [
