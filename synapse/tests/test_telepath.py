@@ -78,6 +78,11 @@ class TelePathTest(SynTest):
         self.raises(SynErr, foo.baz, 10, 20)
 
         foo.fini()
+        # We have fini'd the Proxy resources
+        self.true(foo._tele_boss.isfini)
+        self.true(foo._tele_sock.isfini)
+        self.true(foo._tele_plex.isfini)
+
         env.fini()
 
     def test_telepath_chop(self):
