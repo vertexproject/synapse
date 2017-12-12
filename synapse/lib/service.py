@@ -413,7 +413,7 @@ class SvcBase:
     def __init__(self, svcprox):
         self.svcprox = svcprox
 
-    def _callSvcMeth(self, name, *args, **kwargs):
+    def _callSvcMeth(self, name, *args, **kwargs):  # pragma: no cover
         raise s_common.NoSuchImpl(name='_callSvcMethod')
 
     def __getattr__(self, name):
