@@ -7,6 +7,11 @@ import synapse.cores.common as s_cores_common
 from synapse.tests.common import *
 
 class StormTest(SynTest):
+
+    def test_storm_nosuchcmpr(self):
+        with self.getRamCore() as core:
+            self.raises(NoSuchCmpr, core.eval, 'intform +notgonnahappen(1,2,3)')
+
     def test_storm_cmpr_norm(self):
         with self.getRamCore() as core:
             core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
