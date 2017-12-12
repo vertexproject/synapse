@@ -494,6 +494,8 @@ class StormTest(SynTest):
             self.len(1, core.eval('lift(inet:ipv4, limit=1)'))
             self.len(1, core.eval('lift(inet:ipv4, 1.2.3.4)'))
             self.len(1, core.eval('lift(inet:ipv4, 2.0.0.0, by=lt)'))
+            self.raises(BadSyntaxError, core.eval, 'lift()')
+            self.raises(BadSyntaxError, core.eval, 'lift(inet:ipv4, 2.0.0.0, 1.0.0.0)')
 
     def test_storm_lifts_by(self):
         # Test various lifts by handlers
