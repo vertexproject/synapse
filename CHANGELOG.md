@@ -1,6 +1,31 @@
 Changelog
 =========
 
+v0.0.39 - 2017-12-11
+--------------------
+
+## New Features
+- #553 - Synapse Docker images will now have ``-debug`` images available as well for all master and tagged builds.  This image is built off of the ``vertexproject/pydebug:3.6-slim`` image. This image has full GDB support for Python enabled.  See https://github.com/vertexproject/pydebug for more information.
+
+## Enhancements
+- #551 - Make 4096 bit RSA keys by default when using the ``synaspse.tools.easycert`` tool. Thanks @galyac!
+- #550 - Add additional debug logging to Synapse when starting up a Cortex, executing remote methods via Telepath and around SSL errors.
+- #554 - Validate the Storm ``tree()`` ``recurlim`` argument is greater than or equal to zero.
+- #557 - ``inet:dns:look:tcp4:ipv4`` and ``inet:dns:look:tcp4:udp4`` sub properties of ``port`` and ``ipv4`` have been added, so a DNS response can be recorded from a server even if the server source port is unknown.
+- #559 - Add a limit parameter to the Storm ``totags()`` operator.
+- #560 - Add unit test for ``synapse.lib.dark``.
+
+## Bugs
+- #555 - Set the x509 extension number of certificates made by ``synaspse.tools.easycert`` to version 3 (0x02).  This allows Chrome to validate the certificates starting in Chrome 63.
+- #558 - When an exception is raised during the ``synapse.lib.socket.Plex._plexMainLoop`` call to ``select.select()``, perform a check to see if any sockets are fini'd or have fileno() == -1 and perform a cleanup operation on that socket. This can reduce a race condition where a bad socket can get wedged and prevent the multiplexor from working correctly.
+- #558 - Change the ``synapse.link.ssl.Socket.send()`` implementation to call ``self.sock.send()`` itself instead of calling through the default ``Socket.send()`` method.  This allows us to properly catch ``SSLWantReadError`` and ``SSLWantWriteError`` exceptions; instead of allowing teh default method to catch them as ``OSError`` exceptions and fini the socket.  The previous behavior lead to SSL Sockets being unstable.
+- #556 - Fix the Storm filter function for ``+range()`` so that filter operator works properly.
+- #562 - Fix the Storm filter function for ``+in()`` so that filter operator works properly.
+
+## Documentation
+- #552 - Add documentation for the Storm operators to the user guide: ``pivot()``, ``join()``, ``refs()``, ``fromtags()``, ``totags()``, ``jointags()``, and ``tree()``.
+
+
 v0.0.38 - 2017-12-01
 --------------------
 
