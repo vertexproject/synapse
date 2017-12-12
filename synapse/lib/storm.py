@@ -293,8 +293,7 @@ class Query:
         data = self.results.get('data')
         self.subed += len(data)
 
-        self.uniq.clear()
-        # no list.clear() in py27
+        self.uniq = {}
         self.results['data'] = []
 
         return data
