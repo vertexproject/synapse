@@ -401,6 +401,13 @@ class DataModelTest(SynTest):
         self.eq(modl.getTypeCast('make:json', '"hehe"'), '"\\"hehe\\""')
         self.eq(modl.getTypeCast('make:json', {"z": 1, 'yo': 'dawg', }), '{"yo":"dawg","z":1}')
 
+    def test_datamodel_cast_int10(self):
+        modl = s_datamodel.DataModel()
+        self.eq(modl.getTypeCast('int:2:str10', 1), '1')
+        self.eq(modl.getTypeCast('int:2:str10', 100), '100')
+        self.eq(modl.getTypeCast('int:2:str10', 0x11), '17')
+        self.eq(modl.getTypeCast('int:2:str10', 'hehe'), 'hehe')
+
     def test_datamodel_type_hook(self):
         defs = []
         modl = s_datamodel.DataModel()
