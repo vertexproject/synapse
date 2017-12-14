@@ -1,17 +1,14 @@
 import ssl
 import json
 
-from tornado.httpclient import HTTPError
 from tornado.testing import gen_test, AsyncTestCase, AsyncHTTPClient
 
-import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.dyndeps as s_dyndeps
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.webapp as s_webapp
 import synapse.lib.certdir as s_certdir
-import synapse.lib.openfile as s_openfile
 
 from synapse.tests.common import *
 
@@ -31,7 +28,7 @@ class Foo:
 
 class WebAppTest(AsyncTestCase, SynTest):
 
-    @gen_test
+    @gen_test(timeout=30)
     def test_webapp_publish(self):
 
         # tornado does not support windows (yet)
@@ -73,7 +70,7 @@ class WebAppTest(AsyncTestCase, SynTest):
 
         wapp.fini()
 
-    @gen_test
+    @gen_test(timeout=30)
     def test_webapp_body(self):
 
         # tornado does not support windows (yet)
@@ -104,7 +101,7 @@ class WebAppTest(AsyncTestCase, SynTest):
 
         wapp.fini()
 
-    @gen_test
+    @gen_test(timeout=30)
     def test_webapp_ssl(self):
 
         # tornado does not support windows (yet)
@@ -197,7 +194,7 @@ class WebAppTest(AsyncTestCase, SynTest):
                     }
                     dmon.loadDmonConf(config)
 
-    @gen_test
+    @gen_test(timeout=30)
     def test_webapp_static(self):
         self.thisHostMustNot(platform='windows')
 
