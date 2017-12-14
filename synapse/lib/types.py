@@ -903,6 +903,7 @@ class TypeLib:
         self.addType('str:hex', subof='str', frob_int_fmt='%x', regex=r'^[0-9a-f]+$', lower=1)
 
         self.addTypeCast('country:2:cc', self._castCountry2CC)
+        self.addTypeCast('int:2:str10', self._castMakeInt10)
         self.addTypeCast('make:guid', self._castMakeGuid)
         self.addTypeCast('make:json', self._castMakeJson)
 
@@ -918,6 +919,12 @@ class TypeLib:
 
     def _castMakeJson(self, valu):
         valu = json.dumps(valu, sort_keys=True, separators=(',', ':'))
+        return valu
+
+    def _castMakeInt10(self, valu):
+        if isinstance(valu, int):
+            valu = str(valu)
+            return valu
         return valu
 
     def getTypeInst(self, name):
