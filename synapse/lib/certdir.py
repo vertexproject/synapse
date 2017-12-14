@@ -1,8 +1,8 @@
 import os
 
-import synapse.common as s_common
-
 from OpenSSL import crypto
+
+import synapse.common as s_common
 
 defdir = os.getenv('SYN_CERT_DIR')
 if defdir is None:
@@ -26,124 +26,6 @@ class CertDir:
         s_common.gendir(path, 'users')
 
         self.certdir = s_common.reqdir(path)
-
-    def getPathJoin(self, *paths):
-        return s_common.genpath(self.certdir, *paths)
-
-    def getCaCert(self, name):
-        return self._loadCertPath(self.getCaCertPath(name))
-
-    def getHostCert(self, name):
-        return self._loadCertPath(self.getHostCertPath(name))
-
-    def getUserCert(self, name):
-        return self._loadCertPath(self.getUserCertPath(name))
-
-    def getClientCert(self, name):
-        '''
-        Loads the PKCS12 object for a given client certificate.
-
-        Example:
-            mypkcs12 = cdir.getClientCert('mycert')
-
-        Args:
-            name (str): The name of the client certificate.
-
-        Returns:
-            OpenSSL.crypto.PKCS12: The certificate if exists.
-        '''
-        return self._loadP12Path(self.getClientCertPath(name))
-
-    def getCaKey(self, name):
-        return self._loadKeyPath(self.getCaKeyPath(name))
-
-    def getHostKey(self, name):
-        return self._loadKeyPath(self.getHostKeyPath(name))
-
-    def getUserKey(self, name):
-        return self._loadKeyPath(self.getUserKeyPath(name))
-
-    def _loadKeyPath(self, path):
-        if path is None:
-            return None
-
-        byts = s_common.getbytes(path)
-        if byts is None:
-            return None
-
-        return crypto.load_privatekey(crypto.FILETYPE_PEM, byts)
-
-    def _loadCertPath(self, path):
-        if path is None:
-            return None
-
-        byts = s_common.getbytes(path)
-        if byts is None:
-            return None
-
-        return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
-
-    def _loadP12Path(self, path):
-        if path is None:
-            return None
-
-        byts = s_common.getbytes(path)
-        if byts is None:
-            return None
-
-        return crypto.load_pkcs12(byts)
-
-    #def saveCaCert(self, cert):
-    #def saveUserCert(self, cert):
-    #def saveHostCert(self, cert):
-    #def saveX509Cert(self, cert):
-    #def loadX509Cert(self, path):
-
-    def _genBasePkeyCert(self, name, pkey=None):
-
-        if pkey is None:
-            pkey = crypto.PKey()
-            pkey.generate_key(crypto.TYPE_RSA, self.crypto_numbits)
-
-        cert = crypto.X509()
-        cert.set_pubkey(pkey)
-        cert.set_version(2)
-        cert.gmtime_adj_notBefore(0)
-        cert.gmtime_adj_notAfter(10 * 365 * 24 * 60 * 60)
-
-        cert.set_serial_number(int(s_common.guid(), 16))
-        cert.get_subject().CN = name
-
-        return pkey, cert
-
-    def _saveCertTo(self, cert, *paths):
-        path = self.getPathJoin(*paths)
-        if os.path.isfile(path):
-            raise s_common.DupFileName(path=path)
-
-        with s_common.genfile(path) as fd:
-            fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
-
-        return path
-
-    def _saveP12To(self, cert, *paths):
-        path = self.getPathJoin(*paths)
-        if os.path.isfile(path):
-            raise s_common.DupFileName(path=path)
-
-        with s_common.genfile(path) as fd:
-            fd.write(cert.export())
-
-        return path
-
-    def _savePkeyTo(self, pkey, *paths):
-        path = self.getPathJoin(*paths)
-        if os.path.isfile(path):
-            raise s_common.DupFileName(path=path)
-
-        with s_common.genfile(path) as fd:
-            fd.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
-        return path
 
     def genCaCert(self, name, signas=None, outp=None):
         pkey, cert = self._genBasePkeyCert(name)
@@ -197,6 +79,9 @@ class CertDir:
 
         return pkey, cert
 
+    def genHostCsr(self, name, outp=None):
+        return self._genPkeyCsr(name, 'hosts', outp=outp)
+
     def genUserCert(self, name, signas=None, outp=None, pkey=None):
 
         pkey, cert = self._genBasePkeyCert(name, pkey=pkey)
@@ -213,92 +98,35 @@ class CertDir:
         else:
             self.selfSignCert(cert, pkey)
 
+        crtpath = self._saveCertTo(cert, 'users', '%s.crt' % name)
+        if outp is not None:
+            outp.printf('cert saved: %s' % (crtpath,))
+
         if not pkey._only_public:
             keypath = self._savePkeyTo(pkey, 'users', '%s.key' % name)
             if outp is not None:
                 outp.printf('key saved: %s' % (keypath,))
 
-        crtpath = self._saveCertTo(cert, 'users', '%s.crt' % name)
-        if outp is not None:
-            outp.printf('cert saved: %s' % (crtpath,))
+            ccert = crypto.PKCS12()
+            ccert.set_friendlyname(name.encode('utf-8'))
+            ccert.set_certificate(cert)
+            ccert.set_privatekey(pkey)
 
-        ccert = crypto.PKCS12()
-        ccert.set_friendlyname(name.encode('utf-8'))
-        ccert.set_certificate(cert)
-        ccert.set_privatekey(pkey)
+            if signas:
+                cacert = self.getCaCert(signas)
+                ccert.set_ca_certificates([cacert])
 
-        if signas:
-            cacert = self.getCaCert(signas)
-            ccert.set_ca_certificates([cacert])
-
-        crtpath = self._saveP12To(ccert, 'users', '%s.p12' % name)
-        if outp is not None:
-            outp.printf('client cert saved: %s' % (crtpath,))
+            crtpath = self._saveP12To(ccert, 'users', '%s.p12' % name)
+            if outp is not None:
+                outp.printf('client cert saved: %s' % (crtpath,))
 
         return pkey, cert
-
-    def _loadCsrPath(self, path):
-        byts = s_common.getbytes(path)
-        if byts is None:
-            return None
-        return crypto.load_certificate_request(crypto.FILETYPE_PEM, byts)
 
     def genUserCsr(self, name, outp=None):
         return self._genPkeyCsr(name, 'users', outp=outp)
 
-    def genHostCsr(self, name, outp=None):
-        return self._genPkeyCsr(name, 'hosts', outp=outp)
-
-    def signUserCsr(self, xcsr, signas, outp=None):
-        pkey = xcsr.get_pubkey()
-        name = xcsr.get_subject().CN
-        return self.genUserCert(name, pkey=pkey, signas=signas, outp=outp)
-
-    def signHostCsr(self, xcsr, signas, outp=None, sans=None):
-        pkey = xcsr.get_pubkey()
-        name = xcsr.get_subject().CN
-        return self.genHostCert(name, pkey=pkey, signas=signas, outp=outp, sans=sans)
-
-    def _genPkeyCsr(self, name, mode, outp=None):
-        pkey = crypto.PKey()
-        pkey.generate_key(crypto.TYPE_RSA, self.crypto_numbits)
-
-        xcsr = crypto.X509Req()
-        xcsr.get_subject().CN = name
-
-        xcsr.set_pubkey(pkey)
-        xcsr.sign(pkey, 'sha256')
-
-        keypath = self._savePkeyTo(pkey, mode, '%s.key' % name)
-        if outp is not None:
-            outp.printf('key saved: %s' % (keypath,))
-
-        csrpath = self.getPathJoin(mode, '%s.csr' % name)
-        if os.path.isfile(csrpath):
-            raise s_common.DupFileName(path=csrpath)
-
-        with s_common.genfile(csrpath) as fd:
-            fd.write(crypto.dump_certificate_request(crypto.FILETYPE_PEM, xcsr))
-
-        if outp is not None:
-            outp.printf('csr saved: %s' % (csrpath,))
-
-    def signCertAs(self, cert, signas):
-        cakey = self.getCaKey(signas)
-        cacert = self.getCaCert(signas)
-
-        cert.set_issuer(cacert.get_subject())
-        cert.sign(cakey, 'sha256')
-
-    def selfSignCert(self, cert, pkey):
-        cert.set_issuer(cert.get_subject())
-        cert.sign(pkey, 'sha256')
-
-    def getUserForHost(self, user, host):
-        for name in iterFqdnUp(host):
-            usercert = '%s@%s' % (user, name)
-            if self.isUserCert(usercert):
-                return usercert
+    def getCaCert(self, name):
+        return self._loadCertPath(self.getCaCertPath(name))
 
     def getCaCertPath(self, name):
         path = s_common.genpath(self.certdir, 'cas', '%s.crt' % name)
@@ -306,29 +134,29 @@ class CertDir:
             return None
         return path
 
+    def getCaKey(self, name):
+        return self._loadKeyPath(self.getCaKeyPath(name))
+
     def getCaKeyPath(self, name):
         path = s_common.genpath(self.certdir, 'cas', '%s.key' % name)
         if not os.path.isfile(path):
             return None
         return path
 
-    def getHostCertPath(self, name):
-        path = s_common.genpath(self.certdir, 'hosts', '%s.crt' % name)
-        if not os.path.isfile(path):
-            return None
-        return path
+    def getClientCert(self, name):
+        '''
+        Loads the PKCS12 object for a given client certificate.
 
-    def getHostKeyPath(self, name):
-        path = s_common.genpath(self.certdir, 'hosts', '%s.key' % name)
-        if not os.path.isfile(path):
-            return None
-        return path
+        Example:
+            mypkcs12 = cdir.getClientCert('mycert')
 
-    def getUserCertPath(self, name):
-        path = s_common.genpath(self.certdir, 'users', '%s.crt' % name)
-        if not os.path.isfile(path):
-            return None
-        return path
+        Args:
+            name (str): The name of the client certificate.
+
+        Returns:
+            OpenSSL.crypto.PKCS12: The certificate if exists.
+        '''
+        return self._loadP12Path(self.getClientCertPath(name))
 
     def getClientCertPath(self, name):
         '''
@@ -348,8 +176,33 @@ class CertDir:
             return None
         return path
 
-    def getUserKeyPath(self, name):
-        path = s_common.genpath(self.certdir, 'users', '%s.key' % name)
+    def getHostCaPath(self, name):
+        cert = self.getHostCert(name)
+        if cert is None:
+            return None
+
+        subj = cert.get_issuer()
+
+        capath = self.getPathJoin('cas', '%s.crt' % subj.CN)
+        if not os.path.isfile(capath):
+            return None
+
+        return capath
+
+    def getHostCert(self, name):
+        return self._loadCertPath(self.getHostCertPath(name))
+
+    def getHostCertPath(self, name):
+        path = s_common.genpath(self.certdir, 'hosts', '%s.crt' % name)
+        if not os.path.isfile(path):
+            return None
+        return path
+
+    def getHostKey(self, name):
+        return self._loadKeyPath(self.getHostKeyPath(name))
+
+    def getHostKeyPath(self, name):
+        path = s_common.genpath(self.certdir, 'hosts', '%s.key' % name)
         if not os.path.isfile(path):
             return None
         return path
@@ -367,29 +220,35 @@ class CertDir:
 
         return capath
 
-    def getHostCaPath(self, name):
-        cert = self.getHostCert(name)
-        if cert is None:
+    def getUserCert(self, name):
+        return self._loadCertPath(self.getUserCertPath(name))
+
+    def getUserCertPath(self, name):
+        path = s_common.genpath(self.certdir, 'users', '%s.crt' % name)
+        if not os.path.isfile(path):
             return None
+        return path
 
-        subj = cert.get_issuer()
+    def getUserForHost(self, user, host):
+        for name in iterFqdnUp(host):
+            usercert = '%s@%s' % (user, name)
+            if self.isUserCert(usercert):
+                return usercert
 
-        capath = self.getPathJoin('cas', '%s.crt' % subj.CN)
-        if not os.path.isfile(capath):
+    def getUserKey(self, name):
+        return self._loadKeyPath(self.getUserKeyPath(name))
+
+    def getUserKeyPath(self, name):
+        path = s_common.genpath(self.certdir, 'users', '%s.key' % name)
+        if not os.path.isfile(path):
             return None
+        return path
 
-        return capath
-
-    def isUserCert(self, name):
-        crtpath = self.getPathJoin('users', '%s.crt' % name)
-        return os.path.isfile(crtpath)
+    def getPathJoin(self, *paths):
+        return s_common.genpath(self.certdir, *paths)
 
     def isCaCert(self, name):
         crtpath = self.getPathJoin('cas', '%s.crt' % name)
-        return os.path.isfile(crtpath)
-
-    def isHostCert(self, name):
-        crtpath = self.getPathJoin('hosts', '%s.crt' % name)
         return os.path.isfile(crtpath)
 
     def isClientCert(self, name):
@@ -407,3 +266,128 @@ class CertDir:
         '''
         crtpath = self.getPathJoin('users', '%s.p12' % name)
         return os.path.isfile(crtpath)
+
+    def isHostCert(self, name):
+        crtpath = self.getPathJoin('hosts', '%s.crt' % name)
+        return os.path.isfile(crtpath)
+
+    def isUserCert(self, name):
+        crtpath = self.getPathJoin('users', '%s.crt' % name)
+        return os.path.isfile(crtpath)
+
+    def signCertAs(self, cert, signas):
+        cakey = self.getCaKey(signas)
+        cacert = self.getCaCert(signas)
+
+        cert.set_issuer(cacert.get_subject())
+        cert.sign(cakey, 'sha256')
+
+    def signHostCsr(self, xcsr, signas, outp=None, sans=None):
+        pkey = xcsr.get_pubkey()
+        name = xcsr.get_subject().CN
+        return self.genHostCert(name, pkey=pkey, signas=signas, outp=outp, sans=sans)
+
+    def selfSignCert(self, cert, pkey):
+        cert.set_issuer(cert.get_subject())
+        cert.sign(pkey, 'sha256')
+
+    def signUserCsr(self, xcsr, signas, outp=None):
+        pkey = xcsr.get_pubkey()
+        name = xcsr.get_subject().CN
+        return self.genUserCert(name, pkey=pkey, signas=signas, outp=outp)
+
+    def _checkDupFile(self, path):
+        if os.path.isfile(path):
+            raise s_common.DupFileName(path=path)
+
+    def _genBasePkeyCert(self, name, pkey=None):
+
+        if pkey is None:
+            pkey = crypto.PKey()
+            pkey.generate_key(crypto.TYPE_RSA, self.crypto_numbits)
+
+        cert = crypto.X509()
+        cert.set_pubkey(pkey)
+        cert.set_version(2)
+        cert.gmtime_adj_notBefore(0)
+        cert.gmtime_adj_notAfter(10 * 365 * 24 * 60 * 60)
+
+        cert.set_serial_number(int(s_common.guid(), 16))
+        cert.get_subject().CN = name
+
+        return pkey, cert
+
+    def _genPkeyCsr(self, name, mode, outp=None):
+        pkey = crypto.PKey()
+        pkey.generate_key(crypto.TYPE_RSA, self.crypto_numbits)
+
+        xcsr = crypto.X509Req()
+        xcsr.get_subject().CN = name
+
+        xcsr.set_pubkey(pkey)
+        xcsr.sign(pkey, 'sha256')
+
+        keypath = self._savePkeyTo(pkey, mode, '%s.key' % name)
+        if outp is not None:
+            outp.printf('key saved: %s' % (keypath,))
+
+        csrpath = self.getPathJoin(mode, '%s.csr' % name)
+        self._checkDupFile(csrpath)
+
+        with s_common.genfile(csrpath) as fd:
+            fd.write(crypto.dump_certificate_request(crypto.FILETYPE_PEM, xcsr))
+
+        if outp is not None:
+            outp.printf('csr saved: %s' % (csrpath,))
+
+    def _getPathBytes(self, path):
+        if path is None:
+            return None
+        return s_common.getbytes(path)
+
+    def _loadCertPath(self, path):
+        byts = self._getPathBytes(path)
+        if byts:
+            return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+
+    def _loadCsrPath(self, path):
+        byts = self._getPathBytes(path)
+        if byts:
+            return crypto.load_certificate_request(crypto.FILETYPE_PEM, byts)
+
+    def _loadKeyPath(self, path):
+        byts = self._getPathBytes(path)
+        if byts:
+            return crypto.load_privatekey(crypto.FILETYPE_PEM, byts)
+
+    def _loadP12Path(self, path):
+        byts = self._getPathBytes(path)
+        if byts:
+            return crypto.load_pkcs12(byts)
+
+    def _saveCertTo(self, cert, *paths):
+        path = self.getPathJoin(*paths)
+        self._checkDupFile(path)
+
+        with s_common.genfile(path) as fd:
+            fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+
+        return path
+
+    def _savePkeyTo(self, pkey, *paths):
+        path = self.getPathJoin(*paths)
+        self._checkDupFile(path)
+
+        with s_common.genfile(path) as fd:
+            fd.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
+
+        return path
+
+    def _saveP12To(self, cert, *paths):
+        path = self.getPathJoin(*paths)
+        self._checkDupFile(path)
+
+        with s_common.genfile(path) as fd:
+            fd.write(cert.export())
+
+        return path
