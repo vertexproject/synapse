@@ -107,14 +107,19 @@ class SvcBus(s_eventbus.EventBus):
         '''
         Return a list of synapse services by hierarchical tag.
 
-        Example:
+        Args:
+            tag (str): Tag to get services for.
 
-            for name,props in sbus.getSynSvcsByTag('foo.bar'):
-                dostuff(name,props)
+        Examples:
+            Get all the services with the foo.bar tag and dostuff() with the data::
 
+                for name,props in sbus.getSynSvcsByTag('foo.bar'):
+                    dostuff(name,props)
+
+        Returns:
+            list: A list of service tufos.
         '''
-        idens = self.bytag.get(tag)
-        return [self.services.get(iden) for iden in idens]
+        return [self.services.get(i) for i in self.bytag.get(tag)]
 
 class SvcProxy(s_eventbus.EventBus):
     '''
@@ -210,13 +215,19 @@ class SvcProxy(s_eventbus.EventBus):
 
     def getSynSvcsByTag(self, tag):
         '''
-        Return a list of service tufos by tag.
+        Return a list of synapse services by hierarchical tag.
 
-        Example:
+        Args:
+            tag (str): Tag to get services for.
 
-            for svcfo in svcprox.getSynSvcsByTag(tag):
-                dostuff(svcfo)
+        Examples:
+            Get all the services with the foo.bar tag and dostuff() with the data::
 
+                for svcfo in svcprox.getSynSvcsByTag('foo.bar'):
+                    dostuff(name,props)
+
+        Returns:
+            list: A list of service tufos.
         '''
         return [self.byiden.get(i) for i in self.bytag.get(tag)]
 
