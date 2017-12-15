@@ -107,7 +107,7 @@ class AxonHost(s_config.Config):
 
     def _fireAxonIden(self, iden):
         '''
-        This is used to bring existing Axon's owned by the AxonHost online.
+        This is used to bring existing Axons owned by the AxonHost online.
         '''
         axondir = s_common.gendir(self.datadir, '%s.axon' % iden)
 
@@ -1126,7 +1126,7 @@ class Axon(s_config.Config, AxonMixin):
             iden (str): Iden to look up.
 
         Returns:
-            ((str, dict)): Blob tufo returned by the Axon's cortex.
+            ((str, dict)): Blob tufo returned by the Axons cortex.
         '''
         return self.core.getTufoByProp('axon:blob', iden)
 
