@@ -65,6 +65,7 @@ class AxonHost(s_config.Config):
 
             iden, _ = name.split('.', 1)
 
+            logger.debug('Bringing Axon [%s] online', iden)
             self._fireAxonIden(iden)
 
         # fire auto-run axons
@@ -105,6 +106,9 @@ class AxonHost(s_config.Config):
         return confdefs
 
     def _fireAxonIden(self, iden):
+        '''
+        This is used to bring existing Axon's owned by the AxonHost online.
+        '''
         axondir = s_common.gendir(self.datadir, '%s.axon' % iden)
 
         opts = self.makeAxonOpts()
@@ -122,6 +126,7 @@ class AxonHost(s_config.Config):
                 opts['axon:axonbus'] = myaxonbus
                 s_common.jssave(opts, axondir, 'axon.opts')
 
+        logger.debug('Bringing Axon online from [%s]', axondir)
         self.axons[iden] = Axon(axondir, **opts)
 
         bytemax = opts.get('axon:bytemax')
@@ -580,11 +585,13 @@ class Axon(s_config.Config, AxonMixin):
         # share last to avoid startup races
         busurl = self.getConfOpt('axon:axonbus')
         if busurl:
+            logger.debug('[%s] Sharing self on AxonBus', self.iden)
             self.axonbus = s_service.openurl(busurl)
             self.onfini(self.axonbus.fini)
 
             props = {'link': self.link, 'tags': self.tags}
             self.axonbus.runSynSvc(self.iden, self, **props)
+            logger.debug('[%s] Finding/making clones', self.iden)
             self.axcthr = self._fireAxonClones()
 
         self.onfini(self._onAxonFini)
@@ -631,6 +638,9 @@ class Axon(s_config.Config, AxonMixin):
 
     @s_common.firethread
     def _fireAxonClones(self):
+        '''
+        Find the clones for the current Axon on the AxonBus
+        '''
 
         # If this axon is a clone, then don't try to make or find other clones
         if self.getConfOpt('axon:clone'):
