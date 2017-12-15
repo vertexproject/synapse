@@ -292,15 +292,29 @@ class AxonMixin:
 
         return blob
 
-class AxonCluster(AxonMixin):
+class AxonCluster(AxonMixin, s_eventbus.EventBus):
     '''
     Present a singular axon API from an axon cluster.
     '''
     def __init__(self, svcprox):
+        s_eventbus.EventBus.__init__(self)
         self.axons = {}
         self.saves = {}
 
         self.svcprox = svcprox
+        self.svcprox.on('syn:svc:fini', self._onSvcFini)
+        self.onfini(self.svcprox.fini)
+
+    def _onSvcFini(self, mesg):
+        svcfo = mesg[1].get('svcfo')
+        if svcfo is None:
+            return
+
+        axon = self.axons.get(svcfo[0])
+        if axon is None:
+            return
+
+        axon.fini()
 
     def has(self, htype, hvalu, bytag=axontag):
         '''
@@ -353,10 +367,6 @@ class AxonCluster(AxonMixin):
                 self.axons.pop(iden, None)
 
             try:
-
-                # copy before we frob it
-                #link = (link[0],dict(link[1]))
-                #link[1]['once'] = True
 
                 axon = s_telepath.openlink(link)
                 self.axons[iden] = axon
