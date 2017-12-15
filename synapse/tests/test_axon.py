@@ -363,6 +363,225 @@ class AxonHostTest(SynTest):
 
         dmon.fini()
 
+    def test_axon_host_bounce_sync(self):
+        self.skipLongTest()
+        self.thisHostMustNot(platform='windows')
+
+        busurl = 'local://%s/axons' % guid()
+
+        dmon = s_daemon.Daemon()
+        dmon.listen(busurl)
+        sbus = s_service.SvcBus()
+
+        dmon.share('axons', sbus, fini=True)
+
+        with self.getTestDir() as datadir:
+            dir0 = gendir(datadir, 'host0')
+            dir1 = gendir(datadir, 'host1')
+
+            host0 = s_axon.AxonHost(dir0, **{'axon:hostname': 'host0',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             })
+            host1 = s_axon.AxonHost(dir1, **{'axon:hostname': 'host1',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             })
+
+            props = {
+                'axon:bytemax': s_axon.megabyte * 50,
+                'axon:clones': 1,
+            }
+
+            axfo0 = host0.add(**props)
+            axon0 = s_telepath.openlink(axfo0[1].get('link'))  # type: s_axon.Axon
+            self.true(axon0._waitClonesReady(timeout=16))
+            self.notin(axfo0[0], host0.cloneaxons)
+
+            # get refs to axon0's clones
+            ciden1 = host1.cloneaxons[0]
+            axonc1 = host1.axons.get(ciden1)  # type: s_axon.Axon
+            self.eq(axonc1.getConfOpt('axon:clone:iden'), axfo0[0])
+
+            # Ensure axon:clone events have fired on the cores
+            iden = axon0.alloc(100)
+            cv = b'V' * 100
+            blob = axon0.chunk(iden, cv)
+
+            # We need to check the clones of axon0 to ensure that the clones have the data too
+            time.sleep(1)
+
+            self.nn(blob)
+            wtf = axon0.has('md5', blob[1].get('axon:blob:md5'))
+            self.true(wtf)
+            self.true(axon0.has('sha1', blob[1].get('axon:blob:sha1')))
+            self.true(axon0.has('sha256', blob[1].get('axon:blob:sha256')))
+            axonbyts = b''.join(_byts for _byts in axon0.iterblob(blob))
+            self.eq(axonbyts, cv)
+
+            self.true(axonc1.has('md5', blob[1].get('axon:blob:md5')))
+            self.true(axonc1.has('sha1', blob[1].get('axon:blob:sha1')))
+            self.true(axonc1.has('sha256', blob[1].get('axon:blob:sha256')))
+            axonbyts = b''.join(_byts for _byts in axonc1.iterblob(blob))
+            self.eq(axonbyts, cv)
+
+            # Now we teardown axon1 proxy/host1 and bring them back up
+            p0 = s_telepath.openurl(busurl)
+            sbusprox = s_service.SvcProxy(p0)
+            r = sbusprox.getSynSvcsByTag('class.synapse.axon.Axon')
+            self.len(2, r)
+
+            logger.warning('Tearing down host1 objects')
+            axonc1.fini()
+            host1.fini()
+
+            # Ask the svcbus what axons we have
+            waiter = sbusprox.waiter(2, 'syn:svc:fini')
+            waiter.wait(2)
+            r = sbusprox.getSynSvcsByTag('class.synapse.axon.Axon')
+            self.len(1, r)
+
+            # Write data to axon0
+            logger.debug('Writing buf2')
+            iden = axon0.alloc(100)
+            cv = b'v' * 100
+            blob = axon0.chunk(iden, cv)
+            time.sleep(1)
+
+            self.nn(blob)
+            self.true(axon0.has('md5', blob[1].get('axon:blob:md5')))
+            self.true(axon0.has('sha1', blob[1].get('axon:blob:sha1')))
+            self.true(axon0.has('sha256', blob[1].get('axon:blob:sha256')))
+            axonbyts = b''.join(_byts for _byts in axon0.iterblob(blob))
+            self.eq(axonbyts, cv)
+            logger.warning('Bringing host1 back up')
+            # Bring host1 back up - he axon0 should start sending sync events over to axonc1
+            # and it should eventutally get cv / blob available to it
+            waiter = sbusprox.waiter(2, 'syn:svc:init')
+            host1 = s_axon.AxonHost(dir1, **{'axon:hostname': 'host1',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             })
+            waiter.wait(2)
+            # We should have both our axons available again on the svcbus
+            r = sbusprox.getSynSvcsByTag('class.synapse.axon.Axon')
+            self.len(2, r)
+
+            ciden1 = host1.cloneaxons[0]
+            axonc1 = host1.axons.get(ciden1)  # type: s_axon.Axon
+            self.eq(axonc1.getConfOpt('axon:clone:iden'), axfo0[0])
+            logger.warning('Sleeping for cloning')
+            time.sleep(3)
+
+            logger.debug('Checking axonc1 for data')
+            self.true(axonc1.has('md5', blob[1].get('axon:blob:md5')))
+            self.true(axonc1.has('sha1', blob[1].get('axon:blob:sha1')))
+            self.true(axonc1.has('sha256', blob[1].get('axon:blob:sha256')))
+            logger.debug('Checking axonc1 bytes')
+            axonbyts = b''.join(_byts for _byts in axonc1.iterblob(blob))
+            self.eq(axonbyts, cv)
+
+            # Now we teardown axon1 proxy/host1 and bring them back up AGAIN
+            logger.warning('Tearing down host1 objects for a second time')
+            axonc1.fini()
+            host1.fini()
+
+            # Write data to axon0
+            logger.debug('Writing buf3')
+            iden = axon0.alloc(100)
+            cv = b'!' * 100
+            blob = axon0.chunk(iden, cv)
+            time.sleep(1)
+
+            self.nn(blob)
+            self.true(axon0.has('md5', blob[1].get('axon:blob:md5')))
+            self.true(axon0.has('sha1', blob[1].get('axon:blob:sha1')))
+            self.true(axon0.has('sha256', blob[1].get('axon:blob:sha256')))
+            axonbyts = b''.join(_byts for _byts in axon0.iterblob(blob))
+            self.eq(axonbyts, cv)
+            logger.warning('Bringing host1 back up a second time')
+            # Bring host1 back up - he axon0 should start sending sync events over to axonc1
+            # and it should eventutally get cv / blob available to it
+            host1 = s_axon.AxonHost(dir1, **{'axon:hostname': 'host1',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             })
+            ciden1 = host1.cloneaxons[0]
+            axonc1 = host1.axons.get(ciden1)  # type: s_axon.Axon
+            self.eq(axonc1.getConfOpt('axon:clone:iden'), axfo0[0])
+            logger.warning('Sleeping')
+            time.sleep(3)
+
+            logger.debug('Checking axonc1 for data')
+            self.true(axonc1.has('md5', blob[1].get('axon:blob:md5')))
+            self.true(axonc1.has('sha1', blob[1].get('axon:blob:sha1')))
+            self.true(axonc1.has('sha256', blob[1].get('axon:blob:sha256')))
+            logger.debug('Checking axonc1 bytes')
+            axonbyts = b''.join(_byts for _byts in axonc1.iterblob(blob))
+            self.eq(axonbyts, cv)
+
+            # Now we teardown axon1 proxy/host1 and bring them back up AGAIN
+            logger.warning('Tearing down host1 objects for a third time')
+            axonc1.fini()
+            host1.fini()
+
+            logger.warning('Tearing down host0 object as well before recreating it')
+            axon0.fini()
+            host0.fini()
+            w = sbusprox.waiter(2, 'syn:svc:init')
+            host0 = s_axon.AxonHost(dir0, **{'axon:hostname': 'host1',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             })
+            w.wait(1)
+            svcfo = sbusprox.getSynSvcsByTag(s_axon.axontag)[0]
+            axon0 = s_telepath.openlink(svcfo[1].get('link'))  # type: s_axon.Axon
+
+            # Write data to axon0
+            logger.debug('Writing buf4')
+            iden = axon0.alloc(100)
+            cv = b'?' * 100
+            blob = axon0.chunk(iden, cv)
+            time.sleep(1)
+
+            self.nn(blob)
+            self.true(axon0.has('md5', blob[1].get('axon:blob:md5')))
+            self.true(axon0.has('sha1', blob[1].get('axon:blob:sha1')))
+            self.true(axon0.has('sha256', blob[1].get('axon:blob:sha256')))
+            axonbyts = b''.join(_byts for _byts in axon0.iterblob(blob))
+            self.eq(axonbyts, cv)
+            logger.warning('Bringing host1 back up a third time')
+            # Bring host1 back up - he axon0 should start sending sync events over to axonc1
+            # and it should eventutally get cv / blob available to it
+            host1 = s_axon.AxonHost(dir1, **{'axon:hostname': 'host1',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             })
+            ciden1 = host1.cloneaxons[0]
+            axonc1 = host1.axons.get(ciden1)  # type: s_axon.Axon
+            self.eq(axonc1.getConfOpt('axon:clone:iden'), axfo0[0])
+            logger.warning('Sleeping')
+            time.sleep(3)
+
+            logger.debug('Checking axonc1 for data')
+            self.true(axonc1.has('md5', blob[1].get('axon:blob:md5')))
+            self.true(axonc1.has('sha1', blob[1].get('axon:blob:sha1')))
+            self.true(axonc1.has('sha256', blob[1].get('axon:blob:sha256')))
+            logger.debug('Checking axonc1 bytes')
+            axonbyts = b''.join(_byts for _byts in axonc1.iterblob(blob))
+            self.eq(axonbyts, cv)
+
+            # Fini the proxy objects
+            axon0.fini()
+            axonc1.fini()
+            sbusprox.fini()
+
+            # Fini the hosts
+            host0.fini()
+            host1.fini()
+
+        dmon.fini()
+
     def test_axon_clone_large(self):
         self.skipLongTest()
         self.thisHostMustNot(platform='windows')
@@ -652,9 +871,16 @@ class AxonClusterTest(SynTest):
             blob = axcluster.eatfd(buf)
             self.notin('.new', blob[1])
 
+            w = svcprox.waiter(5, 'syn:svc:fini')
+
             host0.fini()
             host1.fini()
             host2.fini()
+
+            w.wait(1)
+
+            # Ensure we have fini'd and removed all the axon proxy objects
+            self.len(0, axcluster.axons)
 
         svcprox.fini()
         dmon.fini()
