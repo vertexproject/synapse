@@ -20,12 +20,14 @@ use to be invoked via the built-in Unittest library.
 """
 import io
 import os
+import types
 import shutil
 import logging
 import tempfile
 import unittest
 import threading
 import contextlib
+import collections
 
 import synapse.link as s_link
 import synapse.common as s_common
@@ -41,6 +43,31 @@ import synapse.lib.output as s_output
 import synapse.lib.thishost as s_thishost
 
 logger = logging.getLogger(__name__)
+
+def objhierarchy(obj):
+    '''
+    Return the type hierarchy of an an object.
+    Dictionary objects have their key values preserved.
+
+    This function exists for debugging purposes.
+    '''
+    # Return fast on generators
+    if isinstance(obj, types.GeneratorType):
+        return type(obj)
+    # Known objects we want to return fast on
+    if isinstance(obj, (str, int, float, bytes)):
+        return type(obj)
+    # Iterables we care about
+    if isinstance(obj, collections.Iterable):
+        if isinstance(obj, dict):
+            return {k: objhierarchy(v) for k, v in obj.items()}
+        if isinstance(obj, set):
+            return {objhierarchy(o) for o in obj}
+        if isinstance(obj, tuple):
+            return tuple([objhierarchy(o) for o in obj])
+        return [objhierarchy(o) for o in obj]
+    # Default case
+    return type(obj)
 
 class TstEnv:
 
