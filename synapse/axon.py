@@ -794,9 +794,16 @@ class Axon(s_config.Config, AxonMixin):
 
     @s_common.firethread
     def _fireAxonClone(self, iden, poff):
+        '''
+        This thread actually performs the sync operations from the source Axon
+        to the clone axon.
 
-        # axon iden is persistent ( and used as svc name )
-        clonefo = self.cloneinfo.get(iden)
+        Args:
+            iden (str): Destination clone axon iden
+            poff (s_persist.Offset): The offset object for sourcing sync events
+            for the destination Axon.
+        '''
+
         with poff:
 
             while not self.isfini:
@@ -842,8 +849,6 @@ class Axon(s_config.Config, AxonMixin):
                             axon.sync(item)
                             poff.set(noff)
                             logger.debug('[%s] Synced noff: [%s]', self.iden, noff)
-
-                            clonefo['off'] = noff
 
                         # Cleanup
                         self._delCloneReady(iden)
