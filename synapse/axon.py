@@ -65,6 +65,7 @@ class AxonHost(s_config.Config):
 
             iden, _ = name.split('.', 1)
 
+            logger.debug('Bringing Axon [%s] online', iden)
             self._fireAxonIden(iden)
 
         # fire auto-run axons
@@ -105,6 +106,9 @@ class AxonHost(s_config.Config):
         return confdefs
 
     def _fireAxonIden(self, iden):
+        '''
+        This is used to bring existing Axons owned by the AxonHost online.
+        '''
         axondir = s_common.gendir(self.datadir, '%s.axon' % iden)
 
         opts = self.makeAxonOpts()
@@ -122,6 +126,7 @@ class AxonHost(s_config.Config):
                 opts['axon:axonbus'] = myaxonbus
                 s_common.jssave(opts, axondir, 'axon.opts')
 
+        logger.debug('Bringing Axon online from [%s]', axondir)
         self.axons[iden] = Axon(axondir, **opts)
 
         bytemax = opts.get('axon:bytemax')
@@ -287,15 +292,29 @@ class AxonMixin:
 
         return blob
 
-class AxonCluster(AxonMixin):
+class AxonCluster(AxonMixin, s_eventbus.EventBus):
     '''
     Present a singular axon API from an axon cluster.
     '''
     def __init__(self, svcprox):
+        s_eventbus.EventBus.__init__(self)
         self.axons = {}
         self.saves = {}
 
         self.svcprox = svcprox
+        self.svcprox.on('syn:svc:fini', self._onSvcFini)
+        self.onfini(self.svcprox.fini)
+
+    def _onSvcFini(self, mesg):
+        svcfo = mesg[1].get('svcfo')
+        if svcfo is None:
+            return
+
+        axon = self.axons.get(svcfo[0])
+        if axon is None:
+            return
+
+        axon.fini()
 
     def has(self, htype, hvalu, bytag=axontag):
         '''
@@ -348,10 +367,6 @@ class AxonCluster(AxonMixin):
                 self.axons.pop(iden, None)
 
             try:
-
-                # copy before we frob it
-                #link = (link[0],dict(link[1]))
-                #link[1]['once'] = True
 
                 axon = s_telepath.openlink(link)
                 self.axons[iden] = axon
@@ -582,11 +597,13 @@ class Axon(s_config.Config, AxonMixin):
         # share last to avoid startup races
         busurl = self.getConfOpt('axon:axonbus')
         if busurl:
+            logger.debug('[%s] Sharing self on AxonBus', self.iden)
             self.axonbus = s_service.openurl(busurl)
             self.onfini(self.axonbus.fini)
 
             props = {'link': self.link, 'tags': self.tags}
             self.axonbus.runSynSvc(self.iden, self, **props)
+            logger.debug('[%s] Finding/making clones', self.iden)
             self.axcthr = self._fireAxonClones()
 
     @staticmethod
@@ -631,6 +648,9 @@ class Axon(s_config.Config, AxonMixin):
 
     @s_common.firethread
     def _fireAxonClones(self):
+        '''
+        Find the clones for the current Axon on the AxonBus
+        '''
 
         # If this axon is a clone, then don't try to make or find other clones
         if self.getConfOpt('axon:clone'):
@@ -659,20 +679,44 @@ class Axon(s_config.Config, AxonMixin):
         self.clonesready.wait(timeout=timeout)
         return self.clonesready.is_set()
 
-    def _addCloneReady(self, iden):
+    def _addCloneReady(self, iden, axon):
         '''
-        Add the clone iden to the ready list and potentially
-        set the "clonesready" event.
-        '''
+        Add the clone iden and Axon to the ready list and potentially set the "clonesready" event.
 
+        Args:
+            iden (str): The Axon clone iden.
+            axon (Axon): A Proxy to an Axon.
+
+        Returns:
+            None
+        '''
         if iden in self.readyclones:
             return
 
         count = self.getConfOpt('axon:clones')
         with self.clonelock:
+            self.clones[iden] = axon
             self.readyclones.add(iden)
             if len(self.readyclones) == count:
                 self.clonesready.set()
+
+    def _delCloneReady(self, iden):
+        '''
+        Remove the clone iden from the ready list and unset the "clonesready" event.
+
+        Args:
+            iden (str): Iden to remove.
+
+        Returns:
+            None
+        '''
+        if iden not in self.readyclones:
+            return
+
+        with self.clonelock:
+            self.clones.pop(iden, None)
+            self.readyclones.remove(iden)
+            self.clonesready.clear()
 
     def _findAxonClones(self):
         '''
@@ -769,24 +813,44 @@ class Axon(s_config.Config, AxonMixin):
                     if link is None:  # pragma: no cover
                         raise s_common.LinkErr('No Axon clone Link For: %s' % (iden,))
 
+                    logger.debug('[%s] connecting too clone %s @ %s', self.iden, iden, link)
+
                     with s_telepath.openlink(link) as axon:
 
-                        self._addCloneReady(iden)
+                        # This event is used to signal that the socket on the Proxy has
+                        # gone away, so we can break out of our Perist items() loop.
+                        sockevt = threading.Event()
 
-                        self.clones[iden] = axon
+                        def _onRunSockFini(mesg):
+                            sockevt.set()
 
-                        #if oldp == None:
-                            #self.cloned.release()
+                        axon.on('tele:sock:runsockfini', _onRunSockFini)
+
+                        self._addCloneReady(iden, axon)
 
                         self.fire('syn:axon:clone:ready', iden=iden)
 
                         off = poff.get()
 
                         for noff, item in self.syncdir.items(off):
-                            axon.sync(item)
-                            poff.set(noff)
 
-                            clonefo['off'] = noff
+                            if sockevt.is_set():
+                                logger.warning('[%s] Breaking out of noff @ [%s] due to disconnect', self.iden, noff)
+                                break
+
+                            logger.debug('[%s] Syncing noff: [%s]', self.iden, noff)
+                            axon.sync(item)
+                            logger.debug('[%s] Synced noff: [%s]', self.iden, noff)
+
+                            newoff = noff + off
+                            poff.set(newoff)
+
+                            clonefo['off'] = newoff
+
+                        # Cleanup
+                        self._delCloneReady(iden)
+
+                    logger.warning('[%s] Looping in _fireAxonClone inner while loop', self.iden)
 
                 except Exception as e:  # pragma: no cover
 
@@ -796,6 +860,8 @@ class Axon(s_config.Config, AxonMixin):
                         break
 
                     time.sleep(1)
+
+        logger.debug('Graceful exit for _fireAxonClone thread')
 
     def getAxonInfo(self):
         '''
@@ -1062,7 +1128,7 @@ class Axon(s_config.Config, AxonMixin):
             iden (str): Iden to look up.
 
         Returns:
-            ((str, dict)): Blob tufo returned by the Axon's cortex.
+            ((str, dict)): Blob tufo returned by the Axons cortex.
         '''
         return self.core.getTufoByProp('axon:blob', iden)
 
