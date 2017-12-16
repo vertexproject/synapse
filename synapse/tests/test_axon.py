@@ -363,7 +363,7 @@ class AxonHostTest(SynTest):
 
         dmon.fini()
 
-    def test_axon_host_boom(self):
+    def test_axon_host_bounce_sync(self):
         self.skipLongTest()
         self.thisHostMustNot(platform='windows')
 
