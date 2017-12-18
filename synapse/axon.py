@@ -341,7 +341,7 @@ class AxonCluster(AxonMixin, s_eventbus.EventBus):
             iden (str): Iden to look up.
 
         Returns:
-            ((str, dict)): Blob tufo returned by the Axon's cortex.
+            ((str, dict)): Blob tufo returned by the Axons cortex.
         '''
         dyntask = s_common.gentask('byiden', iden)
         for svcfo, retval in self.svcprox.callByTag(bytag, dyntask):
