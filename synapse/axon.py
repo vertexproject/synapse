@@ -659,20 +659,44 @@ class Axon(s_config.Config, AxonMixin):
         self.clonesready.wait(timeout=timeout)
         return self.clonesready.is_set()
 
-    def _addCloneReady(self, iden):
+    def _addCloneReady(self, iden, axon):
         '''
-        Add the clone iden to the ready list and potentially
-        set the "clonesready" event.
-        '''
+        Add the clone iden and Axon to the ready list and potentially set the "clonesready" event.
 
+        Args:
+            iden (str): The Axon clone iden.
+            axon (Axon): A Proxy to an Axon.
+
+        Returns:
+            None
+        '''
         if iden in self.readyclones:
             return
 
         count = self.getConfOpt('axon:clones')
         with self.clonelock:
+            self.clones[iden] = axon
             self.readyclones.add(iden)
             if len(self.readyclones) == count:
                 self.clonesready.set()
+
+    def _delCloneReady(self, iden):
+        '''
+        Remove the clone iden from the ready list and unset the "clonesready" event.
+
+        Args:
+            iden (str): Iden to remove.
+
+        Returns:
+            None
+        '''
+        if iden not in self.readyclones:
+            return
+
+        with self.clonelock:
+            self.clones.pop(iden, None)
+            self.readyclones.remove(iden)
+            self.clonesready.clear()
 
     def _findAxonClones(self):
         '''
@@ -769,24 +793,42 @@ class Axon(s_config.Config, AxonMixin):
                     if link is None:  # pragma: no cover
                         raise s_common.LinkErr('No Axon clone Link For: %s' % (iden,))
 
+                    logger.debug('[%s] connecting too clone %s @ %s', self.iden, iden, link)
+
                     with s_telepath.openlink(link) as axon:
 
-                        self._addCloneReady(iden)
+                        # This event is used to signal that the socket on the Proxy has
+                        # gone away, so we can break out of our Perist items() loop.
+                        sockevt = threading.Event()
 
-                        self.clones[iden] = axon
+                        def _onRunSockFini(mesg):
+                            sockevt.set()
 
-                        #if oldp == None:
-                            #self.cloned.release()
+                        axon.on('tele:sock:runsockfini', _onRunSockFini)
+
+                        self._addCloneReady(iden, axon)
 
                         self.fire('syn:axon:clone:ready', iden=iden)
 
                         off = poff.get()
 
                         for noff, item in self.syncdir.items(off):
+
+                            if sockevt.is_set():
+                                logger.warning('[%s] Breaking out of noff @ [%s] due to disconnect', self.iden, noff)
+                                break
+
+                            logger.debug('[%s] Syncing noff: [%s]', self.iden, noff)
                             axon.sync(item)
                             poff.set(noff)
+                            logger.debug('[%s] Synced noff: [%s]', self.iden, noff)
 
                             clonefo['off'] = noff
+
+                        # Cleanup
+                        self._delCloneReady(iden)
+
+                    logger.warning('[%s] Looping in _fireAxonClone inner while loop', self.iden)
 
                 except Exception as e:  # pragma: no cover
 
@@ -796,6 +838,8 @@ class Axon(s_config.Config, AxonMixin):
                         break
 
                     time.sleep(1)
+
+        logger.debug('Graceful exit for _fireAxonClone thread')
 
     def getAxonInfo(self):
         '''
