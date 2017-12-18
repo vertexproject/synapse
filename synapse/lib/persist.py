@@ -227,17 +227,26 @@ class Dir(s_eventbus.EventBus):
                 for noff, item in pers.items(0):
                     dostuff(item)
 
+            Iterate over the items in a file and save offset location::
+
+                poff = pers.getIdenOffset(iden)
+                for noff, item in pers.items(poff.get()):
+                    dostuff(item)
+                    poff.set(noff)
+
         Notes:
             This is a legitimate yield generator; it may not be used across
             a Telepath Proxy.
 
-            The offset yielded by this if a relative offset, computed from
-            the base of the persist file and the input offset.  It should not
-            be considered an absolute offset value.
+            The offset yielded by this is an absolute offset to the **next**
+            item in the stream; not the item which was just yielded. As such,
+            that offset value may be used to restart any sort of
+            synchronization activities done with the Dir object.  The Offset
+            object is provided to assist with this.
 
         Yields:
-            ((int, object)): A tuple containing the relative offset of the
-             unpacked object and the unpacked object itself.
+            ((int, object)): A tuple containing the absolute offset of the
+            next object and the unpacked object itself.
         '''
         que = s_queue.Queue()
         unpk = msgpack.Unpacker(use_list=0, encoding='utf8')
