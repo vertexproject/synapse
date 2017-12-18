@@ -519,7 +519,6 @@ class Axon(s_config.Config, AxonMixin):
         self.axondir = s_common.gendir(axondir)
 
         self.clones = {}
-        self.cloneinfo = {}
         self.clonehosts = set()
         self.clonelock = threading.Lock()
 
@@ -787,8 +786,6 @@ class Axon(s_config.Config, AxonMixin):
         tufo = self.core.formTufoByProp('axon:clone', iden)
 
         poff = self.syncdir.getIdenOffset(iden)
-        self.cloneinfo[iden] = {'off': poff.get()}
-
         thr = self._fireAxonClone(iden, poff)
         self.axthrs.add(thr)
 
