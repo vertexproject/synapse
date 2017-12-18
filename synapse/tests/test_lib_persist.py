@@ -29,13 +29,17 @@ class PersistTest(SynTest):
             opts = {
                 'filemax': 1024,
             }
+            added_offsets = []
 
             pdir = s_persist.Dir(dirname, **opts)
 
             # trigger storage file alloc
-            pdir.add(b'V' * 2000)
-            pdir.add(b'I' * 2000)
-            pdir.add(b'S' * 2000)
+            boff, sz = pdir.add(b'V' * 2000)
+            added_offsets.append(boff + sz)
+            boff, sz = pdir.add(b'I' * 2000)
+            added_offsets.append(boff + sz)
+            boff, sz = pdir.add(b'S' * 2000)
+            added_offsets.append(boff + sz)
 
             # get all caught up and gen one real-time
             items = []
@@ -43,25 +47,26 @@ class PersistTest(SynTest):
             ev0 = threading.Event()
             ev1 = threading.Event()
 
-            def pumploop():
+            def pumploop(offset):
 
-                for noff, item in pdir.items(0):
+                for i, (noff, item) in enumerate(pdir.items(offset), 1):
 
                     items.append((noff, item))
 
-                    if len(items) == 3:
+                    if i == 3:
                         ev0.set()
 
-                    if len(items) == 4:
+                    if i == 4:
                         ev1.set()
 
-            thr = worker(pumploop)
+            thr = worker(pumploop, 0)
 
             ev0.wait(timeout=3)
 
             self.true(ev0.is_set())
 
-            pdir.add(b'VISI')
+            boff, sz = pdir.add(b'VISI')
+            added_offsets.append(boff + sz)
             ev1.wait(timeout=3)
 
             self.true(ev1.is_set())
@@ -70,6 +75,43 @@ class PersistTest(SynTest):
 
             self.eq(items[3][1], b'VISI')
             self.eq(items[0][1], b'V' * 2000)
+
+            thr.join(timeout=1)
+
+            offset = items[-1][0]
+
+            # Now, restart the pdir and continue populating the items list from the middle of a stream
+            ev0.clear()
+            ev1.clear()
+            pdir = s_persist.Dir(dirname, **opts)
+
+            boff, sz = pdir.add(b'1' * 1)
+            added_offsets.append(boff + sz)
+            boff, sz = pdir.add(b'2' * 2)
+            added_offsets.append(boff + sz)
+            boff, sz = pdir.add(b'3' * 3)
+            added_offsets.append(boff + sz)
+
+            thr = worker(pumploop, offset)
+
+            ev0.wait(timeout=3)
+
+            self.true(ev0.is_set())
+
+            boff, sz = pdir.add(b'LULZ')
+            added_offsets.append(boff + sz)
+
+            ev1.wait(timeout=3)
+
+            self.true(ev1.is_set())
+
+            pdir.fini()
+
+            self.len(8, items)
+            received_offsets = [offset for offset, item in items]
+            self.eq(received_offsets, added_offsets)
+
+            thr.join(timeout=1)
 
     def test_persist_offset(self):
 
