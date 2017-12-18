@@ -5,6 +5,8 @@ Created on 10/21/17.
 
 Test for synapse.lib.iq classes
 """
+import types
+
 import synapse.lib.iq as s_iq
 
 from synapse.tests.common import *
@@ -165,5 +167,10 @@ class IqTest(SynTest):
 
         e = (type(None), {'woah': type(''), 'hehe': type(0),
                           'haha': set([type('')]), 'foo': [type(''), type('')]},)
+        r = s_iq.objhierarchy(tufo)
+        self.eq(r, e)
+
+        tufo = (None, {'gen': (i for i in range(1))})
+        e = (type(None), {'gen': types.GeneratorType})
         r = s_iq.objhierarchy(tufo)
         self.eq(r, e)

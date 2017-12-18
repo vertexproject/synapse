@@ -51,11 +51,8 @@ def objhierarchy(obj):
 
     This function exists for debugging purposes.
     '''
-    # Return fast on generators
-    if isinstance(obj, types.GeneratorType):
-        return type(obj)
     # Known objects we want to return fast on
-    if isinstance(obj, (str, int, float, bytes)):
+    if isinstance(obj, (str, int, float, bytes, types.GeneratorType)):
         return type(obj)
     # Iterables we care about
     if isinstance(obj, collections.Iterable):
