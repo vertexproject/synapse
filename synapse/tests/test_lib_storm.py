@@ -600,6 +600,28 @@ class StormTest(SynTest):
             # Invalid range
             self.raises(BadTypeValu, core.eval, 'intform +range(intform, (asdf, ghjk))')
 
+    def test_storm_cmpr_seen(self):
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
+            core.formTufoByProp('inet:web:acct', 'vertex.link/user0', **{'seen:min': 0, 'seen:max': 0})
+            core.formTufoByProp('inet:web:acct', 'vertex.link/user1', **{'seen:min': 1483228800000, 'seen:max': 1514764800000})  # 2017-2018
+            core.formTufoByProp('inet:web:acct', 'vertex.link/user2', **{'seen:min': 2493072000000, 'seen:max': 2493072000000})  # 2049
+            core.formTufoByProp('intform', 2493072000000)
+
+            self.raises(BadTypeValu, core.eval, 'inet:web:acct +seen(0)')  # expecting date time in string
+            self.len(0, core.eval('inet:web:acct +seen(2016)'))
+            self.len(1, core.eval('inet:web:acct +seen(2016, 2017, 2025)'))
+            self.len(2, core.eval('inet:web:acct +seen(2016, 2017, 2025, 2049)'))
+
+            self.len(1, core.eval('inet:web:acct +seen(2017)'))
+            self.len(1, core.eval('inet:web:acct +seen(2018)'))
+            self.len(0, core.eval('inet:web:acct +seen(2019)'))
+
+            self.len(0, core.eval('inet:web:acct +seen(2048)'))
+            self.len(1, core.eval('inet:web:acct +seen(2049)'))
+            self.len(0, core.eval('inet:web:acct +seen(2050)'))
+
+            self.len(0, core.eval('intform +seen(2049)'))
+
     def test_storm_addnode(self):
         with self.getRamCore() as core:
             # add a node with addnode(<form>,<valu>) syntax
