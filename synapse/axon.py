@@ -562,8 +562,6 @@ class Axon(s_config.Config, AxonMixin):
 
         self.syncdir = None
 
-        self.onfini(self._onAxonFini)
-
         self.onfini(self.core.fini)
         self.onfini(self.heap.fini)
         self.onfini(self.dmon.fini)
@@ -588,6 +586,8 @@ class Axon(s_config.Config, AxonMixin):
             props = {'link': self.link, 'tags': self.tags}
             self.axonbus.runSynSvc(self.iden, self, **props)
             self.axcthr = self._fireAxonClones()
+
+        self.onfini(self._onAxonFini)
 
     @staticmethod
     @s_config.confdef(name='axon')
