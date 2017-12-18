@@ -203,7 +203,10 @@ class Method:
 
         return self.proxy.syncjob(job)
 
-telelocal = set(['tele:sock:init', 'ebus:init', 'fifo:xmit'])
+telelocal = set(['tele:sock:init',
+                 'tele:sock:runsockfini',
+                 'ebus:init',
+                 'fifo:xmit'])
 
 class Proxy(s_eventbus.EventBus):
     '''
@@ -464,6 +467,8 @@ class Proxy(s_eventbus.EventBus):
             if not self.isfini:
                 s_glob.pool.call(self._runSockFini)
 
+        logger.debug('[%s] has sock [%s]', self, sock)
+
         sock.onfini(sockfini)
 
         self._teleSynAck(sock)
@@ -488,6 +493,8 @@ class Proxy(s_eventbus.EventBus):
     def _runSockFini(self):
         if self.isfini:
             return
+
+        self.fire('tele:sock:runsockfini')
 
         try:
             self._initTeleSock()

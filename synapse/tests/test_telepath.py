@@ -254,7 +254,13 @@ class TelePathTest(SynTest):
             data['hehe'] = data.get('hehe', 0) + 1
             data['haha'] = mesg[1].get('haha')
 
+        data2 = {}
+        def _onReconnect(mesg):
+            data2['reconnect'] = True
+
+        prox.on('tele:sock:runsockfini', _onReconnect)
         prox.on('hehe', _onHehe)
+
         prox.fire('hehe', haha=1)
         self.eq(data.get('hehe'), 1)
         self.eq(data.get('haha'), 1)
@@ -274,6 +280,8 @@ class TelePathTest(SynTest):
         prox.fire('hehe', haha=3)
         self.eq(data.get('hehe'), 2)
         self.eq(data.get('haha'), 3)
+
+        self.true(data2['reconnect'])
 
         prox.fini()
         dmon.fini()
