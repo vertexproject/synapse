@@ -242,6 +242,11 @@ class Dir(s_eventbus.EventBus):
         que = s_queue.Queue()
         unpk = msgpack.Unpacker(use_list=0, encoding='utf8')
 
+        # poff is used for iterating over persistence files when unpacking,
+        # while the user supplied offset is used to return absolute offsets
+        # when unpacking objects from the stream.
+        poff = off
+
         if self.files[0].opts.get('baseoff') > off:
             raise Exception('Too Far Back') # FIXME
 
@@ -261,7 +266,7 @@ class Dir(s_eventbus.EventBus):
 
             while True:
 
-                foff = off - base
+                foff = poff - base
 
                 byts = pers.readoff(foff, blocksize)
 
@@ -294,12 +299,15 @@ class Dir(s_eventbus.EventBus):
 
                     while True:
                         item = unpk.unpack(write_bytes=calcsize)
-                        yield data['next'], item
+                        # explicit is better than implicit
+                        reloff = data['next']
+                        aboff = reloff + off
+                        yield aboff, item
 
                 except msgpack.exceptions.OutOfData:
                     pass
 
-                off += len(byts)
+                poff += len(byts)
 
         # we are now a queued real-time pump
         try:
