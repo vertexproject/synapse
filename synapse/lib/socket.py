@@ -11,6 +11,7 @@ import collections
 
 logger = logging.getLogger(__name__)
 
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
