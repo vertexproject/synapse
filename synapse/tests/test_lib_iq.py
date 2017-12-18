@@ -5,8 +5,9 @@ Created on 10/21/17.
 
 Test for synapse.lib.iq classes
 """
-import logging
-import synapse.lib.output as s_output
+import types
+
+import synapse.lib.iq as s_iq
 
 from synapse.tests.common import *
 
@@ -155,3 +156,21 @@ class IqTest(SynTest):
             self.raises(AttributeError, blah)
 
         self.true(core.isfini)
+
+    def test_common_hierarchy(self):
+        blob = (10, 'hehe')
+        e = (type(10), type('hehe'))
+        r = s_iq.objhierarchy(blob)
+        self.eq(r, e)
+
+        tufo = (None, {'woah': 'dude', 'hehe': 1, 'haha': set(['1', '2']), 'foo': ['bar', 'baz']})
+
+        e = (type(None), {'woah': type(''), 'hehe': type(0),
+                          'haha': set([type('')]), 'foo': [type(''), type('')]},)
+        r = s_iq.objhierarchy(tufo)
+        self.eq(r, e)
+
+        tufo = (None, {'gen': (i for i in range(1))})
+        e = (type(None), {'gen': types.GeneratorType})
+        r = s_iq.objhierarchy(tufo)
+        self.eq(r, e)

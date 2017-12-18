@@ -191,6 +191,16 @@ def reqbytes(*paths):
 def genfile(*paths):
     '''
     Create or open ( for read/write ) a file path join.
+
+    Args:
+        *paths: A list of paths to join together to make the file.
+
+    Notes:
+        If the file already exists, the fd returned is opened in ``r+b`` mode.
+        Otherwise, the fd is opened in ``w+b`` mode.
+
+    Returns:
+        io.BufferedRandom: A file-object which can be read/written too.
     '''
     path = genpath(*paths)
     gendir(os.path.dirname(path))

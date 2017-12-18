@@ -264,9 +264,13 @@ class Dir(s_eventbus.EventBus):
         def calcsize(b):
             data['next'] += len(b)
 
+        logger.debug('Entering items with offset %s', off)
+
         for pers in self.files:
 
             base = pers.opts.get('baseoff')
+
+            logger.debug('Base offset for %s - %s', pers, base)
 
             # do we skip this file?
             filemax = base + pers.size
@@ -276,6 +280,8 @@ class Dir(s_eventbus.EventBus):
             while True:
 
                 foff = poff - base
+
+                logger.debug('Reading from offset %s', foff)
 
                 byts = pers.readoff(foff, blocksize)
 
@@ -318,6 +324,9 @@ class Dir(s_eventbus.EventBus):
 
                 poff += len(byts)
 
+            logger.debug('Done with cached events for %s', pers)
+
+        logger.debug('Entering real-time event pump')
         # we are now a queued real-time pump
         try:
 
@@ -328,6 +337,8 @@ class Dir(s_eventbus.EventBus):
         finally:
             self.queues.remove(que)
             que.fini()
+
+        logger.debug('Leaving items()')
 
 class File(s_eventbus.EventBus):
     '''
