@@ -7,6 +7,11 @@ import synapse.cores.common as s_cores_common
 from synapse.tests.common import *
 
 class StormTest(SynTest):
+
+    def test_storm_nosuchcmpr(self):
+        with self.getRamCore() as core:
+            self.raises(NoSuchCmpr, core.eval, 'intform +notgonnahappen(1,2,3)')
+
     def test_storm_cmpr_norm(self):
         with self.getRamCore() as core:
             core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
@@ -489,6 +494,8 @@ class StormTest(SynTest):
             self.len(1, core.eval('lift(inet:ipv4, limit=1)'))
             self.len(1, core.eval('lift(inet:ipv4, 1.2.3.4)'))
             self.len(1, core.eval('lift(inet:ipv4, 2.0.0.0, by=lt)'))
+            self.raises(BadSyntaxError, core.eval, 'lift()')
+            self.raises(BadSyntaxError, core.eval, 'lift(inet:ipv4, 2.0.0.0, 1.0.0.0)')
 
     def test_storm_lifts_by(self):
         # Test various lifts by handlers
@@ -592,6 +599,28 @@ class StormTest(SynTest):
 
             # Invalid range
             self.raises(BadTypeValu, core.eval, 'intform +range(intform, (asdf, ghjk))')
+
+    def test_storm_cmpr_seen(self):
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
+            core.formTufoByProp('inet:web:acct', 'vertex.link/user0', **{'seen:min': 0, 'seen:max': 0})
+            core.formTufoByProp('inet:web:acct', 'vertex.link/user1', **{'seen:min': 1483228800000, 'seen:max': 1514764800000})  # 2017-2018
+            core.formTufoByProp('inet:web:acct', 'vertex.link/user2', **{'seen:min': 2493072000000, 'seen:max': 2493072000000})  # 2049
+            core.formTufoByProp('intform', 2493072000000)
+
+            self.raises(BadTypeValu, core.eval, 'inet:web:acct +seen(0)')  # expecting date time in string
+            self.len(0, core.eval('inet:web:acct +seen(2016)'))
+            self.len(1, core.eval('inet:web:acct +seen(2016, 2017, 2025)'))
+            self.len(2, core.eval('inet:web:acct +seen(2016, 2017, 2025, 2049)'))
+
+            self.len(1, core.eval('inet:web:acct +seen(2017)'))
+            self.len(1, core.eval('inet:web:acct +seen(2018)'))
+            self.len(0, core.eval('inet:web:acct +seen(2019)'))
+
+            self.len(0, core.eval('inet:web:acct +seen(2048)'))
+            self.len(1, core.eval('inet:web:acct +seen(2049)'))
+            self.len(0, core.eval('inet:web:acct +seen(2050)'))
+
+            self.len(0, core.eval('intform +seen(2049)'))
 
     def test_storm_addnode(self):
         with self.getRamCore() as core:
