@@ -1,6 +1,30 @@
 Changelog
 =========
 
+v0.0.40 - 2017-12-11
+--------------------
+
+## New Features
+- #564 - Added a ``int:2:str10`` typecast to convert a integer value to the base10 string value.
+- #569 - The Telepath ``Proxy`` object now fires the local event ``tele:sock:runsockfini`` when the Proxy is attempting to reconnect to its remote ``Daemon``. This can be hooked by implementers to detect the loss of an existing connection to a remote ``Daemon``.
+- #572 - The ``synapse.axon.AxonCluster`` helper object is now a subclass of ``EventBus``. This will now automatically close its corresponding ``SvcProx`` instance on its own ``.fini()``.
+- #572 - Added the ``synapse.lib.iq.objhierarchy()`` function to extract a type hierarchy from nested tufo-style objects.  This can be a useful for debugging.
+
+## Enhancements
+- #565 - Increase Tornado related test timeouts from 5 to 30 seconds.
+- #570 - Additional debug logging added to ``synapse.axon.Axon`` actions.
+- #572 - Additional debug logging added to ``synapse.lib.persist.Dir`` actions.
+
+## Bugs
+- #561 - When a telepath Proxy object is made, by default it will create its own socket Plex object.  This Plex is now fini’d when the proxy is fini’d.
+- #568 - Add ``synapse.glob`` to ``synapse.lib.socket`` imports to fix a missing reference.
+- #567- The ``synapse.lib.persist.Dir.items()`` method yielded offsets which could switch from being relative offsets to being absolute offsets.  This has been changed to always yield absolute offsets.
+- #570 - The ``synapse.axon.Axon._fireAxonClone`` thread now uses the ``tele:sock:runsockfini`` event to detect that a disconnect has occurred for its remote Proxy, and uses that to break out of its innermost ``synapse.lib.persist.Dir.items()`` loop.  The previous behavior would fail to reconnect if part of an Axon cluster went down and then came back up, as the Proxy contained potentially invalid link information instead of getting an updated link tufo from the Axon’s ServiceBus.
+- #571 - Fini ``Axon`` threads after calling ``self.syncdir.fini()`` to ensure that any threads which are in the real time event pump from the syncdir can safely close their resources before attempting to stop any threads.
+
+## Documentation
+- #572 - Miscellaneous API docstring improvements.
+
 v0.0.39 - 2017-12-11
 --------------------
 
