@@ -23,6 +23,13 @@ class TstThrowKeyboard(s_cli.Cmd):
 
 class CliTest(SynTest):
 
+    def test_cli_prompt(self):
+        outp = self.getTestOutp()
+        with s_cli.Cli(None, outp=outp) as cli:
+            self.eq(cli.getCmdPrompt(), 'cli> ')
+            cli.cmdprompt = 'hehe> '
+            self.eq(cli.getCmdPrompt(), 'hehe> ')
+
     def test_cli_get_set(self):
         outp = self.getTestOutp()
         with s_cli.Cli(None, outp=outp, hehe='haha') as cli:
