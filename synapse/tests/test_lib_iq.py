@@ -183,6 +183,15 @@ class IqTest(SynTest):
         self.eq(cmdg(), 'quit')
         self.eq(cmdg(), 'quit')
 
+    def test_cmdg_evnt(self):
+        cmdg = CmdGenerator(['foo', 'bar'], on_end='spam')
+        self.eq(cmdg(), 'foo')
+        self.eq(cmdg(), 'bar')
+        self.eq(cmdg(), 'spam')
+        cmdg.fire('syn:cmdg:add', cmd='hehe')
+        self.eq(cmdg(), 'hehe')
+        self.eq(cmdg(), 'spam')
+
     def test_cmdg_end_actions(self):
         cmdg = CmdGenerator(['foo', 'bar'], on_end='spam')
         self.eq(cmdg(), 'foo')
