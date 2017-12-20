@@ -262,18 +262,42 @@ class CertDirTest(SynTest):
             self.eq(cert.get_extension(4).get_short_name(), b'subjectAltName')
             self.eq(cert.get_extension(4).get_data(), b'0\x13\x82\x11visi3.vertex.link')  # ASN.1 encoded subjectAltName data
 
-    def test_certdir_hosts_csr(self):  # FIXME
+    def test_certdir_hosts_csr(self):
         with self.getCertDir() as cdir:
-            cdir.genCaCert('syntest')
-            cdir.genHostCsr('visi.vertex.link')
-            path = cdir.getPathJoin('hosts', 'visi.vertex.link.csr')
-            xcsr = cdir._loadCsrPath(path)
-            cdir.signHostCsr(xcsr, 'syntest')
+            caname = 'syntest'
+            hostname = 'visi.vertex.link'
 
-    def test_certdir_users_csr(self):  # FIXME
-        with self.getCertDir() as cdir:
-            cdir.genCaCert('syntest')
-            cdir.genUserCsr('visi@vertex.link')
-            path = cdir.getPathJoin('users', 'visi@vertex.link.csr')
+            # Generate CA cert and host CSR
+            cdir.genCaCert(caname)
+            cdir.genHostCsr(hostname)
+            path = cdir.getPathJoin('hosts', hostname + '.csr')
             xcsr = cdir._loadCsrPath(path)
-            cdir.signUserCsr(xcsr, 'syntest')
+
+            # Sign the CSR as the CA
+            cdir.signHostCsr(xcsr, caname)
+
+            # Validate the keypair
+            cacert = cdir.getCaCert(caname)
+            cert = cdir.getHostCert(hostname)
+            key = cdir.getHostKey(hostname)
+            self.basic_assertions(cdir, cert, key, cacert=cacert)
+
+    def test_certdir_users_csr(self):
+        with self.getCertDir() as cdir:
+            caname = 'syntest'
+            username = 'visi@vertex.link'
+
+            # Generate CA cert and user CSR
+            cdir.genCaCert(caname)
+            cdir.genUserCsr(username)
+            path = cdir.getPathJoin('users', username + '.csr')
+            xcsr = cdir._loadCsrPath(path)
+
+            # Sign the CSR as the CA
+            cdir.signUserCsr(xcsr, caname)
+
+            # Validate the keypair
+            cacert = cdir.getCaCert(caname)
+            cert = cdir.getUserCert(username)
+            key = cdir.getUserKey(username)
+            self.basic_assertions(cdir, cert, key, cacert=cacert)
