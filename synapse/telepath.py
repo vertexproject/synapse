@@ -31,7 +31,7 @@ def openurl(url, **opts):
     Construct a Telepath Proxy from a URL.
 
     Args:
-        url (str): A URL to parser into a link tufo.
+        url (str): A URL to parse into a link tufo.
         **opts: Additional options which are added to the link tufo.
 
     Examples:

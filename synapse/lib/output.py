@@ -4,6 +4,8 @@ Tools for easily hookable output from cli-like tools.
 import io
 import sys
 
+import synapse.eventbus as s_eventbus
+
 class OutPut:
 
     def __init__(self):
@@ -46,10 +48,10 @@ class OutPutStr(OutPut):
     def __str__(self):
         return ''.join(self.mesgs)
 
-#class OutPutBus(OutPut,EventBus):
-    #def __init__(self, bus):
-        #OutPut.__init__(self)
-        #EventBus.__init__(self)
+class OutPutBus(OutPut, s_eventbus.EventBus):
+    def __init__(self):
+        OutPut.__init__(self)
+        s_eventbus.EventBus.__init__(self)
 
-    #def _rawOutPut(self, mesg):
-        #self.fire('output:print', mesg=mesg)
+    def _rawOutPut(self, mesg):
+        self.fire('syn:output:print', mesg=mesg)
