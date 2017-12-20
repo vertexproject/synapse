@@ -180,7 +180,7 @@ class CmdGenerator(s_eventbus.EventBus):
 
     Notes:
         This EventBus reacts to the event ``syn:cmdg:add`` to add additional
-        command strings after initialization. The value o the ``cmd`` argument
+        command strings after initialization. The value of the ``cmd`` argument
         is appended to the list of commands returned by the CmdGenerator.
     '''
 
