@@ -23,6 +23,19 @@ class TstThrowKeyboard(s_cli.Cmd):
 
 class CliTest(SynTest):
 
+    def test_cli_get_set(self):
+        outp = self.getTestOutp()
+        with s_cli.Cli(None, outp=outp, hehe='haha') as cli:
+            self.eq(cli.get('hehe'), 'haha')
+            self.none(cli.get('foo'))
+            cli.set('foo', 'bar')
+            self.eq(cli.get('foo'), 'bar')
+            cli.runCmdLine('locs')
+            self.true(outp.expect('hehe'))
+            self.true(outp.expect('haha'))
+            self.true(outp.expect('foo'))
+            self.true(outp.expect('bar'))
+
     def test_cli_quit(self):
         outp = self.getTestOutp()
         with s_cli.Cli(None, outp=outp) as cli:
@@ -154,7 +167,6 @@ class CliTest(SynTest):
         data = {'count': 0}
 
         def _onGetInput(mesg):
-            print(mesg)
             data['count'] = data['count'] + 1
             if data['count'] > 2:
                 cmdg.addCmd('quit')
