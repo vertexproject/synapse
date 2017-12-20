@@ -107,20 +107,30 @@ class CertDir:
             if outp is not None:
                 outp.printf('key saved: %s' % (keypath,))
 
-            ccert = crypto.PKCS12()
-            ccert.set_friendlyname(name.encode('utf-8'))
-            ccert.set_certificate(cert)
-            ccert.set_privatekey(pkey)
-
-            if signas:
-                cacert = self.getCaCert(signas)
-                ccert.set_ca_certificates([cacert])
-
-            crtpath = self._saveP12To(ccert, 'users', '%s.p12' % name)
-            if outp is not None:
-                outp.printf('client cert saved: %s' % (crtpath,))
-
         return pkey, cert
+
+    def genClientCert(self, caname, name, outp=None):
+        cacert = self.getCaCert(caname)
+        if not cacert:
+            raise s_common.NoSuchFile('missing CA cert')
+
+        ucert = self.getUserCert(name)
+        if not ucert:
+            raise s_common.NoSuchFile('missing User cert')
+
+        ukey = self.getUserKey(name)
+        if not ukey:
+            raise s_common.NoSuchFile('missing User private key')
+
+        ccert = crypto.PKCS12()
+        ccert.set_friendlyname(name.encode('utf-8'))
+        ccert.set_ca_certificates([cacert])
+        ccert.set_certificate(ucert)
+        ccert.set_privatekey(ukey)
+
+        crtpath = self._saveP12To(ccert, 'users', '%s.p12' % name)
+        if outp is not None:
+            outp.printf('client cert saved: %s' % (crtpath,))
 
     def genUserCsr(self, name, outp=None):
         return self._genPkeyCsr(name, 'users', outp=outp)

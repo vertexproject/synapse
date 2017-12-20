@@ -1,13 +1,28 @@
-
 from synapse.tests.common import *
 
 import synapse.tools.easycert as s_easycert
 
-    #pars.add_argument('--certdir', default='~/.syn/certs', help='Directory for certs/keys')
-    ##pars.add_argument('--signas', help='sign the new cert with the given cert name')
-    #pars.add_argument('--ca', default=False, action='store_true', help='mark the certificate as a CA/CRL signer')
 
 class TestEasyCert(SynTest):
+
+    def test_easycert_user_p12(self):
+        with self.getTestDir() as path:
+            outp = self.getTestOutp()
+
+            argv = ['--ca', '--certdir', path, 'testca']
+            self.eq(s_easycert.main(argv, outp=outp), 0)
+            self.true(str(outp).find('cert saved'))
+
+            argv = ['--certdir', path, '--signas', 'testca', 'user@test.com']
+            self.eq(s_easycert.main(argv, outp=outp), 0)
+            self.true(str(outp).find('cert saved'))
+
+            argv = ['--certdir', path, '--p12', '--p12ca', 'testca', 'user@test.com']
+            self.eq(s_easycert.main(argv, outp=outp), 0)
+            self.true(str(outp).find('client cert saved'))
+
+            argv = ['--certdir', path, '--p12', 'user@test.com']
+            self.eq(s_easycert.main(argv, outp=outp), -1)
 
     def test_easycert_user_sign(self):
         with self.getTestDir() as path:

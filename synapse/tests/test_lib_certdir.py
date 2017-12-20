@@ -1,3 +1,4 @@
+import os
 from contextlib import contextmanager
 
 from OpenSSL import crypto
@@ -180,6 +181,7 @@ class CertDirTest(SynTest):
 
             # Generate a self-signed user keypair =============================
             cdir.genUserCert(username_unsigned)
+            cdir.genClientCert(caname, username_unsigned)
 
             # Test that all the methods for loading the certificates work
             self.isinstance(cdir.getUserCert(username_unsigned), crypto.X509)
@@ -201,6 +203,7 @@ class CertDirTest(SynTest):
 
             # Generate a signed user keypair ==================================
             cdir.genUserCert(username, signas=caname)
+            cdir.genClientCert(caname, username)
 
             # Test that all the methods for loading the certificates work
             self.isinstance(cdir.getUserCert(username), crypto.X509)
@@ -219,6 +222,14 @@ class CertDirTest(SynTest):
             p12 = cdir.getClientCert(username)
             self.basic_assertions(cdir, cert, key, cacert=cacert)
             self.p12_assertions(cdir, cert, key, p12, cacert=cacert)
+
+            # Test missing files for generating a client cert
+            os.remove(base + '/users/' + username + '.key')
+            self.raises(NoSuchFile, cdir.genClientCert, caname, username)  # user key
+            os.remove(base + '/users/' + username + '.crt')
+            self.raises(NoSuchFile, cdir.genClientCert, caname, username)  # user crt
+            os.remove(base + '/cas/' + caname + '.crt')
+            self.raises(NoSuchFile, cdir.genClientCert, caname, username)  # ca crt
 
     def test_certdir_hosts_sans(self):
         with self.getCertDir() as cdir:
