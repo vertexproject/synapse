@@ -100,7 +100,6 @@ def openlink(link):
     sock = relay.connect()
 
     synack = teleSynAck(sock, name=name)
-    bases = ()
 
     return Proxy(relay, sock=sock)
 
@@ -108,14 +107,25 @@ def evalurl(url, **opts):
     '''
     Construct either a local object or a telepath proxy.
 
-    WARNING: this API enables ctor:// proto which uses eval!
-             ( trusted inputs only )
+    Args:
+        url (str): URL to evaluate
+        **opts: Additional options.
 
-    Example:
+    Notes:
+        This API enables the ctor:// protocol which uses ``eval()``.
+        It should **only** be used with trusted inputs!
 
-        item0 = evalurl('tcp://1.2.3.4:90/foo')
-        item1 = evalurl('ctor://foo.bar.baz("woot",y=20)')
+    Examples:
+        Get a remote object over a TCP connection:
 
+            item0 = evalurl('tcp://1.2.3.4:90/foo')
+
+        Get a local object via ctor:
+
+            item1 = evalurl('ctor://foo.bar.baz("woot",y=20)')
+
+    Returns:
+        object: A python object
     '''
     if url.find('://') == -1:
         raise s_common.BadUrl(url)
