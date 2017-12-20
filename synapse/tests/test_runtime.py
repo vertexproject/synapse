@@ -80,7 +80,8 @@ class StormRunTest(SynTest):
         self.sorteq(core.eval('inet:ipv4="127.0.0.1" inet:ipv4->inet:dns:a:ipv4 inet:dns:a:fqdn->inet:fqdn'), [t6, t7])
 
         # test join operator basics
-        self.sorteq(core.eval('inet:ipv4="127.0.0.1" join(inet:ipv4:cc)'), [t0, t1, t2])
+        self.raises(BadSyntaxError, core.eval, 'inet:ipv4="127.0.0.1" join(inet:ipv4:cc)')
+        self.sorteq(core.eval('inet:ipv4="127.0.0.1" join(inet:ipv4:cc,inet:ipv4:cc)'), [t0, t1, t2])
         self.sorteq(core.eval('inet:ipv4="127.0.0.1" inet:ipv4->inet:dns:a:ipv4 join("inet:fqdn","inet:dns:a:fqdn")'), [t4, t5, t6, t7])
 
         # test filt #####################################################
