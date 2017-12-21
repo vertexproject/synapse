@@ -50,6 +50,7 @@ class TestMain(SynTest):
 
     def test_main_lsboot(self):
         self.thisHostMustNot(platform='windows')
+        self.gcCollect()
 
         tfile = self.getTempConfig()
 
@@ -63,6 +64,7 @@ class TestMain(SynTest):
 
     def test_main_onboot(self):
         self.thisHostMustNot(platform='windows')
+        self.gcCollect()
 
         tfile = self.getTempConfig()
 
