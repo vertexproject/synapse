@@ -143,7 +143,7 @@ class AskCmd(s_cli.Cmd):
                         self.printf('    %s = %s' % (prop[flen:], disp))
                     for prop in uniprops:
                         valu = node[1].get(prop)
-                        if valu is None:
+                        if valu is None:  # pragma: no cover
                             continue
                         disp = core.getPropRepr(prop, valu)
                         self.printf('    %s = %s' % (prop, disp))

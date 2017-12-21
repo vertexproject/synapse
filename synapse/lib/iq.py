@@ -95,10 +95,23 @@ class TstEnv:
 
 class TstOutPut(s_output.OutPutStr):
 
-    def expect(self, substr):
+    def expect(self, substr, throw=True):
+        '''
+        Check if a string is present in the messages captured by the OutPutStr object.
+
+        Args:
+            substr (str): String to check for the existence of.
+            throw (bool): If True, a missing substr results in a Exception being thrown.
+
+        Returns:
+            bool: True if the string is present; False if the string is not present and throw is False.
+        '''
         outs = str(self)
         if outs.find(substr) == -1:
-            raise Exception('TestOutPut.expect(%s) not in %s' % (substr, outs))
+            if throw:
+                raise Exception('TestOutPut.expect(%s) not in %s' % (substr, outs))
+            return False
+        return True
 
 class TestSteps:
     '''
@@ -143,6 +156,71 @@ class TestSteps:
         '''
         self.done(done)
         self.wait(wait, timeout=timeout)
+
+class CmdGenerator(s_eventbus.EventBus):
+    '''
+    Generates a callable object which can be used with unittest.mock.patch in
+    order to do CLI driven testing.
+
+    Args:
+        cmds (list): List of commands to send to callers.
+        on_end (str, Exception): Either a string or a exception class that is
+        respectively returned or raised when all the provided commands have been consumed.
+
+    Examples:
+        Use the CmdGenerator to issue a series of commands to a Cli object during a test::
+
+            outp = self.getTestOutp()  # self is a SynTest instance
+            cmdg = CmdGenerator(['help', 'ask hehe:haha=1234', 'quit'])
+            # Patch the get_input command to call our CmdGenerator instance
+            with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
+                with s_cli.Cli(None, outp) as cli:
+                    cli.runCmdLoop()
+                    self.eq(cli.isfini, True)
+
+    Notes:
+        This EventBus reacts to the event ``syn:cmdg:add`` to add additional
+        command strings after initialization. The value of the ``cmd`` argument
+        is appended to the list of commands returned by the CmdGenerator.
+    '''
+
+    def __init__(self, cmds, on_end='quit'):
+        s_eventbus.EventBus.__init__(self)
+        self.cmds = list(cmds)
+        self.cur_command = 0
+        self.end_action = on_end
+
+        self.on('syn:cmdg:add', self._onCmdAdd)
+
+    def _onCmdAdd(self, mesg):
+        cmd = mesg[1].get('cmd')
+        self.addCmd(cmd)
+
+    def addCmd(self, cmd):
+        '''
+        Add a command to the end of the list of commands returned by the CmdGenerator.
+
+        Args:
+            cmd (str): Command to add to the list of commands to return.
+        '''
+        self.cmds.append(cmd)
+
+    def __call__(self, *args, **kwargs):
+        try:
+            ret = self.cmds[self.cur_command]
+        except IndexError:
+            ret = self._on_end()
+            return ret
+        else:
+            self.cur_command = self.cur_command + 1
+            return ret
+
+    def _on_end(self):
+        if isinstance(self.end_action, str):
+            return self.end_action
+        if callable(self.end_action) and issubclass(self.end_action, BaseException):
+            raise self.end_action('No further actions')
+        raise Exception('Unhandled end action')
 
 class SynTest(unittest.TestCase):
 

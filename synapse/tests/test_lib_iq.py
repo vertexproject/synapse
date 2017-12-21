@@ -174,3 +174,43 @@ class IqTest(SynTest):
         e = (type(None), {'gen': types.GeneratorType})
         r = s_iq.objhierarchy(tufo)
         self.eq(r, e)
+
+    def test_cmdg_simple_sequence(self):
+
+        cmdg = CmdGenerator(['foo', 'bar'])
+        self.eq(cmdg(), 'foo')
+        self.eq(cmdg(), 'bar')
+        self.eq(cmdg(), 'quit')
+        self.eq(cmdg(), 'quit')
+
+    def test_cmdg_evnt(self):
+        cmdg = CmdGenerator(['foo', 'bar'], on_end='spam')
+        self.eq(cmdg(), 'foo')
+        self.eq(cmdg(), 'bar')
+        self.eq(cmdg(), 'spam')
+        cmdg.fire('syn:cmdg:add', cmd='hehe')
+        self.eq(cmdg(), 'hehe')
+        self.eq(cmdg(), 'spam')
+
+    def test_cmdg_end_actions(self):
+        cmdg = CmdGenerator(['foo', 'bar'], on_end='spam')
+        self.eq(cmdg(), 'foo')
+        self.eq(cmdg(), 'bar')
+        self.eq(cmdg(), 'spam')
+        self.eq(cmdg(), 'spam')
+
+    def test_cmdg_end_exception(self):
+        cmdg = CmdGenerator(['foo', 'bar'], on_end=EOFError)
+        self.eq(cmdg(), 'foo')
+        self.eq(cmdg(), 'bar')
+        with self.raises(EOFError) as cm:
+            cmdg()
+        self.assertIn('No further actions', str(cm.exception))
+
+    def test_cmdg_end_exception_unknown(self):
+        cmdg = CmdGenerator(['foo', 'bar'], on_end=1)
+        self.eq(cmdg(), 'foo')
+        self.eq(cmdg(), 'bar')
+        with self.raises(Exception) as cm:
+            cmdg()
+        self.assertIn('Unhandled end action', str(cm.exception))
