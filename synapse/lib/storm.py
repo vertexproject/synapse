@@ -876,7 +876,7 @@ class Runtime(Configable):
 
             minv = tufo[1].get(minp)
             if minv is None or minv > tick:
-                return False
+                return False  # FIXME cover
 
             maxv = tufo[1].get(maxp)
             if maxv is None or maxv <= tick:
@@ -897,11 +897,11 @@ class Runtime(Configable):
 
             minv = tufo[1].get(minp)
             if minv is None:
-                return False
+                return False  # FIXME cover
 
             maxv = tufo[1].get(maxp)
             if maxv is None:
-                return False
+                return False  # FIXME cover
 
             return s_interval.overlap(ival, (minv, maxv))
 
@@ -913,7 +913,7 @@ class Runtime(Configable):
 
         order = opts.get('order')
         if order is not None:
-            query.results['show']['order'] = order
+            query.results['show']['order'] = order  # FIXME cover
 
         query.results['show']['columns'] = oper[1].get('args')
 
@@ -924,13 +924,13 @@ class Runtime(Configable):
 
         [query.add(t) for t in query.take() if cmpr(t)]
 
-    def _stormOperOr(self, query, oper):
+    def _stormOperOr(self, query, oper):  # FIXME cover
         funcs = [self.getCmprFunc(op) for op in oper[1].get('args')]
         for tufo in query.take():
             if any([func(tufo) for func in funcs]):
                 query.add(tufo)
 
-    def _stormOperAnd(self, query, oper):
+    def _stormOperAnd(self, query, oper):  # FIXME cover
         funcs = [self.getCmprFunc(op) for op in oper[1].get('args')]
         for tufo in query.take():
             if any([func(tufo) for func in funcs]):
@@ -961,7 +961,7 @@ class Runtime(Configable):
 
             func = self.operfuncs.get(oper[0])
             if func is None:
-                raise s_common.NoSuchOper(name=oper[0])
+                raise s_common.NoSuchOper(name=oper[0])  # FIXME cover
 
             try:
 
@@ -1085,7 +1085,7 @@ class Runtime(Configable):
 
         [query.add(t)for t in self.stormTufosBy('in', dstp, list(vals), limit=limit)]
 
-    def _stormOperNextSeq(self, query, oper):
+    def _stormOperNextSeq(self, query, oper):  # FIXME cover
         name = None
 
         args = oper[1].get('args')
@@ -1173,7 +1173,7 @@ class Runtime(Configable):
 
         [query.add(t) for t in self.stormTufosBy('in', dstp, list(vals), limit=limit)]
 
-    def _stormOperAddXref(self, query, oper):
+    def _stormOperAddXref(self, query, oper):  # FIXME cover
 
         args = oper[1].get('args')
         if len(args) != 3:
@@ -1294,7 +1294,7 @@ class Runtime(Configable):
         # addnode(<form>,<valu>,**props)
         args = oper[1].get('args')
         if len(args) != 2:
-            raise s_common.BadSyntaxError(mesg='addnode(<form>,<valu>,[:<prop>=<pval>, ...])')
+            raise s_common.BadSyntaxError(mesg='addnode(<form>,<valu>,[:<prop>=<pval>, ...])')  # FIXME cover
 
         kwlist = oper[1].get('kwlist')
 
