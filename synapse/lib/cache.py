@@ -388,7 +388,9 @@ class KeyCache(collections.defaultdict):
 
     def __missing__(self, key):
         valu = self.lookmeth(key)
-        self[key] = valu
+        if valu is not None:
+            self[key] = valu
+
         return valu
 
     def pop(self, key):

@@ -434,7 +434,7 @@ class Runtime(Configable):
         self.setOperFunc('delnode', self._stormOperDelNode)
         self.setOperFunc('delprop', self._stormOperDelProp)
 
-        self.setOperFunc('nexttag', self._stormOperNextSeq)
+        self.setOperFunc('nexttag', self._stormOperNextTag)
         self.setOperFunc('setprop', self._stormOperSetProp)
         self.setOperFunc('addxref', self._stormOperAddXref)
         self.setOperFunc('fromtags', self._stormOperFromTags)
@@ -664,7 +664,7 @@ class Runtime(Configable):
         if timeout is not None:
             maxtime = time.time() + timeout
 
-        # FIXME overall time per user goes here
+        # TODO overall time per user goes here
 
         query = Query(data=data, maxtime=maxtime)
 
@@ -875,11 +875,9 @@ class Runtime(Configable):
         def cmpr(tufo):
 
             minv = tufo[1].get(minp)
-            if minv is None or minv > tick:
-                return False  # FIXME cover
-
             maxv = tufo[1].get(maxp)
-            if maxv is None or maxv <= tick:
+
+            if minv is None or minv > tick or maxv is None or maxv <= tick:
                 return False
 
             return True
@@ -896,12 +894,10 @@ class Runtime(Configable):
         def cmpr(tufo):
 
             minv = tufo[1].get(minp)
-            if minv is None:
-                return False  # FIXME cover
-
             maxv = tufo[1].get(maxp)
-            if maxv is None:
-                return False  # FIXME cover
+
+            if minv is None or maxv is None:
+                return False
 
             return s_interval.overlap(ival, (minv, maxv))
 
@@ -913,7 +909,7 @@ class Runtime(Configable):
 
         order = opts.get('order')
         if order is not None:
-            query.results['show']['order'] = order  # FIXME cover
+            query.results['show']['order'] = order
 
         query.results['show']['columns'] = oper[1].get('args')
 
@@ -923,18 +919,6 @@ class Runtime(Configable):
             cmpr = invert(cmpr)
 
         [query.add(t) for t in query.take() if cmpr(t)]
-
-    def _stormOperOr(self, query, oper):  # FIXME cover
-        funcs = [self.getCmprFunc(op) for op in oper[1].get('args')]
-        for tufo in query.take():
-            if any([func(tufo) for func in funcs]):
-                query.add(tufo)
-
-    def _stormOperAnd(self, query, oper):  # FIXME cover
-        funcs = [self.getCmprFunc(op) for op in oper[1].get('args')]
-        for tufo in query.take():
-            if any([func(tufo) for func in funcs]):
-                query.add(tufo)
 
     def _stormOperSave(self, query, oper):
         data = query.data()
@@ -961,7 +945,7 @@ class Runtime(Configable):
 
             func = self.operfuncs.get(oper[0])
             if func is None:
-                raise s_common.NoSuchOper(name=oper[0])  # FIXME cover
+                raise s_common.NoSuchOper(name=oper[0])
 
             try:
 
@@ -1085,13 +1069,13 @@ class Runtime(Configable):
 
         [query.add(t)for t in self.stormTufosBy('in', dstp, list(vals), limit=limit)]
 
-    def _stormOperNextSeq(self, query, oper):  # FIXME cover
+    def _stormOperNextTag(self, query, oper):
         name = None
 
         args = oper[1].get('args')
         kwargs = dict(oper[1].get('kwlist'))
 
-        doc = kwargs.get('doc')
+        doc = kwargs.get('doc', '??')
         name = kwargs.get('core')
 
         if len(args) != 1:
@@ -1173,7 +1157,7 @@ class Runtime(Configable):
 
         [query.add(t) for t in self.stormTufosBy('in', dstp, list(vals), limit=limit)]
 
-    def _stormOperAddXref(self, query, oper):  # FIXME cover
+    def _stormOperAddXref(self, query, oper):
 
         args = oper[1].get('args')
         if len(args) != 3:
@@ -1186,7 +1170,7 @@ class Runtime(Configable):
         # TODO clearer error handling
         for node in query.take():
             sorc = node[1].get(node[1].get('tufo:form'))
-            node = core.formTufoByProp(xref, (sorc, form, valu))
+            node = core.formTufoByProp(xref, (sorc, (form, valu)))
             query.add(node)
 
     def _stormOperRefs(self, query, oper):
@@ -1291,10 +1275,9 @@ class Runtime(Configable):
                         break
 
     def _stormOperAddNode(self, query, oper):
-        # addnode(<form>,<valu>,**props)
         args = oper[1].get('args')
         if len(args) != 2:
-            raise s_common.BadSyntaxError(mesg='addnode(<form>,<valu>,[:<prop>=<pval>, ...])')  # FIXME cover
+            raise s_common.BadSyntaxError(mesg='addnode(<form>,<valu>,[:<prop>=<pval>, ...])')
 
         kwlist = oper[1].get('kwlist')
 

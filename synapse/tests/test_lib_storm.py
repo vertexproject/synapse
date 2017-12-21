@@ -8,9 +8,67 @@ from synapse.tests.common import *
 
 class StormTest(SynTest):
 
+    def test_storm_addxref(self):
+        with self.getRamCore() as core:
+            self.raises(BadSyntaxError, core.eval, 'addxref()')
+            self.len(0, core.eval('addxref(a,b,c)'))
+
+            fnod = core.formTufoByProp('file:bytes', 'd41d8cd98f00b204e9800998ecf8427e')
+            anod = core.formTufoByProp('inet:web:action', '*', act='laughed', acct='vertex.link/user1')
+
+            fiden = fnod[1].get('file:bytes')
+            aiden = anod[1].get('inet:web:action')
+
+            qstr = 'addxref(inet:web:actref, file:bytes, %s)' % fiden
+            self.len(0, core.eval(qstr))  # nothing to create xref from, as no inet:web:actions were lifted
+
+            # create an xref in storm
+            nodes = core.eval('inet:web:action ' + qstr)
+            self.len(1, nodes)
+            stormnode = nodes[0]
+
+            # make sure the result of creating the node w/ cortex api is the same
+            corenode = core.formTufoByProp('inet:web:actref', '(%s,file:bytes=%s)' % (aiden, fiden))
+            self.eq(s_tufo.ndef(stormnode), s_tufo.ndef(corenode))
+
+    def test_storm_nexttag(self):
+        with self.getRamCore() as core:
+            self.raises(BadSyntaxError, core.eval, 'nexttag()')
+            self.raises(NoSuchSeq, core.eval, 'nexttag(foo)')  # nexttag does not automatically create a sequence
+            core.eval('[syn:seq=foo]')
+
+            node = core.eval('nexttag(foo)')
+            self.eq(node[0][1].get('syn:tag'), 'foo0')
+
+            node = core.eval('nexttag(foo)')
+            self.eq(node[0][1].get('syn:tag'), 'foo1')
+
+            node = core.eval('nexttag(foo)')
+            self.eq(node[0][1].get('syn:tag'), 'foo2')
+
+            self.raises(NoSuchSeq, core.eval, 'nexttag(bar)')
+            self.raises(NoSuchSeq, core.eval, 'nexttag(bar.baz)')
+            core.eval('[syn:seq=bar.baz]')
+            self.raises(NoSuchSeq, core.eval, 'nexttag(bar)')
+
+            node = core.eval('nexttag(bar.baz)')
+            self.eq(node[0][1].get('syn:tag'), 'bar.baz0')
+
+            core.eval('[syn:seq=docdtag]')
+            node = core.eval('nexttag(docdtag, doc=hehe)')
+            self.eq(node[0][1].get('syn:tag'), 'docdtag0')
+            self.eq(node[0][1].get('syn:tag:doc'), 'hehe')
+            node = core.eval('nexttag(docdtag)')
+            self.eq(node[0][1].get('syn:tag'), 'docdtag1')
+            self.eq(node[0][1].get('syn:tag:doc'), '??')
+
     def test_storm_nosuchcmpr(self):
         with self.getRamCore() as core:
             self.raises(NoSuchCmpr, core.eval, 'intform +notgonnahappen(1,2,3)')
+
+    def test_storm_nosuchoper(self):
+        with self.getRamCore() as core:
+            self.raises(NoSuchOper, core.eval, 'intform notgonnahappen()')
 
     def test_storm_cmpr_norm(self):
         with self.getRamCore() as core:
@@ -682,6 +740,8 @@ class StormTest(SynTest):
             # confirm that addnode() requires : prefix on relative props
             self.raises(BadSyntaxError, core.eval, 'addnode(inet:ipv4, 1.2.3.4, asn=20)')
 
+            self.raises(BadSyntaxError, core.eval, 'addnode()')
+
     def test_storm_delnode(self):
         with self.getRamCore() as core:
             node = core.formTufoByProp('inet:ipv4', 0x01020304)
@@ -745,15 +805,19 @@ class StormTest(SynTest):
 
     def test_storm_tag_ival(self):
         with self.getRamCore() as core:
-            node = core.eval('[ inet:ipv4=1.2.3.4  +#foo.bar@2016-2017 ] ')[0]
 
+            node = core.eval('[ inet:ipv4=1.2.3.4  +#foo.bar@2016-2017 ] ')[0]
             minv = node[1].get('>#foo.bar')
             maxv = node[1].get('<#foo.bar')
             self.eq((minv, maxv), (1451606400000, 1483228800000))
+            self.len(0, core.eval(' inet:ipv4=1.2.3.7 +#foo.bar@2016-2017 '))
 
             node = core.eval('[ inet:ipv4=5.6.7.8 +#foo.bar@2014 ] ')[0]
-
             self.eq(s_tufo.ival(node, '#foo.bar'), (1388534400000, 1388534400000))
+            self.len(1, core.eval(' [inet:ipv4=5.6.7.9 +#foo.baz@2001] '))
+            self.len(0, core.eval(' inet:ipv4=5.6.7.9 +#foo.baz@2001-2002 '))
+            self.len(0, core.eval(' inet:ipv4=5.6.7.9 +#foo.baz@2049 '))
+            self.len(0, core.eval(' inet:ipv4=5.6.7.9 +#foo.baz@2049-2149 '))
 
             nodes = core.eval('inet:ipv4 +#foo.bar@201606')
             self.len(1, nodes)
@@ -763,13 +827,23 @@ class StormTest(SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][1].get('inet:ipv4'), 0x01020304)
 
-            nodes = core.eval('inet:ipv4 -#foo.bar@201606')
-            self.len(1, nodes)
-            self.eq(nodes[0][1].get('inet:ipv4'), 0x05060708)
+            nodes = core.eval('inet:ipv4 -#foo.bar')
+            self.len(1, nodes)  # 5.6.7.9
 
-            nodes = core.eval('inet:ipv4 -#foo.bar@2015-201606')
-            self.len(1, nodes)
-            self.eq(nodes[0][1].get('inet:ipv4'), 0x05060708)
+            nodes = core.eval('inet:ipv4 +#foo.bar')
+            self.len(2, nodes)  # 1.2.3.4, 5.6.7.8
+
+            nodes = core.eval('inet:ipv4 +#foo.baz')
+            self.len(1, nodes)  # 5.6.7.9
+
+            nodes = core.eval('inet:ipv4 -#foo.baz')
+            self.len(2, nodes)  # 1.2.3.4, 5.6.7.8
+
+            nodes = core.eval('inet:ipv4 -#foo.bar@201606')
+            self.len(2, nodes)  # 5.6.7.8, 5.6.7.9
+
+            nodes = core.eval('inet:ipv4 +#foo.bar@201606')
+            self.len(1, nodes)  # 1.2.3.4
 
     def test_storm_edit_end(self):
         with self.getRamCore() as core:

@@ -5,9 +5,7 @@ import synapse.lib.reflect as s_reflect
 # Add our commands to the mixins registry
 s_mixins.addSynMixin('cmdr', 'synapse.eventbus.EventBus', 'synapse.cmds.common.PyCmd')
 s_mixins.addSynMixin('cmdr', 'synapse.eventbus.EventBus', 'synapse.cmds.common.GuidCmd')
-
 s_mixins.addSynMixin('cmdr', 'synapse.cores.common.Cortex', 'synapse.cmds.cortex.AskCmd')
-s_mixins.addSynMixin('cmdr', 'synapse.cores.common.Cortex', 'synapse.cmds.cortex.NextSeqCmd')
 
 
 def getItemCmdr(item, outp=None, **opts):
