@@ -1104,15 +1104,17 @@ class Runtime(Configable):
 
         args = oper[1].get('args')
         opts = dict(oper[1].get('kwlist'))
-        if len(args) != 2:
-            raise s_common.BadSyntaxError(mesg='join(<dstprop>,<srcprop>)')
+        limit = opts.get('limit')
 
-        dstp = args[0]
-        srcp = args[1]
+        if len(args) is 2:
+            srcp, dstp = args[0], args[1]
+        elif len(args) is 1:
+            srcp, dstp = args[0], args[0]
+        else:
+            raise s_common.BadSyntaxError(mesg='join(<srcprop>,<dstprop>)')
 
-        # use the more optimal "in" mechanism once we have the pivot vals
         vals = list({t[1].get(srcp) for t in query.data() if t is not None and t[1].get(srcp) is not None})
-        [query.add(tufo) for tufo in self.stormTufosBy('in', dstp, vals, limit=opts.get('limit'))]
+        [query.add(tufo) for tufo in self.stormTufosBy('in', dstp, vals, limit=limit)]
 
     def _stormOperAddXref(self, query, oper):
 
