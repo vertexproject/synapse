@@ -332,7 +332,7 @@ class EventBusTest(SynTest):
         foo.join()
         self.eq(proc.exitcode, 137)
 
-    def test_eventbus_onctx(self):
+    def test_eventbus_onwith(self):
         ebus = s_eventbus.EventBus()
         l0 = []
         l1 = []
@@ -357,7 +357,7 @@ class EventBusTest(SynTest):
         self.len(2, l0)
         self.len(1, l1)
 
-        # onCtx works across Telepath Proxy's and with filts
+        # onWith works across Telepath Proxy's and with filts
         l2 = []
 
         def onNodeForm(mesg):
