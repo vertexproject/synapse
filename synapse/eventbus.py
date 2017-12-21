@@ -3,7 +3,7 @@ import atexit
 import signal
 import logging
 import threading
-import traceback
+import contextlib
 import collections
 
 import synapse.common as s_common
@@ -101,24 +101,25 @@ class EventBus(object):
             func (function):    A callback function to receive event tufo
             **filts:            Optional positive filter values for the event tuple.
 
+        Examples:
+
+            Add a callback function and fire it:
+
+                def baz(event):
+                    x = event[1].get('x')
+                    y = event[1].get('y')
+                    return x + y
+
+                d.on('foo', baz, x=10)
+
+                # this fire triggers baz...
+                d.fire('foo', x=10, y=20)
+
+                # this fire does not ( due to filt )
+                d.fire('foo', x=30, y=20)
+
         Returns:
-            (None)
-
-        Example:
-
-            def baz(event):
-                x = event[1].get('x')
-                y = event[1].get('y')
-                return x + y
-
-            d.on('foo', baz, x=10)
-
-            # this fire triggers baz...
-            d.fire('foo', x=10, y=20)
-
-            # this fire does not ( due to filt )
-            d.fire('foo', x=30, y=20)
-
+            None:
         '''
         self._syn_funcs[evnt].append((func, tuple(filts.items())))
 
@@ -371,6 +372,43 @@ class EventBus(object):
         '''
         info.update(s_common.excinfo(exc))
         self.log(logging.ERROR, str(exc), **info)
+
+    @contextlib.contextmanager
+    def onWith(self, evnt, func, **filts):
+        '''
+        A context manager which can be used to add a callback and remove it when
+        using a ``with`` statement.
+
+        Args:
+            evnt (str):         An event name
+            func (function):    A callback function to receive event tufo
+            **filts:            Optional positive filter values for the event tuple.
+
+        Examples:
+
+            Temporarily add the baz callback function and use it.
+
+                def baz(event):
+                    x = event[1].get('x')
+                    y = event[1].get('y')
+                    return x + y
+
+                with d.onWith('foo', baz, x=10):
+                    # this fire triggers baz...
+                    d.fire('foo', x=10, y=20)
+
+                # this does NOT fire triggers baz since it is outside
+                # of the context manager.
+                d.fire('foo', x=10, y=30)
+
+        '''
+        self.on(evnt, func, **filts)
+        # Allow exceptions to propagate during the context manager
+        # but ensure we cleanup our temporary callback
+        try:
+            yield self
+        finally:
+            self.off(evnt, func)
 
 class Waiter:
     '''
