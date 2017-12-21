@@ -164,8 +164,17 @@ class CliTest(SynTest):
                 ('--bar', {'type': 'list'}),
             )
 
-            opts = quit.getCmdOpts('quit --bar (hehe=haha,1, 2   )')
-            self.eq(opts.get('bar'), [('hehe', 'haha'), 1, 2])
+            # The list must be quoted
+            opts = quit.getCmdOpts('quit --bar "1,2,3"')
+            self.eq(opts.get('bar'), ['1', '2', '3'])
+
+            # Or encapsulated in a storm list syntax
+            opts = quit.getCmdOpts('quit --bar (1, 2, 3)')
+            self.eq(opts.get('bar'), [1, 2, 3])
+
+            # A single item is fine
+            opts = quit.getCmdOpts('quit --bar woah')
+            self.eq(opts.get('bar'), ['woah'])
 
     def test_cli_opts_parse_enums(self):
 

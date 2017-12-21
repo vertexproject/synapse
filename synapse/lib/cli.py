@@ -118,9 +118,10 @@ class Cmd:
                     opts[snam] = valu
 
                 elif styp == 'list':
-                    vals, off = s_syntax.parse_cmd_string(text, off)
-                    # vals = valu.split(',')
-                    opts[snam].extend(vals)
+                    valu, off = s_syntax.parse_cmd_string(text, off)
+                    if not isinstance(valu, list):
+                        valu = valu.split(',')
+                    opts[snam].extend(valu)
 
                 elif styp == 'enum':
                     vals = synt[1].get('enum:vals')
