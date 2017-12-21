@@ -139,6 +139,64 @@ class CliTest(SynTest):
             opts = quit.getCmdOpts('quit hoho lulz')
             self.eq(opts.get('bar'), 'lol')
 
+    def test_cli_opts_parse_valu(self):
+
+        with s_cli.Cli(None) as cli:
+
+            quit = cli.getCmdByName('quit')
+
+            quit._cmd_syntax = (
+                ('--bar', {'type': 'valu'}),
+            )
+
+            opts = quit.getCmdOpts('quit --bar woah')
+            self.eq(opts.get('bar'), 'woah')
+
+            self.raises(BadSyntaxError, quit.getCmdOpts, 'quit --bar woah this is too much text')
+
+    def test_cli_opts_parse_list(self):
+
+        with s_cli.Cli(None) as cli:
+
+            quit = cli.getCmdByName('quit')
+
+            quit._cmd_syntax = (
+                ('--bar', {'type': 'list'}),
+            )
+
+            opts = quit.getCmdOpts('quit --bar (hehe=haha,1, 2   )')
+            self.eq(opts.get('bar'), [('hehe', 'haha'), 1, 2])
+
+    def test_cli_opts_parse_enums(self):
+
+        with s_cli.Cli(None) as cli:
+
+            quit = cli.getCmdByName('quit')
+
+            quit._cmd_syntax = (
+                ('--bar', {'type': 'enum', 'enum:vals': ('foo', 'baz')}),
+            )
+
+            opts = quit.getCmdOpts('quit --bar foo')
+            self.eq(opts.get('bar'), 'foo')
+            opts = quit.getCmdOpts('quit --bar baz')
+            self.eq(opts.get('bar'), 'baz')
+            self.raises(BadSyntaxError, quit.getCmdOpts, 'quit --bar')
+            self.raises(BadSyntaxError, quit.getCmdOpts, 'quit --bar bar')
+
+    def test_cli_opts_parse_kwlist(self):
+
+        with s_cli.Cli(None) as cli:
+
+            quit = cli.getCmdByName('quit')
+
+            quit._cmd_syntax = (
+                ('bar', {'type': 'kwlist'}),
+            )
+
+            opts = quit.getCmdOpts('quit hehe=haha')
+            self.eq(opts.get('bar'), [('hehe', 'haha')])
+
     def test_cli_cmd_loop_quit(self):
         outp = self.getTestOutp()
         cmdg = CmdGenerator(['help', 'quit'])
