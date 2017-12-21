@@ -181,14 +181,14 @@ class CertDirTest(SynTest):
 
             # Generate a self-signed user keypair =============================
             cdir.genUserCert(username_unsigned)
-            cdir.genClientCert(caname, username_unsigned)
+            self.raises(NoSuchFile, cdir.genClientCert, username_unsigned)
 
             # Test that all the methods for loading the certificates work
             self.isinstance(cdir.getUserCert(username_unsigned), crypto.X509)
             self.isinstance(cdir.getUserKey(username_unsigned), crypto.PKey)
-            self.isinstance(cdir.getClientCert(username_unsigned), crypto.PKCS12)
+            self.none(cdir.getClientCert(username_unsigned))
             self.true(cdir.isUserCert(username_unsigned))
-            self.true(cdir.isClientCert(username_unsigned))
+            self.false(cdir.isClientCert(username_unsigned))
             self.eq(cdir.getUserCertPath(username_unsigned), base + '/users/' + username_unsigned + '.crt')
             self.eq(cdir.getUserKeyPath(username_unsigned), base + '/users/' + username_unsigned + '.key')
             self.none(cdir.getUserCaPath(username_unsigned))  # no CA
@@ -197,13 +197,11 @@ class CertDirTest(SynTest):
             # Run basic assertions on the host keypair
             cert = cdir.getUserCert(username_unsigned)
             key = cdir.getUserKey(username_unsigned)
-            p12 = cdir.getClientCert(username_unsigned)
             self.basic_assertions(cdir, cert, key)
-            self.p12_assertions(cdir, cert, key, p12)
 
             # Generate a signed user keypair ==================================
             cdir.genUserCert(username, signas=caname)
-            cdir.genClientCert(caname, username)
+            cdir.genClientCert(username)
 
             # Test that all the methods for loading the certificates work
             self.isinstance(cdir.getUserCert(username), crypto.X509)
@@ -225,11 +223,11 @@ class CertDirTest(SynTest):
 
             # Test missing files for generating a client cert
             os.remove(base + '/users/' + username + '.key')
-            self.raises(NoSuchFile, cdir.genClientCert, caname, username)  # user key
-            os.remove(base + '/users/' + username + '.crt')
-            self.raises(NoSuchFile, cdir.genClientCert, caname, username)  # user crt
+            self.raises(NoSuchFile, cdir.genClientCert, username)  # user key
             os.remove(base + '/cas/' + caname + '.crt')
-            self.raises(NoSuchFile, cdir.genClientCert, caname, username)  # ca crt
+            self.raises(NoSuchFile, cdir.genClientCert, username)  # ca crt
+            os.remove(base + '/users/' + username + '.crt')
+            self.raises(NoSuchFile, cdir.genClientCert, username)  # user crt
 
     def test_certdir_hosts_sans(self):
         with self.getCertDir() as cdir:

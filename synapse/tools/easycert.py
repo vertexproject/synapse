@@ -20,7 +20,6 @@ def main(argv, outp=None):
 
     pars.add_argument('--ca', default=False, action='store_true', help='mark the certificate as a CA/CRL signer')
     pars.add_argument('--p12', default=False, action='store_true', help='mark the certificate as a p12 archive')
-    pars.add_argument('--p12ca', help='the CA certificate for the p12 archive')
     pars.add_argument('--server', default=False, action='store_true', help='mark the certificate as a server')
     pars.add_argument('--server-sans', help='server cert subject alternate names')
 
@@ -38,11 +37,7 @@ def main(argv, outp=None):
 
         if opts.p12:
 
-            if opts.p12ca is None or opts.name is None:
-                outp.printf('--p12 requires --p12ca and name')
-                return -1
-
-            cdir.genClientCert(opts.p12ca, opts.name, outp=outp)
+            cdir.genClientCert(opts.name, outp=outp)
             return 0
 
         if opts.sign_csr:

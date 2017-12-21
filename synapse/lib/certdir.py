@@ -109,14 +109,15 @@ class CertDir:
 
         return pkey, cert
 
-    def genClientCert(self, caname, name, outp=None):
-        cacert = self.getCaCert(caname)
-        if not cacert:
-            raise s_common.NoSuchFile('missing CA cert')
+    def genClientCert(self, name, outp=None):
 
         ucert = self.getUserCert(name)
         if not ucert:
             raise s_common.NoSuchFile('missing User cert')
+
+        cacert = self._loadCertPath(self._getCaPath(ucert))
+        if not cacert:
+            raise s_common.NoSuchFile('missing CA cert')
 
         ukey = self.getUserKey(name)
         if not ukey:
@@ -191,13 +192,7 @@ class CertDir:
         if cert is None:
             return None
 
-        subj = cert.get_issuer()
-
-        capath = self.getPathJoin('cas', '%s.crt' % subj.CN)
-        if not os.path.isfile(capath):
-            return None
-
-        return capath
+        return self._getCaPath(cert)
 
     def getHostCert(self, name):
         return self._loadCertPath(self.getHostCertPath(name))
@@ -222,13 +217,7 @@ class CertDir:
         if cert is None:
             return None
 
-        subj = cert.get_issuer()
-
-        capath = self.getPathJoin('cas', '%s.crt' % subj.CN)
-        if not os.path.isfile(capath):
-            return None
-
-        return capath
+        return self._getCaPath(cert)
 
     def getUserCert(self, name):
         return self._loadCertPath(self.getUserCertPath(name))
@@ -349,6 +338,15 @@ class CertDir:
 
         if outp is not None:
             outp.printf('csr saved: %s' % (csrpath,))
+
+    def _getCaPath(self, cert):
+
+        subj = cert.get_issuer()
+        capath = self.getPathJoin('cas', '%s.crt' % subj.CN)
+        if not os.path.isfile(capath):
+            return None
+
+        return capath
 
     def _getPathBytes(self, path):
         if path is None:

@@ -17,12 +17,9 @@ class TestEasyCert(SynTest):
             self.eq(s_easycert.main(argv, outp=outp), 0)
             self.true(str(outp).find('cert saved'))
 
-            argv = ['--certdir', path, '--p12', '--p12ca', 'testca', 'user@test.com']
+            argv = ['--certdir', path, '--p12', 'user@test.com']
             self.eq(s_easycert.main(argv, outp=outp), 0)
             self.true(str(outp).find('client cert saved'))
-
-            argv = ['--certdir', path, '--p12', 'user@test.com']
-            self.eq(s_easycert.main(argv, outp=outp), -1)
 
     def test_easycert_user_sign(self):
         with self.getTestDir() as path:
