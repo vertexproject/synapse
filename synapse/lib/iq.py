@@ -543,6 +543,17 @@ class SynTest(unittest.TestCase):
             for key, valu in old_data.items():
                 os.environ[key] = valu
 
+    def gcCollect(self):
+        '''
+        Run gc.collect()
+
+        Returns:
+            int: Number of collected objects.
+        '''
+        import gc
+        ret = gc.collect()
+        return ret
+
     def eq(self, x, y):
         '''
         Assert X is equal to Y
