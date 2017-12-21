@@ -1103,15 +1103,19 @@ class Runtime(Configable):
     def _stormOperJoin(self, query, oper):
 
         args = oper[1].get('args')
-        opts = dict(oper[1].get('kwlist'))
-        limit = opts.get('limit')
-
         if len(args) is 2:
             srcp, dstp = args[0], args[1]
         elif len(args) is 1:
             srcp, dstp = args[0], args[0]
         else:
             raise s_common.BadSyntaxError(mesg='join(<srcprop>,<dstprop>)')
+
+        opts = dict(oper[1].get('kwlist'))
+        limit = opts.get('limit')
+        if limit is not None and limit < 0:
+            raise s_common.BadOperArg(oper='join', name='limit', mesg='must be >= 0')
+        elif limit is 0:
+            limit = None
 
         vals = list({t[1].get(srcp) for t in query.data() if t is not None and t[1].get(srcp) is not None})
         [query.add(tufo) for tufo in self.stormTufosBy('in', dstp, vals, limit=limit)]
@@ -1540,7 +1544,7 @@ class Runtime(Configable):
             raise s_common.BadOperArg(oper='tree', name='recurlim', mesg=e.errinfo.get('mesg'))
 
         if recurlim < 0:
-            raise s_common.BadOperArg(oper='tree', name='recurlim', mesg='must be a positive integer >= 0')
+            raise s_common.BadOperArg(oper='tree', name='recurlim', mesg='must be >= 0')
 
         srcp = None
         dstp = args[0]
