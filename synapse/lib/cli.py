@@ -118,15 +118,15 @@ class Cmd:
                     opts[snam] = valu
 
                 elif styp == 'list':
-                    valu, off = s_syntax.parse_cmd_string(text, off)
-                    vals = valu.split(',')
+                    vals, off = s_syntax.parse_cmd_string(text, off)
+                    # vals = valu.split(',')
                     opts[snam].extend(vals)
 
                 elif styp == 'enum':
                     vals = synt[1].get('enum:vals')
                     valu, off = s_syntax.parse_cmd_string(text, off)
                     if valu not in vals:
-                        raise Exception('%s (%s)' % (synt[0], '|'.join(vals)))
+                        raise s_common.BadSyntaxError('%s (%s)' % (synt[0], '|'.join(vals)))
 
                     opts[snam] = valu
 
@@ -136,12 +136,10 @@ class Cmd:
                 continue
 
             if not args:
-                raise Exception('trailing text: %s' % (text[off:],))
+                raise s_common.BadSyntaxError('trailing text: %s' % (text[off:],))
 
             synt = args.popleft()
             styp = synt[1].get('type', 'valu')
-
-            #print('SYNT: %r' % (synt,))
 
             # a glob type eats the remainder of the string
             if styp == 'glob':
@@ -182,7 +180,7 @@ class Cmd:
         '''
         Return the help/doc output for this command.
         '''
-        if not self.__doc__:
+        if not self.__doc__:  # pragma: no cover
             return ''
         return self.__doc__
 
