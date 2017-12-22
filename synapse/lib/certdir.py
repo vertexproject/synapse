@@ -152,6 +152,18 @@ class CertDir:
         return self._loadCertPath(self.getCaCertPath(name))
 
     def getCaCertPath(self, name):
+        '''
+        Gets the path to a CA certificate.
+
+        Example:
+            mypath = cdir.getCACertPath('mycacert')
+
+        Args:
+            name (str): The name of the CA keypair.
+
+        Returns:
+            str: The path if exists.
+        '''
         path = s_common.genpath(self.certdir, 'cas', '%s.crt' % name)
         if not os.path.isfile(path):
             return None
@@ -173,6 +185,18 @@ class CertDir:
         return self._loadKeyPath(self.getCaKeyPath(name))
 
     def getCaKeyPath(self, name):
+        '''
+        Gets the path to a CA key.
+
+        Example:
+            mypath = cdir.getCAKeyPath('mycakey')
+
+        Args:
+            name (str): The name of the CA keypair.
+
+        Returns:
+            str: The path if exists.
+        '''
         path = s_common.genpath(self.certdir, 'cas', '%s.key' % name)
         if not os.path.isfile(path):
             return None
@@ -180,7 +204,8 @@ class CertDir:
 
     def getClientCert(self, name):
         '''
-        Loads the PKCS12 object for a given user keypair.
+        Loads the PKCS12 archive object for a given user keypair.
+        Please note that the archive will contain private key material.
 
         Example:
             mypkcs12 = cdir.getClientCert('mycert')
@@ -201,7 +226,7 @@ class CertDir:
             mypath = cdir.getClientCertPath('mycert')
 
         Args:
-            name (str): The name of the client certificate.
+            name (str): The name of the client keypair.
 
         Returns:
             str: The path if exists.
@@ -212,6 +237,18 @@ class CertDir:
         return path
 
     def getHostCaPath(self, name):
+        '''
+        Gets the path to the CA certificate that issued a given host keypair.
+
+        Example:
+            mypath = cdir.getHostCaPath('myhostcert')
+
+        Args:
+            name (str): The name of the host keypair.
+
+        Returns:
+            str: The path if exists.
+        '''
         cert = self.getHostCert(name)
         if cert is None:
             return None
