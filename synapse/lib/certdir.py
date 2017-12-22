@@ -461,7 +461,7 @@ class CertDir:
             return None
         return path
 
-    def getUserForHost(self, user, host):
+    def getUserForHost(self, user, host):  # FIXME doc
         for name in iterFqdnUp(host):
             usercert = '%s@%s' % (user, name)
             if self.isUserCert(usercert):
@@ -564,14 +564,42 @@ class CertDir:
         crtpath = self._getPathJoin('users', '%s.crt' % name)
         return os.path.isfile(crtpath)
 
-    def signCertAs(self, cert, signas):  # FIXME doc
+    def signCertAs(self, cert, signas):
+        '''
+        Signs a certificate with a CA keypair.
+
+        Example:
+            cdir.signCertAs(mycert, 'myca')
+
+        Args:
+            cert (OpenSSL.crypto.X509): The certificate to sign.
+            signas (str): The CA keypair name to sign the new keypair with.
+
+        Returns:
+            None
+        '''
         cakey = self.getCaKey(signas)
         cacert = self.getCaCert(signas)
 
         cert.set_issuer(cacert.get_subject())
         cert.sign(cakey, 'sha256')
 
-    def signHostCsr(self, xcsr, signas, outp=None, sans=None):  # FIXME doc
+    def signHostCsr(self, xcsr, signas, outp=None, sans=None):
+        '''
+        Signs a host CSR with a CA keypair.
+
+        Example:
+            cdir.signHostCsr(mycsr, 'myca')
+
+        Args:
+            cert (OpenSSL.crypto.X509Req): The certificate signing request.
+            signas (str): The CA keypair name to sign the CSR with.
+            outp (synapse.lib.output.Output): The output buffer.
+            sans (list): List of subject alternative names.
+
+        Returns:
+            tuple: tuple of (OpenSSL.crypto.PKey, OpenSSL.crypto.X509)
+        '''
         pkey = xcsr.get_pubkey()
         name = xcsr.get_subject().CN
         return self.genHostCert(name, csr=pkey, signas=signas, outp=outp, sans=sans)
@@ -580,7 +608,21 @@ class CertDir:
         cert.set_issuer(cert.get_subject())
         cert.sign(pkey, 'sha256')
 
-    def signUserCsr(self, xcsr, signas, outp=None):  # FIXME doc
+    def signUserCsr(self, xcsr, signas, outp=None):
+        '''
+        Signs a user CSR with a CA keypair.
+
+        Example:
+            cdir.signUserCsr(mycsr, 'myca')
+
+        Args:
+            cert (OpenSSL.crypto.X509Req): The certificate signing request.
+            signas (str): The CA keypair name to sign the CSR with.
+            outp (synapse.lib.output.Output): The output buffer.
+
+        Returns:
+            tuple: tuple of (OpenSSL.crypto.PKey, OpenSSL.crypto.X509)
+        '''
         pkey = xcsr.get_pubkey()
         name = xcsr.get_subject().CN
         return self.genUserCert(name, csr=pkey, signas=signas, outp=outp)
