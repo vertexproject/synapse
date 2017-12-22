@@ -29,7 +29,21 @@ class CertDir:
 
         self.certdir = s_common.reqdir(path)
 
-    def genCaCert(self, name, signas=None, outp=None):  # FIXME doc
+    def genCaCert(self, name, signas=None, outp=None):
+        '''
+        Generates a CA keypair.
+
+        Example:
+            mycakey, mycacert = cdir.genCaCert('myca')
+
+        Args:
+            name (str): The name of the CA keypair.
+            signas (str): The CA keypair to sign the new CA with.
+            outp (synapse.lib.output.Output): The output buffer.
+
+        Returns:
+            tuple: tuple of (OpenSSL.crypto.PKey, OpenSSL.crypto.X509)
+        '''
         pkey, cert = self._genBasePkeyCert(name)
         ext0 = crypto.X509Extension(b'basicConstraints', False, b'CA:TRUE')
         cert.add_extensions([ext0])
@@ -49,8 +63,24 @@ class CertDir:
 
         return pkey, cert
 
-    def genHostCert(self, name, signas=None, outp=None, pkey=None, sans=None):  # FIXME doc
-        pkey, cert = self._genBasePkeyCert(name, pkey=pkey)
+    def genHostCert(self, name, signas=None, outp=None, csr=None, sans=None):
+        '''
+        Generates a host keypair.
+
+        Example:
+            myhostkey, myhostcert = cdir.genHostCert('myhost')
+
+        Args:
+            name (str): The name of the host keypair.
+            signas (str): The CA keypair to sign the new host keypair with.
+            outp (synapse.lib.output.Output): The output buffer.
+            csr (OpenSSL.crypto.PKey): The CSR public key when generating the keypair from a CSR.
+            sans (list): List of subject alternative names.
+
+        Returns:
+            tuple: tuple of (OpenSSL.crypto.PKey, OpenSSL.crypto.X509)
+        '''
+        pkey, cert = self._genBasePkeyCert(name, pkey=csr)
 
         ext_sans = {'DNS:' + name}
         if isinstance(sans, str):
@@ -84,9 +114,23 @@ class CertDir:
     def genHostCsr(self, name, outp=None):  # FIXME doc
         return self._genPkeyCsr(name, 'hosts', outp=outp)
 
-    def genUserCert(self, name, signas=None, outp=None, pkey=None):  # FIXME doc
+    def genUserCert(self, name, signas=None, outp=None, csr=None):
+        '''
+        Generates a user keypair.
 
-        pkey, cert = self._genBasePkeyCert(name, pkey=pkey)
+        Example:
+            myuserkey, myusercert = cdir.genUserCert('myuser')
+
+        Args:
+            name (str): The name of the user keypair.
+            signas (str): The CA keypair to sign the new user keypair with.
+            outp (synapse.lib.output.Output): The output buffer.
+            csr (OpenSSL.crypto.PKey): The CSR public key when generating the keypair from a CSR.
+
+        Returns:
+            tuple: tuple of (OpenSSL.crypto.PKey, OpenSSL.crypto.X509)
+        '''
+        pkey, cert = self._genBasePkeyCert(name, pkey=csr)
 
         cert.add_extensions([
             crypto.X509Extension(b'nsCertType', False, b'client'),
@@ -111,8 +155,21 @@ class CertDir:
 
         return pkey, cert
 
-    def genClientCert(self, name, outp=None):  # FIXME doc
+    def genClientCert(self, name, outp=None):
+        '''
+        Generates a user PKCS #12 archive.
+        Please note that the resulting file will contain private key material.
 
+        Example:
+            myuserpkcs12 = cdir.genClientCert('myuser')
+
+        Args:
+            name (str): The name of the user keypair.
+            outp (synapse.lib.output.Output): The output buffer.
+
+        Returns:
+            OpenSSL.crypto.PKCS12: The PKCS #12 archive.
+        '''
         ucert = self.getUserCert(name)
         if not ucert:
             raise s_common.NoSuchFile('missing User cert')
@@ -488,7 +545,7 @@ class CertDir:
     def signHostCsr(self, xcsr, signas, outp=None, sans=None):  # FIXME doc
         pkey = xcsr.get_pubkey()
         name = xcsr.get_subject().CN
-        return self.genHostCert(name, pkey=pkey, signas=signas, outp=outp, sans=sans)
+        return self.genHostCert(name, csr=pkey, signas=signas, outp=outp, sans=sans)
 
     def selfSignCert(self, cert, pkey):  # FIXME doc
         cert.set_issuer(cert.get_subject())
@@ -497,7 +554,7 @@ class CertDir:
     def signUserCsr(self, xcsr, signas, outp=None):  # FIXME doc
         pkey = xcsr.get_pubkey()
         name = xcsr.get_subject().CN
-        return self.genUserCert(name, pkey=pkey, signas=signas, outp=outp)
+        return self.genUserCert(name, csr=pkey, signas=signas, outp=outp)
 
     def _checkDupFile(self, path):
         if os.path.isfile(path):
