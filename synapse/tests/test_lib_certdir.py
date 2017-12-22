@@ -1,7 +1,7 @@
 import os
 from contextlib import contextmanager
 
-from OpenSSL import crypto
+from OpenSSL import crypto, SSL
 
 from synapse.tests.common import *
 import synapse.lib.certdir as s_certdir
@@ -42,6 +42,12 @@ class CertDirTest(SynTest):
         sig2 = crypto.sign(key, buf + b'wut', 'sha256')
         self.none(crypto.verify(cert, sig, buf, 'sha256'))
         self.raises(crypto.Error, crypto.verify, cert, sig2, buf, 'sha256')
+
+        # ensure that a ssl context using both cert/key match
+        sslcontext = SSL.Context(SSL.TLSv1_2_METHOD)
+        sslcontext.use_certificate(cert)
+        sslcontext.use_privatekey(key)
+        self.none(sslcontext.check_privatekey())
 
         if cacert:
 
