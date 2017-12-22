@@ -76,6 +76,16 @@ class CertDirTest(SynTest):
             self.none(ctx.verify_certificate())  # valid
 
     def p12_assertions(self, cdir, cert, key, p12, cacert=None):
+        '''
+        test basic p12 certificate bundle assumptions
+
+        Args:
+            cdir (s_certdir.CertDir): certdir object
+            cert (crypto.X509): Cert to test
+            key (crypto.PKey): Key for the certification
+            p12 (crypto.PKCS12): PKCS12 object to test
+            cacert (crypto.X509): Corresponding CA cert (optional)
+        '''
         self.nn(p12)
 
         # Pull out the CA cert and keypair data
@@ -94,6 +104,53 @@ class CertDirTest(SynTest):
         # Make sure that the CA cert and keypair files are the same as the CA cert and keypair contained in the p12 file
         self.eq(crypto.dump_certificate(crypto.FILETYPE_ASN1, cert), crypto.dump_certificate(crypto.FILETYPE_ASN1, p12_cert))
         self.eq(crypto.dump_privatekey(crypto.FILETYPE_ASN1, key), crypto.dump_privatekey(crypto.FILETYPE_ASN1, p12_key))
+
+    def user_assertions(self, cdir, cert, key, cacert=None):
+        '''
+        test basic certificate assumptions for a host certificate
+
+        Args:
+            cdir (s_certdir.CertDir): certdir object
+            cert (crypto.X509): Cert to test
+            key (crypto.PKey): Key for the certification
+            cacert (crypto.X509): Corresponding CA cert (optional)
+        '''
+        nextensions = cert.get_extension_count()
+        exts = {ext.get_short_name(): ext.get_data() for ext in [cert.get_extension(i) for i in range(nextensions)]}
+
+        nscertext = crypto.X509Extension(b'nsCertType', False, b'client')
+        keyuseext = crypto.X509Extension(b'keyUsage', False, b'digitalSignature')
+        extkeyuseext = crypto.X509Extension(b'extendedKeyUsage', False, b'clientAuth')
+        basicconext = crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE')
+        self.eq(exts[b'nsCertType'], nscertext.get_data())
+        self.eq(exts[b'keyUsage'], keyuseext.get_data())
+        self.eq(exts[b'extendedKeyUsage'], extkeyuseext.get_data())
+        self.eq(exts[b'basicConstraints'], basicconext.get_data())
+        self.notin(b'subjectAltName', exts)
+
+    def host_assertions(self, cdir, cert, key, cacert=None):
+        '''
+        test basic certificate assumptions for a host certificate
+
+        Args:
+            cdir (s_certdir.CertDir): certdir object
+            cert (crypto.X509): Cert to test
+            key (crypto.PKey): Key for the certification
+            cacert (crypto.X509): Corresponding CA cert (optional)
+        '''
+        nextensions = cert.get_extension_count()
+        exts = {ext.get_short_name(): ext.get_data() for ext in [cert.get_extension(i) for i in range(nextensions)]}
+
+        nscertext = crypto.X509Extension(b'nsCertType', False, b'server')
+        keyuseext = crypto.X509Extension(b'keyUsage', False, b'digitalSignature,keyEncipherment')
+        extkeyuseext = crypto.X509Extension(b'extendedKeyUsage', False, b'serverAuth')
+        basicconext = crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE')
+
+        self.eq(exts[b'nsCertType'], nscertext.get_data())
+        self.eq(exts[b'keyUsage'], keyuseext.get_data())
+        self.eq(exts[b'extendedKeyUsage'], extkeyuseext.get_data())
+        self.eq(exts[b'basicConstraints'], basicconext.get_data())
+        self.isin(b'subjectAltName', exts)
 
     def test_certdir_cas(self):
         with self.getCertDir() as cdir:
@@ -164,6 +221,7 @@ class CertDirTest(SynTest):
             cert = cdir.getHostCert(hostname_unsigned)
             key = cdir.getHostKey(hostname_unsigned)
             self.basic_assertions(cdir, cert, key)
+            self.host_assertions(cdir, cert, key)
 
             # Generate a signed host keypair ==================================
             cdir.genHostCert(hostname, signas=caname)
@@ -180,6 +238,7 @@ class CertDirTest(SynTest):
             cert = cdir.getHostCert(hostname)
             key = cdir.getHostKey(hostname)
             self.basic_assertions(cdir, cert, key, cacert=cacert)
+            self.host_assertions(cdir, cert, key, cacert=cacert)
 
     def test_certdir_users(self):
         with self.getCertDir() as cdir:
@@ -221,6 +280,7 @@ class CertDirTest(SynTest):
             cert = cdir.getUserCert(username_unsigned)
             key = cdir.getUserKey(username_unsigned)
             self.basic_assertions(cdir, cert, key)
+            self.user_assertions(cdir, cert, key)
 
             # Generate a signed user keypair ==================================
             cdir.genUserCert(username, signas=caname)
@@ -242,6 +302,7 @@ class CertDirTest(SynTest):
             key = cdir.getUserKey(username)
             p12 = cdir.getClientCert(username)
             self.basic_assertions(cdir, cert, key, cacert=cacert)
+            self.user_assertions(cdir, cert, key, cacert=cacert)
             self.p12_assertions(cdir, cert, key, p12, cacert=cacert)
 
             # Test missing files for generating a client cert
