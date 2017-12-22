@@ -13,6 +13,8 @@ def iterFqdnUp(fqdn):
     for i in range(len(levs)):
         yield '.'.join(levs[i:])
 
+TEN_YEARS = 10 * 365 * 24 * 60 * 60
+
 class CertDir:
 
     def __init__(self, path=None):
@@ -510,8 +512,9 @@ class CertDir:
         cert = crypto.X509()
         cert.set_pubkey(pkey)
         cert.set_version(2)
+        # Certpairs are good for 10 years
         cert.gmtime_adj_notBefore(0)
-        cert.gmtime_adj_notAfter(10 * 365 * 24 * 60 * 60)
+        cert.gmtime_adj_notAfter(TEN_YEARS)
 
         cert.set_serial_number(int(s_common.guid(), 16))
         cert.get_subject().CN = name
