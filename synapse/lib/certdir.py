@@ -322,6 +322,18 @@ class CertDir:
         return path
 
     def getUserCaPath(self, name):
+        '''
+        Gets the path to the CA certificate that issued a given user keypair.
+
+        Example:
+            mypath = cdir.getUserCaPath('myuser')
+
+        Args:
+            name (str): The name of the user keypair.
+
+        Returns:
+            str: The path if exists.
+        '''
         cert = self.getUserCert(name)
         if cert is None:
             return None
