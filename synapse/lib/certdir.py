@@ -141,7 +141,7 @@ class CertDir:
         Loads the X509 object for a given CA keypair.
 
         Example:
-            myca = cdir.getCaCert('mycacert')
+            mycacert = cdir.getCaCert('myca')
 
         Args:
             name (str): The name of the CA keypair.
@@ -156,7 +156,7 @@ class CertDir:
         Gets the path to a CA certificate.
 
         Example:
-            mypath = cdir.getCACertPath('mycacert')
+            mypath = cdir.getCACertPath('myca')
 
         Args:
             name (str): The name of the CA keypair.
@@ -174,7 +174,7 @@ class CertDir:
         Loads the PKey object for a given CA keypair.
 
         Example:
-            mycakey = cdir.getCaKey('mycakey')
+            mycakey = cdir.getCaKey('myca')
 
         Args:
             name (str): The name of the CA keypair.
@@ -189,7 +189,7 @@ class CertDir:
         Gets the path to a CA key.
 
         Example:
-            mypath = cdir.getCAKeyPath('mycakey')
+            mypath = cdir.getCAKeyPath('myca')
 
         Args:
             name (str): The name of the CA keypair.
@@ -208,7 +208,7 @@ class CertDir:
         Please note that the archive will contain private key material.
 
         Example:
-            mypkcs12 = cdir.getClientCert('mycert')
+            mypkcs12 = cdir.getClientCert('myuser')
 
         Args:
             name (str): The name of the user keypair.
@@ -223,7 +223,7 @@ class CertDir:
         Gets the path to a client certificate.
 
         Example:
-            mypath = cdir.getClientCertPath('mycert')
+            mypath = cdir.getClientCertPath('myuser')
 
         Args:
             name (str): The name of the client keypair.
@@ -241,7 +241,7 @@ class CertDir:
         Gets the path to the CA certificate that issued a given host keypair.
 
         Example:
-            mypath = cdir.getHostCaPath('myhostcert')
+            mypath = cdir.getHostCaPath('myhost')
 
         Args:
             name (str): The name of the host keypair.
@@ -260,7 +260,7 @@ class CertDir:
         Loads the X509 object for a given host keypair.
 
         Example:
-            myhost = cdir.getHostCert('myhost')
+            myhostcert = cdir.getHostCert('myhost')
 
         Args:
             name (str): The name of the host keypair.
@@ -309,7 +309,7 @@ class CertDir:
         Loads the X509 object for a given user keypair.
 
         Example:
-            myuser = cdir.getUserCert('myusercert')
+            myusercert = cdir.getUserCert('myuser')
 
         Args:
             name (str): The name of the user keypair.
@@ -361,10 +361,10 @@ class CertDir:
 
     def isClientCert(self, name):
         '''
-        Checks if a client certificate exists.
+        Checks if a user client certificate exists.
 
         Example:
-            exists = cdir.isClientCert('mycert')
+            exists = cdir.isClientCert('myuser')
 
         Args:
             name (str): The name of the client certificate.
