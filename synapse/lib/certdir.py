@@ -292,6 +292,18 @@ class CertDir:
         return self._loadKeyPath(self.getHostKeyPath(name))
 
     def getHostKeyPath(self, name):
+        '''
+        Gets the path to a host key.
+
+        Example:
+            mypath = cdir.getHostKeyPath('myhost')
+
+        Args:
+            name (str): The name of the host keypair.
+
+        Returns:
+            str: The path if exists.
+        '''
         path = s_common.genpath(self.certdir, 'hosts', '%s.key' % name)
         if not os.path.isfile(path):
             return None
@@ -320,6 +332,18 @@ class CertDir:
         return self._loadCertPath(self.getUserCertPath(name))
 
     def getUserCertPath(self, name):
+        '''
+        Gets the path to a user certificate.
+
+        Example:
+            mypath = cdir.getUserCertPath('myuser')
+
+        Args:
+            name (str): The name of the user keypair.
+
+        Returns:
+            str: The path if exists.
+        '''
         path = s_common.genpath(self.certdir, 'users', '%s.crt' % name)
         if not os.path.isfile(path):
             return None
@@ -347,16 +371,37 @@ class CertDir:
         return self._loadKeyPath(self.getUserKeyPath(name))
 
     def getUserKeyPath(self, name):
+        '''
+        Gets the path to a user key.
+
+        Example:
+            mypath = cdir.getUserKeyPath('myuser')
+
+        Args:
+            name (str): The name of the user keypair.
+
+        Returns:
+            str: The path if exists.
+        '''
         path = s_common.genpath(self.certdir, 'users', '%s.key' % name)
         if not os.path.isfile(path):
             return None
         return path
 
-    def getPathJoin(self, *paths):
-        return s_common.genpath(self.certdir, *paths)
-
     def isCaCert(self, name):
-        crtpath = self.getPathJoin('cas', '%s.crt' % name)
+        '''
+        Checks if a CA certificate exists.
+
+        Example:
+            exists = cdir.isCaCert('myca')
+
+        Args:
+            name (str): The name of the CA keypair.
+
+        Returns:
+            bool: True if the certificate is present, False otherwise.
+        '''
+        crtpath = self._getPathJoin('cas', '%s.crt' % name)
         return os.path.isfile(crtpath)
 
     def isClientCert(self, name):
@@ -367,20 +412,44 @@ class CertDir:
             exists = cdir.isClientCert('myuser')
 
         Args:
-            name (str): The name of the client certificate.
+            name (str): The name of the user keypair.
 
         Returns:
             bool: True if the certificate is present, False otherwise.
         '''
-        crtpath = self.getPathJoin('users', '%s.p12' % name)
+        crtpath = self._getPathJoin('users', '%s.p12' % name)
         return os.path.isfile(crtpath)
 
     def isHostCert(self, name):
-        crtpath = self.getPathJoin('hosts', '%s.crt' % name)
+        '''
+        Checks if a host certificate exists.
+
+        Example:
+            exists = cdir.isHostCert('myhost')
+
+        Args:
+            name (str): The name of the host keypair.
+
+        Returns:
+            bool: True if the certificate is present, False otherwise.
+        '''
+        crtpath = self._getPathJoin('hosts', '%s.crt' % name)
         return os.path.isfile(crtpath)
 
     def isUserCert(self, name):
-        crtpath = self.getPathJoin('users', '%s.crt' % name)
+        '''
+        Checks if a user certificate exists.
+
+        Example:
+            exists = cdir.isUserCert('myuser')
+
+        Args:
+            name (str): The name of the user keypair.
+
+        Returns:
+            bool: True if the certificate is present, False otherwise.
+        '''
+        crtpath = self._getPathJoin('users', '%s.crt' % name)
         return os.path.isfile(crtpath)
 
     def signCertAs(self, cert, signas):
@@ -439,7 +508,7 @@ class CertDir:
         if outp is not None:
             outp.printf('key saved: %s' % (keypath,))
 
-        csrpath = self.getPathJoin(mode, '%s.csr' % name)
+        csrpath = self._getPathJoin(mode, '%s.csr' % name)
         self._checkDupFile(csrpath)
 
         with s_common.genfile(csrpath) as fd:
@@ -451,7 +520,7 @@ class CertDir:
     def _getCaPath(self, cert):
 
         subj = cert.get_issuer()
-        capath = self.getPathJoin('cas', '%s.crt' % subj.CN)
+        capath = self._getPathJoin('cas', '%s.crt' % subj.CN)
         if not os.path.isfile(capath):
             return None
 
@@ -461,6 +530,9 @@ class CertDir:
         if path is None:
             return None
         return s_common.getbytes(path)
+
+    def _getPathJoin(self, *paths):
+        return s_common.genpath(self.certdir, *paths)
 
     def _loadCertPath(self, path):
         byts = self._getPathBytes(path)
@@ -483,7 +555,7 @@ class CertDir:
             return crypto.load_pkcs12(byts)
 
     def _saveCertTo(self, cert, *paths):
-        path = self.getPathJoin(*paths)
+        path = self._getPathJoin(*paths)
         self._checkDupFile(path)
 
         with s_common.genfile(path) as fd:
@@ -492,7 +564,7 @@ class CertDir:
         return path
 
     def _savePkeyTo(self, pkey, *paths):
-        path = self.getPathJoin(*paths)
+        path = self._getPathJoin(*paths)
         self._checkDupFile(path)
 
         with s_common.genfile(path) as fd:
@@ -501,7 +573,7 @@ class CertDir:
         return path
 
     def _saveP12To(self, cert, *paths):
-        path = self.getPathJoin(*paths)
+        path = self._getPathJoin(*paths)
         self._checkDupFile(path)
 
         with s_common.genfile(path) as fd:

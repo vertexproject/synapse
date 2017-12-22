@@ -76,7 +76,7 @@ class CertDirTest(SynTest):
         with self.getCertDir() as cdir:
             caname = 'syntest'
             inter_name = 'testsyn-intermed'
-            base = cdir.getPathJoin()
+            base = cdir._getPathJoin()
 
             # Test that all the methods for loading the certificates return correct values for non-existant files
             self.none(cdir.getCaCert(caname))
@@ -113,7 +113,7 @@ class CertDirTest(SynTest):
             caname = 'syntest'
             hostname = 'visi.vertex.link'
             hostname_unsigned = 'unsigned.vertex.link'
-            base = cdir.getPathJoin()
+            base = cdir._getPathJoin()
 
             cdir.genCaCert(caname)
             cacert = cdir.getCaCert(caname)
@@ -163,7 +163,7 @@ class CertDirTest(SynTest):
             caname = 'syntest'
             username = 'visi@vertex.link'
             username_unsigned = 'unsigned@vertex.link'
-            base = cdir.getPathJoin()
+            base = cdir._getPathJoin()
 
             cdir.genCaCert(caname)
             cacert = cdir.getCaCert(caname)
@@ -279,7 +279,7 @@ class CertDirTest(SynTest):
             # Generate CA cert and host CSR
             cdir.genCaCert(caname)
             cdir.genHostCsr(hostname)
-            path = cdir.getPathJoin('hosts', hostname + '.csr')
+            path = cdir._getPathJoin('hosts', hostname + '.csr')
             xcsr = cdir._loadCsrPath(path)
 
             # Sign the CSR as the CA
@@ -299,7 +299,7 @@ class CertDirTest(SynTest):
             # Generate CA cert and user CSR
             cdir.genCaCert(caname)
             cdir.genUserCsr(username)
-            path = cdir.getPathJoin('users', username + '.csr')
+            path = cdir._getPathJoin('users', username + '.csr')
             xcsr = cdir._loadCsrPath(path)
 
             # Sign the CSR as the CA
