@@ -697,7 +697,7 @@ class CertDir:
         xcsr.get_subject().CN = name
 
         xcsr.set_pubkey(pkey)
-        xcsr.sign(pkey, 'sha256')
+        xcsr.sign(pkey, self.signing_digest)
 
         keypath = self._savePkeyTo(pkey, mode, '%s.key' % name)
         if outp is not None:
