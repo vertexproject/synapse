@@ -17,7 +17,20 @@ TEN_YEARS = 10 * 365 * 24 * 60 * 60
 
 class CertDir:
     '''
-    FIXME doc
+    Certificate loading/generation/signing utilities.
+
+    Features:
+        * Locates and load certificates, keys, and certificate signing requests (CSRs).
+        * Generates keypairs for users, hosts, and certificate authorities (CAs), supports both signed and self-signed.
+        * Generates certificate signing requests (CSRs) for users, hosts, and certificate authorities (CAs).
+        * Signs certificate signing requests (CSRs).
+        * Generates PKCS#12 archives for use in browser.
+
+    Notes:
+        * All certificates will be loaded from and written to ~/.syn/certs by default. Set the envvar SYN_CERT_DIR to override.
+        * All certificate generation methods create 4096 bit RSA keypairs.
+        * All certificate signing methods use sha256 as the signature algorithm.
+        * CertDir does not currently support signing CA CSRs.
     '''
 
     def __init__(self, path=None):
