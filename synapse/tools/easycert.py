@@ -12,7 +12,7 @@ Command line tool to generate simple x509 certs
 
 def main(argv, outp=None):
 
-    if outp is None:
+    if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
 
     pars = argparse.ArgumentParser(prog='easycert', description=descr)
