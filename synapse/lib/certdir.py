@@ -16,6 +16,9 @@ def iterFqdnUp(fqdn):
 TEN_YEARS = 10 * 365 * 24 * 60 * 60
 
 class CertDir:
+    '''
+    FIXME
+    '''
 
     def __init__(self, path=None):
         self.crypto_numbits = 4096
@@ -111,7 +114,20 @@ class CertDir:
 
         return pkey, cert
 
-    def genHostCsr(self, name, outp=None):  # FIXME doc
+    def genHostCsr(self, name, outp=None):
+        '''
+        Generates a host certificate signing request.
+
+        Example:
+            cdir.genHostCsr('myhost')
+
+        Args:
+            name (str): The name of the host CSR.
+            outp (synapse.lib.output.Output): The output buffer.
+
+        Returns:
+            None
+        '''
         return self._genPkeyCsr(name, 'hosts', outp=outp)
 
     def genUserCert(self, name, signas=None, outp=None, csr=None):
@@ -192,7 +208,20 @@ class CertDir:
         if outp is not None:
             outp.printf('client cert saved: %s' % (crtpath,))
 
-    def genUserCsr(self, name, outp=None):  # FIXME doc
+    def genUserCsr(self, name, outp=None):
+        '''
+        Generates a user certificate signing request.
+
+        Example:
+            cdir.genUserCsr('myuser')
+
+        Args:
+            name (str): The name of the user CSR.
+            outp (synapse.lib.output.Output): The output buffer.
+
+        Returns:
+            None
+        '''
         return self._genPkeyCsr(name, 'users', outp=outp)
 
     def getCaCert(self, name):
