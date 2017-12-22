@@ -12,10 +12,20 @@ class CertDirTest(SynTest):
     def getCertDir(self):
         # create a temp folder and make it a cert dir
         with self.getTestDir() as dirname:
+            s_scope.set('testdir', dirname)
             cdir = s_certdir.CertDir(path=dirname)
             yield cdir
 
     def basic_assertions(self, cdir, cert, key, cacert=None):
+        '''
+        test basic certificate assumptions
+
+        Args:
+            cdir (s_certdir.CertDir): certdir object
+            cert (crypto.X509): Cert to test
+            key (crypto.PKey): Key for the certification
+            cacert (crypto.X509): Corresponding CA cert (optional)
+        '''
         self.nn(cert)
         self.nn(key)
 
@@ -25,6 +35,13 @@ class CertDirTest(SynTest):
 
         # Make sure the certs were generated with the correct version number
         self.eq(cert.get_version(), 2)
+
+        # ensure we can sign / verify data with our keypair
+        buf = b'The quick brown fox jumps over the lazy dog.'
+        sig = crypto.sign(key, buf, 'sha256')
+        sig2 = crypto.sign(key, buf + b'wut', 'sha256')
+        self.none(crypto.verify(cert, sig, buf, 'sha256'))
+        self.raises(crypto.Error, crypto.verify, cert, sig2, buf, 'sha256')
 
         if cacert:
 
