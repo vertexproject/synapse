@@ -256,6 +256,18 @@ class CertDir:
         return self._getCaPath(cert)
 
     def getHostCert(self, name):
+        '''
+        Loads the X509 object for a given host keypair.
+
+        Example:
+            myhost = cdir.getHostCert('myhost')
+
+        Args:
+            name (str): The name of the host keypair.
+
+        Returns:
+            OpenSSL.crypto.X509: The certificate, if exists.
+        '''
         return self._loadCertPath(self.getHostCertPath(name))
 
     def getHostCertPath(self, name):
@@ -281,6 +293,18 @@ class CertDir:
         return self._getCaPath(cert)
 
     def getUserCert(self, name):
+        '''
+        Loads the X509 object for a given user keypair.
+
+        Example:
+            myuser = cdir.getUserCert('myusercert')
+
+        Args:
+            name (str): The name of the user keypair.
+
+        Returns:
+            OpenSSL.crypto.X509: The certificate, if exists.
+        '''
         return self._loadCertPath(self.getUserCertPath(name))
 
     def getUserCertPath(self, name):
