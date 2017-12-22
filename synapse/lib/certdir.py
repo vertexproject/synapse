@@ -137,6 +137,18 @@ class CertDir:
         return self._genPkeyCsr(name, 'users', outp=outp)
 
     def getCaCert(self, name):
+        '''
+        Loads the X509 object for a given CA keypair.
+
+        Example:
+            myca = cdir.getCaCert('mycacert')
+
+        Args:
+            name (str): The name of the CA keypair.
+
+        Returns:
+            OpenSSL.crypto.X509: The certificate, if exists.
+        '''
         return self._loadCertPath(self.getCaCertPath(name))
 
     def getCaCertPath(self, name):
@@ -146,6 +158,18 @@ class CertDir:
         return path
 
     def getCaKey(self, name):
+        '''
+        Loads the PKey object for a given CA keypair.
+
+        Example:
+            mycakey = cdir.getCaKey('mycakey')
+
+        Args:
+            name (str): The name of the CA keypair.
+
+        Returns:
+            OpenSSL.crypto.PKey: The private key, if exists.
+        '''
         return self._loadKeyPath(self.getCaKeyPath(name))
 
     def getCaKeyPath(self, name):
@@ -156,16 +180,16 @@ class CertDir:
 
     def getClientCert(self, name):
         '''
-        Loads the PKCS12 object for a given client certificate.
+        Loads the PKCS12 object for a given user keypair.
 
         Example:
             mypkcs12 = cdir.getClientCert('mycert')
 
         Args:
-            name (str): The name of the client certificate.
+            name (str): The name of the user keypair.
 
         Returns:
-            OpenSSL.crypto.PKCS12: The certificate if exists.
+            OpenSSL.crypto.PKCS12: The PKCS12 archive, if exists.
         '''
         return self._loadP12Path(self.getClientCertPath(name))
 
