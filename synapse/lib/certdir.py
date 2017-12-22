@@ -22,6 +22,7 @@ class CertDir:
 
     def __init__(self, path=None):
         self.crypto_numbits = 4096
+        self.signing_digest = 'sha256'
 
         if path is None:
             path = defdir
@@ -461,7 +462,20 @@ class CertDir:
             return None
         return path
 
-    def getUserForHost(self, user, host):  # FIXME doc
+    def getUserForHost(self, user, host):
+        '''
+        Gets the name of the first existing user cert for a given user and host.
+
+        Example:
+            usercertname = cdir.getUserForHost('myuser', 'cool.vertex.link')
+
+        Args:
+            user (str): The name of the user.
+            host (str): The name of the host.
+
+        Returns:
+            str: The cert name, if exists.
+        '''
         for name in iterFqdnUp(host):
             usercert = '%s@%s' % (user, name)
             if self.isUserCert(usercert):
@@ -582,7 +596,7 @@ class CertDir:
         cacert = self.getCaCert(signas)
 
         cert.set_issuer(cacert.get_subject())
-        cert.sign(cakey, 'sha256')
+        cert.sign(cakey, self.signing_digest)
 
     def signHostCsr(self, xcsr, signas, outp=None, sans=None):
         '''
@@ -619,7 +633,7 @@ class CertDir:
             None
         '''
         cert.set_issuer(cert.get_subject())
-        cert.sign(pkey, 'sha256')
+        cert.sign(pkey, self.signing_digest)
 
     def signUserCsr(self, xcsr, signas, outp=None):
         '''
@@ -653,9 +667,9 @@ class CertDir:
         cert = crypto.X509()
         cert.set_pubkey(pkey)
         cert.set_version(2)
-        # Certpairs are good for 10 years
+
         cert.gmtime_adj_notBefore(0)
-        cert.gmtime_adj_notAfter(TEN_YEARS)
+        cert.gmtime_adj_notAfter(TEN_YEARS)  # Certpairs are good for 10 years
 
         cert.set_serial_number(int(s_common.guid(), 16))
         cert.get_subject().CN = name
