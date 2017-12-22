@@ -5,16 +5,22 @@ import synapse.tools.easycert as s_easycert
 
 class TestEasyCert(SynTest):
 
+    def make_testca(self, path):
+        '''
+        Helper for making a testca named "testca"
+        '''
+        outp = self.getTestOutp()
+        argv = ['--ca', '--certdir', path, 'testca']
+        self.eq(s_easycert.main(argv, outp=outp), 0)
+        self.true(outp.expect('key saved'))
+        self.true(outp.expect('testca.key'))
+        self.true(outp.expect('cert saved'))
+        self.true(outp.expect('testca.crt'))
+
     def test_easycert_user_p12(self):
         with self.getTestDir() as path:
 
-            outp = self.getTestOutp()
-            argv = ['--ca', '--certdir', path, 'testca']
-            self.eq(s_easycert.main(argv, outp=outp), 0)
-            self.true(outp.expect('key saved'))
-            self.true(outp.expect('testca.key'))
-            self.true(outp.expect('cert saved'))
-            self.true(outp.expect('testca.crt'))
+            self.make_testca(path)
 
             outp = self.getTestOutp()
             argv = ['--certdir', path, '--signas', 'testca', 'user@test.com']
@@ -32,27 +38,29 @@ class TestEasyCert(SynTest):
 
     def test_easycert_user_sign(self):
         with self.getTestDir() as path:
+
+            self.make_testca(path)
+
             outp = self.getTestOutp()
-
-            argv = ['--ca', '--certdir', path, 'testca']
-            self.eq(s_easycert.main(argv, outp=outp), 0)
-            self.true(str(outp).find('cert saved'))
-
             argv = ['--certdir', path, '--signas', 'testca', 'user@test.com']
             self.eq(s_easycert.main(argv, outp=outp), 0)
-            self.true(str(outp).find('cert saved'))
+            self.true(outp.expect('key saved'))
+            self.true(outp.expect('user@test.com.key'))
+            self.true(outp.expect('cert saved'))
+            self.true(outp.expect('user@test.com.crt'))
 
     def test_easycert_server_sign(self):
         with self.getTestDir() as path:
+
+            self.make_testca(path)
+
             outp = self.getTestOutp()
-
-            argv = ['--ca', '--certdir', path, 'testca']
-            self.eq(s_easycert.main(argv, outp=outp), 0)
-            self.true(str(outp).find('cert saved'))
-
             argv = ['--certdir', path, '--signas', 'testca', '--server', 'test.vertex.link']
             self.eq(s_easycert.main(argv, outp=outp), 0)
-            self.true(str(outp).find('cert saved'))
+            self.true(outp.expect('key saved'))
+            self.true(outp.expect('test.vertex.link.key'))
+            self.true(outp.expect('cert saved'))
+            self.true(outp.expect('test.vertex.link.crt'))
 
     def test_easycert_csr(self):
         with self.getTestDir() as path:
@@ -74,10 +82,7 @@ class TestEasyCert(SynTest):
             self.eq(s_easycert.main(argv, outp=outp), -1)
             outp.expect('file exists:')
 
-            outp = self.getTestOutp()
-            argv = ['--ca', '--certdir', path, 'testca']
-            self.eq(s_easycert.main(argv, outp=outp), 0)
-            outp.expect('cert saved:')
+            self.make_testca(path)
 
             outp = self.getTestOutp()
             csrpath = os.path.join(path, 'users', 'user@test.com.csr')
