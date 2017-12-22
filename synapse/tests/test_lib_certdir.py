@@ -10,6 +10,12 @@ class CertDirTest(SynTest):
 
     @contextmanager
     def getCertDir(self):
+        '''
+        Get a test CertDir object.
+
+        Yields:
+            s_certdir.CertDir: A certdir object based out of a temp directory.
+        '''
         # create a temp folder and make it a cert dir
         with self.getTestDir() as dirname:
             s_scope.set('testdir', dirname)
@@ -153,7 +159,7 @@ class CertDirTest(SynTest):
         self.isin(b'subjectAltName', exts)
 
     def test_certdir_cas(self):
-        with self.getCertDir() as cdir:
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
             caname = 'syntest'
             inter_name = 'testsyn-intermed'
             base = cdir._getPathJoin()
@@ -189,13 +195,14 @@ class CertDirTest(SynTest):
             self.basic_assertions(cdir, inter_cacert, inter_cakey, cacert=cacert)
 
     def test_certdir_hosts(self):
-        with self.getCertDir() as cdir:
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
             caname = 'syntest'
             hostname = 'visi.vertex.link'
             hostname_unsigned = 'unsigned.vertex.link'
             base = cdir._getPathJoin()
 
             cdir.genCaCert(caname)
+
             cacert = cdir.getCaCert(caname)
 
             # Test that all the methods for loading the certificates return correct values for non-existant files
@@ -241,7 +248,7 @@ class CertDirTest(SynTest):
             self.host_assertions(cdir, cert, key, cacert=cacert)
 
     def test_certdir_users(self):
-        with self.getCertDir() as cdir:
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
             caname = 'syntest'
             username = 'visi@vertex.link'
             username_unsigned = 'unsigned@vertex.link'
@@ -314,7 +321,7 @@ class CertDirTest(SynTest):
             self.raises(NoSuchFile, cdir.genClientCert, username)  # user crt
 
     def test_certdir_hosts_sans(self):
-        with self.getCertDir() as cdir:
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
             caname = 'syntest'
             cdir.genCaCert(caname)
 
@@ -356,7 +363,7 @@ class CertDirTest(SynTest):
             self.eq(cert.get_extension(4).get_data(), b'0\x13\x82\x11visi3.vertex.link')  # ASN.1 encoded subjectAltName data
 
     def test_certdir_hosts_csr(self):
-        with self.getCertDir() as cdir:
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
             caname = 'syntest'
             hostname = 'visi.vertex.link'
 
@@ -367,7 +374,9 @@ class CertDirTest(SynTest):
             xcsr = cdir._loadCsrPath(path)
 
             # Sign the CSR as the CA
-            cdir.signHostCsr(xcsr, caname)
+            pkey, pcert = cdir.signHostCsr(xcsr, caname)
+            self.isinstance(pkey, crypto.PKey)
+            self.isinstance(pcert, crypto.X509)
 
             # Validate the keypair
             cacert = cdir.getCaCert(caname)
@@ -376,7 +385,7 @@ class CertDirTest(SynTest):
             self.basic_assertions(cdir, cert, key, cacert=cacert)
 
     def test_certdir_users_csr(self):
-        with self.getCertDir() as cdir:
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
             caname = 'syntest'
             username = 'visi@vertex.link'
 
@@ -387,7 +396,9 @@ class CertDirTest(SynTest):
             xcsr = cdir._loadCsrPath(path)
 
             # Sign the CSR as the CA
-            cdir.signUserCsr(xcsr, caname)
+            pkey, pcert = cdir.signUserCsr(xcsr, caname)
+            self.isinstance(pkey, crypto.PKey)
+            self.isinstance(pcert, crypto.X509)
 
             # Validate the keypair
             cacert = cdir.getCaCert(caname)
