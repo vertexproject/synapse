@@ -277,6 +277,18 @@ class CertDir:
         return path
 
     def getHostKey(self, name):
+        '''
+        Loads the PKey object for a given host keypair.
+
+        Example:
+            myhostkey = cdir.getHostKey('myhost')
+
+        Args:
+            name (str): The name of the host keypair.
+
+        Returns:
+            OpenSSL.crypto.PKey: The private key, if exists.
+        '''
         return self._loadKeyPath(self.getHostKeyPath(name))
 
     def getHostKeyPath(self, name):
@@ -320,6 +332,18 @@ class CertDir:
                 return usercert
 
     def getUserKey(self, name):
+        '''
+        Loads the PKey object for a given user keypair.
+
+        Example:
+            myuserkey = cdir.getUserKey('myuser')
+
+        Args:
+            name (str): The name of the user keypair.
+
+        Returns:
+            OpenSSL.crypto.PKey: The private key, if exists.
+        '''
         return self._loadKeyPath(self.getUserKeyPath(name))
 
     def getUserKeyPath(self, name):
