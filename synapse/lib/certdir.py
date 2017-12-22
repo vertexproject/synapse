@@ -26,6 +26,9 @@ class CertDir:
         * Signs certificate signing requests (CSRs).
         * Generates PKCS#12 archives for use in browser.
 
+    Args:
+        path (str): Optional path which can override the default path directory.
+
     Notes:
         * All certificates will be loaded from and written to ~/.syn/certs by default. Set the envvar SYN_CERT_DIR to override.
         * All certificate generation methods create 4096 bit RSA keypairs.
