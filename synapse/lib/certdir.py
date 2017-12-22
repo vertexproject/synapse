@@ -17,7 +17,7 @@ TEN_YEARS = 10 * 365 * 24 * 60 * 60
 
 class CertDir:
     '''
-    FIXME
+    FIXME doc
     '''
 
     def __init__(self, path=None):
@@ -604,7 +604,20 @@ class CertDir:
         name = xcsr.get_subject().CN
         return self.genHostCert(name, csr=pkey, signas=signas, outp=outp, sans=sans)
 
-    def selfSignCert(self, cert, pkey):  # FIXME doc
+    def selfSignCert(self, cert, pkey):
+        '''
+        Self-sign a certificate.
+
+        Example:
+            cdir.selfSignCert(mycert, myotherprivatekey)
+
+        Args:
+            cert (OpenSSL.crypto.X509): The certificate to sign.
+            pkey (OpenSSL.crypto.PKey): The PKey with which to sign the certificate.
+
+        Returns:
+            None
+        '''
         cert.set_issuer(cert.get_subject())
         cert.sign(pkey, 'sha256')
 
