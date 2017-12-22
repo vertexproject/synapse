@@ -7,19 +7,28 @@ class TestEasyCert(SynTest):
 
     def test_easycert_user_p12(self):
         with self.getTestDir() as path:
-            outp = self.getTestOutp()
 
+            outp = self.getTestOutp()
             argv = ['--ca', '--certdir', path, 'testca']
             self.eq(s_easycert.main(argv, outp=outp), 0)
-            self.true(str(outp).find('cert saved'))
+            self.true(outp.expect('key saved'))
+            self.true(outp.expect('testca.key'))
+            self.true(outp.expect('cert saved'))
+            self.true(outp.expect('testca.crt'))
 
+            outp = self.getTestOutp()
             argv = ['--certdir', path, '--signas', 'testca', 'user@test.com']
             self.eq(s_easycert.main(argv, outp=outp), 0)
-            self.true(str(outp).find('cert saved'))
+            self.true(outp.expect('key saved'))
+            self.true(outp.expect('user@test.com.key'))
+            self.true(outp.expect('cert saved'))
+            self.true(outp.expect('user@test.com.crt'))
 
+            outp = self.getTestOutp()
             argv = ['--certdir', path, '--p12', 'user@test.com']
             self.eq(s_easycert.main(argv, outp=outp), 0)
-            self.true(str(outp).find('client cert saved'))
+            self.true(outp.expect('client cert saved'))
+            self.true(outp.expect('user@test.com.p12'))
 
     def test_easycert_user_sign(self):
         with self.getTestDir() as path:
