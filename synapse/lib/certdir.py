@@ -27,7 +27,7 @@ class CertDir:
 
         self.certdir = s_common.reqdir(path)
 
-    def genCaCert(self, name, signas=None, outp=None):
+    def genCaCert(self, name, signas=None, outp=None):  # FIXME doc
         pkey, cert = self._genBasePkeyCert(name)
         ext0 = crypto.X509Extension(b'basicConstraints', False, b'CA:TRUE')
         cert.add_extensions([ext0])
@@ -47,7 +47,7 @@ class CertDir:
 
         return pkey, cert
 
-    def genHostCert(self, name, signas=None, outp=None, pkey=None, sans=None):
+    def genHostCert(self, name, signas=None, outp=None, pkey=None, sans=None):  # FIXME doc
         pkey, cert = self._genBasePkeyCert(name, pkey=pkey)
 
         ext_sans = {'DNS:' + name}
@@ -79,10 +79,10 @@ class CertDir:
 
         return pkey, cert
 
-    def genHostCsr(self, name, outp=None):
+    def genHostCsr(self, name, outp=None):  # FIXME doc
         return self._genPkeyCsr(name, 'hosts', outp=outp)
 
-    def genUserCert(self, name, signas=None, outp=None, pkey=None):
+    def genUserCert(self, name, signas=None, outp=None, pkey=None):  # FIXME doc
 
         pkey, cert = self._genBasePkeyCert(name, pkey=pkey)
 
@@ -109,7 +109,7 @@ class CertDir:
 
         return pkey, cert
 
-    def genClientCert(self, name, outp=None):
+    def genClientCert(self, name, outp=None):  # FIXME doc
 
         ucert = self.getUserCert(name)
         if not ucert:
@@ -133,7 +133,7 @@ class CertDir:
         if outp is not None:
             outp.printf('client cert saved: %s' % (crtpath,))
 
-    def genUserCsr(self, name, outp=None):
+    def genUserCsr(self, name, outp=None):  # FIXME doc
         return self._genPkeyCsr(name, 'users', outp=outp)
 
     def getCaCert(self, name):
@@ -271,6 +271,18 @@ class CertDir:
         return self._loadCertPath(self.getHostCertPath(name))
 
     def getHostCertPath(self, name):
+        '''
+        Gets the path to a host certificate.
+
+        Example:
+            mypath = cdir.getHostCertPath('myhost')
+
+        Args:
+            name (str): The name of the host keypair.
+
+        Returns:
+            str: The path if exists.
+        '''
         path = s_common.genpath(self.certdir, 'hosts', '%s.crt' % name)
         if not os.path.isfile(path):
             return None
@@ -452,23 +464,23 @@ class CertDir:
         crtpath = self._getPathJoin('users', '%s.crt' % name)
         return os.path.isfile(crtpath)
 
-    def signCertAs(self, cert, signas):
+    def signCertAs(self, cert, signas):  # FIXME doc
         cakey = self.getCaKey(signas)
         cacert = self.getCaCert(signas)
 
         cert.set_issuer(cacert.get_subject())
         cert.sign(cakey, 'sha256')
 
-    def signHostCsr(self, xcsr, signas, outp=None, sans=None):
+    def signHostCsr(self, xcsr, signas, outp=None, sans=None):  # FIXME doc
         pkey = xcsr.get_pubkey()
         name = xcsr.get_subject().CN
         return self.genHostCert(name, pkey=pkey, signas=signas, outp=outp, sans=sans)
 
-    def selfSignCert(self, cert, pkey):
+    def selfSignCert(self, cert, pkey):  # FIXME doc
         cert.set_issuer(cert.get_subject())
         cert.sign(pkey, 'sha256')
 
-    def signUserCsr(self, xcsr, signas, outp=None):
+    def signUserCsr(self, xcsr, signas, outp=None):  # FIXME doc
         pkey = xcsr.get_pubkey()
         name = xcsr.get_subject().CN
         return self.genUserCert(name, pkey=pkey, signas=signas, outp=outp)
