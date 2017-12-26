@@ -554,7 +554,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('fakeipify:jsonip' in hypo_obj._web_apis)
             self.true('fakeipify:jsonip' in hypo_obj._web_api_ingests)
             self.true('fakeipify:jsonip' in hypo_obj._syn_funcs)
-            self.true('fakeipify:jsonip:ipv4' in hypo_obj.web_core._syn_funcs)
+            self.nn(hypo_obj.web_core.getTufoByProp('syn:ingest', 'fakeipify:jsonip:ipv4'))
 
             # Check repr!
             r = repr(hypo_obj)
@@ -588,7 +588,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('fakeipify:jsonip' in hypo_obj._web_apis)
             self.true('fakeipify:jsonip' in hypo_obj._web_api_ingests)
             self.true('fakeipify:jsonip' in hypo_obj._syn_funcs)
-            self.true('fakeipify:jsonip:ipv4' in hypo_obj.web_core._syn_funcs)
+            self.nn(hypo_obj.web_core.getTufoByProp('syn:ingest', 'fakeipify:jsonip:ipv4'))
             self.true('fakeipify:jsonip' in hypo_obj._web_api_gest_opens)
 
             # Now change something with ipify, register it and force a reload to occur
@@ -611,7 +611,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             self.true('fakeipify:duckip' in hypo_obj._web_apis)
             self.true('fakeipify:duckip' in hypo_obj._web_api_ingests)
             self.true('fakeipify:duckip' in hypo_obj._syn_funcs)
-            self.true('fakeipify:duckip:foobar' in hypo_obj.web_core._syn_funcs)
+            self.nn(hypo_obj.web_core.getTufoByProp('syn:ingest', 'fakeipify:duckip:foobar'))
             self.true('fakeipify:duckip' in hypo_obj._web_api_gest_opens)
 
         # ensure all the expected events fired during testing
@@ -775,7 +775,7 @@ class HypnosTest(SynTest, AsyncTestCase):
             hypo_obj.addWebConfig(config=gconf)
 
             self.true('fakeipify:jsonip' in hypo_obj._syn_funcs)
-            self.true('fakeipify:jsonip:ipv4' in hypo_obj.web_core._syn_funcs)
+            self.nn(hypo_obj.web_core.getTufoByProp('syn:ingest', 'fakeipify:jsonip:ipv4'))
 
             data = {}
 
