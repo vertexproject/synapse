@@ -1392,8 +1392,11 @@ class CortexTest(SynTest):
         self.eq(rofl[1].get('syn:tag:base'), 'rofl')
 
         tags = core.getTufosByProp('syn:tag:base', 'rofl')
-
-        self.eq(len(tags), 2)
+        self.len(2, tags)
+        tags = core.getTufosByProp('syn:tag:base', 'rofl', limit=1)
+        self.len(1, tags)
+        tags = core.getTufosByProp('syn:tag:base', 'rofl', limit=0)
+        self.len(0, tags)
 
         wait = core.waiter(2, 'node:tag:del')
         hehe = core.delTufoTag(hehe, 'lulz.rofl')
