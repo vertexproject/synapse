@@ -172,6 +172,9 @@ class RamStorage(s_cores_storage.Storage):
         # This was originally a set, but sets are mutable and throw
         # runtimeerrors if their size changes during iteration
         for row in tuple(rows):
+            if limit is not None and c >= limit:
+                break
+
             if mintime is not None and row[3] < mintime:
                 continue
 
@@ -181,8 +184,6 @@ class RamStorage(s_cores_storage.Storage):
             yield row
 
             c += 1
-            if limit is not None and c >= limit:
-                break
 
     def getSizeByProp(self, prop, valu=None, mintime=None, maxtime=None):
         if valu is None:
