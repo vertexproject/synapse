@@ -100,7 +100,7 @@ Optional parameters:
 
 **Usage notes:**
 
-* If the source property for the pivot is the primary property of the working set of nodes, the *<srcprop>* can be omitted from both Operator and Macro syntax.
+* If the source property for the pivot is the primary property of the working set of nodes, *<srcprop>* can be omitted from both Operator and Macro syntax.
 * If the source property for the pivot is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source properties are, by definition, properties from the working set of nodes.
 * The ``limit=`` parameter can be provided as input to the ``pivot()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``pivot()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 
@@ -120,29 +120,41 @@ Optional parameters:
 
 .. parsed-literal::
   
-  **join(** *<dstprop>* **,** *<srcprop>* [ **,** limit=** *<num>* ] **)**
+  **join(** [ *<srcprop>* **,** ] *<dstprop>* [ **, limit=** *<limit>* ] **)**
 
 **Macro syntax:**
 
-N/A
+.. parsed-literal::
+  
+  [ *<srcprop>* ] **<-** *<dstprop>*
 
 **Examples:**
 
 * Given a set of domains (``inet:fqdn``) in the working set, return the domains and their set of immediate subdomains:
   ::
-    join( inet:fqdn:domain, inet:fqdn )
+    join( inet:fqdn, inet:fqdn:domain )
+    
+    join( inet:fqdn:domain )
+    
+    inet:fqdn <- inet:fqdn:domain
+    
+    <- inet:fqdn:domain
 
-* Given a set of email addresses (``inet:email``) in the working set, return the set of domain / registrant email (``inet:whois:regmail``) records associated with those email addresses:
+* Given a set of email addresses (``inet:email``) in the working set, return the email addresses and the set of domain / registrant email (``inet:whois:regmail``) records associated with those email addresses:
   ::
-    join( inet:whois:regmail:email, inet:email )
+    join( inet:email, inet:whois:regmail:email )
+    
+    join( inet:whois:regmail:email )
+    
+    inet:email <- inet:whois:regmail:email
+    
+    <- inet:whois:regmail:email
 
 **Usage notes:**
 
-* ``join()`` takes its arguments in the order *<dstprop>*, *<srcprop>*, which is the opposite of ``pivot()``, which takes its arguments as *<srcprop>*, *<dstprop>*.
-  
-  * **Note:** ``join()`` may be modified in a future release so its syntax matches that of ``pivot()``.
-* Both *<dstprop>* and *<srcprop>* must be specified.
 * ``join()`` does not consume nodes by design.
+* If the source property for the join is the primary property of the working set of nodes, *<srcprop>* can be omitted from both Operator and Macro syntax.
+* If the source property for the join is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source properties are, by definition, properties from the working set of nodes.
 * The ``limit=`` parameter can be provided as input to the ``join()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``join()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 * Because ``join()`` does not consume nodes, this impacts the results returned by either the ``limit=`` parameter or the ``limit()`` operator.
   
