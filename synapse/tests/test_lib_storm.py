@@ -63,6 +63,51 @@ class StormTest(SynTest):
             self.eq(len(core.eval('inet:ipv4="5.6.7.8" pivot(inet:dns:a:ipv4)')), 2)
             self.eq(len(core.eval('inet:ipv4="5.6.7.8" pivot(inet:ipv4, inet:dns:a:ipv4)')), 2)
 
+            self.raises(BadSyntaxError, core.eval, 'inet:ipv4="5.6.7.8" pivot()')
+            self.raises(BadSyntaxError, core.eval, 'inet:ipv4="5.6.7.8" pivot(:fqdn, inet:fqdn, hehe:haha)')
+            self.raises(BadOperArg, core.eval, 'inet:ipv4="5.6.7.8" pivot(inet:dns:a:ipv4, limit=-1)')
+
+    def test_storm_join(self):
+        with self.getRamCore() as core:
+            n1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
+            n2 = core.formTufoByProp('inet:dns:a', 'vertex.vis/5.6.7.8')
+            n3 = core.formTufoByProp('inet:dns:a', 'vertex.link/5.6.7.8')
+            # Strip .new
+            for node in [n1, n2, n3]:
+                del node[1]['.new']
+
+            i1 = core.getTufoByProp('inet:ipv4', '1.2.3.4')
+            i2 = core.getTufoByProp('inet:ipv4', '5.6.7.8')
+            f1 = core.getTufoByProp('inet:fqdn', 'woot.com')
+            f2 = core.getTufoByProp('inet:fqdn', 'vertex.vis')
+            f3 = core.getTufoByProp('inet:fqdn', 'vertex.link')
+
+            nodes = core.eval('inet:ipv4="1.2.3.4" inet:ipv4<-inet:dns:a:ipv4')
+            self.sorteq(nodes, [n1, i1])
+
+            nodes = core.eval('inet:ipv4="1.2.3.4" join(inet:ipv4,inet:dns:a:ipv4)')
+            self.sorteq(nodes, [n1, i1])
+
+            nodes = core.eval('inet:dns:a="woot.com/1.2.3.4" :ipv4<-inet:ipv4')
+            self.sorteq(nodes, [n1, i1])
+
+            nodes = core.eval('inet:dns:a="woot.com/1.2.3.4" join(:ipv4, inet:ipv4)')
+            self.sorteq(nodes, [n1, i1])
+
+            nodes = core.eval('inet:fqdn="woot.com" <-inet:dns:a:fqdn')
+            self.sorteq(nodes, [f1, n1])
+
+            node = core.eval('inet:fqdn="woot.com" join(inet:dns:a:fqdn)')
+            self.sorteq(nodes, [f1, n1])
+
+            self.sorteq(core.eval('inet:dns:a:ipv4="5.6.7.8" :fqdn<-inet:fqdn'), [n2, n3, f2, f3])
+            self.sorteq(core.eval('inet:ipv4="5.6.7.8" <- inet:dns:a:ipv4'), [i2, n2, n3])
+            self.sorteq(core.eval('inet:ipv4="5.6.7.8" inet:ipv4<-inet:dns:a:ipv4'), [i2, n2, n3])
+
+            self.sorteq(core.eval('inet:dns:a:ipv4="5.6.7.8" join(:fqdn,inet:fqdn)'), [n2, n3, f2, f3])
+            self.sorteq(core.eval('inet:ipv4="5.6.7.8" join(inet:dns:a:ipv4)'), [i2, n2, n3])
+            self.sorteq(core.eval('inet:ipv4="5.6.7.8" join(inet:ipv4, inet:dns:a:ipv4)'), [i2, n2, n3])
+
     def test_storm_setprop(self):
         with self.getRamCore() as core:
 
@@ -1112,7 +1157,9 @@ class StormTest(SynTest):
 
     def test_storm_pivot_runt(self):
         with self.getRamCore() as core:
+            # Ensure that pivot and join operations work
             self.true(len(core.eval('syn:prop:ptype=it:host :form->syn:form')) > 1)
+            self.true(len(core.eval('syn:prop:ptype=it:host :form<-syn:form')) > 1)
 
     def test_storm_prop_gtor(self):
         with self.getRamCore() as core:

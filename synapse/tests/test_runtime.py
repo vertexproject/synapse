@@ -80,8 +80,22 @@ class StormRunTest(SynTest):
         self.sorteq(core.eval('inet:ipv4="127.0.0.1" inet:ipv4->inet:dns:a:ipv4 inet:dns:a:fqdn->inet:fqdn'), [t6, t7])
 
         # test join operator basics
-        self.sorteq(core.eval('inet:ipv4="127.0.0.1" join(inet:ipv4:cc)'), [t0, t1, t2])
-        self.sorteq(core.eval('inet:ipv4="127.0.0.1" inet:ipv4->inet:dns:a:ipv4 join("inet:fqdn","inet:dns:a:fqdn")'), [t4, t5, t6, t7])
+        self.raises(BadSyntaxError, core.eval, 'inet:ipv4="127.0.0.1" join()')
+        self.raises(BadSyntaxError, core.eval, 'inet:ipv4="127.0.0.1" join(inet:ipv4:cc,inet:ipv4:cc,inet:ipv4:cc)')
+        self.raises(BadTypeValu, core.eval, 'inet:ipv4="127.0.0.1" join(inet:ipv4:cc)')
+
+        self.sorteq(core.eval('inet:ipv4="127.0.0.1" join(inet:ipv4:cc,inet:ipv4:cc)'), [t0, t1, t2])
+        self.sorteq(core.eval('inet:ipv4="127.0.0.1" inet:ipv4->inet:dns:a:ipv4 join("inet:dns:a:fqdn","inet:fqdn")'), [t4, t5, t6, t7])
+
+        # Test join limits
+        self.len(1, core.eval('inet:ipv4="127.0.0.1"'))
+        self.len(2, core.eval('inet:ipv4="127.0.0.1" inet:ipv4->inet:dns:a:ipv4'))  # query data will contain 2 nodes after this step
+        self.len(2 + 2, core.eval('inet:ipv4="127.0.0.1" inet:ipv4->inet:dns:a:ipv4 join("inet:dns:a:fqdn","inet:fqdn")'))  # join will join 2 more fqdns
+        self.len(2 + 2, core.eval('inet:ipv4="127.0.0.1" inet:ipv4->inet:dns:a:ipv4 join("inet:dns:a:fqdn","inet:fqdn", limit=3)'))
+        self.len(2 + 2, core.eval('inet:ipv4="127.0.0.1" inet:ipv4->inet:dns:a:ipv4 join("inet:dns:a:fqdn","inet:fqdn", limit=2)'))
+        self.len(2 + 1, core.eval('inet:ipv4="127.0.0.1" inet:ipv4->inet:dns:a:ipv4 join("inet:dns:a:fqdn","inet:fqdn", limit=1)'))
+        self.len(2 + 0, core.eval('inet:ipv4="127.0.0.1" inet:ipv4->inet:dns:a:ipv4 join("inet:dns:a:fqdn","inet:fqdn", limit=0)'))
+        self.raises(BadOperArg, core.eval, 'inet:ipv4="127.0.0.1" inet:ipv4->inet:dns:a:ipv4 join("inet:dns:a:fqdn","inet:fqdn", limit=-1)')
 
         # test filt #####################################################
 
