@@ -120,7 +120,35 @@ class BadSyntaxError(SynErr): pass
 
 class TeleClientSide(SynErr): pass
 
-class HitStormLimit(SynErr): pass
+class HitStormLimit(SynErr):
+    '''
+    The storm query hit some limit.
+    '''
+    pass
+
+class QueryKilled(SynErr):
+    '''
+    The storm query was killed for some reason.
+    '''
+    pass
+
+class QueryCancelled(QueryKilled):
+    '''
+    The storm query was cancelled.
+    '''
+    pass
+
+class QueryLimitTime(QueryKilled):
+    '''
+    The storm query reached a execution time limit.
+    '''
+    pass
+
+class QueryLimitTouch(QueryKilled):
+    '''
+    The storm query reached a limit on the number of things touched.
+    '''
+    pass
 
 class DupOpt(Exception): pass
 class DupUser(Exception): pass
