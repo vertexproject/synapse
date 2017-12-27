@@ -1046,6 +1046,9 @@ class Storage(s_config.Config):
         if len(valus) == 0:
             return []
 
+        if limit is not None and limit < 1:
+                return []
+
         rows = []
         for valu in valus:
             _rows = list(self.getJoinByProp(prop, valu, limit=limit))
