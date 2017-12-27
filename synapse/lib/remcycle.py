@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # synapse - remcycle.py
 # Created on 4/28/17.
@@ -252,7 +251,7 @@ class Nyx(object):
         self.gest_name = gest_data.get('name')
         gestdef = gest_data.get('definition')
         self.gest_open = gestdef.get('open')
-        self.gest = s_ingest.Ingest(gestdef)
+        self.gest = gestdef
         # Blow up on missing data early
         if not self.gest_name:
             raise s_common.NoSuchName(name='name', mesg='API Ingest definition is missing its name.')
@@ -690,11 +689,7 @@ class Hypnos(s_config.Config):
         if obj.gest:
             action_name = ':'.join([name, obj.gest_name])
             # Register the action with the attached cortex
-            ingest_func = s_ingest.register_ingest(self.web_core,
-                                                   obj.gest,
-                                                   action_name,
-                                                   True
-                                                   )
+            self.web_core.setGestDef(action_name, obj.gest)
 
             def gest_glue(event):
                 evtname, event_args = event
@@ -702,14 +697,14 @@ class Hypnos(s_config.Config):
                 resp = kwargs.get('resp')
                 data = resp.get('ingdata')
                 for _data in data:
-                    self.web_core.fire(action_name, data=_data)
+                    self.web_core.addGestData(action_name, _data)
                 resp['data'].seek(0)
 
             # Register the action to unpack the async.Boss job results and fire the cortex event
             self.on(name, gest_glue)
 
             # Store things for later reuse (for deregistartion)
-            self._web_api_ingests[name].append((action_name, ingest_func, gest_glue))
+            self._web_api_ingests[name].append((action_name, gest_glue))
             self._web_api_gest_opens[name] = obj.gest_open
 
         self.fire('hypnos:register:api:add', api=name)
@@ -757,9 +752,8 @@ class Hypnos(s_config.Config):
         self._web_api_gest_opens.pop(name, None)
 
         funclist = self._web_api_ingests.pop(name, [])
-        for action_name, ingest_func, gest_glue in funclist:
+        for action_name, gest_glue in funclist:
             self.off(name, gest_glue)
-            self.web_core.off(action_name, ingest_func)
 
         self.fire('hypnos:register:api:del', api=name)
 
