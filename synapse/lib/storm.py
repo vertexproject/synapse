@@ -1331,11 +1331,11 @@ class Runtime(Configable):
             prop = k[1:]
             props[prop] = v
 
-        node = self.formTufoByProp(args[0], args[1], **props)
+        node = core.formTufoByProp(args[0], args[1], **props)
 
         # call set props if the node is not new...
         if not node[1].get('.new'):
-            self.setTufoProps(node, **props)
+            core.setTufoProps(node, **props)
 
         query.add(node)
 
