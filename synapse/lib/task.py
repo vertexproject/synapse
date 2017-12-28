@@ -92,7 +92,7 @@ class Task(EventBus):
             self._task_run()
             self.fini()
 
-    def _task_run(self):
+    def _task_run(self):  # pragma: no cover
         raise s_common.NoSuchImpl(name='_task_run')
 
     def __call__(self):

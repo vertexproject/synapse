@@ -331,3 +331,42 @@ class EventBusTest(SynTest):
         proc.join(timeout=10)
         foo.join()
         self.eq(proc.exitcode, 137)
+
+    def test_eventbus_onwith(self):
+        ebus = s_eventbus.EventBus()
+        l0 = []
+        l1 = []
+
+        def onHehe0(mesg):
+            l0.append(mesg)
+
+        def onHehe1(mesg):
+            l1.append(mesg)
+
+        ebus.on('hehe', onHehe0)
+
+        # Temporarily set the 'hehe' callback
+        with ebus.onWith('hehe', onHehe1) as e:
+            self.true(e is ebus)
+            ebus.fire('hehe')
+            self.len(1, l0)
+            self.len(1, l1)
+
+        # subsequent fires do not call onHehe1
+        ebus.fire('hehe')
+        self.len(2, l0)
+        self.len(1, l1)
+
+        # onWith works across Telepath Proxy's and with filts
+        l2 = []
+
+        def onNodeForm(mesg):
+            l2.append(mesg)
+
+        with self.getDmonCore() as core:
+            with core.onWith('node:form', onNodeForm, form='strform'):
+                t0 = core.formTufoByProp('strform', 'hehe')
+                self.nn(t0)
+                t1 = core.formTufoByProp('intform', 1234)
+                self.nn(t1)
+        self.len(1, l2)

@@ -1,11 +1,17 @@
+import synapse.common as s_common
 import synapse.lib.auth as s_auth
 import synapse.lib.tufo as s_tufo
 import synapse.lib.storm as s_storm
-import synapse.cores.common as s_common
+import synapse.cores.common as s_cores_common
 
 from synapse.tests.common import *
 
 class StormTest(SynTest):
+
+    def test_storm_nosuchcmpr(self):
+        with self.getRamCore() as core:
+            self.raises(NoSuchCmpr, core.eval, 'intform +notgonnahappen(1,2,3)')
+
     def test_storm_cmpr_norm(self):
         with self.getRamCore() as core:
             core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
@@ -56,6 +62,51 @@ class StormTest(SynTest):
             self.eq(len(core.eval('inet:dns:a:ipv4="5.6.7.8" pivot(:fqdn,inet:fqdn)')), 2)
             self.eq(len(core.eval('inet:ipv4="5.6.7.8" pivot(inet:dns:a:ipv4)')), 2)
             self.eq(len(core.eval('inet:ipv4="5.6.7.8" pivot(inet:ipv4, inet:dns:a:ipv4)')), 2)
+
+            self.raises(BadSyntaxError, core.eval, 'inet:ipv4="5.6.7.8" pivot()')
+            self.raises(BadSyntaxError, core.eval, 'inet:ipv4="5.6.7.8" pivot(:fqdn, inet:fqdn, hehe:haha)')
+            self.raises(BadOperArg, core.eval, 'inet:ipv4="5.6.7.8" pivot(inet:dns:a:ipv4, limit=-1)')
+
+    def test_storm_join(self):
+        with self.getRamCore() as core:
+            n1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
+            n2 = core.formTufoByProp('inet:dns:a', 'vertex.vis/5.6.7.8')
+            n3 = core.formTufoByProp('inet:dns:a', 'vertex.link/5.6.7.8')
+            # Strip .new
+            for node in [n1, n2, n3]:
+                del node[1]['.new']
+
+            i1 = core.getTufoByProp('inet:ipv4', '1.2.3.4')
+            i2 = core.getTufoByProp('inet:ipv4', '5.6.7.8')
+            f1 = core.getTufoByProp('inet:fqdn', 'woot.com')
+            f2 = core.getTufoByProp('inet:fqdn', 'vertex.vis')
+            f3 = core.getTufoByProp('inet:fqdn', 'vertex.link')
+
+            nodes = core.eval('inet:ipv4="1.2.3.4" inet:ipv4<-inet:dns:a:ipv4')
+            self.sorteq(nodes, [n1, i1])
+
+            nodes = core.eval('inet:ipv4="1.2.3.4" join(inet:ipv4,inet:dns:a:ipv4)')
+            self.sorteq(nodes, [n1, i1])
+
+            nodes = core.eval('inet:dns:a="woot.com/1.2.3.4" :ipv4<-inet:ipv4')
+            self.sorteq(nodes, [n1, i1])
+
+            nodes = core.eval('inet:dns:a="woot.com/1.2.3.4" join(:ipv4, inet:ipv4)')
+            self.sorteq(nodes, [n1, i1])
+
+            nodes = core.eval('inet:fqdn="woot.com" <-inet:dns:a:fqdn')
+            self.sorteq(nodes, [f1, n1])
+
+            node = core.eval('inet:fqdn="woot.com" join(inet:dns:a:fqdn)')
+            self.sorteq(nodes, [f1, n1])
+
+            self.sorteq(core.eval('inet:dns:a:ipv4="5.6.7.8" :fqdn<-inet:fqdn'), [n2, n3, f2, f3])
+            self.sorteq(core.eval('inet:ipv4="5.6.7.8" <- inet:dns:a:ipv4'), [i2, n2, n3])
+            self.sorteq(core.eval('inet:ipv4="5.6.7.8" inet:ipv4<-inet:dns:a:ipv4'), [i2, n2, n3])
+
+            self.sorteq(core.eval('inet:dns:a:ipv4="5.6.7.8" join(:fqdn,inet:fqdn)'), [n2, n3, f2, f3])
+            self.sorteq(core.eval('inet:ipv4="5.6.7.8" join(inet:dns:a:ipv4)'), [i2, n2, n3])
+            self.sorteq(core.eval('inet:ipv4="5.6.7.8" join(inet:ipv4, inet:dns:a:ipv4)'), [i2, n2, n3])
 
     def test_storm_setprop(self):
         with self.getRamCore() as core:
@@ -236,7 +287,7 @@ class StormTest(SynTest):
 
     def test_storm_tag_query(self):
         # Ensure that non-glob tag filters operate as expected.
-        with self.getRamCore() as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:dns:a', 'vertex.vis/5.6.7.8')
             node3 = core.formTufoByProp('inet:dns:a', 'vertex.link/5.6.7.8')
@@ -265,7 +316,7 @@ class StormTest(SynTest):
 
     def test_storm_tag_glob(self):
         # Ensure that glob operators with tag filters operate properly.
-        with self.getRamCore() as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:dns:a', 'vertex.vis/5.6.7.8')
             node3 = core.formTufoByProp('inet:dns:a', 'vertex.link/5.6.7.8')
@@ -343,7 +394,7 @@ class StormTest(SynTest):
             self.eq(len(nodes), 1)
 
     def test_storm_tag_jointag(self):
-        with self.getRamCore() as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
 
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
@@ -387,7 +438,7 @@ class StormTest(SynTest):
             self.eq(len(nodes), 1)
 
     def test_storm_tag_totag(self):
-        with self.getRamCore() as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
@@ -430,7 +481,7 @@ class StormTest(SynTest):
             self.eq(len(nodes), 0)
 
     def test_storm_tag_fromtag(self):
-        with self.getRamCore() as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
             node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
@@ -488,10 +539,12 @@ class StormTest(SynTest):
             self.len(1, core.eval('lift(inet:ipv4, limit=1)'))
             self.len(1, core.eval('lift(inet:ipv4, 1.2.3.4)'))
             self.len(1, core.eval('lift(inet:ipv4, 2.0.0.0, by=lt)'))
+            self.raises(BadSyntaxError, core.eval, 'lift()')
+            self.raises(BadSyntaxError, core.eval, 'lift(inet:ipv4, 2.0.0.0, 1.0.0.0)')
 
     def test_storm_lifts_by(self):
         # Test various lifts by handlers
-        with self.getRamCore() as core:  # type: s_common.Cortex
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
 
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
             node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
@@ -521,6 +574,98 @@ class StormTest(SynTest):
             # Lift by dark
             nodes = core.eval('hehe*dark=haha')
             self.len(3, nodes)
+
+    def test_storm_cmpr_in(self):
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
+            core.formTufoByProp('intform', 0)
+            core.formTufoByProp('intform', 1)
+            core.formTufoByProp('intform', 2)
+            core.formTufoByProp('intform', 1000)
+
+            self.len(0, core.eval('intform +in(intform, (-1))'))
+            self.len(1, core.eval('intform +in(intform, (0))'))
+            self.len(3, core.eval('intform -in(intform, (0))'))
+            self.len(1, core.eval('intform +in(intform, (1))'))
+            self.len(1, core.eval('intform +in(intform, (2))'))
+            self.len(1, core.eval('intform +in(intform, (1000))'))
+            self.len(0, core.eval('intform +in(intform, (1001))'))
+            self.len(2, core.eval('intform +in(intform, (1,2))'))
+            self.len(3, core.eval('intform +in(intform, (0,1,2))'))
+            self.len(4, core.eval('intform +in(intform, (0,1,2,1000))'))
+            self.len(4, core.eval('intform +in(intform, (-1,0,1,2,1000,1001))'))
+            self.len(3, core.eval('intform +in(intform, (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16))'))
+
+    def test_storm_cmpr_range(self):
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
+            core.formTufoByProp('intform', 0)
+            core.formTufoByProp('intform', 1)
+            core.formTufoByProp('intform', 2)
+            core.formTufoByProp('intform', 1000)
+
+            nodes = core.eval('intform +range(intform, (-1,0))')
+            self.len(1, nodes)
+
+            nodes = core.eval('intform -range(intform, (-1,0))')
+            self.len(3, nodes)
+
+            nodes = core.eval('intform +range(intform, (-10000,10000))')
+            self.len(4, nodes)
+
+            nodes = core.eval('intform +range(intform, (0,0))')
+            self.len(1, nodes)
+
+            nodes = core.eval('intform +range(intform, (0,1))')
+            self.len(2, nodes)
+
+            nodes = core.eval('intform +range(intform, (0,3))')
+            self.len(3, nodes)
+
+            nodes = core.eval('intform +range(intform, (0,4))')
+            self.len(3, nodes)
+
+            core.formTufoByProp('inet:ipv4', 0)
+            core.formTufoByProp('inet:ipv4', 1)
+            core.formTufoByProp('inet:ipv4', 2)
+            core.formTufoByProp('inet:ipv4', 1000)
+
+            nodes = core.eval('inet:ipv4 +range(inet:ipv4, ("0.0.0.0","0.0.0.10"))')
+            self.len(3, nodes)
+
+            nodes = core.eval('inet:ipv4 +range(:asn, (0,1))')
+            self.len(0, nodes)
+
+            # Relative property
+            nodes = core.eval('inet:ipv4 +range(:asn, (-1,1))')
+            self.len(4, nodes)
+
+            # Invalid property
+            nodes = core.eval('inet:ipv4 +range(:asn_wat, (-1,1))')
+            self.len(0, nodes)  # NOTE: no exception is raised
+
+            # Invalid range
+            self.raises(BadTypeValu, core.eval, 'intform +range(intform, (asdf, ghjk))')
+
+    def test_storm_cmpr_seen(self):
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
+            core.formTufoByProp('inet:web:acct', 'vertex.link/user0', **{'seen:min': 0, 'seen:max': 0})
+            core.formTufoByProp('inet:web:acct', 'vertex.link/user1', **{'seen:min': 1483228800000, 'seen:max': 1514764800000})  # 2017-2018
+            core.formTufoByProp('inet:web:acct', 'vertex.link/user2', **{'seen:min': 2493072000000, 'seen:max': 2493072000000})  # 2049
+            core.formTufoByProp('intform', 2493072000000)
+
+            self.raises(BadTypeValu, core.eval, 'inet:web:acct +seen(0)')  # expecting date time in string
+            self.len(0, core.eval('inet:web:acct +seen(2016)'))
+            self.len(1, core.eval('inet:web:acct +seen(2016, 2017, 2025)'))
+            self.len(2, core.eval('inet:web:acct +seen(2016, 2017, 2025, 2049)'))
+
+            self.len(1, core.eval('inet:web:acct +seen(2017)'))
+            self.len(1, core.eval('inet:web:acct +seen(2018)'))
+            self.len(0, core.eval('inet:web:acct +seen(2019)'))
+
+            self.len(0, core.eval('inet:web:acct +seen(2048)'))
+            self.len(1, core.eval('inet:web:acct +seen(2049)'))
+            self.len(0, core.eval('inet:web:acct +seen(2050)'))
+
+            self.len(0, core.eval('intform +seen(2049)'))
 
     def test_storm_addnode(self):
         with self.getRamCore() as core:
@@ -646,8 +791,11 @@ class StormTest(SynTest):
             self.eq(shlp._getShowFunc('#')(node1), '#foo.bar #hehe.haha')
 
             self.eq(shlp._getShowFunc(':cc')(node1), 'vv')
+            self.eq(shlp._getShowFunc(':wat')(node1), '')
+
             self.eq(shlp._getShowFunc('#foo.*')(node1), '#foo.bar')
             self.eq(shlp._getShowFunc('inet:ipv4')(node1), '1.2.3.4')
+            self.eq(shlp._getShowFunc('wat')(node1), '')
 
             rows = list(sorted(shlp.rows(nodes)))
             self.eq(rows, [
@@ -758,6 +906,10 @@ class StormTest(SynTest):
             # We have to know queue names to add nodes too
             self.raises(BadSyntaxError, core.eval, 'inet:ipv4 task()')
 
+            # We have some task names too!
+            nodes = core.eval('get:tasks()')
+            self.len(4, nodes)
+
     def test_storm_task_telepath(self):
         with self.getDmonCore() as core_prox:
             foo = []
@@ -810,6 +962,22 @@ class StormTest(SynTest):
 
             nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=1)')
             self.len(3, nodes)
+
+            nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=2)')
+            self.len(6, nodes)
+
+            nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=3)')
+            self.len(6, nodes)
+
+            nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=12345)')
+            self.len(6, nodes)
+
+            nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=0)')  # 0 means no recursion limit
+            self.len(6, nodes)
+
+            self.raises(s_common.BadSyntaxError, core.eval, 'syn:tag=foo tree()')
+            self.raises(s_common.BadOperArg, core.eval, 'syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=0.123)')
+            self.raises(s_common.BadOperArg, core.eval, 'syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=-1)')
 
             nodes = core.eval('syn:tag=foo.bar tree(syn:tag, syn:tag:up)')
             self.len(3, nodes)
@@ -989,7 +1157,9 @@ class StormTest(SynTest):
 
     def test_storm_pivot_runt(self):
         with self.getRamCore() as core:
+            # Ensure that pivot and join operations work
             self.true(len(core.eval('syn:prop:ptype=it:host :form->syn:form')) > 1)
+            self.true(len(core.eval('syn:prop:ptype=it:host :form<-syn:form')) > 1)
 
     def test_storm_prop_gtor(self):
         with self.getRamCore() as core:
@@ -1001,6 +1171,26 @@ class StormTest(SynTest):
 
             gtor = core._getPropGtor('inet:fqdn:zone')
             self.eq(gtor(fqdn), ('inet:fqdn:zone', 1))
+
+    def test_storm_gettasks(self):
+        with self.getRamCore() as core:
+
+            def f1(mesg):
+                pass
+
+            def f2(mesg):
+                pass
+
+            core.on('task:hehe:haha', f1)
+            core.on('task:hehe:haha', f2)
+            core.on('task:wow', f1)
+
+            nodes = core.eval('get:tasks()')
+            self.len(2, nodes)
+            for node in nodes:
+                self.none(node[0])
+                self.eq(node[1].get('tufo:form'), 'task')
+                self.isin(node[1].get('task'), ('hehe:haha', 'wow'))
 
 class LimitTest(SynTest):
     def test_limit_default(self):

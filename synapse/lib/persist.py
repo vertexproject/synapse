@@ -227,20 +227,34 @@ class Dir(s_eventbus.EventBus):
                 for noff, item in pers.items(0):
                     dostuff(item)
 
+            Iterate over the items in a file and save offset location::
+
+                poff = pers.getIdenOffset(iden)
+                for noff, item in pers.items(poff.get()):
+                    dostuff(item)
+                    poff.set(noff)
+
         Notes:
             This is a legitimate yield generator; it may not be used across
             a Telepath Proxy.
 
-            The offset yielded by this if a relative offset, computed from
-            the base of the persist file and the input offset.  It should not
-            be considered an absolute offset value.
+            The offset yielded by this is an absolute offset to the **next**
+            item in the stream; not the item which was just yielded. As such,
+            that offset value may be used to restart any sort of
+            synchronization activities done with the Dir object.  The Offset
+            object is provided to assist with this.
 
         Yields:
-            ((int, object)): A tuple containing the relative offset of the
-             unpacked object and the unpacked object itself.
+            ((int, object)): A tuple containing the absolute offset of the
+            next object and the unpacked object itself.
         '''
         que = s_queue.Queue()
         unpk = msgpack.Unpacker(use_list=0, encoding='utf8')
+
+        # poff is used for iterating over persistence files when unpacking,
+        # while the user supplied offset is used to return absolute offsets
+        # when unpacking objects from the stream.
+        poff = off
 
         if self.files[0].opts.get('baseoff') > off:
             raise Exception('Too Far Back') # FIXME
@@ -250,9 +264,13 @@ class Dir(s_eventbus.EventBus):
         def calcsize(b):
             data['next'] += len(b)
 
+        logger.debug('Entering items with offset %s', off)
+
         for pers in self.files:
 
             base = pers.opts.get('baseoff')
+
+            logger.debug('Base offset for %s - %s', pers, base)
 
             # do we skip this file?
             filemax = base + pers.size
@@ -261,7 +279,9 @@ class Dir(s_eventbus.EventBus):
 
             while True:
 
-                foff = off - base
+                foff = poff - base
+
+                logger.debug('Reading from offset %s', foff)
 
                 byts = pers.readoff(foff, blocksize)
 
@@ -294,13 +314,19 @@ class Dir(s_eventbus.EventBus):
 
                     while True:
                         item = unpk.unpack(write_bytes=calcsize)
-                        yield data['next'], item
+                        # explicit is better than implicit
+                        reloff = data['next']
+                        aboff = reloff + off
+                        yield aboff, item
 
                 except msgpack.exceptions.OutOfData:
                     pass
 
-                off += len(byts)
+                poff += len(byts)
 
+            logger.debug('Done with cached events for %s', pers)
+
+        logger.debug('Entering real-time event pump')
         # we are now a queued real-time pump
         try:
 
@@ -311,6 +337,8 @@ class Dir(s_eventbus.EventBus):
         finally:
             self.queues.remove(que)
             que.fini()
+
+        logger.debug('Leaving items()')
 
 class File(s_eventbus.EventBus):
     '''

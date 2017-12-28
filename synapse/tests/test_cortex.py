@@ -744,6 +744,8 @@ class CortexBaseTest(SynTest):
         self.eq(len(core.getTufosBy('in', 'default_foo:p0', [5])), 2)
         self.eq(len(core.getTufosBy('in', 'default_foo:p0', [4, 5])), 3)
         self.eq(len(core.getTufosBy('in', 'default_foo:p0', [4, 5, 6, 7], limit=4)), 4)
+        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [4, 5, 6, 7], limit=1)), 1)
+        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [4, 5, 6, 7], limit=0)), 0)
         self.eq(len(core.getTufosBy('in', 'default_foo:p0', [5], limit=1)), 1)
         self.eq(len(core.getTufosBy('in', 'default_foo:p0', [], limit=1)), 0)
 
@@ -775,6 +777,19 @@ class CortexBaseTest(SynTest):
         self.eq(len(core.getTufosBy('gt', 'default_foo:p0', 6)), 1)
         self.eq(len(core.getTufosBy('ge', 'default_foo:p0', 6)), 2)
         self.eq(len(core.getTufosBy('ge', 'default_foo:p0', 5)), 4)
+        # By LT/LE/GE/GT with limits
+        self.len(1, core.getTufosBy('lt', 'default_foo:p0', 6, limit=1))
+        self.len(1, core.getTufosBy('le', 'default_foo:p0', 6, limit=1))
+        self.len(1, core.getTufosBy('le', 'default_foo:p0', 7, limit=1))
+        self.len(1, core.getTufosBy('gt', 'default_foo:p0', 6, limit=1))
+        self.len(1, core.getTufosBy('ge', 'default_foo:p0', 6, limit=1))
+        self.len(1, core.getTufosBy('ge', 'default_foo:p0', 5, limit=1))
+        self.len(0, core.getTufosBy('lt', 'default_foo:p0', 6, limit=0))
+        self.len(0, core.getTufosBy('le', 'default_foo:p0', 6, limit=0))
+        self.len(0, core.getTufosBy('le', 'default_foo:p0', 7, limit=0))
+        self.len(0, core.getTufosBy('gt', 'default_foo:p0', 6, limit=0))
+        self.len(0, core.getTufosBy('ge', 'default_foo:p0', 6, limit=0))
+        self.len(0, core.getTufosBy('ge', 'default_foo:p0', 5, limit=0))
 
         # By LT/LE/GE/GT requiring type normalization
         foog = core.formTufoByProp('inet:ipv4', '10.2.3.5')
@@ -801,6 +816,7 @@ class CortexBaseTest(SynTest):
         tufs = core.getTufosBy('range', 'intform', (5, 15))
         self.eq(len(tufs), 1)
         self.eq(tufs[0][0], t0[0])
+        self.len(0, core.getTufosBy('range', 'intform', (5, 15), limit=0))
         # Do a range lift requiring prop normalization (using a built-in data type) to work
         t2 = core.formTufoByProp('inet:ipv4', '1.2.3.3')
         tufs = core.getTufosBy('range', 'inet:ipv4', (0x01020301, 0x01020309))
@@ -823,6 +839,9 @@ class CortexBaseTest(SynTest):
         self.eq(len(core.getTufosBy('has', 'inet:ipv4', valu=None)), 5)
         self.eq(len(core.getTufosBy('has', 'syn:tag', valu=None)), 0)
 
+        self.len(1, core.getTufosBy('has', 'default_foo', valu='knight', limit=1))
+        self.len(0, core.getTufosBy('has', 'default_foo', valu='knight', limit=0))
+
         # By TAG
         core.addTufoTag(fooa, 'color.white')
         core.addTufoTag(fooa, 'color.black')
@@ -839,6 +858,8 @@ class CortexBaseTest(SynTest):
         self.eq(len(core.getTufosBy('tag', 'inet:ipv4', 'color.green')), 2)
         self.eq(len(core.getTufosBy('tag', 'inet:ipv4', 'color.white')), 1)
         self.eq(len(core.getTufosBy('tag', None, 'color.white')), 2)
+        self.len(1, core.getTufosBy('tag', None, 'color.white', limit=1))
+        self.len(0, core.getTufosBy('tag', None, 'color.white', limit=0))
 
         # By EQ
         self.eq(len(core.getTufosBy('eq', 'default_foo', 'bar')), 1)
@@ -851,6 +872,8 @@ class CortexBaseTest(SynTest):
         self.eq(len(core.getTufosBy('eq', 'inet:ipv4', '0.0.0.0')), 0)
         self.eq(len(core.getTufosBy('eq', 'inet:web:memb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
         self.eq(len(core.getTufosBy('eq', 'inet:web:memb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
+        self.len(1, core.getTufosBy('eq', 'inet:ipv4:asn', -1, limit=1))
+        self.len(0, core.getTufosBy('eq', 'inet:ipv4:asn', -1, limit=0))
 
         # By TYPE - this requires data model introspection
         fook = core.formTufoByProp('inet:dns:a', 'derry.vertex.link/10.2.3.6')
@@ -858,6 +881,8 @@ class CortexBaseTest(SynTest):
         # self.eq(len(core.getTufosBy('type', 'inet:ipv4', None)), 7)
         self.eq(len(core.getTufosBy('type', 'inet:ipv4', '10.2.3.6')), 3)
         self.eq(len(core.getTufosBy('type', 'inet:ipv4', 0x0a020306)), 3)
+        self.len(1, core.getTufosBy('type', 'inet:ipv4', '10.2.3.6', limit=1))
+        self.len(0, core.getTufosBy('type', 'inet:ipv4', '10.2.3.6', limit=0))
 
         # By TYPE using COMP nodes
         self.eq(len(core.getTufosBy('type', 'inet:web:memb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
@@ -930,6 +955,9 @@ class CortexBaseTest(SynTest):
         self.eq(test_repr, '10.2.1.8')
         test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
         self.eq(test_repr, '10.2.1.15')
+        # Ensure limits are respected
+        self.len(1, core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.8/29', limit=1))
+        self.len(0, core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.8/29', limit=0))
 
         # 10.2.1.1/28 is 10.2.1.0 -> 10.2.1.15 but we don't have 10.2.1.0 in the core
         nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/28')
@@ -1364,8 +1392,11 @@ class CortexTest(SynTest):
         self.eq(rofl[1].get('syn:tag:base'), 'rofl')
 
         tags = core.getTufosByProp('syn:tag:base', 'rofl')
-
-        self.eq(len(tags), 2)
+        self.len(2, tags)
+        tags = core.getTufosByProp('syn:tag:base', 'rofl', limit=1)
+        self.len(1, tags)
+        tags = core.getTufosByProp('syn:tag:base', 'rofl', limit=0)
+        self.len(0, tags)
 
         wait = core.waiter(2, 'node:tag:del')
         hehe = core.delTufoTag(hehe, 'lulz.rofl')
@@ -1412,6 +1443,11 @@ class CortexTest(SynTest):
         self.eq(len(core.eval('inet:fqdn=w00t.com +node:created<1')), 0)
         self.eq(len(core.eval('inet:fqdn=w00t.com +node:created>1')), 1)
         self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0)')), 2)
+        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0, limit=3)')), 2)
+        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0, limit=2)')), 2)
+        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0, limit=1)')), 1)
+        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0, limit=0)')), 2)
+        self.raises(BadOperArg, core.eval, 'inet:fqdn=w00t.com totags(leaf=0, limit=-1)')
         self.eq(len(core.eval('syn:tag=some')), 1)
         self.eq(len(core.eval('syn:tag=some.tag')), 1)
         self.eq(len(core.eval('syn:tag=some delnode(force=1)')), 0)
@@ -3015,6 +3051,24 @@ class CortexTest(SynTest):
 
             # We cannot add a universal prop which is associated with a form
             self.raises(BadPropConf, core.addPropDef, 'node:poorform', univ=1, req=1, ptype='bool', form='file:bytes')
+
+    def test_cortex_gettasks(self):
+        with self.getRamCore() as core:
+
+            def f1(mesg):
+                pass
+
+            def f2(mesg):
+                pass
+
+            core.on('task:hehe:haha', f1)
+            core.on('task:hehe:haha', f2)
+            core.on('task:wow', f1)
+
+            tasks = core.getCoreTasks()
+            self.len(2, tasks)
+            self.isin('hehe:haha', tasks)
+            self.isin('wow', tasks)
 
 class StorageTest(SynTest):
 

@@ -5,8 +5,9 @@ Created on 10/21/17.
 
 Test for synapse.lib.iq classes
 """
-import logging
-import synapse.lib.output as s_output
+import types
+
+import synapse.lib.iq as s_iq
 
 from synapse.tests.common import *
 
@@ -155,3 +156,61 @@ class IqTest(SynTest):
             self.raises(AttributeError, blah)
 
         self.true(core.isfini)
+
+    def test_common_hierarchy(self):
+        blob = (10, 'hehe')
+        e = (type(10), type('hehe'))
+        r = s_iq.objhierarchy(blob)
+        self.eq(r, e)
+
+        tufo = (None, {'woah': 'dude', 'hehe': 1, 'haha': set(['1', '2']), 'foo': ['bar', 'baz']})
+
+        e = (type(None), {'woah': type(''), 'hehe': type(0),
+                          'haha': set([type('')]), 'foo': [type(''), type('')]},)
+        r = s_iq.objhierarchy(tufo)
+        self.eq(r, e)
+
+        tufo = (None, {'gen': (i for i in range(1))})
+        e = (type(None), {'gen': types.GeneratorType})
+        r = s_iq.objhierarchy(tufo)
+        self.eq(r, e)
+
+    def test_cmdg_simple_sequence(self):
+
+        cmdg = CmdGenerator(['foo', 'bar'])
+        self.eq(cmdg(), 'foo')
+        self.eq(cmdg(), 'bar')
+        self.eq(cmdg(), 'quit')
+        self.eq(cmdg(), 'quit')
+
+    def test_cmdg_evnt(self):
+        cmdg = CmdGenerator(['foo', 'bar'], on_end='spam')
+        self.eq(cmdg(), 'foo')
+        self.eq(cmdg(), 'bar')
+        self.eq(cmdg(), 'spam')
+        cmdg.fire('syn:cmdg:add', cmd='hehe')
+        self.eq(cmdg(), 'hehe')
+        self.eq(cmdg(), 'spam')
+
+    def test_cmdg_end_actions(self):
+        cmdg = CmdGenerator(['foo', 'bar'], on_end='spam')
+        self.eq(cmdg(), 'foo')
+        self.eq(cmdg(), 'bar')
+        self.eq(cmdg(), 'spam')
+        self.eq(cmdg(), 'spam')
+
+    def test_cmdg_end_exception(self):
+        cmdg = CmdGenerator(['foo', 'bar'], on_end=EOFError)
+        self.eq(cmdg(), 'foo')
+        self.eq(cmdg(), 'bar')
+        with self.raises(EOFError) as cm:
+            cmdg()
+        self.assertIn('No further actions', str(cm.exception))
+
+    def test_cmdg_end_exception_unknown(self):
+        cmdg = CmdGenerator(['foo', 'bar'], on_end=1)
+        self.eq(cmdg(), 'foo')
+        self.eq(cmdg(), 'bar')
+        with self.raises(Exception) as cm:
+            cmdg()
+        self.assertIn('Unhandled end action', str(cm.exception))

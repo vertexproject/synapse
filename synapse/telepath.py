@@ -100,7 +100,6 @@ def openlink(link):
     sock = relay.connect()
 
     synack = teleSynAck(sock, name=name)
-    bases = ()
 
     return Proxy(relay, sock=sock)
 
@@ -108,14 +107,25 @@ def evalurl(url, **opts):
     '''
     Construct either a local object or a telepath proxy.
 
-    WARNING: this API enables ctor:// proto which uses eval!
-             ( trusted inputs only )
+    Args:
+        url (str): URL to evaluate
+        **opts: Additional options.
 
-    Example:
+    Notes:
+        This API enables the ctor:// protocol which uses ``eval()``.
+        It should **only** be used with trusted inputs!
 
-        item0 = evalurl('tcp://1.2.3.4:90/foo')
-        item1 = evalurl('ctor://foo.bar.baz("woot",y=20)')
+    Examples:
+        Get a remote object over a TCP connection:
 
+            item0 = evalurl('tcp://1.2.3.4:90/foo')
+
+        Get a local object via ctor:
+
+            item1 = evalurl('ctor://foo.bar.baz("woot",y=20)')
+
+    Returns:
+        object: A python object
     '''
     if url.find('://') == -1:
         raise s_common.BadUrl(url)
@@ -203,7 +213,10 @@ class Method:
 
         return self.proxy.syncjob(job)
 
-telelocal = set(['tele:sock:init', 'ebus:init', 'fifo:xmit'])
+telelocal = set(['tele:sock:init',
+                 'tele:sock:runsockfini',
+                 'ebus:init',
+                 'fifo:xmit'])
 
 class Proxy(s_eventbus.EventBus):
     '''
@@ -237,6 +250,7 @@ class Proxy(s_eventbus.EventBus):
 
         if plex is None:
             plex = s_socket.Plex()
+            self.onfini(plex.fini)
 
         self._tele_plex = plex
         self._tele_boss = s_async.Boss()
@@ -463,6 +477,8 @@ class Proxy(s_eventbus.EventBus):
             if not self.isfini:
                 s_glob.pool.call(self._runSockFini)
 
+        logger.debug('[%s] has sock [%s]', self, sock)
+
         sock.onfini(sockfini)
 
         self._teleSynAck(sock)
@@ -487,6 +503,8 @@ class Proxy(s_eventbus.EventBus):
     def _runSockFini(self):
         if self.isfini:
             return
+
+        self.fire('tele:sock:runsockfini')
 
         try:
             self._initTeleSock()

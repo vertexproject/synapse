@@ -606,6 +606,8 @@ class LmdbStorage(s_cores_storage.Storage):
             if not cursor.set_range(first_key):
                 raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
             while True:
+                if limit is not None and count >= limit:
+                    break
                 key, pk_enc = cursor.item()
                 if do_fast_compare:
                     if key[:len(first_key)] != first_key:
@@ -621,8 +623,6 @@ class LmdbStorage(s_cores_storage.Storage):
                     if not do_count_only:
                         rows.append(row)
                 count += 1
-                if limit is not None and count >= limit:
-                    break
                 if not cursor.next():
                     raise s_common.BadCoreStore(store='lmdb', mesg='Missing sentinel')
 
@@ -753,11 +753,12 @@ class LmdbStorage(s_cores_storage.Storage):
             for key, value in it:
                 if term_cmp(key[:len(last_key)].tobytes(), last_key):
                     break
-                count += 1
-                if not do_count_only:
-                    ret.append(self._getRowByPkValEnc(txn, value))
                 if limit is not None and count >= limit:
                     break
+                if not do_count_only:
+                    ret.append(self._getRowByPkValEnc(txn, value))
+                count += 1
+
         return count if do_count_only else ret
 
     def _genStoreRows(self, **kwargs):

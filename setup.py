@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='synapse',
-    version='0.0.37',
+    version='0.0.41',
     description='Synapse Distributed Key-Value Hypergraph Analysis Framework',
     author='Invisigoth Kenshoto',
     author_email='invisigoth.kenshoto@gmail.com',
@@ -20,7 +20,6 @@ setup(
 
     install_requires=[
         'tornado>=3.2.2',
-        'cryptography>=1.7.2',
         'pyOpenSSL>=16.2.0',
         'msgpack-python>=0.4.2',
         'xxhash>=1.0.1',

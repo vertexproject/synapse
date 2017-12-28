@@ -679,6 +679,13 @@ def parse(text, off=0):
             ret.append(oper('pivot', name))
             continue
 
+        # join() macro with no src prop:   <- foo:bar
+        if nextstr(text, off, '<-'):
+            _, off = nom(text, off + 2, whites)
+            name, off = nom(text, off, varset)
+            ret.append(oper('join', name))
+            continue
+
         # lift by tag alone macro
         if nextstr(text, off, '#'):
             _, off = nom(text, off + 1, whites)
@@ -769,6 +776,22 @@ def parse(text, off=0):
                 pivn, off = nom(text, off + 1, varset)
 
             inst[1]['args'].append(pivn)
+
+            ret.append(inst)
+            continue
+
+        # macro foo:bar<-baz:faz prop join
+        if nextstr(text, off, '<-'):
+
+            joinn, off = nom(text, off + 2, varset)
+            inst = ('join', {'args': [name], 'kwlist': []})
+
+            # FIXME make a parser for foo.bar/baz:faz*blah#40
+            if nextchar(text, off, '/'):
+                inst[1]['kwlist'].append(('from', joinn))
+                joinn, off = nom(text, off + 1, varset)
+
+            inst[1]['args'].append(joinn)
 
             ret.append(inst)
             continue

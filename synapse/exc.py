@@ -27,6 +27,12 @@ class SynErr(Exception):
         '''
         return self.errinfo.get(name)
 
+class CliFini(SynErr):
+    '''
+    Raised when the CLI is to exit.
+    '''
+    pass
+
 class AuthDeny(SynErr): pass
 
 class NoSuchMod(SynErr): pass
