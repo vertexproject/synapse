@@ -64,7 +64,7 @@ Optional parameters:
     
     -> inet:dns:a:fqdn :ipv4 -> inet:ipv4
 
-* Pivot from a set of domains in the working set to the set of subdomains for those domains:
+* Pivot from a set of domains in the working set to the set of immediate subdomains for those domains:
   ::
     pivot( inet:fqdn, inet:fqdn:domain )
     
@@ -96,7 +96,7 @@ Optional parameters:
     inet:email -> inet:whois:contact:email inet:whois:contact:rec
       -> inet:whois:rec
     
-    -> inet:whois:contact:email inet:whois:contact:rec -> inet:whois:rec
+    -> inet:whois:contact:email :rec -> inet:whois:rec
 
 **Usage notes:**
 
@@ -149,6 +149,16 @@ Optional parameters:
     inet:email <- inet:whois:regmail:email
     
     <- inet:whois:regmail:email
+
+* Given a set of DNS SOA records (``inet:dns:soa``) in the working set, return the SOA records and the email addresses (``inet:email``) associated with them:
+  ::
+    join( inet:dns:soa:email, inet:email )
+    
+    join( :email, inet:email )
+    
+    inet:dns:soa:email <- inet:email
+    
+    :email <- inet:email
 
 **Usage notes:**
 
