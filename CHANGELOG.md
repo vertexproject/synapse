@@ -1,6 +1,34 @@
 Changelog
 =========
 
+v0.0.41 - 2017-12-28
+--------------------
+
+## New Features
+- #574 - Added ``EventBus.onWith()`` API.  This is a context manager which acts like ``.on()``, but the callback is removed when the context manager is exited.
+- #575 - Added ``synapse.lib.iq.CmdGenerator()`` class to allow testing CLI command loops using unittest mock.
+- #577 - Added ``synapse.lib.certdir.genClientCert()`` API to allow creation of a PKCS12 certificate bundle for a user certificate, private key and CA cert.
+- #577 - Added a ``--p12`` option to the easycert tool.  This allows a user to bundle their certificate, private key and CA cert into a PKC12 formatted file.
+- #578 - Added the Storm macro syntax ``<-`` to represent a ``join()`` operation.
+
+## Enhancements
+- #576 - The ``Daemon`` now fini's ``EventBus()`` objects in LIFO order when it is fini'd. In other words, objects created in a dmon configuration are torn down in reverse order that they are created.
+- #576, #581 - Increased test coverage for CLI related tests.
+- #577 - Updated tests for ``synapse.lib.certdir`` to ensure that the certificates made by ``certdir`` were correct.
+- #577 - Updated tests for ``synapse.tools.easycert`` to ensure that the certificates made by ``easycert`` were correct.
+- #578 - Updated the storm ``join()`` operator syntax to behave exactly like the ``pivot()`` operator with respect to source and destination properties. ``join()`` still is an additive operator which does not consume the source nodes.
+- #583 - ``synapse.lib.remcycle.Hypnos`` now registers and persists ingest definitions as ``syn:ingest`` nodes in its Cortex.
+
+## Bugs
+- #579 - Fix a reference to ``onCtx`` (the original name for the ``EventBus.onWith()`` function).
+- #584 - ``Cortex`` Storage backings had different behaviors when limit=0 was passed to functions which joined rows together to make tufos.  This has been fixed, so that a limit=0 API parameter will return 0 rows.
+
+## Documentation
+- #573 - Added telepath docstrings for ``evalurl()``.
+- #577 - Rewrote API documentation for ``synapse.lib.certdir``.
+- #586 - Updated the Storm ``join()`` documentation to reflect changes to its arguments.
+
+
 v0.0.40 - 2017-12-11
 --------------------
 
