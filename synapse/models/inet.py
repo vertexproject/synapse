@@ -3,6 +3,7 @@ import struct
 import hashlib
 import logging
 import ipaddress
+import email.utils
 
 import regex
 
@@ -101,6 +102,41 @@ class FqdnType(DataType):
 
     def repr(self, valu):
         return valu.encode('utf8').decode('idna')
+
+class Rfc2822Addr(DataType):
+    '''
+    An RFC 2822 compatible email address parser
+
+    Specify strict=1 to strictly enforce complaince.
+    '''
+    def norm(self, valu, oldval=None):
+
+        # remove quotes for normalized version
+        valu = valu.replace('"', ' ').replace("'", ' ')
+        valu = valu.strip().lower()
+        valu = ' '.join(valu.split())
+
+        subs = {}
+
+        name, addr = email.utils.parseaddr(valu)
+        if name:
+            subs['name'] = name
+
+        try:
+
+            mail, ssub = self.tlib.getTypeNorm('inet:email', addr)
+            subs['email'] = mail
+
+            if name:
+                valu = '%s <%s>' % (name, mail)
+
+            else:
+                valu = mail
+
+        except BadTypeValu as e:
+            pass # it's all good, we just dont have a valid email addr
+
+        return valu, subs
 
 # RFC5952 compatible
 def ipv6norm(text):
@@ -958,6 +994,11 @@ class InetMod(CoreModule):
                     'subof': 'comp',
                     'fields': 'fqdn,inet:fqdn|email,inet:email',
                     'doc': 'An association between a domain and a registrant email address.'}),
+
+                ('inet:rfc2822:addr', {
+                    'ctor': 'synapse.models.inet.Rfc2822Addr',
+                    'ex': '"Visi Kenshoto" <visi@vertex.link>',
+                    'doc': 'An RFC 2822 Address field.'}),
             ),
 
             'forms': (
@@ -1578,6 +1619,13 @@ class InetMod(CoreModule):
                     ('tcp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
                         'doc': 'The IPv4 address associated with the TCP server.'}),
                 ]),
+
+                ('inet:rfc2822:addr', {}, (
+                    ('name', {'ptype': 'ps:name', 'ro': 1,
+                        'doc': 'The name field parsed from an RFC 2822 address string.'}),
+                    ('email', {'ptype': 'inet:email', 'ro': 1,
+                        'doc': 'The email field parsed from an RFC 2822 address string.'}),
+                )),
             ),
         }
         name = 'inet'

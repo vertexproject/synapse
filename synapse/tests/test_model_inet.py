@@ -1584,3 +1584,30 @@ class InetModelTest(SynTest):
 
             self.eq(node[1].get('inet:urlredir:dst'), 'http://bar.com/')
             self.eq(node[1].get('inet:urlredir:dst:fqdn'), 'bar.com')
+
+    def test_model_inet_rfc2822_addr(self):
+
+        with self.getRamCore() as core:
+
+            n0 = core.formTufoByProp('inet:rfc2822:addr', 'FooBar')
+            n1 = core.formTufoByProp('inet:rfc2822:addr', 'visi@vertex.link')
+            n2 = core.formTufoByProp('inet:rfc2822:addr', 'foo bar<visi@vertex.link>')
+            n3 = core.formTufoByProp('inet:rfc2822:addr', 'foo bar <visi@vertex.link>')
+            n4 = core.formTufoByProp('inet:rfc2822:addr', '"foo bar "   <visi@vertex.link>')
+            n5 = core.formTufoByProp('inet:rfc2822:addr', '<visi@vertex.link>')
+
+            self.eq(n0[1].get('inet:rfc2822:addr'), 'foobar')
+            self.none(n0[1].get('inet:rfc2822:addr:name'))
+            self.none(n0[1].get('inet:rfc2822:addr:addr'))
+
+            self.eq(n1[1].get('inet:rfc2822:addr'), 'visi@vertex.link')
+            self.eq(n1[1].get('inet:rfc2822:addr:email'), 'visi@vertex.link')
+            self.none(n1[1].get('inet:rfc2822:addr:name'))
+
+            self.eq(n2[1].get('inet:rfc2822:addr'), 'foo bar <visi@vertex.link>')
+            self.eq(n2[1].get('inet:rfc2822:addr:name'), 'foo bar')
+            self.eq(n2[1].get('inet:rfc2822:addr:email'), 'visi@vertex.link')
+
+            self.eq(n2[0], n3[0])
+            self.eq(n2[0], n4[0])
+            self.eq(n1[0], n5[0])
