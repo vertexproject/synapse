@@ -33,6 +33,9 @@ class Foo(s_eventbus.EventBus):
     def localthing(self, x):
         return self.echo(x)
 
+    def echo(self, x):
+        return x
+
 class TelePathTest(SynTest):
 
     def getFooServ(self):
@@ -117,6 +120,22 @@ class TelePathTest(SynTest):
         self.nn(job)
 
         self.eq(foo.syncjob(job), 30)
+
+        foo.fini()
+        dmon.fini()
+
+    def test_telepath_surrogate(self):
+
+        dmon, link = self.getFooServ()
+
+        foo = s_telepath.openlink(link)
+
+        bads = '\u01cb\ufffd\ud842\ufffd\u0012'
+        t0 = ('1234', {'key': bads})
+
+        # Shovel a malformed UTF8 string with an unpaired surrogate over telepath
+        ret = foo.echo(t0)
+        self.eq(ret, t0)
 
         foo.fini()
         dmon.fini()
