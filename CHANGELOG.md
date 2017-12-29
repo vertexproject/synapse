@@ -1,6 +1,19 @@
 Changelog
 =========
 
+v0.0.42 - 2017-12-29
+--------------------
+
+## New Features
+- #588 - Added a RFC2822 address parser and type/form, ``inet:rfc2822:addr``.  This normalizes and parses string identifiers and attempts to extract email addresses as a secondary property.
+
+## Bugs
+- #587 - Make `synapse.lib.msgpack` helper functions resilient to unmatched unicode surrogate characters. This also affects the ``synapse.lib.socket.Socket`` and ``synapse.lib.persist.Dir`` msgpack unpackers. This is done by passing ``unicode_errors='surrogatepass'`` to the msgpack pack/unpack functions. This makes synapse more resilient to malformed string data which may be encountered in the real world.
+
+## Documentation
+- #587 - Removed ``synapse.statemach``.  It was previously used for providing object persistence at an API level but has been unused within Synapse and was generally not a safe tool to use for third party use.
+
+
 v0.0.41 - 2017-12-28
 --------------------
 
