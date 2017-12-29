@@ -106,10 +106,11 @@ class FqdnType(DataType):
 class Rfc2822Addr(DataType):
     '''
     An RFC 2822 compatible email address parser
-
-    Specify strict=1 to strictly enforce complaince.
     '''
     def norm(self, valu, oldval=None):
+
+        if not isinstance(valu, str):
+            self._raiseBadValu(valu, mesg='requires a string')
 
         # remove quotes for normalized version
         valu = valu.replace('"', ' ').replace("'", ' ')
@@ -118,7 +119,14 @@ class Rfc2822Addr(DataType):
 
         subs = {}
 
-        name, addr = email.utils.parseaddr(valu)
+        try:
+
+            name, addr = email.utils.parseaddr(valu)
+
+        except Exception as e: #pragma: no cover
+            # not sure we can ever really trigger this with a string as input
+            self._raiseBadValu(valu, mesg='email.utils.parsaddr failed: %s' % (e,))
+
         if name:
             subs['name'] = name
 

@@ -1589,6 +1589,8 @@ class InetModelTest(SynTest):
 
         with self.getRamCore() as core:
 
+            self.raises(BadTypeValu, core.formTufoByProp, 'inet:rfc2822:addr', 20)
+
             n0 = core.formTufoByProp('inet:rfc2822:addr', 'FooBar')
             n1 = core.formTufoByProp('inet:rfc2822:addr', 'visi@vertex.link')
             n2 = core.formTufoByProp('inet:rfc2822:addr', 'foo bar<visi@vertex.link>')
