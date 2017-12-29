@@ -157,3 +157,37 @@ class PersistTest(SynTest):
             self.true(wait.is_set())
 
             pdir.fini()
+
+    def test_persist_surrogates(self):
+        with self.getTestDir() as dirname:
+
+            opts = {
+                'filemax': 1024,
+            }
+
+            pdir = s_persist.Dir(dirname, **opts)
+
+            bads = '\u01cb\ufffd\ud842\ufffd\u0012'
+            t0 = ('1234', {'key': bads})
+
+            pdir.add(t0)
+
+            items = []
+            ev0 = threading.Event()
+
+            def pumploop(offset):
+
+                for i, (noff, item) in enumerate(pdir.items(offset), 1):
+
+                    items.append(item)
+                    ev0.set()
+
+            thr = worker(pumploop, 0)
+            ev0.wait(timeout=3)
+
+            self.true(ev0.is_set())
+            self.len(1, items)
+            self.eq(items[0], t0)
+
+            pdir.fini()
+            thr.join(timeout=1)
