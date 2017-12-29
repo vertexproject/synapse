@@ -249,7 +249,8 @@ class Dir(s_eventbus.EventBus):
             next object and the unpacked object itself.
         '''
         que = s_queue.Queue()
-        unpk = msgpack.Unpacker(use_list=0, encoding='utf8')
+        unpk = msgpack.Unpacker(use_list=0, encoding='utf8',
+                                unicode_errors='surrogatepass')
 
         # poff is used for iterating over persistence files when unpacking,
         # while the user supplied offset is used to return absolute offsets
