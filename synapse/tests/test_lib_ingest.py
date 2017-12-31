@@ -1269,3 +1269,93 @@ class IngTest(SynTest):
             core.addGestDatas('foo:bar', [['foo.com', 'bar.com'], ['vertex.link']])
             self.len(3, core.eval('inet:fqdn:domain=com'))
             self.len(1, core.eval('inet:fqdn:domain=link'))
+
+    def test_ingest_formtag(self):
+
+        data = {
+            'foo': [
+                {'fqdn': 'vertex.link',
+                 'time': '2017',
+                 'haha': ['foo', 'bar'],
+                 },
+                {'fqdn': 'vertex.ninja',
+                 'haha': ['foo', 'baz'],
+                 'time': '2018',
+                 },
+            ]
+        }
+
+        info = {
+            'ingest': {
+                'iters': [
+                    [
+                        'foo/*',
+                        {
+                            'vars': [
+                                [
+                                    'zoom',
+                                    {
+                                        'path': 'fqdn'
+                                    }
+                                ],
+                                [
+                                    'time',
+                                    {
+                                        'path': 'time'
+                                    }
+                                ]
+                            ],
+                            'forms': [
+                                [
+                                    'inet:fqdn',
+                                    {
+                                        'var': 'zoom',
+                                        'tags': [
+                                            'tst.fixed',
+                                            {
+                                                'iter': 'haha/*',
+                                                'vars': [
+                                                    [
+                                                        'zoomtag',
+                                                        {}
+                                                     ]
+                                                ],
+                                                'template': 'zoom.{{zoomtag}}'
+                                            },
+                                            {
+                                                'template': 'hehe@{{time}}'
+                                            }
+                                        ]
+                                    },
+                                ]
+                            ]
+                        }
+                    ]
+                ]
+            }
+        }
+
+        with self.getRamCore() as core:
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core, data=data)
+
+            # Ensure the variable tags are made
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.true(s_tufo.tagged(node, 'hehe'))
+            self.true(s_tufo.tagged(node, 'tst.fixed'))
+            self.true(s_tufo.tagged(node, 'zoom.foo'))
+            self.true(s_tufo.tagged(node, 'zoom.bar'))
+            # Ensure the simple formatting tags are made which have time bounds on them
+            minv = node[1].get('>#hehe')
+            maxv = node[1].get('<#hehe')
+            self.eq((minv, maxv), (1483228800000, 1483228800000))
+
+            node = core.getTufoByProp('inet:fqdn', 'vertex.ninja')
+            self.true(s_tufo.tagged(node, 'hehe'))
+            self.true(s_tufo.tagged(node, 'tst.fixed'))
+            self.true(s_tufo.tagged(node, 'zoom.foo'))
+            self.true(s_tufo.tagged(node, 'zoom.baz'))
+            # Ensure the simple formatting tags are made which have time bounds on them
+            minv = node[1].get('>#hehe')
+            maxv = node[1].get('<#hehe')
+            self.eq((minv, maxv), (1514764800000, 1514764800000))

@@ -605,6 +605,20 @@ class Ingest(EventBus):
                     core.addTufoTag(tufo, tag)
                     self.fire('gest:prog', act='tag')
 
+                for tagv in info.get('tags', ()):
+
+                    # if it's a simple tag string, add and move along
+                    if isinstance(tagv, str):
+                        core.addTufoTag(tufo, tag)
+                        self.fire('gest:prog', act='tag')
+                        continue
+
+                    # otherwise it's an iteration compatible prop dict
+                    tags = [t.lower() for t in self._iter_prop(core, data, tagv, scope)]
+                    for tag in tags:
+                        core.addTufoTag(tufo, tag)
+                        self.fire('gest:prog', act='tag')
+
                 if info.get('savevar'):
                     _savevar = tufo[1].get(tufo[1].get('tufo:form'))
 
