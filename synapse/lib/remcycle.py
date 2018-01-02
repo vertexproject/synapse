@@ -30,6 +30,8 @@ import synapse.axon as s_axon
 import synapse.async as s_async
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+
+import synapse.glob as s_glob
 import synapse.lib.cache as s_cache
 import synapse.lib.ingest as s_ingest
 import synapse.lib.config as s_config
@@ -60,6 +62,82 @@ HYPNOS_BASE_DEFS = (
                    'doc': 'Maximum number of concurrent requests which can be made at one time.',
                    'defval': 10}),
 )
+
+
+ioloop = None
+
+def _getIoLoop():
+    '''
+    Get a RemCycle module local IOLoop.
+
+    Returns:
+        t_ioloop.IoLoop: A Tornado IOLoop.
+    '''
+    global ioloop
+    if ioloop is None:
+        ioloop = t_ioloop.IOLoop()
+        s_threads.worker(ioloop.start)
+    return ioloop
+
+def fetch(url, callback, defs=None):
+    '''
+    Fetch an arbitary URL via Tornado AsyncHTTPClient and execute a callback with the response data.
+
+    Args:
+        url (str): URL to request.
+        callback (function): Callback function. This must accept two args, the flattened
+        HTTPResponse object and a file-like object containing the response body.
+        defs (dict): A dictionary containing arguments for the Tornado HTTPRequest
+        object constructed by this function.
+
+    Examples:
+
+        Get a webpage and print some information about it:
+
+        def callback(resp, fd):
+            print(resp)
+            print(fd.read()[:100])
+            fd.close()
+        url = 'http://www.vertex.link/'
+
+        # Now fetch the URL and execute the callback.
+        s_remcycle.fetch(url, callback)
+
+    Notes:
+        This API directs HTTP body content to a tempfile.SpooledTemporaryFile.
+        This does require smashing in our own ``streaming_callback`` function
+        into the kwargs passed along to the HTTPRequest object.  The callback
+        streams data into a tempfile.SpooledTemporaryFile object with a maxsize
+        of 100 megabytes. ``seek(0)`` is called on this object prior to the
+        supplied callback being executed. It is the callbacks responsibility
+        to call ``close()`` on the file object when it is done consuming any
+        data from it.
+
+    Returns:
+        None
+    '''
+    if defs is None:
+        defs = {}
+
+    fd = tempfile.SpooledTemporaryFile(max_size=s_axon.megabyte * 100)
+
+    def write_fd(chunk):
+        fd.write(chunk)
+
+    # Stamp in our own streaming callback
+    defs['streaming_callback'] = write_fd
+
+    def wrapped_callback(resp):
+        fd.seek(0)
+        resp = Hypnos._webFlattenHttpResponse(resp)
+        s_glob.pool.call(callback, resp, fd)
+
+    req = t_http.HTTPRequest(url, **defs)
+    asynchttp = t_http.AsyncHTTPClient(io_loop=_getIoLoop(),
+                                       max_body_size=s_axon.terabyte * 1,
+                                       )
+    ioloop.add_callback(asynchttp.fetch, req, wrapped_callback)
+
 
 class Nyx(object):
     '''
@@ -795,9 +873,17 @@ class Hypnos(s_config.Config):
             'request': {'url': resp.request.url,
                         'headers': dict(resp.request.headers)}
         }
-        error = resp.error
-        if error and not isinstance(error, t_http.HTTPError):
-            return resp_dict
+        if resp.error:
+            if not isinstance(resp.error, t_http.HTTPError):
+                return resp_dict
+
+            resp_dict['excinfo'] = {
+                'err': resp.error.__class__.__name__,
+                'errmsg': str(resp.error),
+                'errfile': '',
+                'errline': '',
+            }
+
         resp_dict.update({'code': resp.code,
                           'data': resp.body,
                           'headers': dict(resp.headers),
