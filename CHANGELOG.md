@@ -1,6 +1,16 @@
 Changelog
 =========
 
+v0.0.43 - 2018-01-02
+--------------------
+
+## New Features
+- #590 - Added ``synapse.lib.remcycle.fetch()`` API which allows retrieving a URL using Tornado and executing a user provided callback to process the response.
+
+## Enhancements
+- #589 - Added the ability to set a ``tags`` directive in an Ingest ``forms`` definition; which allows setting per-form tags without adding the tags to the current or child scopes.
+
+
 v0.0.42 - 2017-12-29
 --------------------
 
