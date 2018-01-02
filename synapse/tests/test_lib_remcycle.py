@@ -1033,7 +1033,7 @@ class HypnosTest(SynTest, AsyncTestCase):
         evt = threading.Event()
 
         def callback(resp, fd):
-            self.eq(resp.code, 200)
+            self.eq(resp.get('code'), 200)
             data['body'] = fd.read()
             data['resp'] = resp
             fd.close()

@@ -84,9 +84,11 @@ def fetch(url, callback, defs=None):
     Fetch an arbitary URL via Tornado AsyncHTTPClient and execute a callback with the response data.
 
     Args:
-        url (str): URL to request
-        callback (function): Callback function. This must accept two args, the Tornado HTTPResponse object and a file-like object containing the response body.
-        defs (dict): A dictionary containing arguments for the Tornado HTTPRequest object constructed by this function.
+        url (str): URL to request.
+        callback (function): Callback function. This must accept two args, the flattened
+        HTTPResponse object and a file-like object containing the response body.
+        defs (dict): A dictionary containing arguments for the Tornado HTTPRequest
+        object constructed by this function.
 
     Examples:
 
@@ -127,11 +129,12 @@ def fetch(url, callback, defs=None):
 
     def wrapped_callback(resp):
         fd.seek(0)
+        resp = Hypnos._webFlattenHttpResponse(resp)
         s_glob.pool.call(callback, resp, fd)
 
     req = t_http.HTTPRequest(url, **defs)
     asynchttp = t_http.AsyncHTTPClient(io_loop=_getIoLoop(),
-                                       max_body_size=s_axon.gigabyte * 1,
+                                       max_body_size=s_axon.terabyte * 1,
                                        )
     ioloop.add_callback(asynchttp.fetch, req, wrapped_callback)
 
@@ -870,9 +873,17 @@ class Hypnos(s_config.Config):
             'request': {'url': resp.request.url,
                         'headers': dict(resp.request.headers)}
         }
-        error = resp.error
-        if error and not isinstance(error, t_http.HTTPError):
-            return resp_dict
+        if resp.error:
+            if not isinstance(resp.error, t_http.HTTPError):
+                return resp_dict
+
+            resp_dict['excinfo'] = {
+                'err': resp.error.__class__.__name__,
+                'errmsg': str(resp.error),
+                'errfile': '',
+                'errline': '',
+            }
+
         resp_dict.update({'code': resp.code,
                           'data': resp.body,
                           'headers': dict(resp.headers),
