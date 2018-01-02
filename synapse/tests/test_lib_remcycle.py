@@ -1025,3 +1025,25 @@ class HypnosTest(SynTest, AsyncTestCase):
             resp = job.get('task')[2].get('resp')  # type: dict
             self.eq(resp.get('code'), 200)
             self.true(resp.get('data').get('ret'))
+
+    def test_remcycle_global_fetch(self):
+        self.thisHostMustNot(platform='windows')
+
+        data = {}
+        evt = threading.Event()
+
+        def callback(resp, fd):
+            self.eq(resp.code, 200)
+            data['body'] = fd.read()
+            data['resp'] = resp
+            fd.close()
+            evt.set()
+
+        url = 'http://localhost:{PORT}/v1/ip?format=json'.format(PORT=self.port)
+
+        s_remcycle.fetch(url, callback)
+
+        evt.wait(3)
+        self.nn(data.get('body'))
+        body = json.loads(data.get('body').decode())
+        self.eq(body.get('status'), 'ok')
