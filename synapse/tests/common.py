@@ -4,7 +4,6 @@ import sys
 import shutil
 import socket
 import logging
-import binascii
 import tempfile
 import unittest
 import threading
@@ -37,9 +36,6 @@ from synapse.lib.iq import TstEnv, TstOutPut, SynTest, CmdGenerator
 # create the global multi-plexor *not* within a test
 # to avoid "leaked resource" when a test triggers creation
 s_scope.get('plex')
-
-def randhex(size):
-    return binascii.hexlify(os.urandom(size)).decode('utf8')
 
 class TooFewEvents(Exception): pass
 
