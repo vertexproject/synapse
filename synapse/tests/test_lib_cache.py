@@ -111,10 +111,14 @@ class CacheTest(SynTest):
         cache = s_cache.KeyCache(getfoo)
 
         self.eq(cache[10], 'asdf')
-        # Ensure put/pop methods work.
-        cache.put(20, 'wasd')
-        self.eq(cache[20], 'wasd')
-        self.eq(cache.pop(20), 'wasd')
+        self.eq(cache.get(10), 'asdf')
+        self.eq(cache.get(20), None)
+
+        foo = {10: 'asdf', 20: 'abcd'}
+        self.eq(cache.get(20), 'abcd')
+
+        foo = {10: 'asdf'}
+        self.eq(cache.get(20), 'abcd')
 
     def test_cache_fixed(self):
 
