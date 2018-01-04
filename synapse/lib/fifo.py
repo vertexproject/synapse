@@ -106,6 +106,17 @@ class Fifo(s_config.Config):
         self.wind.flush()
         [wind.flush() for wind in self.winds]
 
+    def puts(self, items):
+        '''
+        Put a list of items into the Fifo.
+        This is a bulk access api for put().
+
+        Args:
+            items (list): A list of items to add
+        '''
+        with self.lock:
+            [self._putItem(item) for item in items]
+
     def put(self, item):
         '''
         Put a new item into the Fifo.
@@ -113,26 +124,28 @@ class Fifo(s_config.Config):
         Args:
             item (obj): The object to serialize into the Fifo.
         '''
-        byts = s_msgpack.en(item)
-
         with self.lock:
+            self._putItem(item)
 
-            seqn = self.nseq
+    def _putItem(self, item):
 
-            self.atom.writeoff(self.atom.size, byts)
-            self.nseq += len(byts)
+        byts = s_msgpack.en(item)
+        seqn = self.nseq
 
-            if self.atom.size >= self.maxsize:
-                self.atom.fini()
-                self.seqs.append(self.nseq)
-                self.atom = self.atoms.gen(self.nseq)
+        self.atom.writeoff(self.atom.size, byts)
+        self.nseq += len(byts)
 
-            qent = (seqn, self.nseq, item)
+        if self.atom.size >= self.maxsize:
+            self.atom.fini()
+            self.seqs.append(self.nseq)
+            self.atom = self.atoms.gen(self.nseq)
 
-            self.wind._may_put(qent)
+        qent = (seqn, self.nseq, item)
 
-            # see if any of our readers are caught up...
-            [wind._may_put(qent) for wind in self.winds.vals()]
+        self.wind._may_put(qent)
+
+        # see if any of our readers are caught up...
+        [wind._may_put(qent) for wind in self.winds.vals()]
 
     def _getPathJoin(self, *names):
         dirn = self.getConfOpt('dir')
