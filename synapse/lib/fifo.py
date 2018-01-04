@@ -114,8 +114,9 @@ class Fifo(s_config.Config):
         Args:
             items (list): A list of items to add
         '''
+        todo = [(i, s_msgpack.en(i)) for i in items]
         with self.lock:
-            [self._putItem(item) for item in items]
+            [self._putItemByts(i, b) for i, b in todo]
 
     def put(self, item):
         '''
@@ -124,12 +125,12 @@ class Fifo(s_config.Config):
         Args:
             item (obj): The object to serialize into the Fifo.
         '''
-        with self.lock:
-            self._putItem(item)
-
-    def _putItem(self, item):
-
         byts = s_msgpack.en(item)
+        with self.lock:
+            self._putItemByts(item, byts)
+
+    def _putItemByts(self, item, byts):
+
         seqn = self.nseq
 
         self.atom.writeoff(self.atom.size, byts)
