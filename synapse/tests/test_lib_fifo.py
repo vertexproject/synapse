@@ -194,3 +194,16 @@ class FifoTest(SynTest):
                     fifo.ack(sent[-1][0])
 
                 self.true(fifo.wind.caught)
+
+    def test_fifo_puts(self):
+
+        with self.getTestDir() as dirn:
+
+            sent = []
+            conf = {'dir': dirn}
+
+            with s_fifo.Fifo(conf) as fifo:
+                fifo.resync(xmit=sent.append)
+                fifo.puts(('foo', 'bar'))
+
+            self.eq(tuple(sent), ((0, 4, 'foo'), (4, 8, 'bar')))
