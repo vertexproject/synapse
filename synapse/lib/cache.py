@@ -373,7 +373,7 @@ class OnDem(collections.defaultdict):
 
 class KeyCache(collections.defaultdict):
     '''
-    A fast key/val lookup cache.
+    A fast key/val lookup cache. Does not cache the valu `None`.
 
     Example:
 
@@ -393,14 +393,8 @@ class KeyCache(collections.defaultdict):
 
         return valu
 
-    def pop(self, key):
-        return collections.defaultdict.pop(self, key, None)
-
     def get(self, key):
         return self[key]
-
-    def put(self, key, val):
-        self[key] = val
 
 class RefDict(EventBus):
     '''
