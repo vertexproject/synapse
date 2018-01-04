@@ -144,6 +144,44 @@ class ItMod(CoreModule):
     def _onFormItDevStr(self, form, valu, props, mesg):
         props['it:dev:str:norm'] = valu.lower()
 
+    @modelrev('it', 201801041154)
+    def _revModl201801041154(self):
+
+        # mark changed nodes with a dark row...
+        dvalu = 'it:201801041154'
+        dprop = '_:dark:syn:modl:rev'
+
+        idens = []
+
+        # carve registry keys to being lower case normalized
+        with self.core.getCoreXact():
+
+            # bulk cut over all it:dev:regval:key props
+            rows = self.core.getRowsByProp('it:dev:regval:key')
+
+            adds = [(i, p, v.lower(), t) for (i, p, v, t) in rows]
+            darks = [(i[::-1], dprop, dvalu, t) for (i, p, v, t) in rows]
+
+            self.core.delRowsByProp('it:dev:regval:key')
+
+            self.core.addRows(adds)
+            self.core.addRows(darks)
+
+            # bulk update the primary props
+            rows = self.core.getRowsByProp('it:dev:regkey')
+            adds = [(i, p, v.lower(), t) for (i, p, v, t) in rows]
+            darks = [(i[::-1], dprop, dvalu, t) for (i, p, v, t) in rows]
+
+            self.core.delRowsByProp('it:dev:regkey')
+
+            self.core.addRows(adds)
+            self.core.addRows(darks)
+
+            # iteratively update the node defs
+            for iden, prop, valu, tick in adds:
+                ndef = s_common.guid((prop, valu))
+                self.core.setRowsByIdProp(iden, 'node:ndef', ndef)
+
     def _onFormItSoftVer(self, form, valu, props, mesg):
         # Set the :software:name field
         if 'it:prod:softver:software:name' not in props:
@@ -223,6 +261,7 @@ class ItMod(CoreModule):
 
                 ('it:dev:regkey', {
                     'subof': 'it:dev:str',
+                    'lower': 1,
                     'doc': 'A Windows registry key.',
                     'ex': 'HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'}),
 
@@ -296,11 +335,18 @@ class ItMod(CoreModule):
                 ('it:dev:regkey', {}, ()),
 
                 ('it:dev:regval', {}, (
-                    ('key', {'ptype': 'it:dev:regkey', 'doc': 'The Windows registry key.', 'ro': 1}),
-                    ('str', {'ptype': 'it:dev:str', 'doc': 'The value of the registry key, if the value is a string.', 'ro': 1}),
-                    ('int', {'ptype': 'it:dev:int', 'doc': 'The value of the registry key, if the value is an integer.', 'ro': 1}),
-                    ('bytes', {'ptype': 'file:bytes',
-                         'doc': 'The file representing the value of the registry key, if the value is binary data.', 'ro': 1}),
+
+                    ('key', {'ptype': 'it:dev:regkey', 'ro': 1,
+                        'doc': 'The Windows registry key.'}),
+
+                    ('str', {'ptype': 'it:dev:str', 'ro': 1,
+                        'doc': 'The value of the registry key, if the value is a string.'}),
+
+                    ('int', {'ptype': 'it:dev:int', 'ro': 1,
+                        'doc': 'The value of the registry key, if the value is an integer.'}),
+
+                    ('bytes', {'ptype': 'file:bytes', 'ro': 1,
+                         'doc': 'The file representing the value of the registry key, if the value is binary data.'}),
                 )),
 
                 ('it:exec:proc', {'ptype': 'guid'}, (
