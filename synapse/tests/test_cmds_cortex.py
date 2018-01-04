@@ -18,13 +18,25 @@ class SynCmdCoreTest(SynTest):
 
     def test_cmds_ask_showcols(self):
         with self.getDmonCore() as core:
+            core.formTufoByProp('inet:email', 'visi@vertex.link')
+            core.formTufoByProp('inet:email', 'vertexmc@vertex.link')
+            core.formTufoByProp('inet:email', 'z@a.vertex.link')
+            core.formTufoByProp('inet:email', 'a@vertex.link')
+
             outp = self.getTestOutp()
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            core.formTufoByProp('inet:email', 'visi@vertex.link')
             line = 'ask inet:email="visi@vertex.link" show:cols(inet:email:fqdn,inet:email:user,node:ndef)'
             resp = cmdr.runCmdLine(line)
             self.len(1, resp['data'])
             self.true(outp.expect('vertex.link visi a20979f71b90cf2ae1c53933675b5c3c'))
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            line = 'ask inet:email show:cols(inet:email, order=inet:email:fqdn)'
+            resp = cmdr.runCmdLine(line)
+            self.len(4, resp['data'])
+            result = [mesg.strip() for mesg in outp.mesgs]
+            self.eq(result, ['z@a.vertex.link', 'a@vertex.link', 'vertexmc@vertex.link', 'visi@vertex.link', '(4 results)'])
 
     def test_cmds_ask_debug(self):
         with self.getDmonCore() as core:
@@ -137,18 +149,3 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('ask')
             self.nn(regex.search('Examples:', str(outp)))
-
-    def test_cmds_nextseq(self):
-        with self.getDmonCore() as core:
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            cmdr.runCmdLine('ask --props [syn:seq=foo]')
-            self.true(outp.expect(':nextvalu = 0'))
-
-            cmdr.runCmdLine('nextseq foo')
-            self.true(outp.expect('next in sequence (foo): foo0'))
-            cmdr.runCmdLine('nextseq foo')
-            self.true(outp.expect('next in sequence (foo): foo1'))
-
-            cmdr.runCmdLine('nextseq')
-            self.true(outp.expect('Generate and display the next id in the named sequence.'))

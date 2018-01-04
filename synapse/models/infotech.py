@@ -248,6 +248,10 @@ class ItMod(CoreModule):
                     'subof': 'comp',
                     'fields': 'host,it:host|softver,it:prod:softver',
                     'doc': 'A version of a software product which is present on a given host.'}),
+
+                ('it:auth:passwdhash', {
+                    'subof': 'guid',
+                    'ex': '(hash:md5=17d3533fba2669f84a225a9a04caa783)'}),
             ),
 
             'forms': (
@@ -522,6 +526,33 @@ class ItMod(CoreModule):
                                   'doc': 'Minimum time the software was seen on the host', }),
                     ('seen:max', {'ptype': 'time:max',
                                   'doc': 'Maximum time the software was seen on the host', }),
+                )),
+
+                ('it:auth:passwdhash', {}, (
+
+                    ('salt', {'ptype': 'str:hex', 'ro': 1,
+                        'doc': 'The (optional) hex encoded salt used to calculate the password hash.'}),
+
+                    ('hash:md5', {'ptype': 'hash:md5', 'ro': 1,
+                        'doc': 'The SHA512 password hash value.'}),
+
+                    ('hash:sha1', {'ptype': 'hash:sha1', 'ro': 1,
+                        'doc': 'The SHA1 password hash value.'}),
+
+                    ('hash:sha256', {'ptype': 'hash:sha256', 'ro': 1,
+                        'doc': 'The SHA256 password hash value.'}),
+
+                    ('hash:sha512', {'ptype': 'hash:sha512', 'ro': 1,
+                        'doc': 'The SHA512 password hash value.'}),
+
+                    ('hash:lm', {'ptype': 'hash:lm', 'ro': 1,
+                        'doc': 'The LM password hash value.'}),
+
+                    ('hash:ntlm', {'ptype': 'hash:ntlm', 'ro': 1,
+                        'doc': 'The NTLM password hash value.'}),
+
+                    ('passwd', {'ptype': 'inet:passwd',
+                        'doc': 'The (optional) clear text password for this password hash.'}),
                 )),
             ),
         }
