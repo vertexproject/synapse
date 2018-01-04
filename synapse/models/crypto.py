@@ -2,8 +2,6 @@ import logging
 
 import synapse.common as s_common
 
-import synapse.lib.types as s_types
-
 from synapse.lib.module import CoreModule, modelrev
 
 logger = logging.getLogger(__name__)
