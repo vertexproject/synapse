@@ -2,6 +2,8 @@ import logging
 
 import synapse.common as s_common
 
+import synapse.lib.types as s_types
+
 from synapse.lib.module import CoreModule, modelrev
 
 logger = logging.getLogger(__name__)
@@ -22,18 +24,30 @@ class CryptoMod(CoreModule):
     def getBaseModels():
         modl = {
             'types': (
-                ('hash:md5',
-                 {'subof': 'str', 'regex': '^[0-9a-f]{32}$', 'lower': 1, 'doc': 'An MD5 hash', 'ex': ex_md5}),
-                ('hash:sha1',
-                 {'subof': 'str', 'regex': '^[0-9a-f]{40}$', 'lower': 1, 'doc': 'A SHA1 hash', 'ex': ex_sha1}),
-                ('hash:sha256',
-                 {'subof': 'str', 'regex': '^[0-9a-f]{64}$', 'lower': 1, 'doc': 'A SHA256 hash', 'ex': ex_sha256}),
-                ('hash:sha384',
-                 {'subof': 'str', 'regex': '^[0-9a-f]{96}$', 'lower': 1, 'doc': 'A SHA384 hash', 'ex': ex_sha384}),
-                ('hash:sha512',
-                 {'subof': 'str', 'regex': '^[0-9a-f]{128}$', 'lower': 1, 'doc': 'A SHA512 hash', 'ex': ex_sha512}),
+                ('hash:md5', {'subof': 'str', 'regex': '^[0-9a-f]{32}$', 'lower': 1,
+                    'doc': 'A hex encoded MD5 hash', 'ex': ex_md5}),
+
+                ('hash:sha1', {'subof': 'str', 'regex': '^[0-9a-f]{40}$', 'lower': 1,
+                    'doc': 'A hex encoded SHA1 hash', 'ex': ex_sha1}),
+
+                ('hash:sha256', {'subof': 'str', 'regex': '^[0-9a-f]{64}$', 'lower': 1,
+                    'doc': 'A hex encoded SHA256 hash', 'ex': ex_sha256}),
+
+                ('hash:sha384', {'subof': 'str', 'regex': '^[0-9a-f]{96}$', 'lower': 1,
+                    'doc': 'A hex encoded SHA384 hash', 'ex': ex_sha384}),
+
+                ('hash:sha512', {'subof': 'str', 'regex': '^[0-9a-f]{128}$', 'lower': 1,
+                    'doc': 'A hex encoded SHA512 hash', 'ex': ex_sha512}),
+
+                ('hash:lm', {'subof': 'str', 'regex': '^[0-9a-f]{32}$', 'lower': 1,
+                    'doc': 'A hex encoded Microsoft Windows LM password hash', 'ex': ex_md5}),
+
+                ('hash:ntlm', {'subof': 'str', 'regex': '^[0-9a-f]{32}$', 'lower': 1,
+                    'doc': 'A hex encoded Microsoft Windows NTLM password hash', 'ex': ex_md5}),
+
                 ('rsa:key', {'subof': 'sepr', 'sep': '/', 'fields': 'mod,str:hex|pub:exp,str:hex',
                              'doc': 'An RSA keypair modulus and public exponent'}),
+
             ),
 
             'forms': (
@@ -43,7 +57,7 @@ class CryptoMod(CoreModule):
                 ('hash:sha384', {'ptype': 'hash:sha384'}, []),
                 ('hash:sha512', {'ptype': 'hash:sha512'}, []),
                 ('rsa:key', {'ptype': 'rsa:key'}, [
-                    ('mod', {'ptype': 'str:hex', 'doc': 'The modulus'}),
+                    ('mod', {'ptype': 'str:hex', 'doc': 'The RSA key modulus'}),
                     ('bits', {'ptype': 'int', 'doc': 'The length of the modulus in bits'}),
                     ('pub:exp', {'ptype': 'str:hex', 'doc': 'The public exponent'}),
                     ('priv:exp', {'ptype': 'str:hex', 'doc': 'The private exponent'}),

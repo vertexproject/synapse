@@ -1,3 +1,4 @@
+from binascii import hexlify
 import synapse.lib.tufo as s_tufo
 import synapse.lib.version as s_version
 
@@ -304,7 +305,9 @@ class InfoTechTest(SynTest):
                 self.eq(core.getTypeRepr('it:semver', v), e)
 
     def test_model_infotech_brutecast(self):
+
         with self.getRamCore() as core:
+
             # Try some integers
             valu = core.getTypeCast('it:version:brute', s_version.packVersion(1))
             self.eq(valu, 0x000010000000000)
@@ -534,3 +537,42 @@ class InfoTechTest(SynTest):
             self.eq(sv[1].get('it:prod:softver:semver:patch'), 1)
             self.eq(sv[1].get('it:prod:softver:semver:build'), 'build.001')
             self.eq(sv[1].get('it:prod:softver:semver:pre'), 'alpha')
+
+    def test_model_infotech_passwdhash(self):
+
+        with self.getRamCore() as core:
+
+            md5_valu = randhex(16)
+            sha1_valu = randhex(20)
+            sha256_valu = randhex(32)
+            sha512_valu = randhex(64)
+
+            md5_node = core.formTufoByProp('it:auth:passwdhash', '(salt=f0f0,hash:md5=%s)' % md5_valu)
+            sha1_node = core.formTufoByProp('it:auth:passwdhash', '(salt=f0f0,hash:sha1=%s)' % sha1_valu)
+            sha256_node = core.formTufoByProp('it:auth:passwdhash', '(salt=f0f0,hash:sha256=%s)' % sha256_valu)
+            sha512_node = core.formTufoByProp('it:auth:passwdhash', '(salt=f0f0,hash:sha512=%s)' % sha512_valu)
+
+            self.eq(md5_node[1].get('it:auth:passwdhash:salt'), 'f0f0')
+            self.eq(md5_node[1].get('it:auth:passwdhash:hash:md5'), md5_valu)
+
+            self.eq(sha1_node[1].get('it:auth:passwdhash:salt'), 'f0f0')
+            self.eq(sha1_node[1].get('it:auth:passwdhash:hash:sha1'), sha1_valu)
+
+            self.eq(sha256_node[1].get('it:auth:passwdhash:salt'), 'f0f0')
+            self.eq(sha256_node[1].get('it:auth:passwdhash:hash:sha256'), sha256_valu)
+
+            self.eq(sha512_node[1].get('it:auth:passwdhash:salt'), 'f0f0')
+            self.eq(sha512_node[1].get('it:auth:passwdhash:hash:sha512'), sha512_valu)
+
+            node = core.setTufoProp(md5_node, 'passwd', 'foobar')
+            self.eq(node[1].get('it:auth:passwdhash:passwd'), 'foobar')
+
+            self.nn(core.getTufoByProp('inet:passwd', 'foobar'))
+
+            node = core.formTufoByProp('it:auth:passwdhash', {'hash:lm': md5_valu})
+            self.eq(node[1].get('it:auth:passwdhash:hash:lm'), md5_valu)
+
+            node = core.formTufoByProp('it:auth:passwdhash', {'hash:ntlm': md5_valu})
+            self.eq(node[1].get('it:auth:passwdhash:hash:ntlm'), md5_valu)
+
+            self.raises(BadTypeValu, core.formTufoByProp, 'it:auth:passwdhash', {'salt': 'asdf', 'hash:md5': md5_valu})
