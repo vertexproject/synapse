@@ -251,8 +251,7 @@ class ItMod(CoreModule):
 
                 ('it:auth:passwdhash', {
                     'subof': 'guid',
-                    'ex': '(hash:md5=17d3533fba2669f84a225a9a04caa783)',
-                    }),
+                    'ex': '(hash:md5=17d3533fba2669f84a225a9a04caa783)'}),
             ),
 
             'forms': (
