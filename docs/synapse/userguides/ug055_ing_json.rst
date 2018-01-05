@@ -74,35 +74,44 @@ This ingest can be run via the ingest tool::
 After ingesting this, we can see the various nodes have been added to our Cortex::
 
     ~/synapse$ python -m synapse.cortex sqlite:///ingest_examples.db
-    cli> ask inet:netuser:site=socialnetwork.ninja
-    inet:netuser = socialnetwork.ninja/alicethefriend
-    inet:netuser = socialnetwork.ninja/bobtheuser
-    inet:netuser = socialnetwork.ninja/mallorythespy
+    cli> ask inet:web:acct:site=socialnetwork.ninja
+    inet:web:acct = socialnetwork.ninja/alicethefriend
+    inet:web:acct = socialnetwork.ninja/bobtheuser
+    inet:web:acct = socialnetwork.ninja/mallorythespy
     (3 results)
-    cli> ask --props inet:netuser=socialnetwork.ninja/bobtheuser inet:netuser->inet:follows:follower show:cols(inet:follows:follower, inet:follows:followee)
+    cli> ask inet:web:acct=socialnetwork.ninja/bobtheuser inet:web:acct -> inet:web:follows:follower show:cols(inet:web:follows:follower, inet:web:follows:followee)
     socialnetwork.ninja/bobtheuser  socialnetwork.ninja/mallorythespy
     socialnetwork.ninja/bobtheuser socialnetwork.ninja/alicethefriend
     (2 results)
-    cli> ask --props inet:netuser=socialnetwork.ninja/bobtheuser inet:netuser->inet:netpost:netuser
-    inet:netpost = 0e89cf5db1fd8c426daa8b01e58cd2dd
-        :netuser = socialnetwork.ninja/bobtheuser
-        :netuser:site = socialnetwork.ninja
-        :netuser:user = bobtheuser
+    cli> ask --props inet:web:acct=socialnetwork.ninja/bobtheuser inet:web:acct -> inet:web:post:acct
+    inet:web:post = 0e89cf5db1fd8c426daa8b01e58cd2dd
+        :acct = socialnetwork.ninja/bobtheuser
+        :acct:site = socialnetwork.ninja
+        :acct:user = bobtheuser
         :text = hallo!
         :time = 2017/05/02 01:06:03.000
-    inet:netpost = 16a550ca28e7e62e0b47b482cc02b58e
-        :netuser = socialnetwork.ninja/bobtheuser
-        :netuser:site = socialnetwork.ninja
-        :netuser:user = bobtheuser
+        tufo:form = inet:web:post
+        node:created = 2018/01/05 15:15:49.932
+        node:ndef = 27ae03e60f102a87438b0d3a2dec423c
+    inet:web:post = 16a550ca28e7e62e0b47b482cc02b58e
+        :acct = socialnetwork.ninja/bobtheuser
+        :acct:site = socialnetwork.ninja
+        :acct:user = bobtheuser
         :text = Just got back from the concert
      had a great time
         :time = 2017/08/17 01:02:03.000
-    inet:netpost = e6b5d03f398a02548d9201efbdc58a06
-        :netuser = socialnetwork.ninja/bobtheuser
-        :netuser:site = socialnetwork.ninja
-        :netuser:user = bobtheuser
+        tufo:form = inet:web:post
+        node:created = 2018/01/05 15:15:49.930
+        node:ndef = 38196476712f657f142f98096cdb9604
+    inet:web:post = e6b5d03f398a02548d9201efbdc58a06
+        :acct = socialnetwork.ninja/bobtheuser
+        :acct:site = socialnetwork.ninja
+        :acct:user = bobtheuser
         :text = Just did hax with nine bit bytes @ defcon
         :time = 2017/08/01 02:03:04.000
+        tufo:form = inet:web:post
+        node:created = 2018/01/05 15:15:49.931
+        node:ndef = a09b05c9ce9037cee97d6512d2b8c854
     (3 results)
 
 When ingesting data in this format, it is common to also apply tags to a ingest definition. This can be useful
@@ -123,9 +132,9 @@ Then we can lift nodes from this ingest via tags. The following example shows li
 made with this ingest::
 
     ~/synapse$ python -m synapse.cortex sqlite:///ingest_examples.db
-    cli> ask inet:netuser*tag=src.socialnetwork
-    inet:netuser = socialnetwork.ninja/bobtheuser
-        #src.socialnetwork (added 2017/08/17 23:53:30.024)
+    cli> ask inet:web:acct*tag=src.socialnetwork
+    inet:web:acct = socialnetwork.ninja/bobtheuser
+        #src.socialnetwork (added 2018/01/05 15:21:37.720)
     (1 results)
 
 This result may seem odd - in the previous query ``ask inet:netuser:site=socialnetwork.ninja`` we had three
@@ -146,13 +155,13 @@ This updated ingest will make the ``inet:netuser`` nodes for the friends and tag
 Repeating our earlier Storm query gives us all three ``inet:netuser`` nodes::
 
     ~/synapse$ python -m synapse.cortex sqlite:///ingest_examples.db
-    cli> ask inet:netuser*tag=src.socialnetwork
-    inet:netuser = socialnetwork.ninja/alicethefriend
-        #src.socialnetwork (added 2017/08/17 23:59:57.797)
-    inet:netuser = socialnetwork.ninja/bobtheuser
-        #src.socialnetwork (added 2017/08/17 23:53:30.024)
-    inet:netuser = socialnetwork.ninja/mallorythespy
-        #src.socialnetwork (added 2017/08/17 23:59:57.797)
+    cli> ask inet:web:acct*tag=src.socialnetwork
+    inet:web:acct = socialnetwork.ninja/alicethefriend
+        #src.socialnetwork (added 2018/01/05 15:23:52.444)
+    inet:web:acct = socialnetwork.ninja/bobtheuser
+        #src.socialnetwork (added 2018/01/05 15:21:37.720)
+    inet:web:acct = socialnetwork.ninja/mallorythespy
+        #src.socialnetwork (added 2018/01/05 15:23:52.444)
     (3 results)
 
 .. _`json`: https://docs.python.org/3/library/json.html
