@@ -392,7 +392,6 @@ class AxonHostTest(SynTest):
 
             ret = axonc1.byiden(pprop)
             self.nn(ret)
-            print(ret)
             logger.warning('Checking byts')
             cbyts = b''.join([blob for blob in axonc1.iterblob(ret)])
             self.eq(cbyts, byts)
