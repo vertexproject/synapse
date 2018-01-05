@@ -32,6 +32,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.trigger as s_trigger
 import synapse.lib.version as s_version
 import synapse.lib.interval as s_interval
+import synapse.lib.membrane as s_membrane
 
 from synapse.eventbus import EventBus
 from synapse.lib.storm import Runtime
@@ -116,6 +117,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.inclock = threading.Lock()  # Used for atomically incrementing a tufo property
         self.spliceact = s_reactor.Reactor() # Reactor for handling splice events
         self._core_triggers = s_trigger.Triggers()  # Trigger subsystem
+        self._core_membranes = {}
 
         # Initialize various helpers / callbacks
         self._initCoreSpliceHandlers()
@@ -271,6 +273,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         # Setup handlers for confOpt changes which are not racy
         self.onConfOptSet('caching', self._onSetCaching)
         self.onConfOptSet('axon:url', self._onSetAxonUrl)
+        self.onConfOptSet('membranes', self._onSetMembranes)
 
     def _initCortexConfSetPost(self):
         self._initCoreFifos()
@@ -456,7 +459,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
     def subCoreFifo(self, name, xmit=None):
         '''
-        Provde an xmit function for a given core fifo.
+        Provide an xmit function for a given core fifo.
 
         Args:
             name (str): The name of the fifo.
@@ -568,7 +571,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             ('log:save', {'type': 'bool', 'asloc': 'logsave', 'defval': 0,
                           'doc': 'Enables saving exceptions to the cortex as syn:log nodes'}),
             ('log:level', {'type': 'int', 'asloc': 'loglevel', 'defval': 0, 'doc': 'Filters log events to >= level'}),
-            ('modules', {'defval': (), 'doc': 'An optional list of (pypath,conf) tuples for synapse modules to load'})
+            ('modules', {'defval': (), 'doc': 'An optional list of (pypath,conf) tuples for synapse modules to load'}),
+            ('membranes', {'defval': (), 'doc': 'An optional list of (name,rules) tuples to create Membranes with'})
         )
         return confdefs
 
@@ -3749,3 +3753,74 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             NoSuchName: If the key is not present in the store.
         '''
         return self.store.delBlobValu(key)
+
+    def _onSetMembranes(self, membranes):
+        [self._initMembrane(name, rules) for name, rules in membranes]
+
+    # TODO plumb in some way to consume/handle fifo message
+    def _initMembrane(self, name, rules):
+        if self._core_membranes.get(name):
+            raise s_common.MembraneExists()
+
+        def fn(mesg):
+            return self.putCoreFifo(name, mesg)
+
+        membrane = s_membrane.Membrane(name, rules, fn)
+        self._core_membranes[name] = membrane
+
+        with self.getCoreXact() as xact:
+            if not self.getTufoByProp('syn:fifo:name', membrane.name):
+                self.formTufoByProp('syn:fifo', '*', name=membrane.name)
+
+        def _filter_fn(mesg):
+            return membrane.filt(mesg[1]['mesg'])
+
+        self.on('splice', _filter_fn)
+
+    def _delMembrane(self, name):
+        membrane = self._core_membranes.get(name)
+        if not membrane:
+            raise s_common.NoSuchMembrane()
+
+        del self._core_membranes[name]  # remove from dict
+        [self.off(name, membrane.filt) for name in membrane.rule_names]  # unregister events  FIXME actually do it
+        self.delTufoByProp('syn:fifo:name', membrane.name)  # delete from core, which in turn deletes the fifo
+
+    def addCoreMembrane(self, name, rules):
+        '''
+        Adds a Membrane filter to the Cortex.
+
+        Args:
+            name (str): The name of the Membrane.
+            rules (tuple): A tuple of (bool, event) tuples.
+
+        Examples:
+            core.addCoreMembrane('new_ipv4s', ((True, ('node:add', {'form': 'inet:ipv4'})),))
+
+        Notes:
+            All of the encapsulated splice events generated from the core will pass through the Membrane.
+            A fifo is created with the name "syn:membrane:" + name to persist the messages that pass the filter.
+
+        Returns:
+            None
+        '''
+        return self._initMembrane(name, rules)
+
+    def delCoreMembrane(self, name):
+        '''
+        Removes a Membrane filter from a Cortex.
+
+        Args:
+            name (str): The name of the Membrane.
+
+        Examples:
+            core.delCoreMembrane('new_ipv4s')
+
+        Notes:
+            The splice handler for the Membrane is unregistered.
+            The fifo is removed.
+
+        Returns:
+            None
+        '''
+        return self._delMembrane(name)

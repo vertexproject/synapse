@@ -988,6 +988,84 @@ class CortexBaseTest(SynTest):
 
 class CortexTest(SynTest):
 
+    def test_core_membrane(self):
+        name = 'testmembrane'
+        rules = (
+            (True, ('node:add', {})),
+            #(False, ('splice', {'act': 'b', 'form': 'nope'})),
+            #(True, ('splice', {'act': 'b'})),
+            #(True, ('othername', {'something': 'c'})),
+            #(True, ('splice', {'act': 'z*'})),
+            #(False, ('splice', {'act': 'y*'}))
+        )
+        msgs = (
+            ('splice', {'mesg': ('node:add', {})}),  # allowed because of act
+            #('splice', {'act': 'b', 'form': 'nope'}),  # disallowed because of form
+            #('othername', {'something': 'c', 'form': 'nope'}),  # allowed because of act
+            #('splice', {'act': 'b', 'form': 'yeap'}),  # allowed because of act
+            #('splice', {'act': 'b'}),  # allowed because of act
+            #('splice', {'act': 'something:else'}),  # not in rules, dropped
+            #('splice', {'act': 'zoop'}),  # allowed because act starts with a z
+            #('splice', {'act': 'yes'}),  # disallowed because act starts with a y
+        )
+        expected = [
+            (0, 11, ('node:add', {})),
+            #(22, 56, ('othername', {'something': 'c', 'form': 'nope'})),
+            #(56, 81, ('splice', {'act': 'b', 'form': 'yeap'})),
+            #(81, 96, ('splice', {'act': 'b'})),
+            #(96, 114, ('splice', {'act': 'zoop'}))
+        ]
+
+        # Add a membrane via Cortex API
+        with self.getTestDir() as dirn:
+            with s_cortex.openurl('dir:///' + dirn) as core:
+
+                # spin up a membrane and fire all the messages at the core
+                core.addCoreMembrane(name, rules)
+                [core.dist(msg) for msg in msgs]
+
+                # subscribe to the membrane fifo and check the messages that made it through
+                actual = []
+                core.subCoreFifo(name, actual.append)
+                self.eq(actual, expected)
+
+        # Add membranes via setting config opt
+        with self.getTestDir() as dirn:
+            with s_cortex.openurl('dir:///' + dirn) as core:
+
+                # spin up a membrane and fire all the messages at the core
+                core.setConfOpt('membranes', ((name, rules),))
+                [core.dist(msg) for msg in msgs]
+
+                # subscribe to the membrane fifo and check the messages that made it through
+                actual = []
+                core.subCoreFifo(name, actual.append)
+                self.eq(actual, expected)
+
+        # Test missing and dup membranes
+        with self.getTestDir() as dirn:
+            with s_cortex.openurl('dir:///' + dirn) as core:
+
+                self.raises(NoSuchMembrane, core.delCoreMembrane, name)
+                core.addCoreMembrane(name, rules)
+                self.raises(MembraneExists, core.addCoreMembrane, name, rules)
+
+                [core.dist(msg) for msg in msgs]
+
+                # subscribe to the membrane fifo and check the messages that made it through
+                actual = []
+                core.subCoreFifo(name, actual.append)
+                self.eq(actual, expected)
+
+                # remove and re-add the membrane, subscribe again and make sure it is empty
+                self.none(core.delCoreMembrane(name))
+                self.raises(NoSuchMembrane, core.delCoreMembrane, name)
+                core.addCoreMembrane(name, rules)
+                actual = []
+                core.subCoreFifo(name, actual.append)
+                self.eq(actual, [])
+
+
     def test_cortex_datamodel_runt_consistency(self):
         with self.getRamCore() as core:
 
@@ -2143,7 +2221,6 @@ class CortexTest(SynTest):
 
             def populate():
                 for i in range(N):
-                    #print('wrote %d tufos' % i)
                     core.formTufoByProp('inet:ipv4', str(i), **{})
                 evnt.set()
 
@@ -2154,7 +2231,6 @@ class CortexTest(SynTest):
             pool.call(populate)
             for i in range(N):
                 tufos = prox.getTufosByProp('inet:ipv4')
-                #print('got %d tufos' % len(tufos))
 
             self.true(evnt.wait(timeout=3))
             pool.fini()
