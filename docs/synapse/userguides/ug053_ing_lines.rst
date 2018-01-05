@@ -50,5 +50,8 @@ After ingesting this, we can see the ``inet:fqdn`` nodes have been added to our 
         :host = ninja
         :sfx = True
         :zone = False
+        tufo:form = inet:fqdn
+        node:ndef = ee23cd14ec6039abfd656d182c023a82
+        node:created = 2018/01/05 15:06:49.792
     (1 results)
 
