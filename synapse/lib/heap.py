@@ -28,7 +28,7 @@ defpage = 0x100000
 
 class Heap(s_eventbus.EventBus):
     '''
-    A persistant heap object.
+    A persistent heap object.
 
     The heap object, while based on the Atomfile structure, only grows upward
     in size.
