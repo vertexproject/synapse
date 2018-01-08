@@ -2450,7 +2450,7 @@ class CortexTest(SynTest):
 
         with self.getRamCore() as core:
             tufo = core.formTufoByProp('strform', 'haha', foo='bar', bar='faz')
-            splice = ('splice', {'act': 'node:prop:del', 'form': 'strform', 'valu': 'haha', 'prop': 'foo'})
+            splice = ('splice', {'mesg': ('node:prop:del', {'form': 'strform', 'valu': 'haha', 'prop': 'foo'})})
             core.splice(splice)
 
             self.eq(len(core.eval('strform:foo')), 0)

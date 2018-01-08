@@ -65,11 +65,10 @@ class StoreXact:
         if pdef is not None and pdef[1].get('local'):
             return
 
-        info['act'] = act
         info['time'] = self.tick
         info['user'] = s_auth.whoami()
 
-        self.fire('splice', **info)
+        self.fire('splice', **{'mesg': (act, info)})
 
     def _coreXactAcquire(self):
         # allow implementors to acquire any synchronized resources

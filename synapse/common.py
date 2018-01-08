@@ -101,8 +101,7 @@ def tufo(typ, **kwargs):
     return (typ, kwargs)
 
 def splice(act, **info):
-    info['act'] = act
-    return ('splice', info)
+    return ('splice', {'mesg': (act, info)})
 
 def vertup(vstr):
     '''
