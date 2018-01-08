@@ -260,11 +260,6 @@ class Dir(s_eventbus.EventBus):
         if self.files[0].opts.get('baseoff') > off:
             raise Exception('Too Far Back') # FIXME
 
-        # a bit of a hack to get lengths from msgpack Unpacker
-        data = {'next': 0}
-        def calcsize(b):
-            data['next'] += len(b)
-
         logger.debug('Entering items with offset %s', off)
 
         for pers in self.files:
@@ -314,9 +309,9 @@ class Dir(s_eventbus.EventBus):
                 try:
 
                     while True:
-                        item = unpk.unpack(write_bytes=calcsize)
+                        item = unpk.unpack()
                         # explicit is better than implicit
-                        reloff = data['next']
+                        reloff = unpk.tell()
                         aboff = reloff + off
                         yield aboff, item
 
