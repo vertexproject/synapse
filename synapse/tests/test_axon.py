@@ -124,10 +124,23 @@ class AxonTest(SynTest):
                     with io.BytesIO(b'durr') as fd:
                         blob3 = prox.eatfd(fd)
 
+                blob4 = axon.eatbytes(b'')
+
         self.eq(blob0[1].get('axon:blob'), '442f602ecf8230b2a59a44b4f845be27')
         self.eq(blob1[1].get('axon:blob'), 'd4552906c1f6966b96d27e6fc79441b5')
         self.eq(blob2[1].get('axon:blob'), '0d60960570ef6da0a15f68c24b420334')
         self.eq(blob3[1].get('axon:blob'), '97c11d1057f75c9c0b79090131709f62')
+        self.eq(blob4[1].get('axon:blob'), '370c1098a47904ea9caeb9f5f71459ba')
+
+    def test_axon_eatfd_empty(self):
+        self.thisHostMustNot(platform='windows')
+
+        with self.getTestDir() as dirname:
+            with s_axon.Axon(dirname) as axon:
+                with io.BytesIO(b'') as fd:
+                    blob0 = axon.eatfd(fd)
+
+        self.eq(blob0[1].get('axon:blob'), '370c1098a47904ea9caeb9f5f71459ba')
 
 class AxonHostTest(SynTest):
     def test_axon_host(self):
