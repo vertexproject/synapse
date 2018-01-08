@@ -261,6 +261,9 @@ class AxonMixin:
         sess = self.alloc(props.get('size'))
 
         byts = fd.read(10000000)
+        retn = self.chunk(sess, byts)
+
+        byts = fd.read(10000000)
         while byts:
             retn = self.chunk(sess, byts)
             byts = fd.read(10000000)
