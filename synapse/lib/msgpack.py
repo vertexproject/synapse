@@ -109,8 +109,9 @@ class Unpk:
 
             try:
                 item = self.unpk.unpack()
-                retn.append((self.unpk.tell() - self.size, item))
-                self.size = self.unpk.tell()
+                tell = self.unpk.tell()
+                retn.append((tell - self.size, item))
+                self.size = tell
 
             except msgpack.exceptions.OutOfData:
                 break
