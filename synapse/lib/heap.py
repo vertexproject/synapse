@@ -1,6 +1,7 @@
 import os
 import mmap
 import struct
+import logging
 import threading
 
 from binascii import unhexlify as unhex
@@ -9,6 +10,8 @@ import synapse.common as s_common
 import synapse.reactor as s_reactor
 import synapse.eventbus as s_eventbus
 import synapse.lib.atomfile as s_atomfile
+
+log = logging.getLogger(__name__)
 
 magic_v1 = unhex(b'265343eb3092ce626cdb731ef68bde83')
 
@@ -26,6 +29,9 @@ defpage = 0x100000
 class Heap(s_eventbus.EventBus):
     '''
     A persistant heap object.
+
+    The heap object, while based on the Atomfile structure, only grows upward
+    in size.
     '''
     def __init__(self, fd, **opts):
         s_eventbus.EventBus.__init__(self)
@@ -96,6 +102,10 @@ class Heap(s_eventbus.EventBus):
 
     def _actSyncHeapResize(self, mesg):
         size = mesg[1].get('size')
+        if size < self.atom.size:
+            log.warning('Attempted to resize the heap downwards, fsize=[%s], size=[%s]',
+                        self.atom.size, size)
+            return
         self.atom.resize(size)
 
     def _writeoff(self, off, byts):
@@ -178,7 +188,6 @@ class Heap(s_eventbus.EventBus):
                 rem = heapsize % self.pagesize
                 if rem:
                     heapsize += (self.pagesize - rem)
-
                 self.atom.resize(heapsize)
                 self.fire('heap:resize', size=heapsize)
 
