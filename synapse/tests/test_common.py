@@ -79,25 +79,13 @@ class CommonTest(SynTest):
         self.eq(parts, [[1, 2], [3, 4], [5]])
 
         # set is unslicable
-        tpass = False
-        try:
+        with self.assertRaises(TypeError) as cm:
             parts = [chunk for chunk in chunks({1, 2, 3}, 10000)]
-        except TypeError as e:
-            tpass = True
-        self.true(tpass)
 
         # dict is unslicable
-        tpass = False
-        try:
+        with self.assertRaises(TypeError) as cm:
             parts = [chunk for chunk in chunks({1: 2}, 10000)]
-        except TypeError as e:
-            tpass = True
-        self.true(tpass)
 
         # empty dict is caught during the [0:0] slice
-        tpass = False
-        try:
+        with self.assertRaises(TypeError) as cm:
             parts = [chunk for chunk in chunks({}, 10000)]
-        except TypeError as e:
-            tpass = True
-        self.true(tpass)
