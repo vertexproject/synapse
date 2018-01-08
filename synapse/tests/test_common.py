@@ -57,3 +57,47 @@ class CommonTest(SynTest):
 
             retn = tuple(listdir(dirn, glob='*.txt'))
             self.eq(retn, ((path,)))
+
+    def test_common_chunks(self):
+        s = '123456789'
+        parts = [chunk for chunk in chunks(s, 2)]
+        self.eq(parts, ['12', '34', '56', '78', '9'])
+
+        parts = [chunk for chunk in chunks(s, 100000)]
+        self.eq(parts, [s])
+
+        parts = [chunk for chunk in chunks(b'', 10000)]
+        self.eq(parts, [b''])
+
+        parts = [chunk for chunk in chunks([], 10000)]
+        self.eq(parts, [[]])
+
+        parts = [chunk for chunk in chunks('', 10000)]
+        self.eq(parts, [''])
+
+        parts = [chunk for chunk in chunks([1, 2, 3, 4, 5], 2)]
+        self.eq(parts, [[1, 2], [3, 4], [5]])
+
+        # set is unslicable
+        tpass = False
+        try:
+            parts = [chunk for chunk in chunks({1, 2, 3}, 10000)]
+        except TypeError as e:
+            tpass = True
+        self.true(tpass)
+
+        # dict is unslicable
+        tpass = False
+        try:
+            parts = [chunk for chunk in chunks({1: 2}, 10000)]
+        except TypeError as e:
+            tpass = True
+        self.true(tpass)
+
+        # empty dict is caught during the [0:0] slice
+        tpass = False
+        try:
+            parts = [chunk for chunk in chunks({}, 10000)]
+        except TypeError as e:
+            tpass = True
+        self.true(tpass)
