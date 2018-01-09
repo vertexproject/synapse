@@ -332,6 +332,8 @@ class CortexBaseTest(SynTest):
 
         idens = [t0[0], t1[0], t2[0]]
         self.sorteq(core.getTufosByIdens(idens), [t0, t1, t2])
+        # Expect an empty list of idens to return an empty list.
+        self.eq(core.getTufosByIdens([]), [])
 
     def runcore(self, core):
 
