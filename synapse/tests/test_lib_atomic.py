@@ -23,7 +23,13 @@ class AtomTest(SynTest):
         # valu() api works
         self.eq(counter.valu(), 0)
 
-        # incremnet with negative numbers works
+        # Set works
+        self.eq(counter.set(1234), 1234)
+        self.eq(counter.valu(), 1234)
+        self.eq(counter.set(), 0)
+        self.eq(counter.valu(), 0)
+
+        # update with negative numbers works
         self.eq(counter.inc(-10), -10)
         self.eq(counter.inc(-15), -25)
 

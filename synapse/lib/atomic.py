@@ -33,7 +33,9 @@ class Counter:
     Notes:
         This uses the default Synapse global thread lock by default.
     '''
-    def __init__(self, valu=0, lock=s_glob.lock):
+    def __init__(self, valu=0, lock=None):
+        if lock is None:
+            lock = s_glob.lock
         self._lock = lock
         self._valu = valu
 
@@ -62,4 +64,18 @@ class Counter:
             int: The current counter value
         '''
         with self._lock:
+            return self._valu
+
+    def set(self, valu=0):
+        '''
+        Resets the counter to a value.
+
+        Args:
+            valu (int): Value to set the counter too.
+
+        Returns:
+            int: The current counter value after setting it.
+        '''
+        with self._lock:
+            self._valu = valu
             return self._valu
