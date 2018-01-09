@@ -1577,7 +1577,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             core.addSpliceFd(fd)
         '''
         def save(mesg):
-            fd.write(s_msgpack.en(mesg))
+            fd.write(s_msgpack.en(mesg[1]['mesg']))
         self.on('splice', save)
 
     def eatSpliceFd(self, fd):
@@ -1592,7 +1592,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         '''
         for chnk in s_common.chunks(s_msgpack.iterfd(fd), 1000):
-            self.splices(chnk)
+            self.splices(tuple(('splice', {'mesg': item}) for item in chnk))
 
     def _onDelSynTag(self, mesg):
         # deleting a tag node.  delete all sub tags and wipe tufos.
