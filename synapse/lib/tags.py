@@ -52,18 +52,6 @@ def getTufoSubs(tufo, tag):
     props.extend(p for p in tufo[1].keys() if p.startswith(pref))
     return props
 
-def tufoHasTag(tufo, tag):
-    '''
-    Returns True if the tufo has the given tag.
-
-    Example:
-
-        if tufoHasTag(tufo,'woot'):
-            dostuff()
-
-    '''
-    return tufo[1].get('#' + tag) is not None
-
 class ByTag:
     '''
     A dictionary style put/get API using tags.
