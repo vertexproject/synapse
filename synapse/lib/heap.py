@@ -109,7 +109,20 @@ class Heap(s_eventbus.EventBus):
         if self.atom is None:
             self.atom = s_atomfile.getAtomFile(fd)
 
-        self.used = s_common.to_int(self.readoff(32, 8))
+        # Validate the header of the file
+        _magic, _size, _flags = unpackHeapHead(self.readoff(0, headsize))
+        if _magic != magic_v1:
+            raise s_common.BadHeapFile(mesg='Bad magic value present in heapfile header',
+                                       evalu=magic_v1, magic=_magic)
+        if _size != 32:
+            raise s_common.BadHeapFile(mesg='Unexpected size found for first heapfile header',
+                                       evalu=headsize + 32, size=_size)
+
+        # How much data is currently store in heap?
+        self.used = s_common.to_int(self.readoff(headsize, 8))
+        if self.used > self.atomSize():
+            raise s_common.BadHeapFile(mesg='Heapfile has been truncated and is smaller than expected',
+                                       esize=self.used, fsize=self.atomSize())
 
         self.onfini(self.atom.fini)
 
