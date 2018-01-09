@@ -1,6 +1,8 @@
+import random
 
 from synapse.tests.common import *
 
+import synapse.glob as s_glob
 import synapse.lib.atomic as s_atomic
 
 class AtomTest(SynTest):
@@ -14,3 +16,40 @@ class AtomTest(SynTest):
         self.true(xchg.set(True))
 
         self.false(xchg.set(True))
+
+    def test_atomic_counter(self):
+        # Start at zero
+        counter = s_atomic.Counter()
+        # valu() api works
+        self.eq(counter.valu(), 0)
+
+        # incremnet with negative numbers works
+        self.eq(counter.inc(-10), -10)
+        self.eq(counter.inc(-15), -25)
+
+        # Start at -1
+        counter = s_atomic.Counter(-1)
+        self.eq(counter.valu(), -1)
+
+        # Default increment is 1
+        self.eq(counter.inc(), 0)
+        self.eq(counter.inc(), 1)
+        # can increment multiple values at once
+        self.eq(counter.inc(2), 3)
+
+        counter = s_atomic.Counter()
+        maxtime = 6
+        tslice = 0.01
+
+        valus = [random.randint(0, 100) for _ in range(10)]
+        esum = sum(valus)
+
+        # Fire a bunch of increment calls into the thread pool
+        for v in valus:
+            s_glob.pool.call(counter.inc, v)
+
+        while counter.valu() != esum:
+            time.sleep(tslice)
+            if tslice == maxtime:
+                break
+        self.eq(counter.valu(), esum)
