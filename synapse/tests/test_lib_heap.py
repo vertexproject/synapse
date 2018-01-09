@@ -37,16 +37,31 @@ class HeapTest(SynTest):
 
         fd = tempfile.TemporaryFile()
 
-        with s_heap.Heap(fd) as heap:
+        with s_heap.Heap(fd) as heap:  # type: s_heap.Heap
 
-            pagesize = heap.pagesize
             self.eq(heap.size(), heap.pagesize)
 
             blocks = []
+            w = heap.waiter(1, 'heap:resize')
             while heap.size() == heap.pagesize:
                 # NOTE test assumes pages are at least 1k
                 blocks.append(heap.alloc(1024))
 
+            self.eq(w.count, 1)
+            w.fini()
+
+            self.eq(heap.size(), heap.pagesize * 2)
+
+            # Ensure that resize events are dropped if they would resize downwards
+            mesg0 = ('heap:resize', {'size': 137})
+            mesg = ('heap:sync', {'mesg': mesg0})
+            with self.getLoggerStream('synapse.lib.heap') as stream:
+                heap.sync(mesg)
+            # Ensure our bad sync event was logged
+            stream.seek(0)
+            mesgs = stream.read()
+            self.isin('Attempted to resize the heap downwards', mesgs)
+            # Ensure the heapsize was unchanged
             self.eq(heap.size(), heap.pagesize * 2)
 
     def test_heap_save(self):
