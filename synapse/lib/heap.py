@@ -26,6 +26,32 @@ headsize = struct.calcsize(headfmt)
 
 defpage = 0x100000
 
+def packHeapHead(size, flags=FLAG_USED):
+    '''
+    Generate a heap header bytestring from a given size and flags.
+
+    Args:
+        size (int): Number of bytes stored for the header.
+        flags (int): Flags to store in the header.
+
+    Returns:
+        bytes: The bytes header object.
+    '''
+    return struct.pack(headfmt, magic_v1, size, flags)
+
+def unpackHeapHead(byts):
+    '''
+    Unpacks a bytes object into the magic value, size and flags.
+
+    Args:
+        byts (bytes): Bytes to unpack.
+
+    Returns:
+        (bytes, int, int): A tuple containing the magic value, size and flags.
+    '''
+    magic, size, flags = struct.unpack(headfmt, byts)
+    return magic, size, flags
+
 class Heap(s_eventbus.EventBus):
     '''
     A persistent heap object.
@@ -59,7 +85,7 @@ class Heap(s_eventbus.EventBus):
 
             size = 32 # a few qword slots for expansion
             used = headsize + size
-            heaphead = self._genHeapHead(size) + s_common.to_bytes(used, 8)
+            heaphead = packHeapHead(size) + s_common.to_bytes(used, 8)
 
             rem = len(heaphead) % self.pagesize
             if rem:
@@ -160,9 +186,6 @@ class Heap(s_eventbus.EventBus):
         '''
         return self._writeoff(off, byts)
 
-    def _genHeapHead(self, size, flags=FLAG_USED):
-        return struct.pack(headfmt, magic_v1, size, flags)
-
     def alloc(self, size):
         '''
         Allocate a block within the Heap and return the offset.
@@ -196,7 +219,7 @@ class Heap(s_eventbus.EventBus):
             self.used += fullsize
 
             self._writeoff(32, s_common.to_bytes(self.used, 8))
-            self._writeoff(self.used, self._genHeapHead(size))
+            self._writeoff(self.used, packHeapHead(size))
 
         return dataoff
 
