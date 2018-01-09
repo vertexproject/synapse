@@ -56,8 +56,13 @@ class Heap(s_eventbus.EventBus):
     '''
     A persistent heap object.
 
-    The heap object, while based on the Atomfile structure, only grows upward
-    in size.
+    Args:
+        fd (file): File descriptor for the backing store of the heap.
+        **opts: Additional heap options.
+
+    Notes:
+        The heap object, while based on the Atomfile structure, only grows
+         upward in size as data is allocated within it..
     '''
     def __init__(self, fd, **opts):
         s_eventbus.EventBus.__init__(self)
@@ -82,17 +87,20 @@ class Heap(s_eventbus.EventBus):
         size = fd.tell()
 
         if size == 0:
-
+            # The heap has not yet been initalized. Write a heap header to it
+            # at 0x0 which will be used to track the overall size of the
+            # first record in the heap.
             size = 32 # a few qword slots for expansion
             used = headsize + size
             heaphead = packHeapHead(size) + s_common.to_bytes(used, 8)
 
+            # Fill up the remainder of the current pagesize with null bytes
             rem = len(heaphead) % self.pagesize
             if rem:
                 heaphead += b'\x00' * (self.pagesize - rem)
 
+            # Write and flush to disk
             fd.write(heaphead)
-
             fd.flush()
 
         self.fd = fd
@@ -108,12 +116,24 @@ class Heap(s_eventbus.EventBus):
     def sync(self, mesg):
         '''
         Consume a heap:sync event.
+
+        Args:
+            mesg ((str, dict)): A heap:sync message.
+
+        Returns:
+            None
         '''
         self.syncact.react(mesg[1].get('mesg'))
 
     def syncs(self, msgs):
         '''
         Consume a list of heap:sync events.
+
+        Args:
+            msgs (list): A list of heap:sync messages.
+
+        Returns:
+            None
         '''
         [self.syncact.react(mesg[1].get('mesg')) for mesg in msgs]
 
@@ -142,27 +162,48 @@ class Heap(s_eventbus.EventBus):
         '''
         Read and return bytes from the heap at an offset.
 
-        Example:
+        Args:
+            off (int): Offset to read from.
+            size (int): Number of bytes to read.
 
-            head = heap.readoff(off,headsize)
+        Examples:
+            Read the heapfile header at offset zero:
 
+                head = heap.readoff(0,s_heap.headsize)
+
+        Returns:
+            bytes: The bytes from a given offset.
+
+        Raises:
+            s_common.BadHeapFile: If not enough bytes were read to fullfill the request.
         '''
         byts = self.atom.readoff(off, size)
 
         if len(byts) != size:
-            raise Exception('readoff short: %d != %d' % (len(byts), size))
+            raise s_common.BadHeapFile(mesg='readoff was short',
+                                       expected_size=size,
+                                       byts_len=len(byts))
 
         return byts
 
     def readiter(self, off, size, itersize=10000000):
         '''
-        Yield back byts chunks for the given off/size.
+        Yield back bytes chunks for the given offset and size.
 
-        Example:
+        Args:
+            off (int): Offset to read from.
+            size (int): Number of bytes to read.
+            itersize (int): Maximum number of bytes to yield in a chunk.
 
-            for byts in heap.readiter(off,size):
-                dostuff()
 
+        Examples:
+            Call dostuff() on byts as they are read from the heap:
+
+                for byts in heap.readiter(off,size):
+                    dostuff(byts)
+
+        Yields:
+            bytes: Chunks of bytes.
         '''
         offmax = off + size
 
@@ -178,11 +219,20 @@ class Heap(s_eventbus.EventBus):
         '''
         Write bytes at an offset within the heap.
 
-        Example:
+        Args:
+            off (int): Offset to write bytes too.
+            byts (bytes): Bytes to write at the offset.
 
-            off = heap.alloc(size)
-            heap.writeoff(off,byts)
+        Examples:
+            Allocate space for bytes and write it to the heap:
 
+                byts = 'hehe'.encode()
+                sz = len(byts)
+                offset = heap.alloc(sz)
+                heap.writeoff(offset, byts)
+
+        Returns:
+            None
         '''
         return self._writeoff(off, byts)
 
@@ -190,16 +240,26 @@ class Heap(s_eventbus.EventBus):
         '''
         Allocate a block within the Heap and return the offset.
 
+        Args:
+            size (int): Number of bytes to allocate within the heapfile.
+
         Example:
+            Store a string in a heap file:
 
-            off = heap.alloc(len(foo))
+                s = 'foobar'
+                byts = s.encode()
+                off = heap.alloc(len(byts))
+                heap.writeoff(off, byts)
 
+        Returns:
+            int: Offset within the heap to use to store size bytes.
         '''
         # 16 byte aligned allocation sizes
         rem = size % 16
         if rem:
             size += 16 - rem
 
+        # Account for the heap header
         fullsize = headsize + size
 
         with self.alloclock:
@@ -223,5 +283,20 @@ class Heap(s_eventbus.EventBus):
 
         return dataoff
 
-    def size(self):
+    def heapSize(self):
+        '''
+        Get the amount of space currently used by the heap.
+
+        Returns:
+            int: Size of the bytes currently allocated by the heap.
+        '''
+        return self.used
+
+    def atomSize(self):
+        '''
+        Get the amount of space currently used by the atomfile unerlying the heap.
+
+        Returns:
+            int: Size of the underlying atomfile which backs the heap.
+        '''
         return self.atom.size
