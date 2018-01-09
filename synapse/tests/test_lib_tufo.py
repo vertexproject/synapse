@@ -94,3 +94,13 @@ class TestTufoProps(SynTest):
 
         self.none(s_tufo.prop(node, ':haha'))
         self.none(s_tufo.prop(node, 'hehe:haha'))
+
+class TufoTests(SynTest):
+    def test_tufo_tagged(self):
+        tufo = ('1234', {'tufo:form': 'foo:bar',
+                         'foo:bar': '1234',
+                         '#hehe': 1234})
+
+        self.true(s_tufo.tagged(tufo, 'hehe'))
+        self.false(s_tufo.tagged(tufo, 'haha'))
+        self.raises(TypeError, s_tufo.tagged, tufo, 1234)
