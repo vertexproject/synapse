@@ -1,3 +1,4 @@
+import mmap
 import struct
 
 import synapse.lib.heap as s_heap
@@ -34,6 +35,27 @@ class HeapTest(SynTest):
         self.eq(heap.heapSize(), 160)
 
         heap.fini()
+
+    def test_heap_pagesize(self):
+        fd = tempfile.TemporaryFile()
+        psize = mmap.ALLOCATIONGRANULARITY
+        with s_heap.Heap(fd, pagesize=psize) as heap:  # type: s_heap.Heap
+            self.eq(heap.pagesize, 1 * mmap.ALLOCATIONGRANULARITY)
+            self.eq(heap.atomSize(), 1 * mmap.ALLOCATIONGRANULARITY)
+
+        # Ensure that we are rounding up too mmap.ALLOCATIONGRANULARITY
+        fd = tempfile.TemporaryFile()
+        psize = 1
+        with s_heap.Heap(fd, pagesize=psize) as heap:  # type: s_heap.Heap
+            self.eq(heap.pagesize, 1 * mmap.ALLOCATIONGRANULARITY)
+            self.eq(heap.atomSize(), 1 * mmap.ALLOCATIONGRANULARITY)
+
+        # Ensure that we are rounding up too 2 * mmap.ALLOCATIONGRANULARITY
+        fd = tempfile.TemporaryFile()
+        psize = mmap.ALLOCATIONGRANULARITY + 1
+        with s_heap.Heap(fd, pagesize=psize) as heap:  # type: s_heap.Heap
+            self.eq(heap.pagesize, 2 * mmap.ALLOCATIONGRANULARITY)
+            self.eq(heap.atomSize(), 2 * mmap.ALLOCATIONGRANULARITY)
 
     def test_heap_resize(self):
 
