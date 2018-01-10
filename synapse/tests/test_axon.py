@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class AxonTest(SynTest):
     def test_axon_basics(self):
         with self.getTestDir() as axondir:
-            with s_axon.Axon(axondir) as axon:
+            with s_axon.Axon(axondir) as axon:  # type: s_axon.Axon
                 self.false(axon.has('md5', craphash))
                 self.false(axon.has('md5', asdfhash))
 
@@ -39,6 +39,91 @@ class AxonTest(SynTest):
                 byts = b''.join(axon.bytes('guid', asdfhash_iden))
 
                 self.eq(byts, b'asdfasdf')
+
+                # Some basic tests for getAxonInfo structure
+                axfo = axon.getAxonInfo()
+                self.len(2, axfo)
+                self.eq(axfo[0], axon.iden)
+                # We have a link tufo
+                link = axfo[1].get('link')
+                self.isinstance(link, tuple)
+                self.len(2, link)
+                self.nn(link[1].get('url'))
+                # We have an opts dictionary with a copy of the config opts
+                opts = axfo[1].get('opts')
+                self.isinstance(opts, dict)
+                self.eq(opts, axon.getConfOpts())
+
+                # We have some stats too and their expected keys
+                iden1 = axon.alloc(8)
+                axon.chunk(iden1, b'hehe')
+
+                ekeys = [
+                    'heap:used',
+                    'heap:atomsize',
+                    'inprog',
+                    'clones:ready',
+                    'clones:clonesready',
+                    'clones:clonehosts',
+                    'sync:size',
+                    'sync:idens',
+                    'sync:poffs',
+                    'thrs:len',
+                    'time',
+                ]
+                tick = now()
+                stfo = axon.getAxonStatus()
+
+                form, pprop = s_tufo.ndef(stfo)
+                sprops = s_tufo.props(stfo)
+                self.eq(pprop, axon.iden)
+                self.eq(form, 'axon:stats')
+                self.sorteq(sprops.keys(), ekeys)
+
+                self.isinstance(sprops.get('clones:ready'), bool)
+                self.false(sprops.get('clones:ready'))
+
+                self.isinstance(sprops.get('clones:clonesready'), tuple)
+                self.eq(sprops.get('clones:clonesready'), ())
+
+                self.isinstance(sprops.get('clones:clonehosts'), tuple)
+                self.eq(sprops.get('clones:clonehosts'), ())
+
+                self.isinstance(sprops.get('heap:atomsize'), int)
+                self.gt(sprops.get('heap:atomsize'), 0)
+
+                self.isinstance(sprops.get('heap:used'), int)
+                self.gt(sprops.get('heap:used'), 0)
+
+                self.ge(sprops.get('heap:atomsize'), sprops.get('heap:used'))
+
+                self.isinstance(sprops.get('inprog'), dict)
+                inprogd = sprops.get('inprog')
+                self.len(1, inprogd)
+                progd = inprogd.get(iden1)
+                self.eq(progd.get('size'), 8)
+                self.eq(progd.get('maxoff') - progd.get('off'), 8)
+                self.eq(progd.get('cur') - progd.get('off'), 4)
+
+                self.isinstance(sprops.get('sync:idens'), tuple)
+                self.len(0, sprops.get('sync:idens'))
+
+                self.isinstance(sprops.get('sync:poffs'), dict)
+                self.len(0, sprops.get('sync:poffs'))
+
+                self.isinstance(sprops.get('sync:size'), int)
+                self.gt(sprops.get('sync:size'), 0)
+
+                self.isinstance(sprops.get('thrs:len'), int)
+                self.eq(sprops.get('thrs:len'), 0)
+
+                self.isinstance(sprops.get('time'), int)
+                self.lt(sprops.get('time') - tick, 1000)
+
+                blob = axon.chunk(iden1, b'haha')
+                self.nn(blob)
+                stfo = axon.getAxonStatus()
+                self.notin(iden1, stfo[1].get('axon:stats:inprog'))
 
                 axon.fini()
 
@@ -321,6 +406,104 @@ class AxonHostTest(SynTest):
             self.true(axonc2.has('sha256', blob[1].get('axon:blob:sha256')))
             axonbyts = b''.join(_byts for _byts in axonc2.iterblob(blob))
             self.eq(axonbyts, cv)
+
+            # We can get stats from an Axon proxy object
+            iden1 = axon0.alloc(8)
+            axon0.chunk(iden1, b'hehe')
+
+            ekeys = [
+                'heap:used',
+                'heap:atomsize',
+                'inprog',
+                'clones:ready',
+                'clones:clonesready',
+                'clones:clonehosts',
+                'sync:size',
+                'sync:idens',
+                'sync:poffs',
+                'thrs:len',
+                'time',
+            ]
+            tick = now()
+            stfo = axon0.getAxonStatus()
+
+            form, pprop = s_tufo.ndef(stfo)
+            sprops = s_tufo.props(stfo)
+            self.eq(pprop, axfo0[1].get('opts').get('axon:iden'))
+            self.eq(form, 'axon:stats')
+            self.sorteq(sprops.keys(), ekeys)
+
+            self.isinstance(sprops.get('clones:ready'), bool)
+            self.true(sprops.get('clones:ready'))
+
+            self.isinstance(sprops.get('clones:clonesready'), tuple)
+            self.len(2, sprops.get('clones:clonesready'))
+
+            self.isinstance(sprops.get('clones:clonehosts'), tuple)
+            self.eq(sprops.get('clones:clonehosts'), ('host1', 'host2'))
+
+            self.isinstance(sprops.get('heap:atomsize'), int)
+            self.gt(sprops.get('heap:atomsize'), 0)
+
+            self.isinstance(sprops.get('heap:used'), int)
+            self.gt(sprops.get('heap:used'), 0)
+
+            self.ge(sprops.get('heap:atomsize'), sprops.get('heap:used'))
+
+            self.isinstance(sprops.get('inprog'), dict)
+            inprogd = sprops.get('inprog')
+            self.len(1, inprogd)
+            progd = inprogd.get(iden1)
+            self.eq(progd.get('size'), 8)
+            self.eq(progd.get('maxoff') - progd.get('off'), 8)
+            self.eq(progd.get('cur') - progd.get('off'), 4)
+
+            self.isinstance(sprops.get('sync:idens'), tuple)
+            self.len(2, sprops.get('sync:idens'))
+
+            self.isinstance(sprops.get('sync:poffs'), dict)
+            self.len(2, sprops.get('sync:poffs'))
+
+            self.isinstance(sprops.get('sync:size'), int)
+            self.gt(sprops.get('sync:size'), 0)
+
+            self.isinstance(sprops.get('thrs:len'), int)
+            self.eq(sprops.get('thrs:len'), 2)
+
+            self.isinstance(sprops.get('time'), int)
+            self.lt(sprops.get('time') - tick, 1000)
+
+            blob = axon0.chunk(iden1, b'haha')
+            self.nn(blob)
+            stfo = axon0.getAxonStatus()
+            self.notin(iden1, stfo[1].get('axon:stats:inprog'))
+
+            # Ensure clones have status and they don't have sync data
+            cstfo = axonc1.getAxonStatus()
+            cform, cpprop = s_tufo.ndef(cstfo)
+            csprops = s_tufo.props(cstfo)
+
+            self.isin(cpprop, sprops.get('clones:clonesready'))
+            self.notin('sync:idens', csprops)
+            self.notin('sync:size', csprops)
+            self.notin('sync:poffs', csprops)
+            self.isin('time', csprops)
+
+            # The axonhosts also have stats
+            tick = now()
+            hstfo = host0.getAxonHostStatus()
+            hform, hpprop = s_tufo.ndef(hstfo)
+            hprops = s_tufo.props(hstfo)
+            self.eq(host0.iden, hpprop)
+            ekeys = (
+                'time',
+                'host:info',
+                'axons'
+            )
+            self.sorteq(hprops.keys(), ekeys)
+            self.eq(hprops.get('host:info').get('count'), 1)
+            self.len(1, hprops.get('axons'))
+            self.lt(hprops.get('time') - tick, 1000)
 
             # Now write a large amount of data to axon0 and ensure that data is replicated
             blobs = []
