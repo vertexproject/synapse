@@ -1,7 +1,6 @@
-import os
-import tempfile
+import mmap
+import struct
 
-import synapse.axon as s_axon
 import synapse.lib.heap as s_heap
 
 from synapse.tests.common import *
@@ -16,7 +15,8 @@ class HeapTest(SynTest):
         fd = tempfile.TemporaryFile()
         heap = s_heap.Heap(fd)
 
-        self.eq(heap.size(), heap.pagesize)
+        self.eq(heap.atomSize(), heap.pagesize)
+        self.eq(heap.heapSize(), 64)
 
         off0 = heap.alloc(8)
         off1 = heap.alloc(8)
@@ -31,7 +31,31 @@ class HeapTest(SynTest):
         self.eq(heap.readoff(off0, 8), b'asdfqwer')
         self.eq(heap.readoff(off1, 8), b'hehehaha')
 
+        self.eq(heap.atomSize(), heap.pagesize)
+        self.eq(heap.heapSize(), 160)
+
         heap.fini()
+
+    def test_heap_pagesize(self):
+        fd = tempfile.TemporaryFile()
+        psize = mmap.ALLOCATIONGRANULARITY
+        with s_heap.Heap(fd, pagesize=psize) as heap:  # type: s_heap.Heap
+            self.eq(heap.pagesize, 1 * mmap.ALLOCATIONGRANULARITY)
+            self.eq(heap.atomSize(), 1 * mmap.ALLOCATIONGRANULARITY)
+
+        # Ensure that we are rounding up too mmap.ALLOCATIONGRANULARITY
+        fd = tempfile.TemporaryFile()
+        psize = 1
+        with s_heap.Heap(fd, pagesize=psize) as heap:  # type: s_heap.Heap
+            self.eq(heap.pagesize, 1 * mmap.ALLOCATIONGRANULARITY)
+            self.eq(heap.atomSize(), 1 * mmap.ALLOCATIONGRANULARITY)
+
+        # Ensure that we are rounding up too 2 * mmap.ALLOCATIONGRANULARITY
+        fd = tempfile.TemporaryFile()
+        psize = mmap.ALLOCATIONGRANULARITY + 1
+        with s_heap.Heap(fd, pagesize=psize) as heap:  # type: s_heap.Heap
+            self.eq(heap.pagesize, 2 * mmap.ALLOCATIONGRANULARITY)
+            self.eq(heap.atomSize(), 2 * mmap.ALLOCATIONGRANULARITY)
 
     def test_heap_resize(self):
 
@@ -39,18 +63,16 @@ class HeapTest(SynTest):
 
         with s_heap.Heap(fd) as heap:  # type: s_heap.Heap
 
-            self.eq(heap.size(), heap.pagesize)
-
             blocks = []
             w = heap.waiter(1, 'heap:resize')
-            while heap.size() == heap.pagesize:
+            while heap.atomSize() == heap.pagesize:
                 # NOTE test assumes pages are at least 1k
                 blocks.append(heap.alloc(1024))
 
             self.eq(w.count, 1)
             w.fini()
 
-            self.eq(heap.size(), heap.pagesize * 2)
+            self.eq(heap.atomSize(), heap.pagesize * 2)
 
             # Ensure that resize events are dropped if they would resize downwards
             mesg0 = ('heap:resize', {'size': 137})
@@ -62,7 +84,7 @@ class HeapTest(SynTest):
             mesgs = stream.read()
             self.isin('Attempted to resize the heap downwards', mesgs)
             # Ensure the heapsize was unchanged
-            self.eq(heap.size(), heap.pagesize * 2)
+            self.eq(heap.atomSize(), heap.pagesize * 2)
 
     def test_heap_save(self):
 
@@ -111,3 +133,64 @@ class HeapTest(SynTest):
             byts = b''.join(blocks)
 
             self.eq(rand, byts)
+
+    def test_heap_allocation_death(self):
+        self.skipTest('Known bad behavior')
+        fd = tempfile.TemporaryFile()
+
+        with s_heap.Heap(fd) as heap:
+            sz = heap.pagesize - s_heap.headsize - heap.used
+            off = heap.alloc(sz)
+            heap.writeoff(off, sz * b'!')
+
+    def test_heap_integrity(self):
+        with self.getTestDir() as fdir:
+            fp = os.path.join(fdir, 'test.heap')
+            fd = open(fp, 'w+b')
+            # Setup a good heapfile
+            with s_heap.Heap(fd) as heap:
+                rand = os.urandom(2048)
+                off = heap.alloc(2048)
+                heap.writeoff(off, rand)
+
+                blocks = [b for b in heap.readiter(off, 2048, itersize=9)]
+                byts = b''.join(blocks)
+
+                self.eq(rand, byts)
+
+                # Attempt reading past the atomfile
+                maxsize = heap.atomSize()
+                self.raises(BadHeapFile, heap.readoff, maxsize - 8, 16)
+
+            # Backup our heapfile for reuse
+            shutil.copy(fp, fp + '.bak')
+
+            # Truncate the file so that the atomfile size vs used check fails
+            with open(fp, 'r+b') as fd:
+                fd.seek(1024)
+                fd.truncate()
+                fd.seek(0)
+
+                self.raises(BadHeapFile, s_heap.Heap, fd)
+
+            # Restore the heapfile
+            shutil.copy(fp + '.bak', fp)
+            with open(fp, 'r+b') as fd:
+                # Pack a bad head value which will have a invalid magic number
+                byts = struct.pack(s_heap.headfmt, b'0123' * 8, 32, 1)
+                fd.seek(0)
+                # Overwrite the header at 0
+                fd.write(byts)
+                # ensure the s_heap fails to validate the magic number for heap header at 0x0
+                self.raises(BadHeapFile, s_heap.Heap, fd)
+
+            # Restore the heapfile
+            shutil.copy(fp + '.bak', fp)
+            with open(fp, 'r+b') as fd:
+                # Pack a bad head value which will have a invalid size
+                byts = s_heap.packHeapHead(1024)
+                fd.seek(0)
+                # Overwrite the header at 0
+                fd.write(byts)
+                # ensure the s_heap fails to validate the size for heap header at 0x0
+                self.raises(BadHeapFile, s_heap.Heap, fd)
