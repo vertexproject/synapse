@@ -136,6 +136,10 @@ class HeapTest(SynTest):
 
                 self.eq(rand, byts)
 
+                # Attempt reading past the atomfile
+                maxsize = heap.atomSize()
+                self.raises(BadHeapFile, heap.readoff, maxsize - 8, 16)
+
             # Backup our heapfile for reuse
             shutil.copy(fp, fp + '.bak')
 
