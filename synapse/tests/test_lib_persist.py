@@ -33,6 +33,18 @@ class PersistTest(SynTest):
 
             pdir = s_persist.Dir(dirname, **opts)
 
+            # Ensure that the getIdenOffset() / getOffsetIdens() apis work.
+            iden = guid()
+            poff = pdir.getIdenOffset(iden)
+            self.isinstance(poff, s_persist.Offset)
+            idens = pdir.getOffsetIdens()
+            self.len(1, idens)
+            self.isin(iden, idens)
+            poff.fini()
+
+            # Ensure the dirSize api works
+            self.eq(pdir.dirSize(), 0)
+
             # trigger storage file alloc
             boff, sz = pdir.add(b'V' * 2000)
             added_offsets.append(boff + sz)
@@ -40,6 +52,9 @@ class PersistTest(SynTest):
             added_offsets.append(boff + sz)
             boff, sz = pdir.add(b'S' * 2000)
             added_offsets.append(boff + sz)
+
+            # Account for msgpack encoding for bin types
+            self.eq(pdir.dirSize(), 3 * (2000 + 3))
 
             # get all caught up and gen one real-time
             items = []
@@ -71,6 +86,10 @@ class PersistTest(SynTest):
 
             self.true(ev1.is_set())
 
+            # Capture the current pdir size
+            esize = pdir.dirSize()
+            self.gt(esize, 0)
+
             pdir.fini()
 
             self.eq(items[3][1], b'VISI')
@@ -84,6 +103,9 @@ class PersistTest(SynTest):
             ev0.clear()
             ev1.clear()
             pdir = s_persist.Dir(dirname, **opts)
+
+            # Size is initialized on startup to the old valu
+            self.eq(esize, pdir.dirSize())
 
             boff, sz = pdir.add(b'1' * 1)
             added_offsets.append(boff + sz)
