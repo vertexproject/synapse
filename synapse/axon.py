@@ -918,8 +918,7 @@ class Axon(s_config.Config, AxonMixin):
         for v in statsd.get('inprog').values():
             v.pop('hashset', None)
 
-        tufo = s_tufo.ephem('axon:stats', self.iden, **statsd)
-        return tufo
+        return s_tufo.ephem('axon:stats', self.iden, **statsd)
 
     def setAxonInfo(self, prop, valu):
         self.axfo[1][prop] = valu

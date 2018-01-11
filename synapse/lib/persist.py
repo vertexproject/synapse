@@ -129,8 +129,7 @@ class Dir(s_eventbus.EventBus):
         '''
         fps = s_common.listdir(self.path, glob='*.off')
         fns = [os.path.split(fn)[1] for fn in fps]
-        idens = [fn.split('.off')[0] for fn in fns]
-        return idens
+        return [fn.split('.off')[0] for fn in fns]
 
     def pump(self, iden, func):
         '''
