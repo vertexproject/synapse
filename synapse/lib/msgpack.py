@@ -103,17 +103,15 @@ class Unpk:
         '''
         self.unpk.feed(byts)
 
-        def sizeof(b):
-            self.size += len(b)
-
         retn = []
 
         while True:
 
             try:
-                item = self.unpk.unpack(write_bytes=sizeof)
-                retn.append((self.size, item))
-                self.size = 0
+                item = self.unpk.unpack()
+                tell = self.unpk.tell()
+                retn.append((tell - self.size, item))
+                self.size = tell
 
             except msgpack.exceptions.OutOfData:
                 break

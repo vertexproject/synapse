@@ -47,6 +47,22 @@ class MsgPackTest(SynTest):
 
             fd.close()
 
+    def test_msgpack_types(self):
+        # This is a future-proofing test for msgpack to ensure that
+        buf = b'\x92\xa4hehe\x85\xa3str\xa41234\xa3int\xcd\x04\xd2\xa5float\xcb@(\xae\x14z\xe1G\xae\xa3bin\xc4\x041234\xa9realworld\xac\xc7\x8b\xef\xbf\xbd\xed\xa1\x82\xef\xbf\xbd\x12'
+        node = (
+            'hehe',
+            {
+                'str': '1234',
+                'int': 1234,
+                'float': 12.34,
+                'bin': b'1234',
+                'realworld': '\u01cb\ufffd\ud842\ufffd\u0012'
+            }
+        )
+        unode = s_msgpack.un(buf)
+        self.eq(unode, node)
+
     def test_msgpack_bad_types(self):
         self.raises(TypeError, s_msgpack.en, {1, 2})
         self.raises(TypeError, s_msgpack.en, Exception())

@@ -167,6 +167,8 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
         return self._foldTypeCols(rows)
 
     def getRowsByIdens(self, idens):
+        if len(idens) == 0:
+            return []
         rows = self.select(self._q_getrows_by_idens, valu=tuple(idens))
         return self._foldTypeCols(rows)
 

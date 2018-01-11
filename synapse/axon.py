@@ -14,6 +14,7 @@ import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
 import synapse.lib.heap as s_heap
+import synapse.lib.tufo as s_tufo
 import synapse.lib.config as s_config
 import synapse.lib.persist as s_persist
 import synapse.lib.service as s_service
@@ -42,6 +43,7 @@ class AxonHost(s_config.Config):
 
         self.datadir = s_common.gendir(datadir)
 
+        self.iden = s_common.guid()  # A non-persistent iden for identification
         self.lock = threading.Lock()
 
         self.axons = {}  # iden -> Axon mapping.
@@ -77,7 +79,7 @@ class AxonHost(s_config.Config):
         if url:
             self.axonbus = s_service.openurl(url)
             self.onfini(self.axonbus.fini)
-            self.axonbus.runSynSvc(s_common.guid(), self)
+            self.axonbus.runSynSvc(self.iden, self)
 
     @staticmethod
     @s_config.confdef(name='axonhost')
@@ -165,6 +167,20 @@ class AxonHost(s_config.Config):
             'used': usage.get('used', 0),
             'hostname': self.getConfOpt('axon:hostname'),
         }
+
+    def getAxonHostStatus(self):
+        '''
+        Get status about the AxonHost and Axons it is hosting.
+
+        Returns:
+            (str, dict): Tufo of information about the axonhost and the axons.
+        '''
+        statsd = {
+            'host:info': self.info(),
+            'axons': [axon.getAxonStatus() for axon in list(self.axons.values())],
+            'time': s_common.now()
+        }
+        return s_tufo.ephem('axonhost:status', self.iden, **statsd)
 
     def add(self, **opts):
         '''
@@ -259,6 +275,9 @@ class AxonMixin:
         fd.seek(0)
 
         sess = self.alloc(props.get('size'))
+
+        byts = fd.read(10000000)
+        retn = self.chunk(sess, byts)
 
         byts = fd.read(10000000)
         while byts:
@@ -524,6 +543,7 @@ class Axon(s_config.Config, AxonMixin):
 
         self.readyclones = set()                # iden of each clone added as it comes up
         self.clonesready = threading.Event()    # set once all clones are up and running
+        self.poffs = {}
 
         self.axonbus = None
 
@@ -786,6 +806,7 @@ class Axon(s_config.Config, AxonMixin):
         tufo = self.core.formTufoByProp('axon:clone', iden)
 
         poff = self.syncdir.getIdenOffset(iden)
+        self.poffs[iden] = poff
         thr = self._fireAxonClone(iden, poff)
         self.axthrs.add(thr)
 
@@ -861,6 +882,7 @@ class Axon(s_config.Config, AxonMixin):
 
                     time.sleep(1)
 
+        self.poffs.pop(iden, None)
         logger.debug('Graceful exit for _fireAxonClone thread')
 
     def getAxonInfo(self):
@@ -868,6 +890,35 @@ class Axon(s_config.Config, AxonMixin):
         Return a dictionary of salient info about an axon.
         '''
         return self.axfo
+
+    def getAxonStatus(self):
+        '''
+        Get runtime information for the current axon.
+
+        Returns:
+            ((None, dict)): A ephemeral Tufo of data about the current axon.
+        '''
+        statsd = {
+            'heap:used': self.heap.heapSize(),
+            'heap:atomsize': self.heap.atomSize(),
+            'inprog': {k: dict(v) for k, v in list(self.inprog.items())},
+            'clones:ready': self.clonesready.is_set(),
+            'clones:clonesready': tuple(sorted(self.readyclones)),
+            'clones:clonehosts': tuple(sorted(self.clonehosts)),
+            'thrs:len': len(self.axthrs),
+            'time': s_common.now(),
+        }
+
+        if self.syncdir:
+            statsd['sync:size'] = self.syncdir.dirSize()
+            statsd['sync:idens'] = tuple(sorted(self.syncdir.getOffsetIdens()))
+            statsd['sync:poffs'] = {iden: poff.valu for iden, poff in list(self.poffs.items())}
+
+        # Cleanup statsd from objects which will not serialize
+        for v in statsd.get('inprog').values():
+            v.pop('hashset', None)
+
+        return s_tufo.ephem('axon:stats', self.iden, **statsd)
 
     def setAxonInfo(self, prop, valu):
         self.axfo[1][prop] = valu
@@ -1037,8 +1088,7 @@ class Axon(s_config.Config, AxonMixin):
         if self.getConfOpt('axon:ro'):
             raise s_common.NotSupported(mesg='Axon Is Read-Only - cannot allocate new blobs.')
 
-        # This is slightly crude since it ignores the possible overhead of the Heapfile structures.
-        hsize = self.heap.used
+        hsize = self.heap.heapSize()
         bytmax = self.getConfOpt('axon:bytemax')
         if (hsize + size) > bytmax:
             raise s_common.NotEnoughFree(mesg='Not enough free space on the heap to allocate bytes.',

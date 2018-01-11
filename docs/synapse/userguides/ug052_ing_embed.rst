@@ -47,6 +47,9 @@ Then we can open up the Cortex and see that we have made those nodes::
        :host = vertex
        :sfx = False
        :zone = True
+       node:ndef = 42366d896b947b97e7f3b1afeb9433a3
+       tufo:form = inet:fqdn
+       node:created = 2018/01/05 14:52:39.035
     (1 results)
 
 Expanding on the previous example, we can add additional forms in the embed directive - we are not limited to just a
@@ -60,34 +63,34 @@ This adds the two inet:netuser nodes to our Cortex.  We can run that with the fo
 our example core::
 
     ~/synapse$ python -m synapse.tools.ingest --core sqlite:///ingest_examples.db --verbose docs/synapse/examples/ingest_embed2.json
-    add: inet:netuser=github.com/bobtheuser
-          :email = bobtheuser@gmail.com
-          :seen:max = 1514764800000
-          :seen:min = 1388534400000
-          :site = github.com
-          :user = bobtheuser
-    add: inet:user=bobtheuser
     add: inet:fqdn=github.com
-          :domain = com
-          :host = github
-          :sfx = 0
-          :zone = 1
-    add: inet:email=bobtheuser@gmail.com
-          :fqdn = gmail.com
-          :user = bobtheuser
+       :domain = com
+       :host = github
+       :sfx = 0
+       :zone = 1
+    add: inet:user=bobtheuser
+    add: inet:web:acct=github.com/bobtheuser
+       :email = bobtheuser@gmail.com
+       :seen:max = 1514764800000
+       :seen:min = 1388534400000
+       :site = github.com
+       :user = bobtheuser
     add: inet:fqdn=gmail.com
-          :domain = com
-          :host = gmail
-          :sfx = 0
-          :zone = 1
-    add: inet:netuser=google.com/bobtheuser
-          :site = google.com
-          :user = bobtheuser
+       :domain = com
+       :host = gmail
+       :sfx = 0
+       :zone = 1
+    add: inet:email=bobtheuser@gmail.com
+       :fqdn = gmail.com
+       :user = bobtheuser
     add: inet:fqdn=google.com
-          :domain = com
-          :host = google
-          :sfx = 0
-          :zone = 1
+       :domain = com
+       :host = google
+       :sfx = 0
+       :zone = 1
+    add: inet:web:acct=google.com/bobtheuser
+       :site = google.com
+       :user = bobtheuser
     ingest took: 0.021549463272094727 sec
 
 Since we are using verbose mode we can see the ``inet:netuser`` nodes were created; while the existing
@@ -97,25 +100,53 @@ properties if they are also a node type.  In the example above we saw the creati
 via the cmdr interface as well::
 
     ~/synapse$ python -m synapse.cortex sqlite:///ingest_examples.db
-    cli> ask inet:netuser
-    inet:netuser = github.com/bobtheuser
-    inet:netuser = google.com/bobtheuser
+    cli> ask inet:web:acct
+    inet:web:acct = github.com/bobtheuser
+    inet:web:acct = google.com/bobtheuser
     (2 results)
-    cli> ask --props inet:user refs()
-    inet:user    = bobtheuser
-    inet:email   = bobtheuser@gmail.com
+    cli> ask --props inet:web:acct refs()
+    inet:user     = bobtheuser
+       node:ndef = 5aeefa74981e17931ae8e5ff2b947919
+       tufo:form = inet:user
+       node:created = 2018/01/05 14:56:12.553
+    inet:email    = bobtheuser@gmail.com
        :fqdn = gmail.com
        :user = bobtheuser
-    inet:netuser = github.com/bobtheuser
+       node:ndef = bc8a5ee3e8daaa19826a53b3d906af82
+       tufo:form = inet:email
+       node:created = 2018/01/05 14:56:12.558
+    inet:fqdn     = github.com
+       :domain = com
+       :host = github
+       :sfx = False
+       :zone = True
+       node:ndef = ccaecaf690eb253a1872fc8ed49b833e
+       tufo:form = inet:fqdn
+       node:created = 2018/01/05 14:56:12.552
+    inet:web:acct = github.com/bobtheuser
        :email = bobtheuser@gmail.com
        :seen:max = 2018/01/01 00:00:00.000
        :seen:min = 2014/01/01 00:00:00.000
        :site = github.com
        :user = bobtheuser
-    inet:netuser = google.com/bobtheuser
+       node:ndef = f3a453b6794ea29b6b22b0de3ef662a3
+       tufo:form = inet:web:acct
+       node:created = 2018/01/05 14:56:12.551
+    inet:fqdn     = google.com
+       :domain = com
+       :host = google
+       :sfx = False
+       :zone = True
+       node:ndef = 134b9d52f67665e86c3ab0d304030d87
+       tufo:form = inet:fqdn
+       node:created = 2018/01/05 14:56:12.560
+    inet:web:acct = google.com/bobtheuser
        :site = google.com
        :user = bobtheuser
-    (4 results)
+       node:ndef = 651e73d7ef3cc5817b0de40d85210e31
+       tufo:form = inet:web:acct
+       node:created = 2018/01/05 14:56:12.559
+    (6 results)
 
 Besides adding properties, we can also add `Tags`_ to the ingest files. An example below
 shows adding some tags to the nodes in the embed directive. These tags can apply to either the entire set of
@@ -132,42 +163,42 @@ Back in cmdr we can lift the nodes via the tags we just added::
 
     ~/synapse$ python -m synapse.cortex sqlite:///ingest_examples.db
     cli> ask #src.osint
-    inet:netuser = github.com/bobtheuser
-       #src.osint (added 2017/08/16 02:16:35.409)
-       #story.bob.accounts (added 2017/08/16 02:16:35.409)
-    inet:netuser = google.com/bobtheuser
-       #src.osint (added 2017/08/16 02:16:35.409)
-       #story.bob.accounts (added 2017/08/16 02:16:35.409)
-    inet:fqdn    = woot.com
-       #src.osint (added 2017/08/16 02:16:35.409)
-       #story.bob.infrastructure (added 2017/08/16 02:16:35.409)
+    inet:web:acct = github.com/bobtheuser
+       #src.osint (added 2018/01/05 15:00:00.017)
+       #story.bob.accounts (added 2018/01/05 15:00:00.017)
+    inet:web:acct = google.com/bobtheuser
+       #src.osint (added 2018/01/05 15:00:00.017)
+       #story.bob.accounts (added 2018/01/05 15:00:00.017)
+    inet:fqdn     = woot.com
+       #src.osint (added 2018/01/05 15:00:00.017)
+       #story.bob.infrastructure (added 2018/01/05 15:00:00.017)
     (3 results)
     cli> ask #src.commercial
     inet:fqdn = vertex.link
-       #src.commercial (added 2017/08/16 02:16:35.409)
-       #story.bob.infrastructure (added 2017/08/16 02:16:35.409)
+       #src.commercial (added 2018/01/05 15:00:00.017)
+       #story.bob.infrastructure (added 2018/01/05 15:00:00.017)
     (1 results)
     cli> ask #story.bob
-    inet:netuser = github.com/bobtheuser
-       #src.osint (added 2017/08/16 02:16:35.409)
-       #story.bob.accounts (added 2017/08/16 02:16:35.409)
-    inet:netuser = google.com/bobtheuser
-       #src.osint (added 2017/08/16 02:16:35.409)
-       #story.bob.accounts (added 2017/08/16 02:16:35.409)
-    inet:fqdn    = vertex.link
-       #src.commercial (added 2017/08/16 02:16:35.409)
-       #story.bob.infrastructure (added 2017/08/16 02:16:35.409)
-    inet:fqdn    = woot.com
-       #src.osint (added 2017/08/16 02:16:35.409)
-       #story.bob.infrastructure (added 2017/08/16 02:16:35.409)
+    inet:web:acct = github.com/bobtheuser
+       #src.osint (added 2018/01/05 15:00:00.017)
+       #story.bob.accounts (added 2018/01/05 15:00:00.017)
+    inet:web:acct = google.com/bobtheuser
+       #src.osint (added 2018/01/05 15:00:00.017)
+       #story.bob.accounts (added 2018/01/05 15:00:00.017)
+    inet:fqdn     = vertex.link
+       #src.commercial (added 2018/01/05 15:00:00.017)
+       #story.bob.infrastructure (added 2018/01/05 15:00:00.017)
+    inet:fqdn     = woot.com
+       #src.osint (added 2018/01/05 15:00:00.017)
+       #story.bob.infrastructure (added 2018/01/05 15:00:00.017)
     (4 results)
     cli> ask #story.bob.accounts
-    inet:netuser = github.com/bobtheuser
-       #src.osint (added 2017/08/16 02:16:35.409)
-       #story.bob.accounts (added 2017/08/16 02:16:35.409)
-    inet:netuser = google.com/bobtheuser
-       #src.osint (added 2017/08/16 02:16:35.409)
-       #story.bob.accounts (added 2017/08/16 02:16:35.409)
+    inet:web:acct = github.com/bobtheuser
+       #src.osint (added 2018/01/05 15:00:00.017)
+       #story.bob.accounts (added 2018/01/05 15:00:00.017)
+    inet:web:acct = google.com/bobtheuser
+       #src.osint (added 2018/01/05 15:00:00.017)
+       #story.bob.accounts (added 2018/01/05 15:00:00.017)
     (2 results)
     cli>
 

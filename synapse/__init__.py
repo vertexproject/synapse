@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 if (sys.version_info.major, sys.version_info.minor) < (3, 4):
     raise Exception('synapse is not supported on Python versions < 3.4')
 
-if msgpack.version < (0, 4, 2):
-    raise Exception('synapse requires msgpack >= 0.4.2')
+if msgpack.version < (0, 5, 0):
+    raise Exception('synapse requires msgpack >= 0.5.0')
 
 if tornado.version_info < (3, 2, 2):
     raise Exception('synapse requires tornado >= 3.2.2')
