@@ -1,6 +1,46 @@
 Changelog
 =========
 
+v0.0.44 - 2018-01-11
+--------------------
+
+## Notices related to v0.0.44
+The minimum version of msgpack used by Synapse has been upgraded to be at least 0.5.0. This is complicated by the fact that the ``msgpack-python package`` was renamed to ``msgpack`` by its maintainers. Installation of Synapse from PyPi using the sdist and wheel packages should upgrade msgpack in a working state, and docker image users should not be affected by this change. Users which directly use a checkout of the Synapse Github repository should uninstall msgpack-python and then install msgpack.  This can be done with the following commands (you may need to adjust them for your installation; accounting for aliases or the user of `python3`, etc):
+
+- `python -m pip uninstall msgpack-python`
+- `python -m pip install msgpack`
+
+The ``synapse.lib.heap.Heapfile`` and ``synapse.axon.Axon`` structures are planned to undergo a significant rewrite, possibly landing as early as v0.0.45. These rewrites will not be backwards compatible, in order to account for design issues in these structures. If you are using these classes for doing data storage, please reach out to us via Slack as soon as possible (see https://github.com/vertexproject/synapse/blob/master/README.rst for a link to join our Synapse Slack chatroom).
+
+## New Features
+- #592 - Added GUID type ``it:auth:passwdhash`` to store password hashes without requiring the plaintext password.
+- #604 - Added ``synapse.lib.atomic.Counter()`` class as a thread safe counter object.
+- #595 - Added the ``rcode`` secondary property to the ``inet:dns:look`` form to allow encoding the DNS response code for a given lookup.
+- #595 - The ``it:dev:regkey`` type is now a lowercased string.  Existing ``it:dev:regkey`` and ``it:dev:regval:key`` values will be automatically lowercased as a model migration.
+- #607 - Added ``Axon.getAxonStatus()`` and ``AxonHost.getAxonHostStatus()`` APIs to get runtime information about Axons.
+
+## Enhancements
+- #591 - Removed the Cortex CLI command ``nextseq`` in favor of using the Storm macro command ``nexttag()``.
+- #591 - Add Storm test coverage.
+- #593 - Added ``puts()`` API to the ``synapse.lib.fifo.Fifo`` object to the ``Fifo`` structure to allow for bulk object adding.
+- #596 - Added Axon tests to show a clone sync operation restarting after a persist offset file is removed.
+- #601 - Ensure the ``synapse.lib.heap.Heap`` file storage only grows upward and cannot be resized down by replaying a resize event.
+- #602 - Set backoff / backoff-retry values for the Drone ci configuration for the git plugin.
+- #603 - The ``synapse.lib.tags.tufoHasTag()`` and ``synapse.lib.tufo.tagged()`` APIs were equivalent functions. ``tufoHasTag`` has been removed.
+- #598, #609 - Updated msgpack-python>=0.4.8 to ``msgpack=>0.5.1`` as a dependency.
+- #598 - Updated ``synaspe.lib.msgpack.Unpk`` msgpack unpacker helper to use the new ``tell()`` API introduced in msgpack 0.5.0.
+- #598 - Added a future-proofing msgpack test to ensure we break when the msgpack python API eventually changes to assuming a strict utf8 compliance and can then versionlock our use of msgpack.
+- #605 - Added simple integrity checking to the ``synapse.lib.heap.HeapFile`` structure.
+
+## Bugs
+- #591 - ``synapse.lib.cache.KeyCache`` behavior updated to no longer store cache valus if they are None.  If None was cached, that value was unable to be updated later.
+- #594, #597 - Fix Ingest user docs which were using outdated forms.
+- #599 - Fix ``AxonMixin.eatfd()`` and ``AxonMixin.eatbytes()`` to allow file descriptors and bytes which have zero bytes to be consumed.
+
+## Documentation
+- #605 - Rewrote API docstrings for ``synapse.lib.heap.HeapFile``.
+
+
 v0.0.43 - 2018-01-02
 --------------------
 
