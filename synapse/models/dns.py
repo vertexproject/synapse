@@ -220,7 +220,7 @@ class DnsMod(CoreModule):
                         'doc': 'The TCP port of the server that responded to the lookup.'}),
 
                     ('rcode', {'ptype': 'int',
-                        'doc': 'The DNS server responsde code.'}),
+                        'doc': 'The DNS server response code.'}),
 
                     ('udp4', {'ptype': 'inet:udp4',
                         'doc': 'The IPv4/UDP server that responded to the lookup.'}),
