@@ -11,7 +11,6 @@ import logging
 
 import synapse.common as s_common
 import synapse.lib.auth as s_auth
-import synapse.lib.splice as s_splice
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +67,8 @@ class StoreXact:
 
         info['time'] = self.tick
         info['user'] = s_auth.whoami()
-        evtname, evtinfo = s_splice.splice(act, **info)
 
-        self.fire(evtname, **evtinfo)
+        self.fire('splice', mesg=(act, info))
 
     def _coreXactAcquire(self):
         # allow implementors to acquire any synchronized resources
