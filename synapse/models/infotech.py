@@ -147,6 +147,8 @@ class ItMod(CoreModule):
     @modelrev('it', 201801041154)
     def _revModl201801041154(self):
 
+        now = s_common.now()
+
         # mark changed nodes with a dark row...
         dvalu = 'it:201801041154'
         dprop = '_:dark:syn:modl:rev'
@@ -160,7 +162,7 @@ class ItMod(CoreModule):
             rows = self.core.getRowsByProp('it:dev:regval:key')
 
             adds = [(i, p, v.lower(), t) for (i, p, v, t) in rows]
-            darks = [(i[::-1], dprop, dvalu, t) for (i, p, v, t) in rows]
+            darks = [(i[::-1], dprop, dvalu, now) for (i, p, v, _) in rows]
 
             self.core.delRowsByProp('it:dev:regval:key')
 
@@ -170,7 +172,7 @@ class ItMod(CoreModule):
             # bulk update the primary props
             rows = self.core.getRowsByProp('it:dev:regkey')
             adds = [(i, p, v.lower(), t) for (i, p, v, t) in rows]
-            darks = [(i[::-1], dprop, dvalu, t) for (i, p, v, t) in rows]
+            darks = [(i[::-1], dprop, dvalu, now) for (i, p, v, _) in rows]
 
             self.core.delRowsByProp('it:dev:regkey')
 
