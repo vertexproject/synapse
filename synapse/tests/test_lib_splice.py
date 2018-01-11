@@ -1,10 +1,6 @@
 from synapse.tests.common import *
 import synapse.lib.splice as s_splice
 
-oldsplicelog = b'\x92\xa6splice\x86\xa4form\xa9inet:fqdn\xa4valu\xa3com\xa5props\x82\xa4host\xa3com\xa3sfx\x01\xa3act\xa8node:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x05\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xa9inet:fqdn\xa4valu\xa8woot.com\xa5props\x82\xa4host\xa4woot\xa6domain\xa3com\xa3act\xa8node:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x05\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xa9inet:fqdn\xa4valu\xa8newp.com\xa5props\x82\xa4host\xa4newp\xa6domain\xa3com\xa3act\xa8node:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x05\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xa7syn:tag\xa4valu\xa3foo\xa5props\x80\xa3act\xa8node:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xabsyn:tagform\xa4valu\xd9 3170943e0c6252b696418fffbda64b84\xa5props\x82\xa3tag\xa3foo\xa4form\xa9inet:fqdn\xa3act\xa8node:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xa9inet:fqdn\xa4valu\xa8woot.com\xa3tag\xa3foo\xa3act\xacnode:tag:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xa7syn:tag\xa4valu\xa7foo.bar\xa5props\x80\xa3act\xa8node:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xabsyn:tagform\xa4valu\xd9 673ac84cb06689e6afb8534b5a8d98e6\xa5props\x82\xa3tag\xa7foo.bar\xa4form\xa9inet:fqdn\xa3act\xa8node:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xa9inet:fqdn\xa4valu\xa8woot.com\xa3tag\xa7foo.bar\xa3act\xacnode:tag:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xa6splice\x87\xa4form\xa9inet:fqdn\xa4valu\xa8woot.com\xa3tag\xa7foo.bar\xa4asof\xcf\x00\x00\x01`\xdb\x98$\x06\xa3act\xacnode:tag:del\xa4time\xcf\x00\x00\x01`\xdb\x98$\x07\xa4user\xaeroot@localhost\x92\xa6splice\x85\xa4form\xa9inet:fqdn\xa4valu\xa8newp.com\xa3act\xa8node:del\xa4time\xcf\x00\x00\x01`\xdb\x98$\x07\xa4user\xaeroot@localhost'
-
-newsplicelog = b'\x92\xa8node:add\x85\xa4form\xa9inet:fqdn\xa4valu\xa3com\xa5props\x82\xa4host\xa3com\xa3sfx\x01\xa4time\xcf\x00\x00\x01`\xdb\x98$\x05\xa4user\xaeroot@localhost\x92\xa8node:add\x85\xa4form\xa9inet:fqdn\xa4valu\xa8woot.com\xa5props\x82\xa4host\xa4woot\xa6domain\xa3com\xa4time\xcf\x00\x00\x01`\xdb\x98$\x05\xa4user\xaeroot@localhost\x92\xa8node:add\x85\xa4form\xa9inet:fqdn\xa4valu\xa8newp.com\xa5props\x82\xa4host\xa4newp\xa6domain\xa3com\xa4time\xcf\x00\x00\x01`\xdb\x98$\x05\xa4user\xaeroot@localhost\x92\xa8node:add\x85\xa4form\xa7syn:tag\xa4valu\xa3foo\xa5props\x80\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xa8node:add\x85\xa4form\xabsyn:tagform\xa4valu\xd9 3170943e0c6252b696418fffbda64b84\xa5props\x82\xa3tag\xa3foo\xa4form\xa9inet:fqdn\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xacnode:tag:add\x85\xa4form\xa9inet:fqdn\xa4valu\xa8woot.com\xa3tag\xa3foo\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xa8node:add\x85\xa4form\xa7syn:tag\xa4valu\xa7foo.bar\xa5props\x80\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xa8node:add\x85\xa4form\xabsyn:tagform\xa4valu\xd9 673ac84cb06689e6afb8534b5a8d98e6\xa5props\x82\xa3tag\xa7foo.bar\xa4form\xa9inet:fqdn\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xacnode:tag:add\x85\xa4form\xa9inet:fqdn\xa4valu\xa8woot.com\xa3tag\xa7foo.bar\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xacnode:tag:del\x86\xa4form\xa9inet:fqdn\xa4valu\xa8woot.com\xa3tag\xa7foo.bar\xa4asof\xcf\x00\x00\x01`\xdb\x98$\x06\xa4time\xcf\x00\x00\x01`\xdb\x98$\x07\xa4user\xaeroot@localhost\x92\xa8node:del\x84\xa4form\xa9inet:fqdn\xa4valu\xa8newp.com\xa4time\xcf\x00\x00\x01`\xdb\x98$\x07\xa4user\xaeroot@localhost'
-
 
 class SpliceTest(SynTest):
 
@@ -38,6 +34,23 @@ class SpliceTest(SynTest):
 
     def test_convertSpliceFd(self):
 
+        oldsplicelog = b'\x92\xa6splice\x86\xa4form\xa9inet:fqdn\xa4valu\xa3com\xa5props\x82\xa4host\xa3com\xa3sfx\x01\xa3act\xa8node:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x05\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xa9inet:fqdn\xa4valu\xa8woot.com\xa5props\x82\xa4host\xa4woot\xa6domain\xa3com\xa3act\xa8node:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x05\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xa9inet:fqdn\xa4valu\xa8newp.com\xa5props\x82\xa4host\xa4newp\xa6domain\xa3com\xa3act\xa8node:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x05\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xa7syn:tag\xa4valu\xa3foo\xa5props\x80\xa3act\xa8node:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xabsyn:tagform\xa4valu\xd9 3170943e0c6252b696418fffbda64b84\xa5props\x82\xa3tag\xa3foo\xa4form\xa9inet:fqdn\xa3act\xa8node:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xa9inet:fqdn\xa4valu\xa8woot.com\xa3tag\xa3foo\xa3act\xacnode:tag:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xa7syn:tag\xa4valu\xa7foo.bar\xa5props\x80\xa3act\xa8node:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xabsyn:tagform\xa4valu\xd9 673ac84cb06689e6afb8534b5a8d98e6\xa5props\x82\xa3tag\xa7foo.bar\xa4form\xa9inet:fqdn\xa3act\xa8node:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xa6splice\x86\xa4form\xa9inet:fqdn\xa4valu\xa8woot.com\xa3tag\xa7foo.bar\xa3act\xacnode:tag:add\xa4time\xcf\x00\x00\x01`\xdb\x98$\x06\xa4user\xaeroot@localhost\x92\xa6splice\x87\xa4form\xa9inet:fqdn\xa4valu\xa8woot.com\xa3tag\xa7foo.bar\xa4asof\xcf\x00\x00\x01`\xdb\x98$\x06\xa3act\xacnode:tag:del\xa4time\xcf\x00\x00\x01`\xdb\x98$\x07\xa4user\xaeroot@localhost\x92\xa6splice\x85\xa4form\xa9inet:fqdn\xa4valu\xa8newp.com\xa3act\xa8node:del\xa4time\xcf\x00\x00\x01`\xdb\x98$\x07\xa4user\xaeroot@localhost'
+
+        actual = []
+        expected = [
+            ('node:add', {'form': 'inet:fqdn', 'valu': 'com', 'props': {'host': 'com', 'sfx': 1}, 'time': 1515512669189, 'user': 'root@localhost'}),
+            ('node:add', {'form': 'inet:fqdn', 'valu': 'woot.com', 'props': {'host': 'woot', 'domain': 'com'}, 'time': 1515512669189, 'user': 'root@localhost'}),
+            ('node:add', {'form': 'inet:fqdn', 'valu': 'newp.com', 'props': {'host': 'newp', 'domain': 'com'}, 'time': 1515512669189, 'user': 'root@localhost'}),
+            ('node:add', {'form': 'syn:tag', 'valu': 'foo', 'props': {}, 'time': 1515512669190, 'user': 'root@localhost'}),
+            ('node:add', {'form': 'syn:tagform', 'valu': '3170943e0c6252b696418fffbda64b84', 'props': {'tag': 'foo', 'form': 'inet:fqdn'}, 'time': 1515512669190, 'user': 'root@localhost'}),
+            ('node:tag:add', {'form': 'inet:fqdn', 'valu': 'woot.com', 'tag': 'foo', 'time': 1515512669190, 'user': 'root@localhost'}),
+            ('node:add', {'form': 'syn:tag', 'valu': 'foo.bar', 'props': {}, 'time': 1515512669190, 'user': 'root@localhost'}),
+            ('node:add', {'form': 'syn:tagform', 'valu': '673ac84cb06689e6afb8534b5a8d98e6', 'props': {'tag': 'foo.bar', 'form': 'inet:fqdn'}, 'time': 1515512669190, 'user': 'root@localhost'}),
+            ('node:tag:add', {'form': 'inet:fqdn', 'valu': 'woot.com', 'tag': 'foo.bar', 'time': 1515512669190, 'user': 'root@localhost'}),
+            ('node:tag:del', {'form': 'inet:fqdn', 'valu': 'woot.com', 'tag': 'foo.bar', 'asof': 1515512669190, 'time': 1515512669191, 'user': 'root@localhost'}),
+            ('node:del', {'form': 'inet:fqdn', 'valu': 'newp.com', 'time': 1515512669191, 'user': 'root@localhost'}),
+        ]
+
         fname = 'old-savefile.mpk'
         with self.getTestDir() as path:
             fpath = path + '/' + fname
@@ -47,5 +60,8 @@ class SpliceTest(SynTest):
                 fd.write(oldsplicelog)
 
             s_splice.convertSpliceFd(fpath)
-            with genfile(path, fname) as fd:
-                self.eq(fd.read(), newsplicelog)
+
+            with open(fpath, 'rb') as fd:
+                [actual.append(chnk) for chnk in s_msgpack.iterfd(fd)]
+
+            self.eq(actual, expected)
