@@ -39,7 +39,8 @@ class Socket(EventBus):
         EventBus.__init__(self)
 
         self.sock = sock  # type: socket.socket
-        self.unpk = msgpack.Unpacker(use_list=0, encoding='utf8')
+        self.unpk = msgpack.Unpacker(use_list=False, encoding='utf8',
+                                     unicode_errors='surrogatepass')
         self.iden = s_common.guid()
 
         self.info = info

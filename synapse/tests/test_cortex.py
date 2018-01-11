@@ -332,6 +332,8 @@ class CortexBaseTest(SynTest):
 
         idens = [t0[0], t1[0], t2[0]]
         self.sorteq(core.getTufosByIdens(idens), [t0, t1, t2])
+        # Expect an empty list of idens to return an empty list.
+        self.eq(core.getTufosByIdens([]), [])
 
     def runcore(self, core):
 
@@ -1482,12 +1484,12 @@ class CortexTest(SynTest):
             tufo0 = core0.addTufoTag(tufo0, 'hehe')
             tufo1 = core1.getTufoByProp('strform', 'bar')
 
-            self.true(s_tags.tufoHasTag(tufo1, 'hehe'))
+            self.true(s_tufo.tagged(tufo1, 'hehe'))
 
             # Del tag from existing node
             core0.delTufoTag(tufo0, 'hehe')
             tufo1 = core1.getTufoByProp('strform', 'bar')
-            self.false(s_tags.tufoHasTag(tufo1, 'hehe'))
+            self.false(s_tufo.tagged(tufo1, 'hehe'))
 
             # Set prop on existing node
             core0.setTufoProp(tufo0, 'foo', 'lol')
@@ -1502,12 +1504,12 @@ class CortexTest(SynTest):
             # Tag a node in first core, assert it was formed and tagged in second core
             core0.addTufoTag(tufo_before2, 'hehe')
             tufo1 = core1.getTufoByProp('strform', 'before2')
-            self.true(s_tags.tufoHasTag(tufo1, 'hehe'))
-            self.false(s_tags.tufoHasTag(tufo1, 'hoho'))
+            self.true(s_tufo.tagged(tufo1, 'hehe'))
+            self.false(s_tufo.tagged(tufo1, 'hoho'))
             core0.delTufoTag(tufo_before2, 'hehe')
             tufo1 = core1.getTufoByProp('strform', 'before2')
-            self.false(s_tags.tufoHasTag(tufo1, 'hehe'))
-            self.false(s_tags.tufoHasTag(tufo1, 'hoho'))
+            self.false(s_tufo.tagged(tufo1, 'hehe'))
+            self.false(s_tufo.tagged(tufo1, 'hoho'))
 
             # Add a complicated node which fires a bunch of autoadd nodes and
             # ensure they are populated in the second core

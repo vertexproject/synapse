@@ -3449,6 +3449,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                         for err in errs:
                             logger.warning('splice pump: %r' % (err,))
 
+                        logger.debug('Spliced [%s] mesgs, got [%s] errors, [%s] remaining in queue',
+                                     len(msgs), len(errs), pump.size())
+
                 except Exception as e:
                     logger.exception(e)
 

@@ -49,8 +49,9 @@ class DnsModelTest(SynTest):
 
             tick = now()
 
-            props = {'a': 'WOOT.com/1.002.3.4', 'time': tick, 'ipv4': '5.5.5.5', 'udp4': '8.8.8.8:80'}
+            props = {'a': 'WOOT.com/1.002.3.4', 'rcode': 0, 'time': tick, 'ipv4': '5.5.5.5', 'udp4': '8.8.8.8:80'}
             t0 = core.formTufoByProp('inet:dns:look', '*', **props)
+            self.eq(t0[1].get('inet:dns:look:rcode'), 0)
             self.eq(t0[1].get('inet:dns:look:ipv4'), 0x05050505)
             self.eq(t0[1].get('inet:dns:look:udp4'), 0x080808080050)
             self.eq(t0[1].get('inet:dns:look:time'), tick)

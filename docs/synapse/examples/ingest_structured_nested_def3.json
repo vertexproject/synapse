@@ -13,7 +13,7 @@
           ],
           "forms": [
             [
-              "inet:netuser",
+              "inet:web:acct",
               {
                 "template": "{{domain}}/{{user}}",
                 "props": {
@@ -59,7 +59,7 @@
               {
                 "forms": [
                   [
-                    "inet:netmemb",
+                    "inet:web:memb",
                     {
                       "template": "({{domain}}/{{user}},{{domain}}/{{org}})"
                     }
@@ -80,19 +80,19 @@
               {
                 "forms": [
                   [
-                    "inet:netuser",
+                    "inet:web:acct",
                     {
                       "template": "{{domain}}/{{friend}}"
                     }
                   ],
                   [
-                    "inet:follows",
+                    "inet:web:follows",
                     {
                       "template": "({{domain}}/{{user}},{{domain}}/{{friend}})"
                     }
                   ],
                   [
-                    "inet:follows",
+                    "inet:web:follows",
                     {
                       "template": "({{domain}}/{{friend}},{{domain}}/{{user}})"
                     }
@@ -113,7 +113,7 @@
               {
                 "forms": [
                   [
-                    "inet:netpost",
+                    "inet:web:post",
                     {
                       "template": "(\"{{domain}}/{{user}}\",\"{{text}}\")",
                       "props": {

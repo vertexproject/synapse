@@ -26,7 +26,7 @@
           ]
         ],
         [
-          "inet:netuser",
+          "inet:web:acct",
           [
             [
               "github.com/bobtheuser",

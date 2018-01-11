@@ -296,6 +296,17 @@ def errinfo(name, mesg):
 def chunks(item, size):
     '''
     Divide an iterable into chunks.
+
+    Args:
+        item: Item to slice
+        size (int): Maximum chunk size.
+
+    Notes:
+        This supports Generator objects and objects which support calling
+        the __getitem__() method with a slice object.
+
+    Yields:
+        Slices of the item containing up to "size" number of items.
     '''
     # use islice if it's a generator
     if isinstance(item, types.GeneratorType):
@@ -308,8 +319,15 @@ def chunks(item, size):
 
             yield chunk
 
-    # otherwise, use normal slicing
+    # The sequence item is empty, yield a empty slice from it.
+    # This will also catch mapping objects since a slice should
+    # be an unhashable type for a mapping and the __getitem__
+    # method would not be present on a set object
+    if not item:
+        yield item[0:0]
+        return
 
+    # otherwise, use normal slicing
     off = 0
 
     while True:

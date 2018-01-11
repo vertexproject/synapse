@@ -1,6 +1,97 @@
 Changelog
 =========
 
+v0.0.44 - 2018-01-11
+--------------------
+
+## Notices related to v0.0.44
+The minimum version of msgpack used by Synapse has been upgraded to be at least 0.5.0. This is complicated by the fact that the ``msgpack-python package`` was renamed to ``msgpack`` by its maintainers. Installation of Synapse from PyPi using the sdist and wheel packages should upgrade msgpack in a working state, and docker image users should not be affected by this change. Users which directly use a checkout of the Synapse Github repository should uninstall msgpack-python and then install msgpack.  This can be done with the following commands (you may need to adjust them for your installation; accounting for aliases or the use of `python3`, etc):
+
+- `python -m pip uninstall msgpack-python`
+- `python -m pip install msgpack`
+
+The ``synapse.lib.heap.Heapfile`` and ``synapse.axon.Axon`` structures are planned to undergo a significant rewrite, possibly landing as early as v0.0.45. These rewrites will not be backwards compatible, in order to account for design issues in these structures. If you are using these classes for doing data storage, please reach out to us via Slack as soon as possible (see https://github.com/vertexproject/synapse/blob/master/README.rst for a link to join our Synapse Slack chatroom).
+
+## New Features
+- #592 - Added GUID type ``it:auth:passwdhash`` to store password hashes without requiring the plaintext password.
+- #604 - Added ``synapse.lib.atomic.Counter()`` class as a thread safe counter object.
+- #595 - Added the ``rcode`` secondary property to the ``inet:dns:look`` form to allow encoding the DNS response code for a given lookup.
+- #595 - The ``it:dev:regkey`` type is now a lowercased string.  Existing ``it:dev:regkey`` and ``it:dev:regval:key`` values will be automatically lowercased as a model migration.
+- #607 - Added ``Axon.getAxonStatus()`` and ``AxonHost.getAxonHostStatus()`` APIs to get runtime information about Axons.
+
+## Enhancements
+- #591 - Removed the Cortex CLI command ``nextseq`` in favor of using the Storm macro command ``nexttag()``.
+- #591 - Add Storm test coverage.
+- #593 - Added ``puts()`` API to the ``synapse.lib.fifo.Fifo`` object to the ``Fifo`` structure to allow for bulk object adding.
+- #596 - Added Axon tests to show a clone sync operation restarting after a persist offset file is removed.
+- #601 - Ensure the ``synapse.lib.heap.Heap`` file storage only grows upward and cannot be resized down by replaying a resize event.
+- #602 - Set backoff / backoff-retry values for the Drone ci configuration for the git plugin.
+- #603 - The ``synapse.lib.tags.tufoHasTag()`` and ``synapse.lib.tufo.tagged()`` APIs were equivalent functions. ``tufoHasTag`` has been removed.
+- #598, #609 - Updated msgpack-python>=0.4.8 to ``msgpack=>0.5.1`` as a dependency.
+- #598 - Updated ``synaspe.lib.msgpack.Unpk`` msgpack unpacker helper to use the new ``tell()`` API introduced in msgpack 0.5.0.
+- #598 - Added a future-proofing msgpack test to ensure we break when the msgpack python API eventually changes to assuming a strict utf8 compliance and can then versionlock our use of msgpack.
+- #605 - Added simple integrity checking to the ``synapse.lib.heap.HeapFile`` structure.
+
+## Bugs
+- #591 - ``synapse.lib.cache.KeyCache`` behavior updated to no longer store cache valus if they are None.  If None was cached, that value was unable to be updated later.
+- #594, #597 - Fix Ingest user docs which were using outdated forms. Thanks @tn3rt for the bug report!
+- #599 - Fix ``AxonMixin.eatfd()`` and ``AxonMixin.eatbytes()`` to allow file descriptors and bytes which have zero bytes to be consumed.
+
+## Documentation
+- #605 - Rewrote API docstrings for ``synapse.lib.heap.HeapFile``.
+
+
+v0.0.43 - 2018-01-02
+--------------------
+
+## New Features
+- #590 - Added ``synapse.lib.remcycle.fetch()`` API which allows retrieving a URL using Tornado and executing a user provided callback to process the response.
+
+## Enhancements
+- #589 - Added the ability to set a ``tags`` directive in an Ingest ``forms`` definition; which allows setting per-form tags without adding the tags to the current or child scopes.
+
+
+v0.0.42 - 2017-12-29
+--------------------
+
+## New Features
+- #588 - Added a RFC2822 address parser and type/form, ``inet:rfc2822:addr``.  This normalizes and parses string identifiers and attempts to extract email addresses as a secondary property.
+
+## Bugs
+- #587 - Make `synapse.lib.msgpack` helper functions resilient to unmatched unicode surrogate characters. This also affects the ``synapse.lib.socket.Socket`` and ``synapse.lib.persist.Dir`` msgpack unpackers. This is done by passing ``unicode_errors='surrogatepass'`` to the msgpack pack/unpack functions. This makes synapse more resilient to malformed string data which may be encountered in the real world.
+
+## Documentation
+- #587 - Removed ``synapse.statemach``.  It was previously used for providing object persistence at an API level but has been unused within Synapse and was generally not a safe tool to use for third party use.
+
+
+v0.0.41 - 2017-12-28
+--------------------
+
+## New Features
+- #574 - Added ``EventBus.onWith()`` API.  This is a context manager which acts like ``.on()``, but the callback is removed when the context manager is exited.
+- #575 - Added ``synapse.lib.iq.CmdGenerator()`` class to allow testing CLI command loops using unittest mock.
+- #577 - Added ``synapse.lib.certdir.genClientCert()`` API to allow creation of a PKCS12 certificate bundle for a user certificate, private key and CA cert.
+- #577 - Added a ``--p12`` option to the easycert tool.  This allows a user to bundle their certificate, private key and CA cert into a PKC12 formatted file.
+- #578 - Added the Storm macro syntax ``<-`` to represent a ``join()`` operation.
+
+## Enhancements
+- #576 - The ``Daemon`` now fini's ``EventBus()`` objects in LIFO order when it is fini'd. In other words, objects created in a dmon configuration are torn down in reverse order that they are created.
+- #576, #581 - Increased test coverage for CLI related tests.
+- #577 - Updated tests for ``synapse.lib.certdir`` to ensure that the certificates made by ``certdir`` were correct.
+- #577 - Updated tests for ``synapse.tools.easycert`` to ensure that the certificates made by ``easycert`` were correct.
+- #578 - Updated the storm ``join()`` operator syntax to behave exactly like the ``pivot()`` operator with respect to source and destination properties. ``join()`` still is an additive operator which does not consume the source nodes.
+- #583 - ``synapse.lib.remcycle.Hypnos`` now registers and persists ingest definitions as ``syn:ingest`` nodes in its Cortex.
+
+## Bugs
+- #579 - Fix a reference to ``onCtx`` (the original name for the ``EventBus.onWith()`` function).
+- #584 - ``Cortex`` Storage backings had different behaviors when limit=0 was passed to functions which joined rows together to make tufos.  This has been fixed, so that a limit=0 API parameter will return 0 rows.
+
+## Documentation
+- #573 - Added telepath docstrings for ``evalurl()``.
+- #577 - Rewrote API documentation for ``synapse.lib.certdir``.
+- #586 - Updated the Storm ``join()`` documentation to reflect changes to its arguments.
+
+
 v0.0.40 - 2017-12-11
 --------------------
 

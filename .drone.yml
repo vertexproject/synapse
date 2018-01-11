@@ -12,7 +12,10 @@ buildcommands: &runbuild
 clone:
   git:
     image: plugins/git
+    pull: true
     tags: true
+    backoff: 5
+    backoff-attempts: 2
 
 matrix:
   include:

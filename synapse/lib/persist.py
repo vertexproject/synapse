@@ -106,7 +106,30 @@ class Dir(s_eventbus.EventBus):
         if self.last is None:
             self.last = self._addPersFile(0)
 
+        # Update size so APIs can be used to get the size
+        self.size = self.last.opts.get('baseoff') + self.last.size
+
         self.onfini(self._onDirFini)
+
+    def dirSize(self):
+        '''
+        Get the current size of the perist Dir structure.
+
+        Returns:
+            int: The current size of the persist dir structure.
+        '''
+        return self.size
+
+    def getOffsetIdens(self):
+        '''
+        Get a list of idens which have offset files.
+
+        Returns:
+            list: List of idens with corresponding offset files.
+        '''
+        fps = s_common.listdir(self.path, glob='*.off')
+        fns = [os.path.split(fn)[1] for fn in fps]
+        return [fn.split('.off')[0] for fn in fns]
 
     def pump(self, iden, func):
         '''
@@ -249,7 +272,8 @@ class Dir(s_eventbus.EventBus):
             next object and the unpacked object itself.
         '''
         que = s_queue.Queue()
-        unpk = msgpack.Unpacker(use_list=0, encoding='utf8')
+        unpk = msgpack.Unpacker(use_list=0, encoding='utf8',
+                                unicode_errors='surrogatepass')
 
         # poff is used for iterating over persistence files when unpacking,
         # while the user supplied offset is used to return absolute offsets
@@ -258,11 +282,6 @@ class Dir(s_eventbus.EventBus):
 
         if self.files[0].opts.get('baseoff') > off:
             raise Exception('Too Far Back') # FIXME
-
-        # a bit of a hack to get lengths from msgpack Unpacker
-        data = {'next': 0}
-        def calcsize(b):
-            data['next'] += len(b)
 
         logger.debug('Entering items with offset %s', off)
 
@@ -313,9 +332,9 @@ class Dir(s_eventbus.EventBus):
                 try:
 
                     while True:
-                        item = unpk.unpack(write_bytes=calcsize)
+                        item = unpk.unpack()
                         # explicit is better than implicit
-                        reloff = data['next']
+                        reloff = unpk.tell()
                         aboff = reloff + off
                         yield aboff, item
 

@@ -128,6 +128,22 @@ def ephem(form, fval, **props):
     return (None, props)
 
 def tagged(tufo, tag):
+    '''
+    Returns True if the tufo has the given tag.
+
+    Args:
+        tufo ((str, dict)): Tufo to inspect
+        tag (str): Tag to check (without a preceeding # mark).
+
+    Examples:
+        Check if a node is tagged with "woot" and dostuff if it is.
+
+            if s_tags.tagged(tufo,'woot'):
+                dostuff()
+
+    Returns:
+        Bool: True if the tag is present, False if is is not.
+    '''
     return tufo[1].get('#' + tag) is not None
 
 def ndef(tufo):

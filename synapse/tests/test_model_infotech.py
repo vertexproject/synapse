@@ -1,5 +1,11 @@
+from binascii import hexlify
+
+import synapse.cortex as s_cortex
+
 import synapse.lib.tufo as s_tufo
 import synapse.lib.version as s_version
+
+import synapse.models.crypto as s_m_crypto
 
 from synapse.tests.common import *
 
@@ -80,16 +86,16 @@ class InfoTechTest(SynTest):
             self.nn(core.getTufoByProp('it:dev:str', 'myregkey'))
 
             node = core.eval(r'[ it:dev:regval=("HKEY_LOCAL_MACHINE\\Foo\\Bar", str=hehe) ]')[0]
-            self.eq(node[1].get('it:dev:regval:key'), r'HKEY_LOCAL_MACHINE\Foo\Bar')
+            self.eq(node[1].get('it:dev:regval:key'), r'hkey_local_machine\foo\bar')
             self.eq(node[1].get('it:dev:regval:str'), 'hehe')
 
             node = core.eval(r'[ it:dev:regval=("HKEY_LOCAL_MACHINE\\Foo\\Bar", int=20) ]')[0]
-            self.eq(node[1].get('it:dev:regval:key'), r'HKEY_LOCAL_MACHINE\Foo\Bar')
+            self.eq(node[1].get('it:dev:regval:key'), r'hkey_local_machine\foo\bar')
             self.eq(node[1].get('it:dev:regval:int'), 20)
 
             iden = guid()
             node = core.eval(r'[ it:dev:regval=("HKEY_LOCAL_MACHINE\\Foo\\Bar", bytes=%s) ]' % iden)[0]
-            self.eq(node[1].get('it:dev:regval:key'), r'HKEY_LOCAL_MACHINE\Foo\Bar')
+            self.eq(node[1].get('it:dev:regval:key'), r'hkey_local_machine\foo\bar')
             self.eq(node[1].get('it:dev:regval:bytes'), iden)
 
     def test_model_infotech_hostexec(self):
@@ -304,7 +310,9 @@ class InfoTechTest(SynTest):
                 self.eq(core.getTypeRepr('it:semver', v), e)
 
     def test_model_infotech_brutecast(self):
+
         with self.getRamCore() as core:
+
             # Try some integers
             valu = core.getTypeCast('it:version:brute', s_version.packVersion(1))
             self.eq(valu, 0x000010000000000)
@@ -534,3 +542,89 @@ class InfoTechTest(SynTest):
             self.eq(sv[1].get('it:prod:softver:semver:patch'), 1)
             self.eq(sv[1].get('it:prod:softver:semver:build'), 'build.001')
             self.eq(sv[1].get('it:prod:softver:semver:pre'), 'alpha')
+
+    def test_model_infotech_passwdhash(self):
+
+        with self.getRamCore() as core:
+
+            md5_node = core.formTufoByProp('it:auth:passwdhash', '(salt=f0f0,hash:md5=%s)' % s_m_crypto.ex_md5)
+            sha1_node = core.formTufoByProp('it:auth:passwdhash', '(salt=f0f0,hash:sha1=%s)' % s_m_crypto.ex_sha1)
+            sha256_node = core.formTufoByProp('it:auth:passwdhash', '(salt=f0f0,hash:sha256=%s)' % s_m_crypto.ex_sha256)
+            sha512_node = core.formTufoByProp('it:auth:passwdhash', '(salt=f0f0,hash:sha512=%s)' % s_m_crypto.ex_sha512)
+
+            self.eq(md5_node[1].get('it:auth:passwdhash:salt'), 'f0f0')
+            self.eq(md5_node[1].get('it:auth:passwdhash:hash:md5'), s_m_crypto.ex_md5)
+
+            self.eq(sha1_node[1].get('it:auth:passwdhash:salt'), 'f0f0')
+            self.eq(sha1_node[1].get('it:auth:passwdhash:hash:sha1'), s_m_crypto.ex_sha1)
+
+            self.eq(sha256_node[1].get('it:auth:passwdhash:salt'), 'f0f0')
+            self.eq(sha256_node[1].get('it:auth:passwdhash:hash:sha256'), s_m_crypto.ex_sha256)
+
+            self.eq(sha512_node[1].get('it:auth:passwdhash:salt'), 'f0f0')
+            self.eq(sha512_node[1].get('it:auth:passwdhash:hash:sha512'), s_m_crypto.ex_sha512)
+
+            node = core.setTufoProp(md5_node, 'passwd', 'foobar')
+            self.eq(node[1].get('it:auth:passwdhash:passwd'), 'foobar')
+
+            self.nn(core.getTufoByProp('inet:passwd', 'foobar'))
+
+            node = core.formTufoByProp('it:auth:passwdhash', {'hash:lm': s_m_crypto.ex_md5})
+            self.eq(node[1].get('it:auth:passwdhash:hash:lm'), s_m_crypto.ex_md5)
+
+            node = core.formTufoByProp('it:auth:passwdhash', {'hash:ntlm': s_m_crypto.ex_md5})
+            self.eq(node[1].get('it:auth:passwdhash:hash:ntlm'), s_m_crypto.ex_md5)
+
+            self.raises(BadTypeValu, core.formTufoByProp, 'it:auth:passwdhash', {'salt': 'asdf', 'hash:md5': s_m_crypto.ex_md5})
+
+    def test_model_infotech_201801041154(self):
+
+        tick = now()
+        regv = guid()
+        iden0 = guid()
+        iden1 = guid()
+
+        ndef0 = guid(('it:dev:regkey', 'FooBar'))
+        ndef1 = guid(('it:dev:regval', regv))
+
+        rows = [
+            (iden0, 'tufo:form', 'it:dev:regkey', tick),
+            (iden0, 'it:dev:regkey', 'FooBar', tick),
+            (iden0, 'node:ndef', ndef0, tick),
+
+            (iden1, 'tufo:form', 'it:dev:regval', tick),
+            (iden1, 'it:dev:regval', regv, tick),
+            (iden1, 'it:dev:regval:key', 'FooBar', tick),
+            (iden1, 'it:dev:regval:int', 20, tick),
+            (iden1, 'node:ndef', ndef1, tick),
+        ]
+
+        with s_cortex.openstore('ram:///') as stor:
+
+            # force model migration callbacks
+            stor.setModlVers('it', 0)
+
+            def addrows(mesg):
+                stor.addRows(rows)
+
+            stor.on('modl:vers:rev', addrows, name='it', vers=201801041154)
+
+            with s_cortex.fromstore(stor) as core:
+
+                node = core.getTufoByProp('it:dev:regkey', 'foobar')
+
+                self.nn(node)
+                self.eq(node[0], iden0)
+                self.eq(node[1].get('it:dev:regkey'), 'foobar')
+                self.eq(node[1].get('node:ndef'), guid(('it:dev:regkey', 'foobar')))
+
+                node = core.getTufoByProp('it:dev:regval:key', 'foobar')
+
+                self.nn(node)
+                self.eq(node[0], iden1)
+                self.eq(node[1].get('it:dev:regval'), regv)
+                self.eq(node[1].get('it:dev:regval:key'), 'foobar')
+                self.eq(node[1].get('node:ndef'), ndef1)
+
+                nodes = core.getTufosByDark('syn:modl:rev', 'it:201801041154')
+                self.len(2, nodes)
