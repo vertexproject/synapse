@@ -180,6 +180,12 @@ class BadAtomFile(SynErr):
     '''
     pass
 
+class BadHeapFile(SynErr):
+    '''
+    Raised when there is an internal issue with a heapfile
+    '''
+    pass
+
 class IsFini(Exception): pass
 
 class JobErr(Exception):

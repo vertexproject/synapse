@@ -124,10 +124,23 @@ class AxonTest(SynTest):
                     with io.BytesIO(b'durr') as fd:
                         blob3 = prox.eatfd(fd)
 
+                blob4 = axon.eatbytes(b'')
+
         self.eq(blob0[1].get('axon:blob'), '442f602ecf8230b2a59a44b4f845be27')
         self.eq(blob1[1].get('axon:blob'), 'd4552906c1f6966b96d27e6fc79441b5')
         self.eq(blob2[1].get('axon:blob'), '0d60960570ef6da0a15f68c24b420334')
         self.eq(blob3[1].get('axon:blob'), '97c11d1057f75c9c0b79090131709f62')
+        self.eq(blob4[1].get('axon:blob'), '370c1098a47904ea9caeb9f5f71459ba')
+
+    def test_axon_eatfd_empty(self):
+        self.thisHostMustNot(platform='windows')
+
+        with self.getTestDir() as dirname:
+            with s_axon.Axon(dirname) as axon:
+                with io.BytesIO(b'') as fd:
+                    blob0 = axon.eatfd(fd)
+
+        self.eq(blob0[1].get('axon:blob'), '370c1098a47904ea9caeb9f5f71459ba')
 
 class AxonHostTest(SynTest):
     def test_axon_host(self):
@@ -361,6 +374,46 @@ class AxonHostTest(SynTest):
             for axon in host0.axons.values():
                 self.true(axon.isfini)
 
+            # Deleting sync file for host1's axon from host0
+            tgtfn = '{}.off'.format(ciden1)
+            for fdir, dirs, fns in os.walk(datadir):
+                for fn in fns:
+                    if fn == tgtfn:
+                        tgtfp = os.path.join(fdir, fn)
+                        logger.warning('Deleting {}'.format(tgtfp))
+                        os.unlink(tgtfp)
+
+            host0 = s_axon.AxonHost(dir0, **{'axon:hostname': 'host0',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             })
+            host1 = s_axon.AxonHost(dir1, **{'axon:hostname': 'host1',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             })
+            host2 = s_axon.AxonHost(dir2, **{'axon:hostname': 'host2',
+                                             'axon:axonbus': busurl,
+                                             'axon:bytemax': s_axon.megabyte * 100,
+                                             })
+
+            axonc1 = host1.axons.get(ciden1)  # type: s_axon.Axon
+            logger.warning('Waiting for clone to occur')
+            time.sleep(3)
+
+            blob = blobs[-1]
+            form, pprop = s_tufo.ndef(blob)
+
+            ret = axonc1.byiden(pprop)
+            self.nn(ret)
+            logger.warning('Checking byts')
+            cbyts = b''.join([blob for blob in axonc1.iterblob(ret)])
+            self.eq(cbyts, byts)
+
+            # Fini the hosts
+            host0.fini()
+            host1.fini()
+            host2.fini()
+
         dmon.fini()
 
     def test_axon_host_bounce_sync(self):
@@ -528,6 +581,16 @@ class AxonHostTest(SynTest):
             logger.warning('Tearing down host0 object as well before recreating it')
             axon0.fini()
             host0.fini()
+
+            # Deleting sync file for host1's axon from host0
+            tgtfn = '{}.off'.format(ciden1)
+            for fdir, dirs, fns in os.walk(datadir):
+                for fn in fns:
+                    if fn == tgtfn:
+                        tgtfp = os.path.join(fdir, fn)
+                        logger.warning('Deleting {}'.format(tgtfp))
+                        os.unlink(tgtfp)
+
             w = sbusprox.waiter(2, 'syn:svc:init')
             host0 = s_axon.AxonHost(dir0, **{'axon:hostname': 'host1',
                                              'axon:axonbus': busurl,

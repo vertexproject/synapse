@@ -261,6 +261,9 @@ class AxonMixin:
         sess = self.alloc(props.get('size'))
 
         byts = fd.read(10000000)
+        retn = self.chunk(sess, byts)
+
+        byts = fd.read(10000000)
         while byts:
             retn = self.chunk(sess, byts)
             byts = fd.read(10000000)
@@ -1037,8 +1040,7 @@ class Axon(s_config.Config, AxonMixin):
         if self.getConfOpt('axon:ro'):
             raise s_common.NotSupported(mesg='Axon Is Read-Only - cannot allocate new blobs.')
 
-        # This is slightly crude since it ignores the possible overhead of the Heapfile structures.
-        hsize = self.heap.used
+        hsize = self.heap.heapSize()
         bytmax = self.getConfOpt('axon:bytemax')
         if (hsize + size) > bytmax:
             raise s_common.NotEnoughFree(mesg='Not enough free space on the heap to allocate bytes.',
