@@ -1563,8 +1563,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             core.splice(mesg)
 
         '''
-        data = mesg[1]['mesg']
-        self.spliceact.react(data[1], name=data[0])
+        act, _mesg = mesg[1].get('mesg')
+        self.spliceact.react(_mesg, name=act)
 
     @s_telepath.clientside
     def addSpliceFd(self, fd):
