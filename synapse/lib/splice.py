@@ -34,8 +34,10 @@ def convertOldSplice(mesg):
     Args:
         mesg ((str,dict)):  An event tuple.
 
-    Example:
-        newsplice = convertOldSplice(oldsplice)
+    Examples:
+        Convert a splice to the new format:
+
+            newsplice = convertOldSplice(oldsplice)
 
     Returns:
         (str, dict): The splice event.
