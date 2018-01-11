@@ -5,7 +5,7 @@ v0.0.44 - 2018-01-11
 --------------------
 
 ## Notices related to v0.0.44
-The minimum version of msgpack used by Synapse has been upgraded to be at least 0.5.0. This is complicated by the fact that the ``msgpack-python package`` was renamed to ``msgpack`` by its maintainers. Installation of Synapse from PyPi using the sdist and wheel packages should upgrade msgpack in a working state, and docker image users should not be affected by this change. Users which directly use a checkout of the Synapse Github repository should uninstall msgpack-python and then install msgpack.  This can be done with the following commands (you may need to adjust them for your installation; accounting for aliases or the user of `python3`, etc):
+The minimum version of msgpack used by Synapse has been upgraded to be at least 0.5.0. This is complicated by the fact that the ``msgpack-python package`` was renamed to ``msgpack`` by its maintainers. Installation of Synapse from PyPi using the sdist and wheel packages should upgrade msgpack in a working state, and docker image users should not be affected by this change. Users which directly use a checkout of the Synapse Github repository should uninstall msgpack-python and then install msgpack.  This can be done with the following commands (you may need to adjust them for your installation; accounting for aliases or the use of `python3`, etc):
 
 - `python -m pip uninstall msgpack-python`
 - `python -m pip install msgpack`
@@ -34,7 +34,7 @@ The ``synapse.lib.heap.Heapfile`` and ``synapse.axon.Axon`` structures are plann
 
 ## Bugs
 - #591 - ``synapse.lib.cache.KeyCache`` behavior updated to no longer store cache valus if they are None.  If None was cached, that value was unable to be updated later.
-- #594, #597 - Fix Ingest user docs which were using outdated forms.
+- #594, #597 - Fix Ingest user docs which were using outdated forms. Thanks @tn3rt for the bug report!
 - #599 - Fix ``AxonMixin.eatfd()`` and ``AxonMixin.eatbytes()`` to allow file descriptors and bytes which have zero bytes to be consumed.
 
 ## Documentation
