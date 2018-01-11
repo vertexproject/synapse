@@ -16,7 +16,33 @@ asdfhash_iden = '1c753abfe85b4cbe46584fa5b1834fa4'
 
 logger = logging.getLogger(__name__)
 
-class AxonTest(SynTest):
+class AxonTstBase(SynTest):
+    def check_axon_status_keys(self, props, isclone=False):
+        ekeys = {
+            'heap:used': int,
+            'heap:atomsize': int,
+            'inprog': dict,
+            'clones:ready': bool,
+            'clones:clonesready': tuple,
+            'clones:clonehosts': tuple,
+            'sync:size': int,
+            'sync:idens': tuple,
+            'sync:poffs': dict,
+            'thrs:len': int,
+            'time': int,
+        }
+        if isclone:
+            ekeys.pop('sync:size')
+            ekeys.pop('sync:poffs')
+            ekeys.pop('sync:idens')
+
+        self.sorteq(props.keys(), ekeys.keys())
+
+        for k, t in ekeys.items():
+            self.isinstance(props.get(k), t)
+
+class AxonTest(AxonTstBase):
+
     def test_axon_basics(self):
         with self.getTestDir() as axondir:
             with s_axon.Axon(axondir) as axon:  # type: s_axon.Axon
@@ -58,19 +84,6 @@ class AxonTest(SynTest):
                 iden1 = axon.alloc(8)
                 axon.chunk(iden1, b'hehe')
 
-                ekeys = [
-                    'heap:used',
-                    'heap:atomsize',
-                    'inprog',
-                    'clones:ready',
-                    'clones:clonesready',
-                    'clones:clonehosts',
-                    'sync:size',
-                    'sync:idens',
-                    'sync:poffs',
-                    'thrs:len',
-                    'time',
-                ]
                 tick = now()
                 stfo = axon.getAxonStatus()
 
@@ -78,48 +91,26 @@ class AxonTest(SynTest):
                 sprops = s_tufo.props(stfo)
                 self.eq(pprop, axon.iden)
                 self.eq(form, 'axon:stats')
-                self.sorteq(sprops.keys(), ekeys)
-
-                self.isinstance(sprops.get('clones:ready'), bool)
+                self.check_axon_status_keys(sprops, False)
                 self.false(sprops.get('clones:ready'))
-
-                self.isinstance(sprops.get('clones:clonesready'), tuple)
                 self.eq(sprops.get('clones:clonesready'), ())
-
-                self.isinstance(sprops.get('clones:clonehosts'), tuple)
                 self.eq(sprops.get('clones:clonehosts'), ())
-
-                self.isinstance(sprops.get('heap:atomsize'), int)
                 self.gt(sprops.get('heap:atomsize'), 0)
-
-                self.isinstance(sprops.get('heap:used'), int)
                 self.gt(sprops.get('heap:used'), 0)
-
                 self.ge(sprops.get('heap:atomsize'), sprops.get('heap:used'))
-
-                self.isinstance(sprops.get('inprog'), dict)
                 inprogd = sprops.get('inprog')
                 self.len(1, inprogd)
                 progd = inprogd.get(iden1)
                 self.eq(progd.get('size'), 8)
                 self.eq(progd.get('maxoff') - progd.get('off'), 8)
                 self.eq(progd.get('cur') - progd.get('off'), 4)
-
-                self.isinstance(sprops.get('sync:idens'), tuple)
                 self.len(0, sprops.get('sync:idens'))
-
-                self.isinstance(sprops.get('sync:poffs'), dict)
                 self.len(0, sprops.get('sync:poffs'))
-
-                self.isinstance(sprops.get('sync:size'), int)
                 self.gt(sprops.get('sync:size'), 0)
-
-                self.isinstance(sprops.get('thrs:len'), int)
                 self.eq(sprops.get('thrs:len'), 0)
-
-                self.isinstance(sprops.get('time'), int)
                 self.lt(sprops.get('time') - tick, 1000)
 
+                # Finish the bytes for iden1
                 blob = axon.chunk(iden1, b'haha')
                 self.nn(blob)
                 stfo = axon.getAxonStatus()
@@ -227,7 +218,7 @@ class AxonTest(SynTest):
 
         self.eq(blob0[1].get('axon:blob'), '370c1098a47904ea9caeb9f5f71459ba')
 
-class AxonHostTest(SynTest):
+class AxonHostTest(AxonTstBase):
     def test_axon_host(self):
 
         self.thisHostMustNot(platform='windows')
@@ -411,19 +402,6 @@ class AxonHostTest(SynTest):
             iden1 = axon0.alloc(8)
             axon0.chunk(iden1, b'hehe')
 
-            ekeys = [
-                'heap:used',
-                'heap:atomsize',
-                'inprog',
-                'clones:ready',
-                'clones:clonesready',
-                'clones:clonehosts',
-                'sync:size',
-                'sync:idens',
-                'sync:poffs',
-                'thrs:len',
-                'time',
-            ]
             tick = now()
             stfo = axon0.getAxonStatus()
 
@@ -431,46 +409,23 @@ class AxonHostTest(SynTest):
             sprops = s_tufo.props(stfo)
             self.eq(pprop, axfo0[1].get('opts').get('axon:iden'))
             self.eq(form, 'axon:stats')
-            self.sorteq(sprops.keys(), ekeys)
-
-            self.isinstance(sprops.get('clones:ready'), bool)
+            self.check_axon_status_keys(sprops, False)
             self.true(sprops.get('clones:ready'))
-
-            self.isinstance(sprops.get('clones:clonesready'), tuple)
             self.len(2, sprops.get('clones:clonesready'))
-
-            self.isinstance(sprops.get('clones:clonehosts'), tuple)
             self.eq(sprops.get('clones:clonehosts'), ('host1', 'host2'))
-
-            self.isinstance(sprops.get('heap:atomsize'), int)
             self.gt(sprops.get('heap:atomsize'), 0)
-
-            self.isinstance(sprops.get('heap:used'), int)
             self.gt(sprops.get('heap:used'), 0)
-
             self.ge(sprops.get('heap:atomsize'), sprops.get('heap:used'))
-
-            self.isinstance(sprops.get('inprog'), dict)
             inprogd = sprops.get('inprog')
             self.len(1, inprogd)
             progd = inprogd.get(iden1)
             self.eq(progd.get('size'), 8)
             self.eq(progd.get('maxoff') - progd.get('off'), 8)
             self.eq(progd.get('cur') - progd.get('off'), 4)
-
-            self.isinstance(sprops.get('sync:idens'), tuple)
             self.len(2, sprops.get('sync:idens'))
-
-            self.isinstance(sprops.get('sync:poffs'), dict)
             self.len(2, sprops.get('sync:poffs'))
-
-            self.isinstance(sprops.get('sync:size'), int)
             self.gt(sprops.get('sync:size'), 0)
-
-            self.isinstance(sprops.get('thrs:len'), int)
             self.eq(sprops.get('thrs:len'), 2)
-
-            self.isinstance(sprops.get('time'), int)
             self.lt(sprops.get('time') - tick, 1000)
 
             blob = axon0.chunk(iden1, b'haha')
@@ -482,12 +437,8 @@ class AxonHostTest(SynTest):
             cstfo = axonc1.getAxonStatus()
             cform, cpprop = s_tufo.ndef(cstfo)
             csprops = s_tufo.props(cstfo)
-
+            self.check_axon_status_keys(csprops, True)
             self.isin(cpprop, sprops.get('clones:clonesready'))
-            self.notin('sync:idens', csprops)
-            self.notin('sync:size', csprops)
-            self.notin('sync:poffs', csprops)
-            self.isin('time', csprops)
 
             # The axonhosts also have stats
             tick = now()
@@ -1017,7 +968,7 @@ class AxonHostTest(SynTest):
                 # Close the proxy
                 svcbus.fini()
 
-class AxonClusterTest(SynTest):
+class AxonClusterTest(AxonTstBase):
     def test_axon_cluster(self):
         self.skipLongTest()
         self.thisHostMustNot(platform='windows')
