@@ -26,11 +26,11 @@ class SpliceTest(SynTest):
         actual = s_splice.convertOldSplice(oldsplice)
         self.eq(actual, expected)
 
-        self.none(s_splice.convertOldSplice(None))
-        self.none(s_splice.convertOldSplice(1))
-        self.none(s_splice.convertOldSplice(('splice', {})))
-        self.none(s_splice.convertOldSplice(('splicer', {})))
-        self.none(s_splice.convertOldSplice(expected))
+        self.raises(BadSpliceMesg, s_splice.convertOldSplice, None)
+        self.raises(BadSpliceMesg, s_splice.convertOldSplice, 1)
+        self.raises(BadSpliceMesg, s_splice.convertOldSplice, ('splice', {}))
+        self.raises(BadSpliceMesg, s_splice.convertOldSplice, ('splicer', {}))
+        self.raises(BadSpliceMesg, s_splice.convertOldSplice, expected)
 
     def test_convertSpliceFd(self):
 

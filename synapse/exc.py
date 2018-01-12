@@ -112,6 +112,9 @@ class WebAppErr(SynErr): pass
 class BadUrl(Exception): pass
 class BadJson(Exception): pass
 class BadMesgResp(Exception): pass
+class BadSpliceMesg(SynErr):
+    '''The splice message was invalid'''
+    pass
 class BadPropValu(SynErr): pass
 class BadPySource(Exception): pass
 

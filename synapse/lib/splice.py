@@ -39,23 +39,28 @@ def convertOldSplice(mesg):
 
             newsplice = convertOldSplice(oldsplice)
 
+    Raises:
+        (BadSpliceMesg): The splice was unable to be converted.
+
     Returns:
         (str, dict): The splice event.
     '''
     if not(isinstance(mesg, tuple) and len(mesg) is 2):
-        return  # not a valid event
+        raise s_common.BadSpliceMesg('invalid event mesg')
 
     evtname = mesg[0]
     if evtname != 'splice':
-        return  # not a splice
+        raise s_common.BadSpliceMesg('event mesg is not a splice')
 
     data = mesg[1]
     if data.get('mesg'):
-        return  # already a "new" splice
+        raise s_common.BadSpliceMesg('splice has already been converted')
 
     act = mesg[1].pop('act', None)
-    if act:
-        return splice(act, **data)
+    if not act:
+        raise s_common.BadSpliceMesg('splice is missing act')
+
+    return splice(act, **data)
 
 def convertSpliceFd(fpath):
     '''
