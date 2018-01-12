@@ -75,9 +75,9 @@ def convertSpliceFd(fpath):
     Notes:
         This function reads the an "old" splice log file, writes to a temporary
         file, and then overwrites the old file with the new data. This function
-        only converts old splices to new splices. All other messages will be
-        written back into the new file as-is (including any "new" splices mixed
-        in with "old" splices).
+        only converts old splices to new splices. If any messages are invalid,
+        an exception will be raised and the conversion will exit early and not
+        overwrite any data.
 
     Returns:
         None
