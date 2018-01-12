@@ -100,10 +100,6 @@ def addpref(pref, info):
 def tufo(typ, **kwargs):
     return (typ, kwargs)
 
-def splice(act, **info):
-    info['act'] = act
-    return ('splice', info)
-
 def vertup(vstr):
     '''
     Convert a version string to a tuple.

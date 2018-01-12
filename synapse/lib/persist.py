@@ -145,7 +145,7 @@ class Dir(s_eventbus.EventBus):
 
         with self.lock:
             if self.pumps.get(iden):
-                raise Exception('Duplicate Pump Iden: %s' % (iden,))
+                raise Exception('Duplicate Pump Iden: %s' % (iden,))  # FIXME raise more specific exception type
 
         self._runPumpThread(iden, func)
 
@@ -281,7 +281,7 @@ class Dir(s_eventbus.EventBus):
         poff = off
 
         if self.files[0].opts.get('baseoff') > off:
-            raise Exception('Too Far Back') # FIXME
+            raise Exception('Too Far Back')  # FIXME raise more specific exception type
 
         logger.debug('Entering items with offset %s', off)
 

@@ -4,6 +4,7 @@ import regex
 
 import synapse.data as s_data
 import synapse.common as s_common
+import synapse.lib.splice as s_splice
 
 tldlist = list(s_data.get('iana.tlds'))
 
@@ -51,7 +52,7 @@ def splices(text, tags=()):
         done.add(formvalu)
         form, valu = formvalu
 
-        mesg = s_common.splice('node:add', form=form, valu=valu, tags=tags)
+        mesg = s_splice.splice('node:add', form=form, valu=valu, tags=tags)
 
         ret.append(mesg)
 

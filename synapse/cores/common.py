@@ -1453,15 +1453,17 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             self.cache_byprop.clear()
 
     def _actNodeAdd(self, mesg):
-        form = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-        props = mesg[1].get('props', {})
+
+        form = mesg.get('form')
+        valu = mesg.get('valu')
+        props = mesg.get('props', {})
 
         node = self.formTufoByProp(form, valu, **props)
 
     def _actNodeDel(self, mesg):
-        form = mesg[1].get('form')
-        valu = mesg[1].get('valu')
+
+        form = mesg.get('form')
+        valu = mesg.get('valu')
 
         node = self.getTufoByProp(form, valu=valu)
         if node is None:
@@ -1470,57 +1472,59 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.delTufo(node)
 
     def _actNodePropSet(self, mesg):
-        form = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-        prop = mesg[1].get('prop')
-        newv = mesg[1].get('newv')
+
+        form = mesg.get('form')
+        valu = mesg.get('valu')
+        prop = mesg.get('prop')
+        newv = mesg.get('newv')
 
         node = self.formTufoByProp(form, valu)
         self.setTufoProp(node, prop, newv)
 
     def _actNodePropDel(self, mesg):
-        form = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-        prop = mesg[1].get('prop')
+
+        form = mesg.get('form')
+        valu = mesg.get('valu')
+        prop = mesg.get('prop')
 
         node = self.formTufoByProp(form, valu)
         self.delTufoProp(node, prop)
 
     def _actNodeTagAdd(self, mesg):
 
-        tag = mesg[1].get('tag')
-        form = mesg[1].get('form')
-        valu = mesg[1].get('valu')
+        tag = mesg.get('tag')
+        form = mesg.get('form')
+        valu = mesg.get('valu')
 
         node = self.formTufoByProp(form, valu)
         self.addTufoTag(node, tag)
 
     def _actNodeTagDel(self, mesg):
 
-        tag = mesg[1].get('tag')
-        form = mesg[1].get('form')
-        valu = mesg[1].get('valu')
+        tag = mesg.get('tag')
+        form = mesg.get('form')
+        valu = mesg.get('valu')
 
         node = self.formTufoByProp(form, valu)
         self.delTufoTag(node, tag)
 
     def _actNodeIvalSet(self, mesg):
-        form = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-        prop = mesg[1].get('prop')
-        ival = mesg[1].get('ival')
+
+        form = mesg.get('form')
+        valu = mesg.get('valu')
+        prop = mesg.get('prop')
+        ival = mesg.get('ival')
 
         node = self.formTufoByProp(form, valu)
-
         self.setTufoIval(node, prop, ival)
 
     def _actNodeIvalDel(self, mesg):
-        form = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-        prop = mesg[1].get('prop')
+
+        form = mesg.get('form')
+        valu = mesg.get('valu')
+        prop = mesg.get('prop')
 
         node = self.formTufoByProp(form, valu)
-
         self.delTufoIval(node, prop)
 
     def splices(self, msgs):
@@ -1559,8 +1563,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             core.splice(mesg)
 
         '''
-        act = mesg[1].get('act')
-        self.spliceact.react(mesg, name=act)
+        act, _mesg = mesg[1].get('mesg')
+        self.spliceact.react(_mesg, name=act)
 
     @s_telepath.clientside
     def addSpliceFd(self, fd):
@@ -1573,7 +1577,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             core.addSpliceFd(fd)
         '''
         def save(mesg):
-            fd.write(s_msgpack.en(mesg))
+            fd.write(s_msgpack.en(mesg[1]['mesg']))
         self.on('splice', save)
 
     def eatSpliceFd(self, fd):
@@ -1588,7 +1592,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         '''
         for chnk in s_common.chunks(s_msgpack.iterfd(fd), 1000):
-            self.splices(chnk)
+            self.splices(tuple(('splice', {'mesg': item}) for item in chnk))
 
     def _onDelSynTag(self, mesg):
         # deleting a tag node.  delete all sub tags and wipe tufos.
