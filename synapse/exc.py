@@ -190,6 +190,12 @@ class BadHeapFile(SynErr):
     '''
     pass
 
+class BadBlobFile(SynErr):
+    '''
+    Raised when there is an internal issue with a blobfile
+    '''
+    pass
+
 class IsFini(Exception): pass
 
 class JobErr(Exception):
