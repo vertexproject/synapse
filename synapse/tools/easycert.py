@@ -17,7 +17,7 @@ def main(argv, outp=None):
 
     pars = argparse.ArgumentParser(prog='easycert', description=descr)
     pars.add_argument('--certdir', default='~/.syn/certs', help='Directory for certs/keys')
-    pars.add_argument('--importfile', default=False, action='store_true', help='import certs and/or keys')
+    pars.add_argument('--importfile', choices=('cas', 'hosts', 'users'), help='import certs and/or keys into local certdir')
 
     pars.add_argument('--ca', default=False, action='store_true', help='mark the certificate as a CA/CRL signer')
     pars.add_argument('--p12', default=False, action='store_true', help='mark the certificate as a p12 archive')
@@ -37,7 +37,7 @@ def main(argv, outp=None):
     try:
 
         if opts.importfile:
-            cdir.importFiles(opts.name, outp=outp)
+            cdir.importFile(opts.name, opts.importfile, outp=outp)
             return 0
 
         if opts.p12:
