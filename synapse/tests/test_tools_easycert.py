@@ -118,3 +118,6 @@ class TestEasyCert(SynTest):
             argv = ['--certdir', path, '--sign-csr', 'lololol', ]
             self.eq(s_easycert.main(argv, outp=outp), -1)
             self.true(outp.expect('--sign-csr requires --signas'))
+
+    def test_easycert_importfile(self):
+        pass  # FIXME

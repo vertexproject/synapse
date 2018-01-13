@@ -3,6 +3,7 @@ from contextlib import contextmanager
 
 from OpenSSL import crypto, SSL
 
+import synapse.common as s_common
 from synapse.tests.common import *
 import synapse.lib.certdir as s_certdir
 
@@ -405,3 +406,24 @@ class CertDirTest(SynTest):
             cert = cdir.getUserCert(username)
             key = cdir.getUserKey(username)
             self.basic_assertions(cdir, cert, key, cacert=cacert)
+
+    def test_certdir_importfile(self):
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+            with self.getTestDir() as testpath:
+
+                # File doesn't exist
+                fpath = s_common.genpath(testpath, 'not_real.crt')
+                self.raises(NoSuchFile, cdir.importFile, fpath, 'cas')
+
+                # File has unsupported extension
+                fpath = s_common.genpath(testpath, 'coolpic.bmp')
+                with s_common.genfile(fpath) as fd:
+                    self.raises(BadFileExt, cdir.importFile, fpath, 'cas')
+
+                # File is successfully copied
+                fpath = s_common.genpath(testpath, 'realcert.crt')
+                with s_common.genfile(fpath) as fd:
+                    self.none(cdir.importFile(fpath, 'cas'))
+                    self.raises(FileExists, cdir.importFile, fpath, 'cas')
+
+                # FIXME test other paths / extensions / make sure bytes are same on both ends
