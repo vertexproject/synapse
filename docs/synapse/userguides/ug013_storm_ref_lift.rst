@@ -178,11 +178,17 @@ alltag()
 
 Lifts a set of nodes based on one or more tags.
 
+Optional parameters:
+
+* **Return limit:** specify the maximum number of nodes to be returned by the alltag query.
+
+  * ``limit=`` (operator syntax)
+
 **Operator Syntax:**
 
 .. parsed-literal::
   
-  **alltag(** *<tag>* [ **,** ...] **)**
+  **alltag(** *<tag>* [ **,** ...] **, limit=** *<limit>* **)**
   
 **Macro Syntax:**
 
@@ -191,11 +197,17 @@ Lifts a set of nodes based on one or more tags.
   **#** *<tag>* ...
   
 **Examples:**
+
 *Lifts all nodes that have the tag foo.bar or the tag baz.faz.*
 ::
   alltag( foo.bar , baz.faz )
   
   #foo.bar #baz.faz
+
+*Lifts up to three nodes that have the tag foo.bar*
+::
+  alltag( foo.bar , limit=3)
+
 
 **Usage Notes:**
 
