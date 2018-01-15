@@ -1482,7 +1482,7 @@ class Runtime(Configable):
             limits (list):  A list of int/None limits
 
         Returns:
-            (LimitHelp)
+            LimitHelp: A LimitHelp object.
 
         '''
         limit = self.getLiftLimit(*limits)
