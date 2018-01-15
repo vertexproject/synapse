@@ -1464,15 +1464,15 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         leaf = opts.get('leaf', True)
-        limt = opts.get('limit', 0)
-        if limt < 0:
+        limt = self.getLiftLimitHelp(opts.get('limit'))
+        limtv = limt.get()
+
+        if limtv and limtv < 0:
             raise s_common.BadOperArg(oper='totags', name='limit', mesg='limit must be >= 0')
 
         tags = list({tag for node in nodes for tag in s_tufo.tags(node, leaf=leaf)})
-        if limt > 0:
-            tags = tags[0:limt]
 
-        [query.add(tufo) for tufo in core.getTufosBy('in', 'syn:tag', tags)]
+        [query.add(tufo) for tufo in core.getTufosBy('in', 'syn:tag', tags, limit=limtv)]
 
     def getLiftLimitHelp(self, *limits):
         '''
