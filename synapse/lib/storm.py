@@ -1435,10 +1435,9 @@ class Runtime(Configable):
 
                 nodes = core.getTufosByTag(tag, limit=limt.get())
 
-                limt.dec(len(nodes))
                 [query.add(n) for n in nodes]
 
-                if limt.reached():
+                if limt.dec(len(nodes)):
                     break
 
             return
@@ -1452,10 +1451,9 @@ class Runtime(Configable):
 
                 nodes = core.getTufosByTag(tag, form=form, limit=limt.get())
 
-                limt.dec(len(nodes))
                 [query.add(n) for n in nodes]
 
-                if limt.reached():
+                if limt.dec(len(nodes)):
                     break
 
     def _stormOperToTags(self, query, oper):
