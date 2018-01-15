@@ -1051,6 +1051,9 @@ class StormTest(SynTest):
             nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=3)')
             self.len(6, nodes)
 
+            nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, limit=4)')
+            self.len(5, nodes)  # 1 src node + 4 additional nodes lifted
+
             nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=12345)')
             self.len(6, nodes)
 

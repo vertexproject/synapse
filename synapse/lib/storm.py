@@ -1571,6 +1571,8 @@ class Runtime(Configable):
         if not args:
             raise s_common.BadSyntaxError(mesg='tree([<srcprop>], <destprop>, [recurlim=<limit>])')
 
+        limt = self.getLiftLimitHelp(opts.get('limit'))
+
         core = self.getStormCore()
 
         # Prevent infinite pivots
@@ -1625,7 +1627,12 @@ class Runtime(Configable):
             if not qvals:
                 break
 
-            [query.add(t) for t in self.stormTufosBy('in', dstp, qvals, limit=opts.get('limit'))]
+            nodes = core.stormTufosBy('in', dstp, qvals, limit=limt.get())
+
+            [query.add(n) for n in nodes]
+
+            if limt.dec(len(nodes)):
+                break
 
             queried_vals = queried_vals.union(vals)
 
