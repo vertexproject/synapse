@@ -49,6 +49,7 @@ class CertDir:
         s_common.gendir(path, 'users')
 
         self.certdir = s_common.reqdir(path)
+        self.path = path
 
     def genCaCert(self, name, signas=None, outp=None):
         '''
