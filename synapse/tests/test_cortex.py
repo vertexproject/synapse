@@ -1070,6 +1070,7 @@ class CortexTest(SynTest):
                 self.gt(len(os.listdir(fifo_dir)), 0)  # did should be populated
                 self.none(core.delCoreMembrane(name))  # returns none
                 self.raises(FileNotFoundError, os.listdir, fifo_dir)  # should not exist
+                self.len(0, core.getTufosByProp('syn:fifo'))
                 self.none(core.getCoreFifo(name))  # should be removed
 
                 actual = []
