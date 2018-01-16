@@ -82,6 +82,10 @@ class TestEasyCert(SynTest):
             self.true(outp.expect('csr saved'))
             self.true(outp.expect('www.vertex.link.csr'))
 
+            outp = self.getTestOutp()
+            argv = ['--csr', '--certdir', path, 'intermed', '--ca']
+            self.raises(NotImplementedError, s_easycert.main, argv, outp=outp)
+
             # Ensure that duplicate files won't be overwritten
             outp = self.getTestOutp()
             argv = ['--csr', '--certdir', path, 'user@test.com']

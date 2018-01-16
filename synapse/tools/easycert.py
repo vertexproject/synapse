@@ -66,8 +66,7 @@ def main(argv, outp=None):
         if opts.csr:
 
             if opts.ca:
-                cdir.genCaCsr(opts.name, outp=outp)
-                raise Exception('CSR for CA cert not supported (yet)')
+                raise NotImplementedError('CSR for CA cert not supported (yet)')
 
             if opts.server:
                 cdir.genHostCsr(opts.name, outp=outp)
