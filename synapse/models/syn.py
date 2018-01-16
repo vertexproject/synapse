@@ -57,8 +57,8 @@ class SynMod(CoreModule):
                     ('role', {'ptype': 'syn:auth:role'}),
                 )),
 
-                ('syn:fifo', {'ptype': 'guid', 'local': 1}, (
-                    ('name', {'ptype': 'str', 'doc': 'The name of this fifo'}),
+                ('syn:fifo', {'ptype': 'comp', 'fields': 'name=str:lwr', 'local': 1}, (
+                    ('name', {'ptype': 'str:lwr', 'doc': 'The fifo description'}),
                     ('desc', {'ptype': 'str', 'doc': 'The fifo description'}),
                 )),
 
