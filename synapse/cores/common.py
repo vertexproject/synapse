@@ -3757,7 +3757,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _onSetMembranes(self, membranes):
         [self._initMembrane(name, rules) for name, rules in membranes]
 
-    # TODO plumb in some way to consume/handle fifo message
     def _initMembrane(self, name, rules):
         if self._core_membranes.get(name):
             raise s_common.MembraneExists()

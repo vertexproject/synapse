@@ -1066,7 +1066,12 @@ class CortexTest(SynTest):
                 self.eq(actual_msgs, expected)
 
                 # remove and re-add the membrane, subscribe again and make sure it is empty
-                self.none(core.delCoreMembrane(name))
+                fifo_dir = core.getCoreFifo(name).getConfOpt('dir')
+                self.gt(len(os.listdir(fifo_dir)), 0)  # did should be populated
+                self.none(core.delCoreMembrane(name))  # returns none
+                self.raises(FileNotFoundError, os.listdir, fifo_dir)  # should not exist
+                self.none(core.getCoreFifo(name))  # should be removed
+
                 actual = []
                 core.subCoreFifo(name, actual.append)
                 actual_msgs = [msg[2] for msg in actual]
