@@ -2859,6 +2859,8 @@ class CortexTest(SynTest):
                 self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
 
                 node = core.formTufoByProp('syn:fifo', '*', name='haha')
+                self.raises(NoSuchFifo, core.getCoreFifo, 'shouldnotexist')
+
                 path = core.getCorePath('fifos', node[1].get('syn:fifo'))
 
                 sent = []
