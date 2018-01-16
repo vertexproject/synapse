@@ -592,6 +592,9 @@ class CertDir:
         Examples:
             importFile('mycoolca.crt', 'cas')
 
+        Notes:
+            importFile does not perform any validation on the files it imports.
+
         Returns:
             None
         '''
