@@ -613,6 +613,8 @@ class CertDir:
             raise s_common.FileExists('File already exists')
 
         shutil.copy(path, newpath)
+        if outp is not None:
+            outp.printf('copied %s to %s' % (path, newpath))
 
     def isCaCert(self, name):
         '''
