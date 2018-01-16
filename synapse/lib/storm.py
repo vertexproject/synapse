@@ -704,6 +704,20 @@ class Runtime(Configable):
 
         return answ.get('data')
 
+    def getLiftLimitHelp(self, *limits):
+        '''
+        Return a LimitHelp object for the specified limits or defaults.
+
+        Args:
+            limits (list):  A list of int/None limits
+
+        Returns:
+            LimitHelp: A LimitHelp object.
+
+        '''
+        limit = self.getLiftLimit(*limits)
+        return LimitHelp(limit)
+
     def _reqOperArg(self, oper, name):
         valu = oper[1].get(name)
         if valu is None:
@@ -1437,20 +1451,6 @@ class Runtime(Configable):
 
         [query.add(tufo) for tufo in core.getTufosBy('in', 'syn:tag', tags, limit=limtv)]
 
-    def getLiftLimitHelp(self, *limits):
-        '''
-        Return a LimitHelp object for the specified limits or defaults.
-
-        Args:
-            limits (list):  A list of int/None limits
-
-        Returns:
-            LimitHelp: A LimitHelp object.
-
-        '''
-        limit = self.getLiftLimit(*limits)
-        return LimitHelp(limit)
-
     def _stormOperFromTags(self, query, oper):
         args = oper[1].get('args')
         opts = dict(oper[1].get('kwlist'))
@@ -1610,8 +1610,6 @@ class Runtime(Configable):
         args = oper[1].get('args')
         opts = dict(oper[1].get('kwlist'))
 
-        core = self.getStormCore()
-
         if not args:
             raise s_common.BadSyntaxError(mesg='delprop(<prop>, [force=1]>')
 
@@ -1624,6 +1622,7 @@ class Runtime(Configable):
         if not prop:
             raise s_common.BadSyntaxError(mesg='delprop(<prop>, [force=1]>')
 
+        core = self.getStormCore()
         force, _ = core.getTypeNorm('bool', opts.get('force', 0))
 
         if not force:
