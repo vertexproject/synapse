@@ -420,10 +420,30 @@ class CertDirTest(SynTest):
                 with s_common.genfile(fpath) as fd:
                     self.raises(BadFileExt, cdir.importFile, fpath, 'cas')
 
-                # File is successfully copied
-                fpath = s_common.genpath(testpath, 'realcert.crt')
-                with s_common.genfile(fpath) as fd:
-                    self.none(cdir.importFile(fpath, 'cas'))
-                    self.raises(FileExists, cdir.importFile, fpath, 'cas')
+                tests = (
+                    ('cas', 'coolca.crt'),
+                    ('cas', 'coolca.key'),
+                    ('hosts', 'coolhost.crt'),
+                    ('hosts', 'coolhost.key'),
+                    ('users', 'cooluser.crt'),
+                    ('users', 'cooluser.key'),
+                )
+                data = b'arbitrary data'
+                for ftype, fname in tests:
+                    srcpath = s_common.genpath(testpath, fname)
+                    dstpath = s_common.genpath(cdir.path, ftype, fname)
 
-                # FIXME test other paths / extensions / make sure bytes are same on both ends
+                    with s_common.genfile(srcpath) as fd:
+                        fd.write(b'arbitrary data')
+                        fd.seek(0)
+
+                        # Make sure the file is not there
+                        self.raises(NoSuchFile, s_common.reqfile, dstpath)
+
+                        # Import it and make sure it exists
+                        self.none(cdir.importFile(srcpath, ftype))
+                        with s_common.reqfile(dstpath) as dstfd:
+                            self.eq(dstfd.read(), b'arbitrary data')
+
+                        # Make sure it can't be overwritten
+                        self.raises(FileExists, cdir.importFile, srcpath, ftype)
