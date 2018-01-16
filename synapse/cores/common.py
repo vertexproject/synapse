@@ -439,7 +439,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         fifo.resync(xmit=xmit)
 
     def _initCoreFifo(self, name):
-        node = self.getTufoByProp('syn:fifo:name')
+        node = self.getTufoByProp('syn:fifo:name', name)
         if node is None:
             raise s_common.NoSuchFifo(name=name)
 
