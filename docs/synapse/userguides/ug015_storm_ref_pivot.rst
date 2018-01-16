@@ -100,6 +100,7 @@ Optional parameters:
 
 **Usage notes:**
 
+* ``pivot()`` does consume nodes by design.
 * If the source property for the pivot is the primary property of the working set of nodes, *<srcprop>* can be omitted from both Operator and Macro syntax.
 * If the source property for the pivot is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source properties are, by definition, properties from the working set of nodes.
 * The ``limit=`` parameter can be provided as input to the ``pivot()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``pivot()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
@@ -112,7 +113,7 @@ Returns the current (working) set of nodes **and** the set of nodes that share a
 
 Optional parameters:
 
-* **Return limit**: specify the maximum number of nodes returned by the ``join()`` query.
+* **Return limit**: specify the maximum number of nodes added to the current working set by the ``join()`` query.
   
   * ``limit=`` (operator syntax)
 
@@ -162,13 +163,13 @@ Optional parameters:
 
 **Usage notes:**
 
-* ``join()`` does not consume nodes by design.
+* ``join()`` does not consume nodes, so the results of a ``join()`` operation will include both the original working set as well as the resulting set of nodes.
 * If the source property for the join is the primary property of the working set of nodes, *<srcprop>* can be omitted from both Operator and Macro syntax.
 * If the source property for the join is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source properties are, by definition, properties from the working set of nodes.
 * The ``limit=`` parameter can be provided as input to the ``join()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``join()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 * Because ``join()`` does not consume nodes, this impacts the results returned by either the ``limit=`` parameter or the ``limit()`` operator.
   
-  * The ``limit=`` parameter will return **all** of the original nodes, **plus** the specified number of results (if ``limit=10`` and the number of working nodes was eight, this will return 18 nodes).
+  * The ``limit=`` parameter will return **all** of the original nodes, **plus** the specified number of results (if ``limit=10`` and the number of working nodes was eight, this will return up to 18 total nodes).
   * The ``limit()`` operator will return a **total** number of nodes equal to the specified limit, first including the original working nodes and then including resulting nodes (if ``limit=10`` and the number of working nodes was eight, this will return 10 nodes: the original eight, plus two results).
 
 refs()
@@ -180,7 +181,7 @@ Optional parameters:
 * **in:** return all nodes that have a secondary property *<type> (<ptype>) = <valu>* that is the same as (**references**) any primary *<prop> = <valu>* in the working set of nodes.
 * **out:** return all the nodes whose primary *<prop> = <valu>* is the same as (is **referenced by**) any secondary property *<type> (<ptype>) = <valu>* in the working set of nodes.
 * If no parameters are specified, ``refs()`` will return the combined results of both ``refs(in)`` and ``refs(out)`` (e.g., execute all pivots to / from the working set of nodes).
-* **Return limit:** specify the maximum number of nodes returned by the ``refs()`` query.
+* **Return limit:** specify the maximum number of nodes added to the current working set by the ``refs()`` query.
   
   * ``limit=`` (operator syntax)
 
@@ -220,7 +221,7 @@ N/A
 * The ``limit=`` parameter can be provided as input to the ``refs()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``refs()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 * Because ``refs()`` does not consume nodes, this impacts the results returned by either the ``limit=`` parameter or the ``limit()`` operator.
   
-  * The ``limit=`` parameter will return **all** of the original nodes, **plus** the specified number of results (if ``limit=10`` and the number of working nodes was eight, this will return 18 nodes).
+  * The ``limit=`` parameter will return **all** of the original nodes, **plus** the specified number of results (if ``limit=10`` and the number of working nodes was eight, this will return up to 18 nodes).
   * The ``limit()`` operator will return a **total** number of nodes equal to the specified limit, first including the original working nodes and then including resulting nodes (if ``limit=10`` and the number of working nodes was eight, this will return 10 nodes: the original eight, plus two results).
 
 fromtags()
@@ -265,6 +266,7 @@ N/A
 
 **Usage notes:**
 
+* ``fromtags()`` does consume nodes by design.
 * ``fromtags()`` pivots from leaf tags only. For example, if the working set contains ``syn:tag=foo.bar.baz``, ``fromtags()`` will return nodes with ``#foo.bar.baz`` but **not** nodes with ``#foo.bar`` or ``#foo`` alone.
 * The ``limit=`` parameter can be provided as input to the ``fromtags()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``fromtags()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 * In some cases, pivoting with ``fromtags()`` is equivalent to lifting by tag; for example, ``ask #foo.mytag`` is equivalent to ``ask syn:tag=foo.mytag fromtags()``. However, ``fromtags()`` can also take more complex queries as input.
@@ -320,6 +322,8 @@ N/A
     totags( leaf = 0, limit = 10 )
 
 **Usage notes:**
+
+* ``totags()`` does consume nodes by design.
 
 * ``totags()`` and ``totags(leaf=1)`` return the set of leaf tags only. For example, if nodes in the working set have the tag ``#foo.bar.baz``, ``totags()`` will return ``syn:tag=foo.bar.baz``, but not ``syn:tag=foo.bar`` or ``syn:tag=foo``.
 
@@ -393,7 +397,7 @@ Optional parameters:
   * To disable limits on recursion (e.g., continue executing pivots until no more results are returned), ``recurnlim`` should be set to 0 (``recurnlim=0``).
   * **Note:** due to a known bug, ``tree()`` currently ignores any ``recurnlim`` parameter.
 
-* **Return limit:** specify the maximum number of nodes returned by the ``tree()`` query.
+* **Return limit:** specify the maximum number of nodes added to the current working set by the ``tree()`` query.
   
   * ``limit=`` (operator syntax)
 
