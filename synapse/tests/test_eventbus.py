@@ -282,17 +282,23 @@ class EventBusTest(SynTest):
             self.none(refs.get('woot'))
 
             woot = refs.gen('woot')
+            self.eq(1, woot._syn_refs)
 
             self.nn(woot)
             self.true(refs.gen('woot') is woot)
+            self.eq(2, woot._syn_refs)
 
             woot.fini()
             self.false(woot.isfini)
             self.true(refs.get('woot') is woot)
+            self.eq(1, woot._syn_refs)
 
             woot.fini()
+            self.eq(0, woot._syn_refs)
+
             self.true(woot.isfini)
             self.false(refs.get('woot') is woot)
+            self.eq(0, woot._syn_refs)
 
     def test_eventbus_main_sigterm(self):
         self.thisHostMustNot(platform='windows')
