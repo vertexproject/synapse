@@ -590,7 +590,9 @@ class CertDir:
             mode (str): The certdir subdirectory to import the file into.
 
         Examples:
-            importFile('mycoolca.crt', 'cas')
+            Import CA certifciate 'mycoolca.crt' to the 'cas' directory.
+
+                certdir.importFile('mycoolca.crt', 'cas')
 
         Notes:
             importFile does not perform any validation on the files it imports.
