@@ -1080,7 +1080,12 @@ class CortexTest(SynTest):
                 core.subCoreFifo(name, actual.append)
                 actual_msgs = [msg[2] for msg in actual]
                 self.eq(actual_msgs, [])  # There should be no messages in the membrane yet
-                run_tests(core, msgs, expected)
+
+                actual = []
+                core.subCoreFifo(name, actual.append)  # FIXME If I don't call subCoreFifo, I get no messages. If I call it again, I get all of the messages twice...
+                [core.dist(msg) for msg in msgs]
+                actual_msgs = [msg[2] for msg in actual]
+                self.eq(actual_msgs, expected)
 
     def test_cortex_datamodel_runt_consistency(self):
         with self.getRamCore() as core:
