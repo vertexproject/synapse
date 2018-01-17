@@ -187,8 +187,8 @@ Optional parameters:
 **Operator Syntax:**
 
 .. parsed-literal::
-  
-  **alltag(** *<tag>* [ **,** ...] **, limit=** *<limit>* **)**
+
+  **alltag(** *<tag>* [ **,** *<tag>* **,** ... **, limit=** *<limit>* ] **)**
   
 **Macro Syntax:**
 
