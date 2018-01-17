@@ -988,7 +988,7 @@ class CortexBaseTest(SynTest):
 
 class CortexTest(SynTest):
 
-    def test_core_membrane(self):
+    def test_cortex_membrane(self):
         name = 'testmembrane'
         rules = (
             (True, ('node:add', {'form': 'thing', 'valu': 'newp'})),
