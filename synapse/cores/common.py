@@ -3765,12 +3765,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             return self.putCoreFifo(name, mesg)
 
         membrane = s_membrane.Membrane(name, rules, fn)
-        self._core_membranes[name] = {'obj': membrane, 'fn': fn}
         node = self.formTufoByProp('syn:fifo', (membrane.name,))
 
         def _filter_fn(mesg):
             return membrane.filt(mesg[1]['mesg'])
 
+        self._core_membranes[name] = {'obj': membrane, 'fn': _filter_fn}
         self.on('splice', _filter_fn)
 
     def _delMembrane(self, name):
