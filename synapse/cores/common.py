@@ -429,9 +429,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             name (str): The name of the fifo.
             xmit (func): A fifo xmit func.
 
-        Notes: if xmit is None, it is assumed that the
-              caller is a remote telepath client and the
-              socket.tx function is used.
+        Notes:
+             If xmit is None, it is assumed that the caller is a remote
+             telepath client and the socket.tx function is used.
         '''
         name = name.lower()
         self.reqperm(('fifo:sub', {'name': name}))
