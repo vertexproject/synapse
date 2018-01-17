@@ -2849,6 +2849,25 @@ class CortexTest(SynTest):
             self.none(t1[1].get('strform:baz'))
             self.none(t1[1].get('strform:haha'))
 
+    def test_cortex_fifos_busref(self):
+        with self.getTestDir() as dirn:
+
+            url = 'dir:///' + dirn
+            with s_cortex.openurl(url) as core:
+                node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
+                name = node[1].get('syn:fifo:name')
+
+                fifo = core.getCoreFifo(name)
+                self.eq(1, fifo._syn_refs)
+
+                fifo = core.getCoreFifo(name)
+                self.eq(2, fifo._syn_refs)
+
+                fifo = core.getCoreFifo(name)
+                self.eq(3, fifo._syn_refs)
+
+                # NOTE: fifo._syn_refs just keeps increasing?
+
     def test_cortex_fifos(self):
 
         with self.getTestDir() as dirn:
