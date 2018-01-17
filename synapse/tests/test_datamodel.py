@@ -422,3 +422,18 @@ class DataModelTest(SynTest):
 
         self.len(2, defs)
         self.eq(defs[1][0], 'foo:baz')
+
+    def test_datamodel_istufoprop(self):
+        modl = s_datamodel.DataModel()
+
+        # Types are not props
+        self.false(modl.isTufoProp('str:lwr'))
+
+        # Prop does not yet exist
+        self.false(modl.isTufoProp('foo:meow'))
+        modl.addTufoForm('foo')
+        modl.addTufoProp('foo', 'meow', ptype='str:lwr')
+        # Forms are props
+        self.true(modl.isTufoProp('foo'))
+        # And props are props!
+        self.true(modl.isTufoProp('foo:meow'))
