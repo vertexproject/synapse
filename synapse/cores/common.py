@@ -371,8 +371,15 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         Args:
             name (str): The :name of the syn:fifo node.
 
+        Notes:
+            This requires a syn:fifo node to have been created which has a
+            syn:fifo:name property equal to the called name.
+
         Returns:
             s_fifo.Fifo: The Fifo object.
+
+        Raises:
+            NoSuchFifo: If there is no corresponding syn:fifo node in the Cortex.
         '''
         name = name.lower()
         return self._core_fifos.gen(name)
