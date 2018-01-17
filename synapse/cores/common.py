@@ -413,7 +413,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             return None
 
         def xmit(qent):
-            sock.tx(('fifo:xmit', {'name': name, 'qent': qent}))
+            sock.tx(('fifo:xmit', {'name': name.lower(), 'qent': qent}))
 
         return xmit
 
@@ -429,12 +429,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
               caller is a remote telepath client and the
               socket.tx function is used.
         '''
-        self.reqperm(('fifo:sub', {'name': name}))
-        fifo = self._core_fifos.gen(name)
+        self.reqperm(('fifo:sub', {'name': name.lower()}))
+        fifo = self._core_fifos.gen(name.lower())
 
         if xmit is None:
-            xmit = self._getTeleFifoXmit(name)
-            s_telepath.reminder('fifo:sub', name=name)
+            xmit = self._getTeleFifoXmit(name.lower())
+            s_telepath.reminder('fifo:sub', name=name.lower())
 
         fifo.resync(xmit=xmit)
 

@@ -2856,12 +2856,17 @@ class CortexTest(SynTest):
             url = 'dir:///' + dirn
             with s_cortex.openurl(url) as core:
 
-                self.raises(NoSuchFifo, core.getCoreFifo, '(name=haha)')
-                node = core.formTufoByProp('syn:fifo', '(name=haha)')
-                self.raises(NoSuchFifo, core.getCoreFifo, '(name=shouldntexist)')
+                self.raises(NoSuchFifo, core.getCoreFifo, '(haha)')
+
+                node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
+                self.eq(node[1].get('syn:fifo'), 'adb4864c8e5f2a2a44b454981e731b8b')
+                self.eq(node[1].get('syn:fifo:name'), 'haha')
+                self.eq(node[1].get('syn:fifo:desc'), 'test fifo')
+
+                self.raises(NoSuchFifo, core.getCoreFifo, 'shouldntexist')
 
                 name = node[1].get('syn:fifo:name')
-                self.eq(name, 'haha')  # FIXME name is not set here...?
+                self.eq(name, 'haha')
                 path = core.getCorePath('fifos', node[1].get('syn:fifo'))
 
                 sent = []

@@ -501,8 +501,12 @@ class CompType(DataType):
         vals = valu[:self.fsize]
         for v, (name, tname) in s_common.iterzip(vals, self.fields):
 
+            # FIXME - this if/else is a artifact of typelib/datamodel separation
             if self.prop:
-                norm, ssubs = self._getPropNorm(tname, v)
+                if self.tlib.isTufoProp(tname):
+                    norm, ssubs = self._getPropNorm(tname, v)
+                else:
+                    norm, ssubs = self.tlib.getTypeNorm(tname, v)
             else:
                 norm, ssubs = self.tlib.getTypeNorm(tname, v)
 
