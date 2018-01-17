@@ -7,6 +7,7 @@ import synapse.common as s_common
 from synapse.tests.common import *
 import synapse.lib.certdir as s_certdir
 
+
 class CertDirTest(SynTest):
 
     @contextmanager
@@ -427,6 +428,7 @@ class CertDirTest(SynTest):
                     ('hosts', 'coolhost.key'),
                     ('users', 'cooluser.crt'),
                     ('users', 'cooluser.key'),
+                    ('users', 'cooluser.p12'),
                 )
                 data = b'arbitrary data'
                 for ftype, fname in tests:
