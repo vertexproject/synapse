@@ -265,7 +265,6 @@ N/A
 
 **Usage notes:**
 
-* ``fromtags()`` does consume nodes by design.
 * ``fromtags()`` pivots from leaf tags only. For example, if the working set contains ``syn:tag=foo.bar.baz``, ``fromtags()`` will return nodes with ``#foo.bar.baz`` but **not** nodes with ``#foo.bar`` or ``#foo`` alone.
 * The ``limit=`` parameter can be provided as input to the ``fromtags()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``fromtags()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 * In some cases, pivoting with ``fromtags()`` is equivalent to lifting by tag; for example, ``ask #foo.mytag`` is equivalent to ``ask syn:tag=foo.mytag fromtags()``. However, ``fromtags()`` can also take more complex queries as input.
@@ -321,8 +320,6 @@ N/A
     totags( leaf = 0, limit = 10 )
 
 **Usage notes:**
-
-* ``totags()`` does consume nodes by design.
 
 * ``totags()`` and ``totags(leaf=1)`` return the set of leaf tags only. For example, if nodes in the working set have the tag ``#foo.bar.baz``, ``totags()`` will return ``syn:tag=foo.bar.baz``, but not ``syn:tag=foo.bar`` or ``syn:tag=foo``.
 
