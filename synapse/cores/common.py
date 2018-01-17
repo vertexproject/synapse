@@ -3765,7 +3765,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             return self.putCoreFifo(name, mesg)
 
         membrane = s_membrane.Membrane(name, rules, fn)
-        self._core_membranes[name] = membrane
+        self._core_membranes[name] = {'obj': membrane, 'fn': fn}
         node = self.formTufoByProp('syn:fifo', '(%s)' % membrane.name)
 
         def _filter_fn(mesg):
@@ -3774,13 +3774,16 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.on('splice', _filter_fn)
 
     def _delMembrane(self, name):
-        membrane = self._core_membranes.get(name)
-        if not membrane:
+        membrane_dict = self._core_membranes.get(name)
+        if not membrane_dict:
             raise s_common.NoSuchMembrane()
 
-        del self._core_membranes[name]  # remove from dict
-        [self.off(name, membrane.filt) for name in membrane.rule_names]  # unregister events  FIXME actually do it
-        self.delTufoByProp('syn:fifo', '(%s)' % membrane.name)  # delete from core, which in turn deletes the fifo
+        membrane = membrane_dict.get('obj')
+        fn = membrane_dict.get('fn')
+
+        self.off('splice', fn)
+        del self._core_membranes[name]
+        self.delTufoByProp('syn:fifo', '(%s)' % name)
 
     def addCoreMembrane(self, name, rules):
         '''
