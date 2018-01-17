@@ -1079,7 +1079,7 @@ class CortexTest(SynTest):
                 actual = []
                 core.subCoreFifo(name, actual.append)
                 actual_msgs = [msg[2] for msg in actual]
-                self.eq(actual_msgs, [])  # FIXME Messages are still there
+                self.eq(actual_msgs, [])  # There should be no messages in the membrane yet
                 run_tests(core, msgs, expected)
 
     def test_cortex_datamodel_runt_consistency(self):
