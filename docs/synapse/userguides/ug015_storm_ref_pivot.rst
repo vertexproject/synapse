@@ -100,7 +100,6 @@ Optional parameters:
 
 **Usage notes:**
 
-v
 * If the source property for the pivot is the primary property of the working set of nodes, *<srcprop>* can be omitted from both Operator and Macro syntax.
 * If the source property for the pivot is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source properties are, by definition, properties from the working set of nodes.
 * The ``limit=`` parameter can be provided as input to the ``pivot()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``pivot()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
