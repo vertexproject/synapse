@@ -1,4 +1,5 @@
 import os
+import shutil
 
 from OpenSSL import crypto
 
@@ -48,6 +49,7 @@ class CertDir:
         s_common.gendir(path, 'users')
 
         self.certdir = s_common.reqdir(path)
+        self.path = path
 
     def genCaCert(self, name, signas=None, outp=None):
         '''
@@ -578,6 +580,43 @@ class CertDir:
         if not os.path.isfile(path):
             return None
         return path
+
+    def importFile(self, path, mode, outp=None):
+        '''
+        Imports certs and keys into the Synapse cert directory
+
+        Args:
+            path (str): The path of the file to be imported.
+            mode (str): The certdir subdirectory to import the file into.
+
+        Examples:
+            Import CA certifciate 'mycoolca.crt' to the 'cas' directory.
+
+                certdir.importFile('mycoolca.crt', 'cas')
+
+        Notes:
+            importFile does not perform any validation on the files it imports.
+
+        Returns:
+            None
+        '''
+        if not os.path.isfile(path):
+            raise s_common.NoSuchFile('File does not exist')
+
+        fname = os.path.split(path)[1]
+        parts = fname.split('.', 1)
+        ext = parts[1] if len(parts) is 2 else None
+
+        if not ext or ext not in ('crt', 'key', 'p12'):
+            raise s_common.BadFileExt('importFile only supports .crt, .key, .p12 extensions')
+
+        newpath = s_common.genpath(self.certdir, mode, fname)
+        if os.path.isfile(newpath):
+            raise s_common.FileExists('File already exists')
+
+        shutil.copy(path, newpath)
+        if outp is not None:
+            outp.printf('copied %s to %s' % (path, newpath))
 
     def isCaCert(self, name):
         '''

@@ -1,5 +1,6 @@
 from synapse.tests.common import *
 
+import synapse.common as s_common
 import synapse.tools.easycert as s_easycert
 
 
@@ -82,6 +83,10 @@ class TestEasyCert(SynTest):
             self.true(outp.expect('csr saved'))
             self.true(outp.expect('www.vertex.link.csr'))
 
+            outp = self.getTestOutp()
+            argv = ['--csr', '--certdir', path, 'intermed', '--ca']
+            self.raises(NotImplementedError, s_easycert.main, argv, outp=outp)
+
             # Ensure that duplicate files won't be overwritten
             outp = self.getTestOutp()
             argv = ['--csr', '--certdir', path, 'user@test.com']
@@ -118,3 +123,18 @@ class TestEasyCert(SynTest):
             argv = ['--certdir', path, '--sign-csr', 'lololol', ]
             self.eq(s_easycert.main(argv, outp=outp), -1)
             self.true(outp.expect('--sign-csr requires --signas'))
+
+    def test_easycert_importfile(self):
+        with self.getTestDir() as tstpath:
+
+            outp = self.getTestOutp()
+            fname = 'coolfile.crt'
+            srcpath = s_common.genpath(tstpath, fname)
+            ftype = 'cas'
+            argv = ['--importfile', ftype, '--certdir', tstpath, srcpath]
+            with s_common.genfile(srcpath) as fd:
+                self.eq(s_easycert.main(argv, outp=outp), 0)
+
+            outp = self.getTestOutp()
+            argv = ['--importfile', 'cas', '--certdir', tstpath, 'nope']
+            self.raises(NoSuchFile, s_easycert.main, argv, outp=outp)
