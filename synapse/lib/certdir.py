@@ -607,7 +607,7 @@ class CertDir:
         parts = fname.split('.', 1)
         ext = parts[1] if len(parts) is 2 else None
 
-        if not ext or ext not in('crt', 'key', 'p12'):
+        if not ext or ext not in ('crt', 'key', 'p12'):
             raise s_common.BadFileExt('importFile only supports .crt, .key, .p12 extensions')
 
         newpath = s_common.genpath(self.certdir, mode, fname)
