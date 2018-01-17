@@ -17,12 +17,6 @@ Provides a hard limit on the number of nodes which are emitted by the ``limit()`
 This also back-propagates a ``limit=`` argument to the previous query operator.
 
 
-Optional parameters:
-
-* **Return limit:** specify the maximum number of nodes returned by the ``pivot()`` query.
-
-  * ``limit=`` (operator syntax)
-
 **Operator syntax:**
 
 .. parsed-literal::
