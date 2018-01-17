@@ -356,8 +356,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             name (str): The :name of the syn:fifo node.
 
         Returns:
-            (synapse.lib.fifo.Fifo): The Fifo object.
+            s_fifo.Fifo: The Fifo object.
         '''
+        name = name.lower()
         return self._core_fifos.gen(name)
 
     def putCoreFifo(self, name, item):
@@ -368,6 +369,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             name (str): The syn:fifo:name of the fifo.
             item (obj): The object to put in the fifo.
         '''
+        name = name.lower()
         self.reqperm(('fifo:put', {'name': name}))
         fifo = self._core_fifos.gen(name)
         fifo.put(item)
@@ -380,6 +382,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             name (str): The name of the fifo
             items (list): A list of items to add
         '''
+        name = name.lower()
         self.reqperm(('fifo:put', {'name': name}))
         fifo = self._core_fifos.gen(name)
         [fifo.put(item) for item in items]
@@ -392,6 +395,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             name (str): The syn:fifo:name of the fifo.
             nseq (int): The next expected sequence.
         '''
+        name = name.lower()
         self.reqperm(('fifo:ack', {'name': name}))
         fifo = self._core_fifos.gen(name)
         fifo.ack(seqn)
@@ -413,7 +417,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             return None
 
         def xmit(qent):
-            sock.tx(('fifo:xmit', {'name': name.lower(), 'qent': qent}))
+            sock.tx(('fifo:xmit', {'name': name, 'qent': qent}))
 
         return xmit
 
@@ -425,16 +429,17 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             name (str): The name of the fifo.
             xmit (func): A fifo xmit func.
 
-        NOTE: if xmit is None, it is assumed that the
+        Notes: if xmit is None, it is assumed that the
               caller is a remote telepath client and the
               socket.tx function is used.
         '''
-        self.reqperm(('fifo:sub', {'name': name.lower()}))
-        fifo = self._core_fifos.gen(name.lower())
+        name = name.lower()
+        self.reqperm(('fifo:sub', {'name': name}))
+        fifo = self._core_fifos.gen(name)
 
         if xmit is None:
-            xmit = self._getTeleFifoXmit(name.lower())
-            s_telepath.reminder('fifo:sub', name=name.lower())
+            xmit = self._getTeleFifoXmit(name)
+            s_telepath.reminder('fifo:sub', name=name)
 
         fifo.resync(xmit=xmit)
 
