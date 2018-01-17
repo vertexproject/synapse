@@ -20,6 +20,7 @@ class SynMod(CoreModule):
 
                 ('syn:alias', {'subof': 'str', 'regex': r'^\$[a-z_]+$',
                     'doc': 'A synapse guid alias', 'ex': '$visi'}),
+                ('syn:fifo', {'subof': 'comp', 'fields': 'name=str:lwr'})
 
             ),
 
@@ -57,8 +58,8 @@ class SynMod(CoreModule):
                     ('role', {'ptype': 'syn:auth:role'}),
                 )),
 
-                ('syn:fifo', {'ptype': 'guid', 'local': 1}, (
-                    ('name', {'ptype': 'str', 'doc': 'The name of this fifo'}),
+                ('syn:fifo', {'ptype': 'syn:fifo', 'local': 1}, (
+                    ('name', {'ptype': 'str:lwr', 'doc': 'The fifo description'}),
                     ('desc', {'ptype': 'str', 'doc': 'The fifo description'}),
                 )),
 

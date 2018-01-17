@@ -356,8 +356,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             name (str): The :name of the syn:fifo node.
 
         Returns:
-            (synapse.lib.fifo.Fifo): The Fifo object.
+            s_fifo.Fifo: The Fifo object.
         '''
+        name = name.lower()
         return self._core_fifos.gen(name)
 
     def putCoreFifo(self, name, item):
@@ -368,6 +369,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             name (str): The syn:fifo:name of the fifo.
             item (obj): The object to put in the fifo.
         '''
+        name = name.lower()
         self.reqperm(('fifo:put', {'name': name}))
         fifo = self._core_fifos.gen(name)
         fifo.put(item)
@@ -380,6 +382,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             name (str): The name of the fifo
             items (list): A list of items to add
         '''
+        name = name.lower()
         self.reqperm(('fifo:put', {'name': name}))
         fifo = self._core_fifos.gen(name)
         [fifo.put(item) for item in items]
@@ -392,6 +395,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             name (str): The syn:fifo:name of the fifo.
             nseq (int): The next expected sequence.
         '''
+        name = name.lower()
         self.reqperm(('fifo:ack', {'name': name}))
         fifo = self._core_fifos.gen(name)
         fifo.ack(seqn)
@@ -425,10 +429,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             name (str): The name of the fifo.
             xmit (func): A fifo xmit func.
 
-        NOTE: if xmit is None, it is assumed that the
-              caller is a remote telepath client and the
-              socket.tx function is used.
+        Notes:
+             If xmit is None, it is assumed that the caller is a remote
+             telepath client and the socket.tx function is used.
         '''
+        name = name.lower()
         self.reqperm(('fifo:sub', {'name': name}))
         fifo = self._core_fifos.gen(name)
 
@@ -439,7 +444,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         fifo.resync(xmit=xmit)
 
     def _initCoreFifo(self, name):
-        node = self.getTufoByProp('syn:fifo:name')
+        node = self.getTufoByProp('syn:fifo:name', name)
         if node is None:
             raise s_common.NoSuchFifo(name=name)
 

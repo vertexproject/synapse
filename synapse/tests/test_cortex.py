@@ -2856,29 +2856,37 @@ class CortexTest(SynTest):
             url = 'dir:///' + dirn
             with s_cortex.openurl(url) as core:
 
-                self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
+                self.raises(NoSuchFifo, core.getCoreFifo, '(haha)')
 
-                node = core.formTufoByProp('syn:fifo', '*', name='haha')
+                node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
+                self.eq(node[1].get('syn:fifo'), 'adb4864c8e5f2a2a44b454981e731b8b')
+                self.eq(node[1].get('syn:fifo:name'), 'haha')
+                self.eq(node[1].get('syn:fifo:desc'), 'test fifo')
+
+                self.raises(NoSuchFifo, core.getCoreFifo, 'shouldntexist')
+
+                name = node[1].get('syn:fifo:name')
+                self.eq(name, 'haha')
                 path = core.getCorePath('fifos', node[1].get('syn:fifo'))
 
                 sent = []
 
                 # this will trigger dir creation
-                core.subCoreFifo('haha', sent.append)
+                core.subCoreFifo(name, sent.append)
 
                 self.true(os.path.isdir(path))
 
-                core.putCoreFifo('haha', 'foo')
-                core.putCoreFifo('haha', 'bar')
+                core.putCoreFifo(name, 'foo')
+                core.putCoreFifo(name, 'bar')
 
                 self.len(2, sent)
                 self.eq(sent[0][2], 'foo')
                 self.eq(sent[1][2], 'bar')
 
-                core.ackCoreFifo('haha', sent[0][0])
+                core.ackCoreFifo(name, sent[0][0])
 
                 sent = []
-                core.subCoreFifo('haha', sent.append)
+                core.subCoreFifo(name, sent.append)
 
                 self.len(1, sent)
                 self.eq(sent[0][2], 'bar')

@@ -209,6 +209,18 @@ class DataModel(s_types.TypeLib):
         '''
         return name in self.forms
 
+    def isTufoProp(self, name):
+        '''
+        Check if a prop is a valid prop.
+
+        Args:
+            name (str): Prop to check
+
+        Returns:
+            bool: True if the prop is a valid form. False otherwise.
+        '''
+        return name in self.props
+
     def reqTufoForm(self, name):
         '''
         Check if a form is a valid form, raise an exception otherwise.
