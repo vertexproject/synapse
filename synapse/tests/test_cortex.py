@@ -1071,14 +1071,10 @@ class CortexTest(SynTest):
                 self.none(core.delCoreMembrane(name))  # returns none
                 self.raises(FileNotFoundError, os.listdir, fifo_dir)  # should not exist
                 self.len(0, core.getTufosByProp('syn:fifo'))
-                self.none(core.getCoreFifo(name))  # should be removed
-
-                actual = []
-                core.subCoreFifo(name, actual.append)
-                actual_msgs = [msg[2] for msg in actual]
-                self.eq(actual_msgs, [])  # FIXME Messages are still there
-
+                self.raises(NoSuchFifo, core.getCoreFifo, name)  # should be removed
+                self.raises(NoSuchFifo, core.subCoreFifo, name, actual.append)
                 self.raises(NoSuchMembrane, core.delCoreMembrane, name)
+
                 core.addCoreMembrane(name, rules)
                 actual = []
                 core.subCoreFifo(name, actual.append)

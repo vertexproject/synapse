@@ -3766,10 +3766,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         membrane = s_membrane.Membrane(name, rules, fn)
         self._core_membranes[name] = membrane
-
-        with self.getCoreXact() as xact:
-            if not self.getTufoByProp('syn:fifo:name', membrane.name):
-                self.formTufoByProp('syn:fifo', '*', name=membrane.name)
+        node = self.formTufoByProp('syn:fifo', '(%s)' % membrane.name)
 
         def _filter_fn(mesg):
             return membrane.filt(mesg[1]['mesg'])
@@ -3783,7 +3780,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         del self._core_membranes[name]  # remove from dict
         [self.off(name, membrane.filt) for name in membrane.rule_names]  # unregister events  FIXME actually do it
-        self.delTufoByProp('syn:fifo:name', membrane.name)  # delete from core, which in turn deletes the fifo
+        self.delTufoByProp('syn:fifo', '(%s)' % membrane.name)  # delete from core, which in turn deletes the fifo
 
     def addCoreMembrane(self, name, rules):
         '''
