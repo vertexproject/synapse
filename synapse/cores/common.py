@@ -167,6 +167,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         logger.debug('Setting the syn:core:synapse:version value.')
         self.setBlobValu('syn:core:synapse:version', s_version.version)
 
+        # Pre-load all FIFOs
+        for node in self.getTufosByProp('syn:fifo'):
+            name = node[1].get('syn:fifo:name')
+            self.getCoreFifo(name)
+
         # The iden of self.myfo is persistent
         logger.debug('Done starting up cortex %s', self.myfo[0])
 
