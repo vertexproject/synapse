@@ -1245,6 +1245,8 @@ class StormTest(SynTest):
             # Ensure that pivot and join operations work
             self.true(len(core.eval('syn:prop:ptype=it:host :form->syn:form')) > 1)
             self.true(len(core.eval('syn:prop:ptype=it:host :form<-syn:form')) > 1)
+            # Ensure limits are covered
+            self.len(3, core.eval('syn:prop:ptype=it:host :form->syn:form limit(3)'))
 
     def test_storm_prop_gtor(self):
         with self.getRamCore() as core:
