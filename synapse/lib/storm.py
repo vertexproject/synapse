@@ -668,12 +668,7 @@ class Runtime(Configable):
 
         query = Query(data=data, maxtime=maxtime)
 
-        try:
-
-            self._runOperFuncs(query, opers)
-
-        except Exception as e:
-            logger.exception(e)
+        self._runOperFuncs(query, opers)
 
         return query.result()
 
