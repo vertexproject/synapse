@@ -252,6 +252,60 @@ class StormTest(SynTest):
             self.raises(BadSyntaxError, core.eval, 'inet:ipv4 limit(nodes=10)')
             self.raises(BadSyntaxError, core.eval, 'inet:ipv4 limit(woot)')
 
+    def test_storm_plan_lift_tag(self):
+        with self.getRamCore() as core:
+            nodes = core.eval('[ inet:ipv4=1.2.3.4 inet:ipv4=3.4.5.6 ]')
+            nodes = [core.addTufoTag(node, 'hehe.haha') for node in nodes]
+            core.addTufoTag(nodes[0], 'hehe.woah')
+
+            # For reference purposes
+            plain_lift_oper = core.parse('inet:ipv4')[0]
+            plain_filt_oper = core.parse('+#hehe.haha')[0]
+            plain_filt_oper_neg = core.parse('-#hehe.haha')[0]
+
+            upinsts = core.plan(core.parse('inet:ipv4^3=1.2.3.4 +#hehe.haha'))
+            self.len(2, upinsts)
+
+            insts = core.plan(core.parse('inet:ipv4 +#hehe.haha'))
+            self.len(1, insts)
+            oper = insts[0]
+            self.eq(oper[0], 'lift')
+            kwlist = dict(oper[1].get('kwlist'))
+            self.eq(kwlist.get('by'), 'tag')
+            pargs = oper[1].get('args')
+            self.eq(pargs, ('inet:ipv4', 'hehe.haha'))
+
+            self.len(1, core.eval('inet:ipv4 +#hehe.woah'))
+            self.len(2, core.eval('inet:ipv4 +#hehe.haha'))
+
+            # limits are untouched by this optimization
+            self.len(1, core.eval('inet:ipv4^1 +#hehe.haha'))
+
+            # non-existent tags lift nothing
+            self.len(0, core.eval('inet:ipv4 +#oh.my'))
+
+            # Chaining multiple filter operators one after another
+            # only consumes the first filter
+            insts = core.plan(core.parse('inet:ipv4 +#hehe.haha +#hehe.woah'))
+            self.len(2, insts)
+            oper = insts[0]
+            self.eq(oper[0], 'lift')
+            kwlist = dict(oper[1].get('kwlist'))
+            self.eq(kwlist.get('by'), 'tag')
+            pargs = oper[1].get('args')
+            self.eq(pargs, ('inet:ipv4', 'hehe.haha'))
+
+            oper = insts[1]
+            self.eq(oper[0], 'filt')
+            pargs = oper[1].get('valu')
+            self.eq(pargs, 'hehe.woah')
+
+            self.len(1, core.eval('inet:ipv4 +#hehe.haha +#hehe.woah'))
+
+            # A negative filter is not optimized in any fashion
+            insts = core.plan(core.parse('inet:ipv4 -#hehe.haha'))
+            self.eq(insts, [plain_lift_oper, plain_filt_oper_neg])
+
     def test_storm_addtag(self):
         with self.getRamCore() as core:
             iden = guid()
