@@ -615,7 +615,7 @@ class Runtime(Configable):
         if self.querylog:
             user = s_auth.whoami()
             logger.log(self.queryloglevel, 'Executing storm query [%s] as [%s]', text, user)
-        opers = s_syntax.parse(text)
+        opers = self.parse(text)
         return self.run(opers, data=data, timeout=timeout)
 
     def plan(self, opers):
@@ -678,6 +678,20 @@ class Runtime(Configable):
         return query.result()
 
     def parse(self, text):
+        '''
+        Parse as Storm query into its operator instructions.
+
+        Args:
+            text (str): The Storm query to parse.
+
+        Notes:
+            This does not run the resulting operators through the Storm query
+            planner.
+
+        Returns:
+            ((str, dict),): A list of tufos containing storm operator
+            instructions.
+        '''
         return s_syntax.parse(text)
 
     def eval(self, text, data=(), timeout=None):
