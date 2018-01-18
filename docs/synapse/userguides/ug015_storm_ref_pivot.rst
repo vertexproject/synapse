@@ -215,6 +215,7 @@ N/A
 
 **Usage notes:**
 
+* ``refs()`` does not consume nodes, so the results of a ``refs()`` operation will include both the original working set as well as the resulting set of nodes.
 * ``refs()`` / ``refs(in)`` / ``refs(out)`` can be useful in an "exploratory" manner to identify what other nodes / forms are "reachable from" (can be pivoted to or from) the working set of nodes. However, because ``refs()`` essentially carries out all possible pivots, the set of nodes returned may be quite large. In such cases a more focused ``pivot()`` or ``join()`` operation may be more useful.
 * ``refs()`` does not consume nodes, so the results of a ``refs()`` operation will include both the original working set as well as the resulting set of nodes.
 * The ``limit=`` parameter can be provided as input to the ``refs()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``refs()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
@@ -449,6 +450,7 @@ N/A
 
 **Usage Notes:**
 
+* ``tree()`` does not consume nodes, so the results of a ``tree()`` operation will include both the original working set as well as the resulting set of nodes.
 * If the source property for the ``tree()`` operation is the primary property of the working set of nodes, *<srcprop>* can be omitted.
 * If the source property for the ``tree()`` operation is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source properties are, by definition, properties from of the working set of nodes.
 * ``tree()`` does not consume nodes by design, so the results of a ``tree()`` operation will include both the original working set as well as the resulting (recursive) set of nodes.
