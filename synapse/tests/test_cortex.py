@@ -2857,16 +2857,24 @@ class CortexTest(SynTest):
                 node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
                 name = node[1].get('syn:fifo:name')
 
-                fifo = core.getCoreFifo(name)
-                self.eq(1, fifo._syn_refs)
+                # refcount is set to 1 when the fifo is created (when the syn:fifo node is formed),
+                #   then incremented when getCoreFifo is called
+                fiforef_0 = core.getCoreFifo(name)
+                self.eq(2, fiforef_0._syn_refs)
 
-                fifo = core.getCoreFifo(name)
-                self.eq(2, fifo._syn_refs)
+                # Add 3 more refs
+                fiforef_1 = core.getCoreFifo(name)
+                fiforef_2 = core.getCoreFifo(name)
+                fiforef_3 = core.getCoreFifo(name)
+                self.eq(5, fiforef_0._syn_refs)
 
-                fifo = core.getCoreFifo(name)
-                self.eq(3, fifo._syn_refs)
-
-                # NOTE: fifo._syn_refs just keeps increasing?
+                # Begin to remove them
+                fiforef_3.fini()
+                self.eq(4, fiforef_0._syn_refs)
+                fiforef_2.fini()
+                self.eq(3, fiforef_0._syn_refs)
+                fiforef_1.fini()
+                self.eq(2, fiforef_0._syn_refs)
 
     def test_cortex_fifos(self):
 
@@ -2878,22 +2886,22 @@ class CortexTest(SynTest):
                 self.raises(NoSuchFifo, core.getCoreFifo, '(haha)')
 
                 node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
-                self.eq(node[1].get('syn:fifo'), 'adb4864c8e5f2a2a44b454981e731b8b')
-                self.eq(node[1].get('syn:fifo:name'), 'haha')
-                self.eq(node[1].get('syn:fifo:desc'), 'test fifo')
+                iden = node[1].get('syn:fifo')
+                name = node[1].get('syn:fifo:name')
+                desc = node[1].get('syn:fifo:desc')
+
+                self.eq(iden, 'adb4864c8e5f2a2a44b454981e731b8b')
+                self.eq(name, 'haha')
+                self.eq(desc, 'test fifo')
+
+                # Assert that the fifo dir was created by simply forming the syn:fifo node
+                path = core.getCorePath('fifos', iden)
+                self.true(os.path.isdir(path))
 
                 self.raises(NoSuchFifo, core.getCoreFifo, 'shouldntexist')
 
-                name = node[1].get('syn:fifo:name')
-                self.eq(name, 'haha')
-                path = core.getCorePath('fifos', node[1].get('syn:fifo'))
-
                 sent = []
-
-                # this will trigger dir creation
                 core.subCoreFifo(name, sent.append)
-
-                self.true(os.path.isdir(path))
 
                 core.putCoreFifo(name, 'foo')
                 core.putCoreFifo(name, 'bar')
@@ -2906,7 +2914,6 @@ class CortexTest(SynTest):
 
                 sent = []
                 core.subCoreFifo(name, sent.append)
-
                 self.len(1, sent)
                 self.eq(sent[0][2], 'bar')
 

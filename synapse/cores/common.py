@@ -241,6 +241,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.initTufosBy('inet:cidr', self._tufosByInetCidr)
 
     def _initCoreNodeEventHandlers(self):
+        self.on('node:add', self._onAddFifo, form='syn:fifo')
         self.on('node:del', self._onDelFifo, form='syn:fifo')
         self.on('node:del', self._onDelAuthRole, form='syn:auth:role')
         self.on('node:del', self._onDelAuthUser, form='syn:auth:user')
@@ -374,6 +375,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         Notes:
             This requires a syn:fifo node to have been created which has a
             syn:fifo:name property equal to the called name.
+            This also increments the reference counter for the fifo, please call
+            fini on the object when done using it.
 
         Returns:
             s_fifo.Fifo: The Fifo object.
@@ -394,7 +397,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         name = name.lower()
         self.reqperm(('fifo:put', {'name': name}))
-        fifo = self._core_fifos.gen(name)
+        fifo = self._core_fifos.get(name)
         fifo.put(item)
 
     def extCoreFifo(self, name, items):
@@ -407,7 +410,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         name = name.lower()
         self.reqperm(('fifo:put', {'name': name}))
-        fifo = self._core_fifos.gen(name)
+        fifo = self._core_fifos.get(name)
         [fifo.put(item) for item in items]
 
     def ackCoreFifo(self, name, seqn):
@@ -420,7 +423,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         name = name.lower()
         self.reqperm(('fifo:ack', {'name': name}))
-        fifo = self._core_fifos.gen(name)
+        fifo = self._core_fifos.get(name)
         fifo.ack(seqn)
 
     def _onFifoSub(self, mesg):
@@ -458,7 +461,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         name = name.lower()
         self.reqperm(('fifo:sub', {'name': name}))
-        fifo = self._core_fifos.gen(name)
+        fifo = self._core_fifos.get(name)
 
         if xmit is None:
             xmit = self._getTeleFifoXmit(name)
@@ -482,6 +485,13 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         # TODO default fifo config info in core config?
         return s_fifo.Fifo(conf)
+
+    def _onAddFifo(self, mesg):
+
+        node = mesg[1].get('node')
+        name = node[1].get('syn:fifo:name')
+
+        self.getCoreFifo(name)
 
     def _onDelFifo(self, mesg):
 
