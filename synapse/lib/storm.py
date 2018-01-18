@@ -633,49 +633,75 @@ class Runtime(Configable):
 
         for oper in opers:
 
-            # specify a limit backward from limit oper to the previous operator.
-            # This will smash over any already-present limit keyword argument
             if oper[0] == 'limit' and retn:
-                args = oper[1].get('args', ())
-                if args:
-                    limt = s_common.intify(args[0])
-                    if limt is not None:
-                        setkw(retn[-1], 'limit', limt)
-                        # Add the limit oper and continue in the for loop
-                        retn.append(oper)
-                        continue
+                if self._stormQueryPlanLimit(retn, oper):
+                    continue
 
-            # Look for a +#<tag> filter operation occuring AFTER a node lift
-            # which does not have any value and is using the 'has' handler.
             if oper[0] == 'filt' and retn:
-                # Check to ensure our filter operator is a +# tag filter
-                if oper[1].get('cmp') == 'tag' and oper[1].get('mode') == 'must':
-                    valu = oper[1].get('valu')
-                    # Check for tag globbing - if present, add the current oper
-                    # to the list and then continue in the loop since we can't
-                    # do a lift by globbed valu
-                    if '*' in valu:
-                        retn.append(oper)
-                        continue
-                    # Tag globbing is not present - so we can then check to see
-                    # if we are working
-                    prev = retn[-1]
-                    pargs = prev[1].get('args')
-                    if prev[0] == 'lift':
-                        kwlist = dict(prev[1].get('kwlist', []))
-                        if pargs[1] is None and kwlist.get('by') == 'has':
-                            valu = oper[1].get('valu')
-                            setkw(prev, 'by', 'tag')
-                            prev[1]['args'] = (pargs[0], valu)
-                            # Continue in the for loop, skip adding the current
-                            # oper to retn since we've taken the filter values
-                            # and plumbed them into the lift oper
-                            continue
+                if self._stormQueryPlanFilt(retn, oper):
+                    continue
 
             # Default case - add the oper to our list of operators to execute
             retn.append(oper)
 
         return retn
+
+    def _stormQueryPlanFilt(self, retn, oper):
+        '''
+        Perform query optimization for filt operator use.
+
+        Args:
+            retn (list):
+            oper ((str, dict)):
+
+        Returns:
+            bool: True if we performed an optimization, False otherwise.
+        '''
+        # Look for a +#<tag> filter operation occuring AFTER a node lift
+        # which does not have any value and is using the 'has' handler.
+        # Check to ensure our filter operator is a +# tag filter
+        if oper[1].get('cmp') == 'tag' and oper[1].get('mode') == 'must':
+            valu = oper[1].get('valu')
+            # Check for tag globbing - if present, return False
+            if '*' in valu:
+                return False
+            # Tag globbing is not present - so we can then check to see
+            # if we are working
+            prev = retn[-1]
+            pargs = prev[1].get('args')
+            if prev[0] == 'lift':
+                kwlist = dict(prev[1].get('kwlist', []))
+                if pargs[1] is None and kwlist.get('by') == 'has':
+                    setkw(prev, 'by', 'tag')
+                    prev[1]['args'] = (pargs[0], valu)
+                    # Continue in the for loop, skip adding the current
+                    # oper to retn since we've taken the filter values
+                    # and plumbed them into the lift oper
+                    return True
+        return False
+
+    def _stormQueryPlanLimit(self, retn, oper):
+        '''
+        Perform query optimization for limit() operator use.
+
+        Args:
+            retn (list):
+            oper ((str, dict)):
+
+        Returns:
+            bool: True if we performed an optimization, False otherwise.
+        '''
+        # specify a limit backward from limit oper to the previous operator.
+        # This will smash over any already-present limit keyword argument
+        args = oper[1].get('args', ())
+        if args:
+            limt = s_common.intify(args[0])
+            if limt is not None:
+                setkw(retn[-1], 'limit', limt)
+                # Add the limit oper and continue in the for loop
+                retn.append(oper)
+                return True
+        return False
 
     def run(self, opers, data=(), timeout=None):
         '''
