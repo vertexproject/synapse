@@ -1087,6 +1087,15 @@ class CortexTest(SynTest):
                 actual_msgs = [msg[2] for msg in actual]
                 self.eq(actual_msgs, expected)
 
+        # Test that a membrane survives restart
+        with self.getTestDir() as dirn:
+            with s_cortex.openurl('dir:///' + dirn) as core:
+                core.addCoreMembrane(name, rules)
+                run_tests(core, msgs, expected)
+            with s_cortex.openurl('dir:///' + dirn) as core:
+                core.addCoreMembrane(name, rules)
+                run_tests(core, msgs, expected + expected)
+
     def test_cortex_datamodel_runt_consistency(self):
         with self.getRamCore() as core:
 
