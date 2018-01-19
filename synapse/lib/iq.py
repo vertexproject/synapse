@@ -440,6 +440,7 @@ class SynTest(unittest.TestCase):
                     (
                         ('foo', {'ptype': 'str'}),
                         ('baz', {'ptype': 'int'}),
+                        ('faz', {'ptype': 'int', 'ro': 1}),
                     )
                 ),
                 (
