@@ -167,11 +167,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         logger.debug('Setting the syn:core:synapse:version value.')
         self.setBlobValu('syn:core:synapse:version', s_version.version)
 
-        # Pre-load all FIFOs
-        for node in self.getTufosByProp('syn:fifo'):
-            name = node[1].get('syn:fifo:name')
-            self.getCoreFifo(name)
-
         # The iden of self.myfo is persistent
         logger.debug('Done starting up cortex %s', self.myfo[0])
 
@@ -262,6 +257,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.on('fifo:ack', self._onFifoAck)
         self.on('fifo:sub', self._onFifoSub)
 
+    def _initCoreFifos(self):
+        for node in self.getTufosByProp('syn:fifo'):
+            name = node[1].get('syn:fifo:name')
+            self._core_fifos.gen(name)
+
     def _initCoreStormOpers(self):
         self.setOperFunc('stat', self._stormOperStat)
         self.setOperFunc('dset', self._stormOperDset)
@@ -275,6 +275,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         # It is not safe to load modules during SetConfOpts() since the path
         # value may not be set due to dictionary ordering, and there may be
         # modules which rely on it being present
+        self._initCoreFifos()
         self.onConfOptSet('modules', self._onSetMods)
         # Load any existing modules which may have been configured
         valu = self.getConfOpt('modules')
