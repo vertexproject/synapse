@@ -198,7 +198,7 @@ class BlobFileTest(SynTest):
                     dcheck[off] = byts == edata.get(off)
 
                 w1 = blob.waiter(1, 'blob:walk:done')
-                blob.walk(cb=data_check)
+                blob.walk(callback=data_check)
                 w1.wait(1)
                 self.eq(w1.count, 1)
                 self.eq({True}, set(dcheck.values()))
