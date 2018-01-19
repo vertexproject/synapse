@@ -2877,7 +2877,6 @@ class CortexTest(SynTest):
                 self.eq(2, fiforef_0._syn_refs)
 
             # refs are finied, but the fifo is not finid because not all of the refs were closed yet
-            # the core fifo busref will not fini if refs are left open
             self.false(fiforef_0.isfini)
             fiforef_1.fini()
             self.true(fiforef_0.isfini)
