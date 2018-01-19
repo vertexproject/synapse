@@ -273,10 +273,16 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         # Setup handlers for confOpt changes which are not racy
         self.onConfOptSet('caching', self._onSetCaching)
         self.onConfOptSet('axon:url', self._onSetAxonUrl)
-        self.onConfOptSet('membranes', self._onSetMembranes)
 
     def _initCortexConfSetPost(self):
         self._initCoreFifos()
+
+        # Setup the membranes conf handler and initialize membranes we may have
+        self.onConfOptSet('membranes', self._onSetMembranes)
+        valu = self.getConfOpt('membranes')
+        if valu:
+            self.fire('syn:conf:set:%s' % 'membranes', valu=valu)
+
         # It is not safe to load modules during SetConfOpts() since the path
         # value may not be set due to dictionary ordering, and there may be
         # modules which rely on it being present
