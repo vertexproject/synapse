@@ -2879,6 +2879,9 @@ class CortexTest(SynTest):
             # refs are not automatically closed on core exit
             # the core fifo busref will not fini if refs are left open
             self.false(fiforef_0.isfini)
+            fiforef_1.fini()
+            self.true(fiforef_0.isfini)
+            self.eq(0, fiforef_0._syn_refs)
 
     def test_cortex_fifos(self):
 
