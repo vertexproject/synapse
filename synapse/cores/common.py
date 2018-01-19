@@ -572,7 +572,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                           'doc': 'Enables saving exceptions to the cortex as syn:log nodes'}),
             ('log:level', {'type': 'int', 'asloc': 'loglevel', 'defval': 0, 'doc': 'Filters log events to >= level'}),
             ('modules', {'defval': (), 'doc': 'An optional list of (pypath,conf) tuples for synapse modules to load'}),
-            ('membranes', {'defval': (), 'doc': 'An optional list of (name,rules) tuples to create Membranes with'})
+            ('membranes', {'defval': (), 'doc': 'An optional list of (name,rules) tuples to create Membranes with'}),
         )
         return confdefs
 
