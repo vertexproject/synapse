@@ -2849,6 +2849,39 @@ class CortexTest(SynTest):
             self.none(t1[1].get('strform:baz'))
             self.none(t1[1].get('strform:haha'))
 
+    def test_cortex_fifos_busref(self):
+        with self.getTestDir() as dirn:
+
+            url = 'dir:///' + dirn
+            with s_cortex.openurl(url) as core:
+                node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
+                name = node[1].get('syn:fifo:name')
+
+                # refcount is set to 1 when the fifo is created (when the syn:fifo node is formed),
+                #   then incremented when getCoreFifo is called
+                fiforef_0 = core.getCoreFifo(name)
+                self.eq(2, fiforef_0._syn_refs)
+
+                # Add 3 more refs
+                fiforef_1 = core.getCoreFifo(name)
+                fiforef_2 = core.getCoreFifo(name)
+                fiforef_3 = core.getCoreFifo(name)
+                self.eq(5, fiforef_0._syn_refs)
+
+                # Begin to remove them
+                fiforef_3.fini()
+                self.eq(4, fiforef_0._syn_refs)
+                fiforef_2.fini()
+                self.eq(3, fiforef_0._syn_refs)
+                fiforef_1.fini()
+                self.eq(2, fiforef_0._syn_refs)
+
+            # refs are finied, but the fifo is not finid because not all of the refs were closed yet
+            self.false(fiforef_0.isfini)
+            fiforef_1.fini()
+            self.true(fiforef_0.isfini)
+            self.eq(0, fiforef_0._syn_refs)
+
     def test_cortex_fifos(self):
 
         with self.getTestDir() as dirn:
@@ -2859,22 +2892,22 @@ class CortexTest(SynTest):
                 self.raises(NoSuchFifo, core.getCoreFifo, '(haha)')
 
                 node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
-                self.eq(node[1].get('syn:fifo'), 'adb4864c8e5f2a2a44b454981e731b8b')
-                self.eq(node[1].get('syn:fifo:name'), 'haha')
-                self.eq(node[1].get('syn:fifo:desc'), 'test fifo')
+                iden = node[1].get('syn:fifo')
+                name = node[1].get('syn:fifo:name')
+                desc = node[1].get('syn:fifo:desc')
+
+                self.eq(iden, 'adb4864c8e5f2a2a44b454981e731b8b')
+                self.eq(name, 'haha')
+                self.eq(desc, 'test fifo')
+
+                # Assert that the fifo dir was created by simply forming the syn:fifo node
+                path = core.getCorePath('fifos', iden)
+                self.true(os.path.isdir(path))
 
                 self.raises(NoSuchFifo, core.getCoreFifo, 'shouldntexist')
 
-                name = node[1].get('syn:fifo:name')
-                self.eq(name, 'haha')
-                path = core.getCorePath('fifos', node[1].get('syn:fifo'))
-
                 sent = []
-
-                # this will trigger dir creation
                 core.subCoreFifo(name, sent.append)
-
-                self.true(os.path.isdir(path))
 
                 core.putCoreFifo(name, 'foo')
                 core.putCoreFifo(name, 'bar')
@@ -2887,7 +2920,6 @@ class CortexTest(SynTest):
 
                 sent = []
                 core.subCoreFifo(name, sent.append)
-
                 self.len(1, sent)
                 self.eq(sent[0][2], 'bar')
 
@@ -2943,6 +2975,59 @@ class CortexTest(SynTest):
 
                 self.false(os.path.isdir(path))
                 self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
+
+    def test_cortex_fifos_fifodir(self):
+
+        def run_tests(node):
+            self.eq(node[1].get('syn:fifo'), 'adb4864c8e5f2a2a44b454981e731b8b')
+            self.eq(node[1].get('syn:fifo:name'), 'haha')
+            self.eq(node[1].get('syn:fifo:desc'), 'test fifo')
+            path = core.getCorePath('fifos', 'adb4864c8e5f2a2a44b454981e731b8b')
+            self.true(os.path.isdir(path))
+
+        with self.getTestDir() as dirn:
+            url = 'dir:///' + dirn
+
+            # create the fifo and put a message into it, close the cortex
+            with s_cortex.openurl(url) as core:
+                core.formTufoByProp('syn:fifo', '(FoO)')
+                core.formTufoByProp('syn:fifo', '(bAr)')
+                core.formTufoByProp('syn:fifo', '(BAz)')
+                node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
+                run_tests(node)
+
+                core.getCoreFifo('haha')
+                core.getCoreFifo('haha')
+                fifo = core.getCoreFifo('haha')
+                self.eq(4, fifo._syn_refs)
+
+                core.putCoreFifo('haha', 'mymesg')
+
+            # make sure that the fifo still exists and is reloaded after the cortex was closed and reopened
+            with s_cortex.openurl(url) as core:
+                node = core.getTufoByProp('syn:fifo', '(haHA)')  # make sure that it is still there
+                run_tests(node)
+
+            # make sure that the fifo still works correctly after the cortex was closed and reopened
+            with s_cortex.openurl(url) as core:
+                fifo = core.getCoreFifo('haha')
+                self.eq(2, fifo._syn_refs)  # make sure that the old refs were cleaned up
+
+                actual = []
+                core.subCoreFifo('haha', actual.append)  # messages should persist
+                self.eq(2, fifo._syn_refs)  # calling subCoreFifo shouldn't incr refs
+
+                self.len(1, actual)
+                self.len(3, actual[0])
+                self.eq(actual[0][2], 'mymesg')  # make sure the original message survived
+
+                core.delTufo(node)
+
+            # make sure that the fifo is really removed after its node is removed
+            with s_cortex.openurl(url) as core:
+                self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
+                path = core.getCorePath('fifos', 'adb4864c8e5f2a2a44b454981e731b8b')
+                self.false(os.path.isdir(path))
 
     def test_cortex_universal_props(self):
         with self.getRamCore() as core:

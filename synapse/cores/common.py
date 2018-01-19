@@ -89,6 +89,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         # BusRef for handling named Fifo objects
         self._core_fifos = s_eventbus.BusRef(ctor=self._initCoreFifo)
+        self.onfini(self._core_fifos.fini)
 
         # we keep an in-ram set of "ephemeral" nodes which are runtime-only ( non-persistent )
         self.runt_forms = set()
@@ -241,6 +242,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.initTufosBy('inet:cidr', self._tufosByInetCidr)
 
     def _initCoreNodeEventHandlers(self):
+        self.on('node:add', self._onAddFifo, form='syn:fifo')
         self.on('node:del', self._onDelFifo, form='syn:fifo')
         self.on('node:del', self._onDelAuthRole, form='syn:auth:role')
         self.on('node:del', self._onDelAuthUser, form='syn:auth:user')
@@ -256,6 +258,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.on('fifo:ack', self._onFifoAck)
         self.on('fifo:sub', self._onFifoSub)
 
+    def _initCoreFifos(self):
+        for node in self.getTufosByProp('syn:fifo'):
+            name = node[1].get('syn:fifo:name')
+            self._core_fifos.gen(name)
+
     def _initCoreStormOpers(self):
         self.setOperFunc('stat', self._stormOperStat)
         self.setOperFunc('dset', self._stormOperDset)
@@ -266,6 +273,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.onConfOptSet('axon:url', self._onSetAxonUrl)
 
     def _initCortexConfSetPost(self):
+        self._initCoreFifos()
         # It is not safe to load modules during SetConfOpts() since the path
         # value may not be set due to dictionary ordering, and there may be
         # modules which rely on it being present
@@ -371,8 +379,17 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         Args:
             name (str): The :name of the syn:fifo node.
 
+        Notes:
+            This requires a syn:fifo node to have been created which has a
+            syn:fifo:name property equal to the called name.
+            This also increments the reference counter for the fifo, please call
+            fini on the object when done using it.
+
         Returns:
             s_fifo.Fifo: The Fifo object.
+
+        Raises:
+            NoSuchFifo: If there is no corresponding syn:fifo node in the Cortex.
         '''
         name = name.lower()
         return self._core_fifos.gen(name)
@@ -387,7 +404,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         name = name.lower()
         self.reqperm(('fifo:put', {'name': name}))
-        fifo = self._core_fifos.gen(name)
+        fifo = self._core_fifos.get(name)
         fifo.put(item)
 
     def extCoreFifo(self, name, items):
@@ -400,7 +417,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         name = name.lower()
         self.reqperm(('fifo:put', {'name': name}))
-        fifo = self._core_fifos.gen(name)
+        fifo = self._core_fifos.get(name)
         [fifo.put(item) for item in items]
 
     def ackCoreFifo(self, name, seqn):
@@ -413,7 +430,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         name = name.lower()
         self.reqperm(('fifo:ack', {'name': name}))
-        fifo = self._core_fifos.gen(name)
+        fifo = self._core_fifos.get(name)
         fifo.ack(seqn)
 
     def _onFifoSub(self, mesg):
@@ -451,7 +468,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         name = name.lower()
         self.reqperm(('fifo:sub', {'name': name}))
-        fifo = self._core_fifos.gen(name)
+        fifo = self._core_fifos.get(name)
 
         if xmit is None:
             xmit = self._getTeleFifoXmit(name)
@@ -475,6 +492,13 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         # TODO default fifo config info in core config?
         return s_fifo.Fifo(conf)
+
+    def _onAddFifo(self, mesg):
+
+        node = mesg[1].get('node')
+        name = node[1].get('syn:fifo:name')
+
+        self.getCoreFifo(name)
 
     def _onDelFifo(self, mesg):
 
