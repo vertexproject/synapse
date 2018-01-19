@@ -122,6 +122,24 @@ Filter operations can be performed using any of the standard mathematical / logi
   * "**exclude** things **not equal** to *<foo>*" is equivalent to "**include** things **equal** to *<foo>*"
   * "**include** things **not equal** to *<foo>*" is equivanelt to "**exclude** things **equal** to *<foo>*"
 
+* The Storm query planner will optimize lifts which which meet the following criteria:
+
+  #. Do not specify a ``valu`` to lift by.
+  #. Are immediately followed by a positive tag filter.
+
+  This is done to prevent potentially dangerous queries which may cause all nodes of a given form or property to be
+  lifted, which may require significant resources and generate results that are subsequentially discarded by a
+  filter operation. For example, the following queries are all executed in the same fashion by the Storm runtime:
+
+  ::
+
+    inet:fqdn +#hehe.haha
+
+    lift( inet:fqdn ) +#hehe.haha
+
+    inet:fqdn*tag=hehe.haha
+
+
 Filter Helper Functions
 -----------------------
 
