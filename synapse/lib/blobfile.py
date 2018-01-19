@@ -263,7 +263,7 @@ class BlobFile(s_eventbus.EventBus):
         self.fd.seek(0, os.SEEK_END)
         maxsize = self.fd.tell()
 
-        # Setup the expected size for the heap structures
+        # Start walking at zero
         self.fd.seek(0)
         while True:
 
