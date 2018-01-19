@@ -89,6 +89,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         # BusRef for handling named Fifo objects
         self._core_fifos = s_eventbus.BusRef(ctor=self._initCoreFifo)
+        self.onfini(self._core_fifos.fini)
 
         # we keep an in-ram set of "ephemeral" nodes which are runtime-only ( non-persistent )
         self.runt_forms = set()

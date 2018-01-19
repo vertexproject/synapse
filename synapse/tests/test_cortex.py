@@ -2876,6 +2876,8 @@ class CortexTest(SynTest):
                 fiforef_1.fini()
                 self.eq(2, fiforef_0._syn_refs)
 
+            self.true(fiforef_0.isfini)  # should automatically fini this
+
     def test_cortex_fifos(self):
 
         with self.getTestDir() as dirn:
