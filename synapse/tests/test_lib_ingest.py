@@ -1359,3 +1359,42 @@ class IngTest(SynTest):
             minv = node[1].get('>#hehe')
             maxv = node[1].get('<#hehe')
             self.eq((minv, maxv), (1514764800000, 1514764800000))
+
+    def test_ingest_readonly(self):
+
+        with self.getRamCore() as core:
+            info = {
+                'ingest': {
+                    'iters': (
+                        ('foo/*', {
+                            'forms': [
+                                ('guidform', {
+                                    'template': '*',
+                                    'props': {
+                                        'faz': {'path': 'anumber'}
+                                    }
+                                }),
+                            ]
+                        }),
+                    ),
+                },
+            }
+
+            data = {
+                'foo': [
+                    {'anumber': 1},
+                    {'anumber': 2},
+                    {'anumber': 3},
+                ],
+            }
+
+            gest = s_ingest.Ingest(info)
+            gest.ingest(core, data=data)
+
+            for i in range(1, 4):
+                node = core.getTufoByProp('guidform:faz', i)
+                self.nn(node)
+
+                core.setTufoProp(node, 'faz', 999)
+                node = core.getTufoByProp('guidform:faz', i)
+                self.eq(i, node[1].get('guidform:faz'))
