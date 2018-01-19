@@ -527,6 +527,12 @@ class StormTest(SynTest):
             nodes = core.eval('#aka.duck totags()')
             self.eq(len(nodes), 10)
 
+            nodes = core.eval('#aka.duck totags(limit=3)')
+            self.eq(len(nodes), 3)
+
+            nodes = core.eval('#aka.duck totags(limit=0)')
+            self.eq(len(nodes), 0)
+
             nodes = core.eval('ps:tokn totags()')
             self.eq(len(nodes), 0)
 
@@ -537,6 +543,8 @@ class StormTest(SynTest):
             # Tagless node input
             nodes = core.eval('geo:loc=derry totags()')
             self.eq(len(nodes), 0)
+
+            self.raises(BadOperArg, core.eval, '#aka.duck totags(limit=-1)')
 
     def test_storm_tag_fromtag(self):
         with self.getRamCore() as core:  # type: s_cores_common.Cortex
@@ -1043,6 +1051,9 @@ class StormTest(SynTest):
             nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=3)')
             self.len(6, nodes)
 
+            nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, limit=4)')
+            self.len(5, nodes)  # 1 src node + 4 additional nodes lifted
+
             nodes = core.eval('syn:tag=foo tree(syn:tag, syn:tag:up, recurlim=12345)')
             self.len(6, nodes)
 
@@ -1234,6 +1245,8 @@ class StormTest(SynTest):
             # Ensure that pivot and join operations work
             self.true(len(core.eval('syn:prop:ptype=it:host :form->syn:form')) > 1)
             self.true(len(core.eval('syn:prop:ptype=it:host :form<-syn:form')) > 1)
+            # Ensure limits are covered
+            self.len(3, core.eval('syn:prop:ptype=it:host :form->syn:form limit(3)'))
 
     def test_storm_prop_gtor(self):
         with self.getRamCore() as core:

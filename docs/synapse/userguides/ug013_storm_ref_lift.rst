@@ -178,11 +178,17 @@ alltag()
 
 Lifts a set of nodes based on one or more tags.
 
+Optional parameters:
+
+* **Return limit:** specify the maximum number of nodes to be returned by the alltag query.
+
+  * ``limit=`` (operator syntax)
+
 **Operator Syntax:**
 
 .. parsed-literal::
-  
-  **alltag(** *<tag>* [ **,** ...] **)**
+
+  **alltag(** *<tag>* [ **,** *<tag>* **,** ... **, limit=** *<limit>* ] **)**
   
 **Macro Syntax:**
 
@@ -191,16 +197,27 @@ Lifts a set of nodes based on one or more tags.
   **#** *<tag>* ...
   
 **Examples:**
+
 *Lifts all nodes that have the tag foo.bar or the tag baz.faz.*
 ::
   alltag( foo.bar , baz.faz )
   
   #foo.bar #baz.faz
 
+*Lifts up to three nodes that have the tag foo.bar*
+::
+  alltag( foo.bar , limit=3)
+
+  #foo.bar limit(3)
+
+
 **Usage Notes:**
 
 * ``alltag()`` retrieves all nodes that have **any** of the specified tags.
 
+* The macro syntax for ``alltag()`` does not support the use of a limit parameter with the operator itself. The
+  ``limit()`` operator_ can be used to with the alltags macro syntax to limit the number of nodes returned, as shown
+  above.
 
 .. _storm.py: https://github.com/vertexproject/synapse/blob/master/synapse/lib/storm.py
 

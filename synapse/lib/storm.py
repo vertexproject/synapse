@@ -668,12 +668,7 @@ class Runtime(Configable):
 
         query = Query(data=data, maxtime=maxtime)
 
-        try:
-
-            self._runOperFuncs(query, opers)
-
-        except Exception as e:
-            logger.exception(e)
+        self._runOperFuncs(query, opers)
 
         return query.result()
 
@@ -703,6 +698,20 @@ class Runtime(Configable):
                 raise s_common.synerr(errname, **errinfo)
 
         return answ.get('data')
+
+    def getLiftLimitHelp(self, *limits):
+        '''
+        Return a LimitHelp object for the specified limits or defaults.
+
+        Args:
+            limits (list):  A list of int/None limits
+
+        Returns:
+            LimitHelp: A LimitHelp object.
+
+        '''
+        limit = self.getLiftLimit(*limits)
+        return LimitHelp(limit)
 
     def _reqOperArg(self, oper, name):
         valu = oper[1].get(name)
@@ -1020,21 +1029,63 @@ class Runtime(Configable):
         if limit is not None and limit < 0:
             raise s_common.BadOperArg(oper='pivot', name='limit', mesg='must be >= 0')
 
+        self._runPivotOper(query, srcp, dstp, limit)
+
+    def _stormOperJoin(self, query, oper):
+
+        args = oper[1].get('args')
+        opts = dict(oper[1].get('kwlist'))
+
+        if len(args) is 1:
+            srcp, dstp = None, args[0]
+
+        elif len(args) is 2:
+            srcp, dstp = args[0], args[1]
+
+        else:
+            raise s_common.BadSyntaxError(mesg='join(<srcprop>,<dstprop>)')
+
+        limit = opts.get('limit')
+        if limit is not None and limit < 0:
+            raise s_common.BadOperArg(oper='join', name='limit', mesg='must be >= 0')
+
+        self._runPivotOper(query, srcp, dstp, limit, take=False)
+
+    def _runPivotOper(self, query, srcp, dstp, limit, take=True):
+        '''
+        Run the pivot/join operator.
+
+        Args:
+            query (Query): Current query execution.
+            srcp (str): Source property. May be relative or absolute. May also be None.
+            dstp (str): Destination property.
+            limit (int): Limit on the number of nodes lifted.
+            take (bool): Remove nodes from the Query working set if True.
+
+        Returns:
+            None
+        '''
+
+        limt = self.getLiftLimitHelp(limit)
+
         # do we have a relative source property?
         relsrc = srcp is not None and srcp.startswith(':')
 
         vals = set()
-        tufs = query.take()
+
+        # pivot() is called with take=True, join() uses take=False
+        if take:
+            tufs = query.take()
+        else:
+            tufs = query.data()
 
         if srcp is not None and not relsrc:
-
             for tufo in tufs:
                 valu = tufo[1].get(srcp)
                 if valu is not None:
                     vals.add(valu)
 
         elif not relsrc:
-
             for tufo in tufs:
                 form = tufo[1].get('tufo:form')
                 valu = tufo[1].get(form)
@@ -1042,32 +1093,24 @@ class Runtime(Configable):
                     vals.add(valu)
 
         else:
-
             for tufo in tufs:
                 form = tufo[1].get('tufo:form')
                 valu = tufo[1].get(form + srcp)
                 if valu is not None:
                     vals.add(valu)
 
-        # do not use fancy by handlers for runt nodes...
+        # do not use the 'in' handler for runt nodes
         core = self.getStormCore()
         if core.isRuntProp(dstp):
-
-            limt = self.getLiftLimitHelp(limit)
             for valu in vals:
-
                 # the base "eq" handler is aware of runts...
                 news = self.stormTufosBy('eq', dstp, valu, limit=limt.get())
-                limt.dec(len(news))
-
                 [query.add(n) for n in news]
-
-                if limt.reached():
+                if limt.dec(len(news)):
                     break
-
             return
 
-        [query.add(t)for t in self.stormTufosBy('in', dstp, list(vals), limit=limit)]
+        [query.add(t) for t in self.stormTufosBy('in', dstp, list(vals), limit=limt.get())]
 
     def _stormOperNextTag(self, query, oper):
         name = None
@@ -1089,73 +1132,6 @@ class Runtime(Configable):
         node = core.formTufoByProp('syn:tag', valu, doc=doc)
 
         query.add(node)
-
-    def _stormOperJoin(self, query, oper):
-
-        args = oper[1].get('args')
-        opts = dict(oper[1].get('kwlist'))
-
-        if len(args) is 1:
-            srcp, dstp = None, args[0]
-
-        elif len(args) is 2:
-            srcp, dstp = args[0], args[1]
-
-        else:
-            raise s_common.BadSyntaxError(mesg='join(<srcprop>,<dstprop>)')
-
-        limit = opts.get('limit')
-        if limit is not None and limit < 0:
-            raise s_common.BadOperArg(oper='join', name='limit', mesg='must be >= 0')
-
-        # do we have a relative source property?
-        relsrc = srcp is not None and srcp.startswith(':')
-
-        vals = set()
-        tufs = query.data()
-
-        if srcp is not None and not relsrc:
-
-            for tufo in tufs:
-                valu = tufo[1].get(srcp)
-                if valu is not None:
-                    vals.add(valu)
-
-        elif not relsrc:
-
-            for tufo in tufs:
-                form = tufo[1].get('tufo:form')
-                valu = tufo[1].get(form)
-                if valu is not None:
-                    vals.add(valu)
-
-        else:
-
-            for tufo in tufs:
-                form = tufo[1].get('tufo:form')
-                valu = tufo[1].get(form + srcp)
-                if valu is not None:
-                    vals.add(valu)
-
-        # do not use fancy by handlers for runt nodes...
-        core = self.getStormCore()
-        if core.isRuntProp(dstp):
-
-            limt = self.getLiftLimitHelp(limit)
-            for valu in vals:
-
-                # the base "eq" handler is aware of runts...
-                news = self.stormTufosBy('eq', dstp, valu, limit=limt.get())
-                limt.dec(len(news))
-
-                [query.add(n) for n in news]
-
-                if limt.reached():
-                    break
-
-            return
-
-        [query.add(t) for t in self.stormTufosBy('in', dstp, list(vals), limit=limit)]
 
     def _stormOperAddXref(self, query, oper):
 
@@ -1379,18 +1355,16 @@ class Runtime(Configable):
 
         core = self.getStormCore()
 
-        limit = self.getLiftLimit(opts.get('limit'))
+        limt = self.getLiftLimitHelp(opts.get('limit'))
 
         for tag in tags:
 
-            nodes = core.getTufosByTag(tag, limit=limit)
+            nodes = core.getTufosByTag(tag, limit=limt.get())
 
             [query.add(node) for node in nodes]
 
-            if limit is not None:
-                limit -= len(nodes)
-                if limit <= 0:
-                    break
+            if limt.dec(len(nodes)):
+                break
 
     def _stormOperAddTag(self, query, oper):
         tags = oper[1].get('args')
@@ -1435,10 +1409,9 @@ class Runtime(Configable):
 
                 nodes = core.getTufosByTag(tag, limit=limt.get())
 
-                limt.dec(len(nodes))
                 [query.add(n) for n in nodes]
 
-                if limt.reached():
+                if limt.dec(len(nodes)):
                     break
 
             return
@@ -1452,10 +1425,9 @@ class Runtime(Configable):
 
                 nodes = core.getTufosByTag(tag, form=form, limit=limt.get())
 
-                limt.dec(len(nodes))
                 [query.add(n) for n in nodes]
 
-                if limt.reached():
+                if limt.dec(len(nodes)):
                     break
 
     def _stormOperToTags(self, query, oper):
@@ -1464,29 +1436,15 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         leaf = opts.get('leaf', True)
-        limt = opts.get('limit', 0)
-        if limt < 0:
+        limt = self.getLiftLimitHelp(opts.get('limit'))
+        limtv = limt.get()
+
+        if limtv and limtv < 0:
             raise s_common.BadOperArg(oper='totags', name='limit', mesg='limit must be >= 0')
 
         tags = list({tag for node in nodes for tag in s_tufo.tags(node, leaf=leaf)})
-        if limt > 0:
-            tags = tags[0:limt]
 
-        [query.add(tufo) for tufo in core.getTufosBy('in', 'syn:tag', tags)]
-
-    def getLiftLimitHelp(self, *limits):
-        '''
-        Return a LimitHelp object for the specified limits or defaults.
-
-        Args:
-            limits (list):  A list of int/None limits
-
-        Returns:
-            (LimitHelp)
-
-        '''
-        limit = self.getLiftLimit(*limits)
-        return LimitHelp(limit)
+        [query.add(tufo) for tufo in core.getTufosBy('in', 'syn:tag', tags, limit=limtv)]
 
     def _stormOperFromTags(self, query, oper):
         args = oper[1].get('args')
@@ -1571,6 +1529,8 @@ class Runtime(Configable):
         if not args:
             raise s_common.BadSyntaxError(mesg='tree([<srcprop>], <destprop>, [recurlim=<limit>])')
 
+        limt = self.getLiftLimitHelp(opts.get('limit'))
+
         core = self.getStormCore()
 
         # Prevent infinite pivots
@@ -1625,7 +1585,12 @@ class Runtime(Configable):
             if not qvals:
                 break
 
-            [query.add(t) for t in self.stormTufosBy('in', dstp, qvals, limit=opts.get('limit'))]
+            nodes = core.stormTufosBy('in', dstp, qvals, limit=limt.get())
+
+            [query.add(n) for n in nodes]
+
+            if limt.dec(len(nodes)):
+                break
 
             queried_vals = queried_vals.union(vals)
 
@@ -1640,8 +1605,6 @@ class Runtime(Configable):
         args = oper[1].get('args')
         opts = dict(oper[1].get('kwlist'))
 
-        core = self.getStormCore()
-
         if not args:
             raise s_common.BadSyntaxError(mesg='delprop(<prop>, [force=1]>')
 
@@ -1654,6 +1617,7 @@ class Runtime(Configable):
         if not prop:
             raise s_common.BadSyntaxError(mesg='delprop(<prop>, [force=1]>')
 
+        core = self.getStormCore()
         force, _ = core.getTypeNorm('bool', opts.get('force', 0))
 
         if not force:

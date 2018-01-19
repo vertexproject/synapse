@@ -1448,7 +1448,7 @@ class CortexTest(SynTest):
         self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0, limit=3)')), 2)
         self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0, limit=2)')), 2)
         self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0, limit=1)')), 1)
-        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0, limit=0)')), 2)
+        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0, limit=0)')), 0)
         self.raises(BadOperArg, core.eval, 'inet:fqdn=w00t.com totags(leaf=0, limit=-1)')
         self.eq(len(core.eval('syn:tag=some')), 1)
         self.eq(len(core.eval('syn:tag=some.tag')), 1)
