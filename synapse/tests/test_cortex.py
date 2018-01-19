@@ -3080,6 +3080,43 @@ class CortexTest(SynTest):
             self.isin('hehe:haha', tasks)
             self.isin('wow', tasks)
 
+    def test_cortex_dynalias(self):
+        conf = {
+            'ctors': [
+                [
+                    'core',
+                    'syn:cortex',
+                    {
+                        'url': 'ram:///',
+                        'storm:query:log:en': 1,
+                        'modules': [
+                            [
+                                'synapse.tests.test_cortex.CoreTestModule',
+                                {'foobar': True}
+                            ]
+                        ]
+                    }
+                ]
+            ],
+            'share': [
+                [
+                    'core',
+                    {}
+                ]
+            ],
+            'listen': [
+                'tcp://0.0.0.0:0/'
+            ]
+        }
+
+        with s_daemon.Daemon() as dmon:
+            dmon.loadDmonConf(conf)
+            link = dmon.links()[0]
+            port = link[1].get('port')
+            with s_cortex.openurl('tcp://0.0.0.0/core', port=port) as prox:
+                self.isin('synapse.tests.test_cortex.CoreTestModule', prox.getCoreMods())
+                self.eq(prox.getConfOpt('storm:query:log:en'), 1)
+
 class StorageTest(SynTest):
 
     def test_nonexist_ctor(self):

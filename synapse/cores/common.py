@@ -62,59 +62,116 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     Top level Cortex key/valu storage object.
     '''
     def __init__(self, link, store, **conf):
-
         Runtime.__init__(self)
         EventBus.__init__(self)
 
         logger.debug('Initializing Cortex')
 
-        self.on('node:del', self._onDelFifo, form='syn:fifo')
-        self.on('node:del', self._onDelAuthRole, form='syn:auth:role')
-        self.on('node:del', self._onDelAuthUser, form='syn:auth:user')
-        self.on('node:add', self._onAddAuthUserRole, form='syn:auth:userrole')
-        self.on('node:del', self._onDelAuthUserRole, form='syn:auth:userrole')
-        self.on('node:del', self._onDelSynTag, form='syn:tag')
-        self.on('node:form', self._onFormSynTag, form='syn:tag')
-
-        self.on('fifo:ack', self._onFifoAck)
-        self.on('fifo:sub', self._onFifoSub)
-
-        # a cortex may have a ref to an axon
-        self.axon = None
-        self.seedctors = {}
-
-        self.modules = [(ctor, modconf) for ctor, smod, modconf in s_modules.ctorlist]
-        self.modsdone = False
-
-        self.noauto = {'syn:form', 'syn:type', 'syn:prop'}
-
-        self.onConfOptSet('modules', self._onSetMods)
-        self.onConfOptSet('caching', self._onSetCaching)
-        self.onConfOptSet('axon:url', self._onSetAxonUrl)
-
-        logger.debug('Setting Cortex conf opts')
-        self.setConfOpts(conf)
-
+        # Store the link tufo
         self._link = link
 
-        self.lock = threading.Lock()
-        self.inclock = threading.Lock()
-
+        # Core modules and model related structs
+        self.modules = [(ctor, modconf) for ctor, smod, modconf in s_modules.ctorlist]
         self.coremods = {}  # name:module ( CoreModule() )
-        self.statfuncs = {}
+        self.modsdone = False
+        self.seedctors = {}
+        self.modelrevlist = []
 
-        self.auth = None
-        self.snaps = s_cache.Cache(maxtime=60)
-
-        self._core_triggers = s_trigger.Triggers()
-
+        # Auth helpers
         self._auth_perms = {}
         self._auth_roles = s_cache.Cache(onmiss=self._onAuthRolesMiss)
         self._auth_users = s_cache.Cache(onmiss=self._onAuthUsersMiss)
         self._auth_rules = s_cache.Cache(onmiss=self._onAuthRulesMiss)
 
+        # Tag Caches
+        self._core_tags = s_cache.FixedCache(maxsize=10000, onmiss=self._getFormFunc('syn:tag'))
+        self._core_tagforms = s_cache.FixedCache(maxsize=10000, onmiss=self._getFormFunc('syn:tagform'))
+
+        # BusRef for handling named Fifo objects
+        self._core_fifos = s_eventbus.BusRef(ctor=self._initCoreFifo)
+
+        # we keep an in-ram set of "ephemeral" nodes which are runtime-only ( non-persistent )
+        self.runt_forms = set()
+        self.runt_props = collections.defaultdict(list)
+
+        # We keep a cache of recently accessed nodes to redeuce hitting storage layers
+        self.cache_fifo = collections.deque()               # [ ((prop,valu,limt), {
+        self.cache_bykey = {}                               # (prop,valu,limt):( (prop,valu,limt), {iden:tufo,...} )
+        self.cache_byiden = s_cache.RefDict()
+        self.cache_byprop = collections.defaultdict(dict)   # (<prop>,<valu>):[ ((prop, valu, limt),  answ), ... ]
+
+        # Function helpers
+        self.statfuncs = {}
+        self.tufosbymeths = {}
+
+        # Runtime stats
+        self.formed = collections.defaultdict(int)      # count tufos formed since startup
+
+        # Misc
+        self.axon = None  # A cortex may have a reference to an Axon
+        self.isok = True
+        self.seqs = s_cache.KeyCache(self.getSeqNode)  # Used for sequence generation
+        self.snaps = s_cache.Cache(maxtime=60)  # Used for caching tufos for the snaps apis
+        self.inclock = threading.Lock()  # Used for atomically incrementing a tufo property
+        self.spliceact = s_reactor.Reactor() # Reactor for handling splice events
+        self._core_triggers = s_trigger.Triggers()  # Trigger subsystem
+
+        # Initialize various helpers / callbacks
+        self._initCoreSpliceHandlers()
+        self._initCoreStatFuncs()
+        self._initCoreTufosByHandlers()
+        self._initCoreFifoHandlers()
+        self._initCoreNodeEventHandlers()
+        self._initCoreStormOpers()
+
+        # Initialize the storage layer and register it
+        self.store = store  # type: s_storage.Storage
+        self._registerStore()
+
+        # Initialize the datamodel and add universal props
+        DataModel.__init__(self)
+        self._addUnivProps()
+
         # perm defs are also used to define trigger metadata
-        self.addPermDefs((
+        # they must be loaded prior to triggers being loaded
+        self._initPermDefs()
+        # Load any syn:trigger nodes in the Cortex
+        self._loadTrigNodes()
+
+        self.myfo = self.formTufoByProp('syn:core', 'self')
+        self.isnew = self.myfo[1].get('.new', False)
+
+        # Set handlers which are not race-condition prone; stamp in conf;
+        # then set handlers and handle any config options which may have
+        # need reacting to them.
+        self._initCortexConfSetPre()
+        logger.debug('Setting Cortex conf opts')
+        self.setConfOpts(conf)
+        self._initCortexConfSetPost()
+
+        logger.debug('Loading coremodules from s_modules.ctorlist')
+        with self.getCoreXact() as xact:
+            mods = [(ctor, modconf) for ctor, smod, modconf in s_modules.ctorlist]
+            self.addCoreMods(mods)
+        self.onfini(self._finiCoreMods)
+
+        # allow modules a shot at hooking cortex events for model ctors
+        logger.debug('Executing s_modules.call(addCoreOns, self)')
+        for name, ret, exc in s_modules.call('addCoreOns', self):
+            if exc is not None:
+                logger.warning('%s.addCoreOns: %s' % (name, exc))
+
+        # Initialize the IngestApi mixin
+        s_ingest.IngestApi.__init__(self, self)
+
+        logger.debug('Setting the syn:core:synapse:version value.')
+        self.setBlobValu('syn:core:synapse:version', s_version.version)
+
+        # The iden of self.myfo is persistent
+        logger.debug('Done starting up cortex %s', self.myfo[0])
+
+    def _initPermDefs(self):
+        permdefs = [
             ('node:add', {'doc': 'Permission to add a node'}, (
                 ('form', {'doc': 'The form of node being modified'}),
             )),
@@ -145,31 +202,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 ('form', {'doc': 'The form of node being modified'}),
                 ('name', {'doc': 'The interval name being removed from the node'}),
             )),
-        ))
+        ]
+        self.addPermDefs(permdefs)
 
-        self.seqs = s_cache.KeyCache(self.getSeqNode)
-
-        self.formed = collections.defaultdict(int)      # count tufos formed since startup
-
-        self._core_tags = s_cache.FixedCache(maxsize=10000, onmiss=self._getFormFunc('syn:tag'))
-        self._core_tagforms = s_cache.FixedCache(maxsize=10000, onmiss=self._getFormFunc('syn:tagform'))
-
-        self._core_fifos = s_eventbus.BusRef(ctor=self._initCoreFifo)
-
-        self.tufosbymeths = {}
-
-        # we keep an in-ram set of "ephemeral" nodes which are runtime-only ( non-persistent )
-        self.runt_forms = set()
-        self.runt_props = collections.defaultdict(list)
-
-        self.cache_fifo = collections.deque()               # [ ((prop,valu,limt), {
-        self.cache_bykey = {}                               # (prop,valu,limt):( (prop,valu,limt), {iden:tufo,...} )
-        self.cache_byiden = s_cache.RefDict()
-        self.cache_byprop = collections.defaultdict(dict)   # (<prop>,<valu>):[ ((prop, valu, limt),  answ), ... ]
-
-        #############################################################
-        # Handlers for each splice event action
-        self.spliceact = s_reactor.Reactor()
+    def _initCoreSpliceHandlers(self):
         self.spliceact.act('node:add', self._actNodeAdd)
         self.spliceact.act('node:del', self._actNodeDel)
         self.spliceact.act('node:prop:set', self._actNodePropSet)
@@ -179,8 +215,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.spliceact.act('node:ival:set', self._actNodeIvalSet)
         self.spliceact.act('node:ival:del', self._actNodeIvalDel)
 
-        #############################################################
-
+    def _initCoreStatFuncs(self):
         self.addStatFunc('any', self._calcStatAny)
         self.addStatFunc('all', self._calcStatAll)
         self.addStatFunc('min', self._calcStatMin)
@@ -190,6 +225,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.addStatFunc('count', self._calcStatCount)
         self.addStatFunc('histo', self._calcStatHisto)
 
+    def _initCoreTufosByHandlers(self):
         # Strap in default initTufosBy functions
         self.initTufosBy('eq', self._tufosByEq)
         self.initTufosBy('ge', self._tufosByGe)
@@ -204,60 +240,40 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.initTufosBy('range', self._tufosByRange)
         self.initTufosBy('inet:cidr', self._tufosByInetCidr)
 
-        # Initialize the storage layer
-        self.store = store  # type: s_storage.Storage
-        self._registerStore()
-
-        self.isok = True
-
-        DataModel.__init__(self)
-        self._addUnivProps()
-
-        self._loadTrigNodes()
-
-        self.myfo = self.formTufoByProp('syn:core', 'self')
-        self.isnew = self.myfo[1].get('.new', False)
-
-        logger.debug('Loading coremodules from s_modules.ctorlist')
-        self.modelrevlist = []
-        with self.getCoreXact() as xact:
-            mods = [(ctor, modconf) for ctor, smod, modconf in s_modules.ctorlist]
-            self.addCoreMods(mods)
-
+    def _initCoreNodeEventHandlers(self):
+        self.on('node:del', self._onDelFifo, form='syn:fifo')
+        self.on('node:del', self._onDelAuthRole, form='syn:auth:role')
+        self.on('node:del', self._onDelAuthUser, form='syn:auth:user')
+        self.on('node:add', self._onAddAuthUserRole, form='syn:auth:userrole')
+        self.on('node:del', self._onDelAuthUserRole, form='syn:auth:userrole')
+        self.on('node:del', self._onDelSynTag, form='syn:tag')
+        self.on('node:form', self._onFormSynTag, form='syn:tag')
         self.on('node:add', self._loadTrigNodes, form='syn:trigger')
         self.on('node:del', self._loadTrigNodes, form='syn:trigger')
         self.on('node:prop:set', self._loadTrigNodes, form='syn:trigger')
 
-        self.addTufoForm('syn:log', ptype='guid', local=1)
-        self.addTufoProp('syn:log', 'subsys', defval='??', help='Named subsystem which originated the log event')
-        self.addTufoProp('syn:log', 'level', ptype='int', defval=logging.WARNING)
-        self.addTufoProp('syn:log', 'time', ptype='time', doc='When did the log event occur')
-        self.addTufoProp('syn:log', 'exc', ptype='str', help='Exception class name if caused by an exception')
-        self.addTufoProp('syn:log', 'info:*', glob=1)
+    def _initCoreFifoHandlers(self):
+        self.on('fifo:ack', self._onFifoAck)
+        self.on('fifo:sub', self._onFifoSub)
 
-        self.addTufoForm('syn:ingest', ptype='str:lwr', local=1)
-        self.addTufoProp('syn:ingest', 'time', ptype='time')
-        self.addTufoProp('syn:ingest', 'text', ptype='json')
-
-        # storm operators specific to the cortex
+    def _initCoreStormOpers(self):
         self.setOperFunc('stat', self._stormOperStat)
         self.setOperFunc('dset', self._stormOperDset)
 
-        # allow modules a shot at hooking cortex events for model ctors
-        logger.debug('Executing s_modules.call(addCoreOns, self)')
-        for name, ret, exc in s_modules.call('addCoreOns', self):
-            if exc is not None:
-                logger.warning('%s.addCoreOns: %s' % (name, exc))
+    def _initCortexConfSetPre(self):
+        # Setup handlers for confOpt changes which are not racy
+        self.onConfOptSet('caching', self._onSetCaching)
+        self.onConfOptSet('axon:url', self._onSetAxonUrl)
 
-        self.onfini(self._finiCoreMods)
-
-        s_ingest.IngestApi.__init__(self, self)
-
-        logger.debug('Setting the syn:core:synapse:version value.')
-        self.setBlobValu('syn:core:synapse:version', s_version.version)
-
-        # The iden of self.myfo is persistent
-        logger.debug('Done starting up cortex %s', self.myfo[0])
+    def _initCortexConfSetPost(self):
+        # It is not safe to load modules during SetConfOpts() since the path
+        # value may not be set due to dictionary ordering, and there may be
+        # modules which rely on it being present
+        self.onConfOptSet('modules', self._onSetMods)
+        # Load any existing modules which may have been configured
+        valu = self.getConfOpt('modules')
+        if valu:
+            self.fire('syn:conf:set:%s' % 'modules', valu=valu)
 
     def addRuntNode(self, form, valu, props=None):
         '''
@@ -522,7 +538,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             ('cache:maxsize', {'type': 'int', 'asloc': 'cache_maxsize', 'defval': 1000,
                                'doc': 'Enables caching layer in the cortex'}),
             ('rev:model', {'type': 'bool', 'defval': 1, 'doc': 'Set to 0 to disallow model version updates'}),
-            ('rev:storage', {'type': 'bool', 'defval': 1, 'doc': 'Set to 0 to disallow storage version updates'}),
             ('axon:url', {'type': 'str', 'doc': 'Allows cortex to be aware of an axon blob store'}),
             ('axon:dirmode', {'type': 'int', 'doc': 'Default mode used to make axon:path nodes for directories.',
                               'defval': 0o775}),
