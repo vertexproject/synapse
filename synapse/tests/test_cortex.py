@@ -2970,6 +2970,59 @@ class CortexTest(SynTest):
                 self.false(os.path.isdir(path))
                 self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
 
+    def test_cortex_fifos_fifodir(self):
+
+        def run_tests(node):
+            self.eq(node[1].get('syn:fifo'), 'adb4864c8e5f2a2a44b454981e731b8b')
+            self.eq(node[1].get('syn:fifo:name'), 'haha')
+            self.eq(node[1].get('syn:fifo:desc'), 'test fifo')
+            path = core.getCorePath('fifos', 'adb4864c8e5f2a2a44b454981e731b8b')
+            self.true(os.path.isdir(path))
+
+        with self.getTestDir() as dirn:
+            url = 'dir:///' + dirn
+
+            # create the fifo and put a message into it, close the cortex
+            with s_cortex.openurl(url) as core:
+                core.formTufoByProp('syn:fifo', '(FoO)')
+                core.formTufoByProp('syn:fifo', '(bAr)')
+                core.formTufoByProp('syn:fifo', '(BAz)')
+                node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
+                run_tests(node)
+
+                core.getCoreFifo('haha')
+                core.getCoreFifo('haha')
+                fifo = core.getCoreFifo('haha')
+                self.eq(4, fifo._syn_refs)
+
+                core.putCoreFifo('haha', 'mymesg')
+
+            # make sure that the fifo still exists and is reloaded after the cortex was closed and reopened
+            with s_cortex.openurl(url) as core:
+                node = core.getTufoByProp('syn:fifo', '(haHA)')  # make sure that it is still there
+                run_tests(node)
+
+            # make sure that the fifo still works correctly after the cortex was closed and reopened
+            with s_cortex.openurl(url) as core:
+                fifo = core.getCoreFifo('haha')
+                self.eq(2, fifo._syn_refs)  # make sure that the old refs were cleaned up
+
+                actual = []
+                core.subCoreFifo('haha', actual.append)  # messages should persist
+                self.eq(2, fifo._syn_refs)  # calling subCoreFifo shouldn't incr refs
+
+                self.len(1, actual)
+                self.len(3, actual[0])
+                self.eq(actual[0][2], 'mymesg')  # make sure the original message survived
+
+                core.delTufo(node)
+
+            # make sure that the fifo is really removed after its node is removed
+            with s_cortex.openurl(url) as core:
+                self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
+                path = core.getCorePath('fifos', 'adb4864c8e5f2a2a44b454981e731b8b')
+                self.false(os.path.isdir(path))
+
     def test_cortex_universal_props(self):
         with self.getRamCore() as core:
             myfo = core.myfo
