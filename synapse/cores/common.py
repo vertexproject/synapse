@@ -3759,30 +3759,35 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
     def _initMembrane(self, name, rules):
         if self._core_membranes.get(name):
-            raise s_common.MembraneExists()
+            raise s_common.MembraneExists(mesg='Named Membrane already exists',
+                                          name=name)
+
+        # Cause any fifo creation that needs to be done to occur
+        node = self.formTufoByProp('syn:fifo', (name,))
 
         def fn(mesg):
             return self.putCoreFifo(name, mesg)
 
         membrane = s_membrane.Membrane(name, rules, fn)
-        node = self.formTufoByProp('syn:fifo', (membrane.name,))
 
         def _filter_fn(mesg):
             return membrane.filt(mesg[1]['mesg'])
 
-        self._core_membranes[name] = {'obj': membrane, 'fn': _filter_fn}
         self.on('splice', _filter_fn)
 
+        def _onfini():
+            self.off('splice', _filter_fn)
+
+        membrane.onfini(_onfini)
+        self._core_membranes[name] = membrane
+
     def _delMembrane(self, name):
-        membrane_dict = self._core_membranes.get(name)
-        if not membrane_dict:
-            raise s_common.NoSuchMembrane()
+        membrane = self._core_membranes.pop(name, None)
+        if not membrane:
+            raise s_common.NoSuchMembrane(megs='No membrane exists with the requested name',
+                                          name=name)
 
-        membrane = membrane_dict.get('obj')
-        fn = membrane_dict.get('fn')
-
-        self.off('splice', fn)
-        del self._core_membranes[name]
+        membrane.fini()
         self.delTufoByProp('syn:fifo', (name,))
 
     def addCoreMembrane(self, name, rules):

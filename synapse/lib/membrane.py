@@ -1,11 +1,15 @@
+import synapse.eventbus as s_eventbus
+
 import synapse.lib.auth as s_auth
 
-class Membrane:
+class Membrane(s_eventbus.EventBus):
     '''
     A Membrane instance is an event filter that calls a
     function for messages that pass through.
     '''
     def __init__(self, name, rules, fn):
+        s_eventbus.EventBus.__init__(self)
+
         self.name = name
         self.rules = s_auth.Rules(rules)
         self.fn = fn
