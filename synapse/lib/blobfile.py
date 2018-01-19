@@ -226,41 +226,35 @@ class BlobFile(s_eventbus.EventBus):
         '''
         return self._size
 
-class BlobWalker(s_eventbus.EventBus):
-    '''
-    The BlobWalker is a class designed to assist in walking a
-    BlobFile object for inspection purposes.
-
-    Args:
-        fd (file):
-    '''
-    def __init__(self, fd):
-        s_eventbus.EventBus.__init__(self)
-
-        self.fd = fd
-
-        # Setup fini
-        self.onfini(fd.close)
-
-    def walk(self):
+    def walk(self, callback=None):
         '''
-        Walk a BlobFile and fire events at each Blob encountered.
+        Walk the blobfile from the first record until the end.
+
+        Args:
+            callback (func): A callback function which is executed when a
+            BlobFile record is encountered.  The callback should accept the
+            following function signature: ``(fd, baseoff, off, size)``.  fd is
+            the blob's file descriptor; baseoff is the offset where the blob
+            header is located, offset is the location of the blob data, and
+            size is the number of bytes allocated for the blob. If no callback
+            is provided, nothing will happen when a BlobFile record is
+            encountered.
 
         Notes:
-            This fires the following events that a consumer can use to inspect
-            the file. These events will not serialize since they contain a
+            In addition to the callback, when walking the blobfile additional
+            conditions may be encountered. These will fire an event and exit
+            the walk() operation.
+
+            These events will not serialize since they contain a
             reference to the underlying file descriptor and are designed in
             order to allow creation of tools which can inspect/consume bytes
             from a BlobFile.
 
-                blob:walk:record - Fired each time a BlobFile record is touched.
-
-                blob:walk:done - Fired when the BlobWalker is done walking the file.
-
                 blob:walk:unpkerr - Fired if there is an error unpackting the Blobfile header.
 
-                blob:walk:truncated - Fired if there is a truncated file encoutered.
+                blob:walk:truncated - Fired if there is a truncated file encountered.
 
+                blob:walk:done - Fired when the BlobWalker is done walking the file.
 
         Returns:
             None
@@ -292,8 +286,8 @@ class BlobWalker(s_eventbus.EventBus):
             # Save the current fd position
             off = self.fd.tell()
 
-            # Fire the callback that someone can hook
-            self.fire('blob:walk:record', fd=self.fd, baseoff=baseoff, off=off, size=size)
+            if callback:
+                callback(fd=self.fd, baseoff=baseoff, off=off, size=size)
 
             # Calcuate the next expected header
             next_header = off + size

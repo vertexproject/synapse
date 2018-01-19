@@ -157,7 +157,7 @@ class BlobFileTest(SynTest):
 
             self.eq(rand, byts)
 
-    def test_blob_walker(self):
+    def test_blob_walk(self):
         edata = {}
         with self.getTestDir() as fdir:
             fp = os.path.join(fdir, 'test.blob')
@@ -189,23 +189,17 @@ class BlobFileTest(SynTest):
             shutil.copy(fp, bkup_fp)
 
             fd = genfile(fp)
-            with s_blobfile.BlobWalker(fd) as walker:  # type: s_blobfile.BlobWalker
+            with s_blobfile.BlobFile(fd) as blob:  # type: s_blobfile.BlobFile
                 dcheck = {}
 
-                def data_check(mesg):
-                    size = mesg[1].get('size')
-                    off = mesg[1].get('off')
+                def data_check(fd, baseoff, off, size):
                     fd.seek(off)
                     byts = fd.read(size)
                     dcheck[off] = byts == edata.get(off)
 
-                walker.on('blob:walk:record', data_check)
-                w0 = walker.waiter(3, 'blob:walk:record')
-                w1 = walker.waiter(1, 'blob:walk:done')
-                walker.walk()
-                w0.wait(1)
+                w1 = blob.waiter(1, 'blob:walk:done')
+                blob.walk(cb=data_check)
                 w1.wait(1)
-                self.eq(w0.count, 3)
                 self.eq(w1.count, 1)
                 self.eq({True}, set(dcheck.values()))
 
@@ -216,10 +210,10 @@ class BlobFileTest(SynTest):
             # Truncate the file short
             fd.seek(-2, os.SEEK_END)
             fd.truncate()
-            with s_blobfile.BlobWalker(fd) as walker:  # type: s_blobfile.BlobWalker
-                w0 = walker.waiter(1, 'blob:walk:truncated')
-                w1 = walker.waiter(1, 'blob:walk:done')
-                walker.walk()
+            with s_blobfile.BlobFile(fd) as blob:  # type: s_blobfile.BlobFile
+                w0 = blob.waiter(1, 'blob:walk:truncated')
+                w1 = blob.waiter(1, 'blob:walk:done')
+                blob.walk()
                 w0.wait(1)
                 w1.wait(1)
                 self.eq(w0.count, 1)
@@ -234,10 +228,10 @@ class BlobFileTest(SynTest):
             # Add bytes
             fd.seek(0, os.SEEK_END)
             fd.write(b':(')
-            with s_blobfile.BlobWalker(fd) as walker:  # type: s_blobfile.BlobWalker
-                w0 = walker.waiter(1, 'blob:walk:unpkerr')
-                w1 = walker.waiter(1, 'blob:walk:done')
-                walker.walk()
+            with s_blobfile.BlobFile(fd) as blob:  # type: s_blobfile.BlobFile
+                w0 = blob.waiter(1, 'blob:walk:unpkerr')
+                w1 = blob.waiter(1, 'blob:walk:done')
+                blob.walk()
                 w0.wait(1)
                 w1.wait(1)
                 self.eq(w0.count, 1)
