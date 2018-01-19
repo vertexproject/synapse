@@ -273,10 +273,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.onConfOptSet('axon:url', self._onSetAxonUrl)
 
     def _initCortexConfSetPost(self):
+        self._initCoreFifos()
         # It is not safe to load modules during SetConfOpts() since the path
         # value may not be set due to dictionary ordering, and there may be
         # modules which rely on it being present
-        self._initCoreFifos()
         self.onConfOptSet('modules', self._onSetMods)
         # Load any existing modules which may have been configured
         valu = self.getConfOpt('modules')
