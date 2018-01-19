@@ -1072,7 +1072,7 @@ class CortexTest(SynTest):
                 self.raises(FileNotFoundError, os.listdir, fifo_dir)  # should not exist
                 self.len(0, core.getTufosByProp('syn:fifo'))
                 self.raises(NoSuchFifo, core.getCoreFifo, name)  # should be removed
-                self.raises(NoSuchFifo, core.subCoreFifo, name, actual.append)
+                self.raises(AttributeError, core.subCoreFifo, name, actual.append)  # fifo is none
                 self.raises(NoSuchMembrane, core.delCoreMembrane, name)
 
                 core.addCoreMembrane(name, rules)
