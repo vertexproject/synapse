@@ -1046,6 +1046,11 @@ class CortexTest(SynTest):
                 core.setConfOpt('membranes', ((name, rules),))
                 run_tests(core, msgs, expected)
 
+        # Add membranes via setting config opt at ctor time
+        with self.getTestDir() as dirn:
+            with s_cortex.openurl('dir:///' + dirn, conf={'membranes': ((name, rules),)}) as core:
+                run_tests(core, msgs, expected)
+
         # Test missing and dup membranes
         with self.getTestDir() as dirn:
             with s_cortex.openurl('dir:///' + dirn) as core:
