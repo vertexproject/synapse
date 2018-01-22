@@ -129,14 +129,23 @@ class BlobFileTest(SynTest):
         blob0.writeoff(off1 + 4, b'haha')
 
         fd1 = tempfile.TemporaryFile()
-        blob1 = s_blobfile.BlobFile(fd1)
 
+        blob1 = s_blobfile.BlobFile(fd1, isclone=True)
         blob1.syncs(msgs)
 
         self.eq(blob0.readoff(off0, 8), blob1.readoff(off0, 8))
         self.eq(blob0.readoff(off1, 8), blob1.readoff(off1, 8))
 
         self.eq(blob0.size(), blob1.size())
+
+        # Replaying messages to blob0 doesn't do anything to is since
+        # the reactor is not wired up
+        blob0.syncs(msgs)
+        self.eq(blob0.size(), blob1.size())
+
+        # Calling alloc / writeoff apis to the clone fails
+        self.raises(BlobFileIsClone, blob1.alloc, 1)
+        self.raises(BlobFileIsClone, blob1.writeoff, 1, b'1')
 
         blob0.fini()
         blob1.fini()

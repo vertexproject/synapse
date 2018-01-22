@@ -24,16 +24,22 @@ class BlobFile(s_eventbus.EventBus):
 
     Args:
         fd (file): File descriptor for the backing store of the blob.
+        isclone (bool): This should be set to True if the BlobFile is recieving
+        ``blob:sync`` events from another source. This will disable the
+        ``alloc()`` and ``writeoff()`` APIs, in order to ensure that an arbitrary
+        caller cannot modify the clone blobfile.  In addition, a BlobFile
+        will not react to ``blob:sync`` events if ``isclone`` is False.
         **opts: Additional blob options.
 
     Notes:
         The BlobFile object, while based on the Atomfile structure,
         only grows upward in size as data is allocated within it.
     '''
-    def __init__(self, fd, **opts):
+    def __init__(self, fd, isclone=False, **opts):
         s_eventbus.EventBus.__init__(self)
 
         self.alloclock = threading.Lock()
+        self.isclone = isclone
 
         self.on('blob:write', self._fireBlobSync)
         self.on('blob:alloc', self._fireBlobSync)
@@ -48,7 +54,7 @@ class BlobFile(s_eventbus.EventBus):
         self._size = size
 
         self.fd = fd
-        self.atom = opts.get('atom')
+        self.atom = opts.get('atom')  # type: s_atomfile.AtomFile
 
         if self.atom is None:
             self.atom = s_atomfile.getAtomFile(fd, memok=False)
@@ -84,14 +90,18 @@ class BlobFile(s_eventbus.EventBus):
         self.fire('blob:sync', mesg=mesg)
 
     def _actSyncBlobWrite(self, mesg):
+        if not self.isclone:
+            return
         # event is triggered *with* fdlock
         off = mesg[1].get('off')
         byts = mesg[1].get('byts')
         self._writeoff(off, byts)
 
     def _actSyncBlobAlloc(self, mesg):
+        if not self.isclone:
+            return
         size = mesg[1].get('size')
-        self.alloc(size)
+        self._alloc(size)
 
     def _writeoff(self, off, byts):
         self.atom.writeoff(off, byts)
@@ -173,6 +183,8 @@ class BlobFile(s_eventbus.EventBus):
         Returns:
             None
         '''
+        if self.isclone:
+            raise s_common.BlobFileIsClone(mesg='BlobFile is a clone and cannot write data via writeoff()')
         self._writeoff(off, byts)
 
     def alloc(self, size):
@@ -193,6 +205,14 @@ class BlobFile(s_eventbus.EventBus):
         Returns:
             int: Offset within the blob to use to store size bytes.
         '''
+        if self.isclone:
+            raise s_common.BlobFileIsClone(mesg='BlobFile is a clone and cannot alloc space via alloc()')
+        return self._alloc(size)
+
+    def _alloc(self, size):
+        '''
+        Internal method which implements alloc()
+        '''
         # Account for the blob header
         fullsize = headsize + size
 
@@ -207,7 +227,7 @@ class BlobFile(s_eventbus.EventBus):
             self.atom.resize(nsize)
 
             # Write the size dword
-            self.writeoff(self._size, struct.pack(headfmt, size))
+            self._writeoff(self._size, struct.pack(headfmt, size))
 
             # Compute the return value
             dataoff = self._size + headsize
