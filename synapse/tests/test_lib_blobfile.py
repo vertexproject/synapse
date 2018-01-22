@@ -1,3 +1,5 @@
+import unittest.mock as mock
+
 import synapse.lib.atomfile as s_atomfile
 import synapse.lib.blobfile as s_blobfile
 
@@ -66,21 +68,22 @@ class BlobFileTest(SynTest):
             self.true(blob.atom.isfini)
             self.true(blob.fd.closed)
 
-    # def test_blob_simple_atom(self):
-    #     # FIXME test these on windows...
-    #     #self.thisHostMust(platform='linux')
-    #
-    #     fd = tempfile.TemporaryFile()
-    #     atom = s_atomfile.AtomFile(fd)
-    #     blob = s_blobfile.BlobFile(fd, atom=atom)
-    #     self.blobfile_basic_assumptions(fd, blob)
-    #
-    #     blob.fini()
-    #     # fini the blob does not close the underlying fd since
-    #     # atom was passed in directly
-    #     self.false(fd.closed)
-    #     atom.fini()
-    #     self.true(fd.closed)
+    def test_blob_simple_atom(self):
+
+        def getSimpleAtom(fd, memok=True):
+            return s_atomfile.AtomFile(fd)
+
+        with mock.patch('synapse.lib.atomfile.getAtomFile', getSimpleAtom) as p:
+            with self.getTestDir() as dir:
+                fp = os.path.join(dir, 'test.blob')
+                blob = s_blobfile.BlobFile(fp)
+                self.isinstance(blob.atom, s_atomfile.AtomFile)
+                self.false(isinstance(blob.atom, s_atomfile.FastAtom))
+                self.blobfile_basic_assumptions(blob)
+                blob.fini()
+                # fini the blob closes the underlying fd
+                self.true(blob.atom.isfini)
+                self.true(blob.fd.closed)
 
     def test_blob_resize(self):
 
