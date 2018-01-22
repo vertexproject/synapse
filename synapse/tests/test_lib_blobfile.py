@@ -224,7 +224,7 @@ class BlobFileTest(SynTest):
                 with self.assertRaises(BadBlobFile) as cm:
                     for offset, size in blob.walk():
                         pass
-            self.isin('blobfile truncated', str(cm.exception))
+            self.isin('BlobFile truncated', str(cm.exception))
 
             # Restore backup file
             shutil.copy(bkup_fp, fp)
