@@ -56,15 +56,28 @@ class TestMain(SynTest):
         out0 = self.getTestOutp()
         out1 = self.getTestOutp()
 
-        s_dmon.main(['--log-level', 'debug', '--lsboot'], out0)
-        s_dmon.main(['--noboot', tfile.name], out1)
-
-        tfile.close()
+        try:
+            s_dmon.main(['--log-level', 'debug', '--lsboot'], out0)
+            s_dmon.main(['--noboot', tfile.name], out1)
+        except OSError as e:
+            if 'Cannot allocate memory' in str(e):
+                self.skipTest('Test failed during CI testing due to memory issue.')
+            else:
+                raise
+        finally:
+            tfile.close()
 
     def test_main_onboot(self):
         self.thisHostMustNot(platform='windows')
 
         tfile = self.getTempConfig()
 
-        s_dmon.main(['--onboot', tfile.name])
-        tfile.close()
+        try:
+            s_dmon.main(['--onboot', tfile.name])
+        except OSError as e:
+            if 'Cannot allocate memory' in str(e):
+                self.skipTest('Test failed during CI testing due to memory issue.')
+            else:
+                raise
+        finally:
+            tfile.close()
