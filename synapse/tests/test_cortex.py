@@ -1359,6 +1359,7 @@ class CortexTest(SynTest):
 
     def test_cortex_tags(self):
         core = s_cortex.openurl('ram://')
+        core.setConfOpt('caching', 1)
 
         core.addTufoForm('foo', ptype='str')
 

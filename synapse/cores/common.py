@@ -2873,8 +2873,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             self.delTufoDset(tufo, name)
 
         if self.caching:
-            for prop, valu in list(tufo[1].items()):
-                self._bumpTufoCache(tufo, prop, valu, None)
+            for prop, pvalu in list(tufo[1].items()):
+                self._bumpTufoCache(tufo, prop, pvalu, None)
 
         iden = tufo[0]
         with self.getCoreXact() as xact:
