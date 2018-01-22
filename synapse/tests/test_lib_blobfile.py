@@ -13,6 +13,7 @@ class BlobFileTest(SynTest):
             fd (file): The FD backing the blob
             blob (s_blobfile.BlobFile): BlobFile under test.
         '''
+        self.false(blob.isclone)
         self.eq(blob.size(), 0)
 
         off0 = blob.alloc(8)
@@ -104,8 +105,8 @@ class BlobFileTest(SynTest):
             mesg0 = ('blob:alloc', {'size': 32})
             mesg = ('blob:sync', {'mesg': mesg0})
             blob.sync(mesg)
-            # Ensure the blob was changed
-            self.eq(blob.size(), esize + 32 + s_blobfile.headsize)
+            # Ensure the blob was not changed since isclone is false
+            self.eq(blob.size(), esize)
 
     def test_blob_save(self):
 
@@ -131,6 +132,7 @@ class BlobFileTest(SynTest):
         fd1 = tempfile.TemporaryFile()
 
         blob1 = s_blobfile.BlobFile(fd1, isclone=True)
+        self.true(blob1.isclone)
         blob1.syncs(msgs)
 
         self.eq(blob0.readoff(off0, 8), blob1.readoff(off0, 8))
