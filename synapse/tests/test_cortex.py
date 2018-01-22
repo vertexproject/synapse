@@ -988,6 +988,129 @@ class CortexBaseTest(SynTest):
 
 class CortexTest(SynTest):
 
+    def test_cortex_membrane(self):
+        name = 'testmembrane'
+        rules = (
+            (True, ('node:add', {'form': 'thing', 'valu': 'newp'})),
+            (False, ('node:add', {'form': 'thing'})),
+            (False, ('node:add', {'valu': 'newp'})),
+            (True, ('node:add', {})),
+
+            (True, ('node:del', {'form': 'thing'})),
+            (False, ('node:del', {})),
+
+            (True, ('y*', {})),
+            (False, ('z*', {}))
+        )
+        msgs = (
+            ('splice', {'mesg': ('node:add', {'form': 'thing'})}),
+            ('splice', {'mesg': ('node:add', {'valu': 'newp'})}),
+            ('splice', {'mesg': ('node:add', {'form': 'thing', 'valu': 'newp'})}),
+            ('splice', {'mesg': ('node:add', {})}),
+
+            ('splice', {'mesg': ('node:del', {'form': 'thing'})}),
+            ('splice', {'mesg': ('node:del', {'form': 'newp'})}),
+            ('splice', {'mesg': ('node:del', {})}),
+
+            ('splice', {'mesg': ('yeap', {})}),
+            ('splice', {'mesg': ('zillion', {})}),
+
+            ('splice', {'mesg': ('not-in-the-rules', {'hehe': 'haha'})}),
+        )
+        expected = [
+            ('node:add', {'form': 'thing', 'valu': 'newp'}),
+            ('node:add', {}),
+            ('node:del', {'form': 'thing'}),
+            ('yeap', {}),
+        ]
+
+        def run_tests(core, msgs, expected):
+            [core.dist(msg) for msg in msgs]
+
+            # subscribe to the membrane fifo and check the messages that made it through
+            actual = []
+            core.subCoreFifo(name, actual.append)
+
+            actual_msgs = [msg[2] for msg in actual]
+            self.eq(actual_msgs, expected)
+
+        # Add a membrane via Cortex API
+        with self.getTestDir() as dirn:
+            with s_cortex.openurl('dir:///' + dirn) as core:
+                core.addCoreMembrane(name, rules)
+                run_tests(core, msgs, expected)
+
+        # Add membranes via setting config opt
+        with self.getTestDir() as dirn:
+            with s_cortex.openurl('dir:///' + dirn) as core:
+                core.setConfOpt('membranes', ((name, rules),))
+                run_tests(core, msgs, expected)
+
+        # Add membranes via setting config opt at ctor time
+        with self.getTestDir() as dirn:
+            with s_cortex.openurl('dir:///' + dirn, conf={'membranes': ((name, rules),)}) as core:
+                run_tests(core, msgs, expected)
+
+        # Test missing and dup membranes
+        with self.getTestDir() as dirn:
+            with s_cortex.openurl('dir:///' + dirn) as core:
+
+                self.raises(NoSuchMembrane, core.delCoreMembrane, name)
+                core.addCoreMembrane(name, rules)
+
+                [core.dist(msg) for msg in msgs]
+                actual = []
+                core.subCoreFifo(name, actual.append)
+                actual_msgs = [msg[2] for msg in actual]
+                self.eq(actual_msgs, expected)
+
+                # Adding the membrane again should result in the same messages
+                [core.dist(msg) for msg in msgs]
+                core.addCoreMembrane(name, rules)
+                actual = []
+                core.subCoreFifo(name, actual.append)
+                actual_msgs = [msg[2] for msg in actual]
+                self.eq(actual_msgs, expected + expected)  # Now we have both of the sets of messages in order since we fired them twice
+
+                # Updating the rules should result in different messages
+                core.addCoreMembrane(name, [])
+                [core.dist(msg) for msg in msgs]
+                actual = []
+                core.subCoreFifo(name, actual.append)
+                actual_msgs = [msg[2] for msg in actual]
+                self.eq(actual_msgs, expected + expected)  # we still only have them twice even though we fired 3 times, since rules were set to []
+
+                # remove and re-add the membrane, subscribe again and make sure it is empty
+                fifo_dir = core.getCoreFifo(name).getConfOpt('dir')
+                self.gt(len(os.listdir(fifo_dir)), 0)  # did should be populated
+                self.none(core.delCoreMembrane(name))  # returns none
+                self.raises(FileNotFoundError, os.listdir, fifo_dir)  # should not exist
+                self.len(0, core.getTufosByProp('syn:fifo'))
+                self.raises(NoSuchFifo, core.getCoreFifo, name)  # should be removed
+                self.raises(AttributeError, core.subCoreFifo, name, actual.append)  # fifo is none
+                self.raises(NoSuchMembrane, core.delCoreMembrane, name)
+
+                core.addCoreMembrane(name, rules)
+                actual = []
+                core.subCoreFifo(name, actual.append)
+                actual_msgs = [msg[2] for msg in actual]
+                self.eq(actual_msgs, [])  # There should be no messages in the membrane yet
+
+                actual = []
+                core.subCoreFifo(name, actual.append)  # FIXME If I don't call subCoreFifo, I get no messages. If I call it again, I get all of the messages twice...
+                [core.dist(msg) for msg in msgs]
+                actual_msgs = [msg[2] for msg in actual]
+                self.eq(actual_msgs, expected)
+
+        # Test that a membrane survives restart
+        with self.getTestDir() as dirn:
+            with s_cortex.openurl('dir:///' + dirn) as core:
+                core.addCoreMembrane(name, rules)
+                run_tests(core, msgs, expected)
+            with s_cortex.openurl('dir:///' + dirn) as core:
+                core.addCoreMembrane(name, rules)
+                run_tests(core, msgs, expected + expected)
+
     def test_cortex_datamodel_runt_consistency(self):
         with self.getRamCore() as core:
 
@@ -2143,7 +2266,6 @@ class CortexTest(SynTest):
 
             def populate():
                 for i in range(N):
-                    #print('wrote %d tufos' % i)
                     core.formTufoByProp('inet:ipv4', str(i), **{})
                 evnt.set()
 
@@ -2154,7 +2276,6 @@ class CortexTest(SynTest):
             pool.call(populate)
             for i in range(N):
                 tufos = prox.getTufosByProp('inet:ipv4')
-                #print('got %d tufos' % len(tufos))
 
             self.true(evnt.wait(timeout=3))
             pool.fini()

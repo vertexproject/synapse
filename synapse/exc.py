@@ -1,4 +1,3 @@
-
 class SynErr(Exception):
 
     def __init__(self, *args, **info):
@@ -61,6 +60,8 @@ class NoSuchCmpr(SynErr): pass
 class NoSuchCore(SynErr): pass
 class NoSuchRule(SynErr): pass
 class NoSuchGetBy(SynErr): pass
+class NoSuchMembrane(SynErr): pass
+class MembraneExists(SynErr): pass
 
 class NoSuchDecoder(SynErr): pass
 class NoSuchEncoder(SynErr): pass
