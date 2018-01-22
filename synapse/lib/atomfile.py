@@ -68,16 +68,13 @@ class AtomFile(EventBus):
         fd.seek(0, os.SEEK_END)
 
         self.fd = fd
-        self._size = fd.tell()
-        self.fdoff = self._size
+        self.size = fd.tell()
+        self.fdoff = self.size
         self.fileno = fd.fileno()
 
         self.lock = threading.Lock()
 
         self.onfini(self._onAtomFini)
-
-    def size(self):
-        return self._size
 
     def readoff(self, off, size):
         '''
@@ -110,11 +107,11 @@ class AtomFile(EventBus):
 
     def _resize(self, size):
 
-        if size < self._size:
+        if size < self.size:
             self._trunc(size)
             return
 
-        if size == self._size:
+        if size == self.size:
             return
 
         self._grow(size)
@@ -134,7 +131,7 @@ class AtomFile(EventBus):
         self.fd.flush()
 
     def _trunc(self, size):
-        self._size = size
+        self.size = size
         self.fdoff = size
 
         self.fd.seek(size)
@@ -142,7 +139,7 @@ class AtomFile(EventBus):
 
     def _grow(self, size):
 
-        self._size = size
+        self.size = size
         self.fdoff = size
 
         self.fd.seek(size - 1)
@@ -170,7 +167,7 @@ class AtomFile(EventBus):
 
             self.fd.write(byts)
             self.fdoff = off + len(byts)
-            self._size = max(self._size, self.fdoff)
+            self.size = max(self.size, self.fdoff)
 
     def _onAtomFini(self):
         self.fd.close()
@@ -184,7 +181,7 @@ class MemAtom(AtomFile):
         # TODO create a windows variant
 
         self.fd.flush()
-        self.mm = mmap.mmap(self.fileno, self._size, mmap.MAP_SHARED, mmap.ACCESS_WRITE)
+        self.mm = mmap.mmap(self.fileno, self.size, mmap.MAP_SHARED, mmap.ACCESS_WRITE)
 
     def _onAtomFini(self):
         self.mm.flush()
@@ -201,8 +198,8 @@ class MemAtom(AtomFile):
 
     def _writeoff(self, off, byts):
 
-        if off + len(byts) > self._size:
-            raise s_common.BadAtomFile('writeoff past size!', offset=off, size=len(byts), fsize=self._size)
+        if off + len(byts) > self.size:
+            raise s_common.BadAtomFile('writeoff past size!', offset=off, size=len(byts), fsize=self.size)
 
         self.mm[off:off + len(byts)] = byts
 
@@ -223,9 +220,9 @@ class FastAtom(AtomFile):
 
     def _writeoff(self, off, byts):
         os.pwrite(self.fileno, byts, off)
-        self._size = max(self._size, off + len(byts))
+        self.size = max(self.size, off + len(byts))
 
     def _grow(self, size):
-        self._size = size
+        self.size = size
         self.fdoff = size
         self._writeoff(size - 1, b'\x00')

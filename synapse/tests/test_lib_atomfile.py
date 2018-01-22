@@ -34,12 +34,20 @@ class AtomTest(SynTest):
     def test_atomfile_pread(self):
 
         if not s_atomfile.haspread:
-            raise unittest.SkipTest('platform lacks pread')
+            self.skip('Platform lacks pread')
 
         fd = self._getTempFile()
         with s_atomfile.FastAtom(fd) as atom:
             atom = s_atomfile.FastAtom(fd)
             self._runAtomChecks(atom)
+
+    def test_atomfile_memfile(self):
+        if not s_atomfile.ptrsize >= 8 and s_atomfile.hasremap and s_atomfile.haspriv:
+            self.skipTest('Platform lacks MemAtom support')
+
+        fd = self._getTempFile()
+        atom = s_atomfile.MemAtom(fd)
+        self._runAtomChecks(atom)
 
     def _getTempFile(self):
         fd = tempfile.TemporaryFile()
