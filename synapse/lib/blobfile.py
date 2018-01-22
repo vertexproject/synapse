@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 headfmt = '<Q'
 headsize = struct.calcsize(headfmt)
 
-# blobfile format
+# BlobFile format
 # |----8---|
 #    size
 
@@ -27,7 +27,7 @@ class BlobFile(s_eventbus.EventBus):
         isclone (bool): This should be set to True if the BlobFile is recieving
         ``blob:sync`` events from another source. This will disable the
         ``alloc()`` and ``writeoff()`` APIs, in order to ensure that an arbitrary
-        caller cannot modify the clone blobfile.  In addition, a BlobFile
+        caller cannot modify the clone BlobFile.  In addition, a BlobFile
         will not react to ``blob:sync`` events if ``isclone`` is False.
         **opts: Additional blob options.
 
@@ -116,7 +116,7 @@ class BlobFile(s_eventbus.EventBus):
             size (int): Number of bytes to read.
 
         Examples:
-            Read the blobsize of the first blob stored at in the blobfile:
+            Read the blobsize of the first blob stored at in the BlobFile:
 
                 head = blob.readoff(0,s_blobfile.headsize)
 
@@ -246,85 +246,44 @@ class BlobFile(s_eventbus.EventBus):
         '''
         return self._size
 
-    def walk(self, callback=None):
+    def walk(self):
         '''
-        Walk the blobfile from the first record until the end.
+        Walk the BlobFile from the first record until the end of the file.
 
-        Args:
-            callback (func): A callback function which is executed when a
-            BlobFile record is encountered.  The callback should accept the
-            following function signature: ``(fd, baseoff, off, size)``.  fd is
-            the blob's file descriptor; baseoff is the offset where the blob
-            header is located, offset is the location of the blob data, and
-            size is the number of bytes allocated for the blob. If no callback
-            is provided, nothing will happen when a BlobFile record is
-            encountered.
+        Yields:
+            ((int, int)): A Tuple of integers representing the offset and size
+             for a record in the BlobFile.
 
-        Notes:
-            In addition to the callback, when walking the blobfile additional
-            conditions may be encountered. These will fire an event and exit
-            the walk() operation.
+        Examples:
+            Iterate over the records in a BlobFile and retrieve the contents of
+            the records and dostuff() with them:
 
-            These events will not serialize since they contain a
-            reference to the underlying file descriptor and are designed in
-            order to allow creation of tools which can inspect/consume bytes
-            from a BlobFile.
+                for offset, size in blob.walk():
+                    byts = blob.readoff(offset, size)
+                    dostuff(byts)
 
-                blob:walk:unpkerr - Fired if there is an error unpackting the Blobfile header.
-
-                blob:walk:truncated - Fired if there is a truncated file encountered.
-
-                blob:walk:done - Fired when the BlobWalker is done walking the file.
-
-        Returns:
-            None
+        Raises:
+            BadBlobFile: If the BlobFile is truncated or unable to unpack a Blob header.
         '''
-        # Snag the max filesize
-        self.fd.seek(0, os.SEEK_END)
-        maxsize = self.fd.tell()
-
-        # Start walking at zero
-        self.fd.seek(0)
+        baseoff = 0
         while True:
-
-            # Store the current blobs offset value
-            baseoff = self.fd.tell()
-
-            # Read the header
             try:
-                header = self.fd.read(headsize)
+                header = self.readoff(baseoff, headsize)
                 size, = struct.unpack(headfmt, header)
             except Exception as e:
-                log.exception('Failed to read/unpack header')
-                self.fire('blob:walk:unpkerr',
-                          fd=self.fd,
-                          baseoff=baseoff,
-                          size=headsize,
-                          excinfo=s_common.excinfo(e))
-                break
-
-            # Save the current fd position
-            off = self.fd.tell()
-
-            if callback:
-                callback(fd=self.fd, baseoff=baseoff, off=off, size=size)
-
+                raise s_common.BadBlobFile(mesg='failed to read/unpack header',
+                                           baseoff=baseoff, size=headsize,
+                                           excinfo=s_common.excinfo(e))
+            # compute the offset and yield it
+            off = baseoff + headsize
+            yield off, size
             # Calcuate the next expected header
-            next_header = off + size
-            self.fd.seek(next_header)
+            baseoff = off + size
 
-            if next_header > maxsize:
-                self.fire('blob:walk:truncated',
-                          fd=self.fd,
-                          maxsize=maxsize,
-                          next_header=next_header)
-                break
-
-            if next_header == maxsize:
-                break
-
-        self.fire('blob:walk:done',
-                  fd=self.fd,
-                  last_header=next_header,
-                  maxsize=maxsize
-                  )
+            with self.alloclock:
+                if baseoff > self._size:
+                    raise s_common.BadBlobFile(mesg='BlobFile truncated',
+                                               maxsize=self._size,
+                                               next_header=baseoff)
+                if baseoff == self._size:
+                    break

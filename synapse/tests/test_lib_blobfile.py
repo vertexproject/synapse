@@ -208,10 +208,9 @@ class BlobFileTest(SynTest):
                     byts = fd.read(size)
                     dcheck[off] = byts == edata.get(off)
 
-                w1 = blob.waiter(1, 'blob:walk:done')
-                blob.walk(callback=data_check)
-                w1.wait(1)
-                self.eq(w1.count, 1)
+                for offset, size in blob.walk():
+                    dcheck[offset] = blob.readoff(offset, size) == edata.get(offset)
+
                 self.eq({True}, set(dcheck.values()))
 
             # Restore backup file
@@ -222,15 +221,10 @@ class BlobFileTest(SynTest):
             fd.seek(-2, os.SEEK_END)
             fd.truncate()
             with s_blobfile.BlobFile(fd) as blob:  # type: s_blobfile.BlobFile
-                w0 = blob.waiter(1, 'blob:walk:truncated')
-                w1 = blob.waiter(1, 'blob:walk:done')
-                blob.walk()
-                w0.wait(1)
-                w1.wait(1)
-                self.eq(w0.count, 1)
-                self.eq(w1.count, 1)
-                w0.fini()
-                w1.fini()
+                with self.assertRaises(BadBlobFile) as cm:
+                    for offset, size in blob.walk():
+                        pass
+            self.isin('blobfile truncated', str(cm.exception))
 
             # Restore backup file
             shutil.copy(bkup_fp, fp)
@@ -240,12 +234,7 @@ class BlobFileTest(SynTest):
             fd.seek(0, os.SEEK_END)
             fd.write(b':(')
             with s_blobfile.BlobFile(fd) as blob:  # type: s_blobfile.BlobFile
-                w0 = blob.waiter(1, 'blob:walk:unpkerr')
-                w1 = blob.waiter(1, 'blob:walk:done')
-                blob.walk()
-                w0.wait(1)
-                w1.wait(1)
-                self.eq(w0.count, 1)
-                self.eq(w1.count, 1)
-                w0.fini()
-                w1.fini()
+                with self.assertRaises(BadBlobFile) as cm:
+                    for offset, size in blob.walk():
+                        pass
+                self.isin('failed to read/unpack header', str(cm.exception))
