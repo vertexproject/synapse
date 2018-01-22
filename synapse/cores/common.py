@@ -3761,12 +3761,18 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         return self.store.delBlobValu(key)
 
     def _onSetMembranes(self, membranes):
-        [self._initMembrane(name, rules) for name, rules in membranes]
+        for name, rules in membranes:
+            try:
+                self._initMembrane(name, rules)
+            except Exception as e:
+                logger.warning('failed to load membrane: %s' % (name,))
+                logger.exception(e)
 
     def _initMembrane(self, name, rules):
-        if self._core_membranes.get(name):
-            raise s_common.MembraneExists(mesg='Named Membrane already exists',
-                                          name=name)
+        membrane = self._core_membranes.get(name)
+        if membrane:
+            membrane.rules = s_auth.Rules(rules)
+            return
 
         # Cause any fifo creation that needs to be done to occur
         node = self.formTufoByProp('syn:fifo', (name,))

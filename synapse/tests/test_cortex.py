@@ -1064,11 +1064,21 @@ class CortexTest(SynTest):
                 actual_msgs = [msg[2] for msg in actual]
                 self.eq(actual_msgs, expected)
 
-                self.raises(MembraneExists, core.addCoreMembrane, name, rules)
+                # Adding the membrane again should result in the same messages
+                [core.dist(msg) for msg in msgs]
+                core.addCoreMembrane(name, rules)
                 actual = []
                 core.subCoreFifo(name, actual.append)
                 actual_msgs = [msg[2] for msg in actual]
-                self.eq(actual_msgs, expected)
+                self.eq(actual_msgs, expected + expected)  # Now we have both of the sets of messages in order since we fired them twice
+
+                # Updating the rules should result in different messages
+                core.addCoreMembrane(name, [])
+                [core.dist(msg) for msg in msgs]
+                actual = []
+                core.subCoreFifo(name, actual.append)
+                actual_msgs = [msg[2] for msg in actual]
+                self.eq(actual_msgs, expected + expected)  # we still only have them twice even though we fired 3 times, since rules were set to []
 
                 # remove and re-add the membrane, subscribe again and make sure it is empty
                 fifo_dir = core.getCoreFifo(name).getConfOpt('dir')
