@@ -41,19 +41,12 @@ class BlobFile(s_eventbus.EventBus):
         self.isclone = isclone
 
         self.on('blob:write', self._fireBlobSync)
-        self.on('blob:alloc', self._fireBlobSync)
 
         self.syncact = s_reactor.Reactor()
         self.syncact.act('blob:write', self._actSyncBlobWrite)
-        self.syncact.act('blob:alloc', self._actSyncBlobAlloc)
 
         self.path = path
         self.fd = s_common.genfile(self.path)
-
-        self.fd.seek(0, os.SEEK_END)
-        size = self.fd.tell()
-
-        self._size = size
 
         self.atom = s_atomfile.getAtomFile(self.fd, memok=False)  # type: s_atom: AtomFile
         self.onfini(self.atom.fini)
@@ -92,12 +85,6 @@ class BlobFile(s_eventbus.EventBus):
         off = mesg[1].get('off')
         byts = mesg[1].get('byts')
         self._writeoff(off, byts)
-
-    def _actSyncBlobAlloc(self, mesg):
-        if not self.isclone:
-            return
-        size = mesg[1].get('size')
-        self._alloc(size)
 
     def _writeoff(self, off, byts):
         self.atom.writeoff(off, byts)
@@ -181,6 +168,13 @@ class BlobFile(s_eventbus.EventBus):
         '''
         if self.isclone:
             raise s_common.BlobFileIsClone(mesg='BlobFile is a clone and cannot write data via writeoff()')
+        max_size = self.atom.size
+        if off + len(byts) > max_size:
+            raise s_common.BadBlobFile(mesg='BlobFile cannot write past allocated size',
+                                       max_size=max_size,
+                                       off=off,
+                                       size=off + len(byts)
+                                       )
         self._writeoff(off, byts)
 
     def alloc(self, size):
@@ -215,21 +209,18 @@ class BlobFile(s_eventbus.EventBus):
         with self.alloclock:
 
             # Fire our alloc event
-            self.fire('blob:alloc', size=size)
-
-            nsize = self._size + fullsize
+            # self.fire('blob:alloc', size=size)
+            baseoff = self.atom.size
+            nsize = baseoff + fullsize
 
             # Grow the file
             self.atom.resize(nsize)
 
             # Write the size dword
-            self._writeoff(self._size, struct.pack(headfmt, size))
+            self._writeoff(baseoff, struct.pack(headfmt, size))
 
             # Compute the return value
-            dataoff = self._size + headsize
-
-            # Update our runtime size
-            self._size = nsize
+            dataoff = baseoff + headsize
 
         return dataoff
 
@@ -240,7 +231,7 @@ class BlobFile(s_eventbus.EventBus):
         Returns:
             int: Size of the bytes currently allocated by the blob.
         '''
-        return self._size
+        return self.atom.size
 
     def walk(self):
         '''
@@ -263,7 +254,7 @@ class BlobFile(s_eventbus.EventBus):
         '''
         baseoff = 0
         # Iterate up to self._size
-        max_size = self._size
+        max_size = self.atom.size
         while True:
             try:
                 header = self.readoff(baseoff, headsize)
@@ -280,7 +271,7 @@ class BlobFile(s_eventbus.EventBus):
 
             if baseoff > max_size:
                 raise s_common.BadBlobFile(mesg='BlobFile truncated',
-                                           maxsize=self._size,
+                                           max_size=max_size,
                                            next_header=baseoff)
             if baseoff == max_size:
                 break

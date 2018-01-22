@@ -20,8 +20,6 @@ class BlobFileTest(SynTest):
         off0 = blob.alloc(8)
 
         self.eq(blob.size(), 8 + s_blobfile.headsize)
-        # The blob and atomfile grow in lockstep
-        self.eq(blob.atom._size, blob.size())
 
         off1 = blob.alloc(8)
 
@@ -46,13 +44,13 @@ class BlobFileTest(SynTest):
         self.eq(blob.readoff(off1, 8), b'hehehaha')
         self.eq(blob.readoff(off2, 8), byts)
 
-        # The blob and atomfile continue too grow in lockstep
-        self.eq(blob.atom._size, blob.size())
         esisze = (3 * (s_blobfile.headsize + 8))
         self.eq(blob.size(), esisze)
 
         # Ensure bad reads are caught
         self.raises(BadBlobFile, blob.readoff, blob.size() - 4, 8)
+        # Ensure that bad writes are caught
+        self.raises(BadBlobFile, blob.writeoff, blob.size(), b':(')
 
     def test_blob_base(self):
 
@@ -101,16 +99,6 @@ class BlobFileTest(SynTest):
                 w.fini()
                 self.eq(blob.size(), esize)
 
-                # Firing a single event will work properly.
-                # This is for test coverage - normal use case would
-                # not use syncing except in the file-duplication case
-
-                mesg0 = ('blob:alloc', {'size': 32})
-                mesg = ('blob:sync', {'mesg': mesg0})
-                blob.sync(mesg)
-                # Ensure the blob was not changed since isclone is false
-                self.eq(blob.size(), esize)
-
     def test_blob_save(self):
 
         #self.thisHostMust(platform='linux')
@@ -133,6 +121,8 @@ class BlobFileTest(SynTest):
             blob0.writeoff(off0 + 4, b'qwer')
             blob0.writeoff(off1 + 4, b'haha')
 
+            walks = [t for t in blob0.walk()]
+
             fp1 = os.path.join(dir, 'test1.blob')
 
             blob1 = s_blobfile.BlobFile(fp1, isclone=True)
@@ -143,9 +133,10 @@ class BlobFileTest(SynTest):
             self.eq(blob0.readoff(off1, 8), blob1.readoff(off1, 8))
 
             self.eq(blob0.size(), blob1.size())
+            self.eq(walks, [t for t in blob1.walk()])
 
             # Replaying messages to blob0 doesn't do anything to is since
-            # the reactor is not wired up
+            # the reactor events don't do anything for isclone=False
             blob0.syncs(msgs)
             self.eq(blob0.size(), blob1.size())
 
@@ -153,8 +144,29 @@ class BlobFileTest(SynTest):
             self.raises(BlobFileIsClone, blob1.alloc, 1)
             self.raises(BlobFileIsClone, blob1.writeoff, 1, b'1')
 
-            blob0.fini()
             blob1.fini()
+
+            # ensure we can sync events back to a regular atomfile
+            def getSimpleAtom(fd, memok=True):
+                return s_atomfile.AtomFile(fd)
+
+            with mock.patch('synapse.lib.atomfile.getAtomFile', getSimpleAtom) as p:
+                fp2 = os.path.join(dir, 'test2.blob')
+                blob2 = s_blobfile.BlobFile(fp2, isclone=True)
+                self.true(blob2.isclone)
+                # Using sync() here for test coverage
+                for msg in msgs:
+                    blob2.sync(msg)
+
+                self.eq(blob0.readoff(off0, 8), blob2.readoff(off0, 8))
+                self.eq(blob0.readoff(off1, 8), blob2.readoff(off1, 8))
+
+                self.eq(blob0.size(), blob2.size())
+                self.eq(walks, [t for t in blob2.walk()])
+
+                blob2.fini()
+
+            blob0.fini()
 
     def test_blob_readiter(self):
         #self.thisHostMust(platform='linux')
