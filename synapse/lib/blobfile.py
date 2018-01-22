@@ -23,19 +23,18 @@ class BlobFile(s_eventbus.EventBus):
     A persistent file blob object.
 
     Args:
-        fd (file): File descriptor for the backing store of the blob.
+        path (str): Path to the file on disk backing the blob.
         isclone (bool): This should be set to True if the BlobFile is recieving
         ``blob:sync`` events from another source. This will disable the
         ``alloc()`` and ``writeoff()`` APIs, in order to ensure that an arbitrary
         caller cannot modify the clone BlobFile.  In addition, a BlobFile
         will not react to ``blob:sync`` events if ``isclone`` is False.
-        **opts: Additional blob options.
 
     Notes:
         The BlobFile object, while based on the Atomfile structure,
         only grows upward in size as data is allocated within it.
     '''
-    def __init__(self, fd, isclone=False, **opts):
+    def __init__(self, path, isclone=False):
         s_eventbus.EventBus.__init__(self)
 
         self.alloclock = threading.Lock()
@@ -48,19 +47,16 @@ class BlobFile(s_eventbus.EventBus):
         self.syncact.act('blob:write', self._actSyncBlobWrite)
         self.syncact.act('blob:alloc', self._actSyncBlobAlloc)
 
-        fd.seek(0, os.SEEK_END)
+        self.path = path
+        self.fd = s_common.genfile(self.path)
 
-        size = fd.tell()
+        self.fd.seek(0, os.SEEK_END)
+        size = self.fd.tell()
+
         self._size = size
 
-        self.fd = fd
-        self.atom = opts.get('atom')  # type: s_atomfile.AtomFile
-
-        if self.atom is None:
-            self.atom = s_atomfile.getAtomFile(fd, memok=False)
-            # If the atomfile comes in from the caller, we assume
-            # that they will handle the fini()
-            self.onfini(self.atom.fini)
+        self.atom = s_atomfile.getAtomFile(self.fd, memok=False)  # type: s_atom: AtomFile
+        self.onfini(self.atom.fini)
 
     def sync(self, mesg):
         '''
@@ -266,6 +262,8 @@ class BlobFile(s_eventbus.EventBus):
             BadBlobFile: If the BlobFile is truncated or unable to unpack a Blob header.
         '''
         baseoff = 0
+        # Iterate up to self._size
+        max_size = self._size
         while True:
             try:
                 header = self.readoff(baseoff, headsize)
@@ -280,10 +278,9 @@ class BlobFile(s_eventbus.EventBus):
             # Calcuate the next expected header
             baseoff = off + size
 
-            with self.alloclock:
-                if baseoff > self._size:
-                    raise s_common.BadBlobFile(mesg='BlobFile truncated',
-                                               maxsize=self._size,
-                                               next_header=baseoff)
-                if baseoff == self._size:
-                    break
+            if baseoff > max_size:
+                raise s_common.BadBlobFile(mesg='BlobFile truncated',
+                                           maxsize=self._size,
+                                           next_header=baseoff)
+            if baseoff == max_size:
+                break
