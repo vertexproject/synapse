@@ -91,7 +91,6 @@ class AtomFile(EventBus):
         '''
         Atomically write bytes at the given offset.
         '''
-        bsize = len(byts)
         return self._writeoff(off, byts)
 
     def resize(self, size):
@@ -108,14 +107,14 @@ class AtomFile(EventBus):
 
     def _resize(self, size):
 
-            if size < self.size:
-                self._trunc(size)
-                return
+        if size < self.size:
+            self._trunc(size)
+            return
 
-            if size == self.size:
-                return
+        if size == self.size:
+            return
 
-            self._grow(size)
+        self._grow(size)
 
     def flush(self):
         '''
@@ -222,3 +221,8 @@ class FastAtom(AtomFile):
     def _writeoff(self, off, byts):
         os.pwrite(self.fileno, byts, off)
         self.size = max(self.size, off + len(byts))
+
+    def _grow(self, size):
+        self.size = size
+        self.fdoff = size
+        self._writeoff(size - 1, b'\x00')
