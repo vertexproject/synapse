@@ -89,6 +89,7 @@ class PsMod(CoreModule):
                     ('nick', {'ptype': 'inet:user'}),
                     ('name', {'ptype': 'ps:name'}),
                     ('name:sur', {'ptype': 'ps:tokn'}),
+                    ('name:middle', {'ptype': 'ps:tokn'}),
                     ('name:given', {'ptype': 'ps:tokn'}),
                 ]),
 
