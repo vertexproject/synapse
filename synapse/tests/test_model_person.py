@@ -7,11 +7,27 @@ class PersonTest(SynTest):
 
         with self.getRamCore() as core:
             dob = core.getTypeParse('time', '19700101000000001')
-            node = core.formTufoByProp('ps:person', guid(), dob=dob[0], name='Kenshoto,Invisigoth')
+            node = core.formTufoByProp('ps:person', guid(), dob=dob[0],
+                                       name='Kenshoto,Invisigoth')
             self.eq(node[1].get('ps:person:dob'), 1)
             self.eq(node[1].get('ps:person:name'), 'kenshoto,invisigoth')
             self.eq(node[1].get('ps:person:name:sur'), 'kenshoto')
             self.eq(node[1].get('ps:person:name:given'), 'invisigoth')
+            self.none(node[1].get('ps:person:name:middle'))
+
+            node = core.formTufoByProp('ps:person', guid(), dob=dob[0],
+                                       name='Kenshoto,Invisigoth,Ninja')
+            self.eq(node[1].get('ps:person:name'), 'kenshoto,invisigoth,ninja')
+            self.eq(node[1].get('ps:person:name:sur'), 'kenshoto')
+            self.eq(node[1].get('ps:person:name:given'), 'invisigoth')
+            self.eq(node[1].get('ps:person:name:middle'), 'ninja')
+
+            node = core.formTufoByProp('ps:person', guid(), dob=dob[0],
+                                       name='Kenshoto,Invisigoth,Ninja,Gray')
+            self.eq(node[1].get('ps:person:name'), 'kenshoto,invisigoth,ninja,gray')
+            self.eq(node[1].get('ps:person:name:sur'), 'kenshoto')
+            self.eq(node[1].get('ps:person:name:given'), 'invisigoth')
+            self.eq(node[1].get('ps:person:name:middle'), 'ninja')
 
     def test_model_person_tokn(self):
         with self.getRamCore() as core:
