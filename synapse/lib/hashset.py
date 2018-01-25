@@ -53,8 +53,22 @@ class HashSet:
         self.size += len(byts)
         [h[1].update(byts) for h in self.hashes]
 
-    def digests(self):
+    def hashes(self):
         '''
-        Return a list of (name,digest) tuples for the hashes in the set.
+        Return a list of (name,bytes) tuples for the hashes.
+        (including the 'guid' hash)
+
+        Returns:
+            ((byts, [(str,byts)])): A tuple of guid bytes and (name,hash) tuples.
         '''
-        return [(name, item.hexdigest()) for (name, item) in self.hashes]
+        retn = []
+
+        guid = hashlib.md5()
+
+        for name, item in self.hashes:
+            valu = item.digest()
+
+            guid.update(valu)
+            retn.append((name, valu))
+
+        return guid.digest(), retn
