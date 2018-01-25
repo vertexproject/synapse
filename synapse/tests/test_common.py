@@ -89,3 +89,11 @@ class CommonTest(SynTest):
         # empty dict is caught during the [0:0] slice
         with self.assertRaises(TypeError) as cm:
             parts = [chunk for chunk in chunks({}, 10000)]
+
+    def test_common_lockfile(self):
+
+        with self.getTestDir() as fdir:
+            fp = os.path.join(fdir, 'hehe.lock')
+            # Ensure that our yield is None
+            with lockfile(fp) as cm:
+                self.none(cm)
