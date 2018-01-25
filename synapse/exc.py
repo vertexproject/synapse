@@ -86,6 +86,7 @@ class DupTypeName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupFileName(SynErr): pass
 class BadFileExt(SynErr): pass
+class DupUserName(SynErr): pass
 class BadPropName(SynErr): pass
 class BadCoreName(SynErr): pass
 class BadCtorType(SynErr): pass
@@ -167,6 +168,12 @@ class NotEnoughFree(SynErr):
     There is not enough disk space free for the required operation.
     '''
     pass
+
+class AxonErr(SynErr): pass
+class AxonIsRo(AxonErr): pass
+class AxonIsClone(AxonErr): pass
+class AxonNotClone(AxonErr): pass
+class AxonBadChunk(AxonErr): pass
 
 class NoWritableAxons(SynErr):
     '''
