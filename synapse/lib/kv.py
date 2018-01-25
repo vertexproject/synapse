@@ -22,6 +22,13 @@ class KvDict:
             prop = lkey[16:].decode('utf8')
             self.vals[prop] = s_msgpack.un(lval)
 
+    def items(self):
+        '''
+        Yield (prop, valu) tuples from the KvDict.
+        '''
+        for item in self.vals.items():
+            yield item
+
     def set(self, prop, valu):
         '''
         Set a property in the KvDict.
@@ -30,12 +37,15 @@ class KvDict:
             prop (str): The property name.
             valu (obj): A msgpack compatible value.
         '''
+        if self.vals.get(prop) == valu:
+            return
+
         self.vals[prop] = valu
 
         lkey = self.iden + prop.encode('utf8')
         self.stor.setKvProp(lkey, s_msgpack.en(valu))
 
-    def get(self, prop):
+    def get(self, prop, defval=None):
         '''
         Get a property from the KvDict.
 
@@ -45,7 +55,21 @@ class KvDict:
         Returns:
             (obj): The return value, or None.
         '''
-        return self.vals.get(prop)
+        return self.vals.get(prop, defval)
+
+    def pop(self, prop):
+        '''
+        Pop a property from the KvDict.
+
+        Args:
+            prop (str): The property name.
+        '''
+        valu = self.vals.pop(prop, None)
+
+        lkey = self.iden + prop.encode('utf8')
+        self.stor.delKvProp(lkey)
+
+        return valu
 
 class KvLook:
     '''
@@ -65,6 +89,7 @@ class KvLook:
         '''
         lkey = self.iden + prop.encode('utf8')
         self.stor.setKvProp(lkey, s_msgpack.en(valu))
+        return valu
 
     def get(self, prop):
         '''
@@ -83,6 +108,12 @@ class KvLook:
             return None
 
         return s_msgpack.un(lval)
+
+    def getraw(self, lkey):
+        return self.stor.getKvProp(self.iden + lkey)
+
+    def setraw(self, lkey, lval):
+        return self.stor.setKvProp(self.iden + lkey, lval)
 
 class KvList:
     '''
@@ -138,10 +169,10 @@ class KvList:
         Args:
             valu (list): A list of msgpack values to add.
         '''
-        lval = [s_msgpack.en(v) for v in vals]
+        dups = [(self.iden, s_msgpack.en(v)) for v in vals]
 
         self.vals.extend(vals)
-        self.stor.addKvDups(self.iden, lval)
+        self.stor.addKvDups(dups)
 
 class KvStor(s_eventbus.EventBus):
     '''
@@ -234,6 +265,21 @@ class KvStor(s_eventbus.EventBus):
                 for byts in curs.iternext_dup():
                     yield byts
 
+    def hasKvDups(self, lkey):
+        '''
+        Returns True if the number of values for lkey is greater than 0.
+
+        Args:
+            lkey (bytes): The kv key.
+
+        Returns:
+            (bool): True if the dups key exists.
+
+        '''
+        with self.lenv.begin(db=self.dups) as xact:
+            with xact.cursor(db=self.dups) as curs:
+                return curs.set_key(lkey)
+
     def iterKvProps(self, lkey):
         '''
         Yield lkey, lval tuples for the given prop prefix.
@@ -301,17 +347,16 @@ class KvStor(s_eventbus.EventBus):
             for lkey, lval in props.items():
                 xact.put(lkey, lval)
 
-    def addKvDups(self, lkey, vals):
+    def addKvDups(self, dups):
         '''
-        Add a list of values to the given dup key.
+        Add a list of (lkey,lval) dups to the KvStor.
 
         Args:
-            lkey (bytes): The kv key.
-            vals (list): A list of kv value bytes.
+            dups ([(lkey,lval)]): A list of (lkey,lval) tuples.
         '''
         with self.lenv.begin(db=self.dups, write=True) as xact:
-            for lval in vals:
-                xact.put(lkey, lval, dupdata=True)
+            with xact.cursor() as curs:
+                curs.putmulti(dups, dupdata=True)
 
     def delKvDup(self, lkey, lval):
         '''
@@ -323,3 +368,10 @@ class KvStor(s_eventbus.EventBus):
         '''
         with self.lenv.begin(db=self.dups, write=True) as xact:
             xact.delete(lkey, value=lval)
+
+    def delKvProp(self, lkey):
+        '''
+        Delete a key=val prop from the KvStor.
+        '''
+        with self.lenv.begin(write=True) as xact:
+            return xact.delete(lkey)
