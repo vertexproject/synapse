@@ -119,6 +119,8 @@ class TestSteps:
     '''
     def __init__(self, names):
         self.steps = {}
+        self.names = names
+
         for name in names:
             self.steps[name] = threading.Event()
 
@@ -143,7 +145,7 @@ class TestSteps:
             Exception: on wait timeout
         '''
         if not self.steps[step].wait(timeout=timeout):
-            raise Exception('timeout waiting for step: %d' % (step,))
+            raise Exception('timeout waiting for step: %s' % (step,))
 
     def step(self, done, wait, timeout=None):
         '''
@@ -156,6 +158,16 @@ class TestSteps:
         '''
         self.done(done)
         self.wait(wait, timeout=timeout)
+
+    def waitall(self, timeout=None):
+        '''
+        Wait for all the steps to be complete.
+
+        Args:
+            timeout (int): The wait timeout (per step).
+        '''
+        for name in self.names:
+            self.wait(name, timeout=timeout)
 
 class CmdGenerator(s_eventbus.EventBus):
     '''
