@@ -32,6 +32,9 @@ class CliFini(SynErr):
     '''
     pass
 
+class Retry(SynErr): pass
+class TxFull(Retry): pass
+
 class AuthDeny(SynErr): pass
 
 class NoSuchMod(SynErr): pass
