@@ -8,6 +8,7 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.kv as s_kv
 import synapse.lib.atomic as s_atomic
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
@@ -40,15 +41,33 @@ class Fifo(s_config.Config):
         # our next expected sequence num
         self.nseq = lseq + self.atom.size
 
-        # open our "default" state file
-        path = self._getPathJoin('default.state')
-        self.wind = Window(self, path, xmit=xmit)
-        self.onfini(self.wind.fini)
+        kvpath = self._getPathJoin('fifo.lmdb')
+        self.kvstor = s_kv.KvStor(kvpath)
 
-        task = s_glob.sched.loop(2, self.flush)
-        self.onfini(task.fini)
+        self.windows = {}
+
+        self.wind = self.getWindByIden('default')
+        if xmit is not None:
+            self.wind.resync(xmit=xmit)
 
         self._cullAtomBase(self.wind.bseq)
+
+    def getWindByIden(self, iden):
+        '''
+        Return a Window() by an iden string.
+
+        Args:
+            iden (str): The window iden.
+
+        Returns:
+            (synapse.lib.fifo.Window)
+        '''
+        wind = self.windows.get(iden)
+        if wind is None:
+            wind = Window(self, iden)
+            self.windows[iden] = wind
+
+        return wind
 
     def ack(self, seqn):
         '''
@@ -98,13 +117,6 @@ class Fifo(s_config.Config):
     def _brefAtomCtor(self, nseq):
         path = self._getSeqPath(nseq)
         return s_atomfile.openAtomFile(path, memok=False)
-
-    def flush(self):
-        '''
-        Flush any file buffers associated with this Fifo.
-        '''
-        self.wind.flush()
-        [wind.flush() for wind in self.winds]
 
     def puts(self, items):
         '''
@@ -158,8 +170,8 @@ class Fifo(s_config.Config):
         return (
             ('dir', {'type': 'str', 'req': 1, 'doc': 'Path to the FIFO directory'}),
 
-            ('file:maxsize', {'type': 'int', 'asloc': 'maxsize', 'defval': 1000000000,
-                'doc': 'Max fifo file size'}),
+            #('file:maxsize', {'type': 'int', 'asloc': 'maxsize', 'defval': 1000000000000,
+                #'doc': 'Max fifo file size'}),
 
             ('window:min', {'type': 'int', 'defval': 1000, 'doc': 'Minimum window size'}),
             ('window:max', {'type': 'int', 'defval': 2000, 'doc': 'Maximum window size'}),
@@ -191,41 +203,37 @@ class Window(s_eventbus.EventBus):
     '''
     A read window within a Fifo.
     '''
-    def __init__(self, fdir, path, xmit=None):
+    def __init__(self, fifo, iden, xmit=None):
 
         s_eventbus.EventBus.__init__(self)
 
-        self.wmin = fdir.getConfOpt('window:min')
-        self.wmax = fdir.getConfOpt('window:max')
-        self.wfill = fdir.getConfOpt('window:fill')
+        self.fifo = fifo
+        self.iden = iden
 
-        if not os.path.isfile(path):
-            with open(path, 'wb') as fd:
-                fd.write(b'\x00' * 8)
+        self.info = fifo.kvstor.getKvDict('fifo:wind:%s' % (iden,))
+
+        self.wmin = fifo.getConfOpt('window:min')
+        self.wmax = fifo.getConfOpt('window:max')
+        self.wfill = fifo.getConfOpt('window:fill')
 
         self.lock = threading.RLock()
 
-        self.dirty = False
         self.caught = False
 
         self.filling = s_atomic.CmpSet(False)
 
-        self.fdir = fdir
         self._xmit = xmit
 
         self.unpk = s_msgpack.Unpk()
         self.dequ = collections.deque()
 
-        # open our state machine header atom
-        self.head = s_atomfile.openAtomFile(path, memok=True)
-        self.onfini(self.head.fini)
-
         # the next expected ack
-        self.nack = struct.unpack('<Q', self.head.readoff(0, 8))[0]
+        self.nack = self.info.get('nack', defval=0)
 
-        # if the FifiDir has moved past us, catch up... :(
-        if self.nack < fdir.seqs[0]:
-            self.nack = fdir.seqs[0]
+        # if the Fifo has moved past us, catch up... :(
+        nmin = fifo.seqs[0]
+        if self.nack < nmin:
+            self._set_nack(nmin)
 
         self.nseq = self.nack
         self._initFifoAtom(self.nseq)
@@ -255,23 +263,12 @@ class Window(s_eventbus.EventBus):
         self._run_xmit(qent)
 
     def _initFifoAtom(self, nseq):
-        self.bseq, self.atom = self.fdir._findFifoAtom(nseq)
+        self.bseq, self.atom = self.fifo._findFifoAtom(nseq)
         self.roff = nseq - self.bseq
 
     def _set_nack(self, nack):
         self.nack = nack
-        self.dirty = True
-        self.head.writeoff(0, struct.pack('<Q', nack))
-
-    def flush(self):
-        '''
-        Flush the current AtomFile contents.
-        '''
-        if not self.dirty:
-            return
-
-        self.head.flush()
-        self.dirty = False
+        self.info.set('nack', nack)
 
     def resync(self, xmit=None):
         '''
@@ -363,17 +360,17 @@ class Window(s_eventbus.EventBus):
                 # now we have to check if we are caught up
                 if blen == 0:
 
-                    with self.fdir.lock:
+                    with self.fifo.lock:
 
-                        # an atom will only change size with fdir.lock
+                        # an atom will only change size with fifo.lock
                         # so this will mop up the race due to not holding
                         # the lock over the call to readoff...
                         if self.roff != self.atom.size:
                             continue
 
                         # if we really are at the end of the file check if
-                        # the fdir.nseq is the same as ours...
-                        if self.nseq == self.fdir.nseq:
+                        # the fifo.nseq is the same as ours...
+                        if self.nseq == self.fifo.nseq:
                             self._set_caught(True)
                             return
 
