@@ -3,6 +3,7 @@ import os
 import sys
 import json
 import time
+import fcntl
 import types
 import base64
 import fnmatch
@@ -12,6 +13,7 @@ import functools
 import itertools
 import threading
 import traceback
+import contextlib
 import collections
 
 from binascii import hexlify
@@ -203,6 +205,18 @@ def genfile(*paths):
     if not os.path.isfile(path):
         return io.open(path, 'w+b')
     return io.open(path, 'r+b')
+
+@contextlib.contextmanager
+def lockfile(path):
+    '''
+    A file lock with-block helper.
+
+    Args:
+        path (str): A path to a lock file.
+    '''
+    with genfile(path) as fd:
+        fcntl.lockf(fd, fcntl.LOCK_EX)
+        yield
 
 def listdir(*paths, glob=None):
     '''
