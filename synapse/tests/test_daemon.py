@@ -262,3 +262,25 @@ class DaemonTest(SynTest):
             dmon.loadDmonConf(conf)
 
             s_dyndeps.delDynAlias('test:check:blah')
+
+    def test_daemon_fire(self):
+
+        class Woot:
+
+            def hehe(self):
+                s_daemon.fire('lolz', hehe='haha')
+                return True
+
+        with s_daemon.Daemon() as dmon:
+
+            link = dmon.listen('tcp://127.0.0.1:0/')
+
+            dmon.share('woot', Woot())
+
+            port = link[1].get('port')
+            with s_telepath.openurl('tcp://127.0.0.1/woot', port=port) as prox:
+
+                waiter = prox.waiter(1, 'lolz')
+
+                self.true(prox.hehe())
+                self.true(waiter.wait(timeout=0.1))
