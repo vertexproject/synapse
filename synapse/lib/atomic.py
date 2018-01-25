@@ -1,3 +1,5 @@
+import threading
+
 import synapse.glob as s_glob
 
 class CmpSet:
@@ -21,6 +23,99 @@ class CmpSet:
             retn = self.valu != valu
             self.valu = valu
             return retn
+
+class Ready:
+    '''
+    Atomic inc/dec state with ready event above a threshold.
+    '''
+    def __init__(self, size, valu=0, lock=None):
+
+        if lock is None:
+            lock = s_glob.lock
+
+        self.lock = lock
+        self.valu = valu
+        self.size = size
+        self.evnt = threading.Event()
+
+        self._maySetEvent()
+
+    def _maySetEvent(self):
+
+        if self.valu >= self.size and not self.evnt.is_set():
+            self.evnt.set()
+            return
+
+        if self.evnt.is_set():
+            self.evnt.clear()
+
+    def wait(self, timeout=None):
+
+        self.evnt.wait(timeout=timeout)
+        return self.evnt.is_set()
+
+    def inc(self, valu=1):
+
+        with self.lock:
+            self.valu += valu
+            self._maySetEvent()
+
+    def dec(self, valu=1):
+
+        with self.lock:
+            self.valu -= valu
+            self._maySetEvent()
+
+    def __enter__(self):
+        self.inc()
+
+    def __exit__(self, exc, cls, tb):
+        self.dec()
+
+class Serialize:
+    '''
+    Implements a todo queue which harnesses only 1 thread at a time.
+    '''
+    def __init__(self, dist):
+        self.dist = dist
+        self.todo = collections.deque()
+        self.running = False
+
+    def dist(self, mesg):
+
+        with s_glob.lock:
+            self.todo.append(mesg)
+            want = self._wantCallDist()
+
+        if want:
+            self._callDistFunc()
+
+    def _wantCallDist(self):
+        if not self.running:
+            self.running = True
+            return True
+
+    def puts(self, msgs):
+        with s_glob.lock:
+            self.todo.extend(msgs)
+            want = self._wantCallFire()
+
+        if want:
+            self._callDistFunc()
+
+    def _callDistFunc(self):
+
+        while self.running:
+
+            while self.todo:
+                self.dist(self.todo.popleft())
+
+            with s_glob.lock:
+                if not self.todo:
+                    self.running = False
+
+#def serialize(f):
+    #f._seri_todo = collections.deque()
 
 class Counter:
     '''

@@ -59,3 +59,29 @@ class AtomTest(SynTest):
             if tslice == maxtime:
                 break
         self.eq(counter.valu(), esum)
+
+    def test_atomic_ready(self):
+
+        ready = s_atomic.Ready(size=2)
+        self.false(ready.wait(timeout=0.001))
+
+        ready.inc()
+        self.false(ready.wait(timeout=0.001))
+
+        ready.inc()
+        self.true(ready.wait(timeout=0.001))
+
+        ready.dec()
+        self.false(ready.wait(timeout=0.001))
+
+        ready = s_atomic.Ready(size=2)
+
+        with ready:
+
+            self.false(ready.wait(timeout=0.001))
+            with ready:
+                self.true(ready.wait(timeout=0.001))
+
+            self.false(ready.wait(timeout=0.001))
+
+        self.false(ready.wait(timeout=0.001))
