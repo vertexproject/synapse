@@ -1,10 +1,11 @@
 '''
 Tools for providing a central API for configurable objects within Synapse.
 '''
+import os
 import copy
 
 import synapse.common as s_common
-import synapse.telepath as s_telepath
+#import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.reflect as s_reflect
@@ -67,8 +68,8 @@ class Configable:
         for name, meth in s_reflect.getItemLocals(self):
             # Telepath will attempt to give you callable Method for any attr
             # you ask for which will end poorly for us when we try to call it
-            if s_telepath.isProxy(meth):
-                continue
+            #if s_telepath.isProxy(meth):
+                #continue
             attr = getattr(meth, '_syn_config', None)
             if attr is None:
                 continue
@@ -337,6 +338,23 @@ class Configable:
             return func(valu)
 
         self.on('syn:conf:set:%s' % name, callback)
+
+    def loadConfPath(self, path):
+        '''
+        Read config options from the specified file path.
+
+        Args:
+            path (str): A file path to a json config file.
+        '''
+        full = s_common.genpath(path)
+        if not os.path.isfile(full):
+            return
+
+        conf = s_common.jsload(path)
+        if conf is None:
+            return
+
+        self.setConfOpts(conf)
 
 class Config(Configable, EventBus):
     '''
