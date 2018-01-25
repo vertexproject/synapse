@@ -51,7 +51,7 @@ class CertDir:
         self.certdir = s_common.reqdir(path)
         self.path = path
 
-    def genCaCert(self, name, signas=None, outp=None):
+    def genCaCert(self, name, signas=None, outp=None, save=True):
         '''
         Generates a CA keypair.
 
@@ -77,13 +77,15 @@ class CertDir:
         else:
             self.selfSignCert(cert, pkey)
 
-        keypath = self._savePkeyTo(pkey, 'cas', '%s.key' % name)
-        if outp is not None:
-            outp.printf('key saved: %s' % (keypath,))
+        if save:
 
-        crtpath = self._saveCertTo(cert, 'cas', '%s.crt' % name)
-        if outp is not None:
-            outp.printf('cert saved: %s' % (crtpath,))
+            keypath = self._savePkeyTo(pkey, 'cas', '%s.key' % name)
+            if outp is not None:
+                outp.printf('key saved: %s' % (keypath,))
+
+            crtpath = self._saveCertTo(cert, 'cas', '%s.crt' % name)
+            if outp is not None:
+                outp.printf('cert saved: %s' % (crtpath,))
 
         return pkey, cert
 
@@ -237,6 +239,23 @@ class CertDir:
         if outp is not None:
             outp.printf('client cert saved: %s' % (crtpath,))
 
+    def valUserCert(self, byts, cacerts=None):
+        '''
+        Validate the PEM encoded x509 user certiicate bytes and return it.
+        '''
+        cert = crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+
+        if cacerts is None:
+            cacerts = self.getCaCerts()
+
+        store = crypto.X509Store()
+        for cacert in cacerts:
+            store.add_cert(cacert)
+
+        ctx = crypto.X509StoreContext(store, cert)
+        if ctx.verify_certificate():
+            return cert
+
     def genUserCsr(self, name, outp=None):
         '''
         Generates a user certificate signing request.
@@ -271,6 +290,26 @@ class CertDir:
             OpenSSL.crypto.X509: The certificate, if exists.
         '''
         return self._loadCertPath(self.getCaCertPath(name))
+
+    def getCaCerts(self):
+        '''
+        Return a list of CA certs from the CertDir.
+
+        Returns:
+            [OpenSSL.crypto.X509]: List of CA certificates.
+        '''
+        retn = []
+
+        path = s_common.genpath(self.certdir, 'cas')
+
+        for name in os.listdir(path):
+            if not name.endswith('.crt'):
+                continue
+
+            full = s_common.genpath(self.certdir, 'cas', name)
+            retn.append(self._loadCertPath(full))
+
+        return retn
 
     def getCaCertPath(self, name):
         '''
@@ -880,3 +919,13 @@ class CertDir:
             fd.write(cert.export())
 
         return path
+
+if __name__ == '__main__':
+
+    cdir = CertDir()
+    print(repr(cdir.getCaCerts()))
+
+    byts = open(cdir._getPathJoin('users', 'visi@vertex.link.crt'), 'rb').read()
+
+    print(cdir.valUserCert(byts))
+    print(cdir.valUserCert(byts, cacerts=()))
