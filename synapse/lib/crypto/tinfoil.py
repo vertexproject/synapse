@@ -1,5 +1,6 @@
 import os
 import hashlib
+import logging
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
@@ -10,12 +11,32 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import synapse.common as s_common
 import synapse.lib.msgpack as s_msgpack
 
+logger = logging.getLogger(__name__)
+
+# Don't let people use tinfoil if they don't meet the requirements
+_bend = default_backend()
+if not _bend.cipher_supported(algorithms.AES(b'\x00' * 32), modes.CBC(b'\x00' * 16)):  # pragma: no cover
+    raise s_common.SynErr(mesg='default_backend() does not support AES-CBC')
+if not _bend.hash_supported(hashes.SHA256()):  # pragma: no cover
+    raise s_common.SynErr(mesg='default_backend() does not support SHA256 hash')
+if not _bend.hmac_supported(hashes.SHA256()):  # pragma: no cover
+    raise s_common.SynErr(mesg='default_backend() does not support SHA256 hmac')
+
 def newkey():
+    '''
+    Generate a new, random 32 byte key.
+
+    Returns:
+        bytes: 32 random bytes
+    '''
     return os.urandom(32)
 
 class TinFoilHat:
     '''
     The TinFoilHat class implements a pure binary cryptography.Fernet clone.
+
+    This provides symmetric AES-CBC Encryption with SHA256 HMAC (in encrypt
+    then mac mode).
     '''
     def __init__(self, ekey):
 
@@ -27,7 +48,14 @@ class TinFoilHat:
 
     def enc(self, byts):
         '''
-        Encrypt the given bytes and return an envelope dict.
+        Encrypt the given bytes and return an envelope dict in msgpack form.
+
+        Args:
+            byts (bytes): The message to be encrypted.
+
+        Returns:
+            bytes: The encrypted message. This is a msgpacked dictionary
+            containing the IV, ciphertext and HMAC values.
         '''
         iv = os.urandom(16)
 
@@ -50,6 +78,15 @@ class TinFoilHat:
         return s_msgpack.en(envl)
 
     def dec(self, byts):
+        '''
+        Decode an envelope dict and decrypt the given bytes.
+
+        Args:
+            byts (bytes):
+
+        Returns:
+            bytes:
+        '''
 
         envl = s_msgpack.un(byts)
 
@@ -63,7 +100,8 @@ class TinFoilHat:
 
         try:
             macr.verify(hmac)
-        except InvalidSignature:
+        except InvalidSignature as e:
+            logger.warning('Error in macr.verify: [%s]', str(e))
             return None
 
         mode = modes.CBC(iv)
@@ -75,7 +113,8 @@ class TinFoilHat:
         byts = decr.update(data)
         try:
             byts += decr.finalize()
-        except ValueError:
+        except ValueError as e:
+            logger.warning('Error in decr.finalize: [%s]', str(e))
             return None
 
         # unpad the decrypted bytes
@@ -84,7 +123,8 @@ class TinFoilHat:
         byts = padr.update(byts)
         try:
             byts += padr.finalize()
-        except ValueError:
+        except ValueError as e:
+            logger.warning('Error in padr.finalize: [%s]', str(e))
             return None
 
         return byts
