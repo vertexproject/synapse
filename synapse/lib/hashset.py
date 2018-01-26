@@ -55,6 +55,24 @@ class HashSet:
 
     def digests(self):
         '''
-        Return a list of (name,digest) tuples for the hashes in the set.
+        Get a list of (name, bytes) tuples for the hashes in the hashset.
+
+        Notes:
+            The computes the guid for the hashset and includes it in the
+            list of values returned with the name "guid".
+
+        Returns:
+            list: A list of (str, bytes) tuples representing the name and
+            hash value, in bytes, for the hashset.
         '''
-        return [(name, item.hexdigest()) for (name, item) in self.hashes]
+        retn = []
+        guid = hashlib.md5()
+
+        for name, item in self.hashes:
+            valu = item.digest()
+            guid.update(valu)
+            retn.append((name, valu))
+
+        retn.append(('guid', guid.digest()))
+
+        return retn
