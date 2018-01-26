@@ -5,11 +5,13 @@ import socket
 import logging
 import threading
 import collections
+import multiprocessing
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.link as s_link
 import synapse.common as s_common
+import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.kv as s_kv
@@ -36,193 +38,26 @@ Session Layer Messages:
     ('xmit', {'sess':<buid>, 'chan': <buid>, 'data': <mesg>})
 
 '''
+#class CellPlex(
 
-class NodeProxy(s_eventbus.EventBus):
+class SessBoss:
     '''
+    Base class for session negotiation pieces.
     '''
+    def __init__(self, cert, roots):
+        self.cert = cert
+        self.roots = roots
 
-    def __init__(self, addr):
+        self.key = cert.getkey()
+        self.certbyts = cert.save()
 
-        s_eventbus.EventBus.__init__(self)
+    def decrypt(self, byts):
+        return self.key.decrypt(byts)
 
-        self.plex = Plex() #TODO: global plex...
+    def valid(self, cert):
+        return any([r.signed(cert) for r in self.roots])
 
-        self.sess = os.random(16)
-        self.skey = os.random(16)
-
-        self.tinh = s_tinfoil.TinFoilHat(self.skey)
-
-        self.lock = threading.Lock()
-        self.ready = threading.Event()
-
-        self._runConnLoop()
-
-        self.rxque = s_queue.Queue()
-
-    def _runConnLoop(self):
-
-        self.ready.clear()
-
-        def func(ok, retn):
-
-            if not ok:
-                logger.warning('socket connect error: %s' % retn)
-                s_glob.sched.insec(1, self._runConnLoop)
-                return
-
-            with self.lock:
-                self.sock = sock
-
-#class UserSess(s_net.Link):
-
-    #def __init__(self, sdef, cert):
-
-        #self.stok = stok
-
-        #self.sdef = sdef
-
-        #self.cert = cert
-        #self.tokn = s_msgpack.un(cert[0])
-
-        #self.prikey = s_rsa.PriKey.load(self.tokn[1].get('rsa:pubkey'))
-
-        #self.buid = os.urandom(16)
-        #self.skey = s_tinfoil.newkey()
-
-    #def linked(self):
-        #print('UserSessLinked')
-
-    #def handlers(self):
-        #return {
-            #'xmit': self._onMesgXmit,
-        #}
-
-#class NodeUser:
-
-    #def __init__(self, svcfo, tokn):
-        #self.tokn = tokn
-        #self.svcfo = svcfo
-
-        #self.lock = threading.Lock()
-        #self.ready = threading.Event()
-
-    #def _userSessCtor(
-
-    #def _onLinkFini(self):
-
-#class UserSess(s_net.Link):
-    #def __init__(self,
-
-#class Sess(s_net.Proto):
-    #'''
-    #The "session layer" neuron protocol implements auth/crypto.
-    #'''
-    #def __init__(self, node):
-        ##s_net.Proto.__init__(self)
-        #self.node = node
-
-    #def _onMesgInit(self, mesg):
-
-        #cert = s_crypto.loadcert(mesg[1].get('cert'))
-
-        # check user cert...
-
-        # get the sess key, check signature, and decrypt
-        #skey = mesg[1].get('skey')
-
-        # check if sess exists and belongs to another...
-        #buid = mesg[1].get('sess')
-
-        #self.node.setSessKey(buid, skey)
-
-        #sess = self.node._initNodeSess(link, buid, skey)
-
-    #def _onMesgXmit(self, mesg):
-
-        #buid = mesg[1].get('sess')
-        #byts = mesg[1].get('data')
-
-        #sess = self.node.getNodeSess(link, buid)
-        #if sess is None:
-            #return
-
-        #byts = sess.tinh.dec(byts)
-        #if byts is None:
-            #logger.warning('xmit message decryption failure')
-            #return
-
-        #sess.rx(s_msgpack.un(byts))
-
-    #def #_onMesgFini(self, mesg):
-
-        #buid = mesg[1].get('sess')
-
-        # TODO: auth/sign this...
-        #sess = self.node.getNodeSess(link, buid)
-        ##if sess is None:
-        #    return
-
-        # if they can't encrypt the data "bye", they're not real...
-        #byeb = mesg[1].get('data')
-        #if sess.dec(byeb) != b'bye':
-        #    return
-
-        #sess.fini()
-
-class CellSess(s_net.Link):
-    '''
-    Implements the Cell side of the session link.
-    '''
-    def __init__(self, node):
-
-        s_net.Link.__init__(self)
-
-        self.node = node
-
-        # we dunno yet..
-        self.buid = None
-        self.tinh = None
-
-        #skey = node.getSessKey(buid)
-
-        #self.tinh = s_tinfoil.TinFoilHat(skey)
-
-    def handlers(self):
-        return {
-            'init': self._onMesgInit,
-            'xmit': self._onMesgXmit,
-        }
-
-    def _onMesgInit(self, mesg):
-
-        print('CELL INIT: %r' % (mesg,))
-
-        skey = mesg[1].get('skey')
-
-        self.buid = mesg[1].get('sess')
-        self.rxtinh = s_tinfoil.TinFoilHat(skey)
-
-        s_net.Link.tx(self, ('init', {'sess': self.buid, 'skey': b'hehe'}))
-
-    def _onMesgXmit(self, mesg):
-        sess = mesg[1].get('sess')
-        data = mesg[1].get('data')
-
-        data = self.rxtinh.dec(data)
-        if data is None:
-            logger.warning('invalid data decrypt: %r' % (mesg,))
-
-        imsg = s_msgpack.un(data)
-        print('CELL GOT XMIT: %r' % (imsg,))
-
-    #def _onMesgFini(self, mesg):
-    #def _onMesgXmit(self, mesg):
-
-        #self.onfini(self._onSessFini)
-
-    #def _onSessFini(self):
-
-class Cell(s_config.Config):
+class Cell(s_config.Config, SessBoss):
     '''
     A Cell is a micro-service in a neuron cluster.
     '''
@@ -256,12 +91,17 @@ class Cell(s_config.Config):
 
         # setup our certificate and private key
         user = self.get('user') # do we have our user saved?
+        if user is None:
+            user = 'visi@vertex00'
 
-        # persist the session keys for later resume...
-        self.skeys = self.kvstor.getKvLook('sess:keys')
-        self.sessions = s_eventbus.BusRef()
+        print('CELL USER: %r' % (user,))
 
-        #self.preLisnHook()
+        self.root = self.vault.genRootCert()
+
+        cert = self.vault.genUserCert(user)
+        roots = self.vault.getRootCerts()
+
+        SessBoss.__init__(self, cert, roots)
 
         host = self.getConfOpt('host')
         port = self.getConfOpt('port')
@@ -269,16 +109,23 @@ class Cell(s_config.Config):
         if port == 0:
             port = self.kvinfo.get('port', port)
 
-        ctor = self.getSessCtor()
+        ctor = self.getLinkCtor()
         addr = self.plex.listen((host, port), ctor)
         print('ADDR: %r' % (addr,))
 
         # save the port so it can be semi-stable...
         self.kvinfo.set('port', addr[1])
 
-    def getSessCtor(self):
-        def ctor():
-            return CellSess(self)
+    def getLinkCtor(self):
+
+        def sess(chan):
+            sess = Sess(chan, self, lisn=True)
+            chan.onrx(sess.rx)
+            sess.linked()
+
+        def ctor(sock):
+            return s_net.ChanPlex(sock, sess)
+
         return ctor
 
     def get(self, prop, defval=None):
@@ -296,10 +143,6 @@ class Cell(s_config.Config):
     #def addEndpHand(self, name, func):
     #def addEndpFunc(self, name, func):
     #def addEndpIter(self, name, func):
-
-    #def preLisnHook(self):
-        # may be used to manipulate config before listen
-        #pass
 
     def _loadBootFile(self):
         '''
@@ -332,57 +175,26 @@ class Cell(s_config.Config):
             self.set('user', auth[0])
             self.vault.addUserAuth(auth, signer=True)
 
-    #def _initNodeSess(self):
-        #return NodeSess(self)
-
-    def setSessKey(self, buid, skey):
-        self.skeys.setraw(buid, skey)
-
-    def getSessKey(self, buid):
-        self.skeys.getraw(buid)
-
-    #def getNodeSess(self, link, buid):
-
-        #sess = self.sessions.get(buid)
-        #if sess is None:
-
-            # check for a saved session key
-            #skey = self.getSessKey(buid)
-            #if skey is None:
-                #return None
-
-            #sess = self._initNodeSess(link, buid, skey)
-
-        #return sess
-
-    #def _initNodeSess(self, link, buid, skey):
-        # init a new Sess link with the given skey
-        #sess = Sess(self, link, buid, skey)
-        #self.sessions.put(buid, sess)
-        #return sess
-
-    #def getNodeAddr(self):
-        #'''
-        #Return a (host, port) address for the Node.
-
-        #Returns:
-            #((str,int)): Host and TCP port tuple.
-        #'''
-        #return self.addr
-
     def path(self, *paths):
         '''
         Join a path relative to the cell persistence directory.
         '''
         return os.path.join(self.dirn, *paths)
 
-    #def _noAuthMesgBeat(self, sock, mesg):
-    #def _noAuthMesgAuth(self, sock, mesg):
-
     @staticmethod
     @s_config.confdef(name='cell')
-    def _getNodeConf():
+    def _getCellConf():
         return (
+
+            ('ctor', {'req': 1,
+                'doc': 'The path to the cell constructor'}),
+
+            ('root', {
+                'doc': 'The SHA256 of our neuron root cert (used for autoconf).'}),
+
+            ('neuron', {
+                'doc': 'The host name (and optionally port) of our neuron'}),
+
             ('host', {'defval': '0.0.0.0', 'req': 1,
                 'doc': 'The host to bind'}),
 
@@ -392,17 +204,12 @@ class Cell(s_config.Config):
 
 nodeport = 65521
 
-class Node(Cell):
+class Neuron(Cell):
     '''
     A neuron node is the "master cell" for a neuron cluster.
     '''
-    def __init__(self, dirn):
-        Cell.__init__(self, dirn)
-
-    #def preLisnHook(self):
-        # we would prefer a default port...
-        #if self.getConfOpt('port') == 0:
-            #self.setConfOpt('port', nodeport)
+    def __init__(self, dirn, conf=None):
+        Cell.__init__(self, dirn, conf=conf)
 
     @staticmethod
     @s_config.confdef(name='node')
@@ -415,110 +222,101 @@ class Node(Cell):
                 'doc': 'The TCP port to bind (defaults to %d)' % nodeport}),
         )
 
-#class Chan(Link):
-    #FIXME make chan fini *not* fini linkdown
-    #def __init__(self, cell, link):
+#class SessBase(s_net.Link):
+class Sess(s_net.Link):
 
-#class Hemi(Node):
-    #'''
-    #A Hemi (Hemisphere) is a super-node for a local Node cluster.
-    #'''
-    #def __init__(self, conf):
+    def __init__(self, link, boss, lisn=False):
 
-        #Node.__init__(self, conf)
+        s_net.Link.__init__(self, link)
 
-        #hemi = self.getConfOpt('hemi')
+        self.lisn = lisn    # True if we are the listener.
+        self.boss = boss
 
-        #byts = self.kvinfo.get('cacert')
+        # if we fini, close the channel
+        self.onfini(link.fini)
 
-        #self.cakey = self.kvvault.getCaKey(hemi)
-        #self.cacert = self.kvvault.getCaCert(hemi)
+        self.txkey = s_tinfoil.newkey()
+        self.txtinh = s_tinfoil.TinFoilHat(self.txkey)
 
-        #if self.cakey is None:
-            #self.cakey, self.cacert = self.kvvault.genSelfCa(hemi)
-
-        #self.addLinkFunc('node:boot', self._onNodeBootMesg)
-
-    #def _onNodeBootMesg(self, link, mesg):
-        # an un-authenticated message to enroll a new service
-
-#class NodeUser(s_net.Proto):
-
-    #def __init__(self, nsvc, tokn):
-        #self.nsvc = nsvc
-        #self.tokn = tokn
-#
-        #self.plex = s_net.Plex()
-
-        #self.sessproto = SessProto
-
-    #@s_net.protorecv('retn')
-    #def _onMesgRecvRetn(self, link, mesg):
-
-#class Endp:
-
-#class Bridge:
-#class Endp:
-
-#class Service:
-
-    #@staticmethod
-    #@s_config.confdef(name='neuron')
-    #def _getNeurConf():
-        #return (
-            #('neur:dir', {'type': 'str', 'req': 1, 'doc': 'The working directory for this node'}),
-            #('neur:links', {'defval': [], 'doc': 'A list of link entries: url or (url,{})'}),
-            #('neur:listen', {'doc': 'A list of link entries: url or (url,{})'}),
-            #('neur:fifo:conf', {'doc': 'A nested config dict for our own fifo'}),
-
-            #('neur:dend:ctors', {'doc': 'A list of (dynf,conf) tuples for the dendrites to load'}),
-        #)
-
-class CellLink(s_net.Link):
-
-    def __init__(self, prox):
-        s_net.Link.__init__(self)
-        self.prox = prox
+        self.rxkey = None
+        self.rxtinh = None
 
     def handlers(self):
         return {
-            'init': self._onMesgInit,
+            'cert': self._onMesgCert,
+            'skey': self._onMesgSkey,
+            'xmit': self._onMesgXmit,
         }
-
-    def _onMesgInit(self, mesg):
-        print('INIT REPLY: %r' % (mesg,))
-        self.tx(('CRYPTED', {'hehe': 'haha'}))
 
     def linked(self):
 
-        print('LINKED')
+        if not self.lisn:
+            byts = self.boss.certbyts
+            self.link.tx(('cert', {'cert': byts}))
 
-        self.buid = os.urandom(16)
-        self.skey = s_tinfoil.newkey()
+    def setRxKey(self, rxkey):
+        self.rxkey = rxkey
+        self.rxtinh = s_tinfoil.TinFoilHat(rxkey)
 
-        self.txhat = s_tinfoil.TinFoilHat(self.skey)
+    def _tx_wrap(self, mesg):
 
-        mesg = ('init', {
-                    'sess': self.buid,
-                    'cert': self.prox.cert,
-               })
+        if self.rxtinh is None:
+            raise s_exc.NotReady()
 
-        s_net.Link.tx(self, mesg)
+        data = self.txtinh.enc(s_msgpack.en(mesg))
+        return ('xmit', {'sess': self.iden, 'data': data})
 
-        # bypass our xmit wrapping for init/fini
-        #s_net.Link.tx(self, ('init', {'sess': self.buid, 'skey': self.skey}))
+    def _onMesgXmit(self, mesg):
 
-        #self.tx(('init',{'hi':'here'}))
+        if self.rxtinh is None:
+            logger.warning('xmit message before rxkey')
+            raise NotReady()
 
-    def tx(self, mesg):
-        data = self.txhat.enc(s_msgpack.en(mesg))
-        s_net.Link.tx(self, ('xmit', {'sess': self.buid, 'data': data}))
+        data = mesg[1].get('data')
 
-uservault = '~/.syn/vault.lmdb'
+        newm = s_msgpack.un(self.rxtinh.dec(data))
+        self.linkup.rx(newm)
+        return
 
-class NodeProxy:
 
-    def __init__(self, user, path=uservault):
+    def _onMesgSkey(self, mesg):
+
+        data = mesg[1].get('data')
+        skey = self.boss.decrypt(data)
+
+        print('GOT RX KEY: %r' % (skey,))
+        self.setRxKey(skey)
+
+    def _onMesgCert(self, mesg):
+
+        if self.lisn:
+            self.link.tx(('cert', {'cert': self.boss.certbyts}))
+
+        cert = s_vault.Cert.load(mesg[1].get('cert'))
+
+        if not self.boss.valid(cert):
+            clsn = self.__class__.__name__
+            logger.warning('%s got bad cert (%r)' % (clsn, cert.iden(),))
+            return
+
+        # send back an skey message with our tx key
+        data = cert.public().encrypt(self.txkey)
+        mesg = ('skey', {'data': data})
+        self.link.tx(mesg)
+
+#class ConnSess(SessBase):
+
+#class LisnSess(SessBase):
+
+    #def _onMesgCert(self, mesg):
+
+
+        # Process the init as normal...
+        #return SessBase._onMesgCert(self, mesg)
+
+class CellProxy(SessBoss):
+
+    def __init__(self, user, path=s_vault.uservault):
 
         self.user = user
         self.path = path
@@ -527,13 +325,14 @@ class NodeProxy:
 
         with s_vault.shared(path) as vault:
 
-            self.rkey = vault.getRsaKey(user)
-            if self.rkey is None:
-                raise s_exc.NoSuchUser(name=user, mesg='No RSA key in vault: %s' % (path,))
+            cert = vault.getUserCert(user)
 
-            self.cert = vault.getUserCert(user)
-            if self.cert is None:
+            if cert is None:
                 raise s_exc.NoSuchUser(name=user, mesg='No cert in vault: %s' % (path,))
+
+            roots = vault.getRootCerts()
+
+        SessBoss.__init__(self, cert, roots)
 
         self.ready = threading.Event()
 
@@ -544,14 +343,25 @@ class NodeProxy:
         s_glob.plex.connect((self.host, nodeport), ctor)
 
     def getLinkCtor(self):
-        def ctor():
-            return CellLink(self)
-        return ctor
 
-def opennode(user, path=uservault):
-    return NodeProxy(user, path=path)
+        def onchan(chan):
+            sess = Sess(chan, self, lisn=False)
+            chan.onrx(sess.rx)
+            sess.linked()
 
-def open(desc, path=uservault):
+        def onsock(sock):
+
+            plex = s_net.ChanPlex(sock, onchan)
+            plex.open()
+
+            return plex
+
+        return onsock
+
+def opencell(user, path=s_vault.uservault):
+    return CellProxy(user, path=path)
+
+def open(desc, path=s_vault.uservault):
     '''
     Open a connection to a remote Cell.
 
@@ -575,47 +385,77 @@ def open(desc, path=uservault):
     '''
     return nodecache.open(desc, vault=vault)
 
-    #name =
-    #svcn = desc.split('/
-    #/~axon
+def divide(dirn, conf=None):
+    '''
+    Create an instance of a Cell in a subprocess.
+    '''
+    # lets try to find his constructor...
+    ctor = None
 
-#class NodeProxy:
+    if conf is not None:
+        ctor = conf.get('ctor')
+
+    path = s_common.genpath(dirn, 'config.json')
+
+    if ctor is None and os.path.isfile(path):
+        subconf = s_common.jsload(path)
+        ctor = subconf.get('ctor')
+
+    if ctor is None:
+        raise ReqConfOpt(name='ctor')
+
+    func = s_dyndeps.getDynLocal(ctor)
+    if func is None:
+        raise NoSuchCtor(name=ctor)
+
+    proc = multiprocessing.Process(target=_cell_entry, args=(ctor, dirn, conf))
+    proc.start()
+
+    return proc
+
+def _cell_entry(ctor, dirn, conf):
+
+    try:
+
+        dirn = s_common.genpath(dirn)
+        func = s_dyndeps.getDynLocal(ctor)
+
+        cell = func(dirn, conf)
+
+        logger.info('cell divided: %s (%s)' % (ctor, dirn))
+
+        cell.main()
+
+    except Exception as e:
+        logger.exception('_cell_entry: %s (%s)' % (ctor, e))
 
 if __name__ == '__main__':
 
-    #plex = Plex()
 
-    #os.mkdir('shit')
+    try:
 
-    #conf = {'dir': 'shit', 'hemi': 'vertex00'}
+        path = 'fakevault.lmdb'
 
-    node = Node('shit')
+        with s_vault.shared(path) as connvault:
 
-    path = 'fakevault.lmdb'
+            #cert = connvault.genUserCert('visi@vertex00')
+            #connvault.addSignerCert(cert)
 
-    with s_vault.shared(path) as vault:
-        vault.genUserCert('visi@vertex00')
+            with s_vault.shared('shit/vault.lmdb') as lisnvault:
+                root = lisnvault.genRootCert()
+                auth = lisnvault.genUserAuth('visi@vertex00')
 
-    opennode('visi@vertex00', path=path)
+            #connvault.addRootCert(root)
+            connvault.addUserAuth(auth)
 
-    #rkey, cert = node.genNodeUser(
+        node = Cell('shit')
+        print('NODE: %r' % (node,))
 
-    #cell=Cell('crap')
+        opennode('visi@vertex00', path=path)
 
-    #plex = Neuron(conf)
-    #print('ADDR: %r' % (node.getNodeAddr(),))
-
-    #def conn(ok, link):
-        #print('CONN: %r %r' % (ok, link))
-        #done.set()
-
-    #def lisn(ok, link):
-        #print('LISN: %r %r' % (ok, link))
-
-    #plex.listen('0.0.0.0', 8686, func=lisn)
-    #node.plex.connect(('127.0.0.1', 8686), func=conn)
-    #plex.connect('127.0.0.1', 8989, func=conn)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
 
     while True:
         time.sleep(1)
-    #done.wait()

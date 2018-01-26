@@ -34,11 +34,14 @@ class CliFini(SynErr):
 
 class Retry(SynErr): pass
 class TxFull(Retry): pass
+class NotReady(Retry): pass
 
 class AuthDeny(SynErr): pass
 
 class NoSuchMod(SynErr): pass
 class NoModIden(SynErr): pass
+
+class NoCertKey(SynErr): pass
 
 class NoSuchAct(SynErr): pass
 class NoSuchOpt(SynErr): pass

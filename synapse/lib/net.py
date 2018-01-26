@@ -1,3 +1,4 @@
+import os
 import select
 import socket
 import logging
@@ -5,6 +6,7 @@ import threading
 import collections
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.config as s_config
@@ -135,23 +137,28 @@ class Plex(s_config.Config):
 
         while not self.isfini:
 
-            for fino, flags in self.epoll.poll(timeout=0.1):
+            try:
 
-                if self.isfini:
-                    return
+                for fino, flags in self.epoll.poll(timeout=0.1):
 
-                poll = self.polls.get(fino)
-                if poll is None:
-                    logger.warning('unknown epoll fd: %d' % (fino,))
-                    self.epoll.unregister(fino)
-                    continue
+                    if self.isfini:
+                        return
 
-                try:
+                    poll = self.polls.get(fino)
+                    if poll is None:
+                        logger.warning('unknown epoll fd: %d' % (fino,))
+                        self.epoll.unregister(fino)
+                        continue
 
-                    poll(flags)
+                    try:
 
-                except Exception as e:
-                    logger.exception('error during poll() callback')
+                        poll(flags)
+
+                    except Exception as e:
+                        logger.exception('error during poll() callback')
+
+            except Exception as e:
+                logger.exception('plex thread error: %r' % (e,))
 
     def _onPlexFini(self):
 
@@ -238,10 +245,16 @@ class Plex(s_config.Config):
         else:
             self.epoll.modify(fino, link.flags)
 
-        retn = ctor()
-        retn.chain(link)
+        try:
 
-        retn.linked()
+            retn = ctor(link)
+            link.onrx(retn.rx)
+
+            retn.linked()
+
+        except Exception as e:
+            logger.warning('SockLink: %r ctor/linked error: %s' % (ctor, e))
+            raise
 
         return retn
 
@@ -301,27 +314,61 @@ class Link(s_eventbus.EventBus):
     A message aware network connection abstraction.
     '''
 
-    def __init__(self):
+    def __init__(self, link):
 
         s_eventbus.EventBus.__init__(self)
 
         self.info = {}
         self.funcs = {}
 
-        self.linkup = None
-        self.linkdown = None
+        # TODO: heart beat via global sched
+        self.rxtime = None
+        self.txtime = None
+
+        self.rxfunc = None
+        self.isrxfini = False
+        self.istxfini = False
+
+        self.link = link
 
         self.funcs = self.handlers()
+        self.onfini(self._onLinkFini)
 
-    def chain(self, link):
+    def onrx(self, func):
         '''
-        Set the given link as our underlying down link (and us as his up).
+        Register a callback to recieve decapsulated messages.
         '''
-        link.linkup = self
-        self.linkdown = link
+        self.rxfunc = func
 
-        # only percolate fini upward (in case of chans)
-        link.onfini(self.fini)
+    def _onLinkFini(self):
+        self.txfini()
+        self.rxfini()
+
+    def rxfini(self):
+        '''
+        Anotate that the link will no longer receive.
+        '''
+        if self.isrxfini:
+            return
+
+        self.isrxfini = True
+        self._rx_fini()
+
+        if self.istxfini:
+            self.fini()
+
+    def txfini(self, data=None):
+        '''
+        Annotate that the there is nothing more to send.
+        '''
+        if self.istxfini:
+            return
+
+        self.istxfini = True
+        self._tx_fini()
+
+        if self.isrxfini:
+            self.fini()
 
     def linked(self):
         '''
@@ -362,17 +409,18 @@ class Link(s_eventbus.EventBus):
         '''
         Recv a message on this link and dispatch the message.
         '''
+        self.rxtime = s_common.now()
         func = self.funcs.get(mesg[0])
 
         if func is None:
-            logger.warning('proto %s: unknown message type %s' % (self.__class__.__name__, mesg[0]))
+            logger.warning('link %s: unknown message type %s' % (self.__class__.__name__, mesg[0]))
             return
 
         try:
             func(mesg)
 
         except Exception as e:
-            logger.exception('proto %s: rx exception')
+            logger.exception('link %s: rx exception: %s' % (self.__class__.__name__, e))
 
     def tx(self, mesg):
         '''
@@ -381,20 +429,122 @@ class Link(s_eventbus.EventBus):
         Args:
             mesg ((str,dict)): A message tufo.
         '''
-        return self.linkdown.tx(mesg)
+        self.txtime = s_common.now()
+        wrap = self._tx_wrap(mesg)
+        return self.link.tx(wrap)
+
+    def _tx_wrap(self, mesg):
+        return mesg
+
+    def _tx_fini(self):
+        return
+
+    def _rx_fini(self):
+        return
+
+class Chan(Link):
+
+    def __init__(self, link, iden):
+        Link.__init__(self, link)
+        # we wrap but not chain...
+        self.iden = iden
+
+    def rx(self, mesg):
+        self.rxfunc(mesg)
+
+    def _tx_wrap(self, mesg):
+        return ('data', {'chan': self.iden, 'data': mesg})
+
+    def _tx_fini(self):
+        mesg = ('fini', {'chan': self.iden})
+        self.link.tx(mesg)
+
+class ChanPlex(Link):
+    '''
+    A Link which has multiple channels.
+    '''
+    def __init__(self, link, func):
+        Link.__init__(self, link)
+
+        #self.ctor = ctor
+        self.func = func
+        self.chans = s_eventbus.BusRef()
+
+        # TODO: chan timeouts... (maybe add to BusRef?)
+
+        self.onfini(self.chans.fini)
+
+    def handlers(self):
+        return {
+            'init': self._onChanInit,
+            'data': self._onChanData,
+            'fini': self._onChanFini,
+        }
+
+    def _onChanInit(self, mesg):
+
+        iden = mesg[1].get('chan')
+        data = mesg[1].get('data')
+
+        chan = Chan(self, iden)
+        self.chans.put(iden, chan)
+
+        try:
+
+            self.func(chan)
+
+            if data is not None:
+                chan.rx(data)
+
+        except Exception as e:
+            logger.warning('chan init error: %s' % (e,))
+            chan.fini()
+
+    def _onChanData(self, mesg):
+        iden = mesg[1].get('chan')
+        data = mesg[1].get('data')
+
+        chan = self.chans.get(iden)
+        chan.rx(data)
+
+    def _onChanFini(self, mesg):
+
+        iden = mesg[1].get('chan')
+        data = mesg[1].get('data')
+
+        chan = self.chans.get(iden)
+        if chan is None:
+            return
+
+        if data is not None:
+            chan.rx(data)
+
+        chan.rxfini()
+
+    def open(self, data=None):
+        iden = os.urandom(16)
+
+        chan = Chan(self, iden)
+        self.chans.put(iden, chan)
+
+        self.tx(('init', {'chan': iden, 'data': data}))
+
+        self.func(chan)
+
+        return chan
 
 class SockLink(Link):
     '''
     A Link implements Plex aware non-blocking operations for a socket.
     '''
-
     def __init__(self, plex, sock):
 
-        Link.__init__(self)
+        Link.__init__(self, None)
 
         self.plex = plex
         self.sock = sock
         self.fino = sock.fileno()
+
 
         self.txbuf = b''
         self.txque = collections.deque() #(byts, info)
@@ -427,7 +577,7 @@ class SockLink(Link):
                 self.fini()
 
         except Exception as e:
-            logger.exception('error during epoll event: %s' % (e,))
+            logger.exception('error during epoll event: %s for %r' % (e,self.sock))
             self.fini()
 
     def tx(self, mesg):
@@ -438,6 +588,9 @@ class SockLink(Link):
             mesg ((str,dict)): A message tufo.
         '''
         byts = s_msgpack.en(mesg)
+        return self._add_tx(byts)
+
+    def _add_tx(self, byts):
 
         with self.txlock:
 
@@ -449,8 +602,9 @@ class SockLink(Link):
             self.flags |= select.EPOLLOUT
             self.plex.modify(self.fino, self.flags)
 
+
     def rx(self, mesg):
-        self.linkup.rx(mesg)
+        self.rxfunc(mesg)
 
     def rxbytes(self, size):
         '''
@@ -504,9 +658,16 @@ class SockLink(Link):
 
                 if self.txbuf:
 
-                    # if we didn't send anything, gtfo
-                    sent = self.sock.send(self.txbuf)
-                    if sent == 0:
+                    try:
+
+                        sent = self.sock.send(self.txbuf)
+
+                        # if we didn't send anything, gtfo
+                        if sent == 0:
+                            return
+
+                    except BrokenPipeError as e:
+                        logger.warning('tx broken pipe: ignore...')
                         return
 
                     self.txbuf = self.txbuf[sent:]
