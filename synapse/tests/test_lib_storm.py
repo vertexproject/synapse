@@ -505,7 +505,7 @@ class StormTest(SynTest):
             nodes = core.eval('inet:dns:a +#loc.milkyway.galactic**.tx')
             self.eq(len(nodes), 1)
 
-    def test_storm_tag_jointag(self):
+    def test_storm_tag_joinpivottag(self):
         with self.getRamCore() as core:  # type: s_cores_common.Cortex
 
             node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
@@ -526,28 +526,53 @@ class StormTest(SynTest):
                                      'aka.duck.sound.loud',
                                      'loc.milkyway.galactic_arm_a.sol.mars.us.tx.perfection'])
 
+            nodes = core.eval('inet:dns:a pivottags()')
+            self.eq(len(nodes), 2)
             nodes = core.eval('inet:dns:a jointags()')
             self.eq(len(nodes), 2)
 
+            nodes = core.eval('inet:dns:a pivottags(inet:fqdn, limit=2)')
+            self.eq(len(nodes), 1)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:fqdn')
             nodes = core.eval('inet:dns:a jointags(inet:fqdn, limit=2)')
+            self.eq(len(nodes), 2)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
+            self.eq(nodes[1][1].get('tufo:form'), 'inet:fqdn')
+
+            nodes = core.eval('inet:dns:a pivottags(ps:tokn,inet:fqdn)')
             self.eq(len(nodes), 1)
             self.eq(nodes[0][1].get('tufo:form'), 'inet:fqdn')
-
             nodes = core.eval('inet:dns:a jointags(ps:tokn,inet:fqdn)')
-            self.eq(len(nodes), 1)
-            self.eq(nodes[0][1].get('tufo:form'), 'inet:fqdn')
+            self.eq(len(nodes), 2)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
+            self.eq(nodes[1][1].get('tufo:form'), 'inet:fqdn')
 
-            nodes = core.eval('inet:dns:a jointags(ps:tokn)')
+            nodes = core.eval('inet:dns:a pivottags(ps:tokn)')
             self.eq(len(nodes), 0)
-
-            nodes = core.eval('inet:dns:a jointags(ps:tokn, keep_nodes=1)')
+            nodes = core.eval('inet:dns:a jointags(ps:tokn)')
             self.eq(len(nodes), 1)
 
-            nodes = core.eval('inet:dns:a jointags(inet:fqdn, keep_nodes=1)')
+            nodes = core.eval('inet:dns:a pivottags(inet:fqdn)')
+            self.eq(len(nodes), 1)
+            nodes = core.eval('inet:dns:a jointags(inet:fqdn)')
             self.eq(len(nodes), 2)
 
+            nodes = core.eval('inet:dns:a pivottags(limit=1)')
+            self.eq(len(nodes), 1)
             nodes = core.eval('inet:dns:a jointags(limit=1)')
             self.eq(len(nodes), 1)
+
+            node = core.formTufoByProp('inet:dns:a', 'com.woot/4.3.2.1')
+            nodes = core.eval('inet:dns:a pivottags(limit=1)')
+            self.eq(len(nodes), 1)
+            nodes = core.eval('inet:dns:a jointags(limit=1)')
+            self.eq(len(nodes), 2)
+
+            node = core.formTufoByProp('inet:dns:a', 'com.woot/4.3.2.1')
+            nodes = core.eval('inet:dns:a pivottags(limit=2)')
+            self.eq(len(nodes), 1)
+            nodes = core.eval('inet:dns:a jointags(limit=2)')
+            self.eq(len(nodes), 2)
 
     def test_storm_tag_totag(self):
         with self.getRamCore() as core:  # type: s_cores_common.Cortex

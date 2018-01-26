@@ -439,6 +439,7 @@ class Runtime(Configable):
         self.setOperFunc('addxref', self._stormOperAddXref)
         self.setOperFunc('fromtags', self._stormOperFromTags)
         self.setOperFunc('jointags', self._stormOperJoinTags)
+        self.setOperFunc('pivottags', self._stormOperPivotTags)
 
         self.setOperFunc('get:tasks', self._stormOperGetTasks)
 
@@ -1456,19 +1457,18 @@ class Runtime(Configable):
         for tag in tags:
             [core.delTufoTag(node, tag) for node in nodes]
 
-    def _stormOperJoinTags(self, query, oper):
+    def _stormTagsJoinPivotQuery(self, query, oper, clear=False):
 
         args = oper[1].get('args', ())
         opts = dict(oper[1].get('kwlist'))
         core = self.getStormCore()
 
         forms = set(args)
-        keep_nodes = opts.get('keep_nodes', False)
 
         limt = self.getLiftLimitHelp(opts.get('limit'))
 
         nodes = query.data()
-        if not keep_nodes:
+        if clear:
             query.clear()
 
         tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=True)}
@@ -1499,6 +1499,12 @@ class Runtime(Configable):
 
                 if limt.dec(len(nodes)):
                     break
+
+    def _stormOperPivotTags(self, query, oper):
+        return self._stormTagsJoinPivotQuery(query, oper, clear=True)
+
+    def _stormOperJoinTags(self, query, oper):
+        return self._stormTagsJoinPivotQuery(query, oper)
 
     def _stormOperToTags(self, query, oper):
         opts = dict(oper[1].get('kwlist'))
