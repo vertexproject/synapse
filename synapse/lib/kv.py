@@ -2,15 +2,18 @@ import os
 import lmdb
 import functools
 
-import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.threads as s_threads
+
 
 class KvDict:
     '''
     A KvDict uses the KvStor to implement a pythonic dict-like object.
+
+    Unlike the KvLook object, the KvDict keeps all items in the dictionary
+    in memory, so retrieval is fast; and only updates needs to be written
+    to the the underlying KvStor object.
     '''
     def __init__(self, stor, iden):
         self.stor = stor
@@ -25,8 +28,17 @@ class KvDict:
     def items(self):
         '''
         Yield (prop, valu) tuples from the KvDict.
+
+        Notes:
+            This yields data from the internal dictionary ``items()`` method.
+            Changes made to the KvDict contents during the consumption of the
+            results of the ``KvDict.items()`` generator are not present in the
+            output of this generator.
+
+        Yields:
+            ((str, object)): Tuple of prop, valu pairs.
         '''
-        for item in self.vals.items():
+        for item in tuple(self.vals.items()):
             yield item
 
     def set(self, prop, valu):
@@ -36,6 +48,9 @@ class KvDict:
         Args:
             prop (str): The property name.
             valu (obj): A msgpack compatible value.
+
+        Returns:
+            None
         '''
         if self.vals.get(prop) == valu:
             return
@@ -45,7 +60,7 @@ class KvDict:
         lkey = self.iden + prop.encode('utf8')
         self.stor.setKvProp(lkey, s_msgpack.en(valu))
 
-    def get(self, prop, defval=None):
+    def get(self, prop):
         '''
         Get a property from the KvDict.
 
@@ -55,7 +70,7 @@ class KvDict:
         Returns:
             (obj): The return value, or None.
         '''
-        return self.vals.get(prop, defval)
+        return self.vals.get(prop)
 
     def pop(self, prop):
         '''
@@ -63,6 +78,9 @@ class KvDict:
 
         Args:
             prop (str): The property name.
+
+        Returns:
+            object: The object stored in the KvDict, or None if the object was not present.
         '''
         valu = self.vals.pop(prop, None)
 
@@ -74,6 +92,11 @@ class KvDict:
 class KvLook:
     '''
     A KvLook uses the KvStor to implement key=valu lookup namespace.
+
+    The primary APIs, ``get()`` and ``set()``, will use msgpack to decode and
+    encode objects retrieved from the store.  This allows storing complex data
+    structures in the KV store.  ``getraw()`` and ``setraw()`` APIs exist for
+    purely bytes in / bytes out interfaces.
     '''
     def __init__(self, stor, iden):
         self.stor = stor
@@ -84,12 +107,14 @@ class KvLook:
         Set a property in the KvLook.
 
         Args:
-            prop (str): The property name.
+            prop (str): The property name to set.
             valu (obj): A msgpack compatible value.
+
+        Returns:
+            None
         '''
         lkey = self.iden + prop.encode('utf8')
         self.stor.setKvProp(lkey, s_msgpack.en(valu))
-        return valu
 
     def get(self, prop):
         '''
@@ -99,7 +124,7 @@ class KvLook:
             prop (str): The property name.
 
         Returns:
-            (obj): The return value, or None.
+            object: The valu, aftering being unpacked via msgpack, or None.
         '''
         lkey = self.iden + prop.encode('utf8')
 
@@ -110,24 +135,47 @@ class KvLook:
         return s_msgpack.un(lval)
 
     def getraw(self, lkey):
+        '''
+        Retrieve a value directly by bytes.
+
+        Args:
+            lkey (bytes): Byte value to retrieve.
+
+        Returns:
+            bytes: Bytes for a given key, or None if it does not exist.
+        '''
         return self.stor.getKvProp(self.iden + lkey)
 
     def setraw(self, lkey, lval):
-        return self.stor.setKvProp(self.iden + lkey, lval)
+        '''
+        Set the value directly by bytes.
 
-class KvList:
+        Args:
+            lkey (bytes): Byte value to set.
+            lval (bytes): Bytes to set to the value.
+
+        Returns:
+            None
+        '''
+        self.stor.setKvProp(self.iden + lkey, lval)
+
+class KvSet:
     '''
-    A KvList uses the KvStor to implement a pythonic list-like object.
+    A KvSet uses the KvStor to implement a pythonic set-like object.
+
+    Unlike the KvLook object, the KvSet keeps all items in the set in
+    memory, so access is fast; and only updates needs to be written to the
+    the underlying KvStor object.
     '''
     def __init__(self, stor, iden):
         self.stor = stor
         self.iden = iden
 
-        self.vals = [s_msgpack.un(b) for b in stor.iterKvDups(iden)]
+        self.vals = {s_msgpack.un(b) for b in stor.iterKvDups(iden)}
 
     def remove(self, valu):
         '''
-        Remove a value from the KvList.
+        Remove a value from the KvSet.
 
         Args:
             valu (obj): A msgpack value to remove.
@@ -137,41 +185,49 @@ class KvList:
         '''
         try:
             self.vals.remove(valu)
-        except ValueError as e:
+        except KeyError as e:
             return False
 
         lval = s_msgpack.en(valu)
-        self.stor.delKvDup(self.iden, lval)
-        return True
+        return self.stor.delKvDup(self.iden, lval)
 
     def __iter__(self):
-        return iter(self.vals)
+        '''
+        Protect against RuntimeError during iteration
+        '''
+        for valu in tuple(self.vals):
+            yield valu
 
     def __len__(self):
         return len(self.vals)
 
-    def append(self, valu):
+    def add(self, valu):
         '''
-        Append a value to the KvList.
+        Add a value to the KvSet.
 
         Args:
             valu (obj): A msgpack value to add.
+
+        Returns:
+            None
         '''
         lval = s_msgpack.en(valu)
-
-        self.vals.append(valu)
+        self.vals.add(valu)
         self.stor.addKvDup(self.iden, lval)
 
-    def extend(self, vals):
+    def update(self, vals):
         '''
-        Extend the KvList by appending values from vals.
+        Extend the KvSet by adding any new values from vals to the set.
 
         Args:
-            valu (list): A list of msgpack values to add.
+            vals (list): A list of msgpack values to add to the set.
+
+        Returns:
+            None
         '''
         dups = [(self.iden, s_msgpack.en(v)) for v in vals]
 
-        self.vals.extend(vals)
+        self.vals.update(vals)
         self.stor.addKvDups(dups)
 
 class KvStor(s_eventbus.EventBus):
@@ -197,6 +253,16 @@ class KvStor(s_eventbus.EventBus):
     def genKvAlias(self, name):
         '''
         Resolve or create a new object alias by name.
+
+        Args:
+            name (str): String to create or resolve an alias for.
+
+        Notes:
+            The iden returned as an alias is randomly generated the first time
+            that ``genKvAlias`` is called for a given name.
+
+        Returns:
+            bytes: The iden for the name
         '''
         lkey = b'alias:' + name.encode('utf8')
 
@@ -209,18 +275,18 @@ class KvStor(s_eventbus.EventBus):
 
             return iden
 
-    def getKvList(self, name):
+    def getKvSet(self, name):
         '''
-        Create or retrieve a KvList by name from the KvStor.
+        Create or retrieve a KvSet by name from the KvStor.
 
         Args:
             name (str): The name of the KvList.
 
         Returns:
-            (KvList): The KvList helper instance.
+            KvSet: The KvList helper instance.
         '''
         iden = self.genKvAlias(name)
-        return KvList(self, iden)
+        return KvSet(self, iden)
 
     def getKvDict(self, name):
         '''
@@ -230,7 +296,7 @@ class KvStor(s_eventbus.EventBus):
             name (str): The name of the KvDict.
 
         Returns:
-            (KvDict): The KvDict helper instance.
+            KvDict: The KvDict helper instance.
         '''
         iden = self.genKvAlias(name)
         return KvDict(self, iden)
@@ -240,20 +306,23 @@ class KvStor(s_eventbus.EventBus):
         Create or retrieve a KvLook by name from the KvStor.
 
         Args:
-            name (str): The name of the KvDict.
+            name (str): The name of the KvLook.
 
         Returns:
-            (KvDict): The KvDict helper instance.
+            KvLook: The KvLook helper instance.
         '''
         iden = self.genKvAlias(name)
         return KvLook(self, iden)
 
     def iterKvDups(self, lkey):
         '''
-        Yield lkey, lval tuples for the given dup prefix.
+        Yield lkey, lval tuples for the given dup key.
 
         Args:
-            lkey (bytes): The kv key prefix.
+            lkey (bytes): The kv key.
+
+        Yields:
+            bytes: The value of the dups for a given key.
         '''
         with self.lenv.begin(db=self.dups) as xact:
 
@@ -273,8 +342,7 @@ class KvStor(s_eventbus.EventBus):
             lkey (bytes): The kv key.
 
         Returns:
-            (bool): True if the dups key exists.
-
+            bool: True if the dups key exists, False otherwise.
         '''
         with self.lenv.begin(db=self.dups) as xact:
             with xact.cursor(db=self.dups) as curs:
@@ -286,8 +354,11 @@ class KvStor(s_eventbus.EventBus):
 
         Args:
             lkey (bytes): The kv key prefix.
+
+        Yields:
+            ((bytes, bytes)): A tuple of key, value pairs which start with
+            the prefix.
         '''
-        size = len(lkey)
         with self.lenv.begin() as xact:
 
             with xact.cursor() as curs:
@@ -308,6 +379,9 @@ class KvStor(s_eventbus.EventBus):
         Args:
             lkey (bytes): The kv key.
             lval (bytes): The kv val.
+
+        Returns:
+            None
         '''
         with self.lenv.begin(db=self.dups, write=True) as xact:
             xact.put(lkey, lval, dupdata=True)
@@ -319,6 +393,9 @@ class KvStor(s_eventbus.EventBus):
         Args:
             lkey (bytes): The kv key.
             lval (bytes): The kv val.
+
+        Returns:
+            None
         '''
         with self.lenv.begin(write=True) as xact:
             xact.put(lkey, lval)
@@ -331,7 +408,7 @@ class KvStor(s_eventbus.EventBus):
             lkey (bytes): The kv key.
 
         Returns:
-            (bytes|None): The kv value.
+            bytes: The kv value, or None if it does not exist.
         '''
         with self.lenv.begin() as xact:
             return xact.get(lkey)
@@ -342,6 +419,9 @@ class KvStor(s_eventbus.EventBus):
 
         Args:
             props (dict): A dict of lkey: lvalu pairs.
+
+        Returns:
+            None
         '''
         with self.lenv.begin(write=True) as xact:
             for lkey, lval in props.items():
@@ -352,7 +432,7 @@ class KvStor(s_eventbus.EventBus):
         Add a list of (lkey,lval) dups to the KvStor.
 
         Args:
-            dups ([(lkey,lval)]): A list of (lkey,lval) tuples.
+            dups (list): A list of (lkey,lval) tuples.
         '''
         with self.lenv.begin(db=self.dups, write=True) as xact:
             with xact.cursor() as curs:
@@ -365,13 +445,22 @@ class KvStor(s_eventbus.EventBus):
         Args:
             lkey: (bytes): The kv key.
             lval: (bytes): The kv value.
+
+        Returns:
+            bool: True if at least one key was deleted, False otherwise
         '''
         with self.lenv.begin(db=self.dups, write=True) as xact:
-            xact.delete(lkey, value=lval)
+            return xact.delete(lkey, value=lval)
 
     def delKvProp(self, lkey):
         '''
         Delete a key=val prop from the KvStor.
+
+        Args:
+            lkey (bytes): key to delete
+
+        Returns:
+            bool: True if at least one key was deleted, False otherwise
         '''
         with self.lenv.begin(write=True) as xact:
             return xact.delete(lkey)
