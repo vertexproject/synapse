@@ -14,7 +14,11 @@ def pool(size, path, **kwargs):
     Create an sqlite connection pool.
 
     Args:
-        size (int): Number of connections in the pool
+        size (int): Number of connections in the pool.
+        path (str): Path to the sqlite file.
+
+    Returns:
+        s_db.Pool: A DB Pool for sqlite connections.
     '''
     def ctor():
         db = sqlite3.connect(path, check_same_thread=False)
