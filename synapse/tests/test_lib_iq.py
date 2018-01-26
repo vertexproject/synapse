@@ -44,6 +44,7 @@ class IqTest(SynTest):
 
         def div0():
             return 1 / 0
+
         self.raises(ZeroDivisionError, div0)
 
         self.none(None)
@@ -176,7 +177,6 @@ class IqTest(SynTest):
         self.eq(r, e)
 
     def test_cmdg_simple_sequence(self):
-
         cmdg = CmdGenerator(['foo', 'bar'])
         self.eq(cmdg(), 'foo')
         self.eq(cmdg(), 'bar')
@@ -216,7 +216,6 @@ class IqTest(SynTest):
         self.assertIn('Unhandled end action', str(cm.exception))
 
     def test_teststeps(self):
-
         # Helper function - he is used a few times
         def setStep(w, stepper, step):
             time.sleep(w)
