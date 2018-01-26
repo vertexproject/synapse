@@ -116,6 +116,9 @@ class TstOutPut(s_output.OutPutStr):
 class TestSteps:
     '''
     A class to assist with interlocking for multi-thread tests.
+
+    Args:
+        names (list): A list of names of tests steps as strings.
     '''
     def __init__(self, names):
         self.steps = {}
@@ -141,11 +144,16 @@ class TestSteps:
             step (str): The step name to wait for.
             timeout (int): The timeout in seconds (or None)
 
+        Returns:
+            bool: True if the step is completed within the wait timeout.
+
         Raises:
-            Exception: on wait timeout
+            StepTimeout: on wait timeout
         '''
         if not self.steps[step].wait(timeout=timeout):
-            raise Exception('timeout waiting for step: %s' % (step,))
+            raise s_common.StepTimeout(mesg='timeout waiting for step',
+                                       step=step)
+        return True
 
     def step(self, done, wait, timeout=None):
         '''
@@ -157,7 +165,7 @@ class TestSteps:
             timeout (int): The wait timeout.
         '''
         self.done(done)
-        self.wait(wait, timeout=timeout)
+        return self.wait(wait, timeout=timeout)
 
     def waitall(self, timeout=None):
         '''
@@ -165,9 +173,16 @@ class TestSteps:
 
         Args:
             timeout (int): The wait timeout (per step).
+
+        Returns:
+            bool: True when all steps have completed within the alloted time.
+
+        Raises:
+            StepTimeout: When the first step fails to complete in the given time.
         '''
         for name in self.names:
             self.wait(name, timeout=timeout)
+        return True
 
 class CmdGenerator(s_eventbus.EventBus):
     '''

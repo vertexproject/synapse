@@ -204,6 +204,12 @@ class BlobFileIsClone(SynErr):
 
 class IsFini(Exception): pass
 
+class StepTimeout(SynErr):
+    '''
+    Raised when a TestStep.wait() call times out.
+    '''
+    pass
+
 class JobErr(Exception):
     '''
     Used for remote exception propagation.
