@@ -439,6 +439,7 @@ class Runtime(Configable):
         self.setOperFunc('addxref', self._stormOperAddXref)
         self.setOperFunc('fromtags', self._stormOperFromTags)
         self.setOperFunc('jointags', self._stormOperJoinTags)
+        self.setOperFunc('pivottags', self._stormOperPivotTags)
 
         self.setOperFunc('get:tasks', self._stormOperGetTasks)
 
@@ -1455,6 +1456,9 @@ class Runtime(Configable):
 
         for tag in tags:
             [core.delTufoTag(node, tag) for node in nodes]
+
+    def _stormOperPivotTags(self, query, oper):
+        pass  # FIXME
 
     def _stormOperJoinTags(self, query, oper):
 
