@@ -68,6 +68,10 @@ class KvTest(SynTest):
                 vals = [tup for tup in stor.iterKvDups(dupkey)]
                 self.eq(vals, [valu, valu + valu, valu + valu + valu])
 
+                # Assert missing key gives no vals
+                vals = [tup for tup in stor.iterKvDups(b'qwerasdfzxcv')]
+                self.eq(vals, [])
+
                 # We can delete a single value from a dup list
                 self.true(stor.delKvDup(dupkey, valu + valu))
                 self.false(stor.delKvDup(dupkey, valu + valu))
