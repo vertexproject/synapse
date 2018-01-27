@@ -8,7 +8,7 @@ import tornado.web
 import tornado.ioloop
 import tornado.httpserver
 
-import synapse.async as s_async
+import synapse.synasync as s_async
 import synapse.common as s_common
 import synapse.daemon as s_daemon
 import synapse.lib.config as s_config
