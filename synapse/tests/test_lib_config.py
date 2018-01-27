@@ -115,8 +115,20 @@ class ConfTest(SynTest):
         with self.getTestDir() as fdir:
             fp0 = os.path.join(fdir, 'c0.json')
             fp1 = os.path.join(fdir, 'c1.json')
+            fpnull = os.path.join(fdir, 'null.json')
+            fpnewp = os.path.join(fdir, 'newp.json')
             jssave(config0, fp0)
             jssave(config1, fp1)
+            jssave(None, fpnull)
+
+            with Foo() as conf:
+                conf.loadConfPath(fpnewp)
+                self.eq(conf.getConfOpt('enabled'), 0)
+                self.eq(conf.getConfOpt('fooval'), 99)
+
+                conf.loadConfPath(fpnull)
+                self.eq(conf.getConfOpt('enabled'), 0)
+                self.eq(conf.getConfOpt('fooval'), 99)
 
             with Foo() as conf:
                 conf.loadConfPath(fp0)
