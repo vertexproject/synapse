@@ -108,6 +108,24 @@ class ConfTest(SynTest):
 
             self.raises(NoSuchOpt, conf.setConfOpts, {'newp': 'hehe'})
 
+    def test_config_loadpath(self):
+        config0 = {'enabled': 1, 'fooval': 2}
+        config1 = {'enabled': 1, 'newp': 'hehe'}
+
+        with self.getTestDir() as fdir:
+            fp0 = os.path.join(fdir, 'c0.json')
+            fp1 = os.path.join(fdir, 'c1.json')
+            jssave(config0, fp0)
+            jssave(config1, fp1)
+
+            with Foo() as conf:
+                conf.loadConfPath(fp0)
+                self.eq(conf.getConfOpt('enabled'), 1)
+                self.eq(conf.getConfOpt('fooval'), 2)
+
+            with Foo() as conf:
+                self.raises(NoSuchOpt, conf.loadConfPath, fp1)
+
     def test_configable_proxymethod(self):
 
         class CoolClass(s_config.Configable):

@@ -345,6 +345,9 @@ class Configable:
 
         Args:
             path (str): A file path to a json config file.
+
+        Returns:
+            None
         '''
         full = s_common.genpath(path)
         if not os.path.isfile(full):
