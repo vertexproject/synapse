@@ -207,6 +207,7 @@ class KvTest(SynTest):
         with self.getTestDir() as dirn:
 
             path = os.path.join(dirn, 'test.lmdb')
+            tufo = ('yo dawg', {'key': 1234})
 
             with s_kv.KvStor(path) as stor:  # type: s_kv.KvStor
                 look = stor.getKvLook('haha')
@@ -234,7 +235,13 @@ class KvTest(SynTest):
                 self.isinstance(byts, bytes)
                 self.eq(byts, s_msgpack.en((5, 6, 7)))
 
-                tufo = ('yo dawg', {'key': 1234})
                 nbytes = s_msgpack.en(tufo)
                 look.setraw(b'node', nbytes)
                 self.eq(look.getraw(b'node'), nbytes)
+
+            # We can iterate over the items stored in the KvLook's namespace
+            with s_kv.KvStor(path) as stor:  # type: s_kv.KvStor
+                look = stor.getKvLook('haha')
+                kvs = [tup for tup in look.items()]
+                self.len(2, kvs)
+                self.sorteq(kvs, [('lol', (5, 6, 7)), ('node', tufo)])

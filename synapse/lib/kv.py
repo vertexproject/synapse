@@ -134,6 +134,19 @@ class KvLook:
 
         return s_msgpack.un(lval)
 
+    def items(self):
+        '''
+        Iterate over items stored in the KvLook namespace.
+
+        Yields:
+            ((str, object)): The name and object for items in KvLook namespace.
+        '''
+        size = len(self.iden)
+        for lkey, lval in self.stor.iterKvProps(self.iden):
+            prop = lkey[size:].decode('utf8')
+            valu = s_msgpack.un(lval)
+            yield prop, valu
+
     def getraw(self, lkey):
         '''
         Retrieve a value directly by bytes.
