@@ -1466,11 +1466,11 @@ class Runtime(Configable):
         opts = dict(oper[1].get('kwlist'))
         core = self.getStormCore()
 
-        forms = set(args)
-        limt = self.getLiftLimitHelp(opts.get('limit'))
-
         nodes = query.data()
-        tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=True)}
+        forms = sorted(set(args))
+
+        limt = self.getLiftLimitHelp(opts.get('limit'))
+        tags = sorted({tag for node in nodes for tag in s_tufo.tags(node, leaf=True)})
 
         if not forms:
 

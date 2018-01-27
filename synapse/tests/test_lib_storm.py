@@ -552,7 +552,7 @@ class StormTest(SynTest):
             nodes = core.eval('inet:dns:a jointags(inet:fqdn)')
             self.eq(len(nodes), 2)
 
-            nodes = core.eval('inet:dns:a jointags(limit=1)')  # FIXME: this sometimes fails and gets 2 nodes instead. the second node is the inet:fqdn
+            nodes = core.eval('inet:dns:a jointags(limit=1)')
             self.eq(len(nodes), 1)
             self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
 
