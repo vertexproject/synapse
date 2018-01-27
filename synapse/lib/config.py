@@ -1,6 +1,7 @@
 '''
 Tools for providing a central API for configurable objects within Synapse.
 '''
+import os
 import copy
 
 import synapse.common as s_common
@@ -337,6 +338,26 @@ class Configable:
             return func(valu)
 
         self.on('syn:conf:set:%s' % name, callback)
+
+    def loadConfPath(self, path):
+        '''
+        Read config options from the specified file path.
+
+        Args:
+            path (str): A file path to a json config file.
+
+        Returns:
+            None
+        '''
+        full = s_common.genpath(path)
+        if not os.path.isfile(full):
+            return
+
+        conf = s_common.jsload(path)
+        if conf is None:
+            return
+
+        self.setConfOpts(conf)
 
 class Config(Configable, EventBus):
     '''
