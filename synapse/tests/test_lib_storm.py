@@ -530,24 +530,31 @@ class StormTest(SynTest):
             self.eq(len(nodes), 2)
 
             nodes = core.eval('inet:dns:a jointags(inet:fqdn, limit=2)')
-            self.eq(len(nodes), 1)
-            self.eq(nodes[0][1].get('tufo:form'), 'inet:fqdn')
+            self.eq(len(nodes), 2)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
+            self.eq(nodes[1][1].get('tufo:form'), 'inet:fqdn')
 
             nodes = core.eval('inet:dns:a jointags(ps:tokn,inet:fqdn)')
-            self.eq(len(nodes), 1)
-            self.eq(nodes[0][1].get('tufo:form'), 'inet:fqdn')
+            self.eq(len(nodes), 2)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
+            self.eq(nodes[1][1].get('tufo:form'), 'inet:fqdn')
 
             nodes = core.eval('inet:dns:a jointags(ps:tokn)')
-            self.eq(len(nodes), 0)
-
-            nodes = core.eval('inet:dns:a jointags(ps:tokn, keep_nodes=1)')
             self.eq(len(nodes), 1)
 
-            nodes = core.eval('inet:dns:a jointags(inet:fqdn, keep_nodes=1)')
+            nodes = core.eval('inet:dns:a jointags(ps:tokn, keep_nodes=1)')  # NOTE: keep_nodes doesn't do anything anymore
+            self.eq(len(nodes), 1)
+            nodes = core.eval('inet:dns:a jointags(ps:tokn)')
+            self.eq(len(nodes), 1)
+
+            nodes = core.eval('inet:dns:a jointags(inet:fqdn, keep_nodes=1)')  # NOTE: keep_nodes doesn't do anything anymore
+            self.eq(len(nodes), 2)
+            nodes = core.eval('inet:dns:a jointags(inet:fqdn)')
             self.eq(len(nodes), 2)
 
-            nodes = core.eval('inet:dns:a jointags(limit=1)')
+            nodes = core.eval('inet:dns:a jointags(limit=1)')  # FIXME: this sometimes fails and gets 2 nodes instead. the second node is the inet:fqdn
             self.eq(len(nodes), 1)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
 
     def test_storm_tag_totag(self):
         with self.getRamCore() as core:  # type: s_cores_common.Cortex

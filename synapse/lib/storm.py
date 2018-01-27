@@ -1467,14 +1467,9 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         forms = set(args)
-        keep_nodes = opts.get('keep_nodes', False)
-
         limt = self.getLiftLimitHelp(opts.get('limit'))
 
         nodes = query.data()
-        if not keep_nodes:
-            query.clear()
-
         tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=True)}
 
         if not forms:
