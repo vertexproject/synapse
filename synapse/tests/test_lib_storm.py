@@ -73,9 +73,9 @@ class StormTest(SynTest):
     def test_storm_cmpr_norm(self):
         with self.getRamCore() as core:
             core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
-            self.eq(len(core.eval('inet:dns:a:ipv4="1.2.3.4"')), 1)
-            self.eq(len(core.eval('inet:dns:a:ipv4="1.2.3.4" -:ipv4="1.2.3.4"')), 0)
-            self.eq(len(core.eval('inet:dns:a:ipv4="1.2.3.4" +:ipv4="1.2.3.4"')), 1)
+            self.len(1, core.eval('inet:dns:a:ipv4="1.2.3.4"'))
+            self.len(0, core.eval('inet:dns:a:ipv4="1.2.3.4" -:ipv4="1.2.3.4"'))
+            self.len(1, core.eval('inet:dns:a:ipv4="1.2.3.4" +:ipv4="1.2.3.4"'))
 
     def test_storm_pivot(self):
         with self.getRamCore() as core:
@@ -113,13 +113,13 @@ class StormTest(SynTest):
             self.nn(node)
             self.eq(node[1].get('inet:dns:a'), 'woot.com/1.2.3.4')
 
-            self.eq(len(core.eval('inet:dns:a:ipv4="5.6.7.8" :fqdn->inet:fqdn')), 2)
-            self.eq(len(core.eval('inet:ipv4="5.6.7.8" -> inet:dns:a:ipv4')), 2)
-            self.eq(len(core.eval('inet:ipv4="5.6.7.8" inet:ipv4->inet:dns:a:ipv4')), 2)
+            self.len(2, core.eval('inet:dns:a:ipv4="5.6.7.8" :fqdn->inet:fqdn'))
+            self.len(2, core.eval('inet:ipv4="5.6.7.8" -> inet:dns:a:ipv4'))
+            self.len(2, core.eval('inet:ipv4="5.6.7.8" inet:ipv4->inet:dns:a:ipv4'))
 
-            self.eq(len(core.eval('inet:dns:a:ipv4="5.6.7.8" pivot(:fqdn,inet:fqdn)')), 2)
-            self.eq(len(core.eval('inet:ipv4="5.6.7.8" pivot(inet:dns:a:ipv4)')), 2)
-            self.eq(len(core.eval('inet:ipv4="5.6.7.8" pivot(inet:ipv4, inet:dns:a:ipv4)')), 2)
+            self.len(2, core.eval('inet:dns:a:ipv4="5.6.7.8" pivot(:fqdn,inet:fqdn)'))
+            self.len(2, core.eval('inet:ipv4="5.6.7.8" pivot(inet:dns:a:ipv4)'))
+            self.len(2, core.eval('inet:ipv4="5.6.7.8" pivot(inet:ipv4, inet:dns:a:ipv4)'))
 
             self.raises(BadSyntaxError, core.eval, 'inet:ipv4="5.6.7.8" pivot()')
             self.raises(BadSyntaxError, core.eval, 'inet:ipv4="5.6.7.8" pivot(:fqdn, inet:fqdn, hehe:haha)')
@@ -213,7 +213,7 @@ class StormTest(SynTest):
             node2 = core.formTufoByProp('file:bytes', iden2, name='toow.exe')
 
             nodes = core.eval('file:bytes +:name~=exe')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
     def test_storm_alltag(self):
         with self.getRamCore() as core:
@@ -233,14 +233,14 @@ class StormTest(SynTest):
 
             # test alltag macro syntax with limit
             core.eval('[ inet:fqdn=hehe.com inet:fqdn=haha.com #lol ]')
-            self.eq(len(core.eval('#lol limit(1)')), 1)
+            self.len(1, core.eval('#lol limit(1)'))
 
     def test_storm_limit(self):
         with self.getRamCore() as core:
             # test that the limit operator correctly handles being first (no opers[-1])
             # and will subsequently filter down to the correct number of nodes
             nodes = core.eval('[ inet:ipv4=1.2.3.4 inet:ipv4=3.4.5.6 ]')
-            self.eq(len(core.eval(' limit(1) ', data=nodes)), 1)
+            self.len(1, core.eval(' limit(1) ', data=nodes))
 
             # test that the limit() operator reaches backward to limit a previous oper
             # during the planning pass...
@@ -342,18 +342,18 @@ class StormTest(SynTest):
             core.formTufoByProp('inet:dns:a', 'foo.com/1.2.3.4')
             core.formTufoByProp('inet:dns:a', 'bar.com/1.2.3.4')
 
-            self.eq(len(core.eval('inet:ipv4=1.2.3.4 refs(in)')), 3)
-            self.eq(len(core.eval('inet:ipv4=1.2.3.4 refs(in,limit=1)')), 2)
+            self.len(3, core.eval('inet:ipv4=1.2.3.4 refs(in)'))
+            self.len(2, core.eval('inet:ipv4=1.2.3.4 refs(in,limit=1)'))
 
-            self.eq(len(core.eval('inet:dns:a=foo.com/1.2.3.4 refs(out)')), 3)
-            self.eq(len(core.eval('inet:dns:a=foo.com/1.2.3.4 refs(out,limit=1)')), 2)
+            self.len(3, core.eval('inet:dns:a=foo.com/1.2.3.4 refs(out)'))
+            self.len(2, core.eval('inet:dns:a=foo.com/1.2.3.4 refs(out,limit=1)'))
 
             # Try refs() with a file:txtref node.  This uses propvalu to do the pivoting
             fnode = core.formTufoByProp('file:bytes:md5', 'd41d8cd98f00b204e9800998ecf8427e')
             form, pprop = s_tufo.ndef(fnode)
             node = core.formTufoByProp('file:txtref', '({},inet:ipv4=1.2.3.4)'.format(pprop))
             nodes = core.eval('file:txtref refs()')
-            self.eq(len(nodes), 3)
+            self.len(3, nodes)
             forms = {s_tufo.ndef(node)[0] for node in nodes}
             self.eq(forms, {'inet:ipv4', 'file:bytes', 'file:txtref'})
 
@@ -363,7 +363,7 @@ class StormTest(SynTest):
             node = core.formTufoByProp('file:txtref', '({},"inet:passwd=oh=my=graph!")'.format(pprop))
             form, pprop = s_tufo.ndef(node)
             nodes = core.eval('file:txtref={} refs()'.format(pprop))
-            self.eq(len(nodes), 3)
+            self.len(3, nodes)
             forms = {s_tufo.ndef(node)[0] for node in nodes}
             self.eq(forms, {'file:bytes', 'file:txtref', 'inet:passwd'})
 
@@ -371,7 +371,7 @@ class StormTest(SynTest):
             f1 = core.formTufoByProp('pvsub', 'hai', xref='inet:ipv4=1.2.3.4')
             self.nn(f1)
             nodes = core.eval('pvsub refs()')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             # Try refs() on a node which points to a ref node
             t0 = core.formTufoByProp('inet:ipv4', '1.2.3.5')
@@ -409,22 +409,22 @@ class StormTest(SynTest):
             core.addTufoTags(node3, ['aka.foo.bar.knight', 'aka.duck.sound.loud', 'src.clowntown'])
 
             nodes = core.eval('inet:dns:a +#src.clowntown')
-            self.eq(len(nodes), 3)
+            self.len(3, nodes)
 
             nodes = core.eval('inet:dns:a +#src')
-            self.eq(len(nodes), 3)
+            self.len(3, nodes)
 
             nodes = core.eval('inet:dns:a +#aka.duck.quack')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             nodes = core.eval('inet:dns:a +#aka.foo.bar.knight')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
 
             nodes = core.eval('inet:dns:a +#src.internet')
-            self.eq(len(nodes), 0)
+            self.len(0, nodes)
 
             nodes = core.eval('inet:dns:a -#aka.foo.bar')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
 
     def test_storm_tag_glob(self):
         # Ensure that glob operators with tag filters operate properly.
@@ -452,58 +452,58 @@ class StormTest(SynTest):
                                      'loc.milkyway.galactic_arm_a.sol.mars.us.tx.perfection'])
 
             nodes = core.eval('inet:dns:a +#aka.*.baz')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             nodes = core.eval('inet:dns:a +#aka.duck.*.loud')
-            self.eq(len(nodes), 4)
+            self.len(4, nodes)
 
             nodes = core.eval('inet:dns:a +#aka.*.sound.loud')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             nodes = core.eval('inet:dns:a -#aka.*.baz')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             nodes = core.eval('inet:dns:a +#aka.*.loud')
-            self.eq(len(nodes), 0)
+            self.len(0, nodes)
 
             nodes = core.eval('inet:dns:a +#aka.*.*.loud')
-            self.eq(len(nodes), 4)
+            self.len(4, nodes)
 
             nodes = core.eval('inet:dns:a +#aka.*.*.*.loud')
-            self.eq(len(nodes), 0)
+            self.len(0, nodes)
 
             nodes = core.eval('inet:dns:a +#aka.*.knight')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
 
             nodes = core.eval('inet:dns:a +#aka.**.loud')
-            self.eq(len(nodes), 4)
+            self.len(4, nodes)
 
             nodes = core.eval('inet:dns:a +#loc.**.perfection')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             nodes = core.eval('inet:dns:a +#loc.**.sol.*.us')
-            self.eq(len(nodes), 4)
+            self.len(4, nodes)
 
             nodes = core.eval('inet:dns:a +#loc.*.galactic_arm_a.**.us.*.perfection')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             nodes = core.eval('inet:dns:a +#**.baz')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             nodes = core.eval('inet:dns:a +#**.mars')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
 
             nodes = core.eval('inet:dns:a -#**.mars.*.tx')
-            self.eq(len(nodes), 3)
+            self.len(3, nodes)
 
             nodes = core.eval('inet:dns:a +#loc.milkyway.*arm*.**.tx')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
 
             nodes = core.eval('inet:dns:a +#loc.**.u*')
-            self.eq(len(nodes), 4)
+            self.len(4, nodes)
 
             nodes = core.eval('inet:dns:a +#loc.milkyway.galactic**.tx')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
 
     def test_storm_tag_jointag(self):
         with self.getRamCore() as core:  # type: s_cores_common.Cortex
@@ -527,30 +527,30 @@ class StormTest(SynTest):
                                      'loc.milkyway.galactic_arm_a.sol.mars.us.tx.perfection'])
 
             nodes = core.eval('inet:dns:a jointags()')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             nodes = core.eval('inet:dns:a jointags(inet:fqdn, limit=2)')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
             self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
             self.eq(nodes[1][1].get('tufo:form'), 'inet:fqdn')
 
             nodes = core.eval('inet:dns:a jointags(ps:tokn,inet:fqdn)')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
             self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
             self.eq(nodes[1][1].get('tufo:form'), 'inet:fqdn')
 
             nodes = core.eval('inet:dns:a jointags(ps:tokn)')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
 
             nodes = core.eval('inet:dns:a jointags(ps:tokn, keep_nodes=1)')  # NOTE: keep_nodes doesn't do anything anymore
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
             nodes = core.eval('inet:dns:a jointags(ps:tokn)')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
 
             nodes = core.eval('inet:dns:a jointags(inet:fqdn, keep_nodes=1)')  # NOTE: keep_nodes doesn't do anything anymore
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
             nodes = core.eval('inet:dns:a jointags(inet:fqdn)')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             nodes = core.eval('inet:dns:a jointags(limit=1)')
             self.eq(len(nodes), 1)
@@ -577,33 +577,33 @@ class StormTest(SynTest):
                                      'loc.milkyway.galactic_arm_a.sol.mars.us.tx.perfection'])
 
             nodes = core.eval('inet:dns:a totags()')
-            self.eq(len(nodes), 3)
+            self.len(3, nodes)
 
             nodes = core.eval('inet:dns:a totags(leaf=0)')
-            self.eq(len(nodes), 14)
+            self.len(14, nodes)
 
             nodes = core.eval('#aka.duck.quack.loud totags()')
-            self.eq(len(nodes), 5)
+            self.len(5, nodes)
 
             nodes = core.eval('#aka.duck totags()')
-            self.eq(len(nodes), 10)
+            self.len(10, nodes)
 
             nodes = core.eval('#aka.duck totags(limit=3)')
-            self.eq(len(nodes), 3)
+            self.len(3, nodes)
 
             nodes = core.eval('#aka.duck totags(limit=0)')
-            self.eq(len(nodes), 0)
+            self.len(0, nodes)
 
             nodes = core.eval('ps:tokn totags()')
-            self.eq(len(nodes), 0)
+            self.len(0, nodes)
 
             # Tag input
             nodes = core.eval('syn:tag=aktoa.bar.baz totags()')
-            self.eq(len(nodes), 0)
+            self.len(0, nodes)
 
             # Tagless node input
             nodes = core.eval('geo:loc=derry totags()')
-            self.eq(len(nodes), 0)
+            self.len(0, nodes)
 
             self.raises(BadOperArg, core.eval, '#aka.duck totags(limit=-1)')
 
@@ -627,35 +627,35 @@ class StormTest(SynTest):
                                      'loc.milkyway.galactic_arm_a.sol.mars.us.tx.perfection'])
 
             nodes = core.eval('syn:tag=aka.bar.baz fromtags()')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
 
             nodes = core.eval('syn:tag=aka.bar fromtags()')
-            self.eq(len(nodes), 3)
+            self.len(3, nodes)
 
             nodes = core.eval('syn:tag=aka.duck fromtags()')
-            self.eq(len(nodes), 4)
+            self.len(4, nodes)
 
             nodes = core.eval('syn:tag=aka.bar.baz fromtags(inet:dns:a)')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
 
             nodes = core.eval('syn:tag=aka.bar.baz fromtags(inet:dns:a, ps:tokn)')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
 
             nodes = core.eval('syn:tag=aka.bar.baz fromtags(ps:tokn)')
-            self.eq(len(nodes), 0)
+            self.len(0, nodes)
 
             nodes = core.eval('syn:tag=spam.and.eggs fromtags()')
-            self.eq(len(nodes), 0)
+            self.len(0, nodes)
 
             nodes = core.eval('syn:tag=aka.duck fromtags(limit=2)')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             # Non-tag input
             nodes = core.eval('inet:dns:a fromtags()')
-            self.eq(len(nodes), 0)
+            self.len(0, nodes)
 
             nodes = core.eval('syn:tag:base=bar fromtags()')
-            self.eq(len(nodes), 3)
+            self.len(3, nodes)
 
     def test_storm_lift(self):
         with self.getRamCore() as core:
@@ -1168,15 +1168,15 @@ class StormTest(SynTest):
             self.len(4, nodes)
 
             nodes = core.eval('ou:org:alias=s4 -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org) :sub-> ou:org')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             nodes = core.eval('ou:org:alias=master -> ou:suborg:org tree(ou:suborg:sub, ou:suborg:org, recurlim=1) '
                               ':sub-> ou:org')
-            self.eq(len(nodes), 4)
+            self.len(4, nodes)
 
             # Tree up instead of down
             nodes = core.eval('ou:org:alias=s6 -> ou:suborg:sub tree(ou:suborg:org, ou:suborg:sub) :org-> ou:org')
-            self.eq(len(nodes), 3)
+            self.len(3, nodes)
 
             # fqdn tests
             f0 = core.formTufoByProp('inet:fqdn', 'woohoo.wow.vertex.link')
@@ -1184,26 +1184,26 @@ class StormTest(SynTest):
             f2 = core.formTufoByProp('inet:fqdn', 'wow.ohmy.clowntown.vertex.link')
 
             nodes = core.eval('inet:fqdn=vertex.link tree(inet:fqdn, inet:fqdn:domain)')
-            self.eq(len(nodes), 8)
+            self.len(8, nodes)
 
             nodes = core.eval('inet:fqdn=vertex.link tree(inet:fqdn:domain)')
-            self.eq(len(nodes), 8)
+            self.len(8, nodes)
 
             nodes = core.eval('inet:fqdn=vertex.link tree(inet:fqdn:domain, recurlim=1)')
-            self.eq(len(nodes), 4)
+            self.len(4, nodes)
 
             nodes = core.eval('inet:fqdn=vertex.link tree(inet:fqdn:domain, recurlim=2)')
-            self.eq(len(nodes), 7)
+            self.len(7, nodes)
 
             # tree up
             nodes = core.eval('inet:fqdn=vertex.link tree(inet:fqdn:domain, inet:fqdn)')
-            self.eq(len(nodes), 2)
+            self.len(2, nodes)
 
             nodes = core.eval('inet:fqdn=woot.woot.vertex.link tree(inet:fqdn:domain, inet:fqdn)')
-            self.eq(len(nodes), 4)
+            self.len(4, nodes)
 
             nodes = core.eval('inet:fqdn=wow.ohmy.clowntown.vertex.link tree(inet:fqdn:domain, inet:fqdn)')
-            self.eq(len(nodes), 5)
+            self.len(5, nodes)
 
     def test_storm_delprop(self):
         with self.getRamCore() as core:
