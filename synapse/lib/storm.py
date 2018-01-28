@@ -1458,7 +1458,33 @@ class Runtime(Configable):
             [core.delTufoTag(node, tag) for node in nodes]
 
     def _stormOperPivotTags(self, query, oper):
-        pass  # FIXME
+        args = oper[1].get('args', ())
+        opts = dict(oper[1].get('kwlist'))
+        core = self.getStormCore()
+
+        limt = self.getLiftLimitHelp(opts.get('limit'))
+        if isinstance(limt.limit, int) and limt.limit < 0:
+                raise s_common.BadOperArg(oper='pivottags', name='limit', mesg='limit must be >= 0')
+
+        nodes = query.take()
+        if limt.limit == 0:
+            return
+
+        forms = sorted(set(args))
+        tags = sorted({tag for node in nodes for tag in s_tufo.tags(node, leaf=True)})
+
+        if not forms:
+            forms = [None]
+
+        for form in forms:
+            for tag in tags:
+
+                qlimt = query.size() + limt.get() if limt.get() else None
+                nodes = core.getTufosByTag(tag, form=form, limit=qlimt)
+                for n in nodes:
+                    if query.add(n):
+                        if limt.dec():
+                            return
 
     def _stormOperJoinTags(self, query, oper):
 

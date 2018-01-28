@@ -553,8 +553,69 @@ class StormTest(SynTest):
             self.len(2, nodes)
 
             nodes = core.eval('inet:dns:a jointags(limit=1)')
-            self.eq(len(nodes), 1)
+            self.len(1, nodes)
             self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
+
+    def test_storm_tag_pivottag(self):
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
+
+            dnsa0 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
+            dnsa1 = core.formTufoByProp('inet:dns:a', 'example.com/4.3.2.1')
+            fqdn0 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
+            url0 = core.formTufoByProp('inet:url', 'https://vertex.link')
+            acct0 = core.formTufoByProp('inet:web:acct', 'clowntown.link/pennywise')
+
+            core.addTufoTags(dnsa0, ['aka.bar.baz',
+                                     'aka.duck.quack.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.earth.us.ca.san_francisco'])
+            core.addTufoTags(fqdn0, ['aka.duck.baz',
+                                     'aka.duck.quack.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.earth.us.va.san_francisco'])
+            core.addTufoTags(url0, ['aka.bar.knight',
+                                     'aka.duck.sound.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.earth.us.nv.perfection'])
+            core.addTufoTags(acct0, ['aka.bar.knightdark',
+                                     'aka.duck.sound.loud',
+                                     'loc.milkyway.galactic_arm_a.sol.mars.us.tx.perfection'])
+
+            # Lift all of the inet:dns:a (get 2 nodes), pivot from those nodes to tagged nodes
+            # Only one of the inet:dns:a is tagged, pivot from it and return it and its fqdn which is also tagged
+            nodes = core.eval('inet:dns:a pivottags()')
+            self.len(2, nodes)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
+            self.eq(nodes[1][1].get('tufo:form'), 'inet:fqdn')
+
+            # Demonstrate that the same query w/ form args will filter the results
+            nodes = core.eval('inet:dns:a pivottags(inet:dns:a)')
+            self.len(1, nodes)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
+            nodes = core.eval('inet:dns:a pivottags(inet:fqdn)')
+            self.len(1, nodes)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:fqdn')
+            nodes = core.eval('inet:dns:a pivottags(inet:fqdn,inet:dns:a)')
+            self.len(2, nodes)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
+            self.eq(nodes[1][1].get('tufo:form'), 'inet:fqdn')
+            nodes = core.eval('inet:dns:a pivottags(inet:ipv4,inet:dns:a)')  # there is no ipv4
+            self.len(1, nodes)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
+            nodes = core.eval('inet:dns:a pivottags(inet:ipv4)')  # there is no ipv4
+            self.len(0, nodes)
+
+            # Demonstrate that limits work
+            self.len(2, core.eval('inet:dns:a pivottags()'))
+            self.len(2, core.eval('inet:dns:a pivottags(limit=3)'))
+            self.len(2, core.eval('inet:dns:a pivottags(inet:dns:a,inet:fqdn,limit=3)'))
+            self.len(2, core.eval('inet:dns:a pivottags(limit=2)'))
+            self.len(2, core.eval('inet:dns:a pivottags(inet:dns:a,inet:fqdn,limit=2)'))
+            self.len(1, core.eval('inet:dns:a pivottags(limit=1)'))
+            self.len(1, core.eval('inet:dns:a pivottags(inet:dns:a,inet:fqdn,limit=1)'))
+            self.len(0, core.eval('inet:dns:a pivottags(limit=0)'))
+            self.len(0, core.eval('inet:dns:a pivottags(inet:dns:a,inet:fqdn,limit=0)'))
+
+            # Demonstrate invalid input
+            self.raises(BadOperArg, core.eval, 'inet:dns:a pivottags(limit=-1)')
+            self.raises(BadOperArg, core.eval, 'inet:dns:a pivottags(inet:dns:a,inet:fqdn,limit=-1)')
 
     def test_storm_tag_totag(self):
         with self.getRamCore() as core:  # type: s_cores_common.Cortex
