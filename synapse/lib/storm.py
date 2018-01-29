@@ -439,6 +439,7 @@ class Runtime(Configable):
         self.setOperFunc('addxref', self._stormOperAddXref)
         self.setOperFunc('fromtags', self._stormOperFromTags)
         self.setOperFunc('jointags', self._stormOperJoinTags)
+        self.setOperFunc('pivottags', self._stormOperPivotTags)
 
         self.setOperFunc('get:tasks', self._stormOperGetTasks)
 
@@ -1456,49 +1457,44 @@ class Runtime(Configable):
         for tag in tags:
             [core.delTufoTag(node, tag) for node in nodes]
 
-    def _stormOperJoinTags(self, query, oper):
-
+    def _queryJoinPivotTags(self, query, oper, take=None):
         args = oper[1].get('args', ())
         opts = dict(oper[1].get('kwlist'))
         core = self.getStormCore()
 
-        forms = set(args)
-        keep_nodes = opts.get('keep_nodes', False)
-
         limt = self.getLiftLimitHelp(opts.get('limit'))
+        if isinstance(limt.limit, int) and limt.limit < 0:
+                raise s_common.BadOperArg(oper=oper[0], name='limit', mesg='limit must be >= 0')
 
-        nodes = query.data()
-        if not keep_nodes:
-            query.clear()
+        if take:
+            nodes = query.take()
+        else:
+            nodes = query.data()
 
-        tags = {tag for node in nodes for tag in s_tufo.tags(node, leaf=True)}
-
-        if not forms:
-
-            for tag in tags:
-
-                nodes = core.getTufosByTag(tag, limit=limt.get())
-
-                [query.add(n) for n in nodes]
-
-                if limt.dec(len(nodes)):
-                    break
-
+        if limt.limit == 0:
             return
 
+        forms = sorted(set(args))
+        tags = sorted({tag for node in nodes for tag in s_tufo.tags(node, leaf=True)})
+
+        if not forms:
+            forms = [None]
+
         for form in forms:
-
-            if limt.reached():
-                break
-
             for tag in tags:
 
-                nodes = core.getTufosByTag(tag, form=form, limit=limt.get())
+                qlimt = query.size() + limt.get() if limt.get() else None
+                nodes = core.getTufosByTag(tag, form=form, limit=qlimt)
+                for n in nodes:
+                    if query.add(n):
+                        if limt.dec():
+                            return
 
-                [query.add(n) for n in nodes]
+    def _stormOperPivotTags(self, query, oper):
+        return self._queryJoinPivotTags(query, oper, take=True)
 
-                if limt.dec(len(nodes)):
-                    break
+    def _stormOperJoinTags(self, query, oper):
+        return self._queryJoinPivotTags(query, oper)
 
     def _stormOperToTags(self, query, oper):
         opts = dict(oper[1].get('kwlist'))
