@@ -751,3 +751,23 @@ class SynTest(unittest.TestCase):
         Assert that the length of an object is equal to X
         '''
         self.eq(x, len(obj))
+
+    def istufo(self, obj):
+        '''
+        Check to see if an object is a tufo.
+
+        Args:
+            obj (object): Object being inspected. This is validated to be a
+            tuple of length two, contiaing a str or None as the first value,
+            and a dict as the second value.
+
+        Notes:
+            This does not make any assumptions about the contents of the dictionary.
+
+        Returns:
+            None
+        '''
+        self.isinstance(obj, tuple)
+        self.len(2, obj)
+        self.isinstance(obj[0], (type(None), str))
+        self.isinstance(obj[1], dict)

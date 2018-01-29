@@ -253,3 +253,14 @@ class IqTest(SynTest):
 
         tsteps = self.getTestSteps(names)
         self.raises(StepTimeout, tsteps.step, 'hehe', 'haha', 0.01)
+
+    def test_lib_iq_istufo(self):
+        node = (None, {})
+        self.istufo(node)
+        node = ('1234', {})
+        self.istufo(node)
+
+        self.raises(AssertionError, self.istufo, [None, {}])
+        self.raises(AssertionError, self.istufo, (None, {}, {}))
+        self.raises(AssertionError, self.istufo, (1234, set()))
+        self.raises(AssertionError, self.istufo, (None, set()))
