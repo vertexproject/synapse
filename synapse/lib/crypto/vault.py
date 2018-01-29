@@ -1,5 +1,6 @@
 import os
 import hashlib
+import logging
 import contextlib
 
 import synapse.exc as s_exc
@@ -7,10 +8,11 @@ import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.kv as s_kv
-import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.lib.crypto.rsa as s_rsa
+
+logger = logging.getLogger(__name__)
 
 uservault = '~/.syn/vault.lmdb'
 
@@ -28,24 +30,55 @@ class Cert:
         self.rpub = s_rsa.PubKey.load(byts)
 
     def iden(self):
+        '''
+        Get the iden for the certificate.
+
+        Returns:
+            str: Iden of the certificate.
+        '''
         return self.toknhash
 
     def getkey(self):
+        '''
+        Get the private RSA key for the certificate.
+
+        Returns:
+            s_rsa.PriKey: Private RSA Key. If not present, this returns None.
+        '''
         return self.rkey
 
     def signers(self):
+        '''
+        Get the signing chain for the Cert.
+
+        Returns:
+            tuple: A tuple of tuples; the inner tuples contain iden, data bytes
+            and signature bytes.
+        '''
         return self.cert[1].get('signers')
 
     def public(self):
+        '''
+        Get the Public RSA key for the Cert
+
+        Returns:
+            s_rsa.PubKey: The Public RSA key.
+        '''
         return self.rpub
 
     def toknbytes(self):
+        '''
+        Get the token bytes for the certificate.
+
+        Returns:
+            bytes: The msgpack encoded certificate token dictionary.
+        '''
         return self.cert[0]
 
     def sign(self, cert, **info):
 
         if self.rkey is None:
-            raise s_exc.NoCertKey()
+            raise s_exc.NoCertKey(mesg='sign() requires a private key')
 
         info['time'] = s_common.now()
 
@@ -80,6 +113,16 @@ class Cert:
         #return (iden, data, rkey.sign(data + cert[0]))
 
     def verify(self, byts, sign):
+        '''
+        Verify that the the Cert signed a set of bytes.
+
+        Args:
+            byts (bytes): Data to check.
+            sign (bytes): Signature to verify.
+
+        Returns:
+            bool: True if the Cert signed the byts, False otherwise.
+        '''
         return self.rpub.verify(byts, sign)
 
     def signed(self, cert):
@@ -90,8 +133,7 @@ class Cert:
             cert (Cert): A Cert to confirm that we signed.
 
         Returns:
-            (dict): The signer info dict ( or None if not signed ).
-
+            dict: The signer info dict ( or None if not signed ).
         '''
         byts = cert.toknbytes()
 
@@ -104,10 +146,26 @@ class Cert:
                 return s_msgpack.un(data)
 
     def save(self):
+        '''
+        Serialize the certificate to bytes for storage.
+
+        Returns:
+            bytes: A msgpack encoded form of the Cert.
+        '''
         return s_msgpack.en(self.cert)
 
     @staticmethod
     def load(byts, rkey=None):
+        '''
+        Create a Cert object from the bytes.
+
+        Args:
+            byts (bytes): Bytes from a previously saved Cert
+            rkey (s_rsa.PriKey): The RSA Private Key assocaited with the Cert.
+
+        Returns:
+            Cert: A Cert object for the bytes and RSA private key.
+        '''
         return Cert(s_msgpack.un(byts), rkey=rkey)
 
 class Vault(s_eventbus.EventBus):
@@ -136,21 +194,21 @@ class Vault(s_eventbus.EventBus):
         s_eventbus.EventBus.__init__(self)
 
         self.kvstor = s_kv.KvStor(path)
-
         self.onfini(self.kvstor.fini)
 
-        self.info = self.kvstor.getKvLook('info')
-
-        self.keys = self.kvstor.getKvLook('keys')
-        self.certs = self.kvstor.getKvLook('certs')
-        self.roots = self.kvstor.getKvLook('roots')
-
-        self.certkeys = self.kvstor.getKvLook('keys:bycert')
-        self.usercerts = self.kvstor.getKvLook('certs:byuser')
+        self.info = self.kvstor.getKvLook('info')  # Internal Housekeeping
+        self.keys = self.kvstor.getKvLook('keys')  # iden -> private RSA keys
+        self.certs = self.kvstor.getKvLook('certs')  # iden -> signed Cert
+        self.roots = self.kvstor.getKvLook('roots')  # iden -> CAs capable of signing
+        self.certkeys = self.kvstor.getKvLook('keys:bycert')  # cert -> private RSA keys
+        self.usercerts = self.kvstor.getKvLook('certs:byuser')  # user -> certs
 
     def genRsaKey(self):
         '''
         Generate a new RSA key and store it in the vault.
+
+        Returns:
+            s_rsa.PriKey: The new RSA key.
         '''
         rkey = s_rsa.PriKey.generate()
 
@@ -160,10 +218,17 @@ class Vault(s_eventbus.EventBus):
         return rkey
 
     def setRsaKey(self, name, byts):
+        # XXX Untested
         '''
         Set the RSA key (bytes) for the given user.
-        '''
 
+        Args:
+            name (str): User who is setting
+            byts (byts):
+
+        Returns:
+
+        '''
         rkey = s_rsa.PriKey.load(byts)
 
         self.rsacache[name] = rkey
@@ -171,13 +236,33 @@ class Vault(s_eventbus.EventBus):
 
         return rkey
 
-    def genCertTokn(self, rpub, **info):
+    @staticmethod
+    def genCertTokn(rpub, **info):
+        '''
+        Generate a public key certificate token.
+
+        Args:
+            rpub (s_rsa.PubKey):
+            **info: Additional key/value data to be added to the certificate token.
+
+        Returns:
+            bytes: A msgpack encoded dictionary.
+        '''
         info['rsa:pub'] = rpub.save()
         info['created'] = s_common.now()
         return s_msgpack.en(info)
 
     def genToknCert(self, tokn, rkey=None):
+        '''
+        Generate Cert object for a given token and RSA Private key.
 
+        Args:
+            tokn (bytes): Token which will be signed.
+            rkey s_rsa.PriKey: RSA Private key used to sign the token.
+
+        Returns:
+            Cert: A Cert object
+        '''
         cefo = (tokn, {'signers': ()})
         cert = Cert(cefo, rkey=rkey)
 
@@ -187,6 +272,12 @@ class Vault(s_eventbus.EventBus):
     def getUserCert(self, name):
         '''
         Retrieve a cert tufo for the given user.
+
+        Args:
+            name (str): Name of the user to retrieve the certificate for.
+
+        Returns:
+            Cert: User's certificate object, or None.
         '''
         iden = self.usercerts.get(name)
         if iden is None:
@@ -208,7 +299,7 @@ class Vault(s_eventbus.EventBus):
             name (str): The user name.
 
         Returns:
-            (Cert): A newly generated user certificate.
+            Cert: A newly generated user certificate.
         '''
         iden = self.usercerts.get(name)
         if iden is not None:
@@ -233,15 +324,19 @@ class Vault(s_eventbus.EventBus):
 
     def genUserAuth(self, user):
         '''
-        Generate a *sensitve* user auth data structure.
+        Generate a *sensitive* user auth data structure.
 
         Args:
-            user (str): The user name to export.
+            user (str): The user name to generate the auth data for.
+
+        Notes:
+            The data returned by this API contains the user certificate and
+            private key material. It is a sensitive data structure and care
+            should be taken as to what happens with the output of this API.
 
         Returns:
-            ((str,dict)): A user auth tufo.
-
-        NOTE: This is *highly* sensitive and contains keys.
+            ((str, dict)): A tufo containing the user name and a dictionary
+             of certificate and key material.
         '''
         cert = self.genUserCert(user)
         rkey = self.getCertKey(cert.iden())
@@ -253,11 +348,18 @@ class Vault(s_eventbus.EventBus):
 
     def addUserAuth(self, auth):
         '''
-        Load and store a private user auth tufo.
+        Store a private user auth tufo.
 
-        NOTE: This is *highly* senstive/trusted.
-              Only load auth tufo from trusted sources.
-              This API is mostly for provisioning automation.
+        Args:
+            auth ((str, dict)): A user auth tufo obtained via the genUserAuth API.
+
+        Notes:
+            This is a *sensitive* API. Auth tufos should only be loaded from
+            trusted sources.
+            This API is primarily designed for provisioning automation.
+
+        Returns:
+            Cert: Cert object derived from the auth tufo.
         '''
         user, info = auth
 
@@ -283,7 +385,7 @@ class Vault(s_eventbus.EventBus):
             iden (str): The cert iden.
 
         Returns:
-            (Cert): The Cert or None.
+            Cert: The Cert or None.
         '''
         byts = self.certs.get(iden)
         if byts is None:
@@ -293,6 +395,15 @@ class Vault(s_eventbus.EventBus):
         return Cert.load(byts, rkey=rkey)
 
     def getCertKey(self, iden):
+        '''
+        Get the RSA Private Key for a given iden.
+
+        Args:
+            iden (str): Iden to retrieve
+
+        Returns:
+            s_rsa.PriKey: The RSA Private Key object.
+        '''
         byts = self.certkeys.get(iden)
         if byts is not None:
             return s_rsa.PriKey.load(byts)
@@ -300,6 +411,9 @@ class Vault(s_eventbus.EventBus):
     def genRootCert(self):
         '''
         Get or generate the primary root cert for this vault.
+
+        Returns:
+            Cert: A cert helper object
         '''
         iden = self.info.get('root')
         if iden is not None:
@@ -319,15 +433,39 @@ class Vault(s_eventbus.EventBus):
         return cert
 
     def addRootCert(self, cert):
+        '''
+        Add a certificate to the Vault as a root certificate.
+
+        Args:
+            cert (Cert): Certificate to add to the Vault.
+
+        Returns:
+            None
+        '''
         iden = cert.iden()
         self.roots.set(iden, True)
         self.certs.set(iden, cert.save())
 
     def delRootCert(self, cert):
+        '''
+        Delete a root certificate from the Vault.
+
+        Args:
+            cert (Cert): Certificate for the root CA to remove.
+
+        Returns:
+            None
+        '''
         iden = cert.iden()
         self.roots.set(iden, False)
 
     def getRootCerts(self):
+        '''
+        Get a list of the root certificates from the Vault.
+
+        Returns:
+            list: A list of root certificates as Cert objects.
+        '''
         retn = []
         for iden, isok in self.roots.items():
 
@@ -343,6 +481,15 @@ class Vault(s_eventbus.EventBus):
         return retn
 
     def isValidCert(self, cert):
+        '''
+        Check if a Vault can validate a Cert against its root certificates.
+
+        Args:
+            cert (Cert): Cert to check against.
+
+        Returns:
+            bool: True if the certificate is valid, False otherwise.
+        '''
         return any([c.signed(cert) for c in self.getRootCerts()])
 
 @contextlib.contextmanager
@@ -357,13 +504,13 @@ def shared(path):
 
         with s_vault.shared('~/.syn/vault') as vault:
             dostuff()
+
+    Yields:
+        Vault: A Vault object.
     '''
     full = s_common.genpath(path)
-
     lock = os.path.join(full, 'synapse.lock')
 
-    # yo
     with s_common.lockfile(lock):
-        # dawg
         with Vault(full) as vault:
             yield vault

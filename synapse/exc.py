@@ -178,6 +178,13 @@ class NoSuchData(SynErr): pass
 class FileExists(SynErr): pass
 class NotEmpty(SynErr): pass
 class NotSupported(SynErr): pass
+class NoCertKey(SynErr):
+    '''
+    Raised when a Cert object requires a RSA Private Key
+    to perform an operation and the key is not present.
+    '''
+    pass
+
 
 class BadAtomFile(SynErr):
     '''
