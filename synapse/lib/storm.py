@@ -1457,7 +1457,7 @@ class Runtime(Configable):
         for tag in tags:
             [core.delTufoTag(node, tag) for node in nodes]
 
-    def _stormOperPivotTags(self, query, oper):
+    def _queryJoinPivotTags(self, query, oper, take=None):
         args = oper[1].get('args', ())
         opts = dict(oper[1].get('kwlist'))
         core = self.getStormCore()
@@ -1466,7 +1466,11 @@ class Runtime(Configable):
         if isinstance(limt.limit, int) and limt.limit < 0:
                 raise s_common.BadOperArg(oper='pivottags', name='limit', mesg='limit must be >= 0')
 
-        nodes = query.take()
+        if take:
+            nodes = query.take()
+        else:
+            nodes = query.data()
+
         if limt.limit == 0:
             return
 
@@ -1486,44 +1490,11 @@ class Runtime(Configable):
                         if limt.dec():
                             return
 
+    def _stormOperPivotTags(self, query, oper):
+        return self._queryJoinPivotTags(query, oper, take=True)
+
     def _stormOperJoinTags(self, query, oper):
-
-        args = oper[1].get('args', ())
-        opts = dict(oper[1].get('kwlist'))
-        core = self.getStormCore()
-
-        nodes = query.data()
-        forms = sorted(set(args))
-
-        limt = self.getLiftLimitHelp(opts.get('limit'))
-        tags = sorted({tag for node in nodes for tag in s_tufo.tags(node, leaf=True)})
-
-        if not forms:
-
-            for tag in tags:
-
-                nodes = core.getTufosByTag(tag, limit=limt.get())
-
-                [query.add(n) for n in nodes]
-
-                if limt.dec(len(nodes)):
-                    break
-
-            return
-
-        for form in forms:
-
-            if limt.reached():
-                break
-
-            for tag in tags:
-
-                nodes = core.getTufosByTag(tag, form=form, limit=limt.get())
-
-                [query.add(n) for n in nodes]
-
-                if limt.dec(len(nodes)):
-                    break
+        return self._queryJoinPivotTags(query, oper)
 
     def _stormOperToTags(self, query, oper):
         opts = dict(oper[1].get('kwlist'))

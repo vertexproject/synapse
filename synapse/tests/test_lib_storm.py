@@ -508,53 +508,70 @@ class StormTest(SynTest):
     def test_storm_tag_jointag(self):
         with self.getRamCore() as core:  # type: s_cores_common.Cortex
 
-            node1 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
-            node2 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
-            node3 = core.formTufoByProp('inet:url', 'https://vertex.link')
-            node4 = core.formTufoByProp('inet:web:acct', 'clowntown.link/pennywise')
+            dnsa0 = core.formTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
+            dnsa1 = core.formTufoByProp('inet:dns:a', 'example.com/4.3.2.1')
+            fqdn0 = core.formTufoByProp('inet:fqdn', 'vertex.vis')
+            url0 = core.formTufoByProp('inet:url', 'https://vertex.link')
+            acct0 = core.formTufoByProp('inet:web:acct', 'clowntown.link/pennywise')
 
-            core.addTufoTags(node1, ['aka.bar.baz',
+            core.addTufoTags(dnsa0, ['aka.bar.baz',
                                      'aka.duck.quack.loud',
                                      'loc.milkyway.galactic_arm_a.sol.earth.us.ca.san_francisco'])
-            core.addTufoTags(node2, ['aka.duck.baz',
+            core.addTufoTags(fqdn0, ['aka.duck.baz',
                                      'aka.duck.quack.loud',
                                      'loc.milkyway.galactic_arm_a.sol.earth.us.va.san_francisco'])
-            core.addTufoTags(node3, ['aka.bar.knight',
+            core.addTufoTags(url0, ['aka.bar.knight',
                                      'aka.duck.sound.loud',
                                      'loc.milkyway.galactic_arm_a.sol.earth.us.nv.perfection'])
-            core.addTufoTags(node4, ['aka.bar.knightdark',
+            core.addTufoTags(acct0, ['aka.bar.knightdark',
                                      'aka.duck.sound.loud',
                                      'loc.milkyway.galactic_arm_a.sol.mars.us.tx.perfection'])
 
             nodes = core.eval('inet:dns:a jointags()')
-            self.len(2, nodes)
+            self.len(3, nodes)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
+            self.eq(nodes[1][1].get('tufo:form'), 'inet:dns:a')
+            self.eq(nodes[2][1].get('tufo:form'), 'inet:fqdn')
 
-            nodes = core.eval('inet:dns:a jointags(inet:fqdn, limit=2)')
+            # Demonstrate that the same query w/ form args will filter the results
+            nodes = core.eval('inet:dns:a jointags(inet:dns:a)')  # all 2 dns nodes, join tagged dns (1) nodes, so still 2
             self.len(2, nodes)
             self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
-            self.eq(nodes[1][1].get('tufo:form'), 'inet:fqdn')
-
-            nodes = core.eval('inet:dns:a jointags(ps:tokn,inet:fqdn)')
+            nodes = core.eval('inet:dns:a jointags(inet:fqdn)')  # all 2 dns nodes, join tagged fqdn (1) nodes, so 3
+            self.len(3, nodes)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
+            self.eq(nodes[1][1].get('tufo:form'), 'inet:dns:a')
+            self.eq(nodes[2][1].get('tufo:form'), 'inet:fqdn')
+            nodes = core.eval('inet:dns:a jointags(inet:fqdn,inet:dns:a)')  # all 2 dns nodes, join tagged dns (1) and fqdn (1) nodes, so 3
+            self.len(3, nodes)
+            self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
+            self.eq(nodes[1][1].get('tufo:form'), 'inet:dns:a')
+            self.eq(nodes[2][1].get('tufo:form'), 'inet:fqdn')
+            nodes = core.eval('inet:dns:a jointags(inet:ipv4,inet:dns:a)')  # all 2 dns nodes, join tagged ipv4 (0) and dns (1) nodes
             self.len(2, nodes)
             self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
-            self.eq(nodes[1][1].get('tufo:form'), 'inet:fqdn')
-
-            nodes = core.eval('inet:dns:a jointags(ps:tokn)')
-            self.len(1, nodes)
-
-            nodes = core.eval('inet:dns:a jointags(ps:tokn, keep_nodes=1)')  # NOTE: keep_nodes doesn't do anything anymore
-            self.len(1, nodes)
-            nodes = core.eval('inet:dns:a jointags(ps:tokn)')
-            self.len(1, nodes)
-
-            nodes = core.eval('inet:dns:a jointags(inet:fqdn, keep_nodes=1)')  # NOTE: keep_nodes doesn't do anything anymore
+            self.eq(nodes[1][1].get('tufo:form'), 'inet:dns:a')
+            nodes = core.eval('inet:dns:a jointags(inet:ipv4)')  # all 2 dns nodes, join tagged ipv4 nodes (0)
             self.len(2, nodes)
-            nodes = core.eval('inet:dns:a jointags(inet:fqdn)')
-            self.len(2, nodes)
-
-            nodes = core.eval('inet:dns:a jointags(limit=1)')
-            self.len(1, nodes)
             self.eq(nodes[0][1].get('tufo:form'), 'inet:dns:a')
+            self.eq(nodes[1][1].get('tufo:form'), 'inet:dns:a')
+
+            # Demonstrate that limits work
+            self.len(3, core.eval('inet:dns:a jointags()'))
+            self.len(3, core.eval('inet:dns:a jointags(limit=4)'))
+            self.len(3, core.eval('inet:dns:a jointags(inet:dns:a,inet:fqdn,limit=4)'))
+            self.len(3, core.eval('inet:dns:a jointags(limit=3)'))
+            self.len(3, core.eval('inet:dns:a jointags(inet:dns:a,inet:fqdn,limit=3)'))
+            self.len(3, core.eval('inet:dns:a jointags(limit=2)'))
+            self.len(3, core.eval('inet:dns:a jointags(inet:dns:a,inet:fqdn,limit=2)'))
+            self.len(3, core.eval('inet:dns:a jointags(limit=1)'))
+            self.len(3, core.eval('inet:dns:a jointags(inet:dns:a,inet:fqdn,limit=1)'))
+            self.len(2, core.eval('inet:dns:a jointags(limit=0)'))
+            self.len(2, core.eval('inet:dns:a jointags(inet:dns:a,inet:fqdn,limit=0)'))
+
+            # Demonstrate invalid input
+            self.raises(BadOperArg, core.eval, 'inet:dns:a jointags(limit=-1)')
+            self.raises(BadOperArg, core.eval, 'inet:dns:a jointags(inet:dns:a,inet:fqdn,limit=-1)')
 
     def test_storm_tag_pivottag(self):
         with self.getRamCore() as core:  # type: s_cores_common.Cortex
