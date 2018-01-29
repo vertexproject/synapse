@@ -1464,7 +1464,7 @@ class Runtime(Configable):
 
         limt = self.getLiftLimitHelp(opts.get('limit'))
         if isinstance(limt.limit, int) and limt.limit < 0:
-                raise s_common.BadOperArg(oper='pivottags', name='limit', mesg='limit must be >= 0')
+                raise s_common.BadOperArg(oper=oper[0], name='limit', mesg='limit must be >= 0')
 
         if take:
             nodes = query.take()
