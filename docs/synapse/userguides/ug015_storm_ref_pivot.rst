@@ -333,9 +333,59 @@ N/A
   * pivot from a set of nodes, to the tags applied to those nodes, to other nodes that have the same tags; or
   * from a set of tags, to nodes those tags are applied to, to other tags applied to those same nodes.
 
+jointags()
+----------
+Returns all specified nodes that have **any** of the tags applied to **any** of the working set of nodes,
+while retaining results from previous query steps.
+
+``jointags()`` can be thought of as executing a ``totags()`` operation followed by a ``fromtags()`` operation.
+
+Optional parameters:
+
+* **<form>:** return only nodes of the specified form(s).
+  
+  * If no forms are specified, ``jointags()`` returns all nodes for all forms to which the tags are applied.
+
+* **Return limit:** specify the maximum number of nodes returned by the ``jointags()`` query.
+  
+  * ``limit=`` (operator syntax)
+
+**Operator syntax:**
+
+.. parsed-literal::
+  
+  **jointags(** [ *<form_1>* **,** *<form_2>* **,** *...<form_n>* **, limit=** *<num>* ] **)**
+
+**Macro syntax:**
+
+N/A
+
+**Examples:**
+
+* Return the set of nodes that share any of the tags applied to the working set of nodes:
+  ::
+    jointags()
+
+* Return the set of ``inet:fqdn`` and ``inet:email`` nodes that share any of the tags applied to the working set of nodes:
+  ::
+    jointags( inet:fqdn, inet:email )
+
+* Return the set of ``inet:fqdn`` and ``inet:email`` nodes that share any of the tags applied to the working set of nodes, limiting the number of results to 10:
+  ::
+    jointags( inet:fqdn, inet:email, limit=10 )
+
+**Usage notes:**
+
+* ``jointags()`` joins using the set of leaf tags only. For example if nodes in the working set have the tag ``#foo.bar.baz``, ``jointags()`` will return other nodes with ``#foo.bar.baz``, but not nodes with ``#foo.bar`` or ``#foo`` alone.
+* ``jointags()``, like ``refs()``, can be useful to "explore" other nodes that share some analytical assessment (tag) with the working set of nodes, but may return a large number of nodes.
+It may be more efficient to narrow the scope of the query using ``totags()`` in combination with a filter operator (e.g., to limit the specific tags selected) followed by ``fromtags()``.
+* The ``limit=`` parameter can be provided as input to the ``jointags()`` operator itself when using Operator syntax.
+Alternately the ``limit()`` operator_ can be used after the ``jointags()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
+
 pivottags()
 ----------
-Returns all specified nodes that have **any** of the tags applied to **any** of the working set of nodes.
+Returns all specified nodes that have **any** of the tags applied to **any** of the working set of nodes,
+removing all other data from the query results.
 
 ``pivottags()`` can be thought of as executing a ``totags()`` operation followed by a ``fromtags()`` operation.
 
