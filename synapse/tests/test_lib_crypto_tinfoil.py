@@ -1,3 +1,6 @@
+import hashlib
+import binascii
+
 from cryptography.hazmat.backends import default_backend
 
 import synapse.lib.crypto.tinfoil as s_tinfoil
@@ -77,3 +80,17 @@ class TinFoilTest(SynTest):
         bdict['data'] = os.urandom(16)
         byts = s_msgpack.en(bdict)
         self.false(tinh.dec(byts))
+
+    def test_lib_crypto_tnfl_vector(self):
+        key = binascii.unhexlify(b'fc066c018159a674c13ae1fb7c5c6548a4e05a11d742a0ebed35d28724b767b0')
+        edict = {'data': b'339f3a4efd4b158d61f87b303655fe1e971e83eaba41d9ea7076991f85a995953cc7598c'
+                         b'745f3e159edbb36a4c03d2b138dc599434fa59e3ee3a2f39335c2addef531244644db350'
+                         b'4b13a6e5f93d4019063550ddee5cd66b277000683144f5b066c30eab08309990cafee7f2'
+                         b'9d23fedc7240bbe41d152a0b769e64c5aac6ac4c',
+                 'hmac': b'fb4b53fb2b94d4ef91b5a094ab786b879ba6274384e23da15f7990609df5ab88',
+                 'iv': b'575a0ee4c0293b444e67a8ac27ee34fb',
+                 }
+        msg = s_msgpack.en({k: binascii.unhexlify(v) for k, v in edict.items()})
+        tinh = s_tinfoil.TinFoilHat(key)
+        self.eq(hashlib.md5(tinh.dec(msg)).digest(),
+                binascii.unhexlify(b'3303e226461e38f0f36988e441825e19'))
