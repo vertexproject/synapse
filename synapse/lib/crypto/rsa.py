@@ -15,6 +15,10 @@ class PriKey:
     '''
     def __init__(self, priv):
         self.priv = priv
+        self.publ = PubKey(self.priv.public_key())
+
+    def iden(self):
+        return self.publ.iden()
 
     def sign(self, byts):
 

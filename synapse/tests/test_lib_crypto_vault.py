@@ -1,3 +1,6 @@
+import hashlib
+
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.crypto.vault as s_vault
 
 from synapse.tests.common import *
@@ -12,30 +15,23 @@ class VaultTest(SynTest):
 
             vault = s_vault.Vault(path)
 
-            self.none(vault.getRsaKey('visi'))
+            #self.none(vault.getRsaKey('visi'))
 
-            self.nn(vault.genRsaKey('visi'))
-            self.nn(vault.getRsaKey('visi'))
+            rkey = vault.genRsaKey()
+            self.nn(rkey)
 
-            rkey, cert = vault.genUserCert('visi@vertex.link')
+            iden = hashlib.sha256(rkey.public().save()).hexdigest()
+            self.eq(iden, rkey.iden())
 
-            vault.addSignerCert(cert)
+            root = vault.genRootCert()
+            self.eq(root.iden(), vault.genRootCert().iden())
 
-            self.true(vault.isValidCert(cert))
+            cert = vault.genUserCert('visi@vertex.link')
+            self.true(root.signed(cert))
 
-            tokn = s_msgpack.un(cert[0])
+            auth = vault.genUserAuth('visi@vertex.link')
 
-            # make sure we can add/get a signer cert
-            signer = vault.getSignerCert(tokn[0])
-
-            self.eq(signer[0], cert[0])
-            self.none(vault.getSignerCert('asdf'))
-
-            # revoke our self-signed as a signer...
-            vault.delSignerCert(cert)
-            self.false(vault.isValidCert(cert))
-
-            auth = vault.getUserAuth('visi@vertex.link')
+            self.nn(s_msgpack.en(auth))
 
             # create another vault to test save/load.
             with self.getTestDir() as dirn:
@@ -46,8 +42,5 @@ class VaultTest(SynTest):
                 newvault.addUserAuth(auth)
 
                 cert = newvault.getUserCert('visi@vertex.link')
-
-                self.nn(newvault.getRsaKey('visi@vertex.link'))
-                self.nn(newvault.getUserCert('visi@vertex.link'))
 
                 self.false(newvault.isValidCert(cert))

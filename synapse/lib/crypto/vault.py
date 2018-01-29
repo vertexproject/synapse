@@ -1,6 +1,8 @@
 import os
+import hashlib
 import contextlib
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
@@ -10,18 +12,116 @@ import synapse.lib.msgpack as s_msgpack
 
 import synapse.lib.crypto.rsa as s_rsa
 
+uservault = '~/.syn/vault.lmdb'
+
+class Cert:
+
+    def __init__(self, cert, rkey=None):
+
+        self.cert = cert
+        self.rkey = rkey
+
+        self.tokn = s_msgpack.un(cert[0])
+        self.toknhash = hashlib.sha256(cert[0]).hexdigest()
+
+        byts = self.tokn.get('rsa:pub')
+        self.rpub = s_rsa.PubKey.load(byts)
+
+    def iden(self):
+        return self.toknhash
+
+    def getkey(self):
+        return self.rkey
+
+    def signers(self):
+        return self.cert[1].get('signers')
+
+    def public(self):
+        return self.rpub
+
+    def toknbytes(self):
+        return self.cert[0]
+
+    def sign(self, cert, **info):
+
+        if self.rkey is None:
+            raise s_exc.NoCertKey()
+
+        info['time'] = s_common.now()
+
+        data = s_msgpack.en(info)
+        tosign = data + cert.toknbytes()
+
+        sign = self.rkey.sign(tosign)
+
+        signer = (self.iden(), data, sign)
+        cert.addsigner(signer)
+
+    def addsigner(self, sign):
+        self.cert[1]['signers'] += (sign,)
+
+    #def (self, sig):
+        #self.cert[1]['signers'] += (sig,)
+
+    #def initCertSign(self, cert, name, rkey):
+        #'''
+        #Construct a cert signature tuple for the given cert.
+
+        #Args:
+        #Returns:
+            #((iden, bytes, bytes)): A cert signature tuple.
+        #'''
+        #data = s_msgpack.en({
+            #'user': name,
+            #'signed': s_common.now(),
+        #})
+
+        #iden = rkey.public().iden()
+        #return (iden, data, rkey.sign(data + cert[0]))
+
+    def verify(self, byts, sign):
+        return self.rpub.verify(byts, sign)
+
+    def signed(self, cert):
+        '''
+        Check if this cert signed the given Cert and return the info.
+
+        Args:
+            cert (Cert): A Cert to confirm that we signed.
+
+        Returns:
+            (dict): The signer info dict ( or None if not signed ).
+
+        '''
+        byts = cert.toknbytes()
+
+        for iden, data, sign in cert.signers():
+
+            if iden != self.iden():
+                continue
+
+            if self.verify(data + byts, sign):
+                return s_msgpack.un(data)
+
+    def save(self):
+        return s_msgpack.en(self.cert)
+
+    @staticmethod
+    def load(byts, rkey=None):
+        return Cert(s_msgpack.un(byts), rkey=rkey)
+
 class Vault(s_eventbus.EventBus):
 
     '''
     tokn:
-        (<iden>, {
+        {
             'user': <str>,
             'rsa:pub': <bytes>,
-        })
+        }
 
     cert:
         ( <toknbyts>, {
-            "sigs": (
+            "signers": (
                 <sig>,
             ),
         })
@@ -39,67 +139,23 @@ class Vault(s_eventbus.EventBus):
 
         self.onfini(self.kvstor.fini)
 
-        # certs by user
+        self.info = self.kvstor.getKvLook('info')
+
+        self.keys = self.kvstor.getKvLook('keys')
         self.certs = self.kvstor.getKvLook('certs')
+        self.roots = self.kvstor.getKvLook('roots')
 
-        # certs by iden which are authorized signers
-        self.signers = self.kvstor.getKvDict('signers')
-        self.signpubs = {}
+        self.certkeys = self.kvstor.getKvLook('keys:bycert')
+        self.usercerts = self.kvstor.getKvLook('certs:byuser')
 
-        # rsa key bytes by user
-        self.rsakeys = self.kvstor.getKvLook('rsa:keys')
-        self.rsacache = s_cache.KeyCache(self._getRsaKey)
-
-        # TODO: revokation
-
-    def _getRsaKey(self, user):
-
-        byts = self.rsakeys.get(user)
-        if byts is None:
-            return None
-
-        return s_rsa.PriKey.load(byts)
-
-    def addSignerCert(self, cert):
+    def genRsaKey(self):
         '''
-        Explicitly add the given cert to the signers list.
-
-        Args:
-            cert ((bytes,dict)): A cert tuple.
-
-        NOTE: This API assumes validation has already been done.
+        Generate a new RSA key and store it in the vault.
         '''
-        tokn = s_msgpack.un(cert[0])
-        self.signers.set(tokn[0], cert)
-
-    def delSignerCert(self, cert):
-        '''
-        Deny the given cert the ability to sign other certs.
-
-        Args:
-            cert ((bytes,dict)): A cert tuple.
-
-        NOTE: This API assumes validation has already been done.
-        '''
-        tokn = s_msgpack.un(cert[0])
-        self.signers.pop(tokn[0])
-
-    def getSignerCert(self, iden):
-        return self.signers.get(iden)
-
-    def getRsaKey(self, name):
-        return self.rsacache.get(name)
-
-    def genRsaKey(self, name):
-
-        rkey = self.getRsaKey(name)
-        if rkey is not None:
-            return rkey
-
         rkey = s_rsa.PriKey.generate()
 
-        self.rsacache[name] = rkey
-        self.rsakeys.set(name, rkey.save())
+        iden = rkey.iden()
+        self.keys.set(iden, rkey.save())
 
         return rkey
 
@@ -115,23 +171,28 @@ class Vault(s_eventbus.EventBus):
 
         return rkey
 
-    def initUserTokn(self, name, rpub):
-        iden = rpub.iden()
-        tokn = (iden, {
-            'user': name,
-            'created': s_common.now(),
-            'rsa:pub': rpub.save(),
-        })
-        return tokn
+    def genCertTokn(self, rpub, **info):
+        info['rsa:pub'] = rpub.save()
+        info['created'] = s_common.now()
+        return s_msgpack.en(info)
 
-    def initToknCert(self, tokn):
-        return (s_msgpack.en(tokn), {'sigs': ()})
+    def genToknCert(self, tokn, rkey=None):
+
+        cefo = (tokn, {'signers': ()})
+        cert = Cert(cefo, rkey=rkey)
+
+        cert.sign(cert)
+        return cert
 
     def getUserCert(self, name):
         '''
         Retrieve a cert tufo for the given user.
         '''
-        return self.certs.get(name)
+        iden = self.usercerts.get(name)
+        if iden is None:
+            return None
+
+        return self.getCert(iden)
 
     def setUserCert(self, name, cert):
         '''
@@ -141,42 +202,36 @@ class Vault(s_eventbus.EventBus):
 
     def genUserCert(self, name):
         '''
-        Generate a key/cert for the given user and self-sign it.
+        Generate a key/cert for the given user.
 
         Args:
             name (str): The user name.
 
         Returns:
-            (PriKey, (bytes,dict), PriKey): A key, cert tuple.
+            (Cert): A newly generated user certificate.
         '''
-        rkey = self.genRsaKey(name)
-        cert = self.certs.get(name)
-        if cert is not None:
-            return rkey, cert
+        iden = self.usercerts.get(name)
+        if iden is not None:
+            return self.getCert(iden)
+
+        rkey = self.genRsaKey()
 
         rpub = rkey.public()
+        tokn = self.genCertTokn(rpub, user=name)
+        cert = self.genToknCert(tokn, rkey=rkey)
 
-        tokn = self.initUserTokn(name, rpub)
+        root = self.genRootCert()
+        root.sign(cert)
 
-        cert = self.initToknCert(tokn)
-        cert = self.addCertSign(cert, name, rkey)
+        iden = cert.iden()
 
-        self.certs.set(name, cert)
-        return rkey, cert
+        self.certs.set(iden, cert.save())
+        self.certkeys.set(iden, rkey.save())
+        self.usercerts.set(name, iden)
 
-    def addCertSign(self, cert, name, rkey=None):
-
-        if rkey is None:
-            rkey = self.getRsaKey(name)
-            if rkey is None:
-                raise NoSuchUser(name=name)
-
-        signer = self.initCertSign(cert, name, rkey)
-
-        cert[1]['sigs'] += (signer,)
         return cert
 
-    def getUserAuth(self, user):
+    def genUserAuth(self, user):
         '''
         Generate a *sensitve* user auth data structure.
 
@@ -188,18 +243,15 @@ class Vault(s_eventbus.EventBus):
 
         NOTE: This is *highly* sensitive and contains keys.
         '''
-        rkey = self.getRsaKey(user)
-        if rkey is None:
-            return None
-
-        cert = self.getUserCert(user)
+        cert = self.genUserCert(user)
+        rkey = self.getCertKey(cert.iden())
 
         return (user, {
-            'cert': cert,
+            'cert': cert.save(),
             'rsa:key': rkey.save(),
         })
 
-    def addUserAuth(self, auth, signer=False):
+    def addUserAuth(self, auth):
         '''
         Load and store a private user auth tufo.
 
@@ -209,60 +261,89 @@ class Vault(s_eventbus.EventBus):
         '''
         user, info = auth
 
-        cert = info.get('cert')
-        byts = info.get('rsa:key')
+        certbyts = info.get('cert')
+        rkeybyts = info.get('rsa:key')
 
-        rkey = self.setRsaKey(user, byts)
-        self.setUserCert(user, cert)
+        rkey = s_rsa.PriKey.load(rkeybyts)
+        cert = Cert.load(certbyts, rkey=rkey)
 
-        if signer:
-            self.addSignerCert(cert)
+        iden = cert.iden()
 
-        return rkey, cert
+        self.certs.set(iden, cert.save())
+        self.certkeys.set(iden, rkey.save())
+        self.usercerts.set(user, iden)
 
-    def initCertSign(self, cert, name, rkey):
+        return cert
+
+    def getCert(self, iden):
         '''
-        Construct a cert signature tuple for the given cert.
+        Get a certificate by iden.
 
         Args:
-        Returns:
-            ((iden, bytes, bytes)): A cert signature tuple.
-        '''
-        data = s_msgpack.en({
-            'user': name,
-            'signed': s_common.now(),
-        })
+            iden (str): The cert iden.
 
-        iden = rkey.public().iden()
-        return (iden, data, rkey.sign(data + cert[0]))
+        Returns:
+            (Cert): The Cert or None.
+        '''
+        byts = self.certs.get(iden)
+        if byts is None:
+            return None
+
+        rkey = self.getCertKey(iden)
+        return Cert.load(byts, rkey=rkey)
+
+    def getCertKey(self, iden):
+        byts = self.certkeys.get(iden)
+        if byts is not None:
+            return s_rsa.PriKey.load(byts)
+
+    def genRootCert(self):
+        '''
+        Get or generate the primary root cert for this vault.
+        '''
+        iden = self.info.get('root')
+        if iden is not None:
+            return self.getCert(iden)
+
+        rkey = self.genRsaKey()
+        tokn = self.genCertTokn(rkey.public())
+        cert = self.genToknCert(tokn, rkey=rkey)
+
+        iden = cert.iden()
+
+        self.info.set('root', iden)
+
+        self.certkeys.set(iden, rkey.save())
+
+        self.addRootCert(cert)
+        return cert
+
+    def addRootCert(self, cert):
+        iden = cert.iden()
+        self.roots.set(iden, True)
+        self.certs.set(iden, cert.save())
+
+    def delRootCert(self, cert):
+        iden = cert.iden()
+        self.roots.set(iden, False)
+
+    def getRootCerts(self):
+        retn = []
+        for iden, isok in self.roots.items():
+
+            if not isok:
+                continue
+
+            cert = self.getCert(iden)
+            if cert is None:
+                continue
+
+            retn.append(cert)
+
+        return retn
 
     def isValidCert(self, cert):
-        '''
-        Check if the given cert is valid for this vault.
-
-        Args:
-            cert ((bytes,dict)): A certificate tuple.
-
-        '''
-        for iden, data, sign in cert[1].get('sigs', ()):
-
-            signer = self.getSignerCert(iden)
-            if signer is None:
-                continue
-
-            rpub = self.signpubs.get(iden)
-            if rpub is None:
-                signtokn = s_msgpack.un(signer[0])
-                rpub = s_rsa.PubKey.load(signtokn[1].get('rsa:pub'))
-                self.signpubs[iden] = rpub
-
-            if not rpub.verify(data + cert[0], sign):
-                continue
-
-            # it is now safe to inspect signer data if we want...
-            # ...
-
-            return True
+        return any([c.signed(cert) for c in self.getRootCerts()])
 
 @contextlib.contextmanager
 def shared(path):
