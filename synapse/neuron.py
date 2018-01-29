@@ -40,6 +40,31 @@ Session Layer Messages:
 '''
 #class CellPlex(
 
+# A neuron service is implemented by a EPoint/SPoint pair.
+#class EPoint(s_net.Link):
+
+    #name = 'ping'
+    #def open(self, mesg):
+        #pring('PING: %r' % (mesg,))
+        #self.link.tx(('pong', mesg[1]))
+        #self.link.fini()
+
+#class SPoint(s_net.Link):
+
+    #name = 'ping'
+
+    #def open(self, **info):
+        #self.link.tx((self.name, info))
+
+    #def handlers(self):
+        #return {
+            #'pong': self.pong,
+        #}
+
+    #def pong(self, mesg):
+        #print('PONG: %r' % (mesg,))
+        #self.link.fini()
+
 class SessBoss:
     '''
     Base class for session negotiation pieces.
@@ -118,13 +143,15 @@ class Cell(s_config.Config, SessBoss):
 
     def getLinkCtor(self):
 
-        def sess(chan):
+        def onchan(chan, data=None):
+            print('CHAN FOR LISN SESS')
+            # there is a channel for the session
             sess = Sess(chan, self, lisn=True)
-            chan.onrx(sess.rx)
-            sess.linked()
+            return sess
 
         def ctor(sock):
-            return s_net.ChanPlex(sock, sess)
+            # init/fini channels and call sess(chan)
+            return s_net.ChanPlex(sock, onchan)
 
         return ctor
 
@@ -186,7 +213,7 @@ class Cell(s_config.Config, SessBoss):
     def _getCellConf():
         return (
 
-            ('ctor', {'req': 1,
+            ('ctor', {
                 'doc': 'The path to the cell constructor'}),
 
             ('root', {
@@ -222,7 +249,45 @@ class Neuron(Cell):
                 'doc': 'The TCP port to bind (defaults to %d)' % nodeport}),
         )
 
-#class SessBase(s_net.Link):
+#def Endp(s_net.Link):
+#class Endp:
+
+    #def __init__(self, link, mesg):
+
+    #@s_net.plexsafe
+
+#class Endp:
+
+    #def __init__(self, cell, link):
+        #self.cell = cell
+
+    #def open(self, chan, mesg):
+        #print('GOT OPEN: %r' % (mesg,))
+
+class Receptor:
+
+    _rxor_name = 'ping'
+
+    def __init__(self, name, cell):
+        self.name = name
+        self.cell = cell
+
+    def open(self, chan, mesg):
+        data = mesg[1].get('data')
+        chan.tx(('pong', {'data': data}))
+
+#class Pong:
+
+#class Agonist:
+    #def __init__(self, chan
+
+#class Ping(Agonist):
+
+    #def __init__(self, chan):
+        #self.chan = chan
+
+    #def open(self, **opts):
+
 class Sess(s_net.Link):
 
     def __init__(self, link, boss, lisn=False):
@@ -241,6 +306,30 @@ class Sess(s_net.Link):
         self.rxkey = None
         self.rxtinh = None
 
+        # create a channel multi-plexor for endpoint
+        # channels within the session...
+        def onchan(chan, data=None):
+
+            if data is None:
+                return None
+
+            endp = self.boss.getEndPoint(data[0])
+            print('ENDP CHAN OPEN: %r' % (data,))
+            return None
+
+        self.chans = s_net.ChanPlex(self, onchan)
+
+    #def getChanCtor(self):
+
+        #def ctor(chan, data=endp):
+            # we got a chan init message
+
+    def open(self, name, **info):
+        '''
+        Open a new channel to the given remote endpoint.
+        '''
+        self.chans.open(data=(name,info))
+
     def handlers(self):
         return {
             'cert': self._onMesgCert,
@@ -249,10 +338,8 @@ class Sess(s_net.Link):
         }
 
     def linked(self):
-
         if not self.lisn:
-            byts = self.boss.certbyts
-            self.link.tx(('cert', {'cert': byts}))
+            self.sendcert()
 
     def setRxKey(self, rxkey):
         self.rxkey = rxkey
@@ -264,7 +351,7 @@ class Sess(s_net.Link):
             raise s_exc.NotReady()
 
         data = self.txtinh.enc(s_msgpack.en(mesg))
-        return ('xmit', {'sess': self.iden, 'data': data})
+        return ('xmit', {'data': data})
 
     def _onMesgXmit(self, mesg):
 
@@ -273,11 +360,10 @@ class Sess(s_net.Link):
             raise NotReady()
 
         data = mesg[1].get('data')
-
         newm = s_msgpack.un(self.rxtinh.dec(data))
-        self.linkup.rx(newm)
-        return
 
+        # feed our decrypted messages to the endpoint chan plex.
+        self.chans.rx(newm)
 
     def _onMesgSkey(self, mesg):
 
@@ -287,10 +373,14 @@ class Sess(s_net.Link):
         print('GOT RX KEY: %r' % (skey,))
         self.setRxKey(skey)
 
+    def sendcert(self):
+        print('%s sending cert' % (self.__class__.__name__,))
+        self.link.tx(('cert', {'cert': self.boss.certbyts}))
+
     def _onMesgCert(self, mesg):
 
         if self.lisn:
-            self.link.tx(('cert', {'cert': self.boss.certbyts}))
+            self.sendcert()
 
         cert = s_vault.Cert.load(mesg[1].get('cert'))
 
@@ -303,16 +393,6 @@ class Sess(s_net.Link):
         data = cert.public().encrypt(self.txkey)
         mesg = ('skey', {'data': data})
         self.link.tx(mesg)
-
-#class ConnSess(SessBase):
-
-#class LisnSess(SessBase):
-
-    #def _onMesgCert(self, mesg):
-
-
-        # Process the init as normal...
-        #return SessBase._onMesgCert(self, mesg)
 
 class CellProxy(SessBoss):
 
@@ -334,6 +414,7 @@ class CellProxy(SessBoss):
 
         SessBoss.__init__(self, cert, roots)
 
+        self.sess = None
         self.ready = threading.Event()
 
         self._runConnLoop()
@@ -342,18 +423,23 @@ class CellProxy(SessBoss):
         ctor = self.getLinkCtor()
         s_glob.plex.connect((self.host, nodeport), ctor)
 
+    def open(self, endp, **info):
+        self.sess.open(endp, **info)
+
     def getLinkCtor(self):
 
-        def onchan(chan):
-            sess = Sess(chan, self, lisn=False)
-            chan.onrx(sess.rx)
-            sess.linked()
+        def onchan(chan, data=None):
+            print('CHAN FOR CONN SESS')
+            self.sess = Sess(chan, self, lisn=False)
+            #chan.onrx(self.sess.rx)
+            #self.sess.linked()
+            return self.sess
 
         def onsock(sock):
 
             plex = s_net.ChanPlex(sock, onchan)
+            # tell the cell to open a new channel for us...
             plex.open()
-
             return plex
 
         return onsock
@@ -448,10 +534,13 @@ if __name__ == '__main__':
             #connvault.addRootCert(root)
             connvault.addUserAuth(auth)
 
-        node = Cell('shit')
-        print('NODE: %r' % (node,))
+        cell = Cell('shit')
+        print('cell: %r' % (cell,))
 
-        opennode('visi@vertex00', path=path)
+        prox = opencell('visi@vertex00', path=path)
+        import time
+        time.sleep(2)
+        prox.open('hehe', haha='hoho')
 
     except Exception as e:
         import traceback

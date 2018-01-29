@@ -446,7 +446,6 @@ class Chan(Link):
 
     def __init__(self, link, iden):
         Link.__init__(self, link)
-        # we wrap but not chain...
         self.iden = iden
 
     def rx(self, mesg):
@@ -469,7 +468,7 @@ class ChanPlex(Link):
         #self.ctor = ctor
         self.func = func
         self.chans = s_eventbus.BusRef()
-
+        # TODO: manage down link per chan for reconnect
         # TODO: chan timeouts... (maybe add to BusRef?)
 
         self.onfini(self.chans.fini)
@@ -491,13 +490,22 @@ class ChanPlex(Link):
 
         try:
 
-            self.func(chan)
+            # call the channel callback
+            # and include any attached data
+            print('INIT CHAN DATA: %r' % (data,))
 
-            if data is not None:
-                chan.rx(data)
+            wrap = self.func(chan, data=data)
+            if wrap is None:
+                return chan.fini()
+
+            print('INIT CHAN WRAP: %r' % (wrap,))
+
+            chan.onrx(wrap.rx)
+
+            wrap.linked()
 
         except Exception as e:
-            logger.warning('chan init error: %s' % (e,))
+            logger.exception('chan init error: %s' % (e,))
             chan.fini()
 
     def _onChanData(self, mesg):
@@ -529,7 +537,12 @@ class ChanPlex(Link):
 
         self.tx(('init', {'chan': iden, 'data': data}))
 
-        self.func(chan)
+        wrap = self.func(chan)
+        if wrap is None:
+            return chan.fini()
+
+        chan.onrx(wrap.rx)
+        wrap.linked()
 
         return chan
 
