@@ -122,8 +122,16 @@ class DnsModelTest(SynTest):
 
         with self.getRamCore() as core:
 
-            node = core.formTufoByProp('inet:dns:req', ('1.2.3.4', 'VERTEX.link', 'A'))
+            now = s_common.now()
+            node = core.formTufoByProp('inet:dns:req', ('1.2.3.4', 'VERTEX.link', 'A'), **{'seen:min': now, 'seen:max': now})
             self.eq(node[1].get('inet:dns:req:type'), 'a')
             self.eq(node[1].get('inet:dns:req:addr'), '::ffff:1.2.3.4')
             self.eq(node[1].get('inet:dns:req:addr:ipv4'), 0x01020304)
             self.eq(node[1].get('inet:dns:req:fqdn'), 'vertex.link')
+            self.eq(node[1].get('inet:dns:req:seen:min'), now)
+            self.eq(node[1].get('inet:dns:req:seen:max'), now)
+
+            newnow = s_common.now() + 100
+            node = core.setTufoProps(node, **{'seen:min': newnow, 'seen:max': newnow})
+            self.eq(node[1].get('inet:dns:req:seen:min'), now)
+            self.eq(node[1].get('inet:dns:req:seen:max'), newnow)

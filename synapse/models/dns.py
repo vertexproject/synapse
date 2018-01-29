@@ -123,6 +123,10 @@ class DnsMod(CoreModule):
                         'doc': 'The requested FQDN'}),
                     ('type', {'ptype': 'inet:dns:type', 'ro': 1, 'req': 1,
                         'doc': 'The type of DNS record requested'}),
+                    ('seen:min', {'ptype': 'time:min',
+                        'doc': 'The earliest observed time that the address made the specified request.'}),
+                    ('seen:max', {'ptype': 'time:max',
+                        'doc': 'The most recent observed time that the address made the specified request.'}),
                 ]),
 
                 ('inet:dns:rev6',
