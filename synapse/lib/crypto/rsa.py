@@ -1,4 +1,5 @@
 import hashlib
+import logging
 
 import cryptography.hazmat.primitives.hashes as c_hashes
 import cryptography.hazmat.primitives.serialization as c_ser
@@ -9,18 +10,39 @@ import cryptography.hazmat.primitives.asymmetric.padding as c_padding
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 
+logger = logging.getLogger(__name__)
+
 class PriKey:
     '''
     A helper class for using RSA private keys.
     '''
     def __init__(self, priv):
-        self.priv = priv
+        self.priv = priv  # type: c_rsa.RSAPrivateKey
         self.publ = PubKey(self.priv.public_key())
 
     def iden(self):
+        '''
+        Return a SHA256 hash for the public key (to be used as a GUID).
+
+        Returns:
+            str: The SHA256 hash of the public key bytes.
+        '''
         return self.publ.iden()
 
     def sign(self, byts):
+        '''
+        Compute the RSA signature for the given bytestream.
+
+        Args:
+            byts (bytes): The bytes to sign.
+
+        Notes:
+            Signatures are computed using PSS padding with SHA256 as the
+            one-way transform function.
+
+        Returns:
+            bytes: The RSA Signature bytes.
+        '''
 
         return self.priv.sign(
             byts,
@@ -33,10 +55,25 @@ class PriKey:
         )
 
     def public(self):
+        '''
+        Get the PubKey which corresponds to the RSA PriKey.
+
+        Returns:
+            PubKey: A new PubKey object whose key corresponds to the private key.
+        '''
         return PubKey(self.priv.public_key())
 
     @staticmethod
     def generate(bits=4096):
+        '''
+        Generate a new RSA PriKey instance.
+
+        Args:
+            bits (int): Key size.
+
+        Returns:
+            PriKey: A new PriKey instance.
+        '''
         return PriKey(
             c_rsa.generate_private_key(
                 public_exponent=65537,
@@ -64,7 +101,7 @@ class PriKey:
         Save the private key bytes in DER/PKCS8 format.
 
         Returns:
-            (bytes): The DER/PKCS8 encoded private key.
+            bytes: The DER/PKCS8 encoded private key.
         '''
         return self.priv.private_bytes(
             encoding=c_ser.Encoding.DER,
@@ -73,6 +110,15 @@ class PriKey:
 
     @staticmethod
     def load(byts):
+        '''
+        Create a PriKey instance from DER/PKCS8 encoded bytes.
+
+        Args:
+            byts (bytes): Bytes to load
+
+        Returns:
+            PriKey: A new PubKey instance.
+        '''
         return PriKey(c_ser.load_der_private_key(
                 byts,
                 password=None,
@@ -84,20 +130,33 @@ class PubKey:
     '''
 
     def __init__(self, publ):
-        self.publ = publ
+        self.publ = publ  # type: c_rsa.RSAPublicKey
 
     def save(self):
         '''
         Save the public key bytes in DER/PKCS8 format.
 
         Returns:
-            (bytes): The DER/PKCS8 encoded public key.
+            bytes: The DER/PKCS8 encoded public key.
         '''
         return self.publ.public_bytes(
             encoding=c_ser.Encoding.DER,
             format=c_ser.PublicFormat.PKCS1)
 
     def encrypt(self, byts):
+        '''
+        Encrypt bytes using RSA Public Key Encryption.
+
+            Args:
+            byts (bytes):
+
+        Notes:
+            Bytes are encrypted with OAEP padding with SHA256 as the
+            one-way transform function.
+
+        Returns:
+            bytes: The bytes encrypted with the RSA Public Key.
+        '''
         return self.publ.encrypt(
             byts,
             c_padding.OAEP(
@@ -115,6 +174,9 @@ class PubKey:
         Args:
             byts (bytes): The data bytes.
             sign (bytes): The signature bytes.
+
+        Returns:
+            bool: True if the data was verified, False otherwise.
         '''
         try:
 
@@ -131,6 +193,7 @@ class PubKey:
             return True
 
         except InvalidSignature as e:
+            logger.exception('Error in publ.verify')
             return False
 
     def iden(self):
@@ -138,12 +201,21 @@ class PubKey:
         Return a SHA256 hash for the public key (to be used as a GUID).
 
         Returns:
-            (str): The SHA256 hash of the public key bytes.
+            str: The SHA256 hash of the public key bytes.
         '''
         return hashlib.sha256(self.save()).hexdigest()
 
     @staticmethod
     def load(byts):
+        '''
+        Create a PubKey instance from DER/PKCS8 encoded bytes.
+
+        Args:
+            byts (bytes): Bytes to load
+
+        Returns:
+            PubKey: A new PubKey instance.
+        '''
         return PubKey(c_ser.load_der_public_key(
                 byts,
                 backend=default_backend()))
