@@ -231,6 +231,10 @@ class Cli(s_eventbus.EventBus):
         Args:
             prompt (str): Optional string to use as the prompt. Otherwise self.cmdprompt is used.
 
+        Notes:
+            This fires a 'cli:getinput' event prior to getting the
+            input string from the user.
+
         Returns:
             str: A string to process.
         '''
@@ -345,6 +349,8 @@ class Cli(s_eventbus.EventBus):
             exctxt = traceback.format_exc()
             self.printf(exctxt)
             self.printf('error: %s' % e)
+
+        self.fire('cli:cmd:ret', line=line, ret=ret)
 
         return ret
 

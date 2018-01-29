@@ -148,7 +148,16 @@ class NoSuchRole(SynErr): pass
 class NoSuchProto(Exception): pass
 
 class NoInitCore(Exception): pass # API disabled because no cortex
-class NoCurrSess(Exception): pass # API requires a current session
+class NoCurrSess(SynErr):
+    '''
+    The API called requires a current session
+    '''
+    pass
+class SessAlreadyExists(SynErr):
+    '''
+    The API called requires the session to not exist prior to calling.
+    '''
+    pass
 
 class SidNotFound(Exception): pass
 class PropNotFound(SynErr): pass
