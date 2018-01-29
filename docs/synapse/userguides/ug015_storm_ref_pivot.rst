@@ -335,8 +335,7 @@ N/A
 
 jointags()
 ----------
-Returns all specified nodes that have **any** of the tags applied to **any** of the working set of nodes,
-while retaining results from previous query steps.
+Returns the current working set **plus** all nodes that have **any** of the tags applied to **any** node in the working set.
 
 ``jointags()`` can be thought of as executing a ``totags()`` operation followed by a ``fromtags()`` operation.
 
@@ -376,18 +375,17 @@ N/A
 
 **Usage notes:**
 
+* ``jointags()`` does **not** consume nodes by design and so includes (retains) the original working set as part of the resulting set.
 * ``jointags()`` joins using the set of leaf tags only. For example if nodes in the working set have the tag ``#foo.bar.baz``, ``jointags()`` will return other nodes with ``#foo.bar.baz``, but not nodes with ``#foo.bar`` or ``#foo`` alone.
 * ``jointags()``, like ``refs()``, can be useful to "explore" other nodes that share some analytical assessment (tag) with the working set of nodes, but may return a large number of nodes.
 It may be more efficient to narrow the scope of the query using ``totags()`` in combination with a filter operator (e.g., to limit the specific tags selected) followed by ``fromtags()``.
-* The ``limit=`` parameter can be provided as input to the ``jointags()`` operator itself when using Operator syntax.
+* The ``limit=`` parameter represents the maximum number of nodes **added** to the results.
+It can be provided as input to the ``jointags()`` operator itself when using Operator syntax.
 Alternately the ``limit()`` operator_ can be used after the ``jointags()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 
 pivottags()
 ----------
-Returns all specified nodes that have **any** of the tags applied to **any** of the working set of nodes,
-removing all other data from the query results.
-
-``pivottags()`` can be thought of as executing a ``totags()`` operation followed by a ``fromtags()`` operation.
+Returns all nodes that have **any** of the tags applied to **any** node in the original working set; excludes the original working set from the results.
 
 Optional parameters:
 
@@ -425,10 +423,12 @@ N/A
 
 **Usage notes:**
 
+* ``pivottags()`` consumes nodes input into the function, so the resulting set of nodes will **not** include nodes from the original working set.
 * ``pivottags()`` pivots using the set of leaf tags only. For example if nodes in the working set have the tag ``#foo.bar.baz``, ``pivottags()`` will return other nodes with ``#foo.bar.baz``, but not nodes with ``#foo.bar`` or ``#foo`` alone.
 * ``pivottags()``, like ``refs()``, can be useful to "explore" other nodes that share some analytical assessment (tag) with the working set of nodes, but may return a large number of nodes.
 It may be more efficient to narrow the scope of the query using ``totags()`` in combination with a filter operator (e.g., to limit the specific tags selected) followed by ``fromtags()``.
-* The ``limit=`` parameter can be provided as input to the ``pivottags()`` operator itself when using Operator syntax.
+* The ``limit=`` parameter represents the **total** number of nodes returned, as the original working set is consumed.
+It can be provided as input to the ``pivottags()`` operator itself when using Operator syntax.
 Alternately the ``limit()`` operator_ can be used after the ``pivottags()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 
 tree()
