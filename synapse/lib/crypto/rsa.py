@@ -85,16 +85,20 @@ class PriKey:
         Decrypt bytes using the RSA private key.
 
         Args:
-            byts (bytes): The encrypted bytes.
+            byts (bytes): The encrypted bytes. If decryption fails, this returns None.
         '''
-        return self.priv.decrypt(
-            byts,
-            c_padding.OAEP(
-                mgf=c_padding.MGF1(algorithm=c_hashes.SHA256()),
-                algorithm=c_hashes.SHA256(),
-                label=None
+        try:
+            return self.priv.decrypt(
+                byts,
+                c_padding.OAEP(
+                    mgf=c_padding.MGF1(algorithm=c_hashes.SHA256()),
+                    algorithm=c_hashes.SHA256(),
+                    label=None
+                )
             )
-        )
+        except ValueError as e:
+            logger.exception('Error in priv.decrypt')
+            return None
 
     def save(self):
         '''
