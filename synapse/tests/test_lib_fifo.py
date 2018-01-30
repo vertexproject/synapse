@@ -33,6 +33,28 @@ class FifoTest(SynTest):
             with s_fifo.Fifo(conf) as fifo:
                 self.eq(fifo.wind.nack, nseq)
 
+    def test_fifo_flush(self):
+
+        with self.getTestDir() as dirn:
+
+            conf = {'dir': dirn}
+
+            sent = []
+            with s_fifo.Fifo(conf) as fifo:
+
+                fifo.put('whee')
+                fifo.put('whee')
+
+                fifo.resync(xmit=sent.append)
+
+                fifo.ack(sent[0][1])
+
+                # dirty
+                fifo.flush()
+
+                # not dirty
+                fifo.flush()
+
     def test_fifo_ack_neg1(self):
 
         with self.getTestDir() as dirn:
